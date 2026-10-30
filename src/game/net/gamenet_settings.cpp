@@ -3,6 +3,7 @@
 // and connecting to / disconnecting from the internet.
 
 #include <cstdint>
+#include "hook/game_code.h"
 #include <cstring>
 
 #pragma warning(disable : 4996) // (strcpy: the original's copies into its fixed fields)
@@ -20,6 +21,21 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
+#include "game/net/stats_man.h"
+#include "game/ass/assman.h"
 
 namespace GameNet {
 
@@ -35,7 +51,6 @@ namespace {
 
 constexpr uint32_t kMasterServers = 0x9954;  // char[10][16]: the master servers' names
 constexpr int kMasterServerCount = 10;
-constexpr uint32_t kTaskMainLoop = 0x00696D68; // the main loop's task stacks (+4: the logic tasks)
 constexpr uint32_t kConnectTask = 0xD8;      // Tsk::BaseTask* (the online state's)
 constexpr uint32_t kOnlineState = 0x1A8;     // int (-1: starting)
 constexpr uint32_t kOnlineScript = 0x1C4;    // uint32_t: run once online
@@ -88,13 +103,13 @@ constexpr uint32_t kDnsServerOverride = 0x93CF2232;
 constexpr uint32_t kForceBroadbandPc = 0x504ACA1F;    // (non-empty: the PCMCIA adaptor's settings)
 constexpr uint32_t kForcePcmcia = 0xF3780073;         // (non-empty: the PCMCIA adaptor, a dial-up type 4)
 
-const char* const kNoAddress = reinterpret_cast<const char*>(0x0064C9A0);   // "0.0.0.0"
-const char* const kDefaultDns1 = reinterpret_cast<const char*>(0x0064C990); // "205.147.0.100"
-const char* const kDefaultDns2 = reinterpret_cast<const char*>(0x0064C980); // "205.147.0.102"
-const char* const kEmpty = reinterpret_cast<const char*>(0x006469B4);       // ""
-const char* const kChecksumName = reinterpret_cast<const char*>(0x0064C9A8); // "checksum"
+const char* const kNoAddress = GAME_TEXT(0x0064C9A0, "0.0.0.0");   // "0.0.0.0"
+const char* const kDefaultDns1 = GAME_TEXT(0x0064C990, "205.147.0.100"); // "205.147.0.100"
+const char* const kDefaultDns2 = GAME_TEXT(0x0064C980, "205.147.0.102"); // "205.147.0.102"
+const char* const kEmpty = GAME_TEXT(0x006469B4, "");       // ""
+const char* const kChecksumName = GAME_TEXT(0x0064C9A8, "checksum"); // "checksum"
 
-Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(kTaskMainLoop) + 4); }
+Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 4 /* the main loop's task stacks (+4: the logic tasks) */); }
 
 bool Filled(const char* text) { return text && *text; }
 
@@ -268,7 +283,7 @@ Prefs::Preferences* Manager::GetGamePreferences()
     uint8_t* skate = Detail::Skate();
     if (InNetGame())
         return GetNetworkPreferences();
-    return Call<Prefs::Preferences*>(0x00564D80, skate);
+    return Call<Prefs::Preferences*>(GAME_CODE(0x00564D80, &Mdl::Skate::GetSplitScreenPreferences), skate);
 }
 
 // 0x00535B20

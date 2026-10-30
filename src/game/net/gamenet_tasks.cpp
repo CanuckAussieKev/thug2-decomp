@@ -2,6 +2,7 @@
 // callbacks. See gamenet_handlers.h.
 
 #include <cstdint>
+#include "hook/game_code.h"
 #include <cstdio>
 #include <cstring>
 
@@ -21,6 +22,20 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
+#include "game/net/stats_man.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -69,7 +84,7 @@ void ShowConnectionMetrics(Net::Conn* conn, int index)
 void ShowAppMetrics(Net::App* app)
 {
     Net::ConnSearch search;
-    search.m_vtable = reinterpret_cast<void**>(0x0064759C);
+    search.m_vtable = Net::kConnSearchVtable;
     search.m_node = nullptr;
     int index = 0;
     for (Net::Conn* conn = app->FirstConnection(&search); conn; conn = app->NextConnection(&search)) {
@@ -89,7 +104,7 @@ void __cdecl LevelChangeTask(void* task)
     Manager* manager = TaskManager(task);
     if (Tmr::GetTime() < g_levelChangeTime)
         return;
-    Call(0x00565A00, Skate(), manager->m_level); // the level changed
+    Call(GAME_CODE(0x00565A00, &Mdl::Skate::ChangeLevel), Skate(), manager->m_level); // the level changed
     if (uint8_t* king = KingOfTheHill(manager))
         AsPlayer(king)->MarkAsKing(false);
     for (uint8_t* p = FirstPlayer(manager, &search, true); p; p = NextPlayer(manager, &search, true))
@@ -189,7 +204,7 @@ void __cdecl JoinTimeoutTask(void* task)
 // 0x00533400
 void __cdecl PlayerTeamKeyCallback(int, int, void* buffer, void*)
 {
-    GameFunction<void(__cdecl*)(void*, const char*)>(0x005FA010)(buffer, reinterpret_cast<const char*>(0x006469B4));
+    GameFunction<void(__cdecl*)(void*, const char*)>(0x005FA010)(buffer, GAME_TEXT(0x006469B4, ""));
 }
 
 // 0x00533420

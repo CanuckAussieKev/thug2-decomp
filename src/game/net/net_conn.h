@@ -31,7 +31,7 @@ struct MsgSeqLinkHead : Mem::ListNode {
 void InitConnListHead(Mem::ListNode* head, void** vtable);
 
 // A local Lst::Search<T> over one of Conn's lists: its vtable (only a virtual destructor, which resets it).
-template <uint32_t SearchVtable>
+template <void** const& SearchVtable>
 struct ConnListSearch {
     void** m_vtable;
     Mem::ListNode* m_node;
@@ -40,10 +40,14 @@ struct ConnListSearch {
     // The scalar deleting destructor.
     ConnListSearch* Destroy(unsigned int flags);
 };
-using MsgSeqLinkSearch = ConnListSearch<0x00647564>; // 0x004559D0 / 0x00455A80
-using MsgLinkSearch = ConnListSearch<0x00647568>;    // 0x004559E0 / 0x00455AB0
-using MsgImpLinkSearch = ConnListSearch<0x0064756C>; // 0x004559F0 / 0x00455AE0
-using StreamLinkSearch = ConnListSearch<0x00647570>; // 0x00455A00 / 0x00455B10
+extern void** const kMsgSeqLinkSearchVtable;
+extern void** const kMsgLinkSearchVtable;
+extern void** const kMsgImpLinkSearchVtable;
+extern void** const kStreamLinkSearchVtable;
+using MsgSeqLinkSearch = ConnListSearch<kMsgSeqLinkSearchVtable>; // 0x004559D0 / 0x00455A80
+using MsgLinkSearch = ConnListSearch<kMsgLinkSearchVtable>;    // 0x004559E0 / 0x00455AB0
+using MsgImpLinkSearch = ConnListSearch<kMsgImpLinkSearchVtable>; // 0x004559F0 / 0x00455AE0
+using StreamLinkSearch = ConnListSearch<kStreamLinkSearchVtable>; // 0x00455A00 / 0x00455B10
 
 // Net::Conn: one end of a connection, as an App keeps it (0x3D20 bytes). Its methods: net_conn.cpp.
 // (Neversoft's Net::Conn; formerly `Conn`, a view of its fields at their offsets.)

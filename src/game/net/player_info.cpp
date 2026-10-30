@@ -15,6 +15,22 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/net/gamenet_lists.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
+#include "game/net/stats_man.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -30,10 +46,9 @@ constexpr uint32_t kNetFirefight = 0xBFF33600; // netfirefight
 
 constexpr uint32_t kHitWindow = 5000; // ms
 
-inline void** const kPlayerVtable = reinterpret_cast<void**>(0x0064CCF4);     // PlayerInfo
-inline void** const kPlayerNodeVtable = reinterpret_cast<void**>(0x0064C9E8); // Lst::Node<PlayerInfo>
-inline void** const kScoreSearchVtable = reinterpret_cast<void**>(0x0064CCE0);
-inline void** const kScoreNodeVtable = reinterpret_cast<void**>(0x0064CCE4);
+GAME_VTABLE(kPlayerVtable, 0x0064CCF4, &PlayerInfo::Destroy); // PlayerInfo
+GAME_VTABLE(kScoreSearchVtable, 0x0064CCE0, &GameNet::ScoreSearch::Destroy);
+GAME_VTABLE(kScoreNodeVtable, 0x0064CCE4, &GameNet::ScoreNode::Destroy);
 
 Manager* TheManager() { return g_gameNetManager; }
 
@@ -290,7 +305,7 @@ int PlayerInfo::GetFlagTeam()
 void PlayerInfo::ClearFlags() { m_flags &= ~kPlayerCarryingFlags; }
 void PlayerInfo::MarkEliminated()
 {
-    m_eliminatedTime = Call<uint32_t>(0x00553270, GameMode());
+    m_eliminatedTime = Call<uint32_t>(GAME_CODE(0x00553270, &Game::CGameMode::GetRound), GameMode());
     m_flags |= kPlayerEliminated;
 }
 bool PlayerInfo::IsEliminated()
@@ -300,7 +315,7 @@ bool PlayerInfo::IsEliminated()
     if (GameType() != kNetFirefight || !m_skater)
         return false;
     Obj::CBaseComponent* score = SkaterComponent(m_skater, kSkaterScore);
-    return score && Call<int>(0x00561B40, Field<void*>(score, 0x18)) == 0; // (its score's lives)
+    return score && Call<int>(GAME_CODE(0x00561B40, &Mdl::Score::GetTotalScore), Field<void*>(score, 0x18)) == 0; // (its score's lives)
 }
 int PlayerInfo::IsKing() { return (m_flags >> 7) & 1; }
 int PlayerInfo::GetConnHandle() { return m_conn ? Field<int>(m_conn, 0x3C) : 0; }

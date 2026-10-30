@@ -18,13 +18,12 @@
 #include "game/net/net_dispatcher.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/net/net_messages.h"
 
 namespace Net {
 
 namespace {
 
-void** const kAppVtable = reinterpret_cast<void**>(0x006475B4);
-void** const kList1414Vtable = reinterpret_cast<void**>(0x006474D8);
 
 // (The message ids and handler results: net_access_c.h, net_dispatcher.h.)
 
@@ -379,7 +378,7 @@ void App::DestroyBody()
     }
     m_banned.UnlinkAs(kBannedConnNodeVtable);
     m_connections.UnlinkAs(kConnNodeVtable);
-    m_list1414.UnlinkAs(kList1414Vtable);
+    m_list1414.UnlinkAs(kAppListNodeVtable);
     m_dispatcher.Destroy();
 }
 

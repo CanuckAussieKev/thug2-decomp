@@ -30,6 +30,19 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/ass/assman.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
 
 namespace GameNet {
 
@@ -92,14 +105,17 @@ void __cdecl GetCdKey(char* key)
     key[length] = '\0';
 }
 
+GAME_VTABLE(kPlayerSearchVtable, 0x0064C828, &GameNet::PlayerSearchDestructors::Destroy);
+GAME_VTABLE(kNewPlayerSearchVtable, 0x0064C82C, &GameNet::NewPlayerSearchDestructors::Destroy);
+
 // 0x0052DB60 / 0x0052DB70
-void PlayerSearchDestructors::DestroyBody() { m_vtable = reinterpret_cast<void**>(0x0064C828); }
-void NewPlayerSearchDestructors::DestroyBody() { m_vtable = reinterpret_cast<void**>(0x0064C82C); }
+void PlayerSearchDestructors::DestroyBody() { m_vtable = kPlayerSearchVtable; }
+void NewPlayerSearchDestructors::DestroyBody() { m_vtable = kNewPlayerSearchVtable; }
 
 // 0x0052F730
 PlayerSearchDestructors* PlayerSearchDestructors::Destroy(unsigned int flags)
 {
-    m_vtable = reinterpret_cast<void**>(0x0064C828);
+    m_vtable = kPlayerSearchVtable;
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;
@@ -108,7 +124,7 @@ PlayerSearchDestructors* PlayerSearchDestructors::Destroy(unsigned int flags)
 // 0x0052F760
 NewPlayerSearchDestructors* NewPlayerSearchDestructors::Destroy(unsigned int flags)
 {
-    m_vtable = reinterpret_cast<void**>(0x0064C82C);
+    m_vtable = kNewPlayerSearchVtable;
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;
@@ -319,14 +335,14 @@ int __cdecl HandleChooseTeam(Net::MsgHandlerContext* context)
     uint8_t* skate = Skate();
     int teams = static_cast<int8_t>(Message(context)[0]);
     if (teams <= 0 || IsTeamGame()) {
-        Call(0x005535A0, GameMode(), teams);
+        Call(GAME_CODE(0x005535A0, &Game::CGameMode::SetNumTeams), GameMode(), teams);
         return kContinue;
     }
-    Call(0x005535A0, GameMode(), teams);
+    Call(GAME_CODE(0x005535A0, &Game::CGameMode::SetNumTeams), GameMode(), teams);
     Run(kChooseTeamMessage);
-    if (Call<Obj::CObject*>(0x00566520, skate)) { // the local skater
-        Run(kPrepareSkaterForMove, nullptr, Call<Obj::CObject*>(0x00566520, skate));
-        Call(0x00566370, skate, Call<Obj::CObject*>(0x00566520, skate), 0, 0);
+    if (Call<Obj::CObject*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate)) { // the local skater
+        Run(kPrepareSkaterForMove, nullptr, Call<Obj::CObject*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate));
+        Call(GAME_CODE(0x00566370, &Mdl::Skate::MoveToRestart), skate, Call<Obj::CObject*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate), 0, 0);
     }
     return kContinue;
 }
@@ -338,7 +354,7 @@ int __cdecl HandleChecksumRequest(Net::MsgHandlerContext* context)
     Net::MsgDesc desc;
     desc.Construct();
     char* msg = context->m_Msg;
-    *reinterpret_cast<uint32_t*>(msg + 4) = Call<uint32_t>(0x005695A0, skate);
+    *reinterpret_cast<uint32_t*>(msg + 4) = Call<uint32_t>(GAME_CODE(0x005695A0, &Mdl::Skate::GetCheats), skate);
     desc.m_groupId = kGroupGame;
     desc.m_length = 8;
     desc.m_id = kMsgChecksum;
@@ -390,7 +406,7 @@ int __cdecl HandleCreatedDataRequest(Net::MsgHandlerContext* context)
         int handle = context->m_Conn->m_handle;
         auto railEditor = [] { return Ed::CRailEditorComponent::Instance(); };
         railEditor(); // (looked up once for nothing)
-        void* rails = Call<void*>(0x004F45B0, railEditor()); // the rails, packed
+        void* rails = Call<void*>(GAME_CODE(0x004F45B0, &Ed::CRailEditorComponent::GetPacked), railEditor()); // the rails, packed
         app->StreamMessage(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
     } else if (id == kMsgRequestGoals && manager->HasCreatedGoals()) {
         int handle = context->m_Conn->m_handle;

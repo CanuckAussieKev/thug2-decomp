@@ -13,6 +13,7 @@
 #include <cstring>
 
 #include "game/net/gamenet_handler_util.h"
+#include "game/net/gamenet_handlers.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_conn.h"
 #include "game/net/online_identity.h"
@@ -21,6 +22,21 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
+#include "game/net/stats_man.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copy of the level's name)
 
@@ -205,8 +221,8 @@ void __cdecl StartQueryReporting(bool keepMapName)
         key[i] = static_cast<char>(~stored[i]);
     key[6] = '\0';
     int error = Qr2Init(nullptr, nullptr, kQueryPort, Net::GameName(), key, 1, 0, &ServerKeyCallback, &PlayerKeyCallback,
-                        reinterpret_cast<void*>(0x00533400), reinterpret_cast<void*>(0x00533420), &CountCallback,
-                        reinterpret_cast<void*>(0x005334B0), nullptr);
+                        GAME_CODE(0x00533400, GameNet::PlayerTeamKeyCallback), GAME_CODE(0x00533420, GameNet::KeyListCallback), &CountCallback,
+                        GAME_CODE(0x005334B0, GameNet::AddErrorCallback), nullptr);
     if (error == 0)
         reporting = true;
 }

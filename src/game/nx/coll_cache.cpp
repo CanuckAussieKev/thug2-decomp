@@ -16,7 +16,9 @@ namespace Nx {
 
 namespace {
 
-CCollCache** Caches() { return reinterpret_cast<CCollCache**>(0x006918EC); }
+GAME_GLOBAL(CCollCache*[8], g_caches, 0x006918EC);
+
+CCollCache** Caches() { return g_caches; }
 
 GAME_GLOBAL(uint32_t, g_cachesInUse, 0x0069190C);
 

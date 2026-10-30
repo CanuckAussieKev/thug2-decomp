@@ -18,17 +18,27 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/net/task_vtable.h"
+#include "hook/game_code.h"
+#include "game/skate/skate_module.h"
+#include "game/net/buddy_status.h"
+#include "game/net/gamenet_lobby.h"
+
+namespace GameCode {
+
+GAME_VTABLE(kTaskVtable, 0x006476F0, Mdl::Skate::RunTask, &GameNet::FoldedGetters::Word18,
+            &GameNet::TaskDeleter::Destroy);
+
+} // namespace GameCode
 
 namespace Net {
 
+GAME_VTABLE(kAppVtable, 0x006475B4, &App::Destroy, &App::ProcessData, GAME_LIBRARY_SLOT(0x00623771),
+            GAME_LIBRARY_SLOT(0x00623771), &App::Init, &App::Deinit);
 
 namespace {
 
 using Mem::ListNode;
-
-void** const kAppVtable = reinterpret_cast<void**>(0x006475B4);
-void** const kAppNodeVtable = reinterpret_cast<void**>(0x006474D8);      // Lst::Node<App>
-void** const kTaskVtable = reinterpret_cast<void**>(0x006476F0);         // Tsk::Task<App>
 
 // Message targets (not App::kBroadcast, a flag).
 constexpr int kHandleBroadcast = 0xFF;        // every connection
@@ -210,7 +220,7 @@ void* NewTask(int priority, void* callback, App* app)
     if (!task)
         return nullptr;
     reinterpret_cast<Tsk::BaseTask*>(task)->Construct(priority);
-    task[0] = reinterpret_cast<uint32_t>(kTaskVtable);
+    task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
     task[6] = reinterpret_cast<uint32_t>(callback);
     task[7] = reinterpret_cast<uint32_t>(app);
     return task;
@@ -238,7 +248,7 @@ App* App::Construct(int flags)
     for (MsgHandlerNode& handlers : m_dispatcher.m_lists)
         handlers.ConstructHead();
     m_dispatcherApp = this;
-    m_list1414.vtable = kAppNodeVtable;
+    m_list1414.vtable = kAppListNodeVtable;
     m_list1414.data = this;
     m_list1414.priority = 0;
     m_list1414.next = &m_list1414;

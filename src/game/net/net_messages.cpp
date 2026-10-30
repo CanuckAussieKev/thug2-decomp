@@ -12,8 +12,21 @@
 #include "game/net/net_compress.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Net {
+
+// The queue links' and app lists' vtables (each holds only the scalar deleting destructor).
+GAME_VTABLE(kStreamLinkNodeVtable, 0x006474C8, &Net::StreamLinkNode::Destroy);
+GAME_VTABLE(kMsgNormalNodeVtable, 0x006474CC, &Net::MsgNormalNode::Destroy);
+GAME_VTABLE(kMsgImpNodeVtable, 0x006474D0, &Net::MsgImpNode::Destroy);
+GAME_VTABLE(kMsgSeqNodeVtable, 0x006474D4, &Net::MsgSeqNode::Destroy);
+GAME_VTABLE(kAppListNodeVtable, 0x006474D8, &Net::AppNode::Destroy);
+GAME_VTABLE(kAppListHeadVtable, 0x00647544, &Net::AppNode::DestroyHead);
+GAME_VTABLE(kMsgNormalLinkVtable, 0x00647578, &Net::MsgNormalLink::Destroy);
+GAME_VTABLE(kMsgImpLinkVtable, 0x0064757C, &Net::MsgImpLink::Destroy);
+GAME_VTABLE(kMsgSeqLinkVtable, 0x00647580, &Net::MsgSeqLink::Destroy);
+GAME_VTABLE(kStreamLinkVtable, 0x00647584, &Net::StreamLink::Destroy);
 
 namespace {
 

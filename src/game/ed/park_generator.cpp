@@ -3,6 +3,7 @@
 // collision; and the lists of metapieces the park manager hands out (CMapListNode, CMapListTemp).
 
 #include "game/ed/park.h"
+#include "hook/game_code.h"
 
 #include <cstring>
 
@@ -45,9 +46,9 @@ constexpr int kMemoryPerPlayer = 585500;
 
 void CMapListTemp::PrintContents()
 {
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064F404)); // "contents of map list:\n"
+    Dbg::Printf(GAME_TEXT(0x0064F404, "contents of map list:\n")); // "contents of map list:\n"
     for (const CMapListNode* node = list; node; node = node->mp_next) {
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064F3F0), node->mp_meta); // "   address=%p area="
+        Dbg::Printf(GAME_TEXT(0x0064F3F0, "   address=%p area="), node->mp_meta); // "   address=%p area="
         node->mp_meta->m_cell_area.PrintContents();
     }
 }

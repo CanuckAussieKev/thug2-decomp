@@ -3,6 +3,7 @@
 // turned, stretched, shown or tinted through their sectors.
 
 #include "game/ed/park.h"
+#include "hook/game_code.h"
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
@@ -12,6 +13,10 @@
 #include "hook/hook.h"
 
 namespace Ed {
+
+GAME_VTABLE(kPieceVtable, 0x0064F3B4, GAME_LIBRARY_SLOT(0x00623771), &CPiece::Destroy);
+GAME_VTABLE(kSourcePieceVtable, 0x0064F3C8, &CSourcePiece::GetDims, &CSourcePiece::Destroy);
+GAME_VTABLE(kClonedPieceVtable, 0x0064F3D0, &CClonedPiece::GetDims, &CSourcePiece::Destroy);
 
 namespace {
 
@@ -56,16 +61,16 @@ void GridDims::MakeInfinitelyHigh()
 
 void GridDims::PrintContents() const
 {
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064F394), x, static_cast<int>(y), z, w, h, l); // "pos=(%d,%d,%d) dims=..."
+    Dbg::Printf(GAME_TEXT(0x0064F394, "pos=(%d,%d,%d) dims=(%d,%d,%d)\n"), x, static_cast<int>(y), z, w, h, l); // "pos=(%d,%d,%d) dims=..."
 }
 
 // --- CPiece -------------------------------------------------------------------------------------------------------
 
-void CPiece::DestroyBody() { m_vtable = reinterpret_cast<void**>(kVtable); }
+void CPiece::DestroyBody() { m_vtable = kVtable; }
 
 CPiece* CPiece::Destroy(unsigned int flags)
 {
-    m_vtable = reinterpret_cast<void**>(kVtable);
+    m_vtable = kVtable;
     if (flags & 1)
         Mem::Free(this);
     return this;
@@ -162,7 +167,7 @@ CSourcePiece* CSourcePiece::Construct()
 {
     m_name = 0;
     mp_next = nullptr;
-    m_vtable = reinterpret_cast<void**>(kVtable);
+    m_vtable = kVtable;
     m_flags = CPiece::kSource;
     m_size = {0.0f, 0.0f, 0.0f, 1.0f};
     m_20 = 1;
@@ -193,7 +198,7 @@ CClonedPiece* CClonedPiece::Construct()
 {
     m_sector = 0;
     mp_next = nullptr;
-    m_vtable = reinterpret_cast<void**>(kVtable);
+    m_vtable = kVtable;
     m_id = 0;
     m_flags = kCloned;
     mp_source = nullptr;

@@ -11,13 +11,15 @@
 #include "game/net/net_app_messages.h"
 #include "game/net/net_guards.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Net {
 
+GAME_VTABLE(kMsgHandlerHeadVtable, 0x006475E8, &Net::MsgHandler::Destroy);
+
 namespace {
 
-void** const kMsgHandlerSearchVtable = reinterpret_cast<void**>(0x006475E4);
-void** const kMsgHandlerVtable = reinterpret_cast<void**>(0x006475E8);
+GAME_VTABLE(kMsgHandlerSearchVtable, 0x006475E4, &Net::MsgHandlerSearch::Destroy);
 constexpr uint32_t kFixedSizeCopy = 0x514; // what a message without a length field copies
 
 void ConstructContext(MsgHandlerContext* context) { context->Construct(); }
@@ -83,7 +85,7 @@ MsgHandler* Dispatcher::AddHandler(uint8_t id, MsgHandlerCode code, uint32_t fla
     manager->PushContext(manager->m_networkHeap);
     auto* handler = static_cast<MsgHandler*>(Mem::Calloc(sizeof(MsgHandler)));
     if (handler) {
-        handler->m_node.vtable = kMsgHandlerVtable;
+        handler->m_node.vtable = kMsgHandlerHeadVtable;
         handler->m_node.data = handler;
         handler->m_node.priority = priority;
         handler->m_node.next = &handler->m_node;

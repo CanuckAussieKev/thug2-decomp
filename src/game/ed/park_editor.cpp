@@ -28,8 +28,14 @@
 #include "game/obj/compositemgr.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Ed {
+
+GAME_VTABLE(kParkEditorListenerVtable, 0x0064F22C, &CParkEditor::Listener::DestroyEditor,
+    &CParkEditor::Listener::ListenTo);
+GAME_VTABLE(kParkEditorVtable, 0x0064F234, &CParkEditor::Destroy, &CParkEditor::StartCallback,
+    &CParkEditor::StopCallback);
 
 namespace {
 
@@ -183,8 +189,8 @@ void CParkEditor::Release()
 // 0x0058D2D0
 void CParkEditor::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x0064F234);
-    m_listener.m_vtable = reinterpret_cast<void**>(0x0064F22C);
+    m_vtable = kParkEditorVtable;
+    m_listener.m_vtable = kParkEditorListenerVtable;
     CParkManager::DeleteInstance();
     m_listener.Obj::CEventListener::Destroy();
     Mdl::Module::DestroyBody();

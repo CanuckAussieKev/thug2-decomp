@@ -2,6 +2,7 @@
 // 0x004E93C0.
 
 #include <cmath>
+#include "hook/game_code.h"
 #include <cstdint>
 #include <cstring>
 
@@ -187,7 +188,7 @@ void CEditedGoal::SetType(uint32_t type)
         return;
     defaults->GetInteger(0xC51BF6E3, &m_timeLimit, 0);
     defaults->GetInteger(0xCD66C8AE, &m_score, 0);
-    const char* text = reinterpret_cast<const char*>(0x006469B4); // ""
+    const char* text = GAME_TEXT(0x006469B4, ""); // ""
     defaults->GetString(0x4BC5229D, &text, 0);
     std::strcpy(m_name, text);
 }

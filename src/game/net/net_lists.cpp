@@ -4,8 +4,17 @@
 
 #include "game/core/manager.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Net {
+
+GAME_VTABLE(kConnNodeVtable, 0x00647574, &Net::ConnNode::Destroy);
+GAME_VTABLE(kConnHeadVtable, 0x006475AC, &Net::ConnNode::DestroyHead);
+GAME_VTABLE(kBannedConnNodeVtable, 0x006475A4, &Net::BannedConnNode::Destroy);
+GAME_VTABLE(kBannedConnVtable, 0x006475B0, &Net::BannedConn::DestroyBanned);
+GAME_VTABLE(kMsgHandlerNodeVtable, 0x006475A8, &Net::MsgHandlerNode::Destroy);
+GAME_VTABLE(kConnSearchVtable, 0x0064759C, &Net::ConnSearch::Destroy);
+GAME_VTABLE(kBannedConnSearchVtable, 0x006475A0, &Net::BannedConnSearch::Destroy);
 
 namespace {
 

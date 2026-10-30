@@ -20,6 +20,8 @@ namespace Net {
 
 struct App;
 
+extern void** const kAppVtable; // 0x006475B4
+
 // What an App does with a packet from an address that isn't one of its connections (+0x1E88).
 using ForeignPacketHandler = void(__cdecl*)(char* data, int size, sockaddr* from);
 

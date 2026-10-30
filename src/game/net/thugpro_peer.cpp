@@ -26,6 +26,29 @@
 #include "hook/log.h"
 #include "game/gfx/engine_glue.h"
 #include "game/skate/skate_module.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
+#include "game/net/stats_man.h"
+
+namespace Script {
+class CStruct;
+class CScript;
+} // namespace Script
+namespace CFuncs {
+bool __cdecl CFunc_Create(Script::CStruct* params, Script::CScript* script); // 0x005A4FF0 (node_object_cfuncs.cpp)
+bool __cdecl CFunc_Kill(Script::CStruct* params, Script::CScript* script);   // 0x005A5030
+} // namespace CFuncs
 
 namespace GameNet::Thugpro {
 
@@ -315,9 +338,9 @@ public:
         DeleteParams(params);
         return true;
     }
-    void KillPrefix(const char* prefix) override { ObjectCommand(0x005A5030, kPrefix, prefix, 0); }
-    void CreatePrefix(const char* prefix) override { ObjectCommand(0x005A4FF0, kPrefix, prefix, 0); }
-    void KillName(uint32_t name) override { ObjectCommand(0x005A5030, kName, nullptr, name); }
+    void KillPrefix(const char* prefix) override { ObjectCommand(reinterpret_cast<uint32_t>(GAME_CODE(0x005A5030, CFuncs::CFunc_Kill)), kPrefix, prefix, 0); }
+    void CreatePrefix(const char* prefix) override { ObjectCommand(reinterpret_cast<uint32_t>(GAME_CODE(0x005A4FF0, CFuncs::CFunc_Create)), kPrefix, prefix, 0); }
+    void KillName(uint32_t name) override { ObjectCommand(reinterpret_cast<uint32_t>(GAME_CODE(0x005A5030, CFuncs::CFunc_Kill)), kName, nullptr, name); }
 
 private:
     static Script::CStruct* NewParams()

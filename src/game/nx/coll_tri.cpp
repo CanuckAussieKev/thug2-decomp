@@ -20,7 +20,8 @@ constexpr float kSixteenth = 0.0625f;
 constexpr float kSixteen = 16.0f;
 
 // The shared index table every face of a geometry is listed by when there's no tree to narrow them down.
-uint16_t* AllFaces() { return reinterpret_cast<uint16_t*>(0x0067C6B8); }
+GAME_GLOBAL(uint16_t[2048], g_allFaces, 0x0067C6B8, 0xFFFF);
+uint16_t* AllFaces() { return g_allFaces; }
 
 GAME_GLOBAL(uint16_t*, g_faceBuffer, 0x00691968);
 GAME_GLOBAL(int, g_faceCount, 0x0069196C);

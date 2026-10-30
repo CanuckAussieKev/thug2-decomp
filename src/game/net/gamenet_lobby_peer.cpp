@@ -22,6 +22,21 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/ass/assman.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/stats_man.h"
 
 #pragma warning(disable : 4996) // (sprintf / strcpy: the original's own)
 
@@ -116,7 +131,7 @@ int NatBegin(uint32_t socket, int cookie, int clientIndex, void* progress, NatCo
 {
     return Sdk<int>(0x005FC090, socket, cookie, clientIndex, progress, completed, userData);
 }
-void* const kNoProgress = reinterpret_cast<void*>(0x005480A0); // (an empty function: no progress callback)
+void* const kNoProgress = GAME_CODE(0x005480A0, Stubs::DoNothing); // (an empty function: no progress callback)
 
 } // namespace
 

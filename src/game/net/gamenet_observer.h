@@ -11,6 +11,7 @@
 #include "game/core/task.h"
 #include "game/net/gamenet_manager.h"
 #include "hook/game.h"
+#include "game/net/task_vtable.h"
 
 namespace GameNet::Detail {
 
@@ -43,7 +44,7 @@ inline void AddObserverControls(Manager* manager, uint8_t* player, Tsk::Stack* t
     auto* task = static_cast<ObserverTaskNode*>(Mem::Calloc(sizeof(ObserverTaskNode)));
     if (task) {
         ConstructTaskNode(task, 0);
-        *reinterpret_cast<uint32_t*>(task) = 0x006476F0;
+        *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
         task->m_code = reinterpret_cast<void*>(&Manager::ObserverTask);
         task->m_data = player;
     }
@@ -53,7 +54,7 @@ inline void AddObserverControls(Manager* manager, uint8_t* player, Tsk::Stack* t
     if (handler) {
         ConstructTaskNode(handler, handlerPriority);
         handler->m_index = 0;
-        *reinterpret_cast<uint32_t*>(handler) = 0x0064D7D8;
+        *reinterpret_cast<uint32_t*>(handler) = reinterpret_cast<uint32_t>(GameCode::kInputHandlerVtable);
         handler->m_code = reinterpret_cast<void*>(&Manager::ObserverInput);
         handler->m_data = manager;
     }

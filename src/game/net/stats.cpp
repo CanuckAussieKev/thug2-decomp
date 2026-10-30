@@ -2,6 +2,7 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/net/stats.h"
+#include "hook/game_code.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -13,6 +14,20 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
+#include "game/net/stats_man.h"
 
 namespace Net {
 
@@ -31,7 +46,16 @@ struct StatsRequest {
 static_assert(sizeof(StatsRequest) == 0x118, "built in the original's stack frame");
 
 // The top-score files, 32 bytes each (0x0067F2A0): hs_at, bc_at, hs_mo, bc_mo, ratings.
-const char* StatsFile(int index) { return reinterpret_cast<const char*>(0x0067F2A0 + 32 * index); }
+const char* StatsFile(int index)
+{
+    switch (index) {
+    case 0: return GAME_TEXT(0x0067F2A0, "hs_at.txt");
+    case 1: return GAME_TEXT(0x0067F2C0, "bc_at.txt");
+    case 2: return GAME_TEXT(0x0067F2E0, "hs_mo.txt");
+    case 3: return GAME_TEXT(0x0067F300, "bc_mo.txt");
+    default: return GAME_TEXT(0x0067F320, "ratings.txt");
+    }
+}
 
 } // namespace
 
@@ -49,13 +73,13 @@ bool __cdecl RetrieveTopStats(Script::CStruct* params, Script::CScript*)
     StatsRequest request;
     // Originally from PartyMod Fixes: gamestats.<OnlineDomain> in place of gamestats.gamespy.com (0x0064D670; PartyMod's DWord at
     // 0x0054DD14)
-    const char* host = GamestatsHost() ? GamestatsHost() : reinterpret_cast<const char*>(0x0064D670);
+    const char* host = GamestatsHost() ? GamestatsHost() : GAME_TEXT(0x0064D670, "gamestats.gamespy.com");
     std::snprintf(request.url, sizeof(request.url), "http://%s/thug2pc/%s", host, StatsFile(current));
     request.unknown114 = 0x1C049404;
     request.unknown108 = 0x1C049404;
     request.unknown110 = 0x74E0CD35;
     request.timeout = 0x25800;
-    request.callback = 0x0054DB20;
+    request.callback = reinterpret_cast<uint32_t>(GAME_CODE(0x0054DB20, GameNet::StatsMan::OnTopStats));
     request.unknown10C = current == 4 ? 0x7346E8E7 : 0xD932B07B;
     // (the vault, +0x14; the request is its DownloadRequest - the same 0x118 bytes)
     static_cast<GameNet::VaultMan*>(*reinterpret_cast<void**>(manager + 0x14))

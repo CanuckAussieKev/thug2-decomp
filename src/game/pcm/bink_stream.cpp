@@ -17,6 +17,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/pcm/stream_files.h"
 
 namespace Pcm {
 
@@ -61,7 +62,7 @@ struct WadFile {
     uint32_t users;
     uint32_t unknownC;
 };
-WadFile* WadFiles() { return reinterpret_cast<WadFile*>(0x0069CADC); }
+WadFile* WadFiles() { return reinterpret_cast<WadFile*>(reinterpret_cast<uint8_t*>(g_streamFiles) + 4); }
 uint32_t UseCounter() { return g_streamFileUses; }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.

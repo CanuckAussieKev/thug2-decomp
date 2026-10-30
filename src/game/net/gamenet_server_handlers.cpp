@@ -19,6 +19,20 @@
 #include "game/ed/rail_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
+#include "game/net/stats_man.h"
 
 namespace GameNet {
 
@@ -99,7 +113,7 @@ int __cdecl HandleObserveRequest(Net::MsgHandlerContext* context)
     if (!IsLocalPlayer(player)) {
         Obj::CObject* skater = PlayerSkater(player);
         manager->DropPlayer(player, 2);         // the player out of the game (2: to observe)
-        Call(0x00565790, skate, skater);        // its skater gone
+        Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), skate, skater);        // its skater gone
         Field<uint32_t>(player, 0x1D0) |= 4;    // an observer now
         Field<Obj::CObject*>(player, 0x14) = nullptr;
         if (AsPlayer(player)->IsServerPlayer()) {
@@ -131,7 +145,7 @@ int __cdecl HandleRequestGameData(Net::MsgHandlerContext* context)
     handle = context->m_Conn->m_handle;
     auto railEditor = [] { return Ed::CRailEditorComponent::Instance(); };
     railEditor(); // (looked up once for nothing)
-    void* rails = Call<void*>(0x004F45B0, railEditor());
+    void* rails = Call<void*>(GAME_CODE(0x004F45B0, &Ed::CRailEditorComponent::GetPacked), railEditor());
     app->StreamMessage(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
     if (manager->HasCreatedGoals()) {
         manager->PrepareCreatedGoals(Field<uint32_t>(msg, 0));
@@ -306,7 +320,7 @@ int __cdecl HandleDisconnect(Net::MsgHandlerContext* context)
             bool observer = IsObserver(player);
             manager->DropPlayer(player, 0); // the player out of the game
             if (!observer)
-                Call(0x00565790, skate, skater);
+                Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), skate, skater);
         }
         return kKeep;
     }

@@ -40,15 +40,16 @@ bool& StreamsPausedBefore() { return g_streamsPausedBefore; }
 // Set: no new streams play (nothing in the game sets it).
 bool StreamsBlocked() { return g_streamsBlocked; }
 
-Stream* Streams() { return reinterpret_cast<Stream*>(0x0069B938); }
+Stream* Streams() { return g_streams; }
 constexpr int kStreams = 3;
 // The stream components that started each stream (null: none); they note the stream's id at +0x18 + 4 * stream.
-void** Owners() { return reinterpret_cast<void**>(0x00698060); }
+void** Owners() { return g_streamOwners; }
 uint32_t& OwnerId(void* owner, int stream) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(owner) + 0x18 + 4 * stream); }
 // The stream PlayStream started last.
 int& LastStream() { return g_lastStream; }
 
-FrameAmp* FrameAmps() { return reinterpret_cast<FrameAmp*>(0x0069BAC8); }
+GAME_GLOBAL(FrameAmp[1], g_frameAmps, 0x0069BAC8); // (one slot; a checksum of 0 marks it free)
+FrameAmp* FrameAmps() { return g_frameAmps; }
 constexpr int kFrameAmps = 1;
 
 // The platform's streams (stream.h): whether a channel is free (StreamStatus: 1), pause (streams: 0), stop a

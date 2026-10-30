@@ -9,8 +9,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/mc/save_types.h"
 
 namespace Mc {
+
+GAME_VTABLE(kFileVtable, 0x00658A60, &Mc::ListDestructors::OtherDestroy);
 
 static_assert(offsetof(File, m_name) == 0x14 && offsetof(File, m_second) == 0x3C && offsetof(File, m_year) == 0x42 &&
                   offsetof(File, m_size) == 0x44 && offsetof(File, m_handle) == 0x8C && sizeof(File) == 0x94,
@@ -20,7 +24,6 @@ GAME_GLOBAL(Manager*, g_theCard, 0x007D1890);
 
 namespace {
 
-void** const kFileVtable = reinterpret_cast<void**>(0x00658A60);
 
 GAME_GLOBAL(char[128], g_pathBuffer, 0x007D1810);
 GAME_GLOBAL(int, g_memcardReferences, 0x007D1894);

@@ -13,6 +13,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Net {
 
@@ -95,26 +96,31 @@ void MsgSeqNode::DestroyBody() { UnlinkAs(kMsgSeqNodeVtable); }
 void StreamLinkNode::DestroyBody() { UnlinkAs(kStreamLinkNodeVtable); }
 
 // 0x004559D0 / 0x004559E0 / 0x004559F0 / 0x00455A00
-template <uint32_t SearchVtable>
+template <void** const& SearchVtable>
 void ConnListSearch<SearchVtable>::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(SearchVtable);
+    m_vtable = SearchVtable;
 }
 
 // 0x00455A80 / 0x00455AB0 / 0x00455AE0 / 0x00455B10
-template <uint32_t SearchVtable>
+template <void** const& SearchVtable>
 ConnListSearch<SearchVtable>* ConnListSearch<SearchVtable>::Destroy(unsigned int flags)
 {
-    m_vtable = reinterpret_cast<void**>(SearchVtable);
+    m_vtable = SearchVtable;
     if (flags & 1)
         Mem::Free(this);
     return this;
 }
 
-template struct ConnListSearch<0x00647564>;
-template struct ConnListSearch<0x00647568>;
-template struct ConnListSearch<0x0064756C>;
-template struct ConnListSearch<0x00647570>;
+GAME_VTABLE(kMsgSeqLinkSearchVtable, 0x00647564, &Net::MsgSeqLinkSearch::Destroy);
+GAME_VTABLE(kMsgLinkSearchVtable, 0x00647568, &Net::MsgLinkSearch::Destroy);
+GAME_VTABLE(kMsgImpLinkSearchVtable, 0x0064756C, &Net::MsgImpLinkSearch::Destroy);
+GAME_VTABLE(kStreamLinkSearchVtable, 0x00647570, &Net::StreamLinkSearch::Destroy);
+
+template struct ConnListSearch<kMsgSeqLinkSearchVtable>;
+template struct ConnListSearch<kMsgLinkSearchVtable>;
+template struct ConnListSearch<kMsgImpLinkSearchVtable>;
+template struct ConnListSearch<kStreamLinkSearchVtable>;
 
 // 0x00455C80
 Conn* Conn::Construct(int flags)

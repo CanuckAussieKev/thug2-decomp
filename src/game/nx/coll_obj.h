@@ -8,6 +8,9 @@
 
 namespace Nx {
 
+extern void** const kCollObjVtable; // 0x00645A30 (coll_obj.cpp)
+extern void** const kNodeVtable;    // 0x00645AA0: Lst::Node<CCollObj>
+
 // The geometry a collision object's faces come from (Nx::CCollObjTriData; its methods are rewritten later).
 struct CCollObjTriData;
 

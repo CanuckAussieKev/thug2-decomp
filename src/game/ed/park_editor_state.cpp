@@ -15,6 +15,17 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/net/task_vtable.h"
+#include "game/core/stubs.h"
+#include "game/sys/viewer.h"
+#include "hook/game_code.h"
+
+namespace GameCode {
+
+// Inp::Handler<T>'s vtable, shared by the park editor's, the viewer's and the observer's input handlers.
+GAME_VTABLE(kInputHandlerVtable, 0x0064D7D8, &Mdl::ViewerInputHandler::Handle, Stubs::ReturnZero);
+
+} // namespace GameCode
 
 namespace Ed {
 
@@ -24,8 +35,6 @@ GAME_GLOBAL(uint32_t, g_editorClock, 0x007CE5EC);
 namespace {
 
 // Tsk::Task<CParkEditor>'s and Inp::Handler<CParkEditor>'s vtables.
-constexpr uint32_t kTaskVtable = 0x006476F0;
-constexpr uint32_t kInputHandlerVtable = 0x0064D7D8;
 
 // The park editor's clock (milliseconds).
 uint32_t& EditorClock() { return g_editorClock; }
@@ -176,15 +185,15 @@ CParkEditor* CParkEditor::Construct()
 {
     Mdl::Module::Construct();
     m_listener.Construct();
-    m_vtable = reinterpret_cast<void**>(kVtable);
-    m_listener.m_vtable = reinterpret_cast<void**>(kListenerVtable);
+    m_vtable = kVtable;
+    m_listener.m_vtable = kListenerVtable;
     m_commands = 0;
     m_flags = 0;
     // The logic task (priority 0), the display task (-1000: nothing to do) and the input handler.
     auto* logic = static_cast<ParkEditorTask*>(Mem::Calloc(sizeof(ParkEditorTask)));
     if (logic) {
         reinterpret_cast<Tsk::BaseTask*>(logic)->Construct(0);
-        *reinterpret_cast<uint32_t*>(logic) = kTaskVtable;
+        *reinterpret_cast<uint32_t*>(logic) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
         logic->m_code = &LogicTask;
         logic->m_data = this;
     }
@@ -192,7 +201,7 @@ CParkEditor* CParkEditor::Construct()
     auto* display = static_cast<ParkEditorTask*>(Mem::Calloc(sizeof(ParkEditorTask)));
     if (display) {
         reinterpret_cast<Tsk::BaseTask*>(display)->Construct(-1000);
-        *reinterpret_cast<uint32_t*>(display) = kTaskVtable;
+        *reinterpret_cast<uint32_t*>(display) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
         // (0x005480A0, the empty function - Stubs::DoNothing; a cdecl task code: the argument is the caller's)
         display->m_code = reinterpret_cast<void(__cdecl*)(ParkEditorTask*)>(&Stubs::DoNothing);
         display->m_data = this;
@@ -202,7 +211,7 @@ CParkEditor* CParkEditor::Construct()
     if (input) {
         reinterpret_cast<Tsk::BaseTask*>(input)->Construct(0);
         input->m_index = 0;
-        *reinterpret_cast<uint32_t*>(input) = kInputHandlerVtable;
+        *reinterpret_cast<uint32_t*>(input) = reinterpret_cast<uint32_t>(GameCode::kInputHandlerVtable);
         input->m_code = &HandleInput;
         input->m_data = this;
     }

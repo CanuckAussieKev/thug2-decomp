@@ -2,6 +2,7 @@
 // disassembly of 0x004E8F50-0x004E93B7.
 
 #include <cstdint>
+#include "hook/game_code.h"
 
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
@@ -28,7 +29,7 @@ int Sprintf(char* out, const char* format, Args... args)
 // 0x004E8F50
 void __cdecl AddGoalEditorNodes(Script::CArray* nodes, int* index, Mem::Heap* heap)
 {
-    Dbg::Printf("M:%s:%i: %s\n", reinterpret_cast<const char*>(0x0064B5E8), 0x152, "Inserting Goal Editor Nodes");
+    Dbg::Printf("M:%s:%i: %s\n", GAME_TEXT(0x0064B5E8, "mponents\\GoalEditorComponent.cpp"), 0x152, "Inserting Goal Editor Nodes");
     bool inPlace = true;
     uint32_t arrayName = 0;
     SkateScript::CNodeManager* manager = nullptr;

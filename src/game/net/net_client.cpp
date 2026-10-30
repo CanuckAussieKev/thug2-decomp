@@ -13,13 +13,15 @@
 #include "game/net/net_access_c.h"
 #include "game/sys/timer.h"
 #include "hook/hook.h"
+#include "game/net/task_vtable.h"
+#include "hook/game_code.h"
 
 namespace Net {
 
 namespace {
 
-void** const kClientVtable = reinterpret_cast<void**>(0x006475CC);
-void** const kAppTaskVtable = reinterpret_cast<void**>(0x006476F0);
+GAME_VTABLE(kClientVtable, 0x006475CC, &Net::Client::Destroy, &Net::App::ProcessData, &Net::Client::ReceiveData,
+    &Net::Client::SendData, &Net::Client::Init, &Net::Client::Deinit);
 constexpr int kAppTaskPriority = -2000;
 constexpr uint32_t kTaskSize = 0x20;
 constexpr int kTimestampWindow = 5000; // timestamps further apart than this have wrapped around
@@ -44,7 +46,7 @@ void ConstructAppTask(App* app)
     if (task) {
         static_cast<Tsk::BaseTask*>(task)->Construct(kAppTaskPriority); // (Tsk::Task's base)
         Field<App*>(task, 0x1C) = app;
-        Field<void**>(task, 0x0) = kAppTaskVtable;
+        Field<void**>(task, 0x0) = GameCode::kTaskVtable;
         Field<void*>(task, 0x18) = reinterpret_cast<void*>(&App::SendNetworkData);
     }
     app->m_sendTask = task;

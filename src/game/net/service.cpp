@@ -19,6 +19,20 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
+#include "game/net/stats_man.h"
 
 namespace Net {
 
@@ -54,8 +68,8 @@ constexpr uint32_t kMotdTimeout = 15000;
 constexpr uint32_t kText = 0x4942CF80; // "text"
 
 // The two download threads (stdcall, the manager as their argument).
-const auto kNewsThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(0x00545540);
-const auto kMotdThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(0x00545620);
+const auto kNewsThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(GAME_CODE(0x00545540, GameNet::NewsThread));
+const auto kMotdThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(GAME_CODE(0x00545620, GameNet::MotdThread));
 
 void SetState(uint8_t* manager, int state)
 {

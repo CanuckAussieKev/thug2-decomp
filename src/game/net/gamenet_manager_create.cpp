@@ -12,6 +12,7 @@
 #include "game/net/gamenet_handlers.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/gamenet_lists.h"
 #include "game/net/net_manager.h"
 #include "game/net/service.h"
 #include "game/net/stats_man.h"
@@ -21,6 +22,20 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/ass/assman.h"
+#include "game/net/task_vtable.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
 
 namespace GameNet {
 
@@ -46,7 +61,7 @@ Tsk::BaseTask* NewTask(Manager* manager, void* code, int priority)
     auto* task = static_cast<ManagerTask*>(Mem::Calloc(sizeof(ManagerTask)));
     if (task) {
         reinterpret_cast<Tsk::BaseTask*>(task)->Construct(priority);
-        *reinterpret_cast<uint32_t*>(task) = 0x006476F0;
+        *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
         task->m_code = code;
         task->m_data = manager;
     }
@@ -85,11 +100,11 @@ Manager* Manager::Construct()
     reinterpret_cast<Prefs::Preferences*>(m_networkPreferences)->Init();
     auto* taunts = &Field<Prefs::Preferences>(this, 0x110);
     taunts->Init();
-    InitHead(&Field<Mem::ListNode>(this, 0x11C), 0x0064C9F0); // the players
-    InitHead(&Field<Mem::ListNode>(this, 0x130), 0x0064C9F4); // the joining players
-    InitHead(&Field<Mem::ListNode>(this, 0x144), 0x0064C9F8);
-    InitHead(&Field<Mem::ListNode>(this, 0x158), 0x0064C9FC);
-    InitHead(&Field<Mem::ListNode>(this, 0x16C), 0x0064C9FC);
+    InitHead(&Field<Mem::ListNode>(this, 0x11C), reinterpret_cast<uint32_t>(kPlayerHeadVtable)); // the players
+    InitHead(&Field<Mem::ListNode>(this, 0x130), reinterpret_cast<uint32_t>(kNewPlayerHeadVtable)); // the joining players
+    InitHead(&Field<Mem::ListNode>(this, 0x144), reinterpret_cast<uint32_t>(kQueuedScriptVtable));
+    InitHead(&Field<Mem::ListNode>(this, 0x158), reinterpret_cast<uint32_t>(kServerHeadVtable));
+    InitHead(&Field<Mem::ListNode>(this, 0x16C), reinterpret_cast<uint32_t>(kServerHeadVtable));
     m_proSetFlags = 0;
     Tsk::Stack* tasks =
         reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(Ass::g_mainLoopManager)) + 4);
@@ -110,9 +125,9 @@ Manager* Manager::Construct()
     taunts->Load(kTauntPreferences);
     Field<Tsk::BaseTask*>(this, 0xC0) = NewTask(this, Code(&Manager::ConnectionTask), -2000);
     Field<Tsk::BaseTask*>(this, 0xC4) = NewTask(this, Code(&NetMetricsTask), 0);
-    Field<Tsk::BaseTask*>(this, 0xF0) = NewTask(this, reinterpret_cast<void*>(0x00547440), 0);
+    Field<Tsk::BaseTask*>(this, 0xF0) = NewTask(this, GAME_CODE(0x00547440, GameNet::ServerListTask), 0);
     Field<Tsk::BaseTask*>(this, 0xF4) = NewTask(this, Code(&Manager::AutoServeTask), 0);
-    Field<Tsk::BaseTask*>(this, 0xC8) = NewTask(this, reinterpret_cast<void*>(0x00544780), 0);
+    Field<Tsk::BaseTask*>(this, 0xC8) = NewTask(this, GAME_CODE(0x00544780, GameNet::ScoreUpdateTask), 0);
     m_clientAddNewPlayersTask = NewTask(this, Code(&Manager::ClientAddNewPlayersTask), -2000);
     m_serverAddNewPlayersTask = NewTask(this, Code(&Manager::ServerAddNewPlayersTask), -2000);
     Field<Tsk::BaseTask*>(this, 0xD4) = NewTask(this, Code(&KeyboardTask), 0);
@@ -122,7 +137,7 @@ Manager* Manager::Construct()
     m_joinStateTask = NewTask(this, Code(&Manager::JoinStateTask), 0);
     Field<Tsk::BaseTask*>(this, 0xE8) = NewTask(this, Code(&Manager::StartGameTask), 0);
     Field<Tsk::BaseTask*>(this, 0xEC) = NewTask(this, Code(&LevelChangeTask), 0);
-    Field<Tsk::BaseTask*>(this, 0xF8) = NewTask(this, reinterpret_cast<void*>(0x00539610), 0);
+    Field<Tsk::BaseTask*>(this, 0xF8) = NewTask(this, GAME_CODE(0x00539610, CarriedFlagsTask), 0);
     tasks->AddTask(Field<Tsk::BaseTask*>(this, 0xC0));
     Field<int>(this, 0x1A8) = 5; // the modem state shown last
     Field<uint32_t>(this, 0x1948) = 0; // the created goals' message

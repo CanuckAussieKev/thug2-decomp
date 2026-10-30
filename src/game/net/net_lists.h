@@ -12,14 +12,14 @@
 
 namespace Net {
 
-inline void** const kConnNodeVtable = reinterpret_cast<void**>(0x00647574);       // Lst::Node<Conn>
-inline void** const kConnHeadVtable = reinterpret_cast<void**>(0x006475AC);       // Lst::Head<Conn>
-inline void** const kBannedConnNodeVtable = reinterpret_cast<void**>(0x006475A4); // Lst::Node<BannedConn>
-inline void** const kBannedConnVtable = reinterpret_cast<void**>(0x006475B0);     // BannedConn, Lst::Head<BannedConn>
-inline void** const kMsgHandlerNodeVtable = reinterpret_cast<void**>(0x006475A8); // Lst::Node<MsgHandler>
-inline void** const kMsgHandlerHeadVtable = reinterpret_cast<void**>(0x006475E8); // Lst::Head<MsgHandler>
-inline void** const kConnSearchVtable = reinterpret_cast<void**>(0x0064759C);       // Lst::Search<Conn>
-inline void** const kBannedConnSearchVtable = reinterpret_cast<void**>(0x006475A0); // Lst::Search<BannedConn>
+extern void** const kConnNodeVtable;       // Lst::Node<Conn>
+extern void** const kConnHeadVtable;       // Lst::Head<Conn>
+extern void** const kBannedConnNodeVtable; // Lst::Node<BannedConn>
+extern void** const kBannedConnVtable;     // BannedConn, Lst::Head<BannedConn>
+extern void** const kMsgHandlerNodeVtable; // Lst::Node<MsgHandler>
+extern void** const kMsgHandlerHeadVtable; // Lst::Head<MsgHandler>
+extern void** const kConnSearchVtable;       // Lst::Search<Conn>
+extern void** const kBannedConnSearchVtable; // Lst::Search<BannedConn>
 
 // A node (or head) of a Dispatcher's handler lists (Lst::Node<MsgHandler>).
 struct MsgHandlerNode : Mem::ListNode {

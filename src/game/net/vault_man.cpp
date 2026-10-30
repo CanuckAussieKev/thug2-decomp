@@ -25,6 +25,8 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/ass/assman.h"
+#include "game/net/task_vtable.h"
+#include "hook/game_code.h"
 
 namespace GameNet {
 
@@ -33,14 +35,13 @@ namespace {
 using Detail::DeleteParams;
 using Detail::NewParams;
 
-void** const kItemVtable = reinterpret_cast<void**>(0x0064D414);          // VaultItem (and a category's items head)
-void** const kCategoriesHeadVtable = reinterpret_cast<void**>(0x0064D418); // the vault's categories head
-void** const kCategoryVtable = reinterpret_cast<void**>(0x0064D41C);      // VaultCategory
-void** const kItemNodeVtable = reinterpret_cast<void**>(0x0064D3AC);      // Lst::Node<VaultItem>
-void** const kCategoryNodeVtable = reinterpret_cast<void**>(0x0064D3B0);  // Lst::Node<VaultCategory>
-void** const kCategorySearchVtable = reinterpret_cast<void**>(0x0064D29C);
-void** const kItemSearchVtable = reinterpret_cast<void**>(0x0064D2A0);
-void** const kManagerTaskVtable = reinterpret_cast<void**>(0x006476F0);  // Tsk::Task<VaultMan>
+GAME_VTABLE(kItemVtable, 0x0064D414, &GameNet::VaultItem::Destroy); // VaultItem (and a category's items head)
+GAME_VTABLE(kCategoriesHeadVtable, 0x0064D418, &GameNet::VaultNode::DeleteCategoriesHead); // the vault's categories head
+GAME_VTABLE(kCategoryVtable, 0x0064D41C, &GameNet::VaultCategory::Destroy); // VaultCategory
+GAME_VTABLE(kItemNodeVtable, 0x0064D3AC, &GameNet::VaultNode::DeleteItemNode); // Lst::Node<VaultItem>
+GAME_VTABLE(kCategoryNodeVtable, 0x0064D3B0, &GameNet::VaultNode::DeleteCategoryNode); // Lst::Node<VaultCategory>
+GAME_VTABLE(kCategorySearchVtable, 0x0064D29C, &GameNet::VaultSearch::DestroyCategorySearchAndFree);
+GAME_VTABLE(kItemSearchVtable, 0x0064D2A0, &GameNet::VaultSearch::DestroyItemSearchAndFree);
 
 constexpr uint32_t kTimeout = 25000;     // ms without progress
 constexpr uint32_t kListBufferSize = 100000;
@@ -343,7 +344,7 @@ VaultMan* VaultMan::Construct()
     auto* task = static_cast<Tsk::BaseTask*>(Mem::Calloc(0x20));
     if (task) {
         task->Construct(0);
-        task->m_vtable = kManagerTaskVtable;
+        task->m_vtable = GameCode::kTaskVtable;
         reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&VaultTask); // +0x18 the callback
         reinterpret_cast<void**>(task)[7] = this;                                // +0x1C the data
     }

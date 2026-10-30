@@ -1,6 +1,7 @@
 // The park editor's manager and cursor, 0x0059C900-0x0059E0F7 (see park_editor.h).
 
 #include "game/park/park_editor.h"
+#include "hook/game_code.h"
 
 #include <cstring>
 
@@ -74,7 +75,7 @@ void CParkManager::RebuildPark(uint32_t how)
         }
         WriteCompressedMap();
         if (At<uint16_t>(0x13C96) == kParkInfoVersion) {
-            const char* unnamed = reinterpret_cast<const char*>(0x0064F32C); // "unnamed park"
+            const char* unnamed = GAME_TEXT(0x0064F32C, "unnamed park"); // "unnamed park"
             std::memcpy(Bytes() + 0x13CAC, unnamed, std::strlen(unnamed) + 1);
             std::memcpy(Bytes() + 0x1772C, unnamed, std::strlen(unnamed) + 1);
         }

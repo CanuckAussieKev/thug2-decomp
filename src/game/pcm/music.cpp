@@ -2,6 +2,7 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/pcm/music.h"
+#include "hook/game_code.h"
 
 #include <windows.h>
 
@@ -32,13 +33,21 @@ GAME_GLOBAL(float, g_musicStreamVolume, 0x0067D7E8, 100.0f);
 GAME_GLOBAL(int, g_musicStreamType, 0x0069BAAC);
 GAME_GLOBAL(bool, g_shuffleUser, 0x0069BABC);
 GAME_GLOBAL(void*, g_soundDevice, 0x007D6A38);
+GAME_GLOBAL(Playlist[2], g_playlists, 0x00698098);       // (the music's two playlists; 0 is the game's, 1 the script's)
+GAME_GLOBAL(char[80][100], g_trackTitles, 0x006999F8);
+GAME_GLOBAL(Stream[3], g_streams, 0x0069B938);
+GAME_GLOBAL(void*[3], g_streamOwners, 0x00698060);
+GAME_GLOBAL(int[600], g_userOrder, 0x00697700);
+GAME_GLOBAL(int[600], g_trackOrder, 0x00696DA0);          // the shuffled order (the word before it, 0x00696D9C, is read once)
+GAME_GLOBAL(char[44], g_specialTrack, 0x0069806C);
+GAME_GLOBAL(char[100], g_soundtrackName, 0x00701590);
 
 namespace {
 
-Playlist* Playlists() { return reinterpret_cast<Playlist*>(0x00698098); }
+Playlist* Playlists() { return g_playlists; }
 int& CurrentPlaylist() { return g_currentPlaylist; }
 // The track playing (40 bytes, just before the playlists) and whether it loops (SetMusicLooping).
-void* SpecialTrack() { return reinterpret_cast<void*>(0x0069806C); }
+void* SpecialTrack() { return g_specialTrack; }
 
 GAME_GLOBAL(uint8_t, g_randomOrder, 0x0067D7EC, 1);
 GAME_GLOBAL(bool, g_reshuffle, 0x0067D7F4, true);
@@ -55,7 +64,7 @@ int& CurrentTrack() { return g_currentTrackIndex; }
 // The shuffled order: the indices of the tracks that are on, how many, and the position of the last one
 // played. The track played before the shuffle is read at order[count - 1] - with an empty order that's the
 // word before it (0x00696D9C, the movie frame dump counter).
-int* Order() { return reinterpret_cast<int*>(0x00696DA0); }
+int* Order() { return g_trackOrder; }
 int& OrderCount() { return g_orderCount; }
 int& OrderPosition() { return g_orderPosition; }
 bool& Reshuffle() { return g_reshuffle; }
@@ -70,19 +79,19 @@ bool StreamsOn()
     return g_soundDevice && GameConfig::g_platform != 2 && g_streamsOn;
 }
 
-Stream* Streams() { return reinterpret_cast<Stream*>(0x0069B938); }
+Stream* Streams() { return g_streams; }
 constexpr int kStreams = 3;
 // Whether the platform's stream `channel` is playing (StreamStatus: 1 free, 2 playing).
 bool Playing(const Stream& stream) { return StreamStatus(stream.channel) != 1; }
 // The objects that started each stream (null: none); they note the stream's id at +0x18 + 4 * stream.
-uint32_t** StreamOwners() { return reinterpret_cast<uint32_t**>(0x00698060); }
+uint32_t** StreamOwners() { return reinterpret_cast<uint32_t**>(g_streamOwners); }
 int& FrameCount() { return g_frameCount; }
 
 // The user soundtrack: which, whether it's playing (in place of the game's music), its shuffled order and the
 // track in it, whether it's shuffled.
 int& UserSoundtrack() { return g_userSoundtrack; }
 bool& UsingUserSoundtrack() { return g_usingUserSoundtrack; }
-int* UserOrder() { return reinterpret_cast<int*>(0x00697700); }
+int* UserOrder() { return g_userOrder; }
 constexpr int kUserOrderSize = 600;
 int& UserTrack() { return reinterpret_cast<int&>(g_userTrack); }
 int& UserPosition() { return reinterpret_cast<int&>(g_userPosition); }
@@ -127,7 +136,7 @@ bool& MusicHeaderLoaded() { return g_musicHeaderLoaded; }
 uint8_t& RandomOrder() { return g_randomOrder; }
 bool& ShuffleUserFlag() { return g_shuffleUser; }
 // Playlist 0's track titles, by the track's index (100 characters each).
-char* Title(int track) { return reinterpret_cast<char*>(0x006999F8 + 100 * track); }
+char* Title(int track) { return g_trackTitles[track]; }
 // A global ClearPlaylist clears (just past the three streams; nothing else uses it).
 int& ClearedByClearPlaylist() { return g_clearedByClearPlaylist; }
 
@@ -215,7 +224,7 @@ void __cdecl AddTrackToPlaylist(const char* name, int list, const char* title)
             std::strncpy(slot, title, 100);
             slot[99] = 0;
         } else {
-            std::memcpy(slot, reinterpret_cast<const char*>(0x006472FC), 18); // "No title provided"
+            std::memcpy(slot, GAME_TEXT(0x006472FC, "No title provided"), 18); // "No title provided"
         }
     }
     if (FileThere(track, 1)) {
@@ -292,7 +301,7 @@ const char* __cdecl GetTrackName(int track, int list)
 {
     if (!MusicOn()) {
         char* first = reinterpret_cast<char*>(Playlists()[0].tracks[0]);
-        std::memcpy(first, reinterpret_cast<const char*>(0x00647310), 7); // "Empty."
+        std::memcpy(first, GAME_TEXT(0x00647310, "Empty."), 7); // "Empty."
         return first;
     }
     const char* name = reinterpret_cast<const char*>(Playlists()[list].tracks[track]);
@@ -424,7 +433,7 @@ void __cdecl PlayNextTrack()
             if (!IsOff(list, track))
                 Order()[count++] = track;
         OrderCount() = count;
-        Dbg::Printf(reinterpret_cast<const char*>(0x00647318), count); // "shuffling random song order num_songs=%i\n"
+        Dbg::Printf(GAME_TEXT(0x00647318, "shuffling random song order num_songs=%i\n"), count); // "shuffling random song order num_songs=%i\n"
         // 2000 swaps of two random places. PartyMod draws them with ShuffleRandom; the original with
         // Mth::Rnd(OrderCount()).
         for (int i = 0; i < 2000; ++i) {
@@ -629,7 +638,7 @@ int __cdecl GetNumSoundtracks() { return UserSoundtrackCount(); }
 // 0x004B2360
 const char* __cdecl GetSoundtrackName(int index)
 {
-    char* name = reinterpret_cast<char*>(0x00701590);
+    char* name = g_soundtrackName;
     const wchar_t* wide = UserSoundtrackName(index); // (null past the last)
     if (wide) {
         char* out = name;

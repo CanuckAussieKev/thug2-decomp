@@ -10,15 +10,16 @@
 #include "game/nx/coll_tri.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/nx/coll_static.h"
 
 namespace Nx {
 
 namespace {
 
-void** const kCollObjVtable = reinterpret_cast<void**>(0x00645A30);
 void** const kCollMultiVtable = reinterpret_cast<void**>(0x00645AA8);
-void** const kNodeVtable = reinterpret_cast<void**>(0x00645AA0); // Lst::Node<CCollObj>
-void** const kHeadVtable = reinterpret_cast<void**>(0x00645D34); // Lst::Head<CCollObj>
+GAME_VTABLE(kHeadVtable, 0x00645D34, &Nx::CollObjListNodes::DestroyHead); // Lst::Head<CCollObj>
 
 void* const kHeadData = reinterpret_cast<void*>(-1);
 
@@ -52,6 +53,15 @@ void ForEachChild(Mem::ListNode* head, F f)
 }
 
 } // namespace
+
+GAME_VTABLE(kCollObjVtable, 0x00645A30, &Nx::CCollObj::ScalarDelete, Stubs::ReturnFalse,
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), &Nx::CCollObj::SetGeometry,
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), Stubs::ReturnZero, Stubs::IgnoreArgument,
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
+    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), Stubs::ReturnZero);
+GAME_VTABLE(kNodeVtable, 0x00645AA0, &Nx::CollObjListNodes::DestroyNode); // Lst::Node<CCollObj>
 
 // 0x0040B370
 void CCollObj::SetGeometry(CCollObjTriData* geometry)

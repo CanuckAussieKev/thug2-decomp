@@ -2,6 +2,7 @@
 // and the Bink stream's constructor and open (its other methods, 0x00452D20 on, are with the platform's streams).
 
 #include <cstdint>
+#include "hook/game_code.h"
 #include <cstdio>
 
 #include "game/pcm/stream_commands.h"
@@ -12,24 +13,17 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/pcm/stream_files.h"
 
 namespace Pcm {
 
 GAME_GLOBAL(bool, g_binkSoundSet, 0x0069CB99);
 GAME_GLOBAL(uint32_t, g_streamFileUses, 0x0069CB9C);
+GAME_GLOBAL(CachedStreamFile[12], g_streamFiles, 0x0069CAD8);
 
 namespace {
 
-// A stream file read into memory (12, at 0x0069CAD8): its key (-1: none), the data, the use count when it was last
-// asked for, and how many streams use it (only unused ones are reused).
-struct CachedStreamFile {
-    uint32_t key;
-    void* data;
-    uint32_t lastUse;
-    int users;
-};
-static_assert(sizeof(CachedStreamFile) == 16, "layout must match the original");
-CachedStreamFile* StreamFiles() { return reinterpret_cast<CachedStreamFile*>(0x0069CAD8); }
+CachedStreamFile* StreamFiles() { return g_streamFiles; }
 constexpr int kStreamFiles = 12;
 
 GAME_GLOBAL(bool, g_streamFilesReady, 0x0069CBA0);
@@ -93,7 +87,7 @@ int __cdecl LoadStreamFile(uint32_t key, const char* path, long offset, size_t s
     }
     if (slot == -1)
         return -1;
-    FILE* in = CrtFopen(path, reinterpret_cast<const char*>(0x00647344)); // "rb"
+    FILE* in = CrtFopen(path, GAME_TEXT(0x00647344, "rb")); // "rb"
     if (!in)
         return -1;
     CachedStreamFile& file = StreamFiles()[slot];

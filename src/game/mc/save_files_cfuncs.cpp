@@ -1,6 +1,7 @@
 // Script functions (CFuncs) for the save files on the memory card (see save_files_cfuncs.h).
 
 #include "game/mc/save_files_cfuncs.h"
+#include "hook/game_code.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -100,7 +101,7 @@ bool DeleteMemCardFile(CStruct* params, CScript*)
     params->GetString("CardFileName", &cardFileName, 0);
     uint32_t type = 0;
     params->GetChecksum("Type", &type, 0);
-    const char* userFileName = reinterpret_cast<const char*>(0x006469B4); // ""
+    const char* userFileName = GAME_TEXT(0x006469B4, ""); // ""
     params->GetString("UserFileName", &userFileName, 0);
 
     bool removed = false;
@@ -410,7 +411,7 @@ bool GetMemCardDirectoryListing(CStruct* params, CScript* script)
 
     // the card's files (a Lst::Head<File> on the stack, vtable 0x00658A60)
     Mem::ListNode head;
-    head.vtable = reinterpret_cast<void**>(0x00658A60);
+    head.vtable = Mc::kFileVtable;
     head.data = reinterpret_cast<void*>(-1);
     head.priority = 0;
     head.next = &head;
@@ -431,7 +432,7 @@ bool GetMemCardDirectoryListing(CStruct* params, CScript* script)
     int fileCount = 0;
     for (Mem::ListNode* node = head.next; reinterpret_cast<intptr_t>(node->data) != -1 && node; node = node->next)
         ++fileCount;
-    Dbg::Printf(reinterpret_cast<const char*>(0x00657AA4)); // "ScriptGetMemCardDirectoryListing: DirList Start\n"
+    Dbg::Printf(GAME_TEXT(0x00657AA4, "ScriptGetMemCardDirectoryListing: DirList Start\n")); // "ScriptGetMemCardDirectoryListing: DirList Start\n"
     int gameFiles = 0;
     for (int i = 0; i < fileCount; ++i) {
         File* file = ListEntry(&head, i);
@@ -552,7 +553,7 @@ bool SaveToMemoryCard(CStruct* params, CScript*)
     }
     bool& outOfSpace = g_outOfSpace;
     outOfSpace = false;
-    const char* name = reinterpret_cast<const char*>(0x006469B4); // ""
+    const char* name = GAME_TEXT(0x006469B4, ""); // ""
     params->GetString("Name", &name, 0);
     uint32_t type = 0;
     params->GetChecksum("Type", &type, 0);

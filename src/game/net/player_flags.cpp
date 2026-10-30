@@ -16,6 +16,21 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
+#include "game/net/stats_man.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -95,7 +110,7 @@ bool PlayerInfo::IsInvulnerable()
         return true;
     if (GameType() == kNetFirefight) {
         auto* skater = reinterpret_cast<Obj::CCompositeObject*>(m_skater);
-        if (Call<int>(0x00561B40, Field<void*>(skater->GetComponent(kSkaterScore), 0x18)) <= 0)
+        if (Call<int>(GAME_CODE(0x00561B40, &Mdl::Score::GetTotalScore), Field<void*>(skater->GetComponent(kSkaterScore), 0x18)) <= 0)
             return true;
     }
     if (IsEliminated() || (Field<uint32_t>(m_skater, 0x104) >> 2) & 1)

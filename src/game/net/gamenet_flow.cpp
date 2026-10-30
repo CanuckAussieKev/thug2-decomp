@@ -27,6 +27,19 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/ass/assman.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
 
 namespace GameNet {
 
@@ -136,7 +149,7 @@ Prefs::Preferences* NetworkPreferences(Manager* m) { return reinterpret_cast<Pre
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).
 Prefs::Preferences* GamePreferences(Manager* m)
 {
-    return m->InNetGame() ? NetworkPreferences(m) : Call<Prefs::Preferences*>(0x00564D80, Skate());
+    return m->InNetGame() ? NetworkPreferences(m) : Call<Prefs::Preferences*>(GAME_CODE(0x00564D80, &Mdl::Skate::GetSplitScreenPreferences), Skate());
 }
 uint32_t PreferenceChecksum(Prefs::Preferences* prefs, uint32_t name, uint32_t field)
 {
@@ -156,11 +169,11 @@ void Manager::ResetToLobby()
         m_level = PreferenceChecksum(NetworkPreferences(this), kLevel, kChecksum);
         teams = GetNumTeams();
     } else {
-        teams = Call<int>(0x00553130, GameMode());
+        teams = Call<int>(GAME_CODE(0x00553130, &Game::CGameMode::NumTeams), GameMode());
     }
     Field<uint32_t>(this, 0x30) = kNetLobby;
-    Call(0x00553AD0, GameMode(), kNetLobby); // the game mode
-    Call(0x005535A0, GameMode(), teams);
+    Call(GAME_CODE(0x00553AD0, &Game::CGameMode::LoadGameType), GameMode(), kNetLobby); // the game mode
+    Call(GAME_CODE(0x005535A0, &Game::CGameMode::SetNumTeams), GameMode(), teams);
     m_gameOver = false;
     ResetPlayers();
     if (uint8_t* king = KingOfTheHill(this))
@@ -328,7 +341,7 @@ void __cdecl Manager::JoinStateTask(void* task)
         for (; info && !(Field<uint32_t>(info, 0x20) & kNewPlayerLocal); info = NextNewPlayer(manager, &search)) {
         }
         if (info && (Field<uint32_t>(info, 0x20) & kNewPlayerObserver)) { // the local player joined to observe
-            Call(0x00565790, Skate(), Call<void*>(0x00566520, Skate())); // the local skater removed
+            Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), Skate(), Call<void*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), Skate())); // the local skater removed
             manager->ObservePlayer(nullptr);
         }
         Run(kEnteredNetworkGame);
@@ -427,7 +440,7 @@ void __cdecl Manager::ConnectionTask(void* task)
                     bool observer = IsObserver(player);
                     manager->DropPlayer(player, reason);
                     if (!observer)
-                        Call(0x00565790, skate, skater);
+                        Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), skate, skater);
                 }
             }
             player = next;
@@ -435,7 +448,7 @@ void __cdecl Manager::ConnectionTask(void* task)
         return;
     }
     // A client: the server silent too long while joining or joined.
-    Net::ConnSearch search = {reinterpret_cast<void**>(0x0064759C), nullptr};
+    Net::ConnSearch search = {Net::kConnSearchVtable, nullptr};
     Net::App* client = manager->m_client;
     if (!client)
         return;

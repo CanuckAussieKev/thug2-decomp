@@ -154,7 +154,7 @@ void ReadServerPlayers(ServerInfo* server, void* sb)
 ServerInfo* FindBySb(Manager* manager, void* sb)
 {
     ServerSearch search;
-    search.m_vtable = reinterpret_cast<void**>(0x0064CD70);
+    search.m_vtable = kServerSearchVtable;
     search.m_node = nullptr;
     auto* server = static_cast<ServerInfo*>(
         reinterpret_cast<VaultSearch*>(&search)->FirstItem(Head(manager, kServers))); // (the first)

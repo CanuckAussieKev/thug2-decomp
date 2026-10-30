@@ -27,6 +27,21 @@
 #include "hook/hook.h"
 #include "game/gfx/loading_bar.h"
 #include "game/ass/assman.h"
+#include "game/net/task_vtable.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf / strcpy, kept)
 
@@ -61,9 +76,8 @@ constexpr uint32_t kIndex = 0x7F8C98FE;                   // index
 constexpr int kGroupRoom = 1; // (GameSpy's RoomType)
 constexpr int kMaxRank = 10;
 
-inline void** const kLobbyListVtable = reinterpret_cast<void**>(0x0064CBFC);  // Lst::Head<LobbyRoom>, LobbyRoom
-inline void** const kPlayerListVtable = reinterpret_cast<void**>(0x0064CBF8); // Lst::Head<LobbyPlayer>, LobbyPlayer
-inline void** const kTaskVtable = reinterpret_cast<void**>(0x006476F0);       // Tsk::Task<LobbyMan>
+GAME_VTABLE(kLobbyListVtable, 0x0064CBFC, &GameNet::LobbyNode::DestroyOther); // Lst::Head<LobbyRoom>, LobbyRoom
+GAME_VTABLE(kPlayerListVtable, 0x0064CBF8, &LobbyMan::Destroy); // Lst::Head<LobbyPlayer>, LobbyPlayer
 
 Manager* TheManager() { return g_gameNetManager; }
 LobbyMan* TheLobby() { return static_cast<LobbyMan*>(TheManager()->m_lobbyMan); }
@@ -185,7 +199,7 @@ Tsk::BaseTask* NewTask(LobbyMan* lobby, uint32_t code)
     if (!task)
         return nullptr;
     task->Construct(0);
-    task->m_vtable = kTaskVtable;
+    task->m_vtable = GameCode::kTaskVtable;
     Field<uint32_t>(task, 0x18) = code;
     Field<LobbyMan*>(task, 0x1C) = lobby;
     return task;
@@ -225,9 +239,9 @@ LobbyMan* LobbyMan::Construct()
     m_expectingDisconnect = true;
     m_peer = nullptr;
     m_lostConnection = false;
-    m_thinkTask = NewTask(this, 0x00540040);
-    m_natTask = NewTask(this, 0x005400B0);
-    m_hostingTask = NewTask(this, 0x005400E0);
+    m_thinkTask = NewTask(this, reinterpret_cast<uint32_t>(GAME_CODE(0x00540040, GameNet::LobbyMan::ThinkTask)));
+    m_natTask = NewTask(this, reinterpret_cast<uint32_t>(GAME_CODE(0x005400B0, GameNet::LobbyMan::NatNegotiationTask)));
+    m_hostingTask = NewTask(this, reinterpret_cast<uint32_t>(GAME_CODE(0x005400E0, GameNet::LobbyMan::QueryTask)));
     // The server-browsing keys (GameSpy's qr2 key registration).
     Sdk(0x005FF660, 0x33, "numobservers");
     Sdk(0x005FF660, 0x34, "maxobservers");
@@ -254,21 +268,21 @@ void LobbyMan::InitPeer()
     Memory()->PushContext(Memory()->m_networkHeap);
     // The SDK's callbacks (0x74 bytes; those not set stay null).
     uint32_t callbacks[0x1D] = {};
-    callbacks[0x00 / 4] = 0x0053F570; // disconnected
-    callbacks[0x04 / 4] = 0x00540B60; // roomMessage
-    callbacks[0x14 / 4] = 0x005480A0; // (nothing: the empty function)
+    callbacks[0x00 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x0053F570, GameNet::LobbyMan::DisconnectedCallback)); // disconnected
+    callbacks[0x04 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x00540B60, GameNet::LobbyMan::RoomMessageCallback)); // roomMessage
+    callbacks[0x14 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x005480A0, Stubs::DoNothing)); // (nothing: the empty function)
     callbacks[0x24 / 4] = reinterpret_cast<uint32_t>(&PlayerJoinedCallback);
     callbacks[0x28 / 4] = reinterpret_cast<uint32_t>(&PlayerLeftCallback);
     callbacks[0x38 / 4] = reinterpret_cast<uint32_t>(&PlayerInfoCallback);
     callbacks[0x30 / 4] = reinterpret_cast<uint32_t>(&NewPlayerListCallback);
     callbacks[0x4C / 4] = reinterpret_cast<uint32_t>(&RoomKeyChangedCallback);
-    callbacks[0x68 / 4] = 0x00540C90;
-    callbacks[0x5C / 4] = 0x0053F620;
-    callbacks[0x50 / 4] = 0x0053F8D0;
-    callbacks[0x54 / 4] = 0x0053FB80;
-    callbacks[0x60 / 4] = 0x0053FEC0;
-    callbacks[0x64 / 4] = 0x005480A0;
-    callbacks[0x6C / 4] = 0x0053FDA0;
+    callbacks[0x68 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x00540C90, GameNet::LobbyMan::NatNegotiateCallback));
+    callbacks[0x5C / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x0053F620, GameNet::LobbyMan::KeyListCallback));
+    callbacks[0x50 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x0053F8D0, GameNet::LobbyMan::ServerKeyCallback));
+    callbacks[0x54 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x0053FB80, GameNet::LobbyMan::PlayerKeyCallback));
+    callbacks[0x60 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x0053FEC0, GameNet::LobbyMan::CountCallback));
+    callbacks[0x64 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x005480A0, Stubs::DoNothing));
+    callbacks[0x6C / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x0053FDA0, GameNet::LobbyMan::PublicAddressCallback));
     callbacks[0x70 / 4] = reinterpret_cast<uint32_t>(this); // (their parameter)
     m_peer = Sdk<void*>(0x005FCE60, callbacks); // (the peer made)
     m_inGroupRoom = false;
@@ -644,7 +658,7 @@ bool __cdecl CFunc_LobbyConnect(Script::CStruct* params, Script::CScript* script
     const char* name = Net::GameName();
     Sdk(0x005FCF30, static_cast<LobbyMan*>(manager->m_lobbyMan)->m_peer, name, key, name, key, 6, 15, 1, pingRooms,
         crossPingRooms);
-    HANDLE thread = CreateThread(nullptr, 0x8000, reinterpret_cast<LPTHREAD_START_ROUTINE>(0x00540AB0),
+    HANDLE thread = CreateThread(nullptr, 0x8000, reinterpret_cast<LPTHREAD_START_ROUTINE>(GAME_CODE(0x00540AB0, GameNet::LobbyMan::ConnectThread)),
                                  manager->m_lobbyMan, CREATE_SUSPENDED, &threadId);
     manager->SetLobbyId(threadId);
     ResumeThread(thread);

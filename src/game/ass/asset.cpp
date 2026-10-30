@@ -7,14 +7,19 @@
 #include "game/file/async.h"
 #include "game/script/node_manager.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/ed/park.h"
+#include "game/gfx/pc_texture.h"
+#include "game/gfx/particle_types.h"
 
 namespace Ass {
 
 namespace {
 
-void** const kAssetVtable = reinterpret_cast<void**>(0x00645568);
-void** const kDependentNodeVtable = reinterpret_cast<void**>(0x00645564); // Lst::Node<CAsset>
-void** const kDependentHeadVtable = reinterpret_cast<void**>(0x006455C0); // Lst::Head<CAsset>
+extern void** const kAssetVtable;
+extern void** const kDependentNodeVtable; // Lst::Node<CAsset>
+extern void** const kDependentHeadVtable; // Lst::Head<CAsset>
 
 // The destructors behind the dependents list's vtables.
 struct DependentNode : Mem::ListNode {
@@ -38,10 +43,81 @@ struct DependentNode : Mem::ListNode {
     }
 };
 
-CAsset* ConstructType(CAsset* asset, uint32_t vtable)
+
+GAME_VTABLE(kAssetVtable, 0x00645568, Stubs::ReturnZero, &Ed::CPiece::GetId, &Nx::CPcTexture::GetUnknownC,
+    &Ass::CAsset::ScalarDelete, &Ass::CAsset::StartLoading, &Ass::CAsset::StartLoading, &Ass::CAsset::Unload,
+    Stubs::ReturnZero1, &Ass::CAsset::IsLoaded, &Ass::CAsset::GetName, &Ass::CAsset::SetData,
+    &Ass::CAsset::SetPermanent, &Ass::CAsset::ProcessBuffer, &Ass::CAsset::FinishLoading, &Ass::CAsset::Abort,
+    Stubs::DoNothing, &Ass::CAsset::SetLoading, &Ass::CAsset::SetRead, &Ass::CAsset::SetProcessing,
+    &Ass::CAsset::SetLoaded, &Ass::CAsset::SetUnloaded, &Ass::CAsset::SetAborted);
+GAME_VTABLE(kDependentNodeVtable, 0x00645564, &Ass::DependentNode::Destroy); // Lst::Node<CAsset>
+GAME_VTABLE(kDependentHeadVtable, 0x006455C0, &Ass::DependentNode::DestroyHead); // Lst::Head<CAsset>
+
+GAME_VTABLE(kAnimationVtable, 0x006454B0, &Ass::CAnimAsset::GetType, &Ed::CPiece::GetId, &Nx::CPcTexture::GetUnknownC,
+    &Ass::CAsset::TypeScalarDelete, &Ass::CAnimAsset::LoadFromBuffer, &Ass::CAnimAsset::Load,
+    &Ass::CAnimAsset::Unload, &Ass::ReloadAdapter::Reload, &Ass::CAsset::IsLoaded, &Ass::CAnimAsset::GetName,
+    &Ass::CAsset::SetData, &Ass::CAsset::SetPermanent, &Ass::CAsset::ProcessBuffer, &Ass::CAnimAsset::FinishLoading,
+    &Ass::CAsset::Abort, &Ass::CAnimAsset::FreeBuffer, &Ass::CAsset::SetLoading, &Ass::CAsset::SetRead,
+    &Ass::CAsset::SetProcessing, &Ass::CAsset::SetLoaded, &Ass::CAsset::SetUnloaded, &Ass::CAsset::SetAborted);
+GAME_VTABLE(kSceneVtable, 0x00645700, &Nx::CParticleCounts::TwoColours, &Ed::CPiece::GetId, &Nx::CPcTexture::GetUnknownC,
+    &Ass::CAsset::TypeScalarDelete, &Ass::CSceneAsset::LoadFromBuffer, &Ass::CSceneAsset::Load,
+    &Ass::CSceneAsset::Unload, Stubs::ReturnZero1, &Ass::CAsset::IsLoaded, &Ass::CSceneAsset::GetName,
+    &Ass::CAsset::SetData, &Ass::CAsset::SetPermanent, &Ass::CAsset::ProcessBuffer, &Ass::CSceneAsset::FinishLoading,
+    &Ass::CAsset::Abort, Stubs::DoNothing, &Ass::CAsset::SetLoading, &Ass::CAsset::SetRead,
+    &Ass::CAsset::SetProcessing, &Ass::CAsset::SetLoaded, &Ass::CAsset::SetUnloaded, &Ass::CAsset::SetAborted);
+GAME_VTABLE(kSceneCollisionVtable, 0x00645778, &Nx::CParticleCounts::FourColours, &Ed::CPiece::GetId,
+    &Nx::CPcTexture::GetUnknownC, &Ass::CAsset::TypeScalarDelete, &Ass::CSceneCollisionAsset::LoadFromBuffer,
+    &Ass::CSceneCollisionAsset::Load, &Ass::CSceneCollisionAsset::Unload, Stubs::ReturnZero1, &Ass::CAsset::IsLoaded,
+    &Ass::CSceneCollisionAsset::GetName, &Ass::CAsset::SetData, &Ass::CAsset::SetPermanent,
+    &Ass::CAsset::ProcessBuffer, &Ass::CSceneCollisionAsset::FinishLoading, &Ass::CAsset::Abort, Stubs::DoNothing,
+    &Ass::CAsset::SetLoading, &Ass::CAsset::SetRead, &Ass::CAsset::SetProcessing, &Ass::CAsset::SetLoaded,
+    &Ass::CAsset::SetUnloaded, &Ass::CAsset::SetAborted);
+GAME_VTABLE(kSkeletonVtable, 0x00645810, &Ass::CSkeletonAsset::GetType, &Ed::CPiece::GetId, &Nx::CPcTexture::GetUnknownC,
+    &Ass::CAsset::TypeScalarDelete, &Ass::CSkeletonAsset::LoadFromBuffer, &Ass::CSkeletonAsset::Load,
+    &Ass::CSkeletonAsset::Unload, Stubs::ReturnZero1, &Ass::CAsset::IsLoaded, &Ass::CSkeletonAsset::GetName,
+    &Ass::CAsset::SetData, &Ass::CAsset::SetPermanent, &Ass::CAsset::ProcessBuffer,
+    &Ass::CSkeletonAsset::FinishLoading, &Ass::CAsset::Abort, &Ass::CSkeletonAsset::FreeBuffer,
+    &Ass::CAsset::SetLoading, &Ass::CAsset::SetRead, &Ass::CAsset::SetProcessing, &Ass::CAsset::SetLoaded,
+    &Ass::CAsset::SetUnloaded, &Ass::CAsset::SetAborted);
+GAME_VTABLE(kSkinnedModelVtable, 0x00645888, &Ass::CSkinAsset::GetType, &Ed::CPiece::GetId, &Nx::CPcTexture::GetUnknownC,
+    &Ass::CAsset::TypeScalarDelete, &Ass::CSkinAsset::LoadFromBuffer, &Ass::CSkinAsset::Load,
+    &Ass::CSkinAsset::Unload, Stubs::ReturnZero1, &Ass::CAsset::IsLoaded, &Ass::CSkinAsset::GetName,
+    &Ass::CAsset::SetData, &Ass::CAsset::SetPermanent, &Ass::CAsset::ProcessBuffer, &Ass::CSkinAsset::FinishLoading,
+    &Ass::CSkinAsset::Abort, &Ass::CSkinAsset::FreeBuffer, &Ass::CAsset::SetLoading, &Ass::CSkinAsset::SetRead,
+    &Ass::CAsset::SetProcessing, &Ass::CAsset::SetLoaded, &Ass::CAsset::SetUnloaded, &Ass::CAsset::SetAborted);
+GAME_VTABLE(kSkinCollisionVtable, 0x00645928, &Ass::CSkinCollisionAsset::GetType, &Ed::CPiece::GetId,
+    &Nx::CPcTexture::GetUnknownC, &Ass::CAsset::TypeScalarDelete, &Ass::CSkinCollisionAsset::LoadFromBuffer,
+    &Ass::CSkinCollisionAsset::Load, &Ass::CSkinCollisionAsset::Unload, Stubs::ReturnZero1, &Ass::CAsset::IsLoaded,
+    &Ass::CSkinCollisionAsset::GetName, &Ass::CAsset::SetData, &Ass::CAsset::SetPermanent,
+    &Ass::CAsset::ProcessBuffer, &Ass::CSkinCollisionAsset::FinishLoading, &Ass::CAsset::Abort, Stubs::DoNothing,
+    &Ass::CAsset::SetLoading, &Ass::CAsset::SetRead, &Ass::CAsset::SetProcessing, &Ass::CAsset::SetLoaded,
+    &Ass::CAsset::SetUnloaded, &Ass::CAsset::SetAborted);
+GAME_VTABLE(kTextureDictionaryVtable, 0x006459A8, &Nx::CParticleCounts::ThreeColours, &Ed::CPiece::GetId,
+    &Nx::CPcTexture::GetUnknownC, &Ass::CAsset::TypeScalarDelete, &Ass::CTexDictAsset::LoadFromBuffer,
+    &Ass::CTexDictAsset::Load, &Ass::CTexDictAsset::Unload, Stubs::ReturnZero1, &Ass::CAsset::IsLoaded,
+    &Ass::CTexDictAsset::GetName, &Ass::CAsset::SetData, &Ass::CAsset::SetPermanent, &Ass::CAsset::ProcessBuffer,
+    &Ass::CTexDictAsset::FinishLoading, &Ass::CAsset::Abort, Stubs::DoNothing, &Ass::CAsset::SetLoading,
+    &Ass::CAsset::SetRead, &Ass::CAsset::SetProcessing, &Ass::CAsset::SetLoaded, &Ass::CAsset::SetUnloaded,
+    &Ass::CAsset::SetAborted);
+GAME_VTABLE(kCutsceneVtable, 0x00645600, &Ass::CCutsceneAsset::GetType, &Ed::CPiece::GetId, &Nx::CPcTexture::GetUnknownC,
+    &Ass::CAsset::TypeScalarDelete, &Ass::CAsset::StartLoading, &Ass::CCutsceneAsset::Load,
+    &Ass::CCutsceneAsset::Unload, &Ass::ReloadAdapter::Reload, &Ass::CCutsceneAsset::IsLoaded,
+    &Ass::CCutsceneAsset::GetName, &Ass::CAsset::SetData, &Ass::CAsset::SetPermanent, &Ass::CAsset::ProcessBuffer,
+    &Ass::CAsset::FinishLoading, &Ass::CAsset::Abort, Stubs::DoNothing, &Ass::CAsset::SetLoading,
+    &Ass::CAsset::SetRead, &Ass::CAsset::SetProcessing, &Ass::CAsset::SetLoaded, &Ass::CAsset::SetUnloaded,
+    &Ass::CAsset::SetAborted);
+GAME_VTABLE(kNodeArrayVtable, 0x00645698, &Ass::CNodeArrayAsset::GetType, &Ed::CPiece::GetId,
+    &Nx::CPcTexture::GetUnknownC, &Ass::CAsset::TypeScalarDelete, &Ass::CNodeArrayAsset::LoadFromBuffer,
+    &Ass::CNodeArrayAsset::Load, &Ass::CNodeArrayAsset::Unload, &Ass::ReloadAdapter::Reload, &Ass::CAsset::IsLoaded,
+    &Ass::CNodeArrayAsset::GetName, &Ass::CAsset::SetData, &Ass::CAsset::SetPermanent, &Ass::CAsset::ProcessBuffer,
+    &Ass::CNodeArrayAsset::FinishLoading, &Ass::CAsset::Abort, &Ass::CAnimAsset::FreeBuffer, &Ass::CAsset::SetLoading,
+    &Ass::CAsset::SetRead, &Ass::CAsset::SetProcessing, &Ass::CAsset::SetLoaded, &Ass::CAsset::SetUnloaded,
+    &Ass::CAsset::SetAborted);
+
+CAsset* ConstructType(CAsset* asset, void** vtable)
 {
     asset->Construct();
-    asset->m_vtable = reinterpret_cast<void**>(vtable);
+    asset->m_vtable = vtable;
     return asset;
 }
 // The extra field most types have at +0x4C.
@@ -269,7 +345,7 @@ void __cdecl CAsset::ReadCallback(File::AsyncFileHandle* /*file*/, int /*event*/
 // 0x004071A0
 CAsset* AssetConstructors::Animation()
 {
-    ConstructType(this, 0x006454B0);
+    ConstructType(this, kAnimationVtable);
     ClearExtra(this);
     return this;
 }
@@ -277,7 +353,7 @@ CAsset* AssetConstructors::Animation()
 // 0x00409220
 CAsset* AssetConstructors::Scene()
 {
-    ConstructType(this, 0x00645700);
+    ConstructType(this, kSceneVtable);
     ClearExtra(this);
     return this;
 }
@@ -285,7 +361,7 @@ CAsset* AssetConstructors::Scene()
 // 0x004095F0
 CAsset* AssetConstructors::SceneCollision()
 {
-    ConstructType(this, 0x00645778);
+    ConstructType(this, kSceneCollisionVtable);
     ClearExtra(this);
     return this;
 }
@@ -293,7 +369,7 @@ CAsset* AssetConstructors::SceneCollision()
 // 0x00409970
 CAsset* AssetConstructors::Skeleton()
 {
-    return ConstructType(this, 0x00645810);
+    return ConstructType(this, kSkeletonVtable);
 }
 
 // 0x00409C40
@@ -305,14 +381,14 @@ CAsset* AssetConstructors::SkinnedModel()
     extra[2] = 0;
     extra[3] = 0;
     extra[4] = 0;
-    m_vtable = reinterpret_cast<void**>(0x00645888);
+    m_vtable = kSkinnedModelVtable;
     return this;
 }
 
 // 0x0040A210
 CAsset* AssetConstructors::SkinCollision()
 {
-    ConstructType(this, 0x00645928);
+    ConstructType(this, kSkinCollisionVtable);
     ClearExtra(this);
     return this;
 }
@@ -320,7 +396,7 @@ CAsset* AssetConstructors::SkinCollision()
 // 0x0040A580
 CAsset* AssetConstructors::TextureDictionary()
 {
-    ConstructType(this, 0x006459A8);
+    ConstructType(this, kTextureDictionaryVtable);
     ClearExtra(this);
     return this;
 }
@@ -328,13 +404,13 @@ CAsset* AssetConstructors::TextureDictionary()
 // 0x00407A30
 CAsset* AssetConstructors::Cutscene()
 {
-    return ConstructType(this, 0x00645600);
+    return ConstructType(this, kCutsceneVtable);
 }
 
 // 0x00408BB0
 CAsset* AssetConstructors::NodeArray()
 {
-    ConstructType(this, 0x00645698);
+    ConstructType(this, kNodeArrayVtable);
     ClearExtra(this);
     return this;
 }

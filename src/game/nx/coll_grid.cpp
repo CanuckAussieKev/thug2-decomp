@@ -19,12 +19,13 @@ namespace Nx {
 
 namespace {
 
-void** const kNodeVtable = reinterpret_cast<void**>(0x00645D7C);
-void** const kHeadVtable = reinterpret_cast<void**>(0x00645D80);
+void** const kGridNodeVtable = reinterpret_cast<void**>(0x00645D7C);
+void** const kGridHeadVtable = reinterpret_cast<void**>(0x00645D80);
 
 // The queries' shared answer (2048 entries, null-terminated) and the mark of the current query (objects keep the
 // last one that listed them, so each is listed once).
-CCollObj** const s_found = reinterpret_cast<CCollObj**>(0x00691998);
+GAME_GLOBAL(CCollObj*[2048], g_found, 0x00691998);
+CCollObj** const s_found = g_found;
 
 GAME_GLOBAL(uint8_t, g_stamp, 0x00693998);
 
@@ -99,7 +100,7 @@ struct CellUpdate {
         } else {
             auto* node = static_cast<Mem::ListNode*>(Mem::Calloc(sizeof(Mem::ListNode)));
             if (node) {
-                node->vtable = kNodeVtable;
+                node->vtable = kGridNodeVtable;
                 node->data = object;
                 node->priority = 0;
                 node->next = node;
@@ -259,7 +260,7 @@ void CCollGrid::Fill(CCollStatic* statics, int count)
 void CCollGrid::Update(Mem::ListNode* added, Mem::ListNode* removed, Mem::ListNode* moved)
 {
     Mem::ListNode pending;
-    pending.vtable = kHeadVtable;
+    pending.vtable = kGridHeadVtable;
     pending.data = reinterpret_cast<void*>(-1);
     pending.priority = 0;
     pending.next = &pending;
@@ -420,7 +421,7 @@ CCollObj** CCollGrid::ObjectsAlongLine(const Mth::Line* line, int* count)
 }
 
 // 0x00418ED0
-void CollGridListNodes::DestroyNodeBody() { reinterpret_cast<Mem::ListNode*>(this)->UnlinkAs(kNodeVtable); }
+void CollGridListNodes::DestroyNodeBody() { reinterpret_cast<Mem::ListNode*>(this)->UnlinkAs(kGridNodeVtable); }
 
 // 0x00418EF0
 Mem::ListNode* CollGridListNodes::DestroyNode(uint8_t flags)

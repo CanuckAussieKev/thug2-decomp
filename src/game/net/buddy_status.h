@@ -14,6 +14,9 @@ class CStruct;
 // folded at 0x005480B0-0x005480F0.
 namespace GameNet {
 
+extern void** const kBuddyNodeVtable;   // 0x0064CF60: Lst::Node<Buddy> / Lst::Head<Buddy>
+extern void** const kMessageNodeVtable; // 0x0064CF64
+
 // The buddy lists' list types (their vtables hold only the scalar deleting destructor):
 // Lst::Search<Buddy> (0x0064CECC): 0x005480D0 the body (the vtable reset), 0x00548440 the scalar deleting one;
 // Lst::Search<BuddyMessage> (0x0064CED0): 0x005480E0 / 0x00548470;

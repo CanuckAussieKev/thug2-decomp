@@ -21,6 +21,20 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/front/screen_element_manager.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/buddy_man.h"
+#include "game/net/stats_man.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -49,7 +63,7 @@ constexpr uint32_t kScoreLines[8] = {0x2B083809, 0xB20169B3, 0xC5065925, 0x5B62C
                                      0x2C65FC10, 0xB56CADAA, 0xC26B9D3C, 0x52D480AD}; // net_score_5 ... 8
 
 constexpr uint32_t kUpdateInterval = 1000; // ms
-inline void** const kScoreEntryVtable = reinterpret_cast<void**>(0x0064CCF8);
+GAME_VTABLE(kScoreEntryVtable, 0x0064CCF8, &GameNet::ScoreNode::DestroyCalling);
 
 GAME_GLOBAL(uint32_t, g_lastScoreUpdate, 0x007CE43C);
 
@@ -61,7 +75,7 @@ void* ScoreOf(PlayerInfo* player)
     auto* skater = reinterpret_cast<Obj::CCompositeObject*>(player->m_skater);
     return Field<void*>(skater->GetComponent(kSkaterScore), 0x18);
 }
-int PointsOf(void* score) { return Call<int>(0x00561B40, score); }
+int PointsOf(void* score) { return Call<int>(GAME_CODE(0x00561B40, &Mdl::Score::GetTotalScore), score); }
 
 PlayerInfo* First(Manager* manager, PlayerSearch* search)
 {
@@ -122,7 +136,7 @@ int Manager::GetTeamScore(int team)
         if (!(p->m_flags & (kPlayerFullyIn | kPlayerLocal)) || p->m_team != team)
             continue;
         if (goalAttack && !(local->m_flags & kPlayerObserver))
-            return Call<int>(0x00558B10, GoalManager(), team);
+            return Call<int>(GAME_CODE(0x00558B10, &Game::CGoalManager::NumGoalsNetBeatenBy), GoalManager(), team);
         total += PointsOf(ScoreOf(p));
     }
     return total;
@@ -133,7 +147,7 @@ int Manager::GetPlayerScore(uint32_t id)
 {
     PlayerInfo* local = reinterpret_cast<PlayerInfo*>(LocalPlayer(this));
     if (GameType() == kNetGoalAttack && !(local->m_flags & kPlayerObserver))
-        return Call<int>(0x00558AB0, GoalManager(), id);
+        return Call<int>(GAME_CODE(0x00558AB0, &Game::CGoalManager::NumGoalsBeatenBy), GoalManager(), id);
     auto* player = reinterpret_cast<PlayerInfo*>(PlayerByObjectId(static_cast<uint16_t>(id)));
     return PointsOf(ScoreOf(player));
 }
@@ -155,7 +169,7 @@ void __cdecl ScoreUpdateTask(void* task)
     bool kingOfTheHill = GameType() == kNetKing || GameType() == kKing;
     bool scavengerHunt = false;
     if (GameType() == kNetScavengerHunt) {
-        uint8_t* goal = Call<uint8_t*>(0x00557F90, GoalManager(), kScavenger, 0);
+        uint8_t* goal = Call<uint8_t*>(GAME_CODE(0x00557F90, &Game::CGoalManager::GetGoal), GoalManager(), kScavenger, 0);
         if (goal && reinterpret_cast<bool(__thiscall*)(void*)>((*reinterpret_cast<void***>(goal))[3])(goal))
             scavengerHunt = true; // (the goal is active)
     }
@@ -171,7 +185,7 @@ void __cdecl ScoreUpdateTask(void* task)
     if (notLobby && manager->ShowTeamScores()) {
         // A line per team with players: the team's name, its players' marks.
         ScoreEntry* teams[4];
-        for (int team = 0; team < Call<int>(0x00553130, GameMode()); ++team) {
+        for (int team = 0; team < Call<int>(GAME_CODE(0x00553130, &Game::CGameMode::NumTeams), GameMode()); ++team) {
             if (manager->CountTeamPlayers(team) <= 0)
                 continue;
             uint32_t name = team < 4 ? kTeamNames[team] : 0;
@@ -202,7 +216,7 @@ void __cdecl ScoreUpdateTask(void* task)
                 teams[p->m_team]->m_flags |= FlagBit(p);
             }
         }
-        for (int team = 0; team < Call<int>(0x00553130, GameMode()); ++team) {
+        for (int team = 0; team < Call<int>(GAME_CODE(0x00553130, &Game::CGameMode::NumTeams), GameMode()); ++team) {
             if (manager->CountTeamPlayers(team) <= 0)
                 continue;
             ScoreEntry* entry = teams[team];

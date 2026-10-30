@@ -20,7 +20,6 @@ GAME_GLOBAL(Mem::ListNode, g_movables, 0x00691978);
 
 namespace {
 
-void** const kNodeVtable = reinterpret_cast<void**>(0x00645AA0); // Lst::Node<CCollObj>
 
 
 // Where a query's distance to beat starts: past the line's end, or (for the farthest) before its start.

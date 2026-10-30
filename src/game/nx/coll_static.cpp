@@ -13,16 +13,30 @@
 #include "game/core/stubs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/nx/coll_obj.h"
+#include "game/nx/coll_movable.h"
+#include "hook/game_code.h"
+#include "hook/game_global.h"
 
 namespace Nx {
+
+GAME_GLOBAL(Mth::Vector, g_sharedOrigin, 0x00691914);        // the origin and orientation every static object reports
+GAME_GLOBAL(Mth::Matrix, g_sharedOrientation, 0x00691928);
 
 namespace {
 
 void** const kStaticVtable = reinterpret_cast<void**>(0x00645C18);
-void** const kInstanceVtable = reinterpret_cast<void**>(0x00645C78);
+GAME_VTABLE(kInstanceVtable, 0x00645C78, &Nx::CCollStaticInstance::ScalarDelete, Stubs::ReturnTrue,
+    &Nx::CollFaceAccess::GetFaceFlags, &Nx::CollFaceAccess::GetFaceTerrain, &Nx::CCollObj::SetGeometry,
+    &Nx::CCollStaticInstance::SetWorldPosition, &Nx::CCollStaticInstance::SetOrientation,
+    &Nx::CCollScaled::GetWorldPosition, &Nx::CCollMovable::GetOrientation, &Nx::CCollScaled::GetVertexPos,
+    Stubs::ReturnZero, Stubs::IgnoreArgument, &Nx::CCollStaticInstance::Clone, &Nx::CCollStaticInstance::WithinBBox,
+    &Nx::CCollStaticInstance::CollideWithLine, &Nx::CCollStaticInstance::CollideWithRect,
+    &Nx::CCollStatic::CollideWithSphere, &Nx::CCollStatic::CollideWithCapsule,
+    &Nx::CollGeometryForwarders::IsPointBehindFaces, &Nx::CCollStaticInstance::DebugRender, Stubs::ReturnZero,
+    &Nx::CCollStaticInstance::GetWorldBBox, Stubs::IgnoreArguments2, &Nx::CCollStaticInstance::RescaleIfAt,
+    &Nx::CCollStaticInstance::SetScale, &Nx::CCollMovable::GetWorldPosition);
 void** const kMovTriVtable = reinterpret_cast<void**>(0x00645CE0);
-void** const kScaledVtable = reinterpret_cast<void**>(0x00645B58);
-void** const kCollObjVtable = reinterpret_cast<void**>(0x00645A30);
 
 // The geometry's own methods: 0x00416BF0 a copy, 0x00416400 moved.
 CCollObjTriData* CloneGeometry(CCollObjTriData* geometry, int a, int b) { return geometry->Clone(a, b != 0); }
@@ -135,13 +149,13 @@ void CCollStatic::SetWorldPosition(const Mth::Vector* position)
 // 0x004123A0
 const Mth::Vector* CCollStatic::GetWorldPosition() const
 {
-    return reinterpret_cast<const Mth::Vector*>(0x00691914);
+    return &g_sharedOrigin;
 }
 
 // 0x004123B0
 const Mth::Matrix* CCollStatic::GetOrientation() const
 {
-    return reinterpret_cast<const Mth::Matrix*>(0x00691928);
+    return &g_sharedOrientation;
 }
 
 // 0x00410980

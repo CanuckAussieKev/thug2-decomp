@@ -2,6 +2,7 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/mc/memcard_cfuncs.h"
+#include "hook/game_code.h"
 
 #include <windows.h>
 
@@ -137,7 +138,7 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
     }
     Script::CStruct* header = NewParams();   // the file's first structure (read, then dropped)
     Script::CStruct* contents = NewParams(); // the second: what's loaded
-    const char* name = reinterpret_cast<const char*>(0x006469B4); // ""
+    const char* name = GAME_TEXT(0x006469B4, ""); // ""
     uint32_t type = 0;
     uint8_t* data = nullptr;
     bool loaded = false;
@@ -244,7 +245,7 @@ bool SaveFailedDueToInsufficientSpace(Script::CStruct*, Script::CScript*) { retu
 // 0x005A6560
 bool SetSectionsToApplyWhenLoading(Script::CStruct* params, Script::CScript*)
 {
-    Dbg::Printf(reinterpret_cast<const char*>(0x00657848)); // "ScriptSetSectionsToApplyWhenLoading was called..."
+    Dbg::Printf(GAME_TEXT(0x00657848, "ScriptSetSectionsToApplyWhenLoading was called.........................\n")); // "ScriptSetSectionsToApplyWhenLoading was called..."
     uint32_t& sections = SectionsToApplyWhenLoading();
     sections = 0;
     if (params->ContainsFlag(0x16B506C0u)) // ApplyCustomSkater

@@ -19,10 +19,16 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/loading_bar.h"
+#include "hook/game_code.h"
 
 #pragma warning(disable : 4996) // (sprintf / strncpy: the original's own)
 
 namespace GameNet {
+
+GAME_VTABLE(kLobbySearchAVtable, 0x0064CB6C, &GameNet::LobbySearchA::Destroy);
+GAME_VTABLE(kLobbySearchBVtable, 0x0064CB70, &GameNet::LobbySearchB::Destroy);
+GAME_VTABLE(kLobbyListNodeVtable, 0x0064CBDC, &GameNet::LobbyListNode::Destroy);
+GAME_VTABLE(kLobbyNodeVtable, 0x0064CBE0, &GameNet::LobbyNode::Destroy);
 
 using namespace Detail;
 
@@ -313,14 +319,14 @@ void LobbyMan::DestroyBody()
     for (Tsk::BaseTask* task : {m_thinkTask, m_natTask, m_hostingTask})
         if (task) // (the scalar deleting destructor, vtable slot 2)
             reinterpret_cast<void(__thiscall*)(Tsk::BaseTask*, unsigned int)>(task->m_vtable[2])(task, 1);
-    m_players.UnlinkAs(reinterpret_cast<void**>(0x0064CBDC));
-    reinterpret_cast<Mem::ListNode*>(this)->UnlinkAs(reinterpret_cast<void**>(0x0064CBE0));
+    m_players.UnlinkAs(kLobbyListNodeVtable);
+    reinterpret_cast<Mem::ListNode*>(this)->UnlinkAs(kLobbyNodeVtable);
 }
 
 // 0x00540840
-void LobbyNode::DestroyBody() { UnlinkAs(reinterpret_cast<void**>(0x0064CBE0)); }
+void LobbyNode::DestroyBody() { UnlinkAs(kLobbyNodeVtable); }
 // 0x00540860
-void LobbyListNode::DestroyBody() { UnlinkAs(reinterpret_cast<void**>(0x0064CBDC)); }
+void LobbyListNode::DestroyBody() { UnlinkAs(kLobbyListNodeVtable); }
 
 // 0x00540880
 LobbyNode* LobbyNode::Destroy(unsigned int flags)
@@ -346,7 +352,7 @@ LobbyNode* LobbyNode::DestroyOther(unsigned int flags) { return Destroy(flags); 
 // 0x005407E0
 LobbySearchA* LobbySearchA::Destroy(unsigned int flags)
 {
-    m_vtable = reinterpret_cast<void**>(0x0064CB6C);
+    m_vtable = kLobbySearchAVtable;
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;
@@ -355,7 +361,7 @@ LobbySearchA* LobbySearchA::Destroy(unsigned int flags)
 // 0x00540810
 LobbySearchB* LobbySearchB::Destroy(unsigned int flags)
 {
-    m_vtable = reinterpret_cast<void**>(0x0064CB70);
+    m_vtable = kLobbySearchBVtable;
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;

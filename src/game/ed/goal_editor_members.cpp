@@ -3,6 +3,7 @@
 // (none of them Ghidra functions).
 
 #include <cstdint>
+#include "hook/game_code.h"
 #include <cstring>
 
 #include "game/core/crc.h"
@@ -27,7 +28,7 @@ int Sprintf(char* out, const char* format, Args... args)
     return GameFunction<int(__cdecl*)(char*, const char*, ...)>(0x006234FE)(out, format, args...);
 }
 
-const char* Empty() { return reinterpret_cast<const char*>(0x006469B4); } // ""
+const char* Empty() { return GAME_TEXT(0x006469B4, ""); } // ""
 
 } // namespace
 
