@@ -20,6 +20,14 @@
 #include "game/nx/coll_tri.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/game_vtables.h"
+#include "game/nx/coll_capsule.h"
+#include "game/nx/coll_sphere.h"
+#include "game/nx/coll_rect.h"
+#include "game/nx/coll_line.h"
+#include "game/nx/coll_obj.h"
+#include "game/core/stubs.h"
 
 namespace Nx {
 
@@ -363,6 +371,19 @@ struct SceneCollisionAdapters {
 };
 
 } // namespace
+
+namespace Vt {
+GAME_VTABLE(kCollStatic, 0x00645C18, &SceneCollisionAdapters::CollStaticDelete, Stubs::ReturnTrue,
+            &Nx::CollFaceAccess::GetFaceFlags, &Nx::CollFaceAccess::GetFaceTerrain, &Nx::CCollObj::SetGeometry,
+            &Nx::CCollStatic::SetWorldPosition, Stubs::IgnoreArgument, &Nx::CCollStatic::GetWorldPosition,
+            &Nx::CCollStatic::GetOrientation, &Nx::CCollStatic::GetVertexPos, Stubs::ReturnZero,
+            Stubs::IgnoreArgument, &Nx::CCollStatic::Clone, &Nx::CCollStatic::WithinBBox,
+            &Nx::CCollStatic::CollideWithLine, &Nx::CCollStatic::CollideWithRect,
+            &Nx::CCollStatic::CollideWithSphere, &Nx::CCollStatic::CollideWithCapsule,
+            &Nx::CollGeometryForwarders::IsPointBehindFaces, &Nx::CollGeometryForwarders::DebugRender,
+            Stubs::ReturnZero, &Nx::CCollStatic::GetGeometryBBox, &Nx::CollGeometryForwarders::RotateY,
+            &Nx::CollGeometryForwarders::Scale);
+} // namespace Vt
 
 REPLACE(0x0049C910, &Nx::CScene::FinishLoad);
 REPLACE(0x0049C940, &Nx::CScene::FinishAdd);

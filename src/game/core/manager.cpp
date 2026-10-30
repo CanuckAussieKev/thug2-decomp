@@ -452,13 +452,18 @@ REPLACE(0x005BBBA0, Mem::Realloc);
 
 namespace Mem {
 
+// Where the manager and its main region and heaps live (static storage in the game, as words).
+GAME_GLOBAL(uint32_t[(sizeof(Manager) + 3) / 4], g_managerStorage, 0x007D11F8);
+GAME_GLOBAL(uint32_t[(sizeof(Region) + 3) / 4], g_mainRegionStorage, 0x007D11E0);
+GAME_GLOBAL(uint32_t[(sizeof(Heap) + 3) / 4], g_topDownStorage, 0x007D1130);
+GAME_GLOBAL(uint32_t[(sizeof(Heap) + 3) / 4], g_bottomUpStorage, 0x007D1098);
+
 namespace {
 
-// Where the manager and its main region and heaps live (static storage in the game).
-void* const kManagerStorage = reinterpret_cast<void*>(0x007D11F8);
-void* const kMainRegionStorage = reinterpret_cast<void*>(0x007D11E0);
-void* const kTopDownStorage = reinterpret_cast<void*>(0x007D1130);
-void* const kBottomUpStorage = reinterpret_cast<void*>(0x007D1098);
+void* const kManagerStorage = g_managerStorage;
+void* const kMainRegionStorage = g_mainRegionStorage;
+void* const kTopDownStorage = g_topDownStorage;
+void* const kBottomUpStorage = g_bottomUpStorage;
 
 bool& ManagerReady() { return g_managerReady; }
 

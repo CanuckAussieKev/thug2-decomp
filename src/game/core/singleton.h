@@ -11,7 +11,7 @@
 //
 //   struct Something {
 //       using Type = ...;                          // what the pointer points to
-//       static constexpr uint32_t kVtable = ...;   // the instance's vtable in the exe
+//       static void** Vtable();                    // the instance's vtable (GAME_VTABLE)
 //       static Type* Create(bool create);
 //       static void Release();
 //   };
@@ -29,7 +29,7 @@ struct SingletonPtr {
     void** m_vtable;
     Type* m_instance;
 
-    static void** Vtable() { return reinterpret_cast<void**>(Singleton::kVtable); }
+    static void** Vtable() { return Singleton::Vtable(); }
 
     // The constructor: a reference taken (and the instance made if `create` and there's none). Returns this.
     SingletonPtr* Construct(bool create)

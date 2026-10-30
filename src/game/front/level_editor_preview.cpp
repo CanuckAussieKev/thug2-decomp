@@ -90,22 +90,33 @@ void UpdateFrustum() { Nx::g_billboardManager.SetupAxes(); }
 
 // The camera's globals Nx::SetCamera and the instance render change, saved and put back.
 struct SavedRange {
-    uint32_t address;
+    void* (*address)(); // (a function: the globals are set up after this table)
     uint32_t size;
 };
 constexpr SavedRange kSaved[] = {
-    {0x00786B90, 0x164}, // world, view, projection, the heading (0x00786C50), the viewport, the camera (to 0x00786CF4)
-    {0x00786E18, 0x18},  // the view's shape (culling)
-    {0x007CA968, 0x4},   // the culling world matrix: none or 0x007CA980
-    {0x007CA980, 0x40},
+    {[]() -> void* { return &Nx::g_worldMatrix; }, sizeof(Mth::Matrix)},
+    {[]() -> void* { return &Nx::g_viewMatrix; }, sizeof(Mth::Matrix)},
+    {[]() -> void* { return &Nx::g_projectionMatrix; }, sizeof(Mth::Matrix)},
+    {[]() -> void* { return &Nx::g_headingMatrix; }, sizeof(Mth::Matrix)},
+    {[]() -> void* { return &Nx::g_deviceViewport; }, sizeof(Nx::DeviceViewport)},
+    {[]() -> void* { return &Nx::g_camera; }, sizeof(Nx::RenderCamera)},
+    {[]() -> void* { return &Nx::g_viewShape; }, sizeof(Nx::ViewShape)}, // (the view's shape: culling)
+    {[]() -> void* { return &Nx::g_worldTransform; }, sizeof(void*)},      // (the culling world matrix: none or the copy)
+    {[]() -> void* { return &Nx::g_worldTransformCopy; }, sizeof(float[16])},
 };
+constexpr uint32_t kSavedBytes = 4 * sizeof(Mth::Matrix) + sizeof(Nx::DeviceViewport) + sizeof(Nx::RenderCamera) +
+                                 sizeof(Nx::ViewShape) + sizeof(void*) + sizeof(float[16]);
+// (the camera's globals from the world matrix to the camera's end: 0x164 bytes; the view's shape: 0x18)
+static_assert(4 * sizeof(Mth::Matrix) + sizeof(Nx::DeviceViewport) + sizeof(Nx::RenderCamera) == 0x164 &&
+                  sizeof(Nx::ViewShape) == 0x18,
+              "the saved camera globals");
 struct SavedView {
-    uint8_t bytes[0x164 + 0x18 + 0x4 + 0x40];
+    uint8_t bytes[kSavedBytes];
     void Save()
     {
         uint8_t* at = bytes;
         for (const SavedRange& range : kSaved) {
-            std::memcpy(at, &GameVariable<uint8_t>(range.address), range.size);
+            std::memcpy(at, range.address(), range.size);
             at += range.size;
         }
     }
@@ -113,7 +124,7 @@ struct SavedView {
     {
         const uint8_t* at = bytes;
         for (const SavedRange& range : kSaved) {
-            std::memcpy(&GameVariable<uint8_t>(range.address), at, range.size);
+            std::memcpy(range.address(), at, range.size);
             at += range.size;
         }
     }

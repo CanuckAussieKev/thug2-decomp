@@ -29,13 +29,14 @@
 #include "game/nx/coll_tri.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/core/game_vtables.h"
 
 namespace Front::LevelEditor::Ground {
 
 namespace {
 
-constexpr uint32_t kPcGeomVtable = 0x0064A368;
-constexpr uint32_t kCollStaticVtable = 0x00645C18;
+void** const& kPcGeomVtable = Vt::kPcGeom;
+void** const& kCollStaticVtable = Vt::kCollStatic;
 
 uint8_t* GeomOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
 uint8_t* CollOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
@@ -57,7 +58,7 @@ bool IsActive(uint8_t* sector) { return reinterpret_cast<Nx::CSector*>(sector)->
 Nx::CCollStatic* StaticOf(uint8_t* sector)
 {
     uint8_t* coll = CollOf(sector);
-    if (!coll || *reinterpret_cast<uint32_t*>(coll) != kCollStaticVtable)
+    if (!coll || *reinterpret_cast<void***>(coll) != kCollStaticVtable)
         return nullptr;
     return reinterpret_cast<Nx::CCollStatic*>(coll);
 }
@@ -158,7 +159,7 @@ struct GroundStep : ModuleStep {
 bool Write(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* why)
 {
     uint8_t* geom = GeomOf(sector);
-    if (!geom || *reinterpret_cast<uint32_t*>(geom) != kPcGeomVtable || MeshCountOf(geom) == 0) {
+    if (!geom || *reinterpret_cast<void***>(geom) != kPcGeomVtable || MeshCountOf(geom) == 0) {
         *why = "the copy has no drawn geometry";
         return false;
     }
@@ -394,7 +395,7 @@ const char* WhyNotDonor(uint32_t checksum)
     if (g_pool.count(checksum))
         return "a generated piece";
     uint8_t* geom = GeomOf(sector);
-    if (!geom || *reinterpret_cast<uint32_t*>(geom) != kPcGeomVtable)
+    if (!geom || *reinterpret_cast<void***>(geom) != kPcGeomVtable)
         return "nothing drawn";
     if (*reinterpret_cast<void**>(geom + 0x4C))
         return "an instance";

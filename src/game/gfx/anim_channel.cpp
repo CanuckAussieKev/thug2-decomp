@@ -31,6 +31,9 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/game_vtables.h"
+#include "game/core/stubs.h"
 
 namespace Gfx {
 
@@ -41,10 +44,10 @@ namespace {
 
 using Script::CStruct;
 
-constexpr uint32_t kChannelVtable = 0x00648714;
-constexpr uint32_t kHeadVtable = 0x00648710;
-constexpr uint32_t kListNodeVtable = 0x006486CC;
-constexpr uint32_t kBlenderNodeVtable = 0x00645D84; // (the blender's channel list node)
+extern void** const kChannelVtable;
+extern void** const kHeadVtable;
+void** const& kListNodeVtable = Vt::kAnimListNode;
+void** const& kBlenderNodeVtable = Vt::kBlenderChannelNode; // (the blender's channel list node)
 constexpr uint32_t kSkeleton = 0x222756D5;          // skeleton
 constexpr uint32_t kAnimScratch = 0x7C0B34B4;       // AnimScratch
 constexpr uint32_t kFlipped = 0x20000000;
@@ -745,10 +748,10 @@ void __cdecl CBlendChannel::InitBuffers(int blends, int subsets)
 {
     MaxBlends() = blends;
     Subsets() = subsets;
-    Dbg::Printf(reinterpret_cast<const char*>(0x006486DC), reinterpret_cast<const char*>(0x006486FC), 0x963, 0);
+    Dbg::Printf(GAME_TEXT(0x006486DC, "D:%s:%i: size = %i\n"), GAME_TEXT(0x006486FC, "nimblendsubset.cpp"), 0x963, 0);
     Mem::Manager* manager = Mem::Manager::Get();
     manager->InitNamedHeap(kAnimScratch, Subsets() * 0x840 + 0x90 + MaxBlends() * 0x848,
-                           reinterpret_cast<const char*>(0x006486D0), 0); // "AnimScratch"
+                           GAME_TEXT(0x006486D0, "AnimScratch"), 0); // "AnimScratch"
     manager->PushContext(manager->GetNamedHeap(kAnimScratch, 1));
     // (each pose's rotations made the identity by the vector constructor iterator 0x00401020 with 0x00464340; its
     // translations' constructor 0x005902E0 does nothing)
@@ -1178,7 +1181,20 @@ int CBlendChannel::PassAnimToTimeline(CStruct* params, Script::CScript* script)
     return Virtual<int>(timeline, 5, 0xC68365EBu, params, script) != 0 ? 1 : 0;
 }
 
+namespace {
+GAME_VTABLE(kChannelVtable, 0x00648714, &Gfx::CBlendChannel::Destroy, &Gfx::CBlendChannel::Update,
+            &Gfx::CBlendChannel::Finalize, &Gfx::CBlendChannel::InitFromStructure,
+            &Gfx::CBlendChannel::CallMemberFunction, Stubs::IgnoreArgument,
+            &Gfx::CBlendChannel::ReleaseWaitingScript);
+GAME_VTABLE(kHeadVtable, 0x00648710, &Gfx::CAnimTimeline::Destroy);
+} // namespace
+
 } // namespace Gfx
+
+namespace Vt {
+GAME_VTABLE(kBlenderChannelNode, 0x00645D84, &Obj::BlendChannelLinks::DestroyNode);
+GAME_VTABLE(kAnimListNode, 0x006486CC, &Gfx::AnimListNode::Destroy);
+} // namespace Vt
 
 REPLACE(0x0047DC40, &Gfx::CBlendChannel::SetFlipped);
 REPLACE(0x0047DCF0, &Gfx::CBlendChannel::Finalize);

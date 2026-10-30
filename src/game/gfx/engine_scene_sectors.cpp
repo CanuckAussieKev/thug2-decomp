@@ -21,17 +21,20 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/game_vtables.h"
+#include "game/core/stubs.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kSceneVtable = 0x006499E0;
+extern void** const kSceneVtable;
 constexpr uint32_t kCollStaticSize = 0x18;
-void** const kSectorNodeVtable = reinterpret_cast<void**>(0x006499D8);
-void** const kSectorHeadVtable = reinterpret_cast<void**>(0x006499DC);
-void** const kCollNodeVtable = reinterpret_cast<void**>(0x00645D7C); // (the collision grid's lists')
-void** const kCollHeadVtable = reinterpret_cast<void**>(0x00645D80);
+extern void** const kSectorNodeVtable;
+extern void** const kSectorHeadVtable;
+void** const& kCollNodeVtable = Vt::kCollGridNode; // (the collision grid's lists')
+void** const& kCollHeadVtable = Vt::kCollGridHead;
 
 template <typename R = void, typename... A>
 R Virtual(void* object, int slot, A... args)
@@ -515,7 +518,21 @@ Mem::ListNode* SectorListNodes::DestroyHead(unsigned int flags)
     return node;
 }
 
+namespace {
+GAME_VTABLE(kSceneVtable, 0x006499E0, &Nx::CScene::Destroy, &Nx::CScene::PostLoad, &Nx::CScene::PostAdd,
+            &Nx::CScene::LoadTextures, &Nx::CScene::LoadCollision, &Nx::CScene::AddCollision,
+            &Nx::CScene::UnloadAddScene, &Nx::CScene::PlatCreateSector, Stubs::IgnoreArgument,
+            &Nx::CScene::GetDefaultColour, &Nx::CScene::SetRendered);
+GAME_VTABLE(kSectorNodeVtable, 0x006499D8, &Nx::SectorListNodes::DestroyNode);
+GAME_VTABLE(kSectorHeadVtable, 0x006499DC, &Nx::SectorListNodes::DestroyHead);
+} // namespace
+
 } // namespace Nx
+
+namespace Vt {
+GAME_VTABLE(kCollGridNode, 0x00645D7C, &Nx::CollGridListNodes::DestroyNode);
+GAME_VTABLE(kCollGridHead, 0x00645D80, &Nx::CollGridListNodes::DestroyHead);
+} // namespace Vt
 
 REPLACE(0x0049D390, &Nx::CScene::Construct);
 REPLACE(0x0049DD10, &Nx::CScene::DestroyBody);

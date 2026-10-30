@@ -16,15 +16,18 @@
 #include "game/lst/hashtable.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/nx/coll_static.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kShadowVtable = 0x00649E78;
-constexpr uint32_t kDetailedShadowVtable = 0x00649E98;
-constexpr uint32_t kSimpleShadowVtable = 0x00649EB8;
-constexpr uint32_t kShadowVolumeVtable = 0x00649ED8;
+extern void** const kShadowVtable;
+extern void** const kDetailedShadowVtable;
+extern void** const kSimpleShadowVtable;
+extern void** const kShadowVolumeVtable;
 
 void DeleteThrough0(void* object)
 {
@@ -339,6 +342,21 @@ void __cdecl ReleaseShadowEdges(uint32_t key)
     EdgeTable().FlushItem(key);
     Mem::Manager::Get()->Free(edges);
 }
+
+namespace {
+GAME_VTABLE(kShadowVtable, 0x00649E78, &Nx::CShadow::Destroy, &Nx::CShadow::Update,
+            &Nx::CollGeometryStubs::DebugRender, Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::DoNothing,
+            Stubs::DoNothing, Stubs::IgnoreArguments2);
+GAME_VTABLE(kDetailedShadowVtable, 0x00649E98, &Nx::CDetailedShadow::Destroy, &Nx::CShadow::Update,
+            &Nx::CDetailedShadow::SetPosition, &Nx::CDetailedShadow::SetLightDirection, Stubs::IgnoreArgument,
+            Stubs::DoNothing, Stubs::DoNothing, Stubs::IgnoreArguments2);
+GAME_VTABLE(kSimpleShadowVtable, 0x00649EB8, &Nx::CSimpleShadow::Destroy, &Nx::CSimpleShadow::Update,
+            &Nx::CollGeometryStubs::DebugRender, Stubs::IgnoreArgument, Stubs::IgnoreArgument,
+            &Nx::CSimpleShadow::Hide, &Nx::CSimpleShadow::Show, Stubs::IgnoreArguments2);
+GAME_VTABLE(kShadowVolumeVtable, 0x00649ED8, &Nx::CShadowVolume::Destroy, &Nx::CShadow::Update,
+            &Nx::CShadowVolume::SetPosition, &Nx::CShadowVolume::SetLightDirection, &Nx::CShadowVolume::SetMatrix,
+            Stubs::DoNothing, Stubs::DoNothing, &Nx::CShadowVolume::SetModel);
+} // namespace
 
 } // namespace Nx
 

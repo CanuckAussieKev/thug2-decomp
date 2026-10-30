@@ -6,17 +6,18 @@
 #include "game/core/mem.h"
 #include "game/lst/head.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Tsk {
 
 namespace {
 
-void** const kBaseTaskVtable = reinterpret_cast<void**>(0x0064548C);
-void** const kTaskNodeVtable = reinterpret_cast<void**>(0x0064549C);       // Lst::Node<BaseTask>
-void** const kTaskSearchVtable = reinterpret_cast<void**>(0x00645498);     // Lst::Search<BaseTask>
-void** const kStackListSearchVtable = reinterpret_cast<void**>(0x006454A0); // Lst::Search<StackList>
-void** const kStackListNodeVtable = reinterpret_cast<void**>(0x006454A4);  // Lst::Node<StackList>
-void** const kStackListHeadVtable = reinterpret_cast<void**>(0x006454A8);  // Lst::Head<StackList>
+extern void** const kBaseTaskVtable;
+extern void** const kTaskNodeVtable;       // Lst::Node<BaseTask>
+extern void** const kTaskSearchVtable;     // Lst::Search<BaseTask>
+extern void** const kStackListSearchVtable; // Lst::Search<StackList>
+extern void** const kStackListNodeVtable;  // Lst::Node<StackList>
+extern void** const kStackListHeadVtable;  // Lst::Head<StackList>
 
 void* const kHeadData = reinterpret_cast<void*>(-1);
 
@@ -372,6 +373,16 @@ void Stack::DeletePoppedLists()
         Mem::Manager::Get()->Free(list);
     }
 }
+
+namespace {
+GAME_VTABLE(kBaseTaskVtable, 0x0064548C, GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
+            &Tsk::BaseTask::ScalarDelete);
+GAME_VTABLE(kTaskNodeVtable, 0x0064549C, &Tsk::TaskNode::Destroy);
+GAME_VTABLE(kTaskSearchVtable, 0x00645498, &Tsk::Search::DestroyTaskSearch);
+GAME_VTABLE(kStackListSearchVtable, 0x006454A0, &Tsk::Search::DestroyStackListSearch);
+GAME_VTABLE(kStackListNodeVtable, 0x006454A4, &Tsk::StackListNode::Destroy);
+GAME_VTABLE(kStackListHeadVtable, 0x006454A8, &Tsk::StackListNode::DestroyHead);
+} // namespace
 
 } // namespace Tsk
 

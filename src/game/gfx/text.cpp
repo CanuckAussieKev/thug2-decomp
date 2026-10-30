@@ -24,10 +24,20 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 #include "game/gfx/device.h"
 #include "game/gfx/engine.h"
 
 namespace Nx {
+
+namespace {
+extern void** const kSTextVtable;
+} // namespace
+
+
+// The vertices' store (0x7000 bytes, as words) and the quads' triangle indices (256 quads of six).
+GAME_GLOBAL(uint32_t[0x1C00], g_textVertexStore, 0x00779FD8);
+GAME_GLOBAL(uint16_t[0x100 * 6], g_textQuadIndices, 0x00780FF0);
 
 GAME_GLOBAL(SFont*, g_fontList, 0x00780FD8);
 GAME_GLOBAL(SFont*, g_buttonFont, 0x00780FDC);
@@ -424,8 +434,8 @@ F TextureMethod(void* texture, int offset)
 
 // The vertices' store (BeginDraw points the buffer at it) and the quads' triangles as indices into it (made the
 // first time they're drawn).
-TextVertex* VertexStore() { return reinterpret_cast<TextVertex*>(0x00779FD8); }
-uint16_t* QuadIndices() { return reinterpret_cast<uint16_t*>(0x00780FF0); }
+TextVertex* VertexStore() { return reinterpret_cast<TextVertex*>(g_textVertexStore); }
+uint16_t* QuadIndices() { return g_textQuadIndices; }
 bool& QuadIndicesMade() { return g_quadIndicesMade; }
 constexpr int kQuads = 0x100;
 
@@ -451,14 +461,14 @@ uint32_t U32(const uint8_t* p)
 SText* SText::Construct(float priority)
 {
     reinterpret_cast<SDraw2D*>(this)->Construct(priority, true);
-    vtable = reinterpret_cast<void**>(0x0064A89C);
+    vtable = kSTextVtable;
     return this;
 }
 
 // 0x004CEEF0
 void SText::DestroyBody()
 {
-    vtable = reinterpret_cast<void**>(0x0064A89C);
+    vtable = kSTextVtable;
     reinterpret_cast<SDraw2D*>(this)->DestroyBody();
 }
 
@@ -688,6 +698,11 @@ void SFont::Unload(SFont* font)
     Mem::Free(font->chars);
     Mem::Free(font);
 }
+
+namespace {
+GAME_VTABLE(kSTextVtable, 0x0064A89C, &Nx::SText::Destroy, &Nx::SText::ResetVertices, &Nx::SText::Draw,
+            &Nx::SText::DrawVertices);
+} // namespace
 
 } // namespace Nx
 

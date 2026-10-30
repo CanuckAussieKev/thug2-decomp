@@ -17,6 +17,8 @@
 #include "game/obj/rail_manager.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "game/core/game_vtables.h"
+#include "game/front/screen_constants.h"
 #include "imgui.h"
 #include "game/skate/skate_module.h"
 
@@ -90,7 +92,7 @@ float Threshold(float angle, float factor)
 
 namespace {
 
-constexpr uint32_t kCollStaticVtable = 0x00645C18;
+void** const& kCollStaticVtable = Vt::kCollStatic;
 constexpr float kRadius = 3000.0f;
 constexpr int kMaxFaces = 12000;
 constexpr uint32_t kRail = 0xF040F0FF;
@@ -116,7 +118,7 @@ float GameThreshold()
     if (g_threshold < 0.0f) {
         // (0x005003A0: the script float 0x3EEDE4D3 - 0x00478F00 with its assert on, as it asks - times 0x00645464)
         float angle = Script::GetFloat(0x3EEDE4D3u); // (the original also passes 1, unused)
-        float factor = *reinterpret_cast<const float*>(0x00645464);
+        float factor = ::CFuncs::g_degreesToRadians;
         g_threshold = Threshold(angle, factor);
     }
     return g_threshold;
@@ -196,7 +198,7 @@ void AddOverlay(const Overlays::Painter& painter)
         [](void* context, uint32_t checksum, uint8_t* sector) {
             auto* w = static_cast<Walk*>(context);
             uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
-            if (!coll || *reinterpret_cast<uint32_t*>(coll) != kCollStaticVtable || (coll[0x08] & 4))
+            if (!coll || *reinterpret_cast<void***>(coll) != kCollStaticVtable || (coll[0x08] & 4))
                 return; // (no collision, or switched off)
             const auto* tri = *reinterpret_cast<const Nx::CCollObjTriData* const*>(coll + 0x0C);
             if (!tri || !tri->m_numFaces || View::HiddenSector(checksum))

@@ -8,12 +8,15 @@
 #include "game/core/crc.h"
 #include "game/core/mem.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/gfx/viewport.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kTextureVtable = 0x00649AF0;
+extern void** const kTextureVtable;
 
 } // namespace
 
@@ -174,6 +177,19 @@ __declspec(naked) void VirtualSlot41Jump()
         jmp dword ptr [eax + 0xA4]
     }
 }
+
+namespace {
+GAME_VTABLE(kTextureVtable, 0x00649AF0, &Nx::CTexture::Destroy, &Nx::CViewport::QueryPoint, Stubs::ReturnFalse5,
+            &Nx::CViewport::QueryRect, Stubs::ReturnFalse1, Stubs::ReturnFalse4, Stubs::ReturnFalse1,
+            Stubs::ReturnFalse1, Stubs::ReturnFalse2, Stubs::ReturnFalse2, Stubs::ReturnFalse, Stubs::ReturnFalse5,
+            Stubs::ReturnFalse2, Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnFalse2, Stubs::ReturnFalse2,
+            &Nx::CViewport::QueryPoint, Stubs::ReturnFalse4, Stubs::ReturnFalse1, Stubs::ReturnFalse7,
+            &Nx::CViewport::QueryPoint, Stubs::ReturnFalse5, Stubs::ReturnFalse2, Stubs::ReturnFalse4,
+            Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::IgnoreArguments2,
+            Stubs::ReturnFalse1, Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnZeroWord,
+            Stubs::ReturnZeroWord, Stubs::ReturnFalse, Stubs::ReturnZero, Stubs::IgnoreArgument, Stubs::ReturnFalse,
+            Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnFalse2);
+} // namespace
 
 } // namespace Nx
 

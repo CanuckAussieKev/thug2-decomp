@@ -19,17 +19,19 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
 
 GAME_GLOBAL(Lst::HashTable*, g_shadowCasters, 0x007CA970);
 GAME_GLOBAL(bool, g_pixelShadersMade, 0x007CAA30);
+GAME_GLOBAL(void*[kPixelShaderCount], g_pixelShaders, 0x007CA920);
 
 namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
-void*& Handle(uint32_t address) { return GameVariable<void*>(address); }
+void*& Handle(int slot) { return g_pixelShaders[slot]; }
 // The cache of generated shaders (a hash table kept in place at 0x007CA9C0), by configuration key.
 Lst::HashTable& Cache() { return GameVariable<Lst::HashTable>(0x007CA9C0); }
 
@@ -93,31 +95,31 @@ void __cdecl CreatePixelShaders()
     if (done)
         return;
     done = true;
-    for (uint32_t address = 0x007CA920; address <= 0x007CA964; address += 4)
-        Handle(address) = nullptr;
+    for (int slot = kPixelShader920; slot < kPixelShaderCount; ++slot)
+        Handle(slot) = nullptr;
     if (!g_shadersAvailable) {
         // No pixel shaders: numbers the stand-in texture stages tell apart.
-        Handle(0x007CA964) = reinterpret_cast<void*>(1);
-        Handle(0x007CA960) = reinterpret_cast<void*>(2);
-        Handle(0x007CA95C) = reinterpret_cast<void*>(3);
-        Handle(0x007CA958) = reinterpret_cast<void*>(4);
-        Handle(0x007CA954) = reinterpret_cast<void*>(5);
-        Handle(0x007CA950) = reinterpret_cast<void*>(6);
-        Handle(0x007CA94C) = reinterpret_cast<void*>(7);
-        Handle(0x007CA930) = reinterpret_cast<void*>(8);
-        Handle(0x007CA92C) = reinterpret_cast<void*>(9);
-        Handle(0x007CA944) = reinterpret_cast<void*>(10);
+        Handle(kPixelShader964) = reinterpret_cast<void*>(1);
+        Handle(kPixelShader960) = reinterpret_cast<void*>(2);
+        Handle(kPixelShader95C) = reinterpret_cast<void*>(3);
+        Handle(kPixelShader958) = reinterpret_cast<void*>(4);
+        Handle(kPixelShader954) = reinterpret_cast<void*>(5);
+        Handle(kPixelShader950) = reinterpret_cast<void*>(6);
+        Handle(kPixelShader94C) = reinterpret_cast<void*>(7);
+        Handle(kPixelShader930) = reinterpret_cast<void*>(8);
+        Handle(kPixelShader92C) = reinterpret_cast<void*>(9);
+        Handle(kPixelShader944) = reinterpret_cast<void*>(10);
     } else {
         void* shader = nullptr;
         void* errors = nullptr;
         struct Fixed {
             const char* source;
-            uint32_t handle;
+            int handle;
         };
         static const Fixed kFixed[] = {
-            {kTextureVertexX4, 0x007CA964},          {kVertexFactor, 0x007CA95C},
-            {kBloomCutoff, 0x007CA948},              {kVertexAlphaTextureAlpha, 0x007CA944},
-            {kConstantAlphaTextureAlpha, 0x007CA940}, {kTextureConstantAlpha, 0x007CA960},
+            {kTextureVertexX4, kPixelShader964},          {kVertexFactor, kPixelShader95C},
+            {kBloomCutoff, kPixelShader948},              {kVertexAlphaTextureAlpha, kPixelShader944},
+            {kConstantAlphaTextureAlpha, kPixelShader940}, {kTextureConstantAlpha, kPixelShader960},
         };
         for (const Fixed& f : kFixed) {
             AssembleShader(f.source, static_cast<uint32_t>(std::strlen(f.source)), &shader, &errors);
@@ -250,14 +252,14 @@ void __cdecl MaterialPixelShader(const void* material, void** shader)
         return;
     }
     if (!*reinterpret_cast<const uint32_t*>(static_cast<const uint8_t*>(material) + 0x30)) { // no texture
-        *shader = Handle(0x007CA95C);
+        *shader = Handle(kPixelShader95C);
         return;
     }
     uint32_t alphaFlags = PassAlphaFlags(material);
     if (BlendMode(material, 0) == 9)
-        *shader = Handle(alphaFlags ? 0x007CA940 : 0x007CA944);
+        *shader = Handle(alphaFlags ? kPixelShader940 : kPixelShader944);
     else
-        *shader = Handle(alphaFlags ? 0x007CA960 : 0x007CA964);
+        *shader = Handle(alphaFlags ? kPixelShader960 : kPixelShader964);
 }
 
 } // namespace Nx

@@ -15,6 +15,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Nx {
 
@@ -28,7 +29,7 @@ GAME_GLOBAL(sWorldLights, g_worldLights, 0x0067DC98, 0, nullptr, nullptr, 0.5f, 
 GAME_GLOBAL(sWorldLights[4], g_worldLightStack, 0x006FAF10); // (the saved ones: PushLights / PopLights)
 namespace {
 
-constexpr uint32_t kDynamicLightVtable = 0x00649290;
+extern void** const kDynamicLightVtable;
 constexpr int kStackDepth = 4;
 constexpr int kMaxDynamicLights = 256;
 
@@ -390,6 +391,11 @@ double CDynamicLightBase::Falloff(float distance)
 {
     return static_cast<double>(distance) * inverseRadius;
 }
+
+namespace {
+GAME_VTABLE(kDynamicLightVtable, 0x00649290, &Nx::CDynamicLightBase::IsOn, &Nx::CDynamicLightBase::InReach,
+            &Nx::CDynamicLightBase::Falloff);
+} // namespace
 
 } // namespace Nx
 

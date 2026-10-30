@@ -11,6 +11,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/settings.h"
+#include "game/gfx/camera.h"
 #include "game/gfx/device.h"
 
 #pragma warning(disable : 4996) // (sprintf / wcscpy: the original's own, into its fixed buffers)
@@ -22,6 +24,14 @@ GAME_GLOBAL(IDirectInputDevice8A*, g_keyboardDevice, 0x007D69D4);
 
 // The key bindings (0x98 actions: -1 for none; the menus' hints and the pads' keyboard actions read them).
 GAME_GLOBAL(int32_t[0x98], g_keyBindings, 0x007D6770);
+GAME_GLOBAL(IDirectInputDevice8A*[kPorts], g_joysticks, 0x007D6318);
+GAME_GLOBAL(IDirectInputEffect*[kPorts], g_effects, 0x007D6668); // each joystick's constant-force effect (rumble)
+GAME_GLOBAL(uint32_t[kPorts], g_forceAxisCounts, 0x007D42C8);
+GAME_GLOBAL(uint32_t[2 * kPorts], g_forceResolutions, 0x007D42D0);
+constexpr int kKeyNameLength = 15;
+GAME_GLOBAL(wchar_t[256][kKeyNameLength], g_keyNames, 0x007D42F8);
+GAME_GLOBAL(uint8_t[256], g_keys, 0x007D6670);
+GAME_GLOBAL(uint8_t[256], g_lastKeys, 0x007D6320);
 // The joysticks' states: this frame's and the last.
 GAME_GLOBAL(DIJOYSTATE2[2], g_joystickStates, 0x007D60F8);
 GAME_GLOBAL(DIJOYSTATE2[2], g_lastJoystickStates, 0x007D6448);
@@ -42,24 +52,23 @@ GAME_GLOBAL(uint8_t, g_mouseInvertX, 0x007D6A44);
 GAME_GLOBAL(uint8_t, g_mouseInvertY, 0x007D6A45);
 
 IDirectInputDevice8A*& Mouse() { return g_mouse; }
-IDirectInputDevice8A** Joysticks() { return reinterpret_cast<IDirectInputDevice8A**>(0x007D6318); }
+IDirectInputDevice8A** Joysticks() { return g_joysticks; }
 // Each joystick's constant-force effect (rumble: SetActuators).
-IDirectInputEffect** Effects() { return reinterpret_cast<IDirectInputEffect**>(0x007D6668); }
+IDirectInputEffect** Effects() { return g_effects; }
 
 // The devices' states: this frame's and the last.
 DIJOYSTATE2* JoystickStates() { return g_joystickStates; }
 DIJOYSTATE2* LastJoystickStates() { return g_lastJoystickStates; }
-uint8_t* Keys() { return reinterpret_cast<uint8_t*>(0x007D6670); }
-uint8_t* LastKeys() { return reinterpret_cast<uint8_t*>(0x007D6320); }
+uint8_t* Keys() { return g_keys; }
+uint8_t* LastKeys() { return g_lastKeys; }
 DIMOUSESTATE2& MouseState() { return g_mouseState; }
 DIMOUSESTATE2& LastMouseState() { return g_lastMouseState; }
 
 // Per joystick: how many force-feedback axes it has (at most two) and their force resolutions (two each).
-uint32_t* ForceAxisCounts() { return reinterpret_cast<uint32_t*>(0x007D42C8); }
-uint32_t* ForceResolutions() { return reinterpret_cast<uint32_t*>(0x007D42D0); }
+uint32_t* ForceAxisCounts() { return g_forceAxisCounts; }
+uint32_t* ForceResolutions() { return g_forceResolutions; }
 
-constexpr int kKeyNameLength = 15;
-wchar_t (*KeyNames())[kKeyNameLength] { return reinterpret_cast<wchar_t (*)[kKeyNameLength]>(0x007D42F8); }
+wchar_t (*KeyNames())[kKeyNameLength] { return g_keyNames; }
 
 HWND GameWindow() { return Nx::g_gameWindow; }
 
@@ -117,12 +126,11 @@ GUID ParseJoystickGuid(const char* text, DWORD size)
 // "distance": 1-100, the clipping distance from it; anything above 100 is none.
 void SetDistance(uint32_t distance)
 {
-    Options& options = GraphicsOptions();
-    options.distance = distance;
+    g_distanceSetting = distance;
     if (distance > 100)
-        options.distance = 0;
+        g_distanceSetting = 0;
     else if (distance != 0)
-        options.clippingDistance = static_cast<int32_t>(static_cast<double>(distance) * 5.0f + 95.0f);
+        Gfx::g_drawDistanceSetting = static_cast<int32_t>(static_cast<double>(distance) * 5.0f + 95.0f);
 }
 
 struct KeyNameEntry {
@@ -404,28 +412,27 @@ void LoadRegistryOptions(const char* key)
         SetDistance(value);
     if (RegQueryValueExA(options, "options", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
         ERROR_SUCCESS) {
-        Options& graphics = GraphicsOptions();
         if (value & 1)
-            graphics.fog = 1;
+            Nx::g_fogSetting = true;
         if (value & 2)
-            graphics.hqShadows = 1;
+            Nx::g_hqShadows = 1;
         if (value & 4)
-            graphics.option38 = 1;
+            reinterpret_cast<uint8_t*>(&g_options38And39)[0] = 1;
         if (value & 8)
-            graphics.option39 = 1;
+            reinterpret_cast<uint8_t*>(&g_options38And39)[1] = 1;
         if (value & 0x10)
-            graphics.option37 = 1;
+            g_option37 = 1;
         if (value & 0x20)
-            graphics.antialiasing = 1;
+            reinterpret_cast<uint8_t&>(Nx::g_antialiasing) = 1;
         if (value & 0x100)
-            graphics.distanceClipping = 1;
+            Nx::g_distanceClipping = true;
     }
     if (RegQueryValueExA(options, "distance", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
         ERROR_SUCCESS)
         SetDistance(value);
     if (RegQueryValueExA(options, "resolution", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
         ERROR_SUCCESS)
-        GraphicsOptions().resolution = value > 3 ? 0 : value;
+        Nx::g_resolutionSetting = value > 3 ? 0 : value;
 
     // The joystick each port plays with (the text buffer isn't cleared before the first: a short value leaves
     // whatever was there after it).

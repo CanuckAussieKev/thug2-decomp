@@ -47,9 +47,18 @@ int (&History())[4] { return g_history; }
 uint64_t& LastFrameVblank() { return g_lastFrameVblank; }
 uint64_t& PreviousFrameVblank() { return g_previousFrameVblank; }
 int& HistoryIndex() { return g_historyIndex; }
-constexpr uint32_t kTimingBlock = 0x007D1E68;
-constexpr uint32_t kSavedTimingBlock = 0x007D1E30;
-constexpr size_t kTimingBlockSize = 0x38;
+// The timing block's copy Reset keeps (0x38 bytes, only ever written).
+struct TimingBlock {
+    float frameLength;
+    uint32_t pad;
+    double uncappedFrameLength;
+    int history[4];
+    uint64_t lastFrameVblank;
+    uint64_t previousFrameVblank;
+    int historyIndex;
+};
+static_assert(sizeof(TimingBlock) == 0x38, "the timing block's size");
+GAME_GLOBAL(TimingBlock, g_savedTimingBlock, 0x007D1E30);
 
 uint64_t& StartTimeStamp() { return g_startTimeStamp; }
 uint64_t& Unknown1EA8() { return g_unknown1EA8; }
@@ -95,7 +104,12 @@ void Reset()
     LastFrameVblank() = 0;
     PreviousFrameVblank() = 0;
     HistoryIndex() = 0;
-    std::memcpy(reinterpret_cast<void*>(kSavedTimingBlock), reinterpret_cast<void*>(kTimingBlock), kTimingBlockSize);
+    g_savedTimingBlock.frameLength = FrameLength();
+    g_savedTimingBlock.uncappedFrameLength = UncappedFrameLength();
+    std::memcpy(g_savedTimingBlock.history, History(), sizeof(g_savedTimingBlock.history));
+    g_savedTimingBlock.lastFrameVblank = LastFrameVblank();
+    g_savedTimingBlock.previousFrameVblank = PreviousFrameVblank();
+    g_savedTimingBlock.historyIndex = HistoryIndex();
     Vblanks() = 0;
     Unknown1EE0() = 0;
 }

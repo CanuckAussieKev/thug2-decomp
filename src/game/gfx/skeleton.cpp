@@ -13,12 +13,13 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Gfx {
 
 namespace {
 
-constexpr uint32_t kSkeletonDataVtable = 0x00649F48;
+extern void** const kSkeletonDataVtable;
 constexpr uint32_t kLocalScaleExceptions = 0x20D9AC2F; // a script array of bone names
 constexpr uint32_t kNotLocal = 0x9E3A09FC;
 constexpr uint32_t kMirroredBone = 0x580C0963;
@@ -571,6 +572,10 @@ void CSkeleton::CollapseZeroScaledBones()
         mp_matrices[i].row[3] = mp_matrices[0].row[3];
     }
 }
+
+namespace {
+GAME_VTABLE(kSkeletonDataVtable, 0x00649F48, &Gfx::CSkeletonData::Destroy);
+} // namespace
 
 } // namespace Gfx
 

@@ -22,6 +22,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
@@ -30,7 +31,7 @@ GAME_GLOBAL(Lst::HashTable*, g_shatters, 0x007004B8);
 
 namespace {
 
-constexpr uint32_t kShatterVtable = 0x0064A4AC;
+extern void** const kShatterVtable;
 
 IDirect3DDevice9* DrawDevice() { return g_drawDevice; }
 Lst::HashTable* Shatters() { return g_shatters; }
@@ -315,6 +316,10 @@ void __cdecl ShatterGeom(uint8_t* geom)
         mesh->GetVertexBuffer(0)->Unlock();
     }
 }
+
+namespace {
+GAME_VTABLE(kShatterVtable, 0x0064A4AC, &Nx::CPcShatter::Destroy);
+} // namespace
 
 } // namespace Nx
 

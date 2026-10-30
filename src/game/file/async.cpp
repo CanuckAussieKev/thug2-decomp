@@ -15,9 +15,19 @@
 #include "game/sys/module.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/skate/skate_module.h"
+#include "game/core/stubs.h"
 #include "game/ass/assman.h"
 
+namespace {
+extern void** const kAsyncFileHandleAdapterVtable;
+extern void** const kAsyncLoaderModuleMethodsVtable;
+extern void** const kPcAsyncFileHandleAdapterVtable;
+} // namespace
+
 namespace File {
+
 
 static_assert(offsetof(AsyncFileHandle, m_callbackMask) == 0x14 && offsetof(AsyncFileHandle, m_blocking) == 0x21 &&
                   offsetof(AsyncFileHandle, m_fileSize) == 0x2C && offsetof(AsyncFileHandle, m_busyCount) == 0x38,
@@ -97,7 +107,7 @@ DWORD WINAPI AsyncIoThread(void*);
 void ConstructBase(AsyncFileHandle* file)
 {
     ResetFields(file);
-    file->m_vtable = reinterpret_cast<void**>(0x00657EC8);
+    file->m_vtable = kAsyncFileHandleAdapterVtable;
     // The base class's platform init, through the base vtable (a debug stub).
     reinterpret_cast<bool(__thiscall*)(AsyncFileHandle*)>(file->m_vtable[AsyncFileHandle::kPlatInit])(file);
 }
@@ -359,7 +369,7 @@ struct AsyncFileHandleAdapter {
     AsyncFileHandle* Destroy(unsigned int flags)
     {
         auto* file = reinterpret_cast<AsyncFileHandle*>(this);
-        file->m_vtable = reinterpret_cast<void**>(0x00657EC8);
+        file->m_vtable = kAsyncFileHandleAdapterVtable;
         if (flags & 1)
             Mem::Free(file);
         return file;
@@ -399,6 +409,7 @@ struct BaseStubs {
 };
 
 } // namespace
+
 
 REPLACE(0x005B66F0, &AsyncFileHandle::Init);
 REPLACE(0x005B6380, &AsyncFileHandle::SetCallback);
@@ -645,7 +656,7 @@ void PlatformInit()
         auto* file = static_cast<PcAsyncFileHandle*>(Mem::New(sizeof(PcAsyncFileHandle)));
         if (file) {
             ConstructBase(file);
-            file->m_vtable = reinterpret_cast<void**>(0x006583D8);
+            file->m_vtable = kPcAsyncFileHandleAdapterVtable;
             file->m_unknown7C = 0;
             file->m_destination = nullptr;
             file->m_tempBuffer = nullptr;
@@ -698,10 +709,10 @@ struct PcAsyncFileHandleAdapter {
     }
     void DestroyBody()
     {
-        reinterpret_cast<AsyncFileHandle*>(this)->m_vtable = reinterpret_cast<void**>(0x006583D8);
+        reinterpret_cast<AsyncFileHandle*>(this)->m_vtable = kPcAsyncFileHandleAdapterVtable;
         DestroyBaseBody();
     }
-    void DestroyBaseBody() { reinterpret_cast<AsyncFileHandle*>(this)->m_vtable = reinterpret_cast<void**>(0x00657EC8); }
+    void DestroyBaseBody() { reinterpret_cast<AsyncFileHandle*>(this)->m_vtable = kAsyncFileHandleAdapterVtable; }
 };
 
 } // namespace
@@ -809,13 +820,13 @@ struct AsyncLoaderModuleMethods {
     {
         AsyncLoaderModule* module = Self();
         File::ConstructModule(module);
-        module->m_vtable = reinterpret_cast<void**>(0x00658158);
+        module->m_vtable = kAsyncLoaderModuleMethodsVtable;
         auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
         if (task) {
             File::ConstructTask(task);
             task[7] = reinterpret_cast<uint32_t>(module);    // the task's data
             task[0] = 0x006476F0;                             // Tsk::Task<CAsyncFileLoader> vtable
-            task[6] = 0x005B6990;                             // its code: AsyncLoaderTask
+            task[6] = reinterpret_cast<uint32_t>(GAME_CODE(0x005B6990, File::AsyncLoaderTask)); // its code: AsyncLoaderTask
         }
         module->m_task = task;
         return module;
@@ -824,7 +835,7 @@ struct AsyncLoaderModuleMethods {
     void DestroyBody()
     {
         AsyncLoaderModule* module = Self();
-        module->m_vtable = reinterpret_cast<void**>(0x00658158);
+        module->m_vtable = kAsyncLoaderModuleMethodsVtable;
         if (auto* task = static_cast<void***>(module->m_task))
             reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*task)[2])(task, 1);
         File::DestroyModule(module);
@@ -856,3 +867,18 @@ REPLACE(0x005B6BC0, &AsyncLoaderModuleMethods::Construct);
 REPLACE(0x005B6660, &AsyncLoaderModuleMethods::DestroyBody);
 REPLACE(0x005B6940, &AsyncLoaderModuleMethods::Destroy);
 REPLACE(0x005B6970, &AsyncLoaderModuleMethods::Start);
+
+namespace {
+GAME_VTABLE(kAsyncFileHandleAdapterVtable, 0x00657EC8, &AsyncFileHandleAdapter::Destroy,
+            &AsyncFileHandle::IoCallback);
+GAME_VTABLE(kAsyncLoaderModuleMethodsVtable, 0x00658158, &AsyncLoaderModuleMethods::Destroy,
+            &AsyncLoaderModuleMethods::Start, &Mdl::Skate::StopCallback);
+GAME_VTABLE(kPcAsyncFileHandleAdapterVtable, 0x006583D8, &PcAsyncFileHandleAdapter::Destroy,
+            &File::PcAsyncFileHandle::PcIoCallback, &File::PcAsyncFileHandle::PlatInit,
+            &File::PcAsyncFileHandle::PlatOpen, &File::PcAsyncFileHandle::PlatClose,
+            &File::PcAsyncFileHandle::PlatIsDone, &File::PcAsyncFileHandle::PlatIsBusy,
+            &File::PcAsyncFileHandle::PlatIsEOF, Stubs::IgnoreArgument, Stubs::IgnoreArgument,
+            Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::IgnoreArgument, &File::PcAsyncFileHandle::PlatLoad,
+            &File::PcAsyncFileHandle::PlatRead, Stubs::ReturnZero3, Stubs::ReturnZero2, Stubs::ReturnZero2,
+            &BaseStubs::Cancel);
+} // namespace

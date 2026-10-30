@@ -25,13 +25,14 @@
 #include "game/nx/feeler.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kWeatherVtable = 0x0064A860;
+extern void** const kWeatherVtable;
 constexpr int kNoGround = 800000; // (a cell's height when the cast hit nothing)
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
@@ -560,6 +561,12 @@ void CPcWeather::UpdateGrid()
     nextSplash = 0;
     feeler.m_object.Release();
 }
+
+namespace {
+GAME_VTABLE(kWeatherVtable, 0x0064A860, &Nx::CPcWeather::Destroy, &Nx::CPcWeather::UpdateGrid,
+            &Nx::CPcWeather::Update, &Nx::CPcWeather::Render, &Nx::CPcWeather::SetRainBlendMode,
+            &Nx::CPcWeather::SetSplashBlendMode, &Nx::CPcWeather::SetSnowBlendMode);
+} // namespace
 
 } // namespace Nx
 

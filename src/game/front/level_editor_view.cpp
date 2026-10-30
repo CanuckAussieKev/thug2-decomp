@@ -20,6 +20,7 @@
 #include "game/obj/object.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "game/core/game_vtables.h"
 
 namespace Front::LevelEditor::View {
 
@@ -173,7 +174,7 @@ std::vector<uint32_t> IsolateOthers(const std::vector<uint32_t>& all, const std:
 
 namespace {
 
-constexpr uint32_t kCollStaticVtable = 0x00645C18;
+void** const& kCollStaticVtable = Vt::kCollStatic;
 
 template <typename F>
 F Method(void* object, int offset)
@@ -189,7 +190,7 @@ uint8_t* CollOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 
 Nx::CCollObjTriData* AnyTriDataOf(uint8_t* sector, bool* off)
 {
     uint8_t* coll = CollOf(sector);
-    if (!coll || *reinterpret_cast<uint32_t*>(coll) != kCollStaticVtable)
+    if (!coll || *reinterpret_cast<void***>(coll) != kCollStaticVtable)
         return nullptr;
     if (off)
         *off = (coll[0x08] & 4) != 0;

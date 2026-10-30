@@ -12,9 +12,11 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 #include "game/script/cfuncs_scene.h"
 
 namespace GameConfig {
+
 
 GAME_GLOBAL(bool, g_fromCD, 0x00684FA8, true);
 GAME_GLOBAL(int, g_frameRate, 0x00684FB4, 60);
@@ -44,8 +46,6 @@ char* PathPrefix() { return g_pathPrefix; }       // (0x80 bytes)
 char* BootstrapReturn() { return g_bootstrapReturn; }  // where a bootstrap demo returns to
 char* BootstrapArgument() { return g_bootstrapArgument; } // what it passes back
 const char* const kEmpty = reinterpret_cast<const char*>(0x006469B4); // ""
-
-const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
 
 // strcpy (unbounded, as the original's).
 void CopyString(char* to, const char* from) { std::memcpy(to, from, std::strlen(from) + 1); }
@@ -142,15 +142,15 @@ const char* __cdecl GetPathPrefix() { return PathPrefix(); }
 const char* __cdecl GetLanguageName()
 {
     switch (Language()) {
-    case 1: return Text(0x00657D4C); // "Japanese"
-    case 2: return Text(0x00653EBC); // "English"
-    case 3: return Text(0x00656E78); // "French"
-    case 4: return Text(0x00656E70); // "Spanish"
-    case 5: return Text(0x00656E80); // "German"
-    case 6: return Text(0x00656E68); // "Italian"
-    case 7: return Text(0x00657D44); // "Dutch"
-    case 8: return Text(0x00657D38); // "Portuguese"
-    default: return Text(0x00657D24); // "Unknown language"
+    case 1: return GAME_TEXT(0x00657D4C, "Japanese"); // "Japanese"
+    case 2: return GAME_TEXT(0x00653EBC, "English"); // "English"
+    case 3: return GAME_TEXT(0x00656E78, "French"); // "French"
+    case 4: return GAME_TEXT(0x00656E70, "Spanish"); // "Spanish"
+    case 5: return GAME_TEXT(0x00656E80, "German"); // "German"
+    case 6: return GAME_TEXT(0x00656E68, "Italian"); // "Italian"
+    case 7: return GAME_TEXT(0x00657D44, "Dutch"); // "Dutch"
+    case 8: return GAME_TEXT(0x00657D38, "Portuguese"); // "Portuguese"
+    default: return GAME_TEXT(0x00657D24, "Unknown language"); // "Unknown language"
     }
 }
 
@@ -158,10 +158,10 @@ const char* __cdecl GetLanguageName()
 const char* __cdecl GetTerritoryName()
 {
     switch (Territory()) {
-    case 1: return Text(0x00657D58); // "Europe"
-    case 2: return Text(0x00657D60); // "US"
-    case 3: return Text(0x00657D64); // "Asia"
-    default: return Text(0x00657D6C); // "Unknown territory"
+    case 1: return GAME_TEXT(0x00657D58, "Europe"); // "Europe"
+    case 2: return GAME_TEXT(0x00657D60, "US"); // "US"
+    case 3: return GAME_TEXT(0x00657D64, "Asia"); // "Asia"
+    default: return GAME_TEXT(0x00657D6C, "Unknown territory"); // "Unknown territory"
     }
 }
 
@@ -169,13 +169,13 @@ const char* __cdecl GetTerritoryName()
 const char* __cdecl GetHardwareName()
 {
     switch (Hardware()) {
-    case 1: return Text(0x00657DCC); // "PS2"
-    case 2: return Text(0x00657DC0); // "PS2 ProView"
-    case 3: return Text(0x00657DB0); // "PS2 Dev System"
-    case 4: return Text(0x00657DA8); // "XBox"
-    case 5: return Text(0x00657D9C); // "GameCube"
-    case 7: return Text(0x00657D94); // "Win32"
-    default: return Text(0x00657D80); // "Unknown platform"
+    case 1: return GAME_TEXT(0x00657DCC, "PS2"); // "PS2"
+    case 2: return GAME_TEXT(0x00657DC0, "PS2 ProView"); // "PS2 ProView"
+    case 3: return GAME_TEXT(0x00657DB0, "PS2 Dev System"); // "PS2 Dev System"
+    case 4: return GAME_TEXT(0x00657DA8, "XBox"); // "XBox"
+    case 5: return GAME_TEXT(0x00657D9C, "GameCube"); // "GameCube"
+    case 7: return GAME_TEXT(0x00657D94, "Win32"); // "Win32"
+    default: return GAME_TEXT(0x00657D80, "Unknown platform"); // "Unknown platform"
     }
 }
 
@@ -183,9 +183,9 @@ const char* __cdecl GetHardwareName()
 const char* __cdecl GetDisplayTypeName()
 {
     switch (DisplayType()) {
-    case 0: return Text(0x00653EC4); // "PAL"
-    case 1: return Text(0x00657DD0); // "NTSC"
-    default: return Text(0x00657DD8); // "Unknown display type"
+    case 0: return GAME_TEXT(0x00653EC4, "PAL"); // "PAL"
+    case 1: return GAME_TEXT(0x00657DD0, "NTSC"); // "NTSC"
+    default: return GAME_TEXT(0x00657DD8, "Unknown display type"); // "Unknown display type"
     }
 }
 
@@ -195,11 +195,11 @@ const char* __cdecl GetPlatformExtension()
     switch (Hardware()) {
     case 1:
     case 2:
-    case 3: return Text(0x00657E00); // "ps2"
-    case 4: return Text(0x00657DFC); // "xbx"
-    case 5: return Text(0x00657DF8); // "ngc"
-    case 6: return Text(0x00657DF4); // "xen"
-    default: return Text(0x00657DF0); // "???"
+    case 3: return GAME_TEXT(0x00657E00, "ps2"); // "ps2"
+    case 4: return GAME_TEXT(0x00657DFC, "xbx"); // "xbx"
+    case 5: return GAME_TEXT(0x00657DF8, "ngc"); // "ngc"
+    case 6: return GAME_TEXT(0x00657DF4, "xen"); // "xen"
+    default: return GAME_TEXT(0x00657DF0, "???"); // "???"
     }
 }
 
@@ -215,31 +215,31 @@ void __cdecl Init(int argc, char** argv)
 {
     CopyString(PathPrefix(), kEmpty);
     ReadRegistry(argc, argv);
-    if (GotArgument(Text(0x00655C24), argc, argv)) // "CD"
+    if (GotArgument(GAME_TEXT(0x00655C24, "CD"), argc, argv)) // "CD"
         FromCD() = true;
-    if (GotArgument(Text(0x00655C1C), argc, argv)) // "NotCD"
+    if (GotArgument(GAME_TEXT(0x00655C1C, "NotCD"), argc, argv)) // "NotCD"
         FromCD() = false;
-    if (GotArgument(Text(0x00657E6C), argc, argv)) // "NoExtraMem"
+    if (GotArgument(GAME_TEXT(0x00657E6C, "NoExtraMem"), argc, argv)) // "NoExtraMem"
         ExtraMemory() = false;
-    if (GotArgument(Text(0x00655C28), argc, argv)) { // "Bootstrap"
+    if (GotArgument(GAME_TEXT(0x00655C28, "Bootstrap"), argc, argv)) { // "Bootstrap"
         Bootstrap() = true;
         if (argc > 2) {
             CopyString(BootstrapReturn(), argv[2]);
             if (argc > 3)
                 CopyString(BootstrapArgument(), argv[3]);
             else
-                CopyString(BootstrapArgument(), Text(0x00657E64)); // "THUG2" (the original's sprintf)
+                CopyString(BootstrapArgument(), GAME_TEXT(0x00657E64, "THUG2")); // "THUG2" (the original's sprintf)
             // "This bootstrap demo will return to %s passing back: %s\n"
-            Dbg::Printf(Text(0x00657E2C), BootstrapReturn(), BootstrapArgument());
+            Dbg::Printf(GAME_TEXT(0x00657E2C, "This bootstrap demo will return to %s passing back: %s\n"), BootstrapReturn(), BootstrapArgument());
         }
     }
-    if (GotArgument(Text(0x00657E1C), argc, argv)) // "NotBootstrap"
+    if (GotArgument(GAME_TEXT(0x00657E1C, "NotBootstrap"), argc, argv)) // "NotBootstrap"
         Bootstrap() = false;
-    if (GotArgument(Text(0x00657E18), argc, argv)) // "Pal"
+    if (GotArgument(GAME_TEXT(0x00657E18, "Pal"), argc, argv)) // "Pal"
         DisplayType() = 0;
-    if (GotArgument(Text(0x00657DD0), argc, argv)) // "NTSC"
+    if (GotArgument(GAME_TEXT(0x00657DD0, "NTSC"), argc, argv)) // "NTSC"
         DisplayType() = 1;
-    if (const char* rate = GetArgumentValue(Text(0x00657E0C), argc, argv)) { // "FrameRate"
+    if (const char* rate = GetArgumentValue(GAME_TEXT(0x00657E0C, "FrameRate"), argc, argv)) { // "FrameRate"
         if (std::memcmp(rate, "50", 3) == 0)
             FrameRate() = 50;
         if (std::memcmp(rate, "60", 3) == 0)
@@ -248,12 +248,12 @@ void __cdecl Init(int argc, char** argv)
 }
 
 // 0x005B6250
-const char* __cdecl GetBootstrapPrefix() { return Bootstrap() ? Text(0x00657E78) : kEmpty; } // "THUG2\"
+const char* __cdecl GetBootstrapPrefix() { return Bootstrap() ? GAME_TEXT(0x00657E78, "THUG2\\") : kEmpty; } // "THUG2\"
 
 // 0x005B6270
 void __cdecl ReadRegistry(int, char**)
 {
-    const char* path = Text(0x00657E8C); // "Software\Activision\Tony Hawk's Underground 2\Install"
+    const char* path = GAME_TEXT(0x00657E8C, "Software\\Activision\\Tony Hawk's Underground 2\\Install"); // "Software\Activision\Tony Hawk's Underground 2\Install"
     Hardware() = 7;
     Language() = 2;
     ExtraMemory() = false;
@@ -263,12 +263,12 @@ void __cdecl ReadRegistry(int, char**)
     DWORD size;
     if (RegCreateKeyA(HKEY_CURRENT_USER, path, &key) == ERROR_SUCCESS) {
         size = 4;
-        RegQueryValueExA(key, Text(0x00657E80), nullptr, &type, reinterpret_cast<BYTE*>(&language), &size); // "language"
+        RegQueryValueExA(key, GAME_TEXT(0x00657E80, "language"), nullptr, &type, reinterpret_cast<BYTE*>(&language), &size); // "language"
         RegCloseKey(key);
     }
     if (language == 0 && RegCreateKeyA(HKEY_LOCAL_MACHINE, path, &key) == ERROR_SUCCESS) {
         size = 4;
-        RegQueryValueExA(key, Text(0x00657E80), nullptr, &type, reinterpret_cast<BYTE*>(&language), &size);
+        RegQueryValueExA(key, GAME_TEXT(0x00657E80, "language"), nullptr, &type, reinterpret_cast<BYTE*>(&language), &size);
         RegCloseKey(key);
     }
     switch (language) {

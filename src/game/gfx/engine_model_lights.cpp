@@ -13,6 +13,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Nx {
 
@@ -20,7 +21,7 @@ GAME_GLOBAL(uint32_t, g_lightCount, 0x006FAAE0);
 
 namespace {
 
-constexpr uint32_t kModelLightsVtable = 0x006491DC;
+extern void** const kModelLightsVtable;
 
 GAME_GLOBAL(Mth::Vector, g_lightDirection, 0x006FAACC);
 GAME_GLOBAL(uint32_t, g_lightDirectionGuard, 0x006FAADC);
@@ -39,7 +40,7 @@ R Virtual(CModelLights* lights, int slot, A... args)
     return reinterpret_cast<R(__thiscall*)(CModelLights*, A...)>(lights->m_vtable[slot])(lights, args...);
 }
 
-void Stub(uint32_t message) { Dbg::Printf(reinterpret_cast<const char*>(message)); }
+void Stub(const char* message) { Dbg::Printf(message); }
 
 // 2b - 1 times a range, plus 1 (the bright range above 0.5 - or NaN -, the dark one at and below).
 float Scaled(float brightness, float dark, float bright)
@@ -154,32 +155,32 @@ bool CModelLights::SetBrightness(float brightness)
 // 0x0048E4E0
 bool CModelLights::PlatSetLightAmbientColor(const uint32_t*)
 {
-    Stub(0x0064905C); // "STUB: CModelLights::SetLightAmbientColor\n"
+    Stub(GAME_TEXT(0x0064905C, "STUB: CModelLights::SetLightAmbientColor\n")); // "STUB: CModelLights::SetLightAmbientColor\n"
     return false;
 }
 // 0x0048E500
 bool CModelLights::PlatSetLightDirection(int, const Mth::Vector*)
 {
-    Stub(0x00649088); // "STUB: CModelLights::SetLightDirection\n"
+    Stub(GAME_TEXT(0x00649088, "STUB: CModelLights::SetLightDirection\n")); // "STUB: CModelLights::SetLightDirection\n"
     return false;
 }
 // 0x0048E520
 bool CModelLights::PlatSetLightDiffuseColor(int, const uint32_t*)
 {
-    Stub(0x006490B0); // "STUB: CModelLights::SetLightDiffuseColor\n"
+    Stub(GAME_TEXT(0x006490B0, "STUB: CModelLights::SetLightDiffuseColor\n")); // "STUB: CModelLights::SetLightDiffuseColor\n"
     return false;
 }
 // 0x0048E730
 uint32_t* CModelLights::PlatGetLightAmbientColor(uint32_t* out)
 {
-    Stub(0x00649210); // "STUB: CModelLights::GetLightAmbientColor\n"
+    Stub(GAME_TEXT(0x00649210, "STUB: CModelLights::GetLightAmbientColor\n")); // "STUB: CModelLights::GetLightAmbientColor\n"
     std::memset(out, 0, 4);
     return out;
 }
 // 0x0048E760 (the vector 0x006FAACC, its guard 0x006FAADC: zeroed the first time)
 Mth::Vector* CModelLights::PlatGetLightDirection(int)
 {
-    Stub(0x0064923C); // "STUB: CModelLights::GetLightDirection\n"
+    Stub(GAME_TEXT(0x0064923C, "STUB: CModelLights::GetLightDirection\n")); // "STUB: CModelLights::GetLightDirection\n"
     uint32_t& guard = g_lightDirectionGuard;
     auto* direction = &g_lightDirection;
     if (!(guard & 1)) {
@@ -191,33 +192,43 @@ Mth::Vector* CModelLights::PlatGetLightDirection(int)
 // 0x0048E7C0
 uint32_t* CModelLights::PlatGetLightDiffuseColor(uint32_t* out, int)
 {
-    Stub(0x00649264); // "STUB: CModelLights::GetLightDiffuseColor\n"
+    Stub(GAME_TEXT(0x00649264, "STUB: CModelLights::GetLightDiffuseColor\n")); // "STUB: CModelLights::GetLightDiffuseColor\n"
     std::memset(out, 0, 4);
     return out;
 }
 // 0x0048E5A0
 void CModelLights::PlatApplySceneLights(const Mth::Vector*, uint32_t)
 {
-    Stub(0x006491AC); // "STUB: CModelLights::plat_apply_scene_lights\n"
+    Stub(GAME_TEXT(0x006491AC, "STUB: CModelLights::plat_apply_scene_lights\n")); // "STUB: CModelLights::plat_apply_scene_lights\n"
 }
 // 0x0048E540
-void CModelLights::PlatUpdateBrightness(bool, bool) { Stub(0x006490DC); } // "STUB: CModelLights::UpdateBrightness\n"
+void CModelLights::PlatUpdateBrightness(bool, bool) { Stub(GAME_TEXT(0x006490DC, "STUB: CModelLights::UpdateBrightness\n")); } // "STUB: CModelLights::UpdateBrightness\n"
 // 0x0048E550
-void CModelLights::PlatEnableAmbientLight(bool) { Stub(0x00649104); } // "STUB: CModelLights::EnableAmbientLight\n"
+void CModelLights::PlatEnableAmbientLight(bool) { Stub(GAME_TEXT(0x00649104, "STUB: CModelLights::EnableAmbientLight\n")); } // "STUB: CModelLights::EnableAmbientLight\n"
 // 0x0048E560
-void CModelLights::PlatEnableDiffuseLight(int, bool) { Stub(0x0064912C); } // "STUB: CModelLights::EnableDiffuseLight\n"
+void CModelLights::PlatEnableDiffuseLight(int, bool) { Stub(GAME_TEXT(0x0064912C, "STUB: CModelLights::EnableDiffuseLight\n")); } // "STUB: CModelLights::EnableDiffuseLight\n"
 // 0x0048E570
 bool CModelLights::PlatIsAmbientLightEnabled()
 {
-    Stub(0x00649154); // "STUB: CModelLights::IsAmbientLightEnabled\n"
+    Stub(GAME_TEXT(0x00649154, "STUB: CModelLights::IsAmbientLightEnabled\n")); // "STUB: CModelLights::IsAmbientLightEnabled\n"
     return false;
 }
 // 0x0048E580
 bool CModelLights::PlatIsDiffuseLightEnabled(int)
 {
-    Stub(0x00649180); // "STUB: CModelLights::IsDiffuseLightEnabled\n"
+    Stub(GAME_TEXT(0x00649180, "STUB: CModelLights::IsDiffuseLightEnabled\n")); // "STUB: CModelLights::IsDiffuseLightEnabled\n"
     return false;
 }
+
+namespace {
+GAME_VTABLE(kModelLightsVtable, 0x006491DC, &Nx::CModelLights::Destroy, &Nx::CModelLights::PlatSetLightAmbientColor,
+            &Nx::CModelLights::PlatSetLightDirection, &Nx::CModelLights::PlatSetLightDiffuseColor,
+            &Nx::CModelLights::PlatGetLightAmbientColor, &Nx::CModelLights::PlatGetLightDirection,
+            &Nx::CModelLights::PlatGetLightDiffuseColor, &Nx::CModelLights::PlatApplySceneLights,
+            &Nx::CModelLights::PlatUpdateBrightness, &Nx::CModelLights::PlatEnableAmbientLight,
+            &Nx::CModelLights::PlatEnableDiffuseLight, &Nx::CModelLights::PlatIsAmbientLightEnabled,
+            &Nx::CModelLights::PlatIsDiffuseLightEnabled);
+} // namespace
 
 } // namespace Nx
 

@@ -32,6 +32,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/log.h"
+#include "game/core/game_vtables.h"
 #include "game/gfx/engine_scene_list.h"
 #include "game/skate/skate_module.h"
 #include "game/gfx/render_state.h"
@@ -156,7 +157,7 @@ uint32_t Pulse(uint32_t low, uint32_t high, double seconds)
 namespace Scenery {
 namespace {
 
-constexpr uint32_t kPcGeomVtable = 0x0064A368;
+void** const& kPcGeomVtable = Vt::kPcGeom;
 constexpr float kMaxSectorExtent = 4000.0f; // (larger: the ground, a street, a building block - not moved)
 constexpr uint32_t kCluster = 0x1A3A966Bu;  // "Cluster" (the node's TrickObject Cluster=)
 
@@ -242,7 +243,7 @@ int QuartersOf(uint8_t* sector) { return *reinterpret_cast<int*>(sector + 0x10);
 // The PC geometry of level scenery (not an instance), active.
 bool PlainGeom(uint8_t* geom)
 {
-    return geom && *reinterpret_cast<uint32_t*>(geom) == kPcGeomVtable && !*reinterpret_cast<void**>(geom + 0x4C);
+    return geom && *reinterpret_cast<void***>(geom) == kPcGeomVtable && !*reinterpret_cast<void**>(geom + 0x4C);
 }
 
 // Its box as loaded (+0x14 min, +0x24 max).
@@ -1068,7 +1069,7 @@ const char* WhyNotMovable(uint32_t checksum)
     uint8_t* geom = GeomOf(sector);
     if (!geom)
         return "collision only";
-    if (*reinterpret_cast<uint32_t*>(geom) != kPcGeomVtable)
+    if (*reinterpret_cast<void***>(geom) != kPcGeomVtable)
         return "odd geometry";
     if (*reinterpret_cast<void**>(geom + 0x4C))
         return "an instance";
@@ -1596,7 +1597,7 @@ uint32_t Duplicate(uint32_t source)
         source, reinterpret_cast<Nx::CScene*>(scene), 0, true, 0);
     uint8_t* copy = made ? LookupSector(scene, made) : nullptr;
     uint8_t* geom = copy ? GeomOf(copy) : nullptr;
-    if (!geom || *reinterpret_cast<uint32_t*>(geom) != kPcGeomVtable || *reinterpret_cast<void**>(geom + 0x4C)) {
+    if (!geom || *reinterpret_cast<void***>(geom) != kPcGeomVtable || *reinterpret_cast<void**>(geom + 0x4C)) {
         Log("level editor: copy of %s: %s", Label(source).c_str(), made ? "not a plain sector" : "not made");
         return 0;
     }
@@ -1723,7 +1724,7 @@ void ForEachLevelSector(void (*each)(void* context, uint32_t checksum, uint8_t* 
 
 // --- highlighting ---
 
-bool Tintable(void* geom) { return geom && *static_cast<uint32_t*>(geom) == kPcGeomVtable; }
+bool Tintable(void* geom) { return geom && *static_cast<void***>(geom) == kPcGeomVtable; }
 
 namespace {
 

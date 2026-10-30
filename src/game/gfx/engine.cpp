@@ -30,6 +30,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 #include "game/obj/particle_component.h"
 #include "game/skate/skate_module.h"
 
@@ -46,7 +47,7 @@ GAME_GLOBAL(int, g_renderMode, 0x006FA734);
 GAME_GLOBAL(Mem::ListNode, g_sceneList, 0x006FA7E0);
 namespace {
 
-void** const kSceneNodeVtable = reinterpret_cast<void**>(0x00648A38);
+extern void** const kSceneNodeVtable;
 
 constexpr uint32_t kCameraFov = 0x99529205;     // camera_fov
 constexpr float kAspectRatio = 1.33333337f;     // 0x3FAAAAAB (4:3)
@@ -337,6 +338,10 @@ CScene* __cdecl FindScene(uint32_t checksum)
 }
 
 } // namespace Engine
+
+namespace {
+GAME_VTABLE(kSceneNodeVtable, 0x00648A38, &Nx::CSceneNode::Destroy);
+} // namespace
 
 } // namespace Nx
 

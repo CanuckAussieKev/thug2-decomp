@@ -5,12 +5,13 @@
 #include "game/core/mem.h"
 #include "game/script/struct.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kScreenEffectsVtable = 0x00649A0C;
+extern void** const kScreenEffectsVtable;
 
 constexpr uint32_t kOn = 0xF649D637;
 constexpr uint32_t kBloomAlpha1 = 0xF68014D9, kBloomAlpha2 = 0x6F894563;
@@ -117,6 +118,14 @@ bool CScreenEffects::SetDOFParams(Script::CStruct* params, Script::CScript*)
         Platform(this, 7, ArrayColour(array));
     return true;
 }
+
+namespace {
+GAME_VTABLE(kScreenEffectsVtable, 0x00649A0C, &Nx::CScreenEffects::Destroy, GAME_LIBRARY_SLOT(0x00623771),
+            GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
+            GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
+            GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
+            GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771));
+} // namespace
 
 } // namespace Nx
 

@@ -24,6 +24,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Front {
 
@@ -264,8 +265,8 @@ bool __cdecl CFunc_DestroyScreenElement(Script::CStruct* params, Script::CScript
     uint32_t id;
     if (!manager->ResolveId(params, kId, &id))
         return false;
-    int recurse = params->ContainsFlag(reinterpret_cast<const char*>(0x0064A12C)) ? 0 : 1; // dont_recurse
-    int keep = params->ContainsFlag(reinterpret_cast<const char*>(0x0064A11C)) ? 1 : 0;    // preserve_parent
+    int recurse = params->ContainsFlag(GAME_TEXT(0x0064A12C, "dont_recurse")) ? 0 : 1; // dont_recurse
+    int keep = params->ContainsFlag(GAME_TEXT(0x0064A11C, "preserve_parent")) ? 1 : 0;    // preserve_parent
     if (recurse || !keep)
         manager->DestroyElement(id, recurse, keep, script);
     return true;
@@ -480,9 +481,9 @@ bool __cdecl CFunc_MenuSelectedIndexIs(Script::CStruct* params, Script::CScript*
     int index;
     if (params->GetInteger(0u, &index, 0))
         return index == selected;
-    if (params->ContainsFlag(reinterpret_cast<const char*>(0x0064A144))) // first
+    if (params->ContainsFlag(GAME_TEXT(0x0064A144, "first"))) // first
         return selected == 0;
-    if (params->ContainsFlag(reinterpret_cast<const char*>(0x0064A13C))) // last
+    if (params->ContainsFlag(GAME_TEXT(0x0064A13C, "last"))) // last
         return selected == menu->CountChildren() - 1;
     return false;
 }

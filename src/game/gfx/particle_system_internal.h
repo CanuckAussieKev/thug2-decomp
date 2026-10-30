@@ -18,6 +18,6 @@ bool NewColours(CParticleSystem* system, int count);
 bool ConstructParts(CParticleSystem* system, uint32_t name, int maxParticles, unsigned int positionsSize,
                     bool positionsZeroed, int colours);
 // The system's vtable and its node's.
-void SetVtables(CParticleSystem* system, uint32_t primary, uint32_t node);
+void SetVtables(CParticleSystem* system, void** primary, void** node);
 
 } // namespace Nx::ParticleParts

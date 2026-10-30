@@ -30,6 +30,9 @@
 #include "game/sys/module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/skate/skate_module.h"
+#include "game/skate/game_mode.h"
 
 namespace Spt {
 
@@ -48,48 +51,65 @@ void* PointerMember::Get()
 
 namespace {
 
-// A singleton without source yet: its Create (cdecl, bool) and Release (cdecl) in the game.
-template <uint32_t kCreate, uint32_t kRelease, uint32_t kVtableAddress>
-struct GameSingleton {
-    using Type = void;
-    static constexpr uint32_t kVtable = kVtableAddress;
-    static void* Create(bool create) { return GameFunction<void*(__cdecl*)(bool)>(kCreate)(create); }
-    static void Release() { GameFunction<void(__cdecl*)()>(kRelease)(); }
-};
+// Each instance's vtable (defined below, after its Destroy).
+extern void** const kPreManagerVtable;
+extern void** const kMcManagerVtable;
+extern void** const kSioManagerVtable;
+extern void** const kAsyncLoaderVtable;
+extern void** const kScriptCacheVtable;
+extern void** const kMlpManagerVtable;
+extern void** const kMdlManagerVtable;
+extern void** const kSoundManagerVtable;
+extern void** const kFrontEndVtable;
+extern void** const kObjectTrackerVtable;
+extern void** const kInputManagerVtable;
+extern void** const kSingleton4088E0Vtable;
+extern void** const kNetManagerVtable;
+extern void** const kCompositeObjectManagerVtable;
+extern void** const kTrickObjectManagerVtable;
+extern void** const kSingleton553DB0Vtable;
+extern void** const kSingleton57C0D0Vtable;
+extern void** const kSingleton57EED0Vtable;
+extern void** const kSingleton5691A0Vtable;
+extern void** const kSingleton53F520Vtable;
+extern void** const kParkEditorVtable;
+extern void** const kSingleton4ACAF0Vtable;
+extern void** const kNodeManagerVtable;
+extern void** const kSingleton574540Vtable;
 
 struct PreManager {
     using Type = Pre::PreMgr;
-    static constexpr uint32_t kVtable = 0x0064AFB0;
+    static void** Vtable() { return kPreManagerVtable; }
     static Type* Create(bool create) { return Pre::CreateManager(create); }
     static void Release() { Pre::DestroyManager(); }
 };
 struct McManager {
     using Type = Mc::Manager;
-    static constexpr uint32_t kVtable = 0x0064AFBC;
+    static void** Vtable() { return kMcManagerVtable; }
     static Type* Create(bool create) { return Mc::CreateManager(create); }
     static void Release() { Mc::ReleaseManager(); }
 };
 struct SioManager {
     using Type = Sio::Manager;
-    static constexpr uint32_t kVtable = 0x006472B8;
+    static void** Vtable() { return kSioManagerVtable; }
     static Type* Create(bool create) { return Sio::CreateManager(create); }
     static void Release() { Sio::ReleaseManager(); }
 };
 struct AsyncLoader {
     using Type = File::AsyncLoaderModule;
-    static constexpr uint32_t kVtable = 0x0064AFC4;
+    static void** Vtable() { return kAsyncLoaderVtable; }
     static Type* Create(bool create) { return File::CreateAsyncLoaderModule(create); }
     static void Release() { File::DestroyAsyncLoaderModule(); }
 };
 struct ScriptCache {
     using Type = Script::CScriptCache;
-    static constexpr uint32_t kVtable = 0x0064AFC8;
+    static void** Vtable() { return kScriptCacheVtable; }
     static Type* Create(bool create) { return Script::CreateScriptCache(create); }
     static void Release() { Script::ReleaseScriptCache(); }
 };
 struct MlpManager {
     using Type = Mlp::Manager;
-    static constexpr uint32_t kVtable = 0x0064A2EC;
+    static void** Vtable() { return kMlpManagerVtable; }
     static Type* Create(bool create) { return Mlp::CreateManager(create); }
     static void Release() { Mlp::ReleaseManager(); }
 };
@@ -97,103 +117,138 @@ struct MlpManager {
 // Named by their Create functions where there's no better name yet (Sys::Main makes them all).
 struct MdlManager {
     using Type = Mdl::Manager;
-    static constexpr uint32_t kVtable = 0x0064AFB8;
+    static void** Vtable() { return kMdlManagerVtable; }
     static Type* Create(bool create) { return Mdl::CreateManager(create); }
     static void Release() { Mdl::ReleaseManager(); }
 };
 struct SoundManager { // the sound effects manager (its Create returns nothing: no SingletonPtr<SoundManager> is constructed)
     using Type = void;
-    static constexpr uint32_t kVtable = 0x006472B4;
+    static void** Vtable() { return kSoundManagerVtable; }
     static void Create(bool create) { Sfx::CreateManager(create); }
     static void Release() { Sfx::ReleaseManager(); }
 };
 struct FrontEnd {
     using Type = Mdl::FrontEnd;
-    static constexpr uint32_t kVtable = 0x0064AFEC;
+    static void** Vtable() { return kFrontEndVtable; }
     static Type* Create(bool create) { return Mdl::CreateFrontEnd(create); }
     static void Release() { Mdl::ReleaseFrontEnd(); }
 };
 struct ObjectTracker {
     using Type = Obj::CTracker;
-    static constexpr uint32_t kVtable = 0x0064AFB4;
+    static void** Vtable() { return kObjectTrackerVtable; }
     static Type* Create(bool create) { return Obj::CreateTracker(create); }
     static void Release() { Obj::ReleaseTracker(); }
 };
 struct InputManager {
     using Type = Inp::Manager;
-    static constexpr uint32_t kVtable = 0x0064AFC0;
+    static void** Vtable() { return kInputManagerVtable; }
     static Type* Create(bool create) { return Inp::CreateManager(create); }
     static void Release() { Inp::ReleaseManager(); }
 };
 struct Singleton4088E0 { // the asset manager
     using Type = Ass::CAssMan;
-    static constexpr uint32_t kVtable = 0x0064AFCC;
+    static void** Vtable() { return kSingleton4088E0Vtable; }
     static Type* Create(bool create) { return Ass::CreateAssetManager(create); }
     static void Release() { Ass::ReleaseAssetManager(); }
 };
 struct NetManager {
     using Type = Net::Manager;
-    static constexpr uint32_t kVtable = 0x0064AFD0;
+    static void** Vtable() { return kNetManagerVtable; }
     static Type* Create(bool create) { return Net::CreateManager(create); }
     static void Release() { Net::ReleaseManager(); }
 };
 struct CompositeObjectManager {
     using Type = Obj::CCompositeObjectManager;
-    static constexpr uint32_t kVtable = 0x0064AFD4;
+    static void** Vtable() { return kCompositeObjectManagerVtable; }
     static Type* Create(bool create) { return Obj::CreateCompositeObjectManager(create); }
     static void Release() { Obj::ReleaseCompositeObjectManager(); }
 };
 struct TrickObjectManager {
     using Type = Obj::CTrickObjectManager;
-    static constexpr uint32_t kVtable = 0x0064AFD8;
+    static void** Vtable() { return kTrickObjectManagerVtable; }
     static Type* Create(bool create) { return Obj::AcquireTrickObjectManager(create); }
     static void Release() { Obj::ReleaseTrickObjectManager(); }
 };
-using Singleton553DB0 = GameSingleton<0x00553DB0, 0x00552F70, 0x0064AFDC>;
+struct Singleton553DB0 { // the game mode
+    using Type = Game::CGameMode;
+    static void** Vtable() { return kSingleton553DB0Vtable; }
+    static Type* Create(bool create) { return Game::CGameMode::Instance(create); }
+    static void Release() { Game::CGameMode::Release(); }
+};
 struct Singleton57C0D0 { // the player profile manager
     using Type = Obj::CPlayerProfileManager;
-    static constexpr uint32_t kVtable = 0x0064AFE0;
+    static void** Vtable() { return kSingleton57C0D0Vtable; }
     static Type* Create(bool create) { return Obj::CPlayerProfileManager::Create(create); }
     static void Release() { Obj::CPlayerProfileManager::Release(); }
 };
 struct Singleton57EED0 { // the game records
     using Type = Records::CGameRecords;
-    static constexpr uint32_t kVtable = 0x0064AFE4;
+    static void** Vtable() { return kSingleton57EED0Vtable; }
     static Type* Create(bool create) { return Records::CGameRecords::Create(create); }
     static void Release() { Records::CGameRecords::Release(); }
 };
-using Singleton5691A0 = GameSingleton<0x005691A0, 0x00564C10, 0x0064AFE8>;
+struct Singleton5691A0 { // the skate module
+    using Type = Mdl::Skate;
+    static void** Vtable() { return kSingleton5691A0Vtable; }
+    static Type* Create(bool create) { return Mdl::Skate::CreateInstance(create); }
+    static void Release() { Mdl::Skate::DeleteInstance(); }
+};
 struct Singleton53F520 { // the online game manager (GameNet::Manager)
     using Type = GameNet::Manager;
-    static constexpr uint32_t kVtable = 0x0064AFF0;
+    static void** Vtable() { return kSingleton53F520Vtable; }
     static Type* Create(bool create) { return GameNet::Manager::Create(create); }
     static void Release() { GameNet::ReleaseManager(); }
 };
 struct ParkEditor {
     using Type = Ed::CParkEditor;
-    static constexpr uint32_t kVtable = 0x0064AFF4;
+    static void** Vtable() { return kParkEditorVtable; }
     static Type* Create(bool create) { return Ed::CParkEditor::Create(create); }
     static void Release() { Ed::CParkEditor::Release(); }
 };
 struct Singleton4ACAF0 { // the screen element manager (its Create returns nothing, as SoundManager's)
     using Type = void;
-    static constexpr uint32_t kVtable = 0x0064AFF8;
+    static void** Vtable() { return kSingleton4ACAF0Vtable; }
     static void Create(bool create) { Front::CreateScreenElementManager(create); }
     static void Release() { Front::DeleteScreenElementManager(); }
 };
 struct NodeManager {
     using Type = SkateScript::CNodeManager;
-    static constexpr uint32_t kVtable = 0x0064AFFC;
+    static void** Vtable() { return kNodeManagerVtable; }
     static Type* Create(bool create) { return SkateScript::CreateNodeManager(create); }
     static void Release() { SkateScript::ReleaseNodeManager(); }
 };
 using Singleton45D690 = NodeManager;
 struct Singleton574540 { // the time of day manager
     using Type = Gfx::CTODManager;
-    static constexpr uint32_t kVtable = 0x0064B000;
+    static void** Vtable() { return kSingleton574540Vtable; }
     static Type* Create(bool create) { return Gfx::CreateTODManager(create); }
     static void Release() { Gfx::ReleaseTODManager(); }
 };
+
+GAME_VTABLE(kPreManagerVtable, 0x0064AFB0, &SingletonPtr<PreManager>::Destroy);
+GAME_VTABLE(kMcManagerVtable, 0x0064AFBC, &SingletonPtr<McManager>::Destroy);
+GAME_VTABLE(kSioManagerVtable, 0x006472B8, &SingletonPtr<SioManager>::Destroy);
+GAME_VTABLE(kAsyncLoaderVtable, 0x0064AFC4, &SingletonPtr<AsyncLoader>::Destroy);
+GAME_VTABLE(kScriptCacheVtable, 0x0064AFC8, &SingletonPtr<ScriptCache>::Destroy);
+GAME_VTABLE(kMlpManagerVtable, 0x0064A2EC, &SingletonPtr<MlpManager>::Destroy);
+GAME_VTABLE(kMdlManagerVtable, 0x0064AFB8, &SingletonPtr<MdlManager>::Destroy);
+GAME_VTABLE(kSoundManagerVtable, 0x006472B4, &SingletonPtr<SoundManager>::Destroy);
+GAME_VTABLE(kFrontEndVtable, 0x0064AFEC, &SingletonPtr<FrontEnd>::Destroy);
+GAME_VTABLE(kObjectTrackerVtable, 0x0064AFB4, &SingletonPtr<ObjectTracker>::Destroy);
+GAME_VTABLE(kInputManagerVtable, 0x0064AFC0, &SingletonPtr<InputManager>::Destroy);
+GAME_VTABLE(kSingleton4088E0Vtable, 0x0064AFCC, &SingletonPtr<Singleton4088E0>::Destroy);
+GAME_VTABLE(kNetManagerVtable, 0x0064AFD0, &SingletonPtr<NetManager>::Destroy);
+GAME_VTABLE(kCompositeObjectManagerVtable, 0x0064AFD4, &SingletonPtr<CompositeObjectManager>::Destroy);
+GAME_VTABLE(kTrickObjectManagerVtable, 0x0064AFD8, &SingletonPtr<TrickObjectManager>::Destroy);
+GAME_VTABLE(kSingleton553DB0Vtable, 0x0064AFDC, &SingletonPtr<Singleton553DB0>::Destroy);
+GAME_VTABLE(kSingleton57C0D0Vtable, 0x0064AFE0, &SingletonPtr<Singleton57C0D0>::Destroy);
+GAME_VTABLE(kSingleton57EED0Vtable, 0x0064AFE4, &SingletonPtr<Singleton57EED0>::Destroy);
+GAME_VTABLE(kSingleton5691A0Vtable, 0x0064AFE8, &SingletonPtr<Singleton5691A0>::Destroy);
+GAME_VTABLE(kSingleton53F520Vtable, 0x0064AFF0, &SingletonPtr<Singleton53F520>::Destroy);
+GAME_VTABLE(kParkEditorVtable, 0x0064AFF4, &SingletonPtr<ParkEditor>::Destroy);
+GAME_VTABLE(kSingleton4ACAF0Vtable, 0x0064AFF8, &SingletonPtr<Singleton4ACAF0>::Destroy);
+GAME_VTABLE(kNodeManagerVtable, 0x0064AFFC, &SingletonPtr<NodeManager>::Destroy);
+GAME_VTABLE(kSingleton574540Vtable, 0x0064B000, &SingletonPtr<Singleton574540>::Destroy);
 
 } // namespace
 

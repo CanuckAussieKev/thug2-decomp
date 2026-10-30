@@ -36,7 +36,20 @@
 #include "game/gfx/device.h"
 #include "game/gfx/movie.h"
 
+// The command line's values, kept in globals other files own (the e-mail and the password: buddy_status.cpp, the
+// player's name and password: net_state_cfuncs.cpp).
+namespace GameNet {
+GAME_GLOBAL_EXTERN(char[256], g_commandLineEmail);
+GAME_GLOBAL_EXTERN(char[16], g_commandLinePassword);
+} // namespace GameNet
+namespace CFuncs {
+GAME_GLOBAL_EXTERN(char[16], g_networkId);
+GAME_GLOBAL_EXTERN(char[12], g_networkPassword);
+} // namespace CFuncs
+
 namespace Sys {
+
+GAME_GLOBAL(char[256], g_commandLineServerName, 0x007CC980); // "-connect"'s value
 
 namespace {
 
@@ -194,15 +207,15 @@ void ReadNetworkParams(const char* commandLine)
     if (const char* at = find("-HOSTNAME"))
         CopyValue(at + 9, GameString(0x0067EFBC), 15); // the hosted game's name (the exe has "Beenox")
     if (const char* at = find("-EMAIL"))
-        CopyValue(at + 6, GameString(0x007CCA90), 255);
+        CopyValue(at + 6, GameNet::g_commandLineEmail, 255);
     if (const char* at = find("-PPASS"))
-        CopyValue(at + 6, GameString(0x007CCB90), 15);
+        CopyValue(at + 6, GameNet::g_commandLinePassword, 15);
     if (!g_internetGameHost) {
         // The server to join: its name, and its IPv4 address (as inet_addr gives it - INADDR_NONE if it isn't one
         // and the name isn't found either). (The value starts 9 characters on, one past "-CONNECT": the
         // character after it is skipped, normally a space.)
         if (const char* at = find("-CONNECT")) {
-            char* server = GameString(0x007CC980);
+            char* server = g_commandLineServerName;
             CopyValue(at + 9, server, 255);
             uint32_t address = inet_addr(server);
             if (address == INADDR_NONE) {
@@ -229,9 +242,9 @@ void ReadNetworkParams(const char* commandLine)
         reinterpret_cast<uint32_t&>(GameNet::g_netSkillLevel) = skill > 4 ? 4 : skill;
     }
     if (const char* at = find("-NAME"))
-        CopyValue(at + 5, GameString(0x007CCBC4), 15); // the player's name
+        CopyValue(at + 5, CFuncs::g_networkId, 15); // the player's name
     if (const char* at = find("-PASSWORD")) {
-        char* password = GameString(0x007CCBD4);
+        char* password = CFuncs::g_networkPassword;
         CopyValue(at + 9, password, 9);
         if (g_joiningInternetGame) {
             // Joining: it's the server's password (moved to where the join looks for it).

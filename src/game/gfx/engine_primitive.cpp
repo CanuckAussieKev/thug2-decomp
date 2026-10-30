@@ -9,12 +9,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kVtable = 0x00649878;
+extern void** const kVtable;
 constexpr uint32_t kDefaultBlendMode = 0x54628ED7;
 constexpr uint32_t kNewFlag = 0x100;
 
@@ -243,6 +244,20 @@ void __cdecl SetPrimitiveState(int state, int value)
     }
     SetPrimitiveDepthTest(state, value);
 }
+
+namespace {
+GAME_VTABLE(kVtable, 0x00649878, &Nx::CPrimitive::Destroy, &Nx::CPrimitive::SetTexture, &Nx::CPrimitive::SetColour,
+            &Nx::CPrimitive::Init, &Nx::CPrimitive::End, &Nx::CPrimitive::Render, &Nx::CPrimitive::Draw,
+            &Nx::CPrimitive::SetPosition, &Nx::CPrimitive::SetX, &Nx::CPrimitive::SetY, &Nx::CPrimitive::SetZ,
+            &Nx::CPrimitive::SetNormal, &Nx::CPrimitive::SetNormalX, &Nx::CPrimitive::SetNormalY,
+            &Nx::CPrimitive::SetNormalZ, &Nx::CPrimitive::SetVertexColour, &Nx::CPrimitive::SetUV,
+            &Nx::CPrimitive::SetU, &Nx::CPrimitive::SetV, &Nx::CPrimitive::GetX, &Nx::CPrimitive::GetY,
+            &Nx::CPrimitive::GetZ, &Nx::CPrimitive::GetNormalX, &Nx::CPrimitive::GetNormalY,
+            &Nx::CPrimitive::GetNormalZ, &Nx::CPrimitive::GetVertexColour, &Nx::CPrimitive::GetU,
+            &Nx::CPrimitive::GetV, &Nx::CPrimitive::Translate, &Nx::CPrimitive::TranslateX,
+            &Nx::CPrimitive::TranslateY, &Nx::CPrimitive::TranslateZ, &Nx::CPrimitive::ScrollUV,
+            &Nx::CPrimitive::ScrollU, &Nx::CPrimitive::ScrollV, &Nx::CPrimitive::Compare);
+} // namespace
 
 } // namespace Nx
 

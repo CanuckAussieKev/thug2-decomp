@@ -11,16 +11,17 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 #include "game/script/world_cfuncs.h"
 
 namespace Mdl {
 
 namespace {
 
-void** const kModuleVtable = reinterpret_cast<void**>(0x0064728C);
-void** const kNodeVtable = reinterpret_cast<void**>(0x00647284);
-void** const kHeadVtable = reinterpret_cast<void**>(0x00647288);
-void** const kSearchVtable = reinterpret_cast<void**>(0x00647280);
+extern void** const kModuleVtable;
+extern void** const kNodeVtable;
+extern void** const kHeadVtable;
+extern void** const kSearchVtable;
 
 Manager*& Instance() { return CFuncs::g_moduleManager; }
 
@@ -244,6 +245,14 @@ ModuleListDestructors* ModuleListDestructors::SearchDestroy(unsigned int flags)
         FreeMemory(this);
     return this;
 }
+
+namespace {
+GAME_VTABLE(kModuleVtable, 0x0064728C, &Mdl::Module::Destroy, GAME_LIBRARY_SLOT(0x00623771),
+            GAME_LIBRARY_SLOT(0x00623771));
+GAME_VTABLE(kNodeVtable, 0x00647284, &Mdl::ModuleListDestructors::NodeDestroy);
+GAME_VTABLE(kHeadVtable, 0x00647288, &Mdl::ModuleListDestructors::HeadDestroy);
+GAME_VTABLE(kSearchVtable, 0x00647280, &Mdl::ModuleListDestructors::SearchDestroy);
+} // namespace
 
 } // namespace Mdl
 

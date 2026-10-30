@@ -18,12 +18,15 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/obj/object.h"
 
 namespace Gfx {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00648920);
+extern void** const kVtable;
 
 GAME_GLOBAL(Nx::CModel*, g_builtModel, 0x006FA2F8);
 GAME_GLOBAL(CSkeleton*, g_builtSkeleton, 0x006FA2FC);
@@ -739,6 +742,20 @@ bool CModelBuilder::RunScript(uint32_t part, uint32_t target)
     Mem::Manager::Get()->Free(held);
     return true;
 }
+
+namespace {
+GAME_VTABLE(kVtable, 0x00648920, &Gfx::CModelBuilder::Destroy, &Obj::CObject::SetProperties,
+            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+            &Gfx::CModelBuilder::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &Gfx::CModelBuilder::Build, &Gfx::CModelBuilder::AddGeom,
+            &Gfx::CModelBuilder::RemovePart, &Gfx::CModelBuilder::HideGeom, &Gfx::CModelBuilder::ModulateColor,
+            &Gfx::CModelBuilder::SetUVOffset, &Gfx::CModelBuilder::AllocateUVMatrixParams,
+            &Gfx::CModelBuilder::ReplaceTexture, &Gfx::CModelBuilder::SetCreatedTexture,
+            &Gfx::CModelBuilder::ClearAllGeoms, &Gfx::CModelBuilder::RemovePolys, &Gfx::CModelBuilder::ResetScale,
+            &Gfx::CModelBuilder::ApplyBodyShape, &Gfx::CModelBuilder::ApplyBoneScale,
+            &Gfx::CModelBuilder::ApplyObjectScale, &Gfx::CModelBuilder::Finalize,
+            &Gfx::CModelBuilder::PropagateHeadColor, &Gfx::CModelBuilder::RunScript);
+} // namespace
 
 } // namespace Gfx
 

@@ -8,13 +8,15 @@
 #include "game/core/mem.h"
 #include "game/gfx/engine_texture.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kSpriteVtable = 0x00649A80;
-constexpr uint32_t kQuadVtable = 0x00649A98;
+extern void** const kSpriteVtable;
+extern void** const kQuadVtable;
 constexpr uint32_t kBlend = 0x54628ED7; // "blend"
 
 // The platform's slot `slot` (no arguments).
@@ -244,6 +246,14 @@ void CTexturedQuad::SetRGBA(uint32_t rgba)
     std::memcpy(m_rgba, &rgba, sizeof(m_rgba));
     Notify(this, 5);
 }
+
+namespace {
+GAME_VTABLE(kSpriteVtable, 0x00649A80, &Nx::CSprite::Destroy, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
+            Stubs::DoNothing, Stubs::DoNothing);
+GAME_VTABLE(kQuadVtable, 0x00649A98, &Nx::CTexturedQuad::Destroy, &Nx::CTexturedQuad::Create, Stubs::DoNothing,
+            Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
+            Stubs::IgnoreArgument, Stubs::IgnoreArgument);
+} // namespace
 
 } // namespace Nx
 

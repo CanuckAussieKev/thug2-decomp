@@ -26,6 +26,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
@@ -162,7 +163,7 @@ void __cdecl DrawTextureSplats()
             uv[1] = static_cast<float>((static_cast<double>(splats->uvs[j][1]) - 0.5f) * factor + 0.5f);
         }
         reinterpret_cast<sMaterial*>(splats->material)->Submit(); // (the material's set-up)
-        SetPixelShader(GameVariable<void*>(0x007CA964), splats->material);
+        SetPixelShader(g_pixelShaders[kPixelShader964], splats->material);
         DrawDevice()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, splats->last + 1, splats->vertices, 0x18);
     }
     Device()->SetSamplerState(0, D3DSAMP_MINFILTER, minFilter);

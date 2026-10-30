@@ -19,6 +19,14 @@ uint8_t* LoadingBarGradientBuffer();
 void __stdcall DrawLoadingScreenFrame(unsigned int id, unsigned int message, unsigned long user, unsigned long, unsigned long);
 
 GAME_GLOBAL_EXTERN(int, g_gradientWidth);
+// The bar's settings: position, size (width, height), border, and the three colours (r, g, b, 0x80).
+GAME_GLOBAL_EXTERN(int[2], g_barPosition);
+GAME_GLOBAL_EXTERN(int, g_barWidth);
+GAME_GLOBAL_EXTERN(int, g_barHeight);
+GAME_GLOBAL_EXTERN(int[2], g_barBorder);
+GAME_GLOBAL_EXTERN(uint8_t[4], g_barStartColor);
+GAME_GLOBAL_EXTERN(uint8_t[4], g_barEndColor);
+GAME_GLOBAL_EXTERN(uint8_t[4], g_barBorderColor);
 
 GAME_GLOBAL_EXTERN(float, g_tickSeconds);
 

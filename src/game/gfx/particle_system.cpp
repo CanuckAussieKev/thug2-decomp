@@ -20,17 +20,36 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/game_vtables.h"
+#include "game/gfx/particle_types.h"
+#include "game/net/gamenet_handlers.h"
+#include "game/gfx/weather.h"
 #include "game/skate/skate_module.h"
 
 namespace Nx {
+
+namespace {
+extern void** const kCNewFlatParticlesNodeVtable;
+extern void** const kCNewFlatParticlesVtable;
+extern void** const kCFlatRibbonParticlesNodeVtable;
+extern void** const kCFlatRibbonParticlesVtable;
+extern void** const kCGlowParticlesNodeVtable;
+extern void** const kCGlowParticlesVtable;
+extern void** const kCGlowRibbonTrailParticlesNodeVtable;
+extern void** const kCGlowRibbonTrailParticlesVtable;
+extern void** const kCLineParticlesNodeVtable;
+extern void** const kCLineParticlesVtable;
+} // namespace
+
 
 GAME_GLOBAL(uint8_t, g_allocAssertFlag, 0x00658555);
 
 namespace {
 
-void** const kSystemVtable = reinterpret_cast<void**>(0x00649428);
-void** const kSystemNodeVtable = reinterpret_cast<void**>(0x00649424);
-void** const kNodeVtable = reinterpret_cast<void**>(0x00649420); // (Lst::Node<CParticleSystem>'s own)
+extern void** const kSystemVtable;
+extern void** const kSystemNodeVtable;
+void** const& kNodeVtable = Vt::kParticleNode; // (Lst::Node<CParticleSystem>'s own)
 constexpr float kNearlyUp = 0.99f;                                // 0x00645450
 constexpr float kFramesPerSecond = 60.0f;                         // 0x00645EA0
 
@@ -123,10 +142,10 @@ bool ConstructParts(CParticleSystem* system, uint32_t name, int maxParticles, un
     return NewColours(system, colours);
 }
 
-void SetVtables(CParticleSystem* system, uint32_t primary, uint32_t node)
+void SetVtables(CParticleSystem* system, void** primary, void** node)
 {
-    system->m_vtable = reinterpret_cast<void**>(primary);
-    system->m_node.vtable = reinterpret_cast<void**>(node);
+    system->m_vtable = primary;
+    system->m_node.vtable = node;
 }
 
 } // namespace ParticleParts
@@ -477,7 +496,7 @@ CNewFlatParticles* CNewFlatParticles::Construct(uint32_t name, int maxParticles,
                                                 int)
 {
     CParticleSystem::Construct();
-    SetVtables(this, 0x0064943C, 0x00649438);
+    SetVtables(this, kCNewFlatParticlesVtable, kCNewFlatParticlesNodeVtable);
     if (ConstructParts(this, name, maxParticles, static_cast<unsigned int>(maxParticles) * 12, false, 1)) {
         m_colourMid = -1.0f;
         m_flags |= 4u;
@@ -488,7 +507,7 @@ CNewFlatParticles* CNewFlatParticles::Construct(uint32_t name, int maxParticles,
 // 0x00498FB0
 void CNewFlatParticles::DestroyBody()
 {
-    SetVtables(this, 0x0064943C, 0x00649438);
+    SetVtables(this, kCNewFlatParticlesVtable, kCNewFlatParticlesNodeVtable);
     CParticleSystem::DestroyBody();
 }
 
@@ -506,7 +525,7 @@ CFlatRibbonParticles* CFlatRibbonParticles::Construct(uint32_t name, int maxPart
                                                       float, int history)
 {
     CParticleSystem::Construct();
-    SetVtables(this, 0x00649450, 0x0064944C);
+    SetVtables(this, kCFlatRibbonParticlesVtable, kCFlatRibbonParticlesNodeVtable);
     m_segments = history + 1;
     // (the colours' count read again as m_segments + 3 for each array and each step of the loop)
     if (ConstructParts(this, name, maxParticles, static_cast<unsigned int>(maxParticles * m_segments * 12), true,
@@ -520,7 +539,7 @@ CFlatRibbonParticles* CFlatRibbonParticles::Construct(uint32_t name, int maxPart
 // 0x00499200
 void CFlatRibbonParticles::DestroyBody()
 {
-    SetVtables(this, 0x00649450, 0x0064944C);
+    SetVtables(this, kCFlatRibbonParticlesVtable, kCFlatRibbonParticlesNodeVtable);
     if (mp_particles) {
         DeleteParticles(mp_particles);
         mp_particles = nullptr;
@@ -545,7 +564,7 @@ CGlowParticles* CGlowParticles::Construct(uint32_t name, int maxParticles, uint3
                                           float glowWidth, int)
 {
     CParticleSystem::Construct();
-    SetVtables(this, 0x00649464, 0x00649460);
+    SetVtables(this, kCGlowParticlesVtable, kCGlowParticlesNodeVtable);
     if (ConstructParts(this, name, maxParticles, static_cast<unsigned int>(maxParticles) * 12, false, 3)) {
         m_segments = segments;
         m_colourMid = -1.0f;
@@ -558,7 +577,7 @@ CGlowParticles* CGlowParticles::Construct(uint32_t name, int maxParticles, uint3
 // 0x00499550
 void CGlowParticles::DestroyBody()
 {
-    SetVtables(this, 0x00649464, 0x00649460);
+    SetVtables(this, kCGlowParticlesVtable, kCGlowParticlesNodeVtable);
     CParticleSystem::DestroyBody();
 }
 
@@ -576,7 +595,7 @@ CGlowRibbonTrailParticles* CGlowRibbonTrailParticles::Construct(uint32_t name, i
                                                                 int, int segments, float width, int history)
 {
     CParticleSystem::Construct();
-    SetVtables(this, 0x00649478, 0x00649474);
+    SetVtables(this, kCGlowRibbonTrailParticlesVtable, kCGlowRibbonTrailParticlesNodeVtable);
     m_historyLength = history + 1;
     if (ConstructParts(this, name, maxParticles, static_cast<unsigned int>((history + 1) * maxParticles * 12), true,
                        m_historyLength + 3)) {
@@ -591,7 +610,7 @@ CGlowRibbonTrailParticles* CGlowRibbonTrailParticles::Construct(uint32_t name, i
 // 0x00499800
 void CGlowRibbonTrailParticles::DestroyBody()
 {
-    SetVtables(this, 0x00649478, 0x00649474);
+    SetVtables(this, kCGlowRibbonTrailParticlesVtable, kCGlowRibbonTrailParticlesNodeVtable);
     CParticleSystem::DestroyBody();
 }
 
@@ -613,7 +632,7 @@ CLineParticles* CLineParticles::Construct(uint32_t name, int maxParticles, uint3
                                           int history)
 {
     CParticleSystem::Construct();
-    SetVtables(this, 0x0064948C, 0x00649488);
+    SetVtables(this, kCLineParticlesVtable, kCLineParticlesNodeVtable);
     m_steps = history + 1;
     if (ConstructParts(this, name, maxParticles, static_cast<unsigned int>(maxParticles * (history + 1) * 12), true,
                        m_steps)) {
@@ -626,7 +645,7 @@ CLineParticles* CLineParticles::Construct(uint32_t name, int maxParticles, uint3
 // 0x00499B20
 void CLineParticles::DestroyBody()
 {
-    SetVtables(this, 0x0064948C, 0x00649488);
+    SetVtables(this, kCLineParticlesVtable, kCLineParticlesNodeVtable);
     CParticleSystem::DestroyBody();
 }
 
@@ -642,7 +661,7 @@ CLineParticles* CLineParticles::Destroy(unsigned int flags)
 // 0x00499E10
 void CModelParticles::DestroyBody()
 {
-    SetVtables(this, 0x006494A0, 0x0064949C);
+    SetVtables(this, Vt::kModelParticles, Vt::kModelParticlesNode);
     if (mp_unknown13C) {
         Mem::Free(mp_unknown13C);
         mp_unknown13C = nullptr;
@@ -673,7 +692,7 @@ namespace {
 struct NodeAdapters {
     // 0x00496D10 / 0x00496D30: Lst::Node<CParticleSystem>'s own destructor body (its vtable, out of its list) and
     // scalar deleting destructor (freed with flags & 1; returns this).
-    void NodeDestroyBody() { reinterpret_cast<Mem::ListNode*>(this)->UnlinkAs(reinterpret_cast<void**>(0x00649420)); }
+    void NodeDestroyBody() { reinterpret_cast<Mem::ListNode*>(this)->UnlinkAs(Vt::kParticleNode); }
     Mem::ListNode* NodeDestroy(unsigned int flags)
     {
         NodeDestroyBody();
@@ -702,6 +721,38 @@ struct NodeAdapters {
 };
 
 } // namespace
+
+
+namespace Nx {
+namespace {
+GAME_VTABLE(kSystemVtable, 0x00649428, &Nx::CParticleSystem::Destroy, &Nx::CWeather::Render,
+            Nx::CParticleSystem::GetNumVertexListsStub, Nx::CParticleSystem::GetNumColoursStub);
+GAME_VTABLE(kSystemNodeVtable, 0x00649424, &NodeAdapters::DestroySystem);
+GAME_VTABLE(kCNewFlatParticlesNodeVtable, 0x00649438, &NodeAdapters::DestroyNewFlat);
+GAME_VTABLE(kCNewFlatParticlesVtable, 0x0064943C, &Nx::CNewFlatParticles::Destroy, &Nx::CWeather::Render,
+            GameNet::HandleNothing, GameNet::HandleNothing);
+GAME_VTABLE(kCFlatRibbonParticlesNodeVtable, 0x0064944C, &NodeAdapters::DestroyFlatRibbon);
+GAME_VTABLE(kCFlatRibbonParticlesVtable, 0x00649450, &Nx::CFlatRibbonParticles::Destroy, &Nx::CWeather::Render,
+            &Nx::CParticleCounts::Field134, &Nx::CFlatRibbonParticles::GetNumColours);
+GAME_VTABLE(kCGlowParticlesNodeVtable, 0x00649460, &NodeAdapters::DestroyGlow);
+GAME_VTABLE(kCGlowParticlesVtable, 0x00649464, &Nx::CGlowParticles::Destroy, &Nx::CWeather::Render,
+            GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours);
+GAME_VTABLE(kCGlowRibbonTrailParticlesNodeVtable, 0x00649474, &NodeAdapters::DestroyGlowRibbonTrail);
+GAME_VTABLE(kCGlowRibbonTrailParticlesVtable, 0x00649478, &Nx::CGlowRibbonTrailParticles::Destroy,
+            &Nx::CWeather::Render, &Nx::CGlowRibbonTrailParticles::GetNumVertexLists,
+            &Nx::CGlowRibbonTrailParticles::GetNumColours);
+GAME_VTABLE(kCLineParticlesNodeVtable, 0x00649488, &NodeAdapters::DestroyLine);
+GAME_VTABLE(kCLineParticlesVtable, 0x0064948C, &Nx::CLineParticles::Destroy, &Nx::CWeather::Render,
+            &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::TwoColours);
+} // namespace
+} // namespace Nx
+
+namespace Vt {
+GAME_VTABLE(kParticleNode, 0x00649420, &NodeAdapters::NodeDestroy);
+GAME_VTABLE(kModelParticlesNode, 0x0064949C, &NodeAdapters::DestroyModel);
+GAME_VTABLE(kModelParticles, 0x006494A0, &Nx::CModelParticles::Destroy, &Nx::CModelParticles::Render,
+            GameNet::HandleNothing, GameNet::HandleNothing);
+} // namespace Vt
 
 REPLACE(0x00496F10, &Nx::CParticleSystem::Construct);
 REPLACE(0x00496D70, &Nx::CParticleSystem::Reset);

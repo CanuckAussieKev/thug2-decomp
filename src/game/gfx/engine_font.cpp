@@ -13,6 +13,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
 
 namespace Nx {
 
@@ -21,7 +23,7 @@ GAME_GLOBAL(FontSlot[16], g_fontSlots, 0x006FA830);
 
 namespace {
 
-constexpr uint32_t kFontVtable = 0x00648A6C;
+extern void** const kFontVtable;
 
 FontSlot* Slots() { return g_fontSlots; }
 Lst::HashTable& FontTable() { return GameVariable<Lst::HashTable>(0x006FA9F0); }
@@ -68,13 +70,13 @@ void CFont::Unload()
 // 0x0048D070
 void CFont::PlatSetSpacings(int /*charSpacing*/, int /*spaceSpacing*/)
 {
-    Dbg::Printf(reinterpret_cast<const char*>(0x00648A90)); // "STUB A DUB DUB"
+    Dbg::Printf(GAME_TEXT(0x00648A90, "STUB A DUB DUB")); // "STUB A DUB DUB"
 }
 
 // 0x0048D080
 void CFont::PlatSetColors(const uint32_t* /*colors*/)
 {
-    Dbg::Printf(reinterpret_cast<const char*>(0x00648A90)); // "STUB A DUB DUB"
+    Dbg::Printf(GAME_TEXT(0x00648A90, "STUB A DUB DUB")); // "STUB A DUB DUB"
 }
 
 // 0x0048D6A0
@@ -113,6 +115,12 @@ bool __cdecl CFunc_UnloadFont(Script::CStruct* params, Script::CScript* /*script
     UnloadFont(name);
     return true;
 }
+
+namespace {
+GAME_VTABLE(kFontVtable, 0x00648A6C, &Nx::CFont::Destroy, Stubs::ReturnFalse1, &Nx::CFont::PlatSetSpacings,
+            &Nx::CFont::PlatSetColors, &Nx::CFont::PlatSetColors, Stubs::DoNothing, Stubs::ReturnZero,
+            Stubs::ReturnZero, Stubs::IgnoreArguments3);
+} // namespace
 
 } // namespace Nx
 

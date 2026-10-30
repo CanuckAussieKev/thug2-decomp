@@ -22,6 +22,8 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
@@ -35,9 +37,9 @@ GAME_GLOBAL(float[12], g_billboardConstants, 0x0067E998,
 
 namespace {
 
-constexpr uint32_t kNodeVtable = 0x0064A894;
-constexpr uint32_t kHeadVtable = 0x0064A898;
-constexpr uint32_t kWindowVtable = 0x0064A88C;
+extern void** const kNodeVtable;
+extern void** const kHeadVtable;
+extern void** const kWindowVtable;
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 bool VertexShaders() { return g_shadersAvailable; }
@@ -616,6 +618,12 @@ void __cdecl SetFlag786EB4() { g_billboardFlag = 1; }
 
 // 0x004CD970
 void __cdecl ClearFlag786EB4() { g_billboardFlag = 0; }
+
+namespace {
+GAME_VTABLE(kNodeVtable, 0x0064A894, &Nx::sBillboardNode::Destroy);
+GAME_VTABLE(kHeadVtable, 0x0064A898, &Nx::sBillboardNode::DestroyHead);
+GAME_VTABLE(kWindowVtable, 0x0064A88C, &Nx::CPcWindow::Destroy, Stubs::DoNothing);
+} // namespace
 
 } // namespace Nx
 

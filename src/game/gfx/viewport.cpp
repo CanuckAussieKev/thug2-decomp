@@ -16,6 +16,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 #include "game/skate/skate_module.h"
 
 namespace Nx {
@@ -39,7 +40,7 @@ GAME_GLOBAL_UNCHECKED(const int*, g_modeMap, 0x0067E540, g_modeMaps);
 
 namespace {
 
-constexpr uint32_t kViewportVtable = 0x00649DA0;
+extern void** const kViewportVtable;
 constexpr int kViewports = 10;
 constexpr int kOcclusionSlots = 0x400;
 constexpr int kOcclusionRequests = 4;
@@ -391,6 +392,11 @@ bool __cdecl CFunc_SetScreenMode(Script::CStruct* params, Script::CScript*)
     }
     return true;
 }
+
+namespace {
+GAME_VTABLE(kViewportVtable, 0x00649DA0, &Nx::CViewport::Destroy, &Nx::CViewport::ProjectToScreen,
+            &Nx::CViewport::QueryPoint, &Nx::CViewport::QueryRect, &Nx::CViewport::GetVisibility);
+} // namespace
 
 } // namespace Nx
 

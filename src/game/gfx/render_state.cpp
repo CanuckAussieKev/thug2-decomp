@@ -20,6 +20,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/shader_slots.h"
 #include "game/gfx/engine_glue.h"
 
 namespace Nx {
@@ -101,7 +102,7 @@ bool HasBorderAddressing() { return g_borderAddressingSupported; }
 bool HasBlendFactor() { return g_blendFactorSupported; }
 
 // The pixel shaders (handles made at start-up) the stand-in texture stages know.
-void* Shader(uint32_t address) { return GameVariable<void*>(address); }
+void* Shader(int slot) { return g_pixelShaders[slot]; }
 
 void SetTss(DWORD stage, D3DTEXTURESTAGESTATETYPE type, DWORD value) { Device()->SetTextureStageState(stage, type, value); }
 void SetSampler(DWORD sampler, D3DSAMPLERSTATETYPE type, DWORD value) { Device()->SetSamplerState(sampler, type, value); }
@@ -374,7 +375,7 @@ void __cdecl SetFixedFunctionStages(void* shader, uint32_t factor)
     // The last stage-0 state each one sets, then stage 1 off.
     D3DTEXTURESTAGESTATETYPE lastType;
     DWORD lastValue;
-    if (shader == Shader(0x007CA964)) {
+    if (shader == Shader(kPixelShader964)) {
         SetTss(0, D3DTSS_COLOROP, D3DTOP_MODULATE4X);
         SetTss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
         SetTss(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
@@ -384,7 +385,7 @@ void __cdecl SetFixedFunctionStages(void* shader, uint32_t factor)
         SetTss(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
         return;
     }
-    if (shader == Shader(0x007CA95C)) { // vertex colour x2 x the factor, vertex alpha
+    if (shader == Shader(kPixelShader95C)) { // vertex colour x2 x the factor, vertex alpha
         SetDeviceRenderState(D3DRS_TEXTUREFACTOR, factor);
         SetTss(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
         SetTss(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
@@ -392,14 +393,14 @@ void __cdecl SetFixedFunctionStages(void* shader, uint32_t factor)
         SetTss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
         lastType = D3DTSS_ALPHAARG1;
         lastValue = D3DTA_DIFFUSE;
-    } else if (shader != Shader(0x007CA958) && shader == Shader(0x007CA954)) { // the factor alone
+    } else if (shader != Shader(kPixelShader958) && shader == Shader(kPixelShader954)) { // the factor alone
         SetDeviceRenderState(D3DRS_TEXTUREFACTOR, factor);
         SetTss(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
         SetTss(0, D3DTSS_COLORARG1, D3DTA_TFACTOR);
         SetTss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
         lastType = D3DTSS_ALPHAARG1;
         lastValue = D3DTA_TFACTOR;
-    } else if (shader != Shader(0x007CA958) && shader == Shader(0x007CA950)) { // texture x vertex colour x2, texture alpha
+    } else if (shader != Shader(kPixelShader958) && shader == Shader(kPixelShader950)) { // texture x vertex colour x2, texture alpha
         SetTss(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
         SetTss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
         SetTss(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
@@ -407,13 +408,13 @@ void __cdecl SetFixedFunctionStages(void* shader, uint32_t factor)
         SetTss(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
         lastType = D3DTSS_ALPHAARG2;
         lastValue = D3DTA_DIFFUSE;
-    } else if (shader != Shader(0x007CA958) && shader == Shader(0x007CA94C)) { // vertex colour alone
+    } else if (shader != Shader(kPixelShader958) && shader == Shader(kPixelShader94C)) { // vertex colour alone
         SetTss(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
         SetTss(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
         SetTss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
         lastType = D3DTSS_ALPHAARG1;
         lastValue = D3DTA_DIFFUSE;
-    } else if (shader != Shader(0x007CA958) && shader == Shader(0x007CA944)) { // texture alpha x vertex alpha x2
+    } else if (shader != Shader(kPixelShader958) && shader == Shader(kPixelShader944)) { // texture alpha x vertex alpha x2
         SetTss(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
         SetTss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE | D3DTA_ALPHAREPLICATE);
         SetTss(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE | D3DTA_ALPHAREPLICATE);
@@ -421,7 +422,7 @@ void __cdecl SetFixedFunctionStages(void* shader, uint32_t factor)
         SetTss(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
         lastType = D3DTSS_ALPHAARG2;
         lastValue = D3DTA_DIFFUSE;
-    } else { // 0x007CA958 and any other: the texture alone
+    } else { // kPixelShader958 and any other: the texture alone
         SetTss(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
         SetTss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
         SetTss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);

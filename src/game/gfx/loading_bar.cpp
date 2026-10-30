@@ -26,6 +26,13 @@ GAME_GLOBAL(float, g_elapsedSeconds, 0x007052A4);
 GAME_GLOBAL(float, g_totalSeconds, 0x007052A8);
 
 GAME_GLOBAL(float, g_floatTen, 0x00646710, 10.0f);
+GAME_GLOBAL(int[2], g_barPosition, 0x0067DDB4, 258, 400);
+GAME_GLOBAL(int, g_barWidth, 0x0067DDBC, 140);
+GAME_GLOBAL(int, g_barHeight, 0x0067DDC0, 8);
+GAME_GLOBAL(int[2], g_barBorder, 0x0067DDC4, 5, 5);
+GAME_GLOBAL(uint8_t[4], g_barStartColor, 0x0067DDCC, 0x00, 0x4C, 0x81, 0x80);
+GAME_GLOBAL(uint8_t[4], g_barEndColor, 0x0067DDD0, 0xAC, 0xD3, 0x73, 0x80);
+GAME_GLOBAL(uint8_t[4], g_barBorderColor, 0x0067DDD4, 0x28, 0x28, 0x28, 0x80);
 namespace {
 
 // PartyMod's gradient table: 100000 bytes, enough for high resolutions (PartyMod's resbuffer, which its
@@ -41,10 +48,6 @@ GAME_GLOBAL(float, g_floatTwenty, 0x006486AC, 20.0f);
 GAME_GLOBAL(float, g_per640, 0x0064A474, 0.0015625f);
 GAME_GLOBAL(float, g_float420, 0x0064A478, 420.0f);
 GAME_GLOBAL(float, g_per480, 0x0064A47C, 0.0020833334f);
-GAME_GLOBAL(int, g_barWidth, 0x0067DDBC, 140);
-GAME_GLOBAL(uint8_t[4], g_barStartColor, 0x0067DDCC, 0x00, 0x4C, 0x81, 0x80);
-GAME_GLOBAL(uint8_t[4], g_barEndColor, 0x0067DDD0, 0xAC, 0xD3, 0x73, 0x80);
-GAME_GLOBAL(uint8_t[4], g_barBorderColor, 0x0067DDD4, 0x28, 0x28, 0x28, 0x80);
 GAME_GLOBAL(uint32_t, g_borderArgb, 0x00701680);
 GAME_GLOBAL(Rgb, g_gradientEnd, 0x00705288);
 GAME_GLOBAL(Rgb, g_gradientStart, 0x00705294);

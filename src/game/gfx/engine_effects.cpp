@@ -29,6 +29,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 #include "game/obj/movie_manager.h"
 
 namespace Nx {
@@ -40,7 +41,7 @@ GAME_GLOBAL(Lst::HashTable*, g_spawnedPolys, 0x007004AC);
 GAME_GLOBAL(float, g_shatterVelocityScale, 0x0067DDF4, 1.0f);
 namespace {
 
-constexpr uint32_t kShatterVtable = 0x00649308;
+extern void** const kShatterVtable;
 
 GAME_GLOBAL(float, g_shatterValue2E1C, 0x0067DDD8, 1.0f);
 GAME_GLOBAL(float, g_shatterValueC483Squared, 0x0067DDDC, 360.0f);
@@ -664,6 +665,10 @@ void __cdecl KillAllEffects()
 }
 
 } // namespace Engine
+
+namespace {
+GAME_VTABLE(kShatterVtable, 0x00649308, &Nx::CShatter::Destroy);
+} // namespace
 
 } // namespace Nx
 

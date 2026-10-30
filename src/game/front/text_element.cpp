@@ -14,8 +14,17 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/obj/object.h"
+#include "game/front/screen_element.h"
+#include "game/front/screen_constants.h"
 
 namespace Front {
+
+namespace {
+extern void** const kCTextElementVtable;
+} // namespace
+
 
 namespace {
 
@@ -41,20 +50,19 @@ void CopyText(char* to, const char* from)
 }
 void AppendText(char* to, const char* from) { CopyText(to + std::strlen(to), from); }
 
-float Constant(uint32_t address) { return GameVariable<float>(address); }
-float Degrees() { return Constant(0x00645464); }        // pi / 180
-float RotationOffset() { return Constant(0x006461D8); }  // 0.001 (added to a rotation in radians)
-float MinimumAlpha() { return Constant(0x006453D4); }    // 0.0001: below it, transparent
-float LayoutTop() { return Constant(0x0064A258); }       // -200: text whose top is above it is hidden
-float LayoutBottom() { return Constant(0x0064A254); }    // 648: ... or below it
-float Zero() { return Constant(0x0066D520); }
-float Half() { return Constant(0x006453BC); }
-float One() { return Constant(0x006453A8); }
-float ShadowBehind() { return Constant(0x0064541C); }    // 0.005: the shadow's priority below the text's
-float BlurBehind() { return Constant(0x0064544C); }      // 0.01: each blur copy's below the one before
-float Sixteenth() { return Constant(0x00645A84); }       // 1/16
-float Milliseconds() { return Constant(0x006453C0); }    // 1000
-double TwoTo32() { return Constant(0x006453B4); }        // (unsigned to floating point)
+float Degrees() { return ::CFuncs::g_degreesToRadians; }        // pi / 180
+float RotationOffset() { return ::Game::g_goalLifeSecondsPerMillisecond; }  // 0.001 (added to a rotation in radians)
+float MinimumAlpha() { return ::Mdl::g_competitionTiny; }    // 0.0001: below it, transparent
+float LayoutTop() { return Front::g_layoutTop; }       // -200: text whose top is above it is hidden
+float LayoutBottom() { return Front::g_layoutBottom; }    // 648: ... or below it
+float Zero() { return ::Obj::g_floatZero; }
+float Half() { return ::Gfx::g_half; }
+float One() { return ::Obj::g_animMoviesOne; }
+float ShadowBehind() { return Front::g_shadowBehind; }    // 0.005: the shadow's priority below the text's
+float BlurBehind() { return ::Nx::g_onePercent; }      // 0.01: each blur copy's below the one before
+float Sixteenth() { return Front::g_sixteenth; }       // 1/16
+float Milliseconds() { return ::Gfx::g_thousand; }    // 1000
+double TwoTo32() { return ::Gfx::g_twoTo32; }        // (unsigned to floating point)
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -214,7 +222,7 @@ CBlurEffect::Settings* CBlurEffect::SetFromParams(CStruct* params, int* outMs)
 CTextElement* CTextElement::Construct()
 {
     CScreenElement::Construct();
-    m_vtable = reinterpret_cast<void**>(0x0064A290);
+    m_vtable = kCTextElementVtable;
     m_shadowRgba[0] = m_shadowRgba[1] = m_shadowRgba[2] = 0;
     m_shadowRgba[3] = 0x80;
     m_fontName = 0;
@@ -234,7 +242,7 @@ CTextElement* CTextElement::Construct()
 // 0x004B1830
 void CTextElement::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x0064A290);
+    m_vtable = kCTextElementVtable;
     DisableBlur();
     FreeTextObjects(false);
     if (m_string)
@@ -645,6 +653,14 @@ void CTextElement::Update()
         }
     }
 }
+
+namespace {
+GAME_VTABLE(kCTextElementVtable, 0x0064A290, &CTextElement::Destroy, &CTextElement::SetProperties,
+            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CTextElement::SetMorph,
+            &CTextElement::Update);
+} // namespace
 
 } // namespace Front
 

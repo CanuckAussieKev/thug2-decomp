@@ -15,14 +15,18 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/gfx/particle_maths.h"
+#include "game/core/game_vtables.h"
+#include "game/core/stubs.h"
 #include "game/obj/movie_manager.h"
 
 namespace Nx {
 
 namespace {
 
-void** const kParticleVtable = reinterpret_cast<void**>(0x00649380);
-void** const kManagerVtable = reinterpret_cast<void**>(0x006493A0);
+void** const& kParticleVtable = Vt::kEngineParticles;
+extern void** const kManagerVtable;
 constexpr float kByteToUnit = 1.0f / 255.0f;   // 0x00645D70 (the bit pattern 0x3B808081)
 constexpr uint32_t kObjectIdParam = 0x40C698AF; // (the emit script's parameter: the object's id)
 
@@ -62,11 +66,11 @@ Mth::Vector* CallMinOrMax(uint32_t code, const Mth::Vector* a, const Mth::Vector
 }
 Mth::Vector* MinOf(const Mth::Vector* a, const Mth::Vector* b, Mth::Vector* out)
 {
-    return CallMinOrMax(0x00495130, a, b, out);
+    return CallMinOrMax(reinterpret_cast<uint32_t>(GAME_CODE(0x00495130, &MinVectorStub)), a, b, out);
 }
 Mth::Vector* MaxOf(const Mth::Vector* a, const Mth::Vector* b, Mth::Vector* out)
 {
-    return CallMinOrMax(0x004951B0, a, b, out);
+    return CallMinOrMax(reinterpret_cast<uint32_t>(GAME_CODE(0x004951B0, &MaxVectorStub)), a, b, out);
 }
 // 0x00494F10 (thiscall on `out`, the 14 words of arguments popped by the caller): per component, the extreme of the
 // quadratic through `start` (at 0), `mid` (at `midTime`) and `end` (at `life`); w 0. Returns out.
@@ -80,6 +84,7 @@ Mth::Vector* CurveExtremes(Mth::Vector* destination, const Mth::Vector& start, c
     std::memcpy(args + 12, &midTime, 4);
     std::memcpy(args + 13, &life, 4);
     uint32_t* words = args;
+    void* code = GAME_CODE(0x00494F10, &QuadraticLowestStub);
     Mth::Vector* result;
     __asm {
         sub esp, 0x38
@@ -88,7 +93,7 @@ Mth::Vector* CurveExtremes(Mth::Vector* destination, const Mth::Vector& start, c
         mov ecx, 14
         rep movsd
         mov ecx, destination
-        mov eax, 0x00494F10
+        mov eax, code
         call eax
         add esp, 0x38
         mov result, eax
@@ -424,6 +429,10 @@ void CParticleManager::DestroyAllParticles()
     m_systems.Erase(&result, head ? head->next : nullptr, head);
 }
 
+namespace {
+GAME_VTABLE(kManagerVtable, 0x006493A0, &Nx::CParticleManager::Destroy, Stubs::ReturnZero);
+} // namespace
+
 } // namespace Nx
 
 namespace Obj {
@@ -443,6 +452,11 @@ void PointerList::Insert(PointerListNode* position, void* const* value)
 }
 
 } // namespace Obj
+
+namespace Vt {
+GAME_VTABLE(kEngineParticles, 0x00649380, &Nx::CPcParticleSystem::EngineDestroy, Stubs::DoNothing, Stubs::DoNothing,
+            Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::DoNothing, Stubs::DoNothing, Stubs::ReturnTrue);
+} // namespace Vt
 
 REPLACE(0x00495260, &Nx::CParticle::UpdateBounds);
 REPLACE(0x00496240, &Nx::CParticleParams::Construct);

@@ -19,13 +19,18 @@
 #include "game/sys/platform_d3d.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
 
+// The game's buffer for the vertices of a primitive drawn without one of its own.
+GAME_GLOBAL(uint8_t[0x100], g_primitiveVertexBuffer, 0x00705620);
+
 namespace {
 
-constexpr uint32_t kVtable = 0x0064A628;
+extern void** const kVtable;
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 IDirect3DIndexBuffer9* QuadIndices() { return g_quadIndices; }
@@ -161,7 +166,7 @@ void CPcPrimitive::Render()
     IDirect3DVertexBuffer9* buffer = nullptr;
     uint32_t firstVertex = 0, room = 0;
     SetVertexFormat(vertexFormat);
-    SetPixelShader(GameVariable<void*>(0x007CA964), nullptr);
+    SetPixelShader(g_pixelShaders[kPixelShader964], nullptr);
     if (type != 0 && type != 2 && type != 4)
         return;
     void* out = Platform::LockDynamicVertices(vertexCount, stride, &buffer, &firstVertex, &room);
@@ -199,7 +204,7 @@ void CPcPrimitive::Draw(const float* positions, const uint32_t* colours, const f
     }
     if (size) {
         stride = size;
-        vertices = reinterpret_cast<uint8_t*>(0x00705620); // (a buffer of the game's)
+        vertices = g_primitiveVertexBuffer; // (a buffer of the game's)
     }
     using Vec3 = void(__thiscall*)(CPcPrimitive*, int, float, float, float);
     for (int i = 0; i < vertexCount; ++i) {
@@ -411,6 +416,21 @@ void __cdecl SetPrimitiveDepthTest(int state, int value)
     }
     Device()->SetRenderState(D3DRS_ZFUNC, function);
 }
+
+namespace {
+GAME_VTABLE(kVtable, 0x0064A628, &Nx::CPcPrimitive::Destroy, &Nx::CPcPrimitive::SetTexture,
+            &Nx::CPcPrimitive::SetColour, &Nx::CPcPrimitive::Init, &Nx::CPcPrimitive::Ready,
+            &Nx::CPcPrimitive::Render, &Nx::CPcPrimitive::Draw, &Nx::CPcPrimitive::SetPosition,
+            &Nx::CPcPrimitive::SetX, &Nx::CPcPrimitive::SetY, &Nx::CPcPrimitive::SetZ, &Nx::CPcPrimitive::SetNormal,
+            &Nx::CPcPrimitive::SetNormalX, &Nx::CPcPrimitive::SetNormalY, &Nx::CPcPrimitive::SetNormalZ,
+            &Nx::CPcPrimitive::SetVertexColour, &Nx::CPcPrimitive::SetUV, &Nx::CPcPrimitive::SetU,
+            &Nx::CPcPrimitive::SetV, &Nx::CPcPrimitive::GetX, &Nx::CPcPrimitive::GetY, &Nx::CPcPrimitive::GetZ,
+            &Nx::CPcPrimitive::GetNormalX, &Nx::CPcPrimitive::GetNormalY, &Nx::CPcPrimitive::GetNormalZ,
+            &Nx::CPcPrimitive::GetVertexColour, &Nx::CPcPrimitive::GetU, &Nx::CPcPrimitive::GetV,
+            &Nx::CPcPrimitive::Translate, &Nx::CPcPrimitive::TranslateX, &Nx::CPcPrimitive::TranslateY,
+            &Nx::CPcPrimitive::TranslateZ, &Nx::CPcPrimitive::ScrollUV, &Nx::CPcPrimitive::ScrollU,
+            &Nx::CPcPrimitive::ScrollV, &Nx::CPcPrimitive::Compare);
+} // namespace
 
 } // namespace Nx
 

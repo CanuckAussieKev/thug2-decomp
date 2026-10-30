@@ -19,6 +19,13 @@
 #include "game/obj/object.h"
 #include "hook/game.h"
 #include "hook/log.h"
+#include "hook/game_code.h"
+#include "game/core/game_vtables.h"
+#include "game/nx/coll_line.h"
+#include "game/mc/memcard.h"
+#include "game/nx/feeler.h"
+#include "game/gfx/viewport.h"
+#include "game/core/stubs.h"
 
 namespace Front::LevelEditor::Scale {
 
@@ -472,9 +479,9 @@ V3 Limit(uint8_t* sector, V3 worldScale)
 namespace {
 
 constexpr uint32_t kModelComponent = 0x286A8D26;
-void** const kMovTriVtable = reinterpret_cast<void**>(0x00645CE0);
-void** const kMovBBoxVtable = reinterpret_cast<void**>(0x00645BC0);
-void** const kMultiVtable = reinterpret_cast<void**>(0x00645AA8);
+void** const& kMovTriVtable = Vt::kCollMovTri;
+void** const& kMovBBoxVtable = Vt::kCollMovBBox;
+void** const& kMultiVtable = Vt::kCollMulti;
 void* const kListHeadData = reinterpret_cast<void*>(-1);
 
 // A scaled object: its collision object then, its triangle objects' own geometries (copied, as they were unscaled)
@@ -668,3 +675,30 @@ bool SetObjectScale(Obj::CCompositeObject* object, V3 scale)
 void ForgetObjects() { g_objects.clear(); }
 
 } // namespace Front::LevelEditor::Scale
+
+namespace Vt {
+GAME_VTABLE(kCollMulti, 0x00645AA8, &Nx::CCollMulti::ScalarDelete, &Nx::CCollMulti::IsTriangleCollision,
+            Stubs::ReturnZero1, &Nx::CollObjStubs::NoTerrain, &Nx::CCollMulti::SetGeometryAll,
+            &Nx::CCollMulti::SetWorldPosition, &Nx::CCollMulti::SetOrientation, &Nx::CCollMulti::GetWorldPosition,
+            &Nx::CCollMulti::GetOrientation, &Nx::CCollMulti::GetVertexPos, &Nx::CCollMulti::GetValue38,
+            &Nx::CCollMulti::SetValue38, &Nx::CCollMulti::Clone, &Nx::CCollMulti::WithinBBox,
+            &Nx::CCollMulti::CollideWithLine, &Nx::CViewport::QueryPoint, &Nx::CViewport::QueryPoint,
+            &Nx::CViewport::QueryPoint, &Nx::CollGeometryForwarders::IsPointBehindFaces, &Nx::CCollMulti::PassDown,
+            &Nx::CCollMulti::GetBBox);
+GAME_VTABLE(kCollMovBBox, 0x00645BC0, &Nx::CCollMovBBox::ScalarDelete, Stubs::ReturnFalse,
+            &Nx::CCollMovBBox::GetFaceFlags, &Nx::CCollMovBBox::GetFaceTerrain, &Nx::CCollMovBBox::SetGeometry,
+            &Nx::CFeeler::SetEnd, &Nx::CCollMovable::SetOrientation, &Nx::CCollMovable::GetWorldPosition,
+            &Nx::CCollMovable::GetOrientation, &Nx::CCollMovable::GetVertexPos, &Nx::CCollMovable::GetValueA0,
+            &Nx::CCollMovable::SetValueA0, &Nx::CCollMovBBox::Clone, &Mc::Card::AlwaysTrue,
+            &Nx::CCollMovBBox::CollideWithLine, &Nx::CViewport::QueryPoint, &Nx::CViewport::QueryPoint,
+            &Nx::CViewport::QueryPoint, &Nx::CollGeometryForwarders::IsPointBehindFaces,
+            &Nx::CCollMovBBox::DebugRender, Stubs::ReturnZero);
+GAME_VTABLE(kCollMovTri, 0x00645CE0, &Nx::CCollMovTri::ScalarDelete, Stubs::ReturnTrue,
+            &Nx::CollFaceAccess::GetFaceFlags, &Nx::CollFaceAccess::GetFaceTerrain, &Nx::CCollMovTri::SetGeometry,
+            &Nx::CCollMovTri::SetWorldPosition, &Nx::CCollMovable::SetOrientation,
+            &Nx::CCollMovable::GetWorldPosition, &Nx::CCollMovable::GetOrientation, &Nx::CCollMovable::GetVertexPos,
+            &Nx::CCollMovable::GetValueA0, &Nx::CCollMovable::SetValueA0, &Nx::CCollMovTri::Clone,
+            &Nx::CCollMovTri::WithinBBox, &Nx::CCollMovTri::CollideWithLine, &Nx::CViewport::QueryPoint,
+            &Nx::CViewport::QueryPoint, &Nx::CViewport::QueryPoint, &Nx::CollGeometryForwarders::IsPointBehindFaces,
+            &Nx::CCollMovTri::DebugRender, &Nx::CCollMovTri::GetBBox);
+} // namespace Vt

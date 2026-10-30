@@ -16,8 +16,32 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/obj/object.h"
+#include "game/core/stubs.h"
+#include "game/front/screen_constants.h"
 
 namespace Front {
+
+namespace {
+extern void** const kCScreenElementVtable;
+} // namespace
+
+
+GAME_GLOBAL(float, g_aspectToLayout, 0x00649FEC, 0.75000006f);
+GAME_GLOBAL(float, g_wideScreen, 0x00649FE4, 0.9f);
+GAME_GLOBAL(float, g_minusInv448, 0x00649FE0, -0.002232143f);
+GAME_GLOBAL(float, g_inv448, 0x00649FDC, 0.002232143f);
+GAME_GLOBAL(float, g_inv896, 0x00649FD0, 0.0011160715f);
+GAME_GLOBAL(float, g_inv1280, 0x00649FD8, 0.00078125f);
+GAME_GLOBAL(float, g_invTwoPi, 0x0064A044, 0.15915494f);
+GAME_GLOBAL(float, g_twoPi, 0x0064545C, 6.2831855f);
+GAME_GLOBAL(float, g_pi, 0x00649FC8, 3.1415927f);
+GAME_GLOBAL(float, g_layoutTop, 0x0064A258, -2e+02f);
+GAME_GLOBAL(float, g_layoutBottom, 0x0064A254, 648.0f);
+GAME_GLOBAL(float, g_shadowBehind, 0x0064541C, 0.005f);
+GAME_GLOBAL(float, g_sixteenth, 0x00645A84, 0.0625f);
+GAME_GLOBAL(float, g_framesPerSecond, 0x00645EA0, 6e+01f);
 
 static_assert(offsetof(SElementState, pos3d) == 0x04 && offsetof(SElementState, x) == 0x14 &&
                   offsetof(SElementState, z) == 0x1C && offsetof(SElementState, left) == 0x20 &&
@@ -57,10 +81,9 @@ constexpr uint32_t kWindowElement = 0xA13ADBB7;
 constexpr uint32_t kSystem = 0x36B2EE74, kFocusSentEvent = 0x3056434F, kFocusClearedEvent = 0x4A57316B;
 constexpr uint32_t kDeadBeef = 0xDEADBEEF;
 
-float Constant(uint32_t address) { return GameVariable<float>(address); }
-float Degrees() { return Constant(0x00645464); }       // pi / 180
-float RotationOffset() { return Constant(0x006461D8); } // 0.001 (added to a rotation in radians)
-float RadiansToDegrees() { return Constant(0x00645468); }
+float Degrees() { return ::CFuncs::g_degreesToRadians; }       // pi / 180
+float RotationOffset() { return ::Game::g_goalLifeSecondsPerMillisecond; } // 0.001 (added to a rotation in radians)
+float RadiansToDegrees() { return ::CFuncs::g_scriptRadiansToDegrees; }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -175,7 +198,7 @@ SElementState* SElementState::Assign(const SElementState* other)
 CScreenElement* CScreenElement::Construct()
 {
     Obj::CObject::Construct();
-    m_vtable = reinterpret_cast<void**>(0x0064A090);
+    m_vtable = kCScreenElementVtable;
     mp_parent.mp_prev = mp_parent.mp_next = nullptr;
     mp_parent.mp_object = nullptr;
     mp_firstChild.mp_prev = mp_firstChild.mp_next = nullptr;
@@ -206,7 +229,7 @@ CScreenElement* CScreenElement::Construct()
 // 0x004AAB30
 void CScreenElement::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x0064A090);
+    m_vtable = kCScreenElementVtable;
     {
         ElementPtr none;
         SetParent(&none, 0);
@@ -1028,6 +1051,14 @@ void CScreenElement::SetMorph(Script::CStruct* params)
 }
 
 void GetElement(ElementPtr* out, uint32_t id) { LookUp(Manager(), out, id, 0); }
+
+namespace {
+GAME_VTABLE(kCScreenElementVtable, 0x0064A090, &CScreenElement::Destroy, &CScreenElement::SetProperties,
+            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
+            Stubs::DoNothing);
+} // namespace
 
 } // namespace Front
 

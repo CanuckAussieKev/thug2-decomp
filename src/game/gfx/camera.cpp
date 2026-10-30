@@ -11,6 +11,9 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/obj/object.h"
 
 namespace Gfx {
 
@@ -23,7 +26,7 @@ static_assert(offsetof(Camera, m_oldPos) == 0x4C && offsetof(Camera, m_pos) == 0
 
 namespace {
 
-constexpr uint32_t kVtable = 0x006487E0;
+extern void** const kVtable;
 constexpr uint32_t kSetHFOVRadians = 0x44EA2B6D; // the member function (name unknown): the angle in radians
 
 float FloatFromBits(uint32_t bits)
@@ -48,7 +51,7 @@ GAME_GLOBAL(int, g_drawDistanceSetting, 0x007D6444);
 Camera* Camera::Construct()
 {
     Obj::CObject::Construct();
-    *reinterpret_cast<uint32_t*>(this) = kVtable;
+    *reinterpret_cast<void***>(this) = kVtable;
     m_unknownC0 = 1.0f;
     m_hFov = Nx::GetScreenAngle();
     UpdateAdjustedHFOV();
@@ -75,7 +78,7 @@ Camera* Camera::Construct()
 // 0x004859F0
 void Camera::DestroyBody()
 {
-    *reinterpret_cast<uint32_t*>(this) = kVtable;
+    *reinterpret_cast<void***>(this) = kVtable;
     Obj::CObject::DestroyBody();
 }
 
@@ -182,6 +185,13 @@ void Camera::SetHFOV(float degrees)
     m_hFov = degrees;
     UpdateAdjustedHFOV();
 }
+
+namespace {
+GAME_VTABLE(kVtable, 0x006487E0, &Gfx::Camera::ScalarDelete, &Obj::CObject::SetProperties,
+            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+            &Gfx::Camera::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue);
+} // namespace
 
 } // namespace Gfx
 

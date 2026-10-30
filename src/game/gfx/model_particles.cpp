@@ -16,6 +16,8 @@
 #include "game/mth/quat.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/game_vtables.h"
 
 namespace Nx {
 
@@ -24,7 +26,7 @@ namespace {
 constexpr unsigned int kMemoryPerModel = 0x1194; // (what's needed free for each model)
 constexpr float kScaleStep = 0.01f;             // 0x0064544C
 constexpr float kSizeStep = 0.25f;              // 0x006467AC
-const char* const kModelExtension = reinterpret_cast<const char*>(0x00646164); // ".mdl"
+const char* const kModelExtension = GAME_TEXT(0x00646164, ".mdl"); // ".mdl"
 
 uint8_t AssertFlag() { return g_allocAssertFlag; }
 void* Allocate(unsigned int size) { return Mem::Manager::Get()->Allocate(size, AssertFlag(), nullptr); }
@@ -51,7 +53,7 @@ CModelParticles* CModelParticles::Construct(uint32_t name, int maxParticles, con
     mp_unknown13C = nullptr;
     mp_particles = nullptr;
     m_unknown8C = 0;
-    ParticleParts::SetVtables(this, 0x006494A0, 0x0064949C);
+    ParticleParts::SetVtables(this, Vt::kModelParticles, Vt::kModelParticlesNode);
     m_maxParticles = maxParticles;
     m_modelCount = static_cast<unsigned int>(maxParticles);
     m_drawnModels = static_cast<unsigned int>(maxParticles);

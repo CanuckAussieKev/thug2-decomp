@@ -10,12 +10,15 @@
 #include "game/gfx/engine_sprite.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/gfx/pc_font.h"
 
 namespace Nx {
 
 namespace {
 
-constexpr uint32_t kSpriteVtable = 0x0064A744;
+extern void** const kSpriteVtable;
 
 SDraw2D* AsDrawn(SSprite* sprite) { return reinterpret_cast<SDraw2D*>(sprite); }
 
@@ -86,6 +89,11 @@ void CPcSprite::UpdatePriority()
     if (sprite)
         AsDrawn(sprite)->SetPriority(priority);
 }
+
+namespace {
+GAME_VTABLE(kSpriteVtable, 0x0064A744, &Nx::CPcSprite::Destroy, &Nx::CPcText::Update, &Nx::CPcSprite::UpdateHidden,
+            &Nx::CPcSprite::Update, &Nx::CPcSprite::UpdatePriority, Stubs::DoNothing);
+} // namespace
 
 } // namespace Nx
 

@@ -7,6 +7,9 @@
 #include "hook/game.h"
 #include "hook/game_code.h"
 #include "hook/hook.h"
+#include "game/core/game_vtables.h"
+#include "game/mc/save_types.h"
+#include "game/core/stubs.h"
 
 namespace Mem {
 
@@ -17,8 +20,8 @@ extern void** const kAllocRegionVtable;
 
 namespace {
 
-void** const kHeadVtable = reinterpret_cast<void**>(0x00658480);       // Lst::Head<Context>
-void** const kAllocatorVtable = reinterpret_cast<void**>(0x0065845C);
+extern void** const kHeadVtable;       // Lst::Head<Context>
+extern void** const kAllocatorVtable;
 
 } // namespace
 
@@ -270,9 +273,9 @@ struct AllocAdapters {
         return node;
     }
     // The node destructors of two other node types (vtables 0x0065797C and 0x00658A70).
-    void UnlinkNode65797C() { reinterpret_cast<ListNode*>(this)->UnlinkAs(reinterpret_cast<void**>(0x0065797C)); }
+    void UnlinkNode65797C() { reinterpret_cast<ListNode*>(this)->UnlinkAs(Vt::kSaveNode); }
     // (the node of Sio::Device's list)
-    void UnlinkNode658A70() { reinterpret_cast<ListNode*>(this)->UnlinkAs(reinterpret_cast<void**>(0x00658A70)); }
+    void UnlinkNode658A70() { reinterpret_cast<ListNode*>(this)->UnlinkAs(Vt::kDeviceNode); }
     // 0x005BA4E0: free what the first field points to
     void FreePointee() { Mem::Free(*reinterpret_cast<void**>(this)); }
 };
@@ -281,11 +284,21 @@ struct AllocAdapters {
 
 namespace Mem {
 
+namespace {
+GAME_VTABLE(kHeadVtable, 0x00658480, &AllocAdapters::NodeDestroy);
+GAME_VTABLE(kAllocatorVtable, 0x0065845C,
+            &Mem::Allocator::PushContext, &Mem::Allocator::PopContext, &AllocAdapters::AllocatorDestroy, GAME_LIBRARY_SLOT(0x00623771), Stubs::ReturnZero, Stubs::ReturnZero2, Stubs::ReturnZero2, Stubs::ReturnZero2, GAME_LIBRARY_SLOT(0x00623771));
+} // namespace
+
 GAME_VTABLE(kNodeVtable, 0x00658458, &AllocAdapters::NodeDestroy);          // Lst::Node<Context>
 GAME_VTABLE(kRegionVtable, 0x00658A58, &AllocAdapters::RegionDestroy);
 GAME_VTABLE(kAllocRegionVtable, 0x00658A5C, &AllocAdapters::AllocRegionDestroy);
 
 } // namespace Mem
+
+namespace Vt {
+GAME_VTABLE(kSaveNode, 0x0065797C, &Mc::ListDestructors::NodeDestroy);
+} // namespace Vt
 
 REPLACE(0x005BA080, Mem::MarkBlockInUse);
 REPLACE(0x005BA090, Mem::GetBlockHeader);

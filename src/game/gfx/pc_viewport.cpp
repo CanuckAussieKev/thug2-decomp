@@ -16,6 +16,9 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
 #include "game/gfx/glow.h"
 
@@ -34,7 +37,7 @@ GAME_GLOBAL(float, g_scale2DIn3DMin, 0x0070137C);
 
 namespace {
 
-constexpr uint32_t kViewportVtable = 0x0064A848;
+extern void** const kViewportVtable;
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 bool Radeon8500() { return g_radeon8500; }
@@ -50,7 +53,7 @@ void BeginQueryDraw(uint32_t fvf)
 {
     SetBlendMode(0);
     SetTexture(0, nullptr);
-    SetPixelShader(g_vertexColourPixelShader, nullptr);
+    SetPixelShader(g_pixelShaders[kPixelShader94C], nullptr);
     SetVertexFormat(fvf);
     Platform::BeginOcclusionQuery();
 }
@@ -180,6 +183,11 @@ uint32_t __cdecl OcclusionPixels()
     }
     return result == S_FALSE ? g_occlusionPixels : 0;
 }
+
+namespace {
+GAME_VTABLE(kViewportVtable, 0x0064A848, &Nx::CPcViewport::Destroy, &Nx::CPcViewport::ProjectToScreen,
+            &Nx::CPcViewport::QueryPoint, &Nx::CPcViewport::QueryRect, Stubs::ReturnZero1);
+} // namespace
 
 } // namespace Nx
 

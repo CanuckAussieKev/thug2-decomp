@@ -25,6 +25,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/shader_slots.h"
 
 namespace Nx {
 
@@ -110,7 +111,7 @@ bool __cdecl MakeAnimatedGrass(CPcGeom* /*geom*/, sMesh* mesh)
     }
     SetUpAnimatedGrassMaterial(reinterpret_cast<sMaterial*>(mesh->material));
     mesh->flags |= 0x402;
-    mesh->pixelShader = GameVariable<void*>(0x007CA924);
+    mesh->pixelShader = g_pixelShaders[kPixelShader924];
     uint8_t* vertices = nullptr;
     mesh->GetVertexBuffer(0)->Lock(0, 0, &vertices, 0); // (not unlocked: the copy is what's changed)
     for (uint32_t i = 0; i < mesh->vertexCount; ++i) {

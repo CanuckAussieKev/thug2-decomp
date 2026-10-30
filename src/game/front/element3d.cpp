@@ -23,9 +23,18 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/front/screen_element.h"
+#include "game/front/screen_constants.h"
 #include "game/gfx/render.h"
 
 namespace Front {
+
+namespace {
+extern void** const kCElement3dVtable;
+} // namespace
+
 
 static_assert(offsetof(CElement3d, m_models) == 0x178 && offsetof(CElement3d, m_numModels) == 0x434 &&
                   offsetof(CElement3d, m_cameraZ) == 0x438 && offsetof(CElement3d, m_angle) == 0x43C &&
@@ -69,18 +78,17 @@ constexpr uint32_t kKillScript = 0xA66C1C31;          // KillElement3d
 constexpr uint32_t kModelComponent = 0x286A8D26;
 
 // The originals' float constants (read from the exe).
-float Constant(uint32_t address) { return GameVariable<float>(address); }
-float AspectToLayout() { return Constant(0x00649FEC); } // 0.75000006 (3/4, a bit over)
-float WideScreen() { return Constant(0x00649FE4); }     // 0.9
-float MinusInv448() { return Constant(0x00649FE0); }    // -1/448
-float Inv448() { return Constant(0x00649FDC); }         // 1/448
-float Inv896() { return Constant(0x00649FD0); }         // 1/896
-float Inv1280() { return Constant(0x00649FD8); }        // 1/1280
-float InvTwoPi() { return Constant(0x0064A044); }
-float TwoPi() { return Constant(0x0064545C); }
-float Pi() { return Constant(0x00649FC8); }
-float Degrees() { return Constant(0x00645464); }        // pi / 180
-float VisibleAlpha() { return Constant(0x006453D4); }   // 0.0001
+float AspectToLayout() { return Front::g_aspectToLayout; } // 0.75000006 (3/4, a bit over)
+float WideScreen() { return Front::g_wideScreen; }     // 0.9
+float MinusInv448() { return Front::g_minusInv448; }    // -1/448
+float Inv448() { return Front::g_inv448; }         // 1/448
+float Inv896() { return Front::g_inv896; }         // 1/896
+float Inv1280() { return Front::g_inv1280; }        // 1/1280
+float InvTwoPi() { return Front::g_invTwoPi; }
+float TwoPi() { return Front::g_twoPi; }
+float Pi() { return Front::g_pi; }
+float Degrees() { return ::CFuncs::g_degreesToRadians; }        // pi / 180
+float VisibleAlpha() { return ::Mdl::g_competitionTiny; }   // 0.0001
 
 // CScreenElement's pieces.
 void BaseConstruct(CScreenElement* e) { e->CScreenElement::Construct(); }
@@ -174,7 +182,7 @@ float Wrapped(double angle)
 CElement3d* CElement3d::Construct()
 {
     BaseConstruct(this);
-    m_vtable = reinterpret_cast<void**>(0x00649FF4);
+    m_vtable = kCElement3dVtable;
     for (Model& model : m_models) {
         new (&model.object) Obj::CSmtPtr<Obj::CCompositeObject>(); // (0x0042B580: all three words cleared)
         model.object.Release();
@@ -208,7 +216,7 @@ CElement3d* CElement3d::Construct()
 // 0x004A6240
 void CElement3d::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x00649FF4);
+    m_vtable = kCElement3dVtable;
     ClearModels();
     for (int i = kMaxModels - 1; i >= 0; --i) // (the array's destructor: last to first)
         m_models[i].object.Release();
@@ -740,6 +748,14 @@ void CElement3d::Update()
         component->Update();
     }
 }
+
+namespace {
+GAME_VTABLE(kCElement3dVtable, 0x00649FF4, &Front::CElement3d::Destroy, &Front::CElement3d::SetProperties,
+            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties,
+            &Front::CElement3d::SetMorph, &Front::CElement3d::Update);
+} // namespace
 
 } // namespace Front
 

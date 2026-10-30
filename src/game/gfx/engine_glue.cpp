@@ -35,9 +35,16 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/gfx/pc_particles.h"
 #include "game/obj/particle_component.h"
 
 namespace Nx {
+
+namespace {
+extern void** const kCPcParticleManagerVtable;
+} // namespace
+
 
 GAME_GLOBAL(bool, g_loadingScreenUp, 0x00786D04); // the loading screen is up: it draws and presents on its own
 GAME_GLOBAL(void*, g_weather, 0x006FA7C8);
@@ -194,7 +201,7 @@ void __cdecl StartEngine()
     void* particles = nullptr;
     if (memory) {
         particles = static_cast<CParticleManager*>(memory)->Construct();
-        *static_cast<void**>(particles) = reinterpret_cast<void*>(0x0064A304);
+        *static_cast<void**>(particles) = reinterpret_cast<void*>(kCPcParticleManagerVtable);
     }
     reinterpret_cast<void*&>(Obj::g_particleManager) = particles;
     memory = Mem::New(0x12AC);
@@ -340,6 +347,10 @@ void __cdecl RemoveTextureShadowCaster(const uint8_t* texture)
 {
     RemoveShadowCaster(reinterpret_cast<uint32_t>(CasterKey(texture)));
 }
+
+namespace {
+GAME_VTABLE(kCPcParticleManagerVtable, 0x0064A304, &Nx::CPcParticleManager::Destroy, Nx::CPcParticleSystem::Create);
+} // namespace
 
 } // namespace Nx
 

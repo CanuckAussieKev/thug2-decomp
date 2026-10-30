@@ -18,6 +18,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
 #include "game/gfx/engine_glue.h"
 
@@ -113,7 +114,7 @@ void __cdecl DrawScreenQuad(uint32_t blend, void* target, void* source, float du
         float halfY = static_cast<float>(0.5 / Unsigned(targetDesc.Height));
         SetTexture(0, source);
         if (shader)
-            SetPixelShader(Shader(0x007CA950), nullptr);
+            SetPixelShader(Shader(kPixelShader950), nullptr);
         SetVertexFormat(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1);
         float right = static_cast<float>(static_cast<double>(du) + 1.0);
         float u0 = static_cast<float>(static_cast<double>(halfX) + du);
@@ -128,7 +129,7 @@ void __cdecl DrawScreenQuad(uint32_t blend, void* target, void* source, float du
         };
         DeviceCopy()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(TexturedVertex));
     } else {
-        SetPixelShader(Shader(0x007CA94C), nullptr);
+        SetPixelShader(Shader(kPixelShader94C), nullptr);
         // (the vertex format is left as it was)
         FlatVertex quad[4] = {
             {0.0f, 0.0f, 0.0f, 1.0f, colour},
@@ -206,7 +207,7 @@ void __cdecl Bloom()
     SetState(kAlphaBlend, 0);
     IDirect3DTexture9* quarter = ScreenCopy(2);
     IDirect3DTexture9* bright = ScreenCopy(3);
-    SetPixelShader(Shader(0x007CA948), nullptr); // the cut-off
+    SetPixelShader(Shader(kPixelShader948), nullptr); // the cut-off
     // Constant 0: the cut-off colour (bytes / 128) and 0.5.
     const uint8_t* cutoff = reinterpret_cast<uint8_t*>(&g_bloomCutOff);
     float constant[4] = {static_cast<float>(cutoff[0] * (1.0 / 128)), static_cast<float>(cutoff[1] * (1.0 / 128)),
@@ -245,7 +246,7 @@ void __cdecl Bloom()
     SetState(kAlphaBlend, 1);
     SetState(kAlphaRef, 0);
     SetState(kAddressMode0, 0x10001);
-    SetPixelShader(Shader(0x007CA950), nullptr);
+    SetPixelShader(Shader(kPixelShader950), nullptr);
     SetVertexFormat(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     SetBlendMode(1);
     for (int pass = 0; pass < 2; ++pass) {

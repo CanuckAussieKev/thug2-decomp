@@ -30,6 +30,10 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/net/net_manager.h"
+#include "game/core/stubs.h"
+#include "game/mc/memcard.h"
 
 namespace Nx {
 
@@ -37,7 +41,7 @@ using namespace ModelGeoms;
 
 namespace {
 
-constexpr uint32_t kModelVtable = 0x00649348;
+extern void** const kModelVtable;
 
 // Checksums: "none" (a new model's file name), the names a geom gets when it's the first, the debug switch read
 // when no texture was replaced, the script parameters.
@@ -642,6 +646,13 @@ bool CModel::ReplaceFaceTexture(void* face, const char* source, uint32_t name)
     RemoveTexture(overlay);
     return replaced;
 }
+
+namespace {
+GAME_VTABLE(kModelVtable, 0x00649348, &Nx::CModel::Destroy, &Mc::Card::AlwaysTrue, Stubs::ReturnZero1,
+            &Mc::Card::AlwaysTrue, &Nx::CModel::VirtualTrue4, &Mc::Card::AlwaysTrue, &Mc::Card::AlwaysTrue,
+            &Mc::Card::AlwaysTrue, Stubs::ReturnTrue2, &Net::Manager::LoadNetworkDrivers, Stubs::ReturnTrue,
+            Stubs::ReturnTrue, &Nx::CModel::PlatGetBoundingSphere, Stubs::IgnoreArgument);
+} // namespace
 
 } // namespace Nx
 

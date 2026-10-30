@@ -14,6 +14,7 @@
 #include "game/nx/coll_tri.h"
 #include "game/nx/feeler.h"
 #include "hook/game.h"
+#include "game/core/game_vtables.h"
 
 namespace Front::LevelEditor::Ruler {
 
@@ -55,7 +56,7 @@ std::string Describe(const Measure& m)
 
 namespace {
 
-constexpr uint32_t kCollStaticVtable = 0x00645C18; // (CCollStatic)
+void** const& kCollStaticVtable = Vt::kCollStatic; // (CCollStatic)
 
 bool g_armed;
 int g_ends;        // (0, 1 or 2 ends placed)
@@ -86,7 +87,7 @@ std::vector<V3> CornersNear(uint32_t checksum, V3 near, float reach)
     if (!sector)
         return corners;
     uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
-    if (!coll || *reinterpret_cast<uint32_t*>(coll) != kCollStaticVtable)
+    if (!coll || *reinterpret_cast<void***>(coll) != kCollStaticVtable)
         return corners;
     const auto* tri = *reinterpret_cast<const Nx::CCollObjTriData* const*>(coll + 0x0C);
     if (!tri || !tri->m_vertices)

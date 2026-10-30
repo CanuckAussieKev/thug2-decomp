@@ -43,20 +43,10 @@ void ProcessWindowEvents()
     Platform::PumpSdlEvents();
 }
 
-GAME_GLOBAL(uint32_t, g_unknown42C8, 0x007D42C8);
-GAME_GLOBAL(uint32_t, g_unknown42CC, 0x007D42CC);
-GAME_GLOBAL(uint32_t, g_unknown42D0, 0x007D42D0);
-GAME_GLOBAL(uint32_t, g_unknown42D4, 0x007D42D4);
-GAME_GLOBAL(uint32_t, g_unknown42D8, 0x007D42D8);
-GAME_GLOBAL(uint32_t, g_unknown42DC, 0x007D42DC);
-GAME_GLOBAL(uint32_t, g_unknown6318, 0x007D6318);
-GAME_GLOBAL(uint32_t, g_unknown631C, 0x007D631C);
-GAME_GLOBAL(uint8_t, g_unknown6437, 0x007D6437); // (the graphics options: platform_input.h)
-GAME_GLOBAL(uint16_t, g_unknown6438, 0x007D6438); // (the distance clipping flag follows: gfx/settings.cpp)
+GAME_GLOBAL(uint8_t, g_option37, 0x007D6437); // (the graphics options: platform_input.h)
+GAME_GLOBAL(uint16_t, g_options38And39, 0x007D6438); // (the distance clipping flag follows: gfx/settings.cpp)
 GAME_GLOBAL(uint8_t, g_unknown643B, 0x007D643B);
-GAME_GLOBAL(uint32_t, g_unknown6440, 0x007D6440);
-GAME_GLOBAL(uint32_t, g_unknown6668, 0x007D6668);
-GAME_GLOBAL(uint32_t, g_unknown666C, 0x007D666C);
+GAME_GLOBAL(uint32_t, g_distanceSetting, 0x007D6440);
 
 // 0x005F44F0
 bool InitInput(HINSTANCE instance, HWND window, int config)
@@ -70,29 +60,29 @@ bool InitInput(HINSTANCE instance, HWND window, int config)
         return true;
     // Per port: the joysticks (0x007D6318), their device state, the force-feedback effects (0x007D6668) and
     // the motors' ranges and kinds; the key bindings (-1: none); the graphics options (0x007D6434...).
-    g_unknown6318 = 0;
+    g_joysticks[0] = nullptr;
     std::memset(Platform::g_joystickStates, 0, sizeof(Platform::g_joystickStates));
-    g_unknown631C = 0;
+    g_joysticks[1] = nullptr;
     std::memset(Platform::g_lastJoystickStates, 0, sizeof(Platform::g_lastJoystickStates));
-    g_unknown6668 = 0;
-    g_unknown42D0 = 0;
-    g_unknown666C = 0;
-    g_unknown42D4 = 0;
-    g_unknown42D8 = 0;
-    g_unknown42DC = 0;
+    g_effects[0] = nullptr;
+    g_forceResolutions[0] = 0;
+    g_effects[1] = nullptr;
+    g_forceResolutions[1] = 0;
+    g_forceResolutions[2] = 0;
+    g_forceResolutions[3] = 0;
     std::memset(Platform::g_keyBindings, 0xFF, sizeof(Platform::g_keyBindings));
     Nx::g_antialiasing = false;
     Nx::g_hqShadows = 0;
     Nx::g_fogSetting = false;
-    g_unknown6437 = 0;
-    g_unknown42C8 = 0;
+    g_option37 = 0;
+    g_forceAxisCounts[0] = 0;
     // (the original clears dwords here across byte-sized settings; each is written by name)
-    g_unknown6438 = 0;
+    g_options38And39 = 0;
     Nx::g_distanceClipping = false;
     g_unknown643B = 0;
-    g_unknown42CC = 0;
+    g_forceAxisCounts[1] = 0;
     reinterpret_cast<uint32_t&>(Nx::g_resolutionSetting) = 0;
-    g_unknown6440 = 0;
+    g_distanceSetting = 0;
     reinterpret_cast<uint32_t&>(Gfx::g_drawDistanceSetting) = 0;
     // Originally from PartyMod Fixes: the graphics settings from thug2-decomp.ini in place of the original's loader 0x005F34D0(config).
     Nx::WriteGraphicsSettings();

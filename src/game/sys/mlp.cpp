@@ -34,6 +34,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/selftest.h"
+#include "hook/game_code.h"
 #include "game/obj/cutscene.h"
 #include "game/gfx/movie.h"
 #include "game/ass/assman.h"
@@ -281,7 +282,7 @@ void Manager::MainLoop()
         Tmr::CountVblank();
         Tmr::OncePerRender();
         if (m_profileFrames) {
-            Dbg::Printf(reinterpret_cast<const char*>(0x0064725C)); // "\nProfiling.....Start of main loop\n\n"
+            Dbg::Printf(GAME_TEXT(0x0064725C, "\nProfiling.....Start of main loop\n\n")); // "\nProfiling.....Start of main loop\n\n"
             --m_profileFrames;
             m_profiling = 1;
         }

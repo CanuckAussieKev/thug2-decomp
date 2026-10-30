@@ -14,8 +14,17 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/obj/object.h"
+#include "game/front/screen_element.h"
+#include "game/front/screen_constants.h"
 
 namespace Front {
+
+namespace {
+extern void** const kCTextBlockElementVtable;
+} // namespace
+
 
 namespace {
 
@@ -43,17 +52,16 @@ void CopyText(char* to, const char* from)
 }
 void AppendText(char* to, const char* from) { CopyText(to + std::strlen(to), from); }
 
-float Constant(uint32_t address) { return GameVariable<float>(address); }
-float Half() { return Constant(0x006453BC); }
-float One() { return Constant(0x006453A8); }
+float Half() { return ::Gfx::g_half; }
+float One() { return ::Obj::g_animMoviesOne; }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // A capital's size in a font (the lines' height): "AAA" (0x0064A260).
-const char* SizingText() { return reinterpret_cast<const char*>(0x0064A260); }
+const char* SizingText() { return GAME_TEXT(0x0064A260, "AAA"); }
 // " " (0x0064A2BC): what joins the lines.
-const char* Space() { return reinterpret_cast<const char*>(0x0064A2BC); }
+const char* Space() { return GAME_TEXT(0x0064A2BC, " "); }
 
 void* GetFont(uint32_t name) { return Nx::GetFont(name); }
 void QueryString(void* font, const char* text, float* width, float* height)
@@ -86,7 +94,7 @@ CTextElement* AsText(CScreenElement* e) { return static_cast<CTextElement*>(e); 
 CTextBlockElement* CTextBlockElement::Construct()
 {
     CScreenElement::Construct();
-    m_vtable = reinterpret_cast<void**>(0x0064A264);
+    m_vtable = kCTextBlockElementVtable;
     m_shadowRgba[0] = m_shadowRgba[1] = m_shadowRgba[2] = 0;
     m_shadowRgba[3] = 0x80;
     m_internalScale = 1.0f;
@@ -105,7 +113,7 @@ CTextBlockElement* CTextBlockElement::Construct()
 // 0x004B08B0
 void CTextBlockElement::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x0064A264);
+    m_vtable = kCTextBlockElementVtable;
     DeleteBlur(mp_blur);
     CScreenElement::DestroyBody();
 }
@@ -475,6 +483,14 @@ void CTextBlockElement::Update()
     }
     UpdateLines();
 }
+
+namespace {
+GAME_VTABLE(kCTextBlockElementVtable, 0x0064A264, &CTextBlockElement::Destroy, &CTextBlockElement::SetProperties,
+            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties,
+            &CTextBlockElement::SetMorph, &CTextBlockElement::Update);
+} // namespace
 
 } // namespace Front
 

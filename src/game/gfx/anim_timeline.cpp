@@ -13,16 +13,20 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/game_vtables.h"
+#include "game/skater/vehicle_sound.h"
+#include "game/core/stubs.h"
 
 namespace Gfx {
 
 namespace {
 
-constexpr uint32_t kTimelineVtable = 0x00648768;
-constexpr uint32_t kListNodeVtable = 0x006486CC; // (the channel list's node type)
-constexpr uint32_t kBlendTimelineVtable = 0x00648794;
-constexpr uint32_t kControllerVtable = 0x0064877C;
-constexpr uint32_t kEventVtable = 0x006487B0;
+extern void** const kTimelineVtable;
+void** const& kListNodeVtable = Vt::kAnimListNode; // (the channel list's node type)
+void** const& kBlendTimelineVtable = Vt::kAnimTrack;
+extern void** const kControllerVtable;
+void** const& kEventVtable = Vt::kAnimEventBase;
 constexpr uint32_t kNoAnim = 0xF60C9090;     // Unassigned
 constexpr uint32_t kId = 0x40C698AF;         // id
 constexpr uint32_t kSkeleton = 0x222756D5;   // skeleton
@@ -68,7 +72,7 @@ CAnimTimeline* CAnimTimeline::Construct()
     node->priority = 0;
     node->next = node;
     node->prev = node;
-    m_vtable = Vtable(kTimelineVtable);
+    m_vtable = kTimelineVtable;
     Clear(this);
     return this;
 }
@@ -76,7 +80,7 @@ CAnimTimeline* CAnimTimeline::Construct()
 // 0x00481690
 void CAnimTimeline::DestroyBody()
 {
-    Node(this)->UnlinkAs(Vtable(kListNodeVtable));
+    Node(this)->UnlinkAs(kListNodeVtable);
 }
 
 // 0x004816E0
@@ -206,7 +210,7 @@ CAnimTrack* CAnimTrack::Construct(Obj::CCompositeObject* object)
     mp_events = nullptr;
     m_eventCount = 0;
     mp_object = object;
-    m_vtable = Vtable(kBlendTimelineVtable);
+    m_vtable = kBlendTimelineVtable;
     m_eventsOn = true;
     m_state = kPlaying;
     return this;
@@ -291,7 +295,7 @@ Obj::CCompositeObject* CAnimTrack::GetObject()
 CAnimController* CAnimController::Construct(CAnimTimeline* timeline)
 {
     mp_timeline = timeline;
-    m_vtable = Vtable(kControllerVtable);
+    m_vtable = kControllerVtable;
     m_id = 0;
     mp_object = nullptr;
     m_priority = 0;
@@ -301,13 +305,13 @@ CAnimController* CAnimController::Construct(CAnimTimeline* timeline)
 // 0x00481730
 void CAnimController::DestroyBody()
 {
-    m_vtable = Vtable(kControllerVtable);
+    m_vtable = kControllerVtable;
 }
 
 // 0x004817A0
 CAnimController* CAnimController::Destroy(uint8_t flags)
 {
-    m_vtable = Vtable(kControllerVtable);
+    m_vtable = kControllerVtable;
     if (flags & 1)
         Mem::Free(this);
     return this;
@@ -337,8 +341,16 @@ uint8_t* CAnimController::GetSkeleton()
 // 0x004819E0
 void CAnimEventBase::DestroyBody()
 {
-    m_vtable = Vtable(kEventVtable);
+    m_vtable = kEventVtable;
 }
+
+namespace {
+GAME_VTABLE(kTimelineVtable, 0x00648768, &Gfx::CAnimTimeline::Destroy, &Gfx::CAnimTimeline::Reset,
+            &Gfx::CAnimTimeline::Update, &Gfx::CAnimTimeline::PlayAnim, Stubs::IgnoreArgument);
+GAME_VTABLE(kControllerVtable, 0x0064877C, &Gfx::CAnimController::Destroy, Stubs::ReturnFalse1,
+            Stubs::IgnoreArgument, &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
+            &Gfx::CAnimController::InitFromStructure, Stubs::DoNothing);
+} // namespace
 
 } // namespace Gfx
 

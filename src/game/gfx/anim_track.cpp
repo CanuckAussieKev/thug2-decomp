@@ -18,6 +18,9 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/game_vtables.h"
+#include "game/core/stubs.h"
 
 namespace Gfx {
 
@@ -44,8 +47,7 @@ constexpr uint32_t kAnimBlender = 0x7149B753;
 constexpr int kLoopWobble = 3;
 enum : int { kNotMine = 2 };
 
-constexpr uint32_t kEventVtable = 0x006487BC, kEventBaseVtable = 0x006487B0, kTrackVtable = 0x00648794;
-void** Vtable(uint32_t address) { return reinterpret_cast<void**>(address); }
+void** const& kEventVtable = Vt::kAnimEvent; void** const& kEventBaseVtable = Vt::kAnimEventBase; void** const& kTrackVtable = Vt::kAnimTrack;
 
 template <typename R, typename... A>
 R Virtual(void* object, int slot, A... args)
@@ -96,7 +98,7 @@ void DeleteParams(CStruct* params)
 // 0x004819F0
 CAnimEventBase* CAnimEventBase::Destroy(uint8_t flags)
 {
-    m_vtable = Vtable(kEventBaseVtable);
+    m_vtable = kEventBaseVtable;
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;
@@ -105,7 +107,7 @@ CAnimEventBase* CAnimEventBase::Destroy(uint8_t flags)
 // 0x00481A20
 CAnimEvent* CAnimEvent::Construct()
 {
-    m_vtable = Vtable(kEventVtable);
+    m_vtable = kEventVtable;
     mp_params = nullptr;
     return this;
 }
@@ -143,7 +145,7 @@ void CAnimTrack::operator delete(void* item) { Pools().Free(item); }
 // 0x00481F20
 void CAnimTrack::DestroyBody()
 {
-    m_vtable = Vtable(kTrackVtable);
+    m_vtable = kTrackVtable;
     DeleteControllers();
     DeleteEvents();
     CAnimTimeline::DestroyBody();
@@ -465,6 +467,16 @@ void CAnimTrack::PlayAnim(uint32_t anim, float start, float end, int loopType, f
 }
 
 } // namespace Gfx
+
+namespace Vt {
+GAME_VTABLE(kAnimTrack, 0x00648794, &Gfx::CAnimTrack::Destroy, &Gfx::CAnimTrack::Reset, &Gfx::CAnimTrack::Update,
+            &Gfx::CAnimTimeline::PlayAnim, Stubs::IgnoreArgument, &Gfx::CAnimTrack::CallMemberFunction,
+            &Gfx::CAnimTrack::PlayAnim);
+GAME_VTABLE(kAnimEventBase, 0x006487B0, &Gfx::CAnimEventBase::Destroy, &Gfx::CCustomAnimKey::WithinRange,
+            GAME_LIBRARY_SLOT(0x00623771));
+GAME_VTABLE(kAnimEvent, 0x006487BC, &Gfx::CAnimEvent::Destroy, &Gfx::CCustomAnimKey::WithinRange,
+            &Gfx::CAnimScriptKey::Process);
+} // namespace Vt
 
 REPLACE(0x004819F0, &Gfx::CAnimEventBase::Destroy);
 REPLACE(0x00481A20, &Gfx::CAnimEvent::Construct);

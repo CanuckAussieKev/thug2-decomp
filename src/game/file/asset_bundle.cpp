@@ -7,13 +7,19 @@
 #include "game/file/async.h"
 #include "game/file/pip.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace File {
+
+namespace {
+extern void** const kAssetBundleVtable;
+} // namespace
+
 
 // 0x005B6CF0
 AssetBundle::AssetBundle()
 {
-    m_vtable = reinterpret_cast<void**>(0x0065822C);
+    m_vtable = kAssetBundleVtable;
     m_fileData = nullptr;
     m_loadedData = nullptr;
     m_file = nullptr;
@@ -27,7 +33,7 @@ AssetBundle::AssetBundle()
 // 0x005B6EA0
 AssetBundle* AssetBundle::Destroy(unsigned int flags)
 {
-    m_vtable = reinterpret_cast<void**>(0x0065822C);
+    m_vtable = kAssetBundleVtable;
     if (m_fileData) {
         Mem::FreeMalloc(m_fileData);
         m_fileData = nullptr;
@@ -161,6 +167,10 @@ bool AssetBundle::FreeAsset(uint32_t name, uint32_t type)
     }
     return found;
 }
+
+namespace {
+GAME_VTABLE(kAssetBundleVtable, 0x0065822C, &File::AssetBundle::Destroy);
+} // namespace
 
 } // namespace File
 

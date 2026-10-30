@@ -24,6 +24,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 #include "game/sys/game_config.h"
 
 
@@ -105,8 +106,8 @@ void InitDirect3D()
     Direct3D() = d3d;
     if (!d3d) {
         // (the text and the caption are the wrong way round)
-        GameVariable<decltype(&MessageBoxA)>(0x00645224)(nullptr, reinterpret_cast<const char*>(0x0064A938) /* "Error" */,
-                                                         reinterpret_cast<const char*>(0x0064A940)
+        GameVariable<decltype(&MessageBoxA)>(0x00645224)(nullptr, GAME_TEXT(0x0064A938, "Error") /* "Error" */,
+                                                         GAME_TEXT(0x0064A940, "Direct3D could not initialize. Please download and install DirectX 9.0 or higher.")
                                                          /* "Direct3D could not initialize. Please download and install DirectX 9.0 or higher." */,
                                                          MB_OK);
         return;

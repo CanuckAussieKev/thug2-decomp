@@ -11,8 +11,19 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/obj/object.h"
+#include "game/core/stubs.h"
+#include "game/front/screen_element.h"
+#include "game/front/screen_constants.h"
 
 namespace Front {
+
+namespace {
+extern void** const kCBaseMenuVtable;
+extern void** const kCContainerElementVtable;
+} // namespace
+
 
 namespace {
 
@@ -30,8 +41,7 @@ constexpr uint32_t kController = 0xB30D9965, kGridIndex = 0xFACF9A8B, kChildId =
 constexpr uint32_t kSystem = 0x36B2EE74, kFocus = 0x9D3FB516, kUnfocus = 0x4ADF0CD3, kFocusSentEvent = 0x3056434F;
 constexpr uint32_t kPadUp = 0x30A4F836, kPadDown = 0x0FD1AC26, kPadLeft = 0x6949DB75, kPadRight = 0x05DDD87C;
 
-float Constant(uint32_t address) { return GameVariable<float>(address); }
-float RegularSpaceMinimum() { return Constant(0x006453D4); } // 0.0001
+float RegularSpaceMinimum() { return ::Mdl::g_competitionTiny; } // 0.0001
 
 void Launch(uint32_t type, uint32_t target, CStruct* data)
 {
@@ -79,7 +89,7 @@ CBaseMenu* CBaseMenu::Construct()
     m_internalJustY = 0.0f;
     m_padHandling = true;
     m_allowWrap = true;
-    m_vtable = reinterpret_cast<void**>(0x0064A048);
+    m_vtable = kCBaseMenuVtable;
     m_selectedIndex = -1;
     m_paddingScale = 1.0f;
     m_gridIndex = -1;
@@ -90,7 +100,7 @@ CBaseMenu* CBaseMenu::Construct()
 CBaseMenu* CBaseMenu::ConstructVMenu()
 {
     Construct();
-    m_vtable = reinterpret_cast<void**>(0x0064A048);
+    m_vtable = kCBaseMenuVtable;
     m_vertical = true;
     SetType(kVMenu);
     return this;
@@ -100,7 +110,7 @@ CBaseMenu* CBaseMenu::ConstructVMenu()
 CBaseMenu* CBaseMenu::ConstructHMenu()
 {
     Construct();
-    m_vtable = reinterpret_cast<void**>(0x0064A048);
+    m_vtable = kCBaseMenuVtable;
     m_vertical = false;
     SetType(kHMenu);
     return this;
@@ -109,7 +119,7 @@ CBaseMenu* CBaseMenu::ConstructHMenu()
 // 0x004A7620
 void CBaseMenu::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x0064A048);
+    m_vtable = kCBaseMenuVtable;
     CScreenElement::DestroyBody();
 }
 
@@ -442,7 +452,7 @@ bool CBaseMenu::PassEventToScript(Obj::CEvent* event)
 CContainerElement* CContainerElement::Construct()
 {
     CScreenElement::Construct();
-    m_vtable = reinterpret_cast<void**>(0x0064A0BC);
+    m_vtable = kCContainerElementVtable;
     m_focusableChild = 0;
     SetType(kContainerElement);
     return this;
@@ -451,7 +461,7 @@ CContainerElement* CContainerElement::Construct()
 // 0x004AAC80
 void CContainerElement::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x0064A0BC);
+    m_vtable = kCContainerElementVtable;
     CScreenElement::DestroyBody();
 }
 
@@ -493,6 +503,19 @@ bool CContainerElement::PassEventToScript(Obj::CEvent* event)
     }
     return true;
 }
+
+namespace {
+GAME_VTABLE(kCBaseMenuVtable, 0x0064A048, &CBaseMenu::Destroy, &CBaseMenu::SetProperties,
+            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &CBaseMenu::PassEventToScript,
+            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
+            Stubs::DoNothing);
+GAME_VTABLE(kCContainerElementVtable, 0x0064A0BC, &CContainerElement::Destroy, &CContainerElement::SetProperties,
+            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &CContainerElement::PassEventToScript,
+            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
+            Stubs::DoNothing);
+} // namespace
 
 } // namespace Front
 
