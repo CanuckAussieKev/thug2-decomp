@@ -67,7 +67,7 @@ Tsk::Stack* LogicTasks()
 {
     return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(GameVariable<void*>(0x00696D68)) + 4);
 }
-QueuedPacket* Queue() { return &GameVariable<QueuedPacket>(0x007CCE50); }
+QueuedPacket* Queue() { return g_queuedPackets; }
 int& QueuedCount() { return g_queuedCount; }
 LobbyMan* TaskLobby(void* task) { return Field<LobbyMan*>(task, 0x1C); }
 

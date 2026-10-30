@@ -24,6 +24,8 @@ using namespace Detail;
 
 GAME_GLOBAL(int, g_queuedCount, 0x007CE438);
 
+GAME_GLOBAL(QueuedPacket[200], g_queuedPackets, 0x007CCE50);
+
 namespace {
 
 constexpr uint32_t kCookie = 0x751F4599;               // cookie
@@ -58,7 +60,7 @@ R Sdk(uint32_t address, A... args)
 void NatCancel(int cookie) { Sdk(0x005FC130, cookie); }
 void NatThink() { Sdk(0x005FC660); }
 void NatFreeNegotiations() { Sdk(0x005FBCD0); }
-QueuedPacket* Queue() { return &GameVariable<QueuedPacket>(0x007CCE50); }
+QueuedPacket* Queue() { return g_queuedPackets; }
 int& QueuedCount() { return g_queuedCount; }
 
 } // namespace

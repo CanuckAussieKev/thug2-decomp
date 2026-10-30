@@ -14,6 +14,7 @@
 #include "game/net/net_metrics.h"
 #include "game/net/net_messages.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 
 namespace Net {
 
@@ -73,7 +74,8 @@ constexpr uint8_t kMsgStreamData = 0xF;
 constexpr uint8_t kMsgCompressed = 0x12;
 
 // The longest round trip counted as latency (0x00647588: 2000 ms).
-inline uint32_t MaxLatency() { return GameVariable<uint32_t>(0x00647588); }
+GAME_GLOBAL_EXTERN(uint32_t, g_maxLatency);
+inline uint32_t MaxLatency() { return g_maxLatency; }
 
 // --- Functions of other classes, by address ---
 
