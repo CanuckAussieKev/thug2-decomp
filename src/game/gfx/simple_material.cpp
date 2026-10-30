@@ -89,7 +89,7 @@ sSimpleMaterial* sSimpleMaterial::Construct(uint32_t /*unused0*/, uint32_t /*unu
     At<uint8_t>(m, 0xE) = 0;
     material = m;
     uint32_t mode = At<uint32_t>(m, 0x80) & 0xFFFFFF;
-    shader = GameVariable<void*>(mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964);
+    shader = g_pixelShaders[mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964];
     return this;
 }
 

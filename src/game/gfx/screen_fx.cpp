@@ -37,7 +37,7 @@ IDirect3DTexture9* ScreenCopy(int index) { return g_screenTextures[index]; }
 IDirect3DTexture9* CurrentScreenCopy() { return ScreenCopy(g_screenCopyIndex); }
 IDirect3DSurface9* DepthSurface() { return g_depthSurface; }
 bool& ScreenCopyInUse() { return g_screenCopyInUse; }
-void* Shader(uint32_t address) { return GameVariable<void*>(address); }
+void* Shader(int slot) { return g_pixelShaders[slot]; }
 
 // Fog on or off (not rewritten yet; the request kept, the device's state following).
 void SetFog(bool on) { Engine::EnableFog(on); }
