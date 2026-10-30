@@ -6,25 +6,35 @@
 #include <cmath>
 #include <cstdint>
 
+#include "game/gfx/render.h"
+#include "game/gfx/render_state.h"
+#include "game/gfx/settings.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
+GAME_GLOBAL(uint32_t, g_occlusionPolyCount, 0x00787350);
+GAME_GLOBAL(uint32_t, g_occlusionNextPoly, 0x00787354);
+GAME_GLOBAL(int, g_occlusionFrame, 0x00787358);
+GAME_GLOBAL(uint32_t, g_occluderCount, 0x0078735C);
+GAME_GLOBAL(float, g_lastSphereDistance, 0x007CA978);
+
 namespace {
 
 OcclusionPoly* Polys() { return &GameVariable<OcclusionPoly>(0x00787360); }
-uint32_t& PolyCount() { return GameVariable<uint32_t>(0x00787350); }
-uint32_t& NextPoly() { return GameVariable<uint32_t>(0x00787354); } // where AddOccluders carries on
-int& Frame() { return GameVariable<int>(0x00787358); }
+uint32_t& PolyCount() { return g_occlusionPolyCount; }
+uint32_t& NextPoly() { return g_occlusionNextPoly; } // where AddOccluders carries on
+int& Frame() { return g_occlusionFrame; }
 Occluder* Occluders() { return &GameVariable<Occluder>(0x00792360); }
-uint32_t& OccluderCount() { return GameVariable<uint32_t>(0x0078735C); }
+uint32_t& OccluderCount() { return g_occluderCount; }
 constexpr uint32_t kMaxOccluders = 8;
 
 // The object's transform for culling (SetWorldTransform), or null: only its position row is used here.
-const float* WorldTransform() { return GameVariable<const float*>(0x007CA968); }
+const float* WorldTransform() { return g_worldTransform; }
 // The view matrix (0x00786BD0) and the view's clip values.
-const void* ViewMatrix() { return &GameVariable<float>(0x00786BD0); }
+const void* ViewMatrix() { return reinterpret_cast<float*>(&g_viewMatrix); }
 float NearClip() { return GameVariable<float>(0x00786CA8); }
 float FarClip() { return GameVariable<float>(0x00786CAC); }
 // The frustum's side planes as (cos, sin) pairs: horizontal 0x00786E20 / 0x00786E28, vertical 0x00786E24 / 0x00786E2C.
@@ -313,14 +323,14 @@ bool __cdecl SphereInView(const Mth::Vector* centre, float radius)
     }
     float view[4];
     Transform(view, point, ViewMatrix());
-    GameVariable<float>(0x007CA978) = static_cast<float>(-static_cast<double>(view[2]) - radius);
+    g_lastSphereDistance = static_cast<float>(-static_cast<double>(view[2]) - radius);
     return InsideFrustum(view, radius);
 }
 
 // 0x004DB6D0
 bool __cdecl BeyondClipDistance(const void* bounds)
 {
-    if (!GameVariable<bool>(0x007D643A))
+    if (!g_distanceClipping)
         return false;
     const auto* sphere = static_cast<const float*>(bounds);
     float radius = sphere[4];

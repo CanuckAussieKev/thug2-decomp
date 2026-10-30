@@ -63,7 +63,7 @@ struct sScaledVertex {
 };
 static_assert(sizeof(sScaledVertex) == 0x84, "layout must match the original");
 
-bool SkinScalingOn() { return GameVariable<bool>(0x007865CC) && GameVariable<float*>(0x007865DC); }
+bool SkinScalingOn() { return g_skinScalingOn && reinterpret_cast<float*&>(g_skinSettings[3]); }
 
 // A bone's scale (four floats: x, then z, then y as the loaders apply them, and w); 1 without a bone.
 void BoneScale(int bone, float& e0, float& e4, float& e8, float& e12)
@@ -72,7 +72,7 @@ void BoneScale(int bone, float& e0, float& e4, float& e8, float& e12)
         e0 = e4 = e8 = e12 = 1.0f;
         return;
     }
-    const float* scale = GameVariable<float*>(0x007865DC) + 4 * bone;
+    const float* scale = reinterpret_cast<float*&>(g_skinSettings[3]) + 4 * bone;
     e0 = scale[0];
     e4 = scale[1];
     e8 = scale[2];
@@ -424,7 +424,7 @@ void LoadMesh(sMesh* mesh, Reader& reader, uint32_t materialChecksum, sScene* sc
     uint32_t shader = ReadU32(reader);
     if (shader == 1) {
         mesh->pixelShader = reinterpret_cast<void*>(reader.SkipChunk());
-        if (GameVariable<bool>(0x00786AB8))
+        if (g_shadersAvailable)
             MaterialPixelShader(material, &mesh->pixelShader);
     } else {
         mesh->pixelShader = PixelShaderFromIndex(shader);

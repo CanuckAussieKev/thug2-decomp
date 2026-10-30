@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/lst/hashtable.h"
 #include "game/sys/platform_d3d.h"
@@ -66,9 +67,9 @@ void __cdecl UpdateGlows(bool queries)
 {
     // The camera's across and up directions from the view matrix's third column (a, b, c): u = (b*0 - c, c*0 - a*0,
     // a - b*0) and v = u x (a, b, c), each then normalised.
-    double a = GameVariable<float>(0x00786BD8);
-    double b = GameVariable<float>(0x00786BE8);
-    double c = GameVariable<float>(0x00786BF8);
+    double a = g_viewMatrix.row[0].z;
+    double b = g_viewMatrix.row[1].z;
+    double c = g_viewMatrix.row[2].z;
     float u[3], v[3];
     u[0] = static_cast<float>(b * 0.0f - c);
     u[1] = static_cast<float>(c * 0.0f - a * 0.0f);
@@ -127,7 +128,7 @@ void __cdecl UpdateGlows(bool queries)
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     for (; glow; glow = NextGlow()) {
         bool seen = false;
-        if (!GameVariable<bool>(0x00786AB5)) { // (not on a Radeon 8500)
+        if (!g_radeon8500) { // (not on a Radeon 8500)
             uint32_t pixels;
             int result = QueryResult(glow->queries[0], &pixels);
             if (result == 0) {

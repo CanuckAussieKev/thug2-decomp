@@ -18,13 +18,17 @@
 #include "game/gfx/mesh.h"
 #include "game/gfx/pc_scene.h"
 #include "game/gfx/pixel_shaders.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
 #include "game/gfx/texture_splats.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(uint32_t, g_projectionBatchCount, 0x00705750);
 
 namespace {
 
@@ -34,7 +38,7 @@ constexpr uint32_t kBatchVertices = 0x600;
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
 IDirect3DDevice9* DrawDevice() { return GameVariable<IDirect3DDevice9*>(0x00786D0C); } // (the same device, kept twice)
-uint32_t& BatchCount() { return GameVariable<uint32_t>(0x00705750); }
+uint32_t& BatchCount() { return g_projectionBatchCount; }
 sProjectionBatch* Batches() { return &GameVariable<sProjectionBatch>(0x00705758); }
 int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)
 
@@ -44,7 +48,7 @@ void TransformCoord(float* out, const float* v, const Mth::Matrix* m)
 }
 
 // The vertex stack (0x006FC4A0) the splitter works on.
-uint8_t* VertexStack() { return &GameVariable<uint8_t>(0x006FC4A0); }
+uint8_t* VertexStack() { return reinterpret_cast<uint8_t*>(&g_vertexStack); }
 void PushVertex(const uint8_t* vertex)
 {
     reinterpret_cast<sVertexStack*>(VertexStack())->Push(vertex);
@@ -134,8 +138,8 @@ void __cdecl DrawProjectionBatches()
         reinterpret_cast<sMaterial*>(batch->material)->Submit(); // (the material's set-up)
         SetPixelShader(batch->pixelShader, batch->material);
         DrawDevice()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangleCount, batch->vertices, 0x18);
-        ++GameVariable<uint32_t>(0x00786EBC); // (the frame's draw calls)
-        GameVariable<uint32_t>(0x00786EC0) += batch->triangleCount; // (and triangles)
+        ++reinterpret_cast<uint32_t&>(g_drawCalls); // (the frame's draw calls)
+        reinterpret_cast<uint32_t&>(g_drawnTriangles) += batch->triangleCount; // (and triangles)
     }
     Device()->SetSamplerState(0, D3DSAMP_MINFILTER, minFilter);
     BatchCount() = 0;
@@ -238,7 +242,7 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
                     double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
                     g_splitAreaLimit = static_cast<float>(total / (static_cast<double>(fineness) * 16.0f));
                     reinterpret_cast<sVertexStack*>(VertexStack())->Construct(); // (emptied)
-                    GameVariable<uint32_t>(0x006FC4A4) = 0x18;
+                    g_vertexStack.vertexSize = 0x18;
                     PushVertex(v0);
                     PushVertex(v1);
                     PushVertex(v2);

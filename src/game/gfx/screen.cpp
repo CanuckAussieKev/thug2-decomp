@@ -4,6 +4,7 @@
 
 #include "game/gfx/screen.h"
 
+#include "game/gfx/render.h"
 #include "game/gfx/settings.h"
 #include "game/script/params.h"
 #include "game/sys/sdl_window.h"
@@ -14,6 +15,10 @@
 
 namespace Nx {
 
+GAME_GLOBAL(float, g_screenAspect, 0x00701340);
+GAME_GLOBAL(float, g_defaultAngle, 0x00701348);
+GAME_GLOBAL(int, g_scriptScreenBlur, 0x006FA72C);
+
 GAME_GLOBAL(float, g_angleFactor, 0x0067E544, 1.0f);
 
 namespace {
@@ -22,10 +27,10 @@ namespace {
 auto& BlurAvailable() { return GameVariable<uint32_t>(0x00786D40); }
 auto& ScreenBlur() { return GameVariable<uint32_t>(0x00787328); }
 // The last amount the script asked for (kept even when the blur is off).
-auto& ScriptScreenBlur() { return GameVariable<int>(0x006FA72C); }
+auto& ScriptScreenBlur() { return g_scriptScreenBlur; }
 
 // The screen's aspect (width / height), and the original's angle factor constant (1.0).
-float& ScreenAspect() { return GameVariable<float>(0x00701340); }
+float& ScreenAspect() { return g_screenAspect; }
 float AngleFactorConstant() { return g_angleFactor; }
 
 // The 640x480 -> back buffer conversion (InitDirect3D) and the letterbox flag.
@@ -34,8 +39,8 @@ float& ScreenScaleX() { return GameVariable<float>(0x00786D80); }
 float& ScreenScaleY() { return GameVariable<float>(0x00786D84); }
 uint32_t& ScreenOffsetX() { return GameVariable<uint32_t>(0x00786D88); }
 uint32_t& ScreenOffsetY() { return GameVariable<uint32_t>(0x00786D8C); }
-uint32_t BackBufferWidth() { return GameVariable<uint32_t>(0x00786D6C); }
-uint32_t BackBufferHeight() { return GameVariable<uint32_t>(0x00786D70); }
+uint32_t BackBufferWidth() { return reinterpret_cast<uint32_t&>(g_backBufferWidth); }
+uint32_t BackBufferHeight() { return reinterpret_cast<uint32_t&>(g_backBufferHeight); }
 
 } // namespace
 
@@ -91,13 +96,13 @@ float GetScreenAspect()
 // 0x004A07A0
 void SetScreenAngle(float angle)
 {
-    GameVariable<float>(0x00701348) = angle;
+    g_defaultAngle = angle;
 }
 
 // 0x004A07B0
 float GetScreenAngle()
 {
-    return GameVariable<float>(0x00701348);
+    return g_defaultAngle;
 }
 
 // 0x004A07C0. The original returns the constant at 0x0067E544 (1.0). Originally from PartyMod Fixes: the view is widened for

@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "hook/game_global.h"
+
 // The renderer's cached Direct3D 9 state (Nx engine, PC): every setter compares with what it last sent and only
 // calls the device when something changes. The cache is reset to the device's own defaults (ResetRenderState)
 // when the device is created and pushed to the device again (ApplyRenderState) after a reset.
@@ -64,5 +66,27 @@ void* __stdcall PixelShaderFromIndex(uint32_t index);
 void __cdecl ResetRenderState();
 // 0x004D80D0: the cached state sent to the device (after it is created or reset), with the fixed ones.
 void __cdecl ApplyRenderState();
+
+GAME_GLOBAL_EXTERN(uint8_t, g_skinScalingOn);
+GAME_GLOBAL_EXTERN(uint32_t[5], g_skinSettings);
+GAME_GLOBAL_EXTERN(bool, g_shadersAvailable);
+GAME_GLOBAL_EXTERN(uint32_t, g_specular);
+GAME_GLOBAL_EXTERN(uint8_t, g_zWrite);
+GAME_GLOBAL_EXTERN(uint32_t, g_depthBias);
+GAME_GLOBAL_EXTERN(uint32_t, g_cullMode);
+GAME_GLOBAL_EXTERN(bool, g_nearCamera);
+GAME_GLOBAL_EXTERN(void*[4], g_textures);
+GAME_GLOBAL_EXTERN(uint32_t[4], g_borderColours);
+GAME_GLOBAL_EXTERN(uint32_t, g_pixelShaderLocked);
+GAME_GLOBAL_EXTERN(void*, g_currentPixelShader);
+GAME_GLOBAL_EXTERN(float[20], g_pixelShaderConstants);
+GAME_GLOBAL_EXTERN(uint32_t, g_instanceColourOn);
+GAME_GLOBAL_EXTERN(uint8_t[4], g_instanceColour);
+GAME_GLOBAL_EXTERN(uint8_t, g_pixelShaderChanged);
+GAME_GLOBAL_EXTERN(uint32_t, g_vertexFormatLocked);
+GAME_GLOBAL_EXTERN(uint32_t, g_skippedPasses);
+GAME_GLOBAL_EXTERN(uint32_t, g_submitLocked);
+GAME_GLOBAL_EXTERN(uint32_t, g_fogEnabled);
+GAME_GLOBAL_EXTERN(const float*, g_worldTransform);
 
 } // namespace Nx

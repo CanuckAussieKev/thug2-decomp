@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "game/mth/vector.h"
+#include "hook/game_global.h"
 
 // Occlusion polygons and view culling (Nx engine, PC). Levels place four-cornered occlusion polygons; each frame
 // up to eight of them become occluders - five planes (the polygon's own and one through the eye and each edge) -
@@ -63,5 +64,7 @@ bool __cdecl SphereInView(const Mth::Vector* centre, float radius);
 // 0x004DB6D0: with distance clipping on (0x007D643A), whether a bounding sphere (centre +4, radius +0x10) is
 // wholly beyond the far clip distance.
 bool __cdecl BeyondClipDistance(const void* bounds);
+
+GAME_GLOBAL_EXTERN(float, g_lastSphereDistance);
 
 } // namespace Nx

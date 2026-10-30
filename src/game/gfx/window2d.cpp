@@ -6,15 +6,18 @@
 #include "game/core/manager.h"
 #include "game/gfx/pc_billboards.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(CWindow2D*, g_freeWindows, 0x007013D0);
 
 namespace {
 
 constexpr uint32_t kWindowVtable = 0x00649E58;
 
-CWindow2D*& FreeWindows() { return GameVariable<CWindow2D*>(0x007013D0); }
+CWindow2D*& FreeWindows() { return g_freeWindows; }
 void Changed(CWindow2D* window)
 {
     reinterpret_cast<void(__thiscall*)(CWindow2D*)>(window->m_vtable[1])(window);

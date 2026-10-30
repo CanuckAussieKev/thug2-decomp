@@ -19,6 +19,12 @@
 
 namespace Nx {
 
+GAME_GLOBAL(uint32_t, g_occlusionRequestCount, 0x00701380);
+GAME_GLOBAL(OcclusionRequest[4], g_occlusionRequests, 0x00701390);
+GAME_GLOBAL(float, g_screenAngle, 0x00701344);
+GAME_GLOBAL(int, g_screenMode, 0x0070134C);
+GAME_GLOBAL(CViewport*[10], g_viewports, 0x00701350);
+
 GAME_GLOBAL(float, g_minusOne, 0x00645420, -1.0f);
 GAME_GLOBAL(float, g_halfDegreeRadians, 0x00648800, 0.008726646f);
 GAME_GLOBAL(float[40], g_viewportRects, 0x00649C28,
@@ -51,10 +57,10 @@ constexpr uint32_t kScaleNumerator = 0x33AA4915;
 constexpr uint32_t kMaxScale = 0xA0A0DB70; // max_scale
 constexpr uint32_t kMinScale = 0x774B6931; // min_scale
 
-CViewport*& Viewport(int index) { return (&GameVariable<CViewport*>(0x00701350))[index]; }
+CViewport*& Viewport(int index) { return g_viewports[index]; }
 // The screen mode's map of views onto viewports (4 per mode at 0x00649CE0; -1: not shown).
 const int*& ModeMap() { return g_modeMap; }
-int& ScreenMode() { return GameVariable<int>(0x0070134C); }
+int& ScreenMode() { return g_screenMode; }
 int& ActiveViewportCount() { return GameVariable<int>(0x00701378); }
 int ModeViewportCount(int mode) { return g_modeViewportCounts[mode]; }
 const int* ModeMapOf(int mode) { return g_modeMaps + 4 * mode; }
@@ -81,9 +87,9 @@ void DeleteThrough0(void* object)
     reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(object))[0])(object, 1);
 }
 
-uint8_t* OcclusionSlots() { return &GameVariable<uint8_t>(0x0067E550); }
-OcclusionRequest* OcclusionRequests() { return &GameVariable<OcclusionRequest>(0x00701390); }
-uint32_t& OcclusionRequestCount() { return GameVariable<uint32_t>(0x00701380); }
+uint8_t* OcclusionSlots() { return g_occlusionSlots; }
+OcclusionRequest* OcclusionRequests() { return g_occlusionRequests; }
+uint32_t& OcclusionRequestCount() { return g_occlusionRequestCount; }
 
 } // namespace
 
@@ -282,10 +288,10 @@ void __cdecl SetScreenFieldOfView(float degrees)
 {
     if (degrees == 0.0f)
         degrees = GetScreenAngle();
-    GameVariable<float>(0x00701344) = degrees;
+    g_screenAngle = degrees;
     // tan(degrees / 2) / tan(default / 2), as the original's x87 code (FPTAN at its precision)
     float halfDegreeRadians = g_halfDegreeRadians;
-    float defaultAngle = GameVariable<float>(0x00701348);
+    float defaultAngle = g_defaultAngle;
     float factor;
     __asm {
         fld degrees

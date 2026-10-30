@@ -14,24 +14,35 @@
 #include "game/gfx/occlusion.h"
 #include "game/gfx/pc_billboards.h"
 #include "game/gfx/pc_lights.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/scene_render.h"
 #include "game/mth/matrix.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
+GAME_GLOBAL(D3DLIGHT9, g_deviceLight1, 0x0067E9D8, D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f});
+GAME_GLOBAL(D3DLIGHT9, g_deviceLight0, 0x0067EA40,
+    D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f});
+GAME_GLOBAL(Mth::Matrix*, g_boneMatrices, 0x007825B0);
+GAME_GLOBAL(int, g_boneCount, 0x007825B4);
+GAME_GLOBAL(sInstance*, g_currentInstance, 0x007825B8);
+GAME_GLOBAL(const Mth::Matrix*, g_lastBones, 0x007825BC);
+GAME_GLOBAL(sInstance*, g_instances, 0x007825C0);
+
 namespace {
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-sInstance*& Instances() { return GameVariable<sInstance*>(0x007825C0); }
+sInstance*& Instances() { return g_instances; }
 sInstance** Visible() { return &GameVariable<sInstance*>(0x007825C8); } // RenderInstances' list
-const Mth::Matrix* LastBones() { return GameVariable<const Mth::Matrix*>(0x007825BC); }
-void SetLastBones(const Mth::Matrix* bones) { GameVariable<const Mth::Matrix*>(0x007825BC) = bones; }
-const D3DMATRIX* ViewWorld() { return &GameVariable<D3DMATRIX>(0x00786B90); } // the world transform to put back
+const Mth::Matrix* LastBones() { return g_lastBones; }
+void SetLastBones(const Mth::Matrix* bones) { g_lastBones = bones; }
+const D3DMATRIX* ViewWorld() { return reinterpret_cast<D3DMATRIX*>(&g_worldMatrix); } // the world transform to put back
 
 constexpr uint32_t kMeshLit = 0x10;          // a mesh's +0x38: it asks for lighting
 constexpr uint32_t kMeshNotLit = 0x20000;    // a mesh's flags
@@ -75,25 +86,25 @@ void UpdateModelLights(sInstance* instance)
 // colour.
 void SendLights()
 {
-    D3DLIGHT9& light0 = GameVariable<D3DLIGHT9>(0x0067EA40);
-    light0.Diffuse.r = GameVariable<float>(0x00786F58);
-    light0.Diffuse.g = GameVariable<float>(0x00786F5C);
-    light0.Diffuse.b = GameVariable<float>(0x00786F60);
-    light0.Direction.x = GameVariable<float>(0x00786F48);
-    light0.Direction.y = GameVariable<float>(0x00786F4C);
-    light0.Direction.z = GameVariable<float>(0x00786F50);
+    D3DLIGHT9& light0 = g_deviceLight0;
+    light0.Diffuse.r = g_lightConstants[8];
+    light0.Diffuse.g = g_lightConstants[9];
+    light0.Diffuse.b = g_lightConstants[10];
+    light0.Direction.x = g_lightConstants[4];
+    light0.Direction.y = g_lightConstants[5];
+    light0.Direction.z = g_lightConstants[6];
     Device()->SetLight(0, &light0);
-    D3DLIGHT9& light1 = GameVariable<D3DLIGHT9>(0x0067E9D8);
-    light1.Diffuse.r = GameVariable<float>(0x00786F78);
-    light1.Diffuse.g = GameVariable<float>(0x00786F7C);
-    light1.Diffuse.b = GameVariable<float>(0x00786F80);
-    light1.Direction.x = GameVariable<float>(0x00786F68);
-    light1.Direction.y = GameVariable<float>(0x00786F6C);
-    light1.Direction.z = GameVariable<float>(0x00786F70);
+    D3DLIGHT9& light1 = g_deviceLight1;
+    light1.Diffuse.r = g_lightConstants[16];
+    light1.Diffuse.g = g_lightConstants[17];
+    light1.Diffuse.b = g_lightConstants[18];
+    light1.Direction.x = g_lightConstants[12];
+    light1.Direction.y = g_lightConstants[13];
+    light1.Direction.z = g_lightConstants[14];
     Device()->SetLight(1, &light1);
-    uint32_t r = Channel(GameVariable<float>(0x00786F38));
-    uint32_t g = Channel(GameVariable<float>(0x00786F3C));
-    uint32_t b = Channel(GameVariable<float>(0x00786F40));
+    uint32_t r = Channel(g_lightConstants[0]);
+    uint32_t g = Channel(g_lightConstants[1]);
+    uint32_t b = Channel(g_lightConstants[2]);
     Device()->SetRenderState(D3DRS_AMBIENT, 0xFF000000u | r << 16 | g << 8 | b);
 }
 
@@ -166,28 +177,28 @@ void sInstance::Render(uint32_t renderFlags)
             SetLastBones(bones);
         }
         Device()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(&transform));
-        GameVariable<Mth::Matrix*>(0x007825B0) = bones;
-        GameVariable<int>(0x007825B4) = boneCount;
-        GameVariable<sInstance*>(0x007825B8) = this;
+        g_boneMatrices = bones;
+        g_boneCount = boneCount;
+        g_currentInstance = this;
         if (SceneUnlit(scene)) {
             RenderScene(scene, renderFlags | kRenderNoCulling, 0);
         } else {
             if (flags & 4) {
-                GameVariable<uint32_t>(0x00786F1C) = 1; // the instance's colour on
-                GameVariable<uint32_t>(0x00786F20) = *reinterpret_cast<const uint32_t*>(color);
+                g_instanceColourOn = 1; // the instance's colour on
+                reinterpret_cast<uint32_t&>(g_instanceColour[0]) = *reinterpret_cast<const uint32_t*>(color);
             }
             RenderScene(scene, renderFlags | kRenderNoCulling, 0);
             if (flags & 4)
-                GameVariable<uint32_t>(0x00786F1C) = 0;
+                g_instanceColourOn = 0;
         }
-        GameVariable<uint32_t>(0x00786F2C) &= ~8u;
-        GameVariable<uint32_t>(0x00786F28) = 0;
-        GameVariable<uint32_t>(0x00786EC4) = 0;
-        GameVariable<uint32_t>(0x00786F30) = 0;
+        g_skippedPasses &= ~8u;
+        g_vertexFormatLocked = 0;
+        g_pixelShaderLocked = 0;
+        g_submitLocked = 0;
         SetTexture(3, nullptr);
-        GameVariable<Mth::Matrix*>(0x007825B0) = nullptr;
-        GameVariable<int>(0x007825B4) = 0;
-        GameVariable<sInstance*>(0x007825B8) = nullptr;
+        g_boneMatrices = nullptr;
+        g_boneCount = 0;
+        g_currentInstance = nullptr;
         return;
     }
 
@@ -298,11 +309,11 @@ void __cdecl RenderInstances(uint32_t flags, int viewport)
                 double dx = static_cast<double>(position[0]) - camera[0];
                 double dy = static_cast<double>(position[1]) - camera[1];
                 double dz = static_cast<double>(position[2]) - camera[2];
-                GameVariable<bool>(0x00786E60) = !(dz * dz + dy * dy + dx * dx > nearSquared); // near the camera
+                g_nearCamera = !(dz * dz + dy * dy + dx * dx > nearSquared); // near the camera
                 if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & 0x100)))
                     instance->Render(flags);
             }
-            GameVariable<bool>(0x00786E60) = true;
+            g_nearCamera = true;
             SetState(kStateLighting, 0);
             Device()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
             Device()->LightEnable(0, FALSE);

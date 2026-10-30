@@ -33,6 +33,8 @@
 
 namespace Gfx {
 
+GAME_GLOBAL(uint32_t, g_todReferences, 0x007CE494);
+
 GAME_GLOBAL(float, g_twoTo32, 0x006453B4, 4294967300.0f);
 GAME_GLOBAL(float, g_half, 0x006453BC, 0.5f);
 GAME_GLOBAL(float, g_thousand, 0x006453C0, 1000.0f);
@@ -1216,7 +1218,7 @@ bool CTODManager::CanSetTODInstant(uint32_t state) const
 
 CTODManager*& TODManager() { return GameVariable<CTODManager*>(0x007CE490); }
 namespace {
-uint32_t& References() { return GameVariable<uint32_t>(0x007CE494); }
+uint32_t& References() { return g_todReferences; }
 } // namespace
 
 // 0x00574540

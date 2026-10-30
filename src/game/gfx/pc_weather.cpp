@@ -13,6 +13,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/engine_scene_list.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
 #include "game/gfx/texture.h"
@@ -39,8 +40,8 @@ uint32_t Argb(const uint8_t* rgba) { return uint32_t(rgba[3]) << 24 | uint32_t(r
 // The frame's draw counts.
 void CountDraw(uint32_t primitives)
 {
-    ++GameVariable<uint32_t>(0x00786EBC);
-    GameVariable<uint32_t>(0x00786EC0) += primitives;
+    ++reinterpret_cast<uint32_t&>(g_drawCalls);
+    reinterpret_cast<uint32_t&>(g_drawnTriangles) += primitives;
 }
 
 // The drop slots' order: a linear-feedback step through 0-0x3FF (0 goes to 0x19B first; 0x19B back to 0).

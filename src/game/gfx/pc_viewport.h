@@ -11,9 +11,6 @@
 // visibility test draws (nothing drawn to the colour buffer; not on a Radeon 8500).
 namespace Nx {
 
-GAME_GLOBAL_EXTERN(float, g_scale2DIn3DNumerator);
-GAME_GLOBAL_EXTERN(float, g_scale2DIn3DMax);
-GAME_GLOBAL_EXTERN(float, g_scale2DIn3DMin);
 
 // The PC viewport (0x24 bytes, vtable 0x0064A848).
 struct CPcViewport {
@@ -44,5 +41,10 @@ CPcViewport* __cdecl CreateViewport(uint32_t a1, uint32_t a2);
 // (0x0067E550) cleared and the requests moved on (0x004A0F80) when it's in, the last count while it's coming, 0 when
 // there's none (or on a Radeon 8500).
 uint32_t __cdecl OcclusionPixels();
+
+GAME_GLOBAL_EXTERN(uint8_t[1024], g_occlusionSlots);
+GAME_GLOBAL_EXTERN(float, g_scale2DIn3DNumerator);
+GAME_GLOBAL_EXTERN(float, g_scale2DIn3DMax);
+GAME_GLOBAL_EXTERN(float, g_scale2DIn3DMin);
 
 } // namespace Nx

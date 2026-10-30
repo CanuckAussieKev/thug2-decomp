@@ -21,7 +21,7 @@ constexpr uint32_t kPcFontVtable = 0x0064A328;
 constexpr uint32_t kPcTextVtable = 0x0064A34C;
 
 // The button glyph font (0x00780FDC) and the texts' free list (0x006FA804).
-SFont*& ButtonFont() { return GameVariable<SFont*>(0x00780FDC); }
+SFont*& ButtonFont() { return g_buttonFont; }
 CPcText*& FreeTexts() { return GameVariable<CPcText*>(0x006FA804); }
 
 template <typename T>

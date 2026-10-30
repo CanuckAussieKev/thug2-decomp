@@ -14,6 +14,8 @@
 #include "game/gfx/material.h"
 #include "game/gfx/occlusion.h"
 #include "game/gfx/particles.h"
+#include "game/gfx/pc_flexible_particles.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
 #include "game/gfx/texture_dict.h"
@@ -35,7 +37,7 @@ constexpr uint32_t kSystemVtable = 0x0064A4F0;
 constexpr float kRandomScale = 1.0f / 16384.0f; // 0x006487C8
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-IDirect3DIndexBuffer9* QuadIndices() { return GameVariable<IDirect3DIndexBuffer9*>(0x007D69E8); }
+IDirect3DIndexBuffer9* QuadIndices() { return g_quadIndices; }
 int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)
 
 // _ftol: truncated to a 64-bit integer, its low half.
@@ -164,9 +166,9 @@ float MidTime(const CPcParticleSystem* system)
 // and u = r x (a, b, c), each normalised when it has a length.
 void CameraAxes(float r[3], float u[3])
 {
-    double a = GameVariable<float>(0x00786BD8);
-    double b = GameVariable<float>(0x00786BE8);
-    double c = GameVariable<float>(0x00786BF8);
+    double a = g_viewMatrix.row[0].z;
+    double b = g_viewMatrix.row[1].z;
+    double c = g_viewMatrix.row[2].z;
     double b0 = b * 0.0f;
     r[0] = static_cast<float>(b0 - c);
     r[1] = static_cast<float>(c * 0.0f - a * 0.0f);

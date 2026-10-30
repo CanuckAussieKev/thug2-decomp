@@ -12,20 +12,28 @@
 #include "game/gfx/engine_effects.h"
 #include "game/gfx/pc_scene.h"
 #include "game/gfx/primitive_states.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
+#include "game/gfx/settings.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(bool, g_screenCopyInUse, 0x007CC244);
+GAME_GLOBAL(bool, g_blurSecondPass, 0x0067EF68, 1);
+GAME_GLOBAL(float[4], g_blurTapWeights, 0x0067EF88, 0.16666667f, 0.33333334f, 0.33333334f, 0.16666667f);
+GAME_GLOBAL(float[4], g_blurTapOffsets, 0x0067EF98, -0.022857143f, -0.005714286f, 0.005714286f, 0.022857143f);
 
 namespace {
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
 IDirect3DDevice9* DeviceCopy() { return GameVariable<IDirect3DDevice9*>(0x00786D0C); } // (the same device)
 IDirect3DTexture9* ScreenCopy(int index) { return (&GameVariable<IDirect3DTexture9*>(0x00786D1C))[index]; }
-IDirect3DTexture9* CurrentScreenCopy() { return ScreenCopy(GameVariable<int>(0x00786D68)); }
+IDirect3DTexture9* CurrentScreenCopy() { return ScreenCopy(g_screenCopyIndex); }
 IDirect3DSurface9* DepthSurface() { return GameVariable<IDirect3DSurface9*>(0x00786D64); }
-bool& ScreenCopyInUse() { return GameVariable<bool>(0x007CC244); }
+bool& ScreenCopyInUse() { return g_screenCopyInUse; }
 void* Shader(uint32_t address) { return GameVariable<void*>(address); }
 
 // Fog on or off (not rewritten yet; the request kept, the device's state following).
@@ -34,8 +42,8 @@ void SetFog(bool on) { Engine::EnableFog(on); }
 // The renderer's draw counters.
 void CountDraw(int triangles)
 {
-    GameVariable<int>(0x00786EC0) += triangles;
-    ++GameVariable<int>(0x00786EBC);
+    g_drawnTriangles += triangles;
+    ++g_drawCalls;
 }
 
 // An unsigned size as the x87 loads it (FILD, plus 2^32 when the top bit is set).
@@ -65,8 +73,8 @@ struct FlatVertex {
 };
 
 // The blur's four taps (texel offsets and weights) at 0x0067EF98 / 0x0067EF88.
-float TapOffset(int tap) { return (&GameVariable<float>(0x0067EF98))[tap]; }
-float TapWeight(int tap) { return (&GameVariable<float>(0x0067EF88))[tap]; }
+float TapOffset(int tap) { return g_blurTapOffsets[tap]; }
+float TapWeight(int tap) { return g_blurTapWeights[tap]; }
 
 // A grey of 0-255 at half alpha: 0x80 then the value three times (from _ftol: a bigger value spills over).
 uint32_t TapColour(float weight)
@@ -81,7 +89,7 @@ uint32_t TapColour(float weight)
 void __cdecl DrawScreenQuad(uint32_t blend, void* target, void* source, float du, float dv, uint32_t colour,
                             bool shader)
 {
-    bool fogWasOn = GameVariable<uint32_t>(0x00787338) != 0;
+    bool fogWasOn = g_fogEnabled != 0;
     SetFog(false);
     auto* targetTexture = static_cast<IDirect3DTexture9*>(target);
     SetTarget(targetTexture, nullptr);
@@ -145,7 +153,7 @@ void __cdecl BeginScreenEffects()
             Device()->SetDepthStencilSurface(DepthSurface());
         }
     } else {
-        if (!GameVariable<void*>(0x00705720) || !GameVariable<bool>(0x00786AB8)) // no bloom (or no pixel shaders)
+        if (!g_bloomOn || !g_shadersAvailable) // no bloom (or no pixel shaders)
             return;
         CurrentScreenCopy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, game/gfx/graphics_options.h)
@@ -153,7 +161,7 @@ void __cdecl BeginScreenEffects()
             SetRenderTargetAndDepth(surface, DepthSurface());
     }
     // The clear colour: the fog's with distance clipping and fog on (0x007D643A, 0x007D6436), else 0x00786CC0.
-    uint32_t colour = (GameVariable<bool>(0x007D6436) && GameVariable<bool>(0x007D643A))
+    uint32_t colour = (g_fogSetting && g_distanceClipping)
                           ? GameVariable<uint32_t>(0x0078733C)
                           : GameVariable<uint32_t>(0x00786CC0);
     Device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, colour, 1.0f, 0);
@@ -188,7 +196,7 @@ void __cdecl CopyScreenQuarter()
 // 0x004DEB70
 void __cdecl Bloom()
 {
-    if (!GameVariable<bool>(0x00786AB8))
+    if (!g_shadersAvailable)
         return;
     SetState(kZWrite, 0);
     SetState(kZTest, 0);
@@ -226,7 +234,7 @@ void __cdecl Bloom()
     for (int tap = 0; tap < 4; ++tap)
         DrawScreenQuad(tap > 0, a, b, TapOffset(tap), 0.0f, TapColour(TapWeight(tap)), true);
     SetTarget(CurrentScreenCopy(), DepthSurface());
-    if (!GameVariable<bool>(0x0067EF68))
+    if (!g_blurSecondPass)
         return;
     // Both blurred copies added over the frame.
     SetState(kZWrite, 0);
@@ -246,8 +254,8 @@ void __cdecl Bloom()
         double halfY = 0.5 / Unsigned(desc.Height);
         uint32_t alpha = pass ? g_bloomAlphaSecond : g_bloomAlphaFirst;
         float halfXFloat = static_cast<float>(halfX), halfYFloat = static_cast<float>(halfY);
-        float width = static_cast<float>(GameVariable<int>(0x00786D6C));
-        float height = static_cast<float>(GameVariable<int>(0x00786D70));
+        float width = static_cast<float>(g_backBufferWidth);
+        float height = static_cast<float>(g_backBufferHeight);
         uint32_t colour = alpha << 24 | 0x808080;
         // (as the original builds them: z 1, the second vertex's u 1, the last vertex half a texel short of the bottom)
         TexturedVertex quad[4] = {

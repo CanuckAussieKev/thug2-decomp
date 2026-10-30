@@ -9,6 +9,7 @@
 
 #include "game/gfx/loading_console.h"
 #include "game/gfx/loading_screen.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -31,7 +32,7 @@ const uint8_t* StartColor() { return &GameVariable<uint8_t>(0x0067DDCC); }
 const uint8_t* EndColor() { return &GameVariable<uint8_t>(0x0067DDD0); }
 const uint8_t* BorderColor() { return &GameVariable<uint8_t>(0x0067DDD4); }
 int& BarWidth() { return GameVariable<int>(0x0067DDBC); }
-int& ScreenWidth() { return GameVariable<int>(0x00786D6C); }
+int& ScreenWidth() { return g_backBufferWidth; }
 float& ScreenScaleX() { return GameVariable<float>(0x00786D80); }
 
 Rgb& GradientStart() { return GameVariable<Rgb>(0x00705294); }
@@ -45,7 +46,7 @@ Rgb* GradientTable() { return reinterpret_cast<Rgb*>(s_gradientBuffer); }
 float& TickSeconds() { return GameVariable<float>(0x007052A0); }
 float& ElapsedSeconds() { return GameVariable<float>(0x007052A4); }
 float& TotalSeconds() { return GameVariable<float>(0x007052A8); }
-int& ScreenHeight() { return GameVariable<int>(0x00786D70); }
+int& ScreenHeight() { return g_backBufferHeight; }
 uint32_t& BarTimer() { return GameVariable<uint32_t>(0x00786D08); }    // the timer's id (timeSetEvent)
 bool& ScreenUp() { return GameVariable<bool>(0x00786D04); }           // shown (0x004B78B0): the main loop doesn't draw
 HANDLE& ScreenMutex() { return GameVariable<HANDLE>(0x007052AC); }    // held while the loading screen is drawn

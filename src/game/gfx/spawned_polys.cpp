@@ -15,9 +15,12 @@
 #include "game/script/cfuncs_engine.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(Mem::PoolPair, g_spawnedPolyPools, 0x00700500);
 
 namespace {
 
@@ -225,7 +228,7 @@ void __cdecl KillAllSpawnedPolys()
         poly->primitive = nullptr;
         uint32_t key = reinterpret_cast<uint32_t>(poly);
         SpawnedPolys()->FlushItem(key);
-        GameVariable<Mem::PoolPair>(0x00700500).Free(poly);
+        g_spawnedPolyPools.Free(poly);
     }
 }
 

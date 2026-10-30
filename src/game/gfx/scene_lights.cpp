@@ -20,9 +20,17 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(uint32_t*, g_queuedNodes, 0x006FAEF8);
+GAME_GLOBAL(int, g_queuedCount, 0x006FAEFC);
+GAME_GLOBAL(int, g_queueDone, 0x006FAF00);
+GAME_GLOBAL(int, g_queueFrames, 0x006FAF04);
+GAME_GLOBAL(int, g_queueFrame, 0x006FAF08);
+GAME_GLOBAL(Script::CStruct*, g_queueParams, 0x006FAF0C);
 
 namespace {
 
@@ -33,12 +41,12 @@ sSceneLight* SceneLights() { return &GameVariable<sSceneLight>(0x006FAF80); }
 int& SceneLightCount() { return GameVariable<int>(0x006FAEF4); }
 
 // The queue.
-uint32_t*& QueuedNodes() { return GameVariable<uint32_t*>(0x006FAEF8); }
-int& QueuedCount() { return GameVariable<int>(0x006FAEFC); }
-int& QueueDone() { return GameVariable<int>(0x006FAF00); }
-int& QueueFrames() { return GameVariable<int>(0x006FAF04); }
-int& QueueFrame() { return GameVariable<int>(0x006FAF08); }
-Script::CStruct*& QueueParams() { return GameVariable<Script::CStruct*>(0x006FAF0C); }
+uint32_t*& QueuedNodes() { return g_queuedNodes; }
+int& QueuedCount() { return g_queuedCount; }
+int& QueueDone() { return g_queueDone; }
+int& QueueFrames() { return g_queueFrames; }
+int& QueueFrame() { return g_queueFrame; }
+Script::CStruct*& QueueParams() { return g_queueParams; }
 
 // The table's iteration, inlined in the original: the first / next value (null at the end).
 void* NextValue(Lst::HashTable* table)

@@ -11,7 +11,7 @@ namespace Nx {
 namespace {
 
 // The ten viewports (0x00701350).
-CViewport* Viewport(int index) { return (&GameVariable<CViewport*>(0x00701350))[index]; }
+CViewport* Viewport(int index) { return g_viewports[index]; }
 
 } // namespace
 
@@ -31,7 +31,7 @@ CViewport* __cdecl GetActiveViewport(int n)
 }
 
 // 0x004A0710
-int __cdecl GetScreenMode() { return GameVariable<int>(0x0070134C); }
+int __cdecl GetScreenMode() { return g_screenMode; }
 
 // 0x004A0720
 bool __cdecl MarkCameraForDeletion(Gfx::Camera* camera)

@@ -12,8 +12,6 @@
 // big (a stack of vertices at 0x006FC4A0).
 namespace Nx {
 
-GAME_GLOBAL_EXTERN(float, g_splitAreaLimit);
-
 // A splat set (laid out as the original: arrays of 256).
 struct sTextureSplats {
     uint32_t alive[0x100];      // +0x0000: 0 once a triangle is killed
@@ -99,5 +97,7 @@ sTextureSplats* __cdecl GetTextureSplats(uint32_t texture);
 // (the pieces inside kept) - into the texture's set's oldest triangles (0x00490CD0). The set, or null if no
 // triangle was hit. `unused` isn't.
 sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int unused, sSplatParams* params);
+
+GAME_GLOBAL_EXTERN(float, g_splitAreaLimit);
 
 } // namespace Nx

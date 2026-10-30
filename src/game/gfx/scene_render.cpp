@@ -13,22 +13,26 @@
 #include "game/gfx/mesh.h"
 #include "game/gfx/occlusion.h"
 #include "game/gfx/pc_billboards.h"
+#include "game/gfx/render_state.h"
 #include "game/gfx/shadow.h"
 #include "game/gfx/view_mode.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
+GAME_GLOBAL(uint8_t*[4096], g_drawnMeshes, 0x00792640);
+
 namespace {
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-uint8_t& ZWrite() { return GameVariable<uint8_t>(0x00786E51); }
-float SphereDepth() { return GameVariable<float>(0x007CA978); }
+uint8_t& ZWrite() { return g_zWrite; }
+float SphereDepth() { return g_lastSphereDistance; }
 constexpr float kNear = 600.0f; // 0x0064AA98
 
 // The meshes drawn (or to be drawn) this pass, for the shadows (0x00792640, 4096 at most - the last slot reused).
-uint8_t** Drawn() { return &GameVariable<uint8_t*>(0x00792640); }
+uint8_t** Drawn() { return g_drawnMeshes; }
 struct SortedMesh {
     uint8_t* mesh;
     float depth;

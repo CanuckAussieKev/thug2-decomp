@@ -2,6 +2,7 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "hook/game_global.h"
 
 // The per-frame 3D render (Nx engine, PC/D3D9): the camera's matrices, the world passes per viewport and the
 // motion blur pass. PartyMod (whose code this contains: MIT, (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md) changes
@@ -27,5 +28,20 @@ void DrawScreenBlur();
 // 0x004B2D80: the frame's 3D: per viewport with a camera, the world, the sky, the later passes; then the blur and
 // the 2D over the whole screen.
 void RenderWorld();
+
+GAME_GLOBAL_EXTERN(bool, g_radeon8500);
+GAME_GLOBAL_EXTERN(int, g_framesRendered);
+GAME_GLOBAL_EXTERN(Mth::Matrix, g_worldMatrix);
+GAME_GLOBAL_EXTERN(Mth::Matrix, g_viewMatrix);
+GAME_GLOBAL_EXTERN(Mth::Matrix, g_projectionMatrix);
+GAME_GLOBAL_EXTERN(Mth::Matrix, g_headingMatrix);
+GAME_GLOBAL_EXTERN(int, g_frameTime);
+GAME_GLOBAL_EXTERN(int, g_screenCopyIndex);
+GAME_GLOBAL_EXTERN(int, g_backBufferWidth);
+GAME_GLOBAL_EXTERN(int, g_backBufferHeight);
+GAME_GLOBAL_EXTERN(int, g_drawCalls);
+GAME_GLOBAL_EXTERN(int, g_drawnTriangles);
+GAME_GLOBAL_EXTERN(float, g_fogStart);
+GAME_GLOBAL_EXTERN(float, g_fogEnd);
 
 } // namespace Nx

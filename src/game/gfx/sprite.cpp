@@ -10,6 +10,7 @@
 
 #include "game/core/manager.h"
 #include "game/gfx/draw2d.h"
+#include "game/gfx/render.h"
 #include "game/mth/vector.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/screen.h"
@@ -26,8 +27,8 @@ float ScreenScaleX() { return GameVariable<float>(0x00786D80); }
 float ScreenScaleY() { return GameVariable<float>(0x00786D84); }
 int32_t ScreenOffsetX() { return GameVariable<int32_t>(0x00786D88); }
 int32_t ScreenOffsetY() { return GameVariable<int32_t>(0x00786D8C); }
-int32_t BackBufferWidth() { return GameVariable<int32_t>(0x00786D6C); }
-int32_t BackBufferHeight() { return GameVariable<int32_t>(0x00786D70); }
+int32_t BackBufferWidth() { return g_backBufferWidth; }
+int32_t BackBufferHeight() { return g_backBufferHeight; }
 // The layout's size (the constants at 0x00649FD4 and 0x006484B4).
 constexpr float kLayoutWidth = 640.0f;
 constexpr float kLayoutHeight = 480.0f;
@@ -235,8 +236,8 @@ void SSprite::Draw()
     SetTextureStageState(0, 1, 5); // colour: texture x diffuse, doubled
     SetTextureStageState(0, 4, 5); // alpha: the same
     if (!GameVariable<bool>(0x007D1EC0)) { // (rendering not skipped)
-        ++GameVariable<int>(0x00786EBC);    // draw calls
-        GameVariable<int>(0x00786EC0) += 2; // triangles
+        ++g_drawCalls;    // draw calls
+        g_drawnTriangles += 2; // triangles
         using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int, const void*,
                                                         int, const void*, unsigned int);
         DeviceMethod<DrawIndexedPrimitiveUP>(0x150)(Device(), 4 /* triangle list */, 0, 4, 2, QuadIndices(),

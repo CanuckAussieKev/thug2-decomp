@@ -13,12 +13,17 @@
 
 #include "game/core/mem.h"
 #include "game/gfx/material.h"
+#include "game/gfx/render_state.h"
 #include "game/gfx/view_mode.h"
 #include "game/lst/hashtable.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(Lst::HashTable*, g_shadowCasters, 0x007CA970);
+GAME_GLOBAL(bool, g_pixelShadersMade, 0x007CAA30);
 
 namespace {
 
@@ -83,13 +88,13 @@ struct Text {
 // 0x004DD7F0
 void __cdecl CreatePixelShaders()
 {
-    bool& done = GameVariable<bool>(0x007CAA30);
+    bool& done = g_pixelShadersMade;
     if (done)
         return;
     done = true;
     for (uint32_t address = 0x007CA920; address <= 0x007CA964; address += 4)
         Handle(address) = nullptr;
-    if (!GameVariable<bool>(0x00786AB8)) {
+    if (!g_shadersAvailable) {
         // No pixel shaders: numbers the stand-in texture stages tell apart.
         Handle(0x007CA964) = reinterpret_cast<void*>(1);
         Handle(0x007CA960) = reinterpret_cast<void*>(2);
@@ -126,7 +131,7 @@ void __cdecl CreatePixelShaders()
         }
     }
     void* table = Mem::New(sizeof(Lst::HashTable));
-    GameVariable<Lst::HashTable*>(0x007CA970) = table ? new (table) Lst::HashTable(8) : nullptr; // the shadow casters
+    g_shadowCasters = table ? new (table) Lst::HashTable(8) : nullptr; // the shadow casters
 }
 
 // 0x004DD2C0

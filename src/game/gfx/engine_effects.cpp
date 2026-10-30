@@ -40,7 +40,7 @@ Lst::HashTable*& Flashes() { return GameVariable<Lst::HashTable*>(0x007004A8); }
 Lst::HashTable*& SpawnedPolys() { return GameVariable<Lst::HashTable*>(0x007004AC); }
 Lst::HashTable*& SplatSets() { return GameVariable<Lst::HashTable*>(0x007004B0); }
 Lst::HashTable*& RecentSplats() { return GameVariable<Lst::HashTable*>(0x007004B4); }
-Lst::HashTable*& Shatters() { return GameVariable<Lst::HashTable*>(0x007004B8); }
+Lst::HashTable*& Shatters() { return g_shatters; }
 
 // A table's first value and the next (null at the end) - the original's inlined iteration (IterateNext).
 void* NextValue(Lst::HashTable* table)
@@ -615,7 +615,7 @@ void __cdecl InitEffects()
         Shatters() = NewTable();
     CompiledOut();
     CompiledOut();
-    auto& stack = GameVariable<sVertexStack>(0x006FC4A0);
+    auto& stack = g_vertexStack;
     stack.used = 0;
     stack.vertexSize = 0;
     std::memset(stack.data, 3, sizeof(stack.data));

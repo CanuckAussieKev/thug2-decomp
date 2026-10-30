@@ -15,6 +15,7 @@
 #include <cstring>
 
 #include "game/front/level_editor_ui_fonts.h"
+#include "game/gfx/render.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -124,8 +125,8 @@ bool ScreenUp() { return GameVariable<uint8_t>(0x00786D04) != 0; } // the main l
 uint32_t BarTimer() { return GameVariable<uint32_t>(0x00786D08); }   // the loading bar's timer (0x004B7400)
 void* ScreenPicture() { return GameVariable<void*>(0x007052B4); }    // the loading screen's picture
 void* MovieShown() { return GameVariable<void*>(0x00696D90); }       // a Bink movie playing (gfx/movie.cpp)
-int ScreenWidth() { return GameVariable<int>(0x00786D6C); }
-int ScreenHeight() { return GameVariable<int>(0x00786D70); }
+int ScreenWidth() { return Nx::g_backBufferWidth; }
+int ScreenHeight() { return Nx::g_backBufferHeight; }
 int BarWidth() { return GameVariable<int>(0x00701684); } // the loading bar's width in pixels
 
 double Now()

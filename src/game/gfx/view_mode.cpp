@@ -79,7 +79,7 @@ const char* Name(Mode mode)
 namespace {
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-void*& CurrentPixelShader() { return GameVariable<void*>(0x00786EC8); } // (render_state.cpp's cache)
+void*& CurrentPixelShader() { return g_currentPixelShader; } // (render_state.cpp's cache)
 int& RenderMode() { return GameVariable<int>(0x006FA734); }              // (wireframe.h)
 
 Mode g_mode = Mode::kLit;

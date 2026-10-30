@@ -2,6 +2,8 @@
 // display region and black bars (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "game/gfx/render.h"
+#include "game/gfx/pc_scene.h"
+#include "game/gfx/settings.h"
 #include "game/gfx/view_mode.h"
 #include "game/gfx/wireframe.h"
 
@@ -39,9 +41,26 @@
 #include "game/sys/screenshot.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(uint32_t, g_displayHeight, 0x00786A80);
+GAME_GLOBAL(bool, g_radeon8500, 0x00786AB5);
+GAME_GLOBAL(int, g_framesRendered, 0x00786AC4);
+GAME_GLOBAL(Mth::Matrix, g_worldMatrix, 0x00786B90);
+GAME_GLOBAL(Mth::Matrix, g_viewMatrix, 0x00786BD0);
+GAME_GLOBAL(Mth::Matrix, g_projectionMatrix, 0x00786C10);
+GAME_GLOBAL(Mth::Matrix, g_headingMatrix, 0x00786C50);
+GAME_GLOBAL(int, g_frameTime, 0x00786D00);
+GAME_GLOBAL(int, g_screenCopyIndex, 0x00786D68);
+GAME_GLOBAL(int, g_backBufferWidth, 0x00786D6C);
+GAME_GLOBAL(int, g_backBufferHeight, 0x00786D70);
+GAME_GLOBAL(int, g_drawCalls, 0x00786EBC);
+GAME_GLOBAL(int, g_drawnTriangles, 0x00786EC0);
+GAME_GLOBAL(float, g_fogStart, 0x00787340);
+GAME_GLOBAL(float, g_fogEnd, 0x00787344);
 
 namespace {
 
@@ -194,9 +213,9 @@ void SetDisplayRegion()
     auto width = static_cast<uint32_t>(GameVariable<float>(0x00786D80) * 640.0f);
     auto height = static_cast<uint32_t>(GameVariable<float>(0x00786D84) * 480.0f);
     // (the device viewport, 0x00786C90: x, y, width, height)
-    GameVariable<uint32_t>(0x00786C90) = (GameVariable<uint32_t>(0x00786D6C) - width) / 2;
+    GameVariable<uint32_t>(0x00786C90) = (reinterpret_cast<uint32_t&>(g_backBufferWidth) - width) / 2;
     GameVariable<uint32_t>(0x00786C98) = width;
-    GameVariable<uint32_t>(0x00786C94) = (GameVariable<uint32_t>(0x00786D70) - height) / 2;
+    GameVariable<uint32_t>(0x00786C94) = (reinterpret_cast<uint32_t&>(g_backBufferHeight) - height) / 2;
     GameVariable<uint32_t>(0x00786C9C) = height;
 }
 
@@ -212,8 +231,8 @@ void Draw2DWithBlackBars()
     if (FrontEndWidescreen())
         return;
 
-    uint32_t backBufferWidth = GameVariable<uint32_t>(0x00786D6C);
-    uint32_t backBufferHeight = GameVariable<uint32_t>(0x00786D70);
+    uint32_t backBufferWidth = reinterpret_cast<uint32_t&>(g_backBufferWidth);
+    uint32_t backBufferHeight = reinterpret_cast<uint32_t&>(g_backBufferHeight);
     float backBufferAspect = static_cast<float>(backBufferWidth) / static_cast<float>(backBufferHeight);
     constexpr uint32_t kBlack = 0xFF000000;
     if (backBufferAspect > DesiredAspectRatio()) {
@@ -258,9 +277,9 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
                bool infinite)
 {
     auto& camera = GameVariable<Camera>(0x00786CA8);
-    auto& world = GameVariable<Mth::Matrix>(0x00786B90);
-    auto& view = GameVariable<Mth::Matrix>(0x00786BD0);
-    auto& projection = GameVariable<Mth::Matrix>(0x00786C10);
+    auto& world = g_worldMatrix;
+    auto& view = g_viewMatrix;
+    auto& projection = g_projectionMatrix;
 
     camera.position[0] = position->x;
     camera.position[1] = position->y;
@@ -282,7 +301,7 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
     // Skatopia). The original: camera.farZ = 32000.0f;
     camera.farZ = 96000.0f;
     camera.angle = angle;
-    if (GameVariable<bool>(0x007D643A)) // distance clipping (setting 0x007D6444: 100-595)
+    if (g_distanceClipping) // distance clipping (setting 0x007D6444: 100-595)
         camera.farZ = static_cast<float>(static_cast<double>(GameVariable<uint32_t>(0x007D6444)) * 18.0);
     // NOT ORIGINAL - [Graphics] draw_distance_scale (game/gfx/graphics_options.h): the far plane (and with it the
     // distance clipping's cull distance, 0x00786CAC) further out.
@@ -320,7 +339,7 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
     shape.cosY = static_cast<float>(1.0 / std::sqrt(tanY2 + 1.0));
 
     // The camera's heading: a rotation about the vertical axis (0x00786C50).
-    MatrixRotationY(&GameVariable<Mth::Matrix>(0x00786C50),
+    MatrixRotationY(&g_headingMatrix,
                     Atan2LessQuarterTurn(-camera.backward[2], -camera.backward[0]));
     // The view frustum (0x00775B80) follows the new view.
     reinterpret_cast<sBillboardManager*>(&GameVariable<uint8_t>(0x00775B80))->SetupAxes();
@@ -340,7 +359,7 @@ static_assert(sizeof(ScreenVertex) == 0x1C, "the draw's stride");
 // 0x004DF390
 void DrawScreenBlur()
 {
-    if (!GameVariable<bool>(0x007CC244)) // blur available
+    if (!g_screenCopyInUse) // blur available
         return;
     SetFog(false);
     SetRenderState(0x15, 0);
@@ -356,7 +375,7 @@ void DrawScreenBlur()
         if (magFilter[i] != 2)
             SetSamplerState(i, 5, 2);
     }
-    if (GameVariable<void*>(0x00705720))
+    if (g_bloomOn)
         Bloom();
     SetRenderState(4, 0x10001);
     SetRenderState(1, 0);
@@ -365,7 +384,7 @@ void DrawScreenBlur()
     SetRenderState(0x11, 1);
 
     // Two textures take turns: the one just drawn into (the last frame's blur) and the other.
-    int current = GameVariable<int>(0x00786D68);
+    int current = g_screenCopyIndex;
     void* const* textures = &GameVariable<void*>(0x00786D1C);
     void* texture = textures[current];
     void* other = textures[(current + 1) % 2];
@@ -379,7 +398,7 @@ void DrawScreenBlur()
     double insetU = inset / static_cast<double>(textureWidth); // (the u's are rounded from this, unrounded)
     float insetV = static_cast<float>(inset / static_cast<double>(textureHeight));
     float screenWidth = static_cast<float>(GameVariable<uint32_t>(0x00786A7C));
-    float screenHeight = static_cast<float>(GameVariable<uint32_t>(0x00786A80));
+    float screenHeight = static_cast<float>(g_displayHeight);
     uint32_t color = 0x80808080;
     ScreenVertex quad[4] = {
         {0, 0, 0, 1, color, static_cast<float>(insetU), insetV},
@@ -421,8 +440,8 @@ void DrawScreenBlur()
         SetRenderState(0x11, 1);
         SetTexture(0, other);
         DrawPrimitiveUP(5 /* triangle strip */, 2, quad, sizeof(ScreenVertex));
-        ++GameVariable<int>(0x00786EBC); // draw calls
-        GameVariable<int>(0x00786EC0) += 2; // triangles
+        ++g_drawCalls; // draw calls
+        g_drawnTriangles += 2; // triangles
     }
     // ...then `texture` onto the back buffer, cleared first to the fog colour (with fog and distance clipping
     // on) or the background colour.
@@ -430,19 +449,19 @@ void DrawScreenBlur()
     GraphicsOptions::ResolveSceneTarget(static_cast<IDirect3DTexture9*>(texture));
     SetRenderTarget(GameVariable<void*>(0x00786D10));
     SetDepthStencilSurface(GameVariable<void*>(0x00786D14));
-    bool fogColour = GameVariable<bool>(0x007D6436) && GameVariable<bool>(0x007D643A);
+    bool fogColour = g_fogSetting && g_distanceClipping;
     ClearTarget(fogColour ? GameVariable<uint32_t>(0x0078733C) : GameVariable<uint32_t>(0x00786CC0));
     SetRenderState(0x11, 0);
     SetTexture(0, texture);
     DrawPrimitiveUP(5, 2, quad, sizeof(ScreenVertex));
     SetRenderState(0x11, 1);
-    ++GameVariable<int>(0x00786EBC);
-    GameVariable<int>(0x00786EC0) += 2;
+    ++g_drawCalls;
+    g_drawnTriangles += 2;
     for (int i = 0; i < 4; ++i) {
         SetSamplerState(i, 6, minFilter[i]);
         SetSamplerState(i, 5, magFilter[i]);
     }
-    GameVariable<int>(0x00786D68) = (GameVariable<int>(0x00786D68) + 1) % 2;
+    g_screenCopyIndex = (g_screenCopyIndex + 1) % 2;
     SetFog(true);
 }
 
@@ -519,7 +538,7 @@ void SetDeviceRenderState(int state, uint32_t value)
 
 void FullScreenViewport()
 {
-    TheViewport() = {0, 0, GameVariable<uint32_t>(0x00786D6C), GameVariable<uint32_t>(0x00786D70), 0.0f, 1.0f};
+    TheViewport() = {0, 0, reinterpret_cast<uint32_t&>(g_backBufferWidth), reinterpret_cast<uint32_t&>(g_backBufferHeight), 0.0f, 1.0f};
 }
 
 // The camera (a game object).
@@ -549,8 +568,8 @@ void RenderViewport(int index)
     // Original behaviour: the camera is drawn where the game put it.
     Front::TestView::PlaceCamera(static_cast<Gfx::Camera*>(camera), index);
     GameVariable<int>(0x006FA7B8) = index; // the viewport being drawn
-    double width = GameVariable<int>(0x00786D6C);
-    double height = static_cast<float>(GameVariable<int>(0x00786D70));
+    double width = g_backBufferWidth;
+    double height = static_cast<float>(g_backBufferHeight);
     DeviceViewport& vp = TheViewport();
     vp.x = static_cast<int>(width * view->x);
     vp.y = static_cast<int>(height * view->y);
@@ -621,14 +640,14 @@ void RenderViewport(int index)
         s_nearZ = 2.0f;
         SetCamera(CameraMatrix(camera), &origin, angle, aspect, 1.0f, true);
     }
-    float& fogStart = GameVariable<float>(0x00787340);
-    float& fogEnd = GameVariable<float>(0x00787344);
+    float& fogStart = g_fogStart;
+    float& fogEnd = g_fogEnd;
     float savedFogEnd = fogEnd, savedFogStart = fogStart;
     fogStart = 20.0f;
     fogEnd = 21.0f;
-    SetDeviceRenderState(0x24, GameVariable<uint32_t>(0x00787340)); // D3DRS_FOGSTART
-    SetDeviceRenderState(0x25, GameVariable<uint32_t>(0x00787344)); // D3DRS_FOGEND
-    bool fog = GameVariable<uint32_t>(0x00787338) != 0;
+    SetDeviceRenderState(0x24, reinterpret_cast<uint32_t&>(g_fogStart)); // D3DRS_FOGSTART
+    SetDeviceRenderState(0x25, reinterpret_cast<uint32_t&>(g_fogEnd)); // D3DRS_FOGEND
+    bool fog = g_fogEnabled != 0;
     SetFog(false);
     SetRenderState(1, 0);
     SetRenderState(2, 1);
@@ -636,7 +655,7 @@ void RenderViewport(int index)
         if (!scene->sky)
             return;
         // (with distance clipping and fog both on, there's no sky)
-        if (GameVariable<bool>(0x007D643A) && GameVariable<bool>(0x007D6436))
+        if (g_distanceClipping && g_fogSetting)
             return;
         uint32_t minFilter = GetSamplerState(0, 6), mipFilter = GetSamplerState(0, 7);
         SetSamplerState(0, 6, 2); // linear
@@ -647,14 +666,14 @@ void RenderViewport(int index)
     });
     SetRenderState(1, 1);
     SetRenderState(1, 0);
-    if (GameVariable<bool>(0x00786AB5))
+    if (g_radeon8500)
         Sun::Render(static_cast<Gfx::Camera*>(camera));
     SetRenderState(1, 1);
     SetRenderState(2, 1);
     fogStart = savedFogStart;
     fogEnd = savedFogEnd;
-    SetDeviceRenderState(0x24, GameVariable<uint32_t>(0x00787340));
-    SetDeviceRenderState(0x25, GameVariable<uint32_t>(0x00787344));
+    SetDeviceRenderState(0x24, reinterpret_cast<uint32_t&>(g_fogStart));
+    SetDeviceRenderState(0x25, reinterpret_cast<uint32_t&>(g_fogEnd));
     SetFog(fog);
 
     // The world again, for the later passes.
@@ -685,7 +704,7 @@ void RenderViewport(int index)
     SetRenderState(1, 1);
     Engine::DrawShatters();
     SetRenderState(1, 0);
-    if (!GameVariable<bool>(0x00786AB5))
+    if (!g_radeon8500)
         Sun::Render(static_cast<Gfx::Camera*>(camera));
     SetRenderState(1, 1);
     SetRenderState(2, 1);
@@ -705,9 +724,9 @@ void RenderWorld()
     // while the game is paused.
     // Original behaviour: nothing.
     Front::LevelEditor::Update();
-    ++GameVariable<int>(0x00786AC4); // frames rendered
+    ++g_framesRendered; // frames rendered
     if (!GameVariable<bool>(0x00786D04)) { // (nothing while the device is lost)
-        GameVariable<int>(0x00786D00) = static_cast<int>(Tmr::GetTime());
+        g_frameTime = static_cast<int>(Tmr::GetTime());
         SetRenderState(1, 1);
         SetRenderState(2, 1);
         RenderShadowTextures();
@@ -734,7 +753,7 @@ void RenderWorld()
         SetViewport();
         CopyScreenQuarter();
         DrawScreenBlur();
-        bool fog = GameVariable<uint32_t>(0x00787338) != 0;
+        bool fog = g_fogEnabled != 0;
         SetFog(false);
         // Originally from PartyMod Fixes (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
         // drawn outside the fitted area.

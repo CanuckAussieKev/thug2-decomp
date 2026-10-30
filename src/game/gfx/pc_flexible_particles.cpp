@@ -14,23 +14,27 @@
 #include "game/gfx/material.h"
 #include "game/gfx/particle_system.h"
 #include "game/gfx/particle_types.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
 #include "game/mth/x87_math.h"
 #include "game/sys/platform_d3d.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
+GAME_GLOBAL(IDirect3DIndexBuffer9*, g_quadIndices, 0x007D69E8);
+
 namespace {
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
-IDirect3DIndexBuffer9* QuadIndices() { return GameVariable<IDirect3DIndexBuffer9*>(0x007D69E8); }
+IDirect3DIndexBuffer9* QuadIndices() { return g_quadIndices; }
 void* DefaultPixelShader() { return GameVariable<void*>(0x007CA964); }
 // The frame's draw counts: draws, triangles.
-uint32_t& DrawCalls() { return GameVariable<uint32_t>(0x00786EBC); }
-uint32_t& DrawnTriangles() { return GameVariable<uint32_t>(0x00786EC0); }
+uint32_t& DrawCalls() { return reinterpret_cast<uint32_t&>(g_drawCalls); }
+uint32_t& DrawnTriangles() { return reinterpret_cast<uint32_t&>(g_drawnTriangles); }
 
 // _ftol: truncated to a 64-bit integer, its low half.
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -41,9 +45,9 @@ void SetMaterial(uint8_t* material) { reinterpret_cast<sMaterial*>(material)->Su
 // and u = r x (a, b, c), then normalised (Mth::Vector::Normalize).
 void CameraAxes(Mth::Vector& r, Mth::Vector& u)
 {
-    double a = GameVariable<float>(0x00786BD8);
-    double b = GameVariable<float>(0x00786BE8);
-    double c = GameVariable<float>(0x00786BF8);
+    double a = g_viewMatrix.row[0].z;
+    double b = g_viewMatrix.row[1].z;
+    double c = g_viewMatrix.row[2].z;
     double b0 = b * 0.0f;
     r.x = static_cast<float>(b0 - c);
     r.y = static_cast<float>(c * 0.0f - a * 0.0f);
@@ -426,9 +430,9 @@ void CPcFlatRibbonParticles::Render()
 {
     if (count <= 0)
         return;
-    double a = GameVariable<float>(0x00786BD8);
-    double b = GameVariable<float>(0x00786BE8);
-    double c = GameVariable<float>(0x00786BF8);
+    double a = g_viewMatrix.row[0].z;
+    double b = g_viewMatrix.row[1].z;
+    double c = g_viewMatrix.row[2].z;
     Mth::Vector r, u;
     CameraAxes(r, u);
     uint32_t particleBytes = (segments - 1) * 16;
@@ -860,9 +864,9 @@ void CPcRibbonParticles::Render()
 {
     if (count <= 0)
         return;
-    double a = GameVariable<float>(0x00786BD8);
-    double b = GameVariable<float>(0x00786BE8);
-    double c = GameVariable<float>(0x00786BF8);
+    double a = g_viewMatrix.row[0].z;
+    double b = g_viewMatrix.row[1].z;
+    double c = g_viewMatrix.row[2].z;
     bool textured = *reinterpret_cast<const uint32_t*>(material->material + 0x30) != 0;
     uint32_t stride = textured ? sizeof(sQuadVertex) : sizeof(sTrailVertex);
     SetMaterial(material->material);
@@ -1013,9 +1017,9 @@ void CPcRibbonTrailParticles::Render()
 {
     if (count <= 0)
         return;
-    double a = GameVariable<float>(0x00786BD8);
-    double b = GameVariable<float>(0x00786BE8);
-    double c = GameVariable<float>(0x00786BF8);
+    double a = g_viewMatrix.row[0].z;
+    double b = g_viewMatrix.row[1].z;
+    double c = g_viewMatrix.row[2].z;
     SetMaterial(material->material);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     SetPixelShader(GameVariable<void*>(0x007CA95C), material->material);
@@ -1438,9 +1442,9 @@ void CPcSmoothRibbonParticles::Render()
 {
     if (count <= 0)
         return;
-    double a = GameVariable<float>(0x00786BD8);
-    double b = GameVariable<float>(0x00786BE8);
-    double c = GameVariable<float>(0x00786BF8);
+    double a = g_viewMatrix.row[0].z;
+    double b = g_viewMatrix.row[1].z;
+    double c = g_viewMatrix.row[2].z;
     SetMaterial(material->material);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     SetPixelShader(GameVariable<void*>(0x007CA95C), material->material);
@@ -1935,9 +1939,9 @@ void CPcGlowRibbonTrailParticles::Render()
 {
     if (count <= 0)
         return;
-    double a = GameVariable<float>(0x00786BD8);
-    double b = GameVariable<float>(0x00786BE8);
-    double c = GameVariable<float>(0x00786BF8);
+    double a = g_viewMatrix.row[0].z;
+    double b = g_viewMatrix.row[1].z;
+    double c = g_viewMatrix.row[2].z;
     // The camera's across and up directions, not normalised.
     double b0 = b * 0.0f;
     float r[3] = {static_cast<float>(b0 - c), static_cast<float>(c * 0.0f - a * 0.0f), static_cast<float>(a - b0)};

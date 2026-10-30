@@ -21,8 +21,6 @@ class CStruct;
 // glowribbontrail, line, ...), with a PC class over that which draws it (pc_flexible_particles.h).
 namespace Nx {
 
-GAME_GLOBAL_EXTERN(uint8_t, g_allocAssertFlag);
-
 // A particle (0x30 bytes).
 struct sFlexibleParticle {
     float velocity[3];  // +0x00
@@ -308,5 +306,7 @@ struct CModelParticles : CParticleSystem {
 static_assert(offsetof(CModelParticles, m_modelCount) == 0x134 && offsetof(CModelParticles, mp_unknown13C) == 0x13C &&
                   offsetof(CModelParticles, mp_models) == 0x144,
               "layout must match the original");
+
+GAME_GLOBAL_EXTERN(uint8_t, g_allocAssertFlag);
 
 } // namespace Nx

@@ -11,50 +11,91 @@
 
 #include "game/gfx/device.h"
 #include "game/gfx/graphics_options.h"
+#include "game/gfx/occlusion.h"
 #include "game/gfx/pc_billboards.h"
+#include "game/gfx/pc_lights.h"
 #include "game/gfx/pixel_shaders.h"
+#include "game/gfx/render.h"
 #include "game/gfx/view_mode.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
+
+GAME_GLOBAL(bool, g_shadersAvailable, 0x00786AB8);
+GAME_GLOBAL(uint32_t, g_blendMode, 0x00786E30);
+GAME_GLOBAL(uint32_t, g_blendOp, 0x00786E34);
+GAME_GLOBAL(uint32_t, g_srcBlend, 0x00786E38);
+GAME_GLOBAL(uint32_t, g_destBlend, 0x00786E3C);
+GAME_GLOBAL(uint32_t, g_alphaBlend, 0x00786E40);
+GAME_GLOBAL(uint32_t, g_alphaTest, 0x00786E44);
+GAME_GLOBAL(uint32_t, g_alphaRef, 0x00786E48);
+GAME_GLOBAL(uint32_t, g_specular, 0x00786E4C);
+GAME_GLOBAL(uint8_t, g_dither, 0x00786E50);
+GAME_GLOBAL(uint8_t, g_zWrite, 0x00786E51);
+GAME_GLOBAL(uint8_t, g_zTest, 0x00786E52);
+GAME_GLOBAL(uint32_t, g_depthBias, 0x00786E54);
+GAME_GLOBAL(uint32_t, g_lighting, 0x00786E58);
+GAME_GLOBAL(uint32_t, g_cullMode, 0x00786E5C);
+GAME_GLOBAL(bool, g_nearCamera, 0x00786E60);
+GAME_GLOBAL(uint32_t[4], g_addressModes, 0x00786E64);
+GAME_GLOBAL(uint32_t[4], g_mipLodBiases, 0x00786E74);
+GAME_GLOBAL(uint32_t[4], g_filters, 0x00786E84);
+GAME_GLOBAL(void*[4], g_textures, 0x00786E94);
+GAME_GLOBAL(uint32_t[4], g_borderColours, 0x00786EA4);
+GAME_GLOBAL(uint32_t, g_vertexFormat, 0x00786EB8);
+GAME_GLOBAL(uint32_t, g_pixelShaderLocked, 0x00786EC4);
+GAME_GLOBAL(void*, g_currentPixelShader, 0x00786EC8);
+GAME_GLOBAL(float[20], g_pixelShaderConstants, 0x00786ECC);
+GAME_GLOBAL(uint32_t, g_instanceColourOn, 0x00786F1C);
+GAME_GLOBAL(uint8_t[4], g_instanceColour, 0x00786F20);
+GAME_GLOBAL(uint8_t, g_pixelShaderChanged, 0x00786F24);
+GAME_GLOBAL(uint32_t, g_vertexFormatLocked, 0x00786F28);
+GAME_GLOBAL(uint32_t, g_skippedPasses, 0x00786F2C);
+GAME_GLOBAL(uint32_t, g_submitLocked, 0x00786F30);
+GAME_GLOBAL(uint32_t, g_blendModeOverride, 0x00786F34);
+GAME_GLOBAL(uint32_t, g_fogEnabled, 0x00787338);
+GAME_GLOBAL(uint8_t, g_localViewer, 0x00787348);
+GAME_GLOBAL(const float*, g_worldTransform, 0x007CA968);
+GAME_GLOBAL(float[16], g_worldTransformCopy, 0x007CA980);
 
 namespace {
 
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
 
 // What the device was last given (the cache).
-uint32_t& BlendMode() { return GameVariable<uint32_t>(0x00786E30); }
-uint32_t& BlendOp() { return GameVariable<uint32_t>(0x00786E34); }
-uint32_t& SrcBlend() { return GameVariable<uint32_t>(0x00786E38); }
-uint32_t& DestBlend() { return GameVariable<uint32_t>(0x00786E3C); }
-uint32_t& AlphaBlend() { return GameVariable<uint32_t>(0x00786E40); }
-uint32_t& AlphaTest() { return GameVariable<uint32_t>(0x00786E44); }
-uint32_t& AlphaRef() { return GameVariable<uint32_t>(0x00786E48); }
-uint32_t& Specular() { return GameVariable<uint32_t>(0x00786E4C); }
-uint8_t& Dither() { return GameVariable<uint8_t>(0x00786E50); }
-uint8_t& ZWrite() { return GameVariable<uint8_t>(0x00786E51); }
-uint8_t& ZTest() { return GameVariable<uint8_t>(0x00786E52); }
-uint32_t& DepthBias() { return GameVariable<uint32_t>(0x00786E54); }
-uint32_t& Lighting() { return GameVariable<uint32_t>(0x00786E58); }
-uint32_t& CullMode() { return GameVariable<uint32_t>(0x00786E5C); }
-uint32_t* AddressModes() { return &GameVariable<uint32_t>(0x00786E64); } // [4]: U low 16 bits, V high
-uint32_t* MipLodBiases() { return &GameVariable<uint32_t>(0x00786E74); } // [4]: float bits
-uint32_t* Filters() { return &GameVariable<uint32_t>(0x00786E84); }      // [4]: min low 16 bits, mag high
-void** Textures() { return &GameVariable<void*>(0x00786E94); }           // [4]
-uint32_t& VertexFormat() { return GameVariable<uint32_t>(0x00786EB8); }
-uint32_t& PixelShaderLocked() { return GameVariable<uint32_t>(0x00786EC4); }
-void*& CurrentPixelShader() { return GameVariable<void*>(0x00786EC8); }
-float* PixelShaderConstants() { return &GameVariable<float>(0x00786ECC); } // [5][4]; [4] is 0x00786F0C
-uint8_t& PixelShaderChanged() { return GameVariable<uint8_t>(0x00786F24); }
-uint32_t& VertexFormatLocked() { return GameVariable<uint32_t>(0x00786F28); }
-uint32_t& BlendModeOverride() { return GameVariable<uint32_t>(0x00786F34); }
-uint32_t& Fog() { return GameVariable<uint32_t>(0x00787338); }
+uint32_t& BlendMode() { return g_blendMode; }
+uint32_t& BlendOp() { return g_blendOp; }
+uint32_t& SrcBlend() { return g_srcBlend; }
+uint32_t& DestBlend() { return g_destBlend; }
+uint32_t& AlphaBlend() { return g_alphaBlend; }
+uint32_t& AlphaTest() { return g_alphaTest; }
+uint32_t& AlphaRef() { return g_alphaRef; }
+uint32_t& Specular() { return g_specular; }
+uint8_t& Dither() { return g_dither; }
+uint8_t& ZWrite() { return g_zWrite; }
+uint8_t& ZTest() { return g_zTest; }
+uint32_t& DepthBias() { return g_depthBias; }
+uint32_t& Lighting() { return g_lighting; }
+uint32_t& CullMode() { return g_cullMode; }
+uint32_t* AddressModes() { return g_addressModes; } // [4]: U low 16 bits, V high
+uint32_t* MipLodBiases() { return g_mipLodBiases; } // [4]: float bits
+uint32_t* Filters() { return g_filters; }      // [4]: min low 16 bits, mag high
+void** Textures() { return g_textures; }           // [4]
+uint32_t& VertexFormat() { return g_vertexFormat; }
+uint32_t& PixelShaderLocked() { return g_pixelShaderLocked; }
+void*& CurrentPixelShader() { return g_currentPixelShader; }
+float* PixelShaderConstants() { return g_pixelShaderConstants; } // [5][4]; [4] is 0x00786F0C
+uint8_t& PixelShaderChanged() { return g_pixelShaderChanged; }
+uint32_t& VertexFormatLocked() { return g_vertexFormatLocked; }
+uint32_t& BlendModeOverride() { return g_blendModeOverride; }
+uint32_t& Fog() { return g_fogEnabled; }
 uint32_t& FogColor() { return GameVariable<uint32_t>(0x0078733C); }
-uint8_t& LocalViewer() { return GameVariable<uint8_t>(0x00787348); }
+uint8_t& LocalViewer() { return g_localViewer; }
 
 // Device capabilities (found at start-up).
-bool HasPixelShaders() { return GameVariable<bool>(0x00786AB8); }
+bool HasPixelShaders() { return g_shadersAvailable; }
 bool HasBorderAddressing() { return GameVariable<bool>(0x00786AC0); }
 bool HasBlendFactor() { return GameVariable<bool>(0x00786AC1); }
 
@@ -441,17 +482,17 @@ void __cdecl SetPixelShaderWithConstants(void* shader, uint32_t count)
 }
 
 // 0x004DA0E0
-float __cdecl LastSphereDistance() { return GameVariable<float>(0x007CA978); }
+float __cdecl LastSphereDistance() { return g_lastSphereDistance; }
 
 // 0x004DB620
 void __cdecl SetWorldTransform(const float* matrix)
 {
     if (!matrix) {
-        GameVariable<const float*>(0x007CA968) = nullptr;
+        g_worldTransform = nullptr;
         return;
     }
-    float* world = &GameVariable<float>(0x007CA980);
-    GameVariable<float*>(0x007CA968) = world;
+    float* world = g_worldTransformCopy;
+    g_worldTransform = world;
     for (int row = 0; row < 4; ++row) {
         world[row * 4 + 0] = matrix[row * 4 + 0];
         world[row * 4 + 1] = matrix[row * 4 + 1];
@@ -465,15 +506,15 @@ void __cdecl ResetRenderState()
 {
     LocalViewer() = 0;
     // The world, view and projection transforms (0x00786B90, 0x00786BD0, 0x00786C10): identity.
-    for (uint32_t matrix : {0x00786B90u, 0x00786BD0u, 0x00786C10u}) {
-        float* m = &GameVariable<float>(matrix);
+    for (Mth::Matrix* matrix : {&g_worldMatrix, &g_viewMatrix, &g_projectionMatrix}) {
+        float* m = reinterpret_cast<float*>(matrix);
         for (int i = 0; i < 16; ++i)
             m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
     }
     Lighting() = 0;
     Specular() = 0;
     CullMode() = D3DCULL_CW;
-    GameVariable<uint8_t>(0x00786E60) = 1;
+    g_nearCamera = 1;
     Dither() = 1;
     ZTest() = 1;
     ZWrite() = 1;
@@ -485,7 +526,7 @@ void __cdecl ResetRenderState()
         MipLodBiases()[i] = 0;
         Textures()[i] = nullptr;
         Filters()[i] = 0x10000;
-        GameVariable<uint32_t>(0x00786EA4 + 4 * i) = 0;
+        g_borderColours[i] = 0;
     }
     // (none of these is a mode: the next one is always sent)
     BlendMode() = 0xDEADBABE;
@@ -495,18 +536,18 @@ void __cdecl ResetRenderState()
     GameVariable<uint8_t>(0x00786D94) = 0;
     GameVariable<uint8_t>(0x00786E14) = 0;
     // Pixel shader constant 4: (0, 0.5, 0, 0.5).
-    GameVariable<uint32_t>(0x00786F0C) = 0;
-    GameVariable<float>(0x00786F10) = 0.5f;
-    GameVariable<uint32_t>(0x00786F14) = 0;
-    GameVariable<float>(0x00786F18) = 0.5f;
+    reinterpret_cast<uint32_t&>(g_pixelShaderConstants[16]) = 0;
+    g_pixelShaderConstants[17] = 0.5f;
+    reinterpret_cast<uint32_t&>(g_pixelShaderConstants[18]) = 0;
+    g_pixelShaderConstants[19] = 0.5f;
     PixelShaderLocked() = 0;
     CurrentPixelShader() = nullptr;
     PixelShaderChanged() = 0;
     GameVariable<uint8_t>(0x00786CBC) = 0;
-    GameVariable<uint8_t>(0x00786EB4) = 0;
+    g_billboardFlag = 0;
     VertexFormatLocked() = 0;
-    GameVariable<uint32_t>(0x00786F2C) = 0;
-    GameVariable<uint32_t>(0x00786F30) = 0;
+    g_skippedPasses = 0;
+    g_submitLocked = 0;
     BlendModeOverride() = 0;
     GameVariable<uint8_t>(0x00786CBD) = 1;
     GameVariable<uint32_t>(0x00786CC0) = 0;
@@ -518,15 +559,15 @@ void __cdecl ResetRenderState()
         0x3F800000, 0,          0,          0,          0,          0,          0,          0x3F800000,
     };
     for (int i = 0; i < 24; ++i)
-        GameVariable<uint32_t>(0x00786F48 + 4 * i) = kLight[i];
-    GameVariable<uint32_t>(0x00786F38) = 0x3F1624DD; // the ambient colour
-    GameVariable<uint32_t>(0x00786F3C) = 0x3F1624DD;
-    GameVariable<uint32_t>(0x00786F40) = 0x3F1624DD;
-    GameVariable<uint32_t>(0x00786F44) = 0x3F800000;
+        reinterpret_cast<uint32_t&>(g_lightConstants[4 + i]) = kLight[i];
+    reinterpret_cast<uint32_t&>(g_lightConstants[0]) = 0x3F1624DD; // the ambient colour
+    reinterpret_cast<uint32_t&>(g_lightConstants[1]) = 0x3F1624DD;
+    reinterpret_cast<uint32_t&>(g_lightConstants[2]) = 0x3F1624DD;
+    reinterpret_cast<uint32_t&>(g_lightConstants[3]) = 0x3F800000;
     Fog() = 0;
     FogColor() = 0;
-    GameVariable<uint32_t>(0x00787340) = 0xC3700000; // fog start and end, as bit patterns (-240, -24600)
-    GameVariable<uint32_t>(0x00787344) = 0xC6C03000;
+    reinterpret_cast<uint32_t&>(g_fogStart) = 0xC3700000; // fog start and end, as bit patterns (-240, -24600)
+    reinterpret_cast<uint32_t&>(g_fogEnd) = 0xC6C03000;
 }
 
 // 0x004D80D0
@@ -550,7 +591,7 @@ void __cdecl ApplyRenderState()
         MipLodBiases()[sampler] = 0;
         Textures()[sampler] = nullptr;
         Filters()[sampler] = 0x10000;
-        GameVariable<uint32_t>(0x00786EA4 + 4 * sampler) = 0;
+        g_borderColours[sampler] = 0;
         Device()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
         Device()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
         // NOT ORIGINAL - [Graphics] anisotropy (game/gfx/graphics_options.h): anisotropic minification on every
@@ -558,7 +599,7 @@ void __cdecl ApplyRenderState()
         if (int taps = GraphicsOptions::ActiveAnisotropy()) {
             Device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             Device()->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, static_cast<DWORD>(taps));
-        } else if (sampler == 0 && GameVariable<int>(0x00786D70) <= 480) {
+        } else if (sampler == 0 && g_backBufferHeight <= 480) {
             // Anisotropic minification on the first sampler, at back buffers up to 480 lines high.
             Device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             uint32_t anisotropy = GameVariable<uint32_t>(0x00786ABC);
@@ -582,8 +623,8 @@ void __cdecl ApplyRenderState()
     Device()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);
     Device()->SetRenderState(D3DRS_FOGVERTEXMODE, D3DFOG_LINEAR);
     Device()->SetRenderState(D3DRS_FOGCOLOR, FogColor());
-    Device()->SetRenderState(D3DRS_FOGSTART, GameVariable<uint32_t>(0x00787340));
-    Device()->SetRenderState(D3DRS_FOGEND, GameVariable<uint32_t>(0x00787344));
+    Device()->SetRenderState(D3DRS_FOGSTART, reinterpret_cast<uint32_t&>(g_fogStart));
+    Device()->SetRenderState(D3DRS_FOGEND, reinterpret_cast<uint32_t&>(g_fogEnd));
     // (NOT ORIGINAL: or [Graphics] msaa's samples - game/gfx/graphics_options.h)
     if (GameVariable<bool>(0x007D6434) || GraphicsOptions::ChosenSamples()) // the antialiasing setting
         Device()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);

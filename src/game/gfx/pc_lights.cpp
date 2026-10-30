@@ -16,6 +16,10 @@
 
 namespace Nx {
 
+GAME_GLOBAL(Mth::Vector, g_sceneLightDirection, 0x0070166C);
+GAME_GLOBAL(uint32_t, g_sceneLightDirectionGuard, 0x0070167C);
+GAME_GLOBAL(float[28], g_lightConstants, 0x00786F38);
+
 GAME_GLOBAL(Mth::Vector*, g_sceneDirections, 0x0067DC9C);
 GAME_GLOBAL(uint32_t*, g_sceneColors, 0x0067DCA0);
 
@@ -26,9 +30,9 @@ constexpr double kPer128 = 1.0 / 128.0;           // 0x0064A2FC
 constexpr float kPer255 = 1.0f / 255.0f;          // 0x00645D70 (0x3B808081)
 
 // The renderer's light constants.
-float* AmbientConstant() { return &GameVariable<float>(0x00786F38); }
-float* LightDirectionConstant(uint32_t light) { return &GameVariable<float>(0x00786F48 + 0x20 * light); }
-float* LightColorConstant(uint32_t light) { return &GameVariable<float>(0x00786F58 + 0x20 * light); }
+float* AmbientConstant() { return g_lightConstants; }
+float* LightDirectionConstant(uint32_t light) { return g_lightConstants + 4 + 8 * light; }
+float* LightColorConstant(uint32_t light) { return g_lightConstants + 8 + 8 * light; }
 
 // The scene's lights.
 uint32_t& SceneAmbient() { return GameVariable<uint32_t>(0x0067DC98); }
@@ -321,8 +325,8 @@ bool __cdecl UpdateLightDirection(int light)
 // 0x004B6AB0
 Mth::Vector* __cdecl GetLightDirection(int light)
 {
-    GameVariable<uint32_t>(0x0070167C) |= 1; // (the static's initialisation guard)
-    Mth::Vector& out = GameVariable<Mth::Vector>(0x0070166C);
+    g_sceneLightDirectionGuard |= 1; // (the static's initialisation guard)
+    Mth::Vector& out = g_sceneLightDirection;
     const Mth::Vector& direction = SceneDirections()[light];
     out = {direction.x, direction.y, direction.z, 1.0f};
     return &out;

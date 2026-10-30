@@ -23,9 +23,11 @@
 #include "game/gfx/pc_sprite.h"
 #include "game/gfx/pc_texture.h"
 #include "game/gfx/pc_weather.h"
+#include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/occlusion.h"
+#include "game/gfx/settings.h"
 #include "game/gfx/shadow.h"
 #include "game/gfx/texture.h"
 #include "game/mth/vector.h"
@@ -50,7 +52,7 @@ bool& ScreenShotNameExact() { return GameVariable<bool>(0x00786E14); }
 // The clear colour: the fog's with fog and distance clipping on, else the background's.
 uint32_t ClearColour()
 {
-    if (GameVariable<bool>(0x007D6436) && GameVariable<bool>(0x007D643A))
+    if (g_fogSetting && g_distanceClipping)
         return GameVariable<uint32_t>(0x0078733C);
     return GameVariable<uint32_t>(0x00786CC0);
 }
@@ -211,8 +213,8 @@ void __cdecl FinishRendering()
     if (SkipRender())
         return;
     Device()->Present(nullptr, nullptr, nullptr, nullptr);
-    GameVariable<int>(0x00786EBC) = 0; // the frame's draw counts
-    GameVariable<int>(0x00786EC0) = 0;
+    g_drawCalls = 0; // the frame's draw counts
+    g_drawnTriangles = 0;
     if (PendingScreenShot()[0]) {
         ScreenShot(PendingScreenShot(), 0);
         PendingScreenShot()[0] = 0;

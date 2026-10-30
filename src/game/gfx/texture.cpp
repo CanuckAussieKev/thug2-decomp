@@ -31,7 +31,7 @@ struct Node {
 Node*& Head() { return GameVariable<Node*>(0x007CC254); }
 
 // What the textures being drawn with are (the render state cache's).
-void* CachedTexture(int stage) { return (&GameVariable<void*>(0x00786E94))[stage]; }
+void* CachedTexture(int stage) { return g_textures[stage]; }
 
 } // namespace
 
