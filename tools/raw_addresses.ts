@@ -48,8 +48,10 @@ function main(): number {
             .filter((l) => !/^\s*REPLACE\w*\(/.test(l))
             .join("\n")
             .replace(/Game(Function|Variable)<[^;]*?>\(\s*0x[0-9A-Fa-f]{6,8}\s*\)/g, " ")
-            // (a GAME_GLOBAL's address is the map back to the exe, like a REPLACE line's)
-            .replace(/GAME_GLOBAL\w*\([^;]*?0x[0-9A-Fa-f]{6,8}/g, " ");
+            // (the address in a GAME_GLOBAL / GAME_TEXT / GAME_CODE / GAME_VTABLE / GAME_LIBRARY_SLOT is the map back to
+            // the exe, like a REPLACE line's; a GAME_VTABLE's slots are our functions)
+            .replace(/GAME_(GLOBAL\w*|VTABLE)\([^;]*?0x[0-9A-Fa-f]{6,8}/g, " ")
+            .replace(/GAME_(TEXT|CODE|LIBRARY_SLOT)\(\s*0x[0-9A-Fa-f]{6,8}/g, " ");
         const f = file.replaceAll("\\", "/").replace(/^src\/game\//, "");
         for (const m of text.matchAll(/\b0x00([4-7][0-9A-Fa-f]{5})\b/g)) {
             const a = parseInt(m[1]!, 16);
