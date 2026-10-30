@@ -28,7 +28,7 @@
 namespace Obj {
 
 GAME_GLOBAL(float[8], g_rigidBodyPusherReach, 0x006939B0);
-GAME_GLOBAL(Nx::CCollCache, g_rigidBodyCache, 0x006939E0);
+GAME_GLOBAL(RigidBodyCacheStorage, g_rigidBodyCache, 0x006939E0);
 GAME_GLOBAL(CRigidBodyComponent::Contact[24], g_rigidBodyContacts, 0x006949B0);
 GAME_GLOBAL(Mth::Vector[24], g_rigidBodyWorldContactPoints, 0x00694E30);
 GAME_GLOBAL(Mth::Vector[24], g_rigidBodyWorldSphereCenters, 0x00694FB0);

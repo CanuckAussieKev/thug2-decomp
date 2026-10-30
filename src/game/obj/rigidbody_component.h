@@ -293,7 +293,11 @@ GAME_GLOBAL_EXTERN(Mth::Vector[24], g_rigidBodyWorldSphereCenters);   // 0x00694
 GAME_GLOBAL_EXTERN(Mth::Vector[2], g_rigidBodyWorldSpringPoints);    // 0x00695130
 GAME_GLOBAL_EXTERN(CRigidBodyComponent::Contact[24], g_rigidBodyContacts); // 0x006949B0
 GAME_GLOBAL_EXTERN(CSmtPtr<CCompositeObject>[8], g_rigidBodyPushers);      // 0x00695150
-GAME_GLOBAL_EXTERN(Nx::CCollCache, g_rigidBodyCache);                       // 0x006939E0
+// (the cache is raw zeroed storage: the cache fills it before it looks)
+struct RigidBodyCacheStorage {
+    alignas(8) uint8_t bytes[sizeof(Nx::CCollCache)];
+};
+GAME_GLOBAL_EXTERN(RigidBodyCacheStorage, g_rigidBodyCache);                       // 0x006939E0
 GAME_GLOBAL_EXTERN(float[8], g_rigidBodyPusherReach);
 GAME_GLOBAL_EXTERN(float, g_rigidBodyPusherHeight);
 GAME_GLOBAL_EXTERN(bool, g_rigidBodyDrawShape);
