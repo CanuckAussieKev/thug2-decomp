@@ -2,6 +2,8 @@
 // run_timer.cpp, skater_score.cpp; 0x00517CC0-0x00518C6E): the original and ours on the same stand-in skater, every
 // call they make recorded.
 
+#include <initializer_list>
+#include <utility>
 #include <windows.h>
 
 #include <cstdint>
@@ -138,21 +140,21 @@ void StandIn(StandIns& s)
     Rec(s, {0x0046F060, AddressOf(&Script::RegisterMemberFunctionTable)}, 3, 0xF060, nullptr, false, true);
     // (0x005BAB90, the base's empty GetDebugInfo: run as it is - ours leaves the call out)
     // The score's.
-    Rec(s, {0x00563440}, 0, 0x3440, [](Regs& r) { return r.ecx; });
-    for (uint32_t address : {0x00561290u, 0x00564270u, 0x00561A80u})
-        Rec(s, {address}, 1, address & 0xFFFF);
+    Rec(s, {0x00563440, AddressOf(&Mdl::Score::Construct)}, 0, 0x3440, [](Regs& r) { return r.ecx; });
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00561290u, AddressOf(&Mdl::Score::SetSkaterId)}, {0x00564270u, AddressOf(&Mdl::Score::TweakTrick)}, {0x00561A80u, AddressOf(&Mdl::Score::SetTotalScore)}})
+        Rec(s, {address, ours_}, 1, address & 0xFFFF);
     Rec(s, {0x005843A0, AddressOf(&Obj::CSkaterCareer::SetGlobalFlag)}, 1, 0x43A0);
-    for (uint32_t address : {0x00564B80u, 0x00563580u, 0x00562DF0u, 0x00564A10u})
-        Rec(s, {address}, 0, address & 0xFFFF);
-    for (uint32_t address : {0x00563370u, 0x00563390u})
-        Rec(s, {address}, 2, address & 0xFFFF);
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00564B80u, AddressOf(&Mdl::Score::DestroyBody)}, {0x00563580u, AddressOf(&Mdl::Score::Update)}, {0x00562DF0u, AddressOf(&Mdl::Score::FillSpecial)}, {0x00564A10u, AddressOf(&Mdl::Score::Reset)}})
+        Rec(s, {address, ours_}, 0, address & 0xFFFF);
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00563370u, AddressOf(&Mdl::Score::SetBalanceMeter)}, {0x00563390u, AddressOf(&Mdl::Score::SetManualMeter)}})
+        Rec(s, {address, ours_}, 2, address & 0xFFFF);
     Rec(s, {0x00584CC0, AddressOf(&Obj::CSkaterCareer::GetCheat)}, 1, 0x4CC0, [](Regs&) { return g_a.alwaysSpecial ? 1u : 0u; });
     Rec(s, {0x00478F60, AddressOf(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}, 1, 0x8F60,
         [](Regs& r) { return r.args[0] ^ 0x1234u; }, false, true);
     Rec(s, {0x00561B40, AddressOf(&Mdl::Score::GetTotalScore)}, 0, 0x1B40, [](Regs&) { return static_cast<uint32_t>(g_a.total); });
-    Rec(s, {0x005633B0}, 0, 0x33B0, [](Regs&) { return static_cast<uint32_t>(g_a.nonGap); });
-    Rec(s, {0x00562410}, 4, 0x2410, [](Regs&) { return g_a.latest ? 1u : 0u; });
-    Rec(s, {0x005623B0}, 4, 0x23B0, [](Regs&) { return g_a.latest ? 0x101u : 0x100u; });
+    Rec(s, {0x005633B0, AddressOf(&Mdl::Score::CountNonGapTricks)}, 0, 0x33B0, [](Regs&) { return static_cast<uint32_t>(g_a.nonGap); });
+    Rec(s, {0x00562410, AddressOf(&Mdl::Score::LastTrickIsKeyCombo)}, 4, 0x2410, [](Regs&) { return g_a.latest ? 1u : 0u; });
+    Rec(s, {0x005623B0, AddressOf(&Mdl::Score::LastTrickIs)}, 4, 0x23B0, [](Regs&) { return g_a.latest ? 0x101u : 0x100u; });
     s.At({0x00472E60, AddressOf(&Crc::GenerateCRCFromString)}, 0, [](Regs& r) {
         uint32_t h = Hash(reinterpret_cast<const char*>(r.args[0]));
         Record({0x2E60, h});

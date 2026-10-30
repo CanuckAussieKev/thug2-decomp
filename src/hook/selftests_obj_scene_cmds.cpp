@@ -19,10 +19,10 @@
 #include "game/script/struct.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
-#include "game/gfx/engine_scene.h"
-#include "game/gfx/engine_scene_list.h"
 #include "game/gfx/model.h"
 #include "game/gfx/model_utils.h"
+#include "game/gfx/engine_scene.h"
+#include "game/gfx/engine_scene_list.h"
 #include "game/gfx/texture_dict.h"
 #include "game/sys/game_config.h"
 #include "hook/cfunc_testkit.h"
@@ -59,9 +59,9 @@ uint32_t Text(uint32_t p) { return Hash(reinterpret_cast<const char*>(p)); }
 void StandInCalls(StandIns& s)
 {
     s.At({0x00444EB0, AddressOf(&Terrain::LoadTerrainSounds)}, 0, [](Regs& r) { Record({0x4EB0, r.args[0]}); return 1u; });
-    s.At({0x0048BFA0, AddressOf(&Nx::CreateModel)}, 0, [](Regs&) { Record({0xBFA0}); return Addr(g_model); }); // (its argument isn't read or passed)
+    s.At({0x0048BFA0, AddressOf(Nx::CreateModel)}, 0, [](Regs& r) { Record({0xBFA0, r.args[0]}); return Addr(g_model); });
     // <name>.mdl: a String in the caller's storage (no text: copying it allocates nothing)
-    s.At({0x004879D0, AddressOf(&Gfx::MakeModelPath)}, 0, [](Regs& r) {
+    s.At({0x004879D0, AddressOf(Gfx::MakeModelPath)}, 0, [](Regs& r) {
         Record({0x79D0, Text(r.args[1]), Text(r.args[2])});
         auto* string = reinterpret_cast<uint32_t*>(r.args[0]);
         string[0] = 0x5E41;
@@ -75,9 +75,9 @@ void StandInCalls(StandIns& s)
             Record({r.args[i] & 0xFF});
         return 0u;
     });
-    s.At({0x0048C3C0, AddressOf(&Nx::Engine::DeleteGeomObject)}, 0, [](Regs& r) { Record({0xC3C0, r.args[0] == Addr(g_model)}); return 0u; });
-    s.At({0x0048C810, AddressOf(&Nx::UnloadAllScenes)}, 0, [](Regs&) { Record({0xC810}); return 0u; });
-    s.At({0x0048C750, AddressOf(&Nx::GetSceneByName)}, 0, [](Regs& r) {
+    s.At({0x0048C3C0, AddressOf(Nx::Engine::DeleteGeomObject)}, 0, [](Regs& r) { Record({0xC3C0, r.args[0] == Addr(g_model)}); return 0u; });
+    s.At({0x0048C810}, 0, [](Regs&) { Record({0xC810}); return 0u; });
+    s.At({0x0048C750}, 0, [](Regs& r) {
         Record({0xC750, Text(r.args[0])});
         return g_sceneFound ? Addr(g_scenes[0]) : 0u;
     });

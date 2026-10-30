@@ -34,7 +34,7 @@ constexpr uint32_t kName = 0xA1DC81F9;
 constexpr uint32_t kLipOffEvents = 0x0064BBE0;   // (getting off a lip)
 constexpr uint32_t kOffLipEvents = 0x0064BBD4;   // {7, 4, 0}
 
-void ChangeState(void* component, int state) { GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(component, state); }
+void ChangeState(void* component, int state) { static_cast<CorePhysicsComponent*>(component)->SetPhysicsState(state); }
 
 } // namespace
 
@@ -81,7 +81,7 @@ void CorePhysicsComponent::DoLipPhysics()
     if (!Flag(this, 0x20) && InputOf(this)[0x1C0])
         SetFlag(this, 0x20, 1);
     // Off the lip (0x004FFB10): the rail's TriggerScript, twice.
-    if (GameFunction<bool(__thiscall*)(void*)>(0x004FFB10)(this)) {
+    if (JumpReleased()) {
         SetFlag(this, 0xD8, 1);
         TriggerRailScript(reinterpret_cast<const int*>(kLipOffEvents));
         TriggerRailScript(reinterpret_cast<const int*>(kOffLipEvents));
@@ -99,7 +99,7 @@ void CorePhysicsComponent::DoLipPhysics()
 // 0x0050C670
 void CorePhysicsComponent::ResumeSkating(bool onGround, const uint8_t* grind, void* acidDrop)
 {
-    GameFunction<void(__thiscall*)(void*)>(0x004FDE40)(this);
+    ClearFlags();
     if (onGround) {
         ChangeState(this, kGround);
         At<int>(this, 0x94) = kGround;

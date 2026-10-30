@@ -11,6 +11,7 @@
 #include "game/script/preferences.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/victory_conditions.h"
+#include "game/goals/goal_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -78,12 +79,12 @@ R VirtualCall(void* object, uint32_t slot, A... args)
 }
 
 // The goal manager (0x005591B0): 0x0055DC30 how many goals (`active`...) and 0x0055E980 its current net goal.
-void* GoalManager() { return GameFunction<void*(__cdecl*)()>(0x005591B0)(); }
-int CountGoals(void* manager, int which) { return GameFunction<int(__thiscall*)(void*, int)>(0x0055DC30)(manager, which); }
-CGoal* CurrentNetGoal(void* manager) { return GameFunction<CGoal*(__thiscall*)(void*)>(0x0055E980)(manager); }
+void* GoalManager() { return GetGoalManager(); }
+int CountGoals(void* manager, int which) { return static_cast<CGoalManager*>(manager)->NumActiveGoals(which != 0); }
+CGoal* CurrentNetGoal(void* manager) { return static_cast<CGoalManager*>(manager)->GetActiveNetGoal(); }
 CGoal* GetGoal(void* manager, uint32_t id, int assert)
 {
-    return GameFunction<CGoal*(__thiscall*)(void*, uint32_t, int)>(0x00557F90)(manager, id, assert);
+    return static_cast<CGoalManager*>(manager)->GetGoal(id, assert);
 }
 
 // The conditions' list: its length and its `index`th node (Lst::Head's, inlined by the original: each counts from
@@ -615,7 +616,7 @@ bool CGameMode::ShouldUseClock()
 // 0x00553550
 bool CGameMode::ShouldStopAtZero()
 {
-    if (!GameFunction<bool(__thiscall*)(void*)>(0x005651F0)(SkateCalls::Skate())) // (the skate module's IsMultiplayerGame)
+    if (!Mdl::Skate::IsMultiplayer()) // (the skate module's IsMultiplayerGame)
         return false;
     if (!ShouldUseClock())
         return true;
@@ -651,7 +652,7 @@ int CGameMode::GetScreenMode()
     uint32_t mode;
     m_params.GetChecksum(kScreenMode, &mode, true);
     if (mode == kSplitScreen) {
-        auto* prefs = GameFunction<Prefs::Preferences*(__thiscall*)(void*)>(0x00564D80)(SkateCalls::Skate());
+        auto* prefs = Mdl::Skate::Instance()->GetSplitScreenPreferences();
         uint32_t viewport;
         prefs->GetPreference(kViewportType)->GetChecksum(kChecksum, &viewport, true);
         if (viewport == kViewportVertical)

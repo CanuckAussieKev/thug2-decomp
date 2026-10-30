@@ -4,6 +4,7 @@
 
 #include "game/mth/random.h"
 #include "game/script/struct.h"
+#include "game/gfx/model_appearance.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -38,7 +39,7 @@ int AllowRandom(CStruct* option)
 // 0x00485CB0
 bool __cdecl PartIsCreatedGraphic(void* appearance, uint32_t part)
 {
-    auto* option = GameFunction<CStruct*(__thiscall*)(void*, uint32_t)>(0x004890B0)(appearance, part);
+    auto* option = static_cast<Gfx::CModelAppearance*>(appearance)->GetPart(part);
     if (!option)
         return false;
     uint32_t descId = 0;

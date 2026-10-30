@@ -19,12 +19,12 @@
 #include "game/skate/profile_cfuncs.h"
 #include "game/skate/profile_manager.h"
 #include "game/gfx/engine.h"
-#include "game/ed/goal_editor.h"
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/model.h"
 #include "game/gfx/model_appearance.h"
 #include "game/gfx/texture_dict.h"
 #include "game/skate/skate_module.h"
+#include "game/ed/goal_editor.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -74,8 +74,8 @@ void StandInTextureCalls(StandIns& s)
         Record({0xF560, r.ecx, Hash(reinterpret_cast<const char*>(r.args[0]))});
         return Tex(g_textureByName);
     });
-    s.At({0x0049F500}, 4, [](Regs& r) { Record({0xF500, r.ecx, Id(r.args[0])}); return 1u; });
-    s.At({0x0049F9B0}, 16, [](Regs& r) {
+    s.At({0x0049F500, AddressOf(&Nx::CTexDict::UnloadTexture)}, 4, [](Regs& r) { Record({0xF500, r.ecx, Id(r.args[0])}); return 1u; });
+    s.At({0x0049F9B0, AddressOf(&Nx::CTexDict::LoadTexture)}, 16, [](Regs& r) {
         Record({0xF9B0, r.ecx, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1] & 0xFF, r.args[2] & 0xFF,
                 r.args[3] & 0xFF});
         return Tex(g_loadResult);
@@ -85,7 +85,7 @@ void StandInTextureCalls(StandIns& s)
                 r.args[5] & 0xFF, r.args[6] & 0xFF});
         return Tex(g_loadResult);
     });
-    s.At({0x0049FBE0}, 8, [](Regs& r) { Record({0xFBE0, r.ecx, r.args[0], r.args[1]}); return 1u; });
+    s.At({0x0049FBE0, AddressOf(&Nx::CTexDict::CopyTexture)}, 8, [](Regs& r) { Record({0xFBE0, r.ecx, r.args[0], r.args[1]}); return 1u; });
     s.At({0x0049FC20}, 16, [](Regs& r) {
         Record({0xFC20, r.ecx, r.args[0], r.args[1], r.args[2], r.args[3] & 0xFF});
         return 1u;
@@ -351,7 +351,7 @@ void StandInProfileCalls(StandIns& s)
         Record({0x6170, r.ecx == reinterpret_cast<uint32_t>(g_profileObject) ? 1u : r.ecx});
         return g_isPro ? 0x101u : 0x100u;
     });
-    s.At({0x004E8F50, AddressOf(&Ed::AddGoalEditorNodes)}, 0, [](Regs& r) { Record({0x8F50, r.args[0], r.args[1], r.args[2]}); return 0u; });
+    s.At({0x004E8F50, AddressOf(Ed::AddGoalEditorNodes)}, 0, [](Regs& r) { Record({0x8F50, r.args[0], r.args[1], r.args[2]}); return 0u; });
     s.At({0x00584250, AddressOf(&Obj::CSkaterCareer::CountGoals)}, 4, [](Regs& r) {
         Record({0x4250, r.ecx, r.args[0]});
         return 4u;
@@ -392,7 +392,7 @@ void StandInProfileCalls(StandIns& s)
     s.At({0x00488EA0, AddressOf(&Gfx::CModelAppearance::Construct)}, 0, [](Regs& r) { Record({0x8EA0}); return r.ecx; });
     s.At({0x004890F0, AddressOf(&Gfx::CModelAppearance::DestroyBody)}, 0, [](Regs&) { Record({0x90F0}); return 0u; });
     s.At({0x00488F40, AddressOf(&Gfx::CModelAppearance::Load)}, 8, [](Regs& r) { Record({0x8F40, r.args[0] != 0 ? 1u : 0u, r.args[1] & 0xFF}); return 0u; });
-    s.At({0x004893A0}, 4, [](Regs& r) {
+    s.At({0x004893A0, AddressOf(&Gfx::CModelAppearance::CopyFrom)}, 4, [](Regs& r) {
         Record({0x93A0, r.ecx - reinterpret_cast<uint32_t>(g_extraProfile),
                 r.args[0] == reinterpret_cast<uint32_t>(g_profileObject) ? 1u : 2u});
         return r.ecx;
@@ -411,13 +411,13 @@ void StandInProfileCalls(StandIns& s)
         Record({0x9070, r.args[0]});
         return g_arrayResult;
     });
-    s.At({0x0048BFA0, AddressOf(&Nx::CreateModel)}, 0, [](Regs&) { Record({0xBFA0}); return 0x30DE1000u; }); // (its argument isn't read or passed)
+    s.At({0x0048BFA0, AddressOf(Nx::CreateModel)}, 0, [](Regs&) { Record({0xBFA0}); return 0x30DE1000u; }); // (the argument isn't recorded: ours calls it without)
     s.At({0x004935E0, AddressOf(&Nx::CModel::AddFileGeom)}, 32, [](Regs& r) {
         Record({0x35E0, r.ecx, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], r.args[2], r.args[3],
                 r.args[4], r.args[5], r.args[6], r.args[7]});
         return 0u;
     });
-    s.At({0x0048C3C0, AddressOf(&Nx::Engine::DeleteGeomObject)}, 0, [](Regs& r) { Record({0xC3C0, r.args[0]}); return 0u; });
+    s.At({0x0048C3C0, AddressOf(Nx::Engine::DeleteGeomObject)}, 0, [](Regs& r) { Record({0xC3C0, r.args[0]}); return 0u; });
 }
 
 void TestProfileCFuncs()

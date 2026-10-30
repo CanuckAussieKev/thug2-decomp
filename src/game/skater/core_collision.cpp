@@ -117,7 +117,7 @@ bool CorePhysicsComponent::CheckAirForwardCollision(const Mth::Vector* from)
     p.y = end.y - raise.y;
     p.z = end.z - raise.z;
     p.w = end.w - raise.w;
-    if (GameFunction<bool(__thiscall*)(void*, const Mth::Vector*)>(0x004FFDB0)(this, from) &&
+    if (StepUp(from) &&
         (VectorAt(ObjectOf(this), kVelocity).y > 10.0f || steep)) {
         ReleaseFeelerObject(hit);
         return true;

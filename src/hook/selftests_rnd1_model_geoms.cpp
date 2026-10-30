@@ -4,6 +4,8 @@
 // and ours in random sequences over stand-ins for everything they call (the geoms, scenes, textures, asset manager,
 // script structures, memory), every call, result and the arena compared.
 
+#include <initializer_list>
+#include <utility>
 #include <windows.h>
 
 #include <bit>
@@ -22,6 +24,7 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/gfx/engine.h"
+#include "game/gfx/face_texture.h"
 #include "game/gfx/texture_dict.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -164,8 +167,14 @@ void StandInGeoms(StandIns& s)
         reinterpret_cast<uint8_t*>(geom)[0x10] = static_cast<uint8_t>(g_calls++ & 1);
         return reinterpret_cast<uint32_t>(geom);
     });
-    for (uint32_t address : {0x0048C3C0u, 0x0048C080u, 0x0049EFD0u, 0x0048B400u}) {
+    for (uint32_t address : {0x0048C080u, 0x0049EFD0u, 0x0048B400u}) {
         s.At({address}, 0, [address](Regs& r) {
+            Record({address & 0xFFFFF, Relocate(r.args[0])});
+            return 0u;
+        });
+    }
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x0048C3C0u, AddressOf(Nx::Engine::DeleteGeomObject)}}) {
+        s.At({address, ours_}, 0, [address](Regs& r) {
             Record({address & 0xFFFFF, Relocate(r.args[0])});
             return 0u;
         });
@@ -221,7 +230,7 @@ void StandInGeoms(StandIns& s)
                     params[0x10], params[0x11]});
         return NewScene();
     });
-    s.At({0x0048BFE0, AddressOf(&Nx::Engine::SplitSkinName)}, 0, [](Regs& r) { // the base name: up to the last '.'
+    s.At({0x0048BFE0, AddressOf(Nx::Engine::SplitSkinName)}, 0, [](Regs& r) { // the base name: up to the last '.'
         const char* name = reinterpret_cast<const char*>(r.args[0]);
         char* base = reinterpret_cast<char*>(r.args[1]);
         std::memcpy(base, name, std::strlen(name) + 1);
@@ -261,12 +270,12 @@ void StandInGeoms(StandIns& s)
         texture[1] = 0x7E000000 + ++g_calls;
         return reinterpret_cast<uint32_t>(texture);
     });
-    s.At({0x0049F9B0}, 0x10, [](Regs& r) {
+    s.At({0x0049F9B0, AddressOf(&Nx::CTexDict::LoadTexture)}, 0x10, [](Regs& r) {
         Record({0xF9B0, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1] & 0xFF, r.args[2] & 0xFF,
                 r.args[3] & 0xFF});
         return reinterpret_cast<uint32_t>(Block(0x10));
     });
-    s.At({0x0049F500}, 4, [](Regs& r) {
+    s.At({0x0049F500, AddressOf(&Nx::CTexDict::UnloadTexture)}, 4, [](Regs& r) {
         Record({0xF500, Relocate(r.args[0])});
         return 1u;
     });
@@ -283,7 +292,7 @@ void StandInGeoms(StandIns& s)
         Record({0x75B0, Relocate(r.ecx)});
         return reinterpret_cast<uint32_t>("faces/overlay.img");
     });
-    s.At({0x00487550}, 4, [](Regs& r) {
+    s.At({0x00487550, AddressOf(&Gfx::CFaceTexture::GetPoints)}, 4, [](Regs& r) {
         Record({0x7550, Relocate(r.ecx), Relocate(r.args[0])});
         reinterpret_cast<uint8_t*>(r.args[0])[0x20] = static_cast<uint8_t>(0x40 + ++g_calls);
         return r.args[0];
@@ -292,8 +301,14 @@ void StandInGeoms(StandIns& s)
         Record({0x9020, r.args[0]});
         return 0x5C000000u;
     });
-    for (uint32_t address : {0x004869D0u, 0x004869A0u, 0x004869C0u}) {
+    for (uint32_t address : {0x004869A0u, 0x004869C0u}) {
         s.At({address}, 0, [address](Regs& r) {
+            Record({address & 0xFFFFF, Relocate(r.args[0]), address == 0x004869D0u ? r.args[1] : 0});
+            return 0u;
+        });
+    }
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x004869D0u, AddressOf(Gfx::ReadFacePoints)}}) {
+        s.At({address, ours_}, 0, [address](Regs& r) {
             Record({address & 0xFFFFF, Relocate(r.args[0]), address == 0x004869D0u ? r.args[1] : 0});
             return 0u;
         });

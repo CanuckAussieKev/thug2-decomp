@@ -28,10 +28,10 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/skate/skate_module.h"
 #include "game/ed/rail_editor.h"
 #include "game/gfx/engine_shadows.h"
 #include "game/obj/editor_camera.h"
-#include "game/skate/skate_module.h"
 #include "hook/appmain_testkit.h"
 #include "hook/standins.h"
 
@@ -380,8 +380,8 @@ inline void StandInComponentWorld(StandIns& s)
         return 0u;
     });
     // The park editor's rail editor, a pad button taken.
-    s.At({0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) { Record({0x4970}); return 0x4A1E0000u; });
-    s.At({0x004F3D30, AddressOf(&Ed::CRailEditorComponent::SetActive)}, 4, [](Regs& r) { Record({0x3D30, r.ecx, r.args[0]}); return 0u; });
+    s.At({0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) { Record({0x4970}); return 0x4A1E0000u; });
+    s.At({0x004F3D30}, 4, [](Regs& r) { Record({0x3D30, r.ecx, r.args[0]}); return 0u; });
     s.At({0x0046B7E0, AddressOf(&Obj::CControlButton::ClearTrigger)}, 0, [](Regs& r) { Record({0xB7E0, WorldRelocate(r.ecx)}); return 0u; });
     // The script cache and nodes.
     s.At({0x00475E80, AddressOf(&Script::CScriptCache::GetScript)}, 4, [](Regs& r) {

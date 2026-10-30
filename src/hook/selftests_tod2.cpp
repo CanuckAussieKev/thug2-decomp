@@ -32,9 +32,11 @@
 #include "game/sys/module.h"
 #include "game/sys/viewer.h"
 #include "game/sys/viewer_object.h"
+#include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
-#include "game/script/script_startup.h"
+#include "game/skate/game_mode.h"
 #include "game/skate/score.h"
+#include "game/script/script_startup.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -156,11 +158,11 @@ void Install(StandIns& s)
         Rec(0x1B40, {r.ecx});
         return r.ecx ? *reinterpret_cast<uint32_t*>(r.ecx) : 0u; // (a skater past the list has no score object)
     });
-    s.At({0x005535F0}, 0, [](Regs& r) {
+    s.At({0x005535F0, AddressOf(&Game::CGameMode::IsTeamGame)}, 0, [](Regs& r) {
         Rec(0x35F0, {r.ecx});
         return g_vc_team ? 1u : 0u;
     });
-    s.At({0x00553130}, 0, [](Regs& r) {
+    s.At({0x00553130, AddressOf(&Game::CGameMode::NumTeams)}, 0, [](Regs& r) {
         Rec(0x3130, {r.ecx});
         return static_cast<uint32_t>(g_vc_teams);
     });
@@ -201,11 +203,11 @@ void Install(StandIns& s)
         return static_cast<uint32_t>(g_vc_teamGoals[r.args[0] & 3]);
     });
     // The goal manager and its goals.
-    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) {
+    s.At({0x005591B0, AddressOf(Game::GetGoalManager)}, 0, [](Regs&) {
         Rec(0x91B0, {});
         return At(kMisc);
     });
-    s.At({0x00558200}, 0, [](Regs& r) {
+    s.At({0x00558200, AddressOf(&Game::CGoalManager::GetNumSelectedGoals)}, 0, [](Regs& r) {
         Rec(0x8200, {r.ecx});
         return static_cast<uint32_t>(g_vc_goalsNeeded);
     });
@@ -215,7 +217,7 @@ void Install(StandIns& s)
         Rec(0x7FB0, {r.ecx, r.args[0]});
         return At(kGoals + 0x40 * r.args[0]);
     });
-    s.At({0x005542F0}, 0, [](Regs& r) {
+    s.At({0x005542F0, AddressOf(&Game::CGoal::IsSelected)}, 0, [](Regs& r) {
         Rec(0x42F0, {r.ecx});
         return static_cast<uint32_t>(*reinterpret_cast<uint8_t*>(r.ecx + 0x34));
     });

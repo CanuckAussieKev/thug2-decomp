@@ -22,6 +22,8 @@
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/goals/goal_manager.h"
+#include "game/skater/balance_trick.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -143,8 +145,7 @@ void FreeStruct(Script::CStruct* structure)
 // The goal manager told a mapped trick is about to start (0x005591B0 / 0x0055E790).
 void TellGoalManager(Script::CStruct* trick)
 {
-    void* goals = GameFunction<void*(__cdecl*)()>(0x005591B0)();
-    GameFunction<void(__thiscall*)(void*, Script::CStruct*)>(0x0055E790)(goals, trick);
+    Game::GetGoalManager()->TrickLanded(trick);
 }
 
 // A trick's mapped structure: its trickSlot's checksum in the trick mappings, as a global structure (null if any
@@ -775,8 +776,8 @@ void CTrickComponent::Update()
         return;
     }
     UpdateButtons();
-    GameFunction<void(__thiscall*)(void*, void*, void*)>(0x004F8E20)(
-        Component(this, kBalanceTrick), &At<int>(this, kButtonsHeld), &At<int>(this, kButtonsHeld + 4));
+    static_cast<CSkaterBalanceTrickComponent*>(Component(this, kBalanceTrick))
+        ->GetButtons(&At<int>(this, kButtonsHeld), reinterpret_cast<uint32_t*>(&At<int>(this, kButtonsHeld + 4)));
     UpdateExtraTricks();
     QueueAllDoneTricks();
     UpdateManualTricks();

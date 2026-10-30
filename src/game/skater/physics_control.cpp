@@ -15,6 +15,8 @@
 #include "game/skater/skater_state.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
+#include "game/skater/skater_camera_component.h"
+#include "game/skater/walk_camera.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -50,7 +52,7 @@ void SuspendComponent(CBaseComponent* component, bool suspend) { component->Virt
 // walk's state on coming back (ResumeSkating), the state component's physics mode (1: walking), the walk component
 // told it's starting (Begin) / leaving (its model offset cleared), the cameras' state handed over (the skater
 // camera's 0x004FA420 / 0x004F9A40, the walk camera's 0x00524FF0 / 0x00525060).
-void CoreLeaving(uint8_t* core) { GameFunction<void(__thiscall*)(uint8_t*)>(0x004FDD50)(core); }
+void CoreLeaving(uint8_t* core) { reinterpret_cast<Skater::CorePhysicsComponent*>(core)->LeaveSkating(); }
 void CoreReturning(uint8_t* core, bool onGround, void* hold1, void* hold2)
 {
     reinterpret_cast<Skater::CorePhysicsComponent*>(core)->ResumeSkating(onGround, static_cast<const uint8_t*>(hold1),
@@ -62,9 +64,22 @@ void SetWalking(uint8_t* state, bool walking)
 }
 void WalkStarting(CBaseComponent* walk, bool fromGround) { static_cast<CWalkComponent*>(walk)->Begin(fromGround); }
 void WalkLeaving(CBaseComponent* walk) { static_cast<CWalkComponent*>(walk)->ClearModelOffset(); }
-void CameraCall(uint32_t address, CBaseComponent* camera, void* state)
+// The skater camera's 0x004FA420 (save) / 0x004F9A40 (set), the walk camera's 0x00525060 (save) / 0x00524FF0 (restore).
+void SkaterCameraSave(CBaseComponent* camera, void* state)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*, void*)>(address)(camera, state);
+    static_cast<CSkaterCameraComponent*>(camera)->SaveState(static_cast<WalkCameraState*>(state));
+}
+void SkaterCameraSet(CBaseComponent* camera, void* state)
+{
+    static_cast<CSkaterCameraComponent*>(camera)->SetState(static_cast<const WalkCameraState*>(state));
+}
+void WalkCameraSave(CBaseComponent* camera, void* state)
+{
+    static_cast<CWalkCameraComponent*>(camera)->SaveState(static_cast<WalkCameraState*>(state));
+}
+void WalkCameraRestore(CBaseComponent* camera, void* state)
+{
+    static_cast<CWalkCameraComponent*>(camera)->RestoreState(static_cast<const WalkCameraState*>(state));
 }
 
 } // namespace
@@ -161,8 +176,8 @@ void CSkaterPhysicsControlComponent::SwitchSkatingToWalking()
     WalkStarting(walk, skaterState == 0);
     SuspendComponent(walkCamera, false);
     alignas(16) uint8_t cameraState[0x60];
-    CameraCall(0x004FA420, skaterCamera, cameraState);
-    CameraCall(0x00524FF0, walkCamera, cameraState);
+    SkaterCameraSave(skaterCamera, cameraState);
+    WalkCameraRestore(walkCamera, cameraState);
     if (m_paused)
         SetPaused(m_paused);
 }
@@ -193,8 +208,8 @@ void CSkaterPhysicsControlComponent::SwitchWalkingToSkating()
     SuspendComponent(m_object->GetComponent(kSkaterFinalizePhysics), false);
     SuspendComponent(skaterCamera, false);
     alignas(16) uint8_t cameraState[0x60];
-    CameraCall(0x00525060, walkCamera, cameraState);
-    CameraCall(0x004F9A40, skaterCamera, cameraState);
+    WalkCameraSave(walkCamera, cameraState);
+    SkaterCameraSet(skaterCamera, cameraState);
     if (m_paused)
         SetPaused(m_paused);
 }

@@ -23,8 +23,10 @@
 #include "game/skater/skater.h"
 #include "game/skater/state_history.h"
 #include "game/skater/walk_physics.h"
+#include "game/script/game_util_cfuncs.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
+#include "game/skater/core_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -175,10 +177,10 @@ void StandInWorld(StandIns& s)
         return index < kPlayers ? static_cast<uint32_t>(g_observing[index]) : 0xDEADu;
     });
     s.At({0x00534340, AddressOf(&GameNet::Manager::PlayerCollisionEnabled)}, 0, [](Regs& r) { Record({0x5343, Id(r.ecx)}); return static_cast<uint32_t>(g_mayCollide) | 0x1200; });
-    s.At({0x005B3470}, 0, [](Regs& r) { Record({0x5B34, r.args[0], r.args[1]}); return static_cast<uint32_t>(g_slapGame); });
+    s.At({0x005B3470, AddressOf(CFuncs::CFunc_InSlapGame)}, 0, [](Regs& r) { Record({0x5B34, r.args[0], r.args[1]}); return static_cast<uint32_t>(g_slapGame); });
     s.At({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, [](Regs& r) { Record({0x5532, Id(r.ecx)}); return g_gameType; });
-    s.At({0x005535F0}, 0, [](Regs& r) { Record({0x5535, Id(r.ecx)}); return static_cast<uint32_t>(g_teamGame); });
-    s.At({0x00553910}, 0, [](Regs& r) { Record({0x5539, Id(r.ecx)}); return static_cast<uint32_t>(g_tagOver); });
+    s.At({0x005535F0, AddressOf(&Game::CGameMode::IsTeamGame)}, 0, [](Regs& r) { Record({0x5535, Id(r.ecx)}); return static_cast<uint32_t>(g_teamGame); });
+    s.At({0x00553910, AddressOf(&Game::CGameMode::EndConditionsMet)}, 0, [](Regs& r) { Record({0x5539, Id(r.ecx)}); return static_cast<uint32_t>(g_tagOver); });
     s.At({0x005665C0, AddressOf(&Mdl::Skate::GetSkater)}, 4, [](Regs& r) {
         Record({0x5665, r.args[0]});
         int slot = g_slots[r.args[0] & 7];
@@ -194,12 +196,12 @@ void StandInWorld(StandIns& s)
         Record({0x561B, Id(r.ecx)});
         return At<uint32_t>(reinterpret_cast<void*>(r.ecx), 0);
     });
-    s.At({0x00561A80}, 4, [](Regs& r) {
+    s.At({0x00561A80, AddressOf(&Mdl::Score::SetTotalScore)}, 4, [](Regs& r) {
         Record({0x561A, Id(r.ecx), r.args[0]});
         At<uint32_t>(reinterpret_cast<void*>(r.ecx), 0) = r.args[0];
         return 0u;
     });
-    s.At({0x004FE1D0}, 4, [](Regs& r) { Record({0x4FE1, Id(r.ecx), Id(r.args[0])}); return 0u; });
+    s.At({0x004FE1D0, AddressOf(&Skater::CorePhysicsComponent::ResetToAir)}, 4, [](Regs& r) { Record({0x4FE1, Id(r.ecx), Id(r.args[0])}); return 0u; });
     s.At({0x0052C2B0, AddressOf(&Obj::CWalkComponent::GoToAirFor)}, 4, [](Regs& r) { Record({0x52C2, Id(r.ecx), Id(r.args[0])}); return 0u; });
     s.At({0x00543350, AddressOf(&GameNet::PlayerInfo::MarkJustJoined)}, 0, [](Regs& r) { Record({0x5433, Id(r.ecx)}); return 0u; });
     s.At({0x00544340, AddressOf(&GameNet::PlayerInfo::MarkAsKing)}, 4, [](Regs& r) { Record({0x5443, Id(r.ecx), r.args[0] & 0xFF}); return 0u; });

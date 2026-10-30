@@ -4,6 +4,8 @@
 // cutscene entries, spawning and running scripts, the skate module, the skaters and their scores are stood in for
 // by recording code (the game's functions and ours alike).
 
+#include <initializer_list>
+#include <utility>
 #include <windows.h>
 
 #include <cstdint>
@@ -23,9 +25,10 @@
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
 #include "game/skater/skater_score_cfuncs.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
 #include "game/obj/pager_message.h"
 #include "game/script/game_cfuncs.h"
-#include "game/skate/game_mode.h"
 #include "hook/gs4_testkit.h"
 
 namespace {
@@ -228,7 +231,7 @@ void StandInListCalls(StandIns& s)
         Record({0xF14, SkaterIndex(r.ecx)});
         return 0u;
     });
-    s.At({0x00564C60}, 8, [](Regs& r) {
+    s.At({0x00564C60, AddressOf(&Mdl::Skate::HideSkater)}, 8, [](Regs& r) {
         Record({0x4C60, r.ecx == reinterpret_cast<uint32_t>(g_lSkate), SkaterIndex(r.args[0]), r.args[1] & 0xFF});
         return 0u;
     });
@@ -252,14 +255,14 @@ void StandInListCalls(StandIns& s)
         Record({0x0480, SkaterIndex(r.ecx)});
         return r.ecx + 0x100;
     });
-    for (uint32_t address : {0x00564A10u, 0x00561B40u}) {
-        s.At({address}, 0, [address](Regs& r) {
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00564A10u, AddressOf(&Mdl::Score::Reset)}, {0x00561B40u, AddressOf(&Mdl::Score::GetTotalScore)}}) {
+        s.At({address, ours_}, 0, [address](Regs& r) {
             Record({address, SkaterIndex(r.ecx - 0x100)});
             return address == 0x00561B40 ? 1000u + (SkaterIndex(r.ecx - 0x100) & 0xF) : 0u;
         });
     }
-    for (uint32_t address : {0x00561A80u, 0x00564860u}) {
-        s.At({address}, 4, [address](Regs& r) {
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00561A80u, AddressOf(&Mdl::Score::SetTotalScore)}, {0x00564860u, AddressOf(&Mdl::Score::Bail)}}) {
+        s.At({address, ours_}, 4, [address](Regs& r) {
             Record({address, SkaterIndex(r.ecx - 0x100), address == 0x00564860 ? r.args[0] & 0xFF : r.args[0]});
             return 0u;
         });

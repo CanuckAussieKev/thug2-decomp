@@ -16,13 +16,13 @@
 #include "game/obj/model_component.h"
 #include "game/obj/objman.h"
 #include "game/script/struct.h"
-#include "game/gfx/bone_volumes.h"
 #include "game/gfx/engine.h"
-#include "game/gfx/engine_geom.h"
 #include "game/gfx/engine_glue.h"
-#include "game/gfx/engine_model_lights.h"
 #include "game/gfx/model.h"
 #include "game/gfx/model_builder.h"
+#include "game/gfx/bone_volumes.h"
+#include "game/gfx/engine_geom.h"
+#include "game/gfx/engine_model_lights.h"
 #include "game/gfx/model_utils.h"
 #include "hook/skater3_testkit.h"
 
@@ -105,9 +105,9 @@ void StandIn(StandIns& s)
     Rec(s, {0x00478F60, AddressOf(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}, 1, 0x8F60,
         [](Regs&) { return g_a.boneVolumesOn ? 1u : 0u; }, false, true);
     // The model and its geoms.
-    Rec(s, {0x0048BFA0, AddressOf(&Nx::CreateModel)}, 0, 0xBFA0, [](Regs&) { return Addr(kModel); }, false, true);
-    Rec(s, {0x0048C3C0, AddressOf(&Nx::Engine::DeleteGeomObject)}, 1, 0xC3C0, nullptr, false, true);
-    Rec(s, {0x00494BA0, AddressOf(&Nx::CModel::ClearGeoms)}, 0, 0x4BA0);
+    Rec(s, {0x0048BFA0, AddressOf(Nx::CreateModel)}, 1, 0xBFA0, [](Regs&) { return Addr(kModel); }, false, true);
+    Rec(s, {0x0048C3C0, AddressOf(Nx::Engine::DeleteGeomObject)}, 1, 0xC3C0, nullptr, false, true);
+    Rec(s, {0x00494BA0}, 0, 0x4BA0);
     Rec(s, {0x00492EE0, AddressOf(&Nx::CModel::SetScale)}, 1, 0x2EE0, [](Regs& r) {
         const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
         g_trace.insert(g_trace.end(), {v[0], v[1], v[2], v[3]});
@@ -128,12 +128,12 @@ void StandIn(StandIns& s)
     Rec(s, {0x0048DDC0, AddressOf(&Nx::CGeom::CloneForModel)}, 2, 0xDDC0, [](Regs&) { return Addr(kClone); });
     Rec(s, {0x0048DD80, AddressOf(&Nx::CGeom::Clone)}, 2, 0xDD80, [](Regs&) { return Addr(kClone); });
     Rec(s, {0x0048DE60}, 1, 0xDE60);
-    Rec(s, {0x004938E0, AddressOf(&Nx::CModel::AddGeom)}, 3, 0x38E0);
+    Rec(s, {0x004938E0}, 3, 0x38E0);
     Rec(s, {0x00492E40, AddressOf(&Nx::CModel::GetNumGeoms)}, 0, 0x2E40, [](Regs&) { return static_cast<uint32_t>(g_a.sourceGeoms); });
-    Rec(s, {0x00494640, AddressOf(&Nx::CModel::GetGeom)}, 1, 0x4640, [](Regs& r) { return Addr(kGeom) + 4 * r.args[0]; });
-    Rec(s, {0x00494680, AddressOf(&Nx::CModel::GetGeomName)}, 1, 0x4680, [](Regs& r) { return 0x6E0E0000u + r.args[0]; });
-    Rec(s, {0x0048C510, AddressOf(&Nx::Engine::GetSector)}, 1, 0xC510, [](Regs&) { return g_a.sector ? Addr(kSector) : 0u; }, false, true);
-    s.At({0x00487A70, AddressOf(Gfx::MakeModelFileName)}, 0, [](Regs& r) { // (the extension's text recorded, not where it is)
+    Rec(s, {0x00494640}, 1, 0x4640, [](Regs& r) { return Addr(kGeom) + 4 * r.args[0]; });
+    Rec(s, {0x00494680}, 1, 0x4680, [](Regs& r) { return 0x6E0E0000u + r.args[0]; });
+    Rec(s, {0x0048C510}, 1, 0xC510, [](Regs&) { return g_a.sector ? Addr(kSector) : 0u; }, false, true);
+    s.At({0x00487A70}, 0, [](Regs& r) { // (the extension's text recorded, not where it is)
         const char* name = reinterpret_cast<const char*>(r.args[0]);
         const char* ext = reinterpret_cast<const char*>(r.args[1]);
         g_trace.insert(g_trace.end(), {0x7A70, Rel(r.args[0]), HashBytes(reinterpret_cast<const uint8_t*>(ext),

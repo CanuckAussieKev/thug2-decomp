@@ -64,7 +64,7 @@ std::vector<StandIn> WallStandIns()
         {0x00434BF0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CTriggerComponent::CheckFeeler)},   // a trigger check
         {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::SelfEvent)},
         {0x00522370, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::PassToTrickObjects)},
-        {0x004FF670, 0, 0, Ret::Bool, true, 0, -1, -1, 0},
+        {0x004FF670, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::WallPushOff)},
         {0x00518DD0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkaterSoundComponent::PlayBonk), nullptr, 1},
         {0x00475790, 0, 5, Ret::None, false, 8, -1, -1, 0, RunScriptAddress()},
         {0x0042BBF0, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Mth::Vector::SetLength), nullptr, 1}, // SetLength

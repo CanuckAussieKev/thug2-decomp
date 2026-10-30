@@ -42,6 +42,9 @@
 #include "game/skater/state_history.h"
 #include "game/skater/tagging.h"
 #include "game/util/bitstream.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/model.h"
+#include "game/gfx/anim_blend.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -655,7 +658,7 @@ int SkateNet::HandleFaceTexture(Net::MsgHandlerContext* context)
 {
     GameNet::Manager* net = Net();
     void* memory = Mem::Calloc(0x449C);
-    void* texture = memory ? Call<void*>(0x004875C0, memory) : nullptr;
+    void* texture = memory ? reinterpret_cast<void*>(static_cast<Gfx::CFaceTexture*>(memory)->Construct()) : nullptr;
     auto* data = reinterpret_cast<uint8_t*>(context->m_Msg);
     uint32_t size = context->m_MsgLength;
     PlayerInfo* player;
@@ -673,10 +676,10 @@ int SkateNet::HandleFaceTexture(Net::MsgHandlerContext* context)
     Obj::CSkater* skater = SkaterOf(player);
     if (!skater)
         return 4;
-    Call(0x004874B0, texture, data, size);
-    Call(0x00487520, texture, 1);
+    static_cast<Gfx::CFaceTexture*>(texture)->ReadFrom(data, static_cast<int>(size));
+    static_cast<Gfx::CFaceTexture*>(texture)->SetValid(true);
     auto* model = skater->GetComponent(kModel);
-    Call(0x00494A00, Field<void*>(model, 0x208), texture, reinterpret_cast<const char*>(0x0064E820), kAll);
+    static_cast<Nx::CModel*>(Field<void*>(model, 0x208))->ReplaceFaceTexture(texture, reinterpret_cast<const char*>(0x0064E820), kAll);
     if (net->OnServer()) {
         // the server keeps the face and streams it to the others
         PlayerSearch search;
@@ -1076,7 +1079,7 @@ int SkateNet::HandleSkaterChannel(Net::MsgHandlerContext* context)
         return 1;
     Gfx::CBlendChannel* channel = blender->FindChannel(0);
     if (channel)
-        Call(0x0047DC40, channel, IdByte(data, 0), data[1] != 0, 0, 0);
+        channel->SetFlipped(static_cast<uint32_t>(IdByte(data, 0)), data[1] != 0, 0, false);
     return 1;
 }
 

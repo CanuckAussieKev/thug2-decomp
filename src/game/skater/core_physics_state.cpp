@@ -25,6 +25,7 @@
 #include "game/skater/flip_and_rotate.h"
 #include "game/skater/skater.h"
 #include "game/skater/thaw_bmx.h"
+#include "game/skater/physics_control.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -125,7 +126,7 @@ CorePhysicsComponent* CorePhysicsComponent::Construct()
 // 0x00500DB0
 CorePhysicsComponent* CorePhysicsComponent::Destroy(unsigned int flags)
 {
-    GameFunction<void(__thiscall*)(void*)>(0x004FC500)(this); // (the destructor body)
+    CorePhysicsComponent::DestroyBody(); // (the destructor body)
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;
@@ -261,11 +262,11 @@ void CorePhysicsComponent::UpdateProjectiles()
     }
     if (At<int>(this, kProjectileCount) <= 0)
         return;
-    if (!GameFunction<bool(__thiscall*)(void*)>(0x004FC3C0)(this) || wait)
+    if (!ProjectileButtonPressed() || wait)
         return;
     wait = 30;
     // (0x004FC420: walking.)
-    bool walking = GameFunction<bool(__thiscall*)(void*)>(0x004FC420)(At<void*>(this, kStateComponent));
+    bool walking = static_cast<Obj::CSkaterPhysicsControlComponent*>(At<void*>(this, kStateComponent))->IsWalking();
     Script::RunScript(walking ? kWalkThrow : kSkateThrow, nullptr, SkaterObject(this), false, nullptr);
 }
 
@@ -344,7 +345,7 @@ int CorePhysicsComponent::GetAirTimeLeft(Script::CStruct*, Script::CScript* scri
 // 0x00500E80
 int CorePhysicsComponent::CanKick(Script::CStruct*, Script::CScript*)
 {
-    return GameFunction<bool(__thiscall*)(void*)>(0x004FE490)(this) ? 1 : 0;
+    return CanPushOff() ? 1 : 0;
 }
 
 // 0x00500E90
@@ -352,7 +353,7 @@ int CorePhysicsComponent::OrientToNormal(Script::CStruct*, Script::CScript*)
 {
     VectorAt(this, kLastGroundNormal) = VectorAt(ObjectOf(this), kUp);
     VectorAt(this, kGroundNormal) = VectorAt(ObjectOf(this), kUp);
-    GameFunction<void(__thiscall*)(void*, Mth::Vector)>(0x004FE860)(this, VectorAt(this, kHitNormal));
+    TurnToNormal(VectorAt(this, kHitNormal));
     return 1;
 }
 

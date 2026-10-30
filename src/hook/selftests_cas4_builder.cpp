@@ -25,6 +25,7 @@
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/gfx/face_texture.h"
 #include "hook/cas4_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -192,7 +193,7 @@ void StandInBuilderCalls(StandIns& s)
         Record({0x93A0, Relocate(r.ecx), Relocate(r.args[0])});
         return r.ecx;
     });
-    s.At({0x00487510}, 0, [](Regs& r) {
+    s.At({0x00487510, AddressOf(&Gfx::CFaceTexture::IsValid)}, 0, [](Regs& r) {
         Record({0x7510, Relocate(r.ecx)});
         return static_cast<uint32_t>(*reinterpret_cast<uint8_t*>(r.ecx));
     });

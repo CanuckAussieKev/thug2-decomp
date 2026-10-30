@@ -30,6 +30,7 @@
 #include "game/skater/skater.h"
 #include "game/skater/walk_camera.h"
 #include "game/ed/rail_editor.h"
+#include "game/skate/score.h"
 #include "game/skater/skater_camera_component.h"
 #include "game/script/game_cfuncs.h"
 #include "hook/log.h"
@@ -80,19 +81,19 @@ void Install(StandIns& s)
     StubCdecl(s, {0x005BE970, AddressOf(&Tmr::GetTime)}, 0xE970, 0, [](Regs&) { return g_clock += 3; });
     Stub(s, {0x0044E4F0, AddressOf(&Manager::InNetGame)}, 0, 0xE4F0, [](Regs&) { return g_inNetGame ? 1u : 0u; });
     Stub(s, {0x0044E4E0, AddressOf(&Manager::InNetMode)}, 0, 0xE4E0, [](Regs&) { return 1u; });
-    StubCdecl(s, {0x005A1180, AddressOf(&CFuncs::CFunc_InSplitScreenGame)}, 0x1180, 2, [](Regs&) { return g_splitScreen ? 1u : 0u; });
+    StubCdecl(s, {0x005A1180, AddressOf(CFuncs::CFunc_InSplitScreenGame)}, 0x1180, 2, [](Regs&) { return g_splitScreen ? 1u : 0u; });
     // The skate module.
     Stub(s, {0x00564FC0, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile))}, 4, 0x4FC0, [](Regs& r) { return At(kProfiles + 0x40 * (r.args[0] & 7)); });
-    Stub(s, {0x00567180, AddressOf(&Mdl::Skate::AddSkater)}, 16, 0x7180, [](Regs& r) { return At(kSkaters + 0x100 * (r.args[2] & 7)); });
+    Stub(s, {0x00567180}, 16, 0x7180, [](Regs& r) { return At(kSkaters + 0x100 * (r.args[2] & 7)); });
     Stub(s, {0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, 0x6520, [](Regs&) { return At(kSkaters + 0x700); });
     Stub(s, {0x0041AD90, AddressOf(&Mdl::Skate::GetNumSkaters)}, 0, 0xAD90, [](Regs&) { return 6u; });
-    Stub(s, {0x00566370}, 12, 0x6370);
+    Stub(s, {0x00566370, AddressOf(&Mdl::Skate::MoveToRestart)}, 12, 0x6370);
     Stub(s, {0x00565790}, 4, 0x5790);
     Stub(s, {0x005665C0, AddressOf(&Mdl::Skate::GetSkater)}, 4, 0x65C0, [](Regs& r) { return r.args[0] % 3 == 1 ? 0u : At(kSkaters + 0x100 * r.args[0]); });
     // Players and skaters.
     Stub(s, {0x00581510, AddressOf(&Obj::CSkater::HideSkater)}, 0, 0x1510);
     Stub(s, {0x005814D0, AddressOf(&Obj::CSkater::Reset27C)}, 0, 0x14D0);
-    Stub(s, {0x00561A80}, 4, 0x1A80);
+    Stub(s, {0x00561A80, AddressOf(&Mdl::Score::SetTotalScore)}, 4, 0x1A80);
     Stub(s, {0x00544340, AddressOf(&GameNet::PlayerInfo::MarkAsKing)}, 4, 0x4340);
     Stub(s, {0x00543270, AddressOf(&GameNet::PlayerInfo::SetProfile)}, 4, 0x3270);
     Stub(s, {0x005438D0, AddressOf(&GameNet::PlayerInfo::SetSkater)}, 4, 0x38D0, [](Regs& r) {
@@ -130,7 +131,7 @@ void Install(StandIns& s)
     // The created park and the rails.
     Stub(s, {0x0058D680, AddressOf(&Ed::CParkEditor::WriteCompressedMapIfBuilt)}, 0, 0xD680);
     Stub(s, {0x0058D690, AddressOf(&Ed::CParkEditor::GetCompressedMapBuffer)}, 4, 0xD690, [](Regs&) { return At(kFree + 0x1F00); });
-    StubCdecl(s, {0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0x4970, 0, [](Regs&) { return At(kFree + 0x1F40); });
+    StubCdecl(s, {0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0x4970, 0, [](Regs&) { return At(kFree + 0x1F40); });
     Stub(s, {0x004F45B0, AddressOf(&Ed::CRailEditorComponent::GetPacked)}, 0, 0x45B0, [](Regs&) { return At(kFree + 0x1F80); });
     s.At({0x00458AB0, AddressOf(&Net::App::StreamMessage)}, 32, [](Regs& r) {
         Rec(0x8AB0, {r.ecx, r.args[0], r.args[1] & 0xFF, r.args[2] & 0xFFFF, r.args[3], GameNetKit::Str(r.args[4]), r.args[5] & 0xFF,

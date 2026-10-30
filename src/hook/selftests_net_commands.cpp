@@ -21,6 +21,8 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "game/ed/rail_editor.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -60,16 +62,16 @@ void Install(StandIns& s)
     Stub(s, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 0x6C90);
     Stub(s, {0x004068F0, AddressOf(&Tsk::BaseTask::Remove)}, 0, 0x68F0);
     Stub(s, {0x00406850, AddressOf(&Tsk::BaseTask::InList)}, 0, 0x6850, [](Regs&) { return g_inList ? 1u : 0u; });
-    Stub(s, {0x00553130}, 0, 0x3130, [](Regs&) { return static_cast<uint32_t>(g_numTeams); });
+    Stub(s, {0x00553130, AddressOf(&Game::CGameMode::NumTeams)}, 0, 0x3130, [](Regs&) { return static_cast<uint32_t>(g_numTeams); });
     Stub(s, {0x0053F880, AddressOf(&GameNet::LobbyMan::GetPeer)}, 0, 0xF880, [](Regs&) { return g_haveLobbyPeer ? At(kLobby + 0x100) : 0u; });
     StubCdecl(s, {0x005FC730}, 0xC730, 1, [](Regs&) { return g_peerConnected ? 1u : 0u; });
     Stub(s, {0x0053F890, AddressOf(&GameNet::LobbyMan::InGroupRoom)}, 0, 0xF890, [](Regs&) { return static_cast<uint32_t>(g_inGroupRoom); });
     Stub(s, {0x005453E0, AddressOf(&GameNet::Manager::SetServiceState)}, 4, 0x53E0);
     Stub(s, {0x005451B0, AddressOf(&GameNet::Manager::SetNextServiceState)}, 4, 0x51B0);
     Stub(s, {0x00534AF0, AddressOf(&Manager::ReattemptJoin)}, 4, 0x4AF0);
-    Stub(s, {0x00564D80}, 0, 0x4D80, [](Regs&) { return At(kMisc + 0x600); });
+    Stub(s, {0x00564D80, AddressOf(&Mdl::Skate::GetSplitScreenPreferences)}, 0, 0x4D80, [](Regs&) { return At(kMisc + 0x600); });
     Stub(s, {0x0058D690, AddressOf(&Ed::CParkEditor::GetCompressedMapBuffer)}, 4, 0xD690, [](Regs&) { return At(kMisc + 0x680); });
-    StubCdecl(s, {0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x6C0); });
+    StubCdecl(s, {0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x6C0); });
     Stub(s, {0x004F45B0, AddressOf(&Ed::CRailEditorComponent::GetPacked)}, 0, 0x45B0, [](Regs&) { return At(kMisc + 0x700); });
     // Preferences and parameters.
     Stub(s, {0x0046C4A0, AddressOf(&Prefs::Preferences::GetPreference)}, 4, 0xC4A0, [](Regs& r) { return r.args[0]; });

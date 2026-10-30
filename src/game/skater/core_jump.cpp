@@ -134,7 +134,7 @@ void CorePhysicsComponent::DoJump(Script::CStruct* params)
         std::memcpy(&At<Mth::Vector>(this, 0x338), &VectorAt(ObjectOf(this), kPosition), 16); // (where it jumped)
         if (sound)
             PlayJumpSound(this, At<uint8_t>(this, 0x1AA));
-        GameFunction<void(__thiscall*)(void*)>(0x004FEBA0)(this);
+        StartVertAir();
         SetFlag(this, 0x48, 1);
         break;
     case kAir:
@@ -203,7 +203,7 @@ void CorePhysicsComponent::DoJump(Script::CStruct* params)
         TriggerRailScript(reinterpret_cast<const int*>(kJumpEvents));
     if (bike)
         ThawBmx::JumpPitch(this);
-    GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(this, kAir);
+    SetPhysicsState(kAir);
     At<int>(this, kJumpTime) = Now();
     static_cast<Obj::CObject*>(ObjectOf(this))->BroadcastEvent(kSkaterJump, nullptr, 0.0f);
 }
@@ -252,7 +252,7 @@ void CorePhysicsComponent::DoWallplantPhysics()
     uint32_t elapsed = Since(static_cast<uint32_t>(planted));
     if (static_cast<float>(elapsed) > Script::GetFloat(kWallplantDuration)) {
         // Over: into the air, with a feeler along the facing (12 ahead to 36 behind) for a trigger.
-        GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(this, kAir);
+        SetPhysicsState(kAir);
         Mth::Vector& start = VectorAt(this, kFeelerStart);
         Mth::Vector& end = VectorAt(this, kFeelerEnd);
         start = VectorAt(ObjectOf(this), kFacing) * kFeelerAhead;
@@ -314,20 +314,19 @@ int CorePhysicsComponent::SetState(Script::CStruct* params, Script::CScript*)
     if (StateOf(this) != kLip && state == kLipName)
         At<void*>(this, kRailNode) = nullptr;
     if (StateOf(this) == kWallRide) {
-        GameFunction<void(__thiscall*)(void*, Mth::Vector)>(0x004FE860)(this, Mth::Vector{0.0f, 1.0f, 0.0f, 1.0f});
+        TurnToNormal(Mth::Vector{0.0f, 1.0f, 0.0f, 1.0f});
         MatrixAt(this, kDisplayMatrix) = MatrixAt(ObjectOf(this), kMatrix);
     }
-    auto setState = GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0);
     switch (state) {
     case kAirName:
-        setState(this, kAir);
+        SetPhysicsState(kAir);
         break;
     case kGroundName:
         At<uint8_t>(this, 0x1C5) = 0;
-        setState(this, kGround);
+        SetPhysicsState(kGround);
         break;
     case kLipName:
-        setState(this, kLip);
+        SetPhysicsState(kLip);
         break;
     default:
         break;

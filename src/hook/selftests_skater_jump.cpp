@@ -31,7 +31,7 @@ using Skater::CorePhysicsComponent;
 
 // --- stand-ins shared by the tests ---
 StandIn Clock() { return {0x0044ECE0, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GameClockElapsed)}}; }
-StandIn SetStateCall() { return {0x004FDED0, 4, 1, Ret::None, true}; }
+StandIn SetStateCall() { return {0x004FDED0, 4, 1, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::SetPhysicsState)}}; }
 StandIn TriggerFeelerCall() { return {0x00434BF0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CTriggerComponent::CheckFeeler)}}; }
 StandIn GetScaled()
 {
@@ -182,7 +182,7 @@ void TestDoJump()
     StandIns standIns({Clock(), ContainsFlag(), TriggerFeelerCall(), GetScaled(), ScriptGetInteger(), SetStateCall(),
                        RailScript(), BroadcastEvent(),
                        {0x00518EE0, 8, 2, Ret::None, true, 2, {Ours(&Obj::CSkaterSoundComponent::PlayJumpInState)}},
-                       {0x004FEBA0, 0, 0, Ret::None, true},
+                       {0x004FEBA0, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::StartVertAir)}},
                        {0x005002D0, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::TurnForRailJump)}},
                        {0x004766D0, 12, 3, Ret::Bool, true, 0,
                         {Ours(static_cast<bool (Script::CStruct::*)(uint32_t, float*, int)>(&Script::CStruct::GetFloat))},
@@ -327,7 +327,7 @@ void TestCoreMemberFunctions()
                        {0x00507120, 4, 1, Ret::None, true, 1, {Ours(&CorePhysicsComponent::BreakVert)}},
                        {0x00504DF0, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::KeepUpright)}},
                        {0x00507500, 12, 3, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::WallPlant)}},
-                       {0x004FE860, 16, 4, Ret::None, true},
+                       {0x004FE860, 16, 4, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::TurnToNormal)}},
                        {0x00476950, 12, 3, Ret::Bool, true,
                         0,
                         {Ours(static_cast<bool (Script::CStruct::*)(uint32_t, uint32_t*, int)>(

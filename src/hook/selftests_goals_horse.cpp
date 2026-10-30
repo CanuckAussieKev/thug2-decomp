@@ -73,7 +73,7 @@ void StandInHorseCalls(StandIns& s)
                        reinterpret_cast<va_list>(&r.args[2]));
         return 0u;
     });
-    s.At({0x00566600}, 4, [](Regs& r) {
+    s.At({0x00566600, AddressOf(&Mdl::Skate::GetSkaterById)}, 4, [](Regs& r) {
         Record({0x6600, r.ecx, r.args[0]});
         return r.args[0] < 8 && g_present[r.args[0]] ? Address(g_skaters[r.args[0]]) : 0u;
     });

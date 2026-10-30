@@ -27,6 +27,7 @@
 #include "game/skater/special_item.h"
 #include "game/nx/feeler.h"
 #include "game/sys/game_clock.h"
+#include "game/gfx/anim_blend.h"
 #include "hook/skater3_testkit.h"
 
 namespace {
@@ -167,17 +168,17 @@ void StandIn(StandIns& s, bool railMoves)
         Record({0x9D40, Rel(r.ecx), r.args[0]});
         return NextBit() ? 0x0C4A0000u : 0u;
     });
-    Rec(s, {0x0047F260}, 8, 0xF260);
-    Rec(s, {0x0047E280}, 2, 0xE280);
-    Rec(s, {0x0047DC40}, 4, 0xDC40, [](Regs&) { return 1u; });
-    s.At({0x0047E450}, 8, [](Regs& r) {
+    Rec(s, {0x0047F260, AddressOf(&Gfx::CBlendChannel::PlayAnim)}, 8, 0xF260);
+    Rec(s, {0x0047E280, AddressOf(&Gfx::CBlendChannel::SetWobbleTarget)}, 2, 0xE280);
+    Rec(s, {0x0047DC40, AddressOf(&Gfx::CBlendChannel::SetFlipped)}, 4, 0xDC40, [](Regs&) { return 1u; });
+    s.At({0x0047E450, AddressOf(&Gfx::CBlendChannel::SetWobbleDetails)}, 8, [](Regs& r) {
         Record({0xE450, r.ecx, r.args[1]});
         const auto* data = reinterpret_cast<const uint32_t*>(r.args[0]);
         Record({data[0], data[1], data[2], data[3], data[4]});
         return 0u;
     });
-    Rec(s, {0x0047E740}, 2, 0xE740);
-    Rec(s, {0x0047E850}, 4, 0xE850);
+    Rec(s, {0x0047E740, AddressOf(&Gfx::CBlendChannel::SetLoopType)}, 2, 0xE740);
+    Rec(s, {0x0047E850, AddressOf(&Gfx::CBlendChannel::SetSpeed)}, 4, 0xE850);
     Rec(s, {0x00511390, AddressOf(&Obj::CSkaterFlipAndRotateComponent::SetBoardRotated)}, 4, 0x1390,
         [](Regs& r) { return r.args[1] & 0xFF; });
     // (their bool arguments - HideGeom's hide, Add's hold - as truth values: the original passes the message's byte,

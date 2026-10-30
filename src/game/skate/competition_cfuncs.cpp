@@ -16,6 +16,9 @@
 #include "game/skate/competition.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/skater.h"
+#include "game/skate/horse.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -46,47 +49,38 @@ constexpr uint32_t kBonus = 0x60678085;           // bonus
 // The skate module's split screen preferences (0x00564D80: +0x58) and its time limit (0x00564D50: +0x370).
 Prefs::Preferences* SplitScreenPreferences()
 {
-    return GameFunction<Prefs::Preferences*(__thiscall*)(uint8_t*)>(0x00564D80)(Skate());
+    return Mdl::Skate::Instance()->GetSplitScreenPreferences();
 }
-void SetTimeLimit(int seconds) { GameFunction<void(__thiscall*)(uint8_t*, int)>(0x00564D50)(Skate(), seconds); }
+void SetTimeLimit(int seconds) { Mdl::Skate::Instance()->SetUnknown370(seconds); }
 
 // The game mode: 0x00553AD0 the mode `type` loaded (its structure from the mode list); 0x00553BE0 its options
 // overridden by `options`; 0x00553000 / 0x00553020 / 0x00553040 / 0x00553060 its accumulate_score / score_frozen /
 // degrade_score / track_trick_score.
-void LoadGameMode(uint32_t type) { GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x00553AD0)(GameMode(), type); }
+void LoadGameMode(uint32_t type) { static_cast<Game::CGameMode*>(GameMode())->LoadGameType(type); }
 void OverrideGameModeOptions(Script::CStruct* options)
 {
-    GameFunction<bool(__thiscall*)(void*, Script::CStruct*)>(0x00553BE0)(GameMode(), options);
+    static_cast<Game::CGameMode*>(GameMode())->OverrideOptions(options);
 }
-void SetGameModeFlag(uint32_t address, bool on) { GameFunction<void(__thiscall*)(void*, bool)>(address)(GameMode(), on); }
-constexpr uint32_t kSetAccumulateScore = 0x00553000;
-constexpr uint32_t kSetScoreFrozen = 0x00553020;
-constexpr uint32_t kSetDegradeScore = 0x00553040;
-constexpr uint32_t kSetTrackTrickScore = 0x00553060;
+void SetGameModeFlag(void (Game::CGameMode::*setter)(bool), bool on) { (static_cast<Game::CGameMode*>(GameMode())->*setter)(on); }
+constexpr auto kSetAccumulateScore = &Game::CGameMode::SetScoreAccumulation;
+constexpr auto kSetScoreFrozen = &Game::CGameMode::SetScoreFrozen;
+constexpr auto kSetDegradeScore = &Game::CGameMode::SetScoreDegradation;
+constexpr auto kSetTrackTrickScore = &Game::CGameMode::SetTrickScoreTracking;
 
 // The competition (Mdl::CCompetition, no source for these yet): 0x00550560 started with the medal scores and the
 // bail penalty; 0x00550EF0 a run ended with the local skater's score; 0x00550B50 the standings sorted; 0x005501A0
 // the place is `place`; 0x005501C0 the round is `round` (the runs + 1); 0x005501E0 ended; 0x005501F0 whether ended.
 Mdl::CCompetition* TheCompetition() { return reinterpret_cast<Mdl::CCompetition*>(Competition()); }
-template <typename F, typename... A>
-auto CompetitionCall(uint32_t address, A... args)
-{
-    return GameFunction<F>(address)(TheCompetition(), args...);
-}
 
 // The horse game (no source yet): 0x00560100 started; 0x00560180 a run started; 0x00560720 a run ended; 0x005608B0
 // the next player; 0x00560380 whether it's over; 0x00560190 its status is the one `params` names; 0x00560440 one of
 // its strings (`which`); 0x005601F0 its word (H-O-R-S-E) set. The current skater's id is its +0x04 (0x005480C0).
-template <typename F, typename... A>
-auto HorseCall(uint32_t address, A... args)
-{
-    return GameFunction<F>(address)(Horse(), args...);
-}
+Mdl::CHorse* TheHorse() { return reinterpret_cast<Mdl::CHorse*>(Horse()); }
 uint32_t CurrentHorseSkater() { return *reinterpret_cast<uint32_t*>(Horse() + 4); }
 // The horse's string `which`, built in `storage` (the caller destroys it).
 Str::String* GetHorseString(void* storage, uint32_t which)
 {
-    return HorseCall<Str::String*(__thiscall*)(uint8_t*, void*, uint32_t)>(0x00560440, storage, which);
+    return new (storage) Str::String(TheHorse()->GetString(which));
 }
 
 // A skater's score (CSkater::GetScore): 0x00561B40 its total; 0x00561410 / 0x00561420 its bonus (+0x28) added to /
@@ -95,9 +89,9 @@ uint8_t* ScoreOf(Obj::CCompositeObject* skater)
 {
     return static_cast<uint8_t*>(static_cast<Obj::CSkater*>(skater)->GetScore());
 }
-int TotalScore(uint8_t* score) { return GameFunction<int(__thiscall*)(uint8_t*)>(0x00561B40)(score); }
-void AddToBonus(uint8_t* score, int bonus) { GameFunction<void(__thiscall*)(uint8_t*, int)>(0x00561410)(score, bonus); }
-int GetBonus(uint8_t* score) { return GameFunction<int(__thiscall*)(uint8_t*)>(0x00561420)(score); }
+int TotalScore(uint8_t* score) { return reinterpret_cast<Mdl::Score*>(score)->GetTotalScore(); }
+void AddToBonus(uint8_t* score, int bonus) { reinterpret_cast<Mdl::Score*>(score)->AddBonus(bonus); }
+int GetBonus(uint8_t* score) { return reinterpret_cast<Mdl::Score*>(score)->GetBonus(); }
 
 // The skater info heap, current while the competition's standings change.
 void PushSkaterInfoHeap()
@@ -136,7 +130,7 @@ bool __cdecl CFunc_ApplySplitScreenOptions(Script::CStruct*, Script::CScript*)
         int timeLimit = prefs->GetPreferenceValue(kHorseTimeLimit, kTime);
         const char* word = prefs->GetPreferenceString(kHorseWord, kUiString);
         // (the string is passed by value: the horse's code destroys it)
-        GameFunction<void(__thiscall*)(uint8_t*, Str::String)>(0x005601F0)(Horse(), Str::String(word));
+        TheHorse()->SetWord(Str::String(word));
         Script::CStruct* options = NewParams();
         options->AddComponentOfType(kDefaultTimeLimit, Script::ESYMBOLTYPE_INTEGER, static_cast<uint32_t>(timeLimit));
         OverrideGameModeOptions(options);
@@ -165,8 +159,7 @@ bool __cdecl CFunc_StartCompetition(Script::CStruct* params, Script::CScript*)
     PushSkaterInfoHeap();
     if (extra)
         TheCompetition()->EditParams(extra);
-    CompetitionCall<void(__thiscall*)(Mdl::CCompetition*, float, float, float, float, float, float, float)>(
-        0x00550560, bronze, silver, gold, bronzeScore, silverScore, goldScore, bail);
+    TheCompetition()->Start(bronze, silver, gold, bronzeScore, silverScore, goldScore, bail);
     PopHeap();
     return true;
 }
@@ -184,8 +177,8 @@ bool __cdecl CFunc_EndCompetitionRun(Script::CStruct*, Script::CScript*)
 {
     int score = TotalScore(ScoreOf(GetLocalSkater()));
     PushSkaterInfoHeap();
-    CompetitionCall<void(__thiscall*)(Mdl::CCompetition*, int)>(0x00550EF0, score);
-    CompetitionCall<void(__thiscall*)(Mdl::CCompetition*)>(0x00550B50);
+    TheCompetition()->EndRun(score);
+    TheCompetition()->ShowLeaderBoard();
     PopHeap();
     return true;
 }
@@ -195,63 +188,63 @@ bool __cdecl CFunc_PlaceIs(Script::CStruct* params, Script::CScript*)
 {
     int place = 0; // (uninitialised in the original)
     params->GetInteger(0u, &place, 0);
-    return CompetitionCall<bool(__thiscall*)(Mdl::CCompetition*, int)>(0x005501A0, place);
+    return TheCompetition()->PlaceIs(place);
 }
 
 bool __cdecl CFunc_RoundIs(Script::CStruct* params, Script::CScript*)
 {
     int round = 0; // (uninitialised in the original)
     params->GetInteger(0u, &round, 0);
-    return CompetitionCall<bool(__thiscall*)(Mdl::CCompetition*, int)>(0x005501C0, round);
+    return TheCompetition()->RoundIs(round);
 }
 
 // 0x005AF400: EndCompetition (in the skater info heap). 0x005AF440: CompetitionEnded.
 bool __cdecl CFunc_EndCompetition(Script::CStruct*, Script::CScript*)
 {
     PushSkaterInfoHeap();
-    CompetitionCall<void(__thiscall*)(Mdl::CCompetition*)>(0x005501E0);
+    TheCompetition()->End();
     PopHeap();
     return true;
 }
 
 bool __cdecl CFunc_CompetitionEnded(Script::CStruct*, Script::CScript*)
 {
-    return CompetitionCall<bool(__thiscall*)(Mdl::CCompetition*)>(0x005501F0);
+    return TheCompetition()->IsEnded();
 }
 
 // 0x005AF450 StartHorse, 0x005AF470 HorseEnded, 0x005AF480 HorseStatusEquals <status>, 0x005AF4A0 StartHorseRun,
 // 0x005AF4C0 EndHorseRun, 0x005AF4E0 SwitchHorsePlayers.
 bool __cdecl CFunc_StartHorse(Script::CStruct*, Script::CScript*)
 {
-    HorseCall<void(__thiscall*)(uint8_t*)>(0x00560100);
+    TheHorse()->Init();
     return true;
 }
 
 bool __cdecl CFunc_HorseEnded(Script::CStruct*, Script::CScript*)
 {
-    return HorseCall<bool(__thiscall*)(uint8_t*)>(0x00560380);
+    return TheHorse()->Ended();
 }
 
 bool __cdecl CFunc_HorseStatusEquals(Script::CStruct* params, Script::CScript*)
 {
-    return HorseCall<bool(__thiscall*)(uint8_t*, Script::CStruct*)>(0x00560190, params);
+    return TheHorse()->StatusEquals(params);
 }
 
 bool __cdecl CFunc_StartHorseRun(Script::CStruct*, Script::CScript*)
 {
-    HorseCall<void(__thiscall*)(uint8_t*)>(0x00560180);
+    TheHorse()->StartRun();
     return true;
 }
 
 bool __cdecl CFunc_EndHorseRun(Script::CStruct*, Script::CScript*)
 {
-    HorseCall<void(__thiscall*)(uint8_t*)>(0x00560720);
+    TheHorse()->EndRun();
     return true;
 }
 
 bool __cdecl CFunc_SwitchHorsePlayers(Script::CStruct*, Script::CScript*)
 {
-    HorseCall<void(__thiscall*)(uint8_t*)>(0x005608B0);
+    TheHorse()->SwitchPlayers();
     return true;
 }
 

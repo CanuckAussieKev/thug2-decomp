@@ -16,6 +16,7 @@
 #include "game/skate/career_cfuncs.h"
 #include "game/skate/records.h"
 #include "game/skater/skater.h"
+#include "game/skate/game_mode.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -48,11 +49,11 @@ void StandInCareerCalls(StandIns& s)
 {
     StandInStructAdds(s);
     StandInGameModeIsTrue(s);
-    s.At({0x00553910}, 0, [](Regs& r) {
+    s.At({0x00553910, AddressOf(&Game::CGameMode::EndConditionsMet)}, 0, [](Regs& r) {
         Record({0x3910, r.ecx});
         return g_shouldEndRun;
     });
-    s.At({0x005651F0, AddressOf(&Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) {
+    s.At({0x005651F0, AddressOf(Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) {
         Record({0x51F0});
         return g_multiplayer;
     });
@@ -64,15 +65,15 @@ void StandInCareerCalls(StandIns& s)
         Record({0xFED0, r.ecx, r.args[0]});
         return g_matches;
     });
-    s.At({0x00567580}, 0, [](Regs& r) {
+    s.At({0x00567580, AddressOf(&Mdl::Skate::AllSkatersIdle)}, 0, [](Regs& r) {
         Record({0x7580, r.ecx});
         return g_idle;
     });
-    s.At({0x00567690}, 0, [](Regs& r) {
+    s.At({0x00567690, AddressOf(&Mdl::Skate::FirstTrickStarted)}, 0, [](Regs& r) {
         Record({0x7690, r.ecx});
         return g_idle ^ 1;
     });
-    s.At({0x005676E0}, 0, [](Regs& r) {
+    s.At({0x005676E0, AddressOf(&Mdl::Skate::FirstTrickCompleted)}, 0, [](Regs& r) {
         Record({0x76E0, r.ecx});
         return 0x100u | g_idle; // (only AL counts)
     });

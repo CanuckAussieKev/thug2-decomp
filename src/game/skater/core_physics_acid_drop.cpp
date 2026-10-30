@@ -424,8 +424,8 @@ constexpr float kLeastTurn = 0.5235988f;        // 0x0064BD48 (30 degrees)
 bool FindTransferTarget(void* component, Mth::Vector* look, Mth::Vector* normal, bool* hip, Mth::Vector* target,
                         Mth::Vector* targetNormal, bool* objectHit)
 {
-    return GameFunction<bool(__thiscall*)(void*, Mth::Vector*, Mth::Vector*, bool*, Mth::Vector*, Mth::Vector*, bool*)>(
-        0x004FEE10)(component, look, normal, hip, target, targetNormal, objectHit);
+    return static_cast<CorePhysicsComponent*>(component)->FindVertTarget(look, normal, hip, target, targetNormal,
+                                                                         objectHit);
 }
 
 } // namespace

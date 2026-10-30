@@ -127,7 +127,7 @@ void Install(StandIns& s)
         Rec(0x0480, {r.ecx});
         return 0u;
     });
-    s.At({0x004879D0, AddressOf(&Gfx::MakeModelPath)}, 0, [](Regs& r) {
+    s.At({0x004879D0, AddressOf(Gfx::MakeModelPath)}, 0, [](Regs& r) {
         Rec(0x79D0, {Text(r.args[1]), Text(r.args[2])});
         new (reinterpret_cast<void*>(r.args[0])) Str::String("models/crown/crown.mdl");
         return r.args[0];

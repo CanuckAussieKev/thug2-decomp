@@ -44,10 +44,10 @@ constexpr float kPushAway = 100.0f;   // 0x006463D4
 
 const Mth::Vector kUpAxis = {0.0f, 1.0f, 0.0f, 1.0f};
 
-void ChangeState(void* component, int state) { GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(component, state); }
+void ChangeState(void* component, int state) { static_cast<CorePhysicsComponent*>(component)->SetPhysicsState(state); }
 void SetUp(void* component, const Mth::Vector& up)
 {
-    GameFunction<void(__thiscall*)(void*, Mth::Vector)>(0x004FE860)(component, up);
+    static_cast<CorePhysicsComponent*>(component)->TurnToNormal(up);
 }
 // velocity or position += normal * scale, x and y from the unrounded products (as the original).
 void AddScaled(Mth::Vector& to, const Mth::Vector& normal, float scale)
@@ -324,7 +324,7 @@ void CorePhysicsComponent::DoWallRidePhysics()
     if (!Flag(this, 0x20) && InputOf(this)[0x1C0])
         SetFlag(this, 0x20, 1);
     // Jumping off: out from the wall and up, upright.
-    if (GameFunction<bool(__thiscall*)(void*)>(0x004FFB10)(this)) {
+    if (JumpReleased()) {
         SetFlag(this, 0xD8, 1);
         TriggerFeeler(this, kJumpTriggerEvents, kOtherFeeler);
         if (TriggerTookOver(this))

@@ -18,6 +18,8 @@
 #include "game/skater/stats_manager.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/skate/score.h"
+#include "game/skater/balance_trick.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -70,13 +72,13 @@ uint32_t Clock() { return static_cast<uint32_t>(Tmr::GameClockElapsed() + GameVa
 // A physics value (0x004F90A0 on the balance trick component).
 double Physics(uint8_t* balanceTrick, uint32_t name)
 {
-    return GameFunction<float(__thiscall*)(void*, uint32_t)>(0x004F90A0)(balanceTrick, name);
+    return reinterpret_cast<CSkaterBalanceTrickComponent*>(balanceTrick)->GetPhysicsValue(name);
 }
 uint32_t& TrickType(uint8_t* balanceTrick) { return *reinterpret_cast<uint32_t*>(balanceTrick + 0x18); }
 void* ScoreDisplay(uint8_t* score) { return *reinterpret_cast<void**>(score + 0x18); }
 // The score's two balance displays (0x00563370 / 0x00563390): on or off, and the lean shown.
-void ShowLean(void* score, int on, float lean) { GameFunction<void(__thiscall*)(void*, int, float)>(0x00563370)(score, on, lean); }
-void ShowLean2(void* score, int on, float lean) { GameFunction<void(__thiscall*)(void*, int, float)>(0x00563390)(score, on, lean); }
+void ShowLean(void* score, int on, float lean) { static_cast<Mdl::Score*>(score)->SetBalanceMeter(on != 0, lean); }
+void ShowLean2(void* score, int on, float lean) { static_cast<Mdl::Score*>(score)->SetManualMeter(on != 0, lean); }
 // A button of the input component's control data held (its first byte).
 bool Held(uint8_t* input, uint32_t button)
 {
@@ -254,7 +256,7 @@ void CBalance::Update()
         if (left < 0.0)
             m_cheese = 0.0f;
     }
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00564270)(ScoreDisplay(m_score), m_trick);
+    static_cast<Mdl::Score*>(ScoreDisplay(m_score))->TweakTrick(static_cast<int>(m_trick));
     m_time = static_cast<float>(static_cast<double>(frame) + m_time);
     m_railTime = static_cast<float>(static_cast<double>(frame) + m_railTime);
     CBaseComponent* stats = m_skater->GetComponent(kStatsManager);

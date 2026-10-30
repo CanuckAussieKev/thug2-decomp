@@ -26,6 +26,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skate/skate_net.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -528,9 +529,8 @@ void TestThugproHandlers()
             static bool No() { return false; }
         };
         Patch isMultiplayer(0x005651F0, Branch(0xE9, 0x005651F0, &Stub::IsMultiplayer));
-        // (and our IsMultiplayer: the TOD manager calls it directly)
-        const uint32_t ours = TestStandIns::OursOf(0x005651F0);
-        Patch isMultiplayerOurs(ours, Branch(0xE9, ours, &Stub::IsMultiplayer));
+        const uint32_t ourIsMultiplayer = reinterpret_cast<uint32_t>(CodeAddress(&Mdl::Skate::IsMultiplayer));
+        Patch isMultiplayerOurs(ourIsMultiplayer, Branch(0xE9, ourIsMultiplayer, &Stub::IsMultiplayer));
         Gfx::MultiplayerUnlock saved = Gfx::GetMultiplayerUnlock();
         std::vector<int> locked;
         for (Gfx::MultiplayerUnlock unlock : {static_cast<Gfx::MultiplayerUnlock>(nullptr), &Stub::Yes, &Stub::No}) {

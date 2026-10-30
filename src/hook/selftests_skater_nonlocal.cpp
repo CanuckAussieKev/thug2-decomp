@@ -20,6 +20,8 @@
 #include "game/skater/nonlocal_net_logic.h"
 #include "game/skater/skater.h"
 #include "game/sys/timer.h"
+#include "game/gfx/engine_model_lights.h"
+#include "game/gfx/light_manager.h"
 #include "game/skate/game_mode.h"
 #include "hook/skater3_testkit.h"
 
@@ -158,8 +160,8 @@ void StandIn(StandIns& s, bool update)
     }, false);
     RecFloat(s, {0x004174A0, AddressOf(&Nx::CFeeler::GetHitVertexValue)}, 0, 0x74A0,
              [](Regs&) { return g_a.vertexValue; }, false);
-    Rec(s, {0x0048E830}, 2, 0xE830);
-    Rec(s, {0x0048EDB0}, 1, 0xEDB0, nullptr, false, true);
+    Rec(s, {0x0048E830, AddressOf(&Nx::CModelLights::MoveBrightness)}, 2, 0xE830);
+    Rec(s, {0x0048EDB0, AddressOf(Nx::SetWorldBrightness)}, 1, 0xEDB0, nullptr, false, true);
     s.At({0x004317C0, AddressOf(&Obj::CShadowComponent::SetPosition)}, 4, [](Regs& r) {
         Record({0x17C0, Rel(r.ecx)});
         RecordVector(reinterpret_cast<const void*>(r.args[0]));

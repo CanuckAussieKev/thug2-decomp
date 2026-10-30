@@ -22,6 +22,9 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skater/walk_physics.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/engine_texture.h"
+#include "game/gfx/texture_dict.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -54,14 +57,14 @@ T& Field(const void* object, uint32_t offset)
 void* TextureDictionary() { return GameVariable<void*>(0x00700F20); }
 void* LoadTexture(const char* name, bool a, bool b, bool c)
 {
-    return GameFunction<void*(__thiscall*)(void*, const char*, int, int, int)>(0x0049F9B0)(TextureDictionary(), name, a, b, c);
+    return static_cast<Nx::CTexDict*>(TextureDictionary())->LoadTexture(name, a, b, c);
 }
 void* CopyTexture(uint32_t key, void* texture)
 {
-    return GameFunction<void*(__thiscall*)(void*, uint32_t, void*)>(0x0049FBE0)(TextureDictionary(), key, texture);
+    return static_cast<Nx::CTexDict*>(TextureDictionary())->CopyTexture(key, static_cast<Nx::CTexture*>(texture));
 }
-void* FindTexture(uint32_t checksum) { return GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0049F540)(TextureDictionary(), checksum); }
-void UnloadTexture(void* texture) { GameFunction<void(__thiscall*)(void*, void*)>(0x0049F500)(TextureDictionary(), texture); }
+void* FindTexture(uint32_t checksum) { return static_cast<Nx::CTexDict*>(TextureDictionary())->GetTexture(checksum); }
+void UnloadTexture(void* texture) { static_cast<Nx::CTexDict*>(TextureDictionary())->UnloadTexture(static_cast<Nx::CTexture*>(texture)); }
 void ReleaseTexture(void* texture) { GameFunction<void(__thiscall*)(void*)>(0x0049F3B0)(texture); }
 // A texture's image put on `texture` (its vtable +0x10).
 void PutOn(void* texture, void* image) { GameFunction<void(__thiscall*)(void*, void*)>(0x00487D50)(texture, image); }
@@ -71,8 +74,8 @@ void FreeTexture(void*& texture)
 {
     if (!texture)
         return;
-    GameFunction<void(__cdecl*)(void*)>(0x004916F0)(Field<void*>(texture, 4));
-    GameFunction<void(__thiscall*)(void*, bool)>(0x0049F3F0)(texture, false);
+    Nx::Engine::KillTextureSplatsOfTexture(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(Field<void*>(texture, 4))));
+    static_cast<Nx::CTexture*>(texture)->SetPermanent(false);
     ReleaseTexture(texture);
     UnloadTexture(texture);
     texture = nullptr;
@@ -244,10 +247,9 @@ void CTaggingComponent::PlaceTag(bool sticker, Mth::Vector start, Mth::Vector en
     if (sticker)
         spin = static_cast<float>((Mth::Rnd(90) - 45) * static_cast<double>(kDegreesToRadians));
     float width = static_cast<float>(size);
-    GameFunction<bool(__cdecl*)(const Mth::Vector*, const Mth::Vector*, float, float, float, float, float, const char*,
-                                 uint32_t, int, int, void*)>(0x004928A0)(
-        &start, &end, width, width, spin, turn, 5000.0f, reinterpret_cast<const char*>(0x006469B4), 0x54628ED7, 0, 0,
-        sticker ? m_sticker : m_graffiti);
+    Nx::Engine::CreateTextureSplatAt(&start, &end, width, width, spin, turn, 5000.0f,
+                                     reinterpret_cast<const char*>(0x006469B4), 0x54628ED7, 0, 0,
+                                     static_cast<uint8_t*>(sticker ? m_sticker : m_graffiti));
     if (!send)
         return;
     Net::MsgDesc msg;

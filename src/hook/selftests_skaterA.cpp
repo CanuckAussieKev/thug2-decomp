@@ -510,15 +510,15 @@ std::vector<StandIn> GroundStandIns()
         {0x0046B900, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CControlButton::GetReleasedTime)},     // TimeSinceRelease
         {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0, CodeAddress(&Tmr::GameClockElapsed)},    // the clock
         {0x005003A0, 8, 2, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::CheckFeeler)},    // the feeler
-        {0x004FE860, 16, 4, Ret::None, true, 0, -1, -1, 0},   // (a vector by value)
+        {0x004FE860, 16, 4, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::TurnToNormal)},   // (a vector by value)
         {0x005196A0, 4, 1, Ret::None, true, 1, -1, -1, 0, CodeAddress(&Obj::CSkaterStateComponent::SetTerrain)},    // (a byte)
-        {0x004FEA50, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x004FEA50, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::UpdateGroundNormal)},
         {0x005021D0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::StartRidingHitObject)},
-        {0x004FEBA0, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x004FEBA0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::StartVertAir)},
         {0x00434BF0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CTriggerComponent::CheckFeeler)},    // a trigger check
         {0x005232A0, 4, 1, Ret::None, true, 1, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::SetTrickObjects)},    // (a bool)
         {0x0043A930, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Nx::CFeeler::Assign)},
-        {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0},
+        {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::SetPhysicsState)},
         {0x00460A20, 12, 3, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::BroadcastEvent)},
         {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::SelfEvent)},
         {0x00507120, 4, 1, Ret::None, true, 1, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::BreakVert)},
@@ -635,43 +635,43 @@ std::vector<StandIn> AirStandIns()
 {
     return {
         {0x00580400, 0, 3, Ret::Float, false, 0, -1, -1, 0, CodeAddress(&Obj::GetPhysicsFloat)},  // PhysicsFloat
-        {0x004FF470, 0, 0, Ret::Float, true, 0, -1, -1, 0},   // (gravity)
+        {0x004FF470, 0, 0, Ret::Float, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::GetGravity)},   // (gravity)
         {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0, CodeAddress(&Tmr::GameClockElapsed)},    // the clock
         {0x0046B920, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CControlButton::GetPressedTime)},     // TimeSincePress
         {0x0046B900, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CControlButton::GetReleasedTime)},     // TimeSinceRelease
         {0x00504910, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::LeanInAir)},
-        {0x004FFB90, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x004FFB90, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::CheckFlipSpin)},
         {0x00504060, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::Spin)},
         {0x00504A60, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::RotateInAcidDrop)},
         {0x00504B40, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::RecoverInAir)},
         {0x00504DF0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::KeepUpright)},
-        {0x004FE730, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x004FE730, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::ApplyRollingFriction)},
         {0x00507500, 12, 3, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::WallPlant)},
         {0x0042BBF0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Mth::Vector::SetLength)},     // (a vector's length, it seems)
         {0x00427C70, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CMovableContactComponent::StopRiding)},
         {0x00416F00, 4, 1, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CRideTracker::Update)},
         {0x005003A0, 8, 2, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::CheckFeeler)},     // the feeler
         {0x00507120, 4, 1, Ret::None, true, 1, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::BreakVert)},
-        {0x004FE860, 16, 4, Ret::None, true, 0, -1, -1, 0},
-        {0x004FEA50, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x004FE860, 16, 4, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::TurnToNormal)},
+        {0x004FEA50, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::UpdateGroundNormal)},
         {0x00508780, 4, 1, Ret::Bool, true, 0, 0, -1, 4, CodeAddress(&Skater::CorePhysicsComponent::CheckAirForwardCollision)},
-        {0x004FFDB0, 4, 1, Ret::Bool, true, 0, 0, -1, 4},
-        {0x004FC400, 0, 0, Ret::Int, true, 0, -1, -1, 0},
-        {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0},
+        {0x004FFDB0, 4, 1, Ret::Bool, true, 0, 0, -1, 4, CodeAddress(&Skater::CorePhysicsComponent::StepUp)},
+        {0x004FC400, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CMovableContactComponent::TimeSinceStop)},
+        {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::SetPhysicsState)},
         {0x005021D0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::StartRidingHitObject)},
-        {0x004FC470, 4, 1, Ret::None, true, 0, -1, -1, 0},
+        {0x004FC470, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::SetTerrain)},
         {0x00580790, 4, 1, Ret::Float, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkater::GetScaledPhysics)},
         {0x00518CF0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkaterSoundComponent::PlayLand)},
         {0x005232A0, 4, 1, Ret::None, true, 1, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::SetTrickObjects)},
         {0x00506BA0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::SetLastGroundFeeler)},
         {0x00434BF0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CTriggerComponent::CheckFeeler)},
-        {0x004FF590, 4, 1, Ret::None, true, 0, 0, 0, 4},       // (reads and changes a vector)
-        {0x004FC370, 4, 1, Ret::None, true, 0, -1, -1, 0},
+        {0x004FF590, 4, 1, Ret::None, true, 0, 0, 0, 4, CodeAddress(&Skater::CorePhysicsComponent::AlongFacing)},       // (reads and changes a vector)
+        {0x004FC370, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Mth::Vector::ZeroIfShorterThan)},
         {0x005009C0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::FindNearestWallSide)},
         {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::SelfEvent)},
         {0x0050C930, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::CheckSideCollisions)},
         {0x00504EE0, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::KeepOffCeiling)},
-        {0x004FFB10, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x004FFB10, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::JumpReleased)},
         {0x00503710, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::VertWallplant)},
         {0x00420250, 0, 1, Ret::Int, false, 0, -1, -1, 0, CodeAddress(&Tmr::GameClockTimeSince)},
         {0x00502240, 0x14, 5, Ret::Bool, true, 1, -1, 4, 10, CodeAddress(&Skater::CorePhysicsComponent::FindAcidDrop)},  // the acid drop search (a bool, fills its last)

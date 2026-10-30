@@ -16,6 +16,7 @@
 #include "game/skate/career.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/score_internal.h"
+#include "game/gfx/viewport_list.h"
 #include "hook/hook.h"
 
 namespace Lst {
@@ -126,7 +127,7 @@ struct ScoreGoal {
 };
 
 // The screen mode (0x004A0710: 1 a vertical split).
-int ScreenMode() { return GameFunction<int(__cdecl*)()>(0x004A0710)(); }
+int ScreenMode() { return Nx::GetScreenMode(); }
 
 // The created trick `index`'s name (the local skater's; 0 without one).
 uint32_t CreatedTrickName(int index)

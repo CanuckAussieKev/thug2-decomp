@@ -3,6 +3,8 @@
 // and a profile manager; the skate module's, the profiles' and the faces' calls without source stood in for by
 // recording code (over the game's function and ours alike).
 
+#include <initializer_list>
+#include <utility>
 #include <windows.h>
 
 #include <cstdint>
@@ -18,6 +20,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
 #include "game/gfx/face_texture.h"
+#include "game/gfx/model_appearance.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -74,8 +77,8 @@ void StandInProfileCalls(StandIns& s)
 {
     StandInStructAdds(s);
     StandInMemory(s);
-    for (uint32_t address : {0x00567C30u, 0x00567C00u, 0x00567BD0u}) {
-        s.At({address}, 8, [address](Regs& r) {
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00567C30u, AddressOf(&Mdl::Skate::SetVibration)}, {0x00567C00u, AddressOf(&Mdl::Skate::SetAutoKick)}, {0x00567BD0u, AddressOf(&Mdl::Skate::SetSpinTaps)}}) {
+        s.At({address, ours_}, 8, [address](Regs& r) {
             Record({address, r.ecx, r.args[0], r.args[1] & 0xFF});
             return 0u;
         });
@@ -121,12 +124,12 @@ void StandInProfileCalls(StandIns& s)
         Record({0x0EB0, r.ecx, static_cast<uint32_t>(ProfileIndex(r.args[0]))});
         return 0u;
     });
-    s.At({0x00488F40}, 8, [](Regs& r) {
+    s.At({0x00488F40, AddressOf(&Gfx::CModelAppearance::Load)}, 8, [](Regs& r) {
         Record({0x8F40, static_cast<uint32_t>(ProfileIndex(r.ecx)), r.args[0], r.args[1] & 0xFF});
         return 0u;
     });
     // The faces
-    s.At({0x00487550}, 4, [](Regs& r) {
+    s.At({0x00487550, AddressOf(&Gfx::CFaceTexture::GetPoints)}, 4, [](Regs& r) {
         int i = FaceIndex(r.ecx);
         Record({0x7550, static_cast<uint32_t>(i)});
         auto* out = reinterpret_cast<uint32_t*>(r.args[0]);
@@ -134,29 +137,29 @@ void StandInProfileCalls(StandIns& s)
             out[k] = 0xFA000000u + static_cast<uint32_t>(i) * 0x100 + k;
         return r.args[0];
     });
-    s.At({0x00487570}, 4, [](Regs& r) {
+    s.At({0x00487570, AddressOf(&Gfx::CFaceTexture::SetPoints)}, 4, [](Regs& r) {
         Record({0x7570, static_cast<uint32_t>(FaceIndex(r.ecx))});
         RecordPoints(reinterpret_cast<uint32_t*>(r.args[0]));
         return 0u;
     });
-    s.At({0x00487000}, 0, [](Regs& r) {
+    s.At({0x00487000, AddressOf(Gfx::WriteFacePoints)}, 0, [](Regs& r) {
         Record({0x7000, r.args[1]});
         RecordPoints(reinterpret_cast<uint32_t*>(r.args[0]));
         return Answer(0x00487000);
     });
-    s.At({0x004869D0}, 0, [](Regs& r) {
+    s.At({0x004869D0, AddressOf(Gfx::ReadFacePoints)}, 0, [](Regs& r) {
         Record({0x69D0, r.args[1]});
         auto* out = reinterpret_cast<uint32_t*>(r.args[0]);
         for (int k = 0; k < 14; ++k)
             out[k] = 0xFB000000u + r.args[1] % 0x10000 + k;
         return Answer(0x004869D0);
     });
-    s.At({0x00487380}, 8, [](Regs& r) {
+    s.At({0x00487380, AddressOf(&Gfx::CFaceTexture::LoadImageFile)}, 8, [](Regs& r) {
         Record({0x7380, static_cast<uint32_t>(FaceIndex(r.ecx)), Hash(reinterpret_cast<const char*>(r.args[0])),
                 r.args[1] & 0xFF});
         return 0u;
     });
-    s.At({0x00487590}, 4, [](Regs& r) {
+    s.At({0x00487590, AddressOf(&Gfx::CFaceTexture::SetOverlayName)}, 4, [](Regs& r) {
         Record({0x7590, static_cast<uint32_t>(FaceIndex(r.ecx)), Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0u;
     });
@@ -164,7 +167,7 @@ void StandInProfileCalls(StandIns& s)
         Record({0x7520, static_cast<uint32_t>(FaceIndex(r.ecx)), r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x00487510}, 0, [](Regs& r) {
+    s.At({0x00487510, AddressOf(&Gfx::CFaceTexture::IsValid)}, 0, [](Regs& r) {
         Record({0x7510, static_cast<uint32_t>(FaceIndex(r.ecx))});
         return Answer(0x00487510);
     });

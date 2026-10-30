@@ -28,10 +28,10 @@
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "game/sys/viewer.h"
+#include "game/gfx/viewport.h"
 #include "game/gfx/engine_effects.h"
 #include "game/gfx/loading_bar_cfuncs.h"
 #include "game/gfx/scene_lights.h"
-#include "game/gfx/viewport.h"
 #include "game/script/script_startup.h"
 #include "game/gfx/engine.h"
 #include "hook/game.h"
@@ -117,7 +117,7 @@ void StandInCalls(StandIns& s)
         return 0u;
     });
     s.At({0x0045C210, AddressOf(&SkateScript::GetLastNodeArray)}, 0, [](Regs&) { Record({0xC210}); return 0u; });
-    s.At({0x004A0950, AddressOf(&Nx::GetCamera)}, 0, [](Regs& r) { Record({0x0950, r.args[0]}); return r.args[0] == 1 ? 0x77u : 0u; });
+    s.At({0x004A0950, AddressOf(Nx::GetCamera)}, 0, [](Regs& r) { Record({0x0950, r.args[0]}); return r.args[0] == 1 ? 0x77u : 0u; });
     s.At({0x00401C30, AddressOf(static_cast<int (*)(const char*, ...)>(&Dbg::Printf))}, 0, [](Regs& r) {
         Record({0x1C30, Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0xFFFFFFFFu;

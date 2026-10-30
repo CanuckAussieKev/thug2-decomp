@@ -372,7 +372,7 @@ void CorePhysicsComponent::CheckForGround()
                 if (keep) {
                     void* flags = At<void*>(this, kTimedFlags);
                     SetTimedFlag(flags, 0x40, At<uint8_t>(this, kHitFlag));
-                    GameFunction<void(__thiscall*)(void*, Mth::Vector)>(0x004FE860)(this, normal);
+                    TurnToNormal(normal);
                     VectorAt(object, kPosition) = VectorAt(this, kHitPoint);
                     flags = At<void*>(this, kTimedFlags);
                     if (At<int>(flags, 0x18) == 0 && distance > 2.0f && turn > 0.99f)
@@ -381,7 +381,7 @@ void CorePhysicsComponent::CheckForGround()
                     static_cast<Obj::CSkaterStateComponent*>(At<void*>(this, kTimedFlags))->SetTerrain(surface);
                     At<uint8_t>(At<uint8_t*>(this, kOtherComponent), 0x1C) = surface;
                     if (!bike || !ThawBmx::LerpDisplayNormal(this)) // (not original: the bike's, THAW 0x005CB420)
-                        GameFunction<void(__thiscall*)(void*)>(0x004FEA50)(this);
+                        UpdateGroundNormal();
                     StartRidingHitObject();
                     if (At<int>(this, 0x1AC) != At<int>(this, 0xFC)) {
                         TriggerOf(this)->CheckFeeler(Events(0x0064BBA4), FeelerAt(this, kOtherFeeler));
@@ -407,13 +407,13 @@ void CorePhysicsComponent::CheckForGround()
     } // (not original: wheels == kWheelsNotUsed)
 
     // Off the ground.
-    GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(this, 1);
+    SetPhysicsState(1);
     CollisionEvents::Checkpoint(this, "set-air-4FDED0"); // (not original)
     static_cast<Obj::CObject*>(At<void*>(this, kObject))->BroadcastEvent(0xD96F01F1, nullptr, 0.0f);
     CollisionEvents::Checkpoint(this, "SkaterOffEdge-event"); // (not original)
     static_cast<Obj::CObject*>(At<void*>(this, kObject))->SelfEvent(0x3B1001B6, nullptr);
     CollisionEvents::Checkpoint(this, "GroundGone-event"); // (not original)
-    GameFunction<void(__thiscall*)(void*)>(0x004FEBA0)(this);
+    StartVertAir();
     CollisionEvents::Checkpoint(this, "after-4FEBA0"); // (not original)
     void* flags = At<void*>(this, kTimedFlags);
     if (At<uint8_t>(flags, 0x30)) {
@@ -444,7 +444,7 @@ void CorePhysicsComponent::CheckForGround()
 void CorePhysicsComponent::GroundUnderWheels(bool hit)
 {
     if (!ThawBmx::LerpDisplayNormal(this))
-        GameFunction<void(__thiscall*)(void*)>(0x004FEA50)(this);
+        UpdateGroundNormal();
     if (!hit)
         return;
     uint8_t surface = At<uint8_t>(this, kSurfaceFlags);
@@ -468,7 +468,6 @@ void CorePhysicsComponent::GroundUnderWheels(bool hit)
 
 namespace {
 
-void CallThis(uint32_t address, void* object) { GameFunction<void(__thiscall*)(void*)>(address)(object); }
 uint8_t& Flag(void* component, uint32_t offset) { return At<uint8_t>(At<void*>(component, kTimedFlags), offset); }
 void* ObjectOf(void* component) { return At<void*>(component, kObject); }
 
@@ -478,7 +477,7 @@ void* ObjectOf(void* component) { return At<void*>(component, kObject); }
 void CorePhysicsComponent::DoAirPhysics()
 {
     uint8_t* input = At<uint8_t*>(this, kInput);
-    float gravity = GameFunction<float(__thiscall*)(void*)>(0x004FF470)(this);
+    float gravity = static_cast<float>(GetGravity());
     SetTimedFlag(At<void*>(this, kTimedFlags), 0x40, 0);
     void* flags = At<void*>(this, kTimedFlags);
     if (At<uint8_t>(flags, 0x30) || At<uint8_t>(flags, 0x78) || At<uint8_t>(flags, 0xA8) || At<uint8_t>(flags, 0x70))
@@ -491,7 +490,7 @@ void CorePhysicsComponent::DoAirPhysics()
         ThawBmx::OnAir(this);
     else
         LeanInAir();
-    CallThis(0x004FFB90, this);
+    CheckFlipSpin();
     if (bike)
         ThawBmx::AirRotation(this);
     else
@@ -511,7 +510,7 @@ void CorePhysicsComponent::DoAirPhysics()
             KeepUpright();
     }
     if (At<float>(this, 0x320) != 0.0f)
-        CallThis(0x004FE730, this);
+        ApplyRollingFriction();
 
     Mth::Vector velocity = VectorAt(ObjectOf(this), kVelocity);
     int& countdown = At<int>(this, 0x14CC);
@@ -686,7 +685,7 @@ void CorePhysicsComponent::DoAirPhysics()
             position.w += pw;
             Mth::Vector flat = {newWall.x, 0.0f, newWall.z, newWall.w};
             flat.Normalize();
-            GameFunction<void(__thiscall*)(void*, Mth::Vector)>(0x004FE860)(this, flat);
+            TurnToNormal(flat);
             VectorAt(ObjectOf(this), kVelocity).RotateToPlane(flat);
         } else {
             SetTimedFlag(At<void*>(this, kTimedFlags), 0x38, 0);
@@ -698,7 +697,7 @@ void CorePhysicsComponent::DoAirPhysics()
         if (!Flag(this, 0x30) || Flag(this, 0x78) || At<uint8_t>(this, 0x2DB) || other[0x28] || other[0x50])
             At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
         else
-            CallThis(0x004FEA50, this);
+            UpdateGroundNormal();
     }
     if (bike) // (not original: THAW 0x005E0476 - on the bike the wheel points follow it through the air)
         ThawBmx::AirWheelPoints(this);
@@ -716,9 +715,9 @@ void CorePhysicsComponent::DoAirPhysics()
         bool steep = VectorAt(this, kHitNormal).y < 0.1f;
         from = lastPosition();
         // (Not yet, while something above says so - fast or steep, and the ride's timer past 500.)
-        bool notYet = GameFunction<bool(__thiscall*)(void*, Mth::Vector*)>(0x004FFDB0)(this, &from) &&
+        bool notYet = StepUp(&from) &&
                       (VectorAt(ObjectOf(this), kVelocity).y > 10.0f || steep) &&
-                      GameFunction<uint32_t(__thiscall*)(void*)>(0x004FC400)(At<void*>(this, kRide)) > 500;
+                      static_cast<uint32_t>(static_cast<Obj::CMovableContactComponent*>(At<void*>(this, kRide))->TimeSinceStop()) > 500;
         if (!notYet) {
             Mth::Vector normal = VectorAt(this, kHitNormal);
             VectorAt(ObjectOf(this), kPosition) = VectorAt(this, kHitPoint);
@@ -742,7 +741,7 @@ void CorePhysicsComponent::DoAirPhysics()
 
     if (KeepOffCeiling())
         SetTimedFlag(At<void*>(this, kTimedFlags), 0xB0, 1);
-    CallThis(0x004FFB10, this);
+    JumpReleased();
     VertWallplant();
     if (Flag(this, 0xB0))
         return;
@@ -762,7 +761,7 @@ void CorePhysicsComponent::DoAirPhysics()
 // (Part of 0x0050CA00: landing on something skatable.)
 void CorePhysicsComponent::LandFromAir()
 {
-    GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(this, 0);
+    SetPhysicsState(0);
     StartRidingHitObject();
     void* flags = At<void*>(this, kTimedFlags);
     if (At<uint8_t>(flags, 0x30) || At<uint8_t>(flags, 0x78)) {
@@ -772,7 +771,7 @@ void CorePhysicsComponent::LandFromAir()
         At<uint8_t>(this, 0x374) = 0;
     }
     At<uint8_t>(this, 0x372) = At<uint8_t>(flags, 0x78);
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x004FC470)(this, At<uint8_t>(this, kSurfaceFlags));
+    SetTerrain(At<uint8_t>(this, kSurfaceFlags));
     if (!At<uint8_t>(this, 0x2ED)) {
         uint32_t which = Flag(this, 0xE1);
         void* object = ObjectOf(this);
@@ -805,7 +804,7 @@ void CorePhysicsComponent::LandFromAir()
                 velocity.RotateToPlane(normal);
                 Mth::Vector& v = VectorAt(ObjectOf(this), kVelocity);
                 Mth::Vector probe = v;
-                GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004FF590)(this, &probe);
+                AlongFacing(&probe);
                 if (probe.y > 0.0f) {
                     v = saved;
                     VectorAt(ObjectOf(this), kVelocity).ProjectToPlane(normal);
@@ -814,7 +813,7 @@ void CorePhysicsComponent::LandFromAir()
                 if (static_cast<double>(least) * least > VectorAt(ObjectOf(this), kVelocity).LengthSqr())
                     VectorAt(ObjectOf(this), kVelocity).SetLength(Script::GetFloat(0x59484878));
             }
-            GameFunction<void(__thiscall*)(void*, float)>(0x004FC370)(&VectorAt(ObjectOf(this), kVelocity), 10.0f);
+            VectorAt(ObjectOf(this), kVelocity).ZeroIfShorterThan(10.0f);
         }
         SetTimedFlag(At<void*>(this, kTimedFlags), 0x30, 0);
         At<uint8_t>(this, 0x2D0) = 0;
@@ -830,7 +829,7 @@ void CorePhysicsComponent::LandFromAir()
             VectorAt(this, 0x78) = VectorAt(this, 0x58);
             FindNearestWallSide();
             At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
-            GameFunction<void(__thiscall*)(void*, Mth::Vector)>(0x004FE860)(this, hit);
+            TurnToNormal(hit);
             static_cast<Obj::CObject*>(ObjectOf(this))->SelfEvent(0x532B16EF, nullptr);
             return;
         }

@@ -166,8 +166,8 @@ std::vector<StandIn> LeftoverStandIns()
 {
     return {
         {0x0040ABA0, 4, 0, Ret::None, true, 0, 0, -1, 8, CodeAddress(&Nx::CCollCache::Update)}, // (the box recorded)
-        {0x004FE490, 0, 0, Ret::Bool, true},                                                   // (may push off)
-        {0x004FE860, 16, 4, Ret::None, true, 0, -1, -1, 0, nullptr, nullptr, 0xF},             // (onto a normal)
+        {0x004FE490, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::CanPushOff)},                                                   // (may push off)
+        {0x004FE860, 16, 4, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::TurnToNormal), nullptr, 0xF},             // (onto a normal)
         {0x005054A0, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&CorePhysicsComponent::ApplyModelRotations)},
         {0x005003A0, 8, 2, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&CorePhysicsComponent::CheckFeeler), nullptr, 0,
          0, -1, 0x208, 8}, // (the feeler's line recorded)

@@ -25,6 +25,7 @@
 #include "game/skater/skater.h"
 #include "game/skater/trick_component.h"
 #include "game/sys/game_clock.h"
+#include "game/gfx/model_utils.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -126,7 +127,7 @@ std::vector<StandIn> MoveStandIns()
          [](Frame& f, Result& r) { r.eax = 0x51000000u + (f.args[0] & 0xFFF0); }},
         {0x00420730, 0x20, 8, Ret::None, true, 0xF0, {Ours(&Obj::CModelComponent::RotateDisplay)}},
         {0x0046B7F0, 0, 0, Ret::None, true, 0, {Ours(&Obj::CControlButton::ClearRelease)}},
-        {0x00487AD0, 0, 3, Ret::Float, false, 0, {}, [](Frame&, Result& r) { r.st0 = PickMove(); }},
+        {0x00487AD0, 0, 3, Ret::Float, false, 0, {Ours(Gfx::LeastOf)}, [](Frame&, Result& r) { r.st0 = PickMove(); }},
         {0x004196B0, 0, 2, Ret::Float, false, 0, {Ours(&Obj::LargerOf)}, [](Frame&, Result& r) { r.st0 = PickMove(); }},
     };
 }

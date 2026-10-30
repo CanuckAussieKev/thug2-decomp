@@ -25,6 +25,7 @@
 #include "game/skater/trick_component.h"
 #include "game/core/crc.h"
 #include "game/goals/goal_manager.h"
+#include "game/script/struct.h"
 #include "game/skate/score.h"
 #include "game/script/game_cfuncs.h"
 #include "hook/gs4_testkit.h"
@@ -105,7 +106,7 @@ void StandInGameCalls(StandIns& s)
         Record({0x4F80, r.ecx == reinterpret_cast<uint32_t>(g_skate), r.args[0]});
         return Profile(1);
     });
-    s.At({0x00557FB0}, 4, [](Regs& r) {
+    s.At({0x00557FB0, AddressOf(&Game::CGoalManager::GetGoalByIndex)}, 4, [](Regs& r) {
         Record({0x7FB0, r.ecx == reinterpret_cast<uint32_t>(g_profileManager), r.args[0]});
         return Profile(r.args[0]);
     });

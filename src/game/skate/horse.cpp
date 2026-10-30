@@ -12,6 +12,7 @@
 #include "game/script/struct.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/skater.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -201,7 +202,7 @@ void CHorse::EndRun()
     std::snprintf(m_panel, sizeof(m_panel), "%s", Text(0x0064E080)); // "unknown"
     m_lastSkater = m_skater;
     void* score = Skater(static_cast<uint32_t>(m_skater))->GetScore();
-    int total = GameFunction<int(__thiscall*)(void*)>(0x00561B40)(score);
+    int total = static_cast<Mdl::Score*>(score)->GetTotalScore();
     Dbg::Printf(Text(0x0064E0C8), total); // "End run = %d\n"
     if (total > m_scoreToBeat) {
         m_scoreToBeat = total;

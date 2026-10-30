@@ -207,9 +207,9 @@ void StandInGame(StandIns& s)
         Record({0x564F, r.args[0]});
         return reinterpret_cast<uint32_t>(g_profile);
     });
-    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) { Record({0x5591}); return 0x5F5F5F5Fu; });
-    s.At({0x00559050}, 4, [](Regs& r) { Record({0x5590, r.ecx, r.args[0] & 0xFF}); return static_cast<uint32_t>(g_difficulty); });
-    s.At({0x00557E30}, 0, [](Regs& r) { Record({0x557E, r.ecx}); return static_cast<uint32_t>(g_flowFlag); });
+    s.At({0x005591B0, AddressOf(Game::GetGoalManager)}, 0, [](Regs&) { Record({0x5591}); return 0x5F5F5F5Fu; });
+    s.At({0x00559050, AddressOf(&Game::CGoalManager::GetDifficultyLevel)}, 4, [](Regs& r) { Record({0x5590, r.ecx, r.args[0] & 0xFF}); return static_cast<uint32_t>(g_difficulty); });
+    s.At({0x00557E30, AddressOf(&Game::CGoalManager::CanStartGoal)}, 0, [](Regs& r) { Record({0x557E, r.ecx}); return static_cast<uint32_t>(g_flowFlag); });
     s.At({0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, [](Regs& r) {
         Record({0x4619, r.args[0]});
         return g_skaterFound ? reinterpret_cast<uint32_t>(g_skater) : 0u;
@@ -234,7 +234,7 @@ void StandInGame(StandIns& s)
         Record({0x5624, Id(r.ecx), r.args[0], r.args[1], r.args[2], r.args[3]});
         return g_counts[r.args[3] & 1] + (r.args[0] == 0x89B7DBE4 ? 3 : 0);
     });
-    s.At({0x00562370}, 4, [](Regs& r) {
+    s.At({0x00562370, AddressOf(&Mdl::Score::CountTricksNamed)}, 4, [](Regs& r) {
         Record({0x5623, Id(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0]))});
         return g_counts[2];
     });

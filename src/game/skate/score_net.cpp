@@ -13,6 +13,7 @@
 #include "game/net/player_info.h"
 #include "game/skate/score_internal.h"
 #include "game/skater/trick_component.h"
+#include "game/skate/skate_module.h"
 #include "hook/hook.h"
 
 namespace Mdl {
@@ -134,7 +135,7 @@ void Score::LogTrickObject(int skaterId, int score, uint32_t count, uint32_t* ob
                 server->StreamMessage(AsPlayer(info)->GetConnHandle(), desc.m_id, desc.m_length, desc.m_data,
                                       kTrickObjBuffer, Obj::kGroupGame, true, false);
         }
-        GameFunction<void(__thiscall*)(void*, int)>(0x0056BB70)(skate, 0); // the skate module's score updates
+        static_cast<Mdl::Skate*>(skate)->SendScoreUpdates(false); // the skate module's score updates
         if (conn->IsLocal()) // (no check: as the original)
             return;
     }

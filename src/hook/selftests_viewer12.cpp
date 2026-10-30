@@ -3,6 +3,8 @@
 // manager, the profile and stats pieces, scripts...) is a recording stand-in, and the calls and the whole arena are
 // compared.
 
+#include <initializer_list>
+#include <utility>
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -15,7 +17,10 @@
 #include "game/script/cscript.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
+#include "game/goals/create_a_trick.h"
 #include "game/script/game_cfuncs.h"
+#include "game/skater/skater_camera_component.h"
+#include "game/skater/trick_component.h"
 #include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
@@ -167,25 +172,30 @@ void Install(StandIns& s)
         Rec(0x7D40, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    for (uint32_t address : {0x004FA3C0u, 0x00524C50u, 0x00525E60u, 0x00419B30u, 0x00522410u,
-                             0x0051D9C0u, 0x0051DA20u})
+    for (uint32_t address : {0x00524C50u, 0x00525E60u, 0x00419B30u, 0x00522410u, 0x0051D9C0u, 0x0051DA20u})
         Simple(s, {address}, 4);
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x004FA3C0u, AddressOf(&Obj::CSkaterCameraComponent::SetSkater)}})
+        Simple(s, {address, ours_}, 4);
     // (the vibration's SetActive: a bool - the original passes the skate module's byte, ours that byte != 0; the
     // original only tests and compares it as a truth value)
     s.AtOnly({0x0043D560, OursOf(0x0043D560)}, 4, [](Regs& r) {
         Rec(0xD560, {Rel(r.ecx), (r.args[0] & 0xFF) != 0 ? 1u : 0u});
         return 0u;
     });
-    for (uint32_t address : {0x004F9AE0u, 0x00419A90u})
+    for (uint32_t address : {0x00419A90u})
         Simple(s, {address}, 8);
-    for (uint32_t address : {0x0051EB00u, 0x0051ED10u, 0x0051EB30u, 0x0051EF00u, 0x00420480u, 0x0051D830u})
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x004F9AE0u, AddressOf(&Obj::CSkaterCameraComponent::SetMode)}})
+        Simple(s, {address, ours_}, 8);
+    for (uint32_t address : {0x00420480u, 0x0051D830u})
         Simple(s, {address}, 0);
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x0051EB00u, AddressOf(&Obj::CTrickComponent::ClearEventBuffer)}, {0x0051ED10u, AddressOf(&Obj::CTrickComponent::ClearQueue)}, {0x0051EB30u, AddressOf(&Obj::CTrickComponent::ClearBlock1238)}, {0x0051EF00u, AddressOf(&Obj::CTrickComponent::ClearBlock1280)}})
+        Simple(s, {address, ours_}, 0);
     Simple(s, {0x00407A60}, 0, 1);
-    s.AtOnly({0x00552560}, 0, [](Regs& r) {
+    s.AtOnly({0x00552560, AddressOf(&Game::CCreateATrick::Construct)}, 0, [](Regs& r) {
         Rec(0x2560, {r.ecx});
         return r.ecx;
     });
-    s.AtOnly({0x0059F890, AddressOf(&CFuncs::MakeCameraActive)}, 0, [](Regs& r) {
+    s.AtOnly({0x0059F890, AddressOf(CFuncs::MakeCameraActive)}, 0, [](Regs& r) {
         Rec(0xF890, {r.args[0], r.args[1], r.args[2]});
         return 0u;
     });
@@ -194,7 +204,7 @@ void Install(StandIns& s)
         return 0u;
     });
     // The scripts, the network, arrays.
-    s.AtOnly({0x005A11B0}, 0, [](Regs& r) {
+    s.AtOnly({0x005A11B0, AddressOf(CFuncs::CFunc_InMultiplayerGame)}, 0, [](Regs& r) {
         Rec(0x11B0, {r.args[0], r.args[1]});
         return g_netRule ? 1u : 0u;
     });

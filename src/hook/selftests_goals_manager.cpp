@@ -43,6 +43,7 @@
 #include "game/skate/trick_goals.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
+#include "game/script/struct.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/score.h"
 #include "hook/game.h"

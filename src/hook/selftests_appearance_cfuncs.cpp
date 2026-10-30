@@ -23,7 +23,9 @@
 #include "game/skater/skater.h"
 #include "game/skater/skater_query_cfuncs.h"
 #include "game/skater/trick_component.h"
+#include "game/gfx/model_appearance.h"
 #include "game/goals/goal_manager.h"
+#include "game/skate/cas_options.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -173,15 +175,15 @@ void StandInAppearanceCalls(StandIns& s)
         return 0u;
     });
     // The appearance's parts
-    s.At({0x00485CF0}, 0, [](Regs& r) {
+    s.At({0x00485CF0, AddressOf(Obj::FindCasOption)}, 0, [](Regs& r) {
         Record({0x5CF0, r.args[0], r.args[1], r.args[2] & 0xFF});
         return r.args[1] == 0xD0 ? 0u : reinterpret_cast<uint32_t>(g_parts[0].Struct());
     });
-    s.At({0x00489050}, 4, [](Regs& r) {
+    s.At({0x00489050, AddressOf(&Gfx::CModelAppearance::GetPartOption)}, 4, [](Regs& r) {
         Record({0x9050, Rel(r.ecx), r.args[0]});
         return r.args[0] == 0xBAD ? 0u : reinterpret_cast<uint32_t>(g_parts[1].Struct());
     });
-    s.At({0x004890B0}, 4, [](Regs& r) {
+    s.At({0x004890B0, AddressOf(&Gfx::CModelAppearance::GetPart)}, 4, [](Regs& r) {
         Record({0x90B0, Rel(r.ecx), r.args[0]});
         return r.args[0] == 0xBAD ? 0u : reinterpret_cast<uint32_t>(g_parts[2].Struct());
     });
@@ -240,7 +242,7 @@ void StandInAppearanceCalls(StandIns& s)
         Record({0xB640, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_profiles[r.args[0] % kProfiles]);
     });
-    s.At({0x00557FB0}, 4, [](Regs& r) {
+    s.At({0x00557FB0, AddressOf(&Game::CGoalManager::GetGoalByIndex)}, 4, [](Regs& r) {
         Record({0x7FB0, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_profiles[r.args[0] % kProfiles]);
     });

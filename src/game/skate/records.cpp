@@ -10,6 +10,7 @@
 #include "game/front/level_editor_layout.h"
 #include "game/script/struct.h"
 #include "game/skate/skate_module_calls.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -405,7 +406,7 @@ bool UpdateRecords(bool editedCopy)
             "records or the save)");
         return true;
     }
-    GameFunction<void(__thiscall*)(uint8_t*)>(0x00566F40)(skate);
+    reinterpret_cast<Mdl::Skate*>(skate)->UpdateRecords();
     return true;
 }
 

@@ -22,10 +22,12 @@
 #include "game/skate/profile_cfuncs.h"
 #include "game/skater/skater.h"
 #include "game/skater/tagging.h"
-#include "game/gfx/model.h"
 #include "game/gfx/model_appearance.h"
-#include "game/gfx/skeleton.h"
 #include "game/gfx/texture_dict.h"
+#include "game/script/struct.h"
+#include "game/skate/profile_manager.h"
+#include "game/gfx/model.h"
+#include "game/gfx/skeleton.h"
 #include "game/script/game_cfuncs.h"
 #include "hook/gs4_testkit.h"
 
@@ -444,7 +446,7 @@ void StandInCagCalls(StandIns& s)
     // (ours calls the texture's slots directly, not through the stubs: the fake textures' vtable has the stand-ins)
     for (auto& texture : g_cTextures)
         *reinterpret_cast<void***>(texture) = g_cTextureVtable;
-    s.At({0x0049F500}, 4, [](Regs& r) {
+    s.At({0x0049F500, AddressOf(&Nx::CTexDict::UnloadTexture)}, 4, [](Regs& r) {
         Record({0xF500, r.ecx, TexId(r.args[0])});
         return 1u;
     });
