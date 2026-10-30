@@ -22,6 +22,8 @@
 #include "game/skater/floating_name.h"
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
+#include "game/skate/game_mode.h"
+#include "game/skater/core_physics.h"
 #include "hook/skater3_testkit.h"
 
 namespace {
@@ -72,8 +74,8 @@ void StandIn(StandIns& s)
             Record({data[i]});
         return 0u;
     });
-    Rec(s, {0x004FE120}, 0, 0xE120);
-    Rec(s, {0x004FC440}, 0, 0xC440, [](Regs&) { return g_a.flipNeeded ? 1u : 0u; });
+    Rec(s, {0x004FE120, AddressOf(&Skater::CorePhysicsComponent::TurnAround)}, 0, 0xE120);
+    Rec(s, {0x004FC440, AddressOf(&Skater::CorePhysicsComponent::IsSwitched)}, 0, 0xC440, [](Regs&) { return g_a.flipNeeded ? 1u : 0u; });
     Rec(s, {0x00419C10, AddressOf(&Obj::CAnimBlenderComponent::AnyChannel)}, 4, 0x9C10);
     Rec(s, {0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0, 0xECE0, [](Regs&) { return static_cast<uint32_t>(g_a.clock); },
         false);
@@ -90,7 +92,7 @@ void StandIn(StandIns& s)
     Rec(s, {0x004637E0, AddressOf(&Obj::CRefCounted::RemoveSmartPointer)}, 1, 0x37E0);
     Rec(s, {0x00580050, AddressOf(&Obj::CSkater::GetFlag2C4)}, 0, 0x0050, [](Regs&) { return g_a.shown ? 1u : 0u; });
     Rec(s, {0x00532EC0, AddressOf(&GameNet::Manager::GetCamPlayer)}, 0, 0x2EC0, [](Regs&) { return g_a.playerIsLocal ? Addr(kPlayer) : Addr(kLocalPlayer); });
-    Rec(s, {0x005535F0}, 0, 0x35F0, [](Regs&) { return g_a.teams ? 1u : 0u; });
+    Rec(s, {0x005535F0, AddressOf(&Game::CGameMode::IsTeamGame)}, 0, 0x35F0, [](Regs&) { return g_a.teams ? 1u : 0u; });
     Rec(s, {0x00581580, AddressOf(&Obj::CSkater::GetDisplayName)}, 0, 0x1580,
         [](Regs&) { return reinterpret_cast<uint32_t>("Tony Hawk"); });
     s.At({0x006234FE}, 0, StandInSprintf);

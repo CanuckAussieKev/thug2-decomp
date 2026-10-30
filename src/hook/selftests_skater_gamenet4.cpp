@@ -14,6 +14,9 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/player_info.h"
 #include "game/sys/timer.h"
+#include "game/ed/rail_editor.h"
+#include "game/goals/goal_manager.h"
+#include "game/skate/game_mode.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -101,15 +104,15 @@ void Install(StandIns& s)
     Stub(s, {0x0053A580, AddressOf(&GameNet::Manager::NextCamPlayer)}, 0, 0xA580, [](Regs&) { return g_nextCam ? At(g_nextCam) : 0u; });
     Stub(s, {0x0053A910, AddressOf(&GameNet::Manager::ObservePlayer)}, 4, 0xA910);
     Stub(s, {0x0058D690, AddressOf(&Ed::CParkEditor::GetCompressedMapBuffer)}, 4, 0xD690, [](Regs&) { return At(kMisc + 0x300 + 0x40); });
-    StubCdecl(s, {0x004F4970}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x500); });
-    Stub(s, {0x004F45B0}, 0, 0x45B0, [](Regs& r) { return r.ecx + 0x34; });
+    StubCdecl(s, {0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x500); });
+    Stub(s, {0x004F45B0, AddressOf(&Ed::CRailEditorComponent::GetPacked)}, 0, 0x45B0, [](Regs& r) { return r.ecx + 0x34; });
     StubCdecl(s, {0x004E8470}, 0x8470, 0, [](Regs&) { return At(kMisc + 0x600); });
     Stub(s, {0x004E7E50}, 4, 0x7E50, [](Regs&) { return g_goalCount; });
     Stub(s, {0x004EBB70}, 12, 0xBB70, [](Regs&) { return 0x30u; });
     StubCdecl(s, {0x005BE970, AddressOf(&Tmr::GetTime)}, 0xE970, 0, [](Regs&) { return 0x00ABCDEFu; });
     Stub(s, {0x00544670, AddressOf(&GameNet::PlayerInfo::AwaitReadyResponse)}, 4, 0x4670);
-    StubCdecl(s, {0x005591B0}, 0x91B0, 0, [](Regs&) { return At(kMisc + 0x700); });
-    Stub(s, {0x00557F90}, 8, 0x7F90, [](Regs& r) {
+    StubCdecl(s, {0x005591B0, AddressOf(Game::GetGoalManager)}, 0x91B0, 0, [](Regs&) { return At(kMisc + 0x700); });
+    Stub(s, {0x00557F90, AddressOf(&Game::CGoalManager::GetGoal)}, 8, 0x7F90, [](Regs& r) {
         uint32_t name = r.args[0];
         return name >= 0x60A10000 && name < 0x60A10010 ? At(kGoals + 0x40 * (name - 0x60A10000)) : 0u;
     });
@@ -125,8 +128,8 @@ void Install(StandIns& s)
         Rec(0x40DE, {r.ecx, r.args[0]});
         return r.ecx;
     });
-    Stub(s, {0x005535F0}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
-    Stub(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_gameType; });
+    Stub(s, {0x005535F0, AddressOf(&Game::CGameMode::IsTeamGame)}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
+    Stub(s, {0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, [](Regs&) { return g_gameType; });
     Stub(s, {0x00543560, AddressOf(&GameNet::NewPlayerInfo::DestroyBody)}, 0, 0x3560);
     Stub(s, {0x00544340, AddressOf(&GameNet::PlayerInfo::MarkAsKing)}, 4, 0x4340);
     StubCdecl(s, {0x00403DE0, AddressOf(&Mth::Rnd)}, 0x3DE0, 1, [](Regs&) { return 0xFFFFFF07u; });

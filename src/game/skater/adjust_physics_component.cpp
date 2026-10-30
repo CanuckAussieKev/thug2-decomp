@@ -14,6 +14,7 @@
 #include "game/obj/movable_contact.h"
 #include "game/obj/walk_hang.h"
 #include "game/sys/game_clock.h"
+#include "game/skater/core_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -41,7 +42,7 @@ T& At(const void* base, uint32_t offset)
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(base) + offset);
 }
 
-void SetState(void* core, int state) { GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(core, state); }
+void SetState(void* core, int state) { static_cast<Skater::CorePhysicsComponent*>(core)->SetPhysicsState(state); }
 
 // The debug message's strings as the original passes them ("M:%s:%i: %s\n", the source file, "found to be inside a
 // moving object").

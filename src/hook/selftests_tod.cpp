@@ -28,6 +28,8 @@
 #include "game/script/node_prefixes.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -309,11 +311,11 @@ void InstallStandIns(StandIns& s)
         Rec(0xE360, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x005651F0}, 0, [](Regs&) {
+    s.At({0x005651F0, AddressOf(Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) {
         Rec(0x51F0, {});
         return g_tod_multiplayer ? 1u : 0u;
     });
-    s.At({0x005532A0}, 0, [](Regs& r) {
+    s.At({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, [](Regs& r) {
         Rec(0x32A1, {r.ecx});
         return g_tod_gameMode;
     });

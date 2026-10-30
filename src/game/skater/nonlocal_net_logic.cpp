@@ -21,6 +21,9 @@
 #include "game/skater/skater.h"
 #include "game/skater/skater_x87.h"
 #include "game/sys/timer.h"
+#include "game/gfx/engine_model_lights.h"
+#include "game/gfx/light_manager.h"
+#include "game/skate/game_mode.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -186,10 +189,10 @@ void CSkaterNonLocalNetLogicComponent::UpdateGroundLighting()
         void* model = Field<void*>(m_model, 0x208);
         void* light = Field<void*>(model, 0x2C);
         if (light)
-            GameFunction<void(__thiscall*)(void*, float, float)>(0x0048E830)(
-                light, static_cast<float>(feeler.GetHitVertexValue()), kLightTime);
+            static_cast<Nx::CModelLights*>(light)->MoveBrightness(static_cast<float>(feeler.GetHitVertexValue()),
+                                                                  kLightTime);
         else
-            GameFunction<void(__cdecl*)(float)>(0x0048EDB0)(static_cast<float>(feeler.GetHitVertexValue()));
+            Nx::SetWorldBrightness(static_cast<float>(feeler.GetHitVertexValue()));
     }
     // The shadow at the hit.
     static_cast<CShadowComponent*>(m_shadow)->SetPosition(&feeler.m_point);
@@ -443,8 +446,8 @@ void CSkaterNonLocalNetLogicComponent::Update()
     if (!player->IsObserver() && !player->IsSurveying()) {
         void* gameMode = GameVariable<void*>(0x007CE470);
         bool extrapolate = GameVariable<GameNet::Manager*>(0x007CCE14)->PlayerCollisionEnabled() ||
-                           GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(gameMode) == kNetFirefight ||
-                           GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(gameMode) == kFirefight;
+                           static_cast<Game::CGameMode*>(gameMode)->GetNameChecksum() == kNetFirefight ||
+                           static_cast<Game::CGameMode*>(gameMode)->GetNameChecksum() == kFirefight;
         if (extrapolate && Field<int>(m_history, 0x18) >= kHistory) {
             if (Field<int>(m_state, 0x18) == kStateRail) {
                 ExtrapolateOnRail();

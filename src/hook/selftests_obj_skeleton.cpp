@@ -17,6 +17,8 @@
 #include "game/obj/skeleton_component.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/texture_dict.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -192,7 +194,7 @@ void StandIn(StandIns& s)
         Record({0xF560, r.ecx, Hash(reinterpret_cast<const char*>(r.args[0]))});
         return reinterpret_cast<uint32_t>(g_world.texture);
     });
-    s.At({0x0049F540}, 4, [](Regs& r) {
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) {
         Record({0xF540, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_world.texture) + 4;
     });
@@ -201,7 +203,7 @@ void StandIn(StandIns& s)
         Record({0xBA3, static_cast<uint32_t>(g_a.rand)});
         return static_cast<uint32_t>(g_a.rand);
     });
-    s.At({0x004928A0}, 0, [](Regs& r) {
+    s.At({0x004928A0, AddressOf(Nx::Engine::CreateTextureSplatAt)}, 0, [](Regs& r) {
         const uint32_t* p = reinterpret_cast<const uint32_t*>(r.args[0]);
         const uint32_t* e = reinterpret_cast<const uint32_t*>(r.args[1]);
         Record({0x28A0, p[0], p[1], p[2], p[3], e[0], e[1], e[2], e[3]});

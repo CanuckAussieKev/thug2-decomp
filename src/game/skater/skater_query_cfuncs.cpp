@@ -18,6 +18,9 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/skater.h"
 #include "game/skater/skater_score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
+#include "game/skater/skater_camera_component.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -63,7 +66,7 @@ PlayerInfo* NextPlayer(GameNet::Manager* manager, PlayerSearch* search, bool obs
 }
 
 // 0x005535F0: a team game.
-bool IsTeamGame() { return GameFunction<bool(__thiscall*)(void*)>(0x005535F0)(GameMode()); }
+bool IsTeamGame() { return static_cast<Game::CGameMode*>(GameMode())->IsTeamGame() != 0; }
 
 // A skater's score (Mdl::Score, not rewritten yet): 0x00561B40 its total; +0x14 the trick's base score, +0x60 its
 // multiplier, +0x20 the last trick's score.
@@ -76,7 +79,7 @@ uint8_t* ComponentScoreOf(Obj::CCompositeObject* skater)
 {
     return static_cast<Obj::CSkaterScoreComponent*>(skater->GetComponent(kSkaterScore))->m_score;
 }
-int TotalScore(uint8_t* score) { return GameFunction<int(__thiscall*)(uint8_t*)>(0x00561B40)(score); }
+int TotalScore(uint8_t* score) { return reinterpret_cast<Mdl::Score*>(score)->GetTotalScore(); }
 int LastScoreLanded(uint8_t* score) { return *reinterpret_cast<int*>(score + 0x20); }
 // The score pot: the base score times the multiplier, truncated (x87 at 53 bits, then the original's _ftol).
 int ScorePot(uint8_t* score)
@@ -508,7 +511,7 @@ bool __cdecl CFunc_ToggleSkaterCamMode(Script::CStruct* params, Script::CScript*
     }
     if (skater) {
         auto* camera = static_cast<Obj::CCompositeObject*>(static_cast<Obj::CSkater*>(skater)->GetSkaterCamera());
-        GameFunction<void(__thiscall*)(Obj::CBaseComponent*)>(0x004FA7D0)(camera->GetComponent(kSkaterCamera));
+        static_cast<Obj::CSkaterCameraComponent*>(camera->GetComponent(kSkaterCamera))->NextMode();
     }
     return true;
 }

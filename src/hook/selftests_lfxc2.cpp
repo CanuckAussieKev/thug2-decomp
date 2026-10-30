@@ -15,6 +15,7 @@
 #include "game/ed/park_editor.h"
 #include "game/park/park_editor.h"
 #include "game/park/park_memory.h"
+#include "game/ed/rail_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -96,7 +97,7 @@ void StandInParkEditor(StandIns& s)
     });
     plain(0x00593610, 0, 0x3610, 0, AddressOf(&Ed::CParkGenerator::CleanUpOutRefs));
     plain(0x00592090, 0, 0x2090, 0, AddressOf(&Ed::CParkGenerator::RebuildCollision));
-    s.At({0x004F4970}, 0, [](Regs&) { Record({0x4970}); return g_edEngine; });
+    s.At({0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) { Record({0x4970}); return g_edEngine; });
     s.At({0x00591C60, AddressOf(&Ed::CMapListTemp::Destroy)}, 0, [](Regs& r) {
         Record({0x1C60, *reinterpret_cast<uint32_t*>(r.ecx) ? EdRel(*reinterpret_cast<uint32_t*>(r.ecx)) : 0u});
         return 0u;

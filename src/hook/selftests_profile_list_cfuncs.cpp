@@ -14,6 +14,8 @@
 #include "game/skate/career.h"
 #include "game/skate/skater_profile_cfuncs.h"
 #include "game/skate/profile_manager.h"
+#include "game/gfx/model_appearance.h"
+#include "game/goals/goal_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -68,7 +70,7 @@ void StandInProfileListCalls(StandIns& s)
         return r.args[0] == kMasterSkaterList ? reinterpret_cast<uint32_t>(&g_master)
                                               : r.args[0] == kStatNames ? reinterpret_cast<uint32_t>(&g_stats) : 0u;
     });
-    s.At({0x00557FB0}, 4, [](Regs& r) {
+    s.At({0x00557FB0, AddressOf(&Game::CGoalManager::GetGoalByIndex)}, 4, [](Regs& r) {
         Record({0x7FB0, r.ecx, r.args[0]});
         return r.args[0] < kTemplates ? reinterpret_cast<uint32_t>(g_profiles[r.args[0]]) : 0u;
     });
@@ -80,7 +82,7 @@ void StandInProfileListCalls(StandIns& s)
         Record({0xB640, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_profiles[r.args[0] % kTemplates]);
     });
-    s.At({0x00564F80}, 4, [](Regs& r) {
+    s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4F80, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_profiles[2]);
     });
@@ -92,7 +94,7 @@ void StandInProfileListCalls(StandIns& s)
         Record({0x6810, Rel(r.ecx), Rel(r.args[0])});
         return 1u;
     });
-    s.At({0x00488F40}, 8, [](Regs& r) {
+    s.At({0x00488F40, AddressOf(&Gfx::CModelAppearance::Load)}, 8, [](Regs& r) {
         Record({0x8F40, Rel(r.ecx), r.args[0], r.args[1] & 0xFF});
         return 0u;
     });
@@ -112,7 +114,7 @@ void StandInProfileListCalls(StandIns& s)
         Record({0x8540, Rel(r.ecx), Rel(r.args[0])});
         return 0u;
     });
-    s.At({0x00566980}, 8, [](Regs& r) {
+    s.At({0x00566980, AddressOf(&Mdl::Skate::ResetSkaters)}, 8, [](Regs& r) {
         Record({0x6980, r.ecx, r.args[0], r.args[1] & 0xFF});
         return 0u;
     });

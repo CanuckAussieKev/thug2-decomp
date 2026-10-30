@@ -12,6 +12,11 @@
 #include "game/skate/career.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
+#include "game/ed/goal_editor.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_appearance.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -40,11 +45,8 @@ Obj::CSkaterCareer* Career()
 }
 CStruct* ResultParams(CScript* script) { return *reinterpret_cast<CStruct**>(reinterpret_cast<uint8_t*>(script) + 0x14); }
 
-// The skate module's profile `index` (0x00564F80, no source yet).
-Obj::CSkaterProfile* SkateProfile(int index)
-{
-    return GameFunction<Obj::CSkaterProfile*(__thiscall*)(Mdl::Skate*, int)>(0x00564F80)(Mdl::Skate::Instance(), index);
-}
+// The skate module's profile `params`' skater names (0x00564F80).
+Obj::CSkaterProfile* SkateProfile(CStruct* params) { return Mdl::Skate::Instance()->GetProfile(params); }
 
 const char* const kNoText = reinterpret_cast<const char*>(0x0064F7B4); // "---"
 
@@ -111,10 +113,9 @@ void PreloadMeshes(uint32_t arrayName)
         if (!entry->GetString(0x1E90C5A9u, &mesh, 0)) // mesh
             continue;
         // a model made (0x0048BFA0), the mesh added to it (0x004935E0), the model deleted (0x0048C3C0)
-        void* model = GameFunction<void*(__cdecl*)(int)>(0x0048BFA0)(1);
-        GameFunction<void*(__thiscall*)(void*, const char*, int, int, int, int, int, int, int)>(0x004935E0)(
-            model, mesh, 0, 1, 0, 0, 0, 1, 0);
-        GameFunction<void(__cdecl*)(void*)>(0x0048C3C0)(model);
+        void* model = Nx::CreateModel();
+        static_cast<Nx::CModel*>(model)->AddFileGeom(mesh, 0, true, 0, false, false, true, false);
+        Nx::Engine::DeleteGeomObject(model);
     }
 }
 
@@ -137,14 +138,14 @@ __declspec(naked) void PreloadMeshesStub()
 bool __cdecl CFunc_AddGoalEditorNodesToLevelNodeArray(CStruct*, CScript*)
 {
     // the goal editor's nodes added (0x004E8F50, no source yet)
-    GameFunction<void(__cdecl*)(int, int, void*)>(0x004E8F50)(0, 0, Mem::Manager::Get()->m_bottomUpHeap);
+    Ed::AddGoalEditorNodes(nullptr, nullptr, Mem::Manager::Get()->m_bottomUpHeap);
     return true;
 }
 
 // 0x005AAB50
 bool __cdecl CFunc_CurrentSkaterIsPro(CStruct* params, CScript*)
 {
-    Obj::CSkaterProfile* profile = SkateProfile(static_cast<int>(reinterpret_cast<intptr_t>(params)));
+    Obj::CSkaterProfile* profile = SkateProfile(params);
     return profile && profile->IsPro();
 }
 
@@ -218,12 +219,12 @@ bool __cdecl CFunc_RememberTemporaryAppearance(CStruct* params, CScript*)
     params->GetChecksum(0xA1DC81F9u, &name, 1); // name
     // a model appearance (Gfx::CModelAppearance, 0x5C bytes: constructor 0x00488EA0, destructor body 0x004890F0)
     alignas(4) uint8_t appearance[0x5C];
-    GameFunction<void*(__thiscall*)(void*)>(0x00488EA0)(appearance);
+    reinterpret_cast<Gfx::CModelAppearance*>(appearance)->Construct();
     Obj::CPlayerProfileManager* profiles = Profiles();
     uint8_t* source;
     CStruct* structure = nullptr;
     if (params->GetStructure(0xEFC8944Cu, &structure, 0)) { // appearance_structure
-        GameFunction<void(__thiscall*)(void*, CStruct*, bool)>(0x00488F40)(appearance, structure, true);
+        reinterpret_cast<Gfx::CModelAppearance*>(appearance)->Load(structure, true);
         source = appearance;
     } else {
         int player; // (asserted: used as it is)
@@ -236,9 +237,10 @@ bool __cdecl CFunc_RememberTemporaryAppearance(CStruct* params, CScript*)
         own->Clear();
         own->AppendStructureIfAny(reinterpret_cast<CStruct*>(source + 0x4C));
     } else {
-        GameFunction<void*(__thiscall*)(void*, const void*)>(0x004893A0)(temporary, source); // the appearance copied
+        reinterpret_cast<Gfx::CModelAppearance*>(temporary)->CopyFrom(
+            reinterpret_cast<Gfx::CModelAppearance*>(source)); // the appearance copied
     }
-    GameFunction<void(__thiscall*)(void*)>(0x004890F0)(appearance);
+    reinterpret_cast<Gfx::CModelAppearance*>(appearance)->DestroyBody();
     return true;
 }
 

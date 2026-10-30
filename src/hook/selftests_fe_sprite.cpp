@@ -6,6 +6,7 @@
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/occlusion.h"
 #include "game/mth/vector.h"
+#include "game/gfx/texture_dict.h"
 #include "hook/fe_element_fixture.h"
 #include "hook/selftest.h"
 
@@ -86,7 +87,7 @@ void InstallSpriteStandIns(StandIns& s)
         return 0u;
     });
     // the texture dictionary and the texture's size (garbage above the 16 bits)
-    s.At({0x0049F540}, 4, [](Regs& r) {
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) {
         Rec(0xF540, {r.ecx, r.args[0]});
         return g_noTexture ? 0u : At(kTexture);
     });

@@ -11,6 +11,11 @@
 #include "game/net/player_info.h"
 #include "game/script/struct.h"
 #include "game/skater/skater.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -55,16 +60,16 @@ uint32_t SkaterCount(uint8_t* skate)
 }
 uint8_t* GetSkater(uint8_t* skate, uint32_t index)
 {
-    return GameFunction<uint8_t*(__thiscall*)(uint8_t*, uint32_t)>(0x005665C0)(skate, index);
+    return reinterpret_cast<uint8_t*>(reinterpret_cast<Mdl::Skate*>(skate)->GetSkater(static_cast<int>(index)));
 }
 // A skater's score object (Mdl::Score) and its total.
 uint8_t* ScoreOf(uint8_t* skater) { return static_cast<uint8_t*>(reinterpret_cast<Obj::CSkater*>(skater)->GetScore()); }
-int TotalScore(uint8_t* score) { return GameFunction<int(__thiscall*)(uint8_t*)>(0x00561B40)(score); }
+int TotalScore(uint8_t* score) { return reinterpret_cast<Mdl::Score*>(score)->GetTotalScore(); }
 
 // The game mode (0x007CE470).
 void* GameMode() { return GameVariable<void*>(0x007CE470); }
-bool IsTeamGame() { return GameFunction<bool(__thiscall*)(void*)>(0x005535F0)(GameMode()); }
-int NumTeams() { return GameFunction<int(__thiscall*)(void*)>(0x00553130)(GameMode()); }
+bool IsTeamGame() { return static_cast<CGameMode*>(GameMode())->IsTeamGame() != 0; }
+int NumTeams() { return static_cast<CGameMode*>(GameMode())->NumTeams(); }
 
 // The network manager's players (0x007CCE14): PlayerInfo +0x14 the skater, +0x30 the team, +0x34 the objects
 // collected. Walked with a Lst::Search<PlayerInfo> (vtable 0x0064C1A8).
@@ -167,26 +172,26 @@ bool CCompleteGoalsVictoryCondition::ConditionComplete()
 {
     GameNet::Manager* net = NetManager();
     uint8_t* skate = Skate();
-    void* goals = GameFunction<void*(__cdecl*)()>(0x005591B0)(); // the skate module's goal manager
+    CGoalManager* goals = GetGoalManager(); // the skate module's goal manager
     if (IsTeamGame()) {
-        int needed = GameFunction<int(__thiscall*)(void*)>(0x00558200)(goals);
+        int needed = goals->GetNumSelectedGoals();
         for (int team = 0; team < NumTeams(); ++team) {
             if (net->GetTeamScore(team) >= needed)
                 return true;
         }
         return false;
     }
-    uint32_t count = *static_cast<uint32_t*>(goals); // (the goals there are: its first word - 0x00469490, a folded getter)
+    uint32_t count = *reinterpret_cast<uint32_t*>(goals); // (the goals there are: its first word - 0x00469490, a folded getter)
     for (uint32_t i = 0; i < SkaterCount(skate); ++i) {
         uint8_t* skater = GetSkater(skate, i);
         if (count == 0)
             return true;
         bool missing = false;
         for (uint32_t g = 0; g < count; ++g) {
-            uint8_t* goal = GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x00557FB0)(goals, g);
+            uint8_t* goal = reinterpret_cast<uint8_t*>(goals->GetGoalByIndex(static_cast<int>(g)));
             // A goal that doesn't count (+0x2C's value set, or 0x005542F0 false) or that the skater has won (vtable
             // +0x50, by the skater's id).
-            if (**reinterpret_cast<int**>(goal + 0x2C) != 0 || !GameFunction<bool(__thiscall*)(uint8_t*)>(0x005542F0)(goal))
+            if (**reinterpret_cast<int**>(goal + 0x2C) != 0 || !reinterpret_cast<CGoal*>(goal)->IsSelected())
                 continue;
             auto hasWon = reinterpret_cast<bool(__thiscall*)(uint8_t*, uint32_t)>((*reinterpret_cast<void***>(goal))[0x50 / 4]);
             if (hasWon(goal, *reinterpret_cast<uint32_t*>(skater + 0x14)))

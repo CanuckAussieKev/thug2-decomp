@@ -14,6 +14,7 @@
 #include "game/core/pool.h"
 #include "game/script/cfuncs_engine.h"
 #include "game/script/struct.h"
+#include "game/gfx/texture_dict.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -64,7 +65,7 @@ void StandInCalls(StandIns& s)
         return reinterpret_cast<uint32_t>(block);
     });
     s.At({0x005BABA0, AddressOf(&Mem::Manager::Free)}, 4, [](Regs& r) { Record({0xABA0, HeapRel(r.args[0])}); return 0u; });
-    s.At({0x0049F540}, 4, [](Regs& r) { Record({0xF540, r.ecx, r.args[0]}); return 0x7E400000u + (r.args[0] & 0xFFFF); });
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) { Record({0xF540, r.ecx, r.args[0]}); return 0x7E400000u + (r.args[0] & 0xFFFF); });
     s.At({0x00492450}, 0, [](Regs& r) {
         Record({0x2450, HeapRel(r.args[0])});
         const auto* details = reinterpret_cast<const uint32_t*>(r.args[0]);

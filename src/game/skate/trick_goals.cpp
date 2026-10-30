@@ -23,6 +23,10 @@
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/goals/goal_manager.h"
+#include "game/skate/score.h"
+#include "game/skate/skate_module.h"
+#include "game/goals/goal.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -125,42 +129,34 @@ double ThreeQuarters() { return GameVariable<double>(0x0064E918); }
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-// CGoal's own (not rewritten yet).
-template <typename R, typename... A>
-R CallGoal(uint32_t address, GoalBase* goal, A... args)
-{
-    return GameFunction<R(__thiscall*)(GoalBase*, A...)>(address)(goal, args...);
-}
 template <typename R, typename... A>
 R Virtual(GoalBase* goal, int offset, A... args)
 {
     return reinterpret_cast<R(__thiscall*)(GoalBase*, A...)>(goal->m_vtable[offset / 4])(goal, args...);
 }
-void ConstructGoal(GoalBase* goal, Script::CStruct* params) { CallGoal<GoalBase*>(0x00556FE0, goal, params); }
-void DestroyGoal(GoalBase* goal) { CallGoal<void>(0x00556110, goal); }
-uint32_t GoalId(GoalBase* goal) { return CallGoal<uint32_t>(0x00554280, goal); }
-bool BaseUpdate(GoalBase* goal) { return CallGoal<bool>(0x00554DD0, goal); }
-bool BaseActivate(GoalBase* goal) { return CallGoal<bool>(0x00557360, goal); }
+void ConstructGoal(GoalBase* goal, Script::CStruct* params) { reinterpret_cast<GoalBase*>(reinterpret_cast<CGoal*>(goal)->Construct(params)); }
+void DestroyGoal(GoalBase* goal) { reinterpret_cast<CGoal*>(goal)->DestroyBody(); }
+uint32_t GoalId(GoalBase* goal) { return reinterpret_cast<CGoal*>(goal)->GetGoalId(); }
+bool BaseUpdate(GoalBase* goal) { return reinterpret_cast<CGoal*>(goal)->Update(); }
+bool BaseActivate(GoalBase* goal) { return reinterpret_cast<CGoal*>(goal)->Activate(); }
 // The goal manager (the skate module's, 0x005591B0) winning / losing / starting a goal.
-void* GoalManager() { return GameFunction<void*(__cdecl*)()>(0x005591B0)(); }
-void WinGoal(void* manager, uint32_t id) { GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00558030)(manager, id); }
-void LoseGoal(void* manager, uint32_t id) { GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00558180)(manager, id); }
+void* GoalManager() { return GetGoalManager(); }
+void WinGoal(void* manager, uint32_t id) { static_cast<CGoalManager*>(manager)->WinGoal(id); }
+void LoseGoal(void* manager, uint32_t id) { static_cast<CGoalManager*>(manager)->LoseGoal(id); }
 
 // The skate module (0x007CE478): the local skater, its score (Mdl::Score), the tricks the score has seen.
 uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
-uint8_t* LocalSkater() { return GameFunction<uint8_t*(__thiscall*)(uint8_t*)>(0x00566520)(Skate()); }
+uint8_t* LocalSkater() { return reinterpret_cast<uint8_t*>(Mdl::Skate::Instance()->GetLocalSkater()); }
 uint8_t* ScoreOf(uint8_t* skater) { return static_cast<uint8_t*>(reinterpret_cast<Obj::CSkater*>(skater)->GetScore()); }
-int TotalScore(uint8_t* score) { return GameFunction<int(__thiscall*)(uint8_t*)>(0x00561B40)(score); }
+int TotalScore(uint8_t* score) { return reinterpret_cast<Mdl::Score*>(score)->GetTotalScore(); }
 // How often the trick (by name / key combo) has been done with this spin, perfect, taps.
 int TrickCount(uint8_t* score, uint32_t trick, int spin, bool perfect, int taps)
 {
-    return GameFunction<int(__thiscall*)(uint8_t*, uint32_t, int, int, int)>(0x005624C0)(score, trick, spin, perfect,
-                                                                                         taps);
+    return reinterpret_cast<Mdl::Score*>(score)->CountTrickAfterTaps(trick, spin, perfect, taps);
 }
 int KeyComboCount(uint8_t* score, uint32_t keyCombo, int spin, bool perfect, int taps)
 {
-    return GameFunction<int(__thiscall*)(uint8_t*, uint32_t, int, int, int)>(0x00562510)(score, keyCombo, spin,
-                                                                                         perfect, taps);
+    return reinterpret_cast<Mdl::Score*>(score)->CountKeyCombo(keyCombo, spin, perfect, taps);
 }
 
 // The screen elements: the manager (0x00701440), an element by id (its raw pointer: the smart pointer the lookup
@@ -285,7 +281,7 @@ bool CTetrisGoal::Win()
     m_params->RemoveFlag(kJustWonGoal);
     if (testing)
         m_params->AddChecksum(0u, kTestingGoal);
-    bool won = CallGoal<bool>(0x005576D0, this);
+    bool won = reinterpret_cast<CGoal*>(this)->Win();
     m_params->RemoveFlag(kTestingGoal);
     return won;
 }
@@ -339,7 +335,7 @@ bool CTetrisGoal::IsTrickTris() { return IntegerOrFlag(m_params, kTrickTris); }
 void CTetrisGoal::Deactivate(int a, int b)
 {
     ClearTricks();
-    CallGoal<void>(0x00557560, this, a, b);
+    reinterpret_cast<CGoal*>(this)->Deactivate(a != 0, b != 0);
 }
 
 // 0x0056F2E0
@@ -395,7 +391,7 @@ void CTetrisGoal::UpdateAlphas()
 void CTetrisGoal::Expire()
 {
     if (IntegerOrFlag(m_params, kSingleCombo) || IsTrickTris()) {
-        CallGoal<void>(0x00554C70, this); // CGoal's
+        reinterpret_cast<CGoal*>(this)->Lose(); // CGoal's
         return;
     }
     if (AllFree()) {
@@ -403,7 +399,7 @@ void CTetrisGoal::Expire()
         WinGoal(manager, GoalId(this));
         return;
     }
-    CallGoal<void>(0x00554A80, this, kExpire);
+    reinterpret_cast<CGoal*>(this)->RunCallbackScript(kExpire);
     if (m_state != 2)
         Virtual<void>(this, 0x34, 0, 1); // Deactivate
 }
@@ -554,7 +550,7 @@ void CTetrisGoal::AddTricks(int count)
                 trick->GetString(kKeyCombo, &keyComboText, 0);
         } else {
             // A key combo: its trick from the skater's trick mapping.
-            int index = CallGoal<int>(0x005568B0, this, keyCombos);
+            int index = reinterpret_cast<CGoal*>(this)->PickKeyCombo(keyCombos);
             if (index == -1)
                 return;
             if (keyCombos->m_type == Script::ESYMBOLTYPE_NAME) {
@@ -577,7 +573,7 @@ void CTetrisGoal::AddTricks(int count)
                 if (entry->GetInteger(kNumTaps, &taps, 0))
                     t.taps = taps;
             }
-            void* profile = GameFunction<void*(__thiscall*)(uint8_t*, int)>(0x00564F80)(Skate(), 0);
+            void* profile = Mdl::Skate::Instance()->GetProfile(static_cast<Script::CStruct*>(nullptr));
             auto* mapping = static_cast<Obj::CSkaterProfile*>(profile)->GetInfoStructure(kTrickMapping);
             const char* trickText = nullptr;
             if (!mapping->GetChecksum(keyCombo, &trickName, 0)) {
@@ -905,7 +901,7 @@ void CTrickBeatGoal::ClearTricks()
 void CTrickBeatGoal::Deactivate(int a, int b)
 {
     ClearTricks();
-    CallGoal<void>(0x00557560, this, a, b);
+    reinterpret_cast<CGoal*>(this)->Deactivate(a != 0, b != 0);
 }
 
 namespace {
@@ -1176,7 +1172,7 @@ void CTrickBeatGoal::AddTricks(int count)
             if (!trick->GetChecksum(kKeyCombo, &keyCombo, 0))
                 trick->GetString(kKeyCombo, &keyComboText, 0);
         } else {
-            int index = CallGoal<int>(0x005568B0, this, keyCombos);
+            int index = reinterpret_cast<CGoal*>(this)->PickKeyCombo(keyCombos);
             if (index == -1)
                 return;
             if (keyCombos->m_type == Script::ESYMBOLTYPE_NAME) {
@@ -1199,7 +1195,7 @@ void CTrickBeatGoal::AddTricks(int count)
                 if (entry->GetInteger(kNumTaps, &taps, 0))
                     t.taps = taps;
             }
-            void* profile = GameFunction<void*(__thiscall*)(uint8_t*, int)>(0x00564F80)(Skate(), 0);
+            void* profile = Mdl::Skate::Instance()->GetProfile(static_cast<Script::CStruct*>(nullptr));
             auto* mapping = static_cast<Obj::CSkaterProfile*>(profile)->GetInfoStructure(kTrickMapping);
             const char* trickText = nullptr;
             if (!mapping->GetChecksum(keyCombo, &trickName, 0)) {
@@ -1374,7 +1370,7 @@ CTrickObjectsGoal* CTrickObjectsGoal::Destroy(uint8_t flags)
 void CTrickObjectsGoal::CheckScore()
 {
     void* manager = GoalManager();
-    if (!CallGoal<bool>(0x00554110, this)) {
+    if (!reinterpret_cast<CGoal*>(this)->AllFlagsSet()) {
         LoseGoal(manager, GoalId(this));
         return;
     }
@@ -1415,7 +1411,7 @@ Script::CStruct* CTrickObjectsGoal::GetObjectByCluster(uint32_t cluster)
 void CTrickObjectsGoal::ObjectHit(uint32_t cluster)
 {
     Script::CStruct* object = GetObjectByCluster(cluster);
-    if (!object || Virtual<bool>(this, 0x54) || CallGoal<bool>(0x00554220, this))
+    if (!object || Virtual<bool>(this, 0x54) || reinterpret_cast<CGoal*>(this)->IsLocked())
         return;
     uint8_t* skater = LocalSkater();
     if (!skater)
@@ -1432,11 +1428,11 @@ void CTrickObjectsGoal::ObjectHit(uint32_t cluster)
         return;
     if (!IsActive()) {
         void* manager = GoalManager();
-        GameFunction<void(__thiscall*)(void*, uint32_t, int)>(0x00557FC0)(manager, GoalId(this), 0);
+        static_cast<CGoalManager*>(manager)->ActivateGoal(GoalId(this), false);
     }
     uint32_t flag;
     object->GetChecksum(kFlag, &flag, 1);
-    if (!CallGoal<bool>(0x005541E0, this, flag, 0))
+    if (!reinterpret_cast<CGoal*>(this)->GoalFlagSet(flag, 0))
         Virtual<void>(this, 0x4C, flag, 1, 0);
 }
 

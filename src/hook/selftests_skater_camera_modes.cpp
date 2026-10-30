@@ -11,6 +11,7 @@
 #include "game/script/struct.h"
 #include "game/skater/skater_camera_component.h"
 #include "game/skater/walk_camera.h"
+#include "game/gfx/viewport_list.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -39,7 +40,7 @@ std::vector<StandIn> CameraStandIns()
          [](Frame& f, Result& r) {
              r.eax = reinterpret_cast<uint32_t>(ArenaPtr(f.args[0] == 0x81C7122D ? kLookaround : kCameraComp));
          }},
-        {0x004A0710, 0, 0, Ret::Int, false, 0, {}, [](Frame&, Result& r) { r.eax = Next() % 3; }},
+        {0x004A0710, 0, 0, Ret::Int, false, 0, {Ours(Nx::GetScreenMode)}, [](Frame&, Result& r) { r.eax = Next() % 3; }},
         {0x00479090, 0, 0, Ret::Int, false, 0,
          {Ours(static_cast<Script::CArray* (*)(const char*)>(&Script::GetArray))}, [](Frame& f, Result& r) {
              const char* name = reinterpret_cast<const char*>(f.args[0]);

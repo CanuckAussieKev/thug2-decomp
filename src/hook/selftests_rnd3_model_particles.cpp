@@ -17,6 +17,7 @@
 #include "game/gfx/particle_system.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine_glue.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -50,7 +51,7 @@ void StandInModelCalls(StandIns& s)
         Record({0xBB10});
         return g_memoryFree;
     });
-    s.At({0x0048BFA0}, 0, [](Regs& r) {
+    s.At({0x0048BFA0, AddressOf(Nx::CreateModel)}, 0, [](Regs& r) {
         Record({0xBFA0, r.args[0] & 0xFF});
         if (g_modelsLeft-- <= 0)
             return 0u;

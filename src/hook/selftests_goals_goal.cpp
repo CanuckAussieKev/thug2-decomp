@@ -26,6 +26,10 @@
 #include "game/skater/end_run.h"
 #include "game/skater/skater.h"
 #include "game/goals/goal_manager.h"
+#include "game/script/struct.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/goals_testkit.h"
 #include "hook/hook.h"
@@ -361,7 +365,7 @@ Params g_waypoint[3], g_cluster[3];
 void StandInRunCalls(StandIns& s)
 {
     using EndRun = Obj::CSkaterEndRunComponent;
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, r.ecx});
         return g_noSkater ? 0u : Address(g_skater);
     });
@@ -415,7 +419,7 @@ void StandInRunCalls(StandIns& s)
         Record({0x9B00, r.ecx});
         return g_players;
     });
-    s.At({0x005532A0}, 0, [](Regs& r) {
+    s.At({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, [](Regs& r) {
         Record({0x32A0, r.ecx});
         return g_modeName;
     });
@@ -423,7 +427,7 @@ void StandInRunCalls(StandIns& s)
         Record({0x3150, r.ecx});
         return g_modeName & 1;
     });
-    s.At({0x005624C0}, 16, [](Regs& r) {
+    s.At({0x005624C0, AddressOf(&Mdl::Score::CountTrickAfterTaps)}, 16, [](Regs& r) {
         Record({0x24C0, r.ecx, r.args[0], r.args[1], r.args[2], r.args[3]});
         return (r.args[0] % 7 == g_trickAnswer) ? 2u : 0u;
     });
@@ -729,7 +733,7 @@ void StandInLifeCalls(StandIns& s)
         Record({0x63A0, Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0xC5000000u + g_strings++;
     });
-    s.At({0x00564F80}, 4, [](Regs& r) {
+    s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4F80, r.ecx, r.args[0]});
         return Address(g_profile);
     });
@@ -761,11 +765,11 @@ void StandInLifeCalls(StandIns& s)
         Record({0x6110, r.ecx, r.args[0]});
         return Address(g_mapping);
     });
-    s.At({0x00564A10}, 0, [](Regs& r) {
+    s.At({0x00564A10, AddressOf(&Mdl::Score::Reset)}, 0, [](Regs& r) {
         Record({0x4A10, r.ecx});
         return 0u;
     });
-    s.At({0x00561B40}, 0, [](Regs& r) {
+    s.At({0x00561B40, AddressOf(&Mdl::Score::GetTotalScore)}, 0, [](Regs& r) {
         Record({0x1B40, r.ecx});
         return 4321u;
     });

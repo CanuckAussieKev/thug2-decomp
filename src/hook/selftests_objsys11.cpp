@@ -4,6 +4,8 @@
 // hash of what's asked, objects, components, models and skeletons as recording memory, the asset and memory
 // managers, scripts, the camera's animations; every call, result and the cutscene data compared.
 
+#include <initializer_list>
+#include <utility>
 #include <windows.h>
 
 #include <cmath>
@@ -30,6 +32,10 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/gfx/engine_model_lights.h"
+#include "game/gfx/face_texture.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/model_appearance.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -619,7 +625,7 @@ void StandInLoading(StandIns& s)
         Record({0x46193000, r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         uint32_t skater = Hash(14, 0, 0) % 3 ? Object(5) : 0;
         Record({0x56652000, r.ecx, skater});
         return skater;
@@ -634,13 +640,13 @@ void StandInLoading(StandIns& s)
         Record({0x576E6000, r.ecx, face});
         return face;
     });
-    s.At({0x00487510}, 0, [](Regs& r) {
+    s.At({0x00487510, AddressOf(&Gfx::CFaceTexture::IsValid)}, 0, [](Regs& r) {
         uint32_t yes = Hash(17, r.ecx, 0) % 2;
         Record({0x48751000, r.ecx, yes});
         return yes;
     });
-    for (uint32_t address : {0x00489050u, 0x004890B0u}) {
-        s.At({address}, 4, [address](Regs& r) {
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00489050u, AddressOf(&Gfx::CModelAppearance::GetPartOption)}, {0x004890B0u, AddressOf(&Gfx::CModelAppearance::GetPart)}}) {
+        s.At({address, ours_}, 4, [address](Regs& r) {
             uint32_t part = Hash(address, r.args[0], 0) % 3 ? kFakeStruct + 0x400 + (r.args[0] & 0xF) : 0;
             Record({address, r.ecx, r.args[0], part});
             return part;
@@ -831,7 +837,7 @@ void StandInUpdating(StandIns& s)
         Record({0x532EB000, r.ecx, fader});
         return fader;
     });
-    s.At({0x0048E830}, 8, [](Regs& r) {
+    s.At({0x0048E830, AddressOf(&Nx::CModelLights::MoveBrightness)}, 8, [](Regs& r) {
         Record({0x48E83000, r.ecx, r.args[0], r.args[1]});
         return 1u;
     });

@@ -18,6 +18,8 @@
 #include "game/net/net_manager.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -72,20 +74,20 @@ void NetSetter(StandIns& s, uint32_t address, uint32_t ours, int args, bool stri
 void Install(StandIns& s)
 {
     InstallCommon(s);
-    Stub(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_gameType; });
-    Stub(s, {0x005535F0}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
+    Stub(s, {0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, [](Regs&) { return g_gameType; });
+    Stub(s, {0x005535F0, AddressOf(&Game::CGameMode::IsTeamGame)}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
     Stub(s, {0x0044E4F0, AddressOf(&Manager::InNetGame)}, 0, 0xE4F0, [](Regs&) { return g_netGame ? 1u : 0u; });
     Stub(s, {0x00552FB0}, 0, 0x2FB0, [](Regs&) { return g_accumulate ? 1u : 0u; });
     Stub(s, {0x00552FD0}, 0, 0x2FD0, [](Regs&) { return g_combo ? 1u : 0u; });
-    Stub(s, {0x00553910}, 0, 0x3910, [](Regs&) { return g_elimiskate ? 1u : 0u; });
+    Stub(s, {0x00553910, AddressOf(&Game::CGameMode::EndConditionsMet)}, 0, 0x3910, [](Regs&) { return g_elimiskate ? 1u : 0u; });
     Stub(s, {0x005531D0}, 0, 0x31D0, [](Regs&) { return static_cast<uint32_t>(g_modeMaxPlayers); });
-    Stub(s, {0x00553220}, 4, 0x3220, [](Regs&) { return g_horse ? 1u : 0u; });
+    Stub(s, {0x00553220, AddressOf(&Game::CGameMode::IsTrue)}, 4, 0x3220, [](Regs&) { return g_horse ? 1u : 0u; });
     StubCdecl(s, {0x00403DE0, AddressOf(&Mth::Rnd)}, 0x3DE0, 1, [](Regs& r) {
         g_random = g_random * 1103515245u + 12345u;
         int n = static_cast<int>(r.args[0]);
         return n > 0 ? ((g_random >> 16) & 0x7FFF) % static_cast<uint32_t>(n) : 0u;
     });
-    Stub(s, {0x00564D80}, 0, 0x4D80, [](Regs&) { return At(kSkatePrefs); });
+    Stub(s, {0x00564D80, AddressOf(&Mdl::Skate::GetSplitScreenPreferences)}, 0, 0x4D80, [](Regs&) { return At(kSkatePrefs); });
     // Preferences: each preference stood in by its own name (a fake pointer), answered by g_answer.
     Stub(s, {0x0046C4A0, AddressOf(&Prefs::Preferences::GetPreference)}, 4, 0xC4A0, [](Regs& r) { return r.args[0]; });
     s.At({0x0046C5D0, AddressOf(&Prefs::Preferences::SetPreference)}, 8, [](Regs& r) {

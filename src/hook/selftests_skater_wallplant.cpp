@@ -64,7 +64,7 @@ std::vector<StandIn> WallplantStandIns()
         {0x0042BBF0, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Mth::Vector::SetLength), nullptr, 1, 0, -1, 0, 4}, // SetLength (the vector recorded)
         {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::SelfEvent)},
         {0x00522370, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::PassToTrickObjects)},
-        {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0},   // SetState
+        {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::SetPhysicsState)},   // SetState
         {0x0051ECF0, 4, 1, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::IsButtonDown)},   // (a button pressed)
         {0x0051F6B0, 12, 3, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::FindPress)},  // (... within a time)
         {0x005232A0, 4, 1, Ret::None, true, 1, -1, -1, 0, CodeAddress(&Obj::CTrickComponent::SetTrickObjects)},

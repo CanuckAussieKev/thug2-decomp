@@ -3,6 +3,8 @@
 // structures, the appearance's code and the buffer coders are recording stand-ins (lookups answered by structure
 // and name), and the calls, results and the whole arena are compared.
 
+#include <initializer_list>
+#include <utility>
 #include <cstdint>
 #include <cstring>
 #include <map>
@@ -12,6 +14,8 @@
 #include "game/script/struct_buffer.h"
 #include "game/skate/appearance_guard.h"
 #include "game/skate/profile_manager.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/model_appearance.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -92,21 +96,21 @@ void Install(StandIns& s)
         return r.args[1] + 0x23;
     });
     // The appearance.
-    for (uint32_t address : {0x004891D0u, 0x00489160u, 0x00488EA0u}) {
-        s.At({address}, 0, [address](Regs& r) {
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x004891D0u, AddressOf(&Gfx::CModelAppearance::FreeFaceTexture)}, {0x00489160u, AddressOf(&Gfx::CModelAppearance::MakeFaceTexture)}, {0x00488EA0u, AddressOf(&Gfx::CModelAppearance::Construct)}}) {
+        s.At({address, ours_}, 0, [address](Regs& r) {
             Rec(address & 0xFFFF, {r.ecx});
             return r.ecx;
         });
     }
-    s.At({0x00488F00}, 0, [](Regs& r) {
+    s.At({0x00488F00, AddressOf(&Gfx::CModelAppearance::Reset)}, 0, [](Regs& r) {
         Rec(0x8F00, {r.ecx});
         return 1u;
     });
-    s.At({0x00488FA0}, 8, [](Regs& r) {
+    s.At({0x00488FA0, AddressOf(&Gfx::CModelAppearance::LoadByName)}, 8, [](Regs& r) {
         Rec(0x8FA0, {r.ecx, r.args[0], r.args[1] & 0xFF});
         return 1u;
     });
-    s.At({0x00489400}, 4, [](Regs& r) {
+    s.At({0x00489400, AddressOf(&Gfx::CModelAppearance::ReadFromBuffer)}, 4, [](Regs& r) {
         Rec(0x9400, {r.ecx, r.args[0]});
         return r.args[0] + 0x30;
     });
@@ -116,17 +120,17 @@ void Install(StandIns& s)
         g_sanitised.push_back(r.args[0]);
         return 0u;
     });
-    s.At({0x004896A0}, 12, [](Regs& r) {
+    s.At({0x004896A0, AddressOf(&Gfx::CModelAppearance::WriteToBuffer)}, 12, [](Regs& r) {
         Rec(0x96A0, {r.ecx, r.args[0], r.args[1], r.args[2]});
         return 0x29u;
     });
     // (0x00576E60, the face, is the folded getter `mov eax, [ecx + 0x54]`: ours reads the appearance's +0x54
     // itself - set by SetFace for both)
-    s.At({0x00487510}, 0, [](Regs& r) {
+    s.At({0x00487510, AddressOf(&Gfx::CFaceTexture::IsValid)}, 0, [](Regs& r) {
         Rec(0x7510, {r.ecx});
         return g_faceValid ? 1u : 0u;
     });
-    s.At({0x00487680}, 4, [](Regs& r) {
+    s.At({0x00487680, AddressOf(&Gfx::CFaceTexture::SaveToStructure)}, 4, [](Regs& r) {
         Rec(0x7680, {r.ecx, r.args[0]});
         return 0u;
     });

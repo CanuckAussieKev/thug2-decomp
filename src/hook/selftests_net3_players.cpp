@@ -15,6 +15,9 @@
 #include "game/obj/object.h"
 #include "game/skate/profile_manager.h"
 #include "game/sys/timer.h"
+#include "game/gfx/model_appearance.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -65,14 +68,14 @@ void Install(StandIns& s)
     });
     Stub(s, {0x00586D60, AddressOf(&Obj::CSkaterProfile::Construct)}, 0, 0x6D60, [](Regs& r) { return r.ecx; });
     Stub(s, {0x00585ED0, AddressOf(&Obj::CSkaterProfile::CopyFrom)}, 4, 0x5ED0, [](Regs& r) { return r.ecx; });
-    Stub(s, {0x004890F0}, 0, 0x90F0);
+    Stub(s, {0x004890F0, AddressOf(&Gfx::CModelAppearance::DestroyBody)}, 0, 0x90F0);
     Stub(s, {0x0053A910, AddressOf(&GameNet::Manager::ObservePlayer)}, 4, 0xA910);
     Stub(s, {0x00455A30, AddressOf(&Net::Conn::IsRemote)}, 0, 0x5A30, [](Regs&) { return g_remote; });
     Stub(s, {0x00456630, AddressOf(&Net::Conn::ClearResendCounts)}, 0, 0x6630);
     Stub(s, {0x004559A0, AddressOf(&Net::Conn::GetBandwidthType)}, 0, 0x59A0, [](Regs&) { return g_bandwidth; });
-    Stub(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_gameType; });
+    Stub(s, {0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, [](Regs&) { return g_gameType; });
     Stub(s, {0x00553270}, 0, 0x3270, [](Regs&) { return 0x4321u; });
-    Stub(s, {0x00561B40}, 0, 0x1B40, [](Regs&) { return g_lives; });
+    Stub(s, {0x00561B40, AddressOf(&Mdl::Score::GetTotalScore)}, 0, 0x1B40, [](Regs&) { return g_lives; });
 }
 
 using Scenario = void (*)(bool original);

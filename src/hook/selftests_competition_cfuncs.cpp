@@ -4,6 +4,8 @@
 // stood in for by recording code (over the game's function and ours alike), strings and structures come from a
 // stand-in heap reset before each run.
 
+#include <initializer_list>
+#include <utility>
 #include <windows.h>
 
 #include <cstdint>
@@ -20,6 +22,9 @@
 #include "game/skate/competition.h"
 #include "game/skate/competition_cfuncs.h"
 #include "game/skater/skater.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/horse.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -65,11 +70,11 @@ void StandInCompetitionCalls(StandIns& s)
     StandInGameModeIsTrue(s);
     StandInMemory(s);
     // The skate module
-    s.At({0x00564D80}, 0, [](Regs& r) {
+    s.At({0x00564D80, AddressOf(&Mdl::Skate::GetSplitScreenPreferences)}, 0, [](Regs& r) {
         Record({0x4D80, r.ecx});
         return 0x9EF59EF5u; // (the preferences: their calls are stood in for)
     });
-    s.At({0x00564D50}, 4, [](Regs& r) {
+    s.At({0x00564D50, AddressOf(&Mdl::Skate::SetUnknown370)}, 4, [](Regs& r) {
         Record({0x4D50, r.ecx, r.args[0]});
         return 0u;
     });
@@ -77,11 +82,11 @@ void StandInCompetitionCalls(StandIns& s)
         Record({0x65C0, r.ecx, r.args[0]});
         return r.args[0] < 3 ? reinterpret_cast<uint32_t>(g_skaters[r.args[0]]) : 0u;
     });
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, r.ecx});
         return g_noLocalSkater ? 0u : reinterpret_cast<uint32_t>(g_skaters[1]);
     });
-    s.At({0x00566600}, 4, [](Regs& r) {
+    s.At({0x00566600, AddressOf(&Mdl::Skate::GetSkaterById)}, 4, [](Regs& r) {
         Record({0x6600, r.ecx, r.args[0]});
         return r.args[0] == 0x51 ? reinterpret_cast<uint32_t>(g_skaters[2]) : 0u;
     });
@@ -89,15 +94,15 @@ void StandInCompetitionCalls(StandIns& s)
         Record({0x0480, r.ecx});
         return r.ecx + 0x5C0;
     });
-    s.At({0x00561B40}, 0, [](Regs& r) {
+    s.At({0x00561B40, AddressOf(&Mdl::Score::GetTotalScore)}, 0, [](Regs& r) {
         Record({0x1B40, r.ecx});
         return 4321u;
     });
-    s.At({0x00561410}, 4, [](Regs& r) {
+    s.At({0x00561410, AddressOf(&Mdl::Score::AddBonus)}, 4, [](Regs& r) {
         Record({0x1410, r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00561420}, 0, [](Regs& r) {
+    s.At({0x00561420, AddressOf(&Mdl::Score::GetBonus)}, 0, [](Regs& r) {
         Record({0x1420, r.ecx});
         return 0x77u;
     });
@@ -115,16 +120,16 @@ void StandInCompetitionCalls(StandIns& s)
         return reinterpret_cast<uint32_t>("SKATE");
     });
     // The game mode
-    s.At({0x00553AD0}, 4, [](Regs& r) {
+    s.At({0x00553AD0, AddressOf(&Game::CGameMode::LoadGameType)}, 4, [](Regs& r) {
         Record({0x3AD0, r.ecx, r.args[0]});
         return 1u;
     });
-    s.At({0x00553BE0}, 4, [](Regs& r) {
+    s.At({0x00553BE0, AddressOf(&Game::CGameMode::OverrideOptions)}, 4, [](Regs& r) {
         Record({0x3BE0, r.ecx, r.args[0]});
         return 1u;
     });
-    for (uint32_t address : {0x00553000u, 0x00553020u, 0x00553040u, 0x00553060u}) {
-        s.At({address}, 4, [address](Regs& r) {
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00553000u, AddressOf(&Game::CGameMode::SetScoreAccumulation)}, {0x00553020u, AddressOf(&Game::CGameMode::SetScoreFrozen)}, {0x00553040u, AddressOf(&Game::CGameMode::SetScoreDegradation)}, {0x00553060u, AddressOf(&Game::CGameMode::SetTrickScoreTracking)}}) {
+        s.At({address, ours_}, 4, [address](Regs& r) {
             Record({address, r.ecx, r.args[0] & 0xFF});
             return 0u;
         });
@@ -138,52 +143,52 @@ void StandInCompetitionCalls(StandIns& s)
         Record({0x0020, r.ecx});
         return 0u;
     });
-    s.At({0x00550560}, 28, [](Regs& r) {
+    s.At({0x00550560, AddressOf(&Mdl::CCompetition::Start)}, 28, [](Regs& r) {
         Record({0x0560, r.ecx, r.args[0], r.args[1], r.args[2], r.args[3], r.args[4], r.args[5], r.args[6]});
         return 0u;
     });
-    s.At({0x00550EF0}, 4, [](Regs& r) {
+    s.At({0x00550EF0, AddressOf(&Mdl::CCompetition::EndRun)}, 4, [](Regs& r) {
         Record({0x0EF0, r.ecx, r.args[0]});
         return 0u;
     });
-    for (uint32_t address : {0x00550B50u, 0x005501E0u}) {
-        s.At({address}, 0, [address](Regs& r) {
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00550B50u, AddressOf(&Mdl::CCompetition::ShowLeaderBoard)}, {0x005501E0u, AddressOf(&Mdl::CCompetition::End)}}) {
+        s.At({address, ours_}, 0, [address](Regs& r) {
             Record({address, r.ecx});
             return 0u;
         });
     }
-    for (uint32_t address : {0x005501A0u, 0x005501C0u}) {
-        s.At({address}, 4, [address](Regs& r) {
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x005501A0u, AddressOf(&Mdl::CCompetition::PlaceIs)}, {0x005501C0u, AddressOf(&Mdl::CCompetition::RoundIs)}}) {
+        s.At({address, ours_}, 4, [address](Regs& r) {
             Record({address, r.ecx, r.args[0]});
             return g_competitionAnswer;
         });
     }
-    s.At({0x005501F0}, 0, [](Regs& r) {
+    s.At({0x005501F0, AddressOf(&Mdl::CCompetition::IsEnded)}, 0, [](Regs& r) {
         Record({0x01F0, r.ecx});
         return g_competitionAnswer;
     });
     // The horse game
-    for (uint32_t address : {0x00560100u, 0x00560180u, 0x00560720u, 0x005608B0u}) {
-        s.At({address}, 0, [address](Regs& r) {
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00560100u, AddressOf(&Mdl::CHorse::Init)}, {0x00560180u, AddressOf(&Mdl::CHorse::StartRun)}, {0x00560720u, AddressOf(&Mdl::CHorse::EndRun)}, {0x005608B0u, AddressOf(&Mdl::CHorse::SwitchPlayers)}}) {
+        s.At({address, ours_}, 0, [address](Regs& r) {
             Record({address, r.ecx});
             return 0u;
         });
     }
-    s.At({0x00560380}, 0, [](Regs& r) {
+    s.At({0x00560380, AddressOf(&Mdl::CHorse::Ended)}, 0, [](Regs& r) {
         Record({0x0380, r.ecx});
         return g_horseAnswer;
     });
-    s.At({0x00560190}, 4, [](Regs& r) {
+    s.At({0x00560190, AddressOf(&Mdl::CHorse::StatusEquals)}, 4, [](Regs& r) {
         Record({0x0190, r.ecx, r.args[0]});
         return g_horseAnswer ^ 1;
     });
-    s.At({0x005601F0}, 12, [](Regs& r) {
+    s.At({0x005601F0, AddressOf(&Mdl::CHorse::SetWord)}, 12, [](Regs& r) {
         auto* text = reinterpret_cast<Str::String*>(&r.args[0]);
         Record({0x01F0, r.ecx, Hash(text->c_str())});
         text->~String(); // (the callee's to destroy)
         return 0u;
     });
-    s.At({0x00560440}, 8, [](Regs& r) {
+    s.At({0x00560440, AddressOf(&Mdl::CHorse::GetString)}, 8, [](Regs& r) {
         Record({0x0440, r.ecx, r.args[1]});
         auto* text = new (reinterpret_cast<void*>(r.args[0])) Str::String(r.args[1] == 0x1111 ? "H-O" : "first");
         return reinterpret_cast<uint32_t>(text);

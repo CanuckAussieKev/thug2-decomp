@@ -18,6 +18,7 @@
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
 #include "game/sys/platform_d3d.h"
+#include "game/gfx/texture_dict.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -165,7 +166,7 @@ void StandInParticleCalls(StandIns& s, FakeComSet& com)
         return r.args[0] * 2654435761u;
     });
     // The texture lookup: none for even checksums, else a texture (its key through a pointer for checksums & 2).
-    s.At({0x0049F540}, 4, [](Regs& r) {
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) {
         Record({0xF540, r.ecx, r.args[0]});
         if (!(r.args[0] & 1))
             return 0u;

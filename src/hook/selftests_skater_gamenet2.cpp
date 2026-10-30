@@ -24,6 +24,10 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/skate/skate_net.h"
+#include "game/ed/rail_editor.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -95,17 +99,17 @@ void Install(StandIns& s)
     Stub(s, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 0x6C90);
     Stub(s, {0x0058D6B0, AddressOf(&Ed::CParkEditor::SetCompressedMapBuffer)}, 8, 0xD6B0);
     Stub(s, {0x0058D690, AddressOf(&Ed::CParkEditor::GetCompressedMapBuffer)}, 4, 0xD690, [](Regs&) { return At(kManager); });
-    StubCdecl(s, {0x005A0D90}, 0x0D90, 2, [](Regs&) { return g_observing ? 1u : 0u; });
-    Stub(s, {0x005535F0}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
-    Stub(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_gameType; });
-    Stub(s, {0x005535A0}, 4, 0x35A0);
+    StubCdecl(s, {0x005A0D90, AddressOf(CFuncs::CFunc_IsObserving)}, 0x0D90, 2, [](Regs&) { return g_observing ? 1u : 0u; });
+    Stub(s, {0x005535F0, AddressOf(&Game::CGameMode::IsTeamGame)}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
+    Stub(s, {0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, [](Regs&) { return g_gameType; });
+    Stub(s, {0x005535A0, AddressOf(&Game::CGameMode::SetNumTeams)}, 4, 0x35A0);
     Stub(s, {0x005889F0, AddressOf(&Obj::CTrickObjectManager::RemoveAllClusters)}, 0, 0x89F0);
     Stub(s, {0x00537620, AddressOf(&GameNet::Manager::ResetPlayers)}, 0, 0x7620);
-    Stub(s, {0x00566520}, 0, 0x6520, [](Regs&) { return g_localSkater ? At(kSkaters + 0x300) : 0u; });
-    Stub(s, {0x00566370}, 12, 0x6370);
-    Stub(s, {0x005695A0}, 0, 0x95A0, [](Regs&) { return 0xC0FFEE11u; });
-    StubCdecl(s, {0x004F4970}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x500); });
-    Stub(s, {0x004F45B0}, 0, 0x45B0, [](Regs& r) { return r.ecx + 0x34; });
+    Stub(s, {0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, 0x6520, [](Regs&) { return g_localSkater ? At(kSkaters + 0x300) : 0u; });
+    Stub(s, {0x00566370, AddressOf(&Mdl::Skate::MoveToRestart)}, 12, 0x6370);
+    Stub(s, {0x005695A0, AddressOf(&Mdl::Skate::GetCheats)}, 0, 0x95A0, [](Regs&) { return 0xC0FFEE11u; });
+    StubCdecl(s, {0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x500); });
+    Stub(s, {0x004F45B0, AddressOf(&Ed::CRailEditorComponent::GetPacked)}, 0, 0x45B0, [](Regs& r) { return r.ecx + 0x34; });
     StubCdecl(s, {0x004E8470}, 0x8470, 0, [](Regs&) { return At(kMisc + 0x600); });
     Stub(s, {0x004E7E50}, 4, 0x7E50, [](Regs&) { return g_answers[0x7E50]; });
 }

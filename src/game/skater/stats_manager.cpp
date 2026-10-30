@@ -15,6 +15,10 @@
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
+#include "game/goals/goal_manager.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -81,14 +85,14 @@ void DeleteParams(Script::CStruct* params)
 }
 
 void* SkateModule() { return GameVariable<void*>(0x007CE478); }
-CSkaterProfile* FirstProfile() { return GameFunction<CSkaterProfile*(__thiscall*)(void*, int)>(0x00564FC0)(SkateModule(), 0); }
-void* GameFlow() { return GameFunction<void*(__cdecl*)()>(0x005591B0)(); }
+CSkaterProfile* FirstProfile() { return static_cast<Mdl::Skate*>(SkateModule())->GetProfile(static_cast<int>(0)); }
+void* GameFlow() { return Game::GetGoalManager(); }
 
 // The skater's score component and its counts.
 void* Score(CCompositeObject* skater) { return reinterpret_cast<CSkater*>(skater)->GetScore(); }
 int CountTricks(void* score, uint32_t trick, int a, int b, int c)
 {
-    return GameFunction<int(__thiscall*)(void*, uint32_t, int, int, int)>(0x005624C0)(score, trick, a, b, c);
+    return static_cast<Mdl::Score*>(score)->CountTrickAfterTaps(trick, a, (b & 0xFF) != 0, c);
 }
 
 // 0x00423680: the distance between two points (z, x, then y; unrounded).
@@ -189,7 +193,7 @@ void CStatsManagerComponent::InitFromStructure(Script::CStruct*)
         m_skaterState = m_skater->GetComponent(kSkaterState);
         m_physicsControl = m_skater->GetComponent(kSkaterPhysicsControl);
     }
-    m_difficulty = GameFunction<int(__thiscall*)(void*, bool)>(0x00559050)(GameFlow(), true);
+    m_difficulty = static_cast<Game::CGoalManager*>(GameFlow())->GetDifficultyLevel(true);
     Dbg::Printf(reinterpret_cast<const char*>(0x0064C2C8), m_difficulty); // "STATSManager: difficulty ... %i"
     if (Script::GetInteger(0xB8688A8Au) == 1)
         m_raiseStats = true;
@@ -249,7 +253,7 @@ bool CStatsManagerComponent::IsActive()
     if (!m_skater)
         return false;
     void* skate = SkateModule();
-    if (!GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x00553220)(GameVariable<void*>(0x007CE470), 0x1DED1EA4))
+    if (!static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->IsTrue(0x1DED1EA4))
         return false;
     if (!m_activated || Field<uint32_t>(skate, 0x378) == 0xE92ECAFE)
         return false;
@@ -343,7 +347,7 @@ void CStatsManagerComponent::AnnounceMetGoals()
     if (announced) {
         Dbg::Printf(reinterpret_cast<const char*>(0x0064C2FC)); // "updating skater stats"
         reinterpret_cast<CSkater*>(m_skater)->SetStatsFromProfile(profile);
-        if (!m_goalDone && GameFunction<bool(__thiscall*)(void*)>(0x00557E30)(GameFlow())) {
+        if (!m_goalDone && static_cast<Game::CGoalManager*>(GameFlow())->CanStartGoal()) {
             RunScript(0xEF3A4EE5);
             m_goalDone = true;
         }
@@ -519,7 +523,7 @@ void CStatsManagerComponent::Update()
             break;
         case kScore562370:
             // (it reads the goal's +0x18, the 0xCD021293 entry)
-            meets = GameFunction<int(__thiscall*)(void*, uint32_t)>(0x00562370)(score, reinterpret_cast<uint32_t>(goal.m_text)) >=
+            meets = static_cast<Mdl::Score*>(score)->CountTricksNamed(goal.m_text) >=
                     goal.m_target;
             break;
         default:

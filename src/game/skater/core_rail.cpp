@@ -20,6 +20,7 @@
 #include "game/skater/skater.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/skater/trick_component.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -52,7 +53,7 @@ constexpr float kFeelerAhead = 6.0f; // (the feeler past the move: 6 along it)
 constexpr float kTurnFacing = 0.3f; // (how far the display facing turns to the rail each frame)
 
 bool InParkEditor() { return At<uint32_t>(GameVariable<uint8_t*>(0x007CE5D8), 0x40) == kParkEditorLevel; }
-void ChangeState(void* component, int state) { GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(component, state); }
+void ChangeState(void* component, int state) { static_cast<CorePhysicsComponent*>(component)->SetPhysicsState(state); }
 
 Mth::Vector WorldPos(void* component, const Obj::CRailNode* node)
 {
@@ -176,7 +177,7 @@ void CorePhysicsComponent::TransferOrLeaveRail(const Mth::Vector* end)
     At<Obj::CRailNode*>(this, kRailNode) = found;
     VectorAt(ObjectOf(this), kPosition) = point;
     TriggerRailScript(reinterpret_cast<const int*>(kGrindEvents));
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x004FC470)(this, At<Obj::CRailNode*>(this, kRailNode)->m_terrain);
+    SetTerrain(At<Obj::CRailNode*>(this, kRailNode)->m_terrain);
 }
 
 // 0x0050DDF0
@@ -193,7 +194,7 @@ void CorePhysicsComponent::DoRailPhysics()
     At<int>(this, 0x23C) = static_cast<int>(Script::GetFloat(kRerailTime));
     SetFlag(this, 0x50, 0);
     // Off the rail (0x004FFB10): the TriggerScripts, the jump's rerail time, up and out.
-    if (GameFunction<bool(__thiscall*)(void*)>(0x004FFB10)(this)) {
+    if (JumpReleased()) {
         TriggerRailScript(reinterpret_cast<const int*>(kJumpTriggerEvents));
         TriggerRailScript(reinterpret_cast<const int*>(kGrindOffEvents));
         At<int>(this, 0x23C) = static_cast<int>(Script::GetFloat(kJumpRerailTime));
@@ -304,8 +305,7 @@ void CorePhysicsComponent::DoRailPhysics()
             if (clear && !noNextSegment) {
                 VectorAt(ObjectOf(this), kPosition) = WorldPos(this, corner);
                 At<Obj::CRailNode*>(this, kRailNode) = after < 0.0f ? node->m_prev : next;
-                GameFunction<void(__thiscall*)(void*, uint32_t)>(0x004FC470)(
-                    this, At<Obj::CRailNode*>(this, kRailNode)->m_terrain);
+                SetTerrain(At<Obj::CRailNode*>(this, kRailNode)->m_terrain);
                 TriggerRailScript(reinterpret_cast<const int*>(kGrindEvents));
             } else {
                 Mth::Vector end = WorldPos(this, corner);
@@ -516,7 +516,7 @@ void CorePhysicsComponent::FinishRail()
     VectorAt(this, kGroundNormal) = VectorAt(ObjectOf(this), kUp);
     void* score = At<void*>(At<void*>(this, 0x1520), 0x18);
     int time = static_cast<int>(static_cast<double>(At<int>(this, 0x3A8)) * At<float>(score, 0x154C));
-    GameFunction<void(__thiscall*)(void*, int)>(0x00564270)(score, time);
+    static_cast<Mdl::Score*>(score)->TweakTrick(time);
     if (At<Obj::CRailManager*>(this, kRailManager)->m_nodeArray) {
         Script::CStruct* script = SkateScript::GetNode(At<Obj::CRailNode*>(this, kRailNode)->m_name, true);
         // (0x00476EC0: GetChecksum with a bool for its last argument - the wrapper passes it on as 1)
@@ -540,7 +540,7 @@ void CorePhysicsComponent::DoBikeStallPhysics()
     RideMovingRail();
     At<int>(this, 0x23C) = static_cast<int>(Script::GetFloat(kRerailTime));
     SetFlag(this, 0x50, 0);
-    if (GameFunction<bool(__thiscall*)(void*)>(0x004FFB10)(this)) {
+    if (JumpReleased()) {
         // Jumped (0x005E3053): the rail's TriggerScripts (THAW's with its stall event, which THUG2's haven't), the
         // jump's rerail time, up.
         TriggerRailScript(reinterpret_cast<const int*>(kJumpTriggerEvents));

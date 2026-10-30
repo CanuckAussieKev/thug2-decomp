@@ -40,6 +40,8 @@
 #include "game/skater/skater.h"
 #include "game/skater/stats_manager.h"
 #include "game/skater/trick_component.h"
+#include "game/script/struct.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/goals_testkit.h"
 #include "hook/hook.h"
@@ -239,11 +241,11 @@ void StandInWorld(StandIns& s)
         return 0u;
     });
     // the skaters
-    s.At({0x00566600}, 4, [](Regs& r) {
+    s.At({0x00566600, AddressOf(&Mdl::Skate::GetSkaterById)}, 4, [](Regs& r) {
         Record({0x6600, r.args[0]});
         return r.args[0] < kSkaters && g_present[r.args[0]] ? A(g_skaterBuffers[r.args[0]]) : 0u;
     });
-    s.At({0x00566520}, 0, [](Regs&) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs&) {
         Record({0x6520});
         return g_localPresent ? A(g_skaterBuffers[0]) : 0u;
     });
@@ -522,7 +524,7 @@ void StandInWorld(StandIns& s)
         Record({0x8FF0, r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x0056BB70}, 4, [](Regs& r) {
+    s.At({0x0056BB70, AddressOf(&Mdl::Skate::SendScoreUpdates)}, 4, [](Regs& r) {
         Record({0xBB70, r.ecx, r.args[0]});
         return 0u;
     });
@@ -539,7 +541,7 @@ void StandInWorld(StandIns& s)
         return 0u;
     });
     // the profile
-    s.At({0x00564F80}, 4, [](Regs& r) {
+    s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4F80, r.ecx, r.args[0]});
         return FakeStruct(20);
     });

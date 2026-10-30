@@ -38,6 +38,8 @@
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/sys/timer.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -314,7 +316,7 @@ void StandInWorld(StandIns& s)
         Record({0x0B58, Rel(r.ecx)});
         return reinterpret_cast<uint32_t>(g_script.password);
     });
-    s.At({0x005532A0}, 0, [](Regs& r) {
+    s.At({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, [](Regs& r) {
         Record({0x0B59, Rel(r.ecx)});
         return g_script.gameMode;
     });
@@ -342,7 +344,7 @@ void StandInWorld(StandIns& s)
         Record({0xCA2C, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x005531B0}, 4, [](Regs& r) {
+    s.At({0x005531B0, AddressOf(&Game::CGameMode::SetMaximumNumberOfPlayers)}, 4, [](Regs& r) {
         Record({0x3A85, Rel(r.ecx), r.args[0]});
         return 0u;
     });
@@ -355,7 +357,7 @@ void StandInWorld(StandIns& s)
         Record({0xD702, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x00564FC0}, 4, [](Regs& r) {
+    s.At({0x00564FC0, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x9F0F, Rel(r.ecx), r.args[0]});
         return reinterpret_cast<uint32_t>(At(kProfileLocal));
     });

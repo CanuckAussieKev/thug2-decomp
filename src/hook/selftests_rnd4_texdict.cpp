@@ -16,6 +16,7 @@
 #include "game/gfx/pc_texture.h"
 #include "game/gfx/texture_dict.h"
 #include "game/lst/hashtable.h"
+#include "game/gfx/engine.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -89,7 +90,7 @@ void StandInTexDict(StandIns& s)
         return 0u;
     });
     // the name split: base = the name up to its first '.', a skin if it has an odd length
-    s.At({0x0048BFE0}, 0, [](Regs& r) {
+    s.At({0x0048BFE0, AddressOf(Nx::Engine::SplitSkinName)}, 0, [](Regs& r) {
         const char* name = reinterpret_cast<const char*>(r.args[0]);
         char* base = reinterpret_cast<char*>(r.args[1]);
         size_t i = 0;

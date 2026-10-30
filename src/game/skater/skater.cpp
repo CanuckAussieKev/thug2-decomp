@@ -61,6 +61,17 @@
 #include "game/skater/walk_camera.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
+#include "game/goals/create_a_trick.h"
+#include "game/goals/goal_manager.h"
+#include "game/gfx/texture_dict.h"
+#include "game/gfx/viewport.h"
+#include "game/obj/ped_logic.h"
+#include "game/script/game_cfuncs.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
+#include "game/skate/skate_module.h"
+#include "game/skater/balance_trick.h"
+#include "game/skater/skater_camera_component.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -109,7 +120,7 @@ constexpr uint32_t kPauseValue = 0x9816E1E3;     // (a physics integer: pausing 
 
 uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
 GameNet::Manager* Net() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
-bool Rule5A1180() { return GameFunction<bool(__cdecl*)(int, int)>(0x005A1180)(0, 0); }
+bool Rule5A1180() { return static_cast<uint8_t>(CFuncs::CFunc_InSplitScreenGame(nullptr, nullptr)) != 0; }
 
 template <typename T>
 T& At(void* base, uint32_t offset)
@@ -132,7 +143,7 @@ void CSkater::SetStatOverride(int index, float value)
 }
 
 // 0x0057FEB0 / 0x0057FEC0
-void* CSkater::GetCamera() { return GameFunction<void*(__cdecl*)(int)>(0x004A09C0)(m_viewport); }
+void* CSkater::GetCamera() { return Nx::GetActiveCamera(m_viewport); }
 int CSkater::GetSkaterNumber() { return m_skaterNumber; }
 
 // 0x0057FED0
@@ -346,9 +357,9 @@ float CSkater::GetScaledValue(Script::CStruct* params)
         result = static_cast<float>(scale * result);
     }
     // The game's difficulty (one more in classic mode): times the diff pair's first (0) or second (2).
-    void* mode = GameFunction<void*(__thiscall*)(void*)>(0x00564D90)(Skate());
-    int difficulty = GameFunction<int(__thiscall*)(void*, bool)>(0x00559050)(mode, false);
-    if (GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x00553220)(GameVariable<void*>(0x007CE470), kIsClassic))
+    Game::CGoalManager* mode = Mdl::Skate::Instance()->GetGoalManager();
+    int difficulty = mode->GetDifficultyLevel(false);
+    if (static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->IsTrue(kIsClassic))
         ++difficulty;
     if (difficulty != 1) {
         Script::CPair diff;
@@ -395,7 +406,7 @@ void CSkater::MoveToRandomRestart()
     uint32_t restart;
     int tries = 0;
     do {
-        restart = GameFunction<uint32_t(__thiscall*)(void*, int)>(0x00566100)(skate, Mth::Rnd(8));
+        restart = reinterpret_cast<Mdl::Skate*>(skate)->SkipToRestartPoint(static_cast<uint32_t>(Mth::Rnd(8)));
         ++tries;
     } while (restart == m_lastRestart && tries < 20);
     m_lastRestart = restart;
@@ -518,8 +529,8 @@ int Clock() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
 // The score's two balance displays off (0x00563370 / 0x00563390).
 void BalanceDisplaysOff(void* score)
 {
-    GameFunction<void(__thiscall*)(void*, int, float)>(0x00563370)(score, 0, 0.0f);
-    GameFunction<void(__thiscall*)(void*, int, float)>(0x00563390)(score, 0, 0.0f);
+    static_cast<Mdl::Score*>(score)->SetBalanceMeter(false, 0.0f);
+    static_cast<Mdl::Score*>(score)->SetManualMeter(false, 0.0f);
 }
 
 // An input flag (a byte and the clock when it last changed) set to `on` if it isn't already.
@@ -539,7 +550,7 @@ void* Elements() { return GameVariable<void*>(0x00700F1C); }
 void CSkater::SetStatsFromProfile(CSkaterProfile* profile)
 {
     void* classicStats = At<void*>(Skate(), 0x20);
-    if (GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x00553220)(GameVariable<void*>(0x007CE470), kIsClassic)) {
+    if (static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->IsTrue(kIsClassic)) {
         for (int i = 0; i < 10; ++i)
             SetStatOverride(i, static_cast<float>(static_cast<CSkaterCareer*>(classicStats)->GetInfoInteger(kStatNames[i])));
         return;
@@ -581,7 +592,7 @@ void CSkater::UpdateFromProfile(CSkaterProfile* profile)
 void CSkater::ResetInput()
 {
     reinterpret_cast<CSkaterScoreComponent*>(m_scoreHolder)->ResetScore();
-    GameFunction<void(__thiscall*)(void*)>(0x004F8D80)(GetComponent(0x589E5FB3));
+    static_cast<CSkaterBalanceTrickComponent*>(GetComponent(0x589E5FB3))->ClearBestTimes();
     reinterpret_cast<void(__thiscall*)(CSkater*)>(m_vtable[0x48 / 4])(this);
     for (int i = 0; i < 24; ++i) {
         SetInputFlag(At<uint8_t*>(m_corePhysics, 0x1528) + 0x20 + 8 * i, 1);
@@ -602,8 +613,13 @@ void CSkater::ResetState()
     if (physicsControl[0x18])
         reinterpret_cast<CSkaterPhysicsControlComponent*>(physicsControl)->SetPaused(false);
     static_cast<CSkaterFlipAndRotateComponent*>(GetComponent(kSkaterFlipAndRotate))->ClearAfterFlags();
-    for (uint32_t reset : {0x0051EAB0u, 0x0051EB30u, 0x0051EF00u, 0x0051EB00u, 0x0051ED10u, 0x005232E0u})
-        GameFunction<void(__thiscall*)(void*)>(reset)(m_unknown258);
+    auto* tricks = static_cast<CTrickComponent*>(m_unknown258);
+    tricks->ClearExtraTricks();
+    tricks->ClearBlock1238();
+    tricks->ClearBlock1280();
+    tricks->ClearEventBuffer();
+    tricks->ClearQueue();
+    tricks->ResetTrickObjects();
     static_cast<CSkaterStateComponent*>(GetComponent(0x43686585))->ClearDoingTrick();
     m_unknown250[0x1F4] = 0;
     BalanceDisplaysOff(At<void*>(m_scoreHolder, 0x18));
@@ -649,7 +665,7 @@ void CSkater::ShowBoardElement(uint32_t type)
     params->GetChecksum(0x676F1DF1, &modelSwap2, 1);
     params->GetString(0xC553C612, &texture, 1);
     auto newElement = [](const char* text) {
-        return GameFunction<void*(__thiscall*)(void*, const char*, int, int, int)>(0x0049F9B0)(Elements(), text, 0, 0, 1);
+        return static_cast<Nx::CTexDict*>(Elements())->LoadTexture(text, 0, 0, true);
     };
     auto reset = [](void* element) { GameFunction<void(__thiscall*)(void*, int, int)>(0x0048D060)(element, 0, 0); };
     void* element = newElement(texture);
@@ -681,8 +697,8 @@ void CSkater::ShowBoardElement(uint32_t type)
     static_cast<CModelComponent*>(GetComponent(kModelComponent))
         ->ReplaceTexture(modelSwap, model, reinterpret_cast<const char*>(static_cast<uintptr_t>(modelSwap2)));
     if (second)
-        GameFunction<void(__thiscall*)(void*, void*)>(0x0049F500)(Elements(), overlay);
-    GameFunction<void(__thiscall*)(void*, void*)>(0x0049F500)(Elements(), element);
+        static_cast<Nx::CTexDict*>(Elements())->UnloadTexture(static_cast<Nx::CTexture*>(overlay));
+    static_cast<Nx::CTexDict*>(Elements())->UnloadTexture(static_cast<Nx::CTexture*>(element));
     GameFunction<void(__thiscall*)(void*)>(0x0048E4C0)(parent);
     Mem::Manager::Get()->PopContext();
 }
@@ -708,7 +724,7 @@ void CSkater::HideSkater()
 // 0x00581550
 void CSkater::ShowSkater()
 {
-    GameFunction<void(__thiscall*)(void*, CSkater*)>(0x00565BF0)(Skate(), this);
+    reinterpret_cast<Mdl::Skate*>(Skate())->SetSkaterShadow(this);
     Hide(false);
     m_flag2C4 = true;
 }
@@ -811,7 +827,7 @@ void CSkater::Init(CSkaterProfile* profile)
         uint32_t cameraName = m_viewport == 1 ? kSkaterCam1 : kSkaterCam0;
         auto* camera = static_cast<CCompositeObject*>(CompositeObjectManager()->GetObjectByID(cameraName));
         if (camera) {
-            GameFunction<void(__thiscall*)(void*, CSkater*)>(0x004FA3C0)(camera->GetComponent(0x5E43A604), this); // skatercamera
+            static_cast<CSkaterCameraComponent*>(camera->GetComponent(0x5E43A604))->SetSkater(this); // skatercamera
             auto* walkCamera = reinterpret_cast<uint8_t*>(camera->GetComponent(0xC7D37EC2));                     // walkcamera
             reinterpret_cast<CWalkCameraComponent*>(walkCamera)->SetSkater(this);
             *reinterpret_cast<int*>(walkCamera + 0x18) = 3;
@@ -828,9 +844,9 @@ void CSkater::Init(CSkaterProfile* profile)
             }
         }
         static_cast<CWalkComponent*>(GetComponent(0x726E85AA))->SetCamera(camera); // Walk
-        GameFunction<void(__cdecl*)(uint32_t, int, int)>(0x0059F890)(cameraName, m_viewport, 0);
+        CFuncs::MakeCameraActive(cameraName, m_viewport, false);
         At<uint32_t>(camera, 8) |= 2;
-        GameFunction<void(__thiscall*)(void*, int, int)>(0x004F9AE0)(camera->GetComponent(0x5E43A604), 2, 0);
+        static_cast<CSkaterCameraComponent*>(camera->GetComponent(0x5E43A604))->SetMode(2, 0.0f);
         Mem::Manager::Get()->PopContext();
     }
     // Its script; its anim set (skater_asset_info's skater_skeleton, else thps6_human).
@@ -904,8 +920,11 @@ void CSkater::Init(CSkaterProfile* profile)
     }
     if (void* state = m_unknown258) {
         static_cast<CTrickComponent*>(state)->SetTrickMappings(profile);
-        for (uint32_t reset : {0x0051EB00u, 0x0051ED10u, 0x0051EB30u, 0x0051EF00u})
-            GameFunction<void(__thiscall*)(void*)>(reset)(m_unknown258);
+        auto* tricks = static_cast<CTrickComponent*>(m_unknown258);
+        tricks->ClearEventBuffer();
+        tricks->ClearQueue();
+        tricks->ClearBlock1238();
+        tricks->ClearBlock1280();
         At<void*>(m_unknown258, 0x1C) = At<void*>(m_scoreHolder, 0x18);
     }
     if (uint8_t* other = m_unknown270)
@@ -921,7 +940,7 @@ void CSkater::Init(CSkaterProfile* profile)
     if (m_unknownBC) {
         for (int i = 0; i < 11; ++i) {
             void* memory = Mem::New(0x10);
-            m_trickInfo[i] = memory ? GameFunction<uint8_t*(__thiscall*)(void*)>(0x00552560)(memory) : nullptr;
+            m_trickInfo[i] = memory ? reinterpret_cast<uint8_t*>(static_cast<Game::CCreateATrick*>(memory)->Construct()) : nullptr;
         }
         Script::RunScript(0x0BDC1C89, nullptr, this, false, nullptr); // spawn_add_premade_cats_to_skater
         CCompositeObject::CallMemberFunction(0x5C038F9B, nullptr, nullptr); // SkaterPhysicsControl_SwitchWalkingToSkating
@@ -958,7 +977,7 @@ void CSkater::InitFromProfile(CSkaterProfile* profile)
 {
     Init(profile);
     GameNet::Manager* net = Net();
-    if (m_unknownBC && GameFunction<bool(__cdecl*)(int, int)>(0x005A11B0)(0, 0)) {
+    if (m_unknownBC && static_cast<uint8_t>(CFuncs::CFunc_InMultiplayerGame(nullptr, nullptr)) != 0) {
         // Its network messages.
         auto* client = reinterpret_cast<uint8_t*>(net->GetClient(m_viewport));
         auto* dispatcher = reinterpret_cast<Net::Dispatcher*>(client + 0xC);
@@ -1083,7 +1102,7 @@ void CSkater::LaunchProjectile()
             continue;
         bool ped = false;
         if (object->GetComponent(0x6EFDDFB8)) { // PedLogic
-            uint32_t state = GameFunction<uint32_t(__thiscall*)(void*)>(0x004ED140)(object->GetComponent(0x6EFDDFB8));
+            uint32_t state = static_cast<CPedLogicComponent*>(object->GetComponent(0x6EFDDFB8))->GetLogicState();
             ped = true;
             if (state == 0x54F87744) // shot
                 continue;
@@ -1266,7 +1285,7 @@ void CSkater::ResetComponents()
 {
     if (m_unknownBC) {
         reinterpret_cast<CSkaterGapComponent*>(m_unknown270)->ClearGaps();
-        GameFunction<void(__thiscall*)(void*)>(0x004F91D0)(GetComponent(0x589E5FB3));
+        static_cast<CSkaterBalanceTrickComponent*>(GetComponent(0x589E5FB3))->ClearParams();
     }
     static_cast<CSpecialItemComponent*>(GetComponent(0xF27A294D))->DestroyItems();
     static_cast<CAnimBlenderComponent*>(m_unknown24C)->ResetChannels();
@@ -1299,7 +1318,7 @@ void CSkater::Restart(uint32_t a, uint32_t b)
         m_script->RunOnExitScripts();
     reinterpret_cast<Skater::CorePhysicsComponent*>(m_corePhysics)->Reset();
     auto* camera = static_cast<CCompositeObject*>(CompositeObjectManager()->GetObjectByID(m_viewport == 1 ? kSkaterCam1 : kSkaterCam0));
-    GameFunction<void(__thiscall*)(void*)>(0x004FA7C0)(camera->GetComponent(0x5E43A604));
+    static_cast<CSkaterCameraComponent*>(camera->GetComponent(0x5E43A604))->ResetMode();
     reinterpret_cast<void(__thiscall*)(CSkater*)>(m_vtable[0x44 / 4])(this);
     ResetComponents();
     reinterpret_cast<void(__thiscall*)(CSkater*)>(m_vtable[0x48 / 4])(this);
@@ -1370,14 +1389,14 @@ bool CSkater::CallMemberFunction(uint32_t name, Script::CStruct* params, Script:
             }
         }
         if (i == count && At<uint32_t>(GameVariable<uint8_t*>(0x007CE5D8), 0x40) != 0xD443A2BC)
-            GameFunction<void(__thiscall*)(void*, CSkater*, int, uint32_t)>(0x00566370)(Skate(), this, 0, walking);
+            reinterpret_cast<Mdl::Skate*>(Skate())->MoveToRestart(this, 0, walking);
         return true;
     }
     case 0x0C09C1B7: // AddSkaterToWorld
-        GameFunction<void(__thiscall*)(void*, CSkater*, int)>(0x00564C60)(Skate(), this, 0);
+        reinterpret_cast<Mdl::Skate*>(Skate())->HideSkater(this, false);
         return true;
     case 0xBCE85494: // RemoveSkaterFromWorld
-        GameFunction<void(__thiscall*)(void*, CSkater*, int)>(0x00564C60)(Skate(), this, 1);
+        reinterpret_cast<Mdl::Skate*>(Skate())->HideSkater(this, true);
         return true;
     case 0x1C5612EE: { // SkaterIsNamed
         uint32_t named;
@@ -1388,7 +1407,7 @@ bool CSkater::CallMemberFunction(uint32_t name, Script::CStruct* params, Script:
         if (!m_unknownBC)
             return false;
         if (m_pushStyle == 0x0CDBA4F9) // mongo_when_switch
-            return GameFunction<bool(__thiscall*)(void*)>(0x004FC440)(m_corePhysics);
+            return (reinterpret_cast<Skater::CorePhysicsComponent*>(m_corePhysics)->IsSwitched() & 0xFF) != 0;
         return m_pushStyle == 0x16C6DF0B; // always_mongo
     case 0x3F06191C: // LaunchDirtyProjectile
         Dbg::Printf("LaunchDirtyProjectile\n");
@@ -1408,7 +1427,7 @@ bool CSkater::CallMemberFunction(uint32_t name, Script::CStruct* params, Script:
             m_customRestartSet = true;
             m_customRestartPos = m_pos;
             m_customRestartMatrix = m_matrix;
-            m_customRestartWalking = GameFunction<bool(__thiscall*)(void*)>(0x004FC420)(m_state284);
+            m_customRestartWalking = reinterpret_cast<CSkaterPhysicsControlComponent*>(m_state284)->IsWalking();
             SkipToCustomRestart();
             return true;
         }
@@ -1446,11 +1465,11 @@ bool CSkater::CallMemberFunction(uint32_t name, Script::CStruct* params, Script:
         MoveToRandomRestart();
         return true;
     case 0xD38E8B6C: { // PlaceBeforeCamera: 144 in front of the camera, facing it, moving away at 10
-        if (!GameFunction<void*(__cdecl*)(int)>(0x004A09C0)(m_viewport))
+        if (!Nx::GetActiveCamera(m_viewport))
             return true;
-        auto* camera = static_cast<Gfx::Camera*>(GameFunction<void*(__cdecl*)(int)>(0x004A09C0)(m_viewport));
+        auto* camera = Nx::GetActiveCamera(m_viewport);
         const Mth::Vector* cameraPos = camera->GetPos();
-        camera = static_cast<Gfx::Camera*>(GameFunction<void*(__cdecl*)(int)>(0x004A09C0)(m_viewport));
+        camera = Nx::GetActiveCamera(m_viewport);
         const Mth::Matrix* cameraMatrix = camera->GetMatrix();
         m_matrix.Ident();
         m_pos = *cameraPos;
@@ -1493,7 +1512,7 @@ void CSkater::SkipToRestart(uint32_t node, uint32_t walking)
         if (void* list = m_list28C)
             At<uint8_t>(list, 0x18) = 1;
         if (net->InNetGame()) {
-            GameFunction<void(__cdecl*)(int, int)>(0x005A1050)(0, 0);
+            CFuncs::CFunc_NotifyBailDone(nullptr, nullptr);
             uint8_t* flag = At<uint8_t*>(m_corePhysics, 0x1528) + 0x70;
             if (flag[0]) {
                 flag[0] = 0;
@@ -1526,7 +1545,7 @@ void CSkater::SkipToRestart(uint32_t node, uint32_t walking)
     }
     SetTeleported(true);
     // In these game modes the server is told (message 0x57).
-    auto mode = [] { return GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(GameVariable<void*>(0x007CE470)); };
+    auto mode = [] { return static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->GetNameChecksum(); };
     if (mode() == 0x6C5FF266 || mode() == 0x6EF8FDA0 || mode() == 0x5D32129C) {
         Net::MsgDesc message;
         message.Construct();

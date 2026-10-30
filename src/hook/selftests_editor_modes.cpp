@@ -10,6 +10,7 @@
 
 #include "game/front/level_editor_layout.h"
 #include "game/skate/records.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/selftest.h"
@@ -91,7 +92,7 @@ void TestEditorModesUpdateRecords()
         bool result;
         {
             StandIns s;
-            s.At({0x00566F40}, 0, [&](Regs& r) {
+            s.At({0x00566F40, AddressOf(&Mdl::Skate::UpdateRecords)}, 0, [&](Regs& r) {
                 calls.push_back(r.ecx);
                 reinterpret_cast<uint8_t*>(r.ecx)[0x384] = 7; // (the records' answer)
                 return 0u;

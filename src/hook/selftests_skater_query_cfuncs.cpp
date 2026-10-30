@@ -19,6 +19,9 @@
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
 #include "game/skater/skater_query_cfuncs.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
+#include "game/skater/skater_camera_component.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -84,7 +87,7 @@ void StandInQueryCalls(StandIns& s)
 {
     StandInStructAdds(s);
     // The skate module and the skaters
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, r.ecx});
         return g_localSkater < 0 ? 0u : reinterpret_cast<uint32_t>(g_skaters[g_localSkater]);
     });
@@ -104,7 +107,7 @@ void StandInQueryCalls(StandIns& s)
             return reinterpret_cast<uint32_t>(g_components[i]);
         return r.ecx == reinterpret_cast<uint32_t>(g_camera) ? 0xCA3E0000u : 0u;
     });
-    s.At({0x00561B40}, 0, [](Regs& r) {
+    s.At({0x00561B40, AddressOf(&Mdl::Score::GetTotalScore)}, 0, [](Regs& r) {
         int i = IndexOf(g_scores, r.ecx);
         Record({0x1B40, static_cast<uint32_t>(i)});
         return i >= 0 ? *reinterpret_cast<uint32_t*>(g_scores[i] + 0x100) : 0u;
@@ -113,7 +116,7 @@ void StandInQueryCalls(StandIns& s)
         Record({0x0880, static_cast<uint32_t>(SkaterIndex(r.ecx))});
         return reinterpret_cast<uint32_t>(g_camera);
     });
-    s.At({0x004FA7D0}, 0, [](Regs& r) {
+    s.At({0x004FA7D0, AddressOf(&Obj::CSkaterCameraComponent::NextMode)}, 0, [](Regs& r) {
         Record({0xA7D0, r.ecx});
         return 0u;
     });
@@ -126,7 +129,7 @@ void StandInQueryCalls(StandIns& s)
         return reinterpret_cast<uint32_t>(g_profile);
     });
     // The game mode and the network manager
-    s.At({0x005535F0}, 0, [](Regs& r) {
+    s.At({0x005535F0, AddressOf(&Game::CGameMode::IsTeamGame)}, 0, [](Regs& r) {
         Record({0x35F0, r.ecx});
         return g_teamGame ? 1u : 0u;
     });

@@ -23,6 +23,8 @@
 #include "game/skate/victory_conditions.h"
 #include "game/skater/end_run.h"
 #include "game/skater/skater.h"
+#include "game/skate/score.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/goals_testkit.h"
 #include "hook/hook.h"
@@ -71,7 +73,7 @@ void StandInHorseCalls(StandIns& s)
                        reinterpret_cast<va_list>(&r.args[2]));
         return 0u;
     });
-    s.At({0x00566600}, 4, [](Regs& r) {
+    s.At({0x00566600, AddressOf(&Mdl::Skate::GetSkaterById)}, 4, [](Regs& r) {
         Record({0x6600, r.ecx, r.args[0]});
         return r.args[0] < 8 && g_present[r.args[0]] ? Address(g_skaters[r.args[0]]) : 0u;
     });
@@ -86,7 +88,7 @@ void StandInHorseCalls(StandIns& s)
         int i = SkaterIndex(r.ecx);
         return Address(g_scores[i < 0 ? 0 : i]);
     });
-    s.At({0x00561B40}, 0, [](Regs& r) {
+    s.At({0x00561B40, AddressOf(&Mdl::Score::GetTotalScore)}, 0, [](Regs& r) {
         Record({0x1B40, r.ecx});
         int i = SkaterIndex(r.ecx);
         return static_cast<uint32_t>(g_totals[i < 0 ? 0 : i]);
@@ -334,7 +336,7 @@ void StandInNetTypeCalls(StandIns& s)
         Record({0x91B0});
         return Address(g_fakeManager);
     });
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, r.ecx});
         return Address(g_skaters[0]);
     });

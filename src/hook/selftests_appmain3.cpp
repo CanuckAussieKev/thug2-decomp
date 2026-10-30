@@ -16,6 +16,7 @@
 #include "game/gfx/occlusion.h"
 #include "game/gfx/shadow.h"
 #include "game/lst/hashtable.h"
+#include "game/gfx/model.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -214,7 +215,7 @@ alignas(16) Meshes g_meshes;
 
 void StandInModels(StandIns& s)
 {
-    s.At({0x00492E40}, 0, [](Regs& r) {
+    s.At({0x00492E40, AddressOf(&Nx::CModel::GetNumGeoms)}, 0, [](Regs& r) {
         Record({0x2E40, TableRelocate(r.ecx)});
         return (r.ecx & 0xF) + 2;
     });

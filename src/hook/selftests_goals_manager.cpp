@@ -43,6 +43,8 @@
 #include "game/skate/trick_goals.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
+#include "game/script/struct.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/goals_testkit.h"
 #include "hook/hook.h"
@@ -472,11 +474,11 @@ void StandInManagerCalls(StandIns& s, bool peds = true)
         return 0u;
     });
     // The skate module, the skater, the career, the game mode, the network.
-    s.At({0x00564D90}, 0, [](Regs& r) {
+    s.At({0x00564D90, AddressOf(&Mdl::Skate::GetGoalManager)}, 0, [](Regs& r) {
         Record({0x4D90, r.ecx});
         return Address(g_mgr);
     });
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, r.ecx});
         return Address(g_skater);
     });
@@ -511,7 +513,7 @@ void StandInManagerCalls(StandIns& s, bool peds = true)
         Record({0x6590, r.ecx, r.args[0], r.args[2] & 0xFF});
         return Answer(r, 0x6590) ? 1u : 0u;
     });
-    s.At({0x00564F80}, 4, [](Regs& r) {
+    s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4F80, r.ecx, r.args[0]});
         return Address(g_profile);
     });

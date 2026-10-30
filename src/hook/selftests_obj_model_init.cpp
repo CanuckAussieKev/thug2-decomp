@@ -16,6 +16,10 @@
 #include "game/obj/model_component.h"
 #include "game/obj/objman.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_builder.h"
 #include "hook/skater3_testkit.h"
 
 namespace {
@@ -97,10 +101,10 @@ void StandIn(StandIns& s)
     Rec(s, {0x00478F60, AddressOf(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}, 1, 0x8F60,
         [](Regs&) { return g_a.boneVolumesOn ? 1u : 0u; }, false, true);
     // The model and its geoms.
-    Rec(s, {0x0048BFA0}, 1, 0xBFA0, [](Regs&) { return Addr(kModel); }, false, true);
-    Rec(s, {0x0048C3C0}, 1, 0xC3C0, nullptr, false, true);
+    Rec(s, {0x0048BFA0, AddressOf(Nx::CreateModel)}, 1, 0xBFA0, [](Regs&) { return Addr(kModel); }, false, true);
+    Rec(s, {0x0048C3C0, AddressOf(Nx::Engine::DeleteGeomObject)}, 1, 0xC3C0, nullptr, false, true);
     Rec(s, {0x00494BA0}, 0, 0x4BA0);
-    Rec(s, {0x00492EE0}, 1, 0x2EE0, [](Regs& r) {
+    Rec(s, {0x00492EE0, AddressOf(&Nx::CModel::SetScale)}, 1, 0x2EE0, [](Regs& r) {
         const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
         g_trace.insert(g_trace.end(), {v[0], v[1], v[2], v[3]});
         return 0u;
@@ -121,7 +125,7 @@ void StandIn(StandIns& s)
     Rec(s, {0x0048DD80}, 2, 0xDD80, [](Regs&) { return Addr(kClone); });
     Rec(s, {0x0048DE60}, 1, 0xDE60);
     Rec(s, {0x004938E0}, 3, 0x38E0);
-    Rec(s, {0x00492E40}, 0, 0x2E40, [](Regs&) { return static_cast<uint32_t>(g_a.sourceGeoms); });
+    Rec(s, {0x00492E40, AddressOf(&Nx::CModel::GetNumGeoms)}, 0, 0x2E40, [](Regs&) { return static_cast<uint32_t>(g_a.sourceGeoms); });
     Rec(s, {0x00494640}, 1, 0x4640, [](Regs& r) { return Addr(kGeom) + 4 * r.args[0]; });
     Rec(s, {0x00494680}, 1, 0x4680, [](Regs& r) { return 0x6E0E0000u + r.args[0]; });
     Rec(s, {0x0048C510}, 1, 0xC510, [](Regs&) { return g_a.sector ? Addr(kSector) : 0u; }, false, true);
@@ -136,7 +140,7 @@ void StandIn(StandIns& s)
         std::memcpy(out + nameLength, ext, std::strlen(ext) + 1);
         return 0u;
     });
-    RecBools(s, {0x004935E0}, 8, 0x35E0, 4 | 0x10, [](Regs& r) {
+    RecBools(s, {0x004935E0, AddressOf(&Nx::CModel::AddFileGeom)}, 8, 0x35E0, 4 | 0x10, [](Regs& r) {
         const char* path = reinterpret_cast<const char*>(r.args[0]);
         g_trace.push_back(HashBytes(reinterpret_cast<const uint8_t*>(path), std::strlen(path)));
         return 1u;
@@ -177,8 +181,8 @@ void StandIn(StandIns& s)
     Rec(s, {0x005BAFC0, AddressOf(&Mem::Manager::Allocate)}, 3, 0xAFC0,
         [](Regs&) { return g_a.made ? Addr(kMade) : 0u; });
     // The model builder.
-    RecBools(s, {0x004897D0}, 2, 0x97D0, 1, [](Regs& r) { return r.ecx; });
-    Rec(s, {0x0048A2F0}, 4, 0xA2F0);
+    RecBools(s, {0x004897D0, AddressOf(&Gfx::CModelBuilder::Construct)}, 2, 0x97D0, 1, [](Regs& r) { return r.ecx; });
+    Rec(s, {0x0048A2F0, AddressOf(&Gfx::CModelBuilder::Build)}, 4, 0xA2F0);
     Rec(s, {0x004615D0, AddressOf(&Obj::CObject::DestroyBody)}, 0, 0x15D0);
 }
 

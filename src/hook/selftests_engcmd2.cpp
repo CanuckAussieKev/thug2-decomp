@@ -17,6 +17,8 @@
 #include "game/obj/skeleton_component.h"
 #include "game/script/cfuncs_engine.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/viewport.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -79,8 +81,8 @@ void StandInCalls(StandIns& s)
             Record({reinterpret_cast<const uint32_t*>(r.args[0])[i]});
         return 0u;
     });
-    s.At({0x004916F0}, 0, [](Regs& r) { Record({0x16F0, r.args[0]}); return 0u; });
-    s.At({0x004915A0}, 0, [](Regs&) { Record({0x15A0}); return 0u; });
+    s.At({0x004916F0, AddressOf(Nx::Engine::KillTextureSplatsOfTexture)}, 0, [](Regs& r) { Record({0x16F0, r.args[0]}); return 0u; });
+    s.At({0x004915A0, AddressOf(Nx::Engine::KillAllTextureSplats)}, 0, [](Regs&) { Record({0x15A0}); return 0u; });
     s.At({0x0048C140}, 0, [](Regs& r) {
         Record({0xC140});
         for (int i = 0; i < 3; ++i)
@@ -102,7 +104,7 @@ void StandInCalls(StandIns& s)
         Record({0x7C60, r.ecx == ScriptParams() ? 1u : r.ecx, r.args[0], g_recordPosition ? r.args[1] : 0u});
         return 0u;
     });
-    s.At({0x004A0950}, 0, [](Regs& r) {
+    s.At({0x004A0950, AddressOf(Nx::GetCamera)}, 0, [](Regs& r) {
         Record({0x0950, r.args[0]});
         return g_cameraMissing[r.args[0] & 1] ? 0u : reinterpret_cast<uint32_t>(g_cameras[r.args[0] & 1]);
     });

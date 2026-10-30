@@ -17,6 +17,7 @@
 #include "game/skater/skater.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -281,7 +282,7 @@ void CorePhysicsComponent::Spin()
             return;
     }
     void* display = At<void*>(At<void*>(this, kRotationDisplay), 0x18);
-    GameFunction<void(__thiscall*)(void*, int)>(0x00564BE0)(display, static_cast<int>(static_cast<int64_t>(total)));
+    static_cast<Mdl::Score*>(display)->UpdateSpin(static_cast<int>(static_cast<int64_t>(total)));
 }
 
 // 0x00507120

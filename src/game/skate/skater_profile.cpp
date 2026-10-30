@@ -10,6 +10,9 @@
 #include "game/skate/appearance_guard.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/trick_component.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/model_appearance.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -40,13 +43,13 @@ constexpr uint32_t kStatList = 0x61EB6BA9;       // the global array of stats (e
 constexpr uint32_t kOwnedStructure = 11;         // a component type: a structure it owns, by pointer
 
 // The appearance's code (0x00488xxx-0x00489xxx).
-void FreeFaceTexture(CSkaterProfile* p) { GameFunction<void(__thiscall*)(CSkaterProfile*)>(0x004891D0)(p); }
-void ResetAppearance(CSkaterProfile* p) { GameFunction<bool(__thiscall*)(CSkaterProfile*)>(0x00488F00)(p); }
+void FreeFaceTexture(CSkaterProfile* p) { reinterpret_cast<Gfx::CModelAppearance*>(p)->FreeFaceTexture(); }
+void ResetAppearance(CSkaterProfile* p) { reinterpret_cast<Gfx::CModelAppearance*>(p)->Reset(); }
 void LoadAppearance(CSkaterProfile* p, uint32_t name, bool update)
 {
-    GameFunction<bool(__thiscall*)(CSkaterProfile*, uint32_t, bool)>(0x00488FA0)(p, name, update);
+    reinterpret_cast<Gfx::CModelAppearance*>(p)->LoadByName(name, update);
 }
-void MakeFaceTexture(CSkaterProfile* p) { GameFunction<void(__thiscall*)(CSkaterProfile*)>(0x00489160)(p); }
+void MakeFaceTexture(CSkaterProfile* p) { reinterpret_cast<Gfx::CModelAppearance*>(p)->MakeFaceTexture(); }
 
 // A new empty structure (pooled; null if none) / one cleared and freed.
 Script::CStruct* NewEmptyStruct()
@@ -82,7 +85,7 @@ void PopHeap() { Mem::Manager::Get()->PopContext(); }
 CSkaterProfile* CSkaterProfile::CopyFrom(CSkaterProfile* other)
 {
     if (other != this) {
-        GameFunction<void(__thiscall*)(CSkaterProfile*, CSkaterProfile*)>(0x004893A0)(this, other); // the appearance
+        reinterpret_cast<Gfx::CModelAppearance*>(this)->CopyFrom(reinterpret_cast<Gfx::CModelAppearance*>(other)); // the appearance
         InfoStructure()->Assign(other->InfoStructure());
     }
     return this;
@@ -259,7 +262,7 @@ bool CSkaterProfile::SetSpecialTrick(int index, SpecialTrick* trick, bool apply)
         slot->RemoveComponent(kTrickFlag);
     if (apply) {
         // The current skater's trick state told.
-        auto* skater = GameFunction<CCompositeObject*(__thiscall*)(uint8_t*)>(0x00566520)(GameVariable<uint8_t*>(0x007CE478));
+        auto* skater = reinterpret_cast<CCompositeObject*>(Mdl::Skate::Instance()->GetLocalSkater());
         if (skater)
             static_cast<CTrickComponent*>(skater->GetComponent(0x270F56E1))->SetTrickMappings(this);
     }
@@ -425,9 +428,9 @@ void CSkaterProfile::WriteToSave(Script::CStruct* save)
         mine->AddComponentOfType(kAppearance, kOwnedStructure, reinterpret_cast<uint32_t>(appearance));
     }
     void* face = *reinterpret_cast<void**>(m_appearance + 0x54); // (the appearance's face: 0x00576E60, a folded getter)
-    if (face && GameFunction<bool(__thiscall*)(void*)>(0x00487510)(face)) {
+    if (face && static_cast<Gfx::CFaceTexture*>(face)->IsValid()) {
         Script::CStruct* texture = NewEmptyStruct();
-        GameFunction<void(__thiscall*)(void*, Script::CStruct*)>(0x00487680)(face, texture);
+        static_cast<Gfx::CFaceTexture*>(face)->SaveToStructure(texture);
         mine->AddComponentOfType(0xF0D3BC94, kOwnedStructure, reinterpret_cast<uint32_t>(texture));
     }
     Script::CStruct* info = NewEmptyStruct();
@@ -442,7 +445,7 @@ void CSkaterProfile::WriteToSave(Script::CStruct* save)
 // 0x00586D60
 CSkaterProfile* CSkaterProfile::Construct()
 {
-    GameFunction<void*(__thiscall*)(CSkaterProfile*)>(0x00488EA0)(this); // the appearance
+    reinterpret_cast<Gfx::CModelAppearance*>(this)->Construct(); // the appearance
     InfoStructure()->Init();
     Reset(nullptr);
     return this;
@@ -452,7 +455,7 @@ CSkaterProfile* CSkaterProfile::Construct()
 uint8_t* CSkaterProfile::ReadFromBuffer(uint8_t* buffer)
 {
     PushScriptHeap();
-    uint8_t* at = GameFunction<uint8_t*(__thiscall*)(CSkaterProfile*, uint8_t*)>(0x00489400)(this, buffer); // the appearance
+    uint8_t* at = reinterpret_cast<Gfx::CModelAppearance*>(this)->ReadFromBuffer(buffer); // the appearance
     // Not original - parts we can't build (a THUGPRO player's) replaced before anything builds them (TP-R9,
     // appearance_guard.h). Every caller reads a network message.
     AppearanceGuard::Sanitise(reinterpret_cast<Script::CStruct*>(m_appearance + 0x4C));
@@ -483,7 +486,7 @@ uint8_t* CSkaterProfile::ReadInfoFromBuffer(uint8_t* buffer)
 int CSkaterProfile::WriteToBuffer(uint8_t* buffer, int size, int flags)
 {
     PushScriptHeap();
-    int total = GameFunction<int(__thiscall*)(CSkaterProfile*, uint8_t*, int, int)>(0x004896A0)(this, buffer, size, flags); // the appearance
+    int total = reinterpret_cast<Gfx::CModelAppearance*>(this)->WriteToBuffer(buffer, size, (flags & 0xFF) != 0); // the appearance
     size -= total;
     buffer += total;
     Script::CStruct* part = reinterpret_cast<Script::CStruct*>(flags); // (the argument's slot)

@@ -34,6 +34,11 @@
 #include "game/skater/skater.h"
 #include "game/skater/state_history.h"
 #include "game/util/bitstream.h"
+#include "game/goals/goal_manager.h"
+#include "game/script/game_cfuncs.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -241,27 +246,38 @@ void Install(StandIns& s)
                        0x00553BE0u})
         simple(a, 4, a & 0xFFFF);
     simple(0x005535F0, 0, 0x35F1, [](Regs&) { return g_sn_teams ? 1u : 0u; });
+    simple(AddressOf(&Game::CGameMode::IsTeamGame), 0, 0x35F1, [](Regs&) { return g_sn_teams ? 1u : 0u; });
     simple(0x00553130, 0, 0x3130, [](Regs&) { return static_cast<uint32_t>(g_sn_teamCount); });
+    simple(AddressOf(&Game::CGameMode::NumTeams), 0, 0x3130, [](Regs&) { return static_cast<uint32_t>(g_sn_teamCount); });
     simple(0x005532A0, 0, 0x32A0, [](Regs&) { return g_sn_mode; });
+    simple(AddressOf(&Game::CGameMode::GetNameChecksum), 0, 0x32A0, [](Regs&) { return g_sn_mode; });
     simple(0x005530F0, 0, 0x30F0, [](Regs&) { return g_sn_otherModeFlag ? 1u : 0u; });
+    simple(AddressOf(&Game::CGameMode::ShouldTrackTrickScore), 0, 0x30F0, [](Regs&) { return g_sn_otherModeFlag ? 1u : 0u; });
     simple(0x00553220, 4, 0x3220, [](Regs& r) { return g_sn_flags.count(r.args[0]) ? g_sn_flags[r.args[0]] : 0u; });
+    simple(AddressOf(&Game::CGameMode::IsTrue), 4, 0x3220, [](Regs& r) { return g_sn_flags.count(r.args[0]) ? g_sn_flags[r.args[0]] : 0u; });
     // The skate module, the skaters, their scores and the goals.
     for (uint32_t a : {0x00566A60u})
         simple(a, 0, a & 0xFFFF);
     simple(0x00564D50, 4, 0x4D50);
+    simple(AddressOf(&Mdl::Skate::SetUnknown370), 4, 0x4D50);
     simple(0x00564C60, 8, 0x4C60);
+    simple(AddressOf(&Mdl::Skate::HideSkater), 8, 0x4C60);
     simple(0x005695A0, 0, 0x95A0, [](Regs&) { return static_cast<uint32_t>(g_sn_checksumOfSkate); });
+    simple(AddressOf(&Mdl::Skate::GetCheats), 0, 0x95A0, [](Regs&) { return static_cast<uint32_t>(g_sn_checksumOfSkate); });
     simple(0x005665C0, 4, 0x65C0, [](Regs& r) { return r.args[0] < 8 && r.args[0] != 2 ? At(kObjects + 0x300 * r.args[0]) : 0u; });
+    simple(AddressOf(&Mdl::Skate::GetSkater), 4, 0x65C0, [](Regs& r) { return r.args[0] < 8 && r.args[0] != 2 ? At(kObjects + 0x300 * r.args[0]) : 0u; });
     simple(0x0057FEC0, 0, 0xFEC0, [](Regs& r) { return *reinterpret_cast<uint32_t*>(r.ecx + 0x2B8); });
     simple(0x00580480, 0, 0x0480, [](Regs& r) { return *reinterpret_cast<uint32_t*>(r.ecx + 0x20); });
     simple(0x00561B40, 0, 0x1B40, [](Regs& r) { return *reinterpret_cast<uint32_t*>(r.ecx); });
+    simple(AddressOf(&Mdl::Score::GetTotalScore), 0, 0x1B40, [](Regs& r) { return *reinterpret_cast<uint32_t*>(r.ecx); });
     simple(0x00561A80, 4, 0x1A80);
+    simple(AddressOf(&Mdl::Score::SetTotalScore), 4, 0x1A80);
     simple(0x00581580, 0, 0x1580, [](Regs& r) { return At(kText + 0x40 + 0x10 * ((r.ecx - At(kObjects)) / 0x300)); });
-    s.At({0x005591B0}, 0, [](Regs&) {
+    s.At({0x005591B0, AddressOf(Game::GetGoalManager)}, 0, [](Regs&) {
         Rec(0x91B0, {});
         return At(kMisc);
     });
-    s.At({0x00557F90}, 8, [](Regs& r) {
+    s.At({0x00557F90, AddressOf(&Game::CGoalManager::GetGoal)}, 8, [](Regs& r) {
         Rec(0x7F90, {r.ecx, r.args[0], r.args[1]});
         uint32_t index = r.args[0] == 0x1F3430CE ? 0 : r.args[0] == 0x8A6B04AD ? 1 : 2;
         return At(kGoals + 0x20 * index);
@@ -269,7 +285,7 @@ void Install(StandIns& s)
     simple(0x00588480, 4, 0x8480, [](Regs& r) { return 0xC0100000u + r.args[0]; });
     simple(0x00588150, 4, 0x8150);
     simple(0x005890B0, 0, 0x90B0);
-    s.At({0x005A0D90}, 0, [](Regs& r) {
+    s.At({0x005A0D90, AddressOf(CFuncs::CFunc_IsObserving)}, 0, [](Regs& r) {
         Rec(0x0D90, {r.args[0], r.args[1]});
         return g_sn_observing ? 1u : 0u;
     });

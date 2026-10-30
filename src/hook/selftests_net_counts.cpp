@@ -27,6 +27,8 @@
 #include "game/net/player_info.h"
 #include "game/obj/object.h"
 #include "game/skate/profile_manager.h"
+#include "game/gfx/face_texture.h"
+#include "game/skate/game_mode.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -96,7 +98,7 @@ void Flags(int player, uint32_t flags) { Word<uint32_t>(Player(player) + 0x1D0) 
 void Install(StandIns& s)
 {
     InstallCommon(s);
-    Stub(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_gameType; });
+    Stub(s, {0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, [](Regs&) { return g_gameType; });
     s.At({0x005434A0, AddressOf(&GameNet::PlayerInfo::GetConnHandle)}, 0, [](Regs& r) {
         Rec(0x34A0, {r.ecx});
         return (r.ecx - g_base) / 0x10;
@@ -143,8 +145,8 @@ void Install(StandIns& s)
     // Faces.
     if (g_stubLocalFace)
         Stub(s, {0x0053A040, AddressOf(&Manager::PrepareLocalFace)}, 0, 0xA040, [](Regs&) { return g_localFace ? 1u : 0u; });
-    Stub(s, {0x00564FC0}, 4, 0x4FC0, [](Regs&) { return At(Obj(4)); });
-    Stub(s, {0x00487510}, 0, 0x7510, [](Regs&) { return g_faceTexture ? 1u : 0u; });
+    Stub(s, {0x00564FC0, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile))}, 4, 0x4FC0, [](Regs&) { return At(Obj(4)); });
+    Stub(s, {0x00487510, AddressOf(&Gfx::CFaceTexture::IsValid)}, 0, 0x7510, [](Regs&) { return g_faceTexture ? 1u : 0u; });
     Stub(s, {0x00487440}, 8, 0x7440);
     // The clients' end.
     Stub(s, {0x00455550, AddressOf(&Net::Manager::DestroyApp)}, 4, 0x5550);

@@ -10,6 +10,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skate/career.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -37,13 +38,9 @@ T& Field(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-// Mdl::Score (not rewritten yet).
-template <typename R = void, typename... A>
-R ScoreCall(uint32_t address, uint8_t* score, A... args)
-{
-    return GameFunction<R(__thiscall*)(uint8_t*, A...)>(address)(score, args...);
-}
-int TotalScore(uint8_t* score) { return ScoreCall<int>(0x00561B40, score); }
+// The score (Mdl::Score).
+Mdl::Score* ScoreOf(uint8_t* score) { return reinterpret_cast<Mdl::Score*>(score); }
+int TotalScore(uint8_t* score) { return ScoreOf(score)->GetTotalScore(); }
 // The score so far times the multiplier (+0x14 * +0x60), truncated as the original's _ftol.
 int ScorePot(uint8_t* score)
 {
@@ -85,7 +82,7 @@ void CSkaterScoreComponent::DestroyBody()
 {
     m_vtable = kVtable;
     if (uint8_t* score = m_score) {
-        ScoreCall(0x00564B80, score); // (its destructor)
+        ScoreOf(score)->DestroyBody(); // (its destructor)
         Mem::Manager::Get()->Free(score);
     }
     CBaseComponent::DestroyBody();
@@ -106,8 +103,8 @@ void CSkaterScoreComponent::InitFromStructure(Script::CStruct* /*params*/)
     if (m_score)
         return;
     void* memory = Mem::Calloc(0x1550);
-    m_score = memory ? ScoreCall<uint8_t*>(0x00563440, static_cast<uint8_t*>(memory)) : nullptr; // (its constructor)
-    ScoreCall(0x00561290, m_score, static_cast<uint32_t>(static_cast<uint16_t>(m_object->m_id)));
+    m_score = memory ? reinterpret_cast<uint8_t*>(static_cast<Mdl::Score*>(memory)->Construct()) : nullptr; // (its constructor)
+    ScoreOf(m_score)->SetSkaterId(static_cast<int16_t>(m_object->m_id));
 }
 
 // 0x005186E0
@@ -117,13 +114,13 @@ void CSkaterScoreComponent::Update()
         VirtualSuspend(true);
         return;
     }
-    ScoreCall(0x00563580, m_score);
+    ScoreOf(m_score)->Update();
     bool alwaysSpecial = Field<uint8_t>(m_object, 0x168) != 0 ||
                          reinterpret_cast<CSkaterCareer*>(Career())->GetCheat(kCheatAlwaysSpecial);
     if (alwaysSpecial) {
         uint8_t* career = Career();
         reinterpret_cast<CSkaterCareer*>(career)->SetGlobalFlag(Script::GetInteger(kCheatAlwaysSpecial));
-        ScoreCall(0x00562DF0, m_score);
+        ScoreOf(m_score)->FillSpecial();
         GameVariable<uint8_t>(0x007CE4FD) = 1;
     }
 }
@@ -131,9 +128,9 @@ void CSkaterScoreComponent::Update()
 // 0x00518630
 void CSkaterScoreComponent::ResetScore()
 {
-    ScoreCall(0x00564A10, m_score);
-    ScoreCall(0x00563370, m_score, 0, 0);
-    ScoreCall(0x00563390, m_score, 0, 0);
+    ScoreOf(m_score)->Reset();
+    ScoreOf(m_score)->SetBalanceMeter(false, 0.0f);
+    ScoreOf(m_score)->SetManualMeter(false, 0.0f);
 }
 
 // 0x00518760
@@ -177,22 +174,22 @@ int CSkaterScoreComponent::CallMemberFunction(uint32_t name, Script::CStruct* pa
     case kGotSpecial:
         return Field<uint8_t>(m_score, 0x74) ? 1 : 0;
     case kForceSpecial:
-        ScoreCall(0x00562DF0, m_score);
+        ScoreOf(m_score)->FillSpecial();
         return 1;
     case kGetTotalScore:
         script->m_params->AddInteger(kTotalScore, TotalScore(m_score));
         return 1;
     case kGetNumberOfNonGapTricks:
-        script->m_params->AddInteger(kNumberOfNonGapTricks, ScoreCall<int>(0x005633B0, m_score));
+        script->m_params->AddInteger(kNumberOfNonGapTricks, ScoreOf(m_score)->CountNonGapTricks());
         return 1;
     case kTweakTrick: {
         int tweak = 0;
         params->GetInteger(uint32_t{0}, &tweak, 0);
-        ScoreCall(0x00564270, m_score, tweak);
+        ScoreOf(m_score)->TweakTrick(tweak);
         return 1;
     }
     case kIncrementScore:
-        ScoreCall(0x00561A80, m_score, TotalScore(m_score) + 1);
+        ScoreOf(m_score)->SetTotalScore(TotalScore(m_score) + 1);
         return 1;
     case kIsLatestTrick: {
         // A trick by key combo or by name, with its spin (half turns) and taps (1 by default).
@@ -206,8 +203,8 @@ int CSkaterScoreComponent::CallMemberFunction(uint32_t name, Script::CStruct* pa
             spin /= 180;
         int taps = 1;
         params->GetInteger(kNumTaps, &taps, 0);
-        bool latest = byKeyCombo ? ScoreCall<bool>(0x00562410, m_score, keyCombo, spin, 0, taps)
-                                 : ScoreCall<bool>(0x005623B0, m_score, Crc::GenerateCRCFromString(text), spin, 0, taps);
+        bool latest = byKeyCombo ? ScoreOf(m_score)->LastTrickIsKeyCombo(keyCombo, spin, false, taps)
+                                 : ScoreOf(m_score)->LastTrickIs(Crc::GenerateCRCFromString(text), spin, false, taps);
         return latest ? 1 : 0;
     }
     default:

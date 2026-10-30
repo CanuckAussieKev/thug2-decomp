@@ -17,6 +17,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/victory_conditions.h"
 #include "game/goals/goal_manager.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/goals_testkit.h"
 #include "hook/hook.h"
@@ -116,7 +117,7 @@ void StandInModeCalls(StandIns& s)
         Record({0x3FB0, r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x005651F0}, 0, [](Regs& r) {
+    s.At({0x005651F0, AddressOf(Mdl::Skate::IsMultiplayer)}, 0, [](Regs& r) {
         Record({0x51F0, r.ecx});
         return g_multiplayer ? 1u : 0u;
     });
@@ -124,11 +125,11 @@ void StandInModeCalls(StandIns& s)
         Record({0x91B0});
         return Address(g_goalManager);
     });
-    s.At({0x0055DC30}, 4, [](Regs& r) {
+    s.At({0x0055DC30, AddressOf(&Game::CGoalManager::NumActiveGoals)}, 4, [](Regs& r) {
         Record({0xDC30, r.ecx, r.args[0]});
         return static_cast<uint32_t>(g_goalCount);
     });
-    s.At({0x0055E980}, 0, [](Regs& r) {
+    s.At({0x0055E980, AddressOf(&Game::CGoalManager::GetActiveNetGoal)}, 0, [](Regs& r) {
         Record({0xE980, r.ecx});
         return g_noGoal ? 0u : Address(g_goal);
     });
@@ -136,7 +137,7 @@ void StandInModeCalls(StandIns& s)
         Record({0x7F90, r.ecx, r.args[0], r.args[1]});
         return g_noGoal ? 0u : Address(g_goal);
     });
-    s.At({0x00564D80}, 0, [](Regs& r) {
+    s.At({0x00564D80, AddressOf(&Mdl::Skate::GetSplitScreenPreferences)}, 0, [](Regs& r) {
         Record({0x4D80, r.ecx});
         return Address(g_prefs);
     });

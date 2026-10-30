@@ -21,6 +21,8 @@
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_appearance.h"
 #include "hook/skater3_testkit.h"
 
 namespace {
@@ -135,7 +137,7 @@ void StandIn(StandIns& s)
         reinterpret_cast<float*>(r.args[0])[1] = 3.0f;
         return 1u;
     }, false, true);
-    Rec(s, {0x00492EE0}, 1, 0x2EE0, [](Regs& r) {
+    Rec(s, {0x00492EE0, AddressOf(&Nx::CModel::SetScale)}, 1, 0x2EE0, [](Regs& r) {
         const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
         g_trace.insert(g_trace.end(), {v[0], v[1], v[2], v[3]});
         return 0u;
@@ -161,9 +163,9 @@ void StandIn(StandIns& s)
     Rec(s, {0x00493E80}, 3, 0x3E80, [](Regs&) { return g_a.replaced ? 0xAB01u : 0xAB00u; });
     RecFloat(s, {0x00493AB0}, 3, 0x3AB0, [](Regs& r) { return static_cast<float>(r.args[2] & 0xFF) * 0.75f; });
     // The appearance a profile is read into.
-    Rec(s, {0x00488EA0}, 0, 0x8EA0, [](Regs& r) { return r.ecx; });
-    Rec(s, {0x00488F40}, 2, 0x8F40);
-    Rec(s, {0x004890F0}, 0, 0x90F0);
+    Rec(s, {0x00488EA0, AddressOf(&Gfx::CModelAppearance::Construct)}, 0, 0x8EA0, [](Regs& r) { return r.ecx; });
+    Rec(s, {0x00488F40, AddressOf(&Gfx::CModelAppearance::Load)}, 2, 0x8F40);
+    Rec(s, {0x004890F0, AddressOf(&Gfx::CModelAppearance::DestroyBody)}, 0, 0x90F0);
     // Its lights.
     Rec(s, {0x0048E660}, 0, 0xE660);
     Rec(s, {0x0048E450}, 1, 0xE450, [](Regs& r) { return g_trace.push_back(*reinterpret_cast<uint32_t*>(r.args[0])), 0u; });

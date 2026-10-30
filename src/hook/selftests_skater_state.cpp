@@ -25,6 +25,7 @@
 #include "game/skater/flip_and_rotate.h"
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
+#include "game/skater/physics_control.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -58,8 +59,8 @@ std::vector<StandIn> StateStandIns()
         {0x00401C30, 0, 4, Ret::Int, false, 0, -1, -1, 0, CodeAddress(&Dbg::Printf)},
         {0x0046B920, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CControlButton::GetPressedTime)},   // TimeSincePress
         {0x00475790, 0, 5, Ret::None, false, 8, -1, -1, 0, RunScriptAddress()},
-        {0x004FC3C0, 0, 0, Ret::Bool, true, 0, -1, -1, 0},  // (a throw)
-        {0x004FC420, 0, 0, Ret::Bool, true, 0, -1, -1, 0},  // (walking)
+        {0x004FC3C0, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::ProjectileButtonPressed)},  // (a throw)
+        {0x004FC420, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkaterPhysicsControlComponent::IsWalking)},  // (walking)
         {0x0045DB90, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CCompositeObject::GetComponent)},
         {0x004208D0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CModelComponent::CancelRotateDisplay)},  // (the model's rotations reset)
         {0x005114F0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkaterFlipAndRotateComponent::Flip)},
@@ -70,15 +71,15 @@ std::vector<StandIn> StateStandIns()
          CodeAddress(static_cast<void (Script::CStruct::*)(uint32_t, uint32_t)>(&Script::CStruct::AddChecksum))},
         {0x00477130, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Script::CStruct::Clear)},
         {0x00409070, 0, 1, Ret::None, false, 0, -1, -1, 0, CodeAddress(&Script::DeleteStruct)},
-        {0x004FF470, 0, 0, Ret::Double, true, 0, -1, -1, 0},  // the gravity
+        {0x004FF470, 0, 0, Ret::Double, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::GetGravity)},  // the gravity
         {0x00477C60, 8, 2, Ret::None, true, 0, -1, -1, 0,
          CodeAddress(static_cast<void (Script::CStruct::*)(uint32_t, float)>(&Script::CStruct::AddFloat)), nullptr, 2},
         {0x0043A930, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Nx::CFeeler::Assign)},   // (a feeler copied)
         {0x0044E4F0, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&GameNet::Manager::InNetGame)},
-        {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0},  // SetState
+        {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::SetPhysicsState)},  // SetState
         {0x00416DD0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CSmtPtr<Obj::CRefCounted>::Release)},  // (a smart pointer released)
         {0x005BABA0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Mem::Manager::Free)},
-        {0x004FC500, 0, 0, Ret::None, true, 0, -1, -1, 0},  // (the destructor body)
+        {0x004FC500, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::DestroyBody)},  // (the destructor body)
         {0x0045D730, 0, 0, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Obj::CBaseComponent::Construct)},
         {0x00417760, 0, 0, Ret::Int, true, 0, -1, -1, 0,
          CodeAddress(static_cast<Nx::CFeeler* (Nx::CFeeler::*)()>(&Nx::CFeeler::Construct))},
@@ -89,11 +90,11 @@ std::vector<StandIn> StateStandIns()
         {0x00580790, 4, 1, Ret::Double, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkater::GetScaledPhysics)},  // StatValue
         {0x00580400, 0, 3, Ret::Float, false, 0, -1, -1, 0, CodeAddress(&Obj::GetPhysicsFloat)},  // PhysicsFloat
         {0x0042BBF0, 4, 1, Ret::Int, true, 0, -1, -1, 0, CodeAddress(&Mth::Vector::SetLength), nullptr, 1}, // SetLength (a float)
-        {0x004FE1F0, 4, 1, Ret::None, true, 0, -1, -1, 0, nullptr, nullptr, 1}, // the air friction (a float)
-        {0x004FE420, 0, 0, Ret::Bool, true, 0, -1, -1, 0},
-        {0x004FE6A0, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x004FE1F0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::ApplyFriction), nullptr, 1}, // the air friction (a float)
+        {0x004FE420, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::MayTurnOnSlope)},
+        {0x004FE6A0, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::ApplyStanceFriction)},
         {0x00501B00, 0, 0, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::TurnDownSlope)},
-        {0x004FE730, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x004FE730, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::ApplyRollingFriction)},
         {0x00427CD0, 4, 1, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Obj::CMovableContactComponent::StartRiding)},
     };
 }

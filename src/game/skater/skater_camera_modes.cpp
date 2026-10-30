@@ -10,6 +10,7 @@
 #include "game/script/struct.h"
 #include "game/skater/skater_camera_component.h"
 #include "game/skater/walk_camera.h"
+#include "game/gfx/viewport_list.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -42,7 +43,7 @@ float OneFrame()
 }
 
 // The screen mode (0x004A0710: 1 a vertical split, 2 a horizontal one).
-int ScreenMode() { return GameFunction<int(__cdecl*)()>(0x004A0710)(); }
+int ScreenMode() { return Nx::GetScreenMode(); }
 
 } // namespace
 

@@ -21,6 +21,7 @@
 #include "game/script/struct.h"
 #include "game/skater/skitch.h"
 #include "game/skater/special_item.h"
+#include "game/gfx/model.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -169,7 +170,7 @@ void StandInObjects(StandIns& s)
         Record({0x68EB, Id(r.args[0])});
         return reinterpret_cast<uint32_t>(g_items[g_next++ % 3]);
     });
-    s.At({0x00492EE0}, 4, [](Regs& r) {
+    s.At({0x00492EE0, AddressOf(&Nx::CModel::SetScale)}, 4, [](Regs& r) {
         const uint32_t* colour = reinterpret_cast<const uint32_t*>(r.args[0]);
         Record({0x492E, Id(r.ecx), colour[0], colour[1], colour[2], colour[3]});
         return 1u;

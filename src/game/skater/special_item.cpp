@@ -12,6 +12,7 @@
 #include "game/obj/node_objects.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/gfx/model.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -173,7 +174,7 @@ CCompositeObject* CSpecialItemComponent::CreateItem(int slot, Script::CStruct* p
     if (mine && its) {
         uint32_t colour[4] = {Field<uint32_t>(mine, 0x1C), Field<uint32_t>(mine, 0x20), Field<uint32_t>(mine, 0x24),
                               Field<uint32_t>(mine, 0x28)};
-        GameFunction<bool(__thiscall*)(uint8_t*, uint32_t*)>(0x00492EE0)(its, colour);
+        reinterpret_cast<Nx::CModel*>(its)->SetScale(reinterpret_cast<const Mth::Vector*>(colour)); // (0x00492EE0: four words set)
     }
     return item;
 }

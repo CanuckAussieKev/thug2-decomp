@@ -15,6 +15,8 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
+#include "game/gfx/face_texture.h"
+#include "game/skate/cas_options.h"
 #include "hook/cas4_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -53,7 +55,7 @@ void StandInAppearanceCalls(StandIns& s)
         Record({0x08F0, Relocate(r.ecx), r.args[0], Relocate(r.args[1]), Relocate(r.args[2])});
         return r.args[0] & 1;
     });
-    s.At({0x00485CF0}, 0, [](Regs& r) {
+    s.At({0x00485CF0, AddressOf(Obj::FindCasOption)}, 0, [](Regs& r) {
         Record({0x5CF0, r.args[0], r.args[1], r.args[2] & 0xFF});
         return g_options[(r.args[0] ^ r.args[1]) & 3];
     });
@@ -65,16 +67,16 @@ void StandInAppearanceCalls(StandIns& s)
         Record({0x5FC0, r.args[0], r.args[1], r.args[2]});
         return g_options[(r.args[1] * 3 + r.args[2]) & 3];
     });
-    s.At({0x00487510}, 0, [](Regs& r) {
+    s.At({0x00487510, AddressOf(&Gfx::CFaceTexture::IsValid)}, 0, [](Regs& r) {
         Record({0x7510, Relocate(r.ecx)});
         return static_cast<uint32_t>(*reinterpret_cast<uint8_t*>(r.ecx));
     });
-    s.At({0x00487520}, 4, [](Regs& r) {
+    s.At({0x00487520, AddressOf(&Gfx::CFaceTexture::SetValid)}, 4, [](Regs& r) {
         Record({0x7520, Relocate(r.ecx), r.args[0] & 0xFF});
         *reinterpret_cast<uint8_t*>(r.ecx) = static_cast<uint8_t>(r.args[0]);
         return 0u;
     });
-    s.At({0x004875C0}, 0, [](Regs& r) {
+    s.At({0x004875C0, AddressOf(&Gfx::CFaceTexture::Construct)}, 0, [](Regs& r) {
         Record({0x75C0, Relocate(r.ecx)});
         *reinterpret_cast<uint8_t*>(r.ecx) = 0;
         reinterpret_cast<uint8_t*>(r.ecx)[0x445C] = 0x5A;

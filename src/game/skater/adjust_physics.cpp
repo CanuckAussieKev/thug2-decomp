@@ -65,7 +65,7 @@ T& At(const void* base, uint32_t offset)
 Mth::Vector& VectorAt(const void* base, uint32_t offset) { return At<Mth::Vector>(base, offset); }
 
 int StateOf(void* core) { return At<int>(At<void*>(core, kTimedFlags), 0x18); }
-void SetState(void* core, int state) { GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(core, state); }
+void SetState(void* core, int state) { static_cast<Skater::CorePhysicsComponent*>(core)->SetPhysicsState(state); }
 
 } // namespace
 
@@ -156,7 +156,7 @@ void CSkaterAdjustPhysicsComponent::Update()
     mp_shadow->SetPosition(&VectorAt(core, kHitPoint));
     mp_shadow->SetNormal(&VectorAt(core, kHitNormal));
     if (StateOf(core) != 4)
-        GameFunction<void(__thiscall*)(void*, Nx::CFeeler*)>(0x004F82F0)(this, &At<Nx::CFeeler>(core, kFeeler));
+        UpdateBrightness(&At<Nx::CFeeler>(core, kFeeler));
 
     if (At<uint32_t>(parkEditor, 0x40) != kParkEditorTestPlay) {
         // Under the floor: a feeler from far above down to a unit over the skater (faces flagged 0x800 - "under ok" -

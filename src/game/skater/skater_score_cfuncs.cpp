@@ -14,6 +14,8 @@
 #include "game/script/struct.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -37,16 +39,11 @@ bool IsLocal(Obj::CSkater* skater) { return reinterpret_cast<uint8_t*>(skater)[0
 // The skater's score (the SkaterScore component's object): 0x00564A10 resets it, 0x00561B40 / 0x00561A80 get and set
 // its total, 0x00564860 resets its pot (bail style or not). None has source yet.
 void* ScoreOf(Obj::CSkater* skater) { return skater->GetScore(); }
-template <typename R, typename... A>
-R ScoreCall(uint32_t address, void* score, A... args)
-{
-    return GameFunction<R(__thiscall*)(void*, A...)>(address)(score, args...);
-}
 
 // The game mode's name (0x005532A0, no source yet).
 uint32_t GameModeName()
 {
-    return GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(GameVariable<void*>(0x007CE470));
+    return static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->GetNameChecksum();
 }
 
 } // namespace
@@ -61,7 +58,7 @@ bool __cdecl CFunc_InitializeSkaters(Script::CStruct*, Script::CScript*)
             auto** vtable = *reinterpret_cast<void***>(skater);
             reinterpret_cast<void(__thiscall*)(Obj::CSkater*)>(vtable[14])(skater);
         }
-        GameFunction<void(__thiscall*)(Mdl::Skate*, Obj::CSkater*, bool)>(0x00564C60)(Skate(), skater, false);
+        Skate()->HideSkater(skater, false);
     }
     return true;
 }
@@ -88,7 +85,7 @@ bool __cdecl CFunc_ResetScore(Script::CStruct* params, Script::CScript*)
         Obj::CSkater* skater = SkaterAt(i);
         if (!IsLocal(skater) && !all)
             continue;
-        ScoreCall<void>(0x00564A10, ScoreOf(skater));
+        static_cast<Mdl::Score*>(ScoreOf(skater))->Reset();
         if (GameModeName() == kNetKing || GameModeName() == kKing)
             Front::SetScoreText(reinterpret_cast<const char*>(0x00657D18), skater->GetSkaterNumber()); // "0:00"
         else
@@ -105,7 +102,7 @@ bool __cdecl CFunc_UpdateScore(Script::CStruct*, Script::CScript*)
         if (!IsLocal(skater))
             continue;
         void* score = ScoreOf(skater);
-        ScoreCall<void>(0x00561A80, score, ScoreCall<int>(0x00561B40, score));
+        static_cast<Mdl::Score*>(score)->SetTotalScore(static_cast<Mdl::Score*>(score)->GetTotalScore());
     }
     return true;
 }
@@ -118,7 +115,7 @@ bool __cdecl CFunc_ResetScorePot(Script::CStruct* params, Script::CScript*)
     for (int i = 0; i < Skate()->GetNumSkaters(); ++i) {
         Obj::CSkater* skater = SkaterAt(i);
         if (IsLocal(skater))
-            ScoreCall<void>(0x00564860, ScoreOf(skater), !bailStyle);
+            static_cast<Mdl::Score*>(ScoreOf(skater))->Bail(!bailStyle);
     }
     return true;
 }

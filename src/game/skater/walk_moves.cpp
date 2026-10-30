@@ -17,6 +17,7 @@
 #include "game/mth/vector.h"
 #include "game/net/gamenet_manager.h"
 #include "game/nx/coll_cache.h"
+#include "game/obj/movable_contact.h"
 #include "game/nx/coll_line.h"
 #include "game/nx/feeler.h"
 #include "game/obj/anim_blender.h"
@@ -28,6 +29,11 @@
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/skater/controls.h"
+#include "game/obj/trigger_component.h"
+#include "game/skater/core_physics.h"
+#include "game/skater/skater_state.h"
+#include "game/skater/walk_camera.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -41,11 +47,6 @@ T& At(const void* object, uint32_t offset)
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
 Mth::Vector& VectorAt(const void* object, uint32_t offset) { return At<Mth::Vector>(object, offset); }
-template <typename R = void, typename... A>
-R Call(uint32_t address, const void* object, A... args)
-{
-    return GameFunction<R(__thiscall*)(const void*, A...)>(address)(object, args...);
-}
 
 // The component's fields (offsets).
 constexpr uint32_t kState = 0x18;              // 0 ground, 1 air, 2 hang, 3 ladder, 4 hang move
@@ -204,7 +205,7 @@ void ClearCurrentCache() { GameVariable<void*>(0x00691974) = nullptr; }
 // The ride component's moving object containing the segment from `from` to `to` (0x00427B30), or null.
 CCompositeObject* MovingObjectAround(void* ride, Mth::Vector* to, Mth::Vector* from)
 {
-    return Call<CCompositeObject*>(0x00427B30, ride, to, from);
+    return static_cast<CMovableContactComponent*>(ride)->FindContactAhead(to, from);
 }
 
 // The debug line the original prints when it finds itself inside a moving object.
@@ -302,7 +303,7 @@ float Add(float a, float b) { return static_cast<float>(static_cast<double>(a) +
 // The walk camera's override (0x00525F70: SetOverrideFacing - the walk camera component, not rewritten here).
 void SetCameraOverride(void* camera, const Mth::Vector* facing, float rate)
 {
-    Call(0x00525F70, camera, facing, rate);
+    static_cast<CWalkCameraComponent*>(camera)->SetOverrideFacing(facing, rate);
 }
 
 } // namespace
@@ -320,7 +321,7 @@ CWalkComponent* CWalkComponent::Construct()
     CBaseComponent::Construct();
     m_vtable = reinterpret_cast<void**>(0x0064C75C);
     for (uint32_t i = 0; i < 8; ++i)
-        Call(0x00528880, &At<uint8_t>(this, kContacts + 0xCC * i)); // (each contact's constructor)
+        reinterpret_cast<WalkContact*>(&At<uint8_t>(this, kContacts + 0xCC * i))->Construct(); // (each contact's constructor)
     reinterpret_cast<Nx::CCollCache*>(&At<uint8_t>(this, kCollCache))->Construct();
     reinterpret_cast<Nx::CFeeler*>(&At<uint8_t>(this, kTriggerFeeler))->Construct();
     for (uint32_t offset = kComponents; offset <= 0x178C; offset += 4)
@@ -336,7 +337,7 @@ CWalkComponent* CWalkComponent::Construct()
 // 0x0052A290
 CWalkComponent* CWalkComponent::Destroy(unsigned int flags)
 {
-    Call(0x005288B0, this); // the destructor body
+    CWalkComponent::DestroyBody(); // the destructor body
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;
@@ -455,7 +456,7 @@ void CWalkComponent::UpdateRide()
         return;
     Mth::Vector& position = VectorAt(this, kPosition);
     if (!tracker->m_object.Get() || !tracker->Update(&position)) {
-        Call(0x00427C70, ride); // (what it stood on is gone)
+        static_cast<CMovableContactComponent*>(ride)->StopRiding(); // (what it stood on is gone)
         return;
     }
     tracker = At<CRideTracker*>(ride, 0x18);
@@ -504,7 +505,7 @@ void CWalkComponent::LeaveRide(Mth::Vector* velocity, float* vertical)
         velocity->w = Add(carried.w, velocity->w);
     } else {
         if (tracker)
-            Call(0x00427C70, ride); // (what it stood on is gone)
+            static_cast<CMovableContactComponent*>(ride)->StopRiding(); // (what it stood on is gone)
         carried = {0.0f, 0.0f, 0.0f, 1.0f};
     }
     // The ride let go.
@@ -522,7 +523,7 @@ void CWalkComponent::LeaveRide(Mth::Vector* velocity, float* vertical)
 // 0x0052B2D0
 void CWalkComponent::GoToAir()
 {
-    Call(0x005260E0, this, 1); // (the state: in the air)
+    SetState(1); // (the state: in the air)
     Mth::Vector& heading = VectorAt(this, kHeading);
     heading = m_object->m_vel;
     heading.y = 0.0f;
@@ -536,7 +537,7 @@ void CWalkComponent::GoToAir()
 // 0x0052A180
 int CWalkComponent::AnimWaitComplete(Script::CStruct*, Script::CScript*)
 {
-    Call(0x005298D0, this);
+    ApplyTransition();
     return 1;
 }
 
@@ -566,14 +567,14 @@ void CWalkComponent::Update()
     uint32_t previousAnim = At<uint32_t>(this, kAnimState);
     At<uint32_t>(this, kPreviousAnimState) = previousAnim;
     At<uint32_t>(this, kAnimState) = 0;
-    Call(0x00527F20, this);
-    Call(0x00527DB0, this);
+    UpdateControl();
+    CopyFromObject();
     Mth::Vector& position = VectorAt(this, kPosition);
     VectorAt(this, kOldPosition) = position;
     At<float>(this, kFrameLength) = static_cast<float>(Tmr::GetSlomoFrameSeconds());
     At<bool>(this, kCurbSnapped) = false;
     position.y -= At<float>(this, kCurbOffset); // (put back below)
-    Call(0x00528370, this);
+    UpdateRunAdjustment();
 
     switch (At<int>(this, kState)) {
     case 0:
@@ -583,10 +584,10 @@ void CWalkComponent::Update()
         UpdateAir();
         break;
     case 2:
-        Call(0x00440BF0, this); // hanging
+        UpdateHang(); // hanging
         break;
     case 3:
-        Call(0x004425B0, this); // on a ladder
+        UpdateLadder(); // on a ladder
         break;
     case 4:
         UpdateAnimWait();
@@ -607,22 +608,22 @@ void CWalkComponent::Update()
     position.y += At<float>(this, kCurbOffset);
 
     if (At<int>(this, kState) == 0 && static_cast<uint32_t>(Now() - At<int>(this, kStateTime)) > 500) {
-        Call(0x00527600, this); // (an acid drop)
+        reinterpret_cast<Skater::Component*>(this)->TryAcidDrop(); // (an acid drop)
         if (Halted(this))
             return;
     }
-    Call(0x005278D0, this);
-    Call(0x00527BE0, this);
+    EaseCriticalPointOffset();
+    RestoreDisplayOffset();
     if (At<int>(this, kState) == 0 || At<int>(this, kState) == 1)
-        Call(0x00527080, this);
-    Call(0x00527420, this);
-    Call(0x00529CE0, this);
-    Call(0x00529800, this);
-    Call(0x00528400, this, previousAnim);
+        UpdateGroundBelow();
+    UpdateUpright();
+    CopyToObject();
+    UpdateRotateUpright();
+    LimitSpeed(previousAnim);
     m_object->SelfEvent(At<uint32_t>(this, kAnimState), nullptr);
     UpdateAnimSpeed();
     UpdateCameraOverride();
-    Call(0x005007A0, At<void*>(this, kSkater));
+    static_cast<Skater::CorePhysicsComponent*>(At<void*>(this, kSkater))->UpdateFocusButton();
     int& countdown = At<int>(this, 0x710);
     if (countdown > 0 && --countdown == 0)
         At<bool>(this, 0x70C) = false;
@@ -632,16 +633,16 @@ void CWalkComponent::Update()
 void CWalkComponent::UpdateGround()
 {
     UpdateRide();
-    Call(0x005277B0, this);
+    UpdateCollisionCache();
     Mth::Vector& velocity = VectorAt(this, kVelocity);
-    Call(0x00528950, this, &velocity);
+    UpdateGroundVelocity(&velocity);
     if (At<uint32_t>(this, kAnimState) == kSkid) {
         float pegged = WalkParameter(kPeggedDurationForSkid);
         if (At<float>(this, kSkidTime) < pegged)
             At<uint32_t>(this, kAnimState) = kStand;
     }
     if (UpdateContacts())
-        Call(0x00526260, this);
+        TurnFacingToVelocity();
     else
         At<bool>(this, kBlocked) = false;
     At<bool>(this, kFlag1958) = false;
@@ -663,7 +664,7 @@ void CWalkComponent::UpdateGround()
     SnapToGround();
 
     if (At<int>(this, kState) == 0 && !Halted(this)) {
-        Call(0x005264F0, this);
+        UpdateCurbFloat();
         void* ride = At<void*>(this, kRide);
         if (CCompositeObject* inside = MovingObjectAround(ride, &position, &VectorAt(this, kOldPosition))) {
             ReportInside(0x369, "WALKING_GROUND, within moving object");
@@ -677,7 +678,7 @@ void CWalkComponent::UpdateGround()
             if (lengthSqr > 100.0)
                 VectorAt(this, kFacing) = velocity / static_cast<float>(std::sqrt(lengthSqr));
         }
-        Call(0x00500820, At<void*>(this, kSkater));
+        static_cast<Skater::CorePhysicsComponent*>(At<void*>(this, kSkater))->UpdateProjectiles();
     }
     ClearCurrentCache();
 }
@@ -686,16 +687,16 @@ void CWalkComponent::UpdateGround()
 void CWalkComponent::UpdateAir()
 {
     const uint8_t* pad = At<uint8_t*>(this, kInput) + 0x20;
-    Call(0x005277B0, this);
+    UpdateCollisionCache();
     At<uint32_t>(this, kAnimState) = kAir;
-    Call(0x00526850, this);
+    SteerJump();
     if (!UpdateContacts())
         At<bool>(this, kBlocked) = false;
     if (Halted(this))
         return;
-    Call(0x00527C50, this);
-    Call(0x00526BA0, this);
-    double gravity = Call<float>(0x005284C0, this);
+    UpdatePush();
+    CheckCeiling();
+    double gravity = static_cast<float>(GetGravity());
 
     // Moved on by the velocity and the extra velocity (each move unrounded), then by the vertical speed under
     // gravity.
@@ -712,7 +713,7 @@ void CWalkComponent::UpdateAir()
     vertical = static_cast<float>(vertical - gravity * frame);
     if (position.y > At<float>(this, kExtraVelocityTop))
         extra = {0.0f, 0.0f, 0.0f, 1.0f};
-    Call(0x00500820, At<void*>(this, kSkater));
+    static_cast<Skater::CorePhysicsComponent*>(At<void*>(this, kSkater))->UpdateProjectiles();
     Mth::Vector& oldPosition = VectorAt(this, kOldPosition);
     CollideAirMove(&oldPosition, &position);
     if (At<int>(this, kState) != 1 || Halted(this))
@@ -728,18 +729,18 @@ void CWalkComponent::UpdateAir()
             grab = Param(kRehangDelay) < since;
         }
         if (grab && (GrabRail(oldPosition, position) ||
-                     Call<bool>(0x00442170, this, &oldPosition, &position))) {
+                     GrabLadder(&oldPosition, &position))) {
             ClearCurrentCache();
             return;
         }
     }
     ClearCurrentCache();
-    if (pad[0x180] && Call<bool>(0x005299F0, this))
+    if (pad[0x180] && TryGrind())
         return;
-    if (Call<bool>(0x00527510, this)) // (an acid drop)
+    if (reinterpret_cast<Skater::Component*>(this)->TryWalkAcidDrop()) // (an acid drop)
         return;
-    Call(0x00526E00, this);
-    Call(0x005293F0, this);
+    CheckStickerSlap();
+    TryWallplant();
     if (Halted(this))
         return;
 
@@ -761,7 +762,7 @@ void CWalkComponent::UpdateAir()
     Mth::Vector bottom = m_object->m_pos - up;
     feeler->SetEnd(&bottom);
     if (feeler->GetCollision(true, false) && feeler->HitObjectAlive())
-        Call(0x0043EB80, At<void*>(this, kRide), feeler->GetHitObject());
+        static_cast<Walk::MovableContact*>(At<void*>(this, kRide))->StartRiding(feeler->GetHitObject());
     VectorAt(this, kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
     vertical = 0.0f;
     CollideAirMove(&position, &start);
@@ -775,7 +776,7 @@ void CWalkComponent::UpdateAnimWait()
     void* ride = At<void*>(this, kRide);
     if (auto* tracker = At<CRideTracker*>(ride, 0x18)) {
         if (!tracker->m_object.Get() || !tracker->Update(&VectorAt(this, kPosition))) {
-            Call(0x00427C70, ride); // (what it stood on is gone)
+            static_cast<CMovableContactComponent*>(ride)->StopRiding(); // (what it stood on is gone)
         } else {
             tracker = At<CRideTracker*>(ride, 0x18);
             Mth::Vector& carried = VectorAt(this, kWaitCarried);
@@ -866,20 +867,20 @@ void CWalkComponent::CollideAirMove(const Mth::Vector* from, const Mth::Vector* 
     // control.
     position = feeler->m_point;
     At<float>(this, kVerticalSpeed) = 0.0f;
-    Call(0x005260E0, this, 0);
+    SetState(0);
     Nx::CFeeler* ground = &At<Nx::CFeeler>(this, kTriggerFeeler);
-    Call(0x0043A930, ground, feeler); // (the feeler copied)
+    reinterpret_cast<Nx::CFeeler*>(ground)->Assign(*feeler); // (the feeler copied)
     At<bool>(this, kHasGround) = true;
-    Call(0x00434BF0, At<void*>(this, kTriggerComponent), reinterpret_cast<const void*>(0x0064C648), ground);
+    static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(reinterpret_cast<const int*>(0x0064C648), ground);
     if (!Halted(this)) {
         VectorAt(this, kGroundNormal) = feeler->m_normal;
         void* ride = At<void*>(this, kRide);
-        Call(0x00427CD0, ride, feeler); // (what it landed on)
+        static_cast<CMovableContactComponent*>(ride)->StartRiding(feeler); // (what it landed on)
         Mth::Vector& velocity = VectorAt(this, kVelocity);
         ride = At<void*>(this, kRide);
         if (auto* tracker = At<CRideTracker*>(ride, 0x18)) {
             if (!tracker->m_object.Get()) {
-                Call(0x00427C70, ride); // (what it stood on is gone)
+                static_cast<CMovableContactComponent*>(ride)->StopRiding(); // (what it stood on is gone)
             } else {
                 velocity -= At<CRideTracker*>(ride, 0x18)->m_object.Get()->m_vel;
                 velocity.y = 0.0f;
@@ -902,7 +903,7 @@ void CWalkComponent::CollideAirMove(const Mth::Vector* from, const Mth::Vector* 
         if (stop)
             velocity = {0.0f, 0.0f, 0.0f, 1.0f};
         VectorAt(this, kRideOffset) = {0.0f, 0.0f, 0.0f, 1.0f};
-        Call(0x0046B7F0, At<uint8_t*>(this, kInput) + 0x1C0); // (a button's release taken)
+        reinterpret_cast<CControlButton*>(At<uint8_t*>(this, kInput) + 0x1C0)->ClearRelease(); // (a button's release taken)
         At<uint32_t>(this, kAnimState) = kLand;
     }
     ReleaseHit(feeler);
@@ -935,24 +936,24 @@ void CWalkComponent::SnapToGround()
         Nx::CFeeler* ground = &At<Nx::CFeeler>(this, kTriggerFeeler);
         if (ground->m_hit.object != feeler->m_hit.object) {
             if (At<bool>(this, kHasGround)) {
-                Call(0x00434BF0, At<void*>(this, kTriggerComponent), reinterpret_cast<const void*>(0x0064C660), ground);
+                static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(reinterpret_cast<const int*>(0x0064C660), ground);
                 if (Halted(this)) {
                     feeler->Destruct();
                     return;
                 }
             }
-            Call(0x00434BF0, At<void*>(this, kTriggerComponent), reinterpret_cast<const void*>(0x0064C654), feeler);
+            static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(reinterpret_cast<const int*>(0x0064C654), feeler);
             if (Halted(this)) {
                 feeler->Destruct();
                 return;
             }
         }
-        Call(0x0043A930, ground, feeler); // (the feeler copied)
+        reinterpret_cast<Nx::CFeeler*>(ground)->Assign(*feeler); // (the feeler copied)
         At<bool>(this, kHasGround) = true;
         VectorAt(this, kGroundNormal) = feeler->m_normal;
-        Call(0x00427CD0, At<void*>(this, kRide), feeler); // (what it stands on)
+        static_cast<CMovableContactComponent*>(At<void*>(this, kRide))->StartRiding(feeler); // (what it stands on)
         // (the terrain byte, passed as the dword there)
-        Call(0x005196A0, At<void*>(this, kTerrainComponent), *reinterpret_cast<const uint32_t*>(&feeler->m_hit.terrain));
+        static_cast<CSkaterStateComponent*>(At<void*>(this, kTerrainComponent))->SetTerrain(static_cast<uint8_t>(*reinterpret_cast<const uint32_t*>(&feeler->m_hit.terrain)));
         ReleaseHit(feeler);
         return;
     }
@@ -961,8 +962,7 @@ void CWalkComponent::SnapToGround()
     if (feeler->GetCollision(true, false))
         PutOff(&position, feeler, kWallGap);
     if (At<bool>(this, kHasGround)) {
-        Call(0x00434BF0, At<void*>(this, kTriggerComponent), reinterpret_cast<const void*>(0x0064C630),
-             &At<Nx::CFeeler>(this, kTriggerFeeler));
+        static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(reinterpret_cast<const int*>(0x0064C630), &At<Nx::CFeeler>(this, kTriggerFeeler));
         if (Halted(this)) {
             ReleaseHit(feeler);
             return;
@@ -972,16 +972,16 @@ void CWalkComponent::SnapToGround()
         Mth::Vector& oldPosition = VectorAt(this, kOldPosition);
         if (position == oldPosition)
             oldPosition.y += kNudge; // (so the two differ)
-        if (Call<bool>(0x005299F0, this)) {
+        if (TryGrind()) {
             ReleaseHit(feeler);
             return;
         }
     }
-    if (Call<bool>(0x00441FC0, this) || Call<bool>(0x0043EC40, this)) {
+    if (ClimbOntoTop() || DropToHang()) {
         ReleaseHit(feeler);
         return;
     }
-    Call(0x005260E0, this, 1);
+    SetState(1);
     VectorAt(this, kHeading) = VectorAt(this, kFacing);
     LeaveRide(&VectorAt(this, kVelocity), &At<float>(this, kVerticalSpeed));
     At<uint32_t>(this, kAnimState) = kWalkOffEdge;
@@ -994,13 +994,13 @@ void CWalkComponent::Begin(bool onGround)
 {
     At<int>(this, kStateTime) = Now();
     if (onGround) {
-        Call(0x005260E0, this, 0);
+        SetState(0);
         VectorAt(this, kGroundNormal) = {0.0f, 1.0f, 0.0f, 1.0f};
         At<bool>(this, kHasGround) = false;
         m_object->m_vel.y = 0.0f;
         At<bool>(this, kOffVert) = false;
     } else {
-        Call(0x005260E0, this, 1);
+        SetState(1);
         // Off a vert ramp (the skater's flag +0x30) with a turn under way: thrown out along the object's forward
         // axis turned on (by +0x730 about +0x734) times initial_vert_vel_boost.
         if (SkaterFlags(this)[0x30] && !(At<float>(this, kVertTurnSpeed) == 0.0f)) {
@@ -1083,8 +1083,7 @@ void CWalkComponent::Jump()
         break;
     }
     if (At<int>(this, kState) == 0 && At<bool>(this, kHasGround)) {
-        Call(0x00434BF0, At<void*>(this, kTriggerComponent), reinterpret_cast<const void*>(0x0064C63C),
-             &At<Nx::CFeeler>(this, kTriggerFeeler)); // (the ground's jump triggers)
+        static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(reinterpret_cast<const int*>(0x0064C63C), &At<Nx::CFeeler>(this, kTriggerFeeler)); // (the ground's jump triggers)
         if (Halted(this))
             return;
     }
@@ -1097,12 +1096,12 @@ void CWalkComponent::Jump()
     case 1: {
         // Running: pushed along the control's direction at least as fast as jump_horiz_speed (scaled by how far
         // the control is pushed, over the run speed's range); the heading the velocity's when moving.
-        Call(0x00527DB0, this);
+        CopyFromObject();
         Mth::Vector& velocity = VectorAt(this, kVelocity);
         if (At<float>(this, kControlMagnitude) == 0.0f) {
             heading = facing;
         } else {
-            float push = Call<float>(0x00528120, this); // (how far the control is pushed, 0 - 1)
+            float push = static_cast<float>(GetControlSpeed()); // (how far the control is pushed, 0 - 1)
             float scaled = Param(kJumpHorizSpeed) * push;
             auto speed = static_cast<float>(scaled / RunSpeed());
             const Mth::Vector& direction = VectorAt(this, kControlDirection);
@@ -1121,7 +1120,7 @@ void CWalkComponent::Jump()
             heading = direction;
             VectorAt(this, kFacing) = direction;
         }
-        Call(0x00529160, this);
+        PlanJumpOverObstruction();
         double lengthSqr = (static_cast<double>(velocity.x) * velocity.x + static_cast<double>(velocity.y) * velocity.y) +
                            static_cast<double>(velocity.z) * velocity.z;
         if (lengthSqr > kMovingSqr) {
@@ -1130,7 +1129,7 @@ void CWalkComponent::Jump()
         } else {
             heading = facing;
         }
-        Call(0x00529CE0, this);
+        CopyToObject();
         break;
     }
     case 2: // hanging: off the ledge's plane, kept level
@@ -1156,7 +1155,7 @@ void CWalkComponent::Jump()
         break;
     }
     LeaveRide(&m_object->m_vel, &m_object->m_vel.y);
-    Call(0x005260E0, this, 1);
+    SetState(1);
     m_object->BroadcastEvent(kSkaterJump, nullptr, 0.0f);
 }
 
@@ -1207,7 +1206,7 @@ bool CWalkComponent::TryBarrierJump()
         start = position;
         start.y = position.y + highest;
         Mth::Vector direction;
-        Call(0x00528220, this, &direction, index); // (the contact's direction)
+        GetTurnedFacing(&direction, index); // (the contact's direction)
         Mth::Vector& end = feeler->m_line.end;
         end.x = static_cast<float>(static_cast<double>(reach) * direction.x) + start.x;
         end.y = static_cast<float>(static_cast<double>(reach) * direction.y) + start.y;
@@ -1257,11 +1256,10 @@ bool CWalkComponent::TryBarrierJump()
     // Over it: up fast enough to clear it by barrier_jump_min_clearance.
     float clearance = WalkParameter(kBarrierJumpMinClearance);
     auto rise = static_cast<float>(((static_cast<double>(clearance) + top) + step) - position.y);
-    double gravity = Call<float>(0x005284C0, this);
+    double gravity = static_cast<float>(GetGravity());
     auto speed = static_cast<float>(std::sqrt(gravity * rise * 2.0));
     if (At<bool>(this, kHasGround)) {
-        Call(0x00434BF0, At<void*>(this, kTriggerComponent), reinterpret_cast<const void*>(0x0064C63C),
-             &At<Nx::CFeeler>(this, kTriggerFeeler)); // (the ground's jump triggers)
+        static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(reinterpret_cast<const int*>(0x0064C63C), &At<Nx::CFeeler>(this, kTriggerFeeler)); // (the ground's jump triggers)
         if (Halted(this)) {
             cache->Destruct();
             ReleaseHit(feeler);
@@ -1269,7 +1267,7 @@ bool CWalkComponent::TryBarrierJump()
         }
     }
     At<float>(this, kVerticalSpeed) = speed;
-    Call(0x005260E0, this, 1);
+    SetState(1);
     VectorAt(this, kHeading) = VectorAt(this, kFacing);
     LeaveRide(&VectorAt(this, kVelocity), &At<float>(this, kVerticalSpeed));
     At<uint32_t>(this, kAnimState) = kJump;
@@ -1315,7 +1313,7 @@ bool CWalkComponent::UpdateContacts()
             float moveX = frame * velocity.x;
             end = {moveX + x, moveY + y, moveZ + z, static_cast<float>(w + moveW)};
             float fall = At<float>(this, kVerticalSpeed) * frame;
-            double gravity = Call<float>(0x005284C0, this);
+            double gravity = static_cast<float>(GetGravity());
             end.y = static_cast<float>((fall - gravity * (static_cast<double>(frame) * frame) * kSteepGround) + end.y);
         } else {
             start = position;
@@ -1337,7 +1335,7 @@ bool CWalkComponent::UpdateContacts()
             contact.hit = false;
             continue;
         }
-        Call(0x0043A930, &contact.feeler, feeler); // (the feeler copied)
+        reinterpret_cast<Nx::CFeeler*>(&contact.feeler)->Assign(*feeler); // (the feeler copied)
         // The normal flattened and made unit length; how fast the object hit moves along it (not what it rides).
         contact.normal = feeler->m_normal;
         contact.normal.y = 0.0f;
@@ -1357,7 +1355,7 @@ bool CWalkComponent::UpdateContacts()
             bool ridden = false;
             if (auto* tracker = At<CRideTracker*>(ride, 0x18)) {
                 if (!tracker->m_object.Get())
-                    Call(0x00427C70, ride); // (what it stood on is gone)
+                    static_cast<CMovableContactComponent*>(ride)->StopRiding(); // (what it stood on is gone)
                 else
                     ridden = tracker->m_object.Get() == feeler->GetHitObject();
             }
@@ -1381,14 +1379,14 @@ bool CWalkComponent::UpdateContacts()
             int since = At<int>(this, kBarrierSince);
             float delay = WalkParameter(kBarrierJumpDelay);
             auto elapsed = static_cast<uint32_t>(Tmr::GameClockElapsed() + (GameVariable<int>(0x00696D60) - since));
-            if (static_cast<double>(elapsed) > delay && (Call<bool>(0x00441DE0, this, false) || TryBarrierJump())) {
+            if (static_cast<double>(elapsed) > delay && (ClimbOntoBottom(false) || TryBarrierJump())) {
                 ReleaseHit(feeler);
                 return false;
             }
         } else {
             At<bool>(this, kBarrierTimed) = false;
         }
-        if (At<uint8_t*>(this, kInput)[0x100] && !At<bool>(this, kJumpHeld) && Call<bool>(0x00441DE0, this, true)) {
+        if (At<uint8_t*>(this, kInput)[0x100] && !At<bool>(this, kJumpHeld) && ClimbOntoBottom(true)) {
             ReleaseHit(feeler);
             return false;
         }

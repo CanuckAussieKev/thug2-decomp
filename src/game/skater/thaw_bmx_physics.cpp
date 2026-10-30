@@ -32,6 +32,7 @@
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/config.h"
 #include "game/sys/game_clock.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/log.h"
 
@@ -210,7 +211,7 @@ float HeldMs(uint8_t* button)
 float HeldMs(const StickButton& button) { return static_cast<float>(Since(button.pressTime)); }
 
 // 0x004FDED0 (not rewritten): the physics state changed.
-void SetState(void* core, int state) { GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(core, state); }
+void SetState(void* core, int state) { static_cast<CorePhysicsComponent*>(core)->SetPhysicsState(state); }
 
 void ClearTimedFlag(const void* core, uint32_t flag)
 {
@@ -798,7 +799,7 @@ void Brake(void* core)
     if (choice == 0)
         return;
     At<uint8_t>(core, kBraking) = 1;
-    if (GameFunction<bool(__thiscall*)(void*)>(0x004FE420)(core)) { // (turning on the slope instead)
+    if (static_cast<CorePhysicsComponent*>(core)->MayTurnOnSlope()) { // (turning on the slope instead)
         At<uint8_t>(core, kBraking) = 0;
         return;
     }
@@ -883,7 +884,7 @@ void TurnOnGround(void* core)
         float& total = At<float>(At<void*>(core, kSkaterComponent), 0x13A4);
         total = step * kRadiansToDegrees + total;
         void* display = At<void*>(At<void*>(core, kRotationDisplay), 0x18);
-        GameFunction<void(__thiscall*)(void*, int)>(0x00564BE0)(display, static_cast<int>(static_cast<int64_t>(total)));
+        static_cast<Mdl::Score*>(display)->UpdateSpin(static_cast<int>(static_cast<int64_t>(total)));
         return;
     }
     const Mth::Vector up = VectorAt(object, kUp);
@@ -1107,7 +1108,7 @@ void AirRotation(void* core)
         }
         if (show) {
             void* display = At<void*>(At<void*>(core, kRotationDisplay), 0x18);
-            GameFunction<void(__thiscall*)(void*, int)>(0x00564BE0)(display, static_cast<int>(static_cast<int64_t>(total)));
+            static_cast<Mdl::Score*>(display)->UpdateSpin(static_cast<int>(static_cast<int64_t>(total)));
         }
     }
     // The rider's head into something (not on vert): the bail.
@@ -1342,7 +1343,7 @@ WheelGround WheelGroundCheck(void* core)
                 (state.frontWheel.z + state.rearWheel.z) * 0.5f, (state.frontWheel.w + state.rearWheel.w) * 0.5f};
     Mth::Vector up = Bike::WheelBaseUp(VectorAt(object, kRight), state.frontWheel, state.rearWheel,
                                        VectorAt(core, kHitNormal));
-    GameFunction<void(__thiscall*)(void*, Mth::Vector)>(0x004FE860)(core, up); // (THAW's 0x005D0BD0: THUG2's own)
+    static_cast<CorePhysicsComponent*>(core)->TurnToNormal(up); // (THAW's 0x005D0BD0: THUG2's own)
     if (StateOf(core) != kStateAir)
         static_cast<CorePhysicsComponent*>(core)->KeepUpright(); // (THAW 0x005CE810, on the ground)
     return mainHit ? kWheelsOnGround : kWheelsOnGroundNoHit;

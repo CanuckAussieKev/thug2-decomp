@@ -10,6 +10,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
+#include "game/goals/goal_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -57,15 +58,13 @@ Obj::CPlayerProfileManager* ProfileManager() { return GameVariable<Obj::CPlayerP
 // The profile manager's template at `index` (0x00557FB0) and its count (0x00469490: the table's).
 Obj::CSkaterProfile* TemplateAt(Obj::CPlayerProfileManager* manager, int index)
 {
-    return GameFunction<Obj::CSkaterProfile*(__thiscall*)(Obj::CPlayerProfileManager*, int)>(0x00557FB0)(manager,
-                                                                                                         index);
+    return manager->m_templates.GetByIndex(index, nullptr); // (0x00557FB0 is the lookup table's by-index code)
 }
 
 // The goal manager (0x005591B0) and its active competition goal (0x00558D90; null: none).
 bool CompetitionGoalActive()
 {
-    void* manager = GameFunction<void*(__cdecl*)()>(0x005591B0)();
-    return GameFunction<void*(__thiscall*)(void*)>(0x00558D90)(manager) != nullptr;
+    return Game::GetGoalManager()->GetActiveCompetition() != nullptr;
 }
 
 Script::CStruct* NewStructure()

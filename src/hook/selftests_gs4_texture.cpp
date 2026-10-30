@@ -16,6 +16,11 @@
 #include "game/script/game_util_cfuncs.h"
 #include "game/skate/records.h"
 #include "game/skater/skater.h"
+#include "game/ed/rail_editor.h"
+#include "game/gfx/texture_dict.h"
+#include "game/script/struct.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/profile_manager.h"
 #include "hook/gs4_testkit.h"
 
 namespace {
@@ -51,11 +56,11 @@ uint32_t TextureId(uint32_t address)
 
 void StandInTextureCalls(StandIns& s)
 {
-    s.At({0x00564F80}, 4, [](Regs& r) {
+    s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4F80, r.ecx == reinterpret_cast<uint32_t>(g_tSkate), r.args[0]});
         return reinterpret_cast<uint32_t>(g_tProfile);
     });
-    s.At({0x0049F540}, 4, [](Regs& r) {
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) {
         Record({0xF540, r.ecx, r.args[0]});
         return r.args[0] == 0x7E7E0001 ? reinterpret_cast<uint32_t>(g_tTextures[0])
                : r.args[0] == 0x7E7E0002 ? reinterpret_cast<uint32_t>(g_tTextures[1])
@@ -118,7 +123,7 @@ void StandInTextureCalls(StandIns& s)
         return 0u;
     });
     // the rail point search, the generator's search
-    s.At({0x004F4970}, 0, [](Regs&) {
+    s.At({0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) {
         Record({0x4970});
         return reinterpret_cast<uint32_t>(g_tRailEditor);
     });
@@ -151,7 +156,7 @@ void StandInTextureCalls(StandIns& s)
         Record({0x65C0, r.ecx == reinterpret_cast<uint32_t>(g_tSkate), r.args[0]});
         return reinterpret_cast<uint32_t>(g_tSkaters[r.args[0] & 1]);
     });
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, r.ecx == reinterpret_cast<uint32_t>(g_tSkate)});
         return reinterpret_cast<uint32_t>(g_tSkaters[1]);
     });
@@ -171,7 +176,7 @@ void StandInTextureCalls(StandIns& s)
         Record({0x31F0, r.ecx == reinterpret_cast<uint32_t>(g_tGameMode)});
         return static_cast<uint32_t>(g_tFireball);
     });
-    s.At({0x005532A0}, 0, [](Regs& r) {
+    s.At({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, [](Regs& r) {
         Record({0x32A0, r.ecx == reinterpret_cast<uint32_t>(g_tGameMode)});
         return g_tModeName;
     });

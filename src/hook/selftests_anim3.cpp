@@ -22,6 +22,7 @@
 #include "game/script/node_manager.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
 #include "hook/anim_testkit.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -305,7 +306,7 @@ void StandInEverything(StandIns& s)
             return 0u;
         });
     }
-    s.At({0x0048BFE0}, 0, [](Regs& r) {
+    s.At({0x0048BFE0, AddressOf(Nx::Engine::SplitSkinName)}, 0, [](Regs& r) {
         Rec(0x8BFE, {StringHash(r.args[0])});
         std::snprintf(reinterpret_cast<char*>(r.args[1]), 64, "Base_%s", reinterpret_cast<const char*>(r.args[0]));
         return static_cast<uint32_t>(g_hasCas);

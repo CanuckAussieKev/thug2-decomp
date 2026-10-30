@@ -21,6 +21,8 @@
 #include "game/script/names.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/gfx/engine_model_lights.h"
+#include "game/gfx/light_manager.h"
 #include "hook/skater3_testkit.h"
 
 namespace {
@@ -81,8 +83,8 @@ void StandIn(StandIns& s)
     // Its lights.
     Rec(s, {0x0048E660}, 0, 0xE660);
     Rec(s, {0x0048E8A0}, 1, 0xE8A0, [](Regs&) { return 1u; });
-    Rec(s, {0x0048E830}, 2, 0xE830, [](Regs&) { return 1u; });
-    Rec(s, {0x0048EDB0}, 1, 0xEDB0, [](Regs&) { return 1u; }, false, true);
+    Rec(s, {0x0048E830, AddressOf(&Nx::CModelLights::MoveBrightness)}, 2, 0xE830, [](Regs&) { return 1u; });
+    Rec(s, {0x0048EDB0, AddressOf(Nx::SetWorldBrightness)}, 1, 0xEDB0, [](Regs&) { return 1u; }, false, true);
     // The feeler.
     Rec(s, {0x00417120, AddressOf(&Nx::CFeeler::IsHitTriangleCollision)}, 0, 0x7120,
         [](Regs&) { return g_a.hit ? 1u : 0u; });

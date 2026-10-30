@@ -11,6 +11,8 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/skater.h"
+#include "game/gfx/model_appearance.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -40,7 +42,6 @@ constexpr uint32_t kIsHidden = 0x27EB9B9D;         // is_hidden
 // The players' options: the skate module's table at +0x394 (8 bytes a player: vibration, auto kick, spin taps), set
 // through 0x00567C30 / 0x00567C00 / 0x00567BD0 (player, on).
 enum Option : uint32_t { kVibration = 0, kAutoKick = 1, kSpinTaps = 2 };
-constexpr uint32_t kSetOption[] = {0x00567C30, 0x00567C00, 0x00567BD0};
 // The player a command names (its unnamed integer; 0).
 int PlayerOf(Script::CStruct* params)
 {
@@ -54,7 +55,19 @@ bool GetOption(Script::CStruct* params, Option option)
 }
 bool SetOption(Script::CStruct* params, Option option, bool on)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, int, bool)>(kSetOption[option])(Skate(), PlayerOf(params), on);
+    int player = PlayerOf(params);
+    Mdl::Skate* skate = Mdl::Skate::Instance();
+    switch (option) {
+    case kVibration:
+        skate->SetVibration(player, on); // 0x00567C30
+        break;
+    case kAutoKick:
+        skate->SetAutoKick(player, on); // 0x00567C00
+        break;
+    case kSpinTaps:
+        skate->SetSpinTaps(player, on); // 0x00567BD0
+        break;
+    }
     return true;
 }
 
@@ -80,7 +93,7 @@ constexpr uint32_t kNoFaceTexture = 0x3AF36E6D;     // NoFaceTexture
 uint32_t TemplateCount() { return ProfileManager()->m_templates.m_count; }
 Obj::CSkaterProfile* TemplateAt(uint32_t index)
 {
-    return GameFunction<Obj::CSkaterProfile*(__thiscall*)(void*, uint32_t)>(0x00557FB0)(ProfileManager(), index);
+    return ProfileManager()->m_templates.GetByIndex(static_cast<int>(index), nullptr);
 }
 // The template named `name` (by its info's name), or null.
 Obj::CSkaterProfile* FindTemplate(uint32_t name)
@@ -133,7 +146,8 @@ bool __cdecl CFunc_RestoreTemporaryAppearance(Script::CStruct* params, Script::C
         appearance->AppendStructureIfAny(reinterpret_cast<Script::CStruct*>(remembered->m_appearance + 0x4C));
         return true;
     }
-    GameFunction<void*(__thiscall*)(void*, void*)>(0x004893A0)(profile, remembered); // (the appearance copied)
+    reinterpret_cast<Gfx::CModelAppearance*>(profile)->CopyFrom(
+        reinterpret_cast<Gfx::CModelAppearance*>(remembered)); // (the appearance copied)
     return true;
 }
 
@@ -322,7 +336,7 @@ bool __cdecl CFunc_ResetSkaters(Script::CStruct* params, Script::CScript*)
     uint32_t node = 0;
     params->GetChecksum(kNodeName, &node, 0);
     bool walking = params->ContainsFlag(kRestartWalking);
-    GameFunction<void(__thiscall*)(uint8_t*, uint32_t, bool)>(0x00566980)(Skate(), node, walking);
+    Mdl::Skate::Instance()->ResetSkaters(node, walking);
     return true;
 }
 
@@ -455,7 +469,7 @@ bool __cdecl CFunc_AwardSpecialTrickSlot(Script::CStruct* params, Script::CScrip
     if (params->ContainsFlag(kAll)) {
         int count = static_cast<int>(manager->m_templates.m_count);
         for (int i = 0; i < count; ++i) // (0x00557FB0: the table's item by index)
-            GameFunction<Obj::CSkaterProfile*(__thiscall*)(void*, int)>(0x00557FB0)(manager, i)->AddMaxSpecials(1);
+            manager->m_templates.GetByIndex(i, nullptr)->AddMaxSpecials(1);
         return true;
     }
     if (params->ContainsComponentNamed(kProfile)) {

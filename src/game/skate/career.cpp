@@ -11,6 +11,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skate/gap_checklist.h"
+#include "game/skate/game_mode.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -541,7 +542,7 @@ void CSkaterCareer::WriteToStructure(Script::CStruct* save)
     career->AddComponentOfType(kGapsArray, Script::ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(gapLevels));
     career->AddArrayPointer(kVisitedArray, visited);
     career->AddChecksum(0xE3335D2F, *reinterpret_cast<uint32_t*>(GameVariable<uint8_t*>(0x007CE478) + 0x378)); // (the skate module's)
-    career->AddChecksum(0x2CC06F5E, GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(GameVariable<void*>(0x007CE470)));
+    career->AddChecksum(0x2CC06F5E, static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->GetNameChecksum());
     // (both made first, then sized, as the original)
     Script::CArray* cashMemory = Script::NewArray();
     Script::CArray* cash = cashMemory ? cashMemory->Init() : nullptr;

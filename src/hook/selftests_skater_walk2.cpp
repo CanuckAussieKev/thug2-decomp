@@ -3,6 +3,8 @@
 // by recording code (some of it changing the state, halting the walk... as the scenario asks); the calls, the state
 // after each call and the arena are compared.
 
+#include <initializer_list>
+#include <utility>
 #include <windows.h>
 
 #include <cstdint>
@@ -25,6 +27,10 @@
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/skater/skater_state.h"
+#include "game/obj/walk_hang.h"
+#include "game/skater/core_physics.h"
+#include "game/skater/controls.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -159,12 +165,11 @@ void Install(StandIns& s)
 {
     InstallCommon(s);
     // Update's.
-    for (uint32_t a : {0x00527F20u, 0x00527DB0u, 0x00528370u, 0x00440BF0u, 0x004425B0u, 0x00527600u, 0x005278D0u,
-                       0x00527BE0u, 0x00527080u, 0x00527420u, 0x00529CE0u, 0x00529800u})
-        S(s, {a}, 0, a & 0xFFFF);
-    S(s, {0x00528400}, 4, 0x8400);
+    for (auto [a, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00527F20u, AddressOf(&Obj::CWalkComponent::UpdateControl)}, {0x00527DB0u, AddressOf(&Obj::CWalkComponent::CopyFromObject)}, {0x00528370u, AddressOf(&Obj::CWalkComponent::UpdateRunAdjustment)}, {0x00440BF0u, AddressOf(&Obj::CWalkComponent::UpdateHang)}, {0x004425B0u, AddressOf(&Obj::CWalkComponent::UpdateLadder)}, {0x00527600u, AddressOf(&Skater::Component::TryAcidDrop)}, {0x005278D0u, AddressOf(&Obj::CWalkComponent::EaseCriticalPointOffset)}, {0x00527BE0u, AddressOf(&Obj::CWalkComponent::RestoreDisplayOffset)}, {0x00527080u, AddressOf(&Obj::CWalkComponent::UpdateGroundBelow)}, {0x00527420u, AddressOf(&Obj::CWalkComponent::UpdateUpright)}, {0x00529CE0u, AddressOf(&Obj::CWalkComponent::CopyToObject)}, {0x00529800u, AddressOf(&Obj::CWalkComponent::UpdateRotateUpright)}})
+        S(s, {a, ours_}, 0, a & 0xFFFF);
+    S(s, {0x00528400, AddressOf(&Obj::CWalkComponent::LimitSpeed)}, 4, 0x8400);
     S(s, {0x004609F0, AddressOf(&Obj::CObject::SelfEvent)}, 8, 0x09F0);
-    S(s, {0x005007A0}, 0, 0x07A0);
+    S(s, {0x005007A0, AddressOf(&Skater::CorePhysicsComponent::UpdateFocusButton)}, 0, 0x07A0);
     ReturnFloat(s, {0x005BEAA0, AddressOf(&Tmr::GetSlomoFrameSeconds)}, &g_frame);
     StubCdecl(s, {0x00479020, AddressOf(static_cast<Script::CStruct* (*)(uint32_t)>(&Script::GetStructure))},
               0x9020, 1, [](Regs&) { return At(kParams); });
@@ -178,18 +183,17 @@ void Install(StandIns& s)
     StubCdecl(s, {0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0xECE0, 0, [](Regs&) { return 5000u; });
     // Ground's.
     S(s, {0x0052A620, AddressOf(&CWalkComponent::UpdateRide)}, 0, 0xA620);
-    for (uint32_t a : {0x005277B0u, 0x00526260u, 0x005264F0u, 0x00500820u, 0x00526850u, 0x00527C50u,
-                       0x00526BA0u, 0x005299F0u, 0x00527510u, 0x00526E00u, 0x005293F0u})
-        S(s, {a}, 0, a & 0xFFFF);
-    SVectors(s, {0x00528950}, 4, 0x8950);
-    SVectors(s, {0x00427B30}, 8, 0x7B30);
+    for (auto [a, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x005277B0u, AddressOf(&Obj::CWalkComponent::UpdateCollisionCache)}, {0x00526260u, AddressOf(&Obj::CWalkComponent::TurnFacingToVelocity)}, {0x005264F0u, AddressOf(&Obj::CWalkComponent::UpdateCurbFloat)}, {0x00500820u, AddressOf(&Skater::CorePhysicsComponent::UpdateProjectiles)}, {0x00526850u, AddressOf(&Obj::CWalkComponent::SteerJump)}, {0x00527C50u, AddressOf(&Obj::CWalkComponent::UpdatePush)}, {0x00526BA0u, AddressOf(&Obj::CWalkComponent::CheckCeiling)}, {0x005299F0u, AddressOf(&Obj::CWalkComponent::TryGrind)}, {0x00527510u, AddressOf(&Skater::Component::TryWalkAcidDrop)}, {0x00526E00u, AddressOf(&Obj::CWalkComponent::CheckStickerSlap)}, {0x005293F0u, AddressOf(&Obj::CWalkComponent::TryWallplant)}})
+        S(s, {a, ours_}, 0, a & 0xFFFF);
+    SVectors(s, {0x00528950, AddressOf(&Obj::CWalkComponent::UpdateGroundVelocity)}, 4, 0x8950);
+    SVectors(s, {0x00427B30, AddressOf(&Obj::CMovableContactComponent::FindContactAhead)}, 8, 0x7B30);
     s.At({0x00401C30, AddressOf(&Dbg::Printf)}, 0, [](Regs& r) {
         Rec(0x1C30, {Hash(reinterpret_cast<const char*>(r.args[0])), Hash(reinterpret_cast<const char*>(r.args[1])),
                      r.args[2], Hash(reinterpret_cast<const char*>(r.args[3]))});
         return 0u;
     });
     // Air's.
-    ReturnFloat(s, {0x005284C0}, &g_gravity);
+    ReturnFloat(s, {0x005284C0, AddressOf(Obj::CWalkComponent::GetGravity)}, &g_gravity);
     ReturnFloat(s, {0x0043DA70, AddressOf(&Obj::CWalkComponent::Param)}, &g_rehang);
     StubCdecl(s, {0x00420250, AddressOf(&Tmr::GameClockTimeSince)}, 0x0250, 1, [](Regs&) { return g_since; });
     s.At({0x0043F030, AddressOf(&Obj::CWalkComponent::GrabRail)}, 0x20, [](Regs& r) {
@@ -197,7 +201,7 @@ void Install(StandIns& s)
         RecFloat(0xF031, reinterpret_cast<const float*>(&r.args[0]), 8);
         return g_answers[0xF030];
     });
-    SVectors(s, {0x00442170}, 8, 0x2170);
+    SVectors(s, {0x00442170, AddressOf(&Obj::CWalkComponent::GrabLadder)}, 8, 0x2170);
     // (the constructor returns this)
     s.At({0x00417760, AddressOf(static_cast<Nx::CFeeler* (Nx::CFeeler::*)()>(&Nx::CFeeler::Construct))}, 0,
          [](Regs& r) {
@@ -259,26 +263,26 @@ void Install(StandIns& s)
         Rec(0x7CD0, {r.ecx, Where(r.args[0])});
         return 0u;
     });
-    s.At({0x005196A0}, 4, [](Regs& r) {
+    s.At({0x005196A0, AddressOf(&Obj::CSkaterStateComponent::SetTerrain)}, 4, [](Regs& r) {
         Rec(0x96A0, {r.ecx, r.args[0] & 0xFFFF});
         return 0u;
     });
-    S(s, {0x0046B7F0}, 0, 0xB7F0);
+    S(s, {0x0046B7F0, AddressOf(&Obj::CControlButton::ClearRelease)}, 0, 0xB7F0);
     S(s, {0x00460A20, AddressOf(&Obj::CObject::BroadcastEvent)}, 12, 0x0A20);
-    S(s, {0x00441FC0}, 0, 0x1FC0);
-    S(s, {0x0043EC40}, 0, 0xEC40);
-    S(s, {0x005260E0}, 4, 0x60E0);
+    S(s, {0x00441FC0, AddressOf(&Obj::CWalkComponent::ClimbOntoTop)}, 0, 0x1FC0);
+    S(s, {0x0043EC40, AddressOf(&Obj::CWalkComponent::DropToHang)}, 0, 0xEC40);
+    S(s, {0x005260E0, AddressOf(&Obj::CWalkComponent::SetState)}, 4, 0x60E0);
     S(s, {0x00416DD0, AddressOf(&Obj::CSmtPtr<Obj::CRefCounted>::Release)}, 0, 0x6DD0);
     S(s, {0x00417210, AddressOf(&Nx::CFeeler::HitObjectAlive)}, 0, 0x7210, true);
     S(s, {0x00417240, AddressOf(&Nx::CFeeler::GetHitObject)}, 0, 0x7240, true);
-    S(s, {0x0043EB80}, 4, 0xEB80);
+    S(s, {0x0043EB80, AddressOf(&Walk::MovableContact::StartRiding)}, 4, 0xEB80);
     S(s, {0x0041C350, AddressOf(&Nx::CFeeler::Destruct)}, 0, 0xC350, true);
     // Jump's, the barrier jump's and the contacts'.
     S(s, {0x0046B920, AddressOf(&Obj::CControlButton::GetPressedTime)}, 0, 0xB920);
-    ReturnFloat(s, {0x00528120}, &g_push);
+    ReturnFloat(s, {0x00528120, AddressOf(&Obj::CWalkComponent::GetControlSpeed)}, &g_push);
     ReturnDouble(s, {0x0043DAA0, AddressOf(&Obj::CWalkComponent::RunSpeed)}, &g_divisor);
-    S(s, {0x00529160}, 0, 0x9160);
-    S(s, {0x00441DE0}, 4, 0x1DE0);
+    S(s, {0x00529160, AddressOf(&Obj::CWalkComponent::PlanJumpOverObstruction)}, 0, 0x9160);
+    S(s, {0x00441DE0, AddressOf(&Obj::CWalkComponent::ClimbOntoBottom)}, 4, 0x1DE0);
     S(s, {0x004607A0, AddressOf(&Obj::CObject::ClearEventHandler)}, 4, 0x47A0);
     s.At({0x0040AB50, AddressOf(&Nx::CCollCache::Construct)}, 0, [](Regs& r) {
         Rec(0xAB50, {});

@@ -12,6 +12,7 @@
 #include "game/core/pool.h"
 #include "game/ed/park.h"
 #include "game/ed/park_editor.h"
+#include "game/ed/rail_editor.h"
 #include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
@@ -152,7 +153,7 @@ void Install(StandIns& s)
         return r.args[0];
     });
     // The rail editor.
-    s.At({0x004F4970}, 0, [](Regs&) { return At(0x6F00); });
+    s.At({0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) { return At(0x6F00); });
     s.At({0x004F7230}, 0x10, [](Regs& r) {
         Rec(0x7230, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[3]});
         return g_railList;

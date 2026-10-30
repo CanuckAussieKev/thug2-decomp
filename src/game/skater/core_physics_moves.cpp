@@ -25,6 +25,7 @@
 #include "game/skater/core_physics_fields.h"
 #include "game/skater/skater.h"
 #include "game/skater/trick_component.h"
+#include "game/gfx/model_utils.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -127,7 +128,7 @@ double Seconds(uint32_t milliseconds) { return static_cast<double>(milliseconds)
 Obj::CCompositeObject* Composite(void* object) { return static_cast<Obj::CCompositeObject*>(object); }
 
 // 0x00487AD0 (cdecl): the least of three.
-float LeastOf(float a, float b, float c) { return GameFunction<float(__cdecl*)(float, float, float)>(0x00487AD0)(a, b, c); }
+float LeastOf(float a, float b, float c) { return Gfx::LeastOf(a, b, c); }
 
 } // namespace
 

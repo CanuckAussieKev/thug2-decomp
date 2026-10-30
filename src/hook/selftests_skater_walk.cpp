@@ -22,6 +22,7 @@
 #include "game/script/struct.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
+#include "game/skater/walk_camera.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -68,7 +69,7 @@ void Install(StandIns& s)
         *reinterpret_cast<uint32_t*>(r.ecx) = 0x00647618;
         return r.ecx;
     });
-    s.At({0x00528880}, 0, [](Regs& r) {
+    s.At({0x00528880, AddressOf(&Obj::WalkContact::Construct)}, 0, [](Regs& r) {
         Rec(0x8880, {r.ecx});
         return r.ecx;
     });
@@ -81,9 +82,9 @@ void Install(StandIns& s)
              Rec(0x7760, {r.ecx});
              return r.ecx;
          });
-    Stub(s, {0x005288B0}, 0, 0x88B0);
+    Stub(s, {0x005288B0, AddressOf(&Obj::CWalkComponent::DestroyBody)}, 0, 0x88B0);
     // The walk camera's override: the facing's contents and the rate.
-    s.At({0x00525F70}, 8, [](Regs& r) {
+    s.At({0x00525F70, AddressOf(&Obj::CWalkCameraComponent::SetOverrideFacing)}, 8, [](Regs& r) {
         Rec(0x5F70, {r.ecx});
         RecFloat(0x5F71, reinterpret_cast<const float*>(r.args[0]), 4);
         RecFloat(0x5F72, reinterpret_cast<const float*>(&r.args[1]), 1);
@@ -127,8 +128,8 @@ void Install(StandIns& s)
     Stub(s, {0x00416DD0, AddressOf(&Obj::CSmtPtr<Obj::CRefCounted>::Release)}, 0, 0x6DD0);
     StubCdecl(s, {0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0xECE0, 0, [](Regs&) { return 5000u; });
     // The state, the events, the other moves.
-    Stub(s, {0x005260E0}, 4, 0x60E0);
-    Stub(s, {0x005298D0}, 0, 0x98D0);
+    Stub(s, {0x005260E0, AddressOf(&Obj::CWalkComponent::SetState)}, 4, 0x60E0);
+    Stub(s, {0x005298D0, AddressOf(&Obj::CWalkComponent::ApplyTransition)}, 0, 0x98D0);
     Stub(s, {0x0052B7D0, AddressOf(&CWalkComponent::Jump)}, 0, 0xB7D0);
     Stub(s, {0x004609F0, AddressOf(&Obj::CObject::SelfEvent)}, 8, 0x09F0);
 }

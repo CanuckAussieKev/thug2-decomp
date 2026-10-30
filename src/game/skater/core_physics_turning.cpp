@@ -19,6 +19,8 @@
 #include "game/skater/manual.h"
 #include "game/skater/skater.h"
 #include "game/skater/thaw_bmx.h"
+#include "game/skater/balance_trick.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -189,7 +191,7 @@ float CorePhysicsComponent::BounceOffWall(const Mth::Vector* normal, float* turn
 // 0x00501B00
 bool CorePhysicsComponent::TurnDownSlope()
 {
-    if (!GameFunction<bool(__thiscall*)(void*)>(0x004FE420)(this))
+    if (!MayTurnOnSlope())
         return false;
     void* object = ObjectOf(this);
     // Along the velocity, or the facing when hardly moving: turned towards straight down the slope.
@@ -223,7 +225,7 @@ void CorePhysicsComponent::NatasSpin()
     }
     At<Obj::CBalance>(At<void*>(this, kBalance), 0xD4).Update();
     float factor = Script::GetFloat(kNatasSpinFactor);
-    double balance = std::fabs(GameFunction<double(__thiscall*)(void*)>(0x004F8F20)(At<void*>(this, kBalance)));
+    double balance = std::fabs(static_cast<Obj::CSkaterBalanceTrickComponent*>(At<void*>(this, kBalance))->GetLean());
     // The spin slows the further off balance.
     double rate = factor - balance / (kNatasSpinScale / static_cast<double>(factor)) + kNatasSpinBase;
     if (At<uint8_t>(this, kNatasCounterClockwise))
@@ -244,7 +246,7 @@ void CorePhysicsComponent::NatasSpin()
     if (show) {
         int shown = static_cast<int>(Ftol(At<float>(At<void*>(this, kSkaterComponent), kTrickRotation)));
         void* display = At<void*>(At<void*>(this, kRotationDisplay), 0x18);
-        GameFunction<void(__thiscall*)(void*, int)>(0x00564BE0)(display, shown);
+        static_cast<Mdl::Score*>(display)->UpdateSpin(shown);
     }
     At<int>(this, kNatasSpinTime) = Now();
 }

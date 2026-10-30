@@ -40,8 +40,6 @@ constexpr float kMoving = 0.001f;                // 0x006461D8
 constexpr float kSkitchFeelUp = 36.0f;           // 0x0064B9CC
 constexpr float kSkitchFeelDown = 200.0f;        // 0x0064BDB0
 
-void Call(uint32_t address, void* component) { GameFunction<void(__thiscall*)(void*)>(address)(component); }
-bool Ask(uint32_t address, void* component) { return GameFunction<bool(__thiscall*)(void*)>(address)(component); }
 Obj::CSkaterCareer* Career() { return At<Obj::CSkaterCareer*>(GameVariable<uint8_t*>(0x007CE478), 0x20); }
 
 // A cheat that keeps a balance trick perfect: its global flag set, the balance's lean (`lean`, two words) zeroed.
@@ -102,12 +100,12 @@ void CorePhysicsComponent::DoGroundPhysics()
     At<uint8_t>(this, 0x303) = 0;
     uint32_t kind = At<uint32_t>(At<void*>(this, kBalanceTrick), 0x18);
     if (kind == 0) {
-        if (bike ? ThawBmx::ShouldBrake(this) : Ask(0x004FE320, this)) {
+        if (bike ? ThawBmx::ShouldBrake(this) : ShouldBrake()) {
             Brake();
         } else {
             At<uint8_t>(this, 0x324) = 0;
-            if (bike ? ThawBmx::CanKick(this) && ThawBmx::MayAccelerate(this) : Ask(0x004FE490, this))
-                Call(0x004FE530, this);
+            if (bike ? ThawBmx::CanKick(this) && ThawBmx::MayAccelerate(this) : CanPushOff())
+                PushOff();
         }
     } else if (kind == kSkitch) {
         reinterpret_cast<Obj::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0x12C)->Update();
@@ -116,8 +114,8 @@ void CorePhysicsComponent::DoGroundPhysics()
         At<uint8_t>(this, 0x324) = 0;
         if (At<uint8_t>(this, 0x302)) {
             At<uint8_t>(this, 0x303) = 1;
-            if (Ask(0x004FE490, this))
-                Call(0x004FE530, this);
+            if (CanPushOff())
+                PushOff();
         }
         reinterpret_cast<Obj::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0x24)->Update();
         static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))->SetTrickObjects(true);
@@ -178,7 +176,7 @@ void CorePhysicsComponent::DoGroundPhysics()
         ThawBmx::ManualPitch(this); // (not original: THAW 0x005E54BA)
     CollisionEvents::Checkpoint(this, "turned"); // (not original)
     if (!At<uint8_t>(this, 0x388))
-        GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004FF590)(this, &VectorAt(ObjectOf(this), kVelocity));
+        AlongFacing(&VectorAt(ObjectOf(this), kVelocity));
     CollisionEvents::Checkpoint(this, "along-facing-4FF590"); // (not original)
     if (!Flag(this, 0x88)) {
         CheckSideCollisions();
@@ -189,10 +187,10 @@ void CorePhysicsComponent::DoGroundPhysics()
     // than Skater_Flip_Speed (1) the skater is turned round to ride fakie, the bike isn't - it rolls on backwards in
     // THAW's backwards balance, bike_backwards_balance_trick)
     if (!At<uint8_t>(this, 0x388) && !bike)
-        Call(0x004FF920, this);
+        TurnRoundIfBackwards();
     CollisionEvents::Checkpoint(this, "turn-round-4FF920"); // (not original)
-    if (Ask(0x004FFB10, this)) {
-        Call(0x004FEBA0, this);
+    if (JumpReleased()) {
+        StartVertAir();
         SetFlag(this, 0x48, 1);
         SetFlag(this, 0xD8, 1);
     }

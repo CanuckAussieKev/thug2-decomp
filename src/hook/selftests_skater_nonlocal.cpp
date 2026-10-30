@@ -20,6 +20,9 @@
 #include "game/skater/nonlocal_net_logic.h"
 #include "game/skater/skater.h"
 #include "game/sys/timer.h"
+#include "game/gfx/engine_model_lights.h"
+#include "game/gfx/light_manager.h"
+#include "game/skate/game_mode.h"
 #include "hook/skater3_testkit.h"
 
 namespace {
@@ -157,8 +160,8 @@ void StandIn(StandIns& s, bool update)
     }, false);
     RecFloat(s, {0x004174A0, AddressOf(&Nx::CFeeler::GetHitVertexValue)}, 0, 0x74A0,
              [](Regs&) { return g_a.vertexValue; }, false);
-    Rec(s, {0x0048E830}, 2, 0xE830);
-    Rec(s, {0x0048EDB0}, 1, 0xEDB0, nullptr, false, true);
+    Rec(s, {0x0048E830, AddressOf(&Nx::CModelLights::MoveBrightness)}, 2, 0xE830);
+    Rec(s, {0x0048EDB0, AddressOf(Nx::SetWorldBrightness)}, 1, 0xEDB0, nullptr, false, true);
     s.At({0x004317C0, AddressOf(&Obj::CShadowComponent::SetPosition)}, 4, [](Regs& r) {
         Record({0x17C0, Rel(r.ecx)});
         RecordVector(reinterpret_cast<const void*>(r.args[0]));
@@ -212,7 +215,7 @@ void StandIn(StandIns& s, bool update)
     Rec(s, {0x00543320, AddressOf(&GameNet::PlayerInfo::IsObserver)}, 0, 0x3320, [](Regs&) { return g_a.observing ? 1u : 0u; });
     Rec(s, {0x00543330, AddressOf(&GameNet::PlayerInfo::IsSurveying)}, 0, 0x3330, [](Regs&) { return g_a.waiting ? 1u : 0u; });
     Rec(s, {0x00534340, AddressOf(&GameNet::Manager::PlayerCollisionEnabled)}, 0, 0x4340, [](Regs&) { return g_a.extrapolates ? 1u : 0u; });
-    Rec(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_a.gameMode; });
+    Rec(s, {0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, [](Regs&) { return g_a.gameMode; });
     // (a new structure: the original's own pool allocation inlined in one place, NewStruct in the other)
     Rec(s, {0x00409030, AddressOf(&Script::NewStruct)}, 0, 0x9030, [](Regs&) { return Allocate(0x20); }, false, true);
     Rec(s, {0x005BA3D0}, 0, 0x9030, [](Regs&) { return Allocate(0x20); }, false);

@@ -38,10 +38,10 @@ constexpr uint32_t kSkaterType = 0xBAF9B341;          // OBJECT_TYPE_SKATER
 // The skate module's calls about the run (no source yet): 0x00567580 every skater idle (in a horse game only the
 // current horse skater counts), 0x00567690 the local skater's first trick started, 0x005676E0 completed;
 // 0x0056BB70 the final scores sent to every player (true: the final ones).
-bool AllSkatersIdle() { return GameFunction<bool(__thiscall*)(uint8_t*)>(0x00567580)(Skate()); }
-bool FirstTrickStarted() { return GameFunction<bool(__thiscall*)(uint8_t*)>(0x00567690)(Skate()); }
-bool FirstTrickCompleted() { return GameFunction<bool(__thiscall*)(uint8_t*)>(0x005676E0)(Skate()); }
-void SendScores(bool final) { GameFunction<void(__thiscall*)(uint8_t*, bool)>(0x0056BB70)(Skate(), final); }
+bool AllSkatersIdle() { return Mdl::Skate::Instance()->AllSkatersIdle(); }
+bool FirstTrickStarted() { return Mdl::Skate::Instance()->FirstTrickStarted(); }
+bool FirstTrickCompleted() { return Mdl::Skate::Instance()->FirstTrickCompleted(); }
+void SendScores(bool final) { Mdl::Skate::Instance()->SendScoreUpdates(final); }
 
 GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
 

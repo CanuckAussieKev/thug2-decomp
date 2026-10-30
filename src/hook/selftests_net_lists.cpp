@@ -26,6 +26,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "game/sys/viewer.h"
+#include "game/skate/skate_module.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -120,7 +121,7 @@ void Install(StandIns& s)
     Stub(s, {0x0053F880, AddressOf(&GameNet::LobbyMan::GetPeer)}, 0, 0xF880, [](Regs&) { return g_peer ? At(kNetMgr + 0x380) : 0u; });
     StubCdecl(s, {0x005FC730}, 0xC730, 1, [](Regs&) { return g_peerConnected ? 1u : 0u; });
     Stub(s, {0x0053F810, AddressOf(&GameNet::LobbyMan::IsHosting)}, 0, 0xF810, [](Regs&) { return g_lobbyHosting ? 1u : 0u; });
-    Stub(s, {0x00564D80}, 0, 0x4D80, [](Regs&) { return At(kMisc + 0x600); });
+    Stub(s, {0x00564D80, AddressOf(&Mdl::Skate::GetSplitScreenPreferences)}, 0, 0x4D80, [](Regs&) { return At(kMisc + 0x600); });
     Stub(s, {0x0046C4A0, AddressOf(&Prefs::Preferences::GetPreference)}, 4, 0xC4A0, [](Regs& r) { return r.args[0]; });
     Stub(s, {0x0046C490, AddressOf(&Prefs::Preferences::Deinit)}, 0, 0xC490);
     s.At({0x00476EC0, 0x00476950, AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))},

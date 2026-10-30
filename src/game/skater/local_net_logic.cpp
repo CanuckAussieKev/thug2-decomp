@@ -22,6 +22,7 @@
 #include "game/skater/end_run.h"
 #include "game/skater/skater.h"
 #include "game/util/bitstream.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -43,11 +44,11 @@ constexpr uint32_t kString0 = 0xA4B08520, kGraffitiStealYou = 0x0B3FF911, kGraff
 // Mdl::Skate (0x007CE478; not rewritten yet): a multiplayer game (0x005651F0), a skater by its id (0x00566600).
 bool IsMultiplayerGame()
 {
-    return GameFunction<bool(__thiscall*)(void*)>(0x005651F0)(GameVariable<void*>(0x007CE478));
+    return Mdl::Skate::IsMultiplayer() != 0;
 }
 CSkater* SkaterById(uint32_t id)
 {
-    return GameFunction<CSkater*(__thiscall*)(void*, uint32_t)>(0x00566600)(GameVariable<void*>(0x007CE478), id);
+    return Mdl::Skate::Instance()->GetSkaterById(id);
 }
 // The network manager's first local player and its run count (+0x38, which the manager's code calls the game id).
 void* LocalPlayer() { return NetManager()->GetLocalPlayer(); }

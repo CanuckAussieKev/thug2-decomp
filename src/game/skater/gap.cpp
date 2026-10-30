@@ -20,6 +20,9 @@
 #include "game/skate/gap_checklist.h"
 #include "game/skater/skater.h"
 #include "game/skater/trick_lists.h"
+#include "game/core/stubs.h"
+#include "game/skate/score.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -127,7 +130,7 @@ void InitHead(Mem::ListNode& head, void** vtable)
 // rewritten yet.
 Game::CGapChecklist* GapChecklist()
 {
-    return GameFunction<Game::CGapChecklist*(__thiscall*)(void*)>(0x005656C0)(GameVariable<void*>(0x007CE478));
+    return static_cast<Game::CGapChecklist*>(Mdl::Skate::Instance()->GetGapChecklist());
 }
 CSkaterCareer* Career() { return *reinterpret_cast<CSkaterCareer**>(GameVariable<uint8_t*>(0x007CE478) + 0x20); }
 
@@ -136,29 +139,28 @@ CSkaterCareer* Career() { return *reinterpret_cast<CSkaterCareer**>(GameVariable
 // for the tricks= arrays); a gap's points and text (0x00563990).
 int KeyComboCount(uint8_t* score, uint32_t keyCombo, int spin, int taps)
 {
-    return GameFunction<int(__thiscall*)(uint8_t*, uint32_t, int, int)>(0x00562620)(score, keyCombo, spin, taps);
+    return reinterpret_cast<Mdl::Score*>(score)->CountKeyComboRepeats(keyCombo, spin, taps);
 }
 int TrickCount(uint8_t* score, uint32_t trick, int spin, int taps)
 {
-    return GameFunction<int(__thiscall*)(uint8_t*, uint32_t, int, int)>(0x005625A0)(score, trick, spin, taps);
+    return reinterpret_cast<Mdl::Score*>(score)->CountTrickRepeats(trick, spin, taps);
 }
 int KeyComboCount(uint8_t* score, uint32_t keyCombo, int spin, uint32_t perfect, int taps)
 {
-    return GameFunction<int(__thiscall*)(uint8_t*, uint32_t, int, uint32_t, int)>(0x00562510)(score, keyCombo, spin,
-                                                                                              perfect, taps);
+    return reinterpret_cast<Mdl::Score*>(score)->CountKeyCombo(keyCombo, spin, (perfect & 0xFF) != 0, taps);
 }
 int TrickCount(uint8_t* score, uint32_t trick, int spin, uint32_t perfect, int taps)
 {
-    return GameFunction<int(__thiscall*)(uint8_t*, uint32_t, int, uint32_t, int)>(0x005624C0)(score, trick, spin,
-                                                                                              perfect, taps);
+    return reinterpret_cast<Mdl::Score*>(score)->CountTrickAfterTaps(trick, spin, (perfect & 0xFF) != 0, taps);
 }
-int TricksArrayCount(uint8_t* score, Script::CArray* tricks, uint32_t since)
+int TricksArrayCount(uint8_t* /*score*/, Script::CArray* tricks, uint32_t since)
 {
-    return GameFunction<int(__thiscall*)(uint8_t*, Script::CArray*, uint32_t)>(0x0049F4C0)(score, tricks, since);
+    // (the shared "0": a stdcall stub of two stack arguments; the score is only in ECX)
+    return Stubs::ReturnZero2(static_cast<int>(reinterpret_cast<intptr_t>(tricks)), static_cast<int>(since));
 }
 void AddGapScore(uint8_t* score, const char* text, int points, int flags)
 {
-    GameFunction<void(__thiscall*)(uint8_t*, const char*, int, int)>(0x00563990)(score, text, points, flags);
+    reinterpret_cast<Mdl::Score*>(score)->Trigger(text, points, static_cast<uint32_t>(flags));
 }
 
 // The state component (the physics control's +0x2C): +0x118 driving, +0x1C walking.

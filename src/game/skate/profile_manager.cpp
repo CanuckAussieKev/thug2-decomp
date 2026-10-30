@@ -10,6 +10,9 @@
 #include "game/core/string.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/model_appearance.h"
+#include "game/lst/lookup_table.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -63,35 +66,35 @@ void* FaceOf(CSkaterProfile* profile) { return *reinterpret_cast<void**>(profile
 
 void CSkaterProfile::SetAppearance(Script::CStruct* appearance, bool update)
 {
-    GameFunction<void(__thiscall*)(CSkaterProfile*, Script::CStruct*, bool)>(0x00488F40)(this, appearance, update);
+    reinterpret_cast<Gfx::CModelAppearance*>(this)->Load(appearance, update);
 }
 // 0x00543010
 void CSkaterProfile::DestroyBody()
 {
     InfoStructure()->Clear();
-    GameFunction<void(__thiscall*)(CSkaterProfile*)>(0x004890F0)(this);
+    reinterpret_cast<Gfx::CModelAppearance*>(this)->DestroyBody();
 }
 void CSkaterProfile::Delete()
 {
     InfoStructure()->Clear();
-    GameFunction<void(__thiscall*)(CSkaterProfile*)>(0x004890F0)(this);
+    reinterpret_cast<Gfx::CModelAppearance*>(this)->DestroyBody();
     Mem::Manager::Get()->Free(this);
 }
 
 // The lookup table's generic code.
 CSkaterProfile* ProfileTable::GetByIndex(int index, uint32_t* key)
 {
-    return GameFunction<CSkaterProfile*(__thiscall*)(ProfileTable*, int*, uint32_t*)>(0x00557F10)(this, &index, key);
+    return static_cast<CSkaterProfile*>(reinterpret_cast<Lst::LookupTable*>(this)->GetItemByIndex(&index, key));
 }
 CSkaterProfile* ProfileTable::Get(uint32_t key)
 {
-    return GameFunction<CSkaterProfile*(__thiscall*)(ProfileTable*, uint32_t*)>(0x00561430)(this, &key);
+    return static_cast<CSkaterProfile*>(reinterpret_cast<Lst::LookupTable*>(this)->GetItem(&key));
 }
 bool ProfileTable::Put(uint32_t key, CSkaterProfile* item)
 {
-    return GameFunction<bool(__thiscall*)(ProfileTable*, uint32_t*, CSkaterProfile*)>(0x005628B0)(this, &key, item);
+    return reinterpret_cast<Lst::LookupTable*>(this)->PutItem(&key, item);
 }
-void ProfileTable::Remove(uint32_t key) { GameFunction<void(__thiscall*)(ProfileTable*, uint32_t*)>(0x00562970)(this, &key); }
+void ProfileTable::Remove(uint32_t key) { reinterpret_cast<Lst::LookupTable*>(this)->FlushItem(&key); }
 
 // 0x0057B9E0
 void ProfileTable::Clear()
@@ -304,12 +307,12 @@ bool CPlayerProfileManager::ReadCustomSkater(Script::CStruct* save, bool keepSav
         Script::CStruct* texture;
         bool found = custom->GetStructure(kFaceTexture, &texture, 0);
         if (found) {
-            GameFunction<void(__thiscall*)(void*, Script::CStruct*)>(0x004875F0)(face, texture);
+            static_cast<Gfx::CFaceTexture*>(face)->LoadFromStructure(texture);
             Dbg::Printf("Face texture found\n");
         } else {
             Dbg::Printf("Face texture not found\n");
         }
-        GameFunction<void(__thiscall*)(void*, bool)>(0x00487520)(face, found);
+        static_cast<Gfx::CFaceTexture*>(face)->SetValid(found);
     }
     // The stats and specials as they are, the save's info read over them, then (unless the save's stats are kept)
     // put back.

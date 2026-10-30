@@ -2,6 +2,8 @@
 // 0x00583470 / 0x005835D0): the original and ours run on a stand-in skater in an arena; what they call outside is a
 // recording stand-in (floats from C++ functions jumped to), and the calls, results and the whole arena are compared.
 
+#include <initializer_list>
+#include <utility>
 #include <cmath>
 #include <algorithm>
 #include <cstdint>
@@ -16,6 +18,12 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/skater/skater.h"
+#include "game/gfx/viewport.h"
+#include "game/skate/skate_module.h"
+#include "game/skater/core_physics.h"
+#include "game/skater/physics_control.h"
+#include "game/skater/balance_trick.h"
+#include "game/skater/skater_camera_component.h"
 #include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
@@ -152,13 +160,13 @@ void Install(StandIns& s)
         Rec(0xB680, {r.args[0]});
         return g_restartLink && r.args[0] == 0x112u ? 1u : 0u;
     });
-    Simple(s, {0x00566370}, 12);
-    Simple(s, {0x00564C60}, 8);
-    s.At({0x004FC440}, 0, [](Regs& r) {
+    Simple(s, {0x00566370, AddressOf(&Mdl::Skate::MoveToRestart)}, 12);
+    Simple(s, {0x00564C60, AddressOf(&Mdl::Skate::HideSkater)}, 8);
+    s.At({0x004FC440, AddressOf(&Skater::CorePhysicsComponent::IsSwitched)}, 0, [](Regs& r) {
         Rec(0xC440, {r.ecx});
         return g_flag4FC ? 1u : 0u;
     });
-    s.At({0x004FC420}, 0, [](Regs& r) {
+    s.At({0x004FC420, AddressOf(&Obj::CSkaterPhysicsControlComponent::IsWalking)}, 0, [](Regs& r) {
         Rec(0xC420, {r.ecx});
         return g_flag4FC ? 1u : 0u;
     });
@@ -166,7 +174,7 @@ void Install(StandIns& s)
         Rec(0xBD60, {r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x004A09C0}, 0, [](Regs& r) {
+    s.At({0x004A09C0, AddressOf(Nx::GetActiveCamera)}, 0, [](Regs& r) {
         Rec(0x09C0, {r.args[0]});
         return g_camera ? Block(21) : 0u;
     });
@@ -190,8 +198,10 @@ void Install(StandIns& s)
         Rec(0x19F0, {r.ecx, r.args[0]});
         return Block(22);
     });
-    for (uint32_t address : {0x00512030u, 0x004F91D0u, 0x0051BF00u, 0x00419A20u, 0x00506BE0u, 0x004FA7C0u, 0x00510F80u})
+    for (uint32_t address : {0x00512030u, 0x0051BF00u, 0x00419A20u, 0x00506BE0u, 0x00510F80u})
         Simple(s, {address}, 0);
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x004F91D0u, AddressOf(&Obj::CSkaterBalanceTrickComponent::ClearParams)}, {0x004FA7C0u, AddressOf(&Obj::CSkaterCameraComponent::ResetMode)}})
+        Simple(s, {address, ours_}, 0);
     Simple(s, {0x00474420, AddressOf(&Script::CScript::Destroy)}, 0);
     s.At({0x004499B0, AddressOf(static_cast<void (*)(void*)>(&Script::CScript::operator delete))}, 0, [](Regs& r) {
         Rec(0x99B0, {r.args[0]});

@@ -47,7 +47,7 @@ float SpeedOf(const Mth::Vector& v)
 // 0x004FE1F0 (not rewritten yet): the air friction `friction` applied to the velocity.
 void ApplyAirFriction(void* component, float friction)
 {
-    GameFunction<void(__thiscall*)(void*, float)>(0x004FE1F0)(component, friction);
+    static_cast<CorePhysicsComponent*>(component)->ApplyFriction(friction);
 }
 
 } // namespace
@@ -107,7 +107,7 @@ void CorePhysicsComponent::Brake()
         return;
     }
     At<uint8_t>(this, kBraking) = 1;
-    if (GameFunction<bool(__thiscall*)(void*)>(0x004FE420)(this)) { // (turning on the slope instead)
+    if (MayTurnOnSlope()) { // (turning on the slope instead)
         At<uint8_t>(this, kBraking) = 0;
         return;
     }
@@ -137,10 +137,10 @@ void CorePhysicsComponent::ApplyGroundFriction()
     if (!At<uint8_t>(this, kFrictionOn) && !FlagsOf(this)[0x70] &&
         At<float>(this, kRollingFrictionNow) == PhysicsFloat(kRollingFriction, object) && !ThawBmx::Active(this))
         return;
-    GameFunction<void(__thiscall*)(void*)>(0x004FE6A0)(this); // (the friction: crouched or standing)
+    ApplyStanceFriction(); // (the friction: crouched or standing)
     if (TurnDownSlope()) // (turned down the slope)
         return;
-    GameFunction<void(__thiscall*)(void*)>(0x004FE730)(this); // (the rolling friction)
+    ApplyRollingFriction(); // (the rolling friction)
 }
 
 // 0x005021D0

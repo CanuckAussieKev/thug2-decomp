@@ -29,6 +29,8 @@
 #include "game/skater/trick_component.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
+#include "game/skate/score.h"
+#include "game/skater/balance_trick.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -63,7 +65,7 @@ std::vector<StandIn> GrindStandIns()
         {0x0045DB90, 4, 1, Ret::Int, true, 0, {Ours(&Obj::CCompositeObject::GetComponent)},
          [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kComponents)); }},
         {0x00511570, 0, 0, Ret::None, true, 0, {Ours(&Obj::CSkaterFlipAndRotateComponent::DoAfterAnim)}},
-        {0x005627B0, 4, 1, Ret::None, true},
+        {0x005627B0, 4, 1, Ret::None, true, 0, {Ours(&Mdl::Score::UpdateRobotDetection)}},
         {0x00478F00, 0, 1, Ret::Float, false, 0, {Ours(static_cast<float (*)(uint32_t)>(&Script::GetFloat))},
          [](Frame&, Result& r) {
              static const float values[] = {0.0f, 30.0f, 45.0f, 60.0f, 80.0f, 89.0f, 2.5f, 0.5f, 12.0f, 6.0f, 0.25f};
@@ -85,8 +87,8 @@ std::vector<StandIn> GrindStandIns()
         {0x00522370, 4, 1, Ret::None, true, 0, {Ours(&Obj::CTrickComponent::PassToTrickObjects)}},
         {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}},
         {0x00434A60, 16, 4, Ret::Bool, true, 0, {Ours(&Obj::CTriggerComponent::TriggerNode)}},
-        {0x004FE860, 16, 4, Ret::None, true},
-        {0x004FDED0, 4, 1, Ret::None, true},
+        {0x004FE860, 16, 4, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::TurnToNormal)}},
+        {0x004FDED0, 4, 1, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::SetPhysicsState)}},
         {0x005196A0, 4, 1, Ret::None, true, 1, {Ours(&Obj::CSkaterStateComponent::SetTerrain)}},
         {0x00580790, 4, 1, Ret::Float, true, 0, {Ours(&Obj::CSkater::GetScaledPhysics)}},
         {0x00518CF0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CSkaterSoundComponent::PlayLand)}},
@@ -96,8 +98,8 @@ std::vector<StandIn> GrindStandIns()
          }},
         {0x004609F0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CObject::SelfEvent)}},
         {0x005092E0, 4, 1, Ret::None, true, 0, {Ours(&CorePhysicsComponent::TriggerRailScript)}},
-        {0x004FC470, 4, 1, Ret::None, true},
-        {0x004F8EE0, 0, 0, Ret::None, true},
+        {0x004FC470, 4, 1, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::SetTerrain)}},
+        {0x004F8EE0, 0, 0, Ret::None, true, 0, {Ours(&Obj::CSkaterBalanceTrickComponent::Stop)}},
         {0x00511F60, 8, 2, Ret::None, true, 0, {Ours(&Obj::CSkaterGapComponent::CheckGaps)}},
         {0x00449970, 0, 1, Ret::Int, false, 0, {Ours(&Script::CScript::operator new)},
          [](Frame&, Result& r) { r.eax = Next() % 4 ? reinterpret_cast<uint32_t>(ArenaPtr(kScriptMemory)) : 0; }},

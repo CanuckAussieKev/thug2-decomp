@@ -29,6 +29,7 @@
 #include "game/skater/skater_x87.h"
 #include "game/skater/state_history.h"
 #include "game/sys/game_clock.h"
+#include "game/gfx/anim_blend.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -543,10 +544,8 @@ void CSkaterNonLocalNetLogicComponent::PlayHistoryEvents()
             switch (msg->m_id) {
             case 0x29: // an animation played (the primary channel)
                 if (Gfx::CBlendChannel* channel = blender->FindChannel(0))
-                    GameFunction<void(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t, int, uint32_t, uint32_t,
-                                                   int)>(0x0047F260)(
-                        channel, Field<uint32_t>(m, 0x20), 0, Field<uint32_t>(m, 0x10), Field<uint32_t>(m, 0x14),
-                        Field<int8_t>(m, 0x02), Field<uint32_t>(m, 0x18), Field<uint32_t>(m, 0x1C), 0);
+                    channel->PlayAnim(Field<uint32_t>(m, 0x20), false, Field<float>(m, 0x10), Field<float>(m, 0x14),
+                                      Field<int8_t>(m, 0x02), Field<float>(m, 0x18), Field<float>(m, 0x1C), nullptr);
                 break;
             case 0x2A: // the board rotated (the byte passed as it was sent)
                 static_cast<CSkaterFlipAndRotateComponent*>(m_flipAndRotate)
@@ -554,24 +553,23 @@ void CSkaterNonLocalNetLogicComponent::PlayHistoryEvents()
                 break;
             case 0x2B:
                 if (Gfx::CBlendChannel* channel = blender->FindChannel(0))
-                    GameFunction<void(__thiscall*)(void*, uint32_t, int)>(0x0047E280)(channel, Field<uint32_t>(m, 0x0C),
-                                                                                      0);
+                    channel->SetWobbleTarget(Field<float>(m, 0x0C), false);
                 break;
             case 0x2C:
                 if (Gfx::CBlendChannel* channel = blender->FindChannel(0))
-                    GameFunction<bool(__thiscall*)(void*, int, uint32_t, int, int)>(0x0047DC40)(
-                        channel, Field<int8_t>(m, 0x01), Field<uint8_t>(m, 0x08), 0, 0);
+                    channel->SetFlipped(static_cast<uint32_t>(Field<int8_t>(m, 0x01)), Field<uint8_t>(m, 0x08) != 0, 0,
+                                        false);
                 break;
             case 0x3C: { // (20 bytes of the message passed by address)
                 uint32_t data[5];
                 std::memcpy(data, m + 0x28, sizeof(data));
                 if (Gfx::CBlendChannel* channel = blender->FindChannel(0))
-                    GameFunction<void(__thiscall*)(void*, uint32_t*, int)>(0x0047E450)(channel, data, 0);
+                    channel->SetWobbleDetails(reinterpret_cast<const float*>(data), false);
                 break;
             }
             case 0x3D:
                 if (Gfx::CBlendChannel* channel = blender->FindChannel(0))
-                    GameFunction<void(__thiscall*)(void*, int, int)>(0x0047E740)(channel, Field<int8_t>(m, 0x02), 0);
+                    channel->SetLoopType(Field<int8_t>(m, 0x02), false);
                 break;
             case 0x3E:
                 reinterpret_cast<CModelComponent*>(m_model)->HideGeom(Field<uint32_t>(m, 0x20),
@@ -579,8 +577,7 @@ void CSkaterNonLocalNetLogicComponent::PlayHistoryEvents()
                 break;
             case 0x41:
                 if (Gfx::CBlendChannel* channel = blender->FindChannel(0))
-                    GameFunction<void(__thiscall*)(void*, uint32_t, int, int, int)>(0x0047E850)(
-                        channel, Field<uint32_t>(m, 0x1C), 0, 0, 0);
+                    channel->SetSpeed(Field<float>(m, 0x1C), false, false, false);
                 break;
             case 0x76: { // the model's three parts set going, by the message's bits
                 Field<Mth::Vector>(m_model, 0x28) = {0.0f, 30.0f, 0.0f, 1.0f};

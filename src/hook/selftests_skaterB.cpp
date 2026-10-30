@@ -21,6 +21,7 @@
 #include "game/skater/rotation.h"
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -171,6 +172,7 @@ struct SkaterStandIns {
     Patch physicsInt{0x00580440, Jump(0x00580440, reinterpret_cast<void*>(&StandInPhysicsInt))};
     Patch stat{0x00580790, Jump(0x00580790, reinterpret_cast<void*>(&StandInStatValue))};
     Patch show{0x00564BE0, Jump(0x00564BE0, reinterpret_cast<void*>(&StandInShowRotation))};
+    Patch showOurs{OurCode(&Mdl::Score::UpdateSpin), Jump(OurCode(&Mdl::Score::UpdateSpin), reinterpret_cast<void*>(&StandInShowRotation))};
     Patch offset{0x00406630, Jump(0x00406630, reinterpret_cast<void*>(&StandInRampOffset))};
     Patch stuck{0x00505F70, Jump(0x00505F70, reinterpret_cast<void*>(&StandInStuck))};
     // (ours calls our rewrite of 0x00505F70 directly: stood in the same way)
