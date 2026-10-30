@@ -14,6 +14,7 @@
 #include "game/skater/skater.h"
 #include "game/skate/score.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
 
@@ -41,7 +42,8 @@ constexpr uint32_t kYouTied = 0x334622A1;          // horse_str_youtiedthetarget
 
 // The statuses (0x0067F340, null-terminated): GotLetter, TieScore, BeatScore, 0xAE7D29B0 (the game over), idle,
 // NoScoreSet.
-const uint32_t* Statuses() { return reinterpret_cast<const uint32_t*>(0x0067F340); }
+GAME_GLOBAL(uint32_t[7], g_horseStatuses, 0x0067F340, 0x0FD80EBA, 0x006BE86F, 0xBAA12466, 0xAE7D29B0, 0x23DB4AEA, 0xA71DD8EB, 0x00000000); // (zero-terminated)
+const uint32_t* Statuses() { return g_horseStatuses; }
 enum StatusIndex { kGotLetter = 0, kTieScore = 1, kBeatScore = 2, kGameOver = 3, kIdle = 4, kNoScoreSetStatus = 5 };
 
 int HorseRestarts()

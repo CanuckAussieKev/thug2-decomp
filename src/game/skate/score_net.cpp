@@ -11,6 +11,7 @@
 #include "game/net/net_conn.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/player_info.h"
+#include "game/skate/game_mode.h"
 #include "game/skate/score_internal.h"
 #include "game/skater/trick_component.h"
 #include "game/skate/skate_module.h"
@@ -27,7 +28,7 @@ const char* const kTrickObjBuffer = GAME_TEXT(0x0064C8BC, "TrickObj Buffer"); //
 
 // A walk over the players (GameNet::Manager::FirstPlayerInfo / NextPlayerInfo).
 struct PlayerSearch {
-    void** m_vtable = reinterpret_cast<void**>(0x0064C1A8);
+    void** m_vtable = Mdl::kPlayerSearchVtable;
     void* m_node = nullptr;
 };
 

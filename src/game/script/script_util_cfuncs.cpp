@@ -341,7 +341,7 @@ bool __cdecl CFunc_AddFlag(CStruct* params, CScript* script)
 // which lies just before it, as here.)
 bool __cdecl CFunc_AppendSuffix(CStruct* params, CScript* script)
 {
-    const char* text = reinterpret_cast<const char*>(0x006469B4); // ""
+    const char* text = GAME_TEXT(0x006469B4, ""); // ""
     params->GetString(kText, &text, 0);
     size_t textLength = std::strlen(text);
     struct {
@@ -353,7 +353,7 @@ bool __cdecl CFunc_AppendSuffix(CStruct* params, CScript* script)
     params->GetInteger(kMaxLength, &maxLength, 0);
     int suffix = 1;
     params->GetInteger(kSuffix, &suffix, 0);
-    Sprintf(buffers.number, reinterpret_cast<const char*>(0x0064710C), suffix); // " %d"
+    Sprintf(buffers.number, GAME_TEXT(0x0064710C, " %d"), suffix); // " %d"
     int numberLength = static_cast<int>(std::strlen(buffers.number));
     if (numberLength + static_cast<int>(textLength) > maxLength)
         reinterpret_cast<char*>(&buffers)[sizeof(buffers.number) + maxLength - numberLength] = '\0';
@@ -521,7 +521,7 @@ bool __cdecl FormatPrintfText(char* out, CStruct* params, CScript*)
         if (FormatTextInto(format, format))
             format->GetString(GAME_TEXT(0x006471D0, "PrintfText"), &text, 0); // "PrintfText"
         else
-            text = reinterpret_cast<const char*>(0x006469B4); // ""
+            text = GAME_TEXT(0x006469B4, ""); // ""
         Sprintf(out, GAME_TEXT(0x006471CC, "%s\n"), text); // "%s\n"
         if (format) {
             format->Clear();

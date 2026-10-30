@@ -15,6 +15,11 @@ namespace Script {
 class CScript;
 } // namespace Script
 
+// The virtual table of the player lists' search objects (Lst::Search<PlayerInfo>, 0x0064C1A8; defined in skate_module_state.cpp).
+namespace Mdl {
+extern void** const kPlayerSearchVtable;
+} // namespace Mdl
+
 namespace Game {
 
 class CVictoryCondition;

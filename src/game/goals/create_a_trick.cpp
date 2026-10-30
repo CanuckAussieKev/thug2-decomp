@@ -33,7 +33,7 @@ const char* const kTotalY = GAME_TEXT(0x0064DBC0, "total_Y_angle");          // 
 const char* const kTotalX = GAME_TEXT(0x0064DBD0, "total_X_angle");          // "total_X_angle"
 const char* const kTotalZ = GAME_TEXT(0x0064DBE0, "total_Z_angle");          // "total_Z_angle"
 
-void** const kCreateATrickVtable = reinterpret_cast<void**>(0x0064DC40);
+GAME_VTABLE(kCreateATrickVtable, 0x0064DC40, &Game::CCreateATrick::Destroy);
 
 Obj::CSkater* LocalSkater() { return static_cast<Obj::CSkater*>(SkateCalls::GetLocalSkater()); }
 CCreateATrick* CreatedTrick(Obj::CSkater* skater, int index)

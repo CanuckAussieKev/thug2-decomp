@@ -18,6 +18,8 @@
 #include "game/skate/victory_conditions.h"
 #include "game/skater/end_run.h"
 #include "game/skater/skater.h"
+#include "game/core/stubs.h"
+#include "game/gfx/weather.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
@@ -49,9 +51,36 @@ constexpr uint32_t kAddedTime = 0xC906B763;        // added_time
 constexpr uint32_t kGoalName = 0xBFECC45B;         // goal_name
 constexpr uint32_t kRaceNextWaypoint = 0xD3741449; // goal_race_next_waypoint
 
-void** const kHorseGoalVtable = reinterpret_cast<void**>(0x0064E0D8);
-void** const kNetGoalVtable = reinterpret_cast<void**>(0x0064E150);
-void** const kRaceGoalVtable = reinterpret_cast<void**>(0x0064E1C8);
+GAME_VTABLE(kHorseGoalVtable, 0x0064E0D8,
+            &Game::CHorseGoal::Destroy, &Game::CHorseGoal::ShouldExpire, &Game::CHorseGoal::IsExpired,
+            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CHorseGoal::Expire, &Game::CGoal::LoadSaveData,
+            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+            &Game::CGoal::HasComponentA302D7CD, &Game::CGoal::Activate, &Game::CGoal::SetActive,
+            &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+            &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
+            &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
+            &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
+            &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
+GAME_VTABLE(kNetGoalVtable, 0x0064E150,
+            &Game::CNetGoal::Destroy, &Game::CNetGoal::ShouldExpire, &Game::CGoal::IsExpired,
+            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CNetGoal::Expire, &Game::CGoal::LoadSaveData,
+            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, &Game::CNetGoal::TimerBeeps,
+            &Game::CNetGoal::HasComponentA302D7CD, &Game::CNetGoal::Activate, &Game::CGoal::SetActive,
+            &Game::CNetGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+            &Game::CNetGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
+            &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
+            &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
+            &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
+GAME_VTABLE(kRaceGoalVtable, 0x0064E1C8,
+            &Game::CRaceGoal::Destroy, &Game::CRaceGoal::ShouldExpire, &Game::CRaceGoal::IsExpired,
+            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CRaceGoal::Expire, &Game::CGoal::LoadSaveData,
+            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+            &Game::CGoal::HasComponentA302D7CD, &Game::CRaceGoal::Activate, &Game::CGoal::SetActive,
+            &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+            &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
+            &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
+            &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
+            &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
 
 GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 uint32_t GameModeName() { return g_gameMode->GetNameChecksum(); }
@@ -63,7 +92,7 @@ bool GoalsCompleted()
 }
 
 struct PlayerSearch {
-    void** m_vtable = reinterpret_cast<void**>(0x0064C1A8);
+    void** m_vtable = Mdl::kPlayerSearchVtable;
     void* m_node = nullptr;
 };
 

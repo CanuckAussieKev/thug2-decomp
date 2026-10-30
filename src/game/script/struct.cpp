@@ -590,7 +590,8 @@ void EndPermanentStrings()
 }
 
 namespace {
-char (&ScriptStringSlot(int index))[128] { return reinterpret_cast<char(*)[128]>(0x006F3590)[index]; }
+GAME_GLOBAL(char[128], g_scriptStrings, 0x006F3590); // (the strings SetScriptString / GetScriptString use, 128 bytes each, indexed from here)
+char (&ScriptStringSlot(int index))[128] { return reinterpret_cast<char(*)[128]>(&g_scriptStrings)[index]; }
 } // namespace
 
 // 0x00476370
@@ -1619,7 +1620,7 @@ uint32_t SymbolValueOfType(CSymbolTableEntry* entry, ESymbolType type)
 }
 
 // The game's empty string (what the string getters give for missing symbols).
-const char* EmptyString() { return reinterpret_cast<const char*>(0x006469B4); }
+const char* EmptyString() { return GAME_TEXT(0x006469B4, ""); }
 
 } // namespace
 

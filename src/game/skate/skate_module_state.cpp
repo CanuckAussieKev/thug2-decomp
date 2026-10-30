@@ -2,6 +2,7 @@
 // game type, the level asked for / opened / changed, the preferences, the script commands that drive them.
 
 #include "game/skate/skate_module.h"
+#include "game/skater/state_history.h"
 
 #include <windows.h>
 
@@ -95,7 +96,7 @@ float& NextBeep() { return g_nextBeep; }
 
 // A walk over the players (GameNet::Manager::FirstPlayerInfo / NextPlayerInfo).
 struct PlayerSearch {
-    void** m_vtable = reinterpret_cast<void**>(0x0064C1A8);
+    void** m_vtable = Mdl::kPlayerSearchVtable;
     void* m_node = nullptr;
 };
 // A walk over an app's connections (Net::App::FirstConnection / NextConnection).
@@ -508,7 +509,13 @@ int __stdcall Skate::ShouldBeAbsent(Script::CStruct* params)
 // 0x00564D60's neighbours: the skater list's node and head (Lst::Node<CSkater> 0x0064E544, Lst::Head<CSkater>
 // 0x0064E5D4).
 // 0x00565730: the head's destructor body (the node's).
-void __fastcall SkaterHeadDestroyBody(Mem::ListNode* head) { head->UnlinkAs(reinterpret_cast<void**>(0x0064E544)); }
+void __fastcall SkaterHeadDestroyBody(Mem::ListNode* head) { head->UnlinkAs(kSkaterNodeVtable); }
+
+
+GAME_VTABLE(kPlayerSearchVtable, 0x0064C1A8, &Obj::PlayerSearchDestructors::Destroy);
+GAME_VTABLE(kSkateVtable, 0x0064E674, &Skate::Destroy, &Skate::StartCallback, &Skate::StopCallback);
+GAME_VTABLE(kSkaterNodeVtable, 0x0064E544, Skate::DestroySkaterNode);
+GAME_VTABLE(kSkaterHeadVtable, 0x0064E5D4, Skate::DestroySkaterHead);
 
 } // namespace Mdl
 

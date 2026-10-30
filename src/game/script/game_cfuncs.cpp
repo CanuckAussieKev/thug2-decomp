@@ -291,7 +291,7 @@ bool __cdecl CFunc_GetCustomSkaterFilename(Script::CStruct*, Script::CScript* sc
 bool __cdecl CFunc_SetCustomSkaterFilename(Script::CStruct* params, Script::CScript*)
 {
     Obj::CSkaterProfile* profile = GetProfile(0);
-    const char* name = reinterpret_cast<const char*>(0x0064EFD8); // "Unimplemented"
+    const char* name = GAME_TEXT(0x0064EFD8, "Unimplemented"); // "Unimplemented"
     params->GetString(0u, &name, 0);
     profile->SetStringF36C1878(name);
     return true;
@@ -498,7 +498,7 @@ bool __cdecl CFunc_ReloadAnim(Script::CStruct* params, Script::CScript*)
     params->GetChecksum(0x52A864B0u, &anim, 0);
     uint32_t base = 0;
     params->GetChecksum(0x98549BA4u, &base, 0);
-    const char* file = reinterpret_cast<const char*>(0x006469B4); // ""
+    const char* file = GAME_TEXT(0x006469B4, ""); // ""
     params->GetString(0xC3F4169Au, &file, 0);
     Ass::CAssMan* assets = Ass::AssetManager();
     uint32_t name = Crc::GenerateCRCFromString(file);
@@ -702,7 +702,7 @@ bool __cdecl CFunc_ShowTracking(Script::CStruct* params, Script::CScript*)
     bool show4 = params->ContainsFlag(0xB0FE7369u);
     if (!show1 && !show2 && !show3 && !show4)
         show1 = show2 = show3 = show4 = true;
-    const char* file = reinterpret_cast<const char*>(0x006469B4); // ""
+    const char* file = GAME_TEXT(0x006469B4, ""); // ""
     params->GetString(0u, &file, 0);
     if (file[1] == ':') {
         Dbg::Printf(GAME_TEXT(0x0064FF80, "WARNING: stripped drive name off file\n")); // "WARNING: stripped drive name off file\n"
@@ -789,7 +789,7 @@ bool __cdecl CFunc_ChooseFaceForFacemap(Script::CStruct* params, Script::CScript
     char path[0x80];
 #pragma warning(suppress : 4996) // (unbounded: as in the original)
     std::sprintf(path, GAME_TEXT(0x0064D2A4, "faces\\%s"), name); // "faces\%s"
-    void* file = GameFopen(path, reinterpret_cast<const char*>(0x00647344)); // "rb"
+    void* file = GameFopen(path, GAME_TEXT(0x00647344, "rb")); // "rb"
     if (!file)
         return false;
     GameFseek(file, 0, SEEK_END);
@@ -933,7 +933,7 @@ bool __cdecl CFunc_AddFacesToMenu(Script::CStruct*, Script::CScript*)
             if (std::strlen(name) > 4)
                 name[std::strlen(name) - 4] = '\0';
             Script::CStruct* item = NewStructure();
-            item->AddString(reinterpret_cast<const char*>(0x0064D0C4), name); // "name"
+            item->AddString(GAME_TEXT(0x0064D0C4, "name"), name); // "name"
             item->AddString(GAME_TEXT(0x0064D2B8, "file"), file); // "file"
             Script::RunScript(GAME_TEXT(0x0065023C, "add_item_to_face_menu"), item, nullptr, false); // "add_item_to_face_menu"
             ++count;

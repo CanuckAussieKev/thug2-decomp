@@ -17,6 +17,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/net/gamenet_manager.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -322,7 +323,7 @@ constexpr uint32_t kValue634 = 0xF884773C;
 constexpr uint32_t kMaxValue634 = 0x1C6CF075;
 constexpr uint32_t kInfoStructure = 0x55D761CF;
 
-void** const kCareerVtable = reinterpret_cast<void**>(0x0064EFD4);
+GAME_VTABLE(kCareerVtable, 0x0064EFD4, &Obj::CSkaterCareer::Destroy);
 
 Script::CArray* NewArray(uint32_t size, Script::ESymbolType type)
 {

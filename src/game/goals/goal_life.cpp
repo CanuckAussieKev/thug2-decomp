@@ -17,9 +17,12 @@
 #include "game/skate/game_mode.h"
 #include "game/goals/goal_ped.h"
 #include "game/skate/score.h"
+#include "game/core/stubs.h"
+#include "game/gfx/weather.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -76,8 +79,16 @@ constexpr uint32_t kGaps = 0xD76C173E;                 // Gaps
 constexpr uint32_t kNoGapMessages = 0x5BC07EAA;        // No_Gap_Messages
 constexpr uint32_t kGoalGapsGotGap = 0x96DE9A0C;       // goal_gaps_got_gap
 
-void** const kGoalVtable = reinterpret_cast<void**>(0x0064DDD0);
-void** const kGoalNodeVtable = reinterpret_cast<void**>(0x0064DDCC);
+GAME_VTABLE(kGoalVtable, 0x0064DDD0,
+            &Game::CGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired, &Game::CGoal::IsActive,
+            Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData, &Game::CGoal::GetSaveData,
+            &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue, &Game::CGoal::HasComponentA302D7CD,
+            &Game::CGoal::Activate, &Game::CGoal::SetActive, &Game::CGoal::Deactivate, &Game::CGoal::SetInactive,
+            &Game::CGoal::Win, &Game::CGoal::Lose, &Game::CGoal::Update, &Game::CGoal::IsPaused,
+            &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon,
+            &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized,
+            &Game::CGoal::CanRetry, &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag,
+            &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
 
 // The x87 code's float to int conversion (_ftol): truncation.
 int Truncate(double value) { return static_cast<int>(value); }
@@ -127,7 +138,7 @@ inline void DestroyGoalPedBody(CGoalPed*) {}
 
 // Lst::Search<PlayerInfo> (vtable 0x0064C1A8) for the network manager's FirstPlayerInfo / NextPlayerInfo.
 struct PlayerSearch {
-    void** m_vtable = reinterpret_cast<void**>(0x0064C1A8);
+    void** m_vtable = Mdl::kPlayerSearchVtable;
     void* m_node = nullptr;
 };
 Obj::CCompositeObject* PlayerSkater(void* player)
@@ -152,6 +163,7 @@ CGoal* RootOf(void* manager, GoalLink* parents)
 
 } // namespace
 
+GAME_VTABLE(kGoalNodeVtable, 0x0064DDCC, &Game::CGoal::DestroyNode); // (also used by goal_manager.cpp)
 // 0x00556FE0
 CGoal* CGoal::Construct(Script::CStruct* params)
 {

@@ -19,6 +19,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -53,9 +54,9 @@ constexpr uint32_t kMultipleNewGaps = 0xD2E7D353;    // multiple_new_gaps
 constexpr uint32_t kGapText = 0xC69CE365;            // gap_text
 constexpr uint32_t kGotGapForFirstTime = 0x318EAF64; // got_gap_for_first_time (a script)
 
-void** const kGapVtable = reinterpret_cast<void**>(0x0064EC7C);
-void** const kGapNodeVtable = reinterpret_cast<void**>(0x0064EC78);  // Lst::Node<CGapCheck>
-void** const kGapHeadVtable = reinterpret_cast<void**>(0x0064ED20);  // Lst::Head<CGapCheck>
+GAME_VTABLE(kGapVtable, 0x0064EC7C, &Game::CGapCheck::Destroy);
+GAME_VTABLE(kGapNodeVtable, 0x0064EC78, &Game::CGapCheckNode::Destroy);  // Lst::Node<CGapCheck>
+GAME_VTABLE(kGapHeadVtable, 0x0064ED20, &Game::CGapCheckNode::Destroy2);  // Lst::Head<CGapCheck>
 
 CGapChecklist*& Building() { return g_buildingGapChecklist; }
 

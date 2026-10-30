@@ -92,7 +92,7 @@ constexpr uint32_t kGoalEndOfRunDone = 0x69A9E37F;      // Goal_EndOfRunDone
 inline const char* const kGoalIdName = GAME_TEXT(0x0064B5CC, "goal_id");        // "goal_id"
 inline const char* const kViewGoalsTextName = GAME_TEXT(0x0064DD94, "view_goals_text"); // "view_goals_text"
 inline const char* const kIdName = GAME_TEXT(0x0064C8F0, "id");            // "id"
-inline const char* const kEmptyString = reinterpret_cast<const char*>(0x006469B4);       // ""
+inline const char* const kEmptyString = GAME_TEXT(0x006469B4, "");       // ""
 inline const char* const kGotFormat = GAME_TEXT(0x0064B678, "got_%d");         // "got_%d"
 
 } // namespace Game::GoalNames

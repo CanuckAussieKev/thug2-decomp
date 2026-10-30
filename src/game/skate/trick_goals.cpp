@@ -33,6 +33,9 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/tod_manager.h"
+#include "game/core/stubs.h"
+#include "game/gfx/weather.h"
+#include "hook/game_code.h"
 
 #pragma warning(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
 
@@ -125,10 +128,48 @@ constexpr uint32_t kFlag = 0x2E0B1465;                 // flag
 constexpr uint32_t kSkaterState = 0x43686585;          // SkaterState (the component)
 constexpr uint32_t kSkaterScore = 0xD262802F;          // SkaterScore (the component)
 
-void** const kTetrisVtable = reinterpret_cast<void**>(0x0064E8A0);
-void** const kTimedScoreRunVtable = reinterpret_cast<void**>(0x0064E938);
-void** const kTrickBeatVtable = reinterpret_cast<void**>(0x0064E9B8);
-void** const kTrickObjectsVtable = reinterpret_cast<void**>(0x0064EA30);
+GAME_VTABLE(kTetrisVtable, 0x0064E8A0,
+            &Game::CTetrisGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CTetrisGoal::Expire, &Game::CGoal::LoadSaveData,
+            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+            &Game::CGoal::HasComponentA302D7CD, &Game::CTetrisGoal::Activate, &Game::CGoal::SetActive,
+            &Game::CTetrisGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CTetrisGoal::Win,
+            &Game::CGoal::Lose, &Game::CTetrisGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag,
+            &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet,
+            &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
+            &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag,
+            &Game::CGoal::UnBeat);
+GAME_VTABLE(kTimedScoreRunVtable, 0x0064E938,
+            &Game::CTimedScoreRunGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
+            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+            &Game::CTimedScoreRunGoal::IsRunning, &Game::CGoal::Activate, &Game::CGoal::SetActive,
+            &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+            &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
+            &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
+            &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
+            &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
+GAME_VTABLE(kTrickBeatVtable, 0x0064E9B8,
+            &Game::CTrickBeatGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
+            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+            &Game::CGoal::HasComponentA302D7CD, &Game::CTrickBeatGoal::Activate, &Game::CGoal::SetActive,
+            &Game::CTrickBeatGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CTetrisGoal::Win,
+            &Game::CGoal::Lose, &Game::CTrickBeatGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag,
+            &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet,
+            &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
+            &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag,
+            &Game::CGoal::UnBeat);
+GAME_VTABLE(kTrickObjectsVtable, 0x0064EA30,
+            &Game::CTrickObjectsGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
+            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+            &Game::CGoal::HasComponentA302D7CD, &Game::CGoal::Activate, &Game::CGoal::SetActive,
+            &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+            &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
+            &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
+            &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
+            &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
 
 // The red-tricks threshold (0x0064E918): three quarters of max_tricks.
 double ThreeQuarters() { return g_trickGoalsThreeQuarters; }

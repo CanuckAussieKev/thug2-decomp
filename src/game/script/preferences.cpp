@@ -4,13 +4,16 @@
 
 #include "game/core/manager.h"
 #include "hook/game.h"
+#include "hook/game_code.h"
 #include "hook/hook.h"
 
 namespace Prefs {
 
 namespace {
 
-void** Vtable() { return reinterpret_cast<void**>(0x00647B34); }
+GAME_VTABLE(kPreferencesVtable, 0x00647B34, &Prefs::Preferences::Destroy);
+
+void** Vtable() { return kPreferencesVtable; }
 
 } // namespace
 

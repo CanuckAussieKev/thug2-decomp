@@ -18,6 +18,8 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/skate/profile_cfuncs.h"
+#include "hook/game_code.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
@@ -95,9 +97,10 @@ bool SkipNode(Script::CStruct* node)
 // preloaded (its mesh kept in memory).
 void PreloadPartList(uint32_t list)
 {
+    void* stub = GAME_CODE(0x005AAAA0, CFuncs::PreloadMeshesStub);
     __asm {
         mov eax, list
-        mov ecx, 0x005AAAA0
+        mov ecx, stub
         call ecx
     }
 }

@@ -25,7 +25,15 @@ GAME_GLOBAL(CComponent, g_evalResult, 0x006F2348);
 namespace {
 
 // The operators' precedences, by operator.
-int Precedence(int op) { return reinterpret_cast<const int*>(0x0067D908)[op]; }
+GAME_GLOBAL(int[74], g_operatorPrecedence, 0x0067D908,
+    -1, -1, -1, -1, -1, 100, -1, 76, 100, -1, 98, 98,
+    99, 100, -1, -1, -1, -1, 80, 79, 78, 77, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, 58, 60, 59, 90, 89, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1);
+int Precedence(int op) { return g_operatorPrecedence[op]; }
 
 // Where an operation's result is built (a global component: only its type and value are taken).
 CComponent& Result() { return g_evalResult; }

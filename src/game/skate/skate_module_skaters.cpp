@@ -135,7 +135,7 @@ int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 Mem::Heap* SkaterHeap(int index) { return Mem::Manager::Get()->m_skaterHeaps[index]; }
 
 struct PlayerSearch {
-    void** m_vtable = reinterpret_cast<void**>(0x0064C1A8);
+    void** m_vtable = Mdl::kPlayerSearchVtable;
     void* m_node = nullptr;
 };
 GameNet::PlayerInfo* AsPlayer(void* player) { return static_cast<GameNet::PlayerInfo*>(player); }
@@ -1012,12 +1012,12 @@ void __cdecl Skate::LogicTask(Tsk::BaseTask* task)
 Skate* Skate::Construct()
 {
     Module::Construct();
-    m_vtable = reinterpret_cast<void**>(0x0064E674);
+    m_vtable = kSkateVtable;
     m_skaters.m_node.data = reinterpret_cast<void*>(-1);
     m_skaters.m_node.priority = 0;
     m_skaters.m_node.next = &m_skaters.m_node;
     m_skaters.m_node.prev = &m_skaters.m_node;
-    m_skaters.m_node.vtable = reinterpret_cast<void**>(0x0064E5D4);
+    m_skaters.m_node.vtable = kSkaterHeadVtable;
     m_checkControllers = false;
     m_unpluggedFrames = 0;
     auto* task = static_cast<Tsk::BaseTask*>(Mem::Calloc(0x20));
@@ -1073,7 +1073,7 @@ Skate* Skate::Construct()
 // 0x005663A0
 void Skate::DestroyBody()
 {
-    m_vtable = reinterpret_cast<void**>(0x0064E674);
+    m_vtable = kSkateVtable;
     Gfx::CAnimCache::Destroy();
     Terrain::ClearTerrainTypes();
     Script::RunScript(kUninitLightManager, nullptr, nullptr, false, nullptr);
@@ -1125,7 +1125,7 @@ Skate* Skate::Destroy(uint8_t flags)
 // 0x00565750: the skater list's node's scalar deleting destructor (Lst::Node<CSkater>, vtable 0x0064E544).
 Mem::ListNode* __fastcall Skate::DestroySkaterNode(Mem::ListNode* node, int, uint8_t flags)
 {
-    node->UnlinkAs(reinterpret_cast<void**>(0x0064E544));
+    node->UnlinkAs(kSkaterNodeVtable);
     if (flags & 1)
         Mem::Free(node);
     return node;

@@ -47,7 +47,7 @@ GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 bool KingOfTheHill() { return GameMode()->GetNameChecksum() == kNetKing || GameMode()->GetNameChecksum() == kKing; }
 
 struct PlayerSearch {
-    void** m_vtable = reinterpret_cast<void**>(0x0064C1A8);
+    void** m_vtable = Mdl::kPlayerSearchVtable;
     void* m_node = nullptr;
 };
 GameNet::PlayerInfo* AsPlayer(void* player) { return static_cast<GameNet::PlayerInfo*>(player); }

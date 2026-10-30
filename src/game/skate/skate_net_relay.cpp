@@ -18,6 +18,8 @@
 #include "game/goals/goal_manager.h"
 #include "game/mth/vector.h"
 #include "game/net/gamenet_manager.h"
+#include "game/gfx/engine_geom.h"
+#include "game/gfx/engine_texture.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/net/net_conn.h"
@@ -138,7 +140,7 @@ int IdByte(const uint8_t* data, int offset) { return static_cast<int8_t>(data[of
 
 // Lst::Search<PlayerInfo> (vtable 0x0064C1A8) for the network manager's FirstPlayerInfo / NextPlayerInfo.
 struct PlayerSearch {
-    void** m_vtable = reinterpret_cast<void**>(0x0064C1A8);
+    void** m_vtable = Mdl::kPlayerSearchVtable;
     void* m_node = nullptr;
     PlayerInfo* First(bool observers) { return static_cast<PlayerInfo*>(Net()->FirstPlayerInfo(this, observers)); }
     PlayerInfo* Next(bool observers) { return static_cast<PlayerInfo*>(Net()->NextPlayerInfo(this, observers)); }
@@ -638,14 +640,14 @@ int SkateNet::HandleGraffitiTexture(Net::MsgHandlerContext* context)
             desc.m_length = 1;
             Sequence(desc, 10);
             Enqueue(app, other, &desc);
-            void* palette = Call<void*>(0x0048DF20, texture);
-            uint32_t paletteSize = Call<uint32_t>(0x0048DF30, texture);
+            void* palette = Call<void*>(reinterpret_cast<uint32_t>(GAME_CODE(0x0048DF20, Nx::VirtualSlot27Jump)), texture);
+            uint32_t paletteSize = Call<uint32_t>(reinterpret_cast<uint32_t>(GAME_CODE(0x0048DF30, Nx::VirtualSlot28Jump)), texture);
             app->StreamMessageToConn(other->m_conn, 0x98, static_cast<uint16_t>(paletteSize), palette,
-                                     reinterpret_cast<const char*>(0x0064C974), 10, false, true); // "CAG Palette"
-            void* pixels = Call<void*>(0x0048DF00, texture);
-            uint32_t pixelsSize = Call<uint32_t>(0x0049F3A0, texture);
+                                     GAME_TEXT(0x0064C974, "CAG Palette"), 10, false, true); // "CAG Palette"
+            void* pixels = Call<void*>(reinterpret_cast<uint32_t>(GAME_CODE(0x0048DF00, Nx::VirtualSlot25Jump)), texture);
+            uint32_t pixelsSize = Call<uint32_t>(reinterpret_cast<uint32_t>(GAME_CODE(0x0049F3A0, Nx::VirtualSlot26Jump)), texture);
             app->StreamMessageToConn(other->m_conn, 0x97, static_cast<uint16_t>(pixelsSize), pixels,
-                                     reinterpret_cast<const char*>(0x0064C968), 10, false, true); // "CAG Texture"
+                                     GAME_TEXT(0x0064C968, "CAG Texture"), 10, false, true); // "CAG Texture"
             uint32_t sentParts = parts;
             desc.m_data = &sentParts;
             desc.m_id = 0x9A;
@@ -698,7 +700,7 @@ int SkateNet::HandleFaceTexture(Net::MsgHandlerContext* context)
             if (other->IsLocalPlayer() || other == sender)
                 continue;
             app->StreamMessageToConn(other->m_conn, 0x7E, 0x4499, sender->GetFaceTextureData(),
-                                     reinterpret_cast<const char*>(0x0064CA2C), 9, false, true); // "Face Data"
+                                     GAME_TEXT(0x0064CA2C, "Face Data"), 9, false, true); // "Face Data"
         }
     }
     // (freed without its destructor, as the original)

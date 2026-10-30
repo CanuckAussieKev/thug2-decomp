@@ -52,8 +52,7 @@ constexpr uint32_t kTrickObjects = 0xEFC35592;              // TrickObjects
 constexpr uint8_t kMsgGoalWon = 0x6E;      // to the server: a goal (the chain's first) won
 constexpr uint8_t kGroupGoals = 8;         // (its message group)
 
-void** const kGoalListHeadVtable = reinterpret_cast<void**>(0x0064DF78);
-void** const kGoalNodeVtable = reinterpret_cast<void**>(0x0064DDCC);
+GAME_VTABLE(kGoalListHeadVtable, 0x0064DF78, &Game::GoalListHead::Destroy);
 
 const char* const kSpecialGap = GAME_TEXT(0x0064DEB8, "special_gap"); // "special_gap"
 
