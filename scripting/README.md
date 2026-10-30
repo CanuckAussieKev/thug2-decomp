@@ -53,6 +53,10 @@ keys and original file offsets. Generation is deterministic.
 The format-2 `emitter.ts` additionally accepts ordered global definitions and
 aliases, byte strings/LocalStrings, pairs/vectors, structures/arrays, typed
 expressions, local begin/repeat/break and structured compiled switch/case/default.
+It also supports RandomRange/RandomRange2 values and bounded random tables whose
+alternatives each return one value. Jump targets/common joins are validated and
+only the selected value evaluates. A shared two-stream RNG is embedded in the
+runtime; its stored-choice ownership releases on finish, fault or cancellation.
 It preserves original operator priorities and grouped-label evaluation. Value
 operations use `scripting/values.js`, which must be loaded through `Runtime::load`
 before generated format-2 modules. The
@@ -77,7 +81,7 @@ second, real-clock and one-per-frame modes reject explicitly. The task runner
 accepts explicit nondecreasing uint32 frame numbers; duplicate updates to a task
 in the same frame do nothing. Skipped frames do not synthesize updates.
 
-Random operations, dynamic command names, cached native pointers, member dispatch, events,
+Random command blocks/array construction, dynamic command names, cached native pointers, member dispatch, events,
 interrupts, spawning and engine-wide scheduling remain unsupported. Unsupported
 input is rejected rather than translated into guessed JS semantics. Limits are
 4 MiB input/source, 100,000 IR nodes, 64 nested conditional blocks, 4,096 fields,
@@ -124,7 +128,8 @@ targets, deterministic code, typed bits, calls/defaults/returns, isolation,
 spread, both host-condition branches, QB-call conditions, frame waits, duplicate
 frame updates, host errors, source offsets, fuel, recursion, cancellation,
 reentrancy and QuickJS memory/interrupt bounds. The value suite includes at least
-175 assertions. Release and Debug ASan/UBSan are checked locally on macOS ARM64.
+175 assertions; RNG adds at least 250 self-test assertions and generated-value
+scenarios. Release and Debug ASan/UBSan are checked locally on macOS ARM64.
 The CI matrix also builds these public targets on Linux, Intel macOS and Windows
 GCC; results of earlier bridge checks do not establish the expanded suites' outcomes.
 

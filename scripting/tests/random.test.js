@@ -375,4 +375,5 @@
     selector.forget(0);
 
     assert(assertions >= 250, "expected full random assertion coverage");
+    globalThis.qbRandomTestResult = {assertions,apiVersion:r.apiVersion};
 })();

@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { emitIR } from "./emitter.ts";
+import { emitIR, requiresRandom } from "./emitter.ts";
 import { readIR, readQBFile } from "./reader.ts";
 import { checksum } from "./translate.ts";
 
@@ -28,7 +28,7 @@ export function prepareHelper(bytes: Uint8Array) {
     };
     visit(helper.body);
     visit(helper.defaults);
-    if (calls.size !== 1 || !calls.has(checksum("UnSetFlag")) || globals.size)
+    if (calls.size !== 1 || !calls.has(checksum("UnSetFlag")) || globals.size || requiresRandom(ir))
         throw Error("Helper dependencies differ from supported UnSetFlag-only scenario");
     const metadata = {
         module: helperModule,

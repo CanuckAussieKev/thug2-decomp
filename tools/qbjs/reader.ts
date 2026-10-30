@@ -1,6 +1,6 @@
 // NOT ORIGINAL - bounded QB -> format-2 IR reader, phase one of issue #3.
 // References: script/qb.*, load.cpp and parse.cpp. Does not evaluate or emit JS.
-// Random tables, section markers and cached pointers
+// Statement random branches, random arrays, section markers and cached pointers
 // still reject explicitly. Existing format-1 translate.ts is unchanged.
 // This reads raw token streams, not the separate PC precompiled-image format.
 import { closeSync, existsSync, fstatSync, openSync, readSync, statSync, writeFileSync } from "node:fs";
@@ -78,11 +78,13 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         const children =
             v.kind === "binary"
                 ? [v.left, v.right]
-                : v.kind === "array"
-                  ? v.items
-                  : v.kind === "structure"
-                    ? v.fields.flatMap((f) => ("spread" in f ? [] : [f.value]))
-                    : [];
+                : v.kind === "randomChoice"
+                  ? v.choices
+                  : v.kind === "array"
+                    ? v.items
+                    : v.kind === "structure"
+                      ? v.fields.flatMap((f) => ("spread" in f ? [] : [f.value]))
+                      : [];
         const height = children.reduce((h, child) => Math.max(h, 1 + (heights.get(child) ?? 0)), 0);
         if (height > depthLimit) fail("value depth limit");
         heights.set(v, height);
@@ -178,6 +180,36 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         const offset = p,
             op = byte();
         if (inExpression && op === 0x18) fail("unsupported expression operand token 0x18");
+        if (op === 0x30 || op === 0x38) {
+            // ParseExpression's operand switch contains 30, not 38.
+            if (inExpression && op === 0x38) fail("RandomRange2 inside expressions is unsupported by original parser");
+            return { kind: "randomRange", offset, a: word(), b: word(), second: op === 0x38 };
+        }
+        if ([0x2f, 0x37, 0x40, 0x41].includes(op)) {
+            const count = word();
+            if (count < 1 || count > 4096) fail("random value choice count must be 1..4096");
+            if (op === 0x41 && (count < 2 || count > 66)) fail("RandomPermute requires 2..66 choices");
+            const weights = Array.from({ length: count }, () => short());
+            if ((op === 0x2f || op === 0x37) && (weights.some((w) => w >= 0x8000) || weights.every((w) => w === 0)))
+                fail("unsafe weighted random value table");
+            const targets = Array.from({ length: count }, () => {
+                const field = p;
+                return field + 4 + word();
+            });
+            const choices: Expr[] = [],
+                ends: number[] = [];
+            for (let i = 0; i < count; i++) {
+                if (p !== targets[i]) fail("random target does not match contiguous value boundary");
+                choices.push(value(depth + 1, inExpression, rawName));
+                if (b[p] === 0x2e) {
+                    ++p;
+                    const field = p;
+                    ends.push(field + 4 + word());
+                } else if (i < count - 1) fail("random value branch requires join jump");
+            }
+            if (ends.some((end) => end !== p)) fail("random value jump does not target join boundary");
+            return bounded({ kind: "randomChoice", offset, opcode: op, weights, choices });
+        }
         if (op === 0x16) {
             const n = word();
             return inExpression && !rawName
@@ -276,7 +308,15 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 if (!assigned && item.kind === "structure") {
                     if (fields.length + item.fields.length > 4096) fail("field count limit");
                     fields.push(...item.fields);
-                } else fields.push({ name: n, value: item, offset });
+                } else
+                    fields.push({
+                        name: n,
+                        value: item,
+                        offset,
+                        ...(!assigned && ["parameter", "binary", "randomChoice"].includes(item.kind)
+                            ? { flattenStructure: true as const }
+                            : {}),
+                    });
             }
             if (structure) separators();
         }
@@ -289,6 +329,10 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             if (v.kind === "binary") {
                 check(v.left);
                 check(v.right);
+            }
+            if (v.kind === "randomChoice") {
+                if (v.opcode === 0x40 || v.opcode === 0x41) fail("stored random defaults/globals are unsupported");
+                v.choices.forEach(check);
             }
             if (v.kind === "structure") staticDefaults(v.fields);
             if (v.kind === "array") v.items.forEach(check);

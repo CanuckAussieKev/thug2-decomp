@@ -6,13 +6,27 @@ import { pathToFileURL } from "node:url";
 import type { Call, Expr, Field, ModuleIR, Statement } from "./ir.ts";
 import { readIR, readIRFile } from "./reader.ts";
 
+export function requiresRandom(module: ModuleIR): boolean {
+    const visit = (x: unknown): boolean => {
+        if (!x || typeof x !== "object") return false;
+        if (Array.isArray(x)) return x.some(visit);
+        const record = x as Record<string, unknown>;
+        return record.kind === "randomRange" || record.kind === "randomChoice" || Object.values(record).some(visit);
+    };
+    return visit(module.definitions);
+}
+
 export function emitIR(module: ModuleIR): string {
     let serial = 0;
     const site = (script: number, offset: number) => JSON.stringify({ source: module.source, script, offset });
     const ctx = (script: number, offset: number) => `qb.context(${site(script, offset)})`;
     const fields = (xs: Field[], script: number, offset: number, params = "p"): string =>
         `fields(${params}, [${xs
-            .map((f) => ("spread" in f ? "null" : `() => [${f.name}, ${value(f.value, script, params)}]`))
+            .map((f) =>
+                "spread" in f
+                    ? "null"
+                    : `() => [${f.name}, ${value(f.value, script, params)}${f.flattenStructure ? ", true" : ""}]`,
+            )
             .join(", ")}], ${ctx(script, offset)})`;
     const value = (x: Expr, script: number, params = "p"): string => {
         const context = ctx(script, x.offset);
@@ -27,6 +41,10 @@ export function emitIR(module: ModuleIR): string {
                 return `({type:20, target:{type:10, members:${params}}})`;
             case "binary":
                 return `v.binary(${x.op}, ${value(x.left, script, params)}, ${value(x.right, script, params)}, ${context})`;
+            case "randomRange":
+                return `randomRange(${x.a}, ${x.b}, ${x.second}, ${site(script, x.offset)})`;
+            case "randomChoice":
+                return `randomChoice(${x.opcode}, ${site(script, x.offset)}, ${JSON.stringify(x.weights)}, [${x.choices.map((choice) => `() => ${value(choice, script, params)}`).join(", ")}])`;
             case "structure":
                 return `v.structure(${fields(x.fields, script, x.offset, params)}, ${context})`;
             case "array": {
@@ -106,9 +124,12 @@ export function emitIR(module: ModuleIR): string {
         format: 2,
         source: module.source,
         scripts: module.definitions.filter((d) => d.kind === "script").map((d) => ({ name: d.name, offset: d.offset })),
-        requires: { values: 2 },
+        requires: { values: 2, ...(requiresRandom(module) ? { random: 1 } : {}) },
     };
-    let output = `// Generated from QB; do not edit.\n(() => {\nqb.module(${JSON.stringify(manifest)});\nconst v = globalThis.qbValues;\nif (v?.apiVersion !== 2) throw Error("QB values API 2 required");\nfunction fields(p, entries, ctx) {\nconst out = [];\nfor (const entry of entries) {\nif (entry === null) v.append(out, p, ctx);\nelse { const field = entry(); if (field[1] !== undefined) v.append(out, [field], ctx); }\n}\nreturn out;\n}\n`;
+    let output = `// Generated from QB; do not edit.\n(() => {\nqb.module(${JSON.stringify(manifest)});\nconst v = globalThis.qbValues;\nif (v?.apiVersion !== 2) throw Error("QB values API 2 required");\nfunction fields(p, entries, ctx) {\nconst out = [];\nfor (const entry of entries) {\nif (entry === null) v.append(out, p, ctx);\nelse { const field = entry(); if (field[1] !== undefined) { if (field[2] && field[1].type === 10) v.append(out, field[1].members, ctx); else v.append(out, [[field[0], field[1]]], ctx); } }\n}\nreturn out;\n}\n`;
+    if (requiresRandom(module))
+        output +=
+            "function randomRange(a,b,second,site) { const ctx=qb.context(site); return qb.random().range(a,b,second,ctx.charge); }\nfunction randomChoice(op,site,weights,choices) { const ctx=qb.context(site); const selected=qb.random().choose(op,site,weights,ctx.owner,ctx.charge); return choices[selected](); }\n";
     for (const def of module.definitions) {
         if (def.kind === "global")
             output += `qb.defineGlobal(${def.name}, ${value(def.value, 0, "[]")}, ${site(0, def.offset)});\n`;

@@ -72,5 +72,15 @@ int main(int argc, char** argv) { try {
     try { (void)vm.update(task, 7); } catch (const std::exception&) { rejected = true; }
     check(rejected, "Rich native snapshots remain explicitly unsupported");
     vm.cancel(task);
+    for (const auto name : {"randomRange", "randomRange2"}) {
+        task = vm.start(checksum(name)); result = vm.update(task, 8);
+        check(result.status == "finished" && get(result.parameters, "result") == Value{1, 10},
+            "Shared native RNG: known first draw of each independent stream");
+        vm.cancel(task);
+    }
+    task = vm.start(checksum("randomLazy")); result = vm.update(task, 8);
+    check(result.status == "finished" && get(result.parameters, "result").bits == 9,
+        "Native random value does not evaluate untaken operand");
+    vm.cancel(task);
     std::cout << "Format-2 QB -> JS -> product scheduler -> C++: values, loops, switch, calls, waits and faults passed\n";
 } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; } }

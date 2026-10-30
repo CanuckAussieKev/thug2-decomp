@@ -3,6 +3,12 @@
 globalThis.qb = (() => {
     const scripts = new Map(), symbols = new Map(), tasks = new Map();
     let nextId = 1, active = null, lastFrame = -1, loadingFormat = 1, loadFuel = 1000000;
+    let rng = null;
+    const random = () => {
+        if (globalThis.qbRandom?.apiVersion !== 1) throw Error('QB random API 1 required');
+        if (!rng) rng = globalThis.qbRandom.create(0);
+        return rng;
+    };
     const scalar = v => {
         if (!v || ![1, 2, 13].includes(v.type) || !Number.isInteger(v.bits) || v.bits < 0 || v.bits > 0xffffffff)
             throw Error('Invalid QB scalar');
@@ -98,7 +104,7 @@ globalThis.qb = (() => {
     function snapshot(t) { return {status:t.status, parameters:copyParameters(t, t.parameters), message:t.message}; }
     return Object.freeze({
         runtimeVersion: 2,
-        merge, assign, fields, step, call, context,
+        merge, assign, fields, step, call, context, random,
         get(p, name) { for (let i = p.length - 1; i >= 0; --i) if (p[i][0] === name) return p[i][1]; },
         truth(v) {
             if (v === undefined) throw Error('Absent QB expression parameter');
@@ -114,8 +120,10 @@ globalThis.qb = (() => {
             if (m?.format !== 1 && m?.format !== 2) throw Error('Unsupported QB module format');
             if (m.format === 2) {
                 values();
-                if (m.requires?.values !== 2 || Object.keys(m.requires).some(k => k !== 'values'))
+                if (m.requires?.values !== 2 || Object.keys(m.requires).some(k => k !== 'values' && k !== 'random') ||
+                    (m.requires.random !== undefined && m.requires.random !== 1))
                     throw Error('Unsupported QB module requirements');
+                if (m.requires.random === 1) random();
             }
             loadingFormat = m.format; loadFuel = 1000000;
         },
@@ -163,8 +171,9 @@ globalThis.qb = (() => {
                 t.status = 'fault';
                 t.message = String(e) + (t.site ? ` at ${t.site.source} script 0x${t.site.script.toString(16)} QB offset 0x${t.site.offset.toString(16)}` : '');
             } finally { active = null; }
+            if (rng && (t.status === 'finished' || t.status === 'fault')) rng.forget(t.id);
             return snapshot(t);
         },
-        cancel(id) { return tasks.delete(id); },
+        cancel(id) { const removed=tasks.delete(id); if (removed && rng) rng.forget(id); return removed; },
     });
 })();

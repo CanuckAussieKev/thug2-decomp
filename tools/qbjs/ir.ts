@@ -7,9 +7,13 @@ export type Expr =
     | { kind: "global"; offset: number; name: number }
     | { kind: "allParameters"; offset: number }
     | { kind: "binary"; offset: number; op: number; left: Expr; right: Expr }
+    | { kind: "randomRange"; offset: number; a: number; b: number; second: boolean }
+    | { kind: "randomChoice"; offset: number; opcode: number; weights: number[]; choices: Expr[] }
     | { kind: "structure"; offset: number; fields: Field[] }
     | { kind: "array"; offset: number; items: Expr[] };
-export type Field = { name: number; value: Expr; offset: number } | { spread: true; offset: number };
+export type Field =
+    | { name: number; value: Expr; offset: number; flattenStructure?: true }
+    | { spread: true; offset: number };
 export type Call = { kind: "call"; offset: number; name: number; fields: Field[] };
 export type SwitchLabel = { offset: number; fields: Field[] };
 export type Statement =

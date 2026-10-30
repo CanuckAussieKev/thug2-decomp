@@ -3,14 +3,17 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { emittedFixture } from "./emitter-fixtures.ts";
 import { fixture } from "./fixtures.ts";
+import { randomFixture, randomSource } from "./random-fixtures.ts";
 import { checksum, translate } from "./translate.ts";
 
-export const nativeRuntimeBundle = () =>
+export const nativeRuntimeBundle = (withRandom = false) =>
+    (withRandom ? randomSource() : "") +
     "if (globalThis.qb?.runtimeVersion !== 2) {\n" +
     readFileSync(new URL("../../scripting/runtime.js", import.meta.url), "utf8") +
     "\n}\n" +
     readFileSync(new URL("../../scripting/values.js", import.meta.url), "utf8") +
-    emittedFixture();
+    emittedFixture() +
+    (withRandom ? randomFixture().javascript : "");
 
 export function runtimeAssertions(): string {
     const key = checksum;
@@ -54,7 +57,7 @@ r=run(${key("fuel2")},[],10); assert(r.status==='fault' && r.message.includes('f
 r=run(${key("math2")},[],0); assert(r.status==='fault','zero fuel');
 // Module validation and replacement policies are tested while no tasks remain.
 let failed=false;
-try { qb.module({format:2,requires:{values:2,random:1}}); } catch { failed=true; }
+try { qb.module({format:2,requires:{values:2,future:1}}); } catch { failed=true; }
 assert(failed,'unknown required feature');
 qb.module({format:2,requires:{values:2}});
 qb.defineGlobal(${key("scriptAlias2")},{type:13,bits:${key("callee2")}}, {source:'alias.qb',script:0,offset:0});
@@ -86,7 +89,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const runtime = readFileSync(new URL("../../scripting/runtime.js", import.meta.url), "utf8");
     writeFileSync(
         output,
-        nativeRuntimeBundle() +
+        nativeRuntimeBundle(mode === "native") +
             (mode === "regression" ? runtimeAssertions() + runtime + translate(fixture(), "synthetic.qb") : ""),
     );
 }

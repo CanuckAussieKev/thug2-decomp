@@ -379,15 +379,17 @@ checks cover explicit levels, missing/wrong argument types and bounds. The real
 local-data runs pass in QuickJS with ASan/UBSan on macOS ARM64; synthetic CLI
 tests alone do not count as that original-data execution.
 
-## Proposed random module
+## Random module and integrated subset
 
-Issue #4 owns `globalThis.qbRandom`, `apiVersion:1`, with
+Issue #4 implements `globalThis.qbRandom`, `apiVersion:1`, with
 `create(seedBits=0)` returning one engine-wide RNG instance, shared across tasks.
 The coordinator-owned `qb.random()` accessor returns that instance; it is
-created once per Runtime, not once per start/update. Generated random calls
+created once per Runtime, not once per start/update. CMake embeds `random.js`
+before the JS runtime; loading no longer needs an external helper file.
+Generated random calls
 use `ctx.owner` and `ctx.charge`. Stored choices during module loading (owner 0)
 remain unsupported until their source behavior is tested separately.
-The following methods reserve the interface; stream is the integer 0 or 1:
+The following methods implement the interface; stream is the integer 0 or 1:
 
 | Method | Result |
 | --- | --- |
@@ -405,7 +407,9 @@ Owner is a nonzero uint32 task identity, never a PC pointer; 0 is reserved for
 orphaned reusable records. The key uses script checksum, original byte offset,
 opcode and choice count, plus owner/reusable state. Source is diagnostic.
 The coordinator invokes forget at task destruction/cancellation, as original
-script destruction does. Stream draws and work charge happen in source order.
+script destruction does. The standalone runner also releases ownership when a
+task finishes or faults, even if its snapshot remains retained. Stream draws
+and work charge happen in source order.
 No hidden Math.random or per-task stream reseeding is allowed.
 
 Weights retain uint16 bits; unsafe negative weights/zero totals fail explicitly.
@@ -415,6 +419,29 @@ reuse, rounding and stream-consumption quirks require original-function vectors.
 Array construction calls this same instance during both sizing and population.
 The module does not itself schedule generators or choose a JS array literal's
 inference/population paths. NaN/Inf and unsupported unsafe cases fail explicitly.
+
+The reader/emitter currently supports raw Range tokens 0x30/0x38 in value
+positions (0x30 only inside expressions, matching the original operand switch).
+It preserves float32 endpoint bits. Weighted/NoRepeat/Permute value tables
+0x2f/0x37/0x40/0x41 use `randomChoice` IR with weights and lazy alternatives.
+The initial subset requires contiguous, ordered alternatives containing one
+value each, and validates their relative targets and common join jumps before
+emission. Tables are capped at 4096 values (Permute at 2..66). Random command
+blocks and random array construction still reject; they are not flattened into
+this single-value model. Stored random choices in defaults/globals also reject.
+
+Generated manifests require `{values:2,random:1}` only when random IR is
+present. The runtime rejects a missing/wrong helper before registration. The
+public QuickJS suite executes the standalone random assertions and generated
+value scenarios; checks cover shared streams, load-time global draws, lazy
+branches, task-fuel failure before draw and history reuse after finish/cancel.
+Native format-2 tests additionally verify known first draws through C++.
+
+Unnamed dynamic fields that may evaluate to an owning Structure retain
+`flattenStructure:true` in IR: ParseArguments merges those members into the
+destination. Named fields (including an explicitly named checksum 0) stay
+nested, and reference tags 20/21 are not flattened. This also applies to plain
+parameter reads and owning Structure expression results.
 
 ## C++ boundary and limits
 

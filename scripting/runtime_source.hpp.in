@@ -1,2 +1,3 @@
 #pragma once
-inline constexpr char qb_runtime_source[] = R"QBRUNTIME(@QB_RUNTIME_SOURCE@)QBRUNTIME";
+inline constexpr char qb_runtime_source[] = R"QBRUNTIME(@QB_RANDOM_SOURCE@
+@QB_RUNTIME_SOURCE@)QBRUNTIME";

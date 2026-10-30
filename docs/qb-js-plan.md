@@ -140,7 +140,9 @@ The current proposed scope is the optional `scripting/` target, offline
 x86 DLL continues using its original QB runtime. Public CI needs no game files;
 `QB_GAME_DATA_DIR` enables a separate read-only original-data check. The native
 bridge transports only scalar values; containers currently remain inside JS.
-RNG is a separate in-progress task and does not block this helper. Native object
+The RNG helper has passed original-x86 differential checks, and bounded random
+values are integrated; random command blocks/two-pass arrays are later work.
+RNG is not used by this helper. Native object
 handles/member dispatch, full scheduling, events/interrupts and rendering are
 not part of this first proposal. User approval is still required before sending
 the prepared proposal to the upstream maintainer.
