@@ -159,6 +159,7 @@ add_custom_target(editor_fonts DEPENDS ${THUG2_EDITOR_FONT_INCLUDES})
 add_library(thug2_code OBJECT
     src/hook/hook.cpp
     src/hook/log.cpp
+    src/hook/game_global.cpp
     src/hook/crash.cpp
     src/hook/shadow.cpp
     src/hook/selftest.cpp

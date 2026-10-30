@@ -1,6 +1,7 @@
 #include "game/mth/random.h"
 
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mth {
@@ -14,8 +15,11 @@ struct RandomState {
     uint32_t value;
 };
 
-RandomState& Stream1() { return GameVariable<RandomState>(0x00690FD4); }
-RandomState& Stream2() { return GameVariable<RandomState>(0x00690FC8); }
+GAME_GLOBAL(RandomState, g_stream1, 0x00690FD4);
+GAME_GLOBAL(RandomState, g_stream2, 0x00690FC8);
+
+RandomState& Stream1() { return g_stream1; }
+RandomState& Stream2() { return g_stream2; }
 
 constexpr uint32_t kInitialMul = 0x12B9B0A1;
 constexpr uint32_t kInitialAdd = 0x0AA2FB3F;

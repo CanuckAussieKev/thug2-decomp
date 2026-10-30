@@ -88,7 +88,7 @@ void* GameMode() { return GameVariable<void*>(0x007CE470); }
 Game::CGameMode* GameModeObject() { return static_cast<Game::CGameMode*>(GameMode()); }
 int GameModeTimeLimit() { return GameModeObject()->GetTimeLimit(); }
 GameNet::Manager* GameNetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
-Mem::Manager* MemManager() { return GameVariable<Mem::Manager*>(0x007D1800); }
+Mem::Manager* MemManager() { return Mem::Manager::Get(); }
 
 // Two argument-less calls of Cleanup's to the empty function 0x005480A0 (compiled-out debug code; what it did is
 // unknown).

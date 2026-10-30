@@ -79,7 +79,7 @@ constexpr uint32_t kClassA0E52802 = 0xA0E52802;      // (name unknown) killed th
 
 uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
 Obj::CRailManager* RailManager() { return *reinterpret_cast<Obj::CRailManager**>(Skate() + 0x24); }
-Mem::Manager* MemManager() { return GameVariable<Mem::Manager*>(0x007D1800); }
+Mem::Manager* MemManager() { return Mem::Manager::Get(); }
 
 // Whether the skate module leaves a node out (0x00565BB0: its flag 0x68910AC6, in a game with more than one player).
 bool SkipsNode(Script::CStruct* node)

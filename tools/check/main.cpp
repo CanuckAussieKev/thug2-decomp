@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "hook/crash.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
@@ -302,11 +303,16 @@ int Child(const char* exe_path)
     }
     std::printf("argument sizes: %d replacements, %d match the original, %d not checked, %d MISMATCHED\n",
                 checked + unchecked + mismatched, checked, unchecked, mismatched);
+    // (the image's data is still as in the file: nothing of the exe has run)
+    int globalsChecked = 0, globals = 0;
+    int globalsDiffer = CheckGlobalStartValues(&globalsChecked, &globals);
+    std::printf("global start values: %d globals, %d checked against the original, %d DIFFER\n", globals,
+                globalsChecked, globalsDiffer);
 
     RunSelfTests(TestStage::Early);
     int failures = SelfTestFailures();
     std::fflush(stdout);
-    return mismatched || failures ? 1 : 0;
+    return mismatched || failures || globalsDiffer ? 1 : 0;
 }
 
 // One deliberate fault (hook/crash.h) in a process of its own, with the game's image loaded and the handlers set as

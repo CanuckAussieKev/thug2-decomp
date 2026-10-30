@@ -7,6 +7,7 @@
 #include "game/core/mem.h"
 #include "game/core/memory_sizes.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mem {
@@ -34,9 +35,12 @@ Allocator* CurrentHeap(Manager* manager) { return *manager->m_current; }
 
 } // namespace
 
+// The one memory manager (made by the exe's static initialisers: standalone start-up order, step 6).
+GAME_GLOBAL(Manager*, g_memoryManager, 0x007D1800);
+
 Manager* Manager::Get()
 {
-    return GameVariable<Manager*>(0x007D1800);
+    return g_memoryManager;
 }
 
 // 0x005BAFC0
@@ -469,7 +473,7 @@ AllocRegion* NewAllocRegion(uint32_t size)
 
 Manager*& Manager::Instance()
 {
-    return GameVariable<Manager*>(0x007D1800);
+    return g_memoryManager;
 }
 
 // 0x005BBC00

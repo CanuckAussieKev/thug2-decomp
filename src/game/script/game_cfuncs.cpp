@@ -499,12 +499,12 @@ bool __cdecl CFunc_ReloadAnim(Script::CStruct* params, Script::CScript*)
     assets->UnloadAsset(asset);
     bool debugHeap = GameVariable<bool>(0x007CEFAC);
     if (debugHeap) {
-        Mem::Manager* memory = GameVariable<Mem::Manager*>(0x007D1800);
+        Mem::Manager* memory = Mem::Manager::Get();
         memory->PushContext(reinterpret_cast<Mem::Allocator*>(memory->m_debugHeap));
     }
     assets->LoadAnim(file, base, anim, false, false);
     if (GameVariable<bool>(0x007CEFAC))
-        GameVariable<Mem::Manager*>(0x007D1800)->PopContext();
+        Mem::Manager::Get()->PopContext();
     return true;
 }
 
@@ -683,7 +683,7 @@ bool __cdecl CFunc_SetActiveCamera(Script::CStruct* params, Script::CScript*)
 bool __cdecl CFunc_ShowTracking(Script::CStruct* params, Script::CScript*)
 {
     CompiledOutDebugCall();
-    Mem::Manager* memory = GameVariable<Mem::Manager*>(0x007D1800);
+    Mem::Manager* memory = Mem::Manager::Get();
     memory->PushContext(reinterpret_cast<Mem::Allocator*>(memory->m_debugHeap));
     bool show1 = params->ContainsFlag(0xB426BF5Au);
     bool show2 = params->ContainsFlag(0x14240297u);
@@ -704,7 +704,7 @@ bool __cdecl CFunc_ShowTracking(Script::CStruct* params, Script::CScript*)
     }
     auto* data = static_cast<uint8_t*>(Pip::LoadFileInto(file, &size, nullptr));
     Dbg::Printf(reinterpret_cast<const char*>(0x0064FF60), file, size, data); // "Loaded %s, size = %d, at %p\n"
-    GameVariable<Mem::Manager*>(0x007D1800)->PopContext();
+    Mem::Manager::Get()->PopContext();
     int count1 = 0;
     int count2 = 0;
     int count3 = 0;

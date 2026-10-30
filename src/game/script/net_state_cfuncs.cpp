@@ -56,7 +56,7 @@ Obj::CCompositeObject* GetLocalSkater()
 }
 GameNet::Manager* GameNetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
 Net::Manager* NetManager() { return GameVariable<Net::Manager*>(0x006EFDD8); }
-Mem::Manager* MemManager() { return GameVariable<Mem::Manager*>(0x007D1800); }
+Mem::Manager* MemManager() { return Mem::Manager::Get(); }
 // The game mode's player count (0x00553190: its integer 0x6DC3D6F1).
 uint32_t GameModePlayers()
 {

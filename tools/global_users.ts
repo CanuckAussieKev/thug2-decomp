@@ -7,7 +7,8 @@
 // A global's extent runs from its address to the next address anything refers to (an absolute operand anywhere in
 // .text, a data pointer, another GameVariable) - the exe's layout gives no sizes, so this is an upper bound.
 //   node tools/global_users.ts [--exe <reference build>] [--out <csv>]
-// The csv (default out/globals.csv): address, section, extent, uses in src/game, files, verdict, blockers.
+// The csv (default out/globals.csv): address, section, extent, uses in src/game, owner (the file that defines it when it
+// becomes a GAME_GLOBAL: the one using it most, the first in path order on a tie), files, verdict, blockers.
 
 import * as fs from "node:fs";
 import { Image, inGame } from "./code_coverage.ts";
@@ -40,6 +41,11 @@ interface Fn {
     end: number;
 }
 
+// The file that uses a global most (ties: the first in path order).
+export function owner(files: ReadonlyMap<string, number>): string {
+    return [...files].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? "";
+}
+
 const hex = (n: number): string => `0x${n.toString(16).toUpperCase().padStart(8, "0")}`;
 
 function main(): number {
@@ -55,16 +61,17 @@ function main(): number {
     const byAddr = new Map(funcs.map((f) => [f.addr, f]));
 
     // The globals our source names, with their uses and files.
-    const uses = new Map<number, { n: number; files: Set<string> }>();
+    const uses = new Map<number, { n: number; files: Map<string, number> }>();
     const sourceOnly = new Set<number>();
     for (const file of [".cpp", ".h"].flatMap((s) => globRecursive("src/game", s))) {
         const text = fs.readFileSync(file, "utf-8");
         for (const m of text.matchAll(/GameVariable<[^;]*?>\(\s*0x([0-9A-Fa-f]{6,8})/g)) {
             const a = parseInt(m[1]!, 16);
-            if (!uses.has(a)) uses.set(a, { n: 0, files: new Set() });
+            if (!uses.has(a)) uses.set(a, { n: 0, files: new Map() });
             const u = uses.get(a)!;
             u.n++;
-            u.files.add(file.replaceAll("\\", "/").replace(/^src\/game\//, ""));
+            const f = file.replaceAll("\\", "/").replace(/^src\/game\//, "");
+            u.files.set(f, (u.files.get(f) ?? 0) + 1);
         }
         for (const m of text.matchAll(/REPLACE_SOURCE_ONLY\(0x([0-9A-Fa-f]{8})/g)) sourceOnly.add(parseInt(m[1]!, 16));
     }
@@ -149,7 +156,7 @@ function main(): number {
         return best !== undefined && word < nextAfter(best) ? best : undefined;
     };
 
-    const rows: string[] = ["address,section,extent,uses,files,verdict,blockers"];
+    const rows: string[] = ["address,section,extent,uses,owner,files,verdict,blockers"];
     const counts = new Map<string, number>();
     const blockerKinds = new Map<string, number>();
     for (const a of globalsSorted) {
@@ -190,7 +197,8 @@ function main(): number {
                 section(a),
                 end - a,
                 u.n,
-                [...u.files].join(" "),
+                owner(u.files),
+                [...u.files.keys()].join(" "),
                 verdict,
                 `"${blockers.slice(0, 6).join("; ")}${blockers.length > 6 ? `; +${blockers.length - 6}` : ""}"`,
             ].join(","),
