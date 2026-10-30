@@ -258,8 +258,8 @@ void CEventLog::Print(bool onlyNew, int /*count*/)
         count = kLogSize;
     }
     Dbg::Printf(line);
-    Dbg::Printf(reinterpret_cast<const char*>(onlyNew ? 0x00647868   // "PRINTING EVENT LOG (ONLY NEW ENTRIES)\n\n"
-                                                      : 0x00647850)); // "PRINTING EVENT LOG\n\n"
+    Dbg::Printf(onlyNew ? GAME_TEXT(0x00647868, "PRINTING EVENT LOG (ONLY NEW ENTRIES)\n\n")
+                        : GAME_TEXT(0x00647850, "PRINTING EVENT LOG\n\n"));
     // Each entry from the oldest (their printing is compiled out of this build).
     for (; count > 0; --count) {
         if (++index == kLogSize)

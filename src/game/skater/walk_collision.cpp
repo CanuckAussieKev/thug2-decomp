@@ -28,6 +28,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
+#include "game/obj/trigger_events.h"
 
 namespace Obj {
 
@@ -443,7 +444,7 @@ void CWalkComponent::TryWallplant()
     }
     PlanJumpOverObstruction();
     // The trigger told (events 0x0064C63C); a trigger's script may take over.
-    At<CTriggerComponent*>(this, kTrigger)->CheckFeeler(reinterpret_cast<const int*>(0x0064C63C), &feeler);
+    At<CTriggerComponent*>(this, kTrigger)->CheckFeeler(g_walkEvents0064C63C, &feeler);
     if (At<bool>(At<uint8_t*>(this, kPhysicsControl), 0x26))
         return;
     // The wall's checksum (the feeler hit's +0x34) to the trick objects; the wallplant's time; its animation.

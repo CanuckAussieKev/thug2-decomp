@@ -23,6 +23,7 @@
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/obj/trigger_events.h"
 
 namespace Skater {
 
@@ -45,11 +46,6 @@ constexpr uint32_t kGroundName = 0x58007C97;        // Ground
 constexpr uint32_t kLipName = 0xA549B57B;           // Lip
 
 // The trigger events (const int[3] each) the rail's TriggerScript is run with.
-constexpr uint32_t kOffLipEvents = 0x0064BBD4;   // {7, 4, 0}: off a lip
-constexpr uint32_t kJumpEvents = 0x0064BC10;     // {12, 2, 0}: jumping off a rail
-constexpr uint32_t kGrindOffEvents = 0x0064BC1C; // {13, 4, 0}: TriggerGrindOff
-constexpr uint32_t kJumpTriggerEvents = 0x0064BB8C; // {2, 4, 0}: jumping from the ground (the other feeler)
-constexpr uint32_t kWallplantEvents = 0x0064BBF8;   // {6, 4, 0}: leaving a wallplant
 
 // The jump speeds: (the max, the min) for boneless or not, from vert (or a wallride from the ground) or not.
 constexpr uint32_t kJumpSpeed[2][2][2] = {
@@ -129,7 +125,7 @@ void CorePhysicsComponent::DoJump(Script::CStruct* params)
     bool sound = !params->ContainsFlag(kNoSound);
     switch (StateOf(this)) {
     case kGround:
-        TriggerFeeler(this, kJumpTriggerEvents, kOtherFeeler);
+        TriggerFeeler(this, g_jumpTriggerEvents, kOtherFeeler);
         if (TriggerTookOver(this))
             return;
         std::memcpy(&At<Mth::Vector>(this, 0x338), &VectorAt(ObjectOf(this), kPosition), 16); // (where it jumped)
@@ -201,7 +197,7 @@ void CorePhysicsComponent::DoJump(Script::CStruct* params)
     if (state == kRail || (state == kAir && At<int>(this, 0x94) == kRail))
         TurnForRailJump();
     if (At<uint8_t>(this, 0x2EC))
-        TriggerRailScript(reinterpret_cast<const int*>(kJumpEvents));
+        TriggerRailScript(g_jumpEvents);
     if (bike)
         ThawBmx::JumpPitch(this);
     SetPhysicsState(kAir);
@@ -261,7 +257,7 @@ void CorePhysicsComponent::DoWallplantPhysics()
         start += VectorAt(ObjectOf(this), kPosition);
         end += VectorAt(ObjectOf(this), kPosition);
         if (Feel(this, 0x10, 0))
-            TriggerFeeler(this, kWallplantEvents, kFeeler);
+            TriggerFeeler(this, g_wallplantEvents, kFeeler);
         return;
     }
     // Still on the wall: no rail; carried along by what the skater rides on (its turn too, when it turned).
@@ -311,7 +307,7 @@ int CorePhysicsComponent::SetState(Script::CStruct* params, Script::CScript*)
     uint32_t state = 0;
     params->GetChecksum(0u, &state, 0);
     if (StateOf(this) == kLip && state != kLipName)
-        TriggerRailScript(reinterpret_cast<const int*>(kOffLipEvents));
+        TriggerRailScript(g_offLipEvents);
     if (StateOf(this) != kLip && state == kLipName)
         At<void*>(this, kRailNode) = nullptr;
     if (StateOf(this) == kWallRide) {
@@ -338,7 +334,7 @@ int CorePhysicsComponent::SetState(Script::CStruct* params, Script::CScript*)
 // 0x00509B70
 int CorePhysicsComponent::TriggerGrindOff(Script::CStruct*, Script::CScript*)
 {
-    TriggerRailScript(reinterpret_cast<const int*>(kGrindOffEvents));
+    TriggerRailScript(g_grindOffEvents);
     return 1;
 }
 

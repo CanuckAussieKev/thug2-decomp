@@ -25,6 +25,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
+#include "game/obj/trigger_events.h"
 
 namespace Skater {
 
@@ -86,10 +87,10 @@ const char* const kLateWallplantText = GAME_TEXT(0x0064BD58, "late wallplant\n")
 
 Obj::CCompositeObject* SkaterObject(void* component) { return static_cast<Obj::CCompositeObject*>(ObjectOf(component)); }
 
-void CheckTriggers(void* component, uint32_t kind, uint32_t feeler)
+void CheckTriggers(void* component, const int* kind, uint32_t feeler)
 {
     static_cast<Obj::CTriggerComponent*>(At<void*>(component, kTriggerComponent))
-        ->CheckFeeler(reinterpret_cast<const int*>(kind), &At<Nx::CFeeler>(component, feeler));
+        ->CheckFeeler(kind, &At<Nx::CFeeler>(component, feeler));
 }
 
 bool TriggerTookOver(void* component) { return At<uint8_t>(At<void*>(component, kStateComponent), 0x26) != 0; }
@@ -262,7 +263,7 @@ bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
     if (!ThawBmx::Active(this))
         static_cast<Obj::CTaggingControlComponent*>(At<void*>(this, 0x1538))->SlapSticker(false, walking, late);
     VectorAt(ObjectOf(this), kVelocity).y = 0.0f;
-    CheckTriggers(this, 0x0064BBEC, kFeeler);
+    CheckTriggers(this, g_skaterEvents0064BBEC, kFeeler);
     if (TriggerTookOver(this))
         return true;
 
@@ -379,7 +380,7 @@ bool CorePhysicsComponent::StartWallRide()
     if (!At<uint8_t>(skater, 0x13B0))
         static_cast<Obj::CTrickComponent*>(skater)->SetTrickObjects(false);
     SetLastGroundFeeler(&At<uint8_t>(this, kFeeler));
-    CheckTriggers(this, 0x0064BB98, kLastGroundFeeler);
+    CheckTriggers(this, g_skaterEvents0064BB98, kLastGroundFeeler);
     if (TriggerTookOver(this))
         return false;
     // Nothing in the way along the move (turned along the wall, three times as far).

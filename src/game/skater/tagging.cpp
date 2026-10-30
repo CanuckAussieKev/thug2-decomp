@@ -34,6 +34,7 @@
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/obj/trigger_events.h"
 
 namespace Obj {
 
@@ -185,7 +186,7 @@ void CTaggingComponent::InitFromStructure(Script::CStruct* params)
     int skater = static_cast<int>(reinterpret_cast<uint32_t>(params));
     params->GetInteger(0xA2B033FDu, &skater, 0);
     char key[32];
-    std::snprintf(key, sizeof(key), reinterpret_cast<const char*>(0x0064C380), skater); // "_%d"
+    std::snprintf(key, sizeof(key), GAME_TEXT(0x0064C380, "_%d"), skater); // "_%d"
     void* texture = LoadOnTextureHeap(GAME_TEXT(0x0064C374, "tags\\cas_01"), true); // "tags\cas_01"
     m_graffiti = CopyTexture(Crc::ExtendCRCWithString(0xF4FD2D63, key), texture);
     ReleaseTexture(texture);
@@ -255,7 +256,7 @@ void CTaggingComponent::PlaceTag(bool sticker, Mth::Vector start, Mth::Vector en
         spin = static_cast<float>((Mth::Rnd(90) - 45) * static_cast<double>(kDegreesToRadians));
     float width = static_cast<float>(size);
     Nx::Engine::CreateTextureSplatAt(&start, &end, width, width, spin, turn, 5000.0f,
-                                     reinterpret_cast<const char*>(0x006469B4), 0x54628ED7, 0, 0,
+                                     GAME_TEXT(0x006469B4, ""), 0x54628ED7, 0, 0,
                                      static_cast<uint8_t*>(sticker ? m_sticker : m_graffiti));
     if (!send)
         return;
@@ -493,7 +494,7 @@ bool CTaggingControlComponent::Update()
             hits[i] = feeler.m_point;
             distances[i] = std::fabs(feeler.m_distance);
             found = true;
-            static_cast<CTriggerComponent*>(m_trigger)->CheckFeeler(reinterpret_cast<const int*>(0x0064C388), &feeler);
+            static_cast<CTriggerComponent*>(m_trigger)->CheckFeeler(g_taggingEvents, &feeler);
         } else {
             distances[i] = 1000.0f;
         }

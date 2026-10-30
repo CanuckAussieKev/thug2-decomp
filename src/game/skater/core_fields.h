@@ -114,10 +114,10 @@ inline int PhysicsInteger(uint32_t name, void* object)
 }
 
 // 0x00434BF0: the trigger component told the feeler `feeler` hit something, for the three `events` (const int[3]).
-inline void TriggerFeeler(void* component, uint32_t events, uint32_t feelerOffset)
+inline void TriggerFeeler(void* component, const int* events, uint32_t feelerOffset)
 {
     static_cast<Obj::CTriggerComponent*>(At<void*>(component, kTriggerComponent))
-        ->CheckFeeler(reinterpret_cast<const int*>(events), &At<Nx::CFeeler>(component, feelerOffset));
+        ->CheckFeeler(events, &At<Nx::CFeeler>(component, feelerOffset));
 }
 // Whether a trigger's script took over (+0x1530's +0x26).
 inline bool TriggerTookOver(void* component) { return At<uint8_t>(At<uint8_t*>(component, kTriggerState), 0x26) != 0; }

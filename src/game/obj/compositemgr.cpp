@@ -24,6 +24,58 @@
 
 namespace Obj {
 
+GAME_GLOBAL(uint32_t[186], g_compositeObjectMemberFunctions, 0x00683268,
+    0xE90AAD2D, 0x0ADA4E74, 0, 0, 0, 0,
+    0xC2404947, 0x0ADA4E74, 0, 0, 0, 0,
+    0x406998A5, 0x0ADA4E74, 0, 0, 0, 0,
+    0x2BFFEAA3, 0x0ADA4E74, 0, 0, 0, 0,
+    0xF7251A64, 0x0ADA4E74, 0, 0, 0, 0,
+    0xC6F3BAA5, 0x0ADA4E74, 0, 0, 0, 0,
+    0x77403AFC, 0x0ADA4E74, 0, 0, 0, 0,
+    0xC1BFF0F3, 0x0ADA4E74, 0, 0, 0, 0,
+    0x11FE9F71, 0x0ADA4E74, 0, 0, 0, 0,
+    0xC0CAAC4A, 0x0ADA4E74, 0, 0, 0, 0,
+    0x5B6634D4, 0x0ADA4E74, 0, 0, 0, 0,
+    0xB60D1F35, 0x0ADA4E74, 0, 0, 0, 0,
+    0xB16619AE, 0x0ADA4E74, 0, 0, 0, 0,
+    0x10C1C887, 0x0ADA4E74, 0, 0, 0, 0,
+    0xCE0CA665, 0x0ADA4E74, 0, 0, 0, 0,
+    0xCA3C59A6, 0x0ADA4E74, 0, 0, 0, 0,
+    0x28656D12, 0x0ADA4E74, 0, 0, 0, 0,
+    0xFF85D4D7, 0x0ADA4E74, 0, 0, 0, 0,
+    0x0168B09C, 0x0ADA4E74, 0, 0, 0, 0,
+    0xB9ED09D2, 0x0ADA4E74, 0, 0, 0, 0,
+    0xD96C0A20, 0x0ADA4E74, 0, 0, 0, 0,
+    0x4AF57BBB, 0x0ADA4E74, 0, 0, 0, 0,
+    0x2A26FFA2, 0x0ADA4E74, 0, 0, 0, 0,
+    0xF8CFD515, 0x0ADA4E74, 0, 0, 0, 0,
+    0x7DCC5FB9, 0x0ADA4E74, 0, 0, 0, 0,
+    0xE5DF66D7, 0x0ADA4E74, 0, 0, 0, 0,
+    0xDD468509, 0x0ADA4E74, 0, 0, 0, 0,
+    0x37185D8A, 0x0ADA4E74, 0, 0, 0, 0,
+    0x70ED3048, 0x0ADA4E74, 0, 0, 0, 0,
+    0x33CAC5FF, 0x0ADA4E74, 0, 0, 0, 0,
+    0, 0x0ADA4E74, 0, 0, 0, 0);
+
+GAME_GLOBAL(uint32_t[102], g_objectMemberFunctions, 0x00683550,
+    0x3611C136, 0x57525413, 0, 0, 0, 0,
+    0x62C11CB9, 0x57525413, 0, 0, 0, 0,
+    0xEEEB7220, 0x57525413, 0, 0, 0, 0,
+    0xA58079EB, 0x57525413, 0, 0, 0, 0,
+    0x0C7CD27A, 0x57525413, 0, 0, 0, 0,
+    0xB3C262EC, 0x57525413, 0, 0, 0, 0,
+    0x500EB224, 0x57525413, 0, 0, 0, 0,
+    0x4BABC987, 0x57525413, 0, 0, 0, 0,
+    0x53EBEE03, 0x57525413, 0, 0, 0, 0,
+    0x6C2B67F9, 0x57525413, 0, 0, 0, 0,
+    0xBE563426, 0x57525413, 0, 0, 0, 0,
+    0xFBD89CD5, 0x57525413, 0, 0, 0, 0,
+    0x23A4E5C2, 0x57525413, 0, 0, 0, 0,
+    0x714937C7, 0x57525413, 0, 0, 0, 0,
+    0x20D125D7, 0x57525413, 0, 0, 0, 0,
+    0x3578E5A9, 0x57525413, 0, 0, 0, 0,
+    0, 0x57525413, 0, 0, 0, 0);
+
 GAME_GLOBAL(int, g_compositeMgrBlockHeaderSize, 0x00658454, 16);
 GAME_GLOBAL(int, g_coimInteger0, 0x0067D804, 4);
 GAME_GLOBAL(int, g_coimInteger1, 0x0067D808, 2);
@@ -139,9 +191,9 @@ CCompositeObjectManager* CCompositeObjectManager::Construct()
     m_logicTask = task;
     AddLogicTask(task);
     Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kObjectMemberFunctionType),
-                                        reinterpret_cast<const uint32_t*>(0x00683550), 0x18);
+                                        g_objectMemberFunctions, 0x18);
     Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kCompositeMemberFunctionType),
-                                        reinterpret_cast<const uint32_t*>(0x00683268), 0x18);
+                                        g_compositeObjectMemberFunctions, 0x18);
     return this;
 }
 

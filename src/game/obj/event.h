@@ -64,8 +64,6 @@ int __cdecl EventController(CEvent* event);
 // destructor, slot 1 pure - the subclasses' event filter). The tracker keeps them in a singly linked list.
 class CEventListener {
 public:
-    static constexpr uint32_t kVtable = 0x006477D8;
-
     // 0x0045FAA0
     CEventListener* Construct();
     // 0x0045FAC0: off the tracker's list; the object is let go.

@@ -16,6 +16,7 @@
 #include "game/skater/skater_sound.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/obj/trigger_events.h"
 
 namespace Skater {
 
@@ -32,7 +33,6 @@ constexpr uint32_t kVehicleLandSound = 0xD478C96D; // vehicle_play_land_sound (a
 constexpr uint32_t kSideHeight = 0xB45B39E2;       // Skater_side_collide_height
 constexpr uint32_t kSideLength = 0x406B425F;       // Skater_side_collide_length
 constexpr uint32_t kAirExtraSide = 0x1C58C8B4;     // Skater_air_extra_side_col
-constexpr uint32_t kBonkEvents = 0x0064BBBC;       // {9, 0, 0}: hitting a wall
 
 // A stack feeler: raw storage (see CopyFeeler).
 struct alignas(16) FeelerStorage {
@@ -185,7 +185,7 @@ bool CorePhysicsComponent::CheckAirForwardCollision(const Mth::Vector* from)
     }
     if (!done) {
         SetFlag(this, 0xB0, 1);
-        TriggerFeeler(this, kBonkEvents, kFeeler);
+        TriggerFeeler(this, g_bonkEvents, kFeeler);
         done = TriggerTookOver(this);
     }
     if (!done) {
@@ -321,7 +321,7 @@ bool CorePhysicsComponent::CheckSideCollision(float side, float length)
         DestroyFeeler(feeler.get());
         return false;
     }
-    TriggerFeeler(this, kBonkEvents, kFeeler);
+    TriggerFeeler(this, g_bonkEvents, kFeeler);
     if (TriggerTookOver(this)) {
         DestroyFeeler(feeler.get());
         return false;

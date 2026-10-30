@@ -70,8 +70,18 @@ uint32_t SoundChecksum(uint8_t* entry) { return Field<uint32_t>(entry, 0x68); }
 float FullSpeedPitch(uint8_t* entry) { return Field<float>(entry, 0x6C); }
 float RestPitch(uint8_t* entry) { return Field<float>(entry, 0x70); }
 
-// The air sound's entry (0x0067F018).
-const uint8_t* AirSound() { return reinterpret_cast<const uint8_t*>(0x0067F018); }
+// The air sound's entry (a terrain sound entry of its own: 0x84 bytes, its name, the sound's checksum, the pitches at
+// full speed and at rest).
+struct AirSoundEntry {
+    char name[0x68];
+    uint32_t checksum;
+    float fullSpeedPitch;
+    float restPitch;
+    uint8_t unused[0x10];
+};
+static_assert(sizeof(AirSoundEntry) == 0x84, "a terrain sound entry");
+GAME_GLOBAL(AirSoundEntry, g_airSoundEntry, 0x0067F018, "wheels01", 0x24257432, 100.0f, 110.0f);
+const uint8_t* AirSound() { return reinterpret_cast<const uint8_t*>(&g_airSoundEntry); }
 
 } // namespace
 

@@ -16,14 +16,18 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/mth/random.h"
+#include "game/core/stubs.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
 namespace {
 
+extern void** const kPathFollowerVtable;
+
 constexpr uint32_t kPathComponent = 0x0A015E17;  // the owner's component that picks links and hears of nodes
 
-void** Vtable() { return reinterpret_cast<void**>(0x00647A84); }
+void** Vtable() { return kPathFollowerVtable; }
 
 CBaseComponent* PathComponent(CCompositeObject* owner) { return owner->GetComponent(kPathComponent); }
 // The component's choice: a random link (true) or the first (not rewritten yet).
@@ -465,3 +469,13 @@ REPLACE(0x0046A320, &Obj::CPathFollower::ArcStep);
 REPLACE(0x0046A3F0, &Obj::CPathFollower::Start);
 REPLACE(0x0046A550, &Obj::CPathFollower::StartCorner);
 REPLACE(0x0046A640, &Obj::CPathFollower::Update);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kPathFollowerVtable, 0x00647A84,
+    &Obj::CPathFollower::Destroy,
+    Stubs::IgnoreArgument);
+
+} // namespace
+} // namespace Obj

@@ -34,6 +34,7 @@
 
 namespace Obj {
 
+GAME_GLOBAL(uint32_t[4], g_editorCameraSkipNames, 0x0067EFD8, 0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205);
 GAME_GLOBAL(uint32_t, g_editorCameraName, 0x0067EFE8, 0x43BFAB74);
 GAME_GLOBAL(uint32_t[20], g_editorCameraSeen, 0x007CCBE8);
 GAME_GLOBAL(uint8_t, g_editorCameraFlagged, 0x007CCC38);
@@ -118,8 +119,8 @@ bool __cdecl ScriptFlagged(uint32_t name)
     Seen()[SeenCount()++] = name;
     if (name == g_editorCameraName)
         return false;
-    for (uint32_t address = 0x0067EFD8; address < 0x0067EFE8; address += 4) {
-        if (name == GameVariable<uint32_t>(address))
+    for (uint32_t skipName : g_editorCameraSkipNames) {
+        if (name == skipName)
             return true;
     }
     Script::CScriptCache* cache = Script::g_scriptCache;

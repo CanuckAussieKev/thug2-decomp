@@ -29,6 +29,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
+#include "game/obj/trigger_events.h"
 
 namespace Skater {
 
@@ -384,10 +385,10 @@ void CorePhysicsComponent::CheckForGround()
                         UpdateGroundNormal();
                     StartRidingHitObject();
                     if (At<int>(this, 0x1AC) != At<int>(this, 0xFC)) {
-                        TriggerOf(this)->CheckFeeler(Events(0x0064BBA4), FeelerAt(this, kOtherFeeler));
+                        TriggerOf(this)->CheckFeeler(g_kickEvents, FeelerAt(this, kOtherFeeler));
                         if (At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26))
                             return;
-                        TriggerOf(this)->CheckFeeler(Events(0x0064BBB0), FeelerAt(this, kFeeler));
+                        TriggerOf(this)->CheckFeeler(g_skaterEvents0064BBB0, FeelerAt(this, kFeeler));
                         if (At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26))
                             return;
                     }
@@ -434,7 +435,7 @@ void CorePhysicsComponent::CheckForGround()
                          reinterpret_cast<AcidDrop*>(drop)))
             StartAcidDrop(reinterpret_cast<const AcidDrop*>(drop));
     }
-    TriggerOf(this)->CheckFeeler(Events(0x0064BB80), FeelerAt(this, kOtherFeeler));
+    TriggerOf(this)->CheckFeeler(g_otherFeelerLeaveEvents, FeelerAt(this, kOtherFeeler));
 }
 
 // Not original (THAW's BMX, phase 3 - THAW 0x005DF3E0..0x005DF7B5): the bike on the ground under its wheels
@@ -452,10 +453,10 @@ void CorePhysicsComponent::GroundUnderWheels(bool hit)
     At<uint8_t>(At<uint8_t*>(this, kOtherComponent), 0x1C) = surface;
     StartRidingHitObject();
     if (At<int>(this, 0x1AC) != At<int>(this, 0xFC)) {
-        TriggerOf(this)->CheckFeeler(Events(0x0064BBA4), FeelerAt(this, kOtherFeeler));
+        TriggerOf(this)->CheckFeeler(g_kickEvents, FeelerAt(this, kOtherFeeler));
         if (At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26))
             return;
-        TriggerOf(this)->CheckFeeler(Events(0x0064BBB0), FeelerAt(this, kFeeler));
+        TriggerOf(this)->CheckFeeler(g_skaterEvents0064BBB0, FeelerAt(this, kFeeler));
         if (At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26))
             return;
     }
@@ -784,7 +785,7 @@ void CorePhysicsComponent::LandFromAir()
     if (!At<uint8_t>(skater, 0x13B0))
         static_cast<Obj::CTrickComponent*>(skater)->SetTrickObjects(false);
     SetLastGroundFeeler(&At<uint8_t>(this, kFeeler));
-    TriggerOf(this)->CheckFeeler(Events(0x0064BB98), FeelerAt(this, kOtherFeeler));
+    TriggerOf(this)->CheckFeeler(g_skaterEvents0064BB98, FeelerAt(this, kOtherFeeler));
     if (!At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26)) {
         const Mth::Vector& normal = VectorAt(this, kHitNormal);
         Mth::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);

@@ -36,10 +36,19 @@
 #include "game/skater/walk_camera.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/camera_lookaround.h"
+#include "game/obj/node_components.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/trigger_events.h"
 
 namespace Obj {
 
 namespace {
+
+extern void** const kWalkVtable;
 
 template <typename T>
 T& At(const void* object, uint32_t offset)
@@ -319,7 +328,7 @@ CBaseComponent* __cdecl CWalkComponent::Create()
 CWalkComponent* CWalkComponent::Construct()
 {
     CBaseComponent::Construct();
-    m_vtable = reinterpret_cast<void**>(0x0064C75C);
+    m_vtable = kWalkVtable;
     for (uint32_t i = 0; i < 8; ++i)
         reinterpret_cast<WalkContact*>(&At<uint8_t>(this, kContacts + 0xCC * i))->Construct(); // (each contact's constructor)
     reinterpret_cast<Nx::CCollCache*>(&At<uint8_t>(this, kCollCache))->Construct();
@@ -871,7 +880,7 @@ void CWalkComponent::CollideAirMove(const Mth::Vector* from, const Mth::Vector* 
     Nx::CFeeler* ground = &At<Nx::CFeeler>(this, kTriggerFeeler);
     reinterpret_cast<Nx::CFeeler*>(ground)->Assign(*feeler); // (the feeler copied)
     At<bool>(this, kHasGround) = true;
-    static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(reinterpret_cast<const int*>(0x0064C648), ground);
+    static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(g_walkEvents0064C648, ground);
     if (!Halted(this)) {
         VectorAt(this, kGroundNormal) = feeler->m_normal;
         void* ride = At<void*>(this, kRide);
@@ -936,13 +945,13 @@ void CWalkComponent::SnapToGround()
         Nx::CFeeler* ground = &At<Nx::CFeeler>(this, kTriggerFeeler);
         if (ground->m_hit.object != feeler->m_hit.object) {
             if (At<bool>(this, kHasGround)) {
-                static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(reinterpret_cast<const int*>(0x0064C660), ground);
+                static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(g_walkEvents0064C660, ground);
                 if (Halted(this)) {
                     feeler->Destruct();
                     return;
                 }
             }
-            static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(reinterpret_cast<const int*>(0x0064C654), feeler);
+            static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(g_walkEvents0064C654, feeler);
             if (Halted(this)) {
                 feeler->Destruct();
                 return;
@@ -962,7 +971,7 @@ void CWalkComponent::SnapToGround()
     if (feeler->GetCollision(true, false))
         PutOff(&position, feeler, kWallGap);
     if (At<bool>(this, kHasGround)) {
-        static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(reinterpret_cast<const int*>(0x0064C630), &At<Nx::CFeeler>(this, kTriggerFeeler));
+        static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(g_walkEvents0064C630, &At<Nx::CFeeler>(this, kTriggerFeeler));
         if (Halted(this)) {
             ReleaseHit(feeler);
             return;
@@ -1083,7 +1092,7 @@ void CWalkComponent::Jump()
         break;
     }
     if (At<int>(this, kState) == 0 && At<bool>(this, kHasGround)) {
-        static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(reinterpret_cast<const int*>(0x0064C63C), &At<Nx::CFeeler>(this, kTriggerFeeler)); // (the ground's jump triggers)
+        static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(g_walkEvents0064C63C, &At<Nx::CFeeler>(this, kTriggerFeeler)); // (the ground's jump triggers)
         if (Halted(this))
             return;
     }
@@ -1259,7 +1268,7 @@ bool CWalkComponent::TryBarrierJump()
     double gravity = static_cast<float>(GetGravity());
     auto speed = static_cast<float>(std::sqrt(gravity * rise * 2.0));
     if (At<bool>(this, kHasGround)) {
-        static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(reinterpret_cast<const int*>(0x0064C63C), &At<Nx::CFeeler>(this, kTriggerFeeler)); // (the ground's jump triggers)
+        static_cast<CTriggerComponent*>(At<void*>(this, kTriggerComponent))->CheckFeeler(g_walkEvents0064C63C, &At<Nx::CFeeler>(this, kTriggerFeeler)); // (the ground's jump triggers)
         if (Halted(this)) {
             cache->Destruct();
             ReleaseHit(feeler);
@@ -1587,3 +1596,23 @@ REPLACE(0x0052B7D0, &CWalkComponent::Jump);
 REPLACE(0x0052BC70, &CWalkComponent::TryBarrierJump);
 REPLACE(0x0052C2C0, &CWalkComponent::UpdateContacts);
 
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kWalkVtable, 0x0064C75C,
+    &CWalkComponent::Destroy,
+    &CWalkComponent::Update,
+    &Obj::CWalkComponent::InitFromStructure,
+    &Obj::CWalkComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

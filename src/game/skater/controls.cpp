@@ -16,6 +16,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/sys/game_config.h"
+#include "game/obj/trigger_events.h"
 
 namespace Skater {
 
@@ -124,7 +125,7 @@ bool Component::TryAcidDrop()
     if (!FindAcidDrop(this, velocity))
         return false;
     if (At<bool>(this, kWalking)) {
-        At<Obj::CTriggerComponent*>(this, kTrigger)->CheckFeeler(reinterpret_cast<const int*>(0x0064C63C),
+        At<Obj::CTriggerComponent*>(this, kTrigger)->CheckFeeler(g_walkEvents0064C63C,
                                                                  &At<Nx::CFeeler>(this, kTriggerFeeler));
         if (At<bool>(At<uint8_t*>(this, kFlags), 0x26))
             return true;

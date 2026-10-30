@@ -39,6 +39,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
+#include "game/obj/trigger_events.h"
 
 namespace Skater {
 
@@ -76,10 +77,6 @@ constexpr uint32_t kRailManagerType = 0x1CDFB2A3;     // RailManager (a componen
 constexpr uint32_t kParkEditorLevel = 0xD443A2BC;     // (the park editor's level)
 
 // The trigger events (const int[3]).
-constexpr uint32_t kGrindEvents = 0x0064BC28;     // getting onto a rail
-constexpr uint32_t kKickEvents = 0x0064BBA4;      // kicked off a point rail
-constexpr uint32_t kSpinEvents = 0x0064BC04;      // a point rail spin
-constexpr uint32_t kLipEvents = 0x0064BBC8;       // a lip trick
 
 constexpr float kDegrees = 0.0174532924f; // (degrees to radians, 0x00645464)
 constexpr float kNearPoint = 36.0f;       // (6 squared: how far from the point a hit may be)
@@ -111,7 +108,7 @@ void PlayLandSound(void* component)
 }
 
 // The rail node's TriggerScript run for `events` (with what the skater rides on, if anything still there).
-void TriggerRailNode(void* component, uint32_t events)
+void TriggerRailNode(void* component, const int* events)
 {
     const uint8_t* rideObject = nullptr;
     void* ride = Component(component, kRide);
@@ -122,7 +119,7 @@ void TriggerRailNode(void* component, uint32_t events)
             static_cast<Obj::CMovableContactComponent*>(ride)->StopRiding();
     }
     static_cast<Obj::CTriggerComponent*>(Component(component, kTriggerComponent))
-        ->TriggerNode(reinterpret_cast<const int*>(events), At<uint32_t>(component, kRailScriptNode), nullptr,
+        ->TriggerNode(events, At<uint32_t>(component, kRailScriptNode), nullptr,
                       rideObject);
 }
 
@@ -226,7 +223,7 @@ void KickOffPointRail(CorePhysicsComponent* c, const Mth::Vector* point, bool fr
     static_cast<Obj::CTrickComponent*>(Component(c, kSkaterComponent))->PassToTrickObjects(At<uint32_t>(c, kRailScriptNode));
     uint32_t triggerScript = 0;
     if (script->GetChecksum(kTriggerScript, &triggerScript, 0))
-        TriggerRailNode(c, kGrindEvents);
+        TriggerRailNode(c, g_grindEvents);
     OntoRail(c, point, false);
     SetRailTerrain(c);
     if (!At<uint8_t>(c, 0x2ED))
@@ -259,7 +256,7 @@ void KickOffPointRail(CorePhysicsComponent* c, const Mth::Vector* point, bool fr
     SetFlag(c, 0x50, 0);
     VectorAt(ObjectOf(c), kVelocity).SetDirection(kick);
     if (triggerScript)
-        TriggerRailNode(c, kKickEvents);
+        TriggerRailNode(c, g_kickEvents);
     SetState(c, kAir);
     Mth::Vector& position = VectorAt(ObjectOf(c), kPosition);
     position.y = position.y + 1.0f;
@@ -283,7 +280,7 @@ void SpinOnPointRail(CorePhysicsComponent* c, const Mth::Vector* point)
     VectorAt(ObjectOf(c), kVelocity).z = 0.0f;
     ClearRailFlags(c);
     static_cast<Obj::CObject*>(ObjectOf(c))->SelfEvent(kPointRailSpin, nullptr);
-    c->TriggerRailScript(reinterpret_cast<const int*>(kSpinEvents));
+    c->TriggerRailScript(g_spinEvents);
     At<int>(c, 0x1504) = Now();
 }
 
@@ -317,7 +314,7 @@ void StartLipTrick(CorePhysicsComponent* c, const Mth::Vector* point)
     MatrixAt(c, kDisplayMatrix) = MatrixAt(ObjectOf(c), kMatrix);
     auto* gap = static_cast<Obj::CSkaterGapComponent*>(static_cast<Obj::CCompositeObject*>(ObjectOf(c))->GetComponent(kSkaterGap));
     gap->CheckGaps(0, 0x100000);
-    c->TriggerRailScript(reinterpret_cast<const int*>(kLipEvents));
+    c->TriggerRailScript(g_lipEvents);
     At<uint8_t>(Component(c, kSkaterComponent), 0xA24) = 0;
     auto* skater = static_cast<Obj::CObject*>(ObjectOf(c));
     if (!skater->m_script) {
@@ -379,7 +376,7 @@ void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool from
         if (!node->m_prev && *At<Obj::CRailManager*>(c, kRailManager)->GetWorldPos(&end, node) == *point)
             return;
     }
-    c->TriggerRailScript(reinterpret_cast<const int*>(kGrindEvents));
+    c->TriggerRailScript(g_grindEvents);
     OntoRail(c, point, false);
     if (Since(At<uint32_t>(Component(c, kTriggerState), 0x1C)) != 0 && !At<uint8_t>(c, 0x2ED))
         PlayLandSound(c);

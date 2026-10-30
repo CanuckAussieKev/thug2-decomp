@@ -23,8 +23,13 @@
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
 #include "hook/game_code.h"
+#include "hook/game_global.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[12], g_vehicleCameraMemberFunctions, 0x00684150,
+    0x000469FD, 0x2C747D8A, 0, 0, 0, 0,
+    0, 0x2C747D8A, 0, 0, 0, 0);
 
 namespace {
 
@@ -88,7 +93,7 @@ CBaseComponent* __cdecl CVehicleCameraComponent::Create()
 void __cdecl CVehicleCameraComponent::RegisterMemberFunctions()
 {
     Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kVehicleCamera),
-                                        reinterpret_cast<const uint32_t*>(0x00684150), 0x18);
+                                        g_vehicleCameraMemberFunctions, 0x18);
 }
 
 // 0x00524440

@@ -731,7 +731,7 @@ void CTrickComponent::SetExtraTricks(Script::CStruct* params, Script::CScript* /
     for (int i = 0; i < 10; ++i)
         At<uint32_t>(this, kExtraMasks + 4 * i) = 0;
     At<uint32_t>(this, kExtraSpecialMask) = 0;
-    const char* ignore = reinterpret_cast<const char*>(0x006469B4); // ("")
+    const char* ignore = GAME_TEXT(0x006469B4, ""); // ("")
     if (params->GetString(kIgnore, &ignore, 0)) {
         IgnoreTricks(reinterpret_cast<uint32_t>(ignore)); // (the string's address as a name, as the original)
         return;

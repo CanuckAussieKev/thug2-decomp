@@ -244,7 +244,7 @@ void CStatsManagerComponent::InitFromStructure(Script::CStruct*)
             goal.m_text = byDifficulty->GetLocalString(static_cast<uint32_t>(m_difficulty));
         }
         if (source->ContainsComponentNamed(0xC4745838u)) {
-            const char* name = reinterpret_cast<const char*>(0x006469B4); // ""
+            const char* name = GAME_TEXT(0x006469B4, ""); // ""
             source->GetString(0xC4745838u, &name, 1);
             goal.m_name = name;
         }

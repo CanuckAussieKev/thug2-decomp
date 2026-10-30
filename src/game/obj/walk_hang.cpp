@@ -31,6 +31,7 @@
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/obj/trigger_events.h"
 
 namespace {
 
@@ -81,9 +82,6 @@ constexpr uint32_t kAnimDone = 0x1948;      // the callback (a member function p
 
 
 // The events the rail scripts and triggers get (const int[3]).
-constexpr uint32_t kHangEvents = 0x006468DC;     // {0xA, 3, 0}
-constexpr uint32_t kExitHangEvents = 0x006468E8; // {0xA, 4, 0}
-constexpr uint32_t kPullUpEvents = 0x006468D0;   // {1, 3, 0}
 
 constexpr uint32_t kWalkParameters = 0x6775E538;       // "walk_parameters"
 constexpr uint32_t kComboRunSpeed = 0x7213EF07;        // "combo_run_speed"
@@ -146,10 +144,6 @@ constexpr uint32_t kAnimWall = 0xEC0A1009;            // "WALL"
 
 // Ladders.
 constexpr uint32_t kStateTime = 0x1C;                  // when the state last changed
-constexpr uint32_t kLadderOffBottomEvents = 0x00646978; // {1, 3, 0}
-constexpr uint32_t kLadderOffTopEvents = 0x00646984;    // {0xE, 3, 0}
-constexpr uint32_t kOntoLadderEvents = 0x00646990;      // {0xA, 3, 0}
-constexpr uint32_t kExitLadderEvents = 0x0064699C;      // {0xA, 4, 0}
 constexpr uint32_t kLadderBottomOffsetForward = 0xCAF2831B; // "ladder_bottom_offset_forward"
 constexpr uint32_t kLadderTopOffsetForward = 0xB620B580;    // "ladder_top_offset_forward"
 constexpr uint32_t kMaxOntoLadderAngle = 0x456F216D;   // "max_onto_ladder_angle"
@@ -289,9 +283,9 @@ void TellPhysicsRail(void* walk)
     if (Obj::CRailManager* rails = RailsOf(walk))
         At<Obj::CRailManager*>(PhysicsOf(walk), 0x230) = rails;
 }
-void TriggerRailScript(void* walk, uint32_t events)
+void TriggerRailScript(void* walk, const int* events)
 {
-    PhysicsOf(walk)->TriggerRailScript(reinterpret_cast<const int*>(events));
+    PhysicsOf(walk)->TriggerRailScript(events);
 }
 // The hang offset (+0x71C) for the facing: hang_critical_point_horiz_offset along it, the critical point's height up.
 void SetHangOffset(Obj::CWalkComponent* walk)
@@ -307,9 +301,9 @@ void SetHangOffset(Obj::CWalkComponent* walk)
 }
 
 // The trigger component told a feeler hit something (for `events`), and the movable contact the feeler's hit.
-void TriggerFeeler(void* walk, uint32_t events, Nx::CFeeler* feeler)
+void TriggerFeeler(void* walk, const int* events, Nx::CFeeler* feeler)
 {
-    At<Obj::CTriggerComponent*>(walk, kTrigger)->CheckFeeler(reinterpret_cast<const int*>(events), feeler);
+    At<Obj::CTriggerComponent*>(walk, kTrigger)->CheckFeeler(events, feeler);
 }
 void ContactFeeler(void* walk, Nx::CFeeler* feeler)
 {
@@ -451,10 +445,10 @@ void Obj::CWalkComponent::EndPullUp()
 {
     SetState(0);
     ObjectOf(this)->SelfEvent(kSkaterExitHang, nullptr);
-    TriggerRailScript(this, kExitHangEvents);
+    TriggerRailScript(this, g_exitHangEvents);
     if (At<bool>(this, kPullUpHit)) {
         auto* feeler = &At<Nx::CFeeler>(this, kPullUpFeeler);
-        TriggerFeeler(this, kPullUpEvents, feeler);
+        TriggerFeeler(this, g_pullUpEvents, feeler);
         ContactFeeler(this, feeler);
     }
     VectorAt(this, kHangOffset) = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -466,7 +460,7 @@ void Obj::CWalkComponent::EndDropFromHang()
 {
     SetState(1);
     ObjectOf(this)->SelfEvent(kSkaterExitHang, nullptr);
-    TriggerRailScript(this, kExitHangEvents);
+    TriggerRailScript(this, g_exitHangEvents);
     VectorAt(this, kExitFacing) = VectorAt(this, kFacing);
     LeaveRide(&VectorAt(this, kVelocity), &At<float>(this, kVerticalSpeed));
     At<float>(this, kHeightOffset) = At<float>(this, kEndHeightOffset);
@@ -478,7 +472,7 @@ void Obj::CWalkComponent::EndDropToHang()
     SetHangOffset(this);
     SetState(2);
     TellPhysicsRail(this);
-    TriggerRailScript(this, kHangEvents);
+    TriggerRailScript(this, g_hangEvents);
     At<bool>(ObjectOf(this)->GetComponent(kTaggingControl), 0x1D) = false;
 }
 
@@ -786,7 +780,7 @@ bool Obj::CWalkComponent::GrabRail(Mth::Vector start, Mth::Vector end)
     At<float>(this, kHeightOffset) = static_cast<float>(HangHeightOffset());
     SetState(2);
     TellPhysicsRail(this);
-    TriggerRailScript(this, kHangEvents);
+    TriggerRailScript(this, g_hangEvents);
     At<uint32_t>(this, kAnim) = kAnimHang;
     SetPhysicsFlagA0(this);
     return true;
@@ -1210,7 +1204,7 @@ void Obj::CWalkComponent::UpdateHang()
             // turned round: let go
             SetState(1);
             ObjectOf(this)->SelfEvent(kSkaterExitHang, nullptr);
-            TriggerRailScript(this, kExitHangEvents);
+            TriggerRailScript(this, g_exitHangEvents);
             VectorAt(this, kExitFacing) = facing;
             LeaveRide(&VectorAt(this, kVelocity), &At<float>(this, kVerticalSpeed));
             At<uint32_t>(this, kAnim) = kAnimAir;
@@ -1248,10 +1242,10 @@ void Obj::CWalkComponent::UpdateHang()
 void Obj::CWalkComponent::EndLadderOffBottom()
 {
     SetState(0);
-    TriggerRailScript(this, kExitLadderEvents);
+    TriggerRailScript(this, g_exitLadderEvents);
     if (At<bool>(this, kPullUpHit)) {
         auto* feeler = &At<Nx::CFeeler>(this, kPullUpFeeler);
-        TriggerFeeler(this, kLadderOffBottomEvents, feeler);
+        TriggerFeeler(this, g_ladderOffBottomEvents, feeler);
         ContactFeeler(this, feeler);
     }
 }
@@ -1260,10 +1254,10 @@ void Obj::CWalkComponent::EndLadderOffBottom()
 void Obj::CWalkComponent::EndLadderOffTop()
 {
     SetState(0);
-    TriggerRailScript(this, kExitLadderEvents);
+    TriggerRailScript(this, g_exitLadderEvents);
     if (At<bool>(this, kPullUpHit)) {
         auto* feeler = &At<Nx::CFeeler>(this, kPullUpFeeler);
-        TriggerFeeler(this, kLadderOffTopEvents, feeler);
+        TriggerFeeler(this, g_ladderOffTopEvents, feeler);
         ContactFeeler(this, feeler);
     }
 }
@@ -1272,7 +1266,7 @@ void Obj::CWalkComponent::EndLadderOffTop()
 void Obj::CWalkComponent::EndLadderOffTopToAir()
 {
     SetState(1);
-    TriggerRailScript(this, kExitLadderEvents);
+    TriggerRailScript(this, g_exitLadderEvents);
     VectorAt(this, kExitFacing) = VectorAt(this, kFacing);
     LeaveRide(&VectorAt(this, kVelocity), &At<float>(this, kVerticalSpeed));
 }
@@ -1626,7 +1620,7 @@ void Obj::CWalkComponent::UpdateLadder()
 {
     // the ladder's rail script for the first 25 ticks
     if (static_cast<uint32_t>(Now()) - At<uint32_t>(this, kStateTime) < 25)
-        TriggerRailScript(this, kOntoLadderEvents);
+        TriggerRailScript(this, g_ontoLadderEvents);
     At<bool>(this, kFlag1958) = false;
     // the control within ladder_control_tolerance of up or down: climbing
     uint8_t* input = At<uint8_t*>(this, kInput);

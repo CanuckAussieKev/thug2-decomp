@@ -26,6 +26,9 @@
 #include "hook/hook.h"
 #include "game/front/front_end.h"
 #include "hook/game_code.h"
+#include "game/gfx/viewport.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
 
 namespace Obj {
 
@@ -35,8 +38,8 @@ GAME_GLOBAL(float, g_floatZero, 0x0066D520);
 
 namespace {
 
-constexpr uint32_t kObjectAnimMovieVtable = 0x0064EFE8;
-constexpr uint32_t kCameraAnimMovieVtable = 0x0064F020;
+extern void** const kObjectAnimMovieVtable;
+extern void** const kCameraAnimMovieVtable;
 constexpr uint32_t kNoAsset = 0xEE721991;   // a timer, not an asset
 constexpr uint32_t kFrames = 0x019176C5;    // its length in frames
 constexpr uint32_t kLooping = 0x5EA0E211;
@@ -146,7 +149,7 @@ bool LoadAnim(Movie* movie, Script::CStruct* params)
 CObjectAnimMovie* CObjectAnimMovie::Construct()
 {
     BaseConstruct(this);
-    m_base.m_node.vtable = reinterpret_cast<void**>(kObjectAnimMovieVtable);
+    m_base.m_node.vtable = kObjectAnimMovieVtable;
     ConstructTimeline(&m_timeline);
     m_anim = nullptr;
     return this;
@@ -155,7 +158,7 @@ CObjectAnimMovie* CObjectAnimMovie::Construct()
 // 0x00587210
 void CObjectAnimMovie::DestroyBody()
 {
-    m_base.m_node.vtable = reinterpret_cast<void**>(kObjectAnimMovieVtable);
+    m_base.m_node.vtable = kObjectAnimMovieVtable;
     DestroyTimeline(&m_timeline);
     BaseDestroyBody(this);
 }
@@ -211,7 +214,7 @@ int CObjectAnimMovie::IsHeldAndComplete() { return m_base.m_unknown18 && IsCompl
 CCameraAnimMovie* CCameraAnimMovie::Construct()
 {
     BaseConstruct(this);
-    m_base.m_node.vtable = reinterpret_cast<void**>(kCameraAnimMovieVtable);
+    m_base.m_node.vtable = kCameraAnimMovieVtable;
     ConstructTimeline(&m_timeline);
     m_anim = nullptr;
     m_hasTarget = false;
@@ -223,7 +226,7 @@ CCameraAnimMovie* CCameraAnimMovie::Construct()
 // 0x005872C0
 void CCameraAnimMovie::DestroyBody()
 {
-    m_base.m_node.vtable = reinterpret_cast<void**>(kCameraAnimMovieVtable);
+    m_base.m_node.vtable = kCameraAnimMovieVtable;
     DestroyTimeline(&m_timeline);
     BaseDestroyBody(this);
 }
@@ -505,3 +508,40 @@ REPLACE(0x00588090, &Obj::CCameraAnimMovie::Update);
 REPLACE(0x005876A0, &Obj::CObjectAnimMovie::Update);
 REPLACE(0x00587A50, &Obj::CCameraAnimMovie::PlaceCamera);
 REPLACE(0x00587F60, &Obj::CObjectAnimMovie::Update); // (a jump to 0x005876A0)
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kObjectAnimMovieVtable, 0x0064EFE8,
+    &Obj::CObjectAnimMovie::Destroy,
+    &Obj::CObjectAnimMovie::Load,
+    &Obj::CObjectAnimMovie::Update,
+    &Obj::CObjectAnimMovie::Start,
+    &Nx::CViewport::QueryPoint,
+    &Obj::CObjectAnimMovie::IsDone,
+    &Obj::CObjectAnimMovie::IsHeldAndComplete,
+    Stubs::ReturnFalse,
+    Stubs::DoNothing,
+    Stubs::ReturnTrue,
+    Stubs::ReturnFalse,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing);
+GAME_VTABLE(kCameraAnimMovieVtable, 0x0064F020,
+    &Obj::CCameraAnimMovie::Destroy,
+    &Obj::CCameraAnimMovie::Load,
+    &Obj::CCameraAnimMovie::Update,
+    &Obj::CCameraAnimMovie::Start,
+    &Obj::CCameraAnimMovie::CallMemberFunction,
+    &Obj::CCameraAnimMovie::IsDone,
+    &Obj::CCameraAnimMovie::IsHeldAndComplete,
+    Stubs::ReturnTrue,
+    Stubs::DoNothing,
+    Stubs::ReturnTrue,
+    Stubs::ReturnTrue,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing);
+
+} // namespace
+} // namespace Obj

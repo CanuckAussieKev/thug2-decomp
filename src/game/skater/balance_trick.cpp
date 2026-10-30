@@ -21,8 +21,13 @@
 #include "game/obj/node_components.h"
 #include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
+#include "hook/game_global.h"
 
 namespace Obj {
+
+GAME_GLOBAL(uint32_t[12], g_balanceTrickMemberFunctions, 0x00683238,
+    0x6DF82E70, 0x589E5FB3, 0, 0, 0, 0,
+    0, 0x589E5FB3, 0, 0, 0, 0);
 
 namespace {
 
@@ -69,7 +74,7 @@ CBaseComponent* __cdecl CSkaterBalanceTrickComponent::Create()
 // 0x004F8CD0
 void __cdecl CSkaterBalanceTrickComponent::RegisterMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), reinterpret_cast<const uint32_t*>(0x00683238),
+    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_balanceTrickMemberFunctions,
                                         0x18);
 }
 

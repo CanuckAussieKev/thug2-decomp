@@ -26,6 +26,7 @@ namespace {
 extern void** const kManagerVtable;
 extern void** const kGeneralManagerVtable;
 extern void** const kListHeadVtable;
+extern void** const kObjectSearchBaseVtable;
 void** const kObjectNodeVtable = reinterpret_cast<void**>(0x006477E4);
 void** const kFlushTaskVtable = reinterpret_cast<void**>(0x006476F0); // Tsk::Task<CGeneralManager>
 constexpr int kFlushTaskPriority = 1000;
@@ -311,7 +312,7 @@ CObject* CObjectSearch::NextItemOfType()
 }
 
 // 0x0041AA90
-void CObjectSearch::DestroyBody() { m_vtable = reinterpret_cast<void**>(0x00645DF8); }
+void CObjectSearch::DestroyBody() { m_vtable = kObjectSearchBaseVtable; }
 
 // 0x0041AAA0
 CObjectSearch* CObjectSearch::Destroy(unsigned int flags)
@@ -325,7 +326,7 @@ CObjectSearch* CObjectSearch::Destroy(unsigned int flags)
 // 0x0041A850
 CObjectSearch* CObjectSearch::DestroyAsBase(unsigned int flags)
 {
-    m_vtable = reinterpret_cast<void**>(0x00645DF8);
+    m_vtable = kObjectSearchBaseVtable;
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;
@@ -401,6 +402,15 @@ GAME_VTABLE(kGeneralManagerVtable, 0x00647834,
     &Obj::CBaseManager::SetObjectPriority,
     &Obj::CGeneralManager::KillObject,
     &Front::CScreenElementManager::GetObjectList);
+
+} // namespace
+} // namespace Obj
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kObjectSearchBaseVtable, 0x00645DF8,
+    &Obj::CObjectSearch::DestroyAsBase);
 
 } // namespace
 } // namespace Obj

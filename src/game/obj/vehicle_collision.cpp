@@ -23,6 +23,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
+#include "game/obj/trigger_events.h"
 
 namespace Obj {
 
@@ -48,7 +49,6 @@ const float kRightingRate = 3.0f;                           // 0x006467A8
 const float kAlignFast = 122500.0f;                         // 0x006467C4 (350 squared)
 const float kAlignSlowRate = std::bit_cast<float>(0x3E99999Au); // 0x006467C0: 0.3
 
-const int* const kCrossing = reinterpret_cast<const int*>(0x00646698); // trigger events {9, 0, 0}
 
 // The model component's 0x00420670 (not rewritten yet): its lighting from what a feeler hit.
 void LightFromFeeler(CBaseComponent* model, Nx::CFeeler* feeler, bool b, float c)
@@ -445,7 +445,7 @@ void CVehicleComponent::Collide()
         rect.m_rect.sideA = collider.worldEdges[0];
         rect.m_rect.sideB = collider.worldEdges[1];
         if (rect.Query(0)) {
-            TriggerRect(mp_trigger, kCrossing, &rect);
+            TriggerRect(mp_trigger, g_crossingEvents, &rect);
             if (Interrupted(this))
                 return;
             rect.JoinHits();
@@ -488,7 +488,7 @@ void CVehicleComponent::Collide()
                                      static_cast<float>(static_cast<double>(feeler.m_line.end.w) - rect.m_rect.sideA.w)};
             }
             if (feeler.GetCollision(false, false)) {
-                TriggerFeeler(mp_trigger, kCrossing, &feeler);
+                TriggerFeeler(mp_trigger, g_crossingEvents, &feeler);
                 if (Interrupted(this))
                     return;
                 Contact& contact = contacts[m_contactCount];

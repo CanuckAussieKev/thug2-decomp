@@ -19,6 +19,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/obj/trigger_events.h"
 
 namespace Obj {
 
@@ -32,7 +33,7 @@ constexpr uint32_t kSlotSize = 0x18;
 constexpr int kSlotCount = 5;
 
 // The trigger component's events for a projectile's touch (0x0064B89C: 14, none, none).
-const int* TouchEvents() { return reinterpret_cast<const int*>(0x0064B89C); }
+const int* TouchEvents() { return g_projectileTouchEvents; }
 
 constexpr float kReach = 12.0f;          // 0x0064546C (also added to the feeler's end w)
 constexpr float kStep = 0.8975979f;      // 0x00646968 (2pi / 7)
