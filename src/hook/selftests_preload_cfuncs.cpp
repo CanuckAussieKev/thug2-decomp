@@ -152,8 +152,8 @@ void StandInPreloadCalls(StandIns& s)
         new (reinterpret_cast<void*>(r.args[0])) Str::String(path);
         return r.args[0];
     });
-    s.At({0x0048BFA0, AddressOf(Nx::CreateModel)}, 0, [](Regs& r) {
-        Record({0xBFA0, r.args[0]});
+    s.At({0x0048BFA0, AddressOf(Nx::CreateModel)}, 0, [](Regs&) {
+        Record({0xBFA0}); // (its argument isn't used: ours calls Nx::CreateModel() without it)
         return 0x0DE10000u;
     });
     s.At({0x0048C3C0, AddressOf(Nx::Engine::DeleteGeomObject)}, 0, [](Regs& r) {

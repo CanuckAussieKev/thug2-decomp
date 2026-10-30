@@ -1179,7 +1179,7 @@ void StandInServerListCalls(StandIns& s)
     simple({0x005453E0, AddressOf(&GameNet::Manager::SetServiceState)}, 4, 0x53E0, 3);
     simple({0x00545370, AddressOf(&GameNet::Manager::StopServerList)}, 0, 0x5370, 1);
     simple({0x005462F0, AddressOf(&GameNet::Manager::ClearServerList)}, 0, 0x62F0, 1);
-    s.At({0x005651F0, AddressOf(Mdl::Skate::IsMultiplayer)}, 0, [](Regs& r) { Record({0x51F0, r.ecx}); return static_cast<uint32_t>(g_modeMatch & 1); });
+    s.At({0x005651F0, AddressOf(Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) { Record({0x51F0}); return static_cast<uint32_t>(g_modeMatch & 1); });
     s.At({0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, [](Regs&) { Record({0xE4F0}); return g_modeMatch & 2 ? 1u : 0u; });
     simple({0x005536D0}, 0, 0x36D0, 1);
     s.At({0x00553220, AddressOf(&Game::CGameMode::IsTrue)}, 4, [](Regs& r) { Record({0x3220, r.ecx, r.args[0]}); return r.args[0] == static_cast<uint32_t>(g_modeMatch) ? 1u : 0u; });

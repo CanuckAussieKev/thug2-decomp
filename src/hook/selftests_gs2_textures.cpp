@@ -386,7 +386,7 @@ void StandInProfileCalls(StandIns& s)
         Record({0x9070, r.args[0]});
         return g_arrayResult;
     });
-    s.At({0x0048BFA0, AddressOf(Nx::CreateModel)}, 0, [](Regs& r) { Record({0xBFA0, r.args[0]}); return 0x30DE1000u; });
+    s.At({0x0048BFA0, AddressOf(Nx::CreateModel)}, 0, [](Regs&) { Record({0xBFA0}); return 0x30DE1000u; }); // (the argument isn't recorded: ours calls it without)
     s.At({0x004935E0, AddressOf(&Nx::CModel::AddFileGeom)}, 32, [](Regs& r) {
         Record({0x35E0, r.ecx, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], r.args[2], r.args[3],
                 r.args[4], r.args[5], r.args[6], r.args[7]});

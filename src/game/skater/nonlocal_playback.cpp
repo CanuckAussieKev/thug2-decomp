@@ -557,8 +557,8 @@ void CSkaterNonLocalNetLogicComponent::PlayHistoryEvents()
                 break;
             case 0x2C:
                 if (Gfx::CBlendChannel* channel = blender->FindChannel(0))
-                    channel->SetFlipped(static_cast<uint32_t>(Field<int8_t>(m, 0x01)), Field<uint8_t>(m, 0x08) != 0, 0,
-                                        false);
+                    channel->SetFlipped(static_cast<uint32_t>(Field<int8_t>(m, 0x01)), Field<bool>(m, 0x08), 0,
+                                        false); // (the byte passed as it was sent)
                 break;
             case 0x3C: { // (20 bytes of the message passed by address)
                 uint32_t data[5];

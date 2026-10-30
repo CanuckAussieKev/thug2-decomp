@@ -486,7 +486,7 @@ uint8_t* CSkaterProfile::ReadInfoFromBuffer(uint8_t* buffer)
 int CSkaterProfile::WriteToBuffer(uint8_t* buffer, int size, int flags)
 {
     PushScriptHeap();
-    int total = reinterpret_cast<Gfx::CModelAppearance*>(this)->WriteToBuffer(buffer, size, (flags & 0xFF) != 0); // the appearance
+    int total = reinterpret_cast<Gfx::CModelAppearance*>(this)->WriteToBuffer(buffer, size, reinterpret_cast<bool&>(flags)); // the appearance
     size -= total;
     buffer += total;
     Script::CStruct* part = reinterpret_cast<Script::CStruct*>(flags); // (the argument's slot)

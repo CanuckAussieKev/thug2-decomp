@@ -147,11 +147,11 @@ int TrickCount(uint8_t* score, uint32_t trick, int spin, int taps)
 }
 int KeyComboCount(uint8_t* score, uint32_t keyCombo, int spin, uint32_t perfect, int taps)
 {
-    return reinterpret_cast<Mdl::Score*>(score)->CountKeyCombo(keyCombo, spin, (perfect & 0xFF) != 0, taps);
+    return reinterpret_cast<Mdl::Score*>(score)->CountKeyCombo(keyCombo, spin, reinterpret_cast<bool&>(perfect), taps);
 }
 int TrickCount(uint8_t* score, uint32_t trick, int spin, uint32_t perfect, int taps)
 {
-    return reinterpret_cast<Mdl::Score*>(score)->CountTrickAfterTaps(trick, spin, (perfect & 0xFF) != 0, taps);
+    return reinterpret_cast<Mdl::Score*>(score)->CountTrickAfterTaps(trick, spin, reinterpret_cast<bool&>(perfect), taps);
 }
 int TricksArrayCount(uint8_t* /*score*/, Script::CArray* tricks, uint32_t since)
 {

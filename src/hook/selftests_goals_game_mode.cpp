@@ -117,8 +117,8 @@ void StandInModeCalls(StandIns& s)
         Record({0x3FB0, r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x005651F0, AddressOf(Mdl::Skate::IsMultiplayer)}, 0, [](Regs& r) {
-        Record({0x51F0, r.ecx});
+    s.At({0x005651F0, AddressOf(Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) {
+        Record({0x51F0}); // (a static function of ours: no `this`)
         return g_multiplayer ? 1u : 0u;
     });
     s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) {

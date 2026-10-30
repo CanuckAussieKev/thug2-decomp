@@ -335,7 +335,7 @@ bool CTetrisGoal::IsTrickTris() { return IntegerOrFlag(m_params, kTrickTris); }
 void CTetrisGoal::Deactivate(int a, int b)
 {
     ClearTricks();
-    reinterpret_cast<CGoal*>(this)->Deactivate(a != 0, b != 0);
+    reinterpret_cast<CGoal*>(this)->Deactivate(reinterpret_cast<bool&>(a), reinterpret_cast<bool&>(b)); // (the bytes as they are)
 }
 
 // 0x0056F2E0
@@ -901,7 +901,7 @@ void CTrickBeatGoal::ClearTricks()
 void CTrickBeatGoal::Deactivate(int a, int b)
 {
     ClearTricks();
-    reinterpret_cast<CGoal*>(this)->Deactivate(a != 0, b != 0);
+    reinterpret_cast<CGoal*>(this)->Deactivate(reinterpret_cast<bool&>(a), reinterpret_cast<bool&>(b)); // (the bytes as they are)
 }
 
 namespace {

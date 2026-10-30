@@ -225,7 +225,8 @@ void CorePhysicsComponent::NatasSpin()
     }
     At<Obj::CBalance>(At<void*>(this, kBalance), 0xD4).Update();
     float factor = Script::GetFloat(kNatasSpinFactor);
-    double balance = std::fabs(static_cast<Obj::CSkaterBalanceTrickComponent*>(At<void*>(this, kBalance))->GetLean());
+    // (read as a double - the unrounded x87 result: GetLean 0x004F8F20 isn't called as a float function)
+    double balance = std::fabs(GameFunction<double(__thiscall*)(void*)>(0x004F8F20)(At<void*>(this, kBalance)));
     // The spin slows the further off balance.
     double rate = factor - balance / (kNatasSpinScale / static_cast<double>(factor)) + kNatasSpinBase;
     if (At<uint8_t>(this, kNatasCounterClockwise))

@@ -288,7 +288,7 @@ std::vector<StandIn> SpineStandIns()
         {0x004FF470, 0, 0, Ret::Double, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::GetGravity)}, // the gravity
         {0x004172F0, 8, 2, Ret::Bool, true, 3, -1, -1, 18, CodeAddress(&Nx::CFeeler::GetCollision), nullptr, 0, 0,
          0x50, 0, 8, 6.0f, nullptr, &AfterSpineFeeler}, // (the line recorded; the hit filled in)
-        {0x004FEE10, 0x18, 6, Ret::Bool, true, 0, -1, -1, 0, nullptr, nullptr, 0, 0, -1, -1, 0, 4.0f, nullptr,
+        {0x004FEE10, 0x18, 6, Ret::Bool, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::FindVertTarget), nullptr, 0, 0, -1, -1, 0, 4.0f, nullptr,
          &AfterFindTarget},
         {0x00461480, 20, 5, Ret::Int, true, 12, -1, -1, 0, CodeAddress(&Obj::CObject::SpawnAndRunScript)},
         {0x004607A0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::ClearEventHandler)},

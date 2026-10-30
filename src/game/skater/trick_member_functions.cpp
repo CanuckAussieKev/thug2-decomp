@@ -190,7 +190,8 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
             }
             Game::GetGoalManager()->CheckTrickGoals(); // the goal manager
             ExitCombo(this);
-            AwardPendingGaps(); // (the gap component only in ECX)
+            static_cast<void>(m_object->GetComponent(kSkaterGap)); // (its only use was ECX of the call below)
+            AwardPendingGaps();
             static_cast<Mdl::Score*>(score)->Land();
             At<float>(this, kSpinTotal) = 0.0f;
             At<bool>(Component(this, kState), 0xE0) = false;
@@ -357,7 +358,8 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         At<float>(this, kSpinTotal) = 0.0f;
         At<uint32_t>(Component(this, kCorePhysics), 0x318) = 0;
         list.Clear();
-        ClearPendingGaps(); // (the gap component only in ECX)
+        static_cast<void>(m_object->GetComponent(kSkaterGap)); // (its only use was ECX of the call below)
+        ClearPendingGaps();
         static_cast<CStatsManagerComponent*>(Component(this, kComponent34))->Reset();
         return 1;
     }

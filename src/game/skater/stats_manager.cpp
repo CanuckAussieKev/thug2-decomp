@@ -92,7 +92,7 @@ void* GameFlow() { return Game::GetGoalManager(); }
 void* Score(CCompositeObject* skater) { return reinterpret_cast<CSkater*>(skater)->GetScore(); }
 int CountTricks(void* score, uint32_t trick, int a, int b, int c)
 {
-    return static_cast<Mdl::Score*>(score)->CountTrickAfterTaps(trick, a, (b & 0xFF) != 0, c);
+    return static_cast<Mdl::Score*>(score)->CountTrickAfterTaps(trick, a, reinterpret_cast<bool&>(b), c);
 }
 
 // 0x00423680: the distance between two points (z, x, then y; unrounded).
