@@ -184,3 +184,17 @@ constexpr int kCalleePop = CalleePop<std::decay_t<F>>::value;
 #define REPLACE_UNCHECKED(address, ...)                                                              \
     static ReplacementRegistrar REPLACE_CONCAT(g_replace_, __LINE__)(                                \
         address, CodeAddress(__VA_ARGS__), -1, #__VA_ARGS__, __FILE__)
+
+#ifdef THUG2_STANDALONE
+// The standalone build: nothing to hook - the lines are only the map back to the original addresses.
+#undef REPLACE
+#undef REPLACE_SOURCE_ONLY
+#undef REPLACE_FALLBACK
+#undef REPLACE_FALLBACK_UNCHECKED
+#undef REPLACE_UNCHECKED
+#define REPLACE(address, ...) static_assert(true)
+#define REPLACE_SOURCE_ONLY(address, ...) static_assert(true)
+#define REPLACE_FALLBACK(address, ...) static_assert(true)
+#define REPLACE_FALLBACK_UNCHECKED(address, ...) static_assert(true)
+#define REPLACE_UNCHECKED(address, ...) static_assert(true)
+#endif

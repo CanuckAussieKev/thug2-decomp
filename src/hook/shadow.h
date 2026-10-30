@@ -238,3 +238,7 @@ struct Check<Address, Function, Name> {
     static ReplacementRegistrar REPLACE_CONCAT(g_replace_, __LINE__)(                                \
         address, CodeAddress(&Shadow::Check<address, __VA_ARGS__, REPLACE_CONCAT(g_shadow_name_, __LINE__)>::Call), \
         kCalleePop<decltype(__VA_ARGS__)>, #__VA_ARGS__ " [shadow]", __FILE__)
+#ifdef THUG2_STANDALONE
+#undef REPLACE_SHADOW
+#define REPLACE_SHADOW(address, ...) static_assert(true)
+#endif

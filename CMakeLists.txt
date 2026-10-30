@@ -1303,3 +1303,17 @@ target_link_options(thug2_check PRIVATE /DELAYLOAD:SDL2.dll)
 target_compile_options(thug2_check PRIVATE /W4 /permissive- /utf-8)
 # Keep the tool itself away from 0x400000: its child process loads the game image there.
 target_link_options(thug2_check PRIVATE /BASE:0x20000000 /DYNAMICBASE:NO)
+
+# thug2_standalone: the game built from source alone - no hook DLL, no original exe. It doesn't link yet: every
+# GameFunction / GameVariable left, every hook / self-test call from game code and every library not linked yet is an
+# unresolved symbol. Not part of a normal build; `node tools/standalone_report.ts` builds it and sorts what's missing.
+get_target_property(THUG2_CODE_SOURCES thug2_code SOURCES)
+set(THUG2_GAME_SOURCES ${THUG2_CODE_SOURCES})
+list(FILTER THUG2_GAME_SOURCES EXCLUDE REGEX "^src/hook/")
+add_executable(thug2_standalone WIN32 EXCLUDE_FROM_ALL src/standalone/main.cpp ${THUG2_GAME_SOURCES})
+target_compile_definitions(thug2_standalone PRIVATE THUG2_STANDALONE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_include_directories(thug2_standalone PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
+                                                    "${CMAKE_BINARY_DIR}/editor_fonts")
+add_dependencies(thug2_standalone editor_fonts build_info)
+target_link_libraries(thug2_standalone PRIVATE sdl2 ws2_32 dsound ole32 imgui lzham)
+target_compile_options(thug2_standalone PRIVATE /W3 /permissive- /utf-8)

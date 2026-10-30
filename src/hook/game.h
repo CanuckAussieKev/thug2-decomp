@@ -2,6 +2,14 @@
 
 #include <cstdint>
 
+#ifdef THUG2_STANDALONE
+// The standalone build (no original exe): declared, never defined - every use left is an unresolved symbol naming the
+// function that uses it (tools/standalone_report.ts lists them). Each one has to become a real variable / a call.
+template <typename T>
+T& GameVariable(uintptr_t address);
+template <typename Fn>
+Fn GameFunction(uintptr_t address);
+#else
 // A variable that lives in the exe's data section. Until every function that uses it has been rewritten,
 // the original code and ours must share the same storage, so we refer to it by address:
 //
@@ -23,3 +31,4 @@ Fn GameFunction(uintptr_t address)
 {
     return reinterpret_cast<Fn>(address);
 }
+#endif
