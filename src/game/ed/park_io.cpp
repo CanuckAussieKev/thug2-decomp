@@ -23,7 +23,6 @@ namespace Ed {
 
 GAME_GLOBAL(float, g_parkGapGridOffset, 0x0064F730, 28.0f);
 GAME_GLOBAL(Ed::CParkEditor*, g_parkEditor, 0x007CE5D8);
-GAME_GLOBAL(float, g_parkIoProgress, 0x007CE644);
 
 namespace {
 
@@ -383,7 +382,7 @@ void CParkManager::UpdatePercentBar()
     Script::CStruct* memory = Script::NewStruct();
     Script::CStruct* params = memory ? memory->Init() : nullptr;
     params->AddFloat(0x6D6C056Du, percent); // park_percent (out of memory crashes, as in the original)
-    if (g_parkIoProgress >= 1.0f)
+    if (Stats().maxUsage >= 1.0f) // (0x007CE644: the park memory stats' largest usage)
         params->AddChecksum(0u, 0x97A8E59Cu); // park_full
     Script::RunScript(0xE2508960, params, nullptr, false, nullptr); // parked_update_percent_bar
     if (params) {

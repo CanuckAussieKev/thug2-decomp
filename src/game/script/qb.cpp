@@ -31,7 +31,6 @@ static_assert(offsetof(CStoredRandom, m_last) == 0x54 && offsetof(CStoredRandom,
               "layout must match the original");
 static_assert(sizeof(CStoredRandom) == 0x60, "layout must match the original");
 
-GAME_GLOBAL(bool, g_scriptFlag6F2564, 0x006F2564);
 GAME_GLOBAL(Mem::PoolPair, g_storedRandomPools, 0x006F2578);
 GAME_GLOBAL(int, g_pendingSymbolCount, 0x006F3528);
 GAME_GLOBAL(uint32_t, g_permanentStringsFree, 0x006F3588);
@@ -504,8 +503,8 @@ void AddPendingSymbol(CSymbolTableEntry* symbol, bool owned)
 } // namespace
 
 // 0x00470000 / 0x0046FFF0
-void ClearScriptFlag6F2564() { g_scriptFlag6F2564 = false; }
-void SetScriptFlag6F2564() { g_scriptFlag6F2564 = true; }
+void ClearScriptFlag6F2564() { g_evaluator.m_unknown1F4 = false; } // (0x006F2564: the evaluator's +0x1F4)
+void SetScriptFlag6F2564() { g_evaluator.m_unknown1F4 = true; }
 
 // 0x00470010
 void AllocateScriptChecksumNames(bool debugHeap)

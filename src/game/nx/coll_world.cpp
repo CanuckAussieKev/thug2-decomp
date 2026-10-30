@@ -20,8 +20,6 @@ namespace {
 void** const kNodeVtable = reinterpret_cast<void**>(0x00645AA0); // Lst::Node<CCollObj>
 
 Mem::ListNode& s_movables = GameVariable<Mem::ListNode>(0x00691978);
-// Set while a caller wants the farthest hit rather than the nearest (ReportHit reads it).
-bool& s_wantFarthest = g_wantFarthest;
 
 // Where a query's distance to beat starts: past the line's end, or (for the farthest) before its start.
 constexpr float kNearestStart = 1.01f;
@@ -122,7 +120,7 @@ bool CollideWithStatics(const Mth::Line* line, CollisionHit* hit, CollisionHitCa
 {
     hit->callback = callback;
     LineQuery query(line, cache);
-    hit->distance = s_wantFarthest ? kFarthestStart : kNearestStart;
+    hit->distance = g_wantFarthest ? kFarthestStart : kNearestStart;
     bool any = false;
     if (query.useCache) {
         for (int i = 0; i < cache->m_statics; ++i) {
@@ -155,9 +153,9 @@ bool CollideWithStatics(const Mth::Line* line, CollisionHit* hit, CollisionHitCa
 bool CollideWithStaticsFarthest(const Mth::Line* line, CollisionHit* hit, CollisionHitCallback callback,
                                 CCollCache* cache)
 {
-    s_wantFarthest = true;
+    g_wantFarthest = true;
     bool any = CollideWithStatics(line, hit, callback, cache);
-    s_wantFarthest = false;
+    g_wantFarthest = false;
     return any;
 }
 
@@ -168,7 +166,7 @@ Obj::CCompositeObject* CollideWithMovables(const Mth::Line* line, CollisionHit* 
     hit->callback = callback;
     Obj::CCompositeObject* owner = nullptr;
     if (!hit->hit)
-        hit->distance = s_wantFarthest ? kFarthestStart : kNearestStart;
+        hit->distance = g_wantFarthest ? kFarthestStart : kNearestStart;
     LineQuery query(line, cache);
     if (query.useCache) {
         const CCollCache::Entry* entries = &cache->m_entries[cache->m_statics];
@@ -190,9 +188,9 @@ Obj::CCompositeObject* CollideWithMovables(const Mth::Line* line, CollisionHit* 
 Obj::CCompositeObject* CollideWithMovablesFarthest(const Mth::Line* line, CollisionHit* hit,
                                                    CollisionHitCallback callback, CCollCache* cache)
 {
-    s_wantFarthest = true;
+    g_wantFarthest = true;
     Obj::CCompositeObject* owner = CollideWithMovables(line, hit, callback, cache);
-    s_wantFarthest = false;
+    g_wantFarthest = false;
     return owner;
 }
 

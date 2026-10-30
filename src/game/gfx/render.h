@@ -20,10 +20,10 @@ struct RenderCamera {
     float nearWidth;  // 0x00786CB4: the view's size at the near plane
     float nearHeight; // 0x00786CB8
     uint8_t customTransforms; // 0x00786CBC: the view / projection set by hand, not the camera's (shadow.cpp)
-    bool clearColourAndDepth;  // 0x00786CBD (engine_glue.cpp's g_clearColourAndDepth: globals the camera's lie between)
+    bool clearColourAndDepth;  // 0x00786CBD (a global the camera's lie around)
     uint8_t letterboxActive; // 0x00786CBE
     uint8_t unknown17;
-    uint32_t backgroundColour; // 0x00786CC0 (engine_glue.cpp's g_backgroundColour)
+    uint32_t backgroundColour; // 0x00786CC0 (another)
     float position[3]; // 0x00786CC4
     uint8_t unknown28[0x0C];
     float backward[3]; // 0x00786CDC: the orientation's row 2

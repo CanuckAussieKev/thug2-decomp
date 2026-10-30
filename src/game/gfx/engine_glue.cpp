@@ -45,9 +45,6 @@ namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 GAME_GLOBAL(uint32_t, g_memViewToggle, 0x00701588);
-// (inside the camera's globals - render.h's RenderCamera: one storage)
-bool& g_clearColourAndDepth = g_camera.clearColourAndDepth;
-uint32_t& g_backgroundColour = g_camera.backgroundColour;
 GAME_GLOBAL(char[128], g_pendingScreenShot, 0x00786D94); // the screenshot asked for by name
 GAME_GLOBAL(bool, g_screenShotNameExact, 0x00786E14);
 GAME_GLOBAL(uint32_t, g_screenBlur, 0x00787328);
@@ -70,7 +67,7 @@ uint32_t ClearColour()
 {
     if (g_fogSetting && g_distanceClipping)
         return g_fogColour;
-    return g_backgroundColour;
+    return g_camera.backgroundColour;
 }
 
 // D3DX (linked library code): a surface written to an image file (format 1: JPEG).
@@ -247,11 +244,11 @@ void __cdecl FinishRendering()
     if (g_camera.letterboxActive) {
         if (!SkipRender())
             ClearDevice(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
-    } else if (g_clearColourAndDepth) {
+    } else if (g_camera.clearColourAndDepth) {
         if (!SkipRender())
             ClearDevice(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, ClearColour(), 1.0f, 0);
     } else if (!SkipRender()) {
-        ClearDevice(0, nullptr, D3DCLEAR_ZBUFFER, g_backgroundColour, 1.0f, 0);
+        ClearDevice(0, nullptr, D3DCLEAR_ZBUFFER, g_camera.backgroundColour, 1.0f, 0);
     }
     g_screenBlurFrames = 0;
 }
