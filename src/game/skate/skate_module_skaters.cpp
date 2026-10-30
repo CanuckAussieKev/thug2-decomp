@@ -53,6 +53,12 @@
 #include "game/sfx/terrain.h"
 #include "game/sys/timer.h"
 #include "game/sys/viewer.h"
+#include "game/gfx/anim_cache.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/flexible_particle_manager.h"
+#include "game/gfx/model_appearance.h"
+#include "game/gfx/particles.h"
+#include "game/gfx/viewport.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -267,7 +273,7 @@ Obj::CSkater* Skate::AddSkater(Obj::CSkaterProfile* profile, bool local, uint32_
     if (local) {
         Obj::CSkaterProfile* source = GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4)->GetProfile(
             static_cast<uint8_t>(CFuncs::CFunc_InSplitScreenGame(nullptr, nullptr)) ? viewport : 0);
-        GameFunction<void(__thiscall*)(Obj::CSkaterProfile*, Obj::CSkaterProfile*)>(0x004893A0)(profile, source);
+        reinterpret_cast<Gfx::CModelAppearance*>(profile)->CopyFrom(reinterpret_cast<Gfx::CModelAppearance*>(source));
         Script::RunScript(kShowPanelStuff, nullptr, nullptr, false, nullptr);
         Obj::CSkater* skater = GetLocalSkater();
         if (skater) {
@@ -527,11 +533,11 @@ void Skate::Cleanup()
     NetManager()->ClearCrown();
     Script::DeleteSpawnedScripts();
     TrickObjects()->RemoveAllClusters();
-    GameFunction<void(__thiscall*)(void*)>(0x0049AE30)(GameVariable<void*>(0x006FA7C0));
+    static_cast<Nx::CFlexibleParticleManager*>(GameVariable<void*>(0x006FA7C0))->DestroyNonPersistent();
     m_railManager->Cleanup();
     Obj::Proxim_Cleanup();
     Obj::Emitter_Cleanup();
-    GameFunction<void(__thiscall*)(void*)>(0x00496700)(GameVariable<void*>(0x006FA7C4));
+    static_cast<Nx::CParticleManager*>(GameVariable<void*>(0x006FA7C4))->DestroyAllParticles();
 }
 
 // 0x00565A00
@@ -850,8 +856,8 @@ constexpr uint32_t kControllerUnplugged = 0xF77ACA62;   // controller_unplugged
 constexpr uint32_t kSuspend = 0xCE0CA665;               // suspend
 
 // The game's cameras (0x004A09C0 the viewport's, 0x004A0950 the split screen's).
-Gfx::Camera* ViewportCamera(int index) { return GameFunction<Gfx::Camera*(__cdecl*)(int)>(0x004A09C0)(index); }
-Gfx::Camera* ScreenCamera(int index) { return GameFunction<Gfx::Camera*(__cdecl*)(int)>(0x004A0950)(index); }
+Gfx::Camera* ViewportCamera(int index) { return Nx::GetActiveCamera(index); }
+Gfx::Camera* ScreenCamera(int index) { return Nx::GetCamera(index); }
 
 // The screen element with this id (its smart pointer let go at once).
 Front::CScreenElement* FindElement(uint32_t id)
@@ -878,7 +884,7 @@ void Skate::DoUpdate()
         Stubs::DoNothing();
         if (m_movies->Count()) {
             if (m_movies->GetCamera())
-                GameFunction<void(__cdecl*)(int, void*)>(0x004A0970)(0, m_movies->GetCamera());
+                Nx::SetCamera(0, static_cast<Gfx::Camera*>(m_movies->GetCamera()));
             if (m_movieCamera)
                 Script::RunScript(kHideLoadingScreen, nullptr, nullptr, false, nullptr);
             reinterpret_cast<void(__thiscall*)(Obj::CMovieManager*)>(m_movies->m_vtable[0x20 / 4])(m_movies);
@@ -1021,7 +1027,7 @@ Skate* Skate::Construct()
     m_gameFlow = memory ? static_cast<Game::CGameFlow*>(memory)->Construct() : nullptr;
     memory = Mem::Calloc(0x39C);
     m_goalManager = memory ? static_cast<Game::CGoalManager*>(memory)->Construct() : nullptr;
-    GameFunction<void(__cdecl*)(void*)>(0x0048C0A0)(GameVariable<void*>(0x006F0FB8));
+    Nx::Engine::SetObjectManager(GameVariable<void*>(0x006F0FB8));
     memory = Mem::Calloc(0x6AC);
     m_career = memory ? static_cast<Obj::CSkaterCareer*>(memory)->Construct() : nullptr;
     memory = Mem::Calloc(0x54);
@@ -1061,7 +1067,7 @@ Skate* Skate::Construct()
 void Skate::DestroyBody()
 {
     m_vtable = reinterpret_cast<void**>(0x0064E674);
-    GameFunction<void(__cdecl*)()>(0x00481340)();
+    Gfx::CAnimCache::Destroy();
     Terrain::ClearTerrainTypes();
     Script::RunScript(kUninitLightManager, nullptr, nullptr, false, nullptr);
     if (CCompetition* competition = m_competition) {

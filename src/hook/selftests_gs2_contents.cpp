@@ -1,6 +1,8 @@
 // Self-tests for what a save holds and how it is put back (save_contents.cpp): each original against ours, every
 // call into the rest of the game stood in for by recording code, new structures and arrays from one arena per run.
 
+#include <initializer_list>
+#include <utility>
 #include <windows.h>
 
 #include <cstdint>
@@ -29,8 +31,8 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/records.h"
 #include "game/skater/skater.h"
-#include "game/ed/goal_editor.h"
 #include "game/goals/goal_manager.h"
+#include "game/ed/goal_editor.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -218,7 +220,7 @@ void StandInCalls(StandIns& s)
         return 0u;
     });
     // preferences, career, records, pros, profiles
-    s.At({0x00564D80}, 0, [](Regs& r) { Record({0x4D80, Known(r.ecx)}); return 0x5B11E000u; });
+    s.At({0x00564D80, AddressOf(&Mdl::Skate::GetSplitScreenPreferences)}, 0, [](Regs& r) { Record({0x4D80, Known(r.ecx)}); return 0x5B11E000u; });
     s.At({0x00532F80, AddressOf(&GameNet::Manager::GetTauntPreferences)}, 0, [](Regs& r) {
         Record({0x2F80, r.ecx});
         return 0x7A0E0000u;
@@ -276,8 +278,8 @@ void StandInCalls(StandIns& s)
         Record({0x61F0, Known(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0u;
     });
-    for (auto [address, ours_address] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00567C30u, AddressOf(&Mdl::Skate::SetVibration)}, {0x00567C00u, AddressOf(&Mdl::Skate::SetAutoKick)}, {0x00567BD0u, AddressOf(&Mdl::Skate::SetSpinTaps)}}) {
-        s.At({address, ours_address}, 8, [address](Regs& r) {
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00567C30u, AddressOf(&Mdl::Skate::SetVibration)}, {0x00567C00u, AddressOf(&Mdl::Skate::SetAutoKick)}, {0x00567BD0u, AddressOf(&Mdl::Skate::SetSpinTaps)}}) {
+        s.At({address, ours_}, 8, [address](Regs& r) {
             Record({address, Known(r.ecx), r.args[0], r.args[1] & 0xFF});
             return 0u;
         });
@@ -315,7 +317,7 @@ void StandInCalls(StandIns& s)
         Record({0xD620, r.ecx, Known(r.args[0]), r.args[1] & 0xFF});
         return 0u;
     });
-    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) { Record({0x91B0}); return 0x60A10000u; });
+    s.At({0x005591B0, AddressOf(Game::GetGoalManager)}, 0, [](Regs&) { Record({0x91B0}); return 0x60A10000u; });
     s.At({0x004A2BA0}, 0, [](Regs& r) { Record({0x2BA0, r.ecx}); return 0x60A1A000u; });
     s.At({0x00557E70, AddressOf(&Game::CGoalManager::ResetGoalData)}, 4, [](Regs& r) { Record({0x7E70, r.ecx, r.args[0]}); return 0u; });
     s.At({0x00558A00, AddressOf(&Game::CGoalManager::RestoreGoalData)}, 0, [](Regs& r) { Record({0x8A00, r.ecx}); return 0u; });

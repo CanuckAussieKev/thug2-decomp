@@ -32,6 +32,7 @@
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/score.h"
 #include "game/skate/skate_module.h"
@@ -315,7 +316,7 @@ void Install(StandIns& s)
         return 0u;
     });
     // CGoal's own and the goal manager.
-    s.At({0x00556FE0}, 4, [](Regs& r) {
+    s.At({0x00556FE0, AddressOf(&Game::CGoal::Construct)}, 4, [](Regs& r) {
         Rec(0x6FE0, {r.ecx, r.args[0]});
         *reinterpret_cast<uint32_t*>(r.ecx + 0x1C) = r.args[0];
         return r.ecx;
@@ -331,24 +332,39 @@ void Install(StandIns& s)
     };
     auto zero = [](Regs&) { return 0u; };
     simple(0x00556110, 0, 0x6110, zero);
+    simple(AddressOf(&Game::CGoal::DestroyBody), 0, 0x6110, zero);
     simple(0x00554280, 0, 0x4280, [](Regs& r) { return 0x60A10000u + ((r.ecx - g_tg_base) & 0xFFFF); });
+    simple(AddressOf(&Game::CGoal::GetGoalId), 0, 0x4280, [](Regs& r) { return 0x60A10000u + ((r.ecx - g_tg_base) & 0xFFFF); });
     simple(0x00554DD0, 0, 0x4DD0, [](Regs&) { return 0x5501u; });
+    simple(AddressOf(&Game::CGoal::Update), 0, 0x4DD0, [](Regs&) { return 0x5501u; });
     simple(0x00557360, 0, 0x7360, [](Regs&) { return 0x7301u; });
+    simple(AddressOf(&Game::CGoal::Activate), 0, 0x7360, [](Regs&) { return 0x7301u; });
     simple(0x005576D0, 0, 0x76D0, [](Regs&) { return 0x7601u; });
+    simple(AddressOf(&Game::CGoal::Win), 0, 0x76D0, [](Regs&) { return 0x7601u; });
     simple(0x00557560, 8, 0x7560, zero);
+    simple(AddressOf(&Game::CGoal::Deactivate), 8, 0x7560, zero);
     simple(0x00554A80, 4, 0x4A80, zero);
+    simple(AddressOf(&Game::CGoal::RunCallbackScript), 4, 0x4A80, zero);
     simple(0x00554C70, 0, 0x4C70, zero);
+    simple(AddressOf(&Game::CGoal::Lose), 0, 0x4C70, zero);
     simple(0x005568B0, 4, 0x68B0, [](Regs&) { return static_cast<uint32_t>(g_tg_pick); });
+    simple(AddressOf(&Game::CGoal::PickKeyCombo), 4, 0x68B0, [](Regs&) { return static_cast<uint32_t>(g_tg_pick); });
     simple(0x00554110, 0, 0x4110, [](Regs&) { return g_tg_flag554110 ? 1u : 0u; });
+    simple(AddressOf(&Game::CGoal::AllFlagsSet), 0, 0x4110, [](Regs&) { return g_tg_flag554110 ? 1u : 0u; });
     simple(0x00554220, 0, 0x4220, [](Regs&) { return g_tg_flag554220 ? 1u : 0u; });
+    simple(AddressOf(&Game::CGoal::IsLocked), 0, 0x4220, [](Regs&) { return g_tg_flag554220 ? 1u : 0u; });
     simple(0x005541E0, 8, 0x41E0, [](Regs&) { return g_tg_flag5541E0 ? 1u : 0u; });
-    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) {
+    simple(AddressOf(&Game::CGoal::GoalFlagSet), 8, 0x41E0, [](Regs&) { return g_tg_flag5541E0 ? 1u : 0u; });
+    s.At({0x005591B0, AddressOf(Game::GetGoalManager)}, 0, [](Regs&) {
         Rec(0x91B0, {});
         return At(kMisc);
     });
     simple(0x00558030, 4, 0x8030, zero);
+    simple(AddressOf(&Game::CGoalManager::WinGoal), 4, 0x8030, zero);
     simple(0x00558180, 4, 0x8180, zero);
+    simple(AddressOf(&Game::CGoalManager::LoseGoal), 4, 0x8180, zero);
     simple(0x00557FC0, 8, 0x7FC0, zero);
+    simple(AddressOf(&Game::CGoalManager::ActivateGoal), 8, 0x7FC0, zero);
     // The skater and its score.
     s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Rec(0x6520, {r.ecx});
@@ -371,6 +387,8 @@ void Install(StandIns& s)
     };
     count(0x005624C0, 0x24C0);
     count(0x00562510, 0x2510);
+    count(AddressOf(&Mdl::Score::CountTrickAfterTaps), 0x24C0);
+    count(AddressOf(&Mdl::Score::CountKeyCombo), 0x2510);
     s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Rec(0x4F80, {r.ecx, r.args[0]});
         return At(kMisc + 0x20);

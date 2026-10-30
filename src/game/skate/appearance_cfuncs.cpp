@@ -15,6 +15,9 @@
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/model_appearance.h"
+#include "game/skate/cas_options.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -64,13 +67,14 @@ Obj::CSkaterProfile* PlayerProfile(Script::CStruct* params, int assert = 1)
 // The appearance's parts (no source yet): 0x00489050 the part a slot was given as built (its CAS option's structure),
 // 0x004890B0 the slot's own structure in the appearance; null if none. 0x00485CF0 (cdecl): the CAS option `descId` of
 // the slot's global part list. The appearance's own structure is at +0x4C.
+Gfx::CModelAppearance* Appearance(Obj::CSkaterProfile* profile) { return reinterpret_cast<Gfx::CModelAppearance*>(profile); } // (its first member)
 Script::CStruct* ActualPart(Obj::CSkaterProfile* profile, uint32_t part)
 {
-    return GameFunction<Script::CStruct*(__thiscall*)(void*, uint32_t)>(0x00489050)(profile, part);
+    return Appearance(profile)->GetPartOption(part);
 }
 Script::CStruct* AppearancePart(Obj::CSkaterProfile* profile, uint32_t part)
 {
-    return GameFunction<Script::CStruct*(__thiscall*)(void*, uint32_t)>(0x004890B0)(profile, part);
+    return Appearance(profile)->GetPart(part);
 }
 Script::CStruct* AppearanceStructure(Obj::CSkaterProfile* profile)
 {
@@ -102,19 +106,20 @@ bool RefreshSkater(Script::CStruct* params, uint32_t buildScript)
 void* FaceOf(Obj::CSkaterProfile* profile) { return Obj::AppearanceFace(profile); }
 FacePoints* GetFacePoints(void* face, FacePoints* out)
 {
-    return GameFunction<FacePoints*(__thiscall*)(void*, FacePoints*)>(0x00487550)(face, out);
+    return reinterpret_cast<FacePoints*>(
+        static_cast<Gfx::CFaceTexture*>(face)->GetPoints(reinterpret_cast<Gfx::SFacePoints*>(out)));
 }
 void SetFacePoints(void* face, FacePoints* points)
 {
-    GameFunction<void(__thiscall*)(void*, FacePoints*)>(0x00487570)(face, points);
+    static_cast<Gfx::CFaceTexture*>(face)->SetPoints(reinterpret_cast<const Gfx::SFacePoints*>(points));
 }
 bool WriteFacePoints(FacePoints* points, Script::CStruct* to)
 {
-    return GameFunction<bool(__cdecl*)(FacePoints*, Script::CStruct*)>(0x00487000)(points, to);
+    return Gfx::WriteFacePoints(reinterpret_cast<const Gfx::SFacePoints*>(points), to);
 }
 bool ReadFacePoints(FacePoints* points, Script::CStruct* from)
 {
-    return GameFunction<bool(__cdecl*)(FacePoints*, Script::CStruct*)>(0x004869D0)(points, from);
+    return Gfx::ReadFacePoints(reinterpret_cast<Gfx::SFacePoints*>(points), from);
 }
 
 } // namespace
@@ -179,7 +184,7 @@ bool __cdecl CFunc_SetPlayerFaceTexture(Script::CStruct* params, Script::CScript
     const char* texture = nullptr; // (uninitialised in the original when missing)
     params->GetString(kTexture, &texture, 1);
     bool fullPath = params->ContainsFlag(kFullPathIncluded);
-    GameFunction<void(__thiscall*)(void*, const char*, bool)>(0x00487380)(FaceOf(profile), texture, fullPath);
+    static_cast<Gfx::CFaceTexture*>(FaceOf(profile))->LoadImageFile(texture, fullPath);
     return true;
 }
 
@@ -189,14 +194,14 @@ bool __cdecl CFunc_SetPlayerFaceOverlayTexture(Script::CStruct* params, Script::
     Obj::CSkaterProfile* profile = PlayerProfile(params);
     const char* texture = nullptr; // (uninitialised in the original when missing)
     params->GetString(kTexture, &texture, 1);
-    GameFunction<void(__thiscall*)(void*, const char*)>(0x00487590)(FaceOf(profile), texture);
+    static_cast<Gfx::CFaceTexture*>(FaceOf(profile))->SetOverlayName(texture);
     return true;
 }
 
 // 0x005AE880: ClearPlayerFaceTexture player=<n> - the face marked not valid.
 bool __cdecl CFunc_ClearPlayerFaceTexture(Script::CStruct* params, Script::CScript*)
 {
-    GameFunction<void(__thiscall*)(void*, bool)>(0x00487520)(FaceOf(PlayerProfile(params)), false);
+    static_cast<Gfx::CFaceTexture*>(FaceOf(PlayerProfile(params)))->SetValid(false);
     return true;
 }
 
@@ -204,7 +209,7 @@ bool __cdecl CFunc_ClearPlayerFaceTexture(Script::CStruct* params, Script::CScri
 bool __cdecl CFunc_PlayerFaceIsValid(Script::CStruct* params, Script::CScript*)
 {
     void* face = FaceOf(PlayerProfile(params));
-    return face && GameFunction<bool(__thiscall*)(void*)>(0x00487510)(face);
+    return face && static_cast<Gfx::CFaceTexture*>(face)->IsValid();
 }
 
 // 0x005AF750 / 0x005AF7D0 / 0x005AF850 / 0x005AF8D0: RefreshSkaterColors / Scale / Visibility / UV profile=<n>
@@ -291,7 +296,7 @@ bool __cdecl CFunc_GetActualCASOptionStruct(Script::CStruct* params, Script::CSc
     params->GetChecksum(kPart, &part, 1);
     params->GetChecksum(kDescId, &descId, 1);
     Script::CStruct* option =
-        GameFunction<Script::CStruct*(__cdecl*)(uint32_t, uint32_t, bool)>(0x00485CF0)(part, descId, true);
+        Obj::FindCasOption(part, descId, true);
     script->m_params->AppendStructureIfAny(option);
     return false;
 }

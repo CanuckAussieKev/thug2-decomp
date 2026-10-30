@@ -18,6 +18,7 @@
 #include "game/obj/object.h"
 #include "game/sys/timer.h"
 #include "game/gfx/viewport.h"
+#include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "game/goals/goal_manager.h"
 #include "hook/viewer_testkit.h"
@@ -135,7 +136,7 @@ void Install(StandIns& s)
         Rec(0x73F0, {r.ecx});
         return MakeMovie(r.ecx, 0xC0);
     });
-    s.At({0x004A0970, AddressOf(&Nx::SetCamera)}, 0, [](Regs& r) {
+    s.At({0x004A0970, AddressOf(Nx::SetCamera)}, 0, [](Regs& r) {
         Rec(0x0970, {r.args[0], r.args[1]});
         return 0u;
     });

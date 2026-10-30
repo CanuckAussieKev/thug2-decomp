@@ -17,9 +17,11 @@
 #include "game/skate/records.h"
 #include "game/skater/skater.h"
 #include "game/ed/rail_editor.h"
-#include "game/gfx/face_texture.h"
 #include "game/gfx/texture_dict.h"
+#include "game/script/struct.h"
 #include "game/skate/game_mode.h"
+#include "game/skate/profile_manager.h"
+#include "game/gfx/face_texture.h"
 #include "game/skate/score.h"
 #include "hook/gs4_testkit.h"
 
@@ -123,7 +125,7 @@ void StandInTextureCalls(StandIns& s)
         return 0u;
     });
     // the rail point search, the generator's search
-    s.At({0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) {
+    s.At({0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) {
         Record({0x4970});
         return reinterpret_cast<uint32_t>(g_tRailEditor);
     });

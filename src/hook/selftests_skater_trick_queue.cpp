@@ -2,6 +2,8 @@
 // the original against ours on the same stand-in component, objects and callees (sk5_testkit.h). Every structure
 // and array the code reads is a token the stand-ins answer for.
 
+#include <initializer_list>
+#include <utility>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
@@ -26,6 +28,11 @@
 #include "game/sio/inpman.h"
 #include "game/skater/skater.h"
 #include "game/sys/timer.h"
+#include "game/goals/goal_manager.h"
+#include "game/skate/score.h"
+#include "game/skater/balance_trick.h"
+#include "game/skater/core_physics.h"
+#include "game/skater/gap.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -286,14 +293,14 @@ void StandIns(Kit& kit, bool trickFunctions)
     kit.Recorder(0x0051F6B0, {12, 3, Ret::Bool, true}, {Code(&Obj::CTrickComponent::FindPress)});
     kit.Recorder(0x0051CAE0, {4, 1, Ret::None, true}, {Code(&Obj::CStatsManagerComponent::Count)});
     kit.Recorder(0x00511570, {0, 0, Ret::None, true}, {Code(&Obj::CSkaterFlipAndRotateComponent::DoAfterAnim)});
-    kit.Recorder(0x004F8E20, {8, 2, Ret::None, true});
+    kit.Recorder(0x004F8E20, {8, 2, Ret::None, true}, {Code(&Obj::CSkaterBalanceTrickComponent::GetButtons)});
     kit.Recorder(0x00521A10, {0, 0, Ret::None, true}, {Code(&Obj::CTrickComponent::QueueAllDoneTricks)});
     kit.Recorder(0x0051F320, {0, 0, Ret::None, true}, {Code(&Obj::CTrickComponent::Reset)});
     kit.Add({0x005591B0}, 0, [](Frame&) {
         Record(0x5591B0);
         return Int(reinterpret_cast<uint32_t>(Arena() + 0x5F00));
-    });
-    kit.Recorder(0x0055E790, {4, 1, Ret::None, true});
+    }, {Code(Game::GetGoalManager)});
+    kit.Recorder(0x0055E790, {4, 1, Ret::None, true}, {Code(&Game::CGoalManager::TrickLanded)});
     kit.Recorder(0x00588A20, {4, 1, Ret::None, true}, {Code(&Obj::CTrickObjectList::Add)});
     kit.Recorder(0x00588AA0, {8, 2, Ret::Int, true}, {Code(&Obj::CTrickObjectList::CopyClusterNames)});
     kit.Recorder(0x00588170, {0, 0, Ret::None, true}, {Code(&Obj::CTrickObjectList::Construct)});
@@ -349,14 +356,16 @@ void StandIns(Kit& kit, bool trickFunctions)
     // CallMemberFunction's callees.
     kit.Recorder(0x0051ECF0, {4, 1, Ret::Bool, true}, {Code(&Obj::CTrickComponent::IsButtonDown)});
     kit.Recorder(0x0051F610, {8, 2, Ret::None, true}, {Code(&Obj::CTrickComponent::ExpireButton)});
-    for (uint32_t address : {0x0051EB00u, 0x0051EB30u, 0x0051EF00u, 0x0051F010u, 0x005587F0u, 0x00511C30u, 0x00511C10u,
-                             0x0051CBF0u, 0x0051CA00u, 0x004F8DB0u, 0x004F8DE0u, 0x00509990u, 0x00564330u})
-        kit.Recorder(address, {0, 0, Ret::None, true});
+    // (ours: free functions, the gap component isn't passed in ECX: not recorded)
+    kit.Recorder(0x00511C30, {0, 0, Ret::None, false}, {Code(Obj::AwardPendingGaps)});
+    kit.Recorder(0x00511C10, {0, 0, Ret::None, false}, {Code(Obj::ClearPendingGaps)});
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, const void*>>{{0x0051EB00u, Code(&Obj::CTrickComponent::ClearEventBuffer)}, {0x0051EB30u, Code(&Obj::CTrickComponent::ClearBlock1238)}, {0x0051EF00u, Code(&Obj::CTrickComponent::ClearBlock1280)}, {0x0051F010u, Code(&Obj::CTrickComponent::DumpEventBuffer)}, {0x005587F0u, Code(&Game::CGoalManager::CheckTrickGoals)}, {0x0051CBF0u, Code(&Obj::CStatsManagerComponent::AnnounceMetGoals)}, {0x0051CA00u, Code(&Obj::CStatsManagerComponent::Reset)}, {0x004F8DB0u, Code(&Obj::CSkaterBalanceTrickComponent::KeepBestTimes)}, {0x004F8DE0u, Code(&Obj::CSkaterBalanceTrickComponent::Reset)}, {0x00509990u, Code(&Skater::CorePhysicsComponent::EndSkitch)}, {0x00564330u, Code(&Mdl::Score::Land)}})
+        kit.Recorder(address, {0, 0, Ret::None, true}, {ours_});
     kit.Recorder(0x0051ED90, {4, 1, Ret::None, true}, {Code(&Obj::CTrickComponent::RemoveTrickList)});
-    kit.Recorder(0x004FC440, {0, 0, Ret::Bool, true});
-    kit.Recorder(0x00563F30, {4, 1, Ret::None, true});
-    kit.Recorder(0x00564860, {4, 1, Ret::None, true});
-    kit.Recorder(0x00564BE0, {4, 1, Ret::None, true});
+    kit.Recorder(0x004FC440, {0, 0, Ret::Bool, true}, {Code(&Skater::CorePhysicsComponent::IsSwitched)});
+    kit.Recorder(0x00563F30, {4, 1, Ret::None, true}, {Code(&Mdl::Score::SetSpin)});
+    kit.Recorder(0x00564860, {4, 1, Ret::None, true}, {Code(&Mdl::Score::Bail)});
+    kit.Recorder(0x00564BE0, {4, 1, Ret::None, true}, {Code(&Mdl::Score::UpdateSpin)});
     kit.Add({0x00563990}, 12, [](Frame& f) {
         Record(0x563990);
         Record(Relative(f.ecx));
@@ -364,14 +373,14 @@ void StandIns(Kit& kit, bool trickFunctions)
         Record(f.args[1]);
         Record(f.args[2]);
         return Result();
-    });
+    }, {Code(&Mdl::Score::Trigger)});
     kit.Add({0x00561640}, 0, [](Frame& f) { // the trick the score shows: sometimes the one named
         Record(0x561640);
         Record(Relative(f.ecx));
         uint32_t name = Chance(50) ? Hash(reinterpret_cast<const char*>(Arena() + kComponent + 0x1331)) : Next();
         Record(name);
         return Int(name);
-    });
+    }, {Code(&Mdl::Score::GetLastTrickName)});
     kit.Add({0x0044E5A0}, 0, [](Frame& f) {
         Record(0x44E5A0);
         Record(f.args[0]);

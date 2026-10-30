@@ -19,6 +19,11 @@
 #include "game/skater/skater.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/timer.h"
+#include "game/script/game_util_cfuncs.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
+#include "game/skate/skate_module.h"
+#include "game/skater/core_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -103,25 +108,25 @@ void MakeIt(uint8_t* player, bool it) { Info(player)->MarkAsKing(it); }
 void TagOnTeam(uint8_t* player) { Info(player)->RetrievedFlag(); }
 void ConvertToTeam(uint8_t* player, int team) { Info(player)->StoleFlag(team); }
 
-uint32_t GameType() { return GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(GameMode()); }
-bool TeamGame() { return GameFunction<bool(__thiscall*)(void*)>(0x005535F0)(GameMode()); }
-bool TagGameOver() { return GameFunction<bool(__thiscall*)(void*)>(0x00553910)(GameMode()); }
-bool InSlapGame() { return GameFunction<bool(__cdecl*)(Script::CStruct*, Script::CScript*)>(0x005B3470)(nullptr, nullptr); }
+uint32_t GameType() { return static_cast<Game::CGameMode*>(GameMode())->GetNameChecksum(); }
+bool TeamGame() { return static_cast<Game::CGameMode*>(GameMode())->IsTeamGame() != 0; }
+bool TagGameOver() { return static_cast<Game::CGameMode*>(GameMode())->EndConditionsMet(); }
+bool InSlapGame() { return CFuncs::CFunc_InSlapGame(nullptr, nullptr); }
 
 CCompositeObject* SkaterByIndex(int index)
 {
-    return GameFunction<CCompositeObject*(__thiscall*)(void*, int)>(0x005665C0)(SkaterManager(), index);
+    return static_cast<Mdl::Skate*>(SkaterManager())->GetSkater(index);
 }
 const char* SkaterName(CCompositeObject* skater) { return static_cast<CSkater*>(skater)->GetDisplayName(); }
 // A skater's score (its +0x278's +0x18).
 void* SkaterScore(CCompositeObject* skater) { return Field<void*>(Field<void*>(skater, 0x278), 0x18); }
-int GetScore(void* score) { return GameFunction<int(__thiscall*)(void*)>(0x00561B40)(score); }
-void SetScore(void* score, int value) { GameFunction<void(__thiscall*)(void*, int)>(0x00561A80)(score, value); }
+int GetScore(void* score) { return static_cast<Mdl::Score*>(score)->GetTotalScore(); }
+void SetScore(void* score, int value) { static_cast<Mdl::Score*>(score)->SetTotalScore(value); }
 
 // Knocked over by `other`: a bail on the core physics, or the walk component's when walking or driving.
 void KnockDown(CBaseComponent* physics, CCompositeObject* other)
 {
-    GameFunction<void(__thiscall*)(CBaseComponent*, CCompositeObject*)>(0x004FE1D0)(physics, other);
+    reinterpret_cast<Skater::CorePhysicsComponent*>(physics)->ResetToAir(other);
 }
 void KnockDownWalking(CBaseComponent* walk, CCompositeObject* other)
 {

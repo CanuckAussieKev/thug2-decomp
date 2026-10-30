@@ -27,8 +27,9 @@
 #include "game/net/player_info.h"
 #include "game/obj/object.h"
 #include "game/skate/profile_manager.h"
-#include "game/skate/cas_options.h"
+#include "game/gfx/face_texture.h"
 #include "game/skate/game_mode.h"
+#include "game/skate/cas_options.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -146,7 +147,7 @@ void Install(StandIns& s)
     if (g_stubLocalFace)
         Stub(s, {0x0053A040, AddressOf(&Manager::PrepareLocalFace)}, 0, 0xA040, [](Regs&) { return g_localFace ? 1u : 0u; });
     Stub(s, {0x00564FC0, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile))}, 4, 0x4FC0, [](Regs&) { return At(Obj(4)); });
-    Stub(s, {0x00487510}, 0, 0x7510, [](Regs&) { return g_faceTexture ? 1u : 0u; });
+    Stub(s, {0x00487510, AddressOf(&Gfx::CFaceTexture::IsValid)}, 0, 0x7510, [](Regs&) { return g_faceTexture ? 1u : 0u; });
     Stub(s, {0x00487440}, 8, 0x7440);
     // The clients' end.
     Stub(s, {0x00455550, AddressOf(&Net::Manager::DestroyApp)}, 4, 0x5550);

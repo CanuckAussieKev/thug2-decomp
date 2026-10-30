@@ -18,6 +18,7 @@
 #include "game/obj/walk_hang.h"
 #include "game/skater/adjust_physics.h"
 #include "game/sys/game_clock.h"
+#include "game/skater/core_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -62,7 +63,7 @@ std::vector<StandIn> AdjustStandIns(bool frame)
         {0x00417240, 0, 0, Ret::Int, true, 0, {Ours(&Nx::CFeeler::GetHitObject)},
          [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kHitObject)); }},
         {0x0043EB80, 4, 1, Ret::None, true, 0, {Ours(&Walk::MovableContact::StartRiding)}},
-        {0x004FDED0, 4, 1, Ret::None, true},
+        {0x004FDED0, 4, 1, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::SetPhysicsState)}},
         {0x004609F0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CObject::SelfEvent)}},
         {0x004637E0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CRefCounted::RemoveSmartPointer)}},
         {0x004637C0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CRefCounted::AddSmartPointer)}},

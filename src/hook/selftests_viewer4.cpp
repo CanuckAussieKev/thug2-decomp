@@ -24,6 +24,8 @@
 #include "game/skater/stats_manager.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
+#include "game/skate/score.h"
+#include "game/skater/balance_trick.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -93,7 +95,8 @@ uint32_t ComponentFor(uint32_t type)
 void Install(StandIns& s)
 {
     InstallCommon(s);
-    s.Bytes(0x004F90A0, Branch(0xE9, 0x004F90A0, reinterpret_cast<void*>(&PhysicsStandIn)));
+    for (uint32_t address : {0x004F90A0u, AddressOf(&Obj::CSkaterBalanceTrickComponent::GetPhysicsValue)})
+        s.Bytes(address, Branch(0xE9, address, reinterpret_cast<void*>(&PhysicsStandIn)));
     for (uint32_t address : {0x00478F00u, AddressOf(static_cast<float (*)(uint32_t)>(&Script::GetFloat))})
         s.Bytes(address, Branch(0xE9, address, reinterpret_cast<void*>(&GetFloatStandIn)));
     for (uint32_t address : {0x005BEAA0u, AddressOf(&Tmr::GetSlomoFrameSeconds)})
@@ -108,7 +111,7 @@ void Install(StandIns& s)
         Rec(0xAEA0, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00564270}, 4, [](Regs& r) {
+    s.At({0x00564270, AddressOf(&Mdl::Score::TweakTrick)}, 4, [](Regs& r) {
         Rec(0x4270, {r.ecx, r.args[0]});
         return 0u;
     });
@@ -144,11 +147,11 @@ void Install(StandIns& s)
         Rec(0x9BD0, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00563370}, 8, [](Regs& r) {
+    s.At({0x00563370, AddressOf(&Mdl::Score::SetBalanceMeter)}, 8, [](Regs& r) {
         Rec(0x3370, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00563390}, 8, [](Regs& r) {
+    s.At({0x00563390, AddressOf(&Mdl::Score::SetManualMeter)}, 8, [](Regs& r) {
         Rec(0x3390, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });

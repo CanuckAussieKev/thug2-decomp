@@ -20,9 +20,9 @@
 #include "game/nx/coll_obj.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
+#include "game/gfx/viewport.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_scene_list.h"
-#include "game/gfx/viewport.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -133,7 +133,7 @@ void StandInProjection(StandIns& s)
              return GameFunction<uint32_t(__cdecl*)(uint32_t, uint32_t, uint32_t)>(0x0041F470)(r.args[0], r.args[1],
                                                                                                r.args[2]);
          });
-    s.At({0x004A09C0, AddressOf(&Nx::GetActiveCamera)}, 0, [](Regs& r) {
+    s.At({0x004A09C0, AddressOf(Nx::GetActiveCamera)}, 0, [](Regs& r) {
         Record({0x09C0, r.args[0]});
         return reinterpret_cast<uint32_t>(g_camera);
     });

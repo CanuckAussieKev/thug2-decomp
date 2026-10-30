@@ -344,7 +344,7 @@ void StandInWorld(StandIns& s)
         Record({0xCA2C, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x005531B0}, 4, [](Regs& r) {
+    s.At({0x005531B0, AddressOf(&Game::CGameMode::SetMaximumNumberOfPlayers)}, 4, [](Regs& r) {
         Record({0x3A85, Rel(r.ecx), r.args[0]});
         return 0u;
     });

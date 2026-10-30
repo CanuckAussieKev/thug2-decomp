@@ -13,6 +13,7 @@
 #include "game/obj/object.h"
 #include "game/obj/tracker.h"
 #include "game/skater/skater.h"
+#include "game/obj/ped_logic.h"
 #include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
@@ -109,7 +110,7 @@ void Install(StandIns& s)
         Rec(0xF2D0, {r.ecx, r.args[0]});
         return g_firstTarget < 0 ? 0u : Target(g_firstTarget) + 0x100;
     });
-    s.At({0x004ED140}, 0, [](Regs& r) {
+    s.At({0x004ED140, AddressOf(&Obj::CPedLogicComponent::GetLogicState)}, 0, [](Regs& r) {
         Rec(0xD140, {r.ecx});
         return *reinterpret_cast<uint32_t*>(r.ecx - 0x100 + 0xF4);
     });

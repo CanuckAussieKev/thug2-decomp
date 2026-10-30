@@ -87,11 +87,11 @@ void Install(StandIns& s)
         Rec(0xC590, {r.ecx, r.args[0], r.args[1]});
         return g_prefValues[r.args[0] ^ r.args[1]];
     });
-    Stub(s, {0x00564D80}, 0, 0x4D80, [](Regs&) { return At(kSplitPrefs); });
+    Stub(s, {0x00564D80, AddressOf(&Mdl::Skate::GetSplitScreenPreferences)}, 0, 0x4D80, [](Regs&) { return At(kSplitPrefs); });
     // The game mode.
-    Stub(s, {0x00553130}, 0, 0x3130, [](Regs&) { return 2u; });
-    Stub(s, {0x00553AD0}, 4, 0x3AD0);
-    Stub(s, {0x005535A0}, 4, 0x35A0);
+    Stub(s, {0x00553130, AddressOf(&Game::CGameMode::NumTeams)}, 0, 0x3130, [](Regs&) { return 2u; });
+    Stub(s, {0x00553AD0, AddressOf(&Game::CGameMode::LoadGameType)}, 4, 0x3AD0);
+    Stub(s, {0x005535A0, AddressOf(&Game::CGameMode::SetNumTeams)}, 4, 0x35A0);
     Stub(s, {0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, [](Regs&) { return g_gameType; });
     Stub(s, {0x00553220, AddressOf(&Game::CGameMode::IsTrue)}, 4, 0x3220, [](Regs& r) { return r.args[0] == 0x11941568 ? 1u : 0u; });
     // The manager's own calls not rewritten here.

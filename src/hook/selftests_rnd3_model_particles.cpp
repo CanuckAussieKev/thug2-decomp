@@ -51,8 +51,8 @@ void StandInModelCalls(StandIns& s)
         Record({0xBB10});
         return g_memoryFree;
     });
-    s.At({0x0048BFA0, AddressOf(&Nx::CreateModel)}, 0, [](Regs&) {
-        Record({0xBFA0}); // (its argument isn't read or passed)
+    s.At({0x0048BFA0, AddressOf(Nx::CreateModel)}, 0, [](Regs& r) {
+        Record({0xBFA0, r.args[0] & 0xFF});
         if (g_modelsLeft-- <= 0)
             return 0u;
         return Bump(0x50);

@@ -28,8 +28,6 @@ constexpr uint32_t kAirTimer = 0x14CC;         // (cleared whenever the skater i
 constexpr uint32_t kEnteredAir = 0xF225FE69;   // the events sent when +0x4F0 changes (names unknown)
 constexpr uint32_t kLeftAir = 0x5E27200A;
 
-void Call(uint32_t address, void* component) { GameFunction<void(__thiscall*)(void*)>(address)(component); }
-
 } // namespace
 
 // 0x00510830
@@ -83,7 +81,7 @@ void CorePhysicsComponent::Update()
     }
 
     CollisionEvents::Checkpoint(this, "state-physics"); // (not original)
-    Call(0x004FF200, this); // (not rewritten yet)
+    UpdateSpeedOverride();
     CollisionEvents::Checkpoint(this, "after-4FF200"); // (not original)
     TryGrind(false); // (inlined in the original)
     CollisionEvents::Checkpoint(this, "try-grind"); // (not original)

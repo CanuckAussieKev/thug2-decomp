@@ -13,8 +13,8 @@
 #include "game/net/net_app.h"
 #include "game/net/player_info.h"
 #include "game/obj/trick_objects.h"
-#include "game/ed/rail_editor.h"
 #include "game/goals/goal_manager.h"
+#include "game/ed/rail_editor.h"
 #include "game/skate/skate_module.h"
 #include "hook/viewer_testkit.h"
 
@@ -85,7 +85,7 @@ void* g_destructor;
 void Install(StandIns& s)
 {
     InstallCommon(s);
-    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) {
+    s.At({0x005591B0, AddressOf(Game::GetGoalManager)}, 0, [](Regs&) {
         Rec(0x91B0, {});
         return At(kGoals);
     });

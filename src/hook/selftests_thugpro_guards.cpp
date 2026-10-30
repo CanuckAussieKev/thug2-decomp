@@ -27,10 +27,10 @@
 #include "game/skate/thugpro_cas.h"
 #include "game/skater/local_net_logic.h"
 #include "game/util/bitstream.h"
-#include "game/gfx/engine.h"
-#include "game/gfx/sector.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/game_mode.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/sector.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -141,7 +141,7 @@ void StandInGraffiti(StandIns& s)
         Record({0xD0, Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0xFFFFFFFFu;
     });
-    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) {
+    s.At({0x005591B0, AddressOf(Game::GetGoalManager)}, 0, [](Regs&) {
         Record({0xD1});
         return reinterpret_cast<uint32_t>(g_gw.goals);
     });

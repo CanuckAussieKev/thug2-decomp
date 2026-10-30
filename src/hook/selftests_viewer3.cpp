@@ -102,15 +102,15 @@ void Install(StandIns& s)
             callback(Ptr<CStruct>(kNodes + 0x10 * i), Ptr<uint8_t>(0x0F00 + i));
         return 0u;
     });
-    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) {
+    s.At({0x005591B0, AddressOf(Game::GetGoalManager)}, 0, [](Regs&) {
         Rec(0x91B0, {});
         return At(kGoals);
     });
-    s.At({0x0055DEA0}, 0, [](Regs& r) {
+    s.At({0x0055DEA0, AddressOf(&Game::CGoalManager::HasActiveGapGoal)}, 0, [](Regs& r) {
         Rec(0xDEA0, {r.ecx});
         return g_goalsListening ? 1u : 0u;
     });
-    s.At({0x005586E0}, 4, [](Regs& r) {
+    s.At({0x005586E0, AddressOf(&Game::CGoalManager::GotGap)}, 4, [](Regs& r) {
         Rec(0x86E0, {r.ecx, r.args[0]});
         return 0u;
     });

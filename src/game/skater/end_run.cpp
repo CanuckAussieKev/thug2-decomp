@@ -8,6 +8,8 @@
 #include "game/core/mem.h"
 #include "game/net/gamenet_manager.h"
 #include "game/script/cscript.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -29,13 +31,13 @@ constexpr uint32_t kRunHasEnded = 0x822E13A9, kGoalHasEnded = 0xAB676175, kForce
 // player). Not rewritten yet.
 bool IsMultiplayerGame()
 {
-    return GameFunction<bool(__thiscall*)(void*)>(0x005651F0)(GameVariable<void*>(0x007CE478));
+    return Mdl::Skate::IsMultiplayer() != 0;
 }
 // The game mode (0x007CE470)'s 0x00553550: whether a run is over at its end here (multiplayer, and the mode's
 // stop_at_zero if it has the setting). Not rewritten yet.
 bool GameModeEndsRuns()
 {
-    return GameFunction<bool(__thiscall*)(void*)>(0x00553550)(GameVariable<void*>(0x007CE470));
+    return static_cast<Game::CGameMode*>(GameVariable<void*>(0x007CE470))->ShouldStopAtZero();
 }
 // The network manager (0x007CCE14): whether it has told the server the local run is over (0x005332A0: its +0x39
 // matches +0x38), and telling it (0x00533250).

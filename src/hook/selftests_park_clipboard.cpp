@@ -153,8 +153,8 @@ void Install(StandIns& s)
         return r.args[0];
     });
     // The rail editor.
-    s.At({0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) { return At(0x6F00); });
-    s.At({0x004F7230, AddressOf(&Ed::CRailEditorComponent::CopyRailsInside)}, 0x10, [](Regs& r) {
+    s.At({0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) { return At(0x6F00); });
+    s.At({0x004F7230}, 0x10, [](Regs& r) {
         Rec(0x7230, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[3]});
         return g_railList;
     });

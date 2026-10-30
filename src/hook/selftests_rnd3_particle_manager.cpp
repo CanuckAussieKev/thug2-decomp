@@ -119,7 +119,7 @@ void StandInManagerCalls(StandIns& s)
         Record({0x6FA0, Relocate(r.ecx), r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x004A09C0, AddressOf(&Nx::GetActiveCamera)}, 0, [](Regs& r) {
+    s.At({0x004A09C0, AddressOf(Nx::GetActiveCamera)}, 0, [](Regs& r) {
         Record({0x9C0, r.args[0]});
         return reinterpret_cast<uint32_t>(g_camera);
     });

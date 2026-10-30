@@ -24,6 +24,7 @@
 #include "game/skater/skater.h"
 #include "game/skater/trick_component.h"
 #include "game/sys/game_clock.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -104,7 +105,7 @@ std::vector<StandIn> RailStandIns(bool transferStoodIn)
              std::memset(reinterpret_cast<void*>(f.args[0]), 0, 64);
          }},
         {0x005BFA8C, 12, 3, Ret::Int, false},
-        {0x004FFB10, 0, 0, Ret::Bool, true, 0, {}, [](Frame&, Result& r) { r.eax = Next() % 8 == 0; }},
+        {0x004FFB10, 0, 0, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::JumpReleased)}, [](Frame&, Result& r) { r.eax = Next() % 8 == 0; }},
         {0x005092E0, 4, 1, Ret::None, true, 0, {Ours(&CorePhysicsComponent::TriggerRailScript)}},
         {0x00579CC0, 0, 0, Ret::None, true, 0, {Ours(&Obj::CBalance::Update)}},
         {0x00584CC0, 4, 1, Ret::Bool, true, 0, {Ours(&Obj::CSkaterCareer::GetCheat)}},
@@ -121,7 +122,7 @@ std::vector<StandIn> RailStandIns(bool transferStoodIn)
              }
              r.eax = f.args[0];
          }},
-        {0x00564270, 4, 1, Ret::None, true},
+        {0x00564270, 4, 1, Ret::None, true, 0, {Ours(&Mdl::Score::TweakTrick)}},
         {0x0045C1B0, 0, 2, Ret::Int, false, 0, {Ours(&SkateScript::GetNode)},
          [](Frame&, Result& r) { r.eax = 0x51000000u; }},
         {0x00476950, 12, 3, Ret::Bool, true, 0,
@@ -132,9 +133,9 @@ std::vector<StandIn> RailStandIns(bool transferStoodIn)
          }},
         {0x00522370, 4, 1, Ret::None, true, 0, {Ours(&Obj::CTrickComponent::PassToTrickObjects)}},
         {0x005003A0, 8, 2, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::CheckFeeler)}, [](Frame&, Result& r) { r.eax = Next() % 3 == 0; }},
-        {0x004FDED0, 4, 1, Ret::None, true},
+        {0x004FDED0, 4, 1, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::SetPhysicsState)}},
         {0x004609F0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CObject::SelfEvent)}},
-        {0x004FC470, 4, 1, Ret::None, true},
+        {0x004FC470, 4, 1, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::SetTerrain)}},
     };
     if (transferStoodIn)
         list.push_back({0x0050C200, 4, 1, Ret::None, true, 0, {Ours(&CorePhysicsComponent::TransferOrLeaveRail)},

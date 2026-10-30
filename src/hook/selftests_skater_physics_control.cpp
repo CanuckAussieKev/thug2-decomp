@@ -1,6 +1,8 @@
 // Self-test for the skater's physics control component (src/game/skater/physics_control.cpp, 0x005176A0-0x00517CB1):
 // the original and ours on the same stand-in skater, every call they make recorded.
 
+#include <initializer_list>
+#include <utility>
 #include <windows.h>
 
 #include <cstdint>
@@ -17,6 +19,8 @@
 #include "game/skater/skater_state.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
+#include "game/skater/skater_camera_component.h"
+#include "game/skater/walk_camera.h"
 #include "hook/skater3_testkit.h"
 
 namespace {
@@ -55,7 +59,7 @@ void StandIn(StandIns& s)
     Rec(s, {0x00580880, AddressOf(&Obj::CSkater::GetSkaterCamera)}, 0, 0x0880, [](Regs&) { return Addr(kCamera); });
     Rec(s, {0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0, 0xECE0,
         [](Regs&) { return static_cast<uint32_t>(g_a.clock += 0x111); }, false);
-    Rec(s, {0x004FDD50}, 0, 0xDD50);
+    Rec(s, {0x004FDD50, AddressOf(&Skater::CorePhysicsComponent::LeaveSkating)}, 0, 0xDD50);
     // (bool arguments: only their low byte is read - the original passes SETcc results with stale upper bytes)
     s.At({0x0050C670, AddressOf(&Skater::CorePhysicsComponent::ResumeSkating)}, 12, [](Regs& r) {
         Record({0xC670, Rel(r.ecx), r.args[0] & 0xFF, Rel(r.args[1]), Rel(r.args[2])});
@@ -71,15 +75,15 @@ void StandIn(StandIns& s)
     });
     Rec(s, {0x005260C0, AddressOf(&Obj::CWalkComponent::ClearModelOffset)}, 0, 0x60C0);
     // The cameras' state: written by one, read (hashed) by the other.
-    for (uint32_t address : {0x004FA420u, 0x00525060u}) {
-        Rec(s, {address}, 1, address & 0xFFFF, [](Regs& r) {
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x004FA420u, AddressOf(&Obj::CSkaterCameraComponent::SaveState)}, {0x00525060u, AddressOf(&Obj::CWalkCameraComponent::SaveState)}}) {
+        Rec(s, {address, ours_}, 1, address & 0xFFFF, [](Regs& r) {
             for (int i = 0; i < 0x48; ++i)
                 reinterpret_cast<uint8_t*>(r.args[0])[i] = static_cast<uint8_t>(i * 5 + r.ecx);
             return 0u;
         });
     }
-    for (uint32_t address : {0x00524FF0u, 0x004F9A40u}) {
-        Rec(s, {address}, 1, address & 0xFFFF, [](Regs& r) {
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00524FF0u, AddressOf(&Obj::CWalkCameraComponent::RestoreState)}, {0x004F9A40u, AddressOf(&Obj::CSkaterCameraComponent::SetState)}}) {
+        Rec(s, {address, ours_}, 1, address & 0xFFFF, [](Regs& r) {
             g_trace.push_back(HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 0x48));
             return 0u;
         });

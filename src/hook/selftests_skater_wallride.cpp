@@ -88,21 +88,21 @@ void TestDoWallRidePhysics()
              v[0] += 0.5f, v[2] -= 0.25f; // (turned)
          }},
         {0x005003A0, 8, 2, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::CheckFeeler)}, FeelStandIn},
-        {0x004FE860, 16, 4, Ret::None, true},
+        {0x004FE860, 16, 4, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::TurnToNormal)}},
         {0x0045DB90, 4, 1, Ret::Int, true, 0, {Ours(&Obj::CCompositeObject::GetComponent)},
          [](Frame&, Result& r) { r.eax = reinterpret_cast<uint32_t>(ArenaPtr(kQueries)); }},
         {0x0050DAE0, 4, 1, Ret::None, true, 1, {Ours(&CorePhysicsComponent::TryGrind)}, [](Frame&, Result&) {
              if (Next() % 3 == 0)
                  ArenaAt<int>(kFlags + 0x18) = 4; // (onto a rail)
          }},
-        {0x004FDED0, 4, 1, Ret::None, true},
+        {0x004FDED0, 4, 1, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::SetPhysicsState)}},
         {0x004609F0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CObject::SelfEvent)}},
         {0x00460A20, 12, 3, Ret::None, true, 0, {Ours(&Obj::CObject::BroadcastEvent)}},
         {0x005051B0, 0, 0, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::KeepOffCeilingAtWall)}, [](Frame&, Result& r) { r.eax = Next() % 6 == 0; }},
         {0x00434BF0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CTriggerComponent::CheckFeeler)}},
         {0x005232A0, 4, 1, Ret::None, true, 1, {Ours(&Obj::CTrickComponent::SetTrickObjects)}},
         {0x0043A930, 4, 1, Ret::Int, true, 0, {Ours(&Nx::CFeeler::Assign)}, [](Frame& f, Result& r) { r.eax = f.ecx; }},
-        {0x004FFB10, 0, 0, Ret::Bool, true},
+        {0x004FFB10, 0, 0, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::JumpReleased)}},
         {0x00522370, 4, 1, Ret::None, true, 0, {Ours(&Obj::CTrickComponent::PassToTrickObjects)}},
     });
     UseOurs vectors({

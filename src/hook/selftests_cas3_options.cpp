@@ -22,6 +22,7 @@
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "game/skate/cas_options.h"
+#include "game/gfx/model_appearance.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -99,7 +100,7 @@ void StandInOptionCalls(StandIns& s)
         int n = static_cast<int>(r.args[0]);
         return n <= 0 ? 0u : static_cast<uint32_t>((n - 1 - static_cast<int>(g_rnd % static_cast<uint32_t>(n))));
     });
-    s.At({0x004890B0}, 4, [](Regs& r) {
+    s.At({0x004890B0, AddressOf(&Gfx::CModelAppearance::GetPart)}, 4, [](Regs& r) {
         Record({0x90B0, r.ecx, r.args[0]});
         return r.args[0] < 2 ? reinterpret_cast<uint32_t>(g_parts[r.args[0]].Struct()) : 0u;
     });

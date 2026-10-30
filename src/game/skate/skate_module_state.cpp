@@ -38,6 +38,10 @@
 #include "game/skater/skater.h"
 #include "game/sfx/terrain.h"
 #include "game/sys/timer.h"
+#include "game/ed/rail_editor.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/flexible_particle_manager.h"
+#include "game/gfx/viewport.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -222,8 +226,8 @@ void Skate::StartCallback()
 void Skate::CleanupForParkEditor()
 {
     GameVariable<Obj::CTrickObjectManager*>(0x007CE500)->RemoveAllClusters();
-    GameFunction<void(__cdecl*)()>(0x004915A0)();
-    GameFunction<void(__thiscall*)(void*)>(0x0049AE30)(GameVariable<void*>(0x006FA7C0));
+    Nx::Engine::KillAllTextureSplats();
+    static_cast<Nx::CFlexibleParticleManager*>(GameVariable<void*>(0x006FA7C0))->DestroyNonPersistent();
     m_railManager->Cleanup();
     Obj::Proxim_Cleanup();
     Obj::Emitter_Cleanup();
@@ -355,8 +359,8 @@ bool __cdecl Skate::CFunc_ChangeLevel(Script::CStruct* params, Script::CScript*)
             int handle = info->GetConnHandle();
             server->StreamMessage(handle, kMsgParkMap, 15000, map, Text(0x0064C884), kGroupGame, false,
                                   true); // "level data"
-            GameFunction<void*(__cdecl*)()>(0x004F4970)(); // (the rail editor; this first answer unused, as the original)
-            void* rails = GameFunction<void*(__thiscall*)(void*)>(0x004F45B0)(GameFunction<void*(__cdecl*)()>(0x004F4970)());
+            Ed::CRailEditorComponent::Instance(); // (the rail editor; this first answer unused, as the original)
+            void* rails = Ed::CRailEditorComponent::Instance()->GetPacked();
             handle = info->GetConnHandle();
             server->StreamMessage(handle, kMsgParkRails, 0x1132, rails, Text(0x0064C878), kGroupGame, false,
                                   true); // "rail data"
@@ -438,9 +442,9 @@ bool __cdecl Skate::CFunc_InitSkaterHeaps(Script::CStruct*, Script::CScript*)
 // 0x00565620
 void Skate::PreCalculateObjectUpdateInfo()
 {
-    if (GameVariable<int>(0x00701378) <= 1 && GameFunction<Gfx::Camera*(__cdecl*)(int)>(0x004A09C0)(0)) {
+    if (GameVariable<int>(0x00701378) <= 1 && Nx::GetActiveCamera(0)) {
         m_noCamera = false;
-        m_cameraPos = *GameFunction<Gfx::Camera*(__cdecl*)(int)>(0x004A09C0)(0)->GetPos();
+        m_cameraPos = *Nx::GetActiveCamera(0)->GetPos();
         return;
     }
     m_noCamera = true;

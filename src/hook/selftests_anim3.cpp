@@ -310,7 +310,7 @@ void StandInEverything(StandIns& s)
             return 0u;
         });
     }
-    s.At({0x0048BFE0, AddressOf(&Nx::Engine::SplitSkinName)}, 0, [](Regs& r) {
+    s.At({0x0048BFE0, AddressOf(Nx::Engine::SplitSkinName)}, 0, [](Regs& r) {
         Rec(0x8BFE, {StringHash(r.args[0])});
         std::snprintf(reinterpret_cast<char*>(r.args[1]), 64, "Base_%s", reinterpret_cast<const char*>(r.args[0]));
         return static_cast<uint32_t>(g_hasCas);

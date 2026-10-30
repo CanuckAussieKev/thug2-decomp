@@ -74,7 +74,7 @@ std::vector<StandIn> CollisionStandIns()
              r.st0 = values[Next() % 7];
          }},
         {0x005003A0, 8, 2, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::CheckFeeler)}, [](Frame&, Result& r) { r.eax = Next() % 5 != 0; }},
-        {0x004F8200, 4, 1, Ret::Int, true, 0, {}, [](Frame& f, Result& r) {
+        {0x004F8200, 4, 1, Ret::Int, true, 0, {Ours(&Nx::CFeeler::CopyConstruct)}, [](Frame& f, Result& r) {
              std::memcpy(reinterpret_cast<void*>(f.ecx), reinterpret_cast<void*>(f.args[0]), 0xB0);
              r.eax = f.ecx;
          }},
@@ -82,7 +82,7 @@ std::vector<StandIn> CollisionStandIns()
              std::memcpy(reinterpret_cast<void*>(f.ecx), reinterpret_cast<void*>(f.args[0]), 0xB0);
              r.eax = f.ecx;
          }},
-        {0x004FFDB0, 4, 1, Ret::Bool, true},
+        {0x004FFDB0, 4, 1, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::StepUp)}},
         {0x004637E0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CRefCounted::RemoveSmartPointer)}},
         {0x004172F0, 8, 2, Ret::Int, true, 3, {Ours(&Nx::CFeeler::GetCollision)}, [](Frame& f, Result& r) {
              const float* line = reinterpret_cast<const float*>(f.ecx);

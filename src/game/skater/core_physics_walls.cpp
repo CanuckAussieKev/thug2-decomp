@@ -375,7 +375,7 @@ void CorePhysicsComponent::CheckWallAhead()
 void CorePhysicsComponent::BounceOffWallAhead(const Mth::Vector* normal)
 {
     const Mth::Vector entryVelocity = VectorAt(ObjectOf(this), kVelocity); // (not original: for NotePath)
-    if (GameFunction<bool(__thiscall*)(void*)>(0x004FF670)(this)) {
+    if (WallPushOff()) {
         CollisionEvents::NotePath(this, CollisionEvents::Path::WallAheadPlant, entryVelocity); // (not original)
         return;
     }

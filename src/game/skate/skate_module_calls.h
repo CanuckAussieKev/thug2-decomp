@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "game/skate/career.h"
+#include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
 
@@ -35,37 +36,38 @@ inline uint8_t* Horse() { return SkateField<uint8_t*>(0x364); }
 // 0x00566600: the skater whose object id is `id` (null: none).
 inline Obj::CCompositeObject* GetSkater(int index)
 {
-    return GameFunction<Obj::CCompositeObject*(__thiscall*)(uint8_t*, int)>(0x005665C0)(Skate(), index);
+    return Mdl::Skate::Instance()->GetSkater(index);
 }
 inline Obj::CCompositeObject* GetLocalSkater()
 {
-    return GameFunction<Obj::CCompositeObject*(__thiscall*)(uint8_t*)>(0x00566520)(Skate());
+    // (a CSkater is a CCompositeObject: the same pointer)
+    return reinterpret_cast<Obj::CCompositeObject*>(Mdl::Skate::Instance()->GetLocalSkater());
 }
 inline Obj::CCompositeObject* GetSkaterById(uint32_t id)
 {
-    return GameFunction<Obj::CCompositeObject*(__thiscall*)(uint8_t*, uint32_t)>(0x00566600)(Skate(), id);
+    return reinterpret_cast<Obj::CCompositeObject*>(Mdl::Skate::Instance()->GetSkaterById(id));
 }
 // 0x00564FC0: the profile manager's profile `index`. 0x00564F80: the profile `params`' integer `skater` names (none,
 // or no params: the current one).
 inline Obj::CSkaterProfile* GetProfile(int index)
 {
-    return GameFunction<Obj::CSkaterProfile*(__thiscall*)(uint8_t*, int)>(0x00564FC0)(Skate(), index);
+    return Mdl::Skate::Instance()->GetProfile(index);
 }
 inline Obj::CSkaterProfile* GetProfileFromParams(void* params)
 {
-    return GameFunction<Obj::CSkaterProfile*(__thiscall*)(uint8_t*, void*)>(0x00564F80)(Skate(), params);
+    return Mdl::Skate::Instance()->GetProfile(static_cast<Script::CStruct*>(params));
 }
 // 0x005651F0: a game of more than one player (a network game, or the game mode's player count 2 or more).
-inline bool IsMultiplayer() { return GameFunction<bool(__cdecl*)()>(0x005651F0)(); }
+inline bool IsMultiplayer() { return Mdl::Skate::IsMultiplayer() != 0; }
 
 // The game mode.
 inline void* GameMode() { return GameVariable<void*>(0x007CE470); }
 // 0x00553220: the game mode's integer `property` (is_career, is_horse ...) is non-zero.
 inline bool GameModeIsTrue(uint32_t property)
 {
-    return GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x00553220)(GameMode(), property);
+    return static_cast<Game::CGameMode*>(GameMode())->IsTrue(property);
 }
 // 0x00553910: elimiskate's end - everyone eliminated but one (or every scavenger hunt player done).
-inline bool GameModeShouldEndRun() { return GameFunction<bool(__thiscall*)(void*)>(0x00553910)(GameMode()); }
+inline bool GameModeShouldEndRun() { return static_cast<Game::CGameMode*>(GameMode())->EndConditionsMet(); }
 
 } // namespace SkateCalls

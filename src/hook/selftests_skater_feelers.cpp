@@ -73,7 +73,7 @@ std::vector<StandIn> FeelerStandIns()
         {0x0045D920, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CCompositeObject::Update)},
         {0x00476B40, 4, 1, Ret::Bool, true, 0, -1, -1, 0,
          CodeAddress(static_cast<bool (Script::CStruct::*)(uint32_t)>(&Script::CStruct::ContainsFlag))},
-        {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0},   // SetState
+        {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::SetPhysicsState)},   // SetState
         {0x00511420, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CSkaterFlipAndRotateComponent::ApplyFlipToAnims)},
         {0x004215F0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CModelComponent::GetDisplayMatrix)},   // (the model's rotations onto a matrix)
         {0x004213E0, 0, 0, Ret::Float, true, 0, -1, -1, 0, CodeAddress(&Obj::CModelSpinAxis::Angle)},

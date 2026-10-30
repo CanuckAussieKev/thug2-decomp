@@ -19,6 +19,13 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/skate_module_calls.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/model.h"
+#include "game/gfx/model_appearance.h"
+#include "game/gfx/model_builder.h"
+#include "game/gfx/model_utils.h"
+#include "game/skate/cas_options.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -64,25 +71,24 @@ constexpr uint32_t kPedPartLists[] = {0xF56A8CFB, 0x26D93E89, 0xAF8139ED, 0xE5DC
 
 // Nx (not rewritten yet): a new model (0x0048BFA0, cdecl) and its deletion (0x0048C3C0); a model loaded from a file
 // (0x004935E0, eight arguments); its geom count (0x00492E40) and a geom's texture dictionary (0x004946C0).
-void* NewModel(int arg) { return GameFunction<void*(__cdecl*)(int)>(0x0048BFA0)(arg); }
-void DeleteModel(void* model) { GameFunction<void(__cdecl*)(void*)>(0x0048C3C0)(model); }
+void* NewModel(int) { return Nx::CreateModel(); } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
+void DeleteModel(void* model) { Nx::Engine::DeleteGeomObject(model); }
 void LoadModel(void* model, const char* file, int a, int b, int c, uint32_t d, int e, int f, int g)
 {
-    GameFunction<void(__thiscall*)(void*, const char*, int, int, int, uint32_t, int, int, int)>(0x004935E0)(
-        model, file, a, b, c, d, e, f, g);
+    static_cast<Nx::CModel*>(model)->AddFileGeom(file, static_cast<uint32_t>(a), b != 0, c, d != 0, e != 0, f != 0, g != 0);
 }
 // 0x004879D0 (cdecl): the model file's path for `name` with `extension` (a String made in `out`, returned).
 Str::String* ModelPath(void* out, const char* name, const char* extension)
 {
-    return GameFunction<Str::String*(__cdecl*)(void*, const char*, const char*)>(0x004879D0)(out, name, extension);
+    return Gfx::MakeModelPath(static_cast<Str::String*>(out), name, extension);
 }
 // 0x0048BFE0 (cdecl): a model file's base name (without its extension) into `base`.
-void BaseName(const char* name, char* base) { GameFunction<bool(__cdecl*)(const char*, char*)>(0x0048BFE0)(name, base); }
+void BaseName(const char* name, char* base) { Nx::Engine::SplitSkinName(name, base); }
 
 // 0x00565BB0: the skate module's: whether a node isn't for this game (its own 0x68910AC6 test).
 bool SkipNode(Script::CStruct* node)
 {
-    return GameFunction<bool(__thiscall*)(uint8_t*, Script::CStruct*)>(0x00565BB0)(Skate(), node);
+    return Mdl::Skate::ShouldBeAbsent(node) != 0;
 }
 
 // 0x005AAAA0 (gamenet-2's range: the list's name in EAX): every part of a global CAS part list with allow_random
@@ -100,11 +106,11 @@ void PreloadPartList(uint32_t list)
 // options of a slot's list matching a filter (0: any of them allowed to pick) into `out`, their count in `count`.
 Script::CStruct* CasOption(uint32_t part, uint32_t descId, bool assert)
 {
-    return GameFunction<Script::CStruct*(__cdecl*)(uint32_t, uint32_t, bool)>(0x00485CF0)(part, descId, assert);
+    return Obj::FindCasOption(part, descId, assert);
 }
 void MatchingOptions(uint32_t part, uint32_t filter, Script::CStruct** out, int* count)
 {
-    GameFunction<void(__cdecl*)(uint32_t, uint32_t, Script::CStruct**, int*)>(0x00485D70)(part, filter, out, count);
+    Obj::GetMatchingCasOptions(part, filter, out, count);
 }
 
 // The appearance a pedestrian profile describes (Gfx::CModelAppearance, 0x5C bytes: constructor 0x00488EA0,
@@ -247,15 +253,16 @@ bool __cdecl CFunc_PreloadPedestrians(Script::CStruct* params, Script::CScript*)
             continue;
         void* nxModel = NewModel(1);
         Appearance appearance;
-        GameFunction<void*(__thiscall*)(Appearance*)>(0x00488EA0)(&appearance);
-        GameFunction<void(__thiscall*)(Appearance*, Script::CStruct*, bool)>(0x00488F40)(&appearance, profile, false);
+        auto* gfxAppearance = reinterpret_cast<Gfx::CModelAppearance*>(&appearance);
+        gfxAppearance->Construct();
+        gfxAppearance->Load(profile, false);
         ModelBuilder builder;
-        GameFunction<void*(__thiscall*)(ModelBuilder*, int, int)>(0x004897D0)(&builder, 1, 8);
-        GameFunction<bool(__thiscall*)(ModelBuilder*, Appearance*, void*, int, uint32_t)>(0x0048A2F0)(
-            &builder, &appearance, nxModel, 0, kPreloadModelFromAppearance);
+        auto* gfxBuilder = reinterpret_cast<Gfx::CModelBuilder*>(&builder);
+        gfxBuilder->Construct(true, 8);
+        gfxBuilder->Build(gfxAppearance, static_cast<Nx::CModel*>(nxModel), nullptr, kPreloadModelFromAppearance);
         DeleteModel(nxModel);
         reinterpret_cast<Obj::CObject*>(&builder)->DestroyBody();
-        GameFunction<void(__thiscall*)(Appearance*)>(0x004890F0)(&appearance);
+        gfxAppearance->DestroyBody();
     }
     SkateScript::EndNodeWalk();
     Mem::PopMemProfile();
@@ -378,8 +385,9 @@ bool __cdecl CFunc_ReplaceCarTextures(Script::CStruct* params, Script::CScript* 
             continue;
         void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
         bool added = false;
-        for (int i = 0; i < GameFunction<int(__thiscall*)(void*)>(0x00492E40)(model); ++i) {
-            uint32_t textures = GameFunction<uint32_t(__thiscall*)(void*, int)>(0x004946C0)(model, i);
+        for (int i = 0; i < static_cast<Nx::CModel*>(model)->GetNumGeoms(); ++i) {
+            uint32_t textures =
+                static_cast<uint32_t>(reinterpret_cast<uintptr_t>(static_cast<Nx::CModel*>(model)->GetGeomTextures(i)));
             bool found = false;
             for (int k = 0; k < seenCount; ++k) {
                 if (seen[k] == textures)

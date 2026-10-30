@@ -12,6 +12,7 @@
 #include "game/obj/control_pad.h"
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
+#include "game/skater/core_physics.h"
 #include "hook/game.h"
 
 namespace Skater::Physics {
@@ -100,11 +101,11 @@ inline double StatValue(void* object, uint32_t name)
 }
 // 0x004FF470: the gravity (a physics value over a script one; in some states times another). It may come back
 // unrounded (a product left on the x87 stack).
-inline double Gravity(void* component) { return GameFunction<double(__thiscall*)(void*)>(0x004FF470)(component); }
+inline double Gravity(void* component) { return static_cast<Skater::CorePhysicsComponent*>(component)->GetGravity(); }
 // 0x004FDED0: the physics state (+0x18 of the flags) changed to `state`, with what goes with it.
 inline void SetState(void* component, int state)
 {
-    GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(component, state);
+    static_cast<Skater::CorePhysicsComponent*>(component)->SetPhysicsState(state);
 }
 
 // 0x0042BBF0 (Mth::Vector::SetLength): x, y and z scaled to `length` (left alone at length 0).

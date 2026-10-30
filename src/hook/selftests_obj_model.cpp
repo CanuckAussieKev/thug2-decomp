@@ -82,8 +82,8 @@ void StandIn(StandIns& s)
     });
     g_geomVtable[6] = RecThunk(s, 1, 0x6E06);
     // Its lights.
-    Rec(s, {0x0048E660, AddressOf(&Nx::CModelLights::UpdateBrightness)}, 0, 0xE660);
-    Rec(s, {0x0048E8A0, AddressOf(&Nx::CModelLights::SetBrightness)}, 1, 0xE8A0, [](Regs&) { return 1u; });
+    Rec(s, {0x0048E660}, 0, 0xE660);
+    Rec(s, {0x0048E8A0}, 1, 0xE8A0, [](Regs&) { return 1u; });
     Rec(s, {0x0048E830, AddressOf(&Nx::CModelLights::MoveBrightness)}, 2, 0xE830, [](Regs&) { return 1u; });
     Rec(s, {0x0048EDB0, AddressOf(Nx::SetWorldBrightness)}, 1, 0xEDB0, [](Regs&) { return 1u; }, false, true);
     // The feeler.

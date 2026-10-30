@@ -68,7 +68,7 @@ void Install(StandIns& s)
         Rec(0x8540, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x004893A0}, 4, [](Regs& r) {
+    s.At({0x004893A0, AddressOf(&Gfx::CModelAppearance::CopyFrom)}, 4, [](Regs& r) {
         Rec(0x93A0, {r.ecx, r.args[0]});
         return r.ecx;
     });

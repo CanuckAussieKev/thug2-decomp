@@ -703,7 +703,7 @@ void RandomVoiceState(Lcg& random)
 void StandInVoiceWorld(StandIns& s)
 {
     StandInCameras(s, false);
-    s.At({0x004A0950, AddressOf(&Nx::GetCamera)}, 0, [](Regs& r) {
+    s.At({0x004A0950, AddressOf(Nx::GetCamera)}, 0, [](Regs& r) {
         uint32_t pick = g_answers.Below(4);
         Record({0x0EA09500, r.args[0], pick});
         return pick == 3 ? 0u : Camera(static_cast<int>(pick));

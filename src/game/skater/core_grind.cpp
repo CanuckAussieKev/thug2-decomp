@@ -31,6 +31,8 @@
 #include "game/skater/trick_component.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
+#include "game/skater/balance_trick.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -81,7 +83,7 @@ Mth::Vector& AcidHold() { return GameVariable<Mth::Vector>(0x007CCDBC); }
 
 const Mth::Vector kUpAxis = {0.0f, 1.0f, 0.0f, 1.0f};
 
-void SetState(void* component, int state) { GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(component, state); }
+void SetState(void* component, int state) { static_cast<CorePhysicsComponent*>(component)->SetPhysicsState(state); }
 void* Component(void* component, uint32_t offset) { return At<void*>(component, offset); }
 
 // The rail's terrain (the node being ground) told to the flags (0x005196A0) and the sound component.
@@ -150,7 +152,7 @@ void OntoRail(void* component, const Mth::Vector* point, bool always)
     SetFlag(component, 0x38, 0);
     At<uint8_t>(component, 0x2D0) = 0;
     if (always || StateOf(component) == kWallRide) {
-        GameFunction<void(__thiscall*)(void*, Mth::Vector)>(0x004FE860)(component, kUpAxis);
+        static_cast<CorePhysicsComponent*>(component)->TurnToNormal(kUpAxis);
         MatrixAt(component, kDisplayMatrix) = MatrixAt(ObjectOf(component), kMatrix);
     }
     SetState(component, kRail);
@@ -266,7 +268,7 @@ void SpinOnPointRail(CorePhysicsComponent* c, const Mth::Vector* point)
     if (!ClearToPoint(c, point, true))
         return;
     OntoRail(c, point, true);
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x004FC470)(c, At<Obj::CRailNode*>(c, kRailNode)->m_terrain);
+    static_cast<CorePhysicsComponent*>(c)->SetTerrain(At<Obj::CRailNode*>(c, kRailNode)->m_terrain);
     if (!At<uint8_t>(c, 0x2ED))
         PlayLandSound(c);
     Mth::Vector& v = VectorAt(ObjectOf(c), kVelocity);
@@ -289,7 +291,7 @@ void StartLipTrick(CorePhysicsComponent* c, const Mth::Vector* point)
     SetFlag(c, 0x40, 0);
     SetFlag(c, 0x48, 0);
     At<uint8_t>(c, 0x2D0) = 0;
-    GameFunction<void(__thiscall*)(void*)>(0x004F8EE0)(Component(c, 0x1524));
+    static_cast<Obj::CSkaterBalanceTrickComponent*>(Component(c, 0x1524))->Stop();
     VectorAt(c, 0x258) = VectorAt(ObjectOf(c), kPosition); // (where it started)
     SetState(c, kLip);
     VectorAt(ObjectOf(c), kPosition) = *point;
@@ -495,7 +497,7 @@ void CorePhysicsComponent::StartGrind(const Mth::Vector* point, Obj::CRailNode* 
         uint32_t index = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(node) -
                                                reinterpret_cast<uint8_t*>(At<Obj::CRailNode*>(manager, 0x40))) /
                          sizeof(Obj::CRailNode);
-        GameFunction<void(__thiscall*)(void*, uint32_t)>(0x005627B0)(At<void*>(Component(this, 0x1520), 0x18), index);
+        static_cast<Mdl::Score*>(At<void*>(Component(this, 0x1520), 0x18))->UpdateRobotDetection(static_cast<int>(index));
     }
     At<Obj::CRailManager*>(this, kRailManager) = manager;
     At<Obj::CRailNode*>(this, kRailNode) = node;
@@ -566,8 +568,7 @@ void CorePhysicsComponent::TryGrind(bool always)
     Obj::CRailNode* node;
     if (manager->FindGrindRail(&last, &now, &point, &node, nullptr, minAlignment, 0)) {
         void* o = ObjectOf(this);
-        GameFunction<void(__cdecl*)(int, const Mth::Vector*, const Mth::Vector*)>(0x004FC4A0)(
-            2, &VectorAt(o, kOldPosition), &VectorAt(o, kPosition));
+        TrackingPrint(2, &VectorAt(o, kOldPosition), &VectorAt(o, kPosition));
         StopRiding(this);
         if (CanGrind(this, node, manager))
             StartGrind(&point, node, manager, false, false);

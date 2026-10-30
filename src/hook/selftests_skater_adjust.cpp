@@ -61,9 +61,9 @@ void TestAdjustPhysicsUpdate()
         {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}},
         {0x004317C0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CShadowComponent::SetPosition)}},
         {0x004317E0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CShadowComponent::SetNormal)}},
-        {0x004F82F0, 4, 1, Ret::None, true},
+        {0x004F82F0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CSkaterAdjustPhysicsComponent::UpdateBrightness)}},
         {0x004172F0, 8, 2, Ret::Bool, true, 0, {Ours(&Nx::CFeeler::GetCollision)}, FloorStandIn},
-        {0x004FDED0, 4, 1, Ret::None, true},
+        {0x004FDED0, 4, 1, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::SetPhysicsState)}},
         {0x004609F0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CObject::SelfEvent)}},
     });
     void* savedPark = GameVariable<void*>(0x007CE5D8);
@@ -154,13 +154,13 @@ void TestAdjustPhysicsBike()
         {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}},
         {0x004317C0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CShadowComponent::SetPosition)}},
         {0x004317E0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CShadowComponent::SetNormal)}},
-        {0x004F82F0, 4, 1, Ret::None, true},
+        {0x004F82F0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CSkaterAdjustPhysicsComponent::UpdateBrightness)}},
         {0x004172F0, 8, 2, Ret::Bool, true, 0, {Ours(&Nx::CFeeler::GetCollision)}, [](Frame& f, Result& r) {
              const float* line = reinterpret_cast<const float*>(f.ecx);
              RecordFloat(line[5]); // (the end's y)
              r.eax = 0;
          }},
-        {0x004FDED0, 4, 1, Ret::None, true},
+        {0x004FDED0, 4, 1, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::SetPhysicsState)}},
         {0x004609F0, 8, 2, Ret::None, true, 0, {Ours(&Obj::CObject::SelfEvent)}},
     });
     void* savedPark = GameVariable<void*>(0x007CE5D8);

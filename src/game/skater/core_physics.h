@@ -712,4 +712,7 @@ private:
     void LandFromAir();
 };
 
+// 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).
+void __cdecl TrackingPrint(int index, const Mth::Vector* a, const Mth::Vector* b);
+
 } // namespace Skater

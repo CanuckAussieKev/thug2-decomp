@@ -16,6 +16,7 @@
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
 #include "game/skate/game_mode.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
@@ -81,7 +82,7 @@ void Install(StandIns& s)
         Rec(0xE4F0, {r.ecx});
         return g_net ? 1u : 0u;
     });
-    s.At({0x005A1050}, 0, [](Regs& r) {
+    s.At({0x005A1050, AddressOf(CFuncs::CFunc_NotifyBailDone)}, 0, [](Regs& r) {
         Rec(0x1050, {r.args[0], r.args[1]});
         return 0u;
     });

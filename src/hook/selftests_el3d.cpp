@@ -31,8 +31,8 @@
 #include "game/script/struct.h"
 #include "game/sys/sdl_window.h"
 #include "game/sys/timer.h"
-#include "game/gfx/model.h"
 #include "game/gfx/viewport.h"
+#include "game/gfx/model.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -118,7 +118,7 @@ void TestElement3dMath()
     SaveAll(saved);
     StandIns s;
     void* camera = nullptr;
-    s.At({0x004A09C0, AddressOf(&Nx::GetActiveCamera)}, 0, [&](Regs& r) {
+    s.At({0x004A09C0, AddressOf(Nx::GetActiveCamera)}, 0, [&](Regs& r) {
         Record({0xC0, r.args[0]});
         return reinterpret_cast<uint32_t>(camera);
     });
@@ -478,7 +478,7 @@ void InstallStandIns(StandIns& s)
         Rec(0x19F0, {r.ecx, r.args[0]});
         return g_el3d_found ? At(g_el3d_found) : 0u;
     });
-    s.At({0x004A09C0, AddressOf(&Nx::GetActiveCamera)}, 0, [](Regs& r) {
+    s.At({0x004A09C0, AddressOf(Nx::GetActiveCamera)}, 0, [](Regs& r) {
         Rec(0x09C0, {r.args[0]});
         return g_el3d_camera_on ? At(kCamera) : 0u;
     });

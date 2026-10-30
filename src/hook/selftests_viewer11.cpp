@@ -3,6 +3,8 @@
 // is a recording stand-in (by address: its this, its arguments, a scripted answer), and the calls, results and the
 // whole arena are compared.
 
+#include <initializer_list>
+#include <utility>
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -14,7 +16,12 @@
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
+#include "game/gfx/texture_dict.h"
 #include "game/skate/game_mode.h"
+#include "game/skate/score.h"
+#include "game/skate/skate_module.h"
+#include "game/skater/balance_trick.h"
+#include "game/skater/trick_component.h"
 #include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
@@ -167,24 +174,28 @@ void Install(StandIns& s)
     });
     Simple(s, {0x0053AEA0}, 4, 30, true);
     Simple(s, {0x00532EA0}, 4, 31, true);
-    s.At({0x0049F9B0}, 16, [](Regs& r) {
+    s.At({0x0049F9B0, AddressOf(&Nx::CTexDict::LoadTexture)}, 16, [](Regs& r) {
         Rec(0xF9B0, {r.ecx, Text(r.args[0]), r.args[1], r.args[2], r.args[3]});
         return Block(40 + g_elements++);
     });
     Simple(s, {0x00553E90}, 0, 32, true);
-    for (uint32_t address : {0x00511420u, 0x00518630u, 0x004F8D80u, 0x0046BC60u, 0x00511310u, 0x0051EAB0u, 0x0051EB30u,
-                             0x0051EF00u, 0x0051EB00u, 0x0051ED10u, 0x005232E0u, 0x00519650u, 0x0043D520u, 0x00419A20u,
-                             0x0048E4C0u, 0x005144D0u, 0x00513AB0u, 0x00431780u, 0x0047B2A0u})
+    for (uint32_t address : {0x00511420u, 0x00518630u, 0x0046BC60u, 0x00511310u, 0x00519650u, 0x0043D520u, 0x00419A20u, 0x0048E4C0u, 0x005144D0u, 0x00513AB0u, 0x00431780u, 0x0047B2A0u})
         Simple(s, {address}, 0, address == 0x00419A20u ? 0x419A2u : 0u);
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x004F8D80u, AddressOf(&Obj::CSkaterBalanceTrickComponent::ClearBestTimes)}, {0x0051EAB0u, AddressOf(&Obj::CTrickComponent::ClearExtraTricks)}, {0x0051EB30u, AddressOf(&Obj::CTrickComponent::ClearBlock1238)}, {0x0051EF00u, AddressOf(&Obj::CTrickComponent::ClearBlock1280)}, {0x0051EB00u, AddressOf(&Obj::CTrickComponent::ClearEventBuffer)}, {0x0051ED10u, AddressOf(&Obj::CTrickComponent::ClearQueue)}, {0x005232E0u, AddressOf(&Obj::CTrickComponent::ResetTrickObjects)}})
+        Simple(s, {address, ours_}, 0, address == 0x00419A20u ? 0x419A2u : 0u);
     s.At({0x0041A730, OursOf(0x0041A730)}, 4, [](Regs& r) {
         const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
         Rec(0xA730, {r.ecx, v[0], v[1], v[2]});
         return r.ecx;
     });
-    for (uint32_t address : {0x005178B0u, 0x0048DED0u, 0x0049F500u, 0x00565BF0u})
+    for (uint32_t address : {0x005178B0u, 0x0048DED0u})
         Simple(s, {address}, 4);
-    for (uint32_t address : {0x00563370u, 0x00563390u, 0x0048D060u, 0x0048DE80u, 0x0048DEB0u, 0x0049F420u, 0x0048DE30u})
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x0049F500u, AddressOf(&Nx::CTexDict::UnloadTexture)}, {0x00565BF0u, AddressOf(&Mdl::Skate::SetSkaterShadow)}})
+        Simple(s, {address, ours_}, 4);
+    for (uint32_t address : {0x0048D060u, 0x0048DE80u, 0x0048DEB0u, 0x0049F420u, 0x0048DE30u})
         Simple(s, {address}, 8);
+    for (auto [address, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00563370u, AddressOf(&Mdl::Score::SetBalanceMeter)}, {0x00563390u, AddressOf(&Mdl::Score::SetManualMeter)}})
+        Simple(s, {address, ours_}, 8);
     for (uint32_t address : {0x004202A0u, 0x0049F360u, 0x00420110u})
         Simple(s, {address}, 12);
     Simple(s, {0x00511390}, 16);

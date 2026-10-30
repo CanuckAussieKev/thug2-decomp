@@ -3,6 +3,8 @@
 // for by recording code; the calls, results and arena are compared. (The bytes the original leaves uninitialised in
 // what it sends aren't compared.)
 
+#include <initializer_list>
+#include <utility>
 #include <windows.h>
 
 #include <cstdint>
@@ -21,11 +23,12 @@
 #include "game/script/struct.h"
 #include "game/skater/skater.h"
 #include "game/sys/timer.h"
-#include "game/ed/goal_editor.h"
 #include "game/ed/rail_editor.h"
+#include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
+#include "game/ed/goal_editor.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -140,7 +143,7 @@ void Install(StandIns& s)
     StubCdecl(s, {0x005388F0, AddressOf(&GameNet::CFunc_SetNumTeams)}, 0x88F0, 2);
     // (the goal count is the goal manager's first word: the original reads it through the getter folded at
     // 0x00469490, ours as the field - it's put there, not answered by a stand-in)
-    StubCdecl(s, {0x005591B0, AddressOf(&Game::GetGoalManager)}, 0x91B0, 0, [](Regs&) {
+    StubCdecl(s, {0x005591B0, AddressOf(Game::GetGoalManager)}, 0x91B0, 0, [](Regs&) {
         Word<uint32_t>(kMisc + 0x700) = static_cast<uint32_t>(g_goalCount);
         return At(kMisc + 0x700);
     });
@@ -172,8 +175,8 @@ void Install(StandIns& s)
     Stub(s, {0x00537B30, AddressOf(&GameNet::Manager::ClearQueuedScripts)}, 0, 0x7B30);
     Stub(s, {0x00406850, AddressOf(&Tsk::BaseTask::InList)}, 0, 0x6850, [](Regs&) { return g_taskInList ? 1u : 0u; });
     StubCdecl(s, {0x005BE970, AddressOf(&Tmr::GetTime)}, 0xE970, 0, [](Regs&) { return 0x00010000u; });
-    StubCdecl(s, {0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x500); });
-    Stub(s, {0x004F7550, AddressOf(&Ed::CRailEditorComponent::Clear)}, 0, 0x7550);
+    StubCdecl(s, {0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x500); });
+    Stub(s, {0x004F7550}, 0, 0x7550);
     Stub(s, {0x00406C90, AddressOf(&Tsk::Stack::AddTask)}, 4, 0x6C90);
     s.At({0x005376F0, AddressOf(&GameNet::Manager::CreateNetPanelMessage)}, 0x20, [](Regs& r) {
         Rec(0x76F0, {r.ecx, r.args[0] & 0xFF, r.args[1], GameNetKit::Str(r.args[2]), GameNetKit::Str(r.args[3]), r.args[4], r.args[5],
@@ -184,9 +187,9 @@ void Install(StandIns& s)
     // The start of a game.
     Stub(s, {0x00581510, AddressOf(&Obj::CSkater::HideSkater)}, 0, 0x1510);
     Stub(s, {0x005814D0, AddressOf(&Obj::CSkater::Reset27C)}, 0, 0x14D0);
-    Stub(s, {0x00553AD0}, 4, 0x3AD0);
+    Stub(s, {0x00553AD0, AddressOf(&Game::CGameMode::LoadGameType)}, 4, 0x3AD0);
     Stub(s, {0x00564D90, AddressOf(&Mdl::Skate::GetGoalManager)}, 4, 0x4D90, [](Regs&) { return At(kMisc + 0x780); });
-    Stub(s, {0x00558250, AddressOf(&Game::CGoalManager::DeactivateAllGoals)}, 0, 0x8250);
+    Stub(s, {0x00558250}, 0, 0x8250);
     StubCdecl(s, {0x00479070, AddressOf(static_cast<CArray* (*)(uint32_t)>(&Script::GetArray))}, 0x9070, 1, [](Regs& r) {
         switch (r.args[0]) {
         case 0x50E63314: return At(Fake(10)); // targetScoreArray
@@ -209,8 +212,8 @@ void Install(StandIns& s)
          0x8C80);
     // (0x005430D0, the setter of +0x1D4 the original calls on the manager - its last leading team -, isn't stood in:
     // ours writes the field itself)
-    for (uint32_t a : {0x00564D50u, 0x00553BE0u, 0x005535A0u, 0x005530A0u, 0x00553080u})
-        Stub(s, {a}, 4, a & 0xFFFF);
+    for (auto [a, ours_] : std::initializer_list<std::pair<uint32_t, uint32_t>>{{0x00564D50u, AddressOf(&Mdl::Skate::SetUnknown370)}, {0x00553BE0u, AddressOf(&Game::CGameMode::OverrideOptions)}, {0x005535A0u, AddressOf(&Game::CGameMode::SetNumTeams)}, {0x005530A0u, AddressOf(&Game::CGameMode::SetGoalsMode)}, {0x00553080u, AddressOf(&Game::CGameMode::SetTeamGraffitiMode)}})
+        Stub(s, {a, ours_}, 4, a & 0xFFFF);
     const std::pair<uint32_t, uint32_t> noArgs[] = {{0x00566A60u, 0}, {0x00537620u, AddressOf(&GameNet::Manager::ResetPlayers)},
                                                     {0x00543100u, AddressOf(&GameNet::PlayerInfo::ClearLastHitTime)},
                                                     {0x00564A10u, 0}};
@@ -240,9 +243,9 @@ void Install(StandIns& s)
     // The game's state.
     Stub(s, {0x00553270}, 0, 0x3270, [](Regs&) { return 0x3270AAAAu; });
     Stub(s, {0x005533B0}, 0, 0x33B0, [](Regs&) { return 123456u; });
-    Stub(s, {0x00553170, AddressOf(&Game::CGameMode::GetTimeLimit)}, 0, 0x3170, [](Regs&) { return 0x3170BBBBu; });
+    Stub(s, {0x00553170}, 0, 0x3170, [](Regs&) { return 0x3170BBBBu; });
     Stub(s, {0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, [](Regs&) { return g_gameType; });
-    Stub(s, {0x00553130}, 0, 0x3130, [](Regs&) { return 3u; });
+    Stub(s, {0x00553130, AddressOf(&Game::CGameMode::NumTeams)}, 0, 0x3130, [](Regs&) { return 3u; });
     Stub(s, {0x00534F40, AddressOf(&GameNet::Manager::GetLevel)}, 0, 0x4F40, [](Regs&) { return 0x4F40CCCCu; });
     Stub(s, {0x00535B20, AddressOf(&GameNet::Manager::GetGoalsPreference)}, 0, 0x5B20, [](Regs&) { return 0x5B20DDDDu; });
     Stub(s, {0x00535AD0, AddressOf(&GameNet::Manager::GetTeamGraffitiMode)}, 0, 0x5AD0, [](Regs&) { return 0x5AD0EEEEu; });
@@ -254,9 +257,9 @@ void Install(StandIns& s)
         return 0x30u;
     });
     Stub(s, {0x00557FB0, AddressOf(&Game::CGoalManager::GetGoalByIndex)}, 4, 0x7FB0, [](Regs& r) { return At(kGoals + 0x40 * r.args[0]); });
-    Stub(s, {0x005542F0}, 0, 0x42F0, [](Regs& r) { return ((r.ecx - At(kGoals)) / 0x40) % 2 == 1 ? 1u : 0u; });
-    Stub(s, {0x00554280}, 0, 0x4280, [](Regs& r) { return 0x60A10000u + (r.ecx - At(kGoals)) / 0x40; });
-    Stub(s, {0x00557F90}, 8, 0x7F90, [](Regs& r) { return At(kGoals + 0x40 * (r.args[0] & 7)); });
+    Stub(s, {0x005542F0, AddressOf(&Game::CGoal::IsSelected)}, 0, 0x42F0, [](Regs& r) { return ((r.ecx - At(kGoals)) / 0x40) % 2 == 1 ? 1u : 0u; });
+    Stub(s, {0x00554280, AddressOf(&Game::CGoal::GetGoalId)}, 0, 0x4280, [](Regs& r) { return 0x60A10000u + (r.ecx - At(kGoals)) / 0x40; });
+    Stub(s, {0x00557F90, AddressOf(&Game::CGoalManager::GetGoal)}, 8, 0x7F90, [](Regs& r) { return At(kGoals + 0x40 * (r.args[0] & 7)); });
     g_goalVtable[3] = s.Thunk(0, [](Regs& r) {
         Rec(0x60A3, {r.ecx});
         return r.ecx == At(kGoals + 0x40 * (g_runningGoal & 7)) ? 1u : 0u;

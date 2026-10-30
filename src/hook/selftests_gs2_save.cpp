@@ -27,8 +27,8 @@
 #include "game/script/struct_buffer.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
-#include "game/ed/goal_editor.h"
 #include "game/goals/goal_manager.h"
+#include "game/ed/goal_editor.h"
 #include "game/sys/game_config.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
@@ -90,8 +90,8 @@ void StandInCalls(StandIns& s)
         return reinterpret_cast<uint32_t>("BASLUS-21012");
     });
     // ApplyGoalManagerParams
-    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) { Record({0x91B0}); return reinterpret_cast<uint32_t>(g_goalManager); });
-    s.At({0x00557E70, AddressOf(&Game::CGoalManager::ResetGoalData)}, 4, [](Regs& r) { Record({0x7E70, Mark(r.ecx), r.args[0]}); return 0u; });
+    s.At({0x005591B0, AddressOf(Game::GetGoalManager)}, 0, [](Regs&) { Record({0x91B0}); return reinterpret_cast<uint32_t>(g_goalManager); });
+    s.At({0x00557E70}, 4, [](Regs& r) { Record({0x7E70, Mark(r.ecx), r.args[0]}); return 0u; });
     s.At({0x004A2BA0}, 0, [](Regs& r) { Record({0x2BA0, Mark(r.ecx)}); return reinterpret_cast<uint32_t>(g_ownParams); });
     s.At({0x00477090, AddressOf(&CStruct::Clear)}, 0, [](Regs& r) { Record({0x7090, Mark(r.ecx)}); return 0u; });
     s.At({0x00477130}, 0, [](Regs& r) { Record({0x7090, Mark(r.ecx)}); return 0u; });
@@ -548,7 +548,7 @@ void StandInSummaryCalls(StandIns& s)
         Record({0x2F70, r.ecx});
         return g_preferencesStruct - 4;
     });
-    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) { Record({0x91B0}); return reinterpret_cast<uint32_t>(g_goalManager); });
+    s.At({0x005591B0, AddressOf(Game::GetGoalManager)}, 0, [](Regs&) { Record({0x91B0}); return reinterpret_cast<uint32_t>(g_goalManager); });
     s.At({0x004A2BA0}, 0, [](Regs& r) { Record({0x2BA0, Mark(r.ecx)}); return g_goalManagerParams; });
     s.At({0x0055C090, AddressOf(&Game::CGoalManager::LevelUnload)}, 0, [](Regs& r) { Record({0xC090, Mark(r.ecx)}); return 0u; });
     s.At({0x005665C0, AddressOf(&Mdl::Skate::GetSkater)}, 4, [](Regs& r) {

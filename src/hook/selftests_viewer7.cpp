@@ -164,7 +164,7 @@ void Install(StandIns& s)
         Rec(0x90F0, {r.ecx});
         return 0u;
     });
-    s.At({0x004875F0}, 4, [](Regs& r) {
+    s.At({0x004875F0, AddressOf(&Gfx::CFaceTexture::LoadFromStructure)}, 4, [](Regs& r) {
         Rec(0x75F0, {r.ecx, r.args[0]});
         return 0u;
     });

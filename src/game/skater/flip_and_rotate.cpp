@@ -14,6 +14,7 @@
 #include "game/script/struct.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
+#include "game/skater/core_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -56,8 +57,8 @@ uint32_t AppValue8(Net::Client* app) { return Field<uint32_t>(app, 0x08); }
 
 // The core physics component's (not rewritten yet): the skater turned around (0x004FE120) and whether the flip is
 // needed (0x004FC440).
-void TurnAround(uint8_t* corePhysics) { GameFunction<void(__thiscall*)(uint8_t*)>(0x004FE120)(corePhysics); }
-bool FlipNeeded(uint8_t* corePhysics) { return GameFunction<bool(__thiscall*)(uint8_t*)>(0x004FC440)(corePhysics); }
+void TurnAround(uint8_t* corePhysics) { reinterpret_cast<Skater::CorePhysicsComponent*>(corePhysics)->TurnAround(); }
+bool FlipNeeded(uint8_t* corePhysics) { return (reinterpret_cast<Skater::CorePhysicsComponent*>(corePhysics)->IsSwitched() & 0xFF) != 0; }
 
 // The animation blender's 0x00419C10: its animations mirrored or not (`flip`: the state component's byte as it is).
 void FlipAnims(CBaseComponent* blender, uint32_t objectId, uint32_t flip, uint32_t a, int b)

@@ -134,7 +134,7 @@ inline double LengthOf(const Mth::Vector& v)
 // inline instead - ReleaseFeelerObject).
 inline void CopyFeeler(void* to, const void* from)
 {
-    GameFunction<void*(__thiscall*)(void*, const void*)>(0x004F8200)(to, from);
+    static_cast<Nx::CFeeler*>(to)->CopyConstruct(*static_cast<const Nx::CFeeler*>(from));
 }
 inline void AssignFeeler(void* to, const void* from)
 {

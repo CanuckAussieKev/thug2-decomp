@@ -19,6 +19,8 @@
 #include "game/skater/core_physics_fields.h"
 #include "game/sys/mlp.h"
 #include "game/sys/screenshot.h"
+#include "game/skate/skate_module.h"
+#include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/log.h"
 
@@ -197,7 +199,7 @@ std::string LevelFileStamp(const std::string& level, const char* kind)
 void* LocalSkater()
 {
     uint8_t* module = GameVariable<uint8_t*>(0x007CE478);
-    return module ? GameFunction<void*(__thiscall*)(void*)>(0x00566520)(module) : nullptr;
+    return module ? reinterpret_cast<Mdl::Skate*>(module)->GetLocalSkater() : nullptr;
 }
 
 float Horizontal(const float* v, float* direction)

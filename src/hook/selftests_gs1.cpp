@@ -72,6 +72,11 @@
 #include "game/skater/skater.h"
 #include "game/sys/viewer.h"
 #include "game/sys/viewer_object.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/viewport.h"
+#include "game/gfx/viewport_list.h"
+#include "game/skate/game_mode.h"
+#include "game/goals/goal_manager.h"
 #include "game/gfx/anim_cache.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_effects.h"
@@ -79,17 +84,12 @@
 #include "game/gfx/engine_imposters.h"
 #include "game/gfx/engine_scene.h"
 #include "game/gfx/engine_scene_list.h"
-#include "game/gfx/face_texture.h"
 #include "game/gfx/light_manager.h"
 #include "game/gfx/scene_lights.h"
 #include "game/gfx/sector.h"
 #include "game/gfx/texture_dict.h"
-#include "game/gfx/viewport.h"
-#include "game/gfx/viewport_list.h"
-#include "game/goals/goal_manager.h"
 #include "game/script/script_startup.h"
 #include "game/script/trick_cfuncs.h"
-#include "game/skate/game_mode.h"
 #include "game/skate/score.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
@@ -196,8 +196,8 @@ void StandInCalls(StandIns& s)
         Record({0x19F0, r.ecx, r.args[0]});
         return g_hasObject ? reinterpret_cast<uint32_t>(g_fakes->object) : 0u;
     });
-    s.At({0x004A09C0, AddressOf(&Nx::GetActiveCamera)}, 0, [](Regs& r) { Record({0x09C0, r.args[0]}); return reinterpret_cast<uint32_t>(g_fakes->camera); });
-    s.At({0x004A0970, AddressOf(&Nx::SetCamera)}, 0, [](Regs& r) { Record({0x0970, r.args[0], r.args[1]}); return 0u; });
+    s.At({0x004A09C0, AddressOf(Nx::GetActiveCamera)}, 0, [](Regs& r) { Record({0x09C0, r.args[0]}); return reinterpret_cast<uint32_t>(g_fakes->camera); });
+    s.At({0x004A0970, AddressOf(Nx::SetCamera)}, 0, [](Regs& r) { Record({0x0970, r.args[0], r.args[1]}); return 0u; });
     s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4F80, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_fakes->profile);
@@ -521,9 +521,9 @@ void StandInFlowCalls(StandIns& s)
         });
     };
     simple({0x0048C1B0, AddressOf(&Stubs::DoNothing)}, 0, 0xC1B0, 0);
-    simple({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, 0x91B0, 0, 0x00517F00);
-    simple({0x00558250, AddressOf(&Game::CGoalManager::DeactivateAllGoals)}, 4, 0x8250, 3);
-    simple({0x0055BEF0, AddressOf(&Game::CGoalManager::RemoveAllGoals)}, 0, 0xBEF0, 1);
+    simple({0x005591B0, AddressOf(Game::GetGoalManager)}, 0, 0x91B0, 0, 0x00517F00);
+    simple({0x00558250}, 4, 0x8250, 3);
+    simple({0x0055BEF0}, 0, 0xBEF0, 1);
     simple({0x00572BD0, AddressOf(&Gfx::CTODManager::ClearDeadObjects)}, 0, 0x2BD0, 1);
     simple({0x0058DB30, AddressOf(&Ed::CParkEditor::Leave)}, 0, 0xDB30, 1);
     simple({0x005666A0, AddressOf(&Mdl::Skate::Cleanup)}, 0, 0x66A0, 1);
@@ -651,7 +651,7 @@ void StandInFlowCalls(StandIns& s)
         Record({0xF5D0, r.ecx, r.args[0] & 0xFF});
         return 0u;
     });
-    s.At({0x00553170, AddressOf(&Game::CGameMode::GetTimeLimit)}, 0, [](Regs& r) { Record({0x3170, r.ecx}); return 120000u; });
+    s.At({0x00553170}, 0, [](Regs& r) { Record({0x3170, r.ecx}); return 120000u; });
     s.At({0x00564D50, AddressOf(&Mdl::Skate::SetUnknown370)}, 4, [](Regs& r) { Record({0x4D50, r.ecx, r.args[0]}); return 0u; });
     s.At({0x0054ECA0, AddressOf(&Mdl::FrontEnd::PadsPluggedIn)}, 0, [](Regs& r) { Record({0xECA0, Rel(r.ecx)}); return 0x100u; });
     s.At({0x004923E0, AddressOf(&Nx::Engine::AddFlash)}, 0, [](Regs& r) {
@@ -1193,9 +1193,9 @@ void StandInServerListCalls(StandIns& s)
     simple({0x005453E0, AddressOf(&GameNet::Manager::SetServiceState)}, 4, 0x53E0, 3);
     simple({0x00545370, AddressOf(&GameNet::Manager::StopServerList)}, 0, 0x5370, 1);
     simple({0x005462F0, AddressOf(&GameNet::Manager::ClearServerList)}, 0, 0x62F0, 1);
-    s.At({0x005651F0, AddressOf(&Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) { Record({0x51F0}); return static_cast<uint32_t>(g_modeMatch & 1); }); // (static in ours: no `this`)
+    s.At({0x005651F0, AddressOf(Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) { Record({0x51F0}); return static_cast<uint32_t>(g_modeMatch & 1); });
     s.At({0x0044E4F0, AddressOf(&GameNet::Manager::InNetGame)}, 0, [](Regs&) { Record({0xE4F0}); return g_modeMatch & 2 ? 1u : 0u; });
-    simple({0x005536D0, AddressOf(&Game::CGameMode::IncrementRound)}, 0, 0x36D0, 1);
+    simple({0x005536D0}, 0, 0x36D0, 1);
     s.At({0x00553220, AddressOf(&Game::CGameMode::IsTrue)}, 4, [](Regs& r) { Record({0x3220, r.ecx, r.args[0]}); return r.args[0] == static_cast<uint32_t>(g_modeMatch) ? 1u : 0u; });
     s.At({0x004783C0, AddressOf(&CStruct::AddComponentOfType)}, 0xC, [](Regs& r) {
         Record({0x83C0, Rel(r.ecx), r.args[0], r.args[1], r.args[2]});
@@ -1369,10 +1369,10 @@ void StandInLobbyCalls(StandIns& s)
         Record({0x0480, Rel(r.ecx)});
         return g_skaterMask & 0x200 ? 0x005C0E00u : 0u;
     });
-    simple({0x005626E0, AddressOf(&Mdl::Score::RefreshBalanceMeter)}, 0, 0x26E0, 1);
-    s.At({0x00553630, AddressOf(&Game::CGameMode::GetScreenMode)}, 0, [](Regs&) { Record({0x3630}); return g_screenMode; });
-    s.At({0x004A0710, AddressOf(&Nx::GetScreenMode)}, 0, [](Regs&) { Record({0x0710}); return g_currentScreenMode; });
-    simple({0x004A0AD0, AddressOf(&Nx::SetScreenMode)}, 0, 0x0AD0, 2);
+    simple({0x005626E0}, 0, 0x26E0, 1);
+    s.At({0x00553630}, 0, [](Regs&) { Record({0x3630}); return g_screenMode; });
+    s.At({0x004A0710, AddressOf(Nx::GetScreenMode)}, 0, [](Regs&) { Record({0x0710}); return g_currentScreenMode; });
+    simple({0x004A0AD0}, 0, 0x0AD0, 2);
     s.At({0x006234FE}, 0, StandInSprintf);
     using ArrayFn = Script::CArray* (*)(uint32_t);
     s.At({0x00479070, AddressOf(static_cast<ArrayFn>(&Script::GetArray))}, 0, [](Regs& r) {
@@ -1620,11 +1620,11 @@ void StandInViewerModeCalls(StandIns& s)
         Record({0x7B80, Rel(r.ecx), r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00553170, AddressOf(&Game::CGameMode::GetTimeLimit)}, 0, [](Regs& r) { Record({0x3170, r.ecx}); return 120000u; });
-    simple({0x005532D0, AddressOf(&Game::CGameMode::GetGoalsMode)}, 0, 0x32D0, 1, 0x60A15);
+    s.At({0x00553170}, 0, [](Regs& r) { Record({0x3170, r.ecx}); return 120000u; });
+    simple({0x005532D0}, 0, 0x32D0, 1, 0x60A15);
     simple({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, 1, 0x60DE);
-    s.At({0x00565ED0, AddressOf(&Mdl::Skate::RunScript)}, 8, [](Regs& r) { Record({0x5ED0, r.ecx, r.args[0], Rel(r.args[1])}); return 0u; });
-    simple({0x00565F80, AddressOf(&Mdl::Skate::KillScript)}, 0, 0x5F80, 1, 0x100);
+    s.At({0x00565ED0}, 8, [](Regs& r) { Record({0x5ED0, r.ecx, r.args[0], Rel(r.args[1])}); return 0u; });
+    simple({0x00565F80}, 0, 0x5F80, 1, 0x100);
 }
 
 void TestViewerModeCFuncs()
@@ -1819,7 +1819,7 @@ void StandInNodeCalls(StandIns& s)
     s.At({0x00623F3E}, 0, [](Regs& r) { Record({0x3F3E, r.args[0], r.args[1], r.args[2], r.args[3]}); return r.args[2]; });
     s.At({0x00623E04}, 0, [](Regs& r) { Record({0x3E04, r.args[0]}); return 0u; });
     s.At({0x0062411B}, 0, [](Regs& r) { Record({0x411B, r.args[0]}); return 0u; });
-    s.At({0x00487420, AddressOf(&Gfx::CFaceTexture::SetImage)}, 8, [](Regs& r) { Record({0x7420, Rel(r.ecx), r.args[0], r.args[1]}); return 0u; });
+    s.At({0x00487420}, 8, [](Regs& r) { Record({0x7420, Rel(r.ecx), r.args[0], r.args[1]}); return 0u; });
     s.At({0x00487520, AddressOf(&Gfx::CFaceTexture::SetValid)}, 4, [](Regs& r) { Record({0x7520, Rel(r.ecx), r.args[0]}); return 0u; });
     s.At({0x00564FC0, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4FC0, r.ecx, r.args[0]});
@@ -2088,7 +2088,7 @@ void StandInNodeObjectCalls(StandIns& s)
         Record({0xC1B0, r.args[0], r.args[1] & 0xFF});
         return g_node ? reinterpret_cast<uint32_t>(g_node->Struct()) : 0u;
     });
-    s.At({0x00565BB0, AddressOf(&Mdl::Skate::ShouldBeAbsent)}, 4, [](Regs& r) { Record({0x5BB0, Rel(r.args[0])}); return g_skipNode ? 1u : 0u; });
+    s.At({0x00565BB0, AddressOf(Mdl::Skate::ShouldBeAbsent)}, 4, [](Regs& r) { Record({0x5BB0, Rel(r.args[0])}); return g_skipNode ? 1u : 0u; });
     simple({0x0057B4E0, AddressOf(&Obj::CreatePed)}, 0, 0xB4E0, 2);
     s.At({0x0057D7C0, AddressOf(&Obj::CRailManager::SetActive)}, 0xC, [](Regs& r) {
         Record({0xD7C0, r.ecx, r.args[0], r.args[1], r.args[2] & 0xFF});
@@ -2364,14 +2364,14 @@ void StandInParseCalls(StandIns& s)
                     return reinterpret_cast<uint32_t>(&sector);
         return 0u;
     });
-    s.At({0x0049EA60, AddressOf(&Nx::CSector::SetOccluder)}, 4, [](Regs& r) { Record({0xEA60, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0]}); return 0u; });
-    s.At({0x00565BB0, AddressOf(&Mdl::Skate::ShouldBeAbsent)}, 4, [](Regs& r) {
+    s.At({0x0049EA60}, 4, [](Regs& r) { Record({0xEA60, reinterpret_cast<FakeSector*>(r.ecx)->name, r.args[0]}); return 0u; });
+    s.At({0x00565BB0, AddressOf(Mdl::Skate::ShouldBeAbsent)}, 4, [](Regs& r) {
         uint32_t name = 0;
         reinterpret_cast<CStruct*>(r.args[0])->GetChecksum(0xA1DC81F9u, &name, 0);
         Record({0x5BB0, name});
         return (g_skipMask >> (name & 31)) & 1;
     });
-    s.At({0x005651F0, AddressOf(&Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) { Record({0x51F0}); return g_multiplayer ? 1u : 0u; });
+    s.At({0x005651F0, AddressOf(Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) { Record({0x51F0}); return g_multiplayer ? 1u : 0u; });
     using IntFn = int (*)(uint32_t);
     s.At({0x00478F60, AddressOf(static_cast<IntFn>(&Script::GetInteger))}, 0, [](Regs& r) {
         Record({0x8F60, r.args[0]});
@@ -2556,7 +2556,7 @@ void StandInNodeCommandCalls(StandIns& s)
             Record({r.args[i]});
         return 0u;
     });
-    s.At({0x005651F0, AddressOf(&Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) { Record({0x51F0}); return g_multiplayer ? 1u : 0u; });
+    s.At({0x005651F0, AddressOf(Mdl::Skate::IsMultiplayer)}, 0, [](Regs&) { Record({0x51F0}); return g_multiplayer ? 1u : 0u; });
 }
 
 void TestNodeCommandCFuncs()

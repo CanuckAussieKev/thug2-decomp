@@ -65,7 +65,7 @@ std::vector<StandIn> LipStandIns()
         {0x005843A0, 4, 1, Ret::None, true, 0, {Ours(&Obj::CSkaterCareer::SetGlobalFlag)}},
         {0x00478F60, 0, 1, Ret::Int, false, 0, {Ours(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}},
         {0x00579CC0, 0, 0, Ret::None, true, 0, {Ours(&Obj::CBalance::Update)}},
-        {0x004FFB10, 0, 0, Ret::Bool, true},
+        {0x004FFB10, 0, 0, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::JumpReleased)}},
         {0x005092E0, 4, 1, Ret::None, true, 0, {Ours(&CorePhysicsComponent::TriggerRailScript)}},
         {0x0045C1B0, 0, 2, Ret::Int, false, 0, {Ours(&SkateScript::GetNode)},
          [](Frame&, Result& r) { r.eax = 0x51000000u; }},
@@ -135,8 +135,8 @@ void TestDoLipPhysics()
 void TestResumeSkating()
 {
     StandIns standIns({{0x0044ECE0, 0, 0, Ret::Int, false, 0, {Ours(&Tmr::GameClockElapsed)}},
-                       {0x004FDE40, 0, 0, Ret::None, true},
-                       {0x004FDED0, 4, 1, Ret::None, true},
+                       {0x004FDE40, 0, 0, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::ClearFlags)}},
+                       {0x004FDED0, 4, 1, Ret::None, true, 0, {Ours(&Skater::CorePhysicsComponent::SetPhysicsState)}},
                        {0x00416DD0, 0, 0, Ret::None, true, 0, {Ours(&Obj::CSmtPtr<Obj::CRefCounted>::Release)}},
                        {0x005BABA0, 4, 1, Ret::None, true, 0, {Ours(&Mem::Manager::Free)}},
                        {0x0043EB80, 4, 1, Ret::None, true, 0, {Ours(&Walk::MovableContact::StartRiding)}},
@@ -200,7 +200,7 @@ void TestTryGrind()
                  point[i] = RandomFloat(50.0f);
              *reinterpret_cast<uint32_t*>(f.args[3]) = 0x0DE00000 + s_finds;
          }},
-        {0x004FC4A0, 0, 3, Ret::None, false},
+        {0x004FC4A0, 0, 3, Ret::None, false, 0, {Ours(Skater::TrackingPrint)}},
         {0x00427C70, 0, 0, Ret::None, true, 0, {Ours(&Obj::CMovableContactComponent::StopRiding)}},
         {0x00500020, 12, 3, Ret::Bool, true, 0, {Ours(&Skater::CorePhysicsComponent::CanGrindRail)}},
         {0x0050A770, 0x14, 5, Ret::None, true, 0x18, {Ours(&CorePhysicsComponent::StartGrind)},

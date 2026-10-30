@@ -19,10 +19,11 @@
 #include "game/obj/object.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
-#include "game/skate/cas_options.h"
 #include "game/skate/game_mode.h"
+#include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "game/script/game_cfuncs.h"
+#include "game/skate/cas_options.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -86,8 +87,8 @@ void Install(StandIns& s)
 {
     InstallCommon(s);
     Stub(s, {0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, [](Regs&) { return g_gameType; });
-    Stub(s, {0x005535F0}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
-    StubCdecl(s, {0x005A1180, AddressOf(&CFuncs::CFunc_InSplitScreenGame)}, 0x1180, 2, [](Regs&) { return g_split ? 1u : 0u; });
+    Stub(s, {0x005535F0, AddressOf(&Game::CGameMode::IsTeamGame)}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
+    StubCdecl(s, {0x005A1180, AddressOf(CFuncs::CFunc_InSplitScreenGame)}, 0x1180, 2, [](Regs&) { return g_split ? 1u : 0u; });
     StubCdecl(s, {0x00478FD0, AddressOf(static_cast<const char* (*)(uint32_t)>(&Script::GetString))}, 0x8FD0, 1,
               [](Regs& r) { return reinterpret_cast<uint32_t>(TextFor(r.args[0])); });
     Stub(s, {0x0046C4A0, AddressOf(&Prefs::Preferences::GetPreference)}, 4, 0xC4A0,
@@ -123,7 +124,7 @@ void Install(StandIns& s)
     Stub(s, {0x004559A0, AddressOf(&Net::Conn::GetBandwidthType)}, 0, 0x59A0,
          [](Regs&) { return static_cast<uint32_t>(g_bandwidthType); });
     Stub(s, {0x00564FC0, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile))}, 4, 0x4FC0, [](Regs&) { return At(kProfile); });
-    StubCdecl(s, {0x00485CB0, AddressOf(&Obj::PartIsCreatedGraphic)}, 0x5CB0, 2, [](Regs& r) {
+    StubCdecl(s, {0x00485CB0}, 0x5CB0, 2, [](Regs& r) {
         switch (r.args[1]) {
         case 0x5B288E0B: return g_parts & 1;
         case 0x23A1DF80: return (g_parts >> 1) & 1;

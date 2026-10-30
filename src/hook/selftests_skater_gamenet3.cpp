@@ -19,9 +19,11 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
-#include "game/ed/goal_editor.h"
 #include "game/ed/rail_editor.h"
 #include "game/goals/goal_manager.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/ed/goal_editor.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -115,7 +117,7 @@ void Install(StandIns& s)
         return 0u;
     });
     // The editors.
-    StubCdecl(s, {0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x500); });
+    StubCdecl(s, {0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x500); });
     s.At({0x004F3C00}, 4, [](Regs& r) {
         Rec(0x3C00, {r.ecx, r.args[0], GameVariable<uint8_t>(0x0067F000)});
         return 0u;
@@ -132,15 +134,15 @@ void Install(StandIns& s)
         return 0u;
     });
     // Goals.
-    StubCdecl(s, {0x005591B0, AddressOf(&Game::GetGoalManager)}, 0x91B0, 0, [](Regs&) { return At(kMisc + 0x700); });
+    StubCdecl(s, {0x005591B0, AddressOf(Game::GetGoalManager)}, 0x91B0, 0, [](Regs&) { return At(kMisc + 0x700); });
     Stub(s, {0x00558580}, 0, 0x8580);
-    Stub(s, {0x00557F90}, 8, 0x7F90, [](Regs& r) {
+    Stub(s, {0x00557F90, AddressOf(&Game::CGoalManager::GetGoal)}, 8, 0x7F90, [](Regs& r) {
         uint32_t name = r.args[0];
         return name >= 0x60A10000 && name < 0x60A10010 ? At(kGoals + 0x40 * (name - 0x60A10000)) : 0u;
     });
     Stub(s, {0x00554440}, 0, 0x4440);
     Stub(s, {0x0055DBF0}, 4, 0xDBF0, [](Regs&) { return g_currentGoal ? At(g_currentGoal) : 0u; });
-    Stub(s, {0x00558200}, 0, 0x8200, [](Regs&) { return static_cast<uint32_t>(g_goalsTotal); });
+    Stub(s, {0x00558200, AddressOf(&Game::CGoalManager::GetNumSelectedGoals)}, 0, 0x8200, [](Regs&) { return static_cast<uint32_t>(g_goalsTotal); });
     Stub(s, {0x00558B70}, 0, 0x8B70, [](Regs&) { return static_cast<uint32_t>(g_goalsDone); });
     Stub(s, {0x0055F3D0}, 0, 0xF3D0);
     Stub(s, {0x00555540}, 0, 0x5540);
@@ -171,8 +173,8 @@ void Install(StandIns& s)
         ++index;
         return static_cast<int>(index) < g_playerCount ? At(PlayerAt(static_cast<int>(index))) : 0u;
     });
-    Stub(s, {0x005535F0}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
-    Stub(s, {0x00553130}, 0, 0x3130, [](Regs&) { return static_cast<uint32_t>(g_teamCount); });
+    Stub(s, {0x005535F0, AddressOf(&Game::CGameMode::IsTeamGame)}, 0, 0x35F0, [](Regs&) { return g_teamGame ? 1u : 0u; });
+    Stub(s, {0x00553130, AddressOf(&Game::CGameMode::NumTeams)}, 0, 0x3130, [](Regs&) { return static_cast<uint32_t>(g_teamCount); });
     Stub(s, {0x00543420, AddressOf(&GameNet::PlayerInfo::MarkEliminated)}, 0, 0x3420);
     // The new players waiting to be added: infos at kNewInfos, 0x40 apart.
     s.At({0x00537070, AddressOf(&GameNet::Manager::FirstNewPlayerInfo)}, 4, [](Regs& r) {
@@ -186,7 +188,7 @@ void Install(StandIns& s)
         ++index;
         return static_cast<int>(index) < g_newCount ? At(kNewInfos + 0x40 * index) : 0u;
     });
-    Stub(s, {0x00564C60}, 8, 0x4C60);
+    Stub(s, {0x00564C60, AddressOf(&Mdl::Skate::HideSkater)}, 8, 0x4C60);
 }
 
 using Scenario = void (*)(bool original);

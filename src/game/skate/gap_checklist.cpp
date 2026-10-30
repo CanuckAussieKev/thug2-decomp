@@ -14,6 +14,8 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/career.h"
+#include "game/goals/goal_manager.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -77,7 +79,7 @@ void DeleteStructure(Script::CStruct* structure)
 // The skate module's checklist (0x005656C0) and the career's of a level (0x00584110; the current level 0x00584130).
 CGapChecklist* SkateChecklist()
 {
-    return GameFunction<CGapChecklist*(__thiscall*)(void*)>(0x005656C0)(GameVariable<void*>(0x007CE478));
+    return static_cast<CGapChecklist*>(Mdl::Skate::Instance()->GetGapChecklist());
 }
 void* Career() { return *reinterpret_cast<void**>(GameVariable<uint8_t*>(0x007CE478) + 0x20); }
 CGapChecklist* LevelChecklist(void* career, int level)
@@ -401,9 +403,9 @@ void CGapChecklist::AwardPendingGaps()
     int index = 0;
     for (CGapCheck* gap = GapOf(m_gaps.next); gap; gap = Next(gap), ++index) {
         if (gap->m_pending) {
-            uint8_t* goals = GameFunction<uint8_t*(__cdecl*)()>(0x005591B0)(); // the goal manager
-            if (GameFunction<bool(__thiscall*)(void*)>(0x0055DEA0)(goals))
-                GameFunction<void(__thiscall*)(void*, int)>(0x005586E0)(goals, index);
+            CGoalManager* goals = GetGoalManager(); // the goal manager
+            if (goals->HasActiveGapGoal())
+                goals->GotGap(index);
             if (gap->m_count == 0) {
                 ++newGaps;
                 Script::CStruct* params = NewStructure();

@@ -41,7 +41,7 @@ void InstallObjects(StandIns& s)
     Stub(s, {0x00543F00, AddressOf(&GameNet::PlayerInfo::TookFlag)}, 4, 0x3F00);
     Stub(s, {0x00543A90, AddressOf(&GameNet::PlayerInfo::CapturedFlag)}, 4, 0x3A90);
     Stub(s, {0x00561B40, AddressOf(&Mdl::Score::GetTotalScore)}, 0, 0x1B40, [](Regs&) { return 5u; });
-    Stub(s, {0x00561A80}, 4, 0x1A80);
+    Stub(s, {0x00561A80, AddressOf(&Mdl::Score::SetTotalScore)}, 4, 0x1A80);
     Stub(s, {0x00539880, AddressOf(&GameNet::Manager::CountTeamPlayers)}, 4, 0x9880, [](Regs& r) { return r.args[0] * 3 + 1; });
     Stub(s, {0x0053CB70, AddressOf(&Manager::DropPlayer)}, 8, 0xCB70);
     Stub(s, {0x00565790}, 4, 0x5790);

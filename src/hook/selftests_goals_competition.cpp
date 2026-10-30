@@ -58,7 +58,7 @@ void StandInCompetitionCalls(StandIns& s)
         (void)r;
         return reinterpret_cast<uint32_t>(g_goalManager);
     });
-    s.At({0x00558D90}, 0, [](Regs& r) {
+    s.At({0x00558D90, AddressOf(&Game::CGoalManager::GetActiveCompetition)}, 0, [](Regs& r) {
         if (g_gs3Trace) Log("  standin %X", r.ret);
         Record({0x8D90, r.ecx});
         return g_competitionActive ? 0xC0C0u : 0u;

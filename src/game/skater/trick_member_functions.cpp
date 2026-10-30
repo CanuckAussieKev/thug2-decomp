@@ -15,6 +15,12 @@
 #include "game/skater/thaw_bmx.h"
 #include "game/skater/trick_component.h"
 #include "game/sys/timer.h"
+#include "game/goals/goal_manager.h"
+#include "game/skate/score.h"
+#include "game/skater/balance_trick.h"
+#include "game/skater/core_physics.h"
+#include "game/skater/gap.h"
+#include "game/skater/stats_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -88,21 +94,18 @@ bool IsHeld(CTrickComponent* self, uint32_t button)
 {
     return self->IsButtonDown(button);
 }
-void Call(CTrickComponent* self, uint32_t address) { GameFunction<void(__thiscall*)(void*)>(address)(self); }
-void CallOn(void* object, uint32_t address) { GameFunction<void(__thiscall*)(void*)>(address)(object); }
 bool IsSwitch(CTrickComponent* self)
 {
-    return GameFunction<bool(__thiscall*)(void*)>(0x004FC440)(Component(self, kCorePhysics));
+    return (static_cast<Skater::CorePhysicsComponent*>(Component(self, kCorePhysics))->IsSwitched() & 0xFF) != 0;
 }
 // The score component (+0x1C): the trick's points (0x00563990), the spin's (0x00563F30).
 void ScoreTrick(CTrickComponent* self, const char* name, int score, uint32_t flags)
 {
-    GameFunction<void(__thiscall*)(void*, const char*, int, uint32_t)>(0x00563990)(Component(self, kScore), name,
-                                                                                   score, flags);
+    static_cast<Mdl::Score*>(Component(self, kScore))->Trigger(name, score, flags);
 }
 void ScoreSpin(CTrickComponent* self, int degrees)
 {
-    GameFunction<void(__thiscall*)(void*, int)>(0x00563F30)(Component(self, kScore), degrees);
+    static_cast<Mdl::Score*>(Component(self, kScore))->SetSpin(degrees);
 }
 
 // The trick names of unnamed name components (SetQueueTricks and the others): into `arrays`, counted at `count`.
@@ -146,7 +149,7 @@ bool SpinCounts(CTrickComponent* self, bool fullTurn)
 bool SameTrickShown(CTrickComponent* self, void* score)
 {
     uint32_t name = Crc::GenerateCRCFromString(&At<char>(self, kTrickName));
-    return GameFunction<uint32_t(__thiscall*)(void*)>(0x00561640)(score) == name;
+    return static_cast<Mdl::Score*>(score)->GetLastTrickName() == name;
 }
 
 } // namespace
@@ -185,20 +188,21 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
                 }
                 *deferred = 0;
             }
-            CallOn(GameFunction<void*(__cdecl*)()>(0x005591B0)(), 0x005587F0); // the goal manager
+            Game::GetGoalManager()->CheckTrickGoals(); // the goal manager
             ExitCombo(this);
-            CallOn(m_object->GetComponent(kSkaterGap), 0x00511C30);
-            CallOn(score, 0x00564330);
+            static_cast<void>(m_object->GetComponent(kSkaterGap)); // (its only use was ECX of the call below)
+            AwardPendingGaps();
+            static_cast<Mdl::Score*>(score)->Land();
             At<float>(this, kSpinTotal) = 0.0f;
             At<bool>(Component(this, kState), 0xE0) = false;
-            CallOn(Component(this, kComponent34), 0x0051CBF0);
+            static_cast<CStatsManagerComponent*>(Component(this, kComponent34))->AnnounceMetGoals();
         }
         m_object->BroadcastEvent(kSkaterLanded, nullptr, 0.0f);
         if (At<bool>(this, kBailed))
             At<bool>(this, kBailedPanel) = true;
         At<int>(this, kTrickCount) = 0;
-        CallOn(Component(this, kBalanceTrick), 0x004F8DB0);
-        CallOn(Component(this, kBalanceTrick), 0x004F8DE0);
+        static_cast<CSkaterBalanceTrickComponent*>(Component(this, kBalanceTrick))->KeepBestTimes();
+        static_cast<CSkaterBalanceTrickComponent*>(Component(this, kBalanceTrick))->Reset();
         At<uint32_t>(Component(this, kCorePhysics), 0x318) = 0;
         return 1;
     }
@@ -288,7 +292,7 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         params->GetChecksum(kSpecial, &At<uint32_t>(this, kGrindSpecial), 0);
         return 1;
     case kFunction72C926CA:
-        Call(this, 0x0051F010);
+        DumpEventBuffer();
         return 1;
     case kSetExtraTricks:
         SetExtraTricks(params, script);
@@ -307,14 +311,14 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
                 ExpireButton(buttons->GetElement(i), static_cast<uint32_t>(olderThan));
             return 1;
         }
-        Call(this, 0x0051EB00);
+        ClearEventBuffer();
         return 1;
     }
     case kClearManualTrick:
-        Call(this, 0x0051EB30);
+        ClearBlock1238();
         return 1;
     case kClearExtraGrindTrick:
-        Call(this, 0x0051EF00);
+        ClearBlock1280();
         return 1;
     case kSetTrickMappings: {
         // The trick mappings replaced by the global structure the first (unnamed name) component names.
@@ -340,7 +344,7 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
     case kClearPanelBailed: {
         if (reinterpret_cast<CCompositeObject*>(m_object)->m_unknownBC) {
             ExitCombo(this);
-            GameFunction<void(__thiscall*)(void*, int)>(0x00564860)(Component(this, kScore), 0);
+            static_cast<Mdl::Score*>(Component(this, kScore))->Bail(false);
         }
         m_object->BroadcastEvent(kSkaterBailed, nullptr, 0.0f);
         At<bool>(this, kBailed) = true;
@@ -349,13 +353,14 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         CTrickObjectList& list = At<CTrickObjectList>(this, kTrickObjects);
         list.Clear();
         At<int>(this, kTrickCount) = 0;
-        CallOn(Component(this, kBalanceTrick), 0x004F8DE0);
-        CallOn(Component(this, kCorePhysics), 0x00509990);
+        static_cast<CSkaterBalanceTrickComponent*>(Component(this, kBalanceTrick))->Reset();
+        static_cast<Skater::CorePhysicsComponent*>(Component(this, kCorePhysics))->EndSkitch();
         At<float>(this, kSpinTotal) = 0.0f;
         At<uint32_t>(Component(this, kCorePhysics), 0x318) = 0;
         list.Clear();
-        CallOn(m_object->GetComponent(kSkaterGap), 0x00511C10);
-        CallOn(Component(this, kComponent34), 0x0051CA00);
+        static_cast<void>(m_object->GetComponent(kSkaterGap)); // (its only use was ECX of the call below)
+        ClearPendingGaps();
+        static_cast<CStatsManagerComponent*>(Component(this, kComponent34))->Reset();
         return 1;
     }
     case kClearTricksFrom:
@@ -375,7 +380,7 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         return 1;
     case kBashOn:
         At<bool>(this, kBashing) = true;
-        Call(this, 0x0051EB00);
+        ClearEventBuffer();
         return 1;
     case kSetQueueTricks:
         CollectNames(params, At<int>(this, kQueueCount), &At<uint32_t>(this, kQueueArrays));
@@ -385,7 +390,7 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         params->GetChecksum(kSpecial, &At<uint32_t>(this, kQueueSpecial), 0);
         return 1;
     case kFunctionDE98DE7A:
-        Call(this, 0x00521A10);
+        QueueAllDoneTricks();
         return 1;
     case kResetSpin:
         At<float>(this, kSpinTotal) = 0.0f;
@@ -432,7 +437,7 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
             double spin = static_cast<double>(addSpin) + At<float>(this, kSpinTotal);
             At<float>(this, kSpinTotal) = static_cast<float>(spin);
             if (reinterpret_cast<CCompositeObject*>(m_object)->m_unknownBC)
-                GameFunction<void(__thiscall*)(void*, int)>(0x00564BE0)(score, Truncate(spin));
+                static_cast<Mdl::Score*>(score)->UpdateSpin(Truncate(spin));
         } else {
             uint32_t flags = 0;
             if (params->ContainsFlag(kBlockspin))
