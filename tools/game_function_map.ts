@@ -17,13 +17,12 @@ export interface Registered {
 export function registrations(files: readonly string[]): Map<number, Registered[]> {
     const found = new Map<number, Registered[]>();
     for (const file of files) {
-        const lines = fs.readFileSync(file, "utf-8").split(/\r?\n/);
-        for (const line of lines) {
-            const m = /^\s*(REPLACE\w*)\(0x([0-9A-Fa-f]{8}),\s*(.*)\);/.exec(line);
-            if (!m) continue;
+        // (a REPLACE line may run over several lines: an overload's static_cast)
+        const text = fs.readFileSync(file, "utf-8");
+        for (const m of text.matchAll(/^[ \t]*(REPLACE\w*)\(0x([0-9A-Fa-f]{8}),\s*([\s\S]*?)\);[^\n]*$/gm)) {
             const a = parseInt(m[2]!, 16);
             if (!found.has(a)) found.set(a, []);
-            found.get(a)!.push({ kind: m[1]!, name: m[3]!.replace(/\s*\/\/.*$/, "").replace(/\);?$/, ""), file });
+            found.get(a)!.push({ kind: m[1]!, name: m[3]!.replace(/\s+/g, " ").trim(), file });
         }
     }
     return found;
