@@ -26,6 +26,7 @@
 #include "game/gfx/engine_texture.h"
 #include "game/gfx/texture_dict.h"
 #include "hook/game.h"
+#include "hook/game_code.h"
 #include "hook/hook.h"
 
 namespace Obj {
@@ -492,7 +493,7 @@ bool CTaggingControlComponent::Update()
         }
     }
     if (!found) {
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064C414)); // "No contact found for splat?"
+        Dbg::Printf(GAME_TEXT(0x0064C414, "No contact found for splat?\n"));
         return false;
     }
 

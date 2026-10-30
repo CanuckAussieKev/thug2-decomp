@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "hook/crash.h"
+#include "hook/game_code.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -308,11 +309,14 @@ int Child(const char* exe_path)
     int globalsDiffer = CheckGlobalStartValues(&globalsChecked, &globals);
     std::printf("global start values: %d globals, %d checked against the original, %d DIFFER\n", globals,
                 globalsChecked, globalsDiffer);
+    int codeChecked = 0;
+    int codeDiffer = CheckGameCode(&codeChecked);
+    std::printf("game texts / code / vtables: %d checked against the original, %d DIFFER\n", codeChecked, codeDiffer);
 
     RunSelfTests(TestStage::Early);
     int failures = SelfTestFailures();
     std::fflush(stdout);
-    return mismatched || failures || globalsDiffer ? 1 : 0;
+    return mismatched || failures || globalsDiffer || codeDiffer ? 1 : 0;
 }
 
 // One deliberate fault (hook/crash.h) in a process of its own, with the game's image loaded and the handlers set as

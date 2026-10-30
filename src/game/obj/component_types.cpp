@@ -4,8 +4,10 @@
 
 #include <cstdint>
 
+#include "game/obj/anim_blender.h"
 #include "game/obj/compositemgr.h"
 #include "hook/game.h"
+#include "hook/game_code.h"
 #include "hook/hook.h"
 
 namespace Obj {
@@ -54,7 +56,8 @@ const ComponentType kComponentTypes[] = {
     {0x286A8D26, 0x00421490, 0x00000000}, // Model
     {0xE3FCA939, 0x00422DC0, 0x00000000}, // ModelLightUpdate
     {0x222756D5, 0x00431F60, 0x00431BE0}, // the skeleton
-    {0x7149B753, 0x0041A5B0, 0x00419690}, // the animation blender
+    {0x7149B753, reinterpret_cast<uint32_t>(GAME_CODE(0x0041A5B0, &CAnimBlenderComponent::Create)),
+     reinterpret_cast<uint32_t>(GAME_CODE(0x00419690, &CAnimBlenderComponent::RegisterMemberFunctions))}, // the animation blender
     {0x07713C7B, 0x00433100, 0x00432C80}, // Sound
     {0xA432DC41, 0x0041C920, 0x00000000}, // Collision
     {0x5CB5CB7E, 0x0041FF20, 0x00000000},

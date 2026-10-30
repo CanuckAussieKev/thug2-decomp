@@ -5,17 +5,20 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "hook/game.h"
+#include "hook/game_code.h"
 #include "hook/hook.h"
 
 namespace Mem {
 
+// The virtual tables of the list node, the region and the allocated region (defined after their functions, below).
+extern void** const kNodeVtable;
+extern void** const kRegionVtable;
+extern void** const kAllocRegionVtable;
+
 namespace {
 
-void** const kNodeVtable = reinterpret_cast<void**>(0x00658458);       // Lst::Node<Context>
 void** const kHeadVtable = reinterpret_cast<void**>(0x00658480);       // Lst::Head<Context>
 void** const kAllocatorVtable = reinterpret_cast<void**>(0x0065845C);
-void** const kRegionVtable = reinterpret_cast<void**>(0x00658A58);
-void** const kAllocRegionVtable = reinterpret_cast<void**>(0x00658A5C);
 
 } // namespace
 
@@ -275,6 +278,14 @@ struct AllocAdapters {
 };
 
 } // namespace
+
+namespace Mem {
+
+GAME_VTABLE(kNodeVtable, 0x00658458, &AllocAdapters::NodeDestroy);          // Lst::Node<Context>
+GAME_VTABLE(kRegionVtable, 0x00658A58, &AllocAdapters::RegionDestroy);
+GAME_VTABLE(kAllocRegionVtable, 0x00658A5C, &AllocAdapters::AllocRegionDestroy);
+
+} // namespace Mem
 
 REPLACE(0x005BA080, Mem::MarkBlockInUse);
 REPLACE(0x005BA090, Mem::GetBlockHeader);

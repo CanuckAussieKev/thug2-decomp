@@ -160,6 +160,7 @@ add_library(thug2_code OBJECT
     src/hook/hook.cpp
     src/hook/log.cpp
     src/hook/game_global.cpp
+    src/hook/game_code.cpp
     src/hook/crash.cpp
     src/hook/shadow.cpp
     src/hook/selftest.cpp
