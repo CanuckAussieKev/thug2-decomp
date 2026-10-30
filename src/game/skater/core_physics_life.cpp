@@ -27,7 +27,6 @@ using namespace Physics;
 
 namespace {
 
-constexpr uint32_t kVtable = 0x0064BC48;
 constexpr uint32_t kRollingFriction = 0x78F80EC4;   // Physics_Rolling_Friction
 constexpr uint32_t kGetOffEvent = 0x5E27200A;       // (broadcast when the skater gets off its board; name not recovered)
 constexpr uint32_t kRailWaitName = 0xE4412EB7;      // (a script value: the rail wait, ms; name not recovered)
@@ -140,7 +139,7 @@ void CorePhysicsComponent::SetTerrain(uint32_t terrain)
 // 0x004FC500
 void CorePhysicsComponent::DestroyBody()
 {
-    At<uint32_t>(this, 0) = kVtable;
+    At<void**>(this, 0) = g_corePhysicsVtable;
     At<Nx::CCollCache>(this, kCollisionCache).Destruct();
     ReleasePointer(this, kSkitched);
     ReleasePointer(this, kGroundFeelerObject);

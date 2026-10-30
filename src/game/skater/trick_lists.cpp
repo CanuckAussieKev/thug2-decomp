@@ -9,15 +9,14 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
+#include "game/skater/gap.h"
 
 namespace Obj {
 
 namespace {
 
 extern void** const kListEntryVtable;
-void** const kListEntryNodeVtable = reinterpret_cast<void**>(0x0064BE88); // Lst::Node<TrickListEntry>
 extern void** const kNameEntryVtable;
-void** const kNameEntryNodeVtable = reinterpret_cast<void**>(0x0064BE8C); // Lst::Node<TrickNameEntry>
 
 void InitNode(Mem::ListNode& node, void* data)
 {
@@ -58,7 +57,7 @@ void TrickListEntry::DestroyBody()
         array->Clear();
         Script::DeleteArray(array);
     }
-    m_node.UnlinkAs(kListEntryNodeVtable);
+    m_node.UnlinkAs(g_gapNodeVtable);
 }
 
 // 0x00579820
@@ -83,7 +82,7 @@ TrickNameEntry* TrickNameEntry::Construct()
 void TrickNameEntry::DestroyBody()
 {
     m_name.~String();
-    m_node.UnlinkAs(kNameEntryNodeVtable);
+    m_node.UnlinkAs(g_gapTrickNodeVtable);
 }
 
 // 0x00579600

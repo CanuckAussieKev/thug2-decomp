@@ -27,12 +27,12 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
+#include "game/skater/state_history.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C174);
 void** const kPlayerSearchVtable = reinterpret_cast<void**>(0x0064C1A8);
 
 // Components of the skater this code asks for.
@@ -213,7 +213,7 @@ CBaseComponent* __cdecl CSkaterStateHistoryComponent::Create()
 CSkaterStateHistoryComponent* CSkaterStateHistoryComponent::Construct()
 {
     CBaseComponent::Construct();
-    m_vtable = kVtable;
+    m_vtable = g_stateHistoryVtable;
     // (The original clears each state entry's +0x68 / +0x6C and the entry, the messages, the counts, then the
     // entries and the messages again.)
     std::memset(reinterpret_cast<uint8_t*>(this) + 0x1C, 0, kEntries * 0x84);

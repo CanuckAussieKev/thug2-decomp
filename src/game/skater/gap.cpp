@@ -31,14 +31,13 @@
 #include "game/obj/object.h"
 #include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/skater/gap.h"
 
 namespace Obj {
 
 namespace {
 
 extern void** const kVtable;
-extern void** const kGapNodeVtable;      // Lst::Node<TrickListEntry>
-extern void** const kGapTrickNodeVtable; // Lst::Node<TrickNameEntry>
 extern void** const kGapHeadVtable;      // Lst::Head<TrickListEntry>
 extern void** const kGapTrickHeadVtable; // Lst::Head<TrickNameEntry>
 constexpr uint32_t kSkaterGap = 0x11B4C67F;
@@ -203,8 +202,8 @@ CSkaterGapComponent* CSkaterGapComponent::Construct()
 void CSkaterGapComponent::DestroyBody()
 {
     m_vtable = kVtable;
-    m_gapTricks.UnlinkAs(kGapTrickNodeVtable);
-    m_gaps.UnlinkAs(kGapNodeVtable);
+    m_gapTricks.UnlinkAs(g_gapTrickNodeVtable);
+    m_gaps.UnlinkAs(g_gapNodeVtable);
     CBaseComponent::DestroyBody();
 }
 
@@ -584,7 +583,7 @@ int CSkaterGapComponent::CallMemberFunction(uint32_t name, Script::CStruct* para
 }
 
 // 0x00511E50
-void GapListNode::DestroyBody() { UnlinkAs(kGapNodeVtable); }
+void GapListNode::DestroyBody() { UnlinkAs(g_gapNodeVtable); }
 // 0x00511E90
 GapListNode* GapListNode::Destroy(unsigned int flags)
 {
@@ -597,7 +596,7 @@ GapListNode* GapListNode::Destroy(unsigned int flags)
 GapListNode* GapListNode::DestroyHead(unsigned int flags) { return Destroy(flags); }
 
 // 0x00511E70
-void GapTrickListNode::DestroyBody() { UnlinkAs(kGapTrickNodeVtable); }
+void GapTrickListNode::DestroyBody() { UnlinkAs(g_gapTrickNodeVtable); }
 // 0x00511ED0
 GapTrickListNode* GapTrickListNode::Destroy(unsigned int flags)
 {
@@ -650,10 +649,6 @@ REPLACE(0x00511C30, Obj::AwardPendingGaps);
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kGapNodeVtable, 0x0064BE88,
-    &Obj::GapListNode::Destroy);
-GAME_VTABLE(kGapTrickNodeVtable, 0x0064BE8C,
-    &Obj::GapTrickListNode::Destroy);
 GAME_VTABLE(kVtable, 0x0064BE90,
     &Obj::CSkaterGapComponent::Destroy,
     &Obj::CSkaterGapComponent::Update,
@@ -674,4 +669,18 @@ GAME_VTABLE(kGapTrickHeadVtable, 0x0064BEC8,
     &Obj::GapTrickListNode::DestroyHead);
 
 } // namespace
+} // namespace Obj
+
+namespace Obj {
+
+GAME_VTABLE(g_gapNodeVtable, 0x0064BE88,
+    &Obj::GapListNode::Destroy);
+
+} // namespace Obj
+
+namespace Obj {
+
+GAME_VTABLE(g_gapTrickNodeVtable, 0x0064BE8C,
+    &Obj::GapTrickListNode::Destroy);
+
 } // namespace Obj

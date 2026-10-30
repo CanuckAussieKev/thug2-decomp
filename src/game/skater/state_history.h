@@ -99,4 +99,7 @@ struct PlayerSearchDestructors {
     PlayerSearchDestructors* Destroy(unsigned int flags);
 };
 
+// 0x0064C174: stateHistoryVtable (defined where the class's functions are).
+extern void** const g_stateHistoryVtable;
+
 } // namespace Obj

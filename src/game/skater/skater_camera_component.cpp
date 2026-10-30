@@ -32,6 +32,7 @@
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/skater/vehicle_sound.h"
+#include "game/skater/skater_camera_component.h"
 
 namespace Obj {
 
@@ -40,7 +41,6 @@ namespace {
 using Skater::Physics::At;
 using Skater::Physics::X87Sin;
 
-extern void** const kVtable;
 constexpr uint32_t kSkaterCamera = 0x5E43A604;        // skatercamera (the component type)
 extern void** const kCleanupVtable;
 constexpr uint32_t kCleanupState = 0xD8CC3428;        // SkaterCleanupState (the component type)
@@ -233,7 +233,7 @@ void CSkaterCameraComponent::SaveState(WalkCameraState* state)
 CSkaterCameraComponent* CSkaterCameraComponent::Construct()
 {
     CBaseComponent::Construct();
-    m_vtable = kVtable;
+    m_vtable = g_skaterCameraVtable;
     m_type = kSkaterCamera;
     m_mode = 0;
     if (!Mem::g_managerReady)
@@ -400,20 +400,6 @@ REPLACE(0x004FBE20, CSkaterCleanupStateComponent::Create);
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064BA74,
-    &CSkaterCameraComponent::Destroy,
-    &Obj::CSkaterCameraComponent::Update,
-    &CSkaterCameraComponent::InitFromStructure,
-    &Obj::CSkaterCameraComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &CSkaterCameraComponent::CallMemberFunction);
 GAME_VTABLE(kCleanupVtable, 0x0064BB48,
     &CSkaterCleanupStateComponent::Destroy,
     &CSkaterCleanupStateComponent::Update,
@@ -430,4 +416,23 @@ GAME_VTABLE(kCleanupVtable, 0x0064BB48,
     &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
 
 } // namespace
+} // namespace Obj
+
+namespace Obj {
+
+GAME_VTABLE(g_skaterCameraVtable, 0x0064BA74,
+    &CSkaterCameraComponent::Destroy,
+    &Obj::CSkaterCameraComponent::Update,
+    &CSkaterCameraComponent::InitFromStructure,
+    &Obj::CSkaterCameraComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &CSkaterCameraComponent::CallMemberFunction);
+
 } // namespace Obj

@@ -33,6 +33,7 @@
 #include "game/obj/car_physics.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/obj/node_components.h"
+#include "game/skater/core_physics.h"
 
 namespace Skater {
 
@@ -40,7 +41,6 @@ using namespace Physics;
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;    // SkaterCorePhysics (the component type)
 constexpr uint32_t kModel = 0x286A8D26;                // Model (a component)
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A;  // SkaterFlipAndRotate (a component)
@@ -104,7 +104,7 @@ void* __cdecl CorePhysicsComponent::Create()
 CorePhysicsComponent* CorePhysicsComponent::Construct()
 {
     reinterpret_cast<Obj::CBaseComponent*>(this)->Construct();
-    At<void**>(this, 0) = kVtable;
+    At<void**>(this, 0) = g_corePhysicsVtable;
     reinterpret_cast<Nx::CFeeler*>(&At<uint8_t>(this, kFeeler))->Construct();
     reinterpret_cast<Nx::CFeeler*>(&At<uint8_t>(this, kLastGroundFeeler))->Construct();
     At<uint32_t>(this, 0x368) = 0;
@@ -425,7 +425,13 @@ REPLACE(0x00500E90, &Skater::CorePhysicsComponent::OrientToNormal);
 namespace Skater {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064BC48,
+
+} // namespace
+} // namespace Skater
+
+namespace Skater {
+
+GAME_VTABLE(g_corePhysicsVtable, 0x0064BC48,
     &Skater::CorePhysicsComponent::Destroy,
     &Skater::CorePhysicsComponent::Update,
     &CorePhysicsComponent::InitFromStructure,
@@ -440,5 +446,4 @@ GAME_VTABLE(kVtable, 0x0064BC48,
     &Obj::CBaseComponent::RunMemberFunction,
     &Skater::CorePhysicsComponent::CallMemberFunction);
 
-} // namespace
 } // namespace Skater

@@ -32,6 +32,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/obj/trigger_events.h"
+#include "game/obj/wait_and_die.h"
 
 namespace {
 
@@ -1653,7 +1654,7 @@ CBaseComponent* __cdecl CreateWaitAndDieComponent()
         return nullptr;
     auto* component = static_cast<CBaseComponent*>(memory);
     component->Construct();
-    *reinterpret_cast<uint32_t*>(component) = 0x00646898; // its vtable
+    *reinterpret_cast<void***>(component) = g_waitAndDieVtable; // its vtable
     reinterpret_cast<uint32_t*>(component)[1] = 0x03AC8065; // its type
     return component;
 }

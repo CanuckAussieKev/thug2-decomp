@@ -120,4 +120,10 @@ void __cdecl ClearPendingGaps();
 // AllGapsGot), ProcessAllGapsReward is spawned.
 void __cdecl AwardPendingGaps();
 
+// 0x0064BE88: gapNodeVtable (defined where the class's functions are).
+extern void** const g_gapNodeVtable;
+
+// 0x0064BE8C: gapTrickNodeVtable (defined where the class's functions are).
+extern void** const g_gapTrickNodeVtable;
+
 } // namespace Obj

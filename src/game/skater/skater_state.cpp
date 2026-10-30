@@ -22,6 +22,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/skater/state_history.h"
 
 namespace Obj {
 
@@ -50,7 +51,6 @@ GAME_GLOBAL(uint32_t[114], g_skaterStateMemberFunctions, 0x00684A80,
 namespace {
 
 extern void** const kVtable;
-extern void** const kStateHistoryVtable;
 constexpr uint32_t kSkaterState = 0x43686585;
 constexpr uint32_t kOnSkaterStateChange = 0xA7662059, kOnSkaterPhysicsStateChange = 0x6BAC488C,
                    kOnSkaterTerrainChange = 0xD3FDE02A;
@@ -243,7 +243,7 @@ void SkaterStateHistoryFrame::SetTime(uint32_t time)
 // 0x005197C0
 void CSkaterStateHistoryComponent::DestroyBody()
 {
-    m_vtable = kStateHistoryVtable;
+    m_vtable = g_stateHistoryVtable;
     CBaseComponent::DestroyBody();
 }
 
@@ -297,7 +297,13 @@ GAME_VTABLE(kVtable, 0x0064C140,
     Stubs::IgnoreArgument,
     &Obj::CBaseComponent::RunMemberFunction,
     &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
-GAME_VTABLE(kStateHistoryVtable, 0x0064C174,
+
+} // namespace
+} // namespace Obj
+
+namespace Obj {
+
+GAME_VTABLE(g_stateHistoryVtable, 0x0064C174,
     &Obj::CSkaterStateHistoryComponent::Destroy,
     &Obj::ComponentWithoutUpdate::Update,
     Stubs::IgnoreArgument,
@@ -312,5 +318,4 @@ GAME_VTABLE(kStateHistoryVtable, 0x0064C174,
     static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
     &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
 
-} // namespace
 } // namespace Obj

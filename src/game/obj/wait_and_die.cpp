@@ -17,12 +17,12 @@
 #include "game/skater/vehicle_sound.h"
 #include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/obj/wait_and_die.h"
 
 namespace Obj {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kWaitFor = 0x1869F559;
 constexpr uint32_t kLifeTime = 0xC218CF77;
 const float kMilliseconds = 1000.0f; // 0x006453C0
@@ -38,7 +38,7 @@ void Die(CObject* object) { reinterpret_cast<void(__thiscall*)(CObject*)>(object
 // 0x0043D840
 void CWaitAndDieComponent::DestroyBody()
 {
-    m_vtable = kVtable;
+    m_vtable = g_waitAndDieVtable;
     CBaseComponent::DestroyBody();
 }
 
@@ -86,7 +86,13 @@ REPLACE(0x0043D8E0, &Obj::CWaitAndDieComponent::Update);
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00646898,
+
+} // namespace
+} // namespace Obj
+
+namespace Obj {
+
+GAME_VTABLE(g_waitAndDieVtable, 0x00646898,
     &Obj::CWaitAndDieComponent::Destroy,
     &Obj::CWaitAndDieComponent::Update,
     &Obj::CWaitAndDieComponent::InitFromStructure,
@@ -101,5 +107,4 @@ GAME_VTABLE(kVtable, 0x00646898,
     static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
     &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
 
-} // namespace
 } // namespace Obj

@@ -718,4 +718,7 @@ void __cdecl TrackingPrint(int index, const Mth::Vector* a, const Mth::Vector* b
 
 GAME_GLOBAL_EXTERN(Mth::Vector, g_acidHold);
 
+// 0x0064BC48: corePhysicsVtable (defined where the class's functions are).
+extern void** const g_corePhysicsVtable;
+
 } // namespace Skater
