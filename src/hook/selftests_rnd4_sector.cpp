@@ -25,7 +25,7 @@ using namespace RfxTests;
 using Nx::CSector;
 
 void* g_sectorVtable[4];
-void* g_geomVtable[1];
+void* g_geomVtable[64]; // [0] its clone; the dispatchers' slots (ours calls through them)
 void* g_collVtable[32];
 uint32_t g_calls;
 bool g_cloneFails;     // the platform's clone gives null
@@ -124,7 +124,9 @@ void StandInSector(StandIns& s)
                    Call{0x0048DED0, 0, 0}, Call{0x0048DEE0, 4, 0}, Call{0x0048DEF0, 4, 0}, Call{0x0048DF00, 4, 0},
                    Call{0x0048DF10, 4, 0}, Call{0x0048DFB0, 32, 0}, Call{0x0048DFC0, 4, 1}, Call{0x0048DFD0, 8, 0},
                    Call{0x0048E010, 0, 0}, Call{0x0048E020, 4, 1}, Call{0x0048E030, 0, 0}, Call{0x0049F420, 12, 0}}) {
-        s.At({c.address, c.address == 0x0049F420 ? AddressOf(&Nx::VirtualSlot41Jump) : c.address}, c.pop, [c](Regs& r) {
+        // (ours calls the geom's vtable slot itself, not the dispatcher: the fake geoms' vtable has the same stand-in)
+        int slot = StubSlot(c.address);
+        void* thunk = s.At({c.address, c.address == 0x0049F420 ? AddressOf(&Nx::VirtualSlot41Jump) : c.address}, c.pop, [c](Regs& r) {
             Record({c.address & 0xFFFFF, Relocate(r.ecx)});
             for (int i = 0; i < c.pop / 4; ++i)
                 Record({(c.byteArgs >> i) & 1 ? r.args[i] & 0xFF : Relocate(r.args[i])});
@@ -137,6 +139,8 @@ void StandInSector(StandIns& s)
             }
             return (Relocate(r.ecx) >> 4) + c.address + ++g_calls;
         });
+        if (slot > 0)
+            g_geomVtable[slot] = thunk;
     }
     // A clone of the geom (for the instance and scene given).
     s.At({0x0048DD80}, 8, [](Regs& r) {

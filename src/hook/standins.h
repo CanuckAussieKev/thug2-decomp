@@ -7,6 +7,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
@@ -49,6 +50,26 @@ inline uint32_t OursOf(uint32_t address)
 {
     void* ours = ReplacementFunction(address);
     return ours ? Resolve(ours) : 0;
+}
+
+// The vtable slot a virtual-slot jump stub of the original forwards to (MOV EAX,[ECX]; JMP [EAX+disp8/disp32]),
+// read from its original bytes; -1 if the code at `stub` is not one. Our code calls through the slot itself, so a
+// test's fake object needs that slot pointing at the stand-in the stub has.
+inline int StubSlot(uint32_t stub)
+{
+    auto* p = static_cast<const uint8_t*>(OriginalFunction(stub));
+    if (p[0] != 0x8B || p[1] != 0x01 || p[2] != 0xFF)
+        return -1;
+    if (p[3] == 0x60)
+        return p[4] / 4;
+    if (p[3] == 0xA0) {
+        int32_t disp;
+        std::memcpy(&disp, p + 4, 4);
+        return disp / 4;
+    }
+    if (p[3] == 0x20)
+        return 0;
+    return -1;
 }
 
 // Bytes overwritten for the length of a test (restored when it goes).
@@ -134,19 +155,40 @@ public:
         m_used += (code.size() + 15) & ~15u;
         return p;
     }
-    // Stand in for the functions at `addresses` (the game's and ours alike).
+    // Stand in for the functions at `addresses` (the game's and ours alike). Our function registered at a game
+    // address is stood in for too (OursOf): the game source calls our own functions directly, not through the
+    // original's address. AtOnly leaves ours alone (a stand-in that runs ours, or a test of ours under it).
     void* At(std::initializer_list<uint32_t> addresses, uint16_t pop, Handler handler)
     {
-        void* thunk = Thunk(pop, std::move(handler));
+        std::vector<uint32_t> all;
         for (uint32_t address : addresses)
-            m_patches.push_back(new Patch(address, Branch(0xE9, address, thunk)));
-        return thunk;
+            AddOnce(all, address);
+        for (uint32_t address : addresses)
+            AddOnce(all, OursOf(address));
+        return Patched(all, pop, std::move(handler));
+    }
+    void* AtOnly(std::initializer_list<uint32_t> addresses, uint16_t pop, Handler handler)
+    {
+        return Patched(std::vector<uint32_t>(addresses), pop, std::move(handler));
     }
     void Bytes(uint32_t address, const std::vector<uint8_t>& bytes) { m_patches.push_back(new Patch(address, bytes)); }
 
     static inline StandIns* s_current = nullptr;
 
 private:
+    static void AddOnce(std::vector<uint32_t>& all, uint32_t address)
+    {
+        if (address && std::find(all.begin(), all.end(), address) == all.end())
+            all.push_back(address);
+    }
+    void* Patched(const std::vector<uint32_t>& addresses, uint16_t pop, Handler handler)
+    {
+        void* thunk = Thunk(pop, std::move(handler));
+        for (uint32_t address : addresses)
+            m_patches.push_back(new Patch(address, Branch(0xE9, address, thunk)));
+        return thunk;
+    }
+
     static uint32_t __cdecl Dispatch(uint32_t index, Regs* regs) { return s_current->m_handlers[index](*regs); }
 
     uint8_t* m_code = nullptr;
@@ -154,6 +196,17 @@ private:
     std::vector<Handler> m_handlers;
     std::vector<Patch*> m_patches;
 };
+
+// A stand-in for the original's virtual-slot jump stub at `stub` (StubSlot): written over the stub (and ours, as
+// At does) and put in `vtable`'s slot too - our code calls the object's slot itself. The vtable must have room.
+inline void* AtStub(StandIns& s, void** vtable, uint32_t stub, uint16_t pop, Handler handler)
+{
+    int slot = StubSlot(stub);
+    void* thunk = s.At({stub}, pop, std::move(handler));
+    if (slot >= 0)
+        vtable[slot] = thunk;
+    return thunk;
+}
 
 // Bytes written for one run only (PartyMod's patches into the original).
 inline std::vector<Patch*> g_runPatches;
@@ -220,6 +273,13 @@ inline void RestoreAll(const std::vector<Saved>& saved)
 inline void Compare(const std::vector<uint32_t>& expected, const std::vector<uint32_t>& actual, const char* what)
 {
     Check(expected == actual, what);
+    // (both traces side by side when THUG2_TRACE_DUMP is set and they differ: where they part)
+    if (expected != actual && GetEnvironmentVariableA("THUG2_TRACE_DUMP", nullptr, 0)) {
+        for (size_t i = 0; i < expected.size() || i < actual.size(); ++i)
+            Log("  %5u %08X %08X%s", static_cast<unsigned>(i), i < expected.size() ? expected[i] : 0u,
+                i < actual.size() ? actual[i] : 0u,
+                i < expected.size() && i < actual.size() && expected[i] == actual[i] ? "" : "  <<");
+    }
     if (expected.size() != actual.size())
         Log("  %s trace sizes: original %u ours %u", what, static_cast<unsigned>(expected.size()),
             static_cast<unsigned>(actual.size()));

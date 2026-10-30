@@ -51,7 +51,8 @@ const Mth::BBox* SectorBox(void* sector)
 {
     return static_cast<CSector*>(sector)->GetBoundingBox();
 }
-void SetSectorActive(void* sector, uint32_t on) { static_cast<CSector*>(sector)->SetActive(on != 0); }
+// (0x0049E9B0 tests the argument's low byte only)
+void SetSectorActive(void* sector, uint32_t on) { static_cast<CSector*>(sector)->SetActive(static_cast<uint8_t>(on) != 0); }
 
 // (a static collision object's own print, compiled out: the empty 0x005480A0 with it in ECX)
 inline void PrintCollStatic(const CCollStatic*) {}

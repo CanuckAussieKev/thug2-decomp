@@ -137,7 +137,8 @@ void InstallStandIns(StandIns& s)
         return 0x4321u;
     });
     s.At({0x004877E0}, 0, [](Regs& r) {
-        Rec(0x77E0, {r.args[0] ? 1u : 0u, r.args[1] ? 1u : 0u, r.args[2], r.args[3], r.args[4], r.args[5],
+        // (a sixth argument the original passes isn't read - GetAnimTimes takes five: ours doesn't pass it)
+        Rec(0x77E0, {r.args[0] ? 1u : 0u, r.args[1] ? 1u : 0u, r.args[2], r.args[3], r.args[4],
                      *reinterpret_cast<uint32_t*>(r.args[0]), *reinterpret_cast<uint32_t*>(r.args[1])});
         *reinterpret_cast<float*>(r.args[0]) = 1.5f;
         *reinterpret_cast<float*>(r.args[1]) = 9.25f;

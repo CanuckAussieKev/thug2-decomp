@@ -300,7 +300,7 @@ bool CModel::SetUVOffset(uint32_t material, int pass, float u, float v)
 {
     bool any = false;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        any |= GeomCall<bool>(0x0048DFE0, Geom(node), material, pass, u, v);
+        any |= GeomCall<bool>(44, Geom(node), material, pass, u, v);
     return any;
 }
 
@@ -309,7 +309,7 @@ bool CModel::SetUVMatrix(uint32_t material, int pass, const Mth::Matrix* matrix)
 {
     bool any = false;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        any |= GeomCall<bool>(0x0048DFF0, Geom(node), material, pass, matrix);
+        any |= GeomCall<bool>(46, Geom(node), material, pass, matrix);
     return any;
 }
 
@@ -318,7 +318,7 @@ bool CModel::AllocateUVMatrixParams(uint32_t material, int pass)
 {
     bool any = false;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        any |= GeomCall<bool>(0x0048E000, Geom(node), material, pass);
+        any |= GeomCall<bool>(47, Geom(node), material, pass);
     return any;
 }
 

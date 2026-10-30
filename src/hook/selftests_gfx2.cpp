@@ -3,6 +3,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -12,6 +13,7 @@
 
 #include "game/gfx/camera.h"
 #include "game/gfx/draw2d.h"
+#include "game/gfx/engine_effects.h"
 #include "game/gfx/glow.h"
 #include "game/gfx/lens_flare.h"
 #include "game/gfx/occlusion.h"
@@ -299,6 +301,7 @@ struct BlurStandIns {
     CodePatch oursFormat{Ours(&Nx::SetVertexFormat), JumpTo(Ours(&Nx::SetVertexFormat), reinterpret_cast<void*>(&BlurFormat))};
     CodePatch oursShader{Ours(&Nx::SetPixelShader), JumpTo(Ours(&Nx::SetPixelShader), reinterpret_cast<void*>(&BlurShader))};
     CodePatch oursExtra{Ours(&Nx::Bloom), JumpTo(Ours(&Nx::Bloom), reinterpret_cast<void*>(&BlurExtra))};
+    CodePatch oursFog{Ours(&Nx::Engine::EnableFog), JumpTo(Ours(&Nx::Engine::EnableFog), reinterpret_cast<void*>(&BlurFog))};
     void** vtable;
     BlurStandIns()
     {
@@ -451,7 +454,16 @@ void TestRenderWorld()
     const uint32_t oursFrustum = TestStandIns::OursOf(0x004CDAA0); // (ours calls our SetupAxes directly)
     CodePatch frustumOurs(oursFrustum, JumpTo(oursFrustum, reinterpret_cast<void*>(&CameraFrustum)));
     std::vector<std::unique_ptr<CodePatch>> standIns;
-    auto standIn = [&](uint32_t address, void* to) { standIns.emplace_back(new CodePatch(address, JumpTo(address, to))); };
+    std::vector<uint32_t> patched;
+    auto standIn = [&](uint32_t address, void* to) {
+        // (and our function registered there: ours calls it directly - each address patched once)
+        for (uint32_t at : {address, TestStandIns::OursOf(address)}) {
+            if (at && std::find(patched.begin(), patched.end(), at) == patched.end()) {
+                patched.push_back(at);
+                standIns.emplace_back(new CodePatch(at, JumpTo(at, to)));
+            }
+        }
+    };
     standIn(0x005BE970, reinterpret_cast<void*>(&WorldTime));
     standIn(0x004DBBD0, reinterpret_cast<void*>(&Rec0<0x4DBBD0>));
     standIn(0x004DEA80, reinterpret_cast<void*>(&Rec0<0x4DEA80>));
@@ -532,7 +544,10 @@ void TestRenderWorld()
     GameVariable<uint32_t>(0x006FA7BC) = 0xB0000BC;
     GameVariable<uint32_t>(0x006FA7C0) = 0xB0000C0;
     GameVariable<uint32_t>(0x006FA7C4) = 0xB0000C4;
-    GameVariable<uint32_t>(0x006FA7C8) = 0xB0000C8;
+    // (the weather: an object whose vtable slot 3 is what the jump 0x004A10A0 reaches - ours calls the slot)
+    static void* weatherVtable[4] = {nullptr, nullptr, nullptr, reinterpret_cast<void*>(&This0<0x4A10A0>)};
+    static void* weather[1] = {weatherVtable};
+    GameVariable<void*>(0x006FA7C8) = weather;
     GameVariable<float>(0x00786D80) = 1.5f; // PartyMod's display region: x / y scales of 640 x 480
     GameVariable<float>(0x00786D84) = 1.875f;
 

@@ -398,7 +398,7 @@ bool CPcSector::LoadFromFile(File::Handle file, uint32_t unknown)
         mesh->loadIndex = static_cast<uint16_t>(i);
         mesh->LoadFromFile(file, material, *reinterpret_cast<sScene**>(geometry->scene + 0x280),
                            reinterpret_cast<sVertexArena*>(static_cast<uintptr_t>(flags & 0x800000 ? 0 : unknown)),
-                           ((flags >> 23) & 0xFFFFFF01) != 0); // (the vertices)
+                           ((flags >> 23) & 1) != 0); // (the vertices; read as a byte: bit 23)
         SetMeshSphereAndBox(mesh, centre, radius, &min, &max);
         FinishMesh(this, geometry, mesh, billboardType, &pivot, &axis, &min, &max,
                    static_cast<uint8_t>(lightGroup));

@@ -131,6 +131,8 @@ void TestLoadingScreenFrame()
     uint32_t ourFormat = TestStandIns::AddressOf(&Nx::SetVertexFormat);
     patches.push_back(new Patch(ourTexture, Branch(0xE9, ourTexture, reinterpret_cast<void*>(&FrameTexture))));
     patches.push_back(new Patch(ourFormat, Branch(0xE9, ourFormat, reinterpret_cast<void*>(&FrameVertexFormat))));
+    if (uint32_t ourPicture = TestStandIns::OursOf(0x004B6CD0)) // (and our picture call)
+        patches.push_back(new Patch(ourPicture, Branch(0xE9, ourPicture, reinterpret_cast<void*>(&FramePicture))));
     g_frame_mutex = CreateMutexA(nullptr, FALSE, nullptr);
     GameVariable<HANDLE>(0x007052AC) = g_frame_mutex;
     GameVariable<void*>(0x007D69E0) = FrameDevice();

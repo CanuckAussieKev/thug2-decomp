@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <map>
 #include <vector>
 
 #include "game/core/crc.h"
@@ -42,23 +43,47 @@ uint32_t g_loadResult;
 uint32_t g_objectFound;
 uint16_t g_textureSize[2] = {0x80, 0x40};
 
+// The textures the stand-ins hand out are named by ids (0x7E010000 ...); ours calls a texture's vtable slots itself
+// (the original through jump stubs, stood in): each id is a fake texture object whose vtable holds the stubs'
+// stand-ins, and the traces record the id for the object.
+void* g_textureVtable[48];
+std::map<uint32_t, std::vector<uint32_t>> g_textureObjects;
+uint32_t Tex(uint32_t id)
+{
+    if (!id)
+        return 0;
+    std::vector<uint32_t>& object = g_textureObjects[id];
+    if (object.empty()) {
+        object.assign(0x10, 0);
+        object[0] = reinterpret_cast<uint32_t>(g_textureVtable);
+    }
+    return reinterpret_cast<uint32_t>(object.data());
+}
+uint32_t Id(uint32_t word)
+{
+    for (auto& [id, object] : g_textureObjects)
+        if (word == reinterpret_cast<uint32_t>(object.data()))
+            return id;
+    return word;
+}
+
 void StandInTextureCalls(StandIns& s)
 {
-    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) { Record({0xF540, r.ecx, r.args[0]}); return g_textureFor[r.args[0] & 3]; });
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) { Record({0xF540, r.ecx, r.args[0]}); return Tex(g_textureFor[r.args[0] & 3]); });
     s.At({0x0049F560, AddressOf(&Nx::CTexDict::GetTextureByName)}, 4, [](Regs& r) {
         Record({0xF560, r.ecx, Hash(reinterpret_cast<const char*>(r.args[0]))});
-        return g_textureByName;
+        return Tex(g_textureByName);
     });
-    s.At({0x0049F500}, 4, [](Regs& r) { Record({0xF500, r.ecx, r.args[0]}); return 1u; });
+    s.At({0x0049F500}, 4, [](Regs& r) { Record({0xF500, r.ecx, Id(r.args[0])}); return 1u; });
     s.At({0x0049F9B0}, 16, [](Regs& r) {
         Record({0xF9B0, r.ecx, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1] & 0xFF, r.args[2] & 0xFF,
                 r.args[3] & 0xFF});
-        return g_loadResult;
+        return Tex(g_loadResult);
     });
     s.At({0x0049FAA0}, 28, [](Regs& r) {
         Record({0xFAA0, r.ecx, r.args[0], r.args[1], r.args[2], r.args[3], r.args[3] <= 8 ? r.args[4] : 0,
                 r.args[5] & 0xFF, r.args[6] & 0xFF});
-        return g_loadResult;
+        return Tex(g_loadResult);
     });
     s.At({0x0049FBE0}, 8, [](Regs& r) { Record({0xFBE0, r.ecx, r.args[0], r.args[1]}); return 1u; });
     s.At({0x0049FC20}, 16, [](Regs& r) {
@@ -75,10 +100,10 @@ void StandInTextureCalls(StandIns& s)
                     Thunk{0x0049F380, 8}, Thunk{0x0049F390, 16}, Thunk{0x0049F420, 8}, Thunk{0x0049F3B0, 0}}) {
         uint32_t address = t.address;
         uint16_t pop = t.pop;
-        s.At({address}, pop, [address, pop](Regs& r) {
-            Record({address, r.ecx});
+        AtStub(s, g_textureVtable, address, pop, [address, pop](Regs& r) {
+            Record({address, Id(r.ecx)});
             for (int i = 0; i < pop / 4; ++i) {
-                uint32_t a = r.args[i];
+                uint32_t a = Id(r.args[i]);
                 // (bool arguments: only their low byte is set)
                 bool isBool = (address == 0x0048D060 || address == 0x0048DE30) ||
                               (address == 0x0049F380 && i == 1) || (address == 0x0049F390 && i == 3) ||
@@ -88,8 +113,8 @@ void StandInTextureCalls(StandIns& s)
             return 0u;
         });
     }
-    s.At({0x0049F3C0}, 0, [](Regs& r) { Record({0xF3C0, r.ecx}); return 0xABCD0000u | g_textureSize[0]; });
-    s.At({0x0049F3D0}, 0, [](Regs& r) { Record({0xF3D0, r.ecx}); return 0xABCD0000u | g_textureSize[1]; });
+    AtStub(s, g_textureVtable, 0x0049F3C0, 0, [](Regs& r) { Record({0xF3C0, Id(r.ecx)}); return 0xABCD0000u | g_textureSize[0]; });
+    AtStub(s, g_textureVtable, 0x0049F3D0, 0, [](Regs& r) { Record({0xF3D0, Id(r.ecx)}); return 0xABCD0000u | g_textureSize[1]; });
     s.At({0x00460AD0, AddressOf(&Obj::FindObject)}, 0, [](Regs& r) { Record({0x0AD0, r.args[0]}); return g_objectFound; });
     s.At({0x00401C30, AddressOf(&Dbg::Printf)}, 0, [](Regs& r) {
         Record({0x1C30, Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});

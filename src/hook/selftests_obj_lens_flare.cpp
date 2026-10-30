@@ -144,6 +144,9 @@ __declspec(naked) void VirtualSlot3()
         jmp dword ptr [g_primUnknown]
     }
 }
+// The viewport camera's and the primitive drawer's vtable: ours calls slots 1 and 3 itself, the original through
+// the jumps 0x004A1090 / 0x004A10A0 - the same helpers either way.
+void* g_slotsVtable[4] = {nullptr, reinterpret_cast<void*>(&VirtualSlot1), nullptr, reinterpret_cast<void*>(&VirtualSlot3)};
 // Script::GetFloat (a float in ST0): a cdecl stand-in of its own.
 float __cdecl FakeGetFloat(uint32_t name)
 {
@@ -236,6 +239,7 @@ void StandInCalls(StandIns& s)
     s.At({0x004C5230, AddressOf(&Nx::CPcPrimitive::Construct)}, 4, [](Regs& r) {
         Record({0x5230, r.args[0]});
         std::memset(reinterpret_cast<void*>(r.ecx), 0, 0x150); // (the original's frame keeps 0x150-0x15C bytes)
+        *reinterpret_cast<void***>(r.ecx) = g_slotsVtable;
         return r.ecx;
     });
     s.At({0x004C5A20}, 0, [](Regs& r) {
@@ -262,7 +266,8 @@ void StandInCalls(StandIns& s)
         Record({0x0EB0, QueryCallbackKind(request[1]), request[2], request[3] & 0xFF});
         return 0u;
     });
-    s.At({0x004A0F20}, 0, [](Regs& r) { Record({0x0F20, r.args[0] & 0xFF}); return g_visible; });
+    // (it reads no argument: the original passes the query, ours nothing)
+    s.At({0x004A0F20}, 0, [](Regs&) { Record({0x0F20}); return g_visible; });
     s.At({0x0041C200, AddressOf(&Tmr::GameClockTime)}, 0, [](Regs&) { Record({0xC200}); return g_now++; });
     s.At({0x00420250, AddressOf(&Tmr::GameClockTimeSince)}, 0, [](Regs& r) { Record({0x0250, r.args[0]}); return g_since; });
 }
@@ -324,6 +329,7 @@ void TestSunAndLensFlare()
         g_textures[i] = {g_textureVtable, 0x7E0 + static_cast<uint32_t>(i)};
     g_textureVtable[0] = reinterpret_cast<void*>(AddressOf(&FakeTextureMethods::Delete));
     g_viewportAddress = reinterpret_cast<uint32_t>(g_viewport);
+    *reinterpret_cast<void***>(g_viewport) = g_slotsVtable;
     g_project = reinterpret_cast<void*>(AddressOf(&FakeViewport::Project));
     g_query = reinterpret_cast<void*>(AddressOf(&FakeViewport::Query));
     g_primTexture = reinterpret_cast<void*>(AddressOf(&FakePrim::SetTexture));
@@ -444,6 +450,7 @@ void TestSunAndLensFlare()
             SetCamera(10.0f, 20.0f, 30.0f, 0.75f, 1.25f);
             alignas(16) uint8_t prim[0x200];
             std::memset(prim, 0, sizeof(prim));
+            *reinterpret_cast<void***>(prim) = g_slotsVtable; // (ours calls its slots itself)
             float corners[12];
             Mth::Vector at = {100.0f, -50.0f, 2000.0f, 1.0f};
             Pick(original, 0x00443180, &BuildSunQuad)(reinterpret_cast<Gfx::Camera*>(g_camera), prim, &at, corners);

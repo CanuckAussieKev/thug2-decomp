@@ -92,6 +92,9 @@ sMesh* MakeBillboardMesh(Lcg& random, uint8_t* material, uint32_t type)
         reinterpret_cast<float*>(buffer->data)[i] = RandomFloat(random, -4, 4);
     mesh->vertexBuffers[0] = buffer;
     mesh->indexBuffers[0] = reinterpret_cast<Nx::sIndexBuffer*>(Bump(0x20));
+    // (its Direct3D buffer at +0xC: what the folded getter 0x00492E50 reads - ours reads the field itself)
+    *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(mesh->indexBuffers[0]) + 0xC) =
+        0x1B100000 + (ArenaRelocate(reinterpret_cast<uint32_t>(mesh->indexBuffers[0])) & 0xFFFF);
     if (random.Below(2)) {
         mesh->perVertexBytes = reinterpret_cast<uint8_t*>(Bump(16));
         for (int i = 0; i < 16; ++i)
@@ -207,7 +210,7 @@ void TestPcBillboards()
         Record({0x40E0, Relocate(r.ecx), HashBytes(g_lockData, 0x200)});
         return 0u;
     });
-    s.At({0x00492E50}, 0, [](Regs& r) { return 0x1B100000 + (Relocate(r.ecx) & 0xFFFF); });
+    s.At({0x00492E50}, 0, [](Regs& r) { return *reinterpret_cast<uint32_t*>(r.ecx + 0xC); });
     UseStandardRelocation(com);
     auto standard = g_relocate;
     g_relocate = [standard](uint32_t word) { return ArenaRelocate(standard(word)); };

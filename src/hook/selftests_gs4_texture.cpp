@@ -31,6 +31,7 @@ alignas(16) uint8_t g_tSkate[0x100];
 alignas(16) uint8_t g_tProfile[0x64];
 alignas(16) uint8_t g_tFace[0x4480];
 alignas(16) uint8_t g_tTextures[2][0x40];
+void* g_tTextureVtable[48]; // (the stubs' slots)
 alignas(16) uint8_t g_tPixels[0x300];
 alignas(16) uint8_t g_tRailEditor[0x20];
 alignas(16) uint8_t g_tRecords[0x10];
@@ -56,6 +57,10 @@ uint32_t TextureId(uint32_t address)
 
 void StandInTextureCalls(StandIns& s)
 {
+    // (the jump stubs to a texture's slots: ours calls the slots itself - the fake textures' vtable has the
+    // same stand-ins)
+    for (auto& texture : g_tTextures)
+        *reinterpret_cast<void***>(texture) = g_tTextureVtable;
     s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4F80, r.ecx == reinterpret_cast<uint32_t>(g_tSkate), r.args[0]});
         return reinterpret_cast<uint32_t>(g_tProfile);
@@ -71,33 +76,33 @@ void StandInTextureCalls(StandIns& s)
                 r.args[4] & 0xFF, r.args[5] & 0xFF, r.args[6] & 0xFF});
         return g_tLoadResult;
     });
-    s.At({0x0048DF50}, 4, [](Regs& r) {
+    AtStub(s, g_tTextureVtable, 0x0048DF50, 4, [](Regs& r) {
         Record({0xDF50, TextureId(r.ecx)});
         auto* header = reinterpret_cast<uint8_t*>(r.args[0]);
         for (int i = 0; i < 0x20; ++i)
             header[i] = static_cast<uint8_t>(0xA0 + i);
         return 0u;
     });
-    s.At({0x0048DF30}, 0, [](Regs& r) {
+    AtStub(s, g_tTextureVtable, 0x0048DF30, 0, [](Regs& r) {
         Record({0xDF30, TextureId(r.ecx)});
         return static_cast<uint32_t>(g_tPaletteSize);
     });
-    s.At({0x0049F3E0}, 0, [](Regs& r) {
+    AtStub(s, g_tTextureVtable, 0x0049F3E0, 0, [](Regs& r) {
         Record({0xF3E0, TextureId(r.ecx)});
         return 0xABCDEF00u | g_tBitsPerPixel; // (only AL is the result)
     });
-    s.At({0x0048DF40}, 8, [](Regs& r) {
+    AtStub(s, g_tTextureVtable, 0x0048DF40, 8, [](Regs& r) {
         Record({0xDF40, TextureId(r.ecx), r.args[1]});
         auto* palette = reinterpret_cast<uint8_t*>(r.args[0]);
         for (uint32_t i = 0; i < r.args[1] && i < 0x400; ++i)
             palette[i] = static_cast<uint8_t>(i * 7 + 1);
         return 0u;
     });
-    s.At({0x0048DF00}, 0, [](Regs& r) {
+    AtStub(s, g_tTextureVtable, 0x0048DF00, 0, [](Regs& r) {
         Record({0xDF00, TextureId(r.ecx)});
         return reinterpret_cast<uint32_t>(g_tPixels);
     });
-    s.At({0x0049F3A0}, 0, [](Regs& r) {
+    AtStub(s, g_tTextureVtable, 0x0049F3A0, 0, [](Regs& r) {
         Record({0xF3A0, TextureId(r.ecx)});
         return static_cast<uint32_t>(g_tPixelSize);
     });
@@ -106,19 +111,19 @@ void StandInTextureCalls(StandIns& s)
                 HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 0x4420)});
         return r.args[0] + 0x4420;
     });
-    s.At({0x0048DEC0}, 16, [](Regs& r) {
+    AtStub(s, g_tTextureVtable, 0x0048DEC0, 16, [](Regs& r) {
         Record({0xDEC0, TextureId(r.ecx), r.args[0], r.args[1], r.args[2] & 0xFF, r.args[3]});
         return 0u;
     });
-    s.At({0x0049F360}, 12, [](Regs& r) {
+    AtStub(s, g_tTextureVtable, 0x0049F360, 12, [](Regs& r) {
         Record({0xF360, TextureId(r.ecx), r.args[0], r.args[1], r.args[2]});
         return 0u;
     });
-    s.At({0x0048DEF0}, 20, [](Regs& r) {
+    AtStub(s, g_tTextureVtable, 0x0048DEF0, 20, [](Regs& r) {
         Record({0xDEF0, TextureId(r.ecx), r.args[0], r.args[1], r.args[2], r.args[3] & 0xFF, r.args[4]});
         return 0u;
     });
-    s.At({0x0048DE50}, 8, [](Regs& r) {
+    AtStub(s, g_tTextureVtable, 0x0048DE50, 8, [](Regs& r) {
         Record({0xDE50, TextureId(r.ecx), r.args[0], r.args[1] & 0xFF});
         return 0u;
     });

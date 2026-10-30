@@ -66,7 +66,7 @@ void StandInEffects(StandIns& s)
     for (Call c : {Call{0x004B8E40, AddressOf(&Nx::SetFogEnabled), 0, 1},
                    Call{0x004B8E80, AddressOf(&Nx::SetFogDistance), 0, 1},
                    Call{0x004B8EE0, AddressOf(&Nx::SetFogColor), 0, 1},
-                   Call{0x004BA7A0, AddressOf(&Nx::ShatterGeom), 0, 2},
+                   Call{0x004BA7A0, AddressOf(&Nx::ShatterGeom), 0, 1},
                    Call{0x004B87B0, AddressOf(&Nx::LightTextureSplats), 0, 1},
                    Call{0x004B9200, AddressOf(&Nx::KillAllTextureSplats), 0, 0},
                    Call{0x004B92A0, AddressOf(&Nx::KillTextureSplatsInBox), 0, 1},
@@ -78,6 +78,11 @@ void StandInEffects(StandIns& s)
         std::initializer_list<uint32_t> both = {c.game, c.ours};
         std::initializer_list<uint32_t> one = {c.game};
         s.At(c.ours ? both : one, c.pop, [c](Regs& r) {
+            // (the engine's ShatterGeom looked up the particles' texture - a const hash lookup, key 0x007004BC - and
+            // passed it as the PC ShatterGeom's second argument, which only reads the geom; ours does neither: that
+            // lookup and that argument aren't recorded, for both)
+            if (c.game == 0x0049F540 && r.args[0] == GameVariable<uint32_t>(0x007004BC))
+                return 0x7E000000u + r.args[0];
             Record({c.game & 0xFFFFF, c.pop ? Relocate(r.ecx) : 0u});
             for (int i = 0; i < c.args; ++i) {
                 uint32_t value = r.args[i];

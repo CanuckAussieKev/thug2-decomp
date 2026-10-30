@@ -47,6 +47,7 @@ uint32_t OursOf(uint32_t address)
     return ours ? Resolve(ours) : address;
 }
 // A stand-in's thunk written over our replacements of `addresses` as well.
+// (the stand-ins here use AtOnly: which of our replacements are stood in too is chosen by AlsoOurs)
 void AlsoOurs(StandIns& s, std::initializer_list<uint32_t> addresses, void* thunk)
 {
     // (only the functions skater.cpp calls directly now: others' replacements may run for real)
@@ -63,7 +64,7 @@ void AlsoOurs(StandIns& s, std::initializer_list<uint32_t> addresses, void* thun
 void Simple(StandIns& s, std::initializer_list<uint32_t> addresses, int pop, uint32_t answer = 0)
 {
     uint32_t tag = *addresses.begin() & 0xFFFFF;
-    void* thunk = s.At(addresses, static_cast<uint16_t>(pop), [tag, pop, answer](Regs& r) {
+    void* thunk = s.AtOnly(addresses, static_cast<uint16_t>(pop), [tag, pop, answer](Regs& r) {
         g_trace.push_back(tag);
         g_trace.push_back(Rel(r.ecx));
         for (int i = 0; i < pop / 4; ++i)
@@ -79,7 +80,7 @@ void Install(StandIns& s)
     for (uint32_t address : {0x00478F00u, AddressOf(static_cast<float (*)(uint32_t)>(&Script::GetFloat))})
         s.Bytes(address, Branch(0xE9, address, reinterpret_cast<void*>(&GetFloatStandIn)));
     // Components: the skater's by type; a target's PedLogic is its +0x100 block when its +0xF0 word says so.
-    s.At({0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, [](Regs& r) {
+    s.AtOnly({0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, [](Regs& r) {
         Rec(0xDB90, {r.ecx, r.args[0]});
         if (r.ecx - At(kTargets) < 0x2000) {
             if (r.args[0] == 0x6EFDDFB8)
@@ -88,13 +89,13 @@ void Install(StandIns& s)
         }
         return Block(1) + (r.args[0] & 0xF0);
     });
-    s.At({0x00431C60, OursOf(0x00431C60)}, 8, [](Regs& r) {
+    s.AtOnly({0x00431C60, OursOf(0x00431C60)}, 8, [](Regs& r) {
         Rec(0x1C60, {r.ecx, r.args[0]});
         auto* v = reinterpret_cast<float*>(r.args[1]);
         v[0] = 1.5f, v[1] = 4.25f, v[2] = -0.75f + (r.args[0] & 1), v[3] = 0.0f;
         return 0u;
     });
-    s.At({0x0040B090, OursOf(0x0040B090)}, 8, [](Regs& r) {
+    s.AtOnly({0x0040B090, OursOf(0x0040B090)}, 8, [](Regs& r) {
         const auto* m = reinterpret_cast<const float*>(r.ecx);
         const auto* in = reinterpret_cast<const float*>(r.args[1]);
         auto* out = reinterpret_cast<float*>(r.args[0]);
@@ -105,38 +106,38 @@ void Install(StandIns& s)
     });
     // (0x00411840, the vector turned by a matrix: run as it is - it calls 0x0040B090, stood in; ours calls
     // RotateVector the same way)
-    s.At({0x0045F2D0, AddressOf(&Obj::CCompositeObjectManager::GetFirstComponentByType)}, 4, [](Regs& r) {
+    s.AtOnly({0x0045F2D0, AddressOf(&Obj::CCompositeObjectManager::GetFirstComponentByType)}, 4, [](Regs& r) {
         Rec(0xF2D0, {r.ecx, r.args[0]});
         return g_firstTarget < 0 ? 0u : Target(g_firstTarget) + 0x100;
     });
-    s.At({0x004ED140}, 0, [](Regs& r) {
+    s.AtOnly({0x004ED140}, 0, [](Regs& r) {
         Rec(0xD140, {r.ecx});
         return *reinterpret_cast<uint32_t*>(r.ecx - 0x100 + 0xF4);
     });
-    s.At({0x00478F90, AddressOf(static_cast<uint32_t (*)(uint32_t)>(&Script::GetSymbolValue))}, 0, [](Regs& r) {
+    s.AtOnly({0x00478F90, AddressOf(static_cast<uint32_t (*)(uint32_t)>(&Script::GetSymbolValue))}, 0, [](Regs& r) {
         Rec(0x8F90, {r.args[0]});
         return 0xB0E2u;
     });
-    s.At({0x00477F90, AddressOf(static_cast<void (CStruct::*)(const char*, Script::VectorValue)>(&CStruct::AddVector))}, 20,
+    s.AtOnly({0x00477F90, AddressOf(static_cast<void (CStruct::*)(const char*, Script::VectorValue)>(&CStruct::AddVector))}, 20,
          [](Regs& r) {
              Rec(0x7F90, {r.ecx, Text(r.args[0]), r.args[1], r.args[2], r.args[3], r.args[4]});
              return 0u;
          });
-    s.At({0x00477D10, AddressOf(static_cast<void (CStruct::*)(const char*, float)>(&CStruct::AddFloat))}, 8, [](Regs& r) {
+    s.AtOnly({0x00477D10, AddressOf(static_cast<void (CStruct::*)(const char*, float)>(&CStruct::AddFloat))}, 8, [](Regs& r) {
         Rec(0x7D10, {r.ecx, Text(r.args[0]), r.args[1]});
         return 0u;
     });
     Simple(s, {0x00461500, AddressOf(&Obj::CObject::CallScript)}, 8);
-    s.At({0x00477D40, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t)>(&CStruct::AddChecksum))}, 8, [](Regs& r) {
+    s.AtOnly({0x00477D40, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t)>(&CStruct::AddChecksum))}, 8, [](Regs& r) {
         Rec(0x7D40, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
     // The constructor's.
-    s.At({0x0045E510, AddressOf(&Obj::CCompositeObject::Construct)}, 0, [](Regs& r) {
+    s.AtOnly({0x0045E510, AddressOf(&Obj::CCompositeObject::Construct)}, 0, [](Regs& r) {
         Rec(0xE510, {r.ecx});
         return r.ecx;
     });
-    s.At({0x0057B250, AddressOf(&Obj::AddBaseComponents)}, 0, [](Regs& r) {
+    s.AtOnly({0x0057B250, AddressOf(&Obj::AddBaseComponents)}, 0, [](Regs& r) {
         Rec(0xB250, {r.args[0]});
         return 0u;
     });

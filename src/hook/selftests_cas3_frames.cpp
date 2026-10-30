@@ -100,8 +100,8 @@ void StandInFrameCalls(StandIns& s)
         Record({0x0670, Rel(r.ecx), r.args[0], r.args[1], r.args[2], r.args[3]});
         return 0x90u + r.args[0];
     });
-    s.At({0x00480940}, 0, [](Regs& r) {
-        Record({0x0940, Rel(r.ecx)});
+    s.At({0x00480940}, 0, [](Regs&) {
+        Record({0x0940}); // (it reads no `this`: the original's ECX is the cache, ours calls our static function)
         return g_room;
     });
     s.At({0x00480ED0}, 8, [](Regs& r) {
@@ -125,7 +125,12 @@ void StandInFrameCalls(StandIns& s)
         return reinterpret_cast<uint32_t>(g_cacheData[1]);
     });
     s.At({0x00480640}, 8, [](Regs& r) {
-        Record({0x0640, Rel(r.ecx), r.args[0], Rel(r.args[1])});
+        // (the release callback: the original stores its 0x00482B90, ours our ForgetCacheEntry - the same function)
+        uint32_t callback = r.args[0] == AddressOf(&Gfx::CBonedAnimFrameData::ForgetCacheEntry) ||
+                                    r.args[0] == reinterpret_cast<uint32_t>(&Gfx::CBonedAnimFrameData::ForgetCacheEntry)
+                                ? 0x00482B90u
+                                : r.args[0];
+        Record({0x0640, Rel(r.ecx), callback, Rel(r.args[1])});
         return 0u;
     });
     // The decoders: a rotation key 4 bytes, a translation key 6 (8 bytes out each, from the input's bytes)
@@ -140,7 +145,8 @@ void StandInFrameCalls(StandIns& s)
     s.At({0x00482E70}, 0, [](Regs& r) {
         auto* in = reinterpret_cast<uint8_t*>(r.args[0]);
         auto* out = reinterpret_cast<uint8_t*>(r.args[1]);
-        Record({0x2E70, Rel(r.args[0]), r.args[2]});
+        // (the original's callers pass a third argument the decoder never reads; ours doesn't pass it)
+        Record({0x2E70, Rel(r.args[0])});
         for (int i = 0; i < 8; ++i)
             out[i] = static_cast<uint8_t>(in[i % 6] ^ (i * 37));
         return r.args[0] + 6;

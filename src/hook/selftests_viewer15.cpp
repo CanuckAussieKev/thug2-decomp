@@ -44,6 +44,7 @@ uint32_t OursOf(uint32_t address)
     return ours ? Resolve(ours) : address;
 }
 // A stand-in's thunk written over our replacements of `addresses` as well.
+// (the stand-ins here use AtOnly: which of our replacements are stood in too is chosen by AlsoOurs)
 void AlsoOurs(StandIns& s, std::initializer_list<uint32_t> addresses, void* thunk)
 {
     // (only the functions skater.cpp calls directly now: others' replacements may run for real)
@@ -60,7 +61,7 @@ void AlsoOurs(StandIns& s, std::initializer_list<uint32_t> addresses, void* thun
 void Simple(StandIns& s, std::initializer_list<uint32_t> addresses, int pop, uint32_t answer = 0)
 {
     uint32_t tag = *addresses.begin() & 0xFFFFF;
-    void* thunk = s.At(addresses, static_cast<uint16_t>(pop), [tag, pop, answer](Regs& r) {
+    void* thunk = s.AtOnly(addresses, static_cast<uint16_t>(pop), [tag, pop, answer](Regs& r) {
         g_trace.push_back(tag);
         g_trace.push_back(Rel(r.ecx));
         for (int i = 0; i < pop / 4; ++i)
@@ -73,19 +74,19 @@ void Simple(StandIns& s, std::initializer_list<uint32_t> addresses, int pop, uin
 void Install(StandIns& s)
 {
     InstallCommon(s);
-    s.At({0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, [](Regs& r) {
+    s.AtOnly({0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, [](Regs& r) {
         Rec(0xDB90, {r.ecx, r.args[0]});
         return Block(1) + (r.args[0] & 0x70);
     });
-    s.At({0x0044E4F0, OursOf(0x0044E4F0)}, 0, [](Regs& r) {
+    s.AtOnly({0x0044E4F0, OursOf(0x0044E4F0)}, 0, [](Regs& r) {
         Rec(0xE4F0, {r.ecx});
         return g_net ? 1u : 0u;
     });
-    s.At({0x005A1050}, 0, [](Regs& r) {
+    s.AtOnly({0x005A1050}, 0, [](Regs& r) {
         Rec(0x1050, {r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0, [](Regs&) {
+    s.AtOnly({0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0, [](Regs&) {
         Rec(0xECE0, {});
         return static_cast<uint32_t>(g_clock += 7);
     });
@@ -96,15 +97,15 @@ void Install(StandIns& s)
     Simple(s, {0x0045E4C0, AddressOf(&Obj::CCompositeObject::SetTeleported)}, 4);
     Simple(s, {0x0045D920, AddressOf(&Obj::CCompositeObject::Update)}, 0);
     Simple(s, {0x0045D890, AddressOf(&Obj::CCompositeObject::DestroyBody)}, 0);
-    s.At({0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, [](Regs& r) {
+    s.AtOnly({0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, [](Regs& r) {
         Rec(0x19F0, {r.ecx, r.args[0]});
         return g_camera ? Block(10) : 0u;
     });
-    s.At({0x0045C1B0, AddressOf(&SkateScript::GetNode)}, 0, [](Regs& r) {
+    s.AtOnly({0x0045C1B0, AddressOf(&SkateScript::GetNode)}, 0, [](Regs& r) {
         Rec(0xC1B0, {r.args[0], r.args[1] & 0xFF});
         return g_node ? Block(11) : 0u;
     });
-    s.At({0x00476950, AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))}, 12,
+    s.AtOnly({0x00476950, AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))}, 12,
          [](Regs& r) {
              Rec(0x6950, {r.ecx, r.args[0], r.args[2] & 0xFF});
              if (!g_trigger)
@@ -112,23 +113,23 @@ void Install(StandIns& s)
              *reinterpret_cast<uint32_t*>(r.args[1]) = 0x7E16;
              return 1u;
          });
-    s.At({0x00461480, AddressOf(&Obj::CObject::SpawnAndRunScript)}, 20, [](Regs& r) {
+    s.AtOnly({0x00461480, AddressOf(&Obj::CObject::SpawnAndRunScript)}, 20, [](Regs& r) {
         Rec(0x1480, {r.ecx, r.args[0], r.args[1], r.args[2] & 0xFF, r.args[3] & 0xFF, r.args[4]});
         return 0u;
     });
-    s.At({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, [](Regs& r) {
+    s.AtOnly({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, [](Regs& r) {
         Rec(0x32A0, {r.ecx});
         return g_mode;
     });
-    s.At({0x00532EA0, OursOf(0x00532EA0)}, 4, [](Regs& r) {
+    s.AtOnly({0x00532EA0, OursOf(0x00532EA0)}, 4, [](Regs& r) {
         Rec(0x2EA0, {r.ecx, r.args[0]});
         return Block(12);
     });
-    s.At({0x0053AEA0, OursOf(0x0053AEA0)}, 4, [](Regs& r) {
+    s.AtOnly({0x0053AEA0, OursOf(0x0053AEA0)}, 4, [](Regs& r) {
         Rec(0xAEA0, {r.ecx, r.args[0]});
         return g_player ? Block(13) : 0u;
     });
-    s.At({0x00459E50, AddressOf(&Net::Client::EnqueueMessageToServer)}, 4, [](Regs& r) {
+    s.AtOnly({0x00459E50, AddressOf(&Net::Client::EnqueueMessageToServer)}, 4, [](Regs& r) {
         const auto* m = reinterpret_cast<const Net::MsgDesc*>(r.args[0]);
         Rec(0x9E50, {r.ecx, m->m_id, m->m_stream, m->m_length, Rel(reinterpret_cast<uint32_t>(m->m_data)),
                      static_cast<uint32_t>(m->m_priority), static_cast<uint32_t>(m->m_queue), m->m_groupId});

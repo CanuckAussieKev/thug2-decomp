@@ -34,6 +34,8 @@
 #include "game/front/new_frontend.h"
 #include "game/mc/memcard.h"
 #include "game/mc/memcard_cfuncs.h"
+#include "game/mc/save_contents.h"
+#include "game/mc/save_types.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
 #include "game/net/gamenet_lobby.h"
@@ -349,20 +351,37 @@ void TestLoadFromMemoryCard()
             Record({0xF01D});
             return reinterpret_cast<uint32_t>("Folder");
         });
-        s->At({0x005A5F70}, 0, [](Regs& r) {
+        // The save type's helpers take register arguments in the original; ours calls our C++ functions with them
+        // on the stack: the same stand-in there, the registers taken from the stack (Cdecl).
+        auto onOurs = [s](uint32_t ours, Handler handler, std::function<void(Regs&)> registers) {
+            s->At({ours}, 0, [handler, registers](Regs& r) {
+                Regs moved = r;
+                registers(moved);
+                return handler(moved);
+            });
+        };
+        Handler makeFileName = [](Regs& r) {
             Record({0x5F70, Hash(reinterpret_cast<const char*>(r.eax)), r.edi});
             strcpy_s(reinterpret_cast<char*>(r.esi), 20, "FILENAME");
             return r.esi;
-        });
-        s->At({0x005A6390}, 0, [](Regs& r) {
+        };
+        s->At({0x005A5F70}, 0, makeFileName);
+        onOurs(AddressOf(&Mc::MakeFileName), makeFileName, [](Regs& r) { r.eax = r.args[0], r.esi = r.args[1], r.edi = r.args[2]; });
+        Handler makeFolderFileName = [](Regs& r) {
             Record({0x6390, r.edi, Hash(reinterpret_cast<const char*>(r.args[0]))});
             strcpy_s(reinterpret_cast<char*>(r.args[1]), 104, "FolderFile");
             return 0u;
+        };
+        s->At({0x005A6390}, 0, makeFolderFileName);
+        onOurs(AddressOf(&Mc::MakeFolderFileName), makeFolderFileName, [](Regs& r) {
+            r.edi = r.args[0], r.args[0] = r.args[1], r.args[1] = r.args[2];
         });
-        s->At({0x005A62A0}, 0, [](Regs& r) {
+        Handler typeFileName = [](Regs& r) {
             Record({0x62A0, r.eax, Hash(reinterpret_cast<const char*>(r.ecx))});
             return reinterpret_cast<uint32_t>("pattern");
-        });
+        };
+        s->At({0x005A62A0}, 0, typeFileName);
+        onOurs(AddressOf(&Mc::TypeFileName), typeFileName, [](Regs& r) { r.eax = r.args[0], r.ecx = r.args[1]; });
         s->At({0x005BC740, AddressOf(&Mc::Card::ConvertFilename)}, 4, [](Regs& r) {
             Record({0xC0F, r.ecx == reinterpret_cast<uint32_t>(g_card), Hash(reinterpret_cast<const char*>(r.args[0]))});
             return g_load.converted ? reinterpret_cast<uint32_t>("Save\\converted.sav") : 0u;
@@ -377,10 +396,12 @@ void TestLoadFromMemoryCard()
             Record({0x5EE, r.ecx == reinterpret_cast<uint32_t>(g_file), r.args[0], r.args[1]});
             return r.args[1] == 2 ? static_cast<uint32_t>(g_load.fileSize) : 0u;
         });
-        s->At({0x005A7340}, 0, [](Regs& r) {
+        Handler typeFileSize = [](Regs& r) {
             Record({0x7340, r.ecx});
             return static_cast<uint32_t>(g_load.expectedSize);
-        });
+        };
+        s->At({0x005A7340}, 0, typeFileSize);
+        onOurs(AddressOf(&Mc::TypeFileSize), typeFileSize, [](Regs& r) { r.ecx = r.args[0]; });
         s->At({0x00477D40, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t)>(&CStruct::AddChecksum))}, 8,
               [=](Regs& r) {
                   Record({0xADDC, id(r.ecx), r.args[0], r.args[1]});
@@ -397,18 +418,24 @@ void TestLoadFromMemoryCard()
         });
         // (the original's checksum: computed, but PartyMod's NOP ignores it - not recorded)
         s->At({0x00401AA0}, 0, [](Regs&) { return 0x12345678u; });
-        s->At({0x005A6210}, 0, [](Regs& r) {
+        Handler typeVersion = [](Regs& r) {
             Record({0x6210, r.eax});
             return static_cast<uint32_t>(g_load.typeVersion);
-        });
+        };
+        s->At({0x005A6210}, 0, typeVersion);
+        onOurs(AddressOf(&Mc::TypeVersion), typeVersion, [](Regs& r) { r.eax = r.args[0]; });
         s->At({0x0047A0C0, AddressOf(&Script::ReadFromBuffer)}, 0, [=](Regs& r) {
             uint32_t offset = r.args[1] - data;
             Record({0x47A0, id(r.args[0]), offset, HashBytes(reinterpret_cast<uint8_t*>(r.args[1]), 0x100 - offset)});
             return r.args[1] + 0x30;
         });
-        s->At({0x005A81B0}, 0, [=](Regs& r) {
+        Handler applyContents = [=](Regs& r) {
             Record({0x81B0, r.eax, id(r.esi), r.args[0], id(r.args[1])});
             return 0u;
+        };
+        s->At({0x005A81B0}, 0, applyContents);
+        onOurs(AddressOf(&Mc::ApplyLoadedContents), applyContents, [](Regs& r) {
+            r.eax = r.args[0], r.esi = r.args[1], r.args[0] = r.args[2], r.args[1] = r.args[3];
         });
         s->At({0x00478540, AddressOf(&CStruct::AppendStructureIfAny)}, 4, [=](Regs& r) {
             Record({0xA99E, id(r.ecx), id(r.args[0])});

@@ -251,7 +251,14 @@ inline void AtFloat(StandIns& s, std::initializer_list<uint32_t> addresses, uint
     p[12] = static_cast<uint8_t>(pop);
     p[13] = static_cast<uint8_t>(pop >> 8);
     FlushInstructionCache(GetCurrentProcess(), p, 16);
-    for (uint32_t address : addresses)
+    // (our function registered at each address too, as StandIns::At does: ours calls it directly)
+    std::vector<uint32_t> all(addresses);
+    for (uint32_t address : addresses) {
+        uint32_t ours = OursOf(address);
+        if (ours && std::find(all.begin(), all.end(), ours) == all.end())
+            all.push_back(ours);
+    }
+    for (uint32_t address : all)
         s.Bytes(address, Branch(0xE9, address, p));
 }
 

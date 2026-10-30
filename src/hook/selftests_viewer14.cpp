@@ -56,6 +56,7 @@ uint32_t OursOf(uint32_t address)
     return ours ? Resolve(ours) : address;
 }
 // A stand-in's thunk written over our replacements of `addresses` as well.
+// (the stand-ins here use AtOnly: which of our replacements are stood in too is chosen by AlsoOurs)
 void AlsoOurs(StandIns& s, std::initializer_list<uint32_t> addresses, void* thunk)
 {
     // (only the functions skater.cpp calls directly now: others' replacements may run for real)
@@ -72,7 +73,7 @@ void AlsoOurs(StandIns& s, std::initializer_list<uint32_t> addresses, void* thun
 void Simple(StandIns& s, std::initializer_list<uint32_t> addresses, int pop, uint32_t answer = 0)
 {
     uint32_t tag = *addresses.begin() & 0xFFFFF;
-    void* thunk = s.At(addresses, static_cast<uint16_t>(pop), [tag, pop, answer](Regs& r) {
+    void* thunk = s.AtOnly(addresses, static_cast<uint16_t>(pop), [tag, pop, answer](Regs& r) {
         g_trace.push_back(tag);
         g_trace.push_back(Rel(r.ecx));
         for (int i = 0; i < pop / 4; ++i)
@@ -97,9 +98,9 @@ void Install(StandIns& s)
         *reinterpret_cast<uint32_t*>(r.args[1]) = it->second;
         return 1u;
     };
-    s.At({0x00476950, 0x00476EC0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))},
+    s.AtOnly({0x00476950, 0x00476EC0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))},
          12, [getter](Regs& r) { return getter(r, 0x6950); });
-    s.At({0x00476590, 0x00476C60, AddressOf(static_cast<bool (CStruct::*)(uint32_t, const char**, int)>(&CStruct::GetString))},
+    s.AtOnly({0x00476590, 0x00476C60, AddressOf(static_cast<bool (CStruct::*)(uint32_t, const char**, int)>(&CStruct::GetString))},
          12, [](Regs& r) {
              Rec(0x6590, {r.ecx, r.args[0], r.args[2] & 0xFF});
              auto it = g_strings.find({r.ecx, r.args[0]});
@@ -108,71 +109,71 @@ void Install(StandIns& s)
              *reinterpret_cast<uint32_t*>(r.args[1]) = it->second;
              return 1u;
          });
-    s.At({0x00476630, 0x00476CB0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, int*, int)>(&CStruct::GetInteger))}, 12,
+    s.AtOnly({0x00476630, 0x00476CB0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, int*, int)>(&CStruct::GetInteger))}, 12,
          [getter](Regs& r) { return getter(r, 0x6630); });
-    s.At({0x004767C0, 0x00476E70, AddressOf(static_cast<bool (CStruct::*)(uint32_t, CStruct**, int)>(&CStruct::GetStructure))},
+    s.AtOnly({0x004767C0, 0x00476E70, AddressOf(static_cast<bool (CStruct::*)(uint32_t, CStruct**, int)>(&CStruct::GetStructure))},
          12, [getter](Regs& r) { return getter(r, 0x67C0); });
-    s.At({0x00476B40, AddressOf(static_cast<bool (CStruct::*)(uint32_t)>(&CStruct::ContainsFlag))}, 4, [](Regs& r) {
+    s.AtOnly({0x00476B40, AddressOf(static_cast<bool (CStruct::*)(uint32_t)>(&CStruct::ContainsFlag))}, 4, [](Regs& r) {
         Rec(0x6B40, {r.ecx, r.args[0]});
         return g_params.count({r.ecx, r.args[0]}) ? 1u : 0u;
     });
-    s.At({0x00476BA0, AddressOf(static_cast<bool (CStruct::*)(const char*)>(&CStruct::ContainsFlag))}, 4, [](Regs& r) {
+    s.AtOnly({0x00476BA0, AddressOf(static_cast<bool (CStruct::*)(const char*)>(&CStruct::ContainsFlag))}, 4, [](Regs& r) {
         Rec(0x6BA0, {r.ecx, Text(r.args[0])});
         return 0u;
     });
-    s.At({0x00476AF0, AddressOf(static_cast<bool (CStruct::*)(uint32_t)>(&CStruct::ContainsComponentNamed))}, 4, [](Regs& r) {
+    s.AtOnly({0x00476AF0, AddressOf(static_cast<bool (CStruct::*)(uint32_t)>(&CStruct::ContainsComponentNamed))}, 4, [](Regs& r) {
         Rec(0x6AF0, {r.ecx, r.args[0]});
         return g_params.count({r.ecx, r.args[0]}) ? 1u : 0u;
     });
-    s.At({0x00477D40, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t)>(&CStruct::AddChecksum))}, 8, [](Regs& r) {
+    s.AtOnly({0x00477D40, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t)>(&CStruct::AddChecksum))}, 8, [](Regs& r) {
         Rec(0x7D40, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
     Simple(s, {0x00477C60, AddressOf(static_cast<void (CStruct::*)(uint32_t, float)>(&CStruct::AddFloat))}, 8);
-    s.At({0x00401B90, 0x00472E60, AddressOf(&Crc::GenerateCRCFromString)}, 0, [](Regs& r) {
+    s.AtOnly({0x00401B90, 0x00472E60, AddressOf(&Crc::GenerateCRCFromString)}, 0, [](Regs& r) {
         Rec(0x1B90, {Text(r.args[0])});
         return 0xC4C0u;
     });
-    s.At({0x0045C2D0, AddressOf(&SkateScript::GetNearestNodeByPrefix)}, 0, [](Regs& r) {
+    s.AtOnly({0x0045C2D0, AddressOf(&SkateScript::GetNearestNodeByPrefix)}, 0, [](Regs& r) {
         Rec(0xC2D0, {r.args[0], r.args[1]});
         return Block(20);
     });
-    s.At({0x0045BE40, AddressOf(&SkateScript::GetNodeName)}, 0, [](Regs& r) {
+    s.AtOnly({0x0045BE40, AddressOf(&SkateScript::GetNodeName)}, 0, [](Regs& r) {
         Rec(0xBE40, {r.args[0]});
         return 0x9E21u;
     });
-    s.At({0x0045C3A0, AddressOf(static_cast<uint32_t (*)(uint32_t)>(&SkateScript::GetLinkCount))}, 0, [](Regs& r) {
+    s.AtOnly({0x0045C3A0, AddressOf(static_cast<uint32_t (*)(uint32_t)>(&SkateScript::GetLinkCount))}, 0, [](Regs& r) {
         Rec(0xC3A0, {r.args[0]});
         return 3u;
     });
-    s.At({0x0045C3E0, AddressOf(static_cast<uint32_t (*)(uint32_t, int)>(&SkateScript::GetLink))}, 0, [](Regs& r) {
+    s.AtOnly({0x0045C3E0, AddressOf(static_cast<uint32_t (*)(uint32_t, int)>(&SkateScript::GetLink))}, 0, [](Regs& r) {
         Rec(0xC3E0, {r.args[0], r.args[1]});
         return 0x111u + r.args[1];
     });
-    s.At({0x0046B680, OursOf(0x0046B680)}, 0, [](Regs& r) {
+    s.AtOnly({0x0046B680, OursOf(0x0046B680)}, 0, [](Regs& r) {
         Rec(0xB680, {r.args[0]});
         return g_restartLink && r.args[0] == 0x112u ? 1u : 0u;
     });
     Simple(s, {0x00566370}, 12);
     Simple(s, {0x00564C60}, 8);
-    s.At({0x004FC440}, 0, [](Regs& r) {
+    s.AtOnly({0x004FC440}, 0, [](Regs& r) {
         Rec(0xC440, {r.ecx});
         return g_flag4FC ? 1u : 0u;
     });
-    s.At({0x004FC420}, 0, [](Regs& r) {
+    s.AtOnly({0x004FC420}, 0, [](Regs& r) {
         Rec(0xC420, {r.ecx});
         return g_flag4FC ? 1u : 0u;
     });
-    s.At({0x0042BD60, OursOf(0x0042BD60)}, 0, [](Regs& r) {
+    s.AtOnly({0x0042BD60, OursOf(0x0042BD60)}, 0, [](Regs& r) {
         Rec(0xBD60, {r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x004A09C0, AddressOf(&Nx::GetActiveCamera)}, 0, [](Regs& r) {
+    s.AtOnly({0x004A09C0, AddressOf(&Nx::GetActiveCamera)}, 0, [](Regs& r) {
         Rec(0x09C0, {r.args[0]});
         return g_camera ? Block(21) : 0u;
     });
     for (uint32_t address : {0x004317C0u, 0x004317E0u})
-        s.At({address, OursOf(address)}, 4, [address](Regs& r) {
+        s.AtOnly({address, OursOf(address)}, 4, [address](Regs& r) {
             const auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
             Rec(address & 0xFFFF, {r.ecx, r.args[0], v[0], v[1], v[2], v[3]});
             return 0u;
@@ -183,18 +184,18 @@ void Install(StandIns& s)
     Simple(s, {0x00580830, AddressOf(&CSkater::MoveToRandomRestart)}, 0);
     Simple(s, {0x00582800, AddressOf(&CSkater::LaunchProjectile)}, 0);
     Simple(s, {0x00582510, AddressOf(&CSkater::SwitchToScript)}, 8);
-    s.At({0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, [](Regs& r) {
+    s.AtOnly({0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, [](Regs& r) {
         Rec(0xDB90, {r.ecx, r.args[0]});
         return Block(1) + (r.args[0] & 0x70);
     });
-    s.At({0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, [](Regs& r) {
+    s.AtOnly({0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, [](Regs& r) {
         Rec(0x19F0, {r.ecx, r.args[0]});
         return Block(22);
     });
     for (uint32_t address : {0x00512030u, 0x004F91D0u, 0x0051BF00u, 0x00419A20u, 0x00506BE0u, 0x004FA7C0u, 0x00510F80u})
         Simple(s, {address}, 0);
     Simple(s, {0x00474420, AddressOf(&Script::CScript::Destroy)}, 0);
-    s.At({0x004499B0, AddressOf(static_cast<void (*)(void*)>(&Script::CScript::operator delete))}, 0, [](Regs& r) {
+    s.AtOnly({0x004499B0, AddressOf(static_cast<void (*)(void*)>(&Script::CScript::operator delete))}, 0, [](Regs& r) {
         Rec(0x99B0, {r.args[0]});
         return 0u;
     });

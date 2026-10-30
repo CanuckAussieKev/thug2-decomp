@@ -77,7 +77,8 @@ void StandInSceneCalls(StandIns& s)
     StandInThis(s, {0x004183D0, AddressOf(&Nx::CCollGrid::Clear)}, 0);
     s.At({0x0049E6A0, AddressOf(&Nx::CSector::GetBoundingBox)}, 0, [](Regs& r) { return r.ecx + 0x40; });
     s.At({0x0049E9B0, AddressOf(&Nx::CSector::SetActive)}, 4, [](Regs& r) {
-        Record({0xE9B0, Relocate(r.ecx), r.args[0]});
+        // (SetActive tests the argument's low byte only: the original passes the whole word, ours a bool)
+        Record({0xE9B0, Relocate(r.ecx), (r.args[0] & 0xFF) != 0 ? 1u : 0u});
         return 0u;
     });
     s.At({0x005B7270, AddressOf(static_cast<void (*)(const char*)>(&Pip::Unload))}, 0, [](Regs& r) {

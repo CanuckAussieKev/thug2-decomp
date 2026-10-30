@@ -43,6 +43,8 @@ float RandomFloat(Lcg& random, float low, float high)
 // --- the model ---
 
 // Models with no geoms, one, and several: spheres inside each other, around each other, the same, apart, NaN.
+void** g_sphereGeomVtable; // (the fake geoms' vtable: slot 16)
+
 void TestPcModelSpheres()
 {
     StandIns& s = *new StandIns();
@@ -58,7 +60,10 @@ void TestPcModelSpheres()
         std::memcpy(reinterpret_cast<void*>(r.args[0]), reinterpret_cast<const void*>(r.ecx + 4), 16);
         return r.args[0];
     });
-    s.At({0x0048DEB0}, 4, [](Regs& r) {
+    // (the jump 0x0048DEB0 to the geom's slot 16: ours calls the slot - the fake geoms' vtable has the same stand-in)
+    static void* geomVtable[20] = {};
+    g_sphereGeomVtable = geomVtable;
+    AtStub(s, geomVtable, 0x0048DEB0, 4, [](Regs& r) {
         const auto* sphere = reinterpret_cast<const uint32_t*>(r.args[0]);
         Record({0xDEB0, Relocate(r.ecx), sphere[0], sphere[1], sphere[2], sphere[3]});
         return 0u;
@@ -82,6 +87,7 @@ void TestPcModelSpheres()
                              RandomFloat(random, 1, 30)};
             for (int i = 0; i < count; ++i) {
                 auto* geom = reinterpret_cast<float*>(Bump(0x20));
+                *reinterpret_cast<void***>(geom) = g_sphereGeomVtable;
                 float* sphere = geom + 1;
                 switch (random.Below(6)) {
                 case 0: // the same as the first

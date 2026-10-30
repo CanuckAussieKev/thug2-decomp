@@ -64,6 +64,7 @@ uint32_t OursOf(uint32_t address)
     return ours ? Resolve(ours) : address;
 }
 // A stand-in's thunk written over our replacements of `addresses` as well.
+// (the stand-ins here use AtOnly: which of our replacements are stood in too is chosen by AlsoOurs)
 void AlsoOurs(StandIns& s, std::initializer_list<uint32_t> addresses, void* thunk)
 {
     // (only the functions skater.cpp calls directly now: others' replacements may run for real)
@@ -80,7 +81,7 @@ void AlsoOurs(StandIns& s, std::initializer_list<uint32_t> addresses, void* thun
 void Simple(StandIns& s, std::initializer_list<uint32_t> addresses, int pop, uint32_t answer = 0, bool block = false)
 {
     uint32_t tag = *addresses.begin() & 0xFFFFF;
-    void* thunk = s.At(addresses, static_cast<uint16_t>(pop), [tag, pop, answer, block](Regs& r) {
+    void* thunk = s.AtOnly(addresses, static_cast<uint16_t>(pop), [tag, pop, answer, block](Regs& r) {
         g_trace.push_back(tag);
         g_trace.push_back(Rel(r.ecx));
         for (int i = 0; i < pop / 4; ++i)
@@ -101,34 +102,34 @@ void Install(StandIns& s)
     InstallCommon(s);
     for (uint32_t address : {0x00580790u, AddressOf(&CSkater::GetScaledPhysics)})
         s.Bytes(address, Branch(0xE9, address, reinterpret_cast<void*>(&ScaledStandIn)));
-    s.At({0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, [](Regs& r) {
+    s.AtOnly({0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 4, [](Regs& r) {
         Rec(0xDB90, {r.ecx, r.args[0]});
         uint32_t c = ComponentFor(r.args[0]);
         return r.args[0] == 0xA432DC41 && g_noCollisionData ? Block(12) : c;
     });
-    s.At({0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, [](Regs& r) {
+    s.AtOnly({0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, [](Regs& r) {
         Rec(0x19F0, {r.ecx, r.args[0]});
         return g_cameraFound ? Block(13) : 0u;
     });
-    s.At({0x0045F3A0, AddressOf(&Obj::CCompositeObjectManager::CreateCompositeObjectFromNode)}, 12, [](Regs& r) {
+    s.AtOnly({0x0045F3A0, AddressOf(&Obj::CCompositeObjectManager::CreateCompositeObjectFromNode)}, 12, [](Regs& r) {
         Rec(0xF3A0, {r.ecx, r.args[0], r.args[1], r.args[2] & 0xFF});
         return Block(14);
     });
-    s.At({0x00479090, AddressOf(static_cast<Script::CArray* (*)(const char*)>(&Script::GetArray))}, 0, [](Regs& r) {
+    s.AtOnly({0x00479090, AddressOf(static_cast<Script::CArray* (*)(const char*)>(&Script::GetArray))}, 0, [](Regs& r) {
         Rec(0x9090, {Text(r.args[0])});
         return Block(15);
     });
-    s.At({0x00479020, AddressOf(static_cast<CStruct* (*)(uint32_t)>(&Script::GetStructure))}, 0, [](Regs& r) {
+    s.AtOnly({0x00479020, AddressOf(static_cast<CStruct* (*)(uint32_t)>(&Script::GetStructure))}, 0, [](Regs& r) {
         Rec(0x9020, {r.args[0]});
         return g_assetInfo ? Block(16) : 0u;
     });
-    s.At({0x00476950, 0x00476EC0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))},
+    s.AtOnly({0x00476950, 0x00476EC0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))},
          12, [](Regs& r) {
              Rec(0x6950, {r.ecx, r.args[0], r.args[2] & 0xFF});
              *reinterpret_cast<uint32_t*>(r.args[1]) = 0x5E1E7011;
              return 1u;
          });
-    s.At({0x00476590, 0x00476C60, AddressOf(static_cast<bool (CStruct::*)(uint32_t, const char**, int)>(&CStruct::GetString))},
+    s.AtOnly({0x00476590, 0x00476C60, AddressOf(static_cast<bool (CStruct::*)(uint32_t, const char**, int)>(&CStruct::GetString))},
          12, [](Regs& r) {
              Rec(0x6590, {r.ecx, r.args[0], r.args[2] & 0xFF});
              if (r.args[0] == 0x130618A0 && !g_sticker)
@@ -136,33 +137,33 @@ void Install(StandIns& s)
              *reinterpret_cast<uint32_t*>(r.args[1]) = Block(17) + (r.args[0] & 0x30);
              return 1u;
          });
-    s.At({0x00476630, 0x00476CB0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, int*, int)>(&CStruct::GetInteger))}, 12,
+    s.AtOnly({0x00476630, 0x00476CB0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, int*, int)>(&CStruct::GetInteger))}, 12,
          [](Regs& r) {
              Rec(0x6630, {r.ecx, r.args[0], r.args[2] & 0xFF});
              *reinterpret_cast<int*>(r.args[1]) = g_customTag ? 1 : 0;
              return 1u;
          });
-    s.At({0x004738E0, AddressOf(&Script::CScript::Construct)}, 0, [](Regs& r) {
+    s.AtOnly({0x004738E0, AddressOf(&Script::CScript::Construct)}, 0, [](Regs& r) {
         Rec(0x38E0, {r.ecx});
         return r.ecx;
     });
-    s.At({0x004747C0, AddressOf(static_cast<void (Script::CScript::*)(const char*, CStruct*, Obj::CObject*)>(&Script::CScript::SetScript))},
+    s.AtOnly({0x004747C0, AddressOf(static_cast<void (Script::CScript::*)(const char*, CStruct*, Obj::CObject*)>(&Script::CScript::SetScript))},
          12, [](Regs& r) {
              Rec(0x47C0, {r.ecx, Text(r.args[0]), r.args[1], r.args[2]});
              return 0u;
          });
-    s.At({0x00407A50, OursOf(0x00407A50)}, 4, [](Regs& r) {
+    s.AtOnly({0x00407A50, OursOf(0x00407A50)}, 4, [](Regs& r) {
         Rec(0x7A50, {r.ecx, r.args[0] & 0xFF}); // (a bool: the original passes a reused stack word)
         return 0u;
     });
     Simple(s, {0x0045E450, AddressOf(static_cast<bool (Obj::CCompositeObject::*)(uint32_t, CStruct*, Script::CScript*)>(&Obj::CCompositeObject::CallMemberFunction))}, 12, 1);
-    s.At({0x0057B2F0, AddressOf(&Obj::AddMotionComponents)}, 0, [](Regs& r) {
+    s.AtOnly({0x0057B2F0, AddressOf(&Obj::AddMotionComponents)}, 0, [](Regs& r) {
         Rec(0xB2F0, {r.args[0]});
         return 0u;
     });
     Simple(s, {0x00580EB0, AddressOf(&CSkater::UpdateFromProfile)}, 4);
     Simple(s, {0x00580BE0, AddressOf(&CSkater::SetStatsFromProfile)}, 4);
-    s.At({0x00477D40, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t)>(&CStruct::AddChecksum))}, 8, [](Regs& r) {
+    s.AtOnly({0x00477D40, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t)>(&CStruct::AddChecksum))}, 8, [](Regs& r) {
         Rec(0x7D40, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
@@ -171,7 +172,7 @@ void Install(StandIns& s)
         Simple(s, {address}, 4);
     // (the vibration's SetActive: a bool - the original passes the skate module's byte, ours that byte != 0; the
     // original only tests and compares it as a truth value)
-    s.At({0x0043D560, OursOf(0x0043D560)}, 4, [](Regs& r) {
+    s.AtOnly({0x0043D560, OursOf(0x0043D560)}, 4, [](Regs& r) {
         Rec(0xD560, {Rel(r.ecx), (r.args[0] & 0xFF) != 0 ? 1u : 0u});
         return 0u;
     });
@@ -180,20 +181,20 @@ void Install(StandIns& s)
     for (uint32_t address : {0x0051EB00u, 0x0051ED10u, 0x0051EB30u, 0x0051EF00u, 0x00420480u, 0x0051D830u})
         Simple(s, {address}, 0);
     Simple(s, {0x00407A60}, 0, 1);
-    s.At({0x00552560}, 0, [](Regs& r) {
+    s.AtOnly({0x00552560}, 0, [](Regs& r) {
         Rec(0x2560, {r.ecx});
         return r.ecx;
     });
-    s.At({0x0059F890, AddressOf(&CFuncs::MakeCameraActive)}, 0, [](Regs& r) {
+    s.AtOnly({0x0059F890, AddressOf(&CFuncs::MakeCameraActive)}, 0, [](Regs& r) {
         Rec(0xF890, {r.args[0], r.args[1], r.args[2]});
         return 0u;
     });
-    s.At({0x0042E380, OursOf(0x0042E380)}, 0, [](Regs& r) {
+    s.AtOnly({0x0042E380, OursOf(0x0042E380)}, 0, [](Regs& r) {
         Rec(0xE380, {r.args[0]});
         return 0u;
     });
     // The scripts, the network, arrays.
-    s.At({0x005A11B0}, 0, [](Regs& r) {
+    s.AtOnly({0x005A11B0}, 0, [](Regs& r) {
         Rec(0x11B0, {r.args[0], r.args[1]});
         return g_netRule ? 1u : 0u;
     });
@@ -202,12 +203,12 @@ void Install(StandIns& s)
     Simple(s, {0x004747A0, AddressOf(static_cast<void (Script::CScript::*)(uint32_t, CStruct*, Obj::CObject*)>(&Script::CScript::SetScript))}, 12);
     Simple(s, {0x004750B0, AddressOf(&Script::CScript::Update)}, 0);
     Simple(s, {0x00511570}, 0);
-    s.At({0x0046CAA0, AddressOf(&Script::CArray::Init)}, 0, [](Regs& r) {
+    s.AtOnly({0x0046CAA0, AddressOf(&Script::CArray::Init)}, 0, [](Regs& r) {
         Rec(0xCAA0, {r.ecx});
         std::memset(reinterpret_cast<void*>(r.ecx), 0, 12);
         return r.ecx;
     });
-    s.At({0x0046CC50, AddressOf(&Script::CArray::SetSizeAndType)}, 8, [](Regs& r) {
+    s.AtOnly({0x0046CC50, AddressOf(&Script::CArray::SetSizeAndType)}, 8, [](Regs& r) {
         Rec(0xCC50, {r.ecx, r.args[0], r.args[1] & 0xFF});
         return 0u;
     });
@@ -215,7 +216,7 @@ void Install(StandIns& s)
     Simple(s, {0x00478670, AddressOf(static_cast<void (CStruct::*)(uint32_t, CStruct*)>(&CStruct::AddStructure))}, 8);
     Simple(s, {0x00478B00, AddressOf(static_cast<void (CStruct::*)(uint32_t, Script::CArray*)>(&CStruct::AddArray))}, 8);
     Simple(s, {0x004780D0, AddressOf(static_cast<void (CStruct::*)(uint32_t, Script::CArray*)>(&CStruct::AddArrayPointer))}, 8);
-    s.At({0x0051C470, OursOf(0x0051C470)}, 4, [](Regs& r) {
+    s.AtOnly({0x0051C470, OursOf(0x0051C470)}, 4, [](Regs& r) {
         Rec(0xC470, {r.ecx, r.args[0]});
         return r.args[0] * 3 + 1;
     });

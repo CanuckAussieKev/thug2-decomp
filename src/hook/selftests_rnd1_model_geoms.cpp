@@ -9,6 +9,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <vector>
 
 #include "game/ass/asset.h"
@@ -92,6 +93,17 @@ uint32_t Lookup(Regs& r, char kind)
     return 0;
 }
 
+// Runs `step`: false if it faulted.
+bool Survives(const std::function<void()>& step)
+{
+    __try {
+        step();
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+
 void StandInGeoms(StandIns& s)
 {
     StandInMemory(s);
@@ -124,12 +136,18 @@ void StandInGeoms(StandIns& s)
     };
     for (Call c : {Call{0x0048D060, 0, 0}, Call{0x0048DE30, 12, 0}, Call{0x0048DE60, 4, 1}, Call{0x0048DF20, 4, 0},
                    Call{0x0048DF30, 20, 0}, Call{0x0049F3B0, 4, 1}, Call{0x0048DDF0, 12, 4}}) {
-        s.At({c.address}, c.pop, [c](Regs& r) {
+        int slot = StubSlot(c.address);
+        void* thunk = s.At({c.address}, c.pop, [c](Regs& r) {
+            if (!r.ecx) // (a null geom: the original's code reads through it - as ours does, calling the slot)
+                RaiseException(EXCEPTION_ACCESS_VIOLATION, 0, 0, nullptr);
             Record({c.address & 0xFFFFF, Relocate(r.ecx)});
             for (int i = 0; i < c.pop / 4; ++i)
                 Record({(c.byteArgs >> i) & 1 ? r.args[i] & 0xFF : Relocate(r.args[i])});
             return (++g_calls * 0x9E3779B9u) >> 28;
         });
+        // (a geom dispatcher: ours calls the geom's vtable slot itself - the same stand-in there)
+        if (slot >= 0)
+            g_geomVtable[slot] = thunk;
     }
     // The real vtable's slot 3 (the shared 0x005BC7F0, true) - what the constructor calls.
     s.At({0x005BC7F0}, 4, [](Regs& r) {
@@ -436,6 +454,9 @@ void TestModelGeoms()
                 // (the geom failing on the default heap only at the last step: the original goes on with a null
                 // geom, which only destroying the model survives)
                 bool failGeom = (!defaultHeap || step == 23) && random.Below(4) == 0;
+                // (a null geom on the default heap faults in both - the original in its geom calls' jump stubs, ours
+                // calling the slot - recorded as such)
+                bool survived = Survives([&] {
                 switch (random.Below(16)) {
                 case 0: {
                     auto* geom = reinterpret_cast<uint32_t*>(Block(0x20));
@@ -545,6 +566,9 @@ void TestModelGeoms()
                     model->mp_lights = random.Below(2) ? Block(0x10) : nullptr;
                     break;
                 }
+                });
+                if (!survived)
+                    Record({0xFA017});
                 g_failAllocations.clear();
                 g_failGeom = false;
                 Record({0xEF01, static_cast<uint32_t>(model->m_numGeoms), static_cast<uint32_t>(model->m_numFileGeoms),

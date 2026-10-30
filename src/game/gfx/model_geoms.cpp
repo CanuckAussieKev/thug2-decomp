@@ -631,9 +631,11 @@ bool CModel::ReplaceFaceTexture(void* face, const char* source, uint32_t name)
         return reinterpret_cast<uint8_t*>(faceTexture->GetPoints(reinterpret_cast<Gfx::SFacePoints*>(out)));
     };
     uint8_t flag = getParameters(parameters)[0x20];
+    bool generatePalette; // (the byte as it is - not made 0 / 1: the original passes it on to the texture's calls)
+    std::memcpy(&generatePalette, &flag, 1);
     Gfx::MassageFaceTexture(static_cast<CTexture*>(image),
-                            reinterpret_cast<const Gfx::SFacePoints*>(getParameters(parameters)), flag != 0, false,
-                            0x80808080);
+                            reinterpret_cast<const Gfx::SFacePoints*>(getParameters(parameters)), generatePalette,
+                            false, 0x80808080);
     bool replaced = ReplaceTextureWith(name, source, TextureChecksum(image));
     RemoveTexture(image);
     RemoveTexture(overlay);

@@ -236,7 +236,8 @@ void ReadGlobalInfo(CStruct* global, CScript* script)
         results->AddChecksum(kLastGameMode, lastMode);
 
     // the first profile: a custom skater keeps its CAS file name
-    auto* profile = Skate()->GetProfile(0);
+    // (0x00564F80, the overload taking the params - none: not GetProfile(int))
+    auto* profile = Skate()->GetProfile(static_cast<CStruct*>(nullptr));
     if (!profile->IsPro()) {
         const char* casFileName = reinterpret_cast<const char*>(0x0064EFD8); // "Unimplemented"
         global->GetString(0xF36C1878u, &casFileName, 0); // CASFileName

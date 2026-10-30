@@ -348,6 +348,7 @@ void TestRestoreSwapsCFunc()
 
 alignas(16) uint8_t g_cTextures[8][0x40]; // 0 the tag, 1 the workspace, 2 the sprite, 3-6 layer sources
 alignas(16) uint8_t g_cTagging[0x40];
+void* g_cTextureVtable[64]; // (the stubs' slots: our code calls through them)
 alignas(16) uint8_t g_cSkater[0x100];
 alignas(16) uint8_t g_cProfile[0x64];
 uint32_t g_cTagSize;
@@ -417,25 +418,32 @@ void StandInCagCalls(StandIns& s)
                     Thunk{0x0049F360, 12}, Thunk{0x0048DEC0, 16}, Thunk{0x0049F420, 8}, Thunk{0x00487D50, 4}}) {
         uint32_t address = t.address;
         uint16_t pop = t.pop;
-        s.At({address}, pop, [address, pop](Regs& r) {
+        int slot = StubSlot(address);
+        g_cTextureVtable[slot] = s.At({address}, pop, [address, pop](Regs& r) {
             Record({address, TexId(r.ecx)});
             for (int i = 0; i < pop / 4; ++i)
                 Record({r.args[i] > 0x10000 && TexId(r.args[i]) != 0xBAD ? TexId(r.args[i]) : r.args[i]});
             return 0u;
         });
     }
-    s.At({0x0048DE30}, 8, [](Regs& r) {
+    int slot = StubSlot(0x0048DE30);
+    g_cTextureVtable[slot] = s.At({0x0048DE30}, 8, [](Regs& r) {
         Record({0xDE30, TexId(r.ecx), r.args[0], r.args[1] != 0});
         return 0u;
     });
-    s.At({0x0049F3C0}, 0, [](Regs& r) {
+    slot = StubSlot(0x0049F3C0);
+    g_cTextureVtable[slot] = s.At({0x0049F3C0}, 0, [](Regs& r) {
         Record({0xF3C0, TexId(r.ecx)});
         return g_cTagSize;
     });
-    s.At({0x0049C6F0}, 0, [](Regs& r) {
+    slot = StubSlot(0x0049C6F0);
+    g_cTextureVtable[slot] = s.At({0x0049C6F0}, 0, [](Regs& r) {
         Record({0xC6F0, TexId(r.ecx)});
         return 0x5555500u | g_cBitsPerPixel;
     });
+    // (ours calls the texture's slots directly, not through the stubs: the fake textures' vtable has the stand-ins)
+    for (auto& texture : g_cTextures)
+        *reinterpret_cast<void***>(texture) = g_cTextureVtable;
     s.At({0x0049F500}, 4, [](Regs& r) {
         Record({0xF500, r.ecx, TexId(r.args[0])});
         return 1u;

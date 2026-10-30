@@ -528,6 +528,9 @@ void TestThugproHandlers()
             static bool No() { return false; }
         };
         Patch isMultiplayer(0x005651F0, Branch(0xE9, 0x005651F0, &Stub::IsMultiplayer));
+        // (and our IsMultiplayer: the TOD manager calls it directly)
+        const uint32_t ours = TestStandIns::OursOf(0x005651F0);
+        Patch isMultiplayerOurs(ours, Branch(0xE9, ours, &Stub::IsMultiplayer));
         Gfx::MultiplayerUnlock saved = Gfx::GetMultiplayerUnlock();
         std::vector<int> locked;
         for (Gfx::MultiplayerUnlock unlock : {static_cast<Gfx::MultiplayerUnlock>(nullptr), &Stub::Yes, &Stub::No}) {

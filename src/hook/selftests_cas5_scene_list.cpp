@@ -58,8 +58,10 @@ void StandInSceneListCalls(StandIns& s)
         return reinterpret_cast<uint32_t>(FindScene(r.args[0]));
     });
     s.At({0x0048C560}, 0, [](Regs& r) {
-        Record({0xC560, Relocate(r.args[0]), Hash(reinterpret_cast<const char*>(r.args[1])), r.args[2], r.args[3],
-                r.args[4] ? HashBytes(reinterpret_cast<const uint8_t*>(r.args[4]), 16) : 0u, r.args[5]});
+        // (it takes five arguments, the fourth a byte: the original's sixth isn't read and ours passes a bool and
+        // no sixth)
+        Record({0xC560, Relocate(r.args[0]), Hash(reinterpret_cast<const char*>(r.args[1])), r.args[2], r.args[3] & 0xFF,
+                r.args[4] ? HashBytes(reinterpret_cast<const uint8_t*>(r.args[4]), 16) : 0u});
         return 0u;
     });
     s.At({0x0048C650}, 0, [](Regs&) {

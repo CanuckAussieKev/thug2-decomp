@@ -37,6 +37,8 @@ void* g_sceneVtable[12];
 void* g_sectorVtable[4];
 void* g_collVtable[24];
 void* g_geomVtable[40];
+void* g_weatherVtable[2];
+void* g_weather[1] = {g_weatherVtable};
 Lcg* g_random;
 uint32_t g_calls;
 int g_loadCount;          // what the collision reader gives: this many objects
@@ -182,7 +184,8 @@ void StandInScene(StandIns& s)
         Record({0x8F61, r.args[0]});
         return g_random->Below(2);
     });
-    s.At({0x004A1090}, 0, [](Regs& r) {
+    // (the weather: an object whose vtable slot 1 is what the jump 0x004A1090 reaches - ours calls the slot)
+    AtStub(s, g_weatherVtable, 0x004A1090, 0, [](Regs& r) {
         Record({0x1090, r.ecx});
         return 0u;
     });
@@ -197,12 +200,12 @@ void StandInScene(StandIns& s)
              Record({0x7B80, Relocate(r.ecx), r.args[0], r.args[1]});
              return 0u;
          });
-    // the geoms' counts
-    s.At({0x0048DF70}, 0, [](Regs& r) { return (Relocate(r.ecx) & 0xFFF) + 3; });
-    s.At({0x0049C6F0}, 0, [](Regs& r) { return (Relocate(r.ecx) & 0xFF) + 7; });
     for (int slot = 0; slot < 40; ++slot) {
         g_geomVtable[slot] = s.Thunk(0, [slot](Regs& r) { return (Relocate(r.ecx) & 0x7F) + 100 * slot; });
     }
+    // the geoms' counts (jump stubs to the geom's slots: ours calls the slots themselves - AtStub)
+    AtStub(s, g_geomVtable, 0x0048DF70, 0, [](Regs& r) { return (Relocate(r.ecx) & 0xFFF) + 3; });
+    AtStub(s, g_geomVtable, 0x0049C6F0, 0, [](Regs& r) { return (Relocate(r.ecx) & 0xFF) + 7; });
     // the platform's: the scene's slots 5 / 6 (true or false; slot 5 takes the name), 7 (a new sector)
     for (int slot = 0; slot < 12; ++slot) {
         uint16_t pop = (slot == 0 || slot == 5) ? 4 : 0;
@@ -230,15 +233,15 @@ void StandInScene(StandIns& s)
     }
     s.At({0x0048CA80}, 0, [](Regs&) { return 0x5EC70000u + ++g_calls; });
     // the geoms' clone, faces and active flag
-    s.At({0x0048DD80}, 8, [](Regs& r) {
+    AtStub(s, g_geomVtable, 0x0048DD80, 8, [](Regs& r) {
         Record({0xDD80, Relocate(r.ecx), r.args[0], Relocate(r.args[1])});
         return reinterpret_cast<uint32_t>(MakeGeom());
     });
-    s.At({0x0048DF10}, 4, [](Regs& r) {
+    AtStub(s, g_geomVtable, 0x0048DF10, 4, [](Regs& r) {
         Record({0xDF10, Relocate(r.ecx), Relocate(r.args[0])});
         return 0u;
     });
-    s.At({0x0048DE60}, 4, [](Regs& r) {
+    AtStub(s, g_geomVtable, 0x0048DE60, 4, [](Regs& r) {
         Record({0xDE60, Relocate(r.ecx), r.args[0] & 0xFF});
         return 0u;
     });
@@ -286,7 +289,7 @@ void TestEngineScene()
             uint8_t* manager = Block(sizeof(Mem::Manager));
             *reinterpret_cast<uint32_t*>(manager + 0x110) = 0x70D0;
             GameVariable<uint8_t*>(0x007D1800) = manager;
-            GameVariable<uint32_t>(0x006FA7C8) = 0x3EA7;
+            GameVariable<void*>(0x006FA7C8) = g_weather;
             auto result = [&](uint32_t value) { Record({0xEE00, Relocate(value)}); };
             // a scene as constructed (allocations failing on request), then stood in
             auto* scene = reinterpret_cast<CScene*>(Block(0x284));

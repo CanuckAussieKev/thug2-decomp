@@ -64,8 +64,9 @@ void TestPcScene()
     });
     for (uint32_t engine : {0x0049D390u, 0x0049E900u, 0x0049E2F0u}) {
         uint16_t args = engine == 0x0049D390 ? 4 : 0;
-        s.At({engine}, args, [engine](Regs& r) {
-            Record({engine, Relocate(r.ecx), r.args[0]});
+        s.At({engine}, args, [engine, args](Regs& r) {
+            // (the stack word past a function that takes none is the caller's, not an argument: not recorded)
+            Record({engine, Relocate(r.ecx), args ? r.args[0] : 0u});
             return r.ecx;
         });
     }
@@ -201,7 +202,8 @@ void TestPcSectorLoad()
         uint32_t v[2];
         std::memcpy(v, g_file.data() + g_fileAt, 8);
         g_fileAt += 8;
-        Record({0x6100, Relocate(r.ecx), Relocate(r.args[0]), r.args[1], Relocate(r.args[2]), r.args[3], r.args[4],
+        // (the last a byte: the original passes a masked word, ours a bool)
+        Record({0x6100, Relocate(r.ecx), Relocate(r.args[0]), r.args[1], Relocate(r.args[2]), r.args[3], r.args[4] & 0xFF,
                 v[0], v[1]});
         return 1u;
     });

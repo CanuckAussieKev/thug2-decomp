@@ -206,8 +206,13 @@ std::vector<uint32_t> RunInpManager(bool original)
     Record({0xE700, Rel(result, g_inpManager, sizeof(g_inpManager))});
     for (size_t i = 0; i < sizeof(g_inpManager) / 4; ++i)
         Record({Rel(words[i], g_inpManager, sizeof(g_inpManager))});
-    for (uint32_t word : g_taskMemory)
+    // (the task's code: the original stores its 0x0044E660, ours our ServiceTask - the same function)
+    const uint32_t ourTask = reinterpret_cast<uint32_t>(&Inp::Manager::ServiceTask);
+    for (uint32_t word : g_taskMemory) {
+        if (word == ourTask || word == AddressOf(&Inp::Manager::ServiceTask))
+            word = 0x0044E660;
         Record({Rel(word, g_inpManager, sizeof(g_inpManager))});
+    }
     return g_trace;
 }
 

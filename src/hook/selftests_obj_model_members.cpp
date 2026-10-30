@@ -160,7 +160,12 @@ void StandIn(StandIns& s)
     });
     Rec(s, {0x00493FB0, AddressOf(&Nx::CModel::ClearGeomColor)}, 1, 0x3FB0);
     Rec(s, {0x00494010, AddressOf(&Nx::CModel::SetGeomColorHsv)}, 4, 0x4010);
-    Rec(s, {0x004948D0, AddressOf(&Nx::CModel::SetColor)}, 4, 0x48D0);
+    // (SetColor reads its four arguments as bytes: the original passes the script's integers whole, ours bytes)
+    s.At({0x004948D0, AddressOf(&Nx::CModel::SetColor)}, 16, [](Regs& r) {
+        g_trace.insert(g_trace.end(), {0x48D0u, Rel(r.ecx), r.args[0] & 0xFF, r.args[1] & 0xFF, r.args[2] & 0xFF,
+                                       r.args[3] & 0xFF});
+        return 0u;
+    });
     Rec(s, {0x00493D10, AddressOf(&Nx::CModel::ReplaceTexture)}, 3, 0x3D10, [](Regs&) { return g_a.replaced ? 0xAB01u : 0xAB00u; });
     Rec(s, {0x00493E80, AddressOf(&Nx::CModel::ReplaceTextureWith)}, 3, 0x3E80, [](Regs&) { return g_a.replaced ? 0xAB01u : 0xAB00u; });
     RecFloat(s, {0x00493AB0, AddressOf(&Nx::CModel::GetBoneVolume)}, 3, 0x3AB0, [](Regs& r) { return static_cast<float>(r.args[2] & 0xFF) * 0.75f; });

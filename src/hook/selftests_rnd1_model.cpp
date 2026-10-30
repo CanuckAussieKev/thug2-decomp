@@ -78,7 +78,8 @@ void StandInModel(StandIns& s)
                    Call{0x0048DE60, 4, 1}, Call{0x0048DF20, 4, 0}, Call{0x0048DF30, 20, 0}, Call{0x0048DF40, 8, 0},
                    Call{0x0048DF50, 8, 0}, Call{0x0048DF60, 4, 0}, Call{0x0049F3B0, 4, 1}, Call{0x0048DFE0, 16, 0},
                    Call{0x0048DFF0, 12, 0}, Call{0x0048E000, 8, 0}, Call{0x00487D50, 0, 0}}) {
-        s.At({c.address}, c.pop, [c](Regs& r) {
+        // (the jump stubs to a geom's slots: ours calls the slot itself - the same stand-in in the geoms' vtable)
+        AtStub(s, g_geomVtable, c.address, c.pop, [c](Regs& r) {
             Record({c.address & 0xFFFFF, Relocate(r.ecx)});
             for (int i = 0; i < c.pop / 4; ++i)
                 Record({(c.byteArgs >> i) & 1 ? r.args[i] & 0xFF : Relocate(r.args[i])});
