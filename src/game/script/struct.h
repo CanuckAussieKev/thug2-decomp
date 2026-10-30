@@ -2,6 +2,9 @@
 
 #include <cstdint>
 
+#include "game/core/pool.h"
+#include "hook/game_global.h"
+
 // The script system's data: structures of named components (Script::CStruct - also every script function's
 // parameters), and the global symbol table they can refer to.
 //
@@ -310,5 +313,8 @@ public:
     CComponent* m_head;
 };
 static_assert(sizeof(CStruct) == 8, "layout must match the original");
+
+// The CStruct pool pair (script/struct.cpp).
+GAME_GLOBAL_EXTERN(Mem::PoolPair, g_structPools);
 
 } // namespace Script

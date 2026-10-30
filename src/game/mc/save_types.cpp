@@ -148,7 +148,7 @@ int TypeVersion(uint32_t type)
     }
 }
 
-GAME_GLOBAL(char[256], g_saveFileName, 0x007CECE8);
+GAME_GLOBAL(char[0x70], g_saveFileName, 0x007CECE8); // (the park name follows)
 
 // 0x005A62A0
 const char* TypeFileName(uint32_t type, const char* name)
@@ -166,7 +166,7 @@ const char* TypeFileName(uint32_t type, const char* name)
     default: break;
     }
     if (pattern)
-        std::snprintf(buffer, 0x100, pattern, name); // (no limit in the original)
+        std::snprintf(buffer, 0x70, pattern, name); // (no limit in the original: a longer name ran into the park name)
     return buffer;
 }
 

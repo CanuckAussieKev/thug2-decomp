@@ -97,7 +97,7 @@ bool Pool::Contains(const void* pointer) const
 
 namespace PoolManager {
 
-GAME_GLOBAL(Pool*[4], g_pools, 0x007D1808);
+GAME_GLOBAL(Pool*[2], g_pools, 0x007D1808); // (the memory card's path buffer follows)
 
 static Pool*& PoolAt(int index) { return g_pools[index]; }
 

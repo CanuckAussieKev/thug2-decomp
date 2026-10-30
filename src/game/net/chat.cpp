@@ -82,13 +82,12 @@ void SendToServer(Manager* manager, MsgDesc* desc)
 // Script::CStruct (8 bytes, from the current script struct pool when there is one).
 using ScriptStruct = Script::CStruct;
 
-GAME_GLOBAL(Mem::Pool*[2], g_chatPools, 0x006F361C);
 GAME_GLOBAL(uint32_t, g_lastTauntTime, 0x007CCE20);
 
 ScriptStruct* NewScriptStruct()
 {
-    int current = GameVariable<int>(0x006F3614);
-    Mem::Pool* pool = g_chatPools[current];
+    int current = Script::g_structPools.current;
+    Mem::Pool* pool = Script::g_structPools.pools[current];
     void* memory = pool ? pool->Allocate() : Mem::New(8);
     return memory ? static_cast<ScriptStruct*>(memory)->Init() : nullptr;
 }

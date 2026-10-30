@@ -49,7 +49,7 @@ GAME_GLOBAL(uint32_t, g_unknown42D8, 0x007D42D8);
 GAME_GLOBAL(uint32_t, g_unknown42DC, 0x007D42DC);
 GAME_GLOBAL(uint32_t, g_unknown6318, 0x007D6318);
 GAME_GLOBAL(uint32_t, g_unknown631C, 0x007D631C);
-GAME_GLOBAL(uint32_t, g_unknown6438, 0x007D6438);
+GAME_GLOBAL(uint16_t, g_unknown6438, 0x007D6438); // (the distance clipping flag follows: gfx/settings.cpp)
 GAME_GLOBAL(uint32_t, g_unknown6440, 0x007D6440);
 GAME_GLOBAL(uint32_t, g_unknown6668, 0x007D6668);
 GAME_GLOBAL(uint32_t, g_unknown666C, 0x007D666C);
@@ -79,7 +79,9 @@ bool InitInput(HINSTANCE instance, HWND window, int config)
     std::memset(reinterpret_cast<void*>(0x007D6770), 0xFF, 0x98 * 4);
     GameVariable<uint32_t>(0x007D6434) = 0;
     g_unknown42C8 = 0;
-    g_unknown6438 = 0;
+    // (the original clears dwords here across byte-sized settings: 0x007D6438 is g_unknown6438 and the distance
+    // clipping flag - final pass of standalone step 3: write each setting by name)
+    GameVariable<uint32_t>(0x007D6438) = 0;
     g_unknown42CC = 0;
     GameVariable<uint32_t>(0x007D643C) = 0;
     g_unknown6440 = 0;

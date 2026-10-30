@@ -69,7 +69,6 @@ enum : uint8_t { kMsgPlayAnim = 0x29, kMsgWobbleTarget = 0x2B, kMsgFlip = 0x2C, 
 GAME_GLOBAL(uint8_t, g_lastWobbleTarget, 0x0067DC10, 0xFF);
 GAME_GLOBAL(uint8_t, g_lastWobbleDetails, 0x0067DC11, 0xFF);
 GAME_GLOBAL(int8_t, g_lastLoopType, 0x0067DC12, -1);
-GAME_GLOBAL(Mem::PoolPair, g_structPools, 0x006F3614);
 GAME_GLOBAL(uint32_t*, g_blendSets, 0x006F8A58);
 GAME_GLOBAL(float*, g_blendWeights, 0x006F8A5C);
 GAME_GLOBAL(CPose*, g_blendBuffer, 0x006F8A60);
@@ -91,7 +90,7 @@ int& MaxBlends() { return g_maxBlends; }
 int& Subsets() { return g_subsets; }
 bool SkipRender() { return Nx::g_skipRender; }
 
-Mem::PoolPair& StructPools() { return g_structPools; }
+Mem::PoolPair& StructPools() { return Script::g_structPools; }
 
 float& AsFloat(uint32_t& bits) { return reinterpret_cast<float&>(bits); }
 

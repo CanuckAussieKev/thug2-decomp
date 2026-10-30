@@ -494,11 +494,14 @@ REPLACE(0x00477060, &BoolAssertGetters::GetVectorNamed);
 
 namespace Script {
 
+// The CStruct pool pair (the current pool's index, then the two pools).
+GAME_GLOBAL(Mem::PoolPair, g_structPools, 0x006F3614);
+
 namespace {
 
 // The pool pairs of the script's value objects.
 Mem::PoolPair& ComponentPools() { return GameVariable<Mem::PoolPair>(0x006F2338); }
-Mem::PoolPair& StructPools() { return GameVariable<Mem::PoolPair>(0x006F3614); }
+Mem::PoolPair& StructPools() { return g_structPools; }
 Mem::PoolPair& ArrayPools() { return GameVariable<Mem::PoolPair>(0x006F22B4); }
 Mem::PoolPair& PairPools() { return GameVariable<Mem::PoolPair>(0x006F3644); }
 Mem::PoolPair& VectorPools() { return GameVariable<Mem::PoolPair>(0x006F3654); }
