@@ -41,7 +41,8 @@ WadEntry*& WadEntries() { return g_wadEntries; }
 uint32_t& WadEntryCount() { return g_wadEntryCount; }
 
 // The ring of OVERLAPPED blocks streams read with, and the next one to try.
-OVERLAPPED* Overlapped() { return reinterpret_cast<OVERLAPPED*>(0x0069CBB8); }
+GAME_GLOBAL(OVERLAPPED[256], g_overlapped, 0x0069CBB8);
+OVERLAPPED* Overlapped() { return g_overlapped; }
 constexpr int kNumOverlapped = 256;
 int& NextOverlapped() { return g_nextOverlapped; }
 
@@ -100,7 +101,9 @@ bool PreloadDone(const StreamSlot& slot)
 
 } // namespace
 
-StreamSlot* StreamSlots() { return reinterpret_cast<StreamSlot*>(0x006EDFB8); }
+GAME_GLOBAL(StreamSlot[3], g_streamSlots, 0x006EDFB8);
+
+StreamSlot* StreamSlots() { return g_streamSlots; }
 
 GAME_GLOBAL(StreamSlot, g_musicSlot, 0x006EDFF4);
 

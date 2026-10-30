@@ -1,6 +1,7 @@
 // The script commands of the music and streams, 0x0044D100-0x0044D7C7 (see music_cfuncs.h).
 
 #include "game/pcm/music_cfuncs.h"
+#include "hook/game_code.h"
 
 #include <cstdint>
 
@@ -123,12 +124,12 @@ bool __cdecl CFunc_PlayTrack(CStruct* params, CScript*)
     if (!params->GetString(0u, &name, 0)) {
         params->GetInteger(0u, &track, 0);
         name = Pcm::GetTrackName(track, 0);
-        Sprintf(path, reinterpret_cast<const char*>(0x00647244), name); // "MUSIC\VAG\SONGS\%s"
+        Sprintf(path, GAME_TEXT(0x00647244, "MUSIC\\VAG\\SONGS\\%s"), name); // "MUSIC\VAG\SONGS\%s"
         name = path;
     }
     params->GetInteger(kLoop, &loop, 0);
     if (name) {
-        Dbg::Printf(reinterpret_cast<const char*>(0x00647214), name); // "PlayTrack songName ==... %s"
+        Dbg::Printf(GAME_TEXT(0x00647214, "PlayTrack songName ===================== %s\n"), name); // "PlayTrack songName ==... %s"
         Pcm::StopMusic();
         Pcm::PlayTrack(name, loop != 0);
         Pcm::SetCurrentTrack(track);
@@ -228,7 +229,7 @@ bool __cdecl CFunc_ChangeTrackState(CStruct* params, CScript*)
 {
     int track = 0;
     params->GetInteger(0u, &track, 0);
-    bool off = params->ContainsFlag(reinterpret_cast<const char*>(0x00647258)); // "Off"
+    bool off = params->ContainsFlag(GAME_TEXT(0x00647258, "Off")); // "Off"
     Pcm::ChangeTrackState(track, off, 0);
     return true;
 }

@@ -72,17 +72,17 @@ struct StreamFields {
     } queue[8]; // +0x34
 };
 static_assert(sizeof(StreamFields) == 0x74, "layout must match the original");
-StreamFields* StreamAt(int index) { return reinterpret_cast<StreamFields*>(0x0069B938) + index; }
+StreamFields* StreamAt(int index) { return reinterpret_cast<StreamFields*>(g_streams) + index; }
 constexpr int kStreams = 3;
 // The objects that started each stream (null: none); each notes the ids of the streams it started at
 // +0x18 + 4 * slot.
-uint8_t** Owners() { return reinterpret_cast<uint8_t**>(0x00698060); }
+uint8_t** Owners() { return reinterpret_cast<uint8_t**>(g_streamOwners); }
 uint32_t* OwnerIds(uint8_t* owner) { return reinterpret_cast<uint32_t*>(owner + 0x18); }
 
 // The user soundtrack (see music.cpp).
 int& UserSoundtrack() { return g_userSoundtrack; }
 bool UsingUserSoundtrack() { return g_usingUserSoundtrack; }
-int* UserOrder() { return reinterpret_cast<int*>(0x00697700); }
+int* UserOrder() { return g_userOrder; }
 uint32_t& UserTrack() { return g_userTrack; }
 uint32_t& UserPosition() { return g_userPosition; }
 bool ShuffleUser() { return g_shuffleUser; }
@@ -385,7 +385,7 @@ void __cdecl Init()
         DefaultMusicVolume() = static_cast<float>(Script::GetInteger(0x73F8E03Bu));
         if (DefaultMusicVolume() == Zero())
             DefaultMusicVolume() = 100.0f;
-        auto* playlists = reinterpret_cast<Playlist*>(0x00698098);
+        auto* playlists = g_playlists;
         for (int i = 0; i < 2; ++i) { // (the first two of the three)
             Playlist& list = playlists[i];
             list.count = 0;

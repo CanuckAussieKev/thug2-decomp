@@ -1,6 +1,7 @@
 // The save file types and the memory card commands' helpers (see save_types.h).
 
 #include "game/mc/save_types.h"
+#include "hook/game_code.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -25,6 +26,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/goals/goal.h"
 
 namespace Mc {
 
@@ -241,7 +243,7 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
     constexpr uint32_t kTotalGoalsComplete = 0x959DCF6E, kTotalGoalsPossible = 0xA95F9E73;
     constexpr uint32_t kTotalScore = 0x0E145E9C, kTotalScorePotential = 0x851B0904;
     constexpr uint32_t kIsMale = 0x3F813177;         // "is_male"
-    const char* const kEmpty = reinterpret_cast<const char*>(0x006469B4); // ""
+    const char* const kEmpty = GAME_TEXT(0x006469B4, ""); // ""
     Ed::CParkEditor* editor = Ed::CParkEditor::Instance();
     // The park map's numbers, in GetMapInfo's order: num_gaps, num_pieces, theme (16 bits), tod_script, width,
     // length.
@@ -415,7 +417,7 @@ bool ApplyCatAndCustomSkater(CStruct* loaded, CStruct* customSkater)
     Obj::CPlayerProfileManager* profiles = Obj::g_profileManager;
     Mdl::Skate* skate = Mdl::Skate::Instance();
     // the current skater (the manager's +0x1C, through the folded getter 0x00553E90)
-    int index = GameFunction<int(__thiscall*)(void*)>(0x00553E90)(profiles);
+    int index = GameFunction<int(__thiscall*)(void*)>(reinterpret_cast<uintptr_t>(GAME_CODE(0x00553E90, &Game::CGoal::GetParams)))(profiles);
     auto* skater = static_cast<Obj::CSkater*>(skate->GetSkater(index));
     skater->LoadCATInfo(loaded);
     skater->LoadList44B66A9F(loaded);

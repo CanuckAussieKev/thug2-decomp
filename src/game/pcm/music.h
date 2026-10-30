@@ -68,6 +68,15 @@ struct Stream {
 };
 static_assert(sizeof(Stream) == 0x74, "layout must match the original");
 
+// The music's data (music.cpp): the playlists and their track titles (100 characters per track, those of playlist 0),
+// the three streams and the objects that started them, and the user soundtrack's shuffled order.
+GAME_GLOBAL_EXTERN(Playlist[2], g_playlists);
+GAME_GLOBAL_EXTERN(char[80][100], g_trackTitles);
+GAME_GLOBAL_EXTERN(Stream[3], g_streams);
+GAME_GLOBAL_EXTERN(void*[3], g_streamOwners);
+GAME_GLOBAL_EXTERN(int[600], g_userOrder);
+static_assert(sizeof(Stream) == 0x74, "layout must match the original");
+
 // 0x00450220: whether no stream with this id is playing.
 bool __cdecl StreamIdFinished(uint32_t id);
 // 0x00450260: the stream playing with this id, else the one playing this name; -1 if none.

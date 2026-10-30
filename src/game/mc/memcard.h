@@ -11,6 +11,8 @@
 // Win32 files). One manager (reference counted) holds the one card.
 namespace Mc {
 
+extern void** const kFileVtable; // 0x00658A60: Lst::Head<File> / Lst::Node<File> (memcard.cpp)
+
 class Card;
 
 // A save file (also an entry of a directory listing: name, date, size).

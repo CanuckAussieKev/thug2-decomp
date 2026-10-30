@@ -27,10 +27,13 @@ WadEntry* WadEntries() { return g_wadEntries; }
 GAME_GLOBAL(uint32_t, g_lastMusicTrack, 0x0069CBA8);
 
 uint32_t& LastMusicTrack() { return g_lastMusicTrack; }
-uint32_t* LastStreams() { return reinterpret_cast<uint32_t*>(0x0069CBAC); }
+GAME_GLOBAL(uint32_t[3], g_lastStreams, 0x0069CBAC);
+uint32_t* LastStreams() { return g_lastStreams; }
 // Where a user soundtrack's track is read to, and each stream's buffer (0x14000 bytes each).
-void* UserTrackBuffer() { return reinterpret_cast<void*>(0x006D9FB8); }
-void* StreamBuffer(int slot) { return reinterpret_cast<uint8_t*>(0x0069DFB8) + slot * 0x14000; }
+GAME_GLOBAL(uint8_t[0x14000], g_userTrackBuffer, 0x006D9FB8);
+void* UserTrackBuffer() { return g_userTrackBuffer; }
+GAME_GLOBAL(uint8_t[3 * 0x14000], g_streamBuffers, 0x0069DFB8);
+void* StreamBuffer(int slot) { return g_streamBuffers + slot * 0x14000; }
 
 // 0x005B6250: the root data paths are under ("THUG2\" or "", by 0x007CEFAD; not rewritten yet).
 const char* DataRoot() { return GameConfig::GetBootstrapPrefix(); }
