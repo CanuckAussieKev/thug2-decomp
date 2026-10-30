@@ -105,7 +105,7 @@ void StandIn(StandIns& s)
     Rec(s, {0x00478F60, AddressOf(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}, 1, 0x8F60,
         [](Regs&) { return g_a.boneVolumesOn ? 1u : 0u; }, false, true);
     // The model and its geoms.
-    Rec(s, {0x0048BFA0, AddressOf(Nx::CreateModel)}, 1, 0xBFA0, [](Regs&) { return Addr(kModel); }, false, true);
+    Rec(s, {0x0048BFA0, AddressOf(Nx::CreateModel)}, 0, 0xBFA0, [](Regs&) { return Addr(kModel); }, false, true);
     Rec(s, {0x0048C3C0, AddressOf(Nx::Engine::DeleteGeomObject)}, 1, 0xC3C0, nullptr, false, true);
     Rec(s, {0x00494BA0}, 0, 0x4BA0);
     Rec(s, {0x00492EE0, AddressOf(&Nx::CModel::SetScale)}, 1, 0x2EE0, [](Regs& r) {

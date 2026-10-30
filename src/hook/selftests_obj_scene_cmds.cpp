@@ -59,7 +59,7 @@ uint32_t Text(uint32_t p) { return Hash(reinterpret_cast<const char*>(p)); }
 void StandInCalls(StandIns& s)
 {
     s.At({0x00444EB0, AddressOf(&Terrain::LoadTerrainSounds)}, 0, [](Regs& r) { Record({0x4EB0, r.args[0]}); return 1u; });
-    s.At({0x0048BFA0, AddressOf(Nx::CreateModel)}, 0, [](Regs& r) { Record({0xBFA0, r.args[0]}); return Addr(g_model); });
+    s.At({0x0048BFA0, AddressOf(Nx::CreateModel)}, 0, [](Regs&) { Record({0xBFA0}); return Addr(g_model); }); // (its argument isn't read or passed)
     // <name>.mdl: a String in the caller's storage (no text: copying it allocates nothing)
     s.At({0x004879D0, AddressOf(Gfx::MakeModelPath)}, 0, [](Regs& r) {
         Record({0x79D0, Text(r.args[1]), Text(r.args[2])});

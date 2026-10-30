@@ -216,7 +216,7 @@ void StandInGame(StandIns& s)
     Rec(s, {0x0058D290, AddressOf(&Ed::CParkEditor::Release)}, 0, 0, 0, nullptr, true);
     Rec(s, {0x004F4970, AddressOf(Ed::CRailEditorComponent::Instance)}, 0, 0, 0, [](Regs&) { return U(g_world.rails); }, true);
     Rec(s, {0x004F4690}, 0x10, 4);
-    Rec(s, {0x004F6BF0}, 0, 0);
+    Rec(s, {0x004F6BF0, AddressOf(&Ed::CRailEditorComponent::FreePoints)}, 0, 0, 0, nullptr, true); // (ours isn't given the editor)
     Rec(s, {0x0059E180}, 0, 0, 0, [](Regs&) { return 0x4EA90000u; }, true);
     Rec(s, {0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, 1);
     Rec(s, {0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, 0);
