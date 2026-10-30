@@ -32,6 +32,20 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/ass/assman.h"
+#include "game/net/task_vtable.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/score_list.h"
+#include "game/net/stats_man.h"
 
 namespace GameNet {
 
@@ -40,11 +54,8 @@ namespace {
 using Detail::DeleteParams;
 using Detail::NewParams;
 
-void** const kBuddyVtable = reinterpret_cast<void**>(0x0064D140);        // Lst::Node<Buddy> (Buddy)
-void** const kMessageVtable = reinterpret_cast<void**>(0x0064D14C);      // Lst::Node<BuddyMessage>
-void** const kBuddyHeadVtable = reinterpret_cast<void**>(0x0064CF60);    // as the heads are destroyed
-void** const kMessageHeadVtable = reinterpret_cast<void**>(0x0064CF64);
-void** const kManagerTaskVtable = reinterpret_cast<void**>(0x006476F0);  // Tsk::Task<BuddyMan>
+GAME_VTABLE(kBuddyVtable, 0x0064D140, &GameNet::Buddy::Destroy); // Lst::Node<Buddy> (Buddy)
+GAME_VTABLE(kMessageVtable, 0x0064D14C, &GameNet::BuddyMessage::Destroy); // Lst::Node<BuddyMessage>
 
 constexpr int kMaxBuddies = 30;          // BuddyListFull
 constexpr int kMaxMessages = 20;         // more than this waiting: new ones are dropped
@@ -155,8 +166,8 @@ void LoggedIn(BuddyMan* man, int profile) { man->SetLoggedIn(profile); }
 void DestroyBuddyNode(Buddy* buddy) { static_cast<BuddyNode*>(&buddy->m_node)->DestroyBody(); }
 void DestroyMessageNode(BuddyMessage* message) { static_cast<BuddyMessageNode*>(&message->m_node)->DestroyBody(); }
 // 0x00548100: GP's buddy request callback (the request accepted); 0x00548140: the login thread.
-const void* const kOnBuddyRequest = reinterpret_cast<const void*>(0x00548100);
-const auto kLoginThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(0x00548140);
+const void* const kOnBuddyRequest = GAME_CODE(0x00548100, BuddyMan::OnBuddyRequest);
+const auto kLoginThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(GAME_CODE(0x00548140, BuddyMan::LoginThread));
 // The lobby (m_lobbyMan): its peer (0x0053F880), and the peer SDK's public address of this machine (0x005FC940).
 void* LobbyPeer(void* lobby) { return static_cast<LobbyMan*>(lobby)->GetPeer(); }
 uint32_t PeerPublicIp(void* peer) { return GameFunction<uint32_t(__cdecl*)(void*)>(0x005FC940)(peer); }
@@ -284,7 +295,7 @@ BuddyMan* BuddyMan::Construct()
     auto* task = static_cast<Tsk::BaseTask*>(Mem::Calloc(0x20));
     if (task) {
         task->Construct(0);
-        task->m_vtable = kManagerTaskVtable;
+        task->m_vtable = GameCode::kTaskVtable;
         reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&BuddyTask); // +0x18 the callback
         reinterpret_cast<void**>(task)[7] = this;                                // +0x1C the data
     }
@@ -301,8 +312,8 @@ void BuddyMan::DestroyBody()
 {
     if (m_task) // (its scalar deleting destructor, vtable slot 2)
         reinterpret_cast<void*(__thiscall*)(Tsk::BaseTask*, unsigned int)>(m_task->m_vtable[2])(m_task, 1);
-    m_messages.UnlinkAs(kMessageHeadVtable);
-    m_buddies.UnlinkAs(kBuddyHeadVtable);
+    m_messages.UnlinkAs(kMessageNodeVtable);
+    m_buddies.UnlinkAs(kBuddyNodeVtable);
 }
 
 // 0x0054A1A0

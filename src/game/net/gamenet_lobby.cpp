@@ -90,9 +90,9 @@ void* LobbyMan::GetPeer() { return m_peer; }
 bool LobbyMan::InGroupRoom() { return m_inGroupRoom; }
 
 // 0x0053F8B0
-void LobbySearchA::DestroyBody() { m_vtable = reinterpret_cast<void**>(0x0064CB6C); }
+void LobbySearchA::DestroyBody() { m_vtable = kLobbySearchAVtable; }
 // 0x0053F8C0
-void LobbySearchB::DestroyBody() { m_vtable = reinterpret_cast<void**>(0x0064CB70); }
+void LobbySearchB::DestroyBody() { m_vtable = kLobbySearchBVtable; }
 
 // 0x0053F8A0
 bool __cdecl CFunc_ResetConnectionTimer(Script::CStruct*, Script::CScript*)

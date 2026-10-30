@@ -8,6 +8,8 @@
 #include "game/net/net_access_c.h"
 #include "game/sys/timer.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/net/net_client.h"
 
 namespace Net {
 
@@ -15,7 +17,8 @@ void ConstructAppTask(App* app); // net_client.cpp
 
 namespace {
 
-void** const kServerVtable = reinterpret_cast<void**>(0x006475EC);
+GAME_VTABLE(kServerVtable, 0x006475EC, &Net::Client::Destroy, &Net::App::ProcessData, &Net::Server::ReceiveData,
+    &Net::Server::SendData, &Net::Server::Init, &Net::Client::Deinit);
 constexpr int kBandwidthStep = 500;      // less when messages pile up
 constexpr int kMinBandwidth = 0x530;
 constexpr int kIdleBandwidthStep = 1000; // more when nothing waits for an ack

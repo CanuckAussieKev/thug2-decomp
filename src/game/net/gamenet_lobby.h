@@ -21,6 +21,11 @@ class BaseTask;
 
 namespace GameNet {
 
+extern void** const kLobbySearchAVtable;  // 0x0064CB6C
+extern void** const kLobbySearchBVtable;  // 0x0064CB70
+extern void** const kLobbyListNodeVtable; // 0x0064CBDC: Lst::Node<LobbyPlayer>
+extern void** const kLobbyNodeVtable;     // 0x0064CBE0: Lst::Node<LobbyRoom>
+
 struct LobbyPlayer;
 struct LobbyRoom;
 

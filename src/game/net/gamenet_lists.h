@@ -10,14 +10,14 @@
 
 namespace GameNet {
 
-inline void** const kPlayerNodeVtable = reinterpret_cast<void**>(0x0064C9E8);     // Lst::Node<PlayerInfo>
-inline void** const kNewPlayerNodeVtable = reinterpret_cast<void**>(0x0064C9E4);  // Lst::Node<NewPlayerInfo>
-inline void** const kServerNodeVtable = reinterpret_cast<void**>(0x0064C9EC);     // Lst::Node<ServerInfo>
-inline void** const kQueuedScriptNodeVtable = reinterpret_cast<void**>(0x0064C8EC); // Lst::Node<QueuedScript>
-inline void** const kQueuedScriptVtable = reinterpret_cast<void**>(0x0064C9F8);     // QueuedScript (and its head)
-inline void** const kPlayerHeadVtable = reinterpret_cast<void**>(0x0064C9F0);     // Lst::Head<PlayerInfo>
-inline void** const kNewPlayerHeadVtable = reinterpret_cast<void**>(0x0064C9F4);  // Lst::Head<NewPlayerInfo>
-inline void** const kServerHeadVtable = reinterpret_cast<void**>(0x0064C9FC);     // Lst::Head<ServerInfo>
+extern void** const kPlayerNodeVtable;     // Lst::Node<PlayerInfo>
+extern void** const kNewPlayerNodeVtable;  // Lst::Node<NewPlayerInfo>
+extern void** const kServerNodeVtable;     // Lst::Node<ServerInfo>
+extern void** const kQueuedScriptNodeVtable; // Lst::Node<QueuedScript>
+extern void** const kQueuedScriptVtable;     // QueuedScript (and its head)
+extern void** const kPlayerHeadVtable;     // Lst::Head<PlayerInfo>
+extern void** const kNewPlayerHeadVtable;  // Lst::Head<NewPlayerInfo>
+extern void** const kServerHeadVtable;     // Lst::Head<ServerInfo>
 
 // The manager's lists: +0x11C the players, +0x130 the players joining, +0x144 the scripts queued to run once the level
 // is up (QueuedScript, LaunchQueuedScripts), +0x158 / +0x16C the servers found (the server list's; a ServerInfo, vtable 0x0064CDFC, is

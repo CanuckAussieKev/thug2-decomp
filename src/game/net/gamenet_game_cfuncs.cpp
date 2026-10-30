@@ -23,6 +23,21 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/ass/assman.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
+#include "game/net/stats_man.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copy of the player's name)
 
@@ -94,7 +109,7 @@ void KickOrBan(Manager* manager, int drop, uint8_t request)
         bool observer = IsObserver(player);
         manager->DropPlayer(player, drop);
         if (!observer)
-            Call(0x00565790, Skate(), skater); // its skater removed
+            Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), Skate(), skater); // its skater removed
         return;
     }
     struct {
@@ -151,7 +166,7 @@ bool __cdecl CFunc_PlayerCapturedFlag(Script::CStruct* params, Script::CScript*)
     SendFlagMessage(manager, kMsgCapturedFlag, player, team, [&] {
         auto* skater = reinterpret_cast<Obj::CCompositeObject*>(PlayerSkater(capturer));
         uint8_t* score = Field<uint8_t*>(skater->GetComponent(kSkaterScore), 0x18);
-        Call(0x00561A80, score, Call<int>(0x00561B40, score) + 1); // its captures
+        Call(GAME_CODE(0x00561A80, &Mdl::Score::SetTotalScore), score, Call<int>(GAME_CODE(0x00561B40, &Mdl::Score::GetTotalScore), score) + 1); // its captures
         AsPlayer(capturer)->CapturedFlag(team);
     });
     return true;

@@ -15,16 +15,16 @@ struct QueuedMsg;
 struct SeqQueuedMsg;
 struct StreamDesc;
 
-inline void** const kStreamLinkNodeVtable = reinterpret_cast<void**>(0x006474C8); // Lst::Node<StreamLink>
-inline void** const kMsgNormalNodeVtable = reinterpret_cast<void**>(0x006474CC);  // Lst::Node<MsgNormalLink>
-inline void** const kMsgImpNodeVtable = reinterpret_cast<void**>(0x006474D0);     // Lst::Node<MsgImpLink>
-inline void** const kMsgSeqNodeVtable = reinterpret_cast<void**>(0x006474D4);     // Lst::Node<MsgSeqLink>
-inline void** const kAppListNodeVtable = reinterpret_cast<void**>(0x006474D8);        // Lst::Node<App>
-inline void** const kAppListHeadVtable = reinterpret_cast<void**>(0x00647544);        // Lst::Head<App>
-inline void** const kMsgNormalLinkVtable = reinterpret_cast<void**>(0x00647578);
-inline void** const kMsgImpLinkVtable = reinterpret_cast<void**>(0x0064757C);
-inline void** const kMsgSeqLinkVtable = reinterpret_cast<void**>(0x00647580);
-inline void** const kStreamLinkVtable = reinterpret_cast<void**>(0x00647584);
+extern void** const kStreamLinkNodeVtable; // Lst::Node<StreamLink>
+extern void** const kMsgNormalNodeVtable;  // Lst::Node<MsgNormalLink>
+extern void** const kMsgImpNodeVtable;     // Lst::Node<MsgImpLink>
+extern void** const kMsgSeqNodeVtable;     // Lst::Node<MsgSeqLink>
+extern void** const kAppListNodeVtable;        // Lst::Node<App>
+extern void** const kAppListHeadVtable;        // Lst::Head<App>
+extern void** const kMsgNormalLinkVtable;
+extern void** const kMsgImpLinkVtable;
+extern void** const kMsgSeqLinkVtable;
+extern void** const kStreamLinkVtable;
 
 // The queues' links (Lst::Node<T>: the node, then the link's fields).
 struct MsgNormalLink {

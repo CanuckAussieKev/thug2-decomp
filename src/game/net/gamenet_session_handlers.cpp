@@ -26,6 +26,19 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/ass/assman.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
+#include "game/net/stats_man.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -308,7 +321,7 @@ int __cdecl HandleHostOptions(Net::MsgHandlerContext* context)
         bool observer = IsObserver(player);
         manager->DropPlayer(player, msg[0] == 1 ? 3 : 4);
         if (!observer)
-            Call(0x00565790, Skate(), skater);
+            Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), Skate(), skater);
         break;
     }
     case 0x62: {
@@ -321,7 +334,7 @@ int __cdecl HandleHostOptions(Net::MsgHandlerContext* context)
         break;
     }
     case 0x64:
-        Call(0x00558960, GoalManager(), word(0));
+        Call(GAME_CODE(0x00558960, &Game::CGoalManager::ToggleGoalSelection), GoalManager(), word(0));
         break;
     case 0x65: {
         // End the game: everyone else told.
@@ -423,8 +436,8 @@ int __cdecl HandleStartGame(Net::MsgHandlerContext* context)
             static_cast<Obj::CSkater*>(PlayerSkater(p))->Reset27C();
         }
     }
-    Call(0x00553AD0, GameMode(), word(0));
-    Call(0x00558250, Call<void*>(0x00564D90, skate, 0));
+    Call(GAME_CODE(0x00553AD0, &Game::CGameMode::LoadGameType), GameMode(), word(0));
+    Call(GAME_CODE(0x00558250, &Game::CGoalManager::DeactivateAllGoals), Call<void*>(GAME_CODE(0x00564D90, &Mdl::Skate::GetGoalManager), skate, 0));
     Script::CArray* types = Script::GetArray(manager->InNetGame() ? kNetGameTypeInfo : kMpGameTypeInfo);
     // The victory conditions.
     Script::CStruct* victory = NewParams();
@@ -451,14 +464,14 @@ int __cdecl HandleStartGame(Net::MsgHandlerContext* context)
     victory->AddComponentOfType(kStopAtZero, Script::ESYMBOLTYPE_INTEGER, static_cast<uint32_t>(static_cast<int8_t>(msg[0x14])));
     victory->AddComponentOfType(kShouldResetScores, Script::ESYMBOLTYPE_INTEGER,
                                 static_cast<uint32_t>(static_cast<int8_t>(msg[0x15])));
-    Call(0x00564D50, skate, word(4));
-    Call(0x00553BE0, GameMode(), victory);
-    Call(0x005535A0, GameMode(), word(0x18));
-    Call(0x005530A0, GameMode(), word(0x1C));
-    Call(0x00553080, GameMode(), word(0x20));
+    Call(GAME_CODE(0x00564D50, &Mdl::Skate::SetUnknown370), skate, word(4));
+    Call(GAME_CODE(0x00553BE0, &Game::CGameMode::OverrideOptions), GameMode(), victory);
+    Call(GAME_CODE(0x005535A0, &Game::CGameMode::SetNumTeams), GameMode(), word(0x18));
+    Call(GAME_CODE(0x005530A0, &Game::CGameMode::SetGoalsMode), GameMode(), word(0x1C));
+    Call(GAME_CODE(0x00553080, &Game::CGameMode::SetTeamGraffitiMode), GameMode(), word(0x20));
     DeleteParams(victory);
     Run(kStartingNewNetGame);
-    Call(0x00566A60, skate);
+    Call(GAME_CODE(0x00566A60, &Mdl::Skate::LaunchGame), skate);
     manager->ResetPlayers();
     Field<bool>(manager, 0x1B4) = false;
     Field<bool>(manager, 0x3B) = false;
@@ -478,7 +491,7 @@ int __cdecl HandleStartGame(Net::MsgHandlerContext* context)
         if (Obj::CObject* skater = PlayerSkater(p)) {
             auto* score = reinterpret_cast<uint8_t*>(static_cast<Obj::CCompositeObject*>(skater)->GetComponent(kSkaterScore)); // its score component
             if (Field<void*>(score, 0x18))
-                Call(0x00564A10, Field<void*>(score, 0x18));
+                Call(GAME_CODE(0x00564A10, &Mdl::Score::Reset), Field<void*>(score, 0x18));
         }
     }
     if (uint8_t* king = KingOfTheHill(manager))
@@ -522,7 +535,7 @@ int __cdecl HandleSendGameState(Net::MsgHandlerContext* context)
     GameInfo info;
     std::memset(&info, 0, sizeof(info));
     info.maxPlayers = static_cast<uint8_t>(manager->GetMaxPlayers());
-    info.value48 = Call<uint32_t>(0x00553270, GameMode());
+    info.value48 = Call<uint32_t>(GAME_CODE(0x00553270, &Game::CGameMode::GetRound), GameMode());
     info.variant = 0;
     Net::App* server = manager->m_server;
     if (IsLocalPlayer(player)) {
@@ -535,8 +548,8 @@ int __cdecl HandleSendGameState(Net::MsgHandlerContext* context)
             info.targetScore = 0;
         } else {
             info.gameType = GameType();
-            info.timeLimit = Call<uint32_t>(0x005533B0, GameMode()) / 1000;
-            info.value20 = Call<uint32_t>(0x00553170, GameMode());
+            info.timeLimit = Call<uint32_t>(GAME_CODE(0x005533B0, &Game::CGameMode::GetGoalTimeLeft), GameMode()) / 1000;
+            info.value20 = Call<uint32_t>(GAME_CODE(0x00553170, &Game::CGameMode::GetTimeLimit), GameMode());
             info.targetScore = static_cast<uint32_t>(manager->GetNetworkPreferences()->GetPreferenceValue(kTargetScore, kScore));
             if (GameType() == kNetScavengerHunt || GameType() == kNetElimiskate) {
                 bool scavenger = GameType() == kNetScavengerHunt;
@@ -551,7 +564,7 @@ int __cdecl HandleSendGameState(Net::MsgHandlerContext* context)
         }
         info.gameId = manager->GetGameId();
         info.level = manager->GetLevel();
-        info.teams = Call<uint32_t>(0x00553130, GameMode());
+        info.teams = Call<uint32_t>(GAME_CODE(0x00553130, &Game::CGameMode::NumTeams), GameMode());
         info.value18 = manager->GetGoalsPreference();
         info.value1C = manager->GetTeamGraffitiMode();
         info.proSetFlags = Field<uint8_t>(manager, 0x194);
@@ -590,7 +603,7 @@ int __cdecl HandleSendGameState(Net::MsgHandlerContext* context)
             item = static_cast<uint8_t*>(node->data);
         }
         if (!IsLocalPlayer(player))
-            Call(0x0056B990, skate, player);
+            Call(GAME_CODE(0x0056B990, &Mdl::Skate::SendCheats), skate, player);
         if (IsObserver(player) && GameType() == kNetGraffiti) {
             // An observer of graffiti: the trick objects' state.
             desc.Construct();
@@ -607,9 +620,9 @@ int __cdecl HandleSendGameState(Net::MsgHandlerContext* context)
         uint8_t* out = selected + 1;
         int count = Field<int>(goals, 0); // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
-            uint8_t* goal = Call<uint8_t*>(0x00557FB0, goals, i);
-            if (Call<bool>(0x005542F0, goal)) {
-                uint32_t name = Call<uint32_t>(0x00554280, goal);
+            uint8_t* goal = Call<uint8_t*>(GAME_CODE(0x00557FB0, &Game::CGoalManager::GetGoalByIndex), goals, i);
+            if (Call<bool>(GAME_CODE(0x005542F0, &Game::CGoal::IsSelected), goal)) {
+                uint32_t name = Call<uint32_t>(GAME_CODE(0x00554280, &Game::CGoal::GetGoalId), goal);
                 std::memcpy(out, &name, 4);
                 out += 4;
             }

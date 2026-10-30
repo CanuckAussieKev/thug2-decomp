@@ -26,6 +26,19 @@
 #include "game/ed/rail_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
+#include "game/net/stats_man.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -83,15 +96,15 @@ void Manager::AddNewPlayer(uint8_t* info)
     uint32_t flags = Field<uint32_t>(info, kInfoFlags);
     if (!(flags & kNewObserver)) {
         bool splitScreen = CFuncs::CFunc_InSplitScreenGame(nullptr, nullptr) != 0;
-        void* profile = Call<void*>(0x00564FC0, skate, splitScreen ? static_cast<int>(objId) : 0); // the skater's profile
+        void* profile = Call<void*>(GAME_CODE(0x00564FC0, static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile)), skate, splitScreen ? static_cast<int>(objId) : 0); // the skater's profile
         if (!InNetGame()) {
-            skater = Call<Obj::CObject*>(0x00567180, skate, profile, true, static_cast<int>(objId), SkaterCount(skate));
+            skater = Call<Obj::CObject*>(GAME_CODE(0x00567180, &Mdl::Skate::AddSkater), skate, profile, true, static_cast<int>(objId), SkaterCount(skate));
         } else if (Field<uint32_t>(info, kInfoFlags) & kNewLocal) {
-            skater = Call<Obj::CObject*>(0x00567180, skate, profile, true, static_cast<int>(objId), 0);
+            skater = Call<Obj::CObject*>(GAME_CODE(0x00567180, &Mdl::Skate::AddSkater), skate, profile, true, static_cast<int>(objId), 0);
         } else {
             auto* skaters = reinterpret_cast<Mdl::Skate*>(skate);
-            int count = Call<void*>(0x00566520, skate) ? skaters->GetNumSkaters() : (skaters->GetNumSkaters() + 1) & 7;
-            skater = Call<Obj::CObject*>(0x00567180, skate, Field<void*>(info, kInfoProfile), false,
+            int count = Call<void*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate) ? skaters->GetNumSkaters() : (skaters->GetNumSkaters() + 1) & 7;
+            skater = Call<Obj::CObject*>(GAME_CODE(0x00567180, &Mdl::Skate::AddSkater), skate, Field<void*>(info, kInfoProfile), false,
                                          static_cast<int>(objId), count);
             if (Field<int>(info, kInfoVehicle)) // its vehicle control type
                 Field<int>(static_cast<Obj::CCompositeObject*>(skater)->GetComponent(kVehicleComponent), 0x1104) =
@@ -106,7 +119,7 @@ void Manager::AddNewPlayer(uint8_t* info)
             DestroyPlayer(player);
             player = nullptr;
         }
-        Call(0x00566370, skate, skater, 0, 0);
+        Call(GAME_CODE(0x00566370, &Mdl::Skate::MoveToRestart), skate, skater, 0, 0);
     }
     if (!player) {
         player = NewPlayer(skater, Field<Net::Conn*>(info, kInfoConn), Field<uint32_t>(info, kInfoFlags) & kNewPlayerFlags);
@@ -136,7 +149,7 @@ void Manager::AddNewPlayer(uint8_t* info)
         auto* object = static_cast<Obj::CCompositeObject*>(skater);
         uint8_t* score = Field<uint8_t*>(object->GetComponent(kSkaterScore), 0x18);
         static_cast<Obj::CSkater*>(skater)->HideSkater(); // hidden
-        Call(0x00561A80, score, Field<int>(info, kInfoScore));
+        Call(GAME_CODE(0x00561A80, &Mdl::Score::SetTotalScore), score, Field<int>(info, kInfoScore));
     }
 }
 
@@ -170,7 +183,7 @@ void __cdecl Manager::ClientAddNewPlayersTask(void* task)
                         conn->UpdateCommTime(0); // (the time spent adding them isn't silence)
             }
             for (int i = 0; i < 8; ++i)
-                if (void* skater = Call<void*>(0x005665C0, skate, i))
+                if (void* skater = Call<void*>(GAME_CODE(0x005665C0, &Mdl::Skate::GetSkater), skate, i))
                     static_cast<Obj::CSkater*>(skater)->Reset27C();
             manager->SendReadyResponse();
         }
@@ -371,7 +384,7 @@ void __cdecl Manager::ServerAddNewPlayersTask(void* task)
                     server->StreamMessage(PlayerHandle(player), kMsgParkMap, kParkMapSize,
                                           park->GetCompressedMapBuffer(false), "level data", kGroupGame, false, true);
                     Ed::CRailEditorComponent::Instance(); // (called twice, the first result unused)
-                    void* rails = Call<void*>(0x004F45B0, Ed::CRailEditorComponent::Instance());
+                    void* rails = Call<void*>(GAME_CODE(0x004F45B0, &Ed::CRailEditorComponent::GetPacked), Ed::CRailEditorComponent::Instance());
                     server->StreamMessage(PlayerHandle(player), kMsgRails, kRailsSize, rails, "rail data", kGroupGame,
                                           false, true);
                 }
@@ -380,7 +393,7 @@ void __cdecl Manager::ServerAddNewPlayersTask(void* task)
             if (!IsObserver(player)) { // its skater; every other player asked whether it's ready
                 int count = IsLocalPlayer(player) && manager->InNetGame() ? 0 : SkaterCount(skate);
                 bool localConn = Field<Net::Conn*>(player, 0x18)->IsLocal();
-                auto* skater = Call<Obj::CObject*>(0x00567180, skate, Field<void*>(info, kInfoProfile), localConn,
+                auto* skater = Call<Obj::CObject*>(GAME_CODE(0x00567180, &Mdl::Skate::AddSkater), skate, Field<void*>(info, kInfoProfile), localConn,
                                                    static_cast<int>(objId), count);
                 AsPlayer(player)->SetSkater(static_cast<Obj::CSkater*>(skater));
                 if (!IsLocalPlayer(player))

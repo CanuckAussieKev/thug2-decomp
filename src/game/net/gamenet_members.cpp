@@ -3,6 +3,7 @@
 // custom tag texture a client sends.
 
 #include <cstdint>
+#include "hook/game_code.h"
 #include <cstdio>
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
@@ -34,6 +35,18 @@
 #include "hook/hook.h"
 #include "game/ass/assman.h"
 #include "game/ed/park_editor.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
 
 namespace GameNet {
 
@@ -95,16 +108,16 @@ constexpr uint8_t kMsgTagPalette = 0x98;
 constexpr uint8_t kMsgTagLogos = 0x9A;
 constexpr uint8_t kGroupTag = 10;
 
-const char* const kTagPaletteDesc = reinterpret_cast<const char*>(0x0064C974); // "CAG Palette"
-const char* const kTagTextureDesc = reinterpret_cast<const char*>(0x0064C968); // "CAG Texture"
+const char* const kTagPaletteDesc = GAME_TEXT(0x0064C974, "CAG Palette"); // "CAG Palette"
+const char* const kTagTextureDesc = GAME_TEXT(0x0064C968, "CAG Texture"); // "CAG Texture"
 
 // The game mode's members (not rewritten): its max_players, the flags accumulate_score / track_best_combo /
 // is_elimiskate, a property set (IsTrue).
-int ModeMaxPlayers() { return Call<int>(0x005531D0, GameMode()); }
-bool AccumulatesScore() { return Call<bool>(0x00552FB0, GameMode()); }
-bool TracksBestCombo() { return Call<bool>(0x00552FD0, GameMode()); }
-bool IsElimiskate() { return Call<bool>(0x00553910, GameMode()); }
-bool ModeIsTrue(uint32_t property) { return Call<bool>(0x00553220, GameMode(), property); }
+int ModeMaxPlayers() { return Call<int>(GAME_CODE(0x005531D0, &Game::CGameMode::GetMaximumNumberOfPlayers), GameMode()); }
+bool AccumulatesScore() { return Call<bool>(GAME_CODE(0x00552FB0, &Game::CGameMode::ShouldAccumulateScore), GameMode()); }
+bool TracksBestCombo() { return Call<bool>(GAME_CODE(0x00552FD0, &Game::CGameMode::ShouldTrackBestCombo), GameMode()); }
+bool IsElimiskate() { return Call<bool>(GAME_CODE(0x00553910, &Game::CGameMode::EndConditionsMet), GameMode()); }
+bool ModeIsTrue(uint32_t property) { return Call<bool>(GAME_CODE(0x00553220, &Game::CGameMode::IsTrue), GameMode(), property); }
 
 Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 4); }
 
@@ -270,7 +283,7 @@ bool Manager::SendCustomTagTexture()
     uint8_t* skate = Detail::Skate();
     if (Net::Manager::Instance()->GetConnectionType() == Net::Manager::kConnectionModem || onServer)
         return false;
-    auto* skater = Call<Obj::CCompositeObject*>(0x00566520, skate); // the local skater
+    auto* skater = Call<Obj::CCompositeObject*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate); // the local skater
     if (!skater)
         return false;
     auto* tagging = static_cast<Obj::CTaggingComponent*>(skater->GetComponent(Obj::CTaggingComponent::kType));
@@ -279,7 +292,7 @@ bool Manager::SendCustomTagTexture()
 
     Net::Conn* server = m_client->FirstConnection(&search);
     if (server->GetBandwidthType() == 0) {
-        void* profile = Call<void*>(0x00564FC0, Detail::Skate(), 0);
+        void* profile = Call<void*>(GAME_CODE(0x00564FC0, static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile)), Detail::Skate(), 0);
         uint32_t logos = ProfileHasPart(profile, kHatLogo) ? 1 : 0;
         if (ProfileHasPart(profile, kFrontLogo))
             logos |= 2;
@@ -287,7 +300,7 @@ bool Manager::SendCustomTagTexture()
             logos |= 4;
         if (ProfileHasPart(profile, kDeckGraphic))
             logos |= 8;
-        void* texture = Call<void*>(0x00553E90, tagging); // the custom tag texture
+        void* texture = Call<void*>(GAME_CODE(0x00553E90, &Game::CGoal::GetParams), tagging); // the custom tag texture
         if (texture) {
             Net::MsgDesc desc;
             desc.Construct();

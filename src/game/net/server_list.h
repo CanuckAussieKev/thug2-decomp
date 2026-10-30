@@ -20,6 +20,8 @@ struct MsgHandlerContext;
 // the day) with their state (the manager's +0x1B8).
 namespace GameNet {
 
+extern void** const kServerSearchVtable; // 0x0064CD70: Lst::Search<ServerInfo>
+
 // A server found (0xA8 bytes, vtable 0x0064CDFC): a node of the manager's server list (+0x158) or of the servers
 // waiting to be shown (+0x16C).
 struct ServerInfo : Mem::ListNode {

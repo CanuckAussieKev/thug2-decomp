@@ -27,6 +27,21 @@
 #include "hook/hook.h"
 #include "game/ass/assman.h"
 #include "game/gfx/texture_cfuncs.h"
+#include "game/net/gamenet_lists.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/score_list.h"
+#include "game/net/stats_man.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf / strncpy, kept)
 
@@ -72,11 +87,7 @@ constexpr uint32_t kListClock = 3000;         // ms
 constexpr uint32_t kShowDelay = 500;          // ms
 constexpr uint32_t kNewsBufferSize = 0x6400;  // bytes
 
-inline void** const kServerVtable = reinterpret_cast<void**>(0x0064CDFC);       // ServerInfo
-inline void** const kServerBaseVtable = reinterpret_cast<void**>(0x0064C9EC);   // Lst::Node<ServerInfo>
-inline void** const kPlayerHeadVtable = reinterpret_cast<void**>(0x0064C9F0);   // Lst::Head<PlayerInfo>
-inline void** const kPlayerNodeVtable = reinterpret_cast<void**>(0x0064C9E8);   // Lst::Node<PlayerInfo>
-inline void** const kServerSearchVtable = reinterpret_cast<void**>(0x0064CD70); // Lst::Search<ServerInfo>
+GAME_VTABLE(kServerVtable, 0x0064CDFC, &ServerInfo::Destroy); // ServerInfo
 
 // The manager's fields not named in gamenet_manager.h yet.
 constexpr uint32_t kServiceTask = 0xE0;     // Tsk::BaseTask*: the online service task
@@ -233,7 +244,7 @@ void ServerInfo::DestroyBody()
     ClearPlayers();
     m_players.vtable = kPlayerNodeVtable;
     UnlinkNode(&m_players);
-    vtable = kServerBaseVtable;
+    vtable = kServerNodeVtable;
     UnlinkNode(this);
 }
 
@@ -301,6 +312,8 @@ int ServerInfo::GetPlayerRating(int index)
 }
 
 // 0x005451D0 / 0x00545460
+GAME_VTABLE(kServerSearchVtable, 0x0064CD70, &GameNet::ServerSearch::Destroy);
+
 void ServerSearch::DestroyBody() { m_vtable = kServerSearchVtable; }
 ServerSearch* ServerSearch::Destroy(unsigned int flags)
 {
@@ -551,7 +564,7 @@ unsigned long __stdcall NewsThread(void* argument)
     char url[256];
     std::sprintf(url, CFuncs::g_textureFlagCe441 ? "http://www.thug2online.com/testmotd.dat"
                                                      : "http://www.thug2online.com/motd.dat");
-    Field<int>(manager, kRequest) = Sdk<int>(0x005FF8A0, url, 0, buffer, kNewsBufferSize, 0, 0, 0, 0x005480A0u,
+    Field<int>(manager, kRequest) = Sdk<int>(0x005FF8A0, url, 0, buffer, kNewsBufferSize, 0, 0, 0, reinterpret_cast<uint32_t>(GAME_CODE(0x005480A0, Stubs::DoNothing)),
                                              &NewsCallback, manager); // (the download started)
     Memory()->PopContext();
     return 0;

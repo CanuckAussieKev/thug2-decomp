@@ -31,6 +31,20 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/ass/assman.h"
+#include "hook/game_code.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -296,7 +310,7 @@ void Manager::DropPlayer(uint8_t* player, int reason)
 {
     char name[kNameSize];
     std::strcpy(name, PlayerName(player));
-    if (!IsObserver(player) && Call<bool>(0x00553220, GameMode(), kShouldModulateColor))
+    if (!IsObserver(player) && Call<bool>(GAME_CODE(0x00553220, &Game::CGameMode::IsTrue), GameMode(), kShouldModulateColor))
         Obj::g_trickObjectManager->ReleasePlayerClusters(static_cast<int>(SkaterId(PlayerSkater(player)))); // its colours off the trick objects
     if (!OnServer()) {
         DestroyPlayer(player);
@@ -430,7 +444,7 @@ void Manager::DestroyAllPlayers()
         uint8_t* next = NextPlayer(this, &search, true);
         Obj::CObject* skater = PlayerSkater(player);
         if (skater && (static_cast<Obj::CSkater*>(skater)->GetSkaterNumber() != 0 || !IsLocalPlayer(player))) // (not the first local skater)
-            Call(0x00565790, skate, skater);
+            Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), skate, skater);
         DestroyPlayer(player);
         player = next;
     }
@@ -454,7 +468,7 @@ void Manager::DropPlayersNotReady()
         if (!(Field<uint32_t>(player, 0x1D0) & kPlayerFcfsCandidate)) {
             Obj::CObject* skater = PlayerSkater(player);
             DropPlayer(player, kDropLeftOut);
-            Call(0x00565790, skate, skater);
+            Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), skate, skater);
         }
         player = next;
     }
@@ -522,7 +536,7 @@ void Manager::EnterObserveMode()
         AsPlayer(local)->ClearFlags();
     }
     Field<uint32_t>(local, 0x1D0) |= 4; // an observer
-    Call(0x00565790, skate, PlayerSkater(local));
+    Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), skate, PlayerSkater(local));
     Field<Obj::CObject*>(local, 0x14) = nullptr;
     Mem::Manager* memory = Mem::Manager::Get();
     memory->PushContext(memory->m_skaterHeaps[0]);

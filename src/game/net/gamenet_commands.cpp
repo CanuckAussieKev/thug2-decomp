@@ -3,6 +3,7 @@
 // client sends the server (start the game, change the level, toggle a pro set flag or a goal).
 
 #include <cstdint>
+#include "hook/game_code.h"
 
 #include "game/core/alloc.h"
 #include "game/core/task.h"
@@ -22,6 +23,19 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/ass/assman.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/buddy_man.h"
+#include "game/net/stats_man.h"
 
 namespace GameNet {
 
@@ -73,12 +87,12 @@ constexpr uint32_t kSetFlag = 0x1BC80657;             // SetFlag
 constexpr uint32_t kUnSetFlag = 0x1FF8F994;           // UnSetFlag
 constexpr uint32_t kSignedDisclaimer = 0x633A324E;    // signed_disclaimer
 
-const char* const kNumTeams = reinterpret_cast<const char*>(0x0064C9B4);     // "num_teams"
-const char* const kParkMapDesc = reinterpret_cast<const char*>(0x0064C884);  // "level data"
-const char* const kRailsDesc = reinterpret_cast<const char*>(0x0064C878);    // "rail data"
-const char* const kBit = reinterpret_cast<const char*>(0x0064C9CC);          // "bit"
-const char* const kParamId = reinterpret_cast<const char*>(0x0064C9C0);      // "param_id"
-const char* const kFirstProSetFlag = reinterpret_cast<const char*>(0x0064C9D0); // "FLAG_PROSET1_GEO_ON"
+const char* const kNumTeams = GAME_TEXT(0x0064C9B4, "num_teams");     // "num_teams"
+const char* const kParkMapDesc = GAME_TEXT(0x0064C884, "level data");  // "level data"
+const char* const kRailsDesc = GAME_TEXT(0x0064C878, "rail data");    // "rail data"
+const char* const kBit = GAME_TEXT(0x0064C9CC, "bit");          // "bit"
+const char* const kParamId = GAME_TEXT(0x0064C9C0, "param_id");      // "param_id"
+const char* const kFirstProSetFlag = GAME_TEXT(0x0064C9D0, "FLAG_PROSET1_GEO_ON"); // "FLAG_PROSET1_GEO_ON"
 
 constexpr int kProSetCount = 7;
 constexpr uint32_t kFlagBaseWarningInterval = 3000; // ms
@@ -161,7 +175,7 @@ bool __cdecl CFunc_SetJoinMode(CStruct* params, CScript*)
 // 0x00535E90: GetNumTeams - the game mode's team count into the script's num_teams.
 bool __cdecl CFunc_GetNumTeams(CStruct*, CScript* script)
 {
-    script->m_params->AddInteger(kNumTeams, Call<int>(0x00553130, GameMode()));
+    script->m_params->AddInteger(kNumTeams, Call<int>(GAME_CODE(0x00553130, &Game::CGameMode::NumTeams), GameMode()));
     return true;
 }
 
@@ -272,7 +286,7 @@ bool __cdecl CFunc_FCFSRequestChangeLevel(CStruct* params, CScript*)
         void* map = Ed::CParkEditor::Instance()->GetCompressedMapBuffer(false);
         client->StreamMessageToServer(kMsgParkMap, kParkMapSize, map, kParkMapDesc, kGroupGame, true, false);
         Ed::CRailEditorComponent::Instance(); // (the rail editor looked up once for nothing)
-        void* rails = Call<void*>(0x004F45B0, Ed::CRailEditorComponent::Instance());
+        void* rails = Call<void*>(GAME_CODE(0x004F45B0, &Ed::CRailEditorComponent::GetPacked), Ed::CRailEditorComponent::Instance());
         client->StreamMessageToServer(kMsgRailsData, kRailsDataSize, rails, kRailsDesc, kGroupGame, true, false);
     }
     SendRequest(manager, kMsgChangeLevelRequest, &level, 4);

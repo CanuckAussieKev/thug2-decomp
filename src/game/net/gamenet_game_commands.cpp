@@ -2,6 +2,7 @@
 // starting and ending a network game, teams, the host, readiness, and the player list menu with its options dialog.
 
 #include <cstdint>
+#include "hook/game_code.h"
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -28,6 +29,19 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/ass/assman.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/stats_man.h"
 
 namespace GameNet {
 
@@ -89,11 +103,11 @@ constexpr uint32_t kPadChooseParams = 0xB8437568;     // pad_choose_params
 constexpr uint32_t kThemeMenuAddItem = 0xC16BF7BD;    // theme_menu_add_item
 constexpr uint32_t kCrownSpawnType = 0xAF86421B;      // (a node's Type: the crown's starting point; the name isn't known)
 
-const char* const kTeam = reinterpret_cast<const char*>(0x0064CA14);           // "team"
-const char* const kNetStatusProps = reinterpret_cast<const char*>(0x0064CA1C); // "netstatusprops"
-const char* const kType = reinterpret_cast<const char*>(0x0064654C);           // "Type"
-const char* const kBit = reinterpret_cast<const char*>(0x0064C9CC);            // "bit"
-const char* const kParamId = reinterpret_cast<const char*>(0x0064C9C0);        // "param_id"
+const char* const kTeam = GAME_TEXT(0x0064CA14, "team");           // "team"
+const char* const kNetStatusProps = GAME_TEXT(0x0064CA1C, "netstatusprops"); // "netstatusprops"
+const char* const kType = GAME_TEXT(0x0064654C, "Type");           // "Type"
+const char* const kBit = GAME_TEXT(0x0064C9CC, "bit");            // "bit"
+const char* const kParamId = GAME_TEXT(0x0064C9C0, "param_id");        // "param_id"
 
 constexpr int kPlayerMenuIdBase = 123456;  // the menu items' ids: this plus the player's place in the list
 constexpr uint32_t kJoinTeamInterval = 150; // ms between team requests
@@ -248,10 +262,10 @@ bool __cdecl CFunc_StartNetworkGame(CStruct*, CScript*)
         uint8_t* end = buffer + 1;
         int count = Field<int>(goals, 0); // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
-            uint8_t* goal = Call<uint8_t*>(0x00557FB0, goals, i);
-            if (Call<bool>(0x005542F0, goal)) {
+            uint8_t* goal = Call<uint8_t*>(GAME_CODE(0x00557FB0, &Game::CGoalManager::GetGoalByIndex), goals, i);
+            if (Call<bool>(GAME_CODE(0x005542F0, &Game::CGoal::IsSelected), goal)) {
                 reinterpret_cast<void(__thiscall*)(void*)>((*reinterpret_cast<void***>(goal))[29])(goal);
-                uint32_t id = Call<uint32_t>(0x00554280, goal);
+                uint32_t id = Call<uint32_t>(GAME_CODE(0x00554280, &Game::CGoal::GetGoalId), goal);
                 std::memcpy(end, &id, 4);
                 end += 4;
             }
@@ -335,12 +349,12 @@ bool __cdecl CFunc_SetNumTeams(CStruct* params, CScript*)
         return true;
     }
     if (teams < 1 || IsTeamGame()) {
-        Call(0x005535A0, GameMode(), teams);
+        Call(GAME_CODE(0x005535A0, &Game::CGameMode::SetNumTeams), GameMode(), teams);
     } else {
-        Call(0x005535A0, GameMode(), teams);
-        if (Call<Obj::CObject*>(0x00566520, skate)) { // the local skater
-            Run(kPrepareSkaterForMove, nullptr, Call<Obj::CObject*>(0x00566520, skate));
-            Call(0x00566370, skate, Call<Obj::CObject*>(0x00566520, skate), 0, 0);
+        Call(GAME_CODE(0x005535A0, &Game::CGameMode::SetNumTeams), GameMode(), teams);
+        if (Call<Obj::CObject*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate)) { // the local skater
+            Run(kPrepareSkaterForMove, nullptr, Call<Obj::CObject*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate));
+            Call(GAME_CODE(0x00566370, &Mdl::Skate::MoveToRestart), skate, Call<Obj::CObject*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate), 0, 0);
         }
     }
     Net::App* server = manager->m_server;

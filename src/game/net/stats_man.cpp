@@ -1,6 +1,7 @@
 // The online stats (GameNet::StatsMan). See stats_man.h.
 
 #include "game/net/stats_man.h"
+#include "hook/game_code.h"
 
 #include <windows.h>
 
@@ -31,6 +32,7 @@
 #include "hook/hook.h"
 #include "game/gfx/loading_bar.h"
 #include "game/ass/assman.h"
+#include "game/net/task_vtable.h"
 
 namespace GameNet {
 
@@ -41,17 +43,16 @@ namespace {
 using Detail::DeleteParams;
 using Detail::NewParams;
 
-void** const kEntryVtable = reinterpret_cast<void**>(0x0064D640);      // TopEntry (and the entries' heads)
-void** const kLevelsHeadVtable = reinterpret_cast<void**>(0x0064D644); // a top list's levels head
-void** const kLevelVtable = reinterpret_cast<void**>(0x0064D648);      // LevelScores
-void** const kSortVtable = reinterpret_cast<void**>(0x0064D64C);       // SortEntry (and the sorted list's head)
-void** const kEntryNodeVtable = reinterpret_cast<void**>(0x0064D634);  // Lst::Node<TopEntry>
-void** const kLevelNodeVtable = reinterpret_cast<void**>(0x0064D638);  // Lst::Node<LevelScores>
-void** const kSortNodeVtable = reinterpret_cast<void**>(0x0064D63C);   // Lst::Node<SortEntry>
-void** const kSortSearchVtable = reinterpret_cast<void**>(0x0064D580);
-void** const kEntrySearchVtable = reinterpret_cast<void**>(0x0064D584);
-void** const kLevelSearchVtable = reinterpret_cast<void**>(0x0064D588);
-void** const kManagerTaskVtable = reinterpret_cast<void**>(0x006476F0); // Tsk::Task<StatsMan>
+GAME_VTABLE(kEntryVtable, 0x0064D640, &GameNet::TopEntry::Destroy); // TopEntry (and the entries' heads)
+GAME_VTABLE(kLevelsHeadVtable, 0x0064D644, &GameNet::StatsNode::DeleteLevelsHead); // a top list's levels head
+GAME_VTABLE(kLevelVtable, 0x0064D648, &GameNet::LevelScores::Destroy); // LevelScores
+GAME_VTABLE(kSortVtable, 0x0064D64C, &GameNet::SortEntry::Destroy); // SortEntry (and the sorted list's head)
+GAME_VTABLE(kEntryNodeVtable, 0x0064D634, &GameNet::StatsNode::DeleteEntryNode); // Lst::Node<TopEntry>
+GAME_VTABLE(kLevelNodeVtable, 0x0064D638, &GameNet::StatsNode::DeleteLevelNode); // Lst::Node<LevelScores>
+GAME_VTABLE(kSortNodeVtable, 0x0064D63C, &GameNet::StatsNode::DeleteSortNode); // Lst::Node<SortEntry>
+GAME_VTABLE(kSortSearchVtable, 0x0064D580, &GameNet::StatsSearch::DeleteSortSearch);
+GAME_VTABLE(kEntrySearchVtable, 0x0064D584, &GameNet::StatsSearch::DeleteEntrySearch);
+GAME_VTABLE(kLevelSearchVtable, 0x0064D588, &GameNet::StatsSearch::DeleteLevelSearch);
 
 constexpr uint32_t kLoginTimeout = 10000;  // ms
 constexpr uint32_t kReportInterval = 60000; // ms between reports of a game
@@ -135,7 +136,7 @@ void GhttpCleanup() { GameFunction<void(__cdecl*)()>(0x005FF860)(); }
 char* GcdGameName() { return &GameVariable<char>(0x007D7A78); }
 char* GcdSecretKey() { return &GameVariable<char>(0x007D7B78); }
 // The secret key (data the online identity writes over when OnlineGameKey is set: online_identity.cpp).
-const char* StatsKey() { return reinterpret_cast<const char*>(0x0064D58C); }
+const char* StatsKey() { return GAME_TEXT(0x0064D58C, "AdLWaZ"); }
 
 // The manager's calls.
 const char* GameModeName(Manager* manager) { return manager->GetGameTypeName(); }
@@ -453,10 +454,15 @@ void TopList::FillSortedScores(bool ratings)
     }
 }
 
+// The level checksums the personal stats list their high scores by.
+GAME_GLOBAL(uint32_t[15], g_levelChecksums, 0x0067F260, 0x55894059, 0x2A179957, 0xCDAFB450, 0xCAC27049, 0xFC5833EE,
+            0x86A2D65B, 0xF3AB73AB, 0x991B5359, 0xDAF9A383, 0x7078F66C, 0xCC877C27, 0x0C27CA5E, 0x532C99DE,
+            0xD4B48511, 0x8C32C761);
+
 // 0x0054DDB0
 void PersonalStats::Fill()
 {
-    const auto* levels = reinterpret_cast<const uint32_t*>(0x0067F260);
+    const uint32_t* levels = g_levelChecksums;
     SortedList sorted;
     for (int i = 0; i < 15; ++i) {
         int score = m_highScores[i];
@@ -493,7 +499,7 @@ StatsMan* StatsMan::Construct()
     auto* task = static_cast<Tsk::BaseTask*>(Mem::Calloc(0x20));
     if (task) {
         task->Construct(0);
-        task->m_vtable = kManagerTaskVtable;
+        task->m_vtable = GameCode::kTaskVtable;
         reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&StatsTask); // +0x18 the callback
         reinterpret_cast<void**>(task)[7] = this;                                // +0x1C the data
     }

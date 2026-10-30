@@ -18,6 +18,21 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/ass/assman.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/goals/goal.h"
+#include "game/goals/goal_manager.h"
+#include "game/goals/goal_ped.h"
+#include "game/skate/score.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/face_texture.h"
+#include "game/gfx/skeleton.h"
+#include "game/ed/goal_editor.h"
+#include "game/ed/rail_editor.h"
+#include "game/net/server_list.h"
+#include "game/net/score_list.h"
+#include "game/net/stats_man.h"
 
 namespace GameNet {
 
@@ -81,7 +96,7 @@ bool __cdecl CFunc_StartNatNegotiation(Script::CStruct* params, Script::CScript*
     Net::App* client = manager->SpawnClient(false, false, true, 0);
     Sdk(0x005FC9A0, lobby->m_peer, static_cast<uint32_t>(inet_addr(address)), port, lobby->m_natCookie); // the cookie to the host
     int error = Sdk<int>(0x005FC090, client->Socket(), lobby->m_natCookie, kClientNatIndex,
-                         reinterpret_cast<void*>(0x005480A0) /* no progress callback */,
+                         GAME_CODE(0x005480A0, Stubs::DoNothing) /* no progress callback */,
                          &LobbyMan::NatNegotiationCompleted, lobby->m_natCookie); // negotiation on the client's socket
     if (error) {
         NatFreeNegotiations();

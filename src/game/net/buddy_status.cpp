@@ -19,6 +19,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -33,10 +34,8 @@ constexpr uint32_t kString = 0x61414D56;   // string
 constexpr int kStatusOnline = 1;
 constexpr int kStatusChatting = 4;
 
-inline void** const kBuddySearchVtable = reinterpret_cast<void**>(0x0064CECC);
-inline void** const kMessageSearchVtable = reinterpret_cast<void**>(0x0064CED0);
-inline void** const kBuddyNodeVtable = reinterpret_cast<void**>(0x0064CF60);
-inline void** const kMessageNodeVtable = reinterpret_cast<void**>(0x0064CF64);
+GAME_VTABLE(kBuddySearchVtable, 0x0064CECC, &GameNet::BuddySearch::Destroy);
+GAME_VTABLE(kMessageSearchVtable, 0x0064CED0, &GameNet::BuddyMessageSearch::Destroy);
 
 Manager* TheManager() { return g_gameNetManager; }
 Mem::Manager* Memory() { return Mem::Manager::Get(); }
@@ -57,6 +56,9 @@ void UnlinkNode(Mem::ListNode* node)
 }
 
 } // namespace
+
+GAME_VTABLE(kBuddyNodeVtable, 0x0064CF60, &GameNet::BuddyNode::Destroy);
+GAME_VTABLE(kMessageNodeVtable, 0x0064CF64, &GameNet::BuddyMessageNode::Destroy);
 
 // 0x00548100
 void __cdecl BuddyMan::OnBuddyRequest(void* connection, const void* arg, BuddyMan* man)
