@@ -18,6 +18,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace GameNet {
@@ -322,7 +323,7 @@ void Manager::DisconnectFromInternet(uint32_t script)
 // 0x00536C10
 void __cdecl Manager::CancelConnectToInternet()
 {
-    Manager* manager = GameVariable<Manager*>(0x007CCE14);
+    Manager* manager = g_gameNetManager;
     Net::Manager* net = Net::Manager::Instance();
     Tsk::BaseTask* task = Field<Tsk::BaseTask*>(manager, kConnectTask);
     switch (net->GetModemState()) {
@@ -349,24 +350,27 @@ void __cdecl Manager::CancelConnectToInternet()
     }
 }
 
+GAME_GLOBAL(uint32_t, g_askedFor, 0x007CCA84);
+GAME_GLOBAL(bool, g_joinServerIPSucceeded, 0x007CCA88);
+
 // 0x00536490
 void Manager::FindServerAt(uint32_t ip)
 {
     StopServerList(); // (the server lists cleared)
     ClearServerList();
     StartServerList();
-    GameVariable<bool>(0x007CCA88) = false;
+    g_joinServerIPSucceeded = false;
     if (!m_matchClient)
         SpawnMatchClient();
     if (!ip) {
-        GameVariable<uint32_t>(0x007CCA84) = 0;
+        g_askedFor = 0;
         return;
     }
     if (m_matchClient) {
         uint32_t request[3]; // (the time; the rest is the original's stack)
         request[0] = Tmr::GetTime();
         request[1] = request[2] = 0;
-        GameVariable<uint32_t>(0x007CCA84) = ip;
+        g_askedFor = ip;
         m_matchClient->SendMessageTo(kMsgFindServer, sizeof(request), request, ip, kLanPort, 0);
     }
 }
@@ -375,8 +379,8 @@ void Manager::FindServerAt(uint32_t ip)
 void __cdecl Manager::ServiceGameSpy()
 {
     GameFunction<void(__cdecl*)()>(0x005F9C40)();
-    if (GameVariable<bool>(0x007CCA82) && GameVariable<Manager*>(0x007CCE14)->InNetGame() &&
-        GameVariable<bool>(0x007CCE1C))
+    if (g_netEnabled && g_gameNetManager->InNetGame() &&
+        g_queryReporting)
         GameFunction<void(__cdecl*)(int)>(0x005FBBA0)(0);
 }
 
@@ -408,9 +412,9 @@ void Manager::SetLevel(uint32_t level)
     if (peer && GameFunction<int(__cdecl*)(void*)>(0x005FC730)(peer) && static_cast<LobbyMan*>(m_lobbyMan)->IsHosting())
         GameFunction<void(__cdecl*)(void*)>(0x005FCCF0)(peer); // (the peer's state changed: the GameSpy SDK)
     // (cleared just before it's tested: the reporting's state-changed call below never happens)
-    GameVariable<bool>(0x007CCE1D) = false;
-    if (GameVariable<bool>(0x007CCA82) && GameVariable<Manager*>(0x007CCE14)->InNetGame() &&
-        GameVariable<bool>(0x007CCE1C) && GameVariable<bool>(0x007CCE1D))
+    g_openWaiting = false;
+    if (g_netEnabled && g_gameNetManager->InNetGame() &&
+        g_queryReporting && g_openWaiting)
         GameFunction<void(__cdecl*)(int)>(0x005FBAD0)(0);
 }
 

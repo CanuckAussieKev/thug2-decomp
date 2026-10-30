@@ -653,7 +653,7 @@ int g_switchWait;
 // The network game (GameNet::Manager 0x007CCE14, 0x0044E4F0: a network game is on - host or client).
 bool InNetGame()
 {
-    void* net = GameVariable<void*>(0x007CCE14);
+    void* net = GameNet::g_gameNetManager;
     return net && static_cast<GameNet::Manager*>(net)->InNetGame();
 }
 

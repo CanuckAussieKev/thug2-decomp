@@ -1,5 +1,7 @@
 #pragma once
 
+#include "hook/game_global.h"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -124,5 +126,7 @@ void ReleaseManager();
 // none of them).
 uint32_t __cdecl ButtonChecksum(int index);
 int __cdecl ButtonIndex(uint32_t checksum);
+
+GAME_GLOBAL_EXTERN(Inp::Manager*, g_inputManager);
 
 } // namespace Inp

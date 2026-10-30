@@ -9,18 +9,32 @@
 
 #include "game/sio/device.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (sprintf / wcscpy: the original's own, into its fixed buffers)
 
 namespace Platform {
 
+GAME_GLOBAL(IDirectInput8A*, g_directInput, 0x007D69D0);
+GAME_GLOBAL(IDirectInputDevice8A*, g_keyboardDevice, 0x007D69D4);
+
 namespace {
 
 // DirectInput and its devices (the keyboard and mouse are the first of each found).
-IDirectInput8A*& DirectInput() { return GameVariable<IDirectInput8A*>(0x007D69D0); }
-IDirectInputDevice8A*& Keyboard() { return GameVariable<IDirectInputDevice8A*>(0x007D69D4); }
-IDirectInputDevice8A*& Mouse() { return GameVariable<IDirectInputDevice8A*>(0x007D69D8); }
+IDirectInput8A*& DirectInput() { return g_directInput; }
+IDirectInputDevice8A*& Keyboard() { return g_keyboardDevice; }
+
+GAME_GLOBAL(int, g_defaultEscapeControl, 0x0068E244, 1);
+GAME_GLOBAL(DIMOUSESTATE2, g_lastMouseState, 0x007D42E0);
+GAME_GLOBAL(DIMOUSESTATE2, g_mouseState, 0x007D6420);
+GAME_GLOBAL(IDirectInputDevice8A*, g_mouse, 0x007D69D8);
+GAME_GLOBAL(int, g_padModeSetting, 0x007D6A3C);
+GAME_GLOBAL(int, g_defaultEnterControl, 0x007D6A40);
+GAME_GLOBAL(uint8_t, g_mouseInvertX, 0x007D6A44);
+GAME_GLOBAL(uint8_t, g_mouseInvertY, 0x007D6A45);
+
+IDirectInputDevice8A*& Mouse() { return g_mouse; }
 IDirectInputDevice8A** Joysticks() { return reinterpret_cast<IDirectInputDevice8A**>(0x007D6318); }
 // Each joystick's constant-force effect (rumble: SetActuators).
 IDirectInputEffect** Effects() { return reinterpret_cast<IDirectInputEffect**>(0x007D6668); }
@@ -30,8 +44,8 @@ DIJOYSTATE2* JoystickStates() { return reinterpret_cast<DIJOYSTATE2*>(0x007D60F8
 DIJOYSTATE2* LastJoystickStates() { return reinterpret_cast<DIJOYSTATE2*>(0x007D6448); }
 uint8_t* Keys() { return reinterpret_cast<uint8_t*>(0x007D6670); }
 uint8_t* LastKeys() { return reinterpret_cast<uint8_t*>(0x007D6320); }
-DIMOUSESTATE2& MouseState() { return GameVariable<DIMOUSESTATE2>(0x007D6420); }
-DIMOUSESTATE2& LastMouseState() { return GameVariable<DIMOUSESTATE2>(0x007D42E0); }
+DIMOUSESTATE2& MouseState() { return g_mouseState; }
+DIMOUSESTATE2& LastMouseState() { return g_lastMouseState; }
 
 // Per joystick: how many force-feedback axes it has (at most two) and their force resolutions (two each).
 uint32_t* ForceAxisCounts() { return reinterpret_cast<uint32_t*>(0x007D42C8); }
@@ -481,12 +495,12 @@ void InitKeyNames()
 namespace {
 
 // The pad mode and the default keys' Enter and Escape.
-int& PadModeSetting() { return GameVariable<int>(0x007D6A3C); }
-int& DefaultEnterControl() { return GameVariable<int>(0x007D6A40); }
-int& DefaultEscapeControl() { return GameVariable<int>(0x0068E244); }
+int& PadModeSetting() { return g_padModeSetting; }
+int& DefaultEnterControl() { return g_defaultEnterControl; }
+int& DefaultEscapeControl() { return g_defaultEscapeControl; }
 // The mouse's x / y sticks reversed (nothing sets them).
-bool MouseInvertX() { return GameVariable<uint8_t>(0x007D6A44) != 0; }
-bool MouseInvertY() { return GameVariable<uint8_t>(0x007D6A45) != 0; }
+bool MouseInvertX() { return g_mouseInvertX != 0; }
+bool MouseInvertY() { return g_mouseInvertY != 0; }
 
 constexpr float kStickMax = 32767.0f;                 // 0x0065BF80
 constexpr float kStickMin = -32768.0f;                // 0x00666B00

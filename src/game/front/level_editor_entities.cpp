@@ -34,6 +34,7 @@
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/log.h"
 
 namespace Front::LevelEditor::Entities {
@@ -326,6 +327,8 @@ bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
+GAME_GLOBAL(void*, g_emitterTable, 0x006F2260);
+
 namespace {
 
 uint32_t Key(const char* name) { return Crc::GenerateCRCFromString(name); }
@@ -522,7 +525,7 @@ void RunRemakes()
 
 // --- sounds on emitters ---
 
-Sfx::CSfxManager* SfxManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
+Sfx::CSfxManager* SfxManager() { return Sfx::g_sfxManager; }
 void* NearestCamera(const Mth::Vector* position, float* distance)
 {
     return Nx::GetClosestCamera(position, distance);
@@ -533,7 +536,7 @@ const Mth::Vector* CameraPosition(void* camera)
 }
 Obj::EmitterNode* Emitter(uint32_t name)
 {
-    return GameVariable<void*>(0x006F2260) ? Obj::Emitter_GetNode(name) : nullptr;
+    return g_emitterTable ? Obj::Emitter_GetNode(name) : nullptr;
 }
 
 void StopPlaying(Playing* p)
@@ -889,8 +892,8 @@ void BuildPalette()
     add(particles, 0xFFFF9050);
     // The level's loaded sounds (its wave table): an emitter with that sound.
     const char* why = NodeCreate::WhyNot(NodeCreate::Kind::Sound, NodeCreate::Team::Red);
-    auto* waves = &GameVariable<Sfx::WaveTableEntry>(0x006F5E68);
-    int count = std::clamp(GameVariable<int>(0x006F85B8), 0, 256);
+    auto* waves = Sfx::g_levelWaves;
+    int count = std::clamp(Sfx::g_levelCount, 0, 256);
     std::vector<std::pair<std::string, Source>> sounds;
     for (int i = 0; i < count && !Sfx::NoSound(); ++i) {
         std::string label = "Sound emitter: " + Nodes::Label(waves[i].checksum);
@@ -1326,8 +1329,8 @@ std::vector<std::pair<uint32_t, std::string>> Sounds()
     std::vector<std::pair<uint32_t, std::string>> out;
     if (Sfx::NoSound())
         return out;
-    auto* waves = &GameVariable<Sfx::WaveTableEntry>(0x006F5E68);
-    int count = std::clamp(GameVariable<int>(0x006F85B8), 0, 256);
+    auto* waves = Sfx::g_levelWaves;
+    int count = std::clamp(Sfx::g_levelCount, 0, 256);
     for (int i = 0; i < count; ++i)
         out.push_back({waves[i].checksum, Nodes::Label(waves[i].checksum) + (waves[i].looping ? " (loop)" : "")});
     std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.second < b.second; });

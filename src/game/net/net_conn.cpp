@@ -11,6 +11,7 @@
 #include "game/net/net_access_c.h"
 #include "game/net/net_app.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Net {
@@ -30,8 +31,10 @@ constexpr uint32_t kWriteBufferSize = 0x514;
 constexpr uint32_t kMinResendThreshold = 500;
 constexpr uint32_t kStatus2ResendThreshold = 1000;
 
+GAME_GLOBAL(uint32_t, g_nextConnId, 0x0067D800, 1);
+
 // The running number each connection gets (+0x44).
-uint32_t& NextConnId() { return GameVariable<uint32_t>(0x0067D800); }
+uint32_t& NextConnId() { return g_nextConnId; }
 
 // ~StreamDesc: frees the data unless it was sent in place.
 void DestroyStreamDescBody(StreamDesc* stream) { stream->DestroyBody(); }

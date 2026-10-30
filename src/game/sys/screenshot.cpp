@@ -21,6 +21,7 @@
 
 #include "build_info.h"
 #include "game/core/crc.h"
+#include "game/front/automation.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_hud.h"
@@ -87,10 +88,10 @@ uint8_t* SkateModule() { return GameVariable<uint8_t*>(0x007CE478); }
 uint32_t LevelLoad() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
 bool LoadingScreenUp()
 {
-    return GameVariable<uint8_t>(0x006FC49C) != 0 || GameVariable<uint32_t>(0x00786D08) != 0 ||
+    return Front::Automation::g_loadingScreenShown != 0 || GameVariable<uint32_t>(0x00786D08) != 0 ||
            GameVariable<uint8_t>(0x00786D04) != 0;
 }
-Mdl::FrontEnd* TheFrontEnd() { return GameVariable<Mdl::FrontEnd*>(0x007CE464); }
+Mdl::FrontEnd* TheFrontEnd() { return Front::Automation::g_frontEndInstance; }
 std::string NameOf(uint32_t checksum)
 {
     if (const char* name = Script::FindChecksumName(checksum))

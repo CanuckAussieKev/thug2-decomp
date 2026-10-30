@@ -12,6 +12,7 @@
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -24,7 +25,10 @@ void** const kHeadVtable = reinterpret_cast<void**>(0x00645D80);
 // The queries' shared answer (2048 entries, null-terminated) and the mark of the current query (objects keep the
 // last one that listed them, so each is listed once).
 CCollObj** const s_found = reinterpret_cast<CCollObj**>(0x00691998);
-uint8_t& s_stamp = GameVariable<uint8_t>(0x00693998);
+
+GAME_GLOBAL(uint8_t, g_stamp, 0x00693998);
+
+uint8_t& s_stamp = g_stamp;
 constexpr int kMostFound = 0x7FF;
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.

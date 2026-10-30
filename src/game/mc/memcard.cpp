@@ -7,6 +7,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mc {
@@ -15,16 +16,22 @@ static_assert(offsetof(File, m_name) == 0x14 && offsetof(File, m_second) == 0x3C
                   offsetof(File, m_size) == 0x44 && offsetof(File, m_handle) == 0x8C && sizeof(File) == 0x94,
               "layout must match the original");
 
+GAME_GLOBAL(Manager*, g_theCard, 0x007D1890);
+
 namespace {
 
 void** const kFileVtable = reinterpret_cast<void**>(0x00658A60);
 
-// The shared path buffers.
-char* PathBuffer() { return &GameVariable<char>(0x007D1810); }
-char* FilenameBuffer() { return &GameVariable<char>(0x007D1898); }
+GAME_GLOBAL(char[128], g_pathBuffer, 0x007D1810);
+GAME_GLOBAL(int, g_memcardReferences, 0x007D1894);
+GAME_GLOBAL(char[320], g_filenameBuffer, 0x007D1898);
 
-Manager*& Instance() { return GameVariable<Manager*>(0x007D1890); }
-int& References() { return GameVariable<int>(0x007D1894); }
+// The shared path buffers.
+char* PathBuffer() { return g_pathBuffer; }
+char* FilenameBuffer() { return g_filenameBuffer; }
+
+Manager*& Instance() { return g_theCard; }
+int& References() { return g_memcardReferences; }
 
 // A new (zeroed) file object: its own one-item list, no handle yet.
 File* NewFile(HANDLE handle, Card* card)

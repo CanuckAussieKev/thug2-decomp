@@ -15,22 +15,30 @@
 #include "game/pcm/stream.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
+#include "game/sys/game_config.h"
 #include "game/sys/timer.h"
 #include "game/gfx/viewport.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Pcm {
 
 namespace {
 
-bool SoundOn() { return GameVariable<void*>(0x007D6A38) && GameVariable<int>(0x007CEFA8) != 2; }
-bool& StreamHeaderLoaded() { return GameVariable<bool>(0x0067D7E1); }
+bool SoundOn() { return g_soundDevice && GameConfig::g_platform != 2; }
+bool& StreamHeaderLoaded() { return g_streamsOn; }
 bool StreamsOn() { return SoundOn() && StreamHeaderLoaded(); }
-bool& StreamsPaused() { return GameVariable<bool>(0x0069BAA9); }
-bool& StreamsPausedBefore() { return GameVariable<bool>(0x0069CAD1); }
+
+GAME_GLOBAL(int, g_lastStream, 0x0069BA94);
+GAME_GLOBAL(bool, g_streamsPaused, 0x0069BAA9);
+GAME_GLOBAL(bool, g_streamsBlocked, 0x0069BAAA);
+GAME_GLOBAL(bool, g_streamsPausedBefore, 0x0069CAD1);
+
+bool& StreamsPaused() { return g_streamsPaused; }
+bool& StreamsPausedBefore() { return g_streamsPausedBefore; }
 // Set: no new streams play (nothing in the game sets it).
-bool StreamsBlocked() { return GameVariable<bool>(0x0069BAAA); }
+bool StreamsBlocked() { return g_streamsBlocked; }
 
 Stream* Streams() { return reinterpret_cast<Stream*>(0x0069B938); }
 constexpr int kStreams = 3;
@@ -38,7 +46,7 @@ constexpr int kStreams = 3;
 void** Owners() { return reinterpret_cast<void**>(0x00698060); }
 uint32_t& OwnerId(void* owner, int stream) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(owner) + 0x18 + 4 * stream); }
 // The stream PlayStream started last.
-int& LastStream() { return GameVariable<int>(0x0069BA94); }
+int& LastStream() { return g_lastStream; }
 
 FrameAmp* FrameAmps() { return reinterpret_cast<FrameAmp*>(0x0069BAC8); }
 constexpr int kFrameAmps = 1;
@@ -62,7 +70,7 @@ void ReadDebugFlag() { Script::GetInteger(0xD7BB618Du); }
 
 // The sound effects manager (0x006F85A8) and its volumes (Sfx::sVolume, 0x2C bytes; the first two channels are
 // set below). sVolume's destructor is empty.
-Sfx::CSfxManager* SoundManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
+Sfx::CSfxManager* SoundManager() { return Sfx::g_sfxManager; }
 using Volume = Sfx::sVolume;
 void ConstructVolume(Volume* volume) { volume->Init(); }
 void SetSilent(Volume* volume) { volume->SetSilent(); }

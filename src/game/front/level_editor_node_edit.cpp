@@ -147,7 +147,7 @@ void WriteVector(Script::CStruct* node, uint32_t name, V3 value)
 void MoveLights(uint32_t name, V3 pos)
 {
     auto** dynamic = reinterpret_cast<uint8_t**>(0x006FAAF0);
-    int dynamicCount = GameVariable<int>(0x006FAEF0);
+    int dynamicCount = Front::LevelEditor::NodeCreate::g_dynamicLightCount;
     for (int i = 0; i < dynamicCount && i < 256; ++i) {
         uint8_t* light = dynamic[i];
         if (light && *reinterpret_cast<uint32_t*>(light + 0x28) == name) {
@@ -158,7 +158,7 @@ void MoveLights(uint32_t name, V3 pos)
         }
     }
     auto* level = reinterpret_cast<uint8_t*>(0x006FAF80);
-    int levelCount = GameVariable<int>(0x006FAEF4);
+    int levelCount = Front::LevelEditor::NodeCreate::g_sceneLightCount;
     for (int i = 0; i < levelCount && i < 150; ++i) {
         uint8_t* entry = level + i * 0x24;
         if (*reinterpret_cast<uint32_t*>(entry + 0x18) == name) {
@@ -175,11 +175,11 @@ void ApplyLive(const Nodes::Node* node, uint32_t name, const Values& values)
 {
     Mth::Vector pos = {values.pos.x, values.pos.y, values.pos.z, 1.0f};
     Nodes::Family family = node ? node->family : Nodes::Family::Other;
-    if (family == Nodes::Family::Trigger && GameVariable<Obj::ProximManager*>(0x006F2268)) {
+    if (family == Nodes::Family::Trigger && reinterpret_cast<Obj::ProximManager*>(Front::LevelEditor::NodeCreate::g_proximManager)) {
         if (Obj::ProximNode* proxim = Obj::Proxim_GetNode(name))
             proxim->m_pos = pos;
     }
-    if (family == Nodes::Family::Sound && GameVariable<void*>(0x006F2260)) {
+    if (family == Nodes::Family::Sound && Front::LevelEditor::Entities::g_emitterTable) {
         if (Obj::EmitterNode* emitter = Obj::Emitter_GetNode(name))
             emitter->m_pos = pos;
     }

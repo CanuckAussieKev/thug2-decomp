@@ -1,5 +1,7 @@
 #pragma once
 
+#include "hook/game_global.h"
+
 #include <cstdint>
 
 // Music: playlists of streamed tracks.
@@ -149,5 +151,13 @@ void __cdecl ChangeTrackState(int track, bool off, int list);
 // effects volume for playlists other than 0 unless the script integer 0x450BAE2D is set). A track that doesn't
 // start is switched off in the current playlist (unless the debug checks are on). Not while a music stream plays.
 void __cdecl PlayTrack(const char* name, bool loop);
+
+GAME_GLOBAL_EXTERN(bool, g_musicHeaderLoaded);
+GAME_GLOBAL_EXTERN(bool, g_streamsOn);
+GAME_GLOBAL_EXTERN(float, g_musicVolume);
+GAME_GLOBAL_EXTERN(float, g_musicStreamVolume);
+GAME_GLOBAL_EXTERN(int, g_musicStreamType);
+GAME_GLOBAL_EXTERN(bool, g_shuffleUser);
+GAME_GLOBAL_EXTERN(void*, g_soundDevice);
 
 } // namespace Pcm

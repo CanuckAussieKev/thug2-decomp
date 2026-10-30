@@ -97,14 +97,14 @@ void LobbySearchB::DestroyBody() { m_vtable = reinterpret_cast<void**>(0x0064CB7
 // 0x0053F8A0
 bool __cdecl CFunc_ResetConnectionTimer(Script::CStruct*, Script::CScript*)
 {
-    GameVariable<uint32_t>(0x007CCE3C) = Tmr::GetTime();
+    g_connectionTimer = Tmr::GetTime();
     return true;
 }
 
 // 0x0053F8D0
 void __cdecl LobbyMan::ServerKeyCallback(void*, int key, void* buffer, void*)
 {
-    Manager* manager = GameVariable<Manager*>(0x007CCE14);
+    Manager* manager = g_gameNetManager;
     Prefs::Preferences* prefs = manager->GetNetworkPreferences();
     switch (key) {
     case kKeyHostname: {
@@ -160,7 +160,7 @@ void __cdecl LobbyMan::ServerKeyCallback(void*, int key, void* buffer, void*)
         BufferAdd(buffer, "");
         break;
     }
-    GameVariable<bool>(0x007CCE48) = true;
+    g_gamePosted = true;
 }
 
 // 0x0053FEC0
@@ -169,7 +169,7 @@ int __cdecl LobbyMan::CountCallback(void*, int type, void*)
     if (type == kKeyTypeServer)
         return kServerKeyCount;
     if (type == kKeyTypePlayer)
-        return GameVariable<Manager*>(0x007CCE14)->CountPlayers();
+        return g_gameNetManager->CountPlayers();
     return 0;
 }
 

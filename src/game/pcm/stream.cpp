@@ -11,30 +11,42 @@
 #include "game/core/mem.h"
 #include "game/pcm/stream_commands.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Pcm {
+
+GAME_GLOBAL(void*, g_wadFile, 0x0067D7FC, INVALID_HANDLE_VALUE);
+GAME_GLOBAL(WadEntry*, g_wadEntries, 0x006EE00C);
 
 namespace {
 
 // The lock the game thread and the stream thread take around the streams (a mutex made at start-up).
 HANDLE StreamLock() { return GameVariable<HANDLE>(0x006EE01C); }
-HANDLE& ThreadHandle() { return GameVariable<HANDLE>(0x006EE014); }
-bool& StopThread() { return GameVariable<bool>(0x006EE018); }
+
+GAME_GLOBAL(int, g_nextOverlapped, 0x006EE008);
+GAME_GLOBAL(uint32_t, g_wadEntryCount, 0x006EE010);
+GAME_GLOBAL(HANDLE, g_threadHandle, 0x006EE014);
+GAME_GLOBAL(bool, g_stopThread, 0x006EE018);
+GAME_GLOBAL(bool, g_soundtracksCounted, 0x006EFDD0);
+GAME_GLOBAL(int, g_soundtrackCount, 0x006EFDD4);
+
+HANDLE& ThreadHandle() { return g_threadHandle; }
+bool& StopThread() { return g_stopThread; }
 
 // pcm.wad (opened for streaming) and pcm.dat's index of it.
-HANDLE& WadFile() { return GameVariable<HANDLE>(0x0067D7FC); }
-WadEntry*& WadEntries() { return GameVariable<WadEntry*>(0x006EE00C); }
-uint32_t& WadEntryCount() { return GameVariable<uint32_t>(0x006EE010); }
+HANDLE& WadFile() { return g_wadFile; }
+WadEntry*& WadEntries() { return g_wadEntries; }
+uint32_t& WadEntryCount() { return g_wadEntryCount; }
 
 // The ring of OVERLAPPED blocks streams read with, and the next one to try.
 OVERLAPPED* Overlapped() { return reinterpret_cast<OVERLAPPED*>(0x0069CBB8); }
 constexpr int kNumOverlapped = 256;
-int& NextOverlapped() { return GameVariable<int>(0x006EE008); }
+int& NextOverlapped() { return g_nextOverlapped; }
 
 // The user soundtracks (0x4C bytes each at 0x006EE024: the track count, then the name at +8).
-bool& SoundtracksCounted() { return GameVariable<bool>(0x006EFDD0); }
-int& SoundtrackCount() { return GameVariable<int>(0x006EFDD4); }
+bool& SoundtracksCounted() { return g_soundtracksCounted; }
+int& SoundtrackCount() { return g_soundtrackCount; }
 uint8_t* Soundtrack(int index) { return reinterpret_cast<uint8_t*>(0x006EE024 + index * 0x4C); }
 
 constexpr uint32_t kPending = 0x8000000Au; // E_PENDING
@@ -88,7 +100,10 @@ bool PreloadDone(const StreamSlot& slot)
 } // namespace
 
 StreamSlot* StreamSlots() { return reinterpret_cast<StreamSlot*>(0x006EDFB8); }
-StreamSlot& MusicSlot() { return GameVariable<StreamSlot>(0x006EDFF4); }
+
+GAME_GLOBAL(StreamSlot, g_musicSlot, 0x006EDFF4);
+
+StreamSlot& MusicSlot() { return g_musicSlot; }
 
 // --- StreamSlot --------------------------------------------------------------------------------------------
 

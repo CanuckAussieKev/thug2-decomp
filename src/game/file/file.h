@@ -1,5 +1,7 @@
 #pragma once
 
+#include "hook/game_global.h"
+
 #include <cstdint>
 
 // Low-level file access. Every call first offers itself to the .pre archive manager (when one exists);
@@ -31,5 +33,7 @@ void MakeDiskPath(char (&path)[256], const char* name);
 // Open on disk only: "data\" + name, with forward slashes turned into backslashes, a leading
 // "c:\xxxxxxxxxxxx\" dropped, and the PC file extensions substituted (.tex -> .txx, .pre -> .prx).
 Handle OpenOnDisk(const char* name);
+
+GAME_GLOBAL_EXTERN(bool, g_handledByArchive);
 
 } // namespace File

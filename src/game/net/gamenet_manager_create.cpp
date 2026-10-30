@@ -18,6 +18,7 @@
 #include "game/net/vault_man.h"
 #include "game/script/preferences.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace GameNet {
@@ -147,15 +148,17 @@ Manager* Manager::Construct()
     return this;
 }
 
+GAME_GLOBAL(uint32_t, g_gameNetReferences, 0x007CCE18);
+
 // 0x0053F520
 Manager* __cdecl Manager::Create(bool create)
 {
-    Manager*& instance = GameVariable<Manager*>(0x007CCE14);
+    Manager*& instance = g_gameNetManager;
     if (!instance && create) {
         void* memory = Mem::Calloc(0xFE0C, nullptr, 1);
         instance = memory ? static_cast<Manager*>(memory)->Construct() : nullptr;
     }
-    ++GameVariable<int>(0x007CCE18); // (the references)
+    ++g_gameNetReferences; // (the references)
     return instance;
 }
 

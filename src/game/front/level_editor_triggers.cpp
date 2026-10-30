@@ -16,6 +16,7 @@
 #include "game/front/level_editor_chains.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_layout.h"
+#include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_objects.h"
@@ -1339,7 +1340,7 @@ struct ProximOriginal {
 std::map<uint32_t, ProximOriginal> g_proximOriginals;
 std::vector<uint8_t> g_proximDefined;
 
-bool HaveProximManager() { return GameVariable<void*>(0x006F2268) != nullptr; }
+bool HaveProximManager() { return Front::LevelEditor::NodeCreate::g_proximManager != nullptr; }
 
 int ProximIndex(uint32_t node)
 {

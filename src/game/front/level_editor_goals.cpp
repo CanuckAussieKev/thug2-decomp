@@ -27,6 +27,7 @@
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/log.h"
 
 namespace Front::LevelEditor::Goals {
@@ -819,6 +820,8 @@ void KillObject(const std::string& name)
         object->MarkAsDead();
 }
 
+GAME_GLOBAL(float, g_pi, 0x006453D8, 3.1415927f);
+
 // The play nodes of a goal (EditedGoal_Pro_Node / _Restart_Node / _Object_Node's fields, placed as
 // WriteEditedGoalNodePositions 0x004E7A80 places them: Pos + (0, height, 0), Angles (0, angle - pi, 0), a letter's Type
 // and model).
@@ -844,7 +847,7 @@ NodeCreate::List PlayNodes(const Goal& g, int index)
         f.text = value;
         return f;
     };
-    const float pi = GameVariable<float>(0x006453D8); // (the constant 0x004E79C0 subtracts)
+    const float pi = g_pi; // (the constant 0x004E79C0 subtracts)
     for (size_t k = 0; k < g.points.size(); ++k) {
         const Point& p = g.points[k];
         NodeCreate::Spec s;

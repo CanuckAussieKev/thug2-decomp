@@ -11,9 +11,11 @@
 #include "game/file/pre.h"
 #include "game/front/data_overlay.h"
 #include "game/script/params.h"
+#include "game/sys/game_config.h"
 #include "game/util/lzss.h"
 #include "game/gfx/loading_console.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/shadow.h"
 
@@ -24,7 +26,9 @@ namespace {
 constexpr int kMaxLoadedFiles = 200;
 constexpr int kMaxPreFiles = 100;
 
-LoadedFile* LoadedFiles() { return GameVariable<LoadedFile[kMaxLoadedFiles]>(0x007CF198); }
+GAME_GLOBAL(LoadedFile[kMaxLoadedFiles], g_loadedFiles, 0x007CF198);
+
+LoadedFile* LoadedFiles() { return g_loadedFiles; }
 // Each loaded .pre archive's memory starts with the archive's name (see PreHeader).
 char** PreFiles() { return GameVariable<char* [kMaxPreFiles]>(0x007CFE18); }
 
@@ -233,7 +237,7 @@ void LoadPre(const char* name)
     uint8_t* block = nullptr;
     unsigned int file_size = 0, allocated = 0;
     bool loaded = false;
-    char letter = GameVariable<int>(0x007CEFA0) == 3 ? 'f' : GameVariable<int>(0x007CEFA0) == 5 ? 'd' : '\0';
+    char letter = GameConfig::g_language == 3 ? 'f' : GameConfig::g_language == 5 ? 'd' : '\0';
     if (letter) {
         path[length - 1] = letter;
         if (!File::Exist(path)) {

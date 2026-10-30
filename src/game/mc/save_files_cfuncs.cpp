@@ -14,6 +14,7 @@
 #include "game/core/stubs.h"
 #include "game/goals/goal_manager.h"
 #include "game/mc/memcard.h"
+#include "game/mc/memcard_cfuncs.h"
 #include "game/mc/save_contents.h"
 #include "game/mc/save_types.h"
 #include "game/script/struct_buffer.h"
@@ -34,8 +35,8 @@ namespace {
 using Script::CScript;
 using Script::CStruct;
 
-int Platform() { return GameVariable<int>(0x007CEFA8); }
-Card* TheCard() { return GameVariable<Manager*>(0x007D1890)->GetCard(0, 0); }
+int Platform() { return GameConfig::g_platform; }
+Card* TheCard() { return g_theCard->GetCard(0, 0); }
 
 // The calling script's own parameters (Script::CScript +0x14): where CFuncs leave results for it.
 CStruct* ResultParams(CScript* script) { return *reinterpret_cast<CStruct**>(reinterpret_cast<char*>(script) + 0x14); }
@@ -247,13 +248,13 @@ bool MemCardFileExists(CStruct* params, CScript* script)
 // 0x005A8BB0
 bool ClearMemCardDataForUpload(CStruct*, CScript*)
 {
-    CStruct*& kept = GameVariable<CStruct*>(0x007CECD4);
+    CStruct*& kept = g_keptParams;
     if (kept) {
         kept->Clear();
         Script::DeleteStruct(kept);
         kept = nullptr;
     }
-    GameVariable<uint32_t>(0x007CECD8) = 0;
+    g_keptType = 0;
     return true;
 }
 
@@ -544,7 +545,7 @@ bool SaveToMemoryCard(CStruct* params, CScript*)
         Pcm::PauseMusic(1);
         Pcm::PauseStream(1);
     }
-    bool& outOfSpace = GameVariable<bool>(0x007CECD0);
+    bool& outOfSpace = g_outOfSpace;
     outOfSpace = false;
     const char* name = reinterpret_cast<const char*>(0x006469B4); // ""
     params->GetString("Name", &name, 0);
@@ -553,7 +554,7 @@ bool SaveToMemoryCard(CStruct* params, CScript*)
     int vaultData = 0;
     params->GetInteger(0xBB609E73u, &vaultData, 0); // savevaultdata
     if (vaultData) {
-        type = GameVariable<uint32_t>(0x007CECD8);
+        type = g_keptType;
     } else if (type == kSaveOptionsAndPros) {
         // the goal manager's totals brought up to date (0x0055C090, no source yet)
         Game::GetGoalManager()->LevelUnload();
@@ -570,7 +571,7 @@ bool SaveToMemoryCard(CStruct* params, CScript*)
     if (contents)
         contents = contents->Init();
     if (vaultData)
-        contents->AppendStructureIfAny(GameVariable<CStruct*>(0x007CECD4));
+        contents->AppendStructureIfAny(g_keptParams);
     else
         WriteSaveContents(contents, type);
     CStruct* summary = Script::NewStruct();

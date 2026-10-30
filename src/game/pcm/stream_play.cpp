@@ -13,6 +13,7 @@
 #include "game/sfx/sfx.h"
 #include "game/sys/game_config.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Pcm {
@@ -20,9 +21,12 @@ namespace Pcm {
 namespace {
 
 HANDLE StreamLock() { return GameVariable<HANDLE>(0x006EE01C); }
-HANDLE WadFile() { return GameVariable<HANDLE>(0x0067D7FC); }
-WadEntry* WadEntries() { return GameVariable<WadEntry*>(0x006EE00C); }
-uint32_t& LastMusicTrack() { return GameVariable<uint32_t>(0x0069CBA8); }
+HANDLE WadFile() { return g_wadFile; }
+WadEntry* WadEntries() { return g_wadEntries; }
+
+GAME_GLOBAL(uint32_t, g_lastMusicTrack, 0x0069CBA8);
+
+uint32_t& LastMusicTrack() { return g_lastMusicTrack; }
 uint32_t* LastStreams() { return reinterpret_cast<uint32_t*>(0x0069CBAC); }
 // Where a user soundtrack's track is read to, and each stream's buffer (0x14000 bytes each).
 void* UserTrackBuffer() { return reinterpret_cast<void*>(0x006D9FB8); }

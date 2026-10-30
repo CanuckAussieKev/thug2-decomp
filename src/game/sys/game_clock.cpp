@@ -6,6 +6,7 @@
 
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Tmr {
@@ -15,8 +16,12 @@ namespace {
 // The game time up to the last change of speed (callers add GameClockElapsed to it), the real time of that
 // change, and the speed since.
 int& Offset() { return GameVariable<int>(0x00696D60); }
-uint32_t& LastChange() { return GameVariable<uint32_t>(0x00696D64); }
-float& Speed() { return GameVariable<float>(0x0067D7C0); }
+
+GAME_GLOBAL(float, g_speed, 0x0067D7C0, 1.0f);
+GAME_GLOBAL(uint32_t, g_lastChange, 0x00696D64);
+
+uint32_t& LastChange() { return g_lastChange; }
+float& Speed() { return g_speed; }
 
 // The original's x87 code: the unsigned difference times the speed, truncated (_ftol: through 64 bits).
 int Elapsed()

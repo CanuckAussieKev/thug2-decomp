@@ -40,7 +40,7 @@ void AddLogicTask(uint8_t* mlp, void* task)
 
 } // namespace
 
-Manager* Manager::Instance() { return GameVariable<Manager*>(0x006EFDD8); }
+Manager* Manager::Instance() { return g_netManager; }
 
 // 0x00454580
 bool Manager::ConnectToInternet()

@@ -12,9 +12,12 @@
 #include "game/net/net_compress.h"
 #include "game/net/net_lzham.h"
 #include "game/util/lzss.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Net {
+
+GAME_GLOBAL(uint32_t, g_maxLatency, 0x00647588, 2000);
 
 namespace {
 

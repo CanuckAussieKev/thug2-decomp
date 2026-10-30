@@ -54,7 +54,7 @@ constexpr uint32_t kDoneScript = 0x0089990F;
 constexpr uint32_t kProgressScript = 0x4B85EE64;
 constexpr uint32_t kErrorScript = 0xCF040665;
 
-Manager* NetManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* NetManager() { return g_gameNetManager; }
 VaultMan* Vault() { return reinterpret_cast<VaultMan*>(NetManager()->m_vaultMan); }
 Mem::Manager* Memory() { return Mem::Manager::Get(); }
 void PushTopDown() { Memory()->PushContext(Memory()->m_internetTopDownHeap); }

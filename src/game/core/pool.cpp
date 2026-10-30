@@ -5,6 +5,7 @@
 
 #include "game/core/mem.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/shadow.h"
@@ -96,7 +97,9 @@ bool Pool::Contains(const void* pointer) const
 
 namespace PoolManager {
 
-static Pool*& PoolAt(int index) { return GameVariable<Pool*[4]>(0x007D1808)[index]; }
+GAME_GLOBAL(Pool*[4], g_pools, 0x007D1808);
+
+static Pool*& PoolAt(int index) { return g_pools[index]; }
 
 // 0x005BC3C0
 void SetUp(int index, int count)

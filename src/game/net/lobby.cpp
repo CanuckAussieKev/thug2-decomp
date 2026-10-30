@@ -23,6 +23,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf / strcpy, kept)
@@ -62,7 +63,7 @@ inline void** const kLobbyListVtable = reinterpret_cast<void**>(0x0064CBFC);  //
 inline void** const kPlayerListVtable = reinterpret_cast<void**>(0x0064CBF8); // Lst::Head<LobbyPlayer>, LobbyPlayer
 inline void** const kTaskVtable = reinterpret_cast<void**>(0x006476F0);       // Tsk::Task<LobbyMan>
 
-Manager* TheManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* TheManager() { return g_gameNetManager; }
 LobbyMan* TheLobby() { return static_cast<LobbyMan*>(TheManager()->m_lobbyMan); }
 Mem::Manager* Memory() { return Mem::Manager::Get(); }
 
@@ -147,7 +148,7 @@ void DeleteAll(Mem::ListNode* head)
 void UpdateRank(LobbyPlayer* player, const char* value)
 {
     player->m_rating = std::atol(value);
-    double rank = static_cast<double>(player->m_rating) * GameVariable<float>(0x0064CC1C) * GameVariable<float>(0x00646710);
+    double rank = static_cast<double>(player->m_rating) * g_rankScale * GameVariable<float>(0x00646710);
     int shown = static_cast<int>(rank); // (truncated, as _ftol)
     if (shown > kMaxRank)
         shown = kMaxRank;
@@ -275,15 +276,17 @@ void LobbyMan::InitPeer()
     Memory()->PopContext();
 }
 
+GAME_GLOBAL(uint32_t, g_unknownE430, 0x007CE430);
+
 // 0x00541A10
 void LobbyMan::StartListingGames()
 {
     Manager* manager = TheManager();
     Memory()->PushContext(Memory()->m_internetBottomUpHeap);
     manager->SetServiceState(14); // (the server list's state)
-    GameVariable<uint32_t>(0x007CE430) = 0;
-    GameVariable<uint8_t>(0x007CCE38) = 0;
-    GameVariable<uint8_t>(0x007CCE39) = 0;
+    g_unknownE430 = 0;
+    g_listingAsked = 0;
+    g_listingFound = 0;
     Sdk(0x005FD3E0, m_peer, "\\maxplayers\\neversoft\\maxrating\\minrating", 0x00541690u, this, 0); // (games listed)
     Memory()->PopContext();
 }

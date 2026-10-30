@@ -45,6 +45,7 @@ namespace Front::Automation {
 namespace {
 
 #include "game/front/automation_tables.inc"
+#include "hook/game_global.h"
 
 constexpr uint32_t kSystem = 0x36B2EE74;       // "system" (the menus' pad events' target and source)
 constexpr uint32_t kFocusEvent = 0x9D3FB516;   // "focus"
@@ -642,6 +643,9 @@ std::string StatusJson(const Status& status)
 
 // --- the game ---------------------------------------------------------------------------------------------------
 
+GAME_GLOBAL(uint8_t, g_loadingScreenShown, 0x006FC49C);
+GAME_GLOBAL(Mdl::FrontEnd*, g_frontEndInstance, 0x007CE464);
+
 namespace {
 
 using MouseMenus::ChildCount;
@@ -792,7 +796,7 @@ std::string NetRefusal()
     if (Net::Manager* net = Net::Manager::Instance())
         if (net->IsOnline())
             return "the game is online";
-    if (void* gameNet = GameVariable<void*>(0x007CCE14))
+    if (void* gameNet = GameNet::g_gameNetManager)
         if (static_cast<GameNet::Manager*>(gameNet)->InNetGame())
             return "a network game runs";
     if (void* mode = GameVariable<void*>(0x007CE470)) {
@@ -1167,7 +1171,7 @@ std::string PressRefusal(const Button& button)
 // logo left the logo up), so choose / press wait for it - at most kPressWaitSeconds.
 bool LoadingScreenUp()
 {
-    return GameVariable<uint8_t>(0x006FC49C) != 0 || GameVariable<uint32_t>(0x00786D08) != 0 ||
+    return g_loadingScreenShown != 0 || GameVariable<uint32_t>(0x00786D08) != 0 ||
            GameVariable<uint8_t>(0x00786D04) != 0;
 }
 
@@ -1248,7 +1252,7 @@ bool ConditionHolds(const Command& command)
     case Condition::FrontEnd: return InFrontEnd();
     case Condition::NewFrontend: return Front::NewFrontend::AutomationScreenUp(command.target);
     case Condition::InGame: {
-        auto* frontEnd = GameVariable<Mdl::FrontEnd*>(0x007CE464);
+        auto* frontEnd = g_frontEndInstance;
         return LevelLoad() && !InFrontEnd() && SkaterUp() && !(frontEnd && frontEnd->m_paused);
     }
     case Condition::Level: {
@@ -1605,7 +1609,7 @@ void WriteStatus(Runner& runner)
     status.frames = Mlp::FramesRun();
     status.ready = runner.ready;
     status.mainMenu = runner.menuSettled;
-    auto* frontEnd = GameVariable<Mdl::FrontEnd*>(0x007CE464);
+    auto* frontEnd = g_frontEndInstance;
     status.paused = frontEnd && frontEnd->m_paused;
     status.loading = LoadingScreenUp();
     uint32_t load = LevelLoad();

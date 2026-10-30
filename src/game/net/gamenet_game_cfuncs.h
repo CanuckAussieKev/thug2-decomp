@@ -1,5 +1,7 @@
 #pragma once
 
+#include "hook/game_global.h"
+
 // The network game's script commands (CFunctions, cdecl (params, script); 0x0053B450-0x0053D900): capture the flag
 // (took / captured / retrieved / has), the teams, surveyor mode, the host mode, kicking and banning, cancelling a
 // join. They act on the network manager (GameNet::Manager, the singleton 0x007CCE14).
@@ -47,5 +49,7 @@ bool __cdecl CFunc_CancelJoinServer(Script::CStruct* params, Script::CScript* sc
 bool __cdecl CFunc_EnterSurveyorMode(Script::CStruct* params, Script::CScript* script);
 // 0x0053EA20: the players not ready dropped (Manager::DropPlayersNotReady). True.
 bool __cdecl CFunc_DropPendingPlayers(Script::CStruct* params, Script::CScript* script);
+
+GAME_GLOBAL_EXTERN(bool, g_textEntry);
 
 } // namespace GameNet

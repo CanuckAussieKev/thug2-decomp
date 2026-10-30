@@ -11,6 +11,7 @@
 #include "game/ed/goal_editor.h"
 #include "game/ed/park_editor.h"
 #include "game/goals/goal_manager.h"
+#include "game/mc/memcard_cfuncs.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/tracker.h"
 #include "game/skate/career.h"
@@ -22,6 +23,7 @@
 #include "game/skater/skater.h"
 #include "game/sys/game_config.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mc {
@@ -33,7 +35,7 @@ using Script::CStruct;
 constexpr uint32_t kGoalManagerParams = 0xAC7C2B62; // "GoalManagerParams"
 
 // The game's platform (0x007CEFA8: 4 is the PC).
-int Platform() { return GameVariable<int>(0x007CEFA8); }
+int Platform() { return GameConfig::g_platform; }
 
 // The card block of the platform.
 int CardBlock()
@@ -57,8 +59,8 @@ int CardBlock()
 Game::CGoalManager* GoalManager() { return Game::GetGoalManager(); }
 
 // The loaded contents kept for later (0x007CECD4) and their type (0x007CECD8).
-CStruct*& KeptContents() { return GameVariable<CStruct*>(0x007CECD4); }
-uint32_t& KeptType() { return GameVariable<uint32_t>(0x007CECD8); }
+CStruct*& KeptContents() { return g_keptParams; }
+uint32_t& KeptType() { return g_keptType; }
 
 // A summary's date: year, month, day, hour, minutes, seconds (missing ones 0).
 struct SaveDate {
@@ -146,10 +148,12 @@ int TypeVersion(uint32_t type)
     }
 }
 
+GAME_GLOBAL(char[256], g_saveFileName, 0x007CECE8);
+
 // 0x005A62A0
 const char* TypeFileName(uint32_t type, const char* name)
 {
-    char* buffer = &GameVariable<char>(0x007CECE8);
+    char* buffer = g_saveFileName;
     const char* pattern = nullptr;
     switch (type) {
     case kSaveCat: pattern = "Save/%s.CAT"; break;
@@ -365,7 +369,7 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
     }
     case kSaveNetworkSettings: {
         auto* preferences = reinterpret_cast<uint8_t*>(
-            GameVariable<GameNet::Manager*>(0x007CCE14)->GetNetworkPreferences());
+            GameNet::g_gameNetManager->GetNetworkPreferences());
         auto* settings = reinterpret_cast<CStruct*>(preferences + 4);
         CStruct* networkId = nullptr;
         settings->GetStructure(0xCBED746Eu, &networkId, 0); // network_id

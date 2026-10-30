@@ -12,14 +12,17 @@
 #include "game/nx/coll_tests.h"
 #include "game/nx/coll_tri.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
+GAME_GLOBAL(bool, g_wantFarthest, 0x00691910);
+
 namespace {
 
 // Set while a caller (0x00410930) wants the farthest hit rather than the nearest.
-bool& s_wantFarthest = GameVariable<bool>(0x00691910);
+bool& s_wantFarthest = g_wantFarthest;
 
 float Difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 

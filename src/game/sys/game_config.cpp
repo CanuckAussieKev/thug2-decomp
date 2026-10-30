@@ -10,25 +10,38 @@
 
 #include "game/core/dbg.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace GameConfig {
 
-int& Language() { return GameVariable<int>(0x007CEFA0); }
-int& Territory() { return GameVariable<int>(0x007CEFA4); }
-int& Hardware() { return GameVariable<int>(0x007CEFA8); }
+GAME_GLOBAL(bool, g_fromCD, 0x00684FA8, true);
+GAME_GLOBAL(int, g_frameRate, 0x00684FB4, 60);
+GAME_GLOBAL(int, g_language, 0x007CEFA0);
+GAME_GLOBAL(int, g_territory, 0x007CEFA4);
+GAME_GLOBAL(int, g_platform, 0x007CEFA8);
+GAME_GLOBAL(bool, g_configBootstrap, 0x007CEFAD);
+GAME_GLOBAL(bool, g_ntscFlag, 0x007CEFAF);
+
+int& Language() { return g_language; }
+int& Territory() { return g_territory; }
+int& Hardware() { return g_platform; }
 int& DisplayType() { return GameVariable<int>(0x00684FB0); }
-int& FrameRate() { return GameVariable<int>(0x00684FB4); }
-bool& FromCD() { return GameVariable<bool>(0x00684FA8); }
+int& FrameRate() { return g_frameRate; }
+bool& FromCD() { return g_fromCD; }
 bool& ExtraMemory() { return GameVariable<bool>(0x007CEFAC); }
-bool& Bootstrap() { return GameVariable<bool>(0x007CEFAD); }
-bool& NtscFlag() { return GameVariable<bool>(0x007CEFAF); }
+bool& Bootstrap() { return g_configBootstrap; }
+bool& NtscFlag() { return g_ntscFlag; }
 
 namespace {
 
-char* PathPrefix() { return &GameVariable<char>(0x007CEE20); }       // (0x80 bytes)
-char* BootstrapReturn() { return &GameVariable<char>(0x007CEF20); }  // where a bootstrap demo returns to
-char* BootstrapArgument() { return &GameVariable<char>(0x007CEEA0); } // what it passes back
+GAME_GLOBAL(char[128], g_pathPrefix, 0x007CEE20);
+GAME_GLOBAL(char[128], g_bootstrapArgument, 0x007CEEA0);
+GAME_GLOBAL(char[128], g_bootstrapReturn, 0x007CEF20);
+
+char* PathPrefix() { return g_pathPrefix; }       // (0x80 bytes)
+char* BootstrapReturn() { return g_bootstrapReturn; }  // where a bootstrap demo returns to
+char* BootstrapArgument() { return g_bootstrapArgument; } // what it passes back
 const char* const kEmpty = reinterpret_cast<const char*>(0x006469B4); // ""
 
 const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }

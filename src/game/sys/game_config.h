@@ -1,5 +1,7 @@
 #pragma once
 
+#include "hook/game_global.h"
+
 #include <cstdint>
 
 // The game's own configuration (0x005B5C90-0x005B6370): the command line's options (CD / NotCD, NoExtraMem,
@@ -49,5 +51,11 @@ const char* __cdecl GetBootstrapPrefix();
 // HKLM's (each opened with RegCreateKeyA: made if missing) - 2 French, 3 German, anything else English. The
 // arguments aren't used.
 void __cdecl ReadRegistry(int argc, char** argv);
+
+GAME_GLOBAL_EXTERN(bool, g_fromCD);
+GAME_GLOBAL_EXTERN(int, g_frameRate);
+GAME_GLOBAL_EXTERN(int, g_language);
+GAME_GLOBAL_EXTERN(int, g_platform);
+GAME_GLOBAL_EXTERN(bool, g_configBootstrap);
 
 } // namespace GameConfig

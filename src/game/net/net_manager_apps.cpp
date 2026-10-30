@@ -14,9 +14,12 @@
 #include "game/net/net_client.h"
 #include "game/net/net_server.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Net {
+
+GAME_GLOBAL(Manager*, g_netManager, 0x006EFDD8);
 
 namespace {
 
@@ -31,8 +34,11 @@ constexpr int kClientMaxConnections = 1;
 constexpr uint32_t kServerSize = 0x2308;
 constexpr uint32_t kClientSize = 0x1F18;
 
-Manager*& Instance() { return GameVariable<Manager*>(0x006EFDD8); }
-uint32_t& References() { return GameVariable<uint32_t>(0x006EFDDC); }
+Manager*& Instance() { return g_netManager; }
+
+GAME_GLOBAL(uint32_t, g_netManagerReferences, 0x006EFDDC);
+
+uint32_t& References() { return g_netManagerReferences; }
 
 void InitHead(Mem::ListNode* head)
 {

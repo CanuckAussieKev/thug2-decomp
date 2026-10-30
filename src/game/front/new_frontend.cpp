@@ -21,6 +21,7 @@
 
 #include "game/core/crc.h"
 #include "game/file/file.h"
+#include "game/front/automation.h"
 #include "game/front/data_overlay.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
@@ -91,11 +92,11 @@ Obj::CSkaterCareer* Career()
 {
     return SkateModule() ? *reinterpret_cast<Obj::CSkaterCareer**>(SkateModule() + 0x20) : nullptr;
 }
-Mdl::FrontEnd* TheFrontEnd() { return GameVariable<Mdl::FrontEnd*>(0x007CE464); }
+Mdl::FrontEnd* TheFrontEnd() { return Front::Automation::g_frontEndInstance; }
 bool Paused() { return TheFrontEnd() && TheFrontEnd()->m_paused; }
 bool LoadingScreenUp()
 {
-    return GameVariable<uint8_t>(0x006FC49C) != 0 || GameVariable<uint32_t>(0x00786D08) != 0 ||
+    return Front::Automation::g_loadingScreenShown != 0 || GameVariable<uint32_t>(0x00786D08) != 0 ||
            GameVariable<uint8_t>(0x00786D04) != 0;
 }
 

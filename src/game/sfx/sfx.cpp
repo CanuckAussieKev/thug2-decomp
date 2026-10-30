@@ -7,12 +7,26 @@
 
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
+#include "game/front/automation.h"
 #include "game/pcm/music.h"
 #include "game/script/struct.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Sfx {
+
+GAME_GLOBAL(float, g_defaultDropoff, 0x0067DA34, 1020.0f);
+GAME_GLOBAL(float, g_volumeScale, 0x00684FAC, 100.0f);
+GAME_GLOBAL(WaveTableEntry[256], g_permanentWaves, 0x006F4268);
+GAME_GLOBAL(WaveTableEntry[256], g_levelWaves, 0x006F5E68);
+GAME_GLOBAL(PlayingSound[48], g_playingSounds, 0x006F7A68);
+GAME_GLOBAL(CSfxManager*, g_sfxManager, 0x006F85A8);
+GAME_GLOBAL(PositionalSound*, g_positionalHead, 0x006F85B0);
+GAME_GLOBAL(int, g_permanentCount, 0x006F85B4);
+GAME_GLOBAL(int, g_levelCount, 0x006F85B8);
+GAME_GLOBAL(int, g_positionalCount, 0x006F85BC);
 
 namespace {
 
@@ -24,19 +38,24 @@ constexpr int kMaxWaves = 256;
 constexpr uint32_t kDebugA = 0x6D2E270E;
 constexpr uint32_t kDebugB = 0xD7BB618D;
 
-PlayingSound* Playing() { return &GameVariable<PlayingSound>(0x006F7A68); }
-PositionalSound* PositionalPool() { return &GameVariable<PositionalSound>(0x006F3668); }
-PositionalSound*& PositionalHead() { return GameVariable<PositionalSound*>(0x006F85B0); }
-int& PositionalCount() { return GameVariable<int>(0x006F85BC); }
-WaveTableEntry* PermanentWaves() { return &GameVariable<WaveTableEntry>(0x006F4268); }
-int& PermanentCount() { return GameVariable<int>(0x006F85B4); }
-WaveTableEntry* LevelWaves() { return &GameVariable<WaveTableEntry>(0x006F5E68); }
-int& LevelCount() { return GameVariable<int>(0x006F85B8); }
-float& DefaultDropoff() { return GameVariable<float>(0x0067DA34); }
-float& MainVolume() { return GameVariable<float>(0x0067DA38); }
-float& Pitch() { return GameVariable<float>(0x0067DA3C); }
+PlayingSound* Playing() { return g_playingSounds; }
+
+GAME_GLOBAL(float, g_mainVolume, 0x0067DA38, 100.0f);
+GAME_GLOBAL(float, g_pitch, 0x0067DA3C, 1.0f);
+GAME_GLOBAL(PositionalSound[128], g_positionalSounds, 0x006F3668);
+
+PositionalSound* PositionalPool() { return g_positionalSounds; }
+PositionalSound*& PositionalHead() { return g_positionalHead; }
+int& PositionalCount() { return g_positionalCount; }
+WaveTableEntry* PermanentWaves() { return g_permanentWaves; }
+int& PermanentCount() { return g_permanentCount; }
+WaveTableEntry* LevelWaves() { return g_levelWaves; }
+int& LevelCount() { return g_levelCount; }
+float& DefaultDropoff() { return g_defaultDropoff; }
+float& MainVolume() { return g_mainVolume; }
+float& Pitch() { return g_pitch; }
 // Whether a missing sound goes unreported (the report itself is compiled out; only the global is read).
-bool QuietMisses() { return GameVariable<bool>(0x00684FA8); }
+bool QuietMisses() { return GameConfig::g_fromCD; }
 
 // The missing-sound report (compiled out; the global still read).
 void ReportMissing()
@@ -66,7 +85,7 @@ int FalloffFromChecksum(uint32_t checksum)
 // 0x0047B030
 sVolume* sVolume::Init()
 {
-    CSfxManager* manager = GameVariable<CSfxManager*>(0x006F85A8);
+    CSfxManager* manager = g_sfxManager;
     m_type = manager ? manager->m_defaultVolumeType : TYPE_STEREO;
     SetSilent();
     return this;
@@ -117,9 +136,9 @@ float sVolume::GetLoudestChannel()
 // 0x0047B010
 bool NoSound()
 {
-    if (!GameVariable<void*>(0x007D6A38))
+    if (!Pcm::g_soundDevice)
         return true;
-    int platform = GameVariable<int>(0x007CEFA8);
+    int platform = GameConfig::g_platform;
     return platform == 2 || platform == 6;
 }
 
@@ -318,7 +337,7 @@ bool CSfxManager::IsPaused()
 {
     if (m_muteOverride)
         return false;
-    return GameVariable<bool>(0x006FC49C) || GameVariable<bool>(0x006FA7D4);
+    return Front::Automation::g_loadingScreenShown || GameVariable<bool>(0x006FA7D4);
 }
 
 // 0x0047B360
@@ -413,7 +432,7 @@ void CSfxManager::SetMainVolume(float volume)
         return;
     Script::GetInteger(kDebugB);
     MainVolume() = volume;
-    float scaled = static_cast<float>(static_cast<double>(GameVariable<float>(0x00684FAC)) * volume * 0.0099999998f);
+    float scaled = static_cast<float>(static_cast<double>(g_volumeScale) * volume * 0.0099999998f);
     if (scaled < 0.1f)
         scaled = 0.0f;
     SetVoiceVolume(scaled);

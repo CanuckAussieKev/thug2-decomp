@@ -23,6 +23,7 @@
 #include "game/sys/timer.h"
 #include "game/ed/rail_editor.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
@@ -363,6 +364,8 @@ int __cdecl HandleHostOptions(Net::MsgHandlerContext* context)
 
 // 0x0052F4A0 is the level change's wait task (gamenet_tasks.cpp).
 
+GAME_GLOBAL(uint32_t, g_levelChangeTime, 0x007CCDE8);
+
 // 0x005311F0
 int __cdecl HandleChangeLevel(Net::MsgHandlerContext* context)
 {
@@ -381,7 +384,7 @@ int __cdecl HandleChangeLevel(Net::MsgHandlerContext* context)
     }
     uint32_t oldLevel = manager->m_level;
     manager->m_level = Field<uint32_t>(msg, 0);
-    GameVariable<uint32_t>(0x007CCDE8) = Tmr::GetTime() + 3000; // when to change
+    g_levelChangeTime = Tmr::GetTime() + 3000; // when to change
     if (manager->OnServer()) {
         Script::CStruct* params = NewParams();
         params->AddString(kUiString, Script::ESYMBOLTYPE_STRING, manager->GetLevelName(false));
@@ -389,7 +392,7 @@ int __cdecl HandleChangeLevel(Net::MsgHandlerContext* context)
         manager->GetNetworkPreferences()->SetPreference(kLevel, params);
         DeleteParams(params);
         if (manager->m_level == kLoadSk5edGameplay)
-            GameVariable<uint32_t>(0x007CCDE8) += 1000;
+            g_levelChangeTime += 1000;
     } else if (oldLevel == kLoadSk5edGameplay && manager->m_level != oldLevel) {
         Ed::CRailEditorComponent::Instance()->Clear(); // the created park's rails gone
     }

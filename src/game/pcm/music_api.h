@@ -1,5 +1,7 @@
 #pragma once
 
+#include "hook/game_global.h"
+
 #include <cstdint>
 
 // The music and streams front end (Neversoft's Pcm, gel/music): the game's calls for music tracks, music streams
@@ -76,5 +78,12 @@ struct FamData {
     bool Load(uint32_t name);
 };
 static_assert(sizeof(FamData) == 0x1008, "layout must match the original");
+
+GAME_GLOBAL_EXTERN(int, g_frameCount);
+GAME_GLOBAL_EXTERN(int, g_currentTrackIndex);
+GAME_GLOBAL_EXTERN(int, g_currentPlaylist);
+GAME_GLOBAL_EXTERN(bool, g_initialised);
+GAME_GLOBAL_EXTERN(bool, g_usingUserSoundtrack);
+GAME_GLOBAL_EXTERN(int, g_userSoundtrack);
 
 } // namespace Pcm

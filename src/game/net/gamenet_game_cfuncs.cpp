@@ -17,8 +17,10 @@
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/sio/inpman.h"
 #include "game/sys/mlp.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copy of the player's name)
@@ -47,7 +49,7 @@ constexpr uint32_t kPlayerMarked = 0x400; // chosen in the kick / ban menu
 constexpr int kDropBanned = 3;
 constexpr int kDropKicked = 4;
 
-Manager* NetManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* NetManager() { return g_gameNetManager; }
 Tsk::Stack* LogicTasks()
 {
     return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(GameVariable<Mlp::Manager*>(0x00696D68)) + 4);
@@ -229,15 +231,17 @@ bool __cdecl CFunc_SetHostMode(Script::CStruct* params, Script::CScript*)
     return true;
 }
 
+GAME_GLOBAL(bool, g_textEntry, 0x007CCDF8);
+
 // 0x0053D440
 bool __cdecl CFunc_EnteredNetworkGame(Script::CStruct*, Script::CScript*)
 {
     Manager* manager = NetManager();
-    if (GameVariable<bool>(0x007CCA82)) // (on the internet: the server's GameSpy reporting)
+    if (g_netEnabled) // (on the internet: the server's GameSpy reporting)
         StartQueryReporting(false);
     Tsk::Stack* tasks = LogicTasks();
     tasks->AddTask(Field<Tsk::BaseTask*>(manager, 0xD4));
-    GameVariable<bool>(0x007CCDF8) = true;
+    g_textEntry = true;
     tasks->AddTask(Field<Tsk::BaseTask*>(manager, 0xC8));
     Field<bool>(manager, 0x46) = true;
     return true;
@@ -274,7 +278,7 @@ bool __cdecl CFunc_EnterSurveyorMode(Script::CStruct*, Script::CScript*)
 {
     Tsk::Stack* tasks = LogicTasks();
     Manager* manager = NetManager();
-    uint8_t* input = GameVariable<uint8_t*>(0x00696D40); // the input manager
+    uint8_t* input = reinterpret_cast<uint8_t*>(Inp::g_inputManager); // the input manager
     uint8_t* local = LocalPlayer(manager);
     if (IsObserver(local) || (Field<uint32_t>(local, 0x1D0) & kPlayerSurveying))
         return false;

@@ -27,9 +27,12 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace GameNet {
+
+GAME_GLOBAL(float, g_rankScale, 0x0064CC1C, 0.00028571428f);
 
 namespace {
 
@@ -57,7 +60,7 @@ constexpr int kMaxRank = 10;
 constexpr int kStatsPort = 0x1421;
 
 // The rank's factors (0x0064CC1C, 0x00646710).
-float RankScale() { return GameVariable<float>(0x0064CC1C); } // 0.000286
+float RankScale() { return g_rankScale; } // 0.000286
 float RankTimes() { return GameVariable<float>(0x00646710); } // 10
 // rating * 0.000286 * 10 truncated, at most 10 (x87 at 53 bits: each product rounded to double).
 int Rank(double rating)
@@ -66,12 +69,14 @@ int Rank(double rating)
     return rank > kMaxRank ? kMaxRank : rank;
 }
 
-// The login's start (StatsTask's limit).
-uint32_t& LoginStart() { return GameVariable<uint32_t>(0x007CE460); }
-// Set by the cheat script commands (career.cpp): the game reported as a cheat's.
-bool CheatFlag() { return GameVariable<bool>(0x007CE4FD); }
+GAME_GLOBAL(uint32_t, g_statsLoginStart, 0x007CE460);
 
-Manager* NetManager() { return GameVariable<Manager*>(0x007CCE14); }
+// The login's start (StatsTask's limit).
+uint32_t& LoginStart() { return g_statsLoginStart; }
+// Set by the cheat script commands (career.cpp): the game reported as a cheat's.
+bool CheatFlag() { return g_cheatFlag; }
+
+Manager* NetManager() { return g_gameNetManager; }
 StatsMan* Stats() { return static_cast<StatsMan*>(NetManager()->m_statsMan); }
 Mem::Manager* Memory() { return Mem::Manager::Get(); }
 void PushTopDown() { Memory()->PushContext(Memory()->m_internetTopDownHeap); }

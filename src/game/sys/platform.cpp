@@ -11,6 +11,7 @@
 #include "game/sys/platform_input.h"
 #include "game/sys/sdl_events.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Platform {
@@ -40,6 +41,19 @@ void ProcessWindowEvents()
     Platform::PumpSdlEvents();
 }
 
+GAME_GLOBAL(uint32_t, g_unknown42C8, 0x007D42C8);
+GAME_GLOBAL(uint32_t, g_unknown42CC, 0x007D42CC);
+GAME_GLOBAL(uint32_t, g_unknown42D0, 0x007D42D0);
+GAME_GLOBAL(uint32_t, g_unknown42D4, 0x007D42D4);
+GAME_GLOBAL(uint32_t, g_unknown42D8, 0x007D42D8);
+GAME_GLOBAL(uint32_t, g_unknown42DC, 0x007D42DC);
+GAME_GLOBAL(uint32_t, g_unknown6318, 0x007D6318);
+GAME_GLOBAL(uint32_t, g_unknown631C, 0x007D631C);
+GAME_GLOBAL(uint32_t, g_unknown6438, 0x007D6438);
+GAME_GLOBAL(uint32_t, g_unknown6440, 0x007D6440);
+GAME_GLOBAL(uint32_t, g_unknown6668, 0x007D6668);
+GAME_GLOBAL(uint32_t, g_unknown666C, 0x007D666C);
+
 // 0x005F44F0
 bool InitInput(HINSTANCE instance, HWND window, int config)
 {
@@ -47,28 +61,28 @@ bool InitInput(HINSTANCE instance, HWND window, int config)
     (void)config;   // (the original's settings loader took it - PartyMod's doesn't)
     if (!window)
         return false;
-    auto& directInput = GameVariable<void*>(0x007D69D0);
+    auto& directInput = g_directInput;
     if (directInput)
         return true;
     // Per port: the joysticks (0x007D6318), their device state, the force-feedback effects (0x007D6668) and
     // the motors' ranges and kinds; the key bindings (-1: none); the graphics options (0x007D6434...).
-    GameVariable<uint32_t>(0x007D6318) = 0;
+    g_unknown6318 = 0;
     std::memset(reinterpret_cast<void*>(0x007D60F8), 0, 0x88 * 4);
-    GameVariable<uint32_t>(0x007D631C) = 0;
+    g_unknown631C = 0;
     std::memset(reinterpret_cast<void*>(0x007D6448), 0, 0x88 * 4);
-    GameVariable<uint32_t>(0x007D6668) = 0;
-    GameVariable<uint32_t>(0x007D42D0) = 0;
-    GameVariable<uint32_t>(0x007D666C) = 0;
-    GameVariable<uint32_t>(0x007D42D4) = 0;
-    GameVariable<uint32_t>(0x007D42D8) = 0;
-    GameVariable<uint32_t>(0x007D42DC) = 0;
+    g_unknown6668 = 0;
+    g_unknown42D0 = 0;
+    g_unknown666C = 0;
+    g_unknown42D4 = 0;
+    g_unknown42D8 = 0;
+    g_unknown42DC = 0;
     std::memset(reinterpret_cast<void*>(0x007D6770), 0xFF, 0x98 * 4);
     GameVariable<uint32_t>(0x007D6434) = 0;
-    GameVariable<uint32_t>(0x007D42C8) = 0;
-    GameVariable<uint32_t>(0x007D6438) = 0;
-    GameVariable<uint32_t>(0x007D42CC) = 0;
+    g_unknown42C8 = 0;
+    g_unknown6438 = 0;
+    g_unknown42CC = 0;
     GameVariable<uint32_t>(0x007D643C) = 0;
-    GameVariable<uint32_t>(0x007D6440) = 0;
+    g_unknown6440 = 0;
     GameVariable<uint32_t>(0x007D6444) = 0;
     // Originally from PartyMod Fixes: the graphics settings from thug2-decomp.ini in place of the original's loader 0x005F34D0(config).
     Nx::WriteGraphicsSettings();

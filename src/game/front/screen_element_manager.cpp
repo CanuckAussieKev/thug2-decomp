@@ -14,6 +14,7 @@
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Front {
@@ -498,7 +499,7 @@ void CScreenElementManager::ListenerReceive(Obj::CEvent* event)
     if (manager->m_checkDevice && event->mp_data) {
         int device;
         if (event->mp_data->GetInteger(kDeviceNum, &device, 0)) {
-            auto* input = GameVariable<Inp::Manager*>(0x00696D40); // (the input manager)
+            auto* input = Inp::g_inputManager; // (the input manager)
             if (input->GetPlayerController(0) != device)
                 return;
         }
@@ -677,6 +678,8 @@ void CScreenElementManager::UpdatePriorities()
 
 // --- the singleton --------------------------------------------------------------------------------------------
 
+GAME_GLOBAL(uint32_t, g_screenElementManagerUses, 0x00701444);
+
 // 0x004ACAF0
 void CreateScreenElementManager(bool create)
 {
@@ -685,18 +688,18 @@ void CreateScreenElementManager(bool create)
         void* memory = Mem::Calloc(sizeof(CScreenElementManager), static_cast<Mem::Heap*>(nullptr), 1);
         if (memory) {
             instance = static_cast<CScreenElementManager*>(memory)->Construct();
-            ++GameVariable<uint32_t>(0x00701444);
+            ++g_screenElementManagerUses;
             return;
         }
         instance = nullptr;
     }
-    ++GameVariable<uint32_t>(0x00701444);
+    ++g_screenElementManagerUses;
 }
 
 // 0x004AACF0
 void DeleteScreenElementManager()
 {
-    uint32_t& uses = GameVariable<uint32_t>(0x00701444);
+    uint32_t& uses = g_screenElementManagerUses;
     if (uses > 1) {
         --uses;
         return;

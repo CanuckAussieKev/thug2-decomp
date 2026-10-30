@@ -14,6 +14,7 @@
 #include "game/sys/timer.h"
 #include "game/ed/goal_editor.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace GameNet {
@@ -118,7 +119,7 @@ Ed::CGoalEditorComponent* GoalEditor() { return Ed::CGoalEditorComponent::Get();
 void Manager::SetJoinMode(int mode)
 {
     m_joinMode = mode;
-    GameVariable<bool>(0x007CCA88) = false;
+    g_joinServerIPSucceeded = false;
 }
 
 // 0x00532AC0
@@ -181,6 +182,8 @@ Net::App* Manager::GetMatchClient() { return m_matchClient; }
 // 0x00532EC0
 void* Manager::GetCamPlayer() { return m_camPlayer; }
 
+GAME_GLOBAL(uint32_t, g_commandLineServer, 0x0067EFB8, 0xFFFFFFFF);
+
 // 0x00532ED0
 void Manager::FindServersOnLan()
 {
@@ -188,14 +191,14 @@ void Manager::FindServersOnLan()
         return;
     // 12 bytes: the time, then 8 bytes the original leaves uninitialised (zeroed here).
     uint32_t message[3] = {Tmr::GetTime(), 0, 0};
-    uint32_t& askedFor = GameVariable<uint32_t>(0x007CCA84);
+    uint32_t& askedFor = g_askedFor;
     if (askedFor) {
         m_matchClient->SendMessageTo(kMsgFindServer, sizeof(message), message, askedFor, kLanPort, 0);
         askedFor = 0;
         return;
     }
     m_matchClient->SendMessageTo(kMsgFindServer, sizeof(message), message, 0xFFFFFFFF, kLanPort, 0);
-    uint32_t commandLine = GameVariable<uint32_t>(0x0067EFB8); // (ParseNetworkParams)
+    uint32_t commandLine = g_commandLineServer; // (ParseNetworkParams)
     if (commandLine != 0xFFFFFFFF)
         m_matchClient->SendMessageTo(kMsgFindServer, sizeof(message), message, commandLine, kLanPort, 0);
 }

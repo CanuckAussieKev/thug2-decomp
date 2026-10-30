@@ -16,27 +16,38 @@
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
 #include "game/gfx/viewport.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Pcm {
 
+GAME_GLOBAL(int, g_frameCount, 0x0067D7F0, 1);
+GAME_GLOBAL(int, g_currentTrackIndex, 0x0069BA98);
+GAME_GLOBAL(int, g_currentPlaylist, 0x0069BA9C);
+GAME_GLOBAL(bool, g_initialised, 0x0069BAA1);
+GAME_GLOBAL(bool, g_usingUserSoundtrack, 0x0069BAB0);
+GAME_GLOBAL(int, g_userSoundtrack, 0x0069BAB4);
+GAME_GLOBAL(uint32_t, g_userTrack, 0x0069BAB8);
+GAME_GLOBAL(uint32_t, g_userPosition, 0x0069BAC0);
+
 namespace {
 
-bool SoundAvailable() { return GameVariable<void*>(0x007D6A38) && GameVariable<int>(0x007CEFA8) != 2; }
-bool MusicOn() { return SoundAvailable() && GameVariable<bool>(0x0067D7E0); }
-bool StreamsOn() { return SoundAvailable() && GameVariable<bool>(0x0067D7E1); }
+bool SoundAvailable() { return g_soundDevice && GameConfig::g_platform != 2; }
+bool MusicOn() { return SoundAvailable() && g_musicHeaderLoaded; }
+bool StreamsOn() { return SoundAvailable() && g_streamsOn; }
 
-bool& Initialised() { return GameVariable<bool>(0x0069BAA1); }
+bool& Initialised() { return g_initialised; }
 // The music stream: 0 none, 1 playing, 2 preloaded.
-int& MusicStreamType() { return GameVariable<int>(0x0069BAAC); }
+int& MusicStreamType() { return g_musicStreamType; }
 enum : int { kMusicStreamNone = 0, kMusicStreamNormal = 1, kMusicStreamPreload = 2 };
 // Frames until PlayNextTrack is next tried (Update counts them).
-int& FrameCount() { return GameVariable<int>(0x0067D7F0); }
-float& DefaultStreamVolume() { return GameVariable<float>(0x0067D7E4); }
-float& DefaultMusicVolume() { return GameVariable<float>(0x0067D7E8); }
+int& FrameCount() { return g_frameCount; }
+float& DefaultStreamVolume() { return g_musicVolume; }
+float& DefaultMusicVolume() { return g_musicStreamVolume; }
 float Zero() { return GameVariable<float>(0x0066D520); }
-int& CurrentTrackIndex() { return GameVariable<int>(0x0069BA98); }
+int& CurrentTrackIndex() { return g_currentTrackIndex; }
 
 // The stream fields used here (Stream in music.h; 0x74 bytes each, three at 0x0069B938).
 struct StreamFields {
@@ -68,13 +79,13 @@ uint8_t** Owners() { return reinterpret_cast<uint8_t**>(0x00698060); }
 uint32_t* OwnerIds(uint8_t* owner) { return reinterpret_cast<uint32_t*>(owner + 0x18); }
 
 // The user soundtrack (see music.cpp).
-int& UserSoundtrack() { return GameVariable<int>(0x0069BAB4); }
-bool UsingUserSoundtrack() { return GameVariable<bool>(0x0069BAB0); }
+int& UserSoundtrack() { return g_userSoundtrack; }
+bool UsingUserSoundtrack() { return g_usingUserSoundtrack; }
 int* UserOrder() { return reinterpret_cast<int*>(0x00697700); }
-uint32_t& UserTrack() { return GameVariable<uint32_t>(0x0069BAB8); }
-uint32_t& UserPosition() { return GameVariable<uint32_t>(0x0069BAC0); }
-bool ShuffleUser() { return GameVariable<bool>(0x0069BABC); }
-int CurrentPlaylist() { return GameVariable<int>(0x0069BA9C); }
+uint32_t& UserTrack() { return g_userTrack; }
+uint32_t& UserPosition() { return g_userPosition; }
+bool ShuffleUser() { return g_shuffleUser; }
+int CurrentPlaylist() { return g_currentPlaylist; }
 
 // The platform layer (stream.h). The original passes the music's stop 1 (StopMusic) or 0 (the music streams),
 // which it doesn't use; the stream's stop is given 1 (unused too).
@@ -89,7 +100,7 @@ int ChannelStatus(int channel) { return StreamStatus(channel); }
 uint32_t NumUserTracks(int soundtrack) { return static_cast<uint32_t>(UserSoundtrackTracks(soundtrack)); }
 
 constexpr uint32_t kHundredPercent = 0x42C80000; // 100.0f
-Sfx::CSfxManager* SoundManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
+Sfx::CSfxManager* SoundManager() { return Sfx::g_sfxManager; }
 
 } // namespace
 
@@ -364,7 +375,7 @@ bool __cdecl UpdateStreamVolume(int slot)
 void __cdecl Init()
 {
     Owners()[0] = Owners()[1] = Owners()[2] = nullptr;
-    if (SoundAvailable() && (GameVariable<bool>(0x0067D7E0) || StreamsOn())) {
+    if (SoundAvailable() && (g_musicHeaderLoaded || StreamsOn())) {
         InitPlatform();
         Initialised() = true;
         DefaultStreamVolume() = static_cast<float>(Script::GetInteger(0xABD4A575u));
@@ -392,7 +403,7 @@ void __cdecl Init()
 // 0x00450EB0
 bool __cdecl UsingCD()
 {
-    if (GameVariable<bool>(0x00684FA8) && Initialised()) {
+    if (GameConfig::g_fromCD && Initialised()) {
         StopMusic();
         if (StreamsOn())
             PlatformStopStreams();

@@ -73,7 +73,7 @@ bool NetSession()
     if (Net::Manager* net = Net::Manager::Instance())
         if (net->IsOnline())
             return true;
-    if (void* gameNet = GameVariable<void*>(0x007CCE14))
+    if (void* gameNet = GameNet::g_gameNetManager)
         if (static_cast<GameNet::Manager*>(gameNet)->InNetGame())
             return true;
     return GameModeName().rfind("net", 0) == 0;

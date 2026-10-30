@@ -14,6 +14,7 @@
 #include "game/sys/config.h"
 #include "game/sys/debug_log.h"
 #include "game/sys/sdl_events.h"
+#include "game/sys/winmain.h"
 #include "hook/game.h"
 
 namespace Sys {
@@ -27,7 +28,7 @@ int s_height = 0;
 SDL_Window* s_window = nullptr;
 
 HWND& GameWindow() { return GameVariable<HWND>(0x007D6A28); }
-bool& Focused() { return GameVariable<bool>(0x007CCBE4); }
+bool& Focused() { return g_appActive; }
 // Whether the device may be recreated (off while the window is in the background).
 bool& RecreateDevice() { return GameVariable<bool>(0x00786AB4); }
 

@@ -13,6 +13,7 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/net/buddy_status.h"
+#include "game/net/gamenet_game_cfuncs.h"
 #include "game/net/net_client.h"
 #include "game/net/net_lists.h"
 #include "game/net/net_manager.h"
@@ -29,6 +30,7 @@
 #include "game/net/net_conn.h"
 #include "game/skate/cas_options.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace GameNet {
@@ -424,7 +426,7 @@ void Manager::ClearQueuedScripts()
 void Manager::LaunchQueuedScripts()
 {
     Mem::Manager* memory = Mem::Manager::Get();
-    auto* sound = GameVariable<Sfx::CSfxManager*>(0x006F85A8);
+    auto* sound = Sfx::g_sfxManager;
     uint8_t* skate = Detail::Skate();
     memory->PushContext(memory->m_bottomUpHeap);
     Call(0x00569580, skate);
@@ -549,10 +551,10 @@ void Manager::DisconnectClients()
         DeleteVirtual(m_observerInputHandler);
         m_observerInputHandler = nullptr;
     }
-    GameVariable<uint8_t>(0x007CCDF8) = 0;
-    if (GameVariable<bool>(0x007CCE1C)) {
+    g_textEntry = 0;
+    if (g_queryReporting) {
         GameFunction<void(__cdecl*)(int)>(0x005FBB20)(0);
-        GameVariable<bool>(0x007CCE1C) = false;
+        g_queryReporting = false;
     }
     GameFunction<void(__cdecl*)(int)>(0x005F9900)(1003);
     Field<Tsk::BaseTask*>(this, 0xD4)->Remove();
@@ -756,13 +758,15 @@ void* Manager::NextCamPlayer()
     return nullptr;
 }
 
+GAME_GLOBAL(Manager*, g_gameNetManager, 0x007CCE14);
+
 // 0x00539610 (a task's code: the manager's flag task): in capture the flag, each flag a player (no observers)
 // carries (flags 0x7800) put on the carrier's head - the flag object of the team it belongs to (TRG_CTF_Red / Blue /
 // Green / Yellow; none: the task stops for the frame) gets the head bone's matrix, turned 90 degrees about x and
 // raised 12, then the skater's own matrix; its position the bone's offset transformed, plus the skater's position.
 void __cdecl CarriedFlagsTask(void*)
 {
-    Manager* manager = GameVariable<Manager*>(0x007CCE14);
+    Manager* manager = g_gameNetManager;
     PlayerSearch search;
     if (GameType() != kNetCtf)
         return;
@@ -809,17 +813,17 @@ void __cdecl CarriedFlagsTask(void*)
 // 0x005395C0 (no `this`): the manager released - its reference count (0x007CCE18) down, or (the last) destroyed.
 void __cdecl ReleaseManager()
 {
-    uint32_t& references = GameVariable<uint32_t>(0x007CCE18);
+    uint32_t& references = g_gameNetReferences;
     if (references > 1) {
         --references;
         return;
     }
-    Manager* manager = GameVariable<Manager*>(0x007CCE14);
+    Manager* manager = g_gameNetManager;
     if (manager) {
         manager->DestroyBody();
         Mem::Manager::Get()->Free(manager);
     }
-    GameVariable<Manager*>(0x007CCE14) = nullptr;
+    g_gameNetManager = nullptr;
     references = 0;
 }
 

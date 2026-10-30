@@ -7,6 +7,7 @@
 
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_nodes.h"
+#include "hook/game_global.h"
 
 // NOT ORIGINAL - the level editor's added and hidden nodes (ours; see level_editor.h - phase 3 of the plan).
 //
@@ -178,5 +179,9 @@ void SetArrayRemovedListener(void (*listener)(uint32_t name));
 void ResetAll();
 // A new level: forgotten (the overlay's array went with the level's; hidden nodes' structures with it).
 void ForgetLevel();
+
+GAME_GLOBAL_EXTERN(void*, g_proximManager);
+GAME_GLOBAL_EXTERN(int, g_dynamicLightCount);
+GAME_GLOBAL_EXTERN(int, g_sceneLightCount);
 
 } // namespace Front::LevelEditor::NodeCreate

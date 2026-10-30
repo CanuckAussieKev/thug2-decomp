@@ -29,6 +29,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace GameNet {
@@ -57,13 +58,17 @@ constexpr int kErrorNewUserNick = 0x201;
 constexpr int kErrorPassword = 0x202;
 constexpr int kErrorAlreadyBuddy = 0x603;
 
+GAME_GLOBAL(bool, g_creatingProfile, 0x007CE454);
+GAME_GLOBAL(uint32_t, g_buddyLoginStart, 0x007CE458);
+GAME_GLOBAL(uint32_t, g_lastProcess, 0x007CE45C);
+
 // The login's start (the task's 10 s limit), when GP was last processed once logged in, and "a new profile is being
 // made" (its gpConnectNewUser answer "nick taken" logs in instead).
-uint32_t& LoginStart() { return GameVariable<uint32_t>(0x007CE458); }
-uint32_t& LastProcess() { return GameVariable<uint32_t>(0x007CE45C); }
-bool& CreatingProfile() { return GameVariable<bool>(0x007CE454); }
+uint32_t& LoginStart() { return g_buddyLoginStart; }
+uint32_t& LastProcess() { return g_lastProcess; }
+bool& CreatingProfile() { return g_creatingProfile; }
 
-Manager* NetManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* NetManager() { return g_gameNetManager; }
 Mem::Manager* Memory() { return Mem::Manager::Get(); }
 void PushTopDown() { Memory()->PushContext(Memory()->m_internetTopDownHeap); }
 void PushBottomUp() { Memory()->PushContext(Memory()->m_internetBottomUpHeap); }

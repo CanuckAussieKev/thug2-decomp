@@ -20,11 +20,14 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/sound_component.h"
+#include "game/pcm/music.h"
 #include "game/pcm/music_api.h"
 #include "game/script/struct.h"
+#include "game/sys/game_config.h"
 #include "game/sys/platform_system.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Sfx {
@@ -36,25 +39,35 @@ constexpr int kMaxPositional = 128;
 constexpr uint32_t kDebugA = 0x6D2E270E;
 constexpr uint32_t kDebugB = 0xD7BB618D;
 
-PlayingSound* Playing() { return &GameVariable<PlayingSound>(0x006F7A68); }
-PositionalSound*& PositionalHead() { return GameVariable<PositionalSound*>(0x006F85B0); }
-int& PositionalCount() { return GameVariable<int>(0x006F85BC); }
-WaveTableEntry* PermanentWaves() { return &GameVariable<WaveTableEntry>(0x006F4268); }
-int& PermanentCount() { return GameVariable<int>(0x006F85B4); }
-float& DefaultDropoff() { return GameVariable<float>(0x0067DA34); }
-bool QuietMisses() { return GameVariable<bool>(0x00684FA8); }
-CSfxManager*& Instance() { return GameVariable<CSfxManager*>(0x006F85A8); }
-uint32_t& References() { return GameVariable<uint32_t>(0x006F85AC); }
+PlayingSound* Playing() { return g_playingSounds; }
+PositionalSound*& PositionalHead() { return g_positionalHead; }
+int& PositionalCount() { return g_positionalCount; }
+WaveTableEntry* PermanentWaves() { return g_permanentWaves; }
+int& PermanentCount() { return g_permanentCount; }
+float& DefaultDropoff() { return g_defaultDropoff; }
+bool QuietMisses() { return GameConfig::g_fromCD; }
+CSfxManager*& Instance() { return g_sfxManager; }
+
+GAME_GLOBAL(float, g_voiceVolume, 0x0067DB08, 100.0f);
+GAME_GLOBAL(uint32_t, g_sfxReferences, 0x006F85AC);
+GAME_GLOBAL(void*, g_listener, 0x006F85C0);
+GAME_GLOBAL(Voice[48], g_voices, 0x006F85C8);
+GAME_GLOBAL(int, g_playingVoices, 0x006F8A48);
+GAME_GLOBAL(bool, g_has3D, 0x006F8A4C);
+GAME_GLOBAL(int, g_voiceCount, 0x006F8A50);
+GAME_GLOBAL(int, g_lastVoice, 0x006F8A54);
+
+uint32_t& References() { return g_sfxReferences; }
 
 // The driver's state.
-Voice* Voices() { return &GameVariable<Voice>(0x006F85C8); }
-int& PlayingVoices() { return GameVariable<int>(0x006F8A48); }
-bool& Has3D() { return GameVariable<bool>(0x006F8A4C); }
-int& VoiceCount() { return GameVariable<int>(0x006F8A50); }
-int& LastVoice() { return GameVariable<int>(0x006F8A54); }
-void*& Listener() { return GameVariable<void*>(0x006F85C0); }
-void* Device() { return GameVariable<void*>(0x007D6A38); }
-float VoiceVolume() { return GameVariable<float>(0x0067DB08); }
+Voice* Voices() { return g_voices; }
+int& PlayingVoices() { return g_playingVoices; }
+bool& Has3D() { return g_has3D; }
+int& VoiceCount() { return g_voiceCount; }
+int& LastVoice() { return g_lastVoice; }
+void*& Listener() { return g_listener; }
+void* Device() { return Pcm::g_soundDevice; }
+float VoiceVolume() { return g_voiceVolume; }
 
 // COM calls by vtable slot.
 template <typename R, typename... A>
@@ -558,13 +571,16 @@ void StopVoice(int voice)
 // 0x0047C7C0
 void SetVoiceVolume(float volume)
 {
-    GameVariable<float>(0x0067DB08) = volume;
+    g_voiceVolume = volume;
 }
+
+GAME_GLOBAL(float, g_voicePitch, 0x0067DB0C, 1.0f);
+GAME_GLOBAL(char[256], g_waveFileName, 0x0067DB10, "data\\sounds\\");
 
 // 0x0047C7D0
 void SetVoicePitch(float pitch)
 {
-    GameVariable<float>(0x0067DB0C) = pitch;
+    g_voicePitch = pitch;
 }
 
 // 0x0047C7E0
@@ -723,7 +739,7 @@ bool PCWave::Load(const char* fileName, uint32_t flags)
 bool LoadWave(const char* path, uint32_t /*checksum*/, PCWave** slot, int loadType, int /*unused*/)
 {
     // data\sounds\<path>.snd, in a static buffer (0x0067DB10)
-    char* fileName = &GameVariable<char>(0x0067DB10);
+    char* fileName = g_waveFileName;
     size_t length = std::strlen(path);
     std::memcpy(fileName + 12, path, length);
     std::memcpy(fileName + 12 + length, ".snd", 5);

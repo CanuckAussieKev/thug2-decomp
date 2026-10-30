@@ -21,6 +21,7 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/skate_module.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
 #include "hook/log.h"
 #include "imgui.h"
@@ -212,7 +213,7 @@ bool Level(uint32_t sector, Membership* m)
     Script::CStruct* node = NodeOf(sector);
     if (!node)
         return false;
-    bool all = !GameVariable<uint8_t>(0x00684FA8) && Script::GetInteger(kAllTrickObjects) != 0;
+    bool all = !GameConfig::g_fromCD && Script::GetInteger(kAllTrickObjects) != 0;
     bool trick = all || node->ContainsComponentNamed(kTrickObject);
     // (the load's gate 0x00565BB0: such a node isn't registered - absent from this game)
     if (trick && Mdl::Skate::ShouldBeAbsent(node))

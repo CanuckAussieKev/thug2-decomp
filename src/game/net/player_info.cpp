@@ -35,7 +35,7 @@ inline void** const kPlayerNodeVtable = reinterpret_cast<void**>(0x0064C9E8); //
 inline void** const kScoreSearchVtable = reinterpret_cast<void**>(0x0064CCE0);
 inline void** const kScoreNodeVtable = reinterpret_cast<void**>(0x0064CCE4);
 
-Manager* TheManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* TheManager() { return g_gameNetManager; }
 
 Obj::CBaseComponent* SkaterComponent(Obj::CSkater* skater, uint32_t type)
 {

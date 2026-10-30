@@ -15,8 +15,11 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/gfx/loading_bar_cfuncs.h"
+#include "game/net/gamenet_qr2.h"
+#include "game/net/gamenet_manager.h"
 #include "game/net/online_identity.h"
 #include "game/sio/device.h"
+#include "hook/game_global.h"
 #include "hook/log.h"
 #include "game/sys/main.h"
 #include "game/sys/pc_setup.h"
@@ -116,6 +119,10 @@ const uint32_t kDefaultBindings[3][24] = {
 
 } // namespace
 
+GAME_GLOBAL(bool, g_internetGameHost, 0x007CC260);
+GAME_GLOBAL(bool, g_joiningInternetGame, 0x007CCA80);
+GAME_GLOBAL(bool, g_appActive, 0x007CCBE4);
+
 // 0x004E16B0
 LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -129,10 +136,10 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         // (the game's window, not the message's)
         if (LOWORD(wParam) == WA_ACTIVE || LOWORD(wParam) == WA_CLICKACTIVE) {
             ShowWindow(GameWindow(), SW_MAXIMIZE);
-            GameVariable<bool>(0x007CCBE4) = true; // active
+            g_appActive = true; // active
         } else {
             ShowWindow(GameWindow(), SW_MINIMIZE);
-            GameVariable<bool>(0x007CCBE4) = false;
+            g_appActive = false;
             GameVariable<bool>(0x00786AB4) = true; // the device is taken as lost (reset when active again)
             InvalidateRect(nullptr, nullptr, TRUE);
         }
@@ -181,14 +188,14 @@ void ReadNetworkParams(const char* commandLine)
     };
 
     if (find("-HOST "))
-        GameVariable<bool>(0x007CC260) = true; // hosting a game
+        g_internetGameHost = true; // hosting a game
     if (const char* at = find("-HOSTNAME"))
         CopyValue(at + 9, GameString(0x0067EFBC), 15); // the hosted game's name (the exe has "Beenox")
     if (const char* at = find("-EMAIL"))
         CopyValue(at + 6, GameString(0x007CCA90), 255);
     if (const char* at = find("-PPASS"))
         CopyValue(at + 6, GameString(0x007CCB90), 15);
-    if (!GameVariable<bool>(0x007CC260)) {
+    if (!g_internetGameHost) {
         // The server to join: its name, and its IPv4 address (as inet_addr gives it - INADDR_NONE if it isn't one
         // and the name isn't found either). (The value starts 9 characters on, one past "-CONNECT": the
         // character after it is skipped, normally a space.)
@@ -200,8 +207,8 @@ void ReadNetworkParams(const char* commandLine)
                 if (const hostent* host = gethostbyname(server))
                     std::memcpy(&address, host->h_addr_list[0], sizeof(address));
             }
-            GameVariable<uint32_t>(0x0067EFB8) = address;
-            GameVariable<bool>(0x007CCA80) = true; // joining a game
+            GameNet::g_commandLineServer = address;
+            g_joiningInternetGame = true; // joining a game
         }
     }
     // (The numbers are compared unsigned: a negative one counts as too big.)
@@ -210,7 +217,7 @@ void ReadNetworkParams(const char* commandLine)
         GameVariable<uint32_t>(0x0067EFD0) = players < 2 ? 2 : players > 8 ? 8 : players;
     }
     if (const char* at = find("-GROUP"))
-        GameVariable<int32_t>(0x007CC264) = Number(at + 6);
+        GameNet::g_lobbyGroupId = Number(at + 6);
     if (const char* at = find("-NTEAMS")) {
         auto teams = static_cast<uint32_t>(Number(at + 7));
         GameVariable<uint32_t>(0x007CCBE0) = teams > 4 ? 0 : teams;
@@ -224,7 +231,7 @@ void ReadNetworkParams(const char* commandLine)
     if (const char* at = find("-PASSWORD")) {
         char* password = GameString(0x007CCBD4);
         CopyValue(at + 9, password, 9);
-        if (GameVariable<bool>(0x007CCA80)) {
+        if (g_joiningInternetGame) {
             // Joining: it's the server's password (moved to where the join looks for it).
             std::memcpy(GameString(0x007CCDFC), password, std::strlen(password) + 1); // (strcpy)
             std::memset(password, 0, 10);

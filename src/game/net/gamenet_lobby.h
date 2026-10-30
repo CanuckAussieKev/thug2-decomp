@@ -9,6 +9,7 @@
 #include <cstdint>
 
 #include "game/core/alloc.h"
+#include "hook/game_global.h"
 
 namespace Script {
 class CScript;
@@ -321,5 +322,7 @@ bool __cdecl CFunc_SetQuietMode(Script::CStruct* params, Script::CScript* script
 // 0x005406C0 (CanHostGame): with restricted hosting only ten GameSpy profiles (logged in) may; otherwise whether the
 // lobby's +0x30 is below its +0x2C.
 bool __cdecl CFunc_CanHostGame(Script::CStruct* params, Script::CScript* script);
+
+GAME_GLOBAL_EXTERN(QueuedPacket[200], g_queuedPackets);
 
 } // namespace GameNet
