@@ -32,6 +32,7 @@
 #include "game/sys/sdl_window.h"
 #include "game/sys/timer.h"
 #include "game/gfx/viewport.h"
+#include "game/gfx/model.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"

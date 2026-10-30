@@ -21,6 +21,8 @@
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "game/gfx/viewport.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_scene_list.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"

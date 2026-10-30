@@ -26,6 +26,9 @@
 #include "game/gfx/texture_dict.h"
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
+#include "game/gfx/model.h"
+#include "game/gfx/skeleton.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/gs4_testkit.h"
 
 namespace {

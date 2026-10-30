@@ -26,6 +26,7 @@
 #include "game/skater/trick_lists.h"
 #include "game/gfx/model.h"
 #include "game/gfx/model_utils.h"
+#include "game/gfx/skeleton.h"
 #include "hook/viewer_testkit.h"
 
 namespace {

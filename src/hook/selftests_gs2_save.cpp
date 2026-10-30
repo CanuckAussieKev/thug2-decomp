@@ -28,6 +28,8 @@
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
 #include "game/goals/goal_manager.h"
+#include "game/ed/goal_editor.h"
+#include "game/sys/game_config.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"

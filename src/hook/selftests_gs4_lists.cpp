@@ -27,6 +27,8 @@
 #include "game/skater/skater_score_cfuncs.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
+#include "game/obj/pager_message.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/gs4_testkit.h"
 
 namespace {

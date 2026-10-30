@@ -21,6 +21,8 @@
 #include "game/script/struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/profile_manager.h"
+#include "game/gfx/face_texture.h"
+#include "game/skate/score.h"
 #include "hook/gs4_testkit.h"
 
 namespace {

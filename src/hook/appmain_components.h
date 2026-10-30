@@ -30,6 +30,8 @@
 #include "game/sys/timer.h"
 #include "game/skate/skate_module.h"
 #include "game/ed/rail_editor.h"
+#include "game/gfx/engine_shadows.h"
+#include "game/obj/editor_camera.h"
 #include "hook/appmain_testkit.h"
 #include "hook/standins.h"
 

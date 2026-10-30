@@ -27,6 +27,7 @@
 #include "game/goals/goal_manager.h"
 #include "game/script/struct.h"
 #include "game/skate/score.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/gs4_testkit.h"
 
 namespace {

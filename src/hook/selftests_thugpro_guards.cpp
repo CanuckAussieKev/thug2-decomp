@@ -29,6 +29,8 @@
 #include "game/util/bitstream.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/game_mode.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/sector.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"

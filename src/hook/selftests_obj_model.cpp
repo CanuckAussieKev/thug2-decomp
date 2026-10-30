@@ -23,6 +23,7 @@
 #include "game/sys/timer.h"
 #include "game/gfx/engine_model_lights.h"
 #include "game/gfx/light_manager.h"
+#include "game/gfx/model.h"
 #include "hook/skater3_testkit.h"
 
 namespace {

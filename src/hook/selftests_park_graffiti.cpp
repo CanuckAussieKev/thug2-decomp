@@ -14,6 +14,8 @@
 #include "game/net/player_info.h"
 #include "game/obj/trick_objects.h"
 #include "game/goals/goal_manager.h"
+#include "game/ed/rail_editor.h"
+#include "game/skate/skate_module.h"
 #include "hook/viewer_testkit.h"
 
 namespace {

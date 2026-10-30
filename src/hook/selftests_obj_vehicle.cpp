@@ -36,6 +36,7 @@
 #include "game/sys/timer.h"
 #include "game/gfx/viewport.h"
 #include "game/skate/skate_module.h"
+#include "game/gfx/model.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"

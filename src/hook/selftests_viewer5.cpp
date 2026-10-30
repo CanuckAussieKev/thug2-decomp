@@ -20,6 +20,7 @@
 #include "game/gfx/viewport.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
+#include "game/goals/goal_manager.h"
 #include "hook/viewer_testkit.h"
 
 namespace {

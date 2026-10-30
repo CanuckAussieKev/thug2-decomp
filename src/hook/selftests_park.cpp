@@ -28,6 +28,7 @@
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
 #include "game/ed/rail_editor.h"
+#include "game/ed/goal_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"

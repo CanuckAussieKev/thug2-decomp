@@ -20,6 +20,7 @@
 #include "game/mth/random.h"
 #include "game/nx/feeler.h"
 #include "game/gfx/texture_dict.h"
+#include "game/gfx/engine_scene_list.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"

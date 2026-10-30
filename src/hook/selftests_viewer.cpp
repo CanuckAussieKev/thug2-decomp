@@ -29,6 +29,7 @@
 #include "game/sys/viewer.h"
 #include "game/sys/viewer_object.h"
 #include "game/gfx/viewport_list.h"
+#include "game/gfx/viewport.h"
 #include "hook/viewer_testkit.h"
 
 namespace {

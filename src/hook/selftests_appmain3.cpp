@@ -17,6 +17,8 @@
 #include "game/gfx/shadow.h"
 #include "game/lst/hashtable.h"
 #include "game/gfx/model.h"
+#include "game/gfx/geom.h"
+#include "game/gfx/mesh.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"

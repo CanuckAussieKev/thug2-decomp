@@ -36,6 +36,7 @@
 #include "game/goals/goal_manager.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
+#include "game/script/script_startup.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"

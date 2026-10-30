@@ -32,6 +32,7 @@
 #include "game/skate/records.h"
 #include "game/skater/skater.h"
 #include "game/goals/goal_manager.h"
+#include "game/ed/goal_editor.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"

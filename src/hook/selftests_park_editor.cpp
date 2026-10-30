@@ -34,6 +34,8 @@
 #include "game/ed/rail_editor.h"
 #include "game/script/game_cfuncs.h"
 #include "game/skate/skate_module.h"
+#include "game/ed/goal_editor.h"
+#include "game/script/world_cfuncs.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"

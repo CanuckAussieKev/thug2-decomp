@@ -20,6 +20,10 @@
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/model.h"
 #include "game/gfx/model_builder.h"
+#include "game/gfx/bone_volumes.h"
+#include "game/gfx/engine_geom.h"
+#include "game/gfx/engine_model_lights.h"
+#include "game/gfx/model_utils.h"
 #include "hook/skater3_testkit.h"
 
 namespace {

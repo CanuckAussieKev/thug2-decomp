@@ -25,6 +25,7 @@
 #include "game/script/struct_buffer.h"
 #include "game/sfx/sfx.h"
 #include "game/goals/goal_manager.h"
+#include "game/sys/game_config.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"

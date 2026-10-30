@@ -27,6 +27,7 @@
 #include "game/gfx/engine_effects.h"
 #include "game/gfx/engine_texture.h"
 #include "game/gfx/texture_dict.h"
+#include "game/gfx/engine.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"

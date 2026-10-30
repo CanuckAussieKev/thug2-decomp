@@ -23,6 +23,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "game/script/game_cfuncs.h"
+#include "game/skate/cas_options.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 

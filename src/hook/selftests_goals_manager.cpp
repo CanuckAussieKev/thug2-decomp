@@ -45,6 +45,7 @@
 #include "game/skater/skater.h"
 #include "game/script/struct.h"
 #include "game/skate/skate_module.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/goals_testkit.h"
 #include "hook/hook.h"

@@ -19,6 +19,7 @@
 #include "game/gfx/pc_grass.h"
 #include "game/gfx/pixel_shaders.h"
 #include "game/gfx/texture_dict.h"
+#include "game/gfx/engine_scene_list.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"

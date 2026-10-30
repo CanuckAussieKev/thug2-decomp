@@ -23,6 +23,7 @@
 #include "game/goals/goal_manager.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
+#include "game/ed/goal_editor.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 

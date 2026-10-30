@@ -28,6 +28,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "game/script/game_cfuncs.h"
+#include "game/ed/goal_editor.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 

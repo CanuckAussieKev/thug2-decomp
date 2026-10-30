@@ -19,6 +19,7 @@
 #include "game/script/struct.h"
 #include "game/gfx/engine_effects.h"
 #include "game/gfx/texture_dict.h"
+#include "game/gfx/skeleton.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"

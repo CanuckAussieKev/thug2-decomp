@@ -29,6 +29,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/gfx/face_texture.h"
 #include "game/skate/game_mode.h"
+#include "game/skate/cas_options.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
