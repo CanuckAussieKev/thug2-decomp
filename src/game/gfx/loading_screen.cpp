@@ -47,7 +47,7 @@ UINT StartTimer(UINT delay, LPTIMECALLBACK callback)
 void StopTimer(UINT timer) { GameVariable<UINT(WINAPI*)(UINT)>(0x00645268)(timer); } // timeKillEvent
 
 GAME_GLOBAL(void*, g_loadingScreenSprite, 0x007052B0);
-GAME_GLOBAL(uint8_t[0x1C], g_pictureName, 0x0067E958); // (a std::string: all zero at start)
+GAME_GLOBAL(uint32_t[7], g_pictureName, 0x0067E958, 0, 0, 0, 0, 0, 0, 0x0F); // (a std::string: empty, its capacity 15)
 
 // The picture (a texture holder, 0x14 bytes: 0x004C7ED0; its texture at +0x10, through one more pointer with flag 1
 // of +0x08) and the loading screen's other sprite.
@@ -58,14 +58,14 @@ void*& Sprite() { return g_loadingScreenSprite; }
 // in place below 16 (+0x04), else through +0x04; its capacity at +0x18).
 const char* PictureName()
 {
-    uint8_t* name = g_pictureName;
+    uint8_t* name = reinterpret_cast<uint8_t*>(g_pictureName);
     if (*reinterpret_cast<uint32_t*>(name + 0x18) >= 16)
         return *reinterpret_cast<const char**>(name + 4);
     return reinterpret_cast<const char*>(name + 4);
 }
 void SetPictureName(const char* text)
 {
-    GameFunction<void*(__thiscall*)(void*, const char*)>(0x004B7880)(g_pictureName, text);
+    GameFunction<void*(__thiscall*)(void*, const char*)>(0x004B7880)(reinterpret_cast<uint8_t*>(g_pictureName), text);
 }
 
 struct PictureVertex {

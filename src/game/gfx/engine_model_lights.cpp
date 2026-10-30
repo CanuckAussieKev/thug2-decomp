@@ -8,6 +8,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/light_manager.h"
 #include "game/mth/vector.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
@@ -21,19 +22,16 @@ namespace {
 
 constexpr uint32_t kModelLightsVtable = 0x006491DC;
 
-GAME_GLOBAL(float, g_darkRange, 0x0067DCA4, 0.5f);
-GAME_GLOBAL(float, g_brightRange, 0x0067DCA8);
-GAME_GLOBAL(float*, g_darkRanges, 0x0067DCAC);
-GAME_GLOBAL(float*, g_brightRanges, 0x0067DCB0);
 GAME_GLOBAL(Mth::Vector, g_lightDirection, 0x006FAACC);
 GAME_GLOBAL(uint32_t, g_lightDirectionGuard, 0x006FAADC);
 
 // The light manager's: how many lights, the ambient ranges below / above the middle brightness, each light's.
 uint32_t LightCount() { return g_lightCount; }
-float DarkRange() { return g_darkRange; }
-float BrightRange() { return g_brightRange; }
-float* DarkRanges() { return g_darkRanges; }
-float* BrightRanges() { return g_brightRanges; }
+// (the world lights' fields: ambientLow 0x0067DCA4, ambientHigh, lightLow, lightHigh)
+float DarkRange() { return g_worldLights.ambientLow; }
+float BrightRange() { return g_worldLights.ambientHigh; }
+float* DarkRanges() { return g_worldLights.lightLow; }
+float* BrightRanges() { return g_worldLights.lightHigh; }
 
 template <typename R = void, typename... A>
 R Virtual(CModelLights* lights, int slot, A... args)

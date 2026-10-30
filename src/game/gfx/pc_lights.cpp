@@ -20,8 +20,6 @@ GAME_GLOBAL(Mth::Vector, g_sceneLightDirection, 0x0070166C);
 GAME_GLOBAL(uint32_t, g_sceneLightDirectionGuard, 0x0070167C);
 GAME_GLOBAL(float[28], g_lightConstants, 0x00786F38);
 
-GAME_GLOBAL(Mth::Vector*, g_sceneDirections, 0x0067DC9C);
-GAME_GLOBAL(uint32_t*, g_sceneColors, 0x0067DCA0);
 
 namespace {
 
@@ -37,8 +35,8 @@ float* LightColorConstant(uint32_t light) { return g_lightConstants + 8 + 8 * li
 // The scene's lights.
 uint32_t& SceneAmbient() { return g_worldLights.ambient; }
 float SceneScale() { return g_ambientIntensity; }
-Mth::Vector* SceneDirections() { return g_sceneDirections; }
-uint32_t* SceneColors() { return g_sceneColors; }
+Mth::Vector* SceneDirections() { return g_worldLights.directions; } // (0x0067DC9C)
+uint32_t* SceneColors() { return g_worldLights.colours; }           // (0x0067DCA0)
 float* SceneIntensities() { return g_intensities; }
 uint32_t LightCount() { return g_lightCount; }
 uint32_t ModelLightCount() { return g_modelLightCount; }

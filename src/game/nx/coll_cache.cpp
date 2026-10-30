@@ -7,6 +7,7 @@
 
 #include "game/core/alloc.h"
 #include "game/gfx/engine_scene_list.h"
+#include "game/nx/coll_world.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
@@ -18,12 +19,11 @@ namespace {
 CCollCache** Caches() { return reinterpret_cast<CCollCache**>(0x006918EC); }
 
 GAME_GLOBAL(uint32_t, g_cachesInUse, 0x0069190C);
-GAME_GLOBAL(Mem::ListNode*, g_firstMovable, 0x00691984);
 
 uint32_t& CachesInUse() { return g_cachesInUse; }
 
 // The movable collision objects (the first node of their list: 0x00691984).
-Mem::ListNode* FirstMovable() { return g_firstMovable; }
+Mem::ListNode* FirstMovable() { return g_movables.next; }
 
 // The collision grid lists the line from the box's min to its max passes through (null-terminated; null: none),
 // and one list's collision objects near the line (null-terminated). 0x0048C980 / 0x004188C0.
