@@ -10,6 +10,7 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/gamenet_qr2.h"
 #include "game/net/net_conn.h"
+#include "game/skate/game_mode.h"
 #include "hook/log.h"
 #include "hook/net2_testkit.h"
 #include "hook/online_identity_testkit.h"
@@ -78,7 +79,7 @@ void Install(StandIns& s)
     Stub(s, {0x00532D60, AddressOf(&Manager::GetMaxObservers)}, 0, 0x2D60, [](Regs&) { return 6u; });
     Stub(s, {0x00532BE0, AddressOf(&Manager::GetSkillLevel)}, 0, 0x2BE0, [](Regs&) { return 1u; });
     Stub(s, {0x00534310, AddressOf(&GameNet::Manager::GetPassword)}, 0, 0x4310, [](Regs&) { return reinterpret_cast<uint32_t>(g_password); });
-    Stub(s, {0x005532A0}, 0, 0x32A0, [](Regs&) { return g_gameType; });
+    Stub(s, {0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, 0x32A0, [](Regs&) { return g_gameType; });
 }
 
 void Prepare()

@@ -8,6 +8,7 @@
 #include "game/core/pool.h"
 #include "game/ed/park.h"
 #include "game/ed/park_editor.h"
+#include "game/ed/rail_editor.h"
 #include "game/mth/x87_math.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -25,43 +26,47 @@ constexpr float kDegreesToRadians = 0.017453292f; // 0x00645464
 // The clipboard entries' pool pair (CPoolable, 0x18-byte items).
 Mem::PoolPair& EntryPools() { return GameVariable<Mem::PoolPair>(0x007CE5C4); }
 
-// The rail editor (0x004F4970) and its rails (Obj::CEditedRail-like objects linked by their first word; not
-// rewritten yet: called at their addresses).
-void* RailEditor() { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); }
+// The rail editor (0x004F4970) and its rails (CEditedRail objects linked by their first word).
+void* RailEditor() { return CRailEditorComponent::Instance(); }
 // 0x004F7230: copies of the rails in the world box (x0, z0)-(x1, z1); 0x004F6BF0: how many rail points are free;
 // 0x004F72C0: a new rail.
 void* CopyRailsInBox(void* editor, float x0, float z0, float x1, float z1)
 {
-    return GameFunction<void*(__thiscall*)(void*, float, float, float, float)>(0x004F7230)(editor, x0, z0, x1, z1);
+    return static_cast<CRailEditorComponent*>(editor)->CopyRailsInside(x0, z0, x1, z1);
 }
-int FreeRailPoints(void* editor) { return GameFunction<int(__thiscall*)(void*)>(0x004F6BF0)(editor); }
-void* NewRail(void* editor) { return GameFunction<void*(__thiscall*)(void*)>(0x004F72C0)(editor); }
+int FreeRailPoints(void* editor)
+{
+    (void)editor;
+    return CRailEditorComponent::FreePoints();
+}
+void* NewRail(void* editor) { return static_cast<CRailEditorComponent*>(editor)->NewRail(); }
 void* NextRail(void* rail) { return *static_cast<void**>(rail); }
 // A rail's points (0x004F3B90); a copy of `from` (0x004F6F40); placed at `corner` and `cursor` turned by `angle`
 // (0x004F4370); two transforms with an origin, a position and an angle (0x004F61C0, 0x004F6210); hidden (0x004F4220,
 // 0x004F41C0); its destructor body (0x004F70F0); its pool pair (0x007CCD40).
-int RailPointCount(void* rail) { return GameFunction<int(__thiscall*)(void*)>(0x004F3B90)(rail); }
-void CopyRail(void* rail, void* from) { GameFunction<void(__thiscall*)(void*, void*)>(0x004F6F40)(rail, from); }
+int RailPointCount(void* rail) { return static_cast<CEditedRail*>(rail)->CountPoints(); }
+void CopyRail(void* rail, void* from)
+{
+    static_cast<CEditedRail*>(rail)->CopyFrom(static_cast<const CEditedRail*>(from));
+}
 void PlaceRail(void* rail, Mth::Vector* corner, Mth::Vector* cursor, float angle)
 {
-    GameFunction<void(__thiscall*)(void*, Mth::Vector*, Mth::Vector*, float)>(0x004F4370)(rail, corner, cursor, angle);
+    static_cast<CEditedRail*>(rail)->Transform(corner, cursor, angle);
 }
 void TransformRail1(void* rail, const Mth::Vector* origin, const Mth::Vector* position, float angle)
 {
-    GameFunction<void(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, float)>(0x004F61C0)(rail, origin,
-                                                                                                      position, angle);
+    static_cast<CEditedRail*>(rail)->DrawSegments(origin, position, angle);
 }
 void TransformRail2(void* rail, const Mth::Vector* origin, const Mth::Vector* position, float angle)
 {
-    GameFunction<void(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, float)>(0x004F6210)(rail, origin,
-                                                                                                      position, angle);
+    static_cast<CEditedRail*>(rail)->DrawPosts(origin, position, angle);
 }
 void HideRail(void* rail)
 {
-    GameFunction<void(__thiscall*)(void*)>(0x004F4220)(rail);
-    GameFunction<void(__thiscall*)(void*)>(0x004F41C0)(rail);
+    static_cast<CEditedRail*>(rail)->DeletePosts();
+    static_cast<CEditedRail*>(rail)->DeleteSegments();
 }
-void DestroyRail(void* rail) { GameFunction<void(__thiscall*)(void*)>(0x004F70F0)(rail); }
+void DestroyRail(void* rail) { static_cast<CEditedRail*>(rail)->Clear(); }
 Mem::PoolPair& RailPools() { return GameVariable<Mem::PoolPair>(0x007CCD40); }
 const Mth::Vector* RailOrigin() { return &GameVariable<Mth::Vector>(0x007CCD30); } // (zero)
 

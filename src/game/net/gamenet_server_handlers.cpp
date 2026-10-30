@@ -16,6 +16,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/ed/rail_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -128,7 +129,7 @@ int __cdecl HandleRequestGameData(Net::MsgHandlerContext* context)
     void* parkMap = Ed::CParkEditor::Instance()->GetCompressedMapBuffer(false);
     app->StreamMessage(handle, kMsgParkMap, kParkMapSize, parkMap, "level data", kGroupGame, false, true);
     handle = context->m_Conn->m_handle;
-    auto railEditor = [] { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); };
+    auto railEditor = [] { return Ed::CRailEditorComponent::Instance(); };
     railEditor(); // (looked up once for nothing)
     void* rails = Call<void*>(0x004F45B0, railEditor());
     app->StreamMessage(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);

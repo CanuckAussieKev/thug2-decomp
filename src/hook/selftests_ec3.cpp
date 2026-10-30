@@ -36,6 +36,7 @@
 #include "game/sys/game_clock.h"
 #include "game/sys/system_cfuncs.h"
 #include "game/sys/timer.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"

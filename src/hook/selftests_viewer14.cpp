@@ -16,6 +16,7 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/skater/skater.h"
+#include "game/gfx/viewport.h"
 #include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
@@ -166,7 +167,7 @@ void Install(StandIns& s)
         Rec(0xBD60, {r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x004A09C0}, 0, [](Regs& r) {
+    s.At({0x004A09C0, AddressOf(&Nx::GetActiveCamera)}, 0, [](Regs& r) {
         Rec(0x09C0, {r.args[0]});
         return g_camera ? Block(21) : 0u;
     });

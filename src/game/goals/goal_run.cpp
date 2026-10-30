@@ -21,6 +21,8 @@
 #include "game/skater/end_run.h"
 #include "game/skater/skater.h"
 #include "game/sys/timer.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -49,8 +51,8 @@ GoalLink* NewLink()
 GameNet::Manager* NetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
 Obj::CCompositeObject* LocalSkater() { return SkateCalls::GetLocalSkater(); }
 // The game mode's name (0x005532A0) and whether it beeps the timer (0x00553150).
-uint32_t GameModeName() { return GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(SkateCalls::GameMode()); }
-bool GameModeTimerBeeps() { return GameFunction<bool(__thiscall*)(void*)>(0x00553150)(SkateCalls::GameMode()); }
+uint32_t GameModeName() { return static_cast<Game::CGameMode*>(SkateCalls::GameMode())->GetNameChecksum(); }
+bool GameModeTimerBeeps() { return static_cast<Game::CGameMode*>(SkateCalls::GameMode())->ShouldTimerBeep(); }
 // A field at `offset`.
 float FloatAt(const void* object, uint32_t offset)
 {
@@ -59,7 +61,7 @@ float FloatAt(const void* object, uint32_t offset)
 // How often the score (Mdl::Score) has seen trick `trick` with no spin, not perfect, one tap (0x005624C0).
 int TrickCount(void* score, uint32_t trick)
 {
-    return GameFunction<int(__thiscall*)(void*, uint32_t, int, int, int)>(0x005624C0)(score, trick, 0, 0, 1);
+    return static_cast<Mdl::Score*>(score)->CountTrickAfterTaps(trick, 0, false, 1);
 }
 // An object's member function by name (vtable +0x0C).
 bool CallObjectMember(Obj::CCompositeObject* object, uint32_t name, Script::CStruct* params, Script::CScript* script)

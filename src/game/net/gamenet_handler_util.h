@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "game/core/alloc.h"
+#include "game/goals/goal_manager.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
@@ -61,7 +62,7 @@ inline uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
 inline uint8_t* GameMode() { return GameVariable<uint8_t*>(0x007CE470); }
 inline bool IsTeamGame() { return Call<bool>(0x005535F0, GameMode()); }
 inline uint32_t GameType() { return Call<uint32_t>(0x005532A0, GameMode()); }
-inline uint8_t* GoalManager() { return GameFunction<uint8_t*(__cdecl*)()>(0x005591B0)(); }
+inline uint8_t* GoalManager() { return reinterpret_cast<uint8_t*>(Game::GetGoalManager()); }
 inline uint8_t* GetGoal(uint8_t* goals, uint32_t name) { return Call<uint8_t*>(0x00557F90, goals, name, 1); }
 
 // The manager's players (GameNet::PlayerInfo, player_info.h; reached as bytes here): +0x14 the skater, +0x18 the

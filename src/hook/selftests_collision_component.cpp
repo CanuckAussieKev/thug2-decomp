@@ -20,6 +20,7 @@
 #include "game/obj/matrix_component.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -115,7 +116,7 @@ void StandIn(StandIns& s)
         Record({0xADD0, r.args[0]});
         return g_a.shapeType;
     });
-    s.At({0x0048C510}, 0, [](Regs& r) {
+    s.At({0x0048C510, AddressOf(&Nx::Engine::GetSector)}, 0, [](Regs& r) {
         Record({0xC510, r.args[0]});
         return reinterpret_cast<uint32_t>(g_world.sector);
     });

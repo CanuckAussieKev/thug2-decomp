@@ -13,6 +13,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/trick_goals.h"
 #include "game/skater/skater.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -92,7 +93,7 @@ int TotalWithPending(void* score)
     auto* bytes = static_cast<uint8_t*>(score);
     int pending = static_cast<int>(static_cast<double>(*reinterpret_cast<int*>(bytes + 0x14)) *
                                    *reinterpret_cast<float*>(bytes + 0x60));
-    return GameFunction<int(__thiscall*)(void*)>(0x00561B40)(score) + pending;
+    return static_cast<Mdl::Score*>(score)->GetTotalScore() + pending;
 }
 
 // goal_lose_next_frame spawned for `goal`.

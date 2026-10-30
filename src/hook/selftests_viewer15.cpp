@@ -15,6 +15,7 @@
 #include "game/sio/device.h"
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
+#include "game/skate/game_mode.h"
 #include "hook/appmain_testkit.h"
 #include "hook/viewer_testkit.h"
 
@@ -115,7 +116,7 @@ void Install(StandIns& s)
         Rec(0x1480, {r.ecx, r.args[0], r.args[1], r.args[2] & 0xFF, r.args[3] & 0xFF, r.args[4]});
         return 0u;
     });
-    s.At({0x005532A0}, 0, [](Regs& r) {
+    s.At({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, [](Regs& r) {
         Rec(0x32A0, {r.ecx});
         return g_mode;
     });

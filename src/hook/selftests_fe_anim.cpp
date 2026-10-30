@@ -19,6 +19,7 @@
 #include "game/sys/game_clock.h"
 #include "game/script/cscript.h"
 #include "game/sys/game_clock.h"
+#include "game/gfx/anim_cache.h"
 #include "hook/fe_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -125,7 +126,7 @@ void InstallStandIns(StandIns& s)
         Rec(0x5270, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00480660}, 0, [](Regs&) {
+    s.At({0x00480660, AddressOf(&Gfx::CAnimCache::Get)}, 0, [](Regs&) {
         Rec(0x0660, {});
         return At(kGlobal);
     });

@@ -17,6 +17,7 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -253,7 +254,7 @@ void __cdecl LobbyMan::ConnectCallback(void* peer, int success, int, void* param
     Net::Manager* net = Net::Manager::Instance();
     Dbg::Printf("****** Connect Callback Successful\n");
     net->SetLocalAddress(Sdk<uint32_t>(0x005FC940, peer)); // the peer's public address
-    GameFunction<bool(__cdecl*)(Script::CStruct*, Script::CScript*)>(0x005A1130)(nullptr, nullptr); // StartLobbyList
+    CFuncs::CFunc_StartLobbyList(nullptr, nullptr);
     lobby->m_expectingDisconnect = false;
     GameVariable<uint32_t>(0x007CE434) = Tmr::GetTime(); // connected
 }

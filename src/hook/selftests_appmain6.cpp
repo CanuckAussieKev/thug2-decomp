@@ -18,6 +18,8 @@
 #include "game/gfx/draw2d.h"
 #include "game/gfx/screen_fx.h"
 #include "game/gfx/sprite.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/engine.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -73,7 +75,7 @@ struct Screens {
             return 0u;
         });
         UseStandardRelocation(com);
-        s.At({0x00490DE0}, 0, [](Regs& r) { Record({0x0DE0, r.args[0] & 0xFF}); return 0u; }); // SetFog
+        s.At({0x00490DE0, AddressOf(&Nx::Engine::EnableFog)}, 0, [](Regs& r) { Record({0x0DE0, r.args[0] & 0xFF}); return 0u; }); // SetFog
         s.At({0x004B6070}, 0, [this](Regs& r) { Record({0x6070, Relocate(r.args[0]), Relocate(r.args[1])}); return 0u; });
     }
     ~Screens()

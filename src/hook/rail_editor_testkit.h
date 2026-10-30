@@ -32,8 +32,8 @@ constexpr uint32_t kRailItems = 0x1C60;     // 24 rails
 constexpr int kRailCount = 24;
 constexpr uint32_t kSectors = 0x1DE0;       // 48 sectors (0x20 bytes: +4 the name, +0x14 the geometry)
 constexpr int kSectorCount = 48;
-constexpr uint32_t kGeometries = 0x23E0;    // 48 geometries (a vtable pointer each)
-constexpr uint32_t kGeometryVtable = 0x2560;
+// (the 48 geometries - +0 a vtable pointer, +8 the collision faces - and their vtable are outside the arena:
+// g_geometries / g_geometryVtable below)
 constexpr uint32_t kManager = 0x2580;       // the park manager (+0 the generator)
 constexpr uint32_t kGenerator = 0x25A0;
 constexpr uint32_t kOut = 0x2600;           // outputs (0x100 bytes)
@@ -44,6 +44,8 @@ constexpr uint32_t kScratch = 0x2A00;       // the rest: per test
 // The memory manager's stand-in heap (not in the arena: the pools' blocks are big). Bump allocation from the start
 // each run.
 alignas(16) inline uint8_t g_heap[0x10000];
+alignas(16) inline uint8_t g_geometries[48][0x10];
+inline void* g_geometryVtable[64];
 inline uint32_t g_heapUsed;
 inline void* HeapAllocate(uint32_t size)
 {
@@ -146,10 +148,16 @@ inline std::vector<CEditedRail*> BuildWorld(int maxRails, int maxPoints)
     // the sectors
     for (int i = 0; i < kSectorCount; ++i) {
         *At<uint32_t>(kSectors + i * 0x20 + 4) = 0x5EC70000u + i;
-        *At<uint8_t*>(kSectors + i * 0x20 + 0x14) = Next() % 5 ? ArenaPtr(kGeometries + i * 8) : nullptr;
-        *At<uint8_t*>(kGeometries + i * 8) = ArenaPtr(kGeometryVtable);
+        *At<uint8_t*>(kSectors + i * 0x20 + 0x14) = Next() % 5 ? g_geometries[i] : nullptr;
+        std::memset(g_geometries[i], 0, sizeof(g_geometries[i]));
+        *reinterpret_cast<void***>(g_geometries[i]) = g_geometryVtable;
     }
-    *At<void*>(kGeometryVtable + 0x18) = reinterpret_cast<void*>(&GeometrySetColour);
+    // (the vtable's slots ours calls - SetColor 6 - and, aimed at the original dispatchers that the
+    // draw test stands in for, the vertex slots 36, 37, 39)
+    g_geometryVtable[6] = reinterpret_cast<void*>(&GeometrySetColour);
+    g_geometryVtable[36] = reinterpret_cast<void*>(0x0048DF70);
+    g_geometryVtable[37] = reinterpret_cast<void*>(0x0048DF80);
+    g_geometryVtable[39] = reinterpret_cast<void*>(0x0048DF90);
     *At<uint8_t*>(kManager) = ArenaPtr(kGenerator);
     // the pool pairs (the current slot 0 or 1; the other empty or an empty spare pool)
     g_start = Globals::Read();

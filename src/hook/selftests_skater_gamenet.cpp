@@ -17,6 +17,7 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/ed/goal_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -133,15 +134,15 @@ void Install(StandIns& s)
                      Rel(reinterpret_cast<uint32_t>(desc->m_data)) >= 0xA0000000u ? reinterpret_cast<uint32_t>(desc->m_data) : 0u});
         return 0u;
     });
-    s.At({0x004E8470}, 0, [](Regs&) {
+    s.At({0x004E8470, AddressOf(&Ed::CGoalEditorComponent::Get)}, 0, [](Regs&) {
         Rec(0x8470, {});
         return At(kEditor);
     });
-    s.At({0x004E7E50}, 4, [](Regs& r) {
+    s.At({0x004E7E50, AddressOf(&Ed::CGoalEditorComponent::CountCompleteGoals)}, 4, [](Regs& r) {
         Rec(0x7E50, {r.ecx, r.args[0]});
         return g_gs_goalCount;
     });
-    s.At({0x004EBB70}, 12, [](Regs& r) {
+    s.At({0x004EBB70, AddressOf(&Ed::CGoalEditorComponent::WriteLevelGoalsToBuffer)}, 12, [](Regs& r) {
         Rec(0xBB70, {r.ecx, r.args[0], r.args[1], r.args[2]});
         std::memset(reinterpret_cast<void*>(r.args[1]), 0x6B, 40);
         return 40u;

@@ -9,6 +9,7 @@
 #include "game/net/net_dispatcher.h"
 #include "game/script/struct.h"
 #include "game/skate/skate_net.h"
+#include "game/gfx/frame_source.h"
 #include "hook/game.h"
 #include "hook/log.h"
 
@@ -42,7 +43,7 @@ constexpr uint32_t kSpecialItemDetails = 0;  // 0x77 / 0x78
 bool AnimationLoaded(uint32_t animation)
 {
     // (0x0048CF50: the animation cache's entry for the set + animation, 0 = don't load it)
-    return GameFunction<void*(__cdecl*)(uint32_t, int)>(0x0048CF50)(kSkaterAnims + animation, 0) != nullptr;
+    return Nx::GetAnimData(kSkaterAnims + animation, 0) != nullptr;
 }
 
 bool StructureExists(uint32_t name) { return Script::GetStructure(name) != nullptr; }

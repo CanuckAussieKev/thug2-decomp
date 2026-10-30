@@ -19,6 +19,11 @@
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
 #include "game/sys/timer.h"
+#include "game/ed/rail_editor.h"
+#include "game/ed/goal_editor.h"
+#include "game/script/game_cfuncs.h"
+#include "game/script/world_cfuncs.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -89,8 +94,8 @@ void RunScript(uint32_t name) { Script::RunScript(name, nullptr, nullptr, false,
 CGapManager* GapManager() { return CGapManager::sInstance(); }
 
 // The rail editor (0x004F4970 looks it up) and the goal editor (0x004E8470).
-void* RailEditor() { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); }
-void* GoalEditor() { return GameFunction<void*(__cdecl*)()>(0x004E8470)(); }
+CRailEditorComponent* RailEditor() { return CRailEditorComponent::Instance(); }
+CGoalEditorComponent* GoalEditor() { return CGoalEditorComponent::Get(); }
 
 
 // The level changed to load_sk5ed again (the park's shell changed).
@@ -312,7 +317,7 @@ void CParkEditor::ShowEditorView(bool on)
 void CParkEditor::SwitchCamera()
 {
     // 0x0059F890: the active camera (by its object's name)
-    auto setCamera = GameFunction<void(__cdecl*)(uint32_t, int, int)>(0x0059F890);
+    auto setCamera = [](uint32_t id, int viewport, int takeCurrentView) { CFuncs::MakeCameraActive(id, viewport, takeCurrentView != 0); };
     if (HaveCursor() && Cursor()->m_mode == CCursor::kModeRailPlacement) {
         setCamera(kRailEditorCam, 0, 0);
         return;
@@ -614,11 +619,11 @@ void CParkEditor::Update()
 
     // After a change to the park: the rails and the goals follow the floor.
     if ((m_commands & (kCommandPlace | kCommandRemove | kCommandRaise)) || (m_commands & kCommandLower)) {
-        void* rails = RailEditor();
-        GameFunction<void(__thiscall*)(void*)>(0x004F6510)(rails); // the rails' points onto the floor again
-        GameFunction<void(__thiscall*)(void*)>(0x004F65A0)(rails); // their segments updated
-        GameFunction<void(__thiscall*)(void*)>(0x004F6600)(rails); // their points updated
-        GameFunction<void(__thiscall*)(void*)>(0x004EA780)(GoalEditor()); // the park's goals placed again
+        CRailEditorComponent* rails = RailEditor();
+        rails->RestoreHeights();                // the rails' points onto the floor again
+        rails->DrawAllSegments();               // their segments updated
+        rails->DrawAllPosts();                  // their points updated
+        GoalEditor()->PlaceParkGoalsOnGround(); // the park's goals placed again
     }
 
     Cursor()->Update(shiftX, shiftZ, rotation90);
@@ -659,10 +664,10 @@ void CParkEditor::LogicUpdate()
             Script::CStruct params;
             params.Init();
             params.AddChecksum(0u, kHide);
-            GameFunction<bool(__cdecl*)(Script::CStruct*, Script::CScript*)>(0x005A53A0)(&params, nullptr); // PauseSkaters
+            CFuncs::CFunc_PauseSkaters(&params, nullptr);
             params.Clear();
         } else if (m_state == kStateTestPlay) {
-            GameFunction<bool(__cdecl*)(Script::CStruct*, Script::CScript*)>(0x005A5420)(nullptr, nullptr); // UnPauseSkaters
+            CFuncs::CFunc_UnPauseSkaters(nullptr, nullptr);
         }
     }
     if (m_state != kStateEdit || !HaveCursor()) {
@@ -672,7 +677,7 @@ void CParkEditor::LogicUpdate()
     if (m_flags & kFlagPaused)
         return;
     // The rail editor's flags (+0x08): bit 0.
-    auto railBit = []() { return (static_cast<uint8_t*>(RailEditor())[8] & 1) != 0; };
+    auto railBit = []() { return (reinterpret_cast<uint8_t*>(RailEditor())[8] & 1) != 0; };
     if (Cursor()->m_mode == CCursor::kModeRailPlacement) {
         if (railBit())
             RunScript(kSwitchOnRailEditor);
@@ -706,7 +711,7 @@ void CParkEditor::SetState(uint32_t state)
     }
     Mdl::FrontEnd* frontEnd = Mdl::CreateFrontEnd(false); // (a Spt::SingletonPtr<Mdl::FrontEnd>)
     if (state == kStateEdit) {
-        GameFunction<void(__thiscall*)(void*)>(0x00564F20)(SkateModule());
+        reinterpret_cast<Mdl::Skate*>(SkateModule())->CleanupForParkEditor();
         frontEnd->m_autoRepeatDelay = 320;
         frontEnd->m_autoRepeatRate = 100;
         Manager()->HighlightGapPieces(false, nullptr);

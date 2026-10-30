@@ -30,6 +30,12 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/frame_source.h"
+#include "game/gfx/light_manager.h"
+#include "game/gfx/model.h"
+#include "game/gfx/scene_lights.h"
+#include "game/skate/skate_module.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -302,17 +308,17 @@ void StandInObjects(StandIns& s)
         }
         return 0xA55E0000u;
     });
-    s.At({0x0048CF50}, 0, [](Regs& r) {
+    s.At({0x0048CF50, AddressOf(&Nx::GetAnimData)}, 0, [](Regs& r) {
         uint32_t value = Hash(10, r.args[0], 0) % 3 == 0 ? 0 : 0xA41D0000 + (r.args[0] & 0xFF);
         Record({0x48CF5000, r.args[0], r.args[1], value});
         return value;
     });
     // lights
-    s.At({0x00490570}, 0, [](Regs& r) {
+    s.At({0x00490570, AddressOf(&Nx::CreateLightFromNode)}, 0, [](Regs& r) {
         Record({0x49057000, r.args[0]});
         return 0u;
     });
-    s.At({0x0048FCA0}, 0, [](Regs& r) {
+    s.At({0x0048FCA0, AddressOf(&Nx::DeleteSceneLight)}, 0, [](Regs& r) {
         Record({0x48FCA000, r.args[0]});
         return 0u;
     });
@@ -619,7 +625,7 @@ void StandInLoading(StandIns& s)
         Record({0x46193000, r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         uint32_t skater = Hash(14, 0, 0) % 3 ? Object(5) : 0;
         Record({0x56652000, r.ecx, skater});
         return skater;
@@ -646,7 +652,7 @@ void StandInLoading(StandIns& s)
             return part;
         });
     }
-    s.At({0x00492F30}, 4, [](Regs& r) {
+    s.At({0x00492F30, AddressOf(&Nx::CModel::GetBoundingSphere)}, 4, [](Regs& r) {
         auto* out = reinterpret_cast<uint32_t*>(r.args[0]);
         for (int i = 0; i < 4; ++i)
             out[i] = Hash(18, r.ecx, i);
@@ -894,11 +900,11 @@ void StandInUpdating(StandIns& s)
         Record({0x407B2000, r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x0048E970}, 0, [](Regs& r) {
+    s.At({0x0048E970, AddressOf(&Nx::SetAmbientLightModulationFactor)}, 0, [](Regs& r) {
         Record({0x48E97000, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x0048E990}, 0, [](Regs& r) {
+    s.At({0x0048E990, AddressOf(&Nx::SetDiffuseLightModulationFactor)}, 0, [](Regs& r) {
         Record({0x48E99000, r.args[0], r.args[1], r.args[2]});
         return 0u;
     });
@@ -1435,7 +1441,7 @@ void StandInPlay(StandIns& s)
                 TestStandIns::Hash(reinterpret_cast<const char*>(r.args[1]))});
         return 0u;
     });
-    s.At({0x0048C100}, 0, [](Regs& r) {
+    s.At({0x0048C100, AddressOf(&Nx::ScreenShot)}, 0, [](Regs& r) {
         Record({0x48C10000, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
         return 0u;
     });

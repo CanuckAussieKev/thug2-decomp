@@ -24,6 +24,9 @@
 #include "game/script/struct.h"
 #include "game/skater/tagging.h"
 #include "game/skater/walk_physics.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/texture_dict.h"
+#include "game/gfx/engine.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -145,11 +148,11 @@ void StandInAll(StandIns& s)
         Record({0x49FB, r.args[0], Id(r.args[1])});
         return reinterpret_cast<uint32_t>(g_textures[g_nextTexture++ & 7]);
     });
-    s.At({0x0049F540}, 4, [](Regs& r) { Record({0x49F5, r.args[0]}); return reinterpret_cast<uint32_t>(g_textures[7]); });
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) { Record({0x49F5, r.args[0]}); return reinterpret_cast<uint32_t>(g_textures[7]); });
     s.At({0x0049F500}, 4, [](Regs& r) { Record({0x49F0, Id(r.args[0])}); return 0u; });
     s.At({0x0049F3B0}, 0, [](Regs& r) { Record({0x49F3, Id(r.ecx)}); return 0u; });
     s.At({0x0049F3F0}, 4, [](Regs& r) { Record({0x49F4, Id(r.ecx), r.args[0] & 0xFF}); return 0u; });
-    s.At({0x004916F0}, 0, [](Regs& r) { Record({0x4916, r.args[0]}); return 0u; });
+    s.At({0x004916F0, AddressOf(&Nx::Engine::KillTextureSplatsOfTexture)}, 0, [](Regs& r) { Record({0x4916, r.args[0]}); return 0u; });
     s.At({0x00487D50}, 4, [](Regs& r) { Record({0x487D, Id(r.ecx), Id(r.args[0])}); return 0u; });
     s.At({0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, [](Regs& r) { Record({0x9054, r.args[0]}); return 0u; });
     s.At({0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, [](Regs&) { Record({0x90B}); return 0u; });

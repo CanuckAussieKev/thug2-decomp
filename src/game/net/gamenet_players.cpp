@@ -25,6 +25,7 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/sys/mlp.h"
+#include "game/skater/skater_camera_component.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -103,7 +104,7 @@ Tsk::Stack* LogicTasks()
 // The skater camera's / walk camera's calls not rewritten as members here.
 void SetCameraSkater(Obj::CBaseComponent* camera, void* skater)
 {
-    GameFunction<void(__thiscall*)(void*, void*)>(0x004FA3C0)(camera, skater);
+    static_cast<Obj::CSkaterCameraComponent*>(camera)->SetSkater(static_cast<Obj::CCompositeObject*>(skater));
 }
 void SetWalkCameraSkater(Obj::CBaseComponent* camera, void* skater)
 {

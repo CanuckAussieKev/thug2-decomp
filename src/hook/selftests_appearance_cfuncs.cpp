@@ -23,6 +23,7 @@
 #include "game/skater/skater.h"
 #include "game/skater/skater_query_cfuncs.h"
 #include "game/skater/trick_component.h"
+#include "game/goals/goal_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -115,11 +116,11 @@ void StandInAppearanceCalls(StandIns& s)
         Record({0x65C0, r.ecx, r.args[0]});
         return r.args[0] < 2 ? reinterpret_cast<uint32_t>(g_skaters[r.args[0]]) : 0u;
     });
-    s.At({0x00564FC0}, 4, [](Regs& r) {
+    s.At({0x00564FC0, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4FC0, r.ecx, r.args[0]});
         return r.args[0] < kProfiles ? reinterpret_cast<uint32_t>(g_profiles[r.args[0]]) : 0u;
     });
-    s.At({0x00564F80}, 4, [](Regs& r) {
+    s.At({0x00564F80, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x4F80, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_profiles[1]);
     });

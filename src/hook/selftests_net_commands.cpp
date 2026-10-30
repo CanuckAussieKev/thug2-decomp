@@ -20,6 +20,7 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/ed/rail_editor.h"
 #include "hook/gamenet_testkit.h"
 #include "hook/log.h"
 
@@ -68,8 +69,8 @@ void Install(StandIns& s)
     Stub(s, {0x00534AF0, AddressOf(&Manager::ReattemptJoin)}, 4, 0x4AF0);
     Stub(s, {0x00564D80}, 0, 0x4D80, [](Regs&) { return At(kMisc + 0x600); });
     Stub(s, {0x0058D690, AddressOf(&Ed::CParkEditor::GetCompressedMapBuffer)}, 4, 0xD690, [](Regs&) { return At(kMisc + 0x680); });
-    StubCdecl(s, {0x004F4970}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x6C0); });
-    Stub(s, {0x004F45B0}, 0, 0x45B0, [](Regs&) { return At(kMisc + 0x700); });
+    StubCdecl(s, {0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0x4970, 0, [](Regs&) { return At(kMisc + 0x6C0); });
+    Stub(s, {0x004F45B0, AddressOf(&Ed::CRailEditorComponent::GetPacked)}, 0, 0x45B0, [](Regs&) { return At(kMisc + 0x700); });
     // Preferences and parameters.
     Stub(s, {0x0046C4A0, AddressOf(&Prefs::Preferences::GetPreference)}, 4, 0xC4A0, [](Regs& r) { return r.args[0]; });
     Stub(s, {0x0046C590, AddressOf(&Prefs::Preferences::GetPreferenceChecksum)}, 8, 0xC590,

@@ -23,6 +23,8 @@
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
 #include "game/skater/skater_score_cfuncs.h"
+#include "game/skate/game_mode.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/gs4_testkit.h"
 
 namespace {
@@ -261,7 +263,7 @@ void StandInListCalls(StandIns& s)
             return 0u;
         });
     }
-    s.At({0x005532A0}, 0, [](Regs&) {
+    s.At({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, [](Regs&) {
         Record({0x32A0});
         return g_lModeName;
     });

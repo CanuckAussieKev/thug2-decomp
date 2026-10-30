@@ -15,6 +15,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
+#include "game/gfx/face_texture.h"
 #include "hook/cas4_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -69,7 +70,7 @@ void StandInAppearanceCalls(StandIns& s)
         Record({0x7510, Relocate(r.ecx)});
         return static_cast<uint32_t>(*reinterpret_cast<uint8_t*>(r.ecx));
     });
-    s.At({0x00487520}, 4, [](Regs& r) {
+    s.At({0x00487520, AddressOf(&Gfx::CFaceTexture::SetValid)}, 4, [](Regs& r) {
         Record({0x7520, Relocate(r.ecx), r.args[0] & 0xFF});
         *reinterpret_cast<uint8_t*>(r.ecx) = static_cast<uint8_t>(r.args[0]);
         return 0u;

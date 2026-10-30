@@ -22,6 +22,10 @@
 #include "game/skater/physics_control.h"
 #include "game/skater/stats_manager.h"
 #include "game/skater/skater.h"
+#include "game/gfx/viewport.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -156,7 +160,7 @@ void Install(StandIns& s)
         return r.args[0] == 0x51u ? At(kSkater) : (r.args[0] == 0x52u ? 0u : At(kBlocks + 0x7C0));
     });
     // The rules, the network, cheats, modes.
-    s.At({0x005A1180}, 0, [](Regs& r) {
+    s.At({0x005A1180, AddressOf(&CFuncs::CFunc_InSplitScreenGame)}, 0, [](Regs& r) {
         Rec(0x1180, {r.args[0], r.args[1]});
         return g_rule ? 1u : 0u;
     });
@@ -180,7 +184,7 @@ void Install(StandIns& s)
         Rec(0x4CC0, {r.ecx, r.args[0]});
         return g_cheat ? 1u : 0u;
     });
-    s.At({0x00564D90}, 0, [](Regs& r) {
+    s.At({0x00564D90, AddressOf(&Mdl::Skate::GetGoalManager)}, 0, [](Regs& r) {
         Rec(0x4D90, {r.ecx});
         return Block(30);
     });
@@ -188,7 +192,7 @@ void Install(StandIns& s)
         Rec(0x9050, {r.ecx, r.args[0] & 0xFF});
         return static_cast<uint32_t>(g_difficulty);
     });
-    s.At({0x00553220}, 4, [](Regs& r) {
+    s.At({0x00553220, AddressOf(&Game::CGameMode::IsTrue)}, 4, [](Regs& r) {
         Rec(0x3220, {r.ecx, r.args[0]});
         return g_classic ? 1u : 0u;
     });
@@ -204,7 +208,7 @@ void Install(StandIns& s)
         Rec(0x3DE0, {r.args[0]});
         return 3u;
     });
-    s.At({0x004A09C0}, 0, [](Regs& r) {
+    s.At({0x004A09C0, AddressOf(&Nx::GetActiveCamera)}, 0, [](Regs& r) {
         Rec(0x09C0, {r.args[0]});
         return Block(31) + r.args[0];
     });

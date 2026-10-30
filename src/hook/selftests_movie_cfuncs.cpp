@@ -105,7 +105,7 @@ void StandInMovieCalls(StandIns& s)
         Record({0x65C0, r.ecx, r.args[0]});
         return r.args[0] < 3 ? reinterpret_cast<uint32_t>(g_skaters[r.args[0]]) : 0u;
     });
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, r.ecx});
         return Answer(0x00566520);
     });

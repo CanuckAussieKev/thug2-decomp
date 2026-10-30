@@ -23,6 +23,7 @@
 #include "game/skater/run_timer.h"
 #include "game/skater/skater_score.h"
 #include "game/sys/timer.h"
+#include "game/skate/score.h"
 #include "hook/skater3_testkit.h"
 
 namespace {
@@ -148,7 +149,7 @@ void StandIn(StandIns& s)
     Rec(s, {0x00584CC0, AddressOf(&Obj::CSkaterCareer::GetCheat)}, 1, 0x4CC0, [](Regs&) { return g_a.alwaysSpecial ? 1u : 0u; });
     Rec(s, {0x00478F60, AddressOf(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}, 1, 0x8F60,
         [](Regs& r) { return r.args[0] ^ 0x1234u; }, false, true);
-    Rec(s, {0x00561B40}, 0, 0x1B40, [](Regs&) { return static_cast<uint32_t>(g_a.total); });
+    Rec(s, {0x00561B40, AddressOf(&Mdl::Score::GetTotalScore)}, 0, 0x1B40, [](Regs&) { return static_cast<uint32_t>(g_a.total); });
     Rec(s, {0x005633B0}, 0, 0x33B0, [](Regs&) { return static_cast<uint32_t>(g_a.nonGap); });
     Rec(s, {0x00562410}, 4, 0x2410, [](Regs&) { return g_a.latest ? 1u : 0u; });
     Rec(s, {0x005623B0}, 4, 0x23B0, [](Regs&) { return g_a.latest ? 0x101u : 0x100u; });

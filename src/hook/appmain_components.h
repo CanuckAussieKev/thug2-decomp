@@ -28,6 +28,8 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/ed/rail_editor.h"
+#include "game/skate/skate_module.h"
 #include "hook/appmain_testkit.h"
 #include "hook/standins.h"
 
@@ -170,7 +172,7 @@ inline void StandInComponentWorld(StandIns& s)
         Record({0xDB90, WorldRelocate(r.ecx), r.args[0]});
         return reinterpret_cast<uint32_t>(g_answers.component(r.args[0]));
     });
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, WorldRelocate(r.ecx)});
         return reinterpret_cast<uint32_t>(g_world.skater);
     });
@@ -372,7 +374,7 @@ inline void StandInComponentWorld(StandIns& s)
         return 0u;
     });
     // The park editor's rail editor, a pad button taken.
-    s.At({0x004F4970}, 0, [](Regs&) { Record({0x4970}); return 0x4A1E0000u; });
+    s.At({0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) { Record({0x4970}); return 0x4A1E0000u; });
     s.At({0x004F3D30}, 4, [](Regs& r) { Record({0x3D30, r.ecx, r.args[0]}); return 0u; });
     s.At({0x0046B7E0, AddressOf(&Obj::CControlButton::ClearTrigger)}, 0, [](Regs& r) { Record({0xB7E0, WorldRelocate(r.ecx)}); return 0u; });
     // The script cache and nodes.

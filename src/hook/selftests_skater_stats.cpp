@@ -18,6 +18,10 @@
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
 #include "game/skater/stats_manager.h"
+#include "game/goals/goal_manager.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -198,12 +202,12 @@ void StandIns_(StandIns& s)
 
 void StandInGame(StandIns& s)
 {
-    s.At({0x00553220}, 4, [](Regs& r) { Record({0x5532, r.args[0]}); return static_cast<uint32_t>(g_flag1DED); });
-    s.At({0x00564FC0}, 4, [](Regs& r) {
+    s.At({0x00553220, AddressOf(&Game::CGameMode::IsTrue)}, 4, [](Regs& r) { Record({0x5532, r.args[0]}); return static_cast<uint32_t>(g_flag1DED); });
+    s.At({0x00564FC0, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Record({0x564F, r.args[0]});
         return reinterpret_cast<uint32_t>(g_profile);
     });
-    s.At({0x005591B0}, 0, [](Regs&) { Record({0x5591}); return 0x5F5F5F5Fu; });
+    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) { Record({0x5591}); return 0x5F5F5F5Fu; });
     s.At({0x00559050}, 4, [](Regs& r) { Record({0x5590, r.ecx, r.args[0] & 0xFF}); return static_cast<uint32_t>(g_difficulty); });
     s.At({0x00557E30}, 0, [](Regs& r) { Record({0x557E, r.ecx}); return static_cast<uint32_t>(g_flowFlag); });
     s.At({0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, [](Regs& r) {
@@ -226,7 +230,7 @@ void StandInGame(StandIns& s)
         Record({0x585E, Id(r.ecx), r.args[0], r.args[1]});
         return 1u;
     });
-    s.At({0x005624C0}, 0x10, [](Regs& r) {
+    s.At({0x005624C0, AddressOf(&Mdl::Score::CountTrickAfterTaps)}, 0x10, [](Regs& r) {
         Record({0x5624, Id(r.ecx), r.args[0], r.args[1], r.args[2], r.args[3]});
         return g_counts[r.args[3] & 1] + (r.args[0] == 0x89B7DBE4 ? 3 : 0);
     });

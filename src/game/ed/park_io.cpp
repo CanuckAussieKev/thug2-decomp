@@ -12,6 +12,8 @@
 #include "game/park/park_memory.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/ed/rail_editor.h"
+#include "game/ed/goal_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -405,12 +407,10 @@ void CParkManager::WriteIntoStructure(Script::CStruct* out)
     Script::CStruct* structMemory = Script::NewStruct();
     Script::CStruct* goals = structMemory ? structMemory->Init() : nullptr;
     // the goal editor (module GoalEditor, 0x004E8470) writes the park's goals (level Load_Sk5Ed)
-    void* goalEditor = GameFunction<void*(__cdecl*)()>(0x004E8470)();
-    GameFunction<void(__thiscall*)(void*, uint32_t, Script::CStruct*)>(0x004EBA10)(goalEditor, 0xE8B4B836, goals);
+    CGoalEditorComponent::Get()->WriteLevelGoals(0xE8B4B836, goals);
     out->AddStructurePointer(0xD8EB825Eu, goals); // Park_editor_goals
     // the rail editor (module RailEditor, 0x004F4970) writes the park's rails
-    void* railEditor = GameFunction<void*(__cdecl*)()>(0x004F4970)();
-    GameFunction<void(__thiscall*)(void*, Script::CStruct*)>(0x004F6680)(railEditor, out);
+    CRailEditorComponent::Instance()->WriteToStructure(out);
     out->AddInteger(0xB7E39B53u, GeneratorMaxPlayers(mp_generator)); // MaxPlayers
 }
 

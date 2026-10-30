@@ -18,6 +18,8 @@
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/pc_grass.h"
 #include "game/gfx/pixel_shaders.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/texture_dict.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -80,8 +82,8 @@ void TestPcGrass()
         Record({0xB110});
         return 0u;
     });
-    s.At({0x0048C7B0}, 0, [](Regs&) { return reinterpret_cast<uint32_t>(g_skyScene); });
-    s.At({0x0049F540}, 4, [](Regs& r) {
+    s.At({0x0048C7B0, AddressOf(&Nx::GetSkyScene)}, 0, [](Regs&) { return reinterpret_cast<uint32_t>(g_skyScene); });
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) {
         Record({0xF540, Relocate(r.ecx), r.args[0]});
         return reinterpret_cast<uint32_t>(g_textureEntry);
     });

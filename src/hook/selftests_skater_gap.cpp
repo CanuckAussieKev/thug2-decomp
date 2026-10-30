@@ -22,6 +22,8 @@
 #include "game/skater/gap.h"
 #include "game/skater/skater.h"
 #include "game/skater/trick_lists.h"
+#include "game/skate/score.h"
+#include "game/skate/skate_module.h"
 #include "hook/skater3_testkit.h"
 
 namespace {
@@ -145,7 +147,7 @@ void StandIn(StandIns& s)
     Rec(s, {0x00562620}, 3, 0x2620, count(0));
     Rec(s, {0x005625A0}, 3, 0x25A0, count(1));
     Rec(s, {0x00562510}, 4, 0x2510, count(2));
-    Rec(s, {0x005624C0}, 4, 0x24C0, count(3));
+    Rec(s, {0x005624C0, AddressOf(&Mdl::Score::CountTrickAfterTaps)}, 4, 0x24C0, count(3));
     Rec(s, {0x0049F4C0}, 2, 0xF4C0);
     s.At({0x00563990}, 12, [](Regs& r) {
         Record({0x3990, Rel(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], r.args[2]});
@@ -191,7 +193,7 @@ void StandIn(StandIns& s)
     Rec(s, {0x00409070, AddressOf(&Script::DeleteStruct)}, 1, 0x9070, nullptr, false, true);
     s.At({0x006234FE}, 0, StandInSprintf);
     // The gap checklist and the career.
-    Rec(s, {0x005656C0}, 0, 0x56C0, [](Regs&) { return Addr(kParams + 0x700); });
+    Rec(s, {0x005656C0, AddressOf(&Mdl::Skate::GetGapChecklist)}, 0, 0x56C0, [](Regs&) { return Addr(kParams + 0x700); });
     s.At({0x00578BC0, AddressOf(&Game::CGapChecklist::SetGapPositions)}, 36, [](Regs& r) {
         Record({0x8BC0, Rel(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0]))});
         for (int i = 1; i <= 8; ++i)

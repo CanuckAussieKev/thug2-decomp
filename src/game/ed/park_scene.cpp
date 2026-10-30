@@ -8,6 +8,9 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/ed/park.h"
+#include "game/ed/park_nx.h"
+#include "game/ed/rail_editor.h"
+#include "game/gfx/engine_geom.h"
 #include "game/lst/hashtable.h"
 #include "game/nx/coll_tri.h"
 #include "game/park/park_memory.h"
@@ -22,53 +25,62 @@ namespace {
 // The super sectors are brought up to date when sectors are deleted (0x0067F398; off while a rebuild runs).
 bool& SceneUpdates() { return GameVariable<bool>(0x0067F398); }
 
-// The engine's scenes and sectors (Nx; not rewritten yet).
-void* GetScene(const char* name) { return GameFunction<void*(__cdecl*)(const char*)>(0x0048C750)(name); }
+// The engine's scenes and sectors (Nx).
+void* GetScene(const char* name) { return Nx::GetSceneByName(name); }
 void* CloneScene(const char* name, void* textures, int flag)
 {
-    return GameFunction<void*(__cdecl*)(const char*, void*, int)>(0x0048CC80)(name, textures, flag);
+    return Nx::NewScene(name, static_cast<Nx::CTexDict*>(textures), flag != 0);
 }
-void* GetSector(uint32_t name) { return GameFunction<void*(__cdecl*)(uint32_t)>(0x0048C510)(name); }
+void* GetSector(uint32_t name) { return Nx::Engine::GetSector(name); }
 // CScene: a sector deleted (0x0049CF80), the sectors flagged for it deleted (0x0049D030), the super sectors updated
 // (0x0049D780), a sector cloned into `scene` (0x0049DF30; returns the clone's name)
-void DeleteSector(void* scene, uint32_t name) { GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x0049CF80)(scene, name); }
-void DeleteMarkedSectors(void* scene) { GameFunction<void(__thiscall*)(void*)>(0x0049D030)(scene); }
-void UpdateSuperSectorsOf(void* scene) { GameFunction<void(__thiscall*)(void*, void*)>(0x0049D780)(scene, nullptr); }
+void DeleteSector(void* scene, uint32_t name) { static_cast<Nx::CScene*>(scene)->DeleteSectorNamed(name); }
+void DeleteMarkedSectors(void* scene) { static_cast<Nx::CScene*>(scene)->DeleteMarkedSectors(); }
+void UpdateSuperSectorsOf(void* scene) { static_cast<Nx::CScene*>(scene)->UpdateSuperSectors(nullptr); }
 uint32_t CloneSector(void* source, uint32_t name, void* scene, int cursor, int notCursor)
 {
-    return GameFunction<uint32_t(__thiscall*)(void*, uint32_t, void*, int, int, int)>(0x0049DF30)(
-        source, name, scene, cursor, notCursor, 0);
+    return static_cast<Nx::CScene*>(source)->CloneSectorNamed(name, static_cast<Nx::CScene*>(scene), cursor,
+                                                              notCursor != 0, 0);
 }
-// CSector: placed (0x0049E6C0), turned (0x0049E760), its box (0x0049E6A0: min, max), its geometry (0x004A2BA0)
+// CSector: placed (0x0049E6C0), turned (0x0049E760), its box (0x0049E6A0: min, max), its geometry (+0x14, 0x004A2BA0)
 void SetWorldPosition(void* sector, const Mth::Vector* position)
 {
-    GameFunction<void(__thiscall*)(void*, const Mth::Vector*)>(0x0049E6C0)(sector, position);
+    static_cast<Nx::CSector*>(sector)->SetWorldPosition(position);
 }
-void SetYRotation(void* sector, int rot) { GameFunction<void(__thiscall*)(void*, int)>(0x0049E760)(sector, rot); }
-const Mth::Vector* GetBBox(void* sector) { return GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x0049E6A0)(sector); }
-void* GetGeometry(void* sector) { return GameFunction<void*(__thiscall*)(void*)>(0x004A2BA0)(sector); }
-// The geometry's vertices: how many (0x0048DF70), their positions (0x0048DF80), their colours set (0x0048DFA0) and
-// read (0x0049F3E0), its collision (0x0049E810)
-int VertexCount(void* geometry) { return GameFunction<int(__thiscall*)(void*)>(0x0048DF70)(geometry); }
+void SetYRotation(void* sector, int rot) { static_cast<Nx::CSector*>(sector)->SetYRotation(rot); }
+const Mth::Vector* GetBBox(void* sector)
+{
+    return reinterpret_cast<const Mth::Vector*>(static_cast<Nx::CSector*>(sector)->GetBoundingBox());
+}
+void* GetGeometry(void* sector) { return static_cast<Nx::CSector*>(sector)->mp_geom; }
+// The geometry's vertices (virtual calls through its vtable): how many (slot 36, 0x0048DF70), their positions
+// (slot 37), their colours set (slot 40) and read (slot 38, 0x0049F3E0), its collision (the word at +8, 0x0049E810)
+int VertexCount(void* geometry)
+{
+    return Scene::GeomSlot<int(__thiscall*)(void*)>(static_cast<uint8_t*>(geometry), 36)(geometry);
+}
 void GetVertexPositions(void* geometry, Mth::Vector* out)
 {
-    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x0048DF80)(geometry, out);
+    Scene::GeomSlot<void(__thiscall*)(void*, Mth::Vector*)>(static_cast<uint8_t*>(geometry), 37)(geometry, out);
 }
 void SetVertexColours(void* geometry, uint32_t* colours)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t*)>(0x0048DFA0)(geometry, colours);
+    Scene::GeomSlot<void(__thiscall*)(void*, uint32_t*)>(static_cast<uint8_t*>(geometry), 40)(geometry, colours);
 }
-void GetVertexColours(void* geometry, uint32_t* out) { GameFunction<void(__thiscall*)(void*, uint32_t*)>(0x0049F3E0)(geometry, out); }
+void GetVertexColours(void* geometry, uint32_t* out)
+{
+    Scene::GeomSlot<void(__thiscall*)(void*, uint32_t*)>(static_cast<uint8_t*>(geometry), 38)(geometry, out);
+}
 Nx::CCollObjTriData* GetCollision(void* geometry)
 {
-    return GameFunction<Nx::CCollObjTriData*(__thiscall*)(void*)>(0x0049E810)(geometry);
+    return static_cast<Nx::CCollObjTriData*>(static_cast<Nx::CGeom*>(geometry)->mp_collTriData);
 }
 
 // The rail editor (0x004F4970): its rails taken out of the scene (0x004F45C0, 0x004F45E0), put back (0x004F6650).
-void* RailEditor() { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); }
-void RailEditorRemoveA() { GameFunction<void(__thiscall*)(void*)>(0x004F45C0)(RailEditor()); }
-void RailEditorRemoveB() { GameFunction<void(__thiscall*)(void*)>(0x004F45E0)(RailEditor()); }
-void RailEditorRebuild() { GameFunction<void(__thiscall*)(void*)>(0x004F6650)(RailEditor()); }
+CRailEditorComponent* RailEditor() { return CRailEditorComponent::Instance(); }
+void RailEditorRemoveA() { RailEditor()->DeleteAllSegments(); }
+void RailEditorRemoveB() { RailEditor()->DeleteAllPosts(); }
+void RailEditorRebuild() { RailEditor()->Rebuild(); }
 
 // The generator's code in park_generator.cpp: a piece made from a source, a piece taken out and deleted (its sector
 // too unless `keepSector`), the restart slots of a type, the bounds, the source pieces' flags from the pieces' node

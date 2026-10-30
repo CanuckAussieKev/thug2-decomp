@@ -14,6 +14,7 @@
 #include "game/mth/vector.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_grid.h"
+#include "game/gfx/engine_scene_list.h"
 #include "hook/anim_testkit.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -197,7 +198,7 @@ void TestAnimCollCaches()
     GameMemory memory({{0x006918EC, 0x24}, {0x00691984, 4}});
     StandIns& s = *new StandIns();
     uint32_t gridAnswer = 0;
-    s.At({0x0048C980}, 0, [&gridAnswer](Regs& r) {
+    s.At({0x0048C980, AddressOf(&Nx::GetCollGridsOnLine)}, 0, [&gridAnswer](Regs& r) {
         auto* line = reinterpret_cast<Mth::Line*>(r.args[0]);
         Record({0x6A1D0000u, Bits(line->start.x), Bits(line->end.z)});
         return gridAnswer;

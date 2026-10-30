@@ -7,6 +7,8 @@
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_grid.h"
 #include "game/nx/coll_obj.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/engine.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -28,9 +30,9 @@ constexpr float kFarthestStart = -0.01f;
 // same order (0x0048C980 / 0x0048C0B0).
 CCollGrid** GridsAlong(const Mth::Line* line)
 {
-    return GameFunction<CCollGrid**(__cdecl*)(const Mth::Line*)>(0x0048C980)(line);
+    return GetCollGridsOnLine(line);
 }
-uint32_t* GridScenes() { return GameFunction<uint32_t*(__cdecl*)()>(0x0048C0B0)(); }
+uint32_t* GridScenes() { return Nx::Engine::GetCollisionScenes(); }
 
 // What every query starts with: the line's box (grown by 0.5 each way), whether the cache holds the unchanged box,
 // and the line's direction.

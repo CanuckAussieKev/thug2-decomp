@@ -20,6 +20,9 @@
 #include "game/nx/coll_obj.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/viewport.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -130,7 +133,7 @@ void StandInProjection(StandIns& s)
              return GameFunction<uint32_t(__cdecl*)(uint32_t, uint32_t, uint32_t)>(0x0041F470)(r.args[0], r.args[1],
                                                                                                r.args[2]);
          });
-    s.At({0x004A09C0}, 0, [](Regs& r) {
+    s.At({0x004A09C0, AddressOf(&Nx::GetActiveCamera)}, 0, [](Regs& r) {
         Record({0x09C0, r.args[0]});
         return reinterpret_cast<uint32_t>(g_camera);
     });
@@ -138,13 +141,13 @@ void StandInProjection(StandIns& s)
         Record({0x5A00, Relocate(r.ecx)});
         return r.ecx + 0x4C;
     });
-    s.At({0x0048C490}, 0, [](Regs& r) {
+    s.At({0x0048C490, AddressOf(&Nx::Engine::SphereVisibleInOneViewport)}, 0, [](Regs& r) {
         auto* centre = reinterpret_cast<const uint32_t*>(r.args[0]);
         Record({0xC490, centre[0], centre[1], centre[2], centre[3], r.args[1]});
         return g_random->Below(3) == 0 ? 1u : 0u;
     });
     // the grids along the line (the line recorded), their objects in the box (the box recorded)
-    s.At({0x0048C980}, 0, [](Regs& r) {
+    s.At({0x0048C980, AddressOf(&Nx::GetCollGridsOnLine)}, 0, [](Regs& r) {
         auto* line = reinterpret_cast<const uint32_t*>(r.args[0]);
         Record({0xC980});
         for (int i = 0; i < 8; ++i)
@@ -169,7 +172,7 @@ void StandInProjection(StandIns& s)
         objects[count] = 0;
         return reinterpret_cast<uint32_t>(objects);
     });
-    s.At({0x0048C510}, 0, [](Regs& r) {
+    s.At({0x0048C510, AddressOf(&Nx::Engine::GetSector)}, 0, [](Regs& r) {
         Record({0xC510, r.args[0]});
         return 0x5EC00000u + r.args[0];
     });

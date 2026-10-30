@@ -16,6 +16,7 @@
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
 #include "game/sys/timer.h"
+#include "game/gfx/viewport.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -76,7 +77,10 @@ bool SetVolumeFromPos(Sfx::CSfxManager* manager, Volume* volume, const Mth::Vect
 }
 // The emitter nearest to a position (0x004A09E0, not rewritten yet; its distance through the second argument),
 // and the stream component's position for it and its emitter's extent.
-void* NearestEmitter(const float* position) { return GameFunction<void*(__cdecl*)(const float*, float*)>(0x004A09E0)(position, nullptr); }
+void* NearestEmitter(const float* position)
+{
+    return Nx::GetClosestCamera(reinterpret_cast<const Mth::Vector*>(position), nullptr);
+}
 Mth::Vector* SoundPosition(void* component, Mth::Vector* out, void* emitter)
 {
     return static_cast<Obj::CStreamComponent*>(component)->GetStreamPosition(out, emitter);

@@ -23,6 +23,8 @@
 #include "game/skater/skater.h"
 #include "game/skater/state_history.h"
 #include "game/skater/walk_physics.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -174,7 +176,7 @@ void StandInWorld(StandIns& s)
     });
     s.At({0x00534340, AddressOf(&GameNet::Manager::PlayerCollisionEnabled)}, 0, [](Regs& r) { Record({0x5343, Id(r.ecx)}); return static_cast<uint32_t>(g_mayCollide) | 0x1200; });
     s.At({0x005B3470}, 0, [](Regs& r) { Record({0x5B34, r.args[0], r.args[1]}); return static_cast<uint32_t>(g_slapGame); });
-    s.At({0x005532A0}, 0, [](Regs& r) { Record({0x5532, Id(r.ecx)}); return g_gameType; });
+    s.At({0x005532A0, AddressOf(&Game::CGameMode::GetNameChecksum)}, 0, [](Regs& r) { Record({0x5532, Id(r.ecx)}); return g_gameType; });
     s.At({0x005535F0}, 0, [](Regs& r) { Record({0x5535, Id(r.ecx)}); return static_cast<uint32_t>(g_teamGame); });
     s.At({0x00553910}, 0, [](Regs& r) { Record({0x5539, Id(r.ecx)}); return static_cast<uint32_t>(g_tagOver); });
     s.At({0x005665C0, AddressOf(&Mdl::Skate::GetSkater)}, 4, [](Regs& r) {
@@ -188,7 +190,7 @@ void StandInWorld(StandIns& s)
                                       "", "Elissa", "a name that runs well past thirty-two characters"};
         return reinterpret_cast<uint32_t>(names[((r.ecx - reinterpret_cast<uint32_t>(g_skaters)) / 0x300) % 6]);
     });
-    s.At({0x00561B40}, 0, [](Regs& r) {
+    s.At({0x00561B40, AddressOf(&Mdl::Score::GetTotalScore)}, 0, [](Regs& r) {
         Record({0x561B, Id(r.ecx)});
         return At<uint32_t>(reinterpret_cast<void*>(r.ecx), 0);
     });

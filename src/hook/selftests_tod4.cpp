@@ -34,8 +34,10 @@
 #include "game/skater/skater.h"
 #include "game/skater/state_history.h"
 #include "game/util/bitstream.h"
+#include "game/goals/goal_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
 #include "hook/standins.h"
@@ -257,7 +259,7 @@ void Install(StandIns& s)
     simple(0x00561B40, 0, 0x1B40, [](Regs& r) { return *reinterpret_cast<uint32_t*>(r.ecx); });
     simple(0x00561A80, 4, 0x1A80);
     simple(0x00581580, 0, 0x1580, [](Regs& r) { return At(kText + 0x40 + 0x10 * ((r.ecx - At(kObjects)) / 0x300)); });
-    s.At({0x005591B0}, 0, [](Regs&) {
+    s.At({0x005591B0, AddressOf(&Game::GetGoalManager)}, 0, [](Regs&) {
         Rec(0x91B0, {});
         return At(kMisc);
     });
@@ -269,7 +271,7 @@ void Install(StandIns& s)
     simple(0x00588480, 4, 0x8480, [](Regs& r) { return 0xC0100000u + r.args[0]; });
     simple(0x00588150, 4, 0x8150);
     simple(0x005890B0, 0, 0x90B0);
-    s.At({0x005A0D90}, 0, [](Regs& r) {
+    s.At({0x005A0D90, AddressOf(&CFuncs::CFunc_IsObserving)}, 0, [](Regs& r) {
         Rec(0x0D90, {r.args[0], r.args[1]});
         return g_sn_observing ? 1u : 0u;
     });

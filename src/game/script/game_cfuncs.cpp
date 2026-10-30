@@ -47,6 +47,10 @@
 #include "game/skater/skater.h"
 #include "game/sys/viewer.h"
 #include "game/sys/viewer_object.h"
+#include "game/skate/skate_module.h"
+#include "game/gfx/viewport.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/face_texture.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -74,28 +78,30 @@ constexpr uint32_t kSkaterCamObject = 0x967C138C;    // (name unknown) the objec
 uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); }
 Obj::CSkaterProfile* GetProfile(int index)
 {
-    return GameFunction<Obj::CSkaterProfile*(__thiscall*)(uint8_t*, int)>(0x00564F80)(Skate(), index);
+    // (0x00564F80 is the overload taking the params: the original passes the index in its place - 0, no params, the
+    // current profile)
+    return reinterpret_cast<Mdl::Skate*>(Skate())->GetProfile(reinterpret_cast<Script::CStruct*>(index));
 }
 Obj::CSkater* GetSkater(int index)
 {
-    return GameFunction<Obj::CSkater*(__thiscall*)(uint8_t*, int)>(0x005665C0)(Skate(), index);
+    return static_cast<Obj::CSkater*>(reinterpret_cast<Mdl::Skate*>(Skate())->GetSkater(index));
 }
 
 // The object manager (0x006F0FB8).
 Obj::CBaseManager* Objects() { return GameVariable<Obj::CBaseManager*>(0x006F0FB8); }
 
 // A viewport's camera (0x004A09C0) and making `camera` a viewport's (0x004A0970).
-Gfx::Camera* ViewportCamera(int viewport) { return GameFunction<Gfx::Camera*(__cdecl*)(int)>(0x004A09C0)(viewport); }
+Gfx::Camera* ViewportCamera(int viewport) { return Nx::GetActiveCamera(viewport); }
 void SetViewportCamera(int viewport, void* camera)
 {
-    GameFunction<void(__cdecl*)(int, void*)>(0x004A0970)(viewport, camera);
+    Nx::SetCamera(viewport, static_cast<Gfx::Camera*>(camera));
 }
 
 // The preferences of a type (0x00565680: the network's, the taunts', the skate module's; null for others). The
 // original passes a second argument (1) that isn't read.
 Prefs::Preferences* GetPreferencesOfType(uint32_t type)
 {
-    return GameFunction<Prefs::Preferences*(__cdecl*)(uint32_t, int)>(0x00565680)(type, 1);
+    return Mdl::Skate::GetPreferences(type);
 }
 
 // The network game flags (GameNet).
@@ -166,7 +172,7 @@ bool __cdecl CFunc_ReloadViewerAnim(Script::CStruct* params, Script::CScript*)
 // 0x0059F730: CheckForHoles (0x0048C8F0).
 bool __cdecl CFunc_CheckForHoles(Script::CStruct*, Script::CScript*)
 {
-    GameFunction<void(__cdecl*)()>(0x0048C8F0)();
+    Nx::PrintCollStatics();
     return true;
 }
 
@@ -781,9 +787,9 @@ bool __cdecl CFunc_ChooseFaceForFacemap(Script::CStruct* params, Script::CScript
     void* data = GameMalloc(static_cast<size_t>(size));
     GameFread(data, 1, static_cast<size_t>(size), file);
     GameFclose(file);
-    GameFunction<void(__thiscall*)(void*, void*, int)>(0x00487420)(face, data, 0);
+    static_cast<Gfx::CFaceTexture*>(face)->SetImage(static_cast<const uint8_t*>(data), 0);
     GameFree(data);
-    GameFunction<void(__thiscall*)(void*, int)>(0x00487520)(face, 1);
+    static_cast<Gfx::CFaceTexture*>(face)->SetValid(true);
     Script::RunScript(0x808008EA, nullptr, nullptr, false, nullptr);
     return true;
 }
@@ -793,7 +799,7 @@ bool __cdecl CFunc_SkaterIsCustom(Script::CStruct* params, Script::CScript*)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
     params->GetInteger(0x67E6859Au, &index, 1);
-    void* profile = GameFunction<void*(__thiscall*)(uint8_t*, int)>(0x00564FC0)(Skate(), index);
+    void* profile = reinterpret_cast<Mdl::Skate*>(Skate())->GetProfile(index);
     return Word54(profile) != nullptr;
 }
 

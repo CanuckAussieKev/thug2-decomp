@@ -10,6 +10,7 @@
 #include "game/obj/object.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/trick_component.h"
+#include "game/skate/skate_module.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -85,7 +86,7 @@ void Install(StandIns& s)
         Rec(0x9070, {r.args[0]});
         return At(0x0800);
     });
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Rec(0x6520, {r.ecx});
         return g_skater ? At(0x0A00) : 0u;
     });

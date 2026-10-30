@@ -20,6 +20,8 @@
 #include "game/gfx/pc_texture.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/texture_dict.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -201,7 +203,7 @@ void StandInGeoms(StandIns& s)
                     params[0x10], params[0x11]});
         return NewScene();
     });
-    s.At({0x0048BFE0}, 0, [](Regs& r) { // the base name: up to the last '.'
+    s.At({0x0048BFE0, AddressOf(&Nx::Engine::SplitSkinName)}, 0, [](Regs& r) { // the base name: up to the last '.'
         const char* name = reinterpret_cast<const char*>(r.args[0]);
         char* base = reinterpret_cast<char*>(r.args[1]);
         std::memcpy(base, name, std::strlen(name) + 1);
@@ -230,7 +232,7 @@ void StandInGeoms(StandIns& s)
         Record({0xF800, Relocate(r.ecx), Hash(reinterpret_cast<const char*>(r.args[0])), Relocate(r.args[1])});
         return (++g_calls % 3) == 0 ? 1u : 0u;
     });
-    s.At({0x0049F540}, 4, [](Regs& r) {
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) {
         Record({0xF540, r.args[0]});
         return reinterpret_cast<uint32_t>(Block(0x10));
     });

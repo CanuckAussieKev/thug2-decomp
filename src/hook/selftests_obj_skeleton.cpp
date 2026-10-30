@@ -17,6 +17,7 @@
 #include "game/obj/skeleton_component.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
+#include "game/gfx/texture_dict.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -192,7 +193,7 @@ void StandIn(StandIns& s)
         Record({0xF560, r.ecx, Hash(reinterpret_cast<const char*>(r.args[0]))});
         return reinterpret_cast<uint32_t>(g_world.texture);
     });
-    s.At({0x0049F540}, 4, [](Regs& r) {
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) {
         Record({0xF540, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_world.texture) + 4;
     });

@@ -22,6 +22,8 @@
 #include "game/script/struct.h"
 #include "game/sio/device.h"
 #include "game/sys/timer.h"
+#include "game/skate/skate_module.h"
+#include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -53,8 +55,8 @@ static_assert(sizeof(ChatPacket) == 0x94);
 using ::Net::MsgDesc;
 void InitMsgDesc(MsgDesc* desc) { desc->Construct(); }
 
-// The local player's info (not decompiled yet): name at +0x38, flags at +0x1D0, team at [+0x14]+0x14.
-struct PlayerInfo;
+// The local player's info (GameNet::PlayerInfo, declared by the skate module's header): name at +0x38, flags at
+// +0x1D0, team at [+0x14]+0x14.
 PlayerInfo* LocalPlayer(Manager* manager)
 {
     return static_cast<PlayerInfo*>(manager->GetLocalPlayer());
@@ -258,8 +260,7 @@ bool HandleChatCommand(Manager* manager, const char* text)
         // to thug2-decomp.log (for picking a place to show behind the main menu).
         uint8_t level = Nx::CurrentLevel();
         Log("where: level %u", level);
-        auto* skater = GameFunction<Obj::CCompositeObject*(__thiscall*)(void*)>(0x00566520)(
-            GameVariable<void*>(0x007CE478)); // the skate module's local skater
+        auto* skater = reinterpret_cast<Mdl::Skate*>(GameVariable<void*>(0x007CE478))->GetLocalSkater(); // the skate module's local skater
         if (skater) {
             const Mth::Vector& p = skater->m_pos;
             const Mth::Matrix& m = skater->m_matrix;

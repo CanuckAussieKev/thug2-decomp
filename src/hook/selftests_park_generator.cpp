@@ -13,6 +13,8 @@
 #include "game/ed/park_scene.h"
 #include "game/park/park_memory.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_scene.h"
 #include "hook/park_pieces_testkit.h"
 
 namespace {
@@ -64,28 +66,28 @@ void Install(StandIns& s)
         Rec(0xA400, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x0048C700}, 0, [](Regs& r) {
+    s.At({0x0048C700, AddressOf(&Nx::Engine::FindScene)}, 0, [](Regs& r) {
         Rec(0xC700, {r.args[0]});
         return g_haveShell ? At(kShellScene) : 0u;
     });
-    s.At({0x0049DF30}, 0x14, [](Regs& r) {
+    s.At({0x0049DF30, AddressOf(&Nx::CScene::CloneSectorNamed)}, 0x14, [](Regs& r) {
         Rec(0xDF30, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[3], r.args[4]});
         return 0xC000 + ++g_clones;
     });
-    s.At({0x0049CF80}, 4, [](Regs& r) {
+    s.At({0x0049CF80, AddressOf(&Nx::CScene::DeleteSectorNamed)}, 4, [](Regs& r) {
         Rec(0xCF80, {r.ecx, r.args[0]});
         return g_deleted ? 1u : 0u;
     });
-    s.At({0x0049D780}, 4, [](Regs& r) {
+    s.At({0x0049D780, AddressOf(&Nx::CScene::UpdateSuperSectors)}, 4, [](Regs& r) {
         Rec(0xD780, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x0049CE60}, 4, [](Regs& r) {
+    s.At({0x0049CE60, AddressOf(&Nx::CScene::InitCollisionGrid)}, 4, [](Regs& r) {
         Rec(0xCE60, {r.ecx});
         RecWords(0xCE61, r.args[0], 8);
         return 0u;
     });
-    s.At({0x0049D0B0}, 12, [](Regs& r) {
+    s.At({0x0049D0B0, AddressOf(&Nx::CScene::SetSectorsInBox)}, 12, [](Regs& r) {
         Rec(0xD0B0, {r.ecx, r.args[1], r.args[2]});
         RecWords(0xD0B1, r.args[0], 8);
         return 0u;

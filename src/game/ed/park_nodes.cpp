@@ -19,6 +19,9 @@
 #include "game/script/nodes.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
+#include "game/ed/rail_editor.h"
+#include "game/ed/goal_editor.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -92,21 +95,21 @@ constexpr uint32_t kFirstRailEditorNode = 0x003D0901;
 int& RailSearchStart() { return GameVariable<int>(0x007CE600); }
 
 // The rail editor (0x004F4970): its rail points (0x004F3C70), its rails written as nodes (0x004F6920).
-void* RailEditor() { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); }
-int RailEditorPoints() { return GameFunction<int(__thiscall*)(void*)>(0x004F3C70)(RailEditor()); }
+CRailEditorComponent* RailEditor() { return CRailEditorComponent::Instance(); }
+int RailEditorPoints() { return RailEditor()->CountPoints(); }
 void RailEditorWriteNodes(CArray* nodes, int* index, uint32_t firstName)
 {
-    GameFunction<void(__thiscall*)(void*, CArray*, int*, uint32_t)>(0x004F6920)(RailEditor(), nodes, index, firstName);
+    RailEditor()->WriteNodes(nodes, index, firstName);
 }
 // The goal editor's nodes written into the node array (0x004E8F50).
 void GoalEditorWriteNodes(CArray* nodes, int* index, Mem::Heap* heap)
 {
-    GameFunction<void(__cdecl*)(CArray*, int*, Mem::Heap*)>(0x004E8F50)(nodes, index, heap);
+    AddGoalEditorNodes(nodes, index, heap);
 }
 // The gap manager: the trigger script of a gap's piece
 uint32_t GapTriggerScript(ClonedPiece* piece) { return CGapManager::Instance()->GetGapTriggerName(piece); }
 // CFunc_ParseNodeArray (0x005A34E0): the node manager's node array parsed (its objects made).
-void ParseNodeArray() { GameFunction<bool(__cdecl*)(CStruct*, Script::CScript*)>(0x005A34E0)(nullptr, nullptr); }
+void ParseNodeArray() { CFuncs::CFunc_ParseNodeArray(nullptr, nullptr); }
 
 Ass::CNodeArrayAsset* NodeArrayAsset(CParkGenerator& d) { return reinterpret_cast<Ass::CNodeArrayAsset*>(d.m_nodeArray); }
 CStruct* Node(CArray* nodes, int index) { return reinterpret_cast<CStruct*>(nodes->GetElement(static_cast<uint32_t>(index))); }

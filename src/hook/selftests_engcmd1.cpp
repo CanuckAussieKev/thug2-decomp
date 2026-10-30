@@ -16,6 +16,12 @@
 #include "game/script/cfuncs_engine.h"
 #include "game/script/struct.h"
 #include "game/sfx/terrain.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/light_manager.h"
+#include "game/gfx/sector.h"
+#include "game/sys/game_config.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -60,35 +66,35 @@ void StandInCalls(StandIns& s)
             Record({reinterpret_cast<const uint8_t*>(props)[0x40]});
         return 0u;
     });
-    s.At({0x005B6090}, 0, [](Regs& r) { Record({0x6090, r.args[0] & 0xFF}); return 0u; });
-    s.At({0x0048C140}, 0, [](Regs& r) {
+    s.At({0x005B6090, AddressOf(&GameConfig::SetNtscFlag)}, 0, [](Regs& r) { Record({0x6090, r.args[0] & 0xFF}); return 0u; });
+    s.At({0x0048C140, AddressOf(&Nx::GetGamma)}, 0, [](Regs& r) {
         Record({0xC140});
         for (int i = 0; i < 3; ++i)
             *reinterpret_cast<float*>(r.args[i]) = g_gamma[i];
         return 0u;
     });
-    s.At({0x0048C130}, 0, [](Regs& r) { Record({0xC130, r.args[0], r.args[1], r.args[2]}); return 0u; });
-    s.At({0x0048E970}, 0, [](Regs& r) { Record({0xE970, r.args[0], r.args[1]}); return 0u; });
-    s.At({0x0048E990}, 0, [](Regs& r) { Record({0xE990, r.args[0], r.args[1], r.args[2]}); return 0u; });
-    s.At({0x00490DE0}, 0, [](Regs& r) { Record({0x0DE0, r.args[0] & 0xFF}); return 0u; });
-    s.At({0x00490E10}, 0, [](Regs& r) { Record({0x0E10, r.args[0]}); return 0u; });
-    s.At({0x0048C510}, 0, [](Regs& r) {
+    s.At({0x0048C130, AddressOf(&Nx::SetGamma)}, 0, [](Regs& r) { Record({0xC130, r.args[0], r.args[1], r.args[2]}); return 0u; });
+    s.At({0x0048E970, AddressOf(&Nx::SetAmbientLightModulationFactor)}, 0, [](Regs& r) { Record({0xE970, r.args[0], r.args[1]}); return 0u; });
+    s.At({0x0048E990, AddressOf(&Nx::SetDiffuseLightModulationFactor)}, 0, [](Regs& r) { Record({0xE990, r.args[0], r.args[1], r.args[2]}); return 0u; });
+    s.At({0x00490DE0, AddressOf(&Nx::Engine::EnableFog)}, 0, [](Regs& r) { Record({0x0DE0, r.args[0] & 0xFF}); return 0u; });
+    s.At({0x00490E10, AddressOf(&Nx::Engine::SetFogExponent)}, 0, [](Regs& r) { Record({0x0E10, r.args[0]}); return 0u; });
+    s.At({0x0048C510, AddressOf(&Nx::Engine::GetSector)}, 0, [](Regs& r) {
         Record({0xC510, r.args[0]});
         return r.args[0] & 0x10000 ? 0u : 0x5EC00000u + (r.args[0] & 0xFFFF);
     });
-    s.At({0x0049E820}, 12, [](Regs& r) { Record({0xE820, r.ecx, r.args[0], r.args[1], r.args[2]}); return 0u; });
-    s.At({0x0049E830}, 32, [](Regs& r) {
+    s.At({0x0049E820, AddressOf(&Nx::CSector::PlayVCWibbleFromKeyframe)}, 12, [](Regs& r) { Record({0xE820, r.ecx, r.args[0], r.args[1], r.args[2]}); return 0u; });
+    s.At({0x0049E830, AddressOf(&Nx::CSector::SetUVWibbleParams)}, 32, [](Regs& r) {
         Record({0xE830, r.ecx});
         for (int i = 0; i < 8; ++i)
             Record({r.args[i]});
         return 0u;
     });
-    s.At({0x0049E840}, 4, [](Regs& r) { Record({0xE840, r.ecx, r.args[0] & 0xFF}); return 0u; });
-    s.At({0x0049E850}, 8, [](Regs& r) { Record({0xE850, r.ecx, r.args[0], r.args[1]}); return 0u; });
-    s.At({0x0049E860}, 0, [](Regs& r) { Record({0xE860, r.ecx}); return 0u; });
-    s.At({0x0049E870}, 4, [](Regs& r) { Record({0xE870, r.ecx, r.args[0] & 0xFF}); return 0u; });
-    s.At({0x0049E880}, 0, [](Regs& r) { Record({0xE880, r.ecx}); return 0u; });
-    s.At({0x0048C0D0}, 0, [](Regs&) { Record({0xC0D0}); return 0u; });
+    s.At({0x0049E840, AddressOf(&Nx::CSector::UseExplicitUVWibble)}, 4, [](Regs& r) { Record({0xE840, r.ecx, r.args[0] & 0xFF}); return 0u; });
+    s.At({0x0049E850, AddressOf(&Nx::CSector::SetUVWibbleOffsets)}, 8, [](Regs& r) { Record({0xE850, r.ecx, r.args[0], r.args[1]}); return 0u; });
+    s.At({0x0049E860, AddressOf(&Nx::CSector::ResetTextureAnim)}, 0, [](Regs& r) { Record({0xE860, r.ecx}); return 0u; });
+    s.At({0x0049E870, AddressOf(&Nx::CSector::StartTextureAnim)}, 4, [](Regs& r) { Record({0xE870, r.ecx, r.args[0] & 0xFF}); return 0u; });
+    s.At({0x0049E880, AddressOf(&Nx::CSector::StopTextureAnim)}, 0, [](Regs& r) { Record({0xE880, r.ecx}); return 0u; });
+    s.At({0x0048C0D0, AddressOf(&Nx::Engine::ToggleRenderMode)}, 0, [](Regs&) { Record({0xC0D0}); return 0u; });
     // the registry (the original through its imports)
     StandInApi(s, 0x0064500C, reinterpret_cast<const void*>(&RegCreateKeyExA), 36, [](Regs& r) {
         Record({0x0CEA, r.args[0], Hash(reinterpret_cast<const char*>(r.args[1])), r.args[2], r.args[3], r.args[4],

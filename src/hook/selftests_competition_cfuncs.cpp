@@ -20,6 +20,7 @@
 #include "game/skate/competition.h"
 #include "game/skate/competition_cfuncs.h"
 #include "game/skater/skater.h"
+#include "game/skate/score.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -69,7 +70,7 @@ void StandInCompetitionCalls(StandIns& s)
         Record({0x4D80, r.ecx});
         return 0x9EF59EF5u; // (the preferences: their calls are stood in for)
     });
-    s.At({0x00564D50}, 4, [](Regs& r) {
+    s.At({0x00564D50, AddressOf(&Mdl::Skate::SetUnknown370)}, 4, [](Regs& r) {
         Record({0x4D50, r.ecx, r.args[0]});
         return 0u;
     });
@@ -77,7 +78,7 @@ void StandInCompetitionCalls(StandIns& s)
         Record({0x65C0, r.ecx, r.args[0]});
         return r.args[0] < 3 ? reinterpret_cast<uint32_t>(g_skaters[r.args[0]]) : 0u;
     });
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, r.ecx});
         return g_noLocalSkater ? 0u : reinterpret_cast<uint32_t>(g_skaters[1]);
     });
@@ -89,7 +90,7 @@ void StandInCompetitionCalls(StandIns& s)
         Record({0x0480, r.ecx});
         return r.ecx + 0x5C0;
     });
-    s.At({0x00561B40}, 0, [](Regs& r) {
+    s.At({0x00561B40, AddressOf(&Mdl::Score::GetTotalScore)}, 0, [](Regs& r) {
         Record({0x1B40, r.ecx});
         return 4321u;
     });

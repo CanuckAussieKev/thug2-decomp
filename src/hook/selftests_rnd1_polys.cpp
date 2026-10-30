@@ -21,6 +21,10 @@
 #include "game/script/cfuncs_engine.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/texture_dict.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -175,13 +179,13 @@ void StandInSplatMaker(StandIns& s)
         Record({0xE970});
         return g_now;
     });
-    s.At({0x0049F540}, 4, [](Regs& r) {
+    s.At({0x0049F540, AddressOf(&Nx::CTexDict::GetTexture)}, 4, [](Regs& r) {
         Record({0xF540, Relocate(r.ecx), r.args[0]});
         auto* texture = reinterpret_cast<uint32_t*>(Block(0x10));
         texture[1] = 0x7E000000 + (r.args[0] & 0xFF);
         return reinterpret_cast<uint32_t>(texture);
     });
-    s.At({0x0048C980}, 0, [](Regs& r) {
+    s.At({0x0048C980, AddressOf(&Nx::GetCollGridsOnLine)}, 0, [](Regs& r) {
         const auto* line = reinterpret_cast<const float*>(r.args[0]);
         Record({0xC980});
         for (int i = 0; i < 8; ++i)
@@ -202,7 +206,7 @@ void StandInSplatMaker(StandIns& s)
             return r.ecx + offsetof(FakeObject, box);
         });
     }
-    s.At({0x0048C510}, 0, [](Regs& r) {
+    s.At({0x0048C510, AddressOf(&Nx::Engine::GetSector)}, 0, [](Regs& r) {
         Record({0xC510, r.args[0]});
         return 0x5EC00000u + (r.args[0] & 0xFFFF);
     });

@@ -19,6 +19,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/skate/career.h"
+#include "game/skate/game_mode.h"
 #include "hook/cfunc_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -130,7 +131,7 @@ inline void StandInStructAdds(StandIns& s)
 // The game mode's GameModeIsTrue (0x00553220): recorded, answered from g_modeProperties.
 inline void StandInGameModeIsTrue(StandIns& s)
 {
-    s.At({0x00553220}, 4, [](Regs& r) {
+    s.At({0x00553220, AddressOf(&Game::CGameMode::IsTrue)}, 4, [](Regs& r) {
         if (g_gs3Trace) Log("  standin %X", 0x3220);
         Record({0x3220, r.ecx, r.args[0]});
         auto it = g_modeProperties.find(r.args[0]);

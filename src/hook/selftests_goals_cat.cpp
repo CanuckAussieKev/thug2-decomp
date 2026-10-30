@@ -11,6 +11,7 @@
 #include "game/core/crc.h"
 #include "game/goals/create_a_trick.h"
 #include "game/skater/skater.h"
+#include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/goals_testkit.h"
 #include "hook/hook.h"
@@ -42,7 +43,7 @@ void StandInCatCalls(StandIns& s)
     StandInArrays(s);
     StandInGetters(s);
     StandInStructChanges(s);
-    s.At({0x00566520}, 0, [](Regs& r) {
+    s.At({0x00566520, AddressOf(&Mdl::Skate::GetLocalSkater)}, 0, [](Regs& r) {
         Record({0x6520, r.ecx});
         return g_noSkater ? 0u : Address(g_skater);
     });

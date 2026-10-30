@@ -22,6 +22,7 @@
 #include "game/script/node_manager.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
 #include "hook/anim_testkit.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -276,11 +277,11 @@ void StandInEverything(StandIns& s)
         {0x00482AF0, 0, 0, true},  {0x00482B30, 0, 0, false}, {0x004856C0, 12, 3, false}, {0x004A2C20, 0, 0, true},
         {0x004A39C0, 12, 3, false}, {0x005A5990, 0, 4, false}, {0x005A59B0, 0, 1, false}, {0x0048CD80, 0, 7, false},
         {0x0048C690, 0, 2, false},  {0x0049D590, 8, 2, false}, {0x0049C9F0, 4, 1, false}, {0x0049CFB0, 0, 0, false},
-        {0x0048C030, 0, 8, false},  {0x0048C080, 0, 2, false}, {0x00490B80, 4, 1, false}, {0x00490A90, 0, 0, false},
+        {0x0048C030, 0, 8, false},  {0x0048C080, 0, 1, false}, {0x00490B80, 4, 1, false}, {0x00490A90, 0, 0, false},
         {0x0049F050, 0, 7, false},  {0x0049EFD0, 0, 1, false},
     };
     for (const Loader& l : loaders) {
-        s.At({l.address}, l.pop, [l](Regs& r) {
+        s.At({l.address, OursOf(l.address)}, l.pop, [l](Regs& r) {
             g_trace.push_back(l.address);
             bool thiscall = l.pop || l.returnsThis || l.address == 0x00482B30 || l.address == 0x0049CFB0 ||
                             l.address == 0x00490A90;
@@ -288,7 +289,10 @@ void StandInEverything(StandIns& s)
             if (l.address == 0x004A2C20)
                 *reinterpret_cast<void***>(r.ecx) = g_types.objectVtable; // (the skeleton: deleted through slot 0)
             for (int i = 0; i < l.args; ++i)
-                g_trace.push_back(l.address == 0x0048CD80 && i == 0 ? StringHash(r.args[0]) : r.args[i]);
+                // (the scene's three flags are bools in ours: only whether each is set counts)
+                g_trace.push_back(l.address == 0x0048CD80 && i == 0   ? StringHash(r.args[0])
+                                  : l.address == 0x0048CD80 && i >= 3 && i <= 5 ? (r.args[i] & 0xFF) != 0
+                                                                                : r.args[i]);
             if (l.returnsThis)
                 return r.ecx;
             if (l.address == 0x004856C0 || l.address == 0x004A39C0)
@@ -298,14 +302,15 @@ void StandInEverything(StandIns& s)
     }
     // file names the engine makes
     for (uint32_t address : {0x0048C390u, 0x0049CA20u, 0x00490AD0u, 0x0049EF90u}) {
-        s.At({address}, 0, [address](Regs& r) {
-            Rec(address, {StringHash(r.args[1]), address == 0x0048C390 || address == 0x0049CA20 ? r.args[2] & 0xFF : 0});
+        s.At({address, OursOf(address)}, 0, [address](Regs& r) {
+            // (the collision file name's third argument isn't passed any more: its function takes two)
+            Rec(address, {StringHash(r.args[1]), address == 0x0048C390 ? r.args[2] & 0xFF : 0});
             std::snprintf(reinterpret_cast<char*>(r.args[0]), 64, "file_%X_%s", address & 0xFFF,
                           reinterpret_cast<const char*>(r.args[1]));
             return 0u;
         });
     }
-    s.At({0x0048BFE0}, 0, [](Regs& r) {
+    s.At({0x0048BFE0, AddressOf(&Nx::Engine::SplitSkinName)}, 0, [](Regs& r) {
         Rec(0x8BFE, {StringHash(r.args[0])});
         std::snprintf(reinterpret_cast<char*>(r.args[1]), 64, "Base_%s", reinterpret_cast<const char*>(r.args[0]));
         return static_cast<uint32_t>(g_hasCas);

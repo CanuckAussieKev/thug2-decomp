@@ -17,6 +17,7 @@
 #include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_manager.h"
+#include "game/script/game_cfuncs.h"
 #include "hook/log.h"
 #include "hook/net2_testkit.h"
 #include "hook/online_identity_testkit.h"
@@ -141,7 +142,7 @@ void Install(StandIns& s)
                      Aliased(r.args[4]), Rel(r.args[5]), r.args[6]});
         return 0u;
     });
-    StubCdecl(s, {0x005A1130}, 0x1130, 2);
+    StubCdecl(s, {0x005A1130, AddressOf(&CFuncs::CFunc_StartLobbyList)}, 0x1130, 2);
     // The manager's and the presence's calls.
     Stub(s, {0x00534480, AddressOf(&Manager::JoinServer)}, 12, 0x4480);
     Stub(s, {0x00537220, AddressOf(&Manager::SpawnClient)}, 16, 0x7220, [](Regs&) { return At(kClientApp); });

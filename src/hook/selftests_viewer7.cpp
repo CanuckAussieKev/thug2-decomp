@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "game/skate/profile_manager.h"
+#include "game/gfx/face_texture.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -166,7 +167,7 @@ void Install(StandIns& s)
         Rec(0x75F0, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00487520}, 4, [](Regs& r) {
+    s.At({0x00487520, AddressOf(&Gfx::CFaceTexture::SetValid)}, 4, [](Regs& r) {
         Rec(0x7520, {r.ecx, r.args[0] & 0xFF});
         return 0u;
     });

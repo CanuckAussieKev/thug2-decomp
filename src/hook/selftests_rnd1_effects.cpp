@@ -22,6 +22,7 @@
 #include "game/gfx/texture_splats.h"
 #include "game/lst/hashtable.h"
 #include "game/sys/timer.h"
+#include "game/gfx/engine.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"

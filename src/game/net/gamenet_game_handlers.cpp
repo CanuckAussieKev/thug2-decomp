@@ -18,6 +18,8 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
+#include "game/ed/rail_editor.h"
+#include "game/ed/goal_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -78,8 +80,8 @@ void PanelMessage(Manager* manager, uint32_t text, const char* string1, Obj::COb
 }
 
 // The rail editor (0x004F4970) and the goal editor (0x004E8470).
-void* RailEditor() { return GameFunction<void*(__cdecl*)()>(0x004F4970)(); }
-void* GoalEditor() { return GameFunction<void*(__cdecl*)()>(0x004E8470)(); }
+void* RailEditor() { return Ed::CRailEditorComponent::Instance(); }
+void* GoalEditor() { return Ed::CGoalEditorComponent::Get(); }
 
 // Leaving for the main menu while the created data couldn't come: the join cancelled with a time-out notice.
 void CancelJoin(Manager* manager, bool notifyFirst)

@@ -27,6 +27,7 @@
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
 #include "game/sys/timer.h"
+#include "game/gfx/viewport.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -131,7 +132,7 @@ void RecordVector(uint32_t tag, uint32_t address)
 // 0x004A09E0 (cdecl: position, distance or null): the camera nearest a position (none sometimes).
 void StandInCameras(StandIns& s, bool allowNone)
 {
-    s.At({0x004A09E0}, 0, [allowNone](Regs& r) {
+    s.At({0x004A09E0, AddressOf(&Nx::GetClosestCamera)}, 0, [allowNone](Regs& r) {
         RecordVector(0xCA3E0000, r.args[0]);
         uint32_t pick = g_answers.Below(allowNone ? 4 : 3);
         if (r.args[1]) {
@@ -702,7 +703,7 @@ void RandomVoiceState(Lcg& random)
 void StandInVoiceWorld(StandIns& s)
 {
     StandInCameras(s, false);
-    s.At({0x004A0950}, 0, [](Regs& r) {
+    s.At({0x004A0950, AddressOf(&Nx::GetCamera)}, 0, [](Regs& r) {
         uint32_t pick = g_answers.Below(4);
         Record({0x0EA09500, r.args[0], pick});
         return pick == 3 ? 0u : Camera(static_cast<int>(pick));

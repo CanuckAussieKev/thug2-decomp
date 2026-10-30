@@ -19,6 +19,8 @@
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/viewport.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -57,7 +59,7 @@ void StandInSystemCalls(StandIns& s)
         return at;
     });
     StandInThis(s, {0x0049AD60}, 1); // the particle manager lets go of a system
-    StandInCdecl(s, {0x0048C3C0}, 1); // a model deleted
+    StandInCdecl(s, {0x0048C3C0, AddressOf(&Nx::Engine::DeleteGeomObject)}, 1); // a model deleted
     StandInThis(s, {0x00474420, AddressOf(&Script::CScript::Destroy)}, 0);
     StandInCdecl(s, {0x004499B0, AddressOf(static_cast<void (*)(void*)>(&Script::CScript::operator delete))}, 1);
     s.At({0x004738E0, AddressOf(&Script::CScript::Construct)}, 0, [](Regs& r) {
@@ -80,7 +82,7 @@ void StandInSystemCalls(StandIns& s)
         Record({0x401C30, Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0xFFFFFFFFu;
     });
-    StandInCdecl(s, {0x004A09C0}, 1, 0);
+    StandInCdecl(s, {0x004A09C0, AddressOf(&Nx::GetActiveCamera)}, 1, 0);
     g_systemVtable = new FakeVtable();
     for (int slot = 0; slot < 4; ++slot) {
         g_systemVtable->slots[slot] = s.Thunk(slot == 0 ? 4 : 0, [slot](Regs& r) {
@@ -247,7 +249,7 @@ void TestParticleSystemSettings()
     GameMemory& memory = *NewSystemMemory();
     StandIns& s = *new StandIns();
     StandInSystemCalls(s);
-    s.At({0x004A09C0}, 0, [](Regs& r) {
+    s.At({0x004A09C0, AddressOf(&Nx::GetActiveCamera)}, 0, [](Regs& r) {
         Record({0x4A09C0, r.args[0]});
         return reinterpret_cast<uint32_t>(g_camera);
     });
@@ -569,7 +571,7 @@ void StandInUpdateCalls(StandIns& s)
         Record({0x0AD0, r.args[0]});
         return r.args[0] & g_objectsFound ? 0x0B1E0000u : 0u;
     });
-    s.At({0x0048C490}, 0, [](Regs& r) {
+    s.At({0x0048C490, AddressOf(&Nx::Engine::SphereVisibleInOneViewport)}, 0, [](Regs& r) {
         const auto* centre = reinterpret_cast<const uint32_t*>(r.args[0]);
         Record({0xC490, centre[0], centre[1], centre[2], centre[3], r.args[1]});
         return centre[0] & 0x10 ? 1u : 0u;
@@ -749,7 +751,7 @@ void TestParticleSystemUpdate()
     StandIns& s = *new StandIns();
     StandInSystemCalls(s);
     StandInUpdateCalls(s);
-    s.At({0x004A09C0}, 0, [](Regs& r) {
+    s.At({0x004A09C0, AddressOf(&Nx::GetActiveCamera)}, 0, [](Regs& r) {
         Record({0x4A09C0, r.args[0]});
         return reinterpret_cast<uint32_t>(g_camera);
     });

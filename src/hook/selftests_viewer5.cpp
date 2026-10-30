@@ -17,6 +17,8 @@
 #include "game/obj/node_objects.h"
 #include "game/obj/object.h"
 #include "game/sys/timer.h"
+#include "game/gfx/viewport.h"
+#include "game/skate/skate_module.h"
 #include "hook/viewer_testkit.h"
 
 namespace {
@@ -115,7 +117,7 @@ void Install(StandIns& s)
         uint32_t asset = g_assets[r.args[0] & 7];
         return asset ? At(asset) : 0u;
     });
-    s.At({0x00564FC0}, 4, [](Regs& r) {
+    s.At({0x00564FC0, AddressOf(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile))}, 4, [](Regs& r) {
         Rec(0x4FC0, {r.ecx, r.args[0]});
         return At(kSkaterInfo);
     });
@@ -132,7 +134,7 @@ void Install(StandIns& s)
         Rec(0x73F0, {r.ecx});
         return MakeMovie(r.ecx, 0xC0);
     });
-    s.At({0x004A0970}, 0, [](Regs& r) {
+    s.At({0x004A0970, AddressOf(&Nx::SetCamera)}, 0, [](Regs& r) {
         Rec(0x0970, {r.args[0], r.args[1]});
         return 0u;
     });

@@ -15,6 +15,7 @@
 #include "game/ed/park_editor.h"
 #include "game/park/park_editor.h"
 #include "game/park/park_memory.h"
+#include "game/ed/rail_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -96,7 +97,7 @@ void StandInParkEditor(StandIns& s)
     });
     plain(0x00593610, 0, 0x3610, 0, AddressOf(&Ed::CParkGenerator::CleanUpOutRefs));
     plain(0x00592090, 0, 0x2090, 0, AddressOf(&Ed::CParkGenerator::RebuildCollision));
-    s.At({0x004F4970}, 0, [](Regs&) { Record({0x4970}); return g_edEngine; });
+    s.At({0x004F4970, AddressOf(&Ed::CRailEditorComponent::Instance)}, 0, [](Regs&) { Record({0x4970}); return g_edEngine; });
     s.At({0x00591C60, AddressOf(&Ed::CMapListTemp::Destroy)}, 0, [](Regs& r) {
         Record({0x1C60, *reinterpret_cast<uint32_t*>(r.ecx) ? EdRel(*reinterpret_cast<uint32_t*>(r.ecx)) : 0u});
         return 0u;
@@ -110,7 +111,7 @@ void StandInParkEditor(StandIns& s)
         Record({0xBED0, EdRel(r.ecx), Area(r, 0), GameVariable<uint8_t>(0x0067F398)});
         return 0u;
     });
-    plain(0x004F6650, 0, 0x6650, 0);
+    plain(0x004F6650, 0, 0x6650, 0, AddressOf(&Ed::CRailEditorComponent::Rebuild));
     s.At({0x00590160, AddressOf(&Ed::CParkEditor::Create)}, 0, [](Regs& r) { Record({0x0160, r.args[0] & 0xFF}); return 0x5E1F0000u; });
     s.At({0x0058DDC0, AddressOf(&Ed::CParkEditor::IsParkFull)}, 0, [](Regs& r) { Record({0xDDC0, r.ecx}); return g_edFull ? 1u : 0u; });
     s.At({0x0058D290, AddressOf(&Ed::CParkEditor::Release)}, 0, [](Regs&) { Record({0xD290}); return 0u; }); // (cdecl: ECX unused)
@@ -135,7 +136,7 @@ void StandInParkEditor(StandIns& s)
         size[2] = 1.0e-9f;
         return r.args[0];
     });
-    s.At({0x004F74B0}, 0x14, [](Regs& r) {
+    s.At({0x004F74B0, AddressOf(&Ed::CRailEditorComponent::DeletePoints)}, 0x14, [](Regs& r) {
         Record({0x74B0, r.ecx, r.args[0], r.args[1], r.args[2], r.args[3], r.args[4]});
         return 0u;
     });

@@ -18,6 +18,15 @@
 #include "game/obj/skeleton_component.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/gfx/anim_cache.h"
+#include "game/gfx/anim_blend.h"
+#include "game/gfx/boned_anim_frame_data.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_effects.h"
+#include "game/gfx/engine_glue.h"
+#include "game/gfx/light_manager.h"
+#include "game/gfx/pc_lights.h"
+#include "game/gfx/viewport.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -98,10 +107,10 @@ inline void AllowBoneLOD(bool /*allow*/) {}
 inline void PrintAnimCacheInfo(void* /*cache*/) {}
 
 // The animation cache manager (0x006F92B0 through its getter 0x00480660).
-void* AnimCache() { return GameFunction<void*(__cdecl*)()>(0x00480660)(); }
+Gfx::CAnimCache* AnimCache() { return Gfx::CAnimCache::Get(); }
 
 // The viewport's camera `index` (0x004A0950: null if the viewport has none).
-uint8_t* ViewportCamera(int index) { return GameFunction<uint8_t*(__cdecl*)(int)>(0x004A0950)(index); }
+uint8_t* ViewportCamera(int index) { return reinterpret_cast<uint8_t*>(Nx::GetCamera(index)); }
 
 // A colour of four bytes (r, g, b, a in memory order).
 uint32_t PackBytes(int r, int g, int b, int a)
@@ -119,7 +128,7 @@ bool __cdecl CFunc_DebugRenderIgnore(CStruct* params, CScript*)
     int ignore0 = 0;
     params->GetInteger(kIgnore1, &ignore1, 0);
     params->GetInteger(kIgnore0, &ignore0, 0);
-    GameFunction<void(__cdecl*)(int, int)>(0x0048C110)(ignore1, ignore0);
+    Nx::Engine::SetRenderIgnore(ignore1, ignore0);
     return true;
 }
 
@@ -134,9 +143,9 @@ bool __cdecl CFunc_InitAnimCompressTable(CStruct* params, CScript*)
     char name[256];
     std::snprintf(name, sizeof(name), "%s", file); // (the original's sprintf isn't bounded)
     if (type == kT48)
-        GameFunction<void(__cdecl*)(const char*, bool)>(0x00482A30)(name, true);
+        Gfx::LoadTransTable(name);
     else if (type == kQ48)
-        GameFunction<void(__cdecl*)(const char*, bool)>(0x004829F0)(name, true);
+        Gfx::LoadQuatTable(name);
     return true;
 }
 
@@ -157,12 +166,12 @@ bool __cdecl CFunc_InitAnimSystem(CStruct* params, CScript*)
         type = 4;
     else
         type = cacheType == kStandard ? 2 : 0;
-    GameFunction<void(__cdecl*)(int, int, int)>(0x00480D10)(heapSize, cacheSize, type);
+    Gfx::CAnimCache::Create(heapSize, cacheSize, type);
     int blends = 0;
     int subsets = 0;
     params->GetInteger(kMaxAnimBlends, &blends, 1);
     params->GetInteger(kMaxAnimSubsets, &subsets, 1);
-    GameFunction<void(__cdecl*)(int, int)>(0x0047EB30)(blends, subsets);
+    Gfx::CBlendChannel::InitBuffers(blends, subsets);
     return true;
 }
 
@@ -177,9 +186,9 @@ bool __cdecl CFunc_UpdateAnimCache(CStruct* params, CScript*)
     if (disable || enable)
         return true;
     if (clear)
-        GameFunction<void(__thiscall*)(void*, int)>(0x00480DB0)(AnimCache(), 0);
+        AnimCache()->Flush(false);
     else if (defrag)
-        GameFunction<void(__thiscall*)(void*)>(0x00480F20)(AnimCache());
+        AnimCache()->Defragment();
     else
         PrintAnimCacheInfo(AnimCache());
     return true;
@@ -199,21 +208,21 @@ bool __cdecl CFunc_InitLightManager(CStruct* params, CScript*)
     int maxModelLights = 0;
     params->GetInteger(kMaxLights, &maxLights, 1);
     params->GetInteger(kMaxModelLights, &maxModelLights, 1);
-    GameFunction<void(__cdecl*)(int, int)>(0x0048EB70)(maxLights, maxModelLights);
+    Nx::InitLightManager(static_cast<uint32_t>(maxLights), static_cast<uint32_t>(maxModelLights));
     return true;
 }
 
 // 0x00446760: UninitLightManager (0x0048FB60). Always true.
 bool __cdecl CFunc_UninitLightManager(CStruct*, CScript*)
 {
-    GameFunction<void(__cdecl*)()>(0x0048FB60)();
+    Nx::UninitLightManager();
     return true;
 }
 
 // 0x00446770: PushWorldLights: the world lights saved on their stack (0x0048EA00). Always true.
 bool __cdecl CFunc_PushWorldLights(CStruct*, CScript*)
 {
-    GameFunction<void(__cdecl*)()>(0x0048EA00)();
+    Nx::PushWorldLights();
     return true;
 }
 
@@ -221,7 +230,7 @@ bool __cdecl CFunc_PushWorldLights(CStruct*, CScript*)
 // empty.
 bool __cdecl CFunc_PopWorldLights(CStruct*, CScript*)
 {
-    return GameFunction<bool(__cdecl*)()>(0x0048EA40)();
+    return Nx::PopWorldLights();
 }
 
 // 0x00446790: SetScreen [aspect=<f>] [angle=<f>] [letterbox=<n>]: those given are set. Always true.
@@ -232,7 +241,7 @@ bool __cdecl CFunc_SetScreen(CStruct* params, CScript*)
         Nx::SetScreenAspectRatio(aspect);
     float angle;
     if (params->GetFloat(kAngle, &angle, 0))
-        GameFunction<void(__cdecl*)(float)>(0x004A0B70)(angle);
+        Nx::SetScreenFieldOfView(angle);
     int letterbox;
     if (params->GetInteger(kLetterbox, &letterbox, 0))
         Nx::SetLetterbox(letterbox != 0);
@@ -284,9 +293,9 @@ bool __cdecl CFunc_KillAllTextureSplats(CStruct* params, CScript*)
     uint32_t texture = 0;
     if (!params->GetStructure(kBox, &boxParams, 0)) {
         if (params->GetChecksum(kTexture, &texture, 0))
-            GameFunction<void(__cdecl*)(uint32_t)>(0x004916F0)(texture);
+            Nx::Engine::KillTextureSplatsOfTexture(texture);
         else
-            GameFunction<void(__cdecl*)()>(0x004915A0)();
+            Nx::Engine::KillAllTextureSplats();
         return true;
     }
     float height = 0.0f;
@@ -315,7 +324,7 @@ bool __cdecl CFunc_KillAllTextureSplats(CStruct* params, CScript*)
         offset.FeetToInches();
     box.min = {offset.x + low.x, offset.y + low.y, offset.z + low.z, offset.w + 1.0f};
     box.max = {offset.x + high.x, offset.y + high.y, offset.z + high.z, offset.w + 1.0f};
-    GameFunction<void(__cdecl*)(Mth::BBox*)>(0x00491630)(&box);
+    Nx::Engine::KillTextureSplatsInBox(reinterpret_cast<const float*>(&box));
     return true;
 }
 
@@ -324,7 +333,7 @@ bool __cdecl CFunc_KillAllTextureSplats(CStruct* params, CScript*)
 bool __cdecl CFunc_GetGammaValues(CStruct*, CScript* script)
 {
     float red, green, blue;
-    GameFunction<void(__cdecl*)(float*, float*, float*)>(0x0048C140)(&red, &green, &blue);
+    Nx::GetGamma(&red, &green, &blue);
     CStruct* out = script->m_params;
     out->RemoveComponent(kRed);
     out->RemoveComponent(kGreen);
@@ -344,12 +353,12 @@ bool __cdecl CFunc_GetDynamicLightModulationFactor(CStruct* params, CScript* scr
     int directional = 0;
     float low, high;
     if (params->ContainsFlag(kAmbient)) {
-        low = GameFunction<float(__cdecl*)(bool)>(0x0048E9B0)(true);
-        high = GameFunction<float(__cdecl*)(bool)>(0x0048E9B0)(false);
+        low = Nx::GetAmbientLightModulationFactor(true);
+        high = Nx::GetAmbientLightModulationFactor(false);
     } else {
         params->GetInteger(kDirectional, &directional, 0);
-        low = GameFunction<float(__cdecl*)(int, bool)>(0x0048E9D0)(directional, true);
-        high = GameFunction<float(__cdecl*)(int, bool)>(0x0048E9D0)(directional, false);
+        low = Nx::GetDiffuseLightModulationFactor(directional, true);
+        high = Nx::GetDiffuseLightModulationFactor(directional, false);
     }
     script->m_params->AddFloat(kModValueLo, low);
     script->m_params->AddFloat(kModValueHi, high);
@@ -382,7 +391,7 @@ bool __cdecl CFunc_SetFogDistance(CStruct* params, CScript*)
         return false;
     float distance = 0.0f;
     params->GetFloat("distance", &distance, 0);
-    GameFunction<void(__cdecl*)(float)>(0x00490E00)(distance);
+    Nx::Engine::SetFogDistance(distance);
     for (int i = 0; i < 2; ++i)
         ViewportCamera(i);
     return true;
@@ -402,7 +411,7 @@ bool __cdecl CFunc_SetFogColor(CStruct* params, CScript*)
                                              (b & 0xFF);
         return false;
     }
-    GameFunction<void(__cdecl*)(uint32_t)>(0x00490E20)(PackBytes(r, g, b, a));
+    Nx::Engine::SetFogColor(PackBytes(r, g, b, a));
     return true;
 }
 
@@ -431,7 +440,7 @@ bool __cdecl CFunc_SetLightAmbientColor(CStruct* params, CScript*)
     params->GetInteger("r", &r, 0);
     params->GetInteger("g", &g, 0);
     params->GetInteger("b", &b, 0);
-    return GameFunction<bool(__cdecl*)(uint32_t)>(0x0048E8F0)(PackBytes(r, g, b, 0x80));
+    return Nx::SetLightAmbientColor(PackBytes(r, g, b, 0x80));
 }
 
 // 0x00447010: GetLightDirection index=<n>: the light's direction (0x0048E920) in degrees into the script's params:
@@ -440,7 +449,7 @@ bool __cdecl CFunc_GetLightDirection(CStruct* params, CScript* script)
 {
     int index = 0; // (uninitialised in the original)
     params->GetInteger(kIndex, &index, 0);
-    Mth::Vector direction = *GameFunction<const Mth::Vector*(__cdecl*)(int)>(0x0048E920)(index);
+    Mth::Vector direction = *Nx::GetLightDirection(index);
     direction.RadiansToDegrees();
     script->m_params->AddFloat(kHeading, direction.y);
     script->m_params->AddFloat(kPitch, direction.x);
@@ -455,7 +464,7 @@ bool __cdecl CFunc_SetLightDiffuseColor(CStruct* params, CScript*)
     params->GetInteger(kUpperR, &r, 0);
     params->GetInteger(kUpperG, &g, 0);
     params->GetInteger(kUpperB, &b, 0);
-    return GameFunction<bool(__cdecl*)(int, uint32_t)>(0x0048E930)(index, PackBytes(r, g, b, 0x80));
+    return Nx::SetLightDiffuseColor(index, PackBytes(r, g, b, 0x80));
 }
 
 // 0x00447130: GetLightCurrentColor: the current ambient colour (0x0048E900) and the two directional lights'
@@ -470,11 +479,11 @@ bool __cdecl CFunc_GetLightCurrentColor(CStruct*, CScript* script)
         out->AddInteger(blue, static_cast<int>(colour >> 16 & 0xFF));
     };
     uint32_t buffer;
-    colour = *GameFunction<uint32_t*(__cdecl*)(uint32_t*)>(0x0048E900)(&buffer);
+    colour = *Nx::GetLightAmbientColor(&buffer);
     add(kAmbientRed, kAmbientGreen, kAmbientBlue);
-    colour = *GameFunction<uint32_t*(__cdecl*)(uint32_t*, int)>(0x0048E950)(&buffer, 0);
+    colour = *Nx::GetLightDiffuseColor(&buffer, 0);
     add(kRed0, kGreen0, kBlue0);
-    colour = *GameFunction<uint32_t*(__cdecl*)(uint32_t*, int)>(0x0048E950)(&buffer, 1);
+    colour = *Nx::GetLightDiffuseColor(&buffer, 1);
     add(kRed1, kGreen1, kBlue1);
     return true;
 }

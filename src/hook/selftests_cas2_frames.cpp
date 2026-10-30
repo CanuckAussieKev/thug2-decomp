@@ -16,6 +16,7 @@
 #include "game/core/mem.h"
 #include "game/file/file.h"
 #include "game/gfx/boned_anim_frame_data.h"
+#include "game/gfx/anim_cache.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -226,7 +227,7 @@ void StandInFrameCalls(StandIns& s)
         Record({0xBB60, Relocate(r.args[0])});
         return 0u;
     });
-    s.At({0x00480660}, 0, [](Regs&) {
+    s.At({0x00480660, AddressOf(&Gfx::CAnimCache::Get)}, 0, [](Regs&) {
         Record({0x0660});
         return GameVariable<uint32_t>(0x006F92B0);
     });

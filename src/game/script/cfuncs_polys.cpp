@@ -10,6 +10,13 @@
 #include "game/lst/hashtable.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/gfx/engine.h"
+#include "game/gfx/engine_geom.h"
+#include "game/gfx/engine_scene_list.h"
+#include "game/gfx/light_manager.h"
+#include "game/gfx/sector.h"
+#include "game/gfx/spawned_polys.h"
+#include "game/gfx/texture_dict.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -79,7 +86,7 @@ struct SceneNode {
     uint32_t unknown8;
     SceneNode* next;
 };
-SceneNode* FirstSceneNode() { return GameFunction<SceneNode*(__cdecl*)()>(0x0048C7F0)(); }
+SceneNode* FirstSceneNode() { return reinterpret_cast<SceneNode*>(Nx::FirstSceneNode()); }
 SceneNode* NextSceneNode(SceneNode* node)
 {
     SceneNode* next = node->next;
@@ -87,20 +94,26 @@ SceneNode* NextSceneNode(SceneNode* node)
 }
 // A scene's flag at +0x8D: a sky. 0x0048C7B0: the first scene that is one.
 bool IsSky(const uint8_t* scene) { return scene[0x8D] != 0; }
-uint8_t* FirstSkyScene() { return GameFunction<uint8_t*(__cdecl*)()>(0x0048C7B0)(); }
+uint8_t* FirstSkyScene() { return reinterpret_cast<uint8_t*>(Nx::GetSkyScene()); }
 
 // A sector's geometry (0x004A2BA0: +0x14) and the geometry's vertex count / positions / colours (0x0048DF70,
 // 0x0048DF80, 0x0048E150 into a buffer, 0x0048DFA0 back from one).
-void* SectorGeometry(void* sector) { return GameFunction<void*(__thiscall*)(void*)>(0x004A2BA0)(sector); }
-int VertexCount(void* geometry) { return GameFunction<int(__thiscall*)(void*)>(0x0048DF70)(geometry); }
+void* SectorGeometry(void* sector) { return static_cast<Nx::CSector*>(sector)->mp_geom; }
+// (the geometry's virtual slots 36, 37 and 40, called through its vtable)
+template <typename Fn>
+Fn GeometrySlot(const void* geometry, int slot)
+{
+    return reinterpret_cast<Fn>((*static_cast<void* const* const*>(geometry))[slot]);
+}
+int VertexCount(void* geometry) { return GeometrySlot<int(__thiscall*)(void*)>(geometry, 36)(geometry); }
 void GetPositions(void* geometry, Script::VectorValue* out)
 {
-    GameFunction<void(__thiscall*)(void*, Script::VectorValue*)>(0x0048DF80)(geometry, out);
+    GeometrySlot<void(__thiscall*)(void*, Script::VectorValue*)>(geometry, 37)(geometry, out);
 }
-void GetColours(void* geometry, uint32_t* out) { GameFunction<void(__thiscall*)(void*, uint32_t*)>(0x0048E150)(geometry, out); }
+void GetColours(void* geometry, uint32_t* out) { static_cast<Nx::CGeom*>(geometry)->GetColors(out); }
 void SetColours(void* geometry, uint32_t* colours)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t*)>(0x0048DFA0)(geometry, colours);
+    GeometrySlot<void(__thiscall*)(void*, uint32_t*)>(geometry, 40)(geometry, colours);
 }
 
 // The CRT's _ftol (0x006236FC): truncation towards zero; callers keep the low bits.
@@ -195,7 +208,7 @@ bool __cdecl CFunc_SpawnPoly(CStruct* params, CScript*)
 {
     auto* details = static_cast<SpawnedPolyDetails*>(SpawnedPolyPools().Allocate(sizeof(SpawnedPolyDetails)));
     if (details)
-        details = GameFunction<SpawnedPolyDetails*(__thiscall*)(SpawnedPolyDetails*)>(0x00491990)(details);
+        details = reinterpret_cast<SpawnedPolyDetails*>(reinterpret_cast<Nx::sSpawnedPoly*>(details)->Construct());
     // (a failed allocation writes through null below, as in the original)
     params->GetVector(kPos, &details->pos, 1);
     Script::VectorValue vector1 = {0.0f, 0.0f, 1.0f, 1.0f};
@@ -250,11 +263,10 @@ bool __cdecl CFunc_SpawnPoly(CStruct* params, CScript*)
     params->GetChecksum(kBlendMode, &details->blendMode, 0);
     uint32_t texture = 0;
     params->GetChecksum(kTexture, &texture, 0);
-    details->texture = texture ? GameFunction<void*(__thiscall*)(void*, uint32_t)>(0x0049F540)(
-                                     GameVariable<void*>(0x00700F20), texture) // the texture dictionary
+    details->texture = texture ? static_cast<Nx::CTexDict*>(GameVariable<void*>(0x00700F20))->GetTexture(texture) // the texture dictionary
                                : nullptr;
-    GameFunction<void(__cdecl*)(SpawnedPolyDetails*, Script::VectorValue*, Script::VectorValue*)>(0x00492450)(
-        details, &vector1, &vector2);
+    Nx::Engine::SpawnPoly(reinterpret_cast<Nx::sSpawnedPoly*>(details), reinterpret_cast<Mth::Vector*>(&vector1),
+                          reinterpret_cast<Mth::Vector*>(&vector2));
     return true;
 }
 
@@ -380,7 +392,7 @@ bool __cdecl CFunc_SetLightDirection(CStruct* params, CScript*)
         direction.z = static_cast<float>(-(static_cast<double>(s) * x) + turnedZ * c);
         direction.x = static_cast<float>(turnedZ * s + static_cast<double>(c) * x);
     }
-    return GameFunction<bool(__cdecl*)(int, Script::VectorValue*)>(0x0048ED70)(index, &direction);
+    return Nx::SetLightDirection(index, reinterpret_cast<const Mth::Vector*>(&direction));
 }
 
 // 0x00447F30: GetMetrics: the renderer's metrics (0x0048CB00 into a new structure) added to the script's params as
@@ -390,7 +402,7 @@ bool __cdecl CFunc_GetMetrics(CStruct*, CScript* script)
     CStruct* metrics = Script::NewStruct();
     if (metrics)
         metrics = metrics->Init();
-    GameFunction<void(__cdecl*)(CStruct*)>(0x0048CB00)(metrics);
+    Nx::GetSceneDebugInfo(metrics);
     script->m_params->AddStructure(kMetrics, metrics);
     if (metrics) {
         metrics->Clear();

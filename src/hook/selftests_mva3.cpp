@@ -17,6 +17,7 @@
 #include "game/pcm/stream.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
+#include "game/gfx/viewport.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -327,7 +328,7 @@ void TestMusicApi()
             Record({HashBytes(reinterpret_cast<uint8_t*>(r.ecx), 24)});
             return 0u;
         });
-        Standin(*s, {0x004A09E0}, 0, 0x09E0, 2,
+        Standin(*s, {0x004A09E0, AddressOf(&Nx::GetClosestCamera)}, 0, 0x09E0, 2,
                 [](uint32_t v, Regs&) { return v % 3 ? reinterpret_cast<uint32_t>(g_object) : 0u; });
         Standin(*s, {0x00433D30, AddressOf(&Obj::CStreamComponent::GetStreamExtent)}, 8, 0x3D30, 1, [](uint32_t v, Regs& r) {
             Record({Rel(r.ecx)});

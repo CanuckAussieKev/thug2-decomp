@@ -68,7 +68,7 @@ void StandInCompetitionCalls(StandIns& s)
         Record({0xB630, r.ecx});
         return reinterpret_cast<uint32_t>(g_profiles[11]);
     });
-    s.At({0x00557FB0}, 4, [](Regs& r) {
+    s.At({0x00557FB0, AddressOf(&Game::CGoalManager::GetGoalByIndex)}, 4, [](Regs& r) {
         if (g_gs3Trace) Log("  standin %X", r.ret);
         Record({0x7FB0, r.ecx, r.args[0]});
         return reinterpret_cast<uint32_t>(g_profiles[r.args[0] % 12]);
