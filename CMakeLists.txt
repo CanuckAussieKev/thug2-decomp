@@ -194,6 +194,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_physics_harness.cpp
     src/hook/selftests_skater_state.cpp
     src/hook/selftests_leftovers.cpp
+    src/hook/selftests_byte_scan.cpp
     src/hook/selftests_skater_feelers.cpp
     src/hook/selftests_skater_turning.cpp
     src/hook/selftests_skater_walls.cpp

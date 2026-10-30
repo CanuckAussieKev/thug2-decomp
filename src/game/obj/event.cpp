@@ -37,6 +37,7 @@ void TrackerRegisterListener(CEventListener* listener)
 }
 void TrackerUnregisterListener(CEventListener* listener) { Tracker()->RemoveEventListener(listener); }
 void TrackerLogEventHandled(CEvent* event, uint32_t how, uint32_t script) { Tracker()->LogHandled(event, how, script); }
+void TrackerLogEventRead(CEvent* event, uint32_t how, uint32_t script) { Tracker()->LogRead(event, how, script); }
 
 // `new CStruct` / `new CStruct(*source)` (null if the pool is full) and `delete structure`.
 CStruct* NewEmptyStruct()
@@ -76,11 +77,27 @@ CEvent* CEvent::Construct(uint32_t type, uint32_t source, uint32_t target, CStru
     return this;
 }
 
+// 0x0045F980
+void CEvent::MarkRead(uint32_t how, uint32_t script)
+{
+    TrackerLogEventRead(this, how, script);
+    m_flags |= FLAG_READ;
+}
+
 // 0x0045F9B0
 void CEvent::MarkHandled(uint32_t how, uint32_t script)
 {
     TrackerLogEventHandled(this, how, script);
     m_flags |= FLAG_HANDLED;
+}
+
+// 0x0045F9E0
+int __cdecl EventController(CEvent* event)
+{
+    int controller = 0;
+    if (event->mp_data)
+        event->mp_data->GetInteger(0xB30D9965, &controller, 0); // "controller"
+    return controller;
 }
 
 // 0x00460150
@@ -471,7 +488,9 @@ void CEventHandlerTable::PassEvent(CEvent* event, CScript* script)
 } // namespace Obj
 
 REPLACE(0x0045F7F0, &Obj::CEvent::Construct);
+REPLACE(0x0045F980, &Obj::CEvent::MarkRead);
 REPLACE(0x0045F9B0, &Obj::CEvent::MarkHandled);
+REPLACE(0x0045F9E0, Obj::EventController);
 REPLACE(0x00460150, &Obj::CEvent::Destroy);
 REPLACE(0x0045FAA0, &Obj::CEventListener::Construct);
 REPLACE(0x0045FAC0, &Obj::CEventListener::Destroy);

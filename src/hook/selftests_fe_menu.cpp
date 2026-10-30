@@ -47,7 +47,7 @@ void InstallMenuStandIns(StandIns& s)
         Rec(0x1140, {r.ecx, r.args[0]});
         return g_passResult ? 1u : 0u;
     });
-    s.At({0x0045F9E0}, 0, [](Regs& r) {
+    s.At({0x0045F9E0, AddressOf(&Obj::EventController)}, 0, [](Regs& r) {
         Rec(0xF9E0, {r.args[0]});
         return 3u;
     });

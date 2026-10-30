@@ -44,6 +44,8 @@ public:
     void* GetCamera();
     int GetSkaterNumber();
     CObject* GetSkaterCamera();
+    // 0x00580030: the core physics' display matrix (its +0x18).
+    Mth::Matrix* GetDisplayMatrix();
     // 0x00580040: its +0x238 block. 0x00580050: the flag at +0x2C4. 0x00580480: its score.
     void* GetBlock238();
     bool GetFlag2C4();

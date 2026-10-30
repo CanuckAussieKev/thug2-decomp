@@ -897,6 +897,7 @@ REPLACE(0x0046D1A0, &ComponentAdapters::MakeOwning);
 REPLACE(0x0046D280, &ComponentAdapters::GetBool);
 REPLACE(0x0046D380, &CExpressionEvaluator::Init);
 REPLACE(0x0046D1C0, &CExpressionEvaluator::Clear);
+REPLACE_SOURCE_ONLY(0x0046D3C0, &CExpressionEvaluator::Clear); // the destructor (the static evaluator's, at exit): a jump to 0x0046D1C0
 REPLACE(0x0046D220, &CExpressionEvaluator::ClearIfNeeded);
 REPLACE(0x0046D250, &CExpressionEvaluator::SetTokenPointer);
 REPLACE(0x0046D260, &CExpressionEvaluator::SetError);

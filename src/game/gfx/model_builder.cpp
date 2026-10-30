@@ -137,11 +137,9 @@ bool GetScale(Mth::Vector* scale, Script::CStruct* from)
 {
     return GameFunction<bool(__cdecl*)(Mth::Vector*, Script::CStruct*)>(0x00487B00)(scale, from);
 }
-// A script held in a structure (CStruct's 0x00476900, not rewritten yet): `name`'s code into `out`.
 bool GetScript(Script::CStruct* s, uint32_t name, Script::SStructScript* out, int assert)
 {
-    return GameFunction<bool(__thiscall*)(Script::CStruct*, uint32_t, Script::SStructScript*, int)>(0x00476900)(
-        s, name, out, assert);
+    return s->GetScript(name, out, assert);
 }
 
 // The texture's virtual slots the created graphic uses (the jumps 0x0048D060 [8], 0x0048DE30 [9], 0x0048E4C0 [10],

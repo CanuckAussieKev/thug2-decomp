@@ -34,12 +34,15 @@ constexpr uint32_t kDefaultGroup = 0x1CA1FF20;
 // An event (made on the stack by the tracker's launch function 0x00462F00).
 struct CEvent {
     enum : uint32_t {
+        FLAG_READ = 0x01,     // a script read it
         FLAG_HANDLED = 0x02,  // a handler ran for it
         FLAG_OWNS_DATA = 0x04, // mp_data is deleted with the event
     };
 
     // 0x0045F7F0: the constructor (flags 0; returns this).
     CEvent* Construct(uint32_t type, uint32_t source, uint32_t target, Script::CStruct* data);
+    // 0x0045F980: `script` read it: the tracker's event log is told how, then FLAG_READ.
+    void MarkRead(uint32_t how, uint32_t script);
     // 0x0045F9B0: `script` dealt with it: the tracker's event log is told how (0: an event handler ran, 2: a
     // script blocked on it was released), then FLAG_HANDLED.
     void MarkHandled(uint32_t how, uint32_t script);
@@ -53,6 +56,9 @@ struct CEvent {
     Script::CStruct* mp_data; // +0x10 added to each handler's parameters
 };
 static_assert(offsetof(CEvent, m_flags) == 0x0C && offsetof(CEvent, mp_data) == 0x10, "layout must match the original");
+
+// 0x0045F9E0: the controller an event came from (its data's `controller`; 0 without one).
+int __cdecl EventController(CEvent* event);
 
 // Something the tracker tells about events (an abstract class: vtable 0x006477D8, slot 0 the deleting
 // destructor, slot 1 pure - the subclasses' event filter). The tracker keeps them in a singly linked list.

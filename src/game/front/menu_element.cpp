@@ -49,8 +49,6 @@ ElementPtr* LookUp(void* manager, ElementPtr* out, uint32_t id, int assert)
     return Elements(manager)->GetElement(out, id, assert);
 }
 
-// The controller an event came from (its data's `controller`; 0x0045F9E0, cdecl).
-int EventController(Obj::CEvent* event) { return GameFunction<int(__cdecl*)(Obj::CEvent*)>(0x0045F9E0)(event); }
 
 // focus to `id` with the controller (and a grid index, unless -1).
 void SendFocus(uint32_t id, int controller, int gridIndex)
@@ -379,7 +377,7 @@ bool CBaseMenu::PassEventToScript(Obj::CEvent* event)
         event->MarkHandled(m_id, 0);
     }
     if (event->m_type == kFocus && !m_focused) {
-        m_controller = EventController(event);
+        m_controller = Obj::EventController(event);
         // the item to focus: grid_index (the last item whose tag_grid_x is at most it), child_id
         int grid = -1;
         if (event->mp_data && event->mp_data->GetInteger(kGridIndex, &grid, 0)) {
@@ -487,7 +485,7 @@ bool CContainerElement::PassEventToScript(Obj::CEvent* event)
         if (m_focusableChild) {
             CStruct data;
             data.Init();
-            data.AddInteger(kController, EventController(event));
+            data.AddInteger(kController, Obj::EventController(event));
             Launch(event->m_type, m_focusableChild, &data);
             data.Clear();
         }

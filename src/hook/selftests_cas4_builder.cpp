@@ -157,7 +157,7 @@ void StandInBuilderCalls(StandIns& s)
         Record({0x5790, r.args[0], Relocate(r.args[1]), Relocate(r.args[2]), r.args[3] & 0xFF, r.args[4]});
         return 0u;
     });
-    s.At({0x00476900}, 12, [](Regs& r) { // (CStruct's GetScript)
+    s.At({0x00476900, AddressOf(&Script::CStruct::GetScript)}, 12, [](Regs& r) { // (CStruct's GetScript)
         Record({0x6900, Relocate(r.ecx), r.args[0], Relocate(r.args[1]), r.args[2]});
         auto it = g_values.find({r.ecx, r.args[0]});
         if (it == g_values.end())

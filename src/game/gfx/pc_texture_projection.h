@@ -22,6 +22,8 @@ struct sProjectionBatch {
 
     // 0x004C7610: construct (the material's constructor). Returns this.
     sProjectionBatch* Construct();
+    // 0x004C73D0: the destructor (the material's; the ten batches' at exit).
+    void Destroy();
 };
 static_assert(offsetof(sProjectionBatch, material) == 0xC && offsetof(sProjectionBatch, pixelShader) == 0x11C &&
                   offsetof(sProjectionBatch, vertices) == 0x120 && sizeof(sProjectionBatch) == 0x9120,

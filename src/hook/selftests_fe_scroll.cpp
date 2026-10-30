@@ -44,7 +44,7 @@ void InstallScrollStandIns(StandIns& s)
         Rec(0xF9B0, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x0045F980}, 8, [](Regs& r) {
+    s.At({0x0045F980, AddressOf(&Obj::CEvent::MarkRead)}, 8, [](Regs& r) {
         Rec(0xF980, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });

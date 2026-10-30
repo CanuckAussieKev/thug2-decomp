@@ -465,6 +465,16 @@ int GetFileSize(const char* name)
     return GetFileSize(Crc::GenerateCRCFromString(name));
 }
 
+// 0x005B70F0
+FileTables* FileTables::Construct()
+{
+    for (int i = 0; i < kMaxPreFiles; ++i)
+        PreFiles()[i] = nullptr;
+    for (int i = 0; i < kMaxLoadedFiles; ++i)
+        LoadedFiles()[i] = {};
+    return this;
+}
+
 // 0x005B7130
 bool UnloadPre(const char* name)
 {
@@ -517,6 +527,7 @@ bool PreFileIsInUse(const char* name)
 
 static_assert(sizeof(Pip::PreEntry) == 16 && sizeof(Pip::LoadedFile) == 16, "layout must match the original");
 
+REPLACE_SOURCE_ONLY(0x005B70F0, &Pip::FileTables::Construct); // (not a Ghidra function; a static initialiser's)
 REPLACE(0x005B7130, Pip::UnloadPre);
 REPLACE_SHADOW(0x005B7180, Pip::FindPreEntry);
 REPLACE(0x005B7200, static_cast<void (*)(uint32_t)>(&Pip::Unload));

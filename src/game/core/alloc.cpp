@@ -228,6 +228,15 @@ using Mem::Region;
 struct AllocAdapters {
     Region* RegionConstruct(uint8_t* start, uint8_t* end) { return new (this) Region(start, end); }
     AllocRegion* AllocRegionConstruct(uint32_t size) { return new (this) AllocRegion(size); }
+    // 0x005BC6D0 (Region's virtual [0]): destroyed, and freed with flags & 1.
+    Region* RegionDestroy(unsigned int flags)
+    {
+        auto* region = reinterpret_cast<Region*>(this);
+        region->DestroyBody();
+        if (flags & 1)
+            Mem::Free(region);
+        return region;
+    }
     AllocRegion* AllocRegionDestroy(unsigned int flags)
     {
         auto* region = reinterpret_cast<AllocRegion*>(this);
@@ -278,6 +287,7 @@ REPLACE(0x005BC530, &Mem::Region::MemAvailable);
 REPLACE(0x005BC560, &Mem::Region::Allocate);
 REPLACE(0x005BC620, &AllocAdapters::AllocRegionConstruct);
 REPLACE(0x005BC6B0, &Mem::AllocRegion::DestroyBody);
+REPLACE(0x005BC6D0, &AllocAdapters::RegionDestroy);
 REPLACE(0x005BC700, &AllocAdapters::AllocRegionDestroy);
 REPLACE(0x005BA0E0, &Mem::ListNode::Unlink);
 REPLACE(0x005BC990, &AllocAdapters::UnlinkNode65797C);

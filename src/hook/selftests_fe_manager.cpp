@@ -62,7 +62,7 @@ void InstallManagerStandIns(StandIns& s)
         Rec(0xE630, {r.ecx, r.args[0]});
         return static_cast<uint32_t>(g_device);
     });
-    s.At({0x0045F980}, 8, [](Regs& r) {
+    s.At({0x0045F980, AddressOf(&Obj::CEvent::MarkRead)}, 8, [](Regs& r) {
         Rec(0xF980, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
@@ -70,7 +70,7 @@ void InstallManagerStandIns(StandIns& s)
         Rec(0xF9B0, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x0045F9E0}, 0, [](Regs& r) {
+    s.At({0x0045F9E0, AddressOf(&Obj::EventController)}, 0, [](Regs& r) {
         Rec(0xF9E0, {r.args[0]});
         return *reinterpret_cast<uint32_t*>(r.args[0] + 0x0C) >> 16; // (the controller kept in the flags' top)
     });

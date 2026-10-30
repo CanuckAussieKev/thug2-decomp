@@ -11,6 +11,7 @@ namespace Script {
 
 class CArray;
 class CStruct;
+struct SStructScript;
 
 // The types of components and symbols.
 enum ESymbolType : uint8_t {
@@ -294,6 +295,8 @@ public:
     bool GetStructure(const char* name, CStruct** out, int assert);
     bool GetArray(uint32_t name, CArray** out, int assert);
     bool GetArray(const char* name, CArray** out, int assert);
+    // A script component: its name and code into `out`.
+    bool GetScript(uint32_t name, SStructScript* out, int assert);
     bool GetChecksum(uint32_t name, uint32_t* out, int assert);
     bool GetChecksum(const char* name, uint32_t* out, int assert);
     // The checksum `name`, or else the checksum of the string `name`.

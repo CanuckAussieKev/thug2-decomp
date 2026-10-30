@@ -25,6 +25,12 @@ struct LoadedFile {
     int refCount;
 };
 
+// The file tables' static object (0x007CFFA8, no fields of its own): its constructor, a static initialiser's
+// (0x005B70F0), empties the .pre archive and loaded file tables. Returns this.
+struct FileTables {
+    FileTables* Construct();
+};
+
 // Load a file into memory, or add a use to it if it's already loaded (on its own or inside a .pre
 // archive). Returns its data, or null. `async` loads through the asynchronous file loader, with an
 // optional completion callback and two arguments for it.

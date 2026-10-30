@@ -19,6 +19,7 @@
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics_fields.h"
+#include "game/skater/skater.h"
 #include "game/skater/skater_camera_component.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -57,11 +58,7 @@ float& LipTurn() { return GameVariable<float>(0x007CCDB4); }
 
 bool VertAir(const uint8_t* state) { return state[0x30] && !state[0x48] && !state[0x78]; }
 
-// 0x00580030 (thiscall on the skater): its core physics' display matrix.
-Mth::Matrix* SkaterDisplayMatrix(CCompositeObject* skater)
-{
-    return GameFunction<Mth::Matrix*(__thiscall*)(void*)>(0x00580030)(skater);
-}
+Mth::Matrix* SkaterDisplayMatrix(CCompositeObject* skater) { return static_cast<CSkater*>(skater)->GetDisplayMatrix(); }
 // D3DXMatrixMultiply (the library's, 0x005BFA8C): out = a * b.
 void Multiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {

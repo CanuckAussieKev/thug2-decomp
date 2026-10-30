@@ -30,10 +30,7 @@ uint32_t HMenuType() { return Crc::GenerateCRCFromString(reinterpret_cast<const 
 
 void VUpdate(CScreenElement* e) { reinterpret_cast<void(__thiscall*)(CScreenElement*)>(e->m_vtable[10])(e); }
 
-void MarkRead(Obj::CEvent* event, uint32_t how, uint32_t script)
-{
-    GameFunction<void(__thiscall*)(Obj::CEvent*, uint32_t, uint32_t)>(0x0045F980)(event, how, script);
-}
+void MarkRead(Obj::CEvent* event, uint32_t how, uint32_t script) { event->MarkRead(how, script); }
 
 CScreenElementManager* ManagerOf(const CScreenElement* e) { return static_cast<CScreenElementManager*>(e->mp_manager); }
 

@@ -170,6 +170,9 @@ void CSkater::SparksOff()
     m_sparks = false;
 }
 
+// 0x00580030
+Mth::Matrix* CSkater::GetDisplayMatrix() { return reinterpret_cast<Mth::Matrix*>(m_corePhysics + 0x18); }
+
 // 0x00580040 / 0x00580050
 void* CSkater::GetBlock238() { return m_block238; }
 bool CSkater::GetFlag2C4() { return m_flag2C4; }
@@ -1583,6 +1586,7 @@ REPLACE(0x0057FEC0, &Obj::CSkater::GetSkaterNumber);
 REPLACE(0x0057FED0, &Obj::CSkater::MatchesParams);
 REPLACE(0x0057FFE0, &Obj::CSkater::SparksOn);
 REPLACE(0x00580000, &Obj::CSkater::SparksOff);
+REPLACE(0x00580030, &Obj::CSkater::GetDisplayMatrix);
 REPLACE(0x00580040, &Obj::CSkater::GetBlock238);
 REPLACE(0x00580050, &Obj::CSkater::GetFlag2C4);
 REPLACE(0x00580060, &Obj::CSkater::LoadCATInfo);

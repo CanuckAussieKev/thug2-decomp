@@ -47,13 +47,7 @@ void** Vtable(uint32_t address) { return reinterpret_cast<void**>(address); }
 
 CScreenElement* AsElement(Obj::CObject* object) { return static_cast<CScreenElement*>(object); }
 
-// The controller an event came from (its data's `controller`; 0x0045F9E0, cdecl).
-int EventController(Obj::CEvent* event) { return GameFunction<int(__cdecl*)(Obj::CEvent*)>(0x0045F9E0)(event); }
-// The event was read by `script` (0x0045F980, CEvent's, not rewritten yet: the tracker's log told, flag 1).
-void MarkRead(Obj::CEvent* event, uint32_t how, uint32_t script)
-{
-    GameFunction<void(__thiscall*)(Obj::CEvent*, uint32_t, uint32_t)>(0x0045F980)(event, how, script);
-}
+void MarkRead(Obj::CEvent* event, uint32_t how, uint32_t script) { event->MarkRead(how, script); }
 
 void VSetProperties(CScreenElement* e, CStruct* params)
 {
@@ -514,7 +508,7 @@ void CScreenElementManager::ListenerReceive(Obj::CEvent* event)
         ElementPtr element;
         manager->GetElement(&element, event->m_target, 0);
         if (element && !element->EventsBlocked()) {
-            manager->AddFocusEntry(&element, EventController(event));
+            manager->AddFocusEntry(&element, Obj::EventController(event));
             MarkRead(event, 1, 0);
         }
     }
@@ -550,7 +544,7 @@ void CScreenElementManager::ListenerReceive(Obj::CEvent* event)
     }
     if (!isPadType || event->m_target != kSystem)
         return;
-    int controller = EventController(event);
+    int controller = Obj::EventController(event);
     for (FocusEntry* entry = manager->mp_focusLists[controller]; entry; entry = entry->next)
         entry->tried = false;
     manager->m_focusListChanged[controller] = true;

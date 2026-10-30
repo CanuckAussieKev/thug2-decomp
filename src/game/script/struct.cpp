@@ -1,4 +1,5 @@
 #include "game/script/struct.h"
+#include "game/script/cscript.h"
 
 #include <cstdio>
 #include <cstring>
@@ -333,6 +334,20 @@ bool CStruct::GetArray(const char* name, CArray** out, int assert)
     return GetArray(Crc::GenerateCRCFromString(name), out, assert);
 }
 
+// 0x00476900
+bool CStruct::GetScript(uint32_t name, SStructScript* out, int assert)
+{
+    const uint8_t* code;
+    if (!Search(name, ESYMBOLTYPE_QSCRIPT, &code)) {
+        if (assert)
+            PrintContents(this);
+        return false;
+    }
+    out->mNameChecksum = name;
+    out->mpScriptTokens = code;
+    return true;
+}
+
 // 0x00476950 (the last match wins; an unnamed name that includes a global structure isn't a value)
 bool CStruct::GetChecksum(uint32_t name, uint32_t* out, int assert)
 {
@@ -455,6 +470,7 @@ REPLACE(0x004767C0, static_cast<Method<bool, uint32_t, CStruct**, int>>(&CStruct
 REPLACE(0x00476810, static_cast<Method<bool, const char*, CStruct**, int>>(&CStruct::GetStructure));
 REPLACE(0x00476860, static_cast<Method<bool, uint32_t, CArray**, int>>(&CStruct::GetArray));
 REPLACE(0x004768B0, static_cast<Method<bool, const char*, CArray**, int>>(&CStruct::GetArray));
+REPLACE(0x00476900, &CStruct::GetScript);
 REPLACE(0x00476950, static_cast<Method<bool, uint32_t, uint32_t*, int>>(&CStruct::GetChecksum));
 REPLACE(0x00476A00, static_cast<Method<bool, const char*, uint32_t*, int>>(&CStruct::GetChecksum));
 REPLACE(0x00476A30, &CStruct::GetChecksumOrStringChecksum);
@@ -1272,6 +1288,7 @@ REPLACE(0x00477F40, static_cast<AddMethod<const char*, float, float, float>>(&CS
 REPLACE(0x00477F70, static_cast<AddMethod<uint32_t, VectorValue>>(&CStruct::AddVector));
 REPLACE(0x00477F90, static_cast<AddMethod<const char*, VectorValue>>(&CStruct::AddVector));
 REPLACE(0x00477FC0, &CStruct::AddPair);
+REPLACE_SOURCE_ONLY(0x00478470, &CStruct::AddPair); // a jump to 0x00477FC0
 REPLACE(0x004780D0, static_cast<AddMethod<uint32_t, CArray*>>(&CStruct::AddArrayPointer));
 REPLACE(0x00478180, static_cast<AddMethod<const char*, CArray*>>(&CStruct::AddArrayPointer));
 REPLACE(0x004781B0, static_cast<AddMethod<uint32_t, CStruct*>>(&CStruct::AddStructurePointer));

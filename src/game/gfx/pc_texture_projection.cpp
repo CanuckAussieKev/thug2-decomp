@@ -12,6 +12,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/material.h"
 #include "game/gfx/mesh.h"
 #include "game/gfx/pixel_shaders.h"
 #include "game/gfx/render_state.h"
@@ -74,6 +75,12 @@ sProjectionBatch* sProjectionBatch::Construct()
 {
     GameFunction<void*(__thiscall*)(void*)>(0x004D1A90)(material);
     return this;
+}
+
+// 0x004C73D0
+void sProjectionBatch::Destroy()
+{
+    reinterpret_cast<sMaterial*>(material)->DestroyBody();
 }
 
 // 0x004C73E0
@@ -286,6 +293,7 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
 } // namespace Nx
 
 REPLACE(0x004C7610, &Nx::sProjectionBatch::Construct);
+REPLACE(0x004C73D0, &Nx::sProjectionBatch::Destroy);
 REPLACE(0x004C73E0, Nx::GetProjectionBatch);
 REPLACE(0x004C7520, Nx::DrawProjectionBatches);
 REPLACE(0x004C7E80, &Nx::CPcTextureProjection::Construct);
