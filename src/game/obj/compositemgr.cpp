@@ -371,7 +371,7 @@ uint32_t& InstanceCount() { return g_instanceCount; }
 // std::list::erase(first, last) (0x004ECC30; the result iterator in `result`).
 void EraseInstances(InstanceNode** result, InstanceNode* first, InstanceNode* last)
 {
-    reinterpret_cast<PointerList*>(0x006F0DB0)->Erase(reinterpret_cast<PointerListNode**>(result),
+    reinterpret_cast<PointerList*>(&g_instanceListHead)->Erase(reinterpret_cast<PointerListNode**>(result),
                                                            reinterpret_cast<PointerListNode*>(first),
                                                            reinterpret_cast<PointerListNode*>(last));
 }

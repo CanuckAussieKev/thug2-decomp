@@ -23,13 +23,13 @@
 #include "game/obj/object.h"
 #include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/obj/objman.h"
 
 namespace Obj {
 
 namespace {
 
 extern void** const kVtable;
-extern void** const kObjectSearchVtable;
 
 constexpr uint32_t kObjObjectInRect = 0x6520B902;         // Obj_ObjectInRect
 constexpr uint32_t kObjObjectInRadius = 0x67660FE5;       // Obj_ObjectInRadius
@@ -274,7 +274,7 @@ bool CBBoxComponent::AnyObjectNear(Script::CStruct* params, Script::CScript* scr
         return false;
     }
     CObjectSearch search;
-    search.m_vtable = kObjectSearchVtable;
+    search.m_vtable = g_objectSearchVtable;
     search.m_node = nullptr;
     for (auto* object = static_cast<CCompositeObject*>(
              search.FirstItemOfType(ManagerObjectList(m_object->mp_manager), objectType));
@@ -370,8 +370,13 @@ GAME_VTABLE(kVtable, 0x00645DC4,
     Stubs::IgnoreArgument,
     static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
     &Obj::CBBoxComponent::CallMemberFunction);
-GAME_VTABLE(kObjectSearchVtable, 0x00645DFC,
-    &Obj::CObjectSearch::Destroy);
 
 } // namespace
+} // namespace Obj
+
+namespace Obj {
+
+GAME_VTABLE(g_objectSearchVtable, 0x00645DFC,
+    &Obj::CObjectSearch::Destroy);
+
 } // namespace Obj

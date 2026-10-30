@@ -9,6 +9,8 @@
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
 #include "hook/game_global.h"
+#include "game/obj/smtptr.h"
+#include "game/nx/coll_cache.h"
 
 namespace Script {
 class CArray;
@@ -151,10 +153,10 @@ public:
     };
     // The shape turned to the world this frame (from the centre of mass): the contact points (0x00694E30), the
     // spheres' centres (0x00694FB0), the springs' points (0x00695130); and the contacts (0x006949B0).
-    static Mth::Vector* WorldContactPoints() { return reinterpret_cast<Mth::Vector*>(0x00694E30); }
-    static Mth::Vector* WorldSphereCenters() { return reinterpret_cast<Mth::Vector*>(0x00694FB0); }
-    static Mth::Vector* WorldSpringPoints() { return reinterpret_cast<Mth::Vector*>(0x00695130); }
-    static Contact* Contacts() { return reinterpret_cast<Contact*>(0x006949B0); }
+    static Mth::Vector* WorldContactPoints();
+    static Mth::Vector* WorldSphereCenters();
+    static Mth::Vector* WorldSpringPoints();
+    static Contact* Contacts();
 
     // 0x00430E20 (vtable slot 1): disabled: nothing. The push cooldown counted down, else the pushers felt
     // (0x0042C140); the die timer (dead when it runs out). Asleep: only the display matrix set. Awake: the world
@@ -286,6 +288,12 @@ void __cdecl SetRigidBodyPusherReach(CCompositeObject* object, float reach);
 // 0x0042BAC0 ToggleRigidBodyDebug: the rigid bodies' debug drawing stepped: off, the shapes, the details too, off.
 bool __cdecl CFunc_ToggleRigidBodyDebug(Script::CStruct* params, Script::CScript* script);
 
+GAME_GLOBAL_EXTERN(Mth::Vector[24], g_rigidBodyWorldContactPoints);   // 0x00694E30
+GAME_GLOBAL_EXTERN(Mth::Vector[24], g_rigidBodyWorldSphereCenters);   // 0x00694FB0
+GAME_GLOBAL_EXTERN(Mth::Vector[2], g_rigidBodyWorldSpringPoints);    // 0x00695130
+GAME_GLOBAL_EXTERN(CRigidBodyComponent::Contact[24], g_rigidBodyContacts); // 0x006949B0
+GAME_GLOBAL_EXTERN(CSmtPtr<CCompositeObject>[8], g_rigidBodyPushers);      // 0x00695150
+GAME_GLOBAL_EXTERN(Nx::CCollCache, g_rigidBodyCache);                       // 0x006939E0
 GAME_GLOBAL_EXTERN(float[8], g_rigidBodyPusherReach);
 GAME_GLOBAL_EXTERN(float, g_rigidBodyPusherHeight);
 GAME_GLOBAL_EXTERN(bool, g_rigidBodyDrawShape);

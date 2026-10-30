@@ -28,6 +28,17 @@
 namespace Obj {
 
 GAME_GLOBAL(float[8], g_rigidBodyPusherReach, 0x006939B0);
+GAME_GLOBAL(Nx::CCollCache, g_rigidBodyCache, 0x006939E0);
+GAME_GLOBAL(CRigidBodyComponent::Contact[24], g_rigidBodyContacts, 0x006949B0);
+GAME_GLOBAL(Mth::Vector[24], g_rigidBodyWorldContactPoints, 0x00694E30);
+GAME_GLOBAL(Mth::Vector[24], g_rigidBodyWorldSphereCenters, 0x00694FB0);
+GAME_GLOBAL(Mth::Vector[2], g_rigidBodyWorldSpringPoints, 0x00695130);
+GAME_GLOBAL(CSmtPtr<CCompositeObject>[8], g_rigidBodyPushers, 0x00695150);
+
+Mth::Vector* CRigidBodyComponent::WorldContactPoints() { return g_rigidBodyWorldContactPoints; }
+Mth::Vector* CRigidBodyComponent::WorldSphereCenters() { return g_rigidBodyWorldSphereCenters; }
+Mth::Vector* CRigidBodyComponent::WorldSpringPoints() { return g_rigidBodyWorldSpringPoints; }
+CRigidBodyComponent::Contact* CRigidBodyComponent::Contacts() { return g_rigidBodyContacts; }
 GAME_GLOBAL(float, g_rigidBodyPusherHeight, 0x006939D0);
 
 namespace {
@@ -716,7 +727,7 @@ bool CRigidBodyComponent::Rigidbody_MatchVelocityTo(Script::CStruct* params, Scr
 // 0x0042E380
 void __cdecl AddRigidBodyPusher(CCompositeObject* object)
 {
-    auto* pushers = reinterpret_cast<CSmtPtr<CCompositeObject>*>(0x00695150);
+    auto* pushers = g_rigidBodyPushers;
     for (int i = 7; i >= 0; --i) {
         if (pushers[i].mp_object)
             continue;

@@ -22,7 +22,7 @@ double Wide(float value) { return value; }
 float Narrow(double value) { return static_cast<float>(value); }
 
 // The rigid bodies' collision cache (0x006939E0), refilled for each body's box before it looks.
-Nx::CCollCache* BodyCache() { return reinterpret_cast<Nx::CCollCache*>(0x006939E0); }
+Nx::CCollCache* BodyCache() { return &g_rigidBodyCache; }
 
 } // namespace
 

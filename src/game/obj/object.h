@@ -402,4 +402,7 @@ static_assert(offsetof(CCompositeObject, m_pos) == 0x4C && offsetof(CCompositeOb
                   offsetof(CCompositeObject, m_compositeFlags) == 0x104,
               "layout must match the original");
 
+// 0x006477E4: objectNodeVtable (defined where the class's functions are).
+extern void** const g_objectNodeVtable;
+
 } // namespace Obj

@@ -16,6 +16,7 @@
 #include "hook/hook.h"
 #include "game/front/screen_element_manager.h"
 #include "hook/game_code.h"
+#include "game/obj/object.h"
 
 namespace Obj {
 
@@ -27,7 +28,6 @@ extern void** const kManagerVtable;
 extern void** const kGeneralManagerVtable;
 extern void** const kListHeadVtable;
 extern void** const kObjectSearchBaseVtable;
-void** const kObjectNodeVtable = reinterpret_cast<void**>(0x006477E4);
 void** const kFlushTaskVtable = reinterpret_cast<void**>(0x006476F0); // Tsk::Task<CGeneralManager>
 constexpr int kFlushTaskPriority = 1000;
 
@@ -86,7 +86,7 @@ CBaseManager* CBaseManager::Construct()
 void CBaseManager::DestroyBody()
 {
     m_vtable = kManagerVtable;
-    m_objects.UnlinkAs(kObjectNodeVtable);
+    m_objects.UnlinkAs(g_objectNodeVtable);
 }
 
 // 0x00461B80
@@ -222,9 +222,9 @@ void CGeneralManager::DestroyBody()
         auto* task = static_cast<void***>(m_flushTask);
         reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*task)[2])(task, 1); // its deleting destructor
     }
-    m_deadObjects.UnlinkAs(kObjectNodeVtable);
+    m_deadObjects.UnlinkAs(g_objectNodeVtable);
     m_vtable = kManagerVtable;
-    m_objects.UnlinkAs(kObjectNodeVtable);
+    m_objects.UnlinkAs(g_objectNodeVtable);
 }
 
 // 0x00461EA0

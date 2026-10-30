@@ -306,4 +306,7 @@ GAME_GLOBAL_EXTERN(int, g_cutsceneFixedFrame);
 GAME_GLOBAL_EXTERN(float[512], g_cutsceneRotations);
 GAME_GLOBAL_EXTERN(float[512], g_cutsceneTranslations);
 
+// 0x00647908: cutsceneDataVtable (defined where the class's functions are).
+extern void** const g_cutsceneDataVtable;
+
 } // namespace Obj

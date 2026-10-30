@@ -31,6 +31,7 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/obj/objman.h"
 
 namespace Obj {
 
@@ -740,7 +741,7 @@ int CPedLogicComponent::ProbeAhead(Mth::Vector direction, float range, Mth::Vect
     }
     // A ped close ahead?
     CObjectSearch search;
-    search.m_vtable = reinterpret_cast<void**>(0x00645DFC);
+    search.m_vtable = g_objectSearchVtable;
     search.m_node = nullptr;
     CBaseManager* manager = m_object->mp_manager;
     auto* list = reinterpret_cast<Mem::ListNode*(__thiscall*)(CBaseManager*)>(manager->m_vtable[6])(manager);

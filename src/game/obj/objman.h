@@ -123,4 +123,7 @@ void ReleaseTracker();
 
 GAME_GLOBAL_EXTERN(uint32_t, g_trackerReferences);
 
+// 0x00645DFC: objectSearchVtable (defined where the class's functions are).
+extern void** const g_objectSearchVtable;
+
 } // namespace Obj

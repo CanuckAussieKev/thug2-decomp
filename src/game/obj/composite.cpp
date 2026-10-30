@@ -25,6 +25,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/obj/objman.h"
 
 namespace Obj {
 
@@ -81,7 +82,6 @@ constexpr float kRightAngle = 90.0f;                  // 0x00645EB0
 constexpr float kDegreesToRadians = 0.01745329238474369f; // 0x00645464
 constexpr float kNearlyVertical = 0.99f;              // 0x00645450
 constexpr float kFarAway = 5322672.0f;                // (0x4AA26F60)
-void** const kObjectSearchVtable = reinterpret_cast<void**>(0x00645DFC);
 
 // The composite object manager (0x006F0FB8, compositemgr.cpp): its lists of the components of each type, and the
 // component makers.
@@ -809,7 +809,7 @@ bool CCompositeObject::Obj_GetQuat(CStruct* /*params*/, CScript* script)
 CCompositeObject* CCompositeObject::FindNearestObjectOfType(uint32_t type)
 {
     CObjectSearch search;
-    search.m_vtable = kObjectSearchVtable;
+    search.m_vtable = g_objectSearchVtable;
     search.m_node = nullptr;
     auto* object = static_cast<CCompositeObject*>(search.FirstItemOfType(ManagerObjectList(mp_manager), type));
     if (object == this)
