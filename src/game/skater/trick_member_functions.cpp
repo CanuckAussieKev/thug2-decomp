@@ -23,6 +23,7 @@
 #include "game/skater/stats_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -466,7 +467,7 @@ int CTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
                     int trickScore = At<int>(this, kTrickScore);
                     if (trickScore) {
                         float multiplier = At<float>(score, 0x154C);
-                        Dbg::Printf(reinterpret_cast<const char*>(0x0064C580), trickScore, static_cast<double>(multiplier),
+                        Dbg::Printf(GAME_TEXT(0x0064C580, "RAIL score %d * %2.3f = %d\n"), trickScore, static_cast<double>(multiplier),
                                     Truncate(static_cast<double>(trickScore) * multiplier)); // "RAIL score %d * %2.3f = %d\n"
                         At<int>(this, kTrickScore) = Truncate(static_cast<double>(At<int>(this, kTrickScore)) * multiplier);
                     }

@@ -15,12 +15,18 @@
 #include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/skater/skitch.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064BA30);
+extern void** const kVtable;
 
 constexpr uint32_t kAnimBlender = 0x7149B753, kSkaterScore = 0xD262802F;
 
@@ -383,3 +389,17 @@ REPLACE(0x004F90A0, &Obj::CSkaterBalanceTrickComponent::GetPhysicsValue);
 REPLACE(0x004F91D0, &Obj::CSkaterBalanceTrickComponent::ClearParams);
 REPLACE(0x004F9370, &Obj::CSkaterBalanceTrickComponent::SetParams);
 REPLACE(0x004F9200, &Obj::CSkaterBalanceTrickComponent::SetWobble);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064BA30,
+    &Obj::CSkaterBalanceTrickComponent::Destroy,
+    &Obj::ComponentWithoutUpdate::Update,
+    &Obj::CSkaterBalanceTrickComponent::InitFromStructure,
+    &Obj::CSkaterBalanceTrickComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure);
+
+} // namespace
+} // namespace Obj

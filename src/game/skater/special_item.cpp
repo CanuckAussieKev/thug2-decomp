@@ -15,12 +15,19 @@
 #include "game/gfx/model.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/skater/skitch.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C250);
+extern void** const kVtable;
 
 constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kLockObj = 0x5CB5CB7E;
@@ -247,3 +254,24 @@ REPLACE(0x0051BE00, &Obj::CSpecialItemComponent::DestroyItem);
 REPLACE(0x0051BF00, &Obj::CSpecialItemComponent::DestroyItems);
 REPLACE(0x0051BF80, &Obj::CSpecialItemComponent::CreateItem);
 REPLACE(0x0051C160, &Obj::CSpecialItemComponent::CallMemberFunction);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064C250,
+    &Obj::CSpecialItemComponent::Destroy,
+    &Obj::ComponentWithoutUpdate::Update,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CSpecialItemComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

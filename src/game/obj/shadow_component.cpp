@@ -13,12 +13,19 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/gfx/weather.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00646498);
+extern void** const kVtable;
 
 constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kShadowType = 0x9AC24B18;  // ShadowType
@@ -340,3 +347,24 @@ REPLACE(0x00431360, &Obj::CShadowComponent::SetLightDirection);
 REPLACE(0x00431860, &Obj::CShadowComponent::InitFromStructure);
 REPLACE(0x004319D0, &Obj::CShadowComponent::Update);
 REPLACE(0x00431B10, &Obj::CShadowComponent::CallMemberFunction);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00646498,
+    &Obj::CShadowComponent::Destroy,
+    &Obj::CShadowComponent::Update,
+    &Obj::CShadowComponent::InitFromStructure,
+    &Obj::CShadowComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    &Obj::CShadowComponent::Hide,
+    Nx::VirtualSlot1Jump,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CShadowComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

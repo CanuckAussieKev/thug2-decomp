@@ -18,6 +18,7 @@
 #include "game/net/player_info.h"
 #include "game/obj/object.h"
 #include "hook/game.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Nx {
 class CModel;

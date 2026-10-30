@@ -26,16 +26,21 @@
 #include "game/ed/park_editor.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064BE90);
-void** const kGapNodeVtable = reinterpret_cast<void**>(0x0064BE88);      // Lst::Node<TrickListEntry>
-void** const kGapTrickNodeVtable = reinterpret_cast<void**>(0x0064BE8C); // Lst::Node<TrickNameEntry>
-void** const kGapHeadVtable = reinterpret_cast<void**>(0x0064BEC4);      // Lst::Head<TrickListEntry>
-void** const kGapTrickHeadVtable = reinterpret_cast<void**>(0x0064BEC8); // Lst::Head<TrickNameEntry>
+extern void** const kVtable;
+extern void** const kGapNodeVtable;      // Lst::Node<TrickListEntry>
+extern void** const kGapTrickNodeVtable; // Lst::Node<TrickNameEntry>
+extern void** const kGapHeadVtable;      // Lst::Head<TrickListEntry>
+extern void** const kGapTrickHeadVtable; // Lst::Head<TrickNameEntry>
 constexpr uint32_t kSkaterGap = 0x11B4C67F;
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kSkaterBalanceTrick = 0x589E5FB3,
                    kSkaterPhysicsControl = 0xD9151D4D, kWalk = 0x726E85AA, kVehicle = 0xE47F1B79, kTrick = 0x270F56E1;
@@ -641,3 +646,32 @@ REPLACE(0x00511ED0, &Obj::GapTrickListNode::Destroy);
 REPLACE(0x00512270, &Obj::GapTrickListNode::DestroyHead);
 REPLACE(0x00511C10, Obj::ClearPendingGaps);
 REPLACE(0x00511C30, Obj::AwardPendingGaps);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kGapNodeVtable, 0x0064BE88,
+    &Obj::GapListNode::Destroy);
+GAME_VTABLE(kGapTrickNodeVtable, 0x0064BE8C,
+    &Obj::GapTrickListNode::Destroy);
+GAME_VTABLE(kVtable, 0x0064BE90,
+    &Obj::CSkaterGapComponent::Destroy,
+    &Obj::CSkaterGapComponent::Update,
+    &Obj::CSkaterGapComponent::InitFromStructure,
+    &Obj::CSkaterGapComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CSkaterGapComponent::CallMemberFunction);
+GAME_VTABLE(kGapHeadVtable, 0x0064BEC4,
+    &Obj::GapListNode::DestroyHead);
+GAME_VTABLE(kGapTrickHeadVtable, 0x0064BEC8,
+    &Obj::GapTrickListNode::DestroyHead);
+
+} // namespace
+} // namespace Obj

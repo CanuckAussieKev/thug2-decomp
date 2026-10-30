@@ -34,6 +34,11 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/gfx/engine.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
 
 namespace Obj {
 
@@ -295,8 +300,8 @@ bool CVehicleComponent::Kick(Script::CStruct* params, Script::CScript*)
     m_stillFrames = 0;
     // (Without linear or angular the original uses whatever was on its stack.)
     Mth::Vector linear, angular, turned;
-    params->GetVector(reinterpret_cast<const char*>(0x00646768), reinterpret_cast<Script::VectorValue*>(&linear), 0);
-    params->GetVector(reinterpret_cast<const char*>(0x00646760), reinterpret_cast<Script::VectorValue*>(&angular), 0);
+    params->GetVector(GAME_TEXT(0x00646768, "linear"), reinterpret_cast<Script::VectorValue*>(&linear), 0);
+    params->GetVector(GAME_TEXT(0x00646760, "angular"), reinterpret_cast<Script::VectorValue*>(&angular), 0);
     linear = m_matrix.RotateVector(turned, linear);
     angular = m_matrix.RotateVector(turned, angular);
     double mass = 1.0 / m_invMass;
@@ -331,7 +336,7 @@ bool CVehicleComponent::AdjustGravity(Script::CStruct* params, Script::CScript*)
     params->GetFloat(kPercent, &m_gravityScale, 1);
     m_gravityScale = static_cast<float>(static_cast<double>(m_gravityScale) * kHundredth);
     params->GetFloat(kDuration, &m_gravityTime, 1);
-    Dbg::Printf(kDebugFormat, kDebugFile, 0xD78, reinterpret_cast<const char*>(0x006466EC)); // "Initiating vehicle gravity override"
+    Dbg::Printf(kDebugFormat, kDebugFile, 0xD78, GAME_TEXT(0x006466EC, "Initiating vehicle gravity override")); // "Initiating vehicle gravity override"
     return true;
 }
 
@@ -360,7 +365,7 @@ bool CVehicleComponent::IsSkaterVisible(Script::CStruct*, Script::CScript*) { re
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00646770);
+extern void** const kVtable;
 constexpr uint32_t kInput = 0x27D7CD28;
 constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kSkeleton = 0x222756D5;
@@ -802,7 +807,7 @@ void CVehicleComponent::Update()
         double left = static_cast<double>(m_gravityTime) - frame;
         m_gravityTime = static_cast<float>(left);
         if (left <= 0.0 || static_cast<uint32_t>(m_wheelsInContact) > 1) {
-            Dbg::Printf(kDebugFormat, kDebugFile, 0x2A0, reinterpret_cast<const char*>(0x006467D4)); // "Ending vehicle gravity override"
+            Dbg::Printf(kDebugFormat, kDebugFile, 0x2A0, GAME_TEXT(0x006467D4, "Ending vehicle gravity override")); // "Ending vehicle gravity override"
             m_gravityTime = 0.0f;
             m_gravityScale = 1.0f;
         }
@@ -1156,3 +1161,24 @@ REPLACE(0x0043A400, &Obj::CVehicleComponent::DebugDraw);
 REPLACE(0x0043AA90, &Obj::CVehicleComponent::MoveToNode);
 REPLACE(0x0043B670, &Obj::CVehicleComponent::MoveToRestart);
 REPLACE(0x0043B720, &Obj::CVehicleComponent::PlaceBeforeCamera);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00646770,
+    &Obj::CVehicleComponent::Destroy,
+    &Obj::CVehicleComponent::Update,
+    &Obj::CVehicleComponent::InitFromStructure,
+    &Obj::CVehicleComponent::Finalize,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

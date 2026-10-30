@@ -13,12 +13,16 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/skater/vehicle_sound.h"
+#include "game/obj/car_physics.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064B1D4);
+extern void** const kVtable;
 
 // The base component (no source yet).
 void ConstructBase(CFlipRotateComponent* component, void* object)
@@ -129,3 +133,17 @@ REPLACE(0x004E2C80, &Obj::CFlipRotateComponent::DestroyBody);
 REPLACE(0x004E2CF0, &Obj::CFlipRotateComponent::Destroy);
 REPLACE(0x004E2C90, &Obj::CFlipRotateComponent::InitFromStructure);
 REPLACE(0x004E2D20, &Obj::CFlipRotateComponent::GetPose);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064B1D4,
+    &Obj::CFlipRotateComponent::Destroy,
+    &Obj::CFlipRotateComponent::GetPose,
+    Stubs::IgnoreArgument,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
+    &Obj::CFlipRotateComponent::InitFromStructure,
+    Stubs::DoNothing);
+
+} // namespace
+} // namespace Obj

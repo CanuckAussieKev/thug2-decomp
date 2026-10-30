@@ -15,12 +15,19 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00646198);
+extern void** const kVtable;
 constexpr uint32_t kOnce = 0xE7375C4C;     // (its name isn't in THUG2's scripts)
 constexpr uint32_t kInterval = 0x470B8AE9; // (nor this one's)
 constexpr uint32_t kModel = 0x286A8D26;
@@ -155,3 +162,24 @@ REPLACE(0x00422D40, &Obj::CModelLightUpdateComponent::InitFromStructure);
 REPLACE(0x00422DA0, &Obj::CModelLightUpdateComponent::Finalize);
 REPLACE(0x00422E40, &Obj::CModelLightUpdateComponent::Sample);
 REPLACE(0x004230B0, &Obj::CModelLightUpdateComponent::Update);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00646198,
+    &Obj::CModelLightUpdateComponent::Destroy,
+    &Obj::CModelLightUpdateComponent::Update,
+    &Obj::CModelLightUpdateComponent::InitFromStructure,
+    &Obj::CModelLightUpdateComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

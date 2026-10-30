@@ -22,6 +22,7 @@
 #include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -186,7 +187,7 @@ void CVehicleComponent::MoveBy(const Mth::Vector* move)
     if (feeler.GetCollision(false, false)) {
         // Going through something: put just off the surface, the rest of the move reflected, the momentum into it
         // turned back by half again.
-        Dbg::Printf(kDebugFormat, kDebugFile, 0xB10, reinterpret_cast<const char*>(0x00646748)); // "less than uber frig"
+        Dbg::Printf(kDebugFormat, kDebugFile, 0xB10, GAME_TEXT(0x00646748, "less than uber frig")); // "less than uber frig"
         const Mth::Vector& point = feeler.m_point;
         const Mth::Vector& n = feeler.m_normal;
         m_pos.x = static_cast<float>(static_cast<double>(n.x) + point.x);
@@ -227,7 +228,7 @@ void CVehicleComponent::MoveBy(const Mth::Vector* move)
     feeler.m_line.end = m_pos;
     feeler.m_line.end.y = static_cast<float>(static_cast<double>(m_pos.y) - kDropTest);
     if (!feeler.GetCollision(false, false)) {
-        Dbg::Printf(kDebugFormat, kDebugFile, 0xB26, reinterpret_cast<const char*>(0x00646738)); // "uber frig"
+        Dbg::Printf(kDebugFormat, kDebugFile, 0xB26, GAME_TEXT(0x00646738, "uber frig")); // "uber frig"
         m_pos = saved;
     } else {
         LightFromFeeler(mp_model, &feeler, true, 1.0f);

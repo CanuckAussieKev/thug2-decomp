@@ -16,6 +16,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -25,7 +32,7 @@ GAME_GLOBAL(uint32_t[12], g_vibrationComponentMemberFunctions, 0x00684EE8,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00646864);
+extern void** const kVtable;
 constexpr uint32_t kOff = 0xD443A2BC;
 constexpr uint32_t kActuator = 0x114FC131;
 constexpr uint32_t kPercent = 0x9E497FC6;
@@ -196,3 +203,24 @@ REPLACE(0x0043D550, &Obj::CVibrationComponent::ResetDevice);
 REPLACE(0x0043D560, &Obj::CVibrationComponent::SetActive);
 REPLACE(0x0043D5C0, &Obj::CVibrationComponent::SetDevice);
 REPLACE(0x0043D6F0, &Obj::CVibrationComponent::Vibrate);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00646864,
+    &Obj::CVibrationComponent::Destroy,
+    &Obj::CVibrationComponent::Update,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

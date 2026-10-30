@@ -71,4 +71,7 @@ static_assert(offsetof(CCameraLookAroundComponent, m_locked) == 0x18 &&
                   offsetof(CCameraLookAroundComponent, mp_input) == 0x40 && sizeof(CCameraLookAroundComponent) == 0x44,
               "layout must match the original");
 
+// 0x004E3F90: a tail jump to a component's slot 2 (the compiler folded it into several components' tables).
+void RefreshFromStructure();
+
 } // namespace Obj

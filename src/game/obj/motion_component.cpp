@@ -19,6 +19,12 @@
 #include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -28,7 +34,7 @@ static_assert(sizeof(CPathFollower) == 0xE4, "0x00423C90 allocates 0xE4 bytes");
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064620C);
+extern void** const kVtable;
 
 // Script wait types a component decides (CScript::m_waitType 5-10; cscript.h).
 constexpr uint32_t kWaitMove = 5;
@@ -353,3 +359,24 @@ REPLACE(0x00423890, &CMotionComponent::Obj_GetRandomLink);
 REPLACE(0x004238D0, &CMotionComponent::Obj_Hover);
 REPLACE(0x004239F0, &CMotionComponent::Obj_GetSpeed);
 REPLACE(0x00423B30, &CMotionComponent::Obj_Jump);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064620C,
+    &CMotionComponent::Destroy,
+    &CMotionComponent::Update,
+    &CMotionComponent::InitFromStructure,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    &CMotionComponent::ProcessWait,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &CMotionComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

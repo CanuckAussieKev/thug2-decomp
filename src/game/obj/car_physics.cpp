@@ -20,6 +20,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -30,7 +36,7 @@ GAME_GLOBAL(uint32_t[18], g_carPhysicsMemberFunctions, 0x006846A8,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00645E6C);
+extern void** const kVtable;
 
 constexpr uint32_t kMinTilt = 0x877DB8DA;
 constexpr uint32_t kMaxTilt = 0xFB3464DF;
@@ -339,3 +345,24 @@ REPLACE(0x0041C0B0, &Obj::CCarPhysicsComponent::UpdateBones);
 REPLACE(0x0041BF00, Obj::CCarPhysicsComponent::UpdateSkeleton);
 REPLACE(0x0041B9E0, &Obj::CCarPhysicsComponent::ShowBody);
 REPLACE(0x0041BA20, &Obj::CCarPhysicsComponent::DoNothing);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00645E6C,
+    &Obj::CCarPhysicsComponent::Destroy,
+    &Obj::CCarPhysicsComponent::Update,
+    &Obj::CCarPhysicsComponent::InitFromStructure,
+    &Obj::CCarPhysicsComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

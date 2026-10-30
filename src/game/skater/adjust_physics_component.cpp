@@ -18,12 +18,19 @@
 #include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064B964);
+extern void** const kVtable;
 
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kModel = 0x286A8D26, kShadow = 0x8A897DD2,
                    kMovableContact = 0x408D2AA9, kSkaterState = 0x43686585;
@@ -47,7 +54,6 @@ void SetState(void* core, int state) { static_cast<Skater::CorePhysicsComponent*
 
 // The debug message's strings as the original passes them ("M:%s:%i: %s\n", the source file, "found to be inside a
 // moving object").
-const char* GameString(uint32_t address) { return reinterpret_cast<const char*>(address); }
 
 } // namespace
 
@@ -117,7 +123,7 @@ void CSkaterAdjustPhysicsComponent::CheckInsideMovingObject()
     Mth::Vector& frameStart = At<Mth::Vector>(mp_core, kFrameStart);
     if (!mp_ride->FindContactAhead(&m_object->m_pos, &frameStart))
         return;
-    Dbg::Printf(GameString(0x006466B0), GameString(0x0064B9E0), 0x182, GameString(0x0064BA0C));
+    Dbg::Printf(GAME_TEXT(0x006466B0, "M:%s:%i: %s\n"), GAME_TEXT(0x0064B9E0, "mponents\\SkaterAdjustPhysicsComponent.cpp"), 0x182, GAME_TEXT(0x0064BA0C, "found to be inside a moving object"));
     Nx::CFeeler feeler;
     feeler.Construct();
     const Mth::Vector& pos = m_object->m_pos;
@@ -165,3 +171,24 @@ REPLACE(0x004F8080, &Obj::CSkaterAdjustPhysicsComponent::Finalize);
 REPLACE(0x004F8C40, &Obj::CSkaterAdjustPhysicsComponent::FrameUpdate);
 REPLACE(0x004F8AA0, &Obj::CSkaterAdjustPhysicsComponent::CheckInsideMovingObject);
 REPLACE(0x004F82F0, &Obj::CSkaterAdjustPhysicsComponent::UpdateBrightness);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064B964,
+    &Obj::CSkaterAdjustPhysicsComponent::Destroy,
+    &Obj::CSkaterAdjustPhysicsComponent::FrameUpdate,
+    Stubs::IgnoreArgument,
+    &Obj::CSkaterAdjustPhysicsComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

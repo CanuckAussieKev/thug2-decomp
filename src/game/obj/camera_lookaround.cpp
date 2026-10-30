@@ -15,12 +15,17 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064B28C);
+extern void** const kVtable;
 constexpr uint32_t kCameraLookAround = 0x81C7122D;
 constexpr uint32_t kInput = 0x27D7CD28;
 constexpr uint32_t kTurnTo = 0xB8F23899, kStopTurning = 0xE3B327C0;
@@ -191,8 +196,6 @@ int CCameraLookAroundComponent::CallMemberFunction(uint32_t name, Script::CStruc
     return 2;
 }
 
-namespace {
-
 // 0x004E3F90: a tail jump to the component's slot 2 (its arguments left as they are).
 __declspec(naked) void RefreshFromStructure()
 {
@@ -201,8 +204,6 @@ __declspec(naked) void RefreshFromStructure()
         jmp dword ptr [eax + 8]
     }
 }
-
-} // namespace
 
 } // namespace Obj
 
@@ -216,3 +217,24 @@ REPLACE(0x004E3FA0, &Obj::CCameraLookAroundComponent::TurnTo);
 REPLACE(0x004E4060, &Obj::CCameraLookAroundComponent::Update);
 REPLACE(0x004E4220, &Obj::CCameraLookAroundComponent::CallMemberFunction);
 REPLACE_UNCHECKED(0x004E3F90, Obj::RefreshFromStructure); // (a tail jump: the arguments are slot 2's)
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064B28C,
+    &Obj::CCameraLookAroundComponent::Destroy,
+    &Obj::CCameraLookAroundComponent::Update,
+    &Obj::CCameraLookAroundComponent::InitFromStructure,
+    &Obj::CCameraLookAroundComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CCameraLookAroundComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

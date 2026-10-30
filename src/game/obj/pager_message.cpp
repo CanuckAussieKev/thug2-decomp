@@ -14,6 +14,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -27,7 +34,7 @@ GAME_GLOBAL(uint32_t[36], g_pagerMessageMemberFunctions, 0x006831A8,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064B6FC);
+extern void** const kVtable;
 constexpr uint32_t kPagerMessage = 0xD1515392;
 constexpr uint32_t kPagerScript = 0xE8DA4931;
 
@@ -232,3 +239,24 @@ REPLACE(0x004ECB50, &Obj::CPagerMessageComponent::GetPagerMessage);
 REPLACE(0x004EC980, &Obj::CPagerMessageComponent::GetPagerMessageCount);
 REPLACE(0x004ECBD0, &Obj::CPagerMessageComponent::GetFirstUnreadMessageNum);
 REPLACE(0x004ECDF0, &Obj::CPagerMessageComponent::ClearPagerMessages);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064B6FC,
+    &Obj::CPagerMessageComponent::Destroy,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

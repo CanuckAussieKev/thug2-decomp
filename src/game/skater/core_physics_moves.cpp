@@ -31,6 +31,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/net/gamenet_manager.h"
+#include "hook/game_code.h"
 
 namespace Skater {
 
@@ -249,7 +250,7 @@ void CorePhysicsComponent::UpdateSpeedOverride()
             At<float>(this, kLimitsMaxMax) = share;
             // (Every tenth time: a line printed, compiled out - an inlined loop that runs once.)
             while (counter == 0) {
-                Dbg::Printf(reinterpret_cast<const char*>(0x0064BC88),
+                Dbg::Printf(GAME_TEXT(0x0064BC88, "Post-Transfer Speed Limit Overrides:  current / standard = %.2f\n"),
                             static_cast<double>(inverse) * At<float>(this, kLimitsMax));
                 counter = (counter + 1) % 10;
             }

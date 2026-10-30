@@ -24,6 +24,7 @@
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Skater {
 
@@ -81,7 +82,7 @@ constexpr float kProbe = 6.0f;               // (0x40C00000)
 constexpr float kWalkReach = 36.0f;          // (0x42100000)
 constexpr float kMinFlatSpeed = 0.0001f;     // 0x006453D4
 constexpr float kFromWall = 0.1f;            // (0x3DCCCCCD)
-constexpr uint32_t kLateWallplantText = 0x0064BD58; // "late wallplant\n"
+const char* const kLateWallplantText = GAME_TEXT(0x0064BD58, "late wallplant\n"); // "late wallplant\n"
 
 Obj::CCompositeObject* SkaterObject(void* component) { return static_cast<Obj::CCompositeObject*>(ObjectOf(component)); }
 
@@ -189,7 +190,7 @@ bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
         }
         if (late) {
             // A late plant: back to where the skater was, and the wall looked for again along its move.
-            Dbg::Printf(reinterpret_cast<const char*>(kLateWallplantText));
+            Dbg::Printf(kLateWallplantText);
             VectorAt(ObjectOf(this), kVelocity) = VectorAt(this, kSavedVelocity);
             VectorAt(ObjectOf(this), kPosition) = VectorAt(this, kSavedPosition);
             void* o = ObjectOf(this);

@@ -28,13 +28,19 @@
 #include "hook/game.h"
 #include "hook/game_code.h"
 #include "hook/hook.h"
+#include "game/skater/skitch.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kTaggingVtable = reinterpret_cast<void**>(0x0064C330);
-void** const kControlVtable = reinterpret_cast<void**>(0x0064C394);
+extern void** const kTaggingVtable;
+extern void** const kControlVtable;
 
 constexpr uint32_t kCustomTag = 0xAA286543;
 constexpr uint32_t kWalk = 0x726E85AA;
@@ -180,11 +186,11 @@ void CTaggingComponent::InitFromStructure(Script::CStruct* params)
     params->GetInteger(0xA2B033FDu, &skater, 0);
     char key[32];
     std::snprintf(key, sizeof(key), reinterpret_cast<const char*>(0x0064C380), skater); // "_%d"
-    void* texture = LoadOnTextureHeap(reinterpret_cast<const char*>(0x0064C374), true); // "tags\cas_01"
+    void* texture = LoadOnTextureHeap(GAME_TEXT(0x0064C374, "tags\\cas_01"), true); // "tags\cas_01"
     m_graffiti = CopyTexture(Crc::ExtendCRCWithString(0xF4FD2D63, key), texture);
     ReleaseTexture(texture);
     UnloadTexture(texture);
-    texture = LoadOnTextureHeap(reinterpret_cast<const char*>(0x0064C364), true); // "tags\sticker"
+    texture = LoadOnTextureHeap(GAME_TEXT(0x0064C364, "tags\\sticker"), true); // "tags\sticker"
     m_sticker = CopyTexture(Crc::ExtendCRCWithString(0x130618A0, key), texture);
     ReleaseTexture(texture);
     UnloadTexture(texture);
@@ -395,7 +401,7 @@ bool CTaggingControlComponent::SlapSticker(bool sticker, bool walking, bool low)
     double aheadW = static_cast<double>(facing.w) * reach;
     feeler.m_line.end = {from.x + aheadX, from.y + aheadY, from.z + aheadZ, static_cast<float>(aheadW + from.w)};
     if (!feeler.GetCollision(true, false)) {
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064C3C8)); // "No contact found for sticker?"
+        Dbg::Printf(GAME_TEXT(0x0064C3C8, "No contact found for sticker?\n")); // "No contact found for sticker?"
         return false;
     }
 
@@ -420,7 +426,7 @@ bool CTaggingControlComponent::SlapSticker(bool sticker, bool walking, bool low)
             m_countdown = 10;
             return true;
         }
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064C3E8)); // "sticker......"
+        Dbg::Printf(GAME_TEXT(0x0064C3E8, "sticker.............................\n")); // "sticker......"
         m_tagging->PlaceTag(true, outside, inside, 30, true);
         return true;
     }
@@ -563,3 +569,38 @@ REPLACE(0x0051E300, &Obj::CTaggingControlComponent::CallMemberFunction);
 REPLACE(0x0051DDF0, &Obj::CTaggingControlComponent::SlapSticker);
 REPLACE(0x0051E390, &Obj::CTaggingControlComponent::Update);
 REPLACE_SOURCE_ONLY(0x0051EA30, &Obj::CTaggingControlComponent::Update); // a jump to 0x0051E390 (the vtable's)
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kTaggingVtable, 0x0064C330,
+    &Obj::CTaggingComponent::Destroy,
+    &Obj::ComponentWithoutUpdate::Update,
+    &Obj::CTaggingComponent::InitFromStructure,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CTaggingComponent::CallMemberFunction);
+GAME_VTABLE(kControlVtable, 0x0064C394,
+    &Obj::CTaggingControlComponent::Destroy,
+    &Obj::CTaggingControlComponent::Update,
+    Stubs::IgnoreArgument,
+    &Obj::CTaggingControlComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CTaggingControlComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

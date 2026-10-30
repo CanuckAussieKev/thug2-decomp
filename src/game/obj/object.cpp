@@ -13,6 +13,8 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -23,9 +25,9 @@ using Script::CStruct;
 
 namespace {
 
-void** const kObjectVtable = reinterpret_cast<void**>(0x006477E8);
-void** const kObjectRefVtable = reinterpret_cast<void**>(0x006477E0);
-void** const kObjectNodeVtable = reinterpret_cast<void**>(0x006477E4);
+extern void** const kObjectVtable;
+extern void** const kObjectRefVtable;
+extern void** const kObjectNodeVtable;
 
 // Names (checksums) the object uses.
 constexpr uint32_t kUnnamed = 0;                 // an unnamed component
@@ -676,3 +678,23 @@ REPLACE(0x004618A0, &Obj::CObject::Obj_SwitchScript);
 REPLACE(0x00460AD0, Obj::FindObject);
 REPLACE(0x00460AC0, Obj::Unlock);
 REPLACE(0x00460AA0, Obj::DestroyIfUnlocked);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kObjectRefVtable, 0x006477E0,
+    &Obj::CObjectRef::Destroy);
+GAME_VTABLE(kObjectNodeVtable, 0x006477E4,
+    &Obj::CObjectNode::Destroy);
+GAME_VTABLE(kObjectVtable, 0x006477E8,
+    &Obj::CObject::Destroy,
+    &Obj::CObject::SetProperties,
+    static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+    static_cast<bool (Obj::CObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+    Stubs::IgnoreArgument,
+    &Obj::CObject::PassEventToScript,
+    &Obj::CObject::MarkAsDead,
+    Stubs::ReturnTrue);
+
+} // namespace
+} // namespace Obj

@@ -17,12 +17,18 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C5A0);
+extern void** const kVtable;
 constexpr uint32_t kVehicleCamera = 0x2C747D8A;
 constexpr uint32_t kVehicle = 0xE47F1B79;
 constexpr uint32_t kCamera = 0xC4E311FA;
@@ -272,3 +278,24 @@ REPLACE(0x00524720, &Obj::CVehicleCameraComponent::ApplyToCamera);
 REPLACE(0x00524780, &Obj::CVehicleCameraComponent::UpdateOrientation);
 REPLACE(0x00524B40, &Obj::CVehicleCameraComponent::Reset);
 REPLACE(0x00524940, &Obj::CVehicleCameraComponent::Update);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064C5A0,
+    &Obj::CVehicleCameraComponent::Destroy,
+    &Obj::CVehicleCameraComponent::Update,
+    &Obj::CVehicleCameraComponent::InitFromStructure,
+    &Obj::CVehicleCameraComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

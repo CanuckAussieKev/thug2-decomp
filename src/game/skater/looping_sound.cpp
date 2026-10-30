@@ -16,6 +16,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -23,7 +29,7 @@ GAME_GLOBAL(uint32_t[6], g_loopingSoundMemberFunctions, 0x00684A68, 0, 0xB5F1E9D
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064BF38);
+extern void** const kVtable;
 constexpr uint32_t kSkaterLoopingSound = 0xB5F1E9D2;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D, kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kTurnOn = 0xEDE3935F, kTurnOff = 0x9731E193, kPlayAnim = 0x0B1E7291;
@@ -343,3 +349,24 @@ REPLACE(0x00513990, &Obj::LoopingSoundVolume::Assign);
 // 0x00513BED is Update's body after its first test (jumped to from inside it; no callers) that Ghidra made a function
 // of: its source is Update's.
 REPLACE_SOURCE_ONLY(0x00513BED, &Obj::CSkaterLoopingSoundComponent::Update);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064BF38,
+    &Obj::CSkaterLoopingSoundComponent::Destroy,
+    &Obj::CSkaterLoopingSoundComponent::Update,
+    &Obj::CSkaterLoopingSoundComponent::InitFromStructure,
+    &Obj::CSkaterLoopingSoundComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CSkaterLoopingSoundComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::CSkaterLoopingSoundComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

@@ -13,12 +13,18 @@
 #include "game/skater/skater_x87.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064BF70);
+extern void** const kVtable;
 constexpr uint32_t kSkaterMatrixQueries = 0xBF518E27, kSkaterCorePhysics = 0x5BD63B29;
 
 // Script member functions
@@ -166,3 +172,24 @@ REPLACE(0x00513FE0, &Obj::CSkaterMatrixQueriesComponent::Destroy);
 REPLACE(0x00514010, &Obj::CSkaterMatrixQueriesComponent::Finalize);
 REPLACE(0x00514030, &Obj::CSkaterMatrixQueriesComponent::Update);
 REPLACE(0x00514040, &Obj::CSkaterMatrixQueriesComponent::CallMemberFunction);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064BF70,
+    &Obj::CSkaterMatrixQueriesComponent::Destroy,
+    &Obj::CSkaterMatrixQueriesComponent::Update,
+    Stubs::IgnoreArgument,
+    &Obj::CSkaterMatrixQueriesComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CSkaterMatrixQueriesComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

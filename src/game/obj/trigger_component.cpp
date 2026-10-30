@@ -15,12 +15,17 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00646648);
+extern void** const kVtable;
 
 constexpr uint32_t kTriggerScript = 0x2CA8A299; // TriggerScript
 constexpr uint32_t kNetEnabled = 0x20209C31;    // NetEnabled
@@ -250,3 +255,24 @@ REPLACE(0x00434A60, &Obj::CTriggerComponent::TriggerNode);
 REPLACE(0x00434BF0, &Obj::CTriggerComponent::CheckFeeler);
 REPLACE(0x00434CE0, &Obj::CTriggerComponent::TriggerHits);
 REPLACE(0x00434D70, Obj::CTriggerComponent::FeelerHit);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00646648,
+    &Obj::CTriggerComponent::Destroy,
+    &Obj::CTriggerComponent::Update,
+    &Obj::CTriggerComponent::InitFromStructure,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CTriggerComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

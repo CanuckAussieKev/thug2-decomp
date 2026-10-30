@@ -28,6 +28,7 @@
 #include "game/skater/physics_control.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Skater {
 
@@ -52,9 +53,9 @@ constexpr uint32_t kMotoskateboardGrind = 0xF7CA3F78; // Trick_Motoskateboard_Gr
 constexpr uint32_t kMotoGrind = 0x302;                 // (on the motoskateboard)
 
 // The free revert's message: the game's own format, file name and text.
-constexpr uint32_t kMessageFormat = 0x006466B0;        // "M:%s:%i: %s\n"
-constexpr uint32_t kSourceFile = 0x0064BCE0;           // (the component's source file)
-constexpr uint32_t kFreeRevertText = 0x0064BD08;       // "You earned a free revert!!!!"
+const char* const kMessageFormat = GAME_TEXT(0x006466B0, "M:%s:%i: %s\n"); // "M:%s:%i: %s\n"
+const char* const kSourceFile = GAME_TEXT(0x0064BCE0, "mponents\\SkaterCorePhysicsComponent.cpp"); // (the component's source file)
+const char* const kFreeRevertText = GAME_TEXT(0x0064BD08, "You earned a free revert!!!!"); // "You earned a free revert!!!!"
 
 // The fields used here.
 constexpr uint32_t kFreeRevertsPending = 0x318;
@@ -223,8 +224,8 @@ void CorePhysicsComponent::UpdateFreeRevert()
     if (Since(start) <= wait)
         return;
     --At<int>(this, kFreeRevertsPending);
-    Dbg::Printf(reinterpret_cast<const char*>(kMessageFormat), reinterpret_cast<const char*>(kSourceFile), 0x293F,
-                reinterpret_cast<const char*>(kFreeRevertText));
+    Dbg::Printf(kMessageFormat, kSourceFile, 0x293F,
+                kFreeRevertText);
     if (At<int>(this, kFreeRevertsPending))
         At<int>(this, kFreeRevertStart) = Now();
 }

@@ -21,6 +21,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/obj/flexible_particle.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -58,8 +65,8 @@ GAME_GLOBAL(uint32_t[180], g_animBlenderMemberFunctions, 0x00682350,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00645D8C);
-void** const kHeadVtable = reinterpret_cast<void**>(0x00645D88);
+extern void** const kVtable;
+extern void** const kHeadVtable;
 void** const kNodeVtable = reinterpret_cast<void**>(0x00645D84);
 
 constexpr uint32_t kId = 0x5CFCCF35; // SubsetId
@@ -705,3 +712,26 @@ REPLACE(0x0041A170, &Obj::BlendChannelLinks::DestroyHead);
 REPLACE(0x00419CF0, &Obj::BlendChannelLinks::GetTimes);
 REPLACE(0x004196B0, Obj::LargerOf);
 REPLACE(0x0041A680, &Obj::VectorAt1C::Get);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kHeadVtable, 0x00645D88,
+    &Obj::BlendChannelLinks::DestroyHead);
+GAME_VTABLE(kVtable, 0x00645D8C,
+    &Obj::CAnimBlenderComponent::Destroy,
+    &Obj::CAnimBlenderComponent::Update,
+    &Obj::CAnimBlenderComponent::InitFromStructure,
+    &Obj::CAnimBlenderComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    &Obj::CAnimBlenderComponent::PassToChannels,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CFlexibleParticleComponent::CallMemberFunctionEntry,
+    &Obj::CAnimBlenderComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

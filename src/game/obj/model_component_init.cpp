@@ -25,12 +25,18 @@
 #include "game/core/str.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00646128);
+extern void** const kVtable;
 constexpr uint32_t kSkeleton = 0x222756D5;
 constexpr uint32_t kAnimBlender = 0x7149B753;
 constexpr uint32_t kSuspend = 0xCE0CA665;
@@ -414,3 +420,26 @@ REPLACE(0x00421230, &Obj::CModelComponent::InitModelFromProfile);
 REPLACE(0x0041FFA0, &Obj::CModelComponent::InitFromSector);
 REPLACE(0x00420350, &Obj::CModelComponent::InitBoneVolumes);
 REPLACE(0x00420D10, &Obj::CModelComponent::InitModel);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00646128,
+    &Obj::CModelComponent::Destroy,
+    &Obj::CModelComponent::Update,
+    &Obj::CModelComponent::InitFromStructure,
+    &Obj::CModelComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    &Obj::CModelComponent::Hide,
+    &Obj::CModelComponent::Teleport,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CModelComponent::CallMemberFunction,
+    &Obj::CModelComponent::InitModelFromProfile,
+    &Obj::CModelComponent::SetModel);
+
+} // namespace
+} // namespace Obj

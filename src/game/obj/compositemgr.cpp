@@ -18,6 +18,9 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/obj/objman.h"
+#include "game/front/screen_element_manager.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -36,7 +39,7 @@ GAME_GLOBAL(uint32_t, g_compositeMgrReferences, 0x006F0FBC);
 
 namespace {
 
-void** const kManagerVtable = reinterpret_cast<void**>(0x006476D4);
+extern void** const kManagerVtable;
 void** const kTaskVtable = reinterpret_cast<void**>(0x006476F0); // Tsk::Task<CCompositeObjectManager>
 constexpr uint32_t kCompositeObjectType = 0xCDEB9229;
 constexpr uint32_t kObjectMemberFunctionType = 0x57525413;    // the table at 0x00683550 (CObject's)
@@ -425,3 +428,18 @@ REPLACE(0x0045F7A0, Obj::CreateCompositeObjectManager);
 REPLACE(0x0045F0B0, Obj::CreateCoimHeap);
 REPLACE(0x0045F160, Obj::InitCoim);
 REPLACE(0x0045F1C0, Obj::ResizeCoimHeap);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kManagerVtable, 0x006476D4,
+    &Obj::CCompositeObjectManager::Destroy,
+    &Obj::CBaseManager::RegisterObject,
+    &Obj::CBaseManager::UnregisterObject,
+    &Obj::CBaseManager::ReassignObjectId,
+    &Obj::CBaseManager::SetObjectPriority,
+    &Obj::CGeneralManager::KillObject,
+    &Front::CScreenElementManager::GetObjectList);
+
+} // namespace
+} // namespace Obj

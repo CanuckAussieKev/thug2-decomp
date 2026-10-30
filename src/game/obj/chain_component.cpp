@@ -17,12 +17,18 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064630C);
+extern void** const kVtable;
 
 constexpr uint32_t kSuspend = 0xCE0CA665;  // the suspend component
 constexpr uint32_t kSkeleton = 0x222756D5; // the skeleton component
@@ -661,3 +667,24 @@ REPLACE(0x00428370, &CChainComponent::Finalize);
 REPLACE(0x004283B0, &CChainComponent::InitFromStructure);
 REPLACE(0x004294C0, &CChainComponent::CallMemberFunction);
 REPLACE(0x004287A0, &CChainComponent::Update);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064630C,
+    &CChainComponent::Destroy,
+    &CChainComponent::Update,
+    &CChainComponent::InitFromStructure,
+    &CChainComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &CChainComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

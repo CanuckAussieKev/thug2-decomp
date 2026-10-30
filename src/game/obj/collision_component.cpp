@@ -17,12 +17,20 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/gfx/weather.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x00645EEC);
+extern void** const kVtable;
 
 constexpr uint32_t kModelComponent = 0x286A8D26; // Model
 constexpr uint32_t kCollisionMode = 0x2D7E583B;  // CollisionMode
@@ -161,3 +169,25 @@ REPLACE(0x0041C780, &Obj::CCollisionComponent::Destroy);
 REPLACE(0x0041C7B0, &Obj::CCollisionComponent::InitFromStructure);
 REPLACE(0x0041C890, &Obj::CCollisionComponent::InitCollision);
 REPLACE(0x0041C980, &Obj::CCollisionComponent::Update);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x00645EEC,
+    &Obj::CCollisionComponent::Destroy,
+    &Obj::CCollisionComponent::Update,
+    &Obj::CCollisionComponent::InitFromStructure,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Nx::VirtualSlot1Jump,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
+    &Obj::CCollisionComponent::InitCollision);
+
+} // namespace
+} // namespace Obj

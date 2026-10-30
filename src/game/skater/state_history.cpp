@@ -26,6 +26,7 @@
 #include "game/skater/core_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -56,9 +57,9 @@ constexpr uint8_t kMsgTeamTagged = 0x73; // team tag, the same team: who (and th
 constexpr uint8_t kMsgTeamConverted = 0x74; // team tag, another team
 
 // The default name in the events: "Someone" (0x0064C1C4); the names the code looks up.
-const char* const kSomeone = reinterpret_cast<const char*>(0x0064C1C4);
-const char* const kUnbindFireballTricks = reinterpret_cast<const char*>(0x0064C1AC); // "unbind_fireball_tricks"
-const char* const kDrivingRadiusBoost = reinterpret_cast<const char*>(0x0064C1CC);   // "driving_radius_boost"
+const char* const kSomeone = GAME_TEXT(0x0064C1C4, "Someone");
+const char* const kUnbindFireballTricks = GAME_TEXT(0x0064C1AC, "unbind_fireball_tricks"); // "unbind_fireball_tricks"
+const char* const kDrivingRadiusBoost = GAME_TEXT(0x0064C1CC, "driving_radius_boost");   // "driving_radius_boost"
 
 // a - b as the original's x87 code rounds it when it stores it.
 float Difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }

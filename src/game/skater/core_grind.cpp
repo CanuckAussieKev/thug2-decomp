@@ -38,6 +38,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Skater {
 
@@ -349,10 +350,10 @@ void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool from
         return;
     if (Flag(c, 0xA8)) {
         // (From an acid drop: its hold velocity added.)
-        Dbg::Printf(reinterpret_cast<const char*>(0x006466B0), reinterpret_cast<const char*>(0x0064BCE0), 9116,
-                    reinterpret_cast<const char*>(0x0064BD90)); // "M:%s:%i: %s" ... "GRINDING FROM ACID DROP"
+        Dbg::Printf(GAME_TEXT(0x006466B0, "M:%s:%i: %s\n"), GAME_TEXT(0x0064BCE0, "mponents\\SkaterCorePhysicsComponent.cpp"), 9116,
+                    GAME_TEXT(0x0064BD90, "GRINDING FROM ACID DROP")); // "M:%s:%i: %s" ... "GRINDING FROM ACID DROP"
         const Mth::Vector& hold = AcidHold();
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064BD6C), reinterpret_cast<const char*>(0x0064BCE0), 9117,
+        Dbg::Printf(GAME_TEXT(0x0064BD6C, "D:%s:%i: acid_hold = %g, %g, %g\n"), GAME_TEXT(0x0064BCE0, "mponents\\SkaterCorePhysicsComponent.cpp"), 9117,
                     static_cast<double>(hold.x), static_cast<double>(hold.y), static_cast<double>(hold.z));
         Mth::Vector& v = VectorAt(ObjectOf(c), kVelocity);
         v.x = AcidHold().x + v.x;

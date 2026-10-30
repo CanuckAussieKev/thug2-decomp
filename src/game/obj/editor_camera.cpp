@@ -25,6 +25,12 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/sys/game_config.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -35,7 +41,7 @@ GAME_GLOBAL(int, g_editorCameraSeenCount, 0x007CCC3C);
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064B2D0);
+extern void** const kVtable;
 constexpr uint32_t kEditorCamera = 0xAC8946E2;
 constexpr uint32_t kInput = 0x27D7CD28;
 constexpr float kTwoPi = 6.2831854820251465f;    // 0x0064545C
@@ -628,3 +634,24 @@ REPLACE(0x004E5640, &Obj::CEditorCameraComponent::PlaceCursor);
 REPLACE(0x004E4F50, Obj::ScriptFlagged);
 REPLACE(0x004E5320, Obj::FlagScriptedHit);
 REPLACE_UNCHECKED(0x004E5390, Obj::FlaggedObjectBetweenStub);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064B2D0,
+    &Obj::CEditorCameraComponent::Destroy,
+    &Obj::CEditorCameraComponent::Update,
+    &Obj::CEditorCameraComponent::InitFromStructure,
+    &Obj::CEditorCameraComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    &Obj::CEditorCameraComponent::Hide,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CEditorCameraComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

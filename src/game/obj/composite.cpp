@@ -19,6 +19,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -37,8 +43,8 @@ GAME_GLOBAL(float, g_compositeFeetToInches, 0x0064546C, 12.0f);
 
 namespace {
 
-void** const kComponentVtable = reinterpret_cast<void**>(0x00647618);
-void** const kCompositeObjectVtable = reinterpret_cast<void**>(0x00647650);
+extern void** const kComponentVtable;
+extern void** const kCompositeObjectVtable;
 
 // Names (checksums).
 constexpr uint32_t kUnnamed = 0;
@@ -898,3 +904,36 @@ REPLACE(0x0045E650, &Obj::CCompositeObject::Obj_SetOrientation);
 REPLACE(0x0045E940, &Obj::CCompositeObject::Obj_GetQuat);
 REPLACE(0x0045ED30, &Obj::CCompositeObject::FindNearestObjectOfType);
 REPLACE(0x0045EF30, &Obj::CCompositeObject::Obj_NearestOutsideAngle);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kComponentVtable, 0x00647618,
+    &Obj::CBaseComponent::Destroy,
+    GAME_LIBRARY_SLOT(0x00623771),
+    GAME_LIBRARY_SLOT(0x00623771),
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+GAME_VTABLE(kCompositeObjectVtable, 0x00647650,
+    &Obj::CCompositeObject::Destroy,
+    &Obj::CObject::SetProperties,
+    static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+    static_cast<bool (Obj::CCompositeObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CCompositeObject::CallMemberFunction),
+    Stubs::IgnoreArgument,
+    &Obj::CObject::PassEventToScript,
+    &Obj::CCompositeObject::MarkAsDead,
+    &Obj::CCompositeObject::ShouldUpdateScripts,
+    &Obj::CCompositeObject::Finalize,
+    &Obj::CCompositeObject::CreateComponentFromStructure,
+    Stubs::DoNothing);
+
+} // namespace
+} // namespace Obj

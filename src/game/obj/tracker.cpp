@@ -22,6 +22,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -31,9 +32,9 @@ GAME_GLOBAL(Mem::PoolPair, g_scriptListPools, 0x006F0FC8);
 namespace {
 
 // Vtables.
-void** const kScriptNodeVtable = reinterpret_cast<void**>(0x006478D8);
-void** const kScriptListVtable = reinterpret_cast<void**>(0x006478DC);
-void** const kTrackerVtable = reinterpret_cast<void**>(0x006478E0);
+extern void** const kScriptNodeVtable;
+extern void** const kScriptListVtable;
+extern void** const kTrackerVtable;
 
 // Names.
 constexpr uint32_t kId = 0x40C698AF;         // id
@@ -249,7 +250,7 @@ void CEventLog::AddEntry(uint32_t type, uint32_t target, uint32_t source, uint32
 // 0x004620A0
 void CEventLog::Print(bool onlyNew, int /*count*/)
 {
-    const char* const line = reinterpret_cast<const char*>(0x00647890); // "=====...\n"
+    const char* const line = GAME_TEXT(0x00647890, "========================================================\n"); // "=====...\n"
     int index = 0;
     int count = m_index;
     if (m_wrapped) {
@@ -330,7 +331,7 @@ uint32_t CTracker::GetUniqueId()
     uint32_t checksum;
     do {
         char name[64];
-        std::snprintf(name, sizeof(name), reinterpret_cast<const char*>(0x006478CC), m_nextAutoId++); // "autoid%d"
+        std::snprintf(name, sizeof(name), GAME_TEXT(0x006478CC, "autoid%d"), m_nextAutoId++); // "autoid%d"
         if (m_nextAutoId >= 1000000)
             m_nextAutoId = 0;
         checksum = Crc::GenerateCRCFromString(name);
@@ -812,3 +813,16 @@ REPLACE(0x00463450, &Obj::CTracker::RemoveListener);
 REPLACE(0x004634D0, Obj::CFunc_LaunchEvent);
 REPLACE(0x00463730, Obj::CreateTracker);
 REPLACE(0x00463780, &Obj::CTracker::ScalarDelete);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kScriptNodeVtable, 0x006478D8,
+    &Obj::CScriptNode::ScalarDelete);
+GAME_VTABLE(kScriptListVtable, 0x006478DC,
+    &Obj::CScriptList::ScalarDelete);
+GAME_VTABLE(kTrackerVtable, 0x006478E0,
+    &Obj::CTracker::ScalarDelete);
+
+} // namespace
+} // namespace Obj

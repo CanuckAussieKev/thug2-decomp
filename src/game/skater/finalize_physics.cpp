@@ -13,12 +13,19 @@
 #include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064BDEC);
+extern void** const kVtable;
 constexpr uint32_t kSkaterFinalizePhysics = 0x9B373E58;
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kSkaterState = 0x43686585, kSkaterSound = 0x187574FA,
                    kSkaterLoopingSound = 0xB5F1E9D2;
@@ -145,3 +152,24 @@ REPLACE(0x00511010, &Obj::CSkaterFinalizePhysicsComponent::DestroyBody);
 REPLACE(0x00511020, &Obj::CSkaterFinalizePhysicsComponent::Destroy);
 REPLACE(0x00511050, &Obj::CSkaterFinalizePhysicsComponent::Finalize);
 REPLACE(0x00511080, &Obj::CSkaterFinalizePhysicsComponent::Update);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064BDEC,
+    &Obj::CSkaterFinalizePhysicsComponent::Destroy,
+    &Obj::CSkaterFinalizePhysicsComponent::Update,
+    Stubs::IgnoreArgument,
+    &Obj::CSkaterFinalizePhysicsComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

@@ -14,6 +14,14 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/skater/skitch.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -41,8 +49,8 @@ GAME_GLOBAL(uint32_t[114], g_skaterStateMemberFunctions, 0x00684A80,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C140);
-void** const kStateHistoryVtable = reinterpret_cast<void**>(0x0064C174);
+extern void** const kVtable;
+extern void** const kStateHistoryVtable;
 constexpr uint32_t kSkaterState = 0x43686585;
 constexpr uint32_t kOnSkaterStateChange = 0xA7662059, kOnSkaterPhysicsStateChange = 0x6BAC488C,
                    kOnSkaterTerrainChange = 0xD3FDE02A;
@@ -271,3 +279,38 @@ REPLACE(0x00519600, &Obj::CSkaterStateComponent::SetSparksPos);
 REPLACE(0x005197D0, &Obj::SkaterStateHistoryFrame::GetTime);
 REPLACE(0x005197E0, &Obj::SkaterStateHistoryFrame::SetTime);
 REPLACE(0x005197C0, &Obj::CSkaterStateHistoryComponent::DestroyBody);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064C140,
+    &Obj::CSkaterStateComponent::Destroy,
+    &Obj::ComponentWithoutUpdate::Update,
+    &Obj::CSkaterStateComponent::InitFromStructure,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+GAME_VTABLE(kStateHistoryVtable, 0x0064C174,
+    &Obj::CSkaterStateHistoryComponent::Destroy,
+    &Obj::ComponentWithoutUpdate::Update,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

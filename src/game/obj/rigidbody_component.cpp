@@ -17,6 +17,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -25,7 +32,7 @@ GAME_GLOBAL(float, g_rigidBodyPusherHeight, 0x006939D0);
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x006463F8);
+extern void** const kVtable;
 
 constexpr float kHalf = 0.5f;                              // 0x006453BC
 constexpr float kDegreesToRadians = 0.01745329238474369f;  // 0x00645464
@@ -743,3 +750,24 @@ REPLACE(0x0042DFC0, &Obj::CRigidBodyComponent::RigidBody_EnablePlayerCollision);
 REPLACE(0x0042DFD0, &Obj::CRigidBodyComponent::GetCenterOfMassPos);
 REPLACE(0x0042E020, &Obj::CRigidBodyComponent::Rigidbody_MatchVelocityTo);
 REPLACE(0x0042E380, Obj::AddRigidBodyPusher);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x006463F8,
+    &Obj::CRigidBodyComponent::Destroy,
+    &Obj::CRigidBodyComponent::Update,
+    &Obj::CRigidBodyComponent::InitFromStructure,
+    &CRigidBodyComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

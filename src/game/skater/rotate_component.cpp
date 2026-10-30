@@ -14,12 +14,18 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C018);
+extern void** const kVtable;
 constexpr uint32_t kSkaterRotate = 0x52D61A0D, kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kRotate = 0xC876ADF3;
 constexpr uint32_t kDuration = 0x79A07F3F, kSeconds = 0xD029F619, kSecond = 0x49E0EE96, kFrames = 0x019176C5,
@@ -194,3 +200,24 @@ REPLACE(0x00517CD0, &Obj::CSkaterRotateComponent::InitFromStructure);
 REPLACE(0x00517D20, &Obj::CSkaterRotateComponent::Finalize);
 REPLACE(0x00517DC0, &Obj::CSkaterRotateComponent::Update);
 REPLACE(0x00517EA0, &Obj::CSkaterRotateComponent::CallMemberFunction);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064C018,
+    &Obj::CSkaterRotateComponent::Destroy,
+    &Obj::CSkaterRotateComponent::Update,
+    &Obj::CSkaterRotateComponent::InitFromStructure,
+    &Obj::CSkaterRotateComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CSkaterRotateComponent::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

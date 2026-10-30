@@ -24,6 +24,12 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -60,7 +66,7 @@ GAME_GLOBAL(uint32_t[174], g_pedLogicMemberFunctions, 0x00683730,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064B7A8);
+extern void** const kVtable;
 
 constexpr uint32_t kMotion = 0x0A015E17;
 constexpr uint32_t kModel = 0x286A8D26;
@@ -767,3 +773,27 @@ REPLACE(0x004F20F0, &Obj::CPedLogicComponent::Ped_DeactivateAuxScript);
 REPLACE(0x004EE280, &Obj::CPedLogicComponent::Ped_HideBoard);
 REPLACE(0x004F20E0, &Obj::CPedLogicComponent::Ped_Bail);
 REPLACE(0x004EE3A0, &Obj::CPedLogicComponent::Ped_GetVoicePrefix);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064B7A8,
+    &Obj::CPedLogicComponent::Destroy,
+    &Obj::CPedLogicComponent::Update,
+    &Obj::CPedLogicComponent::InitFromStructure,
+    Stubs::DoNothing,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::CPedLogicComponent::CallMemberFunction,
+    &Obj::CPedLogicComponent::GenericMoveUpdate,
+    &Obj::CPedLogicComponent::SkaterMoveUpdate,
+    &Obj::CPedLogicComponent::NoMoveUpdate);
+
+} // namespace
+} // namespace Obj

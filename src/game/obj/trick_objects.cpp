@@ -30,6 +30,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/sys/game_config.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -200,11 +201,11 @@ uint32_t CTrickObjectManager::LogTrickObjects(uint32_t count, uint32_t* objects,
 
 namespace {
 
-void** const kTrickObjectVtable = reinterpret_cast<void**>(0x0064F0D8);
-void** const kTrickObjectNodeVtable = reinterpret_cast<void**>(0x0064F0D4);
-void** const kTrickClusterNodeVtable = reinterpret_cast<void**>(0x0064F0D0);
-void** const kTrickClusterVtable = reinterpret_cast<void**>(0x0064F10C);
-void** const kTrickObjectManagerVtable = reinterpret_cast<void**>(0x0064F110);
+extern void** const kTrickObjectVtable;
+extern void** const kTrickObjectNodeVtable;
+extern void** const kTrickClusterNodeVtable;
+extern void** const kTrickClusterVtable;
+extern void** const kTrickObjectManagerVtable;
 constexpr uint32_t kLoadCreatedPark = 0xB664035D; // load_sk5ed_gameplay (the skate module's level, +0x378)
 
 // The level sector named `name` in any scene (0x0048C510) and its colour: 0x0049E670 cleared, 0x0049E980 read
@@ -848,3 +849,20 @@ REPLACE(0x005892C0, Obj::ScoreTrickObjects);
 REPLACE(0x00589670, &Obj::CTrickObjectManager::GiveFreeClusters);
 REPLACE(0x005896D0, &Obj::CTrickObjectManager::AddCluster);
 REPLACE(0x00589760, &Obj::CTrickObjectManager::AddObject);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kTrickClusterNodeVtable, 0x0064F0D0,
+    &Obj::TrickClusterNode::Destroy);
+GAME_VTABLE(kTrickObjectNodeVtable, 0x0064F0D4,
+    &Obj::TrickObjectNode::Destroy);
+GAME_VTABLE(kTrickObjectVtable, 0x0064F0D8,
+    &Obj::CTrickObject::Destroy);
+GAME_VTABLE(kTrickClusterVtable, 0x0064F10C,
+    &Obj::CTrickObjectCluster::Destroy);
+GAME_VTABLE(kTrickObjectManagerVtable, 0x0064F110,
+    &Obj::CTrickObjectManager::Destroy);
+
+} // namespace
+} // namespace Obj

@@ -26,6 +26,13 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/net/gamenet_manager.h"
+#include "game/core/stubs.h"
+#include "game/obj/car_physics.h"
+#include "game/obj/node_components.h"
+#include "game/obj/object.h"
+#include "game/skater/vehicle_sound.h"
+#include "hook/game_code.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
@@ -33,7 +40,7 @@ namespace {
 
 using namespace WalkFields;
 
-void** const kVtable = reinterpret_cast<void**>(0x0064C75C);
+extern void** const kVtable;
 
 // Script names.
 constexpr uint32_t kHangControlDebounceTime = 0xAC96D24B,
@@ -476,3 +483,24 @@ REPLACE(0x00528710, &Obj::CWalkComponent::Walk_GetPreviousState);
 REPLACE(0x00528740, &Obj::CWalkComponent::Walk_GetState);
 REPLACE(0x00528770, &Obj::CWalkComponent::Walk_GetHangAngle);
 REPLACE(0x00528860, &Obj::CWalkComponent::Walk_SetForwardControlLock);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064C75C,
+    &CWalkComponent::Destroy,
+    &CWalkComponent::Update,
+    &Obj::CWalkComponent::InitFromStructure,
+    &Obj::CWalkComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+
+} // namespace
+} // namespace Obj

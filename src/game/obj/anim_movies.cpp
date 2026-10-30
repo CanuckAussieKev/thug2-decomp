@@ -25,6 +25,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/front/front_end.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -455,7 +456,7 @@ void CObjectAnimMovie::Update()
         uint32_t name = static_cast<Gfx::CBonedAnimFrameData*>(m_anim)->GetBoneName(i);
         uint8_t* object = reinterpret_cast<uint8_t*>(Obj::FindObject(name));
         if (!object) {
-            Dbg::Printf(reinterpret_cast<const char*>(0x0064F058), Script::FindChecksumNameOrUnknown(name));
+            Dbg::Printf(GAME_TEXT(0x0064F058, "object animation:  couldn't find object %s\n"), Script::FindChecksumNameOrUnknown(name));
             continue;
         }
         float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -465,7 +466,7 @@ void CObjectAnimMovie::Update()
         std::memcpy(object + 0xC0, matrix, sizeof(matrix)); // and its display matrix
         std::memcpy(object + 0x4C, positions + 4 * i, 16);  // its position
         if (Script::GetInteger(0x2F510F45)) {
-            Dbg::Printf(reinterpret_cast<const char*>(0x0064F084), Script::FindChecksumNameOrUnknown(name),
+            Dbg::Printf(GAME_TEXT(0x0064F084, "Object %s @ time %f:  "), Script::FindChecksumNameOrUnknown(name),
                         static_cast<double>(m_timeline.m_current));
             reinterpret_cast<const Mth::Vector*>(object + 0x4C)->Print(); // (printed)
             reinterpret_cast<const Mth::Matrix*>(object + 0x6C)->Print();

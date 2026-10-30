@@ -26,6 +26,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -40,7 +41,7 @@ constexpr uint32_t kComponent6C = 0xB1D5A3E1; // the component whose +0x18 goes 
 
 GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 
-void** const kVtable = reinterpret_cast<void**>(0x0064BEF0);
+extern void** const kVtable;
 constexpr uint32_t kSkaterLocalNetLogic = 0x7CD3E6D5;
 constexpr uint32_t kSkaterState = 0x43686585, kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kString0 = 0xA4B08520, kGraffitiStealYou = 0x0B3FF911, kGraffitiStealOther = 0x4D7F6FFA;
@@ -319,3 +320,13 @@ REPLACE(0x005136C0, &Obj::CSkaterLocalNetLogicComponent::Update);
 REPLACE(0x005136F0, Obj::CSkaterLocalNetLogicComponent::HandleGraffitiSteal);
 REPLACE(0x00512EA0, &Obj::CSkaterLocalNetLogicComponent::GetUpdateFlags);
 REPLACE(0x005131A0, &Obj::CSkaterLocalNetLogicComponent::SendUpdate);
+
+namespace Obj {
+namespace {
+
+GAME_VTABLE(kVtable, 0x0064BEF0,
+    &Obj::CSkaterLocalNetLogicComponent::Destroy,
+    &Obj::CSkaterLocalNetLogicComponent::Update);
+
+} // namespace
+} // namespace Obj
