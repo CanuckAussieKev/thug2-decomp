@@ -13,6 +13,7 @@
 #include "game/file/pre.h"
 #include "game/front/data_overlay.h"
 #include "game/sys/module.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace File {
@@ -25,11 +26,20 @@ namespace {
 
 constexpr int kMaxHandles = 16;
 
+GAME_GLOBAL(AsyncFileHandle* [kMaxHandles], g_pool, 0x007CF138);
+GAME_GLOBAL(int, g_handlesInUse, 0x007CF178);
+GAME_GLOBAL(int, g_busyCount, 0x007CF17C);
+GAME_GLOBAL(bool, g_ioCompleted, 0x007CF180);
+GAME_GLOBAL(int, g_currentList, 0x007CF18C);
+GAME_GLOBAL(AsyncLoaderModule*, g_loaderModule, 0x007CF190);
+GAME_GLOBAL(uint32_t, g_loaderModuleRefs, 0x007CF194);
+GAME_GLOBAL(bool, g_useOverlappedIo, 0x007D0FD4);
+
 // Shared with the platform I/O thread: plain (volatile) accesses, as in the original.
-AsyncFileHandle** Pool() { return GameVariable<AsyncFileHandle* [kMaxHandles]>(0x007CF138); }
-int& HandlesInUse() { return GameVariable<int>(0x007CF178); }
-volatile int& BusyCount() { return GameVariable<volatile int>(0x007CF17C); }
-volatile bool& IoCompleted() { return GameVariable<volatile bool>(0x007CF180); }
+AsyncFileHandle** Pool() { return g_pool; }
+int& HandlesInUse() { return g_handlesInUse; }
+volatile int& BusyCount() { return g_busyCount; }
+volatile bool& IoCompleted() { return g_ioCompleted; }
 
 // Completed operations waiting for their callbacks: two lists, one filled while the other is run.
 struct PendingCallback {
@@ -37,12 +47,16 @@ struct PendingCallback {
     int event;
     int value;
 };
+
+GAME_GLOBAL(PendingCallback[2][kMaxHandles], g_pendingCallbacks, 0x007CEFB8);
+GAME_GLOBAL(int[2], g_callbackCounts, 0x007CF184);
+
 PendingCallback (&CallbackLists())[2][kMaxHandles]
 {
-    return GameVariable<PendingCallback[2][kMaxHandles]>(0x007CEFB8);
+    return g_pendingCallbacks;
 }
-int (&CallbackCounts())[2] { return GameVariable<int[2]>(0x007CF184); }
-int& CurrentList() { return GameVariable<int>(0x007CF18C); }
+int (&CallbackCounts())[2] { return g_callbackCounts; }
+int& CurrentList() { return g_currentList; }
 
 // The handle fields every allocation resets (as the original's Init and get_file_handle do).
 void ResetFields(AsyncFileHandle* file)
@@ -435,7 +449,7 @@ constexpr int kErrorHandleEof = 38;    // ERROR_HANDLE_EOF
 constexpr DWORD kStatusPending = 0x103; // OVERLAPPED.Internal while the I/O is in progress
 
 // Overlapped (truly asynchronous, unbuffered) reads are used on Windows NT 6 (Vista) and later.
-bool& UseOverlappedIo() { return GameVariable<bool>(0x007D0FD4); }
+bool& UseOverlappedIo() { return g_useOverlappedIo; }
 
 } // namespace
 
@@ -721,8 +735,8 @@ static_assert(sizeof(AsyncLoaderModule) == 0x18, "allocated as 0x18 bytes by the
 
 namespace {
 
-AsyncLoaderModule*& LoaderModule() { return GameVariable<AsyncLoaderModule*>(0x007CF190); }
-uint32_t& LoaderModuleRefs() { return GameVariable<uint32_t>(0x007CF194); }
+AsyncLoaderModule*& LoaderModule() { return g_loaderModule; }
+uint32_t& LoaderModuleRefs() { return g_loaderModuleRefs; }
 
 // Engine framework pieces.
 void ConstructModule(void* module) { static_cast<Mdl::Module*>(module)->Construct(); }

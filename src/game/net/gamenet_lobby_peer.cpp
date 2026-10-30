@@ -19,6 +19,7 @@
 #include "game/sys/timer.h"
 #include "game/script/game_cfuncs.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (sprintf / strcpy: the original's own)
@@ -61,13 +62,13 @@ constexpr uint32_t kPlayerObserverCounted = 0x08; // (0x005434C0: an observer re
 constexpr uint32_t kNewPlayerCounted = 0x18;
 constexpr uint32_t kNewPlayerObserver = 0x04;
 
-Manager* NetManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* NetManager() { return g_gameNetManager; }
 Tsk::Stack* LogicTasks()
 {
     return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(GameVariable<void*>(0x00696D68)) + 4);
 }
 QueuedPacket* Queue() { return &GameVariable<QueuedPacket>(0x007CCE50); }
-int& QueuedCount() { return GameVariable<int>(0x007CE438); }
+int& QueuedCount() { return g_queuedCount; }
 LobbyMan* TaskLobby(void* task) { return Field<LobbyMan*>(task, 0x1C); }
 
 // The heaps the lobby's SDK work allocates from.
@@ -118,10 +119,17 @@ void* const kNoProgress = reinterpret_cast<void*>(0x005480A0); // (an empty func
 
 } // namespace
 
+GAME_GLOBAL(bool, g_notPostedShown, 0x007CCE3A);
+GAME_GLOBAL(uint32_t, g_connectionTimer, 0x007CCE3C);
+GAME_GLOBAL(uint32_t, g_lastReportTime, 0x007CCE40);
+GAME_GLOBAL(uint32_t, g_hostingSince, 0x007CCE44);
+GAME_GLOBAL(bool, g_gamePosted, 0x007CCE48);
+GAME_GLOBAL(uint32_t, g_connectedTime, 0x007CE434);
+
 // 0x0053F570
 void __cdecl LobbyMan::DisconnectedCallback(void*, const char* reason, void* param)
 {
-    uint32_t elapsed = Tmr::GetTime() - GameVariable<uint32_t>(0x007CE434); // since connected
+    uint32_t elapsed = Tmr::GetTime() - g_connectedTime; // since connected
     Dbg::Printf("Disconnected at %d after %d ms. Reason: %s\n", Tmr::GetTime(), elapsed, reason);
     auto* lobby = static_cast<LobbyMan*>(param);
     if (lobby->m_connecting) {
@@ -163,7 +171,7 @@ void __cdecl LobbyMan::QueuePacket(char* data, int length, const void* from)
 // 0x0053FB80
 void __cdecl LobbyMan::PlayerKeyCallback(void*, int key, int index, void* buffer, void*)
 {
-    GameVariable<bool>(0x007CCE48) = true;
+    g_gamePosted = true;
     if (key == kKeyPing) {
         BufferAdd(buffer, "");
         return;
@@ -256,7 +264,7 @@ void __cdecl LobbyMan::ConnectCallback(void* peer, int success, int, void* param
     net->SetLocalAddress(Sdk<uint32_t>(0x005FC940, peer)); // the peer's public address
     CFuncs::CFunc_StartLobbyList(nullptr, nullptr);
     lobby->m_expectingDisconnect = false;
-    GameVariable<uint32_t>(0x007CE434) = Tmr::GetTime(); // connected
+    g_connectedTime = Tmr::GetTime(); // connected
 }
 
 // 0x00540040
@@ -297,15 +305,15 @@ void __cdecl LobbyMan::QueryTask(void* task)
     }
     QueuedCount() = 0;
     Manager* manager = NetManager();
-    if (!GameVariable<bool>(0x007CCE48) && manager->InNetGame() && manager->OnServer()) { // not reported yet
-        if (now - GameVariable<uint32_t>(0x007CCE44) > kNotPostedTime) {
-            if (!GameVariable<bool>(0x007CCE3A)) {
+    if (!g_gamePosted && manager->InNetGame() && manager->OnServer()) { // not reported yet
+        if (now - g_hostingSince > kNotPostedTime) {
+            if (!g_notPostedShown) {
                 Run(kCreateNotPostedDialog);
-                GameVariable<bool>(0x007CCE3A) = true;
+                g_notPostedShown = true;
             }
-        } else if (now - GameVariable<uint32_t>(0x007CCE40) > kReportInterval) {
+        } else if (now - g_lastReportTime > kReportInterval) {
             PeerStateChanged(lobby->m_peer);
-            GameVariable<uint32_t>(0x007CCE40) = now;
+            g_lastReportTime = now;
         }
     }
     PopHeap();
@@ -321,11 +329,11 @@ void LobbyMan::StartHosting()
     if (Sdk<int>(0x005FCC70, m_peer, server->Socket(), static_cast<int>(kHostPort)) == 1) // reporting on its socket
         PeerStateChanged(m_peer);
     uint32_t now = Tmr::GetTime();
-    GameVariable<uint32_t>(0x007CCE44) = now; // hosting since
-    GameVariable<uint32_t>(0x007CCE3C) = now; // the connection timer
-    GameVariable<uint32_t>(0x007CCE40) = now; // reported last
-    GameVariable<bool>(0x007CCE3A) = false;
-    GameVariable<bool>(0x007CCE48) = false;
+    g_hostingSince = now; // hosting since
+    g_connectionTimer = now; // the connection timer
+    g_lastReportTime = now; // reported last
+    g_notPostedShown = false;
+    g_gamePosted = false;
     tasks->AddTask(m_hostingTask);
     m_hosting = true;
 }

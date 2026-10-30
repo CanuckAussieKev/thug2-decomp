@@ -7,6 +7,7 @@
 #include "game/core/mem.h"
 #include "game/script/cfuncs_engine.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mem {
@@ -15,10 +16,13 @@ namespace {
 
 void** const kHeapVtable = reinterpret_cast<void**>(0x0065848C);
 
+GAME_GLOBAL(int, g_heapBusy, 0x007D0FDC);
+GAME_GLOBAL(BlockHeader*, g_forcedFreeBlock, 0x007D0FE0);
+
 // Set while a heap is falling back on others or resizing a block, so a fallback heap doesn't fall back in turn.
-int& HeapBusy() { return GameVariable<int>(0x007D0FDC); }
+int& HeapBusy() { return g_heapBusy; }
 // For debugging: when set (never, in the shipped game), Allocate only takes this free block.
-BlockHeader*& ForcedFreeBlock() { return GameVariable<BlockHeader*>(0x007D0FE0); }
+BlockHeader*& ForcedFreeBlock() { return g_forcedFreeBlock; }
 
 void CountUp(int& value, int& max, int amount)
 {

@@ -30,6 +30,7 @@
 #include "game/script/game_cfuncs.h"
 #include "game/skate/cas_options.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace GameNet {
@@ -422,15 +423,17 @@ void __fastcall Manager::UnlinkAllNodes(Mem::ListNode* head)
     }
 }
 
+GAME_GLOBAL(bool, g_queryReporting, 0x007CCE1C);
+
 // 0x00536D70
 void Manager::DestroyBody()
 {
     // GameSpy shut down (the SDK's), its reporting if it's up.
     GameFunction<void(__cdecl*)(int)>(0x005F9900)(1003);
     GameFunction<void(__cdecl*)()>(0x005F9BE0)();
-    if (GameVariable<bool>(0x007CCE1C)) {
+    if (g_queryReporting) {
         GameFunction<void(__cdecl*)(int)>(0x005FBB20)(0);
-        GameVariable<bool>(0x007CCE1C) = false;
+        g_queryReporting = false;
     }
     // The lobby, the vault, the presence and the stats: each one's destructor, then freed.
     if (auto* lobby = static_cast<LobbyMan*>(m_lobbyMan)) {

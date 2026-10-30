@@ -8,8 +8,10 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
+#include "game/sys/game_config.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace CFuncs {
@@ -25,9 +27,12 @@ constexpr uint32_t kStartTime = 0xD16B61E6;   // "StartTime"
 constexpr uint32_t kElapsedTime = 0x3EB3566B; // "ElapsedTime"
 
 // The platform the game runs on (0x007CEFA8; 7: Windows).
-int Platform() { return GameVariable<int>(0x007CEFA8); }
+int Platform() { return GameConfig::g_platform; }
+
+GAME_GLOBAL(uint32_t, g_timerStart, 0x00696D3C);
+
 // The stopwatch's start (Tmr::GetTime, 0x00696D3C).
-uint32_t& TimerStart() { return GameVariable<uint32_t>(0x00696D3C); }
+uint32_t& TimerStart() { return g_timerStart; }
 // The game clock (ms), as scripts see it: the clock plus its offset (0x00696D60).
 int ScriptClock() { return Tmr::GameClockElapsed() + GameVariable<int>(0x00696D60); }
 

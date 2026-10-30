@@ -5,13 +5,16 @@
 
 #include "game/core/mem.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Str {
 
 namespace {
 
-int& LiveStrings() { return GameVariable<int>(0x00690FA0); }
+GAME_GLOBAL(int, g_liveStrings, 0x00690FA0);
+
+int& LiveStrings() { return g_liveStrings; }
 
 } // namespace
 

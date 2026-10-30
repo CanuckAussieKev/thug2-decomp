@@ -10,16 +10,19 @@
 #include "game/gfx/device.h"
 #include "game/gfx/loading_console.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace File {
+
+GAME_GLOBAL(bool, g_handledByArchive, 0x007D0FC8);
 
 namespace {
 
 // While a pre manager exists, each file call goes to it first; it sets the "handled" flag when the file was
 // in one of its archives.
 bool ArchivesActive() { return Pre::Manager() != nullptr; }
-bool& HandledByArchive() { return GameVariable<bool>(0x007D0FC8); }
+bool& HandledByArchive() { return g_handledByArchive; }
 
 Pre::PreFile::FileInfo* AsArchiveFile(Handle file) { return static_cast<Pre::PreFile::FileInfo*>(file); }
 bool ArchiveExist(const char* name) { return Pre::Exist(name); }
@@ -47,8 +50,10 @@ uint32_t ArchiveGetFileSize(Handle file) { return static_cast<uint32_t>(Pre::Get
     __assume(0);
 }
 
+GAME_GLOBAL(int, g_useAlternateDrive, 0x007D0FD8);
+
 // Never set anywhere in the exe: a leftover that would open files from another drive.
-bool UseAlternateDrive() { return GameVariable<int>(0x007D0FD8) != 0; }
+bool UseAlternateDrive() { return g_useAlternateDrive != 0; }
 
 // Not original - the loading console (game/gfx/loading_console.h): a file opened, with its size (read without
 // File::GetFileSize, which would change the "handled by an archive" flag callers may still look at).
@@ -239,7 +244,7 @@ namespace {
 
 // 0x005B8040 / 0x005B8050: one-line accessors for the archive manager and the "handled" flag.
 bool __cdecl ArchivesActiveAccessor() { return Pre::Manager() != nullptr; }
-bool __cdecl HandledByArchiveAccessor() { return GameVariable<bool>(0x007D0FC8); }
+bool __cdecl HandledByArchiveAccessor() { return File::g_handledByArchive; }
 
 File::Handle __cdecl OpenOnDiskFromEdx(const char* name) { return File::OpenOnDisk(name); }
 

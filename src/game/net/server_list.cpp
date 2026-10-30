@@ -23,6 +23,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf / strncpy, kept)
@@ -90,14 +91,18 @@ constexpr uint32_t kRequest = 0xFE00;
 constexpr uint32_t kRequestStart = 0xFE04;
 constexpr uint32_t kNewsOk = 0xFE09;
 
-Manager* TheManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* TheManager() { return g_gameNetManager; }
 Mem::Manager* Memory() { return Mem::Manager::Get(); }
 Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 0x04); }
 LobbyMan* Lobby(Manager* manager) { return static_cast<LobbyMan*>(manager->m_lobbyMan); }
 
-uint32_t& LastRefresh() { return GameVariable<uint32_t>(0x007CE448); }
-bool& ShowPending() { return GameVariable<bool>(0x007CE44C); }
-uint32_t& ListClock() { return GameVariable<uint32_t>(0x007CE450); }
+GAME_GLOBAL(uint32_t, g_lastRefresh, 0x007CE448);
+GAME_GLOBAL(bool, g_showPending, 0x007CE44C);
+GAME_GLOBAL(uint32_t, g_listClock, 0x007CE450);
+
+uint32_t& LastRefresh() { return g_lastRefresh; }
+bool& ShowPending() { return g_showPending; }
+uint32_t& ListClock() { return g_listClock; }
 
 template <typename R = void, typename... A>
 R Sdk(uint32_t address, A... args)
@@ -309,6 +314,8 @@ ServerSearch* ServerSearch::Destroy(unsigned int flags)
 void Manager::SetNextServiceState(int state) { Field<int>(this, kNextServiceState) = state; }
 int Manager::GetServiceState() { return Field<int>(this, kServiceState); }
 
+GAME_GLOBAL(uint32_t, g_newsMessageCount, 0x007CE444);
+
 // 0x005453E0
 void Manager::SetServiceState(int state)
 {
@@ -316,7 +323,7 @@ void Manager::SetServiceState(int state)
     if (state == kStateWake) {
         LogicTasks()->AddTask(Field<Tsk::BaseTask*>(this, kServiceTask));
         SetServiceState(Field<int>(this, kNextServiceState));
-        GameVariable<uint32_t>(0x007CE444) = 0;
+        g_newsMessageCount = 0;
     } else if (state == kStateStopped) {
         Field<Tsk::BaseTask*>(this, kServiceTask)->Remove();
     }
@@ -325,7 +332,7 @@ void Manager::SetServiceState(int state)
 // 0x005451E0
 void Manager::UpdateHostingStatus()
 {
-    Net::Manager* net = GameVariable<Net::Manager*>(0x006EFDD8);
+    Net::Manager* net = Net::g_netManager;
     Memory()->PushContext(Memory()->m_internetTopDownHeap);
     static_cast<LobbyMan*>(m_lobbyMan)->StartHosting();
     if (Field<bool>(m_buddyMan, 0x10)) { // (0x005480B0: logged in to presence)

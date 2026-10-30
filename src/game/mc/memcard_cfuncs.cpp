@@ -23,6 +23,7 @@
 #include "game/script/struct_buffer.h"
 #include "game/sys/game_config.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mc {
@@ -64,7 +65,7 @@ bool GetMemCardSpaceAvailable(Script::CStruct*, Script::CScript* script)
 {
     ResultParams(script)->AddInteger(kSpaceAvailable, 0);
     ResultParams(script)->AddInteger(kFilesLeft, 1000000);
-    Card* card = GameVariable<Manager*>(0x007D1890)->GetCard(0, 0);
+    Card* card = g_theCard->GetCard(0, 0);
     if (!card)
         return false;
     // Originally from PartyMod Fixes (its call at 0x005A6E7E): the clamped disk count in place of the original's
@@ -77,7 +78,7 @@ bool GetMemCardSpaceAvailable(Script::CStruct*, Script::CScript* script)
 
 namespace {
 
-int Platform() { return GameVariable<int>(0x007CEFA8); }
+int Platform() { return GameConfig::g_platform; }
 
 // Pause (1), unpause (0) or restore (-1) the music and the music streams.
 void PauseMusic(int pause) { Pcm::PauseMusic(pause); }
@@ -118,6 +119,12 @@ constexpr uint32_t kAlsoApplyType = 0x61A1BC57;  // applied even when kept
 
 } // namespace
 
+GAME_GLOBAL(bool, g_outOfSpace, 0x007CECD0);
+GAME_GLOBAL(Script::CStruct*, g_keptParams, 0x007CECD4);
+GAME_GLOBAL(uint32_t, g_keptType, 0x007CECD8);
+GAME_GLOBAL(uint32_t, g_sectionsToApplyWhenLoading, 0x007CECDC);
+GAME_GLOBAL(bool, g_loadedCustomSkater, 0x007CECE0);
+
 // 0x005A8730. LoadFromMemoryCard Name=<string> Type=<checksum> [<kNoApply>=<integer>]: reads the save file and
 // applies it (or keeps its contents in 0x007CECD4 and its type in 0x007CECD8 when kNoApply is non-zero). True if
 // the file was read. A file of the wrong size, too big, of another version or (originally) with a bad checksum
@@ -136,7 +143,7 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
     bool loaded = false;
     int noApply = 0;
     params->GetInteger(kNoApply, &noApply, 0);
-    Card* card = GameVariable<Manager*>(0x007D1890)->GetCard(0, 0);
+    Card* card = g_theCard->GetCard(0, 0);
     // (the second test is a card method that's the shared always-true stub, 0x005B9760: always true)
     if (card && Stubs::ReturnTrue()) {
         params->GetString("Name", &name, 0);
@@ -200,9 +207,9 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
                         } else {
                             // (a null structure here would crash, as in the original; the previous one leaks)
                             Script::CStruct* kept = NewParams();
-                            GameVariable<Script::CStruct*>(0x007CECD4) = kept;
+                            g_keptParams = kept;
                             kept->AppendStructureIfAny(contents);
-                            GameVariable<uint32_t>(0x007CECD8) = type;
+                            g_keptType = type;
                             if (type == kAlsoApplyType)
                                 ApplyLoadedContents(type, contents, script, nullptr);
                         }
@@ -232,7 +239,7 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
 // --- the save state flags -----------------------------------------------------------------------------------
 
 // 0x005A6550
-bool SaveFailedDueToInsufficientSpace(Script::CStruct*, Script::CScript*) { return GameVariable<bool>(0x007CECD0); }
+bool SaveFailedDueToInsufficientSpace(Script::CStruct*, Script::CScript*) { return g_outOfSpace; }
 
 // 0x005A6560
 bool SetSectionsToApplyWhenLoading(Script::CStruct* params, Script::CScript*)
@@ -254,15 +261,15 @@ bool SetSectionsToApplyWhenLoading(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x005A6600
-bool LoadedCustomSkater(Script::CStruct*, Script::CScript*) { return GameVariable<bool>(0x007CECE0); }
+bool LoadedCustomSkater(Script::CStruct*, Script::CScript*) { return g_loadedCustomSkater; }
 
-uint32_t& SectionsToApplyWhenLoading() { return GameVariable<uint32_t>(0x007CECDC); }
+uint32_t& SectionsToApplyWhenLoading() { return g_sectionsToApplyWhenLoading; }
 
 // --- the card and the saves' summaries ----------------------------------------------------------------------
 
 namespace {
 
-Card* TheCard() { return GameVariable<Manager*>(0x007D1890)->GetCard(0, 0); }
+Card* TheCard() { return g_theCard->GetCard(0, 0); }
 
 // The script pools' pairs whose current pool the temporary pools switch: components, structures, vectors.
 Mem::PoolPair& ComponentPools() { return GameVariable<Mem::PoolPair>(0x006F2338); }
@@ -333,7 +340,7 @@ bool GetSummaryInfo(Script::CStruct* params, Script::CScript* script)
     int vaultData = 0;
     params->GetInteger(kVaultData, &vaultData, 0);
     if (vaultData) {
-        WriteSummary(GameVariable<Script::CStruct*>(0x007CECD4), ResultParams(script), GameVariable<uint32_t>(0x007CECD8));
+        WriteSummary(g_keptParams, ResultParams(script), g_keptType);
         return true;
     }
     if (type == kSaveOptionsAndPros) {
@@ -347,7 +354,7 @@ bool GetSummaryInfo(Script::CStruct* params, Script::CScript* script)
 // 0x005A7430
 bool GetMemCardDataForUpload(Script::CStruct*, Script::CScript* script)
 {
-    ResultParams(script)->AddChecksum(0x7321A8D6u, GameVariable<uint32_t>(0x007CECD8)); // type
+    ResultParams(script)->AddChecksum(0x7321A8D6u, g_keptType); // type
     return true;
 }
 

@@ -16,6 +16,7 @@
 #include "game/net/stats_man.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (sprintf / strncpy: the original's own)
@@ -68,7 +69,7 @@ constexpr int kLobbyStateListed = 15;
 constexpr int kLobbyStateFailed = 16;
 constexpr float kItemScale = 1.1f; // (0x3F8CCCCD)
 
-Manager* NetManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* NetManager() { return g_gameNetManager; }
 void PushInternetHeap()
 {
     Mem::Manager* memory = Mem::Manager::Get();
@@ -223,7 +224,7 @@ void LobbyMan::AddPlayerListItem(LobbyPlayer* player)
     }
     params->AddChecksum(kPadChooseScript, script);
     // (x87: the rating times two floats, truncated)
-    int rank = static_cast<int>(static_cast<double>(player->m_rating) * static_cast<double>(GameVariable<float>(0x0064CC1C)) *
+    int rank = static_cast<int>(static_cast<double>(player->m_rating) * static_cast<double>(g_rankScale) *
                                 static_cast<double>(GameVariable<float>(0x00646710)));
     if (rank > kMaxRank)
         rank = kMaxRank;
@@ -242,6 +243,9 @@ void LobbyMan::AddPlayerListItem(LobbyPlayer* player)
     PopHeap();
 }
 
+GAME_GLOBAL(bool, g_listingAsked, 0x007CCE38);
+GAME_GLOBAL(bool, g_listingFound, 0x007CCE39);
+
 // 0x00541690
 void __cdecl LobbyMan::GroupRoomCallback(void*, int success, int groupId, void* server, const char* name,
                                          int numWaiting, int maxWaiting, int numGames, int, void* param)
@@ -252,8 +256,8 @@ void __cdecl LobbyMan::GroupRoomCallback(void*, int success, int groupId, void* 
         setState(kLobbyStateFailed);
         return;
     }
-    bool& asked = GameVariable<bool>(0x007CCE38);    // a room was asked for (by its lobby_num)
-    bool& found = GameVariable<bool>(0x007CCE39);
+    bool& asked = g_listingAsked;    // a room was asked for (by its lobby_num)
+    bool& found = g_listingFound;
     if (groupId == 0) { // the list's end
         setState(!asked || found ? kLobbyStateListed : kLobbyStateFailed);
         return;

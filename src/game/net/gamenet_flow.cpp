@@ -24,6 +24,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace GameNet {
@@ -170,6 +171,11 @@ void Manager::ResetToLobby()
     Field<uint32_t>(this, 0x1B0) = Tmr::GetTime(); // (back in the lobby: auto-serve waits from here)
 }
 
+GAME_GLOBAL(uint32_t, g_autoServeStart, 0x007CCDEC);
+GAME_GLOBAL(bool, g_waitingShown, 0x007CCE2C);
+GAME_GLOBAL(uint32_t, g_autoServeChecked, 0x007CCE30);
+GAME_GLOBAL(bool, g_cheatFlag, 0x007CE4FD);
+
 // 0x0053B0D0
 void Manager::StartNetworkGame()
 {
@@ -230,7 +236,7 @@ void Manager::StartNetworkGame()
     Field<int>(this, 0x1D4) = -1;          // the last leading team
     ClearQueuedScripts();
     ResetPlayers();
-    GameVariable<bool>(0x007CE4FD) = false;
+    g_cheatFlag = false;
     if (static_cast<StatsMan*>(m_statsMan)->UpdateLoggedIn())
         static_cast<StatsMan*>(m_statsMan)->StartGame();
 }
@@ -257,7 +263,7 @@ void Manager::CancelJoin()
 // 0x0053BED0
 void __cdecl Manager::ObserverTask(void*)
 {
-    Manager* manager = GameVariable<Manager*>(0x007CCE14);
+    Manager* manager = g_gameNetManager;
     if (manager->m_observerCommand == 1) { // (the next player asked for)
         manager->ObservePlayer(static_cast<uint8_t*>(manager->NextCamPlayer()));
         manager->m_observerCommand = 0;
@@ -288,7 +294,7 @@ void __cdecl Manager::ObserverInput(void* handler)
 void __cdecl Manager::AutoServeTask(void* task)
 {
     Manager* manager = TaskManager(task);
-    if (Tmr::GetTime() - GameVariable<uint32_t>(0x007CCDEC) < kAutoServeWait || GameType() != kNetLobby ||
+    if (Tmr::GetTime() - g_autoServeStart < kAutoServeWait || GameType() != kNetLobby ||
         manager->CountPlayers() < 2 || manager->m_waitingForGameToStart ||
         Tmr::GetTime() - Field<uint32_t>(manager, 0x1B0) <= kAutoServeIdle)
         return;
@@ -353,7 +359,7 @@ void __cdecl Manager::JoinStateTask(void* task)
 void __cdecl Manager::StartGameTask(void* task)
 {
     Manager* manager = TaskManager(task);
-    bool& waitingShown = GameVariable<bool>(0x007CCE2C);
+    bool& waitingShown = g_waitingShown;
     if (manager->CountOtherPlayers() > 0) { // players still loading
         if (manager->OnServer()) {
             if (!waitingShown) {
@@ -372,7 +378,7 @@ void __cdecl Manager::StartGameTask(void* task)
         return;
     }
     if (CFunc_AllPlayersAreReady(nullptr, nullptr) && // (the script command, without parameters)
-        Tmr::GetTime() >= GameVariable<uint32_t>(0x007CCDF4)) { // every one ready, and the time has come
+        Tmr::GetTime() >= g_netGameStartTime) { // every one ready, and the time has come
         waitingShown = false;
         manager->StartNetworkGame();
         Field<Tsk::BaseTask*>(manager, 0xE8)->Remove();
@@ -384,7 +390,7 @@ void __cdecl Manager::ConnectionTask(void* task)
 {
     Manager* manager = TaskManager(task);
     uint8_t* skate = Skate();
-    uint32_t& checked = GameVariable<uint32_t>(0x007CCE30); // the link checked last
+    uint32_t& checked = g_autoServeChecked; // the link checked last
     if (manager->InNetMode() && Tmr::GetTime() - checked > kLinkCheckInterval) {
         bool netGame = manager->InNetGame();
         checked = Tmr::GetTime();

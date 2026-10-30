@@ -14,7 +14,9 @@
 
 #include "game/core/alloc.h"
 #include "game/core/crc.h"
+#include "game/front/front_end.h"
 #include "game/front/screen_element.h"
+#include "game/net/gamenet_game_cfuncs.h"
 #include "game/skate/profile_manager.h"
 #include "game/sys/platform.h"
 #include "game/sys/platform_input.h"
@@ -28,6 +30,7 @@
 #include "game/script/cscript.h"
 #include "game/sio/sdl_input.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 
@@ -221,12 +224,23 @@ void Device::StopActuators()
 // --- the keyboard -------------------------------------------------------------------------------------------
 
 namespace {
-IDirectInputDevice8A*& KeyboardDevice() { return GameVariable<IDirectInputDevice8A*>(0x007D69D4); }
+IDirectInputDevice8A*& KeyboardDevice() { return Platform::g_keyboardDevice; }
+
+GAME_GLOBAL(int, g_keyboardBuffer, 0x00684FC4, 2);
+GAME_GLOBAL(uint32_t, g_managerReferences, 0x007D1E24);
+GAME_GLOBAL(uint32_t, g_keyboardCharCount, 0x007D1E28);
+
 // Which of the two state buffers is current (2 at start: clear both first).
-int& KeyboardBuffer() { return GameVariable<int>(0x00684FC4); }
-uint8_t (&KeyboardState())[2][256] { return GameVariable<uint8_t[2][256]>(0x007D1C20); }
-uint32_t& KeyboardCharCount() { return GameVariable<uint32_t>(0x007D1E28); }
-int (&KeyboardChars())[16] { return GameVariable<int[16]>(0x007D1BE0); }
+int& KeyboardBuffer() { return g_keyboardBuffer; }
+
+GAME_GLOBAL(char[256], g_keyNameResult, 0x007D19D8);
+GAME_GLOBAL(char[256], g_nameBuffer, 0x007D1AD8);
+GAME_GLOBAL(int[16], g_keyboardChars, 0x007D1BE0);
+GAME_GLOBAL(uint8_t[2][256], g_keyboardState, 0x007D1C20);
+
+uint8_t (&KeyboardState())[2][256] { return g_keyboardState; }
+uint32_t& KeyboardCharCount() { return g_keyboardCharCount; }
+int (&KeyboardChars())[16] { return g_keyboardChars; }
 } // namespace
 
 // 0x005BDD60
@@ -264,10 +278,12 @@ void ClearKeyboardChars() { KeyboardCharCount() = 0; }
 
 // --- the manager's lifetime --------------------------------------------------------------------------------
 
-Manager*& ManagerInstance() { return GameVariable<Manager*>(0x007D1E20); }
+GAME_GLOBAL(Manager*, g_manager, 0x007D1E20);
+
+Manager*& ManagerInstance() { return g_manager; }
 
 namespace {
-uint32_t& ManagerReferences() { return GameVariable<uint32_t>(0x007D1E24); }
+uint32_t& ManagerReferences() { return g_managerReferences; }
 } // namespace
 
 // 0x005BE110: the device list node's scalar deleting destructor
@@ -284,9 +300,9 @@ Mem::ListNode* DestroyDeviceNode(Mem::ListNode* node, unsigned int flags)
 namespace {
 // Whether typed keys are wanted: the keyboard is being typed on (0x007CE46E), or text entry is on
 // (0x007CCDF8) outside a menu (0x007CE46F). PartyMod sets the last two for its text input.
-bool& KeyboardTyping() { return GameVariable<bool>(0x007CE46E); }
-bool& TextEntry() { return GameVariable<bool>(0x007CCDF8); }
-bool& InMenu() { return GameVariable<bool>(0x007CE46F); }
+bool& KeyboardTyping() { return g_keyboardOnScreen; }
+bool& TextEntry() { return GameNet::g_textEntry; }
+bool& InMenu() { return g_inMenuFlag; }
 } // namespace
 
 // 0x005BDE70
@@ -323,14 +339,14 @@ void KeyInput(int key, int flags)
 
 namespace {
 // The other "in a menu" flag (PartyMod's names) and the quit request.
-bool& MenuActive() { return GameVariable<bool>(0x007CE46C); }
+bool& MenuActive() { return Mdl::g_menusActive; }
 bool& QuitRequested() { return GameVariable<bool>(0x007D6A2C); }
 // Port 0's key bindings (DirectInput key codes; -1 = none).
 int KeyBinding(int action) { return GameVariable<int>(0x007D6770 + 4 * action); }
 // The platform layer's key names.
 const wchar_t* KeyNameW(int code) { return Platform::KeyName(code); }
-char (&NameBuffer())[256] { return GameVariable<char[256]>(0x007D1AD8); }
-char (&KeyNameResult())[256] { return GameVariable<char[256]>(0x007D19D8); }
+char (&NameBuffer())[256] { return g_nameBuffer; }
+char (&KeyNameResult())[256] { return g_keyNameResult; }
 
 void ConvertKeyName(int code)
 {

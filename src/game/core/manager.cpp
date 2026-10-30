@@ -6,6 +6,7 @@
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
 #include "game/core/memory_sizes.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
@@ -476,6 +477,13 @@ Manager*& Manager::Instance()
     return g_memoryManager;
 }
 
+GAME_GLOBAL(uint8_t*, g_heapBlockLimit, 0x007D17E4);
+GAME_GLOBAL(uint8_t*, g_heapBlockEnd, 0x007D17E8);
+GAME_GLOBAL(uint8_t*, g_heapBlockStart, 0x007D17EC);
+GAME_GLOBAL(uintptr_t, g_dataEnd, 0x007D17F0);
+GAME_GLOBAL(uintptr_t, g_dataStart, 0x007D17F4);
+GAME_GLOBAL(uintptr_t, g_codeStart, 0x007D17F8);
+
 // 0x005BBC00
 Manager* Manager::Construct()
 {
@@ -494,10 +502,10 @@ Manager* Manager::Construct()
     // Original behaviour: 64 MB (0x4000000).
     const uint32_t blockSize = Sizes::MainBlockSize();
     auto* block = static_cast<uint8_t*>(CrtMalloc(blockSize));
-    GameVariable<uint8_t*>(0x007D17EC) = block;
-    GameVariable<uint8_t*>(0x007D17E8) = block + blockSize;
-    GameVariable<uint8_t*>(0x007D17E4) = block + blockSize;
-    uint8_t* end = GameVariable<uint8_t*>(0x007D17E4);
+    g_heapBlockStart = block;
+    g_heapBlockEnd = block + blockSize;
+    g_heapBlockLimit = block + blockSize;
+    uint8_t* end = g_heapBlockLimit;
     void* region = Clear(sizeof(Region), kMainRegionStorage);
     m_mainRegion = region ? new (region) Region(reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(block) + 15) & ~15u),
                                                 reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(end) & ~15u))
@@ -511,9 +519,9 @@ Manager* Manager::Construct()
     m_heapCount = 2;
 
     // (the code and data bounds are never set in this build: all zero)
-    auto codeStart = GameVariable<uintptr_t>(0x007D17F8);
-    auto dataStart = GameVariable<uintptr_t>(0x007D17F4);
-    auto dataEnd = GameVariable<uintptr_t>(0x007D17F0);
+    auto codeStart = g_codeStart;
+    auto dataStart = g_dataStart;
+    auto dataEnd = g_dataEnd;
     uint32_t dataK = static_cast<uint32_t>(dataEnd - dataStart) >> 10;
     uint32_t codeK = static_cast<uint32_t>(dataStart - codeStart) >> 10;
     Dbg::Printf("code [%p - %p] (%dK) + data [%p - %p] (%dK) = %dK \n", codeStart, dataStart, codeK, dataStart, dataEnd,
@@ -540,7 +548,7 @@ Heap* Manager::AddHeap(Region* region, int direction, const char* name)
 // 0x005BBE80
 void Manager::InitStandardHeaps()
 {
-    m_frontEndRegion = NewAllocRegion(GameVariable<bool>(0x007CEFAD) ? 1000000 : 1100000);
+    m_frontEndRegion = NewAllocRegion(GameConfig::g_configBootstrap ? 1000000 : 1100000);
     Dbg::Printf("allocated mp_frontend_region at %p\n", m_frontEndRegion);
     m_networkHeap = AddHeap(m_frontEndRegion, Allocator::kGrowDown, "Network");
     Dbg::Printf("Setup TOP_DOWN mp_network_heap at %p\n", m_networkHeap);

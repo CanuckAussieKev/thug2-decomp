@@ -43,7 +43,7 @@ constexpr uint32_t kValue = 0xE288A7CB;         // "value"
 constexpr float kFeetToInches = 12.0f; // (0x0064546C)
 
 // The sound effects manager (0x006F85A8).
-Sfx::CSfxManager* SfxManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
+Sfx::CSfxManager* SfxManager() { return Sfx::g_sfxManager; }
 
 // A stereo volume of the manager's default type: left and right.
 void SetStereo(Sfx::sVolume& volume, float left, float right)

@@ -14,14 +14,17 @@
 #include "game/obj/object.h"
 #include "game/skater/debug_collision.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
 namespace {
 
+GAME_GLOBAL(CCollCache*, g_currentCache, 0x00691974);
+
 // The cache queries use when the feeler has none.
-CCollCache*& s_currentCache = GameVariable<CCollCache*>(0x00691974);
+CCollCache*& s_currentCache = g_currentCache;
 
 void ResetHit(CollisionHit& hit)
 {

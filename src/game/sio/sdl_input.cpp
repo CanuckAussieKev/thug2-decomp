@@ -14,6 +14,7 @@
 #include "game/front/mouse_menus.h"
 #include "game/front/new_frontend.h"
 #include "game/front/screen_element_manager.h"
+#include "game/net/gamenet_game_cfuncs.h"
 #include "game/sio/device.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/config.h"
@@ -23,8 +24,12 @@
 #include "game/sys/screenshot.h"
 #include "game/sys/sdl_events.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 
 namespace Sio {
+
+GAME_GLOBAL(bool, g_keyboardOnScreen, 0x007CE46E);
+GAME_GLOBAL(bool, g_inMenuFlag, 0x007CE46F);
 
 namespace {
 
@@ -123,8 +128,8 @@ bool s_usingKeyboard = true;
 // --- the game's state ---------------------------------------------------------------------------------------
 
 // The on-screen keyboard (text entry) is up.
-bool KeyboardOnScreen() { return GameVariable<uint8_t>(0x007CE46E) != 0; }
-uint8_t InMenuFlag() { return GameVariable<uint8_t>(0x007CE46F); }
+bool KeyboardOnScreen() { return g_keyboardOnScreen != 0; }
+uint8_t InMenuFlag() { return g_inMenuFlag; }
 
 // --- controllers and players ----------------------------------------------------------------------------------
 
@@ -452,7 +457,7 @@ uint8_t s_wasKeyboardOnScreen = 0;
 
 void UpdateMenuKeys(const uint8_t* keys)
 {
-    uint8_t keyboardOnScreen = GameVariable<uint8_t>(0x007CE46E);
+    uint8_t keyboardOnScreen = g_keyboardOnScreen;
     if (s_inMenu != s_wasInMenu || keyboardOnScreen != s_wasKeyboardOnScreen) {
         if (s_keys.ollie != SDL_SCANCODE_RETURN && s_menuKeys.affirmative == 1)
             s_menuKeys.affirmative = kLockedOut;
@@ -1045,8 +1050,8 @@ void ProcessSdlDevice(Device* device)
     Store32(device, 0xF0, ((~data[2] & (1 << 3)) || (~data[3] & (1 << 6))) ? 1 : 0); // start or A (past the end)
 
     // (typed text only works with these set)
-    GameVariable<uint8_t>(0x007CCDF8) = 1;
-    GameVariable<uint8_t>(0x007CE46F) = 0;
+    GameNet::g_textEntry = 1;
+    g_inMenuFlag = 0;
 }
 
 void __cdecl SetSdlActuators(int port, uint16_t high, uint16_t low)

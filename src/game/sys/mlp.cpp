@@ -20,6 +20,7 @@
 #include "game/gfx/mesh.h"
 #include "game/gfx/texture.h"
 #include "game/gfx/screen.h"
+#include "game/net/gamenet_game_cfuncs.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/thugpro_compat.h"
 #include "game/skate/skate_module.h"
@@ -28,7 +29,9 @@
 #include "game/sys/platform.h"
 #include "game/sys/screenshot.h"
 #include "game/sys/timer.h"
+#include "game/sys/winmain.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/selftest.h"
 
@@ -46,15 +49,20 @@ namespace {
 // begun or presented.
 bool& SkipRender() { return GameVariable<bool>(0x007D1EC0); }
 bool& Flag6F1158() { return GameVariable<bool>(0x006F1158); } // cleared every frame (read by the pad code)
-bool AppActive() { return GameVariable<bool>(0x007CCBE4); }
-bool TextEntry() { return GameVariable<bool>(0x007CCDF8); } // keeps the loop running while the window is inactive
+bool AppActive() { return Sys::g_appActive; }
+bool TextEntry() { return GameNet::g_textEntry; } // keeps the loop running while the window is inactive
 bool QuitRequested() { return GameVariable<bool>(0x007D6A2C); }
 bool& DeviceLost() { return GameVariable<bool>(0x00786AB4); }
 IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
 D3DPRESENT_PARAMETERS* PresentParameters() { return &GameVariable<D3DPRESENT_PARAMETERS>(0x00786A7C); }
+
+GAME_GLOBAL(uint32_t, g_mlpReferences, 0x00696D6C);
+GAME_GLOBAL(int, g_skippedTotal, 0x00696D70);
+GAME_GLOBAL(int, g_skippedInARow, 0x00696D74);
+
 // Frames in a row whose render was skipped (after four, one is drawn regardless), and in all.
-int& SkippedInARow() { return GameVariable<int>(0x00696D74); }
-int& SkippedTotal() { return GameVariable<int>(0x00696D70); }
+int& SkippedInARow() { return g_skippedInARow; }
+int& SkippedTotal() { return g_skippedTotal; }
 
 void ServiceNetwork() { GameNet::Manager::ServiceGameSpy(); }
 // Around a device Reset: the device objects released first (default pool) and made again after.
@@ -105,7 +113,7 @@ void ConstructTaskList(Tsk::Stack& list) { list.Construct(); }
 void DestroyTaskList(Tsk::Stack& list) { list.Destruct(); }
 
 Manager*& Instance() { return GameVariable<Manager*>(0x00696D68); }
-uint32_t& References() { return GameVariable<uint32_t>(0x00696D6C); }
+uint32_t& References() { return g_mlpReferences; }
 
 } // namespace
 

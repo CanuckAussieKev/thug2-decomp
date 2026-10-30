@@ -52,7 +52,7 @@ constexpr uint8_t kMsgProjectile = 0x83;       // BroadcastProjectile
 constexpr int kMaxPlaced = 5;                  // (the placements message's room)
 constexpr uint8_t kGroupGame = 8;
 
-Manager* NetManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* NetManager() { return GameNet::g_gameNetManager; }
 
 // A hunt player's placed objects: how many (+0x34) and where (+0x180, 16 bytes each).
 int& PlacedCount(uint8_t* player) { return GameNet::Detail::AsPlayer(player)->m_unknown34; }

@@ -19,6 +19,7 @@
 #include "game/sys/timer.h"
 #include "game/ed/rail_editor.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace GameNet {
@@ -26,6 +27,8 @@ namespace GameNet {
 using namespace Detail;
 using Script::CScript;
 using Script::CStruct;
+
+GAME_GLOBAL(uint32_t, g_netGameStartTime, 0x007CCDF4);
 
 namespace {
 
@@ -80,11 +83,13 @@ constexpr int kProSetCount = 7;
 constexpr uint32_t kFlagBaseWarningInterval = 3000; // ms
 constexpr uint32_t kJustStartedTime = 5000;         // ms
 
-uint32_t& LastFlagBaseWarning() { return GameVariable<uint32_t>(0x007CCE24); }
-uint32_t& NetGameStartTime() { return GameVariable<uint32_t>(0x007CCDF4); }
+GAME_GLOBAL(uint32_t, g_lastFlagBaseWarning, 0x007CCE24);
+
+uint32_t& LastFlagBaseWarning() { return g_lastFlagBaseWarning; }
+uint32_t& NetGameStartTime() { return g_netGameStartTime; }
 
 Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 4); }
-Manager* Net() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* Net() { return g_gameNetManager; }
 
 // The lobby (GameNet's GameSpy peer side): its peer, whether it's in a group room; the lobby's state (the manager's
 // SetServiceState, 0x005453E0) and services state (SetNextServiceState, 0x005451B0).

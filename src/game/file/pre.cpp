@@ -16,9 +16,11 @@
 #include "game/pcm/music_api.h"
 #include "game/script/params.h"
 #include "game/script/struct.h"
+#include "game/sys/game_config.h"
 #include "game/sys/timer.h"
 #include "game/gfx/loading_console.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Pre {
@@ -33,7 +35,12 @@ namespace {
 constexpr int kRingSize = 4096;
 constexpr int kMaxMatch = 18;
 
-uint8_t* Ring() { return GameVariable<uint8_t[kRingSize]>(0x007CFFB0); }
+GAME_GLOBAL(uint8_t[kRingSize], g_ring, 0x007CFFB0);
+GAME_GLOBAL(PreMgr*, g_managerSlot, 0x007D0FC4);
+GAME_GLOBAL(PreMgr*, g_instanceSlot, 0x007D0FCC);
+GAME_GLOBAL(int, g_instanceRefs, 0x007D0FD0);
+
+uint8_t* Ring() { return g_ring; }
 
 [[noreturn]] void Hang()
 {
@@ -237,11 +244,11 @@ static_assert(offsetof(PreMgr, m_pres) == 0x10 && offsetof(PreMgr, m_blockPreLoa
 
 namespace {
 
-PreMgr*& ManagerSlot() { return GameVariable<PreMgr*>(0x007D0FC4); } // set by the constructor
-PreMgr*& InstanceSlot() { return GameVariable<PreMgr*>(0x007D0FCC); } // the one CreateManager made
-int& InstanceRefs() { return GameVariable<int>(0x007D0FD0); }
-bool& Handled() { return GameVariable<bool>(0x007D0FC8); } // see File:: - "this call was ours"
-int Language() { return GameVariable<int>(0x007CEFA0); }
+PreMgr*& ManagerSlot() { return g_managerSlot; } // set by the constructor
+PreMgr*& InstanceSlot() { return g_instanceSlot; } // the one CreateManager made
+int& InstanceRefs() { return g_instanceRefs; }
+bool& Handled() { return File::g_handledByArchive; } // see File:: - "this call was ours"
+int Language() { return GameConfig::g_language; }
 
 // Names inside archives use backslashes. The original copies into a 128-byte buffer with no limit; this
 // stops at the buffer's size.
@@ -323,7 +330,7 @@ bool PreLoadingBlocked()
 // Always false in this build; only does debugging work when the debug flag is set.
 bool SkipSynchronousLoad() { return Pcm::UsingCD(); }
 int TimeMilliseconds() { return static_cast<int>(Tmr::GetTime()); }
-bool DebugChecks() { return GameVariable<bool>(0x00684FA8); }
+bool DebugChecks() { return GameConfig::g_fromCD; }
 
 Mem::Heap* LoadHeap(bool bottom_up) { return bottom_up ? Mem::BottomUpHeap() : Mem::TopDownHeap(); }
 

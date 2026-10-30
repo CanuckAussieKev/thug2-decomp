@@ -18,36 +18,56 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Pcm {
 
+GAME_GLOBAL(bool, g_musicHeaderLoaded, 0x0067D7E0, true);
+GAME_GLOBAL(bool, g_streamsOn, 0x0067D7E1, true);
+GAME_GLOBAL(float, g_musicVolume, 0x0067D7E4, 50.0f);
+GAME_GLOBAL(float, g_musicStreamVolume, 0x0067D7E8, 100.0f);
+GAME_GLOBAL(int, g_musicStreamType, 0x0069BAAC);
+GAME_GLOBAL(bool, g_shuffleUser, 0x0069BABC);
+GAME_GLOBAL(void*, g_soundDevice, 0x007D6A38);
+
 namespace {
 
 Playlist* Playlists() { return reinterpret_cast<Playlist*>(0x00698098); }
-int& CurrentPlaylist() { return GameVariable<int>(0x0069BA9C); }
+int& CurrentPlaylist() { return g_currentPlaylist; }
 // The track playing (40 bytes, just before the playlists) and whether it loops (SetMusicLooping).
 void* SpecialTrack() { return reinterpret_cast<void*>(0x0069806C); }
-bool& Looping() { return GameVariable<bool>(0x0069BAA0); }
-int& CurrentTrack() { return GameVariable<int>(0x0069BA98); }
+
+GAME_GLOBAL(uint8_t, g_randomOrder, 0x0067D7EC, 1);
+GAME_GLOBAL(bool, g_reshuffle, 0x0067D7F4, true);
+GAME_GLOBAL(int, g_orderCount, 0x0067D7F8, 1);
+GAME_GLOBAL(bool, g_looping, 0x0069BAA0);
+GAME_GLOBAL(int, g_clearedByClearPlaylist, 0x0069BAA4);
+GAME_GLOBAL(bool, g_musicPaused, 0x0069BAA8);
+GAME_GLOBAL(int, g_orderPosition, 0x0069BAC4);
+GAME_GLOBAL(bool, g_musicPausedBefore, 0x0069CAD0);
+
+bool& Looping() { return g_looping; }
+int& CurrentTrack() { return g_currentTrackIndex; }
 
 // The shuffled order: the indices of the tracks that are on, how many, and the position of the last one
 // played. The track played before the shuffle is read at order[count - 1] - with an empty order that's the
 // word before it (0x00696D9C, the movie frame dump counter).
 int* Order() { return reinterpret_cast<int*>(0x00696DA0); }
-int& OrderCount() { return GameVariable<int>(0x0067D7F8); }
-int& OrderPosition() { return GameVariable<int>(0x0069BAC4); }
-bool& Reshuffle() { return GameVariable<bool>(0x0067D7F4); }
+int& OrderCount() { return g_orderCount; }
+int& OrderPosition() { return g_orderPosition; }
+bool& Reshuffle() { return g_reshuffle; }
 
 bool MusicOn()
 {
-    return GameVariable<void*>(0x007D6A38) && GameVariable<int>(0x007CEFA8) != 2 && GameVariable<bool>(0x0067D7E0);
+    return g_soundDevice && GameConfig::g_platform != 2 && g_musicHeaderLoaded;
 }
 // The same for streamed sound effects (0x0067D7E1).
 bool StreamsOn()
 {
-    return GameVariable<void*>(0x007D6A38) && GameVariable<int>(0x007CEFA8) != 2 && GameVariable<bool>(0x0067D7E1);
+    return g_soundDevice && GameConfig::g_platform != 2 && g_streamsOn;
 }
 
 Stream* Streams() { return reinterpret_cast<Stream*>(0x0069B938); }
@@ -56,17 +76,17 @@ constexpr int kStreams = 3;
 bool Playing(const Stream& stream) { return StreamStatus(stream.channel) != 1; }
 // The objects that started each stream (null: none); they note the stream's id at +0x18 + 4 * stream.
 uint32_t** StreamOwners() { return reinterpret_cast<uint32_t**>(0x00698060); }
-int& FrameCount() { return GameVariable<int>(0x0067D7F0); }
+int& FrameCount() { return g_frameCount; }
 
 // The user soundtrack: which, whether it's playing (in place of the game's music), its shuffled order and the
 // track in it, whether it's shuffled.
-int& UserSoundtrack() { return GameVariable<int>(0x0069BAB4); }
-bool& UsingUserSoundtrack() { return GameVariable<bool>(0x0069BAB0); }
+int& UserSoundtrack() { return g_userSoundtrack; }
+bool& UsingUserSoundtrack() { return g_usingUserSoundtrack; }
 int* UserOrder() { return reinterpret_cast<int*>(0x00697700); }
 constexpr int kUserOrderSize = 600;
 int& UserTrack() { return GameVariable<int>(0x0069BAB8); }
 int& UserPosition() { return GameVariable<int>(0x0069BAC0); }
-bool ShuffleUser() { return GameVariable<bool>(0x0069BABC); }
+bool ShuffleUser() { return g_shuffleUser; }
 
 // 1 << n as the C runtime's 64-bit shift (__allshl) does it: by n's low byte, 0 from 64 up.
 uint64_t Bit(int n)
@@ -95,21 +115,21 @@ void StartTrack(Playlist& list, int track)
 }
 
 // The volumes (0-100): the music's, and that of streams played on the music's channel.
-float& MusicVolume() { return GameVariable<float>(0x0067D7E4); }
-float& MusicStreamVolume() { return GameVariable<float>(0x0067D7E8); }
+float& MusicVolume() { return g_musicVolume; }
+float& MusicStreamVolume() { return g_musicStreamVolume; }
 // What the music's channel plays: 0 a track, 1 a music stream (0x00450EF0), 2 another kind of stream (0x004509E0).
-int& MusicStreamType() { return GameVariable<int>(0x0069BAAC); }
+int& MusicStreamType() { return g_musicStreamType; }
 // Set by the music's initialisation (0x00450D60).
-bool Initialised() { return GameVariable<bool>(0x0069BAA1); }
-bool& MusicPaused() { return GameVariable<bool>(0x0069BAA8); }
-bool& MusicPausedBefore() { return GameVariable<bool>(0x0069CAD0); }
-bool& MusicHeaderLoaded() { return GameVariable<bool>(0x0067D7E0); }
-uint8_t& RandomOrder() { return GameVariable<uint8_t>(0x0067D7EC); }
-bool& ShuffleUserFlag() { return GameVariable<bool>(0x0069BABC); }
+bool Initialised() { return g_initialised; }
+bool& MusicPaused() { return g_musicPaused; }
+bool& MusicPausedBefore() { return g_musicPausedBefore; }
+bool& MusicHeaderLoaded() { return g_musicHeaderLoaded; }
+uint8_t& RandomOrder() { return g_randomOrder; }
+bool& ShuffleUserFlag() { return g_shuffleUser; }
 // Playlist 0's track titles, by the track's index (100 characters each).
 char* Title(int track) { return reinterpret_cast<char*>(0x006999F8 + 100 * track); }
 // A global ClearPlaylist clears (just past the three streams; nothing else uses it).
-int& ClearedByClearPlaylist() { return GameVariable<int>(0x0069BAA4); }
+int& ClearedByClearPlaylist() { return g_clearedByClearPlaylist; }
 
 // The platform's music: its volume and pause (music 1 / streams 0).
 void SetPlatformVolume(float volume) { PlatformSetMusicVolume(volume); }
@@ -348,7 +368,7 @@ void __cdecl PlayTrack(const char* name, bool loop)
     bool atMusicVolume = OtherListsAtMusicVolume();
     float volume = list != 0 && !atMusicVolume ? SfxVolume() : MusicVolume();
     Looping() = loop;
-    if (PlayTrackByName(playing, volume) || GameVariable<bool>(0x00684FA8)) // (the debug checks)
+    if (PlayTrackByName(playing, volume) || GameConfig::g_fromCD) // (the debug checks)
         return;
     // It doesn't play: switch it off.
     Playlist& playlist = Playlists()[list];
@@ -380,7 +400,7 @@ void __cdecl PlayNextTrack()
         return;
     if (MusicStatus() != 1) // 1: no stream playing
         return;
-    GameVariable<int>(0x0069BAAC) = 0;
+    g_musicStreamType = 0;
     ApplyTrackVolume(); // the music volume
     if (CurrentPlaylist() == 1) {
         int track = Script::GetInteger(0xF18AB1F9u);
@@ -457,7 +477,7 @@ void __cdecl PlayNextTrackInOrder()
         return;
     if (MusicStatus() != 1) // 1: no stream playing
         return;
-    GameVariable<int>(0x0069BAAC) = 0;
+    g_musicStreamType = 0;
     ApplyTrackVolume(); // the music volume
     if (Looping()) {
         PlayTrack(static_cast<const char*>(SpecialTrack()), true);
@@ -482,9 +502,9 @@ void __cdecl PlayNextTrackInOrder()
 // 0x00452910
 void __cdecl Update()
 {
-    if (!GameVariable<void*>(0x007D6A38) || GameVariable<int>(0x007CEFA8) == 2)
+    if (!g_soundDevice || GameConfig::g_platform == 2)
         return;
-    if (!GameVariable<bool>(0x0067D7E0) && !GameVariable<bool>(0x0067D7E1))
+    if (!g_musicHeaderLoaded && !g_streamsOn)
         return;
     int streams = UpdateStreams(); // the stream system's update
     if (streams != 0) {
@@ -514,7 +534,7 @@ void __cdecl Update()
     if (FrameCount() & 0x3F)
         return;
     int playlist = CurrentPlaylist();
-    if (GameVariable<float>(0x0067D7E4) == 0.0f && playlist != 1) // (the music volume)
+    if (g_musicVolume == 0.0f && playlist != 1) // (the music volume)
         return;
     if (MusicIsPaused())
         return;
@@ -637,16 +657,16 @@ const char* __cdecl GetSoundtrackName(int index)
 }
 
 // 0x00450430
-bool __cdecl MusicIsPaused() { return GameVariable<bool>(0x0069BAA8); }
+bool __cdecl MusicIsPaused() { return g_musicPaused; }
 
 // 0x00450440
-float __cdecl GetMusicVolume() { return GameVariable<float>(0x0067D7E4); }
+float __cdecl GetMusicVolume() { return g_musicVolume; }
 
 // 0x00450450
-float __cdecl GetSfxVolume() { return GameVariable<float>(0x0067D7E8); }
+float __cdecl GetSfxVolume() { return g_musicStreamVolume; }
 
 // 0x00450460
-int __cdecl RandomTrackOrder() { return GameVariable<uint8_t>(0x0067D7EC); }
+int __cdecl RandomTrackOrder() { return g_randomOrder; }
 
 // 0x00450470
 void __cdecl SetMusicLooping(bool loop) { Looping() = loop; }

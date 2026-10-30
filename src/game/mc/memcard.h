@@ -5,6 +5,7 @@
 #include <windows.h>
 
 #include "game/core/alloc.h"
+#include "hook/game_global.h"
 
 // Memory cards on the PC: saves are files under "Save\" (the console code's card/file interface, backed by
 // Win32 files). One manager (reference counted) holds the one card.
@@ -75,5 +76,7 @@ static_assert(sizeof(Manager) == 0x90, "layout must match the original");
 // The manager, made by the first Create (with `create`); each Create adds a reference, Release drops one.
 Manager* CreateManager(bool create);
 void ReleaseManager();
+
+GAME_GLOBAL_EXTERN(Manager*, g_theCard);
 
 } // namespace Mc

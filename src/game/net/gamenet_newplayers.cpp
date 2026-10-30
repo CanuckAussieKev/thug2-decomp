@@ -404,9 +404,9 @@ void __cdecl Manager::ServerAddNewPlayersTask(void* task)
         }
     }
     Mem::Manager::Get()->PopContext();
-    Manager* global = GameVariable<Manager*>(0x007CCE14);
+    Manager* global = g_gameNetManager;
     global->UpdateLobbyServer();
-    if (GameVariable<bool>(0x007CCA82) && global->InNetGame() && GameVariable<bool>(0x007CCE1C))
+    if (g_netEnabled && global->InNetGame() && g_queryReporting)
         GameFunction<void(__cdecl*)(int)>(0x005FBAD0)(0); // qr2_send_statechanged
 }
 

@@ -15,7 +15,9 @@
 #include "game/script/cscript.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
+#include "game/sys/winmain.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
@@ -36,7 +38,7 @@ inline void** const kMessageSearchVtable = reinterpret_cast<void**>(0x0064CED0);
 inline void** const kBuddyNodeVtable = reinterpret_cast<void**>(0x0064CF60);
 inline void** const kMessageNodeVtable = reinterpret_cast<void**>(0x0064CF64);
 
-Manager* TheManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* TheManager() { return g_gameNetManager; }
 Mem::Manager* Memory() { return Mem::Manager::Get(); }
 BuddyMan* Buddies() { return static_cast<BuddyMan*>(TheManager()->m_buddyMan); }
 
@@ -65,6 +67,9 @@ void __cdecl BuddyMan::OnBuddyRequest(void* connection, const void* arg, BuddyMa
     Memory()->PopContext();
 }
 
+GAME_GLOBAL(char[256], g_commandLineEmail, 0x007CCA90);
+GAME_GLOBAL(char[16], g_commandLinePassword, 0x007CCB90);
+
 // 0x00548140
 unsigned long __stdcall BuddyMan::LoginThread(void* man)
 {
@@ -73,9 +78,9 @@ unsigned long __stdcall BuddyMan::LoginThread(void* man)
     Prefs::Preferences* preferences = manager->GetNetworkPreferences();
     const char* email;
     const char* password;
-    if (GameVariable<bool>(0x007CC260) || GameVariable<bool>(0x007CCA80)) {
-        email = &GameVariable<char>(0x007CCA90);
-        password = &GameVariable<char>(0x007CCB90);
+    if (Sys::g_internetGameHost || Sys::g_joiningInternetGame) {
+        email = g_commandLineEmail;
+        password = g_commandLinePassword;
     } else {
         email = preferences->GetPreferenceString(Crc::GenerateCRCFromString("profile_email"),
                                                  Crc::GenerateCRCFromString("ui_string"));

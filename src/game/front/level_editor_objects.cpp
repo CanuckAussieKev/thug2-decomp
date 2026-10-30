@@ -21,6 +21,7 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/log.h"
 
 namespace Front::LevelEditor::Objects {
@@ -68,7 +69,9 @@ uint32_t CopyNodesName()
     return name;
 }
 
-SkateScript::CNodeManager* NodeManager() { return GameVariable<SkateScript::CNodeManager*>(0x006F0D84); }
+GAME_GLOBAL(SkateScript::CNodeManager*, g_nodeManager, 0x006F0D84);
+
+SkateScript::CNodeManager* NodeManager() { return g_nodeManager; }
 
 bool AddCopyNode(Script::CStruct* node)
 {
@@ -533,7 +536,7 @@ void ForgetLevel()
 std::vector<Entry> Copyable()
 {
     std::vector<Entry> entries;
-    SkateScript::CNodeManager* manager = GameVariable<SkateScript::CNodeManager*>(0x006F0D84);
+    SkateScript::CNodeManager* manager = g_nodeManager;
     if (!manager)
         return entries;
     static const uint32_t kModel = Crc::GenerateCRCFromString("model");

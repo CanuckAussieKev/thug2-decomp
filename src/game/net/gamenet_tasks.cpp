@@ -19,6 +19,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
@@ -86,7 +87,7 @@ void __cdecl LevelChangeTask(void* task)
 {
     PlayerSearch search;
     Manager* manager = TaskManager(task);
-    if (Tmr::GetTime() < GameVariable<uint32_t>(0x007CCDE8))
+    if (Tmr::GetTime() < g_levelChangeTime)
         return;
     Call(0x00565A00, Skate(), manager->m_level); // the level changed
     if (uint8_t* king = KingOfTheHill(manager))
@@ -95,6 +96,8 @@ void __cdecl LevelChangeTask(void* task)
         AsPlayer(p)->ClearFlags(); // carries no flag
     Field<Tsk::BaseTask*>(manager, 0xEC)->Remove();
 }
+
+GAME_GLOBAL(uint32_t, g_modemDialogEnd, 0x007CCDF0);
 
 // 0x00533810
 void __cdecl ModemStateTask(void* task)
@@ -144,11 +147,11 @@ void __cdecl ModemStateTask(void* task)
         std::sprintf(line, "%s", Script::GetString(kRedialPause));
         params->AddString(kText, Script::ESYMBOLTYPE_STRING, line);
         Run(kStateDialog, params);
-        GameVariable<uint32_t>(0x007CCDF0) = Tmr::GetTime() + 5000;
+        g_modemDialogEnd = Tmr::GetTime() + 5000;
         net->SetModemState(8);
         break;
     case 8:
-        if (Tmr::GetTime() > GameVariable<uint32_t>(0x007CCDF0)) {
+        if (Tmr::GetTime() > g_modemDialogEnd) {
             shown = -1;
             net->ConnectToInternet();
             return; // (the parameters never deleted: the original's)

@@ -9,6 +9,7 @@
 #include "game/core/mem.h"
 #include "game/gfx/engine_glue.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -20,10 +21,15 @@ constexpr float kSixteen = 16.0f;
 
 // The shared index table every face of a geometry is listed by when there's no tree to narrow them down.
 uint16_t* AllFaces() { return reinterpret_cast<uint16_t*>(0x0067C6B8); }
+
+GAME_GLOBAL(uint16_t*, g_faceBuffer, 0x00691968);
+GAME_GLOBAL(int, g_faceCount, 0x0069196C);
+GAME_GLOBAL(int, g_faceBufferSize, 0x00691970);
+
 // GetFacesInBox's / IsPointBehindFaces' state while walking the tree.
-uint16_t*& s_faceBuffer = GameVariable<uint16_t*>(0x00691968);
-int& s_faceCount = GameVariable<int>(0x0069196C);
-int& s_faceBufferSize = GameVariable<int>(0x00691970);
+uint16_t*& s_faceBuffer = g_faceBuffer;
+int& s_faceCount = g_faceCount;
+int& s_faceBufferSize = g_faceBufferSize;
 
 // The compiler's float-to-integer conversion (_ftol: toward zero, the low 32 bits of the 64-bit result).
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

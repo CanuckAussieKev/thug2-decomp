@@ -23,6 +23,7 @@
 #include "game/skate/records.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
+#include "game/sys/game_config.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -65,9 +66,9 @@ constexpr int kControllers = 8;
 Mdl::Skate* Skate() { return Mdl::Skate::Instance(); }
 Obj::CPlayerProfileManager* Profiles() { return GameVariable<Obj::CPlayerProfileManager*>(0x007CE4B4); }
 Records::CGameRecords* GameRecords() { return GameVariable<Records::CGameRecords*>(0x007CE4BC); }
-GameNet::Manager* GameNetManager() { return GameVariable<GameNet::Manager*>(0x007CCE14); }
+GameNet::Manager* GameNetManager() { return GameNet::g_gameNetManager; }
 Obj::CSkaterCareer* Career() { return *reinterpret_cast<Obj::CSkaterCareer**>(reinterpret_cast<uint8_t*>(Skate()) + 0x20); }
-int Platform() { return GameVariable<int>(0x007CEFA8); }
+int Platform() { return GameConfig::g_platform; }
 
 // The skate module's split-screen preferences (0x00564D80, no source yet).
 Prefs::Preferences* SplitScreenPreferences()
@@ -170,7 +171,7 @@ void ReadGlobalInfo(CStruct* global, CScript* script)
 
     CStruct* sound = nullptr;
     options->GetStructure(kSoundOptions, &sound, 0);
-    auto* sfx = GameVariable<Sfx::CSfxManager*>(0x006F85A8);
+    auto* sfx = Sfx::g_sfxManager;
     float mainVolume = 0.0f;
     if (sound->GetFloat(kMainVolume, &mainVolume, 0))
         sfx->SetMainVolume(mainVolume);
@@ -300,7 +301,7 @@ void WriteSaveContents(CStruct* contents, uint32_t type)
 // 0x005A81B0
 void ApplyLoadedContents(uint32_t type, CStruct* contents, CScript* script, CStruct* params)
 {
-    bool& loadedCustomSkater = GameVariable<bool>(0x007CECE0);
+    bool& loadedCustomSkater = g_loadedCustomSkater;
     loadedCustomSkater = false;
     switch (type) {
     case kSaveCreatedGoals:

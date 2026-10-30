@@ -1,5 +1,7 @@
 #pragma once
 
+#include "hook/game_global.h"
+
 #define DIRECTINPUT_VERSION 0x0800
 #include <windows.h>
 #include <dinput.h>
@@ -116,5 +118,8 @@ int ReadPad(int port, Sio::PadState* state);
 void SetPadMode(int mode);
 void SetDefaultEnterControl(int control);
 void SetDefaultEscapeControl(int control);
+
+GAME_GLOBAL_EXTERN(IDirectInput8A*, g_directInput);
+GAME_GLOBAL_EXTERN(IDirectInputDevice8A*, g_keyboardDevice);
 
 } // namespace Platform

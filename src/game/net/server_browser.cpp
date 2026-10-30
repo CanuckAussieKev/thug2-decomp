@@ -19,6 +19,7 @@
 #include "game/net/net_dispatcher.h"
 #include "game/net/player_info.h"
 #include "game/net/server_list.h"
+#include "game/net/stats_man.h"
 #include "game/net/vault_man.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -77,7 +78,7 @@ constexpr uint16_t kServerResponseSize = 0xE0;
 // GameSpy's listing messages (peerListingGamesCallback's msg).
 enum ListingMessage : int { kListingAdd = 0, kListingUpdate = 1, kListingRemove = 2, kListingClear = 3 };
 
-Manager* TheManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* TheManager() { return g_gameNetManager; }
 Mem::Manager* Memory() { return Mem::Manager::Get(); }
 LobbyMan* Lobby(Manager* manager) { return static_cast<LobbyMan*>(manager->m_lobbyMan); }
 
@@ -118,7 +119,7 @@ const char* NoValue(char*) { return nullptr; }
 // A rating's rank (as the lobby's: rating * 1/3500 * 10, truncated, at most 10).
 int RankOf(int rating)
 {
-    double rank = static_cast<double>(rating) * GameVariable<float>(0x0064CC1C) * GameVariable<float>(0x00646710);
+    double rank = static_cast<double>(rating) * g_rankScale * GameVariable<float>(0x00646710);
     int shown = static_cast<int>(rank);
     return shown > kMaxRank ? kMaxRank : shown;
 }
@@ -307,9 +308,9 @@ bool __cdecl CFunc_RetrieveServerInfo(Script::CStruct* params, Script::CScript* 
 int __cdecl HandleServerResponse(Net::MsgHandlerContext* context)
 {
     auto* manager = static_cast<Manager*>(context->m_data);
-    if (GameVariable<uint32_t>(0x007CCA84)) {
-        GameVariable<uint32_t>(0x007CCA84) = context->m_Conn->m_ip;
-        GameVariable<bool>(0x007CCA88) = true;
+    if (g_askedFor) {
+        g_askedFor = context->m_Conn->m_ip;
+        g_joinServerIPSucceeded = true;
     }
     if (context->m_MsgLength != kServerResponseSize)
         return kDone;

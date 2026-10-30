@@ -13,14 +13,17 @@
 #include "game/nx/coll_tri.h"
 #include "game/gfx/engine_scene_list.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
 namespace {
 
+GAME_GLOBAL(CCollCache*, g_sphereCache, 0x00691990);
+
 // The cache the sphere feelers use when they have none (0x00691990).
-CCollCache*& s_sphereCache = GameVariable<CCollCache*>(0x00691990);
+CCollCache*& s_sphereCache = g_sphereCache;
 
 constexpr float kTiny = 0.01f; // 0x0064544C: a zero divisor replaced
 

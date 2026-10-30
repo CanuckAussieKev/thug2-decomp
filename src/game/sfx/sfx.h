@@ -16,6 +16,7 @@
 #include <cstdint>
 
 #include "game/mth/vector.h"
+#include "hook/game_global.h"
 
 namespace Obj {
 class CObject;
@@ -277,5 +278,15 @@ void SetVoiceParameters(int voice, sVolume* volume, float pitch);
 int PlayVoice(PCWave** slot, sVolume* volume, float pitch);
 // 0x0047D390: every playing voice set silent.
 void SilenceVoices();
+
+GAME_GLOBAL_EXTERN(float, g_defaultDropoff);
+GAME_GLOBAL_EXTERN(WaveTableEntry[256], g_permanentWaves);
+GAME_GLOBAL_EXTERN(WaveTableEntry[256], g_levelWaves);
+GAME_GLOBAL_EXTERN(PlayingSound[48], g_playingSounds);
+GAME_GLOBAL_EXTERN(CSfxManager*, g_sfxManager);
+GAME_GLOBAL_EXTERN(PositionalSound*, g_positionalHead);
+GAME_GLOBAL_EXTERN(int, g_permanentCount);
+GAME_GLOBAL_EXTERN(int, g_levelCount);
+GAME_GLOBAL_EXTERN(int, g_positionalCount);
 
 } // namespace Sfx

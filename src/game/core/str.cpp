@@ -3,7 +3,9 @@
 #include <cstdio>
 #include <cstring>
 
+#include "game/sys/game_config.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/shadow.h"
 
@@ -54,10 +56,12 @@ const char* FindCaseless(const char* haystack, const char* needle)
     return nullptr;
 }
 
+GAME_GLOBAL(char[16], g_separatedNumber, 0x00690FA4);
+
 // 0x00402200
 const char* FormatWithSeparators(int value)
 {
-    char* const buffer = &GameVariable<char>(0x00690FA4); // shared with the original code
+    char* const buffer = g_separatedNumber; // shared with the original code
     char* out = buffer;
     if (value < 0) {
         *out++ = '-';
@@ -68,7 +72,7 @@ const char* FormatWithSeparators(int value)
     snprintf(digits, sizeof(digits), "%d", value);
 
     char separator;
-    switch (GameVariable<int>(0x007CEFA0)) { // the game's language setting
+    switch (GameConfig::g_language) { // the game's language setting
     case 3:
         separator = ' ';
         break;

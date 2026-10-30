@@ -16,6 +16,7 @@
 #include "game/net/net_messages.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Net {
@@ -228,6 +229,8 @@ void InitHead(ListNode* head, void** vtable)
 
 } // namespace
 
+GAME_GLOBAL(double, g_doubleZero, 0x006453A0);
+
 // 0x004594C0
 App* App::Construct(int flags)
 {
@@ -246,7 +249,7 @@ App* App::Construct(int flags)
     m_metricsTask = NewTask(kMetricsTaskPriority, reinterpret_cast<void*>(&App::NetworkMetrics), this);
     m_receiveTask = NewTask(kReceiveTaskPriority, reinterpret_cast<void*>(&App::ReceiveNetworkData), this);
     m_processTask = NewTask(kProcessTaskPriority, reinterpret_cast<void*>(&App::ProcessNetworkData), this);
-    m_unknown1F00 = GameVariable<double>(0x006453A0); // 0.0
+    m_unknown1F00 = g_doubleZero; // 0.0
     m_flags = static_cast<uint32_t>(flags);
     m_time = 0;
     m_foreignPacketHandler = nullptr;

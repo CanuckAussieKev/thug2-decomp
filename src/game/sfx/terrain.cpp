@@ -66,7 +66,7 @@ static_assert(sizeof(TypeItem) == 8 && sizeof(ActionItem) == 12, "layout must ma
 Lst::HashTable& TerrainTypes() { return GameVariable<Lst::HashTable>(0x006968D0); }
 Lst::HashTable& TerrainActions() { return GameVariable<Lst::HashTable>(0x006968E8); }
 
-Sfx::CSfxManager* SoundManager() { return GameVariable<Sfx::CSfxManager*>(0x006F85A8); }
+Sfx::CSfxManager* SoundManager() { return Sfx::g_sfxManager; }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -350,7 +350,7 @@ void __cdecl PlayTerrainSound(uint8_t table, uint8_t terrain, const Mth::Vector*
     if (Sfx::NoSound())
         return;
     Sfx::CSfxManager* sounds = SoundManager();
-    void* net = GameVariable<void*>(0x007CCE14);
+    void* net = GameNet::g_gameNetManager;
     CStruct* soundActions;
     if (!GetTerrainStructureInto(&soundActions, terrain, kSoundActions))
         return;

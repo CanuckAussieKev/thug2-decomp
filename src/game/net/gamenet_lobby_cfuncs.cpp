@@ -15,11 +15,14 @@
 #include "game/net/net_app.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace GameNet {
 
 using namespace Detail;
+
+GAME_GLOBAL(int, g_queuedCount, 0x007CE438);
 
 namespace {
 
@@ -35,7 +38,7 @@ constexpr int kClientNatIndex = 1;
 constexpr int kHostProfiles[] = {0x01A7665B, 0x01A76689, 0x01A766AB, 0x01A76701, 0x01A766CC,
                                  0x01A7672E, 0x01A7675B, 0x01A76773, 0x01A76794, 0x01A767B1};
 
-Manager* NetManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* NetManager() { return g_gameNetManager; }
 LobbyMan* Lobby() { return static_cast<LobbyMan*>(NetManager()->m_lobbyMan); }
 Tsk::Stack* LogicTasks()
 {
@@ -56,7 +59,7 @@ void NatCancel(int cookie) { Sdk(0x005FC130, cookie); }
 void NatThink() { Sdk(0x005FC660); }
 void NatFreeNegotiations() { Sdk(0x005FBCD0); }
 QueuedPacket* Queue() { return &GameVariable<QueuedPacket>(0x007CCE50); }
-int& QueuedCount() { return GameVariable<int>(0x007CE438); }
+int& QueuedCount() { return g_queuedCount; }
 
 } // namespace
 

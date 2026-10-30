@@ -30,6 +30,7 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/log.h"
 
 namespace Front::LevelEditor {
@@ -171,10 +172,12 @@ struct SceneNode {
 };
 bool IsEnd(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
 
+GAME_GLOBAL(SceneNode*, g_firstSceneNode, 0x006FA7EC);
+
 template <typename F>
 void ForEachScene(F fn)
 {
-    SceneNode* node = GameVariable<SceneNode*>(0x006FA7EC);
+    SceneNode* node = g_firstSceneNode;
     for (int guard = 0; node && !IsEnd(node) && guard < 256; ++guard) {
         SceneNode* next = node->next;
         if (node->scene && !node->scene[0x8D])
@@ -1851,7 +1854,7 @@ int MovedCount()
 void LogCensus()
 {
     // (every node of the scene list, skies too: what the walk sees)
-    SceneNode* node = GameVariable<SceneNode*>(0x006FA7EC);
+    SceneNode* node = g_firstSceneNode;
     for (int i = 0; node && i < 16; ++i, node = node->next) {
         bool end = IsEnd(node);
         uint8_t* scene = end ? nullptr : node->scene;

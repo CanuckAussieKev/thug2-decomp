@@ -5,6 +5,7 @@
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Lzss {
@@ -16,19 +17,30 @@ constexpr int F = 18;        // longest match
 constexpr int THRESHOLD = 2; // matches this short or shorter are stored as literals
 constexpr int NIL = N;       // "no node" in the search tree
 
+GAME_GLOBAL(uint8_t[4096], g_decodeWindow, 0x0068FF68);
+GAME_GLOBAL(int*, g_treeParent, 0x00690F7C);
+GAME_GLOBAL(int*, g_treeRight, 0x00690F80);
+GAME_GLOBAL(int*, g_treeLeft, 0x00690F84);
+GAME_GLOBAL(uint8_t*, g_window, 0x00690F88);
+GAME_GLOBAL(int, g_matchLength, 0x00690F8C);
+GAME_GLOBAL(int, g_matchPosition, 0x00690F90);
+GAME_GLOBAL(uint32_t, g_bytesIn, 0x00690F94);
+GAME_GLOBAL(uint32_t, g_bytesOut, 0x00690F98);
+GAME_GLOBAL(uint32_t, g_printCount, 0x00690F9C);
+
 // Encoder state, kept in the exe's globals.
-uint8_t*& Window() { return GameVariable<uint8_t*>(0x00690F88); }  // N + F - 1 bytes
-int*& Left() { return GameVariable<int*>(0x00690F84); }            // N + 1 entries
-int*& Right() { return GameVariable<int*>(0x00690F80); }           // N + 257 entries (256 tree roots)
-int*& Parent() { return GameVariable<int*>(0x00690F7C); }          // N + 1 entries
-int& MatchLength() { return GameVariable<int>(0x00690F8C); }
-int& MatchPosition() { return GameVariable<int>(0x00690F90); }
-uint32_t& BytesIn() { return GameVariable<uint32_t>(0x00690F94); }
-uint32_t& BytesOut() { return GameVariable<uint32_t>(0x00690F98); }
-uint32_t& PrintCount() { return GameVariable<uint32_t>(0x00690F9C); }
+uint8_t*& Window() { return g_window; }  // N + F - 1 bytes
+int*& Left() { return g_treeLeft; }            // N + 1 entries
+int*& Right() { return g_treeRight; }           // N + 257 entries (256 tree roots)
+int*& Parent() { return g_treeParent; }          // N + 1 entries
+int& MatchLength() { return g_matchLength; }
+int& MatchPosition() { return g_matchPosition; }
+uint32_t& BytesIn() { return g_bytesIn; }
+uint32_t& BytesOut() { return g_bytesOut; }
+uint32_t& PrintCount() { return g_printCount; }
 
 // The decoder's window is a fixed array in the exe.
-uint8_t* DecodeWindow() { return &GameVariable<uint8_t>(0x0068FF68); }
+uint8_t* DecodeWindow() { return g_decodeWindow; }
 
 void FreeTree()
 {

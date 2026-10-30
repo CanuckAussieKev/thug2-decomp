@@ -9,21 +9,28 @@
 
 #include "game/sfx/mute_audio.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Platform {
 
 namespace {
 
+GAME_GLOBAL(int, g_frameTop, 0x0068E0BC, 1);
+GAME_GLOBAL(char, g_cdDriveSlash, 0x007D6A25);
+GAME_GLOBAL(char, g_cdDriveColon, 0x007D6A27);
+GAME_GLOBAL(int, g_frameLeft, 0x007D6A30);
+GAME_GLOBAL(char, g_cdDriveLetter, 0x007D6A34);
+
 // The CD's drive letter and the ':' / '\' kept with it.
-char& CdDriveLetter() { return GameVariable<char>(0x007D6A34); }
-char& CdDriveColon() { return GameVariable<char>(0x007D6A27); }
-char& CdDriveSlash() { return GameVariable<char>(0x007D6A25); }
+char& CdDriveLetter() { return g_cdDriveLetter; }
+char& CdDriveColon() { return g_cdDriveColon; }
+char& CdDriveSlash() { return g_cdDriveSlash; }
 
 HWND& GameWindow() { return GameVariable<HWND>(0x007D6A28); }
 // How far the window's frame reaches left of / above its inside (negated AdjustWindowRect's left / top).
-int& FrameLeft() { return GameVariable<int>(0x007D6A30); }
-int& FrameTop() { return GameVariable<int>(0x0068E0BC); }
+int& FrameLeft() { return g_frameLeft; }
+int& FrameTop() { return g_frameTop; }
 
 IDirectSound8*& DirectSound() { return GameVariable<IDirectSound8*>(0x007D6A38); }
 

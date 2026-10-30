@@ -57,7 +57,7 @@ constexpr uint8_t kMsgPlayerFullyIn = 0x5E;
 constexpr uint32_t kJoinSettleTime = 1000;  // ms
 constexpr uint32_t kJustJoinedTime = 5000;  // ms
 
-Manager* TheManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* TheManager() { return g_gameNetManager; }
 PlayerInfo* Local(Manager* manager) { return reinterpret_cast<PlayerInfo*>(LocalPlayer(manager)); }
 uint32_t FlagOf(int team) { return kPlayerCarryingFlag0 << (static_cast<uint32_t>(team) & 31); }
 

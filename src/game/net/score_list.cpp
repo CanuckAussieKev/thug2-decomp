@@ -18,6 +18,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
@@ -49,7 +50,9 @@ constexpr uint32_t kScoreLines[8] = {0x2B083809, 0xB20169B3, 0xC5065925, 0x5B62C
 constexpr uint32_t kUpdateInterval = 1000; // ms
 inline void** const kScoreEntryVtable = reinterpret_cast<void**>(0x0064CCF8);
 
-uint32_t& LastScoreUpdate() { return GameVariable<uint32_t>(0x007CE43C); }
+GAME_GLOBAL(uint32_t, g_lastScoreUpdate, 0x007CE43C);
+
+uint32_t& LastScoreUpdate() { return g_lastScoreUpdate; }
 
 // A player's SkaterScore's score object (no null checks: as the original).
 void* ScoreOf(PlayerInfo* player)

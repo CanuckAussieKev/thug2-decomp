@@ -1,5 +1,7 @@
 #pragma once
 
+#include "hook/game_global.h"
+
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
 #include <cstdint>
@@ -40,5 +42,8 @@ void ProcessSdlDevice(Device* device);
 // Rumble on the controller playing as `port` (Platform::SetActuators): `high` and `low` frequency motors,
 // 0-65535.
 void __cdecl SetSdlActuators(int port, uint16_t high, uint16_t low);
+
+GAME_GLOBAL_EXTERN(bool, g_keyboardOnScreen);
+GAME_GLOBAL_EXTERN(bool, g_inMenuFlag);
 
 } // namespace Sio

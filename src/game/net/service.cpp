@@ -12,6 +12,7 @@
 #include "game/core/task.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/server_list.h"
 #include "game/pcm/stream_commands.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -177,7 +178,7 @@ void __cdecl ServiceTask(const uint8_t* task)
     case 6:
     case 0xA: { // the news: a message (with the count of messages, if any), then the download thread
         PauseStream(1);
-        int count = GameVariable<int>(0x007CE444);
+        int count = GameNet::g_newsMessageCount;
         if (count == 0) {
             SpawnScript(0xBDA86A12);
         } else {

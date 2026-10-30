@@ -13,6 +13,7 @@
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
 #include "game/core/task.h"
+#include "game/front/front_end.h"
 #include "game/gfx/viewport.h"
 #include "game/gfx/viewport_list.h"
 #include "game/mth/matrix.h"
@@ -30,10 +31,12 @@
 #include "game/script/struct_buffer.h"
 #include "game/sio/inpman.h"
 #include "game/sys/debug_mode.h"
+#include "game/sys/game_config.h"
 #include "game/sys/mlp.h"
 #include "game/sys/timer.h"
 #include "game/sys/viewer_object.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mdl {
@@ -52,8 +55,14 @@ void** const kVtable = reinterpret_cast<void**>(0x0064EBC4);
 void** const kBaseHandlerVtable = reinterpret_cast<void**>(0x00646090); // Inp::BaseHandler
 
 int& ViewModeValue() { return GameVariable<int>(0x007CE4A4); }
-Viewer*& Instance() { return GameVariable<Viewer*>(0x007CE4A8); }
-bool& RunNowLoaded() { return GameVariable<bool>(0x007CE4A0); }
+
+GAME_GLOBAL(float, g_rotateVelocity, 0x007CE498);
+GAME_GLOBAL(float, g_movementVelocity, 0x007CE49C);
+GAME_GLOBAL(Viewer*, g_viewer, 0x007CE4A8);
+GAME_GLOBAL(uint32_t, g_lastTime, 0x007CE4AC);
+
+Viewer*& Instance() { return g_viewer; }
+bool& RunNowLoaded() { return g_pendingScript; }
 
 // A task or input handler (a Tsk::BaseTask) off its list (0x004068F0), and its destructor (0x00406930).
 void RemoveNode(void* node) { static_cast<Tsk::BaseTask*>(node)->Remove(); }
@@ -82,11 +91,11 @@ constexpr uint32_t kSkeletonName = 0x09794932;           // skeletonName
 void** const kTaskVtable = reinterpret_cast<void**>(0x006476F0);    // Tsk::Task<Viewer>
 void** const kHandlerVtable = reinterpret_cast<void**>(0x0064D7D8); // Inp::Handler<Viewer>
 
-float& MovementVelocity() { return GameVariable<float>(0x007CE49C); }
-float& RotateVelocity() { return GameVariable<float>(0x007CE498); }
-uint32_t& LastTime() { return GameVariable<uint32_t>(0x007CE4AC); }
-bool DebugChecks() { return GameVariable<bool>(0x00684FA8); }
-uint8_t* InputManager() { return GameVariable<uint8_t*>(0x00696D40); }    // Inp::Manager
+float& MovementVelocity() { return g_movementVelocity; }
+float& RotateVelocity() { return g_rotateVelocity; }
+uint32_t& LastTime() { return g_lastTime; }
+bool DebugChecks() { return GameConfig::g_fromCD; }
+uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(Inp::g_inputManager); }    // Inp::Manager
 Mlp::Manager* MainLoopManager() { return GameVariable<Mlp::Manager*>(0x00696D68); }
 
 void ConstructNode(void* node, int priority) { static_cast<Tsk::BaseTask*>(node)->Construct(priority); }
@@ -234,9 +243,9 @@ void* Viewer::GetViewerObject() { return m_object; }
 // 0x00576E70
 void SetViewMode(int mode) { ViewModeValue() = mode; }
 // 0x00576E80
-void SetMovementVelocity(float velocity) { GameVariable<float>(0x007CE49C) = velocity; }
+void SetMovementVelocity(float velocity) { g_movementVelocity = velocity; }
 // 0x00576E90
-void SetRotateVelocity(float velocity) { GameVariable<float>(0x007CE498) = velocity; }
+void SetRotateVelocity(float velocity) { g_rotateVelocity = velocity; }
 // 0x00576EA0
 Viewer* GetViewer() { return Instance(); }
 

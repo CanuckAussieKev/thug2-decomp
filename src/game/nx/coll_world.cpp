@@ -6,6 +6,7 @@
 #include "game/mth/geometry.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_grid.h"
+#include "game/nx/coll_line.h"
 #include "game/nx/coll_obj.h"
 #include "game/gfx/engine_scene_list.h"
 #include "game/gfx/engine.h"
@@ -20,7 +21,7 @@ void** const kNodeVtable = reinterpret_cast<void**>(0x00645AA0); // Lst::Node<CC
 
 Mem::ListNode& s_movables = GameVariable<Mem::ListNode>(0x00691978);
 // Set while a caller wants the farthest hit rather than the nearest (ReportHit reads it).
-bool& s_wantFarthest = GameVariable<bool>(0x00691910);
+bool& s_wantFarthest = g_wantFarthest;
 
 // Where a query's distance to beat starts: past the line's end, or (for the farthest) before its start.
 constexpr float kNearestStart = 1.01f;

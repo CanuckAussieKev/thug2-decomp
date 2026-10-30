@@ -16,14 +16,17 @@
 #include "game/nx/coll_tri.h"
 #include "game/gfx/engine_scene_list.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Nx {
 
 namespace {
 
+GAME_GLOBAL(CCollCache*, g_rectCache, 0x0069198C);
+
 // The cache the rect feelers use when they have none (0x0069198C).
-CCollCache*& s_rectCache = GameVariable<CCollCache*>(0x0069198C);
+CCollCache*& s_rectCache = g_rectCache;
 
 // Hit ends this close on every axis are the same point; normals and directions this close are parallel.
 constexpr float kSamePoint = 0.1f;   // 0x00645D74

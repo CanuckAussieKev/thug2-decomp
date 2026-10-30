@@ -11,6 +11,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/task.h"
+#include "game/front/automation.h"
 #include "game/front/mouse_menus.h"
 #include "game/front/screen_element_manager.h"
 #include "game/obj/compositemgr.h"
@@ -22,15 +23,20 @@
 #include "game/sfx/sfx.h"
 #include "game/sio/device.h"
 #include "game/sio/inpman.h"
+#include "game/sio/sdl_input.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/module.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mdl {
+
+GAME_GLOBAL(bool, g_menusActive, 0x007CE46C);
+GAME_GLOBAL(bool, g_pendingScript, 0x007CE4A0);
 
 namespace {
 
@@ -64,19 +70,22 @@ const char* const kXboxButtonNames[18] = {
     "back", "left_stick_button", "right_stick_button", "null", "null", "null", "null", "null", "black", "white",
 };
 
-uint32_t& FrontEndRefs() { return GameVariable<uint32_t>(0x007CE468); }
+GAME_GLOBAL(uint32_t, g_frontEndRefs, 0x007CE468);
+GAME_GLOBAL(bool, g_skateshopOverride, 0x007CE46D);
+
+uint32_t& FrontEndRefs() { return g_frontEndRefs; }
 // Set each frame by Update.
-bool& MenusActive() { return GameVariable<bool>(0x007CE46C); }      // paused, in the skateshop, or keyboard up
-bool& SkateshopOverride() { return GameVariable<bool>(0x007CE46D); } // set elsewhere: never counts as the skateshop
-bool& KeyboardOnScreen() { return GameVariable<bool>(0x007CE46E); }
-bool& MenuOnScreen() { return GameVariable<bool>(0x007CE46F); }     // a menu, dialog box or the quit dialog
-bool& PendingScript() { return GameVariable<bool>(0x007CE4A0); }    // set elsewhere: run 0xFB11E6CD next frame
+bool& MenusActive() { return g_menusActive; }      // paused, in the skateshop, or keyboard up
+bool& SkateshopOverride() { return g_skateshopOverride; } // set elsewhere: never counts as the skateshop
+bool& KeyboardOnScreen() { return Sio::g_keyboardOnScreen; }
+bool& MenuOnScreen() { return Sio::g_inMenuFlag; }     // a menu, dialog box or the quit dialog
+bool& PendingScript() { return g_pendingScript; }    // set elsewhere: run 0xFB11E6CD next frame
 bool& GamePaused() { return GameVariable<bool>(0x006FA7D4); }
 
 uint8_t* SkateBytes() { return GameVariable<uint8_t*>(0x007CE478); } // Mdl::Skate
 void* Tracker() { return GameVariable<void*>(0x006F0FC0); }    // Obj::CTracker
 uint8_t* MainLoopManager() { return GameVariable<uint8_t*>(0x00696D68); }
-uint8_t* InputManager() { return GameVariable<uint8_t*>(0x00696D40); } // Inp::Manager
+uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(Inp::g_inputManager); } // Inp::Manager
 
 // The typed arrow keys (Sio::GetKeyboardChars).
 constexpr char kKeyLeft = 0x14;
@@ -149,7 +158,7 @@ bool AnchorExists(Script::CStruct* params, uint32_t id, bool clear = true)
 
 } // namespace
 
-FrontEnd*& FrontEndInstance() { return GameVariable<FrontEnd*>(0x007CE464); }
+FrontEnd*& FrontEndInstance() { return Front::Automation::g_frontEndInstance; }
 
 // 0x0054EBE0
 void ReleaseFrontEnd()
@@ -438,7 +447,7 @@ void FrontEnd::Update(bool gamePaused)
     Pcm::Update();
     // (the sound manager: its voices' states, and its positional sounds; the original calls the first - which
     // takes no manager - as its method)
-    auto* objects = GameVariable<Sfx::CSfxManager*>(0x006F85A8);
+    auto* objects = Sfx::g_sfxManager;
     Sfx::UpdateVoiceStates();
     Mem::Manager* memory = Mem::Manager::Get();
     if (!gamePaused) {
@@ -515,7 +524,7 @@ void FrontEnd::PauseGame(bool pause)
     if (pause == m_paused)
         return;
     uint8_t* skate = SkateBytes();
-    auto* devices = GameVariable<Sio::Manager*>(0x007D1E20);
+    auto* devices = Sio::g_manager;
     if (pause) {
         reinterpret_cast<Mdl::Skate*>(skate)->Pause(true);
         devices->PauseDevices();

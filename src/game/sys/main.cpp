@@ -57,6 +57,7 @@
 #include "game/script/node_manager.h"
 #include "game/sys/game_config.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 
@@ -95,13 +96,15 @@ bool QuitRequested() { return GameVariable<bool>(0x007D6A2C); }
 
 } // namespace
 
+GAME_GLOBAL(bool, g_demoMode, 0x007CC978);
+
 // 0x004E1EF0
 int __cdecl Main(int argc, char** argv)
 {
     DebugSetUp(0);
     GameConfig::Init(argc, argv); // the command line options (Config)
     Mem::Manager::Get()->InitStandardHeaps();
-    switch (GameVariable<int>(0x007CEFA0)) { // the language's start-up (German has its own)
+    switch (GameConfig::g_language) { // the language's start-up (German has its own)
     case 3: // French
         SetKeyNames();
         break;
@@ -120,7 +123,7 @@ int __cdecl Main(int argc, char** argv)
     Mem::PushMemProfile("Everything");
     Mem::PushMemProfile("Initialization");
     if (argc == 2 && std::strcmp(argv[1], "demo") == 0)
-        GameVariable<bool>(0x007CC978) = true; // demo mode
+        g_demoMode = true; // demo mode
     SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
     Mth::InitialRand(0x06680BF3);
     Mth::InitSinLookupTable();
@@ -152,7 +155,7 @@ int __cdecl Main(int argc, char** argv)
         Inp::Manager* input = Inp::CreateManager(true);
         File::AsyncLoaderModule* asyncLoader = File::CreateAsyncLoaderModule(true);
         Mem::PopMemProfile();
-        GameVariable<Inp::Manager*>(0x00696D40)->SetOverridePadWithStick(true); // (+0x10C)
+        Inp::g_inputManager->SetOverridePadWithStick(true); // (+0x10C)
         Script::AllocatePools();
         // Not original - the level editor (game/front/level_editor.h) and CREATE 100% CAS
         // (game/front/career_complete.h): their script commands (LevelEditor_Start..., Career100_Apply...)
@@ -180,7 +183,7 @@ int __cdecl Main(int argc, char** argv)
         uint8_t* module5691A0 = reinterpret_cast<uint8_t*>(Mdl::Skate::CreateInstance(true));
         auto* frontEnd = reinterpret_cast<uint8_t*>(Mdl::CreateFrontEnd(true));
         GameNet::Manager::Create(true);
-        GameVariable<void*>(0x006FA7D0) = GameVariable<void*>(0x007CCE14); // (the network manager)
+        GameVariable<void*>(0x006FA7D0) = GameNet::g_gameNetManager; // (the network manager)
         auto* parkEditor = reinterpret_cast<uint8_t*>(Ed::CParkEditor::Create(true));
         Front::CreateScreenElementManager(true);
         SkateScript::CreateNodeManager(true);

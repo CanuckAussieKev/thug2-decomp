@@ -25,6 +25,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace GameNet {
@@ -32,6 +33,8 @@ namespace GameNet {
 using namespace Detail;
 using Script::CScript;
 using Script::CStruct;
+
+GAME_GLOBAL(uint8_t, g_gameReported, 0x007CCE1E);
 
 namespace {
 
@@ -95,11 +98,14 @@ constexpr int kPlayerMenuIdBase = 123456;  // the menu items' ids: this plus the
 constexpr uint32_t kJoinTeamInterval = 150; // ms between team requests
 constexpr int kMaxCrownSpawns = 10;
 
-Manager* Net() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* Net() { return g_gameNetManager; }
 Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 4); }
-uint32_t& LastTeamRequest() { return GameVariable<uint32_t>(0x007CCE28); }
-uint32_t& NetGameStartTime() { return GameVariable<uint32_t>(0x007CCDF4); }
-uint8_t& GameReported() { return GameVariable<uint8_t>(0x007CCE1E); } // GameSpy told a game is on
+
+GAME_GLOBAL(uint32_t, g_lastTeamRequest, 0x007CCE28);
+
+uint32_t& LastTeamRequest() { return g_lastTeamRequest; }
+uint32_t& NetGameStartTime() { return g_netGameStartTime; }
+uint8_t& GameReported() { return g_gameReported; } // GameSpy told a game is on
 
 bool IsHead(const Mem::ListNode* node) { return reinterpret_cast<intptr_t>(node->data) == -1; }
 Mem::ListNode* NextNode(const Mem::ListNode* node) { return IsHead(node->next) ? nullptr : node->next; }
@@ -139,8 +145,8 @@ void ReportGameState(Manager* manager, bool on)
     if (on ? reported == 1 : reported == 0)
         return;
     reported = on ? 1 : 0;
-    if (GameVariable<bool>(0x007CCA82) && GameVariable<Manager*>(0x007CCE14)->InNetGame() &&
-        GameVariable<bool>(0x007CCE1C))
+    if (g_netEnabled && g_gameNetManager->InNetGame() &&
+        g_queryReporting)
         GameFunction<void(__cdecl*)(int)>(0x005FBAD0)(0);
 }
 

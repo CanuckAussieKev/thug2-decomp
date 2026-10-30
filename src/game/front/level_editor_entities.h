@@ -8,6 +8,7 @@
 
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_ui.h"
+#include "hook/game_global.h"
 
 struct ImFont;
 
@@ -223,5 +224,7 @@ void PreviewStep(uint32_t id);            // half a second along, paused
 float PreviewDistance();
 float PreviewLength();
 } // namespace Detail
+
+GAME_GLOBAL_EXTERN(void*, g_emitterTable);
 
 } // namespace Front::LevelEditor::Entities

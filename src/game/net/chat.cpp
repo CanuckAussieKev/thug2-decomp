@@ -25,6 +25,7 @@
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 
@@ -80,10 +81,14 @@ void SendToServer(Manager* manager, MsgDesc* desc)
 
 // Script::CStruct (8 bytes, from the current script struct pool when there is one).
 using ScriptStruct = Script::CStruct;
+
+GAME_GLOBAL(Mem::Pool*[2], g_chatPools, 0x006F361C);
+GAME_GLOBAL(uint32_t, g_lastTauntTime, 0x007CCE20);
+
 ScriptStruct* NewScriptStruct()
 {
     int current = GameVariable<int>(0x006F3614);
-    Mem::Pool* pool = GameVariable<Mem::Pool* [2]>(0x006F361C)[current];
+    Mem::Pool* pool = g_chatPools[current];
     void* memory = pool ? pool->Allocate() : Mem::New(8);
     return memory ? static_cast<ScriptStruct*>(memory)->Init() : nullptr;
 }
@@ -158,7 +163,7 @@ void Send(Manager* manager, const char* name, uint8_t color, const char* text)
 
 } // namespace
 
-Manager* GetManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* GetManager() { return g_gameNetManager; }
 
 namespace {
 
@@ -172,7 +177,7 @@ constexpr uint32_t kId = 0x40C698AF;           // "id"
 constexpr uint32_t kOpenChatScript = 0x3B4548B8;
 constexpr uint32_t kTauntScript = 0x2C43B5BA;
 constexpr uint32_t kTauntName = 0xB53D0E0F;
-uint32_t& LastTauntTime() { return GameVariable<uint32_t>(0x007CCE20); }
+uint32_t& LastTauntTime() { return g_lastTauntTime; }
 
 // The script command ObjectExists with these parameters.
 bool ObjectExists(Script::CStruct* params) { return Obj::CFunc_ObjectExists(params, nullptr); }

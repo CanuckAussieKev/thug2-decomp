@@ -7,11 +7,16 @@
 #include "game/pcm/stream_commands.h"
 
 #include "game/core/dbg.h"
+#include "game/pcm/music.h"
 #include "game/pcm/stream.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Pcm {
+
+GAME_GLOBAL(bool, g_binkSoundSet, 0x0069CB99);
+GAME_GLOBAL(uint32_t, g_streamFileUses, 0x0069CB9C);
 
 namespace {
 
@@ -26,8 +31,11 @@ struct CachedStreamFile {
 static_assert(sizeof(CachedStreamFile) == 16, "layout must match the original");
 CachedStreamFile* StreamFiles() { return reinterpret_cast<CachedStreamFile*>(0x0069CAD8); }
 constexpr int kStreamFiles = 12;
-bool& StreamFilesReady() { return GameVariable<bool>(0x0069CBA0); }
-uint32_t& StreamFileUses() { return GameVariable<uint32_t>(0x0069CB9C); }
+
+GAME_GLOBAL(bool, g_streamFilesReady, 0x0069CBA0);
+
+bool& StreamFilesReady() { return g_streamFilesReady; }
+uint32_t& StreamFileUses() { return g_streamFileUses; }
 
 // The game's C runtime (its heap and files; until the runtime is linked).
 FILE* CrtFopen(const char* path, const char* mode) { return GameFunction<FILE*(__cdecl*)(const char*, const char*)>(0x006241E8)(path, mode); }
@@ -49,7 +57,7 @@ void* BinkOpen(const void* source, uint32_t flags) { return Import<void*(__stdca
 void BinkSetVideoOnOff(void* bink, int on) { Import<int(__stdcall*)(void*, int)>(0x006452FC)(bink, on); }
 constexpr uint32_t kBinkFromMemory = 0x04000000;
 constexpr long kInvalidArg = static_cast<long>(0x80070057); // E_INVALIDARG
-bool& BinkSoundSet() { return GameVariable<bool>(0x0069CB99); }
+bool& BinkSoundSet() { return g_binkSoundSet; }
 
 // The next of the platform's 256 OVERLAPPED blocks (0x14 bytes each, at 0x0069CBB8) not in use.
 void* NextStreamBuffer() { return NewOverlapped(); }
@@ -128,7 +136,7 @@ BinkStreamView* BinkStreamView::Construct(bool unknown19, int unknown24)
 long BinkStreamView::Open(uint32_t key, const char* path, long offset, size_t size)
 {
     if (!BinkSoundSet()) {
-        if (!BinkSetSoundSystem(BinkOpenDirectSound(), GameVariable<void*>(0x007D6A38)))
+        if (!BinkSetSoundSystem(BinkOpenDirectSound(), g_soundDevice))
             Dbg::Printf(reinterpret_cast<const char*>(0x006472D4)); // "Bink can't use DSound\n"
         BinkSoundSet() = true;
     }

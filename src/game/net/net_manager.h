@@ -5,6 +5,7 @@
 
 #include "game/core/alloc.h"
 #include "game/net/net_messages.h"
+#include "hook/game_global.h"
 
 // Neversoft's Net::Manager (0x37C bytes; the instance at 0x006EFDD8, made and released by CreateManager /
 // ReleaseManager): the apps (servers and clients) it made and the network settings GameNet copies from the network
@@ -151,5 +152,7 @@ static_assert(offsetof(Manager, m_clients) == 0x14 && offsetof(Manager, m_messag
 Manager* CreateManager(bool create);
 // 0x004558D0: one reference less; the last deletes it.
 void ReleaseManager();
+
+GAME_GLOBAL_EXTERN(Manager*, g_netManager);
 
 } // namespace Net

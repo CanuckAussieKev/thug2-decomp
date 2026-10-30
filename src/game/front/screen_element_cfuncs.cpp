@@ -22,6 +22,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Front {
@@ -51,7 +52,10 @@ constexpr uint32_t kHeapDebug = 0x935AB858, kHeapScript = 0xE37E78C5, kHeapInter
 constexpr uint32_t kHeapBottomUp = 0xC80BF12D, kHeapInternetTopDown = 0xE3F81B18, kHeapSkaterInfo = 0xEABD217B;
 
 CScreenElementManager* Manager() { return CScreenElementManager::Instance(); }
-uint32_t UnassignedId() { return GameVariable<uint32_t>(0x0064780C); }
+
+GAME_GLOBAL(uint32_t, g_unassignedId, 0x0064780C, 0xFFFFFFFF);
+
+uint32_t UnassignedId() { return g_unassignedId; }
 
 // The element classes still in game code (thiscall constructors; the memory zeroed by Calloc).
 void* NewMemory(unsigned int size) { return Mem::Calloc(size); }

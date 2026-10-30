@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "game/net/gamenet_manager.h"
 #include "game/net/online_hosts.h"
 #include "game/net/vault_man.h"
 #include "game/script/struct.h"
@@ -37,7 +38,7 @@ const char* StatsFile(int index) { return reinterpret_cast<const char*>(0x0067F2
 // 0x0054DCB0
 bool __cdecl RetrieveTopStats(Script::CStruct* params, Script::CScript*)
 {
-    uint8_t* manager = GameVariable<uint8_t*>(0x007CCE14);
+    uint8_t* manager = reinterpret_cast<uint8_t*>(GameNet::g_gameNetManager);
     uint8_t* stats = *reinterpret_cast<uint8_t**>(manager + 0x1C);
     int& current = *reinterpret_cast<int*>(stats + 0x90);
     int index = 0;

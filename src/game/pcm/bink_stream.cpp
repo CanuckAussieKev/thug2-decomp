@@ -11,8 +11,11 @@
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
 #include "game/gfx/movie.h"
+#include "game/pcm/music.h"
 #include "game/sfx/mute_audio.h"
+#include "game/sys/winmain.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Pcm {
@@ -41,11 +44,14 @@ constexpr uint32_t kBinkFileHandle = 0x04000000; // BinkOpen: the name is (the a
 constexpr uint32_t kIoSize = 0x40000;
 constexpr Result kInvalidArgument = static_cast<Result>(0x80070057);
 
-bool& SoundSystemSet() { return GameVariable<bool>(0x0069CB99); } // also set by 0x00452C60
-uint32_t& IoSize() { return GameVariable<uint32_t>(0x0069CBA4); }
-bool PauseLocked() { return GameVariable<bool>(0x0069CB98); }
-bool Focused() { return GameVariable<bool>(0x007CCBE4); }
-void* SoundDevice() { return GameVariable<void*>(0x007D6A38); }
+GAME_GLOBAL(bool, g_pauseLocked, 0x0069CB98);
+GAME_GLOBAL(uint32_t, g_ioSize, 0x0069CBA4);
+
+bool& SoundSystemSet() { return g_binkSoundSet; } // also set by 0x00452C60
+uint32_t& IoSize() { return g_ioSize; }
+bool PauseLocked() { return g_pauseLocked; }
+bool Focused() { return Sys::g_appActive; }
+void* SoundDevice() { return g_soundDevice; }
 
 // The pcm.wad entries open as Bink streams (16 bytes each, at 0x0069CADC; opened by 0x00452A90): the file,
 // when last let go of (the counter at 0x0069CB9C), and how many streams use it.
@@ -56,7 +62,7 @@ struct WadFile {
     uint32_t unknownC;
 };
 WadFile* WadFiles() { return reinterpret_cast<WadFile*>(0x0069CADC); }
-uint32_t UseCounter() { return GameVariable<uint32_t>(0x0069CB9C); }
+uint32_t UseCounter() { return g_streamFileUses; }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

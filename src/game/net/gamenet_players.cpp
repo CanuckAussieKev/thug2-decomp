@@ -10,6 +10,7 @@
 #include "game/net/stats_man.h"
 #include "game/obj/game_objects.h"
 #include "game/obj/trick_objects.h"
+#include "game/sio/inpman.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
 #include "game/skater/walk_camera.h"
@@ -27,6 +28,7 @@
 #include "game/sys/mlp.h"
 #include "game/skater/skater_camera_component.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copies of a player's name)
@@ -129,7 +131,7 @@ void Manager::ObservePlayer(uint8_t* player)
         return;
     }
     auto* skater = reinterpret_cast<Obj::CCompositeObject*>(PlayerSkater(player));
-    if (player != LocalPlayer(GameVariable<Manager*>(0x007CCE14))) {
+    if (player != LocalPlayer(g_gameNetManager)) {
         // Someone else's skater: the skater camera onto it.
         SetCameraSkater(skaterCamera, skater);
         SetWalkCameraSkater(walkCamera, nullptr);
@@ -248,7 +250,7 @@ uint8_t* Manager::NewPlayer(Obj::CObject* skater, Net::Conn* conn, uint32_t flag
     Field<Net::Conn*>(player, 0x18) = conn;
     if (IsLocalPlayer(player)) {
         if (IsObserver(player)) {
-            uint8_t* input = GameVariable<uint8_t*>(0x00696D40);
+            uint8_t* input = reinterpret_cast<uint8_t*>(Inp::g_inputManager);
             Tsk::Stack* tasks = LogicTasks();
             Run(kHidePanelStuff);
             ObservePlayer(static_cast<uint8_t*>(NextCamPlayer())); // the first player to watch
@@ -262,6 +264,9 @@ uint8_t* Manager::NewPlayer(Obj::CObject* skater, Net::Conn* conn, uint32_t flag
     Mem::Manager::Get()->PopContext();
     return player;
 }
+
+GAME_GLOBAL(bool, g_netEnabled, 0x007CCA82);
+GAME_GLOBAL(bool, g_openWaiting, 0x007CCE1D);
 
 // 0x0053C950
 void Manager::DestroyPlayer(uint8_t* player)
@@ -280,8 +285,8 @@ void Manager::DestroyPlayer(uint8_t* player)
     if (player)
         reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(player))[0])(player, 1);
     UpdateLobbyServer();
-    if (GameVariable<bool>(0x007CCA82) && GameVariable<Manager*>(0x007CCE14)->InNetGame() &&
-        GameVariable<bool>(0x007CCE1C)) // (reported to GameSpy's qr2: the player count changed)
+    if (g_netEnabled && g_gameNetManager->InNetGame() &&
+        g_queryReporting) // (reported to GameSpy's qr2: the player count changed)
         GameFunction<void(__cdecl*)(int)>(0x005FBAD0)(0); // qr2_send_statechanged
 }
 
@@ -373,9 +378,9 @@ void Manager::DropPlayer(uint8_t* player, int reason)
 void Manager::ReAddPendingPlayers()
 {
     UpdateLobbyServer();
-    GameVariable<bool>(0x007CCE1D) = true;
-    if (GameVariable<bool>(0x007CCA82) && GameVariable<Manager*>(0x007CCE14)->InNetGame() &&
-        GameVariable<bool>(0x007CCE1C) && GameVariable<uint8_t>(0x007CCE1D) != 1) // (just set: never)
+    g_openWaiting = true;
+    if (g_netEnabled && g_gameNetManager->InNetGame() &&
+        g_queryReporting && g_openWaiting != 1) // (just set: never)
         GameFunction<void(__cdecl*)(int)>(0x005FBAD0)(0);
     int frames = 10;
     PlayerSearch search;
@@ -492,7 +497,7 @@ void Manager::EnterObserveMode()
 {
     uint8_t* skate = Skate();
     Tsk::Stack* tasks = LogicTasks();
-    uint8_t* input = GameVariable<uint8_t*>(0x00696D40);
+    uint8_t* input = reinterpret_cast<uint8_t*>(Inp::g_inputManager);
     uint8_t* local = LocalPlayer(this);
     if (IsObserver(local))
         return;
@@ -535,7 +540,7 @@ void Manager::SetHostMode(int mode)
     m_hostMode = mode;
     if (mode == kHostModeAutoServe) {
         SendObserveRequest();
-        GameVariable<uint32_t>(0x007CCDEC) = Tmr::GetTime(); // (the auto-serve task waits 2 s from here)
+        g_autoServeStart = Tmr::GetTime(); // (the auto-serve task waits 2 s from here)
         LogicTasks()->AddTask(Field<Tsk::BaseTask*>(this, 0xF4));
     } else if (mode == kHostModeFcfs) {
         SendObserveRequest();

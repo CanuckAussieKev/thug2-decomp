@@ -19,6 +19,7 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copy of the level's name)
@@ -71,12 +72,17 @@ int Qr2Init(void* qrec, const char* ip, int basePort, const char* gameName, cons
         addError, userData);
 }
 
-Manager* NetManager() { return GameVariable<Manager*>(0x007CCE14); }
+Manager* NetManager() { return g_gameNetManager; }
 Prefs::Preferences* NetworkPreferences(Manager* m) { return reinterpret_cast<Prefs::Preferences*>(m->m_networkPreferences); }
+
+GAME_GLOBAL(char[128], g_fallbackMapName, 0x0067F0A0, "Boston");
+
 // The level's name for qr2's mapname when the level select has none (0x0067F0A0, "Boston" until set up).
-char* FallbackMapName() { return &GameVariable<char>(0x0067F0A0); }
+char* FallbackMapName() { return g_fallbackMapName; }
 
 } // namespace
+
+GAME_GLOBAL(int, g_lobbyGroupId, 0x007CC264);
 
 // 0x0053B9C0
 void __cdecl ServerKeyCallback(int key, void* buffer, void*)
@@ -116,9 +122,9 @@ void __cdecl ServerKeyCallback(int key, void* buffer, void*)
         BufferAddInt(buffer, manager->GetMaxPlayers());
         return;
     case kKeyGamemode:
-        if (GameVariable<bool>(0x007CCE1E))
+        if (g_gameReported)
             BufferAdd(buffer, "openplaying");
-        else if (GameVariable<bool>(0x007CCE1D))
+        else if (g_openWaiting)
             BufferAdd(buffer, "openwaiting");
         else
             BufferAdd(buffer, "closedwaiting");
@@ -127,7 +133,7 @@ void __cdecl ServerKeyCallback(int key, void* buffer, void*)
         BufferAddInt(buffer, *manager->GetPassword() != '\0' ? 1 : 0);
         return;
     case kKeyGroupid:
-        BufferAddInt(buffer, GameVariable<int>(0x007CC264)); // (the lobby's group room)
+        BufferAddInt(buffer, g_lobbyGroupId); // (the lobby's group room)
         return;
     default:
         BufferAdd(buffer, "");
@@ -190,7 +196,7 @@ void __cdecl StartQueryReporting(bool keepMapName)
         NetworkPreferences(NetManager())->GetPreference(kLevel)->GetString("ui_string", &text, 0);
         std::strcpy(FallbackMapName(), text);
     }
-    bool& reporting = GameVariable<bool>(0x007CCE1C);
+    bool& reporting = g_queryReporting;
     if (reporting)
         return;
     char key[7];

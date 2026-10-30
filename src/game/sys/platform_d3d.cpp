@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Platform {
@@ -14,16 +15,22 @@ namespace {
 IDirect3D9*& Direct3D() { return GameVariable<IDirect3D9*>(0x007D69DC); }
 IDirect3DDevice9*& Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0); }
 
+GAME_GLOBAL(IDirect3DVertexBuffer9*, g_dynamicVertices, 0x007D69E4);
+GAME_GLOBAL(uint8_t*, g_dynamicVerticesLocked, 0x007D69EC);
+GAME_GLOBAL(uint32_t, g_dynamicVerticesUsed, 0x007D69F0);
+GAME_GLOBAL(uint32_t, g_dynamicVerticesSize, 0x007D69F4);
+GAME_GLOBAL(IDirect3DQuery9*, g_queryInProgress, 0x007D69F8);
+
 // The dynamic vertex buffer: its size, where the next vertices go and where its lock put them.
-IDirect3DVertexBuffer9*& DynamicVertices() { return GameVariable<IDirect3DVertexBuffer9*>(0x007D69E4); }
-uint32_t& DynamicVerticesSize() { return GameVariable<uint32_t>(0x007D69F4); }
-uint32_t& DynamicVerticesUsed() { return GameVariable<uint32_t>(0x007D69F0); }
-uint8_t*& DynamicVerticesLocked() { return GameVariable<uint8_t*>(0x007D69EC); }
+IDirect3DVertexBuffer9*& DynamicVertices() { return g_dynamicVertices; }
+uint32_t& DynamicVerticesSize() { return g_dynamicVerticesSize; }
+uint32_t& DynamicVerticesUsed() { return g_dynamicVerticesUsed; }
+uint8_t*& DynamicVerticesLocked() { return g_dynamicVerticesLocked; }
 IDirect3DIndexBuffer9*& QuadIndices() { return GameVariable<IDirect3DIndexBuffer9*>(0x007D69E8); }
 
 // The occlusion query in progress, and the ended ones by key (the original's stdext::hash_map at 0x007D69FC,
 // built and torn down by the exe's own static initialisers - unused now).
-IDirect3DQuery9*& QueryInProgress() { return GameVariable<IDirect3DQuery9*>(0x007D69F8); }
+IDirect3DQuery9*& QueryInProgress() { return g_queryInProgress; }
 std::unordered_map<uint32_t, IDirect3DQuery9*>& EndedQueries()
 {
     static std::unordered_map<uint32_t, IDirect3DQuery9*> queries;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "hook/game_global.h"
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -198,5 +200,8 @@ struct Status {
     std::string frontend; // the new front end's state ("" when off: not written)
 };
 std::string StatusJson(const Status& status);
+
+GAME_GLOBAL_EXTERN(uint8_t, g_loadingScreenShown);
+GAME_GLOBAL_EXTERN(Mdl::FrontEnd*, g_frontEndInstance);
 
 } // namespace Front::Automation

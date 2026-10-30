@@ -11,14 +11,20 @@
 #include "game/core/task.h"
 #include "game/sio/device.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Inp {
 
+GAME_GLOBAL(Inp::Manager*, g_inputManager, 0x00696D40);
+
 namespace {
 
-Manager*& Instance() { return GameVariable<Manager*>(0x00696D40); }
-unsigned int& References() { return GameVariable<unsigned int>(0x00696D44); }
+Manager*& Instance() { return g_inputManager; }
+
+GAME_GLOBAL(unsigned int, g_inputManagerReferences, 0x00696D44);
+
+unsigned int& References() { return g_inputManagerReferences; }
 
 // Each device index's buttons this frame: down, pressed, released (two of each).
 uint32_t* DeviceMakes() { return reinterpret_cast<uint32_t*>(0x00696D48); }
@@ -217,7 +223,7 @@ Manager* Manager::Construct()
 {
     for (Server& server : m_servers)
         server.Construct();
-    Sio::Manager* devices = GameVariable<Sio::Manager*>(0x007D1E20);
+    Sio::Manager* devices = Sio::g_manager;
     m_task = NewTask(2000, reinterpret_cast<uint32_t>(&Manager::ServiceTask), this);
     for (int i = 0; i < kNumServers; ++i)
         m_servers[i].m_device = devices->GetDeviceByIndex(i);

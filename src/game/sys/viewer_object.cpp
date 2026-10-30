@@ -30,6 +30,7 @@
 #include "game/sio/inpman.h"
 #include "game/sys/viewer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Obj {
@@ -156,13 +157,18 @@ uint8_t* SkeletonOf(CBaseComponent* component)
 }
 Mth::Matrix* BoneMatrices(uint8_t* skeleton) { return *reinterpret_cast<Mth::Matrix**>(skeleton + 0x04); }
 
+GAME_GLOBAL(uint32_t, g_noSkeletonCounter, 0x0067F384, 10);
+GAME_GLOBAL(int, g_repeatCount, 0x007CE588);
+GAME_GLOBAL(uint32_t, g_repeatCountGuard, 0x007CE58C);
+GAME_GLOBAL(float, g_wheelAngle, 0x007CE590);
+
 // The wheels' angle (degrees) and the counter that moves on while there's no skeleton.
-float& WheelAngle() { return GameVariable<float>(0x007CE590); }
-uint32_t& NoSkeletonCounter() { return GameVariable<uint32_t>(0x0067F384); }
+float& WheelAngle() { return g_wheelAngle; }
+uint32_t& NoSkeletonCounter() { return g_noSkeletonCounter; }
 // The input handler's auto-repeat count (a function static: its guard is bit 1 of 0x007CE58C).
-int& RepeatCount() { return GameVariable<int>(0x007CE588); }
-uint32_t& RepeatCountGuard() { return GameVariable<uint32_t>(0x007CE58C); }
-uint8_t* InputManager() { return GameVariable<uint8_t*>(0x00696D40); } // Inp::Manager (0x84 bytes a controller)
+int& RepeatCount() { return g_repeatCount; }
+uint32_t& RepeatCountGuard() { return g_repeatCountGuard; }
+uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(Inp::g_inputManager); } // Inp::Manager (0x84 bytes a controller)
 
 CViewerObject* ObjectOf(Net::MsgHandlerContext* context) { return static_cast<CViewerObject*>(context->m_data); }
 
@@ -209,6 +215,8 @@ CViewerObject* CViewerObject::Destroy(unsigned int flags)
     return this;
 }
 
+GAME_GLOBAL(Mth::Vector, g_originPosition, 0x0067F388, 0.0f, 0.0f, 0.0f, 1.0f);
+
 // 0x00589910
 void CViewerObject::Load(Script::CStruct* params)
 {
@@ -248,7 +256,7 @@ void CViewerObject::Load(Script::CStruct* params)
         m_pos.z = position.z;
         m_pos.w = position.w;
     } else {
-        m_pos = GameVariable<Mth::Vector>(0x0067F388); // (0, 0, 0, 1)
+        m_pos = g_originPosition; // (0, 0, 0, 1)
     }
     static const float kIdentity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     std::memcpy(&m_matrix, kIdentity, sizeof(kIdentity));

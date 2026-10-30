@@ -8,40 +8,65 @@
 #include <cstring>
 #include <ctime>
 
+#include "game/sys/game_config.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Tmr {
 
 namespace {
 
+GAME_GLOBAL(float, g_slomo, 0x00684FC8, 1.0f);
+GAME_GLOBAL(float, g_nextSlomo, 0x00684FCC, 1.0f);
+GAME_GLOBAL(float, g_vblanksPerSecond, 0x00684FD0, 60.0f);
+GAME_GLOBAL(float, g_frameLength, 0x007D1E68);
+GAME_GLOBAL(double, g_uncappedFrameLength, 0x007D1E70);
+GAME_GLOBAL(uint64_t, g_lastFrameVblank, 0x007D1E88);
+GAME_GLOBAL(uint64_t, g_previousFrameVblank, 0x007D1E90);
+GAME_GLOBAL(int, g_historyIndex, 0x007D1E98);
+GAME_GLOBAL(uint64_t, g_startTimeStamp, 0x007D1EA0);
+GAME_GLOBAL(uint64_t, g_unknown1EA8, 0x007D1EA8);
+GAME_GLOBAL(uint64_t, g_startClock, 0x007D1EB0);
+GAME_GLOBAL(uint64_t, g_unknown1EB8, 0x007D1EB8);
+GAME_GLOBAL(uint64_t, g_vblanks, 0x007D1EC8);
+GAME_GLOBAL(uint64_t, g_totalVblanks, 0x007D1ED0);
+GAME_GLOBAL(uint64_t, g_renderFrame, 0x007D1ED8);
+GAME_GLOBAL(uint64_t, g_unknown1EE0, 0x007D1EE0);
+GAME_GLOBAL(bool, g_flag1EE8, 0x007D1EE8);
+GAME_GLOBAL(bool, g_flag1EE9, 0x007D1EE9);
+GAME_GLOBAL(bool, g_rateSet, 0x007D1EEA);
+
 // The timing block (0x007D1E68), saved whole by Reset.
-float& FrameLength() { return GameVariable<float>(0x007D1E68); }
-double& UncappedFrameLength() { return GameVariable<double>(0x007D1E70); }
-int (&History())[4] { return GameVariable<int[4]>(0x007D1E78); }
-uint64_t& LastFrameVblank() { return GameVariable<uint64_t>(0x007D1E88); }
-uint64_t& PreviousFrameVblank() { return GameVariable<uint64_t>(0x007D1E90); }
-int& HistoryIndex() { return GameVariable<int>(0x007D1E98); }
+float& FrameLength() { return g_frameLength; }
+double& UncappedFrameLength() { return g_uncappedFrameLength; }
+
+GAME_GLOBAL(int[4], g_history, 0x007D1E78);
+
+int (&History())[4] { return g_history; }
+uint64_t& LastFrameVblank() { return g_lastFrameVblank; }
+uint64_t& PreviousFrameVblank() { return g_previousFrameVblank; }
+int& HistoryIndex() { return g_historyIndex; }
 constexpr uint32_t kTimingBlock = 0x007D1E68;
 constexpr uint32_t kSavedTimingBlock = 0x007D1E30;
 constexpr size_t kTimingBlockSize = 0x38;
 
-uint64_t& StartTimeStamp() { return GameVariable<uint64_t>(0x007D1EA0); }
-uint64_t& Unknown1EA8() { return GameVariable<uint64_t>(0x007D1EA8); }
-uint64_t& StartClock() { return GameVariable<uint64_t>(0x007D1EB0); }
-uint64_t& Unknown1EB8() { return GameVariable<uint64_t>(0x007D1EB8); }
-uint64_t& Vblanks() { return GameVariable<uint64_t>(0x007D1EC8); } // since Reset
-uint64_t& TotalVblanks() { return GameVariable<uint64_t>(0x007D1ED0); }
-uint64_t& RenderFrame() { return GameVariable<uint64_t>(0x007D1ED8); }
-uint64_t& Unknown1EE0() { return GameVariable<uint64_t>(0x007D1EE0); }
-bool& Flag1EE8() { return GameVariable<bool>(0x007D1EE8); }
-bool& Flag1EE9() { return GameVariable<bool>(0x007D1EE9); }
-bool& RateSet() { return GameVariable<bool>(0x007D1EEA); }
+uint64_t& StartTimeStamp() { return g_startTimeStamp; }
+uint64_t& Unknown1EA8() { return g_unknown1EA8; }
+uint64_t& StartClock() { return g_startClock; }
+uint64_t& Unknown1EB8() { return g_unknown1EB8; }
+uint64_t& Vblanks() { return g_vblanks; } // since Reset
+uint64_t& TotalVblanks() { return g_totalVblanks; }
+uint64_t& RenderFrame() { return g_renderFrame; }
+uint64_t& Unknown1EE0() { return g_unknown1EE0; }
+bool& Flag1EE8() { return g_flag1EE8; }
+bool& Flag1EE9() { return g_flag1EE9; }
+bool& RateSet() { return g_rateSet; }
 
-int& RefreshRate() { return GameVariable<int>(0x00684FB4); } // 60
-float& Slomo() { return GameVariable<float>(0x00684FC8); }
-float& NextSlomo() { return GameVariable<float>(0x00684FCC); }
-float& VblanksPerSecond() { return GameVariable<float>(0x00684FD0); }
+int& RefreshRate() { return GameConfig::g_frameRate; } // 60
+float& Slomo() { return g_slomo; }
+float& NextSlomo() { return g_nextSlomo; }
+float& VblanksPerSecond() { return g_vblanksPerSecond; }
 
 // A history entry's weight: 0-4 vblanks; anything outside 0-10 (a stall) counts as 1.
 int Clamped(int vblanks)

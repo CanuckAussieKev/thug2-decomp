@@ -9,6 +9,7 @@
 #include "game/core/task.h"
 #include "game/lst/search.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Mdl {
@@ -21,7 +22,10 @@ void** const kHeadVtable = reinterpret_cast<void**>(0x00647288);
 void** const kSearchVtable = reinterpret_cast<void**>(0x00647280);
 
 Manager*& Instance() { return GameVariable<Manager*>(0x00696D78); }
-unsigned int& References() { return GameVariable<unsigned int>(0x00696D7C); }
+
+GAME_GLOBAL(unsigned int, g_moduleReferences, 0x00696D7C);
+
+unsigned int& References() { return g_moduleReferences; }
 
 void FreeMemory(void* memory) { Mem::Manager::Get()->Free(memory); }
 

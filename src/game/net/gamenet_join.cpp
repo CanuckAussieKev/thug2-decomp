@@ -32,9 +32,11 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
+#include "game/sys/game_config.h"
 #include "game/sys/mlp.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 
@@ -115,9 +117,12 @@ struct AuthInstance {
     Conn* conn;
 };
 
+GAME_GLOBAL(char[kPasswordSize], g_pendingPassword, 0x007CCDFC);
+GAME_GLOBAL(char[kPasswordSize], g_joinPassword, 0x007CCE08);
+
 // The global passwords: the one being typed (12) and the one in use (10; resent with every request).
-char* PendingPassword() { return &GameVariable<char>(0x007CCDFC); }
-char* JoinPassword() { return &GameVariable<char>(0x007CCE08); }
+char* PendingPassword() { return g_pendingPassword; }
+char* JoinPassword() { return g_joinPassword; }
 
 Net::Manager* NetManager() { return Net::Manager::Instance(); }
 Tsk::Stack* LogicTasks()
@@ -485,6 +490,12 @@ void Manager::ReattemptJoinWithPassword(const char* password)
     m_joinState = kJoinStateJoiningWithPassword;
 }
 
+GAME_GLOBAL(const char[10], g_uiString, 0x0064C830, "ui_string");
+GAME_GLOBAL(const char[19], g_netReasonGeneral, 0x0064C83C, "net_reason_general");
+GAME_GLOBAL(const char[27], g_presenceLocationFormat, 0x0064C850, "10thug211:%d:%d:%d:%s (%s)");
+GAME_GLOBAL(const char[13], g_matchAppName, 0x0064C958, "Match Skate6");
+GAME_GLOBAL(const char[7], g_skateAppName, 0x0064CA00, "Skate6");
+
 // 0x00537220
 App* Manager::SpawnClient(bool broadcast, bool local, bool secure, int index)
 {
@@ -493,7 +504,7 @@ App* Manager::SpawnClient(bool broadcast, bool local, bool secure, int index)
     flags |= local ? kAppLocal : kAppDynamicResend | kAppForeign;
     if (secure)
         flags |= kAppSecure;
-    App* client = net->CreateNewAppClient(index, &GameVariable<const char>(0x0064CA00), kJoinPort, // (its name)
+    App* client = net->CreateNewAppClient(index, g_skateAppName, kJoinPort, // (its name)
                                           static_cast<int>(LocalAddress()), flags);
     ClientSlot(index) = client;
     if (index == 0 && client) {
@@ -512,7 +523,7 @@ App* Manager::SpawnClient(bool broadcast, bool local, bool secure, int index)
 App* Manager::SpawnMatchClient()
 {
     Net::Manager* net = NetManager();
-    App* client = net->CreateNewAppClient(0, &GameVariable<const char>(0x0064C958), kJoinPort,
+    App* client = net->CreateNewAppClient(0, g_matchAppName, kJoinPort,
                                           static_cast<int>(LocalAddress()),
                                           kAppBroadcast | kAppDynamicResend | kAppForeign | kAppSecure);
     m_matchClient = client;
@@ -528,7 +539,7 @@ App* Manager::SpawnServer(bool local, bool secure)
     int flags = kAppBroadcast | kAppDynamicResend | kAppForeign | (local ? kAppLocal : 0);
     if (secure)
         flags |= kAppSecure;
-    App* server = net->CreateNewAppServer(0, &GameVariable<const char>(0x0064CA00), kMaxConnections, kHostPort,
+    App* server = net->CreateNewAppServer(0, g_skateAppName, kMaxConnections, kHostPort,
                                           static_cast<int>(LocalAddress()), flags);
     m_server = server;
     if (m_hostMode != 0)
@@ -587,7 +598,7 @@ int Manager::HandleConnection(MsgHandlerContext* context)
     Conn* joined = context->m_App->NewConnection(static_cast<int>(conn->m_ip), conn->m_port, Conn::kFlagRemote);
     context->m_Conn = joined;
     joined->SetBandwidthType(msg->broadband ? Conn::kBandwidthBroadband : Conn::kBandwidthModem);
-    joined->SetSendInterval(static_cast<uint32_t>(1000 / GameVariable<int>(0x00684FB4) * 2)); // two frames
+    joined->SetSendInterval(static_cast<uint32_t>(1000 / GameConfig::g_frameRate * 2)); // two frames
     // NOT ORIGINAL: in the THUGPRO peer mode no GameSpy CD-key check (TP-R12): proceed as on a LAN.
     if (manager->InInternetMode() && !Thugpro::PeerMode()) {
         auto* instance = static_cast<AuthInstance*>(Mem::New(sizeof(AuthInstance)));
@@ -742,7 +753,7 @@ int Manager::HandleJoinProceed(MsgHandlerContext* context)
         if (PresenceLoggedIn(manager)) {
             std::strcpy(LobbyServerName(manager), proceed->serverName);
             char location[0x1000];
-            Sprintf(location, &GameVariable<const char>(0x0064C850), manager->m_joinIp, manager->m_joinPrivateIp,
+            Sprintf(location, g_presenceLocationFormat, manager->m_joinIp, manager->m_joinPrivateIp,
                     manager->m_joinPort, LobbyServerName(manager), LobbyPeerName(manager));
             const char* status = Script::GetString(manager->m_joinMode == 0 ? kStatusPlaying : kStatusObserving);
             SetPresence(manager, 2, status, location);
@@ -810,7 +821,7 @@ int Manager::HandleJoinRefused(MsgHandlerContext* context)
     case kRefusedCdKey: {
         if (manager->m_joinState == kJoinStateCdKey) {
             // Answered already: refused.
-            manager->m_refusedReason = Crc::GenerateCRCFromString(&GameVariable<const char>(0x0064C83C));
+            manager->m_refusedReason = Crc::GenerateCRCFromString(g_netReasonGeneral);
             break;
         }
         // The host's challenge (after the reason): answered with our key, in a new connection request.
@@ -827,7 +838,7 @@ int Manager::HandleJoinRefused(MsgHandlerContext* context)
         std::memset(&info, 0, sizeof(info));
         std::strcpy(info.cdKeyResponse, response);
         const char* name = nullptr; // (not used)
-        NetworkPreferences(manager)->GetPreference(kNetworkId)->GetString(&GameVariable<const char>(0x0064C830),
+        NetworkPreferences(manager)->GetPreference(kNetworkId)->GetString(g_uiString,
                                                                             &name, 1);
         info.rank = Rank(manager);
         info.observer = manager->m_joinMode == kJoinModeObserve;
