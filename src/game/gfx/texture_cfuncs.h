@@ -60,5 +60,4 @@ bool __cdecl CFunc_SetParkName(Script::CStruct* params, Script::CScript* script)
 
 GAME_GLOBAL_EXTERN(bool, g_textureFlagCe441);
 GAME_GLOBAL_EXTERN(char[128], g_parkName);
-GAME_GLOBAL_EXTERN(char[128], g_parkName);
 } // namespace CFuncs

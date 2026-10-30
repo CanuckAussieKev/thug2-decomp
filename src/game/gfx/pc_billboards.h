@@ -113,5 +113,4 @@ void __cdecl ClearFlag786EB4();
 GAME_GLOBAL_EXTERN(uint8_t, g_billboardFlag);
 GAME_GLOBAL_EXTERN(sBillboardManager, g_billboardManager);
 
-GAME_GLOBAL_EXTERN(sBillboardManager, g_billboardManager);
 } // namespace Nx
