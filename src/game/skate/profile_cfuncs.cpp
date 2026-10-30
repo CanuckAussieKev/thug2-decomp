@@ -19,6 +19,7 @@
 #include "game/gfx/model_appearance.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace CFuncs {
 
@@ -48,7 +49,7 @@ CStruct* ResultParams(CScript* script) { return *reinterpret_cast<CStruct**>(rei
 // The skate module's profile `params`' skater names (0x00564F80).
 Obj::CSkaterProfile* SkateProfile(CStruct* params) { return Mdl::Skate::Instance()->GetProfile(params); }
 
-const char* const kNoText = reinterpret_cast<const char*>(0x0064F7B4); // "---"
+const char* const kNoText = GAME_TEXT(0x0064F7B4, "---"); // "---"
 
 } // namespace
 

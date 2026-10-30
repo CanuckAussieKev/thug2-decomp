@@ -25,6 +25,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace CFuncs {
 
@@ -164,7 +165,7 @@ bool __cdecl CFunc_NodeExists(Script::CStruct* params, Script::CScript*)
 // unchecked), load the .qb file (0x005A5960) and set up the node array (0x0045C210).
 bool __cdecl CFunc_LoadNodeArray(Script::CStruct* params, Script::CScript*)
 {
-    Mem::PushMemProfile(reinterpret_cast<const char*>(0x0064FA9C)); // "LoadNodeArray"
+    Mem::PushMemProfile(GAME_TEXT(0x0064FA9C, "LoadNodeArray")); // "LoadNodeArray"
     Script::DeleteSpawnedScripts();
     const char* name = nullptr;
     params->GetString(0u, &name, 0);
@@ -183,7 +184,7 @@ bool __cdecl CFunc_ResetCamera(Script::CStruct*, Script::CScript*)
 {
     for (int viewport = 0; viewport < 2; ++viewport) {
         if (Nx::GetCamera(viewport))
-            Dbg::Printf(reinterpret_cast<const char*>(0x0064FAAC)); // "TODO: ScriptResetCamera not implemented\n"
+            Dbg::Printf(GAME_TEXT(0x0064FAAC, "TODO: ScriptResetCamera not implemented\n")); // "TODO: ScriptResetCamera not implemented\n"
     }
     return true;
 }
@@ -217,7 +218,7 @@ bool __cdecl CFunc_ClearViewerObject(Script::CStruct*, Script::CScript*)
 // 0x0059F310: CasArtist: whether the global integer cas_artist is set.
 bool __cdecl CFunc_CasArtist(Script::CStruct*, Script::CScript*)
 {
-    return Script::GetInteger(reinterpret_cast<const char*>(0x0064FAD8)) != 0; // "cas_artist"
+    return Script::GetInteger(GAME_TEXT(0x0064FAD8, "cas_artist")) != 0; // "cas_artist"
 }
 
 // 0x0059F330: SpawnScript <name> [params={...}] [id=n] [callback=<script>] [callbackparams={...}]
@@ -260,12 +261,12 @@ bool __cdecl CFunc_UnBlockInterruptedScript(Script::CStruct*, Script::CScript* s
 bool __cdecl CFunc_KillSpawnedScript(Script::CStruct* params, Script::CScript*)
 {
     uint32_t name = 0;
-    if (params->GetChecksum(reinterpret_cast<const char*>(0x0064B5D4), &name, 0)) { // "Name"
+    if (params->GetChecksum(GAME_TEXT(0x0064B5D4, "Name"), &name, 0)) { // "Name"
         Script::KillSpawnedScriptsThatReferTo(name);
         return true;
     }
     uint32_t id = 0;
-    if (params->GetChecksum(reinterpret_cast<const char*>(0x0064FAE4), &id, 0)) // "Id"
+    if (params->GetChecksum(GAME_TEXT(0x0064FAE4, "Id"), &id, 0)) // "Id"
         Script::KillSpawnedScriptsWithId(id);
     return true;
 }
@@ -287,7 +288,7 @@ bool __cdecl CFunc_UnPauseSpawnedScripts(Script::CStruct*, Script::CScript*)
 // screen (0x00490890); with a number, the loading bar's time (0x00490770). Always true.
 bool __cdecl CFunc_DisplayLoadingScreen(Script::CStruct* params, Script::CScript*)
 {
-    const char* image = reinterpret_cast<const char*>(0x0064FAE8); // "images\xxxxx"
+    const char* image = GAME_TEXT(0x0064FAE8, "images\\xxxxx"); // "images\xxxxx"
     params->GetString(0u, &image, 0);
     bool blank = params->ContainsFlag(kBlank);
     bool freeze = params->ContainsFlag(kFreeze);
@@ -337,7 +338,7 @@ bool __cdecl CFunc_SetLevelName(Script::CStruct* params, Script::CScript*)
 // 0x0059F5E0: DumpScripts [just_stack]: the script list dump is compiled out of this build. Always true.
 bool __cdecl CFunc_DumpScripts(Script::CStruct* params, Script::CScript*)
 {
-    if (!params->ContainsFlag(reinterpret_cast<const char*>(0x0064FAF8))) // "just_stack"
+    if (!params->ContainsFlag(GAME_TEXT(0x0064FAF8, "just_stack"))) // "just_stack"
         DumpScriptsList(params->ContainsFlag(kDumpScriptsFlag));
     return true;
 }

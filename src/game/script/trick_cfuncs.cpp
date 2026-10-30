@@ -26,6 +26,7 @@
 #include "game/obj/compositemgr.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace CFuncs {
 
@@ -237,7 +238,7 @@ bool __cdecl CFunc_GetKeyComboBoundToTrick(Script::CStruct* params, Script::CScr
                 if (special.trick == trick)
                     break;
             }
-            Dbg::Printf(reinterpret_cast<const char*>(0x00657C60)); // "GetKeyComboBoundToTrick found a special trick\n"
+            Dbg::Printf(GAME_TEXT(0x00657C60, "GetKeyComboBoundToTrick found a special trick\n")); // "GetKeyComboBoundToTrick found a special trick\n"
             keyCombo = special.keys;
             foundSpecial = true;
         }
@@ -249,7 +250,7 @@ bool __cdecl CFunc_GetKeyComboBoundToTrick(Script::CStruct* params, Script::CScr
         return false;
     script->m_params->AddChecksum("current_key_combo", keyCombo);
     if (foundSpecial) {
-        Dbg::Printf(reinterpret_cast<const char*>(0x00657C38), slot); // "current_index: %i\n"
+        Dbg::Printf(GAME_TEXT(0x00657C38, "current_index: %i\n"), slot); // "current_index: %i\n"
         script->m_params->AddInteger("current_index", slot);
     }
     return true;
@@ -536,7 +537,7 @@ bool __cdecl CFunc_BindFrontEndToController(Script::CStruct* params, Script::CSc
     int pad;
     params->GetInteger(kFrontEndPad, &pad, 1);
     // "attempting to bind front end %i to controller %i\n"
-    Dbg::Printf(reinterpret_cast<const char*>(0x00657C90), pad, controller);
+    Dbg::Printf(GAME_TEXT(0x00657C90, "attempting to bind front end %i to controller %i\n"), pad, controller);
     Mdl::FrontEnd* frontEnd = Mdl::FrontEndInstance();
     int* map = frontEnd->m_deviceServerMap;
     int old = map[pad];

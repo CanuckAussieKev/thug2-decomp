@@ -50,10 +50,13 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Mdl {
 
 GAME_GLOBAL(uint8_t, g_netRelayObjectId, 0x007CE48C);
+GAME_GLOBAL(float, g_relayTimeScale, 0x0064A568, 0.000244140625f);   // (2^-12: the relayed times and positions)
+GAME_GLOBAL(float, g_relayByteScale, 0x00645D70, 0.00392156886f);    // (1/255)
 
 namespace {
 
@@ -191,9 +194,9 @@ T& At(Obj::StateHistoryMessage* message, uint32_t offset)
 {
     return Field<T>(message, offset);
 }
-float Scaled(uint32_t value, uint32_t constant)
+float Scaled(uint32_t value, float constant)
 {
-    return static_cast<float>(static_cast<double>(value) * GameVariable<float>(constant));
+    return static_cast<float>(static_cast<double>(value) * constant);
 }
 
 // The relay message: the received one as it is.
@@ -684,7 +687,7 @@ int SkateNet::HandleFaceTexture(Net::MsgHandlerContext* context)
     static_cast<Gfx::CFaceTexture*>(texture)->ReadFrom(data, static_cast<int>(size));
     static_cast<Gfx::CFaceTexture*>(texture)->SetValid(true);
     auto* model = skater->GetComponent(kModel);
-    static_cast<Nx::CModel*>(Field<void*>(model, 0x208))->ReplaceFaceTexture(texture, reinterpret_cast<const char*>(0x0064E820), kAll);
+    static_cast<Nx::CModel*>(Field<void*>(model, 0x208))->ReplaceFaceTexture(texture, GAME_TEXT(0x0064E820, "CS_NSN_facemap.png"), kAll);
     if (net->OnServer()) {
         // the server keeps the face and streams it to the others
         PlayerSearch search;
@@ -750,7 +753,7 @@ int SkateNet::HandleSkaterMessages(Net::MsgHandlerContext* context)
         target = objects->GetObjectByID(static_cast<uint32_t>(static_cast<int8_t>(id)));
         if (!target)
             return 1;
-        float scaledTime = Scaled(time, 0x0064A568);
+        float scaledTime = Scaled(time, g_relayTimeScale);
         GameNet::Manager* net = Net();
         if (net->InNetGame()) {
             // (only the camera's own player's)
@@ -761,12 +764,12 @@ int SkateNet::HandleSkaterMessages(Net::MsgHandlerContext* context)
         }
         message = NewMessage(History(target), 0x29);
         At<uint32_t>(message, 0x20) = value;
-        At<float>(message, 0x10) = Scaled(a, 0x0064A568);
+        At<float>(message, 0x10) = Scaled(a, g_relayTimeScale);
         At<uint8_t>(message, 1) = id;
         At<float>(message, 0x18) = scaledTime;
         At<uint8_t>(message, 2) = first;
-        At<float>(message, 0x14) = Scaled(b, 0x0064A568);
-        At<float>(message, 0x1C) = Scaled(c, 0x0064A568);
+        At<float>(message, 0x14) = Scaled(b, g_relayTimeScale);
+        At<float>(message, 0x1C) = Scaled(c, g_relayTimeScale);
         break;
     }
     case 0x2B:
@@ -775,7 +778,7 @@ int SkateNet::HandleSkaterMessages(Net::MsgHandlerContext* context)
             return 1;
         message = NewMessage(History(target), 0x2B);
         At<uint8_t>(message, 1) = data[0];
-        At<float>(message, 0xC) = Scaled(data[1], 0x00645D70);
+        At<float>(message, 0xC) = Scaled(data[1], g_relayByteScale);
         break;
     case 0x2A:
         target = object(0);

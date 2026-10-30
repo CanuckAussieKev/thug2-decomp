@@ -23,6 +23,7 @@
 #include "game/skate/trick_goals.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -72,7 +73,6 @@ constexpr uint32_t kRewardPoints = 0xBAFFB052;      // reward_points
 
 constexpr uint8_t kMsgGoalStarted = 0x6F; // to the server: a goal (the first of its chain) started
 
-const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
 CGameMode* GameMode() { return g_gameMode; }
 GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 Obj::CPlayerProfileManager* ProfileManager() { return Obj::g_profileManager; }
@@ -416,19 +416,19 @@ bool __cdecl CFunc_GoalManager_GetDifficultyLevel(Script::CStruct*, Script::CScr
 bool __cdecl CFunc_GoalManager_RestartStage(Script::CStruct*, Script::CScript*)
 {
     GetGoalManager();
-    Dbg::Printf(Text(0x0064DE78)); // "STUBBED\n"
+    Dbg::Printf(GAME_TEXT(0x0064DE78, "STUBBED\n")); // "STUBBED\n"
     return true;
 }
 bool __cdecl CFunc_GoalManager_CanRestartStage(Script::CStruct*, Script::CScript*)
 {
     GetGoalManager();
-    Dbg::Printf(Text(0x0064DE78)); // "STUBBED\n"
+    Dbg::Printf(GAME_TEXT(0x0064DE78, "STUBBED\n")); // "STUBBED\n"
     return false;
 }
 bool __cdecl CFunc_GoalManager_SetGoalChaptersAndStages(Script::CStruct*, Script::CScript*)
 {
     GetGoalManager();
-    Dbg::Printf(Text(0x0064DE84)); // "CGoalManager::SetGoalChaptersAndStages() Stubbed\n"
+    Dbg::Printf(GAME_TEXT(0x0064DE84, "CGoalManager::SetGoalChaptersAndStages() Stubbed\n")); // "CGoalManager::SetGoalChaptersAndStages() Stubbed\n"
     return true;
 }
 
@@ -439,7 +439,7 @@ bool __cdecl CFunc_GoalManager_AdvanceStage(Script::CStruct* params, Script::CSc
     uint32_t stage = 0;
     params->GetChecksum(kStage, &stage, 0);
     params->ContainsFlag(kForce);
-    Dbg::Printf(Text(0x0064DEC4)); // "STUBBED!\n"
+    Dbg::Printf(GAME_TEXT(0x0064DEC4, "STUBBED!\n")); // "STUBBED!\n"
     return false;
 }
 

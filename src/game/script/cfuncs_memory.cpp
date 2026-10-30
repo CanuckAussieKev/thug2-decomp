@@ -21,6 +21,7 @@
 #include "game/script/cfuncs_scene.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace CFuncs {
 
@@ -191,34 +192,34 @@ void __cdecl DumpPoolUsage(bool toDumpFile, bool print)
             Dbg::Printf(line); // (the line as the format, as in the original)
     };
     // (the texts are the exe's)
-    auto text = [&](uint32_t address) {
-        std::snprintf(line, sizeof(line), reinterpret_cast<const char*>(address));
+    auto text = [&](const char* message) {
+        std::snprintf(line, sizeof(line), message);
         emit();
     };
-    auto pool = [&](uint32_t format, const Mem::Pool* p) {
-        std::snprintf(line, sizeof(line), reinterpret_cast<const char*>(format), p->m_used, p->m_count, p->m_peakUsed);
+    auto pool = [&](const char* format, const Mem::Pool* p) {
+        std::snprintf(line, sizeof(line), format, p->m_used, p->m_count, p->m_peakUsed);
         emit();
     };
     auto current = [](uint32_t pair) {
         const auto& pools = GameVariable<Mem::PoolPair>(pair);
         return pools.pools[pools.current]; // (not checked: the pools are set up by then)
     };
-    text(0x00646E38);                               // "\nScript pool usage:\n"
-    pool(0x00646E10, current(0x006F3614));          // " | CStruct:           %5d of %5d, max %5d\n"
-    pool(0x00646DE8, current(0x006F2338));          // CComponent
-    pool(0x00646DC0, current(0x006F362C));          // CSymbolTableEntry
-    pool(0x00646D98, current(0x006F3654));          // CVector
-    pool(0x00646D70, current(0x006F3644));          // CPair
-    pool(0x00646D48, current(0x006F22B4));          // CArray
-    pool(0x00646D20, current(0x006F3548));          // CScript
-    pool(0x00646D00, Mem::PoolManager::GetPool(0)); // CHashItem
-    pool(0x00646CD4, current(0x006F92B8));          // CAnimCachePredictor
-    pool(0x00646CB0, current(0x006F92C8));          // CBlendChannel
-    pool(0x00646C84, current(0x00701430));          // CBonedAnimController
-    pool(0x00646C60, current(0x006FA7F4));          // CAnimLookup
-    pool(0x00646C34, current(0x00700500));          // sSpawnedPolyDetails
-    pool(0x00646C04, current(0x006F0FC8));          // Obj::CEventReceiverList
-    text(0x00646BC4); // "\n(HashItems are init in main.cpp, others are in init.cpp)\n\n\n"
+    text(GAME_TEXT(0x00646E38, "\nScript pool usage:\n"));                               // "\nScript pool usage:\n"
+    pool(GAME_TEXT(0x00646E10, "CStruct:           %5d of %5d, max %5d\n"), current(0x006F3614));          // " | CStruct:           %5d of %5d, max %5d\n"
+    pool(GAME_TEXT(0x00646DE8, "CComponent:        %5d of %5d, max %5d\n"), current(0x006F2338));          // CComponent
+    pool(GAME_TEXT(0x00646DC0, "CSymbolTableEntry: %5d of %5d, max %5d\n"), current(0x006F362C));          // CSymbolTableEntry
+    pool(GAME_TEXT(0x00646D98, "CVector:           %5d of %5d, max %5d\n"), current(0x006F3654));          // CVector
+    pool(GAME_TEXT(0x00646D70, "CPair:             %5d of %5d, max %5d\n"), current(0x006F3644));          // CPair
+    pool(GAME_TEXT(0x00646D48, "CArray:            %5d of %5d, max %5d\n"), current(0x006F22B4));          // CArray
+    pool(GAME_TEXT(0x00646D20, "CScript:           %5d of %5d, max %5d\n"), current(0x006F3548));          // CScript
+    pool(GAME_TEXT(0x00646D00, "CHashItem:\t%5d of %5d, max %5d\n"), Mem::PoolManager::GetPool(0)); // CHashItem
+    pool(GAME_TEXT(0x00646CD4, "CAnimCachePredictor:\t%5d of %5d, max %5d\n"), current(0x006F92B8));          // CAnimCachePredictor
+    pool(GAME_TEXT(0x00646CB0, "CBlendChannel:\t%5d of %5d, max %5d\n"), current(0x006F92C8));          // CBlendChannel
+    pool(GAME_TEXT(0x00646C84, "CBonedAnimController:\t%5d of %5d, max %5d\n"), current(0x00701430));          // CBonedAnimController
+    pool(GAME_TEXT(0x00646C60, "CAnimLookup:\t%5d of %5d, max %5d\n"), current(0x006FA7F4));          // CAnimLookup
+    pool(GAME_TEXT(0x00646C34, "sSpawnedPolyDetails:\t%5d of %5d, max %5d\n"), current(0x00700500));          // sSpawnedPolyDetails
+    pool(GAME_TEXT(0x00646C04, "Obj::CEventReceiverList:\t%5d of %5d, max %5d\n"), current(0x006F0FC8));          // Obj::CEventReceiverList
+    text(GAME_TEXT(0x00646BC4, "\n(HashItems are init in main.cpp, others are in init.cpp)\n\n\n")); // "\n(HashItems are init in main.cpp, others are in init.cpp)\n\n\n"
 }
 
 // 0x00448840: DumpHeaps [<flag>]: the current heap, then each heap's used / fragmented / free / minimum free sizes and
@@ -226,27 +227,27 @@ void __cdecl DumpPoolUsage(bool toDumpFile, bool print)
 // null). Always true.
 bool __cdecl CFunc_DumpHeaps(CStruct* params, CScript*)
 {
-    auto format = [](uint32_t address) { return reinterpret_cast<const char*>(address); }; // (the exe's texts)
+    auto format = [](const char* text) { return text; }; // (the exe's texts)
     DumpHeapsBegin();
     Mem::Manager* manager = Manager();
-    Dbg::Printf(format(0x00646FB0), manager->CurrentHeapName()); // "Current Heap: %s\n"
+    Dbg::Printf(format(GAME_TEXT(0x00646FB0, "Current Heap: %s\n\n")), manager->CurrentHeapName()); // "Current Heap: %s\n"
     bool bytes = params && params->ContainsFlag(kDumpHeapsBytes);
-    Dbg::Printf(format(bytes ? 0x00646F70 : 0x00646ED4)); // "Name                       Used ..." (two layouts)
-    Dbg::Printf(format(bytes ? 0x00646F30 : 0x00646E98)); // "------------------------- -----..."
+    Dbg::Printf(format(bytes ? GAME_TEXT(0x00646F70, "Name                       Used    Frag    Free    Min Blocks\n") : GAME_TEXT(0x00646ED4, "Name                       Used  Frag  Free   Min  Blocks\n"))); // "Name                       Used ..." (two layouts)
+    Dbg::Printf(format(bytes ? GAME_TEXT(0x00646F30, "------------------------- ------ ------- ------- ------ ------\n") : GAME_TEXT(0x00646E98, "------------------------- ----- ----- ---- ------ ------\n"))); // "------------------------- -----..."
     for (Mem::Allocator* heap = manager->FirstHeap(); heap; heap = manager->NextHeap(heap)) {
         Mem::Region* region = heap->m_region;
         int minimum = region->m_minAvailable; // (read before MemAvailable)
         int blocks = heap->m_usedBlocks;
         int available = region->MemAvailable();
         if (bytes)
-            Dbg::Printf(format(0x00646F10), heap->m_name, heap->m_usedSize, heap->m_freeSize, available, minimum,
+            Dbg::Printf(format(GAME_TEXT(0x00646F10, "%23s: %8d %7d %7d %7d  %5d \n")), heap->m_name, heap->m_usedSize, heap->m_freeSize, available, minimum,
                         blocks); // "%23s: %8d %7d %7d %7d  %5d \n"
         else
-            Dbg::Printf(format(0x00646E74), heap->m_name, heap->m_usedSize / 1024, heap->m_freeSize / 1024,
+            Dbg::Printf(format(GAME_TEXT(0x00646E74, "%23s: %5dK %4dK %4dK %4dK  %5d \n")), heap->m_name, heap->m_usedSize / 1024, heap->m_freeSize / 1024,
                         available / 1024, minimum / 1024, blocks); // "%23s: %5dK %4dK %4dK %4dK  %5d \n"
     }
     int soundFree = FreeSoundMemory();
-    Dbg::Printf(format(0x00646E50), FreeSoundMemory() / 1024, soundFree); // "\nSound mem free %d K  (%d bytes)\n"
+    Dbg::Printf(format(GAME_TEXT(0x00646E50, "\nSound mem free %d K  (%d bytes)\n")), FreeSoundMemory() / 1024, soundFree); // "\nSound mem free %d K  (%d bytes)\n"
     DumpPoolUsage(false, true);
     return true;
 }

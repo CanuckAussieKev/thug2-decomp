@@ -28,6 +28,7 @@
 #include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -54,7 +55,7 @@ constexpr uint8_t kGroupGoals = 8;         // (its message group)
 void** const kGoalListHeadVtable = reinterpret_cast<void**>(0x0064DF78);
 void** const kGoalNodeVtable = reinterpret_cast<void**>(0x0064DDCC);
 
-const char* const kSpecialGap = reinterpret_cast<const char*>(0x0064DEB8); // "special_gap"
+const char* const kSpecialGap = GAME_TEXT(0x0064DEB8, "special_gap"); // "special_gap"
 
 GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 CGameMode* GameMode() { return g_gameMode; }

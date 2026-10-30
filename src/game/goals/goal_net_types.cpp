@@ -20,6 +20,7 @@
 #include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -334,7 +335,7 @@ void CRaceGoal::Expire()
 bool CRaceGoal::NextRaceWaypoint(uint32_t id)
 {
     if (Virtual<bool>(this, kVtShouldExpire)) {
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064E25C)); // "expired!\n"
+        Dbg::Printf(GAME_TEXT(0x0064E25C, "expired!\n")); // "expired!\n"
         return false;
     }
     Script::CArray* waypoints;
@@ -376,7 +377,7 @@ bool CRaceGoal::NextRaceWaypoint(uint32_t id)
         const char* goalName;
         m_params->GetString(kGoalName, &goalName, 1);
         char scriptName[0x100];
-        std::snprintf(scriptName, sizeof(scriptName), reinterpret_cast<const char*>(0x0064E240), goalName); // "%s_next_waypoint_script_id"
+        std::snprintf(scriptName, sizeof(scriptName), GAME_TEXT(0x0064E240, "%s_next_waypoint_script_id"), goalName); // "%s_next_waypoint_script_id"
         Script::SpawnScript(kRaceNextWaypoint, params, 0, nullptr, 0, Crc::GenerateCRCFromString(scriptName), false,
                             false, false, false);
         DeleteStructure(params);

@@ -58,6 +58,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/engine.h"
+#include "hook/game_code.h"
 
 namespace CFuncs {
 
@@ -142,7 +143,7 @@ bool __cdecl CFunc_Cleanup(Script::CStruct* params, Script::CScript* script)
     CompiledOutDebugCall();
     bool preserveSkaters = false;
     if (params)
-        preserveSkaters = params->ContainsFlag(reinterpret_cast<const char*>(0x0064FC90)); // "preserve_skaters"
+        preserveSkaters = params->ContainsFlag(GAME_TEXT(0x0064FC90, "preserve_skaters")); // "preserve_skaters"
     uint8_t spawned = 0;
     if (script) {
         spawned = script->m_spawnFlags & Script::SCRIPT_FLAG_SPAWNED;
@@ -164,20 +165,20 @@ bool __cdecl CFunc_Cleanup(Script::CStruct* params, Script::CScript* script)
     Nx::UninitLightManager();
     Sfx::g_sfxManager->CleanUp();
     assets->UnloadAllAssetsOfType(false, 9);
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064FC68)); // "unloading assman tables ...........\n"
+    Dbg::Printf(GAME_TEXT(0x0064FC68, "unloading assman tables ...........\n")); // "unloading assman tables ...........\n"
     assets->UnloadAllAssets(false);
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064FC44)); // "done unloading assman ...........\n"
+    Dbg::Printf(GAME_TEXT(0x0064FC44, "done unloading assman ...........\n")); // "done unloading assman ...........\n"
     if (Script::CSymbolTableEntry* qb = Script::FindSymbol(kQbSymbol))
         UnloadQbFile(qb->unknown8);
     for (int i = 0; i < kLevelQbFiles; ++i) {
         UnloadQbFile(LevelQbFiles()[i]);
         LevelQbFiles()[i] = 0;
     }
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064FC10)); // "Starting to unload Geometry from the engine .....\n"
+    Dbg::Printf(GAME_TEXT(0x0064FC10, "Starting to unload Geometry from the engine .....\n")); // "Starting to unload Geometry from the engine .....\n"
     CFunc_UnloadAllLevelGeometry(nullptr, nullptr);
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064FBE0)); // "Done unloading Geometry from the engine .....\n"
+    Dbg::Printf(GAME_TEXT(0x0064FBE0, "Done unloading Geometry from the engine .....\n")); // "Done unloading Geometry from the engine .....\n"
     if (!preserveSkaters) {
-        Dbg::Printf(reinterpret_cast<const char*>(0x0064FBBC)); // "Clean up without preserve skaters\n"
+        Dbg::Printf(GAME_TEXT(0x0064FBBC, "Clean up without preserve skaters\n")); // "Clean up without preserve skaters\n"
         MemManager()->DeleteExtraSkaterHeaps();
     }
     // the .pre files nothing uses any more
@@ -197,8 +198,8 @@ bool __cdecl CFunc_Cleanup(Script::CStruct* params, Script::CScript* script)
     MEMORYSTATUS memory;
     GlobalMemoryStatus(&memory);
     char text[0x400];
-    int length = wsprintfA(text, reinterpret_cast<const char*>(0x0064FB98), memory.dwTotalPhys >> 10); // "%4d total kb..."
-    wsprintfA(text + length, reinterpret_cast<const char*>(0x0064FB74), memory.dwAvailPhys >> 10);    // "%4d  free kb..."
+    int length = wsprintfA(text, GAME_TEXT(0x0064FB98, "%4d total kb of physical memory.\n"), memory.dwTotalPhys >> 10); // "%4d total kb..."
+    wsprintfA(text + length, GAME_TEXT(0x0064FB74, "%4d  free kb of physical memory.\n"), memory.dwAvailPhys >> 10);    // "%4d  free kb..."
     OutputDebugStringA(text);
     if (SkateModule()->InNetGameLevel())
         MemManager()->InitNetMiscHeap();
@@ -365,9 +366,9 @@ bool __cdecl CFunc_SpawnSound(Script::CStruct* params, Script::CScript* script)
     uint32_t name = 0;
     if (params->GetChecksum(0u, &name, 0)) {
         uint32_t id = Script::GetSpawnId(script);
-        params->GetChecksum(reinterpret_cast<const char*>(0x0064FAE4), &id, 0); // "Id"
+        params->GetChecksum(GAME_TEXT(0x0064FAE4, "Id"), &id, 0); // "Id"
         Script::CStruct* scriptParams = nullptr;
-        params->GetStructure(reinterpret_cast<const char*>(0x0064FCA4), &scriptParams, 0); // "Params"
+        params->GetStructure(GAME_TEXT(0x0064FCA4, "Params"), &scriptParams, 0); // "Params"
         Script::CScript* spawned = script->m_object.Get()->SpawnScript(name, scriptParams, id, false);
         if (!params->ContainsFlag(kKeepSpawnerFile))
             spawned->SetSpawnerFile(script);
@@ -378,7 +379,7 @@ bool __cdecl CFunc_SpawnSound(Script::CStruct* params, Script::CScript* script)
 // 0x005A0520: PauseSkater <n> [hide]: skater n paused (vtable +0x2C) and hidden or shown.
 bool __cdecl CFunc_PauseSkater(Script::CStruct* params, Script::CScript*)
 {
-    bool hide = params->ContainsFlag(reinterpret_cast<const char*>(0x0064FCAC)); // "hide"
+    bool hide = params->ContainsFlag(GAME_TEXT(0x0064FCAC, "hide")); // "hide"
     int index = 0; // (unset in the original when missing - an asserted parameter)
     params->GetInteger(0u, &index, true);
     if (Obj::CSkater* skater = GetSkater(index)) {
@@ -459,11 +460,11 @@ bool __cdecl CFunc_DoFlash(Script::CStruct* params, Script::CScript* script)
     float z = 0.0f;
     int viewport = -1;
     const char* texture = nullptr;
-    params->GetFloat(reinterpret_cast<const char*>(0x0064BB34), &duration, 0); // "duration"
+    params->GetFloat(GAME_TEXT(0x0064BB34, "duration"), &duration, 0); // "duration"
     if (!(duration > Obj::g_floatZero)) // (0.0)
         return true;
-    params->GetString(reinterpret_cast<const char*>(0x0064FCF8), &texture, 0); // "texture"
-    params->GetFloat(reinterpret_cast<const char*>(0x0064FCF4), &z, 0);        // "z"
+    params->GetString(GAME_TEXT(0x0064FCF8, "texture"), &texture, 0); // "texture"
+    params->GetFloat(GAME_TEXT(0x0064FCF4, "z"), &z, 0);        // "z"
     int flags = 0;
     if (params->ContainsFlag(kFlashTextureFlag))
         flags = 1;
@@ -479,14 +480,14 @@ bool __cdecl CFunc_DoFlash(Script::CStruct* params, Script::CScript* script)
     uint8_t start[4];
     uint8_t end[4];
     int value = 0;
-    static const uintptr_t kStart[4] = {0x0064FCEC, 0x0064FCE4, 0x0064FCDC, 0x0064FCD4}; // "start_r" ... "start_a"
-    static const uintptr_t kEnd[4] = {0x0064FCCC, 0x0064FCC4, 0x0064FCBC, 0x0064FCB4};   // "end_r" ... "end_a"
+    static const char* const kStart[4] = {GAME_TEXT(0x0064FCEC, "start_r"), GAME_TEXT(0x0064FCE4, "start_g"), GAME_TEXT(0x0064FCDC, "start_b"), GAME_TEXT(0x0064FCD4, "start_a")}; // "start_r" ... "start_a"
+    static const char* const kEnd[4] = {GAME_TEXT(0x0064FCCC, "end_r"), GAME_TEXT(0x0064FCC4, "end_g"), GAME_TEXT(0x0064FCBC, "end_b"), GAME_TEXT(0x0064FCB4, "end_a")};   // "end_r" ... "end_a"
     for (int i = 0; i < 4; ++i) {
-        params->GetInteger(reinterpret_cast<const char*>(kStart[i]), &value, 0);
+        params->GetInteger(kStart[i], &value, 0);
         start[i] = static_cast<uint8_t>(value);
     }
     for (int i = 0; i < 4; ++i) {
-        params->GetInteger(reinterpret_cast<const char*>(kEnd[i]), &value, 0);
+        params->GetInteger(kEnd[i], &value, 0);
         end[i] = static_cast<uint8_t>(value);
     }
     uint32_t startColour;
@@ -671,7 +672,7 @@ bool __cdecl CFunc_SetScreenModeFromGameMode(Script::CStruct*, Script::CScript*)
     for (uint32_t i = 0; i < 8; ++i) {
         Obj::CSkater* skater = GetSkater(static_cast<int>(i));
         if (skater && skater->m_unknownBC)
-            Dbg::Printf(reinterpret_cast<const char*>(0x0064FE34), 0x16C0); // "cfuncs %d: SUTUBBBED..."
+            Dbg::Printf(GAME_TEXT(0x0064FE34, "cfuncs %d: SUTUBBBEDDDDDDDDDDDDDDDDDDDDDDDD\n"), 0x16C0); // "cfuncs %d: SUTUBBBED..."
     }
     int mode = GameModeObject()->GetScreenMode();
     int current = Nx::GetScreenMode();
@@ -704,7 +705,7 @@ bool __cdecl CFunc_TryCheatString(Script::CStruct* params, Script::CScript*)
     char buffer[0x80];
 #pragma warning(push)
 #pragma warning(disable : 4996) // (unbounded, and the text is the format: as in the original)
-    std::sprintf(buffer, reinterpret_cast<const char*>(0x0064FEA8)); // "12345678901234567890"
+    std::sprintf(buffer, GAME_TEXT(0x0064FEA8, "12345678901234567890")); // "12345678901234567890"
     std::sprintf(buffer, text);
     uint32_t checksum = Crc::GenerateCRCFromString(text);
     int sum = 0;
@@ -718,7 +719,7 @@ bool __cdecl CFunc_TryCheatString(Script::CStruct* params, Script::CScript*)
 #pragma warning(pop)
     uint32_t c1 = Crc::GenerateCRCFromString(text + std::strlen(text) / 3) ^ static_cast<uint32_t>(sum);
     uint32_t c2 = Crc::GenerateCRCFromString(buffer) ^ static_cast<uint32_t>(sum);
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064FE78), c1, c2, text); // "{c1=%d c2=%d CheatScript=cheat_xxx }..."
+    Dbg::Printf(GAME_TEXT(0x0064FE78, "\n{c1=%d c2=%d CheatScript=cheat_xxx },  ; %s\n\n"), c1, c2, text); // "{c1=%d c2=%d CheatScript=cheat_xxx }..."
     Script::CArray* cheats = Script::GetArray(kCheatList);
     int count = static_cast<int>(cheats->m_size);
     bool found = false;
@@ -727,9 +728,9 @@ bool __cdecl CFunc_TryCheatString(Script::CStruct* params, Script::CScript*)
         int cheatC1 = 0;
         int cheatC2 = 0;
         uint32_t script = 0;
-        cheat->GetInteger(reinterpret_cast<const char*>(0x0064FE74), &cheatC1, true);  // "c1"
-        cheat->GetInteger(reinterpret_cast<const char*>(0x0064FE70), &cheatC2, true);  // "c2"
-        cheat->GetChecksum(reinterpret_cast<const char*>(0x0064FE64), &script, true);  // "cheatscript"
+        cheat->GetInteger(GAME_TEXT(0x0064FE74, "c1"), &cheatC1, true);  // "c1"
+        cheat->GetInteger(GAME_TEXT(0x0064FE70, "c2"), &cheatC2, true);  // "c2"
+        cheat->GetChecksum(GAME_TEXT(0x0064FE64, "cheatscript"), &script, true);  // "cheatscript"
         if (static_cast<uint32_t>(cheatC1) == c1 && static_cast<uint32_t>(cheatC2) == c2) {
             Script::RunScript(kCheatFound, nullptr, nullptr, false, nullptr);
             Script::RunScript(script, nullptr, nullptr, false, nullptr);
@@ -826,11 +827,11 @@ bool __cdecl CFunc_SpawnSkaterScript(Script::CStruct* params, Script::CScript* s
     Script::CStruct* scriptParams = nullptr;
     params->GetStructure(kParams, &scriptParams, 0);
     uint32_t id = 0;
-    params->GetChecksum(reinterpret_cast<const char*>(0x0064FAE4), &id, 0); // "Id"
+    params->GetChecksum(GAME_TEXT(0x0064FAE4, "Id"), &id, 0); // "Id"
     uint32_t callback = 0;
-    params->GetChecksum(reinterpret_cast<const char*>(0x006501FC), &callback, 0); // "Callback"
+    params->GetChecksum(GAME_TEXT(0x006501FC, "Callback"), &callback, 0); // "Callback"
     Script::CStruct* callbackParams = nullptr;
-    params->GetStructure(reinterpret_cast<const char*>(0x006501EC), &callbackParams, 0); // "CallbackParams"
+    params->GetStructure(GAME_TEXT(0x006501EC, "CallbackParams"), &callbackParams, 0); // "CallbackParams"
     Script::CScript* spawned = Script::SpawnScript(name, scriptParams, callback, callbackParams, script->m_node, id,
                                                    false, false, false, false);
     spawned->m_object.Set(GetLocalSkater()); // (not checked for null, as in the original)

@@ -47,6 +47,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/engine.h"
+#include "hook/game_code.h"
 
 namespace Mdl {
 
@@ -86,7 +87,6 @@ constexpr uint8_t kMsgCreatedGoals = 0x87; // the created goals ("goals data")
 constexpr uint8_t kMsgReadyQuery = 0x25;   // are you ready (a time stamp)
 constexpr uint8_t kGroupGame = 8;
 
-const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
 Game::CGameMode* GameMode() { return Game::g_gameMode; }
 GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 Obj::CPlayerProfileManager* ProfileManager() { return Obj::g_profileManager; }
@@ -218,7 +218,7 @@ void Skate::StartCallback()
         Pcm::Init();
     Script::RunScript(kLoadPermSounds, nullptr, nullptr, false, nullptr);
     Mem::PushContext(Mem::BottomUpHeap());
-    Mem::PushMemProfile(Text(0x0064E4B8)); // "Permanent Assets"
+    Mem::PushMemProfile(GAME_TEXT(0x0064E4B8, "Permanent Assets")); // "Permanent Assets"
     Script::RunScript(kLoadPermanentAssets, nullptr, nullptr, false, nullptr);
     Mem::PopMemProfile();
     Mem::PopContext();
@@ -261,7 +261,7 @@ Obj::CSkaterProfile* Skate::GetProfile(int index) { return ProfileManager()->Get
 // 0x00564FD0
 void Skate::SetCurrentGameType()
 {
-    Dbg::Printf(Text(0x0064E4D0)); // "<<<...Changing Game Mode\n"
+    Dbg::Printf(GAME_TEXT(0x0064E4D0, "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<Changing Game Mode\n")); // "<<<...Changing Game Mode\n"
     GameMode()->LoadGameType(m_gameType);
 }
 
@@ -269,7 +269,7 @@ void Skate::SetCurrentGameType()
 void Skate::OpenLevel(uint32_t level)
 {
     GameNet::Manager* net = NetManager();
-    Mem::PushMemProfile(Text(0x0064E51C)); // "LaunchLevel"
+    Mem::PushMemProfile(GAME_TEXT(0x0064E51C, "LaunchLevel")); // "LaunchLevel"
     if (net->InNetGame() && net->OnServer()) {
         PlayerSearch search;
         for (void* player = net->FirstPlayerInfo(&search, true); player; player = net->NextPlayerInfo(&search, true))
@@ -337,7 +337,7 @@ int __cdecl Skate::CFunc_InTeamGame(Script::CStruct*, Script::CScript*) { return
 // 0x00565260
 bool __cdecl Skate::CFunc_ChangeLevel(Script::CStruct* params, Script::CScript*)
 {
-    Dbg::Printf(Text(0x0064E528)); // "ScriptChangeLevel\n"
+    Dbg::Printf(GAME_TEXT(0x0064E528, "ScriptChangeLevel\n")); // "ScriptChangeLevel\n"
     GameNet::Manager* net = NetManager();
     uint32_t level;
     params->GetChecksum(kLevel, &level, 1);
@@ -363,12 +363,12 @@ bool __cdecl Skate::CFunc_ChangeLevel(Script::CStruct* params, Script::CScript*)
         if (!static_cast<uint8_t>(info->IsLocalPlayer()) && level == kLoadSk5EdGameplay) {
             void* map = Ed::g_parkEditor->GetCompressedMapBuffer(false);
             int handle = info->GetConnHandle();
-            server->StreamMessage(handle, kMsgParkMap, 15000, map, Text(0x0064C884), kGroupGame, false,
+            server->StreamMessage(handle, kMsgParkMap, 15000, map, GAME_TEXT(0x0064C884, "level data"), kGroupGame, false,
                                   true); // "level data"
             Ed::CRailEditorComponent::Instance(); // (the rail editor; this first answer unused, as the original)
             void* rails = Ed::CRailEditorComponent::Instance()->GetPacked();
             handle = info->GetConnHandle();
-            server->StreamMessage(handle, kMsgParkRails, 0x1132, rails, Text(0x0064C878), kGroupGame, false,
+            server->StreamMessage(handle, kMsgParkRails, 0x1132, rails, GAME_TEXT(0x0064C878, "rail data"), kGroupGame, false,
                                   true); // "rail data"
         }
         desc.m_data = &message;
@@ -382,7 +382,7 @@ bool __cdecl Skate::CFunc_ChangeLevel(Script::CStruct* params, Script::CScript*)
             void* goals = net->GetCreatedGoalsMessage();
             uint32_t size = net->GetCreatedGoalsSize();
             server->StreamMessage(info->GetConnHandle(), kMsgCreatedGoals, static_cast<uint16_t>(size), goals,
-                                  Text(0x0064C86C), kGroupGame, false, true); // "goals data"
+                                  GAME_TEXT(0x0064C86C, "goals data"), kGroupGame, false, true); // "goals data"
         }
         desc.m_data = &now;
         desc.m_length = 4;
@@ -413,7 +413,7 @@ bool __cdecl Skate::CFunc_RequestLevel(Script::CStruct* params, Script::CScript*
         const char* name;
         if (params->GetString(0u, &name, 1)) {
             char script[0x80];
-            std::snprintf(script, sizeof(script), Text(0x0064E53C), name); // "load_%s"
+            std::snprintf(script, sizeof(script), GAME_TEXT(0x0064E53C, "load_%s"), name); // "load_%s"
             level = Crc::GenerateCRCFromString(script);
         }
     }

@@ -11,6 +11,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Script {
 
@@ -1822,7 +1823,7 @@ namespace {
 using Script::CStruct;
 
 // 0x00479190: the type-name lookup was compiled out: it gives a "(Hey, don't use this...)" message.
-const char* GetTypeName() { return reinterpret_cast<const char*>(0x00648474); }
+const char* GetTypeName() { return GAME_TEXT(0x00648474, "(Hey, don't use GetTypeName on the CD!)"); }
 
 // ComponentsEqual is a member of the first component in the game.
 struct ComponentEqualsAdapter {

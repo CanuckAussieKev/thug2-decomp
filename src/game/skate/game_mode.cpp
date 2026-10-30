@@ -15,6 +15,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -396,9 +397,9 @@ bool CGameMode::LoadGameType(uint32_t type)
 // 0x00553BE0
 bool CGameMode::OverrideOptions(Script::CStruct* options)
 {
-    for (const char* name : {reinterpret_cast<const char*>(0x0064DD80),   // "time_limit_type"
-                             reinterpret_cast<const char*>(0x0064DD68),   // "victory_condition_type"
-                             reinterpret_cast<const char*>(0x0064DD5C)}) { // "screenmode"
+    for (const char* name : {GAME_TEXT(0x0064DD80, "time_limit_type"),   // "time_limit_type"
+                             GAME_TEXT(0x0064DD68, "victory_condition_type"),   // "victory_condition_type"
+                             GAME_TEXT(0x0064DD5C, "screenmode")}) { // "screenmode"
         if (options->ContainsComponentNamed(name))
             m_params.RemoveComponent(Crc::GenerateCRCFromString(name));
     }

@@ -18,6 +18,7 @@
 #include "game/skater/skater.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Mdl {
 
@@ -41,7 +42,6 @@ constexpr uint32_t kNetKing = 0x6EF8FDA0;            // netking
 constexpr uint32_t kKing = 0x5D32129C;               // king
 constexpr uint32_t kFirstLine = 0x00039447;          // the first score line's id
 
-const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
 Game::CGameMode* GameMode() { return Game::g_gameMode; }
 GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 bool KingOfTheHill() { return GameMode()->GetNameChecksum() == kNetKing || GameMode()->GetNameChecksum() == kKing; }
@@ -145,14 +145,14 @@ void FormatScore(char* out, size_t size, uint32_t score, int colour, bool colour
     if (KingOfTheHill()) {
         uint32_t seconds = score / 1000;
         if (coloured)
-            std::snprintf(out, size, Text(0x0064E72C), colour, seconds / 60, seconds % 60); // "\c%d%.2d:%.2d"
+            std::snprintf(out, size, GAME_TEXT(0x0064E72C, "\\c%d%.2d:%.2d"), colour, seconds / 60, seconds % 60); // "\c%d%.2d:%.2d"
         else
-            std::snprintf(out, size, Text(0x0064E744), seconds / 60, seconds % 60); // "%.2d:%.2d"
+            std::snprintf(out, size, GAME_TEXT(0x0064E744, "%.2d:%.2d"), seconds / 60, seconds % 60); // "%.2d:%.2d"
     } else {
         if (coloured)
-            std::snprintf(out, size, Text(0x0064E73C), colour, score); // "\c%d%d"
+            std::snprintf(out, size, GAME_TEXT(0x0064E73C, "\\c%d%d"), colour, score); // "\c%d%d"
         else
-            std::snprintf(out, size, Text(0x00645394), score); // "%d"
+            std::snprintf(out, size, GAME_TEXT(0x00645394, "%d"), score); // "%d"
     }
 }
 
@@ -182,10 +182,10 @@ void __cdecl FillEliminationRanking()
     for (GameNet::ScoreEntry* entry = RankingList::After(&list.m_head); entry; ++id) {
         GameNet::ScoreEntry* next = RankingList::After(entry);
         char text[0x40];
-        std::snprintf(text, sizeof(text), Text(0x00646050), entry->m_colour, entry->m_text); // "\c%d%s"
+        std::snprintf(text, sizeof(text), GAME_TEXT(0x00646050, "\\c%d%s"), entry->m_colour, entry->m_text); // "\c%d%s"
         AddPlayerLine(text, false);
         AddScoreLine([&](char* score, size_t size) {
-            std::snprintf(score, size, Text(0x00645394), entry->m_teamScore); // "%d"
+            std::snprintf(score, size, GAME_TEXT(0x00645394, "%d"), entry->m_teamScore); // "%d"
         }, id, false);
         DeleteEntry(entry);
         entry = next;
@@ -222,11 +222,11 @@ bool __cdecl Skate::CFunc_FillRankingScreen(Script::CStruct*, Script::CScript*)
             entry->m_unknown44 = static_cast<uint32_t>(team);
             entry->m_teamScore = net->GetTeamScore(team);
             char name[0x40];
-            std::snprintf(name, sizeof(name), Text(0x0064C890), team + 1); // "team_%d_name"
-            const char* total = Script::GetString(Text(0x0064E768)); // "total_str"
+            std::snprintf(name, sizeof(name), GAME_TEXT(0x0064C890, "team_%d_name"), team + 1); // "team_%d_name"
+            const char* total = Script::GetString(GAME_TEXT(0x0064E768, "total_str")); // "total_str"
             const char* teamName = Script::GetString(name);
             std::snprintf(entry->m_text, sizeof(GameNet::ScoreEntry) - offsetof(GameNet::ScoreEntry, m_text),
-                          Text(0x0064E75C), entry->m_colour, teamName, total); // "\c%d%s %s" (unbounded there)
+                          GAME_TEXT(0x0064E75C, "\\c%d%s %s"), entry->m_colour, teamName, total); // "\c%d%s %s" (unbounded there)
             entry->priority = net->GetTeamScore(team);
             reinterpret_cast<Lst::Head*>(&list.m_head)->AddNode(entry);
         }
@@ -240,7 +240,7 @@ bool __cdecl Skate::CFunc_FillRankingScreen(Script::CStruct*, Script::CScript*)
                 uint32_t score = scoreOf(info);
                 char text[0x40];
                 std::snprintf(text, sizeof(text),
-                              Text(static_cast<uint8_t>(info->IsLocalPlayer()) ? 0x0064E750 : 0x00646050), // "\c%d> %s" / "\c%d%s"
+                              (static_cast<uint8_t>(info->IsLocalPlayer()) ? GAME_TEXT(0x0064E750, "\\c%d> %s") : GAME_TEXT(0x00646050, "\\c%d%s")), // "\c%d> %s" / "\c%d%s"
                               entry->m_colour, info->m_name);
                 AddPlayerLine(text, false);
                 AddScoreLine([&](char* shown, size_t size) { FormatScore(shown, size, score, 0, false); },

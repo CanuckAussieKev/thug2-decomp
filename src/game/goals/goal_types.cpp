@@ -23,6 +23,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/gfx/tod_manager.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -46,12 +47,12 @@ constexpr uint32_t kNumGapsFound = 0xF1E59083;         // num_gaps_found
 constexpr uint32_t kNumGapsToFind = 0xE75C4BBF;        // num_gaps_to_find
 constexpr uint32_t kFindGapsFoundGap = 0x851AA6B8;     // goal_find_gaps_found_gap
 
-const char* const kGotBronze = reinterpret_cast<const char*>(0x0064DA98);    // "gotBronze"
-const char* const kGotSilver = reinterpret_cast<const char*>(0x0064DA8C);    // "gotSilver"
-const char* const kGotGold = reinterpret_cast<const char*>(0x0064DA84);      // "gotGold"
-const char* const kRewardGiven = reinterpret_cast<const char*>(0x0064DA74);  // "reward_given"
-const char* const kWinRecordName = reinterpret_cast<const char*>(0x0064DA68); // "win_record"
-const char* const kRewardParams = reinterpret_cast<const char*>(0x0064DAA4); // "reward_params"
+const char* const kGotBronze = GAME_TEXT(0x0064DA98, "gotBronze");    // "gotBronze"
+const char* const kGotSilver = GAME_TEXT(0x0064DA8C, "gotSilver");    // "gotSilver"
+const char* const kGotGold = GAME_TEXT(0x0064DA84, "gotGold");      // "gotGold"
+const char* const kRewardGiven = GAME_TEXT(0x0064DA74, "reward_given");  // "reward_given"
+const char* const kWinRecordName = GAME_TEXT(0x0064DA68, "win_record"); // "win_record"
+const char* const kRewardParams = GAME_TEXT(0x0064DAA4, "reward_params"); // "reward_params"
 
 void** const kCompetitionGoalVtable = reinterpret_cast<void**>(0x0064D9F0);
 void** const kFilmGoalVtable = reinterpret_cast<void**>(0x0064DC60);

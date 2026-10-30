@@ -18,6 +18,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -38,7 +39,6 @@ constexpr uint32_t kType = 0x7321A8D6;            // type
 constexpr uint32_t kProStuff = 0x18653764;        // pro_stuff
 constexpr uint32_t kShowGoalPoints = 0x888EF05E;  // GoalManager_ShowGoalPoints
 
-const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
 
 // strcpy / strcat (no bounds, as the original).
 void Copy(char* dest, const char* text)
@@ -85,8 +85,8 @@ bool __cdecl CFunc_GoalManager_CreateGoalName(Script::CStruct* params, Script::C
     char name[128];
     Copy(name, level);
     if (GameMode()->IsTrue(kIsClassicMode) || params->ContainsFlag(kClassicModeGoal))
-        Append(name, Text(0x0064DED8)); // "_classic"
-    Append(name, Text(0x0064DED0));     // "_goal_"
+        Append(name, GAME_TEXT(0x0064DED8, "_classic")); // "_classic"
+    Append(name, GAME_TEXT(0x0064DED0, "_goal_"));     // "_goal_"
     Append(name, type);
     script->m_params->AddChecksum(kGoalIdChecksum, Crc::GenerateCRCFromString(name));
     script->m_params->AddString(kGoalName, name);
@@ -238,7 +238,7 @@ bool __cdecl CFunc_GoalManager_GetProsetNotPrefix(Script::CStruct* params, Scrip
         } while (prefix[length + 1]);
     }
     text[length] = 0;
-    Append(text, Text(0x0064DEE4)); // "NOT_"
+    Append(text, GAME_TEXT(0x0064DEE4, "NOT_")); // "NOT_"
     script->m_params->AddString(kProsetNotPrefix, text);
     return true;
 }
@@ -261,7 +261,7 @@ bool __cdecl CFunc_GoalManager_UnlockAllGoals(Script::CStruct*, Script::CScript*
 bool __cdecl CFunc_GoalManager_DeactivateCurrentGoal(Script::CStruct*, Script::CScript*)
 {
     GetGoalManager();
-    Dbg::Printf(Text(0x0064DE48)); // "CGoalManager::DeactivateCurrentGoal stubbed\n"
+    Dbg::Printf(GAME_TEXT(0x0064DE48, "CGoalManager::DeactivateCurrentGoal stubbed\n")); // "CGoalManager::DeactivateCurrentGoal stubbed\n"
     return true;
 }
 

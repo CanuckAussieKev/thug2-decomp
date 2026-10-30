@@ -8,6 +8,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/hook.h"
+#include "hook/game_code.h"
 
 namespace Game {
 
@@ -72,7 +73,7 @@ bool CSkateLineGoal::Land()
     CGoalManager* manager = GetGoalManager();
     if (AllFlagsSet())
         return manager->WinGoal(GetGoalId());
-    Dbg::Printf(reinterpret_cast<const char*>(0x0064E808)); // "all flags not set\n"
+    Dbg::Printf(GAME_TEXT(0x0064E808, "all flags not set\n")); // "all flags not set\n"
     return manager->LoseGoal(GetGoalId());
 }
 

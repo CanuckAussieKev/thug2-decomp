@@ -64,6 +64,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/settings.h"
+#include "hook/game_code.h"
 
 namespace Mdl {
 
@@ -123,7 +124,6 @@ constexpr uint8_t kGroupGame = 8;
 // The CTF / scavenger hunt restart points by team.
 constexpr uint32_t kTeamRestarts[4] = {0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3ED607}; // TRG_CTF_Restart_<colour>
 
-const char* Text(uint32_t address) { return reinterpret_cast<const char*>(address); }
 Game::CGameMode* GameMode() { return Game::g_gameMode; }
 GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 Obj::CGeneralManager* ObjectManager() { return reinterpret_cast<Obj::CGeneralManager*>(Obj::g_compositeObjectManager); }
@@ -258,14 +258,14 @@ void Skate::RemoveSkater(Obj::CSkater* skater)
             DeleteStructure(CatInfo());
             CatInfo() = nullptr;
         }
-        Dbg::Printf(Text(0x0064E568)); // "CAT: Storing Created Trick data\n"
+        Dbg::Printf(GAME_TEXT(0x0064E568, "CAT: Storing Created Trick data\n")); // "CAT: Storing Created Trick data\n"
         CatInfo() = NewStructure();
         skater->WriteCATInfo(CatInfo());
         if (StatGoalInfo()) {
             DeleteStructure(StatGoalInfo());
             StatGoalInfo() = nullptr;
         }
-        Dbg::Printf(Text(0x0064E548)); // "CAT: Storing Stat Goal data\n"
+        Dbg::Printf(GAME_TEXT(0x0064E548, "CAT: Storing Stat Goal data\n")); // "CAT: Storing Stat Goal data\n"
         StatGoalInfo() = NewStructure();
         skater->WriteList44B66A9F(StatGoalInfo());
     }
@@ -314,7 +314,7 @@ Obj::CSkater* Skate::AddSkater(Obj::CSkaterProfile* profile, bool local, uint32_
         }
     }
     net->InNetGame(); // (its answer unused, as the original)
-    Mem::PushMemProfile(Text(0x0064E724)); // "Skater"
+    Mem::PushMemProfile(GAME_TEXT(0x0064E724, "Skater")); // "Skater"
     int heap = GetNextUnusedSkaterHeapIndex(local);
     Mem::PushContext(SkaterHeap(heap));
     void* memory = Mem::Calloc(sizeof(Obj::CSkater));
@@ -337,13 +337,13 @@ Obj::CSkater* Skate::AddSkater(Obj::CSkaterProfile* profile, bool local, uint32_
     BindControllers();
     if (skater->m_unknownBC && skater->m_viewport == 0) {
         if (CatInfo()) {
-            Dbg::Printf(Text(0x0064E704)); // "CAT: Restoring Created Tricks\n"
+            Dbg::Printf(GAME_TEXT(0x0064E704, "CAT: Restoring Created Tricks\n")); // "CAT: Restoring Created Tricks\n"
             skater->LoadCATInfo(CatInfo());
             DeleteStructure(CatInfo());
             CatInfo() = nullptr;
         }
         if (StatGoalInfo()) {
-            Dbg::Printf(Text(0x0064E6E4)); // "CAT: Restoring Stat Goal data\n"
+            Dbg::Printf(GAME_TEXT(0x0064E6E4, "CAT: Restoring Stat Goal data\n")); // "CAT: Restoring Stat Goal data\n"
             skater->LoadList44B66A9F(StatGoalInfo());
             DeleteStructure(StatGoalInfo());
             StatGoalInfo() = nullptr;
@@ -391,11 +391,11 @@ void Skate::SetSkaterShadow(Obj::CSkater* skater)
         type = 2;
     Script::CStruct* params = NewStructure();
     params->AddFloat(kShadowScale, 1.0f);
-    params->AddString(kShadowModel, Text(0x006464CC)); // "Ped_Shadow"
+    params->AddString(kShadowModel, GAME_TEXT(0x006464CC, "Ped_Shadow")); // "Ped_Shadow"
     reinterpret_cast<void(__thiscall*)(Obj::CShadowComponent*, Script::CStruct*)>(shadow->m_vtable[2])(shadow, params);
     DeleteStructure(params);
     shadow->DestroyShadow();
-    shadow->CreateShadow(type, Text(0x006464CC));
+    shadow->CreateShadow(type, GAME_TEXT(0x006464CC, "Ped_Shadow"));
     Mem::PopContext();
 }
 
@@ -424,10 +424,10 @@ uint32_t Skate::SkipToRestartPoint(uint32_t skaterId)
 {
     GameNet::Manager* net = NetManager();
     auto generic = [] {
-        Dbg::Printf(Text(0x0064E600)); // "WARNING - no Player1 restart point, trying Generic"
+        Dbg::Printf(GAME_TEXT(0x0064E600, "\n\nWARNING - no Player1 restart point, trying Generic\n\n")); // "WARNING - no Player1 restart point, trying Generic"
         uint32_t node = Obj::GetRestartNode(0, 0, 0);
         if (!node)
-            Dbg::Printf(Text(0x0064E5D8)); // "WARNING - No restart points found"
+            Dbg::Printf(GAME_TEXT(0x0064E5D8, "\n\nWARNING - No restart points found\n\n")); // "WARNING - No restart points found"
         return node;
     };
     auto found = [&](uint32_t node) { return node ? node : generic(); };
@@ -435,7 +435,7 @@ uint32_t Skate::SkipToRestartPoint(uint32_t skaterId)
         uint32_t node = Obj::GetRestartNode(kMultiplayer, static_cast<int>(net->GetStartInfoWord(static_cast<int>(start))), 0);
         if (node)
             return node;
-        Dbg::Printf(Text(0x0064E638)); // "WARNING - no multiplayer restart point, trying player1"
+        Dbg::Printf(GAME_TEXT(0x0064E638, "\n\nWARNING - no multiplayer restart point, trying player1\n\n")); // "WARNING - no multiplayer restart point, trying player1"
         return found(Obj::GetRestartNode(kPlayer1, 0, 0));
     };
     if (!net->InNetGame() && GameMode()->GetInitialNumberOfPlayers() <= 1)
@@ -510,7 +510,7 @@ namespace Mdl {
 // 0x005666A0
 void Skate::Cleanup()
 {
-    Dbg::Printf(Text(0x0064E680)); // "Skate::Cleanup() - Deleting all session specific objects\n"
+    Dbg::Printf(GAME_TEXT(0x0064E680, "Skate::Cleanup() - Deleting all session specific objects\n")); // "Skate::Cleanup() - Deleting all session specific objects\n"
     for (uint32_t i = 0; i < static_cast<uint32_t>(GetNumSkaters()); ++i) {
         Obj::CSkater* skater = SkaterAt(i);
         if (!skater)
@@ -550,7 +550,7 @@ void Skate::Cleanup()
 // 0x00565A00
 void Skate::ChangeLevel(uint32_t level)
 {
-    Dbg::Printf(Text(0x0064E590), level); // "-----...Skate::ChangeLevel(%d)\n"
+    Dbg::Printf(GAME_TEXT(0x0064E590, "-----------------------------------------Skate::ChangeLevel(%d)\n"), level); // "-----...Skate::ChangeLevel(%d)\n"
     Mem::PushContext(Mem::Manager::Get()->m_skaterInfoHeap);
     Script::CStruct* params = NewStructure();
     params->Clear();
@@ -604,7 +604,7 @@ void Skate::LaunchGame()
     GameNet::Manager* net = NetManager();
     g_frontEndInstance->PauseGame(false);
     Mem::PushContext(Mem::BottomUpHeap());
-    Dbg::Printf(Text(0x0064E6BC), GetNumSkaters()); // "\nLAUNCH GAME CALLED with %d skaters \n\n"
+    Dbg::Printf(GAME_TEXT(0x0064E6BC, "\nLAUNCH GAME CALLED with %d skaters \n\n"), GetNumSkaters()); // "\nLAUNCH GAME CALLED with %d skaters \n\n"
     if (!net->GetLocalPlayer()) {
         if (static_cast<uint32_t>(GameMode()->GetMaximumNumberOfPlayers()) > 1)
             Mem::Manager::Get()->InitExtraSkaterHeaps(GameMode()->GetMaximumNumberOfPlayers());
@@ -1003,7 +1003,7 @@ void __cdecl Skate::LogicTask(Tsk::BaseTask* task)
     int target = GameMode()->GetFirstConditionValue();
     int current = static_cast<uint8_t>(GameMode()->IsTeamGame()) ? net->GetTeamScore(king->m_team) : score->GetTotalScore();
     skate->TimerBeep(static_cast<float>(static_cast<double>(target - current) * static_cast<double>(0.001f)), 10.0f,
-                     10.0f, Text(0x0064E774)); // "timer_runout_beep"
+                     10.0f, GAME_TEXT(0x0064E774, "timer_runout_beep")); // "timer_runout_beep"
 }
 
 // --- made and destroyed ---------------------------------------------------------------------------------------------
