@@ -84,7 +84,7 @@ void ShowConnectionMetrics(Net::Conn* conn, int index)
 void ShowAppMetrics(Net::App* app)
 {
     Net::ConnSearch search;
-    search.m_vtable = reinterpret_cast<void**>(0x0064759C);
+    search.m_vtable = Net::kConnSearchVtable;
     search.m_node = nullptr;
     int index = 0;
     for (Net::Conn* conn = app->FirstConnection(&search); conn; conn = app->NextConnection(&search)) {

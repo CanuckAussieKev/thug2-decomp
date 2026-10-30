@@ -160,7 +160,7 @@ void __cdecl Manager::ClientAddNewPlayersTask(void* task)
     memory->PushContext(memory->m_skaterInfoHeap);
     Manager* manager = TaskManager(task);
     uint8_t* skate = SkateModule();
-    Net::ConnSearch search = {reinterpret_cast<void**>(0x0064759C), nullptr};
+    Net::ConnSearch search = {Net::kConnSearchVtable, nullptr};
     auto* node = Field<Mem::ListNode*>(manager, 0x13C);
     bool added = false;
     if (node->data != reinterpret_cast<void*>(-1) && node) {

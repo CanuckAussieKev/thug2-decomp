@@ -448,7 +448,7 @@ void __cdecl Manager::ConnectionTask(void* task)
         return;
     }
     // A client: the server silent too long while joining or joined.
-    Net::ConnSearch search = {reinterpret_cast<void**>(0x0064759C), nullptr};
+    Net::ConnSearch search = {Net::kConnSearchVtable, nullptr};
     Net::App* client = manager->m_client;
     if (!client)
         return;

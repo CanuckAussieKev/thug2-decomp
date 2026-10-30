@@ -12,6 +12,7 @@
 #include "game/net/gamenet_handlers.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
+#include "game/net/gamenet_lists.h"
 #include "game/net/net_manager.h"
 #include "game/net/service.h"
 #include "game/net/stats_man.h"
@@ -99,11 +100,11 @@ Manager* Manager::Construct()
     reinterpret_cast<Prefs::Preferences*>(m_networkPreferences)->Init();
     auto* taunts = &Field<Prefs::Preferences>(this, 0x110);
     taunts->Init();
-    InitHead(&Field<Mem::ListNode>(this, 0x11C), 0x0064C9F0); // the players
-    InitHead(&Field<Mem::ListNode>(this, 0x130), 0x0064C9F4); // the joining players
-    InitHead(&Field<Mem::ListNode>(this, 0x144), 0x0064C9F8);
-    InitHead(&Field<Mem::ListNode>(this, 0x158), 0x0064C9FC);
-    InitHead(&Field<Mem::ListNode>(this, 0x16C), 0x0064C9FC);
+    InitHead(&Field<Mem::ListNode>(this, 0x11C), reinterpret_cast<uint32_t>(kPlayerHeadVtable)); // the players
+    InitHead(&Field<Mem::ListNode>(this, 0x130), reinterpret_cast<uint32_t>(kNewPlayerHeadVtable)); // the joining players
+    InitHead(&Field<Mem::ListNode>(this, 0x144), reinterpret_cast<uint32_t>(kQueuedScriptVtable));
+    InitHead(&Field<Mem::ListNode>(this, 0x158), reinterpret_cast<uint32_t>(kServerHeadVtable));
+    InitHead(&Field<Mem::ListNode>(this, 0x16C), reinterpret_cast<uint32_t>(kServerHeadVtable));
     m_proSetFlags = 0;
     Tsk::Stack* tasks =
         reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(Ass::g_mainLoopManager)) + 4);
