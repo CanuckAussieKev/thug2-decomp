@@ -60,6 +60,10 @@ export class Image {
         for (let i = 3; i >= 0; i--) v = v * 256 + (this.byte(va + i) ?? 0);
         return v;
     }
+    // Every section's name, address and file bytes (what lies in the file: .data's zero-filled tail is left out).
+    sectionBytes(): { name: string; va: number; data: Buffer }[] {
+        return this.sections.map((s) => ({ name: s.name, va: s.va, data: this.bytes.subarray(s.raw, s.raw + s.size) }));
+    }
     dataSections(): { va: number; size: number }[] {
         return this.sections.filter((s) => s.name !== ".text").map((s) => ({ va: s.va, size: s.size }));
     }
