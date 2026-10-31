@@ -4,7 +4,9 @@
 #include "game/gfx/skeleton.h"
 #include "game/gfx/d3dx.h"
 
+#include <cstdint>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -12,9 +14,7 @@
 #include "game/gfx/debug_lines.h"
 #include "game/obj/cutscene.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Gfx {
 
@@ -575,38 +575,8 @@ void CSkeleton::CollapseZeroScaledBones()
 }
 
 namespace {
-GAME_VTABLE(kSkeletonDataVtable, 0x00649F48, &Gfx::CSkeletonData::Destroy);
+static VtableSlot kSkeletonDataVtable_slots[] = {&Gfx::CSkeletonData::Destroy};
+void** const kSkeletonDataVtable = reinterpret_cast<void**>(kSkeletonDataVtable_slots);
 } // namespace
 
 } // namespace Gfx
-
-REPLACE(0x004A2C20, &Gfx::CSkeletonData::Construct);
-REPLACE(0x004A3950, &Gfx::CSkeletonData::Destroy);
-REPLACE(0x004A39C0, &Gfx::CSkeletonData::Load);
-REPLACE(0x004A2C50, &Gfx::CSkeletonData::GetParentName);
-REPLACE(0x004A2C60, &Gfx::CSkeletonData::GetFlipIndex);
-REPLACE(0x004A2C70, &Gfx::CSkeletonData::GetIndex);
-REPLACE(0x004A30D0, &Gfx::CSkeletonData::GetParentIndex);
-REPLACE(0x004A3100, &Gfx::CSkeletonData::IsDescendant);
-REPLACE(0x004A2CA0, &Gfx::CSkeletonData::GetInverseBindMatrices);
-REPLACE(0x004A3D30, &Gfx::CSkeleton::Construct);
-REPLACE(0x004A3E80, &Gfx::CSkeleton::ConstructCopy);
-REPLACE(0x004A2CB0, &Gfx::CSkeleton::DestroyBody);
-REPLACE_SOURCE_ONLY(0x004A2BA0, &Gfx::CSkeleton::GetNumBones); // 4 bytes (folded: other classes' +0x14 getters too)
-REPLACE(0x004A2B60, &Gfx::CSkeleton::GetBoneIndex);
-REPLACE(0x004A2B90, &Gfx::CSkeleton::GetBone);
-REPLACE(0x004A2BB0, &Gfx::CSkeleton::SetBoneActive);
-REPLACE(0x004A2CE0, &Gfx::CSkeleton::ResetBoneScales);
-REPLACE(0x004A2D20, &Gfx::CSkeleton::GetBoneScale);
-REPLACE(0x004A2D80, &Gfx::CSkeleton::SetBoneScale);
-REPLACE(0x004A2E20, &Gfx::CSkeleton::CopyBoneScales);
-REPLACE(0x004A3570, &Gfx::CSkeleton::ApplyBoneScales);
-REPLACE(0x004A3090, &Gfx::CSkeleton::SetLOD);
-REPLACE(0x004A3150, &Gfx::CSkeleton::LinkBones);
-REPLACE(0x004A36E0, &Gfx::CSkeleton::GetBoneMatrix);
-REPLACE(0x004A3870, &Gfx::CSkeleton::GetBonePosition);
-REPLACE(0x004A31E0, &Gfx::CSkeleton::Draw);
-REPLACE_UNCHECKED(0x004A2F20, Gfx::QuatToBoneMatrixStub); // (registers and caller-popped stack arguments)
-REPLACE(0x004A4240, static_cast<void (Gfx::CSkeleton::*)(const float (*)[4], const float (*)[4])>(&Gfx::CSkeleton::Update));
-REPLACE(0x004A44E0, static_cast<void (Gfx::CSkeleton::*)(const Gfx::CPose*)>(&Gfx::CSkeleton::Update));
-REPLACE(0x004A4000, &Gfx::CSkeleton::CollapseZeroScaledBones);

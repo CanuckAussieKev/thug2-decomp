@@ -1,8 +1,8 @@
 // A connection's round-trip times (Net::LatencyTest). See net_latency.h.
 
-#include "game/net/net_latency.h"
+#include <cstdint>
 
-#include "hook/hook.h"
+#include "game/net/net_latency.h"
 
 namespace Net {
 
@@ -36,6 +36,3 @@ void LatencyTest::InputLatencyValue(int latency)
 }
 
 } // namespace Net
-
-REPLACE(0x00456970, &Net::LatencyTest::Construct);
-REPLACE(0x004569B0, &Net::LatencyTest::InputLatencyValue);

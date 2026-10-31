@@ -4,12 +4,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <vector>
 
 #include "game/front/level_editor_scenery.h"
 #include "game/gfx/mesh.h"
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
-#include "hook/game.h"
 
 namespace Front::LevelEditor::Snap {
 

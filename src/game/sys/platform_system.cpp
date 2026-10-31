@@ -5,12 +5,10 @@
 #include <mmsystem.h>
 #include <dsound.h>
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/sfx/mute_audio.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/device.h"
 #include "game/pcm/music.h"
 
@@ -18,11 +16,11 @@ namespace Platform {
 
 namespace {
 
-GAME_GLOBAL(int, g_frameTop, 0x0068E0BC, 1);
-GAME_GLOBAL(char, g_cdDriveSlash, 0x007D6A25);
-GAME_GLOBAL(char, g_cdDriveColon, 0x007D6A27);
-GAME_GLOBAL(int, g_frameLeft, 0x007D6A30);
-GAME_GLOBAL(char, g_cdDriveLetter, 0x007D6A34);
+int g_frameTop{1};
+char g_cdDriveSlash;
+char g_cdDriveColon;
+int g_frameLeft;
+char g_cdDriveLetter;
 
 // The CD's drive letter and the ':' / '\' kept with it.
 char& CdDriveLetter() { return g_cdDriveLetter; }
@@ -202,10 +200,3 @@ void* Unswizzle(void* out, const void* in, int width, int height, uint32_t bytes
 }
 
 } // namespace Platform
-
-REPLACE(0x005F5740, Platform::FindCdDrive);
-REPLACE(0x005F5860, Platform::CreateGameWindow);
-REPLACE(0x005F59D0, Platform::InitDirectSound);
-REPLACE(0x005F5A00, Platform::ReleaseDirectSound);
-REPLACE(0x005F5A20, Platform::DecodeAdpcm);
-REPLACE(0x005F5AF0, Platform::Unswizzle);

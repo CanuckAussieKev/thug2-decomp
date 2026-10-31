@@ -38,18 +38,18 @@ unsigned __cdecl LinkedTime(unsigned* out)
 
 uint32_t InetAddr(const char* address)
 {
-    return static_cast<uint32_t>(GAME_LIBRARY(0x005BEAAE, decltype(&inet_addr), inet_addr)(address));
+    return static_cast<uint32_t>(inet_addr(address));
 }
 const char* InetNtoa(uint32_t address)
 {
     in_addr in;
     in.s_addr = address;
-    return GAME_LIBRARY(0x005BEAB4, decltype(&inet_ntoa), inet_ntoa)(in);
+    return inet_ntoa(in);
 }
-void* GetHostByName(const char* name) { return GAME_LIBRARY(0x005BEABA, decltype(&gethostbyname), gethostbyname)(name); }
+void* GetHostByName(const char* name) { return gethostbyname(name); }
 
-void CExit() { GAME_LIBRARY(0x00624B20, void(__cdecl*)(), _cexit)(); }
-unsigned Time() { return GAME_LIBRARY(0x00625138, unsigned(__cdecl*)(unsigned*), LinkedTime)(nullptr); }
+void CExit() { _cexit(); }
+unsigned Time() { return LinkedTime(nullptr); }
 
 int LinkedSprintf(char* out, const char* format, ...)
 {

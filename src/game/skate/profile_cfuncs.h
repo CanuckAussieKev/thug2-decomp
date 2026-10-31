@@ -2,8 +2,6 @@
 
 #include <cstdint>
 
-#include "hook/game_global.h"
-
 namespace Script {
 class CStruct;
 class CScript;
@@ -23,7 +21,7 @@ struct SwapSlot {
     uint32_t value;
 };
 static_assert(sizeof(SwapSlot) == 12, "layout must match the original");
-GAME_GLOBAL_EXTERN(SwapSlot[5], g_swapTable);
+extern SwapSlot g_swapTable[5];
 
 // 0x005AA930: `a` and `b` swapped in the table of five checksum pairs (0x007CEDE0: in use, key, value): each gets a
 // slot (a free one if it has none - the table being full isn't checked, as in the original), then their values are

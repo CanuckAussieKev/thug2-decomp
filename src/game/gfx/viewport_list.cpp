@@ -3,9 +3,6 @@
 #include "game/gfx/viewport_list.h"
 #include "game/gfx/viewport.h"
 
-#include "hook/game.h"
-#include "hook/hook.h"
-
 namespace Nx {
 
 namespace {
@@ -46,7 +43,3 @@ bool __cdecl MarkCameraForDeletion(Gfx::Camera* camera)
 }
 
 } // namespace Nx
-
-REPLACE(0x004A06D0, Nx::GetActiveViewport);
-REPLACE(0x004A0710, Nx::GetScreenMode);
-REPLACE(0x004A0720, Nx::MarkCameraForDeletion);

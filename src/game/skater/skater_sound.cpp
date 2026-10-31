@@ -11,14 +11,12 @@
 #include "game/script/struct.h"
 #include "game/sfx/terrain.h"
 #include "game/skater/thaw_bmx.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -207,37 +205,23 @@ int CSkaterSoundComponent::CallMemberFunction(uint32_t name, Script::CStruct* /*
 
 } // namespace Obj
 
-REPLACE(0x00518E20, Obj::CSkaterSoundComponent::Create);
-REPLACE(0x00518C80, &Obj::CSkaterSoundComponent::DestroyBody);
-REPLACE(0x00518C90, &Obj::CSkaterSoundComponent::Destroy);
-REPLACE(0x00518CC0, &Obj::CSkaterSoundComponent::InitFromStructure);
-REPLACE(0x00518FD0, &Obj::CSkaterSoundComponent::CallMemberFunction);
-REPLACE(0x00518CF0, &Obj::CSkaterSoundComponent::PlayLand);
-REPLACE(0x00518D60, &Obj::CSkaterSoundComponent::PlayJump);
-REPLACE(0x00518DD0, &Obj::CSkaterSoundComponent::PlayBonk);
-REPLACE(0x00518EA0, &Obj::CSkaterSoundComponent::PlayLandHere);
-REPLACE(0x00518FA0, &Obj::CSkaterSoundComponent::PlayJumpHere);
-REPLACE(0x00518EE0, &Obj::CSkaterSoundComponent::PlayJumpInState);
-REPLACE(0x00518F00, &Obj::CSkaterSoundComponent::PlayBonkHere);
-REPLACE(0x00518F50, &Obj::CSkaterSoundComponent::PlayCessHere);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064C0C4,
-    &Obj::CSkaterSoundComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    &Obj::CSkaterSoundComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CSkaterSoundComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSkaterSoundComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         &Obj::CSkaterSoundComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CSkaterSoundComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

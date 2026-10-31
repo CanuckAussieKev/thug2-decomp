@@ -1,5 +1,7 @@
 #include "game/file/pip.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -14,10 +16,6 @@
 #include "game/sys/game_config.h"
 #include "game/util/lzss.h"
 #include "game/gfx/loading_console.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/shadow.h"
 
 namespace Pip {
 
@@ -26,8 +24,8 @@ namespace {
 constexpr int kMaxLoadedFiles = 200;
 constexpr int kMaxPreFiles = 100;
 
-GAME_GLOBAL(LoadedFile[kMaxLoadedFiles], g_loadedFiles, 0x007CF198);
-GAME_GLOBAL(char*[kMaxPreFiles], g_preFiles, 0x007CFE18);
+LoadedFile g_loadedFiles[kMaxLoadedFiles];
+char* g_preFiles[kMaxPreFiles];
 
 LoadedFile* LoadedFiles() { return g_loadedFiles; }
 // Each loaded .pre archive's memory starts with the archive's name (see PreHeader).
@@ -531,19 +529,3 @@ bool PreFileIsInUse(const char* name)
 } // namespace Pip
 
 static_assert(sizeof(Pip::PreEntry) == 16 && sizeof(Pip::LoadedFile) == 16, "layout must match the original");
-
-REPLACE_SOURCE_ONLY(0x005B70F0, &Pip::FileTables::Construct); // (not a Ghidra function; a static initialiser's)
-REPLACE(0x005B7130, Pip::UnloadPre);
-REPLACE_SHADOW(0x005B7180, Pip::FindPreEntry);
-REPLACE(0x005B7200, static_cast<void (*)(uint32_t)>(&Pip::Unload));
-REPLACE(0x005B7270, static_cast<void (*)(const char*)>(&Pip::Unload));
-REPLACE_SHADOW(0x005B7290, static_cast<int (*)(uint32_t)>(&Pip::GetFileSize));
-REPLACE_SHADOW(0x005B72E0, static_cast<int (*)(const char*)>(&Pip::GetFileSize));
-REPLACE_SHADOW(0x005B7300, Pip::GetNextLoadedPre);
-REPLACE(0x005B7C00, Pip::Load);
-REPLACE_SHADOW(0x005B7370, Pip::PreFileIsInUse);
-REPLACE(0x005B75A0, Pip::LoadPre);
-REPLACE(0x005B7B00, Pip::LoadFileInto);
-REPLACE(0x005B7A60, Pip::CFunc_LoadPipPre);
-REPLACE(0x005B7410, Pip::CFunc_UnLoadPipPre);
-REPLACE(0x005B7430, Pip::CFunc_DumpPipPreStatus);

@@ -9,16 +9,14 @@
 #include <cstdint>
 
 #include "game/sys/config.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
 #include "game/gfx/device.h"
 #include "game/gfx/camera.h"
 
 namespace Nx {
 
-GAME_GLOBAL(uint8_t, g_hqShadows, 0x007D6435);
-GAME_GLOBAL(bool, g_fogSetting, 0x007D6436);
-GAME_GLOBAL(bool, g_distanceClipping, 0x007D643A);
+uint8_t g_hqShadows;
+bool g_fogSetting;
+bool g_distanceClipping;
 
 namespace {
 

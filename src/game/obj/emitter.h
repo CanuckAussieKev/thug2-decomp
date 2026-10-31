@@ -13,7 +13,6 @@
 #include "game/mth/geometry.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
-#include "hook/game_global.h"
 
 namespace Lst {
 class HashTable;
@@ -88,5 +87,5 @@ static_assert(offsetof(CFollowTrail, m_count) == 0x400 && offsetof(CFollowTrail,
                   offsetof(CFollowTrail, m_distance) == 0x41C && offsetof(CFollowTrail, m_freeFacing) == 0x420,
               "layout must match the original");
 
-GAME_GLOBAL_EXTERN(void*, g_emitterTable);
+extern void* g_emitterTable;
 } // namespace Obj

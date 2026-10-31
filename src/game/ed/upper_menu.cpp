@@ -1,12 +1,12 @@
 // The park editor's piece menu.
 
+#include <cstdint>
+
 #include "game/ed/piece_menu.h"
 
 #include "game/core/mem.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
@@ -64,8 +64,3 @@ void CUpperMenuManager::Disable()
 } // namespace Ed
 
 using Ed::CUpperMenuManager;
-
-REPLACE(0x00595570, &CUpperMenuManager::sInstance);
-REPLACE(0x00595580, &CUpperMenuManager::Disable);
-REPLACE(0x00597400, &CUpperMenuManager::Create);
-REPLACE(0x00597490, &CUpperMenuManager::Enable);

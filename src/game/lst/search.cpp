@@ -3,8 +3,7 @@
 #include "game/lst/search.h"
 
 #include "game/core/manager.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Lst {
 
@@ -25,10 +24,8 @@ SearchDestructors* SearchDestructors::Destroy(unsigned int flags)
 }
 
 namespace {
-GAME_VTABLE(kSearchVtable, 0x00658AA4, &Lst::SearchDestructors::Destroy);
+static VtableSlot kSearchVtable_slots[] = {&Lst::SearchDestructors::Destroy};
+void** const kSearchVtable = reinterpret_cast<void**>(kSearchVtable_slots);
 } // namespace
 
 } // namespace Lst
-
-REPLACE(0x005BDE30, &Lst::SearchDestructors::DestroyBody);
-REPLACE(0x005BDE40, &Lst::SearchDestructors::Destroy);

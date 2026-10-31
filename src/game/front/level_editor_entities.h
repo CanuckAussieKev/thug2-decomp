@@ -8,7 +8,6 @@
 
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_ui.h"
-#include "hook/game_global.h"
 
 struct ImFont;
 

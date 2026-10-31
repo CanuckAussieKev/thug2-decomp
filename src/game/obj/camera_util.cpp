@@ -7,8 +7,6 @@
 
 #include "game/nx/feeler.h"
 #include "game/obj/smtptr.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
@@ -181,6 +179,3 @@ void __cdecl AvoidCameraCollisions(Mth::Vector* position, Mth::Matrix* matrix, c
 }
 
 } // namespace Obj
-
-REPLACE(0x004E4340, Obj::FrameBlend);
-REPLACE(0x004E4360, Obj::AvoidCameraCollisions);

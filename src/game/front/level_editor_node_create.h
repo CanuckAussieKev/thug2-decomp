@@ -7,7 +7,6 @@
 
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_nodes.h"
-#include "hook/game_global.h"
 
 // NOT ORIGINAL - the level editor's added and hidden nodes (ours; see level_editor.h - phase 3 of the plan).
 //

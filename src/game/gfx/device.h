@@ -5,7 +5,6 @@
 #include <d3d9.h>
 
 #include <cstdint>
-#include "hook/game_global.h"
 
 // The Direct3D 9 device (Nx engine, PC).
 namespace Nx {
@@ -38,28 +37,28 @@ long __cdecl SetRenderState(int state, uint32_t value);
 // 0x0044F890: the device's Clear (rectangles or the whole viewport; D3DCLEAR_* flags). Returns the HRESULT.
 long __cdecl ClearDevice(uint32_t rectCount, const void* rects, uint32_t flags, uint32_t color, float z, uint32_t stencil);
 
-GAME_GLOBAL_EXTERN(IDirect3DDevice9*, g_d3dDevice);
-GAME_GLOBAL_EXTERN(IDirect3DDevice9*, g_drawDevice); // the same device, kept twice
-GAME_GLOBAL_EXTERN(D3DPRESENT_PARAMETERS, g_presentParameters);
-GAME_GLOBAL_EXTERN(IDirect3DSurface9*[9], g_screenSurfaces);
-GAME_GLOBAL_EXTERN(bool, g_showWindowFlag);
-GAME_GLOBAL_EXTERN(bool, g_streamOffsetSupported);
-GAME_GLOBAL_EXTERN(IDirect3DTexture9*[9], g_screenTextures);
-GAME_GLOBAL_EXTERN(uint32_t, g_loadingBarTimer); // the timer's id (timeSetEvent)
-GAME_GLOBAL_EXTERN(float, g_screenScaleX); // 640x480 -> back buffer scale
+extern IDirect3DDevice9* g_d3dDevice;
+extern IDirect3DDevice9* g_drawDevice; // the same device, kept twice
+extern D3DPRESENT_PARAMETERS g_presentParameters;
+extern IDirect3DSurface9* g_screenSurfaces[9];
+extern bool g_showWindowFlag;
+extern bool g_streamOffsetSupported;
+extern IDirect3DTexture9* g_screenTextures[9];
+extern uint32_t g_loadingBarTimer; // the timer's id (timeSetEvent)
+extern float g_screenScaleX; // 640x480 -> back buffer scale
 
-GAME_GLOBAL_EXTERN(float, g_screenScaleY);
-GAME_GLOBAL_EXTERN(int, g_screenOffsetX);
-GAME_GLOBAL_EXTERN(int, g_screenOffsetY);
-GAME_GLOBAL_EXTERN(IDirect3DSurface9*, g_depthSurface);
-GAME_GLOBAL_EXTERN(IDirect3DSurface9*, g_backBuffer);
-GAME_GLOBAL_EXTERN(IDirect3DSurface9*, g_backDepth);
-GAME_GLOBAL_EXTERN(bool, g_borderAddressingSupported);
-GAME_GLOBAL_EXTERN(bool, g_blendFactorSupported);
-GAME_GLOBAL_EXTERN(uint32_t, g_maxAnisotropy);
-GAME_GLOBAL_EXTERN(bool, g_antialiasing);
-GAME_GLOBAL_EXTERN(uint8_t, g_setFrequencyAllowed);
-GAME_GLOBAL_EXTERN(int, g_resolutionSetting);
-GAME_GLOBAL_EXTERN(IDirect3D9*, g_direct3D);
-GAME_GLOBAL_EXTERN(HWND, g_gameWindow);
+extern float g_screenScaleY;
+extern int g_screenOffsetX;
+extern int g_screenOffsetY;
+extern IDirect3DSurface9* g_depthSurface;
+extern IDirect3DSurface9* g_backBuffer;
+extern IDirect3DSurface9* g_backDepth;
+extern bool g_borderAddressingSupported;
+extern bool g_blendFactorSupported;
+extern uint32_t g_maxAnisotropy;
+extern bool g_antialiasing;
+extern uint8_t g_setFrequencyAllowed;
+extern int g_resolutionSetting;
+extern IDirect3D9* g_direct3D;
+extern HWND g_gameWindow;
 } // namespace Nx

@@ -4,10 +4,11 @@
 
 #include <d3d9.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
-#include "hook/game.h"
 #include "game/gfx/device.h"
 #include "game/gfx/engine_glue.h"
 

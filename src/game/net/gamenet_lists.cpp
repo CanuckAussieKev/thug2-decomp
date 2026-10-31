@@ -3,19 +3,26 @@
 #include "game/net/gamenet_lists.h"
 
 #include "game/core/manager.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace GameNet {
 
-GAME_VTABLE(kPlayerNodeVtable, 0x0064C9E8, &PlayerNode::Destroy);
-GAME_VTABLE(kNewPlayerNodeVtable, 0x0064C9E4, &NewPlayerNode::Destroy);
-GAME_VTABLE(kServerNodeVtable, 0x0064C9EC, &ServerNode::Destroy);
-GAME_VTABLE(kQueuedScriptNodeVtable, 0x0064C8EC, &QueuedScriptNode::Destroy);
-GAME_VTABLE(kQueuedScriptVtable, 0x0064C9F8, &QueuedScript::DestroyRecord);
-GAME_VTABLE(kPlayerHeadVtable, 0x0064C9F0, &PlayerNode::DestroyHead);
-GAME_VTABLE(kNewPlayerHeadVtable, 0x0064C9F4, &NewPlayerNode::DestroyHead);
-GAME_VTABLE(kServerHeadVtable, 0x0064C9FC, &ServerNode::DestroyHead);
+static VtableSlot kPlayerNodeVtable_slots[] = {&PlayerNode::Destroy};
+void** const kPlayerNodeVtable = reinterpret_cast<void**>(kPlayerNodeVtable_slots);
+static VtableSlot kNewPlayerNodeVtable_slots[] = {&NewPlayerNode::Destroy};
+void** const kNewPlayerNodeVtable = reinterpret_cast<void**>(kNewPlayerNodeVtable_slots);
+static VtableSlot kServerNodeVtable_slots[] = {&ServerNode::Destroy};
+void** const kServerNodeVtable = reinterpret_cast<void**>(kServerNodeVtable_slots);
+static VtableSlot kQueuedScriptNodeVtable_slots[] = {&QueuedScriptNode::Destroy};
+void** const kQueuedScriptNodeVtable = reinterpret_cast<void**>(kQueuedScriptNodeVtable_slots);
+static VtableSlot kQueuedScriptVtable_slots[] = {&QueuedScript::DestroyRecord};
+void** const kQueuedScriptVtable = reinterpret_cast<void**>(kQueuedScriptVtable_slots);
+static VtableSlot kPlayerHeadVtable_slots[] = {&PlayerNode::DestroyHead};
+void** const kPlayerHeadVtable = reinterpret_cast<void**>(kPlayerHeadVtable_slots);
+static VtableSlot kNewPlayerHeadVtable_slots[] = {&NewPlayerNode::DestroyHead};
+void** const kNewPlayerHeadVtable = reinterpret_cast<void**>(kNewPlayerHeadVtable_slots);
+static VtableSlot kServerHeadVtable_slots[] = {&ServerNode::DestroyHead};
+void** const kServerHeadVtable = reinterpret_cast<void**>(kServerHeadVtable_slots);
 
 namespace {
 
@@ -106,18 +113,5 @@ QueuedScript* QueuedScript::DestroyRecord(unsigned int flags)
         Free(this);
     return this;
 }
-
-REPLACE(0x005366A0, &PlayerNode::DestroyBody);
-REPLACE(0x00536760, &PlayerNode::Destroy);
-REPLACE(0x00536CE0, &PlayerNode::DestroyHead);
-REPLACE(0x005366E0, &NewPlayerNode::DestroyBody);
-REPLACE(0x005367E0, &NewPlayerNode::Destroy);
-REPLACE(0x00536D10, &NewPlayerNode::DestroyHead);
-REPLACE(0x005366C0, &ServerNode::DestroyBody);
-REPLACE(0x005367A0, &ServerNode::Destroy);
-REPLACE(0x00536D40, &ServerNode::DestroyHead);
-REPLACE(0x00536700, &QueuedScriptNode::DestroyBody);
-REPLACE(0x00536720, &QueuedScriptNode::Destroy);
-REPLACE(0x005371F0, &QueuedScript::DestroyRecord);
 
 } // namespace GameNet

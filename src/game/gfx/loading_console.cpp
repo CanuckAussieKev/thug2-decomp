@@ -14,15 +14,18 @@
 #include <atomic>
 #include <cmath>
 #include <cstdarg>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
+#include <vector>
 
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/gfx/movie.h"
 #include "game/gfx/render.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "imgui.h"
 

@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "hook/game_global.h"
 
 // Light glows (Nx engine, PC): halos at light positions (the table 0x007CA9D8) that grow while occlusion queries
 // see them and fade otherwise.

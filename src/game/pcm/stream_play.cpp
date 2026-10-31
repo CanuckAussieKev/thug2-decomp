@@ -12,9 +12,6 @@
 #include "game/gfx/movie.h"
 #include "game/sfx/sfx.h"
 #include "game/sys/game_config.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/crt.h"
 
 namespace Pcm {
@@ -25,15 +22,15 @@ HANDLE StreamLock() { return g_streamLock; }
 HANDLE WadFile() { return g_wadFile; }
 WadEntry* WadEntries() { return g_wadEntries; }
 
-GAME_GLOBAL(uint32_t, g_lastMusicTrack, 0x0069CBA8);
+uint32_t g_lastMusicTrack;
 
 uint32_t& LastMusicTrack() { return g_lastMusicTrack; }
-GAME_GLOBAL(uint32_t[3], g_lastStreams, 0x0069CBAC);
+uint32_t g_lastStreams[3];
 uint32_t* LastStreams() { return g_lastStreams; }
 // Where a user soundtrack's track is read to, and each stream's buffer (0x14000 bytes each).
-GAME_GLOBAL(uint8_t[0x14000], g_userTrackBuffer, 0x006D9FB8);
+uint8_t g_userTrackBuffer[0x14000];
 void* UserTrackBuffer() { return g_userTrackBuffer; }
-GAME_GLOBAL(uint8_t[3 * 0x14000], g_streamBuffers, 0x0069DFB8);
+uint8_t g_streamBuffers[3 * 0x14000];
 void* StreamBuffer(int slot) { return g_streamBuffers + slot * 0x14000; }
 
 // 0x005B6250: the root data paths are under ("THUG2\" or "", by 0x007CEFAD; not rewritten yet).
@@ -46,7 +43,7 @@ float SoundVolume() { return Sfx::GetMainVolume(); }
 
 void BinkGoto(Nx::Bink* bink, uint32_t frame, int flags)
 {
-    GAME_DLL_IMPORT(0x006452F4, void(__stdcall*)(Nx::Bink*, uint32_t, int), "binkw32.dll", "_BinkGoto@12")(bink, frame, flags);
+    reinterpret_cast<void(__stdcall*)(Nx::Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkGoto@12"))(bink, frame, flags);
 }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
@@ -320,18 +317,3 @@ void __cdecl StopStreams()
 }
 
 } // namespace Pcm
-
-REPLACE(0x00453C20, Pcm::LoadMusicTrack);
-REPLACE(0x00453D70, Pcm::LoadMusicTrackByName);
-REPLACE(0x00453DB0, Pcm::PlayMusicTrack);
-REPLACE(0x00453BF0, Pcm::StartPreloadedMusic);
-REPLACE(0x00453850, Pcm::PlayUserTrack);
-REPLACE(0x00453AA0, Pcm::PlatformStopMusic);
-REPLACE(0x00453400, Pcm::PlatformSetMusicVolume);
-REPLACE(0x00453470, Pcm::SyncMusicToTime);
-REPLACE(0x00453DF0, Pcm::SetStreamVolume);
-REPLACE(0x00454080, Pcm::LoadStream);
-REPLACE(0x00454200, Pcm::PlayStream);
-REPLACE(0x00454270, Pcm::StartPreloadedStream);
-REPLACE(0x00453B30, Pcm::StopStream);
-REPLACE(0x00453BD0, Pcm::StopStreams);

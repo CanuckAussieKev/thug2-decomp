@@ -7,9 +7,7 @@
 #include "game/core/manager.h"
 #include "game/gfx/engine_geom.h"
 #include "game/gfx/model.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/net/net_manager.h"
 #include "game/core/stubs.h"
 #include "game/mc/memcard.h"
@@ -116,16 +114,11 @@ Mth::Vector* CPcModel::GetBoundingSphere(Mth::Vector* out)
 }
 
 namespace {
-GAME_VTABLE(kModelVtable, 0x0064A4B4, &Nx::CPcModel::Destroy, &Mc::Card::AlwaysTrue, Stubs::ReturnZero1,
-            &Mc::Card::AlwaysTrue, &Nx::CModel::VirtualTrue4, &Mc::Card::AlwaysTrue, &Mc::Card::AlwaysTrue,
-            &Mc::Card::AlwaysTrue, Stubs::ReturnTrue2, &Net::Manager::LoadNetworkDrivers, Stubs::ReturnTrue,
-            Stubs::ReturnTrue, &Nx::CPcModel::GetBoundingSphere, &Nx::CPcModel::SetBoundingSphere);
+static VtableSlot kModelVtable_slots[] = {&Nx::CPcModel::Destroy, &Mc::Card::AlwaysTrue, Stubs::ReturnZero1,
+                &Mc::Card::AlwaysTrue, &Nx::CModel::VirtualTrue4, &Mc::Card::AlwaysTrue, &Mc::Card::AlwaysTrue,
+                &Mc::Card::AlwaysTrue, Stubs::ReturnTrue2, &Net::Manager::LoadNetworkDrivers, Stubs::ReturnTrue,
+                Stubs::ReturnTrue, &Nx::CPcModel::GetBoundingSphere, &Nx::CPcModel::SetBoundingSphere};
+void** const kModelVtable = reinterpret_cast<void**>(kModelVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004BAD90, &Nx::CPcModel::Construct);
-REPLACE(0x004BADB0, &Nx::CPcModel::DestroyBody);
-REPLACE(0x004BADC0, &Nx::CPcModel::Destroy);
-REPLACE(0x004BADF0, &Nx::CPcModel::SetBoundingSphere);
-REPLACE(0x004BAE30, &Nx::CPcModel::GetBoundingSphere);

@@ -5,6 +5,8 @@
 #include "game/sfx/mute_audio.h"
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -26,9 +28,6 @@
 #include "game/sys/game_config.h"
 #include "game/sys/platform_system.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/device.h"
 
 namespace Sfx {
@@ -49,19 +48,19 @@ float& DefaultDropoff() { return g_defaultDropoff; }
 bool QuietMisses() { return GameConfig::g_fromCD; }
 CSfxManager*& Instance() { return g_sfxManager; }
 
-GAME_GLOBAL(float, g_voiceVolume, 0x0067DB08, 100.0f);
-GAME_GLOBAL(uint32_t, g_sfxReferences, 0x006F85AC);
-GAME_GLOBAL(void*, g_listener, 0x006F85C0);
+float g_voiceVolume{100.0f};
+uint32_t g_sfxReferences;
+void* g_listener;
 // DirectSound's GUIDs, as the exe's data has them (dsound.lib's): IID_IDirectSound3DBuffer, IID_IDirectSound3DListener,
 // and DS3DALG_DEFAULT (GUID_NULL: the default 3D algorithm).
-GAME_GLOBAL(GUID, g_iidSound3DBuffer, 0x00666B34, 0x279AFA86, 0x4981, 0x11CE, {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60});
-GAME_GLOBAL(GUID, g_iidSound3DListener, 0x00666B44, 0x279AFA84, 0x4981, 0x11CE, {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60});
-GAME_GLOBAL(GUID, g_default3DAlgorithm, 0x00669208);
-GAME_GLOBAL(Voice[48], g_voices, 0x006F85C8);
-GAME_GLOBAL(int, g_playingVoices, 0x006F8A48);
-GAME_GLOBAL(bool, g_has3D, 0x006F8A4C);
-GAME_GLOBAL(int, g_voiceCount, 0x006F8A50);
-GAME_GLOBAL(int, g_lastVoice, 0x006F8A54);
+GUID g_iidSound3DBuffer{0x279AFA86, 0x4981, 0x11CE, {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
+GUID g_iidSound3DListener{0x279AFA84, 0x4981, 0x11CE, {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
+GUID g_default3DAlgorithm;
+Voice g_voices[48];
+int g_playingVoices;
+bool g_has3D;
+int g_voiceCount;
+int g_lastVoice;
 
 uint32_t& References() { return g_sfxReferences; }
 
@@ -181,7 +180,6 @@ void Unlink(PositionalSound* entry)
         PositionalHead() = entry->next;
     --PositionalCount();
 }
-
 
 } // namespace
 
@@ -580,8 +578,8 @@ void SetVoiceVolume(float volume)
     g_voiceVolume = volume;
 }
 
-GAME_GLOBAL(float, g_voicePitch, 0x0067DB0C, 1.0f);
-GAME_GLOBAL(char[256], g_waveFileName, 0x0067DB10, "data\\sounds\\");
+float g_voicePitch{1.0f};
+char g_waveFileName[256]{"data\\sounds\\"};
 
 // 0x0047C7D0
 void SetVoicePitch(float pitch)
@@ -926,33 +924,3 @@ void SilenceVoices()
 }
 
 } // namespace Sfx
-
-REPLACE(0x0047B8E0, &Sfx::CSfxManager::DopplerShift);
-REPLACE(0x0047BA00, &Sfx::CSfxManager::GetPositionalProps);
-REPLACE(0x0047BA60, Sfx::CreateManager);
-REPLACE(0x0047BAB0, &Sfx::CSfxManager::IsUniqueIdFree);
-REPLACE(0x0047BB20, &Sfx::CSfxManager::GetUniqueId);
-REPLACE(0x0047BB50, &Sfx::CSfxManager::StopObjectSounds);
-REPLACE(0x0047BC30, &Sfx::CSfxManager::StopObjectSound);
-REPLACE(0x0047BD20, &Sfx::CSfxManager::PlaySound);
-REPLACE(0x0047BE10, &Sfx::CSfxManager::GetVolume);
-REPLACE(0x0047C140, &Sfx::CSfxManager::PlayObjectSound);
-REPLACE(0x0047C360, &Sfx::CSfxManager::UpdatePositionalSound);
-REPLACE(0x0047C560, &Sfx::CSfxManager::UpdatePositionalSounds);
-REPLACE(0x0047C6C0, Sfx::ReleaseManager);
-REPLACE(0x0047C720, Sfx::GetFreeVoice);
-REPLACE_SOURCE_ONLY(0x0047C790, Sfx::GroupCount); // 4 bytes
-REPLACE(0x0047C7A0, Sfx::StopVoice);
-REPLACE(0x0047C7C0, Sfx::SetVoiceVolume);
-REPLACE(0x0047C7D0, Sfx::SetVoicePitch);
-REPLACE(0x0047C7E0, Sfx::IsVoicePlaying);
-REPLACE(0x0047C810, Sfx::UpdateVoiceStates);
-REPLACE_SOURCE_ONLY(0x0047B000, Sfx::UpdateVoiceStates); // a jump to 0x0047C810
-REPLACE(0x0047C870, &Sfx::PCWave::Load);
-REPLACE(0x0047CA50, Sfx::InitVoices);
-REPLACE(0x0047CBD0, Sfx::StopAllVoices);
-REPLACE(0x0047CC10, Sfx::FreePermanentWaves);
-REPLACE(0x0047CC70, Sfx::LoadWave);
-REPLACE(0x0047CD70, Sfx::SetVoiceParameters);
-REPLACE(0x0047D130, Sfx::PlayVoice);
-REPLACE(0x0047D390, Sfx::SilenceVoices);

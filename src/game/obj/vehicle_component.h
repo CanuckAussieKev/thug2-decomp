@@ -9,7 +9,6 @@
 #include "game/nx/coll_rect.h"
 #include "game/nx/feeler.h"
 #include "game/obj/object.h"
-#include "hook/game.h"
 
 namespace Script {
 class CScript;

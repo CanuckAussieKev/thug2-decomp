@@ -19,11 +19,8 @@
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
 #include "game/sys/mlp.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/ass/assman.h"
-#include "hook/game_code.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -109,7 +106,7 @@ void KickOrBan(Manager* manager, int drop, uint8_t request)
         bool observer = IsObserver(player);
         manager->DropPlayer(player, drop);
         if (!observer)
-            Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), Skate(), skater); // its skater removed
+            Call(CodeAddress(&Mdl::Skate::RemoveSkater), Skate(), skater); // its skater removed
         return;
     }
     struct {
@@ -166,7 +163,7 @@ bool __cdecl CFunc_PlayerCapturedFlag(Script::CStruct* params, Script::CScript*)
     SendFlagMessage(manager, kMsgCapturedFlag, player, team, [&] {
         auto* skater = reinterpret_cast<Obj::CCompositeObject*>(PlayerSkater(capturer));
         uint8_t* score = Field<uint8_t*>(skater->GetComponent(kSkaterScore), 0x18);
-        Call(GAME_CODE(0x00561A80, &Mdl::Score::SetTotalScore), score, Call<int>(GAME_CODE(0x00561B40, &Mdl::Score::GetTotalScore), score) + 1); // its captures
+        Call(CodeAddress(&Mdl::Score::SetTotalScore), score, Call<int>(CodeAddress(&Mdl::Score::GetTotalScore), score) + 1); // its captures
         AsPlayer(capturer)->CapturedFlag(team);
     });
     return true;
@@ -247,7 +244,7 @@ bool __cdecl CFunc_SetHostMode(Script::CStruct* params, Script::CScript*)
     return true;
 }
 
-GAME_GLOBAL(bool, g_textEntry, 0x007CCDF8);
+bool g_textEntry;
 
 // 0x0053D440
 bool __cdecl CFunc_EnteredNetworkGame(Script::CStruct*, Script::CScript*)
@@ -314,18 +311,3 @@ bool __cdecl CFunc_DropPendingPlayers(Script::CStruct*, Script::CScript*)
 }
 
 } // namespace GameNet
-
-REPLACE(0x0053B450, GameNet::CFunc_PlayerTookFlag);
-REPLACE(0x0053B5A0, GameNet::CFunc_PlayerCapturedFlag);
-REPLACE(0x0053B710, GameNet::CFunc_PlayerRetrievedFlag);
-REPLACE(0x0053B860, GameNet::CFunc_PlayerHasFlag);
-REPLACE(0x0053B8A0, GameNet::CFunc_GetNumPlayersOnTeam);
-REPLACE(0x0053B8F0, GameNet::CFunc_GetPlayersTeam);
-REPLACE(0x0053B940, GameNet::CFunc_ExitSurveyorMode);
-REPLACE(0x0053D400, GameNet::CFunc_SetHostMode);
-REPLACE(0x0053D440, GameNet::CFunc_EnteredNetworkGame);
-REPLACE(0x0053D490, GameNet::CFunc_KickPlayer);
-REPLACE(0x0053D5E0, GameNet::CFunc_BanPlayer);
-REPLACE(0x0053D760, GameNet::CFunc_CancelJoinServer);
-REPLACE(0x0053D780, GameNet::CFunc_EnterSurveyorMode);
-REPLACE(0x0053EA20, GameNet::CFunc_DropPendingPlayers);

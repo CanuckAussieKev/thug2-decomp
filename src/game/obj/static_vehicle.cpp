@@ -11,15 +11,13 @@
 #include "game/gfx/skeleton.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -41,7 +39,7 @@ const uint8_t* HierarchyOf(CBaseComponent* model)
 // The skeleton component's skeleton (+0x18), its bone matrices (+0x04) and bone count (0x004A2BA0, not rewritten).
 uint8_t* SkeletonOf(CBaseComponent* skeleton) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skeleton) + 0x18); }
 Mth::Matrix* BoneMatrices(uint8_t* skeleton) { return *reinterpret_cast<Mth::Matrix**>(skeleton + 0x04); }
-int BoneCount(uint8_t* skeleton) { return reinterpret_cast<int(__thiscall*)(uint8_t*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(skeleton); }
+int BoneCount(uint8_t* skeleton) { return reinterpret_cast<int(__thiscall*)(uint8_t*)>(CodeAddress(&Gfx::CSkeleton::GetNumBones))(skeleton); }
 
 // A model position in the game's axes: x and the model's y negated, y and z swapped.
 Mth::Vector FromModel(const float* p) { return {-p[0], p[2], -p[1], 1.0f}; }
@@ -113,28 +111,23 @@ void CStaticVehicleComponent::Finalize()
 
 } // namespace Obj
 
-REPLACE(0x00433690, Obj::CStaticVehicleComponent::Create);
-REPLACE(0x00433650, &Obj::CStaticVehicleComponent::DestroyBody);
-REPLACE(0x00433660, &Obj::CStaticVehicleComponent::Destroy);
-REPLACE(0x004336F0, &Obj::CStaticVehicleComponent::Finalize);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00646560,
-    &Obj::CStaticVehicleComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    Stubs::IgnoreArgument,
-    &Obj::CStaticVehicleComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CStaticVehicleComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         Stubs::IgnoreArgument,
+         &Obj::CStaticVehicleComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

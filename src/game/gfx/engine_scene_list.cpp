@@ -3,6 +3,8 @@
 #include "game/gfx/device.h"
 #include "game/gfx/engine_scene_list.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -19,10 +21,7 @@
 #include "game/nx/coll_grid.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Nx {
 
@@ -187,9 +186,9 @@ CCollGrid* __cdecl GetFirstCollGrid()
     return nullptr;
 }
 
-GAME_GLOBAL(uint32_t, g_nextSectorName, 0x0067DC84, 1);
-GAME_GLOBAL(CCollGrid*[16], g_collisionGrids, 0x006FA778);
-GAME_GLOBAL(CScene*[16], g_collisionScenes, 0x006FA738);
+uint32_t g_nextSectorName{1};
+CCollGrid* g_collisionGrids[16];
+CScene* g_collisionScenes[16];
 
 // 0x0048C980
 CCollGrid** __cdecl GetCollGridsOnLine(const Mth::Line* line)
@@ -342,27 +341,8 @@ bool __cdecl ReloadScene(const char* name)
 }
 
 namespace {
-GAME_VTABLE(kHeadVtable, 0x00648A3C, &Nx::CSceneListHead::Destroy);
+static VtableSlot kHeadVtable_slots[] = {&Nx::CSceneListHead::Destroy};
+void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x0048C750, Nx::GetSceneByName);
-REPLACE(0x0048C770, Nx::GetMainScene);
-REPLACE(0x0048C7B0, Nx::GetSkyScene);
-REPLACE(0x0048C7F0, Nx::FirstSceneNode);
-REPLACE(0x0048C810, Nx::UnloadAllScenes);
-REPLACE(0x0048C870, Nx::AddShadowCaster);
-REPLACE(0x0048C8F0, Nx::PrintCollStatics);
-REPLACE(0x0048C940, Nx::GetFirstCollGrid);
-REPLACE(0x0048C980, Nx::GetCollGridsOnLine);
-REPLACE(0x0048CA80, Nx::NewSectorName);
-REPLACE(0x0048CAF0, Nx::CFunc_ToggleAddScenes);
-REPLACE(0x0048CB00, Nx::GetSceneDebugInfo);
-REPLACE(0x0048CC30, &Nx::CSceneListHead::Construct);
-REPLACE(0x0048CC50, &Nx::CSceneListHead::Destroy);
-REPLACE(0x0048CC80, Nx::NewScene);
-REPLACE(0x0048CCB0, Nx::LoadScene);
-REPLACE(0x0048CD80, Nx::LoadNamedSceneFromMemory);
-REPLACE(0x0048CDD0, Nx::AddScene);
-REPLACE(0x0048CEF0, Nx::ReloadScene);

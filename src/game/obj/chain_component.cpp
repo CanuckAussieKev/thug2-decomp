@@ -6,6 +6,7 @@
 #include "game/gfx/skeleton.h"
 
 #include <cmath>
+#include <cstdint>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -15,13 +16,11 @@
 #include "game/obj/skeleton_component.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/gfx/weather.h"
 
@@ -654,38 +653,23 @@ using Obj::CChain;
 using Obj::CChainComponent;
 using Obj::CChainLink;
 
-REPLACE(0x00428270, &Obj::CLineObject::SetBlendMode);
-REPLACE(0x00428280, &CChainLink::Construct);
-REPLACE(0x00428250, &CChainLink::DestroyBody);
-REPLACE(0x00428290, &CChain::Construct);
-REPLACE(0x00428300, &CChain::UpdateLines);
-REPLACE(0x004298B0, CChainComponent::Create);
-REPLACE(0x004296E0, &CChainComponent::Construct);
-REPLACE(0x00429790, &CChainComponent::DestroyBody);
-REPLACE(0x00429910, &CChainComponent::Destroy);
-REPLACE(0x004296B0, &CChainComponent::ChainList::Destroy);
-REPLACE(0x00428370, &CChainComponent::Finalize);
-REPLACE(0x004283B0, &CChainComponent::InitFromStructure);
-REPLACE(0x004294C0, &CChainComponent::CallMemberFunction);
-REPLACE(0x004287A0, &CChainComponent::Update);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064630C,
-    &CChainComponent::Destroy,
-    &CChainComponent::Update,
-    &CChainComponent::InitFromStructure,
-    &CChainComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &CChainComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&CChainComponent::Destroy,
+         &CChainComponent::Update,
+         &CChainComponent::InitFromStructure,
+         &CChainComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &CChainComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

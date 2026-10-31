@@ -2,14 +2,13 @@
 
 #include "game/gfx/weather.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Nx {
 
@@ -294,40 +293,10 @@ __declspec(naked) void VirtualSlot3Jump()
 }
 
 namespace {
-GAME_VTABLE(kWeatherVtable, 0x00649E30, &Nx::CWeather::Destroy, &Nx::CWeather::UpdateGrid, &Nx::CWeather::Update,
-            &Nx::CWeather::Render, &Nx::CWeather::SetRainBlendMode, &Nx::CWeather::SetSplashBlendMode,
-            &Nx::CWeather::SetSnowBlendMode);
+static VtableSlot kWeatherVtable_slots[] = {&Nx::CWeather::Destroy, &Nx::CWeather::UpdateGrid, &Nx::CWeather::Update,
+                &Nx::CWeather::Render, &Nx::CWeather::SetRainBlendMode, &Nx::CWeather::SetSplashBlendMode,
+                &Nx::CWeather::SetSnowBlendMode};
+void** const kWeatherVtable = reinterpret_cast<void**>(kWeatherVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004A14C0, &Nx::CWeather::Construct);
-REPLACE(0x004A1080, &Nx::CWeather::DestroyBody);
-REPLACE(0x004A1550, &Nx::CWeather::Destroy);
-REPLACE(0x004A1020, &Nx::CWeather::UpdateGrid);
-REPLACE(0x004A1030, &Nx::CWeather::Update);
-REPLACE(0x004A1040, &Nx::CWeather::Render); // (shared by other vtables: the same message)
-REPLACE(0x004A1050, &Nx::CWeather::SetRainBlendMode);
-REPLACE(0x004A1060, &Nx::CWeather::SetSplashBlendMode);
-REPLACE(0x004A1070, &Nx::CWeather::SetSnowBlendMode);
-REPLACE(0x004A10B0, &Nx::CWeather::ScriptSetRainHeight);
-REPLACE(0x004A10D0, &Nx::CWeather::ScriptSetRainFrames);
-REPLACE(0x004A1110, &Nx::CWeather::ScriptSetRainLength);
-REPLACE(0x004A1130, &Nx::CWeather::ScriptSetRainBlendMode);
-REPLACE(0x004A1190, &Nx::CWeather::ScriptSetRainRate);
-REPLACE(0x004A11B0, &Nx::CWeather::ScriptSetRainColor);
-REPLACE(0x004A1240, &Nx::CWeather::ScriptSetSplashRate);
-REPLACE(0x004A1260, &Nx::CWeather::ScriptSetSplashLife);
-REPLACE(0x004A1280, &Nx::CWeather::ScriptSetSplashSize);
-REPLACE(0x004A12A0, &Nx::CWeather::ScriptSetSplashColor);
-REPLACE(0x004A12F0, &Nx::CWeather::ScriptSetSplashBlendMode);
-REPLACE(0x004A1350, &Nx::CWeather::ScriptSetSnowHeight);
-REPLACE(0x004A1370, &Nx::CWeather::ScriptSetSnowFrames);
-REPLACE(0x004A13B0, &Nx::CWeather::ScriptSetSnowSize);
-REPLACE(0x004A13D0, &Nx::CWeather::ScriptSetSnowBlendMode);
-REPLACE(0x004A1430, &Nx::CWeather::ScriptSetSnowRate);
-REPLACE(0x004A1450, &Nx::CWeather::ScriptSetSnowColor);
-REPLACE(0x004A14A0, &Nx::CWeather::ScriptSetSnowActive);
-REPLACE(0x004A14B0, &Nx::CWeather::ScriptSetRainActive);
-REPLACE_UNCHECKED(0x004A1090, Nx::VirtualSlot1Jump); // (a tail jump: the arguments are the slot's)
-REPLACE_UNCHECKED(0x004A10A0, Nx::VirtualSlot3Jump);

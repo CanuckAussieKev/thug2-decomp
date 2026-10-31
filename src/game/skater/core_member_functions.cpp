@@ -17,13 +17,10 @@
 #include "game/skater/flip_and_rotate.h"
 #include "game/skater/skater.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_global.h"
 
 namespace Skater {
 
-GAME_GLOBAL(uint32_t[660], g_coreMemberFunctions, 0x006826C8,
+uint32_t g_coreMemberFunctions[660]{
     0x584CF9E9, 0x5BD63B29, 0, 0, 0, 0,
     0x0C7A712C, 0x5BD63B29, 0, 0, 0, 0,
     0x8F66B80B, 0x5BD63B29, 0, 0, 0, 0,
@@ -133,7 +130,7 @@ GAME_GLOBAL(uint32_t[660], g_coreMemberFunctions, 0x006826C8,
     0x0898E60F, 0x5BD63B29, 0, 0, 0, 0,
     0xB17D17CD, 0x5BD63B29, 0, 0, 0, 0,
     0xF22B4480, 0x5BD63B29, 0, 0, 0, 0,
-    0, 0x5BD63B29, 0, 0, 0, 0);
+    0, 0x5BD63B29, 0, 0, 0, 0};
 
 using namespace Physics;
 
@@ -1017,97 +1014,3 @@ int CorePhysicsComponent::SetFocusTimesAllowed(Script::CStruct* params, Script::
 } // namespace Skater
 
 using Skater::CorePhysicsComponent;
-REPLACE(0x004FBE80, CorePhysicsComponent::RegisterMemberFunctions);
-REPLACE(0x004FBEA0, &CorePhysicsComponent::AirTimeThreshold);
-REPLACE(0x004FBF40, &CorePhysicsComponent::CanBrakeOff);
-REPLACE(0x004FBF50, &CorePhysicsComponent::CanBrakeOn);
-REPLACE(0x004FBF60, &CorePhysicsComponent::CanKickOn);
-REPLACE(0x004FBF70, &CorePhysicsComponent::CanKickOff);
-REPLACE(0x004FBF80, &CorePhysicsComponent::ForceAutoKickOn);
-REPLACE(0x004FBF90, &CorePhysicsComponent::ForceAutoKickOff);
-REPLACE(0x004FBFA0, &CorePhysicsComponent::AutoKickIsOff);
-REPLACE(0x004FBFB0, &CorePhysicsComponent::SkaterVehicleOn);
-REPLACE(0x004FBFC0, &CorePhysicsComponent::SkaterVehicleOff);
-REPLACE(0x004FBFD0, &CorePhysicsComponent::IsSkaterOnVehicle);
-REPLACE(0x004FBFE0, &CorePhysicsComponent::SetSkaterVehicle);
-REPLACE(0x004FC000, &CorePhysicsComponent::CanSpin);
-REPLACE(0x004FC010, &CorePhysicsComponent::BailOn);
-REPLACE(0x004FC020, &CorePhysicsComponent::BailOff);
-REPLACE(0x004FC030, &CorePhysicsComponent::BailIsOn);
-REPLACE(0x004FC040, &CorePhysicsComponent::LockVelocityDirection);
-REPLACE(0x004FC060, &CorePhysicsComponent::SetGrindTweak);
-REPLACE(0x004FC080, &CorePhysicsComponent::BadLedge);
-REPLACE(0x004FC090, &CorePhysicsComponent::LandedFromSpine);
-REPLACE(0x004FC0A0, &CorePhysicsComponent::LandedFromVert);
-REPLACE(0x004FC0B0, &CorePhysicsComponent::SetLandedFromVert);
-REPLACE(0x004FC0C0, &CorePhysicsComponent::ResetLandedFromVert);
-REPLACE(0x004FC0D0, &CorePhysicsComponent::AllowLipNoGrind);
-REPLACE(0x004FC0E0, &CorePhysicsComponent::ClearAllowLipNoGrind);
-REPLACE(0x004FC0F0, &CorePhysicsComponent::NoRailTricks);
-REPLACE(0x004FC100, &CorePhysicsComponent::AllowRailTricks);
-REPLACE(0x004FC110, &CorePhysicsComponent::SetExtraPush);
-REPLACE(0x004FC180, &CorePhysicsComponent::SetAmmoType);
-REPLACE(0x004FC1A0, &CorePhysicsComponent::InRevert);
-REPLACE(0x004FC1B0, &CorePhysicsComponent::OutRevert);
-REPLACE(0x004FC1C0, &CorePhysicsComponent::IsInRevert);
-REPLACE(0x004FC1D0, &CorePhysicsComponent::ProjectilesOn);
-REPLACE(0x004FC1E0, &CorePhysicsComponent::ProjectilesOff);
-REPLACE(0x004FC1F0, &CorePhysicsComponent::FocusOn);
-REPLACE(0x004FC200, &CorePhysicsComponent::IsSkaterFocused);
-REPLACE(0x004FC210, &CorePhysicsComponent::ResetProjectileInput);
-REPLACE(0x004FC230, &CorePhysicsComponent::EnterPowerslide);
-REPLACE(0x004FC240, &CorePhysicsComponent::ExitPowerslide);
-REPLACE(0x004FC250, &CorePhysicsComponent::MotoSkateboardOn);
-REPLACE(0x004FC260, &CorePhysicsComponent::MotoSkateboardOff);
-REPLACE(0x004FC270, &CorePhysicsComponent::IsOnMotoskateboard);
-REPLACE(0x004FC280, &CorePhysicsComponent::SkaterIsFlipping);
-REPLACE(0x004FC290, &CorePhysicsComponent::ResetIsFlipping);
-REPLACE(0x004FC2A0, &CorePhysicsComponent::SetThrowingProjectile);
-REPLACE(0x004FC2B0, &CorePhysicsComponent::UnsetThrowingProjectile);
-REPLACE(0x004FC2C0, &CorePhysicsComponent::IsThrowingProjectile);
-REPLACE(0x004FC2D0, &CorePhysicsComponent::EndManualTurnaround);
-REPLACE(0x004FC2E0, &CorePhysicsComponent::EnterTantrum);
-REPLACE(0x004FC2F0, &CorePhysicsComponent::ExitTantrum);
-REPLACE(0x004FC300, &CorePhysicsComponent::InTantrum);
-REPLACE(0x004FC310, &CorePhysicsComponent::EnterTagging);
-REPLACE(0x004FC320, &CorePhysicsComponent::ExitTagging);
-REPLACE(0x004FC330, &CorePhysicsComponent::IsTagging);
-REPLACE(0x004FC340, &CorePhysicsComponent::DoingFlip);
-REPLACE(0x004FC780, &CorePhysicsComponent::Flipped);
-REPLACE(0x004FC7A0, &CorePhysicsComponent::Switched);
-REPLACE(0x004FC7E0, &CorePhysicsComponent::Crouched);
-REPLACE(0x004FC800, &CorePhysicsComponent::FirstTimeOnThisRail);
-REPLACE(0x004FC820, &CorePhysicsComponent::Skitching);
-REPLACE(0x004FC840, &CorePhysicsComponent::CancelWallpush);
-REPLACE(0x004FC880, &CorePhysicsComponent::AirTimeLessThan);
-REPLACE(0x004FC8E0, &CorePhysicsComponent::AirTimeGreaterThan);
-REPLACE(0x004FC940, &CorePhysicsComponent::GetAirtime);
-REPLACE(0x004FC9B0, &CorePhysicsComponent::Braking);
-REPLACE(0x004FC9C0, &CorePhysicsComponent::RestoreAutoKick);
-REPLACE(0x004FC9F0, &CorePhysicsComponent::DoCarPlantBoost);
-REPLACE(0x004FCF90, &CorePhysicsComponent::NoSpin);
-REPLACE(0x004FCFC0, &CorePhysicsComponent::InBail);
-REPLACE(0x004FCFF0, &CorePhysicsComponent::NotInBail);
-REPLACE(0x004FD020, &CorePhysicsComponent::IsInBail);
-REPLACE(0x004FD040, &CorePhysicsComponent::SetRailSound);
-REPLACE(0x004FD0D0, &CorePhysicsComponent::SetRollingFriction);
-REPLACE(0x004FD140, &CorePhysicsComponent::LastSpinWas);
-REPLACE(0x004FD1C0, &CorePhysicsComponent::InVertAir);
-REPLACE(0x004FD1E0, &CorePhysicsComponent::TurnToFaceVelocity);
-REPLACE(0x004FD360, &CorePhysicsComponent::OverrideLimits);
-REPLACE(0x004FD4A0, &CorePhysicsComponent::SetSpecialFriction);
-REPLACE(0x004FD530, &CorePhysicsComponent::OverrideCancelGround);
-REPLACE(0x004FD580, &CorePhysicsComponent::GetMatrixNormal);
-REPLACE(0x004FD5E0, &CorePhysicsComponent::GetLastGroundPos);
-REPLACE(0x004FD610, &CorePhysicsComponent::GetLastGroundHeading);
-REPLACE(0x004FD630, &CorePhysicsComponent::SetVertAir);
-REPLACE(0x004FD660, &CorePhysicsComponent::IsFacingWall);
-REPLACE(0x004FD840, &CorePhysicsComponent::TurnFromWall);
-REPLACE(0x004FDA80, &CorePhysicsComponent::IsFacingVert);
-REPLACE(0x004FDC30, &CorePhysicsComponent::GetAmmo);
-REPLACE(0x004FDC50, &CorePhysicsComponent::GetAmmoType);
-REPLACE(0x004FDC70, &CorePhysicsComponent::GetPitchBailDir);
-REPLACE(0x004FDC90, &CorePhysicsComponent::FocusOff);
-REPLACE(0x004FDCC0, &CorePhysicsComponent::GetFocusTimeLeft);
-REPLACE(0x004FDCF0, &CorePhysicsComponent::GetFocusTimesAllowed);
-REPLACE(0x004FDD20, &CorePhysicsComponent::SetFocusTimesAllowed);

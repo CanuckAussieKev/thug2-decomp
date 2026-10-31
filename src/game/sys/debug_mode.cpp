@@ -14,7 +14,6 @@
 #include "game/script/cscript.h"
 #include "game/sys/mlp.h"
 #include "game/script/script_tables.h"
-#include "hook/hook.h"
 #include "game/sys/log.h"
 #include "game/obj/movie_manager.h"
 

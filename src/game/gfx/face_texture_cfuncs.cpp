@@ -13,8 +13,6 @@
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace CFuncs {
 
@@ -342,12 +340,3 @@ bool __cdecl CFunc_RGBtoHSV(Script::CStruct* params, Script::CScript* script)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005B2420, CFuncs::CFunc_LoadFaceTextureFromProfile);
-REPLACE(0x005B2480, CFuncs::CFunc_SetFaceTextureFromVideoCapture);
-REPLACE(0x005B2570, CFuncs::CFunc_OffsetTexture);
-REPLACE(0x005B26B0, CFuncs::CFunc_RotateTexture);
-REPLACE(0x005B2720, CFuncs::CFunc_PushTextureToPoint);
-REPLACE(0x005B2880, CFuncs::CFunc_ApplyRGBAToTexture);
-REPLACE(0x005B2970, CFuncs::CFunc_HSVtoRGB);
-REPLACE(0x005B2CD0, CFuncs::CFunc_RGBtoHSV);

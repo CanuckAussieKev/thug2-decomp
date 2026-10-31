@@ -3,6 +3,7 @@
 
 #include "game/gfx/spawned_polys.h"
 
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -14,14 +15,11 @@
 #include "game/lst/hashtable.h"
 #include "game/script/cfuncs_engine.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/engine_effects.h"
 
 namespace Nx {
 
-GAME_GLOBAL(Mem::PoolPair, g_spawnedPolyPools, 0x00700500);
+Mem::PoolPair g_spawnedPolyPools;
 
 namespace {
 
@@ -236,8 +234,3 @@ void __cdecl KillAllSpawnedPolys()
 } // namespace Engine
 
 } // namespace Nx
-
-REPLACE(0x00491990, &Nx::sSpawnedPoly::Construct);
-REPLACE(0x00492450, Nx::Engine::SpawnPoly);
-REPLACE(0x004919C0, Nx::Engine::UpdateSpawnedPolys);
-REPLACE(0x00491E10, Nx::Engine::KillAllSpawnedPolys);

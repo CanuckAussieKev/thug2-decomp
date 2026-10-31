@@ -6,7 +6,6 @@
 #include "game/core/alloc.h"
 #include "game/mth/vector.h"
 #include "game/nx/coll_line.h"
-#include "hook/game_global.h"
 
 namespace Obj {
 class CCompositeObject;
@@ -42,6 +41,6 @@ Obj::CCompositeObject* CollideWithMovablesFarthest(const Mth::Line* line, Collis
                                                    CollisionHitCallback callback, CCollCache* cache);
 
 // The movable objects' list (its head; the first movable is its next, 0x00691984).
-GAME_GLOBAL_EXTERN(Mem::ListNode, g_movables);
+extern Mem::ListNode g_movables;
 
 } // namespace Nx

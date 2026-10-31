@@ -12,50 +12,47 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/sys/log.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "hook/game_code.h"
-#include "hook/game_global.h"
 #include "game/obj/trigger_events.h"
 #include "game/obj/camera_lookaround.h"
 
 // The event lists (trigger_events.h).
-GAME_GLOBAL(const int[3], g_wheelLeavesEvents, 0x00646680, 1, 4, 0);
-GAME_GLOBAL(const int[3], g_wheelLandsEvents, 0x0064668C, 1, 3, 0);
-GAME_GLOBAL(const int[3], g_crossingEvents, 0x00646698, 9, 0, 0);
-GAME_GLOBAL(const int[3], g_pullUpEvents, 0x006468D0, 1, 3, 0);
-GAME_GLOBAL(const int[3], g_hangEvents, 0x006468DC, 10, 3, 0);
-GAME_GLOBAL(const int[3], g_exitHangEvents, 0x006468E8, 10, 4, 0);
-GAME_GLOBAL(const int[3], g_ladderOffBottomEvents, 0x00646978, 1, 3, 0);
-GAME_GLOBAL(const int[3], g_ladderOffTopEvents, 0x00646984, 14, 3, 0);
-GAME_GLOBAL(const int[3], g_ontoLadderEvents, 0x00646990, 10, 3, 0);
-GAME_GLOBAL(const int[3], g_exitLadderEvents, 0x0064699C, 10, 4, 0);
-GAME_GLOBAL(const int[3], g_projectileTouchEvents, 0x0064B89C, 14, 0, 0);
-GAME_GLOBAL(const int[3], g_otherFeelerLeaveEvents, 0x0064BB80, 1, 5, 0);
-GAME_GLOBAL(const int[3], g_jumpTriggerEvents, 0x0064BB8C, 2, 4, 0);
-GAME_GLOBAL(const int[3], g_skaterEvents0064BB98, 0x0064BB98, 8, 3, 0);
-GAME_GLOBAL(const int[3], g_kickEvents, 0x0064BBA4, 1, 4, 0);
-GAME_GLOBAL(const int[3], g_skaterEvents0064BBB0, 0x0064BBB0, 1, 3, 0);
-GAME_GLOBAL(const int[3], g_bonkEvents, 0x0064BBBC, 9, 0, 0);
-GAME_GLOBAL(const int[3], g_lipEvents, 0x0064BBC8, 7, 3, 0);
-GAME_GLOBAL(const int[3], g_offLipEvents, 0x0064BBD4, 7, 4, 0);
-GAME_GLOBAL(const int[3], g_lipOffEvents, 0x0064BBE0, 7, 2, 0);
-GAME_GLOBAL(const int[3], g_skaterEvents0064BBEC, 0x0064BBEC, 6, 3, 0);
-GAME_GLOBAL(const int[3], g_wallplantEvents, 0x0064BBF8, 6, 4, 0);
-GAME_GLOBAL(const int[3], g_spinEvents, 0x0064BC04, 12, 3, 0);
-GAME_GLOBAL(const int[3], g_jumpEvents, 0x0064BC10, 12, 2, 0);
-GAME_GLOBAL(const int[3], g_grindOffEvents, 0x0064BC1C, 13, 4, 0);
-GAME_GLOBAL(const int[3], g_grindEvents, 0x0064BC28, 13, 3, 0);
-GAME_GLOBAL(const int[3], g_taggingEvents, 0x0064C388, 11, 3, 0);
-GAME_GLOBAL(const int[3], g_walkEvents0064C630, 0x0064C630, 1, 5, 0);
-GAME_GLOBAL(const int[3], g_walkEvents0064C63C, 0x0064C63C, 2, 4, 0);
-GAME_GLOBAL(const int[3], g_walkEvents0064C648, 0x0064C648, 8, 3, 0);
-GAME_GLOBAL(const int[3], g_walkEvents0064C654, 0x0064C654, 14, 3, 0);
-GAME_GLOBAL(const int[3], g_walkEvents0064C660, 0x0064C660, 14, 4, 0);
+const int g_wheelLeavesEvents[3]{1, 4, 0};
+const int g_wheelLandsEvents[3]{1, 3, 0};
+const int g_crossingEvents[3]{9, 0, 0};
+const int g_pullUpEvents[3]{1, 3, 0};
+const int g_hangEvents[3]{10, 3, 0};
+const int g_exitHangEvents[3]{10, 4, 0};
+const int g_ladderOffBottomEvents[3]{1, 3, 0};
+const int g_ladderOffTopEvents[3]{14, 3, 0};
+const int g_ontoLadderEvents[3]{10, 3, 0};
+const int g_exitLadderEvents[3]{10, 4, 0};
+const int g_projectileTouchEvents[3]{14, 0, 0};
+const int g_otherFeelerLeaveEvents[3]{1, 5, 0};
+const int g_jumpTriggerEvents[3]{2, 4, 0};
+const int g_skaterEvents0064BB98[3]{8, 3, 0};
+const int g_kickEvents[3]{1, 4, 0};
+const int g_skaterEvents0064BBB0[3]{1, 3, 0};
+const int g_bonkEvents[3]{9, 0, 0};
+const int g_lipEvents[3]{7, 3, 0};
+const int g_offLipEvents[3]{7, 4, 0};
+const int g_lipOffEvents[3]{7, 2, 0};
+const int g_skaterEvents0064BBEC[3]{6, 3, 0};
+const int g_wallplantEvents[3]{6, 4, 0};
+const int g_spinEvents[3]{12, 3, 0};
+const int g_jumpEvents[3]{12, 2, 0};
+const int g_grindOffEvents[3]{13, 4, 0};
+const int g_grindEvents[3]{13, 3, 0};
+const int g_taggingEvents[3]{11, 3, 0};
+const int g_walkEvents0064C630[3]{1, 5, 0};
+const int g_walkEvents0064C63C[3]{2, 4, 0};
+const int g_walkEvents0064C648[3]{8, 3, 0};
+const int g_walkEvents0064C654[3]{14, 3, 0};
+const int g_walkEvents0064C660[3]{14, 4, 0};
 
 namespace Obj {
 
@@ -281,34 +278,23 @@ bool __cdecl CTriggerComponent::FeelerHit(Nx::CFeeler* feeler)
 
 } // namespace Obj
 
-REPLACE(0x00434B90, Obj::CTriggerComponent::Create);
-REPLACE(0x00434900, &Obj::CTriggerComponent::DestroyBody);
-REPLACE(0x00434910, &Obj::CTriggerComponent::Destroy);
-REPLACE(0x00434940, &Obj::CTriggerComponent::InitFromStructure);
-REPLACE(0x00434D90, &Obj::CTriggerComponent::Update);
-REPLACE(0x00434970, &Obj::CTriggerComponent::CallMemberFunction);
-REPLACE(0x00434A60, &Obj::CTriggerComponent::TriggerNode);
-REPLACE(0x00434BF0, &Obj::CTriggerComponent::CheckFeeler);
-REPLACE(0x00434CE0, &Obj::CTriggerComponent::TriggerHits);
-REPLACE(0x00434D70, Obj::CTriggerComponent::FeelerHit);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00646648,
-    &Obj::CTriggerComponent::Destroy,
-    &Obj::CTriggerComponent::Update,
-    &Obj::CTriggerComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CTriggerComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CTriggerComponent::Destroy,
+         &Obj::CTriggerComponent::Update,
+         &Obj::CTriggerComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CTriggerComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

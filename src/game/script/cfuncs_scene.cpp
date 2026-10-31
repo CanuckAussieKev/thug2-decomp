@@ -23,16 +23,13 @@
 #include "game/gfx/model_utils.h"
 #include "game/gfx/texture_dict.h"
 #include "game/sys/game_config.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace CFuncs {
 
 using Script::CScript;
 using Script::CStruct;
 
-GAME_GLOBAL(int, g_configNtsc, 0x00684FB0, 1);
+int g_configNtsc{1};
 
 namespace {
 
@@ -399,23 +396,3 @@ bool __cdecl CFunc_UpdateLensFlare(CStruct* params, CScript* script)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x00445000, CFuncs::CFunc_LoadTerrainSounds);
-REPLACE(0x00445030, CFuncs::CFunc_PreloadModel);
-REPLACE(0x00445120, CFuncs::CFunc_UnloadAllLevelGeometry);
-REPLACE(0x00445320, CFuncs::CFunc_LoadCollision);
-REPLACE(0x00445380, CFuncs::CFunc_AddCollision);
-REPLACE(0x004453F0, CFuncs::CFunc_QuickReload);
-REPLACE(0x00445430, CFuncs::CFunc_UnloadAnim);
-REPLACE(0x004454E0, CFuncs::CFunc_LoadAsset);
-REPLACE(0x004455A0, CFuncs::CFunc_LoadAnim);
-REPLACE(0x00445640, CFuncs::CFunc_LoadSkeleton);
-REPLACE(0x004456A0, CFuncs::CFunc_SetReferenceChecksum);
-REPLACE(0x004456F0, CFuncs::CFunc_SetDefaultPermanent);
-REPLACE(0x00445720, CFuncs::CFunc_AddScene);
-REPLACE(0x004457B0, CFuncs::CFunc_UnloadScene);
-REPLACE(0x00445820, CFuncs::CFunc_SetConfig);
-REPLACE(0x00445980, CFuncs::CFunc_PrintConfig);
-REPLACE(0x00445A30, CFuncs::CFunc_Bootstrap);
-REPLACE(0x00445A40, CFuncs::CFunc_InitSun);
-REPLACE(0x00445B30, CFuncs::CFunc_UpdateLensFlare);

@@ -4,15 +4,14 @@
 #include "game/gfx/frame_source.h"
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "game/gfx/anim_controller.h"
 #include "game/mth/vector.h"
 #include "game/obj/walk_hang.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Gfx {
 
@@ -145,7 +144,7 @@ void __cdecl BlendPosesById(CPose* poses, float* weights, const uint32_t* ids, i
         std::memcpy(out, poses, static_cast<size_t>(bones) * sizeof(CPose));
 }
 
-GAME_GLOBAL(uint32_t[4], g_loopTypeChecksums, 0x006486BC, 0xE035F2F8, 0x4F792E6C, 0x3153E314, 0x6D941203); // the loop types' checksums
+uint32_t g_loopTypeChecksums[4]{0xE035F2F8, 0x4F792E6C, 0x3153E314, 0x6D941203}; // the loop types' checksums
 
 // 0x0047D580
 void __stdcall AddTimelineInfo(CAnimTimeline* timeline, Script::CStruct* info)
@@ -202,13 +201,3 @@ void CBlendChannel::ClearFlag()
 }
 
 } // namespace Gfx
-
-REPLACE(0x0047D420, &Gfx::CBlendChannel::SetFlag4C);
-REPLACE(0x0047D430, &Gfx::CBlendChannel::BlendTo);
-REPLACE(0x0047D470, Gfx::InterpolateRotation);
-REPLACE(0x0047D580, Gfx::AddTimelineInfo);
-REPLACE(0x0047D620, &Gfx::CBlendChannel::GetValue);
-REPLACE(0x0047D640, &Gfx::CBlendChannel::HasValue);
-REPLACE(0x0047D660, &Gfx::CBlendChannel::ClearFlag);
-REPLACE(0x0047D680, Gfx::BlendPoses);
-REPLACE(0x0047D8F0, Gfx::BlendPosesById);

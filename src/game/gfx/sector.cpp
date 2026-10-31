@@ -1,5 +1,7 @@
 // The engine's sector (see sector.h): what it does through its geometry and its collision object.
 
+#include <cstdint>
+
 #include "game/gfx/sector.h"
 
 #include "game/core/dbg.h"
@@ -10,9 +12,7 @@
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
 #include "game/nx/coll_obj.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Nx {
 
@@ -68,19 +68,19 @@ CSector* CSector::Destroy(unsigned int freeFlags)
 }
 
 // 0x0049E8C0
-void CSector::PlatSetShatter(bool) { Dbg::Printf(GAME_TEXT(0x00649A50, "STUB: PlatSetShatter\n")); } // "STUB: PlatSetShatter\n"
+void CSector::PlatSetShatter(bool) { Dbg::Printf("STUB: PlatSetShatter\n"); } // "STUB: PlatSetShatter\n"
 
 // 0x0049E8D0
 bool CSector::PlatGetShatter()
 {
-    Dbg::Printf(GAME_TEXT(0x00649A68, "STUB: PlatGetShatter\n")); // "STUB: PlatGetShatter\n"
+    Dbg::Printf("STUB: PlatGetShatter\n"); // "STUB: PlatGetShatter\n"
     return false;
 }
 
 // 0x0049E8E0 (not a function in Ghidra: only the vtable reaches it)
 CSector* CSector::PlatClone(int, void*)
 {
-    Dbg::Printf(GAME_TEXT(0x00648B18, "STUB: PlatClone\n")); // "STUB: PlatClone\n"
+    Dbg::Printf("STUB: PlatClone\n"); // "STUB: PlatClone\n"
     return nullptr;
 }
 
@@ -344,43 +344,9 @@ void CSector::StopTextureAnim()
 }
 
 namespace {
-GAME_VTABLE(kSectorVtable, 0x00649A40, &Nx::CSector::Destroy, &Nx::CSector::PlatSetShatter,
-            &Nx::CSector::PlatGetShatter, &Nx::CSector::PlatClone);
+static VtableSlot kSectorVtable_slots[] = {&Nx::CSector::Destroy, &Nx::CSector::PlatSetShatter,
+                &Nx::CSector::PlatGetShatter, &Nx::CSector::PlatClone};
+void** const kSectorVtable = reinterpret_cast<void**>(kSectorVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x0049E900, &Nx::CSector::Construct);
-REPLACE(0x0049E630, &Nx::CSector::DestroyBody);
-REPLACE(0x0049E930, &Nx::CSector::Destroy);
-REPLACE(0x0049E8C0, &Nx::CSector::PlatSetShatter);
-REPLACE(0x0049E8D0, &Nx::CSector::PlatGetShatter);
-REPLACE(0x0049E8E0, &Nx::CSector::PlatClone);
-REPLACE(0x0049EAD0, &Nx::CSector::Clone);
-REPLACE(0x0049E660, &Nx::CSector::SetGeom);
-REPLACE(0x0049EAA0, &Nx::CSector::SetCollObj);
-REPLACE_SOURCE_ONLY(0x0049E810, &Nx::CSector::GetFlags); // 4 bytes
-REPLACE(0x0049E890, &Nx::CSector::SetFlags);
-REPLACE(0x0049E8A0, &Nx::CSector::ClearFlags);
-REPLACE(0x0049E670, &Nx::CSector::ClearColor);
-REPLACE(0x0049E980, &Nx::CSector::GetColor);
-REPLACE(0x0049E680, &Nx::CSector::SetVisibility);
-REPLACE(0x0049E690, &Nx::CSector::GetVisibility);
-REPLACE(0x0049E9B0, &Nx::CSector::SetActive);
-REPLACE(0x0049E9E0, &Nx::CSector::IsActive);
-REPLACE(0x0049EA30, &Nx::CSector::SetCollidable);
-REPLACE(0x0049EA60, &Nx::CSector::SetOccluder);
-REPLACE(0x0049E6A0, &Nx::CSector::GetBoundingBox);
-REPLACE(0x0049E740, &Nx::CSector::GetOrientation);
-REPLACE(0x0049E6C0, &Nx::CSector::SetWorldPosition);
-REPLACE(0x0049E700, &Nx::CSector::SetOrientation);
-REPLACE(0x0049E760, &Nx::CSector::SetYRotation);
-REPLACE(0x0049E7C0, &Nx::CSector::SetScale);
-REPLACE(0x0049EA00, &Nx::CSector::SetRawVertices);
-REPLACE(0x0049E820, &Nx::CSector::PlayVCWibbleFromKeyframe);
-REPLACE(0x0049E830, &Nx::CSector::SetUVWibbleParams);
-REPLACE(0x0049E840, &Nx::CSector::UseExplicitUVWibble);
-REPLACE(0x0049E850, &Nx::CSector::SetUVWibbleOffsets);
-REPLACE(0x0049E860, &Nx::CSector::ResetTextureAnim);
-REPLACE(0x0049E870, &Nx::CSector::StartTextureAnim);
-REPLACE(0x0049E880, &Nx::CSector::StopTextureAnim);

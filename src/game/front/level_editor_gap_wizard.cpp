@@ -4,9 +4,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <functional>
+#include <vector>
 
 #include "game/front/level_editor_modules.h"
 #include "game/front/level_editor_overlays.h"
@@ -14,7 +16,6 @@
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
 #include "game/obj/rail_manager.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "imgui.h"
 #include "game/skate/skate_module.h"

@@ -23,22 +23,19 @@
 #include "game/sys/timer.h"
 #include "game/obj/control_pad.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/net/gamenet_manager.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
-#include "hook/game_global.h"
 #include "game/sys/crt.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[114], g_walkMemberFunctions, 0x006847F8,
+uint32_t g_walkMemberFunctions[114]{
     0x893213E5, 0x726E85AA, 0, 0, 0, 0,
     0x5012082E, 0x726E85AA, 0, 0, 0, 0,
     0x9A3CA853, 0x726E85AA, 0, 0, 0, 0,
@@ -57,7 +54,7 @@ GAME_GLOBAL(uint32_t[114], g_walkMemberFunctions, 0x006847F8,
     0x492EBA50, 0x726E85AA, 0, 0, 0, 0,
     0xF8F754EF, 0x726E85AA, 0, 0, 0, 0,
     0x8BC2C0EC, 0x726E85AA, 0, 0, 0, 0,
-    0, 0x726E85AA, 0, 0, 0, 0);
+    0, 0x726E85AA, 0, 0, 0, 0};
 
 namespace {
 
@@ -85,7 +82,7 @@ constexpr float kMs = 0.001f;                  // 0x006461D8 (0.0010000000474974
 constexpr float kHalf = 0.5f;                  // 0x006453BC
 
 // The state names (0x0064C618: WALKING_GROUND, WALKING_AIR, ...).
-GAME_GLOBAL(const uint32_t[5], g_walkStateNames, 0x0064C618, 0x8CF3CB28, 0x9D1F1A2C, 0x74FFC46D, 0x1CB1F465, 0x79BE4637);
+const uint32_t g_walkStateNames[5]{0x8CF3CB28, 0x9D1F1A2C, 0x74FFC46D, 0x1CB1F465, 0x79BE4637};
 uint32_t StateName(int state) { return g_walkStateNames[state]; }
 
 // The skate module's career (0x007CE478's +0x20).
@@ -479,52 +476,23 @@ bool CWalkComponent::Walk_SetForwardControlLock(Script::CStruct* params, Script:
 
 } // namespace Obj
 
-REPLACE(0x00525E40, Obj::CWalkComponent::RegisterMemberFunctions);
-REPLACE(0x00528880, &Obj::WalkContact::Construct);
-REPLACE(0x00528890, &Obj::WalkContact::Destroy);
-REPLACE(0x005288B0, &Obj::CWalkComponent::DestroyBody);
-REPLACE(0x00526060, &Obj::CWalkComponent::InitFromStructure);
-REPLACE(0x00525FB0, &Obj::CWalkComponent::Finalize);
-REPLACE(0x00525E60, &Obj::CWalkComponent::SetCamera);
-REPLACE(0x005260E0, &Obj::CWalkComponent::SetState);
-REPLACE(0x005260C0, &Obj::CWalkComponent::ClearModelOffset);
-REPLACE(0x00524E10, &Obj::CWalkComponent::UsingDpad);
-REPLACE(0x00524E60, &Obj::CWalkComponent::GetCameraOffset);
-REPLACE(0x00528560, &Obj::CWalkComponent::GetFacing);
-REPLACE(0x00528220, &Obj::CWalkComponent::GetTurnedFacing);
-REPLACE(0x00528370, &Obj::CWalkComponent::UpdateRunAdjustment);
-REPLACE(0x00528400, &Obj::CWalkComponent::LimitSpeed);
-REPLACE(0x005284C0, Obj::CWalkComponent::GetGravity);
-REPLACE(0x00528280, Obj::CWalkComponent::FindStandPosition);
-REPLACE(0x00525E90, &Obj::CWalkComponent::Walk_Ground);
-REPLACE(0x00525EA0, &Obj::CWalkComponent::Walk_ScaleAnimSpeed);
-REPLACE(0x00525F60, &Obj::CWalkComponent::Walk_ReleaseHang);
-REPLACE(0x00528580, &Obj::CWalkComponent::Walk_GetStateTime);
-REPLACE(0x005285C0, &Obj::CWalkComponent::Walk_GetSpeedScale);
-REPLACE(0x005286A0, &Obj::CWalkComponent::Walk_GetHangInitAnimType);
-REPLACE(0x005286C0, &Obj::CWalkComponent::Walk_GetStateDuration);
-REPLACE(0x00528710, &Obj::CWalkComponent::Walk_GetPreviousState);
-REPLACE(0x00528740, &Obj::CWalkComponent::Walk_GetState);
-REPLACE(0x00528770, &Obj::CWalkComponent::Walk_GetHangAngle);
-REPLACE(0x00528860, &Obj::CWalkComponent::Walk_SetForwardControlLock);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064C75C,
-    &CWalkComponent::Destroy,
-    &CWalkComponent::Update,
-    &Obj::CWalkComponent::InitFromStructure,
-    &Obj::CWalkComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&CWalkComponent::Destroy,
+         &CWalkComponent::Update,
+         &Obj::CWalkComponent::InitFromStructure,
+         &Obj::CWalkComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

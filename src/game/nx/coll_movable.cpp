@@ -2,6 +2,7 @@
 
 #include "game/nx/coll_movable.h"
 
+#include <cstdint>
 #include <new>
 
 #include "game/core/manager.h"
@@ -10,23 +11,22 @@
 #include "game/nx/coll_tri.h"
 #include "game/core/stubs.h"
 #include "game/core/game_vtables.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/nx/coll_obj.h"
-#include "hook/game_code.h"
 #include "game/nx/feeler.h"
 
 namespace Nx {
 
 namespace {
 
-GAME_VTABLE(kMovableVtable, 0x00645B00, &Nx::CCollMovable::ScalarDelete, Stubs::ReturnFalse,
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), &Nx::CCollObj::SetGeometry, &Nx::CFeeler::SetEnd,
-    &Nx::CCollMovable::SetOrientation, &Nx::CCollMovable::GetWorldPosition, &Nx::CCollMovable::GetOrientation,
-    &Nx::CCollMovable::GetVertexPos, &Nx::CCollMovable::GetValueA0, &Nx::CCollMovable::SetValueA0,
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), Stubs::ReturnZero);
+static VtableSlot kMovableVtable_slots[] = {&Nx::CCollMovable::ScalarDelete, Stubs::ReturnFalse,
+        &_purecall, &_purecall, &Nx::CCollObj::SetGeometry, &Nx::CFeeler::SetEnd,
+        &Nx::CCollMovable::SetOrientation, &Nx::CCollMovable::GetWorldPosition, &Nx::CCollMovable::GetOrientation,
+        &Nx::CCollMovable::GetVertexPos, &Nx::CCollMovable::GetValueA0, &Nx::CCollMovable::SetValueA0,
+        &_purecall, &_purecall, &_purecall,
+        &_purecall, &_purecall, &_purecall,
+        &_purecall, &_purecall, Stubs::ReturnZero};
+void** const kMovableVtable = reinterpret_cast<void**>(kMovableVtable_slots);
 
 void SetIdentity(Mth::Matrix& m)
 {
@@ -45,15 +45,16 @@ void DrawBox(const Mth::BBox* box, const Mth::Matrix* transform, uint32_t colour
 
 } // namespace
 
-GAME_VTABLE(kScaledVtable, 0x00645B58, &Nx::CCollScaled::ScalarDelete, Stubs::ReturnFalse,
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), &Nx::CCollObj::SetGeometry,
-    &Nx::CCollScaled::SetWorldPosition, &Nx::CCollScaled::SetOrientation, &Nx::CCollScaled::GetWorldPosition,
-    &Nx::CCollMovable::GetOrientation, &Nx::CCollScaled::GetVertexPos, Stubs::ReturnZero, Stubs::IgnoreArgument,
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), Stubs::ReturnZero, GAME_LIBRARY_SLOT(0x00623771),
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), &Nx::CCollScaled::SetScale,
-    &Nx::CCollMovable::GetWorldPosition);
+static VtableSlot kScaledVtable_slots[] = {&Nx::CCollScaled::ScalarDelete, Stubs::ReturnFalse,
+        &_purecall, &_purecall, &Nx::CCollObj::SetGeometry,
+        &Nx::CCollScaled::SetWorldPosition, &Nx::CCollScaled::SetOrientation, &Nx::CCollScaled::GetWorldPosition,
+        &Nx::CCollMovable::GetOrientation, &Nx::CCollScaled::GetVertexPos, Stubs::ReturnZero, Stubs::IgnoreArgument,
+        &_purecall, &_purecall, &_purecall,
+        &_purecall, &_purecall, &_purecall,
+        &_purecall, &_purecall, Stubs::ReturnZero, &_purecall,
+        &_purecall, &_purecall, &Nx::CCollScaled::SetScale,
+        &Nx::CCollMovable::GetWorldPosition};
+void** const kScaledVtable = reinterpret_cast<void**>(kScaledVtable_slots);
 
 // 0x00411FA0
 CCollMovable* CCollMovable::Construct()
@@ -378,38 +379,3 @@ Mth::Vector CCollScaled::GetVertexPos(int index) const
 }
 
 } // namespace Nx
-
-REPLACE(0x00411FA0, &Nx::CCollMovable::Construct);
-REPLACE(0x00412660, &Nx::CCollMovable::ConstructCopy);
-REPLACE(0x004121A0, &Nx::CCollMovable::Destruct);
-REPLACE(0x004135B0, &Nx::CCollMovable::ScalarDelete);
-REPLACE(0x00412070, &Nx::CCollMovable::SetOrientation);
-REPLACE_SOURCE_ONLY(0x00412FF0, &Nx::CCollMovable::SetOrientation); // a jump to 0x00412070
-REPLACE_SOURCE_ONLY(0x00412050, &Nx::CCollMovable::GetWorldPosition); // 4 bytes (also the scaled object's GetScale)
-REPLACE_SOURCE_ONLY(0x00412060, &Nx::CCollMovable::GetOrientation);   // 4 bytes (also the scaled object's)
-REPLACE(0x00412230, &Nx::CCollMovable::GetVertexPos);
-REPLACE(0x004122C0, &Nx::CCollMovable::BoxToLocal);
-REPLACE(0x0040AE50, &Nx::CCollMovable::GetValueA0);
-REPLACE(0x0040AE40, &Nx::CCollMovable::SetValueA0);
-REPLACE(0x004120D0, &Nx::MatrixTranspose::TransposeFrom);
-REPLACE(0x00412150, &Nx::MatrixTranspose::TransposeInPlace);
-REPLACE(0x00412550, &Nx::CCollMovBBox::Construct);
-REPLACE(0x00413700, &Nx::CCollMovBBox::ConstructCopy);
-REPLACE(0x004125F0, &Nx::CCollMovBBox::Destruct);
-REPLACE(0x004136D0, &Nx::CCollMovBBox::ScalarDelete);
-REPLACE(0x00412600, &Nx::CCollMovBBox::SetGeometry);
-REPLACE(0x0040AE60, &Nx::CCollMovBBox::GetFaceFlags);
-REPLACE(0x0040AE70, &Nx::CCollMovBBox::GetFaceTerrain);
-REPLACE(0x004126E0, &Nx::CCollMovBBox::DebugRender);
-REPLACE(0x00414BE0, &Nx::CCollMovBBox::Clone);
-REPLACE(0x00410A30, &Nx::CCollScaled::LineToLocal);
-REPLACE(0x004123C0, &Nx::CCollScaled::Construct);
-REPLACE(0x00413F80, &Nx::CCollScaled::ConstructCopy);
-REPLACE(0x00412460, &Nx::CCollScaled::Destruct);
-REPLACE(0x004135E0, &Nx::CCollScaled::ScalarDelete);
-REPLACE(0x00413610, &Nx::CCollScaled::SetWorldPosition);
-REPLACE(0x00413640, &Nx::CCollScaled::SetOrientation);
-REPLACE(0x004136A0, &Nx::CCollScaled::SetScale);
-REPLACE(0x00412490, &Nx::CCollScaled::UpdateInverse);
-REPLACE_SOURCE_ONLY(0x004109C0, &Nx::CCollScaled::GetWorldPosition); // 4 bytes
-REPLACE(0x004109D0, &Nx::CCollScaled::GetVertexPos);

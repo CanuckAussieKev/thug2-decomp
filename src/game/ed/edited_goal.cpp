@@ -2,7 +2,6 @@
 // 0x004E93C0.
 
 #include <cmath>
-#include "hook/game_code.h"
 #include <cstdint>
 #include <cstring>
 
@@ -15,16 +14,13 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/crt.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
 namespace Ed {
 
-GAME_GLOBAL(char[104], g_goalNameBuffer, 0x007CCC58);
+char g_goalNameBuffer[104];
 
 namespace {
 
@@ -189,7 +185,7 @@ void CEditedGoal::SetType(uint32_t type)
         return;
     defaults->GetInteger(0xC51BF6E3, &m_timeLimit, 0);
     defaults->GetInteger(0xCD66C8AE, &m_score, 0);
-    const char* text = GAME_TEXT(0x006469B4, ""); // ""
+    const char* text = ""; // ""
     defaults->GetString(0x4BC5229D, &text, 0);
     std::strcpy(m_name, text);
 }
@@ -440,24 +436,3 @@ void CEditedGoal::ReadSpecificParams(Script::CStruct* params)
 }
 
 } // namespace Ed
-
-REPLACE(0x004E93C0, &Ed::CEditedGoal::Construct);
-REPLACE(0x004E6B80, &Ed::CEditedGoal::RemoveGap);
-REPLACE(0x004E6BF0, &Ed::CEditedGoal::RemoveGapAndRenumber);
-REPLACE(0x004E7390, &Ed::CEditedGoal::AddGap);
-REPLACE(0x004E6C40, &Ed::CEditedGoal::AddKeyComboSet);
-REPLACE(0x004E6CD0, &Ed::CEditedGoal::RemoveKeyComboSet);
-REPLACE(0x004E6D50, &Ed::CEditedGoal::FindKeyComboSet);
-REPLACE(0x004E6DA0, &Ed::CEditedGoal::SetType);
-REPLACE(0x004E6F70, &Ed::CEditedGoal::SetTimeLimit);
-REPLACE(0x004E7050, &Ed::CEditedGoal::CreateMarker);
-REPLACE(0x004E7780, &Ed::CEditedGoal::CreateMarkers);
-REPLACE(0x004E7210, &Ed::CEditedGoal::NearOtherPoint);
-REPLACE(0x004E7300, &Ed::CEditedGoal::CanPlacePoint);
-REPLACE(0x004E77C0, &Ed::CEditedGoal::PlacePoint);
-REPLACE(0x004E7960, &Ed::CEditedGoal::GetCurrentPoint);
-REPLACE(0x004E79C0, &Ed::CEditedGoal::WriteNodePosition);
-REPLACE(0x004E7A80, &Ed::CEditedGoal::WriteNodePositions);
-REPLACE(0x004E73F0, &Ed::CEditedGoal::ReadKeyComboSets);
-REPLACE(0x004E74F0, &Ed::CEditedGoal::ReadTrickSettings);
-REPLACE(0x004E7590, &Ed::CEditedGoal::ReadSpecificParams);

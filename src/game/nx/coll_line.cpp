@@ -3,6 +3,7 @@
 #include "game/nx/coll_line.h"
 
 #include <cmath>
+#include <cstdint>
 
 #include "game/mth/geometry.h"
 #include "game/mth/matrix.h"
@@ -11,13 +12,10 @@
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tests.h"
 #include "game/nx/coll_tri.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
-GAME_GLOBAL(bool, g_wantFarthest, 0x00691910);
+bool g_wantFarthest;
 
 namespace {
 
@@ -351,10 +349,3 @@ bool CCollMovTri::CollideWithLine(const Mth::Line* line, const Mth::Vector* /*di
 }
 
 } // namespace Nx
-
-REPLACE(0x004F8160, &Nx::CollisionHit::CopyFrom);
-REPLACE(0x004131F0, Nx::ReportHit);
-REPLACE(0x004137B0, &Nx::CCollMovBBox::CollideWithLine);
-REPLACE(0x00413B50, &Nx::CCollStatic::CollideWithLine);
-REPLACE(0x00413FF0, &Nx::CCollStaticInstance::CollideWithLine);
-REPLACE(0x00414460, &Nx::CCollMovTri::CollideWithLine);

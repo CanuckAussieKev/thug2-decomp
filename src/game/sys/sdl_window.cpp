@@ -15,7 +15,6 @@
 #include "game/sys/debug_log.h"
 #include "game/sys/sdl_events.h"
 #include "game/sys/winmain.h"
-#include "hook/game.h"
 #include "game/gfx/device.h"
 #include "game/gfx/movie.h"
 

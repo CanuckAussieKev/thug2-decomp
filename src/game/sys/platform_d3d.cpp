@@ -2,11 +2,9 @@
 
 #include "game/sys/platform_d3d.h"
 
+#include <cstdint>
 #include <unordered_map>
 
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/device.h"
 #include "game/gfx/pc_flexible_particles.h"
 
@@ -17,11 +15,11 @@ namespace {
 IDirect3D9*& Direct3D() { return Nx::g_direct3D; }
 IDirect3DDevice9*& Device() { return Nx::g_d3dDevice; }
 
-GAME_GLOBAL(IDirect3DVertexBuffer9*, g_dynamicVertices, 0x007D69E4);
-GAME_GLOBAL(uint8_t*, g_dynamicVerticesLocked, 0x007D69EC);
-GAME_GLOBAL(uint32_t, g_dynamicVerticesUsed, 0x007D69F0);
-GAME_GLOBAL(uint32_t, g_dynamicVerticesSize, 0x007D69F4);
-GAME_GLOBAL(IDirect3DQuery9*, g_queryInProgress, 0x007D69F8);
+IDirect3DVertexBuffer9* g_dynamicVertices;
+uint8_t* g_dynamicVerticesLocked;
+uint32_t g_dynamicVerticesUsed;
+uint32_t g_dynamicVerticesSize;
+IDirect3DQuery9* g_queryInProgress;
 
 // The dynamic vertex buffer: its size, where the next vertices go and where its lock put them.
 IDirect3DVertexBuffer9*& DynamicVertices() { return g_dynamicVertices; }
@@ -206,16 +204,3 @@ void ReleaseDirect3D()
 }
 
 } // namespace Platform
-
-REPLACE(0x005F45E0, Platform::ExpandPalette);
-REPLACE(0x005F4620, Platform::CreateDynamicVertexBuffer);
-REPLACE(0x005F4650, Platform::ReleaseDynamicVertexBuffer);
-REPLACE(0x005F4670, Platform::ReleaseQuadIndexBuffer);
-REPLACE(0x005F4690, Platform::CreateQuadIndexBuffer);
-REPLACE(0x005F4740, Platform::LockDynamicVertices);
-REPLACE(0x005F4800, Platform::UnlockDynamicVertices);
-REPLACE(0x005F4840, Platform::BeginOcclusionQuery);
-REPLACE(0x005F5650, Platform::EndOcclusionQuery);
-REPLACE(0x005F4C80, Platform::GetOcclusionResult);
-REPLACE(0x005F52D0, Platform::ReleaseOcclusionQueries);
-REPLACE(0x005F55E0, Platform::ReleaseDirect3D);

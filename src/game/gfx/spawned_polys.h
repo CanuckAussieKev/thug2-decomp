@@ -6,7 +6,6 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/core/pool.h"
-#include "hook/game_global.h"
 
 // The engine's spawned polygons (the SpawnPoly script command): textured or plain quads at a place, turned to face a
 // direction, their size and corner colours moved from a start to an end over their lifetime, each drawn by a PC
@@ -58,5 +57,5 @@ void __cdecl KillAllSpawnedPolys();
 
 } // namespace Engine
 
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_spawnedPolyPools);
+extern Mem::PoolPair g_spawnedPolyPools;
 } // namespace Nx

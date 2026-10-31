@@ -13,9 +13,6 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/tagging.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace CFuncs {
 
@@ -81,7 +78,7 @@ Mdl::Skate* Skate() { return Mdl::Skate::Instance(); }
 
 } // namespace
 
-GAME_GLOBAL(float, g_degreesToRadians, 0x00645464, 0.017453292f); // pi / 180
+float g_degreesToRadians{0.017453292f}; // pi / 180
 
 // 0x005B3A90: GenerateCAGTexture info_array=[{texture_id scale flip_h flip_v rot pos_x pos_y rgba layer_id}...]
 // player=n [Test=1]: the custom tag texture composed from its layers: cleared, then each layer's texture drawn into a
@@ -284,8 +281,3 @@ bool __cdecl CFunc_ResolveHeadBoneScale(Script::CStruct* params, Script::CScript
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005B3A90, CFuncs::CFunc_GenerateCAGTexture);
-REPLACE(0x005B3ED0, CFuncs::CFunc_SyncCAGWorkspace);
-REPLACE(0x005B3F40, CFuncs::CFunc_Get2DPosFrom2DVec);
-REPLACE(0x005B4150, CFuncs::CFunc_ResolveHeadBoneScale);

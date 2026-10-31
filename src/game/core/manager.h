@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include "game/core/alloc.h"
-#include "hook/game_global.h"
 
 // The memory manager: owns the game's regions and heaps, keeps a stack of "current" heaps (where allocations
 // without an explicit heap go), and finds heaps by name checksum. One instance (0x007D1800).
@@ -128,5 +127,5 @@ int EnsureManager();
 // 0x005BC340
 void ShutDownManager();
 
-GAME_GLOBAL_EXTERN(bool, g_managerReady);
+extern bool g_managerReady;
 } // namespace Mem

@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include "game/mth/vector.h"
-#include "hook/game_global.h"
 
 // Lighting on PC (Nx engine): the scene's lights (the engine's ambient colour 0x0067DC98, its scale 0x0067DC94, the
 // directional lights' directions 0x0067DC9C and colours 0x0067DCA0, their intensities 0x006FAAEC) and the PC model
@@ -80,6 +79,6 @@ Mth::Vector* __cdecl GetLightDirection(int light);
 // 0x004B6B10: new model lights (0x30 bytes).
 CPcModelLights* __cdecl CreateModelLights();
 
-GAME_GLOBAL_EXTERN(float[28], g_lightConstants);
+extern float g_lightConstants[28];
 
 } // namespace Nx

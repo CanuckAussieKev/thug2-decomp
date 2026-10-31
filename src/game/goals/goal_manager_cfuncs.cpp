@@ -1,6 +1,8 @@
 // The goal manager's script commands, 0x005591C0-0x0055997F (see goal_manager_cfuncs.h): starting, stopping,
 // winning and losing goals, their timers and flags.
 
+#include <cstdint>
+
 #include "game/goals/goal_manager_cfuncs.h"
 
 #include "game/goals/goal.h"
@@ -9,8 +11,6 @@
 #include "game/goals/goal_names.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Game {
 
@@ -276,31 +276,3 @@ bool __cdecl CFunc_GoalManager_NextWaypoint(Script::CStruct* params, Script::CSc
 }
 
 } // namespace Game
-
-REPLACE(0x005591C0, Game::CFunc_GoalManager_EditGoal);
-REPLACE(0x00559230, Game::CFunc_GoalManager_ActivateGoal);
-REPLACE(0x00559290, Game::CFunc_GoalManager_DeactivateGoal);
-REPLACE(0x005592F0, Game::CFunc_GoalManager_ClearLastGoal);
-REPLACE(0x00559310, Game::CFunc_GoalManager_WinGoal);
-REPLACE(0x00559350, Game::CFunc_GoalManager_LoseGoal);
-REPLACE(0x00559390, Game::CFunc_GoalManager_DeactivateAllGoals);
-REPLACE(0x005593D0, Game::CFunc_GoalManager_ActivateAllGoals);
-REPLACE(0x005593F0, Game::CFunc_GoalManager_UninitializeAllGoals);
-REPLACE(0x00559410, Game::CFunc_GoalManager_UninitializeGoal);
-REPLACE(0x00559490, Game::CFunc_GoalManager_InitializeAllGoals);
-REPLACE(0x005594B0, Game::CFunc_GoalManager_InitializeAllSelectedGoals);
-REPLACE(0x005594D0, Game::CFunc_GoalManager_ActivateAllSelectedGoals);
-REPLACE(0x005594F0, Game::CFunc_GoalManager_GoalIsActive);
-REPLACE(0x00559540, Game::CFunc_GoalManager_SetGoalTimer);
-REPLACE(0x005595D0, Game::CFunc_GoalManager_ZeroGoalTimer);
-REPLACE(0x00559630, Game::CFunc_GoalManager_PauseAllGoals);
-REPLACE(0x00559650, Game::CFunc_GoalManager_UnPauseAllGoals);
-REPLACE(0x00559670, Game::CFunc_GoalManager_SetGoalFlag);
-REPLACE(0x00559720, Game::CFunc_GoalManager_HasSeenGoal);
-REPLACE(0x00559770, Game::CFunc_GoalManager_AllFlagsSet);
-REPLACE(0x005597C0, Game::CFunc_GoalManager_GoalFlagSet);
-REPLACE(0x00559850, Game::CFunc_GoalManager_CanRetryGoal);
-REPLACE(0x00559870, Game::CFunc_GoalManager_GetGoalParams);
-REPLACE(0x005598D0, Game::CFunc_GoalManager_CanStartGoal);
-REPLACE(0x005598E0, Game::CFunc_GoalManager_NextRaceWaypoint);
-REPLACE(0x00559930, Game::CFunc_GoalManager_NextWaypoint);

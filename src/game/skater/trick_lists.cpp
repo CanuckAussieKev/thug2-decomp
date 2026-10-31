@@ -6,9 +6,7 @@
 
 #include "game/core/manager.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/skater/gap.h"
 
 namespace Obj {
@@ -96,21 +94,13 @@ TrickNameEntry* TrickNameEntry::Destroy(unsigned int flags)
 
 } // namespace Obj
 
-REPLACE(0x00578670, &Obj::TrickListEntry::SetFlag);
-REPLACE(0x00578740, &Obj::TrickListEntry::Construct);
-REPLACE(0x005787F0, &Obj::TrickNameEntry::Construct);
-REPLACE(0x00579570, &Obj::TrickListEntry::DestroyBody);
-REPLACE(0x00579600, &Obj::TrickNameEntry::Destroy);
-REPLACE(0x00579630, &Obj::TrickNameEntry::DestroyBody);
-REPLACE(0x00579820, &Obj::TrickListEntry::Destroy);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kListEntryVtable, 0x0064EC80,
-    &Obj::TrickListEntry::Destroy);
-GAME_VTABLE(kNameEntryVtable, 0x0064EC84,
-    &Obj::TrickNameEntry::Destroy);
+static VtableSlot kListEntryVtable_slots[] = {&Obj::TrickListEntry::Destroy};
+void** const kListEntryVtable = reinterpret_cast<void**>(kListEntryVtable_slots);
+static VtableSlot kNameEntryVtable_slots[] = {&Obj::TrickNameEntry::Destroy};
+void** const kNameEntryVtable = reinterpret_cast<void**>(kNameEntryVtable_slots);
 
 } // namespace
 } // namespace Obj

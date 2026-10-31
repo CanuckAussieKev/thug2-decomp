@@ -5,9 +5,6 @@
 #include <cstring>
 
 #include "game/file/file.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Mem {
 
@@ -15,9 +12,9 @@ namespace {
 
 // The buffer (0x007CE7B8, up to 0x007CEBA8), the write position (0x007CE7B0) and the file it's flushed to
 // (0x007CEBB8 - nothing in this build ever opens it, so it stays null).
-GAME_GLOBAL(char[0x3F0], g_dumpBuffer, 0x007CE7B8);
-GAME_GLOBAL(char*, g_dumpPosition, 0x007CE7B0);
-GAME_GLOBAL(File::Handle, g_dumpFile, 0x007CEBB8);
+char g_dumpBuffer[0x3F0];
+char* g_dumpPosition;
+File::Handle g_dumpFile;
 
 char* DumpBuffer() { return g_dumpBuffer; }
 char* DumpBufferEnd() { return g_dumpBuffer + sizeof(g_dumpBuffer); }
@@ -51,5 +48,3 @@ void __cdecl DumpText(const char* text)
 }
 
 } // namespace Mem
-
-REPLACE(0x0059ED60, Mem::DumpText);

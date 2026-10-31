@@ -12,13 +12,11 @@
 #include "game/core/mem.h"
 #include "game/nx/dynamic_light.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Nx {
@@ -217,32 +215,23 @@ int CDynamicLightComponent::CallMemberFunction(uint32_t name, Script::CStruct* p
 
 } // namespace Obj
 
-REPLACE(0x0041CB90, &Nx::CDynamicLight::SetRadius);
-REPLACE(0x0041D0F0, Obj::CDynamicLightComponent::Create);
-REPLACE(0x0041CBD0, &Obj::CDynamicLightComponent::DestroyBody);
-REPLACE(0x0041D0C0, &Obj::CDynamicLightComponent::Destroy);
-REPLACE(0x0041CBF0, &Obj::CDynamicLightComponent::InitFromStructure);
-REPLACE(0x0041CDA0, &Obj::CDynamicLightComponent::Finalize);
-REPLACE(0x0041CDC0, &Obj::CDynamicLightComponent::Update);
-REPLACE(0x0041CFC0, &Obj::CDynamicLightComponent::CallMemberFunction);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00645F58,
-    &Obj::CDynamicLightComponent::Destroy,
-    &Obj::CDynamicLightComponent::Update,
-    &Obj::CDynamicLightComponent::InitFromStructure,
-    &Obj::CDynamicLightComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CDynamicLightComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CDynamicLightComponent::Destroy,
+         &Obj::CDynamicLightComponent::Update,
+         &Obj::CDynamicLightComponent::InitFromStructure,
+         &Obj::CDynamicLightComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CDynamicLightComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -4,6 +4,7 @@
 #include "game/gfx/scene_lights.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -19,23 +20,20 @@
 #include "game/nx/dynamic_light.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/obj/movie_manager.h"
 #include "game/sys/startup_init.h"
 
 namespace Nx {
 
-GAME_GLOBAL(int, g_sceneLightCount, 0x006FAEF4);
-GAME_GLOBAL(sSceneLight[150], g_sceneLights, 0x006FAF80); // (kMaxSceneLights)
+int g_sceneLightCount;
+sSceneLight g_sceneLights[150]; // (kMaxSceneLights)
 
-GAME_GLOBAL(uint32_t*, g_queuedNodes, 0x006FAEF8);
-GAME_GLOBAL(int, g_queuedCount, 0x006FAEFC);
-GAME_GLOBAL(int, g_queueDone, 0x006FAF00);
-GAME_GLOBAL(int, g_queueFrames, 0x006FAF04);
-GAME_GLOBAL(int, g_queueFrame, 0x006FAF08);
-GAME_GLOBAL(Script::CStruct*, g_queueParams, 0x006FAF0C);
+uint32_t* g_queuedNodes;
+int g_queuedCount;
+int g_queueDone;
+int g_queueFrames;
+int g_queueFrame;
+Script::CStruct* g_queueParams;
 
 namespace {
 
@@ -511,23 +509,6 @@ void __cdecl CreateLightFromNode(Script::CStruct* node)
 }
 
 } // namespace Nx
-
-REPLACE(0x0048FF40, &Nx::sSceneLight::Construct);
-REPLACE(0x0048F1A0, &Nx::sSceneLight::SetRadius);
-REPLACE(0x0048F200, &Nx::sSceneLight::AffectsSector);
-REPLACE(0x0048FFD0, &Nx::sSceneLight::ClearSectors); // (a jump to FlushAllItems)
-REPLACE(0x0048FFE0, &Nx::sSceneLight::FindSectors);
-REPLACE(0x0048F250, Nx::ApplySceneLightsToSector);
-REPLACE(0x0048F620, Nx::LightVertexColours);
-REPLACE(0x0048FC00, Nx::ApplySceneLight);
-REPLACE(0x0048FCA0, Nx::DeleteSceneLight);
-REPLACE(0x0048FDA0, Nx::DeleteAllSceneLights);
-REPLACE(0x0048FDE0, Nx::ClearSceneLightQueue);
-REPLACE(0x0048FE40, Nx::QueueSceneLights);
-REPLACE(0x004904E0, Nx::UpdateSceneLightQueue);
-REPLACE(0x004901D0, Nx::UpdateSceneLight);
-REPLACE(0x00490400, Nx::AddSceneLight);
-REPLACE(0x00490570, Nx::CreateLightFromNode);
 
 namespace Nx {
 

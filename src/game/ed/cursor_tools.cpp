@@ -1,18 +1,17 @@
 // The park editor's cursor: clipboards, area selection, the gap being built, keeping it in the park.
 
+#include <cstdint>
+
 #include "game/ed/park.h"
 
 #include "game/core/pool.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
-GAME_GLOBAL(Mem::PoolPair, g_clipboardPools, 0x007CE5B4);
-GAME_GLOBAL(CCursor*, g_cursor, 0x007CE608);
+Mem::PoolPair g_clipboardPools;
+CCursor* g_cursor;
 
 namespace {
 
@@ -228,21 +227,3 @@ int CCursor::AdvanceAreaSelection()
 } // namespace Ed
 
 using Ed::CCursor;
-
-REPLACE(0x00595330, &CCursor::sInstance);
-REPLACE(0x00595340, &CCursor::HideClipboards);
-REPLACE(0x00595360, &CCursor::SetGapNameAndScore);
-REPLACE(0x005953C0, &CCursor::SetGapCancelFlags);
-REPLACE(0x00595430, &CCursor::GetGapName);
-REPLACE(0x00595440, &CCursor::ShowClipboard);
-REPLACE(0x00595450, &CCursor::SelectClipboard);
-REPLACE(0x005954A0, &CCursor::SetVisibility);
-REPLACE(0x005954D0, &CCursor::OnModeChanged);
-REPLACE(0x005955C0, &Ed::CClipboard::Free);
-REPLACE(0x00597100, &CCursor::RestartAreaSelection);
-REPLACE(0x00597110, &CCursor::GetAreaSelectDims);
-REPLACE(0x00597190, &CCursor::RemoveOldestClipboard);
-REPLACE(0x005971E0, &CCursor::ClampToPark);
-REPLACE(0x005988A0, &CCursor::DestroyClipboards);
-REPLACE(0x00598940, &CCursor::ForgetGapAt);
-REPLACE(0x005989C0, &CCursor::AdvanceAreaSelection);

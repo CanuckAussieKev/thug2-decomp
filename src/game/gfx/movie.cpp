@@ -7,9 +7,11 @@
 
 #include <d3d9.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/dbg.h"
 #include "game/core/crc.h"
@@ -26,18 +28,14 @@
 #include "game/sys/mlp.h"
 #include "game/sys/platform.h"
 #include "game/sfx/mute_audio.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
 #include "game/sys/log.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 #include "game/sys/winmain.h"
 #include "game/sys/crt.h"
 
 namespace Nx {
 
 // (device.h declares this too; not included here, its SetRenderState is another one than the one below)
-GAME_GLOBAL_EXTERN(IDirect3DDevice9*, g_d3dDevice);
+extern IDirect3DDevice9* g_d3dDevice;
 
 namespace {
 
@@ -106,24 +104,24 @@ void __stdcall DrawMovieQuad(void* device, int type, uint32_t count, void* verti
         (*static_cast<void***>(device))[0x14C / 4])(device, type, count, vertices, stride);
 }
 
-GAME_GLOBAL(float, g_onePercent, 0x0064544C, 0.01f);
-GAME_GLOBAL(float, g_float255, 0x00646B88, 255.0f);
-GAME_GLOBAL(float, g_float16384, 0x006472BC, 16384.0f);
-GAME_GLOBAL(uint32_t, g_movieSurfaceType, 0x0067D7C4, 3);
-GAME_GLOBAL(float, g_movieBackBufferWidth, 0x0067D7C8, 640.0f);
-GAME_GLOBAL(float, g_movieBackBufferHeight, 0x0067D7CC, 480.0f);
-GAME_GLOBAL(float, g_moviePictureWidth, 0x0067D7D0, 640.0f);
-GAME_GLOBAL(float, g_moviePictureHeight, 0x0067D7D4, 480.0f);
-GAME_GLOBAL(float, g_movieDrawWidth, 0x0067D7D8, 1.0f);
-GAME_GLOBAL(float, g_movieDrawHeight, 0x0067D7DC, 1.0f);
-GAME_GLOBAL(uint32_t, g_savedMinFilter, 0x00696D80);
-GAME_GLOBAL(uint32_t, g_savedAntialias, 0x00696D84);
-GAME_GLOBAL(uint32_t, g_savedCullMode, 0x00696D88);
-GAME_GLOBAL(bool, g_moviePlaying, 0x00696D95);
-GAME_GLOBAL(int, g_movieDumpCount, 0x00696D9C);
-GAME_GLOBAL(bool, g_deviceLost, 0x00786AB4);
-GAME_GLOBAL(bool, g_quitRequested, 0x007D6A2C);
-GAME_GLOBAL(Bink*, g_currentMovie, 0x00696D90); // a Bink movie playing
+float g_onePercent{0.01f};
+float g_float255{255.0f};
+float g_float16384{16384.0f};
+uint32_t g_movieSurfaceType{3};
+float g_movieBackBufferWidth{640.0f};
+float g_movieBackBufferHeight{480.0f};
+float g_moviePictureWidth{640.0f};
+float g_moviePictureHeight{480.0f};
+float g_movieDrawWidth{1.0f};
+float g_movieDrawHeight{1.0f};
+uint32_t g_savedMinFilter;
+uint32_t g_savedAntialias;
+uint32_t g_savedCullMode;
+bool g_moviePlaying;
+int g_movieDumpCount;
+bool g_deviceLost;
+bool g_quitRequested;
+Bink* g_currentMovie; // a Bink movie playing
 
 // 0x0044FA80
 void DrawMovieFrame(void* texture, float x, float y, float width, float height, float alpha)
@@ -173,20 +171,20 @@ void DrawMovieFrame(void* texture, float x, float y, float width, float height, 
 namespace {
 
 // The Bink SDK (binkw32.dll), through the game's import table.
-int BinkSetSoundSystem(void* open, void* param) { return GAME_DLL_IMPORT(0x00645304, int(__stdcall*)(void*, void*), "binkw32.dll", "_BinkSetSoundSystem@8")(open, param); }
-void* BinkOpenDirectSound() { return GAME_DLL_IMPORT(0x00645300, void*, "binkw32.dll", "_BinkOpenDirectSound@4"); } // the function, passed to the above
-Bink* BinkOpen(const char* path, uint32_t flags) { return GAME_DLL_IMPORT(0x006452E8, Bink*(__stdcall*)(const char*, uint32_t), "binkw32.dll", "_BinkOpen@8")(path, flags); }
-void BinkSetSoundOnOff(Bink* bink, int on) { GAME_DLL_IMPORT(0x0064530C, int(__stdcall*)(Bink*, int), "binkw32.dll", "_BinkSetSoundOnOff@8")(bink, on); }
-void BinkSetVolume(Bink* bink, uint32_t track, int volume) { GAME_DLL_IMPORT(0x00645310, void(__stdcall*)(Bink*, uint32_t, int), "binkw32.dll", "_BinkSetVolume@12")(bink, track, Sfx::OutputBinkVolume(volume)); } // (NOT ORIGINAL: mute_audio)
-void BinkPause(Bink* bink, int pause) { GAME_DLL_IMPORT(0x00645314, int(__stdcall*)(Bink*, int), "binkw32.dll", "_BinkPause@8")(bink, pause); }
-int BinkWait(Bink* bink) { return GAME_DLL_IMPORT(0x00645318, int(__stdcall*)(Bink*), "binkw32.dll", "_BinkWait@4")(bink); }
-void BinkDoFrame(Bink* bink) { GAME_DLL_IMPORT(0x006452EC, int(__stdcall*)(Bink*), "binkw32.dll", "_BinkDoFrame@4")(bink); }
+int BinkSetSoundSystem(void* open, void* param) { return reinterpret_cast<int(__stdcall*)(void*, void*)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param); }
+void* BinkOpenDirectSound() { return reinterpret_cast<void*>(Crt::LibraryFunction("binkw32.dll", "_BinkOpenDirectSound@4")); } // the function, passed to the above
+Bink* BinkOpen(const char* path, uint32_t flags) { return reinterpret_cast<Bink*(__stdcall*)(const char*, uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkOpen@8"))(path, flags); }
+void BinkSetSoundOnOff(Bink* bink, int on) { reinterpret_cast<int(__stdcall*)(Bink*, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetSoundOnOff@8"))(bink, on); }
+void BinkSetVolume(Bink* bink, uint32_t track, int volume) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetVolume@12"))(bink, track, Sfx::OutputBinkVolume(volume)); } // (NOT ORIGINAL: mute_audio)
+void BinkPause(Bink* bink, int pause) { reinterpret_cast<int(__stdcall*)(Bink*, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkPause@8"))(bink, pause); }
+int BinkWait(Bink* bink) { return reinterpret_cast<int(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkWait@4"))(bink); }
+void BinkDoFrame(Bink* bink) { reinterpret_cast<int(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkDoFrame@4"))(bink); }
 void BinkCopyToBuffer(Bink* bink, void* bits, int pitch, uint32_t height, uint32_t x, uint32_t y, uint32_t flags)
 {
-    GAME_DLL_IMPORT(0x00645308, int(__stdcall*)(Bink*, void*, int, uint32_t, uint32_t, uint32_t, uint32_t), "binkw32.dll", "_BinkCopyToBuffer@28")(bink, bits, pitch, height, x, y, flags);
+    reinterpret_cast<int(__stdcall*)(Bink*, void*, int, uint32_t, uint32_t, uint32_t, uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkCopyToBuffer@28"))(bink, bits, pitch, height, x, y, flags);
 }
-void BinkNextFrame(Bink* bink) { GAME_DLL_IMPORT(0x00645320, void(__stdcall*)(Bink*), "binkw32.dll", "_BinkNextFrame@4")(bink); }
-void BinkClose(Bink* bink) { GAME_DLL_IMPORT(0x0064531C, void(__stdcall*)(Bink*), "binkw32.dll", "_BinkClose@4")(bink); }
+void BinkNextFrame(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkNextFrame@4"))(bink); }
+void BinkClose(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkClose@4"))(bink); }
 
 Bink*& CurrentMovie() { return g_currentMovie; }
 bool& MoviePlaying() { return g_moviePlaying; }
@@ -318,7 +316,7 @@ enum : uint32_t { kStart = 0x0800, kCross = 0x0040 }; // PS2 control data bytes 
 void __cdecl PlayMovieFile(const char* name)
 {
     if (!BinkSetSoundSystem(BinkOpenDirectSound(), Pcm::g_soundDevice))
-        Dbg::Printf(GAME_TEXT(0x006472D4, "Bink can't use DSound\n")); // "Bink can't use DSound\n"
+        Dbg::Printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
     CreateSoundManager();
     float music = MusicVolume();
     float effects = SoundVolume();
@@ -485,12 +483,3 @@ bool __cdecl PlayMovie(Script::CStruct* params, void* script)
 }
 
 } // namespace Nx
-
-REPLACE(0x0044FA80, Nx::DrawMovieFrame);
-REPLACE(0x0059F0C0, Nx::PlayMovie);
-REPLACE(0x0044FDC0, Nx::PlayMovieFile);
-REPLACE_SOURCE_ONLY(0x0044F830, Nx::PlayMovieFile); // a jump to 0x0044FDC0
-REPLACE(0x0044F8C0, Nx::BeginMovie);
-REPLACE(0x0044F9F0, Nx::EndMovie);
-REPLACE(0x0044FCC0, Nx::DrawMovie);
-REPLACE_UNCHECKED(0x0044F840, Nx::ButtonPressedAgainStub);

@@ -18,26 +18,23 @@
 #include "game/script/struct.h"
 #include "game/ass/assman.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[12], g_suspendComponentMemberFunctions, 0x00684C48,
+uint32_t g_suspendComponentMemberFunctions[12]{
             0xA0B7E09B, 0xCE0CA665, 0, 0, 0, 0,
-            0, 0xCE0CA665, 0, 0, 0, 0);
-GAME_GLOBAL(int, g_suspendFrameCount, 0x006951B0);
-GAME_GLOBAL(int, g_suspendInterleave2Count, 0x006951B4);
-GAME_GLOBAL(int, g_suspendInterleave4Count, 0x006951B8);
-GAME_GLOBAL(SuspendTaskHolder*, g_suspendTaskHolder, 0x006951BC);
+            0, 0xCE0CA665, 0, 0, 0, 0};
+int g_suspendFrameCount;
+int g_suspendInterleave2Count;
+int g_suspendInterleave4Count;
+SuspendTaskHolder* g_suspendTaskHolder;
 
 namespace {
 
@@ -330,42 +327,23 @@ void __cdecl SuspendTask(void* /*task*/)
 
 } // namespace Obj
 
-REPLACE(0x00434290, Obj::CSuspendComponent::Create);
-REPLACE(0x00434610, Obj::CSuspendComponent::RegisterMemberFunctions);
-REPLACE(0x00433F50, &Obj::CSuspendComponent::Construct);
-REPLACE(0x00433E10, &Obj::CSuspendComponent::DestroyBody);
-REPLACE(0x00433FD0, &Obj::CSuspendComponent::Destroy);
-REPLACE(0x00433E50, &Obj::CSuspendComponent::Update);
-REPLACE(0x00434000, &Obj::CSuspendComponent::InitFromStructure);
-REPLACE(0x004341C0, &Obj::CSuspendComponent::Finalize);
-REPLACE(0x00433E60, &Obj::CSuspendComponent::ResetCounts);
-REPLACE(0x00433E70, &Obj::CSuspendComponent::DisableLod);
-REPLACE_SOURCE_ONLY(0x00433E90, &Obj::CSuspendComponent::IsFar); // 4 bytes
-REPLACE(0x00433EA0, &Obj::CSuspendComponent::ShouldAnimate);
-REPLACE(0x004342F0, &Obj::CSuspendComponent::UpdateVisibility);
-REPLACE(0x004341E0, &Obj::CSuspendComponent::Obj_ResetNoSuspendCount);
-REPLACE(0x00433E20, Obj::NextSuspendFrame);
-REPLACE(0x00434520, &Obj::SuspendTaskHolder::Construct);
-REPLACE(0x004345B0, Obj::CreateSuspendTask);
-REPLACE(0x00434420, Obj::SuspendTask);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x006465C8,
-    &Obj::CSuspendComponent::Destroy,
-    &Obj::CSuspendComponent::Update,
-    &Obj::CSuspendComponent::InitFromStructure,
-    &Obj::CSuspendComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    Stubs::IgnoreArgument,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSuspendComponent::Destroy,
+         &Obj::CSuspendComponent::Update,
+         &Obj::CSuspendComponent::InitFromStructure,
+         &Obj::CSuspendComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         Stubs::IgnoreArgument,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

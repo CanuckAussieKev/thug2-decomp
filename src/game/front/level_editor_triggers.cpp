@@ -4,12 +4,16 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <initializer_list>
 #include <map>
 #include <new>
 #include <sstream>
+#include <vector>
 
 #include "game/core/crc.h"
 #include "game/front/level_editor_cameras.h"
@@ -40,7 +44,6 @@
 #include "game/script/struct.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 

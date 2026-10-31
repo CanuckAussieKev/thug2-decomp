@@ -3,7 +3,6 @@
 
 #include "game/mth/vector.h"
 #include "game/mth/x87_math.h"
-#include "hook/hook.h"
 
 namespace Mth {
 
@@ -19,5 +18,3 @@ Vector& Vector::RotateAboutZ(float angle)
 }
 
 } // namespace Mth
-
-REPLACE(0x004882D0, &Mth::Vector::RotateAboutZ);

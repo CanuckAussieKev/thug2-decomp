@@ -24,12 +24,10 @@
 #include "game/skate/score.h"
 #include "game/skate/skate_module.h"
 #include "game/ed/park_editor.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/skater/gap.h"
 
@@ -621,66 +619,41 @@ void __cdecl AwardPendingGaps()
 
 } // namespace Obj
 
-REPLACE(0x00512C60, Obj::CSkaterGapComponent::Create);
-REPLACE(0x005122A0, &Obj::CSkaterGapComponent::Construct);
-REPLACE(0x00511F10, &Obj::CSkaterGapComponent::DestroyBody);
-REPLACE(0x005122F0, &Obj::CSkaterGapComponent::Destroy);
-REPLACE(0x00511BB0, &Obj::CSkaterGapComponent::InitFromStructure);
-REPLACE(0x00511BC0, &Obj::CSkaterGapComponent::Finalize);
-REPLACE(0x00512320, &Obj::CSkaterGapComponent::Update);
-REPLACE(0x00512CC0, &Obj::CSkaterGapComponent::CallMemberFunction);
-REPLACE(0x00511C80, &Obj::CSkaterGapComponent::GetStateFlags);
-REPLACE(0x00511F60, &Obj::CSkaterGapComponent::CheckGaps);
-REPLACE(0x00512030, &Obj::CSkaterGapComponent::ClearGaps);
-REPLACE(0x00512050, &Obj::CSkaterGapComponent::StartGapTrick);
-REPLACE(0x00512140, &Obj::CSkaterGapComponent::CheckGapTricks);
-REPLACE(0x005121A0, &Obj::CSkaterGapComponent::ClearGapTricks);
-REPLACE(0x00512360, &Obj::CSkaterGapComponent::StartGap);
-REPLACE(0x00512770, &Obj::CSkaterGapComponent::EndGap);
-REPLACE(0x00511E50, &Obj::GapListNode::DestroyBody);
-REPLACE(0x00511E90, &Obj::GapListNode::Destroy);
-REPLACE(0x00512240, &Obj::GapListNode::DestroyHead);
-REPLACE(0x00511E70, &Obj::GapTrickListNode::DestroyBody);
-REPLACE(0x00511ED0, &Obj::GapTrickListNode::Destroy);
-REPLACE(0x00512270, &Obj::GapTrickListNode::DestroyHead);
-REPLACE(0x00511C10, Obj::ClearPendingGaps);
-REPLACE(0x00511C30, Obj::AwardPendingGaps);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064BE90,
-    &Obj::CSkaterGapComponent::Destroy,
-    &Obj::CSkaterGapComponent::Update,
-    &Obj::CSkaterGapComponent::InitFromStructure,
-    &Obj::CSkaterGapComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CSkaterGapComponent::CallMemberFunction);
-GAME_VTABLE(kGapHeadVtable, 0x0064BEC4,
-    &Obj::GapListNode::DestroyHead);
-GAME_VTABLE(kGapTrickHeadVtable, 0x0064BEC8,
-    &Obj::GapTrickListNode::DestroyHead);
+static VtableSlot kVtable_slots[] = {&Obj::CSkaterGapComponent::Destroy,
+         &Obj::CSkaterGapComponent::Update,
+         &Obj::CSkaterGapComponent::InitFromStructure,
+         &Obj::CSkaterGapComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CSkaterGapComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot kGapHeadVtable_slots[] = {&Obj::GapListNode::DestroyHead};
+void** const kGapHeadVtable = reinterpret_cast<void**>(kGapHeadVtable_slots);
+static VtableSlot kGapTrickHeadVtable_slots[] = {&Obj::GapTrickListNode::DestroyHead};
+void** const kGapTrickHeadVtable = reinterpret_cast<void**>(kGapTrickHeadVtable_slots);
 
 } // namespace
 } // namespace Obj
 
 namespace Obj {
 
-GAME_VTABLE(g_gapNodeVtable, 0x0064BE88,
-    &Obj::GapListNode::Destroy);
+static VtableSlot g_gapNodeVtable_slots[] = {&Obj::GapListNode::Destroy};
+void** const g_gapNodeVtable = reinterpret_cast<void**>(g_gapNodeVtable_slots);
 
 } // namespace Obj
 
 namespace Obj {
 
-GAME_VTABLE(g_gapTrickNodeVtable, 0x0064BE8C,
-    &Obj::GapTrickListNode::Destroy);
+static VtableSlot g_gapTrickNodeVtable_slots[] = {&Obj::GapTrickListNode::Destroy};
+void** const g_gapTrickNodeVtable = reinterpret_cast<void**>(g_gapTrickNodeVtable_slots);
 
 } // namespace Obj

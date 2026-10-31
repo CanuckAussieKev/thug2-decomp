@@ -1,5 +1,7 @@
 // The skate-the-line goal (CSkateLineGoal, 0x005691F0-0x0056952F; see goal_skate_line.h).
 
+#include <cstdint>
+
 #include "game/goals/goal_skate_line.h"
 
 #include "game/core/dbg.h"
@@ -9,8 +11,7 @@
 #include "game/script/struct.h"
 #include "game/core/stubs.h"
 #include "game/gfx/weather.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Game {
 
@@ -24,18 +25,18 @@ constexpr uint32_t kGoalObjectsIndex = 0x89B927D0;      // goal_objects_index
 constexpr uint32_t kFirstSpotParams = 0xDB5515AA;       // first_spot_params
 constexpr uint32_t kNextCluster = 0x918C00F2;           // goal_skate_the_line_next_cluster
 
-GAME_VTABLE(kSkateLineVtable, 0x0064E790,
-            &Game::CSkateLineGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
-            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-            &Game::CGoal::HasComponentA302D7CD, &Game::CGoal::Activate, &Game::CGoal::SetActive,
-            &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-            &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CSkateLineGoal::SetFlag,
-            &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet,
-            &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
-            &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag,
-            &Game::CGoal::SetNetStageFlag,
-            &Game::CGoal::UnBeat);
+static VtableSlot kSkateLineVtable_slots[] = {&Game::CSkateLineGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
+                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+                 &Game::CGoal::HasComponentA302D7CD, &Game::CGoal::Activate, &Game::CGoal::SetActive,
+                 &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+                 &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CSkateLineGoal::SetFlag,
+                 &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet,
+                 &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
+                 &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag,
+                 &Game::CGoal::SetNetStageFlag,
+                 &Game::CGoal::UnBeat};
+void** const kSkateLineVtable = reinterpret_cast<void**>(kSkateLineVtable_slots);
 
 Script::CStruct* NewStructure()
 {
@@ -86,7 +87,7 @@ bool CSkateLineGoal::Land()
     CGoalManager* manager = GetGoalManager();
     if (AllFlagsSet())
         return manager->WinGoal(GetGoalId());
-    Dbg::Printf(GAME_TEXT(0x0064E808, "all flags not set\n")); // "all flags not set\n"
+    Dbg::Printf("all flags not set\n"); // "all flags not set\n"
     return manager->LoseGoal(GetGoalId());
 }
 
@@ -139,10 +140,3 @@ bool CSkateLineGoal::SetFlag(uint32_t flag, int value, uint32_t sub)
 }
 
 } // namespace Game
-
-REPLACE(0x005691F0, &Game::CSkateLineGoal::Construct);
-REPLACE(0x00569210, &Game::CSkateLineGoal::DestroyBody);
-REPLACE(0x00569220, &Game::CSkateLineGoal::Land);
-REPLACE(0x00569290, &Game::CSkateLineGoal::Destroy);
-REPLACE(0x005692C0, &Game::CSkateLineGoal::NextCluster);
-REPLACE(0x00569410, &Game::CSkateLineGoal::SetFlag);

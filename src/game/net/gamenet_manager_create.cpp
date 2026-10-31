@@ -20,12 +20,9 @@
 #include "game/net/vault_man.h"
 #include "game/script/preferences.h"
 #include "game/sys/crt.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/ass/assman.h"
 #include "game/net/task_vtable.h"
-#include "hook/game_code.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -127,9 +124,9 @@ Manager* Manager::Construct()
     taunts->Load(kTauntPreferences);
     Field<Tsk::BaseTask*>(this, 0xC0) = NewTask(this, Code(&Manager::ConnectionTask), -2000);
     Field<Tsk::BaseTask*>(this, 0xC4) = NewTask(this, Code(&NetMetricsTask), 0);
-    Field<Tsk::BaseTask*>(this, 0xF0) = NewTask(this, GAME_CODE(0x00547440, GameNet::ServerListTask), 0);
+    Field<Tsk::BaseTask*>(this, 0xF0) = NewTask(this, CodeAddress(GameNet::ServerListTask), 0);
     Field<Tsk::BaseTask*>(this, 0xF4) = NewTask(this, Code(&Manager::AutoServeTask), 0);
-    Field<Tsk::BaseTask*>(this, 0xC8) = NewTask(this, GAME_CODE(0x00544780, GameNet::ScoreUpdateTask), 0);
+    Field<Tsk::BaseTask*>(this, 0xC8) = NewTask(this, CodeAddress(GameNet::ScoreUpdateTask), 0);
     m_clientAddNewPlayersTask = NewTask(this, Code(&Manager::ClientAddNewPlayersTask), -2000);
     m_serverAddNewPlayersTask = NewTask(this, Code(&Manager::ServerAddNewPlayersTask), -2000);
     Field<Tsk::BaseTask*>(this, 0xD4) = NewTask(this, Code(&KeyboardTask), 0);
@@ -139,7 +136,7 @@ Manager* Manager::Construct()
     m_joinStateTask = NewTask(this, Code(&Manager::JoinStateTask), 0);
     Field<Tsk::BaseTask*>(this, 0xE8) = NewTask(this, Code(&Manager::StartGameTask), 0);
     Field<Tsk::BaseTask*>(this, 0xEC) = NewTask(this, Code(&LevelChangeTask), 0);
-    Field<Tsk::BaseTask*>(this, 0xF8) = NewTask(this, GAME_CODE(0x00539610, CarriedFlagsTask), 0);
+    Field<Tsk::BaseTask*>(this, 0xF8) = NewTask(this, CodeAddress(CarriedFlagsTask), 0);
     tasks->AddTask(Field<Tsk::BaseTask*>(this, 0xC0));
     Field<int>(this, 0x1A8) = 5; // the modem state shown last
     Field<uint32_t>(this, 0x1948) = 0; // the created goals' message
@@ -165,7 +162,7 @@ Manager* Manager::Construct()
     return this;
 }
 
-GAME_GLOBAL(uint32_t, g_gameNetReferences, 0x007CCE18);
+uint32_t g_gameNetReferences;
 
 // 0x0053F520
 Manager* __cdecl Manager::Create(bool create)
@@ -180,6 +177,3 @@ Manager* __cdecl Manager::Create(bool create)
 }
 
 } // namespace GameNet
-
-REPLACE(0x0053EE90, &GameNet::Manager::Construct);
-REPLACE(0x0053F520, GameNet::Manager::Create);

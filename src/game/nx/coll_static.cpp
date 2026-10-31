@@ -3,6 +3,7 @@
 #include "game/nx/coll_static.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -12,31 +13,29 @@
 #include "game/nx/coll_world.h"
 #include "game/core/stubs.h"
 #include "game/core/game_vtables.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/nx/coll_obj.h"
 #include "game/nx/coll_movable.h"
-#include "hook/game_code.h"
-#include "hook/game_global.h"
 #include "game/sys/startup_init.h"
 
 namespace Nx {
 
-GAME_GLOBAL(Mth::Vector, g_sharedOrigin, 0x00691914);        // the origin and orientation every static object reports
-GAME_GLOBAL(Mth::Matrix, g_sharedOrientation, 0x00691928);
+Mth::Vector g_sharedOrigin;        // the origin and orientation every static object reports
+Mth::Matrix g_sharedOrientation;
 
 namespace {
 
-GAME_VTABLE(kInstanceVtable, 0x00645C78, &Nx::CCollStaticInstance::ScalarDelete, Stubs::ReturnTrue,
-    &Nx::CollFaceAccess::GetFaceFlags, &Nx::CollFaceAccess::GetFaceTerrain, &Nx::CCollObj::SetGeometry,
-    &Nx::CCollStaticInstance::SetWorldPosition, &Nx::CCollStaticInstance::SetOrientation,
-    &Nx::CCollScaled::GetWorldPosition, &Nx::CCollMovable::GetOrientation, &Nx::CCollScaled::GetVertexPos,
-    Stubs::ReturnZero, Stubs::IgnoreArgument, &Nx::CCollStaticInstance::Clone, &Nx::CCollStaticInstance::WithinBBox,
-    &Nx::CCollStaticInstance::CollideWithLine, &Nx::CCollStaticInstance::CollideWithRect,
-    &Nx::CCollStatic::CollideWithSphere, &Nx::CCollStatic::CollideWithCapsule,
-    &Nx::CollGeometryForwarders::IsPointBehindFaces, &Nx::CCollStaticInstance::DebugRender, Stubs::ReturnZero,
-    &Nx::CCollStaticInstance::GetWorldBBox, Stubs::IgnoreArguments2, &Nx::CCollStaticInstance::RescaleIfAt,
-    &Nx::CCollStaticInstance::SetScale, &Nx::CCollMovable::GetWorldPosition);
+static VtableSlot kInstanceVtable_slots[] = {&Nx::CCollStaticInstance::ScalarDelete, Stubs::ReturnTrue,
+        &Nx::CollFaceAccess::GetFaceFlags, &Nx::CollFaceAccess::GetFaceTerrain, &Nx::CCollObj::SetGeometry,
+        &Nx::CCollStaticInstance::SetWorldPosition, &Nx::CCollStaticInstance::SetOrientation,
+        &Nx::CCollScaled::GetWorldPosition, &Nx::CCollMovable::GetOrientation, &Nx::CCollScaled::GetVertexPos,
+        Stubs::ReturnZero, Stubs::IgnoreArgument, &Nx::CCollStaticInstance::Clone, &Nx::CCollStaticInstance::WithinBBox,
+        &Nx::CCollStaticInstance::CollideWithLine, &Nx::CCollStaticInstance::CollideWithRect,
+        &Nx::CCollStatic::CollideWithSphere, &Nx::CCollStatic::CollideWithCapsule,
+        &Nx::CollGeometryForwarders::IsPointBehindFaces, &Nx::CCollStaticInstance::DebugRender, Stubs::ReturnZero,
+        &Nx::CCollStaticInstance::GetWorldBBox, Stubs::IgnoreArguments2, &Nx::CCollStaticInstance::RescaleIfAt,
+        &Nx::CCollStaticInstance::SetScale, &Nx::CCollMovable::GetWorldPosition};
+void** const kInstanceVtable = reinterpret_cast<void**>(kInstanceVtable_slots);
 
 // The geometry's own methods: 0x00416BF0 a copy, 0x00416400 moved.
 CCollObjTriData* CloneGeometry(CCollObjTriData* geometry, int a, int b) { return geometry->Clone(a, b != 0); }
@@ -495,50 +494,6 @@ CCollObj* CreateMovableCollision(int type, CCollObjTriData* geometries, int coun
 }
 
 } // namespace Nx
-
-REPLACE(0x00410BF0, &Nx::CollFaceAccess::GetFaceFlags);
-REPLACE(0x00411750, &Nx::CollFaceAccess::GetFaceTerrain);
-REPLACE(0x00412730, &Nx::CCollStatic::Construct);
-REPLACE(0x00412760, &Nx::CCollStatic::Destruct);
-REPLACE(0x004139A0, &Nx::CCollStatic::Clone);
-REPLACE(0x00410C20, &Nx::CCollStatic::SetWorldPosition);
-REPLACE(0x004123A0, &Nx::CCollStatic::GetWorldPosition);
-REPLACE(0x004123B0, &Nx::CCollStatic::GetOrientation);
-REPLACE(0x00410980, &Nx::CCollStatic::GetVertexPos);
-REPLACE(0x00410C70, &Nx::CCollStatic::WithinBBox);
-REPLACE(0x00412750, &Nx::CCollStatic::GetGeometryBBox);
-REPLACE(0x004127C0, &Nx::CCollStaticInstance::Construct);
-REPLACE(0x00414C30, &Nx::CCollStaticInstance::ConstructCopy);
-REPLACE(0x00412840, &Nx::CCollStaticInstance::Destruct);
-REPLACE(0x00413ED0, &Nx::CCollStaticInstance::ScalarDelete);
-REPLACE(0x00414CD0, &Nx::CCollStaticInstance::Clone);
-REPLACE(0x00411480, &Nx::CCollStaticInstance::SetSharedGeometry);
-REPLACE(0x00413F00, &Nx::CCollStaticInstance::SetWorldPosition);
-REPLACE(0x00413F30, &Nx::CCollStaticInstance::SetOrientation);
-REPLACE(0x00413F50, &Nx::CCollStaticInstance::SetScale);
-REPLACE(0x004113B0, &Nx::CCollStaticInstance::UpdateWorldBBox);
-REPLACE(0x00411460, &Nx::CCollStaticInstance::WithinBBox);
-REPLACE(0x00412830, &Nx::CCollStaticInstance::GetWorldBBox);
-REPLACE(0x00411330, &Nx::CCollStaticInstance::RescaleIfAt);
-REPLACE(0x00412F50, &Nx::CCollStaticInstance::DebugRender);
-REPLACE(0x00413000, &Nx::CCollMovTri::Construct);
-REPLACE(0x00413080, &Nx::CCollMovTri::ConstructCopy);
-REPLACE(0x00413070, &Nx::CCollMovTri::Destruct);
-REPLACE(0x004143D0, &Nx::CCollMovTri::ScalarDelete);
-REPLACE(0x00414400, &Nx::CCollMovTri::Clone);
-REPLACE(0x00411780, &Nx::CCollMovTri::SetGeometry);
-REPLACE(0x00412F90, &Nx::CCollMovTri::SetWorldPosition);
-REPLACE(0x00411810, &Nx::CCollMovTri::WithinBBox);
-REPLACE(0x00412FC0, &Nx::CCollMovTri::GetBBox);
-REPLACE(0x0040B390, &Nx::CCollMovTri::UpdateBBox);
-REPLACE(0x00413130, &Nx::CCollMovTri::DebugRender);
-REPLACE_SOURCE_ONLY(0x00414D60, &Nx::CollGeometryStubs::DebugRender); // 3 bytes (RET 0x10)
-REPLACE(0x0040AE80, &Nx::CollGeometryForwarders::RotateY);
-REPLACE(0x0040AE90, &Nx::CollGeometryForwarders::Scale);
-REPLACE(0x0040AEA0, &Nx::CollGeometryForwarders::DebugRender);
-REPLACE(0x0040AEB0, &Nx::CollGeometryForwarders::AddOcclusionPolys);
-REPLACE(0x0040AEC0, &Nx::CollGeometryForwarders::IsPointBehindFaces);
-REPLACE(0x00414990, Nx::CreateMovableCollision);
 
 namespace Nx {
 

@@ -5,6 +5,8 @@
 // The parameter names the original passes as strings (GetString("name") ...) are written here as string literals:
 // THUG2.exe has filler bytes over some of the exe's own strings (park_cfuncs.cpp).
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "game/ed/park_editor.h"
@@ -17,15 +19,12 @@
 #include "game/ed/rail_editor.h"
 #include "game/ed/goal_editor.h"
 #include "game/script/game_cfuncs.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
-GAME_GLOBAL(bool, g_collisionAllowed, 0x0067F398, true);
-GAME_GLOBAL(GridDims, g_savedGridDims, 0x007CE5E0);
-GAME_GLOBAL(uint32_t, g_savedGridGuard, 0x007CE5E8);
+bool g_collisionAllowed{true};
+GridDims g_savedGridDims;
+uint32_t g_savedGridGuard;
 
 namespace {
 
@@ -554,44 +553,3 @@ bool __cdecl CFunc_BindParkEditorToController(Script::CStruct* params, Script::C
 }
 
 } // namespace Ed
-
-REPLACE(0x0058D730, Ed::CFunc_FreeUpMemoryForPlayingPark);
-REPLACE(0x0058D760, Ed::CFunc_IsParkUnsaved);
-REPLACE(0x0058D780, Ed::CFunc_SetEditedParkGapInfo);
-REPLACE(0x0058D820, Ed::CFunc_ParkEditorSelectionAreaTooBigToCopy);
-REPLACE(0x0058D840, Ed::CFunc_CopyParkEditorSelectionToClipboard);
-REPLACE(0x0058D870, Ed::CFunc_CutParkEditorAreaSelection);
-REPLACE(0x0058D8C0, Ed::CFunc_ParkEditorAreaSelectionDeletePieces);
-REPLACE(0x0058D8E0, Ed::CFunc_ContinueParkEditorAreaSelection);
-REPLACE(0x0058D900, Ed::CFunc_SetEditorTheme);
-REPLACE(0x0058D940, Ed::CFunc_SetCustomParkName);
-REPLACE(0x0058D980, Ed::CFunc_OptimizeParkGeometry);
-REPLACE(0x0058D9A0, Ed::CFunc_GetParkEdMemStats);
-REPLACE(0x0058D9B0, Ed::CFunc_ParkEdMemSnapshot);
-REPLACE(0x0058D9E0, Ed::CFunc_EnableParkEdCursor);
-REPLACE(0x0058DA40, Ed::CFunc_ExitParkEdTestPlay);
-REPLACE(0x0058DA70, Ed::CFunc_ParkUpdateUsageInfo);
-REPLACE(0x0058DFB0, Ed::CFunc_SetParkEditorTimeOfDay);
-REPLACE(0x0058DFE0, Ed::CFunc_GetParkEditorTimeOfDayScript);
-REPLACE(0x0058E010, Ed::CFunc_RebuildParkNodeArray);
-REPLACE(0x0058E020, Ed::CFunc_GetParkEditorCursorPos);
-REPLACE(0x0058E070, Ed::CFunc_CustomParkMode);
-REPLACE(0x0058E0F0, Ed::CFunc_SetParkEditorMaxPlayers);
-REPLACE(0x0058E170, Ed::GetResizeArea);
-REPLACE(0x0058E2D0, Ed::CFunc_CanCleanlyResizePark);
-REPLACE(0x0058E490, Ed::ResizeTo);
-REPLACE(0x0058E5E0, Ed::CFunc_ResizePark);
-REPLACE(0x0058E7E0, Ed::CFunc_GetCurrentParkBounds);
-REPLACE(0x0058E870, Ed::CFunc_CanChangeParkDimension);
-REPLACE(0x0058E9A0, Ed::CFunc_SaveParkToDisk);
-REPLACE(0x0058E9E0, Ed::CFunc_LoadParkFromDisk);
-REPLACE(0x0058EA40, Ed::CFunc_FireCustomParkGap);
-REPLACE(0x0058EA70, Ed::CFunc_GetEditedParkGapName);
-REPLACE(0x0058EAA0, Ed::CFunc_GetEditorTheme);
-REPLACE(0x0058EAD0, Ed::CFunc_GetEditorMaxThemes);
-REPLACE(0x0058EAF0, Ed::CFunc_GetCustomParkName);
-REPLACE(0x0058EB90, Ed::CFunc_IsCustomPark);
-REPLACE(0x0058EBB0, Ed::CFunc_IsParkFull);
-REPLACE(0x0058ED00, Ed::CFunc_SwitchParkEditorMenuPieceToMostRecentClipboard);
-REPLACE(0x0058F750, Ed::CFunc_SwitchToParkEditorCamera);
-REPLACE(0x0058F870, Ed::CFunc_BindParkEditorToController);

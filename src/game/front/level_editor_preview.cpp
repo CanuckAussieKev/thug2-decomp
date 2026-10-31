@@ -6,8 +6,10 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <vector>
 
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scenery.h"
@@ -21,7 +23,6 @@
 #include "game/gfx/render_state.h"
 #include "game/mth/matrix.h"
 #include "game/obj/object.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "game/gfx/pc_instance.h"
 

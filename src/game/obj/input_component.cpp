@@ -4,6 +4,8 @@
 #include "game/net/task_vtable.h"
 
 #include <cstdint>
+#include <cstring>
+#include <initializer_list>
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
@@ -18,21 +20,18 @@
 #include "game/sio/inpman.h"
 #include "game/sys/timer.h"
 #include "game/obj/collide_and_die.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[90], g_inputComponentMemberFunctions, 0x00684C78,
+uint32_t g_inputComponentMemberFunctions[90]{
             0xBF7D6C46, 0x27D7CD28, 0, 0, 0, 0,
             0x6E24F5FD, 0x27D7CD28, 0, 0, 0, 0,
             0x56C6C0CD, 0x27D7CD28, 0, 0, 0, 0,
@@ -47,7 +46,7 @@ GAME_GLOBAL(uint32_t[90], g_inputComponentMemberFunctions, 0x00684C78,
             0x2366469C, 0x27D7CD28, 0, 0, 0, 0,
             0x1090A150, 0x27D7CD28, 0, 0, 0, 0,
             0x28729460, 0x27D7CD28, 0, 0, 0, 0,
-            0, 0x27D7CD28, 0, 0, 0, 0);
+            0, 0x27D7CD28, 0, 0, 0, 0};
 
 namespace {
 
@@ -448,53 +447,23 @@ int CInputComponent::HeldLongerThan(Script::CStruct* params, Script::CScript*)
 
 } // namespace Obj
 
-REPLACE(0x0041EEC0, Obj::CInputComponent::Create);
-REPLACE(0x0041E6F0, Obj::CInputComponent::RegisterMemberFunctions);
-REPLACE(0x0041E850, &Obj::CInputComponent::Construct);
-REPLACE(0x0041E710, &Obj::CInputComponent::DestroyBody);
-REPLACE(0x0041E8C0, &Obj::CInputComponent::Destroy);
-REPLACE(0x0041F390, &Obj::CInputComponent::InitFromStructure);
-REPLACE(0x0041F1B0, &Obj::CInputComponent::BindToController);
-REPLACE(0x0041F170, Obj::CInputComponent::HandlerCode);
-REPLACE(0x0041F190, Obj::CInputComponent::HandlerCode2);
-REPLACE(0x0041F090, &Obj::CInputComponent::UpdatePad);
-REPLACE(0x0041F100, &Obj::CInputComponent::UpdatePad2);
-REPLACE(0x0041EF20, &Obj::CInputComponent::IsInputBlocked);
-REPLACE(0x0041ECA0, &Obj::CInputComponent::UpdateEvents);
-REPLACE(0x0041EBF0, &Obj::CInputComponent::CheckButton);
-REPLACE(0x0041E7E0, &Obj::CInputComponent::LockButton);
-REPLACE(0x0041E8F0, &Obj::CInputComponent::LockButtonFromScript);
-REPLACE(0x0041E9A0, &Obj::CInputComponent::DisablePlayerInput);
-REPLACE(0x0041E9B0, &Obj::CInputComponent::EnablePlayerInput);
-REPLACE(0x0041E9C0, &Obj::CInputComponent::NetDisablePlayerInput);
-REPLACE(0x0041E9D0, &Obj::CInputComponent::NetEnablePlayerInput);
-REPLACE(0x0041E7C0, &Obj::CInputComponent::EnableInputEvents);
-REPLACE(0x0041E7D0, &Obj::CInputComponent::DisableInputEvents);
-REPLACE(0x0041E9E0, &Obj::CInputComponent::PlayerInputIsDisabled);
-REPLACE(0x0041EA20, &Obj::CInputComponent::LeftPressed);
-REPLACE(0x0041EA30, &Obj::CInputComponent::RightPressed);
-REPLACE(0x0041EA40, &Obj::CInputComponent::UpPressed);
-REPLACE(0x0041EA50, &Obj::CInputComponent::DownPressed);
-REPLACE(0x0041EA60, &Obj::CInputComponent::GetSticks);
-REPLACE(0x0041EB20, &Obj::CInputComponent::HeldLongerThan);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064605C,
-    &Obj::CInputComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    &Obj::CInputComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CInputComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         &Obj::CInputComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

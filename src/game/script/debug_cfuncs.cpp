@@ -20,14 +20,11 @@
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
 #include "game/ass/assman.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/game_config.h"
 
 namespace CFuncs {
 
-GAME_GLOBAL(uint32_t[15], g_levelQbFiles, 0x00696900);
+uint32_t g_levelQbFiles[15];
 
 namespace {
 
@@ -210,18 +207,3 @@ bool __cdecl CFunc_ResetEngine(Script::CStruct*, Script::CScript*)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x004489B0, CFuncs::CFunc_DisplayFreeMem);
-REPLACE(0x00449110, CFuncs::CFunc_Test);
-REPLACE(0x004493B0, CFuncs::CFunc_LoadQB);
-REPLACE(0x00449450, CFuncs::CFunc_UnloadQB);
-REPLACE(0x004494A0, CFuncs::CFunc_ScreenShot);
-REPLACE(0x004494E0, CFuncs::CFunc_ToggleMetrics);
-REPLACE(0x004494F0, CFuncs::CFunc_German);
-REPLACE(0x00449500, CFuncs::CFunc_French);
-REPLACE(0x00449510, CFuncs::CFunc_Spanish);
-REPLACE(0x00449520, CFuncs::CFunc_Italian);
-REPLACE(0x00449530, CFuncs::CFunc_English);
-REPLACE(0x004498F0, CFuncs::CFunc_ProximCleanup);
-REPLACE(0x00449950, CFuncs::CFunc_Inside);
-REPLACE(0x00449960, CFuncs::CFunc_ResetEngine);

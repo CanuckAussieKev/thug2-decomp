@@ -10,9 +10,6 @@
 #include "game/sys/game_clock.h"
 #include "game/sys/game_config.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/obj/control_pad.h"
 
 namespace CFuncs {
@@ -30,7 +27,7 @@ constexpr uint32_t kElapsedTime = 0x3EB3566B; // "ElapsedTime"
 // The platform the game runs on (0x007CEFA8; 7: Windows).
 int Platform() { return GameConfig::g_platform; }
 
-GAME_GLOBAL(uint32_t, g_timerStart, 0x00696D3C);
+uint32_t g_timerStart;
 
 // The stopwatch's start (Tmr::GetTime, 0x00696D3C).
 uint32_t& TimerStart() { return g_timerStart; }
@@ -91,11 +88,3 @@ bool __cdecl CFunc_GetElapsedTime(CStruct* params, CScript* script)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x0044E3A0, CFuncs::CFunc_IsWIN32);
-REPLACE(0x0044E3B0, CFuncs::CFunc_GetPlatform);
-REPLACE(0x0044E3D0, CFuncs::CFunc_Randomize);
-REPLACE(0x0044E3F0, CFuncs::CFunc_ResetTimer);
-REPLACE(0x0044E400, CFuncs::CFunc_TimeGreaterThan);
-REPLACE(0x0044E460, CFuncs::CFunc_GetStartTime);
-REPLACE(0x0044E490, CFuncs::CFunc_GetElapsedTime);

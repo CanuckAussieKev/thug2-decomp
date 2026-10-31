@@ -4,8 +4,11 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <vector>
 
 #include "game/core/crc.h"
 #include "game/gfx/tod_manager.h"
@@ -13,7 +16,6 @@
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "game/skate/skate_module.h"
 

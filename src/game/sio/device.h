@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include "game/core/alloc.h"
-#include "hook/game_global.h"
 
 // Serial I/O: the controller ports. A Device per port polls its pad (on PC: a DirectInput joystick, or the
 // keyboard bindings) into PS2-format control data, and drives its two vibration motors ("actuators").
@@ -165,6 +164,6 @@ Manager* CreateManager(bool create);
 void ReleaseManager();
 Manager*& ManagerInstance();
 
-GAME_GLOBAL_EXTERN(Manager*, g_manager);
+extern Manager* g_manager;
 
 } // namespace Sio

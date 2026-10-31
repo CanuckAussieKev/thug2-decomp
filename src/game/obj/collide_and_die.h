@@ -5,7 +5,6 @@
 
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
-#include "hook/game_global.h"
 
 namespace GameNet {
 class Manager;
@@ -65,6 +64,6 @@ static_assert(offsetof(CCollideAndDieComponent, m_radius) == 0x1C &&
                   offsetof(CCollideAndDieComponent, m_lastPos) == 0x44 && sizeof(CCollideAndDieComponent) == 0x54,
               "layout must match the original");
 
-GAME_GLOBAL_EXTERN(GameNet::Manager*, g_gameNetManager);
+extern GameNet::Manager* g_gameNetManager;
 
 } // namespace Obj

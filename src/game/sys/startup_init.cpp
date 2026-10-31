@@ -20,14 +20,13 @@
 #include <cstdint>
 
 #include "game/script/names.h"
-#include "hook/game_global.h"
 
 namespace Sys {
 
 namespace {
 
 // 16 bytes nothing reads, set to a null (virtual-inheritance) member function pointer by 0x006408A0.
-GAME_GLOBAL(uint32_t[4], g_nullMemberFunction67D6C0, 0x0067D6C0);
+uint32_t g_nullMemberFunction67D6C0[4];
 
 // 0x006408A0
 void SetNullMemberFunction()

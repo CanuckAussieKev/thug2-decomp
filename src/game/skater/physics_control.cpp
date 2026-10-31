@@ -18,19 +18,16 @@
 #include "game/skater/skater_camera_component.h"
 #include "game/skater/walk_camera.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[66], g_physicsControlMemberFunctions, 0x006846F0,
+uint32_t g_physicsControlMemberFunctions[66]{
             0x3522D612, 0xD9151D4D, 0, 0, 0, 0,
             0x0595627C, 0xD9151D4D, 0, 0, 0, 0,
             0x9569D5B1, 0xD9151D4D, 0, 0, 0, 0,
@@ -41,7 +38,7 @@ GAME_GLOBAL(uint32_t[66], g_physicsControlMemberFunctions, 0x006846F0,
             0x27FDDEB7, 0xD9151D4D, 0, 0, 0, 0,
             0x174A6AD9, 0xD9151D4D, 0, 0, 0, 0,
             0x246322C9, 0xD9151D4D, 0, 0, 0, 0,
-            0, 0xD9151D4D, 0, 0, 0, 0);
+            0, 0xD9151D4D, 0, 0, 0, 0};
 
 namespace {
 
@@ -320,45 +317,23 @@ bool CSkaterPhysicsControlComponent::IsForceWalkOn(Script::CStruct*, Script::CSc
 
 } // namespace Obj
 
-REPLACE(0x00517830, Obj::CSkaterPhysicsControlComponent::Create);
-REPLACE(0x005176A0, Obj::CSkaterPhysicsControlComponent::RegisterMemberFunctions);
-REPLACE(0x005176C0, &Obj::CSkaterPhysicsControlComponent::DestroyBody);
-REPLACE(0x00517740, &Obj::CSkaterPhysicsControlComponent::Destroy);
-REPLACE(0x005176D0, &Obj::CSkaterPhysicsControlComponent::InitFromStructure);
-REPLACE(0x00517770, &Obj::CSkaterPhysicsControlComponent::Finalize);
-REPLACE(0x00517AC0, &Obj::CSkaterPhysicsControlComponent::Update);
-REPLACE(0x00517C80, &Obj::CSkaterPhysicsControlComponent::CallMemberFunction);
-REPLACE(0x005178B0, &Obj::CSkaterPhysicsControlComponent::SetPaused);
-REPLACE(0x00517940, &Obj::CSkaterPhysicsControlComponent::SwitchSkatingToWalking);
-REPLACE(0x00517B20, &Obj::CSkaterPhysicsControlComponent::SwitchWalkingToSkating);
-REPLACE(0x00517A80, &Obj::CSkaterPhysicsControlComponent::PausePhysics);
-REPLACE(0x00517AA0, &Obj::CSkaterPhysicsControlComponent::UnPausePhysics);
-REPLACE(0x005177A0, &Obj::CSkaterPhysicsControlComponent::GetTimeSincePhysicsSwitch);
-REPLACE(0x005177F0, &Obj::CSkaterPhysicsControlComponent::GetPreviousPhysicsStateDuration);
-REPLACE(0x005176E0, &Obj::CSkaterPhysicsControlComponent::SetBoardMissing);
-REPLACE(0x005176F0, &Obj::CSkaterPhysicsControlComponent::UnsetBoardMissing);
-REPLACE(0x00517700, &Obj::CSkaterPhysicsControlComponent::IsBoardMissing);
-REPLACE(0x00517710, &Obj::CSkaterPhysicsControlComponent::SetForceWalk);
-REPLACE(0x00517720, &Obj::CSkaterPhysicsControlComponent::UnSetForceWalk);
-REPLACE(0x00517730, &Obj::CSkaterPhysicsControlComponent::IsForceWalkOn);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064BFE0,
-    &Obj::CSkaterPhysicsControlComponent::Destroy,
-    &Obj::CSkaterPhysicsControlComponent::Update,
-    &Obj::CSkaterPhysicsControlComponent::InitFromStructure,
-    &Obj::CSkaterPhysicsControlComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::CSkaterPhysicsControlComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSkaterPhysicsControlComponent::Destroy,
+         &Obj::CSkaterPhysicsControlComponent::Update,
+         &Obj::CSkaterPhysicsControlComponent::InitFromStructure,
+         &Obj::CSkaterPhysicsControlComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::CSkaterPhysicsControlComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

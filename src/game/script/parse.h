@@ -5,7 +5,6 @@
 #include "game/script/eval.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
-#include "hook/game_global.h"
 
 // Parsing compiled script tokens (see qb.h) into values: parameters of structures, arrays, expressions and
 // the arguments of calls. `args` is the calling script's parameters, which <name> and <...> refer to.
@@ -52,10 +51,10 @@ void SkipValueStub();
 void ParseRandomRangeStub();
 void AddParameterStub();
 
-GAME_GLOBAL_EXTERN(float, g_parseNudge);
-GAME_GLOBAL_EXTERN(CStoredRandom*, g_storedRandomsNewest);
+extern float g_parseNudge;
+extern CStoredRandom* g_storedRandomsNewest;
 
 // The script parser's expression evaluator (script/parse.cpp).
-GAME_GLOBAL_EXTERN(CExpressionEvaluator, g_evaluator);
+extern CExpressionEvaluator g_evaluator;
 
 } // namespace Script

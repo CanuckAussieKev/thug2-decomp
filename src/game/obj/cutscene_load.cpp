@@ -1,5 +1,6 @@
 // Cutscenes: the data's constructor and the objects a cutscene adds (0x004645A0-0x00465502). See cutscene.h.
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/gfx/boned_anim_frame_data.h"
@@ -21,11 +22,9 @@
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/gfx/scene_load.h"
 #include "game/obj/cutscene.h"
-#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -248,7 +247,7 @@ void CCutsceneData::AddObjects(Script::CStruct* params)
             }
             if (skater) {
                 void* face = AppearanceFace(m_unknown34A8);
-                if (face && reinterpret_cast<bool(__thiscall*)(void*)>(GAME_CODE(0x00487510, &Gfx::CFaceTexture::IsValid))(face))
+                if (face && reinterpret_cast<bool(__thiscall*)(void*)>(CodeAddress(&Gfx::CFaceTexture::IsValid))(face))
                     ++modelFile;
                 int male = 0;
                 static_cast<Script::CStruct*>(m_unknown34AC)->GetInteger(kMale, &male, 1);
@@ -308,8 +307,8 @@ void CCutsceneData::AddObjects(Script::CStruct* params)
                     ModelSetOffset(model2, offset2);
                     static_cast<Nx::CModel*>(model2)->Hide(0);
                     static_cast<Nx::CModel*>(model2)->EnableScaling(0);
-                    uint32_t mine = reinterpret_cast<uint32_t(__thiscall*)(void*)>(GAME_CODE(0x00492E50, &Nx::CModel::GetBoneMatrices))(model2);
-                    uint32_t theirs = reinterpret_cast<uint32_t(__thiscall*)(void*)>(GAME_CODE(0x00492E50, &Nx::CModel::GetBoneMatrices))(ModelOf(standIn));
+                    uint32_t mine = reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Nx::CModel::GetBoneMatrices))(model2);
+                    uint32_t theirs = reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Nx::CModel::GetBoneMatrices))(ModelOf(standIn));
                     static_cast<Nx::CModel*>(model2)->SetBoneMatrices(reinterpret_cast<uint8_t*>(theirs));
                     static_cast<Nx::CModel*>(ModelOf(standIn))->SetBoneMatrices(reinterpret_cast<uint8_t*>(mine));
                     static_cast<CModelComponent*>(levelModel)->UpdateBrightness();
@@ -453,15 +452,9 @@ void CCutsceneData::ApplySkaterLook(ObjectEntry& entry)
 
 } // namespace Obj
 
-REPLACE(0x004645A0, Obj::AnimSourceAllocate);
-REPLACE(0x004645E0, Obj::AnimSourceFree);
-REPLACE(0x00464640, &Obj::CCutsceneData::Construct);
-REPLACE(0x00464780, &Obj::CCutsceneData::RefreshObjects);
-REPLACE(0x004648D0, &Obj::CCutsceneData::AddObjects);
-
 namespace Obj {
 
-GAME_VTABLE(g_cutsceneDataVtable, 0x00647908,
-    &Obj::CCutsceneData::Destroy);
+static VtableSlot g_cutsceneDataVtable_slots[] = {&Obj::CCutsceneData::Destroy};
+void** const g_cutsceneDataVtable = reinterpret_cast<void**>(g_cutsceneDataVtable_slots);
 
 } // namespace Obj

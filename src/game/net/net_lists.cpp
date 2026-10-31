@@ -3,18 +3,24 @@
 #include "game/net/net_lists.h"
 
 #include "game/core/manager.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Net {
 
-GAME_VTABLE(kConnNodeVtable, 0x00647574, &Net::ConnNode::Destroy);
-GAME_VTABLE(kConnHeadVtable, 0x006475AC, &Net::ConnNode::DestroyHead);
-GAME_VTABLE(kBannedConnNodeVtable, 0x006475A4, &Net::BannedConnNode::Destroy);
-GAME_VTABLE(kBannedConnVtable, 0x006475B0, &Net::BannedConn::DestroyBanned);
-GAME_VTABLE(kMsgHandlerNodeVtable, 0x006475A8, &Net::MsgHandlerNode::Destroy);
-GAME_VTABLE(kConnSearchVtable, 0x0064759C, &Net::ConnSearch::Destroy);
-GAME_VTABLE(kBannedConnSearchVtable, 0x006475A0, &Net::BannedConnSearch::Destroy);
+static VtableSlot kConnNodeVtable_slots[] = {&Net::ConnNode::Destroy};
+void** const kConnNodeVtable = reinterpret_cast<void**>(kConnNodeVtable_slots);
+static VtableSlot kConnHeadVtable_slots[] = {&Net::ConnNode::DestroyHead};
+void** const kConnHeadVtable = reinterpret_cast<void**>(kConnHeadVtable_slots);
+static VtableSlot kBannedConnNodeVtable_slots[] = {&Net::BannedConnNode::Destroy};
+void** const kBannedConnNodeVtable = reinterpret_cast<void**>(kBannedConnNodeVtable_slots);
+static VtableSlot kBannedConnVtable_slots[] = {&Net::BannedConn::DestroyBanned};
+void** const kBannedConnVtable = reinterpret_cast<void**>(kBannedConnVtable_slots);
+static VtableSlot kMsgHandlerNodeVtable_slots[] = {&Net::MsgHandlerNode::Destroy};
+void** const kMsgHandlerNodeVtable = reinterpret_cast<void**>(kMsgHandlerNodeVtable_slots);
+static VtableSlot kConnSearchVtable_slots[] = {&Net::ConnSearch::Destroy};
+void** const kConnSearchVtable = reinterpret_cast<void**>(kConnSearchVtable_slots);
+static VtableSlot kBannedConnSearchVtable_slots[] = {&Net::BannedConnSearch::Destroy};
+void** const kBannedConnSearchVtable = reinterpret_cast<void**>(kBannedConnSearchVtable_slots);
 
 namespace {
 
@@ -119,18 +125,3 @@ BannedConnSearch* BannedConnSearch::Destroy(unsigned int flags)
 }
 
 } // namespace Net
-
-REPLACE(0x00457010, &Net::MsgHandlerNode::ConstructHead);
-REPLACE(0x00457030, &Net::MsgHandlerNode::DestroyBody);
-REPLACE(0x00457090, &Net::MsgHandlerNode::Destroy);
-REPLACE(0x00457260, &Net::HandlerLists::Destroy);
-REPLACE(0x00457050, &Net::ConnNode::DestroyBody);
-REPLACE(0x004573A0, &Net::ConnNode::DestroyHead);
-REPLACE(0x00455BD0, &Net::ConnNode::Destroy);
-REPLACE(0x00457070, &Net::BannedConnNode::DestroyBody);
-REPLACE(0x004570D0, &Net::BannedConnNode::Destroy);
-REPLACE(0x00457460, &Net::BannedConn::DestroyBanned);
-REPLACE(0x00456B80, &Net::ConnSearch::DestroyBody);
-REPLACE(0x00456FB0, &Net::ConnSearch::Destroy);
-REPLACE(0x00456B90, &Net::BannedConnSearch::DestroyBody);
-REPLACE(0x00456FE0, &Net::BannedConnSearch::Destroy);

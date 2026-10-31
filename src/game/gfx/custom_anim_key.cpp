@@ -1,5 +1,7 @@
 // An animation's custom keys (see custom_anim_key.h). From the disassembly of 0x004860C0-0x00486875.
 
+#include <cstdint>
+
 #include "game/gfx/custom_anim_key.h"
 
 #include "game/core/mem.h"
@@ -9,9 +11,7 @@
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
 #include "game/mc/memcard.h"
 
@@ -32,7 +32,6 @@ constexpr uint32_t kDebugGlobal = 0x2F510F45;     // (a script global each Proce
 constexpr uint32_t kSetHFOVRadians = 0x44EA2B6D;  // the camera's member function (name unknown)
 constexpr uint32_t kStructureScript = 0xBDF7F843; // (name unknown) the script a structure key runs
 constexpr uint32_t kName = 0xA1DC81F9;            // name
-
 
 // Each Process reads the global 0x2F510F45 first (compiled-out debug output, presumably).
 void ReadDebugGlobal() { Script::GetInteger(kDebugGlobal); }
@@ -273,34 +272,24 @@ CCustomAnimKey* __cdecl CreateCustomAnimKey(const uint8_t** cursor)
 }
 
 namespace {
-GAME_VTABLE(kFovVtable, 0x0064880C, &Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
-            &Gfx::CCameraFovKey::Process);
-GAME_VTABLE(kScriptVtable, 0x00648818, &Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
-            &Gfx::CScriptKey::Process);
-GAME_VTABLE(kMarkerVtable, 0x00648824, &Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
-            &Mc::Card::AlwaysTrue);
-GAME_VTABLE(kStructureVtable, 0x00648830, &Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
-            &Gfx::CStructureScriptKey::Process);
-GAME_VTABLE(kKillVtable, 0x0064883C, &Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
-            &Gfx::CKillObjectKey::Process);
-GAME_VTABLE(kCameraVtable, 0x00648848, &Gfx::CCustomAnimKey::Destroy, &Gfx::CCameraKey::WithinRange,
-            &Gfx::CCameraKey::Process);
+static VtableSlot kFovVtable_slots[] = {&Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
+                &Gfx::CCameraFovKey::Process};
+void** const kFovVtable = reinterpret_cast<void**>(kFovVtable_slots);
+static VtableSlot kScriptVtable_slots[] = {&Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
+                &Gfx::CScriptKey::Process};
+void** const kScriptVtable = reinterpret_cast<void**>(kScriptVtable_slots);
+static VtableSlot kMarkerVtable_slots[] = {&Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
+                &Mc::Card::AlwaysTrue};
+void** const kMarkerVtable = reinterpret_cast<void**>(kMarkerVtable_slots);
+static VtableSlot kStructureVtable_slots[] = {&Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
+                &Gfx::CStructureScriptKey::Process};
+void** const kStructureVtable = reinterpret_cast<void**>(kStructureVtable_slots);
+static VtableSlot kKillVtable_slots[] = {&Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
+                &Gfx::CKillObjectKey::Process};
+void** const kKillVtable = reinterpret_cast<void**>(kKillVtable_slots);
+static VtableSlot kCameraVtable_slots[] = {&Gfx::CCustomAnimKey::Destroy, &Gfx::CCameraKey::WithinRange,
+                &Gfx::CCameraKey::Process};
+void** const kCameraVtable = reinterpret_cast<void**>(kCameraVtable_slots);
 } // namespace
 
 } // namespace Gfx
-
-REPLACE(0x004860C0, &Gfx::CCustomAnimKey::WithinRange);
-REPLACE(0x00486150, &Gfx::CCustomAnimKey::SetActive);
-REPLACE(0x00486160, &Gfx::CCustomAnimKey::ProcessIfActive);
-REPLACE(0x00486460, &Gfx::CCustomAnimKey::Destroy);
-REPLACE(0x004868A0, &Gfx::CCameraFovKey::Process);
-REPLACE(0x00486180, &Gfx::CScriptKey::Process);
-REPLACE(0x00486300, &Gfx::CStructureScriptKey::Process);
-REPLACE(0x00486340, &Gfx::CKillObjectKey::Process);
-REPLACE(0x00486490, &Gfx::CCameraKey::Construct);
-REPLACE(0x004861D0, &Gfx::CCameraKey::WithinRange);
-REPLACE(0x00486390, &Gfx::CCameraKey::Process);
-REPLACE(0x004865D0, &Gfx::CAnimScriptKey::Set);
-REPLACE(0x00486560, &Gfx::CAnimScriptKey::DestroyBody);
-REPLACE(0x00486440, &Gfx::CAnimScriptKey::Process);
-REPLACE(0x00486680, Gfx::CreateCustomAnimKey);

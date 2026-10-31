@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include "hook/game_global.h"
 
 namespace Nx {
 
@@ -63,11 +62,11 @@ void __cdecl DrawMovie(Bink* bink, void* texture);
 bool ButtonPressedAgain(const uint8_t* controlData, uint16_t* seenUp, uint32_t mask);
 void ButtonPressedAgainStub();
 
-GAME_GLOBAL_EXTERN(Bink*, g_currentMovie); // a Bink movie playing
+extern Bink* g_currentMovie; // a Bink movie playing
 
-GAME_GLOBAL_EXTERN(float, g_onePercent);
-GAME_GLOBAL_EXTERN(bool, g_quitRequested);
-GAME_GLOBAL_EXTERN(bool, g_moviePlaying);
-GAME_GLOBAL_EXTERN(bool, g_deviceLost);
-GAME_GLOBAL_EXTERN(int, g_movieDumpCount); // (also read by the music's shuffle: pcm/music.cpp)
+extern float g_onePercent;
+extern bool g_quitRequested;
+extern bool g_moviePlaying;
+extern bool g_deviceLost;
+extern int g_movieDumpCount; // (also read by the music's shuffle: pcm/music.cpp)
 } // namespace Nx

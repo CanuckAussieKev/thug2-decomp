@@ -3,7 +3,8 @@
 // custom tag texture a client sends.
 
 #include <cstdint>
-#include "hook/game_code.h"
+#include <initializer_list>
+#include "game/core/code_address.h"
 #include <cstdio>
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
@@ -31,9 +32,6 @@
 #include "game/skater/tagging.h"
 #include "game/script/game_cfuncs.h"
 #include "game/skate/cas_options.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/ass/assman.h"
 #include "game/ed/park_editor.h"
 #include "game/goals/goal.h"
@@ -109,16 +107,16 @@ constexpr uint8_t kMsgTagPalette = 0x98;
 constexpr uint8_t kMsgTagLogos = 0x9A;
 constexpr uint8_t kGroupTag = 10;
 
-const char* const kTagPaletteDesc = GAME_TEXT(0x0064C974, "CAG Palette"); // "CAG Palette"
-const char* const kTagTextureDesc = GAME_TEXT(0x0064C968, "CAG Texture"); // "CAG Texture"
+const char* const kTagPaletteDesc = "CAG Palette"; // "CAG Palette"
+const char* const kTagTextureDesc = "CAG Texture"; // "CAG Texture"
 
 // The game mode's members (not rewritten): its max_players, the flags accumulate_score / track_best_combo /
 // is_elimiskate, a property set (IsTrue).
-int ModeMaxPlayers() { return Call<int>(GAME_CODE(0x005531D0, &Game::CGameMode::GetMaximumNumberOfPlayers), GameMode()); }
-bool AccumulatesScore() { return Call<bool>(GAME_CODE(0x00552FB0, &Game::CGameMode::ShouldAccumulateScore), GameMode()); }
-bool TracksBestCombo() { return Call<bool>(GAME_CODE(0x00552FD0, &Game::CGameMode::ShouldTrackBestCombo), GameMode()); }
-bool IsElimiskate() { return Call<bool>(GAME_CODE(0x00553910, &Game::CGameMode::EndConditionsMet), GameMode()); }
-bool ModeIsTrue(uint32_t property) { return Call<bool>(GAME_CODE(0x00553220, &Game::CGameMode::IsTrue), GameMode(), property); }
+int ModeMaxPlayers() { return Call<int>(CodeAddress(&Game::CGameMode::GetMaximumNumberOfPlayers), GameMode()); }
+bool AccumulatesScore() { return Call<bool>(CodeAddress(&Game::CGameMode::ShouldAccumulateScore), GameMode()); }
+bool TracksBestCombo() { return Call<bool>(CodeAddress(&Game::CGameMode::ShouldTrackBestCombo), GameMode()); }
+bool IsElimiskate() { return Call<bool>(CodeAddress(&Game::CGameMode::EndConditionsMet), GameMode()); }
+bool ModeIsTrue(uint32_t property) { return Call<bool>(CodeAddress(&Game::CGameMode::IsTrue), GameMode(), property); }
 
 Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 4); }
 
@@ -284,7 +282,7 @@ bool Manager::SendCustomTagTexture()
     uint8_t* skate = Detail::Skate();
     if (Net::Manager::Instance()->GetConnectionType() == Net::Manager::kConnectionModem || onServer)
         return false;
-    auto* skater = Call<Obj::CCompositeObject*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate); // the local skater
+    auto* skater = Call<Obj::CCompositeObject*>(CodeAddress(Mdl::Skate::GetLocalSkaterStub), skate); // the local skater
     if (!skater)
         return false;
     auto* tagging = static_cast<Obj::CTaggingComponent*>(skater->GetComponent(Obj::CTaggingComponent::kType));
@@ -293,7 +291,7 @@ bool Manager::SendCustomTagTexture()
 
     Net::Conn* server = m_client->FirstConnection(&search);
     if (server->GetBandwidthType() == 0) {
-        void* profile = Call<void*>(GAME_CODE(0x00564FC0, static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile)), Detail::Skate(), 0);
+        void* profile = Call<void*>(CodeAddress(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile)), Detail::Skate(), 0);
         uint32_t logos = ProfileHasPart(profile, kHatLogo) ? 1 : 0;
         if (ProfileHasPart(profile, kFrontLogo))
             logos |= 2;
@@ -301,7 +299,7 @@ bool Manager::SendCustomTagTexture()
             logos |= 4;
         if (ProfileHasPart(profile, kDeckGraphic))
             logos |= 8;
-        void* texture = Call<void*>(GAME_CODE(0x00553E90, &Game::CGoal::GetParams), tagging); // the custom tag texture
+        void* texture = Call<void*>(CodeAddress(&Game::CGoal::GetParams), tagging); // the custom tag texture
         if (texture) {
             Net::MsgDesc desc;
             desc.Construct();
@@ -439,7 +437,7 @@ void __fastcall Manager::UnlinkAllNodes(Mem::ListNode* head)
     }
 }
 
-GAME_GLOBAL(bool, g_queryReporting, 0x007CCE1C);
+bool g_queryReporting;
 
 // 0x00536D70
 void Manager::DestroyBody()
@@ -484,30 +482,5 @@ void Manager::DestroyBody()
     GetTauntPreferences()->Deinit();
     GetNetworkPreferences()->Deinit();
 }
-
-REPLACE(0x00533F20, &Manager::SetNetworkMode);
-REPLACE(0x00533F50, &Manager::SetServerMode);
-REPLACE(0x00533F70, &Manager::InLanMode);
-REPLACE(0x00533F80, &Manager::InInternetMode);
-REPLACE(0x00533F90, &Manager::OnServer);
-REPLACE(0x00533FA0, &Manager::OnClient);
-REPLACE(0x00533FB0, &Manager::CreateTeamFlags);
-REPLACE(0x00534090, &Manager::SetMaxPlayersPreference);
-REPLACE(0x005341B0, &Manager::SetMaxObserversPreference);
-REPLACE(0x00534310, &Manager::GetPassword);
-REPLACE(0x00534340, &Manager::PlayerCollisionEnabled);
-REPLACE(0x005343E0, &Manager::ShowTeamScores);
-REPLACE(0x00534CF0, &Manager::DestroyServer);
-REPLACE(0x00534D50, &Manager::DestroyMatchClient);
-REPLACE(0x00534D70, &Manager::SendCustomTagTexture);
-REPLACE_SOURCE_ONLY(0x00534F40, &Manager::GetLevel);
-REPLACE(0x00534F50, &Manager::GetChoiceName);
-REPLACE(0x00534FC0, &Manager::GetChoiceInteger);
-REPLACE(0x005359F0, &Manager::ChooseStartPoints);
-REPLACE(0x00535BC0, &Manager::ToggleNetMetrics);
-REPLACE(0x00535BF0, &Manager::ToggleScores);
-REPLACE(0x00535D00, &Manager::KeepsScore);
-REPLACE(0x00535D90, &Manager::SetProSetFlags);
-REPLACE(0x00536D70, &Manager::DestroyBody);
 
 } // namespace GameNet

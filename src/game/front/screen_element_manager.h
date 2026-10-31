@@ -6,7 +6,6 @@
 #include "game/front/screen_element.h"
 #include "game/obj/event.h"
 #include "game/obj/objman.h"
-#include "hook/game_global.h"
 
 namespace Script {
 class CScript;
@@ -21,7 +20,7 @@ class CStruct;
 namespace Front {
 
 class CScreenElementManager;
-GAME_GLOBAL_EXTERN(CScreenElementManager*, g_screenElementManager); // the singleton
+extern CScreenElementManager* g_screenElementManager; // the singleton
 
 class CScreenElementManager : public Obj::CBaseManager {
 public:

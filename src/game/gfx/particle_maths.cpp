@@ -4,8 +4,7 @@
 #include "game/gfx/particle_maths.h"
 
 #include <bit>
-
-#include "hook/hook.h"
+#include <cstdint>
 
 namespace Nx {
 
@@ -158,7 +157,3 @@ __declspec(naked) void MaxVectorStub()
 }
 
 } // namespace Nx
-
-REPLACE_UNCHECKED(0x00494F10, Nx::QuadraticLowestStub);
-REPLACE_UNCHECKED(0x00495130, Nx::MinVectorStub);
-REPLACE_UNCHECKED(0x004951B0, Nx::MaxVectorStub);

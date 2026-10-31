@@ -2,6 +2,7 @@
 
 #include "game/obj/proxim.h"
 
+#include <cstdint>
 #include <new>
 
 #include "game/core/manager.h"
@@ -15,12 +16,10 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
-GAME_GLOBAL(void*, g_proximManager, 0x006F2268);
+void* g_proximManager;
 
 namespace {
 
@@ -436,19 +435,3 @@ uint32_t GetRestartNode(uint32_t type, int index, uint32_t start)
 }
 
 } // namespace Obj
-
-REPLACE(0x0046AAC0, Obj::ProximShapeFromChecksum);
-REPLACE(0x0046AB10, Obj::Proxim_AllocateManager);
-REPLACE(0x0046AB30, Obj::Proxim_Init);
-REPLACE(0x0046AB50, Obj::Proxim_Cleanup);
-REPLACE(0x0046AB90, Obj::Proxim_GetNode);
-REPLACE(0x0046ABC0, &Obj::ProximNode::SetActive);
-REPLACE(0x0046ACB0, Obj::Proxim_SetActive);
-REPLACE(0x0046ACF0, &Obj::ProximNode::SetSector);
-REPLACE(0x0046AD50, &Obj::ProximNode::IsInside);
-REPLACE(0x0046AEC0, &Obj::ProximNode::GetClosestPoint);
-REPLACE(0x0046B1F0, Obj::Proxim_AddNode);
-REPLACE(0x0046B400, Obj::Proxim_Update);
-REPLACE(0x0046B680, Obj::IsRestartNode); // (not a Ghidra function: no callers seen)
-REPLACE(0x0046B6C0, Obj::GetRestartNodes);
-REPLACE(0x0046B790, Obj::GetRestartNode);

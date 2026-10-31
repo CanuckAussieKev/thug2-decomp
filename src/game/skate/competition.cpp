@@ -2,6 +2,7 @@
 
 #include "game/skate/competition.h"
 
+#include <cstdint>
 #include <new>
 
 #include "game/core/crc.h"
@@ -13,25 +14,21 @@
 #include "game/goals/goal_manager.h"
 #include "game/script/parse.h"
 #include "game/obj/anim_movies.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/tod_manager.h"
 #include "game/gfx/loading_bar.h"
-#include "hook/game_code.h"
 
 namespace Mdl {
 
-GAME_GLOBAL(float, g_competitionTiny, 0x006453D4, 0.0001f);
-GAME_GLOBAL(float, g_competitionTwo, 0x00645448, 2.0f);
-GAME_GLOBAL(float, g_competitionThird, 0x006463D8, 0.33333334f);
-GAME_GLOBAL(float, g_competitionThree, 0x006467A8, 3.0f);
-GAME_GLOBAL(float, g_competitionEighth, 0x0064B960, 0.125f);
-GAME_GLOBAL(float, g_competitionNearlyHalf, 0x0064D84C, 0.499999f);
-GAME_GLOBAL(float, g_competitionNinetyNine, 0x0064D950, 99.0f);
-GAME_GLOBAL(float, g_competitionOverHalf, 0x0064D954, 0.500099f);
-GAME_GLOBAL(float, g_competitionMaxJudge, 0x0064D958, 99.85f);
-GAME_GLOBAL(float, g_competitionMaxPoints, 0x0064D95C, 99.9f);
+float g_competitionTiny{0.0001f};
+float g_competitionTwo{2.0f};
+float g_competitionThird{0.33333334f};
+float g_competitionThree{3.0f};
+float g_competitionEighth{0.125f};
+float g_competitionNearlyHalf{0.499999f};
+float g_competitionNinetyNine{99.0f};
+float g_competitionOverHalf{0.500099f};
+float g_competitionMaxJudge{99.85f};
+float g_competitionMaxPoints{99.9f};
 
 namespace {
 
@@ -341,20 +338,20 @@ void CCompetition::Start(float bronze, float silver, float gold, float bronzeSco
         leader.m_scores[second] = Round(mirrored);
     }
 
-    Dbg::Printf(GAME_TEXT(0x0064D888, "\n\n"));
+    Dbg::Printf("\n\n");
     for (int i = 0; i < kLeaders; ++i) {
         Leader& leader = m_leaders[i];
-        Dbg::Printf(GAME_TEXT(0x0064D85C, "%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n"), i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
+        Dbg::Printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
                     leader.Word(1), leader.Word(2), leader.BestTwoOfFourWords());
     }
     SortLeaders();
     const char* firstPlace;
     if (m_params->GetString(kFirstPlaceName, &firstPlace, 0))
         m_leaders[0].m_name = firstPlace;
-    Dbg::Printf(GAME_TEXT(0x0064D850, "\nSorted\n"));
+    Dbg::Printf("\nSorted\n");
     for (int i = 0; i < kLeaders; ++i) {
         Leader& leader = m_leaders[i];
-        Dbg::Printf(GAME_TEXT(0x0064D85C, "%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n"), i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
+        Dbg::Printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
                     leader.Word(1), leader.Word(2), leader.BestTwoOfFourWords());
     }
     for (int i = 0; i < kJudges; ++i)
@@ -370,17 +367,17 @@ void CCompetition::ShowLeaderBoard()
     Script::CStruct* params = NewStructure();
     Script::CArray* board = NewArray();
     board->SetSizeAndType(5, Script::ESYMBOLTYPE_STRUCTURE);
-    Dbg::Printf(GAME_TEXT(0x0064D8A4, "\nSetupJudgeText\n"));
+    Dbg::Printf("\nSetupJudgeText\n");
     for (int i = 0; i < kLeaders; ++i) {
         Leader& leader = m_leaders[i];
-        Dbg::Printf(GAME_TEXT(0x0064D85C, "%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n"), i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
+        Dbg::Printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
                     leader.Word(1), leader.Word(2), leader.BestTwoOfFourWords());
     }
     for (int i = 0; i < 5; ++i) {
         Leader& leader = m_leaders[i];
         Script::CStruct* entry = NewStructure();
         entry->AddString(kName, leader.m_name.c_str());
-        Dbg::Printf(GAME_TEXT(0x0064D88C, "m_current_round: %i\n"), m_runs);
+        Dbg::Printf("m_current_round: %i\n", m_runs);
         entry->AddInteger(kScore, leader.BestTwo(m_runs + 1));
         if (leader.m_id == 0)
             entry->AddChecksum(kNoName, kPlayer);
@@ -397,8 +394,8 @@ void CCompetition::EndRun(int score)
 {
     if (m_ended)
         return;
-    Dbg::Printf(GAME_TEXT(0x0064D9C8, "Ending Competition with score of %d\n"), score);
-    Dbg::Printf(GAME_TEXT(0x0064D9A8, "Bronze %f, silver %f, gold %f\n"), static_cast<double>(m_bronzeScore),
+    Dbg::Printf("Ending Competition with score of %d\n", score);
+    Dbg::Printf("Bronze %f, silver %f, gold %f\n", static_cast<double>(m_bronzeScore),
                 static_cast<double>(m_silverScore), static_cast<double>(m_goldScore));
 
     // The points: linear between the medal scores (above gold: towards 100 at twice the gold score).
@@ -418,9 +415,9 @@ void CCompetition::EndRun(int score)
         points = static_cast<float>((x - m_goldScore) * (static_cast<double>(Hundred()) - m_gold) /
                                         (static_cast<double>(m_goldScore) + m_goldScore - m_goldScore) +
                                     m_gold);
-    Dbg::Printf(GAME_TEXT(0x0064D98C, "points calculated at %f\n"), static_cast<double>(points));
+    Dbg::Printf("points calculated at %f\n", static_cast<double>(points));
     points = points - m_bailPoints;
-    Dbg::Printf(GAME_TEXT(0x0064D960, "points decremented by %f bail points to %f\n"), static_cast<double>(m_bailPoints),
+    Dbg::Printf("points decremented by %f bail points to %f\n", static_cast<double>(m_bailPoints),
                 static_cast<double>(points));
 
     float max = MaxPoints();
@@ -473,7 +470,7 @@ void CCompetition::EndRun(int score)
     if (!(m_points <= limit))
         m_points = limit;
     m_runScores[m_runs] = Truncate(m_points);
-    Dbg::Printf(GAME_TEXT(0x0064D92C, "3 scores are %f,%f,%f, total is %f\n"), static_cast<double>(judges[0]),
+    Dbg::Printf("3 scores are %f,%f,%f, total is %f\n", static_cast<double>(judges[0]),
                 static_cast<double>(judges[1]), static_cast<double>(judges[2]), static_cast<double>(m_points));
 
     // The player's score of the run, the standings, the place.
@@ -493,12 +490,12 @@ void CCompetition::EndRun(int score)
         lowest = judges[1];
     if (judges[2] < lowest)
         lowest = judges[2];
-    Dbg::Printf(GAME_TEXT(0x0064D91C, "Lowest = %f\n"), static_cast<double>(lowest));
+    Dbg::Printf("Lowest = %f\n", static_cast<double>(lowest));
     float base = lowest - spread;
     for (int i = 3; i < kJudges; ++i) {
         double judge = Mth::PlusOrMinusExact(spread) + base;
         judges[i] = static_cast<float>(judge);
-        Dbg::Printf(GAME_TEXT(0x0064D90C, "Score %d is %f\n"), i, judge); // (the unrounded value)
+        Dbg::Printf("Score %d is %f\n", i, judge); // (the unrounded value)
     }
     for (int i = 0; i < kJudges; ++i) {
         if (judges[i] < Zero())
@@ -517,37 +514,22 @@ void CCompetition::EndRun(int score)
     Script::CStruct* params = NewStructure();
     Script::CArray* scores = NewArray();
     scores->SetSizeAndType(5, Script::ESYMBOLTYPE_STRUCTURE);
-    Dbg::Printf(GAME_TEXT(0x0064D8F8, "\nJudgement Day\n\n"));
+    Dbg::Printf("\nJudgement Day\n\n");
     for (int i = 0; i < kJudges; ++i) {
         Script::CStruct* entry = NewStructure();
-        entry->AddInteger(GAME_TEXT(0x0064D384, "score"), Round(judges[i])); // "score"
+        entry->AddInteger("score", Round(judges[i])); // "score"
         if (IsTopJudge(i))
             entry->AddChecksum(kNoName, kTopJudge);
         scores->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
-        Dbg::Printf(GAME_TEXT(0x0064D8E8, "%d: %f Top=%d\n"), i, static_cast<double>(judges[i]),
+        Dbg::Printf("%d: %f Top=%d\n", i, static_cast<double>(judges[i]),
                     static_cast<int>(IsTopJudge(i)));
     }
-    params->AddArray(GAME_TEXT(0x0064D8E0, "scores"), scores);              // "scores"
-    params->AddInteger(GAME_TEXT(0x0064D8D4, "total_score"), Round(m_points));  // "total_score"
+    params->AddArray("scores", scores);              // "scores"
+    params->AddInteger("total_score", Round(m_points));  // "total_score"
     FreeArray(scores);
-    Script::SpawnScript(GAME_TEXT(0x0064D8B8, "goal_comp_show_run_scores"), params, 0, nullptr, 0, 0, false, false, false,
+    Script::SpawnScript("goal_comp_show_run_scores", params, 0, nullptr, 0, 0, false, false, false,
                         false); // goal_comp_show_run_scores
     DeleteStructure(params);
 }
 
 } // namespace Mdl
-
-REPLACE(0x0054FFD0, &Mdl::CCompetition::Leader::Construct);
-REPLACE(0x0054FFF0, &Mdl::CCompetition::DestroyBody);
-REPLACE(0x00550010, &Mdl::CCompetition::EditParams);
-REPLACE(0x00550020, &Mdl::CCompetition::StartRun);
-REPLACE(0x00550040, &Mdl::CCompetition::IsTopJudge);
-REPLACE(0x005501A0, &Mdl::CCompetition::PlaceIs);
-REPLACE(0x005501C0, &Mdl::CCompetition::RoundIs);
-REPLACE(0x005501E0, &Mdl::CCompetition::End);
-REPLACE(0x005501F0, &Mdl::CCompetition::IsEnded);
-REPLACE(0x00550200, &Mdl::CCompetition::SortLeaders);
-REPLACE(0x005504B0, &Mdl::CCompetition::Construct);
-REPLACE(0x00550560, &Mdl::CCompetition::Start);
-REPLACE(0x00550B50, &Mdl::CCompetition::ShowLeaderBoard);
-REPLACE(0x00550EF0, &Mdl::CCompetition::EndRun);

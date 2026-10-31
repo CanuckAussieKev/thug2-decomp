@@ -15,14 +15,12 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/obj/objman.h"
 
@@ -341,43 +339,30 @@ int CBBoxComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, S
 
 } // namespace Obj
 
-REPLACE(0x0041ADC0, Obj::CBBoxComponent::Create);
-REPLACE(0x0041AAD0, &Obj::CBBoxComponent::Construct);
-REPLACE(0x0041A810, &Obj::CBBoxComponent::DestroyBody);
-REPLACE(0x0041A880, &Obj::CBBoxComponent::Destroy);
-REPLACE(0x0041B1A0, &Obj::CBBoxComponent::CallMemberFunction);
-REPLACE(0x0041A950, &Obj::CBBoxComponent::InitRect);
-REPLACE(0x0041AB20, &Obj::CBBoxComponent::ComputeRect);
-REPLACE(0x0041AC40, &Obj::CBBoxComponent::IsInRect);
-REPLACE(0x0041AE20, &Obj::CBBoxComponent::AnySkaterNear);
-REPLACE(0x0041AF10, &Obj::CBBoxComponent::AnyObjectNear);
-REPLACE(0x0041B0A0, &Obj::CBBoxComponent::QueryObjects);
-REPLACE(0x0041A8B0, Obj::RectRadiusSqr);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00645DC4,
-    &Obj::CBBoxComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CBBoxComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CBBoxComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CBBoxComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj
 
 namespace Obj {
 
-GAME_VTABLE(g_objectSearchVtable, 0x00645DFC,
-    &Obj::CObjectSearch::Destroy);
+static VtableSlot g_objectSearchVtable_slots[] = {&Obj::CObjectSearch::Destroy};
+void** const g_objectSearchVtable = reinterpret_cast<void**>(g_objectSearchVtable_slots);
 
 } // namespace Obj

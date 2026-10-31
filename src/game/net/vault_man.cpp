@@ -5,6 +5,7 @@
 
 #include <windows.h>
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -23,11 +24,9 @@
 #include "game/script/struct_buffer.h"
 #include "game/sys/timer.h"
 #include "game/mc/save_types.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/ass/assman.h"
 #include "game/net/task_vtable.h"
-#include "hook/game_code.h"
 #include "game/sys/crt.h"
 
 namespace GameNet {
@@ -37,13 +36,20 @@ namespace {
 using Detail::DeleteParams;
 using Detail::NewParams;
 
-GAME_VTABLE(kItemVtable, 0x0064D414, &GameNet::VaultItem::Destroy); // VaultItem (and a category's items head)
-GAME_VTABLE(kCategoriesHeadVtable, 0x0064D418, &GameNet::VaultNode::DeleteCategoriesHead); // the vault's categories head
-GAME_VTABLE(kCategoryVtable, 0x0064D41C, &GameNet::VaultCategory::Destroy); // VaultCategory
-GAME_VTABLE(kItemNodeVtable, 0x0064D3AC, &GameNet::VaultNode::DeleteItemNode); // Lst::Node<VaultItem>
-GAME_VTABLE(kCategoryNodeVtable, 0x0064D3B0, &GameNet::VaultNode::DeleteCategoryNode); // Lst::Node<VaultCategory>
-GAME_VTABLE(kCategorySearchVtable, 0x0064D29C, &GameNet::VaultSearch::DestroyCategorySearchAndFree);
-GAME_VTABLE(kItemSearchVtable, 0x0064D2A0, &GameNet::VaultSearch::DestroyItemSearchAndFree);
+static VtableSlot kItemVtable_slots[] = {&GameNet::VaultItem::Destroy};
+void** const kItemVtable = reinterpret_cast<void**>(kItemVtable_slots); // VaultItem (and a category's items head)
+static VtableSlot kCategoriesHeadVtable_slots[] = {&GameNet::VaultNode::DeleteCategoriesHead};
+void** const kCategoriesHeadVtable = reinterpret_cast<void**>(kCategoriesHeadVtable_slots); // the vault's categories head
+static VtableSlot kCategoryVtable_slots[] = {&GameNet::VaultCategory::Destroy};
+void** const kCategoryVtable = reinterpret_cast<void**>(kCategoryVtable_slots); // VaultCategory
+static VtableSlot kItemNodeVtable_slots[] = {&GameNet::VaultNode::DeleteItemNode};
+void** const kItemNodeVtable = reinterpret_cast<void**>(kItemNodeVtable_slots); // Lst::Node<VaultItem>
+static VtableSlot kCategoryNodeVtable_slots[] = {&GameNet::VaultNode::DeleteCategoryNode};
+void** const kCategoryNodeVtable = reinterpret_cast<void**>(kCategoryNodeVtable_slots); // Lst::Node<VaultCategory>
+static VtableSlot kCategorySearchVtable_slots[] = {&GameNet::VaultSearch::DestroyCategorySearchAndFree};
+void** const kCategorySearchVtable = reinterpret_cast<void**>(kCategorySearchVtable_slots);
+static VtableSlot kItemSearchVtable_slots[] = {&GameNet::VaultSearch::DestroyItemSearchAndFree};
+void** const kItemSearchVtable = reinterpret_cast<void**>(kItemSearchVtable_slots);
 
 constexpr uint32_t kTimeout = 25000;     // ms without progress
 constexpr uint32_t kListBufferSize = 100000;
@@ -947,41 +953,3 @@ bool __cdecl PrevVaultCategory(Script::CStruct*, Script::CScript* script)
 } // namespace GameNet
 
 using GameNet::VaultMan;
-REPLACE(0x0054A660, VaultMan::OnProgress);
-REPLACE(0x0054A6B0, VaultMan::OnFileDownloaded);
-REPLACE(0x0054A740, VaultMan::OnTransferDone);
-REPLACE(0x0054A760, &GameNet::VaultSearch::DestroyItemSearch);
-REPLACE(0x0054A770, &GameNet::VaultSearch::DestroyCategorySearch);
-REPLACE(0x0054A780, &GameNet::VaultSearch::DestroyCategorySearchAndFree);
-REPLACE(0x0054A7B0, VaultMan::ListThread);
-REPLACE(0x0054A860, VaultMan::DownloadThread);
-REPLACE(0x0054A910, &VaultMan::Download);
-REPLACE(0x0054AA10, GameNet::DownloadFile);
-REPLACE(0x0054AAC0, VaultMan::UploadThread);
-REPLACE(0x0054B060, GameNet::UploadFile);
-REPLACE(0x0054B240, GameNet::CancelFileTransfer);
-REPLACE(0x0054B280, &GameNet::VaultSearch::DestroyItemSearchAndFree);
-REPLACE(0x0054B2B0, &GameNet::VaultNode::DestroyCategoryNode);
-REPLACE(0x0054B2D0, &GameNet::VaultNode::DestroyItemNode);
-REPLACE(0x0054B2F0, &GameNet::VaultNode::DeleteItemNode);
-REPLACE(0x0054B330, &GameNet::VaultNode::DeleteCategoryNode);
-REPLACE(0x0054B370, &VaultMan::StartList);
-REPLACE(0x0054B400, &VaultMan::ListItems);
-REPLACE(0x0054B470, &VaultMan::DestroyBody);
-REPLACE(0x0054B500, &VaultMan::ListCategories);
-REPLACE(0x0054B570, &GameNet::VaultItem::Construct);
-REPLACE(0x0054B5E0, &GameNet::VaultItem::Destroy);
-REPLACE(0x0054B610, &GameNet::VaultNode::DeleteCategoriesHead);
-REPLACE(0x0054B640, &GameNet::VaultSearch::NextItem);
-REPLACE(0x0054B670, &GameNet::VaultCategory::Construct);
-REPLACE(0x0054B6B0, &GameNet::VaultSearch::FirstItem);
-REPLACE(0x0054B6E0, VaultMan::VaultTask);
-REPLACE(0x0054C130, &VaultMan::FreeDirectoryListing);
-REPLACE(0x0054C1D0, &VaultMan::Construct);
-REPLACE(0x0054C290, GameNet::DownloadDirectoryList);
-REPLACE(0x0054C460, GameNet::FreeDirectoryListing);
-REPLACE(0x0054C470, GameNet::FillVaultMenu);
-REPLACE(0x0054C770, GameNet::NextVaultCategory);
-REPLACE(0x0054C800, GameNet::PrevVaultCategory);
-REPLACE(0x0054C890, &GameNet::VaultCategory::DestroyBody);
-REPLACE(0x0054C980, &GameNet::VaultCategory::Destroy);

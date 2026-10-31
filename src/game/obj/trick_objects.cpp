@@ -26,11 +26,8 @@
 #include "game/net/net_conn.h"
 #include "game/net/player_info.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/sys/game_config.h"
-#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -38,9 +35,8 @@ static_assert(offsetof(CTrickObjectCluster, m_name) == 0x14 && offsetof(CTrickOb
                   offsetof(CTrickObjectCluster, m_owner) == 0x3C && offsetof(CTrickObjectCluster, m_owned) == 0x40,
               "layout must match the original");
 
-
-GAME_GLOBAL(Obj::CTrickObjectManager*, g_trickObjectManager, 0x007CE500);
-GAME_GLOBAL(uint32_t, g_trickObjectManagerReferences, 0x007CE504);
+Obj::CTrickObjectManager* g_trickObjectManager;
+uint32_t g_trickObjectManagerReferences;
 
 namespace {
 
@@ -802,67 +798,19 @@ bool CTrickObjectManager::AddObject(uint32_t objectName, uint32_t clusterName)
 
 } // namespace Obj
 
-REPLACE(0x005886C0, &Obj::CTrickObjectManager::LogTrickObjects);
-REPLACE(0x00588200, &Obj::CTrickObject::SetGraffitiColor);
-REPLACE(0x00588270, &Obj::CTrickObject::ClearGraffitiColor);
-REPLACE(0x00588380, &Obj::CTrickObjectManager::GetObjectCluster);
-REPLACE(0x005883C0, &Obj::CTrickObjectManager::GetCluster);
-REPLACE_SOURCE_ONLY(0x005889E0, &Obj::CTrickObjectManager::GetCluster); // a jump to 0x005883C0
-REPLACE(0x00588400, &Obj::CTrickObjectManager::CountClustersHeldBy);
-REPLACE(0x00588430, Obj::FindClusterIndex);
-REPLACE(0x00588450, Obj::FindClusterAtIndex);
-REPLACE(0x00588480, &Obj::CTrickObjectManager::GetClusterName);
-REPLACE(0x005884B0, Obj::WriteHeldCluster);
-REPLACE(0x00588520, &Obj::CTrickObjectManager::WriteGraffitiState);
-REPLACE(0x00588590, &Obj::TrickObjectNode::DestroyBody);
-REPLACE(0x005885B0, &Obj::TrickClusterNode::Destroy);
-REPLACE(0x005885F0, &Obj::TrickObjectNode::Destroy);
-REPLACE(0x00588630, &Obj::CTrickObjectCluster::AddObject);
-REPLACE(0x005880E0, Obj::ReleaseTrickObjectManager);
-REPLACE(0x00588120, Obj::CountObjectInCluster);
-REPLACE(0x00588150, &Obj::CTrickCluster::SetParams);
-REPLACE(0x00588170, &Obj::CTrickObjectList::Construct);
-REPLACE(0x00588180, &Obj::CTrickObjectList::Clear);
-REPLACE(0x005889F0, &Obj::CTrickObjectManager::RemoveAllClusters);
-REPLACE(0x00588A20, &Obj::CTrickObjectList::Add);
-REPLACE(0x00588AA0, &Obj::CTrickObjectList::CopyClusterNames);
-REPLACE(0x00588B40, &Obj::CTrickObject::Destroy);
-REPLACE(0x00588B70, &Obj::TrickObjectHead::UnlinkAll);
-REPLACE(0x00588BB0, &Obj::CTrickObject::DestroyBody);
-REPLACE(0x00588BD0, &Obj::CTrickObjectCluster::Construct);
-REPLACE(0x00588C30, &Obj::CTrickObjectCluster::DestroyBody);
-REPLACE(0x00588D20, &Obj::CTrickObjectCluster::SetGraffitiColor);
-REPLACE(0x00588DC0, &Obj::CTrickObjectManager::Construct);
-REPLACE(0x00588E90, &Obj::CTrickObjectManager::DestroyBody);
-REPLACE(0x00588F40, &Obj::CTrickObjectCluster::ClearGraffitiColor);
-REPLACE(0x00588FF0, &Obj::CTrickObjectManager::SetObjectGraffitiColor);
-REPLACE(0x00589030, &Obj::CTrickObjectManager::ClearGraffitiColor);
-REPLACE(0x00589080, &Obj::CTrickObjectManager::AddObjectToCluster);
-REPLACE(0x00588300, Obj::ReleaseHeldCluster);
-REPLACE(0x00588350, Obj::ListFreeCluster);
-REPLACE(0x005890B0, &Obj::CTrickObjectManager::ApplyPlayerGraffiti);
-REPLACE(0x00589180, Obj::AcquireTrickObjectManager);
-REPLACE(0x005891D0, &Obj::CTrickObjectCluster::Destroy);
-REPLACE(0x00589200, &Obj::CTrickObjectManager::Destroy);
-REPLACE(0x00589230, &Obj::CTrickObjectManager::ReleasePlayerClusters);
-REPLACE(0x005892C0, Obj::ScoreTrickObjects);
-REPLACE(0x00589670, &Obj::CTrickObjectManager::GiveFreeClusters);
-REPLACE(0x005896D0, &Obj::CTrickObjectManager::AddCluster);
-REPLACE(0x00589760, &Obj::CTrickObjectManager::AddObject);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kTrickClusterNodeVtable, 0x0064F0D0,
-    &Obj::TrickClusterNode::Destroy);
-GAME_VTABLE(kTrickObjectNodeVtable, 0x0064F0D4,
-    &Obj::TrickObjectNode::Destroy);
-GAME_VTABLE(kTrickObjectVtable, 0x0064F0D8,
-    &Obj::CTrickObject::Destroy);
-GAME_VTABLE(kTrickClusterVtable, 0x0064F10C,
-    &Obj::CTrickObjectCluster::Destroy);
-GAME_VTABLE(kTrickObjectManagerVtable, 0x0064F110,
-    &Obj::CTrickObjectManager::Destroy);
+static VtableSlot kTrickClusterNodeVtable_slots[] = {&Obj::TrickClusterNode::Destroy};
+void** const kTrickClusterNodeVtable = reinterpret_cast<void**>(kTrickClusterNodeVtable_slots);
+static VtableSlot kTrickObjectNodeVtable_slots[] = {&Obj::TrickObjectNode::Destroy};
+void** const kTrickObjectNodeVtable = reinterpret_cast<void**>(kTrickObjectNodeVtable_slots);
+static VtableSlot kTrickObjectVtable_slots[] = {&Obj::CTrickObject::Destroy};
+void** const kTrickObjectVtable = reinterpret_cast<void**>(kTrickObjectVtable_slots);
+static VtableSlot kTrickClusterVtable_slots[] = {&Obj::CTrickObjectCluster::Destroy};
+void** const kTrickClusterVtable = reinterpret_cast<void**>(kTrickClusterVtable_slots);
+static VtableSlot kTrickObjectManagerVtable_slots[] = {&Obj::CTrickObjectManager::Destroy};
+void** const kTrickObjectManagerVtable = reinterpret_cast<void**>(kTrickObjectManagerVtable_slots);
 
 } // namespace
 } // namespace Obj

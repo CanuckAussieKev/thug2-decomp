@@ -1,13 +1,14 @@
 // The capsule queries. See coll_capsule.h. The arithmetic follows the original's x87 code: values are rounded to
 // floats where it stores them, kept in double precision where it keeps them on its stack.
 
+#include <cstdint>
+
 #include "game/nx/coll_capsule.h"
 
 #include "game/nx/coll_obj.h"
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tests.h"
 #include "game/nx/coll_tri.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
@@ -123,6 +124,3 @@ bool CCollStatic::CollideWithCapsule(const Mth::Capsule* capsule, const Mth::BBo
 }
 
 } // namespace Nx
-
-REPLACE(0x0040FC00, Nx::CapsuleHitsTriangle);
-REPLACE(0x004114E0, &Nx::CCollStatic::CollideWithCapsule);

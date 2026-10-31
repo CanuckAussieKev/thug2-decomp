@@ -1,6 +1,7 @@
 // Cutscenes: loading a cutscene file and playing it (the data's Load / FinishLoading / IsLoaded / Update / Play,
 // the details' remaining virtuals and both deleting destructors; 0x00467710-0x004680DE). See cutscene.h.
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <new>
@@ -18,9 +19,6 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/game_config.h"
 
 namespace Pcm {
@@ -30,9 +28,9 @@ void __cdecl SyncMusicToTime(float seconds);
 
 namespace Obj {
 
-GAME_GLOBAL(char[256], g_cutsceneShotName, 0x006F1058);
-GAME_GLOBAL(bool, g_cutscenePlaying, 0x006F1158);
-GAME_GLOBAL(int, g_cutsceneFixedFrame, 0x006F115C);
+char g_cutsceneShotName[256];
+bool g_cutscenePlaying;
+int g_cutsceneFixedFrame;
 
 namespace {
 
@@ -342,15 +340,3 @@ bool CCutsceneDetails::IsReady()
 }
 
 } // namespace Obj
-
-REPLACE(0x00467710, &Obj::CCutsceneData::MarkLoadedModels);
-REPLACE(0x004677F0, &Obj::CCutsceneData::FinishLoading);
-REPLACE(0x004678A0, &Obj::CCutsceneData::Load);
-REPLACE(0x00467B50, &Obj::CCutsceneData::IsLoaded);
-REPLACE(0x00467BA0, &Obj::CCutsceneData::Update);
-REPLACE(0x00467EA0, &Obj::CCutsceneData::Play);
-REPLACE(0x00467F30, &Obj::CCutsceneDetails::Destroy);
-REPLACE(0x00467F60, &Obj::CCutsceneDetails::Update);
-REPLACE(0x00468040, &Obj::CCutsceneDetails::IsDone);
-REPLACE(0x00468080, &Obj::CCutsceneData::Destroy);
-REPLACE(0x004680B0, &Obj::CCutsceneDetails::IsReady);

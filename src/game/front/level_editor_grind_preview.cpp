@@ -4,14 +4,16 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <unordered_map>
+#include <vector>
 
 #include "game/front/level_editor_chains.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_overlays.h"
 #include "game/obj/rail_manager.h"
-#include "hook/game.h"
 #include "game/skate/skate_module.h"
 
 namespace Front::LevelEditor::GrindPreview {

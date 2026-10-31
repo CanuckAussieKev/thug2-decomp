@@ -7,7 +7,9 @@
 #include <d3d9.h>
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -21,10 +23,7 @@
 #include "game/gfx/texture_dict.h"
 #include "game/sys/platform_d3d.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
@@ -32,9 +31,9 @@
 
 namespace Nx {
 
-GAME_GLOBAL(uint32_t, g_particleRandomB, 0x0067E974, 0x12B9B0A1);
-GAME_GLOBAL(uint32_t, g_particleRandomC, 0x0067E978, 0xAA2FB3F);
-GAME_GLOBAL(uint32_t, g_particleRandomA, 0x00705608);
+uint32_t g_particleRandomB{0x12B9B0A1};
+uint32_t g_particleRandomC{0xAA2FB3F};
+uint32_t g_particleRandomA;
 
 namespace {
 
@@ -520,20 +519,10 @@ void CPcParticleSystem::Render(bool advance)
 }
 
 namespace {
-GAME_VTABLE(kSystemVtable, 0x0064A4F0, &Nx::CPcParticleSystem::Destroy, &Nx::CPcParticleSystem::Initialise,
-            &Nx::CPcParticleSystem::Release, Stubs::IgnoreArgument, &Nx::CPcParticleSystem::Render,
-            &Nx::CPcParticleSystem::Update, Stubs::DoNothing, &Nx::CPcParticleSystem::IsEmitting);
+static VtableSlot kSystemVtable_slots[] = {&Nx::CPcParticleSystem::Destroy, &Nx::CPcParticleSystem::Initialise,
+                &Nx::CPcParticleSystem::Release, Stubs::IgnoreArgument, &Nx::CPcParticleSystem::Render,
+                &Nx::CPcParticleSystem::Update, Stubs::DoNothing, &Nx::CPcParticleSystem::IsEmitting};
+void** const kSystemVtable = reinterpret_cast<void**>(kSystemVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004BB040, &Nx::sParticleBurst::Skip);
-REPLACE(0x004BCE90, Nx::CPcParticleSystem::Create);
-REPLACE(0x004BCE80, &Nx::CPcParticleSystem::DestroyBody);
-REPLACE(0x004BCE50, &Nx::CPcParticleSystem::Destroy);
-REPLACE(0x004BC250, &Nx::CPcParticleSystem::Initialise);
-REPLACE(0x004BBD20, &Nx::CPcParticleSystem::UpdatePath);
-REPLACE(0x004BC240, &Nx::CPcParticleSystem::Update);
-REPLACE(0x004BB0B0, &Nx::CPcParticleSystem::IsEmitting);
-REPLACE(0x004BCE10, &Nx::CPcParticleSystem::Release);
-REPLACE(0x004BB0C0, &Nx::CPcParticleSystem::Render);

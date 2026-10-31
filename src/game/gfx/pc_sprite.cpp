@@ -2,15 +2,14 @@
 
 #include "game/gfx/pc_sprite.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/draw2d.h"
 #include "game/gfx/engine_sprite.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/gfx/pc_font.h"
 
@@ -89,15 +88,9 @@ void CPcSprite::UpdatePriority()
 }
 
 namespace {
-GAME_VTABLE(kSpriteVtable, 0x0064A744, &Nx::CPcSprite::Destroy, &Nx::CPcText::Update, &Nx::CPcSprite::UpdateHidden,
-            &Nx::CPcSprite::Update, &Nx::CPcSprite::UpdatePriority, Stubs::DoNothing);
+static VtableSlot kSpriteVtable_slots[] = {&Nx::CPcSprite::Destroy, &Nx::CPcText::Update, &Nx::CPcSprite::UpdateHidden,
+                &Nx::CPcSprite::Update, &Nx::CPcSprite::UpdatePriority, Stubs::DoNothing};
+void** const kSpriteVtable = reinterpret_cast<void**>(kSpriteVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004C70E0, &Nx::CPcSprite::Construct);
-REPLACE(0x004C7050, &Nx::CPcSprite::DestroyBody);
-REPLACE(0x004C7180, &Nx::CPcSprite::Destroy);
-REPLACE(0x004C70B0, &Nx::CPcSprite::UpdateHidden);
-REPLACE(0x004C71B0, &Nx::CPcSprite::Update);
-REPLACE(0x004C70C0, &Nx::CPcSprite::UpdatePriority);

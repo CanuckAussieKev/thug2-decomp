@@ -2,6 +2,8 @@
 
 #include "game/script/load.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/crc.h"
@@ -16,13 +18,10 @@
 #include "game/script/qb.h"
 #include "game/util/lzss.h"
 #include "game/sys/game_config.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Script {
 
-GAME_GLOBAL(uint32_t, g_loadingFile, 0x006F2364);
+uint32_t g_loadingFile;
 
 namespace {
 
@@ -357,12 +356,3 @@ struct ScriptAdapter {
     bool RefersTo(uint32_t name) { return Script::ScriptRefersTo(reinterpret_cast<Script::CScript*>(this), name); }
 };
 } // namespace
-
-REPLACE(0x00472420, Script::ParseQB);
-REPLACE(0x00472C50, &ScriptAdapter::RefersTo);
-REPLACE(0x0046ED20, Script::RestartChangedScripts);
-REPLACE(0x0046ED90, Script::LoadQBData);
-REPLACE(0x0046EDE0, Script::LoadQB);
-REPLACE(0x0046EEC0, Script::UnloadQB);
-REPLACE_UNCHECKED(0x00472240, Script::ParseSymbolDefinitionStub); // arguments in ECX and on the stack
-REPLACE_UNCHECKED(0x0046FE40, Script::CreateScriptSymbolStub);    // arguments in EAX, EBX and on the stack

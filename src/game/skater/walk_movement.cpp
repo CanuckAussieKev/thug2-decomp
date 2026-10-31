@@ -18,8 +18,6 @@
 #include "game/skater/walk_physics.h"
 #include "game/mth/x87_math.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/sys/crt.h"
 
 namespace Obj {
@@ -617,19 +615,3 @@ void CWalkComponent::CopyToObject()
 }
 
 } // namespace Obj
-
-REPLACE(0x00526260, &Obj::CWalkComponent::TurnFacingToVelocity);
-REPLACE(0x00526430, &Obj::CWalkComponent::AdjustSpeedForSlope);
-REPLACE(0x00527420, &Obj::CWalkComponent::UpdateUpright);
-REPLACE(0x00527720, &Obj::CWalkComponent::SetTransitionFacing);
-REPLACE(0x005277B0, &Obj::CWalkComponent::UpdateCollisionCache);
-REPLACE(0x00527BE0, &Obj::CWalkComponent::RestoreDisplayOffset);
-REPLACE(0x00527C50, &Obj::CWalkComponent::UpdatePush);
-REPLACE(0x00527DB0, &Obj::CWalkComponent::CopyFromObject);
-REPLACE(0x00527F20, &Obj::CWalkComponent::UpdateControl);
-REPLACE(0x00528120, &Obj::CWalkComponent::GetControlSpeed);
-REPLACE(0x00526850, &Obj::CWalkComponent::SteerJump);
-REPLACE(0x00528950, &Obj::CWalkComponent::UpdateGroundVelocity);
-REPLACE(0x00529800, &Obj::CWalkComponent::UpdateRotateUpright);
-REPLACE(0x005298D0, &Obj::CWalkComponent::ApplyTransition);
-REPLACE(0x00529CE0, &Obj::CWalkComponent::CopyToObject);

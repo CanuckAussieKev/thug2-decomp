@@ -19,7 +19,7 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/skate/profile_cfuncs.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
@@ -28,8 +28,6 @@
 #include "game/gfx/model_builder.h"
 #include "game/gfx/model_utils.h"
 #include "game/skate/cas_options.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace CFuncs {
 
@@ -97,7 +95,7 @@ bool SkipNode(Script::CStruct* node)
 // preloaded (its mesh kept in memory).
 void PreloadPartList(uint32_t list)
 {
-    void* stub = GAME_CODE(0x005AAAA0, CFuncs::PreloadMeshesStub);
+    void* stub = CodeAddress(CFuncs::PreloadMeshesStub);
     __asm {
         mov eax, list
         mov ecx, stub
@@ -408,8 +406,3 @@ bool __cdecl CFunc_ReplaceCarTextures(Script::CStruct* params, Script::CScript* 
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005AAFA0, CFuncs::CFunc_PreloadModels);
-REPLACE(0x005AB300, CFuncs::CFunc_PreloadPedestrians);
-REPLACE(0x005AB690, CFuncs::CFunc_PreselectRandomPedestrians);
-REPLACE(0x005ABB20, CFuncs::CFunc_ReplaceCarTextures);

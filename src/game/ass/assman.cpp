@@ -2,6 +2,7 @@
 
 #include "game/ass/assman.h"
 
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -12,22 +13,20 @@
 #include "game/file/async.h"
 #include "game/lst/hashtable.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/net/task_vtable.h"
-#include "hook/game_code.h"
 
 namespace Ass {
 
-GAME_GLOBAL(Ass::CAssMan*, g_assetManager, 0x006918DC);
-GAME_GLOBAL(int, g_assManReferences, 0x006918E0);
-GAME_GLOBAL(Mlp::Manager*, g_mainLoopManager, 0x00696D68);
+Ass::CAssMan* g_assetManager;
+int g_assManReferences;
+Mlp::Manager* g_mainLoopManager;
 
 namespace {
 
-GAME_VTABLE(kAssManVtable, 0x00645658, &Ass::CAssMan::ScalarDelete, &Ass::CAssMan::StartCallback,
-    &Ass::CAssMan::StopCallback);
+static VtableSlot kAssManVtable_slots[] = {&Ass::CAssMan::ScalarDelete, &Ass::CAssMan::StartCallback,
+        &Ass::CAssMan::StopCallback};
+void** const kAssManVtable = reinterpret_cast<void**>(kAssManVtable_slots);
 
 int& References() { return g_assManReferences; }
 
@@ -40,13 +39,13 @@ struct ExtensionType {
     int type;
 };
 // (the extensions are the exe's strings; the table's last entry stays null)
-GAME_GLOBAL_UNCHECKED(ExtensionType[13], g_extensions, 0x0067C650,
-                      {GAME_TEXT(0x006455F8, "BIN"), 1}, {GAME_TEXT(0x006455F4, "COL"), 4},
-                      {GAME_TEXT(0x006455F0, "SCN"), 2}, {GAME_TEXT(0x006455E8, "GEOM"), 2},
-                      {GAME_TEXT(0x006455E4, "MDL"), 7}, {GAME_TEXT(0x006455E0, "SKA"), 5},
-                      {GAME_TEXT(0x006455DC, "FAM"), 5}, {GAME_TEXT(0x006455D8, "SKE"), 6},
-                      {GAME_TEXT(0x006455D0, "SKIN"), 7}, {GAME_TEXT(0x006455CC, "TEX"), 3},
-                      {GAME_TEXT(0x006455C8, "CUT"), 9}, {GAME_TEXT(0x006455C4, "QB"), 10});
+ExtensionType g_extensions[13]{
+                      {"BIN", 1}, {"COL", 4},
+                      {"SCN", 2}, {"GEOM", 2},
+                      {"MDL", 7}, {"SKA", 5},
+                      {"FAM", 5}, {"SKE", 6},
+                      {"SKIN", 7}, {"TEX", 3},
+                      {"CUT", 9}, {"QB", 10}};
 const ExtensionType* Extensions() { return g_extensions; }
 
 // The hash table lookup inlined in the original: the first item with the key and a value.
@@ -540,32 +539,3 @@ void ReleaseAssetManager()
 }
 
 } // namespace Ass
-
-REPLACE(0x00407F80, &Ass::CAssMan::Construct);
-REPLACE(0x00408930, &Ass::CAssMan::Destruct);
-REPLACE(0x00408A10, &Ass::CAssMan::ScalarDelete);
-REPLACE(0x00407E90, &Ass::CAssMan::StartCallback);
-REPLACE(0x00407AE0, &Ass::CAssMan::StopCallback);
-REPLACE(0x00408060, &Ass::CAssMan::LoadAssetFromStream);
-REPLACE(0x00408440, &Ass::CAssMan::LoadAsset);
-REPLACE(0x004087B0, &Ass::CAssMan::LoadOrGetAsset);
-REPLACE(0x00408870, &Ass::CAssMan::LoadAnim);
-REPLACE(0x00407EC0, &Ass::CAssMan::ReloadAsset);
-REPLACE(0x00407B20, &Ass::CAssMan::UnloadAsset);
-REPLACE(0x00407CF0, &Ass::CAssMan::UnloadAssetsInList);
-REPLACE(0x00407D40, &Ass::CAssMan::UnloadAssetsOfType);
-REPLACE(0x00407F20, &Ass::CAssMan::UnloadAllAssets);
-REPLACE(0x00407F50, &Ass::CAssMan::UnloadAllAssetsOfType);
-REPLACE(0x00407B90, &Ass::CAssMan::GetAsset);
-REPLACE(0x00407C00, &Ass::CAssMan::GetAssetData);
-REPLACE(0x00407C70, &Ass::CAssMan::GetAssetDataByName);
-REPLACE(0x00407CA0, &Ass::CAssMan::AssetExists);
-REPLACE(0x00407A50, &Ass::CAssMan::SetPermanentByDefault);
-REPLACE_SOURCE_ONLY(0x00407A60, &Ass::CAssMan::GetPermanentByDefault); // 4 bytes
-REPLACE(0x00407A70, &Ass::CAssMan::SetUnknown18);
-REPLACE(0x00407DD0, &Ass::CAssMan::ProcessPendingAssets);
-REPLACE(0x00407EB0, Ass::CAssMan::ProcessTask);
-REPLACE(0x00407A80, Ass::CAssMan::RemoveFromList);
-REPLACE(0x004079C0, &Ass::CAssMan::GetTypeFromExtension);
-REPLACE(0x004088E0, Ass::CreateAssetManager);
-REPLACE(0x00407980, Ass::ReleaseAssetManager);

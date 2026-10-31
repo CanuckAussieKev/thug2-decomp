@@ -3,6 +3,7 @@
 #include "game/gfx/viewport.h"
 
 #include <cmath>
+#include <cstdint>
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
@@ -13,30 +14,27 @@
 #include "game/gfx/screen.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/skate/skate_module.h"
 
 namespace Nx {
 
-GAME_GLOBAL(uint32_t, g_occlusionRequestCount, 0x00701380);
-GAME_GLOBAL(OcclusionRequest[4], g_occlusionRequests, 0x00701390);
-GAME_GLOBAL(float, g_screenAngle, 0x00701344);
-GAME_GLOBAL(int, g_screenMode, 0x0070134C);
-GAME_GLOBAL(CViewport*[10], g_viewports, 0x00701350);
+uint32_t g_occlusionRequestCount;
+OcclusionRequest g_occlusionRequests[4];
+float g_screenAngle;
+int g_screenMode;
+CViewport* g_viewports[10];
 
-GAME_GLOBAL(float, g_minusOne, 0x00645420, -1.0f);
-GAME_GLOBAL(float, g_halfDegreeRadians, 0x00648800, 0.008726646f);
-GAME_GLOBAL(float[40], g_viewportRects, 0x00649C28,
+float g_minusOne{-1.0f};
+float g_halfDegreeRadians{0.008726646f};
+float g_viewportRects[40]{
     0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f, 0.5f, 1.0f, 0.0f, 0.0f,
     1.0f, 0.5f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.5f, 0.5f, 0.0f, 0.5f, 0.5f, 0.0f, 0.5f, 0.5f, 0.5f,
-    0.5f, 0.5f, 0.5f, 0.5f);
-GAME_GLOBAL(int[6], g_modeViewportCounts, 0x00649CC8, 1, 2, 2, 4, 1, 1);
-GAME_GLOBAL(int[24], g_modeMaps, 0x00649CE0,
-    0, -1, -1, -1, 2, 3, -1, -1, 4, 5, -1, -1, 6, 7, 8, 9, 0, -1, -1, -1, -1, 1, -1, -1);
-GAME_GLOBAL_UNCHECKED(const int*, g_modeMap, 0x0067E540, g_modeMaps);
+    0.5f, 0.5f, 0.5f, 0.5f};
+int g_modeViewportCounts[6]{1, 2, 2, 4, 1, 1};
+int g_modeMaps[24]{
+    0, -1, -1, -1, 2, 3, -1, -1, 4, 5, -1, -1, 6, 7, 8, 9, 0, -1, -1, -1, -1, 1, -1, -1};
+const int* g_modeMap{g_modeMaps};
 
 namespace {
 
@@ -394,34 +392,9 @@ bool __cdecl CFunc_SetScreenMode(Script::CStruct* params, Script::CScript*)
 }
 
 namespace {
-GAME_VTABLE(kViewportVtable, 0x00649DA0, &Nx::CViewport::Destroy, &Nx::CViewport::ProjectToScreen,
-            &Nx::CViewport::QueryPoint, &Nx::CViewport::QueryRect, &Nx::CViewport::GetVisibility);
+static VtableSlot kViewportVtable_slots[] = {&Nx::CViewport::Destroy, &Nx::CViewport::ProjectToScreen,
+                &Nx::CViewport::QueryPoint, &Nx::CViewport::QueryRect, &Nx::CViewport::GetVisibility};
+void** const kViewportVtable = reinterpret_cast<void**>(kViewportVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004A0DB0, &Nx::CViewport::Construct);
-REPLACE(0x004A0E60, &Nx::CViewport::DestroyBody);
-REPLACE(0x004A0E80, &Nx::CViewport::Destroy);
-REPLACE(0x004A0CC0, &Nx::CViewport::ProjectToScreen);
-REPLACE(0x004A0CF0, &Nx::CViewport::QueryPoint); // (5 bytes, shared by many vtables)
-REPLACE(0x004A0CE0, &Nx::CViewport::QueryRect);  // (5 bytes, shared)
-REPLACE(0x004A0D00, &Nx::CViewport::GetVisibility);
-REPLACE(0x004A0D20, &Nx::CViewport::GetAspectRatio);
-REPLACE(0x004A0D50, &Nx::CViewport::MarkCameraForDeletion);
-REPLACE(0x004A0D70, &Nx::CViewport::DeleteMarkedCamera);
-REPLACE(0x004A0760, Nx::DeleteMarkedCameras);
-REPLACE(0x004A0840, Nx::CreateViewports);
-REPLACE(0x004A0950, Nx::GetCamera);
-REPLACE(0x004A0970, Nx::SetCamera);
-REPLACE(0x004A09C0, Nx::GetActiveCamera);
-REPLACE(0x004A09E0, Nx::GetClosestCamera);
-REPLACE(0x004A0AD0, Nx::SetScreenMode);
-REPLACE(0x004A0B70, Nx::SetScreenFieldOfView);
-REPLACE(0x004A0EB0, Nx::RequestOcclusionQuery);
-REPLACE_SOURCE_ONLY(0x004A0F20, Nx::OcclusionPixels); // a jump to 0x004CBD40
-REPLACE(0x004A0F30, Nx::IssueOcclusionQueries);
-REPLACE(0x004A0F80, Nx::PopOcclusionRequest);
-REPLACE(0x004A07D0, Nx::CFunc_Set2DIn3DSpaceParams);
-REPLACE(0x004A08A0, Nx::CFunc_ScriptGetScreenMode);
-REPLACE(0x004A0C20, Nx::CFunc_SetScreenMode);

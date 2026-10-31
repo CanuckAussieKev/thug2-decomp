@@ -3,6 +3,7 @@
 
 #include "game/gfx/model_appearance.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -12,9 +13,7 @@
 #include "game/skate/cas_options.h"
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/object.h"
 
@@ -104,7 +103,6 @@ void DeleteTempStruct(Script::CStruct* s)
 }
 
 } // namespace
-
 
 // 0x00488EA0
 CModelAppearance* CModelAppearance::Construct()
@@ -366,29 +364,11 @@ uint8_t* CModelAppearance::ReadFromBuffer(uint8_t* buffer)
 }
 
 namespace {
-GAME_VTABLE(kVtable, 0x006488FC, &Gfx::CModelAppearance::Destroy, &Obj::CObject::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &Gfx::CModelAppearance::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue);
+static VtableSlot kVtable_slots[] = {&Gfx::CModelAppearance::Destroy, &Obj::CObject::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &Gfx::CModelAppearance::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 } // namespace
 
 } // namespace Gfx
-
-REPLACE(0x00488DB0, &Gfx::CModelAppearance::ResolveRandomParts);
-REPLACE(0x00488EA0, &Gfx::CModelAppearance::Construct);
-REPLACE(0x00488F00, &Gfx::CModelAppearance::Reset);
-REPLACE(0x00488F40, &Gfx::CModelAppearance::Load);
-REPLACE(0x00488FA0, &Gfx::CModelAppearance::LoadByName);
-REPLACE(0x00488FD0, Gfx::RemoveTattoos);
-REPLACE(0x00489050, &Gfx::CModelAppearance::GetPartOption);
-REPLACE(0x004890B0, &Gfx::CModelAppearance::GetPart);
-REPLACE_SOURCE_ONLY(0x004890E0, &Gfx::CModelAppearance::HasFaceTexture); // 4 bytes
-REPLACE(0x004890F0, &Gfx::CModelAppearance::DestroyBody);
-REPLACE(0x00489160, &Gfx::CModelAppearance::MakeFaceTexture);
-REPLACE(0x004891D0, &Gfx::CModelAppearance::FreeFaceTexture);
-REPLACE(0x004891F0, &Gfx::CModelAppearance::SetPart);
-REPLACE(0x00489370, &Gfx::CModelAppearance::Destroy);
-REPLACE(0x004893A0, &Gfx::CModelAppearance::CopyFrom);
-REPLACE(0x00489400, &Gfx::CModelAppearance::ReadFromBuffer);
-REPLACE(0x004894D0, &Gfx::CModelAppearance::CallMemberFunction);
-REPLACE(0x004896A0, &Gfx::CModelAppearance::WriteToBuffer);

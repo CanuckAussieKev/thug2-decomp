@@ -1,7 +1,5 @@
 #pragma once
 
-#include "hook/game_global.h"
-
 namespace Script {
 class CStruct;
 class CScript;
@@ -63,5 +61,5 @@ bool __cdecl CFunc_SetScreenEffectsDOFParams(Script::CStruct* params, Script::CS
 // 0x005A5950: IsPal: whether the game's region / language setting (0x007CEFA0) isn't 2.
 bool __cdecl CFunc_IsPal(Script::CStruct* params, Script::CScript* script);
 
-GAME_GLOBAL_EXTERN(Mdl::Manager*, g_moduleManager);
+extern Mdl::Manager* g_moduleManager;
 } // namespace CFuncs

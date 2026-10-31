@@ -9,10 +9,7 @@
 #include "game/core/mem.h"
 #include "game/core/task.h"
 #include "game/lst/search.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/script/world_cfuncs.h"
 
 namespace Mdl {
@@ -26,7 +23,7 @@ extern void** const kSearchVtable;
 
 Manager*& Instance() { return CFuncs::g_moduleManager; }
 
-GAME_GLOBAL(unsigned int, g_moduleReferences, 0x00696D7C);
+unsigned int g_moduleReferences;
 
 unsigned int& References() { return g_moduleReferences; }
 
@@ -248,29 +245,15 @@ ModuleListDestructors* ModuleListDestructors::SearchDestroy(unsigned int flags)
 }
 
 namespace {
-GAME_VTABLE(kModuleVtable, 0x0064728C, &Mdl::Module::Destroy, GAME_LIBRARY_SLOT(0x00623771),
-            GAME_LIBRARY_SLOT(0x00623771));
-GAME_VTABLE(kNodeVtable, 0x00647284, &Mdl::ModuleListDestructors::NodeDestroy);
-GAME_VTABLE(kHeadVtable, 0x00647288, &Mdl::ModuleListDestructors::HeadDestroy);
-GAME_VTABLE(kSearchVtable, 0x00647280, &Mdl::ModuleListDestructors::SearchDestroy);
+static VtableSlot kModuleVtable_slots[] = {&Mdl::Module::Destroy, &_purecall,
+                &_purecall};
+void** const kModuleVtable = reinterpret_cast<void**>(kModuleVtable_slots);
+static VtableSlot kNodeVtable_slots[] = {&Mdl::ModuleListDestructors::NodeDestroy};
+void** const kNodeVtable = reinterpret_cast<void**>(kNodeVtable_slots);
+static VtableSlot kHeadVtable_slots[] = {&Mdl::ModuleListDestructors::HeadDestroy};
+void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
+static VtableSlot kSearchVtable_slots[] = {&Mdl::ModuleListDestructors::SearchDestroy};
+void** const kSearchVtable = reinterpret_cast<void**>(kSearchVtable_slots);
 } // namespace
 
 } // namespace Mdl
-
-REPLACE(0x0044F7E0, &Mdl::Module::Construct);
-REPLACE(0x0044F790, &Mdl::Module::DestroyBody);
-REPLACE(0x0044F7B0, &Mdl::Module::Destroy);
-REPLACE(0x0044F5E0, &Mdl::Manager::Construct);
-REPLACE(0x0044F680, &Mdl::Manager::DestroyBody);
-REPLACE(0x0044F3C0, &Mdl::Manager::RegisterModule);
-REPLACE(0x0044F3E0, &Mdl::Manager::UnregisterModule);
-REPLACE(0x0044F310, &Mdl::Manager::StartModule);
-REPLACE(0x0044F530, &Mdl::Manager::StopAllModules);
-REPLACE(0x0044F440, Mdl::Manager::ProcessModules);
-REPLACE(0x0044F6F0, Mdl::CreateManager);
-REPLACE(0x0044F740, Mdl::ReleaseManager);
-REPLACE(0x0044F360, &Mdl::ModuleListDestructors::NodeDestroyBody);
-REPLACE(0x0044F380, &Mdl::ModuleListDestructors::NodeDestroy);
-REPLACE(0x0044F410, &Mdl::ModuleListDestructors::HeadDestroy);
-REPLACE(0x0044F300, &Mdl::ModuleListDestructors::SearchDestroyBody);
-REPLACE(0x0044F330, &Mdl::ModuleListDestructors::SearchDestroy);

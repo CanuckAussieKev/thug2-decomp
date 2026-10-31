@@ -2,10 +2,11 @@
 
 #include "game/net/stats_man.h"
 #include "game/net/gamespy.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 #include <windows.h>
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -28,32 +29,39 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/loading_bar.h"
 #include "game/ass/assman.h"
 #include "game/net/task_vtable.h"
 
 namespace GameNet {
 
-GAME_GLOBAL(float, g_rankScale, 0x0064CC1C, 0.00028571428f);
+float g_rankScale{0.00028571428f};
 
 namespace {
 
 using Detail::DeleteParams;
 using Detail::NewParams;
 
-GAME_VTABLE(kEntryVtable, 0x0064D640, &GameNet::TopEntry::Destroy); // TopEntry (and the entries' heads)
-GAME_VTABLE(kLevelsHeadVtable, 0x0064D644, &GameNet::StatsNode::DeleteLevelsHead); // a top list's levels head
-GAME_VTABLE(kLevelVtable, 0x0064D648, &GameNet::LevelScores::Destroy); // LevelScores
-GAME_VTABLE(kSortVtable, 0x0064D64C, &GameNet::SortEntry::Destroy); // SortEntry (and the sorted list's head)
-GAME_VTABLE(kEntryNodeVtable, 0x0064D634, &GameNet::StatsNode::DeleteEntryNode); // Lst::Node<TopEntry>
-GAME_VTABLE(kLevelNodeVtable, 0x0064D638, &GameNet::StatsNode::DeleteLevelNode); // Lst::Node<LevelScores>
-GAME_VTABLE(kSortNodeVtable, 0x0064D63C, &GameNet::StatsNode::DeleteSortNode); // Lst::Node<SortEntry>
-GAME_VTABLE(kSortSearchVtable, 0x0064D580, &GameNet::StatsSearch::DeleteSortSearch);
-GAME_VTABLE(kEntrySearchVtable, 0x0064D584, &GameNet::StatsSearch::DeleteEntrySearch);
-GAME_VTABLE(kLevelSearchVtable, 0x0064D588, &GameNet::StatsSearch::DeleteLevelSearch);
+static VtableSlot kEntryVtable_slots[] = {&GameNet::TopEntry::Destroy};
+void** const kEntryVtable = reinterpret_cast<void**>(kEntryVtable_slots); // TopEntry (and the entries' heads)
+static VtableSlot kLevelsHeadVtable_slots[] = {&GameNet::StatsNode::DeleteLevelsHead};
+void** const kLevelsHeadVtable = reinterpret_cast<void**>(kLevelsHeadVtable_slots); // a top list's levels head
+static VtableSlot kLevelVtable_slots[] = {&GameNet::LevelScores::Destroy};
+void** const kLevelVtable = reinterpret_cast<void**>(kLevelVtable_slots); // LevelScores
+static VtableSlot kSortVtable_slots[] = {&GameNet::SortEntry::Destroy};
+void** const kSortVtable = reinterpret_cast<void**>(kSortVtable_slots); // SortEntry (and the sorted list's head)
+static VtableSlot kEntryNodeVtable_slots[] = {&GameNet::StatsNode::DeleteEntryNode};
+void** const kEntryNodeVtable = reinterpret_cast<void**>(kEntryNodeVtable_slots); // Lst::Node<TopEntry>
+static VtableSlot kLevelNodeVtable_slots[] = {&GameNet::StatsNode::DeleteLevelNode};
+void** const kLevelNodeVtable = reinterpret_cast<void**>(kLevelNodeVtable_slots); // Lst::Node<LevelScores>
+static VtableSlot kSortNodeVtable_slots[] = {&GameNet::StatsNode::DeleteSortNode};
+void** const kSortNodeVtable = reinterpret_cast<void**>(kSortNodeVtable_slots); // Lst::Node<SortEntry>
+static VtableSlot kSortSearchVtable_slots[] = {&GameNet::StatsSearch::DeleteSortSearch};
+void** const kSortSearchVtable = reinterpret_cast<void**>(kSortSearchVtable_slots);
+static VtableSlot kEntrySearchVtable_slots[] = {&GameNet::StatsSearch::DeleteEntrySearch};
+void** const kEntrySearchVtable = reinterpret_cast<void**>(kEntrySearchVtable_slots);
+static VtableSlot kLevelSearchVtable_slots[] = {&GameNet::StatsSearch::DeleteLevelSearch};
+void** const kLevelSearchVtable = reinterpret_cast<void**>(kLevelSearchVtable_slots);
 
 constexpr uint32_t kLoginTimeout = 10000;  // ms
 constexpr uint32_t kReportInterval = 60000; // ms between reports of a game
@@ -73,7 +81,7 @@ int Rank(double rating)
     return rank > kMaxRank ? kMaxRank : rank;
 }
 
-GAME_GLOBAL(uint32_t, g_statsLoginStart, 0x007CE460);
+uint32_t g_statsLoginStart;
 
 // The login's start (StatsTask's limit).
 uint32_t& LoginStart() { return g_statsLoginStart; }
@@ -129,12 +137,7 @@ void GhttpCleanup() { GameSpy::HttpCleanup(); }
 // The SDK's names for the stats connection (written before InitStatsConnection).
 char* GcdGameName() { return GameSpy::StatsGameName(); }
 char* GcdSecretKey() { return GameSpy::StatsSecretKey(); }
-#ifdef THUG2_STANDALONE
 const char* StatsKey() { return Net::GameKey(); } // (OnlineGameKey or the game's own)
-#else
-// The secret key (data the online identity writes over when OnlineGameKey is set: online_identity.cpp).
-const char* StatsKey() { return GAME_TEXT(0x0064D58C, "AdLWaZ"); }
-#endif
 
 // The manager's calls.
 const char* GameModeName(Manager* manager) { return manager->GetGameTypeName(); }
@@ -453,9 +456,9 @@ void TopList::FillSortedScores(bool ratings)
 }
 
 // The level checksums the personal stats list their high scores by.
-GAME_GLOBAL(uint32_t[15], g_levelChecksums, 0x0067F260, 0x55894059, 0x2A179957, 0xCDAFB450, 0xCAC27049, 0xFC5833EE,
-            0x86A2D65B, 0xF3AB73AB, 0x991B5359, 0xDAF9A383, 0x7078F66C, 0xCC877C27, 0x0C27CA5E, 0x532C99DE,
-            0xD4B48511, 0x8C32C761);
+uint32_t g_levelChecksums[15]{0x55894059, 0x2A179957, 0xCDAFB450, 0xCAC27049, 0xFC5833EE,
+    0x86A2D65B, 0xF3AB73AB, 0x991B5359, 0xDAF9A383, 0x7078F66C, 0xCC877C27, 0x0C27CA5E, 0x532C99DE,
+    0xD4B48511, 0x8C32C761};
 
 // 0x0054DDB0
 void PersonalStats::Fill()
@@ -969,55 +972,3 @@ bool __cdecl FillStatsArrays(Script::CStruct* params, Script::CScript*)
 } // namespace GameNet
 
 using GameNet::StatsMan;
-REPLACE(0x0054C9B0, &StatsMan::UpdateLoggedIn);
-REPLACE(0x0054C9D0, &StatsMan::LogOff);
-REPLACE(0x0054C9F0, &StatsMan::RemovePlayer);
-REPLACE(0x0054CA10, StatsMan::GenerateAuth);
-REPLACE(0x0054CA30, &StatsMan::SetPlayerAuth);
-REPLACE_SOURCE_ONLY(0x0054CA80, &StatsMan::GetPersonalStats); // 4 bytes
-REPLACE(0x0054CA90, &GameNet::StatsSearch::DestroySortSearch);
-REPLACE(0x0054CAA0, &GameNet::StatsSearch::DestroyEntrySearch);
-REPLACE(0x0054CAB0, &GameNet::StatsSearch::DestroyLevelSearch);
-REPLACE(0x0054CAC0, StatsMan::LogInThread);
-REPLACE(0x0054CBA0, &StatsMan::OnLoggedIn);
-REPLACE(0x0054CBE0, &StatsMan::LogIn);
-REPLACE(0x0054CC90, GameNet::StatsLoggedIn);
-REPLACE(0x0054CCB0, GameNet::StatsLogIn);
-REPLACE(0x0054CCC0, GameNet::StatsLogOff);
-REPLACE(0x0054CCF0, StatsMan::OnPersonalStats);
-REPLACE(0x0054CE00, GameNet::RetrievePersonalStats);
-REPLACE(0x0054CE70, GameNet::NeedToRetrieveTopStats);
-REPLACE(0x0054CE80, &StatsMan::StartGame);
-REPLACE(0x0054D170, &StatsMan::ReportStats);
-REPLACE(0x0054D2D0, &StatsMan::GetRank);
-REPLACE(0x0054D2F0, StatsMan::LevelName);
-REPLACE(0x0054D370, &GameNet::StatsSearch::DeleteSortSearch);
-REPLACE(0x0054D3A0, &GameNet::StatsSearch::DeleteEntrySearch);
-REPLACE(0x0054D3D0, &GameNet::StatsSearch::DeleteLevelSearch);
-REPLACE(0x0054D400, &GameNet::StatsNode::DestroyLevelNode);
-REPLACE(0x0054D420, &GameNet::StatsNode::DeleteEntryNode);
-REPLACE(0x0054D460, &GameNet::StatsNode::DeleteLevelNode);
-REPLACE(0x0054D4A0, StatsMan::StatsTask);
-REPLACE(0x0054D5C0, &GameNet::TopList::DestroyBody);
-REPLACE(0x0054D610, &StatsMan::DestroyBody);
-REPLACE(0x0054D670, GameNet::ReportStats);
-REPLACE(0x0054D6A0, GameNet::GetRank);
-REPLACE(0x0054D6E0, &GameNet::TopEntry::Destroy);
-REPLACE(0x0054D710, &GameNet::StatsNode::DeleteLevelsHead);
-REPLACE(0x0054D740, &GameNet::StatsNode::DeleteSortNode);
-REPLACE(0x0054D780, &GameNet::SortEntry::Destroy);
-REPLACE(0x0054D7B0, &StatsMan::ParseRatings);
-REPLACE(0x0054D8B0, &GameNet::TopList::Construct);
-REPLACE(0x0054D8F0, &GameNet::StatsNode::DestroyEntryNode);
-REPLACE(0x0054D910, &StatsMan::ParseTopList);
-REPLACE(0x0054DB20, StatsMan::OnTopStats);
-REPLACE(0x0054DBD0, &StatsMan::Construct);
-REPLACE(0x0054DDB0, &GameNet::PersonalStats::Fill);
-REPLACE(0x0054DFE0, &GameNet::LevelScores::DestroyBody);
-REPLACE(0x0054E0D0, &GameNet::TopList::FillLevelScores);
-REPLACE(0x0054E4A0, &GameNet::TopList::FillSortedScores);
-REPLACE(0x0054E920, &GameNet::TopList::Free);
-REPLACE(0x0054EA20, &GameNet::StatsNode::DestroySortNode);
-REPLACE(0x0054EA40, GameNet::CleanUpTopStats);
-REPLACE(0x0054EB00, GameNet::FillStatsArrays);
-REPLACE(0x0054EBB0, &GameNet::LevelScores::Destroy);

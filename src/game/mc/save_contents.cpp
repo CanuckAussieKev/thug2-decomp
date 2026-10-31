@@ -1,7 +1,7 @@
 // What a save holds and how it is put back (see save_contents.h).
 
 #include "game/mc/save_contents.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 #include <cstdint>
 
@@ -25,8 +25,6 @@
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
 #include "game/sys/game_config.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/goals/goal.h"
 #include "game/gfx/skeleton.h"
 
@@ -76,7 +74,7 @@ int Platform() { return GameConfig::g_platform; }
 // The skate module's split-screen preferences (0x00564D80, no source yet).
 Prefs::Preferences* SplitScreenPreferences()
 {
-    return reinterpret_cast<Prefs::Preferences*(__thiscall*)(Mdl::Skate*)>(GAME_CODE(0x00564D80, &Mdl::Skate::GetSplitScreenPreferences))(Skate());
+    return reinterpret_cast<Prefs::Preferences*(__thiscall*)(Mdl::Skate*)>(CodeAddress(&Mdl::Skate::GetSplitScreenPreferences))(Skate());
 }
 // A preferences object's structure (+4).
 CStruct* PreferencesStructure(Prefs::Preferences* preferences)
@@ -243,7 +241,7 @@ void ReadGlobalInfo(CStruct* global, CScript* script)
     // (0x00564F80, the overload taking the params - none: not GetProfile(int))
     auto* profile = Skate()->GetProfile(static_cast<CStruct*>(nullptr));
     if (!profile->IsPro()) {
-        const char* casFileName = GAME_TEXT(0x0064EFD8, "Unimplemented"); // "Unimplemented"
+        const char* casFileName = "Unimplemented"; // "Unimplemented"
         global->GetString(0xF36C1878u, &casFileName, 0); // CASFileName
         profile->SetStringF36C1878(casFileName);
     }
@@ -278,7 +276,7 @@ void WriteSaveContents(CStruct* contents, uint32_t type)
         CStruct* story = NewStructure();
         void* goalManager = Game::GetGoalManager();
         // the goal manager's parameters (a folded getter, +0x14)
-        story->AddStructure(kGoalManagerParams, reinterpret_cast<CStruct*(__thiscall*)(void*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(goalManager));
+        story->AddStructure(kGoalManagerParams, reinterpret_cast<CStruct*(__thiscall*)(void*)>(CodeAddress(&Gfx::CSkeleton::GetNumBones))(goalManager));
         contents->AddStructurePointer(kStory, story);
         CStruct* storySkater = NewStructure();
         auto* skater = static_cast<Obj::CSkater*>(Skate()->GetSkater(0));
@@ -342,29 +340,29 @@ void ApplyLoadedContents(uint32_t type, CStruct* contents, CScript* script, CStr
     case kSaveOptionsAndPros: {
         uint32_t& sections = SectionsToApplyWhenLoading();
         if (sections & 1) {
-            Dbg::Printf(GAME_TEXT(0x006579D0, "APPLY_GLOBAL_INFO\n")); // "APPLY_GLOBAL_INFO\n"
+            Dbg::Printf("APPLY_GLOBAL_INFO\n"); // "APPLY_GLOBAL_INFO\n"
             CStruct* global = nullptr;
             contents->GetStructure(kGlobalInfo, &global, 1);
             ReadGlobalInfo(global, script);
         }
         if (sections & 2) {
-            Dbg::Printf(GAME_TEXT(0x006579C0, "APPLY_STORY\n")); // "APPLY_STORY\n"
+            Dbg::Printf("APPLY_STORY\n"); // "APPLY_STORY\n"
             CStruct* story = nullptr;
             contents->GetStructure(kStory, &story, 1);
             ApplyGoalManagerParams(story);
         }
         if (sections & 8) {
-            Dbg::Printf(GAME_TEXT(0x006579A8, "APPLY_CUSTOM_SKATER\n")); // "APPLY_CUSTOM_SKATER\n"
+            Dbg::Printf("APPLY_CUSTOM_SKATER\n"); // "APPLY_CUSTOM_SKATER\n"
             CStruct* customSkater = nullptr;
             contents->GetStructure(kCustomSkater, &customSkater, 1);
             Obj::CPlayerProfileManager* profiles = Profiles();
             // the stats kept unless the current skater is the first (the manager's +0x1C, 0x00553E90)
-            bool keep = reinterpret_cast<int(__thiscall*)(void*)>(GAME_CODE(0x00553E90, &Game::CGoal::GetParams))(profiles) != 0;
+            bool keep = reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&Game::CGoal::GetParams))(profiles) != 0;
             profiles->ReadCustomSkater(customSkater, keep);
             loadedCustomSkater = true;
         }
         if (sections & 4) {
-            Dbg::Printf(GAME_TEXT(0x00657994, "APPLY_STORY_SKATER\n")); // "APPLY_STORY_SKATER\n"
+            Dbg::Printf("APPLY_STORY_SKATER\n"); // "APPLY_STORY_SKATER\n"
             CStruct* storySkater = nullptr;
             contents->GetStructure(kStorySkater, &storySkater, 1);
             CStruct* customSkater = nullptr;
@@ -421,8 +419,3 @@ __declspec(naked) void ApplyLoadedContentsStub()
 }
 
 } // namespace Mc
-
-REPLACE(0x005A7560, Mc::WriteGlobalInfo);
-REPLACE(0x005A7CF0, Mc::ReadGlobalInfo);
-REPLACE_UNCHECKED(0x005A79A0, Mc::WriteSaveContentsStub);   // the structure in EBX, the type on the stack
-REPLACE_UNCHECKED(0x005A81B0, Mc::ApplyLoadedContentsStub); // EAX, ESI and the stack

@@ -1,14 +1,12 @@
 #include "game/core/pool.h"
 
 #include <cstddef>
+#include <cstdint>
+#include <initializer_list>
 #include <new>
 
 #include "game/core/mem.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/log.h"
-#include "hook/shadow.h"
 
 namespace Mem {
 
@@ -97,7 +95,7 @@ bool Pool::Contains(const void* pointer) const
 
 namespace PoolManager {
 
-GAME_GLOBAL(Pool*[2], g_pools, 0x007D1808); // (the memory card's path buffer follows)
+Pool* g_pools[2]; // (the memory card's path buffer follows)
 
 static Pool*& PoolAt(int index) { return g_pools[index]; }
 
@@ -167,12 +165,3 @@ struct PoolAdapter {
 };
 
 } // namespace
-
-REPLACE_SHADOW(0x005BA3B0, &Mem::Pool::Contains);
-REPLACE(0x005BA3D0, &Mem::Pool::Allocate);
-REPLACE(0x005BA400, &Mem::Pool::Free);
-REPLACE(0x005BA420, &PoolAdapter::Construct);
-REPLACE(0x005BC3C0, Mem::PoolManager::SetUp);
-REPLACE(0x005BC450, Mem::PoolManager::CreateItem);
-REPLACE(0x005BC4A0, Mem::PoolManager::FreeItem);
-REPLACE(0x005BC3B0, Mem::PoolManager::GetPool);

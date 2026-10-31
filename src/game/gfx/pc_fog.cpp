@@ -1,5 +1,7 @@
 // The fog on PC (Nx engine's platform calls behind SetFogColor / SetFogDistance / EnableFog): see pc_fog.h.
 
+#include <cstdint>
+
 #include "game/gfx/pc_fog.h"
 
 #include <windows.h>
@@ -9,8 +11,6 @@
 #include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/settings.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/gfx/device.h"
 #include "game/gfx/engine_glue.h"
 
@@ -69,7 +69,3 @@ void __cdecl SetFogColor(uint32_t rgba)
 }
 
 } // namespace Nx
-
-REPLACE(0x004B8E40, Nx::SetFogEnabled);
-REPLACE(0x004B8E80, Nx::SetFogDistance);
-REPLACE(0x004B8EE0, Nx::SetFogColor);

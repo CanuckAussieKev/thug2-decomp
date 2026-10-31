@@ -2,6 +2,8 @@
 // timer callback that draws the loading screen while the game loads).
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
+#include <cstdint>
+
 #include "game/gfx/device.h"
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/loading_bar.h"
@@ -13,27 +15,24 @@
 #include "game/gfx/loading_screen.h"
 #include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/startup_init.h"
 
 namespace Nx {
 
-GAME_GLOBAL(int, g_gradientWidth, 0x00701684);
-GAME_GLOBAL(void*, g_screenMutex, 0x007052AC); // the loading screen's lock (a HANDLE), held while it is drawn
-GAME_GLOBAL(float, g_tickSeconds, 0x007052A0);
-GAME_GLOBAL(float, g_elapsedSeconds, 0x007052A4);
-GAME_GLOBAL(float, g_totalSeconds, 0x007052A8);
+int g_gradientWidth;
+void* g_screenMutex; // the loading screen's lock (a HANDLE), held while it is drawn
+float g_tickSeconds;
+float g_elapsedSeconds;
+float g_totalSeconds;
 
-GAME_GLOBAL(float, g_floatTen, 0x00646710, 10.0f);
-GAME_GLOBAL(int[2], g_barPosition, 0x0067DDB4, 258, 400);
-GAME_GLOBAL(int, g_barWidth, 0x0067DDBC, 140);
-GAME_GLOBAL(int, g_barHeight, 0x0067DDC0, 8);
-GAME_GLOBAL(int[2], g_barBorder, 0x0067DDC4, 5, 5);
-GAME_GLOBAL(uint8_t[4], g_barStartColor, 0x0067DDCC, 0x00, 0x4C, 0x81, 0x80);
-GAME_GLOBAL(uint8_t[4], g_barEndColor, 0x0067DDD0, 0xAC, 0xD3, 0x73, 0x80);
-GAME_GLOBAL(uint8_t[4], g_barBorderColor, 0x0067DDD4, 0x28, 0x28, 0x28, 0x80);
+float g_floatTen{10.0f};
+int g_barPosition[2]{258, 400};
+int g_barWidth{140};
+int g_barHeight{8};
+int g_barBorder[2]{5, 5};
+uint8_t g_barStartColor[4]{0x00, 0x4C, 0x81, 0x80};
+uint8_t g_barEndColor[4]{0xAC, 0xD3, 0x73, 0x80};
+uint8_t g_barBorderColor[4]{0x28, 0x28, 0x28, 0x80};
 namespace {
 
 // PartyMod's gradient table: 100000 bytes, enough for high resolutions (PartyMod's resbuffer, which its
@@ -44,14 +43,14 @@ struct Rgb {
     int r, g, b;
 };
 
-GAME_GLOBAL(float, g_floatFive, 0x006469AC, 5.0f);
-GAME_GLOBAL(float, g_floatTwenty, 0x006486AC, 20.0f);
-GAME_GLOBAL(float, g_per640, 0x0064A474, 0.0015625f);
-GAME_GLOBAL(float, g_float420, 0x0064A478, 420.0f);
-GAME_GLOBAL(float, g_per480, 0x0064A47C, 0.0020833334f);
-GAME_GLOBAL(uint32_t, g_borderArgb, 0x00701680);
-GAME_GLOBAL(Rgb, g_gradientEnd, 0x00705288);
-GAME_GLOBAL(Rgb, g_gradientStart, 0x00705294);
+float g_floatFive{5.0f};
+float g_floatTwenty{20.0f};
+float g_per640{0.0015625f};
+float g_float420{420.0f};
+float g_per480{0.0020833334f};
+uint32_t g_borderArgb;
+Rgb g_gradientEnd;
+Rgb g_gradientStart;
 
 // The bar's settings (SetLoadingBarStartColor etc.): colours as r, g, b(, a) bytes, and its width (in
 // 640-wide screen units).
@@ -184,9 +183,6 @@ void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long,
 }
 
 } // namespace Nx
-
-REPLACE(0x004B6B80, Nx::UpdateLoadingBarColors);
-REPLACE(0x004B6FF0, Nx::DrawLoadingScreenFrame);
 
 namespace Nx {
 

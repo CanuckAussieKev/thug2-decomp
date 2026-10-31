@@ -4,6 +4,7 @@
 #include "game/gfx/d3dx.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -14,10 +15,7 @@
 #include "game/mth/geometry.h"
 #include "game/mth/matrix.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/sys/startup_init.h"
 
 namespace Gfx {
@@ -32,9 +30,9 @@ constexpr uint32_t kRadius = 0xC48391A5;            // radius
 constexpr float kDefaultRadius = 3.0f;              // 0x40400000
 
 // The shared sets, by bone count.
-GAME_GLOBAL(Lst::HashTable, g_boneVolumeTable, 0x006FA308, Lst::HashTable::Unconstructed{}); // (the exe makes it with HashTable(8) at start-up)
+Lst::HashTable g_boneVolumeTable{Lst::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(8) at start-up)
 Lst::HashTable& Table() { return g_boneVolumeTable; }
-GAME_GLOBAL(Mth::Vector[64], g_bonePositions, 0x006FA320); // each bone's world position as TestLine found it
+Mth::Vector g_bonePositions[64]; // each bone's world position as TestLine found it
 
 // Each bone's world position as TestLine found it (64 of them).
 Mth::Vector* BonePositions() { return g_bonePositions; }
@@ -247,19 +245,11 @@ bool CBoneVolumes::GetBoneVolume(CSkeleton* skeleton, const Mth::Matrix* world, 
 }
 
 namespace {
-GAME_VTABLE(kVolumeVtable, 0x00648988, &Gfx::CBoneVolume::IntersectsSegment);
+static VtableSlot kVolumeVtable_slots[] = {&Gfx::CBoneVolume::IntersectsSegment};
+void** const kVolumeVtable = reinterpret_cast<void**>(kVolumeVtable_slots);
 } // namespace
 
 } // namespace Gfx
-
-REPLACE(0x0048B330, &Gfx::CBoneVolume::IntersectsSegment);
-REPLACE(0x0048B350, &Gfx::CBoneVolumes::Construct);
-REPLACE(0x0048B3C0, Gfx::FindBoneVolumes);
-REPLACE(0x0048B400, Gfx::ReleaseBoneVolumes);
-REPLACE(0x0048B430, &Gfx::CBoneVolumes::Fill);
-REPLACE(0x0048B580, &Gfx::CBoneVolumes::TestLine);
-REPLACE(0x0048BC40, &Gfx::CBoneVolumes::GetBoneVolume);
-REPLACE(0x0048BEA0, &Gfx::CBoneVolumes::Register);
 
 namespace Gfx {
 

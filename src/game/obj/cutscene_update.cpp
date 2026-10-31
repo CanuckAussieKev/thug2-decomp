@@ -2,6 +2,7 @@
 // destructor (0x00465510-0x0046661A). See cutscene.h.
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "game/ass/assman.h"
@@ -23,12 +24,10 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/sys/game_config.h"
 #include "game/core/stubs.h"
 #include "game/gfx/viewport.h"
-#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -380,32 +379,24 @@ void CCutsceneDetails::DestroyBody()
 
 } // namespace Obj
 
-REPLACE(0x00465510, Obj::ObjectsFromTable);
-REPLACE(0x004656E0, &Obj::CCutsceneData::UpdateTime);
-REPLACE(0x00465AB0, &Obj::CCutsceneData::UpdateStandIn);
-REPLACE(0x00465C00, &Obj::CCutsceneData::UpdateObjectTransforms);
-REPLACE(0x00466450, &Obj::CCutsceneData::RestartObjects);
-REPLACE(0x00466490, &Obj::CCutsceneDetails::Construct);
-REPLACE(0x00466560, &Obj::CCutsceneDetails::DestroyBody);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kCutsceneDetailsVtable, 0x00647920,
-    &Obj::CCutsceneDetails::Destroy,
-    &Obj::CCutsceneDetails::InitFromStructure,
-    &Obj::CCutsceneDetails::Update,
-    Stubs::ReturnTrue,
-    &Nx::CViewport::QueryPoint,
-    &Obj::CCutsceneDetails::IsDone,
-    Stubs::ReturnFalse,
-    &Obj::CCutsceneDetails::IsReady,
-    &Obj::CCutsceneDetails::End,
-    &Obj::CCutsceneDetails::IsSkippable,
-    Stubs::ReturnFalse,
-    &Obj::CCutsceneDetails::CallSlot12WithNotFlag5D,
-    Stubs::IgnoreArgument,
-    &Obj::CCutsceneDetails::UpdateSlot12);
+static VtableSlot kCutsceneDetailsVtable_slots[] = {&Obj::CCutsceneDetails::Destroy,
+         &Obj::CCutsceneDetails::InitFromStructure,
+         &Obj::CCutsceneDetails::Update,
+         Stubs::ReturnTrue,
+         &Nx::CViewport::QueryPoint,
+         &Obj::CCutsceneDetails::IsDone,
+         Stubs::ReturnFalse,
+         &Obj::CCutsceneDetails::IsReady,
+         &Obj::CCutsceneDetails::End,
+         &Obj::CCutsceneDetails::IsSkippable,
+         Stubs::ReturnFalse,
+         &Obj::CCutsceneDetails::CallSlot12WithNotFlag5D,
+         Stubs::IgnoreArgument,
+         &Obj::CCutsceneDetails::UpdateSlot12};
+void** const kCutsceneDetailsVtable = reinterpret_cast<void**>(kCutsceneDetailsVtable_slots);
 
 } // namespace
 } // namespace Obj

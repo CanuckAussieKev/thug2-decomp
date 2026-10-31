@@ -16,8 +16,6 @@
 #include "game/skater/core_physics_fields.h"
 #include "game/skater/skater.h"
 #include "game/ed/park_editor.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Skater {
 
@@ -326,13 +324,3 @@ void CorePhysicsComponent::StartVertAir()
 } // namespace Skater
 
 using Skater::CorePhysicsComponent;
-REPLACE(0x004FE1F0, &CorePhysicsComponent::ApplyFriction);
-REPLACE(0x004FE320, &CorePhysicsComponent::ShouldBrake);
-REPLACE(0x004FE420, &CorePhysicsComponent::MayTurnOnSlope);
-REPLACE(0x004FE490, &CorePhysicsComponent::CanPushOff);
-REPLACE(0x004FE530, &CorePhysicsComponent::PushOff);
-REPLACE(0x004FE6A0, &CorePhysicsComponent::ApplyStanceFriction);
-REPLACE(0x004FE730, &CorePhysicsComponent::ApplyRollingFriction);
-REPLACE(0x004FE860, &CorePhysicsComponent::TurnToNormal);
-REPLACE(0x004FEA50, &CorePhysicsComponent::UpdateGroundNormal);
-REPLACE(0x004FEBA0, &CorePhysicsComponent::StartVertAir);

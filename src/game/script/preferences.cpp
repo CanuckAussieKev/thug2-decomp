@@ -1,17 +1,18 @@
 // A set of preferences (0x0046C470-0x0046C6A0). See preferences.h.
 
+#include <cstdint>
+
 #include "game/script/preferences.h"
 
 #include "game/core/manager.h"
-#include "hook/game.h"
-#include "hook/game_code.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 
 namespace Prefs {
 
 namespace {
 
-GAME_VTABLE(kPreferencesVtable, 0x00647B34, &Prefs::Preferences::Destroy);
+static VtableSlot kPreferencesVtable_slots[] = {&Prefs::Preferences::Destroy};
+void** const kPreferencesVtable = reinterpret_cast<void**>(kPreferencesVtable_slots);
 
 void** Vtable() { return kPreferencesVtable; }
 
@@ -121,16 +122,3 @@ bool Preferences::Load(uint32_t name)
 }
 
 } // namespace Prefs
-
-REPLACE(0x0046C470, &Prefs::Preferences::Init);
-REPLACE(0x0046C490, &Prefs::Preferences::Deinit);
-REPLACE(0x0046C4A0, &Prefs::Preferences::GetPreference);
-REPLACE(0x0046C4D0, &Prefs::Preferences::GetPreferenceArray);
-REPLACE(0x0046C500, &Prefs::Preferences::SetPreferences);
-REPLACE(0x0046C510, &Prefs::Preferences::GetPreferenceString);
-REPLACE(0x0046C550, &Prefs::Preferences::GetPreferenceValue);
-REPLACE(0x0046C590, &Prefs::Preferences::GetPreferenceChecksum);
-REPLACE(0x0046C5D0, &Prefs::Preferences::SetPreference);
-REPLACE(0x0046C610, &Prefs::Preferences::SetPreferenceArray);
-REPLACE(0x0046C650, &Prefs::Preferences::Load);
-REPLACE(0x0046C680, &Prefs::Preferences::Destroy);

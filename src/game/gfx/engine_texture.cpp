@@ -2,13 +2,13 @@
 
 #include "game/gfx/engine_texture.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
 #include "game/core/crc.h"
 #include "game/core/mem.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/gfx/viewport.h"
 
@@ -179,34 +179,17 @@ __declspec(naked) void VirtualSlot41Jump()
 }
 
 namespace {
-GAME_VTABLE(kTextureVtable, 0x00649AF0, &Nx::CTexture::Destroy, &Nx::CViewport::QueryPoint, Stubs::ReturnFalse5,
-            &Nx::CViewport::QueryRect, Stubs::ReturnFalse1, Stubs::ReturnFalse4, Stubs::ReturnFalse1,
-            Stubs::ReturnFalse1, Stubs::ReturnFalse2, Stubs::ReturnFalse2, Stubs::ReturnFalse, Stubs::ReturnFalse5,
-            Stubs::ReturnFalse2, Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnFalse2, Stubs::ReturnFalse2,
-            &Nx::CViewport::QueryPoint, Stubs::ReturnFalse4, Stubs::ReturnFalse1, Stubs::ReturnFalse7,
-            &Nx::CViewport::QueryPoint, Stubs::ReturnFalse5, Stubs::ReturnFalse2, Stubs::ReturnFalse4,
-            Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::IgnoreArguments2,
-            Stubs::ReturnFalse1, Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnZeroWord,
-            Stubs::ReturnZeroWord, Stubs::ReturnFalse, Stubs::ReturnZero, Stubs::IgnoreArgument, Stubs::ReturnFalse,
-            Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnFalse2);
+static VtableSlot kTextureVtable_slots[] = {&Nx::CTexture::Destroy, &Nx::CViewport::QueryPoint, Stubs::ReturnFalse5,
+                &Nx::CViewport::QueryRect, Stubs::ReturnFalse1, Stubs::ReturnFalse4, Stubs::ReturnFalse1,
+                Stubs::ReturnFalse1, Stubs::ReturnFalse2, Stubs::ReturnFalse2, Stubs::ReturnFalse, Stubs::ReturnFalse5,
+                Stubs::ReturnFalse2, Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnFalse2, Stubs::ReturnFalse2,
+                &Nx::CViewport::QueryPoint, Stubs::ReturnFalse4, Stubs::ReturnFalse1, Stubs::ReturnFalse7,
+                &Nx::CViewport::QueryPoint, Stubs::ReturnFalse5, Stubs::ReturnFalse2, Stubs::ReturnFalse4,
+                Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::IgnoreArguments2,
+                Stubs::ReturnFalse1, Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnZeroWord,
+                Stubs::ReturnZeroWord, Stubs::ReturnFalse, Stubs::ReturnZero, Stubs::IgnoreArgument, Stubs::ReturnFalse,
+                Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnFalse2};
+void** const kTextureVtable = reinterpret_cast<void**>(kTextureVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x0049F200, &Nx::CTexture::Construct);
-REPLACE(0x0049F210, &Nx::CTexture::DestroyBody);
-REPLACE(0x0049F4D0, &Nx::CTexture::Destroy);
-REPLACE(0x0049F220, &Nx::CTexture::LoadByName);
-REPLACE(0x0049F300, &Nx::CTexture::LoadFromMemory);
-REPLACE(0x0049F330, &Nx::CTexture::Create);
-REPLACE(0x0049F3F0, &Nx::CTexture::SetPermanent);
-REPLACE_UNCHECKED(0x0049F360, Nx::VirtualSlot17Jump); // (tail jumps: the arguments are the slot's)
-REPLACE_UNCHECKED(0x0049F370, Nx::VirtualSlot21Jump);
-REPLACE_UNCHECKED(0x0049F380, Nx::VirtualSlot23Jump);
-REPLACE_UNCHECKED(0x0049F390, Nx::VirtualSlot24Jump);
-REPLACE_UNCHECKED(0x0049F3A0, Nx::VirtualSlot26Jump);
-REPLACE_UNCHECKED(0x0049F3B0, Nx::VirtualSlot32Jump);
-REPLACE_UNCHECKED(0x0049F3C0, Nx::VirtualSlot33Jump);
-REPLACE_UNCHECKED(0x0049F3D0, Nx::VirtualSlot34Jump);
-REPLACE_UNCHECKED(0x0049F3E0, Nx::VirtualSlot38Jump);
-REPLACE_UNCHECKED(0x0049F420, Nx::VirtualSlot41Jump);

@@ -3,7 +3,6 @@
 // (none of them Ghidra functions).
 
 #include <cstdint>
-#include "hook/game_code.h"
 #include <cstring>
 
 #include "game/core/crc.h"
@@ -11,8 +10,6 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/ed/goal_editor_util.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/sys/crt.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's inline copies of the texts)
@@ -29,7 +26,7 @@ int Sprintf(char* out, const char* format, Args... args)
     return Crt::Sprintf(out, format, args...);
 }
 
-const char* Empty() { return GAME_TEXT(0x006469B4, ""); } // ""
+const char* Empty() { return ""; } // ""
 
 } // namespace
 
@@ -385,37 +382,3 @@ bool CGoalEditorComponent::GetCreatedGoals(Script::CStruct* /*params*/, Script::
 }
 
 } // namespace Ed
-
-REPLACE(0x004E8490, &Ed::CGoalEditorComponent::EditedGoalAddGap);
-REPLACE(0x004E84E0, &Ed::CGoalEditorComponent::EditedGoalRemoveGap);
-REPLACE(0x004E8530, &Ed::CGoalEditorComponent::EditedGoalGotGap);
-REPLACE(0x004E8590, &Ed::CGoalEditorComponent::AddKeyComboSet);
-REPLACE(0x004E8630, &Ed::CGoalEditorComponent::RemoveKeyComboSet);
-REPLACE(0x004E8680, &Ed::CGoalEditorComponent::GetKeyComboSet);
-REPLACE(0x004E8720, &Ed::CGoalEditorComponent::RemoveGoalSpecificFlag);
-REPLACE(0x004E8780, &Ed::CGoalEditorComponent::SetGoalSpecificParams);
-REPLACE(0x004E87A0, &Ed::CGoalEditorComponent::FlagGoalAsWon);
-REPLACE(0x004E87C0, &Ed::CGoalEditorComponent::FindUnfinishedGoal);
-REPLACE(0x004E8900, &Ed::CGoalEditorComponent::GoalExists);
-REPLACE(0x004E8920, &Ed::CGoalEditorComponent::RemovedCreatedGoal);
-REPLACE(0x004E8950, &Ed::CGoalEditorComponent::GoalHasAllPositionsSet);
-REPLACE(0x004E8980, &Ed::CGoalEditorComponent::SetCurrentEditorGoal);
-REPLACE(0x004E89A0, &Ed::CGoalEditorComponent::SetEditorGoalType);
-REPLACE(0x004E89F0, &Ed::CGoalEditorComponent::SetEditorGoalDescription);
-REPLACE(0x004E8A40, &Ed::CGoalEditorComponent::SetEditorGoalWinMessage);
-REPLACE(0x004E8AA0, &Ed::CGoalEditorComponent::GetNumEditedGoals);
-REPLACE(0x004E8B30, &Ed::CGoalEditorComponent::GetCurrentEditedGoalId);
-REPLACE(0x004E8B90, &Ed::CGoalEditorComponent::WriteEditedGoalNodePositions);
-REPLACE(0x004E8BB0, &Ed::CGoalEditorComponent::SetEditorGoalName);
-REPLACE(0x004E8C20, &Ed::CGoalEditorComponent::SetEditorPedName);
-REPLACE(0x004E8C90, &Ed::CGoalEditorComponent::MaxEditedGoalsReached);
-REPLACE(0x004E8CF0, &Ed::CGoalEditorComponent::NukeAllGoals);
-REPLACE(0x004E8D30, &Ed::CGoalEditorComponent::GetMaxGoalsPerLevel);
-REPLACE(0x004E8D50, &Ed::CGoalEditorComponent::SetGoalScore);
-REPLACE(0x004E8DB0, &Ed::CGoalEditorComponent::SetGoalTimeLimit);
-REPLACE(0x004E8E00, &Ed::CGoalEditorComponent::SetGoalControlType);
-REPLACE(0x004E8E60, &Ed::CGoalEditorComponent::RefreshGoalCursorPosition);
-REPLACE(0x004EA810, &Ed::CGoalEditorComponent::EditGoal);
-REPLACE(0x004EBFF0, &Ed::CGoalEditorComponent::GetCurrentEditedGoalInfo);
-REPLACE(0x004EC1D0, &Ed::CGoalEditorComponent::AddEditedGoalToGoalManager);
-REPLACE(0x004EC200, &Ed::CGoalEditorComponent::GetCreatedGoals);

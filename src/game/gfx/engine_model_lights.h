@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "hook/game_global.h"
 
 namespace Mth {
 class Vector;
@@ -64,6 +63,6 @@ public:
 static_assert(offsetof(CModelLights, mp_intensities) == 0x14 && sizeof(CModelLights) == 0x1C,
               "layout must match the original");
 
-GAME_GLOBAL_EXTERN(uint32_t, g_lightCount);
+extern uint32_t g_lightCount;
 
 } // namespace Nx

@@ -11,6 +11,7 @@
 
 #include <share.h>
 
+#include <cstdint>
 #include <cstdio>
 
 #include "game/core/manager.h"
@@ -33,10 +34,7 @@
 #include "game/gfx/shadow.h"
 #include "game/gfx/texture.h"
 #include "game/mth/vector.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/gfx/pc_particles.h"
 #include "game/obj/particle_component.h"
 
@@ -46,20 +44,19 @@ namespace {
 extern void** const kCPcParticleManagerVtable;
 } // namespace
 
+bool g_loadingScreenUp; // the loading screen is up: it draws and presents on its own
+void* g_weather;
 
-GAME_GLOBAL(bool, g_loadingScreenUp, 0x00786D04); // the loading screen is up: it draws and presents on its own
-GAME_GLOBAL(void*, g_weather, 0x006FA7C8);
-
-GAME_GLOBAL(void*, g_screenEffects, 0x006FA7CC);
-GAME_GLOBAL(uint32_t, g_fogColour, 0x0078733C);
-GAME_GLOBAL(uint32_t, g_screenBlurFrames, 0x0078732C);
-GAME_GLOBAL(uint32_t, g_screenBlur, 0x00787328);
-GAME_GLOBAL(bool, g_screenShotNameExact, 0x00786E14);
-GAME_GLOBAL(char[128], g_pendingScreenShot, 0x00786D94); // the screenshot asked for by name
+void* g_screenEffects;
+uint32_t g_fogColour;
+uint32_t g_screenBlurFrames;
+uint32_t g_screenBlur;
+bool g_screenShotNameExact;
+char g_pendingScreenShot[128]; // the screenshot asked for by name
 namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
-GAME_GLOBAL(uint32_t, g_memViewToggle, 0x00701588);
+uint32_t g_memViewToggle;
 
 // The loading screen is up (0x00786D04, ShowLoadingScreen): it draws and presents on its own.
 bool LoadingScreenUp() { return g_loadingScreenUp; }
@@ -349,52 +346,8 @@ void __cdecl RemoveTextureShadowCaster(const uint8_t* texture)
 }
 
 namespace {
-GAME_VTABLE(kCPcParticleManagerVtable, 0x0064A304, &Nx::CPcParticleManager::Destroy, Nx::CPcParticleSystem::Create);
+static VtableSlot kCPcParticleManagerVtable_slots[] = {&Nx::CPcParticleManager::Destroy, Nx::CPcParticleSystem::Create};
+void** const kCPcParticleManagerVtable = reinterpret_cast<void**>(kCPcParticleManagerVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004B2270, Nx::ToggleMemView);
-REPLACE(0x004B2280, Nx::StartRender);
-REPLACE(0x004B22A0, Nx::DeleteObject);
-REPLACE_SOURCE_ONLY(0x004B22B0, Nx::SetScreenClip); // a jump to 0x004D3CA0
-REPLACE(0x004B22C0, Nx::AddDebugShape);
-REPLACE_SOURCE_ONLY(0x004B22F0, Nx::FlagDebugLines);  // a jump to 0x004D8C90
-REPLACE_SOURCE_ONLY(0x004B2300, Nx::ClearDebugLines); // a jump to 0x004D8CC0
-REPLACE_SOURCE_ONLY(0x004B2310, Nx::SphereVisible);   // a jump to 0x004DB570
-REPLACE(0x004B2320, Nx::PlatformExtension);
-REPLACE_SOURCE_ONLY(0x004B24C0, Nx::SetGamma); // a jump to 0x004D07B0
-REPLACE_SOURCE_ONLY(0x004B24D0, Nx::GetGamma); // a jump to 0x004D06A0
-REPLACE(0x004B24E0, Nx::ScreenShot);
-REPLACE(0x004B25F0, Nx::StartEngine);
-REPLACE(0x004B2710, &Nx::CPcParticleManager::Destroy);
-REPLACE_SOURCE_ONLY(0x004B2740, &Nx::CPcParticleManager::DestroyBody); // a jump to 0x004967D0
-REPLACE(0x004B2750, Nx::FinishRendering);
-REPLACE(0x004B28C0, Nx::CreateScene);
-REPLACE(0x004B2990, Nx::UnloadScene);
-REPLACE(0x004B29C0, Nx::CreateModel);
-REPLACE(0x004B2A20, Nx::CreateGeom);
-REPLACE(0x004B2A80, Nx::CreateSprite);
-REPLACE(0x004B2AF0, Nx::CreateTexturedQuad);
-REPLACE(0x004B2B60, Nx::CreateRenderTarget);
-REPLACE(0x004B2C30, Nx::AddTextureShadowCaster);
-REPLACE(0x004B2C50, Nx::AimTextureShadowCaster);
-REPLACE(0x004B2D10, Nx::RemoveTextureShadowCaster);
-
-// The engine's entry points (Nx::CEngine) that are jumps to the platform calls above.
-REPLACE_SOURCE_ONLY(0x0048BF10, Nx::StartRender);              // a jump to 0x004B2280
-REPLACE_SOURCE_ONLY(0x0048BF30, Nx::CreateSprite);             // a jump to 0x004B2A80
-REPLACE_SOURCE_ONLY(0x0048BF40, Nx::CreateTexturedQuad);       // a jump to 0x004B2AF0
-REPLACE_SOURCE_ONLY(0x0048BF50, Nx::CreateRenderTarget);       // a jump to 0x004B2B60
-REPLACE_SOURCE_ONLY(0x0048BF60, Nx::AimTextureShadowCaster);   // a jump to 0x004B2C50
-REPLACE_SOURCE_ONLY(0x0048BF70, Nx::RemoveTextureShadowCaster); // a jump to 0x004B2D10
-REPLACE_SOURCE_ONLY(0x0048BF80, Nx::AddDebugShape);            // a jump to 0x004B22C0
-REPLACE_SOURCE_ONLY(0x0048BF90, Nx::FlagDebugLines);           // a jump to 0x004B22F0
-REPLACE_SOURCE_ONLY(0x0048BFA0, Nx::CreateModel);              // a jump to 0x004B29C0
-REPLACE_SOURCE_ONLY(0x0048BFB0, Nx::CreateGeom);               // a jump to 0x004B2A20
-REPLACE_SOURCE_ONLY(0x0048BFD0, Nx::DeleteObject);             // a jump to 0x004B22A0
-REPLACE_SOURCE_ONLY(0x0048C090, Nx::SetScreenClip);            // a jump to 0x004B22B0
-REPLACE_SOURCE_ONLY(0x0048C0C0, Nx::PlatformExtension);        // a jump to 0x004B2320
-REPLACE_SOURCE_ONLY(0x0048C100, Nx::ScreenShot);               // a jump to 0x004B24E0
-REPLACE_SOURCE_ONLY(0x0048C130, Nx::SetGamma);                 // a jump to 0x004B24C0
-REPLACE_SOURCE_ONLY(0x0048C140, Nx::GetGamma);                 // a jump to 0x004B24D0

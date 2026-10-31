@@ -4,6 +4,7 @@
 #include "game/obj/object.h"
 
 #include <cstdint>
+#include <new>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -11,10 +12,8 @@
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
-#include "hook/game_code.h"
 #include "game/obj/object.h"
 
 namespace Obj {
@@ -622,84 +621,27 @@ void DestroyIfUnlocked(CObject* object, void* /*data*/)
 
 } // namespace Obj
 
-REPLACE_SOURCE_ONLY(0x00460920, &Obj::CObjectRef::DestroyBody); // a jump to 0x00463870
-REPLACE(0x00460AF0, &Obj::CObjectRef::Destroy);
-REPLACE(0x00460B20, &Obj::CObjectNode::DestroyBody);
-REPLACE(0x00460B40, &Obj::CObjectNode::Destroy);
-REPLACE(0x00460B80, &Obj::CObject::Construct);
-REPLACE(0x004615D0, &Obj::CObject::DestroyBody);
-REPLACE_SOURCE_ONLY(0x00420060, &Obj::CObject::DestroyBody); // a jump to 0x004615D0
-REPLACE(0x00461900, &Obj::CObject::Destroy);
-REPLACE(0x00460930, &Obj::CObject::DestroyIfUnlocked);
-REPLACE(0x00461710, &Obj::CObject::SetProperties);
-REPLACE(0x004608F0, static_cast<bool (Obj::CObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(
-                         &Obj::CObject::CallMemberFunction));
-REPLACE(0x00461140, &Obj::CObject::PassEventToScript);
-REPLACE(0x00460A50, &Obj::CObject::MarkAsDead);
-REPLACE(0x00461290, &Obj::CObject::CreateScriptIfNeeded);
-REPLACE(0x00461350, &Obj::CObject::SwitchScript);
-REPLACE(0x00461500, &Obj::CObject::CallScript);
-REPLACE(0x00461410, &Obj::CObject::SpawnScript);
-REPLACE(0x00461480, &Obj::CObject::SpawnAndRunScript);
-REPLACE(0x004609F0, &Obj::CObject::SelfEvent);
-REPLACE(0x00460A20, &Obj::CObject::BroadcastEvent);
-REPLACE(0x00461930, &Obj::CObject::SetID);
-REPLACE(0x00461970, &Obj::CObject::SetType);
-REPLACE(0x004611E0, &Obj::CObject::CreateTagsIfNeeded);
-REPLACE(0x004616B0, &Obj::CObject::SetIntegerTag);
-REPLACE(0x004616D0, &Obj::CObject::SetChecksumTag);
-REPLACE(0x004616F0, &Obj::CObject::SetTagsFromStruct);
-REPLACE(0x00460C20, &Obj::CObject::RemoveTags);
-REPLACE(0x00460CA0, &Obj::CObject::GetTag);
-REPLACE(0x00460D90, &Obj::CObject::GetTags);
-REPLACE(0x00460960, &Obj::CObject::GetFlagMask);
-REPLACE(0x004607A0, &Obj::CObject::ClearEventHandler);
-REPLACE(0x004607B0, &Obj::CObject::RemoveTagFlag);
-REPLACE(0x004607C0, &Obj::CObject::GetIntegerTag);
-REPLACE(0x004607E0, &Obj::CObject::GetChecksumTag);
-REPLACE(0x00460800, &Obj::CObject::ContainsTagFlag);
-REPLACE(0x00460820, &Obj::CObject::CopyTagsTo);
-REPLACE(0x00460840, &Obj::CObject::Obj_LeaveScript);
-REPLACE(0x00460850, &Obj::CObject::Obj_KillSpawnedScript);
-REPLACE(0x004608D0, &Obj::CObject::Obj_Visible);
-REPLACE(0x004608E0, &Obj::CObject::Obj_Invisible);
-REPLACE(0x00460940, &Obj::CObject::Obj_GetId);
-REPLACE(0x00460EB0, &Obj::CObject::Obj_GetTags);
-REPLACE(0x00460FB0, &Obj::CObject::Obj_GetSingleTag);
-REPLACE(0x00460FC0, &Obj::CObject::Obj_GetNamedTags);
-REPLACE(0x00460FF0, &Obj::CObject::Obj_RemoveTags);
-REPLACE(0x00461040, &Obj::CObject::Obj_FlagNotSet);
-REPLACE(0x00461070, &Obj::CObject::Obj_ClearFlag);
-REPLACE(0x004610C0, &Obj::CObject::Obj_SetFlag);
-REPLACE(0x004610F0, &Obj::CObject::Obj_FlagSet);
-REPLACE(0x004617C0, &Obj::CObject::Obj_SetTags);
-REPLACE(0x004617E0, &Obj::CObject::Obj_SpawnScript);
-REPLACE(0x004618A0, &Obj::CObject::Obj_SwitchScript);
-REPLACE(0x00460AD0, Obj::FindObject);
-REPLACE(0x00460AC0, Obj::Unlock);
-REPLACE(0x00460AA0, Obj::DestroyIfUnlocked);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kObjectRefVtable, 0x006477E0,
-    &Obj::CObjectRef::Destroy);
-GAME_VTABLE(kObjectVtable, 0x006477E8,
-    &Obj::CObject::Destroy,
-    &Obj::CObject::SetProperties,
-    static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-    static_cast<bool (Obj::CObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-    Stubs::IgnoreArgument,
-    &Obj::CObject::PassEventToScript,
-    &Obj::CObject::MarkAsDead,
-    Stubs::ReturnTrue);
+static VtableSlot kObjectRefVtable_slots[] = {&Obj::CObjectRef::Destroy};
+void** const kObjectRefVtable = reinterpret_cast<void**>(kObjectRefVtable_slots);
+static VtableSlot kObjectVtable_slots[] = {&Obj::CObject::Destroy,
+         &Obj::CObject::SetProperties,
+         static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+         static_cast<bool (Obj::CObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+         Stubs::IgnoreArgument,
+         &Obj::CObject::PassEventToScript,
+         &Obj::CObject::MarkAsDead,
+         Stubs::ReturnTrue};
+void** const kObjectVtable = reinterpret_cast<void**>(kObjectVtable_slots);
 
 } // namespace
 } // namespace Obj
 
 namespace Obj {
 
-GAME_VTABLE(g_objectNodeVtable, 0x006477E4,
-    &Obj::CObjectNode::Destroy);
+static VtableSlot g_objectNodeVtable_slots[] = {&Obj::CObjectNode::Destroy};
+void** const g_objectNodeVtable = reinterpret_cast<void**>(g_objectNodeVtable_slots);
 
 } // namespace Obj

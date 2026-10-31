@@ -4,6 +4,7 @@
 #include <windows.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -14,9 +15,7 @@
 #include "game/file/pre.h"
 #include "game/front/data_overlay.h"
 #include "game/sys/module.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/skate/skate_module.h"
 #include "game/core/stubs.h"
 #include "game/ass/assman.h"
@@ -29,7 +28,6 @@ extern void** const kPcAsyncFileHandleAdapterVtable;
 
 namespace File {
 
-
 static_assert(offsetof(AsyncFileHandle, m_callbackMask) == 0x14 && offsetof(AsyncFileHandle, m_blocking) == 0x21 &&
                   offsetof(AsyncFileHandle, m_fileSize) == 0x2C && offsetof(AsyncFileHandle, m_busyCount) == 0x38,
               "layout must match the original");
@@ -38,14 +36,14 @@ namespace {
 
 constexpr int kMaxHandles = 16;
 
-GAME_GLOBAL(AsyncFileHandle* [kMaxHandles], g_pool, 0x007CF138);
-GAME_GLOBAL(int, g_handlesInUse, 0x007CF178);
-GAME_GLOBAL(int, g_busyCount, 0x007CF17C);
-GAME_GLOBAL(bool, g_ioCompleted, 0x007CF180);
-GAME_GLOBAL(int, g_currentList, 0x007CF18C);
-GAME_GLOBAL(AsyncLoaderModule*, g_loaderModule, 0x007CF190);
-GAME_GLOBAL(uint32_t, g_loaderModuleRefs, 0x007CF194);
-GAME_GLOBAL(bool, g_useOverlappedIo, 0x007D0FD4);
+AsyncFileHandle* g_pool[kMaxHandles];
+int g_handlesInUse;
+int g_busyCount;
+bool g_ioCompleted;
+int g_currentList;
+AsyncLoaderModule* g_loaderModule;
+uint32_t g_loaderModuleRefs;
+bool g_useOverlappedIo;
 
 // Shared with the platform I/O thread: plain (volatile) accesses, as in the original.
 AsyncFileHandle** Pool() { return g_pool; }
@@ -60,8 +58,8 @@ struct PendingCallback {
     int value;
 };
 
-GAME_GLOBAL(PendingCallback[2][kMaxHandles], g_pendingCallbacks, 0x007CEFB8);
-GAME_GLOBAL(int[2], g_callbackCounts, 0x007CF184);
+PendingCallback g_pendingCallbacks[2][kMaxHandles];
+int g_callbackCounts[2];
 
 PendingCallback (&CallbackLists())[2][kMaxHandles]
 {
@@ -411,46 +409,6 @@ struct BaseStubs {
 
 } // namespace
 
-
-REPLACE(0x005B66F0, &AsyncFileHandle::Init);
-REPLACE(0x005B6380, &AsyncFileHandle::SetCallback);
-REPLACE(0x005B63A0, &AsyncFileHandle::GetFileSize);
-REPLACE(0x005B63D0, &AsyncFileHandle::Cancel);
-REPLACE(0x005B6730, &AsyncFileHandle::IsBusy);
-REPLACE(0x005B6740, &AsyncFileHandle::Read);
-REPLACE(0x005B67B0, &AsyncFileHandle::Open);
-REPLACE(0x005B6840, &AsyncFileHandle::Close);
-REPLACE(0x005B69F0, &AsyncFileHandle::IoCallback);
-REPLACE(0x005B69A0, &AsyncFileHandleAdapter::Construct);
-REPLACE(0x005B66C0, &AsyncFileHandleAdapter::Destroy);
-REPLACE(0x005B6560, File::AsyncInit);
-REPLACE(0x005B6580, File::AsyncBusy);
-REPLACE(0x005B6590, File::AsyncFreeHandle);
-REPLACE(0x005B65D0, File::AsyncAddCallback);
-REPLACE(0x005B9770, File::AsyncSwapCallbackLists);
-REPLACE(0x005B68C0, File::AsyncExecuteCallbacks);
-REPLACE(0x005B6A50, static_cast<void (*)(bool)>(&File::AsyncWaitForIO));
-REPLACE(0x005B6AE0, File::AsyncGetHandle);
-REPLACE(0x005B6C60, static_cast<File::AsyncFileHandle* (*)(const char*, bool, int)>(&File::AsyncOpen));
-REPLACE(0x005B68A0, File::AsyncClose);
-REPLACE(0x005B63F0, &BaseStubs::Init);
-REPLACE(0x005B6400, &BaseStubs::Open);
-REPLACE(0x005B6420, &BaseStubs::Close);
-REPLACE(0x005B6430, &BaseStubs::IsDone);
-REPLACE(0x005B6440, &BaseStubs::IsBusy);
-REPLACE(0x005B6450, &BaseStubs::IsEOF);
-REPLACE(0x005B6460, &BaseStubs::SetPriority);
-REPLACE(0x005B6470, &BaseStubs::SetStream);
-REPLACE(0x005B6480, &BaseStubs::SetDestination);
-REPLACE(0x005B6490, &BaseStubs::SetBufferSize);
-REPLACE(0x005B64A0, &BaseStubs::SetBlocking);
-REPLACE(0x005B64B0, &BaseStubs::Load);
-REPLACE(0x005B64D0, &BaseStubs::Read);
-REPLACE(0x005B64F0, &BaseStubs::Write);
-REPLACE(0x005B6510, &BaseStubs::GetS);
-REPLACE(0x005B6530, &BaseStubs::Seek);
-REPLACE(0x005B6550, &BaseStubs::Cancel);
-
 // --- CPcAsyncFileHandle: the PC platform handle (vtable 0x006583D8) -------------------------------------
 
 namespace File {
@@ -718,21 +676,6 @@ struct PcAsyncFileHandleAdapter {
 
 } // namespace
 
-REPLACE(0x005B9950, &File::PcAsyncFileHandle::PcIoCallback);
-REPLACE(0x005B9650, &File::PcAsyncFileHandle::PlatInit);
-REPLACE(0x005B97E0, &File::PcAsyncFileHandle::PlatOpen);
-REPLACE(0x005B9AF0, &File::PcAsyncFileHandle::PlatClose);
-REPLACE(0x005B9680, &File::PcAsyncFileHandle::PlatIsDone);
-REPLACE(0x005B9700, &File::PcAsyncFileHandle::PlatIsBusy);
-REPLACE(0x005B9710, &File::PcAsyncFileHandle::PlatIsEOF);
-REPLACE(0x005B9720, &File::PcAsyncFileHandle::PlatLoad);
-REPLACE(0x005B9A40, &File::PcAsyncFileHandle::PlatRead);
-REPLACE(0x005B9B40, File::AsyncIoThread);
-REPLACE(0x005B9B80, File::PlatformInit);
-REPLACE(0x005B97B0, &PcAsyncFileHandleAdapter::Destroy);
-REPLACE(0x005B9640, &PcAsyncFileHandleAdapter::DestroyBody);
-REPLACE(0x005B6370, &PcAsyncFileHandleAdapter::DestroyBaseBody);
-
 // --- the async file loader module ------------------------------------------------------------------------
 // An engine module (Mdl::Module) whose per-frame task polls the platform handles and runs the completed I/O
 // callbacks. One instance, reference counted (0x007CF190 / 0x007CF194).
@@ -827,7 +770,7 @@ struct AsyncLoaderModuleMethods {
             File::ConstructTask(task);
             task[7] = reinterpret_cast<uint32_t>(module);    // the task's data
             task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);                           // Tsk::Task<CAsyncFileLoader> vtable
-            task[6] = reinterpret_cast<uint32_t>(GAME_CODE(0x005B6990, File::AsyncLoaderTask)); // its code: AsyncLoaderTask
+            task[6] = reinterpret_cast<uint32_t>(CodeAddress(File::AsyncLoaderTask)); // its code: AsyncLoaderTask
         }
         module->m_task = task;
         return module;
@@ -860,43 +803,37 @@ File::AsyncLoaderModule* File::ConstructAsyncLoaderModule(void* memory)
     return static_cast<AsyncLoaderModuleMethods*>(memory)->Construct();
 }
 
-REPLACE(0x005B9780, File::AsyncPollHandles);
-REPLACE(0x005B6990, File::AsyncLoaderTask);
-REPLACE(0x005B6CA0, File::CreateAsyncLoaderModule);
-REPLACE(0x005B6620, File::DestroyAsyncLoaderModule);
-REPLACE(0x005B6BC0, &AsyncLoaderModuleMethods::Construct);
-REPLACE(0x005B6660, &AsyncLoaderModuleMethods::DestroyBody);
-REPLACE(0x005B6940, &AsyncLoaderModuleMethods::Destroy);
-REPLACE(0x005B6970, &AsyncLoaderModuleMethods::Start);
-
 namespace {
-GAME_VTABLE(kAsyncFileHandleAdapterVtable, 0x00657EC8, &AsyncFileHandleAdapter::Destroy,
-            &AsyncFileHandle::IoCallback,
-            &BaseStubs::Init,
-            &BaseStubs::Open,
-            &BaseStubs::Close,
-            &BaseStubs::IsDone,
-            &BaseStubs::IsBusy,
-            &BaseStubs::IsEOF,
-            &BaseStubs::SetPriority,
-            &BaseStubs::SetStream,
-            &BaseStubs::SetDestination,
-            &BaseStubs::SetBufferSize,
-            &BaseStubs::SetBlocking,
-            &BaseStubs::Load,
-            &BaseStubs::Read,
-            &BaseStubs::Write,
-            &BaseStubs::GetS,
-            &BaseStubs::Seek,
-            &BaseStubs::Cancel);
-GAME_VTABLE(kAsyncLoaderModuleMethodsVtable, 0x00658158, &AsyncLoaderModuleMethods::Destroy,
-            &AsyncLoaderModuleMethods::Start, &Mdl::Skate::StopCallback);
-GAME_VTABLE(kPcAsyncFileHandleAdapterVtable, 0x006583D8, &PcAsyncFileHandleAdapter::Destroy,
-            &File::PcAsyncFileHandle::PcIoCallback, &File::PcAsyncFileHandle::PlatInit,
-            &File::PcAsyncFileHandle::PlatOpen, &File::PcAsyncFileHandle::PlatClose,
-            &File::PcAsyncFileHandle::PlatIsDone, &File::PcAsyncFileHandle::PlatIsBusy,
-            &File::PcAsyncFileHandle::PlatIsEOF, Stubs::IgnoreArgument, Stubs::IgnoreArgument,
-            Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::IgnoreArgument, &File::PcAsyncFileHandle::PlatLoad,
-            &File::PcAsyncFileHandle::PlatRead, Stubs::ReturnZero3, Stubs::ReturnZero2, Stubs::ReturnZero2,
-            &BaseStubs::Cancel);
+static VtableSlot kAsyncFileHandleAdapterVtable_slots[] = {&AsyncFileHandleAdapter::Destroy,
+                &AsyncFileHandle::IoCallback,
+                &BaseStubs::Init,
+                &BaseStubs::Open,
+                &BaseStubs::Close,
+                &BaseStubs::IsDone,
+                &BaseStubs::IsBusy,
+                &BaseStubs::IsEOF,
+                &BaseStubs::SetPriority,
+                &BaseStubs::SetStream,
+                &BaseStubs::SetDestination,
+                &BaseStubs::SetBufferSize,
+                &BaseStubs::SetBlocking,
+                &BaseStubs::Load,
+                &BaseStubs::Read,
+                &BaseStubs::Write,
+                &BaseStubs::GetS,
+                &BaseStubs::Seek,
+                &BaseStubs::Cancel};
+void** const kAsyncFileHandleAdapterVtable = reinterpret_cast<void**>(kAsyncFileHandleAdapterVtable_slots);
+static VtableSlot kAsyncLoaderModuleMethodsVtable_slots[] = {&AsyncLoaderModuleMethods::Destroy,
+                &AsyncLoaderModuleMethods::Start, &Mdl::Skate::StopCallback};
+void** const kAsyncLoaderModuleMethodsVtable = reinterpret_cast<void**>(kAsyncLoaderModuleMethodsVtable_slots);
+static VtableSlot kPcAsyncFileHandleAdapterVtable_slots[] = {&PcAsyncFileHandleAdapter::Destroy,
+                &File::PcAsyncFileHandle::PcIoCallback, &File::PcAsyncFileHandle::PlatInit,
+                &File::PcAsyncFileHandle::PlatOpen, &File::PcAsyncFileHandle::PlatClose,
+                &File::PcAsyncFileHandle::PlatIsDone, &File::PcAsyncFileHandle::PlatIsBusy,
+                &File::PcAsyncFileHandle::PlatIsEOF, Stubs::IgnoreArgument, Stubs::IgnoreArgument,
+                Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::IgnoreArgument, &File::PcAsyncFileHandle::PlatLoad,
+                &File::PcAsyncFileHandle::PlatRead, Stubs::ReturnZero3, Stubs::ReturnZero2, Stubs::ReturnZero2,
+                &BaseStubs::Cancel};
+void** const kPcAsyncFileHandleAdapterVtable = reinterpret_cast<void**>(kPcAsyncFileHandleAdapterVtable_slots);
 } // namespace

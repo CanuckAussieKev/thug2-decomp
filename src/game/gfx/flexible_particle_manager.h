@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include "game/core/alloc.h"
-#include "hook/game_global.h"
 
 // The engine's flexible particle manager (Nx; the one at 0x006FA7C0 - the flexible particle component's systems are
 // made, found and destroyed through it): its systems in a list, on a heap of their own (or a temporary one a
@@ -75,6 +74,6 @@ struct CParticleSystemListHead {
     Mem::ListNode* Destroy(unsigned int flags);
 };
 
-GAME_GLOBAL_EXTERN(float, g_frameTimeScale);
-GAME_GLOBAL_EXTERN(int, g_drawnViewport);
+extern float g_frameTimeScale;
+extern int g_drawnViewport;
 } // namespace Nx

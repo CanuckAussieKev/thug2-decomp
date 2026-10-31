@@ -4,6 +4,7 @@
 #include "game/nx/coll_sphere.h"
 
 #include <cmath>
+#include <cstdint>
 
 #include "game/mth/geometry.h"
 #include "game/nx/coll_cache.h"
@@ -12,15 +13,12 @@
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
 #include "game/gfx/engine_scene_list.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
 namespace {
 
-GAME_GLOBAL(CCollCache*, g_sphereCache, 0x00691990);
+CCollCache* g_sphereCache;
 
 // The cache the sphere feelers use when they have none (0x00691990).
 CCollCache*& s_sphereCache = g_sphereCache;
@@ -529,13 +527,3 @@ bool CSphereFeeler::Query(int)
 }
 
 } // namespace Nx
-
-REPLACE(0x0040E280, Nx::SegmentCrossesSphere);
-REPLACE(0x0040E560, Nx::SweptSphereHitsEdge);
-REPLACE(0x0040E940, Nx::SweptSphereHitsCorner);
-REPLACE(0x0040EC90, Nx::SweptSphereHitsTriangle);
-REPLACE(0x0040F9E0, Nx::SphereHitsTriangle);
-REPLACE(0x004110B0, &Nx::CCollStatic::CollideWithSphere);
-REPLACE(0x00410240, Nx::CollideSphereWithStatics);
-REPLACE(0x00418330, &Nx::CSphereFeeler::Construct);
-REPLACE(0x00418300, &Nx::CSphereFeeler::Query);

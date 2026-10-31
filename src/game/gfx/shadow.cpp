@@ -10,6 +10,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -22,18 +23,15 @@
 #include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/lst/hashtable.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/glow.h"
 
 namespace Nx {
 
-GAME_GLOBAL(uint8_t[20480], g_shadowTriangles, 0x00796640);
-GAME_GLOBAL(bool, g_twoSidedStencil, 0x007CA97C);
-GAME_GLOBAL(float[4], g_shadowViewport, 0x0067EF4C, 256.0f, 256.0f, 256.0f, 256.0f);
+uint8_t g_shadowTriangles[20480];
+bool g_twoSidedStencil;
+float g_shadowViewport[4]{256.0f, 256.0f, 256.0f, 256.0f};
 
 namespace {
 
@@ -57,7 +55,7 @@ struct ProjectedVertex {
     uint32_t clip; // a bit per side it's outside of
 };
 static_assert(sizeof(ProjectedVertex) == 0x1C, "the buffer's stride");
-GAME_GLOBAL(ProjectedVertex[4096], g_projectedVertices, 0x0079B640);
+ProjectedVertex g_projectedVertices[4096];
 ProjectedVertex* Projected() { return g_projectedVertices; }
 struct ShadowVertex {
     float position[3];
@@ -459,13 +457,3 @@ void __cdecl AddShadowCaster(uint8_t* target, void* model, uint32_t unknown)
 void SetShadowCompanion(ShadowCompanionFn fn) { g_shadowCompanion = fn; }
 
 } // namespace Nx
-
-REPLACE(0x004DA0F0, Nx::ProjectShadowVertices);
-REPLACE(0x004DA190, Nx::ClipShadowTriangles);
-REPLACE(0x004DB880, Nx::ShadowTextureMatrix);
-REPLACE(0x004DB9D0, Nx::DrawShadowVolumes);
-REPLACE(0x004DBBD0, Nx::RenderShadowTextures);
-REPLACE(0x004DBF50, Nx::DrawShadows);
-REPLACE(0x004DB0A0, Nx::RemoveShadowCaster);
-REPLACE(0x004DB100, Nx::AimShadowCaster);
-REPLACE(0x004DDC90, Nx::AddShadowCaster);

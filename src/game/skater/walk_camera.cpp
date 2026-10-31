@@ -19,9 +19,7 @@
 #include "game/skater/walk_physics.h"
 #include "game/mth/x87_math.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 
 namespace Obj {
@@ -508,41 +506,23 @@ void CWalkCameraComponent::Update()
 
 } // namespace Obj
 
-REPLACE(0x00525DC0, Obj::CWalkCameraComponent::Create);
-REPLACE(0x00524C20, &Obj::CWalkCameraComponent::DestroyBody);
-REPLACE(0x00524F20, &Obj::CWalkCameraComponent::Destroy);
-REPLACE(0x00524C50, &Obj::CWalkCameraComponent::SetSkater);
-REPLACE(0x00524F50, &Obj::CWalkCameraComponent::InitFromStructure);
-REPLACE(0x00524FB0, &Obj::CWalkCameraComponent::Finalize);
-REPLACE(0x00524C30, &Obj::CWalkCameraComponent::ResetNow);
-REPLACE(0x005250A0, &Obj::CWalkCameraComponent::FlushRequest);
-REPLACE(0x00525D40, &Obj::CWalkCameraComponent::CallMemberFunction);
-REPLACE(0x00525F70, &Obj::CWalkCameraComponent::SetOverrideFacing);
-REPLACE(0x00525060, &Obj::CWalkCameraComponent::SaveState);
-REPLACE(0x00524FF0, &Obj::CWalkCameraComponent::RestoreState);
-REPLACE(0x00524EF0, Obj::CWalkCameraComponent::Param);
-REPLACE(0x005250E0, &Obj::CWalkCameraComponent::GetTarget);
-REPLACE(0x00524CB0, &Obj::CWalkCameraComponent::GetZoomedOffsets);
-REPLACE(0x00524D70, Obj::LerpByRange);
-REPLACE(0x005251D0, &Obj::CWalkCameraComponent::Update);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064C5E0,
-    &Obj::CWalkCameraComponent::Destroy,
-    &Obj::CWalkCameraComponent::Update,
-    &Obj::CWalkCameraComponent::InitFromStructure,
-    &Obj::CWalkCameraComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CWalkCameraComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CWalkCameraComponent::Destroy,
+         &Obj::CWalkCameraComponent::Update,
+         &Obj::CWalkCameraComponent::InitFromStructure,
+         &Obj::CWalkCameraComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CWalkCameraComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

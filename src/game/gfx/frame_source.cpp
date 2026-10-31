@@ -2,12 +2,12 @@
 
 #include "game/gfx/frame_source.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/ass/assman.h"
 #include "game/obj/cutscene.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Nx {
 
@@ -63,13 +63,8 @@ void* CFrameSource::SetAnim(uint32_t anim)
 }
 
 namespace {
-GAME_VTABLE(kFrameSourceVtable, 0x00648A68, &Nx::CFrameSource::Destroy);
+static VtableSlot kFrameSourceVtable_slots[] = {&Nx::CFrameSource::Destroy};
+void** const kFrameSourceVtable = reinterpret_cast<void**>(kFrameSourceVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x0048CF50, Nx::GetAnimData);
-REPLACE(0x0048CF70, &Nx::CFrameSource::Construct);
-REPLACE(0x0048D000, &Nx::CFrameSource::Destroy);
-REPLACE(0x0048CFA0, &Nx::CFrameSource::SetDone);
-REPLACE(0x0048CFD0, &Nx::CFrameSource::SetAnim);

@@ -13,22 +13,19 @@
 #include "game/sys/game_clock.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/movie_manager.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[12], g_vibrationComponentMemberFunctions, 0x00684EE8,
+uint32_t g_vibrationComponentMemberFunctions[12]{
             0xDF8A5F0A, 0x404EB936, 0, 0, 0, 0,
-            0, 0x404EB936, 0, 0, 0, 0);
+            0, 0x404EB936, 0, 0, 0, 0};
 
 namespace {
 
@@ -191,36 +188,23 @@ bool CVibrationComponent::Vibrate(Script::CStruct* params, Script::CScript*)
 
 } // namespace Obj
 
-REPLACE(0x0043D670, Obj::CVibrationComponent::Create);
-REPLACE(0x0043D490, Obj::CVibrationComponent::RegisterMemberFunctions);
-REPLACE(0x0043D4B0, &Obj::CVibrationComponent::DestroyBody);
-REPLACE(0x0043D5E0, &Obj::CVibrationComponent::Destroy);
-REPLACE(0x0043D610, &Obj::CVibrationComponent::Update);
-// (0x0043D610 jumps to 0x0043D61F; the hook on 0x0043D610 takes the whole function)
-REPLACE_SOURCE_ONLY(0x0043D61F, &Obj::CVibrationComponent::UpdateTimers); // the second half of 0x0043D610
-REPLACE(0x0043D520, &Obj::CVibrationComponent::StopAll);
-REPLACE(0x0043D550, &Obj::CVibrationComponent::ResetDevice);
-REPLACE(0x0043D560, &Obj::CVibrationComponent::SetActive);
-REPLACE(0x0043D5C0, &Obj::CVibrationComponent::SetDevice);
-REPLACE(0x0043D6F0, &Obj::CVibrationComponent::Vibrate);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00646864,
-    &Obj::CVibrationComponent::Destroy,
-    &Obj::CVibrationComponent::Update,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CVibrationComponent::Destroy,
+         &Obj::CVibrationComponent::Update,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

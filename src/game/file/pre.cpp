@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <new>
@@ -19,9 +20,6 @@
 #include "game/sys/game_config.h"
 #include "game/sys/timer.h"
 #include "game/gfx/loading_console.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Pre {
 
@@ -35,10 +33,10 @@ namespace {
 constexpr int kRingSize = 4096;
 constexpr int kMaxMatch = 18;
 
-GAME_GLOBAL(uint8_t[kRingSize], g_ring, 0x007CFFB0);
-GAME_GLOBAL(PreMgr*, g_managerSlot, 0x007D0FC4);
-GAME_GLOBAL(PreMgr*, g_instanceSlot, 0x007D0FCC);
-GAME_GLOBAL(int, g_instanceRefs, 0x007D0FD0);
+uint8_t g_ring[kRingSize];
+PreMgr* g_managerSlot;
+PreMgr* g_instanceSlot;
+int g_instanceRefs;
 
 uint8_t* Ring() { return g_ring; }
 
@@ -762,39 +760,3 @@ struct PreMgrAdapter {
 };
 
 } // namespace
-
-REPLACE(0x005B7DF0, Pre::Decode);
-REPLACE(0x005B8820, &PreFileAdapter::Construct);
-REPLACE(0x005B9410, &PreFileAdapter::Destroy);
-REPLACE(0x005B8230, &Pre::PreFile::LoadContainedFile);
-REPLACE(0x005B8310, &Pre::PreFile::GetContainedFileByHandle);
-REPLACE(0x005B8A00, &Pre::PreFile::GetContainedFile);
-REPLACE(0x005B7F00, &Pre::PreFile::Read);
-REPLACE(0x005B7F60, &Pre::PreFile::Seek);
-REPLACE(0x005B8D20, &PreMgrAdapter::Construct);
-REPLACE(0x005B8E90, Pre::CreateManager);
-REPLACE(0x005B9510, Pre::DestroyManager);
-REPLACE(0x005B8750, &Pre::PreMgr::LoadFile);
-REPLACE(0x005B8390, &Pre::PreMgr::FileExists);
-REPLACE(0x005B8AD0, &Pre::PreMgr::OpenFile);
-REPLACE(0x005B84A0, &Pre::PreMgr::GetContainedFile);
-REPLACE(0x005B8540, &Pre::PreMgr::IsLoaded);
-REPLACE(0x005B7FD0, &Pre::PreMgr::IsLoadFinished);
-REPLACE(0x005B8DB0, &Pre::PreMgr::FinishLoad);
-REPLACE(0x005B9570, &Pre::PreMgr::UnloadPre);
-REPLACE(0x005B85A0, Pre::Exist);
-REPLACE(0x005B8C70, Pre::Open);
-REPLACE(0x005B85D0, Pre::Close);
-REPLACE(0x005B8630, Pre::Read);
-REPLACE(0x005B8680, Pre::Write);
-REPLACE(0x005B86A0, Pre::Seek);
-REPLACE(0x005B86E0, Pre::GetFileSize);
-REPLACE(0x005B8EE0, &Pre::PreMgr::LoadPre);
-REPLACE(0x005B8E70, Pre::OnAsyncPreLoaded);
-REPLACE(0x005B9470, Pre::CFunc_LoadPreFile);
-REPLACE(0x005B9600, Pre::CFunc_UnloadPreFile);
-REPLACE(0x005B8160, Pre::CFunc_IsLoadPreFinished);
-REPLACE(0x005B8190, Pre::CFunc_AllLoadPreFinished);
-REPLACE(0x005B81B0, Pre::CFunc_WaitLoadPre);
-REPLACE(0x005B8200, Pre::CFunc_WaitAllLoadPre);
-REPLACE(0x005B8720, Pre::CFunc_InPreFile);

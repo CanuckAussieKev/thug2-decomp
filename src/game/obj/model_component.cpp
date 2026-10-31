@@ -23,8 +23,6 @@
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
@@ -418,22 +416,3 @@ namespace Tmr {
 int GameClockTimeSince(int start) { return GameClockElapsed() + (Obj::g_clockOffset - start); }
 
 } // namespace Tmr
-
-REPLACE(0x00420590, &Obj::CModelSpin::Angle);
-REPLACE(0x004204F0, &Obj::CModelSpinAxis::Clear);
-REPLACE(0x00420520, &Obj::CModelSpinAxis::Add);
-REPLACE(0x004213E0, &Obj::CModelSpinAxis::Angle);
-REPLACE(0x004215F0, &Obj::CModelComponent::GetDisplayMatrix);
-REPLACE(0x00421960, &Obj::CModelComponent::TestCollision);
-REPLACE(0x00420070, &Obj::CModelComponent::Hide);
-REPLACE(0x00420090, &Obj::CModelComponent::SetColorValue);
-REPLACE(0x004200C0, &Obj::CModelComponent::UpdateBrightness);
-REPLACE(0x004200E0, &Obj::CModelComponent::RebuildFromProfile);
-REPLACE(0x00420100, &Obj::CModelComponent::GetRefObjectName);
-REPLACE(0x00420110, &Obj::CModelComponent::ReplaceTexture);
-REPLACE(0x004202A0, &Obj::CModelComponent::HideGeom);
-REPLACE(0x00420670, &Obj::CModelComponent::ApplyBrightness);
-REPLACE(0x00420700, &Obj::CModelComponent::SetColor);
-REPLACE(0x00420730, &Obj::CModelComponent::RotateDisplay);
-REPLACE(0x004208D0, &Obj::CModelComponent::CancelRotateDisplay);
-REPLACE(0x00420250, Tmr::GameClockTimeSince);

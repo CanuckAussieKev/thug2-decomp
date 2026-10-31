@@ -1,8 +1,8 @@
 // The PC's streams are Bink files (sound only), opened from memory: the cache of stream files read into memory,
 // and the Bink stream's constructor and open (its other methods, 0x00452D20 on, are with the platform's streams).
 
+#include <cstddef>
 #include <cstdint>
-#include "hook/game_code.h"
 #include <cstdio>
 
 #include "game/pcm/stream_commands.h"
@@ -10,24 +10,21 @@
 #include "game/core/dbg.h"
 #include "game/pcm/music.h"
 #include "game/pcm/stream.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/pcm/stream_files.h"
 #include "game/sys/crt.h"
 
 namespace Pcm {
 
-GAME_GLOBAL(bool, g_binkSoundSet, 0x0069CB99);
-GAME_GLOBAL(uint32_t, g_streamFileUses, 0x0069CB9C);
-GAME_GLOBAL(CachedStreamFile[12], g_streamFiles, 0x0069CAD8);
+bool g_binkSoundSet;
+uint32_t g_streamFileUses;
+CachedStreamFile g_streamFiles[12];
 
 namespace {
 
 CachedStreamFile* StreamFiles() { return g_streamFiles; }
 constexpr int kStreamFiles = 12;
 
-GAME_GLOBAL(bool, g_streamFilesReady, 0x0069CBA0);
+bool g_streamFilesReady;
 
 bool& StreamFilesReady() { return g_streamFilesReady; }
 uint32_t& StreamFileUses() { return g_streamFileUses; }
@@ -43,17 +40,17 @@ void CrtFree(void* block) { Crt::Free(block); }
 // The Bink SDK (binkw32.dll), through the game's import table.
 int BinkSetSoundSystem(void* open, void* param)
 {
-    return GAME_DLL_IMPORT(0x00645304, int(__stdcall*)(void*, void*), "binkw32.dll", "_BinkSetSoundSystem@8")(open, param);
+    return reinterpret_cast<int(__stdcall*)(void*, void*)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param);
 }
 // the function, passed to the above
-void* BinkOpenDirectSound() { return GAME_DLL_IMPORT(0x00645300, void*, "binkw32.dll", "_BinkOpenDirectSound@4"); }
+void* BinkOpenDirectSound() { return reinterpret_cast<void*>(Crt::LibraryFunction("binkw32.dll", "_BinkOpenDirectSound@4")); }
 void* BinkOpen(const void* source, uint32_t flags)
 {
-    return GAME_DLL_IMPORT(0x006452E8, void*(__stdcall*)(const void*, uint32_t), "binkw32.dll", "_BinkOpen@8")(source, flags);
+    return reinterpret_cast<void*(__stdcall*)(const void*, uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkOpen@8"))(source, flags);
 }
 void BinkSetVideoOnOff(void* bink, int on)
 {
-    GAME_DLL_IMPORT(0x006452FC, int(__stdcall*)(void*, int), "binkw32.dll", "_BinkSetVideoOnOff@8")(bink, on);
+    reinterpret_cast<int(__stdcall*)(void*, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetVideoOnOff@8"))(bink, on);
 }
 constexpr uint32_t kBinkFromMemory = 0x04000000;
 constexpr long kInvalidArg = static_cast<long>(0x80070057); // E_INVALIDARG
@@ -93,7 +90,7 @@ int __cdecl LoadStreamFile(uint32_t key, const char* path, long offset, size_t s
     }
     if (slot == -1)
         return -1;
-    FILE* in = CrtFopen(path, GAME_TEXT(0x00647344, "rb")); // "rb"
+    FILE* in = CrtFopen(path, "rb"); // "rb"
     if (!in)
         return -1;
     CachedStreamFile& file = StreamFiles()[slot];
@@ -137,7 +134,7 @@ long BinkStreamView::Open(uint32_t key, const char* path, long offset, size_t si
 {
     if (!BinkSoundSet()) {
         if (!BinkSetSoundSystem(BinkOpenDirectSound(), g_soundDevice))
-            Dbg::Printf(GAME_TEXT(0x006472D4, "Bink can't use DSound\n")); // "Bink can't use DSound\n"
+            Dbg::Printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
         BinkSoundSet() = true;
     }
     int slot = LoadStreamFile(key, path, offset, size);
@@ -157,7 +154,3 @@ long BinkStreamView::Open(uint32_t key, const char* path, long offset, size_t si
 }
 
 } // namespace Pcm
-
-REPLACE(0x00452A90, Pcm::LoadStreamFile);
-REPLACE(0x00452C00, &Pcm::BinkStreamView::Construct);
-REPLACE(0x00452C60, &Pcm::BinkStreamView::Open);

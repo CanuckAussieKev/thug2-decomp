@@ -1,7 +1,7 @@
 // The save file types and the memory card commands' helpers (see save_types.h).
 
 #include "game/mc/save_types.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -24,9 +24,6 @@
 #include "game/skater/skater.h"
 #include "game/sys/game_config.h"
 #include "game/core/game_vtables.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/goals/goal.h"
 #include "game/gfx/skeleton.h"
 
@@ -152,7 +149,7 @@ int TypeVersion(uint32_t type)
     }
 }
 
-GAME_GLOBAL(char[0x68], g_saveFileName, 0x007CECE8); // (the cutscene list's flag follows)
+char g_saveFileName[0x68]; // (the cutscene list's flag follows)
 
 // 0x005A62A0
 const char* TypeFileName(uint32_t type, const char* name)
@@ -245,7 +242,7 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
     constexpr uint32_t kTotalGoalsComplete = 0x959DCF6E, kTotalGoalsPossible = 0xA95F9E73;
     constexpr uint32_t kTotalScore = 0x0E145E9C, kTotalScorePotential = 0x851B0904;
     constexpr uint32_t kIsMale = 0x3F813177;         // "is_male"
-    const char* const kEmpty = GAME_TEXT(0x006469B4, ""); // ""
+    const char* const kEmpty = ""; // ""
     Ed::CParkEditor* editor = Ed::CParkEditor::Instance();
     // The park map's numbers, in GetMapInfo's order: num_gaps, num_pieces, theme (16 bits), tod_script, width,
     // length.
@@ -383,7 +380,7 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
         break;
     }
     case kSaveOptionsAndPros: {
-        auto* own = reinterpret_cast<CStruct*(__thiscall*)(void*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(GoalManager());
+        auto* own = reinterpret_cast<CStruct*(__thiscall*)(void*)>(CodeAddress(&Gfx::CSkeleton::GetNumBones))(GoalManager());
         CStruct* goalManagerParams = nullptr; // (read, not used)
         own->GetStructure(0x23D4170Au, &goalManagerParams, 0);
         Obj::CSkaterCareer* career = *reinterpret_cast<Obj::CSkaterCareer**>(
@@ -407,7 +404,7 @@ void __fastcall ApplyGoalManagerParams(CStruct* saved)
     Game::CGoalManager* goalManager = GoalManager();
     goalManager->ResetGoalData(0); // reset the career (mode 0)
     // its parameters (a folded getter, +0x14)
-    auto* own = reinterpret_cast<CStruct*(__thiscall*)(void*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(goalManager);
+    auto* own = reinterpret_cast<CStruct*(__thiscall*)(void*)>(CodeAddress(&Gfx::CSkeleton::GetNumBones))(goalManager);
     own->Clear();
     own->AppendStructureIfAny(params);
     goalManager->RestoreGoalData(); // the level's goals loaded
@@ -419,7 +416,7 @@ bool ApplyCatAndCustomSkater(CStruct* loaded, CStruct* customSkater)
     Obj::CPlayerProfileManager* profiles = Obj::g_profileManager;
     Mdl::Skate* skate = Mdl::Skate::Instance();
     // the current skater (the manager's +0x1C, through the folded getter 0x00553E90)
-    int index = reinterpret_cast<int(__thiscall*)(void*)>(GAME_CODE(0x00553E90, &Game::CGoal::GetParams))(profiles);
+    int index = reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&Game::CGoal::GetParams))(profiles);
     auto* skater = static_cast<Obj::CSkater*>(skate->GetSkater(index));
     skater->LoadCATInfo(loaded);
     skater->LoadList44B66A9F(loaded);
@@ -629,20 +626,3 @@ __declspec(naked) void ApplyCatAndCustomSkaterStub()
 }
 
 } // namespace Mc
-
-REPLACE_UNCHECKED(0x005A5F70, Mc::MakeFileNameStub);           // arguments in EAX, ESI and EDI
-REPLACE_UNCHECKED(0x005A60C0, Mc::TypeFromLetterStub);         // the letter in AL
-REPLACE(0x005A6120, Mc::ApplyGoalManagerParams);               // (fastcall: the structure in ECX)
-REPLACE_UNCHECKED(0x005A6180, Mc::IconSpaceRequiredStub);      // the type in EAX
-REPLACE_UNCHECKED(0x005A6210, Mc::TypeVersionStub);            // the type in EAX
-REPLACE_UNCHECKED(0x005A62A0, Mc::TypeFileNameStub);           // the type in EAX, the name in ECX
-REPLACE_UNCHECKED(0x005A6390, Mc::MakeFolderFileNameStub);     // the type in EDI, the rest on the stack
-REPLACE_UNCHECKED(0x005A63E0, Mc::IsLaterStub);                // the summaries in EDI and ESI
-REPLACE_UNCHECKED(0x005A6610, Mc::WriteSummaryStub);           // EAX, ESI and the stack
-REPLACE_UNCHECKED(0x005A6C80, Mc::ApplyCatAndCustomSkaterStub); // EDI and the stack
-REPLACE_UNCHECKED(0x005A6CD0, Mc::RoundUpToCardBlockStub);     // the size in ESI
-REPLACE_UNCHECKED(0x005A7340, Mc::TypeFileSizeStub);           // the type in ECX
-REPLACE(0x005A8470, Mc::SaveBlocks);
-REPLACE(0x005A8EB0, Mc::KeepLoadedContents);
-REPLACE(0x005A7520, &Mc::ListDestructors::NodeDestroy);
-REPLACE(0x005A8E80, &Mc::ListDestructors::OtherDestroy);

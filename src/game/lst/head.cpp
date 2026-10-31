@@ -2,8 +2,6 @@
 
 #include "game/lst/head.h"
 
-#include "hook/hook.h"
-
 namespace Lst {
 
 namespace {
@@ -77,7 +75,3 @@ void Head::AddNodeFromTail(Mem::ListNode* node)
 }
 
 } // namespace Lst
-
-REPLACE(0x0045A540, &Lst::Head::AddNode);
-REPLACE(0x0045AEB0, &Lst::Head::AddUniqueSequence);
-REPLACE(0x00457350, &Lst::Head::AddNodeFromTail);

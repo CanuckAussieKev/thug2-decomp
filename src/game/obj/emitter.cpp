@@ -5,6 +5,7 @@
 #include "game/gfx/sector.h"
 
 #include <cmath>
+#include <cstdint>
 #include <new>
 
 #include "game/core/manager.h"
@@ -13,12 +14,10 @@
 #include "game/obj/object.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
-GAME_GLOBAL(void*, g_emitterTable, 0x006F2260);
+void* g_emitterTable;
 
 namespace {
 
@@ -302,15 +301,3 @@ void CFollowTrail::GetPosition(Mth::Vector* position, Mth::Matrix* matrix)
 }
 
 } // namespace Obj
-
-REPLACE(0x004680E0, Obj::Emitter_GetNode);
-REPLACE(0x00468120, &Obj::EmitterNode::IsInside);
-REPLACE(0x004681A0, &Obj::EmitterNode::GetClosestPoint);
-REPLACE(0x004682B0, Obj::Emitter_Cleanup);
-REPLACE(0x00468340, Obj::Emitter_SetActive);
-REPLACE(0x004683B0, Obj::Emitter_Init);
-REPLACE(0x00468450, Obj::Emitter_AddNode);
-REPLACE(0x004685D0, &Obj::CFollowTrail::Reset);
-REPLACE(0x00468610, &Obj::CFollowTrail::Update);
-REPLACE(0x00468730, &Obj::CFollowTrail::GetPosition);
-REPLACE(0x00468AC0, &Obj::CFollowTrail::Init);

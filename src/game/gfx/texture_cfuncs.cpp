@@ -10,15 +10,11 @@
 #include "game/gfx/texture_dict.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace CFuncs {
 
-GAME_GLOBAL(bool, g_textureFlagCe441, 0x007CE441);
-GAME_GLOBAL(char[128], g_parkName, 0x007CED58);
+bool g_textureFlagCe441;
+char g_parkName[128];
 
 namespace {
 
@@ -105,7 +101,7 @@ uint32_t FindNameOfInteger(CStruct* structure, uint32_t value)
     for (CComponent* component = structure->GetNextComponent(nullptr); component;) {
         CComponent* next = structure->GetNextComponent(component);
         if (component->Type() == Script::ESYMBOLTYPE_INTEGER && component->raw == value) {
-            Dbg::Printf(GAME_TEXT(0x00657ADC, "s_find_cat_in_mapping found %i\n"), value); // "s_find_cat_in_mapping found %i"
+            Dbg::Printf("s_find_cat_in_mapping found %i\n", value); // "s_find_cat_in_mapping found %i"
             found = component->name;
         }
         component = next;
@@ -460,7 +456,7 @@ bool __cdecl CFunc_UnloadSFPTexture(CStruct* params, CScript*)
 // 0x005AA8F0
 bool __cdecl CFunc_SetParkName(CStruct* params, CScript*)
 {
-    const char* name = GAME_TEXT(0x006469B4, ""); // ""
+    const char* name = ""; // ""
     params->GetString(0u, &name, 0);
     char* parkName = g_parkName;
     while ((*parkName++ = *name++) != '\0') { // (no length limit, as in the original)
@@ -469,28 +465,3 @@ bool __cdecl CFunc_SetParkName(CStruct* params, CScript*)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005A9D80, CFuncs::CFunc_SceAltPt);
-REPLACE(0x005A9D90, CFuncs::FindNameOfValue);
-REPLACE_UNCHECKED(0x005A9E30, CFuncs::FindNameOfIntegerStub); // the structure in EBX, the value on the stack
-REPLACE(0x005A9E80, CFuncs::WrapAngle);
-REPLACE(0x005A9ED0, CFuncs::CFunc_CompositeObjectExists);
-REPLACE(0x005A9F00, CFuncs::CFunc_LoadTexture);
-REPLACE(0x005A9F60, CFuncs::CFunc_CreateTexture);
-REPLACE(0x005AA040, CFuncs::CFunc_UnloadTexture);
-REPLACE(0x005AA0C0, CFuncs::CFunc_Generate32BitImage);
-REPLACE(0x005AA160, CFuncs::CFunc_Put32BitImageIntoTexture);
-REPLACE(0x005AA1E0, CFuncs::CFunc_FlipTexture);
-REPLACE(0x005AA270, CFuncs::CFunc_ResizeTextureInto);
-REPLACE(0x005AA2E0, CFuncs::CFunc_ScaleTexture);
-REPLACE(0x005AA340, CFuncs::CFunc_AdjustTextureRegion);
-REPLACE(0x005AA460, CFuncs::CFunc_PullTextureToEdge);
-REPLACE(0x005AA500, CFuncs::CFunc_AdjustTextureBrightness);
-REPLACE(0x005AA590, CFuncs::CFunc_AdjustTextureHSV);
-REPLACE(0x005AA670, CFuncs::CFunc_CopyTexture);
-REPLACE(0x005AA6E0, CFuncs::CFunc_CombineTextures);
-REPLACE(0x005AA7B0, CFuncs::CFunc_LoadParticleTexture);
-REPLACE(0x005AA830, CFuncs::CFunc_UnloadParticleTexture);
-REPLACE(0x005AA880, CFuncs::CFunc_LoadSFPTexture);
-REPLACE(0x005AA8B0, CFuncs::CFunc_UnloadSFPTexture);
-REPLACE(0x005AA8F0, CFuncs::CFunc_SetParkName);

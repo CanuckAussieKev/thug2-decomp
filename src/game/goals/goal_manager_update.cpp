@@ -2,8 +2,11 @@
 // questions (0x0055DD10-0x0055E78D, 0x0055E790-0x0055EB3F) and the commands among them (see goal_manager.h,
 // goal_manager_cfuncs.h).
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/str.h"
 #include "game/front/screen_element.h"
@@ -18,9 +21,6 @@
 #include "game/script/game_cfuncs.h"
 #include "game/script/struct.h"
 #include "game/skate/trick_goals.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Game {
 
@@ -90,7 +90,7 @@ void CGoalManager::UpdateTimeDisplay()
             minutes = time / 60000;
             seconds = (time - minutes * 60000) / 1000;
         }
-        std::snprintf(text, sizeof(text), GAME_TEXT(0x0064DF7C, "%2i:%.2i"), minutes, seconds); // "%2i:%.2i"
+        std::snprintf(text, sizeof(text), "%2i:%.2i", minutes, seconds); // "%2i:%.2i"
         break;
     }
     Front::ElementPtr element;
@@ -192,10 +192,10 @@ void CGoalManager::AddViewGoalsList()
             int value = 0;
             if (goal->IsCompetition()) {
                 params->GetInteger(kWinRecord, &value, 0);
-                std::snprintf(record, sizeof(record), GAME_TEXT(0x0064DFBC, "%i"), value); // "%i"
-                const char* suffix = value == 1   ? GAME_TEXT(0x0064DF98, "st place")  // "st place"
-                                     : value == 2 ? GAME_TEXT(0x0064DFA4, "nd place")  // "nd place"
-                                     : value == 3 ? GAME_TEXT(0x0064DFB0, "rd place")  // "rd place"
+                std::snprintf(record, sizeof(record), "%i", value); // "%i"
+                const char* suffix = value == 1   ? "st place"  // "st place"
+                                     : value == 2 ? "nd place"  // "nd place"
+                                     : value == 3 ? "rd place"  // "rd place"
                                                   : "";
                 std::size_t length = std::strlen(record);
                 std::snprintf(record + length, sizeof(record) - length, "%s", suffix);
@@ -205,14 +205,14 @@ void CGoalManager::AddViewGoalsList()
                 if (params->GetChecksum(kRecordType, &type, 0)) {
                     if (type == kScore) {
                         params->GetInteger(kWinRecord, &value, 0);
-                        std::snprintf(record, sizeof(record), GAME_TEXT(0x00646B8C, "%s"), Str::FormatWithSeparators(value)); // "%s"
+                        std::snprintf(record, sizeof(record), "%s", Str::FormatWithSeparators(value)); // "%s"
                         item->AddString(kRecordText, record);
                     } else if (type == kTime) {
                         int ms = 0;
                         params->GetInteger(kWinRecord, &ms, 0);
                         int totalSeconds = ms / 1000;
                         int minutes = totalSeconds / 60;
-                        std::snprintf(record, sizeof(record), GAME_TEXT(0x0064DF88, "%i:%02i.%02i"), minutes, totalSeconds - minutes * 60,
+                        std::snprintf(record, sizeof(record), "%i:%02i.%02i", minutes, totalSeconds - minutes * 60,
                                       (ms % 1000) / 10); // "%i:%02i.%02i"
                         item->AddString(kRecordText, record);
                     }
@@ -318,7 +318,7 @@ bool __cdecl CFunc_GoalManager_UpdateAllGoals(Script::CStruct*, Script::CScript*
 bool __cdecl CFunc_GoalManager_GetTimeLeftInNetGame(Script::CStruct*, Script::CScript* script)
 {
     if (CGoal* goal = GetGoalManager()->GetActiveNetGoal())
-        script->m_params->AddInteger(GAME_TEXT(0x0064DFC0, "time_left"), goal->GetTimeLeft()); // "time_left"
+        script->m_params->AddInteger("time_left", goal->GetTimeLeft()); // "time_left"
     return true;
 }
 
@@ -330,18 +330,3 @@ bool __cdecl CFunc_GoalManager_GetUnlimitedTimeInNetGame(Script::CStruct*, Scrip
 }
 
 } // namespace Game
-
-REPLACE(0x0055DD10, &Game::CGoalManager::UpdateTimeDisplay);
-REPLACE(0x0055DEA0, &Game::CGoalManager::HasActiveGapGoal);
-REPLACE(0x0055DF90, &Game::CGoalManager::UnBeatAllGoals);
-REPLACE(0x0055E050, &Game::CGoalManager::AddViewGoalsList);
-REPLACE(0x0055E790, &Game::CGoalManager::TrickLanded);
-REPLACE(0x0055E860, Game::CFunc_GoalManager_HasActiveGoals);
-REPLACE(0x0055E8A0, Game::CFunc_GoalManager_UnBeatAllGoals);
-REPLACE(0x0055E8C0, Game::CFunc_GoalManager_AddViewGoalsList);
-REPLACE(0x0055E8E0, Game::CFunc_GoalManager_GoalShouldExpire);
-REPLACE(0x0055E980, &Game::CGoalManager::GetActiveNetGoal);
-REPLACE(0x0055EA40, &Game::CGoalManager::Update);
-REPLACE(0x0055EAC0, Game::CFunc_GoalManager_UpdateAllGoals);
-REPLACE(0x0055EAE0, Game::CFunc_GoalManager_GetTimeLeftInNetGame);
-REPLACE(0x0055EB20, Game::CFunc_GoalManager_GetUnlimitedTimeInNetGame);

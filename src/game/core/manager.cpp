@@ -1,5 +1,7 @@
 #include "game/core/manager.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -7,9 +9,6 @@
 #include "game/core/mem.h"
 #include "game/core/memory_sizes.h"
 #include "game/sys/game_config.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/crt.h"
 
 namespace Mem {
@@ -38,8 +37,8 @@ Allocator* CurrentHeap(Manager* manager) { return *manager->m_current; }
 } // namespace
 
 // The one memory manager (made by the exe's static initialisers: standalone start-up order, step 6).
-GAME_GLOBAL(Manager*, g_memoryManager, 0x007D1800);
-GAME_GLOBAL(bool, g_managerReady, 0x007CC979); // the memory manager is set up
+Manager* g_memoryManager;
+bool g_managerReady; // the memory manager is set up
 
 Manager* Manager::Get()
 {
@@ -420,44 +419,15 @@ void* Realloc(void* memory, unsigned int size)
 
 } // namespace Mem
 
-REPLACE(0x005BAFC0, &Mem::Manager::Allocate);
-REPLACE(0x005BB000, &Mem::Manager::AllocateZeroed);
-REPLACE(0x005BB060, &Mem::Manager::ReallocateUp);
-REPLACE(0x005BB0A0, &Mem::Manager::ReallocateShrink);
-REPLACE(0x005BABA0, &Mem::Manager::Free);
-REPLACE(0x005BB050, &Mem::Manager::Available);
-REPLACE(0x005BB0E0, &Mem::Manager::PushContext);
-REPLACE(0x005BB110, &Mem::Manager::PopContext);
-REPLACE(0x005BB150, &Mem::Manager::CurrentHeapName);
-REPLACE(0x005BAC10, &Mem::Manager::FirstHeap);
-REPLACE(0x005BAC20, &Mem::Manager::NextHeap);
-REPLACE(0x005BABC0, &Mem::Manager::DeleteHeap);
-REPLACE(0x005BAF00, &Mem::Manager::FindNamedHeap);
-REPLACE(0x005BAF50, &Mem::Manager::GetNamedHeap);
-REPLACE(0x005BAF70, &Mem::Manager::DeleteNamedHeap);
-REPLACE(0x005BB310, &Mem::Manager::GetHeap);
-REPLACE(0x005BB160, &Mem::Manager::GetHeapName);
-REPLACE(0x005BAC50, &Mem::Manager::DeleteNetMiscHeap);
-REPLACE(0x005BAC90, &Mem::Manager::DeleteCutsceneHeaps);
-REPLACE(0x005BACF0, &Mem::Manager::DeleteExtraSkaterHeaps);
-REPLACE(0x005BADD0, &Mem::Manager::DeleteStandardHeaps);
-REPLACE(0x005BBE50, &Mem::Manager::DestroyMainHeaps);
-REPLACE(0x005BBAE0, Mem::Malloc);
-REPLACE(0x005BBB10, Mem::MallocAvailable);
-REPLACE(0x005BBB30, static_cast<void* (*)(unsigned int, void*)>(&Mem::ReallocateShrink));
-REPLACE(0x005BBB60, Mem::FreeMalloc);
-REPLACE(0x005BBB80, Mem::MallocSize);
-REPLACE(0x005BBBA0, Mem::Realloc);
-
 // --- creating the manager and its heaps -----------------------------------------------------------------------
 
 namespace Mem {
 
 // Where the manager and its main region and heaps live (static storage in the game, as words).
-GAME_GLOBAL(uint32_t[(sizeof(Manager) + 3) / 4], g_managerStorage, 0x007D11F8);
-GAME_GLOBAL(uint32_t[(sizeof(Region) + 3) / 4], g_mainRegionStorage, 0x007D11E0);
-GAME_GLOBAL(uint32_t[(sizeof(Heap) + 3) / 4], g_topDownStorage, 0x007D1130);
-GAME_GLOBAL(uint32_t[(sizeof(Heap) + 3) / 4], g_bottomUpStorage, 0x007D1098);
+uint32_t g_managerStorage[(sizeof(Manager) + 3) / 4];
+uint32_t g_mainRegionStorage[(sizeof(Region) + 3) / 4];
+uint32_t g_topDownStorage[(sizeof(Heap) + 3) / 4];
+uint32_t g_bottomUpStorage[(sizeof(Heap) + 3) / 4];
 
 namespace {
 
@@ -484,12 +454,12 @@ Manager*& Manager::Instance()
     return g_memoryManager;
 }
 
-GAME_GLOBAL(uint8_t*, g_heapBlockLimit, 0x007D17E4);
-GAME_GLOBAL(uint8_t*, g_heapBlockEnd, 0x007D17E8);
-GAME_GLOBAL(uint8_t*, g_heapBlockStart, 0x007D17EC);
-GAME_GLOBAL(uintptr_t, g_dataEnd, 0x007D17F0);
-GAME_GLOBAL(uintptr_t, g_dataStart, 0x007D17F4);
-GAME_GLOBAL(uintptr_t, g_codeStart, 0x007D17F8);
+uint8_t* g_heapBlockLimit;
+uint8_t* g_heapBlockEnd;
+uint8_t* g_heapBlockStart;
+uintptr_t g_dataEnd;
+uintptr_t g_dataStart;
+uintptr_t g_codeStart;
 
 // 0x005BBC00
 Manager* Manager::Construct()
@@ -706,15 +676,3 @@ void ShutDownManager()
 }
 
 } // namespace Mem
-
-REPLACE(0x005BBC00, &Mem::Manager::Construct);
-REPLACE(0x005BBE80, &Mem::Manager::InitStandardHeaps);
-REPLACE(0x005BB4E0, &Mem::Manager::AddHeap);
-REPLACE(0x005BB560, &Mem::Manager::InitNetMiscHeap);
-REPLACE(0x005BB660, &Mem::Manager::InitInternetHeaps);
-REPLACE(0x005BB780, &Mem::Manager::InitCutsceneHeaps);
-REPLACE(0x005BB820, &Mem::Manager::InitExtraSkaterHeaps);
-REPLACE(0x005BB9E0, &Mem::Manager::InitNamedHeap);
-REPLACE(0x005BC2C0, Mem::SetUpManager);
-REPLACE(0x004E1950, Mem::EnsureManager);
-REPLACE(0x005BC340, Mem::ShutDownManager);

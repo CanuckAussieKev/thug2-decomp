@@ -8,7 +8,6 @@
 #include "game/mth/quat.h"
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
-#include "hook/game_global.h"
 #include "game/obj/smtptr.h"
 #include "game/nx/coll_cache.h"
 
@@ -288,19 +287,19 @@ void __cdecl SetRigidBodyPusherReach(CCompositeObject* object, float reach);
 // 0x0042BAC0 ToggleRigidBodyDebug: the rigid bodies' debug drawing stepped: off, the shapes, the details too, off.
 bool __cdecl CFunc_ToggleRigidBodyDebug(Script::CStruct* params, Script::CScript* script);
 
-GAME_GLOBAL_EXTERN(Mth::Vector[24], g_rigidBodyWorldContactPoints);   // 0x00694E30
-GAME_GLOBAL_EXTERN(Mth::Vector[24], g_rigidBodyWorldSphereCenters);   // 0x00694FB0
-GAME_GLOBAL_EXTERN(Mth::Vector[2], g_rigidBodyWorldSpringPoints);    // 0x00695130
-GAME_GLOBAL_EXTERN(CRigidBodyComponent::Contact[24], g_rigidBodyContacts); // 0x006949B0
-GAME_GLOBAL_EXTERN(CSmtPtr<CCompositeObject>[8], g_rigidBodyPushers);      // 0x00695150
+extern Mth::Vector g_rigidBodyWorldContactPoints[24];   // 0x00694E30
+extern Mth::Vector g_rigidBodyWorldSphereCenters[24];   // 0x00694FB0
+extern Mth::Vector g_rigidBodyWorldSpringPoints[2];    // 0x00695130
+extern CRigidBodyComponent::Contact g_rigidBodyContacts[24]; // 0x006949B0
+extern CSmtPtr<CCompositeObject> g_rigidBodyPushers[8];      // 0x00695150
 // (the cache is raw zeroed storage: the cache fills it before it looks)
 struct RigidBodyCacheStorage {
     alignas(8) uint8_t bytes[sizeof(Nx::CCollCache)];
 };
-GAME_GLOBAL_EXTERN(RigidBodyCacheStorage, g_rigidBodyCache);                       // 0x006939E0
-GAME_GLOBAL_EXTERN(float[8], g_rigidBodyPusherReach);
-GAME_GLOBAL_EXTERN(float, g_rigidBodyPusherHeight);
-GAME_GLOBAL_EXTERN(bool, g_rigidBodyDrawShape);
-GAME_GLOBAL_EXTERN(bool, g_rigidBodyDrawDetails);
+extern RigidBodyCacheStorage g_rigidBodyCache;                       // 0x006939E0
+extern float g_rigidBodyPusherReach[8];
+extern float g_rigidBodyPusherHeight;
+extern bool g_rigidBodyDrawShape;
+extern bool g_rigidBodyDrawDetails;
 
 } // namespace Obj

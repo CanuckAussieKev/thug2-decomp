@@ -31,10 +31,7 @@
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
 #include "game/sys/viewer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/object.h"
 #include "game/script/cfuncs_scene.h"
@@ -162,10 +159,10 @@ uint8_t* SkeletonOf(CBaseComponent* component)
 }
 Mth::Matrix* BoneMatrices(uint8_t* skeleton) { return *reinterpret_cast<Mth::Matrix**>(skeleton + 0x04); }
 
-GAME_GLOBAL(uint32_t, g_noSkeletonCounter, 0x0067F384, 10);
-GAME_GLOBAL(int, g_repeatCount, 0x007CE588);
-GAME_GLOBAL(uint32_t, g_repeatCountGuard, 0x007CE58C);
-GAME_GLOBAL(float, g_wheelAngle, 0x007CE590);
+uint32_t g_noSkeletonCounter{10};
+int g_repeatCount;
+uint32_t g_repeatCountGuard;
+float g_wheelAngle;
 
 // The wheels' angle (degrees) and the counter that moves on while there's no skeleton.
 float& WheelAngle() { return g_wheelAngle; }
@@ -220,7 +217,7 @@ CViewerObject* CViewerObject::Destroy(unsigned int flags)
     return this;
 }
 
-GAME_GLOBAL(Mth::Vector, g_originPosition, 0x0067F388, 0.0f, 0.0f, 0.0f, 1.0f);
+Mth::Vector g_originPosition{0.0f, 0.0f, 0.0f, 1.0f};
 
 // 0x00589910
 void CViewerObject::Load(Script::CStruct* params)
@@ -621,33 +618,13 @@ CViewerObject* CViewerObject::Construct(Net::App* app)
 }
 
 namespace {
-GAME_VTABLE(kViewerObjectVtable, 0x0064F138, &Obj::CViewerObject::Destroy, &Obj::CObject::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            static_cast<bool (Obj::CCompositeObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CCompositeObject::CallMemberFunction),
-            Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript, &Obj::CCompositeObject::MarkAsDead,
-            &Obj::CCompositeObject::ShouldUpdateScripts, &Obj::CCompositeObject::Finalize,
-            &Obj::CCompositeObject::CreateComponentFromStructure, &Obj::CViewerObject::OwnUpdate);
+static VtableSlot kViewerObjectVtable_slots[] = {&Obj::CViewerObject::Destroy, &Obj::CObject::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                static_cast<bool (Obj::CCompositeObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CCompositeObject::CallMemberFunction),
+                Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript, &Obj::CCompositeObject::MarkAsDead,
+                &Obj::CCompositeObject::ShouldUpdateScripts, &Obj::CCompositeObject::Finalize,
+                &Obj::CCompositeObject::CreateComponentFromStructure, &Obj::CViewerObject::OwnUpdate};
+void** const kViewerObjectVtable = reinterpret_cast<void**>(kViewerObjectVtable_slots);
 } // namespace
 
 } // namespace Obj
-
-REPLACE(0x00589FD0, &Obj::CViewerObject::ReloadAnimation);
-REPLACE(0x0058A2E0, &Obj::CViewerObject::SetRotation);
-REPLACE(0x0058A360, &Obj::CViewerObject::SetAnimSpeed);
-REPLACE(0x0058A4A0, &Obj::CViewerObject::StepAnimation);
-REPLACE(0x0058A720, &Obj::CViewerObject::SpinWheels);
-REPLACE(0x0058A8B0, &Obj::CViewerObject::UpdatePanel);
-REPLACE(0x0058AB30, &Obj::CViewerObject::OwnUpdate);
-REPLACE(0x0058ADB0, &Obj::CViewerObject::Construct);
-REPLACE(0x0058A060, Obj::HandleViewerObjectInput);
-REPLACE(0x00589840, Obj::HandlePlayAnimation);
-REPLACE(0x0058ACA0, Obj::HandleSetAnimSpeed);
-REPLACE(0x0058ACC0, Obj::HandleStepAnimation);
-REPLACE(0x0058A1F0, Obj::HandleReloadAnimation);
-REPLACE(0x0058ACE0, Obj::HandleReloadCamAnimation);
-REPLACE(0x0058A210, Obj::HandleRunAnimViewScript);
-REPLACE(0x005897B0, &Obj::CViewerObject::ShutDown);
-REPLACE(0x005897D0, &Obj::CViewerObject::PlayAnimation);
-REPLACE(0x00589860, &Obj::CViewerObject::DestroyBody);
-REPLACE(0x0058A2B0, &Obj::CViewerObject::Destroy);
-REPLACE(0x00589910, &Obj::CViewerObject::Load);

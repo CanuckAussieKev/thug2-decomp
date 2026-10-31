@@ -5,9 +5,6 @@
 #include <cstdint>
 
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/obj/control_pad.h"
 
 namespace Tmr {
@@ -18,8 +15,8 @@ namespace {
 // change, and the speed since.
 int& Offset() { return Obj::g_clockOffset; }
 
-GAME_GLOBAL(float, g_speed, 0x0067D7C0, 1.0f);
-GAME_GLOBAL(uint32_t, g_lastChange, 0x00696D64);
+float g_speed{1.0f};
+uint32_t g_lastChange;
 
 uint32_t& LastChange() { return g_lastChange; }
 float& Speed() { return g_speed; }
@@ -65,8 +62,3 @@ void SetGameClockSpeed(float speed)
 }
 
 } // namespace Tmr
-
-REPLACE(0x0044ECE0, Tmr::GameClockElapsed);
-REPLACE(0x0041C200, Tmr::GameClockTime);
-REPLACE(0x0044ED10, Tmr::PauseGameClock);
-REPLACE(0x0044ED70, Tmr::SetGameClockSpeed);

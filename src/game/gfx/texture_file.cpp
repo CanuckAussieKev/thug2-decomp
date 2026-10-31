@@ -16,8 +16,6 @@
 #include "game/gfx/texture.h"
 #include "game/sys/platform_d3d.h"
 #include "game/sys/platform_system.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
@@ -262,6 +260,3 @@ sTexture* __cdecl LoadTextureMemory(const uint8_t* data)
 }
 
 } // namespace Nx
-
-REPLACE(0x004E0790, Nx::LoadTextureFile);
-REPLACE(0x004E0A90, Nx::LoadTextureMemory);

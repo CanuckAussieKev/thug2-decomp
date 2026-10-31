@@ -4,12 +4,13 @@
 #include "game/ed/park.h"
 #include "game/ed/park_editor.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 
 #include "game/core/crc.h"
 #include "game/nx/feeler.h"
 #include "game/obj/smtptr.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
@@ -441,17 +442,3 @@ bool CParkManager::RebuildFloor(GridDims* area, int /*unused*/)
 }
 
 } // namespace Ed
-
-REPLACE(0x005993E0, &Ed::CParkManager::GenerateNodeArray);
-REPLACE(0x00599CD0, &Ed::CParkManager::CanChangeFloorHere);
-// 0x00599DD4 is CanChangeFloorHere's last block (jumped to from inside it; no callers) that Ghidra made a function of:
-// its source is CanChangeFloorHere's.
-REPLACE_SOURCE_ONLY(0x00599DD4, &Ed::CParkManager::CanChangeFloorHere);
-REPLACE(0x00599E20, &Ed::CParkManager::DestroyMetasBelow);
-REPLACE(0x0059B280, &Ed::CParkManager::UndoFloorChange);
-REPLACE(0x0059B2C0, &Ed::CParkManager::MoveRiserList);
-REPLACE(0x0059B320, &Ed::CParkManager::RebuildFloorPiece);
-REPLACE(0x0059BED0, &Ed::CParkManager::RebuildInnerShell);
-REPLACE(0x0059C520, static_cast<bool (Ed::CParkManager::*)(Ed::GridDims, int, int, bool, bool)>(
-                         &Ed::CParkManager::ChangeFloorHeight));
-REPLACE(0x0059C600, &Ed::CParkManager::RebuildFloor);

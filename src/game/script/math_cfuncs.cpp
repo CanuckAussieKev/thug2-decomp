@@ -10,14 +10,11 @@
 #include "game/mth/vector.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/cag_cfuncs.h"
 
 namespace CFuncs {
 
-GAME_GLOBAL(float, g_scriptRadiansToDegrees, 0x00645468, 57.295776f);
+float g_scriptRadiansToDegrees{57.295776f};
 
 namespace {
 
@@ -253,15 +250,3 @@ bool __cdecl CFunc_RotateVector(Script::CStruct* params, Script::CScript* script
 }
 
 } // namespace CFuncs
-
-REPLACE(0x00448AE0, CFuncs::CFunc_Sin);
-REPLACE(0x00448B20, CFuncs::CFunc_Cos);
-REPLACE(0x00448B60, CFuncs::CFunc_Tan);
-REPLACE(0x00448BA0, CFuncs::CFunc_ASin);
-REPLACE(0x00448BE0, CFuncs::CFunc_ACos);
-REPLACE(0x00448C20, CFuncs::CFunc_ATan);
-REPLACE(0x00448C60, CFuncs::CFunc_Sqrt);
-REPLACE(0x00448CA0, CFuncs::CFunc_NormalizeVector);
-REPLACE(0x00448D70, CFuncs::CFunc_LinearMap);
-REPLACE(0x00448E60, CFuncs::CFunc_Clamp);
-REPLACE(0x00448EF0, CFuncs::CFunc_RotateVector);

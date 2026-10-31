@@ -4,8 +4,10 @@
 #include "game/gfx/bone_look_at.h"
 #include "game/gfx/custom_anim_key.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <new>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -15,10 +17,7 @@
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
 #include "game/core/stubs.h"
 
@@ -132,7 +131,7 @@ CAnimEvent* CAnimEvent::Destroy(uint8_t flags)
 
 // --- the track ----------------------------------------------------------------------------------------------
 
-GAME_GLOBAL(Mem::PoolPair, g_animTrackPools, 0x006F92C8);
+Mem::PoolPair g_animTrackPools;
 
 Mem::PoolPair& CAnimTrack::Pools() { return g_animTrackPools; }
 
@@ -469,30 +468,14 @@ void CAnimTrack::PlayAnim(uint32_t anim, float start, float end, int loopType, f
 } // namespace Gfx
 
 namespace Vt {
-GAME_VTABLE(kAnimTrack, 0x00648794, &Gfx::CAnimTrack::Destroy, &Gfx::CAnimTrack::Reset, &Gfx::CAnimTrack::Update,
-            &Gfx::CAnimTimeline::PlayAnim, Stubs::IgnoreArgument, &Gfx::CAnimTrack::CallMemberFunction,
-            &Gfx::CAnimTrack::PlayAnim);
-GAME_VTABLE(kAnimEventBase, 0x006487B0, &Gfx::CAnimEventBase::Destroy, &Gfx::CCustomAnimKey::WithinRange,
-            GAME_LIBRARY_SLOT(0x00623771));
-GAME_VTABLE(kAnimEvent, 0x006487BC, &Gfx::CAnimEvent::Destroy, &Gfx::CCustomAnimKey::WithinRange,
-            &Gfx::CAnimScriptKey::Process);
+static VtableSlot kAnimTrack_slots[] = {&Gfx::CAnimTrack::Destroy, &Gfx::CAnimTrack::Reset, &Gfx::CAnimTrack::Update,
+                &Gfx::CAnimTimeline::PlayAnim, Stubs::IgnoreArgument, &Gfx::CAnimTrack::CallMemberFunction,
+                &Gfx::CAnimTrack::PlayAnim};
+void** const kAnimTrack = reinterpret_cast<void**>(kAnimTrack_slots);
+static VtableSlot kAnimEventBase_slots[] = {&Gfx::CAnimEventBase::Destroy, &Gfx::CCustomAnimKey::WithinRange,
+                &_purecall};
+void** const kAnimEventBase = reinterpret_cast<void**>(kAnimEventBase_slots);
+static VtableSlot kAnimEvent_slots[] = {&Gfx::CAnimEvent::Destroy, &Gfx::CCustomAnimKey::WithinRange,
+                &Gfx::CAnimScriptKey::Process};
+void** const kAnimEvent = reinterpret_cast<void**>(kAnimEvent_slots);
 } // namespace Vt
-
-REPLACE(0x004819F0, &Gfx::CAnimEventBase::Destroy);
-REPLACE(0x00481A20, &Gfx::CAnimEvent::Construct);
-REPLACE(0x00481DB0, &Gfx::CAnimEvent::Destroy);
-REPLACE(0x00481EE0, static_cast<void* (*)(size_t)>(&Gfx::CAnimTrack::operator new));
-REPLACE(0x00482360, static_cast<void (*)(void*)>(&Gfx::CAnimTrack::operator delete));
-REPLACE(0x00481F20, &Gfx::CAnimTrack::DestroyBody);
-REPLACE(0x00482340, &Gfx::CAnimTrack::Destroy);
-REPLACE(0x00481A30, &Gfx::CAnimTrack::InsertController);
-REPLACE(0x00481A80, &Gfx::CAnimTrack::FindController);
-REPLACE(0x00481AC0, &Gfx::CAnimTrack::Update);
-REPLACE(0x00481B40, &Gfx::CAnimTrack::StartFade);
-REPLACE(0x00481B80, &Gfx::CAnimTrack::GetWeight);
-REPLACE(0x00481BB0, &Gfx::CAnimTrack::DeleteEvents);
-REPLACE(0x00481C00, &Gfx::CAnimTrack::LoadEvents);
-REPLACE(0x00481E10, &Gfx::CAnimTrack::FireEvents);
-REPLACE(0x00481FB0, &Gfx::CAnimTrack::AddController);
-REPLACE(0x00482200, &Gfx::CAnimTrack::CallMemberFunction);
-REPLACE(0x004823C0, &Gfx::CAnimTrack::PlayAnim);

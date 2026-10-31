@@ -9,10 +9,13 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <initializer_list>
 #include <unordered_map>
 #include <vector>
 
@@ -41,7 +44,6 @@
 #include "game/sys/mlp.h"
 #include "game/sys/screenshot.h"
 #include "game/sys/crash.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 
 namespace Front::Automation {
@@ -49,7 +51,6 @@ namespace Front::Automation {
 namespace {
 
 #include "game/front/automation_tables.inc"
-#include "hook/game_global.h"
 
 constexpr uint32_t kSystem = 0x36B2EE74;       // "system" (the menus' pad events' target and source)
 constexpr uint32_t kFocusEvent = 0x9D3FB516;   // "focus"

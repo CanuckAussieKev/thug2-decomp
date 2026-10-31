@@ -5,10 +5,13 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <map>
 #include <unordered_map>
+#include <vector>
 
 #include "game/core/crc.h"
 #include "game/core/manager.h"
@@ -29,8 +32,6 @@
 #include "game/script/nodes.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
 #include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 #include "game/gfx/engine_scene_list.h"

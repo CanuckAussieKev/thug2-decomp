@@ -7,7 +7,9 @@
 #include "game/net/gamenet_lobby.h"
 #include "game/net/gamespy.h"
 
+#include <cstdint>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/task.h"
 #include "game/net/gamenet_handler_util.h"
@@ -16,8 +18,6 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copy of the server's name)
 
@@ -189,19 +189,3 @@ void __cdecl LobbyMan::KeyListCallback(void*, int type, void* keyBuffer, void*)
 }
 
 } // namespace GameNet
-
-REPLACE(0x0053F7E0, &GameNet::LobbyMan::StopHosting);
-REPLACE(0x0053F810, &GameNet::LobbyMan::IsHosting);
-REPLACE_SOURCE_ONLY(0x0053F820, &GameNet::LobbyMan::GetRoomName);
-REPLACE(0x0053F830, &GameNet::LobbyMan::SetServerName);
-REPLACE(0x0053F850, &GameNet::LobbyMan::GetServerName);
-REPLACE(0x0053F860, &GameNet::LobbyMan::ClearLostConnection);
-REPLACE(0x0053F870, &GameNet::LobbyMan::SetLostConnection);
-REPLACE(0x0053F880, &GameNet::LobbyMan::GetPeer);
-REPLACE(0x0053F890, &GameNet::LobbyMan::InGroupRoom);
-REPLACE(0x0053F8A0, GameNet::CFunc_ResetConnectionTimer);
-REPLACE(0x0053F8B0, &GameNet::LobbySearchA::DestroyBody);
-REPLACE(0x0053F8C0, &GameNet::LobbySearchB::DestroyBody);
-REPLACE(0x0053F8D0, GameNet::LobbyMan::ServerKeyCallback);
-REPLACE(0x0053FEC0, GameNet::LobbyMan::CountCallback);
-REPLACE(0x0053F620, GameNet::LobbyMan::KeyListCallback);

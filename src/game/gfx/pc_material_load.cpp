@@ -1,6 +1,7 @@
 // The PC materials' loaders (material.h): a scene's material list - from memory or from a file, the same records -
 // into a new hash table by checksum, their textures looked up in the scene's texture table.
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <new>
@@ -9,8 +10,6 @@
 #include "game/file/file.h"
 #include "game/gfx/material.h"
 #include "game/lst/hashtable.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
@@ -201,6 +200,3 @@ Lst::HashTable* __cdecl LoadMaterialsFromFile(File::Handle file, const Lst::Hash
 }
 
 } // namespace Nx
-
-REPLACE(0x004D2CB0, Nx::LoadMaterialsFromMemory);
-REPLACE(0x004D3390, Nx::LoadMaterialsFromFile);

@@ -6,7 +6,6 @@
 
 #include "game/net/gamenet_manager.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 
 namespace GameNet::Thugpro {

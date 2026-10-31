@@ -1,7 +1,5 @@
 #pragma once
 
-#include "hook/game_global.h"
-
 #include <windows.h>
 
 namespace Sys {
@@ -32,8 +30,8 @@ void __cdecl ParseNetworkParams(const char* commandLine);
 // ParseNetworkParams without the test stage (what the tests call).
 void ReadNetworkParams(const char* commandLine);
 
-GAME_GLOBAL_EXTERN(bool, g_internetGameHost);
-GAME_GLOBAL_EXTERN(bool, g_joiningInternetGame);
-GAME_GLOBAL_EXTERN(bool, g_appActive);
+extern bool g_internetGameHost;
+extern bool g_joiningInternetGame;
+extern bool g_appActive;
 
 } // namespace Sys

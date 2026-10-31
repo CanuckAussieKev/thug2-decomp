@@ -20,9 +20,6 @@
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 #include "game/obj/trigger_events.h"
 
 namespace Obj {
@@ -48,7 +45,6 @@ const float kRightingTilt = 0.25f;                          // 0x006467AC
 const float kRightingRate = 3.0f;                           // 0x006467A8
 const float kAlignFast = 122500.0f;                         // 0x006467C4 (350 squared)
 const float kAlignSlowRate = std::bit_cast<float>(0x3E99999Au); // 0x006467C0: 0.3
-
 
 // The model component's 0x00420670 (not rewritten yet): its lighting from what a feeler hit.
 void LightFromFeeler(CBaseComponent* model, Nx::CFeeler* feeler, bool b, float c)
@@ -187,7 +183,7 @@ void CVehicleComponent::MoveBy(const Mth::Vector* move)
     if (feeler.GetCollision(false, false)) {
         // Going through something: put just off the surface, the rest of the move reflected, the momentum into it
         // turned back by half again.
-        Dbg::Printf(kDebugFormat, kDebugFile, 0xB10, GAME_TEXT(0x00646748, "less than uber frig")); // "less than uber frig"
+        Dbg::Printf(kDebugFormat, kDebugFile, 0xB10, "less than uber frig"); // "less than uber frig"
         const Mth::Vector& point = feeler.m_point;
         const Mth::Vector& n = feeler.m_normal;
         m_pos.x = static_cast<float>(static_cast<double>(n.x) + point.x);
@@ -228,7 +224,7 @@ void CVehicleComponent::MoveBy(const Mth::Vector* move)
     feeler.m_line.end = m_pos;
     feeler.m_line.end.y = static_cast<float>(static_cast<double>(m_pos.y) - kDropTest);
     if (!feeler.GetCollision(false, false)) {
-        Dbg::Printf(kDebugFormat, kDebugFile, 0xB26, GAME_TEXT(0x00646738, "uber frig")); // "uber frig"
+        Dbg::Printf(kDebugFormat, kDebugFile, 0xB26, "uber frig"); // "uber frig"
         m_pos = saved;
     } else {
         LightFromFeeler(mp_model, &feeler, true, 1.0f);
@@ -663,13 +659,3 @@ void CVehicleComponent::Collide()
 }
 
 } // namespace Obj
-
-REPLACE(0x00436CF0, Obj::CVehicleComponent::GetPenetration);
-REPLACE(0x00436E50, &Obj::CVehicleComponent::FindEdgeContact);
-REPLACE(0x00437060, &Obj::CVehicleComponent::NormalFacesAway);
-REPLACE(0x00437120, &Obj::CVehicleComponent::MoveBy);
-REPLACE(0x00437450, &Obj::CVehicleComponent::GetImpulseDenominator);
-REPLACE(0x00438770, &Obj::CVehicleComponent::UpdateRighting);
-REPLACE(0x00439D90, &Obj::CVehicleComponent::AlignInAir);
-REPLACE(0x0043BEE0, &Obj::CVehicleComponent::Integrate);
-REPLACE(0x00438BB0, &Obj::CVehicleComponent::Collide);

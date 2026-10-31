@@ -3,6 +3,7 @@
 
 #include "game/gfx/engine_mesh.h"
 
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -12,8 +13,7 @@
 #include "game/gfx/engine_glue.h"
 #include "game/mth/vector.h"
 #include "game/nx/coll_tri.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Nx {
 
@@ -147,19 +147,8 @@ void sVertexStack::Push(const uint8_t* in)
 }
 
 namespace {
-GAME_VTABLE(kMeshVtable, 0x006492E4, &Nx::CMesh::Destroy);
+static VtableSlot kMeshVtable_slots[] = {&Nx::CMesh::Destroy};
+void** const kMeshVtable = reinterpret_cast<void**>(kMeshVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x00490A60, &Nx::CMesh::Construct);
-REPLACE(0x00490A90, &Nx::CMesh::RemoveCollision);
-REPLACE(0x00490B60, &Nx::CMesh::DestroyBody);
-REPLACE(0x00490C90, &Nx::CMesh::Destroy);
-REPLACE(0x00490B80, &Nx::CMesh::AddCollision);
-REPLACE(0x00490AB0, &Nx::CMesh::GetHierarchy); // (folded with other classes' getters)
-REPLACE(0x00490AC0, &Nx::CMesh::GetHierarchyCount);
-REPLACE(0x00490AD0, Nx::SkinCollisionFileName);
-REPLACE(0x00490CD0, &Nx::sSplatSlots::OldestSlot);
-REPLACE(0x00490D20, &Nx::sVertexStack::Construct);
-REPLACE(0x00490D50, &Nx::sVertexStack::Push);

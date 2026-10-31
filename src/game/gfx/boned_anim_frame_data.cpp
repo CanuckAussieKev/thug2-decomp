@@ -17,21 +17,17 @@
 #include "game/mth/math.h"
 #include "game/mth/vector.h"
 #include "game/obj/walk_hang.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Gfx {
 
 // The shared key tables (256 entries of four shorts), loaded from files at start-up.
-GAME_GLOBAL(int16_t[1024], g_quatTable, 0x006F9AD8);
-GAME_GLOBAL(int16_t[1024], g_transTable, 0x006F92D8);
+int16_t g_quatTable[1024];
+int16_t g_transTable[1024];
 
 namespace {
 
 constexpr double kQuatUnit = 1.0 / 16384.0; // (0x006487C8)
 constexpr double kTransUnit = 1.0 / 32.0;   // (0x006487CC)
-
 
 float Scaled(int16_t value, double unit) { return static_cast<float>(value * unit); }
 
@@ -364,8 +360,8 @@ void __cdecl InterpolateShortTrans(float* out, const CShortKey* a, const CShortK
     std::memcpy(out, lerped, sizeof(Mth::Vector));
 }
 
-GAME_GLOBAL(float, g_tinyLength, 0x006453B8, 0.00001f);
-GAME_GLOBAL(uint32_t, g_cacheUseCounter, 0x006F92B4);
+float g_tinyLength{0.00001f};
+uint32_t g_cacheUseCounter;
 
 // 0x00483F10
 void __cdecl InterpolateFloatQuat(float* out, CFloatKey* a, const CFloatKey* b, float t)
@@ -1117,37 +1113,3 @@ bool CBonedAnimFrameData::GetPose(float* rotations, float* translations, uint8_t
 }
 
 } // namespace Gfx
-
-REPLACE(0x00482970, Gfx::ReadKeyTable);
-REPLACE(0x004829F0, Gfx::LoadQuatTable);
-REPLACE(0x00482A30, Gfx::LoadTransTable);
-REPLACE(0x00482A70, Gfx::ExpandQuatKey);
-REPLACE(0x00482AF0, &Gfx::CBonedAnimFrameData::Construct);
-REPLACE(0x00482B30, &Gfx::CBonedAnimFrameData::DestroyBody);
-REPLACE(0x00482B90, Gfx::CBonedAnimFrameData::ForgetCacheEntry);
-REPLACE(0x00482BA0, &Gfx::CBonedAnimFrameData::AcquireCacheIndex);
-REPLACE(0x00482BD0, &Gfx::CBonedAnimFrameData::ReleaseCacheIndex);
-REPLACE(0x00482C20, Gfx::DecompressQuatKey);
-REPLACE(0x00482E70, Gfx::DecompressTransKey);
-REPLACE(0x00482F00, &Gfx::CBonedAnimFrameData::GetBoneName);
-REPLACE(0x00482F10, &Gfx::CBonedAnimFrameData::ArmEvents);
-REPLACE(0x00482F40, &Gfx::CBonedAnimFrameData::FireEvents);
-REPLACE(0x004838D0, Gfx::GetQuat);
-REPLACE(0x00483990, Gfx::GetTrans);
-REPLACE(0x00483A00, Gfx::GetShortQuat);
-REPLACE(0x00483AE0, Gfx::GetShortTrans);
-REPLACE(0x00483B30, Gfx::InterpolateQuat);
-REPLACE(0x00483C40, Gfx::InterpolateTrans);
-REPLACE(0x00483D00, Gfx::ExpandQuatKeyWithW);
-REPLACE(0x00483E10, Gfx::InterpolateShortQuat);
-REPLACE(0x00483F10, Gfx::InterpolateFloatQuat);
-REPLACE(0x00484080, Gfx::InterpolateShortTrans);
-REPLACE(0x00484170, Gfx::InterpolateFloatTrans);
-REPLACE(0x00482FB0, &Gfx::CFrameCacheEntry::FindQuatKeys);
-REPLACE(0x00483210, &Gfx::CFrameCacheEntry::FindTransKeys);
-REPLACE(0x00483470, &Gfx::CFrameCacheEntry::FindQuatKeysBackwards);
-REPLACE(0x004836C0, &Gfx::CFrameCacheEntry::FindTransKeysBackwards);
-REPLACE(0x00484200, &Gfx::CBonedAnimFrameData::SetUpCompressed);
-REPLACE(0x00484370, &Gfx::CBonedAnimFrameData::SetUpFloatKeys);
-REPLACE(0x004844C0, &Gfx::CBonedAnimFrameData::GetFloatKeyPose);
-REPLACE(0x00484760, &Gfx::CBonedAnimFrameData::GetPose);

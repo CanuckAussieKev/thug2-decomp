@@ -9,7 +9,6 @@
 #include "game/skate/career.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
 
 namespace Obj {
 class CCompositeObject;

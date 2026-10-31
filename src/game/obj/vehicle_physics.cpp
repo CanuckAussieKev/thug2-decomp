@@ -18,16 +18,13 @@
 #include "game/sys/game_clock.h"
 #include "game/ed/park_editor.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/obj/trigger_events.h"
 
 namespace Obj {
 
 using namespace Vehicle;
 
-GAME_GLOBAL(int, g_vehicleNetUpdateCounter, 0x006951C4);
+int g_vehicleNetUpdateCounter;
 
 namespace {
 
@@ -842,23 +839,3 @@ __declspec(naked) void UpdateSteeringStub()
 } // namespace
 
 } // namespace Obj
-
-REPLACE(0x00435B60, &Obj::CVehicleComponent::UpdateWheelFriction);
-REPLACE(0x00435DA0, &Obj::CVehicleComponent::UpdateCollisionCache);
-REPLACE_UNCHECKED(0x00435F00, Obj::UpdateSteeringStub);
-REPLACE(0x004360C0, &Obj::CVehicleComponent::ApplyDamping);
-REPLACE(0x00436280, &Obj::CVehicleComponent::ApplyGravity);
-REPLACE(0x00436340, &Obj::CVehicleComponent::ApplySuspension);
-REPLACE(0x004364B0, &Obj::CVehicleComponent::ApplyTyreForces);
-REPLACE(0x004367E0, &Obj::CVehicleComponent::ApplyEngineBraking);
-REPLACE(0x00436900, &Obj::CVehicleComponent::ApplyDriveTorque);
-REPLACE(0x00436A90, &Obj::CVehicleComponent::ApplyBrakes);
-REPLACE(0x00436B60, &Obj::CVehicleComponent::ApplyHandbrake);
-REPLACE(0x00436C20, &Obj::CVehicleComponent::ApplyBrakeExcess);
-REPLACE(0x00438A20, &Obj::CVehicleComponent::UpdateInertia);
-REPLACE(0x00438AE0, &Obj::CVehicleComponent::ApplyWheelForces);
-REPLACE(0x0043AE10, &Obj::CVehicleComponent::UpdateDependents);
-REPLACE(0x0043B240, &Obj::CVehicleComponent::UpdateWheelContacts);
-REPLACE(0x00437550, &Obj::CVehicleComponent::CheckSleep);
-REPLACE(0x004376B0, &Obj::CVehicleComponent::ReadControls);
-REPLACE(0x004378B0, &Obj::CVehicleComponent::UpdateSkater);

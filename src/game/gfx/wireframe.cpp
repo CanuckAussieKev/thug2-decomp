@@ -5,7 +5,6 @@
 #include <d3d9.h>
 
 #include "game/gfx/device.h"
-#include "hook/game.h"
 #include "game/gfx/engine.h"
 
 namespace Nx::Wireframe {

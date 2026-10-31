@@ -20,21 +20,18 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[54], g_avoidMemberFunctions, 0x006839E8,
+uint32_t g_avoidMemberFunctions[54]{
             0x6157CBC0, 0x6EB050ED, 0, 0, 0, 0,
             0xD2AA4D2D, 0x6EB050ED, 0, 0, 0, 0,
             0x41226942, 0x6EB050ED, 0, 0, 0, 0,
@@ -43,7 +40,7 @@ GAME_GLOBAL(uint32_t[54], g_avoidMemberFunctions, 0x006839E8,
             0x3FB422E8, 0x6EB050ED, 0, 0, 0, 0,
             0x539A32DC, 0x6EB050ED, 0, 0, 0, 0,
             0x53BC3B4E, 0x6EB050ED, 0, 0, 0, 0,
-            0, 0x6EB050ED, 0, 0, 0, 0);
+            0, 0x6EB050ED, 0, 0, 0, 0};
 
 namespace {
 
@@ -432,42 +429,23 @@ __declspec(naked) void LineCollidesStub()
 
 } // namespace Obj
 
-REPLACE(0x004E39E0, Obj::CAvoidComponent::Create);
-REPLACE(0x004E3310, Obj::CAvoidComponent::RegisterMemberFunctions);
-REPLACE(0x004E3660, &Obj::CAvoidComponent::Construct);
-REPLACE(0x004E3330, &Obj::CAvoidComponent::DestroyBody);
-REPLACE(0x004E36C0, &Obj::CAvoidComponent::Destroy);
-REPLACE(0x004E34C0, &Obj::CAvoidComponent::SideAwayFromSkater);
-REPLACE(0x004E3A40, &Obj::CAvoidComponent::TryJump);
-REPLACE(0x004E3340, &Obj::CAvoidComponent::PlayJump);
-REPLACE(0x004E3BD0, &Obj::CAvoidComponent::Jump);
-REPLACE(0x004E36F0, &Obj::CAvoidComponent::DebugBox);
-REPLACE(0x004E3EC0, &Obj::CAvoidComponent::StepJump);
-REPLACE(0x004E37D0, &Obj::CAvoidComponent::JumpFinished);
-REPLACE(0x004E3810, &Obj::CAvoidComponent::StorePosition);
-REPLACE(0x004E3850, &Obj::CAvoidComponent::StoreTarget);
-REPLACE(0x004E38C0, &Obj::CAvoidComponent::HoldMotion);
-REPLACE(0x004E38F0, &Obj::CAvoidComponent::RestoreMotion);
-REPLACE_UNCHECKED(0x004E3270, Obj::AvoidDistanceStub);
-REPLACE_UNCHECKED(0x004E3930, Obj::LineCollidesStub);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064B220,
-    &Obj::CAvoidComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CAvoidComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

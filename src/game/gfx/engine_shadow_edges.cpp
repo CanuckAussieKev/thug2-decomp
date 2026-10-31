@@ -1,6 +1,8 @@
 // The shadow volume's silhouette edges (CShadowVolume::SetModel, 0x004A22F0): see engine_shadows.h.
 
+#include <cstdint>
 #include <cstring>
+#include <new>
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
@@ -8,15 +10,12 @@
 #include "game/gfx/engine_shadows.h"
 #include "game/lst/hashtable.h"
 #include "game/nx/coll_tri.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/startup_init.h"
 
 namespace Nx {
 
-GAME_GLOBAL(CShadowVolume*[16], g_shadowVolumes, 0x007013D8);
-GAME_GLOBAL(Lst::HashTable, g_shadowEdgeTable, 0x00701418, Lst::HashTable::Unconstructed{}); // (the exe makes it with HashTable(8) at start-up)
+CShadowVolume* g_shadowVolumes[16];
+Lst::HashTable g_shadowEdgeTable{Lst::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(8) at start-up)
 
 namespace {
 
@@ -161,8 +160,6 @@ void CShadowVolume::SetModel(CModel*, uint8_t* assetData)
 }
 
 } // namespace Nx
-
-REPLACE(0x004A22F0, &Nx::CShadowVolume::SetModel);
 
 namespace Nx {
 

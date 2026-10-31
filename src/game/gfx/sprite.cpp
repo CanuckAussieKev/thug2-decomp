@@ -7,6 +7,8 @@
 #include <d3d9.h>
 
 #include <cmath>
+#include <cstdint>
+#include <initializer_list>
 
 #include "game/core/manager.h"
 #include "game/gfx/draw2d.h"
@@ -14,10 +16,8 @@
 #include "game/mth/vector.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/screen.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/sys/log.h"
-#include "hook/game_code.h"
 #include "game/gfx/device.h"
 #include "game/gfx/engine.h"
 
@@ -27,9 +27,8 @@ namespace {
 extern void** const kSSpriteVtable;
 } // namespace
 
-
 // Two triangles of a quad: 0 1 2, 1 3 2.
-GAME_GLOBAL(uint16_t[6], g_spriteQuadIndices, 0x0067EFA8, 0, 1, 2, 1, 3, 2);
+uint16_t g_spriteQuadIndices[6]{0, 1, 2, 1, 3, 2};
 
 namespace {
 
@@ -310,15 +309,9 @@ void SSprite::EndDraw()
 }
 
 namespace {
-GAME_VTABLE(kSSpriteVtable, 0x0064AD28, &Nx::SSprite::Destroy, &Nx::SSprite::BeginDraw, &Nx::SSprite::Draw,
-            &Nx::SSprite::EndDraw);
+static VtableSlot kSSpriteVtable_slots[] = {&Nx::SSprite::Destroy, &Nx::SSprite::BeginDraw, &Nx::SSprite::Draw,
+                &Nx::SSprite::EndDraw};
+void** const kSSpriteVtable = reinterpret_cast<void**>(kSSpriteVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004DFCF0, &Nx::SSprite::Draw);
-REPLACE(0x004DFC50, &Nx::SSprite::Construct);
-REPLACE(0x004DFC80, &Nx::SSprite::DestroyBody);
-REPLACE(0x004DFCC0, &Nx::SSprite::Destroy);
-REPLACE(0x004DF990, &Nx::SSprite::BeginDraw);
-REPLACE(0x004DFA40, &Nx::SSprite::EndDraw);

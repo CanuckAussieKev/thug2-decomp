@@ -5,6 +5,8 @@
 // THUGPRO's refusal reasons are shown in words, and as host the GameSpy CD-key check is left out; bounds on what the
 // host reads from a request.
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/crc.h"
@@ -36,14 +38,11 @@
 #include "game/sys/game_config.h"
 #include "game/sys/mlp.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/sys/log.h"
 #include "game/ass/assman.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
-#include "hook/game_code.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -59,7 +58,7 @@
 
 namespace GameNet {
 
-GAME_GLOBAL(char[kPasswordSize], g_pendingPassword, 0x007CCDFC); // (winmain.cpp: -PASSWORD when joining)
+char g_pendingPassword[kPasswordSize]; // (winmain.cpp: -PASSWORD when joining)
 
 namespace {
 
@@ -134,7 +133,7 @@ struct AuthInstance {
     Conn* conn;
 };
 
-GAME_GLOBAL(char[kPasswordSize], g_joinPassword, 0x007CCE08);
+char g_joinPassword[kPasswordSize];
 
 // The global passwords: the one being typed (12) and the one in use (10; resent with every request).
 char* PendingPassword() { return g_pendingPassword; }
@@ -174,8 +173,8 @@ void DeferredNewPlayer(Manager* m, NewPlayerInfo* player, int frames) { m->AddJo
 void SetReadyToPlay(Manager* m, bool ready) { m->SetReadyToPlay(ready); }
 void RandomizeSkaterStartingPoints(Manager* m) { m->ChooseStartPoints(); }
 void CancelJoinServer(Manager* m) { m->CancelJoin(); }
-uint32_t GameModeName() { return Call<uint32_t>(GAME_CODE(0x005532A0, &Game::CGameMode::GetNameChecksum), reinterpret_cast<void*>(Game::g_gameMode)); }
-void SetMaximumPlayers(int count) { Call<void>(GAME_CODE(0x005531B0, &Game::CGameMode::SetMaximumNumberOfPlayers), reinterpret_cast<void*>(Game::g_gameMode), count); }
+uint32_t GameModeName() { return Call<uint32_t>(CodeAddress(&Game::CGameMode::GetNameChecksum), reinterpret_cast<void*>(Game::g_gameMode)); }
+void SetMaximumPlayers(int count) { Call<void>(CodeAddress(&Game::CGameMode::SetMaximumNumberOfPlayers), reinterpret_cast<void*>(Game::g_gameMode), count); }
 int8_t Rank(Manager* m) { return static_cast<int8_t>(static_cast<StatsMan*>(m->m_statsMan)->GetRank()); }
 int32_t Rating(Manager* m)
 {
@@ -267,84 +266,84 @@ MsgHandlerCode OurHandler(uint32_t code)
     }
 }
 const HandlerEntry kClientHandlers[] = {
-    {0x42, reinterpret_cast<uint32_t>(GAME_CODE(0x0052E1A0, GameNet::HandleReadyToPlay)), kHandleLate, true, kNormalPriority},  // proceed to play
-    {0x4D, reinterpret_cast<uint32_t>(GAME_CODE(0x0052D800, GameNet::HandleObserve)), kHandleLate, true, kNormalPriority},  // observe proceed
-    {0x4E, reinterpret_cast<uint32_t>(GAME_CODE(0x00532390, GameNet::HandleObserversFull)), kHandleLate, true, kNormalPriority},  // observe refused
+    {0x42, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleReadyToPlay)), kHandleLate, true, kNormalPriority},  // proceed to play
+    {0x4D, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleObserve)), kHandleLate, true, kNormalPriority},  // observe proceed
+    {0x4E, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleObserversFull)), kHandleLate, true, kNormalPriority},  // observe refused
     {kMsgJoinRefused, kOurs + 0, kHandleLate, true, kNormalPriority},
     {kMsgJoinProceed, kOurs + 1, kHandleLate, true, kNormalPriority},
-    {0x25, reinterpret_cast<uint32_t>(GAME_CODE(0x0052D7B0, GameNet::HandleReadyQuery)), kHandleLate, true, kNormalPriority},  // ready query
-    {0x26, reinterpret_cast<uint32_t>(GAME_CODE(0x0052D7D0, GameNet::HandleReadyResponse)), kHandleLate, true, kNormalPriority},  // ready response
-    {0x53, reinterpret_cast<uint32_t>(GAME_CODE(0x0052DCC0, GameNet::HandleJoinAccepted)), kHandleLate, true, kNormalPriority},  // player info ack request
-    {0x58, reinterpret_cast<uint32_t>(GAME_CODE(0x0052E870, GameNet::HandleCrownSpawn)), 0, true, kNormalPriority},            // the king dropped the crown
-    {0x75, reinterpret_cast<uint32_t>(GAME_CODE(0x00530CB0, GameNet::HandleFlagReturned)), 0, true, kNormalPriority},            // a player dropped a flag
-    {0x3F, reinterpret_cast<uint32_t>(GAME_CODE(0x0052D950, GameNet::HandlePanelMessage)), kHandleLate, true, kNormalPriority},  // panel message
-    {0x5E, reinterpret_cast<uint32_t>(GAME_CODE(0x0052D910, GameNet::HandleAutoServerNotice)), kHandleLate, true, kNormalPriority},  // auto server notification
-    {0x5F, reinterpret_cast<uint32_t>(GAME_CODE(0x005300C0, GameNet::HandleFcfsNotice)), kHandleLate, true, kNormalPriority},  // first-come-first-served assignment
-    {0x68, reinterpret_cast<uint32_t>(GAME_CODE(0x00531A80, GameNet::HandleJoinedTeam)), kHandleLate, true, kNormalPriority},  // team change
-    {0x69, reinterpret_cast<uint32_t>(GAME_CODE(0x0052F2D0, GameNet::HandleChooseTeam)), kHandleLate, true, kNormalPriority},  // number of teams
+    {0x25, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleReadyQuery)), kHandleLate, true, kNormalPriority},  // ready query
+    {0x26, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleReadyResponse)), kHandleLate, true, kNormalPriority},  // ready response
+    {0x53, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleJoinAccepted)), kHandleLate, true, kNormalPriority},  // player info ack request
+    {0x58, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleCrownSpawn)), 0, true, kNormalPriority},            // the king dropped the crown
+    {0x75, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleFlagReturned)), 0, true, kNormalPriority},            // a player dropped a flag
+    {0x3F, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandlePanelMessage)), kHandleLate, true, kNormalPriority},  // panel message
+    {0x5E, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleAutoServerNotice)), kHandleLate, true, kNormalPriority},  // auto server notification
+    {0x5F, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleFcfsNotice)), kHandleLate, true, kNormalPriority},  // first-come-first-served assignment
+    {0x68, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleJoinedTeam)), kHandleLate, true, kNormalPriority},  // team change
+    {0x69, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleChooseTeam)), kHandleLate, true, kNormalPriority},  // number of teams
     {0x4C, kOurs + 2, kHandleLate, false, kNormalPriority},  // chat
-    {0x7C, reinterpret_cast<uint32_t>(GAME_CODE(0x0052DAD0, GameNet::HandleCdKeyChallenge)), kHandleLate, true, kNormalPriority},  // challenge
+    {0x7C, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleCdKeyChallenge)), kHandleLate, true, kNormalPriority},  // challenge
 };
 const HandlerEntry kGameClientHandlers[] = {
-    {0x6D, reinterpret_cast<uint32_t>(GAME_CODE(0x00531950, GameNet::HandleSelectedGoals)), 0, true, kNormalPriority},    // selected goals
-    {0x34, reinterpret_cast<uint32_t>(GAME_CODE(0x005313C0, GameNet::HandleStartGame)), 0, true, kNormalPriority},    // game info
-    {0x7A, reinterpret_cast<uint32_t>(GAME_CODE(0x0052D930, GameNet::HandleKillTeamFlags)), 0, true, kNormalPriority},    // kill the team flags
-    {0x6E, reinterpret_cast<uint32_t>(GAME_CODE(0x00531C80, GameNet::HandleGoalCompleted)), 0, true, kNormalPriority},    // a goal beaten (relayed)
-    {0x6F, reinterpret_cast<uint32_t>(GAME_CODE(0x00531F10, GameNet::HandleGoalStarted)), 0, true, kNormalPriority},    // a goal started (relayed)
-    {0x70, reinterpret_cast<uint32_t>(GAME_CODE(0x0052DAC0, GameNet::HandleNothing)), 0, true, kNormalPriority},    // toggle pro set (nothing)
-    {0x46, reinterpret_cast<uint32_t>(GAME_CODE(0x005311F0, GameNet::HandleChangeLevel)), 0, true, kHighestPriority},   // change level
-    {0x46, reinterpret_cast<uint32_t>(GAME_CODE(0x0052DAC0, GameNet::HandleNothing)), 0, true, kHighestPriority},   // (and nothing)
-    {0x6C, reinterpret_cast<uint32_t>(GAME_CODE(0x0052EB70, GameNet::HandleParkMap)), 0, true, kHighestPriority},   // level data
-    {0x88, reinterpret_cast<uint32_t>(GAME_CODE(0x00530E50, GameNet::HandleRailsData)), kHandleCrcMismatch, true, kHighestPriority}, // rail data
-    {0x87, reinterpret_cast<uint32_t>(GAME_CODE(0x00530FF0, GameNet::HandleGoalsData)), kHandleCrcMismatch, true, kHighestPriority}, // goals data
-    {0x80, reinterpret_cast<uint32_t>(GAME_CODE(0x0052F370, GameNet::HandleChecksumRequest)), 0, true, kNormalPriority},    // cheat checksum request
+    {0x6D, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleSelectedGoals)), 0, true, kNormalPriority},    // selected goals
+    {0x34, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleStartGame)), 0, true, kNormalPriority},    // game info
+    {0x7A, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleKillTeamFlags)), 0, true, kNormalPriority},    // kill the team flags
+    {0x6E, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleGoalCompleted)), 0, true, kNormalPriority},    // a goal beaten (relayed)
+    {0x6F, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleGoalStarted)), 0, true, kNormalPriority},    // a goal started (relayed)
+    {0x70, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleNothing)), 0, true, kNormalPriority},    // toggle pro set (nothing)
+    {0x46, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleChangeLevel)), 0, true, kHighestPriority},   // change level
+    {0x46, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleNothing)), 0, true, kHighestPriority},   // (and nothing)
+    {0x6C, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleParkMap)), 0, true, kHighestPriority},   // level data
+    {0x88, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleRailsData)), kHandleCrcMismatch, true, kHighestPriority}, // rail data
+    {0x87, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleGoalsData)), kHandleCrcMismatch, true, kHighestPriority}, // goals data
+    {0x80, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleChecksumRequest)), 0, true, kNormalPriority},    // cheat checksum request
 };
 const HandlerEntry kRemoteGameClientHandlers[] = {
-    {0x22, reinterpret_cast<uint32_t>(GAME_CODE(0x0052DB80, GameNet::HandleNewPlayer)), 0, true, kNormalPriority},    // player create
-    {0x79, reinterpret_cast<uint32_t>(GAME_CODE(0x0052D830, GameNet::HandleFlushImportant)), 0, true, kNormalPriority},    // join accepted
+    {0x22, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleNewPlayer)), 0, true, kNormalPriority},    // player create
+    {0x79, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleFlushImportant)), 0, true, kNormalPriority},    // join accepted
 };
 const HandlerEntry kGameClientHandlers2[] = {
-    {0x7B, reinterpret_cast<uint32_t>(GAME_CODE(0x0052DCA0, GameNet::HandleKeepAlive)), 0, true, kNormalPriority},    // wait n seconds
-    {0x55, reinterpret_cast<uint32_t>(GAME_CODE(0x0052E760, GameNet::HandleNewKing)), 0, true, kNormalPriority},    // new king
-    {0x72, reinterpret_cast<uint32_t>(GAME_CODE(0x0052D8B0, GameNet::HandleCapturedFlag)), 0, true, kNormalPriority},    // captured flag
-    {0x74, reinterpret_cast<uint32_t>(GAME_CODE(0x0052D850, GameNet::HandleStoleFlag)), 0, true, kNormalPriority},    // stole flag
-    {0x71, reinterpret_cast<uint32_t>(GAME_CODE(0x0052D880, GameNet::HandleTookFlag)), 0, true, kNormalPriority},    // took flag
-    {0x73, reinterpret_cast<uint32_t>(GAME_CODE(0x0052D8E0, GameNet::HandleRetrievedFlag)), 0, true, kNormalPriority},    // retrieved flag
-    {0x5A, reinterpret_cast<uint32_t>(GAME_CODE(0x0052ED80, GameNet::HandleGameOver)), 0, true, kNormalPriority},    // game over
-    {0x6A, reinterpret_cast<uint32_t>(GAME_CODE(0x0052EDD0, GameNet::HandleGameEnded)), 0, true, kNormalPriority},    // end game
-    {0x23, reinterpret_cast<uint32_t>(GAME_CODE(0x0052D980, GameNet::HandleObjectUpdateLength)), kHandleForeign | kHandleLate, true, kHighestPriority}, // object updates (their length)
-    {0x8D, reinterpret_cast<uint32_t>(GAME_CODE(0x00532280, GameNet::HandleEliminated)), 0, true, kNormalPriority},    // a skater eliminated
-    {0x8E, reinterpret_cast<uint32_t>(GAME_CODE(0x00532280, GameNet::HandleEliminated)), 0, true, kNormalPriority},
+    {0x7B, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleKeepAlive)), 0, true, kNormalPriority},    // wait n seconds
+    {0x55, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleNewKing)), 0, true, kNormalPriority},    // new king
+    {0x72, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleCapturedFlag)), 0, true, kNormalPriority},    // captured flag
+    {0x74, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleStoleFlag)), 0, true, kNormalPriority},    // stole flag
+    {0x71, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleTookFlag)), 0, true, kNormalPriority},    // took flag
+    {0x73, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleRetrievedFlag)), 0, true, kNormalPriority},    // retrieved flag
+    {0x5A, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleGameOver)), 0, true, kNormalPriority},    // game over
+    {0x6A, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleGameEnded)), 0, true, kNormalPriority},    // end game
+    {0x23, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleObjectUpdateLength)), kHandleForeign | kHandleLate, true, kHighestPriority}, // object updates (their length)
+    {0x8D, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleEliminated)), 0, true, kNormalPriority},    // a skater eliminated
+    {0x8E, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleEliminated)), 0, true, kNormalPriority},
 };
 // The server's lobby handlers (0x0053C380; taken out once the game starts).
 const HandlerEntry kServerHandlers[] = {
     {kMsgConnectionRequest, kOurs + 3, kHandleForeign | kHandleLate, true, kLowestPriority},
-    {0x90, reinterpret_cast<uint32_t>(GAME_CODE(0x0052EBB0, GameNet::HandleTeamObject)), 0, true, kHighestPriority},           // a scavenger-hunt object picked up
+    {0x90, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleTeamObject)), 0, true, kHighestPriority},           // a scavenger-hunt object picked up
     {kMsgJoinRequest, kOurs + 4, kHandleLate, true, kNormalPriority},
-    {0x11, reinterpret_cast<uint32_t>(GAME_CODE(0x0052DD40, GameNet::HandleFindServer)), kHandleForeign | kHandleLate, true, kNormalPriority}, // find server
-    {0x0B, reinterpret_cast<uint32_t>(GAME_CODE(0x0052FCC0, GameNet::HandleDisconnect)), kHandleLate, true, kNormalPriority},  // disconnection request
-    {0x4A, reinterpret_cast<uint32_t>(GAME_CODE(0x0052E060, GameNet::HandleObserveRequest)), kHandleLate, true, kNormalPriority},  // observe
-    {0x26, reinterpret_cast<uint32_t>(GAME_CODE(0x0052D7D0, GameNet::HandleReadyResponse)), kHandleLate, true, kNormalPriority},  // ready response
-    {0x54, reinterpret_cast<uint32_t>(GAME_CODE(0x00532460, GameNet::HandleSendGameState)), 0, true, kNormalPriority},            // player info ack
-    {0x57, reinterpret_cast<uint32_t>(GAME_CODE(0x0052FDA0, GameNet::HandleDropCarried)), 0, true, kNormalPriority},            // moved to a restart
-    {0x59, reinterpret_cast<uint32_t>(GAME_CODE(0x0052EC40, GameNet::HandleGameEndedReport)), 0, true, kNormalPriority},            // the run ended
-    {0x60, reinterpret_cast<uint32_t>(GAME_CODE(0x005301A0, GameNet::HandleHostOptions)), kHandleLate, true, kNormalPriority},  // first-come-first-served requests: start game,
-    {0x61, reinterpret_cast<uint32_t>(GAME_CODE(0x005301A0, GameNet::HandleHostOptions)), kHandleLate, true, kNormalPriority},  // ban player, change level, toggle pro set, goal
-    {0x62, reinterpret_cast<uint32_t>(GAME_CODE(0x005301A0, GameNet::HandleHostOptions)), kHandleLate, true, kNormalPriority},  // selection, end game, number of teams
-    {0x63, reinterpret_cast<uint32_t>(GAME_CODE(0x005301A0, GameNet::HandleHostOptions)), kHandleLate, true, kNormalPriority},
-    {0x64, reinterpret_cast<uint32_t>(GAME_CODE(0x005301A0, GameNet::HandleHostOptions)), kHandleLate, true, kNormalPriority},
-    {0x65, reinterpret_cast<uint32_t>(GAME_CODE(0x005301A0, GameNet::HandleHostOptions)), kHandleLate, true, kNormalPriority},
-    {0x66, reinterpret_cast<uint32_t>(GAME_CODE(0x005301A0, GameNet::HandleHostOptions)), kHandleLate, true, kNormalPriority},
-    {0x67, reinterpret_cast<uint32_t>(GAME_CODE(0x0052EE10, GameNet::HandleTeamChangeRequest)), kHandleLate, true, kNormalPriority},  // team change request
-    {0x6B, reinterpret_cast<uint32_t>(GAME_CODE(0x0052E9E0, GameNet::HandleRequestGameData)), kHandleLate, true, kNormalPriority},  // level request
-    {0x6E, reinterpret_cast<uint32_t>(GAME_CODE(0x0052EF40, GameNet::HandleGoalCompletedReport)), kHandleLate, true, kNormalPriority},  // a goal beaten
-    {0x6F, reinterpret_cast<uint32_t>(GAME_CODE(0x0052F1A0, GameNet::HandleGoalStartedReport)), kHandleLate, true, kNormalPriority},  // a goal started
-    {0x6C, reinterpret_cast<uint32_t>(GAME_CODE(0x0052EB70, GameNet::HandleParkMap)), 0, true, kHighestPriority},           // level data
-    {0x88, reinterpret_cast<uint32_t>(GAME_CODE(0x00530E50, GameNet::HandleRailsData)), 0, true, kHighestPriority},           // rail data
-    {0x7D, reinterpret_cast<uint32_t>(GAME_CODE(0x0052F3D0, GameNet::HandleCdKeyAnswer)), 0, true, kNormalPriority},            // challenge response
-    {0x81, reinterpret_cast<uint32_t>(GAME_CODE(0x00532170, GameNet::HandleChecksumResponse)), 0, true, kNormalPriority},            // cheat checksum response
-    {0x8B, reinterpret_cast<uint32_t>(GAME_CODE(0x0052F400, GameNet::HandleCreatedDataRequest)), 0, true, kNormalPriority},            // rails / goals data requests
-    {0x8A, reinterpret_cast<uint32_t>(GAME_CODE(0x0052F400, GameNet::HandleCreatedDataRequest)), 0, true, kNormalPriority},
+    {0x11, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleFindServer)), kHandleForeign | kHandleLate, true, kNormalPriority}, // find server
+    {0x0B, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleDisconnect)), kHandleLate, true, kNormalPriority},  // disconnection request
+    {0x4A, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleObserveRequest)), kHandleLate, true, kNormalPriority},  // observe
+    {0x26, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleReadyResponse)), kHandleLate, true, kNormalPriority},  // ready response
+    {0x54, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleSendGameState)), 0, true, kNormalPriority},            // player info ack
+    {0x57, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleDropCarried)), 0, true, kNormalPriority},            // moved to a restart
+    {0x59, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleGameEndedReport)), 0, true, kNormalPriority},            // the run ended
+    {0x60, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleHostOptions)), kHandleLate, true, kNormalPriority},  // first-come-first-served requests: start game,
+    {0x61, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleHostOptions)), kHandleLate, true, kNormalPriority},  // ban player, change level, toggle pro set, goal
+    {0x62, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleHostOptions)), kHandleLate, true, kNormalPriority},  // selection, end game, number of teams
+    {0x63, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleHostOptions)), kHandleLate, true, kNormalPriority},
+    {0x64, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleHostOptions)), kHandleLate, true, kNormalPriority},
+    {0x65, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleHostOptions)), kHandleLate, true, kNormalPriority},
+    {0x66, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleHostOptions)), kHandleLate, true, kNormalPriority},
+    {0x67, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleTeamChangeRequest)), kHandleLate, true, kNormalPriority},  // team change request
+    {0x6B, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleRequestGameData)), kHandleLate, true, kNormalPriority},  // level request
+    {0x6E, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleGoalCompletedReport)), kHandleLate, true, kNormalPriority},  // a goal beaten
+    {0x6F, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleGoalStartedReport)), kHandleLate, true, kNormalPriority},  // a goal started
+    {0x6C, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleParkMap)), 0, true, kHighestPriority},           // level data
+    {0x88, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleRailsData)), 0, true, kHighestPriority},           // rail data
+    {0x7D, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleCdKeyAnswer)), 0, true, kNormalPriority},            // challenge response
+    {0x81, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleChecksumResponse)), 0, true, kNormalPriority},            // cheat checksum response
+    {0x8B, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleCreatedDataRequest)), 0, true, kNormalPriority},            // rails / goals data requests
+    {0x8A, reinterpret_cast<uint32_t>(CodeAddress(GameNet::HandleCreatedDataRequest)), 0, true, kNormalPriority},
 };
 
 template <size_t N>
@@ -511,11 +510,11 @@ void Manager::ReattemptJoinWithPassword(const char* password)
     m_joinState = kJoinStateJoiningWithPassword;
 }
 
-GAME_GLOBAL(const char[10], g_uiString, 0x0064C830, "ui_string");
-GAME_GLOBAL(const char[19], g_netReasonGeneral, 0x0064C83C, "net_reason_general");
-GAME_GLOBAL(const char[27], g_presenceLocationFormat, 0x0064C850, "10thug211:%d:%d:%d:%s (%s)");
-GAME_GLOBAL(const char[13], g_matchAppName, 0x0064C958, "Match Skate6");
-GAME_GLOBAL(const char[7], g_skateAppName, 0x0064CA00, "Skate6");
+const char g_uiString[10]{"ui_string"};
+const char g_netReasonGeneral[19]{"net_reason_general"};
+const char g_presenceLocationFormat[27]{"10thug211:%d:%d:%d:%s (%s)"};
+const char g_matchAppName[13]{"Match Skate6"};
+const char g_skateAppName[7]{"Skate6"};
 
 // 0x00537220
 App* Manager::SpawnClient(bool broadcast, bool local, bool secure, int index)
@@ -720,7 +719,7 @@ int Manager::HandleJoinRequest(MsgHandlerContext* context)
         if (!Mem::g_managerReady)
             Mem::EnsureManager();
         auto* buffer = static_cast<uint8_t*>(Mem::Manager::Get()->Allocate(kAppearanceSize, true, nullptr));
-        auto* profile = Call<Obj::CSkaterProfile*>(GAME_CODE(0x00564FC0, static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile)), skate, static_cast<int>(static_cast<int8_t>(player->m_objectId)));
+        auto* profile = Call<Obj::CSkaterProfile*>(CodeAddress(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile)), skate, static_cast<int>(static_cast<int8_t>(player->m_objectId)));
         profile->WriteToBuffer(buffer, kAppearanceSize, 0);
         player->m_profile->ReadFromBuffer(buffer);
         Mem::Manager::Get()->Free(buffer);
@@ -804,7 +803,7 @@ int Manager::HandleJoinProceed(MsgHandlerContext* context)
     std::strcpy(info->password, JoinPassword());
     int size = 0;
     if (!info->observer) {
-        auto* profile = Call<Obj::CSkaterProfile*>(GAME_CODE(0x00564FC0, static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile)), reinterpret_cast<void*>(Mdl::g_skateModule), 0);
+        auto* profile = Call<Obj::CSkaterProfile*>(CodeAddress(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile)), reinterpret_cast<void*>(Mdl::g_skateModule), 0);
         Net::ConnSearch search;
         search.m_vtable = Net::kConnSearchVtable;
         search.m_node = nullptr;
@@ -907,16 +906,3 @@ int Manager::HandleJoinRefused(MsgHandlerContext* context)
 }
 
 } // namespace GameNet
-
-REPLACE(0x0052F560, &GameNet::Manager::OkToJoin);
-REPLACE(0x00534480, &GameNet::Manager::JoinServer);
-REPLACE(0x00534AF0, &GameNet::Manager::ReattemptJoin);
-REPLACE(0x00534BD0, &GameNet::Manager::ReattemptJoinWithPassword);
-REPLACE(0x00537220, &GameNet::Manager::SpawnClient);
-REPLACE(0x00534430, &GameNet::Manager::SpawnMatchClient);
-REPLACE(0x0053C380, &GameNet::Manager::SpawnServer);
-REPLACE(0x0052F790, GameNet::Manager::HandleConnection);
-REPLACE(0x0052FA10, GameNet::Manager::HandleJoinRequest);
-REPLACE(0x0052E490, GameNet::Manager::HandleJoinProceed);
-REPLACE(0x0052E1E0, GameNet::Manager::HandleJoinRefused);
-REPLACE(0x00536530, GameNet::Manager::ClientAuthorized);

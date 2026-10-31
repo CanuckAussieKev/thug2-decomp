@@ -7,7 +7,6 @@
 #include <cstdint>
 
 #include "game/obj/motion.h"
-#include "hook/game.h"
 
 namespace Obj::MotionDetail {
 

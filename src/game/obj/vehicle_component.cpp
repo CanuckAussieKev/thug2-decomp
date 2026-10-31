@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
@@ -31,11 +32,8 @@
 #include "game/skater/skater_x87.h"
 #include "game/sys/timer.h"
 #include "game/ed/park_editor.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/gfx/engine.h"
-#include "hook/game_code.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/object.h"
@@ -45,7 +43,7 @@ namespace Obj {
 
 // The contacts of the colliders with the world (one array for every vehicle), up to the lens flare's globals at
 // 0x00696878: 132 of them.
-GAME_GLOBAL(CVehicleComponent::Contact[132], g_vehicleContacts, 0x006951C8);
+CVehicleComponent::Contact g_vehicleContacts[132];
 CVehicleComponent::Contact* CVehicleComponent::Contacts() { return g_vehicleContacts; }
 
 using namespace Vehicle;
@@ -306,8 +304,8 @@ bool CVehicleComponent::Kick(Script::CStruct* params, Script::CScript*)
     m_stillFrames = 0;
     // (Without linear or angular the original uses whatever was on its stack.)
     Mth::Vector linear, angular, turned;
-    params->GetVector(GAME_TEXT(0x00646768, "linear"), reinterpret_cast<Script::VectorValue*>(&linear), 0);
-    params->GetVector(GAME_TEXT(0x00646760, "angular"), reinterpret_cast<Script::VectorValue*>(&angular), 0);
+    params->GetVector("linear", reinterpret_cast<Script::VectorValue*>(&linear), 0);
+    params->GetVector("angular", reinterpret_cast<Script::VectorValue*>(&angular), 0);
     linear = m_matrix.RotateVector(turned, linear);
     angular = m_matrix.RotateVector(turned, angular);
     double mass = 1.0 / m_invMass;
@@ -342,7 +340,7 @@ bool CVehicleComponent::AdjustGravity(Script::CStruct* params, Script::CScript*)
     params->GetFloat(kPercent, &m_gravityScale, 1);
     m_gravityScale = static_cast<float>(static_cast<double>(m_gravityScale) * kHundredth);
     params->GetFloat(kDuration, &m_gravityTime, 1);
-    Dbg::Printf(kDebugFormat, kDebugFile, 0xD78, GAME_TEXT(0x006466EC, "Initiating vehicle gravity override")); // "Initiating vehicle gravity override"
+    Dbg::Printf(kDebugFormat, kDebugFile, 0xD78, "Initiating vehicle gravity override"); // "Initiating vehicle gravity override"
     return true;
 }
 
@@ -813,7 +811,7 @@ void CVehicleComponent::Update()
         double left = static_cast<double>(m_gravityTime) - frame;
         m_gravityTime = static_cast<float>(left);
         if (left <= 0.0 || static_cast<uint32_t>(m_wheelsInContact) > 1) {
-            Dbg::Printf(kDebugFormat, kDebugFile, 0x2A0, GAME_TEXT(0x006467D4, "Ending vehicle gravity override")); // "Ending vehicle gravity override"
+            Dbg::Printf(kDebugFormat, kDebugFile, 0x2A0, "Ending vehicle gravity override"); // "Ending vehicle gravity override"
             m_gravityTime = 0.0f;
             m_gravityScale = 1.0f;
         }
@@ -874,7 +872,7 @@ void CVehicleComponent::UpdateSkeleton()
         return;
     // (the skeleton's +0x04, through the getter folded at 0x005480C0)
     auto* bones = reinterpret_cast<Mth::Matrix*>(static_cast<GameNet::FoldedGetters*>(SkeletonOf(mp_skeleton))->Word04());
-    int count = reinterpret_cast<int(__thiscall*)(void*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(SkeletonOf(mp_skeleton));
+    int count = reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&Gfx::CSkeleton::GetNumBones))(SkeletonOf(mp_skeleton));
     // Bone 0 the body (left as nothing), 1 the skater's place, 2 on the wheels: steered and rolled, at their place
     // with the suspension's extension, but no lower than maxDrawnY. In debug mode 2 all of them nothing.
     for (int b = count - 1; b >= 0; --b) {
@@ -1134,57 +1132,23 @@ __declspec(naked) void UpdateWheelRotationsStub()
 
 } // namespace Obj
 
-REPLACE(0x00435870, &Obj::CVehicleComponent::Wheel::Construct);
-REPLACE(0x00437CF0, &Obj::CVehicleComponent::Wheel::Destruct);
-REPLACE_UNCHECKED(0x004351C0, Obj::UpdateWheelRotationsStub);
-REPLACE(0x00435250, &Obj::CVehicleComponent::GetTyreFriction);
-REPLACE(0x00435380, &Obj::CVehicleComponent::GetGear);
-REPLACE(0x00435520, &Obj::CVehicleComponent::UpdateVelocities);
-REPLACE(0x004355B0, &Obj::CVehicleComponent::GetPointVelocity);
-REPLACE(0x00435640, &Obj::CVehicleComponent::AddForceAtPoint);
-REPLACE(0x00435710, &Obj::CVehicleComponent::AddForceAtOffset);
-REPLACE(0x004357C0, &Obj::CVehicleComponent::ApplyImpulseAtOffset);
-REPLACE(0x00435850, &Obj::CVehicleComponent::IsKicked);
-REPLACE(0x00435890, &Obj::CVehicleComponent::KickRandomlyAlong);
-REPLACE(0x004354C0, Obj::QuatProduct);
-REPLACE(0x00437A60, &Obj::CVehicleComponent::Kick);
-REPLACE(0x004353F0, &Obj::CVehicleComponent::Wake);
-REPLACE(0x00435410, &Obj::CVehicleComponent::AdjustGravity);
-REPLACE(0x00435480, &Obj::CVehicleComponent::HandbrakeActive);
-REPLACE(0x00435490, &Obj::CVehicleComponent::AllWheelsAreInContact);
-REPLACE(0x00437BC0, &Obj::CVehicleComponent::KickRandomly);
-REPLACE(0x004354B0, &Obj::CVehicleComponent::IsSkaterVisible);
-REPLACE(0x0043AA30, Obj::CVehicleComponent::Create);
-REPLACE(0x00437C00, &Obj::CVehicleComponent::Construct);
-REPLACE(0x0043B990, &Obj::CVehicleComponent::DestroyBody);
-REPLACE(0x0043C1A0, &Obj::CVehicleComponent::Destroy);
-REPLACE(0x00437D10, &Obj::CVehicleComponent::InitFromStructure);
-REPLACE(0x0043BA20, &Obj::CVehicleComponent::Finalize);
-REPLACE(0x0043C1D0, &Obj::CVehicleComponent::Update);
-REPLACE(0x0043A070, &Obj::CVehicleComponent::UpdateSkeleton);
-REPLACE(0x0043A2C0, &Obj::CVehicleComponent::GetWheelRimPoint);
-REPLACE(0x0043A400, &Obj::CVehicleComponent::DebugDraw);
-REPLACE(0x0043AA90, &Obj::CVehicleComponent::MoveToNode);
-REPLACE(0x0043B670, &Obj::CVehicleComponent::MoveToRestart);
-REPLACE(0x0043B720, &Obj::CVehicleComponent::PlaceBeforeCamera);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00646770,
-    &Obj::CVehicleComponent::Destroy,
-    &Obj::CVehicleComponent::Update,
-    &Obj::CVehicleComponent::InitFromStructure,
-    &Obj::CVehicleComponent::Finalize,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CVehicleComponent::Destroy,
+         &Obj::CVehicleComponent::Update,
+         &Obj::CVehicleComponent::InitFromStructure,
+         &Obj::CVehicleComponent::Finalize,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

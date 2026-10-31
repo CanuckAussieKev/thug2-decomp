@@ -2,6 +2,7 @@
 
 #include "game/obj/node_components.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -11,15 +12,13 @@
 #include "game/obj/node_objects.h"
 #include "game/obj/rail_manager.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
 #include "game/net/buddy_status.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -214,69 +213,54 @@ using Obj::CNodeArrayComponent;
 using Obj::CObjectHookManagerComponent;
 using Obj::CRailManagerComponent;
 
-REPLACE(0x00428010, CNodeArrayComponent::Create);
-REPLACE(0x00427EA0, &CNodeArrayComponent::DestroyBody);
-REPLACE(0x00427EF0, &CNodeArrayComponent::Destroy);
-REPLACE(0x00427F20, &CNodeArrayComponent::InitFromStructure);
-REPLACE(0x00427EB0, &CNodeArrayComponent::RefreshFromStructure);
-REPLACE(0x00428130, CObjectHookManagerComponent::Create);
-REPLACE(0x004281B0, &CObjectHookManagerComponent::DestroyBody);
-REPLACE(0x00428220, &CObjectHookManagerComponent::Destroy);
-REPLACE(0x00428090, &CObjectHookManagerComponent::InitFromStructure);
-REPLACE(0x0042B920, CRailManagerComponent::Create);
-REPLACE(0x0042B9A0, &CRailManagerComponent::DestroyBody);
-REPLACE(0x0042BA90, &CRailManagerComponent::Destroy);
-REPLACE(0x0042B880, &CRailManagerComponent::InitFromStructure);
-REPLACE(0x0042BA10, &CRailManagerComponent::UpdateRailMatrix);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kNodeArrayVtable, 0x0064628C,
-    &CNodeArrayComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    &CNodeArrayComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    &CNodeArrayComponent::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
-    &GameNet::FoldedGetters::Word18);
-GAME_VTABLE(kHookManagerVtable, 0x006462D4,
-    &CObjectHookManagerComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    &CObjectHookManagerComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
-    &GameNet::FoldedGetters::Word18);
-GAME_VTABLE(kRailManagerVtable, 0x0064637C,
-    &CRailManagerComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    &CRailManagerComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
-    &GameNet::FoldedGetters::Word18);
+static VtableSlot kNodeArrayVtable_slots[] = {&CNodeArrayComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         &CNodeArrayComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         &CNodeArrayComponent::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
+         &GameNet::FoldedGetters::Word18};
+void** const kNodeArrayVtable = reinterpret_cast<void**>(kNodeArrayVtable_slots);
+static VtableSlot kHookManagerVtable_slots[] = {&CObjectHookManagerComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         &CObjectHookManagerComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
+         &GameNet::FoldedGetters::Word18};
+void** const kHookManagerVtable = reinterpret_cast<void**>(kHookManagerVtable_slots);
+static VtableSlot kRailManagerVtable_slots[] = {&CRailManagerComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         &CRailManagerComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
+         &GameNet::FoldedGetters::Word18};
+void** const kRailManagerVtable = reinterpret_cast<void**>(kRailManagerVtable_slots);
 
 } // namespace
 } // namespace Obj

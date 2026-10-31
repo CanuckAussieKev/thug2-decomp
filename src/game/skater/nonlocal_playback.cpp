@@ -32,14 +32,11 @@
 #include "game/gfx/anim_blend.h"
 #include "game/obj/control_pad.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/game_config.h"
 
 namespace Obj {
 
-GAME_GLOBAL(int, g_nonlocalLag, 0x007CCDE4);
+int g_nonlocalLag;
 
 namespace {
 
@@ -631,9 +628,3 @@ void CSkaterNonLocalNetLogicComponent::PlayHistoryEvents()
 }
 
 } // namespace Obj
-
-REPLACE(0x00515360, &Obj::CSkaterNonLocalNetLogicComponent::Extrapolate);
-REPLACE(0x00515940, &Obj::CSkaterNonLocalNetLogicComponent::Interpolate);
-REPLACE(0x00516640, &Obj::CSkaterNonLocalNetLogicComponent::MoveAlongRail);
-REPLACE(0x00516E00, &Obj::CSkaterNonLocalNetLogicComponent::ExtrapolateOnRail);
-REPLACE(0x00516180, &Obj::CSkaterNonLocalNetLogicComponent::PlayHistoryEvents);

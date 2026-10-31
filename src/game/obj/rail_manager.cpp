@@ -20,8 +20,6 @@
 #include "game/skate/skate_module.h"
 #include "game/skater/walk_physics.h"
 #include "game/ed/park_editor.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
@@ -1048,34 +1046,3 @@ CRailManager* CRailManager::Init()
 }
 
 } // namespace Obj
-
-REPLACE(0x0057C170, Obj::Span4);
-REPLACE(0x0057C200, &Obj::CRailNode::IsNamed);
-REPLACE(0x0057C210, &Obj::BoxPair::Swap);
-REPLACE(0x0057C260, Obj::BoxOf);
-REPLACE(0x0057C330, &Obj::CRailManager::Cleanup);
-REPLACE(0x0057C360, Obj::Overlap);
-REPLACE(0x0057C3A0, Obj::NearlyEqual4);
-REPLACE(0x0057C3F0, &Obj::CRailManager::MoveNode);
-REPLACE(0x0057C4F0, &Obj::CRailManager::SetObjectMatrix);
-REPLACE(0x0057C500, &Obj::Record24::Assign);
-REPLACE(0x0057C540, &Obj::Record34::Assign);
-REPLACE(0x0057C5A0, Obj::NodesTogether);
-REPLACE(0x0057C600, Obj::RailClear);
-REPLACE(0x0057CB20, &Obj::CRailManager::ToWorld);
-REPLACE(0x0057CB60, &Obj::CRailManager::GetWorldPos);
-REPLACE(0x0057CBD0, &Obj::CRailManager::FindNode);
-REPLACE(0x0057CC10, &Obj::CRailManager::Init);
-REPLACE(0x0057CC30, &Obj::CRailNode::GetWallSide);
-REPLACE(0x0057CFB0, &Obj::CRailManager::GetClimbMatrix);
-REPLACE(0x0057D090, &Obj::CRailManager::AddNode);
-REPLACE(0x0057D260, &Obj::CRailManager::RemoveOverlaps);
-REPLACE(0x0057D7A0, &Obj::CRailManager::RemoveOverlapsIfNotPark);
-REPLACE(0x0057D7C0, &Obj::CRailManager::SetActive);
-REPLACE(0x0057D840, &Obj::CRailManager::IsActive);
-REPLACE(0x0057D880, &Obj::CRailManager::FindLadder);
-REPLACE(0x0057DA20, &Obj::CRailManager::FindLadderOnLine);
-REPLACE(0x0057DDA0, &Obj::CRailManager::FindRail);
-REPLACE(0x0057E170, &Obj::CRailManager::FindJoiningRail);
-REPLACE(0x0057E2D0, &Obj::CRailManager::FindGrindRail);
-REPLACE(0x0057E960, &Obj::CRailManager::AddFromNodeArray);

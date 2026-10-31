@@ -4,6 +4,7 @@
 
 #include <winsock2.h>
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -12,23 +13,22 @@
 #include "game/lst/search.h"
 #include "game/net/net_access_c.h"
 #include "game/sys/timer.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/net/task_vtable.h"
-#include "hook/game_code.h"
 
 namespace Net {
 
 namespace {
 
-GAME_VTABLE(kClientVtable, 0x006475CC, &Net::Client::Destroy, &Net::App::ProcessData, &Net::Client::ReceiveData,
-    &Net::Client::SendData, &Net::Client::Init, &Net::Client::Deinit);
+static VtableSlot kClientVtable_slots[] = {&Net::Client::Destroy, &Net::App::ProcessData, &Net::Client::ReceiveData,
+        &Net::Client::SendData, &Net::Client::Init, &Net::Client::Deinit};
+void** const kClientVtable = reinterpret_cast<void**>(kClientVtable_slots);
 constexpr int kAppTaskPriority = -2000;
 constexpr uint32_t kTaskSize = 0x20;
 constexpr int kTimestampWindow = 5000; // timestamps further apart than this have wrapped around
 
 uint32_t& Timestamp(App* app) { return app->m_time; }
 Dispatcher* GetDispatcher(App* app) { return &app->m_dispatcher; }
-
 
 // The first connection (Lst::Search<Conn> over the App's connections; the search's vtable is 0x0064759C).
 Conn* ServerConnection(App* app)
@@ -318,17 +318,3 @@ int Client::HandleTimestamp(MsgHandlerContext* context)
 }
 
 } // namespace Net
-
-REPLACE(0x0045A250, &Net::Client::Construct);
-REPLACE(0x0045B8E0, &Net::Client::Destroy);
-REPLACE_SOURCE_ONLY(0x0045B910, &Net::Client::DestroyBody);
-REPLACE_SOURCE_ONLY(0x0045B820, &Net::Client::Deinit);
-REPLACE(0x00459EC0, &Net::Client::Init);
-REPLACE(0x00459F40, &Net::Client::ConnectToServer);
-REPLACE(0x00459DC0, &Net::Client::StreamMessageToServer);
-REPLACE(0x00459E50, &Net::Client::EnqueueMessageToServer);
-REPLACE(0x0045A300, &Net::Client::ReceiveData);
-REPLACE(0x00459FD0, &Net::Client::SendData);
-REPLACE(0x0045ABC0, Net::Client::HandleConnectionAccepted);
-REPLACE(0x0045ABD0, Net::Client::HandleConnectionRefused);
-REPLACE(0x0045AA70, Net::Client::HandleTimestamp);

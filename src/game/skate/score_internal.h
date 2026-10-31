@@ -15,8 +15,6 @@
 #include "game/skate/score.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/skater.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
 
 namespace Mdl {
 namespace ScoreInternal {
@@ -40,8 +38,8 @@ constexpr uint32_t kAnimBlender = 0x7149B753;         // animblender
 
 // A trick's points by its repeats (percent: 100, 75, 50, 25, 10) and its spin (half the multiplier: 2 none ... 7),
 // read from the exe as the original does (an index outside the tables reads past them, as there).
-GAME_GLOBAL_EXTERN(int[5], g_trickReduction); // (0x0064E280)
-GAME_GLOBAL_EXTERN(int[6], g_spinMultiplier); // (0x0064E268)
+extern int g_trickReduction[5]; // (0x0064E280)
+extern int g_spinMultiplier[6]; // (0x0064E268)
 inline int Reduction(int repeats) { return repeats < 5 ? g_trickReduction[repeats] : 10; }
 inline int SpinMultiplier(int spin) { return spin < 6 ? g_spinMultiplier[spin] : 7; }
 

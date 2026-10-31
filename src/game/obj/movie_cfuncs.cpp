@@ -15,8 +15,6 @@
 #include "game/script/struct.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/script/cfuncs_scene.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/gfx/engine.h"
 
 namespace CFuncs {
@@ -331,26 +329,3 @@ bool __cdecl CFunc_KillObjectAnim(Script::CStruct* params, Script::CScript*)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005ADF60, &CFuncs::CutsceneDestroyEntry::Construct);
-REPLACE(0x005AD830, CFuncs::CFunc_PlaySkaterCamAnim);
-REPLACE(0x005AD960, CFuncs::CFunc_SetSkaterCamAnimSkippable);
-REPLACE(0x005ADA30, CFuncs::CFunc_SetSkaterCamAnimShouldPause);
-REPLACE(0x005ADB00, CFuncs::CFunc_GetCurrentSkaterCamAnimName);
-REPLACE(0x005ADB50, CFuncs::CFunc_GetSkaterCamAnimParams);
-REPLACE(0x005ADC10, CFuncs::CFunc_SkaterCamAnimFinished);
-REPLACE(0x005ADCC0, CFuncs::CFunc_SkaterCamAnimHeld);
-REPLACE(0x005ADD70, CFuncs::CFunc_KillSkaterCamAnim);
-REPLACE(0x005ADEC0, CFuncs::CFunc_ReloadSkaterCamAnim);
-REPLACE(0x005AE000, CFuncs::CFunc_CutsceneDestroyListActive);
-REPLACE(0x005AE010, CFuncs::CFunc_PlayCutscene);
-REPLACE(0x005AE090, CFuncs::CFunc_HasMovieStarted);
-REPLACE(0x005AE0A0, CFuncs::CFunc_IsMovieQueued);
-REPLACE(0x005AE0B0, CFuncs::CFunc_PauseCutscene);
-REPLACE(0x005AE120, CFuncs::CFunc_Cutscene_FrameAdvance);
-REPLACE(0x005AE140, CFuncs::CFunc_PlayObjectAnim);
-REPLACE(0x005AE190, CFuncs::CFunc_SetObjectAnimSkippable);
-REPLACE(0x005AE200, CFuncs::CFunc_SetObjectAnimShouldPause);
-REPLACE(0x005AE270, CFuncs::CFunc_ObjectAnimFinished);
-REPLACE(0x005AE2B0, CFuncs::CFunc_ObjectAnimHeld);
-REPLACE(0x005AE2F0, CFuncs::CFunc_KillObjectAnim);

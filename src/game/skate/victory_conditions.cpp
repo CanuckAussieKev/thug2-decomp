@@ -17,39 +17,37 @@
 #include "game/skate/score.h"
 #include "game/skate/skate_module.h"
 #include "game/core/stubs.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Game {
 
 namespace {
 
 // The vtables.
-GAME_VTABLE(kBaseVtable, 0x0064EAA8,
-            &Game::CVictoryCondition::DestroyBase, Stubs::ReturnFalse1, GAME_LIBRARY_SLOT(0x00623771),
-            GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771));
-GAME_VTABLE(kHighestScoreVtable, 0x0064EB0C,
-            &Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnFalse,
-            Stubs::ReturnFalse, Stubs::ReturnTrue);
-GAME_VTABLE(kScoreReachedVtable, 0x0064EB20,
-            &Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnTrue,
-            &Game::CScoreReachedVictoryCondition::ConditionComplete, &Game::CScoreReachedVictoryCondition::Print);
-GAME_VTABLE(kCompleteGoalsVtable, 0x0064EB34,
-            &Game::CVictoryCondition::Destroy, Stubs::ReturnFalse1, Stubs::ReturnTrue,
-            &Game::CCompleteGoalsVictoryCondition::ConditionComplete, Stubs::ReturnTrue);
-GAME_VTABLE(kBestComboVtable, 0x0064EB48,
-            &Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnFalse,
-            Stubs::ReturnFalse, &Game::CBestComboVictoryCondition::Print);
-GAME_VTABLE(kLastManStandingVtable, 0x0064EB5C,
-            &Game::CVictoryCondition::Destroy, &Game::CLastManStandingVictoryCondition::IsWinner,
-            Stubs::ReturnTrue, &Game::CLastManStandingVictoryCondition::ConditionComplete, Stubs::ReturnTrue);
-GAME_VTABLE(kEliminationVtable, 0x0064EB70,
-            &Game::CVictoryCondition::Destroy, &Game::CEliminationVictoryCondition::IsWinner, Stubs::ReturnTrue,
-            &Game::CEliminationVictoryCondition::ConditionComplete, Stubs::ReturnTrue);
-GAME_VTABLE(kCollectAllObjectsVtable, 0x0064EB84,
-            &Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnTrue,
-            &Game::CCollectAllObjectsVictoryCondition::ConditionComplete, Stubs::ReturnTrue);
+static VtableSlot kBaseVtable_slots[] = {&Game::CVictoryCondition::DestroyBase, Stubs::ReturnFalse1, &_purecall,
+                 &_purecall, &_purecall};
+void** const kBaseVtable = reinterpret_cast<void**>(kBaseVtable_slots);
+static VtableSlot kHighestScoreVtable_slots[] = {&Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnFalse,
+                 Stubs::ReturnFalse, Stubs::ReturnTrue};
+void** const kHighestScoreVtable = reinterpret_cast<void**>(kHighestScoreVtable_slots);
+static VtableSlot kScoreReachedVtable_slots[] = {&Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnTrue,
+                 &Game::CScoreReachedVictoryCondition::ConditionComplete, &Game::CScoreReachedVictoryCondition::Print};
+void** const kScoreReachedVtable = reinterpret_cast<void**>(kScoreReachedVtable_slots);
+static VtableSlot kCompleteGoalsVtable_slots[] = {&Game::CVictoryCondition::Destroy, Stubs::ReturnFalse1, Stubs::ReturnTrue,
+                 &Game::CCompleteGoalsVictoryCondition::ConditionComplete, Stubs::ReturnTrue};
+void** const kCompleteGoalsVtable = reinterpret_cast<void**>(kCompleteGoalsVtable_slots);
+static VtableSlot kBestComboVtable_slots[] = {&Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnFalse,
+                 Stubs::ReturnFalse, &Game::CBestComboVictoryCondition::Print};
+void** const kBestComboVtable = reinterpret_cast<void**>(kBestComboVtable_slots);
+static VtableSlot kLastManStandingVtable_slots[] = {&Game::CVictoryCondition::Destroy, &Game::CLastManStandingVictoryCondition::IsWinner,
+                 Stubs::ReturnTrue, &Game::CLastManStandingVictoryCondition::ConditionComplete, Stubs::ReturnTrue};
+void** const kLastManStandingVtable = reinterpret_cast<void**>(kLastManStandingVtable_slots);
+static VtableSlot kEliminationVtable_slots[] = {&Game::CVictoryCondition::Destroy, &Game::CEliminationVictoryCondition::IsWinner, Stubs::ReturnTrue,
+                 &Game::CEliminationVictoryCondition::ConditionComplete, Stubs::ReturnTrue};
+void** const kEliminationVtable = reinterpret_cast<void**>(kEliminationVtable_slots);
+static VtableSlot kCollectAllObjectsVtable_slots[] = {&Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnTrue,
+                 &Game::CCollectAllObjectsVictoryCondition::ConditionComplete, Stubs::ReturnTrue};
+void** const kCollectAllObjectsVtable = reinterpret_cast<void**>(kCollectAllObjectsVtable_slots);
 
 // The types (type=).
 constexpr uint32_t kHighestScore = 0x8F30FD26;      // highest_score
@@ -321,20 +319,3 @@ CVictoryCondition* CreateVictoryCondition(Script::CStruct* params)
 }
 
 } // namespace Game
-
-REPLACE(0x00576610, &Game::CScoreReachedVictoryCondition::Print);
-REPLACE(0x00576630, &Game::CBestComboVictoryCondition::Print);
-REPLACE(0x00576650, &Game::CVictoryCondition::DestroyBase);
-REPLACE(0x00576680, &Game::CLastManStandingVictoryCondition::ConditionComplete);
-REPLACE(0x005766B0, &Game::CLastManStandingVictoryCondition::IsWinner);
-REPLACE(0x005766E0, &Game::CEliminationVictoryCondition::ConditionComplete);
-REPLACE(0x00576700, &Game::CEliminationVictoryCondition::IsWinner);
-REPLACE(0x00576740, &Game::CCollectAllObjectsVictoryCondition::ConditionComplete);
-REPLACE(0x00576810, Game::CreateVictoryCondition);
-REPLACE(0x00576970, &Game::CVictoryCondition::Destroy);
-REPLACE(0x005769A0, &Game::CVictoryCondition::DestroyBody);
-REPLACE(0x005769B0, &Game::CVictoryCondition::IsHighestScore);
-REPLACE(0x00576A40, &Game::CScoreReachedVictoryCondition::ConditionComplete);
-REPLACE(0x00576B80, &Game::CCompleteGoalsVictoryCondition::ConditionComplete);
-// 0x00576CA0 is a jump to 0x00576B80 (the vtable's entry): the same source.
-REPLACE_SOURCE_ONLY(0x00576CA0, &Game::CCompleteGoalsVictoryCondition::ConditionComplete);

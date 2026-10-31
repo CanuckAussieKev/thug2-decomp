@@ -21,8 +21,6 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
 #include "game/skater/skater_camera_component.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace CFuncs {
 
@@ -614,31 +612,3 @@ bool __cdecl CFunc_SetSkaterVelocity(Script::CStruct* params, Script::CScript* s
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005B0070, CFuncs::CFunc_GetSkaterPosition);
-REPLACE(0x005B00F0, CFuncs::CFunc_SetSkaterVelocity);
-REPLACE(0x005AC5F0, CFuncs::CFunc_SkaterSpeedGreaterThan);
-REPLACE(0x005AC660, CFuncs::CFunc_SkaterSpeedLessThan);
-REPLACE(0x005AC6D0, CFuncs::CFunc_SkaterLastScoreLandedGreaterThan);
-REPLACE(0x005AC720, CFuncs::CFunc_SkaterLastScoreLandedLessThan);
-REPLACE(0x005AC770, CFuncs::CFunc_SkaterGetLastScoreLanded);
-REPLACE(0x005AC7B0, CFuncs::CFunc_AccumulateScores);
-REPLACE(0x005AC850, CFuncs::CFunc_EliminateLastPlacePlayer);
-REPLACE(0x005ACAA0, CFuncs::CFunc_OnlyOnePlayerLeft);
-REPLACE(0x005ACC20, CFuncs::CFunc_AnySkaterTotalScoreAtLeast);
-REPLACE(0x005ACD80, CFuncs::CFunc_OnlyOneSkaterLeft);
-REPLACE(0x005ACF50, CFuncs::CFunc_SkaterTotalScoreGreaterThan);
-REPLACE(0x005ACFA0, CFuncs::CFunc_SkaterTotalScoreLessThan);
-REPLACE(0x005ACFF0, CFuncs::CFunc_SkaterCurrentScorePotGreaterThan);
-REPLACE(0x005AD070, CFuncs::CFunc_SkaterCurrentScorePotLessThan);
-REPLACE(0x005AD0D0, CFuncs::CFunc_SkaterGetScoreInfo);
-REPLACE(0x005AD140, CFuncs::CFunc_InFirstPlace);
-REPLACE(0x005AD2D0, CFuncs::CFunc_InLastPlace);
-REPLACE(0x005AD450, CFuncs::CFunc_InSecondToLastPlace);
-REPLACE(0x005AD5C0, CFuncs::CFunc_GoalsGreaterThan);
-REPLACE(0x005AD610, CFuncs::CFunc_GoalsEqualTo);
-REPLACE(0x005AD660, CFuncs::CFunc_ToggleSkaterCamMode);
-REPLACE(0x005AD6C0, CFuncs::CFunc_GetSkaterID);
-REPLACE(0x005AD730, CFuncs::CFunc_SkaterExists);
-REPLACE(0x005AD780, CFuncs::CFunc_GetSkaterSex);
-REPLACE(0x005AD7E0, CFuncs::CFunc_GetCurrentSkaterID);

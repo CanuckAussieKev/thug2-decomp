@@ -2,15 +2,14 @@
 // (pillar- / letterboxing to the aspect wanted) and its DisableBlur setting.
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
+#include <cstdint>
+
 #include "game/gfx/screen.h"
 
 #include "game/gfx/render.h"
 #include "game/gfx/settings.h"
 #include "game/script/params.h"
 #include "game/sys/sdl_window.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/log.h"
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/device.h"
@@ -18,11 +17,11 @@
 
 namespace Nx {
 
-GAME_GLOBAL(float, g_screenAspect, 0x00701340);
-GAME_GLOBAL(float, g_defaultAngle, 0x00701348);
-GAME_GLOBAL(int, g_scriptScreenBlur, 0x006FA72C);
+float g_screenAspect;
+float g_defaultAngle;
+int g_scriptScreenBlur;
 
-GAME_GLOBAL(float, g_angleFactor, 0x0067E544, 1.0f);
+float g_angleFactor{1.0f};
 
 namespace {
 
@@ -175,13 +174,3 @@ bool __cdecl CFunc_SetScreenBlur(Script::CStruct* params, Script::CScript* /*scr
 }
 
 } // namespace Nx
-
-REPLACE(0x004A0780, Nx::SetScreenAspectRatio);
-REPLACE(0x004A0790, Nx::GetScreenAspect);
-REPLACE(0x004A07A0, Nx::SetScreenAngle);
-REPLACE(0x004A07B0, Nx::GetScreenAngle);
-REPLACE(0x004A07C0, Nx::GetScreenAngleFactor);
-REPLACE(0x004B2330, Nx::SetScreenBlur);
-REPLACE(0x004B2440, Nx::SetLetterbox);
-REPLACE_SOURCE_ONLY(0x0048C1A0, Nx::SetLetterbox); // a jump to 0x004B2440
-REPLACE(0x0048C170, Nx::CFunc_SetScreenBlur);

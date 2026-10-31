@@ -419,8 +419,6 @@ bool CauseTestFault(TestFault fault)
     return true;
 }
 
-#ifdef THUG2_STANDALONE
 // The standalone build has no original C runtime to point at ours (the hooked build: hook/crash_game.cpp).
 void InstallGameCrtHandlers() {}
 bool CauseGameCrtFault(TestFault) { return false; }
-#endif

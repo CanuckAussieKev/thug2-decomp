@@ -5,7 +5,6 @@
 #include <cmath>
 
 #include "game/core/dbg.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
@@ -740,10 +739,3 @@ bool RectHitsTriangle(const CollRect& rect, const Mth::Vector& v0, const Mth::Ve
 }
 
 } // namespace Nx
-
-REPLACE(0x0040B420, Nx::RayHitsTriangle);
-REPLACE(0x0040B860, Nx::PointTriangleDistanceSquared);
-REPLACE(0x0040BDC0, Nx::SegmentTriangleDistanceSquared);
-REPLACE(0x0040D370, Nx::RectHitsTriangle);
-REPLACE_UNCHECKED(0x0040B610, Nx::LineHitsSphereKeepingEdx);
-REPLACE_UNCHECKED(0x0040B750, Nx::SegmentsCross2DKeepingEdx);

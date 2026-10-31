@@ -3,6 +3,8 @@
 
 #include "game/obj/tracker.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <new>
@@ -19,16 +21,13 @@
 #include "game/script/struct.h"
 #include "game/obj/compositemgr.h"
 #include "game/ed/piece_menu.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/gfx/weather.h"
 
 namespace Obj {
 
-GAME_GLOBAL(Obj::CTracker*, g_tracker, 0x006F0FC0);
-GAME_GLOBAL(Mem::PoolPair, g_scriptListPools, 0x006F0FC8);
+Obj::CTracker* g_tracker;
+Mem::PoolPair g_scriptListPools;
 
 namespace {
 
@@ -251,7 +250,7 @@ void CEventLog::AddEntry(uint32_t type, uint32_t target, uint32_t source, uint32
 // 0x004620A0
 void CEventLog::Print(bool onlyNew, int /*count*/)
 {
-    const char* const line = GAME_TEXT(0x00647890, "========================================================\n"); // "=====...\n"
+    const char* const line = "========================================================\n"; // "=====...\n"
     int index = 0;
     int count = m_index;
     if (m_wrapped) {
@@ -259,8 +258,8 @@ void CEventLog::Print(bool onlyNew, int /*count*/)
         count = kLogSize;
     }
     Dbg::Printf(line);
-    Dbg::Printf(onlyNew ? GAME_TEXT(0x00647868, "PRINTING EVENT LOG (ONLY NEW ENTRIES)\n\n")
-                        : GAME_TEXT(0x00647850, "PRINTING EVENT LOG\n\n"));
+    Dbg::Printf(onlyNew ? "PRINTING EVENT LOG (ONLY NEW ENTRIES)\n\n"
+                        : "PRINTING EVENT LOG\n\n");
     // Each entry from the oldest (their printing is compiled out of this build).
     for (; count > 0; --count) {
         if (++index == kLogSize)
@@ -332,7 +331,7 @@ uint32_t CTracker::GetUniqueId()
     uint32_t checksum;
     do {
         char name[64];
-        std::snprintf(name, sizeof(name), GAME_TEXT(0x006478CC, "autoid%d"), m_nextAutoId++); // "autoid%d"
+        std::snprintf(name, sizeof(name), "autoid%d", m_nextAutoId++); // "autoid%d"
         if (m_nextAutoId >= 1000000)
             m_nextAutoId = 0;
         checksum = Crc::GenerateCRCFromString(name);
@@ -778,52 +777,15 @@ bool __cdecl CFunc_LaunchEvent(Script::CStruct* params, Script::CScript* script)
 
 } // namespace Obj
 
-REPLACE(0x00462000, &Obj::CTracker::RemoveEventListener);
-REPLACE(0x004620A0, &Obj::CEventLog::Print);
-REPLACE(0x00462120, &Obj::CTracker::LookUpObject);
-REPLACE(0x00462190, &Obj::CTracker::GetObjectByAlias);
-REPLACE(0x004621D0, &Obj::CTracker::GetUniqueId);
-REPLACE(0x00462260, &Obj::CTracker::WaitForEvent);
-REPLACE(0x00462310, Obj::CFunc_WaitForEvent);
-REPLACE(0x00462340, Obj::CFunc_ObjectExists);
-REPLACE(0x00462380, Obj::CFunc_TerminateObjectsScripts);
-REPLACE(0x00462440, Obj::CFunc_SetObjectProps);
-REPLACE(0x00462480, Obj::CFunc_PrintEventLog);
-REPLACE(0x004624D0, static_cast<void (*)(void*)>(&Obj::CScriptList::operator delete));
-REPLACE(0x00462530, &Obj::CScriptNode::Unlink);
-REPLACE(0x00462550, &Obj::CScriptNode::ScalarDelete);
-REPLACE(0x00462590, &Obj::CTracker::RemoveAliasesOf);
-REPLACE(0x00462620, &Obj::CScriptList::Add);
-REPLACE(0x004626B0, &Obj::CScriptList::Remove);
-REPLACE(0x00462710, &Obj::CScriptList::ScalarDelete);
-REPLACE(0x004627C0, &Obj::CEventLog::AddEntry);
-REPLACE(0x00462980, &Obj::CTracker::AddObject);
-REPLACE(0x00462A20, &Obj::CTracker::RemoveObject);
-REPLACE(0x00462A90, &Obj::CTracker::AddAlias);
-REPLACE(0x00462B10, &Obj::CTracker::LogHandled);
-REPLACE(0x00462B40, &Obj::CTracker::LogRead);
-REPLACE(0x00462B70, &Obj::CTracker::LogFrame);
-REPLACE(0x00462B90, &Obj::CTracker::ForgetScript);
-REPLACE(0x00462C40, Obj::CFunc_AssignAlias);
-REPLACE(0x00462CB0, &Obj::CEventLog::Destroy);
-REPLACE(0x00462CF0, &Obj::CTracker::Construct);
-REPLACE(0x00462E40, &Obj::CTracker::Destruct);
-REPLACE(0x00462F00, &Obj::CTracker::LaunchEvent);
-REPLACE(0x00463370, &Obj::CTracker::AddListener);
-REPLACE(0x00463450, &Obj::CTracker::RemoveListener);
-REPLACE(0x004634D0, Obj::CFunc_LaunchEvent);
-REPLACE(0x00463730, Obj::CreateTracker);
-REPLACE(0x00463780, &Obj::CTracker::ScalarDelete);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kScriptNodeVtable, 0x006478D8,
-    &Obj::CScriptNode::ScalarDelete);
-GAME_VTABLE(kScriptListVtable, 0x006478DC,
-    &Obj::CScriptList::ScalarDelete);
-GAME_VTABLE(kTrackerVtable, 0x006478E0,
-    &Obj::CTracker::ScalarDelete);
+static VtableSlot kScriptNodeVtable_slots[] = {&Obj::CScriptNode::ScalarDelete};
+void** const kScriptNodeVtable = reinterpret_cast<void**>(kScriptNodeVtable_slots);
+static VtableSlot kScriptListVtable_slots[] = {&Obj::CScriptList::ScalarDelete};
+void** const kScriptListVtable = reinterpret_cast<void**>(kScriptListVtable_slots);
+static VtableSlot kTrackerVtable_slots[] = {&Obj::CTracker::ScalarDelete};
+void** const kTrackerVtable = reinterpret_cast<void**>(kTrackerVtable_slots);
 
 } // namespace
 } // namespace Obj

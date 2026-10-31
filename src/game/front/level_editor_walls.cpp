@@ -3,14 +3,15 @@
 #include "game/front/level_editor_walls.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <map>
+#include <vector>
 
 #include "game/front/level_editor_scenery.h"
 #include "game/gfx/sector.h"
 #include "game/mth/vector.h"
 #include "game/nx/coll_tri.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 #include "game/gfx/engine_geom.h"

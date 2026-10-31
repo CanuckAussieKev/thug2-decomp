@@ -16,6 +16,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/crc.h"
 #include "game/gfx/anim_blend.h"
@@ -33,7 +34,6 @@
 #include "game/sys/config.h"
 #include "game/sys/game_clock.h"
 #include "game/skate/score.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 
 namespace Skater::ThawBmx {

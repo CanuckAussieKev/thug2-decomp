@@ -1,5 +1,7 @@
 // The world's collision: the movable objects' list and the line queries over the scenes' grids and the movables.
 
+#include <cstdint>
+
 #include "game/nx/coll_world.h"
 
 #include "game/core/mem.h"
@@ -10,18 +12,14 @@
 #include "game/nx/coll_obj.h"
 #include "game/gfx/engine_scene_list.h"
 #include "game/gfx/engine.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/sys/startup_init.h"
 
 namespace Nx {
 
 // The movable objects' list (its head).
-GAME_GLOBAL(Mem::ListNode, g_movables, 0x00691978);
+Mem::ListNode g_movables;
 
 namespace {
-
-
 
 // Where a query's distance to beat starts: past the line's end, or (for the farthest) before its start.
 constexpr float kNearestStart = 1.01f;
@@ -197,13 +195,6 @@ Obj::CCompositeObject* CollideWithMovablesFarthest(const Mth::Line* line, Collis
 }
 
 } // namespace Nx
-
-REPLACE(0x004177B0, Nx::RegisterMovable);
-REPLACE(0x00417800, Nx::UnregisterMovable);
-REPLACE(0x004106C0, Nx::CollideWithStatics);
-REPLACE(0x00410930, Nx::CollideWithStaticsFarthest);
-REPLACE(0x004118C0, Nx::CollideWithMovables);
-REPLACE(0x00411AE0, Nx::CollideWithMovablesFarthest);
 
 namespace Nx {
 

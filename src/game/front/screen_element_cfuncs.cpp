@@ -4,6 +4,8 @@
 // SetRootScreenElement, the text element commands, MenuSelectedIndexIs, ScreenElementExists,
 // CreateMultipleTextElements.
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -21,15 +23,11 @@
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 #include "game/gfx/engine_geom.h"
 
 namespace Front {
 
-GAME_GLOBAL(uint32_t, g_unassignedId, 0x0064780C, 0xFFFFFFFF);
+uint32_t g_unassignedId{0xFFFFFFFF};
 namespace {
 
 using Script::CScript;
@@ -55,7 +53,6 @@ constexpr uint32_t kHeapDebug = 0x935AB858, kHeapScript = 0xE37E78C5, kHeapInter
 constexpr uint32_t kHeapBottomUp = 0xC80BF12D, kHeapInternetTopDown = 0xE3F81B18, kHeapSkaterInfo = 0xEABD217B;
 
 CScreenElementManager* Manager() { return CScreenElementManager::Instance(); }
-
 
 uint32_t UnassignedId() { return g_unassignedId; }
 
@@ -266,8 +263,8 @@ bool __cdecl CFunc_DestroyScreenElement(Script::CStruct* params, Script::CScript
     uint32_t id;
     if (!manager->ResolveId(params, kId, &id))
         return false;
-    int recurse = params->ContainsFlag(GAME_TEXT(0x0064A12C, "dont_recurse")) ? 0 : 1; // dont_recurse
-    int keep = params->ContainsFlag(GAME_TEXT(0x0064A11C, "preserve_parent")) ? 1 : 0;    // preserve_parent
+    int recurse = params->ContainsFlag("dont_recurse") ? 0 : 1; // dont_recurse
+    int keep = params->ContainsFlag("preserve_parent") ? 1 : 0;    // preserve_parent
     if (recurse || !keep)
         manager->DestroyElement(id, recurse, keep, script);
     return true;
@@ -482,9 +479,9 @@ bool __cdecl CFunc_MenuSelectedIndexIs(Script::CStruct* params, Script::CScript*
     int index;
     if (params->GetInteger(0u, &index, 0))
         return index == selected;
-    if (params->ContainsFlag(GAME_TEXT(0x0064A144, "first"))) // first
+    if (params->ContainsFlag("first")) // first
         return selected == 0;
-    if (params->ContainsFlag(GAME_TEXT(0x0064A13C, "last"))) // last
+    if (params->ContainsFlag("last")) // last
         return selected == menu->CountChildren() - 1;
     return false;
 }
@@ -584,24 +581,3 @@ bool __cdecl CFunc_CreateMultipleTextElements(Script::CStruct* params, Script::C
 } // namespace Front
 
 using Front::CScreenElementManager;
-
-REPLACE(0x004ACB70, &CScreenElementManager::CreateElement);
-REPLACE(0x004AAD90, Front::CFunc_ScreenElementSystemInit);
-REPLACE(0x004AD240, Front::CFunc_CreateScreenElement);
-REPLACE(0x004AD300, Front::CFunc_DestroyScreenElement);
-REPLACE(0x004AD370, Front::CFunc_RunScriptOnScreenElement);
-REPLACE(0x004AD4C0, Front::CFunc_SetScreenElementProps);
-REPLACE(0x004AD540, Front::CFunc_DoScreenElementMorph);
-REPLACE(0x004AD5C0, Front::CFunc_SetScreenElementLock);
-REPLACE(0x004AD650, Front::CFunc_GetScreenElementDims);
-REPLACE(0x004AC750, Front::CFunc_GetScreenElementProps);
-REPLACE(0x004AC900, Front::CFunc_SetRootScreenElement);
-REPLACE(0x004AC940, Front::CFunc_GetScreenElementChildren);
-REPLACE(0x004AD710, Front::CFunc_TextElementConcatenate);
-REPLACE(0x004AD800, Front::CFunc_TextElementBackspace);
-REPLACE(0x004AD8D0, Front::CFunc_GetTextElementString);
-REPLACE(0x004AD9C0, Front::CFunc_GetTextElementLength);
-REPLACE(0x004ADA80, Front::CFunc_GetScreenElementPosition);
-REPLACE(0x004ADB20, Front::CFunc_MenuSelectedIndexIs);
-REPLACE(0x004ADC10, Front::CFunc_ScreenElementExists);
-REPLACE(0x004ADC80, Front::CFunc_CreateMultipleTextElements);

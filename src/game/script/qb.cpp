@@ -1,6 +1,7 @@
 #include "game/script/qb.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <new>
@@ -18,9 +19,6 @@
 #include "game/script/struct.h"
 #include "game/script/parse.h"
 #include "game/script/cscript.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/log.h"
 
 namespace Script {
@@ -31,9 +29,9 @@ static_assert(offsetof(CStoredRandom, m_last) == 0x54 && offsetof(CStoredRandom,
               "layout must match the original");
 static_assert(sizeof(CStoredRandom) == 0x60, "layout must match the original");
 
-GAME_GLOBAL(Mem::PoolPair, g_storedRandomPools, 0x006F2578);
-GAME_GLOBAL(int, g_pendingSymbolCount, 0x006F3528);
-GAME_GLOBAL(uint32_t, g_permanentStringsFree, 0x006F3588);
+Mem::PoolPair g_storedRandomPools;
+int g_pendingSymbolCount;
+uint32_t g_permanentStringsFree;
 
 namespace {
 
@@ -43,7 +41,7 @@ struct ScriptChecksumName {
     char* name;
     ScriptChecksumName* next;
 };
-GAME_GLOBAL(ScriptChecksumName*, g_scriptNames, 0x006F2368);
+ScriptChecksumName* g_scriptNames;
 ScriptChecksumName*& ScriptNames() { return g_scriptNames; }
 
 char* CopyString(const char* string)
@@ -66,7 +64,6 @@ void CreatePool(Mem::PoolPair& pools, int item_size, int count, const char* name
     pools.pools[pools.current] = pool;
     reinterpret_cast<uint8_t*>(&pools.unknown4)[pools.current] = 1;
 }
-
 
 // 0x0046F690
 const uint8_t* SkipToken(const uint8_t* token)
@@ -450,33 +447,6 @@ POOL_CREATOR(CreateStoredRandomPool, g_storedRandomPools, 0x60)
 
 } // namespace
 
-REPLACE(0x0046F690, Script::SkipToken);
-REPLACE(0x0046F7E0, Script::Read4Bytes);
-REPLACE(0x0046F800, Script::Read2Bytes);
-REPLACE(0x0046F810, Script::Write4Bytes);
-REPLACE(0x0046F840, Script::Write2Bytes);
-REPLACE(0x0046F850, Script::SkipEndOfLines);
-REPLACE(0x0046FB30, Script::SkipToEndOfStatement);
-REPLACE(0x0046F920, Script::SkipToEndOfScript);
-REPLACE(0x0046F960, Script::CalculateScriptChecksum);
-REPLACE(0x0046FF00, Script::PreProcessScript);
-REPLACE(0x0046F9B0, Script::FindScriptChecksumName);
-REPLACE(0x0046F9F0, Script::FreeScriptChecksumNames);
-REPLACE(0x0046FA60, Script::AddScriptChecksumName);
-REPLACE(0x0046F870, Script::ForgetStoredRandomsOf);
-REPLACE(0x0046F8A0, &Script::CStoredRandom::Shuffle);
-REPLACE(0x00476210, Script::AllocatePermanentStringHeap);
-REPLACE(0x0046F520, Script::CreateScriptPools);
-REPLACE(0x0046F090, CreateCacheEntryPool);
-REPLACE(0x0046F110, CreateComponentPool);
-REPLACE(0x0046F190, CreateStructPool);
-REPLACE(0x0046F210, CreateVectorPool);
-REPLACE(0x0046F290, CreatePairPool);
-REPLACE(0x0046F310, CreateArrayPool);
-REPLACE(0x0046F390, CreateSymbolPool);
-REPLACE(0x0046F410, CreateScriptPool);
-REPLACE(0x0046F4A0, CreateStoredRandomPool);
-
 // --- symbol bookkeeping for the loader --------------------------------------------------------------------
 
 namespace Script {
@@ -493,10 +463,9 @@ struct PendingSymbol {
     CSymbolTableEntry* symbol;
     bool owned;
 };
-GAME_GLOBAL(PendingSymbol[500], g_pendingSymbols, 0x006F2588);
+PendingSymbol g_pendingSymbols[500];
 PendingSymbol* PendingSymbols() { return g_pendingSymbols; }
 int& PendingSymbolCount() { return g_pendingSymbolCount; }
-
 
 void AddPendingSymbol(CSymbolTableEntry* symbol, bool owned)
 {
@@ -596,15 +565,3 @@ void ProcessPendingSymbols()
 }
 
 } // namespace Script
-
-REPLACE(0x00470000, Script::ClearScriptFlag6F2564);
-REPLACE(0x0046FFF0, Script::SetScriptFlag6F2564);
-REPLACE(0x00470010, Script::AllocateScriptChecksumNames);
-REPLACE(0x0044C1D0, Script::FreePair);
-REPLACE(0x0044C230, Script::FreeVector);
-REPLACE(0x00470070, Script::FreeStoredRandom);
-REPLACE(0x004700D0, Script::FreeSymbol);
-REPLACE(0x004711D0, Script::CleanUpAndRemoveSymbol);
-REPLACE(0x004727B0, Script::RemoveSymbolLater);
-REPLACE(0x004727F0, Script::ReplaceSymbolLater);
-REPLACE(0x00472830, Script::ProcessPendingSymbols);

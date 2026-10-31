@@ -6,7 +6,7 @@
 #include <cstring>
 
 #include "game/core/crc.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/core/stubs.h"
@@ -24,14 +24,11 @@
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/crt.h"
 
 namespace Ed {
 
-GAME_GLOBAL(uint32_t[216], g_goalEditorMemberFunctions, 0x00684270,
+uint32_t g_goalEditorMemberFunctions[216]{
             0x0AB710F3, 0x81F01058, 0, 0, 0, 0,
             0x5C155A29, 0x81F01058, 0, 0, 0, 0,
             0xFB279560, 0x81F01058, 0, 0, 0, 0,
@@ -67,24 +64,24 @@ GAME_GLOBAL(uint32_t[216], g_goalEditorMemberFunctions, 0x00684270,
             0xEC316A9C, 0x81F01058, 0, 0, 0, 0,
             0x20B566B1, 0x81F01058, 0, 0, 0, 0,
             0xD5F6EA3B, 0x81F01058, 0, 0, 0, 0,
-            0, 0x81F01058, 0, 0, 0, 0);
+            0, 0x81F01058, 0, 0, 0, 0};
 
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064B534,
-    &Ed::CGoalEditorComponent::Destroy,
-    &Ed::CGoalEditorComponent::Update,
-    Stubs::IgnoreArgument,
-    &Ed::CGoalEditorComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    &Ed::CGoalEditorComponent::Hide,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Ed::CGoalEditorComponent::Destroy,
+         &Ed::CGoalEditorComponent::Update,
+         Stubs::IgnoreArgument,
+         &Ed::CGoalEditorComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         &Ed::CGoalEditorComponent::Hide,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 constexpr uint32_t kGoalEditor = 0x81F01058;
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
 constexpr uint32_t kGoalsArray = 0x38DBE1D0;
@@ -693,40 +690,3 @@ bool CGoalEditorComponent::GetEditedGoalsInfo(Script::CStruct* params, Script::C
 }
 
 } // namespace Ed
-
-REPLACE(0x004EBD30, &Ed::CGoalEditorComponent::Update);
-REPLACE(0x004EBC40, &Ed::CGoalEditorComponent::Hide);
-REPLACE(0x004EC010, &Ed::CGoalEditorComponent::GetEditedGoalsInfo);
-
-REPLACE(0x004EB7F0, Ed::CGoalEditorComponent::Create);
-REPLACE(0x004E6FB0, Ed::CGoalEditorComponent::RegisterMemberFunctions);
-REPLACE(0x004EA230, &Ed::CGoalEditorComponent::Construct);
-REPLACE(0x004E6FD0, &Ed::CGoalEditorComponent::DestroyBody);
-REPLACE(0x004E7B20, &Ed::CGoalEditorComponent::Destroy);
-REPLACE(0x004E8210, &Ed::CGoalEditorComponent::Finalize);
-REPLACE(0x004E8470, Ed::CGoalEditorComponent::Get);
-REPLACE(0x004E7BE0, &Ed::CGoalEditorComponent::FindGoalByName);
-REPLACE(0x004E7C60, &Ed::CGoalEditorComponent::FindGoalById);
-REPLACE(0x004E7D00, &Ed::CGoalEditorComponent::GetGoalFromParams);
-REPLACE(0x004E7E00, &Ed::CGoalEditorComponent::CountUsedGoals);
-REPLACE(0x004E7E50, &Ed::CGoalEditorComponent::CountCompleteGoals);
-REPLACE(0x004E8130, &Ed::CGoalEditorComponent::PointNearAnyGoal);
-REPLACE(0x004E8240, &Ed::CGoalEditorComponent::ClearLevelGoals);
-REPLACE(0x004E8280, &Ed::CGoalEditorComponent::ClearParkGoals);
-REPLACE(0x004E82C0, &Ed::CGoalEditorComponent::ClearIncompleteGoals);
-REPLACE(0x004E8300, &Ed::CGoalEditorComponent::AnyParkGoalOutside);
-REPLACE(0x004E8390, &Ed::CGoalEditorComponent::RemoveParkGoalsOutside);
-REPLACE(0x004E8420, &Ed::CGoalEditorComponent::RemoveGapFromParkGoals);
-REPLACE(0x004E8090, &Ed::CGoalEditorComponent::RemoveGoal);
-REPLACE(0x004E7B50, &Ed::CGoalEditorComponent::UpdateCameraCollision);
-REPLACE(0x004E7F30, &Ed::CGoalEditorComponent::MoveCursorToCurrentPoint);
-REPLACE(0x004E7FC0, &Ed::CGoalEditorComponent::RunCursorScript);
-REPLACE(0x004EA580, &Ed::CGoalEditorComponent::RefreshCursor);
-REPLACE(0x004EA6C0, &Ed::CGoalEditorComponent::NewGoal);
-REPLACE(0x004EA780, &Ed::CGoalEditorComponent::PlaceParkGoalsOnGround);
-REPLACE(0x004EA470, &Ed::CGoalEditorComponent::ReadGoals);
-REPLACE(0x004EA2C0, &Ed::CGoalEditorComponent::ReadLevelGoalsFromBuffer);
-REPLACE(0x004EB850, &Ed::CGoalEditorComponent::WriteGoals);
-REPLACE(0x004EBA10, &Ed::CGoalEditorComponent::WriteLevelGoals);
-REPLACE(0x004EBB70, &Ed::CGoalEditorComponent::WriteLevelGoalsToBuffer);
-REPLACE(0x004EA7C0, &Ed::CGoalEditorComponent::NewEditorGoal);

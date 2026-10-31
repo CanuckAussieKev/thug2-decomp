@@ -6,6 +6,7 @@
 
 #include <d3d9.h>
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -17,9 +18,7 @@
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
 #include "game/sys/platform_d3d.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
@@ -27,7 +26,7 @@
 namespace Nx {
 
 // The game's buffer for the vertices of a primitive drawn without one of its own.
-GAME_GLOBAL(uint8_t[0x100], g_primitiveVertexBuffer, 0x00705620);
+uint8_t g_primitiveVertexBuffer[0x100];
 
 namespace {
 
@@ -419,58 +418,19 @@ void __cdecl SetPrimitiveDepthTest(int state, int value)
 }
 
 namespace {
-GAME_VTABLE(kVtable, 0x0064A628, &Nx::CPcPrimitive::Destroy, &Nx::CPcPrimitive::SetTexture,
-            &Nx::CPcPrimitive::SetColour, &Nx::CPcPrimitive::Init, &Nx::CPcPrimitive::Ready,
-            &Nx::CPcPrimitive::Render, &Nx::CPcPrimitive::Draw, &Nx::CPcPrimitive::SetPosition,
-            &Nx::CPcPrimitive::SetX, &Nx::CPcPrimitive::SetY, &Nx::CPcPrimitive::SetZ, &Nx::CPcPrimitive::SetNormal,
-            &Nx::CPcPrimitive::SetNormalX, &Nx::CPcPrimitive::SetNormalY, &Nx::CPcPrimitive::SetNormalZ,
-            &Nx::CPcPrimitive::SetVertexColour, &Nx::CPcPrimitive::SetUV, &Nx::CPcPrimitive::SetU,
-            &Nx::CPcPrimitive::SetV, &Nx::CPcPrimitive::GetX, &Nx::CPcPrimitive::GetY, &Nx::CPcPrimitive::GetZ,
-            &Nx::CPcPrimitive::GetNormalX, &Nx::CPcPrimitive::GetNormalY, &Nx::CPcPrimitive::GetNormalZ,
-            &Nx::CPcPrimitive::GetVertexColour, &Nx::CPcPrimitive::GetU, &Nx::CPcPrimitive::GetV,
-            &Nx::CPcPrimitive::Translate, &Nx::CPcPrimitive::TranslateX, &Nx::CPcPrimitive::TranslateY,
-            &Nx::CPcPrimitive::TranslateZ, &Nx::CPcPrimitive::ScrollUV, &Nx::CPcPrimitive::ScrollU,
-            &Nx::CPcPrimitive::ScrollV, &Nx::CPcPrimitive::Compare);
+static VtableSlot kVtable_slots[] = {&Nx::CPcPrimitive::Destroy, &Nx::CPcPrimitive::SetTexture,
+                &Nx::CPcPrimitive::SetColour, &Nx::CPcPrimitive::Init, &Nx::CPcPrimitive::Ready,
+                &Nx::CPcPrimitive::Render, &Nx::CPcPrimitive::Draw, &Nx::CPcPrimitive::SetPosition,
+                &Nx::CPcPrimitive::SetX, &Nx::CPcPrimitive::SetY, &Nx::CPcPrimitive::SetZ, &Nx::CPcPrimitive::SetNormal,
+                &Nx::CPcPrimitive::SetNormalX, &Nx::CPcPrimitive::SetNormalY, &Nx::CPcPrimitive::SetNormalZ,
+                &Nx::CPcPrimitive::SetVertexColour, &Nx::CPcPrimitive::SetUV, &Nx::CPcPrimitive::SetU,
+                &Nx::CPcPrimitive::SetV, &Nx::CPcPrimitive::GetX, &Nx::CPcPrimitive::GetY, &Nx::CPcPrimitive::GetZ,
+                &Nx::CPcPrimitive::GetNormalX, &Nx::CPcPrimitive::GetNormalY, &Nx::CPcPrimitive::GetNormalZ,
+                &Nx::CPcPrimitive::GetVertexColour, &Nx::CPcPrimitive::GetU, &Nx::CPcPrimitive::GetV,
+                &Nx::CPcPrimitive::Translate, &Nx::CPcPrimitive::TranslateX, &Nx::CPcPrimitive::TranslateY,
+                &Nx::CPcPrimitive::TranslateZ, &Nx::CPcPrimitive::ScrollUV, &Nx::CPcPrimitive::ScrollU,
+                &Nx::CPcPrimitive::ScrollV, &Nx::CPcPrimitive::Compare};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004C5230, &Nx::CPcPrimitive::Construct);
-REPLACE(0x004C5A20, &Nx::CPcPrimitive::DestroyBody);
-REPLACE(0x004C5ED0, &Nx::CPcPrimitive::Destroy);
-REPLACE(0x004C5A90, &Nx::CPcPrimitive::SetTexture);
-REPLACE(0x004C5310, &Nx::CPcPrimitive::SetColour);
-REPLACE(0x004C5F00, &Nx::CPcPrimitive::Init);
-REPLACE(0x004C5320, &Nx::CPcPrimitive::Ready);
-REPLACE(0x004C5370, &Nx::CPcPrimitive::Render);
-REPLACE(0x004C55D0, &Nx::CPcPrimitive::Draw);
-REPLACE(0x004C5B20, &Nx::CPcPrimitive::SetPosition);
-REPLACE(0x004C5B60, &Nx::CPcPrimitive::SetX);
-REPLACE(0x004C5B80, &Nx::CPcPrimitive::SetY);
-REPLACE(0x004C5BA0, &Nx::CPcPrimitive::SetZ);
-REPLACE(0x004C5BC0, &Nx::CPcPrimitive::SetNormal);
-REPLACE(0x004C5BF0, &Nx::CPcPrimitive::SetNormalX);
-REPLACE(0x004C5C10, &Nx::CPcPrimitive::SetNormalY);
-REPLACE(0x004C5C30, &Nx::CPcPrimitive::SetNormalZ);
-REPLACE(0x004C56E0, &Nx::CPcPrimitive::SetVertexColour);
-REPLACE(0x004C5760, &Nx::CPcPrimitive::SetUV);
-REPLACE(0x004C57C0, &Nx::CPcPrimitive::SetU);
-REPLACE(0x004C5800, &Nx::CPcPrimitive::SetV);
-REPLACE(0x004C5C50, &Nx::CPcPrimitive::GetX);
-REPLACE(0x004C5C70, &Nx::CPcPrimitive::GetY);
-REPLACE(0x004C5C90, &Nx::CPcPrimitive::GetZ);
-REPLACE(0x004C5CB0, &Nx::CPcPrimitive::GetNormalX);
-REPLACE(0x004C5CD0, &Nx::CPcPrimitive::GetNormalY);
-REPLACE(0x004C5CF0, &Nx::CPcPrimitive::GetNormalZ);
-REPLACE(0x004C5840, &Nx::CPcPrimitive::GetVertexColour);
-REPLACE(0x004C5890, &Nx::CPcPrimitive::GetU);
-REPLACE(0x004C58D0, &Nx::CPcPrimitive::GetV);
-REPLACE(0x004C5D10, &Nx::CPcPrimitive::Translate);
-REPLACE(0x004C5D80, &Nx::CPcPrimitive::TranslateX);
-REPLACE(0x004C5DC0, &Nx::CPcPrimitive::TranslateY);
-REPLACE(0x004C5E00, &Nx::CPcPrimitive::TranslateZ);
-REPLACE(0x004C5910, &Nx::CPcPrimitive::ScrollUV);
-REPLACE(0x004C5980, &Nx::CPcPrimitive::ScrollU);
-REPLACE(0x004C59D0, &Nx::CPcPrimitive::ScrollV);
-REPLACE(0x004C5340, &Nx::CPcPrimitive::Compare);
-REPLACE(0x004C5E40, Nx::SetPrimitiveDepthTest);

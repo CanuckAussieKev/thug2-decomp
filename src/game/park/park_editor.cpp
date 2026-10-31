@@ -1,16 +1,14 @@
 // The park editor's manager and cursor, 0x0059C900-0x0059E0F7 (see park_editor.h).
 
 #include "game/park/park_editor.h"
-#include "hook/game_code.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
 #include "game/ed/park_editor.h"
 #include "game/park/park_memory.h"
 #include "game/ed/rail_editor.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
@@ -53,7 +51,6 @@ void DestroyList(CMapListTemp& temp) { temp.Destroy(); }
 
 } // namespace
 
-
 // 0x0059CB10
 void CParkManager::RebuildPark(uint32_t how)
 {
@@ -75,7 +72,7 @@ void CParkManager::RebuildPark(uint32_t how)
         }
         WriteCompressedMap();
         if (At<uint16_t>(0x13C96) == kParkInfoVersion) {
-            const char* unnamed = GAME_TEXT(0x0064F32C, "unnamed park"); // "unnamed park"
+            const char* unnamed = "unnamed park"; // "unnamed park"
             std::memcpy(Bytes() + 0x13CAC, unnamed, std::strlen(unnamed) + 1);
             std::memcpy(Bytes() + 0x1772C, unnamed, std::strlen(unnamed) + 1);
         }
@@ -271,12 +268,3 @@ void CCursor::ChangeSet(int dir)
 }
 
 } // namespace Ed
-
-REPLACE(0x0059C900, Ed::CCursor::Destroy);
-REPLACE(0x0059C950, &Ed::CCursor::ChangePieceInSet);
-REPLACE(0x0059C9B0, &Ed::CCursor::ChangeSet);
-REPLACE(0x0059CB10, &Ed::CParkManager::RebuildPark);
-REPLACE(0x0059CC70, &Ed::CParkManager::RebuildArea);
-REPLACE(0x0059CD20, &Ed::CParkManager::DestroyMetasInAreaAndRebuild);
-REPLACE(0x0059CEC0, &Ed::CParkManager::ClearArea);
-REPLACE(0x0059D080, static_cast<bool (Ed::CParkManager::*)(Ed::GridDims, int)>(&Ed::CParkManager::ChangeFloorHeight));

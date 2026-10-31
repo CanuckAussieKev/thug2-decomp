@@ -1,6 +1,8 @@
 // Events, event listeners and the scripts' event handler tables (0x0045F7F0-0x00460792). See event.h and
 // docs/script-runtime.md section 11 (how an event reaches a script's handlers).
 
+#include <cstdint>
+
 #include "game/obj/event.h"
 
 #include "game/core/dbg.h"
@@ -11,9 +13,7 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Obj {
 
@@ -28,7 +28,6 @@ using Script::CStruct;
 constexpr uint32_t kParamsName = 0x7031F10C;
 constexpr uint32_t kGroupName = 0x923FBB3A;
 constexpr uint32_t kExceptionFlag = 0x80367192;
-
 
 // The tracker (0x006F0FC0, tracker.h): which scripts listen for which event types, the event listeners, the
 // event log.
@@ -490,37 +489,12 @@ void CEventHandlerTable::PassEvent(CEvent* event, CScript* script)
 
 } // namespace Obj
 
-REPLACE(0x0045F7F0, &Obj::CEvent::Construct);
-REPLACE(0x0045F980, &Obj::CEvent::MarkRead);
-REPLACE(0x0045F9B0, &Obj::CEvent::MarkHandled);
-REPLACE(0x0045F9E0, Obj::EventController);
-REPLACE(0x00460150, &Obj::CEvent::Destroy);
-REPLACE(0x0045FAA0, &Obj::CEventListener::Construct);
-REPLACE(0x0045FAC0, &Obj::CEventListener::Destroy);
-REPLACE(0x00460170, &Obj::CEventListener::DeletingDestructor);
-REPLACE(0x0045FB30, &Obj::CEventListener::RegisterWithTracker);
-REPLACE(0x0045F820, &Obj::CEventHandlerTable::Construct);
-REPLACE(0x0045FB70, &Obj::CEventHandlerTable::Destroy);
-REPLACE(0x0045F840, &Obj::CEventHandlerTable::MarkGroup);
-REPLACE(0x0045F880, Obj::CEventHandlerTable::PrintTable);
-REPLACE(0x0045FA10, &Obj::CEventHandlerTable::RegisterWithTracker);
-REPLACE(0x0045FA60, &Obj::CEventHandlerTable::UnregisterWithTracker);
-REPLACE(0x0045FBC0, &Obj::CEventHandlerTable::AddHandler);
-REPLACE(0x0045FDF0, &Obj::CEventHandlerTable::RemoveType);
-REPLACE(0x0045FE60, static_cast<void (Obj::CEventHandlerTable::*)(uint32_t)>(&Obj::CEventHandlerTable::RemoveGroup));
-REPLACE(0x004600E0, static_cast<void (Obj::CEventHandlerTable::*)(Script::CScript*, uint32_t)>(
-                        &Obj::CEventHandlerTable::RemoveGroup));
-REPLACE(0x0045FED0, &Obj::CEventHandlerTable::RemoveMarked);
-REPLACE(0x0045FF50, &Obj::CEventHandlerTable::Compact);
-REPLACE(0x004601A0, &Obj::CEventHandlerTable::AddHandlers);
-REPLACE(0x00460470, &Obj::CEventHandlerTable::PassEvent);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kEventListenerVtable, 0x006477D8,
-    &Obj::CEventListener::DeletingDestructor,
-    GAME_LIBRARY_SLOT(0x00623771));
+static VtableSlot kEventListenerVtable_slots[] = {&Obj::CEventListener::DeletingDestructor,
+         &_purecall};
+void** const kEventListenerVtable = reinterpret_cast<void**>(kEventListenerVtable_slots);
 
 } // namespace
 } // namespace Obj

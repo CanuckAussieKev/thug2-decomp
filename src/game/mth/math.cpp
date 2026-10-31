@@ -5,10 +5,6 @@
 #include <cstdint>
 
 #include "game/mth/x87_math.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/shadow.h"
 
 namespace Mth {
 
@@ -26,7 +22,7 @@ struct SinCosEntry {
 
 constexpr int kSinTableSize = 119; // 0 .. pi/2 inclusive
 
-GAME_GLOBAL(SinCosEntry[kSinTableSize], g_sinTable, 0x00690FE0);
+SinCosEntry g_sinTable[kSinTableSize];
 
 // Constants taken bit-for-bit from the exe. (Typing them in as decimals once introduced an error in the
 // 5th significant digit of kAtanC3, so they stay as exact bit patterns.)
@@ -175,13 +171,3 @@ void InitSinLookupTable()
 }
 
 } // namespace Mth
-
-REPLACE_SHADOW(0x004022C0, Mth::Clamp);
-REPLACE_SHADOW(0x00403EF0, Mth::FastACos);
-REPLACE(0x00403F70, Mth::InitSinLookupTable);
-REPLACE_SHADOW(0x00404010, Mth::KeepWithin);
-REPLACE_SHADOW(0x004049B0, Mth::FastAtan2);
-REPLACE(0x004058B0, Mth::CreateRotate2D);
-REPLACE_SHADOW(0x00405FD0, Mth::Sign);
-REPLACE_SHADOW(0x00405FF0, Mth::FastSin);
-REPLACE_SHADOW(0x00406020, Mth::FastCos);

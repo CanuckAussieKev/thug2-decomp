@@ -2,6 +2,7 @@
 // tricks, records (0x00554A80-0x00555A5F, 0x00556230; see goal.h).
 
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -24,16 +25,12 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
 #include "game/obj/compositemgr.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/tod_manager.h"
-#include "hook/game_code.h"
 
 namespace Game {
 
-GAME_GLOBAL(float, g_goalRunMinusMilliseconds, 0x0064604C, -1000.0f);
-GAME_GLOBAL(float, g_goalRunInchesToFeet, 0x006461F4, 0.083333336f);
+float g_goalRunMinusMilliseconds{-1000.0f};
+float g_goalRunInchesToFeet{0.083333336f};
 
 namespace {
 
@@ -322,7 +319,7 @@ void CGoal::KillCluster(uint32_t cluster, int score)
             m_params->GetInteger(kScore, &needed, 1);
         if (id == cluster && score > needed) {
             if (!Obj::g_trickObjectManager->SetObjectGraffitiColor(cluster, 0))
-                Dbg::Printf(GAME_TEXT(0x0064DDA4, "ModulateTrickObjectColor didn't work\n")); // "ModulateTrickObjectColor didn't work\n"
+                Dbg::Printf("ModulateTrickObjectColor didn't work\n"); // "ModulateTrickObjectColor didn't work\n"
             uint32_t flag;
             entry->GetChecksum(kFlag, &flag, 1);
             Virtual<bool>(this, kVtSetFlag, flag, 1, 0u);
@@ -521,33 +518,3 @@ bool CGoal::RunStarted()
 }
 
 } // namespace Game
-
-REPLACE(0x00554A80, &Game::CGoal::RunCallbackScript);
-REPLACE(0x00554AC0, &Game::CGoal::AddParent);
-REPLACE(0x00554B40, &Game::CGoal::AddChild);
-REPLACE(0x00554BD0, &Game::CGoal::Uninitialize);
-REPLACE(0x00554C70, &Game::CGoal::Lose);
-REPLACE(0x00554CD0, &Game::CGoal::IsExpired);
-REPLACE(0x00554D10, &Game::CGoal::IsExpiredAtEndOfRun);
-REPLACE(0x00554DD0, &Game::CGoal::Update);
-REPLACE(0x00554F40, &Game::CGoal::Expire);
-REPLACE(0x00554F90, &Game::CGoal::GotGap);
-REPLACE_SOURCE_ONLY(0x00554FD3, &Game::CGoal::GotGap); // (not a function: the rest of 0x00554F90's body, Ghidra's split)
-REPLACE(0x00555100, &Game::CGoal::NextWaypoint);
-REPLACE(0x005552D0, &Game::CGoal::KillCluster);
-REPLACE(0x005553C0, &Game::CGoal::DidTrickString);
-REPLACE(0x00555540, &Game::CGoal::GetRootGoalId);
-REPLACE(0x00555590, &Game::CGoal::HasWon);
-REPLACE(0x005555E0, &Game::CGoal::MarkWon);
-REPLACE(0x00555650, &Game::CGoal::SetStageFlag);
-REPLACE(0x00555670, &Game::CGoal::SetNetStageFlag);
-REPLACE(0x00555690, &Game::CGoal::StageFlagSet);
-REPLACE(0x005556B0, &Game::CGoal::NetStageFlagSet);
-REPLACE(0x005556D0, &Game::CGoal::SetStartHeight);
-REPLACE(0x00555710, &Game::CGoal::CheckHeightRecord);
-REPLACE(0x00555800, &Game::CGoal::CheckDistanceRecord);
-REPLACE(0x00555930, &Game::CGoal::UnBeat);
-REPLACE(0x00555970, &Game::CGoal::EndOfRunDone);
-REPLACE(0x005559E0, &Game::CGoal::RunDone);
-REPLACE(0x00555A20, &Game::CGoal::RunStarted);
-REPLACE(0x00556230, &Game::CGoal::ShouldExpire);

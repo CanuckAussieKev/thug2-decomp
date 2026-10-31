@@ -15,22 +15,19 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/gfx/weather.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[12], g_soundComponentMemberFunctions, 0x00683118,
+uint32_t g_soundComponentMemberFunctions[12]{
             0xAFA20E18, 0x07713C7B, 0, 0, 0, 0,
-            0, 0x07713C7B, 0, 0, 0, 0);
+            0, 0x07713C7B, 0, 0, 0, 0};
 
 namespace {
 
@@ -353,43 +350,24 @@ bool CSoundComponent::Obj_PlaySound(Script::CStruct* params, Script::CScript* /*
 
 } // namespace Obj
 
-REPLACE(0x00433100, Obj::CSoundComponent::Create);
-REPLACE(0x00432C80, Obj::CSoundComponent::RegisterMemberFunctions);
-REPLACE(0x00432D90, &Obj::CSoundComponent::Construct);
-REPLACE(0x00432DF0, &Obj::CSoundComponent::DestroyBody);
-REPLACE(0x00433160, &Obj::CSoundComponent::Destroy);
-REPLACE(0x00432CA0, &Obj::CSoundComponent::InitFromStructure);
-REPLACE(0x004335D0, &Obj::CSoundComponent::Update);
-REPLACE(0x00433190, &Obj::CSoundComponent::CallMemberFunction);
-REPLACE(0x00432D40, &Obj::CSoundComponent::KeepLoopingSound);
-REPLACE(0x00432E50, &Obj::CSoundComponent::GetSoundPosition);
-REPLACE(0x00432EB0, &Obj::CSoundComponent::GetPreviousSoundPosition);
-REPLACE(0x00432F10, &Obj::CSoundComponent::GetSoundExtent);
-REPLACE(0x00432F70, &Obj::CSoundComponent::UpdateProps);
-REPLACE(0x00433480, &Obj::CSoundComponent::UpdateWaitingSounds);
-REPLACE(0x00433240, &Obj::CSoundComponent::PlaySound);
-REPLACE(0x00432FF0, &Obj::CSoundComponent::AdjustSound);
-REPLACE(0x00432CE0, &Obj::CSoundComponent::SetSound);
-REPLACE(0x00433630, &Obj::CSoundComponent::Obj_PlaySound);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00646514,
-    &Obj::CSoundComponent::Destroy,
-    &Obj::CSoundComponent::Update,
-    &Obj::CSoundComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Nx::VirtualSlot1Jump,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::CSoundComponent::CallMemberFunction,
-    Stubs::IgnoreArguments3);
+static VtableSlot kVtable_slots[] = {&Obj::CSoundComponent::Destroy,
+         &Obj::CSoundComponent::Update,
+         &Obj::CSoundComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Nx::VirtualSlot1Jump,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::CSoundComponent::CallMemberFunction,
+         Stubs::IgnoreArguments3};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

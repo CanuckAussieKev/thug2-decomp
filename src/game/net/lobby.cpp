@@ -22,13 +22,10 @@
 #include "game/net/stats_man.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/gfx/loading_bar.h"
 #include "game/ass/assman.h"
 #include "game/net/task_vtable.h"
-#include "hook/game_code.h"
 #include "game/core/stubs.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
@@ -77,8 +74,10 @@ constexpr uint32_t kIndex = 0x7F8C98FE;                   // index
 constexpr int kGroupRoom = 1; // (GameSpy's RoomType)
 constexpr int kMaxRank = 10;
 
-GAME_VTABLE(kLobbyListVtable, 0x0064CBFC, &GameNet::LobbyNode::DestroyOther); // Lst::Head<LobbyRoom>, LobbyRoom
-GAME_VTABLE(kPlayerListVtable, 0x0064CBF8, &LobbyMan::Destroy); // Lst::Head<LobbyPlayer>, LobbyPlayer
+static VtableSlot kLobbyListVtable_slots[] = {&GameNet::LobbyNode::DestroyOther};
+void** const kLobbyListVtable = reinterpret_cast<void**>(kLobbyListVtable_slots); // Lst::Head<LobbyRoom>, LobbyRoom
+static VtableSlot kPlayerListVtable_slots[] = {&LobbyMan::Destroy};
+void** const kPlayerListVtable = reinterpret_cast<void**>(kPlayerListVtable_slots); // Lst::Head<LobbyPlayer>, LobbyPlayer
 
 Manager* TheManager() { return g_gameNetManager; }
 LobbyMan* TheLobby() { return static_cast<LobbyMan*>(TheManager()->m_lobbyMan); }
@@ -233,9 +232,9 @@ LobbyMan* LobbyMan::Construct()
     m_expectingDisconnect = true;
     m_peer = nullptr;
     m_lostConnection = false;
-    m_thinkTask = NewTask(this, reinterpret_cast<uint32_t>(GAME_CODE(0x00540040, GameNet::LobbyMan::ThinkTask)));
-    m_natTask = NewTask(this, reinterpret_cast<uint32_t>(GAME_CODE(0x005400B0, GameNet::LobbyMan::NatNegotiationTask)));
-    m_hostingTask = NewTask(this, reinterpret_cast<uint32_t>(GAME_CODE(0x005400E0, GameNet::LobbyMan::QueryTask)));
+    m_thinkTask = NewTask(this, reinterpret_cast<uint32_t>(CodeAddress(GameNet::LobbyMan::ThinkTask)));
+    m_natTask = NewTask(this, reinterpret_cast<uint32_t>(CodeAddress(GameNet::LobbyMan::NatNegotiationTask)));
+    m_hostingTask = NewTask(this, reinterpret_cast<uint32_t>(CodeAddress(GameNet::LobbyMan::QueryTask)));
     // The server-browsing keys (GameSpy's qr2 key registration).
     GameSpy::Qr2RegisterKey(0x33, "numobservers");
     GameSpy::Qr2RegisterKey(0x34, "maxobservers");
@@ -262,21 +261,21 @@ void LobbyMan::InitPeer()
     Memory()->PushContext(Memory()->m_networkHeap);
     // The SDK's callbacks (0x74 bytes; those not set stay null).
     uint32_t callbacks[0x1D] = {};
-    callbacks[0x00 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x0053F570, GameNet::LobbyMan::DisconnectedCallback)); // disconnected
-    callbacks[0x04 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x00540B60, GameNet::LobbyMan::RoomMessageCallback)); // roomMessage
-    callbacks[0x14 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x005480A0, Stubs::DoNothing)); // (nothing: the empty function)
+    callbacks[0x00 / 4] = reinterpret_cast<uint32_t>(CodeAddress(GameNet::LobbyMan::DisconnectedCallback)); // disconnected
+    callbacks[0x04 / 4] = reinterpret_cast<uint32_t>(CodeAddress(GameNet::LobbyMan::RoomMessageCallback)); // roomMessage
+    callbacks[0x14 / 4] = reinterpret_cast<uint32_t>(CodeAddress(Stubs::DoNothing)); // (nothing: the empty function)
     callbacks[0x24 / 4] = reinterpret_cast<uint32_t>(&PlayerJoinedCallback);
     callbacks[0x28 / 4] = reinterpret_cast<uint32_t>(&PlayerLeftCallback);
     callbacks[0x38 / 4] = reinterpret_cast<uint32_t>(&PlayerInfoCallback);
     callbacks[0x30 / 4] = reinterpret_cast<uint32_t>(&NewPlayerListCallback);
     callbacks[0x4C / 4] = reinterpret_cast<uint32_t>(&RoomKeyChangedCallback);
-    callbacks[0x68 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x00540C90, GameNet::LobbyMan::NatNegotiateCallback));
-    callbacks[0x5C / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x0053F620, GameNet::LobbyMan::KeyListCallback));
-    callbacks[0x50 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x0053F8D0, GameNet::LobbyMan::ServerKeyCallback));
-    callbacks[0x54 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x0053FB80, GameNet::LobbyMan::PlayerKeyCallback));
-    callbacks[0x60 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x0053FEC0, GameNet::LobbyMan::CountCallback));
-    callbacks[0x64 / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x005480A0, Stubs::DoNothing));
-    callbacks[0x6C / 4] = reinterpret_cast<uint32_t>(GAME_CODE(0x0053FDA0, GameNet::LobbyMan::PublicAddressCallback));
+    callbacks[0x68 / 4] = reinterpret_cast<uint32_t>(CodeAddress(GameNet::LobbyMan::NatNegotiateCallback));
+    callbacks[0x5C / 4] = reinterpret_cast<uint32_t>(CodeAddress(GameNet::LobbyMan::KeyListCallback));
+    callbacks[0x50 / 4] = reinterpret_cast<uint32_t>(CodeAddress(GameNet::LobbyMan::ServerKeyCallback));
+    callbacks[0x54 / 4] = reinterpret_cast<uint32_t>(CodeAddress(GameNet::LobbyMan::PlayerKeyCallback));
+    callbacks[0x60 / 4] = reinterpret_cast<uint32_t>(CodeAddress(GameNet::LobbyMan::CountCallback));
+    callbacks[0x64 / 4] = reinterpret_cast<uint32_t>(CodeAddress(Stubs::DoNothing));
+    callbacks[0x6C / 4] = reinterpret_cast<uint32_t>(CodeAddress(GameNet::LobbyMan::PublicAddressCallback));
     callbacks[0x70 / 4] = reinterpret_cast<uint32_t>(this); // (their parameter)
     m_peer = GameSpy::PeerInitialize(callbacks); // (the peer made)
     m_inGroupRoom = false;
@@ -286,7 +285,7 @@ void LobbyMan::InitPeer()
     Memory()->PopContext();
 }
 
-GAME_GLOBAL(uint32_t, g_unknownE430, 0x007CE430);
+uint32_t g_unknownE430;
 
 // 0x00541A10
 void LobbyMan::StartListingGames()
@@ -298,7 +297,7 @@ void LobbyMan::StartListingGames()
     g_listingAsked = 0;
     g_listingFound = 0;
     GameSpy::PeerListGroupRooms(m_peer, "\\maxplayers\\neversoft\\maxrating\\minrating",
-                                GAME_CODE(0x00541690, GameNet::LobbyMan::GroupRoomCallback), this, 0); // (the group rooms listed)
+                                CodeAddress(GameNet::LobbyMan::GroupRoomCallback), this, 0); // (the group rooms listed)
     Memory()->PopContext();
 }
 
@@ -645,19 +644,11 @@ bool __cdecl CFunc_LobbyConnect(Script::CStruct* params, Script::CScript* script
     Memory()->PushContext(Memory()->m_internetBottomUpHeap);
     LobbyMan* lobby = static_cast<LobbyMan*>(manager->m_lobbyMan);
     lobby->InitPeer();
-#ifdef THUG2_STANDALONE
     const char* key = Net::GameKey(); // (given to the SDK: nothing written into data)
-#else
-    const uint8_t* stored = reinterpret_cast<const uint8_t*>(0x0067F154);
-    char key[7];
-    for (int i = 0; i < 6; ++i)
-        key[i] = static_cast<char>(~stored[i]);
-    key[6] = '\0';
-#endif
     const char* name = Net::GameName();
     GameSpy::PeerSetTitle(static_cast<LobbyMan*>(manager->m_lobbyMan)->m_peer, name, key, name, key, 6, 15, 1, pingRooms,
                           crossPingRooms);
-    HANDLE thread = CreateThread(nullptr, 0x8000, reinterpret_cast<LPTHREAD_START_ROUTINE>(GAME_CODE(0x00540AB0, GameNet::LobbyMan::ConnectThread)),
+    HANDLE thread = CreateThread(nullptr, 0x8000, reinterpret_cast<LPTHREAD_START_ROUTINE>(CodeAddress(GameNet::LobbyMan::ConnectThread)),
                                  manager->m_lobbyMan, CREATE_SUSPENDED, &threadId);
     manager->SetLobbyId(threadId);
     ResumeThread(thread);
@@ -669,30 +660,3 @@ bool __cdecl CFunc_LobbyConnect(Script::CStruct* params, Script::CScript* script
 } // namespace GameNet
 
 using GameNet::LobbyMan;
-REPLACE(0x00545860, &GameNet::LobbyRoom::Construct);
-REPLACE(0x00541870, &LobbyMan::Construct);
-REPLACE(0x00541AC0, &LobbyMan::Destroy);
-REPLACE(0x00542DF0, &LobbyMan::InitPeer);
-REPLACE(0x00541A10, &LobbyMan::StartListingGames);
-REPLACE(0x005427E0, &LobbyMan::ClearLobbies);
-REPLACE(0x005428B0, &LobbyMan::FillLobbyList);
-REPLACE(0x00542970, &LobbyMan::GetLobby);
-REPLACE(0x00541AF0, &LobbyMan::ClearPlayers);
-REPLACE(0x00541BA0, &LobbyMan::FillPlayerList);
-REPLACE(0x00541C70, &LobbyMan::FillProspectiveBuddyList);
-REPLACE(0x00542B10, &LobbyMan::RequestPlayerList);
-REPLACE(0x00541D50, LobbyMan::PlayerJoinedCallback);
-REPLACE(0x00541FD0, LobbyMan::PlayerInfoCallback);
-REPLACE(0x005420C0, LobbyMan::PlayerLeftCallback);
-REPLACE(0x00542B70, LobbyMan::NewPlayerListCallback); // (not a Ghidra function)
-REPLACE(0x00542650, LobbyMan::RoomKeyChangedCallback);
-REPLACE(0x00542330, LobbyMan::RoomKeysCallback);      // (not a Ghidra function)
-REPLACE(0x005424F0, LobbyMan::EnumPlayersCallback);
-REPLACE(0x00542B80, LobbyMan::JoinRoomCallback);      // (not a Ghidra function)
-REPLACE(0x00541A70, GameNet::CFunc_NumPlayersInLobby);
-REPLACE(0x005429C0, GameNet::CFunc_LobbyDisconnect);
-REPLACE(0x00542AA0, GameNet::CFunc_FillPlayerList);
-REPLACE(0x00542B00, GameNet::CFunc_FillLobbyProspectiveBuddyList);
-REPLACE(0x00542CE0, GameNet::CFunc_RejoinLobby);
-REPLACE(0x00542D30, GameNet::CFunc_ChooseLobby);
-REPLACE(0x00542EE0, GameNet::CFunc_LobbyConnect);

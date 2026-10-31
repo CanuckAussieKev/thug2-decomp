@@ -19,8 +19,6 @@
 
 #include "game/ed/park_rails.h"
 #include "game/mth/vector.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
 #include "game/core/pool.h"
 
 namespace Script {
@@ -543,7 +541,7 @@ static_assert(offsetof(CompressedMap, m_numMetas) == 0x10 && offsetof(Compressed
 
 // The gap manager (the singleton 0x007CE5D4; the park manager keeps it at +0x177C4): the gaps placed in the park.
 class CGapManager;
-GAME_GLOBAL_EXTERN(CGapManager*, g_gapManager);
+extern CGapManager* g_gapManager;
 
 class CGapManager {
 public:
@@ -819,7 +817,7 @@ struct FloorPieceRequest {
     int height;
 };
 
-GAME_GLOBAL_EXTERN(CParkManager*, g_parkManager);
+extern CParkManager* g_parkManager;
 
 class CParkManager {
 public:
@@ -1100,7 +1098,7 @@ static_assert(offsetof(CParkManager, m_shellBlocks) == 0x14 && offsetof(CParkMan
 inline CPieceSet* Sets(CParkManager* manager) { return manager->m_sets; }
 
 // The cursor (200 bytes): the box the player moves over the grid, with the piece to place (or the copy to paste).
-GAME_GLOBAL_EXTERN(CCursor*, g_cursor);
+extern CCursor* g_cursor;
 
 class CCursor {
 public:
@@ -1274,14 +1272,14 @@ bool __cdecl CFunc_GetParkEditorMaxPlayers(Script::CStruct* params, Script::CScr
 // 0x0058E140 GetParkEditorMaxPlayersPossible: <MaxPlayersPossible> = how many players the park has room for.
 bool __cdecl CFunc_GetParkEditorMaxPlayersPossible(Script::CStruct* params, Script::CScript* script);
 
-GAME_GLOBAL_EXTERN(float, g_parkCellSizeX);
-GAME_GLOBAL_EXTERN(float, g_parkCellSizeY);
-GAME_GLOBAL_EXTERN(float, g_parkCellSizeZ);
-GAME_GLOBAL_EXTERN(Mth::Vector, g_railOrigin);
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_railPools);
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_clipboardPools);
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_clipboardEntryPools);
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_nodePools);
+extern float g_parkCellSizeX;
+extern float g_parkCellSizeY;
+extern float g_parkCellSizeZ;
+extern Mth::Vector g_railOrigin;
+extern Mem::PoolPair g_railPools;
+extern Mem::PoolPair g_clipboardPools;
+extern Mem::PoolPair g_clipboardEntryPools;
+extern Mem::PoolPair g_nodePools;
 
-GAME_GLOBAL_EXTERN(bool, g_railEditorFlag);
+extern bool g_railEditorFlag;
 } // namespace Ed

@@ -2,6 +2,7 @@
 
 #include "game/skate/score.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -17,8 +18,6 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/score_internal.h"
 #include "game/gfx/viewport_list.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Lst {
 
@@ -69,8 +68,8 @@ namespace Mdl {
 
 namespace ScoreInternal {
 
-GAME_GLOBAL(int[5], g_trickReduction, 0x0064E280, 100, 75, 50, 25, 10);
-GAME_GLOBAL(int[6], g_spinMultiplier, 0x0064E268, 2, 3, 4, 5, 6, 7);
+int g_trickReduction[5]{100, 75, 50, 25, 10};
+int g_spinMultiplier[6]{2, 3, 4, 5, 6, 7};
 
 Script::CStruct* NewStructure()
 {
@@ -335,13 +334,13 @@ void Score::DispatchScorePot(int points, float multiplier)
         shown[0] = ' ';
         shown[1] = 0;
     } else if (multiplier == 0.0f) {
-        std::snprintf(shown, sizeof(shown), GAME_TEXT(0x00646B8C, "%s"), Str::FormatWithSeparators(points)); // "%s"
+        std::snprintf(shown, sizeof(shown), "%s", Str::FormatWithSeparators(points)); // "%s"
     } else {
         int whole = Ftol(multiplier);
         if (static_cast<double>(whole) == multiplier)
-            std::snprintf(shown, sizeof(shown), GAME_TEXT(0x0064E2A0, "%s X %d"), Str::FormatWithSeparators(points), whole); // "%s X %d"
+            std::snprintf(shown, sizeof(shown), "%s X %d", Str::FormatWithSeparators(points), whole); // "%s X %d"
         else
-            std::snprintf(shown, sizeof(shown), GAME_TEXT(0x0064E294, "%s X %.1f"), Str::FormatWithSeparators(points),
+            std::snprintf(shown, sizeof(shown), "%s X %.1f", Str::FormatWithSeparators(points),
                           static_cast<double>(multiplier)); // "%s X %.1f"
     }
     text->SetText(shown); // (no check: as the original)
@@ -376,9 +375,9 @@ void Score::SetTotalScore(int total)
     char shown[0x40];
     if (GameMode()->GetNameChecksum() == kNetKing || GameMode()->GetNameChecksum() == kKing) {
         uint32_t seconds = static_cast<uint32_t>(m_total) / 1000;
-        std::snprintf(shown, sizeof(shown), GAME_TEXT(0x0064E2A8, "%d:%.2d"), seconds / 60, seconds % 60); // "%d:%.2d"
+        std::snprintf(shown, sizeof(shown), "%d:%.2d", seconds / 60, seconds % 60); // "%d:%.2d"
     } else {
-        std::snprintf(shown, sizeof(shown), GAME_TEXT(0x00645394, "%d"), m_total); // "%d"
+        std::snprintf(shown, sizeof(shown), "%d", m_total); // "%d"
     }
     Front::SetScoreText(shown, skater->GetSkaterNumber());
 }
@@ -641,8 +640,8 @@ void Score::UpdateRobotDetection(int line)
 void Score::TrimLog()
 {
     STrickLog merged = {};
-    std::memcpy(merged.m_text, GAME_TEXT(0x0064E2D8, "... + "), 7);  // "... + "
-    std::memcpy(merged.m_shown, GAME_TEXT(0x0064E2CC, "...\\_+\\_"), 9); // "...\_+\_"
+    std::memcpy(merged.m_text, "... + ", 7);  // "... + "
+    std::memcpy(merged.m_shown, "...\\_+\\_", 9); // "...\_+\_"
     int end = m_log.m_count;
     for (int i = 0; i < m_log.m_count; ++i) {
         if (i != 0 && !Trick(i)->m_text[0]) {
@@ -698,47 +697,3 @@ int Score::CountNonGapTricks()
 }
 
 } // namespace Mdl
-
-REPLACE(0x00561470, &Lst::DynamicTable::Construct);
-REPLACE(0x005614C0, &Lst::DynamicTable::DestroyBody);
-REPLACE(0x005614D0, &Lst::DynamicTable::Add);
-REPLACE(0x00562920, &Lst::DynamicTableDestroyer::DeleteTableContents);
-REPLACE_UNCHECKED(0x00561240, Mdl::ScoreIncrementStub); // EDX kept
-REPLACE(0x00561290, &Mdl::Score::SetSkaterId);
-REPLACE(0x005612A0, &Mdl::Score::EscapeSpaces);
-REPLACE(0x005612D0, &Mdl::Score::SetSpecialBarColors);
-REPLACE(0x00561360, Mdl::Score::TrickNameAfterTaps);
-REPLACE(0x00561400, &Mdl::Score::ResetBests);
-REPLACE(0x00561410, &Mdl::Score::AddBonus);
-REPLACE_SOURCE_ONLY(0x00561420, &Mdl::Score::GetBonus); // 4 bytes
-REPLACE(0x00561550, &Mdl::Score::GetScoreOfRange);
-REPLACE(0x00561640, &Mdl::Score::GetLastTrickName);
-REPLACE(0x00561660, &Mdl::Score::GetTrickName);
-REPLACE(0x00561670, &Mdl::Score::DispatchTrickSequence);
-REPLACE(0x00561730, &Mdl::Score::SetupBalanceMeter);
-REPLACE(0x00561890, &Mdl::Score::DispatchScorePot);
-REPLACE(0x005619E0, &Mdl::Score::CheckHighScore);
-REPLACE(0x00561A80, &Mdl::Score::SetTotalScore);
-REPLACE(0x00561B40, &Mdl::Score::GetTotalScore);
-REPLACE(0x00562080, Mdl::Score::TrickFromKeyCombo);
-REPLACE(0x00562150, Mdl::Score::CreatedTrickFromKeyCombo);
-REPLACE(0x00562250, &Mdl::Score::IsTrickAt);
-REPLACE(0x005622C0, &Mdl::Score::CountTrick);
-REPLACE(0x00562370, &Mdl::Score::CountTricksNamed);
-REPLACE(0x005623B0, &Mdl::Score::LastTrickIs);
-REPLACE(0x00562410, &Mdl::Score::LastTrickIsKeyCombo);
-REPLACE(0x005624C0, &Mdl::Score::CountTrickAfterTaps);
-REPLACE(0x00562510, &Mdl::Score::CountKeyCombo);
-REPLACE(0x005625A0, &Mdl::Score::CountTrickRepeats);
-REPLACE(0x00562620, &Mdl::Score::CountKeyComboRepeats);
-REPLACE_SOURCE_ONLY(0x005626E0, &Mdl::Score::RefreshBalanceMeter); // a jump to 0x00561730
-REPLACE(0x00562740, &Mdl::Score::IsGap);
-REPLACE(0x00562760, &Mdl::Score::SetSpecialActive);
-REPLACE(0x005627B0, &Mdl::Score::UpdateRobotDetection);
-REPLACE(0x005629D0, &Mdl::Score::TrimLog);
-REPLACE(0x00562B20, &Mdl::Score::TrickTextCountdown);
-REPLACE(0x00562C10, &Mdl::Score::TrickTextLanded);
-REPLACE(0x00562D00, &Mdl::Score::TrickTextBail);
-REPLACE(0x005638A0, &Mdl::Score::TrickTextPulse);
-REPLACE(0x00562DF0, &Mdl::Score::FillSpecial);
-REPLACE(0x005633B0, &Mdl::Score::CountNonGapTricks);

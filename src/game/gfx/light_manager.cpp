@@ -5,6 +5,7 @@
 #include "game/gfx/light_manager.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/dbg.h"
@@ -12,22 +13,19 @@
 #include "game/core/mem.h"
 #include "game/gfx/pc_lights.h"
 #include "game/mth/vector.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/sys/startup_init.h"
 
 namespace Nx {
 
-GAME_GLOBAL(int, g_dynamicLightCount, 0x006FAEF0);
+int g_dynamicLightCount;
 
-GAME_GLOBAL(CDynamicLightBase*[256], g_dynamicLights, 0x006FAAF0);
-GAME_GLOBAL(float*, g_intensities, 0x006FAAEC);
-GAME_GLOBAL(uint32_t, g_modelLightCount, 0x006FAAE4);
-GAME_GLOBAL(float, g_ambientIntensity, 0x0067DC94, 1.0f);
-GAME_GLOBAL(sWorldLights, g_worldLights, 0x0067DC98, 0, nullptr, nullptr, 0.5f, 0.0f, nullptr, nullptr);
-GAME_GLOBAL(sWorldLights[4], g_worldLightStack, 0x006FAF10); // (the saved ones: PushLights / PopLights)
+CDynamicLightBase* g_dynamicLights[256];
+float* g_intensities;
+uint32_t g_modelLightCount;
+float g_ambientIntensity{1.0f};
+sWorldLights g_worldLights{0, nullptr, nullptr, 0.5f, 0.0f, nullptr, nullptr};
+sWorldLights g_worldLightStack[4]; // (the saved ones: PushLights / PopLights)
 namespace {
 
 extern void** const kDynamicLightVtable;
@@ -36,12 +34,12 @@ constexpr int kMaxDynamicLights = 256;
 
 sWorldLights& World() { return g_worldLights; }
 sWorldLights* Stack() { return g_worldLightStack; }
-GAME_GLOBAL(int, g_lightStackTop, 0x0067DC88, -1);
-GAME_GLOBAL(float, g_lightBrightness, 0x0067DC8C, 1.0f);
-GAME_GLOBAL(float, g_lightBrightnessTarget, 0x0067DC90, 1.0f);
-GAME_GLOBAL(int[32], g_nearLightIndexes, 0x0067DCB8, -1); // GetDynamicLightsNear's indexes
-GAME_GLOBAL(float[31], g_nearLightFalloffs, 0x0067DD38, 1.0f); // GetDynamicLightsNear's falloffs
-GAME_GLOBAL(float, g_minIntensity, 0x006FAAE8);
+int g_lightStackTop{-1};
+float g_lightBrightness{1.0f};
+float g_lightBrightnessTarget{1.0f};
+int g_nearLightIndexes[32]{-1}; // GetDynamicLightsNear's indexes
+float g_nearLightFalloffs[31]{1.0f}; // GetDynamicLightsNear's falloffs
+float g_minIntensity;
 
 int& StackTop() { return g_lightStackTop; }
 uint32_t& LightCount() { return g_lightCount; }
@@ -394,38 +392,12 @@ double CDynamicLightBase::Falloff(float distance)
 }
 
 namespace {
-GAME_VTABLE(kDynamicLightVtable, 0x00649290, &Nx::CDynamicLightBase::IsOn, &Nx::CDynamicLightBase::InReach,
-            &Nx::CDynamicLightBase::Falloff);
+static VtableSlot kDynamicLightVtable_slots[] = {&Nx::CDynamicLightBase::IsOn, &Nx::CDynamicLightBase::InReach,
+                &Nx::CDynamicLightBase::Falloff};
+void** const kDynamicLightVtable = reinterpret_cast<void**>(kDynamicLightVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE_SOURCE_ONLY(0x0048EAC0, &Nx::sWorldLights::Construct); // (not a Ghidra function; a static initialiser's)
-REPLACE(0x0048EB00, &Nx::sWorldLights::FreeArrays);
-REPLACE(0x0048EB70, Nx::InitLightManager);
-REPLACE(0x0048FB60, Nx::UninitLightManager);
-REPLACE(0x0048E8F0, Nx::SetLightAmbientColor);
-REPLACE(0x0048E900, Nx::GetLightAmbientColor);
-REPLACE(0x0048E930, Nx::SetLightDiffuseColor);
-REPLACE(0x0048E950, Nx::GetLightDiffuseColor);
-REPLACE(0x0048ED70, Nx::SetLightDirection);
-REPLACE(0x0048E970, Nx::SetAmbientLightModulationFactor);
-REPLACE(0x0048E990, Nx::SetDiffuseLightModulationFactor);
-REPLACE(0x0048E9B0, Nx::GetAmbientLightModulationFactor);
-REPLACE(0x0048E9D0, Nx::GetDiffuseLightModulationFactor);
-REPLACE(0x0048EA00, Nx::PushWorldLights);
-REPLACE(0x0048EA40, Nx::PopWorldLights);
-REPLACE(0x0048EDB0, Nx::SetWorldBrightness);
-REPLACE(0x0048EF00, Nx::DeleteDynamicLights);
-REPLACE(0x0048EF50, Nx::FindDynamicLight);
-REPLACE(0x0048EF90, Nx::GetDynamicLightsNear);
-REPLACE(0x0048F160, Nx::CreateDynamicLight);
-REPLACE(0x0048FB80, Nx::NewDynamicLight);
-REPLACE(0x0048E8C0, &Nx::CDynamicLightBase::IsOn);
-REPLACE(0x0048EA90, &Nx::CDynamicLightBase::InReach);
-REPLACE(0x0048EAB0, &Nx::CDynamicLightBase::Falloff);
-REPLACE_SOURCE_ONLY(0x0048E8E0, Nx::ResetLights);      // a jump to 0x004B6940
-REPLACE_SOURCE_ONLY(0x0048EA80, Nx::CreateModelLights); // a jump to 0x004B6B10
 
 namespace Nx {
 

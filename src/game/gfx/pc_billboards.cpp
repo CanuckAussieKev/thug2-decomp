@@ -9,6 +9,7 @@
 #include <d3d9.h>
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -20,22 +21,19 @@
 #include "game/gfx/render_state.h"
 #include "game/gfx/settings.h"
 #include "game/gfx/window2d.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
 
 namespace Nx {
 
-GAME_GLOBAL(bool, g_billboardsReady, 0x00775B7C);
-GAME_GLOBAL(sBillboardManager, g_billboardManager, 0x00775B80);
-GAME_GLOBAL(uint8_t, g_billboardFlag, 0x00786EB4);
+bool g_billboardsReady;
+sBillboardManager g_billboardManager;
+uint8_t g_billboardFlag;
 
-GAME_GLOBAL(float[12], g_billboardConstants, 0x0067E998,
-    0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+float g_billboardConstants[12]{
+    0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
 
 namespace {
 
@@ -622,31 +620,12 @@ void __cdecl SetFlag786EB4() { g_billboardFlag = 1; }
 void __cdecl ClearFlag786EB4() { g_billboardFlag = 0; }
 
 namespace {
-GAME_VTABLE(kNodeVtable, 0x0064A894, &Nx::sBillboardNode::Destroy);
-GAME_VTABLE(kHeadVtable, 0x0064A898, &Nx::sBillboardNode::DestroyHead);
-GAME_VTABLE(kWindowVtable, 0x0064A88C, &Nx::CPcWindow::Destroy, Stubs::DoNothing);
+static VtableSlot kNodeVtable_slots[] = {&Nx::sBillboardNode::Destroy};
+void** const kNodeVtable = reinterpret_cast<void**>(kNodeVtable_slots);
+static VtableSlot kHeadVtable_slots[] = {&Nx::sBillboardNode::DestroyHead};
+void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
+static VtableSlot kWindowVtable_slots[] = {&Nx::CPcWindow::Destroy, Stubs::DoNothing};
+void** const kWindowVtable = reinterpret_cast<void**>(kWindowVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE_UNCHECKED(0x004CD980, Nx::PrimitiveCountStub);
-REPLACE(0x004CD9D0, Nx::CompareBatches);
-REPLACE_UNCHECKED(0x004CDD00, Nx::DrawBillboardMeshStub);
-REPLACE(0x004CDA60, &Nx::sBillboardManager::Find);
-REPLACE(0x004CDAA0, &Nx::sBillboardManager::SetupAxes);
-REPLACE(0x004CEBE0, &Nx::sBillboardManager::AddMesh);
-REPLACE(0x004CE9F0, &Nx::sBillboardManager::RemoveMesh);
-REPLACE(0x004CEAB0, &Nx::sBillboardManager::Render);
-REPLACE(0x004CEB30, &Nx::sBillboardBatch::Construct);
-REPLACE(0x004CE1D0, &Nx::sBillboardBatch::AddEntry);
-REPLACE(0x004CE250, &Nx::sBillboardBatch::RemoveEntry);
-REPLACE(0x004CE2D0, &Nx::sBillboardBatch::Render);
-REPLACE(0x004CE9D0, &Nx::sBillboardNode::Unlink);
-REPLACE(0x004CE960, &Nx::sBillboardNode::Destroy);
-REPLACE(0x004CE9A0, &Nx::sBillboardNode::DestroyHead);
-REPLACE(0x004CD860, &Nx::CPcWindow::DestroyBody);
-REPLACE(0x004CD870, &Nx::CPcWindow::Destroy);
-REPLACE(0x004CD8A0, Nx::CreateWindowPool);
-REPLACE(0x004CD940, Nx::MarkBillboardsReady);
-REPLACE_SOURCE_ONLY(0x004CD960, Nx::SetFlag786EB4); // (8 bytes)
-REPLACE_SOURCE_ONLY(0x004CD970, Nx::ClearFlag786EB4); // (8 bytes)

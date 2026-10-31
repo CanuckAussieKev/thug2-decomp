@@ -17,11 +17,8 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "game/obj/collide_and_die.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/gfx/engine.h"
-#include "hook/game_code.h"
 #include "game/core/stubs.h"
 #include "game/obj/camera_lookaround.h"
 
@@ -40,8 +37,8 @@ void CParticleSystem::SetFlag(int bit, bool on)
 
 namespace Obj {
 
-GAME_GLOBAL(float, g_particleUpdateTime, 0x0067D6D0, 1.0f);
-GAME_GLOBAL(uint32_t[156], g_flexibleParticleMemberFunctions, 0x00683AC0,
+float g_particleUpdateTime{1.0f};
+uint32_t g_flexibleParticleMemberFunctions[156]{
             0x63274395, 0xC5BCEB9E, 0, 0, 0, 0,
             0x8FFDEF38, 0xC5BCEB9E, 0, 0, 0, 0,
             0x7911855B, 0xC5BCEB9E, 0, 0, 0, 0,
@@ -67,7 +64,7 @@ GAME_GLOBAL(uint32_t[156], g_flexibleParticleMemberFunctions, 0x00683AC0,
             0x2A1F307B, 0xC5BCEB9E, 0, 0, 0, 0,
             0xABF5F9E1, 0xC5BCEB9E, 0, 0, 0, 0,
             0x83B57984, 0xC5BCEB9E, 0, 0, 0, 0,
-            0, 0xC5BCEB9E, 0, 0, 0, 0);
+            0, 0xC5BCEB9E, 0, 0, 0, 0};
 
 namespace {
 
@@ -514,44 +511,23 @@ int CFlexibleParticleComponent::DestroyParticles(uint32_t, Script::CStruct*, Scr
 
 } // namespace Obj
 
-REPLACE(0x0041E1E0, Obj::CFlexibleParticleComponent::Create);
-REPLACE(0x0041D6E0, Obj::CFlexibleParticleComponent::RegisterMemberFunctions);
-REPLACE(0x0041DA00, &Obj::CFlexibleParticleComponent::Construct);
-REPLACE(0x0041DA80, &Obj::CFlexibleParticleComponent::DestroyBody);
-REPLACE(0x0041E240, &Obj::CFlexibleParticleComponent::Destroy);
-REPLACE(0x0041DB00, &Obj::CFlexibleParticleComponent::InitFromStructure);
-REPLACE(0x0041D740, &Obj::CFlexibleParticleComponent::Finalize);
-REPLACE(0x0041DF80, &Obj::CFlexibleParticleComponent::Update);
-REPLACE(0x0041D760, &Obj::CFlexibleParticleComponent::Hide);
-REPLACE(0x0041D780, &Obj::CFlexibleParticleComponent::CallMemberFunction);
-REPLACE(0x0041D700, &Obj::CFlexibleParticleComponent::CallMemberFunctionEntry);
-REPLACE(0x0041D7F0, &Obj::CFlexibleParticleComponent::PassToSystem);
-REPLACE(0x0041D820, &Obj::CFlexibleParticleComponent::EmptySystem);
-REPLACE(0x0041D840, &Obj::CFlexibleParticleComponent::SetScripts);
-REPLACE(0x0041D8F0, &Obj::CFlexibleParticleComponent::ShouldEmit);
-REPLACE(0x0041D920, &Obj::CFlexibleParticleComponent::EmitOn);
-REPLACE(0x0041D940, &Obj::CFlexibleParticleComponent::EmitOff);
-REPLACE(0x0041D960, &Obj::CFlexibleParticleComponent::DestroySystem);
-REPLACE(0x0041E190, &Obj::CFlexibleParticleComponent::DestroyParticles);
-REPLACE(0x0041D9C0, &Nx::CParticleSystem::SetFlag);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00645FE4,
-    &Obj::CFlexibleParticleComponent::Destroy,
-    &Obj::CFlexibleParticleComponent::Update,
-    &Obj::CFlexibleParticleComponent::InitFromStructure,
-    &Obj::CFlexibleParticleComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    Stubs::IgnoreArgument,
-    &Obj::CFlexibleParticleComponent::Hide,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CFlexibleParticleComponent::CallMemberFunctionEntry,
-    &Obj::CFlexibleParticleComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CFlexibleParticleComponent::Destroy,
+         &Obj::CFlexibleParticleComponent::Update,
+         &Obj::CFlexibleParticleComponent::InitFromStructure,
+         &Obj::CFlexibleParticleComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         Stubs::IgnoreArgument,
+         &Obj::CFlexibleParticleComponent::Hide,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CFlexibleParticleComponent::CallMemberFunctionEntry,
+         &Obj::CFlexibleParticleComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

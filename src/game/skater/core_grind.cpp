@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <new>
 
 #include "game/core/dbg.h"
 #include "game/mth/math.h"
@@ -35,17 +36,13 @@
 #include "game/skate/score.h"
 #include "game/ed/park_editor.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 #include "game/obj/trigger_events.h"
 
 namespace Skater {
 
 using namespace CoreFields;
 
-GAME_GLOBAL(Mth::Vector, g_acidHold, 0x007CCDBC);
+Mth::Vector g_acidHold;
 
 namespace {
 
@@ -347,10 +344,10 @@ void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool from
         return;
     if (Flag(c, 0xA8)) {
         // (From an acid drop: its hold velocity added.)
-        Dbg::Printf(GAME_TEXT(0x006466B0, "M:%s:%i: %s\n"), GAME_TEXT(0x0064BCE0, "mponents\\SkaterCorePhysicsComponent.cpp"), 9116,
-                    GAME_TEXT(0x0064BD90, "GRINDING FROM ACID DROP")); // "M:%s:%i: %s" ... "GRINDING FROM ACID DROP"
+        Dbg::Printf("M:%s:%i: %s\n", "mponents\\SkaterCorePhysicsComponent.cpp", 9116,
+                    "GRINDING FROM ACID DROP"); // "M:%s:%i: %s" ... "GRINDING FROM ACID DROP"
         const Mth::Vector& hold = AcidHold();
-        Dbg::Printf(GAME_TEXT(0x0064BD6C, "D:%s:%i: acid_hold = %g, %g, %g\n"), GAME_TEXT(0x0064BCE0, "mponents\\SkaterCorePhysicsComponent.cpp"), 9117,
+        Dbg::Printf("D:%s:%i: acid_hold = %g, %g, %g\n", "mponents\\SkaterCorePhysicsComponent.cpp", 9117,
                     static_cast<double>(hold.x), static_cast<double>(hold.y), static_cast<double>(hold.z));
         Mth::Vector& v = VectorAt(ObjectOf(c), kVelocity);
         v.x = AcidHold().x + v.x;
@@ -608,6 +605,3 @@ void CorePhysicsComponent::TryGrind(bool always)
 }
 
 } // namespace Skater
-
-REPLACE(0x0050DAE0, &Skater::CorePhysicsComponent::TryGrind);
-REPLACE(0x0050A770, &Skater::CorePhysicsComponent::StartGrind);

@@ -11,27 +11,24 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/skater/vehicle_sound.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[42], g_objectProximityMemberFunctions, 0x00682620,
+uint32_t g_objectProximityMemberFunctions[42]{
             0x82A0A873, 0x1D5B1AE6, 0, 0, 0, 0,
             0x8CB5D0C0, 0x1D5B1AE6, 0, 0, 0, 0,
             0x50F28D36, 0x1D5B1AE6, 0, 0, 0, 0,
             0x2D703B94, 0x1D5B1AE6, 0, 0, 0, 0,
             0x13C0D8DC, 0x1D5B1AE6, 0, 0, 0, 0,
             0x9522F906, 0x1D5B1AE6, 0, 0, 0, 0,
-            0, 0x1D5B1AE6, 0, 0, 0, 0);
+            0, 0x1D5B1AE6, 0, 0, 0, 0};
 
 namespace {
 
@@ -258,38 +255,23 @@ bool CObjectProximityComponent::Obj_ObjectInAttentionRadius(Script::CStruct* /*p
 
 } // namespace Obj
 
-REPLACE(0x004EC420, Obj::CObjectProximityComponent::Create);
-REPLACE(0x004EC220, Obj::CObjectProximityComponent::RegisterMemberFunctions);
-REPLACE(0x004EC370, &Obj::CObjectProximityComponent::Construct);
-REPLACE(0x004EC240, &Obj::CObjectProximityComponent::DestroyBody);
-REPLACE(0x004EC390, &Obj::CObjectProximityComponent::Destroy);
-REPLACE(0x004EC560, &Obj::CObjectProximityComponent::Update);
-REPLACE(0x004EC3C0, &Obj::CObjectProximityComponent::LocalSkaterDistanceSquared);
-REPLACE(0x004EC4B0, &Obj::CObjectProximityComponent::NearestSkaterDistanceSquared);
-REPLACE(0x004EC250, &Obj::CObjectProximityComponent::Obj_SetInnerRadius);
-REPLACE(0x004EC280, &Obj::CObjectProximityComponent::Obj_SetOuterRadius);
-REPLACE(0x004EC2B0, &Obj::CObjectProximityComponent::Obj_SetInnerAvoidRadius);
-REPLACE(0x004EC2E0, &Obj::CObjectProximityComponent::Obj_SetOuterAvoidRadius);
-REPLACE(0x004EC310, &Obj::CObjectProximityComponent::Obj_SetAttentionRadius);
-REPLACE(0x004EC480, &Obj::CObjectProximityComponent::Obj_ObjectInAttentionRadius);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064B6C4,
-    &Obj::CObjectProximityComponent::Destroy,
-    &Obj::CObjectProximityComponent::Update,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CObjectProximityComponent::Destroy,
+         &Obj::CObjectProximityComponent::Update,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

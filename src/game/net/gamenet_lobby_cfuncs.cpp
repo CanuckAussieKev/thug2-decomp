@@ -15,11 +15,8 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/ass/assman.h"
-#include "hook/game_code.h"
 #include "game/core/stubs.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
@@ -40,9 +37,9 @@ namespace GameNet {
 
 using namespace Detail;
 
-GAME_GLOBAL(int, g_queuedCount, 0x007CE438);
+int g_queuedCount;
 
-GAME_GLOBAL(QueuedPacket[200], g_queuedPackets, 0x007CCE50);
+QueuedPacket g_queuedPackets[200];
 
 namespace {
 
@@ -93,7 +90,7 @@ bool __cdecl CFunc_StartNatNegotiation(Script::CStruct* params, Script::CScript*
     Net::App* client = manager->SpawnClient(false, false, true, 0);
     GameSpy::PeerSendNatNegotiateCookie(lobby->m_peer, static_cast<uint32_t>(inet_addr(address)), port, lobby->m_natCookie); // the cookie to the host
     int error = GameSpy::NatBeginWithSocket(client->Socket(), lobby->m_natCookie, kClientNatIndex,
-                                            GAME_CODE(0x005480A0, Stubs::DoNothing) /* no progress callback */,
+                                            CodeAddress(Stubs::DoNothing) /* no progress callback */,
                                             &LobbyMan::NatNegotiationCompleted,
                                             reinterpret_cast<void*>(static_cast<intptr_t>(lobby->m_natCookie))); // negotiation on the client's socket
     if (error) {
@@ -178,10 +175,3 @@ bool __cdecl CFunc_CanHostGame(Script::CStruct*, Script::CScript*)
 }
 
 } // namespace GameNet
-
-REPLACE(0x00540430, GameNet::CFunc_StartNatNegotiation);
-REPLACE(0x005403E0, GameNet::CFunc_CancelNatNegotiation);
-REPLACE(0x00540590, GameNet::CFunc_LeaveLobby);
-REPLACE(0x00540640, GameNet::CFunc_CancelLobbyConnect);
-REPLACE(0x00540660, GameNet::CFunc_SetQuietMode);
-REPLACE(0x005406C0, GameNet::CFunc_CanHostGame);

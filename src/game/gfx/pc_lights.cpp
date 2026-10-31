@@ -4,24 +4,21 @@
 #include "game/gfx/pc_lights.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/engine_model_lights.h"
 #include "game/gfx/light_manager.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 
 namespace Nx {
 
-GAME_GLOBAL(Mth::Vector, g_sceneLightDirection, 0x0070166C);
-GAME_GLOBAL(uint32_t, g_sceneLightDirectionGuard, 0x0070167C);
-GAME_GLOBAL(float[28], g_lightConstants, 0x00786F38);
-
+Mth::Vector g_sceneLightDirection;
+uint32_t g_sceneLightDirectionGuard;
+float g_lightConstants[28];
 
 namespace {
 
@@ -340,38 +337,13 @@ CPcModelLights* __cdecl CreateModelLights()
 }
 
 namespace {
-GAME_VTABLE(kModelLightsVtable, 0x0064A440, &Nx::CPcModelLights::Destroy, &Nx::CPcModelLights::SetAmbientColor,
-            &Nx::CPcModelLights::SetLightDirection, &Nx::CPcModelLights::SetLightDiffuseColor,
-            &Nx::CPcModelLights::GetAmbientColor, &Nx::CPcModelLights::GetLightDirection,
-            &Nx::CPcModelLights::GetLightDiffuseColor, &Nx::CPcModelLights::Update, Stubs::IgnoreArguments2,
-            &Nx::CPcModelLights::EnableAmbientOverride, &Nx::CPcModelLights::EnableLightOverride,
-            &Nx::CPcModelLights::IsAmbientOverridden, &Nx::CPcModelLights::IsLightOverridden);
+static VtableSlot kModelLightsVtable_slots[] = {&Nx::CPcModelLights::Destroy, &Nx::CPcModelLights::SetAmbientColor,
+                &Nx::CPcModelLights::SetLightDirection, &Nx::CPcModelLights::SetLightDiffuseColor,
+                &Nx::CPcModelLights::GetAmbientColor, &Nx::CPcModelLights::GetLightDirection,
+                &Nx::CPcModelLights::GetLightDiffuseColor, &Nx::CPcModelLights::Update, Stubs::IgnoreArguments2,
+                &Nx::CPcModelLights::EnableAmbientOverride, &Nx::CPcModelLights::EnableLightOverride,
+                &Nx::CPcModelLights::IsAmbientOverridden, &Nx::CPcModelLights::IsLightOverridden};
+void** const kModelLightsVtable = reinterpret_cast<void**>(kModelLightsVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004B6270, &Nx::CPcModelLights::Construct);
-REPLACE(0x004B6360, &Nx::CPcModelLights::DestroyBody);
-REPLACE(0x004B67B0, &Nx::CPcModelLights::Destroy);
-REPLACE(0x004B6160, &Nx::CPcModelLights::SetAmbientColor);
-REPLACE(0x004B6170, &Nx::CPcModelLights::GetAmbientColor);
-REPLACE(0x004B6780, &Nx::CPcModelLights::SetLightDirection);
-REPLACE(0x004B6180, &Nx::CPcModelLights::GetLightDirection);
-REPLACE(0x004B61B0, &Nx::CPcModelLights::SetLightDiffuseColor);
-REPLACE(0x004B61D0, &Nx::CPcModelLights::GetLightDiffuseColor);
-REPLACE(0x004B63B0, &Nx::CPcModelLights::Update);
-REPLACE(0x004B61F0, &Nx::CPcModelLights::EnableAmbientOverride);
-REPLACE(0x004B6240, &Nx::CPcModelLights::IsAmbientOverridden);
-REPLACE(0x004B6210, &Nx::CPcModelLights::EnableLightOverride);
-REPLACE(0x004B6250, &Nx::CPcModelLights::IsLightOverridden);
-REPLACE(0x004B67E0, Nx::UpdateAmbientLight);
-REPLACE(0x004B6850, Nx::GetAmbientLightColor);
-REPLACE(0x004B6860, Nx::UpdateLightColor);
-REPLACE(0x004B68E0, Nx::GetLightColor);
-REPLACE(0x004B6900, Nx::UpdateAllLights);
-REPLACE(0x004B6920, Nx::DeleteModelLights);
-REPLACE(0x004B6940, Nx::ResetLights);
-REPLACE(0x004B6A70, Nx::UpdateLightDirection);
-REPLACE(0x004B6AB0, Nx::GetLightDirection);
-REPLACE(0x004B6B10, Nx::CreateModelLights);
-REPLACE_SOURCE_ONLY(0x0048E920, Nx::GetLightDirection); // a jump to 0x004B6AB0

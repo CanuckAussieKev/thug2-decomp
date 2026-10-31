@@ -22,13 +22,10 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[78], g_rigidBodyMemberFunctions, 0x00683F28,
+uint32_t g_rigidBodyMemberFunctions[78]{
             0xCC12CF87, 0xFFB39248, 0, 0, 0, 0,
             0x9599C10F, 0xFFB39248, 0, 0, 0, 0,
             0xCD5BA67B, 0xFFB39248, 0, 0, 0, 0,
@@ -41,8 +38,8 @@ GAME_GLOBAL(uint32_t[78], g_rigidBodyMemberFunctions, 0x00683F28,
             0x49F44585, 0xFFB39248, 0, 0, 0, 0,
             0xD4A0946B, 0xFFB39248, 0, 0, 0, 0,
             0x949BE8A9, 0xFFB39248, 0, 0, 0, 0,
-            0, 0xFFB39248, 0, 0, 0, 0);
-GAME_GLOBAL(int, g_nextCollideSoundTime, 0x006939D8);
+            0, 0xFFB39248, 0, 0, 0, 0};
+int g_nextCollideSoundTime;
 
 namespace {
 
@@ -403,17 +400,3 @@ void CRigidBodyComponent::FeelPushers()
 } // namespace Obj
 
 using Obj::CRigidBodyComponent;
-
-REPLACE(0x0042BAC0, Obj::CFunc_ToggleRigidBodyDebug);
-REPLACE(0x0042BB00, CRigidBodyComponent::RegisterMemberFunctions);
-REPLACE(0x0042BB20, &Obj::CBaseComponent::RunMemberFunction);
-REPLACE(0x0042BB60, &CRigidBodyComponent::RigidBody_IgnoreSkater);
-REPLACE(0x0042BBB0, &CRigidBodyComponent::RigidBody_Disable);
-REPLACE(0x0042BBD0, &CRigidBodyComponent::RigidBody_Reset);
-REPLACE(0x0042BD60, Obj::SetRigidBodyPusherReach);
-REPLACE(0x0042BD90, &CRigidBodyComponent::Finalize);
-REPLACE(0x0042BE90, &CRigidBodyComponent::Sleep);
-REPLACE(0x0042BF00, &CRigidBodyComponent::UpdateWorldPoints);
-REPLACE(0x0042C140, &CRigidBodyComponent::FeelPushers);
-REPLACE(0x0042C6D0, &CRigidBodyComponent::Damp);
-REPLACE(0x0042C890, &CRigidBodyComponent::CheckSleep);

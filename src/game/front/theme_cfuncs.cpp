@@ -6,8 +6,6 @@
 
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace CFuncs {
 
@@ -123,23 +121,3 @@ bool __cdecl CFunc_Theme_GetTextTwitchColor(Script::CStruct* params, Script::CSc
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005B4260, CFuncs::CFunc_Theme_GetHighlightedTextColor);
-REPLACE(0x005B4290, CFuncs::CFunc_Theme_GetUnhighlightedTextColor);
-REPLACE(0x005B42C0, CFuncs::CFunc_Theme_GetHighlightedTextColorNew);
-REPLACE(0x005B42F0, CFuncs::CFunc_Theme_GetUnhighlightedTextColorNew);
-REPLACE(0x005B4320, CFuncs::CFunc_Theme_GetHighlightBarColor);
-REPLACE(0x005B4350, CFuncs::CFunc_Theme_GetSpeechBoxColor);
-REPLACE(0x005B4380, CFuncs::CFunc_Theme_GetPauseBarColor);
-REPLACE(0x005B43B0, CFuncs::CFunc_Theme_GetIconOnColor);
-REPLACE(0x005B43E0, CFuncs::CFunc_Theme_GetFontColors);
-REPLACE(0x005B4410, CFuncs::CFunc_Theme_GetSupportPieceColor);
-REPLACE(0x005B4440, CFuncs::CFunc_Theme_GetAltColor);
-REPLACE(0x005B4470, CFuncs::CFunc_Theme_GetMenuTitleColor);
-REPLACE(0x005B44A0, CFuncs::CFunc_Theme_GetHUDColor);
-REPLACE(0x005B44D0, CFuncs::CFunc_Theme_GetHUDSpecialColor);
-REPLACE(0x005B4500, CFuncs::CFunc_Theme_GetBalanceMeterColor);
-REPLACE(0x005B4530, CFuncs::CFunc_Theme_GetBalanceArrowColor);
-REPLACE(0x005B4560, CFuncs::CFunc_Theme_GetBGPartsColor);
-REPLACE(0x005B4590, CFuncs::CFunc_Theme_GetKeyColor);
-REPLACE(0x005B45C0, CFuncs::CFunc_Theme_GetTextTwitchColor);

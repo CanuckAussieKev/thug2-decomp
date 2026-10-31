@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include "hook/game_global.h"
 
 namespace Script {
 class CStruct;
@@ -58,6 +57,6 @@ bool __cdecl CFunc_UnloadSFPTexture(Script::CStruct* params, Script::CScript* sc
 // 0x005AA8F0: SetParkName <string>: copied to the park name (0x007CED58, no length limit). False.
 bool __cdecl CFunc_SetParkName(Script::CStruct* params, Script::CScript* script);
 
-GAME_GLOBAL_EXTERN(bool, g_textureFlagCe441);
-GAME_GLOBAL_EXTERN(char[128], g_parkName);
+extern bool g_textureFlagCe441;
+extern char g_parkName[128];
 } // namespace CFuncs

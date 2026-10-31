@@ -3,7 +3,6 @@
 #include <cstdint>
 
 #include "game/mth/vector.h"
-#include "hook/game_global.h"
 
 namespace Script {
 class CStruct;
@@ -716,7 +715,7 @@ private:
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).
 void __cdecl TrackingPrint(int index, const Mth::Vector* a, const Mth::Vector* b);
 
-GAME_GLOBAL_EXTERN(Mth::Vector, g_acidHold);
+extern Mth::Vector g_acidHold;
 
 // 0x0064BC48: corePhysicsVtable (defined where the class's functions are).
 extern void** const g_corePhysicsVtable;

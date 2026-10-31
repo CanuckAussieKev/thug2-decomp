@@ -2,8 +2,9 @@
 // form (the map that's saved and sent), the gaps attached to pieces, and the memory bar.
 
 #include "game/ed/park.h"
-#include "hook/game_code.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/crc.h"
@@ -16,14 +17,11 @@
 #include "game/ed/rail_editor.h"
 #include "game/ed/goal_editor.h"
 #include "game/ed/park_editor.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
-GAME_GLOBAL(float, g_parkGapGridOffset, 0x0064F730, 28.0f);
-GAME_GLOBAL(Ed::CParkEditor*, g_parkEditor, 0x007CE5D8);
+float g_parkGapGridOffset{28.0f};
+Ed::CParkEditor* g_parkEditor;
 
 namespace {
 
@@ -439,7 +437,7 @@ void CParkManager::ClearCompressedMap()
     map.m_l = m_parkBounds.l;
     map.m_theme = static_cast<void*>(g_parkEditor) ? EditorValue78() : 0;
     map.m_maxPlayers = 2;
-    std::memcpy(map.m_name, GAME_TEXT(0x0064F734, "Unnamed park"), 13); // "Unnamed park"
+    std::memcpy(map.m_name, "Unnamed park", 13); // "Unnamed park"
     std::memset(map.m_floorHeights, 0, kFloorSize * kFloorSize);
     map.m_numMetas = 0;
     uint32_t used = offsetof(CompressedMap, m_floorHeights) + kFloorSize * kFloorSize;
@@ -546,27 +544,14 @@ void CParkManager::RemoveGap(GapInfo* gap)
 
 void CParkManager::PrintMapList(const CMapListNode* list)
 {
-    Dbg::Printf(GAME_TEXT(0x0064F404, "contents of map list:\n"));
+    Dbg::Printf("contents of map list:\n");
     for (const CMapListNode* node = list; node; node = node->mp_next) {
-        Dbg::Printf(GAME_TEXT(0x0064F3F0, "   address=%p area="), node->mp_meta);
+        Dbg::Printf("   address=%p area=", node->mp_meta);
         const GridDims& d = node->mp_meta->m_cell_area;
-        Dbg::Printf(GAME_TEXT(0x0064F394, "pos=(%d,%d,%d) dims=(%d,%d,%d)\n"), d.x, static_cast<int>(d.y), d.z, d.w, d.h, d.l);
+        Dbg::Printf("pos=(%d,%d,%d) dims=(%d,%d,%d)\n", d.x, static_cast<int>(d.y), d.z, d.w, d.h, d.l);
     }
 }
 
 } // namespace Ed
 
 using Ed::CParkManager;
-
-REPLACE(0x005960D0, &CParkManager::SetUpAbstractMetas);
-REPLACE(0x00596980, &CParkManager::WriteCompressedMap);
-REPLACE(0x00596CD0, &CParkManager::SetDefaultBounds);
-REPLACE(0x00596D50, &CParkManager::SetUpRoadMask);
-REPLACE(0x00596E50, &CParkManager::SetUpLights);
-REPLACE(0x00596FB0, &CParkManager::UpdatePercentBar);
-REPLACE(0x005975A0, &CParkManager::WriteCompressedMapIfBuilt);
-REPLACE(0x005975B0, &CParkManager::WriteIntoStructure);
-REPLACE(0x00597720, &CParkManager::SetShellSize);
-REPLACE(0x005987A0, &CParkManager::ClearCompressedMap);
-REPLACE(0x00597BD0, &CParkManager::AddGap);
-REPLACE(0x00597FC0, &CParkManager::RemoveGap);

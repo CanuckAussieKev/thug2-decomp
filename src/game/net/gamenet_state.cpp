@@ -13,12 +13,8 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "game/ed/goal_editor.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace GameNet {
-
 
 namespace {
 
@@ -182,7 +178,7 @@ Net::App* Manager::GetMatchClient() { return m_matchClient; }
 // 0x00532EC0
 void* Manager::GetCamPlayer() { return m_camPlayer; }
 
-GAME_GLOBAL(uint32_t, g_commandLineServer, 0x0067EFB8, 0xFFFFFFFF);
+uint32_t g_commandLineServer{0xFFFFFFFF};
 
 // 0x00532ED0
 void Manager::FindServersOnLan()
@@ -352,60 +348,3 @@ uint32_t Manager::GetCreatedGoalsSize() { return Field<uint32_t>(this, kGoalsSiz
 } // namespace GameNet
 
 using GameNet::Manager;
-REPLACE(0x00532AA0, &Manager::SetJoinMode);
-REPLACE_SOURCE_ONLY(0x00532AC0, &Manager::GetJoinMode);
-REPLACE_SOURCE_ONLY(0x00532AD0, &Manager::GetHostMode);
-REPLACE(0x00532AE0, &Manager::GetRankTest);
-REPLACE(0x00532B30, &Manager::GetRankLimit);
-REPLACE(0x00532BE0, &Manager::GetSkillLevel);
-REPLACE(0x00532C50, &Manager::GetMaxPlayers);
-REPLACE(0x00532CF0, &Manager::GetNumTeams);
-REPLACE(0x00532D60, &Manager::GetMaxObservers);
-REPLACE(0x00532E30, &Manager::RemoveHostTask);
-REPLACE(0x00532E40, &Manager::GetJoinIp);
-REPLACE(0x00532E50, &Manager::GetJoinPrivateIp);
-REPLACE(0x00532E60, &Manager::GetJoinPort);
-REPLACE(0x00532E70, &Manager::SetJoinIp);
-REPLACE(0x00532E80, &Manager::SetJoinPrivateIp);
-REPLACE(0x00532E90, &Manager::SetJoinPort);
-REPLACE(0x00532EA0, &Manager::GetClient);
-REPLACE_SOURCE_ONLY(0x00532EB0, &Manager::GetMatchClient);
-REPLACE(0x00532EC0, &Manager::GetCamPlayer);
-REPLACE(0x00532ED0, &Manager::FindServersOnLan);
-REPLACE(0x00532F70, &Manager::GetNetworkPreferences);
-REPLACE(0x00532F80, &Manager::GetTauntPreferences);
-REPLACE(0x00532F90, &Manager::SetStartInfoWords);
-REPLACE(0x00532FD0, &Manager::GetStartInfoWord);
-REPLACE(0x00532FE0, &Manager::IsUntimedGame);
-REPLACE(0x00533060, &Manager::SetGameId);
-REPLACE_SOURCE_ONLY(0x00533070, &Manager::GetGameId);
-REPLACE(0x00533080, &Manager::GetLevelPreference);
-REPLACE(0x005330B0, &Manager::GetFireballLevel);
-REPLACE(0x00533130, &Manager::TogglePlayerNames);
-REPLACE(0x00533140, &Manager::ShouldDrawPlayerNames);
-REPLACE(0x00533180, &Manager::SetLastLeader);
-REPLACE(0x00533190, &Manager::GetLastLeader);
-REPLACE(0x005331A0, &Manager::GetLastLeadingTeam);
-REPLACE(0x005331B0, &Manager::SetLastScoreUpdate);
-REPLACE(0x005331C0, &Manager::GetLastScoreUpdate);
-REPLACE(0x005331D0, &Manager::SetFinalScoresReceived);
-REPLACE_SOURCE_ONLY(0x005331E0, &Manager::FinalScoresReceived);
-REPLACE(0x005331F0, &Manager::SetJoinState);
-REPLACE(0x00533200, &Manager::GetJoinState);
-REPLACE_SOURCE_ONLY(0x00533210, &Manager::GetCrown);
-REPLACE(0x00533220, &Manager::ClearCrown);
-REPLACE(0x00533230, &Manager::SetCrownSpawnPoint);
-REPLACE(0x00533240, &Manager::SetLobbyId);
-REPLACE(0x00533250, &Manager::SendGameEnded);
-REPLACE(0x005332A0, &Manager::GameEndedSent);
-REPLACE_SOURCE_ONLY(0x005332B0, &Manager::IsGameOver);
-REPLACE(0x005332C0, &Manager::SetGameOver);
-REPLACE(0x005332D0, &Manager::ClearGameOver);
-REPLACE_SOURCE_ONLY(0x005332E0, &Manager::CheatingNoted);
-REPLACE(0x005332F0, &Manager::NoteCheating);
-REPLACE(0x00533300, &Manager::SendReadyResponse);
-REPLACE(0x00533360, &Manager::GetPendingData);
-REPLACE(0x00533380, &Manager::HasCreatedGoals);
-REPLACE(0x005333A0, &Manager::PrepareCreatedGoals);
-REPLACE(0x005333E0, &Manager::GetCreatedGoalsMessage);
-REPLACE(0x005333F0, &Manager::GetCreatedGoalsSize);

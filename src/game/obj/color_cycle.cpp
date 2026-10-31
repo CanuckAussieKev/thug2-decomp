@@ -12,25 +12,22 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[30], g_colorCycleMemberFunctions, 0x006845D0,
+uint32_t g_colorCycleMemberFunctions[30]{
             0x4AF8B9AE, 0xCDC76A22, 0, 0, 0, 0,
             0x1DE2F35B, 0xCDC76A22, 0, 0, 0, 0,
             0x4A752AAE, 0xCDC76A22, 0, 0, 0, 0,
             0x80D5F732, 0xCDC76A22, 0, 0, 0, 0,
-            0, 0xCDC76A22, 0, 0, 0, 0);
+            0, 0xCDC76A22, 0, 0, 0, 0};
 
 namespace {
 
@@ -196,35 +193,23 @@ int CColorCycleComponent::SetColorsFromScript(Script::CStruct* params, Script::C
 
 } // namespace Obj
 
-REPLACE(0x0041B3C0, Obj::CColorCycleComponent::Create);
-REPLACE(0x0041B280, Obj::CColorCycleComponent::RegisterMemberFunctions);
-REPLACE(0x0041B2A0, &Obj::CColorCycleComponent::DestroyBody);
-REPLACE(0x0041B2E0, &Obj::CColorCycleComponent::Destroy);
-REPLACE(0x0041B310, &Obj::CColorCycleComponent::SetColors);
-REPLACE(0x0041B440, &Obj::CColorCycleComponent::SetOn);
-REPLACE(0x0041B580, &Obj::CColorCycleComponent::Update);
-REPLACE(0x0041B560, &Obj::CColorCycleComponent::On);
-REPLACE(0x0041B570, &Obj::CColorCycleComponent::Off);
-REPLACE(0x0041B2B0, &Obj::CColorCycleComponent::SetPeriodFromScript);
-REPLACE(0x0041B390, &Obj::CColorCycleComponent::SetColorsFromScript);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00645E00,
-    &Obj::CColorCycleComponent::Destroy,
-    &Obj::CColorCycleComponent::Update,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CColorCycleComponent::Destroy,
+         &Obj::CColorCycleComponent::Update,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -3,17 +3,13 @@
 #include <cstddef>
 #include <new>
 
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-
 namespace Mth {
 
 static_assert(offsetof(SlerpInterpolator, axis) == 0x80 && offsetof(SlerpInterpolator, angle) == 0x90 &&
                   offsetof(SlerpInterpolator, small_rotation) == 0x94,
               "layout must match the original");
 
-GAME_GLOBAL(float, g_slerpSmallRotationThreshold, 0x0067C648, 0.034906585f);
+float g_slerpSmallRotationThreshold{0.034906585f};
 
 namespace {
 
@@ -98,8 +94,3 @@ struct SlerpAdapter {
 };
 
 } // namespace
-
-REPLACE(0x004058E0, &Mth::SlerpInterpolator::InvertDirection);
-REPLACE(0x00405990, &Mth::SlerpInterpolator::SetMatrices);
-REPLACE(0x00405A20, &Mth::SlerpInterpolator::GetMatrix);
-REPLACE(0x00405E90, &SlerpAdapter::Construct);

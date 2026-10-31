@@ -5,7 +5,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <vector>
 
 #include "game/front/level_editor_carry.h"
 #include "game/front/level_editor_modules.h"
@@ -16,7 +18,6 @@
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
 #include "game/obj/object.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 
 namespace Front::LevelEditor::Overlays {

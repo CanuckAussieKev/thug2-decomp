@@ -1,6 +1,7 @@
 #include "game/script/cache.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <new>
 
 #include "game/core/alloc.h"
@@ -12,10 +13,7 @@
 #include "game/script/struct.h"
 #include "game/sys/module.h"
 #include "game/util/lzss.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 
 namespace Script {
@@ -26,9 +24,9 @@ static_assert(offsetof(CScriptCache, m_entries) == 0x14 && offsetof(CScriptCache
                   offsetof(CScriptCache, m_oldestUnused) == 0x1C && offsetof(CScriptCache, m_deleteUnused) == 0x20,
               "layout must match the original");
 
-GAME_GLOBAL(Script::CScriptCache*, g_scriptCache, 0x006F3558);
-GAME_GLOBAL(uint32_t, g_cacheReferences, 0x006F355C);
-GAME_GLOBAL(Mem::PoolPair, g_cacheEntryPools, 0x006F3560);
+Script::CScriptCache* g_scriptCache;
+uint32_t g_cacheReferences;
+Mem::PoolPair g_cacheEntryPools;
 
 namespace {
 
@@ -48,7 +46,8 @@ struct StoredScript {
     uint8_t code[1];
 };
 
-GAME_VTABLE(kScriptCacheVtable, 0x00648468, &Script::CScriptCache::Destroy, Stubs::DoNothing, Stubs::DoNothing);
+static VtableSlot kScriptCacheVtable_slots[] = {&Script::CScriptCache::Destroy, Stubs::DoNothing, Stubs::DoNothing};
+void** const kScriptCacheVtable = reinterpret_cast<void**>(kScriptCacheVtable_slots);
 } // namespace
 
 // 0x00475AC0
@@ -250,19 +249,3 @@ void ReleaseScriptCache()
 }
 
 } // namespace Script
-
-// (cast: the argument-size check doesn't know noexcept function types)
-REPLACE(0x00475AC0, static_cast<void* (*)(size_t)>(&Script::CScriptCacheEntry::operator new));
-REPLACE(0x00475B00, static_cast<void (*)(void*)>(&Script::CScriptCacheEntry::operator delete));
-REPLACE(0x00475DD0, &Script::CScriptCache::Construct);
-REPLACE(0x00476090, &Script::CScriptCache::DestroyBody);
-REPLACE(0x004761E0, &Script::CScriptCache::Destroy);
-REPLACE(0x00475E80, &Script::CScriptCache::GetScript);
-REPLACE(0x00475D60, &Script::CScriptCache::ReleaseScript);
-REPLACE(0x00475FD0, &Script::CScriptCache::Invalidate);
-REPLACE(0x00475A40, &Script::CScriptCache::AddToUnused);
-REPLACE(0x00475A70, &Script::CScriptCache::RemoveFromUnused);
-REPLACE(0x00475B60, &Script::CScriptCache::DeleteEntry);
-REPLACE(0x00475BD0, &Script::CScriptCache::MakeRoom);
-REPLACE(0x00476040, Script::CreateScriptCache);
-REPLACE(0x00475A00, Script::ReleaseScriptCache);

@@ -2,6 +2,8 @@
 
 #include "game/gfx/texture_dict.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <new>
@@ -15,27 +17,24 @@
 #include "game/gfx/engine_texture.h"
 #include "game/gfx/pc_texture.h"
 #include "game/lst/hashtable.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/sys/startup_init.h"
 
 namespace Nx {
 
-GAME_GLOBAL(int[8], g_keyMultipliers, 0x0067E520, 2, 3, 4, 6, 12, 8, 24, -1);
+int g_keyMultipliers[8]{2, 3, 4, 6, 12, 8, 24, -1};
 
 // The game's texture dictionaries: the textures every level shares, and the particles'.
-GAME_GLOBAL(CTexDict*, g_gameTextureDict, 0x00700F1C);
-GAME_GLOBAL(CTexDict*, g_particleTextureDict, 0x00700F20);
+CTexDict* g_gameTextureDict;
+CTexDict* g_particleTextureDict;
 
 namespace {
 
 extern void** const kTexDictVtable;
 
 // The loaded dictionaries, by checksum (a static hash table).
-GAME_GLOBAL(Lst::HashTable, g_loadedTexDicts, 0x00700F04, Lst::HashTable::Unconstructed{}); // (the exe makes it with HashTable(4) at start-up)
+Lst::HashTable g_loadedTexDicts{Lst::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(4) at start-up)
 Lst::HashTable& LoadedTexDicts() { return g_loadedTexDicts; }
 
 // The multipliers FindTexture tries the name's CRC with (0x0067E520: 2, 3, 4, 6, 12, 8, 24, then -1).
@@ -163,7 +162,7 @@ CTexture* CTexDict::FindTexture(const char* name)
     std::snprintf(other, sizeof(other), "%s", name);
     size_t length = std::strlen(other);
     if (length > 4 && length - 4 + 14 <= sizeof(other)) // "_auto32m0.png" and its 0 in place of the last four
-        std::memcpy(other + length - 4, GAME_TEXT(0x00649BA4, "_auto32m0.png"), 14);
+        std::memcpy(other + length - 4, "_auto32m0.png", 14);
     return find(Crc::GenerateCRCFromString(other));
 }
 
@@ -181,7 +180,7 @@ CTexture* CTexDict::LoadTexture(const char* name, uint32_t a1, uint32_t a2, bool
 CTexture* CTexDict::LoadTextureFromBuffer(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3,
                                           uint32_t a4, bool permanent, uint32_t a6)
 {
-    Mem::PushMemProfile(GAME_TEXT(0x00649BD8, "texture from buffer")); // "texture from buf"
+    Mem::PushMemProfile("texture from buffer"); // "texture from buf"
     auto* texture = Slot<CTexture*>(this, 2, data, size, checksum, a3, a4, a6);
     AddTexture(this, texture, permanent);
     Mem::PopMemProfile();
@@ -192,7 +191,7 @@ CTexture* CTexDict::LoadTextureFromBuffer(const uint8_t* data, uint32_t size, ui
 CTexture* CTexDict::CreateTexture(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bitsPerPixel,
                                   uint32_t a4, uint32_t a5, bool permanent)
 {
-    Mem::PushMemProfile(GAME_TEXT(0x00649BEC, "created texture")); // "created texture"
+    Mem::PushMemProfile("created texture"); // "created texture"
     auto* texture = Slot<CTexture*>(this, 3, checksum, width, height, bitsPerPixel, a4, a5);
     AddTexture(this, texture, permanent);
     Mem::PopMemProfile();
@@ -316,7 +315,7 @@ CTexDict* __cdecl LoadTexDict(const char* path, int /*level*/, uint32_t offset, 
 CTexDict* __cdecl LoadTexDictFromMemory(uint32_t checksum, const uint8_t* data, uint32_t /*size*/, uint32_t /*a3*/,
                                         uint32_t offset, uint32_t /*a5*/, uint32_t /*a6*/)
 {
-    Mem::PushMemProfile(GAME_TEXT(0x00649AC8, "TEX_data_buffer")); // "TEX_data_buffer"
+    Mem::PushMemProfile("TEX_data_buffer"); // "TEX_data_buffer"
     uint32_t key = checksum + offset;
     CTexDict* dict = FindTexDict(key);
     if (!dict) {
@@ -360,43 +359,20 @@ void __cdecl TexDictFileName(char* out, const char* name)
 void __cdecl FlushParticleTextures(bool all) { g_particleTextureDict->FlushTextures(all); }
 
 namespace {
-GAME_VTABLE(kTexDictVtable, 0x00649BB4, &Nx::CTexDict::Destroy, Stubs::ReturnZero3, Stubs::ReturnZero6,
-            Stubs::ReturnZero6, Stubs::ReturnZero1, Stubs::ReturnFalse1, Stubs::IgnoreArgument, Stubs::ReturnFalse1,
-            Stubs::ReturnZero2);
+static VtableSlot kTexDictVtable_slots[] = {&Nx::CTexDict::Destroy, Stubs::ReturnZero3, Stubs::ReturnZero6,
+                Stubs::ReturnZero6, Stubs::ReturnZero1, Stubs::ReturnFalse1, Stubs::IgnoreArgument, Stubs::ReturnFalse1,
+                Stubs::ReturnZero2};
+void** const kTexDictVtable = reinterpret_cast<void**>(kTexDictVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x0049F830, &Nx::CTexDict::Construct);
-REPLACE(0x0049F8F0, &Nx::CTexDict::ConstructNamed);
-REPLACE(0x0049FC70, &Nx::CTexDict::DestroyBody);
-REPLACE(0x0049FCC0, &Nx::CTexDict::Destroy);
-REPLACE(0x0049F540, &Nx::CTexDict::GetTexture);
-REPLACE(0x0049F560, &Nx::CTexDict::GetTextureByName);
-REPLACE(0x0049F660, &Nx::CTexDict::FindTexture);
-REPLACE(0x0049F9B0, &Nx::CTexDict::LoadTexture);
-REPLACE(0x0049FA20, &Nx::CTexDict::LoadTextureFromBuffer);
-REPLACE(0x0049FAA0, &Nx::CTexDict::CreateTexture);
-REPLACE(0x0049F500, &Nx::CTexDict::UnloadTexture);
-REPLACE(0x0049F5C0, &Nx::CTexDict::FlushTextures);
-REPLACE(0x0049F800, &Nx::CTexDict::ReplaceTexture);
-REPLACE(0x0049FB20, &Nx::CTexDict::ReplaceTextureFromFile);
-REPLACE(0x0049FBE0, &Nx::CTexDict::CopyTexture);
-REPLACE(0x0049FC20, &Nx::CTexDict::CopyTextureWithOverlay);
-REPLACE(0x0049F010, Nx::FindTexDict);
-REPLACE(0x0049F0C0, Nx::LoadTexDict);
-REPLACE(0x0049F050, Nx::LoadTexDictFromMemory);
-REPLACE(0x0049F180, Nx::LoadModelTextures);
-REPLACE(0x0049EFD0, Nx::UnloadTexDict);
-REPLACE(0x0049EF90, Nx::TexDictFileName);
-REPLACE(0x0049EFB0, Nx::FlushParticleTextures);
 
 namespace Nx {
 
 namespace {
 
 // A table (2 buckets) nothing uses but its static initialiser and exit function.
-GAME_GLOBAL(Lst::HashTable, g_spareTexDictTable, 0x00700F24, Lst::HashTable::Unconstructed{});
+Lst::HashTable g_spareTexDictTable{Lst::HashTable::Unconstructed{}};
 
 // The loaded dictionary named `name` (one more use of it), or a new one, made and listed.
 CTexDict* SharedTexDict(const char* name)
@@ -417,8 +393,8 @@ CTexDict* SharedTexDict(const char* name)
 void ConstructLoadedTexDicts() { new (&g_loadedTexDicts) Lst::HashTable(4); }
 
 // 0x00640C10, 0x00640C60 (static initialisers): the dictionaries of the sprites and the particles.
-void SetUpGameTextureDict() { g_gameTextureDict = SharedTexDict(GAME_TEXT(0x00649AD8, "sprite")); }
-void SetUpParticleTextureDict() { g_particleTextureDict = SharedTexDict(GAME_TEXT(0x00649AE0, "particle")); }
+void SetUpGameTextureDict() { g_gameTextureDict = SharedTexDict("sprite"); }
+void SetUpParticleTextureDict() { g_particleTextureDict = SharedTexDict("particle"); }
 
 // 0x00640CB0 (a static initialiser)
 void ConstructSpareTexDictTable() { new (&g_spareTexDictTable) Lst::HashTable(1); }

@@ -3,6 +3,7 @@
 #include "game/sfx/sfx.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/crc.h"
@@ -11,24 +12,21 @@
 #include "game/pcm/music.h"
 #include "game/script/struct.h"
 #include "game/sys/game_config.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/loading_bar_cfuncs.h"
 #include "game/obj/movie_manager.h"
 
 namespace Sfx {
 
-GAME_GLOBAL(float, g_defaultDropoff, 0x0067DA34, 1020.0f);
-GAME_GLOBAL(float, g_volumeScale, 0x00684FAC, 100.0f);
-GAME_GLOBAL(WaveTableEntry[256], g_permanentWaves, 0x006F4268);
-GAME_GLOBAL(WaveTableEntry[256], g_levelWaves, 0x006F5E68);
-GAME_GLOBAL(PlayingSound[48], g_playingSounds, 0x006F7A68);
-GAME_GLOBAL(CSfxManager*, g_sfxManager, 0x006F85A8);
-GAME_GLOBAL(PositionalSound*, g_positionalHead, 0x006F85B0);
-GAME_GLOBAL(int, g_permanentCount, 0x006F85B4);
-GAME_GLOBAL(int, g_levelCount, 0x006F85B8);
-GAME_GLOBAL(int, g_positionalCount, 0x006F85BC);
+float g_defaultDropoff{1020.0f};
+float g_volumeScale{100.0f};
+WaveTableEntry g_permanentWaves[256];
+WaveTableEntry g_levelWaves[256];
+PlayingSound g_playingSounds[48];
+CSfxManager* g_sfxManager;
+PositionalSound* g_positionalHead;
+int g_permanentCount;
+int g_levelCount;
+int g_positionalCount;
 
 namespace {
 
@@ -42,9 +40,9 @@ constexpr uint32_t kDebugB = 0xD7BB618D;
 
 PlayingSound* Playing() { return g_playingSounds; }
 
-GAME_GLOBAL(float, g_mainVolume, 0x0067DA38, 100.0f);
-GAME_GLOBAL(float, g_pitch, 0x0067DA3C, 1.0f);
-GAME_GLOBAL(PositionalSound[128], g_positionalSounds, 0x006F3668);
+float g_mainVolume{100.0f};
+float g_pitch{1.0f};
+PositionalSound g_positionalSounds[128];
 
 PositionalSound* PositionalPool() { return g_positionalSounds; }
 PositionalSound*& PositionalHead() { return g_positionalHead; }
@@ -520,37 +518,3 @@ bool CSfxManager::SetSoundParamsScaled(uint32_t uniqueId, sVolume* volume, float
 }
 
 } // namespace Sfx
-
-REPLACE(0x0047AC10, Sfx::FalloffFromChecksum);
-REPLACE(0x0047AC50, &Sfx::sVolume::PercentageAdjustment);
-REPLACE(0x0047ACF0, &Sfx::sVolume::IsSilent);
-REPLACE(0x0047AD60, &Sfx::sVolume::SetSilent);
-REPLACE(0x0047AD80, &Sfx::CSfxManager::GetPlayingIndex);
-REPLACE(0x0047AE20, &Sfx::CSfxManager::AddPositionalSound);
-REPLACE(0x0047AE90, &Sfx::CSfxManager::StopGroup);
-REPLACE(0x0047AEA0, &Sfx::CSfxManager::UnloadGroup);
-REPLACE(0x0047AF10, &Sfx::CSfxManager::UnloadAllGroups);
-REPLACE(0x0047AF40, &Sfx::CSfxManager::InitPlaybackProps);
-REPLACE(0x0047AFD0, Sfx::GetMainVolume);
-REPLACE(0x0047AFE0, Sfx::CountPlayingVoices);
-REPLACE(0x0047B010, Sfx::NoSound);
-REPLACE(0x0047B030, &Sfx::sVolume::Init);
-REPLACE(0x0047B070, &Sfx::sVolume::SetType);
-REPLACE(0x0047B080, &Sfx::sVolume::GetLoudestChannel);
-REPLACE(0x0047B160, &Sfx::CSfxManager::Construct);
-REPLACE(0x0047B1B0, &Sfx::CSfxManager::CleanUp);
-REPLACE(0x0047B210, &Sfx::CSfxManager::SetDefaultDropoff);
-REPLACE(0x0047B240, &Sfx::CSfxManager::StopAllSounds);
-REPLACE(0x0047B2A0, &Sfx::CSfxManager::UpdateVoiceVolumes);
-REPLACE(0x0047B2C0, &Sfx::CSfxManager::GetWaveTableEntry);
-REPLACE(0x0047B340, &Sfx::CSfxManager::IsPaused);
-REPLACE(0x0047B360, &Sfx::CSfxManager::LoadSound);
-REPLACE(0x0047B480, &Sfx::CSfxManager::AdjustVolumeAndPitch);
-REPLACE(0x0047B4E0, &Sfx::CSfxManager::StopSound);
-REPLACE(0x0047B520, &Sfx::CSfxManager::SetSoundParams);
-REPLACE(0x0047B5D0, &Sfx::CSfxManager::SetMainVolume);
-REPLACE(0x0047B650, &Sfx::CSfxManager::SetPitch);
-REPLACE(0x0047B6B0, &Sfx::CSfxManager::PrintSounds);
-REPLACE(0x0047B6F0, &Sfx::CSfxManager::IsSoundPlaying);
-REPLACE(0x0047B760, &Sfx::CSfxManager::GetDropoffDistance);
-REPLACE(0x0047B7C0, &Sfx::CSfxManager::SetSoundParamsScaled);

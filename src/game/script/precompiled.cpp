@@ -1,10 +1,10 @@
 #include "game/script/precompiled.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/crc.h"
 #include "game/script/qb.h"
-#include "hook/hook.h"
 
 namespace Script {
 
@@ -201,12 +201,3 @@ struct ArrayAdapter {
     void RelocateElements(uint32_t base) { Script::RelocateArrayElements(reinterpret_cast<Script::CArray*>(this), base); }
 };
 } // namespace
-
-REPLACE(0x0046C7B0, &ArrayAdapter::RelocateElements);
-REPLACE(0x0046C830, Script::RelocateArray);
-REPLACE(0x0046C6B0, Script::RelocateComponent);
-REPLACE(0x0046C7F0, Script::RelocateStruct);
-REPLACE(0x0046C970, Script::RelocateSymbol);
-REPLACE(0x0046CA50, Script::RelocatePrecompiledSymbols);
-REPLACE(0x00478DE0, Script::DefinePrecompiledSymbol);
-REPLACE(0x0046FBA0, Script::ParsePrecompiledQB);

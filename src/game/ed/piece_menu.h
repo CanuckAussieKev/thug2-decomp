@@ -6,12 +6,11 @@
 #include <cstdint>
 
 #include "game/ed/park.h"
-#include "hook/game_global.h"
 
 namespace Ed {
 
 class CUpperMenuManager;
-GAME_GLOBAL_EXTERN(CUpperMenuManager*, g_upperMenuManager);
+extern CUpperMenuManager* g_upperMenuManager;
 
 class CUpperMenuManager {
 public:

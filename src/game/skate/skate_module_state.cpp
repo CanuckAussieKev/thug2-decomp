@@ -7,6 +7,7 @@
 
 #include <windows.h>
 
+#include <cstdint>
 #include <cstdio>
 
 #include "game/core/crc.h"
@@ -45,16 +46,13 @@
 #include "game/gfx/flexible_particle_manager.h"
 #include "game/gfx/viewport.h"
 #include "game/ass/assman.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/gfx/engine.h"
-#include "hook/game_code.h"
 
 namespace Mdl {
 
-GAME_GLOBAL(int, g_skateModuleReferences, 0x007CE47C);
-GAME_GLOBAL(float, g_nextBeep, 0x007CE488);
+int g_skateModuleReferences;
+float g_nextBeep;
 
 namespace {
 
@@ -220,7 +218,7 @@ void Skate::StartCallback()
         Pcm::Init();
     Script::RunScript(kLoadPermSounds, nullptr, nullptr, false, nullptr);
     Mem::PushContext(Mem::BottomUpHeap());
-    Mem::PushMemProfile(GAME_TEXT(0x0064E4B8, "Permanent Assets")); // "Permanent Assets"
+    Mem::PushMemProfile("Permanent Assets"); // "Permanent Assets"
     Script::RunScript(kLoadPermanentAssets, nullptr, nullptr, false, nullptr);
     Mem::PopMemProfile();
     Mem::PopContext();
@@ -263,7 +261,7 @@ Obj::CSkaterProfile* Skate::GetProfile(int index) { return ProfileManager()->Get
 // 0x00564FD0
 void Skate::SetCurrentGameType()
 {
-    Dbg::Printf(GAME_TEXT(0x0064E4D0, "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<Changing Game Mode\n")); // "<<<...Changing Game Mode\n"
+    Dbg::Printf("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<Changing Game Mode\n"); // "<<<...Changing Game Mode\n"
     GameMode()->LoadGameType(m_gameType);
 }
 
@@ -271,7 +269,7 @@ void Skate::SetCurrentGameType()
 void Skate::OpenLevel(uint32_t level)
 {
     GameNet::Manager* net = NetManager();
-    Mem::PushMemProfile(GAME_TEXT(0x0064E51C, "LaunchLevel")); // "LaunchLevel"
+    Mem::PushMemProfile("LaunchLevel"); // "LaunchLevel"
     if (net->InNetGame() && net->OnServer()) {
         PlayerSearch search;
         for (void* player = net->FirstPlayerInfo(&search, true); player; player = net->NextPlayerInfo(&search, true))
@@ -339,7 +337,7 @@ int __cdecl Skate::CFunc_InTeamGame(Script::CStruct*, Script::CScript*) { return
 // 0x00565260
 bool __cdecl Skate::CFunc_ChangeLevel(Script::CStruct* params, Script::CScript*)
 {
-    Dbg::Printf(GAME_TEXT(0x0064E528, "ScriptChangeLevel\n")); // "ScriptChangeLevel\n"
+    Dbg::Printf("ScriptChangeLevel\n"); // "ScriptChangeLevel\n"
     GameNet::Manager* net = NetManager();
     uint32_t level;
     params->GetChecksum(kLevel, &level, 1);
@@ -365,12 +363,12 @@ bool __cdecl Skate::CFunc_ChangeLevel(Script::CStruct* params, Script::CScript*)
         if (!static_cast<uint8_t>(info->IsLocalPlayer()) && level == kLoadSk5EdGameplay) {
             void* map = Ed::g_parkEditor->GetCompressedMapBuffer(false);
             int handle = info->GetConnHandle();
-            server->StreamMessage(handle, kMsgParkMap, 15000, map, GAME_TEXT(0x0064C884, "level data"), kGroupGame, false,
+            server->StreamMessage(handle, kMsgParkMap, 15000, map, "level data", kGroupGame, false,
                                   true); // "level data"
             Ed::CRailEditorComponent::Instance(); // (the rail editor; this first answer unused, as the original)
             void* rails = Ed::CRailEditorComponent::Instance()->GetPacked();
             handle = info->GetConnHandle();
-            server->StreamMessage(handle, kMsgParkRails, 0x1132, rails, GAME_TEXT(0x0064C878, "rail data"), kGroupGame, false,
+            server->StreamMessage(handle, kMsgParkRails, 0x1132, rails, "rail data", kGroupGame, false,
                                   true); // "rail data"
         }
         desc.m_data = &message;
@@ -384,7 +382,7 @@ bool __cdecl Skate::CFunc_ChangeLevel(Script::CStruct* params, Script::CScript*)
             void* goals = net->GetCreatedGoalsMessage();
             uint32_t size = net->GetCreatedGoalsSize();
             server->StreamMessage(info->GetConnHandle(), kMsgCreatedGoals, static_cast<uint16_t>(size), goals,
-                                  GAME_TEXT(0x0064C86C, "goals data"), kGroupGame, false, true); // "goals data"
+                                  "goals data", kGroupGame, false, true); // "goals data"
         }
         desc.m_data = &now;
         desc.m_length = 4;
@@ -415,7 +413,7 @@ bool __cdecl Skate::CFunc_RequestLevel(Script::CStruct* params, Script::CScript*
         const char* name;
         if (params->GetString(0u, &name, 1)) {
             char script[0x80];
-            std::snprintf(script, sizeof(script), GAME_TEXT(0x0064E53C, "load_%s"), name); // "load_%s"
+            std::snprintf(script, sizeof(script), "load_%s", name); // "load_%s"
             level = Crc::GenerateCRCFromString(script);
         }
     }
@@ -512,45 +510,13 @@ int __stdcall Skate::ShouldBeAbsent(Script::CStruct* params)
 // 0x00565730: the head's destructor body (the node's).
 void __fastcall SkaterHeadDestroyBody(Mem::ListNode* head) { head->UnlinkAs(kSkaterNodeVtable); }
 
-
-GAME_VTABLE(kPlayerSearchVtable, 0x0064C1A8, &Obj::PlayerSearchDestructors::Destroy);
-GAME_VTABLE(kSkateVtable, 0x0064E674, &Skate::Destroy, &Skate::StartCallback, &Skate::StopCallback);
-GAME_VTABLE(kSkaterNodeVtable, 0x0064E544, Skate::DestroySkaterNode);
-GAME_VTABLE(kSkaterHeadVtable, 0x0064E5D4, Skate::DestroySkaterHead);
+static VtableSlot kPlayerSearchVtable_slots[] = {&Obj::PlayerSearchDestructors::Destroy};
+void** const kPlayerSearchVtable = reinterpret_cast<void**>(kPlayerSearchVtable_slots);
+static VtableSlot kSkateVtable_slots[] = {&Skate::Destroy, &Skate::StartCallback, &Skate::StopCallback};
+void** const kSkateVtable = reinterpret_cast<void**>(kSkateVtable_slots);
+static VtableSlot kSkaterNodeVtable_slots[] = {Skate::DestroySkaterNode};
+void** const kSkaterNodeVtable = reinterpret_cast<void**>(kSkaterNodeVtable_slots);
+static VtableSlot kSkaterHeadVtable_slots[] = {Skate::DestroySkaterHead};
+void** const kSkaterHeadVtable = reinterpret_cast<void**>(kSkaterHeadVtable_slots);
 
 } // namespace Mdl
-
-REPLACE(0x00564C10, Mdl::Skate::DeleteInstance);
-REPLACE(0x005691A0, Mdl::Skate::CreateInstance);
-REPLACE(0x00564C50, &Mdl::Skate::StopCallback);
-REPLACE(0x00564C60, &Mdl::Skate::HideSkater);
-REPLACE(0x00564CA0, &Mdl::Skate::TimerBeep);
-REPLACE(0x00564D50, &Mdl::Skate::SetUnknown370);
-REPLACE(0x00564D60, &Mdl::Skate::UpdateGameFlow);
-REPLACE_SOURCE_ONLY(0x00564D80, &Mdl::Skate::GetSplitScreenPreferences); // 4 bytes
-REPLACE(0x00564D90, &Mdl::Skate::GetGoalManager);
-REPLACE(0x00564DA0, &Mdl::Skate::CheckControllers);
-REPLACE(0x00564DB0, Mdl::Skate::RunTask);
-REPLACE(0x00564DC0, &Mdl::Skate::StartCallback);
-REPLACE(0x00564F20, &Mdl::Skate::CleanupForParkEditor);
-REPLACE(0x00564F60, &Mdl::Skate::Pause);
-REPLACE(0x00564F80, static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(Script::CStruct*)>(&Mdl::Skate::GetProfile));
-REPLACE(0x00564FC0, static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile));
-REPLACE(0x00564FD0, &Mdl::Skate::SetCurrentGameType);
-REPLACE(0x00565000, &Mdl::Skate::OpenLevel);
-REPLACE(0x005651D0, Mdl::Skate::ObserveNextSkater);
-REPLACE(0x005651F0, Mdl::Skate::IsMultiplayer);
-REPLACE(0x00565220, Mdl::Skate::CFunc_SetGameType);
-REPLACE(0x00565250, Mdl::Skate::CFunc_InTeamGame);
-REPLACE(0x00565260, Mdl::Skate::CFunc_ChangeLevel);
-REPLACE(0x005654B0, Mdl::Skate::CFunc_LaunchLevel);
-REPLACE(0x005654D0, Mdl::Skate::CFunc_RequestLevel);
-REPLACE(0x005655B0, Mdl::Skate::CFunc_InitSkaterHeaps);
-REPLACE(0x00565620, &Mdl::Skate::PreCalculateObjectUpdateInfo);
-REPLACE(0x00565680, Mdl::Skate::GetPreferences);
-REPLACE(0x00565D40, Mdl::Skate::GetPreferencesFromParams);
-REPLACE(0x005656C0, &Mdl::Skate::GetGapChecklist);
-REPLACE(0x005656D0, &Mdl::Skate::InNetGameLevel);
-REPLACE(0x00565700, &Mdl::Skate::InFrontEndOrNetMode);
-REPLACE(0x00565BB0, Mdl::Skate::ShouldBeAbsent);
-REPLACE(0x00565730, Mdl::SkaterHeadDestroyBody);

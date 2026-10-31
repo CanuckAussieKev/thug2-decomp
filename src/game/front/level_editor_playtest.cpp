@@ -6,11 +6,15 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <map>
 #include <sstream>
+#include <type_traits>
+#include <vector>
 
 #include <windows.h>
 
@@ -34,7 +38,6 @@
 #include "game/skate/skate_module.h"
 #include "game/sys/mlp.h"
 #include "game/sys/sdl_events.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 
 namespace Front::LevelEditor::PlayTest {

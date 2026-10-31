@@ -4,6 +4,7 @@
 #include "game/skate/records.h"
 
 #include <cstdint>
+#include <initializer_list>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -11,15 +12,12 @@
 #include "game/script/struct.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/log.h"
 
 namespace Records {
 
-GAME_GLOBAL(Records::CGameRecords*, g_gameRecords, 0x007CE4BC);
-GAME_GLOBAL(uint32_t, g_recordsReferences, 0x007CE4C0);
+Records::CGameRecords* g_gameRecords;
+uint32_t g_recordsReferences;
 
 namespace {
 
@@ -443,29 +441,3 @@ bool __cdecl CFunc_UpdateInitials(Script::CStruct*, Script::CScript*)
 bool __cdecl CFunc_NewRecord(Script::CStruct*, Script::CScript*) { return SkateCalls::SkateField<bool>(0x384); }
 
 } // namespace Records
-
-REPLACE(0x0057ECD0, &Records::CRecord::MaybeNewRecord);
-REPLACE(0x0057ED00, &Records::CRecord::ReadFromStructure);
-REPLACE(0x0057ED80, &Records::CRecordTable::UpdateInitials);
-REPLACE(0x0057EDD0, &Records::CLevelRecords::UpdateInitials);
-REPLACE(0x0057EE70, &Records::CGameRecords::Construct);
-REPLACE(0x0057EEA0, &Records::CGameRecords::SetDefaultInitials);
-REPLACE(0x0057EEC0, &Records::CGameRecords::GetLevelRecords);
-REPLACE(0x0057EED0, Records::CGameRecords::Create);
-REPLACE(0x0057EF20, &Records::CRecord::Construct);
-REPLACE(0x0057EF60, &Records::CRecordTable::Construct);
-REPLACE(0x0057EFE0, &Records::CRecordTable::MaybeNewEntry);
-REPLACE(0x0057F0C0, &Records::CRecordTable::ReadFromStructure);
-REPLACE(0x0057F120, &Records::CLevelRecords::Construct);
-REPLACE(0x0057F340, &Records::CLevelRecords::ReadFromStructure);
-REPLACE(0x0057F440, &Records::CGameRecords::ReadFromStructure);
-REPLACE(0x0057F4E0, &Records::CRecordTable::WriteToStructure);
-REPLACE(0x0057F670, &Records::CLevelRecords::DestroyBody);
-REPLACE(0x0057F7B0, &Records::CLevelRecords::WriteToStructure);
-REPLACE(0x0057FBC0, &Records::CGameRecords::InitLevels);
-REPLACE(0x0057FC50, &Records::CGameRecords::WriteToStructure);
-REPLACE(0x0057FDB0, Records::CGameRecords::Release);
-REPLACE(0x005AEBC0, Records::CFunc_UpdateRecords);
-REPLACE(0x005AEBD0, Records::CFunc_UpdateArcadeScores);
-REPLACE(0x005AFAF0, Records::CFunc_UpdateInitials);
-REPLACE(0x005AFB30, Records::CFunc_NewRecord);

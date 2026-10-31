@@ -10,7 +10,6 @@
 #include "game/script/struct.h"
 #include "game/skate/skate_net.h"
 #include "game/gfx/frame_source.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 
 namespace GameNet::Guards {

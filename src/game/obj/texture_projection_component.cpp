@@ -11,14 +11,12 @@
 #include "game/obj/movie_manager.h"
 #include "game/script/struct.h"
 #include "game/core/game_vtables.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -131,33 +129,25 @@ void CTextureProjectionComponent::Update()
 
 } // namespace Obj
 
-REPLACE(0x00434870, Obj::CTextureProjectionComponent::Create);
-REPLACE(0x00434670, &Obj::CTextureProjectionComponent::ProjectionList::Destroy);
-REPLACE(0x004346B0, &Obj::CTextureProjectionComponent::DestroyBody);
-REPLACE(0x00434840, &Obj::CTextureProjectionComponent::Destroy);
-REPLACE(0x00434730, &Obj::CTextureProjectionComponent::InitFromStructure);
-REPLACE(0x00434630, &Obj::CTextureProjectionComponent::Finalize);
-REPLACE(0x00434810, &Obj::CTextureProjectionComponent::Update);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00646604,
-    &Obj::CTextureProjectionComponent::Destroy,
-    &Obj::CTextureProjectionComponent::Update,
-    &Obj::CTextureProjectionComponent::InitFromStructure,
-    &Obj::CTextureProjectionComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
-GAME_VTABLE(kHeadVtable, 0x00646638,
-    &Nx::CPcTextureProjection::Destroy);
+static VtableSlot kVtable_slots[] = {&Obj::CTextureProjectionComponent::Destroy,
+         &Obj::CTextureProjectionComponent::Update,
+         &Obj::CTextureProjectionComponent::InitFromStructure,
+         &Obj::CTextureProjectionComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot kHeadVtable_slots[] = {&Nx::CPcTextureProjection::Destroy};
+void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -1,12 +1,14 @@
 // The flexible particle types' engine classes: ribbon, ribbontrail, shaded, smooth, smoothribbon, smoothstar, star
 // (see particle_types.h). From the disassembly of 0x0049B070-0x0049C384.
 
+#include <cstddef>
+#include <cstdint>
+
 #include "game/gfx/particle_types.h"
 
 #include "game/core/mem.h"
 #include "game/gfx/particle_system_internal.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/net/gamenet_handlers.h"
 #include "game/gfx/weather.h"
 
@@ -28,7 +30,6 @@ extern void** const kCSmoothStarParticlesVtable;
 extern void** const kCStarParticlesNodeVtable;
 extern void** const kCStarParticlesVtable;
 } // namespace
-
 
 using namespace ParticleParts;
 
@@ -273,62 +274,42 @@ struct TypeNodeAdapters {
 
 } // namespace
 
-
 namespace Nx {
 namespace {
-GAME_VTABLE(kCRibbonParticlesNodeVtable, 0x006494D8, &TypeNodeAdapters::DestroyRibbon);
-GAME_VTABLE(kCRibbonParticlesVtable, 0x006494DC, &Nx::CRibbonParticles::Destroy, &Nx::CWeather::Render,
-            &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::TwoColours);
-GAME_VTABLE(kCRibbonTrailParticlesNodeVtable, 0x006494EC, &TypeNodeAdapters::DestroyRibbonTrail);
-GAME_VTABLE(kCRibbonTrailParticlesVtable, 0x006494F0, &Nx::CRibbonTrailParticles::Destroy, &Nx::CWeather::Render,
-            &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::Field134);
-GAME_VTABLE(kCShadedParticlesNodeVtable, 0x00649500, &TypeNodeAdapters::DestroyShaded);
-GAME_VTABLE(kCShadedParticlesVtable, 0x00649504, &Nx::CShadedParticles::Destroy, &Nx::CWeather::Render,
-            GameNet::HandleNothing, &Nx::CParticleCounts::FourColours);
-GAME_VTABLE(kCSmoothParticlesNodeVtable, 0x00649514, &TypeNodeAdapters::DestroySmooth);
-GAME_VTABLE(kCSmoothParticlesVtable, 0x00649518, &Nx::CSmoothParticles::Destroy, &Nx::CWeather::Render,
-            GameNet::HandleNothing, &Nx::CParticleCounts::TwoColours);
-GAME_VTABLE(kCSmoothRibbonParticlesNodeVtable, 0x00649528, &TypeNodeAdapters::DestroySmoothRibbon);
-GAME_VTABLE(kCSmoothRibbonParticlesVtable, 0x0064952C, &Nx::CSmoothRibbonParticles::Destroy, &Nx::CWeather::Render,
-            &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::FourColours);
-GAME_VTABLE(kCSmoothStarParticlesNodeVtable, 0x0064953C, &TypeNodeAdapters::DestroySmoothStar);
-GAME_VTABLE(kCSmoothStarParticlesVtable, 0x00649540, &Nx::CSmoothStarParticles::Destroy, &Nx::CWeather::Render,
-            GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours);
-GAME_VTABLE(kCStarParticlesNodeVtable, 0x00649550, &TypeNodeAdapters::DestroyStar);
-GAME_VTABLE(kCStarParticlesVtable, 0x00649554, &Nx::CStarParticles::Destroy, &Nx::CWeather::Render,
-            GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours);
+static VtableSlot kCRibbonParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroyRibbon};
+void** const kCRibbonParticlesNodeVtable = reinterpret_cast<void**>(kCRibbonParticlesNodeVtable_slots);
+static VtableSlot kCRibbonParticlesVtable_slots[] = {&Nx::CRibbonParticles::Destroy, &Nx::CWeather::Render,
+                &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::TwoColours};
+void** const kCRibbonParticlesVtable = reinterpret_cast<void**>(kCRibbonParticlesVtable_slots);
+static VtableSlot kCRibbonTrailParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroyRibbonTrail};
+void** const kCRibbonTrailParticlesNodeVtable = reinterpret_cast<void**>(kCRibbonTrailParticlesNodeVtable_slots);
+static VtableSlot kCRibbonTrailParticlesVtable_slots[] = {&Nx::CRibbonTrailParticles::Destroy, &Nx::CWeather::Render,
+                &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::Field134};
+void** const kCRibbonTrailParticlesVtable = reinterpret_cast<void**>(kCRibbonTrailParticlesVtable_slots);
+static VtableSlot kCShadedParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroyShaded};
+void** const kCShadedParticlesNodeVtable = reinterpret_cast<void**>(kCShadedParticlesNodeVtable_slots);
+static VtableSlot kCShadedParticlesVtable_slots[] = {&Nx::CShadedParticles::Destroy, &Nx::CWeather::Render,
+                GameNet::HandleNothing, &Nx::CParticleCounts::FourColours};
+void** const kCShadedParticlesVtable = reinterpret_cast<void**>(kCShadedParticlesVtable_slots);
+static VtableSlot kCSmoothParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroySmooth};
+void** const kCSmoothParticlesNodeVtable = reinterpret_cast<void**>(kCSmoothParticlesNodeVtable_slots);
+static VtableSlot kCSmoothParticlesVtable_slots[] = {&Nx::CSmoothParticles::Destroy, &Nx::CWeather::Render,
+                GameNet::HandleNothing, &Nx::CParticleCounts::TwoColours};
+void** const kCSmoothParticlesVtable = reinterpret_cast<void**>(kCSmoothParticlesVtable_slots);
+static VtableSlot kCSmoothRibbonParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroySmoothRibbon};
+void** const kCSmoothRibbonParticlesNodeVtable = reinterpret_cast<void**>(kCSmoothRibbonParticlesNodeVtable_slots);
+static VtableSlot kCSmoothRibbonParticlesVtable_slots[] = {&Nx::CSmoothRibbonParticles::Destroy, &Nx::CWeather::Render,
+                &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::FourColours};
+void** const kCSmoothRibbonParticlesVtable = reinterpret_cast<void**>(kCSmoothRibbonParticlesVtable_slots);
+static VtableSlot kCSmoothStarParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroySmoothStar};
+void** const kCSmoothStarParticlesNodeVtable = reinterpret_cast<void**>(kCSmoothStarParticlesNodeVtable_slots);
+static VtableSlot kCSmoothStarParticlesVtable_slots[] = {&Nx::CSmoothStarParticles::Destroy, &Nx::CWeather::Render,
+                GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours};
+void** const kCSmoothStarParticlesVtable = reinterpret_cast<void**>(kCSmoothStarParticlesVtable_slots);
+static VtableSlot kCStarParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroyStar};
+void** const kCStarParticlesNodeVtable = reinterpret_cast<void**>(kCStarParticlesNodeVtable_slots);
+static VtableSlot kCStarParticlesVtable_slots[] = {&Nx::CStarParticles::Destroy, &Nx::CWeather::Render,
+                GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours};
+void** const kCStarParticlesVtable = reinterpret_cast<void**>(kCStarParticlesVtable_slots);
 } // namespace
 } // namespace Nx
-
-REPLACE(0x0049B0D0, &Nx::CRibbonParticles::Construct);
-REPLACE(0x0049B070, &Nx::CRibbonParticles::DestroyBody);
-REPLACE(0x0049B0A0, &Nx::CRibbonParticles::Destroy);
-REPLACE(0x0049B090, &TypeNodeAdapters::DestroyRibbon);
-REPLACE(0x0049B380, &Nx::CRibbonTrailParticles::Construct);
-REPLACE(0x0049B320, &Nx::CRibbonTrailParticles::DestroyBody);
-REPLACE(0x0049B350, &Nx::CRibbonTrailParticles::Destroy);
-REPLACE(0x0049B340, &TypeNodeAdapters::DestroyRibbonTrail);
-REPLACE(0x0049B660, &Nx::CShadedParticles::Construct);
-REPLACE(0x0049B600, &Nx::CShadedParticles::DestroyBody);
-REPLACE(0x0049B630, &Nx::CShadedParticles::Destroy);
-REPLACE(0x0049B620, &TypeNodeAdapters::DestroyShaded);
-REPLACE(0x0049B910, &Nx::CSmoothParticles::Construct);
-REPLACE(0x0049B8A0, &Nx::CSmoothParticles::DestroyBody);
-REPLACE(0x0049B8E0, &Nx::CSmoothParticles::Destroy);
-REPLACE(0x0049B8D0, &TypeNodeAdapters::DestroySmooth);
-REPLACE(0x0049BBD0, &Nx::CSmoothRibbonParticles::Construct);
-REPLACE(0x0049BB50, &Nx::CSmoothRibbonParticles::DestroyBody);
-REPLACE(0x0049BBA0, &Nx::CSmoothRibbonParticles::Destroy);
-REPLACE(0x0049BB90, &TypeNodeAdapters::DestroySmoothRibbon);
-REPLACE(0x0049BE80, &Nx::CSmoothStarParticles::Construct);
-REPLACE(0x0049BE20, &Nx::CSmoothStarParticles::DestroyBody);
-REPLACE(0x0049BE50, &Nx::CSmoothStarParticles::Destroy);
-REPLACE(0x0049BE40, &TypeNodeAdapters::DestroySmoothStar);
-REPLACE(0x0049C140, &Nx::CStarParticles::Construct);
-REPLACE(0x0049C0D0, &Nx::CStarParticles::DestroyBody);
-REPLACE(0x0049C110, &Nx::CStarParticles::Destroy);
-REPLACE(0x0049C100, &TypeNodeAdapters::DestroyStar);
-REPLACE(0x0049B8C0, &Nx::CParticleCounts::TwoColours);
-REPLACE(0x0049BB70, &Nx::CParticleCounts::FourColours);
-REPLACE(0x0049C0F0, &Nx::CParticleCounts::ThreeColours);
-REPLACE(0x0049BB80, &Nx::CParticleCounts::Field134);

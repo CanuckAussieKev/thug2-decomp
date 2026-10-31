@@ -11,9 +11,7 @@
 #include "game/mth/vector.h"
 #include "game/obj/node_objects.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
@@ -27,7 +25,7 @@ namespace {
 extern void** const kVtable;
 constexpr uint32_t kObjectHookManager = 0x27443708;
 constexpr uint32_t kAllowSkitching = 0xC38CCE3B; // Obj_AllowSkitching
-const char* const kOff = GAME_TEXT(0x0064C24C, "off"); // "off"
+const char* const kOff = "off"; // "off"
 
 // The hook manager's node list (its vtable +0x34), or null.
 CClassNodeList* HookNodes(CBaseComponent* hooks)
@@ -165,32 +163,23 @@ bool CSkitchComponent::GetHookPoint(Mth::Vector* out, int index)
 
 } // namespace Obj
 
-REPLACE(0x0051B970, &Obj::ComponentWithoutUpdate::Update);
-REPLACE(0x0051BA10, Obj::CSkitchComponent::Create);
-REPLACE(0x0051B960, &Obj::CSkitchComponent::DestroyBody);
-REPLACE(0x0051B980, &Obj::CSkitchComponent::Destroy);
-REPLACE(0x0051B9B0, &Obj::CSkitchComponent::InitFromStructure);
-REPLACE(0x0051B9D0, &Obj::CSkitchComponent::CallMemberFunction);
-REPLACE(0x0051BA70, &Obj::CSkitchComponent::GetNearestHookPoint);
-REPLACE(0x0051BC70, &Obj::CSkitchComponent::GetHookPoint);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064C218,
-    &Obj::CSkitchComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    &Obj::CSkitchComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CSkitchComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSkitchComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         &Obj::CSkitchComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CSkitchComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -16,9 +16,7 @@
 #include "game/sys/game_clock.h"
 #include "game/skater/core_physics.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
@@ -123,7 +121,7 @@ void CSkaterAdjustPhysicsComponent::CheckInsideMovingObject()
     Mth::Vector& frameStart = At<Mth::Vector>(mp_core, kFrameStart);
     if (!mp_ride->FindContactAhead(&m_object->m_pos, &frameStart))
         return;
-    Dbg::Printf(GAME_TEXT(0x006466B0, "M:%s:%i: %s\n"), GAME_TEXT(0x0064B9E0, "mponents\\SkaterAdjustPhysicsComponent.cpp"), 0x182, GAME_TEXT(0x0064BA0C, "found to be inside a moving object"));
+    Dbg::Printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182, "found to be inside a moving object");
     Nx::CFeeler feeler;
     feeler.Construct();
     const Mth::Vector& pos = m_object->m_pos;
@@ -164,31 +162,23 @@ void CSkaterAdjustPhysicsComponent::UpdateBrightness(Nx::CFeeler* ground)
 
 } // namespace Obj
 
-REPLACE(0x004F80E0, Obj::CSkaterAdjustPhysicsComponent::Create);
-REPLACE(0x004F8040, &Obj::CSkaterAdjustPhysicsComponent::DestroyBody);
-REPLACE(0x004F8050, &Obj::CSkaterAdjustPhysicsComponent::Destroy);
-REPLACE(0x004F8080, &Obj::CSkaterAdjustPhysicsComponent::Finalize);
-REPLACE(0x004F8C40, &Obj::CSkaterAdjustPhysicsComponent::FrameUpdate);
-REPLACE(0x004F8AA0, &Obj::CSkaterAdjustPhysicsComponent::CheckInsideMovingObject);
-REPLACE(0x004F82F0, &Obj::CSkaterAdjustPhysicsComponent::UpdateBrightness);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064B964,
-    &Obj::CSkaterAdjustPhysicsComponent::Destroy,
-    &Obj::CSkaterAdjustPhysicsComponent::FrameUpdate,
-    Stubs::IgnoreArgument,
-    &Obj::CSkaterAdjustPhysicsComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSkaterAdjustPhysicsComponent::Destroy,
+         &Obj::CSkaterAdjustPhysicsComponent::FrameUpdate,
+         Stubs::IgnoreArgument,
+         &Obj::CSkaterAdjustPhysicsComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

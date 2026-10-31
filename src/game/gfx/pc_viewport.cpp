@@ -1,6 +1,8 @@
 // The PC viewport: see pc_viewport.h. The maths follows the original's x87 code: double precision where it keeps
 // values in registers, floats where it stores them.
 
+#include <cstdint>
+
 #include "game/gfx/pc_viewport.h"
 #include "game/gfx/d3dx.h"
 
@@ -14,10 +16,7 @@
 #include "game/gfx/render_state.h"
 #include "game/gfx/viewport.h"
 #include "game/sys/platform_d3d.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
@@ -25,16 +24,16 @@
 
 namespace Nx {
 
-GAME_GLOBAL(uint8_t[1024], g_occlusionSlots, 0x0067E550, 1);
-GAME_GLOBAL(uint32_t, g_occlusionPixels, 0x00701384);
-GAME_GLOBAL(float[20], g_queryRectStrip, 0x007642A0);
-GAME_GLOBAL(uint32_t[16], g_queryPointStrip, 0x007642F0);
+uint8_t g_occlusionSlots[1024]{1};
+uint32_t g_occlusionPixels;
+float g_queryRectStrip[20];
+uint32_t g_queryPointStrip[16];
 
-GAME_GLOBAL(float, g_virtualScreenHeight, 0x00649FCC, 448.0f);
-GAME_GLOBAL(float, g_virtualScreenWidth, 0x00649FD4, 640.0f);
-GAME_GLOBAL(float, g_scale2DIn3DNumerator, 0x0067E548, 300.0f);
-GAME_GLOBAL(float, g_scale2DIn3DMax, 0x0067E54C, 3.0f);
-GAME_GLOBAL(float, g_scale2DIn3DMin, 0x0070137C);
+float g_virtualScreenHeight{448.0f};
+float g_virtualScreenWidth{640.0f};
+float g_scale2DIn3DNumerator{300.0f};
+float g_scale2DIn3DMax{3.0f};
+float g_scale2DIn3DMin;
 
 namespace {
 
@@ -185,17 +184,9 @@ uint32_t __cdecl OcclusionPixels()
 }
 
 namespace {
-GAME_VTABLE(kViewportVtable, 0x0064A848, &Nx::CPcViewport::Destroy, &Nx::CPcViewport::ProjectToScreen,
-            &Nx::CPcViewport::QueryPoint, &Nx::CPcViewport::QueryRect, Stubs::ReturnZero1);
+static VtableSlot kViewportVtable_slots[] = {&Nx::CPcViewport::Destroy, &Nx::CPcViewport::ProjectToScreen,
+                &Nx::CPcViewport::QueryPoint, &Nx::CPcViewport::QueryRect, Stubs::ReturnZero1};
+void** const kViewportVtable = reinterpret_cast<void**>(kViewportVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004CB860, Nx::CreateViewport);
-REPLACE(0x004CB8E0, &Nx::CPcViewport::Construct);
-REPLACE(0x004CB900, &Nx::CPcViewport::DestroyBody);
-REPLACE(0x004CB910, &Nx::CPcViewport::Destroy);
-REPLACE(0x004CB940, &Nx::CPcViewport::ProjectToScreen);
-REPLACE(0x004CBC00, &Nx::CPcViewport::QueryPoint);
-REPLACE(0x004CBA90, &Nx::CPcViewport::QueryRect);
-REPLACE(0x004CBD40, Nx::OcclusionPixels);

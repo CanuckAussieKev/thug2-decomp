@@ -6,12 +6,16 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <initializer_list>
 #include <map>
 #include <set>
 #include <unordered_map>
+#include <vector>
 
 #include "game/core/crc.h"
 #include "game/front/level_editor_layout.h"
@@ -33,8 +37,6 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
 #include "game/sys/log.h"
 
 namespace Front::LevelEditor::Entities {

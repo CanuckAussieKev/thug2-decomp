@@ -3,6 +3,7 @@
 #include "game/obj/anim_blender.h"
 
 #include <bit>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -19,20 +20,17 @@
 #include "game/script/struct.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/core/game_vtables.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/obj/flexible_particle.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[180], g_animBlenderMemberFunctions, 0x00682350,
+uint32_t g_animBlenderMemberFunctions[180]{
             0xCABB44AE, 0x7149B753, 0, 0, 0, 0,
             0xB628A959, 0x7149B753, 0, 0, 0, 0,
             0xAFC2493E, 0x7149B753, 0, 0, 0, 0,
@@ -62,7 +60,7 @@ GAME_GLOBAL(uint32_t[180], g_animBlenderMemberFunctions, 0x00682350,
             0x986D274E, 0x7149B753, 0, 0, 0, 0,
             0x27A98022, 0x7149B753, 0, 0, 0, 0,
             0x6ECEB234, 0x7149B753, 0, 0, 0, 0,
-            0, 0x7149B753, 0, 0, 0, 0);
+            0, 0x7149B753, 0, 0, 0, 0};
 
 namespace {
 
@@ -218,7 +216,7 @@ void CAnimBlenderComponent::Update()
         uint32_t sets = highestSet + 1;
         for (uint32_t set = 0; set != sets;) {
             Gfx::CPose* pose = Gfx::g_blendBuffer;
-            uint32_t bones = reinterpret_cast<uint32_t(__thiscall*)(void*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(skeleton());
+            uint32_t bones = reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Gfx::CSkeleton::GetNumBones))(skeleton());
             Gfx::BlendPosesById(Gfx::g_blendBuffer, Gfx::g_blendWeights, Gfx::g_blendSets, static_cast<int>(bones), pose, count, set);
             ++set;
             Gfx::g_blendSets[0] = set;
@@ -665,73 +663,25 @@ Mth::Vector VectorAt1C::Get() const { return m_vector; }
 
 } // namespace Obj
 
-REPLACE(0x0041A5B0, Obj::CAnimBlenderComponent::Create);
-REPLACE(0x00419690, Obj::CAnimBlenderComponent::RegisterMemberFunctions);
-REPLACE(0x0041A410, &Obj::CAnimBlenderComponent::Construct);
-REPLACE(0x0041A4C0, &Obj::CAnimBlenderComponent::DestroyBody);
-REPLACE(0x0041A610, &Obj::CAnimBlenderComponent::Destroy);
-REPLACE(0x0041A260, &Obj::CAnimBlenderComponent::Update);
-REPLACE(0x00419DD0, &Obj::CAnimBlenderComponent::InitFromStructure);
-REPLACE(0x004196D0, &Obj::CAnimBlenderComponent::Finalize);
-REPLACE(0x00419980, &Obj::CAnimBlenderComponent::PassToChannels);
-REPLACE(0x00419950, &Obj::CAnimBlenderComponent::CallMemberFunction);
-REPLACE(0x0041A1A0, &Obj::CAnimBlenderComponent::AddChannelFromScript);
-REPLACE(0x00419E90, &Obj::CAnimBlenderComponent::WaitOnChannel);
-REPLACE(0x00419750, &Obj::CAnimBlenderComponent::RemoveChannel);
-REPLACE(0x004197C0, &Obj::CAnimBlenderComponent::BlendChannel);
-REPLACE(0x00419F10, &Obj::CAnimBlenderComponent::ChannelExists);
-REPLACE(0x004198D0, &Obj::CAnimBlenderComponent::PassToChannel);
-REPLACE(0x00419D40, &Obj::CAnimBlenderComponent::FindChannel);
-REPLACE(0x00419FD0, &Obj::CAnimBlenderComponent::AddChannel);
-REPLACE(0x0041A220, &Obj::CAnimBlenderComponent::NotifyObservers);
-REPLACE(0x004199C0, &Obj::CAnimBlenderComponent::VisitChannels);
-REPLACE(0x004199F0, &Obj::CAnimBlenderComponent::PassToEachChannel);
-REPLACE(0x00419A20, &Obj::CAnimBlenderComponent::ResetChannels);
-REPLACE(0x00419C10, &Obj::CAnimBlenderComponent::AnyChannel);
-REPLACE(0x00419C70, &Obj::CAnimBlenderComponent::AllChannelsFlag29);
-REPLACE(0x00419CA0, &Obj::CAnimBlenderComponent::ModelReady);
-REPLACE(0x00419730, &Obj::CAnimBlenderComponent::FirstChannel47EFF0);
-REPLACE(0x00419A90, &Obj::CAnimBlenderComponent::PlayAnimation);
-REPLACE(0x00419B50, &Obj::CAnimBlenderComponent::PlayAnimationEx);
-REPLACE(0x00419B90, &Obj::CAnimBlenderComponent::FirstChannel47E850);
-REPLACE(0x00419BB0, &Obj::CAnimBlenderComponent::FirstChannel47E810);
-REPLACE(0x00419BD0, &Obj::CAnimBlenderComponent::FirstChannel47E280);
-REPLACE(0x00419BF0, &Obj::CAnimBlenderComponent::FirstChannel47E450);
-REPLACE(0x00419B30, &Obj::CAnimBlenderComponent::SetFlag4C);
-REPLACE(0x00419AB0, &Obj::CAnimBlenderComponent::GetAnimSet);
-REPLACE(0x00419AD0, &Obj::CAnimBlenderComponent::GetFirstChannel58);
-REPLACE(0x00419AF0, &Obj::CAnimBlenderComponent::GetValue);
-REPLACE(0x00419B10, &Obj::CAnimBlenderComponent::HasValue);
-REPLACE(0x00419CD0, &Obj::CAnimBlenderComponent::IsAnimComplete);
-REPLACE(0x00419F80, &Obj::CAnimBlenderComponent::GetTimeline18);
-REPLACE(0x0041A0A0, &Obj::CAnimBlenderComponent::GetTimeline30);
-REPLACE(0x0041A0E0, &Obj::CAnimBlenderComponent::GetTimes);
-REPLACE(0x00419D70, &Obj::BlendChannelLinks::DestroyBody);
-REPLACE(0x00419D90, &Obj::BlendChannelLinks::DestroyNode);
-REPLACE(0x0041A170, &Obj::BlendChannelLinks::DestroyHead);
-REPLACE(0x00419CF0, &Obj::BlendChannelLinks::GetTimes);
-REPLACE(0x004196B0, Obj::LargerOf);
-REPLACE(0x0041A680, &Obj::VectorAt1C::Get);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kHeadVtable, 0x00645D88,
-    &Obj::BlendChannelLinks::DestroyHead);
-GAME_VTABLE(kVtable, 0x00645D8C,
-    &Obj::CAnimBlenderComponent::Destroy,
-    &Obj::CAnimBlenderComponent::Update,
-    &Obj::CAnimBlenderComponent::InitFromStructure,
-    &Obj::CAnimBlenderComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    &Obj::CAnimBlenderComponent::PassToChannels,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CFlexibleParticleComponent::CallMemberFunctionEntry,
-    &Obj::CAnimBlenderComponent::CallMemberFunction);
+static VtableSlot kHeadVtable_slots[] = {&Obj::BlendChannelLinks::DestroyHead};
+void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
+static VtableSlot kVtable_slots[] = {&Obj::CAnimBlenderComponent::Destroy,
+         &Obj::CAnimBlenderComponent::Update,
+         &Obj::CAnimBlenderComponent::InitFromStructure,
+         &Obj::CAnimBlenderComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         &Obj::CAnimBlenderComponent::PassToChannels,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CFlexibleParticleComponent::CallMemberFunctionEntry,
+         &Obj::CAnimBlenderComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -6,13 +6,10 @@
 
 #include "game/script/names.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[60], g_vehicleWheelMemberFunctions, 0x00684060,
+uint32_t g_vehicleWheelMemberFunctions[60]{
             0x93B713A6, 0xE47F1B79, 0, 0, 0, 0,
             0xA80A0D36, 0xE47F1B79, 0, 0, 0, 0,
             0x4B0B27DD, 0xE47F1B79, 0, 0, 0, 0,
@@ -22,7 +19,7 @@ GAME_GLOBAL(uint32_t[60], g_vehicleWheelMemberFunctions, 0x00684060,
             0x279602ED, 0xE47F1B79, 0, 0, 0, 0,
             0x4C73526B, 0xE47F1B79, 0, 0, 0, 0,
             0x81FAAC21, 0xE47F1B79, 0, 0, 0, 0,
-            0, 0xE47F1B79, 0, 0, 0, 0);
+            0, 0xE47F1B79, 0, 0, 0, 0};
 
 namespace {
 
@@ -110,6 +107,3 @@ void __stdcall ReadWheelSettings(uint8_t* wheel, Script::CStruct* params)
 }
 
 } // namespace Obj
-
-REPLACE(0x00434F00, Obj::RegisterVehicleMemberFunctions);
-REPLACE(0x00434F20, Obj::ReadWheelSettings);

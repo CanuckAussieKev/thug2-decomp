@@ -18,28 +18,25 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/sys/crt.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[36], g_skeletonComponentMemberFunctions, 0x00684DE0,
+uint32_t g_skeletonComponentMemberFunctions[36]{
             0x20F7B992, 0x222756D5, 0, 0, 0, 0,
             0x613831F2, 0x222756D5, 0, 0, 0, 0,
             0xBE1C58CA, 0x222756D5, 0, 0, 0, 0,
             0xB244C9CF, 0x222756D5, 0, 0, 0, 0,
             0xF99F9FAF, 0x222756D5, 0, 0, 0, 0,
-            0, 0x222756D5, 0, 0, 0, 0);
+            0, 0x222756D5, 0, 0, 0, 0};
 
 namespace {
 
@@ -428,39 +425,23 @@ bool CSkeletonComponent::Skeleton_SpawnCompositeObject(Script::CStruct* params, 
 
 } // namespace Obj
 
-REPLACE(0x00431F60, Obj::CSkeletonComponent::Create);
-REPLACE(0x00431BE0, Obj::CSkeletonComponent::RegisterMemberFunctions);
-REPLACE(0x00431FE0, &Obj::CSkeletonComponent::DestroyBody);
-REPLACE(0x00432790, &Obj::CSkeletonComponent::Destroy);
-REPLACE(0x00431C70, &Obj::CSkeletonComponent::InitSkeleton);
-REPLACE(0x00431CF0, &Obj::CSkeletonComponent::InitFromStructure);
-REPLACE(0x00431C60, &Obj::CSkeletonComponent::GetLocalBonePosition);
-REPLACE(0x00432050, &Obj::CSkeletonComponent::GetBonePosition);
-REPLACE(0x004320F0, &Obj::CSkeletonComponent::SpawnTextureSplat);
-REPLACE(0x00432490, &Obj::CSkeletonComponent::SpawnCompositeObjectAtBone);
-REPLACE(0x00431C00, &Obj::CSkeletonComponent::Obj_SetBoneActive);
-REPLACE(0x00431E30, &Obj::CSkeletonComponent::Obj_SetBoneScale);
-REPLACE(0x004327C0, &Obj::CSkeletonComponent::Obj_GetBonePosition);
-REPLACE(0x00432860, &Obj::CSkeletonComponent::TextureSplat);
-REPLACE(0x00432B90, &Obj::CSkeletonComponent::Skeleton_SpawnCompositeObject);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x006464DC,
-    &Obj::CSkeletonComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    &Obj::CSkeletonComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSkeletonComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         &Obj::CSkeletonComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

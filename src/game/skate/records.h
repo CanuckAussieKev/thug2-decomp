@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "hook/game_global.h"
 
 // The records (0x0057ECD0-0x0057FE27): each level's high scores, best combos and (some levels) arcade scores - tables
 // of records kept sorted, best first - and its longest combo, grind, lip trick and manual; the game's records are
@@ -130,6 +129,6 @@ bool __cdecl CFunc_UpdateInitials(Script::CStruct* params, Script::CScript* scri
 // 0x005AFB30: NewRecord - whether the last UpdateRecords set a record (the skate module's +0x384).
 bool __cdecl CFunc_NewRecord(Script::CStruct* params, Script::CScript* script);
 
-GAME_GLOBAL_EXTERN(Records::CGameRecords*, g_gameRecords);
+extern Records::CGameRecords* g_gameRecords;
 
 } // namespace Records

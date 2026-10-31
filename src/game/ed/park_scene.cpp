@@ -2,6 +2,8 @@
 // into the "cloned" scene and lit by the park's lights, the scene rebuilt, and the restart points. The data is laid
 // out in park_scene.h; the node array the park's level runs on is park_nodes.cpp.
 
+#include <cstdint>
+
 #include "game/ed/park_scene.h"
 
 #include "game/ass/asset.h"
@@ -16,8 +18,6 @@
 #include "game/park/park_memory.h"
 #include "game/script/nodes.h"
 #include "game/ed/park_editor.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
@@ -486,23 +486,3 @@ void CParkGenerator::LoadPieces(uint32_t level, int unused)
 }
 
 } // namespace Ed
-
-REPLACE(0x00593460, &Ed::CParkGenerator::Construct);
-REPLACE(0x00592FE0, &Ed::CParkGenerator::SetLightPosition);
-REPLACE(0x00593010, &Ed::CParkGenerator::CalculateLighting);
-REPLACE(0x00594410, &Ed::CParkGenerator::LightPiece);
-REPLACE(0x00593200, &Ed::CParkGenerator::AddRestart);
-REPLACE(0x00593370, &Ed::CParkGenerator::CountRestarts);
-REPLACE(0x005933D0, &Ed::CParkGenerator::NeedsRestarts);
-REPLACE(0x005933F0, &Ed::CParkGenerator::RemoveRestart);
-REPLACE(0x00593500, &Ed::CParkGenerator::CreateGapPiece);
-REPLACE(0x00593580, &Ed::CParkGenerator::DestroyPieces);
-REPLACE(0x005935F0, &Ed::CParkGenerator::DestroyPiece);
-REPLACE(0x00593610, &Ed::CParkGenerator::CleanUpOutRefs);
-REPLACE(0x00594610, &Ed::CParkGenerator::UnloadPieces);
-REPLACE(0x00594730, &Ed::CParkGenerator::AddPieceToScene);
-REPLACE(0x005947D0, &Ed::CParkGenerator::RebuildAll);
-REPLACE(0x00594910, &Ed::CParkGenerator::RebuildMarked);
-REPLACE(0x00594C70, &Ed::CParkGenerator::CleanUp);
-REPLACE(0x00594C90, &Ed::CParkGenerator::LoadSourcePieces);
-REPLACE(0x00594FD0, &Ed::CParkGenerator::LoadPieces);

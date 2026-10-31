@@ -8,8 +8,6 @@
 #include "game/core/crc.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/sys/crt.h"
 
 namespace Ed {
@@ -223,12 +221,3 @@ __declspec(naked) void InitEditedGoalStub()
 } // namespace
 
 } // namespace Ed
-
-REPLACE(0x004E6600, Ed::GoalObjectModel);
-REPLACE(0x004E66A0, Ed::GoalObjectName);
-REPLACE(0x004E6730, Ed::EditedGoalNodeName);
-REPLACE(0x004E67A0, Ed::GoalTypeStructure);
-REPLACE_UNCHECKED(0x004E6890, Ed::GoalTypeDefaultsStub);
-REPLACE(0x004E69C0, Ed::GoalEditorConstant82);
-REPLACE_UNCHECKED(0x004E69D0, Ed::InitEditedGoalStub);
-REPLACE(0x004E6AE0, Ed::RunMarkerObjectScript);

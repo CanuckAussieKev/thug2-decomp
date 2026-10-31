@@ -3,6 +3,7 @@
 #include "game/obj/movie_manager.h"
 
 #include <cstdint>
+#include <initializer_list>
 
 #include "game/ass/assman.h"
 #include "game/core/dbg.h"
@@ -18,17 +19,14 @@
 #include "game/script/struct.h"
 #include "game/skate/skate_module.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/obj/object.h"
 #include "game/core/stubs.h"
-#include "hook/game_code.h"
 
 namespace Obj {
 
-GAME_GLOBAL(bool, g_gamePaused, 0x006FA7D4);
-GAME_GLOBAL(int, g_viewMode, 0x007CE4A4);
+bool g_gamePaused;
+int g_viewMode;
 
 namespace {
 
@@ -532,57 +530,23 @@ uint32_t __fastcall MovieName(const void* movie) { return reinterpret_cast<const
 
 } // namespace Obj
 
-REPLACE(0x0057A180, &Obj::CMovieManager::UseKeptCamera);
-REPLACE(0x0057A190, &Obj::ObjectAssignment::Assign);
-REPLACE(0x0057A200, &Obj::MovieListNode::DestroyBody);
-REPLACE(0x0057A220, &Obj::CameraAssignment::Assign);
-REPLACE(0x0057A2C0, &Obj::MovieListNode::Destroy);
-REPLACE(0x0057A2F0, &Obj::ListHead::DeleteAllNodes);
-REPLACE(0x0057A330, &Obj::CMovieManager::Count);
-REPLACE(0x0057A360, &Obj::CMovieManager::GetMovie);
-REPLACE(0x0057A3A0, &Obj::CMovieManager::FindMovie);
-REPLACE(0x0057A450, &Obj::CMovieManager::KeepCamera);
-REPLACE(0x0057A4B0, &Obj::CMovieManager::Construct);
-REPLACE(0x0057A530, &Obj::CMovieManager::GetCamera);
-REPLACE(0x0057A5A0, &Obj::CMovieManager::StopAll);
-REPLACE(0x0057A640, &Obj::CMovieManager::ClearMovies);
-REPLACE(0x0057A6B0, &Obj::CMovieManager::EndMovie);
-REPLACE(0x0057A7E0, &Obj::CMovieManager::EndMovies);
-REPLACE(0x0057A940, &Obj::CMovieManager::MovieCall468F40);
-REPLACE(0x0057A9B0, &Obj::CMovieManager::MovieCall468F50);
-REPLACE(0x0057AA20, &Obj::CMovieManager::IsMovieGone);
-REPLACE(0x0057AA70, &Obj::CMovieManager::MovieFlag18);
-REPLACE(0x0057AAC0, &Obj::CMovieManager::KillMovie);
-REPLACE(0x0057AB60, &Obj::CMovieManager::AddMovie);
-REPLACE(0x0057AE60, &Obj::CMovieManager::Update);
-REPLACE(0x0057AF60, &Obj::CMovieManager::MovieValue);
-REPLACE(0x0057AFC0, &Obj::CMovieManager::CallMemberFunction);
-REPLACE(0x0057B030, &Obj::CMovieManager::GetPlayingName);
-REPLACE(0x0057B070, &Obj::CMovieManager::PlayingFlag24);
-REPLACE(0x0057B0B0, &Obj::CMovieManager::AnyMovies);
-REPLACE(0x0057B0E0, &Obj::CMovieManager::Playing2C);
-REPLACE(0x0057B120, &Obj::CMovieManager::Playing30);
-REPLACE(0x0057B160, &Obj::CMovieManager::Playing34);
-REPLACE(0x0057B1A0, &Obj::CMovieManager::DestroyBody);
-REPLACE(0x0057B220, &Obj::CMovieManager::Destroy);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kMovieNodeVtable, 0x00647A48,
-    &Obj::CMovieDetails::DestroyNode);
-GAME_VTABLE(kQueueVtable, 0x0064ED30,
-    &Obj::MovieListNode::Destroy);
-GAME_VTABLE(kVtable, 0x0064ED34,
-    &Obj::CMovieManager::Destroy,
-    &Obj::CObject::SetProperties,
-    static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-    &Obj::CMovieManager::CallMemberFunction,
-    Stubs::IgnoreArgument,
-    &Obj::CObject::PassEventToScript,
-    &Obj::CObject::MarkAsDead,
-    Stubs::ReturnTrue,
-    &Obj::CMovieManager::Update);
+static VtableSlot kMovieNodeVtable_slots[] = {&Obj::CMovieDetails::DestroyNode};
+void** const kMovieNodeVtable = reinterpret_cast<void**>(kMovieNodeVtable_slots);
+static VtableSlot kQueueVtable_slots[] = {&Obj::MovieListNode::Destroy};
+void** const kQueueVtable = reinterpret_cast<void**>(kQueueVtable_slots);
+static VtableSlot kVtable_slots[] = {&Obj::CMovieManager::Destroy,
+         &Obj::CObject::SetProperties,
+         static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+         &Obj::CMovieManager::CallMemberFunction,
+         Stubs::IgnoreArgument,
+         &Obj::CObject::PassEventToScript,
+         &Obj::CObject::MarkAsDead,
+         Stubs::ReturnTrue,
+         &Obj::CMovieManager::Update};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

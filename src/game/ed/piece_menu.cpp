@@ -1,5 +1,7 @@
 // The park editor's piece menu (Ed::CUpperMenuManager).
 
+#include <cstdint>
+
 #include "game/ed/piece_menu.h"
 
 #include "game/core/mem.h"
@@ -9,12 +11,10 @@
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/hook.h"
-#include "hook/game_global.h"
 
 namespace Ed {
 
-GAME_GLOBAL(CUpperMenuManager*, g_upperMenuManager, 0x007CE60C);
+CUpperMenuManager* g_upperMenuManager;
 
 namespace {
 
@@ -196,6 +196,3 @@ void CUpperMenuManager::SetPieceSet(CPieceSet* set, int /*unused*/, int setNumbe
 }
 
 } // namespace Ed
-
-REPLACE(0x00598DA0, Ed::CUpperMenuManager::DeleteInstance);
-REPLACE(0x0059A9E0, &Ed::CUpperMenuManager::SetPieceSet);

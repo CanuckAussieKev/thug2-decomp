@@ -12,10 +12,7 @@
 #include "game/script/struct.h"
 #include "game/skater/skater.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/skater/vehicle_sound.h"
@@ -23,15 +20,15 @@
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[4], g_runTimerStateNames, 0x0064C080, 0x742CF11F, 0x5392CA8E, 0x26776873, 0xDEF417FA);
-GAME_GLOBAL(uint32_t[42], g_runTimerMemberFunctions, 0x006849C0,
+uint32_t g_runTimerStateNames[4]{0x742CF11F, 0x5392CA8E, 0x26776873, 0xDEF417FA};
+uint32_t g_runTimerMemberFunctions[42]{
             0x82445966, 0x8BCE7E66, 0, 0, 0, 0,
             0x956236B1, 0x8BCE7E66, 0, 0, 0, 0,
             0xAB04CBF9, 0x8BCE7E66, 0, 0, 0, 0,
             0x96D81D8E, 0x8BCE7E66, 0, 0, 0, 0,
             0x81AAA6DD, 0x8BCE7E66, 0, 0, 0, 0,
             0x37CC7691, 0x8BCE7E66, 0, 0, 0, 0,
-            0, 0x8BCE7E66, 0, 0, 0, 0);
+            0, 0x8BCE7E66, 0, 0, 0, 0};
 
 namespace {
 
@@ -205,39 +202,23 @@ bool CSkaterRunTimerComponent::ComboStarted(Script::CStruct*, Script::CScript*)
 
 } // namespace Obj
 
-REPLACE(0x005185D0, Obj::CSkaterRunTimerComponent::Create);
-REPLACE(0x00518240, Obj::CSkaterRunTimerComponent::RegisterMemberFunctions);
-REPLACE(0x00518260, &Obj::CSkaterRunTimerComponent::DestroyBody);
-REPLACE(0x005182B0, &Obj::CSkaterRunTimerComponent::Destroy);
-REPLACE(0x005182E0, &Obj::CSkaterRunTimerComponent::Finalize);
-REPLACE(0x00518270, &Obj::CSkaterRunTimerComponent::GetDebugInfo);
-REPLACE(0x00518300, &Obj::CSkaterRunTimerComponent::Update);
-REPLACE(0x00518390, &Obj::CSkaterRunTimerComponent::Stop);
-REPLACE(0x005183F0, &Obj::CSkaterRunTimerComponent::Resume);
-REPLACE(0x005184A0, &Obj::CSkaterRunTimerComponent::Pause);
-REPLACE(0x005184F0, &Obj::CSkaterRunTimerComponent::Unpause);
-REPLACE(0x00518500, &Obj::CSkaterRunTimerComponent::GetFactorComplete);
-REPLACE(0x00518540, &Obj::CSkaterRunTimerComponent::GetRunTimerControllerId);
-REPLACE(0x00518570, &Obj::CSkaterRunTimerComponent::GetRunTimerId);
-REPLACE(0x005185A0, &Obj::CSkaterRunTimerComponent::ComboStarted);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064C04C,
-    &Obj::CSkaterRunTimerComponent::Destroy,
-    &Obj::CSkaterRunTimerComponent::Update,
-    &CSkaterCleanupStateComponent::InitFromStructure,
-    &Obj::CSkaterRunTimerComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    &Obj::CSkaterRunTimerComponent::GetDebugInfo,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSkaterRunTimerComponent::Destroy,
+         &Obj::CSkaterRunTimerComponent::Update,
+         &CSkaterCleanupStateComponent::InitFromStructure,
+         &Obj::CSkaterRunTimerComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         &Obj::CSkaterRunTimerComponent::GetDebugInfo,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

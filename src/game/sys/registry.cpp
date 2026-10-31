@@ -4,9 +4,8 @@
 
 #include <windows.h>
 
+#include <cstdint>
 #include <cstdio>
-
-#include "hook/hook.h"
 
 namespace Sys {
 
@@ -37,5 +36,3 @@ void WriteDefaultSetting(const char* name, uint32_t value)
 }
 
 } // namespace Sys
-
-REPLACE(0x004E1810, Sys::WriteDefaultSetting);

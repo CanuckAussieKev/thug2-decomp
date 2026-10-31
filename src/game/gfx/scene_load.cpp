@@ -2,6 +2,7 @@
 
 #include "game/gfx/scene_load.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <new>
@@ -20,13 +21,10 @@
 #include "game/gfx/pc_scene.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/sector.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
-GAME_GLOBAL(Mem::PoolPair, g_frameSourcePools, 0x006FA7F4);
+Mem::PoolPair g_frameSourcePools;
 
 namespace {
 
@@ -231,10 +229,3 @@ void* __cdecl LoadMeshFromMemory(uint32_t checksum, const uint8_t* data, int /*u
 }
 
 } // namespace Nx
-
-REPLACE(0x004B2D30, &Nx::sHierarchyNode::Construct);
-REPLACE(0x004B3490, Nx::LoadSceneFromMemory);
-REPLACE(0x004B36D0, Nx::LoadSceneFromFile);
-REPLACE(0x004B3990, Nx::CreateFrameSource);
-REPLACE(0x004B3A20, Nx::LoadMeshFile);
-REPLACE(0x004B3AD0, Nx::LoadMeshFromMemory);

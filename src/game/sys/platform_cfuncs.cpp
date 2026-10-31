@@ -8,7 +8,6 @@
 
 #include "game/script/script_tables.h"
 #include "game/sio/sdl_input.h"
-#include "hook/hook.h"
 
 namespace Sys {
 

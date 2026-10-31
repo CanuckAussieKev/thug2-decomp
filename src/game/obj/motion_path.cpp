@@ -11,13 +11,10 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[294], g_motionPathMemberFunctions, 0x00681EB8,
+uint32_t g_motionPathMemberFunctions[294]{
             0x21ACCF0D, 0x0A015E17, 0, 0, 0, 0,
             0x7BC461AE, 0x0A015E17, 0, 0, 0, 0,
             0x8E52ABEA, 0x0A015E17, 0, 0, 0, 0,
@@ -66,7 +63,7 @@ GAME_GLOBAL(uint32_t[294], g_motionPathMemberFunctions, 0x00681EB8,
             0xE76D73D2, 0x0A015E17, 0, 0, 0, 0,
             0x1AE46261, 0x0A015E17, 0, 0, 0, 0,
             0x2FAD370D, 0x0A015E17, 0, 0, 0, 0,
-            0, 0x0A015E17, 0, 0, 0, 0);
+            0, 0x0A015E17, 0, 0, 0, 0};
 
 namespace {
 
@@ -284,25 +281,3 @@ int CMotionPathMembers::WaitStop(Script::CStruct*, Script::CScript* script)
 }
 
 } // namespace Obj
-
-REPLACE(0x00423130, Obj::CMotionPathMembers::RegisterMemberFunctions);
-REPLACE(0x00423150, &Obj::CMotionPathMembers::IsRotating);
-REPLACE(0x00423520, &Obj::CMotionPathMembers::PicksRandomLink);
-REPLACE(0x00423510, &Obj::CMotionPathMembers::GetPathFollower);
-REPLACE(0x00423530, &Obj::CMotionPathMembers::UpdatePathSpeed);
-REPLACE(0x00423160, &Obj::CMotionPathMembers::IsMovingFromScript);
-REPLACE(0x00423170, &Obj::CMotionPathMembers::IsRotatingFromScript);
-REPLACE(0x00423180, &Obj::CMotionPathMembers::StopMoving);
-REPLACE(0x00423190, &Obj::CMotionPathMembers::StopRotating);
-REPLACE(0x004231A0, &Obj::CMotionPathMembers::SetPathVelocity);
-REPLACE(0x00423210, &Obj::CMotionPathMembers::SetPathMinStopVel);
-REPLACE(0x00423280, &Obj::CMotionPathMembers::SetPathAcceleration);
-REPLACE(0x004232F0, &Obj::CMotionPathMembers::SetPathDeceleration);
-REPLACE(0x00423360, &Obj::CMotionPathMembers::PathHeading);
-REPLACE(0x004233A0, &Obj::CMotionPathMembers::RandomPathMode);
-REPLACE(0x004233E0, &Obj::CMotionPathMembers::StopAlongPath);
-REPLACE(0x00423480, &Obj::CMotionPathMembers::StartAlongPath);
-REPLACE(0x00423490, &Obj::CMotionPathMembers::WaitJumpFinished);
-REPLACE(0x004234B0, &Obj::CMotionPathMembers::WaitRotate);
-REPLACE(0x004234D0, &Obj::CMotionPathMembers::WaitMove);
-REPLACE(0x004234F0, &Obj::CMotionPathMembers::WaitStop);

@@ -3,6 +3,7 @@
 
 #include "game/net/net_conn.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -10,10 +11,7 @@
 #include "game/lst/search.h"
 #include "game/net/net_access_c.h"
 #include "game/net/net_app.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Net {
 
@@ -32,7 +30,7 @@ constexpr uint32_t kWriteBufferSize = 0x514;
 constexpr uint32_t kMinResendThreshold = 500;
 constexpr uint32_t kStatus2ResendThreshold = 1000;
 
-GAME_GLOBAL(uint32_t, g_nextConnId, 0x0067D800, 1);
+uint32_t g_nextConnId{1};
 
 // The running number each connection gets (+0x44).
 uint32_t& NextConnId() { return g_nextConnId; }
@@ -112,10 +110,14 @@ ConnListSearch<SearchVtable>* ConnListSearch<SearchVtable>::Destroy(unsigned int
     return this;
 }
 
-GAME_VTABLE(kMsgSeqLinkSearchVtable, 0x00647564, &Net::MsgSeqLinkSearch::Destroy);
-GAME_VTABLE(kMsgLinkSearchVtable, 0x00647568, &Net::MsgLinkSearch::Destroy);
-GAME_VTABLE(kMsgImpLinkSearchVtable, 0x0064756C, &Net::MsgImpLinkSearch::Destroy);
-GAME_VTABLE(kStreamLinkSearchVtable, 0x00647570, &Net::StreamLinkSearch::Destroy);
+static VtableSlot kMsgSeqLinkSearchVtable_slots[] = {&Net::MsgSeqLinkSearch::Destroy};
+void** const kMsgSeqLinkSearchVtable = reinterpret_cast<void**>(kMsgSeqLinkSearchVtable_slots);
+static VtableSlot kMsgLinkSearchVtable_slots[] = {&Net::MsgLinkSearch::Destroy};
+void** const kMsgLinkSearchVtable = reinterpret_cast<void**>(kMsgLinkSearchVtable_slots);
+static VtableSlot kMsgImpLinkSearchVtable_slots[] = {&Net::MsgImpLinkSearch::Destroy};
+void** const kMsgImpLinkSearchVtable = reinterpret_cast<void**>(kMsgImpLinkSearchVtable_slots);
+static VtableSlot kStreamLinkSearchVtable_slots[] = {&Net::StreamLinkSearch::Destroy};
+void** const kStreamLinkSearchVtable = reinterpret_cast<void**>(kStreamLinkSearchVtable_slots);
 
 template struct ConnListSearch<kMsgSeqLinkSearchVtable>;
 template struct ConnListSearch<kMsgLinkSearchVtable>;
@@ -364,42 +366,3 @@ void Conn::DestroyMessageQueues()
 }
 
 } // namespace Net
-
-REPLACE(0x00455C60, &Net::MsgSeqLinkHead::Construct);
-REPLACE(0x004559D0, &Net::MsgSeqLinkSearch::DestroyBody);
-REPLACE(0x004559E0, &Net::MsgLinkSearch::DestroyBody);
-REPLACE(0x004559F0, &Net::MsgImpLinkSearch::DestroyBody);
-REPLACE(0x00455A00, &Net::StreamLinkSearch::DestroyBody);
-REPLACE(0x00455A80, &Net::MsgSeqLinkSearch::Destroy);
-REPLACE(0x00455AB0, &Net::MsgLinkSearch::Destroy);
-REPLACE(0x00455AE0, &Net::MsgImpLinkSearch::Destroy);
-REPLACE(0x00455B10, &Net::StreamLinkSearch::Destroy);
-REPLACE(0x00455B50, &Net::MsgNormalNode::DestroyBody);
-REPLACE(0x00455B70, &Net::MsgImpNode::DestroyBody);
-REPLACE(0x00455B90, &Net::MsgSeqNode::DestroyBody);
-REPLACE(0x00455BB0, &Net::StreamLinkNode::DestroyBody);
-REPLACE(0x00455C80, &Net::Conn::Construct);
-REPLACE(0x00456790, &Net::Conn::Destroy);
-REPLACE_SOURCE_ONLY(0x00455970, &Net::Conn::GetSendInterval); // 4 bytes
-REPLACE(0x00455980, &Net::Conn::SetForceSendThisFrame);
-REPLACE(0x00455990, &Net::Conn::GetForceSendThisFrame);
-REPLACE(0x004559A0, &Net::Conn::GetBandwidthType);
-REPLACE(0x004559B0, &Net::Conn::SetBandwidth);
-REPLACE(0x004559C0, &Net::Conn::GetBandwidth);
-REPLACE(0x00455A10, &Net::Conn::IsForeign);
-REPLACE(0x00455A20, &Net::Conn::IsLocal);
-REPLACE(0x00455A30, &Net::Conn::IsRemote);
-REPLACE(0x00455A40, &Net::Conn::SetBandwidthType);
-REPLACE(0x00455B40, &Net::Conn::GetAveLatency);
-REPLACE(0x00455C10, &Net::Conn::Invalidate);
-REPLACE(0x00455C20, &Net::Conn::IsValid);
-REPLACE(0x00455C30, &Net::Conn::GetResendThreshold);
-REPLACE(0x00455E50, &Net::Conn::DestroyReceivedSequencedMessages);
-REPLACE(0x00455F30, &Net::Conn::DestroyLinks);
-REPLACE(0x00456210, &Net::Conn::DestroyImportantMessages);
-REPLACE(0x00456370, &Net::Conn::ReleaseQueuedMessages);
-REPLACE(0x00456540, &Net::Conn::GetHighestResendCount);
-REPLACE(0x004565E0, &Net::Conn::GetNumQueuedStreamPieces);
-REPLACE(0x00456630, &Net::Conn::ClearResendCounts);
-REPLACE(0x004566D0, &Net::Conn::FlagMessagesForResending);
-REPLACE(0x00456770, &Net::Conn::DestroyMessageQueues);

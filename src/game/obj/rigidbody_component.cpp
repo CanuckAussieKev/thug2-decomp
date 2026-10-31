@@ -4,6 +4,8 @@
 
 #include <cmath>
 #include <cstdint>
+#include <initializer_list>
+#include <new>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -14,34 +16,31 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/nx/coll_cache.h"
 #include "game/sys/startup_init.h"
 
 namespace Obj {
 
-GAME_GLOBAL(float[8], g_rigidBodyPusherReach, 0x006939B0);
-GAME_GLOBAL(RigidBodyCacheStorage, g_rigidBodyCache, 0x006939E0);
-GAME_GLOBAL(CRigidBodyComponent::Contact[24], g_rigidBodyContacts, 0x006949B0);
-GAME_GLOBAL(Mth::Vector[24], g_rigidBodyWorldContactPoints, 0x00694E30);
-GAME_GLOBAL(Mth::Vector[24], g_rigidBodyWorldSphereCenters, 0x00694FB0);
-GAME_GLOBAL(Mth::Vector[2], g_rigidBodyWorldSpringPoints, 0x00695130);
-GAME_GLOBAL(CSmtPtr<CCompositeObject>[8], g_rigidBodyPushers, 0x00695150);
+float g_rigidBodyPusherReach[8];
+RigidBodyCacheStorage g_rigidBodyCache;
+CRigidBodyComponent::Contact g_rigidBodyContacts[24];
+Mth::Vector g_rigidBodyWorldContactPoints[24];
+Mth::Vector g_rigidBodyWorldSphereCenters[24];
+Mth::Vector g_rigidBodyWorldSpringPoints[2];
+CSmtPtr<CCompositeObject> g_rigidBodyPushers[8];
 
 Mth::Vector* CRigidBodyComponent::WorldContactPoints() { return g_rigidBodyWorldContactPoints; }
 Mth::Vector* CRigidBodyComponent::WorldSphereCenters() { return g_rigidBodyWorldSphereCenters; }
 Mth::Vector* CRigidBodyComponent::WorldSpringPoints() { return g_rigidBodyWorldSpringPoints; }
 CRigidBodyComponent::Contact* CRigidBodyComponent::Contacts() { return g_rigidBodyContacts; }
-GAME_GLOBAL(float, g_rigidBodyPusherHeight, 0x006939D0);
+float g_rigidBodyPusherHeight;
 
 namespace {
 
@@ -741,46 +740,23 @@ void __cdecl AddRigidBodyPusher(CCompositeObject* object)
 
 } // namespace Obj
 
-REPLACE(0x0042EF00, Obj::CRigidBodyComponent::Create);
-REPLACE(0x0042E3F0, &Obj::CRigidBodyComponent::Construct);
-REPLACE(0x0042EF60, &Obj::CRigidBodyComponent::DestroyBody);
-REPLACE(0x00430DF0, &Obj::CRigidBodyComponent::Destroy);
-REPLACE(0x0042F050, &Obj::CRigidBodyComponent::InitFromStructure);
-REPLACE(0x0042D4B0, &Obj::CRigidBodyComponent::SetContacts);
-REPLACE(0x0042D560, &Obj::CRigidBodyComponent::SetBox);
-REPLACE(0x0042D690, &Obj::CRigidBodyComponent::SetPyramid);
-REPLACE(0x0042D790, &Obj::CRigidBodyComponent::SetCylinder);
-REPLACE(0x0042D8A0, &Obj::CRigidBodyComponent::SetTriangle);
-REPLACE(0x0042ED60, &Obj::CRigidBodyComponent::SetSpheres);
-REPLACE(0x0042EB10, &Obj::CRigidBodyComponent::SetSounds);
-REPLACE(0x0042DCA0, &Obj::CRigidBodyComponent::RigidBody_Wake);
-REPLACE(0x0042DCF0, &Obj::CRigidBodyComponent::RigidBody_Sleep);
-REPLACE(0x0042DD00, &Obj::CRigidBodyComponent::Rigidbody_Kick);
-REPLACE(0x0042DEB0, &Obj::CRigidBodyComponent::RigidBody_SetVelocities);
-REPLACE(0x0042EE30, &Obj::CRigidBodyComponent::RigidBody_Enable);
-REPLACE(0x0042DFB0, &Obj::CRigidBodyComponent::RigidBody_DisablePlayerCollision);
-REPLACE(0x0042DFC0, &Obj::CRigidBodyComponent::RigidBody_EnablePlayerCollision);
-REPLACE(0x0042DFD0, &Obj::CRigidBodyComponent::GetCenterOfMassPos);
-REPLACE(0x0042E020, &Obj::CRigidBodyComponent::Rigidbody_MatchVelocityTo);
-REPLACE(0x0042E380, Obj::AddRigidBodyPusher);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x006463F8,
-    &Obj::CRigidBodyComponent::Destroy,
-    &Obj::CRigidBodyComponent::Update,
-    &Obj::CRigidBodyComponent::InitFromStructure,
-    &CRigidBodyComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CRigidBodyComponent::Destroy,
+         &Obj::CRigidBodyComponent::Update,
+         &Obj::CRigidBodyComponent::InitFromStructure,
+         &CRigidBodyComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

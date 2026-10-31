@@ -11,14 +11,11 @@
 #include "game/skater/skater_camera_component.h"
 #include "game/skater/walk_camera.h"
 #include "game/gfx/viewport_list.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/skater/skater_camera_component.h"
 
 namespace Obj {
 
 namespace {
-
 
 constexpr uint32_t kCameraLookaround = 0x81C7122D, kCamera = 0xC4E311FA;
 
@@ -176,9 +173,3 @@ void CSkaterCameraComponent::SetMode(int mode, float time)
 }
 
 } // namespace Obj
-
-REPLACE(0x004F99F0, &Obj::CSkaterCameraComponent::DestroyBody);
-REPLACE(0x004F9A20, &Obj::CSkaterCameraComponent::Finalize);
-REPLACE(0x004F9A40, &Obj::CSkaterCameraComponent::SetState);
-REPLACE(0x004F9970, &Obj::CSkaterCameraComponent::UpdateLerps);
-REPLACE(0x004F9AE0, &Obj::CSkaterCameraComponent::SetMode);

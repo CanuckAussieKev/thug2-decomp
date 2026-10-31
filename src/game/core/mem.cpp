@@ -3,8 +3,6 @@
 #include <cstring>
 
 #include "game/core/manager.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Mem {
 
@@ -85,11 +83,3 @@ void PopContext()
 }
 
 } // namespace Mem
-
-// No self-tests: these need the game's memory manager, which doesn't exist yet when self-tests run.
-REPLACE(0x00401000, Mem::Free);
-REPLACE(0x004015D0, Mem::New);
-REPLACE(0x00401C90, Mem::Clear);
-REPLACE(0x00401CC0, static_cast<void* (*)(unsigned int)>(&Mem::Calloc));
-REPLACE(0x00401D00, static_cast<void* (*)(unsigned int, int)>(&Mem::Calloc));
-REPLACE(0x00401D40, static_cast<void* (*)(unsigned int, Mem::Heap*, int)>(&Mem::Calloc));

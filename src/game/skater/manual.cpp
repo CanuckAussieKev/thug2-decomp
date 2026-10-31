@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <new>
 
 #include "game/core/manager.h"
 #include "game/mth/math.h"
@@ -20,9 +21,7 @@
 #include "game/sys/timer.h"
 #include "game/skate/score.h"
 #include "game/skater/balance_trick.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Obj {
 
@@ -340,25 +339,11 @@ void CBalance::Update()
 
 } // namespace Obj
 
-REPLACE(0x00579850, &Obj::CBalance::DestroyBody);
-REPLACE(0x00579860, &Obj::CBalance::Init);
-REPLACE(0x005798A0, &Obj::CBalance::Reset);
-REPLACE(0x005798F0, &Obj::CBalance::ClearBestTime);
-REPLACE(0x00579900, &Obj::CBalance::HideDisplay);
-REPLACE(0x00579910, &Obj::CBalance::ShowDisplay);
-REPLACE(0x00579920, &Obj::CBalance::KeepBestTime);
-REPLACE(0x00579940, &Obj::CBalance::ShowMeter);
-REPLACE(0x00579950, &Obj::CBalance::Construct);
-REPLACE(0x005799A0, &Obj::CBalance::Destroy);
-REPLACE(0x005799D0, &Obj::CBalance::Stop);
-REPLACE(0x00579A00, &Obj::CBalance::Start);
-REPLACE(0x00579CC0, &Obj::CBalance::Update);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064ED24,
-    &Obj::CBalance::Destroy);
+static VtableSlot kVtable_slots[] = {&Obj::CBalance::Destroy};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

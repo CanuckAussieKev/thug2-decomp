@@ -4,6 +4,7 @@
 
 #include <windows.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
@@ -27,10 +28,8 @@
 #include "game/util/bitstream.h"
 #include "game/script/game_cfuncs.h"
 #include "game/ed/rail_editor.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/ass/assman.h"
-#include "hook/game_code.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -105,8 +104,10 @@ void __cdecl GetCdKey(char* key)
     key[length] = '\0';
 }
 
-GAME_VTABLE(kPlayerSearchVtable, 0x0064C828, &GameNet::PlayerSearchDestructors::Destroy);
-GAME_VTABLE(kNewPlayerSearchVtable, 0x0064C82C, &GameNet::NewPlayerSearchDestructors::Destroy);
+static VtableSlot kPlayerSearchVtable_slots[] = {&GameNet::PlayerSearchDestructors::Destroy};
+void** const kPlayerSearchVtable = reinterpret_cast<void**>(kPlayerSearchVtable_slots);
+static VtableSlot kNewPlayerSearchVtable_slots[] = {&GameNet::NewPlayerSearchDestructors::Destroy};
+void** const kNewPlayerSearchVtable = reinterpret_cast<void**>(kNewPlayerSearchVtable_slots);
 
 // 0x0052DB60 / 0x0052DB70
 void PlayerSearchDestructors::DestroyBody() { m_vtable = kPlayerSearchVtable; }
@@ -335,14 +336,14 @@ int __cdecl HandleChooseTeam(Net::MsgHandlerContext* context)
     uint8_t* skate = Skate();
     int teams = static_cast<int8_t>(Message(context)[0]);
     if (teams <= 0 || IsTeamGame()) {
-        Call(GAME_CODE(0x005535A0, &Game::CGameMode::SetNumTeams), GameMode(), teams);
+        Call(CodeAddress(&Game::CGameMode::SetNumTeams), GameMode(), teams);
         return kContinue;
     }
-    Call(GAME_CODE(0x005535A0, &Game::CGameMode::SetNumTeams), GameMode(), teams);
+    Call(CodeAddress(&Game::CGameMode::SetNumTeams), GameMode(), teams);
     Run(kChooseTeamMessage);
-    if (Call<Obj::CObject*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate)) { // the local skater
-        Run(kPrepareSkaterForMove, nullptr, Call<Obj::CObject*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate));
-        Call(GAME_CODE(0x00566370, &Mdl::Skate::MoveToRestart), skate, Call<Obj::CObject*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate), 0, 0);
+    if (Call<Obj::CObject*>(CodeAddress(Mdl::Skate::GetLocalSkaterStub), skate)) { // the local skater
+        Run(kPrepareSkaterForMove, nullptr, Call<Obj::CObject*>(CodeAddress(Mdl::Skate::GetLocalSkaterStub), skate));
+        Call(CodeAddress(&Mdl::Skate::MoveToRestart), skate, Call<Obj::CObject*>(CodeAddress(Mdl::Skate::GetLocalSkaterStub), skate), 0, 0);
     }
     return kContinue;
 }
@@ -354,7 +355,7 @@ int __cdecl HandleChecksumRequest(Net::MsgHandlerContext* context)
     Net::MsgDesc desc;
     desc.Construct();
     char* msg = context->m_Msg;
-    *reinterpret_cast<uint32_t*>(msg + 4) = Call<uint32_t>(GAME_CODE(0x005695A0, &Mdl::Skate::GetCheats), skate);
+    *reinterpret_cast<uint32_t*>(msg + 4) = Call<uint32_t>(CodeAddress(&Mdl::Skate::GetCheats), skate);
     desc.m_groupId = kGroupGame;
     desc.m_length = 8;
     desc.m_id = kMsgChecksum;
@@ -406,7 +407,7 @@ int __cdecl HandleCreatedDataRequest(Net::MsgHandlerContext* context)
         int handle = context->m_Conn->m_handle;
         auto railEditor = [] { return Ed::CRailEditorComponent::Instance(); };
         railEditor(); // (looked up once for nothing)
-        void* rails = Call<void*>(GAME_CODE(0x004F45B0, &Ed::CRailEditorComponent::GetPacked), railEditor()); // the rails, packed
+        void* rails = Call<void*>(CodeAddress(&Ed::CRailEditorComponent::GetPacked), railEditor()); // the rails, packed
         app->StreamMessage(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
     } else if (id == kMsgRequestGoals && manager->HasCreatedGoals()) {
         int handle = context->m_Conn->m_handle;
@@ -418,34 +419,3 @@ int __cdecl HandleCreatedDataRequest(Net::MsgHandlerContext* context)
 }
 
 } // namespace GameNet
-
-REPLACE(0x0052D6A0, GameNet::GetCdKey);
-REPLACE(0x0052DB60, &GameNet::PlayerSearchDestructors::DestroyBody);
-REPLACE(0x0052DB70, &GameNet::NewPlayerSearchDestructors::DestroyBody);
-REPLACE(0x0052F730, &GameNet::PlayerSearchDestructors::Destroy);
-REPLACE(0x0052F760, &GameNet::NewPlayerSearchDestructors::Destroy);
-REPLACE(0x0052D7B0, GameNet::HandleReadyQuery);
-REPLACE(0x0052D7D0, GameNet::HandleReadyResponse);
-REPLACE(0x0052D800, GameNet::HandleObserve);
-REPLACE(0x0052D830, GameNet::HandleFlushImportant);
-REPLACE(0x0052D850, GameNet::HandleStoleFlag);
-REPLACE(0x0052D880, GameNet::HandleTookFlag);
-REPLACE(0x0052D8B0, GameNet::HandleCapturedFlag);
-REPLACE(0x0052D8E0, GameNet::HandleRetrievedFlag);
-REPLACE(0x0052D910, GameNet::HandleAutoServerNotice);
-REPLACE(0x0052D930, GameNet::HandleKillTeamFlags);
-REPLACE(0x0052D950, GameNet::HandlePanelMessage);
-REPLACE(0x0052D980, GameNet::HandleObjectUpdateLength);
-REPLACE(0x0052DAC0, GameNet::HandleNothing);
-REPLACE(0x0052DAD0, GameNet::HandleCdKeyChallenge);
-REPLACE(0x0052DCA0, GameNet::HandleKeepAlive);
-REPLACE(0x0052DCC0, GameNet::HandleJoinAccepted);
-REPLACE(0x0052E1A0, GameNet::HandleReadyToPlay);
-REPLACE(0x0052EB70, GameNet::HandleParkMap);
-REPLACE(0x0052ED80, GameNet::HandleGameOver);
-REPLACE(0x0052EDD0, GameNet::HandleGameEnded);
-REPLACE(0x0052F2D0, GameNet::HandleChooseTeam);
-REPLACE(0x0052F370, GameNet::HandleChecksumRequest);
-REPLACE(0x0052EBB0, GameNet::HandleTeamObject);
-REPLACE(0x0052F3D0, GameNet::HandleCdKeyAnswer);
-REPLACE(0x0052F400, GameNet::HandleCreatedDataRequest);

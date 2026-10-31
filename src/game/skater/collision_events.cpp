@@ -6,8 +6,10 @@
 #include <windows.h>
 
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/mth/vector.h"
 #include "game/nx/coll_obj.h"
@@ -21,7 +23,6 @@
 #include "game/sys/screenshot.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 
 namespace Skater::CollisionEvents {

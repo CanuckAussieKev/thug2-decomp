@@ -4,9 +4,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <unordered_map>
+#include <vector>
 
 #include "game/core/crc.h"
 #include "game/front/level_editor_objects.h"
@@ -17,7 +20,6 @@
 #include "game/script/node_manager.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
 #include "game/skate/skate_module.h"
 
 namespace Front::LevelEditor::Nodes {

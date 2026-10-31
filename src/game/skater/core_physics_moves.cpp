@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <initializer_list>
 
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
@@ -27,17 +28,13 @@
 #include "game/skater/trick_component.h"
 #include "game/gfx/model_utils.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/net/gamenet_manager.h"
-#include "hook/game_code.h"
 
 namespace Skater {
 
 using namespace Physics;
 
-GAME_GLOBAL(int, g_grindCounter, 0x007CCDCC);
+int g_grindCounter;
 
 namespace {
 
@@ -250,7 +247,7 @@ void CorePhysicsComponent::UpdateSpeedOverride()
             At<float>(this, kLimitsMaxMax) = share;
             // (Every tenth time: a line printed, compiled out - an inlined loop that runs once.)
             while (counter == 0) {
-                Dbg::Printf(GAME_TEXT(0x0064BC88, "Post-Transfer Speed Limit Overrides:  current / standard = %.2f\n"),
+                Dbg::Printf("Post-Transfer Speed Limit Overrides:  current / standard = %.2f\n",
                             static_cast<double>(inverse) * At<float>(this, kLimitsMax));
                 counter = (counter + 1) % 10;
             }
@@ -502,12 +499,3 @@ bool CorePhysicsComponent::StepUp(const Mth::Vector* point)
 } // namespace Skater
 
 using Skater::CorePhysicsComponent;
-REPLACE(0x004FEE10, &CorePhysicsComponent::FindVertTarget);
-REPLACE(0x004FF200, &CorePhysicsComponent::UpdateSpeedOverride);
-REPLACE(0x004FF470, &CorePhysicsComponent::GetGravity);
-REPLACE(0x004FF590, &CorePhysicsComponent::AlongFacing);
-REPLACE(0x004FF670, &CorePhysicsComponent::WallPushOff);
-REPLACE(0x004FF920, &CorePhysicsComponent::TurnRoundIfBackwards);
-REPLACE(0x004FFB10, &CorePhysicsComponent::JumpReleased);
-REPLACE(0x004FFB90, &CorePhysicsComponent::CheckFlipSpin);
-REPLACE(0x004FFDB0, &CorePhysicsComponent::StepUp);

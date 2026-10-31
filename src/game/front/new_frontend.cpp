@@ -9,9 +9,13 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <initializer_list>
 #include <map>
 #include <set>
 #include <string>
@@ -60,7 +64,6 @@
 #include "game/sys/platform_system.h"
 #include "game/sys/sdl_events.h"
 #include "game/sys/sdl_window.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "imgui.h"
 #include "game/gfx/loading_bar_cfuncs.h"

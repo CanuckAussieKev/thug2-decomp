@@ -2,6 +2,7 @@
 
 #include "game/goals/goal_net_types.h"
 
+#include <cstdint>
 #include <cstdio>
 
 #include "game/core/crc.h"
@@ -20,9 +21,7 @@
 #include "game/skater/skater.h"
 #include "game/core/stubs.h"
 #include "game/gfx/weather.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Game {
 
@@ -51,36 +50,36 @@ constexpr uint32_t kAddedTime = 0xC906B763;        // added_time
 constexpr uint32_t kGoalName = 0xBFECC45B;         // goal_name
 constexpr uint32_t kRaceNextWaypoint = 0xD3741449; // goal_race_next_waypoint
 
-GAME_VTABLE(kHorseGoalVtable, 0x0064E0D8,
-            &Game::CHorseGoal::Destroy, &Game::CHorseGoal::ShouldExpire, &Game::CHorseGoal::IsExpired,
-            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CHorseGoal::Expire, &Game::CGoal::LoadSaveData,
-            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-            &Game::CGoal::HasComponentA302D7CD, &Game::CGoal::Activate, &Game::CGoal::SetActive,
-            &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-            &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
-            &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
-            &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
-            &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
-GAME_VTABLE(kNetGoalVtable, 0x0064E150,
-            &Game::CNetGoal::Destroy, &Game::CNetGoal::ShouldExpire, &Game::CGoal::IsExpired,
-            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CNetGoal::Expire, &Game::CGoal::LoadSaveData,
-            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, &Game::CNetGoal::TimerBeeps,
-            &Game::CNetGoal::HasComponentA302D7CD, &Game::CNetGoal::Activate, &Game::CGoal::SetActive,
-            &Game::CNetGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-            &Game::CNetGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
-            &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
-            &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
-            &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
-GAME_VTABLE(kRaceGoalVtable, 0x0064E1C8,
-            &Game::CRaceGoal::Destroy, &Game::CRaceGoal::ShouldExpire, &Game::CRaceGoal::IsExpired,
-            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CRaceGoal::Expire, &Game::CGoal::LoadSaveData,
-            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-            &Game::CGoal::HasComponentA302D7CD, &Game::CRaceGoal::Activate, &Game::CGoal::SetActive,
-            &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-            &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
-            &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
-            &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
-            &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
+static VtableSlot kHorseGoalVtable_slots[] = {&Game::CHorseGoal::Destroy, &Game::CHorseGoal::ShouldExpire, &Game::CHorseGoal::IsExpired,
+                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CHorseGoal::Expire, &Game::CGoal::LoadSaveData,
+                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+                 &Game::CGoal::HasComponentA302D7CD, &Game::CGoal::Activate, &Game::CGoal::SetActive,
+                 &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+                 &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
+                 &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
+                 &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
+                 &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
+void** const kHorseGoalVtable = reinterpret_cast<void**>(kHorseGoalVtable_slots);
+static VtableSlot kNetGoalVtable_slots[] = {&Game::CNetGoal::Destroy, &Game::CNetGoal::ShouldExpire, &Game::CGoal::IsExpired,
+                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CNetGoal::Expire, &Game::CGoal::LoadSaveData,
+                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, &Game::CNetGoal::TimerBeeps,
+                 &Game::CNetGoal::HasComponentA302D7CD, &Game::CNetGoal::Activate, &Game::CGoal::SetActive,
+                 &Game::CNetGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+                 &Game::CNetGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
+                 &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
+                 &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
+                 &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
+void** const kNetGoalVtable = reinterpret_cast<void**>(kNetGoalVtable_slots);
+static VtableSlot kRaceGoalVtable_slots[] = {&Game::CRaceGoal::Destroy, &Game::CRaceGoal::ShouldExpire, &Game::CRaceGoal::IsExpired,
+                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CRaceGoal::Expire, &Game::CGoal::LoadSaveData,
+                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+                 &Game::CGoal::HasComponentA302D7CD, &Game::CRaceGoal::Activate, &Game::CGoal::SetActive,
+                 &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+                 &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
+                 &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
+                 &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
+                 &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
+void** const kRaceGoalVtable = reinterpret_cast<void**>(kRaceGoalVtable_slots);
 
 GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 uint32_t GameModeName() { return g_gameMode->GetNameChecksum(); }
@@ -364,7 +363,7 @@ void CRaceGoal::Expire()
 bool CRaceGoal::NextRaceWaypoint(uint32_t id)
 {
     if (Virtual<bool>(this, kVtShouldExpire)) {
-        Dbg::Printf(GAME_TEXT(0x0064E25C, "expired!\n")); // "expired!\n"
+        Dbg::Printf("expired!\n"); // "expired!\n"
         return false;
     }
     Script::CArray* waypoints;
@@ -406,7 +405,7 @@ bool CRaceGoal::NextRaceWaypoint(uint32_t id)
         const char* goalName;
         m_params->GetString(kGoalName, &goalName, 1);
         char scriptName[0x100];
-        std::snprintf(scriptName, sizeof(scriptName), GAME_TEXT(0x0064E240, "%s_next_waypoint_script_id"), goalName); // "%s_next_waypoint_script_id"
+        std::snprintf(scriptName, sizeof(scriptName), "%s_next_waypoint_script_id", goalName); // "%s_next_waypoint_script_id"
         Script::SpawnScript(kRaceNextWaypoint, params, 0, nullptr, 0, Crc::GenerateCRCFromString(scriptName), false,
                             false, false, false);
         DeleteStructure(params);
@@ -416,29 +415,3 @@ bool CRaceGoal::NextRaceWaypoint(uint32_t id)
 }
 
 } // namespace Game
-
-REPLACE(0x005608C0, &Game::CHorseGoal::Construct);
-REPLACE(0x005608E0, &Game::CHorseGoal::DestroyBody);
-REPLACE(0x005608F0, &Game::CHorseGoal::IsExpired);
-REPLACE(0x00560930, &Game::CHorseGoal::ShouldExpire);
-REPLACE(0x00560970, &Game::CHorseGoal::Expire);
-REPLACE(0x00560980, &Game::CHorseGoal::Destroy);
-REPLACE(0x005609B0, &Game::CHorseGoal::Land);
-REPLACE(0x00560AC0, &Game::CNetGoal::Construct);
-REPLACE(0x00560AF0, &Game::CNetGoal::DestroyBody);
-REPLACE(0x00560B00, &Game::CNetGoal::HasComponentA302D7CD);
-REPLACE(0x00560B10, &Game::CNetGoal::TimerBeeps);
-REPLACE(0x00560B40, &Game::CNetGoal::Destroy);
-REPLACE(0x00560B70, &Game::CNetGoal::Update);
-REPLACE(0x00560BC0, &Game::CNetGoal::Activate);
-REPLACE(0x00560BE0, &Game::CNetGoal::Deactivate);
-REPLACE(0x00560C20, &Game::CNetGoal::ShouldExpire);
-REPLACE(0x00560E20, &Game::CNetGoal::Expire);
-REPLACE(0x00560E60, &Game::CRaceGoal::Construct);
-REPLACE(0x00560EE0, &Game::CRaceGoal::DestroyBody);
-REPLACE(0x00560EF0, &Game::CRaceGoal::Activate);
-REPLACE(0x00560F00, &Game::CRaceGoal::IsExpired);
-REPLACE(0x00560F20, &Game::CRaceGoal::ShouldExpire);
-REPLACE(0x00560F40, &Game::CRaceGoal::Expire);
-REPLACE(0x00560F60, &Game::CRaceGoal::Destroy);
-REPLACE(0x00560F90, &Game::CRaceGoal::NextRaceWaypoint);

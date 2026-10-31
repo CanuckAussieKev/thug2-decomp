@@ -48,6 +48,7 @@
 // else changes.
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <windows.h>
@@ -55,8 +56,6 @@
 #include "game/skater/debug_collision.h"
 #include "game/script/names.h"
 #include "game/script/qb.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/sys/log.h"
 
 namespace DebugCollision {

@@ -2,6 +2,7 @@
 
 #include <windows.h>
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/dbg.h"
@@ -9,13 +10,10 @@
 #include "game/front/data_overlay.h"
 #include "game/gfx/device.h"
 #include "game/gfx/loading_console.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace File {
 
-GAME_GLOBAL(bool, g_handledByArchive, 0x007D0FC8);
+bool g_handledByArchive;
 
 namespace {
 
@@ -50,7 +48,7 @@ uint32_t ArchiveGetFileSize(Handle file) { return static_cast<uint32_t>(Pre::Get
     __assume(0);
 }
 
-GAME_GLOBAL(int, g_useAlternateDrive, 0x007D0FD8);
+int g_useAlternateDrive;
 
 // Never set anywhere in the exe: a leftover that would open files from another drive.
 bool UseAlternateDrive() { return g_useAlternateDrive != 0; }
@@ -260,14 +258,3 @@ __declspec(naked) void OpenOnDiskAdapter()
 }
 
 } // namespace
-
-REPLACE(0x005B8040, ArchivesActiveAccessor);
-REPLACE(0x005B8050, HandledByArchiveAccessor);
-REPLACE_UNCHECKED(0x005B9CB0, OpenOnDiskAdapter); // argument in EDX
-REPLACE(0x005B9E60, File::Open);
-REPLACE(0x005B9EA0, File::Close);
-REPLACE(0x005B9EE0, File::Read);
-REPLACE(0x005B9F60, File::Write);
-REPLACE(0x005B9FA0, File::Seek);
-REPLACE(0x005B9E00, File::GetFileSize);
-REPLACE(0x005BA010, File::Exist);

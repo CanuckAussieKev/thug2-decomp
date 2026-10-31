@@ -8,7 +8,6 @@
 #include "game/obj/control_pad.h"
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
-#include "hook/game.h"
 
 namespace Obj {
 namespace WalkFields {

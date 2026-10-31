@@ -1,5 +1,8 @@
 // The model builder (Gfx::CModelBuilder): see model_builder.h. From the disassembly of 0x004897D0-0x0048B32D.
 
+#include <cstdint>
+#include <new>
+
 #include "game/gfx/model_builder.h"
 
 #include "game/core/manager.h"
@@ -15,10 +18,7 @@
 #include "game/mth/vector.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/object.h"
 
@@ -28,9 +28,9 @@ namespace {
 
 extern void** const kVtable;
 
-GAME_GLOBAL(Nx::CModel*, g_builtModel, 0x006FA2F8);
-GAME_GLOBAL(CSkeleton*, g_builtSkeleton, 0x006FA2FC);
-GAME_GLOBAL(CModelAppearance*, g_builtAppearance, 0x006FA300);
+Nx::CModel* g_builtModel;
+CSkeleton* g_builtSkeleton;
+CModelAppearance* g_builtAppearance;
 
 // While Build runs: the model, its skeleton and the appearance's copy.
 Nx::CModel*& BuiltModel() { return g_builtModel; }
@@ -744,39 +744,18 @@ bool CModelBuilder::RunScript(uint32_t part, uint32_t target)
 }
 
 namespace {
-GAME_VTABLE(kVtable, 0x00648920, &Gfx::CModelBuilder::Destroy, &Obj::CObject::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &Gfx::CModelBuilder::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &Gfx::CModelBuilder::Build, &Gfx::CModelBuilder::AddGeom,
-            &Gfx::CModelBuilder::RemovePart, &Gfx::CModelBuilder::HideGeom, &Gfx::CModelBuilder::ModulateColor,
-            &Gfx::CModelBuilder::SetUVOffset, &Gfx::CModelBuilder::AllocateUVMatrixParams,
-            &Gfx::CModelBuilder::ReplaceTexture, &Gfx::CModelBuilder::SetCreatedTexture,
-            &Gfx::CModelBuilder::ClearAllGeoms, &Gfx::CModelBuilder::RemovePolys, &Gfx::CModelBuilder::ResetScale,
-            &Gfx::CModelBuilder::ApplyBodyShape, &Gfx::CModelBuilder::ApplyBoneScale,
-            &Gfx::CModelBuilder::ApplyObjectScale, &Gfx::CModelBuilder::Finalize,
-            &Gfx::CModelBuilder::PropagateHeadColor, &Gfx::CModelBuilder::RunScript);
+static VtableSlot kVtable_slots[] = {&Gfx::CModelBuilder::Destroy, &Obj::CObject::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &Gfx::CModelBuilder::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &Gfx::CModelBuilder::Build, &Gfx::CModelBuilder::AddGeom,
+                &Gfx::CModelBuilder::RemovePart, &Gfx::CModelBuilder::HideGeom, &Gfx::CModelBuilder::ModulateColor,
+                &Gfx::CModelBuilder::SetUVOffset, &Gfx::CModelBuilder::AllocateUVMatrixParams,
+                &Gfx::CModelBuilder::ReplaceTexture, &Gfx::CModelBuilder::SetCreatedTexture,
+                &Gfx::CModelBuilder::ClearAllGeoms, &Gfx::CModelBuilder::RemovePolys, &Gfx::CModelBuilder::ResetScale,
+                &Gfx::CModelBuilder::ApplyBodyShape, &Gfx::CModelBuilder::ApplyBoneScale,
+                &Gfx::CModelBuilder::ApplyObjectScale, &Gfx::CModelBuilder::Finalize,
+                &Gfx::CModelBuilder::PropagateHeadColor, &Gfx::CModelBuilder::RunScript};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 } // namespace
 
 } // namespace Gfx
-
-REPLACE(0x004897D0, &Gfx::CModelBuilder::Construct);
-REPLACE(0x00489800, &Gfx::CModelBuilder::HideGeom);
-REPLACE(0x00489820, &Gfx::CModelBuilder::AddGeom);
-REPLACE(0x00489A30, &Gfx::CModelBuilder::ClearAllGeoms);
-REPLACE(0x00489A40, &Gfx::CModelBuilder::RemovePolys);
-REPLACE(0x00489A50, &Gfx::CModelBuilder::ModulateColor);
-REPLACE(0x00489C30, &Gfx::CModelBuilder::AllocateUVMatrixParams);
-REPLACE(0x00489C50, &Gfx::CModelBuilder::ReplaceTexture);
-REPLACE(0x00489F10, &Gfx::CModelBuilder::PropagateHeadColor);
-REPLACE(0x0048A220, &Gfx::CModelBuilder::Finalize);
-REPLACE(0x0048A2C0, &Gfx::CModelBuilder::Destroy);
-REPLACE(0x0048A2F0, &Gfx::CModelBuilder::Build);
-REPLACE(0x0048A3B0, &Gfx::CModelBuilder::CallMemberFunction);
-REPLACE(0x0048A9C0, &Gfx::CModelBuilder::RemovePart);
-REPLACE(0x0048A9E0, &Gfx::CModelBuilder::ResetScale);
-REPLACE(0x0048AA30, &Gfx::CModelBuilder::ApplyBodyShape);
-REPLACE(0x0048AA70, &Gfx::CModelBuilder::ApplyBoneScale);
-REPLACE(0x0048AC40, &Gfx::CModelBuilder::ApplyObjectScale);
-REPLACE(0x0048ADD0, &Gfx::CModelBuilder::SetCreatedTexture);
-REPLACE(0x0048B030, &Gfx::CModelBuilder::SetUVOffset);
-REPLACE(0x0048B200, &Gfx::CModelBuilder::RunScript);

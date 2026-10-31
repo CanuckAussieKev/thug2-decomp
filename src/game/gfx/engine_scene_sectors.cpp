@@ -2,6 +2,7 @@
 // the statistics, sectors added and cloned, the collision added and the super sectors (the collision grid) brought up
 // to date, a scene added over it - and the nodes of its sector lists.
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <new>
@@ -19,9 +20,7 @@
 #include "game/nx/coll_obj.h"
 #include "game/nx/coll_static.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
 #include "game/core/stubs.h"
 
@@ -519,35 +518,22 @@ Mem::ListNode* SectorListNodes::DestroyHead(unsigned int flags)
 }
 
 namespace {
-GAME_VTABLE(kSceneVtable, 0x006499E0, &Nx::CScene::Destroy, &Nx::CScene::PostLoad, &Nx::CScene::PostAdd,
-            &Nx::CScene::LoadTextures, &Nx::CScene::LoadCollision, &Nx::CScene::AddCollision,
-            &Nx::CScene::UnloadAddScene, &Nx::CScene::PlatCreateSector, Stubs::IgnoreArgument,
-            &Nx::CScene::GetDefaultColour, &Nx::CScene::SetRendered);
-GAME_VTABLE(kSectorNodeVtable, 0x006499D8, &Nx::SectorListNodes::DestroyNode);
-GAME_VTABLE(kSectorHeadVtable, 0x006499DC, &Nx::SectorListNodes::DestroyHead);
+static VtableSlot kSceneVtable_slots[] = {&Nx::CScene::Destroy, &Nx::CScene::PostLoad, &Nx::CScene::PostAdd,
+                &Nx::CScene::LoadTextures, &Nx::CScene::LoadCollision, &Nx::CScene::AddCollision,
+                &Nx::CScene::UnloadAddScene, &Nx::CScene::PlatCreateSector, Stubs::IgnoreArgument,
+                &Nx::CScene::GetDefaultColour, &Nx::CScene::SetRendered};
+void** const kSceneVtable = reinterpret_cast<void**>(kSceneVtable_slots);
+static VtableSlot kSectorNodeVtable_slots[] = {&Nx::SectorListNodes::DestroyNode};
+void** const kSectorNodeVtable = reinterpret_cast<void**>(kSectorNodeVtable_slots);
+static VtableSlot kSectorHeadVtable_slots[] = {&Nx::SectorListNodes::DestroyHead};
+void** const kSectorHeadVtable = reinterpret_cast<void**>(kSectorHeadVtable_slots);
 } // namespace
 
 } // namespace Nx
 
 namespace Vt {
-GAME_VTABLE(kCollGridNode, 0x00645D7C, &Nx::CollGridListNodes::DestroyNode);
-GAME_VTABLE(kCollGridHead, 0x00645D80, &Nx::CollGridListNodes::DestroyHead);
+static VtableSlot kCollGridNode_slots[] = {&Nx::CollGridListNodes::DestroyNode};
+void** const kCollGridNode = reinterpret_cast<void**>(kCollGridNode_slots);
+static VtableSlot kCollGridHead_slots[] = {&Nx::CollGridListNodes::DestroyHead};
+void** const kCollGridHead = reinterpret_cast<void**>(kCollGridHead_slots);
 } // namespace Vt
-
-REPLACE(0x0049D390, &Nx::CScene::Construct);
-REPLACE(0x0049DD10, &Nx::CScene::DestroyBody);
-REPLACE(0x0049E1D0, &Nx::CScene::Destroy);
-REPLACE(0x0049D1A0, &Nx::CScene::GetDebugInfo);
-REPLACE(0x0049D4E0, &Nx::CScene::AddSector);
-REPLACE(0x0049D510, &Nx::CScene::CloneSector);
-REPLACE(0x0049DF30, &Nx::CScene::CloneSectorNamed);
-REPLACE(0x0049D590, &Nx::CScene::AddCollisionData);
-REPLACE(0x0049DF70, &Nx::CScene::LoadCollisionFile);
-REPLACE(0x0049D780, &Nx::CScene::UpdateSuperSectors);
-REPLACE(0x0049E1B0, &Nx::CScene::UpdateSuperSectorsIfMarked);
-REPLACE(0x0049DFD0, &Nx::CScene::LoadAddScene);
-REPLACE(0x0049DDE0, &Nx::CScene::ToggleAddScene);
-REPLACE(0x0049E200, &Nx::CScene::UnloadAddedScene);
-REPLACE(0x0049D300, &Nx::SectorListNodes::DestroyBody);
-REPLACE(0x0049D320, &Nx::SectorListNodes::DestroyNode);
-REPLACE(0x0049D360, &Nx::SectorListNodes::DestroyHead);

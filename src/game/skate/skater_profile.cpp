@@ -1,6 +1,7 @@
 // The skater profile's own code, 0x00585ED0-0x005871A0. See profile_manager.h.
 
 #include <cstdint>
+#include <initializer_list>
 
 #include "game/core/manager.h"
 #include "game/core/stubs.h"
@@ -13,8 +14,6 @@
 #include "game/gfx/face_texture.h"
 #include "game/gfx/model_appearance.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
@@ -550,36 +549,3 @@ int CSkaterProfile::WriteInfoToBuffer(uint8_t* buffer, int size)
 }
 
 } // namespace Obj
-
-REPLACE(0x00585ED0, &Obj::CSkaterProfile::CopyFrom);
-REPLACE(0x00585F00, &Obj::CSkaterProfile::ReadFromSave);
-REPLACE(0x00585FB0, &Obj::CSkaterProfile::GetStat);
-REPLACE(0x00585FD0, &Obj::CSkaterProfile::SetStat);
-REPLACE(0x00586000, &Obj::CSkaterProfile::AddToInfo471FC4DD);
-REPLACE(0x00586040, &Obj::CSkaterProfile::GetInfo471FC4DD);
-REPLACE(0x00586060, &Obj::CSkaterProfile::AddMaxSpecials);
-REPLACE(0x005860A0, &Obj::CSkaterProfile::GetMaxSpecials);
-REPLACE(0x005860C0, &Obj::CSkaterProfile::GetChecksumValue);
-REPLACE(0x00586110, &Obj::CSkaterProfile::GetInfoStructure);
-REPLACE(0x00586130, &Obj::CSkaterProfile::GetSpecials);
-REPLACE(0x00586150, &Obj::CSkaterProfile::GetName);
-REPLACE(0x00586170, &Obj::CSkaterProfile::IsPro);
-REPLACE(0x00586190, &Obj::CSkaterProfile::HasFlagF3149AC5);
-REPLACE(0x005861A0, &Obj::CSkaterProfile::SetValue09F350E5);
-REPLACE(0x005861C0, &Obj::CSkaterProfile::GetStringF36C1878);
-REPLACE(0x005861F0, &Obj::CSkaterProfile::SetStringF36C1878);
-REPLACE(0x00586210, &Obj::CSkaterProfile::GetDisplayName);
-REPLACE(0x00586230, &Obj::CSkaterProfile::SetFromParams);
-REPLACE(0x00586630, &Obj::CSkaterProfile::GetSpecialTrick);
-REPLACE(0x00586710, &Obj::CSkaterProfile::SetSpecialTrick);
-REPLACE(0x00586810, &Obj::CSkaterProfile::Reset);
-REPLACE(0x00586A40, &Obj::CSkaterProfile::ReadInfoFromBuffer);
-REPLACE(0x00586B00, &Obj::CSkaterProfile::WriteToSave);
-REPLACE(0x00586D60, &Obj::CSkaterProfile::Construct);
-REPLACE(0x00586DC0, &Obj::CSkaterProfile::ReadFromBuffer);
-REPLACE(0x00586E70, &Obj::CSkaterProfile::WriteInfoToBuffer);
-REPLACE(0x00587050, &Obj::CSkaterProfile::WriteToBuffer);
-REPLACE(0x00587100, &Obj::CSkaterProfile::SpecialTrick::Construct);
-REPLACE(0x00587110, &Obj::CSkaterProfile::SpecialTrick::IsEmpty);
-REPLACE(0x00587120, &Obj::ChecksumSet::Construct);
-REPLACE(0x00587130, &Obj::ChecksumSet::Fill);

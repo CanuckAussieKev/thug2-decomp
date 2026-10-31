@@ -4,6 +4,7 @@
 
 #include "game/ed/park_scene.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -22,13 +23,10 @@
 #include "game/ed/rail_editor.h"
 #include "game/ed/goal_editor.h"
 #include "game/script/game_cfuncs.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
-GAME_GLOBAL(int, g_railSearchStart, 0x007CE600);
+int g_railSearchStart;
 
 namespace {
 
@@ -638,16 +636,3 @@ void CParkGenerator::BuildNodeArray(CMapListNode* metas)
 }
 
 } // namespace Ed
-
-REPLACE(0x00592740, &Ed::CParkGenerator::NextGeometryNode);
-REPLACE(0x005927D0, &Ed::CParkGenerator::NextRailNode);
-REPLACE(0x005936E0, &Ed::CParkGenerator::BuildSourceRails);
-REPLACE(0x00592A10, &Ed::CParkGenerator::FindNearestRailPoint);
-REPLACE(0x00592AB0, &Ed::CParkGenerator::GetNodeCounts);
-REPLACE(0x00592C10, &Ed::CParkGenerator::BuildGoalNodeArray);
-REPLACE(0x00592C90, &Ed::CParkGenerator::RemoveNodeArray);
-REPLACE(0x00592CD0, &Ed::CParkGenerator::BuildRails);
-REPLACE(0x00592ED0, &Ed::CParkGenerator::WritePieceNodes);
-REPLACE(0x005949F0, &Ed::CParkGenerator::WriteRailNodes);
-REPLACE(0x00593AC0, &Ed::CParkGenerator::WriteRestartNodes);
-REPLACE(0x00594EA0, &Ed::CParkGenerator::BuildNodeArray);

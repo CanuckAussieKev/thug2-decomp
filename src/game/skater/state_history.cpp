@@ -3,6 +3,7 @@
 #include "game/skater/state_history.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
@@ -24,9 +25,6 @@
 #include "game/skate/score.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/core_physics.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 #include "game/skater/state_history.h"
 
 namespace Obj {
@@ -55,9 +53,9 @@ constexpr uint8_t kMsgTeamTagged = 0x73; // team tag, the same team: who (and th
 constexpr uint8_t kMsgTeamConverted = 0x74; // team tag, another team
 
 // The default name in the events: "Someone" (0x0064C1C4); the names the code looks up.
-const char* const kSomeone = GAME_TEXT(0x0064C1C4, "Someone");
-const char* const kUnbindFireballTricks = GAME_TEXT(0x0064C1AC, "unbind_fireball_tricks"); // "unbind_fireball_tricks"
-const char* const kDrivingRadiusBoost = GAME_TEXT(0x0064C1CC, "driving_radius_boost");   // "driving_radius_boost"
+const char* const kSomeone = "Someone";
+const char* const kUnbindFireballTricks = "unbind_fireball_tricks"; // "unbind_fireball_tricks"
+const char* const kDrivingRadiusBoost = "driving_radius_boost";   // "driving_radius_boost"
 
 // a - b as the original's x87 code rounds it when it stores it.
 float Difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
@@ -592,22 +590,6 @@ int __cdecl CSkaterStateHistoryComponent::HandleCollisionMessages(Net::MsgHandle
 
 } // namespace Obj
 
-REPLACE(0x00519800, &Obj::StateHistoryMessage::GetTime);
-REPLACE(0x00519810, &Obj::StateHistoryMessage::SetTime);
-REPLACE(0x00519830, &Obj::PlayerSearchDestructors::DestroyBody);
-REPLACE(0x0051A120, &Obj::PlayerSearchDestructors::Destroy);
-REPLACE(0x0051AD30, Obj::CSkaterStateHistoryComponent::Create);
-REPLACE(0x0051ACB0, &Obj::CSkaterStateHistoryComponent::Construct);
-REPLACE(0x00519840, &Obj::CSkaterStateHistoryComponent::Destroy);
-REPLACE(0x00519FA0, &Obj::CSkaterStateHistoryComponent::GetFrameMovement);
-REPLACE(0x00519FF0, &Obj::CSkaterStateHistoryComponent::GetPosition);
-REPLACE(0x0051A020, &Obj::CSkaterStateHistoryComponent::GetCollisionReach);
-REPLACE(0x0051A080, &Obj::CSkaterStateHistoryComponent::GetCollisionRadius);
-REPLACE(0x0051A150, &Obj::CSkaterStateHistoryComponent::IsNearLocalSkater);
-REPLACE(0x0051A1C0, &Obj::CSkaterStateHistoryComponent::CheckForCollisions);
-REPLACE(0x00519870, Obj::CSkaterStateHistoryComponent::HandleHitMessages);
-REPLACE(0x00519C10, Obj::CSkaterStateHistoryComponent::HandleCollisionMessages);
-
 namespace Obj {
 
 // 0x00569680
@@ -625,6 +607,3 @@ StateHistoryMessage* CSkaterStateHistoryComponent::GetLatestMessage()
 }
 
 } // namespace Obj
-
-REPLACE(0x00569680, &Obj::CSkaterStateHistoryComponent::GetLatestState);
-REPLACE(0x005696A0, &Obj::CSkaterStateHistoryComponent::GetLatestMessage);

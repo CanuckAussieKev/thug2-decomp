@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include "game/mth/vector.h"
-#include "hook/game_global.h"
 
 namespace Nx {
 
@@ -57,6 +56,6 @@ static_assert(sizeof(FaceHit) == 0x24, "layout must match the original");
 // returned - the callback has still run.
 bool ReportHit(const Mth::Line& line, CCollObj* object, const FaceHit& face, float distance, CollisionHit* hit);
 
-GAME_GLOBAL_EXTERN(bool, g_wantFarthest);
+extern bool g_wantFarthest;
 
 } // namespace Nx

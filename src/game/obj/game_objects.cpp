@@ -28,11 +28,9 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/obj/object.h"
 #include "game/core/stubs.h"
-#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -292,36 +290,21 @@ void CCrownObject::InitFromNode(CCompositeObjectManager* manager, Script::CStruc
 
 } // namespace Obj
 
-REPLACE(0x0057B250, Obj::AddBaseComponents);
-REPLACE(0x0057B2F0, Obj::AddMotionComponents);
-REPLACE(0x0057B420, Obj::AddNodeComponents);
-REPLACE(0x0057B4E0, Obj::CreatePed);
-REPLACE(0x005780E0, Obj::InitCar);
-REPLACE(0x00578170, Obj::CreateCar);
-REPLACE(0x00578240, &Obj::CCrownObject::Construct);
-REPLACE(0x005782B0, &Obj::CCrownObject::PutOn);
-REPLACE(0x005782D0, &Obj::CCrownObject::TakeOff);
-REPLACE(0x005782E0, &Obj::CCrownObject::IsWorn);
-REPLACE(0x005782F0, &Obj::CCrownObject::DestroyBody);
-REPLACE(0x00578310, &Obj::CCrownObject::OwnUpdate);
-REPLACE(0x00578460, &Obj::CCrownObject::Destroy);
-REPLACE(0x00578490, &Obj::CCrownObject::InitFromNode);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kCrownVtable, 0x0064EC44,
-    &Obj::CCrownObject::Destroy,
-    &Obj::CObject::SetProperties,
-    static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-    static_cast<bool (Obj::CCompositeObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CCompositeObject::CallMemberFunction),
-    Stubs::IgnoreArgument,
-    &Obj::CObject::PassEventToScript,
-    &Obj::CCompositeObject::MarkAsDead,
-    &Obj::CCompositeObject::ShouldUpdateScripts,
-    &Obj::CCompositeObject::Finalize,
-    &Obj::CCompositeObject::CreateComponentFromStructure,
-    &Obj::CCrownObject::OwnUpdate);
+static VtableSlot kCrownVtable_slots[] = {&Obj::CCrownObject::Destroy,
+         &Obj::CObject::SetProperties,
+         static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+         static_cast<bool (Obj::CCompositeObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CCompositeObject::CallMemberFunction),
+         Stubs::IgnoreArgument,
+         &Obj::CObject::PassEventToScript,
+         &Obj::CCompositeObject::MarkAsDead,
+         &Obj::CCompositeObject::ShouldUpdateScripts,
+         &Obj::CCompositeObject::Finalize,
+         &Obj::CCompositeObject::CreateComponentFromStructure,
+         &Obj::CCrownObject::OwnUpdate};
+void** const kCrownVtable = reinterpret_cast<void**>(kCrownVtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -2,6 +2,8 @@
 
 #include "game/goals/goal.h"
 
+#include <cstdint>
+#include <cstdio>
 #include <cstring>
 
 #include "game/goals/goal_calls.h"
@@ -9,8 +11,6 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/gfx/tod_manager.h"
 
 namespace Game {
@@ -491,65 +491,3 @@ bool CGoal::HasNoTimeLimit() { return (m_state & kStateNoTimeLimit) != 0; }
 bool CGoal::RequiresCombo() { return m_params->ContainsFlag(kRequireCombo); }
 
 } // namespace Game
-
-REPLACE(0x00553E00, &Game::CGoal::PassInheritedFlags);
-REPLACE(0x00553E50, &Game::CGoal::ClearChildWins);
-REPLACE_SOURCE_ONLY(0x00553E90, &Game::CGoal::GetParams);
-REPLACE(0x00553EA0, &Game::CGoal::ResetTimer);
-REPLACE(0x00553F10, &Game::CGoal::SetTimeLeft);
-REPLACE_SOURCE_ONLY(0x00553F20, &Game::CGoal::GetTimeLeft);
-REPLACE(0x00553F30, &Game::CGoal::AddTime);
-REPLACE(0x00553F50, &Game::CGoal::SetActive);
-REPLACE(0x00553F60, &Game::CGoal::SetInactive);
-REPLACE(0x00553F70, &Game::CGoal::EditParams);
-REPLACE(0x00553F90, &Game::CGoal::IsActive);
-REPLACE(0x00553FA0, &Game::CGoal::HasSeen);
-REPLACE(0x00553FB0, &Game::CGoal::Pause);
-REPLACE(0x00553FC0, &Game::CGoal::UnPause);
-REPLACE(0x00553FD0, &Game::CGoal::GoalFlagEquals);
-REPLACE(0x00554030, Game::CGoal::ClearFlagValues);
-REPLACE(0x00554070, &Game::CGoal::ResetGoalFlags);
-REPLACE(0x00554110, &Game::CGoal::AllFlagsSet);
-REPLACE(0x005541E0, &Game::CGoal::GoalFlagSet);
-REPLACE(0x00554220, &Game::CGoal::IsLocked);
-REPLACE(0x00554250, &Game::CGoal::IsGraffiti);
-REPLACE(0x00554260, &Game::CGoal::IsSpecial);
-REPLACE(0x00554270, &Game::CGoal::IsTetris);
-REPLACE(0x00554280, &Game::CGoal::GetGoalId);
-REPLACE(0x005542B0, &Game::CGoal::IsEditedGoal);
-REPLACE(0x005542C0, &Game::CGoal::HasWonGoalOrChild);
-REPLACE(0x005542F0, &Game::CGoal::IsSelected);
-REPLACE(0x005519F0, &Game::CGoal::IsInitialized);
-REPLACE(0x00554300, &Game::CGoal::IsEditedGoal2);
-REPLACE(0x00554320, &Game::CGoal::GotCounterObject);
-REPLACE(0x00554390, &Game::CGoal::CounterGoalDone);
-REPLACE(0x005543E0, &Game::CGoal::State02);
-REPLACE(0x005543F0, &Game::CGoal::HasProsetPrefix);
-REPLACE(0x00554430, &Game::CGoal::SetHasSeen);
-REPLACE(0x00554440, &Game::CGoal::Select);
-REPLACE(0x00554450, &Game::CGoal::Deselect);
-REPLACE(0x00554460, &Game::CGoal::CanRetry);
-REPLACE(0x00554470, &Game::CGoal::ResetCurrentTime);
-REPLACE(0x00554480, &Game::CGoal::UpdateCurrentTime);
-REPLACE(0x00554510, &Game::CGoal::SetQuickStart);
-REPLACE(0x00554520, &Game::CGoal::UnsetQuickStart);
-REPLACE(0x00554530, &Game::CGoal::IsProGoal);
-REPLACE(0x00554540, &Game::CGoal::IsNetGoal);
-REPLACE(0x00554550, &Game::CGoal::IsCompetition);
-REPLACE(0x00554560, &Game::CGoal::IsPaused);
-REPLACE(0x00554570, &Game::CGoal::GetViewGoalsText);
-REPLACE(0x00554590, &Game::CGoal::EndOfRunStarted);
-REPLACE(0x005545A0, &Game::CGoal::HasTimeLimit);
-REPLACE(0x005545F0, &Game::CGoal::HasComponentA302D7CD);
-REPLACE(0x00554610, &Game::CGoal::LoadSaveData);
-REPLACE(0x00554770, &Game::CGoal::GetSaveData);
-REPLACE(0x00554890, Game::CGoal::ReplaceTrickTokens);
-REPLACE(0x005549A0, &Game::CGoal::GetNumberCollected);
-REPLACE(0x005549D0, &Game::CGoal::GetNumFlagsToWin);
-REPLACE_SOURCE_ONLY(0x00554A00, &Game::CGoal::GetTimesStarted);
-REPLACE(0x00554A10, &Game::CGoal::SetEndRunType);
-REPLACE(0x00554A20, &Game::CGoal::SetDeactivateOnExpire);
-REPLACE(0x00554A40, &Game::CGoal::IsHorse);
-REPLACE(0x00554A50, &Game::CGoal::IsFindGaps);
-REPLACE(0x00554A60, &Game::CGoal::HasNoTimeLimit);
-REPLACE(0x00554A70, &Game::CGoal::RequiresCombo);

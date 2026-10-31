@@ -27,9 +27,6 @@
 #include "game/gfx/light_manager.h"
 #include "game/gfx/pc_lights.h"
 #include "game/gfx/viewport.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/settings.h"
 #include "game/gfx/device.h"
 
@@ -38,9 +35,9 @@ namespace CFuncs {
 using Script::CScript;
 using Script::CStruct;
 
-GAME_GLOBAL(float, g_renderDefaultFarPlane, 0x006487D0, 12.0f);
-GAME_GLOBAL(float, g_renderDefaultNearPlane, 0x006487D4, 12000.0f);
-GAME_GLOBAL(int, g_renderMode, 0x006FA730);
+float g_renderDefaultFarPlane{12.0f};
+float g_renderDefaultNearPlane{12000.0f};
+int g_renderMode;
 
 namespace {
 
@@ -518,30 +515,3 @@ bool __cdecl CFunc_GetBonePosition(CStruct* params, CScript* script)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x00446460, CFuncs::CFunc_DebugRenderIgnore);
-REPLACE(0x004464C0, CFuncs::CFunc_InitAnimCompressTable);
-REPLACE(0x00446570, CFuncs::CFunc_InitAnimSystem);
-REPLACE(0x00446650, CFuncs::CFunc_UpdateAnimCache);
-REPLACE(0x004466F0, CFuncs::CFunc_FinishRendering);
-REPLACE(0x00446700, CFuncs::CFunc_InitLightManager);
-REPLACE(0x00446760, CFuncs::CFunc_UninitLightManager);
-REPLACE(0x00446770, CFuncs::CFunc_PushWorldLights);
-REPLACE(0x00446780, CFuncs::CFunc_PopWorldLights);
-REPLACE(0x00446790, CFuncs::CFunc_SetScreen);
-REPLACE(0x00446810, CFuncs::CFunc_AllowBoneLOD);
-REPLACE(0x00446850, CFuncs::CFunc_DebugLine);
-REPLACE(0x004468E0, CFuncs::CFunc_GetPausePosByResolution);
-REPLACE(0x00446930, CFuncs::CFunc_KillAllTextureSplats);
-REPLACE(0x00446C20, CFuncs::CFunc_GetGammaValues);
-REPLACE(0x00446CD0, CFuncs::CFunc_GetDynamicLightModulationFactor);
-REPLACE(0x00446D70, CFuncs::CFunc_SetClippingDistances);
-REPLACE(0x00446DF0, CFuncs::CFunc_SetFogDistance);
-REPLACE(0x00446E50, CFuncs::CFunc_SetFogColor);
-REPLACE(0x00446F40, CFuncs::CFunc_SetRenderMode);
-REPLACE(0x00446F70, CFuncs::CFunc_SetWireframeMode);
-REPLACE(0x00446FA0, CFuncs::CFunc_SetLightAmbientColor);
-REPLACE(0x00447010, CFuncs::CFunc_GetLightDirection);
-REPLACE(0x004470A0, CFuncs::CFunc_SetLightDiffuseColor);
-REPLACE(0x00447130, CFuncs::CFunc_GetLightCurrentColor);
-REPLACE(0x00447220, CFuncs::CFunc_GetBonePosition);

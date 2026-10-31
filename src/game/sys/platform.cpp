@@ -10,9 +10,6 @@
 #include "game/sio/sdl_input.h"
 #include "game/sys/platform_input.h"
 #include "game/sys/sdl_events.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/device.h"
 #include "game/gfx/camera.h"
 
@@ -43,10 +40,10 @@ void ProcessWindowEvents()
     Platform::PumpSdlEvents();
 }
 
-GAME_GLOBAL(uint8_t, g_option37, 0x007D6437); // (the graphics options: platform_input.h)
-GAME_GLOBAL(uint16_t, g_options38And39, 0x007D6438); // (the distance clipping flag follows: gfx/settings.cpp)
-GAME_GLOBAL(uint8_t, g_unknown643B, 0x007D643B);
-GAME_GLOBAL(uint32_t, g_distanceSetting, 0x007D6440);
+uint8_t g_option37; // (the graphics options: platform_input.h)
+uint16_t g_options38And39; // (the distance clipping flag follows: gfx/settings.cpp)
+uint8_t g_unknown643B;
+uint32_t g_distanceSetting;
 
 // 0x005F44F0
 bool InitInput(HINSTANCE instance, HWND window, int config)
@@ -95,7 +92,3 @@ bool InitInput(HINSTANCE instance, HWND window, int config)
 }
 
 } // namespace Platform
-
-REPLACE(0x005F3A50, Platform::SetActuators);
-REPLACE(0x005F56E0, Platform::ProcessWindowEvents);
-REPLACE(0x005F44F0, Platform::InitInput);

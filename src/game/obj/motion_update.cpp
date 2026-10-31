@@ -2,6 +2,7 @@
 // following a leader's trail.
 
 #include <cmath>
+#include <cstdint>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -17,8 +18,6 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
@@ -412,19 +411,3 @@ bool CMotionComponent::Obj_FollowLeader(Script::CStruct* params, Script::CScript
 } // namespace Obj
 
 using Obj::CMotionComponent;
-
-REPLACE(0x004270E0, &CMotionComponent::Update);
-REPLACE(0x00424200, &CMotionComponent::UpdateMoveTo);
-REPLACE(0x00426E70, &CMotionComponent::UpdatePath);
-REPLACE(0x004246A0, &CMotionComponent::UpdateFollowLeader);
-REPLACE(0x00423FC0, &CMotionComponent::StartPath);
-REPLACE(0x00424020, &CMotionComponent::ArriveAtNode);
-REPLACE(0x00424180, &CMotionComponent::FollowPathLinked);
-REPLACE(0x004244C0, &CMotionComponent::GetNextObjOnPath);
-REPLACE(0x004246F0, &CMotionComponent::FollowLeader);
-REPLACE(0x00425150, &CMotionComponent::Obj_GetNextObjOnPath);
-REPLACE(0x004251C0, &CMotionComponent::Obj_SetPathTurnDist);
-REPLACE(0x00425220, &CMotionComponent::Obj_FollowPath);
-REPLACE(0x00425270, &CMotionComponent::Obj_FollowPathLinked);
-REPLACE(0x00425290, &CMotionComponent::Obj_FollowPathStored);
-REPLACE(0x004252C0, &CMotionComponent::Obj_FollowLeader);

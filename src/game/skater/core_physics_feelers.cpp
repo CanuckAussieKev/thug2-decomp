@@ -25,8 +25,6 @@
 #include "game/skater/skater.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/ed/park_editor.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Skater {
 
@@ -564,15 +562,3 @@ bool CorePhysicsComponent::ApplyModelRotations()
 }
 
 } // namespace Skater
-
-REPLACE(0x005003A0, &Skater::CorePhysicsComponent::CheckFeeler);
-REPLACE(0x00500020, &Skater::CorePhysicsComponent::CanGrindRail);
-REPLACE(0x005012B0, &Skater::CorePhysicsComponent::NearGround);
-REPLACE(0x00500F10, &Skater::CorePhysicsComponent::SkateInAble);
-REPLACE(0x005013E0, &Skater::CorePhysicsComponent::SetAmmo);
-REPLACE(0x005014E0, &Skater::CorePhysicsComponent::CheckNatasExitDirection);
-REPLACE(0x00501600, &Skater::CorePhysicsComponent::CallMemberFunction);
-REPLACE(0x005009C0, &Skater::CorePhysicsComponent::FindNearestWallSide);
-REPLACE(0x00501C90, &Skater::CorePhysicsComponent::CheckSideFeeler);
-REPLACE(0x005055B0, &Skater::CorePhysicsComponent::CheckSideFeelers);
-REPLACE(0x005054A0, &Skater::CorePhysicsComponent::ApplyModelRotations);

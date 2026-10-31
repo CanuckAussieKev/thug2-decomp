@@ -6,7 +6,6 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/lst/hashtable.h"
-#include "hook/game_global.h"
 
 namespace Gfx {
 class Camera;
@@ -133,7 +132,7 @@ ShadowEdges* __cdecl FindShadowEdges(uint32_t key);
 // 0x004A1F30: one user fewer of the edges under `key`; with none left they're freed and taken out of the table.
 void __cdecl ReleaseShadowEdges(uint32_t key);
 
-GAME_GLOBAL_EXTERN(CShadowVolume*[16], g_shadowVolumes);
-GAME_GLOBAL_EXTERN(Lst::HashTable, g_shadowEdgeTable); // 0x00701418: the silhouette edges by model
+extern CShadowVolume* g_shadowVolumes[16];
+extern Lst::HashTable g_shadowEdgeTable; // 0x00701418: the silhouette edges by model
 
 } // namespace Nx

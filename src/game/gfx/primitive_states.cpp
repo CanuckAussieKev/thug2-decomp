@@ -1,6 +1,8 @@
 // The device states for the engine's list of 3D primitives (0x0048E370 draws it between these two), and three thin
 // device calls.
 
+#include <cstdint>
+
 #include "game/gfx/primitive_states.h"
 
 #include <windows.h>
@@ -8,8 +10,6 @@
 #include <d3d9.h>
 
 #include "game/gfx/render_state.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
@@ -70,9 +70,3 @@ long __cdecl SetRenderTargetAndDepth(void* surface, void* depth)
 }
 
 } // namespace Nx
-
-REPLACE(0x004B60B0, Nx::SetPrimitiveStates);
-REPLACE(0x004B5FF0, Nx::ResetPrimitiveStates);
-REPLACE(0x004B6030, Nx::SetTextureStageState);
-REPLACE(0x004B6050, Nx::SetTransform);
-REPLACE(0x004B6070, Nx::SetRenderTargetAndDepth);

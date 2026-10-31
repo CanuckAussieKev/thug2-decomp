@@ -3,6 +3,7 @@
 // model.h (the simpler members: model.cpp).
 
 #include <bit>
+#include <cstdint>
 #include <cstring>
 
 #include "game/ass/asset.h"
@@ -28,9 +29,7 @@
 #include "game/obj/pager_message.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/net/net_manager.h"
 #include "game/core/stubs.h"
 #include "game/mc/memcard.h"
@@ -646,28 +645,11 @@ bool CModel::ReplaceFaceTexture(void* face, const char* source, uint32_t name)
 }
 
 namespace {
-GAME_VTABLE(kModelVtable, 0x00649348, &Nx::CModel::Destroy, &Mc::Card::AlwaysTrue, Stubs::ReturnZero1,
-            &Mc::Card::AlwaysTrue, &Nx::CModel::VirtualTrue4, &Mc::Card::AlwaysTrue, &Mc::Card::AlwaysTrue,
-            &Mc::Card::AlwaysTrue, Stubs::ReturnTrue2, &Net::Manager::LoadNetworkDrivers, Stubs::ReturnTrue,
-            Stubs::ReturnTrue, &Nx::CModel::PlatGetBoundingSphere, Stubs::IgnoreArgument);
+static VtableSlot kModelVtable_slots[] = {&Nx::CModel::Destroy, &Mc::Card::AlwaysTrue, Stubs::ReturnZero1,
+                &Mc::Card::AlwaysTrue, &Nx::CModel::VirtualTrue4, &Mc::Card::AlwaysTrue, &Mc::Card::AlwaysTrue,
+                &Mc::Card::AlwaysTrue, Stubs::ReturnTrue2, &Net::Manager::LoadNetworkDrivers, Stubs::ReturnTrue,
+                Stubs::ReturnTrue, &Nx::CModel::PlatGetBoundingSphere, Stubs::IgnoreArgument};
+void** const kModelVtable = reinterpret_cast<void**>(kModelVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x00494C40, &Nx::CModel::Construct);
-REPLACE(0x00494D00, &Nx::CModel::DestroyBody);
-REPLACE(0x00494DC0, &Nx::CModel::Destroy);
-REPLACE(0x00494BA0, &Nx::CModel::ClearGeoms);
-REPLACE(0x00494730, &Nx::CModel::RemoveGeom);
-REPLACE(0x004934A0, &Nx::CModel::AddAssetGeom);
-REPLACE(0x004935E0, &Nx::CModel::AddFileGeom);
-REPLACE(0x004938E0, &Nx::CModel::AddGeom);
-REPLACE(0x00493090, &Nx::CModel::Render);
-REPLACE(0x004939E0, &Nx::CModel::TestBoneVolumes);
-REPLACE(0x00493AB0, &Nx::CModel::GetBoneVolume);
-REPLACE(0x00493D10, &Nx::CModel::ReplaceTexture);
-REPLACE(0x00493E80, &Nx::CModel::ReplaceTextureWith);
-REPLACE(0x00494010, &Nx::CModel::SetGeomColorHsv);
-REPLACE(0x00494200, &Nx::CModel::SetColorFromScript);
-REPLACE(0x00494450, &Nx::CModel::ClearColorFromScript);
-REPLACE(0x00494A00, &Nx::CModel::ReplaceFaceTexture);

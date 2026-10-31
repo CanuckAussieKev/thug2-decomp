@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include "game/obj/object.h"
-#include "hook/game_global.h"
 
 namespace Nx {
 struct CParticleManager;
@@ -110,6 +109,6 @@ static_assert(offsetof(CParticleComponent, m_emitTarget) == 0x18 && offsetof(CPa
 const uint8_t* __fastcall ParticleSystemParams(void* particle);
 void __fastcall SetParticleValue34(void* particle, float value);
 
-GAME_GLOBAL_EXTERN(Nx::CParticleManager*, g_particleManager);
+extern Nx::CParticleManager* g_particleManager;
 
 } // namespace Obj

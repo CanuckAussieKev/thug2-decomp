@@ -2,6 +2,7 @@
 
 #include "game/nx/coll_obj.h"
 
+#include <cstdint>
 #include <new>
 
 #include "game/core/manager.h"
@@ -9,9 +10,7 @@
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_tri.h"
 #include "game/core/game_vtables.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/nx/coll_static.h"
 
@@ -19,7 +18,8 @@ namespace Nx {
 
 namespace {
 
-GAME_VTABLE(kHeadVtable, 0x00645D34, &Nx::CollObjListNodes::DestroyHead); // Lst::Head<CCollObj>
+static VtableSlot kHeadVtable_slots[] = {&Nx::CollObjListNodes::DestroyHead};
+void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots); // Lst::Head<CCollObj>
 
 void* const kHeadData = reinterpret_cast<void*>(-1);
 
@@ -54,14 +54,16 @@ void ForEachChild(Mem::ListNode* head, F f)
 
 } // namespace
 
-GAME_VTABLE(kCollObjVtable, 0x00645A30, &Nx::CCollObj::ScalarDelete, Stubs::ReturnFalse,
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), &Nx::CCollObj::SetGeometry,
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), Stubs::ReturnZero, Stubs::IgnoreArgument,
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
-    GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), Stubs::ReturnZero);
-GAME_VTABLE(kNodeVtable, 0x00645AA0, &Nx::CollObjListNodes::DestroyNode); // Lst::Node<CCollObj>
+static VtableSlot kCollObjVtable_slots[] = {&Nx::CCollObj::ScalarDelete, Stubs::ReturnFalse,
+        &_purecall, &_purecall, &Nx::CCollObj::SetGeometry,
+        &_purecall, &_purecall, &_purecall,
+        &_purecall, &_purecall, Stubs::ReturnZero, Stubs::IgnoreArgument,
+        &_purecall, &_purecall, &_purecall,
+        &_purecall, &_purecall, &_purecall,
+        &_purecall, &_purecall, Stubs::ReturnZero};
+void** const kCollObjVtable = reinterpret_cast<void**>(kCollObjVtable_slots);
+static VtableSlot kNodeVtable_slots[] = {&Nx::CollObjListNodes::DestroyNode};
+void** const kNodeVtable = reinterpret_cast<void**>(kNodeVtable_slots); // Lst::Node<CCollObj>
 
 // 0x0040B370
 void CCollObj::SetGeometry(CCollObjTriData* geometry)
@@ -353,31 +355,3 @@ uint16_t CollObjStubs::NoTerrain(int /*face*/)
 }
 
 } // namespace Nx
-
-REPLACE(0x0040B370, &Nx::CCollObj::SetGeometry);
-REPLACE(0x00413390, &Nx::CCollObj::ScalarDelete);
-REPLACE(0x004131D0, &Nx::CollObjListNodes::DestroyNodeBody);
-REPLACE(0x00411880, &Nx::CollObjListNodes::DestroyNode);
-REPLACE(0x00413180, &Nx::CollObjListNodes::ConstructHead);
-REPLACE(0x004131A0, &Nx::CollObjListNodes::DestroyHead);
-REPLACE(0x004133E0, &Nx::CCollMulti::Construct);
-REPLACE(0x00411D10, &Nx::CCollMulti::ConstructCopy);
-REPLACE(0x00411B10, &Nx::CCollMulti::Destruct);
-REPLACE(0x00413460, &Nx::CCollMulti::ScalarDelete);
-REPLACE(0x00413490, &Nx::CCollMulti::Clone);
-REPLACE(0x00411BE0, &Nx::CCollMulti::AddChild);
-REPLACE(0x00411D90, &Nx::CCollMulti::IsTriangleCollision);
-REPLACE(0x00411CC0, &Nx::CCollMulti::SetGeometryAll);
-REPLACE(0x00411C30, &Nx::CCollMulti::SetWorldPosition);
-REPLACE(0x00411C80, &Nx::CCollMulti::SetOrientation);
-REPLACE(0x00411F60, &Nx::CCollMulti::GetWorldPosition);
-REPLACE(0x00411F80, &Nx::CCollMulti::GetOrientation);
-REPLACE(0x00410960, &Nx::CCollMulti::GetVertexPos);
-REPLACE_SOURCE_ONLY(0x0040AE20, &Nx::CCollMulti::GetValue38); // 4 bytes
-REPLACE(0x0040AE10, &Nx::CCollMulti::SetValue38);
-REPLACE(0x00411E80, &Nx::CCollMulti::WithinBBox);
-REPLACE(0x00411EC0, &Nx::CCollMulti::CollideWithLine);
-REPLACE(0x00411F20, &Nx::CCollMulti::PassDown);
-REPLACE(0x00411E50, &Nx::CCollMulti::GetBBox);
-REPLACE(0x00411DD0, &Nx::CCollMulti::RecomputeBBox);
-REPLACE_SOURCE_ONLY(0x0040AE30, &Nx::CollObjStubs::NoTerrain); // 4 bytes

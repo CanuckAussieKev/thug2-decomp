@@ -2,6 +2,7 @@
 // wallplant state's update.
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -22,8 +23,6 @@
 #include "game/skater/skater_sound.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/obj/trigger_events.h"
 
 namespace Skater {
@@ -60,7 +59,6 @@ constexpr float kSteepUp = -0.1f;      // 0x0064BD44: the up's y below this: a r
 constexpr float kSteepDrop = 1.5f;     // 0x00646744
 
 float ScaledPhysics(void* object, uint32_t name) { return static_cast<Obj::CSkater*>(object)->GetScaledPhysics(name); }
-
 
 // 0x00518EE0: the jump sound, by how fast the skater goes (a fraction of the max max speed) and a terrain.
 void PlayJumpSound(void* component, uint8_t terrain)
@@ -355,16 +353,3 @@ int CorePhysicsComponent::WalkingWallplant(Script::CStruct*, Script::CScript*)
 }
 
 } // namespace Skater
-
-REPLACE(0x005092E0, &Skater::CorePhysicsComponent::TriggerRailScript);
-REPLACE(0x00509450, &Skater::CorePhysicsComponent::DoJump);
-REPLACE(0x00509920, &Skater::CorePhysicsComponent::BeginSkitch);
-REPLACE(0x00509990, &Skater::CorePhysicsComponent::EndSkitch);
-REPLACE(0x00509050, &Skater::CorePhysicsComponent::DoWallplantPhysics);
-REPLACE(0x00509A40, &Skater::CorePhysicsComponent::Jump);
-REPLACE(0x00509A60, &Skater::CorePhysicsComponent::StartSkitch);
-REPLACE(0x00509A70, &Skater::CorePhysicsComponent::StopSkitch);
-REPLACE(0x00509A80, &Skater::CorePhysicsComponent::SetState);
-REPLACE(0x00509B70, &Skater::CorePhysicsComponent::TriggerGrindOff);
-REPLACE(0x00509B90, &Skater::CorePhysicsComponent::ForceBreakVert);
-REPLACE(0x00509BB0, &Skater::CorePhysicsComponent::WalkingWallplant);

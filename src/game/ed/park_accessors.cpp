@@ -3,6 +3,7 @@
 
 #include "game/ed/park.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -10,17 +11,14 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/park/park_memory.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
-GAME_GLOBAL(float, g_parkCellSizeX, 0x0064F41C, 120.0f);
-GAME_GLOBAL(float, g_parkCellSizeY, 0x0064F420, 48.0f);
-GAME_GLOBAL(float, g_parkCellSizeZ, 0x0064F424, 120.0f);
-GAME_GLOBAL(CGapManager*, g_gapManager, 0x007CE5D4);
-GAME_GLOBAL(CParkManager*, g_parkManager, 0x007CE604);
+float g_parkCellSizeX{120.0f};
+float g_parkCellSizeY{48.0f};
+float g_parkCellSizeZ{120.0f};
+CGapManager* g_gapManager;
+CParkManager* g_parkManager;
 
 namespace {
 
@@ -285,28 +283,3 @@ void CParkManager::ClearFloorChangeMarks()
 } // namespace Ed
 
 using Ed::CParkManager;
-
-REPLACE(0x00595030, &CParkManager::GetCompressedMapBuffer);
-REPLACE(0x00595050, &CParkManager::SetCompressedMapBuffer);
-REPLACE(0x00595090, &CParkManager::IsMapSavedLocally);
-REPLACE(0x005950B0, &CParkManager::GetShellSize);
-REPLACE(0x005950D0, &CParkManager::GetParkName);
-REPLACE(0x005950F0, &CParkManager::SetParkName);
-REPLACE(0x00595140, &CParkManager::RebuildParkGeometry);
-REPLACE(0x00595170, &CParkManager::GetShellChecksum);
-REPLACE(0x005951E0, &CParkManager::GetMapListNode);
-REPLACE(0x00595200, &CParkManager::sInstance);
-REPLACE(0x00595210, &CParkManager::GetPieceSet);
-REPLACE(0x00595250, &CParkManager::GetMapInfo);
-REPLACE(0x005952B0, &CParkManager::RestoreFloorHeights);
-REPLACE(0x00595300, &CParkManager::GetRestartIndex);
-REPLACE(0x00595620, &CParkManager::GetAbstractMetaPiece);
-REPLACE(0x00595990, &CParkManager::CanResizeTo);
-REPLACE(0x005959D0, &CParkManager::GetFloorHeight);
-REPLACE(0x00595A90, &CParkManager::GridCoordinatesToWorld);
-REPLACE(0x00595B30, &CParkManager::IsAreaBlocked);
-REPLACE(0x00595BC0, &CParkManager::CreateGapManagerCopy);
-REPLACE(0x00595C70, &CParkManager::UseGapManagerCopy);
-REPLACE(0x00595C80, &CParkManager::DestroyGapManagerCopy);
-REPLACE(0x00595CB0, &CParkManager::HighlightGapPieces);
-REPLACE(0x00595D40, &CParkManager::ClearFloorChangeMarks);

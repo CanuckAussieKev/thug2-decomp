@@ -73,13 +73,10 @@
 #include "game/skater/balance_trick.h"
 #include "game/skater/skater_camera_component.h"
 #include "game/ed/park_editor.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/obj/object.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
-#include "hook/game_code.h"
 #include "game/skater/state_history.h"
 #include "game/skater/local_net_logic.h"
 #include "game/gfx/engine_geom.h"
@@ -88,9 +85,9 @@
 
 namespace Obj {
 
-GAME_GLOBAL(float, g_skaterDownLightColour, 0x007CE4C4);
-GAME_GLOBAL(float, g_skaterLightColour, 0x007CE4D4);
-GAME_GLOBAL(uint32_t, g_skaterLightsMade, 0x007CE4E4);
+float g_skaterDownLightColour;
+float g_skaterLightColour;
+uint32_t g_skaterLightsMade;
 
 namespace {
 
@@ -687,7 +684,7 @@ void CSkater::ShowBoardElement(uint32_t type)
     auto reset = [](void* element) { reinterpret_cast<void(__thiscall*)(void*, int, int)>(&Nx::VirtualSlot8Jump)(element, 0, 0); };
     void* element = newElement(texture);
     reset(element);
-    void* parent = reinterpret_cast<void*(__thiscall*)(void*)>(GAME_CODE(0x00553E90, &Game::CGoal::GetParams))(GetComponent(0x5B512EDC));
+    void* parent = reinterpret_cast<void*(__thiscall*)(void*)>(CodeAddress(&Game::CGoal::GetParams))(GetComponent(0x5B512EDC));
     reset(parent);
     reinterpret_cast<void(__thiscall*)(void*, void*, int)>(&Nx::VirtualSlot15Jump)(element, parent, 1);
     reinterpret_cast<void(__thiscall*)(void*, uint32_t)>(&Nx::VirtualSlot19Jump)(element, 0); // (black)
@@ -1001,12 +998,12 @@ void CSkater::InitFromProfile(CSkaterProfile* profile)
         const struct {
             uint8_t id;
             void* code;
-        } handlers[] = {{0x3B, GAME_CODE(0x005626F0, &Mdl::Score::HandleScoreMessage)},
-                        {0x44, GAME_CODE(0x00519C10, &CSkaterStateHistoryComponent::HandleCollisionMessages)},
-                        {0x43, GAME_CODE(0x00519C10, &CSkaterStateHistoryComponent::HandleCollisionMessages)},
-                        {0x85, GAME_CODE(0x00519870, &CSkaterStateHistoryComponent::HandleHitMessages)},
-                        {0x84, GAME_CODE(0x00519870, &CSkaterStateHistoryComponent::HandleHitMessages)},
-                        {0x4B, GAME_CODE(0x005136F0, &CSkaterLocalNetLogicComponent::HandleGraffitiSteal)}};
+        } handlers[] = {{0x3B, CodeAddress(&Mdl::Score::HandleScoreMessage)},
+                        {0x44, CodeAddress(&CSkaterStateHistoryComponent::HandleCollisionMessages)},
+                        {0x43, CodeAddress(&CSkaterStateHistoryComponent::HandleCollisionMessages)},
+                        {0x85, CodeAddress(&CSkaterStateHistoryComponent::HandleHitMessages)},
+                        {0x84, CodeAddress(&CSkaterStateHistoryComponent::HandleHitMessages)},
+                        {0x4B, CodeAddress(&CSkaterLocalNetLogicComponent::HandleGraffitiSteal)}};
         for (const auto& handler : handlers)
             dispatcher->AddHandler(handler.id, reinterpret_cast<Net::MsgHandlerCode>(handler.code), 0, this, 0x80);
     }
@@ -1620,84 +1617,30 @@ CSkater* CSkater::Destroy(unsigned int flags)
 
 } // namespace Obj
 
-REPLACE(0x0057FE30, &Obj::CSkater::SetStatOverride);
-REPLACE(0x0057FEB0, &Obj::CSkater::GetCamera);
-REPLACE(0x0057FEC0, &Obj::CSkater::GetSkaterNumber);
-REPLACE(0x0057FED0, &Obj::CSkater::MatchesParams);
-REPLACE(0x0057FFE0, &Obj::CSkater::SparksOn);
-REPLACE(0x00580000, &Obj::CSkater::SparksOff);
-REPLACE(0x00580030, &Obj::CSkater::GetDisplayMatrix);
-REPLACE(0x00580040, &Obj::CSkater::GetBlock238);
-REPLACE(0x00580050, &Obj::CSkater::GetFlag2C4);
-REPLACE(0x00580060, &Obj::CSkater::LoadCATInfo);
-REPLACE(0x00580150, &Obj::CSkater::LoadList44B66A9F);
-REPLACE(0x005801B0, &Obj::CSkater::WriteChapterInfo);
-REPLACE(0x00580210, &Obj::CSkater::ReadChapterInfo);
-REPLACE(0x005802C0, &Obj::CSkater::Set42BD60);
-REPLACE(0x005802E0, Obj::GetPhysicsStructure);
-REPLACE(0x00580400, Obj::GetPhysicsFloat);
-REPLACE(0x00580440, Obj::GetPhysicsInt);
-REPLACE(0x00580480, &Obj::CSkater::GetScore);
-REPLACE(0x00580490, &Obj::CSkater::GetStat);
-REPLACE(0x005805B0, &Obj::CSkater::GetScaledValue);
-REPLACE(0x00580790, &Obj::CSkater::GetScaledPhysics);
-REPLACE(0x005807F0, &Obj::CSkater::GetScaledParam);
-REPLACE(0x00580830, &Obj::CSkater::MoveToRandomRestart);
-REPLACE(0x00580880, &Obj::CSkater::GetSkaterCamera);
-REPLACE(0x005808A0, &Obj::CSkater::SetPauseState);
-REPLACE(0x005809C0, &Obj::CSkater::UpdateShadowLight);
-REPLACE(0x00580BE0, &Obj::CSkater::SetStatsFromProfile);
-REPLACE(0x00580EB0, &Obj::CSkater::UpdateFromProfile);
-REPLACE(0x00580FF0, &Obj::CSkater::ResetInput);
-REPLACE(0x005810E0, &Obj::CSkater::ResetState);
-REPLACE(0x005811E0, &Obj::CSkater::SetUpNetwork);
-REPLACE(0x00581260, &Obj::CSkater::ShowBoardElement);
-REPLACE(0x005814D0, &Obj::CSkater::Reset27C);
-REPLACE(0x00581510, &Obj::CSkater::HideSkater);
-REPLACE(0x00581550, &Obj::CSkater::ShowSkater);
-REPLACE(0x00581580, &Obj::CSkater::GetDisplayName);
-REPLACE(0x005815C0, &Obj::CSkater::MoveToNode);
-REPLACE(0x00581760, &Obj::CSkater::Pause);
-REPLACE(0x005817F0, &Obj::CSkater::Unpause);
-REPLACE(0x00581850, &Obj::CSkater::Init);
-REPLACE(0x005822A0, &Obj::CSkater::InitFromProfile);
-REPLACE(0x005823A0, &Obj::CSkater::RunStateScript);
-REPLACE(0x00582510, &Obj::CSkater::SwitchToScript);
-REPLACE(0x005825E0, &Obj::CSkater::WriteCATInfo);
-REPLACE(0x00582740, &Obj::CSkater::WriteList44B66A9F);
-REPLACE(0x00582800, &Obj::CSkater::LaunchProjectile);
-REPLACE(0x00582D90, &Obj::CSkater::Construct);
-REPLACE(0x00583400, &Obj::CSkater::ResetComponents);
-REPLACE(0x00583470, &Obj::CSkater::Restart);
-REPLACE(0x005835D0, &Obj::CSkater::CallMemberFunction);
-REPLACE(0x00583DA0, &Obj::CSkater::SkipToRestart);
-REPLACE(0x00583FB0, &Obj::CSkater::DestroyBody);
-REPLACE(0x005840E0, &Obj::CSkater::Destroy);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kSkaterVtable, 0x0064EF48,
-    &Obj::CSkater::Destroy,
-    &Obj::CObject::SetProperties,
-    static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-    &Obj::CSkater::CallMemberFunction,
-    Stubs::IgnoreArgument,
-    &Obj::CObject::PassEventToScript,
-    &Obj::CCompositeObject::MarkAsDead,
-    &Obj::CCompositeObject::ShouldUpdateScripts,
-    &Obj::CCompositeObject::Finalize,
-    &Obj::CCompositeObject::CreateComponentFromStructure,
-    Stubs::DoNothing,
-    &Obj::CSkater::Pause,
-    &Obj::CSkater::Unpause,
-    &Obj::CSkater::InitFromProfile,
-    &Obj::CSkater::ResetInput,
-    &Obj::CSkater::SkipToRestart,
-    &Obj::CSkater::MoveToNode,
-    &Obj::CSkater::ResetState,
-    &Obj::CSkater::SetUpNetwork,
-    &Obj::CSkater::RunStateScript);
+static VtableSlot kSkaterVtable_slots[] = {&Obj::CSkater::Destroy,
+         &Obj::CObject::SetProperties,
+         static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+         &Obj::CSkater::CallMemberFunction,
+         Stubs::IgnoreArgument,
+         &Obj::CObject::PassEventToScript,
+         &Obj::CCompositeObject::MarkAsDead,
+         &Obj::CCompositeObject::ShouldUpdateScripts,
+         &Obj::CCompositeObject::Finalize,
+         &Obj::CCompositeObject::CreateComponentFromStructure,
+         Stubs::DoNothing,
+         &Obj::CSkater::Pause,
+         &Obj::CSkater::Unpause,
+         &Obj::CSkater::InitFromProfile,
+         &Obj::CSkater::ResetInput,
+         &Obj::CSkater::SkipToRestart,
+         &Obj::CSkater::MoveToNode,
+         &Obj::CSkater::ResetState,
+         &Obj::CSkater::SetUpNetwork,
+         &Obj::CSkater::RunStateScript};
+void** const kSkaterVtable = reinterpret_cast<void**>(kSkaterVtable_slots);
 
 } // namespace
 } // namespace Obj

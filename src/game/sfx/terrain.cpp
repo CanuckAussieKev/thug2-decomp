@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <new>
 
 #include "game/core/crc.h"
 #include "game/core/mem.h"
@@ -15,9 +16,6 @@
 #include "game/net/net_client.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/startup_init.h"
 
 namespace Terrain {
@@ -65,9 +63,9 @@ struct ActionItem {
 };
 static_assert(sizeof(TypeItem) == 8 && sizeof(ActionItem) == 12, "layout must match the original");
 
-GAME_GLOBAL(Lst::HashTable, g_terrainTypes, 0x006968D0, Lst::HashTable::Unconstructed{}); // (the exe makes it with HashTable(8) at start-up)
+Lst::HashTable g_terrainTypes{Lst::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(8) at start-up)
 Lst::HashTable& TerrainTypes() { return g_terrainTypes; }
-GAME_GLOBAL(Lst::HashTable, g_terrainActions, 0x006968E8, Lst::HashTable::Unconstructed{}); // (HashTable(8) at start-up)
+Lst::HashTable g_terrainActions{Lst::HashTable::Unconstructed{}}; // (HashTable(8) at start-up)
 Lst::HashTable& TerrainActions() { return g_terrainActions; }
 
 Sfx::CSfxManager* SoundManager() { return Sfx::g_sfxManager; }
@@ -438,24 +436,6 @@ bool __cdecl LoadTerrainSounds(uint32_t checksum)
 }
 
 } // namespace Terrain
-
-REPLACE(0x004442C0, Terrain::GetTerrainIndex);
-REPLACE(0x00444310, Terrain::GetTableAction);
-REPLACE(0x00444360, Terrain::GetTerrainChecksum);
-REPLACE(0x004443B0, Terrain::GetTableIndex);
-REPLACE(0x00444400, Terrain::GetTerrainStructure);
-REPLACE(0x00444460, Terrain::ClearTerrainTypes);
-REPLACE(0x00444480, Terrain::GetTerrainStructureInto);
-REPLACE(0x004444A0, Terrain::LoadTerrainTypes);
-REPLACE(0x004445B0, Terrain::GetSoundInfo);
-REPLACE(0x00444710, Terrain::GetScaledVolume);
-REPLACE(0x00444760, Terrain::PickSoundAction);
-REPLACE(0x00444830, Terrain::FindSoundAction);
-REPLACE(0x004448E0, Terrain::LoadSoundAction);
-REPLACE(0x00444950, Terrain::LoadTableSounds);
-REPLACE(0x00444B10, Terrain::GetTerrainSound);
-REPLACE(0x00444BB0, Terrain::PlayTerrainSound);
-REPLACE(0x00444EB0, Terrain::LoadTerrainSounds);
 
 namespace Terrain {
 

@@ -10,13 +10,11 @@
 #include "game/script/cscript.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -176,38 +174,23 @@ void CSkaterEndRunComponent::ClearForced() { m_flags &= ~END_RUN_FORCED; }
 
 } // namespace Obj
 
-REPLACE(0x00510F90, Obj::CSkaterEndRunComponent::Create);
-REPLACE(0x00510D20, &Obj::CSkaterEndRunComponent::DestroyBody);
-REPLACE(0x00510D40, &Obj::CSkaterEndRunComponent::Destroy);
-REPLACE(0x00510D70, &Obj::CSkaterEndRunComponent::Update);
-REPLACE(0x00510DC0, &Obj::CSkaterEndRunComponent::CallMemberFunction);
-REPLACE(0x00510D30, &Obj::CSkaterEndRunComponent::GetFlags);
-REPLACE(0x00510EA0, &Obj::CSkaterEndRunComponent::EndRun);
-REPLACE(0x00510F10, &Obj::CSkaterEndRunComponent::EndGoalRun);
-REPLACE(0x00510F30, &Obj::CSkaterEndRunComponent::RunDone);
-REPLACE(0x00510F40, &Obj::CSkaterEndRunComponent::GoalRunDone);
-REPLACE(0x00510F50, &Obj::CSkaterEndRunComponent::EndOfRunStarted);
-REPLACE(0x00510F60, &Obj::CSkaterEndRunComponent::ClearEndOfRunStarted);
-REPLACE(0x00510F70, &Obj::CSkaterEndRunComponent::ClearGoalEndOfRunStarted);
-REPLACE(0x00510F80, &Obj::CSkaterEndRunComponent::ClearForced);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064BDB8,
-    &Obj::CSkaterEndRunComponent::Destroy,
-    &Obj::CSkaterEndRunComponent::Update,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CSkaterEndRunComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSkaterEndRunComponent::Destroy,
+         &Obj::CSkaterEndRunComponent::Update,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CSkaterEndRunComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

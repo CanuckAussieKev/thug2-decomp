@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <vector>
 
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_scenery.h"
@@ -12,7 +14,6 @@
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 
 namespace Front::LevelEditor::Carry {

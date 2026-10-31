@@ -5,7 +5,6 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
-#include "hook/game_global.h"
 
 // The per-frame 3D render (Nx engine, PC/D3D9): the camera's matrices, the world passes per viewport and the
 // motion blur pass. PartyMod (whose code this contains: MIT, (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md) changes
@@ -68,23 +67,23 @@ void DrawScreenBlur();
 // the 2D over the whole screen.
 void RenderWorld();
 
-GAME_GLOBAL_EXTERN(bool, g_radeon8500);
-GAME_GLOBAL_EXTERN(int, g_framesRendered);
-GAME_GLOBAL_EXTERN(Mth::Matrix, g_worldMatrix);
-GAME_GLOBAL_EXTERN(Mth::Matrix, g_viewMatrix);
-GAME_GLOBAL_EXTERN(Mth::Matrix, g_projectionMatrix);
-GAME_GLOBAL_EXTERN(Mth::Matrix, g_headingMatrix);
-GAME_GLOBAL_EXTERN(int, g_frameTime);
-GAME_GLOBAL_EXTERN(int, g_screenCopyIndex);
-GAME_GLOBAL_EXTERN(int, g_backBufferWidth);
-GAME_GLOBAL_EXTERN(int, g_backBufferHeight);
-GAME_GLOBAL_EXTERN(int, g_drawCalls);
-GAME_GLOBAL_EXTERN(int, g_drawnTriangles);
-GAME_GLOBAL_EXTERN(float, g_fogStart);
-GAME_GLOBAL_EXTERN(float, g_fogEnd);
+extern bool g_radeon8500;
+extern int g_framesRendered;
+extern Mth::Matrix g_worldMatrix;
+extern Mth::Matrix g_viewMatrix;
+extern Mth::Matrix g_projectionMatrix;
+extern Mth::Matrix g_headingMatrix;
+extern int g_frameTime;
+extern int g_screenCopyIndex;
+extern int g_backBufferWidth;
+extern int g_backBufferHeight;
+extern int g_drawCalls;
+extern int g_drawnTriangles;
+extern float g_fogStart;
+extern float g_fogEnd;
 
-GAME_GLOBAL_EXTERN(DeviceViewport, g_deviceViewport);
-GAME_GLOBAL_EXTERN(RenderCamera, g_camera);
-GAME_GLOBAL_EXTERN(ViewShape, g_viewShape);
+extern DeviceViewport g_deviceViewport;
+extern RenderCamera g_camera;
+extern ViewShape g_viewShape;
 
 } // namespace Nx

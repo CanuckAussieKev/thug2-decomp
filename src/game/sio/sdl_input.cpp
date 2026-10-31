@@ -3,6 +3,7 @@
 
 #include "game/sio/sdl_input.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -23,14 +24,12 @@
 #include "game/sys/platform_cfuncs.h"
 #include "game/sys/screenshot.h"
 #include "game/sys/sdl_events.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
 #include "game/sys/platform_input.h"
 
 namespace Sio {
 
-GAME_GLOBAL(bool, g_keyboardOnScreen, 0x007CE46E);
-GAME_GLOBAL(bool, g_inMenuFlag, 0x007CE46F);
+bool g_keyboardOnScreen;
+bool g_inMenuFlag;
 
 namespace {
 

@@ -14,8 +14,6 @@
 #include "game/skater/core_physics.h"
 #include "game/skater/skater_state.h"
 #include "game/skater/thaw_bmx.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
@@ -203,5 +201,3 @@ void CSkaterAdjustPhysicsComponent::Update()
 }
 
 } // namespace Obj
-
-REPLACE(0x004F8420, &Obj::CSkaterAdjustPhysicsComponent::Update);

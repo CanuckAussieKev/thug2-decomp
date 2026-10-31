@@ -8,6 +8,7 @@
 #include <winsock2.h>
 #include <windows.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -20,7 +21,6 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/online_identity.h"
 #include "game/sio/device.h"
-#include "hook/game_global.h"
 #include "game/sys/log.h"
 #include "game/sys/main.h"
 #include "game/sys/pc_setup.h"
@@ -32,30 +32,25 @@
 #include "game/sys/registry.h"
 #include "game/sys/sdl_window.h"
 #include "game/gfx/loading_console.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#ifndef THUG2_STANDALONE
-#include "hook/selftest.h"
-#endif
 #include "game/gfx/device.h"
 #include "game/gfx/movie.h"
 
 // The command line's values, kept in globals other files own (the e-mail and the password: buddy_status.cpp, the
 // player's name and password: net_state_cfuncs.cpp).
 namespace GameNet {
-GAME_GLOBAL_EXTERN(char[256], g_commandLineEmail);
-GAME_GLOBAL_EXTERN(char[16], g_commandLinePassword);
-GAME_GLOBAL_EXTERN(char[10], g_pendingPassword);
+extern char g_commandLineEmail[256];
+extern char g_commandLinePassword[16];
+extern char g_pendingPassword[10];
 } // namespace GameNet
 namespace CFuncs {
-GAME_GLOBAL_EXTERN(char[16], g_networkId);
-GAME_GLOBAL_EXTERN(char[12], g_networkPassword);
-GAME_GLOBAL_EXTERN(char[16], g_hostedGameName);
+extern char g_networkId[16];
+extern char g_networkPassword[12];
+extern char g_hostedGameName[16];
 } // namespace CFuncs
 
 namespace Sys {
 
-GAME_GLOBAL(char[256], g_commandLineServerName, 0x007CC980); // "-connect"'s value
+char g_commandLineServerName[256]; // "-connect"'s value
 
 namespace {
 
@@ -134,9 +129,9 @@ const uint32_t kDefaultBindings[3][24] = {
 
 } // namespace
 
-GAME_GLOBAL(bool, g_internetGameHost, 0x007CC260);
-GAME_GLOBAL(bool, g_joiningInternetGame, 0x007CCA80);
-GAME_GLOBAL(bool, g_appActive, 0x007CCBE4);
+bool g_internetGameHost;
+bool g_joiningInternetGame;
+bool g_appActive;
 
 // 0x004E16B0
 LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
@@ -185,9 +180,6 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
 // 0x004E1220
 void __cdecl ParseNetworkParams(const char* commandLine)
 {
-#ifndef THUG2_STANDALONE
-    RunStageOnce(TestStage::Late); // the test runner's Late stage: the C runtime and the memory manager are up
-#endif
     ReadNetworkParams(commandLine);
 }
 
@@ -383,7 +375,3 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
 }
 
 } // namespace Sys
-
-REPLACE(0x004E16B0, Sys::WindowProc); // (the SDL window doesn't use it)
-REPLACE(0x004E2680, Sys::WinMain);
-REPLACE(0x004E1220, Sys::ParseNetworkParams);

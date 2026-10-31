@@ -2,7 +2,6 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
-#include "hook/hook.h"
 
 namespace Mth {
 
@@ -20,5 +19,3 @@ Vector& Vector::MultiplyBy(const Matrix& matrix)
 }
 
 } // namespace Mth
-
-REPLACE(0x00434200, &Mth::Vector::MultiplyBy);

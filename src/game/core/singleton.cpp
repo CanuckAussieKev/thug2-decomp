@@ -28,9 +28,7 @@
 #include "game/skate/records.h"
 #include "game/sys/mlp.h"
 #include "game/sys/module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/game_mode.h"
 
@@ -225,86 +223,55 @@ struct Singleton574540 { // the time of day manager
     static void Release() { Gfx::ReleaseTODManager(); }
 };
 
-GAME_VTABLE(kPreManagerVtable, 0x0064AFB0, &SingletonPtr<PreManager>::Destroy);
-GAME_VTABLE(kMcManagerVtable, 0x0064AFBC, &SingletonPtr<McManager>::Destroy);
-GAME_VTABLE(kSioManagerVtable, 0x006472B8, &SingletonPtr<SioManager>::Destroy);
-GAME_VTABLE(kAsyncLoaderVtable, 0x0064AFC4, &SingletonPtr<AsyncLoader>::Destroy);
-GAME_VTABLE(kScriptCacheVtable, 0x0064AFC8, &SingletonPtr<ScriptCache>::Destroy);
-GAME_VTABLE(kMlpManagerVtable, 0x0064A2EC, &SingletonPtr<MlpManager>::Destroy);
-GAME_VTABLE(kMdlManagerVtable, 0x0064AFB8, &SingletonPtr<MdlManager>::Destroy);
-GAME_VTABLE(kSoundManagerVtable, 0x006472B4, &SingletonPtr<SoundManager>::Destroy);
-GAME_VTABLE(kFrontEndVtable, 0x0064AFEC, &SingletonPtr<FrontEnd>::Destroy);
-GAME_VTABLE(kObjectTrackerVtable, 0x0064AFB4, &SingletonPtr<ObjectTracker>::Destroy);
-GAME_VTABLE(kInputManagerVtable, 0x0064AFC0, &SingletonPtr<InputManager>::Destroy);
-GAME_VTABLE(kSingleton4088E0Vtable, 0x0064AFCC, &SingletonPtr<Singleton4088E0>::Destroy);
-GAME_VTABLE(kNetManagerVtable, 0x0064AFD0, &SingletonPtr<NetManager>::Destroy);
-GAME_VTABLE(kCompositeObjectManagerVtable, 0x0064AFD4, &SingletonPtr<CompositeObjectManager>::Destroy);
-GAME_VTABLE(kTrickObjectManagerVtable, 0x0064AFD8, &SingletonPtr<TrickObjectManager>::Destroy);
-GAME_VTABLE(kSingleton553DB0Vtable, 0x0064AFDC, &SingletonPtr<Singleton553DB0>::Destroy);
-GAME_VTABLE(kSingleton57C0D0Vtable, 0x0064AFE0, &SingletonPtr<Singleton57C0D0>::Destroy);
-GAME_VTABLE(kSingleton57EED0Vtable, 0x0064AFE4, &SingletonPtr<Singleton57EED0>::Destroy);
-GAME_VTABLE(kSingleton5691A0Vtable, 0x0064AFE8, &SingletonPtr<Singleton5691A0>::Destroy);
-GAME_VTABLE(kSingleton53F520Vtable, 0x0064AFF0, &SingletonPtr<Singleton53F520>::Destroy);
-GAME_VTABLE(kParkEditorVtable, 0x0064AFF4, &SingletonPtr<ParkEditor>::Destroy);
-GAME_VTABLE(kSingleton4ACAF0Vtable, 0x0064AFF8, &SingletonPtr<Singleton4ACAF0>::Destroy);
-GAME_VTABLE(kNodeManagerVtable, 0x0064AFFC, &SingletonPtr<NodeManager>::Destroy);
-GAME_VTABLE(kSingleton574540Vtable, 0x0064B000, &SingletonPtr<Singleton574540>::Destroy);
+static VtableSlot kPreManagerVtable_slots[] = {&SingletonPtr<PreManager>::Destroy};
+void** const kPreManagerVtable = reinterpret_cast<void**>(kPreManagerVtable_slots);
+static VtableSlot kMcManagerVtable_slots[] = {&SingletonPtr<McManager>::Destroy};
+void** const kMcManagerVtable = reinterpret_cast<void**>(kMcManagerVtable_slots);
+static VtableSlot kSioManagerVtable_slots[] = {&SingletonPtr<SioManager>::Destroy};
+void** const kSioManagerVtable = reinterpret_cast<void**>(kSioManagerVtable_slots);
+static VtableSlot kAsyncLoaderVtable_slots[] = {&SingletonPtr<AsyncLoader>::Destroy};
+void** const kAsyncLoaderVtable = reinterpret_cast<void**>(kAsyncLoaderVtable_slots);
+static VtableSlot kScriptCacheVtable_slots[] = {&SingletonPtr<ScriptCache>::Destroy};
+void** const kScriptCacheVtable = reinterpret_cast<void**>(kScriptCacheVtable_slots);
+static VtableSlot kMlpManagerVtable_slots[] = {&SingletonPtr<MlpManager>::Destroy};
+void** const kMlpManagerVtable = reinterpret_cast<void**>(kMlpManagerVtable_slots);
+static VtableSlot kMdlManagerVtable_slots[] = {&SingletonPtr<MdlManager>::Destroy};
+void** const kMdlManagerVtable = reinterpret_cast<void**>(kMdlManagerVtable_slots);
+static VtableSlot kSoundManagerVtable_slots[] = {&SingletonPtr<SoundManager>::Destroy};
+void** const kSoundManagerVtable = reinterpret_cast<void**>(kSoundManagerVtable_slots);
+static VtableSlot kFrontEndVtable_slots[] = {&SingletonPtr<FrontEnd>::Destroy};
+void** const kFrontEndVtable = reinterpret_cast<void**>(kFrontEndVtable_slots);
+static VtableSlot kObjectTrackerVtable_slots[] = {&SingletonPtr<ObjectTracker>::Destroy};
+void** const kObjectTrackerVtable = reinterpret_cast<void**>(kObjectTrackerVtable_slots);
+static VtableSlot kInputManagerVtable_slots[] = {&SingletonPtr<InputManager>::Destroy};
+void** const kInputManagerVtable = reinterpret_cast<void**>(kInputManagerVtable_slots);
+static VtableSlot kSingleton4088E0Vtable_slots[] = {&SingletonPtr<Singleton4088E0>::Destroy};
+void** const kSingleton4088E0Vtable = reinterpret_cast<void**>(kSingleton4088E0Vtable_slots);
+static VtableSlot kNetManagerVtable_slots[] = {&SingletonPtr<NetManager>::Destroy};
+void** const kNetManagerVtable = reinterpret_cast<void**>(kNetManagerVtable_slots);
+static VtableSlot kCompositeObjectManagerVtable_slots[] = {&SingletonPtr<CompositeObjectManager>::Destroy};
+void** const kCompositeObjectManagerVtable = reinterpret_cast<void**>(kCompositeObjectManagerVtable_slots);
+static VtableSlot kTrickObjectManagerVtable_slots[] = {&SingletonPtr<TrickObjectManager>::Destroy};
+void** const kTrickObjectManagerVtable = reinterpret_cast<void**>(kTrickObjectManagerVtable_slots);
+static VtableSlot kSingleton553DB0Vtable_slots[] = {&SingletonPtr<Singleton553DB0>::Destroy};
+void** const kSingleton553DB0Vtable = reinterpret_cast<void**>(kSingleton553DB0Vtable_slots);
+static VtableSlot kSingleton57C0D0Vtable_slots[] = {&SingletonPtr<Singleton57C0D0>::Destroy};
+void** const kSingleton57C0D0Vtable = reinterpret_cast<void**>(kSingleton57C0D0Vtable_slots);
+static VtableSlot kSingleton57EED0Vtable_slots[] = {&SingletonPtr<Singleton57EED0>::Destroy};
+void** const kSingleton57EED0Vtable = reinterpret_cast<void**>(kSingleton57EED0Vtable_slots);
+static VtableSlot kSingleton5691A0Vtable_slots[] = {&SingletonPtr<Singleton5691A0>::Destroy};
+void** const kSingleton5691A0Vtable = reinterpret_cast<void**>(kSingleton5691A0Vtable_slots);
+static VtableSlot kSingleton53F520Vtable_slots[] = {&SingletonPtr<Singleton53F520>::Destroy};
+void** const kSingleton53F520Vtable = reinterpret_cast<void**>(kSingleton53F520Vtable_slots);
+static VtableSlot kParkEditorVtable_slots[] = {&SingletonPtr<ParkEditor>::Destroy};
+void** const kParkEditorVtable = reinterpret_cast<void**>(kParkEditorVtable_slots);
+static VtableSlot kSingleton4ACAF0Vtable_slots[] = {&SingletonPtr<Singleton4ACAF0>::Destroy};
+void** const kSingleton4ACAF0Vtable = reinterpret_cast<void**>(kSingleton4ACAF0Vtable_slots);
+static VtableSlot kNodeManagerVtable_slots[] = {&SingletonPtr<NodeManager>::Destroy};
+void** const kNodeManagerVtable = reinterpret_cast<void**>(kNodeManagerVtable_slots);
+static VtableSlot kSingleton574540Vtable_slots[] = {&SingletonPtr<Singleton574540>::Destroy};
+void** const kSingleton574540Vtable = reinterpret_cast<void**>(kSingleton574540Vtable_slots);
 
 } // namespace
 
 } // namespace Spt
-
-// Each instance's destructor (11 bytes: the vtable, then a jump to Release) and scalar deleting destructor.
-REPLACE(0x0044FD40, &Spt::SingletonPtr<Spt::SoundManager>::DestroyBody);
-REPLACE(0x0044FD60, &Spt::SingletonPtr<Spt::SoundManager>::Destroy);
-REPLACE(0x0044FD50, &Spt::SingletonPtr<Spt::SioManager>::DestroyBody);
-REPLACE(0x0044FD90, &Spt::SingletonPtr<Spt::SioManager>::Destroy);
-REPLACE(0x004B2230, &Spt::SingletonPtr<Spt::MlpManager>::DestroyBody);
-REPLACE(0x004B2240, &Spt::SingletonPtr<Spt::MlpManager>::Destroy);
-REPLACE(0x004E1980, &Spt::SingletonPtr<Spt::PreManager>::DestroyBody);
-REPLACE(0x004E1B00, &Spt::SingletonPtr<Spt::PreManager>::Destroy);
-REPLACE(0x004E1990, &Spt::SingletonPtr<Spt::ObjectTracker>::DestroyBody);
-REPLACE(0x004E1B30, &Spt::SingletonPtr<Spt::ObjectTracker>::Destroy);
-REPLACE(0x004E19A0, &Spt::SingletonPtr<Spt::MdlManager>::DestroyBody);
-REPLACE(0x004E1B60, &Spt::SingletonPtr<Spt::MdlManager>::Destroy);
-REPLACE(0x004E19B0, &Spt::SingletonPtr<Spt::McManager>::DestroyBody);
-REPLACE(0x004E1B90, &Spt::SingletonPtr<Spt::McManager>::Destroy);
-REPLACE(0x004E19C0, &Spt::SingletonPtr<Spt::InputManager>::DestroyBody);
-REPLACE(0x004E1BC0, &Spt::SingletonPtr<Spt::InputManager>::Destroy);
-REPLACE(0x004E19D0, &Spt::SingletonPtr<Spt::AsyncLoader>::DestroyBody);
-REPLACE(0x004E1BF0, &Spt::SingletonPtr<Spt::AsyncLoader>::Destroy);
-REPLACE(0x004E19E0, &Spt::SingletonPtr<Spt::ScriptCache>::DestroyBody);
-REPLACE(0x004E1C20, &Spt::SingletonPtr<Spt::ScriptCache>::Destroy);
-REPLACE(0x004E19F0, &Spt::SingletonPtr<Spt::Singleton4088E0>::DestroyBody);
-REPLACE(0x004E1C50, &Spt::SingletonPtr<Spt::Singleton4088E0>::Destroy);
-REPLACE(0x004E1A00, &Spt::SingletonPtr<Spt::NetManager>::DestroyBody);
-REPLACE(0x004E1C80, &Spt::SingletonPtr<Spt::NetManager>::Destroy);
-REPLACE(0x004E1A10, &Spt::SingletonPtr<Spt::CompositeObjectManager>::DestroyBody);
-REPLACE(0x004E1CB0, &Spt::SingletonPtr<Spt::CompositeObjectManager>::Destroy);
-REPLACE(0x004E1A20, &Spt::SingletonPtr<Spt::TrickObjectManager>::DestroyBody);
-REPLACE(0x004E1CE0, &Spt::SingletonPtr<Spt::TrickObjectManager>::Destroy);
-REPLACE(0x004E1A30, &Spt::SingletonPtr<Spt::Singleton553DB0>::DestroyBody);
-REPLACE(0x004E1D10, &Spt::SingletonPtr<Spt::Singleton553DB0>::Destroy);
-REPLACE(0x004E1A40, &Spt::SingletonPtr<Spt::Singleton57C0D0>::DestroyBody);
-REPLACE(0x004E1D40, &Spt::SingletonPtr<Spt::Singleton57C0D0>::Destroy);
-REPLACE(0x004E1A50, &Spt::SingletonPtr<Spt::Singleton57EED0>::DestroyBody);
-REPLACE(0x004E1D70, &Spt::SingletonPtr<Spt::Singleton57EED0>::Destroy);
-REPLACE(0x004E1A60, &Spt::SingletonPtr<Spt::Singleton5691A0>::DestroyBody);
-REPLACE(0x004E1DA0, &Spt::SingletonPtr<Spt::Singleton5691A0>::Destroy);
-REPLACE(0x004E1A70, &Spt::SingletonPtr<Spt::FrontEnd>::DestroyBody);
-REPLACE(0x004E1DD0, &Spt::SingletonPtr<Spt::FrontEnd>::Destroy);
-REPLACE(0x004E1A80, &Spt::SingletonPtr<Spt::Singleton53F520>::DestroyBody);
-REPLACE(0x004E1E00, &Spt::SingletonPtr<Spt::Singleton53F520>::Destroy);
-REPLACE(0x004E1AC0, &Spt::SingletonPtr<Spt::ParkEditor>::DestroyBody);
-REPLACE(0x004E1E30, &Spt::SingletonPtr<Spt::ParkEditor>::Destroy);
-REPLACE(0x004E1AD0, &Spt::SingletonPtr<Spt::Singleton4ACAF0>::DestroyBody);
-REPLACE(0x004E1E60, &Spt::SingletonPtr<Spt::Singleton4ACAF0>::Destroy);
-REPLACE(0x004E1AE0, &Spt::SingletonPtr<Spt::Singleton45D690>::DestroyBody);
-REPLACE(0x004E1E90, &Spt::SingletonPtr<Spt::Singleton45D690>::Destroy);
-REPLACE(0x004E1AF0, &Spt::SingletonPtr<Spt::Singleton574540>::DestroyBody);
-REPLACE(0x004E1EC0, &Spt::SingletonPtr<Spt::Singleton574540>::Destroy);
-
-// The one constructor out of line (called by 0x004F75F0; it builds the instance pointer through 0x004E1970).
-REPLACE(0x004E1A90, &Spt::SingletonPtr<Spt::ParkEditor>::Construct);
-REPLACE(0x004E1970, &Spt::PointerMember::Construct);
-REPLACE_SOURCE_ONLY(0x00469490, &Spt::PointerMember::Get); // 3 bytes

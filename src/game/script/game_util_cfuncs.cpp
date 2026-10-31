@@ -23,17 +23,13 @@
 #include "game/ed/rail_editor.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/cag_cfuncs.h"
-#include "hook/game_code.h"
 
 namespace CFuncs {
 
-GAME_GLOBAL(float, g_gameUtilWholeTurn, 0x00645EA8, 360.0f);
-GAME_GLOBAL(float, g_gameUtilHalfTurn, 0x0064B278, 180.0f);
-GAME_GLOBAL(float, g_gameUtilMinusDegreesToRadians, 0x0064BCCC, -0.017453292f);
+float g_gameUtilWholeTurn{360.0f};
+float g_gameUtilHalfTurn{180.0f};
+float g_gameUtilMinusDegreesToRadians{-0.017453292f};
 
 namespace {
 
@@ -278,7 +274,7 @@ bool __cdecl CFunc_GetInitialsString(Script::CStruct*, Script::CScript* script)
 bool __cdecl CFunc_SetInitialsString(Script::CStruct* params, Script::CScript*)
 {
     auto* records = Records::g_gameRecords;
-    const char* initials = GAME_TEXT(0x00657CC8, "ERR"); // "ERR"
+    const char* initials = "ERR"; // "ERR"
     params->GetString(kString, &initials, 0);
     records->SetDefaultInitials(initials);
     return true;
@@ -395,17 +391,3 @@ bool __cdecl CFunc_SetPreferencesFromUI(Script::CStruct* params, Script::CScript
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005B1B60, CFuncs::CFunc_InterpolateParameters);
-REPLACE(0x005B1E00, CFuncs::CFunc_GetTextureFromPath);
-REPLACE(0x005B1EA0, CFuncs::CFunc_ClearPowerups);
-REPLACE(0x005B2FC0, CFuncs::CFunc_FindNearestRailPoint);
-REPLACE(0x005B3160, CFuncs::CFunc_GetParkName);
-REPLACE(0x005B3180, CFuncs::CFunc_SetSpecialBarColors);
-REPLACE(0x005B31C0, CFuncs::CFunc_GetInitialsString);
-REPLACE(0x005B31F0, CFuncs::CFunc_SetInitialsString);
-REPLACE(0x005B3230, CFuncs::CFunc_GetFireballLevel);
-REPLACE(0x005B3260, CFuncs::CFunc_GetSkaterLastNameString);
-REPLACE(0x005B3300, CFuncs::CFunc_DrawDirectionalLightLines);
-REPLACE(0x005B3470, CFuncs::CFunc_InSlapGame);
-REPLACE(0x005B46A0, CFuncs::CFunc_SetPreferencesFromUI);

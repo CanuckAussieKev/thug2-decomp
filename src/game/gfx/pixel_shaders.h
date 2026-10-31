@@ -2,8 +2,6 @@
 
 #include <cstdint>
 
-#include "hook/game_global.h"
-
 namespace Lst {
 class HashTable;
 }
@@ -21,6 +19,6 @@ void* __cdecl GeneratedPixelShader(const void* material);
 // 0x004DDC00: the shader a material draws with, into *shader: a fixed one for one pass, else generated.
 void __cdecl MaterialPixelShader(const void* material, void** shader);
 
-GAME_GLOBAL_EXTERN(Lst::HashTable*, g_shadowCasters);
+extern Lst::HashTable* g_shadowCasters;
 
 } // namespace Nx

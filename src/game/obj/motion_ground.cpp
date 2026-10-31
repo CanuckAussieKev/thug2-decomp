@@ -2,6 +2,7 @@
 // (Obj_MoveTo*, Obj_MoveForward / Left, Obj_SkipToRestart).
 
 #include <cmath>
+#include <cstdint>
 
 #include "game/mth/random.h"
 #include "game/mth/vector.h"
@@ -14,8 +15,6 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
@@ -448,19 +447,3 @@ bool CMotionComponent::Obj_MoveToLink(Script::CStruct* params, Script::CScript* 
 } // namespace Obj
 
 using Obj::CMotionComponent;
-
-REPLACE_UNCHECKED(0x00425CB0, Obj::GroundHitStub); // (ECX, EDX and two stack arguments the caller pops)
-REPLACE(0x00424870, &CMotionComponent::UpdateJump);
-REPLACE(0x00425F40, &CMotionComponent::StickToGround);
-REPLACE(0x004269F0, &CMotionComponent::MoveTo);
-REPLACE(0x00426C10, &CMotionComponent::MoveToNode);
-REPLACE(0x00426CB0, &CMotionComponent::MoveToPosition);
-REPLACE(0x00426D80, &CMotionComponent::MoveToLink);
-REPLACE(0x004268C0, &CMotionComponent::Obj_StickToGround);
-REPLACE(0x00426960, &CMotionComponent::Obj_SkipToRestart);
-REPLACE(0x004272D0, &CMotionComponent::Obj_MoveToPosStored);
-REPLACE(0x00427320, &CMotionComponent::Obj_MoveForward);
-REPLACE(0x004273D0, &CMotionComponent::Obj_MoveLeft);
-REPLACE(0x00427470, &CMotionComponent::Obj_MoveToPos);
-REPLACE(0x00427490, &CMotionComponent::Obj_MoveToRelPos);
-REPLACE(0x004274B0, &CMotionComponent::Obj_MoveToLink);

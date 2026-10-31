@@ -2,6 +2,7 @@
 
 #include "game/gfx/tod_manager.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <new>
@@ -27,9 +28,6 @@
 #include "game/script/node_prefixes.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/cag_cfuncs.h"
 #include "game/obj/anim_movies.h"
 #include "game/gfx/movie.h"
@@ -39,13 +37,13 @@
 
 namespace Gfx {
 
-GAME_GLOBAL(uint32_t, g_todReferences, 0x007CE494);
+uint32_t g_todReferences;
 
-GAME_GLOBAL(float, g_twoTo32, 0x006453B4, 4294967300.0f);
-GAME_GLOBAL(float, g_half, 0x006453BC, 0.5f);
-GAME_GLOBAL(float, g_thousand, 0x006453C0, 1000.0f);
-GAME_GLOBAL(float, g_oneOver255, 0x00645D70, 0.003921569f);
-GAME_GLOBAL(float, g_hundred, 0x006463D4, 100.0f);
+float g_twoTo32{4294967300.0f};
+float g_half{0.5f};
+float g_thousand{1000.0f};
+float g_oneOver255{0.003921569f};
+float g_hundred{100.0f};
 
 namespace {
 
@@ -1478,58 +1476,3 @@ bool __cdecl CFunc_TODManager_AdvanceTODState(Script::CStruct* /*params*/, Scrip
 }
 
 } // namespace Gfx
-
-REPLACE(0x00571140, &Gfx::CTODManager::GetLevelColor);
-REPLACE(0x00571290, &Gfx::CTODManager::ReadGroup);
-REPLACE(0x00571340, &Gfx::CTODManager::Lerp);
-REPLACE(0x00571A00, &Gfx::CTODManager::ParseParams);
-REPLACE(0x00571E00, &Gfx::CTODManager::GetTODParams);
-REPLACE(0x00571EF0, &Gfx::CTODManager::CreateObjects);
-REPLACE(0x00571FE0, Gfx::CFunc_TODManager_SetActive);
-REPLACE(0x00572010, Gfx::CFunc_TODManager_GetNumberOfDaysPassed);
-REPLACE(0x00572060, Gfx::CFunc_TODManager_SetTimeMultiplier);
-REPLACE(0x005720A0, Gfx::CFunc_TODManager_GetTimeMultiplier);
-REPLACE(0x005720D0, Gfx::CFunc_TODManager_SetTODScript);
-REPLACE(0x00572110, Gfx::CFunc_TODManager_Create);
-REPLACE(0x00572130, &Gfx::CTODManager::SetParams);
-REPLACE(0x00572320, &Gfx::CTODManager::SetFogActive);
-REPLACE(0x005723C0, &Gfx::CTODManager::NextState);
-REPLACE(0x005724D0, &Gfx::CTODManager::UpdateSun);
-REPLACE(0x005725F0, Gfx::ApplyColorToScene);
-REPLACE(0x005727F0, &Gfx::CTODManager::ApplyColor);
-// 0x00572821 is ApplyColor's body after its first test (jumped to from inside it; no callers) that Ghidra made a
-// function of: its source is ApplyColor's.
-REPLACE_SOURCE_ONLY(0x00572821, &Gfx::CTODManager::ApplyColor);
-REPLACE(0x00572980, Gfx::SetLightDirection);
-REPLACE(0x00572A10, &Gfx::CTODManager::ApplyTODParams);
-REPLACE(0x00572BD0, &Gfx::CTODManager::ClearDeadObjects);
-REPLACE(0x00572BE0, Gfx::CFunc_TODManager_SetParams);
-REPLACE(0x00572C00, Gfx::CFunc_TODManager_GetCurrentTODParams);
-REPLACE(0x005730A0, Gfx::CFunc_TODManager_SetFogActive);
-REPLACE(0x005730E0, &Gfx::CTODManager::Reset);
-REPLACE(0x00573180, Gfx::AddBloomParams);
-REPLACE(0x005732D0, &Gfx::CTODManager::SetSceneColor);
-REPLACE(0x00573400, &Gfx::CTODManager::MarkPermanentlyDead);
-REPLACE(0x00573500, &Gfx::CTODManager::SetBloom);
-REPLACE(0x005735F0, Gfx::CFunc_TODManager_MarkPermanentlyDead);
-REPLACE(0x00573610, Gfx::CFunc_TODManager_Reset);
-REPLACE(0x00573620, &Gfx::CTODManager::Construct);
-REPLACE(0x00573770, &Gfx::CTODManager::Destruct);
-REPLACE(0x00573810, &Gfx::CTODManager::UpdateSystem);
-REPLACE(0x00573BE0, &Gfx::CTODManager::ResetLevelLights);
-REPLACE(0x00573CE0, &Gfx::CTODManager::RefreshAll);
-REPLACE(0x005741B0, &Gfx::CTODManager::SetTempTOD);
-REPLACE(0x00574210, &Gfx::CTODManager::RestoreCurrentTOD);
-REPLACE(0x00574270, &Gfx::CTODManager::SetTempBloomParams);
-REPLACE(0x00574400, &Gfx::CTODManager::EnableBloom);
-REPLACE(0x00574480, Gfx::CFunc_TODManager_ResetLevelLights);
-REPLACE(0x005744C0, Gfx::CFunc_TODManager_SetTempTOD);
-REPLACE(0x005744E0, Gfx::CFunc_TODManager_RestoreCurrentTOD);
-REPLACE(0x005744F0, Gfx::CFunc_TODManager_SetTempBloomParams);
-REPLACE(0x00574510, Gfx::CFunc_TODManager_EnableBloom);
-REPLACE(0x00574540, Gfx::CreateTODManager);
-REPLACE(0x00574590, &Gfx::CTODManager::Update);
-REPLACE(0x00574670, &Gfx::CTODManager::SetTODInstant);
-REPLACE(0x00574840, Gfx::CFunc_TODManager_SetTODInstant);
-REPLACE(0x00574870, Gfx::CFunc_TODManager_AdvanceTODState);
-REPLACE(0x00574910, Gfx::ReleaseTODManager);

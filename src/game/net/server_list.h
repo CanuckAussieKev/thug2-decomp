@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include "game/core/alloc.h"
-#include "hook/game_global.h"
 
 namespace Script {
 class CScript;
@@ -117,6 +116,6 @@ int __cdecl HandleServerResponse(Net::MsgHandlerContext* context);
 void __cdecl ListingGamesCallback(void* peer, int success, const char* name, void* sb, int staging, int message,
                                   int progress, Manager* manager);
 
-GAME_GLOBAL_EXTERN(uint32_t, g_newsMessageCount);
+extern uint32_t g_newsMessageCount;
 
 } // namespace GameNet

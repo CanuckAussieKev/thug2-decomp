@@ -3,15 +3,14 @@
 #include "game/front/menu_element.h"
 #include "game/front/screen_element_manager.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/mem.h"
 #include "game/obj/event.h"
 #include "game/obj/tracker.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/obj/object.h"
 #include "game/core/stubs.h"
 #include "game/front/screen_element.h"
@@ -23,7 +22,6 @@ namespace {
 extern void** const kCBaseMenuVtable;
 extern void** const kCContainerElementVtable;
 } // namespace
-
 
 namespace {
 
@@ -58,7 +56,6 @@ ElementPtr* LookUp(void* manager, ElementPtr* out, uint32_t id, int assert)
 {
     return Elements(manager)->GetElement(out, id, assert);
 }
-
 
 // focus to `id` with the controller (and a grid index, unless -1).
 void SendFocus(uint32_t id, int controller, int gridIndex)
@@ -505,40 +502,21 @@ bool CContainerElement::PassEventToScript(Obj::CEvent* event)
 }
 
 namespace {
-GAME_VTABLE(kCBaseMenuVtable, 0x0064A048, &CBaseMenu::Destroy, &CBaseMenu::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &CBaseMenu::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
-            Stubs::DoNothing);
-GAME_VTABLE(kCContainerElementVtable, 0x0064A0BC, &CContainerElement::Destroy, &CContainerElement::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &CContainerElement::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
-            Stubs::DoNothing);
+static VtableSlot kCBaseMenuVtable_slots[] = {&CBaseMenu::Destroy, &CBaseMenu::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &CBaseMenu::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
+                Stubs::DoNothing};
+void** const kCBaseMenuVtable = reinterpret_cast<void**>(kCBaseMenuVtable_slots);
+static VtableSlot kCContainerElementVtable_slots[] = {&CContainerElement::Destroy, &CContainerElement::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &CContainerElement::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
+                Stubs::DoNothing};
+void** const kCContainerElementVtable = reinterpret_cast<void**>(kCContainerElementVtable_slots);
 } // namespace
 
 } // namespace Front
 
 using Front::CBaseMenu;
 using Front::CContainerElement;
-
-REPLACE(0x004A74E0, &CBaseMenu::Construct);
-REPLACE(0x004A75C0, &CBaseMenu::ConstructVMenu);
-REPLACE(0x004A7630, &CBaseMenu::ConstructHMenu);
-REPLACE(0x004A7620, &CBaseMenu::DestroyBody);
-REPLACE(0x004A76C0, &CBaseMenu::Destroy);
-REPLACE(0x004A76F0, &CBaseMenu::SetProperties);
-REPLACE(0x004A8100, &CBaseMenu::PassEventToScript);
-REPLACE(0x004A7550, &CBaseMenu::GetRegularSpace);
-REPLACE(0x004A7580, &CBaseMenu::SetSelectionTags);
-REPLACE(0x004A7850, &CBaseMenu::MoveSelection);
-REPLACE(0x004A7A40, &CBaseMenu::Step);
-REPLACE(0x004A7B80, &CBaseMenu::Arrange);
-REPLACE(0x004A7820, &Obj::CSmtPtr<Front::CScreenElement>::ConstructFrom);
-REPLACE(0x004A7690, &Obj::CSmtPtr<Front::CScreenElement>::ConstructCopy);
-REPLACE(0x004A8F60, &Obj::CSmtPtr<Front::CScreenElement>::Assign);
-REPLACE(0x004AAC20, &CContainerElement::Construct);
-REPLACE(0x004AAC80, &CContainerElement::DestroyBody);
-REPLACE(0x004AACC0, &CContainerElement::Destroy);
-REPLACE(0x004AA530, &CContainerElement::SetProperties);
-REPLACE(0x004AA560, &CContainerElement::PassEventToScript);

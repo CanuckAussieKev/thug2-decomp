@@ -6,6 +6,7 @@
 
 #include <d3d9.h>
 
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -23,10 +24,7 @@
 #include "game/gfx/mesh.h"
 #include "game/gfx/mesh_list.h"
 #include "game/lst/hashtable.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/nx/coll_movable.h"
 #include "game/core/stubs.h"
 #include "game/mc/memcard.h"
@@ -40,21 +38,20 @@ extern void** const kCPcScreenEffectsVtable;
 extern void** const kCPcSectorVtable;
 } // namespace
 
-
-GAME_GLOBAL(uint32_t, g_bloomOn, 0x00705720);
-GAME_GLOBAL(uint32_t, g_screenEffectUnknown5724, 0x00705724);
-GAME_GLOBAL(uint32_t, g_screenEffectUnknown5728, 0x00705728);
+uint32_t g_bloomOn;
+uint32_t g_screenEffectUnknown5724;
+uint32_t g_screenEffectUnknown5728;
 // The empty bounding box (all zero at start, as the original's) and its guard.
-GAME_GLOBAL(Mth::BBox, g_emptyBoundingBox, 0x0070572C, Mth::BBox(Mth::Vector{0.0f, 0.0f, 0.0f, 0.0f}));
-GAME_GLOBAL(uint32_t, g_emptyBoundingBoxGuard, 0x0070574C);
+Mth::BBox g_emptyBoundingBox{Mth::BBox(Mth::Vector{0.0f, 0.0f, 0.0f, 0.0f})};
+uint32_t g_emptyBoundingBoxGuard;
 
-GAME_GLOBAL(uint32_t, g_bloomAlphaFirst, 0x0067E97C, 0x10);
-GAME_GLOBAL(uint32_t, g_bloomAlphaSecond, 0x0067E980, 0x10);
-GAME_GLOBAL(uint32_t, g_screenEffectUnknown984, 0x0067E984, 0x42A00000);
-GAME_GLOBAL(uint32_t, g_screenEffectUnknown988, 0x0067E988, 0x43000000);
-GAME_GLOBAL(uint32_t, g_bloomCutOff, 0x0067E98C, 0x80808080);
-GAME_GLOBAL(uint32_t, g_screenEffectUnknown990, 0x0067E990, 0x80808080);
-GAME_GLOBAL(uint32_t, g_screenEffectUnknown994, 0x0067E994, 0x80808080);
+uint32_t g_bloomAlphaFirst{0x10};
+uint32_t g_bloomAlphaSecond{0x10};
+uint32_t g_screenEffectUnknown984{0x42A00000};
+uint32_t g_screenEffectUnknown988{0x43000000};
+uint32_t g_bloomCutOff{0x80808080};
+uint32_t g_screenEffectUnknown990{0x80808080};
+uint32_t g_screenEffectUnknown994{0x80808080};
 
 namespace {
 
@@ -438,47 +435,23 @@ bool CPcSector::LoadFromFile(File::Handle file, uint32_t unknown)
 }
 
 namespace {
-GAME_VTABLE(kCPcSceneVtable, 0x0064A6B8, &Nx::CPcScene::Destroy, &Nx::CPcScene::PostLoad, &Nx::CScene::PostAdd,
-            &Mc::Card::AlwaysTrue, &Mc::Card::AlwaysTrue, &Nx::CScene::AddCollision, Stubs::ReturnFalse,
-            &Nx::CPcScene::CreateSector, Stubs::IgnoreArgument, &Nx::CScene::GetDefaultColour,
-            &Nx::CScene::SetRendered);
-GAME_VTABLE(kCPcScreenEffectsVtable, 0x0064A6E4, &Nx::CPcScreenEffects::Destroy, Stubs::DoNothing,
-            &Nx::CPcScreenEffects::SetBloom, &Nx::CPcScreenEffects::SetBloomCutOff,
-            &Nx::CPcScreenEffects::SetBloomAlphas, &Nx::CPcScreenEffects::SetUnknown990,
-            &Nx::CPcScreenEffects::SetUnknown5724, Stubs::IgnoreArgument, &Nx::CPcScreenEffects::SetUnknown994,
-            Stubs::IgnoreArgument, &Nx::CPcScreenEffects::SetUnknown984, &Nx::CPcScreenEffects::SetUnknown988,
-            &Nx::CPcScreenEffects::SetUnknown5728);
-GAME_VTABLE(kCPcSectorVtable, 0x0064A718, &Nx::CPcSector::Destroy, &Nx::CPcSector::SetActive,
-            &Nx::CSector::PlatGetShatter, &Nx::CPcSector::Clone, Stubs::IgnoreArgument, Stubs::DoNothing,
-            Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::IgnoreArgument, &Nx::CPcSector::GetBoundingBox,
-            &Nx::CCollMovable::GetOrientation);
+static VtableSlot kCPcSceneVtable_slots[] = {&Nx::CPcScene::Destroy, &Nx::CPcScene::PostLoad, &Nx::CScene::PostAdd,
+                &Mc::Card::AlwaysTrue, &Mc::Card::AlwaysTrue, &Nx::CScene::AddCollision, Stubs::ReturnFalse,
+                &Nx::CPcScene::CreateSector, Stubs::IgnoreArgument, &Nx::CScene::GetDefaultColour,
+                &Nx::CScene::SetRendered};
+void** const kCPcSceneVtable = reinterpret_cast<void**>(kCPcSceneVtable_slots);
+static VtableSlot kCPcScreenEffectsVtable_slots[] = {&Nx::CPcScreenEffects::Destroy, Stubs::DoNothing,
+                &Nx::CPcScreenEffects::SetBloom, &Nx::CPcScreenEffects::SetBloomCutOff,
+                &Nx::CPcScreenEffects::SetBloomAlphas, &Nx::CPcScreenEffects::SetUnknown990,
+                &Nx::CPcScreenEffects::SetUnknown5724, Stubs::IgnoreArgument, &Nx::CPcScreenEffects::SetUnknown994,
+                Stubs::IgnoreArgument, &Nx::CPcScreenEffects::SetUnknown984, &Nx::CPcScreenEffects::SetUnknown988,
+                &Nx::CPcScreenEffects::SetUnknown5728};
+void** const kCPcScreenEffectsVtable = reinterpret_cast<void**>(kCPcScreenEffectsVtable_slots);
+static VtableSlot kCPcSectorVtable_slots[] = {&Nx::CPcSector::Destroy, &Nx::CPcSector::SetActive,
+                &Nx::CSector::PlatGetShatter, &Nx::CPcSector::Clone, Stubs::IgnoreArgument, Stubs::DoNothing,
+                Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::IgnoreArgument, &Nx::CPcSector::GetBoundingBox,
+                &Nx::CCollMovable::GetOrientation};
+void** const kCPcSectorVtable = reinterpret_cast<void**>(kCPcSectorVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004C6550, &Nx::CPcSector::Construct);
-REPLACE_SOURCE_ONLY(0x004C65B0, &Nx::CPcSector::DestroyBody); // (a jump)
-REPLACE(0x004C6580, &Nx::CPcSector::Destroy);
-REPLACE(0x004C6530, &Nx::CPcSector::SetActive);
-REPLACE(0x004C65C0, &Nx::CPcSector::Clone);
-REPLACE(0x004C64E0, &Nx::CPcSector::GetBoundingBox);
-REPLACE(0x004C6130, &Nx::CPcScene::Construct);
-REPLACE_SOURCE_ONLY(0x004C6180, &Nx::CPcScene::DestroyBody); // (a jump)
-REPLACE(0x004C6150, &Nx::CPcScene::Destroy);
-REPLACE(0x004C6190, &Nx::CPcScene::CreateSector);
-REPLACE(0x004C6200, &Nx::CPcScene::UnloadSectors);
-REPLACE(0x004C6270, &Nx::CPcScene::PostLoad);
-REPLACE(0x004C6480, &Nx::CPcScreenEffects::Construct);
-REPLACE(0x004C64A0, &Nx::CPcScreenEffects::DestroyBody);
-REPLACE(0x004C64B0, &Nx::CPcScreenEffects::Destroy);
-REPLACE(0x004C63C0, &Nx::CPcScreenEffects::SetBloom);
-REPLACE(0x004C63E0, &Nx::CPcScreenEffects::SetBloomCutOff);
-REPLACE(0x004C63F0, &Nx::CPcScreenEffects::SetBloomAlphas);
-REPLACE(0x004C6410, &Nx::CPcScreenEffects::SetUnknown990);
-REPLACE(0x004C6420, &Nx::CPcScreenEffects::SetUnknown5724);
-REPLACE(0x004C6460, &Nx::CPcScreenEffects::SetUnknown994);
-REPLACE(0x004C6470, &Nx::CPcScreenEffects::SetUnknown984);
-REPLACE(0x004C6440, &Nx::CPcScreenEffects::SetUnknown988);
-REPLACE(0x004C6450, &Nx::CPcScreenEffects::SetUnknown5728);
-REPLACE(0x004C6650, &Nx::CPcSector::LoadFromMemory);
-REPLACE(0x004C6B10, &Nx::CPcSector::LoadFromFile);

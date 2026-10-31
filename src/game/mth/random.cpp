@@ -1,8 +1,6 @@
-#include "game/mth/random.h"
+#include <cstdint>
 
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/mth/random.h"
 
 namespace Mth {
 
@@ -15,8 +13,8 @@ struct RandomState {
     uint32_t value;
 };
 
-GAME_GLOBAL(RandomState, g_stream1, 0x00690FD4);
-GAME_GLOBAL(RandomState, g_stream2, 0x00690FC8);
+RandomState g_stream1;
+RandomState g_stream2;
 
 RandomState& Stream1() { return g_stream1; }
 RandomState& Stream2() { return g_stream2; }
@@ -72,8 +70,3 @@ double PlusOrMinusExact(float range)
 }
 
 } // namespace Mth
-
-REPLACE(0x00403DA0, Mth::InitialRand);
-REPLACE(0x00403DE0, Mth::Rnd);
-REPLACE(0x00403E30, Mth::Rnd2);
-REPLACE(0x00403E80, Mth::PlusOrMinus);

@@ -16,21 +16,18 @@
 #include "game/script/struct.h"
 #include "game/mth/x87_math.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
-#include "hook/game_global.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[12], g_vehicleCameraMemberFunctions, 0x00684150,
+uint32_t g_vehicleCameraMemberFunctions[12]{
     0x000469FD, 0x2C747D8A, 0, 0, 0, 0,
-    0, 0x2C747D8A, 0, 0, 0, 0);
+    0, 0x2C747D8A, 0, 0, 0, 0};
 
 namespace {
 
@@ -272,36 +269,23 @@ void CVehicleCameraComponent::Update()
 
 } // namespace Obj
 
-REPLACE(0x005248C0, Obj::CVehicleCameraComponent::Create);
-REPLACE(0x00524420, Obj::CVehicleCameraComponent::RegisterMemberFunctions);
-REPLACE(0x00524440, &Obj::CVehicleCameraComponent::DestroyBody);
-REPLACE(0x00524470, &Obj::CVehicleCameraComponent::Destroy);
-REPLACE(0x005244A0, &Obj::CVehicleCameraComponent::InitFromStructure);
-REPLACE(0x00524C00, &Obj::CVehicleCameraComponent::Finalize);
-REPLACE(0x00524450, &Obj::CVehicleCameraComponent::VehicleCamera_Reset);
-REPLACE(0x00524550, &Obj::CVehicleCameraComponent::UpdateTargetDirection);
-REPLACE(0x00524720, &Obj::CVehicleCameraComponent::ApplyToCamera);
-REPLACE(0x00524780, &Obj::CVehicleCameraComponent::UpdateOrientation);
-REPLACE(0x00524B40, &Obj::CVehicleCameraComponent::Reset);
-REPLACE(0x00524940, &Obj::CVehicleCameraComponent::Update);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064C5A0,
-    &Obj::CVehicleCameraComponent::Destroy,
-    &Obj::CVehicleCameraComponent::Update,
-    &Obj::CVehicleCameraComponent::InitFromStructure,
-    &Obj::CVehicleCameraComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CVehicleCameraComponent::Destroy,
+         &Obj::CVehicleCameraComponent::Update,
+         &Obj::CVehicleCameraComponent::InitFromStructure,
+         &Obj::CVehicleCameraComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

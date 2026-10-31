@@ -2,7 +2,6 @@
 // standard API. The hooked build calls the exe's own copy (inline in the header).
 #include "game/gfx/d3dx.h"
 
-#ifdef THUG2_STANDALONE
 
 #include <windows.h>
 
@@ -66,4 +65,3 @@ long AssembleShader(const char* source, uint32_t length, void** shader, void** e
 
 } // namespace D3dx
 
-#endif

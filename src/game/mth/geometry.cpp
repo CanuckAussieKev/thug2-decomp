@@ -1,10 +1,8 @@
 #include "game/mth/geometry.h"
 
 #include <cmath>
+#include <cstdint>
 #include <new>
-
-#include "hook/hook.h"
-#include "hook/shadow.h"
 
 namespace Mth {
 
@@ -568,27 +566,3 @@ struct GeometryAdapter {
 };
 
 } // namespace
-
-REPLACE(0x00402D60, &Line::DistanceSqrToPoint);
-REPLACE(0x00402F00, Mth::ClosestPointsBetweenLines);
-REPLACE(0x00403BB0, &BBox::GetCenter);
-REPLACE(0x00404060, &GeometryAdapter::ConstructRect);
-REPLACE_SHADOW(0x004025A0, &BBox::ContainsPoint);
-REPLACE(0x004034D0, &BBox::CountAxesContaining);
-REPLACE(0x00403550, &BBox::LineIntersect);
-REPLACE(0x00403C00, &BBox::GetClosestSurfacePoint);
-REPLACE(0x00402640, &Line::DistanceSqrToLine);
-REPLACE(0x004032E0, &Capsule::IntersectsSegment);
-REPLACE(0x00403330, &Capsule::ContainsPoint);
-REPLACE(0x00403210, &GeometryAdapter::ConstructSphere);
-REPLACE(0x00403220, &GeometryAdapter::ConstructEmptyCapsule);
-REPLACE(0x00403230, &GeometryAdapter::ConstructCapsule);
-REPLACE(0x004032A0, &GeometryAdapter::ConstructCapsuleFromLine);
-REPLACE_SHADOW(0x00403390, &Capsule::Volume);
-REPLACE(0x004033E0, &GeometryAdapter::ConstructBBox);
-REPLACE(0x00403410, &GeometryAdapter::ConstructBBoxAt);
-REPLACE(0x00403450, &BBox::AddPoint);
-REPLACE(0x0040AB00, &BBox::operator=);
-REPLACE(0x0040B170, &BBox::Intersects);
-REPLACE(0x0040B1D0, &BBox::Contains);
-REPLACE(0x004817D0, Mth::PointInBox);

@@ -10,7 +10,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "hook/game_global.h"
 
 namespace Mth {
 class Quat;
@@ -206,5 +205,5 @@ static_assert(offsetof(CBonedAnimFrameData, mp_cacheEntry) == 0x24 && offsetof(C
                   sizeof(CBonedAnimFrameData) == 0x3C,
               "layout must match the original");
 
-GAME_GLOBAL_EXTERN(float, g_tinyLength);
+extern float g_tinyLength;
 } // namespace Gfx

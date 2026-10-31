@@ -1,8 +1,10 @@
 // The GameSpy lobby's menus and chat (GameNet::LobbyMan): the buddy / player list / regions menu items, the room
 // messages, SendMessage, the group room list; and the lobby's destructors (0x005407B0-0x00541690). See gamenet_lobby.h.
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/crc.h"
 #include "game/net/gamespy.h"
@@ -16,20 +18,21 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/stats_man.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/gfx/loading_bar.h"
-#include "hook/game_code.h"
 
 #pragma warning(disable : 4996) // (sprintf / strncpy: the original's own)
 
 namespace GameNet {
 
-GAME_VTABLE(kLobbySearchAVtable, 0x0064CB6C, &GameNet::LobbySearchA::Destroy);
-GAME_VTABLE(kLobbySearchBVtable, 0x0064CB70, &GameNet::LobbySearchB::Destroy);
-GAME_VTABLE(kLobbyListNodeVtable, 0x0064CBDC, &GameNet::LobbyListNode::Destroy);
-GAME_VTABLE(kLobbyNodeVtable, 0x0064CBE0, &GameNet::LobbyNode::Destroy);
+static VtableSlot kLobbySearchAVtable_slots[] = {&GameNet::LobbySearchA::Destroy};
+void** const kLobbySearchAVtable = reinterpret_cast<void**>(kLobbySearchAVtable_slots);
+static VtableSlot kLobbySearchBVtable_slots[] = {&GameNet::LobbySearchB::Destroy};
+void** const kLobbySearchBVtable = reinterpret_cast<void**>(kLobbySearchBVtable_slots);
+static VtableSlot kLobbyListNodeVtable_slots[] = {&GameNet::LobbyListNode::Destroy};
+void** const kLobbyListNodeVtable = reinterpret_cast<void**>(kLobbyListNodeVtable_slots);
+static VtableSlot kLobbyNodeVtable_slots[] = {&GameNet::LobbyNode::Destroy};
+void** const kLobbyNodeVtable = reinterpret_cast<void**>(kLobbyNodeVtable_slots);
 
 using namespace Detail;
 
@@ -251,8 +254,8 @@ void LobbyMan::AddPlayerListItem(LobbyPlayer* player)
     PopHeap();
 }
 
-GAME_GLOBAL(bool, g_listingAsked, 0x007CCE38);
-GAME_GLOBAL(bool, g_listingFound, 0x007CCE39);
+bool g_listingAsked;
+bool g_listingFound;
 
 // 0x00541690
 void __cdecl LobbyMan::GroupRoomCallback(void*, int success, int groupId, void* server, const char* name,
@@ -379,19 +382,3 @@ Tsk::BaseTask* TaskDeleter::Destroy(unsigned int flags)
 }
 
 } // namespace GameNet
-
-REPLACE(0x00540900, &GameNet::LobbyMan::AddBuddyMenuItem);
-REPLACE(0x00540B60, GameNet::LobbyMan::RoomMessageCallback);
-REPLACE(0x00540E00, GameNet::CFunc_SendMessage);
-REPLACE(0x00540FB0, &GameNet::LobbyMan::AddRoomMenuItem);
-REPLACE(0x005411E0, &GameNet::LobbyMan::AddPlayerListItem);
-REPLACE(0x00541690, GameNet::LobbyMan::GroupRoomCallback);
-REPLACE(0x00540D50, &GameNet::LobbyMan::DestroyBody);
-REPLACE(0x00540840, &GameNet::LobbyNode::DestroyBody);
-REPLACE(0x00540860, &GameNet::LobbyListNode::DestroyBody);
-REPLACE(0x00540880, &GameNet::LobbyNode::Destroy);
-REPLACE(0x005408C0, &GameNet::LobbyListNode::Destroy);
-REPLACE(0x00540F80, &GameNet::LobbyNode::DestroyOther);
-REPLACE(0x005407E0, &GameNet::LobbySearchA::Destroy);
-REPLACE(0x00540810, &GameNet::LobbySearchB::Destroy);
-REPLACE(0x005407B0, &GameNet::TaskDeleter::Destroy);

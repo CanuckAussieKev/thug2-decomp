@@ -7,7 +7,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "hook/game_global.h"
 
 namespace Obj {
 
@@ -98,6 +97,6 @@ float DPadAngle(uint8_t up, uint8_t down, uint8_t left, uint8_t right);
 // square gate by the angle (x 1/0.85, at most 1), unrounded in ST0. (__stdcall: the original pops its arguments.)
 double __stdcall StickLength(float x, float y, float angle);
 
-GAME_GLOBAL_EXTERN(int, g_clockOffset);
+extern int g_clockOffset;
 
 } // namespace Obj

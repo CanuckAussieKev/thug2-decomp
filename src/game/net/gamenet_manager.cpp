@@ -8,7 +8,6 @@
 #include "game/ed/park.h"
 #include "game/net/net_app.h"
 #include "game/script/struct.h"
-#include "hook/hook.h"
 
 namespace GameNet {
 
@@ -88,8 +87,6 @@ const char* Manager::LevelListName(uint32_t level)
 
 } // namespace GameNet
 
-REPLACE(0x005369A0, &GameNet::Manager::GetLevelName);
-
 namespace GameNet {
 
 static_assert(offsetof(Manager, m_server) == 0x04 && offsetof(Manager, m_client) == 0x08,
@@ -109,6 +106,3 @@ bool Manager::InNetGame()
 }
 
 } // namespace GameNet
-
-REPLACE(0x0044E4E0, &GameNet::Manager::InNetMode);
-REPLACE(0x0044E4F0, &GameNet::Manager::InNetGame);

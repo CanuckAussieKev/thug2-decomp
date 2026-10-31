@@ -7,6 +7,7 @@
 
 #include <bit>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "game/gfx/camera.h"
@@ -16,8 +17,6 @@
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/skate/skate_module.h"
 #include "game/gfx/flexible_particle_manager.h"
 #include "game/sys/crt.h"
@@ -602,8 +601,3 @@ uint32_t* CModelParticles::LerpColour(uint32_t* out, const uint8_t* from, const 
 }
 
 } // namespace Nx
-
-REPLACE(0x00496FE0, &Nx::CParticleSystem::Emit);
-REPLACE(0x00497B00, &Nx::CParticleSystem::CallMemberFunction);
-REPLACE(0x004987F0, &Nx::CParticleSystem::Update);
-REPLACE(0x00499EE0, &Nx::CModelParticles::LerpColour);

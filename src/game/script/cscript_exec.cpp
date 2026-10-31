@@ -50,8 +50,6 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "game/gfx/loading_console.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/sys/log.h"
 
 namespace Script {
@@ -96,7 +94,6 @@ Obj::CObject* FindObject(uint32_t name) { return Obj::FindObject(name); }
 // 0x0044E4F0 on GameNet::Manager (0x007CCE14): called where a member function has no object to run on, its
 // result unused - what is left of a compiled-out assert.
 void NoObjectCheck() { GameNet::g_gameNetManager->InNetGame(); }
-
 
 // A component made and freed around one expression / switch value.
 void DeleteComponent(CComponent* component)
@@ -604,20 +601,3 @@ EScriptReturnVal CScript::Update()
 }
 
 } // namespace Script
-
-REPLACE(0x004750B0, &Script::CScript::Update);
-REPLACE(0x00474B40, &Script::CScript::ExecuteCommand);
-REPLACE(0x00475050, &Script::CScript::ExecuteIf);
-REPLACE(0x00473C60, &Script::CScript::ExecuteSwitch);
-REPLACE(0x00472A70, &Script::CScript::SkipToEndOfSwitch);
-REPLACE(0x00473220, &Script::CScript::ExecuteBegin);
-REPLACE(0x00472AB0, &Script::CScript::ExecuteRepeat);
-REPLACE(0x00472B50, &Script::CScript::ExecuteBreak);
-REPLACE(0x00472950, &Script::CScript::ParseFunctionParams);
-REPLACE(0x004729E0, &Script::CScript::ReadName);
-REPLACE(0x00472980, static_cast<bool (*)(Script::CMemberFunctionEntry*, Script::CStruct*, Obj::CObject*,
-                                         Script::CScript*)>(&Script::CallMemberFunction));
-REPLACE(0x004731A0, static_cast<bool (Script::CScript::*)(Script::CMemberFunctionEntry*, Obj::CObject*)>(
-                        &Script::CScript::CallMemberFunction));
-REPLACE(0x004731E0,
-        static_cast<bool (Script::CScript::*)(uint32_t, Obj::CObject*)>(&Script::CScript::CallMemberFunction));

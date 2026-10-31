@@ -2,22 +2,25 @@
 // one of the editor's own sectors (its name and size); the pieces placed in the park are cloned from them and moved,
 // turned, stretched, shown or tinted through their sectors.
 
+#include <cstdint>
+
 #include "game/ed/park.h"
 #include "game/gfx/d3dx.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
 #include "game/ed/park_nx.h"
 #include "game/mth/matrix.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
-GAME_VTABLE(kPieceVtable, 0x0064F3B4, GAME_LIBRARY_SLOT(0x00623771), &CPiece::Destroy);
-GAME_VTABLE(kSourcePieceVtable, 0x0064F3C8, &CSourcePiece::GetDims, &CSourcePiece::Destroy);
-GAME_VTABLE(kClonedPieceVtable, 0x0064F3D0, &CClonedPiece::GetDims, &CSourcePiece::Destroy);
+static VtableSlot kPieceVtable_slots[] = {&_purecall, &CPiece::Destroy};
+void** const kPieceVtable = reinterpret_cast<void**>(kPieceVtable_slots);
+static VtableSlot kSourcePieceVtable_slots[] = {&CSourcePiece::GetDims, &CSourcePiece::Destroy};
+void** const kSourcePieceVtable = reinterpret_cast<void**>(kSourcePieceVtable_slots);
+static VtableSlot kClonedPieceVtable_slots[] = {&CClonedPiece::GetDims, &CSourcePiece::Destroy};
+void** const kClonedPieceVtable = reinterpret_cast<void**>(kClonedPieceVtable_slots);
 
 namespace {
 
@@ -62,7 +65,7 @@ void GridDims::MakeInfinitelyHigh()
 
 void GridDims::PrintContents() const
 {
-    Dbg::Printf(GAME_TEXT(0x0064F394, "pos=(%d,%d,%d) dims=(%d,%d,%d)\n"), x, static_cast<int>(y), z, w, h, l); // "pos=(%d,%d,%d) dims=..."
+    Dbg::Printf("pos=(%d,%d,%d) dims=(%d,%d,%d)\n", x, static_cast<int>(y), z, w, h, l); // "pos=(%d,%d,%d) dims=..."
 }
 
 // --- CPiece -------------------------------------------------------------------------------------------------------
@@ -223,26 +226,3 @@ using Ed::CClonedPiece;
 using Ed::CPiece;
 using Ed::CSourcePiece;
 using Ed::GridDims;
-
-REPLACE(0x005901B0, &GridDims::Set);
-REPLACE(0x005901E0, &GridDims::Byte);
-REPLACE(0x005901F0, &GridDims::MakeInfiniteOnY);
-REPLACE(0x00590200, &GridDims::MakeInfinitelyHigh);
-REPLACE(0x00590210, &GridDims::PrintContents);
-REPLACE(0x00590240, &CPiece::DestroyBody);
-REPLACE_SOURCE_ONLY(0x00590250, &CPiece::GetId); // 4 bytes (folded: other classes' +0x10 getters too)
-REPLACE(0x00590260, &CPiece::SetRot);
-REPLACE(0x00590290, &CPiece::SetActive);
-REPLACE(0x005902B0, &CPiece::SetVisible);
-REPLACE(0x00590490, &CPiece::Destroy);
-REPLACE(0x005904C0, &CPiece::GetCellDims);
-REPLACE(0x00590530, &CPiece::GetDimsTurned);
-REPLACE(0x005905C0, &CSourcePiece::Construct);
-REPLACE(0x00590600, &CSourcePiece::GetDims);
-REPLACE(0x00590620, &CClonedPiece::Construct);
-REPLACE(0x00590640, &CSourcePiece::Destroy);
-REPLACE(0x00590670, &CPiece::SetPosition);
-REPLACE(0x005906B0, &CPiece::SetLength);
-REPLACE(0x00590710, &CClonedPiece::GetDims);
-REPLACE(0x00591510, &CPiece::SetAngle);
-REPLACE(0x00591600, &CPiece::SetHighlight);

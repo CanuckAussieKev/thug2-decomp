@@ -2,6 +2,8 @@
 
 #include "game/front/text_block.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -12,9 +14,7 @@
 #include "game/front/text_element.h"
 #include "game/gfx/font.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/obj/object.h"
 #include "game/front/screen_element.h"
 #include "game/front/screen_constants.h"
@@ -25,7 +25,6 @@ namespace Front {
 namespace {
 extern void** const kCTextBlockElementVtable;
 } // namespace
-
 
 namespace {
 
@@ -60,9 +59,9 @@ float One() { return ::Obj::g_animMoviesOne; }
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // A capital's size in a font (the lines' height): "AAA" (0x0064A260).
-const char* SizingText() { return GAME_TEXT(0x0064A260, "AAA"); }
+const char* SizingText() { return "AAA"; }
 // " " (0x0064A2BC): what joins the lines.
-const char* Space() { return GAME_TEXT(0x0064A2BC, " "); }
+const char* Space() { return " "; }
 
 void* GetFont(uint32_t name) { return Nx::GetFont(name); }
 void QueryString(void* font, const char* text, float* width, float* height)
@@ -486,28 +485,14 @@ void CTextBlockElement::Update()
 }
 
 namespace {
-GAME_VTABLE(kCTextBlockElementVtable, 0x0064A264, &CTextBlockElement::Destroy, &CTextBlockElement::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties,
-            &CTextBlockElement::SetMorph, &CTextBlockElement::Update);
+static VtableSlot kCTextBlockElementVtable_slots[] = {&CTextBlockElement::Destroy, &CTextBlockElement::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties,
+                &CTextBlockElement::SetMorph, &CTextBlockElement::Update};
+void** const kCTextBlockElementVtable = reinterpret_cast<void**>(kCTextBlockElementVtable_slots);
 } // namespace
 
 } // namespace Front
 
 using Front::CTextBlockElement;
-
-REPLACE(0x004B0810, &CTextBlockElement::Construct);
-REPLACE(0x004B08B0, &CTextBlockElement::DestroyBody);
-REPLACE(0x004B0B30, &CTextBlockElement::Destroy);
-REPLACE(0x004B1B60, &CTextBlockElement::SetProperties);
-REPLACE(0x004B0B60, &CTextBlockElement::SetMorph);
-REPLACE(0x004B1EC0, &CTextBlockElement::Update);
-REPLACE(0x004AF6C0, &CTextBlockElement::SetFont);
-REPLACE(0x004AF720, &CTextBlockElement::AddWords);
-REPLACE(0x004B0CD0, &CTextBlockElement::SetText);
-REPLACE(0x004B11C0, &CTextBlockElement::GetText);
-REPLACE(0x004B1390, &CTextBlockElement::GetLength);
-REPLACE(0x004B14A0, &CTextBlockElement::Backspace);
-REPLACE(0x004B16D0, &CTextBlockElement::Concatenate);
-REPLACE(0x004B1540, &CTextBlockElement::UpdateLines);

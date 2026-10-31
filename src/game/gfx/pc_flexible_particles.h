@@ -5,7 +5,6 @@
 
 #include "game/gfx/particle_system.h"
 #include "game/mth/vector.h"
-#include "hook/game_global.h"
 
 struct IDirect3DIndexBuffer9;
 
@@ -386,6 +385,6 @@ static_assert(offsetof(CPcStarParticles, segments) == 0x134 && offsetof(CPcStarP
                   offsetof(CPcStarParticles, material) == 0x148 && sizeof(CPcStarParticles) == 0x150,
               "layout must match the original");
 
-GAME_GLOBAL_EXTERN(IDirect3DIndexBuffer9*, g_quadIndices);
+extern IDirect3DIndexBuffer9* g_quadIndices;
 
 } // namespace Nx

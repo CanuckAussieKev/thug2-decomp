@@ -10,21 +10,18 @@
 #include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/settings.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/crt.h"
 
 namespace Nx {
 
-GAME_GLOBAL(OcclusionPoly[512], g_occlusionPolys, 0x00787360);
-GAME_GLOBAL(Occluder[8], g_occluders, 0x00792360);
+OcclusionPoly g_occlusionPolys[512];
+Occluder g_occluders[8];
 
-GAME_GLOBAL(uint32_t, g_occlusionPolyCount, 0x00787350);
-GAME_GLOBAL(uint32_t, g_occlusionNextPoly, 0x00787354);
-GAME_GLOBAL(int, g_occlusionFrame, 0x00787358);
-GAME_GLOBAL(uint32_t, g_occluderCount, 0x0078735C);
-GAME_GLOBAL(float, g_lastSphereDistance, 0x007CA978);
+uint32_t g_occlusionPolyCount;
+uint32_t g_occlusionNextPoly;
+int g_occlusionFrame;
+uint32_t g_occluderCount;
+float g_lastSphereDistance;
 
 namespace {
 
@@ -356,15 +353,3 @@ bool __cdecl BeyondClipDistance(const void* bounds)
 }
 
 } // namespace Nx
-
-REPLACE(0x004D8BB0, Nx::CompareOccluders);
-REPLACE(0x004D8C10, Nx::SortOccluders);
-REPLACE(0x004D8C90, Nx::EnableOcclusionPoly);
-REPLACE(0x004D8CC0, Nx::RemoveAllOcclusionPolys);
-REPLACE(0x004D8CE0, Nx::AddOccluders);
-REPLACE(0x004D8D70, Nx::AddOcclusionPoly);
-REPLACE(0x004D8ED0, Nx::BuildOccluders);
-REPLACE(0x004D9AC0, Nx::SphereOccluded);
-REPLACE(0x004DB570, Nx::SphereOutsideView);
-REPLACE(0x004DB790, Nx::SphereInView);
-REPLACE(0x004DB6D0, Nx::BeyondClipDistance);

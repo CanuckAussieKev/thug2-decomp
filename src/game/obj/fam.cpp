@@ -16,24 +16,21 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[18], g_famMemberFunctions, 0x006836E8,
+uint32_t g_famMemberFunctions[18]{
             0xE5894C80, 0x0301D67C, 0, 0, 0, 0,
             0x48AC2139, 0x0301D67C, 0, 0, 0, 0,
-            0, 0x0301D67C, 0, 0, 0, 0);
+            0, 0x0301D67C, 0, 0, 0, 0};
 
 namespace {
 
@@ -197,33 +194,23 @@ int CFamComponent::Obj_StopLastFam(Script::CStruct*, Script::CScript*)
 
 } // namespace Obj
 
-REPLACE(0x0041D200, Obj::CFamComponent::Create);
-REPLACE(0x0041D170, Obj::CFamComponent::RegisterMemberFunctions);
-REPLACE(0x0041D190, &Obj::CFamComponent::DestroyBody);
-REPLACE(0x0041D1A0, &Obj::CFamComponent::Destroy);
-REPLACE(0x0041D2C0, &Obj::CFamComponent::UnloadFam);
-REPLACE(0x0041D3E0, &Obj::CFamComponent::LoadFam);
-REPLACE(0x0041D480, &Obj::CFamComponent::PlayFam);
-REPLACE(0x0041D660, &Obj::CFamComponent::Obj_PlayFam);
-REPLACE(0x0041D280, &Obj::CFamComponent::Obj_StopLastFam);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00645F8C,
-    &Obj::CFamComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CFamComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

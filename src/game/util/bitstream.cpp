@@ -1,8 +1,7 @@
 #include "game/util/bitstream.h"
 
+#include <cstdint>
 #include <new>
-
-#include "hook/hook.h"
 
 namespace Util {
 
@@ -123,12 +122,3 @@ struct BitStreamAdapter {
 };
 
 } // namespace
-
-REPLACE(0x00401050, &BitStreamAdapter::Construct);
-REPLACE(0x00401070, &Util::BitStream::SetInputData);
-REPLACE(0x00401090, &Util::BitStream::SetOutputData);
-REPLACE(0x004010C0, &Util::BitStream::GetByteCount);
-REPLACE(0x004010D0, &Util::BitStream::WriteBits);
-REPLACE(0x004011B0, &Util::BitStream::ReadBits);
-REPLACE(0x00401260, &Util::BitStream::ReadSignedBits);
-REPLACE(0x00401180, &Util::BitStream::Flush);

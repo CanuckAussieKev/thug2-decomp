@@ -13,14 +13,11 @@
 #include "game/gfx/face_texture.h"
 #include "game/gfx/model_appearance.h"
 #include "game/lst/lookup_table.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
-GAME_GLOBAL(Obj::CPlayerProfileManager*, g_profileManager, 0x007CE4B4);
-GAME_GLOBAL(uint32_t, g_profileManagerReferences, 0x007CE4B8);
+Obj::CPlayerProfileManager* g_profileManager;
+uint32_t g_profileManagerReferences;
 
 namespace {
 
@@ -373,28 +370,3 @@ void CPlayerProfileManager::Release()
 }
 
 } // namespace Obj
-
-REPLACE(0x0057B620, &Obj::CPlayerProfileManager::SetCurrentIndex);
-REPLACE(0x0057B630, &Obj::CPlayerProfileManager::GetCurrentProfile);
-REPLACE(0x0057B640, &Obj::CPlayerProfileManager::GetProfile);
-REPLACE(0x0057B650, &Obj::CPlayerProfileManager::GetExtraProfile);
-REPLACE(0x0057B680, &Obj::CPlayerProfileManager::SetLocked);
-REPLACE(0x0057B690, &Obj::CPlayerProfileManager::Init);
-REPLACE(0x0057B770, &Obj::CPlayerProfileManager::GetTemplateName);
-REPLACE(0x0057B790, &Obj::CPlayerProfileManager::ResetSecondProfile);
-REPLACE(0x0057B7E0, &Obj::CPlayerProfileManager::GetTemplate);
-REPLACE(0x0057B800, &Obj::CPlayerProfileManager::ResetTemplates);
-REPLACE(0x0057B840, &Obj::CPlayerProfileManager::WritePros);
-REPLACE(0x0057B920, &Obj::CPlayerProfileManager::WriteCustomSkaters);
-REPLACE(0x0057B970, &Obj::CPlayerProfileManager::AddExtraProfile);
-REPLACE(0x0057B9E0, &Obj::ProfileTable::Clear);
-REPLACE(0x0057BA20, &Obj::CPlayerProfileManager::SetCurrentSkater);
-REPLACE(0x0057BAA0, &Obj::CPlayerProfileManager::ReadPros);
-REPLACE(0x0057BB40, &Obj::CPlayerProfileManager::AddTemplate);
-REPLACE(0x0057BBF0, &Obj::ProfileTable::Destroy);
-REPLACE(0x0057BC00, &Obj::CPlayerProfileManager::Construct);
-REPLACE(0x0057BC20, &Obj::CPlayerProfileManager::DestroyBody);
-REPLACE(0x0057BD70, &Obj::CPlayerProfileManager::ReadCustomSkater);
-REPLACE(0x0057C0D0, Obj::CPlayerProfileManager::Create);
-REPLACE(0x0057C120, Obj::CPlayerProfileManager::Release);
-REPLACE(0x00543010, &Obj::CSkaterProfile::DestroyBody); // (its address among the network players' code)

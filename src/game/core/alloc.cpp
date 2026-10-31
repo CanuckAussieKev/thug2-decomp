@@ -1,12 +1,11 @@
 #include "game/core/alloc.h"
 
+#include <cstdint>
 #include <new>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "hook/game.h"
-#include "hook/game_code.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
 #include "game/mc/save_types.h"
 #include "game/core/stubs.h"
@@ -285,43 +284,22 @@ struct AllocAdapters {
 namespace Mem {
 
 namespace {
-GAME_VTABLE(kHeadVtable, 0x00658480, &AllocAdapters::NodeDestroy);
-GAME_VTABLE(kAllocatorVtable, 0x0065845C,
-            &Mem::Allocator::PushContext, &Mem::Allocator::PopContext, &AllocAdapters::AllocatorDestroy, GAME_LIBRARY_SLOT(0x00623771), Stubs::ReturnZero, Stubs::ReturnZero2, Stubs::ReturnZero2, Stubs::ReturnZero2, GAME_LIBRARY_SLOT(0x00623771));
+static VtableSlot kHeadVtable_slots[] = {&AllocAdapters::NodeDestroy};
+void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
+static VtableSlot kAllocatorVtable_slots[] = {&Mem::Allocator::PushContext, &Mem::Allocator::PopContext, &AllocAdapters::AllocatorDestroy, &_purecall, Stubs::ReturnZero, Stubs::ReturnZero2, Stubs::ReturnZero2, Stubs::ReturnZero2, &_purecall};
+void** const kAllocatorVtable = reinterpret_cast<void**>(kAllocatorVtable_slots);
 } // namespace
 
-GAME_VTABLE(kNodeVtable, 0x00658458, &AllocAdapters::NodeDestroy);          // Lst::Node<Context>
-GAME_VTABLE(kRegionVtable, 0x00658A58, &AllocAdapters::RegionDestroy);
-GAME_VTABLE(kAllocRegionVtable, 0x00658A5C, &AllocAdapters::AllocRegionDestroy);
+static VtableSlot kNodeVtable_slots[] = {&AllocAdapters::NodeDestroy};
+void** const kNodeVtable = reinterpret_cast<void**>(kNodeVtable_slots);          // Lst::Node<Context>
+static VtableSlot kRegionVtable_slots[] = {&AllocAdapters::RegionDestroy};
+void** const kRegionVtable = reinterpret_cast<void**>(kRegionVtable_slots);
+static VtableSlot kAllocRegionVtable_slots[] = {&AllocAdapters::AllocRegionDestroy};
+void** const kAllocRegionVtable = reinterpret_cast<void**>(kAllocRegionVtable_slots);
 
 } // namespace Mem
 
 namespace Vt {
-GAME_VTABLE(kSaveNode, 0x0065797C, &Mc::ListDestructors::NodeDestroy);
+static VtableSlot kSaveNode_slots[] = {&Mc::ListDestructors::NodeDestroy};
+void** const kSaveNode = reinterpret_cast<void**>(kSaveNode_slots);
 } // namespace Vt
-
-REPLACE(0x005BA080, Mem::MarkBlockInUse);
-REPLACE(0x005BA090, Mem::GetBlockHeader);
-REPLACE(0x005BA0A0, Mem::GetBlockSize);
-REPLACE(0x005BA0B0, Mem::FreeBlock);
-REPLACE(0x005BC5F0, &AllocAdapters::RegionConstruct);
-REPLACE(0x005BC4E0, &Mem::Region::AddAllocator);
-REPLACE(0x005BC510, &Mem::Region::RemoveAllocator);
-REPLACE(0x005BC530, &Mem::Region::MemAvailable);
-REPLACE(0x005BC560, &Mem::Region::Allocate);
-REPLACE(0x005BC620, &AllocAdapters::AllocRegionConstruct);
-REPLACE(0x005BC6B0, &Mem::AllocRegion::DestroyBody);
-REPLACE(0x005BC6D0, &AllocAdapters::RegionDestroy);
-REPLACE(0x005BC700, &AllocAdapters::AllocRegionDestroy);
-REPLACE(0x005BA0E0, &Mem::ListNode::Unlink);
-REPLACE(0x005BC990, &AllocAdapters::UnlinkNode65797C);
-REPLACE(0x005BCD30, &AllocAdapters::UnlinkNode658A70);
-REPLACE(0x005BC4D0, &Mem::Region::DestroyBody);
-REPLACE(0x005BA100, &AllocAdapters::NodeDestroy);
-REPLACE(0x005BA230, &AllocAdapters::NodeDestroy);
-REPLACE(0x005BA260, &AllocAdapters::AllocatorConstruct);
-REPLACE(0x005BA140, &Mem::Allocator::DestroyBody);
-REPLACE(0x005BA330, &AllocAdapters::AllocatorDestroy);
-REPLACE(0x005BA1E0, &Mem::Allocator::PushContext);
-REPLACE(0x005BA360, &Mem::Allocator::PopContext);
-REPLACE(0x005BA4E0, &AllocAdapters::FreePointee);

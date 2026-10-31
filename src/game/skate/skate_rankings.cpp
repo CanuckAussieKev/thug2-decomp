@@ -4,6 +4,8 @@
 
 #include "game/skate/skate_module.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 
 #include "game/core/manager.h"
@@ -16,9 +18,6 @@
 #include "game/script/struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skater/skater.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Mdl {
 
@@ -145,14 +144,14 @@ void FormatScore(char* out, size_t size, uint32_t score, int colour, bool colour
     if (KingOfTheHill()) {
         uint32_t seconds = score / 1000;
         if (coloured)
-            std::snprintf(out, size, GAME_TEXT(0x0064E72C, "\\c%d%.2d:%.2d"), colour, seconds / 60, seconds % 60); // "\c%d%.2d:%.2d"
+            std::snprintf(out, size, "\\c%d%.2d:%.2d", colour, seconds / 60, seconds % 60); // "\c%d%.2d:%.2d"
         else
-            std::snprintf(out, size, GAME_TEXT(0x0064E744, "%.2d:%.2d"), seconds / 60, seconds % 60); // "%.2d:%.2d"
+            std::snprintf(out, size, "%.2d:%.2d", seconds / 60, seconds % 60); // "%.2d:%.2d"
     } else {
         if (coloured)
-            std::snprintf(out, size, GAME_TEXT(0x0064E73C, "\\c%d%d"), colour, score); // "\c%d%d"
+            std::snprintf(out, size, "\\c%d%d", colour, score); // "\c%d%d"
         else
-            std::snprintf(out, size, GAME_TEXT(0x00645394, "%d"), score); // "%d"
+            std::snprintf(out, size, "%d", score); // "%d"
     }
 }
 
@@ -182,10 +181,10 @@ void __cdecl FillEliminationRanking()
     for (GameNet::ScoreEntry* entry = RankingList::After(&list.m_head); entry; ++id) {
         GameNet::ScoreEntry* next = RankingList::After(entry);
         char text[0x40];
-        std::snprintf(text, sizeof(text), GAME_TEXT(0x00646050, "\\c%d%s"), entry->m_colour, entry->m_text); // "\c%d%s"
+        std::snprintf(text, sizeof(text), "\\c%d%s", entry->m_colour, entry->m_text); // "\c%d%s"
         AddPlayerLine(text, false);
         AddScoreLine([&](char* score, size_t size) {
-            std::snprintf(score, size, GAME_TEXT(0x00645394, "%d"), entry->m_teamScore); // "%d"
+            std::snprintf(score, size, "%d", entry->m_teamScore); // "%d"
         }, id, false);
         DeleteEntry(entry);
         entry = next;
@@ -222,11 +221,11 @@ bool __cdecl Skate::CFunc_FillRankingScreen(Script::CStruct*, Script::CScript*)
             entry->m_unknown44 = static_cast<uint32_t>(team);
             entry->m_teamScore = net->GetTeamScore(team);
             char name[0x40];
-            std::snprintf(name, sizeof(name), GAME_TEXT(0x0064C890, "team_%d_name"), team + 1); // "team_%d_name"
-            const char* total = Script::GetString(GAME_TEXT(0x0064E768, "total_str")); // "total_str"
+            std::snprintf(name, sizeof(name), "team_%d_name", team + 1); // "team_%d_name"
+            const char* total = Script::GetString("total_str"); // "total_str"
             const char* teamName = Script::GetString(name);
             std::snprintf(entry->m_text, sizeof(GameNet::ScoreEntry) - offsetof(GameNet::ScoreEntry, m_text),
-                          GAME_TEXT(0x0064E75C, "\\c%d%s %s"), entry->m_colour, teamName, total); // "\c%d%s %s" (unbounded there)
+                          "\\c%d%s %s", entry->m_colour, teamName, total); // "\c%d%s %s" (unbounded there)
             entry->priority = net->GetTeamScore(team);
             reinterpret_cast<Lst::Head*>(&list.m_head)->AddNode(entry);
         }
@@ -240,7 +239,7 @@ bool __cdecl Skate::CFunc_FillRankingScreen(Script::CStruct*, Script::CScript*)
                 uint32_t score = scoreOf(info);
                 char text[0x40];
                 std::snprintf(text, sizeof(text),
-                              (static_cast<uint8_t>(info->IsLocalPlayer()) ? GAME_TEXT(0x0064E750, "\\c%d> %s") : GAME_TEXT(0x00646050, "\\c%d%s")), // "\c%d> %s" / "\c%d%s"
+                              (static_cast<uint8_t>(info->IsLocalPlayer()) ? "\\c%d> %s" : "\\c%d%s"), // "\c%d> %s" / "\c%d%s"
                               entry->m_colour, info->m_name);
                 AddPlayerLine(text, false);
                 AddScoreLine([&](char* shown, size_t size) { FormatScore(shown, size, score, 0, false); },
@@ -283,6 +282,3 @@ bool __cdecl Skate::CFunc_FillRankingScreen(Script::CStruct*, Script::CScript*)
 }
 
 } // namespace Mdl
-
-REPLACE(0x00567C70, Mdl::FillEliminationRanking);
-REPLACE(0x00568120, Mdl::Skate::CFunc_FillRankingScreen);

@@ -3,24 +3,22 @@
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_grid.h"
 
+#include <cstdint>
 #include <new>
 
 #include "game/core/alloc.h"
 #include "game/gfx/engine_scene_list.h"
 #include "game/nx/coll_world.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
 namespace {
 
-GAME_GLOBAL(CCollCache*[8], g_caches, 0x006918EC);
+CCollCache* g_caches[8];
 
 CCollCache** Caches() { return g_caches; }
 
-GAME_GLOBAL(uint32_t, g_cachesInUse, 0x0069190C);
+uint32_t g_cachesInUse;
 
 uint32_t& CachesInUse() { return g_cachesInUse; }
 
@@ -193,14 +191,3 @@ int ShapeTypeFromChecksum(uint32_t shape)
 }
 
 } // namespace Nx
-
-REPLACE(0x0040AB50, &Nx::CCollCache::Construct);
-REPLACE(0x0040AB40, &Nx::CCollCache::Destruct);
-REPLACE(0x0040ABA0, &Nx::CCollCache::Update);
-REPLACE(0x0040A910, &Nx::CCollCache::RemoveStatic);
-REPLACE(0x0040A990, &Nx::CCollCache::RemoveMovable);
-REPLACE(0x0040AA00, Nx::RegisterCollCache);
-REPLACE(0x0040AA40, Nx::UnregisterCollCache);
-REPLACE(0x0040AA80, Nx::RemoveMovableFromCaches);
-REPLACE(0x0040AAC0, Nx::RemoveFromCaches);
-REPLACE(0x0040ADD0, Nx::ShapeTypeFromChecksum);

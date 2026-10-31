@@ -3,8 +3,8 @@
 // collision; and the lists of metapieces the park manager hands out (CMapListNode, CMapListTemp).
 
 #include "game/ed/park.h"
-#include "hook/game_code.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/ass/asset.h"
@@ -16,13 +16,10 @@
 #include "game/park/park_memory.h"
 #include "game/script/struct.h"
 #include "game/ed/park_editor.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
-GAME_GLOBAL(int, g_cloningPiece, 0x007CE614);
+int g_cloningPiece;
 
 namespace {
 
@@ -46,9 +43,9 @@ constexpr int kMemoryPerPlayer = 585500;
 
 void CMapListTemp::PrintContents()
 {
-    Dbg::Printf(GAME_TEXT(0x0064F404, "contents of map list:\n")); // "contents of map list:\n"
+    Dbg::Printf("contents of map list:\n"); // "contents of map list:\n"
     for (const CMapListNode* node = list; node; node = node->mp_next) {
-        Dbg::Printf(GAME_TEXT(0x0064F3F0, "   address=%p area="), node->mp_meta); // "   address=%p area="
+        Dbg::Printf("   address=%p area=", node->mp_meta); // "   address=%p area="
         node->mp_meta->m_cell_area.PrintContents();
     }
 }
@@ -388,32 +385,3 @@ void CParkGenerator::ReadPieceFlags(Script::CArray* nodes)
 using Ed::CMapListNode;
 using Ed::CMapListTemp;
 using Ed::CParkGenerator;
-
-REPLACE(0x00590470, CMapListNode::VerifyIntegrity);
-REPLACE(0x00591450, &CMapListTemp::PrintContents);
-REPLACE(0x005914B0, CMapListNode::Free);
-REPLACE(0x00591BE0, CMapListNode::DestroyList);
-REPLACE(0x00591C60, &CMapListTemp::Destroy);
-REPLACE(0x00591C70, &CParkGenerator::DestroyBody);
-REPLACE(0x00591CF0, &CParkGenerator::HighlightAllPieces);
-REPLACE(0x00591D20, &CParkGenerator::SetMaxPlayers);
-REPLACE(0x00591D30, &CParkGenerator::GetMaxPlayersPossible);
-REPLACE(0x00591D90, &CParkGenerator::GetPieceSource);
-REPLACE(0x00591DD0, &CParkGenerator::DeleteSector);
-REPLACE(0x00591DE0, &CParkGenerator::DestroyRails);
-REPLACE(0x00591E00, &CParkGenerator::SetLights);
-REPLACE(0x00591E60, &CParkGenerator::GetRestartSlots);
-REPLACE(0x00591F50, &CParkGenerator::HasFreeRestartSlot);
-REPLACE(0x00591FC0, &CParkGenerator::ClearRestarts);
-REPLACE(0x00591FE0, &CParkGenerator::ClearAutomaticRestarts);
-REPLACE(0x00592010, &CParkGenerator::SetUpBounds);
-REPLACE(0x00592090, &CParkGenerator::RebuildCollision);
-REPLACE(0x005920D0, &CParkGenerator::UpdateBounds);
-REPLACE(0x00592290, &CParkGenerator::SetPiecesHighlighted);
-REPLACE(0x005922D0, &CParkGenerator::SetRestartPiecesActive);
-REPLACE(0x00592320, &CParkGenerator::CloneSector);
-REPLACE(0x00592370, &CParkGenerator::DestroySector);
-REPLACE(0x005923C0, &CParkGenerator::CreatePiece);
-REPLACE(0x00592550, &CParkGenerator::AddPiece);
-REPLACE(0x00592570, &CParkGenerator::DeletePiece);
-REPLACE(0x005925E0, &CParkGenerator::ReadPieceFlags);

@@ -2,6 +2,8 @@
 // the base animation controller's members and the base animation event's destructor body
 // (0x00481380-0x004819E6, but 0x004817D0). From the disassembly.
 
+#include <cstdint>
+
 #include "game/gfx/anim_track.h"
 #include "game/gfx/custom_anim_key.h"
 
@@ -11,9 +13,7 @@
 #include "game/obj/skeleton_component.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
 #include "game/skater/vehicle_sound.h"
 #include "game/core/stubs.h"
@@ -345,38 +345,13 @@ void CAnimEventBase::DestroyBody()
 }
 
 namespace {
-GAME_VTABLE(kTimelineVtable, 0x00648768, &Gfx::CAnimTimeline::Destroy, &Gfx::CAnimTimeline::Reset,
-            &Gfx::CAnimTimeline::Update, &Gfx::CAnimTimeline::PlayAnim, Stubs::IgnoreArgument);
-GAME_VTABLE(kControllerVtable, 0x0064877C, &Gfx::CAnimController::Destroy, Stubs::ReturnFalse1,
-            Stubs::IgnoreArgument, &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
-            &Gfx::CAnimController::InitFromStructure, Stubs::DoNothing);
+static VtableSlot kTimelineVtable_slots[] = {&Gfx::CAnimTimeline::Destroy, &Gfx::CAnimTimeline::Reset,
+                &Gfx::CAnimTimeline::Update, &Gfx::CAnimTimeline::PlayAnim, Stubs::IgnoreArgument};
+void** const kTimelineVtable = reinterpret_cast<void**>(kTimelineVtable_slots);
+static VtableSlot kControllerVtable_slots[] = {&Gfx::CAnimController::Destroy, Stubs::ReturnFalse1,
+                Stubs::IgnoreArgument, &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
+                &Gfx::CAnimController::InitFromStructure, Stubs::DoNothing};
+void** const kControllerVtable = reinterpret_cast<void**>(kControllerVtable_slots);
 } // namespace
 
 } // namespace Gfx
-
-REPLACE(0x00481380, &Gfx::CAnimTimeline::Reset);
-REPLACE(0x004813B0, &Gfx::CAnimTimeline::GetTimes);
-REPLACE(0x004813F0, &Gfx::CAnimTimeline::IsComplete);
-REPLACE(0x00481430, &Gfx::CAnimTimeline::PlayAnim);
-REPLACE(0x004814B0, &Gfx::CAnimTimeline::NextTime);
-REPLACE(0x00481640, &Gfx::CAnimTimeline::Update);
-REPLACE(0x00481650, &Gfx::CAnimTimeline::Construct);
-REPLACE(0x00481690, &Gfx::CAnimTimeline::DestroyBody);
-REPLACE(0x004816B0, &Gfx::CAnimTimeline::AddTime);
-REPLACE(0x004816E0, &Gfx::CAnimTimeline::Destroy);
-REPLACE(0x00481710, &Gfx::CAnimController::Construct);
-REPLACE(0x00481730, &Gfx::CAnimController::DestroyBody);
-REPLACE(0x00481740, &Gfx::CAnimController::InitFromStructure);
-REPLACE(0x00481760, &Gfx::CAnimController::GetObject);
-REPLACE(0x00481770, &Gfx::CAnimController::GetSkeleton);
-REPLACE(0x004817A0, &Gfx::CAnimController::Destroy);
-REPLACE(0x00481830, &Gfx::CAnimTrack::Construct);
-REPLACE(0x00481870, &Gfx::CAnimTrack::DeleteControllers);
-REPLACE(0x004818B0, &Gfx::CAnimTrack::RemoveController);
-REPLACE(0x00481920, &Gfx::CAnimTrack::GetPoses);
-REPLACE(0x00481960, &Gfx::CAnimTrack::Reset);
-REPLACE(0x00481980, &Gfx::CAnimTrack::IsActive);
-REPLACE(0x00481990, &Gfx::CAnimTrack::IsFading);
-REPLACE(0x004819A0, &Gfx::CAnimTrack::ArmEvents);
-REPLACE_SOURCE_ONLY(0x004819D0, &Gfx::CAnimTrack::GetObject); // 4 bytes
-REPLACE(0x004819E0, &Gfx::CAnimEventBase::DestroyBody);

@@ -5,6 +5,7 @@
 #include "game/gfx/d3dx.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -15,10 +16,7 @@
 #include "game/gfx/mesh.h"
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/pc_scene.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
 #include "game/gfx/model.h"
 #include "game/mc/memcard.h"
@@ -99,13 +97,13 @@ float ChannelToFloat(uint32_t channel) { return static_cast<float>(static_cast<d
 // And back (the C runtime's _ftol of the float times 255: truncated).
 uint8_t FloatToChannel(float value) { return static_cast<uint8_t>(static_cast<int>(static_cast<double>(value) * 255.0)); }
 
-GAME_GLOBAL(Mth::Vector, g_staticPosition, 0x00701610);
-GAME_GLOBAL(uint32_t, g_staticPositionGuard, 0x00701620);
-GAME_GLOBAL(Mth::Matrix, g_staticOrientation, 0x00701628);
-GAME_GLOBAL(uint32_t, g_staticOrientationGuard, 0x00701668);
-GAME_GLOBAL(uint32_t, g_vertexShaderUv58, 0x00775B58);
-GAME_GLOBAL(uint32_t, g_vertexShaderUv5C, 0x00775B5C);
-GAME_GLOBAL(uint32_t, g_vertexShaderUv60, 0x00775B60);
+Mth::Vector g_staticPosition;
+uint32_t g_staticPositionGuard;
+Mth::Matrix g_staticOrientation;
+uint32_t g_staticOrientationGuard;
+uint32_t g_vertexShaderUv58;
+uint32_t g_vertexShaderUv5C;
+uint32_t g_vertexShaderUv60;
 
 // The static results of GetWorldPosition / GetOrientation (with their initialisation guards' bits).
 Mth::Vector& StaticPosition()
@@ -915,78 +913,32 @@ void CPcGeom::ResetTextureAnims()
 }
 
 namespace {
-GAME_VTABLE(kMeshNodeVtable, 0x0064A434, &Nx::sMeshListNode::Destroy);
-GAME_VTABLE(kMeshHeadVtable, 0x0064A438, &Nx::sMeshListNode::DestroyHead);
+static VtableSlot kMeshNodeVtable_slots[] = {&Nx::sMeshListNode::Destroy};
+void** const kMeshNodeVtable = reinterpret_cast<void**>(kMeshNodeVtable_slots);
+static VtableSlot kMeshHeadVtable_slots[] = {&Nx::sMeshListNode::DestroyHead};
+void** const kMeshHeadVtable = reinterpret_cast<void**>(kMeshHeadVtable_slots);
 } // namespace
 
 } // namespace Nx
 
 namespace Vt {
 // (slot 15, the bounding box getter, is the same code as GameNet::StatsMan::GetPersonalStats: the linker folded them)
-GAME_VTABLE(kPcGeom, 0x0064A368, &Nx::CPcGeom::Destroy, &Nx::CPcGeom::CloneInstance, &Nx::CPcGeom::Clone,
-            &Nx::CPcGeom::InitInstance, &Nx::CPcGeom::CleanInstanceStrips, &Nx::CGeom::PlatGetChecksum,
-            &Nx::CPcGeom::SetColor, &Nx::CPcGeom::GetColor, &Nx::CPcGeom::ClearColor,
-            &Nx::CPcGeom::SetMaterialColor, &Nx::CGeom::PlatGetMaterialColor, &Nx::CPcGeom::SetVisibility,
-            &Nx::CPcGeom::GetVisibility, &Nx::CPcGeom::SetActive, &Nx::CPcGeom::IsActive,
-            &GameNet::StatsMan::GetPersonalStats, &Nx::CPcGeom::SetBoundingSphere, &Nx::CPcGeom::GetBoundingSphere,
-            &Nx::CPcGeom::SetWorldPosition, &Nx::CPcGeom::GetWorldPosition, &Nx::CPcGeom::SetOrientation,
-            &Nx::CPcGeom::GetOrientation, &Nx::CPcGeom::RotateY, &Nx::CGeom::PlatSetTransform,
-            &Nx::CGeom::PlatGetTransform, &Nx::CPcGeom::SetScale, &Nx::CPcGeom::GetScale, Stubs::IgnoreArgument,
-            &Nx::CPcGeom::SetBoneMatrices, &Nx::CPcGeom::CopyBones, &Nx::CPcGeom::SetBones,
-            &Nx::CPcGeom::BreakStrips, &Mc::Card::AlwaysTrue, Stubs::ReturnZero,
-            &Nx::CGeom::PlatGetNumRenderBasePolys, Stubs::ReturnZero, &Nx::CPcGeom::GetNumVertices,
-            &Nx::CPcGeom::GetVertices, &Nx::CPcGeom::GetColors, &Nx::CPcGeom::SetVertices, &Nx::CPcGeom::SetColors,
-            Stubs::IgnoreArguments3, &Nx::CPcGeom::SetUVWibbleParams, &Nx::CPcGeom::EnableExplicitUVWibble,
-            &Nx::CModel::VirtualTrue4, &Nx::CPcGeom::SetUVWibbleOffsets, &Nx::CPcGeom::SetUVMatrix,
-            &Nx::CPcGeom::AllocateUVMatrixParams, &Nx::CPcGeom::ResetTextureAnims, Stubs::IgnoreArgument,
-            Stubs::DoNothing);
+static VtableSlot kPcGeom_slots[] = {&Nx::CPcGeom::Destroy, &Nx::CPcGeom::CloneInstance, &Nx::CPcGeom::Clone,
+                &Nx::CPcGeom::InitInstance, &Nx::CPcGeom::CleanInstanceStrips, &Nx::CGeom::PlatGetChecksum,
+                &Nx::CPcGeom::SetColor, &Nx::CPcGeom::GetColor, &Nx::CPcGeom::ClearColor,
+                &Nx::CPcGeom::SetMaterialColor, &Nx::CGeom::PlatGetMaterialColor, &Nx::CPcGeom::SetVisibility,
+                &Nx::CPcGeom::GetVisibility, &Nx::CPcGeom::SetActive, &Nx::CPcGeom::IsActive,
+                &GameNet::StatsMan::GetPersonalStats, &Nx::CPcGeom::SetBoundingSphere, &Nx::CPcGeom::GetBoundingSphere,
+                &Nx::CPcGeom::SetWorldPosition, &Nx::CPcGeom::GetWorldPosition, &Nx::CPcGeom::SetOrientation,
+                &Nx::CPcGeom::GetOrientation, &Nx::CPcGeom::RotateY, &Nx::CGeom::PlatSetTransform,
+                &Nx::CGeom::PlatGetTransform, &Nx::CPcGeom::SetScale, &Nx::CPcGeom::GetScale, Stubs::IgnoreArgument,
+                &Nx::CPcGeom::SetBoneMatrices, &Nx::CPcGeom::CopyBones, &Nx::CPcGeom::SetBones,
+                &Nx::CPcGeom::BreakStrips, &Mc::Card::AlwaysTrue, Stubs::ReturnZero,
+                &Nx::CGeom::PlatGetNumRenderBasePolys, Stubs::ReturnZero, &Nx::CPcGeom::GetNumVertices,
+                &Nx::CPcGeom::GetVertices, &Nx::CPcGeom::GetColors, &Nx::CPcGeom::SetVertices, &Nx::CPcGeom::SetColors,
+                Stubs::IgnoreArguments3, &Nx::CPcGeom::SetUVWibbleParams, &Nx::CPcGeom::EnableExplicitUVWibble,
+                &Nx::CModel::VirtualTrue4, &Nx::CPcGeom::SetUVWibbleOffsets, &Nx::CPcGeom::SetUVMatrix,
+                &Nx::CPcGeom::AllocateUVMatrixParams, &Nx::CPcGeom::ResetTextureAnims, Stubs::IgnoreArgument,
+                Stubs::DoNothing};
+void** const kPcGeom = reinterpret_cast<void**>(kPcGeom_slots);
 } // namespace Vt
-
-REPLACE(0x004B5EC0, &Nx::sMeshListNode::DestroyBody);
-REPLACE(0x004B5E50, &Nx::sMeshListNode::Destroy);
-REPLACE(0x004B5E90, &Nx::sMeshListNode::DestroyHead);
-REPLACE(0x004B4460, &Nx::CPcGeom::Construct);
-REPLACE(0x004B5EE0, &Nx::CPcGeom::DestroyBody);
-REPLACE(0x004B5FC0, &Nx::CPcGeom::Destroy);
-REPLACE(0x004B5F60, &Nx::CPcGeom::StartMeshList);
-REPLACE(0x004B52F0, &Nx::CPcGeom::AddMesh);
-REPLACE(0x004B5360, &Nx::CPcGeom::CreateMeshArray);
-REPLACE(0x004B5440, &Nx::CPcGeom::DestroyMeshArray);
-REPLACE(0x004B44D0, &Nx::CPcGeom::AddToMeshList);
-REPLACE(0x004B4510, &Nx::CPcGeom::CreateMeshList);
-REPLACE(0x004B58C0, &Nx::CPcGeom::Clone);
-REPLACE(0x004B5B80, &Nx::CPcGeom::CloneInstance);
-REPLACE(0x004B54B0, &Nx::CPcGeom::InitInstance);
-REPLACE(0x004B45F0, &Nx::CPcGeom::CleanInstanceStrips);
-REPLACE(0x004B48B0, &Nx::CPcGeom::SetColor);
-REPLACE(0x004B4B20, &Nx::CPcGeom::GetColor);
-REPLACE(0x004B4970, &Nx::CPcGeom::ClearColor);
-REPLACE(0x004B49C0, &Nx::CPcGeom::SetMaterialColor);
-REPLACE(0x004B4870, &Nx::CPcGeom::SetVisibility);
-REPLACE(0x004B4120, &Nx::CPcGeom::GetVisibility);
-REPLACE(0x004B4630, &Nx::CPcGeom::SetActive);
-REPLACE(0x004B4690, &Nx::CPcGeom::IsActive);
-REPLACE(0x004B4730, &Nx::CPcGeom::SetBoundingSphere);
-REPLACE(0x004B4760, &Nx::CPcGeom::GetBoundingSphere);
-REPLACE(0x004B55D0, &Nx::CPcGeom::SetWorldPosition);
-REPLACE(0x004B46A0, &Nx::CPcGeom::GetWorldPosition);
-REPLACE(0x004B5650, &Nx::CPcGeom::SetOrientation);
-REPLACE(0x004B56E0, &Nx::CPcGeom::GetOrientation);
-REPLACE(0x004B57C0, &Nx::CPcGeom::RotateY);
-REPLACE(0x004B4DB0, &Nx::CPcGeom::SetScale);
-REPLACE(0x004B4ED0, &Nx::CPcGeom::GetScale);
-REPLACE(0x004B47B0, &Nx::CPcGeom::SetBoneMatrices);
-REPLACE(0x004B47F0, &Nx::CPcGeom::CopyBones);
-REPLACE(0x004B4820, &Nx::CPcGeom::SetBones);
-REPLACE(0x004B4840, &Nx::CPcGeom::BreakStrips);
-REPLACE(0x004B4130, &Nx::CPcGeom::GetNumVertices);
-REPLACE(0x004B4BB0, &Nx::CPcGeom::GetVertices);
-REPLACE(0x004B4C50, &Nx::CPcGeom::SetVertices);
-REPLACE(0x004B4160, &Nx::CPcGeom::GetColors);
-REPLACE(0x004B4210, &Nx::CPcGeom::SetColors);
-REPLACE(0x004B4300, &Nx::CPcGeom::SetUVWibbleParams);
-REPLACE(0x004B4EF0, &Nx::CPcGeom::EnableExplicitUVWibble);
-REPLACE(0x004B43E0, &Nx::CPcGeom::SetUVWibbleOffsets);
-REPLACE(0x004B4F60, &Nx::CPcGeom::SetUVMatrix);
-REPLACE(0x004B5130, &Nx::CPcGeom::AllocateUVMatrixParams);
-REPLACE(0x004B52A0, &Nx::CPcGeom::ResetTextureAnims);

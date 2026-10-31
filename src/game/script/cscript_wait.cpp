@@ -5,6 +5,8 @@
 // CallScript pushes the whole state of the running level and ReturnFromScript pops it; an interrupt is a call
 // run at once by a nested Update, marked so that its return ends that Update.
 
+#include <cstdint>
+
 #include "game/script/cscript.h"
 
 #include "game/core/dbg.h"
@@ -19,9 +21,6 @@
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Script {
 
@@ -45,7 +44,6 @@ CEventHandlerTable* NewEventHandlerTable()
     void* memory = Mem::New(sizeof(CEventHandlerTable));
     return memory ? static_cast<CEventHandlerTable*>(memory)->Construct() : nullptr;
 }
-
 
 // A new, empty structure.
 CStruct* NewEmptyStruct()
@@ -125,7 +123,7 @@ void CScript::StopWaiting() { m_waitType = WAIT_TYPE_NONE; }
 bool CScript::IsBlocked(bool print)
 {
     if (print)
-        Dbg::Printf(GAME_TEXT(0x00648410, "m_wait_type == %i\n") /* "m_wait_type == %i\n" */, m_waitType);
+        Dbg::Printf("m_wait_type == %i\n" /* "m_wait_type == %i\n" */, m_waitType);
     return m_waitType == WAIT_TYPE_BLOCKED;
 }
 
@@ -415,26 +413,3 @@ __declspec(naked) void ComponentDestroyedStub()
 }
 
 } // namespace Script
-
-REPLACE(0x00473050, &Script::CScript::UpdateWait);
-REPLACE(0x004728F0, &Script::CScript::StopWaiting);
-REPLACE(0x00472900, &Script::CScript::IsBlocked);
-REPLACE(0x00472BD0, &Script::CScript::Wait);
-REPLACE(0x00472BF0, &Script::CScript::WaitOnePerFrame);
-REPLACE(0x00472C10, &Script::CScript::WaitTime);
-REPLACE(0x00473310, &Script::CScript::WaitRealTime);
-REPLACE(0x00472FD0, &Script::CScript::Block);
-REPLACE(0x004739A0, &Script::CScript::SetWaitOnComponent);
-REPLACE_UNCHECKED(0x00472D20, Script::ComponentDestroyedStub); // ECX kept for 0x00472E70 (see the header)
-REPLACE(0x00472E70, Script::ComponentDestroyedAllScripts);
-REPLACE(0x00473800, &Script::CScript::ReceiveEvent);
-REPLACE(0x00472F40, &Script::CScript::UnblockInterruptedScript);
-REPLACE(0x004748E0, &Script::CScript::CallScript);
-REPLACE(0x00473E70, &Script::CScript::ReturnFromScript);
-REPLACE(0x00475750, &Script::CScript::Interrupt);
-REPLACE(0x00472EA0, &Script::CScript::ClearEventHandlerGroup);
-REPLACE(0x00472EC0, &Script::CScript::PrintEventHandlerTable);
-REPLACE(0x004734E0, &Script::CScript::SetEventHandlers);
-REPLACE(0x004735D0, &Script::CScript::SetEventHandler);
-REPLACE(0x00473690, &Script::CScript::ClearEventHandler);
-REPLACE(0x004736C0, &Script::CScript::ResetEventHandlersFromTable);

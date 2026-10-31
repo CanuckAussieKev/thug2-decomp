@@ -2,6 +2,7 @@
 // counters, goal points, prosets, the goals' timers and records, their pros' streams, the end of run, the
 // temporary special tricks.
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/crc.h"
@@ -16,9 +17,6 @@
 #include "game/script/struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module_calls.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Game {
 
@@ -38,7 +36,6 @@ constexpr uint32_t kProsetNotPrefix = 0xC60CE720; // proset_not_prefix
 constexpr uint32_t kType = 0x7321A8D6;            // type
 constexpr uint32_t kProStuff = 0x18653764;        // pro_stuff
 constexpr uint32_t kShowGoalPoints = 0x888EF05E;  // GoalManager_ShowGoalPoints
-
 
 // strcpy / strcat (no bounds, as the original).
 void Copy(char* dest, const char* text)
@@ -71,7 +68,6 @@ CGoal* NameThenGoal(Script::CStruct* params)
     return GetGoalManager()->m_goals.Get(name);
 }
 
-
 } // namespace
 
 // 0x00559980: the goal's id and name made from the level's name, _classic (classic, or a classic_mode_goal), _goal_
@@ -85,8 +81,8 @@ bool __cdecl CFunc_GoalManager_CreateGoalName(Script::CStruct* params, Script::C
     char name[128];
     Copy(name, level);
     if (GameMode()->IsTrue(kIsClassicMode) || params->ContainsFlag(kClassicModeGoal))
-        Append(name, GAME_TEXT(0x0064DED8, "_classic")); // "_classic"
-    Append(name, GAME_TEXT(0x0064DED0, "_goal_"));     // "_goal_"
+        Append(name, "_classic"); // "_classic"
+    Append(name, "_goal_");     // "_goal_"
     Append(name, type);
     script->m_params->AddChecksum(kGoalIdChecksum, Crc::GenerateCRCFromString(name));
     script->m_params->AddString(kGoalName, name);
@@ -238,7 +234,7 @@ bool __cdecl CFunc_GoalManager_GetProsetNotPrefix(Script::CStruct* params, Scrip
         } while (prefix[length + 1]);
     }
     text[length] = 0;
-    Append(text, GAME_TEXT(0x0064DEE4, "NOT_")); // "NOT_"
+    Append(text, "NOT_"); // "NOT_"
     script->m_params->AddString(kProsetNotPrefix, text);
     return true;
 }
@@ -261,7 +257,7 @@ bool __cdecl CFunc_GoalManager_UnlockAllGoals(Script::CStruct*, Script::CScript*
 bool __cdecl CFunc_GoalManager_DeactivateCurrentGoal(Script::CStruct*, Script::CScript*)
 {
     GetGoalManager();
-    Dbg::Printf(GAME_TEXT(0x0064DE48, "CGoalManager::DeactivateCurrentGoal stubbed\n")); // "CGoalManager::DeactivateCurrentGoal stubbed\n"
+    Dbg::Printf("CGoalManager::DeactivateCurrentGoal stubbed\n"); // "CGoalManager::DeactivateCurrentGoal stubbed\n"
     return true;
 }
 
@@ -438,48 +434,3 @@ bool __cdecl CFunc_GoalManager_RemoveTempSpecialTrick(Script::CStruct* params, S
 }
 
 } // namespace Game
-
-REPLACE(0x00559980, Game::CFunc_GoalManager_CreateGoalName);
-REPLACE(0x00559AF0, Game::CFunc_GoalManager_GetLevelPrefix);
-REPLACE(0x00559B40, Game::CFunc_GoalManager_SetGraffitiMode);
-REPLACE(0x00559B80, Game::CFunc_GoalManager_HasWonGoal);
-REPLACE(0x00559BC0, Game::CFunc_GoalManager_GoalIsSelected);
-REPLACE(0x00559C10, Game::CFunc_GoalManager_ToggleGoalSelection);
-REPLACE(0x00559C80, Game::CFunc_GoalManager_DeselectAllGoals);
-REPLACE(0x00559CA0, Game::CFunc_GoalManager_GoalsAreSelected);
-REPLACE(0x00559CC0, Game::CFunc_GoalManager_GotCounterObject);
-REPLACE(0x00559D20, Game::CFunc_GoalManager_CounterGoalDone);
-REPLACE(0x00559D70, Game::CFunc_GoalManager_AddGoalPoint);
-REPLACE(0x00559DB0, Game::CFunc_GoalManager_SpendGoalPoints);
-REPLACE(0x00559DF0, Game::CFunc_GoalManager_HasGoalPoints);
-REPLACE(0x00559E30, Game::CFunc_GoalManager_ClearGoalPoints);
-REPLACE(0x00559E50, Game::CFunc_GoalManager_GetNumberOfGoalPoints);
-REPLACE(0x00559E90, Game::CFunc_GoalManager_HasBeatenGoalWithProset);
-REPLACE(0x00559EC0, Game::CFunc_GoalManager_GetProsetNotPrefix);
-REPLACE(0x00559F70, Game::CFunc_GoalManager_LevelLoad);
-REPLACE(0x00559F90, Game::CFunc_GoalManager_UnlockAllGoals);
-REPLACE(0x00559FB0, Game::CFunc_GoalManager_DeactivateCurrentGoal);
-REPLACE(0x00559FD0, Game::CFunc_GoalManager_SetStartTime);
-REPLACE(0x0055A020, Game::CFunc_GoalManager_UpdateComboTimer);
-REPLACE(0x0055A070, Game::CFunc_GoalManager_SetStartHeight);
-REPLACE(0x0055A0C0, Game::CFunc_GoalManager_CheckHeightRecord);
-REPLACE(0x0055A110, Game::CFunc_GoalManager_CheckDistanceRecord);
-REPLACE(0x0055A160, Game::CFunc_GoalManager_PlayGoalStartStream);
-REPLACE(0x0055A1B0, Game::CFunc_GoalManager_PlayGoalWaitStream);
-REPLACE(0x0055A200, Game::CFunc_GoalManager_PlayGoalWinStream);
-REPLACE(0x0055A250, Game::CFunc_GoalManager_StopCurrentStream);
-REPLACE(0x0055A2A0, Game::CFunc_GoalManager_TurnPro);
-REPLACE(0x0055A2C0, Game::CFunc_GoalManager_PauseGoal);
-REPLACE(0x0055A310, Game::CFunc_GoalManager_UnPauseGoal);
-REPLACE(0x0055A360, Game::CFunc_GoalManager_PauseCompetition);
-REPLACE(0x0055A3B0, Game::CFunc_GoalManager_UnPauseCompetition);
-REPLACE(0x0055A400, Game::CFunc_GoalManager_GoalIsLocked);
-REPLACE(0x0055A430, Game::CFunc_GoalManager_IsInCompetition);
-REPLACE(0x0055A470, Game::CFunc_GoalManager_GetGoalAnimations);
-REPLACE(0x0055A500, Game::CFunc_GoalManager_PlayGoalStream);
-REPLACE(0x0055A520, Game::CFunc_GoalManager_EndRunCalled);
-REPLACE(0x0055A570, Game::CFunc_GoalManager_ClearEndRun);
-REPLACE(0x0055A5C0, Game::CFunc_GoalManager_FinishedEndOfRun);
-REPLACE(0x0055A610, Game::CFunc_GoalManager_StartedEndOfRun);
-REPLACE(0x0055A660, Game::CFunc_GoalManager_AddTempSpecialTrick);
-REPLACE(0x0055A6B0, Game::CFunc_GoalManager_RemoveTempSpecialTrick);

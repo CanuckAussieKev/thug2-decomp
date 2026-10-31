@@ -6,8 +6,6 @@
 
 #include <cstdint>
 
-#include "hook/game_global.h"
-
 namespace Pcm {
 
 struct CachedStreamFile {
@@ -18,6 +16,6 @@ struct CachedStreamFile {
 };
 static_assert(sizeof(CachedStreamFile) == 16, "layout must match the original");
 
-GAME_GLOBAL_EXTERN(CachedStreamFile[12], g_streamFiles);
+extern CachedStreamFile g_streamFiles[12];
 
 } // namespace Pcm

@@ -3,6 +3,7 @@
 
 #include "game/skater/controls.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/mth/vector.h"
@@ -13,8 +14,6 @@
 #include "game/sio/sdl_input.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/walk_physics.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/sys/game_config.h"
 #include "game/obj/trigger_events.h"
 
@@ -136,7 +135,3 @@ bool Component::TryAcidDrop()
 }
 
 } // namespace Skater
-
-REPLACE(0x0051F4C0, &Skater::Component::PlatformStructure);
-REPLACE(0x00527510, &Skater::Component::TryWalkAcidDrop);
-REPLACE(0x00527600, &Skater::Component::TryAcidDrop);

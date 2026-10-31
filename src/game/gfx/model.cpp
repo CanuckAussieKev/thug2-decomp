@@ -1,14 +1,14 @@
 // The engine's model: its members on the geom list - counts, flags, bones, visibility, colours, lights and UVs. See
 // model.h (loading, drawing and the rest: model_geoms.cpp).
 
+#include <cstdint>
+
 #include "game/gfx/model.h"
 
 #include "game/ass/assman.h"
 #include "game/gfx/engine_mesh.h"
 #include "game/gfx/model_internal.h"
 #include "game/gfx/pc_lights.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
@@ -388,43 +388,3 @@ void CModel::EnableShadow(uint8_t on)
 }
 
 } // namespace Nx
-
-REPLACE(0x00492DC0, &Nx::CModel::VirtualTrue4);
-REPLACE(0x00492EB0, &Nx::CModel::PlatGetBoundingSphere);
-REPLACE(0x00492DD0, &Nx::CModel::SetSkeleton);
-REPLACE(0x00492E10, &Nx::CModel::SetDisplayMode);
-REPLACE(0x00492E40, &Nx::CModel::GetNumGeoms);
-REPLACE_SOURCE_ONLY(0x00492E50, &Nx::CModel::GetBoneMatrices); // 4 bytes
-REPLACE(0x00493460, &Nx::CModel::SetBoneMatrices);
-REPLACE(0x00492E60, &Nx::CModel::EnableScaling);
-REPLACE(0x00492E80, &Nx::CModel::SetBoundingSphere);
-REPLACE(0x00492E90, &Nx::CModel::EnableShadowVolume);
-REPLACE(0x00492EE0, &Nx::CModel::SetScale);
-REPLACE(0x00492F30, &Nx::CModel::GetBoundingSphere);
-REPLACE(0x00492F90, &Nx::CModel::SetBoneVolumes);
-REPLACE(0x00492FC0, &Nx::CModel::GetBoneVolumes);
-REPLACE(0x00492FF0, &Nx::CModel::GetAssetBoneCount);
-REPLACE(0x00493040, &Nx::CModel::GetAssetHierarchy);
-REPLACE(0x00493410, &Nx::CModel::CopyBones);
-REPLACE(0x00493B30, &Nx::CModel::GetStripBreakFlags);
-REPLACE(0x00493B90, &Nx::CModel::BreakStrips);
-REPLACE(0x00494B30, &Nx::CModel::BreakOwnStrips);
-REPLACE(0x00494700, &Nx::CModel::CleanInstanceStrips);
-REPLACE(0x00493BD0, &Nx::CModel::CreateLights);
-REPLACE(0x00493C10, &Nx::CModel::DestroyLights);
-REPLACE(0x00493C60, &Nx::CModel::SetActive);
-REPLACE(0x00494B70, &Nx::CModel::Hide);
-REPLACE(0x00493CD0, &Nx::CModel::GetGeomByName);
-REPLACE(0x00494640, &Nx::CModel::GetGeom);
-REPLACE(0x00494680, &Nx::CModel::GetGeomName);
-REPLACE(0x004946C0, &Nx::CModel::GetGeomTextures);
-REPLACE(0x00493FB0, &Nx::CModel::ClearGeomColor);
-REPLACE(0x00494110, &Nx::CModel::SetUVOffset);
-REPLACE(0x00494160, &Nx::CModel::SetUVMatrix);
-REPLACE(0x004941B0, &Nx::CModel::AllocateUVMatrixParams);
-REPLACE(0x00494800, &Nx::CModel::HideGeom);
-REPLACE(0x00494880, &Nx::CModel::IsGeomHidden);
-REPLACE(0x004948D0, &Nx::CModel::SetColor);
-REPLACE(0x00494930, &Nx::CModel::GetVisibility);
-REPLACE(0x00494970, &Nx::CModel::SetVisibility);
-REPLACE(0x004949B0, &Nx::CModel::EnableShadow);

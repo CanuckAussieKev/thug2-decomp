@@ -2,6 +2,7 @@
 
 #include "game/net/net_dispatcher.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -10,16 +11,17 @@
 #include "game/net/net_access_c.h"
 #include "game/net/net_app_messages.h"
 #include "game/net/net_guards.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Net {
 
-GAME_VTABLE(kMsgHandlerHeadVtable, 0x006475E8, &Net::MsgHandler::Destroy);
+static VtableSlot kMsgHandlerHeadVtable_slots[] = {&Net::MsgHandler::Destroy};
+void** const kMsgHandlerHeadVtable = reinterpret_cast<void**>(kMsgHandlerHeadVtable_slots);
 
 namespace {
 
-GAME_VTABLE(kMsgHandlerSearchVtable, 0x006475E4, &Net::MsgHandlerSearch::Destroy);
+static VtableSlot kMsgHandlerSearchVtable_slots[] = {&Net::MsgHandlerSearch::Destroy};
+void** const kMsgHandlerSearchVtable = reinterpret_cast<void**>(kMsgHandlerSearchVtable_slots);
 constexpr uint32_t kFixedSizeCopy = 0x514; // what a message without a length field copies
 
 void ConstructContext(MsgHandlerContext* context) { context->Construct(); }
@@ -191,12 +193,3 @@ int Dispatcher::DispatchMsgHandlers(Conn* conn, uint32_t flags)
 }
 
 } // namespace Net
-
-REPLACE(0x0045A500, &Net::MsgHandlerSearch::DestroyBody);
-REPLACE(0x0045A510, &Net::MsgHandlerSearch::Destroy);
-REPLACE(0x0045A590, &Net::MsgHandler::Destroy);
-REPLACE(0x0045A5C0, &Net::Dispatcher::AddHandler);
-REPLACE(0x0045A640, &Net::Dispatcher::Init);
-REPLACE(0x0045A690, &Net::Dispatcher::Deinit);
-REPLACE(0x0045A750, &Net::Dispatcher::DispatchMsg);
-REPLACE(0x0045A830, &Net::Dispatcher::DispatchMsgHandlers);

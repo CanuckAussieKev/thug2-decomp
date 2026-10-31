@@ -14,26 +14,23 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[30], g_streamComponentMemberFunctions, 0x00684E70,
+uint32_t g_streamComponentMemberFunctions[30]{
             0xDB05A233, 0x0F1641E3, 0, 0, 0, 0,
             0xC66E1B17, 0x0F1641E3, 0, 0, 0, 0,
             0x82EC1DDD, 0x0F1641E3, 0, 0, 0, 0,
             0xA738AEB8, 0x0F1641E3, 0, 0, 0, 0,
-            0, 0x0F1641E3, 0, 0, 0, 0);
+            0, 0x0F1641E3, 0, 0, 0, 0};
 
 namespace {
 
@@ -221,39 +218,23 @@ bool CStreamComponent::Obj_StopStream(Script::CStruct* /*params*/, Script::CScri
 
 } // namespace Obj
 
-REPLACE(0x00433D90, Obj::CStreamComponent::Create);
-REPLACE(0x00433870, Obj::CStreamComponent::RegisterMemberFunctions);
-REPLACE(0x00433C10, &Obj::CStreamComponent::Construct);
-REPLACE(0x00433890, &Obj::CStreamComponent::DestroyBody);
-REPLACE(0x00433C40, &Obj::CStreamComponent::Destroy);
-REPLACE(0x00433900, &Obj::CStreamComponent::InitFromStructure);
-REPLACE(0x00433CD0, &Obj::CStreamComponent::GetStreamPosition);
-REPLACE(0x00433D30, &Obj::CStreamComponent::GetStreamExtent);
-REPLACE(0x00433970, &Obj::CStreamComponent::PlayStream);
-REPLACE(0x00433B30, &Obj::CStreamComponent::AddStream);
-REPLACE(0x00433BA0, &Obj::CStreamComponent::RemoveStream);
-REPLACE(0x00433C70, &Obj::CStreamComponent::Obj_PlayStream);
-REPLACE(0x00433C90, &Obj::CStreamComponent::Obj_AddStream);
-REPLACE(0x00433CB0, &Obj::CStreamComponent::Obj_RemoveStream);
-REPLACE(0x00433930, &Obj::CStreamComponent::Obj_StopStream);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00646594,
-    &Obj::CStreamComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    &Obj::CStreamComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CStreamComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         &Obj::CStreamComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

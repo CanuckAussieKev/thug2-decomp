@@ -12,8 +12,6 @@
 #include "game/skater/core_fields.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/trick_component.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/obj/trigger_events.h"
 
 namespace Skater {
@@ -350,5 +348,3 @@ void CorePhysicsComponent::DoWallRidePhysics()
 }
 
 } // namespace Skater
-
-REPLACE(0x0050F830, &Skater::CorePhysicsComponent::DoWallRidePhysics);

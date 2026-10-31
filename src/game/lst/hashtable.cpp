@@ -1,11 +1,11 @@
 #include "game/lst/hashtable.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <new>
 
 #include "game/core/mem.h"
 #include "game/core/pool.h"
-#include "hook/hook.h"
 
 namespace Lst {
 
@@ -161,12 +161,3 @@ struct HashTableAdapter {
 };
 
 } // namespace
-
-REPLACE(0x0049FD90, &HashTableAdapter::Construct);
-REPLACE(0x005B89D0, &HashTableAdapter::Destroy);
-REPLACE(0x00462050, static_cast<void* (Lst::HashTable::*)(const uint32_t&, bool) const>(&Lst::HashTable::GetItem));
-REPLACE(0x00462740, &Lst::HashTable::PutItem);
-REPLACE(0x005B80D0, &Lst::HashTable::FlushItem);
-REPLACE(0x0049FD30, &Lst::HashTable::FlushAllItems);
-REPLACE(0x005B8060, &Lst::HashTable::HandleCallback);
-REPLACE(0x00588190, &Lst::HashTable::IterateNext);

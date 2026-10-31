@@ -1,7 +1,5 @@
 #pragma once
 
-#include "hook/game_global.h"
-
 // The server's reporting to GameSpy's master server through the query & reporting SDK (qr2): its set-up and the
 // callbacks qr2 calls to answer queries (gamenet_qr2.cpp). The network manager is the singleton 0x007CCE14; qr2's
 // userdata is unused.
@@ -24,6 +22,6 @@ int __cdecl CountCallback(int type, void* userData);
 // stored secret key, once (0x007CCE1C); unless `keepMapName`, the level's name noted first (0x0067F0A0).
 void __cdecl StartQueryReporting(bool keepMapName);
 
-GAME_GLOBAL_EXTERN(int, g_lobbyGroupId);
+extern int g_lobbyGroupId;
 
 } // namespace GameNet

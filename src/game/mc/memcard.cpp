@@ -1,33 +1,31 @@
 #include "game/mc/memcard.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/mc/save_types.h"
 
 namespace Mc {
 
-GAME_VTABLE(kFileVtable, 0x00658A60, &Mc::ListDestructors::OtherDestroy);
+static VtableSlot kFileVtable_slots[] = {&Mc::ListDestructors::OtherDestroy};
+void** const kFileVtable = reinterpret_cast<void**>(kFileVtable_slots);
 
 static_assert(offsetof(File, m_name) == 0x14 && offsetof(File, m_second) == 0x3C && offsetof(File, m_year) == 0x42 &&
                   offsetof(File, m_size) == 0x44 && offsetof(File, m_handle) == 0x8C && sizeof(File) == 0x94,
               "layout must match the original");
 
-GAME_GLOBAL(Manager*, g_theCard, 0x007D1890);
+Manager* g_theCard;
 
 namespace {
 
-
-GAME_GLOBAL(char[128], g_pathBuffer, 0x007D1810);
-GAME_GLOBAL(int, g_memcardReferences, 0x007D1894);
-GAME_GLOBAL(char[320], g_filenameBuffer, 0x007D1898);
+char g_pathBuffer[128];
+int g_memcardReferences;
+char g_filenameBuffer[320];
 
 // The shared path buffers.
 char* PathBuffer() { return g_pathBuffer; }
@@ -237,19 +235,3 @@ void ReleaseManager()
 }
 
 } // namespace Mc
-
-REPLACE(0x005BC800, &Mc::File::Seek);
-REPLACE(0x005BC840, &Mc::File::Flush);
-REPLACE(0x005BC850, &Mc::File::Write);
-REPLACE(0x005BC880, &Mc::File::Read);
-REPLACE(0x005BC8B0, &Mc::File::Close);
-REPLACE(0x005BC9B0, &Mc::Card::Open);
-REPLACE(0x005BC770, &Mc::Card::RemoveFile);
-REPLACE(0x005BC740, &Mc::Card::ConvertFilename);
-REPLACE(0x005BC790, &Mc::Card::GetFreeBlocks);
-REPLACE(0x005BCAE0, &Mc::Card::GetFileList);
-REPLACE(0x005BC7F0, &Mc::Card::AlwaysTrue);
-REPLACE(0x005BC8D0, &Mc::Manager::Init);
-REPLACE(0x005BC730, &Mc::Manager::GetCard);
-REPLACE(0x005BC900, Mc::CreateManager);
-REPLACE(0x005BC950, Mc::ReleaseManager);

@@ -1,6 +1,7 @@
 // Cutscenes: the cutscene's objects, assets, lights, camera and poses (0x00463AA0-0x0046449B). See cutscene.h.
 
 #include <bit>
+#include <cstdint>
 #include <cstring>
 
 #include "game/ass/assman.h"
@@ -23,18 +24,15 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/obj/compositemgr.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/gfx/engine.h"
-#include "hook/game_code.h"
 #include "game/sys/startup_init.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint8_t[5], g_cutsceneCameraSlot, 0x006F0FD8);
-GAME_GLOBAL(float[512], g_cutsceneRotations, 0x006F1160);
-GAME_GLOBAL(float[512], g_cutsceneTranslations, 0x006F1960);
+uint8_t g_cutsceneCameraSlot[5];
+float g_cutsceneRotations[512];
+float g_cutsceneTranslations[512];
 
 namespace {
 
@@ -63,7 +61,7 @@ void* ModelOf(CBaseComponent* component)
 }
 uint32_t ModelGet(void* model)
 {
-    return reinterpret_cast<uint32_t(__thiscall*)(void*)>(GAME_CODE(0x00492E50, &Nx::CModel::GetBoneMatrices))(model);
+    return reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Nx::CModel::GetBoneMatrices))(model);
 }
 void ModelSet(void* model, uint32_t value)
 {
@@ -346,7 +344,7 @@ void CCutsceneData::UpdateObjectPoses()
         *reinterpret_cast<uint8_t**>(source + 0x20C) = data ? data + 0x408 : nullptr;
         *reinterpret_cast<uint32_t*>(source + 0x210) = *reinterpret_cast<uint32_t*>(skeleton + 0xC);
         const uint8_t* basePose = *reinterpret_cast<uint8_t**>(*reinterpret_cast<uint8_t**>(skeleton + 8) + 0x590);
-        uint32_t count = reinterpret_cast<uint32_t(__thiscall*)(void*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(skeleton);
+        uint32_t count = reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Gfx::CSkeleton::GetNumBones))(skeleton);
         std::memcpy(translations, basePose, count * 16);
         // (within the first twelfth of a second, without the source)
         if (m_time - static_cast<double>(m_unknown3480) < 0.083333336f)
@@ -361,21 +359,6 @@ void CCutsceneData::UpdateObjectPoses()
 }
 
 } // namespace Obj
-
-REPLACE(0x00463AA0, Obj::QuatToMatrix);
-REPLACE_SOURCE_ONLY(0x00464340, &Obj::IdentityQuat::Set); // (unreachable code)
-REPLACE(0x00463BA0, Obj::SkaterModelName);
-REPLACE(0x00463C70, &Obj::CCutsceneData::DestroyObjects);
-REPLACE(0x00463DA0, Obj::ReadColour);
-REPLACE(0x00463E80, Obj::AddCutsceneLights);
-REPLACE(0x00463ED0, Obj::RemoveCutsceneLights);
-REPLACE(0x00463F20, &Obj::CCutsceneData::LoadAsset);
-REPLACE(0x00463F70, &Obj::CCutsceneData::LoadAnimation);
-REPLACE(0x00464000, &Obj::CCutsceneData::CreateObject);
-REPLACE(0x004640D0, Obj::SetUpCutsceneHeaps);
-REPLACE(0x004641A0, &Obj::CCutsceneData::ShowHiddenObjects);
-REPLACE(0x00464220, &Obj::CCutsceneData::UpdateCamera);
-REPLACE(0x00464360, &Obj::CCutsceneData::UpdateObjectPoses);
 
 namespace Obj {
 

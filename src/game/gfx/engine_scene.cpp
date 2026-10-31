@@ -4,6 +4,7 @@
 
 #include "game/gfx/engine_scene.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <new>
@@ -18,9 +19,7 @@
 #include "game/nx/coll_grid.h"
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
 #include "game/nx/coll_capsule.h"
 #include "game/nx/coll_sphere.h"
@@ -373,40 +372,15 @@ struct SceneCollisionAdapters {
 } // namespace
 
 namespace Vt {
-GAME_VTABLE(kCollStatic, 0x00645C18, &SceneCollisionAdapters::CollStaticDelete, Stubs::ReturnTrue,
-            &Nx::CollFaceAccess::GetFaceFlags, &Nx::CollFaceAccess::GetFaceTerrain, &Nx::CCollObj::SetGeometry,
-            &Nx::CCollStatic::SetWorldPosition, Stubs::IgnoreArgument, &Nx::CCollStatic::GetWorldPosition,
-            &Nx::CCollStatic::GetOrientation, &Nx::CCollStatic::GetVertexPos, Stubs::ReturnZero,
-            Stubs::IgnoreArgument, &Nx::CCollStatic::Clone, &Nx::CCollStatic::WithinBBox,
-            &Nx::CCollStatic::CollideWithLine, &Nx::CCollStatic::CollideWithRect,
-            &Nx::CCollStatic::CollideWithSphere, &Nx::CCollStatic::CollideWithCapsule,
-            &Nx::CollGeometryForwarders::IsPointBehindFaces, &Nx::CollGeometryForwarders::DebugRender,
-            Stubs::ReturnZero, &Nx::CCollStatic::GetGeometryBBox, &Nx::CollGeometryForwarders::RotateY,
-            &Nx::CollGeometryForwarders::Scale);
+static VtableSlot kCollStatic_slots[] = {&SceneCollisionAdapters::CollStaticDelete, Stubs::ReturnTrue,
+                &Nx::CollFaceAccess::GetFaceFlags, &Nx::CollFaceAccess::GetFaceTerrain, &Nx::CCollObj::SetGeometry,
+                &Nx::CCollStatic::SetWorldPosition, Stubs::IgnoreArgument, &Nx::CCollStatic::GetWorldPosition,
+                &Nx::CCollStatic::GetOrientation, &Nx::CCollStatic::GetVertexPos, Stubs::ReturnZero,
+                Stubs::IgnoreArgument, &Nx::CCollStatic::Clone, &Nx::CCollStatic::WithinBBox,
+                &Nx::CCollStatic::CollideWithLine, &Nx::CCollStatic::CollideWithRect,
+                &Nx::CCollStatic::CollideWithSphere, &Nx::CCollStatic::CollideWithCapsule,
+                &Nx::CollGeometryForwarders::IsPointBehindFaces, &Nx::CollGeometryForwarders::DebugRender,
+                Stubs::ReturnZero, &Nx::CCollStatic::GetGeometryBBox, &Nx::CollGeometryForwarders::RotateY,
+                &Nx::CollGeometryForwarders::Scale};
+void** const kCollStatic = reinterpret_cast<void**>(kCollStatic_slots);
 } // namespace Vt
-
-REPLACE(0x0049C910, &Nx::CScene::FinishLoad);
-REPLACE(0x0049C940, &Nx::CScene::FinishAdd);
-REPLACE(0x0049C980, &SceneCollisionAdapters::GridDestroyBody);
-REPLACE(0x0049C9A0, &Nx::CScene::PrintCollStatics);
-REPLACE(0x0049C9F0, &Nx::CScene::GetCollStatic);
-REPLACE(0x0049CA10, &Nx::CScene::CreateSector);
-REPLACE(0x0049CA20, Nx::MakeCollisionFileName);
-REPLACE(0x0049CA50, &Nx::CScene::PostLoad);
-REPLACE(0x0049CA60, &Nx::CScene::SetRendered);
-REPLACE(0x0049CA70, &Nx::CScene::PostAdd);
-REPLACE(0x0049CA80, &Nx::CScene::LoadTextures);
-REPLACE(0x0049CAA0, &Nx::CScene::LoadCollision);
-REPLACE(0x0049CAC0, &Nx::CScene::AddCollision);
-REPLACE(0x0049CAE0, &Nx::CScene::UnloadAddScene);
-REPLACE(0x0049CAF0, &Nx::CScene::PlatCreateSector);
-REPLACE(0x0049CB00, &Nx::CScene::GetSector);
-REPLACE(0x0049CB40, &Nx::CScene::DeleteSector);
-REPLACE(0x0049CBB0, &Nx::CScene::LoadCollisionData);
-REPLACE(0x0049CE00, &SceneCollisionAdapters::CollStaticDelete);
-REPLACE(0x0049CE60, &Nx::CScene::InitCollisionGrid);
-REPLACE(0x0049CF60, &Nx::CScene::GetDefaultColour);
-REPLACE(0x0049CF80, &Nx::CScene::DeleteSectorNamed);
-REPLACE(0x0049CFB0, &Nx::CScene::UnloadCollision);
-REPLACE(0x0049D030, &Nx::CScene::DeleteMarkedSectors);
-REPLACE(0x0049D0B0, &Nx::CScene::SetSectorsInBox);

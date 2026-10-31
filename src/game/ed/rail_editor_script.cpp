@@ -14,8 +14,6 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/core/stubs.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
@@ -390,11 +388,3 @@ int CRailEditorComponent::CallMemberFunction(uint32_t name, Script::CStruct* par
 }
 
 } // namespace Ed
-
-REPLACE(0x004F4810, &Ed::CRailEditorComponent::Update);
-REPLACE(0x004F6F90, &Ed::CRailEditorComponent::Hide);
-REPLACE(0x004F6C10, &Ed::CRailEditorComponent::GetDebugInfo);
-REPLACE(0x004F6680, &Ed::CRailEditorComponent::WriteToStructure);
-REPLACE(0x004F7ED0, &Ed::CRailEditorComponent::ReadFromStructure);
-REPLACE(0x004F6920, &Ed::CRailEditorComponent::WriteNodes);
-REPLACE(0x004F75F0, &Ed::CRailEditorComponent::CallMemberFunction);

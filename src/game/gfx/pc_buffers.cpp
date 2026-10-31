@@ -6,26 +6,24 @@
 
 #include <d3d9.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
 #include "game/gfx/mesh.h"
 #include "game/gfx/pc_scene.h"
 #include "game/gfx/render_state.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
 
 namespace Nx {
 
-GAME_GLOBAL(uint8_t, g_skinScalingOn, 0x007865CC);
-GAME_GLOBAL(void*, g_vertexBufferList, 0x007865E4); // the first node of each list (sBufferNode)
-GAME_GLOBAL(void*, g_indexBufferList, 0x007865E8);
-GAME_GLOBAL(uint32_t[5], g_skinSettings, 0x007865D0);
-GAME_GLOBAL(uint8_t[64], g_savedPixelShaderConstants, 0x007865F0); // (4 passes of 16 bytes: the adapter identifier follows)
+uint8_t g_skinScalingOn;
+void* g_vertexBufferList; // the first node of each list (sBufferNode)
+void* g_indexBufferList;
+uint32_t g_skinSettings[5];
+uint8_t g_savedPixelShaderConstants[64]; // (4 passes of 16 bytes: the adapter identifier follows)
 
 namespace {
 
@@ -281,20 +279,3 @@ void* __stdcall PixelShaderFromIndex(uint32_t index)
 }
 
 } // namespace Nx
-
-REPLACE(0x004D3FF0, &Nx::sVertexBuffer::Construct);
-REPLACE(0x004D3BE0, &Nx::sVertexBuffer::Unlist);
-REPLACE(0x004D4090, &Nx::sVertexBuffer::Lock);
-REPLACE(0x004D40E0, &Nx::sVertexBuffer::Unlock);
-REPLACE(0x004D41E0, &Nx::sVertexBuffer::Recreate);
-REPLACE(0x004D4270, &Nx::sIndexBuffer::Construct);
-REPLACE(0x004D3C40, &Nx::sIndexBuffer::Unlist);
-REPLACE(0x004D42F0, &Nx::sIndexBuffer::Lock);
-REPLACE(0x004D4300, &Nx::sIndexBuffer::Unlock);
-REPLACE(0x004D3FC0, &Nx::sMesh::GetVertexBuffer);
-REPLACE(0x004D3FD0, &Nx::sMesh::SetVertexBuffer);
-REPLACE(0x004D3E50, &Nx::sMesh::MoveIntoArena);
-REPLACE(0x004D3D10, &Nx::sMesh::SetPixelShaderColored);
-REPLACE(0x004D3CA0, Nx::SetSkinScaling);
-REPLACE(0x004D3CE0, Nx::ClearSkinScaling);
-REPLACE(0x004D3ED0, Nx::PixelShaderFromIndex);

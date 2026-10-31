@@ -2,8 +2,10 @@
 
 #include "game/script/node_prefixes.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <new>
 
 #include "game/core/crc.h"
 #include "game/core/manager.h"
@@ -13,17 +15,14 @@
 #include "game/script/nodes.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace SkateScript {
 
 using Script::CArray;
 using Script::CStruct;
 
-GAME_GLOBAL(uint32_t[1000], g_nodeNames, 0x006EFDE0);
-GAME_GLOBAL(PrefixTables*, g_nodePrefixes, 0x006F0D80);
+uint32_t g_nodeNames[1000];
+PrefixTables* g_nodePrefixes;
 
 namespace {
 
@@ -251,16 +250,3 @@ uint32_t* GetPrefixedNodes(const char* prefix, uint16_t* count)
 }
 
 } // namespace SkateScript
-
-REPLACE(0x0045BDA0, &SkateScript::PrefixNodes::Add);
-REPLACE(0x0045C5D0, &SkateScript::PrefixTable::Construct);
-REPLACE(0x0045CD30, &SkateScript::PrefixTable::Destruct);
-REPLACE(0x0045C650, &SkateScript::PrefixTable::Add);
-REPLACE(0x0045C240, &SkateScript::PrefixTable::Compact);
-REPLACE(0x0045C700, &SkateScript::PrefixTables::AddNodeArray);
-REPLACE(0x0045CDF0, &SkateScript::PrefixTables::RemoveNodeArray);
-REPLACE(0x0045BE90, &SkateScript::PrefixTables::GetNodes);
-REPLACE(0x0045C900, SkateScript::AddNodeArrayPrefixes);
-REPLACE(0x0045CE40, SkateScript::RemoveNodeArrayPrefixes);
-REPLACE(0x0045BF90, static_cast<uint32_t* (*)(uint32_t, uint16_t*)>(SkateScript::GetPrefixedNodes));
-REPLACE(0x0045BFB0, static_cast<uint32_t* (*)(const char*, uint16_t*)>(SkateScript::GetPrefixedNodes));

@@ -17,21 +17,18 @@
 #include "game/sfx/sfx.h"
 #include "game/gfx/viewport.h"
 #include "game/sys/game_config.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/obj/anim_movies.h"
 
 namespace Pcm {
 
-GAME_GLOBAL(int, g_frameCount, 0x0067D7F0, 1);
-GAME_GLOBAL(int, g_currentTrackIndex, 0x0069BA98);
-GAME_GLOBAL(int, g_currentPlaylist, 0x0069BA9C);
-GAME_GLOBAL(bool, g_initialised, 0x0069BAA1);
-GAME_GLOBAL(bool, g_usingUserSoundtrack, 0x0069BAB0);
-GAME_GLOBAL(int, g_userSoundtrack, 0x0069BAB4);
-GAME_GLOBAL(uint32_t, g_userTrack, 0x0069BAB8);
-GAME_GLOBAL(uint32_t, g_userPosition, 0x0069BAC0);
+int g_frameCount{1};
+int g_currentTrackIndex;
+int g_currentPlaylist;
+bool g_initialised;
+bool g_usingUserSoundtrack;
+int g_userSoundtrack;
+uint32_t g_userTrack;
+uint32_t g_userPosition;
 
 namespace {
 
@@ -432,26 +429,3 @@ bool FamData::Load(uint32_t famName)
 }
 
 } // namespace Pcm
-
-REPLACE(0x004505F0, Pcm::NoMusicPlease);
-REPLACE(0x00450620, Pcm::StreamsDisabled);
-REPLACE(0x00450500, static_cast<bool(__cdecl*)(uint32_t)>(Pcm::StreamExists));
-REPLACE(0x00450520, Pcm::GetCurrentTrack);
-REPLACE(0x00450530, Pcm::SetCurrentTrack);
-REPLACE(0x00450650, Pcm::StopMusic);
-REPLACE(0x00450820, Pcm::PlayTrackByName);
-REPLACE(0x00450EF0, Pcm::PlayMusicStream);
-REPLACE(0x004509E0, Pcm::PreLoadMusicStream);
-REPLACE(0x00450A50, Pcm::PreLoadMusicStreamDone);
-REPLACE(0x00450A80, Pcm::StartPreLoadedMusicStream);
-REPLACE(0x00450690, static_cast<void(__cdecl*)(int)>(Pcm::StopStreams));
-REPLACE(0x004506D0, static_cast<void(__cdecl*)(uint32_t)>(Pcm::StopStream));
-REPLACE(0x00450780, static_cast<bool(__cdecl*)(uint32_t, void*)>(Pcm::SetStreamVolume));
-REPLACE(0x004507D0, Pcm::SetStreamPitch);
-REPLACE(0x00450940, Pcm::PreLoadStreamDone);
-REPLACE(0x00450980, Pcm::StartPreLoadedStream);
-REPLACE(0x00450AE0, Pcm::RemoveStream);
-REPLACE(0x00450BE0, Pcm::UpdateStreamVolume);
-REPLACE(0x00450D60, Pcm::Init);
-REPLACE(0x00450EB0, Pcm::UsingCD);
-REPLACE(0x00450540, &Pcm::FamData::Load);

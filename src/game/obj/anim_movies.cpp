@@ -21,11 +21,8 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/obj/compositemgr.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/front/front_end.h"
-#include "hook/game_code.h"
 #include "game/gfx/viewport.h"
 #include "game/gfx/viewport.h"
 #include "game/core/stubs.h"
@@ -33,9 +30,9 @@
 
 namespace Obj {
 
-GAME_GLOBAL(float, g_animMoviesOne, 0x006453A8, 1.0f);
-GAME_GLOBAL(float, g_animMoviesSecondsPerFrame, 0x006463B8, 0.016666668f);
-GAME_GLOBAL(float, g_floatZero, 0x0066D520);
+float g_animMoviesOne{1.0f};
+float g_animMoviesSecondsPerFrame{0.016666668f};
+float g_floatZero;
 
 namespace {
 
@@ -317,7 +314,7 @@ bool CCameraAnimMovie::CallMemberFunction(uint32_t name, Script::CStruct* params
     }
     // (the base class's CallMemberFunction: a stub shared by many vtables, 0x004A0CF0 - "not handled")
     return reinterpret_cast<bool(__thiscall*)(void*, uint32_t, Script::CStruct*, Script::CScript*)>(
-        GAME_CODE(0x004A0CF0, &Nx::CViewport::QueryPoint))(this, name, params, script);
+        CodeAddress(&Nx::CViewport::QueryPoint))(this, name, params, script);
 }
 
 // 0x00588090
@@ -461,7 +458,7 @@ void CObjectAnimMovie::Update()
         uint32_t name = static_cast<Gfx::CBonedAnimFrameData*>(m_anim)->GetBoneName(i);
         uint8_t* object = reinterpret_cast<uint8_t*>(Obj::FindObject(name));
         if (!object) {
-            Dbg::Printf(GAME_TEXT(0x0064F058, "object animation:  couldn't find object %s\n"), Script::FindChecksumNameOrUnknown(name));
+            Dbg::Printf("object animation:  couldn't find object %s\n", Script::FindChecksumNameOrUnknown(name));
             continue;
         }
         float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -471,7 +468,7 @@ void CObjectAnimMovie::Update()
         std::memcpy(object + 0xC0, matrix, sizeof(matrix)); // and its display matrix
         std::memcpy(object + 0x4C, positions + 4 * i, 16);  // its position
         if (Script::GetInteger(0x2F510F45)) {
-            Dbg::Printf(GAME_TEXT(0x0064F084, "Object %s @ time %f:  "), Script::FindChecksumNameOrUnknown(name),
+            Dbg::Printf("Object %s @ time %f:  ", Script::FindChecksumNameOrUnknown(name),
                         static_cast<double>(m_timeline.m_current));
             reinterpret_cast<const Mth::Vector*>(object + 0x4C)->Print(); // (printed)
             reinterpret_cast<const Mth::Matrix*>(object + 0x6C)->Print();
@@ -488,62 +485,39 @@ void CObjectAnimMovie::Update()
 
 } // namespace Obj
 
-REPLACE(0x005871B0, &Obj::CObjectAnimMovie::Construct);
-REPLACE(0x00587210, &Obj::CObjectAnimMovie::DestroyBody);
-REPLACE(0x00587270, &Obj::CObjectAnimMovie::Start);
-REPLACE(0x00587280, &Obj::CObjectAnimMovie::IsDone);
-REPLACE(0x005872A0, &Obj::CObjectAnimMovie::IsHeldAndComplete);
-REPLACE(0x005872C0, &Obj::CCameraAnimMovie::DestroyBody);
-REPLACE(0x00587320, &Obj::CCameraAnimMovie::Start);
-REPLACE(0x00587330, &Obj::CCameraAnimMovie::IsDone);
-REPLACE(0x00587350, &Obj::CCameraAnimMovie::IsHeldAndComplete);
-REPLACE(0x00587370, &Obj::CObjectAnimMovie::Destroy);
-REPLACE(0x005873A0, &Obj::CObjectAnimMovie::Play);
-REPLACE(0x005873F0, &Obj::CCameraAnimMovie::Construct);
-REPLACE(0x00587450, &Obj::CCameraAnimMovie::Destroy);
-REPLACE(0x00587480, &Obj::CCameraAnimMovie::LoadTarget);
-REPLACE(0x00587540, &Obj::CCameraAnimMovie::Play);
-REPLACE(0x00587590, &Obj::CCameraAnimMovie::CallMemberFunction);
-REPLACE(0x005875D0, &Obj::CObjectAnimMovie::Load);
-REPLACE(0x00587F70, &Obj::CCameraAnimMovie::Load);
-REPLACE(0x00588090, &Obj::CCameraAnimMovie::Update);
-REPLACE(0x005876A0, &Obj::CObjectAnimMovie::Update);
-REPLACE(0x00587A50, &Obj::CCameraAnimMovie::PlaceCamera);
-REPLACE(0x00587F60, &Obj::CObjectAnimMovie::Update); // (a jump to 0x005876A0)
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kObjectAnimMovieVtable, 0x0064EFE8,
-    &Obj::CObjectAnimMovie::Destroy,
-    &Obj::CObjectAnimMovie::Load,
-    &Obj::CObjectAnimMovie::Update,
-    &Obj::CObjectAnimMovie::Start,
-    &Nx::CViewport::QueryPoint,
-    &Obj::CObjectAnimMovie::IsDone,
-    &Obj::CObjectAnimMovie::IsHeldAndComplete,
-    Stubs::ReturnFalse,
-    Stubs::DoNothing,
-    Stubs::ReturnTrue,
-    Stubs::ReturnFalse,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing);
-GAME_VTABLE(kCameraAnimMovieVtable, 0x0064F020,
-    &Obj::CCameraAnimMovie::Destroy,
-    &Obj::CCameraAnimMovie::Load,
-    &Obj::CCameraAnimMovie::Update,
-    &Obj::CCameraAnimMovie::Start,
-    &Obj::CCameraAnimMovie::CallMemberFunction,
-    &Obj::CCameraAnimMovie::IsDone,
-    &Obj::CCameraAnimMovie::IsHeldAndComplete,
-    Stubs::ReturnTrue,
-    Stubs::DoNothing,
-    Stubs::ReturnTrue,
-    Stubs::ReturnTrue,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing);
+static VtableSlot kObjectAnimMovieVtable_slots[] = {&Obj::CObjectAnimMovie::Destroy,
+         &Obj::CObjectAnimMovie::Load,
+         &Obj::CObjectAnimMovie::Update,
+         &Obj::CObjectAnimMovie::Start,
+         &Nx::CViewport::QueryPoint,
+         &Obj::CObjectAnimMovie::IsDone,
+         &Obj::CObjectAnimMovie::IsHeldAndComplete,
+         Stubs::ReturnFalse,
+         Stubs::DoNothing,
+         Stubs::ReturnTrue,
+         Stubs::ReturnFalse,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing};
+void** const kObjectAnimMovieVtable = reinterpret_cast<void**>(kObjectAnimMovieVtable_slots);
+static VtableSlot kCameraAnimMovieVtable_slots[] = {&Obj::CCameraAnimMovie::Destroy,
+         &Obj::CCameraAnimMovie::Load,
+         &Obj::CCameraAnimMovie::Update,
+         &Obj::CCameraAnimMovie::Start,
+         &Obj::CCameraAnimMovie::CallMemberFunction,
+         &Obj::CCameraAnimMovie::IsDone,
+         &Obj::CCameraAnimMovie::IsHeldAndComplete,
+         Stubs::ReturnTrue,
+         Stubs::DoNothing,
+         Stubs::ReturnTrue,
+         Stubs::ReturnTrue,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing};
+void** const kCameraAnimMovieVtable = reinterpret_cast<void**>(kCameraAnimMovieVtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -28,11 +28,8 @@
 #include "game/script/struct.h"
 #include "game/sys/mlp.h"
 #include "game/skater/skater_camera_component.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/ass/assman.h"
-#include "hook/game_code.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -281,8 +278,8 @@ uint8_t* Manager::NewPlayer(Obj::CObject* skater, Net::Conn* conn, uint32_t flag
     return player;
 }
 
-GAME_GLOBAL(bool, g_netEnabled, 0x007CCA82);
-GAME_GLOBAL(bool, g_openWaiting, 0x007CCE1D);
+bool g_netEnabled;
+bool g_openWaiting;
 
 // 0x0053C950
 void Manager::DestroyPlayer(uint8_t* player)
@@ -311,7 +308,7 @@ void Manager::DropPlayer(uint8_t* player, int reason)
 {
     char name[kNameSize];
     std::strcpy(name, PlayerName(player));
-    if (!IsObserver(player) && Call<bool>(GAME_CODE(0x00553220, &Game::CGameMode::IsTrue), GameMode(), kShouldModulateColor))
+    if (!IsObserver(player) && Call<bool>(CodeAddress(&Game::CGameMode::IsTrue), GameMode(), kShouldModulateColor))
         Obj::g_trickObjectManager->ReleasePlayerClusters(static_cast<int>(SkaterId(PlayerSkater(player)))); // its colours off the trick objects
     if (!OnServer()) {
         DestroyPlayer(player);
@@ -445,7 +442,7 @@ void Manager::DestroyAllPlayers()
         uint8_t* next = NextPlayer(this, &search, true);
         Obj::CObject* skater = PlayerSkater(player);
         if (skater && (static_cast<Obj::CSkater*>(skater)->GetSkaterNumber() != 0 || !IsLocalPlayer(player))) // (not the first local skater)
-            Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), skate, skater);
+            Call(CodeAddress(&Mdl::Skate::RemoveSkater), skate, skater);
         DestroyPlayer(player);
         player = next;
     }
@@ -469,7 +466,7 @@ void Manager::DropPlayersNotReady()
         if (!(Field<uint32_t>(player, 0x1D0) & kPlayerFcfsCandidate)) {
             Obj::CObject* skater = PlayerSkater(player);
             DropPlayer(player, kDropLeftOut);
-            Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), skate, skater);
+            Call(CodeAddress(&Mdl::Skate::RemoveSkater), skate, skater);
         }
         player = next;
     }
@@ -537,7 +534,7 @@ void Manager::EnterObserveMode()
         AsPlayer(local)->ClearFlags();
     }
     Field<uint32_t>(local, 0x1D0) |= 4; // an observer
-    Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), skate, PlayerSkater(local));
+    Call(CodeAddress(&Mdl::Skate::RemoveSkater), skate, PlayerSkater(local));
     Field<Obj::CObject*>(local, 0x14) = nullptr;
     Mem::Manager* memory = Mem::Manager::Get();
     memory->PushContext(memory->m_skaterHeaps[0]);
@@ -565,20 +562,3 @@ void Manager::SetHostMode(int mode)
 }
 
 } // namespace GameNet
-
-REPLACE(0x0053A910, &GameNet::Manager::ObservePlayer);
-REPLACE(0x0053AA70, &GameNet::Manager::SendObserveRequest);
-REPLACE(0x0053AAC0, &GameNet::Manager::AssignFirstComeFirstServed);
-REPLACE(0x0053AC40, &GameNet::Manager::NextPlayerObjectId);
-REPLACE(0x0053AE10, &GameNet::Manager::PlayerByConnection);
-REPLACE(0x0053AEA0, &GameNet::Manager::PlayerByObjectId);
-REPLACE(0x0053C320, &GameNet::Manager::SetHostMode);
-REPLACE(0x0053C770, &GameNet::Manager::NewPlayer);
-REPLACE(0x0053C950, &GameNet::Manager::DestroyPlayer);
-REPLACE(0x0053CB70, &GameNet::Manager::DropPlayer);
-REPLACE(0x0053D120, &GameNet::Manager::ReAddPendingPlayers);
-REPLACE(0x0053D900, &GameNet::Manager::DestroyAllPlayers);
-REPLACE(0x0053E910, &GameNet::Manager::RemovePlayers);
-REPLACE(0x0053E920, &GameNet::Manager::DropPlayersNotReady);
-REPLACE(0x0053EE70, &GameNet::Manager::RemovePlayersAndApps);
-REPLACE(0x0053E650, &GameNet::Manager::EnterObserveMode);

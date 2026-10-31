@@ -1,6 +1,8 @@
 // The proximity component (Obj::CProximityComponent, proximity_component.h): a leftover only its member function
 // table reaches.
 
+#include <cstdint>
+
 #include "game/obj/proximity_component.h"
 
 #include "game/mth/geometry.h"
@@ -9,18 +11,15 @@
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/crc.h"
 #include "game/script/names.h"
-#include "hook/game_code.h"
 #include "game/sys/startup_init.h"
 
 namespace Obj {
 
-GAME_GLOBAL(CCompositeObject*, g_proximitySkater, 0x0069399C);
-GAME_GLOBAL(float, g_proximitySkaterRadius, 0x006939A8);
+CCompositeObject* g_proximitySkater;
+float g_proximitySkaterRadius;
 
 namespace {
 
@@ -131,20 +130,12 @@ bool CProximityComponent::Proximity_EnterProximityNotHandled(Script::CStruct*, S
 
 using Obj::CProximityComponent;
 
-REPLACE(0x0042B620, &CProximityComponent::RunScript);
-REPLACE(0x0042B700, &CProximityComponent::Update);
-REPLACE(0x0042B850, &CProximityComponent::Proximity_Init);
-REPLACE(0x0042B590, &CProximityComponent::Proximity_SetActive);
-REPLACE(0x0042B570, &CProximityComponent::Proximity_EnterProximityNotHandled);
-// (the smart pointer's default constructor sits between them: the linker kept one copy for every type)
-REPLACE(0x0042B580, &Obj::CSmtPtr<Obj::CRefCounted>::Construct);
-
 namespace Obj {
 
 namespace {
 
 // The proximity component's script member functions (three records and the terminator; no table registers them).
-GAME_GLOBAL(uint32_t[24], g_proximityMemberFunctions, 0x007CEBF8);
+uint32_t g_proximityMemberFunctions[24];
 
 } // namespace
 
@@ -154,16 +145,16 @@ void FillProximityMemberFunctions()
 {
     constexpr uint32_t kProximityType = 0xE54DB2EE;
     uint32_t* records = g_proximityMemberFunctions;
-    records[0] = Crc::GenerateCRCFromString(GAME_TEXT(0x0065766C, "Proximity_Init"));
-    records[6] = Crc::GenerateCRCFromString(GAME_TEXT(0x00657658, "Proximity_SetActive"));
-    records[12] = Crc::GenerateCRCFromString(GAME_TEXT(0x00657634, "Proximity_EnterProximityNotHandled"));
+    records[0] = Crc::GenerateCRCFromString("Proximity_Init");
+    records[6] = Crc::GenerateCRCFromString("Proximity_SetActive");
+    records[12] = Crc::GenerateCRCFromString("Proximity_EnterProximityNotHandled");
     records[18] = 0;
     for (int i = 0; i < 4; ++i)
         records[6 * i + 1] = kProximityType;
     void* const code[] = {
-        GAME_CODE(0x0042B850, &Obj::CProximityComponent::Proximity_Init),
-        GAME_CODE(0x0042B590, &Obj::CProximityComponent::Proximity_SetActive),
-        GAME_CODE(0x0042B570, &Obj::CProximityComponent::Proximity_EnterProximityNotHandled),
+        CodeAddress(&Obj::CProximityComponent::Proximity_Init),
+        CodeAddress(&Obj::CProximityComponent::Proximity_SetActive),
+        CodeAddress(&Obj::CProximityComponent::Proximity_EnterProximityNotHandled),
     };
     Script::FillMemberFunctionCode(records, code, 3);
 }

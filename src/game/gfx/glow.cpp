@@ -9,14 +9,13 @@
 
 #include <cmath>
 #include <cstdint>
+#include <initializer_list>
+#include <new>
 
 #include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/lst/hashtable.h"
 #include "game/sys/platform_d3d.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
 #include "game/sys/startup_init.h"
 
@@ -25,10 +24,10 @@ namespace Nx {
 namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
-GAME_GLOBAL(Lst::HashTable, g_glowTable, 0x007CA9D8, Lst::HashTable::Unconstructed{}); // (the exe makes it with HashTable(8) at start-up)
+Lst::HashTable g_glowTable{Lst::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(8) at start-up)
 Lst::HashTable& Glows() { return g_glowTable; }
-GAME_GLOBAL(uint8_t[0x400], g_glowQueriesInUse, 0x007BA520); // (a byte per query: DrawGlows looks through 0x400)
-GAME_GLOBAL(float[16], g_glowQuad, 0x007CA9F0);
+uint8_t g_glowQueriesInUse[0x400]; // (a byte per query: DrawGlows looks through 0x400)
+float g_glowQuad[16];
 
 // The occlusion queries in use (a byte each).
 uint8_t* QueriesInUse() { return g_glowQueriesInUse; }
@@ -165,8 +164,6 @@ void __cdecl UpdateGlows(bool queries)
 }
 
 } // namespace Nx
-
-REPLACE(0x004DCC70, Nx::UpdateGlows);
 
 namespace Nx {
 

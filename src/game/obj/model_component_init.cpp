@@ -23,13 +23,11 @@
 #include "game/script/struct.h"
 #include "game/core/crc.h"
 #include "game/core/str.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -407,39 +405,25 @@ void CModelComponent::InitModel(Script::CStruct* params)
 
 } // namespace Obj
 
-REPLACE(0x00421490, Obj::CModelComponent::Create);
-REPLACE(0x00420BF0, &Obj::CModelComponent::Construct);
-REPLACE(0x00420000, &Obj::CModelComponent::DestroyBody);
-REPLACE(0x00420270, &Obj::CModelComponent::Destroy);
-REPLACE(0x004204B0, &Obj::CModelComponent::Finalize);
-REPLACE(0x004214F0, &Obj::CModelComponent::InitFromStructure);
-REPLACE(0x004219F0, &Obj::CModelComponent::Update);
-REPLACE(0x00420480, &Obj::CModelComponent::Teleport);
-REPLACE(0x00421360, &Obj::CModelComponent::SetModel);
-REPLACE(0x00421230, &Obj::CModelComponent::InitModelFromProfile);
-REPLACE(0x0041FFA0, &Obj::CModelComponent::InitFromSector);
-REPLACE(0x00420350, &Obj::CModelComponent::InitBoneVolumes);
-REPLACE(0x00420D10, &Obj::CModelComponent::InitModel);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00646128,
-    &Obj::CModelComponent::Destroy,
-    &Obj::CModelComponent::Update,
-    &Obj::CModelComponent::InitFromStructure,
-    &Obj::CModelComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    &Obj::CModelComponent::Hide,
-    &Obj::CModelComponent::Teleport,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CModelComponent::CallMemberFunction,
-    &Obj::CModelComponent::InitModelFromProfile,
-    &Obj::CModelComponent::SetModel);
+static VtableSlot kVtable_slots[] = {&Obj::CModelComponent::Destroy,
+         &Obj::CModelComponent::Update,
+         &Obj::CModelComponent::InitFromStructure,
+         &Obj::CModelComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         &Obj::CModelComponent::Hide,
+         &Obj::CModelComponent::Teleport,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CModelComponent::CallMemberFunction,
+         &Obj::CModelComponent::InitModelFromProfile,
+         &Obj::CModelComponent::SetModel};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

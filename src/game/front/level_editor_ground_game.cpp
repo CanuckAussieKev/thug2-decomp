@@ -6,13 +6,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <map>
 #include <memory>
 #include <set>
 #include <sstream>
+#include <type_traits>
 #include <unordered_map>
+#include <vector>
 
 #include "game/core/crc.h"
 #include "game/core/mem.h"
@@ -27,7 +31,6 @@
 #include "game/gfx/sector.h"
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 #include "game/sys/crt.h"

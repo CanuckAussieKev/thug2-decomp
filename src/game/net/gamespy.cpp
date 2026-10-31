@@ -22,7 +22,6 @@ void FixNick(char* newNick, const char* oldNick)
 
 } // namespace GameSpy
 
-#ifdef THUG2_STANDALONE
 
 #pragma warning(push)
 #pragma warning(disable : 4005) // (gsPlatform.h defines WIN32_LEAN_AND_MEAN again)
@@ -453,4 +452,3 @@ void SetPlayerStringBucket(void* game, const char* key, const char* value, int p
 
 } // namespace GameSpy
 
-#endif // THUG2_STANDALONE
