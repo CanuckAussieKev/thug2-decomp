@@ -6,9 +6,24 @@ namespace objects {
 
 template <typename T>
 class SharedRef;
+class SharedBase;
 
-// The base of objects that smart pointers point at: after the vtable, the list of the smart pointers to it
-// (so they can be cleared when it dies instead of dangling).
+// The list of the smart pointers to an object (one word), so they can be cleared when it dies instead of dangling.
+// SharedBase's second word; the flexible particle systems (render::EmitterInstance, polymorphic already) keep one
+// at the same place, after their vptr, so a SharedRef reaches it the same way.
+class SharedRefList {
+public:
+    // 0x004637C0: onto the front of the list (the pointer's own `prev` isn't touched).
+    void attach(SharedRef<SharedBase>* pointer);
+    // 0x004637E0: out of the list; its links are cleared.
+    void detach(SharedRef<SharedBase>* pointer);
+    // 0x00463820: every smart pointer cleared (each is taken out of the list and nulled).
+    void clear();
+
+    SharedRef<SharedBase>* head_ = nullptr;
+};
+
+// The base of objects that smart pointers point at: after the vtable, the list of the smart pointers to it.
 class SharedBase {
 public:
     // 0x004637B0: the constructor (vtable 0x006478E4, no smart pointers; returns this).
@@ -17,16 +32,13 @@ public:
     // deleting destructor (vtable slot 0; returns this).
     void destruct();
     SharedBase* scalar_delete(uint8_t flags);
-    // 0x00463820: clear every smart pointer to it (each is taken out of its object's list and nulled).
-    void clear_smart_pointers();
-
-    // 0x004637C0: onto the front of the list (the pointer's own `prev` isn't touched).
-    void attach_shared_ref(SharedRef<SharedBase>* pointer);
-    // 0x004637E0: out of the list; its links are cleared.
-    void detach_shared_ref(SharedRef<SharedBase>* pointer);
+    // Clear every smart pointer to it / attach / detach one (SharedRefList's).
+    void clear_smart_pointers() { smart_pointers_.clear(); }
+    void attach_shared_ref(SharedRef<SharedBase>* pointer) { smart_pointers_.attach(pointer); }
+    void detach_shared_ref(SharedRef<SharedBase>* pointer) { smart_pointers_.detach(pointer); }
 
     void** vtable_;
-    SharedRef<SharedBase>* smart_pointers_;
+    SharedRefList smart_pointers_;
 };
 
 // A pointer the object knows about (12 bytes).

@@ -54,20 +54,6 @@ int sphere_hidden(const maths::Vec4* centre, float radius)
     return engine::sphere_visible_in_one_viewport(centre, radius);
 }
 
-// The system's virtual functions.
-void delete_system(EmitterInstance* system)
-{
-    reinterpret_cast<void(__thiscall*)(EmitterInstance*, unsigned int)>(system->vtable_[0])(system, 1);
-}
-int num_vertex_lists(EmitterInstance* system)
-{
-    return reinterpret_cast<int(__thiscall*)(EmitterInstance*)>(system->vtable_[2])(system);
-}
-int num_colours(EmitterInstance* system)
-{
-    return reinterpret_cast<int(__thiscall*)(EmitterInstance*)>(system->vtable_[3])(system);
-}
-
 float* position_of(EmitterInstance* system, int particle, int step)
 {
     return system->position_array_ + 3 * (system->max_particles_ * step + particle);
@@ -167,10 +153,10 @@ void EmitterInstance::get_emit(int count)
 {
     if (fading_out_)
         return;
-    int first = unknown8c_;
+    int first = particle_count_;
     int total = count + first;
-    unknown8c_ = total > max_particles_ ? max_particles_ : total;
-    int last = unknown8c_;
+    particle_count_ = total > max_particles_ ? max_particles_ : total;
+    int last = particle_count_;
     maths::Mat4 m;
     get_emit_matrix(&m);
     for (int i = first; i < last; ++i) {
@@ -179,7 +165,7 @@ void EmitterInstance::get_emit(int count)
             set_sizes(this, p);
             p.age = 0.0f;
             p.lifetime = static_cast<float>(random_between(age_left_[0], age_left_[1]));
-            for (int step = 0; step < num_vertex_lists(this); ++step) {
+            for (int step = 0; step < get_num_vertex_lists(); ++step) {
                 float* pos = position_of(this, i, step);
                 pos[0] = 0.0f;
                 pos[1] = 0.0f;
@@ -256,7 +242,7 @@ void EmitterInstance::get_emit(int count)
         p.lifetime = static_cast<float>(random_between(age_left_[0], age_left_[1]));
         for (int k = 0; k < 3; ++k)
             p.velocity[k] = velocity[k];
-        for (int step = 0; step < num_vertex_lists(this); ++step) {
+        for (int step = 0; step < get_num_vertex_lists(); ++step) {
             float* pos = position_of(this, i, step);
             if (emitter_independent_) {
                 float world_z = static_cast<float>(static_cast<double>(pos_z) + at_point_.z);
@@ -325,11 +311,11 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
             first = last = value;
         } else {
             first = 0;
-            last = num_colours(this) - 1;
+            last = get_num_colours() - 1;
         }
-        if (first < num_colours(this) && last < num_colours(this)) {
+        if (first < get_num_colours() && last < get_num_colours()) {
             for (int i = first; i < last + 1; ++i) {
-                if (i >= num_colours(this))
+                if (i >= get_num_colours())
                     continue;
                 uint8_t* end = end_colour_ + i * 4;
                 uint8_t* mid = mid_colour_ + i * 4;
@@ -361,7 +347,7 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
         break;
     }
     case kEmpty:
-        unknown8c_ = 0;
+        particle_count_ = 0;
         break;
     case kSpeedSpanCmd: {
         float min = 0.0f;
@@ -471,28 +457,28 @@ void EmitterInstance::update_ground_brightness(bool movables)
     feeler.line_.end = {at_point_.x, static_cast<float>(static_cast<double>(y) - 4800.0), at_point_.z, at_point_.w};
     if (feeler.get_hit_shape(movables, false)) {
         double value = feeler.get_hit_vertex_value();
-        unknownec_ = std::bit_cast<uint32_t>(static_cast<float>(value + value));
+        brightness_ = static_cast<float>(value + value);
     }
     feeler.destruct();
 }
 
 void EmitterInstance::remove_particle(int index, bool through_accessors)
 {
-    --unknown8c_;
-    particle_list_[index] = particle_list_[unknown8c_];
-    for (int step = 0; step < num_vertex_lists(this); ++step) {
+    --particle_count_;
+    particle_list_[index] = particle_list_[particle_count_];
+    for (int step = 0; step < get_num_vertex_lists(); ++step) {
         if (through_accessors) {
             float x, y, z;
-            fetch_place(unknown8c_, step, &x, &y, &z);
+            fetch_place(particle_count_, step, &x, &y, &z);
             change_place(index, step, x, y, z);
         } else {
-            const float* from = position_of(this, unknown8c_, step);
+            const float* from = position_of(this, particle_count_, step);
             float* to = position_of(this, index, step);
             to[0] = from[0];
             to[1] = from[1];
             to[2] = from[2];
         }
-        float* gone = position_of(this, unknown8c_, step);
+        float* gone = position_of(this, particle_count_, step);
         gone[0] = kFarAway;
         gone[1] = kFarAway;
         gone[2] = kFarAway;
@@ -502,12 +488,12 @@ void EmitterInstance::remove_particle(int index, bool through_accessors)
 // 0x004987F0
 void EmitterInstance::tick_frame(float time, bool skip)
 {
-    if (fading_out_ && unknown8c_ == 0) {
-        delete_system(this);
+    if (fading_out_ && particle_count_ == 0) {
+        delete this;
         return;
     }
     if (unknown78_ && !objects::find_object(unknown78_)) { // (following an object that's gone)
-        delete_system(this);
+        delete this;
         return;
     }
     if (skip || !unknown12f_)
@@ -518,7 +504,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
     if (viewport_count() == 1 && viewport_camera(0) && unknown133_ && sphere_hidden(&bounds_, bounds_.w)) {
         unknown130_ = false;
         if (emit_rate_ == 0.0f) { // out of view and not emitting: the particles only age
-            for (int i = 0; i < unknown8c_; ++i) {
+            for (int i = 0; i < particle_count_; ++i) {
                 FlexibleParticle& p = particle_list_[i];
                 double age = static_cast<double>(time) + p.age;
                 p.age = static_cast<float>(age);
@@ -546,12 +532,12 @@ void EmitterInstance::tick_frame(float time, bool skip)
     if (update_brightness_)
         update_ground_brightness(false);
     float dt = static_cast<float>(static_cast<double>(g_frame_time_scale) * time);
-    for (int i = 0; i < unknown8c_; ++i) {
+    for (int i = 0; i < particle_count_; ++i) {
         FlexibleParticle& p = particle_list_[i];
         p.age = static_cast<float>(static_cast<double>(time) + p.age);
         for (int k = 0; k < 3; ++k)
             p.velocity[k] = static_cast<float>(static_cast<double>(dt) * p.force[k] + p.velocity[k]);
-        for (int step = num_vertex_lists(this) - 1; step > 0; --step) { // the history moves on a step
+        for (int step = get_num_vertex_lists() - 1; step > 0; --step) { // the history moves on a step
             const float* from = position_of(this, i, step - 1);
             float* to = position_of(this, i, step);
             to[0] = from[0];
@@ -562,15 +548,15 @@ void EmitterInstance::tick_frame(float time, bool skip)
         for (int k = 0; k < 3; ++k)
             pos[k] = static_cast<float>(static_cast<double>(dt) * p.velocity[k] + pos[k]);
     }
-    for (int i = 0; i < unknown8c_; ++i) { // the expired
+    for (int i = 0; i < particle_count_; ++i) { // the expired
         if (particle_list_[i].age > particle_list_[i].lifetime) {
             remove_particle(i, false);
             --i;
         }
     }
-    int lod = lod_particle_count(unknown8c_);
-    for (int i = 0; i < unknown8c_; ++i) { // beyond the LOD count
-        if (lod < unknown8c_) {
+    int lod = lod_particle_count(particle_count_);
+    for (int i = 0; i < particle_count_; ++i) { // beyond the LOD count
+        if (lod < particle_count_) {
             remove_particle(i, false);
             --i;
         }
@@ -581,13 +567,13 @@ void EmitterInstance::tick_frame(float time, bool skip)
 // 0x00499EE0
 uint32_t* ModelParticles::lerp_colour(uint32_t* out, const uint8_t* from, const uint8_t* to, float t)
 {
-    double green = static_cast<double>(colour_scale_[1]) * std::bit_cast<float>(unknownec_);
-    float blue = static_cast<float>(static_cast<double>(colour_scale_[2]) * std::bit_cast<float>(unknownec_));
+    double green = static_cast<double>(colour_scale_[1]) * brightness_;
+    float blue = static_cast<float>(static_cast<double>(colour_scale_[2]) * brightness_);
     auto lerp = [&](int k) {
         return static_cast<uint8_t>(truncate(static_cast<double>(to[k] - from[k]) * t) + from[k]);
     };
     uint8_t r = lerp(0), g = lerp(1), b = lerp(2), a = lerp(3);
-    double red = static_cast<double>(colour_scale_[0]) * std::bit_cast<float>(unknownec_);
+    double red = static_cast<double>(colour_scale_[0]) * brightness_;
     auto clamp = [](double value) {
         if (value < 0.0)
             value = 0.0;

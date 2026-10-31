@@ -15,10 +15,8 @@ extern void** const kBlenderChannelNode; // 0x00645D84: gfx/anim_channel.cpp
 extern void** const kProjectionNode;     // 0x00646600: gfx/engine_texture_projection.cpp
 extern void** const kAnimListNode;       // 0x006486CC: gfx/anim_channel.cpp
 extern void** const kAnimTrack;          // 0x00648794: gfx/anim_track.cpp
-extern void** const kEngineParticles;    // 0x00649380: gfx/particles.cpp
 extern void** const kParticleNode;       // 0x00649420: gfx/particle_system.cpp
-extern void** const kModelParticlesNode; // 0x0064949C: gfx/particle_system.cpp
-extern void** const kModelParticles;     // 0x006494A0: gfx/particle_system.cpp
+extern void** const kParticleSystemNode; // 0x00649424 (and each type's): gfx/particle_system.cpp
 extern void** const kPcGeom;             // 0x0064A368: gfx/geom.cpp
 extern void** const kSaveNode;           // 0x0065797C: core/alloc.cpp
 extern void** const kDeviceNode;         // 0x00658A70: sio/device.cpp

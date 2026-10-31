@@ -15,7 +15,6 @@
 #include "engine/gfx/particle_system_internal.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/quat_rotation.h"
-#include "engine/core/game_vtables.h"
 #include "platform/crt.h"
 
 namespace render {
@@ -41,46 +40,43 @@ void model_path_for(const char* name, const char* ext, char* out) { gfx::make_mo
 } // namespace
 
 // 0x0049A0C0
-ModelParticles* ModelParticles::make_new(uint32_t name, int particle_cap, const char* model, uint32_t, int, int, float,
-                                         int)
+ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* model, uint32_t, int, int, float, int)
 {
-    EmitterInstance::make_new();
     label_ = name;
     char file_name[512] = {};
     position_array_ = nullptr;
     model_list_ = nullptr;
     unknown_13c_ptr_ = nullptr;
     particle_list_ = nullptr;
-    unknown8c_ = 0;
-    particle_parts::set_vtables(this, vt::kModelParticles, vt::kModelParticlesNode);
+    particle_count_ = 0;
     max_particles_ = particle_cap;
     model_count_ = static_cast<unsigned int>(particle_cap);
     drawn_models_ = static_cast<unsigned int>(particle_cap);
     particle_list_ = particle_parts::new_particles(particle_cap);
     if (!particle_list_)
-        return this;
+        return;
     position_array_ = static_cast<float*>(carve(model_count_ * 12));
     if (!position_array_)
-        return this;
+        return;
     model_path_for(model, kModelExtension, file_name);
     text::to_lower_text(file_name);
     model_list_ = static_cast<void**>(allocate_zeroed(model_count_ * 4));
     if (!model_list_)
-        return this;
+        return;
     if (memory::malloc_available() < model_count_ * kMemoryPerModel)
-        return this;
+        return;
     for (unsigned int i = 0; i < model_count_; ++i) {
         model_list_[i] = spawn_render_model(assert_flag());
         auto* each = static_cast<RenderModel*>(model_list_[i]);
         if (!each)
-            return this;
+            return;
         each->drop_geoms();
         int percent = get_rand() % 100;
         float scale = static_cast<float>(static_cast<double>(percent) * kScaleStep * 2.0 + 1.0);
         maths::Vec4 scales = {scale, scale, scale, 1.0f};
         each->change_scale(&scales);
         if (!each->add_file_geom(file_name, 0, true, 0, false, true, assert_flag() != 0, true))
-            return this;
+            return;
     }
     auto* rotations = static_cast<maths::QuatRotation*>(carve(model_count_ * sizeof(maths::QuatRotation)));
     if (rotations) {
@@ -89,16 +85,16 @@ ModelParticles* ModelParticles::make_new(uint32_t name, int particle_cap, const 
     }
     unknown_13c_ptr_ = rotations;
     if (!rotations)
-        return this;
+        return;
     start_colour_ = static_cast<uint8_t*>(carve(4));
     if (!start_colour_)
-        return this;
+        return;
     mid_colour_ = static_cast<uint8_t*>(carve(4));
     if (!mid_colour_)
-        return this;
+        return;
     end_colour_ = static_cast<uint8_t*>(carve(4));
     if (!end_colour_)
-        return this;
+        return;
     for (unsigned int i = 0; i < model_count_; ++i) {
         rotations[i].x = static_cast<float>(get_rand() % 100);
         rotations[i].y = static_cast<float>(get_rand() % 100);
@@ -108,14 +104,14 @@ ModelParticles* ModelParticles::make_new(uint32_t name, int particle_cap, const 
     }
     colour_mid_ = -1.0f;
     flag_bits_ |= 4u;
-    return this;
+    return;
 }
 
 // 0x0049A4C0
 void ModelParticles::render()
 {
     auto model = [this](unsigned int i) { return static_cast<RenderModel*>(model_list_[i]); };
-    int count = unknown8c_;
+    int count = particle_count_;
     if (count == 0) {
         for (unsigned int i = 0; i < drawn_models_; ++i)
             model(i)->change_live(0);

@@ -44,8 +44,8 @@ namespace {
 extern void** const kVtable;
 constexpr uint32_t kSuspend = 0xCE0CA665; // the suspend component
 
-// The particle system's methods (Nx, no source yet; thiscall).
-void get_refresh(void* particle) { reinterpret_cast<render::PcParticleSystem*>(particle)->engine_update(); }
+// The particle system updated (the engine's 0x00494E20).
+void get_refresh(render::Sparkle* particle) { particle->tick_frame(); }
 // The unnamed float (required). The original reads it into its own `params` argument's slot: not given, the
 // value is the pointer's bits.
 float unnamed_float(script::Struct* params)
@@ -54,14 +54,6 @@ float unnamed_float(script::Struct* params)
     std::memcpy(&value, &params, 4);
     params->fetch_float(0u, &value, 1);
     return value;
-}
-
-// Its parameters (particle_component.h).
-const uint8_t* get_params(void* particle) { return particle_system_params(particle); }
-// 0x00494EE0: its +0x38 set (the model's +0x22C, or the ground test's value), then its vtable slot 6.
-void set_ground_value(void* particle, float value)
-{
-    reinterpret_cast<render::PcParticleSystem*>(particle)->set_value38(value);
 }
 
 // The parameters a particle system is made from (render::SparkleConfig, gfx/particles.h; constructed by 0x00496240,
@@ -131,7 +123,7 @@ void EffectsEmitterModule::destroy_body()
 {
     vtable_ = kVtable;
     if (effect_handle_)
-        g_particle_hub->retire_particle(reinterpret_cast<render::Sparkle*>(effect_handle_));
+        g_particle_hub->retire_particle(effect_handle_);
     ObjectModule::destroy_body();
 }
 
@@ -148,10 +140,7 @@ EffectsEmitterModule* EffectsEmitterModule::teardown(unsigned int flags)
 void EffectsEmitterModule::seal() { suspend_ = entity_->fetch_module(kSuspend); }
 
 // 0x00429960
-void EffectsEmitterModule::conceal(bool hide)
-{
-    reinterpret_cast<render::PcParticleSystem*>(effect_handle_)->conceal(hide);
-}
+void EffectsEmitterModule::conceal(bool hide) { effect_handle_->conceal(hide); }
 
 // --- script member functions ---
 
@@ -160,7 +149,7 @@ bool EffectsEmitterModule::set_emit_rate(script::Struct* params, script::Script*
 {
     float value = unnamed_float(params);
     if (effect_handle_)
-        reinterpret_cast<render::PcParticleSystem*>(effect_handle_)->set_rate(value);
+        effect_handle_->set_rate(value);
     return true;
 }
 
@@ -169,7 +158,7 @@ bool EffectsEmitterModule::set_lifespan(script::Struct* params, script::Script*)
 {
     float value = unnamed_float(params);
     if (effect_handle_) {
-        reinterpret_cast<render::PcParticleSystem*>(effect_handle_)->set_lifespan(value);
+        effect_handle_->set_lifespan(value);
         get_refresh(effect_handle_);
     }
     return true;
@@ -180,7 +169,7 @@ bool EffectsEmitterModule::set_float_19a_f_74d_1(script::Struct* params, script:
 {
     float value = unnamed_float(params);
     if (effect_handle_) {
-        reinterpret_cast<render::PcParticleSystem*>(effect_handle_)->set_colour_mid_percent(value);
+        effect_handle_->set_colour_mid_percent(value);
         get_refresh(effect_handle_);
     }
     return true;
@@ -191,7 +180,7 @@ bool EffectsEmitterModule::change_midpoint_fraction(script::Struct* params, scri
 {
     float value = unnamed_float(params);
     if (effect_handle_) {
-        set_particle_value34(effect_handle_, value);
+        effect_handle_->args_.mid_percent_ = value;
         get_refresh(effect_handle_);
     }
     return true;
@@ -202,7 +191,7 @@ bool set_reach(EffectsEmitterModule* component, script::Struct* params, int whic
 {
     float value = unnamed_float(params);
     if (component->effect_handle_) {
-        reinterpret_cast<render::PcParticleSystem*>(component->effect_handle_)->change_extent(which, value);
+        component->effect_handle_->change_extent(which, value);
         get_refresh(component->effect_handle_);
     }
     return true;
@@ -212,7 +201,7 @@ bool change_location(EffectsEmitterModule* component, script::Struct* params, in
     maths::Vec4 pos;
     params->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&pos), 1);
     if (component->effect_handle_) {
-        reinterpret_cast<render::Sparkle*>(component->effect_handle_)->change_place(which, &pos);
+        component->effect_handle_->change_place(which, &pos);
         get_refresh(component->effect_handle_);
     }
     return true;
@@ -222,7 +211,7 @@ bool set_box(EffectsEmitterModule* component, script::Struct* params, int which)
     maths::Vec4 box;
     params->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&box), 1);
     if (component->effect_handle_)
-        reinterpret_cast<render::Sparkle*>(component->effect_handle_)->set_box(which, &box);
+        component->effect_handle_->set_box(which, &box);
     return true;
 }
 bool change_colour(EffectsEmitterModule* component, script::Struct* params, int which)
@@ -231,8 +220,7 @@ bool change_colour(EffectsEmitterModule* component, script::Struct* params, int 
     params->fetch_list(0u, &array, 1);
     if (component->effect_handle_) {
         Colour colour = colour_of(array);
-        reinterpret_cast<render::PcParticleSystem*>(component->effect_handle_)
-            ->change_colour(which, reinterpret_cast<const uint32_t*>(&colour));
+        component->effect_handle_->change_colour(which, reinterpret_cast<const uint32_t*>(&colour));
     }
     return true;
 }
@@ -292,7 +280,7 @@ bool EffectsEmitterModule::set_emit_target(script::Struct* params, script::Scrip
 {
     params->read_hash_value(0u, &emit_target_, 1);
     if (effect_handle_)
-        reinterpret_cast<render::Sparkle*>(effect_handle_)->set_emit_script(emit_target_, entity_->ident_);
+        effect_handle_->set_emit_script(emit_target_, entity_->ident_);
     return true;
 }
 
@@ -302,7 +290,7 @@ bool EffectsEmitterModule::set_flag_5446a_f14(script::Struct* params, script::Sc
     int value = 0;
     params->fetch_int_value(0u, &value, 0);
     if (effect_handle_)
-        static_cast<uint8_t*>(effect_handle_)[0x15B] = value == 1;
+        effect_handle_->args_.cull_outside_ = value == 1;
     return true;
 }
 
@@ -313,7 +301,7 @@ bool EffectsEmitterModule::set_color_55835c_f2(script::Struct* params, script::S
     params->fetch_list(0u, &array, 1);
     if (effect_handle_) {
         Colour colour = colour_of(array);
-        reinterpret_cast<render::Sparkle*>(effect_handle_)->change_colour(reinterpret_cast<const uint8_t*>(&colour));
+        effect_handle_->change_colour(reinterpret_cast<const uint8_t*>(&colour));
     }
     return true;
 }
@@ -333,8 +321,8 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     params->read_hash_value(0xA1DC81F9u, &p.label_, 1);
     params->read_hash_value("GroupID", &p.group_id_, 0);
     params->read_hash_value(0x7321A8D6u, &p.unknown04_, 0);
-    p.flag151_ = params->has_bare_flag(0xA7A5BFFBu);
-    p.flag157_ = params->has_bare_flag(0x5446AF14u);
+    p.use_mid_ = params->has_bare_flag(0xA7A5BFFBu);
+    p.cull_outside_ = params->has_bare_flag(0x5446AF14u);
     params->fetch_float(0x13B9DA7Bu, &scale, 0);
     params->fetch_float(0x3BEE67C8u, &p.extent_[0], 0);
     params->fetch_float(0x8E39913Du, &p.extent_[1], 0);
@@ -380,9 +368,9 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     for (float& radius : p.radius_)
         radius = static_cast<float>(static_cast<double>(radius) * scale);
     params->fetch_int_value(0x9E52A20Fu, &p.unknown24_, 0);
-    params->fetch_float(0x35B65BD4u, &p.unknown28_, 0);
-    params->fetch_float(0xC218CF77u, &p.unknown2c_, 0);
-    params->fetch_float(0x520682C6u, &p.unknown30_, 0);
+    params->fetch_float(0x35B65BD4u, &p.rate_, 0);
+    params->fetch_float(0xC218CF77u, &p.lifetime_, 0);
+    params->fetch_float(0x520682C6u, &p.mid_percent_, 0);
 
     // The positions and boxes: scaled, then turned by the orientation.
     auto scale_and_turn = [&](maths::Vec4* v) {
@@ -408,8 +396,8 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     vector(0xC3CD20A2u, &p.box_[1]);
     vector(0x829FE7DDu, &p.box_[2]);
     scale_and_turn(p.box_);
-    p.flag153_ = params->has_bare_flag(0x454962EFu);
-    params->fetch_float(0x59463C93u, &p.unknown30_, 0);
+    p.colour_use_mid_ = params->has_bare_flag(0x454962EFu);
+    params->fetch_float(0x59463C93u, &p.mid_percent_, 0);
 
     // The colours (rgb from three arrays; the alphas at most 128).
     uint32_t value = 0;
@@ -425,10 +413,10 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
             p.shade_[i][3] = alpha > 0x80 ? 0x80 : alpha;
         }
     }
-    params->read_hash_value(0xDD6BB3D5u, &p.unknown134_, 0);
+    params->read_hash_value(0xDD6BB3D5u, &p.blend_mode_, 0);
     params->fetch_int_value(0x9F677D4Eu, &p.unknown13c_, 0);
-    params->fetch_int_value(0x13D0BE1Du, &p.unknown138_, 0);
-    params->read_hash_value(0x7D99F28Du, &p.unknown140_, 0);
+    params->fetch_int_value(0x13D0BE1Du, &p.alpha_cut_off_, 0);
+    params->read_hash_value(0x7D99F28Du, &p.texture_, 0);
     params->fetch_int_value(0x4EEDFAE7u, &p.unknown144_, 0);
     params->fetch_int_value(0xD7E4AB5Du, &p.unknown148_, 0);
     params->fetch_int_value(0xE4279BA2u, &p.unknown14c_, 0);
@@ -467,10 +455,9 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     }
     uint32_t value54 = 0xE3714DC1;
     params->read_hash_value(0x7E4813A7u, &value54, 0);
-    reinterpret_cast<uint32_t*>(effect_handle_)[0x54 / 4] = value54;
+    effect_handle_->args_.unknown50_ = value54;
     if (p.flag158_)
-        reinterpret_cast<render::Sparkle*>(effect_handle_)
-            ->change_colour(reinterpret_cast<const uint8_t*>(static_cast<void*>(nullptr)));
+        effect_handle_->change_colour(reinterpret_cast<const uint8_t*>(static_cast<void*>(nullptr)));
 }
 
 // 0x0042AD90
@@ -491,19 +478,20 @@ void EffectsEmitterModule::tick_frame()
         }
     }
     if (mesh_instance_)
-        set_ground_value(effect_handle_, *reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(mesh_instance_) + 0x22C));
-    if (!get_params(effect_handle_)[0x152])
+        effect_handle_->set_brightness(*reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(mesh_instance_) + 0x22C));
+    const render::SparkleConfig& args = effect_handle_->args_;
+    if (!args.local_positions_)
         return;
     for (int i = 0; i < 3; ++i) {
-        const float* local = reinterpret_cast<const float*>(get_params(effect_handle_) + 0xF4 + i * 0x10);
+        const float* local = &args.offset_pos_[i].x;
         const maths::Vec4& at = entity_->at_point_;
         maths::Vec4 pos = {local[0] + at.x, local[1] + at.y, local[2] + at.z, local[3] + at.w};
-        reinterpret_cast<render::Sparkle*>(effect_handle_)->change_place(i, &pos);
-        if (get_params(effect_handle_)[0x154]) {
+        effect_handle_->change_place(i, &pos);
+        if (args.orient_with_object_) {
             maths::Mat4 orientation;
             orientation = entity_->basis_frame_;
             orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-            reinterpret_cast<render::Sparkle*>(effect_handle_)->spin_by(i, &orientation);
+            effect_handle_->spin_by(i, &orientation);
         }
     }
 }
@@ -512,8 +500,7 @@ void EffectsEmitterModule::tick_frame()
 int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct*, script::Script*)
 {
     if (name == kEmitting) {
-        void** vtable = *reinterpret_cast<void***>(effect_handle_);
-        return reinterpret_cast<bool(__thiscall*)(void*)>(vtable[7])(effect_handle_) ? 1 : 0;
+        return effect_handle_->is_emitting() ? 1 : 0;
     }
     if (name == kGroundTest) {
         // A line from just above the particle system's position to 4800 below it: the face hit's vertex value,
@@ -521,13 +508,13 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct*, 
         float value = 1.0f;
         render::ProbeRay feeler;
         feeler.make_new();
-        const float* at = reinterpret_cast<const float*>(get_params(effect_handle_) + 0x94);
+        const float* at = &effect_handle_->args_.at_point_[0].x;
         feeler.line_.start = {at[0], static_cast<float>(at[1] + 1.0f), at[2], at[3]};
         feeler.line_.end = {at[0], static_cast<float>(static_cast<double>(at[1]) - 4800.0), at[2], at[3]};
         if (feeler.get_hit_shape(true, false))
             value = static_cast<float>(feeler.get_hit_vertex_value() * 2.0);
         if (effect_handle_)
-            set_ground_value(effect_handle_, value);
+            effect_handle_->set_brightness(value);
         return 1;
     }
     return 2;
@@ -541,10 +528,10 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
         result = result->prepare_all();
     // (the name, two floats and the colours read straight from the system's +4; the rest through the getter, once
     // for each value)
-    const ParticleParams* own = reinterpret_cast<const ParticleParams*>(static_cast<uint8_t*>(effect_handle_) + 4);
+    const ParticleParams* own = &effect_handle_->args_;
     result->put_name_key(0xA1DC81F9u, own->label_);
-    result->push_float(0x35B65BD4u, own->unknown28_);
-    result->push_float(0xC218CF77u, own->unknown2c_);
+    result->push_float(0x35B65BD4u, own->rate_);
+    result->push_float(0xC218CF77u, own->lifetime_);
     script::Array* colours[3];
     for (script::Array*& array : colours) {
         array = script::alloc_script_array();
@@ -561,7 +548,7 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     result->append_array_value(0x7E6BCBE6u, colours[0]);
     result->append_array_value(0x2A6B6FE2u, colours[1]);
     result->append_array_value(0x0481113Du, colours[2]);
-    auto get = [this] { return reinterpret_cast<const ParticleParams*>(get_params(effect_handle_)); };
+    auto get = [this] { return &effect_handle_->args_; };
     auto add_vector = [&](uint32_t name, const maths::Vec4& v) {
         result->put_vec3(name, script::VectorValue{v.x, v.y, v.z, v.w});
     };
@@ -586,13 +573,6 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
         script::delete_struct(result);
     }
     return true;
-}
-
-// (no addresses: the code folded at 0x004AAD40 / 0x004076F0 - particle_component.h)
-const uint8_t* __fastcall particle_system_params(void* particle) { return static_cast<const uint8_t*>(particle) + 4; }
-void __fastcall set_particle_value34(void* particle, float value)
-{
-    *reinterpret_cast<float*>(static_cast<uint8_t*>(particle) + 0x34) = value;
 }
 
 } // namespace objects

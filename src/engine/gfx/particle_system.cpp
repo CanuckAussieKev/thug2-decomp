@@ -22,32 +22,14 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/code_address.h"
 #include "engine/core/game_vtables.h"
-#include "engine/gfx/particle_types.h"
-#include "engine/net/gamenet_handlers.h"
-#include "engine/gfx/weather.h"
 #include "game/skate/skate_module.h"
 
 namespace render {
-
-namespace {
-extern void** const kCNewFlatParticlesNodeVtable;
-extern void** const kCNewFlatParticlesVtable;
-extern void** const kCFlatRibbonParticlesNodeVtable;
-extern void** const kCFlatRibbonParticlesVtable;
-extern void** const kCGlowParticlesNodeVtable;
-extern void** const kCGlowParticlesVtable;
-extern void** const kCGlowRibbonTrailParticlesNodeVtable;
-extern void** const kCGlowRibbonTrailParticlesVtable;
-extern void** const kCLineParticlesNodeVtable;
-extern void** const kCLineParticlesVtable;
-} // namespace
 
 uint8_t g_alloc_assert_flag;
 
 namespace {
 
-extern void** const kSystemVtable;
-extern void** const kSystemNodeVtable;
 void** const& g_node_vtable = vt::kParticleNode; // (lists::Elem<EmitterInstance>'s own)
 constexpr float kNearlyUp = 0.99f;               // 0x00645450
 constexpr float kFramesPerSecond = 60.0f;        // 0x00645EA0
@@ -125,7 +107,7 @@ bool construct_parts(EmitterInstance* system, uint32_t name, int particle_cap, u
 {
     system->label_ = name;
     system->max_particles_ = particle_cap;
-    system->unknown8c_ = 0;
+    system->particle_count_ = 0;
     system->particle_list_ = new_particles(particle_cap);
     if (!system->particle_list_)
         return false;
@@ -136,32 +118,30 @@ bool construct_parts(EmitterInstance* system, uint32_t name, int particle_cap, u
     return new_colours(system, colours);
 }
 
-void set_vtables(EmitterInstance* system, void** primary, void** node)
-{
-    system->vtable_ = primary;
-    system->list_link_.vtable = node;
-}
-
 } // namespace particle_parts
 
 using namespace particle_parts;
 
 // --- life ---
 
-// 0x00496F10
-EmitterInstance* EmitterInstance::make_new()
+void* EmitterInstance::operator new(std::size_t size) noexcept
 {
-    objects::SharedBase::make_new();
+    return allocate_zeroed(static_cast<unsigned int>(size));
+}
+
+void EmitterInstance::operator delete(void* memory) { memory::dealloc(memory); }
+
+// 0x00496F10
+EmitterInstance::EmitterInstance()
+{
     list_link_.priority = 0;
     list_link_.vtable = g_node_vtable;
     list_link_.data = this;
     list_link_.next = &list_link_;
     list_link_.prev = &list_link_;
-    vtable_ = kSystemVtable;
-    list_link_.vtable = kSystemNodeVtable;
+    list_link_.vtable = vt::kParticleSystemNode;
     flag_bits_ = 0;
     get_reset();
-    return this;
 }
 
 // 0x00496D70
@@ -183,7 +163,7 @@ void EmitterInstance::get_reset()
     emit_range_[1] = 1.0f;
     emit_target_[1] = 1.0f;
     speed_[0] = 1.0f;
-    unknownec_ = 0x3F800000; // (1.0f)
+    brightness_ = 1.0f;
     emit_range_[2] = 0.0f;
     angle_spread_ = 0.5f;
     force_[0] = 0.0f;
@@ -223,10 +203,9 @@ void EmitterInstance::get_reset()
 }
 
 // 0x00498690
-void EmitterInstance::destroy_body()
+EmitterInstance::~EmitterInstance()
 {
-    vtable_ = kSystemVtable;
-    list_link_.vtable = kSystemNodeVtable;
+    list_link_.vtable = vt::kParticleSystemNode;
     if (emit_script_ptr_)
         delete_script(emit_script_ptr_);
     if (tick_script_)
@@ -248,17 +227,11 @@ void EmitterInstance::destroy_body()
     // the particle manager lets go of it
     static_cast<FlexibleParticleManager*>(particle_hub_handle())->remove_system(this);
     list_link_.unlink_as(g_node_vtable);
-    objects::SharedBase::destruct();
+    smart_pointers_.clear();
 }
 
-// 0x00498F80
-EmitterInstance* EmitterInstance::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
+// 0x004A1040 (the weather's "plat_render" stub, shared)
+void EmitterInstance::render() { debug::printf("STUB: plat_render\n"); }
 
 // --- settings ---
 
@@ -409,7 +382,7 @@ void EmitterInstance::run_emit_script()
 void EmitterInstance::render_if_visible(bool force)
 {
     if ((unknown12f_ && unknown130_) || force) {
-        reinterpret_cast<void(__thiscall*)(EmitterInstance*)>(vtable_[1])(this);
+        render();
         flag_bits_ &= ~1u;
         unknown12f_ = false;
     }
@@ -469,14 +442,14 @@ maths::Mat4* EmitterInstance::build_emitter_orientation(maths::Mat4* out)
 }
 
 // 0x00496890
-int __cdecl EmitterInstance::get_num_colours_stub()
+int EmitterInstance::get_num_colours()
 {
     debug::printf("STUB: plat_get_num_particle_colors\n");
     return 0;
 }
 
 // 0x004968A0
-int __cdecl EmitterInstance::get_num_vertex_lists_stub()
+int EmitterInstance::get_num_vertex_lists()
 {
     debug::printf("STUB: plat_get_num_vertex_lists\n");
     return 0;
@@ -485,39 +458,18 @@ int __cdecl EmitterInstance::get_num_vertex_lists_stub()
 // --- the types ---
 
 // 0x00499010
-NewFlatParticles* NewFlatParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int)
+NewFlatParticles::NewFlatParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int)
 {
-    EmitterInstance::make_new();
-    set_vtables(this, kCNewFlatParticlesVtable, kCNewFlatParticlesNodeVtable);
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * 12, false, 1)) {
         colour_mid_ = -1.0f;
         flag_bits_ |= 4u;
     }
-    return this;
-}
-
-// 0x00498FB0
-void NewFlatParticles::destroy_body()
-{
-    set_vtables(this, kCNewFlatParticlesVtable, kCNewFlatParticlesNodeVtable);
-    EmitterInstance::destroy_body();
-}
-
-// 0x00498FE0
-NewFlatParticles* NewFlatParticles::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x004992C0
-FlatRibbonParticles* FlatRibbonParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
-                                                   int history)
+FlatRibbonParticles::FlatRibbonParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
+                                         int history)
 {
-    EmitterInstance::make_new();
-    set_vtables(this, kCFlatRibbonParticlesVtable, kCFlatRibbonParticlesNodeVtable);
     segments_ = history + 1;
     // (the colours' count read again as segments_ + 3 for each array and each step of the loop)
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * segments_ * 12), true,
@@ -525,69 +477,36 @@ FlatRibbonParticles* FlatRibbonParticles::make_new(uint32_t name, int particle_c
         colour_mid_ = -1.0f;
         flag_bits_ |= 4u;
     }
-    return this;
 }
 
 // 0x00499200
-void FlatRibbonParticles::destroy_body()
+FlatRibbonParticles::~FlatRibbonParticles()
 {
-    set_vtables(this, kCFlatRibbonParticlesVtable, kCFlatRibbonParticlesNodeVtable);
     if (particle_list_) {
         delete_particles(particle_list_);
         particle_list_ = nullptr;
     }
-    EmitterInstance::destroy_body();
-}
-
-// 0x00499290
-FlatRibbonParticles* FlatRibbonParticles::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x004991E0
 int FlatRibbonParticles::get_num_colours() { return segments_ + 3; }
 
 // 0x004995B0
-GlowParticles* GlowParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int segments,
-                                       float glow_width, int)
+GlowParticles::GlowParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int segments, float glow_width,
+                             int)
 {
-    EmitterInstance::make_new();
-    set_vtables(this, kCGlowParticlesVtable, kCGlowParticlesNodeVtable);
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * 12, false, 3)) {
         segments_ = segments;
         colour_mid_ = -1.0f;
         glow_width_ = glow_width;
         flag_bits_ |= 4u;
     }
-    return this;
-}
-
-// 0x00499550
-void GlowParticles::destroy_body()
-{
-    set_vtables(this, kCGlowParticlesVtable, kCGlowParticlesNodeVtable);
-    EmitterInstance::destroy_body();
-}
-
-// 0x00499580
-GlowParticles* GlowParticles::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x00499880
-GlowRibbonTrailParticles* GlowRibbonTrailParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int,
-                                                             int segments, float width, int history)
+GlowRibbonTrailParticles::GlowRibbonTrailParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int,
+                                                   int segments, float width, int history)
 {
-    EmitterInstance::make_new();
-    set_vtables(this, kCGlowRibbonTrailParticlesVtable, kCGlowRibbonTrailParticlesNodeVtable);
     history_length_ = history + 1;
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>((history + 1) * particle_cap * 12), true,
                         history_length_ + 3)) {
@@ -596,23 +515,6 @@ GlowRibbonTrailParticles* GlowRibbonTrailParticles::make_new(uint32_t name, int 
         span_ = width;
         flag_bits_ |= 4u;
     }
-    return this;
-}
-
-// 0x00499800
-void GlowRibbonTrailParticles::destroy_body()
-{
-    set_vtables(this, kCGlowRibbonTrailParticlesVtable, kCGlowRibbonTrailParticlesNodeVtable);
-    EmitterInstance::destroy_body();
-}
-
-// 0x00499850
-GlowRibbonTrailParticles* GlowRibbonTrailParticles::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x00499820 / 0x00499830
@@ -620,40 +522,19 @@ int GlowRibbonTrailParticles::get_num_colours() { return history_length_ + 3; }
 int GlowRibbonTrailParticles::get_num_vertex_lists() { return history_length_; }
 
 // 0x00499B80
-LineParticles* LineParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
-                                       int history)
+LineParticles::LineParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int history)
 {
-    EmitterInstance::make_new();
-    set_vtables(this, kCLineParticlesVtable, kCLineParticlesNodeVtable);
     steps_ = history + 1;
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * (history + 1) * 12), true,
                         steps_)) {
         colour_mid_ = -1.0f;
         flag_bits_ |= 4u;
     }
-    return this;
-}
-
-// 0x00499B20
-void LineParticles::destroy_body()
-{
-    set_vtables(this, kCLineParticlesVtable, kCLineParticlesNodeVtable);
-    EmitterInstance::destroy_body();
-}
-
-// 0x00499B50
-LineParticles* LineParticles::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x00499E10
-void ModelParticles::destroy_body()
+ModelParticles::~ModelParticles()
 {
-    set_vtables(this, vt::kModelParticles, vt::kModelParticlesNode);
     if (unknown_13c_ptr_) {
         memory::dealloc(unknown_13c_ptr_);
         unknown_13c_ptr_ = nullptr;
@@ -664,23 +545,14 @@ void ModelParticles::destroy_body()
         memory::dealloc(model_list_);
         model_list_ = nullptr;
     }
-    EmitterInstance::destroy_body();
-}
-
-// 0x0049A090
-ModelParticles* ModelParticles::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 } // namespace render
 
 namespace {
 
-// The destructors reached through the node's vtable (`this` the node at +0x0C): each a jump to the type's.
+// The systems' list node's table (`this` the node at +0x0C): each type's own in the original, one here - the system's
+// virtual destructor picks the type's body.
 struct NodeAdapters {
     // 0x00496D10 / 0x00496D30: lists::Elem<EmitterInstance>'s own destructor body (its vtable, out of its list) and
     // scalar deleting destructor (freed with flags & 1; returns this).
@@ -692,90 +564,24 @@ struct NodeAdapters {
             memory::dealloc(this);
         return reinterpret_cast<memory::ListNode*>(this);
     }
-    template <typename T>
-    T* get_system()
-    {
-        return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(this) - offsetof(render::EmitterInstance, list_link_));
-    }
+    // 0x00496F50 and the types' (0x00498FD0, 0x004991F0, ...): the system destroyed, and freed with flags & 1.
     render::EmitterInstance* destroy_system(unsigned int flags)
     {
-        return get_system<render::EmitterInstance>()->teardown(flags);
-    }
-    render::NewFlatParticles* destroy_new_flat(unsigned int flags)
-    {
-        return get_system<render::NewFlatParticles>()->teardown(flags);
-    }
-    render::FlatRibbonParticles* destroy_flat_ribbon(unsigned int flags)
-    {
-        return get_system<render::FlatRibbonParticles>()->teardown(flags);
-    }
-    render::GlowParticles* destroy_glow(unsigned int flags)
-    {
-        return get_system<render::GlowParticles>()->teardown(flags);
-    }
-    render::GlowRibbonTrailParticles* destroy_glow_ribbon_trail(unsigned int flags)
-    {
-        return get_system<render::GlowRibbonTrailParticles>()->teardown(flags);
-    }
-    render::LineParticles* destroy_line(unsigned int flags)
-    {
-        return get_system<render::LineParticles>()->teardown(flags);
-    }
-    render::ModelParticles* destroy_model(unsigned int flags)
-    {
-        return get_system<render::ModelParticles>()->teardown(flags);
+        auto* system = reinterpret_cast<render::EmitterInstance*>(reinterpret_cast<uint8_t*>(this) -
+                                                                  offsetof(render::EmitterInstance, list_link_));
+        if (flags & 1)
+            delete system;
+        else
+            system->~EmitterInstance();
+        return system;
     }
 };
 
 } // namespace
 
-namespace render {
-namespace {
-static VtableSlot g_system_vtable_slots[] = {&render::EmitterInstance::teardown, &render::WeatherSystem::render,
-                                             render::EmitterInstance::get_num_vertex_lists_stub,
-                                             render::EmitterInstance::get_num_colours_stub};
-void** const kSystemVtable = reinterpret_cast<void**>(g_system_vtable_slots);
-static VtableSlot g_system_node_vtable_slots[] = {&NodeAdapters::destroy_system};
-void** const kSystemNodeVtable = reinterpret_cast<void**>(g_system_node_vtable_slots);
-static VtableSlot g_c_new_flat_particles_node_vtable_slots[] = {&NodeAdapters::destroy_new_flat};
-void** const kCNewFlatParticlesNodeVtable = reinterpret_cast<void**>(g_c_new_flat_particles_node_vtable_slots);
-static VtableSlot g_c_new_flat_particles_vtable_slots[] = {&render::NewFlatParticles::teardown,
-                                                           &render::WeatherSystem::render, online::handle_nothing,
-                                                           online::handle_nothing};
-void** const kCNewFlatParticlesVtable = reinterpret_cast<void**>(g_c_new_flat_particles_vtable_slots);
-static VtableSlot g_c_flat_ribbon_particles_node_vtable_slots[] = {&NodeAdapters::destroy_flat_ribbon};
-void** const kCFlatRibbonParticlesNodeVtable = reinterpret_cast<void**>(g_c_flat_ribbon_particles_node_vtable_slots);
-static VtableSlot g_c_flat_ribbon_particles_vtable_slots[] = {
-    &render::FlatRibbonParticles::teardown, &render::WeatherSystem::render, &render::ParticleCounts::field134,
-    &render::FlatRibbonParticles::get_num_colours};
-void** const kCFlatRibbonParticlesVtable = reinterpret_cast<void**>(g_c_flat_ribbon_particles_vtable_slots);
-static VtableSlot g_c_glow_particles_node_vtable_slots[] = {&NodeAdapters::destroy_glow};
-void** const kCGlowParticlesNodeVtable = reinterpret_cast<void**>(g_c_glow_particles_node_vtable_slots);
-static VtableSlot g_c_glow_particles_vtable_slots[] = {&render::GlowParticles::teardown, &render::WeatherSystem::render,
-                                                       online::handle_nothing, &render::ParticleCounts::three_colours};
-void** const kCGlowParticlesVtable = reinterpret_cast<void**>(g_c_glow_particles_vtable_slots);
-static VtableSlot g_c_glow_ribbon_trail_particles_node_vtable_slots[] = {&NodeAdapters::destroy_glow_ribbon_trail};
-void** const kCGlowRibbonTrailParticlesNodeVtable =
-    reinterpret_cast<void**>(g_c_glow_ribbon_trail_particles_node_vtable_slots);
-static VtableSlot g_c_glow_ribbon_trail_particles_vtable_slots[] = {
-    &render::GlowRibbonTrailParticles::teardown, &render::WeatherSystem::render,
-    &render::GlowRibbonTrailParticles::get_num_vertex_lists, &render::GlowRibbonTrailParticles::get_num_colours};
-void** const kCGlowRibbonTrailParticlesVtable = reinterpret_cast<void**>(g_c_glow_ribbon_trail_particles_vtable_slots);
-static VtableSlot g_c_line_particles_node_vtable_slots[] = {&NodeAdapters::destroy_line};
-void** const kCLineParticlesNodeVtable = reinterpret_cast<void**>(g_c_line_particles_node_vtable_slots);
-static VtableSlot g_c_line_particles_vtable_slots[] = {&render::LineParticles::teardown, &render::WeatherSystem::render,
-                                                       &render::ParticleCounts::field134,
-                                                       &render::ParticleCounts::two_colours};
-void** const kCLineParticlesVtable = reinterpret_cast<void**>(g_c_line_particles_vtable_slots);
-} // namespace
-} // namespace render
-
 namespace vt {
 static VtableSlot g_particle_node_slots[] = {&NodeAdapters::node_destroy};
 void** const kParticleNode = reinterpret_cast<void**>(g_particle_node_slots);
-static VtableSlot g_model_particles_node_slots[] = {&NodeAdapters::destroy_model};
-void** const kModelParticlesNode = reinterpret_cast<void**>(g_model_particles_node_slots);
-static VtableSlot g_model_particles_slots[] = {&render::ModelParticles::teardown, &render::ModelParticles::render,
-                                               online::handle_nothing, online::handle_nothing};
-void** const kModelParticles = reinterpret_cast<void**>(g_model_particles_slots);
+static VtableSlot g_particle_system_node_slots[] = {&NodeAdapters::destroy_system};
+void** const kParticleSystemNode = reinterpret_cast<void**>(g_particle_system_node_slots);
 } // namespace vt

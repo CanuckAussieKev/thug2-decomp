@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/gfx/particle_sets.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 
@@ -31,37 +32,32 @@ struct ParticleCurve {
     maths::Vec4 a, b, c;
 };
 
-// The PC particle system (0x28C bytes, vtable 0x0064A4F0; the engine's particle system - constructor 0x00496360,
-// vtable 0x00649380, destructor body 0x00494DF0 - for its first 0x190 bytes: +0x04 the parameters it was made from,
-// particle_component.cpp's ParticleParams).
-struct PcParticleSystem {
-    void** vtable;
-    uint8_t params04[0xC];
-    float sizes[3]; // +0x10: start, mid, end
-    float radii[3]; // +0x1C: start, mid, end (the spread's fourth component)
-    uint8_t params28[4];
-    float rate;         // +0x2C: particles a second (0: none)
-    float lifetime;     // +0x30: seconds
-    float mid_percent_; // +0x34: when the mid is, a percentage of the lifetime
-    uint8_t params38[0x60];
-    maths::Vec4 positions[3]; // +0x098: start, mid, end
-    maths::Vec4 boxes[3];     // +0x0C8: the spread, start, mid, end
-    uint8_t params_0f_8_[0x30];
-    float colour_mid_percent_; // +0x128: when the mid colour is, a percentage of the lifetime
-    uint8_t colours[3][4];     // +0x12C: start, mid, end (RGBA)
-    uint32_t blend_mode_;      // +0x138: a checksum
-    int alpha_cut_off_;        // +0x13C: of 128
-    uint8_t params140[4];
-    uint32_t texture; // +0x144: a checksum (the skater's texture dictionary)
-    uint8_t params148[0xD];
-    bool use_mid_;         // +0x155: the paths go through the mid
-    bool local_positions_; // +0x156: they move with the object (the path made again each update; never culled)
-    bool colour_use_mid_;  // +0x157: the colours go through the mid colour
-    uint8_t params158[3];
-    bool cull_outside_; // +0x15B: culled by 0x004DB570 rather than 0x004DB790
-    uint8_t engine_15c_[0x24];
-    maths::Vec4 bounds; // +0x180: the bounding sphere (centre, radius)
-    bool emitting;      // +0x190
+// The PC particle system (0x28C bytes, vtable 0x0064A4F0; the engine's particle system, Sparkle, for its first 0x190
+// bytes).
+struct PcParticleSystem final : Sparkle {
+    // 0x004BCE80 (0x004BCE50 the scalar deleting destructor, vtable slot 0): the engine's.
+    ~PcParticleSystem() override = default;
+
+    // 0x004BC250 (vtable slot 1): set up from the parameters: the rate three quarters of theirs, five bursts, its
+    // material (blend mode, texture, alpha cut-off; colour half grey), the curves, the identity matrix.
+    void initialise() override;
+    // 0x004BCE10 (slot 2): the bursts and the material freed.
+    void free_resources() override;
+    // 0x004BB0C0 (slot 4): a new burst begun when the rate changes (or emitting stops), with `advance` the bursts aged
+    // a frame, the newest's count made up to its age, the oldest's particles past the lifetime let go (its seed moved
+    // on past them; the burst ended when none are left and none are coming); then, unless culled, every particle drawn
+    // as a camera-facing quad through the dynamic vertex buffer (0x1000 a draw at most).
+    void draw(bool advance) override;
+    // 0x004BC240 (slot 5): the path made again when it moves with the object.
+    void update() override;
+    // 0x004BB0B0 (slot 7): whether any burst is live.
+    bool is_emitting() override;
+
+    // 0x004BBD20 (Ghidra never made it: 0x004BC240's tail): the path from the positions and sizes (through the mid
+    // when useMid), less 1.5 times the spread.
+    void update_path();
+
+    bool emitting; // +0x190
     uint8_t unknown191[3];
     int capacity;          // +0x194: bursts (5)
     int live;              // +0x198
@@ -73,65 +69,17 @@ struct PcParticleSystem {
     uint8_t* material;    // +0x228: its own (0x110 bytes)
     ParticleCurve spread; // +0x22C: the boxes and radii through time
     ParticleCurve path;   // +0x25C: the positions and sizes through time, less 1.5 times the spread
-
-    // 0x004BCE90 (the PC particle manager's virtual [1]; Ghidra's thiscall on the manager, which it doesn't use):
-    // a new one (0x28C bytes).
-    static PcParticleSystem* __fastcall fabricate(void* manager);
-    // 0x004BCE80: the destructor's body (a jump to the engine's 0x00494DF0).
-    void destroy_body();
-    // 0x004BCE50 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    PcParticleSystem* teardown(unsigned int flags);
-    // 0x004BC250 (virtual [1]): set up from the parameters: the rate three quarters of theirs, five bursts, its
-    // material (blend mode, texture, alpha cut-off; colour half grey), the curves, the identity matrix.
-    void initialise();
-    // 0x004BCE10 (virtual [2]): the bursts and the material freed.
-    void get_release();
-    // 0x004BB0C0 (virtual [4]): a new burst begun when the rate changes (or emitting stops), with `advance` the
-    // bursts aged a frame, the newest's count made up to its age, the oldest's particles past the lifetime let go
-    // (its seed moved on past them; the burst ended when none are left and none are coming); then, unless culled,
-    // every particle drawn as a camera-facing quad through the dynamic vertex buffer (0x1000 a draw at most).
-    void render(bool advance);
-    // 0x004BC240 (virtual [5]): the path made again when it moves with the object.
-    void tick_frame();
-    // 0x004BBD20 (Ghidra never made it: 0x004BC240's tail): the path from the positions and sizes (through the mid
-    // when useMid), less 1.5 times the spread.
-    void update_path();
-    // 0x004BB0B0 (virtual [7]): whether any burst is live.
-    bool is_emitting();
-
-    // The engine's particle system's own members (engine_particles.cpp; its first 0x190 bytes - +0x38 a value the
-    // particle component sets, +0x4C the id of scripts spawned for it, +0x159 hidden, +0x15A held back):
-    // 0x00494DF0: the destructor's body (its vtable). 0x00495230 (the engine's virtual [0]): destroyed, and freed with
-    // flags & 1. Returns this.
-    void engine_destroy_body();
-    PcParticleSystem* engine_destroy(unsigned int flags);
-    // 0x00494E00 / 0x00494E20: drawn (virtual [4]) / updated (virtual [5]) unless hidden or held back.
-    void engine_render(bool advance);
-    void engine_update();
-    // 0x00494E40: its spawned scripts killed (0x00474040), then released (virtual [2]).
-    void engine_release();
-    // 0x00494E70 (not a Ghidra function): hidden or shown - the platform told (virtual [3]) when it changes.
-    void conceal(bool hide);
-    // 0x00494E90 / 0x00494EA0: the rate and the lifetime set.
-    void set_rate(float rate);
-    void set_lifespan(float lifetime);
-    // 0x00494EB0: size `which` (start, mid, end) set.
-    void change_extent(int which, float size);
-    // 0x00494EC0 / 0x00494EE0 / 0x00494EF0: colour `which`, +0x38 and the colour mid percentage set - then the
-    // platform told (virtual [6]).
-    void change_colour(int which, const uint32_t* colour);
-    void set_value38(float value);
-    void set_colour_mid_percent(float percent);
 };
-static_assert(offsetof(PcParticleSystem, sizes) == 0x10 && offsetof(PcParticleSystem, rate) == 0x2C &&
-                  offsetof(PcParticleSystem, positions) == 0x98 && offsetof(PcParticleSystem, boxes) == 0xC8 &&
-                  offsetof(PcParticleSystem, colour_mid_percent_) == 0x128 &&
-                  offsetof(PcParticleSystem, blend_mode_) == 0x138 && offsetof(PcParticleSystem, texture) == 0x144 &&
-                  offsetof(PcParticleSystem, use_mid_) == 0x155 && offsetof(PcParticleSystem, cull_outside_) == 0x15B &&
-                  offsetof(PcParticleSystem, bounds) == 0x180 && offsetof(PcParticleSystem, capacity) == 0x194 &&
-                  offsetof(PcParticleSystem, matrix) == 0x1A8 && offsetof(PcParticleSystem, material) == 0x228 &&
-                  offsetof(PcParticleSystem, spread) == 0x22C && offsetof(PcParticleSystem, path) == 0x25C &&
-                  sizeof(PcParticleSystem) == 0x28C,
+static_assert(offsetof(PcParticleSystem, capacity) == 0x194 && offsetof(PcParticleSystem, matrix) == 0x1A8 &&
+                  offsetof(PcParticleSystem, material) == 0x228 && offsetof(PcParticleSystem, spread) == 0x22C &&
+                  offsetof(PcParticleSystem, path) == 0x25C && sizeof(PcParticleSystem) == 0x28C,
               "layout must match the original");
+
+// The PC particle manager (0x1C bytes, vtable 0x0064A304; the engine's particle manager with nothing of its own but
+// the systems it makes. Its destructor 0x004B2740 - 0x004B2710 the scalar deleting one - is the engine's.)
+struct PcParticleManager final : EffectsDirector {
+    // 0x004BCE90 (vtable slot 1): a new PC particle system.
+    Sparkle* create_system() override;
+};
 
 } // namespace render

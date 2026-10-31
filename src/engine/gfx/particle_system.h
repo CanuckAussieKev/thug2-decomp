@@ -31,13 +31,34 @@ struct FlexibleParticle {
 };
 static_assert(sizeof(FlexibleParticle) == 0x30, "layout must match the original");
 
-// The base of every type (0x134 bytes; vtable 0x00649428: 0 the scalar deleting destructor, 1 Render (the engine's
-// prints "STUB"), 2 get_num_vertex_lists - history steps -, 3 get_num_colours; a list node of the particle manager's at
-// +0x0C, its vtable 0x00649424 - slot 0 the destructor through the node).
-struct EmitterInstance : objects::SharedBase {
+// The base of every type (0x134 bytes; vtable 0x00649428). Smart pointers point at it (the flexible particle
+// component's): their list is its second word, where SharedBase keeps it - see SharedRefList. Its list node at +0x0C
+// (the particle manager's list) has a table of its own whose slot 0 destroys the system through the node; that table
+// is the node's (memory::ListNode's `vtable`), not a second C++ base.
+struct EmitterInstance {
+    // On the current heap, zeroed, with the particle manager's assert flag (g_alloc_assert_flag); null when it's full.
+    static void* operator new(std::size_t size) noexcept;
+    static void operator delete(void* memory);
+
+    // 0x00496F10: no smart pointers, the node (not linked), no flags, then Reset.
+    EmitterInstance();
+    // 0x00498690 (0x00498F80 the scalar deleting destructor, vtable slot 0): the scripts, the parameters, the colours,
+    // the positions and the particles freed; the particle manager told (0x0049AD60); the node unlinked; its smart
+    // pointers cleared.
+    virtual ~EmitterInstance();
+    // Vtable slot 1: the particles drawn. The engine's (the types' too, but the model type's) prints "STUB:
+    // plat_render" (0x004A1040, shared with the weather's).
+    virtual void render();
+    // Slot 2: the vertex lists - history steps - a particle has. 0x004968A0 (not a Ghidra function): "STUB:
+    // plat_get_num_vertex_lists" printed, 0.
+    virtual int get_num_vertex_lists();
+    // Slot 3: the colours a particle has. 0x00496890: "STUB: plat_get_num_particle_colors" printed, 0.
+    virtual int get_num_colours();
+
     // 0x0041D9C0 (thiscall; flexible_particle.cpp): flag bit `bit` of flag_bits_ set or cleared.
     void set_flag(int bit, bool on);
 
+    objects::SharedRefList smart_pointers_; // +0x04
     uint32_t unknown08;
     memory::ListNode list_link_;      // +0x0C: in the particle manager's list (data: the system)
     maths::Vec4 at_point_;            // +0x20: the emitter
@@ -52,7 +73,7 @@ struct EmitterInstance : objects::SharedBase {
     int lod_min_particles_;           // +0x80 setLODParams min_particles
     float lod_near_;                  // +0x84 lod_dist1, squared
     float lod_far_;                   // +0x88 lod_dist2, squared
-    int unknown8c_;                   // +0x8C: live particles (empty_system: 0)
+    int particle_count_;              // +0x8C: live particles (empty_system: 0)
     float speed_[2];                  // +0x90 setSpeedRange min, max
     float emit_range_[3];             // +0x98 setEmitRange width, height, depth
     float angle_spread_;              // +0xA4 setAngleSpread spread
@@ -63,7 +84,7 @@ struct EmitterInstance : objects::SharedBase {
     float emit_target_[3];            // +0xD0 setEmitTarget (a direction)
     maths::Mat4* xform_ref_;          // +0xDC the matrix it follows (its object's display matrix)
     float orientation_turn_[3];       // +0xE0 (x, y, z angles: the matrix of build_emitter_orientation; setEmitAngle)
-    uint32_t unknownec_;              // +0xEC (a float: a model's +0x22C, update_Brightness; the ground's brightness)
+    float brightness_;                // +0xEC (a model's +0x22C, update_Brightness; the ground's brightness)
     uint32_t label_;                  // +0xF0
     uint32_t group_id_;               // +0xF4 groupID
     FlexibleParticle* particle_list_; // +0xF8 (max_particles_ of them, after their count)
@@ -97,18 +118,9 @@ struct EmitterInstance : objects::SharedBase {
     bool update_brightness_; // +0x132
     bool unknown133_;        // +0x133 (cleared by 0xDE45A90D: not culled)
 
-    // 0x00496F10: SharedBase's constructor, the node (not linked), the vtables, no flags, then Reset. Returns this.
-    EmitterInstance* make_new();
     // 0x00496D70: the defaults (no scripts, no matrix, rate 0, the emitter at (2048, 144, -928), speed 1 - 2, emit
     // range (1, 1, 0), spread 0.5, force (0, -0.02, 0), sizes 2, life 2, target (0, 1, 0), white, ...).
     void get_reset();
-    // 0x00498690: the destructor's body: the scripts, the parameters, the colours, the positions and the particles
-    // freed; the particle manager told (0x0049AD60); the node unlinked; SharedBase's.
-    void destroy_body();
-    // 0x00498F80 (vtable slot 0): destroyed, and freed with flags & 1. Returns this.
-    EmitterInstance* teardown(unsigned int flags);
-    // 0x00496F50 (node vtable slot 0, `this` the node): the same for the system.
-    EmitterInstance* destroy_from_node(unsigned int flags);
 
     // 0x004968B0 / 0x004968E0 / 0x00496910 / 0x00496940: emit_range_ / m_force / emit_target_ / orientation_turn_.
     void set_emit_range(float width, float height, float depth);
@@ -131,8 +143,8 @@ struct EmitterInstance : objects::SharedBase {
     void set_colour_scale(const float* rgba);
     // 0x00496F60: the emit script run on; once it ends, deleted.
     void run_emit_script();
-    // 0x00496FA0: when shown and updated this frame (unknown12f_, unknown130_), or when `force`: Render (vtable slot
-    // 1), and flag 1 and unknown12f_ cleared.
+    // 0x00496FA0: when shown and updated this frame (unknown12f_, unknown130_), or when `force`: render, and flag 1
+    // and unknown12f_ cleared.
     void render_if_visible(bool force);
     // 0x00497790 / 0x00497900: the emit / update script: `script` (on a CScript of its own) with the shared
     // parameters plus `params`, on `object`; 0: the script deleted.
@@ -142,11 +154,6 @@ struct EmitterInstance : objects::SharedBase {
     void set_wants_time(uint8_t on);
     // 0x00497AB0: the matrix of orientation_turn_ (init_from_angles) into `out`. Returns out.
     maths::Mat4* build_emitter_orientation(maths::Mat4* out);
-
-    // 0x00496890 / 0x004968A0 (vtable slots 3 and 2; the latter not a Ghidra function): "STUB:
-    // plat_get_num_particle_colors" / "STUB: plat_get_num_vertex_lists" printed, 0.
-    static int __cdecl get_num_colours_stub();
-    static int __cdecl get_num_vertex_lists_stub();
 
     // (particle_system_update.cpp)
     // 0x00496FE0: `count` particles emitted (no more than there's room for; none once dying). Moving ones: a
@@ -169,20 +176,22 @@ struct EmitterInstance : objects::SharedBase {
     // count taken out (the last moved into the gap), the last position kept.
     void tick_frame(float time, bool skip);
     // The brightness of the ground under the emitter (a line from 1 above to 4800 below; `movables` too) into
-    // unknownec_, doubled; left as it was without a hit.
+    // brightness_, doubled; left as it was without a hit.
     void update_ground_brightness(bool movables);
     // Particle `index` taken out: the last moved into its place (each history step's position too), the last's
     // positions set far away (1024, 1024, 1024).
     void remove_particle(int index, bool through_accessors);
 };
-static_assert(offsetof(EmitterInstance, list_link_) == 0x0C && offsetof(EmitterInstance, at_point_) == 0x20 &&
+static_assert(offsetof(EmitterInstance, smart_pointers_) == offsetof(objects::SharedBase, smart_pointers_) &&
+                  offsetof(EmitterInstance, list_link_) == 0x0C && offsetof(EmitterInstance, at_point_) == 0x20 &&
                   offsetof(EmitterInstance, align_to_) == 0x40 && offsetof(EmitterInstance, bounds_) == 0x50 &&
                   offsetof(EmitterInstance, emit_rate_) == 0x70 && offsetof(EmitterInstance, unknown78_) == 0x78 &&
-                  offsetof(EmitterInstance, unknown8c_) == 0x8C && offsetof(EmitterInstance, emit_range_) == 0x98 &&
-                  offsetof(EmitterInstance, force_) == 0xA8 && offsetof(EmitterInstance, extent_) == 0xB4 &&
-                  offsetof(EmitterInstance, age_left_) == 0xC8 && offsetof(EmitterInstance, emit_target_) == 0xD0 &&
-                  offsetof(EmitterInstance, xform_ref_) == 0xDC && offsetof(EmitterInstance, unknownec_) == 0xEC &&
-                  offsetof(EmitterInstance, group_id_) == 0xF4 && offsetof(EmitterInstance, particle_list_) == 0xF8 &&
+                  offsetof(EmitterInstance, particle_count_) == 0x8C &&
+                  offsetof(EmitterInstance, emit_range_) == 0x98 && offsetof(EmitterInstance, force_) == 0xA8 &&
+                  offsetof(EmitterInstance, extent_) == 0xB4 && offsetof(EmitterInstance, age_left_) == 0xC8 &&
+                  offsetof(EmitterInstance, emit_target_) == 0xD0 && offsetof(EmitterInstance, xform_ref_) == 0xDC &&
+                  offsetof(EmitterInstance, brightness_) == 0xEC && offsetof(EmitterInstance, group_id_) == 0xF4 &&
+                  offsetof(EmitterInstance, particle_list_) == 0xF8 &&
                   offsetof(EmitterInstance, script_args_) == 0x104 && offsetof(EmitterInstance, colour_mid_) == 0x108 &&
                   offsetof(EmitterInstance, position_array_) == 0x11C &&
                   offsetof(EmitterInstance, flag_bits_) == 0x120 && offsetof(EmitterInstance, wants_time_) == 0x12A &&
@@ -192,87 +201,82 @@ static_assert(offsetof(EmitterInstance, list_link_) == 0x0C && offsetof(EmitterI
 
 // The types' engine classes: constructed with (name, max particles, texture, blend mode, fixed alpha, segments, a
 // float, history) - each reads what it uses -, the particles, positions and colours allocated (each step stops at
-// the first that fails), the colours grey, no mid colour, flag 4.
+// the first that fails), the colours grey, no mid colour, flag 4. Only their PC classes are ever made
+// (pc_flexible_particles.h); the model type is the exception. The original's slot 2 / 3 bodies that return a
+// constant or a field are shared between classes (0x0047DF90 "return 0", 0x0049B8C0 2, 0x0049BB70 4, 0x0049C0F0 3,
+// 0x0049BB80 the int at +0x134).
 
-// "newflat" (vtables 0x0064943C and 0x00649438): a position and one colour each.
+// "newflat" (vtable 0x0064943C): a position and one colour each.
 struct NewFlatParticles : EmitterInstance {
-    // 0x00499010. Returns this.
-    NewFlatParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                               int segments, float unknown, int history);
-    // 0x00498FB0: the vtables, the base's body.
-    void destroy_body();
-    // 0x00498FE0 (vtable slot 0) / 0x00498FD0 (through the node)
-    NewFlatParticles* teardown(unsigned int flags);
-    NewFlatParticles* destroy_from_node(unsigned int flags);
+    // 0x00499010
+    NewFlatParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
+                     int segments, float unknown, int history);
+    // 0x00498FB0 (0x00498FE0 the scalar deleting destructor; 0x00498FD0 through the node): the base's.
+    ~NewFlatParticles() override = default;
+    int get_num_vertex_lists() override { return 0; }
+    int get_num_colours() override { return 0; }
 };
 
-// The flat ribbon (0x3D56A7A6; vtables 0x00649450 and 0x0064944C): history + 1 positions each, a colour a segment
-// and three more.
+// The flat ribbon (0x3D56A7A6; vtable 0x00649450): history + 1 positions each, a colour a segment and three more.
 struct FlatRibbonParticles : EmitterInstance {
     int segments_; // +0x134: history + 1
 
-    // 0x004992C0. Returns this.
-    FlatRibbonParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                  int fixed_alpha, int segments, float unknown, int history);
-    // 0x00499200: the vtables, the particles freed (and forgotten), the base's body.
-    void destroy_body();
-    // 0x00499290 (vtable slot 0) / 0x004991F0 (through the node)
-    FlatRibbonParticles* teardown(unsigned int flags);
-    FlatRibbonParticles* destroy_from_node(unsigned int flags);
-    // 0x004991E0 (vtable slot 3): segments_ + 3.
-    int get_num_colours();
+    // 0x004992C0
+    FlatRibbonParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
+                        int segments, float unknown, int history);
+    // 0x00499200 (0x00499290 the scalar deleting destructor; 0x004991F0 through the node): the particles freed (and
+    // forgotten), the base's.
+    ~FlatRibbonParticles() override;
+    int get_num_vertex_lists() override { return segments_; }
+    // 0x004991E0: segments_ + 3.
+    int get_num_colours() override;
 };
 
-// "glow" (vtables 0x00649464 and 0x00649460): three colours.
+// "glow" (vtable 0x00649464): three colours.
 struct GlowParticles : EmitterInstance {
     int segments_;     // +0x134
     float glow_width_; // +0x138
 
-    // 0x004995B0. Returns this.
-    GlowParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                            int segments, float glow_width, int history);
-    // 0x00499550
-    void destroy_body();
-    // 0x00499580 (vtable slot 0) / 0x00499570 (through the node)
-    GlowParticles* teardown(unsigned int flags);
-    GlowParticles* destroy_from_node(unsigned int flags);
+    // 0x004995B0
+    GlowParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha, int segments,
+                  float glow_width, int history);
+    // 0x00499550 (0x00499580 the scalar deleting destructor; 0x00499570 through the node): the base's.
+    ~GlowParticles() override = default;
+    int get_num_vertex_lists() override { return 0; }
+    int get_num_colours() override { return 3; }
 };
 
-// "glowribbontrail" (vtables 0x00649478 and 0x00649474): history + 1 positions each (history_length_), colours as the
-// flat ribbon.
+// "glowribbontrail" (vtable 0x00649478): history + 1 positions each (history_length_), colours as the flat ribbon.
 struct GlowRibbonTrailParticles : EmitterInstance {
     int segments_; // +0x134: the glow's
     float span_;   // +0x138
 
-    // 0x00499880. Returns this.
-    GlowRibbonTrailParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                       int fixed_alpha, int segments, float width, int history);
-    // 0x00499800
-    void destroy_body();
-    // 0x00499850 (vtable slot 0) / 0x00499840 (through the node)
-    GlowRibbonTrailParticles* teardown(unsigned int flags);
-    GlowRibbonTrailParticles* destroy_from_node(unsigned int flags);
-    // 0x00499820 (vtable slot 3): history_length_ + 3. 0x00499830 (slot 2): history_length_.
-    int get_num_colours();
-    int get_num_vertex_lists();
+    // 0x00499880
+    GlowRibbonTrailParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
+                             int segments, float width, int history);
+    // 0x00499800 (0x00499850 the scalar deleting destructor; 0x00499840 through the node): the base's.
+    ~GlowRibbonTrailParticles() override = default;
+    // 0x00499830: history_length_. 0x00499820: history_length_ + 3.
+    int get_num_vertex_lists() override;
+    int get_num_colours() override;
 };
 
-// "line" (vtables 0x0064948C and 0x00649488): history + 1 positions each, a colour a step.
+// "line" (vtable 0x0064948C): history + 1 positions each, a colour a step.
 struct LineParticles : EmitterInstance {
     int steps_; // +0x134: history + 1
 
-    // 0x00499B80. Returns this.
-    LineParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                            int segments, float unknown, int history);
-    // 0x00499B20
-    void destroy_body();
-    // 0x00499B50 (vtable slot 0) / 0x00499B40 (through the node)
-    LineParticles* teardown(unsigned int flags);
-    LineParticles* destroy_from_node(unsigned int flags);
+    // 0x00499B80
+    LineParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha, int segments,
+                  float unknown, int history);
+    // 0x00499B20 (0x00499B50 the scalar deleting destructor; 0x00499B40 through the node): the base's.
+    ~LineParticles() override = default;
+    int get_num_vertex_lists() override { return steps_; }
+    int get_num_colours() override { return 2; }
 };
 
-// The model type (0x286A8D26; vtables 0x006494A0 and 0x0064949C; constructed by 0x0049A0C0): models as particles.
-struct ModelParticles : EmitterInstance {
+// The model type (0x286A8D26; vtable 0x006494A0; constructed by 0x0049A0C0): models as particles - the one engine type
+// made without a PC class.
+struct ModelParticles final : EmitterInstance {
     unsigned int model_count_;  // +0x134
     unsigned int drawn_models_; // +0x138: the models Render goes through (the same count)
     void*
@@ -284,24 +288,23 @@ struct ModelParticles : EmitterInstance {
     // `particleCap` particles, positions and models - each from "<model>.mdl" (lower case) at a random scale 1 - 2.98 -
     // unless the memory left is under 0x1194 bytes a model; a random rotation each (only the first ever normalised, as
     // the original); one colour of each kind (not set); no mid colour, flag 4. Each step stops at the first that fails.
-    // Returns this.
-    ModelParticles* make_new(uint32_t name, int particle_cap, const char* model, uint32_t blend_mode, int fixed_alpha,
-                             int segments, float unknown, int history);
+    ModelParticles(uint32_t name, int particle_cap, const char* model, uint32_t blend_mode, int fixed_alpha,
+                   int segments, float unknown, int history);
+    // 0x00499E10 (0x0049A090 the scalar deleting destructor; 0x00499E00 through the node): +0x13C freed, the models
+    // deleted and their array freed (each forgotten), the base's.
+    ~ModelParticles() override;
     // 0x0049A4C0 (vtable slot 1): with no particles every model hidden; else from the last particle's model on hidden,
     // and each particle's model shown, coloured (its colour through its life), turned (its rotation moved by its
     // velocity and normalised), scaled (its start size less a quarter for each of its index's lowest two bits) and
     // drawn at its position.
-    void render();
+    void render() override;
+    int get_num_vertex_lists() override { return 0; }
+    int get_num_colours() override { return 0; }
 
-    // 0x00499E10: the vtables, +0x13C freed, the models deleted and their array freed (each forgotten), the base's.
-    void destroy_body();
     // 0x00499EE0: the colour `t` of the way from `from` to `to` (RGBA bytes, each channel wrapping as a byte), its red,
     // green and blue then scaled by the colour scale times the brightness (clamped to 0-255; the blue's scale rounded
     // to a float first, as the original) - into *out, RGBA. Returns out.
     uint32_t* lerp_colour(uint32_t* out, const uint8_t* from, const uint8_t* to, float t);
-    // 0x0049A090 (vtable slot 0) / 0x00499E00 (through the node)
-    ModelParticles* teardown(unsigned int flags);
-    ModelParticles* destroy_from_node(unsigned int flags);
 };
 static_assert(offsetof(ModelParticles, model_count_) == 0x134 && offsetof(ModelParticles, unknown_13c_ptr_) == 0x13C &&
                   offsetof(ModelParticles, model_list_) == 0x144,

@@ -67,18 +67,6 @@ void __cdecl add_texture_shadow_caster(const uint8_t* texture, void* model, uint
 void __cdecl aim_texture_shadow_caster(const uint8_t* texture, gfx::ViewCam* camera);
 void __cdecl remove_texture_shadow_caster(const uint8_t* texture);
 
-// The PC particle manager (0x1C bytes, vtable 0x0064A304; the engine's particle manager 0x00496770 with nothing of
-// its own).
-struct PcParticleManager {
-    void** vtable;
-    uint8_t base[0x18];
-
-    // 0x004B2710 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    PcParticleManager* teardown(unsigned int flags);
-    // 0x004B2740: a jump to the engine's destructor body (0x004967D0).
-    void destroy_body();
-};
-
 extern bool g_loading_screen_up; // the loading screen is up: it draws and presents on its own
 
 extern void* g_weather;

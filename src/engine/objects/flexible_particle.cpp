@@ -194,8 +194,7 @@ FlexibleParticleComponent* FlexibleParticleComponent::make_new()
 void FlexibleParticleComponent::destroy_body()
 {
     vtable_ = kVtable;
-    if (render::EmitterInstance* system = system_.get_pull())
-        reinterpret_cast<void*(__thiscall*)(render::EmitterInstance*, unsigned int)>(system->vtable_[0])(system, 1);
+    delete system_.get_pull();
     system_.get_release();
     ObjectModule::destroy_body();
 }
@@ -350,8 +349,8 @@ void FlexibleParticleComponent::tick_frame()
             render::EmitterInstance* system = system_.get_pull();
             if (system->wants_time_) {
                 if (brightness_model_)
-                    system->unknownec_ =
-                        *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(brightness_model_) + 0x22C);
+                    system->brightness_ =
+                        *reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(brightness_model_) + 0x22C);
                 update_system(system_.get_pull(), clock_, 0);
                 clock_ = 0.0f;
             }
@@ -415,7 +414,7 @@ int FlexibleParticleComponent::pass_to_system(uint32_t name, script::Struct* par
 int FlexibleParticleComponent::empty_system(uint32_t, script::Struct*, script::Script*)
 {
     if (render::EmitterInstance* system = system_.get_pull())
-        system->unknown8c_ = 0;
+        system->particle_count_ = 0;
     return 1;
 }
 

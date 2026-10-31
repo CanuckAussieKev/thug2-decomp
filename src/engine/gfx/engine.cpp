@@ -126,11 +126,10 @@ void __cdecl prepare_all(uint32_t text_pool_size)
     set_screen_mode(0);
     memory::pop_mem_profile();
     memory::push_mem_profile("CFlexibleParticleManager");
-    void* memory = memory::alloc(sizeof(FlexibleParticleManager));
-    flexible_particle_manager() = memory ? static_cast<FlexibleParticleManager*>(memory)->make_new() : nullptr;
+    flexible_particle_manager() = new FlexibleParticleManager;
     memory::pop_mem_profile();
     memory::push_mem_profile("CImposterManager");
-    memory = memory::alloc(8);
+    void* memory = memory::alloc(8);
     imposter_manager() = memory ? static_cast<ImposterManager*>(memory)->make_new() : nullptr;
     memory::pop_mem_profile();
     memory::push_mem_profile("MiscFXInitialize");

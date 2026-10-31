@@ -23,8 +23,6 @@
 #include "engine/gfx/texture_dict.h"
 #include "platform/platform_d3d.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
@@ -37,7 +35,6 @@ uint32_t g_particle_random_a;
 
 namespace {
 
-extern void** const kSystemVtable;
 constexpr float kRandomScale = 1.0f / 16384.0f; // 0x006487C8
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
@@ -168,7 +165,7 @@ Fit get_fit(const float* p0, const float* p1, const float* p2, float end, float 
 
 float get_mid_time(const PcParticleSystem* system)
 {
-    return static_cast<float>(static_cast<double>(system->mid_percent_) * system->lifetime * 0.01f);
+    return static_cast<float>(static_cast<double>(system->args_.mid_percent_) * system->args_.lifetime_ * 0.01f);
 }
 
 // The camera's across and up directions from the view matrix's third column (a, b, c): r = (a, b, c) x (0, 1, 0)
@@ -227,32 +224,12 @@ void ParticleBurst::get_skip(int particles)
 }
 
 // 0x004BCE90
-PcParticleSystem* __fastcall PcParticleSystem::fabricate(void*)
-{
-    void* memory = memory::alloc_zeroed(sizeof(PcParticleSystem));
-    if (!memory)
-        return nullptr;
-    auto* system = reinterpret_cast<PcParticleSystem*>(static_cast<Sparkle*>(memory)->make_new());
-    system->vtable = reinterpret_cast<void**>(kSystemVtable);
-    return system;
-}
-
-// 0x004BCE80
-void PcParticleSystem::destroy_body() { engine_destroy_body(); }
-
-// 0x004BCE50
-PcParticleSystem* PcParticleSystem::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+Sparkle* PcParticleManager::create_system() { return new PcParticleSystem; }
 
 // 0x004BC250
 void PcParticleSystem::initialise()
 {
-    rate = static_cast<float>(static_cast<double>(rate) * 0.75f); // (0x0064A4EC)
+    args_.rate_ = static_cast<float>(static_cast<double>(args_.rate_) * 0.75f); // (0x0064A4EC)
     capacity = 5;
     live = 0;
     bursts = static_cast<ParticleBurst*>(memory::alloc(0x8C));
@@ -270,19 +247,19 @@ void PcParticleSystem::initialise()
     for (int k = 0; k < 3; ++k)
         *reinterpret_cast<float*>(material + 0x40 + 4 * k) = 0.5f;
     *reinterpret_cast<float*>(material + 0x4C) =
-        static_cast<float>(static_cast<double>(alpha_cut_off_) * (1.0f / 128.0f));
+        static_cast<float>(static_cast<double>(args_.alpha_cut_off_) * (1.0f / 128.0f));
     *reinterpret_cast<uint32_t*>(material + 0x90) = 0x10001;
     *reinterpret_cast<uint32_t*>(material + 0xC0) = 0x10001;
-    *reinterpret_cast<uint32_t*>(material + 0x80) = blend_mode_from_name(blend_mode_);
+    *reinterpret_cast<uint32_t*>(material + 0x80) = blend_mode_from_name(args_.blend_mode_);
     *reinterpret_cast<uint32_t*>(material + 0x30) = 0;
-    if (const uint8_t* found = find_texture(texture))
+    if (const uint8_t* found = find_texture(args_.texture_))
         *reinterpret_cast<uint32_t*>(material + 0x30) = texture_key(found);
 
     // The spread: the boxes and their radii.
-    float start[4] = {boxes[0].x, boxes[0].y, boxes[0].z, radii[0]};
-    float middle[4] = {boxes[1].x, boxes[1].y, boxes[1].z, radii[1]};
-    float last[4] = {boxes[2].x, boxes[2].y, boxes[2].z, radii[2]};
-    Fit fit = get_fit(start, middle, last, lifetime, get_mid_time(this), use_mid_, true);
+    float start[4] = {args_.box_[0].x, args_.box_[0].y, args_.box_[0].z, args_.radius_[0]};
+    float middle[4] = {args_.box_[1].x, args_.box_[1].y, args_.box_[1].z, args_.radius_[1]};
+    float last[4] = {args_.box_[2].x, args_.box_[2].y, args_.box_[2].z, args_.radius_[2]};
+    Fit fit = get_fit(start, middle, last, args_.lifetime_, get_mid_time(this), args_.use_mid_, true);
     spread.a = {start[0], start[1], start[2], start[3]};
     spread.b = {static_cast<float>(fit.bx), fit.by, fit.bz, fit.bw};
     spread.c = {fit.c[0], fit.c[1], fit.c[2], fit.c[3]};
@@ -295,10 +272,10 @@ void PcParticleSystem::initialise()
 // 0x004BBD20
 void PcParticleSystem::update_path()
 {
-    float start[4] = {positions[0].x, positions[0].y, positions[0].z, sizes[0]};
-    float middle[4] = {positions[1].x, positions[1].y, positions[1].z, sizes[1]};
-    float last[4] = {positions[2].x, positions[2].y, positions[2].z, sizes[2]};
-    Fit fit = get_fit(start, middle, last, lifetime, get_mid_time(this), use_mid_, false);
+    float start[4] = {args_.at_point_[0].x, args_.at_point_[0].y, args_.at_point_[0].z, args_.extent_[0]};
+    float middle[4] = {args_.at_point_[1].x, args_.at_point_[1].y, args_.at_point_[1].z, args_.extent_[1]};
+    float last[4] = {args_.at_point_[2].x, args_.at_point_[2].y, args_.at_point_[2].z, args_.extent_[2]};
+    Fit fit = get_fit(start, middle, last, args_.lifetime_, get_mid_time(this), args_.use_mid_, false);
     // Less 1.5 times the spread: its x and w products unrounded, its y and z rounded first.
     auto less = [](double value, float spread_value, bool rounded) {
         double offset = static_cast<double>(spread_value) * 1.5f;
@@ -313,9 +290,9 @@ void PcParticleSystem::update_path()
 }
 
 // 0x004BC240
-void PcParticleSystem::tick_frame()
+void PcParticleSystem::update()
 {
-    if (local_positions_)
+    if (args_.local_positions_)
         update_path();
 }
 
@@ -323,7 +300,7 @@ void PcParticleSystem::tick_frame()
 bool PcParticleSystem::is_emitting() { return live > 0; }
 
 // 0x004BCE10
-void PcParticleSystem::get_release()
+void PcParticleSystem::free_resources()
 {
     if (bursts)
         memory::Hub::get_pull()->dealloc(bursts);
@@ -334,16 +311,16 @@ void PcParticleSystem::get_release()
 }
 
 // 0x004BB0C0
-void PcParticleSystem::render(bool advance)
+void PcParticleSystem::draw(bool advance)
 {
     // A new burst when the rate changed (or stopping when it's 0).
-    if (rate == 0.0f || (emitting && rate == newest->rate)) {
-        emitting = !(rate == 0.0f);
+    if (args_.rate_ == 0.0f || (emitting && args_.rate_ == newest->rate)) {
+        emitting = !(args_.rate_ == 0.0f);
     } else if (live < capacity) {
         ++live;
         newest = get_next(this, newest);
-        newest->rate = rate;
-        newest->period = static_cast<float>(1.0f / static_cast<double>(rate));
+        newest->rate = args_.rate_;
+        newest->period = static_cast<float>(1.0f / static_cast<double>(args_.rate_));
         newest->age = 0.0f;
         newest->count = 0;
         newest->seed[0] = static_cast<uint32_t>(get_rand());
@@ -365,8 +342,8 @@ void PcParticleSystem::render(bool advance)
     if (emitting)
         newest->count = truncate(static_cast<double>(newest->age) * newest->rate + 1.0f);
     ParticleBurst* first = oldest;
-    if (first->age > lifetime) {
-        int gone = truncate((static_cast<double>(first->age) - lifetime) * first->rate + 1.0f);
+    if (first->age > args_.lifetime_) {
+        int gone = truncate((static_cast<double>(first->age) - args_.lifetime_) * first->rate + 1.0f);
         first->count -= gone;
         if (oldest->count <= 0 && (live != 1 || !emitting)) {
             --live;
@@ -379,9 +356,10 @@ void PcParticleSystem::render(bool advance)
             oldest->get_skip(gone);
         }
     }
-    if (!local_positions_) {
-        maths::Vec4 centre = {bounds.x, bounds.y, bounds.z, 0.0f};
-        bool visible = cull_outside_ ? sphere_outside_view(&centre, bounds.w) != 0 : sphere_in_view(&centre, bounds.w);
+    if (!args_.local_positions_) {
+        maths::Vec4 centre = {bound_ball_.x, bound_ball_.y, bound_ball_.z, 0.0f};
+        bool visible = args_.cull_outside_ ? sphere_outside_view(&centre, bound_ball_.w) != 0
+                                           : sphere_in_view(&centre, bound_ball_.w);
         if (!visible)
             return;
     }
@@ -395,13 +373,13 @@ void PcParticleSystem::render(bool advance)
     float colour_table[3][4];
     for (int i = 0; i < 3; ++i)
         for (int k = 0; k < 4; ++k)
-            colour_table[i][k] = static_cast<float>(static_cast<double>(colours[i][k]) * (1.0f / 255.0f));
+            colour_table[i][k] = static_cast<float>(static_cast<double>(args_.shade_[i][k]) * (1.0f / 255.0f));
 
     ParticleBurst* burst = oldest;
     for (int b = 0; b < live; ++b, ++burst) {
         if (burst == bursts + capacity)
             burst = bursts;
-        float colour_mid = static_cast<float>(static_cast<double>(colour_mid_percent_) * 0.01f * lifetime);
+        float colour_mid = static_cast<float>(static_cast<double>(args_.colour_mid_percent_) * 0.01f * args_.lifetime_);
         float age = burst->age;
         random_a() = burst->seed[0];
         random_b() = burst->seed[1];
@@ -438,16 +416,16 @@ void PcParticleSystem::render(bool advance)
                     const float* from = colour_table[0];
                     const float* to = colour_table[2];
                     double fraction;
-                    if (colour_use_mid_) {
+                    if (args_.colour_use_mid_) {
                         if (t > colour_mid) {
-                            fraction = (t - colour_mid) / (static_cast<double>(lifetime) - colour_mid);
+                            fraction = (t - colour_mid) / (static_cast<double>(args_.lifetime_) - colour_mid);
                             from = colour_table[1];
                         } else {
                             fraction = t / colour_mid;
                             to = colour_table[1];
                         }
                     } else {
-                        fraction = t / lifetime;
+                        fraction = t / args_.lifetime_;
                     }
                     auto channel = [&](int k) {
                         return static_cast<uint32_t>(
@@ -539,17 +517,5 @@ void PcParticleSystem::render(bool advance)
         }
     }
 }
-
-namespace {
-static VtableSlot g_system_vtable_slots[] = {&render::PcParticleSystem::teardown,
-                                             &render::PcParticleSystem::initialise,
-                                             &render::PcParticleSystem::get_release,
-                                             stubs::ignore_argument,
-                                             &render::PcParticleSystem::render,
-                                             &render::PcParticleSystem::tick_frame,
-                                             stubs::do_nothing,
-                                             &render::PcParticleSystem::is_emitting};
-void** const kSystemVtable = reinterpret_cast<void**>(g_system_vtable_slots);
-} // namespace
 
 } // namespace render

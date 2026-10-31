@@ -34,15 +34,12 @@
 #include "engine/gfx/shadow_base.h"
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/maths/vec4.h"
-#include "engine/core/code_address.h"
 #include "engine/gfx/pc_particles.h"
 #include "engine/objects/particle_component.h"
 
 namespace render {
 
-namespace {
-extern void** const kCPcParticleManagerVtable;
-} // namespace
+namespace {} // namespace
 
 bool g_loading_screen_up; // the loading screen is up: it draws and presents on its own
 void* g_weather;
@@ -171,30 +168,12 @@ void __cdecl screen_shot(const char* name, int /*unused*/)
 void __cdecl start_engine()
 {
     init_direct_3d();
-    void* memory = memory::alloc(0x1C);
-    void* particles = nullptr;
-    if (memory) {
-        particles = static_cast<EffectsDirector*>(memory)->make_new();
-        *static_cast<void**>(particles) = reinterpret_cast<void*>(kCPcParticleManagerVtable);
-    }
-    reinterpret_cast<void*&>(objects::g_particle_hub) = particles;
-    memory = memory::alloc(0x12AC);
+    objects::g_particle_hub = new PcParticleManager;
+    void* memory = memory::alloc(0x12AC);
     g_weather = memory ? static_cast<PcWeather*>(memory)->make_new() : nullptr;
     memory = memory::alloc(8);
     g_screen_effects = memory ? static_cast<PcScreenEffects*>(memory)->make_new() : nullptr;
 }
-
-// 0x004B2710
-PcParticleManager* PcParticleManager::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x004B2740
-void PcParticleManager::destroy_body() { reinterpret_cast<EffectsDirector*>(this)->destroy_body(); }
 
 // 0x004B2750
 void __cdecl finish_rendering()
@@ -318,11 +297,5 @@ void __cdecl remove_texture_shadow_caster(const uint8_t* texture)
 {
     remove_shadow_caster(reinterpret_cast<uint32_t>(caster_key(texture)));
 }
-
-namespace {
-static VtableSlot g_c_pc_particle_manager_vtable_slots[] = {&render::PcParticleManager::teardown,
-                                                            render::PcParticleSystem::fabricate};
-void** const kCPcParticleManagerVtable = reinterpret_cast<void**>(g_c_pc_particle_manager_vtable_slots);
-} // namespace
 
 } // namespace render

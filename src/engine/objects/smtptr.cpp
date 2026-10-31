@@ -17,7 +17,7 @@ extern void** const kRefCountedVtable;
 SharedBase* SharedBase::make_new()
 {
     vtable_ = kRefCountedVtable;
-    smart_pointers_ = nullptr;
+    smart_pointers_.head_ = nullptr;
     return this;
 }
 
@@ -38,15 +38,15 @@ SharedBase* SharedBase::scalar_delete(uint8_t flags)
 }
 
 // 0x00463820 (each pointer is taken out of the list of the object it points at, which is this one)
-void SharedBase::clear_smart_pointers()
+void SharedRefList::clear()
 {
-    for (SharedRef<SharedBase>* pointer = smart_pointers_; pointer;) {
+    for (SharedRef<SharedBase>* pointer = head_; pointer;) {
         SharedRef<SharedBase>* next = pointer->following_;
-        if (SharedBase* object = pointer->owner_object_) {
+        if (pointer->owner_object_) {
             if (pointer->preceding_)
                 pointer->preceding_->following_ = next;
             else
-                object->smart_pointers_ = next;
+                head_ = next;
             if (pointer->following_)
                 pointer->following_->preceding_ = pointer->preceding_;
             pointer->preceding_ = nullptr;
@@ -59,21 +59,21 @@ void SharedBase::clear_smart_pointers()
 }
 
 // 0x004637C0
-void SharedBase::attach_shared_ref(SharedRef<SharedBase>* pointer)
+void SharedRefList::attach(SharedRef<SharedBase>* pointer)
 {
-    pointer->following_ = smart_pointers_;
-    if (smart_pointers_)
-        smart_pointers_->preceding_ = pointer;
-    smart_pointers_ = pointer;
+    pointer->following_ = head_;
+    if (head_)
+        head_->preceding_ = pointer;
+    head_ = pointer;
 }
 
 // 0x004637E0
-void SharedBase::detach_shared_ref(SharedRef<SharedBase>* pointer)
+void SharedRefList::detach(SharedRef<SharedBase>* pointer)
 {
     if (pointer->preceding_)
         pointer->preceding_->following_ = pointer->following_;
     else
-        smart_pointers_ = pointer->following_;
+        head_ = pointer->following_;
     if (pointer->following_)
         pointer->following_->preceding_ = pointer->preceding_;
     pointer->preceding_ = nullptr;

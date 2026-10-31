@@ -15,30 +15,17 @@
 #include "engine/core/mem.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 #include "engine/gfx/particle_maths.h"
-#include "engine/core/game_vtables.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/movie_manager.h"
 
 namespace render {
 
 namespace {
 
-void** const& g_particle_vtable = vt::kEngineParticles;
-extern void** const kManagerVtable;
 constexpr float kByteToUnit = 1.0f / 255.0f;    // 0x00645D70 (the bit pattern 0x3B808081)
 constexpr uint32_t kObjectIdParam = 0x40C698AF; // (the emit script's parameter: the object's id)
 
 bool is_game_halted() { return objects::g_simulation_halted; }
-
-// The system's virtual functions.
-Sparkle* erase_one(Sparkle* particle, unsigned int flags)
-{
-    return reinterpret_cast<Sparkle*(__thiscall*)(Sparkle*, unsigned int)>(particle->vtable[0])(particle, flags);
-}
-void initialise(Sparkle* particle) { reinterpret_cast<void(__thiscall*)(Sparkle*)>(particle->vtable[1])(particle); }
-void colour_changed(Sparkle* particle) { reinterpret_cast<void(__thiscall*)(Sparkle*)>(particle->vtable[6])(particle); }
 
 script::Struct* spawn_param_table()
 {
@@ -67,7 +54,7 @@ float current_round(double value) { return static_cast<float>(value); }
 SparkleConfig* SparkleConfig::make_new()
 {
     unknown04_ = 0xDEDFC057;
-    flag151_ = true;
+    use_mid_ = true;
     local_positions_ = false;
     orient_with_object_ = false;
     for (int i = 0; i < 3; ++i) {
@@ -79,22 +66,22 @@ SparkleConfig* SparkleConfig::make_new()
         for (int k = 0; k < 4; ++k)
             shade_[i][k] = 0x80;
     }
-    flag153_ = false;
-    unknown140_ = 0;
-    unknown138_ = 0;
-    unknown30_ = 50.0f;
+    colour_use_mid_ = false;
+    texture_ = 0;
+    alpha_cut_off_ = 0;
+    mid_percent_ = 50.0f;
     unknown24_ = 2;
-    unknown28_ = 300.0f;
-    unknown2c_ = 4.0f;
-    unknown34_ = 1.0f;
-    unknown124_ = 50.0f;
-    unknown134_ = 0xA86285A1;
+    rate_ = 300.0f;
+    lifetime_ = 4.0f;
+    brightness_ = 1.0f;
+    colour_mid_percent_ = 50.0f;
+    blend_mode_ = 0xA86285A1;
     unknown13c_ = 1;
     for (float& scale : colour_scale_)
         scale = 1.0f;
     unknown14c_ = 0;
-    unknown155[0] = 0;
-    unknown155[1] = 0;
+    hidden_ = false;
+    held_back_ = false;
     flag158_ = false;
     entity_key_ = 0;
     unknown144_ = 400;
@@ -112,20 +99,14 @@ SparkleConfig* SparkleConfig::get_assign(const SparkleConfig& other)
 // --- the system ---
 
 // 0x00496360
-Sparkle* Sparkle::make_new()
-{
-    vtable = g_particle_vtable;
-    args_.make_new();
-    new (&extent_box_) maths::BBox();
-    return this;
-}
+Sparkle::Sparkle() { args_.make_new(); }
 
 // 0x00496380
 void Sparkle::prepare_all(const SparkleConfig* params)
 {
     args_.get_assign(*params);
     update_bounds();
-    initialise(this);
+    initialise();
 }
 
 // 0x00495260. The corners are (position, size) less / plus (half the box, half the radius), the size and half the
@@ -172,9 +153,9 @@ void Sparkle::update_bounds()
     maths::Vec4 low, high, curve;
     low = *min_of(&lo[0], &lo[2], &curve);
     high = *max_of(&hi[0], &hi[2], &curve);
-    if (p.flag151_) { // (the paths go through the mid: their extremes on the way)
-        float life = p.unknown2c_;
-        float mid_time = current_round(static_cast<double>(life) * p.unknown30_ * 0.01f);
+    if (p.use_mid_) { // (the paths go through the mid: their extremes on the way)
+        float life = p.lifetime_;
+        float mid_time = current_round(static_cast<double>(life) * p.mid_percent_ * 0.01f);
         maths::Vec4 extreme;
         curve_extremes(&extreme, lo[0], lo[1], lo[2], mid_time, life);
         low = *min_of(&low, &extreme, &curve);
@@ -225,13 +206,13 @@ void Sparkle::spin_by(int which, const maths::Mat4* matrix)
 void Sparkle::change_colour(const uint8_t* rgba)
 {
     if (!rgba) {
-        colour_changed(this);
+        on_colour_changed();
         return;
     }
     if (args_.flag158_) {
         for (int i = 0; i < 4; ++i)
             args_.colour_scale_[i] = static_cast<float>(rgba[i]) * kByteToUnit;
-        colour_changed(this);
+        on_colour_changed();
     }
 }
 
@@ -241,7 +222,7 @@ void Sparkle::set_colour_scale(const float* rgba)
     if (args_.flag158_) {
         for (int i = 0; i < 4; ++i)
             args_.colour_scale_[i] = rgba[i];
-        colour_changed(this);
+        on_colour_changed();
     }
 }
 
@@ -261,16 +242,11 @@ void Sparkle::set_emit_script(uint32_t script, uint32_t object_id)
     }
 }
 
-void Sparkle::render(bool advance) { reinterpret_cast<PcParticleSystem*>(this)->engine_render(advance); }
-void Sparkle::tick_frame() { reinterpret_cast<PcParticleSystem*>(this)->engine_update(); }
-void Sparkle::get_release() { reinterpret_cast<PcParticleSystem*>(this)->engine_release(); }
-
 // --- the manager ---
 
 // 0x00496770
-EffectsDirector* EffectsDirector::make_new()
+EffectsDirector::EffectsDirector()
 {
-    vtable = kManagerVtable;
     systems_.size = 0;
     auto* head = static_cast<objects::PointerListNode*>(memory::alloc(sizeof(objects::PointerListNode)));
     if (head) {
@@ -280,13 +256,11 @@ EffectsDirector* EffectsDirector::make_new()
     systems_.head = head;
     for (float& c : shade_)
         c = 1.0f;
-    return this;
 }
 
 // 0x004967D0
-void EffectsDirector::destroy_body()
+EffectsDirector::~EffectsDirector()
 {
-    vtable = kManagerVtable;
     objects::PointerListNode* result;
     for (int pass = 0; pass < 2; ++pass) {
         objects::PointerListNode* head = systems_.head;
@@ -295,19 +269,10 @@ void EffectsDirector::destroy_body()
     memory::dealloc(systems_.head);
 }
 
-// 0x00496860
-EffectsDirector* EffectsDirector::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
-
 // 0x00496510
 Sparkle* EffectsDirector::spawn_particle(const SparkleConfig* params)
 {
-    Sparkle* particle = reinterpret_cast<Sparkle*(__thiscall*)(EffectsDirector*)>(vtable[1])(this);
+    Sparkle* particle = create_system();
     if (particle) {
         particle->prepare_all(params);
         if (particle->args_.flag158_) {
@@ -337,8 +302,7 @@ void EffectsDirector::retire_particle(Sparkle* particle)
     }
     auto* found = static_cast<Sparkle*>(node->data);
     found->get_release();
-    if (found)
-        erase_one(found, 1);
+    delete found;
     if (node != systems_.head) {
         node->prev->next = node->next;
         node->next->prev = node->prev;
@@ -382,18 +346,12 @@ void EffectsDirector::kill_every_particle()
          node = node->next) {
         auto* particle = static_cast<Sparkle*>(node->data);
         particle->get_release();
-        if (particle)
-            erase_one(particle, 1);
+        delete particle;
     }
     objects::PointerListNode* result;
     objects::PointerListNode* head = systems_.head;
     systems_.get_erase(&result, head ? head->next : nullptr, head);
 }
-
-namespace {
-static VtableSlot g_manager_vtable_slots[] = {&render::EffectsDirector::teardown, stubs::return_zero};
-void** const kManagerVtable = reinterpret_cast<void**>(g_manager_vtable_slots);
-} // namespace
 
 } // namespace render
 
@@ -414,15 +372,3 @@ void PointerList::splice(PointerListNode* position, void* const* value)
 }
 
 } // namespace objects
-
-namespace vt {
-static VtableSlot g_engine_particles_slots[] = {&render::PcParticleSystem::engine_destroy,
-                                                stubs::do_nothing,
-                                                stubs::do_nothing,
-                                                stubs::ignore_argument,
-                                                stubs::ignore_argument,
-                                                stubs::do_nothing,
-                                                stubs::do_nothing,
-                                                stubs::return_true};
-void** const kEngineParticles = reinterpret_cast<void**>(g_engine_particles_slots);
-} // namespace vt

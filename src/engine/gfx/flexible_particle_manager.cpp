@@ -25,7 +25,6 @@ float g_frame_time_scale;
 int g_drawn_viewport;
 namespace {
 
-extern void** const kManagerVtable;
 extern void** const kHeadVtable;
 void** const& g_node_vtable = vt::kParticleNode;  // (lists::Elem<EmitterInstance>'s own)
 const char* const kHeapName = "FlxParticles";     // "FlxParticles"
@@ -39,11 +38,10 @@ float& frame_time_scale() { return g_frame_time_scale; }
 bool is_game_halted() { return objects::g_simulation_halted; }
 int drawn_viewport() { return g_drawn_viewport; }
 
-// A virtual scalar deleting destructor (slot 0) with flags 1.
-void delete_virtual(void* object)
+// The list's head deleted through its node table (slot 0, flags 1).
+void delete_head(memory::ListNode* head)
 {
-    void** vtable = *static_cast<void***>(object);
-    reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[0])(object, 1);
+    reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(head->vtable[0])(head, 1);
 }
 
 // The list's systems: the first after the head, the one after `system` - null at the head (its data -1) or a null link.
@@ -62,9 +60,8 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 } // namespace
 
 // 0x0049AF20
-FlexibleParticleManager* FlexibleParticleManager::make_new()
+FlexibleParticleManager::FlexibleParticleManager()
 {
-    vtable_ = reinterpret_cast<void**>(kManagerVtable);
     int size = script::fetch_int_value(kHeapSizeSymbol);
     if (!size)
         size = kDefaultHeapSize;
@@ -86,27 +83,16 @@ FlexibleParticleManager* FlexibleParticleManager::make_new()
     // (0 gives 60; anything else, NaN too, 60 / it)
     frame_time_scale() =
         rate == 0.0f ? kFramesPerSecond : static_cast<float>(kFramesPerSecond / static_cast<double>(rate));
-    return this;
 }
 
 // 0x0049AA10
-void FlexibleParticleManager::destroy_body()
+FlexibleParticleManager::~FlexibleParticleManager()
 {
-    vtable_ = reinterpret_cast<void**>(kManagerVtable);
     if (systems_ptr_)
-        delete_virtual(systems_ptr_);
+        delete_head(systems_ptr_);
     delete_temp_heap();
     memory::Hub::get_pull()->delete_heap(reinterpret_cast<memory::MemSource*>(arena_));
     delete zone_;
-}
-
-// 0x0049B040
-FlexibleParticleManager* FlexibleParticleManager::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x0049A9D0
@@ -190,13 +176,13 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
                                                           int perm, bool use_level_colour, const char* model)
 {
     memory::Hub::get_pull()->enter_heap_scope(reinterpret_cast<memory::MemSource*>(temp_heap_ ? temp_heap_ : arena_));
-    auto* system = static_cast<EmitterInstance*>(create_flexible_particles(
-        name, type, particle_cap, max_streams, texture, blend_mode, fixed_alpha, segments, unknown, history, model));
+    EmitterInstance* system = (create_flexible_particles(name, type, particle_cap, max_streams, texture, blend_mode,
+                                                         fixed_alpha, segments, unknown, history, model));
     memory::Hub::get_pull()->leave_heap_scope();
     if (!system)
         return nullptr;
     if (!(system->flag_bits_ & 4u)) { // (not everything allocated)
-        delete_virtual(system);
+        delete system;
         return nullptr;
     }
     system->unknown12e_ = perm != 0;
@@ -232,7 +218,7 @@ void FlexibleParticleManager::remove_system(EmitterInstance* system)
 void FlexibleParticleManager::destroy_system_now(uint32_t name)
 {
     if (EmitterInstance* system = find_system(name))
-        delete_virtual(system);
+        delete system;
 }
 
 // 0x0049ADB0
@@ -251,7 +237,7 @@ void FlexibleParticleManager::destroy_group(uint32_t group)
     while (system) {
         EmitterInstance* next = next_system(system);
         if (system->group_id_ == group)
-            delete_virtual(system);
+            delete system;
         system = next;
     }
 }
@@ -263,7 +249,7 @@ void FlexibleParticleManager::destroy_non_persistent()
     while (system) {
         EmitterInstance* next = next_system(system);
         if (!system->unknown12e_)
-            delete_virtual(system);
+            delete system;
         system = next;
     }
 }
@@ -292,8 +278,6 @@ memory::ListNode* ParticleSystemListHead::teardown(unsigned int flags)
 }
 
 namespace {
-static VtableSlot g_manager_vtable_slots[] = {&render::FlexibleParticleManager::teardown};
-void** const kManagerVtable = reinterpret_cast<void**>(g_manager_vtable_slots);
 static VtableSlot g_head_vtable_slots[] = {&render::ParticleSystemListHead::teardown};
 void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
 } // namespace

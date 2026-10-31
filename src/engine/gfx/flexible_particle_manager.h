@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/mem.h"
 
 // The engine's flexible particle manager (Nx; the one at 0x006FA7C0 - the flexible particle component's systems are
 // made, found and destroyed through it): its systems in a list, on a heap of their own (or a temporary one a
@@ -12,23 +13,24 @@ namespace render {
 
 struct EmitterInstance;
 
-// (0x28 bytes, vtable 0x006494B0: 0 the scalar deleting destructor.)
-struct FlexibleParticleManager {
-    void** vtable_;
-    memory::Zone* zone_;            // +0x04: its own memory (the script integer 0x91CB7552 bytes, else 0x5000)
-    memory::Arena* arena_;          // +0x08 "FlxParticles"
-    memory::Zone* temp_region_;     // +0x0C
-    memory::Arena* temp_heap_;      // +0x10 "TEMPFlxPrtcl": systems are made on it while it's there
-    memory::ListNode* systems_ptr_; // +0x14: the list's head (lists::Foremost<EmitterInstance>, vtable 0x006494C4)
-    float colour_scale_[4];         // +0x18: the level's colour (given to the systems with flag 0x10000)
+// (0x28 bytes in the original, with a vtable 0x006494B0 holding only its destructor; one, made at start-up and never
+// deleted: no vtable here, 0x24 bytes.)
+struct FlexibleParticleManager : memory::HeapObject {
+    memory::Zone* zone_;            // its own memory (the script integer 0x91CB7552 bytes, else 0x5000)
+    memory::Arena* arena_;          // "FlxParticles"
+    memory::Zone* temp_region_;     //
+    memory::Arena* temp_heap_;      // "TEMPFlxPrtcl": systems are made on it while it's there
+    memory::ListNode* systems_ptr_; // the list's head (lists::Foremost<EmitterInstance>, vtable 0x006494C4)
+    float colour_scale_[4];         // the level's colour (given to the systems with flag 0x10000)
 
     // 0x0049AF20: its memory, the list, the colour white; the frame time scale (0x00700EF4) 60 / the script float
-    // 0x3214C818 - 60 when that's 0. Returns this.
-    FlexibleParticleManager* make_new();
-    // 0x0049AA10: the list's head deleted, the temporary heap, the heap and the region.
-    void destroy_body();
-    // 0x0049B040 (vtable slot 0): destroyed, and freed with flags & 1. Returns this.
-    FlexibleParticleManager* teardown(unsigned int flags);
+    // 0x3214C818 - 60 when that's 0.
+    FlexibleParticleManager();
+    // 0x0049AA10 (0x0049B040 the scalar deleting destructor): the list's head deleted, the temporary heap, the heap
+    // and the region.
+    ~FlexibleParticleManager();
+    FlexibleParticleManager(const FlexibleParticleManager&) = delete;
+    FlexibleParticleManager& operator=(const FlexibleParticleManager&) = delete;
     // 0x0049A9D0: the temporary heap (and its region) gone, if there is one.
     void delete_temp_heap();
     // 0x0049AA80: a temporary heap of `size` bytes (any old one gone first). Whether it was made.
@@ -63,10 +65,6 @@ struct FlexibleParticleManager {
     // camera first (the difference of the squared distances, truncated), else the higher priority (+0x124) first.
     static int __cdecl compare_distance(const void* a, const void* b);
 };
-static_assert(offsetof(FlexibleParticleManager, systems_ptr_) == 0x14 &&
-                  offsetof(FlexibleParticleManager, colour_scale_) == 0x18 && sizeof(FlexibleParticleManager) == 0x28,
-              "layout must match the original");
-
 // 0x0049AEF0 (the head's vtable 0x006494C4, slot 0): the list's head (lists::Foremost<EmitterInstance>) destroyed - the
 // node's body 0x00496D10 -, freed with flags & 1. Returns it.
 struct ParticleSystemListHead {
