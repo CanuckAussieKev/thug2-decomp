@@ -27,6 +27,7 @@
 #include "game/sys/platform_d3d.h"
 #include "game/sys/platform_input.h"
 #include "game/sys/platform_system.h"
+#include "game/sys/crt.h"
 #include "game/sys/registry.h"
 #include "game/sys/sdl_window.h"
 #include "game/gfx/loading_console.h"
@@ -99,14 +100,10 @@ void Msleep(unsigned milliseconds) { GameFunction<void(__cdecl*)(unsigned)>(0x00
 
 // The game's C runtime: its rand() is the one the game's code draws from, and its exit functions run the game's
 // own clean-up.
-unsigned Time() { return GameFunction<unsigned(__cdecl*)(unsigned*)>(0x00625138)(nullptr); }
-void Srand(unsigned seed) { GameFunction<void(__cdecl*)(unsigned)>(0x00623B96)(seed); }
-void CExit() { GameFunction<void(__cdecl*)()>(0x00624B20)(); } // _cexit: atexit functions, streams flushed
-[[noreturn]] void ExitNow(int code) // _exit
-{
-    GameFunction<void(__cdecl*)(int)>(0x00624B0F)(code);
-    __assume(0);
-}
+unsigned Time() { return Crt::Time(); }
+void Srand(unsigned seed) { Crt::Srand(seed); }
+void CExit() { Crt::CExit(); } // _cexit: atexit functions, streams flushed
+[[noreturn]] void ExitNow(int code) { Crt::ExitNow(code); } // _exit
 
 // The platform layer's parts without source yet.
 char FindCdDrive(const char* volume) { return Platform::FindCdDrive(volume); }

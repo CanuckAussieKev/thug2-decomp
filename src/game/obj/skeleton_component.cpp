@@ -28,6 +28,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/sys/crt.h"
 
 namespace Obj {
 
@@ -88,7 +89,7 @@ void* TextureByChecksum(uint32_t checksum)
 }
 
 // The game's C runtime rand().
-int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); }
+int Rand() { return Crt::Rand(); }
 
 Script::VectorValue ToValue(const Mth::Vector& v) { return {v.x, v.y, v.z, v.w}; }
 

@@ -24,6 +24,7 @@
 #include "hook/hook.h"
 #include "hook/game_code.h"
 #include "game/gfx/device.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -127,7 +128,7 @@ void Turn(const Mth::Matrix& m, double x, double y, double z, float* out)
 }
 float* At(uint8_t* vertex) { return reinterpret_cast<float*>(vertex); }
 
-int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)
+int Rand() { return Crt::Rand(); } // (the game's C runtime's)
 constexpr double kPerRand = std::bit_cast<float>(0x38000100u);      // 0x00646510 (1 / 32767)
 constexpr double kPerRandTwice = std::bit_cast<float>(0x38800100u); // 0x0064930C (2 / 32767)
 

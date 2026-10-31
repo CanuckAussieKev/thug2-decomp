@@ -14,6 +14,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/pcm/stream_files.h"
+#include "game/sys/crt.h"
 
 namespace Pcm {
 
@@ -32,23 +33,28 @@ bool& StreamFilesReady() { return g_streamFilesReady; }
 uint32_t& StreamFileUses() { return g_streamFileUses; }
 
 // The game's C runtime (its heap and files; until the runtime is linked).
-FILE* CrtFopen(const char* path, const char* mode) { return GameFunction<FILE*(__cdecl*)(const char*, const char*)>(0x006241E8)(path, mode); }
-int CrtFseek(FILE* file, long offset, int origin) { return GameFunction<int(__cdecl*)(FILE*, long, int)>(0x006240D2)(file, offset, origin); }
-size_t CrtFread(void* buffer, size_t size, size_t count, FILE* file)
-{
-    return GameFunction<size_t(__cdecl*)(void*, size_t, size_t, FILE*)>(0x00623F3E)(buffer, size, count, file);
-}
-int CrtFclose(FILE* file) { return GameFunction<int(__cdecl*)(FILE*)>(0x00623E04)(file); }
-void* CrtMalloc(size_t size) { return GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(size); }
-void CrtFree(void* block) { GameFunction<void(__cdecl*)(void*)>(0x0062411B)(block); }
+FILE* CrtFopen(const char* path, const char* mode) { return Crt::Fopen(path, mode); }
+int CrtFseek(FILE* file, long offset, int origin) { return Crt::Fseek(file, offset, origin); }
+size_t CrtFread(void* buffer, size_t size, size_t count, FILE* file) { return Crt::Fread(buffer, size, count, file); }
+int CrtFclose(FILE* file) { return Crt::Fclose(file); }
+void* CrtMalloc(size_t size) { return Crt::Malloc(size); }
+void CrtFree(void* block) { Crt::Free(block); }
 
-// The Bink SDK (binkw32.dll), through the game's import table until it's linked.
-template <typename F>
-F Import(uintptr_t slot) { return GameVariable<F>(slot); }
-int BinkSetSoundSystem(void* open, void* param) { return Import<int(__stdcall*)(void*, void*)>(0x00645304)(open, param); }
-void* BinkOpenDirectSound() { return GameVariable<void*>(0x00645300); } // the function, passed to the above
-void* BinkOpen(const void* source, uint32_t flags) { return Import<void*(__stdcall*)(const void*, uint32_t)>(0x006452E8)(source, flags); }
-void BinkSetVideoOnOff(void* bink, int on) { Import<int(__stdcall*)(void*, int)>(0x006452FC)(bink, on); }
+// The Bink SDK (binkw32.dll), through the game's import table.
+int BinkSetSoundSystem(void* open, void* param)
+{
+    return GAME_DLL_IMPORT(0x00645304, int(__stdcall*)(void*, void*), "binkw32.dll", "_BinkSetSoundSystem@8")(open, param);
+}
+// the function, passed to the above
+void* BinkOpenDirectSound() { return GAME_DLL_IMPORT(0x00645300, void*, "binkw32.dll", "_BinkOpenDirectSound@4"); }
+void* BinkOpen(const void* source, uint32_t flags)
+{
+    return GAME_DLL_IMPORT(0x006452E8, void*(__stdcall*)(const void*, uint32_t), "binkw32.dll", "_BinkOpen@8")(source, flags);
+}
+void BinkSetVideoOnOff(void* bink, int on)
+{
+    GAME_DLL_IMPORT(0x006452FC, int(__stdcall*)(void*, int), "binkw32.dll", "_BinkSetVideoOnOff@8")(bink, on);
+}
 constexpr uint32_t kBinkFromMemory = 0x04000000;
 constexpr long kInvalidArg = static_cast<long>(0x80070057); // E_INVALIDARG
 bool& BinkSoundSet() { return g_binkSoundSet; }

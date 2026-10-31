@@ -10,6 +10,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/crt.h"
 
 namespace Mem {
 
@@ -468,7 +469,7 @@ void* const kBottomUpStorage = g_bottomUpStorage;
 bool& ManagerReady() { return g_managerReady; }
 
 // The game CRT's malloc (the main block comes from it).
-void* CrtMalloc(size_t size) { return GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(size); }
+void* CrtMalloc(size_t size) { return Crt::Malloc(size); }
 
 AllocRegion* NewAllocRegion(uint32_t size)
 {

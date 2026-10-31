@@ -18,6 +18,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/crt.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
@@ -34,7 +35,7 @@ constexpr float kRadiansToDegrees = 57.2957763671875f; // 0x00645468
 template <typename... Args>
 int Sprintf(char* out, const char* format, Args... args)
 {
-    return GameFunction<int(__cdecl*)(char*, const char*, ...)>(0x006234FE)(out, format, args...);
+    return Crt::Sprintf(out, format, args...);
 }
 
 // The goal editor's shared name buffer (also GoalEditorMarkerObject<n>'s).

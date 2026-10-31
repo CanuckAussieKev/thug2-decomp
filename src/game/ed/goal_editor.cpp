@@ -27,6 +27,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/crt.h"
 
 namespace Ed {
 
@@ -92,12 +93,12 @@ constexpr uint32_t kParkEditorGameplayLevel = 0xB664035D; // Load_Sk5Ed_gameplay
 template <typename... Args>
 int Sprintf(char* out, const char* format, Args... args)
 {
-    return GameFunction<int(__cdecl*)(char*, const char*, ...)>(0x006234FE)(out, format, args...);
+    return Crt::Sprintf(out, format, args...);
 }
 // The game's _stricmp (0x00626EFB).
 int CompareNoCase(const char* a, const char* b)
 {
-    return GameFunction<int(__cdecl*)(const char*, const char*)>(0x00626EFB)(a, b);
+    return Crt::Stricmp(a, b);
 }
 
 char* CreatedGoalName() { return g_createdGoalName; }

@@ -58,6 +58,7 @@
 #include "game/sys/winmain.h"
 #include "game/gfx/movie.h"
 #include "hook/game_code.h"
+#include "game/sys/crt.h"
 
 namespace CFuncs {
 
@@ -599,23 +600,17 @@ bool GetPosition(Script::CStruct* structure, Script::VectorValue* out)
 void* Word54(void* object) { return reinterpret_cast<Mdl::Viewer*>(object)->GetViewerObject(); }
 
 // The game's C runtime (library code, called through the game).
-void* GameFopen(const char* name, const char* mode)
-{
-    return GameFunction<void*(__cdecl*)(const char*, const char*)>(0x006241E8)(name, mode);
-}
-int GameFseek(void* file, long offset, int origin)
-{
-    return GameFunction<int(__cdecl*)(void*, long, int)>(0x006240D2)(file, offset, origin);
-}
-long GameFtell(void* file) { return GameFunction<long(__cdecl*)(void*)>(0x00625388)(file); }
-void* GameMalloc(size_t size) { return GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(size); }
+void* GameFopen(const char* name, const char* mode) { return Crt::Fopen(name, mode); }
+int GameFseek(void* file, long offset, int origin) { return Crt::Fseek(static_cast<FILE*>(file), offset, origin); }
+long GameFtell(void* file) { return Crt::Ftell(static_cast<FILE*>(file)); }
+void* GameMalloc(size_t size) { return Crt::Malloc(size); }
 size_t GameFread(void* buffer, size_t size, size_t count, void* file)
 {
-    return GameFunction<size_t(__cdecl*)(void*, size_t, size_t, void*)>(0x00623F3E)(buffer, size, count, file);
+    return Crt::Fread(buffer, size, count, static_cast<FILE*>(file));
 }
-int GameFclose(void* file) { return GameFunction<int(__cdecl*)(void*)>(0x00623E04)(file); }
-void GameFree(void* memory) { GameFunction<void(__cdecl*)(void*)>(0x0062411B)(memory); }
-double GameAtof(const char* text) { return GameFunction<double(__cdecl*)(const char*)>(0x006253C9)(text); }
+int GameFclose(void* file) { return Crt::Fclose(static_cast<FILE*>(file)); }
+void GameFree(void* memory) { Crt::Free(memory); }
+double GameAtof(const char* text) { return Crt::Atof(text); }
 
 // ShowTracking's debug line drawing - compiled out of this build (an empty call, 0x005480A0).
 inline void DrawDebugLine(const Mth::Vector* /*from*/, const Mth::Vector* /*to*/, uint32_t /*colour1*/,

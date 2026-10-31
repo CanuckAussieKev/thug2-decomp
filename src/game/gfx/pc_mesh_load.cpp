@@ -24,6 +24,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -34,7 +35,7 @@ GAME_GLOBAL(uint32_t[6], g_vertexShaders, 0x00775B64);
 
 namespace {
 
-void* Malloc(size_t size) { return GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(size); } // the game's C runtime
+void* Malloc(size_t size) { return Crt::Malloc(size); } // the game's C runtime
 
 // What the loaders read from: memory (a cursor moved on) or a file.
 struct MemoryReader {

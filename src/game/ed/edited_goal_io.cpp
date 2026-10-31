@@ -17,6 +17,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/crt.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
@@ -33,7 +34,7 @@ constexpr uint32_t kStructureArray = 10, kChecksumArray = 13, kIntegerArray = 1;
 template <typename... Args>
 int Sprintf(char* out, const char* format, Args... args)
 {
-    return GameFunction<int(__cdecl*)(char*, const char*, ...)>(0x006234FE)(out, format, args...);
+    return Crt::Sprintf(out, format, args...);
 }
 
 char* CreatedGoalName() { return g_createdGoalName; } // the shared CreatedGoal<n> buffer

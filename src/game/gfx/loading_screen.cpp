@@ -22,6 +22,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/crt.h"
 #include "game/sys/game_config.h"
 
 namespace Nx {
@@ -37,14 +38,13 @@ uint32_t& BarTimer() { return g_loadingBarTimer; }
 uint32_t FogEnabled() { return g_fogEnabled; } // (the renderer's cached D3DRS_FOGENABLE)
 
 // The Windows calls, through the exe's imports (as device.cpp's timer: so a test can stand in for them alone).
-void Lock() { GameVariable<DWORD(WINAPI*)(HANDLE, DWORD)>(0x006450BC)(ScreenMutex(), INFINITE); } // WaitForSingleObject
-void Unlock() { GameVariable<BOOL(WINAPI*)(HANDLE)>(0x006450C0)(ScreenMutex()); }                 // ReleaseMutex
+void Lock() { GAME_IMPORT(0x006450BC, decltype(&WaitForSingleObject), WaitForSingleObject)(ScreenMutex(), INFINITE); }
+void Unlock() { GAME_IMPORT(0x006450C0, decltype(&ReleaseMutex), ReleaseMutex)(ScreenMutex()); }
 UINT StartTimer(UINT delay, LPTIMECALLBACK callback)
 {
-    return GameVariable<UINT(WINAPI*)(UINT, UINT, LPTIMECALLBACK, DWORD_PTR, UINT)>(0x00645264)(delay, 0, callback, 0,
-                                                                                            TIME_PERIODIC);
+    return GAME_IMPORT(0x00645264, decltype(&timeSetEvent), timeSetEvent)(delay, 0, callback, 0, TIME_PERIODIC);
 }
-void StopTimer(UINT timer) { GameVariable<UINT(WINAPI*)(UINT)>(0x00645268)(timer); } // timeKillEvent
+void StopTimer(UINT timer) { GAME_IMPORT(0x00645268, decltype(&timeKillEvent), timeKillEvent)(timer); }
 
 GAME_GLOBAL(void*, g_loadingScreenSprite, 0x007052B0);
 GAME_GLOBAL(uint32_t[7], g_pictureName, 0x0067E958, 0, 0, 0, 0, 0, 0, 0x0F); // (a std::string: empty, its capacity 15)

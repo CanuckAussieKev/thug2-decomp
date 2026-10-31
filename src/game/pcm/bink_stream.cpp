@@ -19,27 +19,26 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/pcm/stream_files.h"
+#include "game/sys/crt.h"
 
 namespace Pcm {
 
 namespace {
 
-// The Bink SDK (binkw32.dll), through the game's import table until it's linked.
-template <typename F>
-F Import(uintptr_t slot) { return GameVariable<F>(slot); }
+// The Bink SDK (binkw32.dll), through the game's import table.
 using Nx::Bink;
-Bink* BinkOpen(const void* name, uint32_t flags) { return Import<Bink*(__stdcall*)(const void*, uint32_t)>(0x006452E8)(name, flags); }
-void BinkDoFrame(Bink* bink) { Import<int(__stdcall*)(Bink*)>(0x006452EC)(bink); }
-void BinkSetPan(Bink* bink, uint32_t track, int pan) { Import<void(__stdcall*)(Bink*, uint32_t, int)>(0x006452F0)(bink, track, pan); }
-void BinkGoto(Bink* bink, uint32_t frame, int flags) { Import<void(__stdcall*)(Bink*, uint32_t, int)>(0x006452F4)(bink, frame, flags); }
-void BinkSetIOSize(uint32_t size) { Import<void(__stdcall*)(uint32_t)>(0x006452F8)(size); }
-void BinkSetVideoOnOff(Bink* bink, int on) { Import<int(__stdcall*)(Bink*, int)>(0x006452FC)(bink, on); }
-void* BinkOpenDirectSound() { return GameVariable<void*>(0x00645300); } // the function, passed to the next
-int BinkSetSoundSystem(void* open, void* param) { return Import<int(__stdcall*)(void*, void*)>(0x00645304)(open, param); }
-void BinkSetVolume(Bink* bink, uint32_t track, int volume) { Import<void(__stdcall*)(Bink*, uint32_t, int)>(0x00645310)(bink, track, Sfx::OutputBinkVolume(volume)); } // (NOT ORIGINAL: mute_audio)
-int BinkWait(Bink* bink) { return Import<int(__stdcall*)(Bink*)>(0x00645318)(bink); }
-void BinkClose(Bink* bink) { Import<void(__stdcall*)(Bink*)>(0x0064531C)(bink); }
-void BinkNextFrame(Bink* bink) { Import<void(__stdcall*)(Bink*)>(0x00645320)(bink); }
+Bink* BinkOpen(const void* name, uint32_t flags) { return GAME_DLL_IMPORT(0x006452E8, Bink*(__stdcall*)(const void*, uint32_t), "binkw32.dll", "_BinkOpen@8")(name, flags); }
+void BinkDoFrame(Bink* bink) { GAME_DLL_IMPORT(0x006452EC, int(__stdcall*)(Bink*), "binkw32.dll", "_BinkDoFrame@4")(bink); }
+void BinkSetPan(Bink* bink, uint32_t track, int pan) { GAME_DLL_IMPORT(0x006452F0, void(__stdcall*)(Bink*, uint32_t, int), "binkw32.dll", "_BinkSetPan@12")(bink, track, pan); }
+void BinkGoto(Bink* bink, uint32_t frame, int flags) { GAME_DLL_IMPORT(0x006452F4, void(__stdcall*)(Bink*, uint32_t, int), "binkw32.dll", "_BinkGoto@12")(bink, frame, flags); }
+void BinkSetIOSize(uint32_t size) { GAME_DLL_IMPORT(0x006452F8, void(__stdcall*)(uint32_t), "binkw32.dll", "_BinkSetIOSize@4")(size); }
+void BinkSetVideoOnOff(Bink* bink, int on) { GAME_DLL_IMPORT(0x006452FC, int(__stdcall*)(Bink*, int), "binkw32.dll", "_BinkSetVideoOnOff@8")(bink, on); }
+void* BinkOpenDirectSound() { return GAME_DLL_IMPORT(0x00645300, void*, "binkw32.dll", "_BinkOpenDirectSound@4"); } // the function, passed to the next
+int BinkSetSoundSystem(void* open, void* param) { return GAME_DLL_IMPORT(0x00645304, int(__stdcall*)(void*, void*), "binkw32.dll", "_BinkSetSoundSystem@8")(open, param); }
+void BinkSetVolume(Bink* bink, uint32_t track, int volume) { GAME_DLL_IMPORT(0x00645310, void(__stdcall*)(Bink*, uint32_t, int), "binkw32.dll", "_BinkSetVolume@12")(bink, track, Sfx::OutputBinkVolume(volume)); } // (NOT ORIGINAL: mute_audio)
+int BinkWait(Bink* bink) { return GAME_DLL_IMPORT(0x00645318, int(__stdcall*)(Bink*), "binkw32.dll", "_BinkWait@4")(bink); }
+void BinkClose(Bink* bink) { GAME_DLL_IMPORT(0x0064531C, void(__stdcall*)(Bink*), "binkw32.dll", "_BinkClose@4")(bink); }
+void BinkNextFrame(Bink* bink) { GAME_DLL_IMPORT(0x00645320, void(__stdcall*)(Bink*), "binkw32.dll", "_BinkNextFrame@4")(bink); }
 
 constexpr uint32_t kBinkIoSize = 0x01000000;     // BinkOpen: use the I/O buffer size set (BinkSetIOSize)
 constexpr uint32_t kBinkFileHandle = 0x04000000; // BinkOpen: the name is (the address of) an open file handle

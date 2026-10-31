@@ -32,6 +32,7 @@
 #include "hook/hook.h"
 #include "hook/game_code.h"
 #include "game/sys/winmain.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -171,23 +172,21 @@ void DrawMovieFrame(void* texture, float x, float y, float width, float height, 
 
 namespace {
 
-// The Bink SDK (binkw32.dll), through the game's import table until it's linked.
-template <typename F>
-F Import(uintptr_t slot) { return GameVariable<F>(slot); }
-int BinkSetSoundSystem(void* open, void* param) { return Import<int(__stdcall*)(void*, void*)>(0x00645304)(open, param); }
-void* BinkOpenDirectSound() { return GameVariable<void*>(0x00645300); } // the function, passed to the above
-Bink* BinkOpen(const char* path, uint32_t flags) { return Import<Bink*(__stdcall*)(const char*, uint32_t)>(0x006452E8)(path, flags); }
-void BinkSetSoundOnOff(Bink* bink, int on) { Import<int(__stdcall*)(Bink*, int)>(0x0064530C)(bink, on); }
-void BinkSetVolume(Bink* bink, uint32_t track, int volume) { Import<void(__stdcall*)(Bink*, uint32_t, int)>(0x00645310)(bink, track, Sfx::OutputBinkVolume(volume)); } // (NOT ORIGINAL: mute_audio)
-void BinkPause(Bink* bink, int pause) { Import<int(__stdcall*)(Bink*, int)>(0x00645314)(bink, pause); }
-int BinkWait(Bink* bink) { return Import<int(__stdcall*)(Bink*)>(0x00645318)(bink); }
-void BinkDoFrame(Bink* bink) { Import<int(__stdcall*)(Bink*)>(0x006452EC)(bink); }
+// The Bink SDK (binkw32.dll), through the game's import table.
+int BinkSetSoundSystem(void* open, void* param) { return GAME_DLL_IMPORT(0x00645304, int(__stdcall*)(void*, void*), "binkw32.dll", "_BinkSetSoundSystem@8")(open, param); }
+void* BinkOpenDirectSound() { return GAME_DLL_IMPORT(0x00645300, void*, "binkw32.dll", "_BinkOpenDirectSound@4"); } // the function, passed to the above
+Bink* BinkOpen(const char* path, uint32_t flags) { return GAME_DLL_IMPORT(0x006452E8, Bink*(__stdcall*)(const char*, uint32_t), "binkw32.dll", "_BinkOpen@8")(path, flags); }
+void BinkSetSoundOnOff(Bink* bink, int on) { GAME_DLL_IMPORT(0x0064530C, int(__stdcall*)(Bink*, int), "binkw32.dll", "_BinkSetSoundOnOff@8")(bink, on); }
+void BinkSetVolume(Bink* bink, uint32_t track, int volume) { GAME_DLL_IMPORT(0x00645310, void(__stdcall*)(Bink*, uint32_t, int), "binkw32.dll", "_BinkSetVolume@12")(bink, track, Sfx::OutputBinkVolume(volume)); } // (NOT ORIGINAL: mute_audio)
+void BinkPause(Bink* bink, int pause) { GAME_DLL_IMPORT(0x00645314, int(__stdcall*)(Bink*, int), "binkw32.dll", "_BinkPause@8")(bink, pause); }
+int BinkWait(Bink* bink) { return GAME_DLL_IMPORT(0x00645318, int(__stdcall*)(Bink*), "binkw32.dll", "_BinkWait@4")(bink); }
+void BinkDoFrame(Bink* bink) { GAME_DLL_IMPORT(0x006452EC, int(__stdcall*)(Bink*), "binkw32.dll", "_BinkDoFrame@4")(bink); }
 void BinkCopyToBuffer(Bink* bink, void* bits, int pitch, uint32_t height, uint32_t x, uint32_t y, uint32_t flags)
 {
-    Import<int(__stdcall*)(Bink*, void*, int, uint32_t, uint32_t, uint32_t, uint32_t)>(0x00645308)(bink, bits, pitch, height, x, y, flags);
+    GAME_DLL_IMPORT(0x00645308, int(__stdcall*)(Bink*, void*, int, uint32_t, uint32_t, uint32_t, uint32_t), "binkw32.dll", "_BinkCopyToBuffer@28")(bink, bits, pitch, height, x, y, flags);
 }
-void BinkNextFrame(Bink* bink) { Import<void(__stdcall*)(Bink*)>(0x00645320)(bink); }
-void BinkClose(Bink* bink) { Import<void(__stdcall*)(Bink*)>(0x0064531C)(bink); }
+void BinkNextFrame(Bink* bink) { GAME_DLL_IMPORT(0x00645320, void(__stdcall*)(Bink*), "binkw32.dll", "_BinkNextFrame@4")(bink); }
+void BinkClose(Bink* bink) { GAME_DLL_IMPORT(0x0064531C, void(__stdcall*)(Bink*), "binkw32.dll", "_BinkClose@4")(bink); }
 
 Bink*& CurrentMovie() { return g_currentMovie; }
 bool& MoviePlaying() { return g_moviePlaying; }

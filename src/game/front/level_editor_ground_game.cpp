@@ -30,6 +30,7 @@
 #include "hook/game.h"
 #include "hook/log.h"
 #include "game/core/game_vtables.h"
+#include "game/sys/crt.h"
 
 namespace Front::LevelEditor::Ground {
 
@@ -78,7 +79,7 @@ void UploadVertices(Nx::sVertexBuffer* buffer)
 }
 Nx::sIndexBuffer* NewIndexBuffer(uint32_t bytes)
 {
-    void* memory = GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(0x18);
+    void* memory = Crt::Malloc(0x18);
     if (!memory)
         return nullptr;
     return static_cast<Nx::sIndexBuffer*>(memory)->Construct(bytes, 0, 0x65);

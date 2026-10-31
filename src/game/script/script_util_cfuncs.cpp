@@ -18,6 +18,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
+#include "game/sys/crt.h"
 
 namespace CFuncs {
 
@@ -66,7 +67,7 @@ Obj::CObject* ScriptObject(CScript* script) { return script->m_object.Get(); }
 template <typename... Args>
 int Sprintf(char* out, const char* format, Args... args)
 {
-    return GameFunction<int(__cdecl*)(char*, const char*, ...)>(0x006234FE)(out, format, args...);
+    return Crt::Sprintf(out, format, args...);
 }
 
 // strcpy, unbounded as the original's inlined copies are.

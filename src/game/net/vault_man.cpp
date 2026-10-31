@@ -27,6 +27,7 @@
 #include "game/ass/assman.h"
 #include "game/net/task_vtable.h"
 #include "hook/game_code.h"
+#include "game/sys/crt.h"
 
 namespace GameNet {
 
@@ -110,7 +111,7 @@ int GhttpPostEx(const char* url, const char* headers, void* post, int throttle, 
 }
 // The GameSpy SDK's strdup (goastrdup, the game's C runtime malloc) and the game runtime's free for it.
 char* GameSpyStrdup(const char* text) { return GameFunction<char*(__cdecl*)(const char*)>(0x005F81C0)(text); }
-void GameCrtFree(void* memory) { GameFunction<void(__cdecl*)(void*)>(0x0062411B)(memory); }
+void GameCrtFree(void* memory) { Crt::Free(memory); }
 // The GameSpy SDK's id of this machine (a function pointer it keeps at 0x0068E24C).
 const char* GameSpyUniqueId() { return GameVariable<const char*(__cdecl*)()>(0x0068E24C)(); }
 // 0x005A8EB0: a downloaded item loaded from `buffer` by the type's script (not rewritten yet).

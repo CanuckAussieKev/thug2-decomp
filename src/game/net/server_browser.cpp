@@ -23,6 +23,7 @@
 #include "game/net/vault_man.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
+#include "game/sys/crt.h"
 #include "game/sys/timer.h"
 #include "game/gfx/anim_blend.h"
 #include "hook/game.h"
@@ -267,9 +268,7 @@ bool __cdecl CFunc_ChooseServer(Script::CStruct* params, Script::CScript* script
     } else {
         if (Field<bool>(manager->m_buddyMan, 0x10)) // (0x005480B0: logged in to presence)
             static_cast<LobbyMan*>(manager->m_lobbyMan)->SetServerName(server->m_name);
-        in_addr address;
-        address.s_addr = server->m_ip;
-        const char* ip = GameFunction<const char*(__stdcall*)(in_addr)>(0x005BEAB4)(address); // (inet_ntoa)
+        const char* ip = Crt::InetNtoa(server->m_ip);
         if (!server->m_canReach)
             reply->AddComponentOfType(kCookie, Script::ESYMBOLTYPE_NAME, Mth::Rnd(0x7FFF) * Mth::Rnd(0x7FFF));
         reply->AddComponentOfType(0, Script::ESYMBOLTYPE_INTEGER, server->m_port);

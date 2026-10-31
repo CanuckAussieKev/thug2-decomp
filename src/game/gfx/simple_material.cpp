@@ -13,6 +13,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -27,7 +28,7 @@ uint8_t* FindTexture(uint32_t checksum)
 uint8_t* ConstructMaterial(void* memory) { return reinterpret_cast<uint8_t*>(static_cast<sMaterial*>(memory)->Construct()); }
 void DestroyMaterial(void* material) { static_cast<sMaterial*>(material)->DestroyBody(); }
 // The C runtime's rand (the game's: its sequence).
-int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); }
+int Rand() { return Crt::Rand(); }
 
 template <typename T>
 T& At(uint8_t* p, uint32_t offset)

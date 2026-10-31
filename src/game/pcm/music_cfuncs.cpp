@@ -16,6 +16,7 @@
 #include "game/sfx/sfx.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/sys/crt.h"
 
 namespace CFuncs {
 
@@ -45,7 +46,7 @@ constexpr uint32_t kVolume = 0x46653221;    // "volume"
 template <typename... Args>
 int Sprintf(char* out, const char* format, Args... args)
 {
-    return GameFunction<int(__cdecl*)(char*, const char*, ...)>(0x006234FE)(out, format, args...);
+    return Crt::Sprintf(out, format, args...);
 }
 
 // A 64-bit mask with bit `bit` set, as the C runtime's _allshl (0x00623CF0) makes it from the count's low byte:

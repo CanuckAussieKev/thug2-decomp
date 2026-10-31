@@ -15,6 +15,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -61,7 +62,7 @@ uint16_t* StripBuffer() { return g_stripBuffer; }
 // The C runtime's qsort (the game's, so equal meshes stay in the same order).
 void Qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(const void*, const void*))
 {
-    GameFunction<void(__cdecl*)(void*, uint32_t, uint32_t, int(__cdecl*)(const void*, const void*))>(0x006242A0)(
+    Crt::Qsort(
         base, count, size, compare);
 }
 

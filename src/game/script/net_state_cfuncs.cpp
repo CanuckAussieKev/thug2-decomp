@@ -10,6 +10,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/stubs.h"
+#include "game/sys/crt.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_client.h"
@@ -72,7 +73,7 @@ uint32_t GameModePlayers()
 }
 
 // inet_addr through the game's import (0x005BEAAE).
-uint32_t InetAddr(const char* address) { return GameFunction<uint32_t(__stdcall*)(const char*)>(0x005BEAAE)(address); }
+uint32_t InetAddr(const char* address) { return Crt::InetAddr(address); }
 
 } // namespace
 
@@ -529,7 +530,7 @@ bool __cdecl CFunc_GameIsOver(Script::CStruct*, Script::CScript*) { return GameN
 namespace {
 bool& TryingToJoin() { return g_tryingToJoin; }
 // gethostbyname through the game's import (0x005BEABA).
-void* GetHostByName(const char* name) { return GameFunction<void*(__stdcall*)(const char*)>(0x005BEABA)(name); }
+void* GetHostByName(const char* name) { return Crt::GetHostByName(name); }
 } // namespace
 
 // 0x005A28A0: TryJoinInternetGame: the server chosen in the list (0x0067EFB8, unless -1) looked for; a join is being
