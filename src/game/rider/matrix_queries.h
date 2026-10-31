@@ -6,6 +6,9 @@
 #include "engine/maths/mat4.h"
 #include "engine/objects/entity.h"
 
+namespace skater {
+class SkaterPhysicsModule;
+} // namespace skater
 namespace script {
 class Script;
 class Struct;
@@ -41,9 +44,9 @@ public:
     // more than its second away from the at row). 1 / 0; 2 for any other name.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
-    maths::Mat4 basis_frame_; // +0x18 the core physics' (rows: right, up, at, position)
-    float prev_gradient_;     // +0x58 GetSlope's last
-    uint8_t* core_physics_;   // +0x5C SkaterCorePhysics (0x5BD63B29)
+    maths::Mat4 basis_frame_;                   // +0x18 the core physics' (rows: right, up, at, position)
+    float prev_gradient_;                       // +0x58 GetSlope's last
+    skater::SkaterPhysicsModule* core_physics_; // +0x5C SkaterCorePhysics (0x5BD63B29)
 };
 static_assert(offsetof(RiderFrameLookups, basis_frame_) == 0x18 &&
                   offsetof(RiderFrameLookups, prev_gradient_) == 0x58 &&

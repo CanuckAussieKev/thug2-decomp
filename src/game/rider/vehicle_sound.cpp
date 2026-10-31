@@ -19,6 +19,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "game/rider/core_physics.h"
 
 namespace objects {
 
@@ -137,7 +138,7 @@ void SkaterVehicleSoundComponent::configure_from_data(script::Struct*)
 // 0x0051B8E0
 void SkaterVehicleSoundComponent::seal()
 {
-    core_physics_ = entity_->fetch_module(kSkaterCorePhysics);
+    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     sound_ = entity_->fetch_module(kSound);
     input_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput));
     read_settings();
@@ -146,7 +147,7 @@ void SkaterVehicleSoundComponent::seal()
 // 0x0051B920
 void SkaterVehicleSoundComponent::tick_frame()
 {
-    if (!prop<bool>(core_physics_, 0x2ED) || silenced_ || !settings_)
+    if (!static_cast<bool>(core_physics_->on_vehicle_) || silenced_ || !settings_)
         return;
     tick_engine();
     update_skid();
@@ -202,8 +203,8 @@ void SkaterVehicleSoundComponent::tick_engine()
     }
 
     // The gear: back to the first a while after driving stopped, else shifted at the gear's speeds.
-    if (prop<int>(prop<uint8_t*>(core_physics_, 0x1528), 0x18) == 0) {
-        int last_driven = prop<int>(core_physics_, 0x380);
+    if (prop<int>(reinterpret_cast<uint8_t*>(core_physics_->state_), 0x18) == 0) {
+        int last_driven = static_cast<int>(core_physics_->air_start_);
         float delay = get_rate(0xC0F451D4);
         int clock = get_clock();
         if (Unsigned(get_since(clock, clock_offset(), last_driven)) > delay)
@@ -264,7 +265,7 @@ void SkaterVehicleSoundComponent::tick_engine()
 void SkaterVehicleSoundComponent::update_skid()
 {
     float skid = 0.0f;
-    if (prop<bool>(input_, 0x40) && prop<int>(prop<uint8_t*>(core_physics_, 0x1528), 0x18) == 0) {
+    if (prop<bool>(input_, 0x40) && prop<int>(reinterpret_cast<uint8_t*>(core_physics_->state_), 0x18) == 0) {
         double speed = get_pace(entity_->vel_);
         if (!(0.0 > speed))
             skid = static_cast<float>(speed);

@@ -23,6 +23,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/objects/trigger_events.h"
+#include "game/rider/balance_trick.h"
 
 namespace skater {
 
@@ -34,7 +35,7 @@ constexpr uint32_t kLipKind = 0xA549B57B;     // Lip (the balance trick's kind)
 constexpr uint32_t kPerfectRail = 0xCD09E062; // CHEAT_PERFECT_RAIL
 constexpr uint32_t kName = 0xA1DC81F9;
 
-void change_state(void* component, int state)
+void change_state(SkaterPhysicsModule* component, int state)
 {
     static_cast<SkaterPhysicsModule*>(component)->set_physics_state(state);
 }
@@ -47,40 +48,40 @@ void SkaterPhysicsModule::step_coping_move()
     set_flag(this, 0x78, 0);
     set_flag(this, 0xA8, 0);
     set_flag(this, 0x80, 0);
-    get_at<uint8_t>(this, 0x2E4) = 0;
+    flip_spin_started_ = 0;
     // Carried by what the skater rides on: the position, and the start of the lip (+0x258) - 0x00427A00 works it out.
     if (objects::RideTracker* tracker = get_tracker(this)) {
-        if (!tracker->entity_.owner_object_ || !tracker->tick_frame(&vector_at(object_of(this), kPosition))) {
+        if (!tracker->entity_.owner_object_ || !tracker->tick_frame(&entity_->at_point_)) {
             stop_riding(this);
         } else {
             // (0x00427A00 returns `where`; ours is void: the point is read from `where`)
-            auto* contact = get_at<objects::MovingSurfaceModule*>(this, kRide);
+            auto* contact = ride_;
             maths::Vec4 where;
-            void* object = object_of(this);
+            objects::GameEntity* object = object_of(this);
             contact->get_contact_point(&where);
-            vector_at(object, kPosition) = where;
-            get_at<objects::MovingSurfaceModule*>(this, kRide)->get_contact_point(&where);
-            vector_at(this, 0x258) = where;
+            object->at_point_ = where;
+            ride_->get_contact_point(&where);
+            lip_pos_ = where;
             if (get_tracker(this)->turned_) {
                 auto multiply = d3dx::matrix_multiply;
-                maths::Mat4& matrix = matrix_at(object_of(this), kMatrix);
+                maths::Mat4& matrix = entity_->basis_frame_;
                 multiply(&matrix, &matrix, &get_tracker(this)->turn_);
-                multiply(&matrix_at(this, kDisplayMatrix), &matrix_at(this, kDisplayMatrix), &get_tracker(this)->turn_);
+                multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn_);
             }
         }
     }
     // The lip's balance (the Perfect Rail cheat: its global flag, and no lean).
-    if (get_at<uint32_t>(get_at<void*>(this, kBalanceTrick), 0x18) == kLipKind) {
+    if (balance_->trick_ == kLipKind) {
         auto career = [] {
             return get_at<objects::RiderStoryProgress*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x20);
         };
         if (career()->is_code_on(kPerfectRail)) {
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
-            get_at<uint32_t>(get_at<void*>(this, kBalanceTrick), 0x104) = 0;
-            get_at<uint32_t>(get_at<void*>(this, kBalanceTrick), 0x108) = 0;
+            balance_->lip_.lean_ = 0.0f;
+            balance_->lip_.lean_speed_ = 0.0f;
             reinterpret_cast<uint8_t&>(online::g_cheat_flag) = 1;
         }
-        reinterpret_cast<objects::Balance*>(get_at<uint8_t*>(this, kBalanceTrick) + 0xD4)->tick_frame();
+        reinterpret_cast<objects::Balance*>(reinterpret_cast<uint8_t*>(balance_) + 0xD4)->tick_frame();
     }
     if (!bit_mark(this, 0x20) && input_of(this)[0x1C0])
         set_flag(this, 0x20, 1);
@@ -90,14 +91,13 @@ void SkaterPhysicsModule::step_coping_move()
         trigger_rail_script(kLipOffEvents);
         trigger_rail_script(kOffLipEvents);
     }
-    auto* node = get_at<objects::GrindPoint*>(this, kRailNode);
-    if (node && get_at<objects::GrindRailHub*>(this, kRailManager)->node_array_) {
+    auto* node = rail_node_;
+    if (node && rail_manager_->node_array_) {
         script::Struct* script = level_nodes::fetch_vertex(node->label_, true);
-        script->read_hash_value(kName, &get_at<uint32_t>(this, kRailScriptNode), 1);
-        static_cast<objects::MoveExecutor*>(get_at<void*>(this, kSkaterComponent))
-            ->pass_to_trick_objects(get_at<uint32_t>(this, kRailScriptNode));
+        script->read_hash_value(kName, &rail_script_node_, 1);
+        static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(rail_script_node_);
     }
-    get_at<int>(this, 0x238) = get_now();
+    lip_time_ = get_now();
 }
 
 // 0x0050C670
@@ -106,56 +106,56 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const uint8_t* grind, v
     clear_flags();
     if (on_ground) {
         change_state(this, kGround);
-        get_at<int>(this, 0x94) = kGround;
+        old_state_ = kGround;
     } else {
         change_state(this, kAir);
-        get_at<int>(this, 0x94) = kAir;
+        old_state_ = kAir;
         set_flag(this, 0xC0, 1);
-        if (get_at<uint8_t>(get_at<void*>(this, 0x1534), 0x9B))
+        if (get_at<uint8_t>(walk_, 0x9B))
             set_flag(this, 0xB0, 1);
     }
-    get_at<int>(this, 0x90) = get_now();
-    matrix_at(this, kDisplayMatrix) = matrix_at(object_of(this), kMatrix);
+    state_changed_at_ = get_now();
+    display_matrix_ = entity_->basis_frame_;
     // The ground normals from the up (+0x68, +0x78, +0x58), the position kept as the last.
-    vector_at(this, kFloorUpVector) = vector_at(object_of(this), kUp);
-    vector_at(this, 0x78) = vector_at(this, kFloorUpVector);
-    vector_at(this, 0x58) = vector_at(this, 0x78);
-    vector_at(this, 0x98) = vector_at(object_of(this), kPosition);
-    vector_at(object_of(this), kOldPosition) = vector_at(this, 0x98);
+    floor_normal_ = entity_->basis_frame_.row[1];
+    old_normal_ = floor_normal_;
+    drawn_normal_ = old_normal_;
+    safe_pos_ = entity_->at_point_;
+    entity_->old_pos_ = safe_pos_;
     // The jump / trick state cleared.
-    get_at<uint8_t>(this, 0x1C5) = 0;
-    get_at<int>(this, 0x2C0) = 0;
-    get_at<int>(this, kJumpChargeMs) = 0;
-    get_at<int>(this, 0x39C) = 0;
-    get_at<int>(this, 0x3A0) = 0;
-    get_at<uint8_t>(this, 0x370) = 0;
-    get_at<uint8_t>(this, 0x310) = 0;
-    get_at<uint8_t>(this, 0x311) = 1;
+    floor_feeler_.hit_.face_flag40_ = 0;
+    side_reach_ = 0.0f;
+    jump_charge_ms_ = 0;
+    wall_ride_start_ = 0;
+    wallplant_end_ = 0;
+    no_spin_ = 0;
+    no_kick_ = 0;
+    can_brake_ = 1;
     get_at<uint8_t>(flags_of(this), 0xF4) = 0; // (without its time)
-    if (get_at<uint32_t>(this, 0x350) != 0xC0000000)
-        get_at<uint32_t>(this, 0x350) = 0;
-    get_at<float>(this, 0x3AC) = 1.0f;
-    get_at<int>(this, 0x4E0) = 0;
-    get_at<int>(this, 0x4E4) = 0;
-    get_at<int>(this, kLeapDuration) = 0;
-    get_at<uint8_t>(this, 0x4E8) = 0;
+    if (bits_as<uint32_t>(limits_time_) != 0xC0000000)
+        limits_time_ = 0.0f;
+    speed_override_ = 1.0f;
+    wallplant_time_ = 0;
+    last_push_off_ = 0;
+    leap_time_ = 0;
+    vert_wallplanted_ = 0;
     if (grind) {
         auto* rail = const_cast<uint8_t*>(grind);
         // Onto a rail: the old ride let go (its object kept at +0x6C), the rail's object ridden.
-        void* ride = get_at<void*>(this, kRide);
-        if (objects::RideTracker* tracker = get_at<objects::RideTracker*>(ride, 0x18)) {
-            get_at<void*>(ride, 0x6C) = tracker->entity_.owner_object_;
+        objects::MovingSurfaceModule* ride = ride_;
+        if (objects::RideTracker* tracker = ride->ride_) {
+            ride->last_object_ = tracker->entity_.owner_object_;
             reinterpret_cast<objects::SharedRef<objects::SharedBase>*>(&tracker->entity_)->get_release();
             memory::Hub::get_pull()->dealloc(tracker);
-            get_at<objects::RideTracker*>(ride, 0x18) = nullptr;
-            get_at<int>(ride, 0x70) = get_now();
+            ride->ride_ = nullptr;
+            ride->stop_time_ = get_now();
         }
         if (void* object = get_at<void*>(rail, 0x18))
-            get_at<walk::MovableContact*>(this, kRide)->start_riding(static_cast<objects::GameEntity*>(object));
+            reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(static_cast<objects::GameEntity*>(object));
         start_grind(reinterpret_cast<const maths::Vec4*>(grind), get_at<objects::GrindPoint*>(rail, 0x14),
                     get_at<objects::GrindRailHub*>(rail, 0x10), true, true);
-        vector_at(this, 0x98) = vector_at(object_of(this), kPosition);
-        vector_at(object_of(this), kOldPosition) = vector_at(this, 0x98);
+        safe_pos_ = entity_->at_point_;
+        entity_->old_pos_ = safe_pos_;
     } else if (acid_drop) {
         start_acid_drop(static_cast<const AcidDrop*>(acid_drop));
     }

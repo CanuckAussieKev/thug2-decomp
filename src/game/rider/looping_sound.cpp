@@ -17,6 +17,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "game/rider/core_physics.h"
 
 namespace objects {
 
@@ -276,8 +277,8 @@ void RiderRollingAudio::tick_frame()
         }
     } else {
         // By the speed (half when the core physics' +0x2EC is set).
-        auto* core = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
-        if (core && prop<uint8_t>(core, 0x2EC))
+        auto* core = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
+        if (core && core->point_rail_spin_)
             speed_ratio_ = kCapsizedFraction;
         if (speed_ratio_ > 0.0f) {
             float percent = static_cast<float>(static_cast<double>(volume_mult_) * speed_ratio_ * kPercent);

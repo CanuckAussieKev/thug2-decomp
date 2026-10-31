@@ -5,6 +5,9 @@
 
 #include "engine/objects/entity.h"
 
+namespace skater {
+class SkaterPhysicsModule;
+} // namespace skater
 namespace script {
 class Script;
 class Struct;
@@ -78,11 +81,11 @@ public:
     // 0x0051B860 StopSkaterVehicleSounds (not a Ghidra function): the engine sound stopped (its id kept). True.
     bool stop_skater_vehicle_sounds(script::Struct* params, script::Script* script);
 
-    ObjectModule* core_physics_; // +0x18
-    ObjectModule* sound_;        // +0x1C
-    uint8_t* input_;             // +0x20 (+0x40 the brake held; +0x1C0 a flag)
-    script::Struct* settings_;   // +0x24
-    bool park_editor_level_;     // +0x28
+    skater::SkaterPhysicsModule* core_physics_; // +0x18
+    ObjectModule* sound_;                       // +0x1C
+    uint8_t* input_;                            // +0x20 (+0x40 the brake held; +0x1C0 a flag)
+    script::Struct* settings_;                  // +0x24
+    bool park_editor_level_;                    // +0x28
     uint8_t pad29[3];
     uint32_t engine_sound_;      // +0x2C the playing engine sound's id (0: none)
     uint32_t skid_sound_;        // +0x30 the playing skid sound's id

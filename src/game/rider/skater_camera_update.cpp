@@ -23,6 +23,8 @@
 #include "game/rider/rider.h"
 #include "game/rider/skater_camera_component.h"
 #include "platform/stopwatch.h"
+#include "game/rider/core_physics.h"
+#include "engine/objects/movable_contact.h"
 
 namespace objects {
 
@@ -119,13 +121,13 @@ void RiderChaseView::tick_frame()
     float last_facing_x = view.row[2].x;
     uint8_t* state = state_ref_;
     int physics_state = get_at<int>(state, 0x18);
-    uint8_t* core = reinterpret_cast<uint8_t*>(rider_ref_->fetch_module(kCorePhysics));
+    auto* core = static_cast<skater::SkaterPhysicsModule*>(rider_ref_->fetch_module(kCorePhysics));
     bool turned = false;
 
     // The orientation to look along: the skater's (its display matrix), or on a wall ride and while +0x2EC holds
     // it, the last one; a wall ride notes how far the wall's facing turned.
     maths::Mat4 orient;
-    if (physics_state != 2 && (!core || !core[0x2EC])) {
+    if (physics_state != 2 && (!core || !core->point_rail_spin_)) {
         wall_ride_frames_ = 0;
         skater = rider_ref_;
         orient = skater->is_local_skater_ ? *skater_display_matrix(skater) : skater->display_matrix_;
@@ -247,8 +249,8 @@ void RiderChaseView::tick_frame()
         }
     }
     if (rider_ref_->is_local_skater_ && state_ref_[0xA8]) {
-        auto* physics = reinterpret_cast<uint8_t*>(rider_ref_->fetch_module(kCorePhysics));
-        orient = get_at<maths::Mat4>(physics, 0x3B0);
+        auto* physics = static_cast<skater::SkaterPhysicsModule*>(rider_ref_->fetch_module(kCorePhysics));
+        orient = physics->drop_matrix_;
     }
 
     // The tilt in the air: up to 20 degrees, back to level after.
@@ -480,8 +482,8 @@ void RiderChaseView::tick_frame()
     // Kept clear of the world (unless riding something on a lip).
     bool avoid = true;
     if (rider_ref_->is_local_skater_) {
-        auto* physics = reinterpret_cast<uint8_t*>(rider_ref_->fetch_module(kCorePhysics));
-        if (get_at<void*>(get_at<uint8_t*>(physics, 0x152C), 0x18) && physics_state == 3)
+        auto* physics = static_cast<skater::SkaterPhysicsModule*>(rider_ref_->fetch_module(kCorePhysics));
+        if (physics->ride_->ride_ && physics_state == 3)
             avoid = false;
     }
     if (avoid) {

@@ -17,6 +17,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "game/rider/core_physics.h"
 
 namespace objects {
 
@@ -32,11 +33,11 @@ constexpr float kDegreesPerRadian = 57.2957763671875f;    // 0x00645468
 constexpr float kSecondsPerMs = 0.001f;                   // 0x006461D8
 constexpr float kSecondsPerFrame = 0.0166666675f;         // 0x006463B8
 
-maths::Mat4& core_matrix(uint8_t* core_physics) { return *reinterpret_cast<maths::Mat4*>(core_physics + 0x18); }
+maths::Mat4& core_matrix(skater::SkaterPhysicsModule* core_physics) { return core_physics->display_matrix_; }
 // The core physics' matrix set from its object's.
-void core_matrix_from_object(uint8_t* core_physics)
+void core_matrix_from_object(skater::SkaterPhysicsModule* core_physics)
 {
-    core_matrix(core_physics) = reinterpret_cast<ObjectModule*>(core_physics)->entity_->basis_frame_;
+    core_matrix(core_physics) = core_physics->entity_->basis_frame_;
 }
 // m = rotation * m (D3DXMatrixMultiply, linked library code).
 void turn_by(maths::Mat4& m, const maths::Mat4& rotation) { d3dx::matrix_multiply(&m, &rotation, &m); }
@@ -74,7 +75,10 @@ void RiderTurning::configure_from_data(script::Struct* /*params*/)
 }
 
 // 0x00517D20
-void RiderTurning::seal() { core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics)); }
+void RiderTurning::seal()
+{
+    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
+}
 
 // 0x00517DC0
 void RiderTurning::tick_frame()
@@ -157,7 +161,7 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
         right.y = -right.y;
         right.z = -right.z;
         core_matrix_from_object(core_physics_);
-        core_physics_[0x34C] = core_physics_[0x34C] ? 0 : 1;
+        core_physics_->rail_backwards_ = core_physics_->rail_backwards_ ? 0 : 1;
         return 1;
     }
     core_matrix_from_object(core_physics_);

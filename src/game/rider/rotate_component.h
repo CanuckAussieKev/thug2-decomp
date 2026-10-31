@@ -5,6 +5,9 @@
 
 #include "engine/objects/entity.h"
 
+namespace skater {
+class SkaterPhysicsModule;
+} // namespace skater
 namespace script {
 class Script;
 class Struct;
@@ -47,8 +50,8 @@ public:
     // 0x00517EA0 (vtable +0x30): Rotate (1); 2 for any other name.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
-    Turn turns_[3];         // +0x18 about x, y, z
-    uint8_t* core_physics_; // +0x54 SkaterCorePhysics (0x5BD63B29)
+    Turn turns_[3];                             // +0x18 about x, y, z
+    skater::SkaterPhysicsModule* core_physics_; // +0x54 SkaterCorePhysics (0x5BD63B29)
 };
 static_assert(sizeof(RiderTurning::Turn) == 0x14 && offsetof(RiderTurning, turns_) == 0x18 &&
                   offsetof(RiderTurning, core_physics_) == 0x54 && sizeof(RiderTurning) == 0x58,

@@ -19,6 +19,9 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/core_physics_fields.h"
+#include "game/rider/balance_trick.h"
+#include "game/rider/skater_state.h"
+#include "engine/objects/input_component.h"
 #include "engine/sys/mlp.h"
 #include "platform/screenshot.h"
 #include "game/skate/skate_module.h"
@@ -46,7 +49,6 @@ constexpr float kTeleport = 300.0f; // a frame's move past this starts the histo
 constexpr float kSameSpot = 40.0f;
 constexpr DWORD kSpotQuietMs = 1000;
 constexpr int kPathRecords = 32;
-constexpr uint32_t kBalanceTrick = 0x1524;
 
 struct Ray {
     float start[3], end[3];
@@ -130,11 +132,6 @@ Face face_of(const render::ProbeRay& feeler)
     return face;
 }
 
-const render::ProbeRay& feeler_at(void* component, uint32_t offset)
-{
-    return get_at<render::ProbeRay>(component, offset);
-}
-
 std::string get_name_of(uint32_t checksum)
 {
     const char* name = script::kept_qb_name(checksum);
@@ -153,11 +150,7 @@ std::string get_name_of(uint32_t checksum)
 }
 
 // The level loaded: its load script's name (the skate module's +0x378) without "Load_".
-uint32_t current_load_state()
-{
-    uint8_t* module = reinterpret_cast<uint8_t*>(modules::g_skate_module);
-    return module ? get_at<uint32_t>(module, 0x378) : 0;
-}
+uint32_t current_load_state() { return modules::g_skate_module ? modules::g_skate_module->level_ : 0; }
 std::string get_level_name()
 {
     uint32_t load = current_load_state();
@@ -669,7 +662,7 @@ bool get_on()
     return kOn;
 }
 
-void note_path(void* component, RouteWay path, const maths::Vec4&)
+void note_path(SkaterPhysicsModule* component, RouteWay path, const maths::Vec4&)
 {
     if (component != g_component || !get_on()) // (g_component: set by end_frame, only while on)
         return;
@@ -679,11 +672,11 @@ void note_path(void* component, RouteWay path, const maths::Vec4&)
         ++g_path_count;
     record.frame = frame_loop::frames_run();
     record.path = path;
-    record.face = face_of(feeler_at(component, kFeeler));
-    record.ray = line_of(feeler_at(component, kFeeler));
+    record.face = face_of(component->feeler_);
+    record.ray = line_of(component->feeler_);
 }
 
-void checkpoint(void* component, const char* label)
+void checkpoint(SkaterPhysicsModule* component, const char* label)
 {
     if (component != g_component || !get_on()) // (g_component: set by end_frame, only while on)
         return;
@@ -693,11 +686,11 @@ void checkpoint(void* component, const char* label)
         ++g_marker_total;
     mark.frame = frame_loop::frames_run();
     mark.label = label;
-    copy3(mark.vel, vector_at(object_of(component), kVelocity));
-    mark.ray = line_of(feeler_at(component, kFeeler));
+    copy3(mark.vel, component->entity_->vel_);
+    mark.ray = line_of(component->feeler_);
 }
 
-void end_frame(void* component)
+void end_frame(SkaterPhysicsModule* component)
 {
     if (frame_loop::frames_run() == 0 || !get_on()) // (not in the early self-tests)
         return;
@@ -719,29 +712,29 @@ void end_frame(void* component)
         get_log("collision-event: logging on in %s (col %s, scn %s)", level.c_str(), g_col_file.c_str(),
                 g_scn_file.c_str());
     }
-    void* object = object_of(component);
-    uint8_t* flags = flags_of(component);
+    objects::GameEntity* object = object_of(component);
     Sample s = {};
     s.frame = frame_loop::frames_run();
-    s.state = get_at<int>(flags, kState);
-    s.physics = get_at<int>(flags, 0x1C);
-    s.trick = flags[0xE0] != 0;
-    void* balance = get_at<void*>(component, kBalanceTrick);
-    s.balance = balance ? get_at<uint32_t>(balance, 0x18) : 0;
-    if (uint8_t* pad =
-            input_of(component)) { // (the GameObjects::PadSnapshot: 16 buttons of 0x20 bytes, the sticks at +0x210)
+    s.state = component->state_->cur_phase_;
+    s.physics = component->state_->physics_mode_;
+    s.trick = component->state_->in_trick_move_ != 0;
+    objects::RiderTeeterMoves* balance = component->balance_;
+    s.balance = balance ? balance->trick_ : 0;
+    if (objects::PadInputModule* input = component->input_) {
+        // The pad's 16 buttons (0x20 bytes each from +0x20 - the first is up) and its scaled first stick.
+        const objects::ControlButton* buttons = &input->pad_primary_.up_dir_;
         for (int i = 0; i < 16; ++i)
-            if (pad[i * 0x20])
+            if (buttons[i].held_down_)
                 s.buttons = static_cast<uint16_t>(s.buttons | (1u << i));
-        s.stick[0] = get_at<float>(pad, 0x210);
-        s.stick[1] = get_at<float>(pad, 0x214);
+        s.stick[0] = input->pad_primary_.scaled_stick_[0];
+        s.stick[1] = input->pad_primary_.scaled_stick_[1];
     }
-    copy3(s.pos, vector_at(object, kPosition));
-    copy3(s.vel, vector_at(object, kVelocity));
-    copy3(s.facing, vector_at(object, kForward));
-    copy3(s.ground_normal_, vector_at(component, kFloorUpVector));
-    s.ground = face_of(feeler_at(component, kLastFloorProbe));
-    s.ground_ray_ = line_of(feeler_at(component, kLastFloorProbe));
+    copy3(s.pos, object->at_point_);
+    copy3(s.vel, object->vel_);
+    copy3(s.facing, object->basis_frame_.row[2]);
+    copy3(s.ground_normal_, component->floor_normal_);
+    s.ground = face_of(component->floor_feeler_);
+    s.ground_ray_ = line_of(component->floor_feeler_);
     if (g_sample_total) {
         const Sample& last = sample_at(0);
         float dx = s.pos[0] - last.pos[0], dy = s.pos[1] - last.pos[1], dz = s.pos[2] - last.pos[2];

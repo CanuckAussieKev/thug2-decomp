@@ -17,6 +17,7 @@
 #include "game/rider/flip_and_rotate.h"
 #include "game/rider/rider.h"
 #include "game/skate/skate_module.h"
+#include "game/rider/skater_sound.h"
 
 namespace skater {
 
@@ -107,55 +108,6 @@ constexpr uint32_t kFocusTime = 0xDA479533;            // focus_time
 constexpr uint32_t kFocusAllowed = 0xF6BE5E07;         // focus_allowed
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A;  // SkaterFlipAndRotate (a component)
 
-// The component's fields used here.
-constexpr uint32_t kNearLedge = 0x249; // (BadLedge)
-constexpr uint32_t kExtraPushRadius = 0x2C0;
-constexpr uint32_t kExtraPushSpeed = 0x2C4;
-constexpr uint32_t kExtraPushThirdValue = 0x2C8;
-constexpr uint32_t kPitchBail = 0x2D4;
-constexpr uint32_t kPowerslide = 0x2D8;
-constexpr uint32_t kAutoKick = 0x2D9;
-constexpr uint32_t kModelRotating = 0x2DB;
-constexpr uint32_t kModelRotationLeft = 0x2E0;
-constexpr uint32_t kOnVehicle = 0x2ED;
-constexpr uint32_t kVehicle = 0x2F0;
-constexpr uint32_t kProjectiles = 0x2F4;
-constexpr uint32_t kProjectileCount = 0x2F8;
-constexpr uint32_t kProjectileType = 0x2FC;
-constexpr uint32_t kRevert = 0x300;
-constexpr uint32_t kFocus = 0x301;
-constexpr uint32_t kMotoskateboard = 0x302;
-constexpr uint32_t kManualTurnaround = 0x304;
-constexpr uint32_t kProjectileInput = 0x308;
-constexpr uint32_t kNoKick = 0x310;
-constexpr uint32_t kCanBrake = 0x311;
-constexpr uint32_t kRollingFrictionValue = 0x314;
-constexpr uint32_t kOddGripIndex = 0x318;
-constexpr uint32_t kSpecialFrictionStart = 0x31C;
-constexpr uint32_t kSpecialFrictionTime = 0x320;
-constexpr uint32_t kBraking = 0x324;
-constexpr uint32_t kLastGroundPos = 0x338;
-constexpr uint32_t kLastHeadingValue = 0x348;
-constexpr uint32_t kLimitsTime = 0x350; // -1: until cancelled, -2: for the level
-constexpr uint32_t kLimitsMax = 0x354;
-constexpr uint32_t kLimitsMaxMax = 0x358;
-constexpr uint32_t kLimitsFriction = 0x35C;
-constexpr uint32_t kLimitsGravity = 0x360;
-constexpr uint32_t kNoSpin = 0x370;
-constexpr uint32_t kBail = 0x371;
-constexpr uint32_t kCameDownSpine = 0x372;
-constexpr uint32_t kLandedFromVert = 0x373;
-constexpr uint32_t kAllowLipNoGrind = 0x375;
-constexpr uint32_t kAirStart = 0x380;
-constexpr uint32_t kAirEnd = 0x384;
-constexpr uint32_t kLockVelocity = 0x388;
-constexpr uint32_t kNoRailTricks = 0x3A4;
-constexpr uint32_t kLastSpinBackside = 0x3A5;
-constexpr uint32_t kGrindAdjust = 0x3A8;
-constexpr uint32_t kTantrum = 0x1508;
-constexpr uint32_t kTagging = 0x1509;
-constexpr uint32_t kThrowing = 0x14C8;
-constexpr uint32_t kSfxModuleSlot = 0x1514; // (+0x1E: sliding)
 
 // The timed flags (offsets into the flags block).
 constexpr uint32_t kFlagCrouched = 0x20;
@@ -170,9 +122,7 @@ constexpr uint32_t kFlagCancelWallpush = 0xB8;
 constexpr uint32_t kFlagFirstTimeOnRail = 0xC8;
 
 // The skater object's field +0x110 (switched inverts flipped unless it's set).
-constexpr uint32_t kObjectRegularStance = 0x110;
 // The skater object's index into the profiles' table (*0x007CE478, 8-byte entries, +0x395 the auto kick).
-constexpr uint32_t kObjectProfile = 0x2BC;
 
 // The game's constants.
 constexpr float kMillisecondsPerSecond = 1000.0f;       // 0x006453C0
@@ -187,24 +137,23 @@ constexpr float kFacingDistance = 200.0f;               // (IsFacingWall's defau
 constexpr uint32_t kLimitsTimeDefault = 0x551184E7;     // (float bits: about 1e13)
 constexpr uint32_t kLimitsFrictionDefault = 0x360637BD; // (float bits: about 2e-6)
 
-uint8_t& get_byte(void* component, uint32_t offset) { return get_at<uint8_t>(component, offset); }
 int get_is(uint8_t value) { return value ? 1 : 0; }
 script::Struct* results_of(script::Script* script) { return script->args_; }
 
 // The time in the air: in the air or on a wall (states 1, 2) since it began, else the last one's length.
-uint32_t time_aloft(void* component)
+uint32_t time_aloft(SkaterPhysicsModule* component)
 {
     int state = get_at<int>(flags_of(component), kState);
     if (state == 1 || state == 2)
-        return get_since(get_at<uint32_t>(component, kAirStart));
-    return get_at<uint32_t>(component, kAirEnd) - get_at<uint32_t>(component, kAirStart);
+        return get_since(component->air_start_);
+    return component->air_end_ - component->air_start_;
 }
 
 // The skater's facing, made unit (the x and y products left unrounded as the original keeps them on the x87 stack),
 // as the end of a feeler from `start` `distance` long.
-void feel_along_facing(render::ProbeRay& feeler, void* object, float distance)
+void feel_along_facing(render::ProbeRay& feeler, objects::GameEntity* object, float distance)
 {
-    const maths::Vec4& facing = vector_at(object, kForward);
+    const maths::Vec4& facing = object->basis_frame_.row[2];
     double x = facing.x;
     double y = facing.y;
     float z = facing.z;
@@ -224,13 +173,13 @@ void feel_along_facing(render::ProbeRay& feeler, void* object, float distance)
 
 // The feeler of IsFacingWall and its relatives: the unnamed distance (200), from the skater's position (raised by
 // `raise` when set).
-bool feel_ahead(void* component, script::Struct* params, render::ProbeRay& feeler, bool raise)
+bool feel_ahead(SkaterPhysicsModule* component, script::Struct* params, render::ProbeRay& feeler, bool raise)
 {
     float distance = kFacingDistance;
     params->fetch_float(0u, &distance, 0);
     feeler.make_new();
-    void* object = object_of(component);
-    const maths::Vec4& position = vector_at(object, kPosition);
+    objects::GameEntity* object = object_of(component);
+    const maths::Vec4& position = object->at_point_;
     feeler.line_.start = position;
     if (raise)
         feeler.line_.start.y = static_cast<float>(static_cast<double>(position.y) + kVertFeelerRaise);
@@ -272,262 +221,244 @@ int SkaterPhysicsModule::air_time_threshold(script::Struct* params)
 // 0x004FBF40
 int SkaterPhysicsModule::can_brake_off(script::Struct*, script::Script*)
 {
-    get_byte(this, kCanBrake) = 0;
+    can_brake_ = 0;
     return 1;
 }
 // 0x004FBF50
 int SkaterPhysicsModule::can_brake_on(script::Struct*, script::Script*)
 {
-    get_byte(this, kCanBrake) = 1;
+    can_brake_ = 1;
     return 1;
 }
 // 0x004FBF60
 int SkaterPhysicsModule::can_kick_on(script::Struct*, script::Script*)
 {
-    get_byte(this, kNoKick) = 0;
+    no_kick_ = 0;
     return 1;
 }
 // 0x004FBF70
 int SkaterPhysicsModule::can_kick_off(script::Struct*, script::Script*)
 {
-    get_byte(this, kNoKick) = 1;
+    no_kick_ = 1;
     return 1;
 }
 // 0x004FBF80
 int SkaterPhysicsModule::force_auto_kick_on(script::Struct*, script::Script*)
 {
-    get_byte(this, kAutoKick) = 1;
+    auto_kick_ = 1;
     return 1;
 }
 // 0x004FBF90
 int SkaterPhysicsModule::force_auto_kick_off(script::Struct*, script::Script*)
 {
-    get_byte(this, kAutoKick) = 0;
+    auto_kick_ = 0;
     return 1;
 }
 // 0x004FBFA0
-int SkaterPhysicsModule::auto_kick_is_off(script::Struct*, script::Script*)
-{
-    return get_byte(this, kAutoKick) ? 0 : 1;
-}
+int SkaterPhysicsModule::auto_kick_is_off(script::Struct*, script::Script*) { return auto_kick_ ? 0 : 1; }
 // 0x004FBFB0
 int SkaterPhysicsModule::skater_vehicle_on(script::Struct*, script::Script*)
 {
-    get_byte(this, kOnVehicle) = 1;
+    on_vehicle_ = 1;
     return 1;
 }
 // 0x004FBFC0
 int SkaterPhysicsModule::skater_vehicle_off(script::Struct*, script::Script*)
 {
-    get_byte(this, kOnVehicle) = 0;
+    on_vehicle_ = 0;
     return 1;
 }
 // 0x004FBFD0
-int SkaterPhysicsModule::is_skater_on_vehicle(script::Struct*, script::Script*)
-{
-    return get_is(get_byte(this, kOnVehicle));
-}
+int SkaterPhysicsModule::is_skater_on_vehicle(script::Struct*, script::Script*) { return get_is(on_vehicle_); }
 // 0x004FC000
 int SkaterPhysicsModule::can_spin(script::Struct*, script::Script*)
 {
-    get_byte(this, kNoSpin) = 0;
+    no_spin_ = 0;
     return 1;
 }
 // 0x004FC010
 int SkaterPhysicsModule::bail_on(script::Struct*, script::Script*)
 {
-    get_byte(this, kBail) = 1;
+    bail_on_ = 1;
     return 1;
 }
 // 0x004FC020
 int SkaterPhysicsModule::bail_off(script::Struct*, script::Script*)
 {
-    get_byte(this, kBail) = 0;
+    bail_on_ = 0;
     return 1;
 }
 // 0x004FC030
-int SkaterPhysicsModule::bail_is_on(script::Struct*, script::Script*) { return get_is(get_byte(this, kBail)); }
+int SkaterPhysicsModule::bail_is_on(script::Struct*, script::Script*) { return get_is(bail_on_); }
 // 0x004FC080
-int SkaterPhysicsModule::bad_ledge(script::Struct*, script::Script*) { return get_is(get_byte(this, kNearLedge)); }
+int SkaterPhysicsModule::bad_ledge(script::Struct*, script::Script*) { return get_is(bad_ledge_); }
 // 0x004FC090
-int SkaterPhysicsModule::came_down_off_spine(script::Struct*, script::Script*)
-{
-    return get_is(get_byte(this, kCameDownSpine));
-}
+int SkaterPhysicsModule::came_down_off_spine(script::Struct*, script::Script*) { return get_is(came_down_off_spine_); }
 // 0x004FC0A0
-int SkaterPhysicsModule::landed_from_vert(script::Struct*, script::Script*)
-{
-    return get_is(get_byte(this, kLandedFromVert));
-}
+int SkaterPhysicsModule::landed_from_vert(script::Struct*, script::Script*) { return get_is(landed_from_vert_); }
 // 0x004FC0B0
 int SkaterPhysicsModule::set_landed_from_vert(script::Struct*, script::Script*)
 {
-    get_byte(this, kLandedFromVert) = 1;
+    landed_from_vert_ = 1;
     return 1;
 }
 // 0x004FC0C0
 int SkaterPhysicsModule::reset_landed_from_vert(script::Struct*, script::Script*)
 {
-    get_byte(this, kLandedFromVert) = 0;
+    landed_from_vert_ = 0;
     return 1;
 }
 // 0x004FC0D0
 int SkaterPhysicsModule::allow_lip_no_grind(script::Struct*, script::Script*)
 {
-    get_byte(this, kAllowLipNoGrind) = 1;
+    allow_lip_no_grind_ = 1;
     return 1;
 }
 // 0x004FC0E0
 int SkaterPhysicsModule::clear_allow_lip_no_grind(script::Struct*, script::Script*)
 {
-    get_byte(this, kAllowLipNoGrind) = 0;
+    allow_lip_no_grind_ = 0;
     return 1;
 }
 // 0x004FC0F0
 int SkaterPhysicsModule::no_rail_tricks(script::Struct*, script::Script*)
 {
-    get_byte(this, kNoRailTricks) = 1;
+    no_rail_tricks_ = 1;
     return 1;
 }
 // 0x004FC100
 int SkaterPhysicsModule::allow_rail_tricks(script::Struct*, script::Script*)
 {
-    get_byte(this, kNoRailTricks) = 0;
+    no_rail_tricks_ = 0;
     return 1;
 }
 // 0x004FC1A0
 int SkaterPhysicsModule::in_revert(script::Struct*, script::Script*)
 {
-    get_byte(this, kRevert) = 1;
+    in_revert_ = 1;
     return 1;
 }
 // 0x004FC1B0
 int SkaterPhysicsModule::out_revert(script::Struct*, script::Script*)
 {
-    get_byte(this, kRevert) = 0;
+    in_revert_ = 0;
     return 1;
 }
 // 0x004FC1C0
-int SkaterPhysicsModule::is_in_revert(script::Struct*, script::Script*) { return get_is(get_byte(this, kRevert)); }
+int SkaterPhysicsModule::is_in_revert(script::Struct*, script::Script*) { return get_is(in_revert_); }
 // 0x004FC1D0
 int SkaterPhysicsModule::projectiles_on(script::Struct*, script::Script*)
 {
-    get_byte(this, kProjectiles) = 1;
+    projectiles_on_ = 1;
     return 1;
 }
 // 0x004FC1E0
 int SkaterPhysicsModule::projectiles_off(script::Struct*, script::Script*)
 {
-    get_byte(this, kProjectiles) = 0;
+    projectiles_on_ = 0;
     return 1;
 }
 // 0x004FC1F0
 int SkaterPhysicsModule::focus_on(script::Struct*, script::Script*)
 {
-    get_byte(this, kFocus) = 1;
+    focus_on_ = 1;
     return 1;
 }
 // 0x004FC200
-int SkaterPhysicsModule::is_skater_focused(script::Struct*, script::Script*) { return get_is(get_byte(this, kFocus)); }
+int SkaterPhysicsModule::is_skater_focused(script::Struct*, script::Script*) { return get_is(focus_on_); }
 // 0x004FC210
 int SkaterPhysicsModule::reset_projectile_input(script::Struct*, script::Script*)
 {
-    get_at<int>(this, kProjectileInput) = -1;
+    projectile_input_ = -1;
     return 1;
 }
 // 0x004FC230
 int SkaterPhysicsModule::enter_powerslide(script::Struct*, script::Script*)
 {
-    get_byte(this, kPowerslide) = 1;
+    powerslide_ = 1;
     return 1;
 }
 // 0x004FC240
 int SkaterPhysicsModule::exit_powerslide(script::Struct*, script::Script*)
 {
-    get_byte(this, kPowerslide) = 0;
+    powerslide_ = 0;
     return 1;
 }
 // 0x004FC250
 int SkaterPhysicsModule::moto_skateboard_on(script::Struct*, script::Script*)
 {
-    get_byte(this, kMotoskateboard) = 1;
+    motoskateboard_ = 1;
     return 1;
 }
 // 0x004FC260
 int SkaterPhysicsModule::moto_skateboard_off(script::Struct*, script::Script*)
 {
-    get_byte(this, kMotoskateboard) = 0;
+    motoskateboard_ = 0;
     return 1;
 }
 // 0x004FC270
-int SkaterPhysicsModule::is_on_motoskateboard(script::Struct*, script::Script*)
-{
-    return get_is(get_byte(this, kMotoskateboard));
-}
+int SkaterPhysicsModule::is_on_motoskateboard(script::Struct*, script::Script*) { return get_is(motoskateboard_); }
 // 0x004FC280
-int SkaterPhysicsModule::skater_is_flipping(script::Struct*, script::Script*)
-{
-    return get_is(get_byte(this, kModelRotating));
-}
+int SkaterPhysicsModule::skater_is_flipping(script::Struct*, script::Script*) { return get_is(model_rotating_); }
 // 0x004FC290
 int SkaterPhysicsModule::reset_is_flipping(script::Struct*, script::Script*)
 {
-    get_byte(this, kModelRotating) = 0;
+    model_rotating_ = 0;
     return 1;
 }
 // 0x004FC2A0
 int SkaterPhysicsModule::set_throwing_projectile(script::Struct*, script::Script*)
 {
-    get_byte(this, kThrowing) = 1;
+    throwing_projectile_ = 1;
     return 1;
 }
 // 0x004FC2B0
 int SkaterPhysicsModule::unset_throwing_projectile(script::Struct*, script::Script*)
 {
-    get_byte(this, kThrowing) = 0;
+    throwing_projectile_ = 0;
     return 1;
 }
 // 0x004FC2C0
 int SkaterPhysicsModule::is_throwing_projectile(script::Struct*, script::Script*)
 {
-    return get_is(get_byte(this, kThrowing));
+    return get_is(throwing_projectile_);
 }
 // 0x004FC2D0
 int SkaterPhysicsModule::end_manual_turnaround(script::Struct*, script::Script*)
 {
-    get_byte(this, kManualTurnaround) = 0;
+    manual_turnaround_ = 0;
     return 1;
 }
 // 0x004FC2E0
 int SkaterPhysicsModule::enter_tantrum(script::Struct*, script::Script*)
 {
-    get_byte(this, kTantrum) = 1;
+    tantrum_ = 1;
     return 1;
 }
 // 0x004FC2F0
 int SkaterPhysicsModule::exit_tantrum(script::Struct*, script::Script*)
 {
-    get_byte(this, kTantrum) = 0;
+    tantrum_ = 0;
     return 1;
 }
 // 0x004FC300
-int SkaterPhysicsModule::in_tantrum(script::Struct*, script::Script*) { return get_is(get_byte(this, kTantrum)); }
+int SkaterPhysicsModule::in_tantrum(script::Struct*, script::Script*) { return get_is(tantrum_); }
 // 0x004FC310
 int SkaterPhysicsModule::enter_tagging(script::Struct*, script::Script*)
 {
-    get_byte(this, kTagging) = 1;
+    tagging_ = 1;
     return 1;
 }
 // 0x004FC320
 int SkaterPhysicsModule::exit_tagging(script::Struct*, script::Script*)
 {
-    get_byte(this, kTagging) = 0;
+    tagging_ = 0;
     return 1;
 }
 // 0x004FC330
-int SkaterPhysicsModule::is_tagging(script::Struct*, script::Script*) { return get_is(get_byte(this, kTagging)); }
+int SkaterPhysicsModule::is_tagging(script::Struct*, script::Script*) { return get_is(tagging_); }
 // 0x004FC9B0
-int SkaterPhysicsModule::get_braking(script::Struct*, script::Script*) { return get_is(get_byte(this, kBraking)); }
+int SkaterPhysicsModule::get_braking(script::Struct*, script::Script*) { return get_is(braking_); }
 
 // --- the timed flags ---
 
@@ -537,7 +468,7 @@ int SkaterPhysicsModule::get_flipped(script::Struct*, script::Script*) { return 
 int SkaterPhysicsModule::get_switched(script::Struct*, script::Script*)
 {
     bool flipped = flags_of(this)[kFlagFlipped] != 0;
-    if (get_at<uint8_t>(object_of(this), kObjectRegularStance))
+    if (static_cast<objects::Rider*>(entity_)->goofy_)
         return flipped ? 1 : 0;
     return flipped ? 0 : 1;
 }
@@ -562,7 +493,7 @@ int SkaterPhysicsModule::cancel_wallpush(script::Struct*, script::Script*)
 // 0x004FCF90
 int SkaterPhysicsModule::no_spin(script::Struct*, script::Script*)
 {
-    get_byte(this, kNoSpin) = 1;
+    no_spin_ = 1;
     set_timed_flag(this, kFlagSpin, 0);
     return 1;
 }
@@ -600,33 +531,33 @@ int SkaterPhysicsModule::set_vert_air(script::Struct*, script::Script*)
 // 0x004FBFE0
 int SkaterPhysicsModule::set_skater_vehicle(script::Struct* params, script::Script*)
 {
-    params->read_hash_value(0u, &get_at<uint32_t>(this, kVehicle), 1);
+    params->read_hash_value(0u, &vehicle_, 1);
     return 1;
 }
 // 0x004FC040
 int SkaterPhysicsModule::lock_velocity_direction(script::Struct* params, script::Script*)
 {
-    get_byte(this, kLockVelocity) = params->has_bare_flag(kOn);
+    lock_velocity_ = params->has_bare_flag(kOn);
     return 1;
 }
 // 0x004FC060
 int SkaterPhysicsModule::change_rail_adjust(script::Struct* params, script::Script*)
 {
-    params->fetch_int_value(0u, &get_at<int>(this, kGrindAdjust), 0);
+    params->fetch_int_value(0u, &rail_adjust_, 0);
     return 1;
 }
 // 0x004FC180
 int SkaterPhysicsModule::set_ammo_type(script::Struct* params, script::Script*)
 {
-    params->read_hash_value(0u, &get_at<uint32_t>(this, kProjectileType), 0);
+    params->read_hash_value(0u, &ammo_type_, 0);
     return 1;
 }
 // 0x004FC110
 int SkaterPhysicsModule::set_extra_push(script::Struct* params, script::Script*)
 {
-    float* radius = &get_at<float>(this, kExtraPushRadius);
-    float* speed = &get_at<float>(this, kExtraPushSpeed);
-    float* third = &get_at<float>(this, kExtraPushThirdValue);
+    float* radius = &side_reach_;
+    float* speed = &side_push_;
+    float* third = &side_turn_;
     *radius = 48.0f;
     *speed = 100.0f;
     *third = 6.0f;
@@ -638,7 +569,7 @@ int SkaterPhysicsModule::set_extra_push(script::Struct* params, script::Script*)
 // 0x004FC340
 int SkaterPhysicsModule::doing_flip(script::Struct*, script::Script*)
 {
-    if (get_byte(this, kModelRotating) && get_at<float>(this, kModelRotationLeft) > kFlipLeftMin)
+    if (model_rotating_ && model_rotation_left_ > kFlipLeftMin)
         return 1;
     return 0;
 }
@@ -669,17 +600,17 @@ int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
 // 0x004FC9C0
 int SkaterPhysicsModule::restore_auto_kick(script::Struct*, script::Script*)
 {
-    int profile = get_at<int>(object_of(this), kObjectProfile);
+    int profile = static_cast<objects::Rider*>(entity_)->view_slot_;
     uint8_t* profiles = reinterpret_cast<uint8_t*>(modules::g_skate_module);
-    get_byte(this, kAutoKick) = profiles[profile * 8 + 0x395];
+    auto_kick_ = profiles[profile * 8 + 0x395];
     return 1;
 }
 
 // 0x004FC9F0
 int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
 {
-    void* object = object_of(this);
-    maths::Vec4& velocity = vector_at(object, kVelocity);
+    objects::GameEntity* object = object_of(this);
+    maths::Vec4& velocity = object->vel_;
     float upward = velocity.y;
     if (upward < 0.0f)
         upward = 0.0f;
@@ -689,7 +620,7 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
     // Along the horizontal velocity; slower than 10: the facing; that barely anything either: (1, 0, 1).
     maths::Vec4 direction(velocity.x, 0.0f, velocity.z, velocity.w);
     if (static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x < kSlowSquared) {
-        const maths::Vec4& facing = vector_at(object, kForward);
+        const maths::Vec4& facing = object->basis_frame_.row[2];
         direction = maths::Vec4(facing.x, 0.0f, facing.z, facing.w);
         double flat = static_cast<double>(facing.z) * facing.z + static_cast<double>(facing.x) * facing.x;
         if (flat < kStillSquared)
@@ -707,7 +638,7 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
     float y = static_cast<float>(direction.y * boost);
     float z = static_cast<float>(direction.z * boost);
     float w = static_cast<float>(direction.w * boost);
-    maths::Vec4& v = vector_at(object_of(this), kVelocity);
+    maths::Vec4& v = entity_->vel_;
     v.x = static_cast<float>(v.x + direction.x * boost);
     v.y += y;
     v.z += z;
@@ -722,17 +653,17 @@ int SkaterPhysicsModule::set_rail_sound(script::Struct* params, script::Script*)
     params->read_hash_value(0u, &sound, 1);
     bool slide = sound == kSlide;
     set_timed_flag(this, kFlagSlide, slide ? 1 : 0);
-    get_at<uint8_t>(get_at<void*>(this, kSfxModuleSlot), 0x1E) = slide ? 1 : 0;
+    sound_->sliding_ = slide ? 1 : 0;
     return 1;
 }
 
 // 0x004FD0D0
 int SkaterPhysicsModule::change_wheel_drag(script::Struct* params, script::Script*)
 {
-    void* object = object_of(this);
-    float* friction = &get_at<float>(this, kRollingFrictionValue);
+    objects::GameEntity* object = object_of(this);
+    float* friction = &rolling_friction_;
     params->fetch_float(0u, friction, 0);
-    if (params->has_bare_flag(kDefault) && get_at<float>(this, kSpecialFrictionTime) == 0.0f)
+    if (params->has_bare_flag(kDefault) && special_friction_time_ == 0.0f)
         *friction = tuning_float_lookup(kCoastDrag, object);
     return 1;
 }
@@ -742,12 +673,12 @@ int SkaterPhysicsModule::last_spin_was(script::Struct* params, script::Script*)
 {
     if (params->has_bare_flag(kBackside)) {
         bool flipped = flags_of(this)[kFlagFlipped] != 0;
-        bool backside = get_byte(this, kLastSpinBackside) != 0;
+        bool backside = last_spin_backside_ != 0;
         return (flipped ? !backside : backside) ? 1 : 0;
     }
     if (params->has_bare_flag(kFrontside)) {
         bool flipped = flags_of(this)[kFlagFlipped] != 0;
-        bool backside = get_byte(this, kLastSpinBackside) != 0;
+        bool backside = last_spin_backside_ != 0;
         return (flipped ? backside : !backside) ? 1 : 0;
     }
     return 1;
@@ -756,16 +687,16 @@ int SkaterPhysicsModule::last_spin_was(script::Struct* params, script::Script*)
 // 0x004FD1E0
 int SkaterPhysicsModule::turn_to_face_velocity(script::Struct*, script::Script*)
 {
-    void* object = object_of(this);
-    const maths::Vec4& velocity = vector_at(object, kVelocity);
+    objects::GameEntity* object = object_of(this);
+    const maths::Vec4& velocity = object->vel_;
     double x = velocity.x, y = velocity.y, z = velocity.z;
     double length_squared = (x * x + y * y) + z * z;
     if (length_squared < kStillSquared)
         return 1;
-    maths::Vec4& right = vector_at(object, kMatrix);
-    maths::Vec4& up = vector_at(object, kUp);
-    maths::Vec4& facing = vector_at(object, kForward);
-    facing = vector_at(object, kVelocity);
+    maths::Vec4& right = object->basis_frame_.row[0];
+    maths::Vec4& up = object->basis_frame_.row[1];
+    maths::Vec4& facing = object->basis_frame_.row[2];
+    facing = object->vel_;
     facing.make_unit();
     // right = up x facing
     double rx = static_cast<double>(facing.z) * up.y - static_cast<double>(facing.y) * up.z;
@@ -785,36 +716,36 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct*, script::Script*)
     up.x = static_cast<float>(ux);
     up.y = static_cast<float>(uy);
     up.make_unit();
-    get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
+    display_matrix_ = entity_->basis_frame_;
     return 1;
 }
 
 // 0x004FD360
 int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script*)
 {
-    void* object = object_of(this);
-    float& time = get_at<float>(this, kLimitsTime);
+    objects::GameEntity* object = object_of(this);
+    float& time = limits_time_;
     if (params->has_bare_flag(kCancelLimits)) {
         time = 0.0f;
         return 1;
     }
-    if (get_at<uint32_t>(this, kLimitsTime) == 0xC0000000u) // -2: for the level
+    if (bits_as<uint32_t>(limits_time_) == 0xC0000000u) // -2: for the level
         return 1;
     if (params->has_bare_flag(kEnd)) {
         time = 0.0f;
         return 1;
     }
-    float* max = &get_at<float>(this, kLimitsMax);
+    float* max = &limits_max_;
     params->fetch_float(kMax, max, 1);
-    float* max_max = &get_at<float>(this, kLimitsMaxMax);
-    get_at<uint32_t>(this, kLimitsMaxMax) = *reinterpret_cast<uint32_t*>(max);
+    float* max_max = &limits_max_max_;
+    bits_as<uint32_t>(limits_max_max_) = *reinterpret_cast<uint32_t*>(max);
     params->fetch_float(kMaxMax, max_max, 0);
-    get_at<uint32_t>(this, kLimitsTime) = kLimitsTimeDefault;
+    bits_as<uint32_t>(limits_time_) = kLimitsTimeDefault;
     params->fetch_float(kTime, &time, 0);
-    float* friction = &get_at<float>(this, kLimitsFriction);
-    get_at<uint32_t>(this, kLimitsFriction) = kLimitsFrictionDefault;
+    float* friction = &limits_friction_;
+    bits_as<uint32_t>(limits_friction_) = kLimitsFrictionDefault;
     params->fetch_float(kFriction, friction, 0);
-    float* gravity = &get_at<float>(this, kLimitsGravity);
+    float* gravity = &limits_gravity_;
     *gravity = tuning_float_lookup(kGroundGravity, object);
     params->fetch_float(kGravity, gravity, 0);
     if (params->has_bare_flag(kUntilCancelled))
@@ -829,15 +760,15 @@ int SkaterPhysicsModule::set_special_friction(script::Struct* params, script::Sc
 {
     script::Array* frictions = nullptr;
     params->fetch_list(0u, &frictions, 0);
-    int& index = get_at<int>(this, kOddGripIndex);
+    int& index = special_friction_index_;
     int count = static_cast<int>(frictions->extent_); // (no array: the original reads through null too)
     if (index >= count)
         index = count - 1;
-    get_at<float>(this, kRollingFrictionValue) = frictions->fetch_float(static_cast<uint32_t>(index));
+    rolling_friction_ = frictions->fetch_float(static_cast<uint32_t>(index));
     if (index == 0)
-        get_at<int>(this, kSpecialFrictionStart) = get_now();
+        special_friction_start_ = get_now();
     ++index;
-    params->fetch_float(kDuration, &get_at<float>(this, kSpecialFrictionTime), 0);
+    params->fetch_float(kDuration, &special_friction_time_, 0);
     return 1;
 }
 
@@ -846,40 +777,40 @@ int SkaterPhysicsModule::set_special_friction(script::Struct* params, script::Sc
 // 0x004FD580
 int SkaterPhysicsModule::get_matrix_normal(script::Struct*, script::Script* script)
 {
-    results_of(script)->push_float(kX, vector_at(object_of(this), kUp).x);
-    results_of(script)->push_float(kY, vector_at(object_of(this), kUp).y);
-    results_of(script)->push_float(kZ, vector_at(object_of(this), kUp).z);
+    results_of(script)->push_float(kX, entity_->basis_frame_.row[1].x);
+    results_of(script)->push_float(kY, entity_->basis_frame_.row[1].y);
+    results_of(script)->push_float(kZ, entity_->basis_frame_.row[1].z);
     return 1;
 }
 // 0x004FD5E0
 int SkaterPhysicsModule::get_last_ground_pos(script::Struct*, script::Script* script)
 {
-    const maths::Vec4& position = vector_at(this, kLastGroundPos);
+    const maths::Vec4& position = last_ground_pos_;
     results_of(script)->put_vec3(kPos, position.x, position.y, position.z);
     return 1;
 }
 // 0x004FD610
 int SkaterPhysicsModule::get_last_ground_heading(script::Struct*, script::Script* script)
 {
-    results_of(script)->push_float(kLastHeading, get_at<float>(this, kLastHeadingValue));
+    results_of(script)->push_float(kLastHeading, last_heading_);
     return 1;
 }
 // 0x004FDC30
 int SkaterPhysicsModule::get_ammo(script::Struct*, script::Script* script)
 {
-    results_of(script)->put_int(kAmmo, get_at<int>(this, kProjectileCount));
+    results_of(script)->put_int(kAmmo, ammo_);
     return 1;
 }
 // 0x004FDC50
 int SkaterPhysicsModule::get_ammo_type(script::Struct*, script::Script* script)
 {
-    results_of(script)->put_name_key(kAmmoType, get_at<uint32_t>(this, kProjectileType));
+    results_of(script)->put_name_key(kAmmoType, ammo_type_);
     return 1;
 }
 // 0x004FDC70
 int SkaterPhysicsModule::get_pitch_bail_dir(script::Struct*, script::Script* script)
 {
-    results_of(script)->put_name_key(kPitchBailDir, get_at<uint32_t>(this, kPitchBail));
+    results_of(script)->put_name_key(kPitchBailDir, nearest_wall_side_);
     return 1;
 }
 
@@ -900,12 +831,12 @@ int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script*)
     render::ProbeRay feeler;
     if (!feel_ahead(this, params, feeler, false) || !hit_wall(feeler))
         return 0;
-    vector_at(object_of(this), kVelocity).change_heading(feeler.surface_dir_);
-    vector_at(object_of(this), kForward).change_heading(feeler.surface_dir_);
+    entity_->vel_.change_heading(feeler.surface_dir_);
+    entity_->basis_frame_.row[2].change_heading(feeler.surface_dir_);
     static_cast<objects::RiderSpinAndFlip*>(
         static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kSkaterFlipAndRotate))
         ->get_flip();
-    get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
+    display_matrix_ = entity_->basis_frame_;
     return 1;
 }
 
@@ -923,7 +854,7 @@ int SkaterPhysicsModule::is_facing_vert(script::Struct* params, script::Script*)
 // 0x004FDC90
 int SkaterPhysicsModule::focus_off(script::Struct*, script::Script*)
 {
-    get_byte(this, kFocus) = 0;
+    focus_on_ = 0;
     auto* camera =
         static_cast<objects::GameEntity*>(static_cast<objects::Rider*>(object_of(this))->get_skater_camera());
     static_cast<objects::FreeLookModule*>(camera->fetch_module(kCameraLookAround))->set_locked(false);

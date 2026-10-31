@@ -17,6 +17,14 @@
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/trick_component.h"
+#include "engine/objects/input_component.h"
+#include "engine/objects/trigger_component.h"
+#include "game/rider/balance_trick.h"
+#include "game/rider/rotate_component.h"
+#include "game/rider/skater_score.h"
+#include "game/rider/skater_sound.h"
+#include "game/rider/tagging.h"
+#include "game/rider/walk_physics.h"
 
 namespace skater {
 
@@ -30,49 +38,17 @@ constexpr uint32_t kRailWaitName = 0xE4412EB7; // (a script value: the rail wait
 constexpr uint32_t kTrackingName = 0x19FB78FA; // (a script value: the tracking printout on; name not recovered)
 const char* const kProjectileControl = "projectile_control"; // "projectile_control"
 
-// The components it finds in Finalize (each one's type, then where it's kept).
-constexpr struct {
-    uint32_t type;
-    uint32_t offset;
-} kComponents[] = {
-    {0x27D7CD28, 0x150C}, // Input
-    {0x187574FA, 0x1514}, // SkaterSound
-    {0xE594F0A2, 0x1510}, // Trigger
-    {0x270F56E1, 0x1518}, // Trick
-    {0x52D61A0D, 0x151C}, // SkaterRotate
-    {0xD262802F, 0x1520}, // SkaterScore
-    {0x589E5FB3, 0x1524}, // SkaterBalanceTrick
-    {0x43686585, 0x1528}, // SkaterState
-    {0x408D2AA9, 0x152C}, // MovableContact
-    {0xD9151D4D, 0x1530}, // SkaterPhysicsControl
-    {0x726E85AA, 0x1534}, // Walk
-    {0x380D909A, 0x1538}, // (the projectiles')
-};
+// One of the components it finds in Finalize: the object's component of `type`, kept in `slot`.
+template <typename Module>
+void find_module(objects::GameEntity* object, Module*& slot, uint32_t type)
+{
+    slot = static_cast<Module*>(object->fetch_module(type));
+}
 
 // The component's fields used here.
-constexpr uint32_t kGroundNormalA = 0x58;
-constexpr uint32_t kGroundNormalB = 0x68;
-constexpr uint32_t kGroundNormalC = 0x78;
-constexpr uint32_t kStateTime = 0x90;
-constexpr uint32_t kOldState = 0x94;
 constexpr uint32_t kFeelerObject = 0x140;       // (the feeler +0xA8's smart pointer)
 constexpr uint32_t kGroundFeelerObject = 0x1F0; // (the feeler +0x158's)
-constexpr uint32_t kRailLeft = 0x234;
-constexpr uint32_t kRailLeftAt = 0x238;
-constexpr uint32_t kRailWait = 0x23C;
-constexpr uint32_t kLipPosition = 0x258;
-constexpr uint32_t kUnknown2eC = 0x2EC;
-constexpr uint32_t kProjectileCount = 0x2F8;
-constexpr uint32_t kProjectileInput = 0x308;
-constexpr uint32_t kSpinQueued = 0x30C;
-constexpr uint32_t kRollingFrictionValue = 0x314;
-constexpr uint32_t kFacingBackwards = 0x34C;
 constexpr uint32_t kSkitched = 0x364;
-constexpr uint32_t kAirStart = 0x380;
-constexpr uint32_t kAirEnd = 0x384;
-constexpr uint32_t kGetOffPending = 0x4F0;
-constexpr uint32_t kContactMeshStore = 0x4F4;
-constexpr uint32_t kSfxModuleSlot = 0x1514; // (+0x18 the state, +0x1C the terrain, +0x1E sliding)
 
 // The state component's (+0x1528) flags used here.
 constexpr uint32_t kFlagFlipped = 0x28;
@@ -84,10 +60,10 @@ constexpr uint32_t kFlagD8 = 0xD8;
 
 enum : int { kGround = 0, kAir = 1, kWallRide = 2, kLip = 3, kRail = 4 };
 
-objects::RiderPoseState* state_of(void* component) { return get_at<objects::RiderPoseState*>(component, kTimedFlags); }
-uint8_t* sound_of(void* component) { return get_at<uint8_t*>(component, kSfxModuleSlot); }
-objects::MoveExecutor* trick_of(void* component) { return get_at<objects::MoveExecutor*>(component, kSkaterComponent); }
-void release_pointer(void* component, uint32_t offset)
+objects::RiderPoseState* state_of(SkaterPhysicsModule* component) { return component->state_; }
+uint8_t* sound_of(SkaterPhysicsModule* component) { return reinterpret_cast<uint8_t*>(component->sound_); }
+objects::MoveExecutor* trick_of(SkaterPhysicsModule* component) { return component->trick_; }
+void release_pointer(SkaterPhysicsModule* component, uint32_t offset)
 {
     get_at<objects::SharedRef<objects::SharedBase>>(component, offset).get_release();
 }
@@ -110,7 +86,7 @@ bool SkaterPhysicsModule::projectile_button_pressed()
     uint32_t button = script::get_symbol_value(kProjectileControl); // (the game's string)
     if (!trick_of(this)->check_release_press(button, false, true))
         return false;
-    get_at<int>(this, kProjectileInput) = -1;
+    projectile_input_ = -1;
     return true;
 }
 
@@ -118,7 +94,7 @@ bool SkaterPhysicsModule::projectile_button_pressed()
 int SkaterPhysicsModule::is_sides_swapped()
 {
     uint8_t flipped = get_at<uint8_t>(state_of(this), kFlagFlipped);
-    if (get_at<uint8_t>(object_of(this), 0x110))
+    if (static_cast<objects::Rider*>(entity_)->goofy_)
         return flipped;
     return flipped ? 0 : 1;
 }
@@ -133,7 +109,7 @@ void SkaterPhysicsModule::set_surface_kind(uint32_t terrain)
 // 0x004FC500 (0x00500DB0 the deleting one)
 SkaterPhysicsModule::~SkaterPhysicsModule()
 {
-    get_at<render::HitMeshCache>(this, kContactMeshStore).destruct();
+    hit_cache_.destruct();
     release_pointer(this, kSkitched);
     release_pointer(this, kGroundFeelerObject);
     release_pointer(this, kFeelerObject);
@@ -142,41 +118,51 @@ SkaterPhysicsModule::~SkaterPhysicsModule()
 // 0x004FC5C0
 void SkaterPhysicsModule::configure_from_data(script::Struct*)
 {
-    get_at<float>(this, kRollingFrictionValue) = tuning_float_lookup(kCoastDrag, object_of(this));
-    void* object = object_of(this);
-    vector_at(object, kPosition) = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    maths::Mat4& matrix = get_at<maths::Mat4>(object_of(this), kMatrix);
+    rolling_friction_ = tuning_float_lookup(kCoastDrag, object_of(this));
+    objects::GameEntity* object = object_of(this);
+    object->at_point_ = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    maths::Mat4& matrix = entity_->basis_frame_;
     matrix.row[0] = maths::Vec4(1.0f, 0.0f, 0.0f, 0.0f);
     matrix.row[1] = maths::Vec4(0.0f, 1.0f, 0.0f, 0.0f);
     matrix.row[2] = maths::Vec4(0.0f, 0.0f, 1.0f, 0.0f);
     matrix.row[3] = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
-    vector_at(this, kGroundNormalA) = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
-    vector_at(this, kGroundNormalB) = vector_at(this, kGroundNormalA);
-    vector_at(this, kGroundNormalC) = vector_at(this, kGroundNormalA);
-    get_at<uint8_t>(this, kUnknown2eC) = 0;
-    get_at<int>(this, kProjectileCount) = 0;
+    display_matrix_ = entity_->basis_frame_;
+    drawn_normal_ = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
+    floor_normal_ = drawn_normal_;
+    old_normal_ = drawn_normal_;
+    point_rail_spin_ = 0;
+    ammo_ = 0;
 }
 
 // 0x004FC690
 void SkaterPhysicsModule::seal()
 {
-    for (const auto& c : kComponents)
-        get_at<void*>(this, c.offset) = static_cast<objects::GameEntity*>(object_of(this))->fetch_module(c.type);
+    find_module(entity_, input_, 0x27D7CD28);             // Input
+    find_module(entity_, sound_, 0x187574FA);             // SkaterSound
+    find_module(entity_, trigger_, 0xE594F0A2);           // Trigger
+    find_module(entity_, trick_, 0x270F56E1);             // Trick
+    find_module(entity_, rotate_, 0x52D61A0D);            // SkaterRotate
+    find_module(entity_, score_, 0xD262802F);             // SkaterScore
+    find_module(entity_, balance_, 0x589E5FB3);           // SkaterBalanceTrick
+    find_module(entity_, state_, 0x43686585);             // SkaterState
+    find_module(entity_, ride_, 0x408D2AA9);              // MovableContact
+    find_module(entity_, physics_control_, 0xD9151D4D);   // SkaterPhysicsControl
+    find_module(entity_, walk_, 0x726E85AA);              // Walk
+    find_module(entity_, tagging_component_, 0x380D909A); // (the projectiles')
 }
 
 // 0x004FDD50
 void SkaterPhysicsModule::leave_skating()
 {
-    if (get_at<uint8_t>(this, kGetOffPending)) {
-        get_at<uint8_t>(this, kGetOffPending) = 0;
+    if (vert_air_announced_) {
+        vert_air_announced_ = 0;
         static_cast<objects::Entity*>(object_of(this))->announce(kGetOffEvent, nullptr, 0.0f);
     }
-    get_at<uint32_t>(this, kRailWait) = ftol(script::fetch_float(kRailWaitName));
-    if (get_at<uint32_t>(this, kRailLeftAt) > get_at<uint32_t>(this, kRailLeft))
-        get_at<uint32_t>(this, kRailLeft) = get_at<uint32_t>(this, kRailLeftAt);
+    rail_wait_ = ftol(script::fetch_float(kRailWaitName));
+    if (static_cast<uint32_t>(lip_time_) > static_cast<uint32_t>(rail_time_))
+        rail_time_ = static_cast<uint32_t>(lip_time_);
     uint8_t* state = reinterpret_cast<uint8_t*>(state_of(this));
-    if (get_at<int>(state, kState) == kAir && get_at<int>(this, kOldState) == kLip && state[kFlagLipToAir])
+    if (get_at<int>(state, kState) == kAir && old_state_ == kLip && state[kFlagLipToAir])
         set_timed_flag(this, kFlagLipToAir, 0);
     state_of(this)->change_phase(kGround);
     vector_at(state_of(this), 0xF8) = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
@@ -206,15 +192,15 @@ void SkaterPhysicsModule::clear_flags()
 void SkaterPhysicsModule::set_physics_state(int state)
 {
     if (state_of(this)->cur_phase_ != state) {
-        get_at<int>(this, kStateTime) = get_now();
-        get_at<int>(this, kOldState) = state_of(this)->cur_phase_;
+        state_changed_at_ = get_now();
+        old_state_ = state_of(this)->cur_phase_;
     }
     int old = state_of(this)->cur_phase_;
-    maths::Vec4& lip = vector_at(this, kLipPosition);
+    maths::Vec4& lip = lip_pos_;
     if (old == kLip && state != kLip && (lip.x != 0.0f || lip.y != 0.0f || lip.z != 0.0f)) {
-        void* object = object_of(this);
-        vector_at(object, kPosition) = lip;
-        vector_at(object, kOldPosition) = vector_at(object, kPosition);
+        objects::GameEntity* object = object_of(this);
+        object->at_point_ = lip;
+        object->old_pos_ = object->at_point_;
     }
     if (state != kLip)
         lip = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -227,18 +213,18 @@ void SkaterPhysicsModule::set_physics_state(int state)
     old = state_of(this)->cur_phase_;
     if (old == kAir) {
         if (state != kAir) {
-            get_at<int>(this, kAirEnd) = get_now();
+            air_end_ = get_now();
             set_timed_flag(this, kFlagC0, 0);
             set_timed_flag(this, kFlagD0, 0);
             set_timed_flag(this, kFlagD8, 0);
         }
     } else if (state == kAir) {
         if (old != kWallRide)
-            get_at<int>(this, kAirStart) = get_now();
+            air_start_ = get_now();
         get_at<int>(trick_of(this), 0x13A4) = 0;
         take_press(input_of(this) + 0xA0);
         take_press(input_of(this) + 0x100);
-        get_at<int>(this, kSpinQueued) = 0;
+        queued_spin_ = 0.0f;
     }
     state_of(this)->change_phase(state);
     get_at<int>(sound_of(this), 0x18) = state;
@@ -247,13 +233,13 @@ void SkaterPhysicsModule::set_physics_state(int state)
 // 0x004FE120
 void SkaterPhysicsModule::turn_around()
 {
-    void* object = object_of(this);
-    maths::Vec4& facing = vector_at(object, kForward);
+    objects::GameEntity* object = object_of(this);
+    maths::Vec4& facing = object->basis_frame_.row[2];
     facing = maths::Vec4(-facing.x, -facing.y, -facing.z, -facing.w);
-    maths::Vec4& right = vector_at(object_of(this), kMatrix);
+    maths::Vec4& right = entity_->basis_frame_.row[0];
     right = maths::Vec4(-right.x, -right.y, -right.z, -right.w);
-    get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
-    get_at<uint8_t>(this, kFacingBackwards) = get_at<uint8_t>(this, kFacingBackwards) ? 0 : 1;
+    display_matrix_ = entity_->basis_frame_;
+    rail_backwards_ = rail_backwards_ ? 0 : 1;
 }
 
 // 0x004FE1D0

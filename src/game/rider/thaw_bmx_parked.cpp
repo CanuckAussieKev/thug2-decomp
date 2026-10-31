@@ -18,6 +18,7 @@
 #include "game/rider/rider.h"
 #include "game/rider/thaw_bmx.h"
 #include "platform/run_log.h"
+#include "game/rider/core_physics.h"
 
 namespace skater::thaw_bmx {
 
@@ -148,7 +149,7 @@ void place_skater(objects::Rider* skater, Point pos, float heading)
         m->row[2] = {s, 0.0f, c, 0.0f};
     }
     if (skater->core_physics_)
-        *reinterpret_cast<maths::Mat4*>(skater->core_physics_ + 0x18) = skater->basis_frame_; // (its display matrix)
+        skater->core_physics_->display_matrix_ = skater->basis_frame_; // (its display matrix)
     skater->at_point_ = {pos.x, pos.y, pos.z, 1.0f};
     skater->old_pos_ = skater->at_point_;
 }

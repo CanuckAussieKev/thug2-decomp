@@ -11,6 +11,9 @@
 //
 // Vtable: 0 Destroy, 1 Update, 3 Finalize, 12 the shared invoke_method_by_name 0x0051ADC0; the rest the base's or shared
 // empty functions.
+namespace skater {
+class SkaterPhysicsModule;
+} // namespace skater
 namespace objects {
 
 class RiderPhysicsCommit final : public ObjectModule {
@@ -30,8 +33,8 @@ public:
     // told the terrain and state, the looping sound the speed as a fraction of the top speed.
     void tick_frame() override;
 
-    uint8_t* core_physics_; // +0x18 SkaterCorePhysics (0x5BD63B29)
-    uint8_t* cur_phase_;    // +0x1C SkaterState (0x43686585)
+    skater::SkaterPhysicsModule* core_physics_; // +0x18 SkaterCorePhysics (0x5BD63B29)
+    uint8_t* cur_phase_;                        // +0x1C SkaterState (0x43686585)
 };
 static_assert(offsetof(RiderPhysicsCommit, core_physics_) == 0x18 && offsetof(RiderPhysicsCommit, cur_phase_) == 0x1C &&
                   sizeof(RiderPhysicsCommit) == 0x20,

@@ -49,6 +49,10 @@
 
 #include "engine/maths/vec4.h"
 
+namespace skater {
+class SkaterPhysicsModule;
+} // namespace skater
+
 namespace skater::collision_events {
 
 // Which physics path ran (the order is the priority when several ran: the first wins).
@@ -73,14 +77,14 @@ bool get_on();
 
 // After a path ran: `component` the skater's core physics component (its feeler's hit and line are read), `before`
 // the skater's velocity when the path began.
-void note_path(void* component, RouteWay path, const maths::Vec4& before);
+void note_path(SkaterPhysicsModule* component, RouteWay path, const maths::Vec4& before);
 
 // The end of the core physics component's update.
-void end_frame(void* component);
+void end_frame(SkaterPhysicsModule* component);
 
 // A point in the frame's physics (label: a name without spaces): the velocity there is kept, and an event says
 // between which two the velocity turned round (flipped=<before>><after>).
-void checkpoint(void* component, const char* label);
+void checkpoint(SkaterPhysicsModule* component, const char* label);
 
 // --- the decisions (pure) ----------------
 

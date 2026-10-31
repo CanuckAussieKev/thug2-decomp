@@ -60,11 +60,10 @@ void freeze_module(ObjectModule* component, bool suspend) { component->hold_off(
 // walk's state on coming back (resume_skating), the state component's physics mode (1: walking), the walk component
 // told it's starting (Begin) / leaving (its model offset cleared), the cameras' state handed over (the skater
 // camera's 0x004FA420 / 0x004F9A40, the walk camera's 0x00524FF0 / 0x00525060).
-void core_leaving(uint8_t* core) { reinterpret_cast<skater::SkaterPhysicsModule*>(core)->leave_skating(); }
-void core_returning(uint8_t* core, bool on_ground, void* hold1, void* hold2)
+void core_leaving(skater::SkaterPhysicsModule* core) { core->leave_skating(); }
+void core_returning(skater::SkaterPhysicsModule* core, bool on_ground, void* hold1, void* hold2)
 {
-    reinterpret_cast<skater::SkaterPhysicsModule*>(core)->resume_skating(on_ground, static_cast<const uint8_t*>(hold1),
-                                                                         hold2);
+    core->resume_skating(on_ground, static_cast<const uint8_t*>(hold1), hold2);
 }
 void set_walking(uint8_t* state, bool walking)
 {
@@ -118,7 +117,7 @@ void RiderBoardPhysics::configure_from_data(script::Struct* /*params*/) { is_hal
 // 0x00517770
 void RiderBoardPhysics::seal()
 {
-    core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
+    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     cur_phase_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterState));
     prop<int>(cur_phase_, 0x1C) = -1;
 }
@@ -155,7 +154,7 @@ void RiderBoardPhysics::dismount_to_walk()
     auto* camera = static_cast<GameEntity*>(static_cast<Rider*>(entity_)->get_skater_camera());
     ObjectModule* skater_camera = camera->fetch_module(kSkaterCamera);
     ObjectModule* walk_camera = camera->fetch_module(kWalkCamera);
-    int skater_state = prop<int>(prop<uint8_t*>(core_physics_, 0x1528), 0x18);
+    int skater_state = prop<int>(reinterpret_cast<uint8_t*>(core_physics_->state_), 0x18);
     core_leaving(core_physics_);
     freeze_module(reinterpret_cast<ObjectModule*>(core_physics_), true);
     freeze_module(entity_->fetch_module(kSkaterRotate), true);
@@ -213,7 +212,7 @@ void RiderBoardPhysics::tick_frame()
         return;
     switch (prop<int>(cur_phase_, 0x1C)) {
     case kSkating:
-        entity_->display_matrix_ = prop<maths::Mat4>(core_physics_, 0x18);
+        entity_->display_matrix_ = core_physics_->display_matrix_;
         break;
     case kWalking:
         entity_->display_matrix_ = entity_->basis_frame_;

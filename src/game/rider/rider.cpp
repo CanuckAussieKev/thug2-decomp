@@ -83,6 +83,7 @@
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/engine_texture.h"
 #include "game/goals/objective.h"
+#include "game/rider/skater_sound.h"
 
 namespace objects {
 
@@ -195,7 +196,7 @@ void Rider::sparks_off()
 }
 
 // 0x00580030
-maths::Mat4* Rider::get_draw_matrix() { return reinterpret_cast<maths::Mat4*>(core_physics_ + 0x18); }
+maths::Mat4* Rider::get_draw_matrix() { return &core_physics_->display_matrix_; }
 
 // 0x00580040 / 0x00580050
 memory::ListNode* Rider::get_skater_link() { return &skater_link_; }
@@ -261,7 +262,7 @@ script::Struct* __cdecl get_physics_structure(GameEntity* skater)
 {
     if (!skater || !get_at<bool>(skater, 0xBC))
         return script::read_sub_struct(kSkaterPhysics);
-    auto* core = reinterpret_cast<uint8_t*>(skater->fetch_module(kSkaterCorePhysics));
+    auto* core = static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysics));
     // Not original - on THAW's bike, THAW's bicycle_physics (thaw_bicycle_physics: game/rider/thaw_bmx.h), as
     // THAW's own get_physics_structure (0x0058ED90) picks it.
     // Original behaviour: the vehicle's, the chainsaw's or the skater's below.
@@ -269,8 +270,8 @@ script::Struct* __cdecl get_physics_structure(GameEntity* skater)
         if (script::Struct* bike = skater::thaw_bmx::physics_structure(core))
             return bike;
     }
-    if (get_at<bool>(core, 0x2ED)) {
-        switch (get_at<uint32_t>(core, 0x2F0)) { // what it rides
+    if (core->on_vehicle_) {
+        switch (core->vehicle_) { // what it rides
         case 0x3029FB1F:
             return script::read_sub_struct(0x8B3B782B); // Segway: segway_physics
         case 0x61C62B2D:
@@ -289,7 +290,7 @@ script::Struct* __cdecl get_physics_structure(GameEntity* skater)
             return script::read_sub_struct(kSkaterPhysics); // (slalom, shoppingcart, anything else)
         }
     }
-    if (get_at<bool>(core, 0x302))
+    if (core->motoskateboard_)
         return script::read_sub_struct(kChainsawPhysics);
     return script::read_sub_struct(kSkaterPhysics);
 }
@@ -368,8 +369,8 @@ float Rider::get_scaled_value(script::Struct* params)
     const float low = range.x, high = range.y;
     float result = static_cast<float>((static_cast<double>(high) - low) * stat * 0.1f + low);
     // Riding switch: times the switch pair, by the switch stat (0-1).
-    bool goofy = get_at<bool>(get_at<uint8_t*>(core_physics_, 0xC), 0x110);
-    uint8_t flipped = get_at<uint8_t>(get_at<uint8_t*>(core_physics_, 0x1528), 0x28);
+    bool goofy = static_cast<Rider*>(core_physics_->entity_)->goofy_;
+    uint8_t flipped = get_at<uint8_t>(reinterpret_cast<uint8_t*>(core_physics_->state_), 0x28);
     bool riding = goofy ? flipped != 0 : flipped == 0;
     if (riding && params->fetch_pair(kSwitch, &switch_range, false)) {
         double s = fetch_tally(6);
@@ -525,7 +526,7 @@ void Rider::update_shadow_light(int, int)
     uint8_t* state = state284_;
     if (state && !get_at<bool>(get_at<uint8_t*>(state, 0x2C), 0x118) &&
         !get_at<uint32_t>(get_at<uint8_t*>(state, 0x2C), 0x1C))
-        fading = get_at<uint32_t>(get_at<uint8_t*>(core_physics_, 0x1528), 0x18) == 0;
+        fading = core_physics_->state_->cur_phase_ == 0;
     else if (!state288_)
         fading = true;
     else
@@ -605,7 +606,7 @@ void Rider::update_from_profile(RiderIdentity* profile)
     }
     label_ = profile->fetch_title();
     if (is_local_skater_) {
-        uint8_t* stance_flag = get_at<uint8_t*>(core_physics_, 0x1528) + 0x28;
+        uint8_t* stance_flag = reinterpret_cast<uint8_t*>(core_physics_->state_) + 0x28;
         set_input_flag(stance_flag, goofy_ ? 0 : 1);
         static_cast<RiderSpinAndFlip*>(fetch_module(kSkaterFlipAndRotate))->apply_flip_to_anims();
     }
@@ -619,12 +620,12 @@ void Rider::reset_input()
     static_cast<RiderTeeterMoves*>(fetch_module(0x589E5FB3))->clear_best_times();
     set_up_network();
     for (int i = 0; i < 24; ++i) {
-        set_input_flag(get_at<uint8_t*>(core_physics_, 0x1528) + 0x20 + 8 * i, 1);
+        set_input_flag(reinterpret_cast<uint8_t*>(core_physics_->state_) + 0x20 + 8 * i, 1);
         if (i == 7)
-            get_at<uint8_t>(get_at<uint8_t*>(core_physics_, 0x1514), 0x1E) = 1;
-        set_input_flag(get_at<uint8_t*>(core_physics_, 0x1528) + 0x20 + 8 * i, 0);
+            core_physics_->sound_->sliding_ = 1;
+        set_input_flag(reinterpret_cast<uint8_t*>(core_physics_->state_) + 0x20 + 8 * i, 0);
         if (i == 7)
-            get_at<uint8_t>(get_at<uint8_t*>(core_physics_, 0x1514), 0x1E) = 0;
+            core_physics_->sound_->sliding_ = 0;
     }
     reinterpret_cast<PadSnapshot*>(unknown264_ + 0x20)->get_clear();
     script::launch_script(0xAE5438AF, nullptr, this, false, nullptr);
@@ -787,19 +788,19 @@ void Rider::glide_to_node(uint32_t name)
         return;
     level_nodes::fetch_place(name, &at_point_);
     old_pos_ = at_point_;
-    get_at<maths::Vec4>(core_physics_, 0x98) = at_point_;
+    core_physics_->safe_pos_ = at_point_;
     mark_jumped_ahead(true);
     maths::Vec4 angles;
     level_nodes::read_turn_angles(node, &angles);
     basis_frame_.init_from_angles(angles);
-    auto* object = get_at<GameEntity*>(core_physics_, 0xC);
-    get_at<maths::Mat4>(core_physics_, 0x18) = object->basis_frame_;
-    get_at<maths::Vec4>(core_physics_, 0x68) = basis_frame_.row[1];
-    get_at<maths::Vec4>(core_physics_, 0x78) = get_at<maths::Vec4>(core_physics_, 0x68);
-    get_at<maths::Vec4>(core_physics_, 0x58) = get_at<maths::Vec4>(core_physics_, 0x78);
+    auto* object = core_physics_->entity_;
+    core_physics_->display_matrix_ = object->basis_frame_;
+    core_physics_->floor_normal_ = basis_frame_.row[1];
+    core_physics_->old_normal_ = core_physics_->floor_normal_;
+    core_physics_->drawn_normal_ = core_physics_->old_normal_;
     static_cast<GroundShadowModule*>(shadow_)->change_place(&at_point_);
     static_cast<GroundShadowModule*>(shadow_)->set_normal(&basis_frame_.row[1]);
-    display_matrix_ = get_at<maths::Mat4>(core_physics_, 0x18);
+    display_matrix_ = core_physics_->display_matrix_;
 }
 
 // 0x00581760
@@ -944,8 +945,8 @@ void Rider::prepare_all(RiderIdentity* profile)
     seal(); // (Finalize)
     if (is_local_skater_) {
         // The pad's settings for its viewport (the skate module's, 8 bytes each from +0x394).
-        get_at<uint8_t>(core_physics_, 0x2D9) = skate[0x395 + 8 * view_slot_];
-        get_at<uint8_t>(core_physics_, 0x2DA) = skate[0x396 + 8 * view_slot_];
+        core_physics_->auto_kick_ = skate[0x395 + 8 * view_slot_];
+        core_physics_->tap_spin_ = skate[0x396 + 8 * view_slot_];
         static_cast<PadRumbleModule*>(unknown25c_)->change_live(skate[0x394 + 8 * view_slot_] != 0);
         if (is_local_skater_)
             own_script_->bind_script("SkaterInit", nullptr, this);
@@ -1123,7 +1124,7 @@ void Rider::launch_projectile()
     }
     // From a wrist (the right one, or the left by its stance and whether it's walking).
     uint8_t* walking = get_at<uint8_t*>(state284_, 0x2C);
-    bool flipped = get_at<uint8_t>(get_at<uint8_t*>(core_physics_, 0x1528), 0x28) != 0;
+    bool flipped = get_at<uint8_t>(reinterpret_cast<uint8_t*>(core_physics_->state_), 0x28) != 0;
     bool walk = !get_at<bool>(walking, 0x118) && get_at<int>(walking, 0x1C) == 1;
     uint32_t wrist = (walk ? flipped : !flipped) ? 0x7EE14CFE : 0x84EE719D; // Bone_Wrist_L / Bone_Wrist_R
     maths::Vec4 bone, rotated;
@@ -1264,7 +1265,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
         add(0xD9151D4D); // SkaterPhysicsControl
         state284_ = reinterpret_cast<uint8_t*>(fetch_module(0xD9151D4D));
         add(0x5BD63B29); // SkaterCorePhysics
-        core_physics_ = reinterpret_cast<uint8_t*>(fetch_module(0x5BD63B29));
+        core_physics_ = static_cast<skater::SkaterPhysicsModule*>(fetch_module(0x5BD63B29));
         add(0x52D61A0D);
         add(0x11B4C67F);
         unknown270_ = reinterpret_cast<uint8_t*>(fetch_module(0x11B4C67F));
@@ -1377,13 +1378,13 @@ void Rider::skip_to_custom_restart()
     skip_to_restart_virtual(this, 0, custom_restart_walking_);
     at_point_ = custom_restart_pos_;
     basis_frame_ = custom_restart_matrix_;
-    get_at<maths::Vec4>(core_physics_, 0x98) = at_point_;
+    core_physics_->safe_pos_ = at_point_;
     old_pos_ = at_point_;
     mark_jumped_ahead(true);
-    get_at<maths::Mat4>(core_physics_, 0x18) = get_at<GameEntity*>(core_physics_, 0xC)->basis_frame_;
-    get_at<maths::Vec4>(core_physics_, 0x68) = basis_frame_.row[1];
-    get_at<maths::Vec4>(core_physics_, 0x78) = get_at<maths::Vec4>(core_physics_, 0x68);
-    get_at<maths::Vec4>(core_physics_, 0x58) = get_at<maths::Vec4>(core_physics_, 0x78);
+    core_physics_->display_matrix_ = core_physics_->entity_->basis_frame_;
+    core_physics_->floor_normal_ = basis_frame_.row[1];
+    core_physics_->old_normal_ = core_physics_->floor_normal_;
+    core_physics_->drawn_normal_ = core_physics_->old_normal_;
     static_cast<GroundShadowModule*>(shadow_)->change_place(&at_point_);
     static_cast<GroundShadowModule*>(shadow_)->set_normal(&basis_frame_.row[1]);
 }
@@ -1508,14 +1509,14 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         at_point_ = *camera_pos;
         at_point_ -= camera_matrix->row[2] * 144.0f;
         old_pos_ = at_point_;
-        get_at<maths::Vec4>(core_physics_, 0x98) = at_point_;
+        core_physics_->safe_pos_ = at_point_;
         basis_frame_ = *camera_matrix;
         basis_frame_.row[2] = -basis_frame_.row[2];
         basis_frame_.row[0] = -basis_frame_.row[0];
-        get_at<maths::Mat4>(core_physics_, 0x18) = get_at<GameEntity*>(core_physics_, 0xC)->basis_frame_;
-        get_at<maths::Vec4>(core_physics_, 0x68) = basis_frame_.row[1];
-        get_at<maths::Vec4>(core_physics_, 0x78) = get_at<maths::Vec4>(core_physics_, 0x68);
-        get_at<maths::Vec4>(core_physics_, 0x58) = get_at<maths::Vec4>(core_physics_, 0x78);
+        core_physics_->display_matrix_ = core_physics_->entity_->basis_frame_;
+        core_physics_->floor_normal_ = basis_frame_.row[1];
+        core_physics_->old_normal_ = core_physics_->floor_normal_;
+        core_physics_->drawn_normal_ = core_physics_->old_normal_;
         static_cast<GroundShadowModule*>(shadow_)->change_place(&at_point_);
         static_cast<GroundShadowModule*>(shadow_)->set_normal(&basis_frame_.row[1]);
         vel_ = -*camera_pos;
@@ -1546,7 +1547,7 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
             get_at<uint8_t>(list, 0x18) = 1;
         if (net->in_net_game()) {
             commands::cfunc_notify_bail_done(nullptr, nullptr);
-            uint8_t* flag = get_at<uint8_t*>(core_physics_, 0x1528) + 0x70;
+            uint8_t* flag = reinterpret_cast<uint8_t*>(core_physics_->state_) + 0x70;
             if (flag[0]) {
                 flag[0] = 0;
                 *reinterpret_cast<int*>(flag + 4) = get_clock();

@@ -16,6 +16,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "game/rider/core_physics.h"
 
 namespace objects {
 
@@ -76,18 +77,18 @@ RiderPhysicsCommit::~RiderPhysicsCommit() {}
 // 0x00511050
 void RiderPhysicsCommit::seal()
 {
-    core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
+    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     cur_phase_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterState));
 }
 
 // 0x00511080
 void RiderPhysicsCommit::tick_frame()
 {
-    uint8_t* core = core_physics_;
+    skater::SkaterPhysicsModule* core = core_physics_;
     uint8_t* state = cur_phase_;
     // Out of a lip trick (the physics' +0x256: the frame began in one) straight up: into the air with hardly any speed
     // across the ground. Kept while in the air.
-    if (prop<uint8_t>(core, 0x256) && prop<int>(state, 0x18) != kStateLip) {
+    if (core->frame_began_in_lip_ && prop<int>(state, 0x18) != kStateLip) {
         prop<uint8_t>(state, 0xF4) = 0;
         if (prop<int>(state, 0x18) == kStateAir && std::fabs(entity_->vel_.x) < kStillSpeed &&
             std::fabs(entity_->vel_.z) < kStillSpeed)
@@ -95,12 +96,12 @@ void RiderPhysicsCommit::tick_frame()
     }
     if (prop<int>(state, 0x18) != kStateAir)
         prop<uint8_t>(state, 0xF4) = 0;
-    prop<maths::Vec4>(state, 0xF8) = prop<maths::Vec4>(core, 0x58);
-    prop<maths::Vec4>(state, 0x108) = prop<maths::Vec4>(core, 0x68);
+    prop<maths::Vec4>(state, 0xF8) = core->drawn_normal_;
+    prop<maths::Vec4>(state, 0x108) = core->floor_normal_;
 
     // The matrices: orthonormal again about up; the physics' own replaced by the object's if that needed repair.
     entity_->basis_frame_.square_up_axes(1);
-    maths::Mat4& physics_matrix = prop<maths::Mat4>(core, 0x18);
+    maths::Mat4& physics_matrix = core->display_matrix_;
     physics_matrix.square_up_axes(1);
     if (entity_->basis_frame_.restore_right_angles())
         physics_matrix = reinterpret_cast<ObjectModule*>(core)->entity_->basis_frame_;

@@ -21,6 +21,9 @@ namespace goals {
 class CreateATrick;
 }
 
+namespace skater {
+class SkaterPhysicsModule;
+} // namespace skater
 namespace objects {
 
 struct RiderIdentity;
@@ -186,17 +189,17 @@ public:
     void* unknown26c_;    // +0x26C (component 0x1859F772)
     uint8_t* unknown270_; // +0x270
     uint8_t unknown274_[4];
-    uint8_t* score_holder_;    // +0x278 (+0x18 the score)
-    uint8_t* unknown27c_;      // +0x27C
-    uint8_t* core_physics_;    // +0x280
-    uint8_t* state284_;        // +0x284
-    uint8_t* state288_;        // +0x288
-    void* list_28c_;           // +0x28C
-    float stat_overrides_[10]; // +0x290
-    int skater_number_;        // +0x2B8
-    int view_slot_;            // +0x2BC
-    int pause_state_;          // +0x2C0
-    bool flag_2c_4_;           // +0x2C4
+    uint8_t* score_holder_;                     // +0x278 (+0x18 the score)
+    uint8_t* unknown27c_;                       // +0x27C
+    skater::SkaterPhysicsModule* core_physics_; // +0x280
+    uint8_t* state284_;                         // +0x284
+    uint8_t* state288_;                         // +0x288
+    void* list_28c_;                            // +0x28C
+    float stat_overrides_[10];                  // +0x290
+    int skater_number_;                         // +0x2B8
+    int view_slot_;                             // +0x2BC
+    int pause_state_;                           // +0x2C0
+    bool flag_2c_4_;                            // +0x2C4
     uint8_t pad2c5_[3];
     maths::Vec4 custom_restart_pos_;    // +0x2C8 (SetCustomRestart)
     maths::Mat4 custom_restart_matrix_; // +0x2D8

@@ -20,16 +20,7 @@ namespace objects {
 namespace {
 
 // The core physics component's fields read here.
-constexpr uint32_t kFirstTick = 0x98; // the position as the frame began
-constexpr uint32_t kFeeler = 0xA8;    // its feeler (the last ground hit)
-constexpr uint32_t kHitPoint = 0x120;
-constexpr uint32_t kHitNormal = 0x130;
-constexpr uint32_t kProbeOrigin = 0x208;
-constexpr uint32_t kProbeTip = 0x218;
-constexpr uint32_t kTimedFlags = 0x1528; // the skater's state component (+0x18 the physics state)
 // The skater object's.
-constexpr uint32_t kPosition = 0x4C;
-constexpr uint32_t kUp = 0x7C;
 constexpr uint32_t kVelocity = 0xAC;
 // The state component's: the height over the ground the skater stands on.
 constexpr uint32_t kHeightOverGround = 0x11C;
@@ -62,29 +53,29 @@ T& get_at(const void* base, uint32_t offset)
 }
 maths::Vec4& vector_at(const void* base, uint32_t offset) { return get_at<maths::Vec4>(base, offset); }
 
-int state_of(void* core) { return get_at<int>(get_at<void*>(core, kTimedFlags), 0x18); }
-void change_phase(void* core, int state) { static_cast<skater::SkaterPhysicsModule*>(core)->set_physics_state(state); }
+int state_of(skater::SkaterPhysicsModule* core) { return core->state_->cur_phase_; }
+void change_phase(skater::SkaterPhysicsModule* core, int state) { core->set_physics_state(state); }
 
 } // namespace
 
 // 0x004F8420
 void RiderPhysicsTweaks::keep_above_ground()
 {
-    void* core = core_ptr_;
-    void* object = entity_;
+    skater::SkaterPhysicsModule* core = core_ptr_;
+    GameEntity* object = entity_;
     uber_frigged_ = 0;
-    maths::Vec4& position = vector_at(object, kPosition);
-    const maths::Vec4& frame_start = vector_at(core, kFirstTick);
+    maths::Vec4& position = object->at_point_;
+    const maths::Vec4& frame_start = core->safe_pos_;
     if (position.x == frame_start.x && position.y == frame_start.y && position.z == frame_start.z &&
         position.w == frame_start.w)
         return; // (not moved this frame)
 
     // The ground below: a feeler from just over the skater (8 up) to uber_frig_current_height feet under it.
-    maths::Vec4& start = vector_at(core, kProbeOrigin);
-    maths::Vec4& end = vector_at(core, kProbeTip);
+    maths::Vec4& start = core->probe_start_;
+    maths::Vec4& end = core->probe_end_;
     start = position;
     end = position;
-    const maths::Vec4& up = vector_at(object, kUp);
+    const maths::Vec4& up = object->basis_frame_.row[1];
     start.x = static_cast<float>(static_cast<double>(up.x) * kUpNudge + start.x);
     start.y = static_cast<float>(static_cast<double>(up.y) * kUpNudge + start.y);
     start.z = static_cast<float>(static_cast<double>(up.z) * kUpNudge + start.z);
@@ -107,12 +98,12 @@ void RiderPhysicsTweaks::keep_above_ground()
             uber_frigged_ = 1;
             if (uber_frig_tries_ < 5) {
                 const float* offset = kUberFrigOffsets[uber_frig_tries_++];
-                const maths::Vec4& from = vector_at(core, kFirstTick);
+                const maths::Vec4& from = core->safe_pos_;
                 position = {offset[0] + from.x, from.y + offset[1], from.z + offset[2], from.w + offset[3]};
             } else {
                 uber_frig_tries_ = 0;
             }
-            maths::Vec4& velocity = vector_at(object, kVelocity);
+            maths::Vec4& velocity = object->vel_;
             velocity = {-velocity.x + kNudgeXy, -velocity.y + kNudgeXy, -velocity.z + kNudgeZ, -velocity.w + kOne};
             state = state_of(core);
             if (state != 0 && state != 1)
@@ -124,21 +115,21 @@ void RiderPhysicsTweaks::keep_above_ground()
 
     // Ground. Standing on a moving object (the skater on the ground or in the air, not skitching (+0x88) nor
     // wallriding (+0x78)) that isn't what the feeler hit: off it, with its velocity.
-    uint8_t* flags = get_at<uint8_t*>(core, kTimedFlags);
+    uint8_t* flags = reinterpret_cast<uint8_t*>(core->state_);
     if (!flags[0x88] && !flags[0x78] && ride_->ride_) {
         RideTracker* ride = ride_->ride_;
         bool leave = true;
         if (ride->entity_.owner_object_) {
             int state = get_at<int>(flags, 0x18);
             if (state == 0 || state == 1) {
-                render::ProbeRay& feeler = get_at<render::ProbeRay>(core, kFeeler);
+                render::ProbeRay& feeler = core->feeler_;
                 if (feeler.hit_object_alive() && feeler.get_hit_object() == ride->entity_.owner_object_)
                     leave = false;
             } else {
                 leave = false;
             }
             if (leave)
-                vector_at(object, kVelocity) += vector_at(ride_->ride_->entity_.owner_object_, kVelocity);
+                object->vel_ += vector_at(ride_->ride_->entity_.owner_object_, kVelocity);
         }
         if (leave)
             ride_->stop_riding();
@@ -146,15 +137,15 @@ void RiderPhysicsTweaks::keep_above_ground()
 
     // Kept just over the ground.
     {
-        double over = static_cast<double>(position.y) - vector_at(core, kHitPoint).y;
+        double over = static_cast<double>(position.y) - core->feeler_.contact_pos_.y;
         get_at<float>(state_ref_, kHeightOverGround) = static_cast<float>(over);
         if (over < kLeastHeight)
-            position.y = static_cast<float>(static_cast<double>(vector_at(core, kHitPoint).y) + kLeastHeight);
+            position.y = static_cast<float>(static_cast<double>(core->feeler_.contact_pos_.y) + kLeastHeight);
     }
-    shadow_handle_->change_place(&vector_at(core, kHitPoint));
-    shadow_handle_->set_normal(&vector_at(core, kHitNormal));
+    shadow_handle_->change_place(&core->feeler_.contact_pos_);
+    shadow_handle_->set_normal(&core->feeler_.surface_dir_);
     if (state_of(core) != 4)
-        get_update_brightness(&get_at<render::ProbeRay>(core, kFeeler));
+        get_update_brightness(&core->feeler_);
 
     if (get_at<uint32_t>(park_editor, 0x40) != kParkEditorTestPlay) {
         // Under the floor: a feeler from far above down to a unit over the skater (faces flagged 0x800 - "under ok" -
@@ -179,13 +170,13 @@ void RiderPhysicsTweaks::keep_above_ground()
             if (near < kFloorNear) {
                 position = feeler.contact_pos_;
             } else {
-                const maths::Vec4& began = vector_at(core, kFirstTick);
+                const maths::Vec4& began = core->safe_pos_;
                 maths::Vec4 moved = {position.x - began.x, position.y - began.y, position.z - began.z,
                                      position.w - began.w};
                 double moved_sqr = static_cast<double>(moved.x) * moved.x + static_cast<double>(moved.y) * moved.y +
                                    static_cast<double>(moved.z) * moved.z;
                 position = moved_sqr < kOne ? feeler.contact_pos_ : began;
-                maths::Vec4& velocity = vector_at(object, kVelocity);
+                maths::Vec4& velocity = object->vel_;
                 velocity = {kBounce * velocity.x, kBounce * velocity.y, kBounce * velocity.z, kBounce * velocity.w};
                 if (state_of(core) == 4) {
                     change_phase(core, 1);
@@ -197,7 +188,7 @@ void RiderPhysicsTweaks::keep_above_ground()
         feeler.entity_.get_release();
     }
     uber_frig_tries_ = 0;
-    vector_at(core, kFirstTick) = position;
+    core->safe_pos_ = position;
 }
 
 } // namespace objects

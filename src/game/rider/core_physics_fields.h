@@ -59,9 +59,11 @@ constexpr uint32_t kVelocity = 0xAC;
 constexpr uint32_t kState = 0x18; // an int: 0 on the ground, 1 in the air, ...
 
 inline maths::Vec4& vector_at(void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
-inline void* object_of(void* component) { return get_at<void*>(component, kObject); }
-inline uint8_t* flags_of(void* component) { return get_at<uint8_t*>(component, kTimedFlags); }
-inline uint8_t* input_of(void* component) { return get_at<uint8_t*>(component, kInput); }
+inline objects::GameEntity* object_of(const SkaterPhysicsModule* component) { return component->entity_; }
+// The state component's bytes (its timed flags are reached by offset) and the input component's (a button every
+// 0x20 bytes from +0x20).
+inline uint8_t* flags_of(const SkaterPhysicsModule* component) { return reinterpret_cast<uint8_t*>(component->state_); }
+inline uint8_t* input_of(const SkaterPhysicsModule* component) { return reinterpret_cast<uint8_t*>(component->input_); }
 
 // The game's clock (0x0044ECE0) plus the offset at 0x00696D60: the time a flag or button changed.
 inline int get_now() { return frame_clock::game_clock_elapsed() + objects::g_clock_offset; }
@@ -73,7 +75,7 @@ inline uint32_t get_since(uint32_t stamp)
 }
 
 // A timed flag set to `value` (the time noted if it changes).
-inline void set_timed_flag(void* component, uint32_t flag, uint8_t value)
+inline void set_timed_flag(SkaterPhysicsModule* component, uint32_t flag, uint8_t value)
 {
     uint8_t* f = flags_of(component) + flag;
     if (*f == value)
@@ -100,15 +102,9 @@ inline double stat_value(void* object, uint32_t name)
 }
 // 0x004FF470: the gravity (a physics value over a script one; in some states times another). It may come back
 // unrounded (a product left on the x87 stack).
-inline double current_gravity(void* component)
-{
-    return static_cast<skater::SkaterPhysicsModule*>(component)->get_gravity();
-}
+inline double current_gravity(SkaterPhysicsModule* component) { return component->get_gravity(); }
 // 0x004FDED0: the physics state (+0x18 of the flags) changed to `state`, with what goes with it.
-inline void change_phase(void* component, int state)
-{
-    static_cast<skater::SkaterPhysicsModule*>(component)->set_physics_state(state);
-}
+inline void change_phase(SkaterPhysicsModule* component, int state) { component->set_physics_state(state); }
 
 // 0x0042BBF0 (maths::Vec4::set_length): x, y and z scaled to `length` (left alone at length 0).
 inline void set_length(maths::Vec4& v, float length) { v.set_length(length); }

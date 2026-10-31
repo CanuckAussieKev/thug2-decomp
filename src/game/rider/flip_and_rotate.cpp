@@ -61,11 +61,8 @@ uint32_t app_value8(net::Guest* app) { return prop<uint32_t>(app, 0x08); }
 
 // The core physics component's (not rewritten yet): the skater turned around (0x004FE120) and whether the flip is
 // needed (0x004FC440).
-void turn_around(uint8_t* core_physics) { reinterpret_cast<skater::SkaterPhysicsModule*>(core_physics)->turn_around(); }
-bool flip_needed(uint8_t* core_physics)
-{
-    return (reinterpret_cast<skater::SkaterPhysicsModule*>(core_physics)->is_sides_swapped() & 0xFF) != 0;
-}
+void turn_around(skater::SkaterPhysicsModule* core_physics) { core_physics->turn_around(); }
+bool flip_needed(skater::SkaterPhysicsModule* core_physics) { return (core_physics->is_sides_swapped() & 0xFF) != 0; }
 
 // The animation blender's 0x00419C10: its animations mirrored or not (`flip`: the state component's byte as it is).
 void flip_anims(ObjectModule* blender, uint32_t object_id, uint32_t flip, uint32_t a, int b)
@@ -96,7 +93,7 @@ RiderSpinAndFlip::~RiderSpinAndFlip() {}
 // 0x00511350
 void RiderSpinAndFlip::seal()
 {
-    core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
+    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     mesh_set_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kModel));
     anim_blender_ = entity_->fetch_module(kAnimBlender);
 }

@@ -15,6 +15,7 @@
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
+#include "game/rider/core_physics.h"
 
 namespace objects {
 
@@ -98,7 +99,7 @@ void MoveExecutor::seal()
 {
     input_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput));
     balance_trick_ = entity_->fetch_module(kSkaterBalanceTrick);
-    core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
+    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     flip_rotate_ = entity_->fetch_module(kSkaterFlipAndRotate);
     skater_state_ = entity_->fetch_module(kSkaterState);
     stats_manager_ = entity_->fetch_module(kStatsManager);
@@ -703,7 +704,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
     case 0x823B8342: { // Press: the button pressed (the event gets the flags itself, nothing marked)
         uint32_t ms = read_trigger(node, 1, buttons);
         if (scaled) {
-            float rate = prop<float>(core_physics_, 0x2E8);
+            float rate = core_physics_->model_rotation_step_;
             if (rate < 1.0f)
                 ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
         }
@@ -723,7 +724,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
             return fail();
         uint32_t ms = read_trigger(node, 1, buttons);
         if (scaled) {
-            float rate = prop<float>(core_physics_, 0x2E8);
+            float rate = core_physics_->model_rotation_step_;
             if (rate < 1.0f)
                 ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
         }

@@ -6,6 +6,9 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 
+namespace skater {
+class SkaterPhysicsModule;
+} // namespace skater
 namespace script {
 class Script;
 class Struct;
@@ -88,12 +91,12 @@ public:
     bool pending_;  // +0x1C a tag or sticker started
     bool blocked_;  // +0x1D BlockTaggingOn
     uint8_t pad1e_[2];
-    float cooldown_;             // +0x20 frames until the next tag (counted down by 1)
-    ObjectModule* walk_;         // +0x24
-    ObjectModule* input_;        // +0x28
-    ObjectModule* core_physics_; // +0x2C
-    ObjectModule* trigger_;      // +0x30
-    TaggingComponent* tagging_;  // +0x34
+    float cooldown_;                            // +0x20 frames until the next tag (counted down by 1)
+    ObjectModule* walk_;                        // +0x24
+    ObjectModule* input_;                       // +0x28
+    skater::SkaterPhysicsModule* core_physics_; // +0x2C
+    ObjectModule* trigger_;                     // +0x30
+    TaggingComponent* tagging_;                 // +0x34
 };
 static_assert(offsetof(TaggingControlComponent, cooldown_) == 0x20 &&
                   offsetof(TaggingControlComponent, tagging_) == 0x34 && sizeof(TaggingControlComponent) == 0x38,

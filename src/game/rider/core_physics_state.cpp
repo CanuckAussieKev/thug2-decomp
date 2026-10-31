@@ -31,6 +31,8 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/node_components.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/skater_sound.h"
+#include "engine/objects/movable_contact.h"
 
 namespace skater {
 
@@ -51,7 +53,6 @@ constexpr uint32_t kKillSpecial = 0x266B570C;          // KillSpecial (a script)
 constexpr uint32_t kAirTimeLeft = 0x7E2A8993;          // AirTimeLeft
 constexpr uint32_t kGrindTrickList = 0x2AB3341D;       // GrindTrickList
 constexpr uint32_t kMotoskateboardGrind = 0xF7CA3F78;  // Trick_Motoskateboard_Grind (a script)
-constexpr uint32_t kMotoGrind = 0x302;                 // (on the motoskateboard)
 
 // The free revert's message: the game's own format, file name and text.
 const char* const kMessageFormat = "M:%s:%i: %s\n";                         // "M:%s:%i: %s\n"
@@ -59,24 +60,7 @@ const char* const kSourceFile = "mponents\\SkaterCorePhysicsComponent.cpp"; // (
 const char* const kFreeRevertText = "You earned a free revert!!!!";         // "You earned a free revert!!!!"
 
 // The fields used here.
-constexpr uint32_t kFreeRevertsPending = 0x318;
-constexpr uint32_t kFreeRevertStart = 0x31C;
-constexpr uint32_t kFocusHeld = 0x14C1;
-constexpr uint32_t kThrowWait = 0x14C4; // frames until the next throw
-constexpr uint32_t kNoThrow = 0x14C8;
-constexpr uint32_t kProjectiles = 0x2F4; // (on)
-constexpr uint32_t kProjectileCount = 0x2F8;
-constexpr uint32_t kProjectileComponent = 0x1538; // (+0x18, +0x1C, +0x20: what stops a throw)
-constexpr uint32_t kModelRotating = 0x2DB;
-constexpr uint32_t kModelFlipped = 0x2DC;
-constexpr uint32_t kModelRotationLeft = 0x2E0;
-constexpr uint32_t kModelRotationFlag = 0x2E4;
-constexpr uint32_t kModelRotationStep = 0x2E8;
-constexpr uint32_t kModelRotationEnding = 0x3A4;
-constexpr uint32_t kSpecialTimed = 0x301;
 constexpr uint32_t kTakeOffHeight = 0x11C; // (in the flags block)
-constexpr uint32_t kLastGroundNormal = 0x58;
-constexpr uint32_t kContactMeshStore = 0x4F4; // (render::HitMeshCache)
 
 // The game's constants.
 constexpr float kMillisecondsPerSecond = 1000.0f; // 0x006453C0
@@ -86,7 +70,10 @@ constexpr float kCacheReach = 180.0f;             // 0x0064B278: the collision c
 constexpr float kCacheBelow = 204.0f;             // 0x0064BCD0
 constexpr float kCacheAbove = 96.0f;              // 0x0064B808
 
-objects::GameEntity* skater_object(void* component) { return static_cast<objects::GameEntity*>(object_of(component)); }
+objects::GameEntity* skater_object(SkaterPhysicsModule* component)
+{
+    return static_cast<objects::GameEntity*>(object_of(component));
+}
 
 } // namespace
 
@@ -96,23 +83,33 @@ void* __cdecl SkaterPhysicsModule::fabricate() { return new SkaterPhysicsModule;
 // 0x00500CA0
 SkaterPhysicsModule::SkaterPhysicsModule()
 {
-    reinterpret_cast<render::ProbeRay*>(&get_at<uint8_t>(this, kFeeler))->make_new();
-    reinterpret_cast<render::ProbeRay*>(&get_at<uint8_t>(this, kLastFloorProbe))->make_new();
-    get_at<uint32_t>(this, 0x368) = 0;
-    get_at<uint32_t>(this, 0x36C) = 0;
-    get_at<uint32_t>(this, 0x364) = 0;
+    feeler_.make_new();
+    floor_feeler_.make_new();
+    skitch_target_.preceding_ = nullptr;
+    skitch_target_.following_ = nullptr;
+    skitch_target_.owner_object_ = nullptr;
     // (+0x3F0: its constructor 0x005902E0 only returns it.)
-    reinterpret_cast<render::HitMeshCache*>(&get_at<uint8_t>(this, 0x4F4))->make_new();
-    for (uint32_t component = kInput; component <= 0x1538; component += 4)
-        get_at<void*>(this, component) = nullptr;
-    get_at<uint8_t>(this, kSpecialTimed) = 0;
-    get_at<uint8_t>(this, 0x2D8) = 0;
-    get_at<uint8_t>(this, kModelRotationFlag) = 0;
-    get_at<uint8_t>(this, 0x2ED) = 0;
-    get_at<uint8_t>(this, 0x304) = 0;
-    get_at<uint32_t>(this, 4) = kSkaterCorePhysics;
-    get_at<int>(this, 0x308) = -1;
-    get_at<float>(this, kModelRotationStep) = 1.0f;
+    hit_cache_.make_new();
+    input_ = nullptr;
+    trigger_ = nullptr;
+    sound_ = nullptr;
+    trick_ = nullptr;
+    rotate_ = nullptr;
+    score_ = nullptr;
+    balance_ = nullptr;
+    state_ = nullptr;
+    ride_ = nullptr;
+    physics_control_ = nullptr;
+    walk_ = nullptr;
+    tagging_component_ = nullptr;
+    focus_on_ = 0;
+    powerslide_ = 0;
+    flip_spin_started_ = 0;
+    on_vehicle_ = 0;
+    manual_turnaround_ = 0;
+    kind_tag_ = kSkaterCorePhysics;
+    projectile_input_ = -1;
+    model_rotation_step_ = 1.0f;
     // Not original - a component made where an old one was starts off THAW's bike (game/rider/thaw_bmx.h).
     if (thaw_bmx::is_switched_on())
         thaw_bmx::get_forget(this);
@@ -124,61 +121,61 @@ void SkaterPhysicsModule::get_reset()
     auto* game_net = online::g_online_hub;
     if (!game_net->in_net_game()) {
         // (Off line: the old position, and the one kept at +0x98, are where the skater is now.)
-        vector_at(object_of(this), kOldPosition) = vector_at(object_of(this), kPosition);
-        vector_at(this, kSafePosition) = vector_at(object_of(this), kPosition);
+        entity_->old_pos_ = entity_->at_point_;
+        safe_pos_ = entity_->at_point_;
     }
-    vector_at(this, 0x258) = {0.0f, 0.0f, 0.0f, 1.0f};
-    get_at<int>(this, kFirstTick) = get_now();
-    vector_at(object_of(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
+    lip_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    state_changed_at_ = get_now();
+    entity_->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
     physics::change_phase(this, 0);
-    get_at<uint32_t>(this, 0x94) = 0;
+    old_state_ = 0;
     // Every timed flag (23 down to 0) set, then cleared; flag 7 tells +0x1514's +0x1E each time.
     for (int flag = 0x17; flag >= 0; --flag) {
         uint32_t offset = 0x20 + flag * 8;
         set_timed_flag(this, offset, 1);
         if (flag == 7)
-            get_at<uint8_t>(get_at<void*>(this, kOtherComponent), 0x1E) = 1;
+            sound_->sliding_ = 1;
         set_timed_flag(this, offset, 0);
         if (flag == 7)
-            get_at<uint8_t>(get_at<void*>(this, kOtherComponent), 0x1E) = 0;
+            sound_->sliding_ = 0;
     }
-    set_timed_flag(this, 0x28, get_at<uint8_t>(object_of(this), 0x110) == 0);
+    set_timed_flag(this, 0x28, !static_cast<objects::Rider*>(entity_)->goofy_);
     // The ride let go of: its object kept at +0x6C, the smart pointer freed, the time noted.
-    uint8_t* ride = get_at<uint8_t*>(this, kRide);
-    auto* rider = get_at<objects::SharedRef<objects::SharedBase>*>(ride, 0x18);
+    objects::MovingSurfaceModule* ride = ride_;
+    auto* rider = reinterpret_cast<objects::SharedRef<objects::SharedBase>*>(ride->ride_);
     if (rider) {
-        get_at<void*>(ride, 0x6C) = rider->owner_object_;
+        ride->last_object_ = reinterpret_cast<objects::GameEntity*>(rider->owner_object_);
         rider->get_release();
         memory::Hub::get_pull()->dealloc(rider);
-        get_at<void*>(ride, 0x18) = nullptr;
-        get_at<int>(ride, 0x70) = get_now();
+        ride->ride_ = nullptr;
+        ride->stop_time_ = get_now();
     }
-    get_at<uint8_t>(this, 0x1C5) = 0;
-    get_at<uint32_t>(this, 0x2C0) = 0;
-    get_at<uint32_t>(this, 0x378) = 0;
-    get_at<uint32_t>(this, 0x39C) = 0;
-    get_at<uint32_t>(this, 0x3A0) = 0;
-    get_at<uint8_t>(this, 0x370) = 0;
-    get_at<uint8_t>(this, 0x371) = 0;
-    get_at<uint8_t>(this, 0x310) = 0;
-    get_at<uint8_t>(this, 0x311) = 1;
+    floor_feeler_.hit_.face_flag40_ = 0;
+    side_reach_ = 0.0f;
+    jump_charge_ms_ = 0;
+    wall_ride_start_ = 0;
+    wallplant_end_ = 0;
+    no_spin_ = 0;
+    bail_on_ = 0;
+    no_kick_ = 0;
+    can_brake_ = 1;
     flags_of(this)[0xF4] = 0;
-    get_at<uint32_t>(this, 0x22C) = 0;
-    if (get_at<uint32_t>(this, 0x350) != 0xC0000000u) // (-2: kept)
-        get_at<uint32_t>(this, 0x350) = 0;
-    get_at<uint32_t>(this, 0x4E0) = 0;
-    get_at<uint32_t>(this, 0x4E4) = 0;
-    get_at<uint32_t>(this, 0x4EC) = 0;
-    get_at<uint32_t>(this, 0x320) = 0;
-    get_at<uint8_t>(this, 0x4E8) = 0;
-    get_at<float>(this, 0x3AC) = 1.0f;
+    rail_node_ = nullptr;
+    if (bits_as<uint32_t>(limits_time_) != 0xC0000000u) // (-2: kept)
+        limits_time_ = 0.0f;
+    wallplant_time_ = 0;
+    last_push_off_ = 0;
+    leap_time_ = 0;
+    special_friction_time_ = 0.0f;
+    vert_wallplanted_ = 0;
+    speed_override_ = 1.0f;
 }
 
 // 0x00506BA0
 void SkaterPhysicsModule::remember_floor_probe(const void* feeler)
 {
-    get_at<render::ProbeRay>(this, kLastFloorProbe).get_assign(*static_cast<const render::ProbeRay*>(feeler));
-    get_at<uint8_t>(get_at<void*>(this, kOtherComponent), 0x1D) = get_at<uint8_t>(this, 0x1AA);
+    floor_feeler_.get_assign(*static_cast<const render::ProbeRay*>(feeler));
+    sound_->last_ground_ = floor_feeler_.hit_.terrain;
 }
 
 // 0x00506BD0
@@ -190,11 +187,11 @@ int SkaterPhysicsModule::cancel_rotate_displayand_update_matrix(script::Struct*,
 // 0x00500670
 void SkaterPhysicsModule::refresh_hit_cache()
 {
-    const maths::Vec4& position = vector_at(object_of(this), kPosition);
+    const maths::Vec4& position = entity_->at_point_;
     maths::BBox box;
     box.min = {position.x - kCacheReach, position.y - kCacheBelow, position.z - kCacheReach, position.w};
     box.max = {position.x + kCacheReach, position.y + kCacheAbove, position.z + kCacheReach, position.w};
-    render::HitMeshCache& cache = get_at<render::HitMeshCache>(this, kContactMeshStore);
+    render::HitMeshCache& cache = hit_cache_;
     cache.tick_frame(box);
     render::g_current_cache = &cache; // the feelers' current cache
 }
@@ -202,32 +199,32 @@ void SkaterPhysicsModule::refresh_hit_cache()
 // 0x00500710
 void SkaterPhysicsModule::update_free_revert()
 {
-    if (!get_at<int>(this, kFreeRevertsPending))
+    if (!special_friction_index_)
         return;
-    uint32_t start = get_at<uint32_t>(this, kFreeRevertStart);
+    uint32_t start = static_cast<uint32_t>(special_friction_start_);
     uint32_t wait = ftol(static_cast<double>(script::fetch_float(kTimeBeforeFreeRevert)) * kMillisecondsPerSecond);
     if (get_since(start) <= wait)
         return;
-    --get_at<int>(this, kFreeRevertsPending);
+    --special_friction_index_;
     debug::printf(kMessageFormat, kSourceFile, 0x293F, kFreeRevertText);
-    if (get_at<int>(this, kFreeRevertsPending))
-        get_at<int>(this, kFreeRevertStart) = get_now();
+    if (special_friction_index_)
+        special_friction_start_ = get_now();
 }
 
 // 0x005007A0
 void SkaterPhysicsModule::update_focus_button()
 {
     uint8_t* button = input_of(this) + 0xE0;
-    if (get_at<uint8_t>(this, kFocusHeld)) {
+    if (focus_held_) {
         if (!button[0])
-            get_at<uint8_t>(this, kFocusHeld) = 0;
+            focus_held_ = 0;
         return;
     }
     if (!button[0])
         return;
     int wait = script::fetch_int_value(kFocusButtonTime);
     if (time_since_press(button) > wait) {
-        get_at<uint8_t>(this, kFocusHeld) = 1;
+        focus_held_ = 1;
         script::launch_script(kToggleBulletTime, nullptr, nullptr, false, nullptr);
     }
 }
@@ -235,50 +232,49 @@ void SkaterPhysicsModule::update_focus_button()
 // 0x00500820
 void SkaterPhysicsModule::update_projectiles()
 {
-    if (get_at<uint8_t>(this, kNoThrow) || !get_at<uint8_t>(this, kProjectiles) || flags_of(this)[0x70])
+    if (throwing_projectile_ || !projectiles_on_ || flags_of(this)[0x70])
         return;
-    uint8_t* other = get_at<uint8_t*>(this, kProjectileComponent);
+    uint8_t* other = reinterpret_cast<uint8_t*>(tagging_component_);
     if (other[0x1C] || get_at<int>(other, 0x18) || !(get_at<float>(other, 0x20) == 0.0f))
         return;
-    int& wait = get_at<int>(this, kThrowWait);
+    int& wait = throw_wait_;
     if (wait) {
         --wait;
         return;
     }
-    if (get_at<int>(this, kProjectileCount) <= 0)
+    if (ammo_ <= 0)
         return;
     if (!projectile_button_pressed() || wait)
         return;
     wait = 30;
     // (0x004FC420: walking.)
-    bool walking = static_cast<objects::RiderBoardPhysics*>(get_at<void*>(this, kStateModuleSlot))->is_on_foot();
+    bool walking = static_cast<objects::RiderBoardPhysics*>(physics_control_)->is_on_foot();
     script::launch_script(walking ? kWalkThrow : kSkateThrow, nullptr, skater_object(this), false, nullptr);
 }
 
 // 0x00500900
 void SkaterPhysicsModule::update_model_rotation()
 {
-    if (!get_at<uint8_t>(this, kModelRotating))
+    if (!model_rotating_)
         return;
     auto* model = static_cast<objects::MeshInstanceModule*>(skater_object(this)->fetch_module(kModel));
-    double left =
-        static_cast<double>(get_at<float>(this, kModelRotationLeft)) - get_at<float>(this, kModelRotationStep);
-    get_at<float>(this, kModelRotationLeft) = static_cast<float>(left); // (compared below unrounded)
+    double left = static_cast<double>(model_rotation_left_) - model_rotation_step_;
+    model_rotation_left_ = static_cast<float>(left); // (compared below unrounded)
     auto reset_rotations = [model] { model->cancel_rotate_display(); };
     if (get_at<int>(flags_of(this), kState) != 1) {
         reset_rotations();
-        get_at<uint8_t>(this, kModelRotating) = 0;
-        get_at<uint8_t>(this, kModelRotationEnding) = 0;
-        get_at<uint32_t>(this, kModelRotationLeft) = 0;
-        get_at<uint8_t>(this, kModelRotationFlag) = 0;
+        model_rotating_ = 0;
+        no_rail_tricks_ = 0;
+        model_rotation_left_ = 0.0f;
+        flip_spin_started_ = 0;
         return;
     }
     if (left <= kModelRotationEnd)
-        get_at<uint8_t>(this, kModelRotationEnding) = 0;
+        no_rail_tricks_ = 0;
     if (left <= 0.0) {
-        get_at<uint8_t>(this, kModelRotating) = 0;
-        get_at<uint32_t>(this, kModelRotationLeft) = 0;
-        if (get_at<uint8_t>(this, kModelFlipped)) {
+        model_rotating_ = 0;
+        model_rotation_left_ = 0.0f;
+        if (model_flipped_) {
             static_cast<objects::RiderSpinAndFlip*>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))
                 ->get_flip();
         }
@@ -289,13 +285,13 @@ void SkaterPhysicsModule::update_model_rotation()
 // 0x00500BC0
 void SkaterPhysicsModule::update_special_time()
 {
-    if (!get_at<uint8_t>(this, kSpecialTimed))
+    if (!focus_on_)
         return;
     auto* time = static_cast<float*>(static_cast<objects::Rider*>(object_of(this))->get_points_total()); // (the score)
     if (!time)
         return;
     if (*time > 0.0f) {
-        *time = *time - get_at<float>(this, kFrameLength);
+        *time = *time - frame_length_;
         return;
     }
     script::Struct* params = script::spawn_param_bag();
@@ -311,10 +307,10 @@ void SkaterPhysicsModule::update_special_time()
 // 0x00500DE0
 int SkaterPhysicsModule::get_air_time_left(script::Struct*, script::Script* script)
 {
-    void* object = object_of(this);
-    float y = vector_at(object, kPosition).y;
+    objects::GameEntity* object = object_of(this);
+    float y = object->at_point_.y;
     float drop = static_cast<float>(y - (static_cast<double>(y) - get_at<float>(flags_of(this), kTakeOffHeight)));
-    float upward = vector_at(object, kVelocity).y;
+    float upward = object->vel_.y;
     double down = -current_gravity(this);
     // Solving y + upward * t - down * t^2 / 2 = the take-off height.
     double discriminant = static_cast<double>(upward) * upward + 2.0 * (down * drop);
@@ -335,9 +331,9 @@ int SkaterPhysicsModule::can_kick(script::Struct*, script::Script*) { return can
 // 0x00500E90
 int SkaterPhysicsModule::orient_to_normal(script::Struct*, script::Script*)
 {
-    vector_at(this, kLastGroundNormal) = vector_at(object_of(this), kUp);
-    vector_at(this, kFloorUpVector) = vector_at(object_of(this), kUp);
-    turn_to_normal(vector_at(this, kHitNormal));
+    drawn_normal_ = entity_->basis_frame_.row[1];
+    floor_normal_ = entity_->basis_frame_.row[1];
+    turn_to_normal(feeler_.surface_dir_);
     return 1;
 }
 
@@ -349,7 +345,7 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
         void* memory = script::Script::operator new(sizeof(script::Script));
         skater_object(this)->own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
     }
-    if (get_at<uint8_t>(this, kMotoGrind)) {
+    if (motoskateboard_) {
         object = skater_object(this);
         object->own_script_->bind_script(kMotoskateboardGrind, nullptr, object);
     } else {
@@ -372,7 +368,7 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
                 buttons = column;
             }
         }
-        get_at<uint32_t>(this, 0x3A8) = 0;
+        rail_adjust_ = 0;
         static_cast<objects::RiderSpinAndFlip*>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))
             ->do_after_anim();
         object = skater_object(this);

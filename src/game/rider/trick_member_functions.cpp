@@ -21,6 +21,7 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/gap_entry.h"
 #include "game/rider/stats_manager.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -457,8 +458,8 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             if (params->has_bare_flag(kNoSwitch))
                 flags |= 0x400;
             if (reinterpret_cast<GameEntity*>(entity_)->is_local_skater_) {
-                uint8_t* core = static_cast<uint8_t*>(get_component(this, kCorePhysics));
-                if (get_at<int>(get_at<uint8_t*>(core, 0x1528), 0x18) == 4) {
+                auto* core = static_cast<skater::SkaterPhysicsModule*>(get_component(this, kCorePhysics));
+                if (core->state_->cur_phase_ == 4) {
                     int trick_score = get_at<int>(this, kTrickScore);
                     if (trick_score) {
                         float multiplier = get_at<float>(score, 0x154C);
@@ -473,8 +474,8 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                 score_trick(this, trick_name, get_at<int>(this, kTrickScore), flags);
                 if (*trick_name) {
                     entity_->announce(kSkaterTrickDisplayed, nullptr, 0.0f);
-                    bool special = get_at<bool>(get_at<uint8_t*>(core, 0x1528), 0x30);
-                    if ((!special && !get_at<bool>(core, 0x374)) || spin_counts(this, true))
+                    bool special = get_at<bool>(reinterpret_cast<uint8_t*>(core->state_), 0x30);
+                    if ((!special && !static_cast<bool>(core->landed_from_air_vert_)) || spin_counts(this, true))
                         score_spin(this, truncate(get_at<float>(this, kSpinTotal)));
                 }
             }

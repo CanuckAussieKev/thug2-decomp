@@ -5,6 +5,9 @@
 
 #include "engine/objects/entity.h"
 
+namespace skater {
+class SkaterPhysicsModule;
+} // namespace skater
 namespace script {
 class Script;
 class Struct;
@@ -238,20 +241,20 @@ public:
     // params. True.
     int get_current_bail_endpose(script::Struct* params, script::Script* script);
 
-    uint32_t unknown18_;             // +0x18
-    uint8_t* balance_1c_;            // +0x1C (+0x74: manuals checked)
-    uint8_t* input_;                 // +0x20 (+0x498 / +0x499: no tricks)
-    ObjectModule* balance_trick_;    // +0x24
-    uint8_t* core_physics_;          // +0x28 (+0x2E8: a rate, the trick windows' stretch below 1)
-    ObjectModule* flip_rotate_;      // +0x2C
-    ObjectModule* skater_state_;     // +0x30
-    ObjectModule* stats_manager_;    // +0x34
-    TrickEvent events_[kEvents];     // +0x38
-    uint16_t event_count_;           // +0x998
-    uint16_t event_head_;            // +0x99A
-    uint32_t button_map_[3];         // +0x99C what the generic button names stand for
-    float held_off_until_[kButtons]; // +0x9A8
-    bool btn_down_[kButtons];        // +0xA00
+    uint32_t unknown18_;                        // +0x18
+    uint8_t* balance_1c_;                       // +0x1C (+0x74: manuals checked)
+    uint8_t* input_;                            // +0x20 (+0x498 / +0x499: no tricks)
+    ObjectModule* balance_trick_;               // +0x24
+    skater::SkaterPhysicsModule* core_physics_; // +0x28 (+0x2E8: a rate, the trick windows' stretch below 1)
+    ObjectModule* flip_rotate_;                 // +0x2C
+    ObjectModule* skater_state_;                // +0x30
+    ObjectModule* stats_manager_;               // +0x34
+    TrickEvent events_[kEvents];                // +0x38
+    uint16_t event_count_;                      // +0x998
+    uint16_t event_head_;                       // +0x99A
+    uint32_t button_map_[3];                    // +0x99C what the generic button names stand for
+    float held_off_until_[kButtons];            // +0x9A8
+    bool btn_down_[kButtons];                   // +0xA00
     uint8_t pada16_[2];
     int ignored_count_;   // +0xA18
     uint32_t ignored_[2]; // +0xA1C

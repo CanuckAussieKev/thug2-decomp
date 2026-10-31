@@ -13,6 +13,7 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/trick_component.h"
 #include "engine/objects/trigger_events.h"
+#include "game/rider/skater_sound.h"
 
 namespace skater {
 
@@ -32,7 +33,6 @@ constexpr uint32_t kLanded = 0x532B16EF;            // Landed (event)
 constexpr uint32_t kOffEdge = 0xD96F01F1;           // SkaterOffEdge (event)
 constexpr uint32_t kGroundGone = 0x3B1001B6;        // GroundGone (event)
 
-constexpr uint32_t kWallFaceVector = 0x38C; // the wall's normal
 
 constexpr float kHeadingUp = 0.68f; // 0x0064BDB4: heading up the wall this much: no turning
 constexpr float kTopFacesUp = 0.9f; // 0x00649FE4: a hit ahead facing up this much: the wall's top
@@ -41,11 +41,11 @@ constexpr float kPushAway = 100.0f; // 0x006463D4
 
 const maths::Vec4 kUpAxis = {0.0f, 1.0f, 0.0f, 1.0f};
 
-void change_state(void* component, int state)
+void change_state(SkaterPhysicsModule* component, int state)
 {
     static_cast<SkaterPhysicsModule*>(component)->set_physics_state(state);
 }
-void set_up(void* component, const maths::Vec4& up)
+void set_up(SkaterPhysicsModule* component, const maths::Vec4& up)
 {
     static_cast<SkaterPhysicsModule*>(component)->turn_to_normal(up);
 }
@@ -66,8 +66,8 @@ void SkaterPhysicsModule::off_wall_edge(bool reset_display)
 {
     set_up(this, kUpAxis);
     if (reset_display)
-        matrix_at(this, kDisplayMatrix) = matrix_at(object_of(this), kMatrix);
-    add_scaled(vector_at(object_of(this), kPosition), vector_at(this, kWallFaceVector), kPushOff);
+        display_matrix_ = entity_->basis_frame_;
+    add_scaled(entity_->at_point_, wall_normal_, kPushOff);
     change_state(this, kAir);
     static_cast<objects::Entity*>(object_of(this))->announce(kOffEdge, nullptr, 0.0f);
     static_cast<objects::Entity*>(object_of(this))->post_own_event(kGroundGone, nullptr);
@@ -80,46 +80,46 @@ void SkaterPhysicsModule::step_wall_ride()
     set_flag(this, 0xA8, 0);
     set_flag(this, 0x80, 0);
     set_flag(this, 0xB0, 0);
-    get_at<uint8_t>(this, 0x2E4) = 0;
-    get_at<void*>(this, kRailNode) = nullptr;
-    get_at<uint32_t>(this, kLastRailScript) = 0;
-    get_at<int>(this, 0x39C) = get_now();
+    flip_spin_started_ = 0;
+    rail_node_ = nullptr;
+    last_rail_script_ = 0;
+    wall_ride_start_ = get_now();
 
     // What the skater rides on carries it (its turn too).
     maths::Vec4 carried = {0.0f, 0.0f, 0.0f, 1.0f};
     if (objects::RideTracker* tracker = get_tracker(this)) {
-        if (!tracker->entity_.owner_object_ || !tracker->tick_frame(&vector_at(object_of(this), kPosition))) {
+        if (!tracker->entity_.owner_object_ || !tracker->tick_frame(&entity_->at_point_)) {
             stop_riding(this);
         } else {
             carried = get_tracker(this)->carried_;
             if (get_tracker(this)->turned_) {
                 auto multiply = d3dx::matrix_multiply;
-                maths::Mat4& m = matrix_at(object_of(this), kMatrix);
+                maths::Mat4& m = entity_->basis_frame_;
                 multiply(&m, &m, &get_tracker(this)->turn_);
-                multiply(&matrix_at(this, kDisplayMatrix), &matrix_at(this, kDisplayMatrix), &get_tracker(this)->turn_);
+                multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn_);
             }
         }
     }
 
     // The move: velocity * t + (0, gravity, 0, 1) * t * t / 2 (rounded as the original), plus the carry; then the
     // velocity += (0, gravity, 0, 1) * t.
-    void* object = object_of(this);
+    objects::GameEntity* object = object_of(this);
     float gravity = tuning_float_lookup(kWallRideGravity, object);
     {
-        float t = get_at<float>(this, kFrameLength);
+        float t = frame_length_;
         double half = static_cast<double>(t) * t * 0.5f;
         double zero_half = 0.0f * half;
         float zero_half_rounded = static_cast<float>(zero_half);
         float gravity_half = static_cast<float>(half * gravity);
         float half_rounded = static_cast<float>(half);
-        maths::Vec4& v = vector_at(object_of(this), kVelocity);
+        maths::Vec4& v = entity_->vel_;
         double tx = static_cast<double>(t) * v.x;
         float ty = t * v.y, tz = t * v.z, tw = t * v.w;
         float mx = static_cast<float>(tx + zero_half_rounded);
         float my = ty + gravity_half;
         double mz = zero_half + tz;
         double mw = static_cast<double>(tw) + half_rounded;
-        maths::Vec4& p = vector_at(object_of(this), kPosition);
+        maths::Vec4& p = entity_->at_point_;
         p.x = mx + p.x;
         p.y = my + p.y;
         p.z = static_cast<float>(mz + p.z);
@@ -128,10 +128,10 @@ void SkaterPhysicsModule::step_wall_ride()
         p.y = carried.y + p.y;
         p.z = carried.z + p.z;
         p.w = carried.w + p.w;
-        float tt = get_at<float>(this, kFrameLength);
+        float tt = frame_length_;
         double zero_t = 0.0f * static_cast<double>(tt);
         float fall = tt * gravity;
-        maths::Vec4& u = vector_at(object_of(this), kVelocity);
+        maths::Vec4& u = entity_->vel_;
         u.x = static_cast<float>(zero_t) + u.x;
         u.y = fall + u.y;
         u.z = static_cast<float>(zero_t + u.z);
@@ -139,7 +139,7 @@ void SkaterPhysicsModule::step_wall_ride()
     }
 
     // Up the wall: the wall's level tangent (normalised) crossed with its normal.
-    const maths::Vec4& wall = vector_at(this, kWallFaceVector);
+    const maths::Vec4& wall = wall_normal_;
     double tangent_z = wall.z, tangent_x = -static_cast<double>(wall.x);
     float tangent_y = 0.0f;
     double tangent_length = std::sqrt(tangent_z * tangent_z + tangent_x * tangent_x);
@@ -156,28 +156,27 @@ void SkaterPhysicsModule::step_wall_ride()
 
     // Turned towards up the wall when not heading up it enough (a turn's cosine at most).
     float turn = script::fetch_float(kWallRideTurnSpeed);
-    const maths::Vec4& facing = vector_at(object_of(this), kFacing);
+    const maths::Vec4& facing = entity_->basis_frame_.row[2];
     double heading = (static_cast<double>(up_wall.z) * facing.z + static_cast<double>(up_wall.y) * facing.y) +
                      static_cast<double>(up_wall.x) * facing.x;
     bool turning = !(heading > kHeadingUp) && !(heading > 0.0 && heading > std::cos(static_cast<double>(turn)));
     if (turning) {
-        const maths::Vec4& right = vector_at(object_of(this), kRight);
+        const maths::Vec4& right = entity_->basis_frame_.row[0];
         double side = (static_cast<double>(up_wall.z) * right.z + static_cast<double>(up_wall.y) * right.y) +
                       static_cast<double>(up_wall.x) * right.x;
         if (side <= 0.0)
             turn = -turn;
-        void* o = object_of(this);
-        vector_at(o, kVelocity).w = 1.0f;
-        vector_at(object_of(this), kVelocity)
-            .rotate_about_axis(vector_at(this, kWallFaceVector), turn); // (about the wall)
+        objects::GameEntity* o = object_of(this);
+        o->vel_.w = 1.0f;
+        entity_->vel_.rotate_about_axis(wall_normal_, turn); // (about the wall)
         o = object_of(this);
-        vector_at(o, kFacing) = vector_at(o, kVelocity);
-        vector_at(object_of(this), kFacing).make_unit();
+        o->basis_frame_.row[2] = o->vel_;
+        entity_->basis_frame_.row[2].make_unit();
         o = object_of(this);
-        vector_at(o, kUp) = vector_at(this, kWallFaceVector);
-        const maths::Vec4& f = vector_at(o, kFacing);
-        const maths::Vec4& u = vector_at(o, kUp);
-        maths::Vec4& r = vector_at(o, kRight);
+        o->basis_frame_.row[1] = wall_normal_;
+        const maths::Vec4& f = o->basis_frame_.row[2];
+        const maths::Vec4& u = o->basis_frame_.row[1];
+        maths::Vec4& r = o->basis_frame_.row[0];
         float rx = static_cast<float>(static_cast<double>(f.z) * u.y - static_cast<double>(f.y) * u.z);
         float ry = static_cast<float>(static_cast<double>(f.x) * u.z - static_cast<double>(f.z) * u.x);
         float rz = static_cast<float>(static_cast<double>(f.y) * u.x - static_cast<double>(f.x) * u.y);
@@ -185,15 +184,15 @@ void SkaterPhysicsModule::step_wall_ride()
         r.z = rz;
         r.x = rx;
         r.y = ry;
-        vector_at(object_of(this), kRight).make_unit();
-        matrix_at(this, kDisplayMatrix) = matrix_at(object_of(this), kMatrix);
+        entity_->basis_frame_.row[0].make_unit();
+        display_matrix_ = entity_->basis_frame_;
     }
 
     // A feeler ahead along the move (Skater_First_Forward_Collision_Length past the new position).
     {
-        void* o = object_of(this);
-        const maths::Vec4& p = vector_at(o, kPosition);
-        const maths::Vec4& old = vector_at(o, kOldPosition);
+        objects::GameEntity* o = object_of(this);
+        const maths::Vec4& p = o->at_point_;
+        const maths::Vec4& old = o->old_pos_;
         maths::Vec4 move = {p.x - old.x, p.y - old.y, p.z - old.z, p.w - old.w};
         double moved = std::sqrt((static_cast<double>(move.z) * move.z + static_cast<double>(move.y) * move.y) +
                                  static_cast<double>(move.x) * move.x);
@@ -203,9 +202,9 @@ void SkaterPhysicsModule::step_wall_ride()
             move.y = static_cast<float>(move.y * inverse);
             move.z = static_cast<float>(inverse * move.z);
         }
-        vector_at(this, kProbeOrigin) = vector_at(o, kOldPosition);
-        maths::Vec4& end = vector_at(this, kProbeTip);
-        end = vector_at(object_of(this), kPosition);
+        probe_start_ = o->old_pos_;
+        maths::Vec4& end = probe_end_;
+        end = entity_->at_point_;
         float reach = tuning_float_lookup(kForwardLength, object_of(this));
         double ahead_x = static_cast<double>(move.x) * reach;
         float ahead_y = reach * move.y, ahead_z = reach * move.z, ahead_w = reach * move.w;
@@ -215,39 +214,39 @@ void SkaterPhysicsModule::step_wall_ride()
         end.w = ahead_w + end.w;
     }
     if (get_feel(this, 0x10, 0)) {
-        const maths::Vec4 hit = vector_at(this, kHitNormal);
-        const maths::Vec4& w = vector_at(this, kWallFaceVector);
+        const maths::Vec4 hit = feeler_.surface_dir_;
+        const maths::Vec4& w = wall_normal_;
         double along_wall =
             (static_cast<double>(hit.z) * w.z + static_cast<double>(hit.y) * w.y) + static_cast<double>(hit.x) * w.x;
-        const maths::Vec4& point = vector_at(this, kHitPoint);
-        maths::Vec4& p = vector_at(object_of(this), kPosition);
+        const maths::Vec4& point = feeler_.contact_pos_;
+        maths::Vec4& p = entity_->at_point_;
         p.z = hit.z + point.z;
         p.w = hit.w + point.w;
         p.x = hit.x + point.x;
         p.y = hit.y + point.y;
-        if (get_at<uint8_t>(this, 0x22A) && !(std::fabs(along_wall) < 0.01f)) {
+        if (hit_wall_ && !(std::fabs(along_wall) < 0.01f)) {
             // Round a corner: the new wall.
-            vector_at(this, kWallFaceVector) = hit;
-            set_up(this, vector_at(this, kWallFaceVector));
-            matrix_at(this, kDisplayMatrix) = matrix_at(object_of(this), kMatrix);
-            vector_at(object_of(this), kVelocity).align_to_plane(vector_at(this, kWallFaceVector));
+            wall_normal_ = hit;
+            set_up(this, wall_normal_);
+            display_matrix_ = entity_->basis_frame_;
+            entity_->vel_.align_to_plane(wall_normal_);
         } else if (hit.y > kTopFacesUp) {
             // Onto the top: the ground (a grind first), upright on it, heading along the velocity.
-            void* o = object_of(this);
-            vector_at(o, kPosition) = vector_at(this, kHitPoint);
-            vector_at(o, kFacing) = vector_at(o, kVelocity);
-            vector_at(object_of(this), kFacing).flatten_onto_plane(hit);
-            vector_at(object_of(this), kFacing).make_unit();
-            vector_at(object_of(this), kUp) = hit;
-            void* s = object_of(this);
-            vector_at(s, kRight) = maths::cross_vec(vector_at(s, kUp), vector_at(s, kFacing));
-            vector_at(object_of(this), kRight).make_unit();
-            matrix_at(this, kDisplayMatrix) = matrix_at(object_of(this), kMatrix);
+            objects::GameEntity* o = object_of(this);
+            o->at_point_ = feeler_.contact_pos_;
+            o->basis_frame_.row[2] = o->vel_;
+            entity_->basis_frame_.row[2].flatten_onto_plane(hit);
+            entity_->basis_frame_.row[2].make_unit();
+            entity_->basis_frame_.row[1] = hit;
+            objects::GameEntity* s = object_of(this);
+            s->basis_frame_.row[0] = maths::cross_vec(s->basis_frame_.row[1], s->basis_frame_.row[2]);
+            entity_->basis_frame_.row[0].make_unit();
+            display_matrix_ = entity_->basis_frame_;
             auto* queries = static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kMatrixQueries);
             matrix_at(queries, 0x18) = matrix_at(get_at<void*>(queries, 0xC), kMatrix);
-            vector_at(this, 0x78) = vector_at(object_of(this), kUp);
-            vector_at(this, 0x58) = vector_at(object_of(this), kUp);
-            vector_at(this, kFloorUpVector) = vector_at(object_of(this), kUp);
+            old_normal_ = entity_->basis_frame_.row[1];
+            drawn_normal_ = entity_->basis_frame_.row[1];
+            floor_normal_ = entity_->basis_frame_.row[1];
             try_grind(true);
             if (state_of(this) == kRail)
                 return;
@@ -265,58 +264,58 @@ void SkaterPhysicsModule::step_wall_ride()
     {
         void* o = object;
         float snap = tuning_float_lookup(kGroundSnapUp, o);
-        const maths::Vec4& up = vector_at(object_of(this), kUp);
-        maths::Vec4& start = vector_at(this, kProbeOrigin);
+        const maths::Vec4& up = entity_->basis_frame_.row[1];
+        maths::Vec4& start = probe_start_;
         start = {snap * up.x, snap * up.y, snap * up.z, snap * up.w};
-        const maths::Vec4& p = vector_at(object_of(this), kPosition);
+        const maths::Vec4& p = entity_->at_point_;
         start.x = start.x + p.x, start.y = p.y + start.y, start.z = p.z + start.z, start.w = p.w + start.w;
         float down = script::fetch_float(kDownCheckLength);
-        const maths::Vec4& up2 = vector_at(object_of(this), kUp);
-        maths::Vec4& end = vector_at(this, kProbeTip);
+        const maths::Vec4& up2 = entity_->basis_frame_.row[1];
+        maths::Vec4& end = probe_end_;
         end = {down * up2.x, down * up2.y, down * up2.z, down * up2.w};
-        const maths::Vec4& q = vector_at(object_of(this), kPosition);
+        const maths::Vec4& q = entity_->at_point_;
         end.x = end.x + q.x, end.y = q.y + end.y, end.z = q.z + end.z, end.w = q.w + end.w;
     }
     if (get_feel(this, 0x10, 0)) {
         // At the wall (just off it), along it.
-        vector_at(this, kWallFaceVector) = vector_at(this, kHitNormal);
-        void* o = object_of(this);
-        vector_at(o, kPosition) = vector_at(this, kHitPoint);
-        maths::Vec4& p = vector_at(object_of(this), kPosition);
-        const maths::Vec4& w = vector_at(this, kWallFaceVector);
+        wall_normal_ = feeler_.surface_dir_;
+        objects::GameEntity* o = object_of(this);
+        o->at_point_ = feeler_.contact_pos_;
+        maths::Vec4& p = entity_->at_point_;
+        const maths::Vec4& w = wall_normal_;
         p.x = p.x + w.x, p.y = w.y + p.y, p.z = w.z + p.z, p.w = w.w + p.w;
-        vector_at(object_of(this), kVelocity).align_to_plane(vector_at(this, kWallFaceVector));
-        set_up(this, vector_at(this, kWallFaceVector));
-        matrix_at(this, kDisplayMatrix) = matrix_at(object_of(this), kMatrix);
-        if (!get_at<uint8_t>(this, 0x22A)) {
+        entity_->vel_.align_to_plane(wall_normal_);
+        set_up(this, wall_normal_);
+        display_matrix_ = entity_->basis_frame_;
+        if (!hit_wall_) {
             // Not a wall to ride: pushed away from it into the air.
-            add_scaled(vector_at(object_of(this), kVelocity), vector_at(this, kWallFaceVector), kPushAway);
+            add_scaled(entity_->vel_, wall_normal_, kPushAway);
             set_up(this, kUpAxis);
-            matrix_at(this, kDisplayMatrix) = matrix_at(object_of(this), kMatrix);
+            display_matrix_ = entity_->basis_frame_;
             change_state(this, kAir);
             static_cast<objects::Entity*>(object_of(this))->announce(kOffEdge, nullptr, 0.0f);
             static_cast<objects::Entity*>(object_of(this))->post_own_event(kGroundGone, nullptr);
-            trigger_feeler(this, kOtherFeelerLeaveEvents, kOtherFeeler);
+            trigger_feeler(this, kOtherFeelerLeaveEvents, &floor_feeler_);
             if (trigger_took_over(this))
                 return;
         } else {
-            if (get_at<int>(this, 0xFC) != get_at<int>(this, 0x1AC)) {
-                trigger_feeler(this, kOtherFeelerLeaveEvents, kOtherFeeler);
+            if (feeler_.hit_.object != floor_feeler_.hit_.object) {
+                trigger_feeler(this, kOtherFeelerLeaveEvents, &floor_feeler_);
                 if (trigger_took_over(this))
                     return;
-                trigger_feeler(this, kSkaterEvents0064bBb0, kOtherFeeler);
+                trigger_feeler(this, kSkaterEvents0064bBb0, &floor_feeler_);
                 if (trigger_took_over(this))
                     return;
             }
-            void* skater = get_at<void*>(this, kSkaterComponent);
+            void* skater = trick_;
             if (!get_at<uint8_t>(skater, 0x13B0))
                 static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
-            assign_feeler(&get_at<uint8_t>(this, kOtherFeeler), &get_at<uint8_t>(this, kFeeler));
-            get_at<uint8_t>(get_at<void*>(this, kSfxModuleSlot), 0x1D) = get_at<uint8_t>(this, 0x1AA);
+            assign_feeler(&floor_feeler_, &feeler_);
+            sound_->last_ground_ = floor_feeler_.hit_.terrain;
         }
     } else {
         off_wall_edge(true);
-        trigger_feeler(this, kOtherFeelerLeaveEvents, kOtherFeeler);
+        trigger_feeler(this, kOtherFeelerLeaveEvents, &floor_feeler_);
         if (trigger_took_over(this))
             return;
     }
@@ -326,29 +325,28 @@ void SkaterPhysicsModule::step_wall_ride()
     // Jumping off: out from the wall and up, upright.
     if (jump_released()) {
         set_flag(this, 0xD8, 1);
-        trigger_feeler(this, kJumpTriggerEvents, kOtherFeeler);
+        trigger_feeler(this, kJumpTriggerEvents, &floor_feeler_);
         if (trigger_took_over(this))
             return;
         float out = script::fetch_float(kJumpOutSpeed);
-        maths::Vec4& v = vector_at(object_of(this), kVelocity);
-        const maths::Vec4& w = vector_at(this, kWallFaceVector);
+        maths::Vec4& v = entity_->vel_;
+        const maths::Vec4& w = wall_normal_;
         float y = out * w.y, z = out * w.z, ww = out * w.w;
         v.x = static_cast<float>(static_cast<double>(out) * w.x + v.x);
         v.y = y + v.y;
         v.z = z + v.z;
         v.w = ww + v.w;
-        float& vy = vector_at(object_of(this), kVelocity).y;
+        float& vy = entity_->vel_.y;
         vy = script::fetch_float(kJumpUpSpeed) + vy;
-        vector_at(object_of(this), kUp) = kUpAxis;
-        matrix_at(object_of(this), kMatrix).square_up_axes(1);
-        matrix_at(this, kDisplayMatrix) = matrix_at(object_of(this), kMatrix);
-        get_at<int>(this, 0x88) = 0;
-        vector_at(this, 0x58) = vector_at(object_of(this), kUp);
-        vector_at(this, kFloorUpVector) = vector_at(this, 0x58);
-        vector_at(this, 0x78) = vector_at(this, 0x58);
+        entity_->basis_frame_.row[1] = kUpAxis;
+        entity_->basis_frame_.square_up_axes(1);
+        display_matrix_ = entity_->basis_frame_;
+        normal_blend_ = 0.0f;
+        drawn_normal_ = entity_->basis_frame_.row[1];
+        floor_normal_ = drawn_normal_;
+        old_normal_ = drawn_normal_;
     }
-    static_cast<objects::MoveExecutor*>(get_at<void*>(this, kSkaterComponent))
-        ->pass_to_trick_objects(get_at<uint32_t>(this, 0x1B0));
+    static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(floor_feeler_.hit_.object_checksum_);
 }
 
 } // namespace skater

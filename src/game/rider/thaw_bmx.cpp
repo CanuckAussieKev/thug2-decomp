@@ -172,7 +172,7 @@ bool& is_switched_on()
     return on;
 }
 
-BikeState* state_of(const void* core, bool create)
+BikeState* state_of(const SkaterPhysicsModule* core, bool create)
 {
     auto& states = get_states();
     auto it = states.find(core);
@@ -183,9 +183,9 @@ BikeState* state_of(const void* core, bool create)
     return &states[core];
 }
 
-void get_forget(const void* core) { get_states().erase(core); }
+void get_forget(const SkaterPhysicsModule* core) { get_states().erase(core); }
 
-bool on_bike(const void* core)
+bool on_bike(const SkaterPhysicsModule* core)
 {
     const BikeState* state = core ? state_of(core, false) : nullptr;
     return state && state->on;
@@ -227,7 +227,7 @@ bool half_stick_key()
     return false;
 }
 
-script::Struct* physics_structure(const void* core)
+script::Struct* physics_structure(const SkaterPhysicsModule* core)
 {
     static int s_logged = -1; // (what was logged last: -1 nothing, 0 the skater's, 1 the bike's, 2 the bike's missing)
     if (!on_bike(core)) {
@@ -259,7 +259,7 @@ void set_wheel_points(BikeState& state, const maths::Vec4& position, const maths
                          position.z - facing.z * kWheelOffset, position.w - facing.w * kWheelOffset};
 }
 
-int invoke_method_by_name(void* core, uint32_t name, script::Struct* params, script::Script* script)
+int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Struct* params, script::Script* script)
 {
     // (the names THAW's members have; ThawBmxLoadAssets is ours)
     static const uint32_t kOn = name_hash("SkaterOnBike"), kOff = name_hash("SkaterOffBike"),

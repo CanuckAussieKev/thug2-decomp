@@ -21,6 +21,7 @@
 #include "platform/stopwatch.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/balance_trick.h"
+#include "game/rider/core_physics.h"
 
 namespace objects {
 
@@ -168,8 +169,8 @@ void Balance::kickoff(uint32_t left_button, uint32_t right_button, uint32_t tric
     flip_ = flip;
     uint32_t type = get_trick_type(balance_trick_);
     if (type == kGrind || type == kSlide) {
-        uint8_t* core = reinterpret_cast<uint8_t*>(skater_->fetch_module(kSkaterCorePhysics));
-        void* rail = *reinterpret_cast<void**>(core + 0x22C);
+        auto* core = static_cast<skater::SkaterPhysicsModule*>(skater_->fetch_module(kSkaterCorePhysics));
+        void* rail = core->rail_node_;
         if (rail_ != -1) {
             if (static_cast<GrindPoint*>(rail)->is_named(static_cast<uint32_t>(rail_))) { // the same rail
                 on_rail_seconds_ =
@@ -305,8 +306,8 @@ void Balance::tick_frame()
     if (show_meter_) {
         bool flip = flip_;
         if (mirrored_) {
-            uint8_t* core = reinterpret_cast<uint8_t*>(skater_->fetch_module(kSkaterCorePhysics));
-            if (*(*reinterpret_cast<uint8_t**>(core + 0x1528) + 0x28))
+            auto* core = static_cast<skater::SkaterPhysicsModule*>(skater_->fetch_module(kSkaterCorePhysics));
+            if (reinterpret_cast<uint8_t*>(core->state_)[0x28])
                 flip = !flip;
         }
         if (ObjectModule* blender = skater_->fetch_module(kAnimBlender)) {

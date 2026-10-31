@@ -15,6 +15,8 @@
 #include "engine/objects/ride_tracker.h"
 #include "engine/objects/trigger_component.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/physics_control.h"
+#include "game/rider/skater_state.h"
 #include "game/rider/rider.h"
 #include "platform/game_clock.h"
 
@@ -72,10 +74,12 @@ constexpr uint32_t kUp = 0x7C;
 constexpr uint32_t kFacing = 0x8C;
 constexpr uint32_t kVelocity = 0xAC;
 
-inline void* object_of(void* component) { return get_at<void*>(component, kObject); }
-inline uint8_t* flags_of(void* component) { return get_at<uint8_t*>(component, kTimedFlags); }
-inline int state_of(void* component) { return get_at<int>(flags_of(component), 0x18); }
-inline uint8_t* input_of(void* component) { return get_at<uint8_t*>(component, kInput); }
+inline objects::GameEntity* object_of(const SkaterPhysicsModule* component) { return component->entity_; }
+// The state component's bytes (its timed flags are reached by offset) and the input component's (a button every
+// 0x20 bytes from +0x20).
+inline uint8_t* flags_of(const SkaterPhysicsModule* component) { return reinterpret_cast<uint8_t*>(component->state_); }
+inline int state_of(const SkaterPhysicsModule* component) { return component->state_->cur_phase_; }
+inline uint8_t* input_of(const SkaterPhysicsModule* component) { return reinterpret_cast<uint8_t*>(component->input_); }
 
 // The game's clock (0x0044ECE0, plus the offset at 0x00696D60).
 inline int get_now()
@@ -99,11 +103,14 @@ inline void set_timed_flag(void* flags, uint32_t offset, uint8_t value)
     flag = value;
     get_at<int>(flags, offset + 4) = get_now();
 }
-inline void set_flag(void* component, uint32_t offset, uint8_t value)
+inline void set_flag(SkaterPhysicsModule* component, uint32_t offset, uint8_t value)
 {
     set_timed_flag(flags_of(component), offset, value);
 }
-inline uint8_t bit_mark(void* component, uint32_t offset) { return get_at<uint8_t>(flags_of(component), offset); }
+inline uint8_t bit_mark(const SkaterPhysicsModule* component, uint32_t offset)
+{
+    return get_at<uint8_t>(flags_of(component), offset);
+}
 
 // 0x00580400 / 0x00580440: a physics value (the skater's own tuning structure for `object`, else the global script
 // value).
@@ -117,15 +124,14 @@ inline int physics_integer(uint32_t name, void* object)
 }
 
 // 0x00434BF0: the trigger component told the feeler `feeler` hit something, for the three `events` (const int[3]).
-inline void trigger_feeler(void* component, const int* events, uint32_t feeler_offset)
+inline void trigger_feeler(SkaterPhysicsModule* component, const int* events, render::ProbeRay* feeler)
 {
-    static_cast<objects::ActivationZoneModule*>(get_at<void*>(component, kActivationZoneSlot))
-        ->probe_touches_zone(events, &get_at<render::ProbeRay>(component, feeler_offset));
+    component->trigger_->probe_touches_zone(events, feeler);
 }
-// Whether a trigger's script took over (+0x1530's +0x26).
-inline bool trigger_took_over(void* component)
+// Whether a trigger's script took over (the physics control component's +0x26).
+inline bool trigger_took_over(const SkaterPhysicsModule* component)
 {
-    return get_at<uint8_t>(get_at<uint8_t*>(component, kTriggerState), 0x26) != 0;
+    return component->physics_control_->flag26_ != 0;
 }
 
 // A vector's length as the original's 0x004023C0 leaves it in ST0: sqrt((x*x + y*y) + z*z) in double, unrounded
@@ -149,22 +155,16 @@ inline void assign_feeler(void* to, const void* from)
     static_cast<render::ProbeRay*>(to)->get_assign(*static_cast<const render::ProbeRay*>(from));
 }
 // The ride tracker (+0x152C's +0x18) and what its smart pointer points at; 0x00427C70: stop riding.
-inline objects::RideTracker*& get_tracker(void* component)
-{
-    return get_at<objects::RideTracker*>(get_at<void*>(component, kRide), 0x18);
-}
-inline void stop_riding(void* component)
-{
-    static_cast<objects::MovingSurfaceModule*>(get_at<void*>(component, kRide))->stop_riding();
-}
+inline objects::RideTracker*& get_tracker(SkaterPhysicsModule* component) { return component->ride_->ride_; }
+inline void stop_riding(SkaterPhysicsModule* component) { component->ride_->stop_riding(); }
 
 inline void destroy_feeler(void* feeler) { static_cast<render::ProbeRay*>(feeler)->destruct(); }
 
 // 0x005003A0: the collision feeler from kProbeOrigin to kProbeTip: true on a hit (kHitPoint, kHitNormal, ...).
 // (`a` and `b`: two face-flag masks - 0x10, 0 for the ground checks; 0, 8 across a wall.)
-inline bool get_feel(void* component, uint32_t a, uint32_t b)
+inline bool get_feel(SkaterPhysicsModule* component, uint32_t a, uint32_t b)
 {
-    return static_cast<SkaterPhysicsModule*>(component)->probe_touches_zone(a, b);
+    return component->probe_touches_zone(a, b);
 }
 
 } // namespace skater::core_fields

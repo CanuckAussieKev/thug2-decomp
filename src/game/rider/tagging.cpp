@@ -32,6 +32,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/trigger_events.h"
 #include "engine/gfx/model_utils.h"
+#include "game/rider/core_physics.h"
 
 namespace objects {
 
@@ -291,7 +292,7 @@ void TaggingControlComponent::seal()
 {
     walk_ = entity_->fetch_module(kWalk);
     input_ = entity_->fetch_module(kInput);
-    core_physics_ = entity_->fetch_module(kSkaterCorePhysics);
+    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     trigger_ = entity_->fetch_module(kTrigger);
     tagging_ = static_cast<TaggingComponent*>(entity_->fetch_module(TaggingComponent::kType));
 }
@@ -423,9 +424,9 @@ bool TaggingControlComponent::try_tagging()
     int walk_state = prop<int>(walk_, 0x18);
     if (walk_state != 2 && walk_state != 0)
         return false;
-    ObjectModule* core = entity_->fetch_module(kSkaterCorePhysics);
+    auto* core = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     ObjectModule* skeleton = entity_->fetch_module(kSkeleton);
-    uint32_t bone = prop<bool>(prop<uint8_t*>(core, 0x1528), 0x28) ? 0x82B37CBCu : 0x78BC41DFu;
+    uint32_t bone = prop<bool>(reinterpret_cast<uint8_t*>(core->state_), 0x28) ? 0x82B37CBCu : 0x78BC41DFu;
     if (prop<uint32_t>(entity_, 0x158) == 0xFC3A8D7F)
         bone = 0xDDEC28AF;
     auto* button = reinterpret_cast<ControlButton*>(reinterpret_cast<uint8_t*>(input_) + 0x1A0);

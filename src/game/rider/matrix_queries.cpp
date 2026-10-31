@@ -15,6 +15,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "game/rider/core_physics.h"
 
 namespace objects {
 
@@ -35,7 +36,7 @@ constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 constexpr float kFullCircle = 360.0f;                     // 0x00645EA8
 
 // The core physics' vector at +0x78 (the plane PitchGreaterThan and RollGreaterThan measure against).
-const maths::Vec4& core_vector78(uint8_t* core_physics) { return *reinterpret_cast<maths::Vec4*>(core_physics + 0x78); }
+const maths::Vec4& core_vector78(skater::SkaterPhysicsModule* core_physics) { return core_physics->old_normal_; }
 
 // The unnamed float parameter (0 without one; asserted).
 float angle_parameter(script::Struct* params)
@@ -65,11 +66,11 @@ RiderFrameLookups::~RiderFrameLookups() {}
 // 0x00514010
 void RiderFrameLookups::seal()
 {
-    core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
+    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
 }
 
 // 0x00514030
-void RiderFrameLookups::tick_frame() { basis_frame_ = *reinterpret_cast<maths::Mat4*>(core_physics_ + 0x18); }
+void RiderFrameLookups::tick_frame() { basis_frame_ = core_physics_->display_matrix_; }
 
 // 0x00514040
 int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)

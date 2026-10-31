@@ -21,6 +21,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -32,8 +33,6 @@ constexpr uint32_t kUnderTheFloor = 0xAFAA46BA; // (as Update sends it)
 
 // The core physics component's: the position as the frame began, its state component (+0x18 the physics state,
 // +0x60 landed, +0x64 when, +0x88 skitching).
-constexpr uint32_t kFirstTick = 0x98;
-constexpr uint32_t kTimedFlags = 0x1528;
 
 constexpr float kFeelerReach = 30.0f;     // 0x00646240
 constexpr float kBrightnessAbove = 12.0f; // 0x0064546C
@@ -71,7 +70,7 @@ RiderPhysicsTweaks::~RiderPhysicsTweaks() {}
 // 0x004F8080
 void RiderPhysicsTweaks::seal()
 {
-    core_ptr_ = entity_->fetch_module(kSkaterCorePhysics);
+    core_ptr_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     mesh_instance_ = reinterpret_cast<MeshInstanceModule*>(entity_->fetch_module(kModel));
     shadow_handle_ = reinterpret_cast<GroundShadowModule*>(entity_->fetch_module(kShadow));
     ride_ = reinterpret_cast<MovingSurfaceModule*>(entity_->fetch_module(kMovableContact));
@@ -81,14 +80,14 @@ void RiderPhysicsTweaks::seal()
 // 0x004F8C40
 void RiderPhysicsTweaks::tick_frame()
 {
-    uint8_t* flags = get_at<uint8_t*>(core_ptr_, kTimedFlags);
+    uint8_t* flags = reinterpret_cast<uint8_t*>(core_ptr_->state_);
     if (get_at<int>(flags, 0x18) == 0 || entity_->vel_.y < 0.0f) {
         if (flags[0x60] != 1) {
             flags[0x60] = 1;
             get_at<int>(flags, 0x64) = frame_clock::game_clock_elapsed() + g_clock_offset;
         }
     }
-    if (!get_at<uint8_t*>(core_ptr_, kTimedFlags)[0x88])
+    if (!reinterpret_cast<uint8_t*>(core_ptr_->state_)[0x88])
         check_inside_moving_object();
     keep_above_ground();
     entity_->old_pos_ = entity_->at_point_;
@@ -97,7 +96,7 @@ void RiderPhysicsTweaks::tick_frame()
 // 0x004F8AA0
 void RiderPhysicsTweaks::check_inside_moving_object()
 {
-    maths::Vec4& frame_start = get_at<maths::Vec4>(core_ptr_, kFirstTick);
+    maths::Vec4& frame_start = core_ptr_->safe_pos_;
     if (!ride_->find_contact_ahead(&entity_->at_point_, &frame_start))
         return;
     debug::printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182,
@@ -111,7 +110,7 @@ void RiderPhysicsTweaks::check_inside_moving_object()
     feeler.change_finish(&end);
     if (feeler.get_hit_shape(true, false) && feeler.hit_object_alive())
         reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(feeler.get_hit_object());
-    if (get_at<int>(get_at<uint8_t*>(core_ptr_, kTimedFlags), 0x18) == 4) {
+    if (core_ptr_->state_->cur_phase_ == 4) {
         change_phase(core_ptr_, 1);
         entity_->post_own_event(kUnderTheFloor, nullptr);
     } else if (entity_->at_point_ == frame_start) {

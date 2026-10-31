@@ -5,6 +5,9 @@
 
 #include "engine/objects/entity.h"
 
+namespace skater {
+class SkaterPhysicsModule;
+} // namespace skater
 namespace script {
 class Script;
 class Struct;
@@ -46,7 +49,7 @@ public:
     uint8_t nollie_;       // +0x1D
     uint8_t press_amount_; // +0x1E
     uint8_t pad1f_;
-    uint8_t* core_physics_; // +0x20 SkaterCorePhysics (0x5BD63B29)
+    skater::SkaterPhysicsModule* core_physics_; // +0x20 SkaterCorePhysics (0x5BD63B29)
 };
 static_assert(offsetof(RiderStanceDisplay, shown_) == 0x18 && offsetof(RiderStanceDisplay, nollie_) == 0x1D &&
                   offsetof(RiderStanceDisplay, press_amount_) == 0x1E &&

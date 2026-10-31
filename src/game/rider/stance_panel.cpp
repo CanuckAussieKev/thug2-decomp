@@ -14,6 +14,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "game/rider/core_physics.h"
 
 namespace objects {
 
@@ -53,14 +54,14 @@ void RiderStanceDisplay::configure_from_data(script::Struct* /*params*/) { shown
 // 0x00519210
 void RiderStanceDisplay::seal()
 {
-    core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
+    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
 }
 
 // 0x00519150
 int RiderStanceDisplay::get_stance()
 {
     auto* core = reinterpret_cast<ObjectModule*>(core_physics_);
-    uint8_t flip = *(*reinterpret_cast<uint8_t**>(core_physics_ + 0x1528) + 0x28);
+    uint8_t flip = reinterpret_cast<uint8_t*>(core_physics_->state_)[0x28];
     bool reversed = reinterpret_cast<uint8_t*>(core->entity_)[0x110] != 0;
     bool flipped = reversed ? flip != 0 : flip == 0;
     if (press_amount_)

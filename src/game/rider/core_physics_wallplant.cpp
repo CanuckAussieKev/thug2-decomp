@@ -23,6 +23,7 @@
 #include "game/rider/trick_component.h"
 #include "platform/game_clock.h"
 #include "engine/objects/trigger_events.h"
+#include "game/rider/physics_control.h"
 
 namespace skater {
 
@@ -55,17 +56,6 @@ constexpr uint32_t kMaxTilt = 0xBFCBB7E8;               // Wall_Ride_Max_Tilt (d
 constexpr uint32_t kWallRideRight = 0x51372712;         // WallRideRight (an event)
 constexpr uint32_t kWallRideLeft = 0x5DE19C83;          // WallRideLeft (an event)
 
-constexpr uint32_t kDriving = 0x2ED;
-constexpr uint32_t kModelRotating = 0x2DB;
-constexpr uint32_t kHitObjectChecksum = 0x100;
-constexpr uint32_t kWallplantTime = 0x4E0;
-constexpr uint32_t kWallRideStartTime = 0x39C;
-constexpr uint32_t kWallplantEndTime = 0x3A0;
-constexpr uint32_t kWallDirection = 0x38C;  // the wall ridden (its normal)
-constexpr uint32_t kLateFrames = 0x14CC;    // frames left for a late wall plant
-constexpr uint32_t kSavedVelocity = 0x14D0; // (when the plant was missed)
-constexpr uint32_t kSavedPosition = 0x14E0;
-constexpr uint32_t kSavedWallNormal = 0x14F0;
 constexpr uint32_t kTakeOffHeight = 0x11C; // (in the flags block)
 
 constexpr float kMinUp = 0.1f;                             // 0x00645D74
@@ -82,38 +72,36 @@ constexpr float kMinFlatSpeed = 0.0001f;                   // 0x006453D4
 constexpr float kFromWall = 0.1f;                          // (0x3DCCCCCD)
 const char* const kLateWallplantText = "late wallplant\n"; // "late wallplant\n"
 
-objects::GameEntity* skater_object(void* component) { return static_cast<objects::GameEntity*>(object_of(component)); }
-
-void check_triggers(void* component, const int* kind, uint32_t feeler)
+objects::GameEntity* skater_object(SkaterPhysicsModule* component)
 {
-    static_cast<objects::ActivationZoneModule*>(get_at<void*>(component, kActivationZoneSlot))
-        ->probe_touches_zone(kind, &get_at<render::ProbeRay>(component, feeler));
+    return static_cast<objects::GameEntity*>(object_of(component));
 }
 
-bool trigger_took_over(void* component)
+void check_triggers(SkaterPhysicsModule* component, const int* kind, render::ProbeRay* feeler)
 {
-    return get_at<uint8_t>(get_at<void*>(component, kStateModuleSlot), 0x26) != 0;
+    component->trigger_->probe_touches_zone(kind, feeler);
 }
+
+bool trigger_took_over(SkaterPhysicsModule* component) { return component->physics_control_->flag26_ != 0; }
 
 // The trick button `button` pressed now, or within Wall_Ride_Triangle_Window (0x0051ECF0 / 0x0051F6B0 on the
 // skater component).
-bool button_pressed(void* component, uint32_t button)
+bool button_pressed(SkaterPhysicsModule* component, uint32_t button)
 {
-    auto* skater = static_cast<objects::MoveExecutor*>(get_at<void*>(component, kSkaterComponent));
+    auto* skater = static_cast<objects::MoveExecutor*>(component->trick_);
     if (skater->is_key_held(button))
         return true;
     uint32_t window = ftol(static_cast<double>(script::fetch_float(kWallRideWindow)) * kToMilliseconds);
-    return static_cast<objects::MoveExecutor*>(get_at<void*>(component, kSkaterComponent))
-        ->find_press(button, window, 0xFFFFFFFFu);
+    return static_cast<objects::MoveExecutor*>(component->trick_)->find_press(button, window, 0xFFFFFFFFu);
 }
 
 // Moving up the wall: whether there's wall 6 either side of the hit point raised by 0.15 of the upward speed (along
 // the wall).
-bool wall_above_hit(void* component)
+bool wall_above_hit(SkaterPhysicsModule* component)
 {
-    maths::Vec4 point = vector_at(component, kHitPoint);
-    maths::Vec4 normal = vector_at(component, kHitNormal);
-    maths::Vec4 rise = {0.0f, vector_at(object_of(component), kVelocity).y * kRiseScale, 0.0f, 1.0f};
+    maths::Vec4 point = component->feeler_.contact_pos_;
+    maths::Vec4 normal = component->feeler_.surface_dir_;
+    maths::Vec4 rise = {0.0f, object_of(component)->vel_.y * kRiseScale, 0.0f, 1.0f};
     rise.align_to_plane(normal);
     point += rise;
     maths::Vec4 end = point - normal * kProbe;
@@ -128,34 +116,32 @@ bool wall_above_hit(void* component)
 // 0x00507500
 bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
 {
-    if (get_at<uint8_t>(this, kDriving)) {
+    if (on_vehicle_) {
         int allowed = 0;
         if (!skater_object(this)->read_int_tag(kCanWallplant, &allowed))
             return false;
     }
-    if (get_at<uint8_t>(this, kModelRotating) || get_at<uint8_t>(get_at<void*>(this, kStateModuleSlot), 0x24))
+    if (model_rotating_ || static_cast<uint8_t>(physics_control_->board_missing_))
         return false;
 
     if (!walking) {
-        void* object = object_of(this);
-        if (vector_at(object, kUp).y < kMinUp)
+        objects::GameEntity* object = object_of(this);
+        if (object->basis_frame_.row[1].y < kMinUp)
             return false;
-        int elapsed = static_cast<int>(get_since(get_at<uint32_t>(this, kWallplantTime)));
+        int elapsed = static_cast<int>(get_since(wallplant_time_));
         double since_plant = elapsed;
         if (elapsed < 0)
             since_plant += kUnsignedOffset; // (unsigned)
         float since_plant_float = static_cast<float>(since_plant);
         if (script::fetch_float(kDisallowRewallplant) > since_plant_float)
             return false;
-        float since_ride =
-            static_cast<float>(frame_clock::game_clock_time_since(get_at<int>(this, kWallRideStartTime)));
+        float since_ride = static_cast<float>(frame_clock::game_clock_time_since(wall_ride_start_));
         if (static_cast<double>(script::fetch_float(kWallplantDelay)) * kToMilliseconds > since_ride)
             return false;
         if (script::fetch_float(kMinWallplantHeight) > get_at<float>(flags_of(this), kTakeOffHeight))
             return false;
         // Not a steep enough wall: only for a late plant (unless just checking, or it's vert).
-        if (!check_only && !(get_at<uint16_t>(this, kHitFlags) & 8) &&
-            std::fabs(vector_at(this, kHitNormal).y) > kMaxTilt01 && !late)
+        if (!check_only && !(feeler_.hit_.face_flags_ & 8) && std::fabs(feeler_.surface_dir_.y) > kMaxTilt01 && !late)
             return false;
         // A wall plant trick pressed? (Not original: THAW 0x005DB1ED - on the bike square held plants without asking
         // the list, and the list is the bike's, bike_Wallplant_Trick.)
@@ -164,8 +150,8 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         bool pressed = bike && thaw_bmx::wallplant_by_square(this);
         for (uint32_t i = 0; !pressed && i < tricks->extent_; ++i) {
             uint32_t trick = tricks->fetch_part(i);
-            if (static_cast<objects::MoveExecutor*>(get_at<void*>(this, kSkaterComponent))
-                    ->check_trigger(reinterpret_cast<script::Struct*>(trick), 0, 0, true)) {
+            if (static_cast<objects::MoveExecutor*>(trick_)->check_trigger(reinterpret_cast<script::Struct*>(trick), 0,
+                                                                           0, true)) {
                 pressed = true;
                 break;
             }
@@ -175,14 +161,14 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
                 return false;
             // Not yet: a few frames to press it late in (kept: the velocity and position; the skater backed off the
             // wall 24 the way it came).
-            get_at<int>(this, kLateFrames) = script::fetch_int_value(kLateWallplantFrames);
-            vector_at(this, kSavedVelocity) = vector_at(object_of(this), kVelocity);
-            vector_at(this, kSavedPosition) = vector_at(object_of(this), kPosition);
-            void* o = object_of(this);
-            const maths::Vec4& v = vector_at(o, kVelocity);
+            late_wallplant_frames_ = script::fetch_int_value(kLateWallplantFrames);
+            late_velocity_ = entity_->vel_;
+            late_pos_ = entity_->at_point_;
+            objects::GameEntity* o = object_of(this);
+            const maths::Vec4& v = o->vel_;
             maths::Vec4 back = {-v.x, 0.0f, -v.z, v.w};
             back.make_unit();
-            maths::Vec4& p = vector_at(o, kPosition);
+            maths::Vec4& p = o->at_point_;
             float y = back.y * kBackOff, z = back.z * kBackOff, w = back.w * kBackOff;
             p.z = z + p.z;
             p.w = w + p.w;
@@ -193,43 +179,43 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         if (late) {
             // A late plant: back to where the skater was, and the wall looked for again along its move.
             debug::printf(kLateWallplantText);
-            vector_at(object_of(this), kVelocity) = vector_at(this, kSavedVelocity);
-            vector_at(object_of(this), kPosition) = vector_at(this, kSavedPosition);
-            void* o = object_of(this);
-            const maths::Vec4& position = vector_at(o, kPosition);
-            const maths::Vec4& old = vector_at(o, kOldPosition);
+            entity_->vel_ = late_velocity_;
+            entity_->at_point_ = late_pos_;
+            objects::GameEntity* o = object_of(this);
+            const maths::Vec4& position = o->at_point_;
+            const maths::Vec4& old = o->old_pos_;
             maths::Vec4 move = {position.x - old.x, position.y - old.y, position.z - old.z, position.w - old.w};
             move.make_unit();
             double height = tuning_float_lookup(kForwardHeight, o);
-            const maths::Vec4& up = vector_at(o, kUp);
+            const maths::Vec4& up = o->basis_frame_.row[1];
             float hw = static_cast<float>(height * up.w), hz = static_cast<float>(height * up.z),
                   hy = static_cast<float>(height * up.y), hx = static_cast<float>(height * up.x);
-            const maths::Vec4& last = vector_at(object_of(this), kOldPosition);
-            maths::Vec4& start = vector_at(this, kProbeOrigin);
+            const maths::Vec4& last = entity_->old_pos_;
+            maths::Vec4& start = probe_start_;
             start = {hx + last.x, hy + last.y, hz + last.z, hw + last.w};
             double length = tuning_float_lookup(kForwardLength, object_of(this));
             float lw = static_cast<float>(move.w * length), lz = static_cast<float>(move.z * length),
                   ly = static_cast<float>(move.y * length), lx = static_cast<float>(length * move.x);
-            const maths::Vec4& now = vector_at(object_of(this), kPosition);
+            const maths::Vec4& now = entity_->at_point_;
             double w = static_cast<double>(hw) + now.w; // (left unrounded)
             float z = hz + now.z, y = hy + now.y, x = hx + now.x;
-            maths::Vec4& end = vector_at(this, kProbeTip);
+            maths::Vec4& end = probe_end_;
             end = {x + lx, y + ly, z + lz, static_cast<float>(w + lw)};
             if (!probe_touches_zone(0x10, 0))
                 return false;
         }
     } else {
         // Walking: a feeler 36 the other way from the facing, at the forward collision height.
-        void* object = object_of(this);
-        const maths::Vec4& facing = vector_at(object, kForward);
+        objects::GameEntity* object = object_of(this);
+        const maths::Vec4& facing = object->basis_frame_.row[2];
         maths::Vec4 direction = {-facing.x, facing.y, -facing.z, facing.w};
         direction.make_unit();
         float height = tuning_float_lookup(kForwardHeight, object);
-        maths::Vec4 lift = vector_at(object, kUp) * height;
-        vector_at(this, kProbeOrigin) = vector_at(object_of(this), kPosition) + lift;
+        maths::Vec4 lift = object->basis_frame_.row[1] * height;
+        probe_start_ = entity_->at_point_ + lift;
         maths::Vec4 reach = direction * kWalkReach;
-        maths::Vec4 base = vector_at(object_of(this), kPosition) + lift;
-        vector_at(this, kProbeTip) = base + reach;
+        maths::Vec4 base = entity_->at_point_ + lift;
+        probe_end_ = base + reach;
         if (!probe_touches_zone(0x10, 0))
             return false;
     }
@@ -237,17 +223,17 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     if (check_only)
         return true;
     // The plant: off the wall (its normal flattened; a late plant's saved one) at the approach angle allowed.
-    float speed = static_cast<float>(length_unrounded(vector_at(object_of(this), kVelocity)));
+    float speed = static_cast<float>(length_unrounded(entity_->vel_));
     if (speed < kMinSpeed)
         return false;
-    maths::Vec4 heading = vector_at(object_of(this), kVelocity) / speed;
+    maths::Vec4 heading = entity_->vel_ / speed;
     heading.y = 0.0f;
     heading.make_unit();
-    maths::Vec4 wall = vector_at(this, kHitNormal);
+    maths::Vec4 wall = feeler_.surface_dir_;
     if (late) {
-        wall.x = vector_at(this, kSavedWallNormal).x;
-        wall.z = vector_at(this, kSavedWallNormal).z;
-        wall.w = vector_at(this, kSavedWallNormal).w;
+        wall.x = late_wall_normal_.x;
+        wall.z = late_wall_normal_.z;
+        wall.w = late_wall_normal_.w;
     }
     wall.y = 0.0f;
     wall.make_unit();
@@ -258,108 +244,107 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         if (-limit < approach)
             return false;
     }
-    if (vector_at(object_of(this), kVelocity).y > 0.0f && input_of(this)[0x1A0] && !wall_above_hit(this))
+    if (entity_->vel_.y > 0.0f && input_of(this)[0x1A0] && !wall_above_hit(this))
         return false;
     // (not original: THAW 0x005DBB9E - no sticker slap on the bike)
     if (!thaw_bmx::live_now(this))
-        static_cast<objects::TaggingControlComponent*>(get_at<void*>(this, 0x1538))->slap_sticker(false, walking, late);
-    vector_at(object_of(this), kVelocity).y = 0.0f;
-    check_triggers(this, kSkaterEvents0064bBec, kFeeler);
+        static_cast<objects::TaggingControlComponent*>(tagging_component_)->slap_sticker(false, walking, late);
+    entity_->vel_.y = 0.0f;
+    check_triggers(this, kSkaterEvents0064bBec, &feeler_);
     if (trigger_took_over(this))
         return true;
 
     // Bounced off the wall (the speed less Physics_Wallplant_Speed_Loss, at least the minimum exit speed), up at
     // the vertical exit speed.
-    void* object = object_of(this);
-    maths::Vec4& velocity = vector_at(object, kVelocity);
+    objects::GameEntity* object = object_of(this);
+    maths::Vec4& velocity = object->vel_;
     float into =
         static_cast<float>(static_cast<double>(wall.z) * velocity.z + static_cast<double>(wall.y) * velocity.y +
                            static_cast<double>(wall.x) * velocity.x);
     maths::Vec4 bounce = into * wall;
     if (!walking) {
         velocity -= 2.0f * bounce;
-        maths::Vec4& v = vector_at(object_of(this), kVelocity);
+        maths::Vec4& v = entity_->vel_;
         float flat = static_cast<float>(std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.z) * v.z));
         if (flat > kMinFlatSpeed) {
             v.y = 0.0f;
             float reduced = static_cast<float>(flat - static_cast<double>(script::fetch_float(kSpeedLoss)));
             float least = script::fetch_float(kMinExitSpeed);
-            set_length(vector_at(object_of(this), kVelocity), objects::larger_of(least, reduced));
+            set_length(entity_->vel_, objects::larger_of(least, reduced));
         } else {
-            vector_at(object_of(this), kVelocity) = -script::fetch_float(kMinExitSpeed) * heading;
+            entity_->vel_ = -script::fetch_float(kMinExitSpeed) * heading;
         }
     } else {
-        vector_at(object_of(this), kVelocity) = wall * script::fetch_float(kWalkingWallplantSpeed);
+        entity_->vel_ = wall * script::fetch_float(kWalkingWallplantSpeed);
     }
-    vector_at(object_of(this), kVelocity).y = script::fetch_float(kVerticalExitSpeed);
+    entity_->vel_.y = script::fetch_float(kVerticalExitSpeed);
 
     // Riding what was hit (if it's an object still there).
-    auto* feeler = reinterpret_cast<render::ProbeRay*>(&get_at<uint8_t>(this, kFeeler));
+    auto* feeler = &feeler_;
     if (feeler->hit_object_alive()) {
-        bool riding = get_at<objects::MovingSurfaceModule*>(this, kRide)->is_riding();
-        if (!riding || *get_at<void**>(get_at<void*>(this, kRide), 0x18) != feeler->get_hit_object()) {
-            get_at<objects::MovingSurfaceModule*>(this, kRide)->stop_riding();
-            get_at<walk::MovableContact*>(this, kRide)->start_riding(feeler->get_hit_object());
+        bool riding = ride_->is_riding();
+        if (!riding || *reinterpret_cast<void**>(ride_->ride_) != feeler->get_hit_object()) {
+            ride_->stop_riding();
+            reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(feeler->get_hit_object());
         }
     }
     if (!walking) {
         // Placed Physics_Wallplant_Distance_From_Wall off it (or 0.1 off anything nearer).
-        maths::Vec4& point = vector_at(this, kHitPoint);
-        maths::Vec4& normal = vector_at(this, kHitNormal);
+        maths::Vec4& point = feeler_.contact_pos_;
+        maths::Vec4& normal = feeler_.surface_dir_;
         feeler->line_.start = point;
         feeler->line_.end = point + script::fetch_float(kDistanceFromWall) * normal;
         if (feeler->get_hit_shape(true, false))
-            vector_at(object_of(this), kPosition) = point + kFromWall * normal;
+            entity_->at_point_ = point + kFromWall * normal;
         else
-            vector_at(object_of(this), kPosition) = feeler->line_.end;
+            entity_->at_point_ = feeler->line_.end;
     }
     // Upright, facing along the new velocity.
     object = object_of(this);
-    maths::Vec4& forward = vector_at(object, kForward);
-    forward = vector_at(object, kVelocity);
-    vector_at(object_of(this), kForward).y = 0.0f;
-    vector_at(object_of(this), kForward).make_unit();
-    vector_at(object_of(this), kUp) = {0.0f, 1.0f, 0.0f, 1.0f};
+    maths::Vec4& forward = object->basis_frame_.row[2];
+    forward = object->vel_;
+    entity_->basis_frame_.row[2].y = 0.0f;
+    entity_->basis_frame_.row[2].make_unit();
+    entity_->basis_frame_.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
     object = object_of(this);
-    vector_at(object, kMatrix) = maths::cross_vec(vector_at(object, kUp), vector_at(object, kForward));
-    get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
-    get_at<int>(this, kWallplantTime) = get_now();
+    object->basis_frame_.row[0] = maths::cross_vec(object->basis_frame_.row[1], object->basis_frame_.row[2]);
+    display_matrix_ = entity_->basis_frame_;
+    wallplant_time_ = get_now();
     skater_object(this)->post_own_event(kWallplant, nullptr);
-    static_cast<objects::MoveExecutor*>(get_at<void*>(this, kSkaterComponent))
-        ->pass_to_trick_objects(get_at<uint32_t>(this, kHitObjectChecksum));
+    static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(feeler_.hit_.object_checksum_);
     set_timed_flag(this, 0xC0, 0);
     set_timed_flag(this, 0xB0, 0);
     set_timed_flag(this, 0xA0, 1);
     physics::change_phase(this, 5);
-    get_at<int>(this, kLateFrames) = 0;
-    get_at<int>(this, kWallplantEndTime) = get_now();
+    late_wallplant_frames_ = 0;
+    wallplant_end_ = get_now();
     return true;
 }
 
 // 0x00508140
 bool SkaterPhysicsModule::start_wall_ride()
 {
-    if (get_at<uint8_t>(this, kDriving) || !get_at<uint8_t>(this, kHitWall))
+    if (on_vehicle_ || !hit_wall_)
         return false;
     // (not original: THAW 0x005D6FAF - on the bike square held starts one too)
     if (!button_pressed(this, kTriangle) && !(thaw_bmx::live_now(this) && thaw_bmx::wallride_button(this)))
         return false;
     // Not again within Wall_Ride_Delay of the last ride or plant.
-    float since_ride = static_cast<float>(static_cast<int>(get_since(get_at<uint32_t>(this, kWallRideStartTime))));
+    float since_ride = static_cast<float>(static_cast<int>(get_since(static_cast<uint32_t>(wall_ride_start_))));
     if (!(static_cast<double>(script::fetch_float(kWallRideDelay)) * kToMilliseconds < since_ride))
         return false;
-    float since_plant = static_cast<float>(static_cast<int>(get_since(get_at<uint32_t>(this, kWallplantEndTime))));
+    float since_plant = static_cast<float>(static_cast<int>(get_since(static_cast<uint32_t>(wallplant_end_))));
     if (!(static_cast<double>(script::fetch_float(kWallRideDelay)) * kToMilliseconds < since_plant))
         return false;
-    if (vector_at(object_of(this), kVelocity).y > 0.0f && !wall_above_hit(this))
+    if (entity_->vel_.y > 0.0f && !wall_above_hit(this))
         return false;
     // Fast enough along the wall, not upside down, not head-on, not tilted too far.
-    maths::Vec4& wall = vector_at(this, kWallDirection);
-    wall = vector_at(this, kHitNormal);
+    maths::Vec4& wall = wall_normal_;
+    wall = feeler_.surface_dir_;
     maths::Vec4 flat_wall = {wall.x, 0.0f, wall.z, wall.w};
     flat_wall.make_unit();
-    void* object = object_of(this);
-    const maths::Vec4& v = vector_at(object, kVelocity);
+    objects::GameEntity* object = object_of(this);
+    const maths::Vec4& v = object->vel_;
     maths::Vec4 heading = {v.x, 0.0f, v.z, v.w};
     heading.make_unit();
     maths::Vec4 along = {v.x, 0.0f, v.z, v.w};
@@ -376,43 +361,44 @@ bool SkaterPhysicsModule::start_wall_ride()
     if (!(x87_sin(static_cast<double>(script::fetch_float(kMaxIncidentAngle)) * kRadiansPerDegree) > head_on))
         return false;
     object = object_of(this);
-    if (!(x87_cos(static_cast<double>(script::fetch_float(kMaxTilt)) * kRadiansPerDegree) < vector_at(object, kUp).y))
+    if (!(x87_cos(static_cast<double>(script::fetch_float(kMaxTilt)) * kRadiansPerDegree) <
+          object->basis_frame_.row[1].y))
         return false;
-    void* skater = get_at<void*>(this, kSkaterComponent);
+    void* skater = trick_;
     if (!get_at<uint8_t>(skater, 0x13B0))
         static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
-    remember_floor_probe(&get_at<uint8_t>(this, kFeeler));
-    check_triggers(this, kSkaterEvents0064bB98, kLastFloorProbe);
+    remember_floor_probe(&feeler_);
+    check_triggers(this, kSkaterEvents0064bB98, &floor_feeler_);
     if (trigger_took_over(this))
         return false;
     // Nothing in the way along the move (turned along the wall, three times as far).
-    maths::Vec4 hit = vector_at(this, kHitPoint);
+    maths::Vec4 hit = feeler_.contact_pos_;
     object = object_of(this);
-    maths::Vec4 move = vector_at(object, kPosition) - vector_at(object, kOldPosition);
+    maths::Vec4 move = object->at_point_ - object->old_pos_;
     move.align_to_plane(wall);
-    vector_at(this, kProbeOrigin) = vector_at(object_of(this), kPosition);
-    vector_at(this, kProbeTip) = vector_at(object_of(this), kPosition) + move * 3.0f;
+    probe_start_ = entity_->at_point_;
+    probe_end_ = entity_->at_point_ + move * 3.0f;
     if (probe_touches_zone(0x10, 0))
         return false;
     // On the wall: at the hit, one off it; moving and facing along it, up its normal.
-    get_at<int>(this, kWallRideStartTime) = get_now();
-    vector_at(object_of(this), kPosition) = hit;
-    vector_at(object_of(this), kPosition) += wall;
-    vector_at(object_of(this), kVelocity).align_to_plane(wall);
-    vector_at(object_of(this), kForward) = vector_at(object_of(this), kVelocity);
-    vector_at(object_of(this), kForward).make_unit();
-    vector_at(object_of(this), kUp) = wall;
+    wall_ride_start_ = get_now();
+    entity_->at_point_ = hit;
+    entity_->at_point_ += wall;
+    entity_->vel_.align_to_plane(wall);
+    entity_->basis_frame_.row[2] = entity_->vel_;
+    entity_->basis_frame_.row[2].make_unit();
+    entity_->basis_frame_.row[1] = wall;
     object = object_of(this);
-    vector_at(object, kMatrix) = maths::cross_vec(vector_at(object, kUp), vector_at(object, kForward));
-    vector_at(object_of(this), kMatrix).make_unit();
-    get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
-    const maths::Vec4& velocity = vector_at(object_of(this), kVelocity);
+    object->basis_frame_.row[0] = maths::cross_vec(object->basis_frame_.row[1], object->basis_frame_.row[2]);
+    entity_->basis_frame_.row[0].make_unit();
+    display_matrix_ = entity_->basis_frame_;
+    const maths::Vec4& velocity = entity_->vel_;
     double side = static_cast<double>(wall.x) * velocity.z + -static_cast<double>(wall.z) * velocity.x +
                   static_cast<double>(velocity.y) * 0.0f;
     skater_object(this)->post_own_event(side < 0.0 ? kWallRideLeft : kWallRideRight, nullptr);
     physics::change_phase(this, 2);
     start_riding_hit_object();
-    get_at<int>(this, kLateFrames) = 0;
+    late_wallplant_frames_ = 0;
     return true;
 }
 

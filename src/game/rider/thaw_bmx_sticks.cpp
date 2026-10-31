@@ -56,7 +56,7 @@ const void* trick_pad(const objects::MoveExecutor* trick) { return trick->input_
 // The bike state of `trick`'s skater while it rides the bike, else null.
 BikeState* riding_state(const objects::MoveExecutor* trick)
 {
-    const void* core = trick->core_physics_;
+    const SkaterPhysicsModule* core = trick->core_physics_;
     if (!core || !live_now(core))
         return nullptr;
     return state_of(core, false);
@@ -147,7 +147,7 @@ uint32_t trick_stick_name(bool right, int direction)
 void update_trick_sticks(void* trick_component)
 {
     auto* trick = static_cast<objects::MoveExecutor*>(trick_component);
-    const void* core = trick->core_physics_;
+    const SkaterPhysicsModule* core = trick->core_physics_;
     BikeState* state = core ? state_of(core, false) : nullptr;
     if (!state)
         return;

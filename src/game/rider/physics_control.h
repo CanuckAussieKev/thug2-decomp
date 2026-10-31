@@ -5,6 +5,9 @@
 
 #include "engine/objects/entity.h"
 
+namespace skater {
+class SkaterPhysicsModule;
+} // namespace skater
 namespace script {
 class Script;
 class Struct;
@@ -79,8 +82,8 @@ public:
     bool force_walk_;       // +0x25
     uint8_t flag26_;        // +0x26 (cleared each update)
     uint8_t pad27;
-    uint8_t* core_physics_; // +0x28 SkaterCorePhysics (0x5BD63B29)
-    uint8_t* cur_phase_;    // +0x2C SkaterState (0x43686585)
+    skater::SkaterPhysicsModule* core_physics_; // +0x28 SkaterCorePhysics (0x5BD63B29)
+    uint8_t* cur_phase_;                        // +0x2C SkaterState (0x43686585)
 };
 static_assert(offsetof(RiderBoardPhysics, is_halted_) == 0x18 && offsetof(RiderBoardPhysics, switch_time_) == 0x1C &&
                   offsetof(RiderBoardPhysics, board_missing_) == 0x24 &&

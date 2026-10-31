@@ -49,6 +49,10 @@ class Struct;
 //
 // Addresses: "THAW 0x..." (and a bare address in THAW's context) is THAW's reference build's - the THAW PC exe the BMX
 // work reads (tools/pipeline/thaw_bmx/thaw_ghidra.py); THUG2's are the reference build's, as everywhere.
+namespace skater {
+class SkaterPhysicsModule;
+} // namespace skater
+
 namespace skater::thaw_bmx {
 
 // THAW's wheel points sit this far ahead of / behind the skater's position along its facing (THAW 0x006DD14C,
@@ -114,14 +118,14 @@ struct BikeState {
 // [features] thaw_bmx (default 0; the self-tests turn it on for a moment).
 bool& is_switched_on();
 // The bike state of `core` (a core physics component); null when it has none and `create` is false.
-BikeState* state_of(const void* core, bool create);
+BikeState* state_of(const SkaterPhysicsModule* core, bool create);
 // Its state forgotten (a component made at the same address starts off the bike).
-void get_forget(const void* core);
+void get_forget(const SkaterPhysicsModule* core);
 // Whether `core`'s skater rides the bike: the bike flag (SkaterOnBike).
-bool on_bike(const void* core);
+bool on_bike(const SkaterPhysicsModule* core);
 // The physics' gate (thaw_bmx_physics.cpp): the feature on and the skater on the bike. Off: the skater's physics,
 // unchanged.
-inline bool live_now(const void* core) { return is_switched_on() && on_bike(core); }
+inline bool live_now(const SkaterPhysicsModule* core) { return is_switched_on() && on_bike(core); }
 // Whether the keyboard's half-stick key ([Keybinds] Feeble) counts (sdl_input.cpp): the feature on and a skater on
 // the bike. THAW's PC keyboard has it (its key binding k0_24 halves the movement keys' push; PartyMod's THAW build
 // keeps it as Feeble, "Half Stick") - so its Smith / Feeble grinds (the stick a little up / down) can be had on keys.
@@ -137,9 +141,9 @@ uint32_t skater_script(const objects::Rider* skater, uint32_t name, const script
 // bike_PedKnockDown.
 uint32_t bike_skater_script(uint32_t name, uint32_t caller_name, bool bike_script_loaded);
 // The physics structure while on the bike (thaw_bicycle_physics; null off the bike or when the overlay hasn't it).
-script::Struct* physics_structure(const void* core);
+script::Struct* physics_structure(const SkaterPhysicsModule* core);
 // A bike member function on `core` (1 / 0 its result), or 2: not one of ours.
-int invoke_method_by_name(void* core, uint32_t name, script::Struct* params, script::Script* script);
+int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Struct* params, script::Script* script);
 // The wheel points from the skater's position and facing (THAW 0x005C98E0's second half).
 void set_wheel_points(BikeState& state, const maths::Vec4& position, const maths::Vec4& facing);
 
@@ -160,41 +164,41 @@ void tick_frame(modules::FrontEnd* front_end);
 
 // At the start / end of the core physics' update (0x00510830; THAW 0x005E8640): the movement stick's directions as
 // THAW's pad buttons, the wheel points kept (THAW +0x18F0 / +0x1900) / the x-up let go (THAW 0x005C9210).
-void begin_frame(void* core);
-void end_frame(void* core);
+void begin_frame(SkaterPhysicsModule* core);
+void end_frame(SkaterPhysicsModule* core);
 
 // On the ground (do_ground_physics 0x0050EE70; THAW 0x005E4200..0x005E4DBF):
 // THAW 0x005E4200: the air pitch back to 0, the tire tap over.
-void get_on_ground(void* core);
+void get_on_ground(SkaterPhysicsModule* core);
 // THAW 0x005E4790: whether the ground's gravity pulls the bike along this frame - not when it's slower than 10 and
 // the gravity points back along it, unless in a manual without a brake held (the bike doesn't roll back).
-bool ground_gravity_applies(void* core, const maths::Vec4& gravity);
+bool ground_gravity_applies(SkaterPhysicsModule* core, const maths::Vec4& gravity);
 // THAW 0x005CAB60 (the brake check, on the bike): L1 the front brake, R1 the rear, when the skater may brake (+0x311).
-bool should_brake(void* core);
+bool should_brake(SkaterPhysicsModule* core);
 // THAW 0x005CACA0 (Brake, on the bike): not the rear brake in a nose manual nor the front one in a manual; the skid
 // brake out of a manual, the front brake in an endo.
-void get_brake(void* core);
+void get_brake(SkaterPhysicsModule* core);
 // THAW 0x005CAEF0 (whether to pedal, on the bike): not in a manual, rolling backwards or with a brake held.
-bool can_kick(void* core);
+bool can_kick(SkaterPhysicsModule* core);
 // THAW 0x005CB050 (the pedalling's push, on the bike): not rolling backwards or in a manual.
-bool may_accelerate(void* core);
+bool may_accelerate(SkaterPhysicsModule* core);
 // THAW 0x005D61F0 (the bike's own turning on the ground, THAW 0x005DA720 calls it on the bike): by the stick, sharper
 // slower and with a brake held; rolling backwards the other way round (steered by the manual's balance outside one);
 // the skid's timer; the wheel points turned along.
-void turn_on_ground(void* core);
+void turn_on_ground(SkaterPhysicsModule* core);
 // THAW 0x005CDA50: the manual pitch (stick back: a manual, forward: a nose manual, the front brake fast: an endo).
-void manual_pitch(void* core);
+void manual_pitch(SkaterPhysicsModule* core);
 
 // Jumping (perform_leap 0x00509450; THAW 0x005DDDC0): from a standstill a boost along the facing; out of a manual the
 // skater pitched by the manual's angle.
-void jump_boost(void* core);
-void jump_pitch(void* core);
+void jump_boost(SkaterPhysicsModule* core);
+void jump_pitch(SkaterPhysicsModule* core);
 
 // In the air (do_air_physics 0x0050CA00; THAW 0x005DF880 calls 0x005D7CB0 on the bike instead of its lean and spin):
 // no manual in the air; the bike's pitch and spin by the stick (the fast ones with L1), back upright when let go, a
 // bail when the rider's head hits something.
-void on_air(void* core);
-void air_rotation(void* core);
+void on_air(SkaterPhysicsModule* core);
+void air_rotation(SkaterPhysicsModule* core);
 
 // The ground under the bike (check_for_ground 0x00509BD0; THAW 0x005DF050 on the bike, out of a manual): the two wheels
 // felt for the ground (THAW 0x005D9650) - kWheelsOff: the leading one gone, off the ground; kWheelsOnGround /
@@ -203,26 +207,27 @@ void air_rotation(void* core);
 // [debug] thaw_bmx_wheels=1 logs each frame the wheels leave the ground (`thaw_bmx wheels off:` - each wheel's hit,
 // why not, distance, reach, turn).
 enum WheelGround { kWheelsNotUsed, kWheelsOff, kWheelsOnGround, kWheelsOnGroundNoHit };
-WheelGround wheel_ground_check(void* core);
+WheelGround wheel_ground_check(SkaterPhysicsModule* core);
 // Whether the skater rolls backwards on the bike (the velocity against the facing) - THAW's ground check (0x005DEB08)
 // turns the facing round for its steepness test then.
-bool rolling_backwards(void* core);
+bool rolling_backwards(SkaterPhysicsModule* core);
 // THAW 0x005CB420 (the display normal's lerp, on the bike on the ground): towards the ground normal across the
 // wheel base, at Normal_Lerp_Speed_Bike. Returns false when THUG2's own (0x004FEA50) is to run.
-bool lerp_display_normal(void* core);
+bool lerp_display_normal(SkaterPhysicsModule* core);
 
 // THAW 0x005CF2F0 (the grind trick, on the bike): the over-grind state set, and BikeGrindTrickList's row for how far
 // the stick is pushed up or down with `*column` its element - null when the overlay hasn't the list (THUG2's
 // GrindTrickList then). `left_side`, `sideways`, `backwards` as start_grind_trick's first three.
-script::Array* grind_trick_row(void* core, bool left_side, bool sideways, bool backwards, uint32_t* column);
+script::Array* grind_trick_row(SkaterPhysicsModule* core, bool left_side, bool sideways, bool backwards,
+                               uint32_t* column);
 // THAW 0x005E27F5: a bad ledge on the bike's side: the grind on the other side.
-bool grind_side(void* core, bool left_side, bool bad_ledge_on_that_side);
+bool grind_side(SkaterPhysicsModule* core, bool left_side, bool bad_ledge_on_that_side);
 // THAW 0x005D1890: the acid drop's search direction on the bike - its facing, flattened; the other way with the stick
 // pulled back. False: not on the bike.
-bool acid_drop_direction(void* core, maths::Vec4* direction);
+bool acid_drop_direction(SkaterPhysicsModule* core, maths::Vec4* direction);
 
 // THAW 0x005CA3B0, the member EnterWheelieFromAir (the bike's manual from a landing; `nose` its parameter).
-int enter_wheelie_from_air(void* core, script::Struct* params);
+int enter_wheelie_from_air(SkaterPhysicsModule* core, script::Struct* params);
 
 // ---------------------------------------------------------------------------------------------------------------
 // Phase 4 (thaw_bmx_tricks.cpp): what THUG2's vehicle mode used to hide - each THAW's own bike gate -, the tire tap,
@@ -230,23 +235,23 @@ int enter_wheelie_from_air(void* core, script::Struct* params);
 // (the sounds: while the skater is on the bike); otherwise THUG2's code runs unchanged.
 
 // THAW 0x005D6FCF (the wallride's start): on the bike square held starts a wallride too (THUG2's: the triangle).
-bool wallride_button(void* core);
+bool wallride_button(SkaterPhysicsModule* core);
 // THAW 0x005DB1ED (the wallplant): on the bike square held plants without asking the trick list.
-bool wallplant_by_square(void* core);
+bool wallplant_by_square(SkaterPhysicsModule* core);
 // ... else the bike's list, bike_Wallplant_Trick (THAW's; THUG2's Wallplant_Trick when the overlay hasn't it).
 uint32_t wallplant_trick_list();
 // THAW 0x005D3330: on the bike skitching is R2 held long enough (the skater's: up).
-uint8_t* tow_button(void* core);
+uint8_t* tow_button(SkaterPhysicsModule* core);
 // THAW 0x005DF98B (in the air, after the recovery): the tire tap - looked for (0x005DC290: R1 and up / down held,
 // a ledge ahead: THUG2's rail search with the hang check, ledge_point below) or carried on (0x005CE920: the wheel to the
 // tap point).
-void tire_tap(void* core);
+void tire_tap(SkaterPhysicsModule* core);
 // Whether a tire tap is on (THAW's timed flag +0x90; 0x005DF9DB: the air's keep-upright skipped then).
-bool tire_tapping(const void* core);
+bool tire_tapping(const SkaterPhysicsModule* core);
 // THAW 0x00620780: the manual's pose - the wobble animation (bike_manual's bmx_wheelie_init / nosewheelie ones played
 // with `wobble`) held at the manual angle x 0.01 of its length, on the rider and the bike (end_frame calls it); out of
 // a manual, the running balance trick's balance (a grind's, a stall's range animation) on both the same way.
-void manual_pose(void* core);
+void manual_pose(SkaterPhysicsModule* core);
 
 // The bike's sounds (THAW's skater sound component 0x005F197B / 0x005F1A10 / 0x005F1AB0 and its looping sound
 // 0x0046A097 / 0x0046A0D3: on the bike BIKE_LAND, BIKE_GRINDLAND, BIKE_OLLIE, BIKE_GRINDJUMP, BIKE_BONK, BIKE_ROLL,
@@ -273,20 +278,20 @@ void* shadow_companion(void* caster_model);
 // bike_ExitGrabTrick_flip - THUG2's way mirrored the finished pose and back), the backwards revert flips around its
 // pivot. Here the rider's and the bike's channels both take the flag as THAW's branches do, by the same call.
 // Whether `core`'s Flip only turns the flag: the feature on and the skater on the bike.
-inline bool flip_flag_only(const void* core) { return live_now(core); }
+inline bool flip_flag_only(const SkaterPhysicsModule* core) { return live_now(core); }
 // The flip a PlayAnim / Obj_PlayAnim on `object` gives its channel before it's played (AnimBlenderComponent::
 // pass_to_channel): for the local rider on the bike (what was left for after the animation done first - THAW's
 // HandleFlipOrBoardRotateAfter) and for his bike, his flipped flag: 1 / 0; else -1 (THUG2's: the channel's as it was).
-int play_flip(void* object);
+int play_flip(objects::GameEntity* object);
 // Off the bike (SkaterOffBike, the skater's reset on it): `core`'s rider's animations mirrored as his flag says
 // (apply_flip_to_anims) - THUG2's way from then on.
-void flip_anims_to_flag(void* core);
+void flip_anims_to_flag(SkaterPhysicsModule* core);
 
 // The THAW-only members of the bike scripts besides the bike's own (invoke_method_by_name answers them; 2: not one):
 // DisplayPitchGreaterThan (0x005CA490), LandedFromTireTap (0x005C7AF0), InTireTap (its state component's +0x90),
 // PitchingForward / PitchingBackward (its matrix queries), ShouldRunStallScript / ClearStallScriptFlag /
 // ExitStallBoost (0x005C8410 / 0x005C8420 / 0x005C83D0 - the stall below), OnStall.
-int call_trick_member(void* core, uint32_t name, script::Struct* params, script::Script* script);
+int call_trick_member(SkaterPhysicsModule* core, uint32_t name, script::Struct* params, script::Script* script);
 
 // ---------------------------------------------------------------------------------------------------------------
 // Phase 6 (thaw_bmx_physics.cpp): steps, crests and vert.
@@ -296,25 +301,25 @@ int call_trick_member(void* core, uint32_t name, script::Struct* params, script:
 // ground's surface on a step or over a crest (the wheels on the ground, the line between them through it). Ours also
 // raises the "under the floor" check's end by as much (THAW doesn't - phase 6: the
 // same midway position under a step's top would turn the bike back there). 0: not on the bike.
-float stuck_check_raise(void* core);
+float stuck_check_raise(SkaterPhysicsModule* core);
 // THAW 0x005CA8F0 (clamp_skater_speed, THAW's for every skater - here on the bike only, the keys being bicycle_physics'):
 // for Skater_Vert_Max_Speed_Time after the bike was last on vert ground (THAW's ground update 0x005E4579 notes the
 // time while its feeler hits vert) the max-max speed is Skater_Vert_Max_Max_Speed_Stat and the heavy air friction
 // over the max speed isn't applied. `*max_max` changed; returns whether the heavy friction may apply this frame.
-bool vert_speed_allowance(void* core, float* max_max);
+bool vert_speed_allowance(SkaterPhysicsModule* core, float* max_max);
 // THAW 0x005E4579: on the ground, the time noted while the ground feeler's face is vert.
-void note_vert_ground(void* core);
+void note_vert_ground(SkaterPhysicsModule* core);
 
 // ---------------------------------------------------------------------------------------------------------------
 // Phase 7 (thaw_bmx_physics.cpp, thaw_bmx_tricks.cpp): the bike branches phases 2-6 couldn't read, read whole.
 
 // THAW 0x005E0476: in the air, once the display matrix is the skater's again, the wheel points follow the skater.
-void air_wheel_points(void* core);
+void air_wheel_points(SkaterPhysicsModule* core);
 // THAW 0x005DA210 (break vert, on the bike): the movement stick's up held longer than `push_time` ms (neither left nor
 // right, square nor circle) - THUG2's d-pad up hold.
-bool vert_push_held(void* core, int push_time);
+bool vert_push_held(SkaterPhysicsModule* core, int push_time);
 // ... and R1 with the stick up or down, or a tire tap looked for in vert: the spine transfer / push-off path.
-bool vert_tap_held(void* core);
+bool vert_tap_held(SkaterPhysicsModule* core);
 // (The manual meter is THAW's own, drawn by its bike scripts - create_bike_manual_meter / update_bike_manual_meter in
 // bike_manual_state: its pictures turned by 0.9 degrees per point of the manual angle, GetBikeManualAngle. The DLL
 // only loads its pictures: the C function ThawBmx_LoadTexture, thaw_bmx.cpp.)
@@ -332,11 +337,11 @@ objects::GameEntity* bike_object_of(void* skater);
 // member ThawBmxSteerAnim (on / off: off from its exit script); here, at the end of each frame, the subset's weight is
 // set to THAW's share x how far its tree would have blended the branch in (0.4 s) or out (kSteerOut) - and the subset
 // removed once it's out. end_frame calls it.
-void steer_anim(void* core);
+void steer_anim(SkaterPhysicsModule* core);
 // The member ThawBmxSteerAnim (ours): `on` / `off`.
-void set_steer_anim(void* core, bool on);
+void set_steer_anim(SkaterPhysicsModule* core, bool on);
 // The turn animation's subset gone at once (SkaterOffBike, on_skater_reset - before the state goes).
-void steer_anim_off(void* core);
+void steer_anim_off(SkaterPhysicsModule* core);
 
 // ---------------------------------------------------------------------------------------------------------------
 // The stall (thaw_bmx_physics.cpp; core_rail.cpp SkaterPhysicsModule::do_bike_stall_physics): R1 held as a grind starts
@@ -347,14 +352,14 @@ void steer_anim_off(void* core);
 // ShouldRunStallScript set, the velocity kept, and the bike moving across the rail (`start_velocity`, the velocity the
 // grind start began with, flattened, within Rail_Tolerance of square to `direction`) straight into the stall state;
 // else the flag cleared.
-void grind_stall(void* core, const maths::Vec4& start_velocity, const maths::Vec4& direction);
+void grind_stall(SkaterPhysicsModule* core, const maths::Vec4& start_velocity, const maths::Vec4& direction);
 // THAW 0x005E7074 (the rail state's update, at its end): with the flag set, still on the rail - the grind
 // slows by the kept velocity / stall_slip_time a frame, and stall_slip_time ms into it stalls; off the rail - the flag
 // cleared.
-void rail_stall_slip(void* core);
+void rail_stall_slip(SkaterPhysicsModule* core);
 // THAW 0x005E3801 (the stall state's update, at its end): on a rail steeper than the up's y 0.95 for more
 // than 10 frames (counted over every stall) back to grinding it. True when it did.
-bool stall_steep_rail(void* core);
+bool stall_steep_rail(SkaterPhysicsModule* core);
 
 // ---------------------------------------------------------------------------------------------------------------
 // THAW's stick buttons, the right stick's tricks and the d-pad camera (thaw_bmx_sticks.cpp). On the bike THAW turns

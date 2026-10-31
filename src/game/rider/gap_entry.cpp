@@ -31,6 +31,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/gap_entry.h"
+#include "game/rider/core_physics.h"
 
 namespace objects {
 
@@ -164,7 +165,10 @@ void add_gap_score(uint8_t* score, const char* text, int points, int flags)
 // The state component (the physics control's +0x2C): +0x118 driving, +0x1C walking.
 uint8_t* state_of(uint8_t* physics_control) { return prop<uint8_t*>(physics_control, 0x2C); }
 // The core physics' state component (+0x1528).
-uint8_t* get_core_state(uint8_t* core_physics) { return prop<uint8_t*>(core_physics, 0x1528); }
+uint8_t* get_core_state(skater::SkaterPhysicsModule* core_physics)
+{
+    return reinterpret_cast<uint8_t*>(core_physics->state_);
+}
 
 // Spin degrees in half turns (truncated, as the original's division).
 int get_half_turns(int degrees) { return degrees / 180; }
@@ -197,7 +201,7 @@ void RiderGapTracker::configure_from_data(script::Struct* /*params*/) { tick_ = 
 // 0x00511BC0
 void RiderGapTracker::seal()
 {
-    core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
+    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     balance_trick_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterBalanceTrick));
     physics_control_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterPhysicsControl));
     walk_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kWalk));
