@@ -152,7 +152,7 @@ bool __cdecl cfunc_goal_manager_got_counter_object(script::Struct* params, scrip
     if (!params->read_hash_value(kName, &name, 0))
         return false;
     Objective* goal = get_objective_board()->goals_.get_pull(name);
-    if (Virtual<bool>(goal, Objective::kVtIsActive))
+    if (goal->is_operative())
         goal->picked_up_countable();
     return true;
 }

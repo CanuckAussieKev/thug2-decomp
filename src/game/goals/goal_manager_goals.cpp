@@ -94,58 +94,33 @@ void free_array(script::Array* array)
     }
 }
 
-// The goal's type by its flags: its size and constructor.
+// The goal's type by its flags (made zeroed: Objective is a HeapObject; the original allocated the sizes noted with
+// the types).
 Objective* make_goal(script::Struct* params)
 {
-    if (params->has_bare_flag(kCompetitionFlag)) {
-        void* memory = memory::alloc_zeroed(sizeof(ContestObjective));
-        return memory ? static_cast<ContestObjective*>(memory)->make_new(params) : nullptr;
-    }
-    if (params->has_bare_flag(kNetFlag)) {
-        void* memory = memory::alloc_zeroed(0x74);
-        return memory ? static_cast<OnlineObjective*>(memory)->make_new(params) : nullptr;
-    }
-    if (params->has_bare_flag(kRaceFlag)) {
-        void* memory = memory::alloc_zeroed(0x7C);
-        return memory ? static_cast<RaceObjective*>(memory)->make_new(params) : nullptr;
-    }
-    if (params->has_bare_flag(kTetrisFlag)) {
-        void* memory = memory::alloc_zeroed(0x458);
-        return memory ? reinterpret_cast<Objective*>(static_cast<FallingTricksGoal*>(memory)->make_new(params))
-                      : nullptr;
-    }
-    if (params->has_bare_flag(kHorseFlag)) {
-        void* memory = memory::alloc_zeroed(0x70);
-        return memory ? static_cast<LetterGameObjective*>(memory)->make_new(params) : nullptr;
-    }
-    if (params->has_bare_flag(kFindGapsFlag)) {
-        void* memory = memory::alloc_zeroed(sizeof(HuntGapsObjective));
-        return memory ? static_cast<HuntGapsObjective*>(memory)->make_new(params) : nullptr;
-    }
-    if (params->has_bare_flag(kFilmFlag)) {
-        void* memory = memory::alloc_zeroed(sizeof(ShootVideoObjective));
-        return memory ? static_cast<ShootVideoObjective*>(memory)->make_new(params) : nullptr;
-    }
-    if (params->has_bare_flag(kTrickObjectsFlag)) {
-        void* memory = memory::alloc_zeroed(0x70);
-        return memory ? reinterpret_cast<Objective*>(static_cast<TrickObjectsGoal*>(memory)->make_new(params))
-                      : nullptr;
-    }
-    if (params->has_bare_flag(kSkateTheLine)) {
-        void* memory = memory::alloc_zeroed(0x70);
-        return memory ? static_cast<SkateLineGoal*>(memory)->make_new(params) : nullptr;
-    }
-    if (params->has_bare_flag(kTimedScoreRun)) {
-        void* memory = memory::alloc_zeroed(0x70);
-        return memory ? reinterpret_cast<Objective*>(static_cast<TimedScoreRunGoal*>(memory)->make_new(params))
-                      : nullptr;
-    }
-    if (params->has_bare_flag(kTrickBeat)) {
-        void* memory = memory::alloc_zeroed(0x47C);
-        return memory ? reinterpret_cast<Objective*>(static_cast<TrickBeatGoal*>(memory)->make_new(params)) : nullptr;
-    }
-    void* memory = memory::alloc_zeroed(sizeof(Objective));
-    return memory ? static_cast<Objective*>(memory)->make_new(params) : nullptr;
+    if (params->has_bare_flag(kCompetitionFlag))
+        return new ContestObjective(params);
+    if (params->has_bare_flag(kNetFlag))
+        return new OnlineObjective(params);
+    if (params->has_bare_flag(kRaceFlag))
+        return new RaceObjective(params);
+    if (params->has_bare_flag(kTetrisFlag))
+        return new FallingTricksGoal(params);
+    if (params->has_bare_flag(kHorseFlag))
+        return new LetterGameObjective(params);
+    if (params->has_bare_flag(kFindGapsFlag))
+        return new HuntGapsObjective(params);
+    if (params->has_bare_flag(kFilmFlag))
+        return new ShootVideoObjective(params);
+    if (params->has_bare_flag(kTrickObjectsFlag))
+        return new TrickObjectsGoal(params);
+    if (params->has_bare_flag(kSkateTheLine))
+        return new SkateLineGoal(params);
+    if (params->has_bare_flag(kTimedScoreRun))
+        return new TimedScoreRunGoal(params);
+    if (params->has_bare_flag(kTrickBeat))
+        return new TrickBeatGoal(params);
+    return new Objective(params);
 }
 
 } // namespace
@@ -196,13 +171,13 @@ void GoalManager::retry_previous_objective()
     script::stop_scripts_targeting(kSk3KillSkater);
     script::stop_scripts_targeting(kSk3KillSkaterFinish);
     script::launch_script(kKillBlur, nullptr, nullptr, false, nullptr);
-    if (!Virtual<bool>(goal, Objective::kVtHasWon) || goal->fetch_args()->has_bare_flag(kDontKillTriggerOnSuccess)) {
+    if (!goal->has_won() || goal->fetch_args()->has_bare_flag(kDontKillTriggerOnSuccess)) {
         script::Struct* params = spawn_param_table();
         params->put_name_key("goal_id", goal->get_objective_key()); // "goal_id"
         script::launch_script(kResetGoalTrigger, params, nullptr, false, nullptr);
         delete_structure(params);
     }
-    Virtual<bool>(goal, Objective::kVtActivate);
+    goal->activate();
     goal->unset_quick_start();
 }
 
@@ -220,7 +195,7 @@ void GoalManager::level_unload()
         if (goal->fetch_args()->has_bare_flag(kNullGoal) || goal->is_user_made_objective())
             continue;
         script::Struct* data = spawn_param_table();
-        Virtual<void>(goal, Objective::kVtGetSaveData, data);
+        goal->capture_save_block(data);
         goal_data_->put_sub_struct(goal->get_objective_key(), data);
         delete_structure(data);
     }
@@ -307,7 +282,7 @@ script::Struct* GoalManager::get_objective_try_details()
     int attempts = 0;
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (!goal->is_online_objective() && Virtual<bool>(goal, Objective::kVtHasWon))
+        if (!goal->is_online_objective() && goal->has_won())
             attempts += goal->get_times_started();
     }
     info->put_int(kAttempts, attempts);

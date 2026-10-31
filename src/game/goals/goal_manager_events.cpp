@@ -115,7 +115,7 @@ void GoalManager::land()
     int count = goals_.num_; // (read once)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (!Virtual<bool>(goal, Objective::kVtIsActive))
+        if (!goal->is_operative())
             continue;
         if (goal->is_horse()) {
             static_cast<LetterGameObjective*>(goal)->land(); // (the rest skipped)
@@ -176,7 +176,7 @@ void GoalManager::get_bail()
     int count = goals_.num_; // (read once)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (!Virtual<bool>(goal, Objective::kVtIsActive))
+        if (!goal->is_operative())
             continue;
         if (goal->requires_combo() && goal->fetch_args()->has_bare_flag(kChainActiveFlag))
             lose_next_frame(goal);
@@ -203,7 +203,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         if (skater && pro != skater)
             continue;
         uint32_t id = goal->get_objective_key();
-        int beaten = Virtual<bool>(goal, Objective::kVtHasWon) ? 1 : 0;
+        int beaten = goal->has_won() ? 1 : 0;
         int locked = goal->is_latched() ? 1 : 0;
         script::Struct* params = goal->fetch_args();
         const char* text;
@@ -348,7 +348,7 @@ bool __cdecl cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* s
         Objective* goal = manager->goals_.get_by_index(i);
         script::Struct* entry = spawn_param_table();
         entry->put_name_key(kGoalIdKey, goal->get_objective_key());
-        entry->put_int(kAlreadyWon, Virtual<bool>(goal, Objective::kVtHasWon) ? 1 : 0);
+        entry->put_int(kAlreadyWon, goal->has_won() ? 1 : 0);
         list->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
     }
     script->args_->append_array_value(kGoalList, list);

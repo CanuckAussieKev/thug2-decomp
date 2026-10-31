@@ -493,8 +493,8 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
                     enqueue(server, player, &desc);
             }
             goals::Objective* goal = goals::get_objective_board()->get_goal(kScavengerCollectPeriod, 1);
-            if (goals::Virtual<bool>(goal, goals::Objective::kVtIsActive))
-                goals::Virtual<void>(goal, goals::Objective::kVtExpire);
+            if (goal->is_operative())
+                goal->expire();
         } else {
             // five or one left: told to everyone (0x95: the player or the team, how many)
             uint8_t count = 0;
@@ -583,12 +583,10 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
             return by_connection(context->sender_conn_);
         return by_object_id(g_net_relay_object_id);
     };
-    // the texture's virtual slot 5 (0x00456B30): its texture and palette
-    auto load = [](void* texture, const void* texture_data, uint32_t texture_size, const void* palette,
-                   uint32_t palette_size) {
-        reinterpret_cast<void(__thiscall*)(void*, const void*, uint32_t, const void*, uint32_t)>(
-            prop<void**>(texture, 0)[5])(texture, texture_data, texture_size, palette, palette_size);
-    };
+    // the texture's virtual slot 5 (through 0x00456B30): its texture and palette - on PC, as in the engine's
+    // table, the shared "return false" stub: nothing is loaded
+    auto load = [](void* /*texture*/, const void* /*texture_data*/, uint32_t /*texture_size*/, const void* /*palette*/,
+                   uint32_t /*palette_size*/) {};
     switch (context->type_code_) {
     case 0x96: // the player the next ones are for
         g_net_relay_object_id = msg[0];

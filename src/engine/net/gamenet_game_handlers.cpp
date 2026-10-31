@@ -333,8 +333,8 @@ int __cdecl handle_selected_goals(net::InboundMsgCtx* context)
     for (uint32_t goal = prop<uint32_t>(name, 0); goal; goal = prop<uint32_t>(name, 0)) {
         name += 4;
         uint8_t* entry = get_goal(goals, goal);
-        reinterpret_cast<void(__thiscall*)(uint8_t*)>(prop<void**>(entry, 0)[0x74 / 4])(entry); // select it
-        get_call(code_address(&goals::Objective::choose_one), entry);
+        reinterpret_cast<goals::Objective*>(entry)->un_beat(); // (the original's vtable +0x74)
+        reinterpret_cast<goals::Objective*>(entry)->choose_one();
     }
     if (show == 1) {
         script::Struct* params = new_params();
@@ -419,8 +419,8 @@ int __cdecl handle_goal_completed(net::InboundMsgCtx* context)
         return kContinue;
     }
     if (current) {
-        get_call(code_address(&goals::Objective::get_top_objective_key), current);
-        get_call(code_address(&goals::Objective::get_top_objective_key), goal);
+        reinterpret_cast<goals::Objective*>(current)->get_top_objective_key();
+        reinterpret_cast<goals::Objective*>(goal)->get_top_objective_key();
     }
     if (!is_squad_match() || player_team(local) != player_team(player))
         return kContinue;
@@ -444,7 +444,7 @@ int __cdecl handle_goal_completed(net::InboundMsgCtx* context)
     int done = get_call<int>(code_address(&goals::GoalManager::count_objectives_cleared), goals);
     if (total > done) {
         const char* text = nullptr;
-        get_call(code_address(&goals::Objective::get_objective_list_caption), goal, &text);
+        reinterpret_cast<goals::Objective*>(goal)->get_objective_list_caption(&text);
         script::Struct* params = new_params();
         params->put_int(kNumGoalsLeft, total - done);
         params->append_word(kPlayerName, player_name(player));
@@ -467,7 +467,7 @@ int __cdecl handle_goal_started(net::InboundMsgCtx* context)
     uint8_t* player = find_player_slot_by_obj(manager, msg);
     if (player_team(find_own_player_record(manager)) != player_team(player))
         return kContinue;
-    get_call(code_address(&goals::Objective::get_objective_list_caption), goal, &text);
+    reinterpret_cast<goals::Objective*>(goal)->get_objective_list_caption(&text);
     script::Struct* params = new_params();
     params->append_word(kPlayerName, player_name(player));
     params->append_word(kGoalText, text);

@@ -236,7 +236,7 @@ bool Objective::is_edited_goal2() { return args_->has_bare_flag(kEditedGoal); }
 // 0x005542C0
 bool Objective::has_won_goal_or_child()
 {
-    if (Virtual<bool>(this, kVtHasWon))
+    if (has_won())
         return true;
     for (GoalEdge* link = sub_nodes_; link; link = link->succ_) {
         if (link->won_)
@@ -301,7 +301,7 @@ void Objective::reset_current_time() { args_->put_int(kCurrentTime, 0); }
 // 0x00554480
 void Objective::update_current_time()
 {
-    if (Virtual<bool>(this, kVtIsPaused))
+    if (is_frozen())
         return;
     // (a current_time that isn't there leaves the goal's address in the original's local)
     int time = static_cast<int>(reinterpret_cast<uintptr_t>(this));
@@ -348,7 +348,7 @@ bool Objective::has_time_limit()
 }
 
 // 0x005545F0
-bool Objective::has_component_a_302d_7c_d() { return args_->has_entry_named(kComponentA302d7cD); }
+bool Objective::shows_clock() { return args_->has_entry_named(kComponentA302d7cD); }
 
 // 0x00554610
 void Objective::restore_save_block(script::Struct* data)
@@ -356,7 +356,7 @@ void Objective::restore_save_block(script::Struct* data)
     int beaten = 0;
     data->fetch_int_value(kAlreadyWon, &beaten, 1);
     if (beaten)
-        Virtual<void>(this, kVtMarkWon);
+        mark_won();
     int locked = 1;
     data->fetch_int_value(kIsLocked, &locked, 1);
     if (!locked)
@@ -400,7 +400,7 @@ void Objective::capture_save_block(script::Struct* data)
     bool locked = (flag_bits_ & kFlagLocked) || is_group_locked(manager, bundle_, level_);
     data->put_int(kIsLocked, locked);
     data->put_int(kHasSeen, (flag_bits_ & kFlagSeen) ? 1 : 0);
-    data->put_int(kAlreadyWon, Virtual<bool>(this, kVtHasWon));
+    data->put_int(kAlreadyWon, has_won());
     int record = 0;
     uint32_t type;
     if (args_->read_hash_value(kRecordType, &type, 0)) {

@@ -85,10 +85,9 @@ static_assert(offsetof(WeatherSystem, active_) == 0x30 && offsetof(WeatherSystem
                   offsetof(WeatherSystem, rain_on_) == 0x58,
               "layout must match the original");
 
-// 0x004A1090 / 0x004A10A0: tail jumps to `this`'s virtual [1] / [3], the arguments left as they are (the linker
-// folded every such dispatcher into these two: the weather's tick_grid / Render, a primitive's texture / layout,
-// a viewport camera's projection, an event listener's filter, a sector's...).
+// 0x004A1090: a tail jump to `this`'s virtual [1], the arguments left as they are (the linker folded every such
+// dispatcher into it: the weather's tick_grid, a viewport camera's projection, an event listener's filter...). Its twin
+// 0x004A10A0 (to [3]: the goals' slot 4, a sector's shatter...) has no users left.
 void virtual_slot1_jump();
-void virtual_slot3_jump();
 
 } // namespace render

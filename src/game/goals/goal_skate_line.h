@@ -10,13 +10,12 @@
 
 namespace goals {
 
-class SkateLineGoal : public Objective {
+class SkateLineGoal final : public Objective {
 public:
-    // 0x005691F0: the constructor (Objective's). Returns this. 0x00569210 / 0x00569290 (vtable +0x00): the destructor
+    // 0x005691F0: the constructor (Objective's). 0x00569210 / 0x00569290 (vtable +0x00): the destructor
     // body / the scalar deleting destructor.
-    SkateLineGoal* make_new(script::Struct* params);
-    void destroy_body();
-    SkateLineGoal* teardown(uint8_t flags);
+    explicit SkateLineGoal(script::Struct* params);
+    ~SkateLineGoal() override;
     // 0x00569220: the skater landed: with a combo required (and 0x7100155D), won when every flag is set, else lost.
     // The answer is the win's / loss's (false when it doesn't apply).
     bool land();
@@ -26,7 +25,8 @@ public:
     // 0x00569410 (vtable +0x4C): a flag set only when it is the next cluster's (the goal started first if it
     // isn't active): won when they're all set (unless a combo is required), else the next cluster. Not while won,
     // locked, or done waiting for the combo.
-    bool set_flag(uint32_t flag, int value, uint32_t sub);
+    bool set_flag(uint32_t flag, int value, uint32_t sub) override;
 };
+static_assert(sizeof(SkateLineGoal) == 0x70, "the size the goal manager allocated");
 
 } // namespace goals

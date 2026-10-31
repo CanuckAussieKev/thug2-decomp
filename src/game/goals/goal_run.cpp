@@ -129,8 +129,8 @@ void Objective::attach_child(uint32_t id)
 // 0x00554BD0
 void Objective::uninitialize(bool children, int depth)
 {
-    if (Virtual<bool>(this, kVtIsActive))
-        Virtual<bool>(this, kVtDeactivate, true, true);
+    if (is_operative())
+        disengage(true, true);
     uint32_t script;
     if (args_->read_hash_value(kUninit, &script, 0))
         script::launch_script(script, args_, nullptr, false, nullptr);
@@ -145,12 +145,12 @@ void Objective::uninitialize(bool children, int depth)
 // 0x00554C70
 bool Objective::lose()
 {
-    if (!Virtual<bool>(this, kVtIsActive))
+    if (!is_operative())
         return false;
     uint32_t script;
     if (args_->read_hash_value(kFail, &script, 0))
         script::launch_script(script, args_, nullptr, false, nullptr);
-    Virtual<bool>(this, kVtDeactivate, true, true);
+    disengage(true, true);
     return true;
 }
 
@@ -201,18 +201,18 @@ bool Objective::wants_to_end() { return is_expired_at_end_of_run(false); }
 // 0x00554DD0
 bool Objective::tick_frame()
 {
-    if (Virtual<bool>(this, kVtIsActive) && !Virtual<bool>(this, kVtIsPaused))
+    if (is_operative() && !is_frozen())
         invoke_hook_script(kActiveScript);
-    if (!Virtual<bool>(this, kVtIsActive) || Virtual<bool>(this, kVtIsPaused))
+    if (!is_operative() || is_frozen())
         return true;
-    if (Virtual<bool>(this, kVtHasTimeLimit) && seconds_remaining_ >= 1) {
+    if (has_time_limit() && seconds_remaining_ >= 1) {
         int before = seconds_remaining_;
         seconds_remaining_ +=
             truncate(frame_clock::get_slomo_frame_seconds() * g_goal_run_minus_milliseconds); // (-1000)
         elapsed_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::g_thousand);       // (1000)
         // The last ten seconds beep each second.
-        if (seconds_remaining_ < 10000 && before / 1000 > seconds_remaining_ / 1000 &&
-            Virtual<bool>(this, kVtTimerBeeps) && game_mode_timer_beeps())
+        if (seconds_remaining_ < 10000 && before / 1000 > seconds_remaining_ / 1000 && timer_beeps() &&
+            game_mode_timer_beeps())
             script::launch_script(kTimerRunoutBeep, nullptr, nullptr, false, nullptr);
     }
     if (args_->has_bare_flag(kRequireCombo) && !args_->has_bare_flag(kChainActiveFlag)) {
@@ -225,8 +225,8 @@ bool Objective::tick_frame()
                 args_->put_name_key(kNoName, kChainActiveFlag);
         }
     }
-    if (Virtual<bool>(this, kVtHasTimeLimit) && Virtual<bool>(this, kVtShouldExpire))
-        Virtual<void>(this, kVtExpire);
+    if (has_time_limit() && wants_to_end())
+        expire();
     return true;
 }
 
@@ -237,7 +237,7 @@ void Objective::expire()
     if (args_->read_hash_value(kExpireScript, &script, 0))
         script::launch_script(script, args_, nullptr, false, nullptr);
     if (flag_bits_ & kFlagDeactivateOnExpire)
-        Virtual<bool>(this, kVtDeactivate, false, true);
+        disengage(false, true);
 }
 
 // 0x00554F90
@@ -263,7 +263,7 @@ bool Objective::register_gap_hit(uint32_t gap)
         if (gaps->fetch_part(i) == gap) {
             char flag[32];
             std::snprintf(flag, sizeof(flag), kGotFormat, static_cast<int>(i + 1));
-            Virtual<bool>(this, kVtSetFlag, checksums::hash_from_text(flag), 1, 0u);
+            set_flag(checksums::hash_from_text(flag), 1, 0u);
             return true;
         }
     }
@@ -329,7 +329,7 @@ void Objective::kill_cluster(uint32_t cluster, int score)
                 debug::printf("ModulateTrickObjectColor didn't work\n"); // "ModulateTrickObjectColor didn't work\n"
             uint32_t flag;
             entry->read_hash_value(kFlag, &flag, 1);
-            Virtual<bool>(this, kVtSetFlag, flag, 1, 0u);
+            set_flag(flag, 1, 0u);
             return;
         }
     }
@@ -390,7 +390,7 @@ void Objective::mark_won()
         flag_bits_ |= kFlagWon;
     void* manager = objective_board();
     for (GoalEdge* link = parents_; link && link->objective_key_; link = link->succ_)
-        Virtual<void>(get_goal(manager, link->objective_key_, 1), kVtMarkWon);
+        get_goal(manager, link->objective_key_, 1)->mark_won();
 }
 
 // 0x00555650
@@ -415,7 +415,7 @@ void Objective::set_launch_altitude()
 // 0x00555710
 bool Objective::test_highest_air()
 {
-    if (Virtual<bool>(this, kVtIsPaused))
+    if (is_frozen())
         return false;
     int record = 0;
     args_->fetch_int_value(kRecord, &record, 0);

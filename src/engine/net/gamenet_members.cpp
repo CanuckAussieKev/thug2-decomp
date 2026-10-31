@@ -306,7 +306,7 @@ bool Hub::send_custom_tag_texture()
             logos |= 4;
         if (profile_has_part(profile, kDeckGraphic))
             logos |= 8;
-        void* texture = get_call<void*>(code_address(&goals::Objective::fetch_args), tagging); // the custom tag texture
+        void* texture = reinterpret_cast<goals::Objective*>(tagging)->fetch_args(); // the custom tag texture
         if (texture) {
             net::NetMessageInfo desc;
             desc.make_new();

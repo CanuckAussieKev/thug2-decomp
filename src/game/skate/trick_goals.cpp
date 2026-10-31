@@ -29,10 +29,7 @@
 #include "game/goals/objective.h"
 #include "engine/objects/control_pad.h"
 #include "game/park_editing/piece_menu.h"
-#include "engine/core/code_address.h"
 #include "engine/gfx/tod_manager.h"
-#include "engine/core/stubs.h"
-#include "engine/gfx/weather.h"
 #include "game/goals/create_a_trick.h"
 
 #pragma warning(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
@@ -126,150 +123,16 @@ constexpr uint32_t kFlag = 0x2E0B1465;          // flag
 constexpr uint32_t kSkaterState = 0x43686585;   // SkaterState (the component)
 constexpr uint32_t kSkaterScore = 0xD262802F;   // SkaterScore (the component)
 
-static VtableSlot g_tetris_vtable_slots[] = {&goals::FallingTricksGoal::teardown,
-                                             &goals::Objective::wants_to_end,
-                                             &goals::Objective::has_run_out,
-                                             &goals::Objective::is_operative,
-                                             render::virtual_slot3_jump,
-                                             &goals::FallingTricksGoal::expire,
-                                             &goals::Objective::restore_save_block,
-                                             &goals::Objective::capture_save_block,
-                                             &goals::Objective::has_time_limit,
-                                             stubs::return_true,
-                                             &goals::Objective::has_component_a_302d_7c_d,
-                                             &goals::FallingTricksGoal::activate,
-                                             &goals::Objective::change_live,
-                                             &goals::FallingTricksGoal::disengage,
-                                             &goals::Objective::clear_engaged_bit,
-                                             &goals::FallingTricksGoal::get_win,
-                                             &goals::Objective::lose,
-                                             &goals::FallingTricksGoal::tick_frame,
-                                             &goals::Objective::is_frozen,
-                                             &goals::Objective::set_flag,
-                                             &goals::Objective::stage_flag_set,
-                                             &goals::Objective::has_won,
-                                             &goals::Objective::net_stage_flag_set,
-                                             &goals::Objective::has_won_goal_or_child,
-                                             &goals::Objective::is_prepared,
-                                             &goals::Objective::may_try_again,
-                                             &goals::Objective::mark_won,
-                                             &goals::Objective::set_stage_flag,
-                                             &goals::Objective::set_net_stage_flag,
-                                             &goals::Objective::un_beat};
-void** const kTetrisVtable = reinterpret_cast<void**>(g_tetris_vtable_slots);
-static VtableSlot g_timed_score_run_vtable_slots[] = {&goals::TimedScoreRunGoal::teardown,
-                                                      &goals::Objective::wants_to_end,
-                                                      &goals::Objective::has_run_out,
-                                                      &goals::Objective::is_operative,
-                                                      render::virtual_slot3_jump,
-                                                      &goals::Objective::expire,
-                                                      &goals::Objective::restore_save_block,
-                                                      &goals::Objective::capture_save_block,
-                                                      &goals::Objective::has_time_limit,
-                                                      stubs::return_true,
-                                                      &goals::TimedScoreRunGoal::is_underway,
-                                                      &goals::Objective::activate,
-                                                      &goals::Objective::change_live,
-                                                      &goals::Objective::disengage,
-                                                      &goals::Objective::clear_engaged_bit,
-                                                      &goals::Objective::get_win,
-                                                      &goals::Objective::lose,
-                                                      &goals::Objective::tick_frame,
-                                                      &goals::Objective::is_frozen,
-                                                      &goals::Objective::set_flag,
-                                                      &goals::Objective::stage_flag_set,
-                                                      &goals::Objective::has_won,
-                                                      &goals::Objective::net_stage_flag_set,
-                                                      &goals::Objective::has_won_goal_or_child,
-                                                      &goals::Objective::is_prepared,
-                                                      &goals::Objective::may_try_again,
-                                                      &goals::Objective::mark_won,
-                                                      &goals::Objective::set_stage_flag,
-                                                      &goals::Objective::set_net_stage_flag,
-                                                      &goals::Objective::un_beat};
-void** const kTimedScoreRunVtable = reinterpret_cast<void**>(g_timed_score_run_vtable_slots);
-static VtableSlot g_trick_beat_vtable_slots[] = {&goals::TrickBeatGoal::teardown,
-                                                 &goals::Objective::wants_to_end,
-                                                 &goals::Objective::has_run_out,
-                                                 &goals::Objective::is_operative,
-                                                 render::virtual_slot3_jump,
-                                                 &goals::Objective::expire,
-                                                 &goals::Objective::restore_save_block,
-                                                 &goals::Objective::capture_save_block,
-                                                 &goals::Objective::has_time_limit,
-                                                 stubs::return_true,
-                                                 &goals::Objective::has_component_a_302d_7c_d,
-                                                 &goals::TrickBeatGoal::activate,
-                                                 &goals::Objective::change_live,
-                                                 &goals::TrickBeatGoal::disengage,
-                                                 &goals::Objective::clear_engaged_bit,
-                                                 &goals::FallingTricksGoal::get_win,
-                                                 &goals::Objective::lose,
-                                                 &goals::TrickBeatGoal::tick_frame,
-                                                 &goals::Objective::is_frozen,
-                                                 &goals::Objective::set_flag,
-                                                 &goals::Objective::stage_flag_set,
-                                                 &goals::Objective::has_won,
-                                                 &goals::Objective::net_stage_flag_set,
-                                                 &goals::Objective::has_won_goal_or_child,
-                                                 &goals::Objective::is_prepared,
-                                                 &goals::Objective::may_try_again,
-                                                 &goals::Objective::mark_won,
-                                                 &goals::Objective::set_stage_flag,
-                                                 &goals::Objective::set_net_stage_flag,
-                                                 &goals::Objective::un_beat};
-void** const kTrickBeatVtable = reinterpret_cast<void**>(g_trick_beat_vtable_slots);
-static VtableSlot g_trick_objects_vtable_slots[] = {&goals::TrickObjectsGoal::teardown,
-                                                    &goals::Objective::wants_to_end,
-                                                    &goals::Objective::has_run_out,
-                                                    &goals::Objective::is_operative,
-                                                    render::virtual_slot3_jump,
-                                                    &goals::Objective::expire,
-                                                    &goals::Objective::restore_save_block,
-                                                    &goals::Objective::capture_save_block,
-                                                    &goals::Objective::has_time_limit,
-                                                    stubs::return_true,
-                                                    &goals::Objective::has_component_a_302d_7c_d,
-                                                    &goals::Objective::activate,
-                                                    &goals::Objective::change_live,
-                                                    &goals::Objective::disengage,
-                                                    &goals::Objective::clear_engaged_bit,
-                                                    &goals::Objective::get_win,
-                                                    &goals::Objective::lose,
-                                                    &goals::Objective::tick_frame,
-                                                    &goals::Objective::is_frozen,
-                                                    &goals::Objective::set_flag,
-                                                    &goals::Objective::stage_flag_set,
-                                                    &goals::Objective::has_won,
-                                                    &goals::Objective::net_stage_flag_set,
-                                                    &goals::Objective::has_won_goal_or_child,
-                                                    &goals::Objective::is_prepared,
-                                                    &goals::Objective::may_try_again,
-                                                    &goals::Objective::mark_won,
-                                                    &goals::Objective::set_stage_flag,
-                                                    &goals::Objective::set_net_stage_flag,
-                                                    &goals::Objective::un_beat};
-void** const kTrickObjectsVtable = reinterpret_cast<void**>(g_trick_objects_vtable_slots);
-
 // The red-tricks threshold (0x0064E918): three quarters of max_tricks.
 double three_quarters() { return g_trick_goals_three_quarters; }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-template <typename R, typename... A>
-R Virtual(GoalBase* goal, int offset, A... args)
-{
-    return reinterpret_cast<R(__thiscall*)(GoalBase*, A...)>(goal->vtable_[offset / 4])(goal, args...);
-}
-void construct_goal(GoalBase* goal, script::Struct* params)
-{
-    reinterpret_cast<GoalBase*>(reinterpret_cast<Objective*>(goal)->make_new(params));
-}
-void destroy_goal(GoalBase* goal) { reinterpret_cast<Objective*>(goal)->destroy_body(); }
-uint32_t get_goal_id(GoalBase* goal) { return reinterpret_cast<Objective*>(goal)->get_objective_key(); }
-bool base_update(GoalBase* goal) { return reinterpret_cast<Objective*>(goal)->tick_frame(); }
-bool base_activate(GoalBase* goal) { return reinterpret_cast<Objective*>(goal)->activate(); }
+uint32_t get_goal_id(Objective* goal) { return goal->get_objective_key(); }
+// Objective's own Update / Activate (the types' overrides end with them).
+bool base_update(Objective* goal) { return goal->Objective::tick_frame(); }
+bool base_activate(Objective* goal) { return goal->Objective::activate(); }
 // The goal manager (the skate module's, 0x005591B0) winning / losing / starting a goal.
 void* objective_board() { return get_objective_board(); }
 void complete_objective(void* manager, uint32_t id) { static_cast<GoalManager*>(manager)->complete_objective(id); }
@@ -374,45 +237,24 @@ uint32_t prefixed_checksum(const char* prefix, const char* name)
 
 } // namespace
 
-bool GoalBase::is_operative() { return Virtual<bool>(this, 0x0C); }
-bool GoalBase::is_frozen() { return Virtual<bool>(this, 0x48); }
-
 // --- Skatetris ---------------------------------------------------------------------------------------------------
 
 // 0x0056F090
-FallingTricksGoal* FallingTricksGoal::make_new(script::Struct* params)
-{
-    construct_goal(this, params);
-    vtable_ = kTetrisVtable;
-    return this;
-}
+FallingTricksGoal::FallingTricksGoal(script::Struct* params) : Objective(params) {}
 
 // 0x0056F0B0
-void FallingTricksGoal::destroy_body()
-{
-    vtable_ = kTetrisVtable;
-    destroy_goal(this);
-}
-
-// 0x0056F290
-FallingTricksGoal* FallingTricksGoal::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+FallingTricksGoal::~FallingTricksGoal() = default;
 
 // 0x0056F0C0
 bool FallingTricksGoal::get_win()
 {
     bool testing = args_->has_bare_flag(kTrialRunFlag);
     args_->put_name_key(0u, kJustWonGoal);
-    Virtual<void>(this, 0x34, 0, 1); // Deactivate
+    disengage(0, 1); // Deactivate
     args_->remove_flag(kJustWonGoal);
     if (testing)
         args_->put_name_key(0u, kTrialRunFlag);
-    bool won = reinterpret_cast<Objective*>(this)->get_win();
+    bool won = Objective::get_win();
     args_->remove_flag(kTrialRunFlag);
     return won;
 }
@@ -463,11 +305,10 @@ bool FallingTricksGoal::is_single_combo() { return integer_or_flag(args_, kSingl
 bool FallingTricksGoal::is_trick_tris() { return integer_or_flag(args_, kTrickTris); }
 
 // 0x0056F2C0
-void FallingTricksGoal::disengage(int a, int b)
+bool FallingTricksGoal::disengage(bool unused, bool reset_tree)
 {
     clear_tricks();
-    reinterpret_cast<Objective*>(this)->disengage(reinterpret_cast<bool&>(a),
-                                                  reinterpret_cast<bool&>(b)); // (the bytes as they are)
+    return Objective::disengage(unused, reset_tree);
 }
 
 // 0x0056F2E0
@@ -523,7 +364,7 @@ void FallingTricksGoal::update_alphas()
 void FallingTricksGoal::expire()
 {
     if (integer_or_flag(args_, kSingleCombo) || is_trick_tris()) {
-        reinterpret_cast<Objective*>(this)->lose(); // Objective's
+        lose();
         return;
     }
     if (all_free()) {
@@ -531,9 +372,9 @@ void FallingTricksGoal::expire()
         complete_objective(manager, get_goal_id(this));
         return;
     }
-    reinterpret_cast<Objective*>(this)->invoke_hook_script(kExpire);
-    if (cur_phase_ != 2)
-        Virtual<void>(this, 0x34, 0, 1); // Deactivate
+    invoke_hook_script(kExpire);
+    if (run_ending_ != 2)
+        disengage(0, 1); // Deactivate
 }
 
 // 0x0056F5B0
@@ -683,7 +524,7 @@ void FallingTricksGoal::add_tricks(int count)
                 trick->fetch_text(kKeyCombo, &key_combo_text, 0);
         } else {
             // A key combo: its trick from the skater's trick mapping.
-            int index = reinterpret_cast<Objective*>(this)->pick_key_combo(key_combos);
+            int index = pick_key_combo(key_combos);
             if (index == -1)
                 return;
             if (key_combos->kind_tag_ == script::kQbvalName) {
@@ -889,7 +730,7 @@ bool FallingTricksGoal::tick_frame()
     if (is_operative() && !is_frozen())
         update_alphas();
     if (is_trick_tris()) {
-        if (!(flag_bits_ & 0x10) && !(static_cast<double>(seconds_remaining_) > 0.0))
+        if (!(cur_phase_ & kStateNoTimeLimit) && !(static_cast<double>(seconds_remaining_) > 0.0))
             return base_update(this);
         if (is_frozen())
             return base_update(this);
@@ -912,7 +753,7 @@ bool FallingTricksGoal::tick_frame()
         add_tricks(count);
         return base_update(this);
     }
-    if (!is_operative() || (!(flag_bits_ & 0x10) && seconds_remaining_ < stop_time) || is_frozen())
+    if (!is_operative() || (!(cur_phase_ & kStateNoTimeLimit) && seconds_remaining_ < stop_time) || is_frozen())
         return base_update(this);
     stopwatch_ += ftol(frame_clock::get_slomo_frame_seconds() * 1000.0f);
     if (is_single_combo()) {
@@ -974,31 +815,13 @@ void FallingTricksGoal::check_tricks()
 // --- TimedScoreRun -------------------------------------------------------------------------------------------------
 
 // 0x005710B0
-TimedScoreRunGoal* TimedScoreRunGoal::make_new(script::Struct* params)
-{
-    construct_goal(this, params);
-    vtable_ = kTimedScoreRunVtable;
-    return this;
-}
+TimedScoreRunGoal::TimedScoreRunGoal(script::Struct* params) : Objective(params) {}
 
 // 0x005710D0
-void TimedScoreRunGoal::destroy_body()
-{
-    vtable_ = kTimedScoreRunVtable;
-    destroy_goal(this);
-}
-
-// 0x00571110
-TimedScoreRunGoal* TimedScoreRunGoal::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+TimedScoreRunGoal::~TimedScoreRunGoal() = default;
 
 // 0x005710E0
-int TimedScoreRunGoal::is_underway() { return is_operative() && !is_frozen() ? 1 : 0; }
+bool TimedScoreRunGoal::shows_clock() { return is_operative() && !is_frozen(); }
 
 // --- TrickBeat -----------------------------------------------------------------------------------------------------
 
@@ -1031,11 +854,10 @@ void TrickBeatGoal::clear_tricks()
 }
 
 // 0x005749F0
-void TrickBeatGoal::disengage(int a, int b)
+bool TrickBeatGoal::disengage(bool unused, bool reset_tree)
 {
     clear_tricks();
-    reinterpret_cast<Objective*>(this)->disengage(reinterpret_cast<bool&>(a),
-                                                  reinterpret_cast<bool&>(b)); // (the bytes as they are)
+    return Objective::disengage(unused, reset_tree);
 }
 
 namespace {
@@ -1103,10 +925,8 @@ void TrickBeatGoal::clear_landed()
 void TrickBeatGoal::reset_clock() { last_time_ = game_clock(); }
 
 // 0x00574C40
-TrickBeatGoal* TrickBeatGoal::make_new(script::Struct* params)
+TrickBeatGoal::TrickBeatGoal(script::Struct* params) : Objective(params)
 {
-    construct_goal(this, params);
-    vtable_ = kTrickBeatVtable;
     script::Array* memory = script::alloc_script_array();
     pattern_ = memory ? memory->prepare_all() : nullptr;
     pattern_->configure_size_kind(kBeats, script::kQbvalStruct);
@@ -1116,7 +936,6 @@ TrickBeatGoal* TrickBeatGoal::make_new(script::Struct* params)
     params->fetch_int_value(kTempo, &tempo, 1);
     script::duplicate_array(pattern_, pattern);
     beat_length_ = static_cast<float>(g_trick_goals_beat_milliseconds / static_cast<double>(tempo));
-    return this;
 }
 
 // 0x00574D50
@@ -1184,16 +1003,14 @@ inline void destroy_sound_volume(SoundVolume*) {}
 } // namespace
 
 // 0x00575140
-void TrickBeatGoal::destroy_body()
+TrickBeatGoal::~TrickBeatGoal()
 {
-    vtable_ = kTrickBeatVtable;
     script::release_array_storage(pattern_);
     pattern_->get_clear();
     if (pattern_) {
         pattern_->get_clear();
         script::delete_array(pattern_);
     }
-    destroy_goal(this);
 }
 
 // 0x005751C0
@@ -1307,7 +1124,7 @@ void TrickBeatGoal::add_tricks(int count)
             if (!trick->read_hash_value(kKeyCombo, &key_combo, 0))
                 trick->fetch_text(kKeyCombo, &key_combo_text, 0);
         } else {
-            int index = reinterpret_cast<Objective*>(this)->pick_key_combo(key_combos);
+            int index = pick_key_combo(key_combos);
             if (index == -1)
                 return;
             if (key_combos->kind_tag_ == script::kQbvalName) {
@@ -1433,15 +1250,6 @@ void TrickBeatGoal::remove_landed_tricks()
     }
 }
 
-// 0x00576210
-TrickBeatGoal* TrickBeatGoal::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x00576240
 bool TrickBeatGoal::tick_frame()
 {
@@ -1456,7 +1264,8 @@ bool TrickBeatGoal::tick_frame()
     }
     if (is_operative())
         is_frozen(); // (the result isn't used)
-    if (is_operative() && ((flag_bits_ & 0x10) || static_cast<double>(seconds_remaining_) > 0.0) && !is_frozen()) {
+    if (is_operative() && ((cur_phase_ & kStateNoTimeLimit) || static_cast<double>(seconds_remaining_) > 0.0) &&
+        !is_frozen()) {
         update_beat();
         int used = 0;
         for (const BeatTrick& t : tricks_) {
@@ -1478,34 +1287,16 @@ bool TrickBeatGoal::tick_frame()
 // --- TrickObjects --------------------------------------------------------------------------------------------------
 
 // 0x005763A0
-TrickObjectsGoal* TrickObjectsGoal::make_new(script::Struct* params)
-{
-    construct_goal(this, params);
-    vtable_ = kTrickObjectsVtable;
-    return this;
-}
+TrickObjectsGoal::TrickObjectsGoal(script::Struct* params) : Objective(params) {}
 
 // 0x005763C0
-void TrickObjectsGoal::destroy_body()
-{
-    vtable_ = kTrickObjectsVtable;
-    destroy_goal(this);
-}
-
-// 0x005763D0
-TrickObjectsGoal* TrickObjectsGoal::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+TrickObjectsGoal::~TrickObjectsGoal() = default;
 
 // 0x00576400
 void TrickObjectsGoal::evaluate_points()
 {
     void* manager = objective_board();
-    if (!reinterpret_cast<Objective*>(this)->has_every_bit()) {
+    if (!has_every_bit()) {
         fail_objective(manager, get_goal_id(this));
         return;
     }
@@ -1547,7 +1338,7 @@ script::Struct* TrickObjectsGoal::get_object_by_cluster(uint32_t cluster)
 void TrickObjectsGoal::get_object_hit(uint32_t cluster)
 {
     script::Struct* object = get_object_by_cluster(cluster);
-    if (!object || Virtual<bool>(this, 0x54) || reinterpret_cast<Objective*>(this)->is_latched())
+    if (!object || has_won() || is_latched())
         return;
     uint8_t* skater = local_skater();
     if (!skater)
@@ -1568,8 +1359,8 @@ void TrickObjectsGoal::get_object_hit(uint32_t cluster)
     }
     uint32_t flag;
     object->read_hash_value(kFlag, &flag, 1);
-    if (!reinterpret_cast<Objective*>(this)->bit_is_on(flag, 0))
-        Virtual<void>(this, 0x4C, flag, 1, 0);
+    if (!bit_is_on(flag, 0))
+        set_flag(flag, 1, 0);
 }
 
 } // namespace goals

@@ -197,13 +197,13 @@ bool __cdecl cfunc_goal_manager_initialize_goal(script::Struct* params, script::
 // 0x0055AAF0
 bool __cdecl cfunc_goal_manager_goal_is_expired(script::Struct* params, script::Script*)
 {
-    return Virtual<bool>(name_then_goal(params), Objective::kVtShouldExpire);
+    return (name_then_goal(params))->wants_to_end();
 }
 
 // 0x0055AB40
 bool __cdecl cfunc_goal_manager_expire_goal(script::Struct* params, script::Script*)
 {
-    Virtual<void>(name_then_goal(params), Objective::kVtExpire);
+    name_then_goal(params)->expire();
     return true;
 }
 
@@ -537,7 +537,7 @@ bool __cdecl cfunc_goal_manager_run_last_stage_script(script::Struct*, script::S
 // 0x0055B590
 bool __cdecl cfunc_goal_manager_goal_initialized(script::Struct* params, script::Script*)
 {
-    return Virtual<bool>(name_then_goal(params), Objective::kVtIsInitialized);
+    return (name_then_goal(params))->is_prepared();
 }
 
 // 0x0055B5E0 / 0x0055B630: the goal's pro's last animations unloaded / last stream stopped.
@@ -598,7 +598,7 @@ bool __cdecl cfunc_goal_manager_get_active_reward_points(script::Struct*, script
     for (int i = 0; i < manager->goals_.num_; ++i) {
         Objective* goal = manager->goals_.get_by_index(i);
         int points = goal->get_reward_points();
-        if (Virtual<bool>(goal, Objective::kVtHasWon))
+        if (goal->has_won())
             won += points;
         total += points;
     }

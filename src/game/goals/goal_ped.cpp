@@ -399,7 +399,7 @@ void ObjectiveNpc::conceal(bool hide)
         script::launch_script(kGoalPedKillArrow, arrow, nullptr, false, nullptr);
     } else {
         Objective* goal = hub()->get_goal(objective_key_, 0);
-        if (!goal || !Virtual<bool>(goal, Objective::kVtHasWon))
+        if (!goal || !goal->has_won())
             script::launch_script(kGoalAddPedArrow, arrow, nullptr, false, nullptr);
     }
     delete_structure(arrow);

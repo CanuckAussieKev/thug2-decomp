@@ -2,6 +2,7 @@
 
 #include "game/save_cards/save_types.h"
 #include "engine/core/code_address.h"
+#include "engine/net/buddy_status.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -481,7 +482,7 @@ bool apply_cat_and_custom_skater(Struct* loaded, Struct* custom_skater)
     objects::ProfileRoster* profiles = objects::g_profile_roster;
     modules::Skate* skate = modules::Skate::sole();
     // the current skater (the manager's +0x1C, through the folded getter 0x00553E90)
-    int index = reinterpret_cast<int(__thiscall*)(void*)>(code_address(&goals::Objective::fetch_args))(profiles);
+    int index = static_cast<int>(reinterpret_cast<online::FoldedGetters*>(profiles)->word1c());
     auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(index));
     skater->load_cat_info(loaded);
     skater->load_list_44b_66a_9f(loaded);

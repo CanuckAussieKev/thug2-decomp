@@ -3,6 +3,7 @@
 
 #include "engine/pad_input/device.h"
 #include "game/goals/objective.h"
+#include "engine/net/buddy_status.h"
 
 #define DIRECTINPUT_VERSION 0x0800
 #include <windows.h>
@@ -611,8 +612,7 @@ bool get_key_down(int code) { return os_layer::get_key_down(code); }
 // The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4).
 int get_menu_port()
 {
-    return reinterpret_cast<int(__thiscall*)(void*)>(code_address(&goals::Objective::fetch_args))(
-        reinterpret_cast<void*>(objects::g_profile_roster));
+    return static_cast<int>(reinterpret_cast<online::FoldedGetters*>(objects::g_profile_roster)->word1c());
 }
 
 uint8_t if_above(uint8_t value, uint8_t threshold, uint8_t bit) { return value > threshold ? bit : 0; }

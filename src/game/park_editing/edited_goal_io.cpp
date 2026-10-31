@@ -453,7 +453,7 @@ void EditedGoal::add_to_goal_manager(bool unwin)
     if (unwin)
         won_ = false;
     if (won_)
-        goals::Virtual<void>(goal, 0x68); // mark_won
+        goal->mark_won();
     if (params) {
         params->get_clear();
         script::delete_struct(params);

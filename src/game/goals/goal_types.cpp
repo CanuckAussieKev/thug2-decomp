@@ -21,10 +21,7 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/engine.h"
 #include "game/skate/point_tally.h"
-#include "engine/core/code_address.h"
 #include "engine/gfx/tod_manager.h"
-#include "engine/core/stubs.h"
-#include "engine/gfx/weather.h"
 
 namespace goals {
 
@@ -55,100 +52,6 @@ const char* const kRewardGiven = "reward_given";   // "reward_given"
 const char* const kWinRecordName = "win_record";   // "win_record"
 const char* const kRewardParams = "reward_params"; // "reward_params"
 
-static VtableSlot g_competition_goal_vtable_slots[] = {&goals::ContestObjective::teardown,
-                                                       &goals::Objective::wants_to_end,
-                                                       &goals::Objective::has_run_out,
-                                                       &goals::Objective::is_operative,
-                                                       render::virtual_slot3_jump,
-                                                       &goals::ContestObjective::expire,
-                                                       &goals::ContestObjective::restore_save_block,
-                                                       &goals::ContestObjective::capture_save_block,
-                                                       &goals::Objective::has_time_limit,
-                                                       stubs::return_true,
-                                                       &goals::Objective::has_component_a_302d_7c_d,
-                                                       &goals::Objective::activate,
-                                                       &goals::ContestObjective::change_live,
-                                                       &goals::Objective::disengage,
-                                                       &goals::ContestObjective::clear_engaged_bit,
-                                                       &goals::ContestObjective::get_win,
-                                                       &goals::Objective::lose,
-                                                       &goals::Objective::tick_frame,
-                                                       &goals::ContestObjective::is_frozen,
-                                                       &goals::Objective::set_flag,
-                                                       &goals::Objective::stage_flag_set,
-                                                       &goals::ContestObjective::has_won,
-                                                       &goals::Objective::net_stage_flag_set,
-                                                       &goals::Objective::has_won_goal_or_child,
-                                                       &goals::Objective::is_prepared,
-                                                       &goals::Objective::may_try_again,
-                                                       &goals::ContestObjective::mark_won,
-                                                       &goals::Objective::set_stage_flag,
-                                                       &goals::Objective::set_net_stage_flag,
-                                                       &goals::ContestObjective::un_beat};
-void** const kCompetitionGoalVtable = reinterpret_cast<void**>(g_competition_goal_vtable_slots);
-static VtableSlot g_film_goal_vtable_slots[] = {&goals::ShootVideoObjective::teardown,
-                                                &goals::Objective::wants_to_end,
-                                                &goals::Objective::has_run_out,
-                                                &goals::Objective::is_operative,
-                                                render::virtual_slot3_jump,
-                                                &goals::Objective::expire,
-                                                &goals::Objective::restore_save_block,
-                                                &goals::Objective::capture_save_block,
-                                                &goals::Objective::has_time_limit,
-                                                stubs::return_true,
-                                                &goals::Objective::has_component_a_302d_7c_d,
-                                                &goals::ShootVideoObjective::activate,
-                                                &goals::Objective::change_live,
-                                                &goals::Objective::disengage,
-                                                &goals::Objective::clear_engaged_bit,
-                                                &goals::Objective::get_win,
-                                                &goals::Objective::lose,
-                                                &goals::ShootVideoObjective::tick_frame,
-                                                &goals::Objective::is_frozen,
-                                                &goals::Objective::set_flag,
-                                                &goals::Objective::stage_flag_set,
-                                                &goals::Objective::has_won,
-                                                &goals::Objective::net_stage_flag_set,
-                                                &goals::Objective::has_won_goal_or_child,
-                                                &goals::Objective::is_prepared,
-                                                &goals::Objective::may_try_again,
-                                                &goals::Objective::mark_won,
-                                                &goals::Objective::set_stage_flag,
-                                                &goals::Objective::set_net_stage_flag,
-                                                &goals::Objective::un_beat};
-void** const kFilmGoalVtable = reinterpret_cast<void**>(g_film_goal_vtable_slots);
-static VtableSlot g_find_gaps_goal_vtable_slots[] = {&goals::HuntGapsObjective::teardown,
-                                                     &goals::Objective::wants_to_end,
-                                                     &goals::Objective::has_run_out,
-                                                     &goals::Objective::is_operative,
-                                                     render::virtual_slot3_jump,
-                                                     &goals::Objective::expire,
-                                                     &goals::Objective::restore_save_block,
-                                                     &goals::Objective::capture_save_block,
-                                                     &goals::Objective::has_time_limit,
-                                                     stubs::return_true,
-                                                     &goals::Objective::has_component_a_302d_7c_d,
-                                                     &goals::HuntGapsObjective::activate,
-                                                     &goals::Objective::change_live,
-                                                     &goals::Objective::disengage,
-                                                     &goals::Objective::clear_engaged_bit,
-                                                     &goals::Objective::get_win,
-                                                     &goals::Objective::lose,
-                                                     &goals::Objective::tick_frame,
-                                                     &goals::Objective::is_frozen,
-                                                     &goals::Objective::set_flag,
-                                                     &goals::Objective::stage_flag_set,
-                                                     &goals::Objective::has_won,
-                                                     &goals::Objective::net_stage_flag_set,
-                                                     &goals::Objective::has_won_goal_or_child,
-                                                     &goals::Objective::is_prepared,
-                                                     &goals::Objective::may_try_again,
-                                                     &goals::Objective::mark_won,
-                                                     &goals::Objective::set_stage_flag,
-                                                     &goals::Objective::set_net_stage_flag,
-                                                     &goals::Objective::un_beat};
-void** const kFindGapsGoalVtable = reinterpret_cast<void**>(g_find_gaps_goal_vtable_slots);
-
 int truncate(double value) { return static_cast<int>(value); }
 
 script::Struct* spawn_param_table()
@@ -170,38 +73,22 @@ modules::Contest* the_competition() { return skate_calls::skate_field<modules::C
 // --- The competition ---------------------------------------------------------------------------------------------
 
 // 0x005517C0
-ContestObjective* ContestObjective::make_new(script::Struct* params)
+ContestObjective::ContestObjective(script::Struct* params) : Objective(params)
 {
-    Objective::make_new(params);
     is_halted_ = false;
     has_third_place_ = false;
     has_second_place_ = false;
     has_top_prize_ = false;
     prize_paid_ = 0;
-    list_link_.vtable = kCompetitionGoalVtable;
     record_points_ = 0x7FFFFFFF;
     run_ending_ = 1;
-    return this;
 }
 
 // 0x00551800
-void ContestObjective::destroy_body()
-{
-    list_link_.vtable = kCompetitionGoalVtable;
-    Objective::destroy_body();
-}
-
-// 0x00551A00
-ContestObjective* ContestObjective::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
+ContestObjective::~ContestObjective() = default;
 
 // 0x00551810
-bool ContestObjective::expire() { return invoke_hook_script(kExpireScript); }
+void ContestObjective::expire() { invoke_hook_script(kExpireScript); }
 
 // 0x00551820
 void ContestObjective::change_live()
@@ -226,7 +113,7 @@ bool ContestObjective::un_beat()
     flag_bits_ &= ~kFlagWon;
     has_third_place_ = false;
     has_second_place_ = false;
-    if (!Virtual<bool>(this, kVtHasWon))
+    if (!has_won())
         return false;
     has_top_prize_ = false;
     return true;
@@ -243,7 +130,7 @@ void ContestObjective::thaw_contest()
 }
 
 // 0x005518A0
-int ContestObjective::is_frozen() { return (cur_phase_ & kStatePaused) || is_halted_ ? 1 : 0; }
+bool ContestObjective::is_frozen() { return (cur_phase_ & kStatePaused) || is_halted_; }
 
 // 0x005518C0
 void ContestObjective::restore_save_block(script::Struct* data)
@@ -302,7 +189,7 @@ bool ContestObjective::get_win()
     args_->put_name_key(kNoName, kJustWonGoal);
     invoke_hook_script(kDeactivateScript);
     args_->remove_flag(kJustWonGoal);
-    Virtual<void>(this, kVtSetInactive);
+    clear_engaged_bit();
     if (!online::g_online_hub->in_net_game()) {
         modules::Contest* competition = the_competition();
         int place = 999;
@@ -318,7 +205,7 @@ bool ContestObjective::get_win()
         }
     }
     script::Struct* rewards = spawn_param_table();
-    if (!Virtual<bool>(this, kVtHasWon)) {
+    if (!has_won()) {
         script::Struct* own = spawn_param_table();
         get_prize_struct(own);
         rewards->append_structure_if_any(own);
@@ -330,36 +217,18 @@ bool ContestObjective::get_win()
     args_->put_sub_struct(kRewardParams, rewards);
     invoke_hook_script(kSuccessScript);
     delete_structure(rewards);
-    if (!Virtual<bool>(this, kVtHasWon))
-        Virtual<void>(this, kVtMarkWon);
+    if (!has_won())
+        mark_won();
     return true;
 }
 
 // --- Film --------------------------------------------------------------------------------------------------------
 
 // 0x005527D0
-ShootVideoObjective* ShootVideoObjective::make_new(script::Struct* params)
-{
-    Objective::make_new(params);
-    list_link_.vtable = kFilmGoalVtable;
-    return this;
-}
+ShootVideoObjective::ShootVideoObjective(script::Struct* params) : Objective(params) {}
 
 // 0x005527F0
-void ShootVideoObjective::destroy_body()
-{
-    list_link_.vtable = kFilmGoalVtable;
-    Objective::destroy_body();
-}
-
-// 0x005528A0
-ShootVideoObjective* ShootVideoObjective::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
+ShootVideoObjective::~ShootVideoObjective() = default;
 
 // 0x00552800
 bool ShootVideoObjective::activate()
@@ -423,7 +292,7 @@ bool ShootVideoObjective::target_in_view()
 bool ShootVideoObjective::tick_frame()
 {
     args_->put_int(kLastTimeOnCamera, static_cast<int>(shot_hold_time_));
-    if (!Virtual<bool>(this, kVtIsActive) || Virtual<bool>(this, kVtIsPaused))
+    if (!is_operative() || is_frozen())
         return Objective::tick_frame();
     if (recording_shot_) {
         if (target_in_view()) {
@@ -462,28 +331,10 @@ void ShootVideoObjective::checkpoint()
 // --- Find gaps ---------------------------------------------------------------------------------------------------
 
 // 0x00552B30
-HuntGapsObjective* HuntGapsObjective::make_new(script::Struct* params)
-{
-    Objective::make_new(params);
-    list_link_.vtable = kFindGapsGoalVtable;
-    return this;
-}
+HuntGapsObjective::HuntGapsObjective(script::Struct* params) : Objective(params) {}
 
 // 0x00552B50
-void HuntGapsObjective::destroy_body()
-{
-    list_link_.vtable = kFindGapsGoalVtable;
-    Objective::destroy_body();
-}
-
-// 0x00552B60
-HuntGapsObjective* HuntGapsObjective::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
+HuntGapsObjective::~HuntGapsObjective() = default;
 
 // 0x00552B90
 void HuntGapsObjective::scan_for_gaps()

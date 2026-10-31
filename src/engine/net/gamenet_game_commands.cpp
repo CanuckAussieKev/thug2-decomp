@@ -268,9 +268,9 @@ bool __cdecl cfunc_start_network_game(Struct*, Script*)
         int count = prop<int>(goals, 0); // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
             uint8_t* goal = get_call<uint8_t*>(code_address(&goals::GoalManager::get_objective_at), goals, i);
-            if (get_call<bool>(code_address(&goals::Objective::is_picked), goal)) {
-                reinterpret_cast<void(__thiscall*)(void*)>((*reinterpret_cast<void***>(goal))[29])(goal);
-                uint32_t id = get_call<uint32_t>(code_address(&goals::Objective::get_objective_key), goal);
+            if (reinterpret_cast<goals::Objective*>(goal)->is_picked()) {
+                reinterpret_cast<goals::Objective*>(goal)->un_beat(); // (the original's vtable slot 29)
+                uint32_t id = reinterpret_cast<goals::Objective*>(goal)->get_objective_key();
                 std::memcpy(end, &id, 4);
                 end += 4;
             }

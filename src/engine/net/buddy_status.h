@@ -40,6 +40,9 @@ struct FoldedGetters {
     // 0x005480F0: the word at +0x18 (a skeleton component's skeleton, a node component's node array, a sector's
     // collision, ...).
     uint32_t word18();
+    // 0x00553E90 (folded with goals::Objective::fetch_args): the word at +0x1C (the profile roster's current skater,
+    // a model component's texture, the tagging goal's ...).
+    uint32_t word1c();
 };
 
 // The script commands.

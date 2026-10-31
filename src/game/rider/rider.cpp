@@ -10,6 +10,8 @@
 #include <new>
 
 #include "engine/core/checksums.h"
+#include "engine/net/buddy_status.h"
+#include "engine/gfx/engine_model_lights.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -504,8 +506,8 @@ void Rider::update_shadow_light(int, int)
         // 0x00456B30)
         void* lights = get_at<void*>(get_at<void*>(fetch_module(kModelModuleName), 0x208), 0x2C);
         if (lights) {
-            const float* v =
-                reinterpret_cast<float*(__thiscall*)(void*, int)>((*static_cast<void***>(lights))[5])(lights, 0);
+            const auto* v =
+                reinterpret_cast<const float*>(static_cast<render::ModelLights*>(lights)->read_light_aim(0));
             double x = v[0] * -1.0, y = v[1] * -1.0, z = v[2] * -1.0, w = v[3] * -1.0;
             light[0] = static_cast<float>(x);
             light[1] = static_cast<float>(y);
@@ -706,8 +708,8 @@ void Rider::show_board_element(uint32_t type)
     auto reset = [](render::BitmapTexture* element) { element->begin_edit(false, false); };
     render::BitmapTexture* element = new_element(texture);
     reset(element);
-    auto* parent = static_cast<render::BitmapTexture*>(reinterpret_cast<void*(__thiscall*)(void*)>(
-        code_address(&goals::Objective::fetch_args))(fetch_module(0x5B512EDC)));
+    auto* parent = reinterpret_cast<render::BitmapTexture*>(
+        reinterpret_cast<online::FoldedGetters*>(fetch_module(0x5B512EDC))->word1c());
     reset(parent);
     element->resize_from(parent, 1);
     element->get_border(0); // (black)

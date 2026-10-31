@@ -19,8 +19,6 @@
 #include "game/skate/game_mode.h"
 #include "game/goals/goal_ped.h"
 #include "game/skate/point_tally.h"
-#include "engine/core/stubs.h"
-#include "engine/gfx/weather.h"
 #include "engine/core/code_address.h"
 
 namespace goals {
@@ -77,38 +75,6 @@ constexpr uint32_t kTrickObjects = 0xEFC35592;            // TrickObjects
 constexpr uint32_t kGaps = 0xD76C173E;                    // Gaps
 constexpr uint32_t kNoGapMessages = 0x5BC07EAA;           // No_Gap_Messages
 constexpr uint32_t kGoalGapsGotGap = 0x96DE9A0C;          // goal_gaps_got_gap
-
-static VtableSlot g_goal_vtable_slots[] = {&goals::Objective::teardown,
-                                           &goals::Objective::wants_to_end,
-                                           &goals::Objective::has_run_out,
-                                           &goals::Objective::is_operative,
-                                           render::virtual_slot3_jump,
-                                           &goals::Objective::expire,
-                                           &goals::Objective::restore_save_block,
-                                           &goals::Objective::capture_save_block,
-                                           &goals::Objective::has_time_limit,
-                                           stubs::return_true,
-                                           &goals::Objective::has_component_a_302d_7c_d,
-                                           &goals::Objective::activate,
-                                           &goals::Objective::change_live,
-                                           &goals::Objective::disengage,
-                                           &goals::Objective::clear_engaged_bit,
-                                           &goals::Objective::get_win,
-                                           &goals::Objective::lose,
-                                           &goals::Objective::tick_frame,
-                                           &goals::Objective::is_frozen,
-                                           &goals::Objective::set_flag,
-                                           &goals::Objective::stage_flag_set,
-                                           &goals::Objective::has_won,
-                                           &goals::Objective::net_stage_flag_set,
-                                           &goals::Objective::has_won_goal_or_child,
-                                           &goals::Objective::is_prepared,
-                                           &goals::Objective::may_try_again,
-                                           &goals::Objective::mark_won,
-                                           &goals::Objective::set_stage_flag,
-                                           &goals::Objective::set_net_stage_flag,
-                                           &goals::Objective::un_beat};
-void** const kGoalVtable = reinterpret_cast<void**>(g_goal_vtable_slots);
 
 // The x87 code's float to int conversion (_ftol): truncation.
 int truncate(double value) { return static_cast<int>(value); }
@@ -183,16 +149,12 @@ Objective* root_of(void* manager, GoalEdge* parents)
 
 } // namespace
 
-static VtableSlot g_goal_node_vtable_slots[] = {&goals::Objective::destroy_node};
+static VtableSlot g_goal_node_vtable_slots[] = {&goals::GoalListNodes::destroy_node};
 void** const kGoalNodeVtable = reinterpret_cast<void**>(g_goal_node_vtable_slots); // (also used by goal_manager.cpp)
 // 0x00556FE0
-Objective* Objective::make_new(script::Struct* params)
+Objective::Objective(script::Struct* params)
+    : link_data_(this), link_priority_(0), link_next_(list_node()), link_prev_(list_node())
 {
-    list_link_.data = this;
-    list_link_.priority = 0;
-    list_link_.next = &list_link_;
-    list_link_.prev = &list_link_;
-    list_link_.vtable = kGoalVtable;
     stage_flags_ = 0;
     net_stage_flags_ = 0;
     sub_nodes_ = alloc_chain_link();
@@ -230,13 +192,11 @@ Objective* Objective::make_new(script::Struct* params)
         flag_bits_ |= kFlagLocked;
     else
         flag_bits_ &= ~kFlagLocked;
-    return this;
 }
 
 // 0x00556110
-void Objective::destroy_body()
+Objective::~Objective()
 {
-    list_link_.vtable = kGoalVtable;
     uint32_t script;
     if (args_->read_hash_value(kDestroy, &script, 0))
         script::launch_script(script, args_, nullptr, false, nullptr);
@@ -256,27 +216,18 @@ void Objective::destroy_body()
         memory::dealloc(link);
         link = next;
     }
-    list_link_.vtable = kGoalNodeVtable;
-    uncouple(&list_link_);
-}
-
-// 0x005566A0
-Objective* Objective::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
+    uncouple(list_node()); // (the node's destructor, inlined - its vtable word, this object's vptr, left alone)
 }
 
 // 0x005560D0
-Objective* Objective::destroy_node(uint8_t flags)
+memory::ListNode* GoalListNodes::destroy_node(uint8_t flags)
 {
-    list_link_.vtable = kGoalNodeVtable;
-    uncouple(&list_link_);
+    auto* node = reinterpret_cast<memory::ListNode*>(this);
+    node->vtable = kGoalNodeVtable;
+    uncouple(node);
     if (flags & 1)
-        memory::dealloc(this);
-    return this;
+        memory::dealloc(node);
+    return node;
 }
 
 // 0x00556F90
@@ -320,7 +271,7 @@ void Objective::prepare_all()
 // 0x00557360
 bool Objective::activate()
 {
-    if (Virtual<bool>(this, kVtIsActive))
+    if (is_operative())
         return false;
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->bottom_up_heap_);
@@ -342,9 +293,9 @@ bool Objective::activate()
                 truncate(root->seconds_remaining_ * static_cast<double>(g_goal_life_seconds_per_millisecond)) * 1000;
         else
             reset_timer();
-        if (Virtual<bool>(root, kVtIsInitialized)) {
+        if (root->is_prepared()) {
             root->uninitialize(false, 0);
-            if (Virtual<bool>(this, kVtIsInitialized)) {
+            if (is_prepared()) {
                 uninitialize(false, 0);
                 prepare_all();
             }
@@ -352,7 +303,7 @@ bool Objective::activate()
     } else {
         reset_timer();
     }
-    if (!Virtual<bool>(this, kVtIsInitialized))
+    if (!is_prepared())
         prepare_all();
     flag_bits_ &= ~kFlagEndOfRunStarted;
     args_->remove_flag(kChainActiveFlag);
@@ -361,7 +312,7 @@ bool Objective::activate()
         script::launch_script(script, args_, nullptr, false, nullptr);
     if (!net->in_net_game())
         flag_bits_ |= kFlagSeen;
-    Virtual<void>(this, kVtSetActive);
+    change_live();
     add_active_goal(manager, this);
     memory::Hub::get_pull()->leave_heap_scope();
     return true;
@@ -370,11 +321,11 @@ bool Objective::activate()
 // 0x00557560
 bool Objective::disengage(bool, bool reset_tree)
 {
-    if (!Virtual<bool>(this, kVtIsActive))
+    if (!is_operative())
         return false;
     if (args_->has_bare_flag(kSpecial))
         args_->erase_module(kButtonSequences);
-    Virtual<void>(this, kVtSetInactive);
+    clear_engaged_bit();
     if (!args_->has_bare_flag(kSaveGoalFlags))
         zero_objective_bits();
     clear_child_wins();
@@ -389,11 +340,11 @@ bool Objective::disengage(bool, bool reset_tree)
             uninitialize(false, 0);
             void* manager = objective_board();
             Objective* root = root_of(manager, parents_);
-            if (root && !Virtual<bool>(root, kVtHasWon))
+            if (root && !root->has_won())
                 root->prepare_all();
         }
     }
-    uncouple(&list_link_);
+    uncouple(list_node());
     return true;
 }
 
@@ -405,7 +356,7 @@ bool Objective::get_win()
     if (children->objective_key_) {
         // A goal of stages: the next one started.
         void* manager = objective_board();
-        Virtual<bool>(this, kVtDeactivate, false, true);
+        disengage(false, true);
         uninitialize(false, 0);
         get_goal(manager, children->objective_key_, 1)->prepare_all();
         engage_objective(manager, children->objective_key_, false);
@@ -444,7 +395,7 @@ bool Objective::get_win()
         }
     }
     bool rewarded = false;
-    if (!Virtual<bool>(this, kVtHasWon) && !net->in_net_game()) {
+    if (!has_won() && !net->in_net_game()) {
         script::Struct* rewards = spawn_param_table();
         get_prize_struct(rewards);
         if (new_record)
@@ -463,10 +414,10 @@ bool Objective::get_win()
     if (args_->read_hash_value(kSuccess, &script, 0))
         script::launch_script(script, args_, nullptr, false, nullptr);
     bool testing = args_->has_bare_flag(kTrialRunFlag);
-    if (Virtual<bool>(this, kVtIsActive))
-        Virtual<bool>(this, kVtDeactivate, false, true);
+    if (is_operative())
+        disengage(false, true);
     if (!testing) {
-        Virtual<void>(this, kVtMarkWon);
+        mark_won();
         if (rewarded) {
             objects::RiderStoryProgress* career = skate_calls::get_career();
             if (skate_calls::game_mode_is_true(kIsCareer)) {
@@ -494,8 +445,8 @@ void Objective::get_unlock()
     flag_bits_ &= ~kFlagLocked;
     if (net_session_slot()->in_net_game())
         return;
-    if (!Virtual<bool>(this, kVtHasWon) || active_ruleset_label() == kClassic ||
-        args_->has_bare_flag(kAlwaysInitializeGoal) || args_->has_bare_flag(kEditedGoal))
+    if (!has_won() || active_ruleset_label() == kClassic || args_->has_bare_flag(kAlwaysInitializeGoal) ||
+        args_->has_bare_flag(kEditedGoal))
         prepare_all();
     invoke_hook_script(kUnlockScript);
 }
@@ -585,8 +536,8 @@ int Objective::get_reward_points()
 bool Objective::set_flag(uint32_t flag, int value, uint32_t sub)
 {
     // A silently activated goal (not won yet) takes flags while inactive, and is won by them.
-    bool silent = args_->has_bare_flag(kSilentActivation) && !Virtual<bool>(this, kVtHasWon);
-    if (!Virtual<bool>(this, kVtIsActive) && !silent)
+    bool silent = args_->has_bare_flag(kSilentActivation) && !has_won();
+    if (!is_operative() && !silent)
         return false;
     void* manager = objective_board();
     if ((flag_bits_ & kFlagLocked) || is_group_locked(manager, bundle_, level_))

@@ -427,9 +427,7 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
             if (!local)
                 return generic();
             goals::Objective* hunt = goals::get_objective_board()->get_goal(kScavenger, 1);
-            int team = goals::Virtual<bool>(hunt, goals::Objective::kVtIsActive)
-                           ? local->team_
-                           : (local->team_ + 1) % get_game_mode()->current_num_teams();
+            int team = hunt->is_operative() ? local->team_ : (local->team_ + 1) % get_game_mode()->current_num_teams();
             if (static_cast<uint32_t>(team) > 3)
                 return generic();
             return kTeamRestarts[team];
@@ -441,7 +439,7 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
     uint32_t start = skater_id;
     if (get_game_mode()->get_name_key() == kNetScavengerHunt || get_game_mode()->get_name_key() == kScavengerHunt) {
         goals::Objective* hunt = goals::get_objective_board()->get_goal(kScavenger, 1);
-        if (!goals::Virtual<bool>(hunt, goals::Objective::kVtIsActive))
+        if (!hunt->is_operative())
             start = (skater_id + 1) % static_cast<uint32_t>(count_riders());
     }
     return multiplayer(start);

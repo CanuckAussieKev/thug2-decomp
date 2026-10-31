@@ -19,9 +19,6 @@
 #include "game/skate/victory_conditions.h"
 #include "game/rider/end_run.h"
 #include "game/rider/rider.h"
-#include "engine/core/stubs.h"
-#include "engine/gfx/weather.h"
-#include "engine/core/code_address.h"
 
 namespace goals {
 
@@ -50,100 +47,6 @@ constexpr uint32_t kAddedTime = 0xC906B763;              // added_time
 constexpr uint32_t kGoalName = 0xBFECC45B;               // goal_name
 constexpr uint32_t kRaceNextWaypoint = 0xD3741449;       // goal_race_next_waypoint
 
-static VtableSlot g_horse_goal_vtable_slots[] = {&goals::LetterGameObjective::teardown,
-                                                 &goals::LetterGameObjective::wants_to_end,
-                                                 &goals::LetterGameObjective::has_run_out,
-                                                 &goals::Objective::is_operative,
-                                                 render::virtual_slot3_jump,
-                                                 &goals::LetterGameObjective::expire,
-                                                 &goals::Objective::restore_save_block,
-                                                 &goals::Objective::capture_save_block,
-                                                 &goals::Objective::has_time_limit,
-                                                 stubs::return_true,
-                                                 &goals::Objective::has_component_a_302d_7c_d,
-                                                 &goals::Objective::activate,
-                                                 &goals::Objective::change_live,
-                                                 &goals::Objective::disengage,
-                                                 &goals::Objective::clear_engaged_bit,
-                                                 &goals::Objective::get_win,
-                                                 &goals::Objective::lose,
-                                                 &goals::Objective::tick_frame,
-                                                 &goals::Objective::is_frozen,
-                                                 &goals::Objective::set_flag,
-                                                 &goals::Objective::stage_flag_set,
-                                                 &goals::Objective::has_won,
-                                                 &goals::Objective::net_stage_flag_set,
-                                                 &goals::Objective::has_won_goal_or_child,
-                                                 &goals::Objective::is_prepared,
-                                                 &goals::Objective::may_try_again,
-                                                 &goals::Objective::mark_won,
-                                                 &goals::Objective::set_stage_flag,
-                                                 &goals::Objective::set_net_stage_flag,
-                                                 &goals::Objective::un_beat};
-void** const kHorseGoalVtable = reinterpret_cast<void**>(g_horse_goal_vtable_slots);
-static VtableSlot g_net_goal_vtable_slots[] = {&goals::OnlineObjective::teardown,
-                                               &goals::OnlineObjective::wants_to_end,
-                                               &goals::Objective::has_run_out,
-                                               &goals::Objective::is_operative,
-                                               render::virtual_slot3_jump,
-                                               &goals::OnlineObjective::expire,
-                                               &goals::Objective::restore_save_block,
-                                               &goals::Objective::capture_save_block,
-                                               &goals::Objective::has_time_limit,
-                                               &goals::OnlineObjective::timer_beeps,
-                                               &goals::OnlineObjective::has_component_a_302d_7c_d,
-                                               &goals::OnlineObjective::activate,
-                                               &goals::Objective::change_live,
-                                               &goals::OnlineObjective::disengage,
-                                               &goals::Objective::clear_engaged_bit,
-                                               &goals::Objective::get_win,
-                                               &goals::Objective::lose,
-                                               &goals::OnlineObjective::tick_frame,
-                                               &goals::Objective::is_frozen,
-                                               &goals::Objective::set_flag,
-                                               &goals::Objective::stage_flag_set,
-                                               &goals::Objective::has_won,
-                                               &goals::Objective::net_stage_flag_set,
-                                               &goals::Objective::has_won_goal_or_child,
-                                               &goals::Objective::is_prepared,
-                                               &goals::Objective::may_try_again,
-                                               &goals::Objective::mark_won,
-                                               &goals::Objective::set_stage_flag,
-                                               &goals::Objective::set_net_stage_flag,
-                                               &goals::Objective::un_beat};
-void** const kNetGoalVtable = reinterpret_cast<void**>(g_net_goal_vtable_slots);
-static VtableSlot g_race_goal_vtable_slots[] = {&goals::RaceObjective::teardown,
-                                                &goals::RaceObjective::wants_to_end,
-                                                &goals::RaceObjective::has_run_out,
-                                                &goals::Objective::is_operative,
-                                                render::virtual_slot3_jump,
-                                                &goals::RaceObjective::expire,
-                                                &goals::Objective::restore_save_block,
-                                                &goals::Objective::capture_save_block,
-                                                &goals::Objective::has_time_limit,
-                                                stubs::return_true,
-                                                &goals::Objective::has_component_a_302d_7c_d,
-                                                &goals::RaceObjective::activate,
-                                                &goals::Objective::change_live,
-                                                &goals::Objective::disengage,
-                                                &goals::Objective::clear_engaged_bit,
-                                                &goals::Objective::get_win,
-                                                &goals::Objective::lose,
-                                                &goals::Objective::tick_frame,
-                                                &goals::Objective::is_frozen,
-                                                &goals::Objective::set_flag,
-                                                &goals::Objective::stage_flag_set,
-                                                &goals::Objective::has_won,
-                                                &goals::Objective::net_stage_flag_set,
-                                                &goals::Objective::has_won_goal_or_child,
-                                                &goals::Objective::is_prepared,
-                                                &goals::Objective::may_try_again,
-                                                &goals::Objective::mark_won,
-                                                &goals::Objective::set_stage_flag,
-                                                &goals::Objective::set_net_stage_flag,
-                                                &goals::Objective::un_beat};
-void** const kRaceGoalVtable = reinterpret_cast<void**>(g_race_goal_vtable_slots);
-
 online::Hub* net_session_slot() { return online::g_online_hub; }
 uint32_t active_ruleset_label() { return g_game_mode->get_name_key(); }
 // Whether every goal is completed (a goal attack's victory condition; the original calls the condition's check with
@@ -170,28 +73,10 @@ void delete_structure(script::Struct* structure)
 // --- LetterGameObjective -----------------------------------------------------------------------------------------------------
 
 // 0x005608C0
-LetterGameObjective* LetterGameObjective::make_new(script::Struct* params)
-{
-    Objective::make_new(params);
-    list_link_.vtable = kHorseGoalVtable;
-    return this;
-}
+LetterGameObjective::LetterGameObjective(script::Struct* params) : Objective(params) {}
 
 // 0x005608E0
-void LetterGameObjective::destroy_body()
-{
-    list_link_.vtable = kHorseGoalVtable;
-    Objective::destroy_body();
-}
-
-// 0x00560980
-LetterGameObjective* LetterGameObjective::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
+LetterGameObjective::~LetterGameObjective() = default;
 
 // 0x00560930
 bool LetterGameObjective::wants_to_end()
@@ -252,33 +137,17 @@ void LetterGameObjective::land()
 // --- OnlineObjective -------------------------------------------------------------------------------------------------------
 
 // 0x00560AC0
-OnlineObjective* OnlineObjective::make_new(script::Struct* params)
+OnlineObjective::OnlineObjective(script::Struct* params) : Objective(params)
 {
-    Objective::make_new(params);
-    list_link_.vtable = kNetGoalVtable;
     run_ending_ = 1;
     is_prepared_ = false;
-    return this;
 }
 
 // 0x00560AF0
-void OnlineObjective::destroy_body()
-{
-    list_link_.vtable = kNetGoalVtable;
-    Objective::destroy_body();
-}
-
-// 0x00560B40
-OnlineObjective* OnlineObjective::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
+OnlineObjective::~OnlineObjective() = default;
 
 // 0x00560B00
-int OnlineObjective::has_component_a_302d_7c_d() { return (cur_phase_ & kStateNoTimeLimit) ? 0 : 1; }
+bool OnlineObjective::shows_clock() { return !(cur_phase_ & kStateNoTimeLimit); }
 
 // 0x00560B10
 bool OnlineObjective::timer_beeps()
@@ -308,8 +177,8 @@ bool OnlineObjective::tick_frame()
         prepare_all();
         is_prepared_ = true;
     }
-    if (active_ruleset_label() == kNetGoalAttack && goals_completed() && Virtual<bool>(this, kVtIsActive)) {
-        Virtual<void>(this, kVtExpire);
+    if (active_ruleset_label() == kNetGoalAttack && goals_completed() && is_operative()) {
+        expire();
         return true;
     }
     return Objective::tick_frame();
@@ -369,31 +238,15 @@ void OnlineObjective::expire()
 // --- RaceObjective ------------------------------------------------------------------------------------------------------
 
 // 0x00560E60
-RaceObjective* RaceObjective::make_new(script::Struct* params)
+RaceObjective::RaceObjective(script::Struct* params) : Objective(params)
 {
-    Objective::make_new(params);
-    list_link_.vtable = kRaceGoalVtable;
     laps_ = 1;
     params->fetch_int_value(kRaceTotalLaps, &laps_, 0);
     add_time_ = params->has_entry_named(kRaceAddTime);
-    return this;
 }
 
 // 0x00560EE0
-void RaceObjective::destroy_body()
-{
-    list_link_.vtable = kRaceGoalVtable;
-    Objective::destroy_body();
-}
-
-// 0x00560F60
-RaceObjective* RaceObjective::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
+RaceObjective::~RaceObjective() = default;
 
 // 0x00560EF0
 bool RaceObjective::activate()
@@ -418,13 +271,13 @@ bool RaceObjective::wants_to_end()
 void RaceObjective::expire()
 {
     invoke_hook_script(kExpireScript);
-    Virtual<bool>(this, kVtDeactivate, false, true);
+    disengage(false, true);
 }
 
 // 0x00560F90
 bool RaceObjective::advance_race_gate(uint32_t id)
 {
-    if (Virtual<bool>(this, kVtShouldExpire)) {
+    if (wants_to_end()) {
         debug::printf("expired!\n"); // "expired!\n"
         return false;
     }

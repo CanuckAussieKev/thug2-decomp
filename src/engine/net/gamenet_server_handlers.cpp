@@ -71,14 +71,14 @@ constexpr uint16_t kRailDataSize = 0x1132;
 constexpr uint32_t kFlagReady = 0x100; // a player's: its game has ended (message 0x59)
 constexpr uint32_t kFlag8000 = 0x8000;
 
-// A goal's virtuals: +0x50 has the skater `id` done it, +0x6C done by `id`.
+// A goal's stage flags by the skater's id (the original's vtable +0x50 / +0x6C): has `id` done it, done by `id`.
 bool goal_done_by(uint8_t* goal, uint32_t id)
 {
-    return reinterpret_cast<bool(__thiscall*)(uint8_t*, uint32_t)>(prop<void**>(goal, 0)[0x50 / 4])(goal, id);
+    return reinterpret_cast<goals::Objective*>(goal)->stage_flag_set(static_cast<int>(id)) != 0;
 }
 void mark_goal_done_by(uint8_t* goal, uint32_t id)
 {
-    reinterpret_cast<void(__thiscall*)(uint8_t*, uint32_t)>(prop<void**>(goal, 0)[0x6C / 4])(goal, id);
+    reinterpret_cast<goals::Objective*>(goal)->set_stage_flag(static_cast<int>(id));
 }
 
 // The goal attack message to other players: the skater's id, then the goal's name (8 bytes; bytes 1-3 left as the

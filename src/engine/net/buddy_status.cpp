@@ -157,6 +157,7 @@ BuddyMessageNode* BuddyMessageNode::teardown(unsigned int flags)
 bool FoldedGetters::byte10() { return prop<bool>(this, 0x10); }
 uint32_t FoldedGetters::word04() { return prop<uint32_t>(this, 0x04); }
 uint32_t FoldedGetters::word18() { return prop<uint32_t>(this, 0x18); }
+uint32_t FoldedGetters::word1c() { return prop<uint32_t>(this, 0x1C); }
 
 // --- The script commands ---
 

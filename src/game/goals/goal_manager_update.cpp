@@ -82,7 +82,7 @@ void GoalManager::update_time_display()
     int count = count_active(&active_goals_.list_link_);
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
-        if (!Virtual<bool>(goal, Objective::kVtSlot28))
+        if (!goal->shows_clock())
             continue;
         int time = goal->get_seconds_remaining();
         int minutes = 0, seconds = 0;
@@ -105,7 +105,7 @@ bool GoalManager::has_active_gap_goal()
     int count = count_active(&active_goals_.list_link_);
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
-        if (!Virtual<bool>(goal, Objective::kVtIsActive))
+        if (!goal->is_operative())
             continue;
         script::Array* gaps = nullptr;
         if (goal->fetch_args()->fetch_list(kNeededGapList, &gaps, 0))
@@ -120,7 +120,7 @@ void GoalManager::revoke_every_clear()
     online::Hub* net = net_session_slot();
     for (int i = 0; i < goals_.num_; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (Virtual<bool>(goal, Objective::kVtUnBeat) && !net->in_net_game()) {
+        if (goal->un_beat() && !net->in_net_game()) {
             --goals_beaten_;
             --objective_score_;
             --total_goal_points_;
@@ -187,7 +187,7 @@ void GoalManager::append_objective_list_entries()
         script::Struct* item = spawn_param_table();
         item->put_name_key(kGoalIdChecksum, goal->get_objective_key());
         item->append_word(kText, text);
-        if (Virtual<bool>(goal, Objective::kVtHasWon)) {
+        if (goal->has_won()) {
             char record[128];
             int value = 0;
             if (goal->is_contest_objective()) {
@@ -262,11 +262,11 @@ void GoalManager::tick_frame()
 {
     for (int i = 0; i < goals_.num_; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (Virtual<bool>(goal, Objective::kVtIsActive))
-            Virtual<bool>(goal, Objective::kVtUpdate);
+        if (goal->is_operative())
+            goal->tick_frame();
         if (goal->state02()) {
             goals_.drop_out(goal->get_objective_key());
-            Virtual<Objective*>(goal, Objective::kVtDestroy, static_cast<uint8_t>(1));
+            delete goal;
         }
     }
     update_time_display();
@@ -301,7 +301,7 @@ bool __cdecl cfunc_goal_manager_goal_should_expire(script::Struct*, script::Scri
     if (!manager)
         return false;
     for (int i = 0; i < manager->count_live_goals(true); ++i) {
-        if (Virtual<bool>(manager->get_engaged_objective(i), Objective::kVtIsExpired))
+        if ((manager->get_engaged_objective(i))->has_run_out())
             return true;
     }
     return false;

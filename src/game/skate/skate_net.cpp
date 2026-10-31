@@ -1,6 +1,7 @@
 // The skate module's network handlers and their registration (0x0056C920-0x0056F090). See skate_net.h.
 
 #include "game/skate/skate_net.h"
+#include "game/goals/objective.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -181,14 +182,9 @@ uint8_t* get_goal(uint8_t* manager, uint32_t name)
 {
     return reinterpret_cast<uint8_t*>(reinterpret_cast<goals::GoalManager*>(manager)->get_goal(name, 1));
 }
-bool goal_virtual_bool(uint8_t* goal, int offset)
-{
-    return reinterpret_cast<bool(__thiscall*)(uint8_t*)>(prop<void**>(goal, 0)[offset / 4])(goal);
-}
-void goal_virtual(uint8_t* goal, int offset)
-{
-    reinterpret_cast<void(__thiscall*)(uint8_t*)>(prop<void**>(goal, 0)[offset / 4])(goal);
-}
+// A goal active (the original's vtable +0x0C) / expired (+0x14).
+bool goal_active(uint8_t* goal) { return reinterpret_cast<goals::Objective*>(goal)->is_operative(); }
+void expire_goal(uint8_t* goal) { reinterpret_cast<goals::Objective*>(goal)->expire(); }
 
 // lists::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the network manager's begin_player_walk / step_player_walk.
 using PlayerSearch = online::PlayerSearch;
@@ -399,24 +395,24 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
         return 1;
     case 0x92: {
         uint8_t* goal = get_goal(objective_board(), kScavenger);
-        if (goal_virtual_bool(goal, 0xC))
-            goal_virtual(goal, 0x14);
+        if (goal_active(goal))
+            expire_goal(goal);
         return 1;
     }
     case 0x93: {
         uint8_t* manager = objective_board();
         uint8_t* interval = get_goal(manager, kScavengerInterval);
-        if (goal_virtual_bool(interval, 0xC)) {
-            goal_virtual(interval, 0x14);
-        } else if (goal_virtual_bool(get_goal(manager, kScavenger), 0xC)) {
+        if (goal_active(interval)) {
+            expire_goal(interval);
+        } else if (goal_active(get_goal(manager, kScavenger))) {
             script::launch_script("ForceStartScavengerCollect", nullptr, nullptr, false);
         }
         return 1;
     }
     case 0x94: {
         uint8_t* goal = get_goal(objective_board(), kScavengerCollectPeriod);
-        if (goal_virtual_bool(goal, 0xC))
-            goal_virtual(goal, 0x14);
+        if (goal_active(goal))
+            expire_goal(goal);
         return 1;
     }
     case 0x95:

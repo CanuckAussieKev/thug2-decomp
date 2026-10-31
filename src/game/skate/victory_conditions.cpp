@@ -161,13 +161,11 @@ bool CompleteGoalsVictoryCondition::all_goals_complete()
         bool missing = false;
         for (uint32_t g = 0; g < count; ++g) {
             uint8_t* goal = reinterpret_cast<uint8_t*>(goals->get_objective_at(static_cast<int>(g)));
-            // A goal that doesn't count (+0x2C's value set, or 0x005542F0 false) or that the skater has won (vtable
-            // +0x50, by the skater's id).
+            // A goal that doesn't count (+0x2C's value set, or 0x005542F0 false) or that the skater has won (its stage
+            // flag by the skater's id: the original's vtable +0x50).
             if (**reinterpret_cast<int**>(goal + 0x2C) != 0 || !reinterpret_cast<Objective*>(goal)->is_picked())
                 continue;
-            auto has_won =
-                reinterpret_cast<bool(__thiscall*)(uint8_t*, uint32_t)>((*reinterpret_cast<void***>(goal))[0x50 / 4]);
-            if (has_won(goal, *reinterpret_cast<uint32_t*>(skater + 0x14)))
+            if (reinterpret_cast<Objective*>(goal)->stage_flag_set(*reinterpret_cast<int*>(skater + 0x14)))
                 continue;
             missing = true;
             break;

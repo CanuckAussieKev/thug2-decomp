@@ -246,13 +246,4 @@ __declspec(naked) void virtual_slot1_jump()
     }
 }
 
-// 0x004A10A0
-__declspec(naked) void virtual_slot3_jump()
-{
-    __asm {
-        mov eax, dword ptr [ecx]
-        jmp dword ptr [eax + 0xC]
-    }
-}
-
 } // namespace render

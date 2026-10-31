@@ -162,11 +162,8 @@ void copy_name(char* dest, const char* source)
 
 prefs::Preferences* net_game_options(Hub* manager) { return manager->get_online_settings(); }
 
-// A goal's virtual +0xC: running.
-bool goal_running(uint8_t* goal)
-{
-    return reinterpret_cast<bool(__thiscall*)(uint8_t*)>(prop<void**>(goal, 0)[3])(goal);
-}
+// A goal running (the original's vtable +0xC).
+bool goal_running(uint8_t* goal) { return reinterpret_cast<goals::Objective*>(goal)->is_operative(); }
 
 } // namespace
 
@@ -631,8 +628,8 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
         int count = prop<int>(goals, 0); // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
             uint8_t* goal = get_call<uint8_t*>(code_address(&goals::GoalManager::get_objective_at), goals, i);
-            if (get_call<bool>(code_address(&goals::Objective::is_picked), goal)) {
-                uint32_t name = get_call<uint32_t>(code_address(&goals::Objective::get_objective_key), goal);
+            if (reinterpret_cast<goals::Objective*>(goal)->is_picked()) {
+                uint32_t name = reinterpret_cast<goals::Objective*>(goal)->get_objective_key();
                 std::memcpy(out, &name, 4);
                 out += 4;
             }

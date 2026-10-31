@@ -183,8 +183,8 @@ bool GoalManager::engage_objective(uint32_t id, bool)
     Objective* goal = goals_.get_pull(id);
     if (!goal || goal->is_latched())
         return false;
-    bool started = Virtual<bool>(goal, Objective::kVtActivate);
-    if (started && Virtual<bool>(goal, Objective::kVtCanRetry) && has_no_parent(goal))
+    bool started = goal->activate();
+    if (started && goal->may_try_again() && has_no_parent(goal))
         previous_objective_ = id;
     return started;
 }
@@ -200,7 +200,7 @@ bool GoalManager::complete_objective(uint32_t id)
     walk_to_root(this, goal, [&](uint32_t parent) { root = parent; });
     if (root == previous_objective_ && goal->sub_nodes_->objective_key_ == 0)
         previous_objective_ = 0;
-    if (!Virtual<bool>(goal, Objective::kVtHasWon)) {
+    if (!goal->has_won()) {
         if (goal->sub_nodes_->objective_key_ == 0 && net->in_net_game()) {
             net::NetMessageInfo desc;
             desc.make_new();
@@ -223,7 +223,7 @@ bool GoalManager::complete_objective(uint32_t id)
             ++goals_beaten_;
         }
     }
-    Virtual<bool>(goal, Objective::kVtWin);
+    goal->get_win();
     return true;
 }
 
@@ -233,7 +233,7 @@ bool GoalManager::fail_objective(uint32_t id)
     Objective* goal = goals_.get_pull(id);
     if (!goal)
         return false;
-    Virtual<bool>(goal, Objective::kVtLose);
+    goal->lose();
     if (get_game_mode()->get_name_key() == kClassic ||
         (get_game_mode()->get_name_key() == kNetGoalAttack && get_game_mode()->get_goals_mode() == kGoalsClassic))
         engage_objective(id, false);
@@ -255,8 +255,8 @@ void GoalManager::disengage_every_objective(bool unused)
 {
     for (int i = 0; i < goals_.num_; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (Virtual<bool>(goal, Objective::kVtIsActive))
-            Virtual<bool>(goal, Objective::kVtDeactivate, unused, true);
+        if (goal->is_operative())
+            goal->disengage(unused, true);
     }
 }
 
@@ -265,9 +265,8 @@ void GoalManager::activate_all_goals()
 {
     for (int i = 0; i < goals_.num_; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (!Virtual<bool>(goal, Objective::kVtIsActive) && !Virtual<bool>(goal, Objective::kVtHasWon) &&
-            !goal->is_online_objective())
-            Virtual<bool>(goal, Objective::kVtActivate);
+        if (!goal->is_operative() && !goal->has_won() && !goal->is_online_objective())
+            goal->activate();
     }
 }
 
@@ -296,13 +295,13 @@ void GoalManager::prepare_every_objective()
         goal->merge_skill_tier_args();
         if (goal->is_latched())
             continue;
-        if (Virtual<bool>(goal, Objective::kVtHasWon) && !goal->fetch_args()->has_bare_flag(kAlwaysInitializeGoal))
+        if (goal->has_won() && !goal->fetch_args()->has_bare_flag(kAlwaysInitializeGoal))
             continue;
         GoalEdge* parents = goal->parents_;
         script::Struct* params = goal->fetch_args();
         if (parents->objective_key_)
             continue;
-        if (get_game_mode()->get_name_key() == kClassic || !Virtual<bool>(goal, Objective::kVtHasWon) ||
+        if (get_game_mode()->get_name_key() == kClassic || !goal->has_won() ||
             params->has_bare_flag(kAlwaysInitializeGoal) || params->has_bare_flag(kEditedGoal))
             goal->prepare_all();
     }
@@ -326,7 +325,7 @@ void GoalManager::activate_all_selected_goals()
     for (int i = 0; i < goals_.num_; ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (goal->is_picked())
-            Virtual<bool>(goal, Objective::kVtActivate);
+            goal->activate();
     }
 }
 
@@ -358,8 +357,8 @@ bool GoalManager::begin_objective_at_once(uint32_t id, bool check_exists)
     if (!goal && check_exists)
         return false;
     goal->set_quick_start(); // (no such goal and not check_exists: written through null, as the original)
-    bool started = Virtual<bool>(goal, Objective::kVtActivate);
-    if (started && Virtual<bool>(goal, Objective::kVtCanRetry))
+    bool started = goal->activate();
+    if (started && goal->may_try_again())
         previous_objective_ = id;
     goal->unset_quick_start();
     return started;
@@ -371,7 +370,7 @@ bool GoalManager::raise_bit(uint32_t id, uint32_t flag, int value, uint32_t sub)
     Objective* goal = goals_.get_pull(id);
     if (!goal)
         return false;
-    return Virtual<bool>(goal, Objective::kVtSetFlag, flag, value, sub);
+    return goal->set_flag(flag, value, sub);
 }
 
 // 0x005586E0
@@ -395,7 +394,7 @@ void GoalManager::kill_cluster(uint32_t cluster, int score)
     int count = goals_.num_; // (read once)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (!Virtual<bool>(goal, Objective::kVtIsActive) || goal->is_online_objective())
+        if (!goal->is_operative() || goal->is_online_objective())
             continue;
         if (goal->is_graffiti())
             goal->kill_cluster(cluster, score);
@@ -409,7 +408,7 @@ void GoalManager::check_trick_goals()
 {
     for (int i = 0; i < goals_.num_; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (!Virtual<bool>(goal, Objective::kVtIsActive) || goal->is_online_objective())
+        if (!goal->is_operative() || goal->is_online_objective())
             continue;
         script::Struct* params = goal->fetch_args();
         if (goal->is_special() || params->has_bare_flag(kCreateATrick)) {
@@ -430,7 +429,7 @@ void GoalManager::open_up_objective(uint32_t id) { goals_.get_pull(id)->get_unlo
 int GoalManager::has_beaten_goal(uint32_t id)
 {
     if (Objective* goal = goals_.get_pull(id))
-        return Virtual<bool>(goal, Objective::kVtHasWon);
+        return goal->has_won();
     int beaten = 0;
     script::Struct* data;
     if (goal_data_->read_sub_struct(id, &data, 0))
@@ -453,7 +452,7 @@ bool GoalManager::has_won_proset_goal(const char* prefix)
 {
     for (int i = 0; i < goals_.num_; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (Virtual<bool>(goal, Objective::kVtHasWon) && goal->has_proset_prefix(prefix))
+        if (goal->has_won() && goal->has_proset_prefix(prefix))
             return true;
     }
     return false;
@@ -471,7 +470,7 @@ void GoalManager::restore_goal_data()
             args_->get_clear();
             args_->append_structure_if_any(levels);
         } else if (Objective* goal = goals_.get_pull(component->name)) {
-            Virtual<void>(goal, Objective::kVtLoadSaveData, component->structure);
+            goal->restore_save_block(component->structure);
         }
         component = next;
     }
@@ -483,7 +482,7 @@ int GoalManager::count_cleared_by_player(int bit)
     int count = 0;
     for (int i = 0; i < goals_.num_; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (has_no_parent(goal) && Virtual<bool>(goal, Objective::kVtStageFlagSet, bit))
+        if (has_no_parent(goal) && goal->stage_flag_set(bit))
             ++count;
     }
     return count;
@@ -495,7 +494,7 @@ int GoalManager::num_goals_net_beaten_by(int bit)
     int count = 0;
     for (int i = 0; i < goals_.num_; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (has_no_parent(goal) && Virtual<bool>(goal, Objective::kVtNetStageFlagSet, bit))
+        if (has_no_parent(goal) && goal->net_stage_flag_set(bit))
             ++count;
     }
     return count;
@@ -507,7 +506,7 @@ int GoalManager::count_objectives_cleared()
     int count = 0;
     for (int i = 0; i < goals_.num_; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (has_no_parent(goal) && Virtual<bool>(goal, Objective::kVtHasWon))
+        if (has_no_parent(goal) && goal->has_won())
             ++count;
     }
     return count;
@@ -566,7 +565,7 @@ Objective* GoalManager::get_active_competition()
 {
     for (int i = 0; i < goals_.num_; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (goal->is_contest_objective() && Virtual<bool>(goal, Objective::kVtIsActive))
+        if (goal->is_contest_objective() && goal->is_operative())
             return goal;
     }
     return nullptr;
@@ -693,7 +692,7 @@ bool GoalManager::drop_objective(uint32_t id)
     goals_.drop_out(id);
     if (previous_objective_ == id)
         previous_objective_ = 0;
-    Virtual<Objective*>(goal, Objective::kVtDestroy, static_cast<uint8_t>(1));
+    delete goal;
     return true;
 }
 
@@ -710,7 +709,7 @@ void GoalManager::wipe_objectives()
 // 0x0055DBE0
 void GoalManager::add_active_goal(Objective* goal)
 {
-    reinterpret_cast<lists::Foremost*>(&active_goals_)->append_vertex(&goal->list_link_);
+    reinterpret_cast<lists::Foremost*>(&active_goals_)->append_vertex(goal->list_node());
 }
 
 namespace {
@@ -762,7 +761,7 @@ int GoalManager::count_live_goals(bool all)
         Objective* goal = count_active(&active_goals_.list_link_)
                               ? static_cast<Objective*>(active_goals_.get_node_at(i)->data)
                               : nullptr;
-        bool counts = goal->is_online_objective() ? all : all || Virtual<bool>(goal, Objective::kVtIsActive2);
+        bool counts = goal->is_online_objective() ? all : all || goal->is_operative();
         if (counts)
             ++counted;
     }

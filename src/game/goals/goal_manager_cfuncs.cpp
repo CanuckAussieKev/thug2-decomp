@@ -63,7 +63,7 @@ bool __cdecl cfunc_goal_manager_deactivate_goal(script::Struct* params, script::
     GoalManager* manager = get_objective_board();
     Objective* goal = manager->goals_.get_pull(get_goal_name(params));
     if (goal)
-        Virtual<bool>(goal, Objective::kVtDeactivate, false, true);
+        goal->disengage(false, true);
     return goal != nullptr;
 }
 
@@ -150,7 +150,7 @@ bool __cdecl cfunc_goal_manager_goal_is_active(script::Struct* params, script::S
 {
     GoalManager* manager = get_objective_board();
     Objective* goal = manager->goals_.get_pull(get_goal_name(params));
-    return goal ? Virtual<bool>(goal, Objective::kVtIsActive) : false;
+    return goal ? goal->is_operative() : false;
 }
 
 // 0x00559540: the timer set to `time` seconds - without one, started again from the goal's own time.
@@ -208,7 +208,7 @@ bool __cdecl cfunc_goal_manager_set_goal_flag(script::Struct* params, script::Sc
     Objective* goal = manager->goals_.get_pull(name);
     if (!goal)
         return false;
-    return Virtual<bool>(goal, Objective::kVtSetFlag, flag, value, skater);
+    return goal->set_flag(flag, value, skater);
 }
 
 // 0x00559720

@@ -169,7 +169,7 @@ void __cdecl score_broadcast_tick(tasks::Task<Hub>* task)
     if (get_game_type() == kNetScavengerHunt) {
         uint8_t* goal =
             get_call<uint8_t*>(code_address(&goals::GoalManager::get_goal), objective_board(), kScavenger, 0);
-        if (goal && reinterpret_cast<bool(__thiscall*)(void*)>((*reinterpret_cast<void***>(goal))[3])(goal))
+        if (goal && reinterpret_cast<goals::Objective*>(goal)->is_operative())
             scavenger_hunt = true; // (the goal is active)
     }
     uint32_t now = frame_clock::get_time();
