@@ -34,9 +34,6 @@ uint8_t* new_lights() { return reinterpret_cast<uint8_t*>(spawn_model_lights());
 
 } // namespace
 
-// 0x00492DC0
-bool RenderModel::virtual_true4(int, int, int, int) { return true; }
-
 // 0x00492EB0
 maths::Vec4* RenderModel::plat_get_bounding_sphere(maths::Vec4* out)
 {
@@ -52,7 +49,7 @@ bool RenderModel::choose_rig(uint8_t* skeleton)
 {
     if (!skin_palette_) {
         bone_total_ = skeleton_bone_count(skeleton);
-        model_virtual<bool>(this, 1, skeleton_bone_count(skeleton));
+        allot_bones(skeleton_bone_count(skeleton));
         skin_palette_ = skeleton_bones(skeleton);
     }
     return true;
@@ -63,7 +60,7 @@ bool RenderModel::set_display_mode(int mode)
 {
     if (mode == display_mode_)
         return false;
-    bool allowed = model_virtual<bool>(this, 3, mode);
+    bool allowed = allows_display_mode(mode);
     if (allowed)
         display_mode_ = mode;
     return allowed;
@@ -90,7 +87,7 @@ void RenderModel::allow_resizing(uint8_t on) { flag_bits_ = set_flag(flag_bits_,
 void RenderModel::change_bound_sphere(const maths::Vec4* sphere)
 {
     flag_bits_ &= ~kModelSphereValid;
-    model_virtual<void>(this, 13, sphere);
+    plat_set_bounding_sphere(sphere);
 }
 
 // 0x00492E90
@@ -112,7 +109,7 @@ maths::Vec4* RenderModel::fetch_bound_sphere(maths::Vec4* out)
 {
     if (!(flag_bits_ & kModelSphereValid)) {
         maths::Vec4 sphere;
-        enclosing_ball_ = *model_virtual<maths::Vec4*>(this, 12, &sphere);
+        enclosing_ball_ = *plat_get_bounding_sphere(&sphere);
         flag_bits_ |= kModelSphereValid;
     }
     *out = enclosing_ball_;

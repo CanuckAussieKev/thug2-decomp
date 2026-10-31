@@ -67,11 +67,7 @@ void copy_skeleton(uint8_t* to, uint8_t* from)
 
 // A model's +0xC (0x00492E50 / 0x00493460: the setter tells the model's parts) and its lights (+0x2C), whose
 // position follows a pointer (0x0048E4D0).
-uint32_t model_get(render::RenderModel* model)
-{
-    return reinterpret_cast<uint32_t(__thiscall*)(render::RenderModel*)>(
-        code_address(&render::RenderModel::fetch_skinning_palette))(model);
-}
+uint32_t model_get(render::RenderModel* model) { return reinterpret_cast<uint32_t>(model->fetch_skinning_palette()); }
 void model_set(render::RenderModel* model, uint32_t value)
 {
     model->upload_skinning_palette(reinterpret_cast<uint8_t*>(value));

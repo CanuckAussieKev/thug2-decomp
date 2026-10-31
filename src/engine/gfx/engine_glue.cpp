@@ -232,11 +232,7 @@ bool __cdecl unload_scene(void* scene)
 }
 
 // 0x004B29C0
-void* __cdecl spawn_model()
-{
-    void* memory = memory::alloc_zeroed(0x50);
-    return memory ? static_cast<PcModel*>(memory)->make_new() : nullptr;
-}
+RenderModel* __cdecl spawn_model() { return new PcModel; }
 
 // 0x004B2A20
 void* __cdecl create_geom()

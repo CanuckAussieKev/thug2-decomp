@@ -33,7 +33,7 @@ void* allocate_zeroed(unsigned int size)
     return memory::Hub::get_pull()->allocate_zeroed(size, assert_flag(), nullptr);
 }
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
-RenderModel* spawn_render_model(int) { return static_cast<RenderModel*>(render::spawn_model()); }
+RenderModel* spawn_render_model(int) { return render::spawn_model(); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
 void model_path_for(const char* name, const char* ext, char* out) { gfx::make_model_file_name(name, ext, out); }
 
@@ -60,14 +60,14 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
         return;
     model_path_for(model, kModelExtension, file_name);
     text::to_lower_text(file_name);
-    model_list_ = static_cast<void**>(allocate_zeroed(model_count_ * 4));
+    model_list_ = static_cast<RenderModel**>(allocate_zeroed(model_count_ * 4));
     if (!model_list_)
         return;
     if (memory::malloc_available() < model_count_ * kMemoryPerModel)
         return;
     for (unsigned int i = 0; i < model_count_; ++i) {
         model_list_[i] = spawn_render_model(assert_flag());
-        auto* each = static_cast<RenderModel*>(model_list_[i]);
+        RenderModel* each = model_list_[i];
         if (!each)
             return;
         each->drop_geoms();
@@ -110,7 +110,7 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
 // 0x0049A4C0
 void ModelParticles::render()
 {
-    auto model = [this](unsigned int i) { return static_cast<RenderModel*>(model_list_[i]); };
+    auto model = [this](unsigned int i) { return model_list_[i]; };
     int count = particle_count_;
     if (count == 0) {
         for (unsigned int i = 0; i < drawn_models_; ++i)

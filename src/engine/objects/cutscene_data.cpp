@@ -61,8 +61,7 @@ void* model_of(ObjectModule* component)
 }
 uint32_t model_get(void* model)
 {
-    return reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&render::RenderModel::fetch_skinning_palette))(
-        model);
+    return reinterpret_cast<uint32_t>(static_cast<render::RenderModel*>(model)->fetch_skinning_palette());
 }
 void model_set(void* model, uint32_t value)
 {

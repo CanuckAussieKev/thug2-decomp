@@ -104,12 +104,12 @@ void add_scene_collision(void* scene, const char* add) { static_cast<render::Wor
 
 // Models (Nx): one made (0x0048BFA0, a jump to 0x004B29C0), its model file loaded (0x004935E0, thiscall), destroyed
 // again (0x0048C3C0).
-void* spawn_model(int) { return render::spawn_model(); } // (0x0048BFA0, a jump to 0x004B29C0)
-void load_model_file(void* model, const char* file, bool allow_replace_tex)
+render::RenderModel* spawn_model(int) { return render::spawn_model(); } // (0x0048BFA0, a jump to 0x004B29C0)
+void load_model_file(render::RenderModel* model, const char* file, bool allow_replace_tex)
 {
-    static_cast<render::RenderModel*>(model)->add_file_geom(file, 0, true, 0, allow_replace_tex, false, true, false);
+    model->add_file_geom(file, 0, true, 0, allow_replace_tex, false, true, false);
 }
-void destroy_model(void* model) { render::engine::delete_geom_object(model); }
+void destroy_model(render::RenderModel* model) { delete model; }
 
 } // namespace
 
@@ -128,7 +128,7 @@ bool __cdecl cfunc_preload_model(Struct* params, Script*)
 {
     const char* name;
     params->fetch_text(kName, &name, true);
-    void* model = spawn_model(1);
+    render::RenderModel* model = spawn_model(1);
     bool allow_replace_tex = params->has_bare_flag(kAllowReplaceTex);
     text::Chars file;
     {

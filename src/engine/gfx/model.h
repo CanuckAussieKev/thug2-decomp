@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/gfx/pc_model.h"
+#include "engine/core/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 
@@ -16,6 +16,15 @@ class Struct;
 // matrix and a skeleton's bones, shown or hidden as a whole or by geom, coloured, scaled, given a shadow, lights and
 // bone volumes.
 namespace render {
+
+// A node of a model's geom list (12 bytes, a ring with a head of its own): what it holds, the next and the previous
+// node. What it holds starts with the geom.
+struct ModelGeomNode {
+    void** entry; // the entry (its first word the geom)
+    ModelGeomNode* next;
+    ModelGeomNode* prev;
+};
+static_assert(sizeof(ModelGeomNode) == 0xC, "layout must match the original");
 
 // One of a model's geoms (0x18 bytes; what a node of the model's geom list holds).
 struct ModelGeom {
@@ -41,29 +50,36 @@ enum : uint8_t {
 // The checksum of "all" - a geom name matching every geom.
 constexpr uint32_t kAllGeoms = 0xC4E78E22;
 
-// The model (0x4C bytes; vtable 0x00649348 - PcModel's 0x0064A4B4 replaces [0], [12] and [13]). Its virtual slots:
-// [0] destroy, [1] the skeleton's bones allotted (0x005BC7F0: true), [2] a bone flag for upload_skinning_palette (0x0049F4A0:
-// 0), [3] whether a display mode may be set (0x005BC7F0: true), [4] 0x00492DC0 (true; nothing calls it), [5] - [7]
-// 0x005BC7F0, [8] 0x0048DD50, [9] 0x004549C0 (all true), [10] / [11] before / after its textures are replaced
-// (0x005B9760: true), [12] the platform's bounding sphere, [13] the platform's bounding sphere set (0x005BAB90:
-// nothing).
-class RenderModel {
+// The model (0x4C bytes; vtable 0x00649348 - PcModel's 0x0064A4B4 replaces [0], [12] and [13]). The slots the same in
+// both tables are plain methods here: [1] the skeleton's bones allotted, [2] a bone flag for render, [3] whether a
+// display mode may be set, [10] / [11] before / after its textures are replaced; [4] - [9] (true: 0x00492DC0,
+// 0x005BC7F0, 0x0048DD50, 0x004549C0) are never called and left out.
+class RenderModel : public memory::HeapObject {
 public:
-    // 0x00494C40: construct: an empty geom list, display mode 6 (if the platform agrees), active, not hidden,
-    // scale 1, no lights, the file name "none". Returns this. (visible_geoms_ and the geom counts by kind are left
-    // as they were.)
-    RenderModel* make_new();
-    // 0x00494D00: the destructor's body: the lights deleted, the bone volumes released (0x0048B400), the geoms
-    // cleared, the list's nodes erased and its head freed.
-    void destroy_body();
-    // 0x00494DC0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    RenderModel* teardown(unsigned int flags);
+    // 0x00494C40: an empty geom list, display mode 6 (if the platform agrees), active, not hidden, scale 1, no lights,
+    // the file name "none". (visible_geoms_ and the geom counts by kind are left as they were: zero.)
+    RenderModel();
+    // 0x00494D00 (0x00494DC0 the scalar deleting destructor, vtable slot 0): the lights deleted, the bone volumes
+    // released (0x0048B400), the geoms cleared, the list's nodes erased and its head freed.
+    virtual ~RenderModel();
+    RenderModel(const RenderModel&) = delete;
+    RenderModel& operator=(const RenderModel&) = delete;
 
-    // 0x00492DC0 (virtual [4]): true (the four arguments unused).
-    bool virtual_true4(int a, int b, int c, int d);
-    // 0x00492EB0 (virtual [12]): the default bounding sphere: (0, 36, 0) with a radius of 48 for a model with bones,
-    // else 1200. Returns out.
-    maths::Vec4* plat_get_bounding_sphere(maths::Vec4* out);
+    // 0x00492EB0 (vtable slot 12): the platform's bounding sphere - here the default: (0, 36, 0) with a radius of 48
+    // for a model with bones, else 1200. Returns out.
+    virtual maths::Vec4* plat_get_bounding_sphere(maths::Vec4* out);
+    // (slot 13, 0x005BAB90 here: nothing) the platform's bounding sphere set.
+    virtual void plat_set_bounding_sphere(const maths::Vec4*) {}
+
+    // (slot 1, 0x005BC7F0) the platform told the skeleton's bone count: true.
+    bool allot_bones(int) { return true; }
+    // (slot 2, 0x0049F4A0) a flag for the geoms' bone matrices: 0.
+    int get_bone_flag(int) { return 0; }
+    // (slot 3, 0x005BC7F0) whether the platform agrees to a display mode: true.
+    bool allows_display_mode(int) { return true; }
+    // (slots 10 / 11, 0x005B9760) before / after its textures are replaced: true.
+    bool begin_texture_swap() { return true; }
+    bool end_texture_swap() { return true; }
 
     // 0x00492DD0: the skeleton's bones taken once (their count, the platform told - virtual [1] -, the matrices).
     // Always true.
@@ -180,7 +196,6 @@ public:
     // 0x00494BA0: every geom deleted (their scenes too, if the model's) and the list emptied.
     void drop_geoms();
 
-    void** vtable;               // +0x00
     int display_mode_;           // +0x04
     int bone_total_;             // +0x08
     uint8_t* skin_palette_;      // +0x0C

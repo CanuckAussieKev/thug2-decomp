@@ -211,7 +211,7 @@ void ModelAssembler::get_build(ModelLook* appearance, render::RenderModel* model
     built_model() = nullptr;
     built_skeleton() = nullptr;
     if (ModelLook* copy = built_appearance())
-        reinterpret_cast<void*(__thiscall*)(ModelLook*, unsigned int)>(copy->vtable_[0])(copy, 1);
+        copy->teardown(1); // (its vtable slot 0: the deleting destructor)
     built_appearance() = nullptr;
 }
 
@@ -226,11 +226,11 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         params->read_hash_value(kPart, &part, 1);
         params->read_hash_value(kMaterial, &material, 1);
         params->fetch_int_value(kPass, &pass, 1);
-        get_step<bool>(13, part, material, pass);
+        choose_uv_shift(part, material, pass);
         return true;
     }
     case kModelClearAllGeoms:
-        get_step<bool>(17);
+        clear_all_geoms();
         return true;
     case kModelApplyBoneScale: {
         if (!params->has_entry_named(kBoneScaling))
@@ -242,7 +242,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
             params->read_hash_value(kFemaleCasPart, &cast_part, 0);
         uint32_t part = name;
         params->read_hash_value(kPart, &part, 1);
-        get_step<bool>(21, part, cast_part);
+        apply_bone_sizing(part, cast_part);
         return true;
     }
     case kAppearanceUnused30e2951d:
@@ -253,13 +253,13 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         int pass = static_cast<int>(get_slot_of(params));
         params->read_hash_value(kMaterial, &material, 1);
         params->fetch_int_value(kPass, &pass, 1);
-        get_step<bool>(14, material, pass);
+        create_uv_anim_params(material, pass);
         return true;
     }
     case kModelApplyObjectScale: {
         script::Struct* body_shape = nullptr;
         if (!params->read_sub_struct(kBodyShape, &body_shape, 0)) {
-            get_step<bool>(22);
+            apply_object_scale();
             return true;
         }
         maths::Vec4 scale = built_model()->size_factor_;
@@ -276,7 +276,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
     case kModelAddGeom: {
         uint32_t part = get_slot_of(params);
         params->read_hash_value(kPart, &part, 1);
-        get_step<bool>(9, part);
+        add_geom(part);
         return true;
     }
     case kAppearanceAllowScalingCheat: {
@@ -290,11 +290,11 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         int hide = static_cast<int>(get_slot_of(params));
         params->read_hash_value(kPart, &geom, 1);
         params->fetch_int_value(0u, &hide, 1); // (the unnamed integer)
-        get_step<bool>(11, geom, hide != 0);
+        conceal_mesh(geom, hide != 0);
         return true;
     }
     case kModelPropagateHeadColor:
-        get_step<bool>(24);
+        propagate_head_color();
         return true;
     case kModelApplyFaceTexture: {
         FaceSkin* face = built_appearance()->face_skin_;
@@ -309,35 +309,35 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
     case kModelRemovePart: {
         uint32_t part = get_slot_of(params);
         params->read_hash_value(kPart, &part, 1);
-        get_step<bool>(10, part);
+        remove_part(part);
         return true;
     }
     case kGeomModulateColor:
-        get_step<bool>(12, params);
+        blend_tint_over(params);
         return true;
     case kModelRemovePolys:
-        get_step<bool>(18);
+        detach_polys();
         return true;
     case kGeomReplaceTexture: {
         uint32_t part = get_slot_of(params);
         params->read_hash_value(kPart, &part, 1);
-        get_step<bool>(15, part);
+        swap_texture(part);
         return true;
     }
     case kModelRunScript: {
         uint32_t part = name, target = get_slot_of(params);
         params->read_hash_value(kPart, &part, 1);
         params->read_hash_value(kTarget, &target, 1);
-        get_step<bool>(25, part, target);
+        launch_script(part, target);
         return true;
     }
     case kModelFinalize:
-        get_step<bool>(23);
+        seal();
         return true;
     case kModelApplyBodyShape: {
         script::Struct* body_shape = nullptr;
         if (!params->read_sub_struct(kBodyShape, &body_shape, 0)) {
-            get_step<bool>(20);
+            apply_body_shape();
             return true;
         }
         script::Struct* head = built_appearance()->get_part_option(kSkaterMHead);
@@ -348,13 +348,13 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         return built_skeleton()->apply_bone_scales(body_shape);
     }
     case kModelResetScale:
-        get_step<bool>(19);
+        restore_scale();
         return true;
     case kGeomSetCreatedTexture: {
         uint32_t part = get_slot_of(params);
         params->read_hash_value(kPart, &part, 1);
-        get_step<bool>(16, part);
-        get_step<bool>(18);
+        set_created_texture(part);
+        detach_polys();
         return true;
     }
     default:
@@ -752,24 +752,7 @@ static VtableSlot g_vtable_slots[] = {
     &objects::Entity::pass_event_to_script,
     &objects::Entity::flag_as_dead,
     stubs::return_true,
-    &gfx::ModelAssembler::get_build,
-    &gfx::ModelAssembler::add_geom,
-    &gfx::ModelAssembler::remove_part,
-    &gfx::ModelAssembler::conceal_mesh,
-    &gfx::ModelAssembler::blend_tint_over,
-    &gfx::ModelAssembler::choose_uv_shift,
-    &gfx::ModelAssembler::create_uv_anim_params,
-    &gfx::ModelAssembler::swap_texture,
-    &gfx::ModelAssembler::set_created_texture,
-    &gfx::ModelAssembler::clear_all_geoms,
-    &gfx::ModelAssembler::detach_polys,
-    &gfx::ModelAssembler::restore_scale,
-    &gfx::ModelAssembler::apply_body_shape,
-    &gfx::ModelAssembler::apply_bone_sizing,
-    &gfx::ModelAssembler::apply_object_scale,
-    &gfx::ModelAssembler::seal,
-    &gfx::ModelAssembler::propagate_head_color,
-    &gfx::ModelAssembler::launch_script};
+    &gfx::ModelAssembler::get_build};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 } // namespace
 

@@ -82,11 +82,8 @@ void* rig_definition(void* skeleton) { return *reinterpret_cast<void**>(static_c
 // skeleton (0x00492DD0), shadow volume (0x00492E90), bounding sphere (0x00492F30), lights (+0x2C) made (0x00493BD0) or
 // taken away (0x00493C10), bone volumes (0x00492FC0 / 0x00492F90), placed (0x00493090) and its skinning updated
 // (0x00493410).
-render::RenderModel* spawn_render_model(int arg)
-{
-    return (void)arg, static_cast<render::RenderModel*>(render::spawn_model());
-}
-void delete_model(render::RenderModel* model) { render::engine::delete_geom_object(model); }
+render::RenderModel* spawn_render_model(int arg) { return (void)arg, render::spawn_model(); }
+void delete_model(render::RenderModel* model) { delete model; }
 void* model_lights(render::RenderModel* model)
 {
     return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C);

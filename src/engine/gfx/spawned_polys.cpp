@@ -38,23 +38,16 @@ void* get_first_value(lists::KeyMap* table)
     return next_value(table);
 }
 
-// The primitive's calls: its virtual slots ([0] destroyed, [7] a corner's position, [15] a corner's colour, [16] a
-// corner's texture coordinates) and the engine's dispatchers for [1] (the texture, 0x004A1090), [3] (the layout, type
-// and count, 0x004A10A0) and [4] (readied, then +0x15 set: 0x0049C6C0).
-template <typename... A>
-void primitive_virtual(PcPrimitive* primitive, int slot, A... args)
-{
-    reinterpret_cast<void(__thiscall*)(PcPrimitive*, A...)>(primitive->vtable[slot])(primitive, args...);
-}
+// A corner's position and colour.
 void set_corner(PcPrimitive* primitive, int corner, const maths::Vec4& at)
 {
-    primitive_virtual(primitive, 7, corner, at.x, at.y, at.z);
+    primitive->change_place(corner, at.x, at.y, at.z);
 }
 void set_corner_colour(PcPrimitive* primitive, int corner, const uint8_t* colour)
 {
     uint32_t rgba;
     std::memcpy(&rgba, colour, 4);
-    primitive_virtual(primitive, 15, corner, rgba);
+    primitive->set_vertex_colour(corner, rgba);
 }
 
 // Four corners turned by the polygon's matrix and moved to its position.
@@ -86,8 +79,7 @@ namespace engine {
 // 0x00492450
 void __cdecl spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
 {
-    void* memory = memory::alloc(0x158);
-    poly->primitive = memory ? static_cast<PcPrimitive*>(memory)->make_new(1) : nullptr;
+    poly->primitive = new PcPrimitive(1);
     maths::Mat4& m = poly->matrix;
     std::memset(&m, 0, sizeof(m));
     m.row[0].x = m.row[1].y = m.row[2].z = m.row[3].w = 1.0f;
@@ -113,9 +105,7 @@ void __cdecl spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* 
     m.row[1].y = static_cast<float>(t1);
     uint32_t layout = 1; // (colours; 3: and texture coordinates)
     if (poly->texture) {
-        // (the primitive's slot 1, through the jump 0x004A1090)
-        reinterpret_cast<void(__thiscall*)(PcPrimitive*, uint8_t*, int, int)>(
-            (*reinterpret_cast<void***>(poly->primitive))[1])(poly->primitive, poly->texture, 0, 0);
+        poly->primitive->set_texture(poly->texture, 0, 0); // (through the jump 0x004A1090)
         layout = 3;
     }
     std::memcpy(poly->colours, poly->start_colours_, sizeof(poly->colours));
@@ -136,18 +126,16 @@ void __cdecl spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* 
     place_corners(poly, corners);
     PcPrimitive* primitive = poly->primitive;
     primitive->blend_mode_ = poly->blend_mode_;
-    // (slot 3, through the jump 0x004A10A0)
-    reinterpret_cast<void(__thiscall*)(PcPrimitive*, uint32_t, int, int)>((*reinterpret_cast<void***>(primitive))[3])(
-        primitive, layout, 4, 4);
+    primitive->prepare_all(layout, 4, 4); // (through the jump 0x004A10A0)
     const float uvs[4][2] = {{0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}};
     for (int i = 0; i < 4; ++i) {
         set_corner_colour(poly->primitive, i, poly->colours[i]);
         if (layout & 2)
-            primitive_virtual(poly->primitive, 16, i, uvs[i][0], uvs[i][1]);
+            poly->primitive->set_uv(i, uvs[i][0], uvs[i][1]);
         set_corner(poly->primitive, i, corners[i]);
     }
-    reinterpret_cast<uint8_t*>(poly->primitive)[0x14] = (poly->flags >> 1) & 1;
-    reinterpret_cast<Primitive*>(poly->primitive)->get_ready();
+    poly->primitive->unknown14 = (poly->flags >> 1) & 1;
+    poly->primitive->get_ready();
     uint32_t key = reinterpret_cast<uint32_t>(poly);
     spawned_polys()->store_entry(key, poly);
 }
@@ -169,8 +157,7 @@ void __cdecl update_spawned_polys()
             poly->flags |= 1;
             poly->age = 0.0f;
             value = next_value(spawned_polys());
-            if (poly->primitive)
-                primitive_virtual(poly->primitive, 0, 1u);
+            delete poly->primitive;
             poly->primitive = nullptr;
             uint32_t key = reinterpret_cast<uint32_t>(poly);
             spawned_polys()->erase_entry(key);
@@ -220,8 +207,7 @@ void __cdecl kill_all_spawned_polys()
     for (void* value = get_first_value(spawned_polys()); value;) {
         auto* poly = static_cast<SpawnedPoly*>(value);
         value = next_value(spawned_polys());
-        if (poly->primitive)
-            primitive_virtual(poly->primitive, 0, 1u);
+        delete poly->primitive;
         poly->primitive = nullptr;
         uint32_t key = reinterpret_cast<uint32_t>(poly);
         spawned_polys()->erase_entry(key);

@@ -13,6 +13,7 @@ void __stdcall ignore_argument(int);
 void __stdcall ignore_arguments2(int, int);
 void __stdcall ignore_arguments3(int, int, int);
 bool __stdcall return_true2(int, int);
+bool __stdcall return_true4(int, int, int, int);
 // Methods ignoring their stack arguments (the count in the name) - the engine's empty virtual slots.
 bool __stdcall return_false1(int);
 bool __stdcall return_false2(int, int);

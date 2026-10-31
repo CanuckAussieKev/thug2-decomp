@@ -15,6 +15,7 @@ namespace render {
 
 class WeatherSystem;
 class ScreenEffects;
+class RenderModel;
 class BillboardQuad;
 class TexturedQuad;
 
@@ -60,7 +61,7 @@ void* __cdecl make_empty_scene(const char* name, void* textures, bool with_super
 bool __cdecl unload_scene(void* scene);
 // 0x004B29C0 / 0x004B2A20 / 0x004B2A80 / 0x004B2AF0: a new PC model (0x50 bytes, zeroed), geom (0x64, zeroed),
 // sprite (0x48) and textured quad (0x20) - null when out of memory.
-void* __cdecl spawn_model();
+RenderModel* __cdecl spawn_model();
 void* __cdecl create_geom();
 BillboardQuad* __cdecl build_sprite_quad();
 TexturedQuad* __cdecl create_textured_quad();

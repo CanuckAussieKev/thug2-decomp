@@ -6,15 +6,12 @@
 #include "engine/gfx/engine_primitive.h"
 
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
 #include "engine/gfx/pc_primitive.h"
-#include "engine/core/code_address.h"
 
 namespace render {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kDefaultBlendMode = 0x54628ED7;
 constexpr uint32_t kNewFlag = 0x100;
 
@@ -26,47 +23,26 @@ Primitive*& new_primitives() { return g_new_primitives; }
 Primitive*& drawn_primitives() { return g_drawn_primitives; }
 uint32_t& primitive_states() { return g_primitive_states; }
 
-void** get_vtable(Primitive* primitive) { return primitive->vtable_; }
-
 } // namespace
 
 // 0x0049C660
-Primitive* Primitive::make_new(int own)
+Primitive::Primitive(int own) : blend_mode_(kDefaultBlendMode), owns_vertices_(own)
 {
-    unknown1c_ = 0;
-    ready_ = false;
-    following_ = nullptr;
-    unknown14 = 0;
-    flag_bits_ = 0;
-    vtable_ = reinterpret_cast<void**>(kVtable);
-    blend_mode_ = kDefaultBlendMode;
-    owns_vertices_ = own;
     if (own == 1)
         link_primitive(this);
-    return this;
 }
 
 // 0x0049C6A0
-void Primitive::destroy_body()
+Primitive::~Primitive()
 {
-    vtable_ = reinterpret_cast<void**>(kVtable);
     if (owns_vertices_ == 1)
         unlink_primitive(this);
-}
-
-// 0x0049C790
-Primitive* Primitive::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x0049C6C0
 void Primitive::get_ready()
 {
-    reinterpret_cast<void(__thiscall*)(Primitive*)>(get_vtable(this)[4])(this);
+    end_setup();
     ready_ = true;
 }
 
@@ -74,15 +50,14 @@ void Primitive::get_ready()
 void Primitive::render_if_ready()
 {
     if (ready_)
-        reinterpret_cast<void(__thiscall*)(Primitive*)>(get_vtable(this)[5])(this);
+        render();
 }
 
 // 0x0049C6E0
 void Primitive::draw_if_ready(const float* positions, const uint32_t* colours, const float* uvs, const float* normals)
 {
     if (ready_)
-        reinterpret_cast<void(__thiscall*)(Primitive*, const float*, const uint32_t*, const float*, const float*)>(
-            get_vtable(this)[6])(this, positions, colours, uvs, normals);
+        blit(positions, colours, uvs, normals);
 }
 
 // --- the virtuals' bodies (0x0049C390-0x0049C640) ---
@@ -90,7 +65,7 @@ void Primitive::draw_if_ready(const float* positions, const uint32_t* colours, c
 void Primitive::set_texture(const uint8_t*, int, int) { debug::printf("STUB: plat_set_texture\n"); }
 void Primitive::change_colour(uint32_t) { debug::printf("STUB: plat_set_base_color\n"); }
 void Primitive::prepare_all(uint32_t, int, int) { debug::printf("STUB: plat_begin\n"); }
-void Primitive::get_end() { debug::printf("STUB: plat_end\n"); }
+void Primitive::end_setup() { debug::printf("STUB: plat_end\n"); }
 void Primitive::render() { debug::printf("STUB: plat_draw\n"); }
 void Primitive::blit(const float*, const uint32_t*, const float*, const float*)
 {
@@ -199,9 +174,7 @@ void __cdecl render_primitives()
         Primitive** at = &drawn_primitives();
         if (*at) {
             for (;;) {
-                // (the primitive's Compare - vtable slot 35 - with the one there)
-                int order = reinterpret_cast<int(__thiscall*)(Primitive*, Primitive*)>(get_vtable(primitive)[35])(
-                    primitive, *at);
+                int order = primitive->weigh(*at);
                 if (order < 0)
                     break;
                 at = &(*at)->following_;
@@ -237,27 +210,5 @@ void __cdecl set_primitive_state(int state, int value)
     }
     set_primitive_depth_test(state, value);
 }
-
-namespace {
-static VtableSlot g_vtable_slots[] = {&render::Primitive::teardown,      &render::Primitive::set_texture,
-                                      &render::Primitive::change_colour, &render::Primitive::prepare_all,
-                                      &render::Primitive::get_end,       &render::Primitive::render,
-                                      &render::Primitive::blit,          &render::Primitive::change_place,
-                                      &render::Primitive::set_x,         &render::Primitive::set_y,
-                                      &render::Primitive::set_z,         &render::Primitive::set_normal,
-                                      &render::Primitive::set_normal_x,  &render::Primitive::set_normal_y,
-                                      &render::Primitive::set_normal_z,  &render::Primitive::set_vertex_colour,
-                                      &render::Primitive::set_uv,        &render::Primitive::choose_u,
-                                      &render::Primitive::choose_v,      &render::Primitive::fetch_pos_x,
-                                      &render::Primitive::fetch_pos_y,   &render::Primitive::fetch_pos_z,
-                                      &render::Primitive::get_normal_x,  &render::Primitive::get_normal_y,
-                                      &render::Primitive::get_normal_z,  &render::Primitive::get_vertex_colour,
-                                      &render::Primitive::get_u,         &render::Primitive::get_v,
-                                      &render::Primitive::get_slide,     &render::Primitive::translate_x,
-                                      &render::Primitive::translate_y,   &render::Primitive::translate_z,
-                                      &render::Primitive::scroll_uv,     &render::Primitive::scroll_u,
-                                      &render::Primitive::scroll_v,      &render::Primitive::weigh};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-} // namespace
 
 } // namespace render

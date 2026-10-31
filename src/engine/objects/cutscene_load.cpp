@@ -296,10 +296,10 @@ void CinematicTable::add_objects(script::Struct* params)
                     model_set_offset(model2, offset2);
                     static_cast<render::RenderModel*>(model2)->conceal(0);
                     static_cast<render::RenderModel*>(model2)->allow_resizing(0);
-                    uint32_t mine = reinterpret_cast<uint32_t(__thiscall*)(void*)>(
-                        code_address(&render::RenderModel::fetch_skinning_palette))(model2);
-                    uint32_t theirs = reinterpret_cast<uint32_t(__thiscall*)(void*)>(
-                        code_address(&render::RenderModel::fetch_skinning_palette))(model_of(stand_in));
+                    uint32_t mine =
+                        reinterpret_cast<uint32_t>(static_cast<render::RenderModel*>(model2)->fetch_skinning_palette());
+                    uint32_t theirs = reinterpret_cast<uint32_t>(
+                        static_cast<render::RenderModel*>(model_of(stand_in))->fetch_skinning_palette());
                     static_cast<render::RenderModel*>(model2)->upload_skinning_palette(
                         reinterpret_cast<uint8_t*>(theirs));
                     static_cast<render::RenderModel*>(model_of(stand_in))

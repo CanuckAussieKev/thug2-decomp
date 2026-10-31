@@ -124,37 +124,15 @@ uint8_t issue_query(void* camera, float left, float top, float right, float bott
         (*static_cast<void***>(camera))[3])(camera, left, top, right, bottom, unknown, query);
 }
 
-// A primitive drawer (Nx, PC; 0x200 bytes kept for it): made (0x004C5230 with 2) and destroyed (0x004C5A20); its
-// texture (vtable slot 1), a setting (slot 3, given 3 4 4), the blend mode (+0x0C: 0x00428270), +0x14 set (the
-// folded setter 0x00407A50), readied (0x0049C6C0: slot 4, then +0x15 set) and drawn - corners, colours, texture
-// coordinates (0x0049C6E0: slot 6, if readied).
-struct Prim {
-    alignas(16) uint8_t storage[0x200];
-
-    void make_new() { reinterpret_cast<render::PcPrimitive*>(this)->make_new(2); }
-    void destruct() { reinterpret_cast<render::PcPrimitive*>(this)->destroy_body(); }
-    void set_texture(void* texture)
-    {
-        // (slot 1, through the jump 0x004A1090)
-        reinterpret_cast<void(__thiscall*)(Prim*, void*, int, int)>((*reinterpret_cast<void***>(this))[1])(
-            this, texture, 0, 0);
-    }
-    void set_unknown(int a, int b, int c)
-    {
-        // (slot 3, through the jump 0x004A10A0)
-        reinterpret_cast<void(__thiscall*)(Prim*, int, int, int)>((*reinterpret_cast<void***>(this))[3])(this, a, b, c);
-    }
-    // (the original calls linker-folded setters of other classes: 0x00428270, LineObject::choose_blend_mode, writes the
-    // dword at +0x0C; 0x00407A50, ResourceRegistry::set_permanent_by_default, the byte at +0x14)
-    void choose_blend_mode(uint32_t mode) { std::memcpy(storage + 0x0C, &mode, 4); }
-    void set_unknown14(bool value) { storage[0x14] = value; }
-    void get_ready() { reinterpret_cast<render::Primitive*>(this)->get_ready(); }
-    void blit(const float* corners, const uint8_t* colors, const float* uvs)
-    {
-        reinterpret_cast<render::Primitive*>(this)->draw_if_ready(corners, reinterpret_cast<const uint32_t*>(colors),
-                                                                  uvs, nullptr);
-    }
-};
+// The sun's and the corona's quads: a PC primitive drawer on the stack (0x200 bytes kept for it), made with 2 (not
+// listed: drawn by hand) - its texture (through the jump 0x004A1090), its layout (0x004A10A0, given 3 4 4), the blend
+// mode (+0x0C: the folded setter 0x00428270), +0x14 set (the folded setter 0x00407A50), readied and drawn from arrays
+// - corners, colours, texture coordinates (draw_if_ready).
+using Prim = render::PcPrimitive;
+void blit_quad(Prim* quad, const float* corners, const uint8_t* colors, const float* uvs)
+{
+    quad->draw_if_ready(corners, reinterpret_cast<const uint32_t*>(colors), uvs, nullptr);
+}
 // A render state for the primitives (0x0049C700).
 void set_prim_state(int state, int value) { render::set_primitive_state(state, value); }
 // A query to issue this frame (0x004A0EB0 takes a copy and fills in its slot number), and a query's result - its
@@ -398,9 +376,9 @@ void __cdecl unhide_flare(Struct*, script::Script* script)
 }
 
 // 0x00443180
-void __cdecl build_sun_quad(gfx::ViewCam* camera, void* prim, const maths::Vec4* position, float* corners)
+void __cdecl build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths::Vec4* position,
+                            float* corners)
 {
-    auto* quad = static_cast<Prim*>(prim);
     // facing the camera: its right axis reversed, then up and back from cross products
     maths::Mat4 facing;
     facing.reset_to_identity();
@@ -408,7 +386,7 @@ void __cdecl build_sun_quad(gfx::ViewCam* camera, void* prim, const maths::Vec4*
     facing[2] = maths::cross_vec((*camera->fetch_mat())[1], facing[0]);
     facing[1] = maths::cross_vec(facing[2], facing[0]);
     if (sun_texture())
-        quad->set_texture(sun_texture());
+        quad->set_texture(static_cast<const uint8_t*>(sun_texture()), 0, 0);
     float size = camera->unknownb4_ * get_size(); // (0x004426B0 reads the factor)
     float half = size / 2.0f;
     maths::Vec4 quad_corners[4] = {
@@ -429,10 +407,10 @@ void __cdecl build_sun_quad(gfx::ViewCam* camera, void* prim, const maths::Vec4*
         corners[i * 3 + 1] = quad_corners[i].y;
         corners[i * 3 + 2] = quad_corners[i].z;
     }
-    quad->choose_blend_mode(kBlend);
-    quad->set_unknown(3, 4, 4);
-    quad->choose_blend_mode(kAdd);
-    quad->set_unknown14(true);
+    quad->blend_mode_ = kBlend;
+    quad->prepare_all(3, 4, 4);
+    quad->blend_mode_ = kAdd;
+    quad->unknown14 = true;
     quad->get_ready();
 }
 
@@ -497,12 +475,11 @@ void __cdecl render(gfx::ViewCam* camera)
     }
 
     // the sun, and a query for how much of it shows
-    Prim sun;
-    sun.make_new();
+    Prim sun(2);
     float corners[12] = {};
     const float uvs[8] = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f};
     build_sun_quad(camera, &sun, &sun_pos, corners);
-    sun.blit(corners, &colors[0][0], uvs);
+    blit_quad(&sun, corners, &colors[0][0], uvs);
     QueryRequest request;
     request.prepare_all();
     request.callback = query_sun_visibility;
@@ -519,17 +496,15 @@ void __cdecl render(gfx::ViewCam* camera)
         if (fade < 1.0f) {
             float left = 1.0f - fade;
             corner_colors(colors, left);
-            Prim corona;
-            corona.make_new();
+            Prim corona(2);
             float corona_corners[12] = {};
             const float corona_uvs[8] = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f};
             build_sun_quad(camera, &corona, &sun_pos, corona_corners);
             if (get_corona_texture())
-                corona.set_texture(get_corona_texture());
+                corona.set_texture(static_cast<const uint8_t*>(get_corona_texture()), 0, 0);
             set_prim_state(1, 2);
             set_prim_state(4, 0);
-            corona.blit(corona_corners, &colors[0][0], corona_uvs);
-            corona.destruct();
+            blit_quad(&corona, corona_corners, &colors[0][0], corona_uvs);
         }
         if (!flare_hidden()) {
             Struct* params = new_params();
@@ -547,15 +522,14 @@ void __cdecl render(gfx::ViewCam* camera)
         (void)brightness; // (worked out, not used)
         corner_colors(colors, 0.5);
         if (get_corona_texture())
-            sun.set_texture(get_corona_texture());
-        sun.choose_blend_mode(kAdd);
-        sun.blit(corners, &colors[0][0], uvs);
+            sun.set_texture(static_cast<const uint8_t*>(get_corona_texture()), 0, 0);
+        sun.blend_mode_ = kAdd;
+        blit_quad(&sun, corners, &colors[0][0], uvs);
         if (static_cast<double>(morph_in_time()) * 1000.0f < static_cast<double>(unseen))
             show_flare(&screen, 0.0f);
         else
             show_flare(&screen, morph_in_time());
     }
-    sun.destruct();
 }
 
 } // namespace sun

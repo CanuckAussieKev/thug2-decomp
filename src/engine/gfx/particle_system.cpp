@@ -17,6 +17,7 @@
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/flexible_particle_manager.h"
+#include "engine/gfx/model.h"
 #include "engine/gfx/viewport.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
@@ -541,7 +542,7 @@ ModelParticles::~ModelParticles()
     }
     if (model_list_) {
         for (unsigned int i = 0; i < model_count_; ++i)
-            engine::delete_geom_object(model_list_[i]); // (the model deleted)
+            delete model_list_[i]; // (through 0x0048C3C0)
         memory::dealloc(model_list_);
         model_list_ = nullptr;
     }

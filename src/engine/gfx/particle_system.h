@@ -20,6 +20,8 @@ class Struct;
 // glowribbontrail, line, ...), with a PC class over that which draws it (pc_flexible_particles.h).
 namespace render {
 
+class RenderModel;
+
 // A particle (0x30 bytes).
 struct FlexibleParticle {
     float velocity[3];    // +0x00
@@ -282,7 +284,7 @@ struct ModelParticles final : EmitterInstance {
     void*
         unknown_13c_ptr_; // +0x13C (freed): a rotation (maths::QuatRotation) a model, turned by its particle's velocity
     uint8_t unknown140[4];
-    void** model_list_; // +0x144: model_count_ of them (deleted with 0x0048C3C0)
+    RenderModel** model_list_; // +0x144: model_count_ of them
 
     // 0x0049A0C0 (model_particles.cpp): constructed with (name, max particles, model file name, ...): the base's,
     // `particleCap` particles, positions and models - each from "<model>.mdl" (lower case) at a random scale 1 - 2.98 -

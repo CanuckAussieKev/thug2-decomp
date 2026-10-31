@@ -38,6 +38,8 @@ void __stdcall ignore_arguments3(int, int, int) {}
 // 0x0048DD50: methods returning true whatever their two stack arguments - the engine model's slot 8, the engine geom's
 // slot 47
 bool __stdcall return_true2(int, int) { return true; }
+// 0x00492DC0: ...their four - the engine model's slot 4 (never called), a PC geom slot
+bool __stdcall return_true4(int, int, int, int) { return true; }
 
 // 0x0049F4B0, 0x0049F470, 0x0049F450, 0x0049F440, 0x0049F430: methods returning false whatever their (1, 2, 4, 5, 7)
 // stack arguments - the engine texture's empty slots, CArray's comparison (different arrays are never equal), ...

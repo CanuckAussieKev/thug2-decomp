@@ -66,13 +66,6 @@ inline void discard_scene(void* scene) { delete_model_lights(static_cast<PcModel
 inline void discard_scene(void* scene, int) { delete_model_lights(static_cast<PcModelLights*>(scene)); }
 inline void unload_textures(void* textures) { unload_tex_dict(static_cast<TextureSet*>(textures)); }
 
-// The model's own virtual slots.
-template <typename R, typename... A>
-R model_virtual(RenderModel* model, int slot, A... args)
-{
-    return reinterpret_cast<R(__thiscall*)(RenderModel*, A...)>(model->vtable[slot])(model, args...);
-}
-
 // A skeleton's bone matrices (+0x04, the folded getter 0x005480C0) and bone count (+0x14, 0x004A2BA0).
 inline uint8_t* skeleton_bones(uint8_t* skeleton)
 {

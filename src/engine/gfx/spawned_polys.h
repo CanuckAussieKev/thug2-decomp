@@ -12,7 +12,7 @@
 // primitive of its own; kept in the table 0x007004AC (keyed by address).
 namespace render {
 
-struct PcPrimitive;
+class PcPrimitive;
 
 // A spawned polygon (0xB8 bytes; the script command's SpawnedPolyDetails, from the pool pair 0x00700500).
 struct SpawnedPoly {

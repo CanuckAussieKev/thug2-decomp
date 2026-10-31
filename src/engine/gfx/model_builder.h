@@ -8,7 +8,10 @@
 // The model builder (gfx::ModelAssembler, an GameObjects::Entity, 0x54 bytes, vtable 0x00648920): builds a model from an
 // appearance by running a build script on itself - the script's member functions (ModelAddGeom, GeomReplaceTexture,
 // ModelApplyBoneScale, ...) each do one step on the model, its skeleton and a copy of the appearance, which are held
-// in globals while Build runs. The steps are virtual (slots 9-25; the script's names go through invoke_method_by_name).
+// in globals while Build runs. The original's table has the steps in slots 9-25 (the script's names go through
+// invoke_method_by_name); nothing derives from the builder, so they are plain methods here and its table
+// (model_builder.cpp) keeps only Entity's slots and get_build (slot 8). It becomes a C++ class with Entity's own
+// conversion.
 // From the disassembly of 0x004897D0-0x0048B32D.
 namespace render {
 class RenderModel;
@@ -33,7 +36,8 @@ public:
     // anything else Entity's.
     bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
 
-    // --- the steps (vtable slots 9-25, in order; each returns whether it did what it was asked, mostly true) ---
+    // --- the steps (the original's vtable slots 9-25, in order; each returns whether it did what it was asked, mostly
+    // true) ---
     // 0x00489820 (slot 9): the geoms of the part in the slot `part`: with a face texture, its mesh_if_facemapped
     // alone if it has one; else each of mesh, mesh1 ... mesh4 it has.
     bool add_geom(uint32_t part);
@@ -80,13 +84,6 @@ public:
 
     bool via_asset_store_; // +0x4C
     int dict_shift_;       // +0x50
-
-private:
-    template <typename R, typename... A>
-    R get_step(int slot, A... args)
-    {
-        return reinterpret_cast<R(__thiscall*)(ModelAssembler*, A...)>(vtable_[slot])(this, args...);
-    }
 };
 static_assert(offsetof(ModelAssembler, via_asset_store_) == 0x4C && offsetof(ModelAssembler, dict_shift_) == 0x50 &&
                   sizeof(ModelAssembler) == 0x54,

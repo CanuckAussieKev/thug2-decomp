@@ -79,16 +79,14 @@ void* carve(uint32_t size)
     return memory::Hub::get_pull()->carve(size, 1, nullptr);
 }
 
-// A line's virtual functions (the Nx line object, vtable 0x0064A628; no source yet).
-template <typename... A>
-void line_call(void* line, int slot, A... args)
+// A line's vertex colour and position.
+void set_line_colour(render::PcPrimitive* line, int vertex, uint32_t colour)
 {
-    reinterpret_cast<void(__thiscall*)(void*, A...)>((*reinterpret_cast<void***>(line))[slot])(line, args...);
+    line->set_vertex_colour(vertex, colour);
 }
-void set_line_colour(void* line, int vertex, uint32_t colour) { line_call(line, 15, vertex, colour); }
-void set_line_vertex(void* line, int vertex, const maths::Vec4& pos)
+void set_line_vertex(render::PcPrimitive* line, int vertex, const maths::Vec4& pos)
 {
-    line_call(line, 7, vertex, pos.x, pos.y, pos.z);
+    line->change_place(vertex, pos.x, pos.y, pos.z);
 }
 
 // The skeleton component's bone positions (no source yet): in the world (0x00432050), in the object (0x00431C60).
@@ -123,8 +121,8 @@ float get_rounded(double value) { return static_cast<float>(value); }
 
 // --- a line, a link and a chain ---
 
-// 0x00428270
-void LineObject::choose_blend_mode(uint32_t mode) { blend_mode_ = mode; }
+// (0x00428270 - a blend mode setter at +0x0C, the chain's configure_from_data has it inline - is the primitive's
+// blend_mode_ written directly.)
 
 // 0x00428280
 ChainLink* ChainLink::make_new()
@@ -137,8 +135,7 @@ ChainLink* ChainLink::make_new()
 void ChainLink::destroy_body()
 {
     if (line_ptr_) {
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(line_ptr_))[0])(line_ptr_,
-                                                                                                              1);
+        delete line_ptr_;
         line_ptr_ = nullptr;
     }
 }
@@ -169,8 +166,8 @@ Chain* Chain::make_new()
 void Chain::update_lines()
 {
     for (uint32_t i = 1; i < static_cast<uint32_t>(links_); ++i) {
-        void* line = chain_link_[i - 1].line_ptr_;
-        static_cast<uint8_t*>(line)[0x15] = 1;
+        render::PcPrimitive* line = chain_link_[i - 1].line_ptr_;
+        line->ready_ = true;
         set_line_colour(line, 0, kLineBlack);
         set_line_vertex(line, 0, chain_link_[i - 1].at_point_);
         set_line_colour(line, 1, kLineBlack);
@@ -314,17 +311,16 @@ void ChainComponent::configure_from_data(script::Struct* params)
             if (j >= chain->links_ - 1)
                 continue;
             // (a grey line to the next link)
-            void* line_memory = carve(0x158);
-            void* line = line_memory ? static_cast<render::PcPrimitive*>(line_memory)->make_new(1) : nullptr;
+            auto* line = new render::PcPrimitive(1);
             link.line_ptr_ = line;
-            static_cast<uint32_t*>(line)[3] = kLineBlend;
-            reinterpret_cast<void(__thiscall*)(void*, int, int, int)>(&render::virtual_slot3_jump)(line, 1, 0, 2);
+            line->blend_mode_ = kLineBlend;
+            line->prepare_all(1, 0, 2); // (through the jump 0x004A10A0)
             set_line_colour(line, 0, kLineGrey);
             set_line_vertex(line, 0, link.at_point_);
             set_line_colour(line, 1, kLineGrey);
             set_line_vertex(line, 1, link.at_point_);
-            static_cast<uint8_t*>(line)[0x14] = 1;
-            static_cast<render::Primitive*>(line)->get_ready();
+            line->unknown14 = 1;
+            line->get_ready();
         }
         // (onto the end of the list)
         Elem* head = chains_.head;
@@ -647,7 +643,7 @@ void ChainComponent::tick_frame()
             chain->update_lines();
         } else {
             for (uint32_t i = 1; i < static_cast<uint32_t>(chain->links_); ++i)
-                static_cast<uint8_t*>(chain->chain_link_[i - 1].line_ptr_)[0x15] = 0;
+                chain->chain_link_[i - 1].line_ptr_->ready_ = false;
         }
     }
     final_frame_ = frame;

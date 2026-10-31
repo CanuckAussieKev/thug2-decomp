@@ -72,15 +72,14 @@ constexpr uint32_t kPedPartLists[] = {0xF56A8CFB, 0x26D93E89, 0xAF8139ED, 0xE5DC
 
 // Nx (not rewritten yet): a new model (0x0048BFA0, cdecl) and its deletion (0x0048C3C0); a model loaded from a file
 // (0x004935E0, eight arguments); its geom count (0x00492E40) and a geom's texture dictionary (0x004946C0).
-void* spawn_render_model(int)
+render::RenderModel* spawn_render_model(int)
 {
     return render::spawn_model();
 } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
-void delete_model(void* model) { render::engine::delete_geom_object(model); }
-void ingest_mesh(void* model, const char* file, int a, int b, int c, uint32_t d, int e, int f, int g)
+void delete_model(render::RenderModel* model) { delete model; }
+void ingest_mesh(render::RenderModel* model, const char* file, int a, int b, int c, uint32_t d, int e, int f, int g)
 {
-    static_cast<render::RenderModel*>(model)->add_file_geom(file, static_cast<uint32_t>(a), b != 0, c, d != 0, e != 0,
-                                                            f != 0, g != 0);
+    model->add_file_geom(file, static_cast<uint32_t>(a), b != 0, c, d != 0, e != 0, f != 0, g != 0);
 }
 // 0x004879D0 (cdecl): the model file's path for `name` with `extension` (a String made in `out`, returned).
 text::Chars* model_path(void* out, const char* name, const char* extension)
@@ -167,7 +166,7 @@ bool __cdecl cfunc_preload_models(script::Struct*, script::Script*)
             path = *made;
             made->~Chars();
         }
-        void* nx_model = spawn_render_model(1);
+        render::RenderModel* nx_model = spawn_render_model(1);
         ingest_mesh(nx_model, path.c_str(), 0, 1, 0, node->has_bare_flag(kAllowReplaceTex), 0, 1, 0);
         if (!node->has_bare_flag(kNoCollision)) {
             const char* file = path.c_str();
@@ -227,7 +226,7 @@ bool __cdecl cfunc_preload_pedestrians(script::Struct* params, script::Script*)
             text::Chars* made = model_path(storage, model, ".skin");
             path = *made;
             made->~Chars();
-            void* nx_model = spawn_render_model(1);
+            render::RenderModel* nx_model = spawn_render_model(1);
             ingest_mesh(nx_model, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
             delete_model(nx_model);
         }
@@ -237,7 +236,7 @@ bool __cdecl cfunc_preload_pedestrians(script::Struct* params, script::Script*)
             text::Chars* made = model_path(storage, model, ".mdl");
             path = *made;
             made->~Chars();
-            void* nx_model = spawn_render_model(1);
+            render::RenderModel* nx_model = spawn_render_model(1);
             ingest_mesh(nx_model, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
             delete_model(nx_model);
         }
@@ -247,7 +246,7 @@ bool __cdecl cfunc_preload_pedestrians(script::Struct* params, script::Script*)
         script::Struct* profile = script::read_sub_struct(profile_name);
         if (!profile)
             continue;
-        void* nx_model = spawn_render_model(1);
+        render::RenderModel* nx_model = spawn_render_model(1);
         Appearance appearance;
         auto* gfx_appearance = reinterpret_cast<gfx::ModelLook*>(&appearance);
         gfx_appearance->make_new();
@@ -255,8 +254,7 @@ bool __cdecl cfunc_preload_pedestrians(script::Struct* params, script::Script*)
         ModelAssembler builder;
         auto* gfx_builder = reinterpret_cast<gfx::ModelAssembler*>(&builder);
         gfx_builder->make_new(true, 8);
-        gfx_builder->get_build(gfx_appearance, static_cast<render::RenderModel*>(nx_model), nullptr,
-                               kPreloadModelFromAppearance);
+        gfx_builder->get_build(gfx_appearance, nx_model, nullptr, kPreloadModelFromAppearance);
         delete_model(nx_model);
         reinterpret_cast<objects::Entity*>(&builder)->destroy_body();
         gfx_appearance->destroy_body();

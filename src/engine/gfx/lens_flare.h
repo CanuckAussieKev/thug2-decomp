@@ -8,6 +8,9 @@
 namespace gfx {
 class ViewCam;
 }
+namespace render {
+class PcPrimitive;
+} // namespace render
 namespace script {
 class Struct;
 class Script;
@@ -73,7 +76,8 @@ void __cdecl hide_flare(script::Struct* params, script::Script* script);
 void __cdecl unhide_flare(script::Struct* params, script::Script* script);
 // 0x00443180: the sun's quad facing `camera` at `position` (its corners' x y z into `corners`, 12 floats), and
 // `prim` given the sun's texture and set up to draw it.
-void __cdecl build_sun_quad(gfx::ViewCam* camera, void* prim, const maths::Vec4* position, float* corners);
+void __cdecl build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths::Vec4* position,
+                            float* corners);
 // 0x00443780: the lens flare placed for the sun at `sun` on the screen (made by CreateLensFlare if there's no
 // container; nothing unless DoUpdateLensFlare is set; shown again if hidden).
 void __cdecl show_flare(const maths::Vec4* sun, float time);

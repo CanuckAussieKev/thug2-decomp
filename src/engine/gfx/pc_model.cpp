@@ -7,16 +7,10 @@
 #include "engine/core/manager.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/model.h"
-#include "engine/core/code_address.h"
-#include "engine/net/net_manager.h"
-#include "engine/core/stubs.h"
-#include "game/save_cards/memcard.h"
 
 namespace render {
 
 namespace {
-
-extern void** const kModelVtable;
 
 void* geom_of(const ModelGeomNode* node) { return *node->entry; }
 
@@ -33,47 +27,22 @@ void set_geom_bounding_sphere(void* geom, const maths::Vec4* sphere)
 
 } // namespace
 
-// 0x004BAD90
-PcModel* PcModel::make_new()
-{
-    reinterpret_cast<RenderModel*>(this)->RenderModel::make_new();
-    vtable = reinterpret_cast<void**>(kModelVtable);
-    unknown4c_ = 0;
-    return this;
-}
-
-// 0x004BADB0
-void PcModel::destroy_body()
-{
-    vtable = reinterpret_cast<void**>(kModelVtable);
-    reinterpret_cast<RenderModel*>(this)->RenderModel::destroy_body();
-}
-
-// 0x004BADC0
-PcModel* PcModel::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x004BADF0
-void PcModel::change_bound_sphere(const maths::Vec4* sphere)
+void PcModel::plat_set_bounding_sphere(const maths::Vec4* sphere)
 {
-    ModelGeomNode* head = geoms;
+    ModelGeomNode* head = geoms_;
     for (ModelGeomNode* node = head ? head->next : nullptr; node != head; node = node->next)
         set_geom_bounding_sphere(geom_of(node), sphere);
 }
 
 // 0x004BAE30
-maths::Vec4* PcModel::fetch_bound_sphere(maths::Vec4* out)
+maths::Vec4* PcModel::plat_get_bounding_sphere(maths::Vec4* out)
 {
-    if (geom_count_ == 0) {
+    if (geom_total_ == 0) {
         *out = {0.0f, 0.0f, 0.0f, 0.0f};
         return out;
     }
-    ModelGeomNode* head = geoms;
+    ModelGeomNode* head = geoms_;
     ModelGeomNode* node = head ? head->next : nullptr;
     maths::Vec4 scratch;
     maths::Vec4 sphere = *get_geom_bounding_sphere(geom_of(node), &scratch);
@@ -112,23 +81,5 @@ maths::Vec4* PcModel::fetch_bound_sphere(maths::Vec4* out)
     out->w = sphere.w + sphere.w;
     return out;
 }
-
-namespace {
-static VtableSlot g_model_vtable_slots[] = {&render::PcModel::teardown,
-                                            &save_cards::SaveCard::always_true,
-                                            stubs::return_zero1,
-                                            &save_cards::SaveCard::always_true,
-                                            &render::RenderModel::virtual_true4,
-                                            &save_cards::SaveCard::always_true,
-                                            &save_cards::SaveCard::always_true,
-                                            &save_cards::SaveCard::always_true,
-                                            stubs::return_true2,
-                                            &net::Hub::load_network_drivers,
-                                            stubs::return_true,
-                                            stubs::return_true,
-                                            &render::PcModel::fetch_bound_sphere,
-                                            &render::PcModel::change_bound_sphere};
-void** const kModelVtable = reinterpret_cast<void**>(g_model_vtable_slots);
-} // namespace
 
 } // namespace render

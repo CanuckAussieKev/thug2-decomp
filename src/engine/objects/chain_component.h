@@ -6,6 +6,10 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 
+namespace render {
+class PcPrimitive;
+} // namespace render
+
 namespace script {
 class Script;
 class Struct;
@@ -13,31 +17,21 @@ class Struct;
 
 namespace objects {
 
-// The Nx line object (0x158 bytes, vtable 0x0064A628; no source yet): its blend mode.
-struct LineObject {
-    // 0x00428270 (the chain's configure_from_data has it inline; called by 0x00443743, 0x0054DB41): +0xC.
-    void choose_blend_mode(uint32_t mode);
-
-    void** vtable_;
-    uint8_t unknown04[8];
-    uint32_t blend_mode_; // +0x0C (Blend, ...)
-};
-
 // One link (point) of a chain (0x50 bytes): a Verlet point - where it is, where it was, where the step takes it.
 struct ChainLink {
     // 0x00428280: no line (returns this).
     ChainLink* make_new();
-    // 0x00428250: its line deleted (its vtable slot 0).
+    // 0x00428250: its line deleted.
     void destroy_body();
 
-    maths::Vec4 at_point_; // +0x00
-    maths::Vec4 last_pos_; // +0x10
-    maths::Vec4 unused20_; // +0x20
-    maths::Vec4 next_pos_; // +0x30 this frame's step
-    float value40_;        // +0x40 (3 when made; 255 while in the collision range; 0 after a constraint pass)
-    float byte_count_;     // +0x44 the rest length to the link before it
-    uint32_t unused48_;    // +0x48
-    void* line_ptr_;       // +0x4C the line drawn to the next link (0x158 bytes, vtable 0x0064A628)
+    maths::Vec4 at_point_;          // +0x00
+    maths::Vec4 last_pos_;          // +0x10
+    maths::Vec4 unused20_;          // +0x20
+    maths::Vec4 next_pos_;          // +0x30 this frame's step
+    float value40_;                 // +0x40 (3 when made; 255 while in the collision range; 0 after a constraint pass)
+    float byte_count_;              // +0x44 the rest length to the link before it
+    uint32_t unused48_;             // +0x48
+    render::PcPrimitive* line_ptr_; // +0x4C the line drawn to the next link
 };
 static_assert(sizeof(ChainLink) == 0x50 && offsetof(ChainLink, next_pos_) == 0x30 &&
                   offsetof(ChainLink, line_ptr_) == 0x4C,

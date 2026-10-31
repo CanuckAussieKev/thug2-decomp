@@ -34,7 +34,7 @@ void add_shadow_caster(uint8_t* texture, RenderModel* model, int unused)
 {
     render::add_shadow_caster(texture, model, reinterpret_cast<WorldScene*>(unused));
 }
-void delete_model(RenderModel* model) { engine::delete_geom_object(model); }
+void delete_model(RenderModel* model) { delete model; }
 void add_extension(const char* name, const char* extension, char* out)
 {
     gfx::make_model_file_name(name, extension, out);
@@ -133,7 +133,7 @@ void BlobShadow::load_mesh(const char* name)
         delete_model(mesh_instance_);
         mesh_instance_ = nullptr;
     }
-    mesh_instance_ = static_cast<RenderModel*>(spawn_model());
+    mesh_instance_ = spawn_model();
     char file_name[0x200] = {};
     add_extension(name, ".mdl", file_name);
     mesh_instance_->add_file_geom(file_name, 0, true, 0, false, false, true, false);

@@ -29,18 +29,12 @@
 #include "engine/objects/pager_message.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
-#include "engine/net/net_manager.h"
-#include "engine/core/stubs.h"
-#include "game/save_cards/memcard.h"
 
 namespace render {
 
 using namespace model_geoms;
 
 namespace {
-
-extern void** const kModelVtable;
 
 // Checksums: "none" (a new model's file name), the names a geom gets when it's the first, the debug switch read
 // when no texture was replaced, the script parameters.
@@ -144,9 +138,8 @@ void get_png_name(char* into, const char* name)
 } // namespace
 
 // 0x00494C40
-RenderModel* RenderModel::make_new()
+RenderModel::RenderModel()
 {
-    vtable = reinterpret_cast<void**>(kModelVtable);
     geom_list_size_ = 0;
     // The list's head: a node linked to itself (none when out of memory).
     auto* head = static_cast<ModelGeomNode*>(memory::alloc(sizeof(ModelGeomNode)));
@@ -155,7 +148,7 @@ RenderModel* RenderModel::make_new()
     geoms_ = head;
     bone_total_ = 0;
     skin_palette_ = nullptr;
-    if (display_mode_ != 6 && model_virtual<bool>(this, 3, 6))
+    if (display_mode_ != 6 && allows_display_mode(6))
         display_mode_ = 6;
     geom_total_ = 0;
     source_path_ = kNone;
@@ -163,13 +156,11 @@ RenderModel* RenderModel::make_new()
     size_factor_ = {1.0f, 1.0f, 1.0f, 1.0f};
     flag_bits_ &= ~(kModelSphereValid | kModelScaled | kModelShadow | kModelShadowVolume);
     lights_ptr_ = nullptr;
-    return this;
 }
 
 // 0x00494D00
-void RenderModel::destroy_body()
+RenderModel::~RenderModel()
 {
-    vtable = reinterpret_cast<void**>(kModelVtable);
     if (lights_ptr_)
         discard_scene(lights_ptr_);
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
@@ -179,15 +170,6 @@ void RenderModel::destroy_body()
     drop_geoms();
     erase_geoms(this, get_first(this), geoms_);
     memory::Hub::get_pull()->dealloc(geoms_);
-}
-
-// 0x00494DC0
-RenderModel* RenderModel::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00494BA0
@@ -256,7 +238,7 @@ bool RenderModel::add_asset_geom(uint32_t asset_name, uint32_t name, bool multic
     if (lights_ptr_)
         set_geom_lights(entry->geom, lights_ptr_);
     ++geom_total_;
-    if (display_mode_ != 0 && model_virtual<bool>(this, 3, 0))
+    if (display_mode_ != 0 && allows_display_mode(0))
         display_mode_ = 0;
     entry->bone_volumes_ = nullptr;
     insert_geom(this, geoms_, &entry);
@@ -331,7 +313,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
     if (lights_ptr_)
         set_geom_lights(entry->geom, lights_ptr_);
     ++geom_total_;
-    if (display_mode_ != 0 && model_virtual<bool>(this, 3, 0))
+    if (display_mode_ != 0 && allows_display_mode(0))
         display_mode_ = 0;
     entry->bone_volumes_ = nullptr;
     insert_geom(this, geoms_, &entry);
@@ -359,7 +341,7 @@ bool RenderModel::add_geom(void* geom, uint32_t name, bool default_heap)
     entry->asset_name_ = 0;
     insert_geom(this, geoms_, &entry);
     ++geom_total_;
-    if (display_mode_ != 0 && model_virtual<bool>(this, 3, 0))
+    if (display_mode_ != 0 && allows_display_mode(0))
         display_mode_ = 0;
     if (geom_total_ == 1)
         source_path_ = kFirstAddedGeom;
@@ -394,7 +376,7 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, uint8_t* skeleton)
         } else {
             uint8_t* bones = skeleton_bones(skeleton);
             int count = skeleton_bone_count(skeleton);
-            int flag = model_virtual<int>(this, 2, count);
+            int flag = get_bone_flag(count);
             int geom = 0;
             for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++geom)
                 set_geom_bone_matrices(get_geom(node), matrix, bones, count, flag, geom);
@@ -472,7 +454,7 @@ bool RenderModel::swap_texture(uint32_t name, const char* source, const char* de
 {
     bool all = name == kAllGeoms;
     bool replaced = false;
-    model_virtual<bool>(this, 10);
+    begin_texture_swap();
     char from[0x200];
     get_png_name(from, source);
     char to[0x200];
@@ -488,7 +470,7 @@ bool RenderModel::swap_texture(uint32_t name, const char* source, const char* de
     }
     if (!replaced)
         script::fetch_int_value(kTextureReplaceDebug);
-    model_virtual<bool>(this, 11);
+    end_texture_swap();
     return replaced;
 }
 
@@ -497,7 +479,7 @@ bool RenderModel::replace_texture_with(uint32_t name, const char* source, uint32
 {
     bool all = name == kAllGeoms;
     bool replaced = false;
-    model_virtual<bool>(this, 10);
+    begin_texture_swap();
     char from[0x200];
     get_png_name(from, source);
     void* texture = find_texture(dest);
@@ -509,7 +491,7 @@ bool RenderModel::replace_texture_with(uint32_t name, const char* source, uint32
     }
     if (!replaced)
         script::fetch_int_value(kTextureReplaceDebug);
-    model_virtual<bool>(this, 11);
+    end_texture_swap();
     return replaced;
 }
 
@@ -641,23 +623,5 @@ bool RenderModel::replace_face_texture(void* face, const char* source, uint32_t 
     detach_texture(overlay);
     return replaced;
 }
-
-namespace {
-static VtableSlot g_model_vtable_slots[] = {&render::RenderModel::teardown,
-                                            &save_cards::SaveCard::always_true,
-                                            stubs::return_zero1,
-                                            &save_cards::SaveCard::always_true,
-                                            &render::RenderModel::virtual_true4,
-                                            &save_cards::SaveCard::always_true,
-                                            &save_cards::SaveCard::always_true,
-                                            &save_cards::SaveCard::always_true,
-                                            stubs::return_true2,
-                                            &net::Hub::load_network_drivers,
-                                            stubs::return_true,
-                                            stubs::return_true,
-                                            &render::RenderModel::plat_get_bounding_sphere,
-                                            stubs::ignore_argument};
-void** const kModelVtable = reinterpret_cast<void**>(g_model_vtable_slots);
-} // namespace
 
 } // namespace render
