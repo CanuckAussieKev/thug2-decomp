@@ -318,6 +318,12 @@ bool ParseCatalogue(const std::string& json, Catalogue* out, std::string* error)
                 for (const Json& v : variants->items)
                     if (v.kind == Json::String && !v.text.empty())
                         level.artVariants.push_back(v.text);
+            if (const Json* labels = l.Get("art_labels"); labels && labels->kind == Json::Array)
+                for (const Json& v : labels->items)
+                    if (v.kind == Json::String)
+                        level.artLabels.push_back(v.text);
+            if (level.artLabels.size() != level.artVariants.size())
+                level.artLabels.clear();
             level.flag = l.Str("flag");
             level.seenFlag = l.Str("seen_flag");
             level.gameTag = l.Str("game_tag");
