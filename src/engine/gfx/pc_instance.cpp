@@ -74,19 +74,17 @@ uint32_t get_channel(float value)
     return static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(value) * 255.0f)) & 0xFF;
 }
 
-// The model's lights for the instance's position (the model's +0x2C: virtual [7], Update, with its own +4), or the
+// The model's lights for the instance's position (the model's +0x2C: plat_apply_scene_lights, with its radius), or the
 // scene's.
 void refresh_instance_lighting(Singleton* instance)
 {
-    uint8_t* lights =
-        instance->model ? *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(instance->model) + 0x2C) : nullptr;
+    ModelLights* lights =
+        instance->model ? *reinterpret_cast<ModelLights**>(static_cast<uint8_t*>(instance->model) + 0x2C) : nullptr;
     if (!lights) {
         reset_lights();
         return;
     }
-    auto update = reinterpret_cast<void(__thiscall*)(void*, const maths::Vec4*, uint32_t)>(
-        (*reinterpret_cast<void***>(lights))[7]);
-    update(lights, get_position(instance), *reinterpret_cast<uint32_t*>(lights + 4));
+    lights->plat_apply_scene_lights(get_position(instance), lights->dynamic_radius_);
 }
 
 // The renderer's light constants into the device's lights 0 and 1 (direction, diffuse colour) and its ambient

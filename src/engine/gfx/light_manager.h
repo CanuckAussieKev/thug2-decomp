@@ -82,8 +82,10 @@ DynamicLightBase* __cdecl new_dynamic_light(int type);
 
 // A dynamic light's base (0x30 bytes, vtable 0x00649290; nx/dynamic_light.h's DynamicLight is its layout): [0] on,
 // [1] in reach, [2] the falloff.
+// (That vtable - is_on, in_reach, get_falloff - has no subclass, and nothing deletes through
+// it: no vtable here; its word is kept, as the PC lights read the lights by offset. Stage 5.)
 struct DynamicLightBase {
-    void** vtable;
+    uint32_t vtable_slot_unused_;
     float pos[4];          // +0x04
     int type;              // +0x14
     float radius;          // +0x18
@@ -93,11 +95,11 @@ struct DynamicLightBase {
     uint32_t owner;        // +0x28
     bool unknown2c_;
 
-    // 0x0048E8C0 (virtual [0]): its intensity is above 0 (1 / 0).
+    // 0x0048E8C0 (its vtable's slot 0): its intensity is above 0 (1 / 0).
     int is_on();
-    // 0x0048EA90 (virtual [1]): a distance is within its radius (1 / 0; NaN: 0).
+    // 0x0048EA90 (slot 1): a distance is within its radius (1 / 0; NaN: 0).
     int in_reach(float distance);
-    // 0x0048EAB0 (virtual [2]): the distance times the inverse radius (in ST0 unrounded: a double here).
+    // 0x0048EAB0 (slot 2): the distance times the inverse radius (in ST0 unrounded: a double here).
     double get_falloff(float distance);
 };
 static_assert(offsetof(DynamicLightBase, owner) == 0x28 && sizeof(DynamicLightBase) == 0x30,

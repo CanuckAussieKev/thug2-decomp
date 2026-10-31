@@ -15,14 +15,11 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 #include "engine/sys/startup_init.h"
 
 namespace gfx {
 
 namespace {
-
-extern void** const kVolumeVtable;
 
 constexpr uint32_t kBoneDescriptions = 0x00E7085E; // (name unknown: the global array of bone descriptions)
 constexpr uint32_t kBone = 0xCAB94088;             // bone
@@ -152,7 +149,7 @@ void BoneVolumes::get_fill(RigData* data)
             float radius = kDefaultRadius;
             auto* volume = static_cast<BoneVolume*>(memory::alloc(sizeof(BoneVolume)));
             if (volume) {
-                volume->vtable_ = kVolumeVtable;
+                volume->vtable_slot_unused_ = 0;
                 new (&volume->capsule_) maths::Capsule();
             }
             volumes_[i] = volume;
@@ -240,11 +237,6 @@ bool BoneVolumes::get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint3
     *volume = static_cast<float>(capsule_volume(get_between(at.row[3], parent.row[3], radius)));
     return true;
 }
-
-namespace {
-static VtableSlot g_volume_vtable_slots[] = {&gfx::BoneVolume::intersects_segment};
-void** const kVolumeVtable = reinterpret_cast<void**>(g_volume_vtable_slots);
-} // namespace
 
 } // namespace gfx
 

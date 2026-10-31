@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/mem.h"
+
 namespace maths {
 class Vec4;
 }
@@ -14,19 +16,34 @@ class Vec4;
 // [12] are stubs ("STUB: CModelLights::...") that PcModelLights replaces.
 namespace render {
 
-class ModelLights {
+class ModelLights : public memory::HeapObject {
 public:
-    // 0x0048E5B0: construct - brightness 0, scale 1, an intensity of 1 for each of the manager's lights (0x006FAAE0).
-    // Returns this.
-    ModelLights* make_new();
-    // 0x0048E630: the destructor's body - the intensities freed.
-    void destroy_body();
-    // 0x0048E7F0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    ModelLights* teardown(unsigned int flags);
+    // 0x0048E5B0: brightness 0, scale 1, an intensity of 1 for each of the manager's lights (0x006FAAE0).
+    ModelLights();
+    // 0x0048E630 (0x0048E7F0 the scalar deleting destructor, vtable slot 0): the intensities freed.
+    virtual ~ModelLights();
+    ModelLights(const ModelLights&) = delete;
+    ModelLights& operator=(const ModelLights&) = delete;
 
-    // 0x0048E450: the ambient colour set (virtual [1]), then UpdateBrightness(1, 0) (virtual [8]). [1]'s result.
+    // The platform's (vtable slots 1-12; the base's print their "STUB: CModelLights::...\n"): the ambient colour, a
+    // light's direction and colour set and read, the renderer's lights for a position, the brightness applied, and
+    // whether the ambient colour / a light is the model's own.
+    virtual bool put_ambient_light_tint(const uint32_t* color);                         // 0x0048E4E0 [1]: false
+    virtual bool put_light_aim(int light, const maths::Vec4* direction);                // 0x0048E500 [2]: false
+    virtual bool put_diffuse_light_tint(int light, const uint32_t* color);              // 0x0048E520 [3]: false
+    virtual uint32_t* read_ambient_light_tint(uint32_t* out);                           // 0x0048E730 [4]: 0
+    virtual const maths::Vec4* read_light_aim(int light);                               // 0x0048E760 [5]: a 0 vector
+    virtual uint32_t* read_diffuse_light_tint(uint32_t* out, int light);                // 0x0048E7C0 [6]: 0
+    virtual void plat_apply_scene_lights(const maths::Vec4* position, uint32_t radius); // 0x0048E5A0 [7]
+    virtual void apply_light_brightness(bool ambient, bool diffuse);                    // 0x0048E540 [8]
+    virtual void switch_ambient_light(bool on);                                         // 0x0048E550 [9]
+    virtual void switch_diffuse_light(int light, bool on);                              // 0x0048E560 [10]
+    virtual bool ambient_light_is_on();                                                 // 0x0048E570 [11]: false
+    virtual bool diffuse_light_is_on(int light); // 0x0048E580 [12]: false (not a Ghidra function)
+
+    // 0x0048E450: the ambient colour set (slot 1), then UpdateBrightness(1, 0) (slot 8). [1]'s result.
     bool change_ambient_tint(const uint32_t* color);
-    // 0x0048E480: a light's colour set (virtual [3]), then UpdateBrightness(0, 1). [3]'s result.
+    // 0x0048E480: a light's colour set (slot 3), then UpdateBrightness(0, 1). [3]'s result.
     bool change_diffuse_hue(int light, const uint32_t* color);
     // 0x0048E4D0: the position the lights are for. True.
     bool bind_position_source(const maths::Vec4* position);
@@ -38,22 +55,7 @@ public:
     // 0x0048E8A0: the brightness (and the target) set. True.
     bool change_brightness(float brightness);
 
-    // The base's platform calls (each prints its "STUB: CModelLights::...\n"):
-    bool put_ambient_light_tint(const uint32_t* color);                         // 0x0048E4E0 [1]: false
-    bool put_light_aim(int light, const maths::Vec4* direction);                // 0x0048E500 [2]: false
-    bool put_diffuse_light_tint(int light, const uint32_t* color);              // 0x0048E520 [3]: false
-    uint32_t* read_ambient_light_tint(uint32_t* out);                           // 0x0048E730 [4]: 0
-    maths::Vec4* read_light_aim(int light);                                     // 0x0048E760 [5]: a static 0 vector
-    uint32_t* read_diffuse_light_tint(uint32_t* out, int light);                // 0x0048E7C0 [6]: 0
-    void plat_apply_scene_lights(const maths::Vec4* position, uint32_t radius); // 0x0048E5A0 [7]
-    void apply_light_brightness(bool ambient, bool diffuse);                    // 0x0048E540 [8]
-    void switch_ambient_light(bool on);                                         // 0x0048E550 [9]
-    void switch_diffuse_light(int light, bool on);                              // 0x0048E560 [10]
-    bool ambient_light_is_on();                                                 // 0x0048E570 [11]: false
-    bool diffuse_light_is_on(int light); // 0x0048E580 [12]: false (not a Ghidra function)
-
-    void** vtable_;
-    uint32_t unknown4_;
+    uint32_t dynamic_radius_;      // +0x04: how far dynamic lights reach it (the instance's lights pass it)
     float brightness_;             // +0x08
     float intensity_goal_;         // +0x0C
     float size_factor_;            // +0x10: the ambient colour's

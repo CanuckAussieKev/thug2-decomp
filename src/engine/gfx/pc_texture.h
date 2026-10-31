@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/gfx/bitmap_texture.h"
+#include "engine/gfx/texture_dict.h"
 
 namespace lists {
 class KeyMap;
@@ -110,38 +111,36 @@ static_assert(offsetof(PcTexture, flags) == 8 && offsetof(PcTexture, engine) == 
               "layout must match the original");
 
 // The PC texture dictionary (0x14 bytes, vtable 0x0064A824).
-struct PcTexDict {
-    void** vtable;
-    uint8_t engine04[8];
-    void* textures; // +0x0C: lists::KeyMap* by checksum
-    uint8_t engine10[4];
-
-    // 0x004C8070: construct (the engine's constructor with this checksum, 1). Returns this.
-    PcTexDict* make_new(uint32_t checksum);
-    // 0x004CB760: construct (the engine's constructor with the name, 1) and load the file. Returns this.
-    PcTexDict* construct_from_file(const char* name);
+class PcTexDict final : public TextureSet {
+public:
+    // 0x004C8070: the engine's constructor with this checksum and a table.
+    explicit PcTexDict(uint32_t checksum) : TextureSet(checksum, true) {}
+    // 0x004CB760: the engine's constructor with the name and a table, then the file loaded.
+    explicit PcTexDict(const char* name);
     // 0x004CB380 / 0x004CB7C0: the textures of a .tex file / image in memory added - the table remade to fit when it
     // has none yet. True.
     bool ingest_file(const char* name);
     bool load_memory(const uint8_t* data);
-    // 0x004C9AF0: the destructor's body (a jump to the engine's).
-    void destroy_body();
-    // 0x004C9F60 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    PcTexDict* teardown(unsigned int free_flags);
-    // 0x004C9B00 (virtual [1]): a new texture loaded from a file (the engine's 0x0049F220 with 1). Returns it.
-    PcTexture* ingest_skin(const char* name, int a2, int unused);
-    // 0x004C89B0 (virtual [2]): a new texture made (the engine's 0x0049F300 with 1). Returns it.
-    PcTexture* create_texture(uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, uint32_t unused);
-    // 0x004C9BA0 (virtual [3]): the dictionary's texture of this checksum, or a new one, loaded from memory (the
-    // engine's 0x0049F330). Returns it.
-    PcTexture* refresh_texture(uint32_t checksum, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, uint32_t a6);
-    // 0x004C8090 (virtual [5]): a texture destroyed (through its vtable). True.
-    bool unload_texture(PcTexture* texture);
-    // 0x004C9C80 (virtual [8]): a new texture copied from `source` (0x004C8450) under `checksum`. Returns it (the
+    // 0x004C9AF0 (0x004C9F60 the scalar deleting destructor): a jump to the engine's.
+    ~PcTexDict() override = default;
+    // 0x004C9B00 (vtable slot 1): a new texture loaded from a file (the engine's 0x0049F220 with 1). Returns it.
+    BitmapTexture* load_texture_file(const char* name, uint32_t a1, uint32_t a2) override;
+    // 0x004C89B0 (slot 2): a new texture read from a block of memory (the engine's 0x0049F300 with 1). Returns it.
+    BitmapTexture* load_texture_data(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3, uint32_t a4,
+                                     uint32_t a6) override;
+    // 0x004C9BA0 (slot 3): the dictionary's texture of this checksum, or a new one, made (the engine's 0x0049F330).
+    // Returns it.
+    BitmapTexture* make_texture(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bits_per_pixel,
+                                uint32_t a4, uint32_t a5) override;
+    // 0x004C8090 (slot 5): a texture destroyed (through its vtable). True.
+    bool destroy_texture(BitmapTexture* texture) override;
+    // 0x004C9C80 (slot 8): a new texture copied from `source` (0x004C8450) under `checksum`. Returns it (the
     // original leaves it in EAX, and the engine's CopyTexture hands it on - the skater's graffiti texture is one).
-    PcTexture* copy_texture(uint32_t checksum, const PcTexture* source);
+    BitmapTexture* duplicate_texture(uint32_t checksum, BitmapTexture* source) override;
+
+    uint32_t unknown10_; // +0x10
 };
-static_assert(offsetof(PcTexDict, textures) == 0xC && sizeof(PcTexDict) == 0x14, "layout must match the original");
+static_assert(sizeof(PcTexDict) == 0x14, "layout must match the original");
 
 // 0x004CAE90 / 0x004CB420: a .tex file's / image's textures (each: checksum, size, levels, depth, palette depth,
 // compression, palette size, then its levels) made and put in `table` - remade to fit first with `remake` (in the

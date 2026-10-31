@@ -30,7 +30,6 @@ namespace render {
 namespace {
 
 extern void** const kTextureVtable;
-extern void** const kTexDictVtable;
 
 TextureEdit* get_edit(const PcTexture* texture) { return static_cast<TextureEdit*>(texture->engine); }
 IDirect3DDevice9* input_port() { return g_d3d_device; }
@@ -945,75 +944,52 @@ bool PcTexture::squash(uint16_t position, int vertical, int amount, bool fill, u
     return true;
 }
 
-// 0x004C8070
-PcTexDict* PcTexDict::make_new(uint32_t checksum)
-{
-    reinterpret_cast<TextureSet*>(this)->TextureSet::make_new(checksum, true);
-    vtable = reinterpret_cast<void**>(kTexDictVtable);
-    return this;
-}
-
-// 0x004C9AF0
-void PcTexDict::destroy_body()
-{
-    vtable = reinterpret_cast<void**>(kTexDictVtable);
-    reinterpret_cast<TextureSet*>(this)->TextureSet::destroy_body();
-}
-
-// 0x004C9F60
-PcTexDict* PcTexDict::teardown(unsigned int free_flags)
-{
-    destroy_body();
-    if (free_flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x004C9B00
-PcTexture* PcTexDict::ingest_skin(const char* name, int a2, int /*unused*/)
+BitmapTexture* PcTexDict::load_texture_file(const char* name, uint32_t a1, uint32_t /*a2*/)
 {
-    PcTexture* texture = alloc_pc_texture();
+    auto* texture = reinterpret_cast<BitmapTexture*>(alloc_pc_texture());
     // (no check: the engine's load called on null without memory, as the original)
-    reinterpret_cast<BitmapTexture*>(texture)->BitmapTexture::load_by_name(name, a2, 1);
+    texture->BitmapTexture::load_by_name(name, static_cast<int>(a1), 1);
     return texture;
 }
 
 // 0x004C89B0
-PcTexture* PcTexDict::create_texture(uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5,
-                                     uint32_t /*unused*/)
+BitmapTexture* PcTexDict::load_texture_data(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3,
+                                            uint32_t a4, uint32_t /*a6*/)
 {
-    PcTexture* texture = alloc_pc_texture();
-    reinterpret_cast<BitmapTexture*>(texture)->BitmapTexture::read_from_ram_block(
-        reinterpret_cast<const uint8_t*>(static_cast<uintptr_t>(a1)), a2, a3, a4, a5, 1);
+    auto* texture = reinterpret_cast<BitmapTexture*>(alloc_pc_texture());
+    texture->BitmapTexture::read_from_ram_block(data, size, checksum, a3, a4, 1);
     return texture;
 }
 
 // 0x004C9BA0
-PcTexture* PcTexDict::refresh_texture(uint32_t checksum, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5,
-                                      uint32_t a6)
+BitmapTexture* PcTexDict::make_texture(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bits_per_pixel,
+                                       uint32_t a4, uint32_t a5)
 {
-    auto* texture = static_cast<PcTexture*>(static_cast<lists::KeyMap*>(textures)->fetch_entry(checksum));
+    auto* texture = static_cast<BitmapTexture*>(textures_->fetch_entry(checksum));
     if (!texture)
-        texture = alloc_pc_texture();
-    reinterpret_cast<BitmapTexture*>(texture)->BitmapTexture::fabricate(checksum, a2, a3, a4, a5, a6);
+        texture = reinterpret_cast<BitmapTexture*>(alloc_pc_texture());
+    texture->BitmapTexture::fabricate(checksum, width, height, bits_per_pixel, a4, a5);
     return texture;
 }
 
 // 0x004C8090
-bool PcTexDict::unload_texture(PcTexture* texture)
+bool PcTexDict::destroy_texture(BitmapTexture* texture)
 {
-    if (texture) // (through its vtable)
-        reinterpret_cast<PcTexture*(__thiscall*)(PcTexture*, unsigned int)>(texture->vtable[0])(texture, 1);
+    auto* pc_texture = reinterpret_cast<PcTexture*>(texture);
+    if (pc_texture) // (through its vtable)
+        reinterpret_cast<PcTexture*(__thiscall*)(PcTexture*, unsigned int)>(pc_texture->vtable[0])(pc_texture, 1);
     return true;
 }
 
 // 0x004C9C80
-PcTexture* PcTexDict::copy_texture(uint32_t checksum, const PcTexture* source)
+BitmapTexture* PcTexDict::duplicate_texture(uint32_t checksum, BitmapTexture* source)
 {
     void* memory = memory::alloc(sizeof(PcTexture));
-    PcTexture* texture = memory ? static_cast<PcTexture*>(memory)->construct_copy(source) : nullptr;
+    PcTexture* texture =
+        memory ? static_cast<PcTexture*>(memory)->construct_copy(reinterpret_cast<const PcTexture*>(source)) : nullptr;
     texture->get_texture()->checksum = checksum; // (no check, as the original)
-    return texture;
+    return reinterpret_cast<BitmapTexture*>(texture);
 }
 
 namespace {
@@ -1221,11 +1197,11 @@ bool has_textures(lists::KeyMap* table)
 // 0x004CB380
 bool PcTexDict::ingest_file(const char* name)
 {
-    auto* table = static_cast<lists::KeyMap*>(textures);
+    auto* table = textures_;
     if (!table) {
         load_textures_from_file(name, nullptr, false);
     } else if (!has_textures(table)) {
-        textures = load_textures_from_file(name, table, true);
+        textures_ = load_textures_from_file(name, table, true);
     } else {
         load_textures_from_file(name, table, false);
     }
@@ -1235,11 +1211,11 @@ bool PcTexDict::ingest_file(const char* name)
 // 0x004CB7C0
 bool PcTexDict::load_memory(const uint8_t* data)
 {
-    auto* table = static_cast<lists::KeyMap*>(textures);
+    auto* table = textures_;
     if (!table) {
         load_textures_from_memory(&data, nullptr, false);
     } else if (!has_textures(table)) {
-        textures = load_textures_from_memory(&data, table, true);
+        textures_ = load_textures_from_memory(&data, table, true);
     } else {
         load_textures_from_memory(&data, table, false);
     }
@@ -1247,36 +1223,21 @@ bool PcTexDict::load_memory(const uint8_t* data)
 }
 
 // 0x004CB760
-PcTexDict* PcTexDict::construct_from_file(const char* name)
-{
-    reinterpret_cast<TextureSet*>(this)->TextureSet::construct_named(name, true);
-    vtable = reinterpret_cast<void**>(kTexDictVtable);
-    ingest_file(name);
-    return this;
-}
+PcTexDict::PcTexDict(const char* name) : TextureSet(name, true) { ingest_file(name); }
 
 // 0x004C7270
-PcTexDict* __cdecl load_tex_dict_file(const char* name)
-{
-    void* memory = memory::alloc(sizeof(PcTexDict));
-    return memory ? static_cast<PcTexDict*>(memory)->construct_from_file(name) : nullptr;
-}
+PcTexDict* __cdecl load_tex_dict_file(const char* name) { return new PcTexDict(name); }
 
 // 0x004C72E0
 PcTexDict* __cdecl load_tex_dict_memory(uint32_t checksum, const uint8_t* data)
 {
-    void* memory = memory::alloc(sizeof(PcTexDict));
-    PcTexDict* dict = memory ? static_cast<PcTexDict*>(memory)->make_new(checksum) : nullptr;
+    auto* dict = new PcTexDict(checksum);
     dict->load_memory(data); // (called on null without memory, as the original)
     return dict;
 }
 
 // 0x004C7360
-PcTexDict* __cdecl create_tex_dict(uint32_t checksum)
-{
-    void* memory = memory::alloc(sizeof(PcTexDict));
-    return memory ? static_cast<PcTexDict*>(memory)->make_new(checksum) : nullptr;
-}
+PcTexDict* __cdecl create_tex_dict(uint32_t checksum) { return new PcTexDict(checksum); }
 
 // 0x004C80B0
 void __cdecl copy_sub_image(uint8_t* into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,
@@ -1422,16 +1383,6 @@ static VtableSlot g_texture_vtable_slots[] = {&render::PcTexture::teardown,
                                               &render::PcTexture::get_unknown_d,
                                               &render::PcTexture::get_overlay};
 void** const kTextureVtable = reinterpret_cast<void**>(g_texture_vtable_slots);
-static VtableSlot g_tex_dict_vtable_slots[] = {&render::PcTexDict::teardown,
-                                               &render::PcTexDict::ingest_skin,
-                                               &render::PcTexDict::create_texture,
-                                               &render::PcTexDict::refresh_texture,
-                                               stubs::return_zero1,
-                                               &render::PcTexDict::unload_texture,
-                                               stubs::ignore_argument,
-                                               stubs::return_false1,
-                                               &render::PcTexDict::copy_texture};
-void** const kTexDictVtable = reinterpret_cast<void**>(g_tex_dict_vtable_slots);
 } // namespace
 
 } // namespace render

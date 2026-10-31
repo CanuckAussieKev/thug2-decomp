@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/mem.h"
+
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 
@@ -18,13 +20,16 @@ namespace gfx {
 struct Stance;
 
 // A skeleton asset (0x598 bytes, vtable 0x00649F48 - only its deleting destructor).
-class RigData {
+// (No subclass: no vtable here - its
+// word is kept, as the cutscene data read the skeleton data by offset. Stage 5.)
+class RigData : public memory::HeapObject {
 public:
-    // 0x004A2C20: empty, no flags, the first LOD distance FLT_MAX-ish (0x7F7FC99E). Returns this.
-    RigData* make_new();
-    // 0x004A3950 (virtual [0]): the inverse bind matrices and bind translations freed; freed itself with flags & 1.
-    // Returns this.
-    RigData* teardown(unsigned int free_flags);
+    // 0x004A2C20: empty, no flags, the first LOD distance FLT_MAX-ish (0x7F7FC99E).
+    RigData();
+    // 0x004A3950 (the scalar deleting destructor): the inverse bind matrices and bind translations freed.
+    ~RigData();
+    RigData(const RigData&) = delete;
+    RigData& operator=(const RigData&) = delete;
     // 0x004A39C0: read from a .ske file in memory (+4 the flags, +8 the count, then the names, parents' names and
     // mirror bones' names, then each bone's bind rotation (a quaternion) and translation): the inverse bind
     // matrices built down the hierarchy, the mirror pairs found (no mirror: -1). The size and the flag aren't used.
@@ -44,7 +49,7 @@ public:
     // 0x004A2CA0
     maths::Mat4* get_inverse_bind_matrices() { return inverse_bind_; }
 
-    void** vtable_;
+    uint32_t vtable_slot_unused_ = 0;
     int num_;                        // +0x004
     uint32_t names_[64];             // +0x008
     uint32_t parent_names_[64];      // +0x108

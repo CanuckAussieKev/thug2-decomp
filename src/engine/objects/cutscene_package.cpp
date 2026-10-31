@@ -88,15 +88,8 @@ void discard_loaded_item(uint32_t name)
     assets::Resource* asset = get_assets()->obtain_loaded_item(name, 1);
     get_assets()->discard_loaded_item(asset);
 }
-void delete_virtual(void* object)
-{
-    reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(object))[0])(object, 1);
-}
-void* new_anim_source()
-{
-    void* memory = anim_source_allocate(0x214);
-    return memory ? static_cast<render::FrameSource*>(memory)->make_new() : nullptr;
-}
+void delete_source(void* source) { delete static_cast<render::FrameSource*>(source); }
+void* new_anim_source() { return new render::FrameSource; }
 script::Struct* make_struct()
 {
     script::Struct* memory = script::spawn_param_bag();
@@ -271,14 +264,14 @@ CinematicTable::~CinematicTable()
     delete bundle_ptr_;
     bundle_ptr_ = nullptr;
     if (camera_source_)
-        delete_virtual(camera_source_);
+        delete_source(camera_source_);
     camera_source_ = nullptr;
     if (object_source_)
-        delete_virtual(object_source_);
+        delete_source(object_source_);
     object_source_ = nullptr;
     for (int i = 0; i < animation_count_; ++i) {
         if (animations_[i].source)
-            delete_virtual(animations_[i].source);
+            delete_source(animations_[i].source);
         animations_[i].data = nullptr; // (the source's pointer left as it is, as the original)
     }
     destroy_objects();

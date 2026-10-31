@@ -13,15 +13,10 @@
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_mesh.h"
 #include "engine/gfx/mesh_list.h"
-#include "engine/core/code_address.h"
 
 namespace render {
 
 namespace {
-
-extern void** const kPcMeshVtable;
-
-void construct_base(PcMesh* mesh) { reinterpret_cast<SubMesh*>(mesh)->SubMesh::make_new(); }
 
 StripBreak* new_breaks(uint32_t count) { return static_cast<StripBreak*>(memory::alloc(count * sizeof(StripBreak))); }
 // (the C runtime's qsort; the original's is the game's, 0x006242A0)
@@ -44,19 +39,9 @@ int __cdecl compare_strip_breaks(const void* a, const void* b)
     return (x & 0xFFFF) < (y & 0xFFFF) ? -1 : 0;
 }
 
-// 0x004B7B30
-PcMesh* PcMesh::make_new()
-{
-    construct_base(this);
-    vtable = reinterpret_cast<void**>(kPcMeshVtable);
-    return this;
-}
-
 // 0x004B7D50
-PcMesh* PcMesh::construct_from_file(const char* name)
+PcMesh::PcMesh(const char* name)
 {
-    construct_base(this);
-    vtable = reinterpret_cast<void**>(kPcMeshVtable);
     if (std::strstr(name, "skin")) {
         char file[0x100];
         std::memcpy(file, name, std::strlen(name) + 1); // (unchecked, as the original)
@@ -66,27 +51,15 @@ PcMesh* PcMesh::construct_from_file(const char* name)
             load_skin_file(file);
         }
     }
-    return this;
 }
 
 // 0x004B7E30
-void PcMesh::destroy_body()
+PcMesh::~PcMesh()
 {
-    vtable = reinterpret_cast<void**>(kPcMeshVtable);
     if (breaks)
         memory::Hub::get_pull()->dealloc(breaks);
     if (scene)
         engine::unload_scene(reinterpret_cast<WorldScene*>(scene), 1); // (the engine's UnloadScene)
-    reinterpret_cast<SubMesh*>(this)->SubMesh::destroy_body();
-}
-
-// 0x004B7F00
-PcMesh* PcMesh::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004B7B50
@@ -143,13 +116,8 @@ void PcMesh::choose_scene(uint8_t* new_scene)
 {
     scene = new_scene;
     auto* list = *reinterpret_cast<SceneRef**>(new_scene + 0x280);
-    hierarchy = list->extra;
+    hierarchy_ = list->extra;
     hierarchy_count_ = list->unknown78;
 }
-
-namespace {
-static VtableSlot g_pc_mesh_vtable_slots[] = {&render::PcMesh::teardown};
-void** const kPcMeshVtable = reinterpret_cast<void**>(g_pc_mesh_vtable_slots);
-} // namespace
 
 } // namespace render

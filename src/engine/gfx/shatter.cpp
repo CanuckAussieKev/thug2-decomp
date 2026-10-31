@@ -21,7 +21,6 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/texture_splats.h"
 #include "engine/lists/key_map.h"
-#include "engine/core/code_address.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 
@@ -30,8 +29,6 @@ namespace render {
 lists::KeyMap* g_shatters;
 
 namespace {
-
-extern void** const kShatterVtable;
 
 IDirect3DDevice9* draw_device() { return g_draw_device; }
 lists::KeyMap* shatters() { return g_shatters; }
@@ -51,11 +48,9 @@ void* mesh_pixel_shader(const MeshRef* mesh)
 } // namespace
 
 // 0x004B8120
-PcShatter* PcShatter::make_new(int count, MeshRef* source_mesh, uint32_t own)
+PcShatter::PcShatter(int count, MeshRef* source_mesh, uint32_t own) : Shatter(count)
 {
-    reinterpret_cast<Shatter*>(this)->Shatter::make_new(count);
     mesh = source_mesh;
-    vtable = reinterpret_cast<void**>(kShatterVtable);
     vertices = static_cast<uint8_t*>(memory::alloc(3 * source_mesh->stride * count));
     own_material_ = own;
     positions = static_cast<float*>(memory::alloc(12 * count));
@@ -65,13 +60,11 @@ PcShatter* PcShatter::make_new(int count, MeshRef* source_mesh, uint32_t own)
     } else {
         material = nullptr;
     }
-    return this;
 }
 
 // 0x004B8FA0
-void PcShatter::destroy_body()
+PcShatter::~PcShatter()
 {
-    vtable = reinterpret_cast<void**>(kShatterVtable);
     memory::Hub::get_pull()->dealloc(vertices);
     if (uint8_t* own = material) {
         reinterpret_cast<MaterialRef*>(own)->destroy_body(); // (the material's destructor body)
@@ -79,16 +72,6 @@ void PcShatter::destroy_body()
     }
     if (positions)
         memory::Hub::get_pull()->dealloc(positions);
-    reinterpret_cast<Shatter*>(this)->Shatter::destroy_body();
-}
-
-// 0x004B9A30
-PcShatter* PcShatter::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004B80B0
@@ -118,7 +101,7 @@ void __cdecl kill_all_shatters()
             next = static_cast<PcShatter*>(shatters()->iter_item_->value);
         uint32_t key = reinterpret_cast<uint32_t>(shatter);
         shatters()->erase_entry(key);
-        reinterpret_cast<void*(__thiscall*)(PcShatter*, int)>(shatter->vtable[0])(shatter, 1);
+        delete shatter;
         shatter = next;
     }
 }
@@ -253,8 +236,7 @@ void __cdecl shatter_geom(uint8_t* geom)
         }
         if (!count)
             continue; // (the buffers left locked, as the original)
-        void* memory = memory::alloc(sizeof(PcShatter));
-        PcShatter* shatter = memory ? static_cast<PcShatter*>(memory)->make_new(count, mesh, 0) : nullptr;
+        auto* shatter = new PcShatter(count, mesh, 0);
         // the centre they fly from: the mesh's, moved back along the shatter direction (its length the base speed)
         const float* direction = reinterpret_cast<const float*>(&g_glass_burst_velocity);
         double scale = -static_cast<double>(g_shatter_velocity_scale);
@@ -322,10 +304,5 @@ void __cdecl shatter_geom(uint8_t* geom)
         mesh->fetch_vertex_store(0)->get_unlock();
     }
 }
-
-namespace {
-static VtableSlot g_shatter_vtable_slots[] = {&render::PcShatter::teardown};
-void** const kShatterVtable = reinterpret_cast<void**>(g_shatter_vtable_slots);
-} // namespace
 
 } // namespace render

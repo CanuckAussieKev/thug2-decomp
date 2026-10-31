@@ -190,11 +190,7 @@ void* __cdecl load_scene_from_file(const char* name, void* textures, bool with_s
 }
 
 // 0x004B3990
-void* __cdecl create_frame_source()
-{
-    void* memory = g_frame_source_pools.carve(0x214);
-    return memory ? static_cast<FrameSource*>(memory)->make_new() : nullptr;
-}
+void* __cdecl create_frame_source() { return new FrameSource; }
 
 // 0x004B3A20
 void* __cdecl load_mesh_file(const char* name, void* textures)
@@ -204,10 +200,9 @@ void* __cdecl load_mesh_file(const char* name, void* textures)
     *reinterpret_cast<void**>(scene + 0x88) = textures;
     set_up_sectors(scene, name);
     clear_screen_clip();
-    void* memory = memory::alloc_zeroed(0xC8);
-    PcMesh* mesh = memory ? static_cast<PcMesh*>(memory)->construct_from_file(name) : nullptr;
+    auto* mesh = new PcMesh(name);
     set_mesh_scene(mesh, scene);
-    *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(mesh) + 4) = textures; // (the base mesh's)
+    mesh->textures_ = textures;
     return mesh;
 }
 
@@ -220,12 +215,11 @@ void* __cdecl load_mesh_from_memory(uint32_t checksum, const uint8_t* data, int 
     *reinterpret_cast<uint32_t*>(scene + 0x84) = checksums::hash_from_text(name);
     *reinterpret_cast<void**>(scene + 0x88) = textures;
     set_up_sectors(scene, name);
-    void* memory = memory::alloc_zeroed(0xC8);
-    PcMesh* mesh = memory ? static_cast<PcMesh*>(memory)->make_new() : nullptr;
+    auto* mesh = new PcMesh;
     mesh->load_skin(static_cast<const uint8_t*>(skin));
     clear_screen_clip();
     set_mesh_scene(mesh, scene);
-    *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(mesh) + 4) = textures; // (the base mesh's)
+    mesh->textures_ = textures;
     return mesh;
 }
 

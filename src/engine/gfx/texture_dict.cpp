@@ -17,8 +17,6 @@
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/lists/key_map.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/sys/startup_init.h"
 
 namespace render {
@@ -50,11 +48,6 @@ uint32_t filename_key(const char* name)
 }
 
 template <typename R, typename... A>
-R bay(TextureSet* dict, int slot, A... args)
-{
-    return reinterpret_cast<R(__thiscall*)(TextureSet*, A...)>(dict->vtable[slot])(dict, args...);
-}
-template <typename R, typename... A>
 R texture_slot(BitmapTexture* texture, int slot, A... args)
 {
     return reinterpret_cast<R(__thiscall*)(BitmapTexture*, A...)>(texture->vtable[slot])(texture, args...);
@@ -84,29 +77,24 @@ lists::KeyMap* new_texture_table()
 } // namespace
 
 // 0x0049F830
-TextureSet* TextureSet::make_new(uint32_t checksum, bool make_table)
+TextureSet::TextureSet(uint32_t checksum, bool make_table)
 {
     checksum_ = checksum;
-    vtable = reinterpret_cast<void**>(kTexDictVtable);
     share_count_ = 1;
     textures_ = make_table ? new_texture_table() : nullptr;
-    return this;
 }
 
 // 0x0049F8F0
-TextureSet* TextureSet::construct_named(const char* name, bool make_table)
+TextureSet::TextureSet(const char* name, bool make_table)
 {
-    vtable = reinterpret_cast<void**>(kTexDictVtable);
     checksum_ = checksums::hash_from_text(name);
     share_count_ = 1;
     textures_ = make_table ? new_texture_table() : nullptr;
-    return this;
 }
 
 // 0x0049FC70
-void TextureSet::destroy_body()
+TextureSet::~TextureSet()
 {
-    vtable = reinterpret_cast<void**>(kTexDictVtable);
     drop_textures(true);
     if (lists::KeyMap* table = textures_) {
         if (table->buckets_) {
@@ -116,15 +104,6 @@ void TextureSet::destroy_body()
         }
         memory::dealloc(table);
     }
-}
-
-// 0x0049FCC0
-TextureSet* TextureSet::teardown(unsigned int free_flags)
-{
-    destroy_body();
-    if (free_flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x0049F540
@@ -170,7 +149,7 @@ BitmapTexture* TextureSet::find_texture(const char* name)
 BitmapTexture* TextureSet::ingest_skin(const char* name, uint32_t a1, uint32_t a2, bool permanent)
 {
     memory::push_mem_profile(name);
-    auto* texture = bay<BitmapTexture*>(this, 1, name, a1, a2);
+    auto* texture = load_texture_file(name, a1, a2);
     insert_texture(this, texture, permanent);
     memory::pop_mem_profile();
     return texture;
@@ -181,7 +160,7 @@ BitmapTexture* TextureSet::read_texture_buffer(const uint8_t* data, uint32_t siz
                                                uint32_t a4, bool permanent, uint32_t a6)
 {
     memory::push_mem_profile("texture from buffer"); // "texture from buf"
-    auto* texture = bay<BitmapTexture*>(this, 2, data, size, checksum, a3, a4, a6);
+    auto* texture = load_texture_data(data, size, checksum, a3, a4, a6);
     insert_texture(this, texture, permanent);
     memory::pop_mem_profile();
     return texture;
@@ -192,7 +171,7 @@ BitmapTexture* TextureSet::create_texture(uint32_t checksum, uint32_t width, uin
                                           uint32_t a4, uint32_t a5, bool permanent)
 {
     memory::push_mem_profile("created texture"); // "created texture"
-    auto* texture = bay<BitmapTexture*>(this, 3, checksum, width, height, bits_per_pixel, a4, a5);
+    auto* texture = make_texture(checksum, width, height, bits_per_pixel, a4, a5);
     insert_texture(this, texture, permanent);
     memory::pop_mem_profile();
     return texture;
@@ -203,7 +182,7 @@ bool TextureSet::unload_texture(BitmapTexture* texture)
 {
     uint32_t key = texture->checksum_;
     debug_before_unload();
-    if (!bay<bool>(this, 5, texture))
+    if (!destroy_texture(texture))
         return false;
     textures_->erase_entry(key);
     return true;
@@ -251,13 +230,13 @@ bool TextureSet::replace_texture_from_file(const char* name, const char* file)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
     memory::push_mem_profile(file);
-    auto* loaded = bay<BitmapTexture*>(this, 1, file, 0u, 0u);
+    auto* loaded = load_texture_file(file, 0u, 0u);
     insert_texture(this, loaded, true);
     memory::pop_mem_profile();
     bool replaced = texture_slot<bool>(texture, 4, loaded);
     uint32_t key = loaded->checksum_;
     debug_before_unload();
-    if (bay<bool>(this, 5, loaded))
+    if (destroy_texture(loaded))
         textures_->erase_entry(key);
     memory::Hub::get_pull()->leave_heap_scope();
     return replaced;
@@ -266,7 +245,7 @@ bool TextureSet::replace_texture_from_file(const char* name, const char* file)
 // 0x0049FBE0
 BitmapTexture* TextureSet::copy_texture(uint32_t checksum, BitmapTexture* source)
 {
-    auto* texture = bay<BitmapTexture*>(this, 8, checksum, source);
+    auto* texture = duplicate_texture(checksum, source);
     if (texture) {
         texture->checksum_ = checksum;
         textures_->store_entry(checksum, texture);
@@ -278,7 +257,7 @@ BitmapTexture* TextureSet::copy_texture(uint32_t checksum, BitmapTexture* source
 BitmapTexture* TextureSet::copy_texture_with_overlay(uint32_t checksum, BitmapTexture* source, BitmapTexture* overlay,
                                                      uint32_t argument)
 {
-    auto* texture = bay<BitmapTexture*>(this, 8, checksum, source);
+    auto* texture = duplicate_texture(checksum, source);
     if (texture) {
         texture->checksum_ = checksum;
         textures_->store_entry(checksum, texture);
@@ -307,7 +286,7 @@ TextureSet* __cdecl load_tex_dict(const char* path, int /*level*/, uint32_t offs
         ++dict->share_count_;
     } else {
         // (the original passes level, offset, a3 and a4 too: the PC's reads the name alone)
-        dict = reinterpret_cast<TextureSet*>(load_tex_dict_file(file));
+        dict = load_tex_dict_file(file);
         dict->checksum_ = key;
         loaded_tex_dicts().store_entry(key, dict);
     }
@@ -324,7 +303,7 @@ TextureSet* __cdecl load_tex_dict_from_memory(uint32_t checksum, const uint8_t* 
     TextureSet* dict = find_tex_dict(key);
     if (!dict) {
         // (the original passes size, a3, offset, a5 and a6 too: the PC's reads the checksum and data alone)
-        dict = reinterpret_cast<TextureSet*>(load_tex_dict_memory(key, data));
+        dict = load_tex_dict_memory(key, data);
         dict->checksum_ = key;
         loaded_tex_dicts().store_entry(key, dict);
     }
@@ -349,7 +328,7 @@ bool __cdecl unload_tex_dict(TextureSet* dict)
         return false;
     uint32_t key = dict->checksum_;
     loaded_tex_dicts().erase_entry(key);
-    delete_model_lights(reinterpret_cast<PcModelLights*>(dict)); // (deleted through its vtable)
+    delete dict; // (through its vtable)
     return true;
 }
 
@@ -361,14 +340,6 @@ void __cdecl tex_dict_file_name(char* out, const char* name)
 
 // 0x0049EFB0
 void __cdecl drop_particle_textures(bool all) { g_particle_texture_dict->drop_textures(all); }
-
-namespace {
-static VtableSlot g_tex_dict_vtable_slots[] = {
-    &render::TextureSet::teardown, stubs::return_zero3,  stubs::return_zero6,
-    stubs::return_zero6,           stubs::return_zero1,  stubs::return_false1,
-    stubs::ignore_argument,        stubs::return_false1, stubs::return_zero2};
-void** const kTexDictVtable = reinterpret_cast<void**>(g_tex_dict_vtable_slots);
-} // namespace
 
 } // namespace render
 
@@ -387,7 +358,7 @@ TextureSet* shared_tex_dict(const char* name)
         ++dict->share_count_;
         return dict;
     }
-    auto* dict = reinterpret_cast<TextureSet*>(create_tex_dict(checksum));
+    auto* dict = create_tex_dict(checksum);
     loaded_tex_dicts().store_entry(checksum, dict);
     return dict;
 }

@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/mem.h"
+
 namespace lists {
 class KeyMap;
 }
@@ -14,20 +16,36 @@ namespace render {
 
 class BitmapTexture;
 
-// The dictionary (0x10 bytes of the engine's; vtable 0x00649BB4 - its own slots are stubs; PC 0x0064A824). Its
-// virtual slots (PcTexDict's): [0] destroy, [1] a texture loaded from a file, [2] one loaded from memory, [3] one
-// made, [5] a texture destroyed (true if it was), [8] a copy of a texture.
-class TextureSet {
+// The dictionary (0x10 bytes of the engine's; vtable 0x00649BB4 - its own slots are stubs; PC 0x0064A824). Slots 4, 6
+// and 7 are the same stub in both tables and never called: left out.
+class TextureSet : public memory::HeapObject {
 public:
-    // 0x0049F830: construct named `checksum`, used once, with an empty table of 32 buckets when `make_table` (none
-    // without memory) or none. Returns this.
-    TextureSet* make_new(uint32_t checksum, bool make_table);
+    // 0x0049F830: named `checksum`, used once, with an empty table of 32 buckets when `make_table` (none without
+    // memory) or none.
+    TextureSet(uint32_t checksum, bool make_table);
     // 0x0049F8F0: the same, named by the CRC of `name`.
-    TextureSet* construct_named(const char* name, bool make_table);
-    // 0x0049FC70: the destructor's body - every texture flushed, the table emptied and freed (its buckets too).
-    void destroy_body();
-    // 0x0049FCC0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    TextureSet* teardown(unsigned int free_flags);
+    TextureSet(const char* name, bool make_table);
+    // 0x0049FC70 (0x0049FCC0 the scalar deleting destructor, vtable slot 0): every texture flushed, the table emptied
+    // and freed (its buckets too).
+    virtual ~TextureSet();
+    TextureSet(const TextureSet&) = delete;
+    TextureSet& operator=(const TextureSet&) = delete;
+
+    // The platform's (the engine's: none / false): vtable slot 1, a texture loaded from a file; slot 2, one loaded
+    // from memory; slot 3, one made; slot 5, a texture destroyed (true if it was); slot 8, a copy of a texture.
+    virtual BitmapTexture* load_texture_file(const char* /*name*/, uint32_t /*a1*/, uint32_t /*a2*/) { return nullptr; }
+    virtual BitmapTexture* load_texture_data(const uint8_t* /*data*/, uint32_t /*size*/, uint32_t /*checksum*/,
+                                             uint32_t /*a3*/, uint32_t /*a4*/, uint32_t /*a6*/)
+    {
+        return nullptr;
+    }
+    virtual BitmapTexture* make_texture(uint32_t /*checksum*/, uint32_t /*width*/, uint32_t /*height*/,
+                                        uint32_t /*bits_per_pixel*/, uint32_t /*a4*/, uint32_t /*a5*/)
+    {
+        return nullptr;
+    }
+    virtual bool destroy_texture(BitmapTexture* /*texture*/) { return false; }
+    virtual BitmapTexture* duplicate_texture(uint32_t /*checksum*/, BitmapTexture* /*source*/) { return nullptr; }
 
     // 0x0049F540: the texture `checksum`, or null (no table: null).
     BitmapTexture* fetch_skin(uint32_t checksum);
@@ -62,7 +80,6 @@ public:
     BitmapTexture* copy_texture_with_overlay(uint32_t checksum, BitmapTexture* source, BitmapTexture* overlay,
                                              uint32_t argument);
 
-    void** vtable;
     uint32_t checksum_;    // +0x04
     uint16_t share_count_; // +0x08: its loads (unload_tex_dict deletes it at 0)
     uint8_t pada_[2];

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 
@@ -19,8 +20,15 @@ struct MeshRef;
 
 // The engine's shatter (0x2C bytes, vtable 0x00649308; PcShatter extends it): per triangle its centre, velocity
 // and turn a step; the settings the Shatter command gave when it was made (engine_effects.h, change_breakup_settings).
-struct Shatter {
-    void** vtable;
+class Shatter : public memory::HeapObject {
+public:
+    // 0x004912C0: for `count` triangles (their arrays from the default heap), with the settings.
+    explicit Shatter(int count);
+    // 0x00490E80 (0x00491380 the scalar deleting destructor, vtable slot 0 - its only one): the arrays freed.
+    virtual ~Shatter();
+    Shatter(const Shatter&) = delete;
+    Shatter& operator=(const Shatter&) = delete;
+
     maths::Vec4* centres;    // +0x04
     maths::Vec4* velocities; // +0x08
     uint32_t unknown0c_;
@@ -33,13 +41,6 @@ struct Shatter {
     uint16_t pad26;
     uint32_t unknown28; // +0x28 (the settings' checksum 0x007004C0)
 
-    // 0x004912C0: construct for `count` triangles (their arrays from the default heap), with the settings. Returns
-    // this.
-    Shatter* make_new(int count);
-    // 0x00490E80: the destructor's body (the arrays freed).
-    void destroy_body();
-    // 0x00491380 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    Shatter* teardown(unsigned int flags);
     // 0x004913D0: triangle `index` moved a step; below the floor and falling, it bounces (the height mirrored, the
     // speed turned up and scaled) and gets a new random turn (about a random axis, up to 0.1); then gravity.
     void get_step(int index, float step);
@@ -48,29 +49,21 @@ static_assert(offsetof(Shatter, rotations) == 0x10 && offsetof(Shatter, triangle
                   sizeof(Shatter) == 0x2C,
               "layout must match the original");
 
-// A shatter (vtable 0x0064A4AC; the engine's shatter - constructor 0x004912C0, destructor body 0x00490E80 - for its
-// first 0x2C bytes: per triangle its centre, velocity and rotation, the settings it was made with).
-struct PcShatter {
-    void** vtable;
-    maths::Vec4* centres;    // +0x04
-    maths::Vec4* velocities; // +0x08
-    uint32_t unknown0c_;
-    maths::Mat4* rotations; // +0x10: each triangle's turn a step
-    uint8_t settings14[0x10];
-    uint16_t triangle_count_; // +0x24
-    uint8_t unknown26[6];
+// A shatter (0x40 bytes, vtable 0x0064A4AC; the engine's shatter - per triangle its centre, velocity and rotation, the
+// settings it was made with - and the triangles' vertices).
+class PcShatter final : public Shatter {
+public:
+    // 0x004B8120: for `count` triangles of `mesh`.
+    PcShatter(int count, MeshRef* mesh, uint32_t own_material);
+    // 0x004B8FA0 (0x004B9A30 the scalar deleting destructor): its vertices, material and positions freed, then the
+    // engine's.
+    ~PcShatter() override;
+
     float* positions;       // +0x2C: three floats per triangle
     uint8_t* material;      // +0x30: a material of its own (0x110 bytes) when asked for
     uint32_t own_material_; // +0x34
     MeshRef* mesh;          // +0x38: what it was made from (its material, vertex size and format)
     uint8_t* vertices;      // +0x3C: three per triangle
-
-    // 0x004B8120: construct for `count` triangles of `mesh`. Returns this.
-    PcShatter* make_new(int count, MeshRef* mesh, uint32_t own_material);
-    // 0x004B8FA0: the destructor's body.
-    void destroy_body();
-    // 0x004B9A30 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    PcShatter* teardown(unsigned int flags);
 };
 static_assert(offsetof(PcShatter, positions) == 0x2C && offsetof(PcShatter, vertices) == 0x3C &&
                   sizeof(PcShatter) == 0x40,

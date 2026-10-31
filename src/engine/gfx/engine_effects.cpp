@@ -28,7 +28,6 @@
 #include "engine/render/coll_obj.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
 #include "engine/objects/movie_manager.h"
 #include "platform/crt.h"
 
@@ -40,8 +39,6 @@ lists::KeyMap* g_splat_sets;
 lists::KeyMap* g_spawned_polys;
 float g_shatter_velocity_scale{1.0f};
 namespace {
-
-extern void** const kShatterVtable;
 
 float g_shatter_value_2e_1c{1.0f};
 float g_shatter_value_c483_squared{360.0f};
@@ -147,9 +144,8 @@ SplatParams* SplatParams::make_new()
 // --- the engine's shatter ---
 
 // 0x004912C0
-Shatter* Shatter::make_new(int count)
+Shatter::Shatter(int count)
 {
-    vtable = reinterpret_cast<void**>(kShatterVtable);
     centres = static_cast<maths::Vec4*>(memory::alloc(count << 4));
     velocities = static_cast<maths::Vec4*>(memory::alloc(count << 4));
     rotations = static_cast<maths::Mat4*>(memory::alloc(count << 6));
@@ -159,25 +155,14 @@ Shatter* Shatter::make_new(int count)
     lifetime = g_glass_life_span;
     floor = g_shatter_floor;
     bounce = g_glass_restitution;
-    return this;
 }
 
 // 0x00490E80
-void Shatter::destroy_body()
+Shatter::~Shatter()
 {
-    vtable = reinterpret_cast<void**>(kShatterVtable);
     memory::Hub::get_pull()->dealloc(centres);
     memory::Hub::get_pull()->dealloc(velocities);
     memory::Hub::get_pull()->dealloc(rotations);
-}
-
-// 0x00491380
-Shatter* Shatter::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004913D0
@@ -537,11 +522,11 @@ void __cdecl update_shatters()
         if (left <= 0.0)
             dead = shatter;
         else
-            update_shatter(reinterpret_cast<PcShatter*>(shatter), elapsed);
+            update_shatter(static_cast<PcShatter*>(shatter), elapsed);
         value = next_value(shatters());
         if (dead) {
             drop_out(shatters(), dead);
-            reinterpret_cast<void(__thiscall*)(Shatter*, unsigned int)>(dead->vtable[0])(dead, 1);
+            delete dead;
         }
     }
 }
@@ -654,10 +639,5 @@ void __cdecl kill_all_effects()
 }
 
 } // namespace engine
-
-namespace {
-static VtableSlot g_shatter_vtable_slots[] = {&render::Shatter::teardown};
-void** const kShatterVtable = reinterpret_cast<void**>(g_shatter_vtable_slots);
-} // namespace
 
 } // namespace render

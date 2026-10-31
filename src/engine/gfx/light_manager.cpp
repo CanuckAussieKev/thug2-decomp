@@ -13,7 +13,6 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/pc_lights.h"
 #include "engine/maths/vec4.h"
-#include "engine/core/code_address.h"
 #include "engine/sys/startup_init.h"
 
 namespace render {
@@ -28,7 +27,6 @@ LightingState g_active_lighting{0, nullptr, nullptr, 0.5f, 0.0f, nullptr, nullpt
 LightingState g_world_light_stack[4]; // (the saved ones: PushLights / PopLights)
 namespace {
 
-extern void** const kDynamicLightVtable;
 constexpr int kSavedLightLevels = 4;
 constexpr int kMaxDynamicLights = 256;
 
@@ -65,11 +63,8 @@ float get_scaled(float brightness, float low, float high)
 // A compiled-out call (the empty 0x005480A0) after the stack is popped.
 void compiled_out() {}
 
-// A light's falloff (virtual [2]): returned in ST0 unrounded.
-double call_falloff(DynamicLightBase* light, float distance)
-{
-    return reinterpret_cast<double(__thiscall*)(DynamicLightBase*, float)>(light->vtable[2])(light, distance);
-}
+// A light's falloff (its vtable's slot 2): returned in ST0 unrounded.
+double call_falloff(DynamicLightBase* light, float distance) { return light->get_falloff(distance); }
 
 } // namespace
 
@@ -343,7 +338,6 @@ DynamicLightBase* __cdecl create_dynamic_light(int type)
     if (!light)
         return nullptr;
     light->unknown2c_ = false;
-    light->vtable = reinterpret_cast<void**>(kDynamicLightVtable);
     light->type = 1;
     light->radius = 50.0f;
     light->inverse_radius_ = 50.0f; // (as the original: not 1 / 50)
@@ -378,12 +372,6 @@ int DynamicLightBase::in_reach(float distance) { return distance < radius ? 1 : 
 
 // 0x0048EAB0
 double DynamicLightBase::get_falloff(float distance) { return static_cast<double>(distance) * inverse_radius_; }
-
-namespace {
-static VtableSlot g_dynamic_light_vtable_slots[] = {
-    &render::DynamicLightBase::is_on, &render::DynamicLightBase::in_reach, &render::DynamicLightBase::get_falloff};
-void** const kDynamicLightVtable = reinterpret_cast<void**>(g_dynamic_light_vtable_slots);
-} // namespace
 
 } // namespace render
 

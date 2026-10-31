@@ -322,8 +322,7 @@ void CinematicTable::add_objects(script::Struct* params)
                         continue;
                     AnimationEntry* animation = &animations_[j];
                     entry.animation = animation;
-                    void* memory = anim_source_allocate(0x214);
-                    animation->source = memory ? static_cast<render::FrameSource*>(memory)->make_new() : nullptr;
+                    animation->source = new render::FrameSource;
                     static_cast<render::FrameSource*>(animation->source)->play_clip(anim);
                     static_cast<render::FrameSource*>(animation->source)->set_done(true);
                     break;

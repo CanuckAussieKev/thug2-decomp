@@ -46,7 +46,7 @@ bool load_anim_frames(void* frames, void* buffer, uint32_t size)
     return static_cast<gfx::JointClipFrames*>(frames)->read_in(static_cast<const uint8_t*>(buffer), size, true);
 }
 // The skeleton data (0x598 bytes): 0x004A2C20 the constructor, 0x004A39C0 Load.
-void* construct_skeleton_data(void* skeleton) { return static_cast<gfx::RigData*>(skeleton)->make_new(); }
+
 bool load_skeleton_data(void* skeleton, void* buffer, uint32_t size)
 {
     return static_cast<gfx::RigData*>(skeleton)->read_in(static_cast<const uint32_t*>(buffer), size, true);
@@ -93,8 +93,8 @@ void* make_skinned_model(uint32_t checksum, void* buffer, uint32_t size, void* c
 }
 void unload_skinned_model(void* model, int flag)
 {
-    (void)flag; // 0x0048C080 is a jump to delete_model_lights (its second argument isn't read)
-    render::delete_model_lights(static_cast<render::PcModelLights*>(model));
+    (void)flag; // 0x0048C080 is a jump to the engine's virtual delete (its second argument isn't read)
+    delete static_cast<render::SubMesh*>(model);
 }
 // Skin collision: its file name, added to a model, removed.
 void skin_collision_file_name(char* out, const char* name) { render::skin_collision_file_name(out, name); }
@@ -640,8 +640,7 @@ int RigResource::read_in(const char* name, bool async, bool use_archive, void* p
 // 0x00409B80
 bool RigResource::finish_loading(void* buffer, uint32_t size)
 {
-    void* memory = memory::alloc_zeroed(0x598);
-    void* skeleton = memory ? construct_skeleton_data(memory) : nullptr;
+    void* skeleton = new gfx::RigData;
     if (!load_skeleton_data(skeleton, buffer, size))
         return false; // (the skeleton data leaks, as in the original)
     change_contents(skeleton);
@@ -654,7 +653,7 @@ bool RigResource::finish_loading(void* buffer, uint32_t size)
 int RigResource::offload()
 {
     if (void* skeleton = get_data()) {
-        reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(skeleton))[0])(skeleton, 1);
+        delete static_cast<gfx::RigData*>(skeleton);
         change_contents(nullptr);
         free_buffer();
     }

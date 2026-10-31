@@ -14,13 +14,11 @@
 #include "engine/gfx/debug_lines.h"
 #include "engine/objects/cutscene.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 
 namespace gfx {
 
 namespace {
 
-extern void** const kSkeletonDataVtable;
 constexpr uint32_t kLocalScaleExceptions = 0x20D9AC2F; // a script array of bone names
 constexpr uint32_t kNotLocal = 0x9E3A09FC;
 constexpr uint32_t kMirroredBone = 0x580C0963;
@@ -96,21 +94,18 @@ maths::Mat4 bone_space(Rig* skeleton, int index)
 } // namespace
 
 // 0x004A2C20
-RigData* RigData::make_new()
+RigData::RigData()
 {
-    vtable_ = reinterpret_cast<void**>(kSkeletonDataVtable);
     num_ = 0;
     flag_bits_ = 0;
     unknown588_ = 0;
     inverse_bind_ = nullptr;
     reinterpret_cast<uint32_t&>(lod_distances_[0]) = 0x7F7FC99E;
-    return this;
 }
 
 // 0x004A3950
-RigData* RigData::teardown(unsigned int free_flags)
+RigData::~RigData()
 {
-    vtable_ = reinterpret_cast<void**>(kSkeletonDataVtable);
     if (inverse_bind_) {
         memory::Hub::get_pull()->dealloc(inverse_bind_);
         inverse_bind_ = nullptr;
@@ -119,9 +114,6 @@ RigData* RigData::teardown(unsigned int free_flags)
         memory::Hub::get_pull()->dealloc(bind_translations_);
         bind_translations_ = nullptr;
     }
-    if (free_flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004A2C70
@@ -546,10 +538,5 @@ void Rig::collapse_zero_scaled_bones()
         matrix_array_[i].row[3] = matrix_array_[0].row[3];
     }
 }
-
-namespace {
-static VtableSlot g_skeleton_data_vtable_slots[] = {&gfx::RigData::teardown};
-void** const kSkeletonDataVtable = reinterpret_cast<void**>(g_skeleton_data_vtable_slots);
-} // namespace
 
 } // namespace gfx

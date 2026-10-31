@@ -11,8 +11,6 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/gfx/light_manager.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 
 namespace render {
 
@@ -22,7 +20,6 @@ float g_light_constants[28];
 
 namespace {
 
-extern void** const kModelLightsVtable;
 constexpr double kPer128 = 1.0 / 128.0;  // 0x0064A2FC
 constexpr float kPer255 = 1.0f / 255.0f; // 0x00645D70 (0x3B808081)
 
@@ -53,18 +50,8 @@ void send_negated(float* out, const maths::Vec4& v)
     out[2] = -v.z;
 }
 
-template <typename R, typename... A>
-R call_virtual(PcModelLights* lights, int slot, A... args)
-{
-    return reinterpret_cast<R(__thiscall*)(PcModelLights*, A...)>(lights->vtable[slot])(lights, args...);
-}
-
-// A dynamic light's falloff at `distance` (its virtual [2]).
-double get_falloff(void* light, float distance)
-{
-    void** vtable = *static_cast<void***>(light);
-    return reinterpret_cast<double(__thiscall*)(void*, float)>(vtable[2])(light, distance);
-}
+// A dynamic light's falloff at `distance` (its vtable's slot 2).
+double get_falloff(void* light, float distance) { return static_cast<DynamicLightBase*>(light)->get_falloff(distance); }
 
 // The dynamic lights within `radius` of `position` (the engine's 0x0048EF90): their count, pointers into `out`.
 uint32_t find_dynamic_lights(const maths::Vec4* position, uint32_t radius, uint8_t** out)
@@ -75,26 +62,22 @@ uint32_t find_dynamic_lights(const maths::Vec4* position, uint32_t radius, uint8
 } // namespace
 
 // 0x004B6270
-PcModelLights* PcModelLights::make_new()
+PcModelLights::PcModelLights()
 {
-    reinterpret_cast<ModelLights*>(this)->ModelLights::make_new();
-    vtable = reinterpret_cast<void**>(kModelLightsVtable);
     overrides = 0;
     colors = static_cast<uint32_t*>(memory::alloc(4 * model_light_count()));
     directions = static_cast<maths::Vec4*>(memory::alloc(16 * model_light_count()));
-    call_virtual<void>(this, 9, false); // enable_ambient_override
+    switch_ambient_light(false);
     for (uint32_t i = 0; i < model_light_count(); ++i) {
-        call_virtual<void>(this, 10, static_cast<int>(i), false); // enable_light_override
+        switch_diffuse_light(static_cast<int>(i), false);
         directions[i] = {0.0f, 1.0f, 0.0f, 1.0f};
     }
     first_dynamic_ = 2;
-    return this;
 }
 
 // 0x004B6360
-void PcModelLights::destroy_body()
+PcModelLights::~PcModelLights()
 {
-    vtable = reinterpret_cast<void**>(kModelLightsVtable);
     if (colors) {
         memory::Hub::get_pull()->dealloc(colors);
         colors = nullptr;
@@ -103,77 +86,67 @@ void PcModelLights::destroy_body()
         memory::Hub::get_pull()->dealloc(directions);
         directions = nullptr;
     }
-    reinterpret_cast<ModelLights*>(this)->ModelLights::destroy_body();
-}
-
-// 0x004B67B0
-PcModelLights* PcModelLights::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004B6160
-bool PcModelLights::change_ambient_tint(const uint32_t* color)
+bool PcModelLights::put_ambient_light_tint(const uint32_t* color)
 {
     ambient = *color;
     return true;
 }
 
 // 0x004B6170
-uint32_t* PcModelLights::fetch_ambient_tint(uint32_t* out)
+uint32_t* PcModelLights::read_ambient_light_tint(uint32_t* out)
 {
     *out = ambient;
     return out;
 }
 
 // 0x004B6780
-bool PcModelLights::set_light_direction(int light, const maths::Vec4* direction)
+bool PcModelLights::put_light_aim(int light, const maths::Vec4* direction)
 {
     directions[light] = *direction;
     return true;
 }
 
 // 0x004B6180
-const maths::Vec4* PcModelLights::get_light_direction(int light)
+const maths::Vec4* PcModelLights::read_light_aim(int light)
 {
-    if (call_virtual<bool>(this, 12, light)) // is_light_overridden
+    if (diffuse_light_is_on(light))
         return &directions[light];
     return render::get_light_direction(light);
 }
 
 // 0x004B61B0
-bool PcModelLights::set_light_diffuse_color(int light, const uint32_t* color)
+bool PcModelLights::put_diffuse_light_tint(int light, const uint32_t* color)
 {
     colors[light] = *color;
     return true;
 }
 
 // 0x004B61D0
-uint32_t* PcModelLights::get_light_diffuse_color(uint32_t* out, int light)
+uint32_t* PcModelLights::read_diffuse_light_tint(uint32_t* out, int light)
 {
     *out = colors[light];
     return out;
 }
 
 // 0x004B63B0
-void PcModelLights::tick_frame(const maths::Vec4* position, uint32_t radius)
+void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_t radius)
 {
     uint32_t color;
     if (overrides & 1)
         color = ambient;
     else
         fetch_ambient_hue(&color);
-    send_color(ambient_constant(), color, scale);
+    send_color(ambient_constant(), color, size_factor_);
     for (uint32_t i = 0; i < light_count(); ++i) {
         if (overrides & (2u << (i & 31))) {
-            send_color(light_color_constant(i), colors[i], intensities[i]);
+            send_color(light_color_constant(i), colors[i], intensities_[i]);
             send_negated(light_direction_constant(i), directions[i]);
         } else {
             fetch_light_tint(&color, static_cast<int>(i));
-            send_color(light_color_constant(i), color, intensities[i]);
+            send_color(light_color_constant(i), color, intensities_[i]);
             send_negated(light_direction_constant(i), *render::get_light_direction(static_cast<int>(i)));
         }
     }
@@ -219,7 +192,7 @@ void PcModelLights::tick_frame(const maths::Vec4* position, uint32_t radius)
 }
 
 // 0x004B61F0
-void PcModelLights::enable_ambient_override(bool on)
+void PcModelLights::switch_ambient_light(bool on)
 {
     if (on)
         overrides |= 1;
@@ -228,10 +201,10 @@ void PcModelLights::enable_ambient_override(bool on)
 }
 
 // 0x004B6240
-bool PcModelLights::is_ambient_overridden() { return (overrides & 1) != 0; }
+bool PcModelLights::ambient_light_is_on() { return (overrides & 1) != 0; }
 
 // 0x004B6210
-void PcModelLights::enable_light_override(int light, bool on)
+void PcModelLights::switch_diffuse_light(int light, bool on)
 {
     uint32_t bit = 2u << (light & 31);
     if (on)
@@ -241,7 +214,7 @@ void PcModelLights::enable_light_override(int light, bool on)
 }
 
 // 0x004B6250
-bool PcModelLights::is_light_overridden(int light) { return (overrides & (2u << (light & 31))) != 0; }
+bool PcModelLights::diffuse_light_is_on(int light) { return (overrides & (2u << (light & 31))) != 0; }
 
 // 0x004B67E0
 bool __cdecl update_ambient_light()
@@ -283,7 +256,7 @@ void __cdecl update_all_lights()
 bool __cdecl delete_model_lights(PcModelLights* lights)
 {
     if (lights)
-        call_virtual<void*>(lights, 0, 1u);
+        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(lights))[0])(lights, 1u);
     return true;
 }
 
@@ -319,27 +292,6 @@ maths::Vec4* __cdecl get_light_direction(int light)
 }
 
 // 0x004B6B10
-PcModelLights* __cdecl spawn_model_lights()
-{
-    void* memory = memory::alloc(sizeof(PcModelLights));
-    return memory ? static_cast<PcModelLights*>(memory)->make_new() : nullptr;
-}
-
-namespace {
-static VtableSlot g_model_lights_vtable_slots[] = {&render::PcModelLights::teardown,
-                                                   &render::PcModelLights::change_ambient_tint,
-                                                   &render::PcModelLights::set_light_direction,
-                                                   &render::PcModelLights::set_light_diffuse_color,
-                                                   &render::PcModelLights::fetch_ambient_tint,
-                                                   &render::PcModelLights::get_light_direction,
-                                                   &render::PcModelLights::get_light_diffuse_color,
-                                                   &render::PcModelLights::tick_frame,
-                                                   stubs::ignore_arguments2,
-                                                   &render::PcModelLights::enable_ambient_override,
-                                                   &render::PcModelLights::enable_light_override,
-                                                   &render::PcModelLights::is_ambient_overridden,
-                                                   &render::PcModelLights::is_light_overridden};
-void** const kModelLightsVtable = reinterpret_cast<void**>(g_model_lights_vtable_slots);
-} // namespace
+PcModelLights* __cdecl spawn_model_lights() { return new PcModelLights; }
 
 } // namespace render

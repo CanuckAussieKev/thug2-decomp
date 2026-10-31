@@ -16,13 +16,14 @@ namespace gfx {
 class Rig;
 class RigData;
 
-// One bone's volume (0x2C bytes, vtable 0x00648988).
+// One bone's volume (0x2C bytes). (The original's vtable 0x00648988 holds only intersects_segment, never called
+// through it, and it has no subclass: no vtable here; its word is kept with the layout.)
 struct BoneVolume {
-    void** vtable_;
+    uint32_t vtable_slot_unused_;
     uint32_t unknown4_;      // (never set)
     maths::Capsule capsule_; // +0x08 (its radius +0x28)
 
-    // 0x0048B330 (not a Ghidra function; vtable slot 0): whether `segment` passes through the capsule (where along
+    // 0x0048B330 (not a Ghidra function; the vtable's slot 0): whether `segment` passes through the capsule (where along
     // the capsule's line: `s`).
     int intersects_segment(const maths::Seg* segment, float* s);
 };

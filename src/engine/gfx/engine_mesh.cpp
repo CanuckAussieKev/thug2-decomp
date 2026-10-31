@@ -13,13 +13,11 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_tri.h"
-#include "engine/core/code_address.h"
 
 namespace render {
 
 namespace {
 
-extern void** const kMeshVtable;
 constexpr uint32_t kObjectSize = 0x40;
 
 uint32_t justify(uint32_t value, uint32_t to) { return (value + to - 1) & ~(to - 1); }
@@ -27,15 +25,12 @@ uint32_t justify(uint32_t value, uint32_t to) { return (value + to - 1) & ~(to -
 } // namespace
 
 // 0x00490A60
-SubMesh* SubMesh::make_new()
+SubMesh::SubMesh()
 {
-    vtable_ = reinterpret_cast<void**>(kMeshVtable);
-    new (&box_) maths::BBox();
-    unknownb0_ = 0;
+    bone_count_ = 0;
     hierarchy_ = nullptr;
     hierarchy_count_ = 0;
     collision_name_[0] = 0;
-    return this;
 }
 
 // 0x00490A90
@@ -48,20 +43,7 @@ void SubMesh::detach_hit_mesh()
 }
 
 // 0x00490B60
-void SubMesh::destroy_body()
-{
-    vtable_ = reinterpret_cast<void**>(kMeshVtable);
-    detach_hit_mesh();
-}
-
-// 0x00490C90
-SubMesh* SubMesh::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+SubMesh::~SubMesh() { detach_hit_mesh(); }
 
 // 0x00490AB0
 void* SubMesh::fetch_bone_tree() { return hierarchy_; }
@@ -139,10 +121,5 @@ void VertexStack::stack_on(const uint8_t* in)
     std::memcpy(data + used, in, vertex_size_);
     used += vertex_size_;
 }
-
-namespace {
-static VtableSlot g_mesh_vtable_slots[] = {&render::SubMesh::teardown};
-void** const kMeshVtable = reinterpret_cast<void**>(g_mesh_vtable_slots);
-} // namespace
 
 } // namespace render

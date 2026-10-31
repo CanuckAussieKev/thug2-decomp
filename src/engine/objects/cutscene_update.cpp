@@ -74,15 +74,8 @@ float vblank_seconds(uint64_t vblanks, int rate)
     return result;
 }
 
-void* new_anim_source()
-{
-    void* memory = anim_source_allocate(0x214);
-    return memory ? static_cast<render::FrameSource*>(memory)->make_new() : nullptr;
-}
-void delete_virtual(void* object)
-{
-    reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(object))[0])(object, 1);
-}
+void* new_anim_source() { return new render::FrameSource; }
+void delete_source(void* source) { delete static_cast<render::FrameSource*>(source); }
 void* model_of(ObjectModule* component)
 {
     return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
@@ -171,7 +164,7 @@ void CinematicTable::update_time(int /*unused*/)
         ++camera_part_;
         uint32_t name = hash_of_name("_CAM", camera_part_); // (the game's string 0x00647914)
         if (camera_source_)
-            delete_virtual(camera_source_);
+            delete_source(camera_source_);
         camera_source_ = new_anim_source();
         static_cast<render::FrameSource*>(camera_source_)->set_done(true);
         camera_anim_ = static_cast<render::FrameSource*>(camera_source_)->play_clip(name);
@@ -181,7 +174,7 @@ void CinematicTable::update_time(int /*unused*/)
         ++object_part_;
         uint32_t name = hash_of_name("_OBA", object_part_); // (the game's string 0x0064790C)
         if (object_source_)
-            delete_virtual(object_source_);
+            delete_source(object_source_);
         object_source_ = new_anim_source();
         anim_list_ = static_cast<render::FrameSource*>(object_source_)->play_clip(name);
         static_cast<gfx::JointClipFrames*>(anim_list_)->arm_events();
@@ -190,7 +183,7 @@ void CinematicTable::update_time(int /*unused*/)
         ObjectEntry& entry = entities_[i];
         ++entry.part;
         if (entry.animation && entry.animation->source) {
-            delete_virtual(entry.animation->source);
+            delete_source(entry.animation->source);
             entry.animation->source = nullptr;
         }
         uint32_t anim = entry.name + entry.part * 10;

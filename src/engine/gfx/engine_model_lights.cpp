@@ -11,15 +11,12 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/maths/vec4.h"
-#include "engine/core/code_address.h"
 
 namespace render {
 
 uint32_t g_light_count;
 
 namespace {
-
-extern void** const kModelLightsVtable;
 
 maths::Vec4 g_light_direction;
 uint32_t g_light_direction_guard;
@@ -31,12 +28,6 @@ float dark_range() { return g_active_lighting.ambient_low_; }
 float bright_range() { return g_active_lighting.ambient_high_; }
 float* dark_ranges() { return g_active_lighting.light_low_; }
 float* bright_ranges() { return g_active_lighting.light_high_; }
-
-template <typename R = void, typename... A>
-R Virtual(ModelLights* lights, int slot, A... args)
-{
-    return reinterpret_cast<R(__thiscall*)(ModelLights*, A...)>(lights->vtable_[slot])(lights, args...);
-}
 
 void get_stub(const char* message) { debug::printf(message); }
 
@@ -50,52 +41,40 @@ float get_scaled(float brightness, float dark, float bright)
 } // namespace
 
 // 0x0048E5B0
-ModelLights* ModelLights::make_new()
+ModelLights::ModelLights()
 {
-    vtable_ = reinterpret_cast<void**>(kModelLightsVtable);
     intensity_goal_ = 0.0f;
     brightness_ = 0.0f;
     size_factor_ = 1.0f;
     intensities_ = static_cast<float*>(memory::alloc(light_count() * 4));
     for (uint32_t i = 0; i < light_count(); ++i)
         intensities_[i] = 1.0f;
-    unknown4_ = 0;
+    dynamic_radius_ = 0;
     place_ref_ = nullptr;
-    return this;
 }
 
 // 0x0048E630
-void ModelLights::destroy_body()
+ModelLights::~ModelLights()
 {
-    vtable_ = reinterpret_cast<void**>(kModelLightsVtable);
     if (intensities_) {
         memory::Hub::get_pull()->dealloc(intensities_);
         intensities_ = nullptr;
     }
 }
 
-// 0x0048E7F0
-ModelLights* ModelLights::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x0048E450
 bool ModelLights::change_ambient_tint(const uint32_t* color)
 {
-    bool result = Virtual<bool>(this, 1, color);
-    Virtual(this, 8, true, false);
+    bool result = put_ambient_light_tint(color);
+    apply_light_brightness(true, false);
     return result;
 }
 
 // 0x0048E480
 bool ModelLights::change_diffuse_hue(int light, const uint32_t* color)
 {
-    bool result = Virtual<bool>(this, 3, light, color);
-    Virtual(this, 8, false, true);
+    bool result = put_diffuse_light_tint(light, color);
+    apply_light_brightness(false, true);
     return result;
 }
 
@@ -117,7 +96,7 @@ void ModelLights::get_update_brightness()
         if (intensities_[i] < 0.0f)
             intensities_[i] = 0.0f;
     }
-    Virtual(this, 8, true, true);
+    apply_light_brightness(true, true);
 }
 
 // 0x0048E830
@@ -176,7 +155,7 @@ uint32_t* ModelLights::read_ambient_light_tint(uint32_t* out)
     return out;
 }
 // 0x0048E760 (the vector 0x006FAACC, its guard 0x006FAADC: zeroed the first time)
-maths::Vec4* ModelLights::read_light_aim(int)
+const maths::Vec4* ModelLights::read_light_aim(int)
 {
     get_stub("STUB: CModelLights::GetLightDirection\n"); // "STUB: CModelLights::GetLightDirection\n"
     uint32_t& guard = g_light_direction_guard;
@@ -226,22 +205,5 @@ bool ModelLights::diffuse_light_is_on(int)
     get_stub("STUB: CModelLights::IsDiffuseLightEnabled\n"); // "STUB: CModelLights::IsDiffuseLightEnabled\n"
     return false;
 }
-
-namespace {
-static VtableSlot g_model_lights_vtable_slots[] = {&render::ModelLights::teardown,
-                                                   &render::ModelLights::put_ambient_light_tint,
-                                                   &render::ModelLights::put_light_aim,
-                                                   &render::ModelLights::put_diffuse_light_tint,
-                                                   &render::ModelLights::read_ambient_light_tint,
-                                                   &render::ModelLights::read_light_aim,
-                                                   &render::ModelLights::read_diffuse_light_tint,
-                                                   &render::ModelLights::plat_apply_scene_lights,
-                                                   &render::ModelLights::apply_light_brightness,
-                                                   &render::ModelLights::switch_ambient_light,
-                                                   &render::ModelLights::switch_diffuse_light,
-                                                   &render::ModelLights::ambient_light_is_on,
-                                                   &render::ModelLights::diffuse_light_is_on};
-void** const kModelLightsVtable = reinterpret_cast<void**>(g_model_lights_vtable_slots);
-} // namespace
 
 } // namespace render
