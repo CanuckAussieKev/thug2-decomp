@@ -216,6 +216,8 @@ bool WriteAtomically(const std::string& path, const std::string& text)
 }
 
 std::string StatePath() { return GameFolderPath("thug2-decomp-frontend.txt"); }
+// The level select's chosen picture per level (Q / E there): `<load script> <number>` lines.
+std::string ArtChoicesPath() { return GameFolderPath("thug2-decomp-art.txt"); }
 
 // --- the state ---
 
@@ -553,6 +555,17 @@ void LoadCatalogue()
         Log("new front end: %zu sections, %zu levels from %s", s_catalogue.sections.size(), levels, path.c_str());
     }
     s_saved = ParseState(ReadText(StatePath()));
+    s_catalogue.ApplyArtChoices(ParseArtChoices(ReadText(ArtChoicesPath())));
+}
+
+// Q / E on the level select: the highlighted level's next / previous picture, kept for the next start.
+bool CycleLevelArt(int step)
+{
+    const Level* level = s_menu.SelectedLevel();
+    if (!level || !s_catalogue.CycleArt(level->load, step))
+        return false;
+    WriteAtomically(ArtChoicesPath(), FormatArtChoices(s_catalogue.ArtChoices()));
+    return true;
 }
 
 void SaveState()
@@ -1653,10 +1666,23 @@ void HandleQueued(Mdl::FrontEnd* frontEnd, const SDL_Event& e)
             if (!repeat)
                 Do(frontEnd, s_menu.Press(Input::Back));
             break;
-        case SDL_SCANCODE_Q: case SDL_SCANCODE_PAGEUP: case SDL_SCANCODE_1:
+        case SDL_SCANCODE_Q:
+            // (on the level select Q / E change the picture; the tabs keep Page Up / Down, 1 / 2, Tab and the shoulders)
+            if (s_menu.Shown() == Screen::Levels)
+                CycleLevelArt(-1);
+            else
+                Do(frontEnd, s_menu.Press(Input::PrevTab));
+            break;
+        case SDL_SCANCODE_PAGEUP: case SDL_SCANCODE_1:
             Do(frontEnd, s_menu.Press(Input::PrevTab));
             break;
-        case SDL_SCANCODE_E: case SDL_SCANCODE_PAGEDOWN: case SDL_SCANCODE_2:
+        case SDL_SCANCODE_E:
+            if (s_menu.Shown() == Screen::Levels)
+                CycleLevelArt(1);
+            else
+                Do(frontEnd, s_menu.Press(Input::NextTab));
+            break;
+        case SDL_SCANCODE_PAGEDOWN: case SDL_SCANCODE_2:
             Do(frontEnd, s_menu.Press(Input::NextTab));
             break;
         case SDL_SCANCODE_TAB: Do(frontEnd, s_menu.Press(shift ? Input::PrevTab : Input::NextTab)); break;

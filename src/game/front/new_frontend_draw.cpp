@@ -867,7 +867,7 @@ void LevelsScreen(Ctx& c, int* visibleRows)
 
     // The level's loading screen behind the whole screen, the column's scrim over it (a launch: the scrim and the
     // list go under the sharp picture), the thin edge in the game's colour.
-    Art art = ArtFor(c.extras, level ? level->art : std::string());
+    Art art = ArtFor(c.extras, level ? level->CurrentArt() : std::string());
     Backdrop(c.dl, c.f, art, menu.Pan());
     c.dl->AddRectFilled(ImVec2(c.f.X(kColumn), c.f.Y(0.0f)), ImVec2(c.f.X(kColumn + 4.0f), c.f.Y(720.0f)),
                         Col(colour, 1.0f - grow));
@@ -915,6 +915,16 @@ void LevelsScreen(Ctx& c, int* visibleRows)
         c.dl->PushClipRect(ImVec2(c.f.X(0.0f), c.f.Y(0.0f)), ImVec2(c.f.X(kColumn + kScrimFeather), c.f.Y(720.0f)), true);
         ArtBox(c.dl, art, c.f.X(0.0f), c.f.Y(0.0f), c.f.X(1280.0f), c.f.Y(720.0f), menu.Pan(), grow);
         c.dl->PopClipRect();
+    }
+
+    // The picture's number at the top right (Q / E change it) - only for a level with more than one.
+    if (level && level->artVariants.size() > 1 && grow < 0.999f) {
+        char text[48];
+        std::snprintf(text, sizeof(text), "Q  %d / %d  E", level->variant + 1, static_cast<int>(level->artVariants.size()));
+        Style note = Mono12(kMuted);
+        note.alpha = 1.0f - grow;
+        float nw = Measure(note, c.f, text) / c.f.scale;
+        Text(c.dl, note, c.f, c.f.X(1240.0f - nw), Baseline(note, c.f, c.f.Y(36.0f), 1.3f), text);
     }
 
     // The right's foot: Skate, the records, the name, the kicker.

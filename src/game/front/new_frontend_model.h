@@ -17,6 +17,13 @@ struct Level {
     std::string name;  // "BOSTON"
     std::string load;  // its load script ("load_BO")
     std::string art;   // its loading screen (an image name: images\<art>.img.xbx)
+    std::vector<std::string> artVariants; // the level select's pictures to choose from (levels.json art_variants; [0] is `art`)
+    int variant = 0;                      // the one shown (Q / E on the level select; saved in thug2-decomp-art.txt)
+    // The picture shown: the chosen variant, else `art`.
+    const std::string& CurrentArt() const
+    {
+        return variant > 0 && variant < static_cast<int>(artVariants.size()) ? artVariants[variant] : art;
+    }
     std::string levelNumName; // level_num as a script name ("LevelNum_BO"), or empty when it was a number
     int levelNum = -1;        // level_num as a number (-1: a name - resolved by the game)
     std::string flag;         // its unlock flag's script name ("LEVEL_UNLOCKED_BO")
@@ -41,7 +48,15 @@ struct Catalogue {
     std::string MenuArt(const std::string& id) const;
     // The level whose load script is `load` (any case): its section and index. False if none.
     bool Find(const std::string& load, int* section, int* level) const;
+    // The level's next (`step` 1) or previous (-1) picture, wrapping. False when it has only one.
+    bool CycleArt(const std::string& load, int step);
+    // The saved picture choices applied / read back (only the levels not on their first picture).
+    void ApplyArtChoices(const std::vector<std::pair<std::string, int>>& choices);
+    std::vector<std::pair<std::string, int>> ArtChoices() const;
 };
+// thug2-decomp-art.txt: one `<load script> <picture number>` line per level (0-based; '#' comments).
+std::vector<std::pair<std::string, int>> ParseArtChoices(const std::string& text);
+std::string FormatArtChoices(const std::vector<std::pair<std::string, int>>& choices);
 
 // The file's text into `out`. False (and why in `error`) when it isn't JSON of that shape (version 1); unknown fields
 // are ignored.

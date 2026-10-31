@@ -36,7 +36,7 @@ const char* kSample = R"({
    "levels": [
     {"name": "TRAINING", "load": "load_TR", "art": "loadscrn_training", "level_num": "LevelNum_TR", "flag": "LEVEL_UNLOCKED_TR", "seen_flag": "LEVEL_SEEN_TR"},
     {"name": "SCHOOL", "load": "load_sc", "art": "loadscrn_school", "level_num": "LevelNum_SC", "flag": "LEVEL_UNLOCKED_SC", "hide_when_locked": true},
-    {"name": "BOSTON", "load": "load_BO", "art": "loadscrn_boston", "level_num": "LevelNum_BO", "flag": "LEVEL_UNLOCKED_BO"}
+    {"name": "BOSTON", "load": "load_BO", "art": "loadscrn_boston", "art_variants": ["loadscrn_boston", "loadscrn_boston_v1", "loadscrn_boston_v2"], "level_num": "LevelNum_BO", "flag": "LEVEL_UNLOCKED_BO"}
    ]},
   {"id": "thps3", "tab": "THPS3", "title": "TONY HAWK'S PRO SKATER 3", "colour": "#3DB7FF",
    "levels": [
@@ -95,6 +95,29 @@ void TestFrontendState()
           "front end: an empty or broken state file");
 }
 SELFTEST(Early, TestFrontendState);
+
+void TestFrontendArtChoices()
+{
+    F::Catalogue c;
+    std::string error;
+    Check(F::ParseCatalogue(kSample, &c, &error), "front end: art choices: the sample parses");
+    const F::Level& bo = c.sections[0].levels[2];
+    Check(bo.artVariants.size() == 3 && c.sections[0].levels[0].artVariants.empty(), "front end: art_variants read");
+    Check(bo.CurrentArt() == "loadscrn_boston", "front end: the first picture is the art");
+    Check(!c.CycleArt("load_TR", 1), "front end: a level with one picture doesn't cycle");
+    Check(c.CycleArt("LOAD_bo", 1) && bo.CurrentArt() == "loadscrn_boston_v1", "front end: E goes to the next picture");
+    Check(c.CycleArt("load_BO", -1) && c.CycleArt("load_BO", -1) && bo.CurrentArt() == "loadscrn_boston_v2",
+          "front end: Q wraps round to the last picture");
+    std::vector<std::pair<std::string, int>> saved = c.ArtChoices();
+    Check(saved.size() == 1 && saved[0].first == "load_BO" && saved[0].second == 2, "front end: the choices to save");
+    F::Catalogue fresh;
+    F::ParseCatalogue(kSample, &fresh, &error);
+    fresh.ApplyArtChoices(F::ParseArtChoices(F::FormatArtChoices(saved) + "load_sc 4\r\nload_TR 1\r\nbad line\r\nload_nope 1\r\n"));
+    Check(fresh.sections[0].levels[2].variant == 2, "front end: the choices round trip");
+    Check(fresh.sections[0].levels[0].variant == 0 && fresh.sections[0].levels[1].variant == 0,
+          "front end: a choice beyond the pictures is ignored");
+}
+SELFTEST(Early, TestFrontendArtChoices);
 
 // --- the frame, the crop, the layout ---
 
