@@ -429,7 +429,7 @@ void CParkManager::Initialize(uint32_t level)
         set.m_selected = 0;
         set.m_numEntries = 0;
         uint32_t first = 0;
-        if (description->GetChecksum(reinterpret_cast<const char*>(0x0064A144), &first, 0)) { // "first"
+        if (description->GetChecksum(GAME_TEXT(0x0064A144, "first"), &first, 0)) { // "first"
             // `first`'s place in the standard pieces (the manager's list runs from the last to the first).
             int index = 0;
             int position = At<int>(0x88) - 1;

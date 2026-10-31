@@ -23,6 +23,7 @@
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
 #include "game/sys/game_config.h"
+#include "game/core/game_vtables.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
@@ -448,7 +449,7 @@ const uint8_t* KeepLoadedContents(const uint8_t* data, uint32_t type)
 Mem::ListNode* ListDestructors::NodeDestroy(unsigned int flags)
 {
     auto* node = reinterpret_cast<Mem::ListNode*>(this);
-    node->UnlinkAs(reinterpret_cast<void**>(0x0065797C));
+    node->UnlinkAs(Vt::kSaveNode);
     if (flags & 1)
         Mem::Manager::Get()->Free(node);
     return node;
@@ -458,7 +459,7 @@ Mem::ListNode* ListDestructors::NodeDestroy(unsigned int flags)
 Mem::ListNode* ListDestructors::OtherDestroy(unsigned int flags)
 {
     auto* node = reinterpret_cast<Mem::ListNode*>(this);
-    node->UnlinkAs(reinterpret_cast<void**>(0x0065797C)); // (the body 0x005BC990)
+    node->UnlinkAs(Vt::kSaveNode); // (the body 0x005BC990)
     if (flags & 1)
         Mem::Manager::Get()->Free(node);
     return node;

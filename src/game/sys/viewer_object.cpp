@@ -1,6 +1,7 @@
 // The model viewer's object (0x005897B0-0x0058AFB7). See viewer_object.h.
 
 #include "game/sys/viewer_object.h"
+#include "game/net/task_vtable.h"
 
 #include <bit>
 #include <cstdint>
@@ -121,7 +122,6 @@ constexpr uint32_t kDrawViewerObjectPanel = 0xED9C1839;  // draw_viewer_object_p
 constexpr uint32_t kViewerAutoRepeatTime = 0xE60442D5;   // ViewerAutoRepeatTime
 constexpr uint32_t kViewerAutoRepeatSpeed = 0x2DA212E5;  // ViewerAutoRepeatSpeed
 constexpr uint32_t kObjectTypeComposite = 0xCDEB9229;    // OBJECT_TYPE_COMPOSITE
-void** const kInputHandlerVtable = reinterpret_cast<void**>(0x0064D7D8); // Inp::Handler<T>
 const float kFrameTime = std::bit_cast<float>(0x3C888889u);              // 1/60 s
 constexpr float kSpeedStep = 0.25f;                                      // 0x0064F130
 constexpr float kDegreesToRadians = 0.017453292f;                        // 0x00645464
@@ -589,7 +589,7 @@ CViewerObject* CViewerObject::Construct(Net::App* app)
     if (handler) {
         handler->Construct(0);
         handler->m_index = 0;
-        handler->m_vtable = kInputHandlerVtable;
+        handler->m_vtable = GameCode::kInputHandlerVtable;
         handler->m_code = &HandleViewerObjectInput;
         handler->m_data = this;
     }

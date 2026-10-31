@@ -460,7 +460,7 @@ bool __cdecl CFunc_UnloadSFPTexture(CStruct* params, CScript*)
 // 0x005AA8F0
 bool __cdecl CFunc_SetParkName(CStruct* params, CScript*)
 {
-    const char* name = reinterpret_cast<const char*>(0x006469B4); // ""
+    const char* name = GAME_TEXT(0x006469B4, ""); // ""
     params->GetString(0u, &name, 0);
     char* parkName = g_parkName;
     while ((*parkName++ = *name++) != '\0') { // (no length limit, as in the original)

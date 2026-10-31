@@ -45,7 +45,7 @@ GAME_GLOBAL(char[128], g_bootstrapReturn, 0x007CEF20);
 char* PathPrefix() { return g_pathPrefix; }       // (0x80 bytes)
 char* BootstrapReturn() { return g_bootstrapReturn; }  // where a bootstrap demo returns to
 char* BootstrapArgument() { return g_bootstrapArgument; } // what it passes back
-const char* const kEmpty = reinterpret_cast<const char*>(0x006469B4); // ""
+const char* const kEmpty = GAME_TEXT(0x006469B4, ""); // ""
 
 // strcpy (unbounded, as the original's).
 void CopyString(char* to, const char* from) { std::memcpy(to, from, std::strlen(from) + 1); }

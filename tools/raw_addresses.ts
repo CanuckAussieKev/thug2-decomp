@@ -9,6 +9,8 @@
 //   data / bss     writable globals (should be GAME_GLOBALs - step 3)
 //   import         the import table
 //   other          outside the image
+//   known          reviewed leftovers (data/raw_addresses_known.csv: address, reason): checksums that look like
+//                  addresses, run-time patch targets, library data left for step 5 - counted apart
 //   node tools/raw_addresses.ts [--exe <reference build>] [--out <csv>] [--list <kind>]
 // The csv (default out/raw_addresses.csv): address, kind, uses, files, detail.
 
@@ -98,10 +100,20 @@ function main(): number {
         return ["bss", ""];
     };
 
+    // Reviewed leftovers (address, reason): checksums that look like addresses, run-time patch targets, library data
+    // left for step 5. Reported apart, as "known".
+    const known = new Map<number, string>();
+    if (fs.existsSync("data/raw_addresses_known.csv"))
+        for (const r of readCsvDicts(fs.readFileSync("data/raw_addresses_known.csv", "utf-8")))
+            known.set(parseInt(r["address"]!, 16), r["reason"]!);
+
     const rows = ["address,kind,uses,files,detail"];
     const totals = new Map<string, [number, number]>();
     for (const a of [...uses.keys()].sort((x, y) => x - y)) {
-        const [kind, detail] = classify(a);
+        const [originalKind, originalDetail] = classify(a);
+        const why = known.get(a);
+        const kind = why === undefined ? originalKind : "known";
+        const detail = why === undefined ? originalDetail : `${originalKind}: ${why}`;
         const files = uses.get(a)!;
         const n = [...files.values()].reduce((s, v) => s + v, 0);
         const t = totals.get(kind) ?? [0, 0];

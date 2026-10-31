@@ -2,6 +2,7 @@
 // the console versions (WadStream).
 
 #include "game/pcm/stream.h"
+#include "hook/game_code.h"
 
 #include <windows.h>
 
@@ -84,7 +85,7 @@ Result BinkStream::Open(const char* path)
 {
     if (!SoundSystemSet()) {
         if (!BinkSetSoundSystem(BinkOpenDirectSound(), SoundDevice()))
-            Dbg::Printf(reinterpret_cast<const char*>(0x006472D4)); // "Bink can't use DSound\n"
+            Dbg::Printf(GAME_TEXT(0x006472D4, "Bink can't use DSound\n")); // "Bink can't use DSound\n"
         SoundSystemSet() = true;
     }
     if (IoSize() != kIoSize) {

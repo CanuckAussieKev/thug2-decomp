@@ -2,6 +2,7 @@
 // game type, the level asked for / opened / changed, the preferences, the script commands that drive them.
 
 #include "game/skate/skate_module.h"
+#include "game/net/net_lists.h"
 #include "game/skater/state_history.h"
 
 #include <windows.h>
@@ -101,7 +102,7 @@ struct PlayerSearch {
 };
 // A walk over an app's connections (Net::App::FirstConnection / NextConnection).
 struct ConnSearch {
-    void** m_vtable = reinterpret_cast<void**>(0x0064759C);
+    void** m_vtable = Net::kConnSearchVtable;
     void* m_node = nullptr;
 };
 GameNet::PlayerInfo* AsPlayer(void* player) { return static_cast<GameNet::PlayerInfo*>(player); }
@@ -297,7 +298,7 @@ void Skate::OpenLevel(uint32_t level)
             }
         } else {
             struct NewPlayerSearch {
-                void** m_vtable = reinterpret_cast<void**>(0x0064C82C);
+                void** m_vtable = GameNet::kNewPlayerSearchVtable;
                 void* m_node = nullptr;
             } search;
             if (!net->FirstNewPlayerInfo(&search))

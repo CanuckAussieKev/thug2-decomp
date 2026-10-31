@@ -110,7 +110,7 @@ void Push(std::vector<uint32_t>& trace, const void* p, size_t bytes)
 
 void TestBonedAnimKeys()
 {
-    GameMemory memory({{Gfx::kQuatTable, 0x800}, {Gfx::kTransTable, 0x800}});
+    GameMemory memory({{0x006F9AD8 /* the quaternion table */, 0x800}, {0x006F92D8 /* the translation table */, 0x800}});
     bool ok = true, reported = false;
     for (int round = 0; round < 40; ++round) {
         ok &= CompareTwoRuns("boned animation keys", reported, [&](bool original) {
@@ -255,7 +255,7 @@ void StandInFrameCalls(StandIns& s)
 
 void TestBonedAnimFrameData()
 {
-    GameMemory memory({{0x007D1800, 4}, {0x006F92B0, 4}, {Gfx::kQuatTable, 0x800}, {Gfx::kTransTable, 0x800}});
+    GameMemory memory({{0x007D1800, 4}, {0x006F92B0, 4}, {0x006F9AD8 /* the quaternion table */, 0x800}, {0x006F92D8 /* the translation table */, 0x800}});
     StandIns& s = *new StandIns();
     StandInFrameCalls(s);
     g_relocate = ArenaRelocate;

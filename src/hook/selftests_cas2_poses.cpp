@@ -421,7 +421,7 @@ void CompressedTransKeys(Lcg& random, std::vector<uint8_t>& out, int& time)
 
 void TestCompressedPoses()
 {
-    GameMemory memory({{0x006F92B4, 4}, {Gfx::kQuatTable, 0x800}, {Gfx::kTransTable, 0x800}});
+    GameMemory memory({{0x006F92B4, 4}, {0x006F9AD8 /* the quaternion table */, 0x800}, {0x006F92D8 /* the translation table */, 0x800}});
     StandIns& s = *new StandIns();
     StandInPoseCalls(s);
     bool ok = true, reported = false;

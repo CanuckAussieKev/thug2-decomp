@@ -9,6 +9,8 @@
 // GetPlayerScore (gamenet_manager.h) and the task that fills the lines.
 namespace GameNet {
 
+extern void** const kScoreEntryVtable; // 0x0064CCF8: Lst::Node<ScoreEntry> (score_list.cpp)
+
 // A line of the score list (0x48 bytes, vtable 0x0064CCF8 - its scalar deleting destructor 0x00544720, the node's
 // body 0x00544700: ScoreNode in player_info.h), a node of a local list sorted by its priority, the score.
 struct ScoreEntry : Mem::ListNode {

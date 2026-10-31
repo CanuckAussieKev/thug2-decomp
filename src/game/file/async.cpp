@@ -1,4 +1,5 @@
 #include "game/file/async.h"
+#include "game/net/task_vtable.h"
 
 #include <windows.h>
 
@@ -825,7 +826,7 @@ struct AsyncLoaderModuleMethods {
         if (task) {
             File::ConstructTask(task);
             task[7] = reinterpret_cast<uint32_t>(module);    // the task's data
-            task[0] = 0x006476F0;                             // Tsk::Task<CAsyncFileLoader> vtable
+            task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);                           // Tsk::Task<CAsyncFileLoader> vtable
             task[6] = reinterpret_cast<uint32_t>(GAME_CODE(0x005B6990, File::AsyncLoaderTask)); // its code: AsyncLoaderTask
         }
         module->m_task = task;

@@ -151,7 +151,7 @@ void CSkaterLocalNetLogicComponent::SendUpdate()
     if (!onServer && static_cast<uint32_t>(app->m_frameCount) % 15 != 0) {
         // Between the 15th frames: only once the connection's send interval has gone by.
         Net::ConnSearch search;
-        search.m_vtable = reinterpret_cast<void**>(0x0064759C);
+        search.m_vtable = Net::kConnSearchVtable;
         search.m_node = nullptr;
         Net::Conn* conn = app->FirstConnection(&search);
         if (app->m_time - m_lastSendTime < conn->GetSendInterval())

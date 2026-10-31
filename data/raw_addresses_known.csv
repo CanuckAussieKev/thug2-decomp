@@ -1,0 +1,22 @@
+address,reason
+0x0069E457,a script name checksum (skater_sound.cpp kPlayBonkSound) that falls in the image's range
+0x007CDADB,a script name checksum (core_member_functions.cpp member function table) that falls in the image's range
+0x0076EAE3,the checksum of default_splitscreen_preferences (skate_module_skaters.cpp)
+0x0078395B,a script name checksum (chain_component.cpp kAxisFrom) that falls in the image's range
+0x005B8D81,the checksum of the first restart node's name (park_nodes.cpp kFirstRestartNode)
+0x006BE86F,a status checksum inside the horse statuses' start values (horse.cpp)
+0x004F8000,debug_collision=1 only: the skater code's range (a feeler's return address is compared with it); the source has no function there to name - goes with the debug option when the standalone build drops return-address checks
+0x005003E0,debug_collision=1 only: the return address of the skater's feeler check (as 0x004F8000)
+0x00534000,debug_collision=1 only: the end of the skater code's range (as 0x004F8000)
+0x00666B34,DirectX library data (a GUID used by sfx_voices.cpp): step 5 links the library's own
+0x00666B44,DirectX library data (a GUID used by sfx_voices.cpp): step 5
+0x00669208,DirectX library data used by sfx_voices.cpp: step 5
+0x00666B54,DirectInput library data (a GUID used by platform_input.cpp): step 5
+0x00666DF4,DirectInput library data (a DIDATAFORMAT used by platform_input.cpp): step 5
+0x00666FFC,DirectInput library data (a DIDATAFORMAT used by platform_input.cpp): step 5
+0x00667204,DirectInput library data (a DIDATAFORMAT used by platform_input.cpp): step 5
+0x0067F120,the online key's stored copy: patched at run time (online_identity.cpp) until the GameSpy SDK is linked
+0x0067F154,the online key's stored copy: patched at run time (online_identity.cpp, lobby.cpp) until the GameSpy SDK is linked
+0x0064D58C,the online key's stored copy: patched at run time (online_identity.cpp) until the GameSpy SDK is linked
+0x0068E37C,a GameSpy host name: patched at run time (online_hosts.cpp) until the SDK is linked
+0x0068E380,a GameSpy host name: patched at run time (online_hosts.cpp) until the SDK is linked

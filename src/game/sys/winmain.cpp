@@ -41,10 +41,12 @@
 namespace GameNet {
 GAME_GLOBAL_EXTERN(char[256], g_commandLineEmail);
 GAME_GLOBAL_EXTERN(char[16], g_commandLinePassword);
+GAME_GLOBAL_EXTERN(char[10], g_pendingPassword);
 } // namespace GameNet
 namespace CFuncs {
 GAME_GLOBAL_EXTERN(char[16], g_networkId);
 GAME_GLOBAL_EXTERN(char[12], g_networkPassword);
+GAME_GLOBAL_EXTERN(char[16], g_hostedGameName);
 } // namespace CFuncs
 
 namespace Sys {
@@ -85,8 +87,6 @@ long Number(const char* from)
         ++from;
     return std::atol(from);
 }
-
-char* GameString(uintptr_t address) { return reinterpret_cast<char*>(address); }
 
 // --- WinMain's callees -------------------------------------------------------------------------------------------
 
@@ -205,7 +205,7 @@ void ReadNetworkParams(const char* commandLine)
     if (find("-HOST "))
         g_internetGameHost = true; // hosting a game
     if (const char* at = find("-HOSTNAME"))
-        CopyValue(at + 9, GameString(0x0067EFBC), 15); // the hosted game's name (the exe has "Beenox")
+        CopyValue(at + 9, CFuncs::g_hostedGameName, 15); // the hosted game's name
     if (const char* at = find("-EMAIL"))
         CopyValue(at + 6, GameNet::g_commandLineEmail, 255);
     if (const char* at = find("-PPASS"))
@@ -248,7 +248,7 @@ void ReadNetworkParams(const char* commandLine)
         CopyValue(at + 9, password, 9);
         if (g_joiningInternetGame) {
             // Joining: it's the server's password (moved to where the join looks for it).
-            std::memcpy(GameString(0x007CCDFC), password, std::strlen(password) + 1); // (strcpy)
+            std::memcpy(GameNet::g_pendingPassword, password, std::strlen(password) + 1); // (strcpy)
             std::memset(password, 0, 10);
         }
     }

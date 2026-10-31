@@ -19,6 +19,10 @@ class CScript;
 namespace Mdl {
 extern void** const kPlayerSearchVtable;
 } // namespace Mdl
+// (Lst::Search<NewPlayerInfo>, 0x0064C82C; defined in gamenet_handlers.cpp.)
+namespace GameNet {
+extern void** const kNewPlayerSearchVtable;
+} // namespace GameNet
 
 namespace Game {
 

@@ -49,7 +49,10 @@ int& NextOverlapped() { return g_nextOverlapped; }
 // The user soundtracks (0x4C bytes each at 0x006EE024: the track count, then the name at +8).
 bool& SoundtracksCounted() { return g_soundtracksCounted; }
 int& SoundtrackCount() { return g_soundtrackCount; }
-uint8_t* Soundtrack(int index) { return reinterpret_cast<uint8_t*>(0x006EE024 + index * 0x4C); }
+// (Never filled on PC - the count stays 0 - so the slots are only the original's room: 99 of them before the next variable.)
+constexpr int kSoundtrackSize = 0x4C, kSoundtrackSlots = 99;
+GAME_GLOBAL(uint8_t[kSoundtrackSlots * kSoundtrackSize], g_soundtracks, 0x006EE024);
+uint8_t* Soundtrack(int index) { return g_soundtracks + index * kSoundtrackSize; }
 
 constexpr uint32_t kPending = 0x8000000Au; // E_PENDING
 

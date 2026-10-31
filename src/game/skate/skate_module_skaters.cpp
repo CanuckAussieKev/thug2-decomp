@@ -3,6 +3,7 @@
 // the per-player settings, the module's script, its destructor.
 
 #include "game/skate/skate_module.h"
+#include "game/net/task_vtable.h"
 
 #include <cstring>
 
@@ -1023,7 +1024,7 @@ Skate* Skate::Construct()
     auto* task = static_cast<Tsk::BaseTask*>(Mem::Calloc(0x20));
     if (task) {
         task->Construct(0);
-        task->m_vtable = reinterpret_cast<void**>(0x006476F0);
+        task->m_vtable = GameCode::kTaskVtable;
         *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(task) + 0x18) = reinterpret_cast<void*>(&LogicTask);
         *reinterpret_cast<Skate**>(reinterpret_cast<uint8_t*>(task) + 0x1C) = this;
     }

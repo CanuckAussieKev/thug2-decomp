@@ -1,6 +1,7 @@
 // The suspend component and its task (game/obj/suspend_component.h).
 
 #include "game/obj/suspend_component.h"
+#include "game/net/task_vtable.h"
 
 #include <cstdint>
 
@@ -41,7 +42,6 @@ GAME_GLOBAL(SuspendTaskHolder*, g_suspendTaskHolder, 0x006951BC);
 namespace {
 
 extern void** const kVtable;
-void** const kTaskVtable = reinterpret_cast<void**>(0x006476F0); // Tsk::Task<...>
 constexpr int kTaskPriority = -1100;
 
 constexpr uint32_t kModel = 0x286A8D26;
@@ -265,7 +265,7 @@ SuspendTaskHolder* SuspendTaskHolder::Construct()
     auto* task = static_cast<Tsk::BaseTask*>(Mem::Calloc(0x20));
     if (task) {
         task->Construct(kTaskPriority);
-        task->m_vtable = kTaskVtable;
+        task->m_vtable = GameCode::kTaskVtable;
         reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&SuspendTask); // +0x18 the callback
         reinterpret_cast<void**>(task)[7] = this;                                  // +0x1C the data
     }

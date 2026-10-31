@@ -57,6 +57,8 @@
 
 namespace GameNet {
 
+GAME_GLOBAL(char[kPasswordSize], g_pendingPassword, 0x007CCDFC); // (winmain.cpp: -PASSWORD when joining)
+
 namespace {
 
 using Net::App;
@@ -130,7 +132,6 @@ struct AuthInstance {
     Conn* conn;
 };
 
-GAME_GLOBAL(char[kPasswordSize], g_pendingPassword, 0x007CCDFC);
 GAME_GLOBAL(char[kPasswordSize], g_joinPassword, 0x007CCE08);
 
 // The global passwords: the one being typed (12) and the one in use (10; resent with every request).

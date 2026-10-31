@@ -33,8 +33,6 @@ namespace Obj {
 
 namespace {
 
-void** const kPlayerSearchVtable = reinterpret_cast<void**>(0x0064C1A8);
-
 // Components of the skater this code asks for.
 constexpr uint32_t kSkaterState = 0x43686585;          // +0x70 in a bail, +0x118 driving
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // +0x25 a flag; +0x2C its state component
@@ -189,12 +187,12 @@ void StateHistoryMessage::SetTime(uint32_t time)
 // --- PlayerSearchDestructors ---
 
 // 0x00519830
-void PlayerSearchDestructors::DestroyBody() { m_vtable = kPlayerSearchVtable; }
+void PlayerSearchDestructors::DestroyBody() { m_vtable = Mdl::kPlayerSearchVtable; }
 
 // 0x0051A120
 PlayerSearchDestructors* PlayerSearchDestructors::Destroy(unsigned int flags)
 {
-    m_vtable = kPlayerSearchVtable;
+    m_vtable = Mdl::kPlayerSearchVtable;
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;
@@ -420,7 +418,7 @@ void CSkaterStateHistoryComponent::CheckForCollisions(int first)
             if (!IsIt(me))
                 continue;
             MakeIt(them, true);
-            PlayerSearchDestructors search{kPlayerSearchVtable, nullptr};
+            PlayerSearchDestructors search{Mdl::kPlayerSearchVtable, nullptr};
             for (uint8_t* player = FirstPlayer(&search); player; player = NextPlayer(&search)) {
                 if (IsLocal(player))
                     continue;
@@ -434,7 +432,7 @@ void CSkaterStateHistoryComponent::CheckForCollisions(int first)
                 msg.m_groupId = 8;
                 app->EnqueueMessage(Connection(player), &msg);
             }
-            search.m_vtable = kPlayerSearchVtable;
+            search.m_vtable = Mdl::kPlayerSearchVtable;
         } else if (GameType() == kGameTeamTag) {
             if (ManagerFlag3A())
                 return;
@@ -446,7 +444,7 @@ void CSkaterStateHistoryComponent::CheckForCollisions(int first)
             tagged[0] = static_cast<uint8_t>(skater->m_id);
             tagged[1] = static_cast<uint8_t>(Team(me));
             bool sameTeam = Team(me) == Field<int>(them, 0x30);
-            PlayerSearchDestructors search{kPlayerSearchVtable, nullptr};
+            PlayerSearchDestructors search{Mdl::kPlayerSearchVtable, nullptr};
             for (uint8_t* player = FirstPlayer(&search); player; player = NextPlayer(&search)) {
                 if (IsLocal(player)) {
                     if (sameTeam)
@@ -462,7 +460,7 @@ void CSkaterStateHistoryComponent::CheckForCollisions(int first)
                 msg.m_length = 2;
                 app->EnqueueMessage(Connection(player), &msg);
             }
-            search.m_vtable = kPlayerSearchVtable;
+            search.m_vtable = Mdl::kPlayerSearchVtable;
         }
     }
 }

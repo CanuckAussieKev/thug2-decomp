@@ -2,6 +2,7 @@
 // dead list, the search by type, and two pieces of the object tracker.
 
 #include "game/obj/objman.h"
+#include "game/net/task_vtable.h"
 
 #include <cstdint>
 
@@ -28,7 +29,6 @@ extern void** const kManagerVtable;
 extern void** const kGeneralManagerVtable;
 extern void** const kListHeadVtable;
 extern void** const kObjectSearchBaseVtable;
-void** const kFlushTaskVtable = reinterpret_cast<void**>(0x006476F0); // Tsk::Task<CGeneralManager>
 constexpr int kFlushTaskPriority = 1000;
 
 // The tracker's reference count.
@@ -203,7 +203,7 @@ CGeneralManager* CGeneralManager::Construct()
     auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
     if (task) {
         ConstructTask(task, kFlushTaskPriority);
-        task[0] = reinterpret_cast<uint32_t>(kFlushTaskVtable);
+        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
         task[6] = reinterpret_cast<uint32_t>(&FlushDeadObjectsTask);
         task[7] = reinterpret_cast<uint32_t>(this);
     }
