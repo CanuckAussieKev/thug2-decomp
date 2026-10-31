@@ -1194,6 +1194,7 @@ add_library(thug2_code OBJECT
     src/game/script/cscript_manager.cpp
     src/game/script/cscript_wait.cpp
     src/game/script/cscript_exec.cpp
+    src/game/script/script_tables.cpp
     src/game/script/load.cpp
     src/game/script/cscript_core.cpp
     src/game/script/names.cpp

@@ -353,6 +353,7 @@ void __cdecl KeyboardTask(void* /*task*/)
 namespace {
 
 constexpr uint32_t kChatTextParam = 0x61414D56; // the chat line's parameter name in the chat scripts
+} // namespace
 
 // 0x005A16B0: script function SendChatMessage <text>. Lines starting with '/' that we recognise are run as
 // chat commands instead of being sent.
@@ -369,6 +370,8 @@ bool __cdecl CFunc_SendChatMessage(Script::CStruct* params, Script::CScript* /*s
     }
     return true;
 }
+
+namespace {
 
 struct ManagerAdapter {
     void SendChatMessage(const char* text)

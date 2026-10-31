@@ -13,6 +13,7 @@
 #include "game/script/load.h"
 #include "game/script/names.h"
 #include "game/script/qb.h"
+#include "game/script/script_tables.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
@@ -40,6 +41,25 @@ void CreatePoolOf(Mem::PoolPair& pools, int itemSize, int count, const char* nam
 uint32_t GetNumCFunctions() { return 1254; }
 // 0x005A5670
 uint32_t GetNumMemberFunctions() { return 250; }
+
+CFunctionEntry* FindCFunction(const char* name)
+{
+    for (CFunctionEntry& entry : g_cfunctionTable) {
+        if (std::strcmp(entry.name, name) == 0)
+            return &entry;
+    }
+    return nullptr;
+}
+
+void SetCFunction(CFunctionEntry& entry, void* function)
+{
+#ifdef THUG2_STANDALONE
+    entry.function = function;
+#else
+    // (the table is the exe's .data: written the way every run-time patch of the exe is)
+    WriteGameCode(reinterpret_cast<uint32_t>(&entry.function), &function, sizeof(function));
+#endif
+}
 
 // 0x005A5960
 void LoadQBFile(const char* filename, int unused)
@@ -143,8 +163,8 @@ void AllocatePools()
     CreateEventReceiverListPool(175, "Obj::CEventReceiverList");
     Mem::PopMemProfile();
     Mem::PushMemProfile("Registering script functions");
-    RegisterCFunctions(reinterpret_cast<const CFunctionEntry*>(0x0067F3A0), GetNumCFunctions());
-    RegisterMemberFunctions(reinterpret_cast<const char* const*>(0x00681AD0), GetNumMemberFunctions());
+    RegisterCFunctions(g_cfunctionTable, GetNumCFunctions());
+    RegisterMemberFunctions(g_memberFunctionNames, GetNumMemberFunctions());
     Mem::PopMemProfile();
 }
 

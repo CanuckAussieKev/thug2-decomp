@@ -13,6 +13,7 @@
 #include "game/gfx/screen.h"
 #include "game/script/cscript.h"
 #include "game/sys/mlp.h"
+#include "game/script/script_tables.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "game/obj/movie_manager.h"
@@ -20,11 +21,6 @@
 namespace Sys::DebugMode {
 
 namespace {
-
-// The table's CD entry: {name 0x00655C24 "CD", function 0x005B9760 - return true}, and NotCD's: {"NotCD", 0x005B9E50
-// - return false}.
-constexpr uint32_t kCDEntry = 0x0067FF38;
-constexpr uint32_t kNotCDEntry = 0x0067FF40;
 
 uint32_t Checksum(const char* name) { return Crc::GenerateCRCFromString(name); }
 
@@ -47,12 +43,11 @@ bool IsStartupScript(const Script::CScript* script)
     return false;
 }
 
-void Point(uint32_t entry, const char* name, void* function)
+// The table's CD entry is {"CD", function 0x005B9760 - return true}, and NotCD's {"NotCD", 0x005B9E50 - return false}.
+void Point(const char* name, void* function)
 {
-    if (std::strcmp(*reinterpret_cast<const char* const*>(entry), name) != 0)
-        return; // (not this exe's table)
-    auto address = reinterpret_cast<uint32_t>(function);
-    WriteGameCode(entry + 4, &address, sizeof(address));
+    if (Script::CFunctionEntry* entry = Script::FindCFunction(name))
+        Script::SetCFunction(*entry, function);
 }
 
 void Run(const char* script) { Script::RunScript(Checksum(script), nullptr, nullptr, false, script); }
@@ -97,8 +92,8 @@ void Install()
 {
     if (!Enabled())
         return;
-    Point(kCDEntry, "CD", reinterpret_cast<void*>(&CFunc_CD));
-    Point(kNotCDEntry, "NotCD", reinterpret_cast<void*>(&CFunc_NotCD));
+    Point("CD", reinterpret_cast<void*>(&CFunc_CD));
+    Point("NotCD", reinterpret_cast<void*>(&CFunc_NotCD));
     Log("debug mode: on (CD false / NotCD true after start-up: the developers' menus - DEBUG OPTIONS in the pause "
         "menu - and the viewer: F9 free camera)");
 }

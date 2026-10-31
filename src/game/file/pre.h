@@ -2,6 +2,11 @@
 
 #include <cstdint>
 
+namespace Script {
+class CStruct;
+class CScript;
+} // namespace Script
+
 namespace Lst {
 class HashTable;
 }
@@ -117,5 +122,14 @@ int Read(void* buffer, int size, int count, PreFile::FileInfo* file);
 int Write(const void* buffer, int size, int count, PreFile::FileInfo* file);
 int Seek(PreFile::FileInfo* file, int offset, int origin);
 int GetFileSize(PreFile::FileInfo* file);
+
+// Script functions (in the CFunction table)
+bool __cdecl CFunc_LoadPreFile(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_UnloadPreFile(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_IsLoadPreFinished(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_AllLoadPreFinished(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_WaitLoadPre(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_WaitAllLoadPre(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_InPreFile(Script::CStruct* params, Script::CScript* script);
 
 } // namespace Pre

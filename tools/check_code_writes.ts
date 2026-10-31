@@ -5,7 +5,7 @@
 // names (src/game/net/online_hosts.cpp, until the SDK is linked), the online identity's key when
 // [Miscellaneous] OnlineGameKey is set (src/game/net/online_identity.cpp: over its 3 stored copies - data; the game
 // name needs no write: every use of it is source), the CFunction table's IsPS2 entry and (debug mode)
-// its CD / NotCD entries (src/game/sys/platform_cfuncs.cpp, debug_mode.cpp, until that table is source). Such a write
+// its CD / NotCD entries (src/game/sys/platform_cfuncs.cpp, debug_mode.cpp; the table is script_tables.cpp). Such a write
 //   - inside a rewritten function would be bypassed (the game runs our version, not the code written into), and
 //   - inside the first bytes of a hooked function would be lost from MinHook's trampoline and break our jump.
 // So none may land in any function registered with REPLACE* in src/game. Run from the repo root:
@@ -39,13 +39,20 @@ export function runtimeWrites(): Write[] {
             writes.push({ address: Number.parseInt(m[1]!, 16), size: 6, where: name });
         }
     }
-    const entry = (file: string, pattern: RegExp, where: string): void => {
-        const m = pattern.exec(read(file));
-        if (m) writes.push({ address: Number.parseInt(m[1]!, 16) + 4, size: 4, where });
+    // The CFunction table's entries that the game source points elsewhere (platform_cfuncs.cpp, debug_mode.cpp, by name
+    // through Script::FindCFunction): the entry's function word, found by the name's index in the generated table.
+    const tableText = read("src/game/script/script_tables.cpp");
+    const tableAt = /g_cfunctionTable, 0x([0-9A-Fa-f]{8}),/.exec(tableText);
+    const entries = [...tableText.matchAll(/^ {4}\{GAME_TEXT\(0x[0-9A-Fa-f]{8}, "([^"]*)"\), GAME_CODE/gm)].map(
+        (m) => m[1]!,
+    );
+    const entry = (name: string, where: string): void => {
+        const i = entries.indexOf(name);
+        if (tableAt && i >= 0) writes.push({ address: Number.parseInt(tableAt[1]!, 16) + 8 * i + 4, size: 4, where });
     };
-    entry("src/game/sys/platform_cfuncs.cpp", /kIsPS2Entry = 0x([0-9A-Fa-f]{8})/, "platform_cfuncs.cpp");
-    entry("src/game/sys/debug_mode.cpp", /kCDEntry = 0x([0-9A-Fa-f]{8})/, "debug_mode.cpp");
-    entry("src/game/sys/debug_mode.cpp", /kNotCDEntry = 0x([0-9A-Fa-f]{8})/, "debug_mode.cpp");
+    entry("IsPS2", "platform_cfuncs.cpp");
+    entry("CD", "debug_mode.cpp");
+    entry("NotCD", "debug_mode.cpp");
     return writes;
 }
 

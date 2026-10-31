@@ -2,6 +2,11 @@
 
 #include <cstdint>
 
+namespace Script {
+class CStruct;
+class CScript;
+} // namespace Script
+
 // "Pip" file loading: data files are loaded whole into memory, either one at a time (up to 200, reference
 // counted) or as .pre archives - packs of files loaded in one go (up to 100 at once). Files are found by
 // the checksum of their name.
@@ -60,5 +65,10 @@ bool PreFileIsInUse(const char* name);
 
 // Look a file up in the loaded .pre archives.
 PreEntry* FindPreEntry(uint32_t checksum);
+
+// Script functions (in the CFunction table)
+bool __cdecl CFunc_LoadPipPre(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_UnLoadPipPre(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_DumpPipPreStatus(Script::CStruct* params, Script::CScript* script);
 
 } // namespace Pip
