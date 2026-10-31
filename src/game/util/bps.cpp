@@ -79,6 +79,19 @@ uint32_t PatchChecksum(const uint8_t* patch, size_t size)
     return ReadWord(patch, &offset);
 }
 
+// NOT ORIGINAL - the source's size (the first number after the magic) and CRC-32 (12 bytes from the end) checked
+// before patching.
+bool MadeFor(const uint8_t* patch, size_t patchSize, const uint8_t* input, size_t inputSize)
+{
+    if (!patch || patchSize < 16 || !input || std::memcmp(patch, "BPS1", 4) != 0)
+        return false;
+    size_t at = 4;
+    if (ReadNumber(patch, &at) != inputSize)
+        return false;
+    size_t crcAt = patchSize - 12;
+    return ReadWord(patch, &crcAt) == Crc32(input, inputSize);
+}
+
 bool Apply(const uint8_t* patch, size_t patchSize, const uint8_t* input, size_t inputSize, uint8_t** output,
            size_t* outputSize)
 {
