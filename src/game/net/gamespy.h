@@ -15,13 +15,13 @@ namespace GameSpy {
 using PeerCallbacks = uint32_t[0x1D];
 
 // A callback given to the SDK: any function (its signature the SDK's) or code address (GAME_CODE), or null.
-struct Callback {
+struct HookFn {
     const void* code;
     template <typename F>
-    Callback(F* function) : code(reinterpret_cast<const void*>(function))
+    HookFn(F* function) : code(reinterpret_cast<const void*>(function))
     {
     }
-    Callback(std::nullptr_t) : code(nullptr) {}
+    HookFn(std::nullptr_t) : code(nullptr) {}
 };
 
 // peerFixNick with the rules of the SDK the game was built with: a '_' before a leading digit or '-', and every
@@ -46,15 +46,15 @@ void CdKeyShutdown();
 void CdKeyThink();
 // `callback`: void(int gameId, int localId, int authenticated, char* message, void* instance)
 void CdKeyAuthenticateUser(int gameId, int localId, uint32_t ip, const char* challenge, const char* response,
-                           Callback callback, void* instance);
+                           HookFn callback, void* instance);
 void CdKeyDisconnectUser(int gameId, int localId);
 void CdKeyDisconnectAll(int gameId);
 void CdKeyComputeResponse(const char* cdKey, const char* challenge, char* response); // response: 73 bytes
 
 // query and reporting (qr2); a null `qrec` is the SDK's default one
 int Qr2Init(void* qrec, const char* ip, int basePort, const char* gameName, const char* secretKey, int isPublic,
-            int natNegotiate, Callback serverKey, Callback playerKey, Callback teamKey, Callback keyList,
-            Callback count, Callback addError, void* userData);
+            int natNegotiate, HookFn serverKey, HookFn playerKey, HookFn teamKey, HookFn keyList,
+            HookFn count, HookFn addError, void* userData);
 void Qr2Think(void* qrec);
 void Qr2SendStateChanged(void* qrec);
 void Qr2Shutdown(void* qrec);
@@ -65,7 +65,7 @@ void Qr2KeyBufferAdd(void* keyBuffer, int keyId);
 
 // NAT negotiation
 // `progress`: void(int state, void* userData); `completed`: void(int result, SOCKET, sockaddr_in*, void* userData)
-int NatBeginWithSocket(uint32_t socket, int cookie, int clientIndex, Callback progress, Callback completed,
+int NatBeginWithSocket(uint32_t socket, int cookie, int clientIndex, HookFn progress, HookFn completed,
                        void* userData);
 void NatThink();
 void NatProcessData(char* data, int length, void* from);
@@ -78,7 +78,7 @@ int PeerSetTitle(void* peer, const char* title, const char* qrSecretKey, const c
                  int sbGameVersion, int sbMaxUpdates, int natNegotiate, const int* pingRooms,
                  const int* crossPingRooms);
 void PeerClearTitle(void* peer);
-void PeerConnect(void* peer, const char* nick, int profile, Callback nickError, Callback connected, void* param,
+void PeerConnect(void* peer, const char* nick, int profile, HookFn nickError, HookFn connected, void* param,
                  int blocking);
 void PeerRetryWithNick(void* peer, const char* nick);
 void PeerFixNick(char* newNick, const char* oldNick);
@@ -93,17 +93,17 @@ uint32_t PeerGetPrivateIp(void* peer);
 void PeerSetQuietMode(void* peer, int quiet);
 void PeerParseQuery(void* peer, char* query, int length, void* sender);
 void PeerSendNatNegotiateCookie(void* peer, uint32_t ip, int port, int cookie);
-void PeerListGroupRooms(void* peer, const char* fields, Callback callback, void* param, int blocking);
-void PeerJoinGroupRoom(void* peer, int groupId, Callback callback, void* param, int blocking);
+void PeerListGroupRooms(void* peer, const char* fields, HookFn callback, void* param, int blocking);
+void PeerJoinGroupRoom(void* peer, int groupId, HookFn callback, void* param, int blocking);
 void PeerSetGroupId(void* peer, int groupId);
 void PeerLeaveRoom(void* peer, int roomType, const char* reason);
 void PeerMessageRoom(void* peer, int roomType, const char* message, int messageType);
-void PeerEnumPlayers(void* peer, int roomType, Callback callback, void* param);
+void PeerEnumPlayers(void* peer, int roomType, HookFn callback, void* param);
 int PeerGetPlayerInfoNoWait(void* peer, const char* nick, uint32_t* ip, int* profile);
 void PeerSetRoomKeys(void* peer, int roomType, const char* nick, int count, const char** keys, const char** values);
-void PeerGetRoomKeys(void* peer, int roomType, const char* nick, int count, const char** keys, Callback callback,
+void PeerGetRoomKeys(void* peer, int roomType, const char* nick, int count, const char** keys, HookFn callback,
                      void* param, int blocking);
-void PeerStartListingGames(void* peer, const uint8_t* fields, int count, const char* filter, Callback callback,
+void PeerStartListingGames(void* peer, const uint8_t* fields, int count, const char* filter, HookFn callback,
                            void* param);
 void PeerStopListingGames(void* peer);
 void PeerUpdateGame(void* peer, void* server, int fullUpdate);
@@ -130,9 +130,9 @@ int ServerGetPing(void* server);
 // `progress`: void(request, int state, const char*, int64 length, int64 received, int64 total, void* param);
 // `completed`: int(request, int result, char* buffer, int64 length, void* param) - nonzero: the SDK frees the buffer
 int HttpGetEx(const char* url, const char* headers, char* buffer, int size, void* post, int throttle, int blocking,
-              Callback progress, Callback completed, void* param);
-int HttpPostEx(const char* url, const char* headers, void* post, int throttle, int blocking, Callback progress,
-               Callback completed, void* param);
+              HookFn progress, HookFn completed, void* param);
+int HttpPostEx(const char* url, const char* headers, void* post, int throttle, int blocking, HookFn progress,
+               HookFn completed, void* param);
 void* HttpNewPost();
 int HttpPostAddString(void* post, const char* name, const char* value);
 int HttpPostAddFileFromMemory(void* post, const char* name, const char* buffer, int size, const char* reportName,
@@ -147,11 +147,11 @@ int TrackUsage(int userId, int productId, const char* versionId, int distributio
 // presence (GP)
 int GpInitialize(void* connection, int productId, int namespaceId);
 int GpProcess(void* connection);
-int GpSetCallback(void* connection, int type, Callback callback, void* param);
+int GpSetCallback(void* connection, int type, HookFn callback, void* param);
 int GpConnect(void* connection, const char* nick, const char* email, const char* password, int firewall, int blocking,
-              Callback callback, void* param);
+              HookFn callback, void* param);
 int GpConnectNewUser(void* connection, const char* nick, const char* uniqueNick, const char* email,
-                     const char* password, const char* cdKey, int firewall, int blocking, Callback callback,
+                     const char* password, const char* cdKey, int firewall, int blocking, HookFn callback,
                      void* param);
 void GpDisconnect(void* connection);
 int GpSetStatus(void* connection, int status, const char* text, const char* location);
@@ -178,7 +178,7 @@ void StatsNewPlayer(void* game, int number, const char* name);
 void StatsRemovePlayer(void* game, int number);
 int StatsSendSnapShot(void* game, const char* snapshot, int final);
 // `callback`: PersDataCallbackFn
-void StatsGetPersistDataValues(int localId, int profile, int type, int index, const char* keys, Callback callback,
+void StatsGetPersistDataValues(int localId, int profile, int type, int index, const char* keys, HookFn callback,
                           void* instance);
 void StatsGenerateAuth(const char* challenge, const char* password, char* response); // response: 33 bytes
 // bucket "set" operations: the server's (index 0) or a player's

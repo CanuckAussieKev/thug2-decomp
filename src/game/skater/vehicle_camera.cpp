@@ -46,22 +46,22 @@ constexpr float kHalfPi = 1.5707963705062866f;        // 0x00645484
 constexpr float kDegrees = 0.01745329238474369f;      // 0x00645464 (degrees to radians)
 
 // Its Camera component's camera (+0x18).
-Gfx2D::Camera* CameraOf(CGameEntity* object)
+Gfx2D::ViewCam* CameraOf(CGameEntity* object)
 {
-    return *reinterpret_cast<Gfx2D::Camera**>(reinterpret_cast<uint8_t*>(object->GetComponent(kCamera)) + 0x18);
+    return *reinterpret_cast<Gfx2D::ViewCam**>(reinterpret_cast<uint8_t*>(object->FetchModule(kCamera)) + 0x18);
 }
 
 // D3DXMatrixMultiply (linked later; 0x005BFA8C).
-void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
 
 // The camera position the collision check pulls toward: `distance` along the orientation's at-row before
 // `position` (x with the product unrounded, as the original).
-Maths::Vector Behind(const Maths::Vector& position, float distance, const Maths::Matrix& orientation)
+Maths::Vec4 Behind(const Maths::Vec4& position, float distance, const Maths::Mat4& orientation)
 {
-    const Maths::Vector& at = orientation.row[2];
+    const Maths::Vec4& at = orientation.row[2];
     double x = static_cast<double>(distance) * at.x;
     float y = distance * at.y;
     float z = distance * at.z;
@@ -72,15 +72,15 @@ Maths::Vector Behind(const Maths::Vector& position, float distance, const Maths:
 } // namespace
 
 // 0x005248C0
-CObjectModule* __cdecl CCarView::Create()
+CObjectModule* __cdecl CCarView::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CCarView));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CCarView*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kVehicleCamera;
+    component->m_kindTag = kVehicleCamera;
     component->m_levelY = 60.0f;
     component->m_reach = 144.0f;
     component->m_lerp = 3.0f;
@@ -102,11 +102,11 @@ void CCarView::DestroyBody()
 }
 
 // 0x00524470
-CCarView* CCarView::Destroy(unsigned int flags)
+CCarView* CCarView::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -117,18 +117,18 @@ void CCarView::ConfigureFromData(Scripts::CStruct* params)
         uint32_t id;
         params->ReadHashValue(kSubject, &id, 1);
         m_subject = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(id));
-        m_vehicle = reinterpret_cast<uint8_t*>(m_subject->GetComponent(kVehicle));
+        m_vehicle = reinterpret_cast<uint8_t*>(m_subject->FetchModule(kVehicle));
     }
-    params->GetFloat(kLerp, &m_lerp, 0);
-    params->GetFloat(kHeight, &m_levelY, 0);
-    params->GetFloat(kDistance, &m_reach, 0);
-    params->GetFloat(kAngle, &m_angle, 0);
+    params->FetchFloat(kLerp, &m_lerp, 0);
+    params->FetchFloat(kHeight, &m_levelY, 0);
+    params->FetchFloat(kDistance, &m_reach, 0);
+    params->FetchFloat(kAngle, &m_angle, 0);
 }
 
 // 0x00524C00
-void CCarView::Finalize()
+void CCarView::Seal()
 {
-    m_lookAround = static_cast<CFreeLookModule*>(m_object->GetComponent(kCameraLookAround));
+    m_lookAround = static_cast<CFreeLookModule*>(m_entity->FetchModule(kCameraLookAround));
     Reset();
 }
 
@@ -164,18 +164,18 @@ void CCarView::UpdateTargetDirection()
     double scale = static_cast<double>(speed) * kSpeedScale;
     if (scale > 1.0)
         scale = 1.0;
-    const Maths::Vector& at = m_subject->m_basisFrame.row[2];
+    const Maths::Vec4& at = m_subject->m_basisFrame.row[2];
     double a = -at.x, b = -at.y, c = -at.z;
     float along = static_cast<float>((c * z + b * y + a * x) * scale);
     m_targetDirection = {-at.x, -at.y, -at.z, -at.w};
     m_targetDirection.y = 0.0f;
-    m_targetDirection.Normalize();
+    m_targetDirection.MakeUnit();
     if (along > 0.0f) {
         m_targetDirection.x = static_cast<float>(static_cast<double>(x) * along + m_targetDirection.x);
         m_targetDirection.y = static_cast<float>(static_cast<double>(y) * along + m_targetDirection.y);
         m_targetDirection.z = z * along + m_targetDirection.z;
         m_targetDirection.w = w * along + m_targetDirection.w;
-        m_targetDirection.Normalize();
+        m_targetDirection.MakeUnit();
     }
 }
 
@@ -186,9 +186,9 @@ void CCarView::ApplyToCamera()
     m_orientation.row[0].w = 0.0f;
     m_orientation.row[1].w = 0.0f;
     m_orientation.row[2].w = 0.0f;
-    m_object->m_pos = m_anchorPoint;
-    m_object->m_basisFrame = m_orientation;
-    m_object->m_displayMatrix = m_orientation;
+    m_entity->m_atPoint = m_anchorPoint;
+    m_entity->m_basisFrame = m_orientation;
+    m_entity->m_displayMatrix = m_orientation;
 }
 
 // 0x00524780
@@ -196,20 +196,20 @@ void CCarView::UpdateOrientation()
 {
     double heading = m_lookAround->m_heading;
     double rotatedX, rotatedZ;
-    X87::Rotate(heading, m_direction.x, m_direction.z, &rotatedX, &rotatedZ);
+    X87::SpinBy(heading, m_direction.x, m_direction.z, &rotatedX, &rotatedZ);
     float right = static_cast<float>(rotatedZ);
     float forward = static_cast<float>(rotatedX);
     m_orientation.row[0] = {right, 0.0f, -forward, 1.0f};
     m_orientation.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
     m_orientation.row[2] = {forward, m_direction.y, right, m_direction.w};
     m_orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    const Maths::Vector& subject = m_subject->m_pos;
+    const Maths::Vec4& subject = m_subject->m_atPoint;
     float back = right * m_reach;
     m_anchorPoint.x = static_cast<float>(static_cast<double>(forward) * m_reach + subject.x);
     m_anchorPoint.y = m_levelY + subject.y;
     m_anchorPoint.z = back + subject.z;
     m_anchorPoint.w = subject.w + 1.0f;
-    Maths::Matrix tilt;
+    Maths::Mat4 tilt;
     Maths::MakeRollMatrix(tilt, m_angle * kDegrees);
     MatrixMultiply(&m_orientation, &tilt, &m_orientation);
 }
@@ -220,21 +220,21 @@ void CCarView::Reset()
     m_lookAround->m_heading = 0.0f;
     m_lookAround->m_leanAngle = 0.0f;
     m_lookAround->m_locked = false;
-    const Maths::Vector& at = m_subject->m_basisFrame.row[2];
+    const Maths::Vec4& at = m_subject->m_basisFrame.row[2];
     m_targetDirection = {-at.x, -at.y, -at.z, -at.w};
     m_targetDirection.y = 0.0f;
-    m_targetDirection.Normalize();
+    m_targetDirection.MakeUnit();
     UpdateTargetDirection();
     m_direction = m_targetDirection;
     UpdateOrientation();
     ApplyToCamera();
-    m_object->GetComponent(kCamera)->Update();
+    m_entity->FetchModule(kCamera)->TickFrame();
 }
 
 // 0x00524940
-void CCarView::Update()
+void CCarView::TickFrame()
 {
-    CameraOf(m_object)->RememberPrevPos();
+    CameraOf(m_entity)->RememberPrevPos();
     UpdateTargetDirection();
     double dot = static_cast<double>(m_direction.z) * m_targetDirection.z +
                  static_cast<double>(m_direction.y) * m_targetDirection.y +
@@ -256,13 +256,13 @@ void CCarView::Update()
         step = angle;
     double turn = (left ? 1.0f : -1.0f) * step;
     double x, z;
-    X87::Rotate(turn, m_direction.x, m_direction.z, &x, &z);
+    X87::SpinBy(turn, m_direction.x, m_direction.z, &x, &z);
     m_direction.x = static_cast<float>(x);
     m_direction.z = static_cast<float>(z);
-    m_direction.Normalize();
+    m_direction.MakeUnit();
     UpdateOrientation();
-    Maths::Vector focus = Behind(m_anchorPoint, m_reach, m_orientation);
-    Maths::Vector target = Behind(m_anchorPoint, m_reach, m_orientation);
+    Maths::Vec4 focus = Behind(m_anchorPoint, m_reach, m_orientation);
+    Maths::Vec4 target = Behind(m_anchorPoint, m_reach, m_orientation);
     AvoidCameraCollisions(&m_anchorPoint, &m_orientation, &target, &focus, false, false);
     ApplyToCamera();
 }
@@ -272,14 +272,14 @@ void CCarView::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CCarView::Destroy,
-         &GameObjects::CCarView::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CCarView::Teardown,
+         &GameObjects::CCarView::TickFrame,
          &GameObjects::CCarView::ConfigureFromData,
-         &GameObjects::CCarView::Finalize,
+         &GameObjects::CCarView::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

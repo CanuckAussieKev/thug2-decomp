@@ -22,15 +22,15 @@ namespace GameObjects {
 class CRiderFrameLookups : public CObjectModule {
 public:
     // 0x00514430 (registered by RegisterComponentTypes): a new one (0 if out of memory), no core physics yet.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00513FD0: the destructor body (the base's).
     void DestroyBody();
     // 0x00513FE0 (vtable slot 0)
-    CRiderFrameLookups* Destroy(unsigned int flags);
+    CRiderFrameLookups* Teardown(unsigned int flags);
     // 0x00514010 (vtable +0x0C): the core physics component found.
-    void Finalize();
+    void Seal();
     // 0x00514030 (vtable +0x04): the core physics' matrix (+0x18) copied.
-    void Update();
+    void TickFrame();
     // 0x00514040 (vtable +0x30): the script member functions (the unnamed parameter an angle in degrees):
     // GetHeading (heading 0-360 from the at row's x - turned for a negative z -, cosine, sine into the script's
     // parameters), GetSlope (Slope - the at row's angle above the horizontal, negative when it points down - and
@@ -41,7 +41,7 @@ public:
     // more than its second away from the at row). 1 / 0; 2 for any other name.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
-    Maths::Matrix m_basisFrame;   // +0x18 the core physics' (rows: right, up, at, position)
+    Maths::Mat4 m_basisFrame;   // +0x18 the core physics' (rows: right, up, at, position)
     float m_lastSlope;      // +0x58 GetSlope's last
     uint8_t* m_corePhysics; // +0x5C SkaterCorePhysics (0x5BD63B29)
 };

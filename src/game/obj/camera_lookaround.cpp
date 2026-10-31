@@ -57,15 +57,15 @@ void Ease(float& angle, double target, float frame)
 } // namespace
 
 // 0x004E42E0
-CObjectModule* __cdecl CFreeLookModule::Create()
+CObjectModule* __cdecl CFreeLookModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CFreeLookModule));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CFreeLookModule*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kCameraLookAround;
+    component->m_kindTag = kCameraLookAround;
     return component;
 }
 
@@ -77,11 +77,11 @@ void CFreeLookModule::DestroyBody()
 }
 
 // 0x004E4010
-CFreeLookModule* CFreeLookModule::Destroy(unsigned int flags)
+CFreeLookModule* CFreeLookModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -96,9 +96,9 @@ void CFreeLookModule::ConfigureFromData(Scripts::CStruct* /*params*/)
 }
 
 // 0x004E4040
-void CFreeLookModule::Finalize()
+void CFreeLookModule::Seal()
 {
-    mp_input = reinterpret_cast<uint8_t*>(m_object->GetComponent(kInput));
+    mp_input = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kInput));
 }
 
 // 0x004E4000
@@ -123,12 +123,12 @@ void CFreeLookModule::TurnTo(float heading, float tilt, float time, float factor
 }
 
 // 0x004E4060
-void CFreeLookModule::Update()
+void CFreeLookModule::TickFrame()
 {
     uint8_t* pad = mp_input + (Scripts::FetchIntValue(kSecondPad) ? 0x258 : 0x20);
     if (!Scripts::FetchIntValue(kNoButton) && pad[0x1F0]) {
         TakePress(pad + 0x1E0);
-        Scripts::LaunchScript(m_object->m_id == kSpecialObject ? kSpecialScript : kScript, nullptr, nullptr, false,
+        Scripts::LaunchScript(m_entity->m_ident == kSpecialObject ? kSpecialScript : kScript, nullptr, nullptr, false,
                           nullptr);
     }
     if (pad[0x130]) {
@@ -136,14 +136,14 @@ void CFreeLookModule::Update()
         TakePress(pad + 0x120);
     }
     float frame = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
-    if (!m_locked && !m_turning && m_dpadLook && Skater::ThawBmx::Enabled()) {
+    if (!m_locked && !m_turning && m_dpadLook && Skater::ThawBmx::IsSwitchedOn()) {
         // NOT ORIGINAL - THAW's BMX (THAW 0x5B08F0 with its +0x40 set): the d-pad's inputs instead of
         // the right stick's - with THAW's default inversion -, eased as the stick's (the heading without the stick's
         // x 3). Original behaviour: the stick's, below, always.
         auto* p = reinterpret_cast<CPadState*>(pad);
         Skater::ThawBmx::LookInputs in =
-            Skater::ThawBmx::DPadLookInputs(p->m_upDir.m_heldDown != 0, p->m_btnDown.m_heldDown != 0, p->m_left.m_heldDown != 0,
-                                            p->m_right.m_heldDown != 0, Skater::ThawBmx::kLookInvertDefault);
+            Skater::ThawBmx::DPadLookInputs(p->m_upDir.m_heldDown != 0, p->m_btnDown.m_heldDown != 0, p->m_leftSide.m_heldDown != 0,
+                                            p->m_rightSide.m_heldDown != 0, Skater::ThawBmx::kLookInvertDefault);
         float tilt = in.tilt * (in.tilt < 0.0f ? kUpScale : kDownScale) * kTiltScale;
         Ease(m_leanAngle, tilt, frame);
         Ease(m_heading, in.heading, frame);
@@ -173,10 +173,10 @@ int CFreeLookModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* params,
 {
     if (name == kTurnTo) {
         float heading, tilt, time, factor = 1.0f;
-        params->GetFloat(kHeading, &heading, 1);
-        params->GetFloat(kTilt, &tilt, 1);
-        params->GetFloat(kTime, &time, 1);
-        params->GetFloat(kFactor, &factor, 0);
+        params->FetchFloat(kHeading, &heading, 1);
+        params->FetchFloat(kTilt, &tilt, 1);
+        params->FetchFloat(kTime, &time, 1);
+        params->FetchFloat(kFactor, &factor, 0);
         TurnTo(heading, tilt, time, factor);
         return 1;
     }
@@ -186,7 +186,7 @@ int CFreeLookModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* params,
     }
     // NOT ORIGINAL - THAW's BMX: THAW's members (its 0x5B0B50 / 0x5B0B60: +0x40 on / off), bike_start's and
     // bmx_finish_off's - only while the feature is on (else 2, as THUG2's).
-    if ((name == kLookaroundOnDPadOn || name == kLookaroundOnDPadOff) && Skater::ThawBmx::Enabled()) {
+    if ((name == kLookaroundOnDPadOn || name == kLookaroundOnDPadOff) && Skater::ThawBmx::IsSwitchedOn()) {
         m_dpadLook = name == kLookaroundOnDPadOn;
         Skater::ThawBmx::NoteDPadCamera(m_dpadLook);
         return 1;
@@ -208,14 +208,14 @@ __declspec(naked) void ReapplyFromData()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CFreeLookModule::Destroy,
-         &GameObjects::CFreeLookModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CFreeLookModule::Teardown,
+         &GameObjects::CFreeLookModule::TickFrame,
          &GameObjects::CFreeLookModule::ConfigureFromData,
-         &GameObjects::CFreeLookModule::Finalize,
+         &GameObjects::CFreeLookModule::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

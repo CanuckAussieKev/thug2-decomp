@@ -13,7 +13,7 @@ class CScript;
 class CStruct;
 } // namespace Script
 namespace Maths {
-class Matrix;
+class Mat4;
 }
 namespace GameObjects {
 struct CGrindPoint;
@@ -45,13 +45,13 @@ public:
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x00525FB0 (slot 3): the object's Input, animblender, Model, Trigger, SkaterPhysicsControl, MovableContact,
     // SkaterState, SkaterCorePhysics and TaggingControl components.
-    void Finalize();
+    void Seal();
     // 0x00525E60: its camera object and that object's WalkCamera component.
     void ChooseCamera(CGameEntity* camera);
     // 0x005260E0: the state changed (the previous one kept, the time it changed): what leaving the air, landing,
     // hanging or climbing resets; entering a hang from the air debounces the pad's hang controls
     // (hang_control_debounce_time).
-    void SetState(int state);
+    void ChangePhase(int state);
     // 0x005260C0: the model's offset (+0x1F8) back to none.
     void ClearModelOffset();
 
@@ -61,11 +61,11 @@ public:
     bool UsingDpad();
     // 0x00524E60: the camera's offset: its facing (+0x48) x -18 in states 2-4, and in the air for 150 ms after
     // leaving states 2 / 3; else (0, 0, 0, 1). Returns `out`.
-    Maths::Vector* GetCameraOffset(Maths::Vector* out);
+    Maths::Vec4* GetCameraOffset(Maths::Vec4* out);
     // 0x00528560: its facing. Returns `out`.
-    Maths::Vector* GetFacing(Maths::Vector* out);
+    Maths::Vec4* GetFacing(Maths::Vec4* out);
     // 0x00528220: the flat direction `index` sevenths of a turn from its facing. Returns `out`.
-    Maths::Vector* GetTurnedFacing(Maths::Vector* out, int index);
+    Maths::Vec4* GetTurnedFacing(Maths::Vec4* out, int index);
     // 0x00528370: the run adjustment (+0x1868): 1 while the score holds a combo, else down at run_adjust_rate a
     // second to 0.
     void UpdateRunAdjustment();
@@ -77,7 +77,7 @@ public:
     static double __cdecl GetGravity();
     // 0x00528280 (stdcall; `this` isn't used): the ground below `position`: `feeler` from feeler_height x 2 above
     // to stand_pos_search_depth below; its point (true) or `position` (false) into `out`.
-    static bool __stdcall FindStandPosition(const Maths::Vector* position, Maths::Vector* out, Engine3D::CProbeRay* feeler);
+    static bool __stdcall FindStandPosition(const Maths::Vec4* position, Maths::Vec4* out, Engine3D::CProbeRay* feeler);
 
     // --- movement (walk_movement.cpp) ---
     // 0x00526260: from wall_turn_speed_threshold up, the facing turned toward the velocity's direction
@@ -85,12 +85,12 @@ public:
     void TurnFacingToVelocity();
     // 0x00526430 (returns unrounded in ST0): `speed` on a steep slope (the ground normal's y at most 0.95) when
     // faster than walk_speed: slowed by how much `direction` runs along the slope.
-    double AdjustSpeedForSlope(float speed, const Maths::Vector* direction);
+    double AdjustSpeedForSlope(float speed, const Maths::Vec4* direction);
     // 0x00527420: the up vector (+0x58) eased back upright at lerp_upright_rate (when +0x72C is 0); snapped when
     // nearly there.
     void UpdateUpright();
     // 0x00527720: a facing to turn to at `rate` (+0x191C / +0x192C) and the turn to it (+0x1930, the shorter way).
-    void SetTransitionFacing(const Maths::Vector* facing, float rate);
+    void SetTransitionFacing(const Maths::Vec4* facing, float rate);
     // 0x005277B0: its collision cache refilled for the box around it (feeler_length + 1 across, walker_height + 1
     // above, snap_down_height + 1 below) and made the feelers' current one.
     void UpdateCollisionCache();
@@ -115,7 +115,7 @@ public:
     void SteerJump();
     // 0x00528950: on the ground: the facing turned toward the push (in place past slop_lock_angle, against walls
     // slower), and `velocity` (in and out) made the way it goes at the speed eased toward what the push asks for.
-    void UpdateGroundVelocity(Maths::Vector* velocity);
+    void UpdateGroundVelocity(Maths::Vec4* velocity);
     // 0x00529800: while +0x72C runs down, the object's matrix turned about +0x734 by its share of +0x730 over
     // rotate_upright_duration.
     void UpdateRotateUpright();
@@ -167,19 +167,19 @@ public:
 
     // --- walk_moves.cpp (skater-6: 0x00529F80-0x0052D6A0) ---
     // 0x0052A5C0: a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0052A190: the constructor: the base's, its vtable and type, the eight contacts (0xCC each at +0xA0), the
     // collision cache (+0x790), the trigger feeler (+0x17B4), no components yet, no control (0, 0, 0, 1), no extra
     // velocity (0, 0, 0, 1). Returns this.
-    CFootMovement* Construct();
+    CFootMovement* MakeNew();
     // 0x0052A290 (vtable slot 0): the scalar deleting destructor (the body is 0x005288B0).
-    CFootMovement* Destroy(unsigned int flags);
+    CFootMovement* Teardown(unsigned int flags);
     // 0x0052D4B0 (vtable slot 1): one frame: the animation state (+0x78, the previous kept at +0x7C) started afresh,
     // the frame's length, the step smoothing's height taken off, then the state's update (0 UpdateGround, 1
     // UpdateAir, 2 hanging 0x00440BF0, 3 on a ladder 0x004425B0, 4 UpdateAnimWait); unless the walk was halted,
     // the step smoothing eased down and put back, the state's checks (an acid drop after half a second on the
     // ground), the animation state sent to the object as an event, the animation speed and the camera.
-    void Update();
+    void TickFrame();
     // 0x0052D300 (state 0): riding, the contacts, moved by the velocity and onto the ground; inside a moving object
     // it takes that object's velocity.
     void UpdateGround();
@@ -193,7 +193,7 @@ public:
     // the rest of the move slid along it (0.05 off anything that meets). Onto anything else: landed - on the ground
     // (its triggers set off, what it stands on told), the velocity kept only along the facing and relative to what
     // it landed on (stopped when heading away, or slow without control), the Land animation.
-    void CollideAirMove(const Maths::Vector* from, const Maths::Vector* to);
+    void CollideAirMove(const Maths::Vec4* from, const Maths::Vec4* to);
     // 0x0052B370: onto the ground under it (snap_up_height above to snap_down_height below): big steps told to the
     // object, the step smoothing, the ground's triggers when it changes. None (or a wall): off the edge into the air
     // (SkaterOffEdge) unless a hang, a drop or a ladder takes over.
@@ -225,7 +225,7 @@ public:
     void UpdateRide();
     // 0x0052AB90: off what it stood on: that object's velocity (+0x1888) added to `velocity` (and its y to
     // `vertical`), the position moved on by it for the frame when heading the same way; the ride tracker let go.
-    void LeaveRide(Maths::Vector* velocity, float* vertical);
+    void LeaveRide(Maths::Vec4* velocity, float* vertical);
     // 0x0052B2D0: into the air: state 1, the heading (+0x1878) the object's velocity flattened, the ride left,
     // +0x1888 the velocity flattened.
     void GoToAir();
@@ -263,11 +263,11 @@ public:
     // 0x0043DDD0: whether a hanging skater's side is clear: `feeler` from the critical point (`hang`: the point and
     // the direction out from the wall, +0x10) moved out along `side` (hang_obstruction_feeler_side), then up by
     // hang_obstruction_feeler_up - and back the other way. True if neither hits.
-    bool SideClear(Engine3D::CProbeRay* feeler, const Maths::Vector* hang, const Maths::Vector* side);
+    bool SideClear(Engine3D::CProbeRay* feeler, const Maths::Vec4* hang, const Maths::Vec4* side);
     // 0x0043DFC0: hanging on the rail +0x1764 / +0x1768 `distance` from its start (`fromEnd`: its end), facing away
     // from it - the side `direction` says; turning round more than 60 degrees flushes the walk camera (+0x1760). The hang
     // offset (+0x71C) from the new facing.
-    void FaceHangRail(float distance, bool fromEnd, const Maths::Vector* direction);
+    void FaceHangRail(float distance, bool fromEnd, const Maths::Vec4* direction);
     // 0x0043E230: the rail joining `start` / `end` (the segment the skater is at, `*t` along it): past the start
     // (t < 0) the segment before it, else the one after `end` - if switched on and grabbable, else a joining rail
     // (FindJoiningRail, without flags 8 / 0x20) whose direction is close enough (a dot product of at least -0.866,
@@ -279,7 +279,7 @@ public:
     // skater up past the pull_up_obstruction_height (neither may hit). Then the animated move (PullUpFromHang) towards
     // it, ending walking (the ledge's feeler kept for the triggers) or, with no ground found, in the air. Whether it
     // starts.
-    bool PullUp(Maths::Vector* target);
+    bool PullUp(Maths::Vec4* target);
     // 0x0043EC40: a drop from walking to hang on a rail below (not while +0x1528's +0x70, not faster than
     // drop_to_hang_speed_factor x the running speed, not while tagging): FindRail along the move from the last
     // position, facing away (the skate module's rails, else each moving rail manager's, in its object's space - riding
@@ -288,13 +288,13 @@ public:
     // 0x0043F030: grabbing a rail between `start` and `end` (raised by hang_vert_origin_offset) while falling no faster
     // than 50: FindRail within Climb_Max_Snap, as DropToHang; then hanging at once (the rail script, the skater core's
     // +0x1528 flag +0xA0 set).
-    bool GrabRail(Maths::Vector start, Maths::Vector end);
+    bool GrabRail(Maths::Vec4 start, Maths::Vec4 end);
     // 0x0043F3A0: whether shimmying along the hang is blocked: feelers from the hang point `point` (up, out of the wall
     // by `out`) sideways along the move (`move`, `left` or not), at three heights and down at the critical point -
     // near the segment's end (`segment`, `start` / `end`, `along` it) turned onto the next segment first. True if any
     // hits.
-    bool ShimmyBlocked(const Maths::Vector* out, float along, const Maths::Vector* point, bool left, const Maths::Vector* move,
-                       Maths::Vector segment, CGrindPoint* start, CGrindPoint* end);
+    bool ShimmyBlocked(const Maths::Vec4* out, float along, const Maths::Vec4* point, bool left, const Maths::Vec4* move,
+                       Maths::Vec4 segment, CGrindPoint* start, CGrindPoint* end);
     // 0x0043FC70: the position on the hang: the rail's point along +0x18CC, raised by +0x18D0 and out along the
     // facing by +0x18D4. Riding something that turns (the ride tracker's +0xAC), the facing set across the rail
     // again, flat (the side it was on; its w the side's sign - the original's).
@@ -304,7 +304,7 @@ public:
     // blocked (from the hang point: lowered by hang_vert_origin_offset, out by hang_horiz_origin_offset), and a
     // feeler from the position to the critical point clear - or, on the ground, up by hop_obstruction_feeler_up
     // and over from there.
-    bool HangClear(Engine3D::CProbeRay* feeler, const Maths::Vector* point, Record34* rail);
+    bool HangClear(Engine3D::CProbeRay* feeler, const Maths::Vec4* point, Record34* rail);
     // 0x00440130: shimmying `move` along the hang (left for more than 0): unless blocked (ShimmyBlocked; the Hang
     // animation), on along the rail - past an end onto the next rail (NextHangRail; FaceHangRail the rest of the
     // way) or stopped there; HangMoveLeft / HangMoveRight. A feeler from the old critical point to the new one: if
@@ -316,7 +316,7 @@ public:
     // (0x40 / 0x80); room to hang (HangClear) facing that way or, if the flags allow, the other. Into `result`: the
     // facing, how far along, out and up from the rail, and the animation (SWING, or WALL when a feeler out from the
     // hang point hits).
-    bool CheckRail(const Maths::Vector* start, const Maths::Vector* end, const Maths::Vector* onRail, const Maths::Vector* onLine,
+    bool CheckRail(const Maths::Vec4* start, const Maths::Vec4* end, const Maths::Vec4* onRail, const Maths::Vec4* onLine,
                    float along, Record34* result, bool away);
     // 0x00440BF0 (state 2): hanging, each frame: carried by what it rides on (else the ride let go); with the control
     // pushed forward a pull-up (twice: pull_up_offset_forward ahead, then half that); turned round: let go (in the
@@ -341,12 +341,12 @@ public:
     // ladder_bottom_offset_up above the bottom, ladder_climb_offset out, nothing in the way to 6 behind that.
     // 0x004413E0 (FindLadderOnLine's): grabbed where the line meets it (`onLadder`, `along` it), between the two
     // offsets, nothing in the way from the skater; the skater core's flag +0xA0 of +0x1528 set.
-    bool CheckLadderTop(const Maths::Vector* bottom, const Maths::Vector* top, const Maths::Matrix* orientation,
+    bool CheckLadderTop(const Maths::Vec4* bottom, const Maths::Vec4* top, const Maths::Mat4* orientation,
                         Record24* record);
-    bool CheckLadderBottom(const Maths::Vector* bottom, const Maths::Vector* top, const Maths::Matrix* orientation,
+    bool CheckLadderBottom(const Maths::Vec4* bottom, const Maths::Vec4* top, const Maths::Mat4* orientation,
                            Record24* record);
-    bool CheckLadderLine(const Maths::Vector* bottom, const Maths::Vector* top, const Maths::Matrix* orientation,
-                         const Maths::Vector* onLadder, float along, Record24* record);
+    bool CheckLadderLine(const Maths::Vec4* bottom, const Maths::Vec4* top, const Maths::Mat4* orientation,
+                         const Maths::Vec4* onLadder, float along, Record24* record);
     // 0x00441680 / 0x00441B80: off the ladder's bottom (ladder_bottom_offset_forward back, down) / top
     // (ladder_top_offset_forward ahead, up): the ground there (FindStandPosition), the animated move
     // (LadderOffBottom / LadderOffTop) - off the top with no ground, into the air at its end.
@@ -360,7 +360,7 @@ public:
     bool ClimbOntoTop();
     // 0x00442170: a ladder of the level's grabbed where the line `start`-`end` passes it (FindLadderOnLine): on it at
     // once (the ride let go, stopped, the Ladder animation). Whether one was.
-    bool GrabLadder(const Maths::Vector* start, const Maths::Vector* end);
+    bool GrabLadder(const Maths::Vec4* start, const Maths::Vec4* end);
     // 0x00442280: climbing by the control's up / down part (ladder_move_speed): off the bottom or the top past
     // their offsets, else placed along it (LadderMoveUp / LadderMoveDown; Ladder at an end).
     void ClimbLadder();
@@ -372,8 +372,8 @@ public:
 // One of the Walk component's eight contacts (+0xA0, 0xCC bytes): a feeler at +0x1C. 0x00528880: constructed (its
 // feeler's). Returns this. 0x00528890: the destructor (the feeler's object let go).
 struct WalkContact {
-    WalkContact* Construct();
-    void Destroy();
+    WalkContact* MakeNew();
+    void Teardown();
 };
 
 } // namespace Obj

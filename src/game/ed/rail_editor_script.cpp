@@ -18,7 +18,7 @@
 namespace ParkEditing {
 
 using namespace RailEditorInternal;
-using Maths::Vector;
+using Maths::Vec4;
 
 namespace {
 
@@ -60,12 +60,12 @@ GameObjects::CControlButton* Button(void* input, uint32_t offset)
 Scripts::CStruct* NewStruct()
 {
     Scripts::CStruct* structure = Scripts::NewStruct();
-    return structure ? structure->Init() : nullptr;
+    return structure ? structure->PrepareAll() : nullptr;
 }
 Scripts::CArray* NewArray()
 {
     Scripts::CArray* array = Scripts::NewArray();
-    return array ? array->Init() : nullptr;
+    return array ? array->PrepareAll() : nullptr;
 }
 void FreeStruct(Scripts::CStruct* structure)
 {
@@ -78,11 +78,11 @@ void FreeStruct(Scripts::CStruct* structure)
 int RailPoolUsed()
 {
     MemSys::PoolPair& pools = RailPools();
-    return pools.pools[pools.current]->m_used;
+    return pools.pools[pools.current]->m_takenCount;
 }
 
 // The editor camera's (0xAC8946E2) target: +0x3C its position, +0x78 its heading (radians), +0x88 the height over it.
-const Vector& ViewerLocation(void* camera) { return *reinterpret_cast<const Vector*>(static_cast<uint8_t*>(camera) + 0x3C); }
+const Vec4& ViewerLocation(void* camera) { return *reinterpret_cast<const Vec4*>(static_cast<uint8_t*>(camera) + 0x3C); }
 float CameraHeading(void* camera) { return *reinterpret_cast<const float*>(static_cast<uint8_t*>(camera) + 0x78); }
 float CameraHeight(void* camera) { return *reinterpret_cast<const float*>(static_cast<uint8_t*>(camera) + 0x88); }
 
@@ -95,7 +95,7 @@ Scripts::CStruct* Results(Scripts::CScript* script)
 } // namespace
 
 // 0x004F4810
-void CRailAuthoring::Update()
+void CRailAuthoring::TickFrame()
 {
     struct Press {
         uint32_t button;
@@ -107,14 +107,14 @@ void CRailAuthoring::Update()
         GameObjects::CControlButton* button = Button(mp_input, press.button);
         if (button->m_fired) {
             button->ResetActivation();
-            Scripts::LaunchScript(press.script, nullptr, m_object, false, nullptr);
+            Scripts::LaunchScript(press.script, nullptr, m_entity, false, nullptr);
         }
     }
-    Scripts::LaunchScript(kRailEditorEveryFrame, nullptr, m_object, false, nullptr);
+    Scripts::LaunchScript(kRailEditorEveryFrame, nullptr, m_entity, false, nullptr);
 }
 
 // 0x004F6F90
-void CRailAuthoring::Hide(bool hide)
+void CRailAuthoring::Conceal(bool hide)
 {
     CParkLayout* manager = CParkLayout::sSingleton();
     if (hide) {
@@ -177,7 +177,7 @@ void CRailAuthoring::WriteToStructure(Scripts::CStruct* params)
         uint32_t i = 0;
         for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following) {
             Scripts::CStruct* point = NewStruct();
-            point->PutVec3(kPos, p->m_pos.x, p->m_pos.y, p->m_pos.z);
+            point->PutVec3(kPos, p->m_atPoint.x, p->m_atPoint.y, p->m_atPoint.z);
             // (a post drawn, not m_hasPost)
             if (p->mp_post)
                 point->PutNameKey(0u, kHasPost);
@@ -194,19 +194,19 @@ void CRailAuthoring::DecodeFromStruct(Scripts::CStruct* params)
 {
     Clear();
     Scripts::CArray* rails = nullptr;
-    params->GetArray(kCreatedRails, &rails, 0);
+    params->FetchList(kCreatedRails, &rails, 0);
     if (!rails)
         return;
-    for (uint32_t r = 0; r < rails->m_size; ++r) {
-        auto* railInfo = reinterpret_cast<Scripts::CStruct*>(rails->GetElement(r));
+    for (uint32_t r = 0; r < rails->m_extent; ++r) {
+        auto* railInfo = reinterpret_cast<Scripts::CStruct*>(rails->FetchPart(r));
         NewRail();
         Scripts::CArray* points = nullptr;
-        railInfo->GetArray(kPoints, &points, 1);
-        for (uint32_t i = 0; i < points->m_size; ++i) {
+        railInfo->FetchList(kPoints, &points, 1);
+        for (uint32_t i = 0; i < points->m_extent; ++i) {
             CEditedRailPoint* p = m_activeNode->NewPoint();
-            auto* point = reinterpret_cast<Scripts::CStruct*>(points->GetElement(i));
+            auto* point = reinterpret_cast<Scripts::CStruct*>(points->FetchPart(i));
             // (a full pool: written through null, as the original)
-            point->GetVector(kPos, reinterpret_cast<Scripts::VectorValue*>(&p->m_pos), 0);
+            point->FetchVec(kPos, reinterpret_cast<Scripts::VectorValue*>(&p->m_atPoint), 0);
             if (point->HasBareFlag(kHasPost))
                 p->m_hasPost = true;
         }
@@ -220,9 +220,9 @@ void CRailAuthoring::WriteNodes(Scripts::CArray* nodes, int* index, uint32_t nam
     int railIndex = 0;
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following, ++railIndex) {
         for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following) {
-            auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->GetElement(static_cast<uint32_t>(next)));
+            auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(static_cast<uint32_t>(next)));
             ++next;
-            node->PutVec3(kPos, p->m_pos.x, p->m_pos.y, p->m_pos.z);
+            node->PutVec3(kPos, p->m_atPoint.x, p->m_atPoint.y, p->m_atPoint.z);
             node->PutNameKey(kName, name++);
             node->PutNameKey(0u, kRailNodeClass);
             node->PutNameKey(0u, kTrickObject);
@@ -249,7 +249,7 @@ int CRailAuthoring::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, 
     case kNoFreeRailPoints: // (name unknown) 1 when no rail point is free
         return FreePoints() == 0 ? 1 : 0;
     case kSetEditingMode: {
-        params->ReadHashValue(kMode, &m_mode, 0);
+        params->ReadHashValue(kMode, &m_modeSel, 0);
         Scripts::CStruct* text = NewStruct();
         text->PutNameKey(kMode, kRailPlacement);
         Scripts::LaunchScript(kHelperTextMode, text, nullptr, false, nullptr);
@@ -264,22 +264,22 @@ int CRailAuthoring::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, 
         return 1;
     }
     case kAddNewPosition: {
-        Vector pos = {0.0f, 0.0f, 0.0f, 1.0f};
-        params->GetVector(kPos, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
+        Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
+        params->FetchVec(kPos, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
         if (!m_activeNode)
             return 0;
         CEditedRailPoint* head = m_activeNode->mp_points;
-        if (head && !RailSegmentValid(&pos, &head->m_pos))
+        if (head && !RailSegmentValid(&pos, &head->m_atPoint))
             return 1;
         if (!CParkBuilderMode::IsInsidePark(pos, 10.0f))
             return head ? 1 : 0;
-        CParkBuilderMode* editor = CParkBuilderMode::Create(false);
+        CParkBuilderMode* editor = CParkBuilderMode::Fabricate(false);
         if (!editor->IsParkFull()) {
             if (CEditedRailPoint* p = m_activeNode->NewPoint()) {
-                p->m_pos = pos;
-                p->m_levelY = static_cast<float>(static_cast<double>(pos.y) - CEditedRailPoint::GroundHeight(&p->m_pos));
+                p->m_atPoint = pos;
+                p->m_levelY = static_cast<float>(static_cast<double>(pos.y) - CEditedRailPoint::GroundHeight(&p->m_atPoint));
                 p->m_hasPost = params->HasBareFlag(kAddPost);
-                const Vector& zero = g_railOrigin;
+                const Vec4& zero = g_railOrigin;
                 p->DrawSegment(&zero, &zero, 0.0f);
                 p->DrawPost(&zero, &zero, 0.0f);
                 CParkBuilderMode::Release();
@@ -290,7 +290,7 @@ int CRailAuthoring::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, 
         return 0;
     }
     case kGetEditingMode:
-        Results(script)->PutNameKey(kMode, m_mode);
+        Results(script)->PutNameKey(kMode, m_modeSel);
         return 1;
     case kDeleteRailPoint: {
         uint32_t id = 0;
@@ -300,7 +300,7 @@ int CRailAuthoring::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, 
             return 0;
         int index = 0;
         params->FetchIntValue(kRailPointIndex, &index, 0);
-        CEditedRailPoint* p = rail->GetPoint(index);
+        CEditedRailPoint* p = rail->FetchVertexAt(index);
         if (!p)
             return 0;
         CutRail(rail, p);
@@ -312,8 +312,8 @@ int CRailAuthoring::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, 
         params->ReadHashValue(kRailId, &id, 0);
         int index = 0;
         params->FetchIntValue(kRailPointIndex, &index, 0);
-        Vector pos; // (left unset without a pos, as the original's)
-        params->GetVector(kPos, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
+        Vec4 pos; // (left unset without a pos, as the original's)
+        params->FetchVec(kPos, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
         CEditedRail* rail = FindRail(id);
         if (!rail)
             return 1;
@@ -328,14 +328,14 @@ int CRailAuthoring::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, 
         CEditedRail* rail = FindRail(id);
         if (!rail)
             return 1;
-        CEditedRailPoint* p = rail->GetPoint(index);
+        CEditedRailPoint* p = rail->FetchVertexAt(index);
         bool includeEndPosts = params->HasBareFlag(kIncludeEndPosts);
         bool flash = params->HasBareFlag(kFlash);
-        p->Highlight(flash, includeEndPosts);
+        p->Spotlight(flash, includeEndPosts);
         return 1;
     }
     case kGetCursorPosition: {
-        const Vector& target = ViewerLocation(m_viewCamera);
+        const Vec4& target = ViewerLocation(m_viewCamera);
         float y = static_cast<float>(static_cast<double>(target.y) + CameraHeight(m_viewCamera));
         Scripts::CStruct* results = Results(script);
         results->PutVec3(kPos, target.x, y, target.z);
@@ -343,8 +343,8 @@ int CRailAuthoring::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, 
         return 1;
     }
     case kDrawDottedLine: {
-        Vector pos; // (left unset without a pos, as the original's)
-        params->GetVector(kPos, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
+        Vec4 pos; // (left unset without a pos, as the original's)
+        params->FetchVec(kPos, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
         DrawDottedLine(&pos);
         return 1;
     }
@@ -378,7 +378,7 @@ int CRailAuthoring::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, 
             rail = m_activeNode;
         if (!rail)
             return 0;
-        Results(script)->PutNameKey(kRailId, rail->m_id);
+        Results(script)->PutNameKey(kRailId, rail->m_ident);
         Results(script)->PutInt(kNumPoints, rail->RailPointTotal());
         return 1;
     }

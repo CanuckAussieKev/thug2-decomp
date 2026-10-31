@@ -15,7 +15,7 @@
 #include "game/mth/vector.h"
 
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 
 namespace GameObjects {
@@ -28,13 +28,13 @@ enum EEmitterShape : int {
 
 struct EmitterNode {
     // 0x00468120: whether `point` is in the shape.
-    bool IsWithin(const Maths::Vector* point);
+    bool IsWithin(const Maths::Vec4* point);
     // 0x004681A0: `point` itself when it's inside, else the shape's nearest point (the box's surface, the
     // sphere's). The other shape leaves `out` as it was (the original copies its uninitialised locals).
-    Maths::Vector* NearestPointOn(Maths::Vector* out, const Maths::Vector* point);
+    Maths::Vec4* NearestPointOn(Maths::Vec4* out, const Maths::Vec4* point);
 
-    uint32_t m_name;          // +0x00
-    Maths::Vector m_pos;        // +0x04
+    uint32_t m_label;          // +0x00
+    Maths::Vec4 m_atPoint;        // +0x04
     uint8_t m_unknown14[0x10];
     bool m_active;            // +0x24
     uint8_t m_unknown25[3];
@@ -65,25 +65,25 @@ void Emitter_AddNode(uint32_t name, bool active);
 class CFollowTrail {
 public:
     // 0x00468AC0 (returns this) / 0x004685D0: empty, following nothing.
-    CFollowTrail* Init();
+    CFollowTrail* PrepareAll();
     void Reset();
     // 0x00468610: the followed object's position added once it's over 40 units (1600 squared) from the last.
-    void Update();
+    void TickFrame();
     // 0x00468730: the point m_reach back along the trail (from the object's position through the trail,
     // newest first) and, in `matrix`, a facing along it: the old facing's front x10 plus the direction, made
     // level (y = 0) unless m_freeFacing, with up (0, 1, 0) - nothing when the trail is empty or that point's
     // segment has no length.
-    void GetPosition(Maths::Vector* position, Maths::Matrix* matrix);
+    void FetchPlace(Maths::Vec4* position, Maths::Mat4* matrix);
 
-    Maths::Vector m_pathVertices[64];  // +0x000: a ring, newest at m_head
-    int m_count;               // +0x400
+    Maths::Vec4 m_pathVertices[64];  // +0x000: a ring, newest at m_head
+    int m_num;               // +0x400
     int m_head;                // +0x404
     uint32_t m_entityKey;       // +0x408
-    Maths::Vector m_aimPoint;      // +0x40C: the object's position at the last Update
+    Maths::Vec4 m_aimPoint;      // +0x40C: the object's position at the last Update
     float m_reach;          // +0x41C
     bool m_freeFacing;         // +0x420
 };
-static_assert(offsetof(CFollowTrail, m_count) == 0x400 && offsetof(CFollowTrail, m_aimPoint) == 0x40C &&
+static_assert(offsetof(CFollowTrail, m_num) == 0x400 && offsetof(CFollowTrail, m_aimPoint) == 0x40C &&
                   offsetof(CFollowTrail, m_reach) == 0x41C && offsetof(CFollowTrail, m_freeFacing) == 0x420,
               "layout must match the original");
 

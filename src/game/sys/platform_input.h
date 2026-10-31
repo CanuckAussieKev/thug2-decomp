@@ -15,7 +15,7 @@ namespace Sio {
 struct PadState;
 } // namespace Sio
 
-namespace Platform {
+namespace OsLayer {
 
 constexpr int kPorts = 2;
 constexpr int kBindings = 24;

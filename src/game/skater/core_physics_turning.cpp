@@ -77,7 +77,7 @@ constexpr float kUprightRight = 1.2f;               // 0x0064BD40
 constexpr float kUprightLeft = -1.2f;               // 0x0064BD3C
 
 // The velocity turned by `angle` about the y axis, as the original's inline x87 code.
-void TurnVelocity(Maths::Vector& velocity, double angle)
+void TurnVelocity(Maths::Vec4& velocity, double angle)
 {
     double s = X87Sin(angle), c = X87Cos(angle);
     double x = velocity.x, z = velocity.z;
@@ -89,8 +89,8 @@ void TurnVelocity(Maths::Vector& velocity, double angle)
 // a D3DXMatrixMultiply in the original).
 void TurnMatrices(void* component, float angle)
 {
-    At<Maths::Matrix>(ObjectOf(component), kMatrix).YawLocally(angle);
-    At<Maths::Matrix>(component, kDisplayMatrix).YawLocally(angle);
+    At<Maths::Mat4>(ObjectOf(component), kMatrix).YawLocally(angle);
+    At<Maths::Mat4>(component, kDisplayMatrix).YawLocally(angle);
 }
 
 } // namespace
@@ -100,19 +100,19 @@ void CorePhysicsComponent::TurnForRailJump()
 {
     uint8_t* input = InputOf(this);
     float angle;
-    if (ThawBmx::Active(this)) {
+    if (ThawBmx::LiveNow(this)) {
         // Not original: THAW 0x005CF010 - on the bike the stick's left / right (THAW's LEFTLEFT / LEFTRIGHT).
         const ThawBmx::BikeState* bike = ThawBmx::StateOf(this, false);
         if (bike && bike->stickLeft.down)
-            angle = static_cast<float>(static_cast<double>(Scripts::GetFloat(kRailJumpAngle)) * kDegreesToRadians);
+            angle = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kRailJumpAngle)) * kDegreesToRadians);
         else if (bike && bike->stickRight.down)
-            angle = static_cast<float>(static_cast<double>(Scripts::GetFloat(kRailJumpAngle)) * kMinusDegreesToRadians);
+            angle = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kRailJumpAngle)) * kMinusDegreesToRadians);
         else
             return;
     } else if (input[0x60])
-        angle = static_cast<float>(static_cast<double>(Scripts::GetFloat(kRailJumpAngle)) * kDegreesToRadians);
+        angle = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kRailJumpAngle)) * kDegreesToRadians);
     else if (input[0x80])
-        angle = static_cast<float>(static_cast<double>(Scripts::GetFloat(kRailJumpAngle)) * kMinusDegreesToRadians);
+        angle = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kRailJumpAngle)) * kMinusDegreesToRadians);
     else
         return;
     TurnVelocity(VectorAt(ObjectOf(this), kVelocity), angle);
@@ -122,7 +122,7 @@ void CorePhysicsComponent::TurnForRailJump()
 // 0x00503560
 void CorePhysicsComponent::TurnOnGround()
 {
-    if (ThawBmx::Active(this)) { // (not original: the bike's own turning, THAW 0x005D61F0)
+    if (ThawBmx::LiveNow(this)) { // (not original: the bike's own turning, THAW 0x005D61F0)
         ThawBmx::TurnOnGround(this);
         return;
     }
@@ -163,15 +163,15 @@ void CorePhysicsComponent::TurnOnGround()
 }
 
 // 0x005039F0
-float CorePhysicsComponent::BounceOffWall(const Maths::Vector* normal, float* turn, float scale)
+float CorePhysicsComponent::BounceOffWall(const Maths::Vec4* normal, float* turn, float scale)
 {
     // Not original: THAW 0x005CCBF0 (the on-bike flag tested first, 0x005CCBF6) - on the bike rolling backwards into a
     // wall: stopped, no bounce (`turn` left as it is).
-    if (ThawBmx::Active(this) && ThawBmx::RollingBackwards(this)) {
+    if (ThawBmx::LiveNow(this) && ThawBmx::RollingBackwards(this)) {
         VectorAt(ObjectOf(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
         return 0.0f;
     }
-    const Maths::Vector& side = VectorAt(ObjectOf(this), kMatrix);
+    const Maths::Vec4& side = VectorAt(ObjectOf(this), kMatrix);
     float cosine = static_cast<float>(static_cast<double>(side.z) * normal->z + static_cast<double>(side.y) * normal->y +
                                       static_cast<double>(normal->x) * side.x);
     if (cosine > 1.0f)
@@ -182,7 +182,7 @@ float CorePhysicsComponent::BounceOffWall(const Maths::Vector* normal, float* tu
     float angle = static_cast<float>(unrounded);
     if (unrounded > kHalfPi)
         angle = angle - kPi;
-    double amount = static_cast<double>(Scripts::GetFloat(kWallBounceMultiplier)) * angle * scale;
+    double amount = static_cast<double>(Scripts::FetchFloat(kWallBounceMultiplier)) * angle * scale;
     *turn = static_cast<float>(amount);
     TurnVelocity(VectorAt(ObjectOf(this), kVelocity), amount); // (by the unrounded turn)
     TurnMatrices(this, *turn);
@@ -196,9 +196,9 @@ bool CorePhysicsComponent::TurnDownSlope()
         return false;
     void* object = ObjectOf(this);
     // Along the velocity, or the facing when hardly moving: turned towards straight down the slope.
-    Maths::Vector heading = LengthUnrounded(VectorAt(object, kVelocity)) < kSlopeTurnSpeed ? VectorAt(object, kForward)
+    Maths::Vec4 heading = LengthUnrounded(VectorAt(object, kVelocity)) < kSlopeTurnSpeed ? VectorAt(object, kForward)
                                                                                        : VectorAt(object, kVelocity);
-    Maths::Vector down = {0.0f, -1.0f, 0.0f, 1.0f};
+    Maths::Vec4 down = {0.0f, -1.0f, 0.0f, 1.0f};
     down.FlattenOntoPlane(VectorAt(this, kGroundNormal));
     object = ObjectOf(this);
     double off = Maths::GetTurnAroundAxis(heading, down, VectorAt(object, kUp));
@@ -224,8 +224,8 @@ void CorePhysicsComponent::NatasSpin()
         At<uint32_t>(At<void*>(this, kBalance), 0x108) = 0;
         reinterpret_cast<uint8_t&>(OnlinePlay::g_cheatFlag) = 1;
     }
-    At<GameObjects::CBalance>(At<void*>(this, kBalance), 0xD4).Update();
-    float factor = Scripts::GetFloat(kNatasSpinFactor);
+    At<GameObjects::CBalance>(At<void*>(this, kBalance), 0xD4).TickFrame();
+    float factor = Scripts::FetchFloat(kNatasSpinFactor);
     // (read as a double - the unrounded x87 result: GetLean 0x004F8F20 isn't called as a float function)
     double balance = std::fabs(reinterpret_cast<double(__thiscall*)(void*)>(CodeAddress(&GameObjects::CRiderTeeterMoves::GetLean))(At<void*>(this, kBalance)));
     // The spin slows the further off balance.
@@ -248,7 +248,7 @@ void CorePhysicsComponent::NatasSpin()
     if (show) {
         int shown = static_cast<int>(Ftol(At<float>(At<void*>(this, kSkaterComponent), kTrickRotation)));
         void* display = At<void*>(At<void*>(this, kRotationDisplay), 0x18);
-        static_cast<GameModules::Score*>(display)->AdvanceTurn(shown);
+        static_cast<GameModules::PointTally*>(display)->AdvanceTurn(shown);
     }
     At<int>(this, kNatasSpinTime) = Now();
 }
@@ -273,15 +273,15 @@ void CorePhysicsComponent::LeanInAir()
         held = TimeSincePress(pad + 0x20);
     }
     // None for a while after the button is pressed, then ramping up to full.
-    float start = Scripts::GetFloat(kAirNoLeanTime);
-    float end = Scripts::GetFloat(kAirRampLeanTime);
+    float start = Scripts::FetchFloat(kAirNoLeanTime);
+    float end = Scripts::FetchFloat(kAirRampLeanTime);
     float time = static_cast<float>(held);
     if (static_cast<double>(held) < start || static_cast<double>(held) == start)
         return;
     if (time < end)
         lean = static_cast<float>((static_cast<double>(time) - start) * lean / (static_cast<double>(end) - start));
-    At<Maths::Matrix>(ObjectOf(this), kMatrix).PitchLocally(lean * At<float>(this, kFrameLength));
-    At<Maths::Matrix>(this, kDisplayMatrix).PitchLocally(lean * At<float>(this, kFrameLength));
+    At<Maths::Mat4>(ObjectOf(this), kMatrix).PitchLocally(lean * At<float>(this, kFrameLength));
+    At<Maths::Mat4>(this, kDisplayMatrix).PitchLocally(lean * At<float>(this, kFrameLength));
 }
 
 // 0x00504A60
@@ -296,17 +296,17 @@ void CorePhysicsComponent::RotateInAcidDrop()
         t = 1.0f;
     // Eased: 3t^2 - 2t^3.
     float eased = static_cast<float>((t - kAcidDropEase) * t * t * kAcidDropEaseScale);
-    Maths::Matrix slerped;
-    At<Maths::ArcRotationBlender>(this, kAcidDropSlerp).GetMatrix(slerped, eased);
+    Maths::Mat4 slerped;
+    At<Maths::ArcRotationBlender>(this, kAcidDropSlerp).FetchMat(slerped, eased);
     // The change since the last frame's matrix applied to the skater's.
-    Maths::Matrix last = At<Maths::Matrix>(this, kAcidDropMatrix);
+    Maths::Mat4 last = At<Maths::Mat4>(this, kAcidDropMatrix);
     last.InvertOrthonormal();
-    Maths::Matrix change;
+    Maths::Mat4 change;
     Maths::Multiply(change, last, slerped);
-    Maths::Matrix& matrix = At<Maths::Matrix>(ObjectOf(this), kMatrix);
+    Maths::Mat4& matrix = At<Maths::Mat4>(ObjectOf(this), kMatrix);
     Maths::Multiply(matrix, matrix, change);
-    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
-    At<Maths::Matrix>(this, kAcidDropMatrix) = slerped;
+    At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
+    At<Maths::Mat4>(this, kAcidDropMatrix) = slerped;
 }
 
 // 0x00504B40
@@ -318,7 +318,7 @@ void CorePhysicsComponent::RecoverInAir()
         return;
     // Ground (not vert, not too steep) within 500 below.
     Engine3D::CProbeRay feeler;
-    feeler.Construct();
+    feeler.MakeNew();
     feeler.m_line.start = VectorAt(ObjectOf(this), kPosition);
     feeler.m_line.end = VectorAt(ObjectOf(this), kPosition);
     feeler.m_line.end.y = feeler.m_line.end.y - kRecoverFeelerLength;
@@ -339,20 +339,20 @@ void CorePhysicsComponent::RecoverInAir()
     // Tipped over: turned back upright about the horizontal axis across the up vector.
     float rate = static_cast<float>(StatValue(object, kRecoverRateStat));
     object = ObjectOf(this);
-    const Maths::Vector& up = VectorAt(object, kUp);
-    Maths::Vector flat = {up.x, 0.0f, up.z, up.w};
-    flat.Normalize();
-    Maths::Vector axis = {-flat.z, 0.0f, flat.x, 0.0f};
-    At<Maths::Matrix>(object, kMatrix).Rotate(axis, rate * At<float>(this, kFrameLength));
-    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
+    const Maths::Vec4& up = VectorAt(object, kUp);
+    Maths::Vec4 flat = {up.x, 0.0f, up.z, up.w};
+    flat.MakeUnit();
+    Maths::Vec4 axis = {-flat.z, 0.0f, flat.x, 0.0f};
+    At<Maths::Mat4>(object, kMatrix).SpinBy(axis, rate * At<float>(this, kFrameLength));
+    At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
 }
 
 // 0x00504DF0
 void CorePhysicsComponent::KeepUpright()
 {
     void* object = ObjectOf(this);
-    const Maths::Vector& forward = VectorAt(object, kForward);
-    const Maths::Vector& up = VectorAt(object, kUp);
+    const Maths::Vec4& forward = VectorAt(object, kForward);
+    const Maths::Vec4& up = VectorAt(object, kUp);
     if (std::fabs(forward.y) > kUprightMaxTilt)
         return;
     // Leaning sideways (the up vector across the facing): rolled back at skater_upright_sideways_speed.
@@ -360,16 +360,16 @@ void CorePhysicsComponent::KeepUpright()
                       static_cast<double>(up.y) * 0.0f;
     double angle;
     if (sideways > static_cast<double>(At<float>(this, kFrameLength)) * kUprightRight) {
-        angle = static_cast<double>(Scripts::GetFloat(kUprightSidewaysSpeed)) * kDegreesToRadians *
+        angle = static_cast<double>(Scripts::FetchFloat(kUprightSidewaysSpeed)) * kDegreesToRadians *
                 At<float>(this, kFrameLength);
     } else if (sideways < static_cast<double>(At<float>(this, kFrameLength)) * kUprightLeft) {
-        angle = -(static_cast<double>(Scripts::GetFloat(kUprightSidewaysSpeed)) * kDegreesToRadians *
+        angle = -(static_cast<double>(Scripts::FetchFloat(kUprightSidewaysSpeed)) * kDegreesToRadians *
                   At<float>(this, kFrameLength));
     } else {
         return;
     }
-    At<Maths::Matrix>(ObjectOf(this), kMatrix).RollInOwnFrame(static_cast<float>(angle));
-    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
+    At<Maths::Mat4>(ObjectOf(this), kMatrix).RollInOwnFrame(static_cast<float>(angle));
+    At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
 }
 
 } // namespace Skater

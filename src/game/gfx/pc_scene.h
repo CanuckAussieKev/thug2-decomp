@@ -32,22 +32,22 @@ struct CPcSector {
     uint8_t engine30[4];
 
     // 0x004C6550: construct. Returns this.
-    CPcSector* Construct();
+    CPcSector* MakeNew();
     // 0x004C65B0: the destructor's body (a jump to the engine's).
     void DestroyBody();
     // 0x004C6580 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcSector* Destroy(unsigned int freeFlags);
+    CPcSector* Teardown(unsigned int freeFlags);
     // 0x004C6530 (virtual [1]): with `on`, its geometry given to the engine's 0x00490DC0.
-    void SetActive(bool on);
+    void ChangeLive(bool on);
     // 0x004C65C0 (virtual [3]): a new sector (the arguments unused). Null if no memory.
-    CPcSector* Clone(int unused1, int unused2);
+    CPcSector* Replicate(int unused1, int unused2);
     // 0x004C6650: loaded from a scene file in memory (moved past it): its checksum, flags, box, billboard and
     // meshes (each made, its vertices loaded by 0x004D5CC0, its index lists read and dropped). True.
     bool ReadFromRamBlock(uint8_t** cursor);
     // 0x004C6B10: the same from a file (the vertices by 0x004D6100, given `unknown` unless a billboard). True.
-    bool LoadFromFile(void* file, uint32_t unknown);
+    bool IngestFromFile(void* file, uint32_t unknown);
     // 0x004C64E0 (virtual [9]): an empty box (a static one, made the first time).
-    const Maths::BBox* GetBoundingBox();
+    const Maths::BBox* FetchBounds();
 };
 static_assert(offsetof(CPcSector, geom) == 0x14 && offsetof(CPcSector, unknown20) == 0x20 && sizeof(CPcSector) == 0x34,
               "layout must match the original");
@@ -57,16 +57,16 @@ static_assert(offsetof(CPcSector, geom) == 0x14 && offsetof(CPcSector, unknown20
 struct CPcScene {
     void** vtable;
     uint8_t engine04[0xCC];
-    void* sectors;           // +0xD0: ListKit::HashTable of the sectors
+    void* sectors;           // +0xD0: ListKit::KeyMap of the sectors
     uint8_t engine0D4[0x1AC];
     sceneRef* meshes;          // +0x280: its mesh list
 
     // 0x004C6130: construct (`arg` for the engine's constructor). Returns this.
-    CPcScene* Construct(int arg);
+    CPcScene* MakeNew(int arg);
     // 0x004C6180: the destructor's body (a jump to the engine's).
     void DestroyBody();
     // 0x004C6150 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcScene* Destroy(unsigned int flags);
+    CPcScene* Teardown(unsigned int flags);
     // 0x004C6270 (virtual [1]): after loading: with `arena`, a write-only vertex buffer of its size made and locked
     // and the sectors' first vertex buffers moved into it; the sectors' meshes counted, the mesh list allocated, the
     // meshes added to it and sorted.
@@ -86,11 +86,11 @@ struct CPcScreenEffects {
     uint8_t engine04[4];
 
     // 0x004C6480: construct. Returns this.
-    CPcScreenEffects* Construct();
+    CPcScreenEffects* MakeNew();
     // 0x004C64A0: the destructor's body.
     void DestroyBody();
     // 0x004C64B0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcScreenEffects* Destroy(unsigned int flags);
+    CPcScreenEffects* Teardown(unsigned int flags);
     // 0x004C63C0 (virtual [2]): the bloom on / off (0x00705720).
     void SetBloom(int on);
     // 0x004C63E0 (virtual [3]): the bloom's cut-off colour (0x0067E98C).

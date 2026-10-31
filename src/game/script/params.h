@@ -16,9 +16,9 @@ using CFunction = bool(__cdecl*)(CStruct* params, CScript* script);
 
 // The string parameter `name`, or false if there isn't one. With `assert`, a missing parameter is an error
 // (the game reports it).
-inline bool GetString(CStruct* params, uint32_t name, const char** out, bool assert = false)
+inline bool FetchText(CStruct* params, uint32_t name, const char** out, bool assert = false)
 {
-    return params->GetString(name, out, assert);
+    return params->FetchText(name, out, assert);
 }
 
 // The checksum parameter `name` (a name written without quotes in the script), or false if there isn't one.

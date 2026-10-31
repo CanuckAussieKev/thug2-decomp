@@ -20,7 +20,7 @@ PointerList g_cutsceneDestroyList;
 namespace {
 
 using Scripts::CStruct;
-using Node = PointerList::Node;
+using Elem = PointerList::Elem;
 
 constexpr uint32_t kName = 0xA1DC81F9;             // "name"
 constexpr uint32_t kDestroyFunc = 0x589B2282;      // "destroy_func"
@@ -38,26 +38,26 @@ PointerList& FreeNodeChain() { return g_cutsceneDestroyList; }
 // Set while the list is flushed (RemoveFromCutsceneDestroyList does nothing then).
 bool& Flushing() { return g_cutsceneListFlushing; }
 
-CutsceneDestroyEntry* EntryOf(Node* node) { return static_cast<CutsceneDestroyEntry*>(node->value); }
+CutsceneDestroyEntry* EntryOf(Elem* node) { return static_cast<CutsceneDestroyEntry*>(node->value); }
 
 // `delete entry` (inlined): its parameters deleted, then the entry freed.
 void DeleteEntry(CutsceneDestroyEntry* entry)
 {
     if (!entry)
         return;
-    if (CStruct* params = entry->m_params) {
+    if (CStruct* params = entry->m_args) {
         params->Clear();
         Scripts::DeleteStruct(params);
-        entry->m_params = nullptr;
+        entry->m_args = nullptr;
     }
-    MemSys::Manager::Get()->Free(entry);
+    MemSys::Hub::Pull()->Dealloc(entry);
 }
 
 // A new structure (`new CStruct`), deleted with Clear and DeleteStruct.
 CStruct* NewParams()
 {
     CStruct* memory = Scripts::NewStruct();
-    return memory ? memory->Init() : nullptr;
+    return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteParams(CStruct* params)
 {
@@ -70,10 +70,10 @@ void DeleteParams(CStruct* params)
 } // namespace
 
 // 0x005B4650
-PointerList* PointerList::Construct()
+PointerList* PointerList::MakeNew()
 {
-    m_size = 0;
-    auto* node = static_cast<Node*>(MemSys::New(sizeof(Node))); // (operator new inlined)
+    m_extent = 0;
+    auto* node = static_cast<Elem*>(MemSys::Alloc(sizeof(Elem))); // (operator new inlined)
     if (node) {
         node->next = node;
         node->prev = node;
@@ -94,22 +94,22 @@ bool __cdecl CFunc_AddToCutsceneDestroyList(Scripts::CStruct* params, Scripts::C
     params->ReadSubStruct(kDestroyParams, &destroyParams, 0);
     // (the original walks the list to its end first, finding nothing)
     void* memory = MemSys::AllocZeroed(sizeof(CutsceneDestroyEntry));
-    auto* entry = memory ? static_cast<CutsceneDestroyEntry*>(memory)->Construct() : nullptr;
-    entry->m_name = name;
+    auto* entry = memory ? static_cast<CutsceneDestroyEntry*>(memory)->MakeNew() : nullptr;
+    entry->m_label = name;
     entry->m_destroyScript = destroyScript;
     if (destroyParams)
-        entry->m_params->AppendStructureIfAny(destroyParams);
+        entry->m_args->AppendStructureIfAny(destroyParams);
 
     // push_back
     PointerList& list = FreeNodeChain();
-    Node* head = list.m_head;
-    auto* node = static_cast<Node*>(MemSys::New(sizeof(Node))); // (operator new inlined)
+    Elem* head = list.m_head;
+    auto* node = static_cast<Elem*>(MemSys::Alloc(sizeof(Elem))); // (operator new inlined)
     if (node) {
         node->value = entry;
         node->next = head;
         node->prev = head->prev;
     }
-    ++list.m_size;
+    ++list.m_extent;
     head->prev = node;
     node->prev->next = node;
     return true;
@@ -124,10 +124,10 @@ bool __cdecl CFunc_RemoveFromCutsceneDestroyList(Scripts::CStruct* params, Scrip
     uint32_t name;
     params->ReadHashValue(kName, &name, 1);
     PointerList& list = FreeNodeChain();
-    Node* head = list.m_head;
-    Node* node = head ? head->next : nullptr;
+    Elem* head = list.m_head;
+    Elem* node = head ? head->next : nullptr;
     for (; node != head; node = node->next)
-        if (EntryOf(node)->m_name == name)
+        if (EntryOf(node)->m_label == name)
             break;
     if (node == head)
         return false;
@@ -135,8 +135,8 @@ bool __cdecl CFunc_RemoveFromCutsceneDestroyList(Scripts::CStruct* params, Scrip
     if (node != list.m_head) {
         node->prev->next = node->next;
         node->next->prev = node->prev;
-        MemSys::Manager::Get()->Free(node);
-        --list.m_size;
+        MemSys::Hub::Pull()->Dealloc(node);
+        --list.m_extent;
     }
     return true;
 }
@@ -184,13 +184,13 @@ bool __cdecl CFunc_FlushCutsceneDestroyList(Scripts::CStruct*, Scripts::CScript*
 {
     PointerList& list = FreeNodeChain();
     Flushing() = true;
-    Node* head = list.m_head;
-    for (Node* node = head ? head->next : nullptr; node != head; node = node->next) {
+    Elem* head = list.m_head;
+    for (Elem* node = head ? head->next : nullptr; node != head; node = node->next) {
         CutsceneDestroyEntry* entry = EntryOf(node);
-        Scripts::LaunchScript(entry->m_destroyScript, entry->m_params, nullptr, false, nullptr);
+        Scripts::LaunchScript(entry->m_destroyScript, entry->m_args, nullptr, false, nullptr);
         DeleteEntry(EntryOf(node));
     }
-    Node* result;
+    Elem* result;
     reinterpret_cast<GameObjects::PointerList*>(&list)->Erase(
         reinterpret_cast<GameObjects::PointerListNode**>(&result),
         reinterpret_cast<GameObjects::PointerListNode*>(list.m_head ? list.m_head->next : nullptr),
@@ -204,6 +204,6 @@ bool __cdecl CFunc_FlushCutsceneDestroyList(Scripts::CStruct*, Scripts::CScript*
 namespace ScriptCommands {
 
 // 0x00644A00 (a static initialiser): the cutscene destroy list, empty.
-void ConstructCutsceneDestroyList() { g_cutsceneDestroyList.Construct(); }
+void ConstructCutsceneDestroyList() { g_cutsceneDestroyList.MakeNew(); }
 
 } // namespace ScriptCommands

@@ -39,10 +39,10 @@ namespace {
 
 extern void** const kViewportVtable;
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 bool Radeon8500() { return g_radeon8500; }
 
-void Transform(float* out, const float* v, const void* matrix)
+void Xform(float* out, const float* v, const void* matrix)
 {
     D3dx::Vec4Transform(out, v, matrix);
 }
@@ -54,13 +54,13 @@ void BeginQueryDraw(uint32_t fvf)
     SetTexture(0, nullptr);
     SetPixelShader(g_pixelShaders[kPixelShader94C], nullptr);
     SetVertexFormat(fvf);
-    Platform::BeginOcclusionQuery();
+    OsLayer::BeginOcclusionQuery();
 }
 void EndQueryDraw(uint8_t query)
 {
-    Platform::EndOcclusionQuery(query);
-    Device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
-    SetState(kZWrite, 1);
+    OsLayer::EndOcclusionQuery(query);
+    InputPort()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
+    ChangePhase(kZWrite, 1);
 }
 
 } // namespace
@@ -68,15 +68,15 @@ void EndQueryDraw(uint8_t query)
 // 0x004CB860
 CPcViewport* __cdecl CreateViewport(uint32_t a1, uint32_t a2)
 {
-    void* memory = MemSys::New(sizeof(CPcViewport));
-    return memory ? static_cast<CPcViewport*>(memory)->Construct(a1, a2) : nullptr;
+    void* memory = MemSys::Alloc(sizeof(CPcViewport));
+    return memory ? static_cast<CPcViewport*>(memory)->MakeNew(a1, a2) : nullptr;
 }
 
 // 0x004CB8E0
-CPcViewport* CPcViewport::Construct(uint32_t a1, uint32_t a2)
+CPcViewport* CPcViewport::MakeNew(uint32_t a1, uint32_t a2)
 {
-    reinterpret_cast<CViewRegion*>(this)->CViewRegion::Construct(reinterpret_cast<const float*>(static_cast<uintptr_t>(a1)),
-                                                              reinterpret_cast<Gfx2D::Camera*>(static_cast<uintptr_t>(a2)));
+    reinterpret_cast<CViewRegion*>(this)->CViewRegion::MakeNew(reinterpret_cast<const float*>(static_cast<uintptr_t>(a1)),
+                                                              reinterpret_cast<Gfx2D::ViewCam*>(static_cast<uintptr_t>(a2)));
     vtable = reinterpret_cast<void**>(kViewportVtable);
     return this;
 }
@@ -89,21 +89,21 @@ void CPcViewport::DestroyBody()
 }
 
 // 0x004CB910
-CPcViewport* CPcViewport::Destroy(unsigned int freeFlags)
+CPcViewport* CPcViewport::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004CB940
-float CPcViewport::ProjectToScreen(const Maths::Vector* point, float* x, float* y, int* depth)
+float CPcViewport::ProjectToScreen(const Maths::Vec4* point, float* x, float* y, int* depth)
 {
     float v[4] = {point->x, point->y, point->z, 1.0f};
     float view[4], clip[4];
-    Transform(view, v, &g_viewMatrix);
-    Transform(clip, view, &g_projectionMatrix);
+    Xform(view, v, &g_viewMatrix);
+    Xform(clip, view, &g_projectionMatrix);
     if (clip[3] != 0.0f) {
         double inverse = 1.0f / static_cast<double>(clip[3]);
         clip[0] = static_cast<float>(clip[0] * inverse);
@@ -125,12 +125,12 @@ float CPcViewport::ProjectToScreen(const Maths::Vector* point, float* x, float* 
 }
 
 // 0x004CBC00
-uint8_t CPcViewport::QueryPoint(const Maths::Vector* point, int /*unused*/, uint8_t query)
+uint8_t CPcViewport::QueryPoint(const Maths::Vec4* point, int /*unused*/, uint8_t query)
 {
     if (Radeon8500() || !query)
         return 0;
-    SetState(kZWrite, 0);
-    Device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
+    ChangePhase(kZWrite, 0);
+    InputPort()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
     BeginQueryDraw(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     auto* strip = g_queryPointStrip; // (four vertices: position, colour)
     for (int k = 0; k < 4; ++k) {
@@ -139,7 +139,7 @@ uint8_t CPcViewport::QueryPoint(const Maths::Vector* point, int /*unused*/, uint
         strip[4 * k + 2] = reinterpret_cast<const uint32_t*>(point)[2];
         strip[4 * k + 3] = 0xFFFFFFFF;
     }
-    Device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, strip, 0x10);
+    InputPort()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, strip, 0x10);
     EndQueryDraw(query);
     return query;
 }
@@ -149,8 +149,8 @@ uint8_t CPcViewport::QueryRect(float x0, float y0, float x1, float y1, uint32_t 
 {
     if (Radeon8500() || !query)
         return 0;
-    Device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
-    SetState(kZWrite, 0);
+    InputPort()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
+    ChangePhase(kZWrite, 0);
     BeginQueryDraw(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
     struct Vertex {
         float x, y, z, rhw;
@@ -162,7 +162,7 @@ uint8_t CPcViewport::QueryRect(float x0, float y0, float x1, float y1, uint32_t 
     strip[1] = {x0, y1, depth, 1.0f, 0xFFFFFFFF};
     strip[2] = {x1, y0, depth, 1.0f, 0xFFFFFFFF};
     strip[3] = {x1, y1, depth, 1.0f, 0xFFFFFFFF};
-    Device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, strip, 0x14);
+    InputPort()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, strip, 0x14);
     EndQueryDraw(query);
     return query;
 }
@@ -173,7 +173,7 @@ uint32_t __cdecl OcclusionPixels()
     if (Radeon8500())
         return 0;
     DWORD pixels;
-    HRESULT result = Platform::GetOcclusionResult(g_occlusionRequests[0].slot, &pixels);
+    HRESULT result = OsLayer::GetOcclusionResult(g_occlusionRequests[0].slot, &pixels);
     if (result == S_OK) {
         g_occlusionSlots[g_occlusionRequests[0].slot] = 0;
         PopOcclusionRequest(); // (the requests moved on)
@@ -184,7 +184,7 @@ uint32_t __cdecl OcclusionPixels()
 }
 
 namespace {
-static VtableSlot kViewportVtable_slots[] = {&Engine3D::CPcViewport::Destroy, &Engine3D::CPcViewport::ProjectToScreen,
+static VtableSlot kViewportVtable_slots[] = {&Engine3D::CPcViewport::Teardown, &Engine3D::CPcViewport::ProjectToScreen,
                 &Engine3D::CPcViewport::QueryPoint, &Engine3D::CPcViewport::QueryRect, Stubs::ReturnZero1};
 void** const kViewportVtable = reinterpret_cast<void**>(kViewportVtable_slots);
 } // namespace

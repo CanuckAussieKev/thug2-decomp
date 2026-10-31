@@ -16,8 +16,8 @@ class CHitMeshCache;
 // One end of a rect hit: the point, and the triangle edge it lies on (unit; left as it was when the end is on a
 // rect side instead).
 struct RectHitEnd {
-    Maths::Vector point;
-    Maths::Vector edge;
+    Maths::Vec4 point;
+    Maths::Vec4 edge;
     bool onTriangleEdge;
     uint8_t pad[3];
 };
@@ -30,7 +30,7 @@ struct RectHit {
     RectHit* Assign(const RectHit* other);
 
     RectHitEnd ends[2];
-    Maths::Vector normal;      // +0x48
+    Maths::Vec4 normal;      // +0x48
     uint32_t checksum;       // +0x58
     uint8_t faceFlag40;      // +0x5C
     uint8_t pad[3];
@@ -59,7 +59,7 @@ bool CollideRectWithStatics(const CollRect* rect, RectHits* hits, CHitMeshCache*
 class CBoxProbe {
 public:
     // 0x004182D0: no hits, faces flagged 0x10 ignored, no cache. Returns this.
-    CBoxProbe* Construct();
+    CBoxProbe* MakeNew();
     // 0x00417840: the rect's query, through the feeler's cache or the current rect cache (0x0069198C). (The
     // argument isn't used.)
     bool Query(int unused);

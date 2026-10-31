@@ -17,7 +17,7 @@ namespace MenuSystem::LevelEditor::UiBackend {
 
 // The backends started on the game's window and device (once; false - logged - while either is missing or a
 // backend refuses). An ImGui context must be current.
-bool Init();
+bool PrepareAll();
 bool Ready();
 // An SDL event for ImGui (true: ImGui used it).
 bool ProcessEvent(const SDL_Event* event);

@@ -48,7 +48,7 @@ extern void** const kVtable;
 constexpr uint32_t kSkaterState = 0x43686585;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D;
 
-// This frame's state (m_state).
+// This frame's state (m_curPhase).
 constexpr uint32_t kStateOther = 0x26A7CADF;
 constexpr uint32_t kStateLaunched = 0xB39B4F1B; // the skater state's +0x30
 constexpr uint32_t kStateAir = 0x439F4704;      // in the air (physics state 1) without +0x30
@@ -81,7 +81,7 @@ constexpr uint32_t kLip = 0xA549B57B;
 constexpr float kFeet = 12.0f; // 0x0064546C
 
 template <typename T>
-T& Field(const void* object, uint32_t offset)
+T& Prop(const void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
@@ -91,7 +91,7 @@ void LaunchScript(uint32_t name, Scripts::CStruct* params = nullptr) { Scripts::
 Scripts::CStruct* NewParams()
 {
     Scripts::CStruct* memory = Scripts::NewStruct();
-    return memory ? memory->Init() : nullptr;
+    return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
 {
@@ -102,18 +102,18 @@ void DeleteParams(Scripts::CStruct* params)
 }
 
 void* SkateModule() { return static_cast<void*>(GameModules::g_skateModule); }
-CRiderIdentity* FirstProfile() { return static_cast<GameModules::Skate*>(SkateModule())->GetProfile(static_cast<int>(0)); }
+CRiderIdentity* FirstProfile() { return static_cast<GameModules::Skate*>(SkateModule())->FetchAccount(static_cast<int>(0)); }
 void* GameFlow() { return GoalSystem::GetObjectiveBoard(); }
 
 // The skater's score component and its counts.
-void* Score(CGameEntity* skater) { return reinterpret_cast<CRider*>(skater)->GetPointsTotal(); }
+void* PointTally(CGameEntity* skater) { return reinterpret_cast<CRider*>(skater)->GetPointsTotal(); }
 int CountTricks(void* score, uint32_t trick, int a, int b, int c)
 {
-    return static_cast<GameModules::Score*>(score)->CountTrickAfterTaps(trick, a, reinterpret_cast<bool&>(b), c);
+    return static_cast<GameModules::PointTally*>(score)->CountTrickAfterTaps(trick, a, reinterpret_cast<bool&>(b), c);
 }
 
 // 0x00423680: the distance between two points (z, x, then y; unrounded).
-double Distance(const Maths::Vector& a, const Maths::Vector& b)
+double SpanTo(const Maths::Vec4& a, const Maths::Vec4& b)
 {
     double dx = static_cast<double>(a.x) - b.x, dy = static_cast<double>(a.y) - b.y, dz = static_cast<double>(a.z) - b.z;
     return std::sqrt((dz * dz + dx * dx) + dy * dy);
@@ -128,10 +128,10 @@ int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 } // namespace
 
 // 0x0051CB90
-CObjectModule* __cdecl CAttributeTracker::Create()
+CObjectModule* __cdecl CAttributeTracker::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CAttributeTracker));
-    return memory ? static_cast<CAttributeTracker*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CAttributeTracker*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x0051C440
@@ -141,15 +141,15 @@ void __cdecl CAttributeTracker::PublishMethodTable()
 }
 
 // 0x0051C5A0
-CAttributeTracker* CAttributeTracker::Construct()
+CAttributeTracker* CAttributeTracker::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_skater = nullptr;
     m_skaterState = nullptr;
     m_physicsControl = nullptr;
     m_unknownA9C = 0;
     m_vtable = kVtable;
-    m_type = kType;
+    m_kindTag = kType;
     m_airStart = {0.0f, 0.0f, 0.0f, 0.0f};
     m_airEnd = {0.0f, 0.0f, 0.0f, 0.0f};
     m_jumpStart = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -166,21 +166,21 @@ void CAttributeTracker::DestroyBody()
 }
 
 // 0x0051C640
-CAttributeTracker* CAttributeTracker::Destroy(unsigned int flags)
+CAttributeTracker* CAttributeTracker::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0051C470
-int CAttributeTracker::GetGoalStatus(int index) { return m_goals[index].m_status; }
+int CAttributeTracker::GetGoalStatus(int index) { return m_goals[index].m_curStanding; }
 
 // 0x0051C480
 void CAttributeTracker::SetGoalStatus(int index, int status)
 {
-    m_goals[index].m_status = status;
+    m_goals[index].m_curStanding = status;
     if (status == 1)
         m_goalDone = true;
 }
@@ -190,7 +190,7 @@ void CAttributeTracker::ConfigureFromData(Scripts::CStruct*)
 {
     m_goalDone = false;
     m_activated = false;
-    m_state = 0;
+    m_curPhase = 0;
     m_lastState = 0;
     m_airPhase = 0;
     m_airHeight = 0.0f;
@@ -202,23 +202,23 @@ void CAttributeTracker::ConfigureFromData(Scripts::CStruct*)
     m_countA84 = 0;
     m_airScore = 0;
     m_firstUpdate = true;
-    m_skater = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(m_object->m_id));
+    m_skater = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(m_entity->m_ident));
     if (!m_skater) {
         m_skaterState = nullptr;
         m_physicsControl = nullptr;
     } else {
-        m_skaterState = m_skater->GetComponent(kSkaterState);
-        m_physicsControl = m_skater->GetComponent(kSkaterPhysicsControl);
+        m_skaterState = m_skater->FetchModule(kSkaterState);
+        m_physicsControl = m_skater->FetchModule(kSkaterPhysicsControl);
     }
     m_difficulty = static_cast<GoalSystem::CGoalManager*>(GameFlow())->GetSkillTier(true);
     DebugOut::Printf("STATSManager: difficulty ====================== %i\n", m_difficulty); // "STATSManager: difficulty ... %i"
     if (Scripts::FetchIntValue(0xB8688A8Au) == 1)
         m_raiseStats = true;
 
-    Scripts::CArray* goals = Scripts::GetArray(0x4E46CC28u);
-    int count = static_cast<int>(goals->m_size);
+    Scripts::CArray* goals = Scripts::FetchList(0x4E46CC28u);
+    int count = static_cast<int>(goals->m_extent);
     for (int i = 0; i < count; ++i) {
-        auto* source = reinterpret_cast<Scripts::CStruct*>(goals->GetElement(static_cast<uint32_t>(i)));
+        auto* source = reinterpret_cast<Scripts::CStruct*>(goals->FetchPart(static_cast<uint32_t>(i)));
         Goal& goal = m_goals[i];
         uint32_t checksum;
         if (source->HasEntryNamed(0x0FFD7BBEu)) {
@@ -232,69 +232,69 @@ void CAttributeTracker::ConfigureFromData(Scripts::CStruct*)
         Scripts::CArray* byDifficulty;
         if (source->HasEntryNamed(0xE288A7CBu)) {
             byDifficulty = nullptr;
-            source->GetArray(0xE288A7CBu, &byDifficulty, 1);
-            goal.m_aimPoint = static_cast<int>(byDifficulty->GetElement(static_cast<uint32_t>(m_difficulty)));
+            source->FetchList(0xE288A7CBu, &byDifficulty, 1);
+            goal.m_aimPoint = static_cast<int>(byDifficulty->FetchPart(static_cast<uint32_t>(m_difficulty)));
         }
         if (source->HasEntryNamed(0xCD021293u)) {
             byDifficulty = nullptr;
-            source->GetArray(0xCD021293u, &byDifficulty, 1);
+            source->FetchList(0xCD021293u, &byDifficulty, 1);
             goal.m_text = byDifficulty->FindInlineText(static_cast<uint32_t>(m_difficulty));
         }
         if (source->HasEntryNamed(0xC4745838u)) {
             const char* name = ""; // ""
-            source->GetString(0xC4745838u, &name, 1);
-            goal.m_name = name;
+            source->FetchText(0xC4745838u, &name, 1);
+            goal.m_label = name;
         }
         if (source->HasEntryNamed(0xBD982FDCu)) {
             int ignored;
             source->FetchIntValue(0xBD982FDCu, &ignored, 1);
-            goal.m_status = 0;
+            goal.m_curStanding = 0;
         }
         if (source->HasEntryNamed(0xD8A9D3CAu)) {
             byDifficulty = nullptr;
-            source->GetArray(0xD8A9D3CAu, &byDifficulty, 1);
-            goal.m_trick = byDifficulty->GetElement(static_cast<uint32_t>(m_difficulty));
+            source->FetchList(0xD8A9D3CAu, &byDifficulty, 1);
+            goal.m_trick = byDifficulty->FetchPart(static_cast<uint32_t>(m_difficulty));
         }
         if (source->HasEntryNamed(0x3C2FB496u)) {
             byDifficulty = nullptr;
-            source->GetArray(0x3C2FB496u, &byDifficulty, 1);
-            goal.m_value20 = byDifficulty->GetElement(static_cast<uint32_t>(m_difficulty));
+            source->FetchList(0x3C2FB496u, &byDifficulty, 1);
+            goal.m_value20 = byDifficulty->FetchPart(static_cast<uint32_t>(m_difficulty));
         }
         goal.m_met = false;
     }
 }
 
 // 0x0051C950
-bool CAttributeTracker::IsActive()
+bool CAttributeTracker::IsOperative()
 {
     if (!m_skater)
         return false;
     void* skate = SkateModule();
     if (!static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->IsTrue(0x1DED1EA4))
         return false;
-    if (!m_activated || Field<uint32_t>(skate, 0x378) == 0xE92ECAFE)
+    if (!m_activated || Prop<uint32_t>(skate, 0x378) == 0xE92ECAFE)
         return false;
     // (Without a name the original compares what its slot held: this.)
     uint32_t name = reinterpret_cast<uint32_t>(this);
-    reinterpret_cast<Scripts::CStruct*>(FirstProfile()->m_info)->ReadHashValue(0xA1DC81F9u, &name, 1);
+    reinterpret_cast<Scripts::CStruct*>(FirstProfile()->m_details)->ReadHashValue(0xA1DC81F9u, &name, 1);
     return name == 0x0A7BE964;
 }
 
 // 0x0051C9D0
 void CAttributeTracker::Set10(int a, int b, int)
 {
-    if (IsActive() && b != m_value14)
+    if (IsOperative() && b != m_value14)
         m_value10 = a;
 }
 
 // 0x0051CA00
 void CAttributeTracker::Reset()
 {
-    if (!IsActive())
+    if (!IsOperative())
         return;
     LaunchScript(0xD44EA68F);
     for (Goal& goal : m_goals)
-        if (goal.m_status == 0 && goal.m_met)
+        if (goal.m_curStanding == 0 && goal.m_met)
             goal.m_met = false;
     m_airPhase = 0;
     m_jumpPhase = 0;
@@ -307,14 +307,14 @@ void CAttributeTracker::Reset()
 // 0x0051CAC0
 void CAttributeTracker::SetValue58(float value)
 {
-    if (IsActive())
+    if (IsOperative())
         m_value58 = value;
 }
 
 // 0x0051CAE0
-void CAttributeTracker::Count(uint32_t name)
+void CAttributeTracker::TotalOf(uint32_t name)
 {
-    if (!IsActive())
+    if (!IsOperative())
         return;
     if (name == 0xB9AE26D2)
         ++m_countA84;
@@ -325,20 +325,20 @@ void CAttributeTracker::Count(uint32_t name)
 // 0x0051CBF0
 void CAttributeTracker::AnnounceMetGoals()
 {
-    if (!IsActive())
+    if (!IsOperative())
         return;
     CRiderIdentity* profile = FirstProfile();
     Scripts::CStruct* params = NewParams();
     bool announced = false;
     for (Goal& goal : m_goals) {
-        if (goal.m_status != 0 || !goal.m_met)
+        if (goal.m_curStanding != 0 || !goal.m_met)
             continue;
         if (!announced) {
             LaunchScript(0x750BCF49);
             announced = true;
         }
         uint32_t stat = goal.m_attrKey;
-        goal.m_status = 1;
+        goal.m_curStanding = 1;
         // The stat's name (a global string per stat).
         uint32_t text;
         switch (stat) {
@@ -355,11 +355,11 @@ void CAttributeTracker::AnnounceMetGoals()
         default: text = 0; break;
         }
         if (text)
-            params->AddString(0xC4745838u, Scripts::GetString(text));
+            params->AppendWord(0xC4745838u, Scripts::FetchText(text));
         params->PutInt(0x2044BAAFu, 1);
         LaunchScript(0x55E516C8, params);
         if (m_raiseStats)
-            profile->SetAbilityLevel(stat, profile->GetStat(stat) + 1);
+            profile->SetAbilityLevel(stat, profile->FetchTally(stat) + 1);
     }
     if (announced) {
         DebugOut::Printf("updating skater stats\n"); // "updating skater stats"
@@ -378,14 +378,14 @@ void CAttributeTracker::AnnounceMetGoals()
 // 0x0051CE80
 void CAttributeTracker::MeetGoal(int index)
 {
-    if (!IsActive())
+    if (!IsOperative())
         return;
     Scripts::CStruct* params = NewParams();
     Goal& goal = m_goals[index];
-    params->AddString(0x61414D56u, goal.m_name);
+    params->AppendWord(0x61414D56u, goal.m_label);
     params->PutInt(0xE288A7CBu, goal.m_aimPoint);
     if (goal.m_text)
-        params->AddString(0xC257D69Au, goal.m_text);
+        params->AppendWord(0xC257D69Au, goal.m_text);
     params->PutInt(0x7F8C98FEu, index);
     LaunchScript(0x55E516C8, params);
     goal.m_met = true;
@@ -393,9 +393,9 @@ void CAttributeTracker::MeetGoal(int index)
 }
 
 // 0x0051CF90
-void CAttributeTracker::Update()
+void CAttributeTracker::TickFrame()
 {
-    if (!IsActive())
+    if (!IsOperative())
         return;
     if (m_firstUpdate) {
         m_airPhase = 0;
@@ -403,19 +403,19 @@ void CAttributeTracker::Update()
         m_firstUpdate = false;
         return;
     }
-    void* score = Score(m_skater);
-    m_pointsHeld = Truncate(Field<int>(score, 0x14) * static_cast<double>(Field<float>(score, 0x60)));
-    float multiplier = Field<float>(score, 0x60);
+    void* score = PointTally(m_skater);
+    m_pointsHeld = Truncate(Prop<int>(score, 0x14) * static_cast<double>(Prop<float>(score, 0x60)));
+    float multiplier = Prop<float>(score, 0x60);
     m_multiplier = multiplier;
     m_pathVertices = multiplier == 0.0f ? 0 : Truncate(m_pointsHeld / static_cast<double>(multiplier));
 
-    int physicsState = Field<int>(m_skaterState, 0x18);
-    m_state = kStateOther;
-    uint8_t* controlState = Field<uint8_t*>(m_physicsControl, 0x2C);
-    const Maths::Vector& pos = m_object->m_pos;
-    if (!Field<bool>(controlState, 0x118) && Field<int>(controlState, 0x1C) == 0) {
-        if (Field<bool>(m_skaterState, 0x30)) {
-            m_state = kStateLaunched;
+    int physicsState = Prop<int>(m_skaterState, 0x18);
+    m_curPhase = kStateOther;
+    uint8_t* controlState = Prop<uint8_t*>(m_physicsControl, 0x2C);
+    const Maths::Vec4& pos = m_entity->m_atPoint;
+    if (!Prop<bool>(controlState, 0x118) && Prop<int>(controlState, 0x1C) == 0) {
+        if (Prop<bool>(m_skaterState, 0x30)) {
+            m_curPhase = kStateLaunched;
             if (m_lastState != kStateLaunched) {
                 m_airPhase = 1;
                 m_airHeight = 0.0f;
@@ -449,9 +449,9 @@ void CAttributeTracker::Update()
             m_airBest = 0;
         }
 
-        if (physicsState == 1 && !Field<bool>(m_skaterState, 0x30)) {
-            m_state = kStateAir;
-            if (m_lastState != kStateAir && !Field<bool>(m_skaterState, 0x70)) {
+        if (physicsState == 1 && !Prop<bool>(m_skaterState, 0x30)) {
+            m_curPhase = kStateAir;
+            if (m_lastState != kStateAir && !Prop<bool>(m_skaterState, 0x70)) {
                 m_jumpPhase = 1;
                 m_jumpStart = pos;
             }
@@ -471,7 +471,7 @@ void CAttributeTracker::Update()
     bool met = false;
     for (int i = 0; i < kGoals; ++i) {
         Goal& goal = m_goals[i];
-        if (goal.m_status != 0 || goal.m_met)
+        if (goal.m_curStanding != 0 || goal.m_met)
             continue;
         bool meets = false;
         switch (goal.m_kind) {
@@ -523,9 +523,9 @@ void CAttributeTracker::Update()
         }
         case kJumpDistance:
             if (m_jumpPhase == 2) {
-                Maths::Vector start = {m_jumpStart.x, 0.0f, m_jumpStart.z, 1.0f};
-                Maths::Vector end = {m_jumpEnd.x, 0.0f, m_jumpEnd.z, 1.0f};
-                double distance = Distance(end, start);
+                Maths::Vec4 start = {m_jumpStart.x, 0.0f, m_jumpStart.z, 1.0f};
+                Maths::Vec4 end = {m_jumpEnd.x, 0.0f, m_jumpEnd.z, 1.0f};
+                double distance = SpanTo(end, start);
                 meets = goal.m_aimPoint * static_cast<double>(kFeet) <= distance;
             }
             break;
@@ -534,13 +534,13 @@ void CAttributeTracker::Update()
                 float target = static_cast<float>(goal.m_aimPoint);
                 m_airEnd.y = 0.0f;
                 m_airStart.y = 0.0f;
-                double distance = Distance(m_airEnd, m_airStart);
+                double distance = SpanTo(m_airEnd, m_airStart);
                 meets = target * static_cast<double>(kFeet) <= distance;
             }
             break;
         case kScore562370:
             // (it reads the goal's +0x18, the 0xCD021293 entry)
-            meets = static_cast<GameModules::Score*>(score)->CountTricksNamed(goal.m_text) >=
+            meets = static_cast<GameModules::PointTally*>(score)->CountTricksNamed(goal.m_text) >=
                     goal.m_aimPoint;
             break;
         default:
@@ -553,7 +553,7 @@ void CAttributeTracker::Update()
     }
     if (met)
         LaunchScript(0x41B03551);
-    m_lastState = m_state;
+    m_lastState = m_curPhase;
     m_value58 = 0.0f;
     m_lastScore = m_pointsHeld;
     m_lastPoints = m_pathVertices;
@@ -563,12 +563,12 @@ void CAttributeTracker::Update()
 // 0x0051D6A0
 void CAttributeTracker::CheckBalanceTime(uint32_t trickType, float time, int)
 {
-    if (!IsActive())
+    if (!IsOperative())
         return;
     bool met = false;
     for (int i = 0; i < kGoals; ++i) {
         Goal& goal = m_goals[i];
-        if (goal.m_status != 0 || goal.m_met)
+        if (goal.m_curStanding != 0 || goal.m_met)
             continue;
         int target = goal.m_aimPoint;
         uint32_t kind;
@@ -626,7 +626,7 @@ bool CAttributeTracker::GetGoalStatusMember(Scripts::CStruct* params, Scripts::C
 {
     int index;
     params->FetchIntValue(0u, &index, 1);
-    Field<Scripts::CStruct*>(script, 0x14)->PutInt(0x84FF9AE3u, m_goals[index].m_status);
+    Prop<Scripts::CStruct*>(script, 0x14)->PutInt(0x84FF9AE3u, m_goals[index].m_curStanding);
     return true;
 }
 
@@ -634,8 +634,8 @@ bool CAttributeTracker::GetGoalStatusMember(Scripts::CStruct* params, Scripts::C
 bool CAttributeTracker::UnlockAmGoals(Scripts::CStruct*, Scripts::CScript*)
 {
     for (Goal& goal : m_goals)
-        if (goal.m_status == 2)
-            goal.m_status = 0;
+        if (goal.m_curStanding == 2)
+            goal.m_curStanding = 0;
     return true;
 }
 
@@ -643,15 +643,15 @@ bool CAttributeTracker::UnlockAmGoals(Scripts::CStruct*, Scripts::CScript*)
 bool CAttributeTracker::UnlockProGoals(Scripts::CStruct*, Scripts::CScript*)
 {
     for (Goal& goal : m_goals)
-        if (goal.m_status == 3)
-            goal.m_status = 0;
+        if (goal.m_curStanding == 3)
+            goal.m_curStanding = 0;
     return true;
 }
 
 // 0x0051CB70
 bool CAttributeTracker::GetLastAirComboScore(Scripts::CStruct*, Scripts::CScript* script)
 {
-    Field<Scripts::CStruct*>(script, 0x14)->PutInt(0x2D3B766Bu, m_lastAirComboScore);
+    Prop<Scripts::CStruct*>(script, 0x14)->PutInt(0x2D3B766Bu, m_lastAirComboScore);
     return true;
 }
 
@@ -667,14 +667,14 @@ bool CAttributeTracker::ClearLastAirComboScore(Scripts::CStruct*, Scripts::CScri
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CAttributeTracker::Destroy,
-         &GameObjects::CAttributeTracker::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CAttributeTracker::Teardown,
+         &GameObjects::CAttributeTracker::TickFrame,
          &GameObjects::CAttributeTracker::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

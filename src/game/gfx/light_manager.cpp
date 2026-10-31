@@ -33,7 +33,7 @@ constexpr int kStackDepth = 4;
 constexpr int kMaxDynamicLights = 256;
 
 sWorldLights& World() { return g_worldLights; }
-sWorldLights* Stack() { return g_worldLightStack; }
+sWorldLights* PileUp() { return g_worldLightStack; }
 int g_lightStackTop{-1};
 float g_lightBrightness{1.0f};
 float g_lightBrightnessTarget{1.0f};
@@ -74,7 +74,7 @@ double CallFalloff(CDynamicLightBase* light, float distance)
 } // namespace
 
 // 0x0048EAC0
-sWorldLights* sWorldLights::Construct()
+sWorldLights* sWorldLights::MakeNew()
 {
     ambient = 0x80484848;
     directions = nullptr;
@@ -89,19 +89,19 @@ sWorldLights* sWorldLights::Construct()
 void sWorldLights::FreeArrays()
 {
     if (directions) {
-        MemSys::Manager::Get()->Free(directions);
+        MemSys::Hub::Pull()->Dealloc(directions);
         directions = nullptr;
     }
     if (colours) {
-        MemSys::Manager::Get()->Free(colours);
+        MemSys::Hub::Pull()->Dealloc(colours);
         colours = nullptr;
     }
     if (lightLow) {
-        MemSys::Manager::Get()->Free(lightLow);
+        MemSys::Hub::Pull()->Dealloc(lightLow);
         lightLow = nullptr;
     }
     if (lightHigh) {
-        MemSys::Manager::Get()->Free(lightHigh);
+        MemSys::Hub::Pull()->Dealloc(lightHigh);
         lightHigh = nullptr;
     }
 }
@@ -113,22 +113,22 @@ void __cdecl InitLightManager(uint32_t maxLights, uint32_t maxModelLights)
     g_modelLightCount = maxModelLights;
     LightCount() = maxLights;
     sWorldLights& world = World();
-    world.directions = static_cast<Maths::Vector*>(MemSys::New(maxLights * 16));
-    world.colours = static_cast<uint32_t*>(MemSys::New(maxLights * 4));
-    world.lightLow = static_cast<float*>(MemSys::New(maxLights * 4));
-    world.lightHigh = static_cast<float*>(MemSys::New(maxLights * 4));
+    world.directions = static_cast<Maths::Vec4*>(MemSys::Alloc(maxLights * 16));
+    world.colours = static_cast<uint32_t*>(MemSys::Alloc(maxLights * 4));
+    world.lightLow = static_cast<float*>(MemSys::Alloc(maxLights * 4));
+    world.lightHigh = static_cast<float*>(MemSys::Alloc(maxLights * 4));
     for (int i = 0; i < kStackDepth; ++i) {
-        sWorldLights& saved = Stack()[i];
-        saved.directions = static_cast<Maths::Vector*>(MemSys::New(maxLights * 16));
-        saved.colours = static_cast<uint32_t*>(MemSys::New(maxLights * 4));
-        saved.lightLow = static_cast<float*>(MemSys::New(maxLights * 4));
-        saved.lightHigh = static_cast<float*>(MemSys::New(maxLights * 4));
+        sWorldLights& saved = PileUp()[i];
+        saved.directions = static_cast<Maths::Vec4*>(MemSys::Alloc(maxLights * 16));
+        saved.colours = static_cast<uint32_t*>(MemSys::Alloc(maxLights * 4));
+        saved.lightLow = static_cast<float*>(MemSys::Alloc(maxLights * 4));
+        saved.lightHigh = static_cast<float*>(MemSys::Alloc(maxLights * 4));
         std::memset(saved.directions, 0, maxLights * 16);
         std::memset(saved.colours, 0, maxLights * 4);
         std::memset(saved.lightLow, 0, maxLights * 4);
         std::memset(saved.lightHigh, 0, maxLights * 4);
     }
-    Intensities() = static_cast<float*>(MemSys::New(maxLights * 4));
+    Intensities() = static_cast<float*>(MemSys::Alloc(maxLights * 4));
     for (uint32_t i = 0; i < maxLights; ++i)
         Intensities()[i] = 1.0f;
 }
@@ -169,7 +169,7 @@ uint32_t* __cdecl GetLightDiffuseColor(uint32_t* out, int light)
 }
 
 // 0x0048ED70
-bool __cdecl SetLightDirection(int light, const Maths::Vector* direction)
+bool __cdecl SetLightDirection(int light, const Maths::Vec4* direction)
 {
     World().directions[light] = *direction;
     return UpdateLightDirection(light);
@@ -207,7 +207,7 @@ float __cdecl GetDiffuseLightModulationFactor(int light, bool low)
 void __cdecl PushWorldLights()
 {
     if (++StackTop() < kStackDepth)
-        Stack()[StackTop()] = World();
+        PileUp()[StackTop()] = World();
     else
         --StackTop();
 }
@@ -217,7 +217,7 @@ bool __cdecl PopWorldLights()
 {
     if (StackTop() < 0)
         return false;
-    World() = Stack()[StackTop()];
+    World() = PileUp()[StackTop()];
     --StackTop();
     CompiledOut();
     return true;
@@ -257,7 +257,7 @@ void __cdecl DeleteDynamicLights()
 {
     for (int i = 0; i < DynamicLightCount(); ++i) {
         if (DynamicLights()[i]) {
-            MemSys::Manager::Get()->Free(DynamicLights()[i]);
+            MemSys::Hub::Pull()->Dealloc(DynamicLights()[i]);
             DynamicLights()[i] = nullptr;
         }
     }
@@ -276,7 +276,7 @@ CDynamicLightBase** __cdecl FindDynamicLight(uint32_t owner)
 }
 
 // 0x0048EF90
-uint32_t __cdecl GetDynamicLightsNear(const Maths::Vector* position, uint32_t max, CDynamicLightBase** out)
+uint32_t __cdecl GetDynamicLightsNear(const Maths::Vec4* position, uint32_t max, CDynamicLightBase** out)
 {
     float* falloffs = NearFalloffs();
     int* indexes = NearIndexes();
@@ -408,7 +408,7 @@ void SetWorldLightsAmbient() { g_worldLights.ambient = 0x80484848; }
 void ConstructWorldLightStack()
 {
     for (sWorldLights& lights : g_worldLightStack)
-        lights.Construct();
+        lights.MakeNew();
 }
 
 } // namespace Nx

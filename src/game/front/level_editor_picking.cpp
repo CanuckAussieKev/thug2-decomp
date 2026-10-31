@@ -25,7 +25,7 @@ bool IsStructure(V3 min, V3 max, V3 camera, float levelShare)
 
 void AddTopTriangle(TopArea* area, V3 a, V3 b, V3 c)
 {
-    V3 n = Cross(b - a, c - a);
+    V3 n = Perpendicular(b - a, c - a);
     float twice = std::sqrt(Dot(n, n));
     if (!(twice > 0.0f))
         return;
@@ -68,7 +68,7 @@ bool MaterialSeeThrough(uint32_t passFlags, uint32_t blendMode)
     }
 }
 
-Resolved Resolve(const std::vector<Met>& met)
+Resolved SettleUp(const std::vector<Met>& met)
 {
     std::vector<const Met*> order;
     for (const Met& m : met)
@@ -139,10 +139,10 @@ Choice Choose(const Candidates& c, uint32_t filter, bool everything)
     return best;
 }
 
-std::vector<Entry> CycleOrder(int node, const std::vector<Layered>& objects, const std::vector<Layered>& scenery,
+std::vector<TableRow> CycleOrder(int node, const std::vector<Layered>& objects, const std::vector<Layered>& scenery,
                               uint32_t filter)
 {
-    std::vector<Entry> order;
+    std::vector<TableRow> order;
     if (node >= 0 && (filter & kNodes))
         order.push_back({Choice::kNode, static_cast<uint32_t>(node), 0.0f});
     if (filter & kObjects)
@@ -159,7 +159,7 @@ std::vector<Entry> CycleOrder(int node, const std::vector<Layered>& objects, con
     return order;
 }
 
-int IndexOf(const std::vector<Entry>& order, Choice kind, uint32_t id)
+int IndexOf(const std::vector<TableRow>& order, Choice kind, uint32_t id)
 {
     // (a passed piece taken by Alt is the same piece as in the passed part)
     for (size_t i = 0; i < order.size(); ++i)
@@ -179,7 +179,7 @@ bool RayTriangle(V3 origin, V3 dir, V3 a, V3 b, V3 c, float* t)
 {
     // (Moller and Trumbore's test)
     V3 e1 = b - a, e2 = c - a;
-    V3 p = Cross(dir, e2);
+    V3 p = Perpendicular(dir, e2);
     float det = Dot(e1, p);
     if (std::fabs(det) < 1e-12f)
         return false;
@@ -188,7 +188,7 @@ bool RayTriangle(V3 origin, V3 dir, V3 a, V3 b, V3 c, float* t)
     float u = Dot(s, p) * inv;
     if (u < 0.0f || u > 1.0f)
         return false;
-    V3 q = Cross(s, e1);
+    V3 q = Perpendicular(s, e1);
     float v = Dot(dir, q) * inv;
     if (v < 0.0f || u + v > 1.0f)
         return false;
@@ -227,7 +227,7 @@ namespace {
 std::vector<Lock> g_locks;
 }
 
-bool Locked(uint32_t kind, uint32_t id)
+bool Latched(uint32_t kind, uint32_t id)
 {
     for (const Lock& lock : g_locks)
         if (lock.kind == kind && lock.id == id)

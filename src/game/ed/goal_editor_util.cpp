@@ -185,7 +185,7 @@ void __fastcall InitEditedGoal(uint8_t* goal)
 void __stdcall RunMarkerObjectScript(int index)
 {
     Scripts::CStruct params;
-    params.Init();
+    params.PrepareAll();
     char* name = g_goalNameBuffer;
     Sprintf(name, "GoalEditorMarkerObject%d", index);
     params.PutNameKey(0xA1DC81F9, Checksums::HashFromText(name));

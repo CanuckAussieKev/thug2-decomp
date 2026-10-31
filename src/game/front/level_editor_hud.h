@@ -18,7 +18,7 @@ void Reset(bool screenElements = true);
 // The message being shown (empty: none).
 const std::string& CurrentMessage();
 // A line of the HUD (1-7), set when it changes (at most 90 characters: a much longer text corrupted the heap).
-void SetLine(int line, const std::string& text);
+void ChangeStrand(int line, const std::string& text);
 // A message in the message line for `seconds`.
 void Message(const std::string& text, double seconds = 2.5);
 // Once a frame: the message cleared when its time is up.

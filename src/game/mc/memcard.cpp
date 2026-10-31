@@ -15,11 +15,11 @@ namespace MemCard {
 static VtableSlot kFileVtable_slots[] = {&MemCard::ListDestructors::OtherDestroy};
 void** const kFileVtable = reinterpret_cast<void**>(kFileVtable_slots);
 
-static_assert(offsetof(FileLoad, m_name) == 0x14 && offsetof(FileLoad, m_second) == 0x3C && offsetof(FileLoad, m_year) == 0x42 &&
-                  offsetof(FileLoad, m_size) == 0x44 && offsetof(FileLoad, m_handle) == 0x8C && sizeof(FileLoad) == 0x94,
+static_assert(offsetof(FileLoad, m_label) == 0x14 && offsetof(FileLoad, m_second) == 0x3C && offsetof(FileLoad, m_year) == 0x42 &&
+                  offsetof(FileLoad, m_extent) == 0x44 && offsetof(FileLoad, m_hdl) == 0x8C && sizeof(FileLoad) == 0x94,
               "layout must match the original");
 
-Manager* g_theCard;
+Hub* g_theCard;
 
 namespace {
 
@@ -31,16 +31,16 @@ char g_filenameBuffer[320];
 char* PathBuffer() { return g_pathBuffer; }
 char* FilenameBuffer() { return g_filenameBuffer; }
 
-Manager*& Instance() { return g_theCard; }
+Hub*& Sole() { return g_theCard; }
 int& RefTally() { return g_memcardReferences; }
 
 // A new (zeroed) file object: its own one-item list, no handle yet.
-FileLoad* NewFile(HANDLE handle, Card* card)
+FileLoad* NewFile(HANDLE handle, SaveCard* card)
 {
     auto* file = static_cast<FileLoad*>(MemSys::AllocZeroed(sizeof(FileLoad)));
     if (!file)
         return nullptr;
-    file->m_handle = handle;
+    file->m_hdl = handle;
     file->m_listLink.data = file;
     file->m_listLink.priority = 0;
     file->m_listLink.next = &file->m_listLink;
@@ -53,43 +53,43 @@ FileLoad* NewFile(HANDLE handle, Card* card)
 } // namespace
 
 // 0x005BC800
-DWORD FileLoad::Seek(LONG offset, int origin)
+DWORD FileLoad::SeekTo(LONG offset, int origin)
 {
     DWORD method = origin == 0 ? FILE_BEGIN : origin == 1 ? FILE_CURRENT : FILE_END;
-    return SetFilePointer(m_handle, offset, nullptr, method);
+    return SetFilePointer(m_hdl, offset, nullptr, method);
 }
 
 // 0x005BC840
-bool FileLoad::Flush()
+bool FileLoad::Drain()
 {
-    FlushFileBuffers(m_handle);
+    FlushFileBuffers(m_hdl);
     return true;
 }
 
 // 0x005BC850
-int FileLoad::Write(const void* data, int size)
+int FileLoad::EmitOut(const void* data, int size)
 {
     DWORD written;
-    return WriteFile(m_handle, data, static_cast<DWORD>(size), &written, nullptr) ? static_cast<int>(written) : 0;
+    return WriteFile(m_hdl, data, static_cast<DWORD>(size), &written, nullptr) ? static_cast<int>(written) : 0;
 }
 
 // 0x005BC880
-int FileLoad::Read(void* buffer, int size)
+int FileLoad::TakeIn(void* buffer, int size)
 {
     DWORD read;
-    return ReadFile(m_handle, buffer, static_cast<DWORD>(size), &read, nullptr) ? static_cast<int>(read) : 0;
+    return ReadFile(m_hdl, buffer, static_cast<DWORD>(size), &read, nullptr) ? static_cast<int>(read) : 0;
 }
 
 // 0x005BC8B0
-bool FileLoad::Close()
+bool FileLoad::Shut()
 {
-    return CloseHandle(m_handle) != 0;
+    return CloseHandle(m_hdl) != 0;
 }
 
 // 0x005BC9B0
-FileLoad* Card::Open(const char* name, int mode, int)
+FileLoad* SaveCard::Unseal(const char* name, int mode, int)
 {
-    m_error = 0;
+    m_fault = 0;
     // (with '/' turned into '\')
     char* path = PathBuffer();
     for (size_t i = 0;; ++i) {
@@ -109,8 +109,8 @@ FileLoad* Card::Open(const char* name, int mode, int)
     HANDLE handle = CreateFileA(path, access, 0, nullptr, disposition, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (handle == INVALID_HANDLE_VALUE) {
         // (the error is always 0 here: this never happens)
-        if (m_error == 0x70)
-            m_error = 2;
+        if (m_fault == 0x70)
+            m_fault = 2;
         return nullptr;
     }
     FileLoad* file = NewFile(handle, this);
@@ -120,20 +120,20 @@ FileLoad* Card::Open(const char* name, int mode, int)
 }
 
 // 0x005BC770
-bool Card::RemoveFile(const char* name)
+bool SaveCard::RemoveFile(const char* name)
 {
     return DeleteFileA(name) != 0;
 }
 
 // 0x005BC740
-const char* Card::ConvertFilename(const char* name)
+const char* SaveCard::ConvertFilename(const char* name)
 {
     std::memcpy(FilenameBuffer(), name, std::strlen(name) + 1);
     return FilenameBuffer();
 }
 
 // 0x005BC790
-int Card::GetFreeBlocks()
+int SaveCard::GetFreeBlocks()
 {
     if (!m_present)
         return 0;
@@ -144,7 +144,7 @@ int Card::GetFreeBlocks()
 }
 
 // 0x005BCAE0
-bool Card::ListSaveFiles(const char* pattern, FileLoad* list)
+bool SaveCard::ListSaveFiles(const char* pattern, FileLoad* list)
 {
     char* path = PathBuffer();
     std::snprintf(path, MAX_PATH, "Save\\%s", pattern);
@@ -157,7 +157,7 @@ bool Card::ListSaveFiles(const char* pattern, FileLoad* list)
             continue;
         FileLoad* file = NewFile(nullptr, this);
         // (no bounds: a long name runs into the fields after it, as in the original)
-        std::memcpy(file->m_name, found.cFileName, std::strlen(found.cFileName) + 1);
+        std::memcpy(file->m_label, found.cFileName, std::strlen(found.cFileName) + 1);
         FILETIME local;
         SYSTEMTIME time;
         FileTimeToLocalFileTime(&found.ftLastWriteTime, &local);
@@ -168,7 +168,7 @@ bool Card::ListSaveFiles(const char* pattern, FileLoad* list)
         file->m_hour = static_cast<uint8_t>(time.wHour);
         file->m_minute = static_cast<uint8_t>(time.wMinute);
         file->m_second = static_cast<uint8_t>(time.wSecond);
-        file->m_size = found.nFileSizeLow;
+        file->m_extent = found.nFileSizeLow;
         file->m_unknown48 = 0;
         // At the end of the list.
         file->m_listLink.prev = list->m_listLink.prev;
@@ -181,13 +181,13 @@ bool Card::ListSaveFiles(const char* pattern, FileLoad* list)
 }
 
 // 0x005BC7F0
-bool Card::AlwaysTrue(int)
+bool SaveCard::AlwaysTrue(int)
 {
     return true;
 }
 
 // 0x005BC8D0
-Manager* Manager::Init()
+Hub* Hub::PrepareAll()
 {
     for (int port = 0; port < 4; ++port) {
         for (int slot = 0; slot < 2; ++slot) {
@@ -200,25 +200,25 @@ Manager* Manager::Init()
 }
 
 // 0x005BC730 (one card, whichever port and slot)
-Card* Manager::GetStorageSlot(int, int)
+SaveCard* Hub::GetStorageSlot(int, int)
 {
     return &m_saveDevice;
 }
 
 // 0x005BC900
-Manager* CreateManager(bool create)
+Hub* CreateManager(bool create)
 {
-    if (!Instance() && create) {
-        auto* manager = static_cast<Manager*>(MemSys::AllocZeroed(sizeof(Manager), nullptr, 1));
+    if (!Sole() && create) {
+        auto* manager = static_cast<Hub*>(MemSys::AllocZeroed(sizeof(Hub), nullptr, 1));
         if (manager) {
-            Instance() = manager->Init();
+            Sole() = manager->PrepareAll();
             ++RefTally();
-            return Instance();
+            return Sole();
         }
-        Instance() = nullptr;
+        Sole() = nullptr;
     }
     ++RefTally();
-    return Instance();
+    return Sole();
 }
 
 // 0x005BC950
@@ -228,9 +228,9 @@ void ReleaseManager()
         --RefTally();
         return;
     }
-    if (Instance())
-        MemSys::Manager::Get()->Free(Instance());
-    Instance() = nullptr;
+    if (Sole())
+        MemSys::Hub::Pull()->Dealloc(Sole());
+    Sole() = nullptr;
     RefTally() = 0;
 }
 

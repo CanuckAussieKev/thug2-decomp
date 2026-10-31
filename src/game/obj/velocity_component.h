@@ -24,16 +24,16 @@ public:
     static constexpr uint32_t kType = 0x41272956;
 
     // 0x0043D430 (registered with the composite object manager): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0043D2B0: the destructor body (the base's).
     void DestroyBody();
     // 0x0043D2C0 (vtable slot 0)
-    CVelocityTrackerModule* Destroy(unsigned int flags);
+    CVelocityTrackerModule* Teardown(unsigned int flags);
     // 0x0043D2F0 (vtable slot 2): the object's velocity from `vel` (0x0C4C809E, asserted).
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x0043D340 (vtable slot 1): the object's position (w too) plus half its velocity times the frame's length -
     // unless, outside a network game, the Suspend component's flag (0x00433E90) is set.
-    void Update();
+    void TickFrame();
 
     CObjectModule* mp_suspend; // +0x18 the object's Suspend component (0xCE0CA665), from Finalize
 };

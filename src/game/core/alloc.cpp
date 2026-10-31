@@ -19,7 +19,7 @@ extern void** const kAllocRegionVtable;
 
 namespace {
 
-extern void** const kHeadVtable;       // ListKit::Head<Context>
+extern void** const kHeadVtable;       // ListKit::Foremost<Context>
 extern void** const kAllocatorVtable;
 
 } // namespace
@@ -46,13 +46,13 @@ uint32_t GetBlockSize(void* block)
 }
 
 // 0x005BA0B0
-Allocator* FreeBlock(void* block)
+MemSource* FreeBlock(void* block)
 {
     ChunkPrefix* header = ChunkPrefix::Of(block);
-    Allocator* allocator = header->allocator;
+    MemSource* allocator = header->allocator;
     if (header->marker != ChunkPrefix::kBlockFreed) {
         // The allocator's free (virtual slot 8).
-        reinterpret_cast<void(__thiscall*)(Allocator*, ChunkPrefix*)>(allocator->m_vtable[8])(allocator, header);
+        reinterpret_cast<void(__thiscall*)(MemSource*, ChunkPrefix*)>(allocator->m_vtable[8])(allocator, header);
         header->marker = ChunkPrefix::kBlockFreed;
     }
     return allocator;
@@ -61,55 +61,55 @@ Allocator* FreeBlock(void* block)
 // --- regions -------------------------------------------------------------------------------------------
 
 // 0x005BC5F0
-Region::Region(uint8_t* start, uint8_t* end)
+Zone::Zone(uint8_t* start, uint8_t* end)
 {
-    m_end = end;
+    m_finish = end;
     m_minAvailable = static_cast<int>(end - start);
     m_vtable = kRegionVtable;
-    m_start = start;
+    m_outset = start;
     m_allocators[1] = nullptr;
     m_allocators[0] = nullptr;
 }
 
 // 0x005BC4E0
-void Region::AddAllocator(Allocator* allocator)
+void Zone::AddAllocator(MemSource* allocator)
 {
     m_allocators[(allocator->m_direction >> 1) & 1] = allocator;
-    allocator->m_top = allocator->m_direction == Allocator::kGrowUp ? m_start : m_end;
+    allocator->m_topSide = allocator->m_direction == MemSource::kGrowUp ? m_outset : m_finish;
 }
 
 // 0x005BC510
-void Region::RemoveAllocator(Allocator* allocator)
+void Zone::RemoveAllocator(MemSource* allocator)
 {
     m_allocators[(allocator->m_direction >> 1) & 1] = nullptr;
 }
 
 // 0x005BC530
-int Region::FreeByteCount()
+int Zone::FreeByteCount()
 {
-    uint8_t* bottom = m_allocators[0] ? m_allocators[0]->m_top : m_start;
-    uint8_t* top = m_allocators[1] ? m_allocators[1]->m_top : m_end;
+    uint8_t* bottom = m_allocators[0] ? m_allocators[0]->m_topSide : m_outset;
+    uint8_t* top = m_allocators[1] ? m_allocators[1]->m_topSide : m_finish;
     return static_cast<int>(top - bottom);
 }
 
 // 0x005BC560
-uint8_t* Region::Allocate(Allocator* allocator, int size, int /*unused*/)
+uint8_t* Zone::Carve(MemSource* allocator, int size, int /*unused*/)
 {
     int side = (allocator->m_direction >> 1) & 1; // 0 growing up, 1 growing down
-    Allocator* other = m_allocators[side ^ 1];
-    uint8_t* newTop = allocator->m_top + allocator->m_direction * size;
+    MemSource* other = m_allocators[side ^ 1];
+    uint8_t* newTop = allocator->m_topSide + allocator->m_direction * size;
     uint8_t* result = newTop;
     if (side) {
-        uint8_t* limit = other ? other->m_top : m_start;
+        uint8_t* limit = other ? other->m_topSide : m_outset;
         if (newTop < limit)
             return nullptr;
     } else {
-        uint8_t* limit = other ? other->m_top : m_end;
-        result = allocator->m_top;
+        uint8_t* limit = other ? other->m_topSide : m_finish;
+        result = allocator->m_topSide;
         if (newTop > limit)
             return nullptr;
     }
-    allocator->m_top = newTop;
+    allocator->m_topSide = newTop;
     int available = FreeByteCount();
     if (available < m_minAvailable)
         m_minAvailable = available;
@@ -122,10 +122,10 @@ MemoryArena::MemoryArena(uint32_t size)
     m_vtable = kAllocRegionVtable;
     if (size) {
         uint32_t rounded = size & ~0xFu;
-        auto* start = static_cast<uint8_t*>(New(rounded)); // (New makes sure the memory system is set up)
-        m_end = start + rounded;
-        m_start = start;
-        m_minAvailable = static_cast<int>(m_end - start);
+        auto* start = static_cast<uint8_t*>(Alloc(rounded)); // (New makes sure the memory system is set up)
+        m_finish = start + rounded;
+        m_outset = start;
+        m_minAvailable = static_cast<int>(m_finish - start);
         m_allocators[1] = nullptr;
         m_allocators[0] = nullptr;
     }
@@ -135,14 +135,14 @@ MemoryArena::MemoryArena(uint32_t size)
 void MemoryArena::DestroyBody()
 {
     m_vtable = kAllocRegionVtable;
-    Free(m_start);
+    Dealloc(m_outset);
     m_vtable = kRegionVtable;
 }
 
 // --- allocators ----------------------------------------------------------------------------------------
 
-// 0x005BA0E0 (ListKit::Node destructor: take it out of its list)
-void ListNode::Unlink()
+// 0x005BA0E0 (ListKit::Elem destructor: take it out of its list)
+void ListNode::Uncouple()
 {
     UnlinkAs(kNodeVtable);
 }
@@ -158,20 +158,20 @@ void ListNode::UnlinkAs(void** nodeVtable)
 }
 
 // 0x005BC4D0
-void Region::DestroyBody()
+void Zone::DestroyBody()
 {
     m_vtable = kRegionVtable;
 }
 
 // 0x005BA260
-Allocator::Allocator(Region* region, int direction, const char* name)
+MemSource::MemSource(Zone* region, int direction, const char* name)
 {
     m_vtable = kAllocatorVtable;
     m_usedBlocks = m_maxUsedBlocks = m_freeBlocks = m_maxFreeBlocks = 0;
     m_usedSize = m_maxUsedSize = m_freeSize = m_maxFreeSize = 0;
     m_region = region;
     m_direction = direction;
-    m_name = name;
+    m_label = name;
     m_zoneChain = {kHeadVtable, reinterpret_cast<void*>(-1), 0, &m_zoneChain, &m_zoneChain};
     m_baseContext.node = {kNodeVtable, &m_baseContext, 0, &m_baseContext.node, &m_baseContext.node};
     m_baseContext.freeList = nullptr;
@@ -186,18 +186,18 @@ Allocator::Allocator(Region* region, int direction, const char* name)
 }
 
 // 0x005BA140
-void Allocator::DestroyBody()
+void MemSource::DestroyBody()
 {
     m_vtable = kAllocatorVtable;
     m_region->RemoveAllocator(this);
-    m_baseContext.node.Unlink();
-    m_zoneChain.Unlink();
+    m_baseContext.node.Uncouple();
+    m_zoneChain.Uncouple();
 }
 
 // 0x005BA1E0: a new, empty context on top of the stack
-void Allocator::EnterHeapScope()
+void MemSource::EnterHeapScope()
 {
-    auto* context = static_cast<Context*>(AllocZeroed(sizeof(Context)));
+    auto* context = static_cast<CtxInfo*>(AllocZeroed(sizeof(CtxInfo)));
     if (context)
         context->node = {kNodeVtable, context, 0, &context->node, &context->node};
     // (an allocation failure crashes here, as in the original)
@@ -210,36 +210,36 @@ void Allocator::EnterHeapScope()
 }
 
 // 0x005BA360: drop the current context; the next one down becomes current
-void Allocator::LeaveHeapScope()
+void MemSource::LeaveHeapScope()
 {
-    if (Context* context = m_context) {
-        context->node.Unlink();
-        Free(context);
+    if (CtxInfo* context = m_context) {
+        context->node.Uncouple();
+        Dealloc(context);
     }
     ListNode* next = m_zoneChain.next;
-    m_context = next->data != reinterpret_cast<void*>(-1) && next ? static_cast<Context*>(next->data) : nullptr;
+    m_context = next->data != reinterpret_cast<void*>(-1) && next ? static_cast<CtxInfo*>(next->data) : nullptr;
 }
 
 } // namespace Mem
 
 namespace {
 
-using MemSys::Allocator;
+using MemSys::MemSource;
 using MemSys::MemoryArena;
 using MemSys::ListNode;
-using MemSys::Region;
+using MemSys::Zone;
 
 // Constructors and destructors through member functions (they return `this` in EAX).
 struct AllocAdapters {
-    Region* RegionConstruct(uint8_t* start, uint8_t* end) { return new (this) Region(start, end); }
+    Zone* RegionConstruct(uint8_t* start, uint8_t* end) { return new (this) Zone(start, end); }
     MemoryArena* AllocRegionConstruct(uint32_t size) { return new (this) MemoryArena(size); }
     // 0x005BC6D0 (Region's virtual [0]): destroyed, and freed with flags & 1.
-    Region* RegionDestroy(unsigned int flags)
+    Zone* RegionDestroy(unsigned int flags)
     {
-        auto* region = reinterpret_cast<Region*>(this);
+        auto* region = reinterpret_cast<Zone*>(this);
         region->DestroyBody();
         if (flags & 1)
-            MemSys::Free(region);
+            MemSys::Dealloc(region);
         return region;
     }
     MemoryArena* AllocRegionDestroy(unsigned int flags)
@@ -247,36 +247,36 @@ struct AllocAdapters {
         auto* region = reinterpret_cast<MemoryArena*>(this);
         region->DestroyBody();
         if (flags & 1)
-            MemSys::Free(region);
+            MemSys::Dealloc(region);
         return region;
     }
-    Allocator* AllocatorConstruct(Region* region, int direction, const char* name)
+    MemSource* AllocatorConstruct(Zone* region, int direction, const char* name)
     {
-        return new (this) Allocator(region, direction, name);
+        return new (this) MemSource(region, direction, name);
     }
-    Allocator* AllocatorDestroy(unsigned int flags)
+    MemSource* AllocatorDestroy(unsigned int flags)
     {
-        auto* allocator = reinterpret_cast<Allocator*>(this);
+        auto* allocator = reinterpret_cast<MemSource*>(this);
         allocator->DestroyBody();
         if (flags & 1)
-            MemSys::Free(allocator);
+            MemSys::Dealloc(allocator);
         return allocator;
     }
     // 0x005BA100 / 0x005BA230: the list node's and list head's scalar deleting destructors
     ListNode* NodeDestroy(unsigned int flags)
     {
         auto* node = reinterpret_cast<ListNode*>(this);
-        node->Unlink();
+        node->Uncouple();
         if (flags & 1)
-            MemSys::Free(node);
+            MemSys::Dealloc(node);
         return node;
     }
     // The node destructors of two other node types (vtables 0x0065797C and 0x00658A70).
     void UnlinkNode65797C() { reinterpret_cast<ListNode*>(this)->UnlinkAs(Vt::kSaveNode); }
-    // (the node of Sio::Device's list)
+    // (the node of Sio::InputPort's list)
     void UnlinkNode658A70() { reinterpret_cast<ListNode*>(this)->UnlinkAs(Vt::kDeviceNode); }
     // 0x005BA4E0: free what the first field points to
-    void FreePointee() { MemSys::Free(*reinterpret_cast<void**>(this)); }
+    void FreePointee() { MemSys::Dealloc(*reinterpret_cast<void**>(this)); }
 };
 
 } // namespace
@@ -286,12 +286,12 @@ namespace MemSys {
 namespace {
 static VtableSlot kHeadVtable_slots[] = {&AllocAdapters::NodeDestroy};
 void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
-static VtableSlot kAllocatorVtable_slots[] = {&MemSys::Allocator::EnterHeapScope, &MemSys::Allocator::LeaveHeapScope, &AllocAdapters::AllocatorDestroy, &_purecall, Stubs::ReturnZero, Stubs::ReturnZero2, Stubs::ReturnZero2, Stubs::ReturnZero2, &_purecall};
+static VtableSlot kAllocatorVtable_slots[] = {&MemSys::MemSource::EnterHeapScope, &MemSys::MemSource::LeaveHeapScope, &AllocAdapters::AllocatorDestroy, &_purecall, Stubs::ReturnZero, Stubs::ReturnZero2, Stubs::ReturnZero2, Stubs::ReturnZero2, &_purecall};
 void** const kAllocatorVtable = reinterpret_cast<void**>(kAllocatorVtable_slots);
 } // namespace
 
 static VtableSlot kNodeVtable_slots[] = {&AllocAdapters::NodeDestroy};
-void** const kNodeVtable = reinterpret_cast<void**>(kNodeVtable_slots);          // ListKit::Node<Context>
+void** const kNodeVtable = reinterpret_cast<void**>(kNodeVtable_slots);          // ListKit::Elem<Context>
 static VtableSlot kRegionVtable_slots[] = {&AllocAdapters::RegionDestroy};
 void** const kRegionVtable = reinterpret_cast<void**>(kRegionVtable_slots);
 static VtableSlot kAllocRegionVtable_slots[] = {&AllocAdapters::AllocRegionDestroy};

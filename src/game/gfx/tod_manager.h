@@ -19,7 +19,7 @@ class CScript;
 class CStruct;
 } // namespace Script
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 
 namespace Gfx2D {
@@ -128,7 +128,7 @@ public:
     static constexpr int kSystems = 2;
 
     // 0x00573620: the constructor (returns this): the dead-objects table, the structures, then Reset.
-    CTODManager* Construct();
+    CTODManager* MakeNew();
     // 0x00573770: the destructor body.
     void Destruct();
     // 0x005730E0: back to the defaults: afternoon, states of 60 s, transitions of 30 s, active, fog on, time
@@ -138,7 +138,7 @@ public:
     // 0x00574590: a frame (GameModules::Skate's update): in a career game, unless the script variable
     // tod_manager_inactive is 1, a temporary state is up, the manager is inactive or the front end is paused, time
     // moves on (the frame's length times the multiplier) and each system is updated.
-    void Update();
+    void TickFrame();
     // 0x00573810: system `index`'s frame while transitioning: the next part of the current light group coloured
     // with the blended parameters (when its wait is over), the lights / fog / bloom set, the transition script
     // run half-way (at once for evening), and the next state taken when the transition ends.
@@ -155,7 +155,7 @@ public:
 
     // 0x00572130: TODManager_SetParams system=1|2 current_state=... <state structures> transition_length=...
     // [overwrite_current_state={...}] [sky].
-    void SetParams(Scripts::CStruct* params);
+    void ChangeArgs(Scripts::CStruct* params);
     // 0x00571A00: the parameters in `structure` read into `out` (missing ones are left as they are).
     void ParseParams(Scripts::CStruct* structure, TODParams* out);
     // 0x00571340: `a` blended towards `b` by `t` (integers truncated). Fields +0x14..+0x24 and fog_on aren't set
@@ -205,7 +205,7 @@ public:
     uint32_t CurrentState() const;
     bool CanSetTODInstant(uint32_t state) const;
 
-    ListKit::HashTable* m_deadObjects;       // +0x000 nodes marked permanently dead (value: the manager)
+    ListKit::KeyMap* m_deadObjects;       // +0x000 nodes marked permanently dead (value: the manager)
     Scripts::CStruct* m_unknown4;          // +0x004 made, emptied and freed, never filled
     TODSystem m_systems[kSystems];        // +0x008
     BloomParams m_tempBloom;              // +0x318 TODManager_SetTempBloomParams'

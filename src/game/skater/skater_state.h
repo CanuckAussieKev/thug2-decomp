@@ -30,19 +30,19 @@ public:
     enum PhysicsMode : int { SKATING = 0, WALKING = 1 };
 
     // 0x00519740 (registered by RegisterComponentTypes): a new one (0 if out of memory), no powerups.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00519430 (registered with Create): its script member functions (the table at 0x00684A80) registered.
     static void __cdecl PublishMethodTable();
     // 0x00519450: the destructor body (the base's).
     void DestroyBody();
     // 0x00519620 (vtable slot 0)
-    CRiderPoseState* Destroy(unsigned int flags);
+    CRiderPoseState* Teardown(unsigned int flags);
     // 0x00519460 (vtable +0x08): in the air. `params` isn't read.
     void ConfigureFromData(Scripts::CStruct* params);
 
     // 0x00519660 / 0x00519680 / 0x005196A0: the state / the physics mode / the terrain; when it changes the skater
     // gets OnSkaterStateChange / OnSkaterPhysicsStateChange / OnSkaterTerrainChange.
-    void SetState(int state);
+    void ChangePhase(int state);
     void SetPhysicsMode(int mode);
     void SetSurfaceKind(uint8_t terrain);
     // 0x00519470: the powerups dropped (called by a script command).
@@ -58,7 +58,7 @@ public:
     bool OnRail(Scripts::CStruct* params, Scripts::CScript* script);          // 0x005194B0
     bool InWallplant(Scripts::CStruct* params, Scripts::CScript* script);     // 0x005194C0
     bool InBailState(Scripts::CStruct* params, Scripts::CScript* script);     // 0x005196D0 (+0x70)
-    bool Walking(Scripts::CStruct* params, Scripts::CScript* script);         // 0x005194D0 (not driving)
+    bool OnFoot(Scripts::CStruct* params, Scripts::CScript* script);         // 0x005194D0 (not driving)
     bool Skating(Scripts::CStruct* params, Scripts::CScript* script);         // 0x005194F0 (not driving)
     bool Driving(Scripts::CStruct* params, Scripts::CScript* script);         // 0x00519510
     bool SetDriving(Scripts::CStruct* params, Scripts::CScript* script);      // 0x00519520
@@ -72,7 +72,7 @@ public:
     bool GetSparksPos(Scripts::CStruct* params, Scripts::CScript* script);    // 0x00519720 (SparksPos)
     bool SetSparksPos(Scripts::CStruct* params, Scripts::CScript* script);    // 0x00519600 (the unnamed checksum)
 
-    int m_state;                // +0x18 State
+    int m_curPhase;                // +0x18 State
     int m_physicsMode;          // +0x1C PhysicsMode (-1 until the physics control component sets it)
     uint8_t m_unknown20[0x50];  // +0x20 (the controls, the flip flag +0x28 and its time +0x2C... - the physics')
     uint8_t m_bailing;          // +0x70
@@ -86,7 +86,7 @@ public:
     uint8_t m_unknown121[3];
     uint32_t m_sparksPos;       // +0x124 a checksum
 };
-static_assert(offsetof(CRiderPoseState, m_state) == 0x18 &&
+static_assert(offsetof(CRiderPoseState, m_curPhase) == 0x18 &&
                   offsetof(CRiderPoseState, m_physicsMode) == 0x1C &&
                   offsetof(CRiderPoseState, m_bailing) == 0x70 &&
                   offsetof(CRiderPoseState, m_doingTrick) == 0xE0 &&
@@ -101,7 +101,7 @@ static_assert(offsetof(CRiderPoseState, m_state) == 0x18 &&
 struct SkaterStateHistoryFrame {
     // 0x005197D0 / 0x005197E0: the frame's time (+0x78 the low 16 bits, +0x7A the high).
     uint32_t GetTime();
-    void SetTime(uint32_t time);
+    void ChangeMoment(uint32_t time);
 };
 
 } // namespace Obj

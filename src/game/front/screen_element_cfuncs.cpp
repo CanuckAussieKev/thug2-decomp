@@ -52,7 +52,7 @@ constexpr uint32_t kHeapDefault = 0x1CA1FF20, kHeapSkaterGeom = 0x39FB63CC, kHea
 constexpr uint32_t kHeapDebug = 0x935AB858, kHeapScript = 0xE37E78C5, kHeapInternetBottomUp = 0xBAA81175;
 constexpr uint32_t kHeapBottomUp = 0xC80BF12D, kHeapInternetTopDown = 0xE3F81B18, kHeapSkaterInfo = 0xEABD217B;
 
-CUiTree* Manager() { return CUiTree::Instance(); }
+CUiTree* Hub() { return CUiTree::Sole(); }
 
 uint32_t UnassignedId() { return g_unassignedId; }
 
@@ -89,9 +89,9 @@ bool TextBlockConcatenate(CUiWidget* e, const char* text, bool enforceMaxWidth, 
 bool TextConcatenate(CUiWidget* e, const char* text) { return Text(e)->JoinOnto(text); }
 bool TextBlockBackspace(CUiWidget* e) { return TextBlock(e)->Backspace(); }
 bool TextBackspace(CUiWidget* e) { return Text(e)->Backspace(); }
-bool TextBlockString(CUiWidget* e, char* out, int size) { return TextBlock(e)->GetText(out, size); }
-int TextBlockLength(CUiWidget* e) { return TextBlock(e)->GetLength(); }
-int TextLength(CUiWidget* e) { return Text(e)->GetLength(); }
+bool TextBlockString(CUiWidget* e, char* out, int size) { return TextBlock(e)->FetchCaption(out, size); }
+int TextBlockLength(CUiWidget* e) { return TextBlock(e)->FetchMagnitude(); }
+int TextLength(CUiWidget* e) { return Text(e)->FetchMagnitude(); }
 
 // A font (0x0048D760, cdecl) and the size of a string in it (0x0048D060, thiscall).
 void* GetFont(uint32_t name) { return Engine3D::GetFont(name); }
@@ -107,14 +107,14 @@ void ReadStringParam(void* font, const char* text, float* width, float* height)
 // 0x004ACB70: an element of `type` (unknown types: none), on the heap the parameters name (none given: the front
 // end's; Default: the current one), its id set, registered, its properties and morph from `params`, a pad-event
 // priority if given.
-ElementPtr* CUiTree::CreateElement(ElementPtr* out, uint32_t type, uint32_t id, Scripts::CStruct* params)
+ElementPtr* CUiTree::SpawnPart(ElementPtr* out, uint32_t type, uint32_t id, Scripts::CStruct* params)
 {
     ElementPtr element;
-    MemSys::Manager* memory = MemSys::Manager::Get();
+    MemSys::Hub* memory = MemSys::Hub::Pull();
     bool heapPushed = false;
     uint32_t heap = 0;
     bool pushHeap = true;
-    MemSys::Allocator* chosen = memory->m_frontEndHeap;
+    MemSys::MemSource* chosen = memory->m_frontEndHeap;
     if (params->ReadHashValue(kHeap, &heap, 0)) {
         int index;
         switch (heap) {
@@ -125,7 +125,7 @@ ElementPtr* CUiTree::CreateElement(ElementPtr* out, uint32_t type, uint32_t id, 
             chosen = memory->m_topDownHeap;
             break;
         case kHeap3C84A59:
-            chosen = reinterpret_cast<MemSys::Allocator*>(memory->m_unknown158[1]);
+            chosen = reinterpret_cast<MemSys::MemSource*>(memory->m_unknown158[1]);
             break;
         case kHeapDefault:
             pushHeap = false;
@@ -168,52 +168,52 @@ ElementPtr* CUiTree::CreateElement(ElementPtr* out, uint32_t type, uint32_t id, 
     switch (type) {
     case kContainerElement:
         m = NewMemory(sizeof(CGroupWidget));
-        element.Set(m ? static_cast<CGroupWidget*>(m)->Construct() : nullptr);
+        element.AssignValue(m ? static_cast<CGroupWidget*>(m)->MakeNew() : nullptr);
         break;
     case kHScrollingMenu:
         m = NewMemory(sizeof(CScrollingMenu));
-        element.Set(m ? static_cast<CScrollingMenu*>(m)->ConstructHorizontal() : nullptr);
+        element.AssignValue(m ? static_cast<CScrollingMenu*>(m)->ConstructHorizontal() : nullptr);
         break;
     case kTextureElement:
         m = NewMemory(sizeof(CTextureElement));
-        element.Set(m ? static_cast<CTextureElement*>(m)->Construct() : nullptr);
+        element.AssignValue(m ? static_cast<CTextureElement*>(m)->MakeNew() : nullptr);
         break;
     case kVMenu:
         m = NewMemory(sizeof(CMenuBase));
-        element.Set(m ? static_cast<CMenuBase*>(m)->ConstructVMenu() : nullptr);
+        element.AssignValue(m ? static_cast<CMenuBase*>(m)->ConstructVMenu() : nullptr);
         break;
     case kTextBlockElement:
         m = NewMemory(0x1C4);
-        element.Set(m ? static_cast<CParagraphWidget*>(m)->Construct() : nullptr);
+        element.AssignValue(m ? static_cast<CParagraphWidget*>(m)->MakeNew() : nullptr);
         break;
     case kTextElement:
         m = NewMemory(0x1B0);
-        element.Set(m ? static_cast<CLabelWidget*>(m)->Construct() : nullptr);
+        element.AssignValue(m ? static_cast<CLabelWidget*>(m)->MakeNew() : nullptr);
         break;
     case kWindowElement:
         m = NewMemory(sizeof(CPanelWidget));
-        element.Set(m ? static_cast<CPanelWidget*>(m)->Construct() : nullptr);
+        element.AssignValue(m ? static_cast<CPanelWidget*>(m)->MakeNew() : nullptr);
         break;
     case kElement3D:
         m = NewMemory(sizeof(CModelWidget));
-        element.Set(m ? static_cast<CModelWidget*>(m)->Construct() : nullptr);
+        element.AssignValue(m ? static_cast<CModelWidget*>(m)->MakeNew() : nullptr);
         break;
     case kVScrollingMenu:
         m = NewMemory(sizeof(CScrollingMenu));
-        element.Set(m ? static_cast<CScrollingMenu*>(m)->ConstructVertical() : nullptr);
+        element.AssignValue(m ? static_cast<CScrollingMenu*>(m)->ConstructVertical() : nullptr);
         break;
     case kSpriteElement:
         m = NewMemory(sizeof(CImageWidget));
-        element.Set(m ? static_cast<CImageWidget*>(m)->Construct() : nullptr);
+        element.AssignValue(m ? static_cast<CImageWidget*>(m)->MakeNew() : nullptr);
         break;
     case kHMenu:
         m = NewMemory(sizeof(CMenuBase));
-        element.Set(m ? static_cast<CMenuBase*>(m)->ConstructHMenu() : nullptr);
+        element.AssignValue(m ? static_cast<CMenuBase*>(m)->ConstructHMenu() : nullptr);
         break;
     default:
         break;
     }
-    element->SetID(id);
+    element->ChangeSerial(id);
     VirtualRegisterObject(element.m_ownerObject);
     VSetProperties(element.m_ownerObject, params);
     VSetMorph(element.m_ownerObject, params);
@@ -224,7 +224,7 @@ ElementPtr* CUiTree::CreateElement(ElementPtr* out, uint32_t type, uint32_t id, 
         memory->LeaveHeapScope();
     out->m_preceding = out->m_following = nullptr;
     out->m_ownerObject = nullptr;
-    out->Set(element.m_ownerObject);
+    out->AssignValue(element.m_ownerObject);
     return out;
 }
 
@@ -233,13 +233,13 @@ ElementPtr* CUiTree::CreateElement(ElementPtr* out, uint32_t type, uint32_t id, 
 // 0x004AAD90: the root window (on the front end's heap), id root_window, registered.
 bool __cdecl CFunc_ScreenElementSystemInit(Scripts::CStruct*, Scripts::CScript*)
 {
-    MemSys::Manager* memory = MemSys::Manager::Get();
+    MemSys::Hub* memory = MemSys::Hub::Pull();
     memory->EnterHeapScope(memory->m_frontEndHeap);
     void* m = MemSys::AllocZeroed(sizeof(CPanelWidget));
-    CUiWidget* root = m ? static_cast<CPanelWidget*>(m)->Construct() : nullptr;
-    MemSys::Manager::Get()->LeaveHeapScope();
-    root->SetID(kRootWindow);
-    Manager()->VirtualRegisterObject(root);
+    CUiWidget* root = m ? static_cast<CPanelWidget*>(m)->MakeNew() : nullptr;
+    MemSys::Hub::Pull()->LeaveHeapScope();
+    root->ChangeSerial(kRootWindow);
+    Hub()->VirtualRegisterObject(root);
     return true;
 }
 
@@ -251,22 +251,22 @@ bool __cdecl CFunc_CreateScreenElement(Scripts::CStruct* params, Scripts::CScrip
     uint32_t id = UnassignedId();
     params->ReadHashValue(kId, &id, 0);
     ElementPtr element;
-    Manager()->CreateElement(&element, type, id, params);
-    script->m_params->PutNameKey(kId, element->m_id);
+    Hub()->SpawnPart(&element, type, id, params);
+    script->m_args->PutNameKey(kId, element->m_ident);
     return true;
 }
 
 // 0x004AD300: dont_recurse (just the element), preserve_parent (keep the element itself).
 bool __cdecl CFunc_DestroyScreenElement(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    CUiTree* manager = Manager();
+    CUiTree* manager = Hub();
     uint32_t id;
     if (!manager->ResolveId(params, kId, &id))
         return false;
     int recurse = params->HasBareFlag("dont_recurse") ? 0 : 1; // dont_recurse
     int keep = params->HasBareFlag("preserve_parent") ? 1 : 0;    // preserve_parent
     if (recurse || !keep)
-        manager->DestroyElement(id, recurse, keep, script);
+        manager->DismantlePart(id, recurse, keep, script);
     return true;
 }
 
@@ -275,7 +275,7 @@ bool __cdecl CFunc_DestroyScreenElement(Scripts::CStruct* params, Scripts::CScri
 bool __cdecl CFunc_RunScriptOnScreenElement(Scripts::CStruct* params, Scripts::CScript* script)
 {
     ElementPtr element;
-    Manager()->ResolveElement(&element, params, kId, 1);
+    Hub()->ResolveElement(&element, params, kId, 1);
     uint32_t name = 0;
     params->ReadHashValue(0u, &name, true);
     uint32_t callback = 0;
@@ -289,8 +289,8 @@ bool __cdecl CFunc_RunScriptOnScreenElement(Scripts::CStruct* params, Scripts::C
         VCallMemberFunction(element.m_ownerObject, name, scriptParams, script);
     } else if (CScript* spawned = Scripts::SpawnScript(name, scriptParams, callback, callbackParams, 0, 0, false,
                                                       false, false, false)) {
-        spawned->m_object.Set(element.m_ownerObject);
-        spawned->Update();
+        spawned->m_entity.AssignValue(element.m_ownerObject);
+        spawned->TickFrame();
     }
     return true;
 }
@@ -299,7 +299,7 @@ bool __cdecl CFunc_RunScriptOnScreenElement(Scripts::CStruct* params, Scripts::C
 bool __cdecl CFunc_SetScreenElementProps(Scripts::CStruct* params, Scripts::CScript*)
 {
     ElementPtr element;
-    Manager()->ResolveElement(&element, params, kId, 1);
+    Hub()->ResolveElement(&element, params, kId, 1);
     if (element)
         VSetProperties(element.m_ownerObject, params);
     return true;
@@ -309,7 +309,7 @@ bool __cdecl CFunc_SetScreenElementProps(Scripts::CStruct* params, Scripts::CScr
 bool __cdecl CFunc_DoScreenElementMorph(Scripts::CStruct* params, Scripts::CScript*)
 {
     ElementPtr element;
-    Manager()->ResolveElement(&element, params, kId, 1);
+    Hub()->ResolveElement(&element, params, kId, 1);
     VSetMorph(element.m_ownerObject, params);
     return true;
 }
@@ -318,7 +318,7 @@ bool __cdecl CFunc_DoScreenElementMorph(Scripts::CStruct* params, Scripts::CScri
 bool __cdecl CFunc_SetScreenElementLock(Scripts::CStruct* params, Scripts::CScript*)
 {
     ElementPtr element;
-    Manager()->ResolveElement(&element, params, kId, 1);
+    Hub()->ResolveElement(&element, params, kId, 1);
     element->SetFocusSent(params->HasBareFlag(kOff) ? 0 : 1);
     return true;
 }
@@ -327,12 +327,12 @@ bool __cdecl CFunc_SetScreenElementLock(Scripts::CStruct* params, Scripts::CScri
 bool __cdecl CFunc_GetScreenElementDims(Scripts::CStruct* params, Scripts::CScript* script)
 {
     ElementPtr element;
-    Manager()->ResolveElement(&element, params, kId, 1);
+    Hub()->ResolveElement(&element, params, kId, 1);
     int width = static_cast<int>(static_cast<int64_t>(static_cast<double>(element->m_shown.scaleX) * element->m_span));
     int height =
         static_cast<int>(static_cast<int64_t>(static_cast<double>(element->m_shown.scaleY) * element->m_levelY));
-    script->m_params->PutInt(kWidth, width);
-    script->m_params->PutInt(kHeight, height);
+    script->m_args->PutInt(kWidth, width);
+    script->m_args->PutInt(kHeight, height);
     return true;
 }
 
@@ -340,23 +340,23 @@ bool __cdecl CFunc_GetScreenElementDims(Scripts::CStruct* params, Scripts::CScri
 // false.
 bool __cdecl CFunc_GetScreenElementProps(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    CUiTree* manager = Manager();
+    CUiTree* manager = Hub();
     ElementPtr element;
     uint32_t id;
     if (manager->ResolveId(params, kId, &id)) {
         ElementPtr found;
-        element.Set(manager->GetElement(&found, id, 0)->m_ownerObject);
+        element.AssignValue(manager->FetchPart(&found, id, 0)->m_ownerObject);
     }
     if (!element) {
         params->HasBareFlag(kDontAssert);
         return false;
     }
-    VGetProperties(element.m_ownerObject, script->m_params);
-    if (element->m_type == kElement3D) {
+    VGetProperties(element.m_ownerObject, script->m_args);
+    if (element->m_kindTag == kElement3D) {
         auto* e3d = static_cast<CModelWidget*>(GameObjects::Tracker()->LookUpObject(id));
-        script->m_params->PushFloat(kAngleX, e3d->m_angle[0]);
-        script->m_params->PushFloat(kAngleY, e3d->m_angle[1]);
-        script->m_params->PushFloat(kAngleZ, e3d->m_angle[2]);
+        script->m_args->PushFloat(kAngleX, e3d->m_angle[0]);
+        script->m_args->PushFloat(kAngleY, e3d->m_angle[1]);
+        script->m_args->PushFloat(kAngleZ, e3d->m_angle[2]);
     }
     return true;
 }
@@ -364,34 +364,34 @@ bool __cdecl CFunc_GetScreenElementProps(Scripts::CStruct* params, Scripts::CScr
 // 0x004AC900
 bool __cdecl CFunc_SetRootScreenElement(Scripts::CStruct* params, Scripts::CScript*)
 {
-    CUiTree* manager = Manager();
+    CUiTree* manager = Hub();
     uint32_t id;
     if (!manager->ResolveId(params, kId, &id))
         return false;
-    manager->SetRoot(id);
+    manager->ChangeRoot(id);
     return true;
 }
 
 // 0x004AC940: the children's ids as an array `children`; none: false.
 bool __cdecl CFunc_GetScreenElementChildren(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    CUiTree* manager = Manager();
+    CUiTree* manager = Hub();
     ElementPtr element;
     uint32_t id;
     if (manager->ResolveId(params, kId, &id)) {
         ElementPtr found;
-        element.Set(manager->GetElement(&found, id, 1)->m_ownerObject);
+        element.AssignValue(manager->FetchPart(&found, id, 1)->m_ownerObject);
     }
     int count = element->ChildTotal();
     if (count == 0)
         return false;
     Scripts::CArray* array = Scripts::NewArray();
     if (array)
-        array = array->Init();
+        array = array->PrepareAll();
     array->ConfigureSizeKind(count, Scripts::QBVAL_NAME);
     for (int i = 0; i < count; ++i)
-        array->SetElement(i, element->FindChildAtSlot(i)->m_id);
-    script->m_params->AppendArrayRef(kChildren, array);
+        array->SetElement(i, element->FindChildAtSlot(i)->m_ident);
+    script->m_args->AppendArrayRef(kChildren, array);
     return true;
 }
 
@@ -399,15 +399,15 @@ bool __cdecl CFunc_GetScreenElementChildren(Scripts::CStruct* params, Scripts::C
 bool __cdecl CFunc_TextElementConcatenate(Scripts::CStruct* params, Scripts::CScript*)
 {
     ElementPtr element;
-    Manager()->ResolveElement(&element, params, kId, 1);
+    Hub()->ResolveElement(&element, params, kId, 1);
     const char* text = nullptr;
-    params->GetString(0u, &text, 1);
-    if (element->m_type == kTextBlockElement) {
+    params->FetchText(0u, &text, 1);
+    if (element->m_kindTag == kTextBlockElement) {
         bool lastLine = params->HasBareFlag(kLastLine);
         bool enforce = params->HasBareFlag(kEnforceMaxWidth);
         return TextBlockConcatenate(element.m_ownerObject, text, enforce, lastLine);
     }
-    if (element->m_type == kTextElement)
+    if (element->m_kindTag == kTextElement)
         return TextConcatenate(element.m_ownerObject, text);
     return false;
 }
@@ -416,10 +416,10 @@ bool __cdecl CFunc_TextElementConcatenate(Scripts::CStruct* params, Scripts::CSc
 bool __cdecl CFunc_TextElementBackspace(Scripts::CStruct* params, Scripts::CScript*)
 {
     ElementPtr element;
-    Manager()->ResolveElement(&element, params, kId, 1);
-    if (element->m_type == kTextBlockElement)
+    Hub()->ResolveElement(&element, params, kId, 1);
+    if (element->m_kindTag == kTextBlockElement)
         return TextBlockBackspace(element.m_ownerObject);
-    if (element->m_type == kTextElement)
+    if (element->m_kindTag == kTextElement)
         return TextBackspace(element.m_ownerObject);
     return false;
 }
@@ -429,13 +429,13 @@ bool __cdecl CFunc_GetTextElementString(Scripts::CStruct* params, Scripts::CScri
 {
     char text[0x200];
     ElementPtr element;
-    Manager()->ResolveElement(&element, params, kId, 1);
-    if (element->m_type == kTextBlockElement) {
+    Hub()->ResolveElement(&element, params, kId, 1);
+    if (element->m_kindTag == kTextBlockElement) {
         if (TextBlockString(element.m_ownerObject, text, sizeof(text)))
-            script->m_params->AddString(kString, text);
-    } else if (element->m_type == kTextElement) {
+            script->m_args->AppendWord(kString, text);
+    } else if (element->m_kindTag == kTextElement) {
         if (const char* string = *reinterpret_cast<const char**>(reinterpret_cast<uint8_t*>(element.m_ownerObject) + 0x178))
-            script->m_params->AddString(kString, string);
+            script->m_args->AppendWord(kString, string);
     }
     return false;
 }
@@ -444,15 +444,15 @@ bool __cdecl CFunc_GetTextElementString(Scripts::CStruct* params, Scripts::CScri
 bool __cdecl CFunc_GetTextElementLength(Scripts::CStruct* params, Scripts::CScript* script)
 {
     ElementPtr element;
-    Manager()->ResolveElement(&element, params, kId, 1);
+    Hub()->ResolveElement(&element, params, kId, 1);
     int length;
-    if (element->m_type == kTextBlockElement)
+    if (element->m_kindTag == kTextBlockElement)
         length = TextBlockLength(element.m_ownerObject);
-    else if (element->m_type == kTextElement)
+    else if (element->m_kindTag == kTextElement)
         length = TextLength(element.m_ownerObject);
     else
         return false;
-    script->m_params->PutInt(kLength, length);
+    script->m_args->PutInt(kLength, length);
     return true;
 }
 
@@ -460,10 +460,10 @@ bool __cdecl CFunc_GetTextElementLength(Scripts::CStruct* params, Scripts::CScri
 bool __cdecl CFunc_GetScreenElementPosition(Scripts::CStruct* params, Scripts::CScript* script)
 {
     ElementPtr element;
-    Manager()->ResolveElement(&element, params, kId, 1);
+    Hub()->ResolveElement(&element, params, kId, 1);
     float x, y;
     element->GetTopLeft(&x, &y);
-    script->m_params->InsertPair(kScreenElementPos, x, y);
+    script->m_args->InsertPair(kScreenElementPos, x, y);
     return true;
 }
 
@@ -471,7 +471,7 @@ bool __cdecl CFunc_GetScreenElementPosition(Scripts::CStruct* params, Scripts::C
 bool __cdecl CFunc_MenuSelectedIndexIs(Scripts::CStruct* params, Scripts::CScript*)
 {
     ElementPtr element;
-    Manager()->ResolveElement(&element, params, kId, 1);
+    Hub()->ResolveElement(&element, params, kId, 1);
     auto* menu = static_cast<CMenuBase*>(element.m_ownerObject);
     int selected = menu->m_selectedIndex;
     if (selected == -1)
@@ -490,7 +490,7 @@ bool __cdecl CFunc_MenuSelectedIndexIs(Scripts::CStruct* params, Scripts::CScrip
 bool __cdecl CFunc_ScreenElementExists(Scripts::CStruct* params, Scripts::CScript*)
 {
     ElementPtr element;
-    Manager()->ResolveElement(&element, params, kId, 0);
+    Hub()->ResolveElement(&element, params, kId, 0);
     return static_cast<bool>(element);
 }
 
@@ -509,18 +509,18 @@ bool __cdecl CFunc_CreateMultipleTextElements(Scripts::CStruct* params, Scripts:
     char* line = buffers.line;
     uint32_t id = 0;
     params->ReadHashValue(kId, &id, 0);
-    CUiTree* manager = Manager();
+    CUiTree* manager = Hub();
     Scripts::CArray* texts = nullptr;
     uint32_t textIndex = 0;
     const char* text = nullptr;
-    if (params->GetArray(kText, &texts, 0))
-        text = texts->GetString(0);
+    if (params->FetchList(kText, &texts, 0))
+        text = texts->FetchText(0);
     else
-        params->GetString(kText, &text, 1);
+        params->FetchText(kText, &text, 1);
     uint32_t fontName;
     params->ReadHashValue(kFont, &fontName, 1);
     float maxWidth;
-    params->GetFloat(kWidth, &maxWidth, 1);
+    params->FetchFloat(kWidth, &maxWidth, 1);
     void* font = GetFont(fontName);
     const char* cursor = text;
     float lineWidth = 0.0f;
@@ -529,11 +529,11 @@ bool __cdecl CFunc_CreateMultipleTextElements(Scripts::CStruct* params, Scripts:
     auto makeElement = [&]() {
         CStruct* elementParams = Scripts::NewStruct();
         if (elementParams)
-            elementParams = elementParams->Init();
+            elementParams = elementParams->PrepareAll();
         elementParams->AppendStructureIfAny(params);
-        elementParams->AddString(kText, line);
+        elementParams->AppendWord(kText, line);
         ElementPtr made;
-        manager->CreateElement(&made, kTextElement, UnassignedId(), elementParams);
+        manager->SpawnPart(&made, kTextElement, UnassignedId(), elementParams);
         made.Release();
         if (elementParams) {
             elementParams->Clear();
@@ -543,9 +543,9 @@ bool __cdecl CFunc_CreateMultipleTextElements(Scripts::CStruct* params, Scripts:
     int result;
     do {
         result = TextUtil::NextWord(word, cursor);
-        if (texts && result == 2 && textIndex < texts->m_size - 1) {
+        if (texts && result == 2 && textIndex < texts->m_extent - 1) {
             // the next string of the array, a space between
-            text = texts->GetString(++textIndex);
+            text = texts->FetchText(++textIndex);
             cursor = text;
             if (previous != 1) {
                 size_t length = std::strlen(word);

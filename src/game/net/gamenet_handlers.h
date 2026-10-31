@@ -1,8 +1,8 @@
 #pragma once
 
-// The network manager's message handlers (OnlinePlay::Manager, 0x0052D6A0-0x00532460): the client's (registered by
-// 0x00534480, the join) and the server's (0x0053C380, StartServer). Each gets a NetLink::InboundMsgCtx whose
-// m_data is the manager and returns a NetLink::HandlerResult. The chat handler (0x00532050) is in chat.h.
+// The network manager's message handlers (OnlinePlay::Hub, 0x0052D6A0-0x00532460): the client's (registered by
+// 0x00534480, the join) and the server's (0x0053C380, LaunchHost). Each gets a NetLink::InboundMsgCtx whose
+// m_content is the manager and returns a NetLink::HandlerResult. The chat handler (0x00532050) is in chat.h.
 // Players are OnlinePlay::PlayerRecord (not rewritten yet): +0x14 the skater, +0x18 the connection, +0x30 the team,
 // +0x38 the name, +0x1D0 flags (bit 0 local, bit 2 observer, bit 7 has the crown, 0x800 << team carries that team's
 // flag, 0x40 told the game's state, 0x100 ready, 0x8000 ...), +0x1D4 the acknowledgement it owes.
@@ -20,19 +20,19 @@ namespace OnlinePlay {
 // HKEY_CURRENT_USER's key opens but has no value, it is never closed.
 void __cdecl GetCdKey(char* key);
 
-// The ListKit::Search<PlayerRecord> / ListKit::Search<JoinerRecord> destructors (vtables 0x0064C828 / 0x0064C82C):
+// The ListKit::Hunt<PlayerRecord> / ListKit::Hunt<JoinerRecord> destructors (vtables 0x0064C828 / 0x0064C82C):
 // 0x0052DB60 / 0x0052DB70 reset the vtable, 0x0052F730 / 0x0052F760 the scalar deleting ones.
 struct PlayerSearchDestructors {
     void** m_vtable;
     void* m_listLink;
     void DestroyBody();                                // 0x0052DB60
-    PlayerSearchDestructors* Destroy(unsigned int flags); // 0x0052F730
+    PlayerSearchDestructors* Teardown(unsigned int flags); // 0x0052F730
 };
 struct NewPlayerSearchDestructors {
     void** m_vtable;
     void* m_listLink;
     void DestroyBody();                                // 0x0052DB70
-    NewPlayerSearchDestructors* Destroy(unsigned int flags); // 0x0052F760
+    NewPlayerSearchDestructors* Teardown(unsigned int flags); // 0x0052F760
 };
 
 // --- The client's handlers (gamenet_handlers.cpp) ---
@@ -194,7 +194,7 @@ int __cdecl HandleSendGameState(NetLink::InboundMsgCtx* context);
 // 0x0052F4A0: the level change, once its time (0x007CCDE8) has come: the skate module changes level (0x00565A00), the
 // king loses the crown, nobody carries a flag, and the task (+0xEC) takes itself off.
 void __cdecl LevelChangeTask(void* task);
-// 0x00533810: the online connection's state (NetLink::Manager's modem state) shown when it changes (+0x1A8 the last
+// 0x00533810: the online connection's state (NetLink::Hub's modem state) shown when it changes (+0x1A8 the last
 // shown): connecting / dialing, connected, logged in (with the speed on a modem), disconnecting, hanging up,
 // disconnected, a redial pause (state 8 for 5 s, then ConnectToInternet - its parameters never deleted).
 void __cdecl ModemStateTask(void* task);

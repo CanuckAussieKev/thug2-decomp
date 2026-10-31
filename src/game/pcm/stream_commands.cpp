@@ -53,7 +53,7 @@ constexpr int kFrameAmps = 1;
 // channel, preload (the platform's PlayStream: loaded, not started) or play (LoadStream) a stream on one.
 int ChannelStatus(int channel) { return StreamStatus(channel); }
 void PlatformPause(bool pause, int music) { PauseStreams(pause, music); }
-void StopChannel(int channel) { StopStream(channel, 1); } // (the second argument is unused)
+void StopChannel(int channel) { HaltStream(channel, 1); } // (the second argument is unused)
 bool PreloadOnChannel(uint32_t checksum, int channel, int stopped) { return PlayStream(checksum, channel, stopped); }
 bool PlayOnChannel(uint32_t checksum, int channel, const void* volume, float pitch, int stopped, int unknown, int option)
 {
@@ -61,37 +61,37 @@ bool PlayOnChannel(uint32_t checksum, int channel, const void* volume, float pit
     return LoadStream(checksum, channel, static_cast<const StreamVolume*>(volume), std::bit_cast<int>(pitch), stopped,
                       unknown != 0, option);
 }
-// FrameAmp's load (FamData::Load: data\fam\<checksum>.fam into the slot).
-bool LoadFrameAmp(FrameAmp* slot, uint32_t checksum) { return reinterpret_cast<FamData*>(slot)->Load(checksum); }
+// FrameAmp's load (FamData::ReadIn: data\fam\<checksum>.fam into the slot).
+bool LoadFrameAmp(FrameAmp* slot, uint32_t checksum) { return reinterpret_cast<FamData*>(slot)->ReadIn(checksum); }
 // A script integer that's read and ignored: what used it is compiled out (debug output).
 void ReadDebugFlag() { Scripts::FetchIntValue(0xD7BB618Du); }
 
 // The sound effects manager (0x006F85A8) and its volumes (SoundFx::volumeRef, 0x2C bytes; the first two channels are
 // set below). volumeRef's destructor is empty.
 SoundFx::CAudioMixer* SoundManager() { return SoundFx::g_sfxManager; }
-using Volume = SoundFx::volumeRef;
-void ConstructVolume(Volume* volume) { volume->Init(); }
-void ChangeMuted(Volume* volume) { volume->ChangeMuted(); }
-float LoudestChannel(Volume* volume) { return volume->FindPeakChannel(); }
-inline void DestroyVolume(Volume*) {} // (0x005480A0)
-// Whether sound is off (the manager's IsPaused).
-bool SoundOffRequested(SoundFx::CAudioMixer* manager) { return manager->IsPaused(); }
-bool LoudnessFromPosition(SoundFx::CAudioMixer* manager, Volume* volume, const Maths::Vector* position, float dropoff,
-                      int falloffCurve, void* emitter, Maths::Vector* emitterDirection)
+using Loudness = SoundFx::volumeRef;
+void ConstructVolume(Loudness* volume) { volume->PrepareAll(); }
+void ChangeMuted(Loudness* volume) { volume->ChangeMuted(); }
+float LoudestChannel(Loudness* volume) { return volume->FindPeakChannel(); }
+inline void DestroyVolume(Loudness*) {} // (0x005480A0)
+// Whether sound is off (the manager's IsFrozen).
+bool SoundOffRequested(SoundFx::CAudioMixer* manager) { return manager->IsFrozen(); }
+bool LoudnessFromPosition(SoundFx::CAudioMixer* manager, Loudness* volume, const Maths::Vec4* position, float dropoff,
+                      int falloffCurve, void* emitter, Maths::Vec4* emitterDirection)
 {
-    return manager->GetVolume(volume, position, dropoff, falloffCurve, emitter, emitterDirection);
+    return manager->FetchLoudness(volume, position, dropoff, falloffCurve, emitter, emitterDirection);
 }
 // The emitter nearest to a position (0x004A09E0, not rewritten yet; its distance through the second argument),
 // and the stream component's position for it and its emitter's extent.
 void* NearestEmitter(const float* position)
 {
-    return Engine3D::GetClosestCamera(reinterpret_cast<const Maths::Vector*>(position), nullptr);
+    return Engine3D::GetClosestCamera(reinterpret_cast<const Maths::Vec4*>(position), nullptr);
 }
-Maths::Vector* SoundPosition(void* component, Maths::Vector* out, void* emitter)
+Maths::Vec4* SoundPosition(void* component, Maths::Vec4* out, void* emitter)
 {
     return static_cast<GameObjects::CAudioStreamModule*>(component)->GetStreamPosition(out, emitter);
 }
-bool EmitterDirection(void* component, void* emitter, Maths::Vector* out)
+bool EmitterDirection(void* component, void* emitter, Maths::Vec4* out)
 {
     return static_cast<GameObjects::CAudioStreamModule*>(component)->GetStreamExtent(emitter, out);
 }
@@ -110,7 +110,7 @@ void SetUpStream(Stream& stream, uint32_t checksum, int option)
 } // namespace
 
 // 0x00451010
-void __cdecl PauseStream(int pause)
+void __cdecl FreezeStream(int pause)
 {
     if (!StreamsOn())
         return;
@@ -244,7 +244,7 @@ uint32_t __cdecl PrimeStream(uint32_t checksum, int priority)
 {
     if (!StreamsOn())
         return 0;
-    Volume volume;
+    Loudness volume;
     ConstructVolume(&volume);
     ChangeMuted(&volume);
     uint32_t id = 0;
@@ -293,7 +293,7 @@ uint32_t __cdecl PlayStreamAtObject(void* component, uint32_t checksum, float dr
     SoundFx::CAudioMixer* manager = SoundManager();
     if (SoundOffRequested(manager) || !StreamsOn())
         return 0;
-    Volume streamVolume;
+    Loudness streamVolume;
     ConstructVolume(&streamVolume);
     ChangeMuted(&streamVolume);
     if (usePosInfo) {
@@ -301,9 +301,9 @@ uint32_t __cdecl PlayStreamAtObject(void* component, uint32_t checksum, float dr
         void* emitter = NearestEmitter(reinterpret_cast<const float*>(static_cast<uint8_t*>(object) + 0x4C));
         bool audible = true;
         if (emitter) {
-            Maths::Vector direction;
-            Maths::Vector* towards = EmitterDirection(component, emitter, &direction) ? &direction : nullptr;
-            Maths::Vector position;
+            Maths::Vec4 direction;
+            Maths::Vec4* towards = EmitterDirection(component, emitter, &direction) ? &direction : nullptr;
+            Maths::Vec4 position;
             audible = LoudnessFromPosition(manager, &streamVolume, SoundPosition(component, &position, emitter), dropoff,
                                        falloffCurve, emitter, towards);
         } else {
@@ -317,8 +317,8 @@ uint32_t __cdecl PlayStreamAtObject(void* component, uint32_t checksum, float dr
             }
         }
     } else {
-        std::memcpy(&streamVolume.m_channels[0], &volume, 4);
-        std::memcpy(&streamVolume.m_channels[1], &volume, 4);
+        std::memcpy(&streamVolume.m_lanes[0], &volume, 4);
+        std::memcpy(&streamVolume.m_lanes[1], &volume, 4);
     }
     uint32_t playing = PlayStream(checksum, &streamVolume, pitch, option, priority, id);
     if (playing) {

@@ -19,13 +19,13 @@
 // On when thug2-decomp.ini says [Miscellaneous] OnlineGameName=thugpro (THUGPRO's lobbies) or [online]
 // thugpro_peer=1. Off: THUG2's own protocol, unchanged.
 namespace NetLink {
-struct App;
+struct AppHost;
 struct NetMessageInfo;
 struct InboundMsgCtx;
 } // namespace Net
 
 namespace OnlinePlay {
-class Manager;
+class Hub;
 }
 
 namespace OnlinePlay::Thugpro {
@@ -131,7 +131,7 @@ bool ProSetLevel(uint32_t levelLoad);
 // --- The game ---
 
 // The client handlers (155-159), added by the skate module's AddClientHandlers in this mode (`skate`: its data).
-void AddClientHandlers(NetLink::App* client, void* skate);
+void AddClientHandlers(NetLink::AppHost* client, void* skate);
 int __cdecl HandleServerInfo(NetLink::InboundMsgCtx* context);
 int __cdecl HandleUpdateTimeOfDay(NetLink::InboundMsgCtx* context);
 int __cdecl HandleUpdateWeather(NetLink::InboundMsgCtx* context);
@@ -140,14 +140,14 @@ int __cdecl HandleModsAllowed(NetLink::InboundMsgCtx* context);
 
 // Once a frame (the front end's input logic): received server info applied once the level is up (every load of the
 // session, as THUGPRO keeps its flags); the session's state dropped when the network game ends.
-void Update();
+void TickFrame();
 
 // For the tests: the session's received options (null before any), and whether the TOD manager's multiplayer lock
 // is lifted now (this mode, a network game).
 const HostListing* ReceivedServerInfo();
 bool TimeOfDayUnlocked();
-// For the tests: App::PutOnOutbox's filter (net_app.h) as installed.
-bool FilterOutgoingMessage(NetLink::App* app, int handle, NetLink::NetMessageInfo* desc);
+// For the tests: AppHost::PutOnOutbox's filter (net_app.h) as installed.
+bool FilterOutgoingMessage(NetLink::AppHost* app, int handle, NetLink::NetMessageInfo* desc);
 
 // What we send as host: server info from our TOD manager's state and the options set with the chat commands.
 HostListing HostServerInfo();

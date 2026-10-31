@@ -81,30 +81,30 @@ bool InterestingLogLine(const char* line)
     return true;
 }
 
-void Ring::Add(const char* text, double time)
+void Ring::AppendOne(const char* text, double time)
 {
     if (count != 0) {
-        Line& newest = lines[(count - 1) % kRingLines];
+        Seg& newest = lines[(count - 1) % kRingLines];
         if (std::strncmp(newest.text, text, kLineWidth - 1) == 0) {
             ++newest.repeat;
             newest.time = time;
             return;
         }
     }
-    Line& line = lines[count % kRingLines];
+    Seg& line = lines[count % kRingLines];
     strncpy_s(line.text, text, _TRUNCATE);
     line.time = time;
     line.repeat = 1;
     ++count;
 }
 
-std::vector<std::string> Ring::Last(size_t n) const
+std::vector<std::string> Ring::FinalOne(size_t n) const
 {
     size_t shown = std::min<size_t>({n, count, kRingLines});
     std::vector<std::string> out;
     out.reserve(shown);
     for (size_t i = shown; i > 0; --i) {
-        const Line& line = lines[(count - i) % kRingLines];
+        const Seg& line = lines[(count - i) % kRingLines];
         char text[kLineWidth + 32];
         if (line.repeat > 1)
             std::snprintf(text, sizeof(text), "[%6.1f] %s (x%u)", line.time, line.text, line.repeat);
@@ -127,7 +127,7 @@ double g_lastActivity = 0.0; // the last line's time (Now())
 
 // The loading screen's lock (0x007052AC: a mutex, held while it draws) and its state.
 HANDLE ScreenMutex() { return reinterpret_cast<HANDLE&>(Engine3D::g_screenMutex); }
-IDirect3DDevice9* Device() { return Engine3D::g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return Engine3D::g_d3dDevice; }
 bool ScreenUp() { return Engine3D::g_loadingScreenUp != 0; } // the main loop draws nothing then
 uint32_t BarTimer() { return Engine3D::g_loadingBarTimer; }   // the loading bar's timer (0x004B7400)
 void* ScreenPicture() { return Engine3D::g_loadingScreenPicture; }    // the loading screen's picture
@@ -152,7 +152,7 @@ void AddLine(const char* text)
 {
     double now = Now();
     AcquireSRWLockExclusive(&g_lock);
-    g_ring.Add(text, now - g_start);
+    g_ring.AppendOne(text, now - g_start);
     g_lastActivity = now;
     ReleaseSRWLockExclusive(&g_lock);
 }
@@ -173,7 +173,7 @@ bool g_fontTried = false;
 void BuildFont()
 {
     g_fontTried = true;
-    IDirect3DDevice9* device = Device();
+    IDirect3DDevice9* device = InputPort();
     if (!device)
         return;
     float pixels = std::clamp(std::round(static_cast<float>(ScreenHeight()) * 15.0f / 720.0f), 12.0f, 30.0f);
@@ -239,7 +239,7 @@ constexpr double kStallSeconds = 10.0;
 std::vector<Vertex> g_vertices; // (used with the loading screen's lock held)
 double g_laidOut = -1.0;
 
-void Rect(float x0, float y0, float x1, float y1, uint32_t color)
+void Rect2(float x0, float y0, float x1, float y1, uint32_t color)
 {
     const Vertex a{x0, y0, 0.0f, 1.0f, color, g_whiteU, g_whiteV}, b{x1, y0, 0.0f, 1.0f, color, g_whiteU, g_whiteV},
         c{x0, y1, 0.0f, 1.0f, color, g_whiteU, g_whiteV}, d{x1, y1, 0.0f, 1.0f, color, g_whiteU, g_whiteV};
@@ -269,7 +269,7 @@ void Layout(double now)
     std::vector<std::string> lines;
     double started, last;
     AcquireSRWLockShared(&g_lock);
-    lines = g_ring.Last(kShownLines);
+    lines = g_ring.FinalOne(kShownLines);
     started = g_start;
     last = g_lastActivity;
     ReleaseSRWLockShared(&g_lock);
@@ -288,8 +288,8 @@ void Layout(double now)
 
     double idle = now - last;
     bool stalled = idle >= kStallSeconds;
-    Rect(x0, y0, x1, y1, stalled ? 0xC0301000u : 0xB0000000u);
-    Rect(x0, y0, x1, y0 + 2.0f, stalled ? 0xFFFF8C1Au : 0xFF5A5A5Au); // (a rule along the top)
+    Rect2(x0, y0, x1, y1, stalled ? 0xC0301000u : 0xB0000000u);
+    Rect2(x0, y0, x1, y0 + 2.0f, stalled ? 0xFFFF8C1Au : 0xFF5A5A5Au); // (a rule along the top)
 
     char left[48], right[64];
     std::snprintf(left, sizeof(left), "LOADING %.1f s", now - started);
@@ -331,7 +331,7 @@ void CALLBACK ScreenTick(UINT, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR)
     if (!blank && !ScreenPicture())
         return;
     WaitForSingleObject(ScreenMutex(), INFINITE);
-    IDirect3DDevice9* device = Device();
+    IDirect3DDevice9* device = InputPort();
     if (device && ScreenUp() && BarTimer() == 0 && g_active) {
         device->BeginScene();
         // as the loading screen draws it (0x004B78B0): its picture, or black
@@ -354,17 +354,17 @@ void OnLogLine(const char* line)
 
 } // namespace
 
-bool Enabled()
+bool IsSwitchedOn()
 {
     static bool on = ConfigInt("features", "loading_console", 1) != 0;
     return on;
 }
 
-bool Active() { return g_active; }
+bool LiveNow() { return g_active; }
 
 void ScreenShown(bool freeze, bool blank)
 {
-    if (!Enabled())
+    if (!IsSwitchedOn())
         return;
     if (!g_fontTried)
         BuildFont();
@@ -433,9 +433,9 @@ void NoteScriptCall(uint32_t name, bool cfunction, Scripts::CStruct* params)
         // what it's given: a file or scene name, else a name checksum
         const char* what = nullptr;
         if (params) {
-            if (!params->GetString(0u, &what, 0))
+            if (!params->FetchText(0u, &what, 0))
                 for (const char* key : {"scene", "file", "name", "filename", "level", "type"})
-                    if (params->GetString(key, &what, 0))
+                    if (params->FetchText(key, &what, 0))
                         break;
             uint32_t checksum = 0;
             if (!what && (params->ReadHashValue(0u, &checksum, 0) || params->ReadHashValue("name", &checksum, 0) ||
@@ -463,7 +463,7 @@ void NoteLogLine(const char* line)
     double now = Now();
     if (!TryAcquireSRWLockExclusive(&g_lock))
         return;
-    g_ring.Add(text, now - g_start);
+    g_ring.AppendOne(text, now - g_start);
     g_lastActivity = now;
     ReleaseSRWLockExclusive(&g_lock);
 }
@@ -472,7 +472,7 @@ void DrawPanel()
 {
     if (!g_active || !g_texture)
         return;
-    IDirect3DDevice9* device = Device();
+    IDirect3DDevice9* device = InputPort();
     if (!device)
         return;
     double now = Now();

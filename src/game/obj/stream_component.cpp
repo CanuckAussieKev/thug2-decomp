@@ -37,23 +37,23 @@ namespace {
 extern void** const kVtable;
 constexpr float kInchesPerFoot = 12.0f; // 0x0064546C
 
-const Maths::Vector* ViewerLocation(void* camera)
+const Maths::Vec4* ViewerLocation(void* camera)
 {
-    return static_cast<Gfx2D::Camera*>(camera)->GetPos();
+    return static_cast<Gfx2D::ViewCam*>(camera)->FetchLocation();
 }
 
 } // namespace
 
 // 0x00433D90
-CObjectModule* __cdecl CAudioStreamModule::Create()
+CObjectModule* __cdecl CAudioStreamModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CAudioStreamModule));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CAudioStreamModule*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     component->m_spewer = nullptr;
     component->mp_proxim = nullptr;
     return component;
@@ -66,13 +66,13 @@ void __cdecl CAudioStreamModule::PublishMethodTable()
 }
 
 // 0x00433C10
-CAudioStreamModule* CAudioStreamModule::Construct()
+CAudioStreamModule* CAudioStreamModule::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_spewer = nullptr;
     mp_proxim = nullptr;
     m_vtable = kVtable;
-    m_type = kType;
+    m_kindTag = kType;
     return this;
 }
 
@@ -82,17 +82,17 @@ void CAudioStreamModule::DestroyBody()
     m_vtable = kVtable;
     for (uint32_t stream : m_streams) {
         if (stream)
-            AudioStream::StopStream(stream);
+            AudioStream::HaltStream(stream);
     }
     CObjectModule::DestroyBody();
 }
 
 // 0x00433C40
-CAudioStreamModule* CAudioStreamModule::Destroy(unsigned int flags)
+CAudioStreamModule* CAudioStreamModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -105,22 +105,22 @@ void CAudioStreamModule::ConfigureFromData(Scripts::CStruct* params)
 }
 
 // 0x00433CD0
-Maths::Vector* CAudioStreamModule::GetStreamPosition(Maths::Vector* out, void* camera)
+Maths::Vec4* CAudioStreamModule::GetStreamPosition(Maths::Vec4* out, void* camera)
 {
     if (m_spewer && camera) {
         m_spewer->NearestPointOn(out, ViewerLocation(camera));
         return out;
     }
-    *out = m_object->m_pos;
+    *out = m_entity->m_atPoint;
     return out;
 }
 
 // 0x00433D30
-bool CAudioStreamModule::GetStreamExtent(void* camera, Maths::Vector* out)
+bool CAudioStreamModule::GetStreamExtent(void* camera, Maths::Vec4* out)
 {
     if (!camera || !mp_proxim)
         return false;
-    Maths::Vector nearest;
+    Maths::Vec4 nearest;
     *out = *mp_proxim->NearestPointOn(&nearest, ViewerLocation(camera));
     return true;
 }
@@ -136,12 +136,12 @@ bool CAudioStreamModule::PlayStream(Scripts::CStruct* params, Scripts::CScript* 
     float volume = 100.0f, pitch = 100.0f, dropoff = 0.0f;
     int priority = 50, loops = 0, falloff = 0;
     uint32_t id = 0;
-    params->GetFloat(0xF6A36814, &volume, 0);    // vol
-    params->GetFloat(0xD8604126, &pitch, 0);     // pitch
+    params->FetchFloat(0xF6A36814, &volume, 0);    // vol
+    params->FetchFloat(0xD8604126, &pitch, 0);     // pitch
     params->FetchIntValue(0x9D5923D8, &priority, 0); // priority
     params->FetchIntValue(0xE46111E0, &loops, 0);    // num_loops
     params->ReadHashValue(0x40C698AF, &id, 0);      // id
-    if (params->GetFloat(0xFF2020EC, &dropoff, 0)) // dropoff (feet)
+    if (params->FetchFloat(0xFF2020EC, &dropoff, 0)) // dropoff (feet)
         dropoff = dropoff * kInchesPerFoot;
     uint32_t function = 0; // (uninitialised in the original: only read when found)
     if (params->ReadHashValue(0x0C6AC50A, &function, 0)) // dropoff_function
@@ -209,7 +209,7 @@ bool CAudioStreamModule::Obj_StopStream(Scripts::CStruct* /*params*/, Scripts::C
 {
     for (uint32_t& stream : m_streams) {
         if (stream) {
-            AudioStream::StopStream(stream);
+            AudioStream::HaltStream(stream);
             stream = 0;
         }
     }
@@ -221,14 +221,14 @@ bool CAudioStreamModule::Obj_StopStream(Scripts::CStruct* /*params*/, Scripts::C
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CAudioStreamModule::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CAudioStreamModule::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          &GameObjects::CAudioStreamModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

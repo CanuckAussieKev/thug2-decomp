@@ -15,22 +15,22 @@ class CBillboardQuad {
 public:
     // 0x0049ED60: construct in `window` - hidden, no texture, blend "blend", at (-1, -1), scale 1, hot spot (-1, -1),
     // unturned, priority 0, size 0, no flips, colour 0x80 each. Returns this.
-    CBillboardQuad* Construct(void* window);
+    CBillboardQuad* MakeNew(void* window);
     // 0x0049EBA0: the destructor's body.
     void DestroyBody();
     // 0x0049EDD0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CBillboardQuad* Destroy(unsigned int freeFlags);
+    CBillboardQuad* Teardown(unsigned int freeFlags);
 
     // 0x0049EBB0: hidden or shown.
-    void SetHidden(bool hidden);
+    void ChangeConcealed(bool hidden);
     // 0x0049EBC0: the texture (an engine CBitmapTexture, or null) - and the size, its image's, when there is one.
     void SetTexture(uint8_t* texture);
     // 0x0049EC00 (not a function in Ghidra): the blend mode (a checksum).
     void ChooseBlendMode(uint32_t blend);
     // 0x0049EC10: where it's drawn (640x480 layout).
-    void SetPos(float x, float y);
+    void ChangeLocation(float x, float y);
     // 0x0049EC30: its size in pixels at scale 1.
-    void SetSize(uint16_t width, uint16_t height);
+    void ChangeExtent(uint16_t width, uint16_t height);
     // 0x0049EE00: its scale - a positive scale raised so that the texture's size times it is more than 1.25 wide
     // and 1.1666 high (to exactly that, divided by the size; without a texture the size is 1).
     void ChangeScale(float xscale, float yscale);
@@ -39,9 +39,9 @@ public:
     // 0x0049EC70: the hot spot (-1..1 across it).
     void SetHotSpot(float x, float y);
     // 0x0049EC90: its rotation (radians).
-    void SetRotation(float rotation);
+    void ChangeSpin(float rotation);
     // 0x0049ECA0 / 0x0049ECC0: drawn in priority order, or at a depth (its bits).
-    void SetPriority(float priority);
+    void ChangeRank(float priority);
     void SetDepth(uint32_t depth);
     // 0x0049ECE0: written to the depth buffer.
     void SetZWrite(bool zWrite);
@@ -55,11 +55,11 @@ public:
     float m_scaleH, m_scaleV; // +0x14
     float m_hotX, m_hotY;  // +0x1C
     float m_orientationTurn;      // +0x24
-    float m_priority;      // +0x28
+    float m_rank;      // +0x28
     uint32_t m_layer;      // +0x2C: (not set when made)
     uint16_t m_span, m_levelY; // +0x30
     bool m_invisible;         // +0x34
-    bool m_useDepth;       // +0x35: m_layer rather than m_priority
+    bool m_useDepth;       // +0x35: m_layer rather than m_rank
     bool m_zWrite;         // +0x36: (not set when made)
     bool m_flipV, m_flipU; // +0x37
     uint8_t m_rgbaValue[4];     // +0x39 (unaligned)
@@ -75,20 +75,20 @@ static_assert(offsetof(CBillboardQuad, m_orientationTurn) == 0x24 && offsetof(CB
 class CTexturedQuad {
 public:
     // 0x0049EED0: construct in `window` - hidden, no texture, priority order, colour 0x80 each. Returns this.
-    CTexturedQuad* Construct(void* window);
+    CTexturedQuad* MakeNew(void* window);
     // 0x0049EF00 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CTexturedQuad* Destroy(unsigned int freeFlags);
+    CTexturedQuad* Teardown(unsigned int freeFlags);
     // 0x0049EF30 (virtual [1]): a new quad (no window) - null without memory.
-    CTexturedQuad* Create();
+    CTexturedQuad* Fabricate();
 
     // 0x0049ED10: hidden or shown.
-    void SetHidden(bool hidden);
+    void ChangeConcealed(bool hidden);
     // 0x0049ED40: the texture (an engine CBitmapTexture).
     void SetTexture(uint8_t* texture);
     // 0x0049ED00: the blend mode (a checksum).
     void ChooseBlendMode(uint32_t blend);
     // 0x0049ED20: drawn in priority order.
-    void SetPriority(float priority);
+    void ChangeRank(float priority);
     // 0x0049ED50: its colour (RGBA).
     void ChangeRgba(uint32_t rgba);
 
@@ -97,13 +97,13 @@ public:
     uint8_t* m_bitmap;   // +0x08
     bool m_invisible;         // +0x0C
     uint8_t padD[3];
-    float m_priority;      // +0x10
+    float m_rank;      // +0x10
     bool m_useDepth;       // +0x14: (always cleared)
     uint8_t pad15[3];
     uint32_t m_mixMode;      // +0x18: (not set when made)
     uint8_t m_rgbaValue[4];     // +0x1C
 };
-static_assert(offsetof(CTexturedQuad, m_priority) == 0x10 && offsetof(CTexturedQuad, m_rgbaValue) == 0x1C &&
+static_assert(offsetof(CTexturedQuad, m_rank) == 0x10 && offsetof(CTexturedQuad, m_rgbaValue) == 0x1C &&
                   sizeof(CTexturedQuad) == 0x20,
               "layout must match the original");
 

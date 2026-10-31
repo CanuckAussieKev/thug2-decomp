@@ -43,7 +43,7 @@ constexpr float kChangeThreshold = 0.5f;          // 0x0064BF28 (volume or pitch
 constexpr float kCapsizedFraction = 0.5f;         // the core physics' +0x2EC
 
 template <typename T>
-T& Field(void* object, uint32_t offset)
+T& Prop(void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
@@ -52,20 +52,20 @@ SoundFx::CAudioMixer* SfxManager() { return SoundFx::g_sfxManager; }
 
 // The terrain sounds: a table by name, the terrain's entry in it copied into `entry` (false if it has none), the
 // entry's volume for a percentage.
-uint8_t SoundTable(uint32_t name) { return Terrain::GetTableIndex(name); }
+uint8_t SoundTable(uint32_t name) { return SurfaceKind::GetTableIndex(name); }
 bool TerrainSound(uint8_t* entry, int terrain, uint8_t table)
 {
-    return Terrain::GetTerrainSound(reinterpret_cast<Terrain::SoundInfo*>(entry), static_cast<uint8_t>(terrain), table,
+    return SurfaceKind::GetTerrainSound(reinterpret_cast<SurfaceKind::SoundInfo*>(entry), static_cast<uint8_t>(terrain), table,
                                     0.0f);
 }
 double SoundVolume(uint8_t* entry, float percent)
 {
-    return Terrain::GetScaledVolume(reinterpret_cast<const Terrain::SoundInfo*>(entry), percent, false);
+    return SurfaceKind::GetScaledVolume(reinterpret_cast<const SurfaceKind::SoundInfo*>(entry), percent, false);
 }
 
-uint32_t SoundNameKey(uint8_t* entry) { return Field<uint32_t>(entry, 0x68); }
-float FullSpeedPitch(uint8_t* entry) { return Field<float>(entry, 0x6C); }
-float RestPitch(uint8_t* entry) { return Field<float>(entry, 0x70); }
+uint32_t SoundNameKey(uint8_t* entry) { return Prop<uint32_t>(entry, 0x68); }
+float FullSpeedPitch(uint8_t* entry) { return Prop<float>(entry, 0x6C); }
+float RestPitch(uint8_t* entry) { return Prop<float>(entry, 0x70); }
 
 // The air sound's entry (a terrain sound entry of its own: 0x84 bytes, its name, the sound's checksum, the pitches at
 // full speed and at rest).
@@ -90,10 +90,10 @@ LoopingSoundVolume* LoopingSoundVolume::Assign(const SoundFx::volumeRef* other)
 }
 
 // 0x00513AD0
-CObjectModule* __cdecl CRiderRollingAudio::Create()
+CObjectModule* __cdecl CRiderRollingAudio::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderRollingAudio));
-    return memory ? static_cast<CRiderRollingAudio*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CRiderRollingAudio*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x00513860
@@ -104,19 +104,19 @@ void __cdecl CRiderRollingAudio::PublishMethodTable()
 }
 
 // 0x005138E0
-CRiderRollingAudio* CRiderRollingAudio::Construct()
+CRiderRollingAudio* CRiderRollingAudio::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kVtable;
-    m_lastVolume.Init();
+    m_lastVolume.PrepareAll();
     m_soundChanged = 1;
-    m_state = kStateAir;
+    m_curPhase = kStateAir;
     m_on = 1;
     m_sliding = 0;
     m_noRailSound = 0;
     m_haveSound = 0;
     m_forceUpdate = 0;
-    m_type = kSkaterLoopingSound;
+    m_kindTag = kSkaterLoopingSound;
     m_volumeMult = 1.0f;
     return this;
 }
@@ -140,11 +140,11 @@ void CRiderRollingAudio::DestroyBody()
 }
 
 // 0x00513FA0
-CRiderRollingAudio* CRiderRollingAudio::Destroy(unsigned int flags)
+CRiderRollingAudio* CRiderRollingAudio::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -153,7 +153,7 @@ void CRiderRollingAudio::ConfigureFromData(Scripts::CStruct* params)
 {
     m_airPitchFall = kAirPitchFall;
     m_airPitchFloor = kAirPitchFloor;
-    params->GetFloat(kVolumeMult, &m_volumeMult, 0);
+    params->FetchFloat(kVolumeMult, &m_volumeMult, 0);
 }
 
 // 0x005138B0
@@ -165,15 +165,15 @@ void CRiderRollingAudio::SetPaceRatio(float fraction)
 }
 
 // 0x00513970
-void CRiderRollingAudio::Finalize()
+void CRiderRollingAudio::Seal()
 {
-    m_physicsControl = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterPhysicsControl));
+    m_physicsControl = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterPhysicsControl));
 }
 
 // 0x00513F60
-void CRiderRollingAudio::Suspend(bool suspend)
+void CRiderRollingAudio::HoldOff(bool suspend)
 {
-    CObjectModule::Suspend(suspend);
+    CObjectModule::HoldOff(suspend);
     if (suspend)
         StopSound();
     else
@@ -199,10 +199,10 @@ int CRiderRollingAudio::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*pa
         return 1;
     case kPlayAnim: {
         // Turned on again by the walk-to-skate animation (its animTags in the skater's tags).
-        Scripts::CStruct* tags = m_object->m_tagTable;
-        uint8_t* state = Field<uint8_t*>(m_physicsControl, 0x2C);
+        Scripts::CStruct* tags = m_entity->m_tagTable;
+        uint8_t* state = Prop<uint8_t*>(m_physicsControl, 0x2C);
         Scripts::CStruct* animTags;
-        if (tags && !Field<uint8_t>(state, 0x118) && !Field<int>(state, 0x1C) &&
+        if (tags && !Prop<uint8_t>(state, 0x118) && !Prop<int>(state, 0x1C) &&
             tags->ReadSubStruct(kAnimTags, &animTags, 0) && animTags->HasBareFlag(kWalkToSkateTransition)) {
             VirtualSuspend(false);
             m_on = 1;
@@ -215,31 +215,31 @@ int CRiderRollingAudio::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*pa
 }
 
 // 0x00513BB0
-void CRiderRollingAudio::Update()
+void CRiderRollingAudio::TickFrame()
 {
     if (!m_on) {
         VirtualSuspend(true);
         return;
     }
     LoopingSoundVolume volume;
-    volume.Init();
+    volume.PrepareAll();
     // Not original: THAW's BMX (game/skater/thaw_bmx.h; THAW 0x0046A097 / 0x0046A0D3) - on the bike its roll and grind
     // (BIKE_ROLL, BIKE_GRIND) on every terrain, nothing in the air or sliding; chosen every frame, and again from the
     // terrain once off the bike.
     int bike = -1;
-    if (Skater::ThawBmx::Enabled()) {
+    if (Skater::ThawBmx::IsSwitchedOn()) {
         using Skater::ThawBmx::BikeSound;
-        BikeSound kind = m_state == kStateGround ? BikeSound::Roll
-                         : m_state == kStateRail && !m_sliding && !m_noRailSound ? BikeSound::Grind
+        BikeSound kind = m_curPhase == kStateGround ? BikeSound::Roll
+                         : m_curPhase == kStateRail && !m_sliding && !m_noRailSound ? BikeSound::Grind
                                                                                   : BikeSound::Air;
-        bike = Skater::ThawBmx::BikeSoundOf(m_object, kind, m_sound);
+        bike = Skater::ThawBmx::BikeSoundOf(m_entity, kind, m_sound);
         if (bike >= 0) {
             m_haveSound = static_cast<uint8_t>(bike);
             m_soundChanged = 1;
         }
     }
     // The sound for the state, chosen again when something changed.
-    switch (bike >= 0 ? -1 : m_state) {
+    switch (bike >= 0 ? -1 : m_curPhase) {
     case kStateGround:
         if (m_soundChanged) {
             m_haveSound = TerrainSound(m_sound, m_surfaceType, SoundTable(kTableWheelroll)) ? 1 : 0;
@@ -276,17 +276,17 @@ void CRiderRollingAudio::Update()
 
     // Its volume from where the skater is - stopped while the skater hasn't moved.
     SoundFx::CAudioMixer* sfx = SfxManager();
-    if (m_object->m_pos != m_lastPos) {
+    if (m_entity->m_atPoint != m_lastPos) {
         float dropoff = sfx->GetDropoffDistance(SoundNameKey(m_sound));
-        sfx->GetVolume(&volume, &m_object->m_pos, dropoff, 0, nullptr, nullptr);
+        sfx->FetchLoudness(&volume, &m_entity->m_atPoint, dropoff, 0, nullptr, nullptr);
     } else {
         sfx->StopSound(m_soundId);
         m_soundId = 0;
     }
-    m_lastPos = m_object->m_pos;
+    m_lastPos = m_entity->m_atPoint;
 
     float pitch;
-    if (m_state == kStateAir && m_soundId) {
+    if (m_curPhase == kStateAir && m_soundId) {
         // In the air the playing sound's pitch falls (to the floor, then it's silent).
         if (m_tiltAngle > m_airPitchFloor) {
             m_tiltAngle = static_cast<float>(m_tiltAngle - static_cast<double>(FrameClock::GetSlomoFrameSeconds()) * m_airPitchFall);
@@ -297,8 +297,8 @@ void CRiderRollingAudio::Update()
         }
     } else {
         // By the speed (half when the core physics' +0x2EC is set).
-        auto* core = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCorePhysics));
-        if (core && Field<uint8_t>(core, 0x2EC))
+        auto* core = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterCorePhysics));
+        if (core && Prop<uint8_t>(core, 0x2EC))
             m_speedFraction = kCapsizedFraction;
         if (m_speedFraction > 0.0f) {
             float percent = static_cast<float>(static_cast<double>(m_volumeMult) * m_speedFraction * kPercent);
@@ -321,7 +321,7 @@ void CRiderRollingAudio::Update()
     if (!m_soundId) {
         static_cast<LoopingSoundVolume*>(&m_lastVolume)->Assign(&volume);
         m_lastPitch = pitch;
-        m_soundId = sfx->PlaySound(SoundNameKey(m_sound), &volume, pitch, 0, nullptr,
+        m_soundId = sfx->EmitSound(SoundNameKey(m_sound), &volume, pitch, 0, nullptr,
                                    static_cast<int>(reinterpret_cast<uintptr_t>(m_sound)));
         if (m_soundId)
             m_playingChecksum = SoundNameKey(m_sound);
@@ -329,7 +329,7 @@ void CRiderRollingAudio::Update()
     }
     // Playing: updated when the volume (its first channel) or the pitch moved by more than a half.
     if (!m_forceUpdate &&
-        !(std::fabs(static_cast<double>(volume.m_channels[0]) - m_lastVolume.m_channels[0]) > kChangeThreshold) &&
+        !(std::fabs(static_cast<double>(volume.m_lanes[0]) - m_lastVolume.m_lanes[0]) > kChangeThreshold) &&
         !(std::fabs(static_cast<double>(pitch) - m_lastPitch) > kChangeThreshold))
         return;
     static_cast<LoopingSoundVolume*>(&m_lastVolume)->Assign(&volume);
@@ -343,14 +343,14 @@ void CRiderRollingAudio::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderRollingAudio::Destroy,
-         &GameObjects::CRiderRollingAudio::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderRollingAudio::Teardown,
+         &GameObjects::CRiderRollingAudio::TickFrame,
          &GameObjects::CRiderRollingAudio::ConfigureFromData,
-         &GameObjects::CRiderRollingAudio::Finalize,
+         &GameObjects::CRiderRollingAudio::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CRiderRollingAudio::Suspend,
+         &GameObjects::CRiderRollingAudio::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

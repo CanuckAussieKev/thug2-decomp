@@ -1,4 +1,4 @@
-// The engine's font (CFont, the base of the PC font) and the loaded fonts' table: see font.h.
+// The engine's font (CTypeface, the base of the PC font) and the loaded fonts' table: see font.h.
 
 #include <cstdint>
 #include <cstring>
@@ -24,19 +24,19 @@ namespace {
 extern void** const kFontVtable;
 
 FontSlot* Slots() { return g_fontSlots; }
-ListKit::HashTable& FontTable() { return g_fontTable; }
+ListKit::KeyMap& FontTable() { return g_fontTable; }
 char* MetaButtonMap() { return g_metaButtonMap; }
 
 template <typename R = void, typename... A>
-R Virtual(CFont* font, int slot, A... args)
+R Virtual(CTypeface* font, int slot, A... args)
 {
-    return reinterpret_cast<R(__thiscall*)(CFont*, A...)>(font->m_vtable[slot])(font, args...);
+    return reinterpret_cast<R(__thiscall*)(CTypeface*, A...)>(font->m_vtable[slot])(font, args...);
 }
 
 } // namespace
 
 // 0x0048D020
-CFont* CFont::Construct()
+CTypeface* CTypeface::MakeNew()
 {
     m_vtable = reinterpret_cast<void**>(kFontVtable);
     m_unknown4 = 0;
@@ -44,35 +44,35 @@ CFont* CFont::Construct()
 }
 
 // 0x0048D030
-void CFont::DestroyBody()
+void CTypeface::DestroyBody()
 {
     m_vtable = reinterpret_cast<void**>(kFontVtable);
 }
 
 // 0x0048D1F0
-CFont* CFont::Destroy(unsigned int flags)
+CTypeface* CTypeface::Teardown(unsigned int flags)
 {
     m_vtable = reinterpret_cast<void**>(kFontVtable);
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0048D040
-void CFont::Unload()
+void CTypeface::Offload()
 {
     Virtual(this, 5);
     m_unknown4 = 0;
 }
 
 // 0x0048D070
-void CFont::PlatSetSpacings(int /*glyphGap*/, int /*blankGap*/)
+void CTypeface::PlatSetSpacings(int /*glyphGap*/, int /*blankGap*/)
 {
     DebugOut::Printf("STUB A DUB DUB"); // "STUB A DUB DUB"
 }
 
 // 0x0048D080
-void CFont::PlatSetColors(const uint32_t* /*colors*/)
+void CTypeface::PlatSetColors(const uint32_t* /*colors*/)
 {
     DebugOut::Printf("STUB A DUB DUB"); // "STUB A DUB DUB"
 }
@@ -99,9 +99,9 @@ void __cdecl UnloadFont(const char* name)
 }
 
 // 0x0048D760
-CFont* __cdecl GetFont(uint32_t name)
+CTypeface* __cdecl GetFont(uint32_t name)
 {
-    auto* slot = static_cast<FontSlot*>(FontTable().GetItem(name));
+    auto* slot = static_cast<FontSlot*>(FontTable().FetchEntry(name));
     return slot ? slot->font : nullptr;
 }
 
@@ -109,14 +109,14 @@ CFont* __cdecl GetFont(uint32_t name)
 bool __cdecl CFunc_UnloadFont(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     const char* name = nullptr; // (the original leaves it unset when the name is missing)
-    params->GetString(0u, &name, 0);
+    params->FetchText(0u, &name, 0);
     UnloadFont(name);
     return true;
 }
 
 namespace {
-static VtableSlot kFontVtable_slots[] = {&Engine3D::CFont::Destroy, Stubs::ReturnFalse1, &Engine3D::CFont::PlatSetSpacings,
-                &Engine3D::CFont::PlatSetColors, &Engine3D::CFont::PlatSetColors, Stubs::DoNothing, Stubs::ReturnZero,
+static VtableSlot kFontVtable_slots[] = {&Engine3D::CTypeface::Teardown, Stubs::ReturnFalse1, &Engine3D::CTypeface::PlatSetSpacings,
+                &Engine3D::CTypeface::PlatSetColors, &Engine3D::CTypeface::PlatSetColors, Stubs::DoNothing, Stubs::ReturnZero,
                 Stubs::ReturnZero, Stubs::IgnoreArguments3};
 void** const kFontVtable = reinterpret_cast<void**>(kFontVtable_slots);
 } // namespace

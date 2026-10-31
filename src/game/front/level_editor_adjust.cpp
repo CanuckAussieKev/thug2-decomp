@@ -21,11 +21,11 @@ constexpr float kPi = 3.14159265f;
 const char* Title(Kind kind)
 {
     switch (kind) {
-    case Kind::Move: return "Move";
+    case Kind::ShiftBy: return "Move";
     case Kind::Turn: return "Turn";
-    case Kind::Scale: return "Scale";
+    case Kind::StretchBy: return "Scale";
     case Kind::Duplicate: return "Duplicate";
-    case Kind::Align: return "Align";
+    case Kind::Justify: return "Align";
     case Kind::Distribute: return "Distribute";
     case Kind::Place: return "Place";
     case Kind::None: break;
@@ -33,9 +33,9 @@ const char* Title(Kind kind)
     return "";
 }
 
-Action Normalised(const Action& action, float grid)
+ActStep Normalised(const ActStep& action, float grid)
 {
-    Action n = action;
+    ActStep n = action;
     n.count = std::clamp(n.count, 1, kMaxCopies);
     n.axis = std::clamp(n.axis, 0, 2);
     n.edge = std::clamp(n.edge, 0, 2);
@@ -51,7 +51,7 @@ Action Normalised(const Action& action, float grid)
     return n;
 }
 
-bool Same(const Action& a, const Action& b)
+bool Same(const ActStep& a, const ActStep& b)
 {
     auto same3 = [](V3 p, V3 q) { return p.x == q.x && p.y == q.y && p.z == q.z; };
     return a.kind == b.kind && same3(a.offset, b.offset) && a.degrees == b.degrees && a.quarters == b.quarters &&
@@ -60,9 +60,9 @@ bool Same(const Action& a, const Action& b)
            a.gaps == b.gaps && same3(a.pos, b.pos);
 }
 
-Transform::RepeatStep StepOf(const Action& action)
+Xform::RepeatStep StepOf(const ActStep& action)
 {
-    Transform::RepeatStep step;
+    Xform::RepeatStep step;
     step.offset = action.offset;
     if (action.quarters) {
         step.quarters = ((static_cast<int>(std::lround(action.degrees / 90.0f)) % 4) + 4) % 4;
@@ -77,29 +77,29 @@ Transform::RepeatStep StepOf(const Action& action)
 
 namespace {
 
-struct Memory {
+struct RamStats {
     bool valid = false;
-    Action action;
+    ActStep action;
     Edit::Selected source, after; // (Duplicate: what it copied; the selection the action left)
     V3 start = {};                // (Move: where it was)
     uint64_t serial = 0;          // (the undo stack's top when it was made)
 };
-Memory g_last;
+RamStats g_last;
 bool g_applying;
 bool g_shown = true;
 bool g_pending;
-Action g_request;
+ActStep g_request;
 
 bool SameSelection(const Edit::Selected& a, const Edit::Selected& b) { return a.kind == b.kind && a.ids == b.ids; }
 
 // The action made again from where it started (its step taken back first - Place: moved / turned in place).
-void Apply(const Action& wanted)
+void Apply(const ActStep& wanted)
 {
-    Action n = Normalised(wanted, Transform::Grid());
+    ActStep n = Normalised(wanted, Xform::Grid());
     if (Same(n, g_last.action))
         return;
     g_applying = true;
-    size_t depth = Edit::Depth();
+    size_t depth = Edit::Deepness();
     bool pushed = true;
     switch (n.kind) {
     case Kind::Place: {
@@ -113,7 +113,7 @@ void Apply(const Action& wanted)
         pushed = false;
         break;
     }
-    case Kind::Move:
+    case Kind::ShiftBy:
         Edit::TakeBack();
         Edit::Begin();
         Edit::PlaceAt(g_last.start + n.offset);
@@ -125,7 +125,7 @@ void Apply(const Action& wanted)
         Edit::TurnBy(n.degrees * kPi / 180.0f);
         Edit::End();
         break;
-    case Kind::Scale:
+    case Kind::StretchBy:
         Edit::TakeBack();
         if (!Edit::ScaleBy(n.factor, n.uniform)) {
             Edit::Begin(); // (at a limit, or back to 1: a step that changes nothing keeps the panel's place)
@@ -134,22 +134,22 @@ void Apply(const Action& wanted)
         break;
     case Kind::Duplicate: {
         Edit::TakeBack();
-        Edit::Select(g_last.source);
-        depth = Edit::Depth();
-        Transform::RepeatStep step = StepOf(n);
+        Edit::ChooseOne(g_last.source);
+        depth = Edit::Deepness();
+        Xform::RepeatStep step = StepOf(n);
         for (int i = 0; i < n.count; ++i) {
             if (Edit::Duplicate(&step).empty())
                 break;
         }
         Edit::Fold(depth);
-        pushed = Edit::Depth() > depth;
+        pushed = Edit::Deepness() > depth;
         break;
     }
-    case Kind::Align:
+    case Kind::Justify:
     case Kind::Distribute: {
         Edit::TakeBack();
-        bool done = n.kind == Kind::Align
-                        ? Arrange::Align(n.axis, static_cast<Arrange::Edge>(n.edge), static_cast<Arrange::Reference>(n.reference),
+        bool done = n.kind == Kind::Justify
+                        ? Arrange::Justify(n.axis, static_cast<Arrange::Edge>(n.edge), static_cast<Arrange::Reference>(n.reference),
                                          n.local)
                         : Arrange::Distribute(n.axis, n.gaps, n.local);
         if (!done) {
@@ -175,7 +175,7 @@ void Apply(const Action& wanted)
 
 } // namespace
 
-void Note(const Action& action)
+void Note(const ActStep& action)
 {
     if (g_applying)
         return;
@@ -183,7 +183,7 @@ void Note(const Action& action)
     g_last.action = action;
     g_last.serial = Edit::TopSerial();
     g_last.after = Edit::Selection();
-    if (action.kind == Kind::Move)
+    if (action.kind == Kind::ShiftBy)
         g_last.start = Edit::Pos() - action.offset;
     if (action.kind == Kind::Place) {
         g_last.action.pos = Edit::Pos();
@@ -192,7 +192,7 @@ void Note(const Action& action)
     g_pending = false;
 }
 
-void NoteDuplicate(const Edit::Selected& source, const Action& action)
+void NoteDuplicate(const Edit::Selected& source, const ActStep& action)
 {
     if (g_applying)
         return;
@@ -202,14 +202,14 @@ void NoteDuplicate(const Edit::Selected& source, const Action& action)
 
 bool Applying() { return g_applying; }
 
-void Request(const Action& action, bool now)
+void Request(const ActStep& action, bool now)
 {
     g_request = action;
     g_pending = true;
     (void)now;
 }
 
-const Action& Last() { return g_last.action; }
+const ActStep& FinalOne() { return g_last.action; }
 
 bool Adjustable()
 {
@@ -236,7 +236,7 @@ void Tick()
 
 void Forget()
 {
-    g_last = Memory{};
+    g_last = RamStats{};
     g_pending = false;
     g_applying = false;
 }

@@ -27,7 +27,7 @@ uint32_t g_bytesOut;
 uint32_t g_printCount;
 
 // Encoder state, kept in the exe's globals.
-uint8_t*& Window() { return g_window; }  // N + F - 1 bytes
+uint8_t*& Pane() { return g_window; }  // N + F - 1 bytes
 int*& Left() { return g_treeLeft; }            // N + 1 entries
 int*& Right() { return g_treeRight; }           // N + 257 entries (256 tree roots)
 int*& Parent() { return g_treeParent; }          // N + 1 entries
@@ -42,10 +42,10 @@ uint8_t* DecodeWindow() { return g_decodeWindow; }
 
 void FreeTree()
 {
-    MemSys::Free(Parent());
-    MemSys::Free(Right());
-    MemSys::Free(Left());
-    MemSys::Free(Window());
+    MemSys::Dealloc(Parent());
+    MemSys::Dealloc(Right());
+    MemSys::Dealloc(Left());
+    MemSys::Dealloc(Pane());
 }
 
 } // namespace
@@ -54,10 +54,10 @@ void FreeTree()
 void ResetMatchTree()
 {
     MemSys::EnterHeapScope(MemSys::TopDownHeap());
-    Window() = static_cast<uint8_t*>(MemSys::New(N + F - 1));
-    Left() = static_cast<int*>(MemSys::New((N + 1) * sizeof(int)));
-    Right() = static_cast<int*>(MemSys::New((N + 257) * sizeof(int)));
-    Parent() = static_cast<int*>(MemSys::New((N + 1) * sizeof(int)));
+    Pane() = static_cast<uint8_t*>(MemSys::Alloc(N + F - 1));
+    Left() = static_cast<int*>(MemSys::Alloc((N + 1) * sizeof(int)));
+    Right() = static_cast<int*>(MemSys::Alloc((N + 257) * sizeof(int)));
+    Parent() = static_cast<int*>(MemSys::Alloc((N + 1) * sizeof(int)));
     MemSys::LeaveHeapScope();
 
     for (int i = N + 1; i <= N + 256; ++i)
@@ -70,7 +70,7 @@ void ResetMatchTree()
 // Insert the string at window position r into the tree, and record the longest match found on the way.
 void AddMatchNode(int r)
 {
-    uint8_t* window = Window();
+    uint8_t* window = Pane();
     int* left = Left();
     int* right = Right();
     int* parent = Parent();
@@ -162,13 +162,13 @@ void UnlinkListNode(int p)
 }
 
 // 0x00401700
-int Encode(const uint8_t* in, uint8_t* out, int size, bool print_stats)
+int PackUp(const uint8_t* in, uint8_t* out, int size, bool print_stats)
 {
     BytesIn() = 0;
     BytesOut() = 0;
     PrintCount() = 0;
     ResetMatchTree();
-    uint8_t* window = Window();
+    uint8_t* window = Pane();
 
     // code[0] holds the flag bits for up to 8 items; each item takes 1 byte (literal) or 2 (reference).
     uint8_t code[17];

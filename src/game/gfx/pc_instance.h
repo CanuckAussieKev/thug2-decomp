@@ -3,11 +3,11 @@
 // The instance renderer's shared state (see pc_instance.cpp).
 
 namespace Maths {
-class Matrix;
+class Mat4;
 }
 
 namespace Engine3D {
 
-extern const Maths::Matrix* g_lastBones; // the bone matrices last set up
+extern const Maths::Mat4* g_lastBones; // the bone matrices last set up
 
 } // namespace Nx

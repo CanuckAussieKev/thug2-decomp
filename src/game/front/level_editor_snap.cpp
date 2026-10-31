@@ -64,8 +64,8 @@ bool AlignRows(V3 rows[3], V3 normal)
     V3 flat = at - up * Dot(at, up);
     if (Dot(flat, flat) < 1e-6f)
         return false;
-    at = Normalize(flat);
-    V3 right = Cross(up, at); // (right = up x at, as the game's rows are)
+    at = MakeUnit(flat);
+    V3 right = Perpendicular(up, at); // (right = up x at, as the game's rows are)
     rows[0] = right * lengths[0];
     rows[1] = up * lengths[1];
     rows[2] = at * lengths[2];
@@ -81,8 +81,8 @@ bool Cast(V3 from, V3 to, SurfaceHit* hit)
 {
     alignas(16) uint8_t feeler[0x100] = {};
     auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
-    ray->Construct();
-    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    ray->MakeNew();
+    Maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* normal = reinterpret_cast<const float*>(feeler + 0x24);

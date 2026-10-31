@@ -31,15 +31,15 @@ bool SuspendFlag(CObjectModule* suspend) { return static_cast<CDormancyModule*>(
 } // namespace
 
 // 0x0043D430
-CObjectModule* __cdecl CVelocityTrackerModule::Create()
+CObjectModule* __cdecl CVelocityTrackerModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CVelocityTrackerModule));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CVelocityTrackerModule*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     return component;
 }
 
@@ -51,11 +51,11 @@ void CVelocityTrackerModule::DestroyBody()
 }
 
 // 0x0043D2C0
-CVelocityTrackerModule* CVelocityTrackerModule::Destroy(unsigned int flags)
+CVelocityTrackerModule* CVelocityTrackerModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -63,28 +63,28 @@ CVelocityTrackerModule* CVelocityTrackerModule::Destroy(unsigned int flags)
 void CVelocityTrackerModule::ConfigureFromData(Scripts::CStruct* params)
 {
     Scripts::VectorValue vel;
-    params->GetVector(kVel, &vel, 1);
-    m_object->m_vel.x = vel.x;
-    m_object->m_vel.y = vel.y;
-    m_object->m_vel.z = vel.z;
-    m_object->m_vel.w = vel.w;
+    params->FetchVec(kVel, &vel, 1);
+    m_entity->m_vel.x = vel.x;
+    m_entity->m_vel.y = vel.y;
+    m_entity->m_vel.z = vel.z;
+    m_entity->m_vel.w = vel.w;
 }
 
 // 0x0043D340
-void CVelocityTrackerModule::Update()
+void CVelocityTrackerModule::TickFrame()
 {
     if (!g_gameNetManager->InNetGame() && SuspendFlag(mp_suspend))
         return;
-    const Maths::Vector& vel = m_object->m_vel;
+    const Maths::Vec4& vel = m_entity->m_vel;
     // Half the velocity (each rounded), the position as it was.
     float halfX = vel.x * kHalf, halfY = vel.y * kHalf, halfZ = vel.z * kHalf, halfW = vel.w * kHalf;
-    Maths::Vector pos = m_object->m_pos;
+    Maths::Vec4 pos = m_entity->m_atPoint;
     double frame = FrameClock::GetSlomoFrameSeconds();
     // Each step rounded, then added - but w's step isn't rounded.
     float stepX = static_cast<float>(halfX * frame);
     float stepY = static_cast<float>(halfY * frame);
     float stepZ = static_cast<float>(halfZ * frame);
-    Maths::Vector& out = m_object->m_pos;
+    Maths::Vec4& out = m_entity->m_atPoint;
     out.z = static_cast<float>(static_cast<double>(stepZ) + pos.z);
     out.w = static_cast<float>(frame * halfW + pos.w);
     out.x = static_cast<float>(static_cast<double>(stepX) + pos.x);
@@ -96,14 +96,14 @@ void CVelocityTrackerModule::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CVelocityTrackerModule::Destroy,
-         &GameObjects::CVelocityTrackerModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CVelocityTrackerModule::Teardown,
+         &GameObjects::CVelocityTrackerModule::TickFrame,
          &GameObjects::CVelocityTrackerModule::ConfigureFromData,
-         &GameObjects::CImpactDestructModule::Finalize,
+         &GameObjects::CImpactDestructModule::Seal,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

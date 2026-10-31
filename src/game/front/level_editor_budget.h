@@ -23,9 +23,9 @@
 //                           CStruct 64000 (19800, 0x006F3614), CComponent 360000 (86000, 0x006F2338), CVector 48000
 //                           (9500, 0x006F3654), CArray 26000 (7000, 0x006F22B4), CSymbolTableEntry 45000 (12500,
 //                           0x006F362C), CScript 1200 (300, 0x006F3548); HashItem 56000 (10000)
-//   script heap     0x434770 bytes + the bigger pools + 16 MB (script_heap_extra_mb)   MemSys::Manager::InitStandardHeaps 0x005BBE80: the script region
+//   script heap     0x434770 bytes + the bigger pools + 16 MB (script_heap_extra_mb)   MemSys::Hub::InitStandardHeaps 0x005BBE80: the script region
 //                           (the editor's compiled trigger / proximity scripts go there)
-//   main memory     64 MB + the same   MemSys::Manager::Construct 0x005BBC00: the main region (top-down + bottom-up heaps): the
+//   main memory     64 MB + the same   MemSys::Hub::MakeNew 0x005BBC00: the main region (top-down + bottom-up heaps): the
 //                           level's geometry, the editor's copies' meshes (CWorldScene::DuplicateSceneSector) and collision
 //   collision faces 2048 a piece (SharedCollision::kMostFaces - CTriMeshSource::GetFacesInBox's no-tree face list)
 // What the edits added: the nodes / crowns / restarts / lights the editor added (counted), and for the pools and heaps
@@ -38,12 +38,12 @@ namespace MenuSystem::LevelEditor::Budget {
 
 // How full a meter is: Ok below 80 %, Near from 80 %, Over above the limit (at the limit exactly: Near - full, not
 // over: 10 crowns are allowed).
-enum class Level : uint8_t { Ok, Near, Over };
-Level LevelOf(double used, double limit);
+enum class StageMap : uint8_t { Ok, Near, Over };
+StageMap LevelOf(double used, double limit);
 // The fill 0..1 (above 1 when over; 0 for a limit of 0).
 double Fill(double used, double limit);
 // ARGB of a level (green / amber / red).
-uint32_t LevelColour(Level level);
+uint32_t LevelColour(StageMap level);
 
 struct Meter {
     const char* name = "";   // "Crowns"

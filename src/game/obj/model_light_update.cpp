@@ -39,18 +39,18 @@ constexpr float kLerpRate = 0.02f;       // 0x3CA3D70A
 } // namespace
 
 // 0x00422DC0
-CObjectModule* __cdecl CMeshLightingModule::Create()
+CObjectModule* __cdecl CMeshLightingModule::Fabricate()
 {
     auto* component = static_cast<CMeshLightingModule*>(MemSys::AllocZeroed(sizeof(CMeshLightingModule)));
     if (!component)
         return nullptr;
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
     component->m_lightFlags = 0;
     component->m_gapTime = 0;
     component->m_counter = 0;
     component->m_brightness = 0.0f;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     return component;
 }
 
@@ -62,11 +62,11 @@ void CMeshLightingModule::DestroyBody()
 }
 
 // 0x00422D10
-CMeshLightingModule* CMeshLightingModule::Destroy(unsigned int flags)
+CMeshLightingModule* CMeshLightingModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -84,9 +84,9 @@ void CMeshLightingModule::ConfigureFromData(Scripts::CStruct* params)
 }
 
 // 0x00422DA0
-void CMeshLightingModule::Finalize()
+void CMeshLightingModule::Seal()
 {
-    m_meshInstance = static_cast<CMeshInstanceModule*>(m_object->GetComponent(kModel));
+    m_meshInstance = static_cast<CMeshInstanceModule*>(m_entity->FetchModule(kModel));
 }
 
 // 0x00422E40
@@ -94,13 +94,13 @@ void CMeshLightingModule::Sample(bool lerp, float rate)
 {
     // Down from just above the object (nudged along its up vector).
     Engine3D::CProbeRay down;
-    down.Construct();
-    CGameEntity* object = m_object;
-    Maths::Vector& start = down.m_line.start;
-    Maths::Vector& end = down.m_line.end;
-    start = object->m_pos;
-    end = object->m_pos;
-    const Maths::Vector& up = object->m_basisFrame.row[1];
+    down.MakeNew();
+    CGameEntity* object = m_entity;
+    Maths::Vec4& start = down.m_line.start;
+    Maths::Vec4& end = down.m_line.end;
+    start = object->m_atPoint;
+    end = object->m_atPoint;
+    const Maths::Vec4& up = object->m_basisFrame.row[1];
     double stepX = static_cast<double>(up.x) * kUpNudge;
     double stepY = static_cast<double>(up.y) * kUpNudge;
     double stepZ = static_cast<double>(up.z) * kUpNudge;
@@ -114,7 +114,7 @@ void CMeshLightingModule::Sample(bool lerp, float rate)
     bool hit = down.GetHitShape(false, false) != 0;
     // Again from higher up, to just under what it hit (or as far down), faces flagged 0x20 only.
     Engine3D::CProbeRay again;
-    again.Construct();
+    again.MakeNew();
     again.SetExcluded(0, 0x20);
     again.m_line.start = {start.x, start.y + kSecondAbove, start.z, start.w};
     if (hit)
@@ -133,7 +133,7 @@ void CMeshLightingModule::Sample(bool lerp, float rate)
 }
 
 // 0x004230B0
-void CMeshLightingModule::Update()
+void CMeshLightingModule::TickFrame()
 {
     if (!(m_lightFlags & MODEL_LIGHT_SAMPLED)) {
         Sample(false, 1.0f);
@@ -156,14 +156,14 @@ void CMeshLightingModule::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CMeshLightingModule::Destroy,
-         &GameObjects::CMeshLightingModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CMeshLightingModule::Teardown,
+         &GameObjects::CMeshLightingModule::TickFrame,
          &GameObjects::CMeshLightingModule::ConfigureFromData,
-         &GameObjects::CMeshLightingModule::Finalize,
+         &GameObjects::CMeshLightingModule::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

@@ -44,18 +44,18 @@ float g_splitAreaLimit{82944.0f};
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 IDirect3DDevice9* DrawDevice() { return g_drawDevice; } // (the same device, kept twice)
-ListKit::HashTable* Splats() { return g_splatSets; }
+ListKit::KeyMap* Splats() { return g_splatSets; }
 
 // The table's first value, and the next one (null when there are no more).
-sTextureSplats* NextSplats(ListKit::HashTable* table)
+sTextureSplats* NextSplats(ListKit::KeyMap* table)
 {
     if (!table->StepIterator() || !table->m_iterItem)
         return nullptr;
     return static_cast<sTextureSplats*>(table->m_iterItem->value);
 }
-sTextureSplats* FirstSplats(ListKit::HashTable* table)
+sTextureSplats* FirstSplats(ListKit::KeyMap* table)
 {
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
@@ -72,8 +72,8 @@ uint32_t ToArgb(uint32_t rgba)
 // The vertex stack (0x006FC4A0: +0 what's on it, +4 a vertex's size; not rewritten yet): popped into / pushed from.
 uint8_t* VertexStack() { return reinterpret_cast<uint8_t*>(&g_vertexStack); }
 uint32_t VertexSize() { return g_vertexStack.vertexSize; }
-void PopVertex(uint8_t* out) { reinterpret_cast<sVertexStack*>(VertexStack())->Pop(out); }
-void PushVertex(uint8_t* vertex) { reinterpret_cast<sVertexStack*>(VertexStack())->Push(vertex); }
+void PopVertex(uint8_t* out) { reinterpret_cast<sVertexStack*>(VertexStack())->StackOff(out); }
+void PushVertex(uint8_t* vertex) { reinterpret_cast<sVertexStack*>(VertexStack())->StackOn(vertex); }
 
 // A byte channel's midpoint as the original computes it: a + (b - a) / 2, the division rounding towards 0.
 uint8_t ByteMidpoint(uint8_t a, uint8_t b) { return static_cast<uint8_t>(a + (static_cast<int>(b) - a) / 2); }
@@ -101,7 +101,7 @@ void __cdecl LightTextureSplats(sTextureSplats* splats)
         float points[3][4];
         for (auto& point : points)
             std::memcpy(point, triangle[0], 12);
-        LightVertexColours(base, colors, reinterpret_cast<const Maths::Vector*>(points), nullptr, 3);
+        LightVertexColours(base, colors, reinterpret_cast<const Maths::Vec4*>(points), nullptr, 3);
         for (int k = 0; k < 3; ++k)
             *reinterpret_cast<uint32_t*>(triangle[k] + 0xC) = ToArgb(colors[k]);
     }
@@ -114,12 +114,12 @@ void __cdecl KillAllTextureSplats()
     while (splats) {
         if (uint8_t* material = splats->material) {
             reinterpret_cast<materialRef*>(material)->DestroyBody(); // (the destructor's body)
-            MemSys::Manager::Get()->Free(material);
+            MemSys::Hub::Pull()->Dealloc(material);
         }
         sTextureSplats* next = NextSplats(Splats());
         uint32_t key = reinterpret_cast<uint32_t>(splats);
         Splats()->EraseEntry(key);
-        MemSys::Manager::Get()->Free(splats);
+        MemSys::Hub::Pull()->Dealloc(splats);
         splats = next;
     }
 }
@@ -144,10 +144,10 @@ void __cdecl KillTextureSplatsInBox(const float* box)
 void __cdecl DrawTextureSplats()
 {
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    Device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
+    InputPort()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
     DWORD minFilter;
-    Device()->GetSamplerState(0, D3DSAMP_MINFILTER, &minFilter);
-    Device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    InputPort()->GetSamplerState(0, D3DSAMP_MINFILTER, &minFilter);
+    InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     for (sTextureSplats* splats = FirstSplats(Splats()); splats; splats = NextSplats(Splats())) {
         if (splats->last < 0)
             continue;
@@ -163,11 +163,11 @@ void __cdecl DrawTextureSplats()
             uv[0] = static_cast<float>((static_cast<double>(splats->uvs[j][0]) - 0.5f) * factor + 0.5f);
             uv[1] = static_cast<float>((static_cast<double>(splats->uvs[j][1]) - 0.5f) * factor + 0.5f);
         }
-        reinterpret_cast<materialRef*>(splats->material)->Submit(); // (the material's set-up)
+        reinterpret_cast<materialRef*>(splats->material)->HandIn(); // (the material's set-up)
         SetPixelShader(g_pixelShaders[kPixelShader964], splats->material);
         DrawDevice()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, splats->last + 1, splats->vertices, 0x18);
     }
-    Device()->SetSamplerState(0, D3DSAMP_MINFILTER, minFilter);
+    InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, minFilter);
 }
 
 // 0x004B7FA0
@@ -340,21 +340,21 @@ double Cosine(double a)
 }
 
 // D3DX (linked library code).
-void TransformCoord(float* out, const float* v, const Maths::Matrix* m)
+void TransformCoord(float* out, const float* v, const Maths::Mat4* m)
 {
     D3dx::Vec3TransformCoord(out, v, m);
 }
 void Normalize3(float* v) { D3dx::Vec3Normalize(v, v); }
-void LookAt(Maths::Matrix* out, const float* eye, const float* at, const float* up)
+void LookAt(Maths::Mat4* out, const float* eye, const float* at, const float* up)
 {
     D3dx::MatrixLookAtRH(out, eye, at, up);
 }
-void Ortho(Maths::Matrix* out, float width, float height, float nearZ, float farZ)
+void Ortho(Maths::Mat4* out, float width, float height, float nearZ, float farZ)
 {
     D3dx::MatrixOrthoRH(out, width, height, nearZ,
                                                                                          farZ);
 }
-void Multiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void Multiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
@@ -382,8 +382,8 @@ sTextureSplats* __cdecl GetTextureSplats(uint32_t texture)
         if (*reinterpret_cast<uint32_t*>(splats->material + 0x30) == texture)
             return splats;
     }
-    void* memory = MemSys::New(0x110);
-    auto* material = memory ? reinterpret_cast<uint8_t*>(static_cast<materialRef*>(memory)->Construct()) : nullptr;
+    void* memory = MemSys::Alloc(0x110);
+    auto* material = memory ? reinterpret_cast<uint8_t*>(static_cast<materialRef*>(memory)->MakeNew()) : nullptr;
     // (no check: a failed allocation writes through null, as the original)
     *reinterpret_cast<uint32_t*>(material + 0x20) = texture ? 4 : 0; // (the pass's flags)
     int a = Rand();
@@ -399,7 +399,7 @@ sTextureSplats* __cdecl GetTextureSplats(uint32_t texture)
     *reinterpret_cast<uint32_t*>(material + 0x90) = 0x20002;
     *reinterpret_cast<uint32_t*>(material + 0xE0) = 0;
     material[0x10] = 1;
-    auto* splats = static_cast<sTextureSplats*>(MemSys::New(sizeof(sTextureSplats)));
+    auto* splats = static_cast<sTextureSplats*>(MemSys::Alloc(sizeof(sTextureSplats)));
     splats->last = 0;
     splats->material = material;
     std::memset(splats->alive, 0, sizeof(splats->alive));
@@ -436,7 +436,7 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
     // the projection: looking along the ray, the texture's up from `up` (the ray moved by it, and the height its
     // distance), else about y (turned by the angle - or a random one - when the ray is steep)
     float up[4];
-    Maths::Matrix view, projection, combined;
+    Maths::Mat4 view, projection, combined;
     if (params->up) {
         const float* from = params->up;
         double az = static_cast<double>(start[2]) - from[2];
@@ -454,7 +454,7 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
         end[1] = static_cast<float>(static_cast<double>(end[1]) - ay);
         end[2] = static_cast<float>(static_cast<double>(end[2]) - az);
         end[3] = static_cast<float>(static_cast<double>(end[3]) - 1.0f);
-        reinterpret_cast<Maths::Vector*>(up)->Normalize();
+        reinterpret_cast<Maths::Vec4*>(up)->MakeUnit();
         LookAt(&view, start, end, up);
         Ortho(&projection, params->size, height, 0.1f, length);
     } else {
@@ -581,15 +581,15 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
                     g_splitAreaLimit = static_cast<float>(
                         (cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz) * (1.0 / 128.0));
                 }
-                reinterpret_cast<sVertexStack*>(VertexStack())->Construct(); // (emptied)
+                reinterpret_cast<sVertexStack*>(VertexStack())->MakeNew(); // (emptied)
                 g_vertexStack.vertexSize = 0x18;
                 PushVertex(v0);
                 PushVertex(v1);
                 PushVertex(v2);
-                auto* pieces = static_cast<uint8_t*>(MemSys::New(0x2000));
+                auto* pieces = static_cast<uint8_t*>(MemSys::Alloc(0x2000));
                 std::memset(pieces, 0, 0x2000);
-                void* memory = MemSys::New(0xD8);
-                auto* format = memory ? reinterpret_cast<uint8_t*>(static_cast<meshRef*>(memory)->Construct()) : nullptr;
+                void* memory = MemSys::Alloc(0xD8);
+                auto* format = memory ? reinterpret_cast<uint8_t*>(static_cast<meshRef*>(memory)->MakeNew()) : nullptr;
                 format[0x1C] = 0x0C;
                 format[0x1E] = 0x10;
                 uint8_t* cursor = pieces;
@@ -633,8 +633,8 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
                     CollapseSplatTriangle(splats, slot);
                 }
                 reinterpret_cast<meshRef*>(format)->DestroyBody(); // (the format mesh's destructor body)
-                MemSys::Manager::Get()->Free(format);
-                MemSys::Manager::Get()->Free(pieces);
+                MemSys::Hub::Pull()->Dealloc(format);
+                MemSys::Hub::Pull()->Dealloc(pieces);
             }
         }
     }

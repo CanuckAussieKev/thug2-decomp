@@ -69,7 +69,7 @@ struct View {
 // The writer: one picture at a time, on its own thread (made RGB, PNG-encoded, written with its sidecar). The main
 // thread reads `done` and then the rest.
 struct Job {
-    Frame frame;
+    TickCycle frame;
     std::string folder, png, txt, sidecar;
     std::atomic<bool> done{false};
     bool ok = false;
@@ -139,7 +139,7 @@ std::string FileTime(const char* path)
 }
 
 // Everything the sidecar says, read on the main thread (every field safe when it isn't there).
-std::vector<Section> GatherSections(const Frame& frame, const std::string& png, const std::string& folder,
+std::vector<Section> GatherSections(const TickCycle& frame, const std::string& png, const std::string& folder,
                                     const std::string& taken)
 {
     std::vector<Section> sections;
@@ -190,16 +190,16 @@ std::vector<Section> GatherSections(const Frame& frame, const std::string& png, 
     GameModules::FrontEnd* frontEnd = TheFrontEnd();
     game.fields.push_back({"paused", frontEnd ? (frontEnd->m_isHalted ? "yes" : "no") : ""});
     game.fields.push_back({"loading screen", loading ? "yes" : "no"});
-    game.fields.push_back({"level editor", MenuSystem::LevelEditor::Active() ? "open" : "closed"});
+    game.fields.push_back({"level editor", MenuSystem::LevelEditor::LiveNow() ? "open" : "closed"});
     game.fields.push_back({"frames run", std::to_string(FrameLoop::FramesRun())});
     sections.push_back(game);
 
     Section skater{"skater", {}};
     if (inLevel && !loading) {
         if (GameObjects::CGameEntity* s = LocalSkater()) {
-            float pos[3] = {s->m_pos.x, s->m_pos.y, s->m_pos.z};
+            float pos[3] = {s->m_atPoint.x, s->m_atPoint.y, s->m_atPoint.z};
             skater.fields.push_back({"position", Vec(pos)});
-            const Maths::Vector& at = s->m_basisFrame.row[2];
+            const Maths::Vec4& at = s->m_basisFrame.row[2];
             double heading = std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / 3.14159265358979;
             std::snprintf(text, sizeof(text), "%.1f degrees (0 = +z, 90 = +x)", heading);
             skater.fields.push_back({"heading", text});
@@ -214,7 +214,7 @@ std::vector<Section> GatherSections(const Frame& frame, const std::string& png, 
     }
     sections.push_back(camera);
 
-    if (MenuSystem::LevelEditor::Active()) {
+    if (MenuSystem::LevelEditor::LiveNow()) {
         Section editor{"level editor", {}};
         for (auto& [key, value] : MenuSystem::LevelEditor::DescribeForScreenshot())
             editor.fields.push_back({key, value});
@@ -227,7 +227,7 @@ std::vector<Section> GatherSections(const Frame& frame, const std::string& png, 
 
 void ShowMessage(const std::string& text)
 {
-    if (MenuSystem::LevelEditor::Active()) {
+    if (MenuSystem::LevelEditor::LiveNow()) {
         MenuSystem::LevelEditor::Hud::Message(text, kMessageMs / 1000.0);
         return;
     }
@@ -236,8 +236,8 @@ void ShowMessage(const std::string& text)
     if (!CurrentLoadState() || !Scripts::ScriptExists(kScript))
         return;
     auto crc = [](const char* name) { return Checksums::HashFromText(name); };
-    Scripts::CStruct* params = Scripts::NewStruct()->Init();
-    params->AddString(crc("text"), text.c_str());
+    Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+    params->AppendWord(crc("text"), text.c_str());
     params->PutNameKey(crc("id"), crc("thug2_decomp_screenshot_message"));
     params->InsertPair(crc("pos"), 320.0f, g_messageY);
     params->PutInt(crc("time"), static_cast<int>(kMessageMs));
@@ -263,7 +263,7 @@ void TickMessage()
 
 // --- taking and writing ---
 
-void Write(std::shared_ptr<Job> job)
+void EmitOut(std::shared_ptr<Job> job)
 {
     LARGE_INTEGER start, end, frequency;
     QueryPerformanceCounter(&start);
@@ -306,7 +306,7 @@ void Write(std::shared_ptr<Job> job)
 std::string FolderPath()
 {
     char setting[MAX_PATH] = "";
-    BuildInfo::GetString("features", "screenshot_dir", "", setting, sizeof(setting));
+    BuildInfo::FetchText("features", "screenshot_dir", "", setting, sizeof(setting));
     std::string folder = setting;
     while (!folder.empty() && (folder.back() == ' ' || folder.back() == '\t'))
         folder.pop_back();
@@ -339,7 +339,7 @@ std::string Folder()
 
 void Take()
 {
-    Frame frame;
+    TickCycle frame;
     std::string error;
     if (!Gfx2D::ScreenshotCapture::CaptureBackBuffer(&frame, &error)) {
         Log("screenshot: not taken - %s", error.c_str());
@@ -397,7 +397,7 @@ void Take()
     job->sidecar = FormatSidecar("THUG2 decomp screenshot " + png, sections, LogTail(kLogLines));
     job->frame = std::move(frame);
     g_job = job;
-    std::thread(Write, job).detach();
+    std::thread(EmitOut, job).detach();
 }
 
 // --- a frame series ---
@@ -425,7 +425,7 @@ bool WriteNewFile(const std::string& path, const void* data, size_t size)
     return ok;
 }
 
-void WriteSeriesFrame(std::shared_ptr<Series> series, Frame frame, int number)
+void WriteSeriesFrame(std::shared_ptr<Series> series, TickCycle frame, int number)
 {
     std::vector<uint8_t> rgb, png;
     std::string error;
@@ -450,7 +450,7 @@ void WriteSeriesFrame(std::shared_ptr<Series> series, Frame frame, int number)
 void TakeSeriesFrame()
 {
     std::shared_ptr<Series> series = g_series;
-    Frame frame;
+    TickCycle frame;
     std::string error;
     if (!Gfx2D::ScreenshotCapture::CaptureBackBuffer(&frame, &error)) {
         std::lock_guard<std::mutex> lock(series->mutex);
@@ -526,7 +526,7 @@ bool SnippingTakesPrintScreen()
 
 } // namespace
 
-bool Enabled()
+bool IsSwitchedOn()
 {
     static bool on = ConfigInt("features", "screenshots", 1) != 0;
     return on;
@@ -534,15 +534,15 @@ bool Enabled()
 
 int Key() { return g_key; }
 
-void Init()
+void PrepareAll()
 {
-    if (!Enabled()) {
+    if (!IsSwitchedOn()) {
         Log("screenshot key: off ([features] screenshots=0)");
         return;
     }
     bool snipping = SnippingTakesPrintScreen();
     char setting[64] = "";
-    BuildInfo::GetString(BuildInfo::kKeybinds, "Screenshot", "", setting, sizeof(setting));
+    BuildInfo::FetchText(BuildInfo::kKeybinds, "Screenshot", "", setting, sizeof(setting));
     int fallback = DefaultKey(snipping);
     auto byName = [](const std::string& name) { return static_cast<int>(SDL_GetScancodeFromName(name.c_str())); };
     g_key = ParseKey(setting, fallback, byName);
@@ -554,7 +554,7 @@ void Init()
     if (snipping && g_key == kPrintScreen)
         Log("screenshot key: Windows' Snipping Tool takes Print Screen (Settings > Accessibility > Keyboard): the game "
             "won't see it - turn that off or set [Keybinds] Screenshot=69 (F12)");
-    Platform::RegisterEventHandler(HandleEvent);
+    OsLayer::RegisterEventHandler(HandleEvent);
 }
 
 void BeforePresent(bool rendering)

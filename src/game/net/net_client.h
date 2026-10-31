@@ -1,7 +1,7 @@
 #pragma once
 
-// The network library's client (NetLink::Client: an App with a single connection, the server). vtable 0x006475CC:
-// the deleting destructor 0x0045B8E0, 0x00459690, PullInbound, SendData, Init, Deinit (0x0045B820).
+// The network library's client (NetLink::Guest: an App with a single connection, the server). vtable 0x006475CC:
+// the deleting destructor 0x0045B8E0, 0x00459690, PullInbound, Transmit, Init, Deinit (0x0045B820).
 
 #include <cstdint>
 
@@ -11,12 +11,12 @@ namespace NetLink {
 
 struct NetMessageInfo;
 
-class Client : public App {
+class Guest : public AppHost {
 public:
     // 0x0045A250: the App (0x004594C0, with `flags`), then the App's task (TaskList::Task, priority -2000).
-    Client* Construct(int flags);
+    Guest* MakeNew(int flags);
     // 0x0045B8E0 (scalar deleting destructor; Server's vtable has it too)
-    Client* Destroy(unsigned int flags);
+    Guest* Teardown(unsigned int flags);
     // 0x0045B910: the destructor (a jump to App's, 0x00457710; Server's too).
     void DestroyBody();
     // 0x0045B820: vtable slot 5 (a jump to App's, 0x00457490; Server's too).
@@ -24,13 +24,13 @@ public:
 
     // 0x00459EC0: the App's Init, then handlers for "connection accepted", "refused", "terminated" and
     // timestamps.
-    bool Init();
+    bool PrepareAll();
     // 0x00459F40: connect() the socket to the server (retried while it would block). With a non-zero address the
     // socket is "connected" from then on (send/recv); false and the error reported if connect fails.
     bool DialServer(uint32_t ip, uint16_t port);
     // 0x00459E50: a message queued for the server (the first connection).
     void SendToHost(NetMessageInfo* desc);
-    // 0x00459DC0: a message streamed to the server (App::SendBulkToConn, 0x00458740, on the first
+    // 0x00459DC0: a message streamed to the server (AppHost::SendBulkToConn, 0x00458740, on the first
     // connection).
     void SendBulkToHost(uint8_t msgId, uint16_t size, void* data, const char* desc, uint8_t groupId,
                                bool allAtOnce, bool sendInPlace);
@@ -40,7 +40,7 @@ public:
     void PullInbound();
     // 0x00459FD0: packets to the server until its queues are empty or a packet is full: a timestamp when due, a
     // latency test, then the queues.
-    void SendData(Conn* conn);
+    void Transmit(Conn* conn);
 
     // Handlers.
     // 0x0045ABC0 (id 4): the packet's messages will be acked.
@@ -52,6 +52,6 @@ public:
 
     uint8_t m_serverAddress[0x10]; // +0x1F08 sockaddr_in (DialServer; PullInbound looks the server up by it)
 };
-static_assert(sizeof(Client) == 0x1F18, "allocated as 0x1F18 bytes (0x00455460)");
+static_assert(sizeof(Guest) == 0x1F18, "allocated as 0x1F18 bytes (0x00455460)");
 
 } // namespace Net

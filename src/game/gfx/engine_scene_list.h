@@ -5,14 +5,14 @@
 #include "game/core/alloc.h"
 
 namespace Maths {
-struct Line;
+struct Seg;
 }
 namespace Scripts {
 class CScript;
 class CStruct;
 }
 
-// The engine's loaded scenes (Engine3D::CEngine's statics, cdecl): the list of them (ListKit::Head<CWorldScene> at 0x006FA7E0 - its
+// The engine's loaded scenes (Engine3D::CEngine's statics, cdecl): the list of them (ListKit::Foremost<CWorldScene> at 0x006FA7E0 - its
 // first node at 0x006FA7EC; nodes {vtable 0x00648A38, the scene, priority, next, prev}, the head's data -1), the main
 // scene and the sky told apart by the scene's m_isSky, scenes loaded from a file or from memory and registered,
 // reloaded, unloaded, given a scene added over them; and what's asked of all of them - the collision grids a line
@@ -23,12 +23,12 @@ class CCollGrid;
 struct CWorldScene;
 class CTextureSet;
 
-// The list's head (ListKit::Head<CWorldScene>: vtable 0x00648A3C; the node's destructor body is 0x0048C4B0).
+// The list's head (ListKit::Foremost<CWorldScene>: vtable 0x00648A3C; the node's destructor body is 0x0048C4B0).
 struct CSceneListHead : MemSys::ListNode {
     // 0x0048CC30: construct - data -1, priority 0, linked to itself. Returns this.
-    CSceneListHead* Construct();
+    CSceneListHead* MakeNew();
     // 0x0048CC50 (virtual [0]): destroyed (unlinked, the node's body), and freed with flags & 1. Returns this.
-    CSceneListHead* Destroy(unsigned int flags);
+    CSceneListHead* Teardown(unsigned int flags);
 };
 
 // 0x0048C7F0: the first node of the list (null when it's empty).
@@ -50,7 +50,7 @@ void __cdecl PrintCollStatics();
 CCollGrid* __cdecl GetFirstCollGrid();
 // 0x0048C980: the collision grids whose boxes the line's box touches (NaN doesn't rule one out), at most 15, their
 // scenes alongside (0x006FA738): a null-terminated list (0x006FA778), or null if none.
-CCollGrid** __cdecl GetCollGridsOnLine(const Maths::Line* line);
+CCollGrid** __cdecl GetCollGridsOnLine(const Maths::Seg* line);
 // 0x0048CA80: a sector name (0x0067DC84, counted on) that no scene has a sector of.
 uint32_t __cdecl NewSectorName();
 // 0x0048CAF0: the ToggleAddScenes script command - every scene's added scene shown or hidden (0x0048C650). True.

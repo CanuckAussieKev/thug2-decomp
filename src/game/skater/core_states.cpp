@@ -47,12 +47,12 @@ void CorePhysicsComponent::DoLipPhysics()
     At<uint8_t>(this, 0x2E4) = 0;
     // Carried by what the skater rides on: the position, and the start of the lip (+0x258) - 0x00427A00 works it out.
     if (GameObjects::CRideTracker* tracker = Tracker(this)) {
-        if (!tracker->m_object.m_ownerObject || !tracker->Update(&VectorAt(ObjectOf(this), kPosition))) {
+        if (!tracker->m_entity.m_ownerObject || !tracker->TickFrame(&VectorAt(ObjectOf(this), kPosition))) {
             StopRiding(this);
         } else {
             // (0x00427A00 returns `where`; ours is void: the point is read from `where`)
             auto* contact = At<GameObjects::CMovingSurfaceModule*>(this, kRide);
-            Maths::Vector where;
+            Maths::Vec4 where;
             void* object = ObjectOf(this);
             contact->GetContactPoint(&where);
             VectorAt(object, kPosition) = where;
@@ -61,7 +61,7 @@ void CorePhysicsComponent::DoLipPhysics()
             if (Tracker(this)->m_turned) {
                 auto multiply =
                     D3dx::MatrixMultiply;
-                Maths::Matrix& matrix = MatrixAt(ObjectOf(this), kMatrix);
+                Maths::Mat4& matrix = MatrixAt(ObjectOf(this), kMatrix);
                 multiply(&matrix, &matrix, &Tracker(this)->m_turn);
                 multiply(&MatrixAt(this, kDisplayMatrix), &MatrixAt(this, kDisplayMatrix), &Tracker(this)->m_turn);
             }
@@ -76,9 +76,9 @@ void CorePhysicsComponent::DoLipPhysics()
             At<uint32_t>(At<void*>(this, kBalanceTrick), 0x108) = 0;
             reinterpret_cast<uint8_t&>(OnlinePlay::g_cheatFlag) = 1;
         }
-        reinterpret_cast<GameObjects::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0xD4)->Update();
+        reinterpret_cast<GameObjects::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0xD4)->TickFrame();
     }
-    if (!Flag(this, 0x20) && InputOf(this)[0x1C0])
+    if (!BitMark(this, 0x20) && InputOf(this)[0x1C0])
         SetFlag(this, 0x20, 1);
     // Off the lip (0x004FFB10): the rail's TriggerScript, twice.
     if (JumpReleased()) {
@@ -88,7 +88,7 @@ void CorePhysicsComponent::DoLipPhysics()
     }
     auto* node = At<GameObjects::CGrindPoint*>(this, kRailNode);
     if (node && At<GameObjects::CGrindRailHub*>(this, kRailManager)->m_nodeArray) {
-        Scripts::CStruct* script = LevelNodes::GetNode(node->m_name, true);
+        Scripts::CStruct* script = LevelNodes::FetchVertex(node->m_label, true);
         script->ReadHashValue(kName, &At<uint32_t>(this, kRailScriptNode), 1);
         static_cast<GameObjects::CMoveExecutor*>(At<void*>(this, kSkaterComponent))
             ->PassToTrickObjects(At<uint32_t>(this, kRailScriptNode));
@@ -140,15 +140,15 @@ void CorePhysicsComponent::ResumeSkating(bool onGround, const uint8_t* grind, vo
         // Onto a rail: the old ride let go (its object kept at +0x6C), the rail's object ridden.
         void* ride = At<void*>(this, kRide);
         if (GameObjects::CRideTracker* tracker = At<GameObjects::CRideTracker*>(ride, 0x18)) {
-            At<void*>(ride, 0x6C) = tracker->m_object.m_ownerObject;
-            reinterpret_cast<GameObjects::CSharedRef<GameObjects::CSharedBase>*>(&tracker->m_object)->Release();
-            MemSys::Manager::Get()->Free(tracker);
+            At<void*>(ride, 0x6C) = tracker->m_entity.m_ownerObject;
+            reinterpret_cast<GameObjects::CSharedRef<GameObjects::CSharedBase>*>(&tracker->m_entity)->Release();
+            MemSys::Hub::Pull()->Dealloc(tracker);
             At<GameObjects::CRideTracker*>(ride, 0x18) = nullptr;
             At<int>(ride, 0x70) = Now();
         }
         if (void* object = At<void*>(rail, 0x18))
             At<Walk::MovableContact*>(this, kRide)->StartRiding(static_cast<GameObjects::CGameEntity*>(object));
-        StartGrind(reinterpret_cast<const Maths::Vector*>(grind), At<GameObjects::CGrindPoint*>(rail, 0x14),
+        StartGrind(reinterpret_cast<const Maths::Vec4*>(grind), At<GameObjects::CGrindPoint*>(rail, 0x14),
                    At<GameObjects::CGrindRailHub*>(rail, 0x10), true, true);
         VectorAt(this, 0x98) = VectorAt(ObjectOf(this), kPosition);
         VectorAt(ObjectOf(this), kOldPosition) = VectorAt(this, 0x98);

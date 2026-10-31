@@ -75,14 +75,14 @@ std::vector<std::string> Candidates(const char* path)
     return {relative, relative + ".xbx", key + ".img.xbx", relative + ".img.xbx"};
 }
 
-// Whether the game has a file: in the data overlay, a loaded archive, or its data folder. (Not FileLoad::Exist: on disk
+// Whether the game has a file: in the data overlay, a loaded archive, or its data folder. (Not FileLoad::IsPresent: on disk
 // it opens the file, and any error but "not found" - a folder that isn't there - is the game's fatal file error.)
 bool GameHas(const std::string& name)
 {
     char overlay[260];
     if (MenuSystem::DataOverlay::OverlayPath(name.c_str(), overlay))
         return true;
-    if (Pre::Manager() && Pre::Exist(name.c_str()))
+    if (Pre::Hub() && Pre::IsPresent(name.c_str()))
         return true;
     char disk[256];
     FileLoad::MakeDiskPath(disk, name.c_str());
@@ -117,15 +117,15 @@ void CollectArrayPaths(Scripts::CArray* array, std::vector<const char*>* out, in
 {
     if (!array || depth > 4)
         return;
-    for (uint32_t i = 0; i < array->m_size; ++i) {
-        uint32_t element = array->GetElement(i);
+    for (uint32_t i = 0; i < array->m_extent; ++i) {
+        uint32_t element = array->FetchPart(i);
         if (!element)
             continue;
-        if (array->m_type == Scripts::QBVAL_STRING && IsPath(reinterpret_cast<const char*>(element)))
+        if (array->m_kindTag == Scripts::QBVAL_STRING && IsPath(reinterpret_cast<const char*>(element)))
             out->push_back(reinterpret_cast<const char*>(element));
-        else if (array->m_type == Scripts::QBVAL_STRUCT)
+        else if (array->m_kindTag == Scripts::QBVAL_STRUCT)
             CollectPaths(reinterpret_cast<Scripts::CStruct*>(element), out, depth + 1);
-        else if (array->m_type == Scripts::QBVAL_ARRAY)
+        else if (array->m_kindTag == Scripts::QBVAL_ARRAY)
             CollectArrayPaths(reinterpret_cast<Scripts::CArray*>(element), out, depth + 1);
     }
 }
@@ -134,7 +134,7 @@ void CollectPaths(Scripts::CStruct* part, std::vector<const char*>* out, int dep
     if (!part || depth > 4)
         return;
     for (Scripts::CComponent* c = part->StepToEntry(nullptr); c; c = part->StepToEntry(c)) {
-        switch (c->Type()) {
+        switch (c->KindTag()) {
         case Scripts::QBVAL_STRING:
             if (c->string && IsPath(c->string))
                 out->push_back(c->string);
@@ -149,9 +149,9 @@ void CollectPaths(Scripts::CStruct* part, std::vector<const char*>* out, int dep
 // One of our part lists: a global array of structures whose first has a desc_id.
 bool IsPartList(Scripts::CArray* array)
 {
-    if (!array || array->m_type != Scripts::QBVAL_STRUCT || array->m_size == 0)
+    if (!array || array->m_kindTag != Scripts::QBVAL_STRUCT || array->m_extent == 0)
         return false;
-    auto* first = reinterpret_cast<Scripts::CStruct*>(array->GetElement(0));
+    auto* first = reinterpret_cast<Scripts::CStruct*>(array->FetchPart(0));
     uint32_t desc;
     return first && first->ReadHashValue(kDescId, &desc, 0);
 }
@@ -320,17 +320,17 @@ std::string PathKey(const char* path)
 std::vector<uint32_t> PickNew(Scripts::CArray* ours, Scripts::CArray* theirs, bool (*found)(const char* path))
 {
     std::vector<uint32_t> picked;
-    if (!ours || !theirs || theirs->m_type != Scripts::QBVAL_STRUCT)
+    if (!ours || !theirs || theirs->m_kindTag != Scripts::QBVAL_STRUCT)
         return picked;
     std::set<uint32_t> descs;
-    for (uint32_t i = 0; i < ours->m_size; ++i) {
-        auto* part = reinterpret_cast<Scripts::CStruct*>(ours->GetElement(i));
+    for (uint32_t i = 0; i < ours->m_extent; ++i) {
+        auto* part = reinterpret_cast<Scripts::CStruct*>(ours->FetchPart(i));
         uint32_t desc;
         if (part && part->ReadHashValue(kDescId, &desc, 0))
             descs.insert(desc);
     }
-    for (uint32_t i = 0; i < theirs->m_size; ++i) {
-        auto* part = reinterpret_cast<Scripts::CStruct*>(theirs->GetElement(i));
+    for (uint32_t i = 0; i < theirs->m_extent; ++i) {
+        auto* part = reinterpret_cast<Scripts::CStruct*>(theirs->FetchPart(i));
         uint32_t desc;
         if (!part || !part->ReadHashValue(kDescId, &desc, 0) || descs.count(desc))
             continue;
@@ -366,7 +366,7 @@ void LoadOnce()
 {
     if (s_done)
         return;
-    if (!Scripts::GetArray(kMasterEditableList)) {
+    if (!Scripts::FetchList(kMasterEditableList)) {
         if (++s_frames > kWaitFrames)
             s_done = true;
         return;
@@ -404,48 +404,48 @@ void LoadOnce()
         size_t size = data.size();
         data.resize(size + 16, 0); // (the walk stops at a 0 token)
         for (auto [array, at] : TopLevelArrays(data.data(), size)) {
-            Scripts::CArray* ours = Scripts::GetArray(array);
+            Scripts::CArray* ours = Scripts::FetchList(array);
             if (IsPartList(ours))
                 targets.push_back({array, ours, at});
         }
     }
     for (const Target& target : targets) {
-        for (uint32_t i = 0; i < target.ours->m_size; ++i) {
+        for (uint32_t i = 0; i < target.ours->m_extent; ++i) {
             std::vector<const char*> paths;
-            CollectPaths(reinterpret_cast<Scripts::CStruct*>(target.ours->GetElement(i)), &paths);
+            CollectPaths(reinterpret_cast<Scripts::CStruct*>(target.ours->FetchPart(i)), &paths);
             for (const char* path : paths)
                 s_ourKeys.insert(PathKey(path));
         }
     }
     int added = 0, lists = 0, skipped = 0;
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     MemSys::EnterHeapScope(manager->m_scriptHeap);
     for (const Target& target : targets) {
         Scripts::CArray* theirs = Scripts::NewArray();
         if (!theirs)
             break;
-        theirs->Init();
+        theirs->PrepareAll();
         Scripts::ParseArray(theirs, target.theirs, nullptr);
         std::vector<uint32_t> picked = PickNew(target.ours, theirs, Found);
         int theirNew = 0;
-        if (theirs->m_type == Scripts::QBVAL_STRUCT) {
+        if (theirs->m_kindTag == Scripts::QBVAL_STRUCT) {
             std::set<uint32_t> descs;
-            for (uint32_t i = 0; i < target.ours->m_size; ++i) {
+            for (uint32_t i = 0; i < target.ours->m_extent; ++i) {
                 uint32_t desc;
-                auto* part = reinterpret_cast<Scripts::CStruct*>(target.ours->GetElement(i));
+                auto* part = reinterpret_cast<Scripts::CStruct*>(target.ours->FetchPart(i));
                 if (part && part->ReadHashValue(kDescId, &desc, 0))
                     descs.insert(desc);
             }
-            for (uint32_t i = 0; i < theirs->m_size; ++i) {
+            for (uint32_t i = 0; i < theirs->m_extent; ++i) {
                 uint32_t desc;
-                auto* part = reinterpret_cast<Scripts::CStruct*>(theirs->GetElement(i));
+                auto* part = reinterpret_cast<Scripts::CStruct*>(theirs->FetchPart(i));
                 if (part && part->ReadHashValue(kDescId, &desc, 0) && !descs.count(desc))
                     ++theirNew;
             }
         }
         if (!picked.empty()) {
-            uint32_t old = target.ours->m_size;
-            target.ours->Resize(old + static_cast<uint32_t>(picked.size()));
+            uint32_t old = target.ours->m_extent;
+            target.ours->Rescale(old + static_cast<uint32_t>(picked.size()));
             uint32_t* elements = theirs->FindArrayValue();
             for (size_t k = 0; k < picked.size(); ++k) {
                 auto* part = reinterpret_cast<Scripts::CStruct*>(elements[picked[k]]);

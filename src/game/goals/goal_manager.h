@@ -20,14 +20,14 @@ namespace GoalSystem {
 
 class CObjective;
 
-// The active goals' list head (ListKit::Head<CObjective>, vtable 0x0064DF78: data -1, linked to itself while empty).
+// The active goals' list head (ListKit::Foremost<CObjective>, vtable 0x0064DF78: data -1, linked to itself while empty).
 struct GoalListHead {
     MemSys::ListNode m_listLink;
     // 0x0055B9F0: the destructor body: unlinked (the node's vtable 0x0064DDCC). 0x0055D960 (the vtable's entry): the
     // same, freed with flags bit 0. Returns this.
     void DestroyBody();
-    GoalListHead* Destroy(uint8_t flags);
-    // 0x0055D990 (ListKit::Head<CObjective>::GetItem): the node at `index`, or null past the end. (Each node's data is checked
+    GoalListHead* Teardown(uint8_t flags);
+    // 0x0055D990 (ListKit::Foremost<CObjective>::FetchEntry): the node at `index`, or null past the end. (Each node's data is checked
     // for -1 before the node for null, as the original.)
     MemSys::ListNode* NodeAt(int index);
 };
@@ -53,12 +53,12 @@ public:
     uint32_t m_backer;                   // +0x48 (GoalManager_SetSponsor)
     Scripts::CStruct* m_team;              // +0x4C: the team (a component per member: 1 if used)
     int m_groupUnlocked[kLevels * kGroupsPerLevel]; // +0x50: level * 10 + group - 1 (groups are numbered from 1)
-    Scripts::CStruct* m_params;            // +0x398: the difficulty level by game mode name
+    Scripts::CStruct* m_args;            // +0x398: the difficulty level by game mode name
 
     // 0x0055D9C0: the constructor: empty tables and list, three new structures, every group locked. Returns this.
-    CGoalManager* Construct();
+    CGoalManager* MakeNew();
     // 0x0055DB50: the destructor body: every goal removed, the saved state deleted, the active list emptied, the
-    // table cleared. (m_team and m_params aren't deleted, as the original.)
+    // table cleared. (m_team and m_args aren't deleted, as the original.)
     void DestroyBody();
 
     // 0x00557E30
@@ -223,7 +223,7 @@ public:
     // 0x0055E980: the first active network goal, or null.
     CObjective* GetActiveNetGoal();
     // 0x0055EA40: every active goal updated; goals in state 0x02 removed and deleted; the timer shown.
-    void Update();
+    void TickFrame();
 
     // 0x0055BEA0: goal `id` removed (its pro destroyed, the goal deleted; not the last goal any more). True.
     bool DropObjective(uint32_t id);
@@ -239,7 +239,7 @@ public:
 static_assert(offsetof(CGoalManager, m_goalData) == 0x14 && offsetof(CGoalManager, m_activeGoals) == 0x18 &&
                   offsetof(CGoalManager, m_previousObjective) == 0x2C && offsetof(CGoalManager, m_objectiveScore) == 0x38 &&
                   offsetof(CGoalManager, m_allUnlocked) == 0x44 && offsetof(CGoalManager, m_team) == 0x4C &&
-                  offsetof(CGoalManager, m_groupUnlocked) == 0x50 && offsetof(CGoalManager, m_params) == 0x398 &&
+                  offsetof(CGoalManager, m_groupUnlocked) == 0x50 && offsetof(CGoalManager, m_args) == 0x398 &&
                   sizeof(CGoalManager) == 0x39C,
               "layout must match the original");
 

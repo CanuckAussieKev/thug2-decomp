@@ -21,7 +21,7 @@ struct ImFont;
 // Where: the face's u16 flags (CTriMeshSource face +0) in the sector's collision, written live - the feelers read
 // them at every query (CStaticCollider's line tests take the face's flags from the geometry; the collision cache holds
 // objects, not faces). They are kept through everything the editor does to the piece: its moves and turns
-// (CTriMeshSource::Translate / RotateY move vertices and the tree only), its scale (level_editor_scale.h rebuilds the
+// (CTriMeshSource::Slide / RotateY move vertices and the tree only), its scale (level_editor_scale.h rebuilds the
 // vertices from its copy - faces untouched), and its shared collision (level_editor_shared_coll.h): a face taken along by
 // a moved piece's companion is edited in the companion (and in the flags given back when the companion goes) - the
 // original keeps its 0x10 while it is taken. A copy (Ctrl+D) copies its source's faces as they are (the engine's
@@ -44,7 +44,7 @@ struct FlagInfo {
     const char* what; // (what the game does with it - the tooltip)
 };
 constexpr int kFlagCount = 8;
-const FlagInfo& Flag(int index);
+const FlagInfo& BitMark(int index);
 // The flags set and cleared: (flags | set) & ~clear.
 uint16_t Applied(uint16_t flags, uint16_t set, uint16_t clear);
 // A flag over several faces (the Inspector's checkbox): -1 none, 0 clear on all, 1 set on all, 2 mixed.
@@ -77,7 +77,7 @@ struct Change {
     FaceKey key;
     uint16_t origin, now;
 };
-std::vector<SectorFaces> Group(const std::vector<Change>& changes);
+std::vector<SectorFaces> GroupSet(const std::vector<Change>& changes);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
@@ -85,8 +85,8 @@ std::vector<SectorFaces> Group(const std::vector<Change>& changes);
 bool Picking();
 void SetPicking(bool on);
 // The editor starting / stopping (stopping: Faces mode off, the selection dropped).
-void Start();
-void Stop();
+void Kickoff();
+void Halt();
 // The selection.
 const std::vector<FaceKey>& Selection();
 bool HasSelection();
@@ -103,7 +103,7 @@ bool SetFlag(uint16_t bit, bool on);
 // Home with faces selected: they're put back as the level has them (one undo step). False: no faces selected.
 bool HomeSelection();
 // The flags of a face now (as the skater meets it: a taken face's in its companion). False: no such face.
-bool Read(FaceKey key, uint16_t* flags);
+bool TakeIn(FaceKey key, uint16_t* flags);
 // Layouts: the faces changed now; records put in place (how many faces); everything put back; a new level (forgotten,
 // nothing written).
 std::vector<SectorFaces> Changed();
@@ -111,10 +111,10 @@ int Apply(const std::vector<SectorFaces>& sectors);
 void ResetAll();
 void ForgetLevel();
 // Once a frame while the editor runs: what the Inspector asked for.
-void Update();
+void TickFrame();
 // The selected faces (cyan) and the hovered one (yellow) outlined over the view.
-void AddOverlay(V3 cameraPos, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                std::vector<Ui::Line>* lines);
+void AddOverlay(V3 cameraPos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
+                std::vector<Ui::Seg>* lines);
 // The Inspector's section (the selected faces: their flags as checkboxes, All faces of the piece, Home); `mono` /
 // `small`: the UI's fonts.
 void InspectorSection(ImFont* mono, ImFont* smallFont);

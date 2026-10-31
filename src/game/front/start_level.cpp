@@ -32,7 +32,7 @@ namespace MenuSystem::BeginLevel {
 
 namespace {
 
-uint32_t Checksum(const char* name) { return Checksums::HashFromText(name); }
+uint32_t NameHash(const char* name) { return Checksums::HashFromText(name); }
 
 bool IsScript(uint32_t name)
 {
@@ -80,11 +80,11 @@ bool SceneInstalled(const std::string& name)
 {
     Scripts::CStruct* info = Scripts::ReadSubStruct(("Level_" + name).c_str());
     const char* scene = nullptr;
-    if (!info || info->HasEntryNamed("scnpre") || !info->GetString("level", &scene, 0) || !scene)
+    if (!info || info->HasEntryNamed("scnpre") || !info->FetchText("level", &scene, 0) || !scene)
         return true;
     char path[160];
     std::snprintf(path, sizeof(path), "levels\\%s\\%s.scn.xbx", scene, scene);
-    return FileLoad::Exist(path);
+    return FileLoad::IsPresent(path);
 }
 
 int s_frames;  // the front end's frames with the main menu's scripts loaded
@@ -96,8 +96,8 @@ constexpr int kLevelSettleFrames = 90;     // (in the level, unpaused, before St
 constexpr int kPauseWaitFrames = 120;      // (for the pause menu, before Start is pressed again)
 constexpr int kPauseMenuFrames = 20;       // (the pause menu up this long before LEVEL EDITOR is chosen)
 constexpr int kStartPresses = 5;
-enum class Edit { Off, WaitLevel, WaitPause, Done };
-Edit s_edit = Edit::Off;
+enum class Edit { Disengaged, WaitLevel, WaitPause, Done };
+Edit s_edit = Edit::Disengaged;
 int s_editFrames;
 int s_presses;
 bool s_started;      // the requested level's load began
@@ -106,8 +106,8 @@ int s_poolFrames;
 
 // -at / start_at: the skater put there standing once the level is up (AtUpdate).
 constexpr int kAtSettleFrames = 60;  // (in the level, unpaused, before the teleport)
-enum class At { Off, WaitLevel, Done };
-At s_at = At::Off;
+enum class At { Disengaged, WaitLevel, Done };
+At s_at = At::Disengaged;
 int s_atFrames;
 
 // The spot asked for ("" if none): -at, then start_at=.
@@ -150,13 +150,13 @@ void EditUpdate(GameModules::FrontEnd* frontEnd)
         s_editFrames = inLevel && !paused ? s_editFrames + 1 : 0;
         if (s_editFrames < kLevelSettleFrames)
             return;
-        if (!LevelEditor::Enabled()) {
+        if (!LevelEditor::IsSwitchedOn()) {
             Log("edit level: the level editor is off ([features] level_editor=0) - free skate in %s, as -level",
                 Requested());
             s_edit = Edit::Done;
             return;
         }
-        if (!IsScript(Checksum("level_editor_enter"))) {
+        if (!IsScript(NameHash("level_editor_enter"))) {
             Log("edit level: no level_editor_enter script (the data overlay isn't installed - "
                 "tools/pipeline/menu_level/make_menu_level.ts) - free skate in %s, as -level",
                 Requested());
@@ -206,7 +206,7 @@ void EditUpdate(GameModules::FrontEnd* frontEnd)
         return;
     s_edit = Edit::Done;
     Log("edit level: running level_editor_enter (the pause menu's LEVEL EDITOR)");
-    Scripts::LaunchScript(Checksum("level_editor_enter"), nullptr, nullptr, false, "level_editor_enter");
+    Scripts::LaunchScript(NameHash("level_editor_enter"), nullptr, nullptr, false, "level_editor_enter");
 }
 
 } // namespace
@@ -283,7 +283,7 @@ const char* Requested() { return TheRequest().level.c_str(); }
 
 bool EditRequested() { return TheRequest().edit && !TheRequest().level.empty(); }
 
-void Update(GameModules::FrontEnd* frontEnd)
+void TickFrame(GameModules::FrontEnd* frontEnd)
 {
     if (FrameLoop::FramesRun() == 0)
         return;
@@ -309,18 +309,18 @@ void Update(GameModules::FrontEnd* frontEnd)
         }
         if (AtUpdate(frontEnd))
             return;  // (-edit's editor once the skater stands there)
-        if (s_edit != Edit::Off && s_edit != Edit::Done)
+        if (s_edit != Edit::Disengaged && s_edit != Edit::Done)
             EditUpdate(frontEnd);
         return;
     }
     // In the front end, with the main menu up: its scripts loaded (not the early self-tests' stand-in symbol table,
     // which run this before the game is up), then a second more for the menu to settle.
-    if (Engine3D::CurrentLevel() != 0 || (frontEnd && frontEnd->m_isHalted) || !IsScript(Checksum("main_menu_skate_now")))
+    if (Engine3D::CurrentLevel() != 0 || (frontEnd && frontEnd->m_isHalted) || !IsScript(NameHash("main_menu_skate_now")))
         return;
     if (++s_frames < 60)
         return;
     s_done = true;
-    bool loaded = Load(Requested(), nullptr);
+    bool loaded = ReadIn(Requested(), nullptr);
     s_started = loaded;
     if (loaded && !AtText().empty()) {
         if (ParseSpot(AtText(), nullptr)) {
@@ -339,12 +339,12 @@ void Update(GameModules::FrontEnd* frontEnd)
     }
 }
 
-bool Load(const char* name, std::string* why)
+bool ReadIn(const char* name, std::string* why)
 {
     std::string level = name;
     if (_strnicmp(level.c_str(), "load_", 5) != 0)
         level = "Load_" + level;
-    uint32_t load = Checksum(level.c_str());
+    uint32_t load = NameHash(level.c_str());
     if (!IsScript(load)) {
         Log("start level: %s isn't a level's load script - the main menu stays", level.c_str());
         if (why)
@@ -360,14 +360,14 @@ bool Load(const char* name, std::string* why)
         return false;
     }
     Log("start level: %s (free skate)", level.c_str());
-    Scripts::LaunchScript(Checksum("EnableSun"), nullptr, nullptr, false, "EnableSun");
-    Scripts::CStruct* params = Scripts::NewStruct()->Init();
-    params->PutNameKey(0u, Checksum("freeskate"));
-    Scripts::LaunchScript(Checksum("SetGameType"), params, nullptr, false, "SetGameType");
+    Scripts::LaunchScript(NameHash("EnableSun"), nullptr, nullptr, false, "EnableSun");
+    Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+    params->PutNameKey(0u, NameHash("freeskate"));
+    Scripts::LaunchScript(NameHash("SetGameType"), params, nullptr, false, "SetGameType");
     params->Clear();
-    Scripts::LaunchScript(Checksum("SetCurrentGameType"), nullptr, nullptr, false, "SetCurrentGameType");
-    params->PutNameKey(Checksum("level"), load);
-    Scripts::SpawnScript(Checksum("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false, false);
+    Scripts::LaunchScript(NameHash("SetCurrentGameType"), nullptr, nullptr, false, "SetCurrentGameType");
+    params->PutNameKey(NameHash("level"), load);
+    Scripts::SpawnScript(NameHash("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false, false);
     params->Clear();
     Scripts::DeleteStruct(params);
     return true;

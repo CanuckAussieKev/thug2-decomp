@@ -113,15 +113,15 @@ bool __cdecl CFunc_GetTerrainTypeParam(CStruct* params, CScript* script)
     params->ReadHashValue(kParam, &param, 1);
     uint8_t terrain;
     if (params->ReadHashValue(kTerrain, &terrainName, 0)) {
-        terrain = Terrain::GetTerrainIndex(terrainName);
+        terrain = SurfaceKind::GetTerrainIndex(terrainName);
     } else {
         params->FetchIntValue(kTerrainIndex, &terrainIndex, 1);
         terrain = static_cast<uint8_t>(terrainIndex);
     }
     CStruct* value = nullptr; // (uninitialised in the original: the callee sets it)
-    if (!Terrain::GetTerrainStructureInto(&value, terrain, param))
+    if (!SurfaceKind::GetTerrainStructureInto(&value, terrain, param))
         return false;
-    script->m_params->PutSubStruct(param, value);
+    script->m_args->PutSubStruct(param, value);
     return true;
 }
 
@@ -131,13 +131,13 @@ bool __cdecl CFunc_SetSunProps(CStruct* params, CScript*)
 {
     SunProps props{}; // (the fields not given are uninitialised in the original; the callee doesn't read them)
     uint32_t mask = 0;
-    if (params->GetFloat(kTheta, &props.theta, 0))
+    if (params->FetchFloat(kTheta, &props.theta, 0))
         mask = 0x01;
-    if (params->GetFloat(kPhi, &props.phi, 0))
+    if (params->FetchFloat(kPhi, &props.phi, 0))
         mask |= 0x02;
-    if (params->GetFloat(kRadius, &props.radius, 0))
+    if (params->FetchFloat(kRadius, &props.radius, 0))
         mask |= 0x04;
-    if (params->GetFloat(kSize, &props.size, 0))
+    if (params->FetchFloat(kSize, &props.size, 0))
         mask |= 0x08;
     if (params->ReadHashValue(kTexture, &props.texture, 0))
         mask |= 0x20;
@@ -195,7 +195,7 @@ bool __cdecl CFunc_ApplyChangeGamma(CStruct* params, CScript*)
     uint32_t color = 0;  // (uninitialised in the original: both are asserted)
     float change = 0.0f;
     params->ReadHashValue("color", &color, 1);
-    params->GetFloat("change", &change, 1);
+    params->FetchFloat("change", &change, 1);
     float* channel = nullptr;
     if (color == kRed)
         channel = &red;
@@ -218,9 +218,9 @@ bool __cdecl CFunc_SetDynamicLightModulationFactor(CStruct* params, CScript*)
     float value = 0.0f;
     float value2 = 0.0f;
     int directional = 0;
-    if (!params->GetFloat(kValue, &value, 0))
+    if (!params->FetchFloat(kValue, &value, 0))
         return true;
-    params->GetFloat(kValue2, &value2, 0);
+    params->FetchFloat(kValue2, &value2, 0);
     if (params->HasBareFlag(kAmbient)) {
         Engine3D::SetAmbientLightModulationFactor(value, value2);
         return true;
@@ -252,7 +252,7 @@ bool __cdecl CFunc_SetFogExponent(CStruct* params, CScript*)
     if (DistanceClipping())
         return false;
     float exponent = 0.0f; // (uninitialised in the original)
-    params->GetFloat("exponent", &exponent, 0);
+    params->FetchFloat("exponent", &exponent, 0);
     Engine3D::Engine::SetFogExponent(exponent);
     return true;
 }
@@ -287,14 +287,14 @@ bool __cdecl CFunc_SetUVWibbleParams(CStruct* params, CScript*)
     Engine3D::CWorldCell* sector = LookUpSector(name);
     float uVel = 0.0f, uAmp = 0.0f, uFreq = 0.0f, uPhase = 0.0f;
     float vVel = 0.0f, vAmp = 0.0f, vFreq = 0.0f, vPhase = 0.0f;
-    params->GetFloat("u_vel", &uVel, 0);
-    params->GetFloat("u_amp", &uAmp, 0);
-    params->GetFloat("u_freq", &uFreq, 0);
-    params->GetFloat("u_phase", &uPhase, 0);
-    params->GetFloat("v_vel", &vVel, 0);
-    params->GetFloat("v_amp", &vAmp, 0);
-    params->GetFloat("v_freq", &vFreq, 0);
-    params->GetFloat("v_phase", &vPhase, 0);
+    params->FetchFloat("u_vel", &uVel, 0);
+    params->FetchFloat("u_amp", &uAmp, 0);
+    params->FetchFloat("u_freq", &uFreq, 0);
+    params->FetchFloat("u_phase", &uPhase, 0);
+    params->FetchFloat("v_vel", &vVel, 0);
+    params->FetchFloat("v_amp", &vAmp, 0);
+    params->FetchFloat("v_freq", &vFreq, 0);
+    params->FetchFloat("v_phase", &vPhase, 0);
     sector->SetUVWibbleParams(uVel, uAmp, uFreq, uPhase, vVel, vAmp, vFreq, vPhase);
     return true;
 }
@@ -329,8 +329,8 @@ bool __cdecl CFunc_SetUVWibbleOffsets(CStruct* params, CScript*)
     Engine3D::CWorldCell* sector = NamedSector(params);
     float uOff = 0.0f; // (uninitialised in the original)
     float vOff = 0.0f;
-    params->GetFloat("u_off", &uOff, 0);
-    params->GetFloat("v_off", &vOff, 0);
+    params->FetchFloat("u_off", &uOff, 0);
+    params->FetchFloat("v_off", &vOff, 0);
     sector->SetUVWibbleOffsets(uOff, vOff);
     return true;
 }

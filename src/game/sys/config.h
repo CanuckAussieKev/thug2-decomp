@@ -18,15 +18,15 @@ constexpr const char* kGamepad = "Gamepad";
 constexpr const char* kLogging = "Logging";
 
 // Find the exe's folder and the settings file in it (before any of the getters).
-void Init();
+void PrepareAll();
 // The exe's folder, ending in a backslash.
 const char* ExecutableDirectory();
 
 // GetPrivateProfileInt != 0.
-bool GetBool(const char* section, const char* key, bool fallback);
+bool FetchFlag(const char* section, const char* key, bool fallback);
 // GetPrivateProfileInt.
 int GetInt(const char* section, const char* key, int fallback);
 // GetPrivateProfileString: the characters copied into `out`.
-int GetString(const char* section, const char* key, const char* fallback, char* out, size_t size);
+int FetchText(const char* section, const char* key, const char* fallback, char* out, size_t size);
 
 } // namespace Config

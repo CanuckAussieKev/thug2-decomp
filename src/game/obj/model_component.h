@@ -25,19 +25,19 @@ struct CModelSpin {
     // 0x00420590: its angle now (degrees; 0 when off; unrounded, as the original leaves it in ST0). Past its period:
     // switched off (0), or held at base + range. The time is the game clock's (slow motion counted), or the real one
     // (MODEL_SPIN_REAL_TIME).
-    double Angle();
+    double Bearing();
 
     float m_period;      // +0x00 milliseconds
-    uint32_t m_start;    // +0x04 when it started (the game clock's time, or the real time)
+    uint32_t m_outset;    // +0x04 when it started (the game clock's time, or the real time)
     float m_base;        // +0x08 degrees
     float m_range;       // +0x0C degrees
     int m_power;         // +0x10 SinePower
-    uint8_t m_flags;     // +0x14 MODEL_SPIN_*
+    uint8_t m_flagBits;     // +0x14 MODEL_SPIN_*
     uint8_t pad15[3];
 };
 static_assert(sizeof(CModelSpin) == 0x18, "layout must match the original");
 
-// CModelSpin::m_flags
+// CModelSpin::m_flagBits
 constexpr uint8_t MODEL_SPIN_ON = 0x1;
 constexpr uint8_t MODEL_SPIN_HOLD = 0x2;      // HoldOnLastAngle
 constexpr uint8_t MODEL_SPIN_REAL_TIME = 0x4; // dontpause: the real time, not the game clock's
@@ -47,9 +47,9 @@ struct CModelSpinAxis {
     // 0x004204F0: every turn off, inactive.
     void Clear();
     // 0x00420520: a new turn in the first free slot (none free: nothing), the axis active.
-    void Add(float period, uint32_t start, float base, float range, int power, bool hold, bool realTime);
+    void AppendOne(float period, uint32_t start, float base, float range, int power, bool hold, bool realTime);
     // 0x004213E0: the angles of the turns still on, added up (degrees). Inactive once none is.
-    float Angle();
+    float Bearing();
 
     CModelSpin m_spins[6]; // +0x00
     bool m_active;         // +0x90
@@ -64,32 +64,32 @@ static_assert(sizeof(CModelSpinAxis) == 0x94, "layout must match the original");
 // change it (visibility of its geoms, colours, lights, scaling, textures).
 //
 // Vtable: 0 the scalar deleting destructor (0x00420270), 1 Update, 2 ConfigureFromData, 3 Finalize, 8 Hide, 9
-// Teleport, 12 InvokeMethodByName, 13 SetUpMeshFromProfile, 14 SetModel; the rest the base's / shared.
+// Teleport, 12 InvokeMethodByName, 13 SetUpMeshFromProfile, 14 ChangeMesh; the rest the base's / shared.
 class CMeshInstanceModule : public CObjectModule {
 public:
     static constexpr uint32_t kType = 0x286A8D26;
 
     // 0x00421490 (registered with the composite object manager): a new one (Construct; 0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00420BF0: the base's constructor, its vtable and type, a new model (0x0048BFA0), the spins off, no display
     // offset (w 1), scale 1, no colour values, the pivot (0, 0, 0, 1). Returns this.
-    CMeshInstanceModule* Construct();
+    CMeshInstanceModule* MakeNew();
     // 0x00420000: its vtable back, the model deleted (0x0048C3C0), then the base's body.
     void DestroyBody();
     // 0x00420270 (vtable slot 0)
-    CMeshInstanceModule* Destroy(unsigned int flags);
+    CMeshInstanceModule* Teardown(unsigned int flags);
     // 0x004214F0 (vtable slot 2): UseModelLights (the model's lights made - their position the object's, their
     // count Max_Scene_Lights - or, without it, taken away), the skeleton given to the model, ShadowVolume, then
     // SetUpMesh.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x004204B0 (vtable slot 3): its object's skeleton, animation blender and suspend components.
-    void Finalize();
+    void Seal();
     // 0x004219F0 (vtable slot 1): a level object (SetUpMesh's refObjectName) follows its sector's model; otherwise an
     // active, shown model goes to the display matrix (with the skeleton and whether the blender's animation is
     // ready).
-    void Update();
+    void TickFrame();
     // 0x00420070 (vtable slot 8)
-    void Hide(bool hide);
+    void Conceal(bool hide);
     // 0x00420480 (vtable slot 9): Update now, then the model's lights' brightness.
     void JumpTo();
     // 0x00421AE0 (vtable slot 12): its script members (a switch on the name); 2 when it's not one of them.
@@ -98,7 +98,7 @@ public:
     // 0x91C1EC93 when 0), then as SetUpMesh ends.
     void SetUpMeshFromProfile(void* profile, bool viaResourceStore, int texDictOffset, uint32_t buildScript);
     // 0x00421360 (vtable slot 14): another model; its lights' brightness and bounding sphere taken.
-    void SetModel(Engine3D::CRenderModel* model);
+    void ChangeMesh(Engine3D::CRenderModel* model);
 
     // 0x00420D10: the model from the structure (see the class comment), then (with the object's
     // COMPOSITE_FLAG_HIDDEN?) Update and the lights, the bounding sphere into m_enclosingBall and the bone volumes.
@@ -110,9 +110,9 @@ public:
     // 0x004215F0: the display matrix: the object's, turned by the spins about X, Y and Z (about the pivot when only
     // one... see the source), flipped (EnableDisplayFlip), at the object's position plus the spins' offset and the
     // display offset.
-    void GetDrawMatrix(Maths::Matrix* out);
+    void GetDrawMatrix(Maths::Mat4* out);
     // 0x00421960: a line against the model (the skeleton's bones): the hit, 0 without a skeleton or bone volumes.
-    int TestCollision(Maths::Vector* start, uint32_t bone, uint32_t a, uint32_t b, uint32_t c);
+    int TestCollision(Maths::Vec4* start, uint32_t bone, uint32_t a, uint32_t b, uint32_t c);
 
     // 0x00420090: colour value `index` (1 to the count) - nothing without a model or outside.
     void SetColorValue(int index, float value);
@@ -131,19 +131,19 @@ public:
     // when asked); without the model's lights, the global brightness.
     void ApplyBrightness(Engine3D::CProbeRay* feeler, bool lerp, float rate);
     // 0x00420700: the colour of geom 0 (InitFromSector's model only).
-    void SetColor(uint32_t color);
+    void ChangeTint(uint32_t color);
     // 0x00420730: turns of `duration` frames about the axes asked (each from `start` to `end` degrees), with the pivot
     // (0, 30, 0, 1); sent to the server (message 0x76) when its player is this machine's.
     void RotateDisplay(float duration, float start, float end, int power, bool hold, bool x, bool y, bool z);
     // 0x004208D0: every turn off; sent (message 0x8C).
     void CancelRotateDisplay();
 
-    Maths::Vector m_enclosingBall; // +0x18 the model's (0x00492F30)
-    Maths::Vector m_pivot;          // +0x28 RotationOffset
+    Maths::Vec4 m_enclosingBall; // +0x18 the model's (0x00492F30)
+    Maths::Vec4 m_pivot;          // +0x28 RotationOffset
     CModelSpinAxis m_twistRate[3];     // +0x38 about X, Y, Z
     bool m_flip;                  // +0x1F4 EnableDisplayFlip
     uint8_t pad1F5[3];
-    Maths::Vector m_shift;         // +0x1F8 added to the display position (w 1)
+    Maths::Vec4 m_shift;         // +0x1F8 added to the display position (w 1)
     Engine3D::CRenderModel* m_meshInstance;         // +0x208
     CObjectModule* m_boneRig;  // +0x20C its object's skeleton component (Finalize)
     CObjectModule* mp_animBlender; // +0x210

@@ -42,7 +42,7 @@ bool __cdecl CFunc_GoalManager_EditGoal(Scripts::CStruct* params, Scripts::CScri
     uint32_t name = GoalName(params);
     Scripts::CStruct* edits;
     params->ReadSubStruct(kParams, &edits, 1);
-    CObjective* goal = manager->m_goals.Get(name);
+    CObjective* goal = manager->m_goals.Pull(name);
     if (goal)
         goal->RewriteArgs(edits);
     return goal != nullptr;
@@ -61,7 +61,7 @@ bool __cdecl CFunc_GoalManager_ActivateGoal(Scripts::CStruct* params, Scripts::C
 bool __cdecl CFunc_GoalManager_DeactivateGoal(Scripts::CStruct* params, Scripts::CScript*)
 {
     CGoalManager* manager = GetObjectiveBoard();
-    CObjective* goal = manager->m_goals.Get(GoalName(params));
+    CObjective* goal = manager->m_goals.Pull(GoalName(params));
     if (goal)
         Virtual<bool>(goal, CObjective::kVtDeactivate, false, true);
     return goal != nullptr;
@@ -120,7 +120,7 @@ bool __cdecl CFunc_GoalManager_UninitializeGoal(Scripts::CStruct* params, Script
         manager->ReleaseObjectiveTree(name);
         return true;
     }
-    manager->m_goals.Get(name)->Uninitialize(false, 0);
+    manager->m_goals.Pull(name)->Uninitialize(false, 0);
     return true;
 }
 
@@ -149,7 +149,7 @@ bool __cdecl CFunc_GoalManager_ActivateAllSelectedGoals(Scripts::CStruct*, Scrip
 bool __cdecl CFunc_GoalManager_GoalIsActive(Scripts::CStruct* params, Scripts::CScript*)
 {
     CGoalManager* manager = GetObjectiveBoard();
-    CObjective* goal = manager->m_goals.Get(GoalName(params));
+    CObjective* goal = manager->m_goals.Pull(GoalName(params));
     return goal ? Virtual<bool>(goal, CObjective::kVtIsActive) : false;
 }
 
@@ -160,7 +160,7 @@ bool __cdecl CFunc_GoalManager_SetGoalTimer(Scripts::CStruct* params, Scripts::C
     uint32_t name = GoalName(params);
     int time = -1;
     params->FetchIntValue(kTime, &time, 0);
-    CObjective* goal = manager->m_goals.Get(name);
+    CObjective* goal = manager->m_goals.Pull(name);
     if (goal) {
         if (time == -1)
             goal->ResetTimer();
@@ -174,7 +174,7 @@ bool __cdecl CFunc_GoalManager_SetGoalTimer(Scripts::CStruct* params, Scripts::C
 bool __cdecl CFunc_GoalManager_ZeroGoalTimer(Scripts::CStruct* params, Scripts::CScript*)
 {
     CGoalManager* manager = GetObjectiveBoard();
-    CObjective* goal = manager->m_goals.Get(GoalName(params));
+    CObjective* goal = manager->m_goals.Pull(GoalName(params));
     if (goal)
         goal->SetSecondsRemaining(0);
     return goal != nullptr;
@@ -205,7 +205,7 @@ bool __cdecl CFunc_GoalManager_SetGoalFlag(Scripts::CStruct* params, Scripts::CS
     params->FetchIntValue(0u, &value, 1);
     uint32_t skater = 0;
     params->ReadHashValue(kSkater, &skater, 0);
-    CObjective* goal = manager->m_goals.Get(name);
+    CObjective* goal = manager->m_goals.Pull(name);
     if (!goal)
         return false;
     return Virtual<bool>(goal, CObjective::kVtSetFlag, flag, value, skater);
@@ -215,7 +215,7 @@ bool __cdecl CFunc_GoalManager_SetGoalFlag(Scripts::CStruct* params, Scripts::CS
 bool __cdecl CFunc_GoalManager_HasSeenGoal(Scripts::CStruct* params, Scripts::CScript*)
 {
     CGoalManager* manager = GetObjectiveBoard();
-    CObjective* goal = manager->m_goals.Get(GoalName(params));
+    CObjective* goal = manager->m_goals.Pull(GoalName(params));
     return goal ? goal->HasSeen() : false;
 }
 
@@ -223,7 +223,7 @@ bool __cdecl CFunc_GoalManager_HasSeenGoal(Scripts::CStruct* params, Scripts::CS
 bool __cdecl CFunc_GoalManager_AllFlagsSet(Scripts::CStruct* params, Scripts::CScript*)
 {
     CGoalManager* manager = GetObjectiveBoard();
-    return manager->m_goals.Get(GoalName(params))->HasEveryBit();
+    return manager->m_goals.Pull(GoalName(params))->HasEveryBit();
 }
 
 // 0x005597C0: the goal's `flag` is set (of `skater`'s flags, if given).
@@ -235,7 +235,7 @@ bool __cdecl CFunc_GoalManager_GoalFlagSet(Scripts::CStruct* params, Scripts::CS
     params->ReadHashValue(kFlag, &flag, 1);
     uint32_t skater = 0;
     params->ReadHashValue(kSkater, &skater, 0);
-    return manager->m_goals.Get(name)->BitIsOn(flag, skater);
+    return manager->m_goals.Pull(name)->BitIsOn(flag, skater);
 }
 
 // 0x00559850: there is a last goal to retry.
@@ -248,8 +248,8 @@ bool __cdecl CFunc_GoalManager_CanRetryGoal(Scripts::CStruct*, Scripts::CScript*
 bool __cdecl CFunc_GoalManager_GetGoalParams(Scripts::CStruct* params, Scripts::CScript* script)
 {
     CGoalManager* manager = GetObjectiveBoard();
-    CObjective* goal = manager->m_goals.Get(GoalName(params));
-    script->m_params->AppendStructureIfAny(goal->GetParams());
+    CObjective* goal = manager->m_goals.Pull(GoalName(params));
+    script->m_args->AppendStructureIfAny(goal->FetchArgs());
     return true;
 }
 
@@ -264,7 +264,7 @@ bool __cdecl CFunc_GoalManager_NextRaceWaypoint(Scripts::CStruct* params, Script
 {
     CGoalManager* manager = GetObjectiveBoard();
     uint32_t name = GoalName(params);
-    CObjective* goal = manager->m_goals.Get(name);
+    CObjective* goal = manager->m_goals.Pull(name);
     return static_cast<CRaceObjective*>(goal)->AdvanceRaceGate(name);
 }
 
@@ -272,7 +272,7 @@ bool __cdecl CFunc_GoalManager_NextRaceWaypoint(Scripts::CStruct* params, Script
 bool __cdecl CFunc_GoalManager_NextWaypoint(Scripts::CStruct* params, Scripts::CScript*)
 {
     CGoalManager* manager = GetObjectiveBoard();
-    return manager->m_goals.Get(GoalName(params))->NextWaypoint();
+    return manager->m_goals.Pull(GoalName(params))->NextWaypoint();
 }
 
 } // namespace Game

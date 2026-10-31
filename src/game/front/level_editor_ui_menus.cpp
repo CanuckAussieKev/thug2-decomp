@@ -23,13 +23,13 @@ namespace {
 void Item(const char* id, const char* label = nullptr)
 {
     int index = Actions::Find(id);
-    const Actions::Action* action = index >= 0 ? Actions::Get(index) : nullptr;
+    const Actions::ActStep* action = index >= 0 ? Actions::Pull(index) : nullptr;
     if (!action)
         return;
     std::string keys = Hints::FirstKey(Actions::KeysText(index));
     int checked = Actions::Checked(index);
     if (ImGui::MenuItem(label ? label : action->name.c_str(), keys.empty() ? nullptr : keys.c_str(), checked == 1,
-                        Actions::Enabled(index)))
+                        Actions::IsSwitchedOn(index)))
         Actions::Run(index);
     if (!action->tip.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled))
         ImGui::SetTooltip("%s", action->tip.c_str());
@@ -88,7 +88,7 @@ void EditMenu(const Ux8::Fonts& fonts)
     ImGui::EndMenu();
 }
 
-void ViewMenu(const Model& model, std::vector<Request>* requests)
+void ViewMenu(const ShapeMesh& model, std::vector<Request>* requests)
 {
     if (!Menu("View"))
         return;
@@ -133,7 +133,7 @@ void ToolsMenu()
     Items({"tool_move", "tool_rotate", "tool_scale", "tool_space", "modal_transform"});
     ImGui::Separator();
     Item("snap25");
-    Transform::OptionsMenuItems();
+    Xform::OptionsMenuItems();
     Items({"edge_snap", "carry_objects"});
     if (ImGui::BeginMenu("Pick")) {
         Items({"pick_nodes", "pick_objects", "pick_scenery"});
@@ -182,7 +182,7 @@ void HelpMenu()
 
 } // namespace
 
-void MenuBar(const Model& model, const Ux8::Fonts& fonts, std::vector<Request>* requests)
+void MenuBar(const ShapeMesh& model, const Ux8::Fonts& fonts, std::vector<Request>* requests)
 {
     FileMenu();
     EditMenu(fonts);

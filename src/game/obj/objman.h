@@ -15,48 +15,48 @@
 // callbacks __cdecl).
 namespace GameObjects {
 
-// A manager's list head (ListKit::Head<CObject>, vtable 0x00647814, data -1).
+// A manager's list head (ListKit::Foremost<CEntity>, vtable 0x00647814, data -1).
 struct CObjectListHead : MemSys::ListNode {
     // 0x00461B20: the scalar deleting destructor (the node's destructor body 0x00460B20, then freed).
-    CObjectListHead* Destroy(unsigned int flags);
+    CObjectListHead* Teardown(unsigned int flags);
 };
 
-using ObjectCallback = void(__cdecl*)(CObject* object, void* data);
+using ObjectCallback = void(__cdecl*)(CEntity* object, void* data);
 
 class CObjectHubBase {
 public:
     // 0x00461BC0: the constructor (returns this): vtable 0x00647818, an empty list, no walks.
-    CObjectHubBase* Construct();
+    CObjectHubBase* MakeNew();
     // 0x00461B50: the destructor body (the list head unlinked; the objects stay as they are).
     void DestroyBody();
     // 0x00461B80: the scalar deleting destructor.
-    CObjectHubBase* Destroy(unsigned int flags);
+    CObjectHubBase* Teardown(unsigned int flags);
 
     // --- the vtable (0x00647818; CMiscHub's 0x00647834 overrides 0, 5 and 6) ---
     // 0x00461A00 (slot 1): take `object` (sorted in by priority); a walk in progress starts again; no id yet: a
     // unique one from the tracker (0x004621D0); the tracker learns of it (0x00462980).
-    void RegisterObject(CObject* object);
+    void EnrolSubject(CEntity* object);
     // 0x00461A50 (slot 2): the tracker forgets it (0x00462A20, with the id it is getting if being reassigned);
     // if it is in a list: out of it, no manager, a walk in progress starts again.
-    void DropEntityRegistration(CObject* object);
+    void DropEntityRegistration(CEntity* object);
     // 0x004619A0 (slot 3): a new id for `object`: unregistered and registered again around the change.
-    void ReassignObjectId(CObject* object, uint32_t id);
+    void ReassignObjectId(CEntity* object, uint32_t id);
     // 0x004619D0 (slot 4): a new place in the list (its node's priority), by reassigning its own id.
-    void SetEntityRank(CObject* object, int priority);
+    void SetEntityRank(CEntity* object, int priority);
     // (slot 5 RemoveEntity: pure in this class; slot 6: pure)
 
     // 0x004619F0: the object with the id `id` (the tracker's 0x00462120; `this` isn't used).
-    CObject* LookUpEntity(uint32_t id);
+    CEntity* LookUpEntity(uint32_t id);
     // 0x00461CC0: `callback(object, data)` once for each object of the list, also when the callback adds or
     // removes objects (the walk starts again from the front, skipping the objects it has done - each walk in
     // progress has a bit of its own in m_walking and in every object's m_visitedMask).
     void ForEach(ObjectCallback callback, void* data);
 
     // Calls through the vtable (subclasses override them).
-    void VirtualRegisterObject(CObject* object);
-    void VirtualUnregisterObject(CObject* object);
-    void VirtualReassignObjectId(CObject* object, uint32_t id);
-    void VirtualKillObject(CObject* object);
+    void VirtualRegisterObject(CEntity* object);
+    void VirtualUnregisterObject(CEntity* object);
+    void VirtualReassignObjectId(CEntity* object, uint32_t id);
+    void VirtualKillObject(CEntity* object);
 
     void** m_vtable;
     CObjectListHead m_entities; // +0x04
@@ -75,14 +75,14 @@ class CMiscHub : public CObjectHubBase {
 public:
     // 0x00461BF0: the constructor (returns this): vtable 0x00647834, empty lists, and a task (priority 1000,
     // on the main loop's system task list) that deletes the dead objects every frame.
-    CMiscHub* Construct();
+    CMiscHub* MakeNew();
     // 0x00461DF0: the destructor body: every object unlocked, then the unlocked ones (all) deleted; the task
     // deleted; the lists unlinked.
     void DestroyBody();
     // 0x00461EA0: the scalar deleting destructor (slot 0).
-    CMiscHub* Destroy(unsigned int flags);
+    CMiscHub* Teardown(unsigned int flags);
     // 0x00461B00 (slot 5): `object` goes to the front of the dead list.
-    void RemoveEntity(CObject* object);
+    void RemoveEntity(CEntity* object);
     // 0x00461AB0: delete the objects of the dead list (front first; each node unlinked first).
     void FlushDeadObjects();
     // (slot 6 0x004AAD40: the object list's head)
@@ -97,22 +97,22 @@ static_assert(offsetof(CMiscHub, m_deadObjects) == 0x28 && offsetof(CMiscHub, m_
 // 0x00461BB0: the task's code: FlushDeadObjects on its data (the manager).
 void __cdecl FlushDeadObjectsTask(void* task);
 
-// A walk over the objects of one type in a manager's list (vtable 0x00645DFC, ListKit::Search's).
+// A walk over the objects of one type in a manager's list (vtable 0x00645DFC, ListKit::Hunt's).
 struct CObjectSearch {
     // 0x00461F30: the first object of `type` after `head`, or null.
-    CObject* FirstItemOfType(MemSys::ListNode* head, uint32_t type);
+    CEntity* FirstItemOfType(MemSys::ListNode* head, uint32_t type);
     // 0x00461ED0: the next one, or null.
-    CObject* NextItemOfType();
-    // 0x0041AA90: the destructor body (only its base's vtable, ListKit::Search<CObject>'s 0x00645DF8, put back).
+    CEntity* NextItemOfType();
+    // 0x0041AA90: the destructor body (only its base's vtable, ListKit::Hunt<CEntity>'s 0x00645DF8, put back).
     void DestroyBody();
     // 0x0041AAA0: the scalar deleting destructor (vtable slot 0).
-    CObjectSearch* Destroy(unsigned int flags);
+    CObjectSearch* Teardown(unsigned int flags);
     // 0x0041A850: its base's scalar deleting destructor (slot 0 of 0x00645DF8; the vtable put back).
     CObjectSearch* DestroyAsBase(unsigned int flags);
 
     void** m_vtable;
     MemSys::ListNode* m_listLink; // +0x04 the current node (null at the end)
-    uint32_t m_type;       // +0x08
+    uint32_t m_kindTag;       // +0x08
 };
 
 // The object tracker (0x006F0FC0, tracker.h) is a reference-counted singleton (0x006F0FC4).

@@ -14,7 +14,7 @@ namespace {
 // A key's name (at most 14 characters).
 void SetKeyName(unsigned scanCode, const wchar_t* name)
 {
-    Platform::SetKeyName(static_cast<int>(scanCode), name);
+    OsLayer::SetKeyName(static_cast<int>(scanCode), name);
 }
 
 struct KeyName {
@@ -43,7 +43,7 @@ const KeyName kAfter[] = {
 };
 
 template <size_t N>
-void Set(const KeyName (&names)[N])
+void AssignValue(const KeyName (&names)[N])
 {
     for (const KeyName& key : names)
         SetKeyName(key.scanCode, key.name);
@@ -54,17 +54,17 @@ void Set(const KeyName (&names)[N])
 // 0x004E0DA0
 void __cdecl SetKeyNames()
 {
-    Set(kBefore);
-    Set(kKeypad);
-    Set(kAfter);
+    AssignValue(kBefore);
+    AssignValue(kKeypad);
+    AssignValue(kAfter);
 }
 
 // 0x004E0FE0
 void __cdecl SetGermanKeyNames()
 {
-    Set(kBefore);
-    Set(kGermanKeypad);
-    Set(kAfter);
+    AssignValue(kBefore);
+    AssignValue(kGermanKeypad);
+    AssignValue(kAfter);
 }
 
 } // namespace Sys

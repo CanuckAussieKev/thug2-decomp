@@ -112,7 +112,7 @@ void StartTrack(Playlist& list, int track)
     PlayTrack(reinterpret_cast<const char*>(list.tracks[track]), false);
     CurrentTrack() = track;
     Scripts::CStruct* params = Scripts::NewStruct();
-    params = params ? params->Init() : nullptr;
+    params = params ? params->PrepareAll() : nullptr;
     params->PutInt(0x8D02705Du, CurrentTrack());
     Scripts::LaunchScript(0x300CAD34u, params, nullptr, false, nullptr);
     if (params) {
@@ -509,7 +509,7 @@ void __cdecl PlayNextTrackInOrder()
 }
 
 // 0x00452910
-void __cdecl Update()
+void __cdecl TickFrame()
 {
     if (!g_soundDevice || GameConfig::g_platform == 2)
         return;

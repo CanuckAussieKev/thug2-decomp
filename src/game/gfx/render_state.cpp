@@ -62,7 +62,7 @@ float g_worldTransformCopy[16];
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 
 // What the device was last given (the cache).
 uint32_t& BlendMode() { return g_blendMode; }
@@ -102,9 +102,9 @@ bool HasBlendFactor() { return g_blendFactorSupported; }
 // The pixel shaders (handles made at start-up) the stand-in texture stages know.
 void* Shader(int slot) { return g_pixelShaders[slot]; }
 
-void SetTss(DWORD stage, D3DTEXTURESTAGESTATETYPE type, DWORD value) { Device()->SetTextureStageState(stage, type, value); }
-void SetSampler(DWORD sampler, D3DSAMPLERSTATETYPE type, DWORD value) { Device()->SetSamplerState(sampler, type, value); }
-void SetDeviceRenderState(D3DRENDERSTATETYPE state, DWORD value) { Device()->SetRenderState(state, value); }
+void SetTss(DWORD stage, D3DTEXTURESTAGESTATETYPE type, DWORD value) { InputPort()->SetTextureStageState(stage, type, value); }
+void SetSampler(DWORD sampler, D3DSAMPLERSTATETYPE type, DWORD value) { InputPort()->SetSamplerState(sampler, type, value); }
+void SetDeviceRenderState(D3DRENDERSTATETYPE state, DWORD value) { InputPort()->SetRenderState(state, value); }
 
 // D3DTADDRESS for the renderer's addressing modes (border needs the device's support; else clamp).
 bool AddressValue(uint32_t mode, DWORD* value)
@@ -126,7 +126,7 @@ int64_t Ftol(double value) { return static_cast<int64_t>(value); }
 } // namespace
 
 // 0x004DAB60
-void __cdecl SetState(int state, uint32_t value)
+void __cdecl ChangePhase(int state, uint32_t value)
 {
     switch (state) {
     case kZWrite:
@@ -280,7 +280,7 @@ void __cdecl SetState(int state, uint32_t value)
 void __cdecl SetVertexFormat(uint32_t fvf)
 {
     if (VertexFormatLocked() == 0 && VertexFormat() != fvf) {
-        Device()->SetFVF(fvf);
+        InputPort()->SetFVF(fvf);
         VertexFormat() = fvf;
     }
 }
@@ -289,7 +289,7 @@ void __cdecl SetVertexFormat(uint32_t fvf)
 void __cdecl SetTexture(int stage, void* texture)
 {
     if (Textures()[stage] != texture) {
-        Device()->SetTexture(stage, static_cast<IDirect3DBaseTexture9*>(texture));
+        InputPort()->SetTexture(stage, static_cast<IDirect3DBaseTexture9*>(texture));
         Textures()[stage] = texture;
     }
 }
@@ -456,11 +456,11 @@ void __cdecl SetPixelShader(void* shader, const void* material)
         if (CurrentPixelShader() != shader) {
             // Not original - the level editor's Unlit view (game/gfx/view_mode.h): the shader's unlit twin during the 3D
             // passes. Original behaviour: the device gets `shader`.
-            Device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(ViewMode::DeviceShader(shader)));
+            InputPort()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(ViewMode::DeviceShader(shader)));
             CurrentPixelShader() = shader;
             PixelShaderChanged() = 1;
         }
-        Device()->SetPixelShaderConstantF(0, PixelShaderConstants(), 5);
+        InputPort()->SetPixelShaderConstantF(0, PixelShaderConstants(), 5);
     }
     PixelShaderChanged() = 0;
 }
@@ -471,12 +471,12 @@ void __cdecl SetPixelShaderWithConstants(void* shader, uint32_t count)
     if (PixelShaderLocked() == 0) {
         if (CurrentPixelShader() != shader) {
             // Not original - the Unlit view's twin (view_mode.h), as in SetPixelShader.
-            Device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(ViewMode::DeviceShader(shader)));
+            InputPort()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(ViewMode::DeviceShader(shader)));
             CurrentPixelShader() = shader;
             PixelShaderChanged() = 1;
         }
-        Device()->SetPixelShaderConstantF(0, PixelShaderConstants(), count);
-        Device()->SetPixelShaderConstantF(4, PixelShaderConstants() + 16, 1);
+        InputPort()->SetPixelShaderConstantF(0, PixelShaderConstants(), count);
+        InputPort()->SetPixelShaderConstantF(4, PixelShaderConstants() + 16, 1);
     }
     PixelShaderChanged() = 0;
 }
@@ -506,7 +506,7 @@ void __cdecl ResetRenderState()
 {
     LocalViewer() = 0;
     // The world, view and projection transforms (0x00786B90, 0x00786BD0, 0x00786C10): identity.
-    for (Maths::Matrix* matrix : {&g_worldMatrix, &g_viewMatrix, &g_projectionMatrix}) {
+    for (Maths::Mat4* matrix : {&g_worldMatrix, &g_viewMatrix, &g_projectionMatrix}) {
         float* m = reinterpret_cast<float*>(matrix);
         for (int i = 0; i < 16; ++i)
             m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
@@ -573,61 +573,61 @@ void __cdecl ResetRenderState()
 // 0x004D80D0
 void __cdecl ApplyRenderState()
 {
-    IDirect3DDevice9* device = Device();
+    IDirect3DDevice9* device = InputPort();
     device->SetRenderState(D3DRS_LOCALVIEWER, LocalViewer());
-    Device()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
-    Device()->SetRenderState(D3DRS_LIGHTING, Lighting());
-    Device()->SetRenderState(D3DRS_SPECULARENABLE, Specular());
-    Device()->SetRenderState(D3DRS_CULLMODE, CullMode());
-    Device()->SetRenderState(D3DRS_DITHERENABLE, Dither());
-    Device()->SetRenderState(D3DRS_ZENABLE, ZTest());
-    Device()->SetRenderState(D3DRS_ZWRITEENABLE, ZWrite());
-    Device()->SetRenderState(D3DRS_ALPHABLENDENABLE, AlphaBlend());
-    Device()->SetRenderState(D3DRS_ALPHATESTENABLE, AlphaTest());
-    Device()->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL);
-    Device()->SetRenderState(D3DRS_ALPHAREF, AlphaRef());
+    InputPort()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
+    InputPort()->SetRenderState(D3DRS_LIGHTING, Lighting());
+    InputPort()->SetRenderState(D3DRS_SPECULARENABLE, Specular());
+    InputPort()->SetRenderState(D3DRS_CULLMODE, CullMode());
+    InputPort()->SetRenderState(D3DRS_DITHERENABLE, Dither());
+    InputPort()->SetRenderState(D3DRS_ZENABLE, ZTest());
+    InputPort()->SetRenderState(D3DRS_ZWRITEENABLE, ZWrite());
+    InputPort()->SetRenderState(D3DRS_ALPHABLENDENABLE, AlphaBlend());
+    InputPort()->SetRenderState(D3DRS_ALPHATESTENABLE, AlphaTest());
+    InputPort()->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL);
+    InputPort()->SetRenderState(D3DRS_ALPHAREF, AlphaRef());
     for (int sampler = 0; sampler < 4; ++sampler) {
         AddressModes()[sampler] = 0;
         MipLodBiases()[sampler] = 0;
         Textures()[sampler] = nullptr;
         Filters()[sampler] = 0x10000;
         g_borderColours[sampler] = 0;
-        Device()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-        Device()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
+        InputPort()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+        InputPort()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
         // NOT ORIGINAL - [Graphics] anisotropy (game/gfx/graphics_options.h): anisotropic minification on every
         // sampler at the chosen taps. (Off: the original's below.)
         if (int taps = GraphicsOptions::ActiveAnisotropy()) {
-            Device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-            Device()->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, static_cast<DWORD>(taps));
+            InputPort()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+            InputPort()->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, static_cast<DWORD>(taps));
         } else if (sampler == 0 && g_backBufferHeight <= 480) {
             // Anisotropic minification on the first sampler, at back buffers up to 480 lines high.
-            Device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+            InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             uint32_t anisotropy = g_maxAnisotropy;
-            Device()->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropy < 3 ? anisotropy : 3);
+            InputPort()->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropy < 3 ? anisotropy : 3);
         } else {
-            Device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+            InputPort()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
         }
-        Device()->SetSamplerState(sampler, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
-        Device()->SetSamplerState(sampler, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
+        InputPort()->SetSamplerState(sampler, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
+        InputPort()->SetSamplerState(sampler, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
     }
     D3DMATERIAL9 material = {};
-    Device()->SetMaterial(&material);
-    Device()->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);
-    Device()->SetRenderState(D3DRS_SPECULARMATERIALSOURCE, D3DMCS_COLOR2);
-    Device()->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
-    Device()->SetRenderState(D3DRS_EMISSIVEMATERIALSOURCE, D3DMCS_MATERIAL);
+    InputPort()->SetMaterial(&material);
+    InputPort()->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);
+    InputPort()->SetRenderState(D3DRS_SPECULARMATERIALSOURCE, D3DMCS_COLOR2);
+    InputPort()->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
+    InputPort()->SetRenderState(D3DRS_EMISSIVEMATERIALSOURCE, D3DMCS_MATERIAL);
     MarkBillboardsReady();
     CreatePixelShaders();
-    Device()->SetRenderState(D3DRS_FOGENABLE, Fog());
-    Device()->SetRenderState(D3DRS_FOGTABLEMODE, D3DFOG_NONE);
-    Device()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);
-    Device()->SetRenderState(D3DRS_FOGVERTEXMODE, D3DFOG_LINEAR);
-    Device()->SetRenderState(D3DRS_FOGCOLOR, FogColor());
-    Device()->SetRenderState(D3DRS_FOGSTART, reinterpret_cast<uint32_t&>(g_fogStart));
-    Device()->SetRenderState(D3DRS_FOGEND, reinterpret_cast<uint32_t&>(g_fogEnd));
+    InputPort()->SetRenderState(D3DRS_FOGENABLE, Fog());
+    InputPort()->SetRenderState(D3DRS_FOGTABLEMODE, D3DFOG_NONE);
+    InputPort()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);
+    InputPort()->SetRenderState(D3DRS_FOGVERTEXMODE, D3DFOG_LINEAR);
+    InputPort()->SetRenderState(D3DRS_FOGCOLOR, FogColor());
+    InputPort()->SetRenderState(D3DRS_FOGSTART, reinterpret_cast<uint32_t&>(g_fogStart));
+    InputPort()->SetRenderState(D3DRS_FOGEND, reinterpret_cast<uint32_t&>(g_fogEnd));
     // (NOT ORIGINAL: or [Graphics] msaa's samples - game/gfx/graphics_options.h)
     if (g_antialiasing || GraphicsOptions::ChosenSamples()) // the antialiasing setting
-        Device()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
+        InputPort()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
 }
 
 } // namespace Nx

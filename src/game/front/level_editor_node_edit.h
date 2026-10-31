@@ -20,7 +20,7 @@
 //     time: the next crown spawned is there (one already in the level stays where it is);
 //   - flags: their object (when a CTF / team game has made it) is moved with the node, as the editor moves objects;
 //   - proximity nodes and sound emitters: the managers keep a copy of the node's place (ProximNode / EmitterNode
-//     m_pos, made at the level's load): updated - a sphere (Radius) follows at once; a box shape comes from the level
+//     m_atPoint, made at the level's load): updated - a sphere (Radius) follows at once; a box shape comes from the level
 //     sector of the same name, which the node doesn't move;
 //   - lights (LevelLight): the light lists keep the place too (0x00490570 makes them: the dynamic lights at
 //     0x006FAAF0, the level lights at 0x006FAF80): updated; what a light has already lit in the scene's colours
@@ -57,7 +57,7 @@ using Writer = std::function<void(uint32_t name, const Values& values)>;
 // The named nodes' places now (those `read` knows).
 Step Capture(const std::vector<uint32_t>& names, const Reader& read);
 // The step's places written back.
-void Put(const Step& step, const Writer& write);
+void PlaceIn(const Step& step, const Writer& write);
 // Whether any of the step's nodes is somewhere else now.
 bool Differs(const Step& step, const Reader& read);
 
@@ -65,7 +65,7 @@ bool Differs(const Step& step, const Reader& read);
 
 // Whether the editor moves and turns this node itself (a point node, or a rail point - not ladders, paths, objects or
 // scenery - those move through their own layers - and not particles yet).
-bool Movable(const Nodes::Node& node);
+bool Movable(const Nodes::Elem& node);
 // Rail points (RailNode): moved, not turned - by themselves or with their whole rail (the editor's Whole rail, L). Their
 // place is the rail manager's (where skaters grind; a moved sector takes its rails' points there too), not the node's
 // pos=, which keeps the level's: Read / Set / Origin go to Scenery's rail points (level_editor_scenery.h), saved as the
@@ -79,23 +79,23 @@ bool IsChain(uint32_t name);
 // `entireRail`, else itself.
 std::vector<uint32_t> MovedWith(uint32_t name, bool entireRail);
 // When a change to it shows in the game (the Inspector's note).
-const char* WhenApplied(const Nodes::Node& node);
+const char* WhenApplied(const Nodes::Elem& node);
 
 // The node named `name`'s place now (false: no such node).
-bool Read(uint32_t name, Values* values);
+bool TakeIn(uint32_t name, Values* values);
 // The node's place changed: its structure, what the game keeps of it, its object if it has one, and the node layer's
 // copy (its gizmo). Its place as the level had it is noted first (Origin). False: no such node.
-bool Set(uint32_t name, const Values& values);
+bool AssignValue(uint32_t name, const Values& values);
 // The node's place as the level had it, noted the first time the editor changes it in this level.
 void NoteOrigin(uint32_t name);
 const Values* Origin(uint32_t name);
 // The nodes the editor has changed in this level and where the level had them.
-struct Record {
+struct LogEntry {
     uint32_t name;
     Values values;
 };
 // Those changed and not back where the level had them, as they are now (layouts save them).
-std::vector<Record> Changed();
+std::vector<LogEntry> Changed();
 // A node the editor removed (an added one): its changes forgotten.
 void Forget(uint32_t name);
 // Every node the editor has changed put back where the level had it (a layout put in place of another).

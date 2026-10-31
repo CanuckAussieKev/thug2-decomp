@@ -10,7 +10,7 @@ class CScript;
 // The engine's general script commands (CFunctions), 0x0044B7E0-0x0044CFFF: the script's own parameters, random
 // values, arrays (stepping through, random elements, ForEachIn, building and changing them), jumping to other
 // scripts, checksums and text. All are cdecl (params, script) and return whether the script's `if` should be
-// taken; results are left in the calling script's parameters (CScript::m_params).
+// taken; results are left in the calling script's parameters (CScript::m_args).
 namespace ScriptCommands {
 
 bool __cdecl CFunc_RemoveParameter(Scripts::CStruct* params, Scripts::CScript* script);        // 0x0044B7E0

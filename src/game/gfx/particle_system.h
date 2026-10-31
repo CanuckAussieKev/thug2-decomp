@@ -35,15 +35,15 @@ static_assert(sizeof(sFlexibleParticle) == 0x30, "layout must match the original
 // prints "STUB"), 2 GetNumVertexLists - history steps -, 3 GetNumColours; a list node of the particle manager's at
 // +0x0C, its vtable 0x00649424 - slot 0 the destructor through the node).
 struct CParticleSystem : GameObjects::CSharedBase {
-    // 0x0041D9C0 (thiscall; flexible_particle.cpp): flag bit `bit` of m_flags set or cleared.
+    // 0x0041D9C0 (thiscall; flexible_particle.cpp): flag bit `bit` of m_flagBits set or cleared.
     void SetFlag(int bit, bool on);
 
     uint32_t unknown08;
     MemSys::ListNode m_listLink;         // +0x0C: in the particle manager's list (data: the system)
-    Maths::Vector m_pos;            // +0x20: the emitter
-    Maths::Vector m_lastPos;        // +0x30: where it was last update (FillPath emits along the way)
-    Maths::Vector m_alignTo;        // +0x40 align_to
-    Maths::Vector m_bounds;         // +0x50: the bounding sphere (centre, radius)
+    Maths::Vec4 m_atPoint;            // +0x20: the emitter
+    Maths::Vec4 m_lastPos;        // +0x30: where it was last update (FillPath emits along the way)
+    Maths::Vec4 m_alignTo;        // +0x40 align_to
+    Maths::Vec4 m_bounds;         // +0x50: the bounding sphere (centre, radius)
     float m_colourScale[4];       // +0x60: the level's colour (with 0x10000 set)
     float m_emitRate;             // +0x70 emit_rate (particles a second)
     float m_emitOwed;             // +0x74: particles owed, a fraction
@@ -57,14 +57,14 @@ struct CParticleSystem : GameObjects::CSharedBase {
     float m_emitRange[3];         // +0x98 setEmitRange width, height, depth
     float m_angleSpread;          // +0xA4 setAngleSpread spread
     float m_force[3];             // +0xA8 setForce
-    float m_size[4];              // +0xB4 setParticleSize sw, sh, ew, eh
+    float m_extent[4];              // +0xB4 setParticleSize sw, sh, ew, eh
     float m_sizeScale;            // +0xC4 SetParticleSizeScale
     float m_ageLeft[2];              // +0xC8 setLife min, max
     float m_emitTarget[3];        // +0xD0 setEmitTarget (a direction)
-    Maths::Matrix* mp_matrix;       // +0xDC the matrix it follows (its object's display matrix)
+    Maths::Mat4* mp_matrix;       // +0xDC the matrix it follows (its object's display matrix)
     float m_orientationTurn[3];          // +0xE0 (x, y, z angles: the matrix of GetRotationMatrix; setEmitAngle)
     uint32_t m_unknownEC;         // +0xEC (a float: a model's +0x22C, update_Brightness; the ground's brightness)
-    uint32_t m_name;              // +0xF0
+    uint32_t m_label;              // +0xF0
     uint32_t m_groupId;           // +0xF4 groupID
     sFlexibleParticle* m_particleList; // +0xF8 (m_maxParticles of them, after their count)
     Scripts::CScript* mp_emitScript;   // +0xFC emitscript (run each emit... update)
@@ -76,10 +76,10 @@ struct CParticleSystem : GameObjects::CSharedBase {
     uint8_t* mp_endColour;        // +0x114
     int m_historyLength;          // +0x118 (the glow ribbon trail's history steps)
     float* m_positionArray;          // +0x11C: three floats a particle a history step (step-major)
-    uint32_t m_flags;             // +0x120 (bit 0 while the component updates it; 4 the system's set; 0x10 random
+    uint32_t m_flagBits;             // +0x120 (bit 0 while the component updates it; 4 the system's set; 0x10 random
                                   // spread (0xDB8621F7), 0x100 setCircularEmit; 0x4000 UseRandomUVQuadrants, 0x8000
                                   // 0x5446AF14, 0x10000 takes the level's colour)
-    uint8_t m_priority;           // +0x124 priority
+    uint8_t m_rank;           // +0x124 priority
     bool m_fadingOut;                 // +0x125: emits no more, dies once empty
     bool m_emitterIndependent;    // +0x126 setEmitterIndependent: positions in the world, not about the emitter
     bool m_aligned;               // +0x127 align_to given
@@ -98,7 +98,7 @@ struct CParticleSystem : GameObjects::CSharedBase {
     bool m_unknown133;            // +0x133 (cleared by 0xDE45A90D: not culled)
 
     // 0x00496F10: CSharedBase's constructor, the node (not linked), the vtables, no flags, then Reset. Returns this.
-    CParticleSystem* Construct();
+    CParticleSystem* MakeNew();
     // 0x00496D70: the defaults (no scripts, no matrix, rate 0, the emitter at (2048, 144, -928), speed 1 - 2, emit
     // range (1, 1, 0), spread 0.5, force (0, -0.02, 0), sizes 2, life 2, target (0, 1, 0), white, ...).
     void Reset();
@@ -106,7 +106,7 @@ struct CParticleSystem : GameObjects::CSharedBase {
     // freed; the particle manager told (0x0049AD60); the node unlinked; CSharedBase's.
     void DestroyBody();
     // 0x00498F80 (vtable slot 0): destroyed, and freed with flags & 1. Returns this.
-    CParticleSystem* Destroy(unsigned int flags);
+    CParticleSystem* Teardown(unsigned int flags);
     // 0x00496F50 (node vtable slot 0, `this` the node): the same for the system.
     CParticleSystem* DestroyFromNode(unsigned int flags);
 
@@ -114,13 +114,13 @@ struct CParticleSystem : GameObjects::CSharedBase {
     void SetEmitRange(float width, float height, float depth);
     void SetForce(float x, float y, float z);
     void SetEmitTarget(float x, float y, float z);
-    void SetRotation(float x, float y, float z);
+    void ChangeSpin(float x, float y, float z);
     // 0x00496970 / 0x004969B0: particle `particle`'s position at history step `step` read / written.
-    void GetPosition(int particle, int step, float* x, float* y, float* z);
-    void SetPosition(int particle, int step, float x, float y, float z);
+    void FetchPlace(int particle, int step, float* x, float* y, float* z);
+    void ChangePlace(int particle, int step, float x, float y, float z);
     // 0x004969F0: the matrix particles are emitted with: the one it follows, else rows from the emit target (the
     // third row; the first across it and up - or along x when the target is nearly up -, the second their cross).
-    void GetEmitMatrix(Maths::Matrix* out);
+    void GetEmitMatrix(Maths::Mat4* out);
     // 0x00496B40: `count`, or fewer with LOD (near < far, at most one viewport, a camera): between the distances
     // (squared) the number falls from the maximum to m_lodMinParticles; beyond them m_lodMinParticles.
     int LodParticleCount(int count);
@@ -141,7 +141,7 @@ struct CParticleSystem : GameObjects::CSharedBase {
     // 0x00497A70: flag 0x10000 and m_wantsTime = `on` (the byte as given).
     void SetWantsTime(uint8_t on);
     // 0x00497AB0: the matrix of m_orientationTurn (InitFromAngles) into `out`. Returns out.
-    Maths::Matrix* GetRotationMatrix(Maths::Matrix* out);
+    Maths::Mat4* GetRotationMatrix(Maths::Mat4* out);
 
     // 0x00496890 / 0x004968A0 (vtable slots 3 and 2; the latter not a Ghidra function): "STUB:
     // plat_get_num_particle_colors" / "STUB: plat_get_num_vertex_lists" printed, 0.
@@ -167,7 +167,7 @@ struct CParticleSystem : GameObjects::CSharedBase {
     // rate of 0: then the particles only age and expire), the update script; with moving particles and time, the
     // brightness, each particle aged, sped up and moved (its history shifted), the expired and those past the LOD
     // count taken out (the last moved into the gap), the last position kept.
-    void Update(float time, bool skip);
+    void TickFrame(float time, bool skip);
     // The brightness of the ground under the emitter (a line from 1 above to 4800 below; `movables` too) into
     // m_unknownEC, doubled; left as it was without a hit.
     void UpdateGroundBrightness(bool movables);
@@ -175,17 +175,17 @@ struct CParticleSystem : GameObjects::CSharedBase {
     // positions set far away (1024, 1024, 1024).
     void RemoveParticle(int index, bool throughAccessors);
 };
-static_assert(offsetof(CParticleSystem, m_listLink) == 0x0C && offsetof(CParticleSystem, m_pos) == 0x20 &&
+static_assert(offsetof(CParticleSystem, m_listLink) == 0x0C && offsetof(CParticleSystem, m_atPoint) == 0x20 &&
                   offsetof(CParticleSystem, m_alignTo) == 0x40 && offsetof(CParticleSystem, m_bounds) == 0x50 &&
                   offsetof(CParticleSystem, m_emitRate) == 0x70 && offsetof(CParticleSystem, m_unknown78) == 0x78 &&
                   offsetof(CParticleSystem, m_unknown8C) == 0x8C && offsetof(CParticleSystem, m_emitRange) == 0x98 &&
-                  offsetof(CParticleSystem, m_force) == 0xA8 && offsetof(CParticleSystem, m_size) == 0xB4 &&
+                  offsetof(CParticleSystem, m_force) == 0xA8 && offsetof(CParticleSystem, m_extent) == 0xB4 &&
                   offsetof(CParticleSystem, m_ageLeft) == 0xC8 && offsetof(CParticleSystem, m_emitTarget) == 0xD0 &&
                   offsetof(CParticleSystem, mp_matrix) == 0xDC && offsetof(CParticleSystem, m_unknownEC) == 0xEC &&
                   offsetof(CParticleSystem, m_groupId) == 0xF4 && offsetof(CParticleSystem, m_particleList) == 0xF8 &&
                   offsetof(CParticleSystem, mp_scriptParams) == 0x104 &&
                   offsetof(CParticleSystem, m_colourMid) == 0x108 &&
-                  offsetof(CParticleSystem, m_positionArray) == 0x11C && offsetof(CParticleSystem, m_flags) == 0x120 &&
+                  offsetof(CParticleSystem, m_positionArray) == 0x11C && offsetof(CParticleSystem, m_flagBits) == 0x120 &&
                   offsetof(CParticleSystem, m_wantsTime) == 0x12A && offsetof(CParticleSystem, m_unknown12F) == 0x12F &&
                   offsetof(CParticleSystem, m_unknown133) == 0x133 && sizeof(CParticleSystem) == 0x134,
               "layout must match the original");
@@ -197,12 +197,12 @@ static_assert(offsetof(CParticleSystem, m_listLink) == 0x0C && offsetof(CParticl
 // "newflat" (vtables 0x0064943C and 0x00649438): a position and one colour each.
 struct CNewFlatParticles : CParticleSystem {
     // 0x00499010. Returns this.
-    CNewFlatParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CNewFlatParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                  int segments, float unknown, int history);
     // 0x00498FB0: the vtables, the base's body.
     void DestroyBody();
     // 0x00498FE0 (vtable slot 0) / 0x00498FD0 (through the node)
-    CNewFlatParticles* Destroy(unsigned int flags);
+    CNewFlatParticles* Teardown(unsigned int flags);
     CNewFlatParticles* DestroyFromNode(unsigned int flags);
 };
 
@@ -212,12 +212,12 @@ struct CFlatRibbonParticles : CParticleSystem {
     int m_segments; // +0x134: history + 1
 
     // 0x004992C0. Returns this.
-    CFlatRibbonParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+    CFlatRibbonParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                     int fixedAlpha, int segments, float unknown, int history);
     // 0x00499200: the vtables, the particles freed (and forgotten), the base's body.
     void DestroyBody();
     // 0x00499290 (vtable slot 0) / 0x004991F0 (through the node)
-    CFlatRibbonParticles* Destroy(unsigned int flags);
+    CFlatRibbonParticles* Teardown(unsigned int flags);
     CFlatRibbonParticles* DestroyFromNode(unsigned int flags);
     // 0x004991E0 (vtable slot 3): m_segments + 3.
     int GetNumColours();
@@ -229,12 +229,12 @@ struct CGlowParticles : CParticleSystem {
     float m_glowWidth; // +0x138
 
     // 0x004995B0. Returns this.
-    CGlowParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CGlowParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                               int segments, float glowWidth, int history);
     // 0x00499550
     void DestroyBody();
     // 0x00499580 (vtable slot 0) / 0x00499570 (through the node)
-    CGlowParticles* Destroy(unsigned int flags);
+    CGlowParticles* Teardown(unsigned int flags);
     CGlowParticles* DestroyFromNode(unsigned int flags);
 };
 
@@ -245,12 +245,12 @@ struct CGlowRibbonTrailParticles : CParticleSystem {
     float m_span;  // +0x138
 
     // 0x00499880. Returns this.
-    CGlowRibbonTrailParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+    CGlowRibbonTrailParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                          int fixedAlpha, int segments, float width, int history);
     // 0x00499800
     void DestroyBody();
     // 0x00499850 (vtable slot 0) / 0x00499840 (through the node)
-    CGlowRibbonTrailParticles* Destroy(unsigned int flags);
+    CGlowRibbonTrailParticles* Teardown(unsigned int flags);
     CGlowRibbonTrailParticles* DestroyFromNode(unsigned int flags);
     // 0x00499820 (vtable slot 3): m_historyLength + 3. 0x00499830 (slot 2): m_historyLength.
     int GetNumColours();
@@ -262,12 +262,12 @@ struct CLineParticles : CParticleSystem {
     int m_steps; // +0x134: history + 1
 
     // 0x00499B80. Returns this.
-    CLineParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CLineParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                               int segments, float unknown, int history);
     // 0x00499B20
     void DestroyBody();
     // 0x00499B50 (vtable slot 0) / 0x00499B40 (through the node)
-    CLineParticles* Destroy(unsigned int flags);
+    CLineParticles* Teardown(unsigned int flags);
     CLineParticles* DestroyFromNode(unsigned int flags);
 };
 
@@ -284,7 +284,7 @@ struct CModelParticles : CParticleSystem {
     // unless the memory left is under 0x1194 bytes a model; a random rotation each (only the first ever normalised, as
     // the original); one colour of each kind (not set); no mid colour, flag 4. Each step stops at the first that fails.
     // Returns this.
-    CModelParticles* Construct(uint32_t name, int particleCap, const char* model, uint32_t blendMode, int fixedAlpha,
+    CModelParticles* MakeNew(uint32_t name, int particleCap, const char* model, uint32_t blendMode, int fixedAlpha,
                                int segments, float unknown, int history);
     // 0x0049A4C0 (vtable slot 1): with no particles every model hidden; else from the last particle's model on hidden,
     // and each particle's model shown, coloured (its colour through its life), turned (its rotation moved by its
@@ -299,7 +299,7 @@ struct CModelParticles : CParticleSystem {
     // to a float first, as the original) - into *out, RGBA. Returns out.
     uint32_t* LerpColour(uint32_t* out, const uint8_t* from, const uint8_t* to, float t);
     // 0x0049A090 (vtable slot 0) / 0x00499E00 (through the node)
-    CModelParticles* Destroy(unsigned int flags);
+    CModelParticles* Teardown(unsigned int flags);
     CModelParticles* DestroyFromNode(unsigned int flags);
 };
 static_assert(offsetof(CModelParticles, m_modelCount) == 0x134 && offsetof(CModelParticles, mp_unknown13C) == 0x13C &&

@@ -1,4 +1,4 @@
-// A vector times a full 4x4 matrix (Maths::Vector::MultiplyBy, game/mth/vector.h).
+// A vector times a full 4x4 matrix (Maths::Vec4::MultiplyBy, game/mth/vector.h).
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
@@ -7,10 +7,10 @@ namespace Maths {
 
 // 0x00434200 (the x87 sums in double, each stored once; the terms added as the original does: w first, then z,
 // then x / y in the order below)
-Vector& Vector::MultiplyBy(const Matrix& matrix)
+Vec4& Vec4::MultiplyBy(const Mat4& matrix)
 {
     const double vx = x, vy = y, vz = z, vw = w;
-    const Vector* m = matrix.row;
+    const Vec4* m = matrix.row;
     x = static_cast<float>(((vw * m[3].x + vz * m[2].x) + vy * m[1].x) + vx * m[0].x);
     y = static_cast<float>(((vw * m[3].y + vz * m[2].y) + vx * m[0].y) + vy * m[1].y);
     z = static_cast<float>(((vw * m[3].z + vz * m[2].z) + vx * m[0].z) + vy * m[1].z);

@@ -14,11 +14,11 @@ namespace Scripts {
 class CScript;
 } // namespace Script
 
-// The virtual table of the player lists' search objects (ListKit::Search<PlayerRecord>, 0x0064C1A8; defined in skate_module_state.cpp).
+// The virtual table of the player lists' search objects (ListKit::Hunt<PlayerRecord>, 0x0064C1A8; defined in skate_module_state.cpp).
 namespace GameModules {
 extern void** const kPlayerSearchVtable;
 } // namespace Mdl
-// (ListKit::Search<JoinerRecord>, 0x0064C82C; defined in gamenet_handlers.cpp.)
+// (ListKit::Hunt<JoinerRecord>, 0x0064C82C; defined in gamenet_handlers.cpp.)
 namespace OnlinePlay {
 extern void** const kNewPlayerSearchVtable;
 } // namespace OnlinePlay
@@ -32,51 +32,51 @@ class CMatchFlow {
 public:
     void** m_vtable;          // +0x00
     Scripts::CScript* m_runScript; // +0x04
-    bool m_pending;           // +0x08: m_name to be started
+    bool m_pending;           // +0x08: m_label to be started
     uint8_t m_pad09[3];
-    uint32_t m_name;          // +0x0C
+    uint32_t m_label;          // +0x0C
 
     // 0x00552E10: the constructor (no script). Returns this.
-    CMatchFlow* Construct();
+    CMatchFlow* MakeNew();
     // 0x00552F30 (vtable slot 0): the scalar deleting destructor (the script deleted).
-    CMatchFlow* Destroy(uint8_t flags);
+    CMatchFlow* Teardown(uint8_t flags);
     // 0x00552E30: script `name` to be started (by the next Update).
     void Request(uint32_t name);
     // 0x00552E40: a requested script started (the old one deleted); the script updated - deleted once it's done.
-    void Update();
+    void TickFrame();
 };
-static_assert(offsetof(CMatchFlow, m_name) == 0x0C && sizeof(CMatchFlow) == 0x10, "layout must match the original");
+static_assert(offsetof(CMatchFlow, m_label) == 0x0C && sizeof(CMatchFlow) == 0x10, "layout must match the original");
 
 class CMatchRules {
 public:
-    // The victory conditions' list (ListKit::Head<CWinRule>, vtable 0x0064DD90; its nodes' 0x0064DD54).
+    // The victory conditions' list (ListKit::Foremost<CWinRule>, vtable 0x0064DD90; its nodes' 0x0064DD54).
     struct ConditionNode {
         void** m_vtable;
         CWinRule* m_condition; // (-1 for the head)
-        int m_priority;
-        ConditionNode* m_next;
+        int m_rank;
+        ConditionNode* m_succ;
         ConditionNode* m_lastValue;
 
         // 0x00553710: the node's destructor body (unlinked); 0x00553730 / 0x00553CB0: the node's / the head's
         // scalar deleting destructor.
         void DestroyBody();
-        ConditionNode* Destroy(uint8_t flags);
+        ConditionNode* Teardown(uint8_t flags);
         ConditionNode* DestroyHead(uint8_t flags);
     };
 
     void** m_vtable;          // +0x00 (0x0064DD58)
-    Scripts::CStruct m_params; // +0x04: the mode's definition (Name, the options)
+    Scripts::CStruct m_args; // +0x04: the mode's definition (Name, the options)
     ConditionNode m_conditions; // +0x0C
 
     // 0x00553DB0 (cdecl): the singleton (made with `create`, counted); 0x00552F70: one reference let go (the last
     // deletes it).
-    static CMatchRules* Instance(bool create);
+    static CMatchRules* Sole(bool create);
     static void Release();
     // 0x00553D30: the constructor: no conditions, the free skate mode. Returns this. 0x00553890: the destructor body.
     // 0x00553CE0 (vtable slot 0): the scalar deleting destructor.
-    CMatchRules* Construct();
+    CMatchRules* MakeNew();
     void DestroyBody();
-    CMatchRules* Destroy(uint8_t flags);
+    CMatchRules* Teardown(uint8_t flags);
     // 0x00553D10: back to free skate.
     void Reset();
     // 0x00553AD0: the mode `type` of mode_info loaded (its definition's structure); in a net game max_players
@@ -137,7 +137,7 @@ public:
     // 0x005536D0: the round counted up.
     void IncrementRound();
 };
-static_assert(offsetof(CMatchRules, m_params) == 0x04 && offsetof(CMatchRules, m_conditions) == 0x0C &&
+static_assert(offsetof(CMatchRules, m_args) == 0x04 && offsetof(CMatchRules, m_conditions) == 0x0C &&
                   sizeof(CMatchRules) == 0x20,
               "layout must match the original");
 

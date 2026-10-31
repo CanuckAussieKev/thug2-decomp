@@ -51,7 +51,7 @@ void Release(Msg* message)
 {
     if (--message->m_shareCount == 0) {
         message->DestroyBody();
-        MemSys::Free(message);
+        MemSys::Dealloc(message);
     }
 }
 
@@ -60,10 +60,10 @@ void Release(Msg* message)
 template <typename T, typename F>
 void ForEach(ListNode* head, F action)
 {
-    ListKit::Search<T> search;
+    ListKit::Hunt<T> search;
     T* item = search.HeadElement(head);
     while (item) {
-        T* next = search.NextItem();
+        T* next = search.FollowingItem();
         action(item);
         item = next;
     }
@@ -72,7 +72,7 @@ void ForEach(ListNode* head, F action)
 } // namespace
 
 // 0x00455C60
-MsgSeqLinkHead* MsgSeqLinkHead::Construct()
+MsgSeqLinkHead* MsgSeqLinkHead::MakeNew()
 {
     InitConnListHead(this, kMsgSeqLinkVtable);
     return this;
@@ -87,7 +87,7 @@ void InitConnListHead(ListNode* head, void** vtable)
     head->vtable = vtable;
 }
 
-// 0x00455B50 / 0x00455B70 / 0x00455B90 / 0x00455BB0: the message lists' ListKit::Node<T> destructor bodies
+// 0x00455B50 / 0x00455B70 / 0x00455B90 / 0x00455BB0: the message lists' ListKit::Elem<T> destructor bodies
 void MsgNormalNode::DestroyBody() { UnlinkAs(kMsgNormalNodeVtable); }
 void MsgImpNode::DestroyBody() { UnlinkAs(kMsgImpNodeVtable); }
 void MsgSeqNode::DestroyBody() { UnlinkAs(kMsgSeqNodeVtable); }
@@ -102,21 +102,21 @@ void ConnListSearch<SearchVtable>::DestroyBody()
 
 // 0x00455A80 / 0x00455AB0 / 0x00455AE0 / 0x00455B10
 template <void** const& SearchVtable>
-ConnListSearch<SearchVtable>* ConnListSearch<SearchVtable>::Destroy(unsigned int flags)
+ConnListSearch<SearchVtable>* ConnListSearch<SearchVtable>::Teardown(unsigned int flags)
 {
     m_vtable = SearchVtable;
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
-static VtableSlot kMsgSeqLinkSearchVtable_slots[] = {&NetLink::MsgSeqLinkSearch::Destroy};
+static VtableSlot kMsgSeqLinkSearchVtable_slots[] = {&NetLink::MsgSeqLinkSearch::Teardown};
 void** const kMsgSeqLinkSearchVtable = reinterpret_cast<void**>(kMsgSeqLinkSearchVtable_slots);
-static VtableSlot kMsgLinkSearchVtable_slots[] = {&NetLink::MsgLinkSearch::Destroy};
+static VtableSlot kMsgLinkSearchVtable_slots[] = {&NetLink::MsgLinkSearch::Teardown};
 void** const kMsgLinkSearchVtable = reinterpret_cast<void**>(kMsgLinkSearchVtable_slots);
-static VtableSlot kMsgImpLinkSearchVtable_slots[] = {&NetLink::MsgImpLinkSearch::Destroy};
+static VtableSlot kMsgImpLinkSearchVtable_slots[] = {&NetLink::MsgImpLinkSearch::Teardown};
 void** const kMsgImpLinkSearchVtable = reinterpret_cast<void**>(kMsgImpLinkSearchVtable_slots);
-static VtableSlot kStreamLinkSearchVtable_slots[] = {&NetLink::StreamLinkSearch::Destroy};
+static VtableSlot kStreamLinkSearchVtable_slots[] = {&NetLink::StreamLinkSearch::Teardown};
 void** const kStreamLinkSearchVtable = reinterpret_cast<void**>(kStreamLinkSearchVtable_slots);
 
 template struct ConnListSearch<kMsgSeqLinkSearchVtable>;
@@ -125,30 +125,30 @@ template struct ConnListSearch<kMsgImpLinkSearchVtable>;
 template struct ConnListSearch<kStreamLinkSearchVtable>;
 
 // 0x00455C80
-Conn* Conn::Construct(int flags)
+Conn* Conn::MakeNew(int flags)
 {
     InitConnListHead(&m_normalMsgs, kMsgNormalLinkVtable);
     InitConnListHead(&m_importantMsgs, kMsgImpLinkVtable);
     InitConnListHead(&m_sequencedMsgs, kMsgSeqLinkVtable);
-    m_status = 0;
-    m_flags = 0;
+    m_curStanding = 0;
+    m_flagBits = 0;
     for (ListNode& queue : m_receivedQueues)
-        static_cast<MsgSeqLinkHead*>(&queue)->Construct();
+        static_cast<MsgSeqLinkHead*>(&queue)->MakeNew();
     InitConnListHead(&m_receivedStreams, kStreamLinkVtable);
     InitConnListHead(&m_sendStreams, kStreamLinkVtable);
-    m_latencyTest.Construct();
-    m_receiveMetrics.Construct();
-    m_sendMetrics.Construct();
+    m_latencyTest.MakeNew();
+    m_receiveMetrics.MakeNew();
+    m_sendMetrics.MakeNew();
     m_appNode.vtable = kConnNodeVtable;
     m_appNode.data = this;
     m_appNode.priority = 0;
     m_appNode.next = &m_appNode;
     m_appNode.prev = &m_appNode;
 
-    m_flags = static_cast<uint32_t>(flags);
-    m_status = kStatusReady;
-    m_readBuffer = m_readPtr = static_cast<char*>(MemSys::New(kReadBufferSize));
-    m_writeBuffer = m_writePtr = static_cast<char*>(MemSys::New(kWriteBufferSize));
+    m_flagBits = static_cast<uint32_t>(flags);
+    m_curStanding = kStatusReady;
+    m_readBuffer = m_readPtr = static_cast<char*>(MemSys::Alloc(kReadBufferSize));
+    m_writeBuffer = m_writePtr = static_cast<char*>(MemSys::Alloc(kWriteBufferSize));
     m_sendInterval = 0;
     m_lastSendTime = 0;
     m_sendNow = false;
@@ -161,18 +161,18 @@ Conn* Conn::Construct(int flags)
     // memory held)
     std::memset(m_nextSequenceIds, 0, 0x100);
     std::memset(m_sequenceNumbers, 0, 0x100);
-    m_id = NextConnId()++;
+    m_ident = NextConnId()++;
     return this;
 }
 
 // 0x00456790
-void Conn::Destroy()
+void Conn::Teardown()
 {
     DestroyReceivedSequencedMessages();
     ReleaseQueuedMessages();
     DestroyLinks();
-    MemSys::Free(m_readBuffer);
-    MemSys::Free(m_writeBuffer);
+    MemSys::Dealloc(m_readBuffer);
+    MemSys::Dealloc(m_writeBuffer);
     m_appNode.DestroyBody();
     static_cast<StreamLinkNode*>(&m_sendStreams)->DestroyBody();
     static_cast<StreamLinkNode*>(&m_receivedStreams)->DestroyBody();
@@ -196,19 +196,19 @@ bool Conn::IsSendForced() { return m_sendNow; }
 int Conn::GetLinkSpeedClass() { return m_bandwidthType; }
 
 // 0x004559B0
-void Conn::SetBandwidth(int bytesPerSecond) { m_linkSpeed = bytesPerSecond; }
+void Conn::ChangeThroughput(int bytesPerSecond) { m_linkSpeed = bytesPerSecond; }
 
 // 0x004559C0
-int Conn::GetBandwidth() { return m_linkSpeed; }
+int Conn::FetchThroughput() { return m_linkSpeed; }
 
 // 0x00455A10
-bool Conn::IsOutsider() { return (m_flags & kFlagForeign) != 0; }
+bool Conn::IsOutsider() { return (m_flagBits & kFlagForeign) != 0; }
 
 // 0x00455A20
-bool Conn::IsLocal() { return (m_flags & kFlagLocal) != 0; }
+bool Conn::IsHostLocal() { return (m_flagBits & kFlagLocal) != 0; }
 
 // 0x00455A30
-bool Conn::IsRemote() { return (m_flags & kFlagRemote) != 0; }
+bool Conn::IsOffMachine() { return (m_flagBits & kFlagRemote) != 0; }
 
 // 0x00455A40
 void Conn::SetLinkSpeedClass(int type)
@@ -230,25 +230,25 @@ void Conn::SetLinkSpeedClass(int type)
 // 0x00455B40
 int Conn::GetMeanPing()
 {
-    if (IsLocal())
+    if (IsHostLocal())
         return 0;
     return m_latencyTest.m_averageLatency;
 }
 
 // 0x00455C10
-void Conn::Invalidate()
+void Conn::MarkStale()
 {
-    m_status &= ~kStatusReady;
-    m_status |= kStatusInvalid;
+    m_curStanding &= ~kStatusReady;
+    m_curStanding |= kStatusInvalid;
 }
 
 // 0x00455C20
-bool Conn::IsValid() { return (m_status & kStatusInvalid) == 0; }
+bool Conn::IsSound() { return (m_curStanding & kStatusInvalid) == 0; }
 
 // 0x00455C30
 uint32_t Conn::GetRetryDelay()
 {
-    if (m_status & kStatus2)
+    if (m_curStanding & kStatus2)
         return kStatus2ResendThreshold;
     int threshold = 2 * GetMeanPing();
     if (threshold < static_cast<int>(kMinResendThreshold)) // (signed)
@@ -263,7 +263,7 @@ void Conn::DestroyReceivedSequencedMessages()
         ForEach<OrderedMsgNode>(&queue, [](OrderedMsgNode* link) {
             if (SeqQueuedMsg* message = link->m_sharedMsg) {
                 message->DestroyBody();
-                MemSys::Free(message);
+                MemSys::Dealloc(message);
             }
             DeleteLink(link);
         });
@@ -282,7 +282,7 @@ void Conn::DestroyLinks()
     auto deleteStream = [](BulkStreamNode* link) {
         if (StreamDesc* stream = link->m_msgMeta) {
             DestroyStreamDescBody(stream);
-            MemSys::Free(stream);
+            MemSys::Dealloc(stream);
         }
         DeleteLink(link);
     };

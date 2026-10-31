@@ -16,7 +16,7 @@ namespace {
 // fraction of it at +0x74 and point at +0x78; what it hit held by a smart pointer at +0x98.
 class Feeler {
 public:
-    Feeler() { AsFeeler()->Construct(); }
+    Feeler() { AsFeeler()->MakeNew(); }
     ~Feeler() { reinterpret_cast<CSharedRef<CSharedBase>*>(m_bytes + 0x98)->~CSharedRef(); }
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
@@ -26,21 +26,21 @@ public:
         AsFeeler()->SetExcluded(static_cast<uint16_t>(skip), static_cast<uint16_t>(need));
     }
     // 0x004171D0
-    void SetLine(const Maths::Vector& start, const Maths::Vector& end)
+    void ChangeStrand(const Maths::Vec4& start, const Maths::Vec4& end)
     {
-        AsFeeler()->SetLine(&start, &end);
+        AsFeeler()->ChangeStrand(&start, &end);
     }
     // 0x004172F0
     bool GetHitShape(int a, int b) { return AsFeeler()->GetHitShape(a != 0, b != 0) != 0; }
     // 0x00417710: the line set, then GetHitShape.
-    bool GetHitShape(const Maths::Vector& start, const Maths::Vector& end, int a)
+    bool GetHitShape(const Maths::Vec4& start, const Maths::Vec4& end, int a)
     {
         return AsFeeler()->GetCollisionAlong(&start, &end, a != 0) != 0;
     }
-    const Maths::Vector& Start() const { return *reinterpret_cast<const Maths::Vector*>(m_bytes); }
-    const Maths::Vector& End() const { return *reinterpret_cast<const Maths::Vector*>(m_bytes + 0x10); }
+    const Maths::Vec4& Kickoff() const { return *reinterpret_cast<const Maths::Vec4*>(m_bytes); }
+    const Maths::Vec4& End() const { return *reinterpret_cast<const Maths::Vec4*>(m_bytes + 0x10); }
     float Fraction() const { return *reinterpret_cast<const float*>(m_bytes + 0x74); }
-    const Maths::Vector& Point() const { return *reinterpret_cast<const Maths::Vector*>(m_bytes + 0x78); }
+    const Maths::Vec4& Point() const { return *reinterpret_cast<const Maths::Vec4*>(m_bytes + 0x78); }
 
 private:
     Engine3D::CProbeRay* AsFeeler() { return reinterpret_cast<Engine3D::CProbeRay*>(m_bytes); }
@@ -48,12 +48,12 @@ private:
 };
 
 // 0x0042BBF0: x, y and z scaled to `length` (left alone at length 0).
-void SetLength(Maths::Vector& v, float length) { v.SetLength(length); }
+void SetLength(Maths::Vec4& v, float length) { v.SetLength(length); }
 
 // 0x00402550's maths (each component in double precision; w 0).
-Maths::Vector Cross(const Maths::Vector& a, const Maths::Vector& b)
+Maths::Vec4 Perpendicular(const Maths::Vec4& a, const Maths::Vec4& b)
 {
-    Maths::Vector out;
+    Maths::Vec4 out;
     out.x = static_cast<float>(static_cast<double>(a.y) * b.z - static_cast<double>(a.z) * b.y);
     out.y = static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(a.x) * b.z);
     out.z = static_cast<float>(static_cast<double>(a.x) * b.y - static_cast<double>(a.y) * b.x);
@@ -74,10 +74,10 @@ double __cdecl FrameBlend(float rate, float seconds)
 }
 
 // 0x004E4360
-void __cdecl AvoidCameraCollisions(Maths::Vector* position, Maths::Matrix* matrix, const Maths::Vector* target,
-                                   const Maths::Vector* focus, bool sideways, bool refocus)
+void __cdecl AvoidCameraCollisions(Maths::Vec4* position, Maths::Mat4* matrix, const Maths::Vec4* target,
+                                   const Maths::Vec4* focus, bool sideways, bool refocus)
 {
-    Maths::Vector& pos = *position;
+    Maths::Vec4& pos = *position;
     // The direction from the target, normalised (z unrounded until then); w's difference as it is.
     float dw = pos.w - target->w;
     double dz = static_cast<double>(pos.z) - target->z;
@@ -94,15 +94,15 @@ void __cdecl AvoidCameraCollisions(Maths::Vector* position, Maths::Matrix* matri
     Feeler feeler;
     feeler.SetExcluded(0x90, 0);
     // From the target to 2 beyond the camera.
-    Maths::Vector beyond;
+    Maths::Vec4 beyond;
     beyond.x = static_cast<float>(dirX + dirX) + pos.x;
     beyond.y = static_cast<float>(dirY + dirY) + pos.y;
     beyond.z = static_cast<float>(dirZ + dirZ) + pos.z;
     beyond.w = static_cast<float>(static_cast<double>(dw) + dw + pos.w);
-    feeler.SetLine(*target, beyond);
+    feeler.ChangeStrand(*target, beyond);
     if (feeler.GetHitShape(1, 0)) {
-        const Maths::Vector& s = feeler.Start();
-        const Maths::Vector& e = feeler.End();
+        const Maths::Vec4& s = feeler.Kickoff();
+        const Maths::Vec4& e = feeler.End();
         double lx = static_cast<double>(e.x) - s.x, ly = static_cast<double>(e.y) - s.y,
                lz = static_cast<double>(e.z) - s.z;
         float lineLength = static_cast<float>(std::sqrt((lx * lx + ly * ly) + lz * lz));
@@ -122,8 +122,8 @@ void __cdecl AvoidCameraCollisions(Maths::Vector* position, Maths::Matrix* matri
     if (!sideways)
         return;
     // Off a wall 8 to the right, else to the left.
-    const Maths::Vector& right = matrix->row[0];
-    Maths::Vector probe = {right.x, 0.0f, right.z, 0.0f};
+    const Maths::Vec4& right = matrix->row[0];
+    Maths::Vec4 probe = {right.x, 0.0f, right.z, 0.0f};
     SetLength(probe, kSideProbe);
     probe.x += pos.x;
     probe.y += pos.y;
@@ -131,7 +131,7 @@ void __cdecl AvoidCameraCollisions(Maths::Vector* position, Maths::Matrix* matri
     probe.w += pos.w;
     bool hit = feeler.GetHitShape(pos, probe, 1);
     if (hit) {
-        const Maths::Vector& p = feeler.Point();
+        const Maths::Vec4& p = feeler.Point();
         probe.x -= p.x;
         probe.y -= p.y;
         probe.z -= p.z;
@@ -149,7 +149,7 @@ void __cdecl AvoidCameraCollisions(Maths::Vector* position, Maths::Matrix* matri
         probe.w += pos.w;
         hit = feeler.GetHitShape(pos, probe, 1);
         if (hit) {
-            const Maths::Vector& p = feeler.Point();
+            const Maths::Vec4& p = feeler.Point();
             double ox = static_cast<double>(probe.x) - p.x, oy = static_cast<double>(probe.y) - p.y;
             float oz = probe.z - p.z, ow = probe.w - p.w;
             pos.x = static_cast<float>(pos.x - ox);
@@ -161,15 +161,15 @@ void __cdecl AvoidCameraCollisions(Maths::Vector* position, Maths::Matrix* matri
     if (!refocus || !hit)
         return;
     // Look from the new position at the focus.
-    Maths::Vector& at = matrix->row[2];
-    Maths::Vector& up = matrix->row[1];
-    Maths::Vector& across = matrix->row[0];
+    Maths::Vec4& at = matrix->row[2];
+    Maths::Vec4& up = matrix->row[1];
+    Maths::Vec4& across = matrix->row[0];
     at = {focus->x - pos.x, focus->y - pos.y, focus->z - pos.z, 1.0f};
-    at.Normalize();
-    across = Cross(up, at);
-    across.Normalize();
-    up = Cross(at, across);
-    up.Normalize();
+    at.MakeUnit();
+    across = Perpendicular(up, at);
+    across.MakeUnit();
+    up = Perpendicular(at, across);
+    up.MakeUnit();
     across = {-across.x, -across.y, -across.z, -across.w};
     at = {-at.x, -at.y, -at.z, -at.w};
     across.w = 0.0f;

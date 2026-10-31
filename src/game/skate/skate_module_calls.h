@@ -18,7 +18,7 @@ struct CRiderIdentity;
 namespace SkateCalls {
 
 // The skate module and a field of it.
-inline uint8_t* Skate() { return reinterpret_cast<uint8_t*>(GameModules::Skate::Instance()); }
+inline uint8_t* Skate() { return reinterpret_cast<uint8_t*>(GameModules::Skate::Sole()); }
 template <typename T>
 T& SkateField(uint32_t offset)
 {
@@ -35,26 +35,26 @@ inline uint8_t* Horse() { return SkateField<uint8_t*>(0x364); }
 // 0x00566600: the skater whose object id is `id` (null: none).
 inline GameObjects::CGameEntity* GetRiderAt(int index)
 {
-    return GameModules::Skate::Instance()->GetRiderAt(index);
+    return GameModules::Skate::Sole()->GetRiderAt(index);
 }
 inline GameObjects::CGameEntity* GetHomeRider()
 {
     // (a CRider is a CGameEntity: the same pointer)
-    return reinterpret_cast<GameObjects::CGameEntity*>(GameModules::Skate::Instance()->GetHomeRider());
+    return reinterpret_cast<GameObjects::CGameEntity*>(GameModules::Skate::Sole()->GetHomeRider());
 }
 inline GameObjects::CGameEntity* GetRiderByNumber(uint32_t id)
 {
-    return reinterpret_cast<GameObjects::CGameEntity*>(GameModules::Skate::Instance()->GetRiderByNumber(id));
+    return reinterpret_cast<GameObjects::CGameEntity*>(GameModules::Skate::Sole()->GetRiderByNumber(id));
 }
 // 0x00564FC0: the profile manager's profile `index`. 0x00564F80: the profile `params`' integer `skater` names (none,
 // or no params: the current one).
-inline GameObjects::CRiderIdentity* GetProfile(int index)
+inline GameObjects::CRiderIdentity* FetchAccount(int index)
 {
-    return GameModules::Skate::Instance()->GetProfile(index);
+    return GameModules::Skate::Sole()->FetchAccount(index);
 }
 inline GameObjects::CRiderIdentity* GetProfileFromParams(void* params)
 {
-    return GameModules::Skate::Instance()->GetProfile(static_cast<Scripts::CStruct*>(params));
+    return GameModules::Skate::Sole()->FetchAccount(static_cast<Scripts::CStruct*>(params));
 }
 // 0x005651F0: a game of more than one player (a network game, or the game mode's player count 2 or more).
 inline bool IsMultiplayer() { return GameModules::Skate::IsMultiplayer() != 0; }

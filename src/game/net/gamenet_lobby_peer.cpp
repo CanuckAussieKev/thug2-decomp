@@ -79,31 +79,31 @@ constexpr uint32_t kPlayerObserverCounted = 0x08; // (0x005434C0: an observer re
 constexpr uint32_t kNewPlayerCounted = 0x18;
 constexpr uint32_t kNewPlayerObserver = 0x04;
 
-Manager* NetManager() { return g_gameNetManager; }
-TaskList::Stack* LogicTasks()
+Hub* NetManager() { return g_gameNetManager; }
+TaskList::PileUp* LogicTasks()
 {
-    return reinterpret_cast<TaskList::Stack*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
+    return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
 }
 QueuedPacket* Queue() { return g_queuedPackets; }
 int& QueuedCount() { return g_queuedCount; }
-RoomManager* TaskLobby(void* task) { return Field<RoomManager*>(task, 0x1C); }
+RoomManager* TaskLobby(void* task) { return Prop<RoomManager*>(task, 0x1C); }
 
 // The heaps the lobby's SDK work allocates from.
 void PushInternetHeap()
 {
-    MemSys::Manager* memory = MemSys::Manager::Get();
+    MemSys::Hub* memory = MemSys::Hub::Pull();
     memory->EnterHeapScope(memory->m_internetTopDownHeap);
 }
 void PushInternetBottomUpHeap()
 {
-    MemSys::Manager* memory = MemSys::Manager::Get();
+    MemSys::Hub* memory = MemSys::Hub::Pull();
     memory->EnterHeapScope(memory->m_internetBottomUpHeap);
 }
-void PopHeap() { MemSys::Manager::Get()->LeaveHeapScope(); }
+void PopHeap() { MemSys::Hub::Pull()->LeaveHeapScope(); }
 
 // The game's C runtime (the queue's copies are freed by the original's code too).
 void* GameMalloc(size_t size) { return Crt::AllocBlock(size); }
-void GameFree(void* memory) { Crt::Free(memory); }
+void GameFree(void* memory) { Crt::Dealloc(memory); }
 
 // The queue emptied (its copies freed).
 void ClearQueue()
@@ -122,7 +122,7 @@ void NatThink() { GameSpy::NatThink(); }
 void NatCancel(int cookie) { GameSpy::NatCancel(cookie); }
 void NatFreeNegotiations() { GameSpy::NatFreeNegotiations(); }
 // (the cookie is the user data)
-int NatBegin(uint32_t socket, int cookie, int clientIndex, void* progress, GameSpy::Callback completed, int userData)
+int NatBegin(uint32_t socket, int cookie, int clientIndex, void* progress, GameSpy::HookFn completed, int userData)
 {
     return GameSpy::NatBeginWithSocket(socket, cookie, clientIndex, progress, completed,
                                        reinterpret_cast<void*>(static_cast<intptr_t>(userData)));
@@ -190,31 +190,31 @@ void __cdecl RoomManager::PlayerKeyCallback(void*, int key, int index, void* buf
     }
     if (key != kKeyPlayer && key != kKeyRating)
         return;
-    Manager* manager = NetManager();
+    Hub* manager = NetManager();
     int count = 0;
     PlayerSearch search;
     NewPlayerSearch newSearch;
     for (uint8_t* p = FirstPlayer(manager, &search, true); p; p = NextPlayer(manager, &search, true)) {
-        if (IsObserver(p) && !(Field<uint32_t>(p, 0x1D0) & kPlayerObserverCounted))
+        if (IsObserver(p) && !(Prop<uint32_t>(p, 0x1D0) & kPlayerObserverCounted))
             continue;
         if (count == index) {
             if (key == kKeyPlayer)
                 BufferAdd(buffer, PlayerName(p));
             else
-                BufferAddInt(buffer, Field<int>(p, 0x2C)); // its rating
+                BufferAddInt(buffer, Prop<int>(p, 0x2C)); // its rating
             return;
         }
         ++count;
     }
     for (uint8_t* info = FirstNewPlayer(manager, &newSearch); info; info = NextNewPlayer(manager, &newSearch)) {
-        uint32_t flags = Field<uint32_t>(info, 0x20);
+        uint32_t flags = Prop<uint32_t>(info, 0x20);
         if (!(flags & kNewPlayerCounted) && (flags & kNewPlayerObserver))
             continue;
         if (count == index) {
             if (key == kKeyPlayer)
                 BufferAdd(buffer, reinterpret_cast<const char*>(info)); // (its name, at +0)
             else
-                BufferAddInt(buffer, Field<int>(info, 0x30));
+                BufferAddInt(buffer, Prop<int>(info, 0x30));
             return;
         }
         ++count;
@@ -225,22 +225,22 @@ void __cdecl RoomManager::PlayerKeyCallback(void*, int key, int index, void* buf
 // 0x0053FDA0
 void __cdecl RoomManager::PublicAddressCallback(void*, uint32_t ip, uint16_t port, void* param)
 {
-    Manager* manager = NetManager();
+    Hub* manager = NetManager();
     void* buddy = manager->m_buddyMan;
     if (!manager->OnServer())
         return;
     auto* lobby = static_cast<RoomManager*>(param);
-    if (!lobby->m_peer)
+    if (!lobby->m_remote)
         return;
     manager->SetEntryPort(port);
     manager->SetJoinIp(ip);
-    manager->SetJoinPrivateIp(PeerPrivateIp(lobby->m_peer));
+    manager->SetJoinPrivateIp(PeerPrivateIp(lobby->m_remote));
     const char* name = nullptr;
-    manager->GetOnlineSettings()->GetPreference(kServerName)->GetString(kUiString, &name, 1);
+    manager->GetOnlineSettings()->FetchSetting(kServerName)->FetchText(kUiString, &name, 1);
     char location[1024];
-    std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", ip, PeerPrivateIp(lobby->m_peer), port, name, lobby->m_roomName);
-    if (Field<bool>(buddy, 0x10)) // (logged in to the presence)
-        static_cast<FriendsManager*>(buddy)->SetStatus(kStatusHosting, Scripts::GetString(kHomieStatusHosting), location);
+    std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", ip, PeerPrivateIp(lobby->m_remote), port, name, lobby->m_roomName);
+    if (Prop<bool>(buddy, 0x10)) // (logged in to the presence)
+        static_cast<FriendsManager*>(buddy)->ChangeStanding(kStatusHosting, Scripts::FetchText(kHomieStatusHosting), location);
 }
 
 // 0x0053FEE0
@@ -271,7 +271,7 @@ void __cdecl RoomManager::ConnectCallback(void* peer, int success, int, void* pa
         Run(kConnectionFailureDialog);
         return;
     }
-    NetLink::Manager* net = NetLink::Manager::Instance();
+    NetLink::Hub* net = NetLink::Hub::Sole();
     DebugOut::Printf("****** Connect Callback Successful\n");
     net->SetLocalAddress(GameSpy::PeerGetPublicIp(peer)); // the peer's public address
     ScriptCommands::CFunc_StartLobbyList(nullptr, nullptr);
@@ -284,8 +284,8 @@ void __cdecl RoomManager::ThinkTask(void* task)
 {
     RoomManager* lobby = TaskLobby(task);
     PushInternetHeap();
-    if (GameSpy::PeerHasChat(lobby->m_peer)) // (its chat connection made)
-        GameSpy::PeerThink(lobby->m_peer);
+    if (GameSpy::PeerHasChat(lobby->m_remote)) // (its chat connection made)
+        GameSpy::PeerThink(lobby->m_remote);
     if (lobby->m_lostConnection) {
         lobby->m_lostConnection = false;
         Run(kLostConnectionToGameSpy);
@@ -310,13 +310,13 @@ void __cdecl RoomManager::QueryTask(void* task)
     for (int i = 0; i < QueuedCount(); ++i) {
         QueuedPacket& packet = Queue()[i];
         if (packet.type == kPacketQuery)
-            GameSpy::PeerParseQuery(lobby->m_peer, static_cast<char*>(packet.data), packet.length, static_cast<void*>(packet.from));
+            GameSpy::PeerParseQuery(lobby->m_remote, static_cast<char*>(packet.data), packet.length, static_cast<void*>(packet.from));
         else if (packet.type == kPacketNatNegotiation)
             GameSpy::NatProcessData(static_cast<char*>(packet.data), packet.length, static_cast<void*>(packet.from));
         GameFree(packet.data);
     }
     QueuedCount() = 0;
-    Manager* manager = NetManager();
+    Hub* manager = NetManager();
     if (!g_gamePosted && manager->InNetGame() && manager->OnServer()) { // not reported yet
         if (now - g_hostingSince > kNotPostedTime) {
             if (!g_notPostedShown) {
@@ -324,7 +324,7 @@ void __cdecl RoomManager::QueryTask(void* task)
                 g_notPostedShown = true;
             }
         } else if (now - g_lastReportTime > kReportInterval) {
-            PeerStateChanged(lobby->m_peer);
+            PeerStateChanged(lobby->m_remote);
             g_lastReportTime = now;
         }
     }
@@ -334,26 +334,26 @@ void __cdecl RoomManager::QueryTask(void* task)
 // 0x00540220
 void RoomManager::StartHosting()
 {
-    TaskList::Stack* tasks = LogicTasks();
-    NetLink::App* server = NetManager()->m_server;
+    TaskList::PileUp* tasks = LogicTasks();
+    NetLink::AppHost* server = NetManager()->m_host;
     server->SetOutsidePacketHook(reinterpret_cast<NetLink::ForeignPacketHandler>(&RoomManager::QueuePacket));
     ClearQueue();
-    if (GameSpy::PeerStartReportingWithSocket(m_peer, server->Socket(), static_cast<int>(kHostPort)) == 1) // reporting on its socket
-        PeerStateChanged(m_peer);
+    if (GameSpy::PeerStartReportingWithSocket(m_remote, server->Socket(), static_cast<int>(kHostPort)) == 1) // reporting on its socket
+        PeerStateChanged(m_remote);
     uint32_t now = FrameClock::GetTime();
     g_hostingSince = now; // hosting since
     g_connectionTimer = now; // the connection timer
     g_lastReportTime = now; // reported last
     g_notPostedShown = false;
     g_gamePosted = false;
-    tasks->AddTask(m_hostingTask);
+    tasks->QueueJob(m_hostingTask);
     m_hosting = true;
 }
 
 // 0x00540300
 void __cdecl RoomManager::NatNegotiationCompleted(int result, int, const void* address, void* userData)
 {
-    Manager* manager = NetManager();
+    Hub* manager = NetManager();
     if (result == kNatSuccess && !manager->OnServer()) { // the client joins at the address found
         const auto* sockaddr = static_cast<const uint8_t*>(address);
         uint16_t port = static_cast<uint16_t>(sockaddr[2] << 8 | sockaddr[3]); // (ntohs)
@@ -362,58 +362,58 @@ void __cdecl RoomManager::NatNegotiationCompleted(int result, int, const void* a
     auto* lobby = static_cast<RoomManager*>(manager->m_lobbyMan);
     if (manager->OnServer()) {
         if (--lobby->m_negotiations == 0)
-            lobby->m_natTask->Remove();
+            lobby->m_natTask->DropOut();
         return;
     }
     NatCancel(static_cast<int>(reinterpret_cast<intptr_t>(userData)));
     NatThink();
     NatFreeNegotiations();
-    manager->GetClient(0)->SetOutsidePacketHook(nullptr);
-    lobby->m_natTask->Remove();
-    lobby->m_hostingTask->Remove();
+    manager->FetchPatron(0)->SetOutsidePacketHook(nullptr);
+    lobby->m_natTask->DropOut();
+    lobby->m_hostingTask->DropOut();
     if (result != kNatSuccess)
         Run(kNatNegotiationFailed);
 }
 
 // 0x00540750
-void RoomManager::Disconnect()
+void RoomManager::Hangup()
 {
     PushInternetHeap();
-    m_thinkTask->Remove();
-    m_natTask->Remove();
-    m_hostingTask->Remove();
-    if (m_peer)
-        GameSpy::PeerShutdown(m_peer); // the peer shut down
-    m_peer = nullptr;
+    m_thinkTask->DropOut();
+    m_natTask->DropOut();
+    m_hostingTask->DropOut();
+    if (m_remote)
+        GameSpy::PeerShutdown(m_remote); // the peer shut down
+    m_remote = nullptr;
     PopHeap();
 }
 
 // 0x00540AB0
 unsigned long __stdcall RoomManager::ConnectThread(void* lobbyData)
 {
-    MemSys::Manager* memory = MemSys::Manager::Get();
+    MemSys::Hub* memory = MemSys::Hub::Pull();
     memory->EnterHeapScope(memory->m_internetBottomUpHeap);
-    Manager* manager = NetManager();
+    Hub* manager = NetManager();
     char nick[128];
     std::strcpy(nick, manager->GetOnlineSettings()->GetPreferenceString(kNetworkId, kUiString));
     auto* lobby = static_cast<RoomManager*>(lobbyData);
     lobby->m_connecting = true;
     auto nickError = &RoomManager::NickErrorCallback;
     auto connected = &RoomManager::ConnectCallback;
-    GameSpy::PeerConnect(lobby->m_peer, static_cast<const char*>(nick), Field<int>(manager->m_buddyMan, 4) /* its profile */,
+    GameSpy::PeerConnect(lobby->m_remote, static_cast<const char*>(nick), Prop<int>(manager->m_buddyMan, 4) /* its profile */,
                          nickError, connected, lobbyData, 0); // peer connect (not blocking)
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     return 0;
 }
 
 // 0x00540C90
 void __cdecl RoomManager::NatNegotiateCallback(void*, int cookie, void*)
 {
-    TaskList::Stack* tasks = LogicTasks();
-    Manager* manager = NetManager();
+    TaskList::PileUp* tasks = LogicTasks();
+    Hub* manager = NetManager();
     if (static_cast<RoomManager*>(manager->m_lobbyMan)->m_negotiations != 0)
         return; // (one at a time)
-    NetLink::App* server = manager->m_server;
+    NetLink::AppHost* server = manager->m_host;
     PushInternetHeap();
     if (NatBegin(server->Socket(), cookie, 0, kNoProgress, &RoomManager::NatNegotiationCompleted, cookie)) {
         NatCancel(cookie);
@@ -423,7 +423,7 @@ void __cdecl RoomManager::NatNegotiateCallback(void*, int cookie, void*)
     }
     auto* lobby = static_cast<RoomManager*>(manager->m_lobbyMan);
     if (lobby->m_negotiations == 0)
-        tasks->AddTask(lobby->m_natTask);
+        tasks->QueueJob(lobby->m_natTask);
     ++lobby->m_negotiations;
     PopHeap();
 }

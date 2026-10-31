@@ -65,7 +65,7 @@ Each of these changed (or would have changed) an output somewhere; `tools/pipeli
 - `round(x)` is banker's rounding (halves to even: `round(2.5) == 2`) - `roundHalfEven`, never `Math.round`.
   `round(x, n)` rounds the exact binary value (`round(2.675, 2) == 2.67`) - `pyRound`.
 - `repr(float)` / `str(float)`: exponent below 1e-4 and from 1e16 (`1e-05`, `1e+16`), always a `.0` - `pyFloatRepr`.
-  JavaScript's `String(n)` switches at 1e-7 / 1e21 and drops `.0`. `"%.6f" % x` rounds the exact value halves-to-even
+  JavaScript's `Chars(n)` switches at 1e-7 / 1e21 and drops `.0`. `"%.6f" % x` rounds the exact value halves-to-even
   (`"%.9f" % 0.0009765625 == "0.000976562"`) and keeps `-0.000` - `formatFixed`; `toFixed` rounds halves up and goes
   exponential from 1e21. `%g` / `{:g}`: not ported yet - write a helper, don't approximate.
 - Python can't tell 1.0 from 1 apart only in JavaScript: where the type shows in the output (qb values: NeverScript

@@ -40,16 +40,16 @@ uint8_t* EndOf(ChunkPrefix* header)
 }
 
 // The memory manager's heap lookup by name checksum, and the heap dump (the script command, without parameters).
-Heap* FindHeap(uint32_t name)
+Arena* FindHeap(uint32_t name)
 {
-    return Manager::Get()->GetNamedHeap(name, 0);
+    return Hub::Pull()->GetNamedHeap(name, 0);
 }
 void DumpHeaps() { ScriptCommands::CFunc_DumpHeaps(nullptr, nullptr); }
 
 } // namespace
 
 // 0x005BA520
-Heap::Heap(Region* region, int direction, const char* name) : Allocator(region, direction, name)
+Arena::Arena(Zone* region, int direction, const char* name) : MemSource(region, direction, name)
 {
     m_useFallbacks = 0;
     m_unknown64 = false;
@@ -58,7 +58,7 @@ Heap::Heap(Region* region, int direction, const char* name) : Allocator(region, 
 }
 
 // 0x005BA780
-void* Heap::Allocate(uint32_t size, bool haltIfExhausted)
+void* Arena::Carve(uint32_t size, bool haltIfExhausted)
 {
     uint32_t rounded = RoundUp16(size);
 
@@ -96,17 +96,17 @@ void* Heap::Allocate(uint32_t size, bool haltIfExhausted)
             CountUp(m_usedBlocks, m_maxUsedBlocks, 1);
             VirtualFree(tail);
         }
-        return best->Block();
+        return best->GateOff();
     }
 
     // Claim new space from the region.
     auto* header = reinterpret_cast<ChunkPrefix*>(
-        m_region->Allocate(this, static_cast<int>(kBlockHeaderSize + rounded), m_useFallbacks == 0 && haltIfExhausted));
+        m_region->Carve(this, static_cast<int>(kBlockHeaderSize + rounded), m_useFallbacks == 0 && haltIfExhausted));
     if (!header) {
         if (m_useFallbacks && !HeapBusy()) {
             HeapBusy() = 1;
             for (int i = 0; i < 5; ++i) {
-                Heap* other = m_fallbacks[i];
+                Arena* other = m_fallbacks[i];
                 if (other && other->m_region->FreeByteCount() > m_fallbackReserve[i] + static_cast<int>(size)) {
                     if (void* block = other->VirtualAllocate(size, false)) {
                         HeapBusy() = 0;
@@ -128,11 +128,11 @@ void* Heap::Allocate(uint32_t size, bool haltIfExhausted)
     CountUp(m_usedBlocks, m_maxUsedBlocks, 1);
     CountUp(m_usedSize, m_maxUsedSize, static_cast<int>(kBlockHeaderSize + rounded));
     DebugTrackBlock(header);
-    return header->Block();
+    return header->GateOff();
 }
 
 // 0x005BA4F0
-uint32_t Heap::LargestFree()
+uint32_t Arena::LargestFree()
 {
     uint32_t largest = 0;
     for (ChunkPrefix* block = m_context->freeList; block; block = block->NextFree()) {
@@ -144,7 +144,7 @@ uint32_t Heap::LargestFree()
 }
 
 // 0x005BA9A0
-void* Heap::ExtendBlockDownward(uint32_t newSize, void* block)
+void* Arena::ExtendBlockDownward(uint32_t newSize, void* block)
 {
     HeapBusy() = 1;
     ChunkPrefix* header = GetBlockHeader(block);
@@ -157,11 +157,11 @@ void* Heap::ExtendBlockDownward(uint32_t newSize, void* block)
     extended->size = kBlockHeaderSize + rounded;
     DebugTrackBlock(extended);
     HeapBusy() = 0;
-    return extended->Block();
+    return extended->GateOff();
 }
 
 // 0x005BAA20
-void* Heap::ExtendBlockUpward(uint32_t newSize, void* block)
+void* Arena::ExtendBlockUpward(uint32_t newSize, void* block)
 {
     HeapBusy() = 1;
     ChunkPrefix* header = GetBlockHeader(block);
@@ -188,7 +188,7 @@ void* Heap::ExtendBlockUpward(uint32_t newSize, void* block)
 }
 
 // 0x005BAAE0
-void* Heap::TrimBlockEnd(uint32_t newSize, void* block)
+void* Arena::TrimBlockEnd(uint32_t newSize, void* block)
 {
     HeapBusy() = 1;
     ChunkPrefix* header = GetBlockHeader(block);
@@ -212,7 +212,7 @@ void* Heap::TrimBlockEnd(uint32_t newSize, void* block)
 
 // 0x005BA5A0: onto the free list (in address order), merged with free neighbours; a free block at the heap's
 // top goes back to the region
-void Heap::Free(ChunkPrefix* header)
+void Arena::Dealloc(ChunkPrefix* header)
 {
     CountUp(m_freeBlocks, m_maxFreeBlocks, 1);
     CountUp(m_freeSize, m_maxFreeSize, static_cast<int>(header->size));
@@ -256,14 +256,14 @@ void Heap::Free(ChunkPrefix* header)
     }
 
     // At the heap's top? Then it goes back to the region.
-    if (m_direction == kGrowUp && !next && m_top == EndOf(header)) {
+    if (m_direction == kGrowUp && !next && m_topSide == EndOf(header)) {
         if (before)
             before->NextFree() = nullptr;
         else
             m_context->freeList = nullptr;
-        m_top -= (header->size + kBlockHeaderSize) * m_direction;
-    } else if (m_direction == kGrowDown && !before && m_top == reinterpret_cast<uint8_t*>(header)) {
-        m_top += kBlockHeaderSize + header->size;
+        m_topSide -= (header->size + kBlockHeaderSize) * m_direction;
+    } else if (m_direction == kGrowDown && !before && m_topSide == reinterpret_cast<uint8_t*>(header)) {
+        m_topSide += kBlockHeaderSize + header->size;
         m_context->freeList = header->NextFree();
     } else {
         return;
@@ -278,17 +278,17 @@ void Heap::Free(ChunkPrefix* header)
 namespace {
 
 struct HeapAdapters {
-    MemSys::Heap* Construct(MemSys::Region* region, int direction, const char* name)
+    MemSys::Arena* MakeNew(MemSys::Zone* region, int direction, const char* name)
     {
-        return new (this) MemSys::Heap(region, direction, name);
+        return new (this) MemSys::Arena(region, direction, name);
     }
     // 0x005BA560 (scalar deleting destructor; the heap adds nothing to the allocator's destructor)
-    MemSys::Heap* Destroy(unsigned int flags)
+    MemSys::Arena* Teardown(unsigned int flags)
     {
-        auto* heap = reinterpret_cast<MemSys::Heap*>(this);
+        auto* heap = reinterpret_cast<MemSys::Arena*>(this);
         heap->DestroyBody();
         if (flags & 1)
-            MemSys::Free(heap);
+            MemSys::Dealloc(heap);
         return heap;
     }
 };
@@ -297,9 +297,9 @@ struct HeapAdapters {
 
 namespace MemSys {
 namespace {
-static VtableSlot kHeapVtable_slots[] = {&MemSys::Allocator::EnterHeapScope, &MemSys::Allocator::LeaveHeapScope,
-                &HeapAdapters::Destroy, &MemSys::Heap::Allocate, &MemSys::Heap::LargestFree, &MemSys::Heap::ExtendBlockDownward,
-                &MemSys::Heap::ExtendBlockUpward, &MemSys::Heap::TrimBlockEnd, &MemSys::Heap::Free};
+static VtableSlot kHeapVtable_slots[] = {&MemSys::MemSource::EnterHeapScope, &MemSys::MemSource::LeaveHeapScope,
+                &HeapAdapters::Teardown, &MemSys::Arena::Carve, &MemSys::Arena::LargestFree, &MemSys::Arena::ExtendBlockDownward,
+                &MemSys::Arena::ExtendBlockUpward, &MemSys::Arena::TrimBlockEnd, &MemSys::Arena::Dealloc};
 void** const kHeapVtable = reinterpret_cast<void**>(kHeapVtable_slots);
 } // namespace
 } // namespace Mem

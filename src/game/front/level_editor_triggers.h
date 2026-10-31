@@ -55,7 +55,7 @@ class CGapTally;
 //   - A level's own trigger volumes are found from their collision (faces with 0x40), their node's TriggerScript walked
 //     (LevelNodes::ForEachScriptCall) for the calls above - drawn coloured by kind, an arrow from a teleport to its
 //     target. Their collision is switched off / on and (collision only - an invisible wall) moved and turned through
-//     level_editor_walls.h (the game's own switch, CWorldCell::SetActive; their `wall` records) - only when every face of
+//     level_editor_walls.h (the game's own switch, CWorldCell::ChangeLive; their `wall` records) - only when every face of
 //     it is a trigger's or it's a wall, so nothing solid goes with it. Or they get an editable copy: an editor trigger
 //     with the same TriggerScript over the faces' box (resizable, any kind), the original switched off while the copy
 //     is there (its `replaces`).
@@ -71,7 +71,7 @@ namespace MenuSystem::LevelEditor::Triggers {
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
 // (the feature map added Boost and Break after Other: the record words of the older kinds keep their places)
-enum class Kind : uint8_t { Kill, JumpTo, Scripts, GapStart, GapEnd, Other, Boost, Break, Camera };
+enum class Kind : uint8_t { Kill, JumpTo, Scripts, GapStart, GapEnd, Other, Boost, Break, ViewCam };
 constexpr int kKinds = 9;
 const char* KindName(Kind kind); // "Kill zone"...
 const char* KindWord(Kind kind); // the record's: kill, teleport, script, gapstart, gapend, other
@@ -181,7 +181,7 @@ struct Placed {
     float yaw = 0.0f;
 };
 // The record's text after "trigger " and back (false: not a record this reads - a bad value, a repeated key, no place).
-std::string Record(const Placed& placed);
+std::string LogEntry(const Placed& placed);
 bool ReadRecord(const std::string& text, Placed* placed);
 
 // The other end of a gap: the index in `specs` of a trigger with the same GapID and the other end's kind (-1: none).
@@ -260,8 +260,8 @@ const std::vector<Added>& AddedTriggers();
 bool IsTrigger(uint32_t name);
 
 // The editor starting / stopping; once a frame while it runs (the camera's place and heading: where new triggers go).
-void Start();
-void Stop();
+void Kickoff();
+void Halt();
 void Tick(V3 camera, V3 forward, float yaw);
 // Every frame, the editor on or off: in a network session (level_editor_layout.h's NetworkActive) the boxes are taken
 // out at once - edited levels are offline only (a layout never applies there; this is a second guard).
@@ -272,8 +272,8 @@ void SetShown(bool shown);
 
 // The volumes drawn over the view (lines, labels) - and the selected editor trigger's resize handles (`selected`: its
 // node's name, 0 none; the handle under the cursor or being dragged lit).
-void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                std::vector<Ui::Line>* lines, std::vector<Ui::Overlay::Text>* texts);
+void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
+                std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Text>* texts);
 void SetSelected(uint32_t node);
 // The resize handles (drawn by the last AddOverlay): the one within `radius` back buffer pixels of (x, y) (-1: none),
 // and dragging one - started with the mouse ray, followed each frame (`snap`: sizes on 25s), ended (one undo step).
@@ -282,12 +282,12 @@ void AddHandles(std::vector<Ui::Overlay::Circle>* circles);
 int HandleAt(float x, float y, float radius);
 void SetHoverHandle(int handle);
 bool BeginResize(int handle, V3 origin, V3 dir);
-void Resize(V3 origin, V3 dir, bool snap);
+void Rescale(V3 origin, V3 dir, bool snap);
 void EndResize();
 bool Resizing();
 // Every frame, the editor running or not (`editing`): the skater's leaving of the editor's exit triggers (Spec::exit)
 // seen, and their scripts run - in play only (not while editing, not in a network session).
-void Play(bool editing);
+void Perform(bool editing);
 // A click while they're shown: the nearest volume under the ray - an editor trigger's node, or a level trigger's node
 // (Nodes::All() index; -1: none, or a level trigger without a node - then it's the one inspected, `sector`).
 // Only volumes met before `maxT` along the ray (a plain click: the first occluding surface under the cursor and some
@@ -299,7 +299,7 @@ void Inspect(uint32_t sector);
 
 // The UI (level_editor_triggers_ui.cpp, ImGui): the Triggers window (T) and the Inspector's section for a trigger
 // node (`node`: Nodes::All() index).
-void Window(float viewX, float viewY, float viewWidth, float viewHeight, float scale, int selectedNode);
+void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float scale, int selectedNode);
 void InspectorSection(int node);
 // What the UI asks for, done in the next Tick (the UI draws after the editor's update).
 void Queue(std::function<void()> action);
@@ -308,7 +308,7 @@ void Queue(std::function<void()> action);
 // there, its end 600 units further on) - and selected; one undo step each.
 void AddKill(bool water);
 void AddTeleport();
-void AddScript();
+void AppendScript();
 void RegisterGapEntry();
 // (UX9: the gap wizard) A gap made of two ends placed as given (their specs' size, text, score and the start's flags;
 // names and the GapID made fresh) - the start selected; one undo step. Queued like the others.
@@ -336,7 +336,7 @@ struct State {
     std::vector<Walls::WallState> walls; // (the level triggers switched here)
     std::vector<ProximEdit> proxims;     // (proximity nodes' scripts / shapes)
 };
-State Save();
+State StoreAway();
 void Restore(const State& state);
 // A change made since the last call: the state before it (the editor pushes it as one undo step).
 bool TakeUndo(State* before);
@@ -377,8 +377,8 @@ bool IsProxim(uint32_t node);
 bool HasHandles(uint32_t node);
 // The feature map's lines over the view, the trigger window shown or not: rail speed-ups' chevrons
 // (level_editor_chains.h), the selected / edited proximity nodes' shapes, breakables' cracks, boosts' arrows.
-void AddExtras(V3 camera, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ, int selectedNode,
-               std::vector<Ui::Line>* lines, std::vector<Ui::Overlay::Text>* texts);
+void AddExtras(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ, int selectedNode,
+               std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Text>* texts);
 
 // For the Inspector, the help and the screenshot sidecar: a line about the triggers.
 std::string Describe();

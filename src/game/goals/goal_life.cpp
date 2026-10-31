@@ -78,11 +78,11 @@ constexpr uint32_t kGaps = 0xD76C173E;                 // Gaps
 constexpr uint32_t kNoGapMessages = 0x5BC07EAA;        // No_Gap_Messages
 constexpr uint32_t kGoalGapsGotGap = 0x96DE9A0C;       // goal_gaps_got_gap
 
-static VtableSlot kGoalVtable_slots[] = {&GoalSystem::CObjective::Destroy, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut, &GoalSystem::CObjective::IsActive,
+static VtableSlot kGoalVtable_slots[] = {&GoalSystem::CObjective::Teardown, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut, &GoalSystem::CObjective::IsOperative,
                  Engine3D::VirtualSlot3Jump, &GoalSystem::CObjective::Expire, &GoalSystem::CObjective::RestoreSaveBlock, &GoalSystem::CObjective::CaptureSaveBlock,
                  &GoalSystem::CObjective::HasTimeLimit, Stubs::ReturnTrue, &GoalSystem::CObjective::HasComponentA302D7CD,
-                 &GoalSystem::CObjective::Activate, &GoalSystem::CObjective::SetActive, &GoalSystem::CObjective::Deactivate, &GoalSystem::CObjective::ClearEngagedBit,
-                 &GoalSystem::CObjective::Win, &GoalSystem::CObjective::Lose, &GoalSystem::CObjective::Update, &GoalSystem::CObjective::IsPaused,
+                 &GoalSystem::CObjective::Activate, &GoalSystem::CObjective::ChangeLive, &GoalSystem::CObjective::Disengage, &GoalSystem::CObjective::ClearEngagedBit,
+                 &GoalSystem::CObjective::Win, &GoalSystem::CObjective::Lose, &GoalSystem::CObjective::TickFrame, &GoalSystem::CObjective::IsFrozen,
                  &GoalSystem::CObjective::SetFlag, &GoalSystem::CObjective::StageFlagSet, &GoalSystem::CObjective::HasWon,
                  &GoalSystem::CObjective::NetStageFlagSet, &GoalSystem::CObjective::HasWonGoalOrChild, &GoalSystem::CObjective::IsPrepared,
                  &GoalSystem::CObjective::MayTryAgain, &GoalSystem::CObjective::MarkWon, &GoalSystem::CObjective::SetStageFlag,
@@ -92,13 +92,13 @@ void** const kGoalVtable = reinterpret_cast<void**>(kGoalVtable_slots);
 // The x87 code's float to int conversion (_ftol): truncation.
 int Truncate(double value) { return static_cast<int>(value); }
 
-OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
 uint32_t GameModeName() { return static_cast<GoalSystem::CMatchRules*>(SkateCalls::GameMode())->GetNameKey(); }
 
 Scripts::CStruct* NewStructure()
 {
     Scripts::CStruct* structure = Scripts::NewStruct();
-    return structure ? structure->Init() : nullptr;
+    return structure ? structure->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
 {
@@ -109,16 +109,16 @@ void DeleteStructure(Scripts::CStruct* structure)
 }
 GoalLink* AllocChainLink()
 {
-    auto* link = static_cast<GoalLink*>(MemSys::New(sizeof(GoalLink)));
+    auto* link = static_cast<GoalLink*>(MemSys::Alloc(sizeof(GoalLink)));
     if (link) {
         link->m_objectiveKey = 0;
-        link->m_next = nullptr;
+        link->m_succ = nullptr;
         link->m_won = false;
     }
     return link;
 }
 // A goal's list node out of its list (linked to itself).
-void Unlink(MemSys::ListNode* node)
+void Uncouple(MemSys::ListNode* node)
 {
     node->prev->next = node->next;
     node->next->prev = node->prev;
@@ -130,12 +130,12 @@ void Unlink(MemSys::ListNode* node)
 // is empty (0x005480A0).
 CObjectiveNpc* NewGoalPed(Scripts::CStruct* params)
 {
-    void* memory = MemSys::New(0x14);
-    return memory ? static_cast<CObjectiveNpc*>(memory)->Construct(params) : nullptr;
+    void* memory = MemSys::Alloc(0x14);
+    return memory ? static_cast<CObjectiveNpc*>(memory)->MakeNew(params) : nullptr;
 }
 inline void DestroyGoalPedBody(CObjectiveNpc*) {}
 
-// ListKit::Search<PlayerRecord> (vtable 0x0064C1A8) for the network manager's BeginPlayerWalk / StepPlayerWalk.
+// ListKit::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the network manager's BeginPlayerWalk / StepPlayerWalk.
 struct PlayerSearch {
     void** m_vtable = GameModules::kPlayerSearchVtable;
     void* m_listLink = nullptr;
@@ -144,13 +144,13 @@ GameObjects::CGameEntity* PlayerSkater(void* player)
 {
     return *reinterpret_cast<GameObjects::CGameEntity**>(static_cast<uint8_t*>(player) + 0x14);
 }
-// A skater's score (its SkaterScore component's +0x18: GameModules::Score) reset (0x00564A10) / its total (0x00561B40).
+// A skater's score (its SkaterScore component's +0x18: GameModules::PointTally) reset (0x00564A10) / its total (0x00561B40).
 void* ScoreOf(GameObjects::CGameEntity* skater)
 {
-    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterScore)) + 0x18);
+    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(skater->FetchModule(kSkaterScore)) + 0x18);
 }
-void ResetScore(void* score) { static_cast<GameModules::Score*>(score)->Reset(); }
-int TotalScore(void* score) { return static_cast<GameModules::Score*>(score)->GetTotalScore(); }
+void ResetScore(void* score) { static_cast<GameModules::PointTally*>(score)->Reset(); }
+int TotalScore(void* score) { return static_cast<GameModules::PointTally*>(score)->GetTotalScore(); }
 // The root of a goal's parents (the last one whose first parent link has a goal), or null if it has none.
 CObjective* RootOf(void* manager, GoalLink* parents)
 {
@@ -165,7 +165,7 @@ CObjective* RootOf(void* manager, GoalLink* parents)
 static VtableSlot kGoalNodeVtable_slots[] = {&GoalSystem::CObjective::DestroyNode};
 void** const kGoalNodeVtable = reinterpret_cast<void**>(kGoalNodeVtable_slots); // (also used by goal_manager.cpp)
 // 0x00556FE0
-CObjective* CObjective::Construct(Scripts::CStruct* params)
+CObjective* CObjective::MakeNew(Scripts::CStruct* params)
 {
     m_listLink.data = this;
     m_listLink.priority = 0;
@@ -176,18 +176,18 @@ CObjective* CObjective::Construct(Scripts::CStruct* params)
     m_netStageFlags = 0;
     m_subNodes = AllocChainLink();
     m_parents = AllocChainLink();
-    m_state = static_cast<uint8_t>((m_state & ~(kStateActive | kStatePaused)) | kStateNoTimeLimit);
-    m_flags &= ~(kFlagSeen | kFlagWon | kFlagWonInNetGame);
+    m_curPhase = static_cast<uint8_t>((m_curPhase & ~(kStateActive | kStatePaused)) | kStateNoTimeLimit);
+    m_flagBits &= ~(kFlagSeen | kFlagWon | kFlagWonInNetGame);
     m_stageFlags = 0;
     m_netStageFlags = 0;
-    m_flags = static_cast<uint8_t>((m_flags & ~(kFlagInitialized | kFlagSelected)) | kFlagDeactivateOnExpire);
+    m_flagBits = static_cast<uint8_t>((m_flagBits & ~(kFlagInitialized | kFlagSelected)) | kFlagDeactivateOnExpire);
     m_timesStarted = 0;
     m_secondsRemaining = 0;
     m_unknown68 = -1;
     m_unknown64 = -1;
-    m_params = NewStructure();
-    m_params->AppendStructureIfAny(params);
-    m_ped = NewGoalPed(m_params);
+    m_args = NewStructure();
+    m_args->AppendStructureIfAny(params);
+    m_ped = NewGoalPed(m_args);
     m_goalFlags = NewStructure();
     m_numFlags = 0;
     m_numFlagsSet = 0;
@@ -195,7 +195,7 @@ CObjective* CObjective::Construct(Scripts::CStruct* params)
     m_bestTime = 0x7FFFFFFF;
     m_bestScore = 0;
     m_runEnding = 0;
-    m_level = SkateCalls::Career()->GetLevel();
+    m_level = SkateCalls::Career()->FetchStage();
     m_bundle = -1;
     params->FetchIntValue(kGroupNumber, &m_bundle, 0);
     AllocObjectiveBits(params);
@@ -206,9 +206,9 @@ CObjective* CObjective::Construct(Scripts::CStruct* params)
     m_skater = kNone;
     params->ReadHashValue(kSkater, &m_skater, 0);
     if (params->HasBareFlag(kUnlockedByAnother) || params->HasBareFlag(kProGoal))
-        m_flags |= kFlagLocked;
+        m_flagBits |= kFlagLocked;
     else
-        m_flags &= ~kFlagLocked;
+        m_flagBits &= ~kFlagLocked;
     return this;
 }
 
@@ -217,34 +217,34 @@ void CObjective::DestroyBody()
 {
     m_listLink.vtable = kGoalVtable;
     uint32_t script;
-    if (m_params->ReadHashValue(kDestroy, &script, 0))
-        Scripts::LaunchScript(script, m_params, nullptr, false, nullptr);
+    if (m_args->ReadHashValue(kDestroy, &script, 0))
+        Scripts::LaunchScript(script, m_args, nullptr, false, nullptr);
     if (m_ped) {
         DestroyGoalPedBody(m_ped);
-        MemSys::Free(m_ped);
+        MemSys::Dealloc(m_ped);
     }
-    DeleteStructure(m_params);
+    DeleteStructure(m_args);
     DeleteStructure(m_goalFlags);
     for (GoalLink* link = m_subNodes; link;) {
-        GoalLink* next = link->m_next;
-        MemSys::Free(link);
+        GoalLink* next = link->m_succ;
+        MemSys::Dealloc(link);
         link = next;
     }
     for (GoalLink* link = m_parents; link;) {
-        GoalLink* next = link->m_next;
-        MemSys::Free(link);
+        GoalLink* next = link->m_succ;
+        MemSys::Dealloc(link);
         link = next;
     }
     m_listLink.vtable = kGoalNodeVtable;
-    Unlink(&m_listLink);
+    Uncouple(&m_listLink);
 }
 
 // 0x005566A0
-CObjective* CObjective::Destroy(uint8_t flags)
+CObjective* CObjective::Teardown(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -252,9 +252,9 @@ CObjective* CObjective::Destroy(uint8_t flags)
 CObjective* CObjective::DestroyNode(uint8_t flags)
 {
     m_listLink.vtable = kGoalNodeVtable;
-    Unlink(&m_listLink);
+    Uncouple(&m_listLink);
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -262,38 +262,38 @@ CObjective* CObjective::DestroyNode(uint8_t flags)
 void CObjective::MergeSkillTierArgs()
 {
     Scripts::CArray* levels;
-    if (!m_params->GetArray(kDifficultyLevelParams, &levels, 0))
+    if (!m_args->FetchList(kDifficultyLevelParams, &levels, 0))
         return;
     int level = GetSkillTier(ObjectiveBoard(), false);
-    m_params->AppendStructureIfAny(reinterpret_cast<Scripts::CStruct*>(levels->GetElement(static_cast<uint32_t>(level))));
-    AllocObjectiveBits(m_params);
+    m_args->AppendStructureIfAny(reinterpret_cast<Scripts::CStruct*>(levels->FetchPart(static_cast<uint32_t>(level))));
+    AllocObjectiveBits(m_args);
 }
 
 // 0x00557270
-void CObjective::Init()
+void CObjective::PrepareAll()
 {
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_bottomUpHeap);
     // (MergeSkillTierArgs, inlined)
     Scripts::CArray* levels;
-    if (m_params->GetArray(kDifficultyLevelParams, &levels, 0)) {
+    if (m_args->FetchList(kDifficultyLevelParams, &levels, 0)) {
         int level = GetSkillTier(ObjectiveBoard(), false);
-        m_params->AppendStructureIfAny(
-            reinterpret_cast<Scripts::CStruct*>(levels->GetElement(static_cast<uint32_t>(level))));
-        AllocObjectiveBits(m_params);
+        m_args->AppendStructureIfAny(
+            reinterpret_cast<Scripts::CStruct*>(levels->FetchPart(static_cast<uint32_t>(level))));
+        AllocObjectiveBits(m_args);
     }
     uint32_t script;
-    if (m_params->ReadHashValue(kInit, &script, 0))
-        Scripts::LaunchScript(script, m_params, nullptr, false, nullptr);
+    if (m_args->ReadHashValue(kInit, &script, 0))
+        Scripts::LaunchScript(script, m_args, nullptr, false, nullptr);
     SwapMoveCaption();
-    m_flags |= kFlagInitialized;
+    m_flagBits |= kFlagInitialized;
     int unlimited = 0;
-    m_params->FetchIntValue(kUnlimitedTime, &unlimited, 0);
+    m_args->FetchIntValue(kUnlimitedTime, &unlimited, 0);
     if (unlimited)
-        m_state |= kStateNoTimeLimit;
-    if (m_params->HasEntryNamed(kDontDeactivateOnExpiry))
-        m_flags &= ~kFlagDeactivateOnExpire;
-    MemSys::Manager::Get()->LeaveHeapScope();
+        m_curPhase |= kStateNoTimeLimit;
+    if (m_args->HasEntryNamed(kDontDeactivateOnExpiry))
+        m_flagBits &= ~kFlagDeactivateOnExpire;
+    MemSys::Hub::Pull()->LeaveHeapScope();
 }
 
 // 0x00557360
@@ -301,14 +301,14 @@ bool CObjective::Activate()
 {
     if (Virtual<bool>(this, kVtIsActive))
         return false;
-    MemSys::Manager* memory = MemSys::Manager::Get();
+    MemSys::Hub* memory = MemSys::Hub::Pull();
     memory->EnterHeapScope(memory->m_bottomUpHeap);
     void* manager = ObjectiveBoard();
     ++m_timesStarted;
     m_elapsed = 0;
-    OnlinePlay::Manager* net = NetManager();
+    OnlinePlay::Hub* net = NetManager();
     PlayerSearch search;
-    if (m_params->HasBareFlag(kResetScore)) {
+    if (m_args->HasBareFlag(kResetScore)) {
         for (void* player = net->BeginPlayerWalk(&search, false); player; player = net->StepPlayerWalk(&search, false))
             ResetScore(ScoreOf(PlayerSkater(player)));
     }
@@ -323,87 +323,87 @@ bool CObjective::Activate()
             root->Uninitialize(false, 0);
             if (Virtual<bool>(this, kVtIsInitialized)) {
                 Uninitialize(false, 0);
-                Init();
+                PrepareAll();
             }
         }
     } else {
         ResetTimer();
     }
     if (!Virtual<bool>(this, kVtIsInitialized))
-        Init();
-    m_flags &= ~kFlagEndOfRunStarted;
-    m_params->RemoveFlag(kComboStarted);
+        PrepareAll();
+    m_flagBits &= ~kFlagEndOfRunStarted;
+    m_args->RemoveFlag(kComboStarted);
     uint32_t script;
-    if (m_params->ReadHashValue(kActivate, &script, 0))
-        Scripts::LaunchScript(script, m_params, nullptr, false, nullptr);
+    if (m_args->ReadHashValue(kActivate, &script, 0))
+        Scripts::LaunchScript(script, m_args, nullptr, false, nullptr);
     if (!net->InNetGame())
-        m_flags |= kFlagSeen;
+        m_flagBits |= kFlagSeen;
     Virtual<void>(this, kVtSetActive);
     AddActiveGoal(manager, this);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     return true;
 }
 
 // 0x00557560
-bool CObjective::Deactivate(bool, bool resetTree)
+bool CObjective::Disengage(bool, bool resetTree)
 {
     if (!Virtual<bool>(this, kVtIsActive))
         return false;
-    if (m_params->HasBareFlag(kSpecial))
-        m_params->RemoveComponent(kKeyCombos);
+    if (m_args->HasBareFlag(kSpecial))
+        m_args->EraseModule(kKeyCombos);
     Virtual<void>(this, kVtSetInactive);
-    if (!m_params->HasBareFlag(kSaveGoalFlags))
+    if (!m_args->HasBareFlag(kSaveGoalFlags))
         ZeroObjectiveBits();
     ClearChildWins();
     uint32_t script;
-    if (m_params->ReadHashValue(kDeactivate, &script, 0))
-        Scripts::LaunchScript(script, m_params, nullptr, false, nullptr);
-    if (!m_params->HasBareFlag(kQuickStart))
-        m_params->RemoveFlag(kTestingGoal);
-    if (!m_params->HasBareFlag(kJustWonGoal) && !m_params->HasBareFlag(kQuickStart)) {
-        Scripts::LaunchScript(kReadySkaterForEarlyEnd, m_params, nullptr, false, nullptr);
+    if (m_args->ReadHashValue(kDeactivate, &script, 0))
+        Scripts::LaunchScript(script, m_args, nullptr, false, nullptr);
+    if (!m_args->HasBareFlag(kQuickStart))
+        m_args->RemoveFlag(kTestingGoal);
+    if (!m_args->HasBareFlag(kJustWonGoal) && !m_args->HasBareFlag(kQuickStart)) {
+        Scripts::LaunchScript(kReadySkaterForEarlyEnd, m_args, nullptr, false, nullptr);
         if (resetTree && m_parents && m_parents->m_objectiveKey) {
             Uninitialize(false, 0);
             void* manager = ObjectiveBoard();
             CObjective* root = RootOf(manager, m_parents);
             if (root && !Virtual<bool>(root, kVtHasWon))
-                root->Init();
+                root->PrepareAll();
         }
     }
-    Unlink(&m_listLink);
+    Uncouple(&m_listLink);
     return true;
 }
 
 // 0x005576D0
 bool CObjective::Win()
 {
-    m_params->PutInt(kWinRecord, 0);
+    m_args->PutInt(kWinRecord, 0);
     GoalLink* children = m_subNodes;
     if (children->m_objectiveKey) {
         // A goal of stages: the next one started.
         void* manager = ObjectiveBoard();
         Virtual<bool>(this, kVtDeactivate, false, true);
         Uninitialize(false, 0);
-        GetGoal(manager, children->m_objectiveKey, 1)->Init();
+        GetGoal(manager, children->m_objectiveKey, 1)->PrepareAll();
         EngageObjective(manager, children->m_objectiveKey, false);
         children->m_won = true;
         return true;
     }
-    m_params->PutNameKey(kNoName, kJustWonGoal);
-    OnlinePlay::Manager* net = NetManager();
+    m_args->PutNameKey(kNoName, kJustWonGoal);
+    OnlinePlay::Hub* net = NetManager();
     bool newRecord = false;
     uint32_t type;
-    if (!net->InNetGame() && m_params->ReadHashValue(kRecordType, &type, 0)) {
+    if (!net->InNetGame() && m_args->ReadHashValue(kRecordType, &type, 0)) {
         int record = 0;
         bool better = false;
         if (type == kScore) {
             int custom;
-            if (m_params->FetchIntValue(kCustomScoreRecord, &custom, 0)) {
+            if (m_args->FetchIntValue(kCustomScoreRecord, &custom, 0)) {
                 record = custom;
                 better = record > m_bestScore;
             } else {
                 void* score = ScoreOf(SkateCalls::GetHomeRider());
-                record = m_params->HasBareFlag(kHighCombo) ? *reinterpret_cast<int*>(static_cast<uint8_t*>(score) + 0x20)
+                record = m_args->HasBareFlag(kHighCombo) ? *reinterpret_cast<int*>(static_cast<uint8_t*>(score) + 0x20)
                                                             : TotalScore(score);
                 better = record > m_bestScore;
             }
@@ -416,7 +416,7 @@ bool CObjective::Win()
                 m_bestTime = record;
         }
         if (better) {
-            m_params->PutInt(kWinRecord, record);
+            m_args->PutInt(kWinRecord, record);
             newRecord = true;
         }
     }
@@ -426,20 +426,20 @@ bool CObjective::Win()
         GetPrizeStruct(rewards);
         if (newRecord)
             rewards->PutNameKey(kNoName, kNewRecord);
-        m_params->AppendStructRef(kRewardParams, rewards);
+        m_args->AppendStructRef(kRewardParams, rewards);
         OpenUpPrizeObjectives();
         rewarded = true;
     } else {
-        m_params->RemoveComponent(kRewardParams);
+        m_args->EraseModule(kRewardParams);
     }
     if (newRecord)
-        m_params->PutNameKey(kNoName, kNewRecord);
+        m_args->PutNameKey(kNoName, kNewRecord);
     else
-        m_params->RemoveFlag(kNewRecord);
+        m_args->RemoveFlag(kNewRecord);
     uint32_t script;
-    if (m_params->ReadHashValue(kSuccess, &script, 0))
-        Scripts::LaunchScript(script, m_params, nullptr, false, nullptr);
-    bool testing = m_params->HasBareFlag(kTestingGoal);
+    if (m_args->ReadHashValue(kSuccess, &script, 0))
+        Scripts::LaunchScript(script, m_args, nullptr, false, nullptr);
+    bool testing = m_args->HasBareFlag(kTestingGoal);
     if (Virtual<bool>(this, kVtIsActive))
         Virtual<bool>(this, kVtDeactivate, false, true);
     if (!testing) {
@@ -459,21 +459,21 @@ bool CObjective::Win()
     }
     if (net->InNetGame())
         Uninitialize(false, 0);
-    m_params->RemoveFlag(kJustWonGoal);
+    m_args->RemoveFlag(kJustWonGoal);
     return true;
 }
 
 // 0x00557A40
 void CObjective::Unlock()
 {
-    if (!(m_flags & kFlagLocked))
+    if (!(m_flagBits & kFlagLocked))
         return;
-    m_flags &= ~kFlagLocked;
+    m_flagBits &= ~kFlagLocked;
     if (NetManager()->InNetGame())
         return;
-    if (!Virtual<bool>(this, kVtHasWon) || GameModeName() == kClassic || m_params->HasBareFlag(kAlwaysInitializeGoal) ||
-        m_params->HasBareFlag(kEditedGoal))
-        Init();
+    if (!Virtual<bool>(this, kVtHasWon) || GameModeName() == kClassic || m_args->HasBareFlag(kAlwaysInitializeGoal) ||
+        m_args->HasBareFlag(kEditedGoal))
+        PrepareAll();
     InvokeHookScript(kUnlockScript);
 }
 
@@ -481,45 +481,45 @@ void CObjective::Unlock()
 void CObjective::GetPrizeStruct(Scripts::CStruct* rewards)
 {
     void* manager = ObjectiveBoard();
-    OnlinePlay::Manager* net = NetManager();
-    if (!m_params->HasBareFlag(kEditedGoal))
+    OnlinePlay::Hub* net = NetManager();
+    if (!m_args->HasBareFlag(kEditedGoal))
         ShowGoalPoints(manager);
     rewards->PutNameKey(kNoName, kRewardsGiven);
     if (net->InNetGame())
         return;
     // A special trick slot as the reward, while there's room for one.
-    if (m_params->HasBareFlag(kRewardTrickslot) && !m_params->HasBareFlag(kCreateATrick)) {
+    if (m_args->HasBareFlag(kRewardTrickslot) && !m_args->HasBareFlag(kCreateATrick)) {
         GameObjects::CRiderIdentity* profile = SkateCalls::GetProfileFromParams(nullptr);
         int slots = profile->GetMaxSpecials();
         if (slots <= Scripts::FetchIntValue(kMaxTrickslots)) {
             int remove = 0;
-            m_params->FetchIntValue(kShouldRemoveTrick, &remove, 0);
+            m_args->FetchIntValue(kShouldRemoveTrick, &remove, 0);
             if (remove == 1) {
-                m_params->PutInt(kShouldRemoveTrick, 0);
-                m_params->PutNameKey(kNoName, kAlreadyAddedTrickslot);
-                m_params->PutInt(kJustAddedTrickslot, 1);
+                m_args->PutInt(kShouldRemoveTrick, 0);
+                m_args->PutNameKey(kNoName, kAlreadyAddedTrickslot);
+                m_args->PutInt(kJustAddedTrickslot, 1);
             }
         }
     }
     Scripts::CStruct* all = Scripts::ReadSubStruct(kGoalRewards);
     uint32_t id = 0;
-    m_params->ReadHashValue(kGoalIdName, &id, 1);
+    m_args->ReadHashValue(kGoalIdName, &id, 1);
     Scripts::CStruct* own = nullptr;
     all->ReadSubStruct(id, &own, 0);
     if (own) {
         if (own->HasBareFlag(kRewardStat)) {
-            own->RemoveComponent(kRewardStat);
+            own->EraseModule(kRewardStat);
             own->PutInt(kRewardStat, 1);
         }
         rewards->AppendStructureIfAny(own);
         return;
     }
-    if (m_params->HasBareFlag(kRewardStat)) {
+    if (m_args->HasBareFlag(kRewardStat)) {
         rewards->PutInt(kRewardStat, 1);
         return;
     }
     int stat;
-    if (m_params->FetchIntValue(kRewardStat, &stat, 0))
+    if (m_args->FetchIntValue(kRewardStat, &stat, 0))
         rewards->PutInt(kRewardStat, stat);
 }
 
@@ -528,16 +528,16 @@ void CObjective::OpenUpPrizeObjectives()
 {
     void* manager = ObjectiveBoard();
     uint32_t goal = 0;
-    if (m_params->ReadHashValue(kRewardGoal, &goal, 0)) {
+    if (m_args->ReadHashValue(kRewardGoal, &goal, 0)) {
         OpenUpObjective(manager, goal);
         return;
     }
     Scripts::CArray* goals;
-    if (!m_params->GetArray(kRewardGoal, &goals, 0))
+    if (!m_args->FetchList(kRewardGoal, &goals, 0))
         return;
-    int count = static_cast<int>(goals->m_size);
+    int count = static_cast<int>(goals->m_extent);
     for (int i = 0; i < count; ++i) {
-        uint32_t id = goals->GetElement(static_cast<uint32_t>(i));
+        uint32_t id = goals->FetchPart(static_cast<uint32_t>(i));
         if (id)
             OpenUpObjective(manager, id);
     }
@@ -547,13 +547,13 @@ void CObjective::OpenUpPrizeObjectives()
 int CObjective::GetRewardPoints()
 {
     int points = 0;
-    if (m_params->FetchIntValue(kRewardPoints, &points, 0))
+    if (m_args->FetchIntValue(kRewardPoints, &points, 0))
         return points;
     Scripts::CArray* byLevel;
-    if (m_params->GetArray(kRewardPoints, &byLevel, 0)) {
+    if (m_args->FetchList(kRewardPoints, &byLevel, 0)) {
         int level = GetSkillTier(ObjectiveBoard(), false);
-        if (level >= 0 && level < static_cast<int>(byLevel->m_size))
-            return static_cast<int>(byLevel->GetElement(static_cast<uint32_t>(level)));
+        if (level >= 0 && level < static_cast<int>(byLevel->m_extent))
+            return static_cast<int>(byLevel->FetchPart(static_cast<uint32_t>(level)));
     }
     return 0;
 }
@@ -562,11 +562,11 @@ int CObjective::GetRewardPoints()
 bool CObjective::SetFlag(uint32_t flag, int value, uint32_t sub)
 {
     // A silently activated goal (not won yet) takes flags while inactive, and is won by them.
-    bool silent = m_params->HasBareFlag(kSilentActivation) && !Virtual<bool>(this, kVtHasWon);
+    bool silent = m_args->HasBareFlag(kSilentActivation) && !Virtual<bool>(this, kVtHasWon);
     if (!Virtual<bool>(this, kVtIsActive) && !silent)
         return false;
     void* manager = ObjectiveBoard();
-    if ((m_flags & kFlagLocked) || IsGroupLocked(manager, m_bundle, m_level))
+    if ((m_flagBits & kFlagLocked) || IsGroupLocked(manager, m_bundle, m_level))
         return false;
     Scripts::CStruct* flags = m_goalFlags;
     if (sub)
@@ -588,25 +588,25 @@ bool CObjective::SetFlag(uint32_t flag, int value, uint32_t sub)
                 counted = value != 0;
                 m_numFlagsSet += counted ? 1 : -1;
             }
-            if (counted && !m_params->HasBareFlag(kNoFlagSound))
+            if (counted && !m_args->HasBareFlag(kNoFlagSound))
                 Scripts::LaunchScript(kGoalGotFlagSound, nullptr, nullptr, false, nullptr);
-            if (m_params->HasBareFlag(kUseHudCounter))
-                Scripts::LaunchScript(kGoalUpdateCounter, m_params, nullptr, false, nullptr);
-            m_params->PutInt(kNumFlagsSet, m_numFlagsSet);
+            if (m_args->HasBareFlag(kUseHudCounter))
+                Scripts::LaunchScript(kGoalUpdateCounter, m_args, nullptr, false, nullptr);
+            m_args->PutInt(kNumFlagsSet, m_numFlagsSet);
         }
         changed = true;
     }
     if (!silent)
         return changed;
-    if (m_params->HasBareFlag(kTrickObjects))
+    if (m_args->HasBareFlag(kTrickObjects))
         return changed;
     if (HasEveryBit()) {
         void* goals = ObjectiveBoard();
         uint32_t id = GetObjectiveKey();
         CompleteObjective(goals, id);
-    } else if (!sub && m_params->HasBareFlag(kGaps) && !m_params->HasBareFlag(kNoGapMessages)) {
+    } else if (!sub && m_args->HasBareFlag(kGaps) && !m_args->HasBareFlag(kNoGapMessages)) {
         Scripts::CStruct* params = NewStructure();
-        params->AppendStructureIfAny(m_params);
+        params->AppendStructureIfAny(m_args);
         Scripts::LaunchScript(kGoalGapsGotGap, params, nullptr, false, nullptr);
         DeleteStructure(params);
     }
@@ -619,44 +619,44 @@ void CObjective::AllocObjectiveBits(Scripts::CStruct* params)
     m_goalFlags->Clear();
     m_numFlags = 0;
     Scripts::CArray* flags;
-    if (params->GetArray(kGoalFlags, &flags, 0)) {
-        if (flags->m_type == Scripts::QBVAL_STRUCT) {
+    if (params->FetchList(kGoalFlags, &flags, 0)) {
+        if (flags->m_kindTag == Scripts::QBVAL_STRUCT) {
             // One structure per skater: its own flags and counts.
             m_goalFlags->PutNameKey(kNoName, kSkaterFlags);
-            int skaters = static_cast<int>(flags->m_size);
+            int skaters = static_cast<int>(flags->m_extent);
             for (int i = 0; i < skaters; ++i) {
-                auto* entry = reinterpret_cast<Scripts::CStruct*>(flags->GetElement(static_cast<uint32_t>(i)));
+                auto* entry = reinterpret_cast<Scripts::CStruct*>(flags->FetchPart(static_cast<uint32_t>(i)));
                 uint32_t skater;
                 entry->ReadHashValue(kSkater, &skater, 1);
                 Scripts::CStruct* own = NewStructure();
                 Scripts::CArray* names;
-                entry->GetArray(kGoalFlags, &names, 1);
-                int count = static_cast<int>(names->m_size);
+                entry->FetchList(kGoalFlags, &names, 1);
+                int count = static_cast<int>(names->m_extent);
                 for (int k = 0; k < count; ++k)
-                    own->PutInt(names->GetElement(static_cast<uint32_t>(k)), 0);
+                    own->PutInt(names->FetchPart(static_cast<uint32_t>(k)), 0);
                 own->PutInt(kNumFlags, count);
                 own->PutInt(kNumFlagsSet, 0);
                 m_goalFlags->PutSubStruct(skater, own);
                 DeleteStructure(own);
             }
         } else {
-            for (uint32_t i = 0; i < flags->m_size; ++i) {
-                m_goalFlags->PutInt(flags->GetElement(i), 0);
+            for (uint32_t i = 0; i < flags->m_extent; ++i) {
+                m_goalFlags->PutInt(flags->FetchPart(i), 0);
                 ++m_numFlags;
             }
         }
     }
-    m_params->PutInt(kNumFlags, m_numFlags);
+    m_args->PutInt(kNumFlags, m_numFlags);
 }
 
 // 0x00556240
 bool CObjective::AllSkatersRunDone()
 {
-    OnlinePlay::Manager* net = NetManager();
+    OnlinePlay::Hub* net = NetManager();
     PlayerSearch search;
     for (void* player = net->BeginPlayerWalk(&search, false); player; player = net->StepPlayerWalk(&search, false)) {
         GameObjects::CGameEntity* skater = PlayerSkater(player);
-        auto* endRun = static_cast<GameObjects::CRiderSessionEnd*>(skater->GetComponent(kSkaterEndRun));
+        auto* endRun = static_cast<GameObjects::CRiderSessionEnd*>(skater->FetchModule(kSkaterEndRun));
         // (in horse, a skater not taking the turn doesn't count)
         if (GameModeName() == kHorse && (reinterpret_cast<uint8_t*>(skater)[0x320] ||
                                          (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x104) >> 2) & 1))

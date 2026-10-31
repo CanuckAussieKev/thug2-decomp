@@ -106,11 +106,11 @@ std::vector<void*> g_detached; // (list nodes taken out of their clusters: kept 
 // The Inspector's typed cluster name.
 char g_typed[64];
 
-uint8_t* Manager() { return reinterpret_cast<uint8_t*>(GameObjects::g_trickObjectManager); }
+uint8_t* Hub() { return reinterpret_cast<uint8_t*>(GameObjects::g_trickObjectManager); }
 
 Scripts::CStruct* NodeOf(uint32_t sector)
 {
-    return LevelNodes::GetNode(sector, false);
+    return LevelNodes::FetchVertex(sector, false);
 }
 
 GameObjects::CTrickSpotHub* TrickObjects(uint8_t* manager) { return reinterpret_cast<GameObjects::CTrickSpotHub*>(manager); }
@@ -121,9 +121,9 @@ uint8_t* ClusterObject(uint8_t* manager, uint32_t cluster)
 }
 
 // Registered as the load registers a TrickObject node (0x005A37A9-0x005A37C9).
-void Register(uint32_t name, uint32_t cluster)
+void Enrol(uint32_t name, uint32_t cluster)
 {
-    uint8_t* manager = Manager();
+    uint8_t* manager = Hub();
     if (!manager || !cluster)
         return;
     TrickObjects(manager)->AddCluster(cluster); // (false: there already)
@@ -135,7 +135,7 @@ void Register(uint32_t name, uint32_t cluster)
 // +0x10 previous, +0x14 the name) and its name out of the name map (+0x20).
 void Unregister(uint32_t name, uint32_t cluster)
 {
-    uint8_t* manager = Manager();
+    uint8_t* manager = Hub();
     if (!manager || !cluster)
         return;
     if (uint8_t* object = ClusterObject(manager, cluster)) {
@@ -154,7 +154,7 @@ void Unregister(uint32_t name, uint32_t cluster)
             node = next;
         }
     }
-    reinterpret_cast<ListKit::HashTable*>(manager + 0x20)->EraseEntry(name);
+    reinterpret_cast<ListKit::KeyMap*>(manager + 0x20)->EraseEntry(name);
 }
 
 // The piece made `to` in the manager, from `from`.
@@ -163,16 +163,16 @@ void Live(const Membership& from, const Membership& to)
     if (from.trick && (!to.trick || from.cluster != to.cluster))
         Unregister(from.sector, from.cluster);
     if (to.trick && (!from.trick || from.cluster != to.cluster))
-        Register(to.sector, to.cluster);
+        Enrol(to.sector, to.cluster);
 }
 
 // The piece's membership put to `to` (the editor's from now on, unless it's the level's again).
-void Put(const Membership& to)
+void PlaceIn(const Membership& to)
 {
     Membership now = Now(to.sector);
     if (!g_level.count(to.sector)) {
         Membership level;
-        if (!Level(to.sector, &level))
+        if (!StageMap(to.sector, &level))
             level = Membership{to.sector, false, 0};
         g_level[to.sector] = level;
     }
@@ -188,7 +188,7 @@ struct Step : ModuleStep {
     void Restore() override
     {
         for (const Membership& m : pieces)
-            Put(m);
+            PlaceIn(m);
     }
     std::shared_ptr<ModuleStep> Now() const override
     {
@@ -209,7 +209,7 @@ std::shared_ptr<Step> Capture(const std::vector<uint32_t>& sectors)
 
 } // namespace
 
-bool Level(uint32_t sector, Membership* m)
+bool StageMap(uint32_t sector, Membership* m)
 {
     Scripts::CStruct* node = NodeOf(sector);
     if (!node)
@@ -231,7 +231,7 @@ Membership Now(uint32_t sector)
     if (it != g_set.end())
         return it->second;
     Membership m;
-    if (!Level(sector, &m))
+    if (!StageMap(sector, &m))
         m = Membership{sector, false, 0};
     return m;
 }
@@ -245,7 +245,7 @@ bool Override(uint32_t sector, uint32_t* cluster)
     return true;
 }
 
-bool Set(const std::vector<uint32_t>& sectors, bool trick, uint32_t cluster)
+bool AssignValue(const std::vector<uint32_t>& sectors, bool trick, uint32_t cluster)
 {
     std::vector<uint32_t> pieces;
     for (uint32_t s : sectors) {
@@ -258,7 +258,7 @@ bool Set(const std::vector<uint32_t>& sectors, bool trick, uint32_t cluster)
         Membership to{s, trick, trick ? (cluster ? cluster : s) : 0};
         if (Same(Now(s), to))
             continue;
-        Put(to);
+        PlaceIn(to);
         ++changed;
     }
     if (!changed)
@@ -287,7 +287,7 @@ bool Home(const std::vector<uint32_t>& sectors)
         return false;
     PushModuleUndo(Capture(pieces));
     for (uint32_t s : pieces)
-        Put(g_level[s]);
+        PlaceIn(g_level[s]);
     Hud::Message("Trick object reverted");
     return true;
 }
@@ -306,7 +306,7 @@ int Apply(const std::vector<Membership>& records)
     for (const Membership& m : records) {
         if (!Scenery::SectorOf(m.sector) || Scenery::IsClone(m.sector))
             continue;
-        Put(m);
+        PlaceIn(m);
         ++count;
     }
     return count;
@@ -318,7 +318,7 @@ void ResetAll()
     for (const auto& entry : g_set)
         set.push_back(entry.second);
     for (const Membership& m : set)
-        Put(g_level.count(m.sector) ? g_level[m.sector] : Membership{m.sector, false, 0});
+        PlaceIn(g_level.count(m.sector) ? g_level[m.sector] : Membership{m.sector, false, 0});
     g_set.clear();
 }
 
@@ -330,7 +330,7 @@ void ForgetLevel()
     g_detached.clear(); // (the manager and its lists went with the level)
 }
 
-void Update()
+void TickFrame()
 {
     std::vector<std::function<void()>> queue;
     queue.swap(g_queue);
@@ -343,7 +343,7 @@ std::string NameOf(uint32_t cluster)
     const char* name = Fields::NameOf(cluster);
     if (name)
         return name;
-    return Objects::Label(cluster);
+    return Objects::Caption(cluster);
 }
 
 void InspectorSection(const std::vector<uint32_t>& sectors, ImFont* mono, ImFont* smallFont)
@@ -392,7 +392,7 @@ void InspectorSection(const std::vector<uint32_t>& sectors, ImFont* mono, ImFont
     if (ImGui::Button("Set Cluster")) {
         g_queue.push_back([pieces, typed] {
             Fields::Remember(typed);
-            Set(pieces, true, Checksums::HashFromText(typed.c_str()));
+            AssignValue(pieces, true, Checksums::HashFromText(typed.c_str()));
         });
     }
     ImGui::EndDisabled();
@@ -400,7 +400,7 @@ void InspectorSection(const std::vector<uint32_t>& sectors, ImFont* mono, ImFont
         ImGui::SetTooltip("Add the selection to the named cluster");
     ImGui::SameLine();
     if (ImGui::Button("Separate Clusters"))
-        g_queue.push_back([pieces] { Set(pieces, true, 0); });
+        g_queue.push_back([pieces] { AssignValue(pieces, true, 0); });
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Give each piece its own cluster");
     if (same && now[0].trick) {
@@ -411,7 +411,7 @@ void InspectorSection(const std::vector<uint32_t>& sectors, ImFont* mono, ImFont
     }
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
     if (ImGui::Button("Clear Trick Object"))
-        g_queue.push_back([pieces] { Set(pieces, false, 0); });
+        g_queue.push_back([pieces] { AssignValue(pieces, false, 0); });
     ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::BeginDisabled(!edited);

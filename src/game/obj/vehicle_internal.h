@@ -37,25 +37,25 @@ inline void TriggerRect(CObjectModule* trigger, const int* events, Engine3D::CBo
 
 // Quaternions: 0x0042BC40 a quaternion's rotation matrix (its 3x3), 0x0042E1F0 a matrix's
 // quaternion, 0x0042E310 normalised to a length, 0x00420140 *=.
-inline void QuatToMatrix(const Maths::Vector* quat, Maths::Matrix* matrix)
+inline void QuatToMatrix(const Maths::Vec4* quat, Maths::Mat4* matrix)
 {
-    reinterpret_cast<const Maths::QuatRotation*>(quat)->GetMatrix(matrix);
+    reinterpret_cast<const Maths::QuatRotation*>(quat)->FetchMat(matrix);
 }
-inline void MatrixToQuat(Maths::Vector* quat, const Maths::Matrix* matrix)
+inline void MatrixToQuat(Maths::Vec4* quat, const Maths::Mat4* matrix)
 {
     reinterpret_cast<Maths::QuatRotation*>(quat)->FromMatrix(*matrix);
 }
-inline void QuatNormalize(Maths::Vector* quat, float length)
+inline void QuatNormalize(Maths::Vec4* quat, float length)
 {
-    reinterpret_cast<Maths::QuatRotation*>(quat)->Normalize(length);
+    reinterpret_cast<Maths::QuatRotation*>(quat)->MakeUnit(length);
 }
-inline void QuatMultiply(Maths::Vector* a, const Maths::Vector* b)
+inline void QuatMultiply(Maths::Vec4* a, const Maths::Vec4* b)
 {
     *reinterpret_cast<Maths::QuatRotation*>(a) *= *reinterpret_cast<const Maths::QuatRotation*>(b);
 }
 
 // D3DXMatrixMultiply (linked library code; stdcall).
-inline void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+inline void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }

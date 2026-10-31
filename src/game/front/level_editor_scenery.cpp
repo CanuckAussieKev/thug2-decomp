@@ -260,12 +260,12 @@ bool GeomBox(uint8_t* geom, V3* min, V3* max)
 // The geometry's world position (vfunc +0x4C, 0x004B46A0: the first mesh's; 0 when never moved).
 V3 GeomPosition(uint8_t* geom)
 {
-    const Maths::Vector* v = reinterpret_cast<const Maths::Vector*(__thiscall*)(void*)>(&Engine3D::VirtualSlot19Jump)(geom);
+    const Maths::Vec4* v = reinterpret_cast<const Maths::Vec4*(__thiscall*)(void*)>(&Engine3D::VirtualSlot19Jump)(geom);
     return {v->x, v->y, v->z};
 }
 
 // The meshes' vertices can be moved: each vertex buffer has its own CPU copy (+0x0C) holding exactly the mesh's
-// vertices (+0x22 count, +0x18 stride) - what meshRef::SetPosition walks and uploads.
+// vertices (+0x22 count, +0x18 stride) - what meshRef::ChangePlace walks and uploads.
 const char* MeshesMovable(uint8_t* geom)
 {
     auto** meshes = *reinterpret_cast<uint8_t***>(geom + 0x3C);
@@ -309,7 +309,7 @@ struct Track {
     V3 position;
     V3 collisionMoved; // (how far its own collision has been moved since: position - position0 on sixteenths)
     bool moved;
-    std::shared_ptr<Scale::Original> original; // (once scaled: its vertices and collision then - level_editor_scale.h)
+    std::shared_ptr<StretchBy::Original> original; // (once scaled: its vertices and collision then - level_editor_scale.h)
 };
 std::map<uint32_t, Track> g_tracks;
 std::vector<uint32_t> g_selection;
@@ -387,7 +387,7 @@ void ApplyTrack(Track* track)
     // level_editor_shared_coll.h)
     SharedCollision::Ensure(track->checksum, track->scene, track->sector, track->geom);
     if (!track->original && !IsUnitScale(track->placement.scale)) {
-        track->original = Scale::Capture(track->sector, track->geom, track->quarters, track->position);
+        track->original = StretchBy::Capture(track->sector, track->geom, track->quarters, track->position);
         if (!track->original) {
             Log("level editor: sector %p can't be scaled (its meshes can't be copied)", static_cast<void*>(track->sector));
             track->placement.scale = {1.0f, 1.0f, 1.0f};
@@ -401,8 +401,8 @@ void ApplyTrack(Track* track)
         track->quarters = quarters;
     }
     if (!SameV3(position, track->position)) {
-        Maths::Vector to = {position.x, position.y, position.z, 1.0f};
-        reinterpret_cast<void(__thiscall*)(void*, const Maths::Vector*)>(&Engine3D::VirtualSlot18Jump)(track->geom, &to);
+        Maths::Vec4 to = {position.x, position.y, position.z, 1.0f};
+        reinterpret_cast<void(__thiscall*)(void*, const Maths::Vec4*)>(&Engine3D::VirtualSlot18Jump)(track->geom, &to);
         // The collision by whole sixteenths of a unit from where the track started: its BSP tree's splits are
         // sixteenths and each Translate (0x00415D80) rounds them towards zero, so fractional steps (every frame of a
         // drag) would let the tree drift away from its faces; on sixteenths every step is exact and moving back gives
@@ -411,16 +411,16 @@ void ApplyTrack(Track* track)
         V3 collisionMoved = Walls::OnGrid(position - track->position0);
         uint8_t* coll = CollOf(track->sector);
         if (coll && !SameV3(collisionMoved, track->collisionMoved)) {
-            const Maths::Vector* origin = Method<const Maths::Vector*(__thiscall*)(void*)>(coll, 0x1C)(coll);
+            const Maths::Vec4* origin = Method<const Maths::Vec4*(__thiscall*)(void*)>(coll, 0x1C)(coll);
             V3 change = collisionMoved - track->collisionMoved;
-            Maths::Vector moved = {origin->x + change.x, origin->y + change.y, origin->z + change.z, origin->w};
-            Method<void(__thiscall*)(void*, const Maths::Vector*)>(coll, 0x14)(coll, &moved);
+            Maths::Vec4 moved = {origin->x + change.x, origin->y + change.y, origin->z + change.z, origin->w};
+            Method<void(__thiscall*)(void*, const Maths::Vec4*)>(coll, 0x14)(coll, &moved);
         }
         track->collisionMoved = collisionMoved;
         track->position = position;
     }
     if (track->original &&
-        !Scale::Rebuild(*track->original, track->sector, track->geom, track->quarters, track->position,
+        !StretchBy::Reassemble(*track->original, track->sector, track->geom, track->quarters, track->position,
                         track->placement.scale, track->quarters0))
         track->original.reset(); // (not the sector copied any more: left as the engine has it)
     SharedCollision::Place(track->checksum, track->placement);
@@ -437,7 +437,7 @@ const char* NameOf(uint32_t checksum)
     return Scripts::LookUpHashName(checksum);
 }
 
-std::string Label(uint32_t checksum)
+std::string Caption(uint32_t checksum)
 {
     char text[96];
     const char* name = NameOf(checksum);
@@ -460,7 +460,7 @@ uint32_t ClusterOf(uint32_t checksum)
     auto it = g_clusters.find(checksum);
     if (it != g_clusters.end())
         return it->second;
-    auto* node = LevelNodes::GetNode(checksum, false);
+    auto* node = LevelNodes::FetchVertex(checksum, false);
     uint32_t cluster = 0;
     if (node)
         node->ReadHashValue(kCluster, &cluster, 0);
@@ -590,7 +590,7 @@ void ComputePivot()
         if (casters && g_shadowOf.count(checksum))
             continue;
         OrientedBox box;
-        if (!Box(checksum, &box))
+        if (!Cuboid(checksum, &box))
             continue;
         V3 a, b;
         BoundsOf(box, &a, &b);
@@ -620,7 +620,7 @@ void SelectRails()
             clusters.push_back(cluster);
         OrientedBox box;
         V3 min, max;
-        if (!g_shadowOf.count(checksum) && Box(checksum, &box)) { // (not by a shadow's box: rails lying over it)
+        if (!g_shadowOf.count(checksum) && Cuboid(checksum, &box)) { // (not by a shadow's box: rails lying over it)
             BoundsOf(box, &min, &max);
             boxes.push_back({min - V3{10.0f, 10.0f, 10.0f}, max + V3{10.0f, 10.0f, 10.0f}});
         }
@@ -756,7 +756,7 @@ std::vector<uint32_t> GroupOf(uint32_t checksum)
                     (joiningCluster && ClusterOf(piece.checksum) == joiningCluster &&
                      PieceFits(piece.min, piece.max, groupMin, groupMax))) {
                     if (take(piece) && DebugEnabled())
-                        Log("level editor:   joins: %s (%.0f x %.0f x %.0f)", Label(piece.checksum).c_str(),
+                        Log("level editor:   joins: %s (%.0f x %.0f x %.0f)", Caption(piece.checksum).c_str(),
                             piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z);
                 }
             }
@@ -765,7 +765,7 @@ std::vector<uint32_t> GroupOf(uint32_t checksum)
     // Its shadows (level_editor_shadows.h): by name, then - for shadow-named pieces nobody owns by name - by place,
     // under one of its pieces. Not by place for a floor or wall clicked by itself.
     auto sourceOf = [](uint32_t of) {
-        for (const Clone& clone : Clones()) {
+        for (const Replicate& clone : Clones()) {
             if (clone.checksum == of)
                 return clone.source;
         }
@@ -824,9 +824,9 @@ std::vector<uint32_t> GroupOf(uint32_t checksum)
         group.push_back(piece.checksum);
         g_shadowOf[piece.checksum] = caster;
         if (DebugEnabled())
-            Log("level editor:   shadow %s: %s (%.0f x %.0f x %.0f)%s%s", how, Label(piece.checksum).c_str(),
+            Log("level editor:   shadow %s: %s (%.0f x %.0f x %.0f)%s%s", how, Caption(piece.checksum).c_str(),
                 piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z,
-                caster ? " of " : "", caster ? Label(caster).c_str() : "");
+                caster ? " of " : "", caster ? Caption(caster).c_str() : "");
     }
     return group;
 }
@@ -842,8 +842,8 @@ bool CastStatic(V3 from, V3 to, V3* point, uint32_t* checksum)
 {
     alignas(16) uint8_t feeler[0x100] = {};
     auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
-    ray->Construct();
-    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    ray->MakeNew();
+    Maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* hit = reinterpret_cast<const float*>(feeler + 0x34);
@@ -979,7 +979,7 @@ bool Pick(V3 origin, V3 unitDir, float maxT, Hit* hit, std::vector<Layer>* layer
     auto note = [&](uint32_t checksum, uint8_t* geom, float t, bool collision) {
         if (View::HiddenSector(checksum)) // (H: level_editor_view.h - not shown, not met)
             return;
-        bool locked = Picking::Locked(Picking::kScenery, checksum);
+        bool locked = Picking::Latched(Picking::kScenery, checksum);
         bool occludes = collision || !(PlainGeom(geom) && GeomSeeThrough(geom));
         met.push_back({checksum, t, Passed(checksum, origin), occludes, locked});
         if (occludes && !locked && !layers && t < stop)
@@ -1024,7 +1024,7 @@ bool Pick(V3 origin, V3 unitDir, float maxT, Hit* hit, std::vector<Layer>* layer
                 note(checksum, geom, t, false);
         });
     });
-    Picking::Resolved r = Picking::Resolve(met);
+    Picking::Resolved r = Picking::SettleUp(met);
     hit->checksum = r.take;
     hit->t = r.takeT;
     hit->passed = r.passed;
@@ -1053,7 +1053,7 @@ bool Pick(V3 origin, V3 unitDir, float maxT, Hit* hit, std::vector<Layer>* layer
     return hit->checksum || hit->passed || hit->nearest;
 }
 
-bool Box(uint32_t checksum, OrientedBox* box)
+bool Cuboid(uint32_t checksum, OrientedBox* box)
 {
     uint8_t* sector = FindSector(checksum, nullptr);
     if (!sector || !PlainGeom(GeomOf(sector)))
@@ -1085,9 +1085,9 @@ const char* WhyNotMovable(uint32_t checksum)
 
 std::string DescribeHover(uint32_t checksum)
 {
-    std::string text = "scenery " + Label(checksum);
+    std::string text = "scenery " + Caption(checksum);
     OrientedBox box;
-    if (Box(checksum, &box)) {
+    if (Cuboid(checksum, &box)) {
         char size[64];
         V3 size3 = BoxSize(box); // (scaled: level_editor_scale.h)
         std::snprintf(size, sizeof(size), "  %.0f x %.0f x %.0f", size3.x, size3.y, size3.z);
@@ -1108,7 +1108,7 @@ std::string DescribeSelection()
 {
     if (g_selection.empty())
         return "-";
-    std::string text = "scenery " + Label(g_selection[0]);
+    std::string text = "scenery " + Caption(g_selection[0]);
     char more[160];
     int quarters = 0;
     V3 scale = {1.0f, 1.0f, 1.0f};
@@ -1121,7 +1121,7 @@ std::string DescribeSelection()
                   quarters * 90);
     if (!IsUnitScale(scale)) {
         size_t used = std::strlen(more);
-        std::snprintf(more + used, sizeof(more) - used, "  scaled %s", Scale::Describe(scale).c_str());
+        std::snprintf(more + used, sizeof(more) - used, "  scaled %s", StretchBy::Describe(scale).c_str());
     }
     if (g_selection.size() > 1)
         text += " + " + std::to_string(g_selection.size() - 1) + " more";
@@ -1214,15 +1214,15 @@ void SelectGroup(uint32_t checksum)
     LogMeshes();
     if (DebugEnabled()) {
         Log("level editor: selected scenery %s, %u sector%s (cluster %08X), %u rail node%s, pivot (%.1f, %.1f, %.1f)",
-            Label(checksum).c_str(), static_cast<unsigned>(g_selection.size()), g_selection.size() == 1 ? "" : "s",
+            Caption(checksum).c_str(), static_cast<unsigned>(g_selection.size()), g_selection.size() == 1 ? "" : "s",
             ClusterOf(checksum), static_cast<unsigned>(g_rails.size()), g_rails.size() == 1 ? "" : "s", g_pivot.x,
             g_pivot.y, g_pivot.z);
         for (uint32_t member : g_selection)
-            Log("level editor:   %s%s", Label(member).c_str(), IsShadow(member) ? " (shadow)" : "");
+            Log("level editor:   %s%s", Caption(member).c_str(), IsShadow(member) ? " (shadow)" : "");
     }
 }
 
-void Toggle(uint32_t checksum)
+void FlipOver(uint32_t checksum)
 {
     auto it = std::find(g_selection.begin(), g_selection.end(), checksum);
     if (it != g_selection.end())
@@ -1312,30 +1312,30 @@ V3 ScaleSelection(V3 factor, bool uniform)
     for (uint32_t checksum : g_selection) {
         if (Track* track = TrackOf(checksum)) {
             if (!track->original) // (kept now, as ApplyTrack would: a piece that can't be copied stops the lot)
-                track->original = Scale::Capture(track->sector, track->geom, track->quarters, track->position);
+                track->original = StretchBy::Capture(track->sector, track->geom, track->quarters, track->position);
             if (!track->original) {
-                Log("level editor: %s can't be scaled (its meshes can't be copied)", Label(checksum).c_str());
+                Log("level editor: %s can't be scaled (its meshes can't be copied)", Caption(checksum).c_str());
                 return unchanged;
             }
             V3 world = TurnedScale(track->placement.scale, track->placement.quarters);
             scales.push_back(world);
-            limits.push_back(Scale::Limit(track->sector, world));
+            limits.push_back(StretchBy::Limit(track->sector, world));
         }
     }
-    factor = Scale::AllowedFactor(factor, scales, limits, uniform);
+    factor = StretchBy::AllowedFactor(factor, scales, limits, uniform);
     if (IsUnitScale(factor) || scales.empty())
         return unchanged;
     // About the middle of the selection's bottom: it keeps standing where it stands.
     V3 anchor = {g_pivot.x, Bottom(), g_pivot.z};
     for (uint32_t checksum : g_selection) {
         if (Track* track = TrackOf(checksum)) {
-            Scale::ScaleAbout(&track->placement, anchor, factor);
+            StretchBy::ScaleAbout(&track->placement, anchor, factor);
             ApplyTrack(track);
         }
     }
     for (uint32_t name : g_rails) {
         if (RailTrack* track = RailTrackOf(name))
-            Scale::ScaleAbout(&track->placement, anchor, factor);
+            StretchBy::ScaleAbout(&track->placement, anchor, factor);
     }
     ApplyRails(g_rails);
     g_halfHeight *= factor.y;
@@ -1444,10 +1444,10 @@ void ForEachRailPoint(void (*each)(void* context, uint32_t name, V3 pos), void* 
 
 namespace {
 
-// CWorldCell::SetActive (0x0049E9B0, thiscall, RET 4: the geometry's active flag - vfunc +0x34 - and the collision's
-// "off" flag 4) / IsActive (0x0049E9E0).
-void SetActive(uint8_t* sector, bool active) { reinterpret_cast<Engine3D::CWorldCell*>(sector)->SetActive(active); }
-bool IsActive(uint8_t* sector) { return reinterpret_cast<Engine3D::CWorldCell*>(sector)->IsActive(); }
+// CWorldCell::ChangeLive (0x0049E9B0, thiscall, RET 4: the geometry's active flag - vfunc +0x34 - and the collision's
+// "off" flag 4) / IsOperative (0x0049E9E0).
+void ChangeLive(uint8_t* sector, bool active) { reinterpret_cast<Engine3D::CWorldCell*>(sector)->ChangeLive(active); }
+bool IsOperative(uint8_t* sector) { return reinterpret_cast<Engine3D::CWorldCell*>(sector)->IsOperative(); }
 
 } // namespace
 
@@ -1459,7 +1459,7 @@ State SaveState()
         uint8_t* sector = FindSector(checksum, nullptr);
         if (!sector)
             continue;
-        state.sectors.push_back({checksum, PlacementOf(checksum, GeomOf(sector)), !IsActive(sector)});
+        state.sectors.push_back({checksum, PlacementOf(checksum, GeomOf(sector)), !IsOperative(sector)});
     }
     for (uint32_t name : g_rails) {
         if (RailTrack* track = RailTrackOf(name))
@@ -1479,13 +1479,13 @@ void ApplyStates(const std::vector<SectorState>& sectors, const std::vector<Rail
             track->placement = saved.placement;
             ApplyTrack(track);
         }
-        if (IsActive(track->sector) == saved.hidden) {
+        if (IsOperative(track->sector) == saved.hidden) {
             if (saved.hidden) // (its shared collision taken first, to go off with it)
                 SharedCollision::Ensure(track->checksum, track->scene, track->sector, track->geom);
-            SetActive(track->sector, !saved.hidden);
+            ChangeLive(track->sector, !saved.hidden);
             MarkDirty(track->scene);
         }
-        SharedCollision::SetActive(track->checksum, !saved.hidden);
+        SharedCollision::ChangeLive(track->checksum, !saved.hidden);
     }
     std::vector<uint32_t> names;
     for (const RailState& saved : rails) {
@@ -1499,7 +1499,7 @@ void ApplyStates(const std::vector<SectorState>& sectors, const std::vector<Rail
     ApplyRails(names);
     ComputePivot();
     g_hoverGroupOf = 0;
-    Commit();
+    Finalise();
 }
 
 void RestoreState(const State& state)
@@ -1519,7 +1519,7 @@ std::vector<SectorState> ChangedSectors()
         const Track& track = entry.second;
         if (IsClone(entry.first) || FindSector(entry.first, nullptr) != track.sector)
             continue;
-        bool hidden = !IsActive(track.sector);
+        bool hidden = !IsOperative(track.sector);
         const Placement& p = track.placement;
         if (hidden || p.quarters || !IsUnitScale(p.scale) || p.offset.x != 0.0f || p.offset.y != 0.0f || p.offset.z != 0.0f)
             changed.push_back({entry.first, p, hidden});
@@ -1569,16 +1569,16 @@ uint32_t SceneName(uint8_t* scene) { return scene ? *reinterpret_cast<uint32_t*>
 // as any level sector), flagged 4 to be added to the super sectors (Commit). The copy is made of the source as it is
 // now (moved or not); its box (+0x14 / +0x24, not copied for a full clone) is set to the source's box where it is.
 
-std::vector<Clone>& Clones()
+std::vector<Replicate>& Clones()
 {
-    static std::vector<Clone> clones;
+    static std::vector<Replicate> clones;
     return clones;
 }
 
 bool IsClone(uint32_t checksum)
 {
     const auto& clones = Clones();
-    return std::any_of(clones.begin(), clones.end(), [&](const Clone& c) { return c.checksum == checksum; });
+    return std::any_of(clones.begin(), clones.end(), [&](const Replicate& c) { return c.checksum == checksum; });
 }
 
 uint32_t Duplicate(uint32_t source)
@@ -1589,7 +1589,7 @@ uint32_t Duplicate(uint32_t source)
         return 0;
     OrientedBox box;
     V3 min, max;
-    if (!Box(source, &box))
+    if (!Cuboid(source, &box))
         return 0;
     BoundsOf(box, &min, &max);
     Placement sourcePlacement = PlacementOf(source, GeomOf(sector));
@@ -1600,7 +1600,7 @@ uint32_t Duplicate(uint32_t source)
     uint8_t* copy = made ? LookupSector(scene, made) : nullptr;
     uint8_t* geom = copy ? GeomOf(copy) : nullptr;
     if (!geom || *reinterpret_cast<void***>(geom) != kPcGeomVtable || *reinterpret_cast<void**>(geom + 0x4C)) {
-        Log("level editor: copy of %s: %s", Label(source).c_str(), made ? "not a plain sector" : "not made");
+        Log("level editor: copy of %s: %s", Caption(source).c_str(), made ? "not a plain sector" : "not made");
         return 0;
     }
     float* boxes = reinterpret_cast<float*>(geom + 0x14);
@@ -1608,17 +1608,17 @@ uint32_t Duplicate(uint32_t source)
     boxes[4] = max.x, boxes[5] = max.y, boxes[6] = max.z;
     // (the collision's flags are copied with it: a source whose collision is switched off by itself - level_editor_walls.h
     // - gives a copy with collision on, as a layout makes copies again)
-    if (uint8_t* coll = CollOf(copy); coll && IsActive(copy))
+    if (uint8_t* coll = CollOf(copy); coll && IsOperative(copy))
         coll[0x08] &= static_cast<uint8_t>(~4);
     SharedCollision::FinishCopy(sharedFaces, made, scene, copy, geom);
     MarkDirty(scene);
     Clones().push_back({made, source, sourcePlacement});
     char name[96];
-    std::snprintf(name, sizeof(name), "%s copy", Label(source).c_str());
+    std::snprintf(name, sizeof(name), "%s copy", Caption(source).c_str());
     Scripts::NoteQbName(made, name);
     if (DebugEnabled())
         Log("level editor: copy %08X of %s, box (%.0f, %.0f, %.0f)-(%.0f, %.0f, %.0f), meshes %s", made,
-            Label(source).c_str(), min.x, min.y, min.z, max.x, max.y, max.z,
+            Caption(source).c_str(), min.x, min.y, min.z, max.x, max.y, max.z,
             MeshesMovable(geom) ? MeshesMovable(geom) : "movable");
     return made;
 }
@@ -1635,7 +1635,7 @@ bool PlacementNow(uint32_t checksum, Placement* placement)
 bool Hidden(uint32_t checksum)
 {
     uint8_t* sector = FindSector(checksum, nullptr);
-    return sector && !IsActive(sector);
+    return sector && !IsOperative(sector);
 }
 
 void AddGroup(uint32_t checksum)
@@ -1731,7 +1731,7 @@ bool Tintable(void* geom) { return geom && *static_cast<void***>(geom) == kPcGeo
 namespace {
 
 // How a geometry's colour was before we tinted it: an instance's (+0x4C: its flags' bit 4, the colour at +0x4D), or
-// each mesh's (+0x3C / +0x40: the mesh's flags' bit 4, its colour +0x80..+0x88) - what CGeom::SetColor (vfunc
+// each mesh's (+0x3C / +0x40: the mesh's flags' bit 4, its colour +0x80..+0x88) - what CGeom::ChangeTint (vfunc
 // +0x18, 0x004B48B0) writes.
 struct Saved {
     TintOwner owner;
@@ -1813,13 +1813,13 @@ void EndTints(void* (*resolve)(TintOwner), bool all)
     }
 }
 
-void Commit()
+void Finalise()
 {
     if (g_dirtyScenes.empty())
         return;
     // As the park editor does (0x00592090): the scene's UpdateSuperSectors (thiscall, a list of sectors to add - none)
     // with the bottom-up heap current.
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     for (uint8_t* scene : g_dirtyScenes) {
         bool live = false;
         ForEachScene([&](uint8_t* s) { live |= s == scene; });
@@ -1830,7 +1830,7 @@ void Commit()
         reinterpret_cast<Engine3D::CWorldScene*>(scene)->UpdateSuperSectors(nullptr);
         if (manager)
             manager->LeaveHeapScope();
-        SharedCollision::Commit(scene); // (the pieces' shared collision: level_editor_shared_coll.h)
+        SharedCollision::Finalise(scene); // (the pieces' shared collision: level_editor_shared_coll.h)
     }
     if (DebugEnabled())
         Log("level editor: super sectors updated in %u scene%s", static_cast<unsigned>(g_dirtyScenes.size()),

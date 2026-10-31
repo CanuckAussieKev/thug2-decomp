@@ -76,7 +76,7 @@ int& ScreenHeight() { return g_backBufferHeight; }
 uint32_t& BarTimer() { return g_loadingBarTimer; }    // the timer's id (timeSetEvent)
 bool& ScreenUp() { return g_loadingScreenUp; }           // shown (0x004B78B0): the main loop doesn't draw
 HANDLE& ScreenMutex() { return reinterpret_cast<HANDLE&>(g_screenMutex); }    // held while the loading screen is drawn
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 
 struct BarVertex {
     float x, y, z, rhw;
@@ -90,7 +90,7 @@ void DrawQuad(float x0, float y0, float x1, float y1, uint32_t left, uint32_t ri
     // (a strip: top left, bottom left, top right, bottom right)
     BarVertex quad[4] = {{x0, y0, 1.0f, 1.0f, left}, {x0, y1, 1.0f, 1.0f, left}, {x1, y0, 1.0f, 1.0f, right},
                          {x1, y1, 1.0f, 1.0f, right}};
-    Device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(BarVertex));
+    InputPort()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(BarVertex));
 }
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, its low half (NaN and infinities: 0).
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -133,7 +133,7 @@ void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long,
     if (!BarTimer() || !ScreenUp())
         return;
     WaitForSingleObject(ScreenMutex(), INFINITE);
-    Device()->BeginScene();
+    InputPort()->BeginScene();
     Engine3D::DrawLoadingScreenPicture(); // the picture, full screen
 
     // (x87 at double precision: the intermediate results unrounded, as in the original - only the ones it stores
@@ -155,7 +155,7 @@ void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long,
     float frameLeftF = static_cast<float>(frameLeft), frameRightF = static_cast<float>(frameRight);
 
     SetTexture(0, nullptr);
-    Device()->SetRenderState(D3DRS_ZENABLE, FALSE);
+    InputPort()->SetRenderState(D3DRS_ZENABLE, FALSE);
     SetVertexFormat(kBarVertexFormat);
     if (Engine3D::SelectPictureUp()) {
         // Not original - the level select pictures' plate: ink behind the bar (opaque, so it reads on any picture) with a
@@ -174,11 +174,11 @@ void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long,
              Opaque(GradientStart()), Opaque(GradientEnd()));
     // what isn't filled yet - from the fill's end to the frame's right edge, the frame's height: its colour again
     DrawQuad(static_cast<float>(filled), topF, frameRightF, bottomF, BorderArgb(), BorderArgb());
-    Device()->SetRenderState(D3DRS_ZENABLE, TRUE);
+    InputPort()->SetRenderState(D3DRS_ZENABLE, TRUE);
     // Not original - the loading console (nothing unless a loading screen is up with [features] loading_console on).
     Gfx2D::LoadingConsole::DrawPanel();
-    Device()->EndScene();
-    Device()->Present(nullptr, nullptr, nullptr, nullptr);
+    InputPort()->EndScene();
+    InputPort()->Present(nullptr, nullptr, nullptr, nullptr);
     ReleaseMutex(ScreenMutex());
 }
 

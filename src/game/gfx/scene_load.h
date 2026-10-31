@@ -22,7 +22,7 @@ struct sHierarchyNode {
 
     // 0x004B2D30 (Ghidra never made it: the array constructor's callback): the checksums 0, no parent, bone 0, the
     // identity matrix (+0x0C left). Returns this.
-    sHierarchyNode* Construct();
+    sHierarchyNode* MakeNew();
 };
 static_assert(offsetof(sHierarchyNode, boneSlot) == 0xA && offsetof(sHierarchyNode, matrix) == 0x10 &&
                   sizeof(sHierarchyNode) == 0x50,

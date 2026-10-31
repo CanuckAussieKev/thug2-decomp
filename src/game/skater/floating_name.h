@@ -20,11 +20,11 @@ namespace GameObjects {
 class CRiderOverheadTag : public CObjectModule {
 public:
     // 0x00511810 (registered by RegisterComponentTypes): a new one (0 if out of memory). The label's id isn't set.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00511AA0: the destructor body: the label destroyed (destroy_object_label, id = its id), then the base's.
     void DestroyBody();
     // 0x00511B80 (vtable slot 0)
-    CRiderOverheadTag* Destroy(unsigned int flags);
+    CRiderOverheadTag* Teardown(unsigned int flags);
     // 0x00511780 (vtable +0x08): the label's id from the skater's object id (0-7; any other id: left as it was).
     // `params` isn't read.
     void ConfigureFromData(Scripts::CStruct* params);
@@ -33,7 +33,7 @@ public:
     // updated: its id, the text "\c<n><name>" (n: its team + 2 in a team game, else its object id + 2 - the colour)
     // and pos3D, 96 above the skater for this machine's player and 120 for the others; otherwise an existing label
     // is destroyed.
-    void Update();
+    void TickFrame();
 
     uint32_t m_labelId; // +0x18 skater_name_<n>
 };

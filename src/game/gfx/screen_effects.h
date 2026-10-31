@@ -15,11 +15,11 @@ namespace Engine3D {
 class CScreenEffects {
 public:
     // 0x0049E2F0: construct - on. Returns this.
-    CScreenEffects* Construct();
+    CScreenEffects* MakeNew();
     // 0x0049E300: the destructor's body.
     void DestroyBody();
     // 0x0049E330 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CScreenEffects* Destroy(unsigned int freeFlags);
+    CScreenEffects* Teardown(unsigned int freeFlags);
 
     // 0x0049E320 / 0x0049E310: the SetScreenEffectsOn / Off script commands' (the structure and script unused).
     // True.

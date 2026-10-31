@@ -35,28 +35,28 @@ bool CBodyDynamicsModule::FindContacts()
 {
     const float r = m_radius;
     Maths::BBox box;
-    box.min = {Narrow(Wide(m_pos.x) - r), Narrow(Wide(m_pos.y) - r), Narrow(Wide(m_pos.z) - r),
-               Narrow(Wide(m_pos.w) - 1.0f)};
-    box.max = {Narrow(Wide(r) + m_pos.x), Narrow(Wide(r) + m_pos.y), Narrow(Wide(r) + m_pos.z),
-               Narrow(Wide(m_pos.w) + 1.0f)};
-    BodyCache()->Update(box);
+    box.min = {Narrow(Wide(m_atPoint.x) - r), Narrow(Wide(m_atPoint.y) - r), Narrow(Wide(m_atPoint.z) - r),
+               Narrow(Wide(m_atPoint.w) - 1.0f)};
+    box.max = {Narrow(Wide(r) + m_atPoint.x), Narrow(Wide(r) + m_atPoint.y), Narrow(Wide(r) + m_atPoint.z),
+               Narrow(Wide(m_atPoint.w) + 1.0f)};
+    BodyCache()->TickFrame(box);
     m_contactsHit = 0;
     m_unknown191 = 0;
 
     if (m_contactCount != 0) {
         Engine3D::CProbeRay feeler;
-        feeler.Construct();
+        feeler.MakeNew();
         feeler.m_hitCache = BodyCache();
         for (int i = m_contactCount - 1; i >= 0; --i) {
-            const Maths::Vector& point = WorldContactPoints()[i];
+            const Maths::Vec4& point = WorldContactPoints()[i];
             Contact& contact = Contacts()[m_contactsHit];
-            feeler.m_line.start = m_pos;
-            feeler.m_line.end = {Narrow(Wide(m_pos.x) + point.x), Narrow(Wide(m_pos.y) + point.y),
-                                 Narrow(Wide(m_pos.z) + point.z), Narrow(Wide(m_pos.w) + point.w)};
+            feeler.m_line.start = m_atPoint;
+            feeler.m_line.end = {Narrow(Wide(m_atPoint.x) + point.x), Narrow(Wide(m_atPoint.y) + point.y),
+                                 Narrow(Wide(m_atPoint.z) + point.z), Narrow(Wide(m_atPoint.w) + point.w)};
             contact.active = feeler.GetHitShape(false, false) != 0;
             if (!contact.active)
                 continue;
-            const Maths::Line& line = feeler.m_line;
+            const Maths::Seg& line = feeler.m_line;
             double dz = Wide(line.end.z) - line.start.z;
             double dy = Wide(line.end.y) - line.start.y;
             float dx = Narrow(Wide(line.end.x) - line.start.x);
@@ -78,23 +78,23 @@ bool CBodyDynamicsModule::FindContacts()
     }
 
     for (int j = m_sphereCount - 1; j >= 0; --j) {
-        const Maths::Vector& centre = WorldSphereCenters()[j];
+        const Maths::Vec4& centre = WorldSphereCenters()[j];
         const Sphere& sphere = mp_spheres[j];
-        Maths::Vector at = {Narrow(Wide(centre.x) + m_pos.x), Narrow(Wide(centre.y) + m_pos.y),
-                          Narrow(Wide(m_pos.z) + centre.z), Narrow(Wide(centre.w) + m_pos.w)};
+        Maths::Vec4 at = {Narrow(Wide(centre.x) + m_atPoint.x), Narrow(Wide(centre.y) + m_atPoint.y),
+                          Narrow(Wide(m_atPoint.z) + centre.z), Narrow(Wide(centre.w) + m_atPoint.w)};
         Engine3D::CSphereFeeler feeler;
-        feeler.Construct(&at, sphere.radius);
+        feeler.MakeNew(&at, sphere.radius);
         feeler.m_hitCache = BodyCache();
         if (!feeler.Query(0))
             continue;
         for (int k = feeler.m_hits.count - 1; k >= 0; --k) {
             const Engine3D::SphereHit& hit = feeler.m_hits.hits[k];
             Contact& contact = Contacts()[m_contactsHit];
-            const Maths::Vector& c = feeler.m_boundBall.centre;
-            double ox = Wide(hit.point.x) - m_pos.x;
-            double oy = Wide(hit.point.y) - m_pos.y;
-            contact.offset.z = Narrow(Wide(hit.point.z) - m_pos.z);
-            contact.offset.w = Narrow(Wide(hit.point.w) - m_pos.w);
+            const Maths::Vec4& c = feeler.m_boundBall.centre;
+            double ox = Wide(hit.point.x) - m_atPoint.x;
+            double oy = Wide(hit.point.y) - m_atPoint.y;
+            contact.offset.z = Narrow(Wide(hit.point.z) - m_atPoint.z);
+            contact.offset.w = Narrow(Wide(hit.point.w) - m_atPoint.w);
             contact.offset.x = Narrow(ox);
             contact.offset.y = Narrow(oy);
             double nx = Wide(hit.point.x) - c.x;
@@ -103,7 +103,7 @@ bool CBodyDynamicsModule::FindContacts()
             contact.normal.w = Narrow(Wide(hit.point.w) - c.w);
             contact.normal.x = Narrow(nx);
             contact.normal.y = Narrow(ny);
-            Maths::Vector& n = contact.normal;
+            Maths::Vec4& n = contact.normal;
             float length = Narrow(std::sqrt((Wide(n.x) * n.x + Wide(n.y) * n.y) + Wide(n.z) * n.z));
             if (length == 0.0f) {
                 n = {0.0f, 1.0f, 0.0f, 1.0f};
@@ -115,7 +115,7 @@ bool CBodyDynamicsModule::FindContacts()
             // (a face turned away from it, or a hit ahead of the centre of mass: none)
             if ((Wide(hit.normal.z) * n.z + Wide(hit.normal.x) * n.x) + Wide(n.y) * hit.normal.y < 0.0)
                 continue;
-            const Maths::Vector& o = contact.offset;
+            const Maths::Vec4& o = contact.offset;
             if ((Wide(n.z) * o.z + Wide(n.y) * o.y) + Wide(n.x) * o.x > 0.0)
                 continue;
             contact.scaled = false;

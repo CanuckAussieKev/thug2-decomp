@@ -61,13 +61,13 @@ const char* const kDrivingRadiusBoost = "driving_radius_boost";   // "driving_ra
 float Difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
 template <typename T>
-T& Field(const void* object, uint32_t offset)
+T& Prop(const void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
 
 // --- the network game manager (0x007CCE14), its players and the game mode ---
-OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
 void* GameMode() { return static_cast<void*>(GoalSystem::g_gameMode); }
 void* SkaterManager() { return static_cast<void*>(GameModules::g_skateModule); }
 
@@ -87,23 +87,23 @@ bool ManagerFlag3A() { return NetManager()->IsGameOver(); }
 // The manager's +0x6C (the network code's GetCrownHolder, 0x00533210).
 CGameEntity* LocalSkater() { return static_cast<CGameEntity*>(NetManager()->GetCrownHolder()); }
 // The manager's server app (+0x04: the folded getter 0x005480C0).
-NetLink::App* ManagerApp() { return NetManager()->m_server; }
+NetLink::AppHost* ManagerApp() { return NetManager()->m_host; }
 
 // A player (PlayerRecord): its object (+0x14), team field (+0x30) and flags (+0x1D0: 0x1 local, 0x80 "it" - HoldsCrown,
 // 0x7800 a team - IsCarryingFlag / GetFlagTeam). Its announcements: GiveCrown makes it "it", NoteFlagReturned tags it
 // on its own team, NoteFlagSteal converts it to another.
-OnlinePlay::PlayerRecord* Info(uint8_t* player) { return reinterpret_cast<OnlinePlay::PlayerRecord*>(player); }
-CGameEntity* PlayerObject(uint8_t* player) { return Field<CGameEntity*>(player, 0x14); }
-bool IsObserving(uint8_t* player) { return Info(player)->IsInvulnerable(); }
-bool IsIt(uint8_t* player) { return Info(player)->HoldsCrown() != 0; }
-bool OnATeam(uint8_t* player) { return Info(player)->IsCarryingFlag() != 0; }
-int Team(uint8_t* player) { return Info(player)->GetFlagTeam(); }
-bool IsLocal(uint8_t* player) { return Info(player)->IsOwnPlayer() != 0; }
-int Connection(uint8_t* player) { return Info(player)->GetLinkHandle(); }
-void MarkTagTime(uint8_t* player) { Info(player)->MarkJustJoined(); }
-void MakeIt(uint8_t* player, bool it) { Info(player)->GiveCrown(it); }
-void TagOnTeam(uint8_t* player) { Info(player)->NoteFlagReturned(); }
-void ConvertToTeam(uint8_t* player, int team) { Info(player)->NoteFlagSteal(team); }
+OnlinePlay::PlayerRecord* DetailsOf(uint8_t* player) { return reinterpret_cast<OnlinePlay::PlayerRecord*>(player); }
+CGameEntity* PlayerObject(uint8_t* player) { return Prop<CGameEntity*>(player, 0x14); }
+bool IsObserving(uint8_t* player) { return DetailsOf(player)->IsInvulnerable(); }
+bool IsIt(uint8_t* player) { return DetailsOf(player)->HoldsCrown() != 0; }
+bool OnATeam(uint8_t* player) { return DetailsOf(player)->IsCarryingFlag() != 0; }
+int Team(uint8_t* player) { return DetailsOf(player)->GetFlagTeam(); }
+bool IsHostLocal(uint8_t* player) { return DetailsOf(player)->IsOwnPlayer() != 0; }
+int Connection(uint8_t* player) { return DetailsOf(player)->GetLinkHandle(); }
+void MarkTagTime(uint8_t* player) { DetailsOf(player)->MarkJustJoined(); }
+void MakeIt(uint8_t* player, bool it) { DetailsOf(player)->GiveCrown(it); }
+void TagOnTeam(uint8_t* player) { DetailsOf(player)->NoteFlagReturned(); }
+void ConvertToTeam(uint8_t* player, int team) { DetailsOf(player)->NoteFlagSteal(team); }
 
 uint32_t GameType() { return static_cast<GoalSystem::CMatchRules*>(GameMode())->GetNameKey(); }
 bool TeamGame() { return static_cast<GoalSystem::CMatchRules*>(GameMode())->IsSquadMatch() != 0; }
@@ -114,11 +114,11 @@ CGameEntity* SkaterByIndex(int index)
 {
     return static_cast<GameModules::Skate*>(SkaterManager())->GetRiderAt(index);
 }
-const char* SkaterName(CGameEntity* skater) { return static_cast<CRider*>(skater)->GetDisplayName(); }
+const char* SkaterName(CGameEntity* skater) { return static_cast<CRider*>(skater)->FetchShownName(); }
 // A skater's score (its +0x278's +0x18).
-void* SkaterScore(CGameEntity* skater) { return Field<void*>(Field<void*>(skater, 0x278), 0x18); }
-int GetPointsTotal(void* score) { return static_cast<GameModules::Score*>(score)->GetTotalScore(); }
-void SetPointsTotal(void* score, int value) { static_cast<GameModules::Score*>(score)->SetGrandTotal(value); }
+void* SkaterScore(CGameEntity* skater) { return Prop<void*>(Prop<void*>(skater, 0x278), 0x18); }
+int GetPointsTotal(void* score) { return static_cast<GameModules::PointTally*>(score)->GetTotalScore(); }
+void SetPointsTotal(void* score, int value) { static_cast<GameModules::PointTally*>(score)->SetGrandTotal(value); }
 
 // Knocked over by `other`: a bail on the core physics, or the walk component's when walking or driving.
 void KnockDown(CObjectModule* physics, CGameEntity* other)
@@ -131,7 +131,7 @@ void KnockDownWalking(CObjectModule* walk, CGameEntity* other)
 }
 
 // A vector's length as 0x004023C0 leaves it on the x87 stack (x, y, then z; unrounded).
-double LengthOf(const Maths::Vector& v)
+double LengthOf(const Maths::Vec4& v)
 {
     return std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y + static_cast<double>(v.z) * v.z);
 }
@@ -158,8 +158,8 @@ void SendEvent(CGameEntity* skater, uint32_t type, const char* name, uint32_t fl
                const Scripts::VectorValue* push)
 {
     Scripts::CStruct params;
-    params.Init();
-    params.AddString(0xA4B08520, name); // name
+    params.PrepareAll();
+    params.AppendWord(0xA4B08520, name); // name
     if (push)
         params.PutVec3(0xA6F5352F, *push);
     if (withFlag)
@@ -176,7 +176,7 @@ void SendEvent(CGameEntity* skater, uint32_t type, const char* name, uint32_t fl
 uint32_t StateHistoryMessage::GetTime() { return static_cast<uint32_t>(m_timeHigh) << 16 | m_clock; }
 
 // 0x00519810
-void StateHistoryMessage::SetTime(uint32_t time)
+void StateHistoryMessage::ChangeMoment(uint32_t time)
 {
     m_clock = static_cast<uint16_t>(time);
     m_timeHigh = static_cast<uint16_t>(time >> 16);
@@ -188,52 +188,52 @@ void StateHistoryMessage::SetTime(uint32_t time)
 void PlayerSearchDestructors::DestroyBody() { m_vtable = GameModules::kPlayerSearchVtable; }
 
 // 0x0051A120
-PlayerSearchDestructors* PlayerSearchDestructors::Destroy(unsigned int flags)
+PlayerSearchDestructors* PlayerSearchDestructors::Teardown(unsigned int flags)
 {
     m_vtable = GameModules::kPlayerSearchVtable;
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // --- CRiderFrameLog ---
 
 // 0x0051AD30
-CObjectModule* __cdecl CRiderFrameLog::Create()
+CObjectModule* __cdecl CRiderFrameLog::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(0x1108);
-    return memory ? static_cast<CRiderFrameLog*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CRiderFrameLog*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x0051ACB0
-CRiderFrameLog* CRiderFrameLog::Construct()
+CRiderFrameLog* CRiderFrameLog::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = g_stateHistoryVtable;
     // (The original clears each state entry's +0x68 / +0x6C and the entry, the messages, the counts, then the
     // entries and the messages again.)
     std::memset(reinterpret_cast<uint8_t*>(this) + 0x1C, 0, kEntries * 0x84);
     std::memset(reinterpret_cast<uint8_t*>(this) + 0xA70, 0, kEntries * sizeof(StateHistoryMessage));
-    Field<uint32_t>(this, 0x1100) = 0;
-    Field<int>(this, 0x18) = 0;  // the states received
-    Field<int>(this, 0xA6C) = 0; // the messages received
-    m_type = kType;
+    Prop<uint32_t>(this, 0x1100) = 0;
+    Prop<int>(this, 0x18) = 0;  // the states received
+    Prop<int>(this, 0xA6C) = 0; // the messages received
+    m_kindTag = kType;
     return this;
 }
 
 // 0x00519840
-CRiderFrameLog* CRiderFrameLog::Destroy(unsigned int flags)
+CRiderFrameLog* CRiderFrameLog::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00519FA0
-void CRiderFrameLog::GetFrameMovement(Maths::Vector* out)
+void CRiderFrameLog::GetFrameMovement(Maths::Vec4* out)
 {
-    const Maths::Vector& vel = m_object->m_vel;
+    const Maths::Vec4& vel = m_entity->m_vel;
     double frame = FrameClock::GetFrameSeconds();
     float rounded = static_cast<float>(frame);
     out->x = rounded * vel.x;
@@ -243,40 +243,40 @@ void CRiderFrameLog::GetFrameMovement(Maths::Vector* out)
 }
 
 // 0x00519FF0
-void CRiderFrameLog::GetPosition(Maths::Vector* out) { *out = m_object->m_pos; }
+void CRiderFrameLog::FetchPlace(Maths::Vec4* out) { *out = m_entity->m_atPoint; }
 
 // 0x0051A020
 double CRiderFrameLog::GetCollisionReach(bool driving)
 {
-    float reach = Scripts::GetFloat(m_object->m_unknownBC ? 0x0D24273Bu : 0x25F78481u);
+    float reach = Scripts::FetchFloat(m_entity->m_unknownBC ? 0x0D24273Bu : 0x25F78481u);
     if (!driving)
         return reach;
-    return (Scripts::GetFloat(0x0A49FF23u) + 1.0) * reach;
+    return (Scripts::FetchFloat(0x0A49FF23u) + 1.0) * reach;
 }
 
 // 0x0051A080
 double CRiderFrameLog::GetCollisionRadius(bool myDriving, bool theirDriving)
 {
     uint32_t name;
-    if (m_object->m_unknownBC)
+    if (m_entity->m_unknownBC)
         name = ManagerFlag4() ? 0xF2E35FA3u : 0xECB41860u;
     else
         name = ManagerFlag4() ? 0xDBD6D58Au : 0xC5819249u;
-    float radius = Scripts::GetFloat(name);
+    float radius = Scripts::FetchFloat(name);
     float drivers = myDriving ? 1.0f : 0.0f;
     if (theirDriving)
         drivers = static_cast<float>(drivers + 1.0);
-    return (Scripts::GetFloat(0xEEF4AFB3u) * static_cast<double>(drivers) + 1.0) * radius;
+    return (Scripts::FetchFloat(0xEEF4AFB3u) * static_cast<double>(drivers) + 1.0) * radius;
 }
 
 // 0x0051A150
 bool CRiderFrameLog::IsNearLocalSkater()
 {
     CGameEntity* local = LocalSkater();
-    const Maths::Vector& pos = m_object->m_pos;
-    float dx = Difference(pos.x, local->m_pos.x);
-    double dy = static_cast<double>(pos.y) - local->m_pos.y;
-    double dz = static_cast<double>(pos.z) - local->m_pos.z;
+    const Maths::Vec4& pos = m_entity->m_atPoint;
+    float dx = Difference(pos.x, local->m_atPoint.x);
+    double dy = static_cast<double>(pos.y) - local->m_atPoint.y;
+    double dz = static_cast<double>(pos.z) - local->m_atPoint.z;
     double distance = std::sqrt((dz * dz + dy * dy) + static_cast<double>(dx) * dx);
     return distance < 96.0f; // 0x0064EC40
 }
@@ -284,69 +284,69 @@ bool CRiderFrameLog::IsNearLocalSkater()
 // 0x0051A1C0
 void CRiderFrameLog::CheckForCollisions(int first)
 {
-    uint8_t* me = PlayerByObjectId(static_cast<int>(m_object->m_id));
+    uint8_t* me = PlayerByObjectId(static_cast<int>(m_entity->m_ident));
     if (!me || IsObserving(me))
         return;
     if (!ManagerMayCollide() && !IsIt(me) && !OnATeam(me))
         return;
-    CObjectModule* myState = m_object->GetComponent(kSkaterState);
+    CObjectModule* myState = m_entity->FetchModule(kSkaterState);
     // Whether this machine tells the players of a hit (not when the skater is in a bail, outside a slap game).
     bool tellPlayers;
-    if (!Field<bool>(myState, 0x70) || InSlapGame()) {
+    if (!Prop<bool>(myState, 0x70) || InSlapGame()) {
         tellPlayers = true;
     } else {
         tellPlayers = false;
         if (!IsIt(me) && !OnATeam(me))
             return;
     }
-    bool myDriving = Field<bool>(myState, 0x118);
-    Maths::Vector myPos = m_object->m_pos;
-    Maths::Vector myMove;
+    bool myDriving = Prop<bool>(myState, 0x118);
+    Maths::Vec4 myPos = m_entity->m_atPoint;
+    Maths::Vec4 myMove;
     GetFrameMovement(&myMove);
-    Maths::Vector myDir = myMove;
-    myDir.Normalize();
-    Maths::Line mine;
+    Maths::Vec4 myDir = myMove;
+    myDir.MakeUnit();
+    Maths::Seg mine;
     mine.start = myPos;
 
     for (int i = first; i < 8; ++i) {
         CGameEntity* skater = SkaterByIndex(i);
-        if (!skater || skater == m_object)
+        if (!skater || skater == m_entity)
             continue;
-        CObjectModule* theirState = skater->GetComponent(kSkaterState);
-        if (Field<bool>(theirState, 0x70))
+        CObjectModule* theirState = skater->FetchModule(kSkaterState);
+        if (Prop<bool>(theirState, 0x70))
             continue;
-        uint8_t* them = PlayerByObjectId(static_cast<int>(skater->m_id));
+        uint8_t* them = PlayerByObjectId(static_cast<int>(skater->m_ident));
         if (IsObserving(them) || IsIt(them))
             continue;
-        if (OnATeam(me) && OnATeam(them) && Team(me) != Field<int>(them, 0x30))
+        if (OnATeam(me) && OnATeam(them) && Team(me) != Prop<int>(them, 0x30))
             continue;
-        if (TeamGame() && Field<int>(them, 0x30) == Field<int>(me, 0x30))
+        if (TeamGame() && Prop<int>(them, 0x30) == Prop<int>(me, 0x30))
             continue;
 
-        auto* theirHistory = Field<CRiderFrameLog*>(skater, 0x27C);
-        bool theirDriving = Field<bool>(theirState, 0x118);
-        Maths::Vector theirPos;
-        theirHistory->GetPosition(&theirPos);
-        Maths::Vector theirMove;
+        auto* theirHistory = Prop<CRiderFrameLog*>(skater, 0x27C);
+        bool theirDriving = Prop<bool>(theirState, 0x118);
+        Maths::Vec4 theirPos;
+        theirHistory->FetchPlace(&theirPos);
+        Maths::Vec4 theirMove;
         theirHistory->GetFrameMovement(&theirMove);
-        Maths::Vector theirDir = theirMove;
-        theirDir.Normalize();
+        Maths::Vec4 theirDir = theirMove;
+        theirDir.MakeUnit();
         if (LengthOf(theirMove) > 100.0f) // 0x006463D4 (NaN carries on)
             continue;
 
         float radius = static_cast<float>(GetCollisionRadius(myDriving, theirDriving));
         // (The original looks driving_radius_boost up for each driver and drops it.)
         if (myDriving)
-            Scripts::GetFloat(kDrivingRadiusBoost);
+            Scripts::FetchFloat(kDrivingRadiusBoost);
         if (theirDriving)
-            Scripts::GetFloat(kDrivingRadiusBoost);
+            Scripts::FetchFloat(kDrivingRadiusBoost);
         mine.end = mine.start + myDir * static_cast<float>(GetCollisionReach(myDriving));
-        Maths::Line theirs;
+        Maths::Seg theirs;
         theirs.start = theirPos;
         theirs.end = theirs.start + theirDir * static_cast<float>(theirHistory->GetCollisionReach(theirDriving));
 
         // Where they meet: the segments' closest points, else the first of the four pairs of ends close enough.
-        Maths::Vector myPoint, theirPoint;
+        Maths::Vec4 myPoint, theirPoint;
         float scratch;
         if (Maths::ClosestPointsBetweenLines(mine, theirs, myPoint, theirPoint, scratch, scratch, true)) {
             if (!(LengthOf(myPoint - theirPoint) < radius))
@@ -378,29 +378,29 @@ void CRiderFrameLog::CheckForCollisions(int first)
         if (mustBeIt && !IsIt(me))
             continue;
 
-        NetLink::App* app = ManagerApp();
+        NetLink::AppHost* app = ManagerApp();
         if (tellPlayers) {
             NetLink::NetMessageInfo msg;
-            msg.Construct();
+            msg.MakeNew();
             struct {
                 uint8_t id;
                 uint8_t pad[3];
-                Maths::Vector push;
+                Maths::Vec4 push;
             } ranInto = {};
-            ranInto.id = static_cast<uint8_t>(theirDriving * 0x80 | static_cast<uint8_t>(skater->m_id));
+            ranInto.id = static_cast<uint8_t>(theirDriving * 0x80 | static_cast<uint8_t>(skater->m_ident));
             ranInto.push = myPoint - theirPoint;
-            if (CObjectModule* input = m_object->GetComponent(kInput))
-                Field<uint8_t>(input, 0x498) = 1;
+            if (CObjectModule* input = m_entity->FetchModule(kInput))
+                Prop<uint8_t>(input, 0x498) = 1;
             MarkTagTime(me);
-            msg.m_id = kMsgRanInto;
-            msg.m_data = &ranInto;
+            msg.m_ident = kMsgRanInto;
+            msg.m_content = &ranInto;
             msg.m_byteCount = 0x14;
             msg.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
             msg.m_groupId = 8;
             app->PutOnOutbox(Connection(me), &msg);
-            uint8_t ranIntoBy = static_cast<uint8_t>(myDriving * 0x80 | static_cast<uint8_t>(m_object->m_id));
-            msg.m_id = kMsgRanIntoAck;
-            msg.m_data = &ranIntoBy;
+            uint8_t ranIntoBy = static_cast<uint8_t>(myDriving * 0x80 | static_cast<uint8_t>(m_entity->m_ident));
+            msg.m_ident = kMsgRanIntoAck;
+            msg.m_content = &ranIntoBy;
             msg.m_byteCount = 1;
             app->PutOnOutbox(Connection(them), &msg);
             if (InSlapGame()) {
@@ -418,13 +418,13 @@ void CRiderFrameLog::CheckForCollisions(int first)
             MakeIt(them, true);
             PlayerSearchDestructors search{GameModules::kPlayerSearchVtable, nullptr};
             for (uint8_t* player = FirstPlayer(&search); player; player = NextPlayer(&search)) {
-                if (IsLocal(player))
+                if (IsHostLocal(player))
                     continue;
                 NetLink::NetMessageInfo msg;
-                msg.Construct();
-                uint8_t tagged = static_cast<uint8_t>(skater->m_id);
-                msg.m_data = &tagged;
-                msg.m_id = kMsgTagged;
+                msg.MakeNew();
+                uint8_t tagged = static_cast<uint8_t>(skater->m_ident);
+                msg.m_content = &tagged;
+                msg.m_ident = kMsgTagged;
                 msg.m_byteCount = 1;
                 msg.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
                 msg.m_groupId = 8;
@@ -437,22 +437,22 @@ void CRiderFrameLog::CheckForCollisions(int first)
             if (!OnATeam(me))
                 continue;
             NetLink::NetMessageInfo msg;
-            msg.Construct();
+            msg.MakeNew();
             uint8_t tagged[2];
-            tagged[0] = static_cast<uint8_t>(skater->m_id);
+            tagged[0] = static_cast<uint8_t>(skater->m_ident);
             tagged[1] = static_cast<uint8_t>(Team(me));
-            bool sameTeam = Team(me) == Field<int>(them, 0x30);
+            bool sameTeam = Team(me) == Prop<int>(them, 0x30);
             PlayerSearchDestructors search{GameModules::kPlayerSearchVtable, nullptr};
             for (uint8_t* player = FirstPlayer(&search); player; player = NextPlayer(&search)) {
-                if (IsLocal(player)) {
+                if (IsHostLocal(player)) {
                     if (sameTeam)
                         TagOnTeam(them);
                     else
                         ConvertToTeam(them, Team(me));
                     continue;
                 }
-                msg.m_id = sameTeam ? kMsgTeamTagged : kMsgTeamConverted;
-                msg.m_data = tagged;
+                msg.m_ident = sameTeam ? kMsgTeamTagged : kMsgTeamConverted;
+                msg.m_content = tagged;
                 msg.m_groupId = 8;
                 msg.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
                 msg.m_byteCount = 2;
@@ -468,17 +468,17 @@ int __cdecl CRiderFrameLog::HandleHitMessages(NetLink::InboundMsgCtx* context)
 {
     uint8_t* msg = reinterpret_cast<uint8_t*>(context->m_body);
     bool otherDriving = msg[1] != 0;
-    auto* skater = static_cast<CGameEntity*>(context->m_data);
+    auto* skater = static_cast<CGameEntity*>(context->m_content);
     char name[0x20] = {};
     std::memcpy(name, kSomeone, 8);
     if (context->m_typeCode == kMsgHit) {
         if (uint8_t* player = PlayerByObjectId(static_cast<int8_t>(msg[0]))) {
             CGameEntity* other = PlayerObject(player);
             // Away from the other skater (straight along x and z if they're on top of each other).
-            double dx = static_cast<double>(skater->m_pos.x) - other->m_pos.x;
-            float dy = Difference(skater->m_pos.y, other->m_pos.y);
-            float dz = Difference(skater->m_pos.z, other->m_pos.z);
-            float dw = Difference(skater->m_pos.w, other->m_pos.w);
+            double dx = static_cast<double>(skater->m_atPoint.x) - other->m_atPoint.x;
+            float dy = Difference(skater->m_atPoint.y, other->m_atPoint.y);
+            float dz = Difference(skater->m_atPoint.z, other->m_atPoint.z);
+            float dw = Difference(skater->m_atPoint.w, other->m_atPoint.w);
             double length = std::sqrt((dx * dx + static_cast<double>(dy) * dy) + static_cast<double>(dz) * dz);
             double x = 1.0, y = 0.0, z = 1.0, w = 1.0;
             if (!(length < kTooClose)) {
@@ -495,16 +495,16 @@ int __cdecl CRiderFrameLog::HandleHitMessages(NetLink::InboundMsgCtx* context)
             skater->m_vel.z = zk * kKnockScale;
             skater->m_vel.w = wk * kKnockScale;
             skater->m_vel.y = kKnockUp;
-            CObjectModule* control = skater->GetComponent(kSkaterPhysicsControl);
-            uint8_t* state = Field<uint8_t*>(control, 0x2C);
-            if (!Field<bool>(state, 0x118) && Field<int>(state, 0x1C) == 0)
-                KnockDown(skater->GetComponent(kSkaterCorePhysics), other);
+            CObjectModule* control = skater->FetchModule(kSkaterPhysicsControl);
+            uint8_t* state = Prop<uint8_t*>(control, 0x2C);
+            if (!Prop<bool>(state, 0x118) && Prop<int>(state, 0x1C) == 0)
+                KnockDown(skater->FetchModule(kSkaterCorePhysics), other);
             else
-                KnockDownWalking(skater->GetComponent(kWalk), other);
+                KnockDownWalking(skater->FetchModule(kWalk), other);
             CopyName(name, SkaterName(PlayerObject(player)));
             if (!OnServer()) {
                 void* score = SkaterScore(skater);
-                int lost = Field<int>(msg, 4);
+                int lost = Prop<int>(msg, 4);
                 if (GetPointsTotal(score) - lost < 0) {
                     SetPointsTotal(score, 0);
                     Scripts::LaunchScript(kUnbindFireballTricks, nullptr, nullptr, false);
@@ -525,7 +525,7 @@ int __cdecl CRiderFrameLog::HandleHitMessages(NetLink::InboundMsgCtx* context)
 // 0x00519C10
 int __cdecl CRiderFrameLog::HandleCollisionMessages(NetLink::InboundMsgCtx* context)
 {
-    auto* skater = static_cast<CGameEntity*>(context->m_data);
+    auto* skater = static_cast<CGameEntity*>(context->m_content);
     uint8_t id = context->m_typeCode;
     if (id != kMsgRanInto && id != kMsgRanIntoAck)
         return NetLink::kHandlerContinue;
@@ -542,13 +542,13 @@ int __cdecl CRiderFrameLog::HandleCollisionMessages(NetLink::InboundMsgCtx* cont
         return NetLink::kHandlerContinue;
     }
     if (player) {
-        CObjectModule* control = skater->GetComponent(kSkaterPhysicsControl);
-        if (!Field<bool>(Field<uint8_t*>(control, 0x2C), 0x118)) {
+        CObjectModule* control = skater->FetchModule(kSkaterPhysicsControl);
+        if (!Prop<bool>(Prop<uint8_t*>(control, 0x2C), 0x118)) {
             CGameEntity* other = PlayerObject(player);
-            double dw = static_cast<double>(skater->m_pos.w) - other->m_pos.w;
-            double dz = static_cast<double>(skater->m_pos.z) - other->m_pos.z;
-            double dy = static_cast<double>(skater->m_pos.y) - other->m_pos.y;
-            float away[4] = {Difference(skater->m_pos.x, other->m_pos.x), static_cast<float>(dy), static_cast<float>(dz),
+            double dw = static_cast<double>(skater->m_atPoint.w) - other->m_atPoint.w;
+            double dz = static_cast<double>(skater->m_atPoint.z) - other->m_atPoint.z;
+            double dy = static_cast<double>(skater->m_atPoint.y) - other->m_atPoint.y;
+            float away[4] = {Difference(skater->m_atPoint.x, other->m_atPoint.x), static_cast<float>(dy), static_cast<float>(dz),
                              static_cast<float>(dw)};
             double length = std::sqrt((static_cast<double>(away[0]) * away[0] + dy * dy) + dz * dz);
             double w, z;
@@ -574,11 +574,11 @@ int __cdecl CRiderFrameLog::HandleCollisionMessages(NetLink::InboundMsgCtx* cont
             skater->m_vel.z = zk * kKnockScale;
             skater->m_vel.w = static_cast<float>(wk * kKnockScale);
             skater->m_vel.y = kKnockUp;
-            uint8_t* state = Field<uint8_t*>(control, 0x2C);
-            if (!Field<bool>(state, 0x118) && Field<int>(state, 0x1C) == 0 && !Field<bool>(control, 0x25))
-                KnockDown(skater->GetComponent(kSkaterCorePhysics), other);
+            uint8_t* state = Prop<uint8_t*>(control, 0x2C);
+            if (!Prop<bool>(state, 0x118) && Prop<int>(state, 0x1C) == 0 && !Prop<bool>(control, 0x25))
+                KnockDown(skater->FetchModule(kSkaterCorePhysics), other);
             else
-                KnockDownWalking(skater->GetComponent(kWalk), other);
+                KnockDownWalking(skater->FetchModule(kWalk), other);
         }
         CopyName(name, SkaterName(PlayerObject(player)));
     }

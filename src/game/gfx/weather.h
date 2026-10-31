@@ -17,15 +17,15 @@ class CWeatherSystem {
 public:
     // 0x004A14C0: the defaults (rain 2000 high, 40 frames, 100 long, rate 0, black to white; splashes rate 0, 8
     // frames, 16 big, grey; snow 500 high, 254 frames, 4 big, rate 0, grey; rain chosen, no grid). Returns this.
-    CWeatherSystem* Construct();
+    CWeatherSystem* MakeNew();
     // 0x004A1080: the destructor's body.
     void DestroyBody();
     // 0x004A1550 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CWeatherSystem* Destroy(unsigned int freeFlags);
+    CWeatherSystem* Teardown(unsigned int freeFlags);
     // 0x004A1020 / 0x004A1030 / 0x004A1040 (virtual [1] - [3]; 0x004A1040 is shared by other vtables): the platform's
     // ("STUB: plat_update_grid" / "plat_process" / "plat_render").
     void TickGrid();
-    void Update(int unused);
+    void TickFrame(int unused);
     void Render();
     // 0x004A1050 / 0x004A1060 / 0x004A1070 (virtual [4] - [6]): the blend modes ("STUB: plat_set_..._blend_mode").
     void SetRainBlendMode(uint32_t name, int fixedAlpha);

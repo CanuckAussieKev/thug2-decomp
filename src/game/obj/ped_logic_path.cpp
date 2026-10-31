@@ -94,7 +94,7 @@ constexpr float kMinusTwo = -2.0f;                  // 0x00646970
 constexpr float kHalf = 0.5f;                       // 0x006453BC
 constexpr float kSpinRound = 0.01f;                 // 0x0064544C
 
-CKinematicsModule* Motion(CGameEntity* object) { return static_cast<CKinematicsModule*>(object->GetComponent(kMotion)); }
+CKinematicsModule* Motion(CGameEntity* object) { return static_cast<CKinematicsModule*>(object->FetchModule(kMotion)); }
 
 void DeleteParams(Scripts::CStruct* params)
 {
@@ -120,7 +120,7 @@ bool CPedestrianBrainModule::IsVertNode(uint32_t node)
 {
     // The action is read into the argument's own slot; a missing node is read through a null (original).
     uint32_t action = node;
-    if (!LevelNodes::GetNode(node, true)->ReadHashValue(kSkateAction, &action, 0))
+    if (!LevelNodes::FetchVertex(node, true)->ReadHashValue(kSkateAction, &action, 0))
         return false;
     return action == kVertGrab || action == kVertLip || action == kVertGrind || action == kVertOther ||
            action == kVertFlip || action == kVertJump;
@@ -131,7 +131,7 @@ bool CPedestrianBrainModule::Chance(Scripts::CStruct* node, uint32_t weightName)
 {
     // (The weight is read over the `weightName` argument: missing - it's asserted - it stays the name's bits.)
     float weight = std::bit_cast<float>(weightName);
-    node->GetFloat(weightName, &weight, 1);
+    node->FetchFloat(weightName, &weight, 1);
     if (weight > kAlwaysAbove)
         return true;
     int roll = Maths::Rnd(1000);
@@ -143,22 +143,22 @@ void CPedestrianBrainModule::ChooseNodeAfter()
 {
     bool fromStop = false;
     uint32_t action;
-    if (LevelNodes::GetNode(m_listLink, true)->ReadHashValue(kSkateAction, &action, 0) && action == kStopAction)
+    if (LevelNodes::FetchVertex(m_listLink, true)->ReadHashValue(kSkateAction, &action, 0) && action == kStopAction)
         fromStop = true;
     int count = static_cast<int>(LevelNodes::GetLinkCount(m_nextNode));
     uint32_t chosen;
     if (count == 0) {
         chosen = m_listLink;
     } else if (count == 1) {
-        chosen = LevelNodes::GetLink(m_nextNode, 0);
+        chosen = LevelNodes::FetchLink(m_nextNode, 0);
         if (chosen == m_listLink) {
             // A dead end, unless the node is a vert grab: back the way it came.
             uint32_t nextAction;
-            if (LevelNodes::GetNode(m_nextNode, true)->ReadHashValue(kSkateAction, &nextAction, 0) && nextAction == kVertGrab)
+            if (LevelNodes::FetchVertex(m_nextNode, true)->ReadHashValue(kSkateAction, &nextAction, 0) && nextAction == kVertGrab)
                 chosen = m_nextNode;
         }
     } else {
-        Maths::Vector incoming = {m_nextNodePos.x - m_nodePos.x, m_nextNodePos.y - m_nodePos.y,
+        Maths::Vec4 incoming = {m_nextNodePos.x - m_nodePos.x, m_nextNodePos.y - m_nodePos.y,
                                 m_nextNodePos.z - m_nodePos.z, m_nextNodePos.w - m_nodePos.w};
         int lows[20], normals[20];
         for (int i = 0; i < count; ++i) {
@@ -170,10 +170,10 @@ void CPedestrianBrainModule::ChooseNodeAfter()
         float bestAngle = 0.0f;
         int best = 0;
         for (int i = 0; i < count; ++i) {
-            uint32_t link = LevelNodes::GetLink(m_nextNode, i);
+            uint32_t link = LevelNodes::FetchLink(m_nextNode, i);
             if (link == m_listLink)
                 continue;
-            Scripts::CStruct* linked = LevelNodes::GetNode(link, true);
+            Scripts::CStruct* linked = LevelNodes::FetchVertex(link, true);
             uint32_t linkClass = 0, linkType = 0;
             linked->ReadHashValue(kClass, &linkClass, 0);
             linked->ReadHashValue(kTypeName, &linkType, 0);
@@ -182,9 +182,9 @@ void CPedestrianBrainModule::ChooseNodeAfter()
             uint32_t linkAction;
             if (!fromStop && linked->ReadHashValue(kSkateAction, &linkAction, 0) && linkAction == kStopAction)
                 continue;
-            Maths::Vector linkPos;
-            LevelNodes::GetPosition(link, &linkPos);
-            Maths::Vector outgoing = {m_nextNodePos.x - linkPos.x, m_nextNodePos.y - linkPos.y,
+            Maths::Vec4 linkPos;
+            LevelNodes::FetchPlace(link, &linkPos);
+            Maths::Vec4 outgoing = {m_nextNodePos.x - linkPos.x, m_nextNodePos.y - linkPos.y,
                                     m_nextNodePos.z - linkPos.z, m_nextNodePos.w - linkPos.w};
             double angle = Maths::ReadTurnAngle(incoming, outgoing);
             if (angle > kFullTurnDegrees)
@@ -203,26 +203,26 @@ void CPedestrianBrainModule::ChooseNodeAfter()
                 normals[normalCount++] = i;
         }
         if (normalCount == 0 && lowCount == 0) {
-            chosen = LevelNodes::GetLink(m_nextNode, best);
+            chosen = LevelNodes::FetchLink(m_nextNode, best);
         } else {
             bool low = normalCount == 0;
             if (!low) {
                 low = lowCount != 0;
                 if (low) {
-                    float probability = Scripts::GetFloat("ped_low_priority_waypoint_probability");
+                    float probability = Scripts::FetchFloat("ped_low_priority_waypoint_probability");
                     int roll = Maths::Rnd(100);
                     low = !(static_cast<double>(probability) * kHundred < roll);
                 }
             }
             if (low)
-                chosen = LevelNodes::GetLink(m_nextNode, lows[Maths::Rnd(lowCount)]);
+                chosen = LevelNodes::FetchLink(m_nextNode, lows[Maths::Rnd(lowCount)]);
             else
-                chosen = LevelNodes::GetLink(m_nextNode, normals[Maths::Rnd(normalCount)]);
+                chosen = LevelNodes::FetchLink(m_nextNode, normals[Maths::Rnd(normalCount)]);
         }
     }
     if (chosen) {
         m_nodeAfter = chosen;
-        LevelNodes::GetPosition(chosen, &m_nodeAfterPos);
+        LevelNodes::FetchPlace(chosen, &m_nodeAfterPos);
     }
 }
 
@@ -233,30 +233,30 @@ void CPedestrianBrainModule::RunWaypointActions(Scripts::CStruct* node)
     // pointer's bits, or the percent read before.)
     uint32_t slot = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(node));
     if (node->HasBareFlag(kAdjustSpeed) && Chance(node, kAdjustSpeedWeight)) {
-        node->GetFloat(kAdjustSpeedPercent, reinterpret_cast<float*>(&slot), 1);
+        node->FetchFloat(kAdjustSpeedPercent, reinterpret_cast<float*>(&slot), 1);
         float percent = std::bit_cast<float>(slot);
-        CKinematicsModule* motion = Motion(m_object);
+        CKinematicsModule* motion = Motion(m_entity);
         motion->m_pathMaxSpeed = percent * motion->m_pathMaxSpeed;
     }
     if (node->HasBareFlag(kRunScript) && Chance(node, kRunScriptWeight)) {
         node->ReadHashValue(kRunScriptName, &slot, 1);
         Scripts::CScript* script = Scripts::SpawnScript(slot, nullptr, 0, nullptr, 0, 0, false, false, false, false);
-        script->m_object.Set(m_object);
+        script->m_entity.AssignValue(m_entity);
     }
 }
 
 // 0x004EFD50
 Scripts::CStruct* CPedestrianBrainModule::JumpParams(Scripts::CStruct* params, bool toNode)
 {
-    m_flags &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
+    m_flagBits &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
     m_vertRotation = 0.0f;
     m_vertRotationTarget = 0.0f;
     m_twistRate = 0.0f;
     Scripts::CStruct* out = StateParams(params);
     // (The height is read over the `params` argument: missing - it's asserted - it stays the pointer's bits.)
     float height = std::bit_cast<float>(reinterpret_cast<uintptr_t>(params));
-    params->GetFloat(kJumpHeight, &height, 1);
-    float gravity = Scripts::GetFloat(kJumpGravity);
+    params->FetchFloat(kJumpHeight, &height, 1);
+    float gravity = Scripts::FetchFloat(kJumpGravity);
     float jumpTime;
     int spin = 0;
     if (!toNode && !params->HasBareFlag(kJumpToNextNode)) {
@@ -266,14 +266,14 @@ Scripts::CStruct* CPedestrianBrainModule::JumpParams(Scripts::CStruct* params, b
         jumpTime = static_cast<float>(up + up);
     } else {
         // To the next node: up to its height (and a slop above it) and across to it.
-        CGameEntity* object = m_object;
-        float dw = m_nextNodePos.w - object->m_pos.w;
-        float dz = m_nextNodePos.z - object->m_pos.z;
-        float dx = m_nextNodePos.x - object->m_pos.x;
-        Maths::Vector across = {dx, 0.0f, dz, dw};
-        if (static_cast<double>(height) + object->m_pos.y < m_nextNodePos.y) {
-            double slop = Scripts::GetFloat(kHeightSlop);
-            height = static_cast<float>(slop + (static_cast<double>(m_nextNodePos.y) - object->m_pos.y));
+        CGameEntity* object = m_entity;
+        float dw = m_nextNodePos.w - object->m_atPoint.w;
+        float dz = m_nextNodePos.z - object->m_atPoint.z;
+        float dx = m_nextNodePos.x - object->m_atPoint.x;
+        Maths::Vec4 across = {dx, 0.0f, dz, dw};
+        if (static_cast<double>(height) + object->m_atPoint.y < m_nextNodePos.y) {
+            double slop = Scripts::FetchFloat(kHeightSlop);
+            height = static_cast<float>(slop + (static_cast<double>(m_nextNodePos.y) - object->m_atPoint.y));
         }
         double inverseGravity = 1.0 / gravity;
         double up = std::sqrt(static_cast<double>(height) * inverseGravity * kMinusTwo);
@@ -281,10 +281,10 @@ Scripts::CStruct* CPedestrianBrainModule::JumpParams(Scripts::CStruct* params, b
         float acrossSqr = static_cast<float>((static_cast<double>(across.y) * across.y +
                                               static_cast<double>(across.z) * across.z) +
                                              static_cast<double>(across.x) * across.x);
-        double down = std::sqrt(std::fabs(((static_cast<double>(height) + m_object->m_pos.y) - m_nextNodePos.y) *
+        double down = std::sqrt(std::fabs(((static_cast<double>(height) + m_entity->m_atPoint.y) - m_nextNodePos.y) *
                                           inverseGravity) * 2.0);
         jumpTime = static_cast<float>(down + up);
-        const Maths::Vector& direction = across.Normalize();
+        const Maths::Vec4& direction = across.MakeUnit();
         double speedAcross = std::sqrt(static_cast<double>(acrossSqr)) / jumpTime;
         float ax = static_cast<float>(speedAcross * direction.x), ay = static_cast<float>(speedAcross * direction.y),
               az = static_cast<float>(speedAcross * direction.z);
@@ -293,8 +293,8 @@ Scripts::CStruct* CPedestrianBrainModule::JumpParams(Scripts::CStruct* params, b
         double vx = static_cast<double>(upX) + ax, vy = static_cast<double>(upSpeed) + ay,
                vz = static_cast<double>(upZ) + az;
         float velX = static_cast<float>(vx), velY = static_cast<float>(vy), velZ = static_cast<float>(vz);
-        Maths::Vector heading = {velX, velY, velZ, static_cast<float>(upSpeed + aw)};
-        heading.Normalize();
+        Maths::Vec4 heading = {velX, velY, velZ, static_cast<float>(upSpeed + aw)};
+        heading.MakeUnit();
         out->PutVec3(kHeading, Scripts::VectorValue{heading.x, heading.y, heading.z, heading.w});
         out->PushFloat(kJumpSpeed, static_cast<float>(std::sqrt((static_cast<double>(velX) * velX +
                                                                 static_cast<double>(velZ) * velZ) +
@@ -303,13 +303,13 @@ Scripts::CStruct* CPedestrianBrainModule::JumpParams(Scripts::CStruct* params, b
     }
     // The spin.
     if (params->HasBareFlag(kRandomSpin)) {
-        int halfTurns = Truncate(jumpTime / static_cast<double>(Scripts::GetFloat(kMinSpinTime)));
+        int halfTurns = Truncate(jumpTime / static_cast<double>(Scripts::FetchFloat(kMinSpinTime)));
         if (halfTurns > 4)
             halfTurns = 4;
         spin = Maths::Rnd(halfTurns + 1) * 180;
     } else {
         float angle;
-        if (params->GetFloat(kSpinAngle, &angle, 0))
+        if (params->FetchFloat(kSpinAngle, &angle, 0))
             spin = Truncate(static_cast<double>(angle) + kSpinRound);
     }
     spin = spin < 0 ? -spin : spin;
@@ -317,7 +317,7 @@ Scripts::CStruct* CPedestrianBrainModule::JumpParams(Scripts::CStruct* params, b
         // (Read over a slot that held the distance across, squared: missing - it's asserted - that stays.)
         uint32_t direction = 0;
         params->ReadHashValue(kSpinDirection, &direction, 1);
-        bool flag = static_cast<CAnimBlenderComponent*>(m_object->GetComponent(kAnimBlender))->AllChannelsFlag29();
+        bool flag = static_cast<CAnimBlenderComponent*>(m_entity->FetchModule(kAnimBlender))->AllChannelsFlag29();
         if (direction == kBS) {
             if (flag)
                 spin = -spin;
@@ -328,7 +328,7 @@ Scripts::CStruct* CPedestrianBrainModule::JumpParams(Scripts::CStruct* params, b
             spin = -spin;
         }
         m_spinAngle = spin;
-        m_flags |= PED_FLAG_SPINNING;
+        m_flagBits |= PED_FLAG_SPINNING;
     }
     // A spine transfer turns it round over the top.
     bool spine = params->HasBareFlag(kSpineTransfer);
@@ -343,15 +343,15 @@ Scripts::CStruct* CPedestrianBrainModule::JumpParams(Scripts::CStruct* params, b
         turn = true;
     }
     if (turn) {
-        m_flags |= PED_FLAG_VERT_ROTATING;
-        const Maths::Vector up = {0.0f, 1.0f, 0.0f, 1.0f};
+        m_flagBits |= PED_FLAG_VERT_ROTATING;
+        const Maths::Vec4 up = {0.0f, 1.0f, 0.0f, 1.0f};
         float angle = static_cast<float>(Maths::ReadTurnAngle(m_savedMatrix.row[2], up));
-        m_vertRotationTarget = static_cast<float>(static_cast<double>(Scripts::GetFloat(kSpineSlop)) + angle);
+        m_vertRotationTarget = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kSpineSlop)) + angle);
     }
-    if (m_flags & (PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING)) {
+    if (m_flagBits & (PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING)) {
         m_jumpMatrix = m_savedMatrix;
         m_spinElapsed = 0.0f;
-        m_spinTime = static_cast<float>(static_cast<double>(Scripts::GetFloat(kVertTimeSlop)) * jumpTime);
+        m_spinTime = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kVertTimeSlop)) * jumpTime);
     }
     if (params->HasBareFlag(kJumpToNextNode))
         out->PushFloat(kLandHeight, m_nextNodePos.y);
@@ -361,9 +361,9 @@ Scripts::CStruct* CPedestrianBrainModule::JumpParams(Scripts::CStruct* params, b
 // 0x004EFBC0
 void CPedestrianBrainModule::LipTrickUpdate()
 {
-    Maths::Matrix matrix = m_object->m_displayMatrix;
+    Maths::Mat4 matrix = m_entity->m_displayMatrix;
     matrix.row[2] = {0.0f, 1.0f, 0.0f, 1.0f};
-    const Maths::Vector& up = m_upDir.Normalize();
+    const Maths::Vec4& up = m_upDir.MakeUnit();
     // Across: up x (0, 1, 0), normalised (x and z kept as floats too).
     float zero = static_cast<float>(static_cast<double>(up.y) * 0.0f);
     float upX = up.x, upZ = up.z;
@@ -395,7 +395,7 @@ void CPedestrianBrainModule::LipTrickUpdate()
         upRowZ = static_cast<float>(upRowZ * inverse);
     }
     matrix.row[1] = {static_cast<float>(a), static_cast<float>(b), upRowZ, 0.0f};
-    m_object->m_displayMatrix = matrix;
+    m_entity->m_displayMatrix = matrix;
 }
 
 // --- the states a node's SkateAction starts ---
@@ -403,73 +403,73 @@ void CPedestrianBrainModule::LipTrickUpdate()
 // 0x004F1A90
 void CPedestrianBrainModule::StartGrind(Scripts::CStruct* node)
 {
-    m_flags = (m_flags & ~(PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING)) | PED_FLAG_GRINDING;
+    m_flagBits = (m_flagBits & ~(PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING)) | PED_FLAG_GRINDING;
     uint32_t terrain;
     if (node->ReadHashValue(kTerrainType, &terrain, 0))
-        SetSoundTerrain(Terrain::GetTerrainIndex(terrain));
+        SetSoundTerrain(SurfaceKind::GetTerrainIndex(terrain));
     Scripts::CStruct* params = StateParams(node);
-    SetState(kStateGrind, kTable, nullptr); // (the parameters aren't passed)
+    ChangePhase(kStateGrind, kTable, nullptr); // (the parameters aren't passed)
     DeleteParams(params);
 }
 
 // 0x004F1B10
 void CPedestrianBrainModule::EndGrind(Scripts::CStruct*)
 {
-    if (m_flags & PED_FLAG_GRINDING) {
-        m_flags &= ~PED_FLAG_GRINDING;
-        SetState(kStateGrindOff, kTable, nullptr);
+    if (m_flagBits & PED_FLAG_GRINDING) {
+        m_flagBits &= ~PED_FLAG_GRINDING;
+        ChangePhase(kStateGrindOff, kTable, nullptr);
     }
 }
 
 // 0x004F1B40
 void CPedestrianBrainModule::Jump(Scripts::CStruct* node, bool vert)
 {
-    m_flags &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
+    m_flagBits &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
     Scripts::CStruct* params;
     uint32_t state;
     if (vert) {
-        m_flags &= ~PED_FLAG_MOVING;
+        m_flagBits &= ~PED_FLAG_MOVING;
         params = JumpParams(node, vert);
         state = kStateJumpVert;
     } else {
         if (node->HasBareFlag(kJumpToNextNode)) {
-            m_flags &= ~PED_FLAG_MOVING;
+            m_flagBits &= ~PED_FLAG_MOVING;
             params = JumpParams(node, false);
-            m_flags |= PED_FLAG_JUMPING_TO_NODE;
+            m_flagBits |= PED_FLAG_JUMPING_TO_NODE;
         } else {
             params = StateParams(node);
         }
         state = kStateJump;
     }
-    SetState(state, kTable, params);
+    ChangePhase(state, kTable, params);
     DeleteParams(params);
 }
 
 // 0x004F1BF0
 void CPedestrianBrainModule::LipTrick(Scripts::CStruct* node)
 {
-    m_flags &= ~(PED_FLAG_MOVING | PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
+    m_flagBits &= ~(PED_FLAG_MOVING | PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
     LipTrickUpdate();
     Scripts::CStruct* params = StateParams(node);
-    SetState(kStateLip, kTable, params);
+    ChangePhase(kStateLip, kTable, params);
     DeleteParams(params);
 }
 
 // 0x004F1C40
 void CPedestrianBrainModule::Manual(Scripts::CStruct* node)
 {
-    m_flags &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
+    m_flagBits &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
     Scripts::CStruct* params = StateParams(node);
-    SetState(kStateManual, kTable, params);
+    ChangePhase(kStateManual, kTable, params);
     DeleteParams(params);
 }
 
 // 0x004F1C90
 void CPedestrianBrainModule::ManualDown(Scripts::CStruct* node)
 {
-    m_flags &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
+    m_flagBits &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
     Scripts::CStruct* params = StateParams(node);
-    SetState(kStateManualDown, kTable, params);
+    ChangePhase(kStateManualDown, kTable, params);
     DeleteParams(params);
 }
 
@@ -478,83 +478,83 @@ void CPedestrianBrainModule::GrabTrick(Scripts::CStruct* node, bool vert)
 {
     Scripts::CStruct* params;
     if (vert) {
-        m_flags &= ~PED_FLAG_MOVING;
+        m_flagBits &= ~PED_FLAG_MOVING;
         params = JumpParams(node, vert);
         params->PutNameKey(0u, kIsVert);
     } else {
         params = StateParams(node);
-        bool jumping = (Motion(m_object)->m_motionFlags & 0x100) != 0;
+        bool jumping = (Motion(m_entity)->m_motionFlags & 0x100) != 0;
         if (!jumping) {
-            float speed = Scripts::GetFloat(kJumpSpeedGlobal);
-            double gravity = Scripts::GetFloat(kJumpGravity);
+            float speed = Scripts::FetchFloat(kJumpSpeedGlobal);
+            double gravity = Scripts::FetchFloat(kJumpGravity);
             double time = std::sqrt(static_cast<double>(speed) * speed / (gravity * gravity));
             params->PutInt(kJumpTime, Truncate(time + time));
         }
         params->PutInt(kIsJumping, jumping ? 1 : 0);
     }
-    SetState(kStateGrab, kTable, params);
+    ChangePhase(kStateGrab, kTable, params);
     DeleteParams(params);
 }
 
 // 0x004F1DC0
-void CPedestrianBrainModule::Stop(Scripts::CStruct* node)
+void CPedestrianBrainModule::Halt(Scripts::CStruct* node)
 {
-    m_flags = (m_flags & ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING)) | PED_FLAG_STOPPING;
+    m_flagBits = (m_flagBits & ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING)) | PED_FLAG_STOPPING;
     Scripts::CStruct* params = StateParams(node);
-    SetState(kStateStop, kTable, params);
+    ChangePhase(kStateStop, kTable, params);
     DeleteParams(params);
 }
 
 // 0x004F1F30
-void CPedestrianBrainModule::RollOff(Scripts::CStruct*) { SetState(kStateRollOff, kTable, nullptr); }
+void CPedestrianBrainModule::RollOff(Scripts::CStruct*) { ChangePhase(kStateRollOff, kTable, nullptr); }
 
 // 0x004F1F50
 void CPedestrianBrainModule::FlipTrick(Scripts::CStruct* node, bool vert)
 {
-    m_flags &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
-    CKinematicsModule* motion = Motion(m_object);
+    m_flagBits &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
+    CKinematicsModule* motion = Motion(m_entity);
     Scripts::CStruct* params = StateParams(node);
     Scripts::CStruct* jump = JumpParams(node, vert);
     params->AppendStructureIfAny(jump);
     DeleteParams(jump);
     if (vert) {
-        m_flags &= ~PED_FLAG_MOVING;
+        m_flagBits &= ~PED_FLAG_MOVING;
         params->PutNameKey(0u, kIsVert);
     }
     params->PutInt(kIsJumping, (motion->m_motionFlags & 0x100) ? 1 : 0);
     if (node->HasBareFlag(kJumpToNextNode))
-        m_flags = (m_flags & ~PED_FLAG_MOVING) | PED_FLAG_JUMPING_TO_NODE;
-    SetState(kStateFlip, kTable, params);
+        m_flagBits = (m_flagBits & ~PED_FLAG_MOVING) | PED_FLAG_JUMPING_TO_NODE;
+    ChangePhase(kStateFlip, kTable, params);
     DeleteParams(params);
 }
 
 // 0x004F1E80
 bool CPedestrianBrainModule::BailFromGrind()
 {
-    if (!(m_flags & PED_FLAG_GRINDING))
+    if (!(m_flagBits & PED_FLAG_GRINDING))
         return false;
-    m_flags = (m_flags & ~PED_FLAG_GRINDING) | PED_FLAG_GRIND_BAILING;
+    m_flagBits = (m_flagBits & ~PED_FLAG_GRINDING) | PED_FLAG_GRIND_BAILING;
     int count = static_cast<int>(LevelNodes::GetLinkCount(m_nextNode));
     if (count > 1) {
         // Off the grind the way its stop link goes.
         for (int i = 0; i < count; ++i) {
-            uint32_t link = LevelNodes::GetLink(m_nextNode, i);
+            uint32_t link = LevelNodes::FetchLink(m_nextNode, i);
             uint32_t action;
-            if (LevelNodes::GetNode(link, true)->ReadHashValue(kSkateAction, &action, 0) && action == kStopAction) {
+            if (LevelNodes::FetchVertex(link, true)->ReadHashValue(kSkateAction, &action, 0) && action == kStopAction) {
                 m_nodeAfter = link;
-                LevelNodes::GetPosition(link, &m_nodeAfterPos);
+                LevelNodes::FetchPlace(link, &m_nodeAfterPos);
                 break;
             }
         }
     }
-    SetState(kStateBailGrind, kTable, nullptr);
+    ChangePhase(kStateBailGrind, kTable, nullptr);
     return true;
 }
 
 // 0x004F2340
 void CPedestrianBrainModule::DoSkateAction(Scripts::CStruct* node)
 {
-    if (m_flags & (PED_FLAG_BAILING | PED_FLAG_GRIND_BAILING))
+    if (m_flagBits & (PED_FLAG_BAILING | PED_FLAG_GRIND_BAILING))
         return;
     uint32_t action;
     if (!node->ReadHashValue(kSkateAction, &action, 0))
@@ -565,7 +565,7 @@ void CPedestrianBrainModule::DoSkateAction(Scripts::CStruct* node)
     case kGrabTrick: GrabTrick(node, false); break;
     case kGrind:
     case kVertGrind: StartGrind(node); break;
-    case kStop: Stop(node); break;
+    case kStop: Halt(node); break;
     case kJump: Jump(node, false); break;
     case kRollOff: RollOff(node); break;
     case kVertGrab: GrabTrick(node, true); break;
@@ -582,40 +582,40 @@ void CPedestrianBrainModule::DoSkateAction(Scripts::CStruct* node)
 void CPedestrianBrainModule::ReachWaypoint()
 {
     uint32_t reached = m_nextNode, left = m_listLink;
-    m_flags &= ~(PED_FLAG_VERT_LAST | PED_FLAG_VERT_AFTER);
-    if (m_flags & PED_FLAG_VERT_NEXT)
-        m_flags |= PED_FLAG_VERT_LAST;
+    m_flagBits &= ~(PED_FLAG_VERT_LAST | PED_FLAG_VERT_AFTER);
+    if (m_flagBits & PED_FLAG_VERT_NEXT)
+        m_flagBits |= PED_FLAG_VERT_LAST;
     m_nextNode = m_nodeAfter;
     m_listLink = reached;
-    m_flags &= ~PED_FLAG_JUMPING_TO_NODE;
+    m_flagBits &= ~PED_FLAG_JUMPING_TO_NODE;
     m_nodePos = m_nextNodePos;
     m_nextNodePos = m_nodeAfterPos;
     if (m_kind == 0 && left == m_nextNode)
         ActivateAuxScript(kHitDeadEnd, nullptr);
-    m_flags &= ~PED_FLAG_VERT_NEXT;
-    Scripts::CStruct* next = LevelNodes::GetNode(m_nextNode, true);
-    m_flags &= ~PED_FLAG_VERT_LIP;
+    m_flagBits &= ~PED_FLAG_VERT_NEXT;
+    Scripts::CStruct* next = LevelNodes::FetchVertex(m_nextNode, true);
+    m_flagBits &= ~PED_FLAG_VERT_LIP;
     uint32_t pedType;
     if (next->ReadHashValue(kPedType, &pedType, 0) && pedType == kSkate) {
         // (Read over a slot holding a stale value: SkateAction is asserted.)
         uint32_t action = 0;
         next->ReadHashValue(kSkateAction, &action, 1);
         if (IsVertNode(m_nextNode))
-            m_flags |= PED_FLAG_VERT_NEXT;
+            m_flagBits |= PED_FLAG_VERT_NEXT;
         if (action == kVertGrab || action == kJump) {
             uint32_t reachedAction;
-            if (LevelNodes::GetNode(m_listLink, true)->ReadHashValue(kSkateAction, &reachedAction, 1) &&
-                reachedAction != kGrind && !(m_flags & (PED_FLAG_GRINDING | PED_FLAG_VERT_LAST)))
-                m_flags |= PED_FLAG_CROUCH;
+            if (LevelNodes::FetchVertex(m_listLink, true)->ReadHashValue(kSkateAction, &reachedAction, 1) &&
+                reachedAction != kGrind && !(m_flagBits & (PED_FLAG_GRINDING | PED_FLAG_VERT_LAST)))
+                m_flagBits |= PED_FLAG_CROUCH;
         }
         if (action == kVertLip)
-            m_flags |= PED_FLAG_VERT_LIP;
+            m_flagBits |= PED_FLAG_VERT_LIP;
     }
     ChooseNodeAfter();
     if (IsVertNode(m_nodeAfter))
-        m_flags |= PED_FLAG_VERT_AFTER;
-    Scripts::CStruct* leftNode = LevelNodes::GetNode(left, true);
-    Scripts::CStruct* reachedNode = LevelNodes::GetNode(reached, true);
+        m_flagBits |= PED_FLAG_VERT_AFTER;
+    Scripts::CStruct* leftNode = LevelNodes::FetchVertex(left, true);
+    Scripts::CStruct* reachedNode = LevelNodes::FetchVertex(reached, true);
     RunWaypointActions(reachedNode);
     uint32_t leftAction;
     if (!leftNode->ReadHashValue(kSkateAction, &leftAction, 0) || leftAction != kVertGrab) {
@@ -632,12 +632,12 @@ void CPedestrianBrainModule::ReachWaypoint()
 // 0x004F0740
 bool CPedestrianBrainModule::Ped_InitPath(Scripts::CStruct*, Scripts::CScript*)
 {
-    m_nextNode = LevelNodes::GetLink(LevelNodes::GetNode(m_listLink, true), 0);
-    LevelNodes::GetPosition(m_nextNode, &m_nextNodePos);
+    m_nextNode = LevelNodes::FetchLink(LevelNodes::FetchVertex(m_listLink, true), 0);
+    LevelNodes::FetchPlace(m_nextNode, &m_nextNodePos);
     ChooseNodeAfter();
-    m_flags |= PED_FLAG_MOVING;
-    mp_peds = CPathManager::Instance()->AddToExtraGroup(m_object, m_nextNode);
-    Motion(m_object)->m_motionFlags |= 0x10;
+    m_flagBits |= PED_FLAG_MOVING;
+    mp_peds = CPathManager::Sole()->AddToExtraGroup(m_entity, m_nextNode);
+    Motion(m_entity)->m_motionFlags |= 0x10;
     // Facing along the way to the first waypoint.
     float dx = m_nextNodePos.x - m_nodePos.x, dy = m_nextNodePos.y - m_nodePos.y, dz = m_nextNodePos.z - m_nodePos.z,
           dw = m_nextNodePos.w - m_nodePos.w;
@@ -648,13 +648,13 @@ bool CPedestrianBrainModule::Ped_InitPath(Scripts::CStruct*, Scripts::CScript*)
         dy = static_cast<float>(dy * inverse);
         dz = static_cast<float>(dz * inverse);
     }
-    Maths::Matrix matrix = m_object->m_displayMatrix;
+    Maths::Mat4 matrix = m_entity->m_displayMatrix;
     matrix.row[2] = {dx, dy, dz, dw};
     matrix.SquareUpAxes(2);
-    m_object->m_displayMatrix = matrix;
+    m_entity->m_displayMatrix = matrix;
     m_savedMatrix = matrix;
-    for (Maths::Vector& position : m_pastFrames)
-        position = m_object->m_pos;
+    for (Maths::Vec4& position : m_pastFrames)
+        position = m_entity->m_atPoint;
     return true;
 }
 
@@ -669,11 +669,11 @@ bool CPedestrianBrainModule::Ped_HitWaypoint(Scripts::CStruct*, Scripts::CScript
 bool CPedestrianBrainModule::Ped_GetJumpToNextNode(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float height;
-    params->GetFloat(kHeight, &height, 1);
+    params->FetchFloat(kHeight, &height, 1);
     // (The gravity is read over the `params` argument: missing - it's asserted - it stays the pointer's bits.)
     float gravity = std::bit_cast<float>(reinterpret_cast<uintptr_t>(params));
-    params->GetFloat(kGravity, &gravity, 1);
-    const Maths::Vector& at = m_object->m_pos;
+    params->FetchFloat(kGravity, &gravity, 1);
+    const Maths::Vec4& at = m_entity->m_atPoint;
     float dx = m_nextNodePos.x - at.x, dy = m_nextNodePos.y - at.y, dz = m_nextNodePos.z - at.z,
           dw = m_nextNodePos.w - at.w;
     double rise = std::sqrt(static_cast<double>(height) / gravity * kMinusTwo);
@@ -681,7 +681,7 @@ bool CPedestrianBrainModule::Ped_GetJumpToNextNode(Scripts::CStruct* params, Scr
     float upSpeed = static_cast<float>(std::sqrt(static_cast<double>(gravity) * height * kMinusTwo));
     float distance = static_cast<float>(std::sqrt((static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) +
                                                   static_cast<double>(dx) * dx));
-    double across = Scripts::GetFloat(kJumpSpeedScale) * (static_cast<double>(distance) * kHalf);
+    double across = Scripts::FetchFloat(kJumpSpeedScale) * (static_cast<double>(distance) * kHalf);
     if (distance > 0.0f) {
         double inverse = 1.0 / distance;
         dx = static_cast<float>(dx * inverse);
@@ -707,9 +707,9 @@ bool CPedestrianBrainModule::Ped_GetJumpToNextNode(Scripts::CStruct* params, Scr
         hy = sy * inverse;
         hz = static_cast<float>(sz * inverse);
     }
-    script->m_params->PutVec3(kHeading, Scripts::VectorValue{static_cast<float>(hx), static_cast<float>(hy), hz, sw});
-    script->m_params->PushFloat(kJumpSpeed, speed);
-    script->m_params->PushFloat(kJumpTime, time);
+    script->m_args->PutVec3(kHeading, Scripts::VectorValue{static_cast<float>(hx), static_cast<float>(hy), hz, sw});
+    script->m_args->PushFloat(kJumpSpeed, speed);
+    script->m_args->PushFloat(kJumpTime, time);
     return true;
 }
 

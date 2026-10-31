@@ -4,7 +4,7 @@
 #include <cstdint>
 
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 
 // The engine's texture dictionary (Engine3D::CTextureSet; the PC's CPcTexDict - pc_texture.h - extends it): a hash table of
@@ -21,16 +21,16 @@ class CTextureSet {
 public:
     // 0x0049F830: construct named `checksum`, used once, with an empty table of 32 buckets when `makeTable` (none
     // without memory) or none. Returns this.
-    CTextureSet* Construct(uint32_t checksum, bool makeTable);
+    CTextureSet* MakeNew(uint32_t checksum, bool makeTable);
     // 0x0049F8F0: the same, named by the CRC of `name`.
     CTextureSet* ConstructNamed(const char* name, bool makeTable);
     // 0x0049FC70: the destructor's body - every texture flushed, the table emptied and freed (its buckets too).
     void DestroyBody();
     // 0x0049FCC0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CTextureSet* Destroy(unsigned int freeFlags);
+    CTextureSet* Teardown(unsigned int freeFlags);
 
     // 0x0049F540: the texture `checksum`, or null (no table: null).
-    CBitmapTexture* GetTexture(uint32_t checksum);
+    CBitmapTexture* FetchSkin(uint32_t checksum);
     // 0x0049F560: the texture named by the CRC of `name` after its last slash or backslash.
     CBitmapTexture* GetTextureByName(const char* name);
     // 0x0049F660: the texture `name` under any of the keys its CRC times 2, 3, 4, 6, 12, 8 and 24 (the list at
@@ -39,12 +39,12 @@ public:
     CBitmapTexture* FindTexture(const char* name);
     // 0x0049F9B0: a texture loaded from a file (slot 1), kept on flushes with `permanent`, added under its checksum.
     // Returns it (null if the platform made none).
-    CBitmapTexture* LoadTexture(const char* name, uint32_t a1, uint32_t a2, bool permanent);
+    CBitmapTexture* IngestSkin(const char* name, uint32_t a1, uint32_t a2, bool permanent);
     // 0x0049FA20: a texture loaded from memory (slot 2 with all the arguments but `permanent`), kept and added as
-    // LoadTexture's.
+    // IngestSkin's.
     CBitmapTexture* ReadTextureBuffer(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3, uint32_t a4,
                                     bool permanent, uint32_t a6);
-    // 0x0049FAA0: a texture made (slot 3 with the first six arguments), kept and added as LoadTexture's.
+    // 0x0049FAA0: a texture made (slot 3 with the first six arguments), kept and added as IngestSkin's.
     CBitmapTexture* CreateTexture(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bitsPerPixel, uint32_t a4,
                             uint32_t a5, bool permanent);
     // 0x0049F500: a texture destroyed by the platform (slot 5) and, if it was, taken out of the table. Whether it was.
@@ -65,7 +65,7 @@ public:
     uint32_t m_checksum;      // +0x04
     uint16_t m_shareCount;      // +0x08: its loads (UnloadTexDict deletes it at 0)
     uint8_t padA[2];
-    ListKit::HashTable* mp_textures; // +0x0C
+    ListKit::KeyMap* mp_textures; // +0x0C
 };
 static_assert(offsetof(CTextureSet, mp_textures) == 0xC && sizeof(CTextureSet) == 0x10, "layout must match the original");
 

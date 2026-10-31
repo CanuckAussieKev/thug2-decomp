@@ -48,7 +48,7 @@ T& At(const void* base, uint32_t offset)
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(base) + offset);
 }
 
-void SetState(void* core, int state) { static_cast<Skater::CorePhysicsComponent*>(core)->SetPhysicsState(state); }
+void ChangePhase(void* core, int state) { static_cast<Skater::CorePhysicsComponent*>(core)->SetPhysicsState(state); }
 
 // The debug message's strings as the original passes them ("M:%s:%i: %s\n", the source file, "found to be inside a
 // moving object").
@@ -56,20 +56,20 @@ void SetState(void* core, int state) { static_cast<Skater::CorePhysicsComponent*
 } // namespace
 
 // 0x004F80E0
-CObjectModule* __cdecl CRiderPhysicsTweaks::Create()
+CObjectModule* __cdecl CRiderPhysicsTweaks::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderPhysicsTweaks));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CRiderPhysicsTweaks*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->mp_core = nullptr;
     component->m_meshInstance = nullptr;
     component->m_shadowHandle = nullptr;
     component->mp_ride = nullptr;
     component->m_uberFrigged = 0;
     component->m_vtable = kVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     return component;
 }
 
@@ -81,29 +81,29 @@ void CRiderPhysicsTweaks::DestroyBody()
 }
 
 // 0x004F8050
-CRiderPhysicsTweaks* CRiderPhysicsTweaks::Destroy(unsigned int flags)
+CRiderPhysicsTweaks* CRiderPhysicsTweaks::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004F8080
-void CRiderPhysicsTweaks::Finalize()
+void CRiderPhysicsTweaks::Seal()
 {
-    mp_core = m_object->GetComponent(kSkaterCorePhysics);
-    m_meshInstance = reinterpret_cast<CMeshInstanceModule*>(m_object->GetComponent(kModel));
-    m_shadowHandle = reinterpret_cast<CGroundShadowModule*>(m_object->GetComponent(kShadow));
-    mp_ride = reinterpret_cast<CMovingSurfaceModule*>(m_object->GetComponent(kMovableContact));
-    mp_state = reinterpret_cast<CRiderPoseState*>(m_object->GetComponent(kSkaterState));
+    mp_core = m_entity->FetchModule(kSkaterCorePhysics);
+    m_meshInstance = reinterpret_cast<CMeshInstanceModule*>(m_entity->FetchModule(kModel));
+    m_shadowHandle = reinterpret_cast<CGroundShadowModule*>(m_entity->FetchModule(kShadow));
+    mp_ride = reinterpret_cast<CMovingSurfaceModule*>(m_entity->FetchModule(kMovableContact));
+    mp_state = reinterpret_cast<CRiderPoseState*>(m_entity->FetchModule(kSkaterState));
 }
 
 // 0x004F8C40
 void CRiderPhysicsTweaks::FrameUpdate()
 {
     uint8_t* flags = At<uint8_t*>(mp_core, kTimedFlags);
-    if (At<int>(flags, 0x18) == 0 || m_object->m_vel.y < 0.0f) {
+    if (At<int>(flags, 0x18) == 0 || m_entity->m_vel.y < 0.0f) {
         if (flags[0x60] != 1) {
             flags[0x60] = 1;
             At<int>(flags, 0x64) = FrameClock::GameClockElapsed() + g_clockOffset;
@@ -111,33 +111,33 @@ void CRiderPhysicsTweaks::FrameUpdate()
     }
     if (!At<uint8_t*>(mp_core, kTimedFlags)[0x88])
         CheckInsideMovingObject();
-    Update();
-    m_object->m_oldPos = m_object->m_pos;
+    TickFrame();
+    m_entity->m_oldPos = m_entity->m_atPoint;
 }
 
 // 0x004F8AA0
 void CRiderPhysicsTweaks::CheckInsideMovingObject()
 {
-    Maths::Vector& frameStart = At<Maths::Vector>(mp_core, kFrameStart);
-    if (!mp_ride->FindContactAhead(&m_object->m_pos, &frameStart))
+    Maths::Vec4& frameStart = At<Maths::Vec4>(mp_core, kFrameStart);
+    if (!mp_ride->FindContactAhead(&m_entity->m_atPoint, &frameStart))
         return;
     DebugOut::Printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182, "found to be inside a moving object");
     Engine3D::CProbeRay feeler;
-    feeler.Construct();
-    const Maths::Vector& pos = m_object->m_pos;
-    Maths::Vector start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kFeelerReach), pos.z, pos.w};
-    feeler.SetStart(&start);
-    Maths::Vector end = {pos.x, static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), pos.z, pos.w};
-    feeler.SetEnd(&end);
+    feeler.MakeNew();
+    const Maths::Vec4& pos = m_entity->m_atPoint;
+    Maths::Vec4 start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kFeelerReach), pos.z, pos.w};
+    feeler.ChangeOrigin(&start);
+    Maths::Vec4 end = {pos.x, static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), pos.z, pos.w};
+    feeler.ChangeFinish(&end);
     if (feeler.GetHitShape(true, false) && feeler.HitObjectAlive())
         reinterpret_cast<Walk::MovableContact*>(mp_ride)->StartRiding(feeler.GetHitObject());
     if (At<int>(At<uint8_t*>(mp_core, kTimedFlags), 0x18) == 4) {
-        SetState(mp_core, 1);
-        m_object->PostOwnEvent(kUnderTheFloor, nullptr);
-    } else if (m_object->m_pos == frameStart) {
-        m_object->m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
+        ChangePhase(mp_core, 1);
+        m_entity->PostOwnEvent(kUnderTheFloor, nullptr);
+    } else if (m_entity->m_atPoint == frameStart) {
+        m_entity->m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
     }
-    feeler.m_object.Release();
+    feeler.m_entity.Release();
 }
 
 // 0x004F82F0
@@ -157,7 +157,7 @@ void CRiderPhysicsTweaks::UpdateBrightness(Engine3D::CProbeRay* ground)
         m_meshInstance->ApplyBrightness(&feeler, true, 1.0f);
     else if (hit)
         m_meshInstance->ApplyBrightness(ground, true, 1.0f);
-    feeler.m_object.Release();
+    feeler.m_entity.Release();
 }
 
 } // namespace Obj
@@ -165,14 +165,14 @@ void CRiderPhysicsTweaks::UpdateBrightness(Engine3D::CProbeRay* ground)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPhysicsTweaks::Destroy,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPhysicsTweaks::Teardown,
          &GameObjects::CRiderPhysicsTweaks::FrameUpdate,
          Stubs::IgnoreArgument,
-         &GameObjects::CRiderPhysicsTweaks::Finalize,
+         &GameObjects::CRiderPhysicsTweaks::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

@@ -1,4 +1,4 @@
-// The network manager's tasks (TaskList::Task<OnlinePlay::Manager>: the manager at the task's +0x1C) and its GameSpy query
+// The network manager's tasks (TaskList::Task<OnlinePlay::Hub>: the manager at the task's +0x1C) and its GameSpy query
 // callbacks. See gamenet_handlers.h.
 
 #include <cstdint>
@@ -62,32 +62,32 @@ constexpr uint32_t kShowJoinTimeoutNotice = 0x3F7009B4; // ShowJoinTimeoutNotice
 
 constexpr uint32_t kJoinTimeout = 60000; // ms
 
-Manager* TaskManager(void* task) { return Field<Manager*>(task, 0x1C); }
+Hub* TaskManager(void* task) { return Prop<Hub*>(task, 0x1C); }
 
 // The connection's line of the network metrics: "(n) Lag: ... Resends: ... Bps: <in> <out>".
 void ShowConnectionMetrics(NetLink::Conn* conn, int index)
 {
-    int lag = conn->IsLocal() ? 0 : conn->m_latencyTest.m_averageLatency;
+    int lag = conn->IsHostLocal() ? 0 : conn->m_latencyTest.m_averageLatency;
     int sent = conn->m_sendMetrics.GetThroughput();
     int received = conn->m_receiveMetrics.GetThroughput();
     int resends = conn->GetHighestResendCount();
     char line[1024];
     std::sprintf(line, "(%d) Lag: %d Resends: %d Bps: %d %d", index, lag, resends, received, sent);
     Scripts::CStruct* params = NewParams();
-    params->AddString(kText, line);
+    params->AppendWord(kText, line);
     Run(kUpdateNetMetrics, params);
     DeleteParams(params);
 }
 
 // Each connection of `app` that isn't local.
-void ShowAppMetrics(NetLink::App* app)
+void ShowAppMetrics(NetLink::AppHost* app)
 {
     NetLink::ConnSearch search;
     search.m_vtable = NetLink::kConnSearchVtable;
     search.m_listLink = nullptr;
     int index = 0;
     for (NetLink::Conn* conn = app->BeginConnWalk(&search); conn; conn = app->StepConnWalk(&search)) {
-        if (conn->IsLocal())
+        if (conn->IsHostLocal())
             continue;
         ShowConnectionMetrics(conn, index);
         ++index;
@@ -100,7 +100,7 @@ void ShowAppMetrics(NetLink::App* app)
 void __cdecl LevelChangeTask(void* task)
 {
     PlayerSearch search;
-    Manager* manager = TaskManager(task);
+    Hub* manager = TaskManager(task);
     if (FrameClock::GetTime() < g_levelChangeTime)
         return;
     Call(CodeAddress(&GameModules::Skate::ChangeLevel), Skate(), manager->m_level); // the level changed
@@ -108,7 +108,7 @@ void __cdecl LevelChangeTask(void* task)
         AsPlayer(king)->GiveCrown(false);
     for (uint8_t* p = FirstPlayer(manager, &search, true); p; p = NextPlayer(manager, &search, true))
         AsPlayer(p)->ClearFlags(); // carries no flag
-    Field<TaskList::SchedulerTask*>(manager, 0xEC)->Remove();
+    Prop<TaskList::SchedulerTask*>(manager, 0xEC)->DropOut();
 }
 
 uint32_t g_modemDialogEnd;
@@ -116,10 +116,10 @@ uint32_t g_modemDialogEnd;
 // 0x00533810
 void __cdecl ModemStateTask(void* task)
 {
-    Manager* manager = TaskManager(task);
-    NetLink::Manager* net = NetLink::Manager::Instance();
+    Hub* manager = TaskManager(task);
+    NetLink::Hub* net = NetLink::Hub::Sole();
     int state = net->GetDialupStatus();
-    int& shown = Field<int>(manager, 0x1A8); // the state shown last
+    int& shown = Prop<int>(manager, 0x1A8); // the state shown last
     if (state == shown && state != 8) {
         shown = state;
         return;
@@ -130,36 +130,36 @@ void __cdecl ModemStateTask(void* task)
     switch (state) {
     case 0: // connecting / dialing
         if (net->GetNetLinkKind() == 3)
-            std::sprintf(line, "%s", Scripts::GetString(kConnecting));
+            std::sprintf(line, "%s", Scripts::FetchText(kConnecting));
         else
-            std::sprintf(line, "%s %s", Scripts::GetString(kDialing), net->GetDialupNumber());
-        params->AddString(kText, Scripts::QBVAL_STRING, line);
+            std::sprintf(line, "%s %s", Scripts::FetchText(kDialing), net->GetDialupNumber());
+        params->AppendWord(kText, Scripts::QBVAL_STRING, line);
         Run(kStateDialog, params);
         break;
     case 1:
-        params->AddString(kText, Scripts::QBVAL_STRING, Scripts::GetString(kConnected));
+        params->AppendWord(kText, Scripts::QBVAL_STRING, Scripts::FetchText(kConnected));
         Run(kStateDialog, params);
         break;
     case 2: // logged in (with the speed on a modem)
         if (net->GetNetLinkKind() == 1)
-            std::sprintf(line2, "%s %d bps", Scripts::GetString(kLoggedIn), net->GetDialupSpeed());
+            std::sprintf(line2, "%s %d bps", Scripts::FetchText(kLoggedIn), net->GetDialupSpeed());
         else
-            std::sprintf(line2, "%s", Scripts::GetString(kLoggedIn));
-        params->AddString(kText, Scripts::QBVAL_STRING, line2);
+            std::sprintf(line2, "%s", Scripts::FetchText(kLoggedIn));
+        params->AppendWord(kText, Scripts::QBVAL_STRING, line2);
         Run(kFinalStateDialog, params);
         break;
     case 3:
     case 4:
-        params->AddString(kText, Scripts::QBVAL_STRING, Scripts::GetString(state == 3 ? kDisconnecting : kHangingUp));
+        params->AppendWord(kText, Scripts::QBVAL_STRING, Scripts::FetchText(state == 3 ? kDisconnecting : kHangingUp));
         Run(kStatusDialog, params);
         break;
     case 5:
-        params->AddString(kText, Scripts::QBVAL_STRING, Scripts::GetString(kDisconnected));
+        params->AppendWord(kText, Scripts::QBVAL_STRING, Scripts::FetchText(kDisconnected));
         Run(kFinalStateDialog, params);
         break;
     case 7: // redial in five seconds
-        std::sprintf(line, "%s", Scripts::GetString(kRedialPause));
-        params->AddString(kText, Scripts::QBVAL_STRING, line);
+        std::sprintf(line, "%s", Scripts::FetchText(kRedialPause));
+        params->AppendWord(kText, Scripts::QBVAL_STRING, line);
         Run(kStateDialog, params);
         g_modemDialogEnd = FrameClock::GetTime() + 5000;
         net->SetDialupStatus(8);
@@ -181,11 +181,11 @@ void __cdecl ModemStateTask(void* task)
 // 0x00533B50 (each list is shown twice: the original's loop)
 void __cdecl NetMetricsTask(void* task)
 {
-    Manager* manager = TaskManager(task);
+    Hub* manager = TaskManager(task);
     for (int pass = 0; pass < 2; ++pass) {
-        if (NetLink::App* client = manager->m_clientApp; client && !client->IsLocal())
+        if (NetLink::AppHost* client = manager->m_clientApp; client && !client->IsHostLocal())
             ShowAppMetrics(client);
-        if (NetLink::App* server = manager->m_server)
+        if (NetLink::AppHost* server = manager->m_host)
             ShowAppMetrics(server);
     }
 }
@@ -193,10 +193,10 @@ void __cdecl NetMetricsTask(void* task)
 // 0x00533ED0
 void __cdecl JoinTimeoutTask(void* task)
 {
-    Manager* manager = TaskManager(task);
+    Hub* manager = TaskManager(task);
     if (manager->m_joinState == 8 || FrameClock::GetTime() - static_cast<uint32_t>(manager->m_joinStartTime) <= kJoinTimeout)
         return;
-    manager->m_joinStateTask->Remove();
+    manager->m_joinStateTask->DropOut();
     Run(kShowJoinTimeoutNotice);
 }
 

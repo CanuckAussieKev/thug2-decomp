@@ -53,11 +53,11 @@ static_assert(sizeof(ChatPacket) == 0x94);
 
 // NetLink::NetMessageInfo (net_app.h): a message to be sent; its constructor (0x004549F0) sets the defaults.
 using ::NetLink::NetMessageInfo;
-void InitMsgDesc(NetMessageInfo* desc) { desc->Construct(); }
+void InitMsgDesc(NetMessageInfo* desc) { desc->MakeNew(); }
 
 // The local player's info (OnlinePlay::PlayerRecord, declared by the skate module's header): name at +0x38, flags at
 // +0x1D0, team at [+0x14]+0x14.
-PlayerRecord* LocalPlayer(Manager* manager)
+PlayerRecord* LocalPlayer(Hub* manager)
 {
     return static_cast<PlayerRecord*>(manager->GetOwnPlayer());
 }
@@ -73,9 +73,9 @@ uint8_t TeamColor(PlayerRecord* player)
 }
 
 // The manager's client connection (+0x08) queues a message for the server.
-void SendToServer(Manager* manager, NetMessageInfo* desc)
+void SendToServer(Hub* manager, NetMessageInfo* desc)
 {
-    static_cast<NetLink::Client*>(manager->m_clientApp)->SendToHost(desc);
+    static_cast<NetLink::Guest*>(manager->m_clientApp)->SendToHost(desc);
 }
 
 // Scripts::CStruct (8 bytes, from the current script struct pool when there is one).
@@ -86,9 +86,9 @@ uint32_t g_lastTauntTime;
 ScriptStruct* NewScriptStruct()
 {
     int current = Scripts::g_structPools.current;
-    MemSys::Pool* pool = Scripts::g_structPools.pools[current];
-    void* memory = pool ? pool->Allocate() : MemSys::New(8);
-    return memory ? static_cast<ScriptStruct*>(memory)->Init() : nullptr;
+    MemSys::SlabBank* pool = Scripts::g_structPools.pools[current];
+    void* memory = pool ? pool->Carve() : MemSys::Alloc(8);
+    return memory ? static_cast<ScriptStruct*>(memory)->PrepareAll() : nullptr;
 }
 void DeleteScriptStruct(ScriptStruct* s)
 {
@@ -97,7 +97,7 @@ void DeleteScriptStruct(ScriptStruct* s)
     s->Clear();
     Scripts::DeleteStruct(s);
 }
-void AddString(ScriptStruct* s, uint32_t name, const char* value) { s->AddString(name, value); }
+void AppendWord(ScriptStruct* s, uint32_t name, const char* value) { s->AppendWord(name, value); }
 void LaunchScript(uint32_t script, ScriptStruct* params)
 {
     Scripts::LaunchScript(script, params, nullptr, false, nullptr);
@@ -106,7 +106,7 @@ void LaunchScript(uint32_t script, ScriptStruct* params)
 constexpr uint32_t kText = 0xC4745838;              // checksum of "text"
 constexpr uint32_t kShowChatScript = 0xCCB19938;    // the script that adds a line to the chat display
 
-void Copy(char* out, size_t size, const char* in)
+void DupFrom(char* out, size_t size, const char* in)
 {
     // The original copies with no limit (and would overrun on a too-long line); stop at the field size. (Not
     // strncpy_s: a debug build fills the rest of the field with 0xFE - sent over the network.)
@@ -120,7 +120,7 @@ void Copy(char* out, size_t size, const char* in)
 void ShowLocalChatLine(const char* line)
 {
     ScriptStruct* params = NewScriptStruct();
-    AddString(params, kText, line);
+    AppendWord(params, kText, line);
     LaunchScript(kShowChatScript, params);
     DeleteScriptStruct(params);
 }
@@ -128,18 +128,18 @@ void ShowLocalChatLine(const char* line)
 namespace {
 
 // Shared by the normal and the named send.
-void Send(Manager* manager, const char* name, uint8_t color, const char* text)
+void PostOut(Hub* manager, const char* name, uint8_t color, const char* text)
 {
     ChatPacket packet = {};
     packet.color = color;
-    Copy(packet.name, sizeof(packet.name), name);
-    Copy(packet.text, sizeof(packet.text), text);
+    DupFrom(packet.name, sizeof(packet.name), name);
+    DupFrom(packet.text, sizeof(packet.text), text);
 
     NetMessageInfo desc;
     InitMsgDesc(&desc);
-    desc.m_id = kMsgChat;
+    desc.m_ident = kMsgChat;
     desc.m_byteCount = static_cast<uint16_t>(std::strlen(packet.text) + 0x12); // color + name + text + '\0'
-    desc.m_data = &packet;
+    desc.m_content = &packet;
     desc.m_queue = NetMessageInfo::kQueueSequenced;
     desc.m_groupId = 8;
     // NOT ORIGINAL - THUGPRO's layout in the THUGPRO peer mode (thugpro_peer.h): our machine id first, the text cut
@@ -148,8 +148,8 @@ void Send(Manager* manager, const char* name, uint8_t color, const char* text)
     if (Thugpro::PeerMode()) {
         desc.m_byteCount = static_cast<uint16_t>(
             Thugpro::EncodeChat(&thugpro, Thugpro::MachineId(), color, packet.name, packet.text));
-        desc.m_data = &thugpro;
-        Copy(packet.text, sizeof(packet.text), thugpro.text); // (what was sent, shown below)
+        desc.m_content = &thugpro;
+        DupFrom(packet.text, sizeof(packet.text), thugpro.text); // (what was sent, shown below)
     }
     SendToServer(manager, &desc);
 
@@ -161,7 +161,7 @@ void Send(Manager* manager, const char* name, uint8_t color, const char* text)
 
 } // namespace
 
-Manager* GetManager() { return g_gameNetManager; }
+Hub* FetchHub() { return g_gameNetManager; }
 
 namespace {
 
@@ -196,7 +196,7 @@ int BoundedLength(const char* text, const char* end)
 
 } // namespace
 
-// 0x00532050 (OnlinePlay::Manager's chat handler, message 76; its data: none)
+// 0x00532050 (OnlinePlay::Hub's chat handler, message 76; its data: none)
 int __cdecl HandleChat(NetLink::InboundMsgCtx* context)
 {
     const char* message = context->m_body;
@@ -217,30 +217,30 @@ int __cdecl HandleChat(NetLink::InboundMsgCtx* context)
                       BoundedLength(name, end), name, BoundedLength(text, end), text);
     }
     ScriptStruct* params = NewScriptStruct();
-    AddString(params, kText, line);
+    AppendWord(params, kText, line);
     LaunchScript(kShowChatScript, params);
     DeleteScriptStruct(params);
     return 1;
 }
 
-// 0x00537BD0 (OnlinePlay::Manager::SendChatMessage)
-void SendChatMessage(Manager* manager, const char* text)
+// 0x00537BD0 (OnlinePlay::Hub::SendChatMessage)
+void SendChatMessage(Hub* manager, const char* text)
 {
     if (*text == '\0')
         return;
     PlayerRecord* player = LocalPlayer(manager);
     uint8_t color = IsObserver(player) ? kObserverColor : TeamColor(player);
-    Send(manager, PlayerName(player), color, text);
+    PostOut(manager, PlayerName(player), color, text);
 }
 
-void SendNamedChatMessage(Manager* manager, const char* name, const char* text)
+void SendNamedChatMessage(Hub* manager, const char* name, const char* text)
 {
     if (*text == '\0')
         return;
-    Send(manager, name, kServerColor, text);
+    PostOut(manager, name, kServerColor, text);
 }
 
-bool HandleChatCommand(Manager* manager, const char* text)
+bool HandleChatCommand(Hub* manager, const char* text)
 {
     if (text[0] != '/')
         return false;
@@ -265,8 +265,8 @@ bool HandleChatCommand(Manager* manager, const char* text)
         Log("where: level %u", level);
         auto* skater = reinterpret_cast<GameModules::Skate*>(reinterpret_cast<void*>(GameModules::g_skateModule))->GetHomeRider(); // the skate module's local skater
         if (skater) {
-            const Maths::Vector& p = skater->m_pos;
-            const Maths::Matrix& m = skater->m_basisFrame;
+            const Maths::Vec4& p = skater->m_atPoint;
+            const Maths::Mat4& m = skater->m_basisFrame;
             Log("where: skater pos %.3f %.3f %.3f", p.x, p.y, p.z);
             for (int row = 0; row < 3; ++row)
                 Log("where: skater matrix row %d %.6f %.6f %.6f", row, m.row[row].x, m.row[row].y, m.row[row].z);
@@ -280,7 +280,7 @@ bool HandleChatCommand(Manager* manager, const char* text)
         char line[128];
         if (skater)
             std::snprintf(line, sizeof(line), "\\c4where:\\c0 level %u at %.0f %.0f %.0f - saved to the log", level,
-                          skater->m_pos.x, skater->m_pos.y, skater->m_pos.z);
+                          skater->m_atPoint.x, skater->m_atPoint.y, skater->m_atPoint.z);
         else
             std::snprintf(line, sizeof(line), "\\c4where:\\c0 level %u (no skater) - saved to the log", level);
         ShowLocalChatLine(line);
@@ -301,7 +301,7 @@ void __cdecl KeyboardTask(void* /*task*/)
         // never freed: the original leaks them, 8 bytes a time.)
         Scripts::CStruct* params = Scripts::NewStruct();
         if (params)
-            params = params->Init();
+            params = params->PrepareAll();
         params->PutNameKey(kId, 0x31631B98);
         if (ObjectExists(params))
             return;
@@ -336,7 +336,7 @@ void __cdecl KeyboardTask(void* /*task*/)
         return;
     Scripts::CStruct* params = Scripts::NewStruct();
     if (params)
-        params = params->Init();
+        params = params->PrepareAll();
     params->PutNameKey(kTauntName, taunt);
     RunScriptWith(kTauntScript, params);
     if (params) {
@@ -358,11 +358,11 @@ constexpr uint32_t kChatTextParam = 0x61414D56; // the chat line's parameter nam
 bool __cdecl CFunc_SendChatMessage(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     const char* text = nullptr;
-    Scripts::GetString(params, kChatTextParam, &text);
+    Scripts::FetchText(params, kChatTextParam, &text);
     if (!text)
         return false;
     if (std::strlen(text) != 0 && _stricmp(text, "--EMPTY--") != 0) {
-        OnlinePlay::Manager* manager = OnlinePlay::GetManager();
+        OnlinePlay::Hub* manager = OnlinePlay::FetchHub();
         if (!OnlinePlay::HandleChatCommand(manager, text))
             OnlinePlay::SendChatMessage(manager, text);
     }
@@ -374,7 +374,7 @@ namespace {
 struct ManagerAdapter {
     void SendChatMessage(const char* text)
     {
-        OnlinePlay::SendChatMessage(reinterpret_cast<OnlinePlay::Manager*>(this), text);
+        OnlinePlay::SendChatMessage(reinterpret_cast<OnlinePlay::Hub*>(this), text);
     }
 };
 

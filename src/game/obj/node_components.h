@@ -30,11 +30,11 @@ public:
     static constexpr uint32_t kType = 0xC472ECC5;
 
     // 0x00428010 (registered with the component types): a new one (MemSys::AllocZeroed; the constructor inlined).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00427EA0: the destructor body (its vtable, then the base's - the node array stays the asset manager's).
     void DestroyBody();
     // 0x00427EF0 (vtable slot 0): the scalar deleting destructor.
-    CWaypointListModule* Destroy(unsigned int flags);
+    CWaypointListModule* Teardown(unsigned int flags);
     // 0x00427F20 (slot 2): with a `model` (a string), the node array models\<model> - its extension (from the first
     // dot) made .qb, or .qb added - loaded or found by the asset manager.
     void ConfigureFromData(Scripts::CStruct* params);
@@ -54,11 +54,11 @@ public:
     static constexpr uint32_t kType = 0x27443708;
 
     // 0x00428130 (registered with the component types): a new one (MemSys::AllocZeroed; the constructor inlined).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x004281B0: the destructor body: the hook list cleared and freed, then the base's.
     void DestroyBody();
     // 0x00428220 (vtable slot 0): the scalar deleting destructor.
-    CHookPointRegistryModule* Destroy(unsigned int flags);
+    CHookPointRegistryModule* Teardown(unsigned int flags);
     // 0x00428090 (slot 2): a new hook list (the old one cleared and freed) from the object's node array component's
     // nodes (no node array component: a crash).
     void ConfigureFromData(Scripts::CStruct* params);
@@ -77,17 +77,17 @@ public:
     static constexpr uint32_t kType = 0x1CDFB2A3;
 
     // 0x0042B920 (registered with the component types): a new one (MemSys::AllocZeroed; the constructor inlined).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0042B9A0: the destructor body: the rail manager cleaned up and freed, then the base's.
     void DestroyBody();
     // 0x0042BA90 (vtable slot 0): the scalar deleting destructor.
-    CGrindPathLinkModule* Destroy(unsigned int flags);
+    CGrindPathLinkModule* Teardown(unsigned int flags);
     // 0x0042B880 (slot 2): a new rail manager (the old one cleaned up and freed) with the rails of the object's node
     // array component's nodes (none: a crash).
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x0042BA10: the object's placement (its orientation without the rows' w, at its position) given to the rail
     // manager and copied to `out`; returns `out`.
-    Maths::Matrix* UpdateRailMatrix(Maths::Matrix* out);
+    Maths::Mat4* UpdateRailMatrix(Maths::Mat4* out);
 
     CGrindRailHub* m_railGroups; // +0x18 (0x54 bytes)
 };

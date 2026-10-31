@@ -33,12 +33,12 @@ int& s_faceBufferSize = g_faceBufferSize;
 // The compiler's float-to-integer conversion (_ftol: toward zero, the low 32 bits of the 64-bit result).
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-float Component(const Maths::Vector* v, int axis) { return (&v->x)[axis]; }
+float Component(const Maths::Vec4* v, int axis) { return (&v->x)[axis]; }
 
 } // namespace
 
 // 0x0040B230
-Maths::Vector CTriMeshSource::ReadStoredVertex(int index) const
+Maths::Vec4 CTriMeshSource::ReadStoredVertex(int index) const
 {
     if (m_compressed) {
         const uint16_t* v = static_cast<const uint16_t*>(m_vertices) + 3 * index;
@@ -49,7 +49,7 @@ Maths::Vector CTriMeshSource::ReadStoredVertex(int index) const
 }
 
 // 0x0040B2D0 (the uncompressed vertex copied as raw words)
-void CTriMeshSource::ReadStoredVertex(int index, Maths::Vector* out) const
+void CTriMeshSource::ReadStoredVertex(int index, Maths::Vec4* out) const
 {
     if (m_compressed) {
         const uint16_t* v = static_cast<const uint16_t*>(m_vertices) + 3 * index;
@@ -64,7 +64,7 @@ void CTriMeshSource::ReadStoredVertex(int index, Maths::Vector* out) const
 }
 
 // 0x00414EE0 (x's offset isn't rounded to a float before it's scaled; y's and z's are)
-void CTriMeshSource::WriteStoredVertex(int index, const Maths::Vector* position)
+void CTriMeshSource::WriteStoredVertex(int index, const Maths::Vec4* position)
 {
     if (m_compressed) {
         double x = static_cast<double>(position->x) - m_lowerLimit.x;
@@ -80,30 +80,30 @@ void CTriMeshSource::WriteStoredVertex(int index, const Maths::Vector* position)
 }
 
 // 0x00414F90
-void CTriMeshSource::GetStoredVertexArray(Maths::Vector* out) const
+void CTriMeshSource::GetStoredVertexArray(Maths::Vec4* out) const
 {
     for (int i = 0; i < m_numVertices; ++i)
         out[i] = ReadStoredVertex(i);
 }
 
 // 0x00415C10
-void CTriMeshSource::ChooseRawVerts(const Maths::Vector* positions)
+void CTriMeshSource::ChooseRawVerts(const Maths::Vec4* positions)
 {
     auto* box = reinterpret_cast<Maths::BBox*>(&m_lowerLimit);
     box->min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     box->max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
     for (int i = 0; i < m_numVertices; ++i)
-        box->AddPoint(positions[i]);
+        box->AppendSpot(positions[i]);
     for (int i = 0; i < m_numVertices; ++i)
         WriteStoredVertex(i, &positions[i]);
 }
 
 // 0x00414D80 (one of the edge's z kept unrounded for the normal's x, as the original's x87 code does)
-Maths::Vector CTriMeshSource::GetTriangleNormal(int face) const
+Maths::Vec4 CTriMeshSource::GetTriangleNormal(int face) const
 {
-    Maths::Vector v0 = ReadStoredVertex(FaceVertex(face, 0));
-    Maths::Vector v1 = ReadStoredVertex(FaceVertex(face, 1));
-    Maths::Vector v2 = ReadStoredVertex(FaceVertex(face, 2));
+    Maths::Vec4 v0 = ReadStoredVertex(FaceVertex(face, 0));
+    Maths::Vec4 v1 = ReadStoredVertex(FaceVertex(face, 1));
+    Maths::Vec4 v2 = ReadStoredVertex(FaceVertex(face, 2));
     float ax = static_cast<float>(static_cast<double>(v1.x) - v0.x);
     float ay = static_cast<float>(static_cast<double>(v1.y) - v0.y);
     float az = static_cast<float>(static_cast<double>(v1.z) - v0.z);
@@ -132,25 +132,25 @@ CTriMeshSource* CTriMeshSource::CopyFrom(const CTriMeshSource* other)
 }
 
 // 0x00416BF0 (a failed allocation of the copy itself crashes, as in the original; so does a missing tree)
-CTriMeshSource* CTriMeshSource::Clone(int bspArgument, bool needVertices) const
+CTriMeshSource* CTriMeshSource::Replicate(int bspArgument, bool needVertices) const
 {
     if (needVertices && m_numVertices == 0)
         return nullptr;
-    void* memory = MemSys::New(sizeof(CTriMeshSource));
+    void* memory = MemSys::Alloc(sizeof(CTriMeshSource));
     CTriMeshSource* copy = memory ? static_cast<CTriMeshSource*>(memory)->CopyFrom(this) : nullptr;
     uint32_t vertexSize = m_numVertices * (m_compressed ? 6u : 12u);
-    copy->m_vertices = MemSys::New(vertexSize);
+    copy->m_vertices = MemSys::Alloc(vertexSize);
     uint32_t faceSize = m_numFaces * (m_smallFaces ? 8u : 10u);
-    copy->m_faces = static_cast<uint8_t*>(MemSys::New(faceSize));
+    copy->m_faces = static_cast<uint8_t*>(MemSys::Alloc(faceSize));
     if (!copy->m_vertices || !copy->m_faces)
         return nullptr;
     std::memcpy(copy->m_vertices, m_vertices, vertexSize);
     std::memcpy(copy->m_faces, m_faces, faceSize);
     if (m_vertexBytes) {
-        copy->m_vertexBytes = static_cast<uint8_t*>(MemSys::New(m_numVertices));
+        copy->m_vertexBytes = static_cast<uint8_t*>(MemSys::Alloc(m_numVertices));
         std::memcpy(copy->m_vertexBytes, m_vertexBytes, m_numVertices);
     }
-    copy->m_bsp = m_bsp->Clone(bspArgument);
+    copy->m_bsp = m_bsp->Replicate(bspArgument);
     return copy;
 }
 
@@ -158,11 +158,11 @@ CTriMeshSource* CTriMeshSource::Clone(int bspArgument, bool needVertices) const
 void CTriMeshSource::Destruct()
 {
     if (m_vertices)
-        MemSys::Manager::Get()->Free(m_vertices);
+        MemSys::Hub::Pull()->Dealloc(m_vertices);
     if (m_vertexBytes)
-        MemSys::Manager::Get()->Free(m_vertexBytes);
+        MemSys::Hub::Pull()->Dealloc(m_vertexBytes);
     if (m_faces)
-        MemSys::Manager::Get()->Free(m_faces);
+        MemSys::Hub::Pull()->Dealloc(m_faces);
     DeleteBSP();
 }
 
@@ -172,9 +172,9 @@ bool CTriMeshSource::DeleteBSP()
     if (!m_bsp)
         return false;
     if (uint16_t* faces = m_bsp->FirstFaceList())
-        MemSys::Manager::Get()->Free(faces);
+        MemSys::Hub::Pull()->Dealloc(faces);
     if (m_bsp)
-        MemSys::Manager::Get()->Free(reinterpret_cast<uint8_t*>(m_bsp) - 4);
+        MemSys::Hub::Pull()->Dealloc(reinterpret_cast<uint8_t*>(m_bsp) - 4);
     m_bsp = nullptr;
     return true;
 }
@@ -192,10 +192,10 @@ bool CTriMeshSource::Relocate(uint32_t, uint32_t vertexBase, uint32_t vertexByte
 }
 
 // 0x00416400
-void CTriMeshSource::Translate(const Maths::Vector* delta)
+void CTriMeshSource::Slide(const Maths::Vec4* delta)
 {
     if (m_bsp)
-        m_bsp->Translate(delta);
+        m_bsp->Slide(delta);
     if (!m_compressed) {
         float* v = static_cast<float*>(m_vertices);
         for (int i = 0; i < m_numVertices; ++i, v += 3) {
@@ -204,30 +204,30 @@ void CTriMeshSource::Translate(const Maths::Vector* delta)
             v[2] = static_cast<float>(static_cast<double>(delta->z) + v[2]);
         }
     }
-    auto moved = [delta](const Maths::Vector& p) {
-        return Maths::Vector{static_cast<float>(static_cast<double>(p.x) + delta->x),
+    auto moved = [delta](const Maths::Vec4& p) {
+        return Maths::Vec4{static_cast<float>(static_cast<double>(p.x) + delta->x),
                            static_cast<float>(static_cast<double>(p.y) + delta->y),
                            static_cast<float>(static_cast<double>(p.z) + delta->z),
                            static_cast<float>(static_cast<double>(p.w) + delta->w)};
     };
-    Maths::Vector min = moved(m_lowerLimit);
-    Maths::Vector max = moved(m_upperLimit);
+    Maths::Vec4 min = moved(m_lowerLimit);
+    Maths::Vec4 max = moved(m_upperLimit);
     m_lowerLimit = min;
     m_upperLimit = max;
 }
 
 // 0x004164F0 (a failed allocation of the temporary array crashes - the vertices are read into null - as in the
 // original; the array's element constructor, 0x005902E0, does nothing)
-void CTriMeshSource::RotateY(const Maths::Vector* centre, int quarterTurns)
+void CTriMeshSource::RotateY(const Maths::Vec4* centre, int quarterTurns)
 {
-    Maths::Vector back{-centre->x, -centre->y, -centre->z, -centre->w};
-    Translate(&back);
+    Maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
+    Slide(&back);
     if (m_bsp)
         m_bsp->RotateY(centre, quarterTurns, false);
-    Maths::Vector* positions = nullptr;
+    Maths::Vec4* positions = nullptr;
     if (m_compressed) {
         MemSys::EnterHeapScope(MemSys::TopDownHeap());
-        positions = static_cast<Maths::Vector*>(MemSys::New(m_numVertices * sizeof(Maths::Vector)));
+        positions = static_cast<Maths::Vec4*>(MemSys::Alloc(m_numVertices * sizeof(Maths::Vec4)));
         MemSys::LeaveHeapScope();
         GetStoredVertexArray(positions);
     }
@@ -236,7 +236,7 @@ void CTriMeshSource::RotateY(const Maths::Vector* centre, int quarterTurns)
             positions[i].TurnQuarterAboutY(quarterTurns);
             continue;
         }
-        Maths::Vector v;
+        Maths::Vec4 v;
         ReadStoredVertex(i, &v);
         v.TurnQuarterAboutY(quarterTurns);
         float* stored = static_cast<float*>(m_vertices) + 3 * i;
@@ -244,35 +244,35 @@ void CTriMeshSource::RotateY(const Maths::Vector* centre, int quarterTurns)
         stored[1] = v.y;
         stored[2] = v.z;
     }
-    Maths::Vector min = m_lowerLimit;
-    Maths::Vector max = m_upperLimit;
+    Maths::Vec4 min = m_lowerLimit;
+    Maths::Vec4 max = m_upperLimit;
     min.TurnQuarterAboutY(quarterTurns);
     max.TurnQuarterAboutY(quarterTurns);
     auto* box = reinterpret_cast<Maths::BBox*>(&m_lowerLimit);
     box->min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     box->max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
-    box->AddPoint(min);
-    box->AddPoint(max);
+    box->AppendSpot(min);
+    box->AppendSpot(max);
     if (positions) {
         for (int i = 0; i < m_numVertices; ++i)
             WriteStoredVertex(i, &positions[i]);
-        MemSys::Manager::Get()->Free(positions);
+        MemSys::Hub::Pull()->Dealloc(positions);
     }
-    Translate(centre);
+    Slide(centre);
     m_unknown3C = 0;
 }
 
 // 0x00416730 (a failed allocation crashes, as in RotateY)
-void CTriMeshSource::Scale(const Maths::Vector* centre, const Maths::Vector* scale)
+void CTriMeshSource::StretchBy(const Maths::Vec4* centre, const Maths::Vec4* scale)
 {
-    Maths::Vector back{-centre->x, -centre->y, -centre->z, -centre->w};
-    Translate(&back);
+    Maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
+    Slide(&back);
     if (m_bsp)
-        m_bsp->Scale(centre, scale, false);
-    Maths::Vector* positions = nullptr;
+        m_bsp->StretchBy(centre, scale, false);
+    Maths::Vec4* positions = nullptr;
     if (m_compressed) {
         MemSys::EnterHeapScope(MemSys::TopDownHeap());
-        positions = static_cast<Maths::Vector*>(MemSys::New(m_numVertices * sizeof(Maths::Vector)));
+        positions = static_cast<Maths::Vec4*>(MemSys::Alloc(m_numVertices * sizeof(Maths::Vec4)));
         MemSys::LeaveHeapScope();
         GetStoredVertexArray(positions);
     }
@@ -287,9 +287,9 @@ void CTriMeshSource::Scale(const Maths::Vector* centre, const Maths::Vector* sca
     if (positions) {
         for (int i = 0; i < m_numVertices; ++i)
             WriteStoredVertex(i, &positions[i]);
-        MemSys::Manager::Get()->Free(positions);
+        MemSys::Hub::Pull()->Dealloc(positions);
     }
-    Translate(centre);
+    Slide(centre);
     m_unknown3C = 0;
 }
 
@@ -309,7 +309,7 @@ bool CTriMeshSource::SetUpAllFaces()
 void CTriMeshSource::AddOcclusionPolys()
 {
     constexpr float kSameDirection = 0.05f;
-    Maths::Vector points[4];
+    Maths::Vec4 points[4];
     for (int i = 0; i < m_numFaces - 1; ++i) {
         for (int j = i + 1; j < m_numFaces; ++j) {
             // the corners shared: shared[k] is face i's corner k if face j has it, other[m] face j's corner m if
@@ -331,9 +331,9 @@ void CTriMeshSource::AddOcclusionPolys()
             if (matches != 2)
                 continue;
             // both normals ((v1 - v0) x (v2 - v0)), rounded where the original's x87 code stores them
-            Maths::Vector a = ReadStoredVertex(FaceVertex(i, 0));
-            Maths::Vector b = ReadStoredVertex(FaceVertex(i, 1));
-            Maths::Vector c = ReadStoredVertex(FaceVertex(i, 2));
+            Maths::Vec4 a = ReadStoredVertex(FaceVertex(i, 0));
+            Maths::Vec4 b = ReadStoredVertex(FaceVertex(i, 1));
+            Maths::Vec4 c = ReadStoredVertex(FaceVertex(i, 2));
             double cx = static_cast<double>(c.x) - a.x;
             double cy = static_cast<double>(c.y) - a.y;
             double cz = static_cast<double>(c.z) - a.z;
@@ -343,9 +343,9 @@ void CTriMeshSource::AddOcclusionPolys()
             float n1x = static_cast<float>(by * cz - bz * cy);
             float n1y = static_cast<float>(bz * cx - cz * bx);
             float n1z = static_cast<float>(cy * bx - by * cx);
-            Maths::Vector a2 = ReadStoredVertex(FaceVertex(j, 0));
-            Maths::Vector b2 = ReadStoredVertex(FaceVertex(j, 1));
-            Maths::Vector c2 = ReadStoredVertex(FaceVertex(j, 2));
+            Maths::Vec4 a2 = ReadStoredVertex(FaceVertex(j, 0));
+            Maths::Vec4 b2 = ReadStoredVertex(FaceVertex(j, 1));
+            Maths::Vec4 c2 = ReadStoredVertex(FaceVertex(j, 2));
             points[0] = a2;
             points[1] = b2;
             points[2] = c2;
@@ -456,7 +456,7 @@ void CTriMeshSource::GatherFaces(const CHitTreeNode* node, const Maths::BBox* bo
 }
 
 // 0x004163B0
-bool CTriMeshSource::IsPointBehindFaces(const Maths::Vector* point, int unused)
+bool CTriMeshSource::IsPointBehindFaces(const Maths::Vec4* point, int unused)
 {
     if (!m_bsp)
         return false;
@@ -468,7 +468,7 @@ bool CTriMeshSource::IsPointBehindFaces(const Maths::Vector* point, int unused)
 
 // 0x004161D0 (a point at or above a split ends the walk; in a leaf, the count stops at the first face the point
 // is in front of)
-bool CTriMeshSource::CountFacesBehind(const CHitTreeNode* node, const Maths::Vector* point, int unused)
+bool CTriMeshSource::CountFacesBehind(const CHitTreeNode* node, const Maths::Vec4* point, int unused)
 {
     if (!node->IsEndNode()) {
         if (!(node->Split() * static_cast<double>(kSixteenth) > Component(point, node->Axis())))
@@ -478,8 +478,8 @@ bool CTriMeshSource::CountFacesBehind(const CHitTreeNode* node, const Maths::Vec
     uint32_t n = node->LeafFaceCount();
     for (uint32_t i = 0; i < n; ++i) {
         int face = node->LeafFaces()[i];
-        Maths::Vector normal = GetTriangleNormal(face);
-        Maths::Vector corner = ReadStoredVertex(FaceVertex(node->LeafFaces()[i], 0));
+        Maths::Vec4 normal = GetTriangleNormal(face);
+        Maths::Vec4 corner = ReadStoredVertex(FaceVertex(node->LeafFaces()[i], 0));
         float dx = static_cast<float>(static_cast<double>(point->x) - corner.x);
         double dy = static_cast<double>(point->y) - corner.y;
         double dz = static_cast<double>(point->z) - corner.z;
@@ -492,7 +492,7 @@ bool CTriMeshSource::CountFacesBehind(const CHitTreeNode* node, const Maths::Vec
 }
 
 // 0x00414D70
-CHitTreeNode* CHitTreeNode::Construct()
+CHitTreeNode* CHitTreeNode::MakeNew()
 {
     m_axisTag = 0;
     m_chainLink = 0;
@@ -528,23 +528,23 @@ uint16_t* CHitTreeNode::FirstFaceList() const
 }
 
 // 0x00415D80
-void CHitTreeNode::Translate(const Maths::Vector* delta)
+void CHitTreeNode::Slide(const Maths::Vec4* delta)
 {
     CHitTreeNode* node = this;
     while (!node->IsEndNode()) {
         double at = node->Split() * static_cast<double>(kSixteenth) + Component(delta, node->Axis());
         node->SetSplit(Truncate(at * kSixteen));
-        node->LessChild()->Translate(delta);
+        node->LessChild()->Slide(delta);
         node = node->GreaterChild();
     }
 }
 
 // 0x00415E00
-void CHitTreeNode::RotateY(const Maths::Vector* centre, int quarterTurns, bool moveToCentre)
+void CHitTreeNode::RotateY(const Maths::Vec4* centre, int quarterTurns, bool moveToCentre)
 {
     if (moveToCentre) {
-        Maths::Vector back{-centre->x, -centre->y, -centre->z, -centre->w};
-        Translate(&back);
+        Maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
+        Slide(&back);
     }
     if (!IsEndNode()) {
         int axis = Axis();
@@ -576,24 +576,24 @@ void CHitTreeNode::RotateY(const Maths::Vector* centre, int quarterTurns, bool m
         GreaterChild()->RotateY(centre, quarterTurns, false);
     }
     if (moveToCentre)
-        Translate(centre);
+        Slide(centre);
 }
 
 // 0x00415F30
-void CHitTreeNode::Scale(const Maths::Vector* centre, const Maths::Vector* scale, bool moveToCentre)
+void CHitTreeNode::StretchBy(const Maths::Vec4* centre, const Maths::Vec4* scale, bool moveToCentre)
 {
     if (moveToCentre) {
-        Maths::Vector back{-centre->x, -centre->y, -centre->z, -centre->w};
-        Translate(&back);
+        Maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
+        Slide(&back);
     }
     if (!IsEndNode()) {
         double at = static_cast<double>(Split()) * Component(scale, Axis()) * kSixteenth;
         SetSplit(Truncate(at * kSixteen));
-        LessChild()->Scale(centre, scale, false);
-        GreaterChild()->Scale(centre, scale, false);
+        LessChild()->StretchBy(centre, scale, false);
+        GreaterChild()->StretchBy(centre, scale, false);
     }
     if (moveToCentre)
-        Translate(centre);
+        Slide(centre);
 }
 
 // 0x00416000
@@ -610,7 +610,7 @@ bool CHitTreeNode::Relocate(CHitTreeNode* node, uint32_t nodeBase, uint32_t face
 }
 
 // 0x00416A10 (a failed allocation crashes, as in the original)
-CHitTreeNode* CHitTreeNode::Clone(int) const
+CHitTreeNode* CHitTreeNode::Replicate(int) const
 {
     int nodes = TallyNodes();
     int faces = CountFaces();
@@ -618,15 +618,15 @@ CHitTreeNode* CHitTreeNode::Clone(int) const
         return nullptr;
     uint16_t* oldFaces = FirstFaceList();
     // new CHitTreeNode[nodes]: the count, then the nodes
-    auto* memory = static_cast<uint32_t*>(MemSys::New(nodes * 8 + 4));
+    auto* memory = static_cast<uint32_t*>(MemSys::Alloc(nodes * 8 + 4));
     CHitTreeNode* copy = nullptr;
     if (memory) {
         *memory = nodes;
         copy = reinterpret_cast<CHitTreeNode*>(memory + 1);
         for (int i = 0; i < nodes; ++i)
-            copy[i].Construct();
+            copy[i].MakeNew();
     }
-    auto* newFaces = static_cast<uint16_t*>(MemSys::New(faces * 2));
+    auto* newFaces = static_cast<uint16_t*>(MemSys::Alloc(faces * 2));
     std::memcpy(copy, this, nodes * 8);
     std::memcpy(newFaces, oldFaces, faces * 2);
     uint32_t nodeDelta = reinterpret_cast<uint32_t>(copy) - reinterpret_cast<uint32_t>(this);

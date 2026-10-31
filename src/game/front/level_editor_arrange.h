@@ -118,12 +118,12 @@ struct Settings {
     bool clickPlaces = true;   // a click in the view places the Add palette's piece
     bool ghostSlope = false;   // the ghost (and the object placed) turned to the surface's slope
 };
-Settings& Current();
+Settings& AtHand();
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // Align / distribute the selection now (the settings' axis, edge, reference, space). False: nothing to do (said).
-bool Align(int axis, Edge edge, Reference reference, bool local);
+bool Justify(int axis, Edge edge, Reference reference, bool local);
 bool Distribute(int axis, bool gaps, bool local);
 // Replace the selection with the Add palette's highlighted piece / object. False: refused (said).
 bool Replace();
@@ -139,12 +139,12 @@ bool EdgeClick(float x, float y);
 // Shift - the palette stays open). False: not taken.
 bool PlaceClick(bool more);
 // Once a frame while the editor runs (after the editor's keys): the keys M, Alt+R, Ctrl+Alt+D handled by the editor.
-void Update();
+void TickFrame();
 // What's drawn over the view: the ghost, the readout, the edges met by snapping, the top outline.
-void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
+void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
                 Ui::Overlay* overlay);
 // The UI (level_editor_arrange_ui.cpp): the window, and the Add palette's extra row (Replace, Click places).
-void Window(float uiScale);
+void Pane(float uiScale);
 void BrowserExtras(float uiScale);
 // What the window's buttons asked for, done (Update calls it).
 void RunQueued();

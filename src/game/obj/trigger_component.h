@@ -32,24 +32,24 @@ public:
 
     // 0x00434B90 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the
     // base's constructor, its vtable and type; the rest zero (a cleared allocation).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00434900: the destructor body (the base's).
     void DestroyBody();
     // 0x00434910 (vtable slot 0)
-    CActivationZoneModule* Destroy(unsigned int flags);
+    CActivationZoneModule* Teardown(unsigned int flags);
     // 0x00434940 (vtable slot 2): where the object is now (where the next update feels from).
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x00434D90 (vtable slot 1): if the object has moved since the last update - and wasn't teleported - a feeler
     // from where it was to where it is (faces flagged 0x50 only, movable objects too) with FeelerHit as its callback
     // for each face it crosses; then where it is now kept.
-    void Update();
+    void TickFrame();
     // 0x00434970 (vtable slot 12): TriggerType [0x3A717382]: whether the last trigger's events include all of
     // those in the parameters' unnamed integer array - or of any one of the arrays in an unnamed array of arrays
     // (a negative event is no event). 1 if so; 0 if not, or for an array of anything else; 2 for other names.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     // 0x00434A60: the trigger of the node named `name` (a face's collision object): the node is the one named so -
-    // looked up in the node manager (GetNode) when `nodes` is null, else searched for in `nodes` from its end - its
+    // looked up in the node manager (FetchVertex) when `nodes` is null, else searched for in `nodes` from its end - its
     // TriggerScript run on the object (StartScriptTask, with its NetEnabled / Permanent flags, the node's name and
     // the parameters structure 0x5180A4DB of the node named by `other` +0x14 when there is one), the events recorded
     // (+0x28: a bit for each of the three in `events` that isn't 0). False when there's no node (ours - see the .cpp),
@@ -68,7 +68,7 @@ public:
     // (0x0064663C) on the component it carries (+0xA8).
     static bool __cdecl FeelerHit(Engine3D::CProbeRay* feeler);
 
-    Maths::Vector m_lastPos; // +0x18 where the object was at the last update
+    Maths::Vec4 m_lastPos; // +0x18 where the object was at the last update
     uint32_t m_events;     // +0x28 the last trigger's events (a bit for each)
 };
 static_assert(offsetof(CActivationZoneModule, m_lastPos) == 0x18 && offsetof(CActivationZoneModule, m_events) == 0x28 &&

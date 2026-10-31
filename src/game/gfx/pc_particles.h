@@ -28,7 +28,7 @@ static_assert(sizeof(sParticleBurst) == 0x1C, "layout must match the original");
 
 // A quadratic in a particle's age t, per component: a + b t + c t^2.
 struct sParticleCurve {
-    Maths::Vector a, b, c;
+    Maths::Vec4 a, b, c;
 };
 
 // The PC particle system (0x28C bytes, vtable 0x0064A4F0; the engine's particle system - constructor 0x00496360,
@@ -44,8 +44,8 @@ struct CPcParticleSystem {
     float lifetime;          // +0x30: seconds
     float midPercent;        // +0x34: when the mid is, a percentage of the lifetime
     uint8_t params38[0x60];
-    Maths::Vector positions[3]; // +0x098: start, mid, end
-    Maths::Vector boxes[3];     // +0x0C8: the spread, start, mid, end
+    Maths::Vec4 positions[3]; // +0x098: start, mid, end
+    Maths::Vec4 boxes[3];     // +0x0C8: the spread, start, mid, end
     uint8_t params0F8[0x30];
     float colourMidPercent;  // +0x128: when the mid colour is, a percentage of the lifetime
     uint8_t colours[3][4];   // +0x12C: start, mid, end (RGBA)
@@ -60,7 +60,7 @@ struct CPcParticleSystem {
     uint8_t params158[3];
     bool cullOutside;        // +0x15B: culled by 0x004DB570 rather than 0x004DB790
     uint8_t engine15C[0x24];
-    Maths::Vector bounds;      // +0x180: the bounding sphere (centre, radius)
+    Maths::Vec4 bounds;      // +0x180: the bounding sphere (centre, radius)
     bool emitting;           // +0x190
     uint8_t unknown191[3];
     int capacity;            // +0x194: bursts (5)
@@ -68,7 +68,7 @@ struct CPcParticleSystem {
     sParticleBurst* bursts;  // +0x19C: a ring of `capacity`
     sParticleBurst* newest;  // +0x1A0
     sParticleBurst* oldest;  // +0x1A4
-    Maths::Matrix matrix;      // +0x1A8 (the identity)
+    Maths::Mat4 matrix;      // +0x1A8 (the identity)
     uint8_t unknown1E8[0x40];
     uint8_t* material;       // +0x228: its own (0x110 bytes)
     sParticleCurve spread;   // +0x22C: the boxes and radii through time
@@ -76,11 +76,11 @@ struct CPcParticleSystem {
 
     // 0x004BCE90 (the PC particle manager's virtual [1]; Ghidra's thiscall on the manager, which it doesn't use):
     // a new one (0x28C bytes).
-    static CPcParticleSystem* __fastcall Create(void* manager);
+    static CPcParticleSystem* __fastcall Fabricate(void* manager);
     // 0x004BCE80: the destructor's body (a jump to the engine's 0x00494DF0).
     void DestroyBody();
     // 0x004BCE50 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcParticleSystem* Destroy(unsigned int flags);
+    CPcParticleSystem* Teardown(unsigned int flags);
     // 0x004BC250 (virtual [1]): set up from the parameters: the rate three quarters of theirs, five bursts, its
     // material (blend mode, texture, alpha cut-off; colour half grey), the curves, the identity matrix.
     void Initialise();
@@ -92,7 +92,7 @@ struct CPcParticleSystem {
     // every particle drawn as a camera-facing quad through the dynamic vertex buffer (0x1000 a draw at most).
     void Render(bool advance);
     // 0x004BC240 (virtual [5]): the path made again when it moves with the object.
-    void Update();
+    void TickFrame();
     // 0x004BBD20 (Ghidra never made it: 0x004BC240's tail): the path from the positions and sizes (through the mid
     // when useMid), less 1.5 times the spread.
     void UpdatePath();
@@ -111,12 +111,12 @@ struct CPcParticleSystem {
     // 0x00494E40: its spawned scripts killed (0x00474040), then released (virtual [2]).
     void EngineRelease();
     // 0x00494E70 (not a Ghidra function): hidden or shown - the platform told (virtual [3]) when it changes.
-    void Hide(bool hide);
+    void Conceal(bool hide);
     // 0x00494E90 / 0x00494EA0: the rate and the lifetime set.
     void SetRate(float rate);
     void SetLifespan(float lifetime);
     // 0x00494EB0: size `which` (start, mid, end) set.
-    void SetSize(int which, float size);
+    void ChangeExtent(int which, float size);
     // 0x00494EC0 / 0x00494EE0 / 0x00494EF0: colour `which`, +0x38 and the colour mid percentage set - then the
     // platform told (virtual [6]).
     void ChangeColour(int which, const uint32_t* colour);

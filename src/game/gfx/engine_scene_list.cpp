@@ -83,7 +83,7 @@ void SceneFileName(char* out, size_t size, const char* name)
 } // namespace
 
 // 0x0048CC30
-CSceneListHead* CSceneListHead::Construct()
+CSceneListHead* CSceneListHead::MakeNew()
 {
     data = reinterpret_cast<void*>(-1);
     priority = 0;
@@ -94,11 +94,11 @@ CSceneListHead* CSceneListHead::Construct()
 }
 
 // 0x0048CC50
-CSceneListHead* CSceneListHead::Destroy(unsigned int flags)
+CSceneListHead* CSceneListHead::Teardown(unsigned int flags)
 {
     DestroyNodeBody(this);
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -191,12 +191,12 @@ CCollGrid* g_collisionGrids[16];
 CWorldScene* g_collisionScenes[16];
 
 // 0x0048C980
-CCollGrid** __cdecl GetCollGridsOnLine(const Maths::Line* line)
+CCollGrid** __cdecl GetCollGridsOnLine(const Maths::Seg* line)
 {
     auto* scenes = g_collisionScenes;
     auto* grids = g_collisionGrids;
     Maths::BBox box(line->start);
-    box.AddPoint(line->end);
+    box.AppendSpot(line->end);
     uint32_t count = 0;
     MemSys::ListNode* node = FirstNode();
     if (IsHead(node) || !node)
@@ -260,14 +260,14 @@ void __cdecl GetSceneDebugInfo(Scripts::CStruct* info)
     if (GetMainScene()) {
         Scripts::CStruct* main = Scripts::NewStruct();
         if (main)
-            main->Init();
+            main->PrepareAll();
         GetMainScene()->FetchDiagnostics(main);
         info->AppendStructRef(0x9B10525Cu, main);
     }
     if (GetSkyScene()) {
         Scripts::CStruct* sky = Scripts::NewStruct();
         if (sky)
-            sky->Init();
+            sky->PrepareAll();
         GetSkyScene()->FetchDiagnostics(sky);
         info->AppendStructRef(0x02C5EA34u, sky);
     }
@@ -341,7 +341,7 @@ bool __cdecl ReloadScene(const char* name)
 }
 
 namespace {
-static VtableSlot kHeadVtable_slots[] = {&Engine3D::CSceneListHead::Destroy};
+static VtableSlot kHeadVtable_slots[] = {&Engine3D::CSceneListHead::Teardown};
 void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
 } // namespace
 

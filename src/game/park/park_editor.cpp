@@ -39,7 +39,7 @@ CMapListNode* GetMetasWithin(CParkLayout* manager, SCellBox area) { return manag
 void UpdatePieces(void* generator) { static_cast<CParkAssembler*>(generator)->CleanUpOutRefs(); }
 void RebuildScene(void* generator) { static_cast<CParkAssembler*>(generator)->RebuildCollision(); }
 // The engine's scene (0x004F4970).
-ParkEditing::CRailAuthoring* Engine() { return ParkEditing::CRailAuthoring::Instance(); }
+ParkEditing::CRailAuthoring* Engine() { return ParkEditing::CRailAuthoring::Sole(); }
 
 // A meta piece of a list node (0x005480C0: the node's +4; then the concrete piece - the same pointer).
 void* NodeMeta(CMapListNode* node)
@@ -47,7 +47,7 @@ void* NodeMeta(CMapListNode* node)
     void* meta = node->GetPieceGroup();
     return static_cast<CPieceGroup*>(meta)->Cast();
 }
-void FreeNodeChain(CCellChainScratch& temp) { temp.Destroy(); }
+void FreeNodeChain(CCellChainScratch& temp) { temp.Teardown(); }
 
 } // namespace
 
@@ -90,7 +90,7 @@ void CParkLayout::RebuildPark(uint32_t how)
     if (how == kNewPark)
         Flags() |= 1;
     SceneUpdates() = false;
-    Engine()->Rebuild();
+    Engine()->Reassemble();
     SceneUpdates() = true;
     RebuildScene(Generator());
 }
@@ -104,7 +104,7 @@ bool CParkLayout::RebuildArea(const SCellBox* area, bool checkMemory)
     MemoryStats stats;
     GetMemoryStats(&stats);
     // The park editor's singleton (a reference taken and dropped): is the park over its budget?
-    bool full = CParkBuilderMode::Create(false)->IsParkFull() != 0;
+    bool full = CParkBuilderMode::Fabricate(false)->IsParkFull() != 0;
     CParkBuilderMode::Release();
     return !full;
 }
@@ -129,8 +129,8 @@ bool CParkLayout::DestroyMetasInAreaAndRebuild(SCellBox area, bool skipRestarts,
             destroyed = true;
         }
         // The area's corner and size in the world (0x00595A90), and the scene updated over it.
-        Maths::Vector size; // (x, y and z written)
-        Maths::Vector corner = Instance()->CellToWorldPos(area, &size);
+        Maths::Vec4 size; // (x, y and z written)
+        Maths::Vec4 corner = Sole()->CellToWorldPos(area, &size);
         float x0 = corner.x;
         float z0 = corner.z;
         float z1 = static_cast<float>(static_cast<double>(size.z) + z0);
@@ -190,24 +190,24 @@ bool CParkLayout::RaiseOrLowerFloor(SCellBox area, int dir)
 }
 
 // 0x0059C900
-void __cdecl CBuildPointer::Destroy()
+void __cdecl CBuildPointer::Teardown()
 {
-    CBuildPointer* cursor = Instance();
+    CBuildPointer* cursor = Sole();
     if (!cursor)
         return;
     if (cursor->Meta()) {
         MetaFlags(cursor->Meta()) &= ~kMetaInCursor;
-        CallDestroyConcreteMeta(cursor->Manager(), cursor->Meta(), 0);
+        CallDestroyConcreteMeta(cursor->Hub(), cursor->Meta(), 0);
     }
     cursor->DestroyClipboards(); // ~CBuildPointer
-    MemSys::Manager::Get()->Free(cursor);
-    Instance() = nullptr;
+    MemSys::Hub::Pull()->Dealloc(cursor);
+    Sole() = nullptr;
 }
 
 // 0x0059C950
 void CBuildPointer::StepPieceChoice(int dir)
 {
-    PieceSet* set = Manager()->GetPieceFamily(SetIndex(), &MenuSetNumber());
+    PieceSet* set = Hub()->GetPieceFamily(SetIndex(), &MenuSetNumber());
     int selected = set->m_selected + dir;
     if (selected < 0)
         selected = set->m_entryTotal - 1;
@@ -227,23 +227,23 @@ void CBuildPointer::StepPieceFamily(int dir)
     auto countVisible = [this]() {
         int visible = 0;
         for (int i = 0; i < SetIndex(); ++i) {
-            if (Sets(Manager())[i].m_isDisplayed)
+            if (Sets(Hub())[i].m_isDisplayed)
                 ++visible;
         }
         MenuSetNumber() = visible;
     };
-    for (int tries = Manager()->NumSets(); tries > 0; --tries) {
+    for (int tries = Hub()->NumSets(); tries > 0; --tries) {
         SetIndex() += dir;
         if (SetIndex() < 0)
-            SetIndex() = Manager()->NumSets() - 1;
-        if (SetIndex() >= Manager()->NumSets())
+            SetIndex() = Hub()->NumSets() - 1;
+        if (SetIndex() >= Hub()->NumSets())
             SetIndex() = 0;
         countVisible();
-        if (Sets(Manager())[SetIndex()].m_isDisplayed)
+        if (Sets(Hub())[SetIndex()].m_isDisplayed)
             break;
     }
     countVisible();
-    PieceSet& set = Sets(Manager())[SetIndex()];
+    PieceSet& set = Sets(Hub())[SetIndex()];
     if (!set.m_isClipboard) {
         ChangePiece(set.m_entries[set.m_selected].checksum);
         return;
@@ -257,8 +257,8 @@ void CBuildPointer::StepPieceFamily(int dir)
     CurrentClipboard() = clipboard;
     if (Meta()) {
         MetaFlags(Meta()) &= ~kMetaInCursor;
-        CallDestroyConcreteMeta(Manager(), Meta(), 0);
-        UpdatePieces(Manager()->Generator());
+        CallDestroyConcreteMeta(Hub(), Meta(), 0);
+        UpdatePieces(Hub()->Generator());
         Meta() = nullptr;
     }
     if (Mode() != 5) {

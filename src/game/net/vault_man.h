@@ -13,7 +13,7 @@ namespace TaskList {
 class SchedulerTask;
 } // namespace Tsk
 
-// The content vault and HTTP file transfers: OnlinePlay::Manager's +0x14, on GameSpy's HTTP SDK (ghttp: library code,
+// The content vault and HTTP file transfers: OnlinePlay::Hub's +0x14, on GameSpy's HTTP SDK (ghttp: library code,
 // not decompiled - called by address). Created parks, goals, skaters and tricks are uploaded to and listed / fetched
 // from www.thugonline.com: a directory list of categories (<folder>/dir_list.txt), each category's list of items
 // (<folder>/<category>/dir_list.txt, one line each: "file:name:creator:...:description"), and the items themselves.
@@ -28,13 +28,13 @@ constexpr uint32_t kVaultSkaters = 0x07364EA1; // "skaters"
 constexpr uint32_t kVaultTricks = 0x1E26FD3E;  // "tricks"
 constexpr uint32_t kVaultGoals = 0x38DBE1D0;   // "goals"
 
-// An item of a category (0x214 bytes): ListKit::Node<VaultItem> (vtable 0x0064D414; its node destructor 0x0054B2D0).
+// An item of a category (0x214 bytes): ListKit::Elem<VaultItem> (vtable 0x0064D414; its node destructor 0x0054B2D0).
 struct VaultItem {
     MemSys::ListNode m_listLink;    // +0x000 data = this
     char m_url[0x80];        // +0x014 http://www.thugonline.com/<folder>/<category>/<file>
-    char m_name[0x18];       // +0x094
+    char m_label[0x18];       // +0x094
     char m_creator[0x10];    // +0x0AC
-    char m_size[0x10];       // +0x0BC (parks)
+    char m_extent[0x10];       // +0x0BC (parks)
     char m_unknownCC[0x21];  // +0x0CC the field before the description
     char m_summaryText[0x103]; // +0x0ED the rest of the line
     int m_pointsHeld;             // +0x1F0 (tricks)
@@ -48,34 +48,34 @@ struct VaultItem {
     int m_hasMaleBody;            // +0x210 (skaters)
 
     // 0x0054B570: unlinked, every string and number empty. Returns this.
-    VaultItem* Construct();
+    VaultItem* MakeNew();
     // 0x0054B5E0 (vtable 0x0064D414 slot 0, scalar deleting): the node destructor, freed with flag 1.
-    VaultItem* Destroy(unsigned int flags);
+    VaultItem* Teardown(unsigned int flags);
 };
-static_assert(sizeof(VaultItem) == 0x214 && offsetof(VaultItem, m_name) == 0x94 &&
+static_assert(sizeof(VaultItem) == 0x214 && offsetof(VaultItem, m_label) == 0x94 &&
                   offsetof(VaultItem, m_summaryText) == 0xED && offsetof(VaultItem, m_pointsHeld) == 0x1F0 &&
                   offsetof(VaultItem, m_hasMaleBody) == 0x210,
               "layout must match the original");
 
-// A category of the vault (0x44 bytes): ListKit::Node<VaultCategory> (vtable 0x0064D41C) with its items.
+// A category of the vault (0x44 bytes): ListKit::Elem<VaultCategory> (vtable 0x0064D41C) with its items.
 struct VaultCategory {
     MemSys::ListNode m_listLink;    // +0x00 data = this
     bool m_skip;             // +0x14 not chosen when moving through the categories at the start ("Uploads")
-    char m_name[0x1B];       // +0x15
-    MemSys::ListNode m_items;   // +0x30 ListKit::Head<VaultItem> (vtable 0x0064D414)
+    char m_label[0x1B];       // +0x15
+    MemSys::ListNode m_items;   // +0x30 ListKit::Foremost<VaultItem> (vtable 0x0064D414)
 
     // 0x0054B670: unlinked, no items, not skipped. Returns this.
-    VaultCategory* Construct();
+    VaultCategory* MakeNew();
     // 0x0054C890 (destructor body): the items deleted, the head and the node unlinked.
     void DestroyBody();
     // 0x0054C980 (vtable 0x0064D41C slot 0, scalar deleting)
-    VaultCategory* Destroy(unsigned int flags);
+    VaultCategory* Teardown(unsigned int flags);
 };
-static_assert(sizeof(VaultCategory) == 0x44 && offsetof(VaultCategory, m_name) == 0x15 &&
+static_assert(sizeof(VaultCategory) == 0x44 && offsetof(VaultCategory, m_label) == 0x15 &&
                   offsetof(VaultCategory, m_items) == 0x30,
               "layout must match the original");
 
-// ListKit::Node<VaultItem> / ListKit::Node<VaultCategory> as the original destroys them.
+// ListKit::Elem<VaultItem> / ListKit::Elem<VaultCategory> as the original destroys them.
 struct VaultNode {
     MemSys::ListNode m_listLink;
 
@@ -89,7 +89,7 @@ struct VaultNode {
     VaultNode* DeleteCategoriesHead(unsigned int flags);
 };
 
-// ListKit::Search<VaultCategory> (vtable 0x0064D29C) / ListKit::Search<VaultItem> (0x0064D2A0): the walk's node.
+// ListKit::Hunt<VaultCategory> (vtable 0x0064D29C) / ListKit::Hunt<VaultItem> (0x0064D2A0): the walk's node.
 struct VaultSearch {
     void** m_vtable;
     MemSys::ListNode* m_listLink;
@@ -97,7 +97,7 @@ struct VaultSearch {
     // 0x0054B6B0: the first item of the list `head` (null if none).
     void* HeadElement(MemSys::ListNode* head);
     // 0x0054B640: the next item (null at the end).
-    void* NextItem();
+    void* FollowingItem();
     // 0x0054A770 / 0x0054A760: the destructor bodies (the vtable reset).
     void DestroyCategorySearch();
     void DestroyItemSearch();
@@ -132,7 +132,7 @@ public:
     };
 
     // 0x0054C1D0: no categories, the task (VaultTask, not in a list), the semaphore (1 of 10). Returns this.
-    VaultMan* Construct();
+    VaultMan* MakeNew();
     // 0x0054B470 (destructor body): the semaphore released once more, the task deleted, the search and the
     // categories' head reset.
     void DestroyBody();
@@ -177,8 +177,8 @@ public:
     TaskList::SchedulerTask* m_task;     // +0x000 TaskList::Task<VaultMan> (VaultTask)
     int m_transfer;            // +0x004 Transfer
     int m_progress;            // +0x008 percent; 100 = finished
-    int m_result;              // +0x00C 0 running, 1 done, 2 failed
-    int m_error;               // +0x010 ghttp's result (OnFileDownloaded)
+    int m_outcomeVal;              // +0x00C 0 running, 1 done, 2 failed
+    int m_fault;               // +0x010 ghttp's result (OnFileDownloaded)
     uint32_t m_bufferSize;     // +0x014
     char* m_octets;            // +0x018 what came (or the upload's data)
     uint32_t m_startTime;      // +0x01C the time of the start or of the last progress
@@ -186,8 +186,8 @@ public:
     char m_sourcePath[0x80];     // +0x0A0 the upload's
     char m_summaryText[0x200]; // +0x120 the upload's
     void* m_semaphore;         // +0x320 (HANDLE) held while a thread sets its request up
-    int m_request;             // +0x324 GHTTPRequest
-    Scripts::CStruct* m_data;   // +0x328 the upload's item (its `data` structure)
+    int m_req;             // +0x324 GHTTPRequest
+    Scripts::CStruct* m_content;   // +0x328 the upload's item (its `data` structure)
     int m_pointsHeld;               // +0x32C the upload's details (UploadFile)
     int m_span;               // +0x330
     int m_byteCount;              // +0x334 (posted as "height")
@@ -197,10 +197,10 @@ public:
     int m_styleSet;               // +0x344
     uint32_t m_todScript;      // +0x348
     int m_hasMaleBody;              // +0x34C
-    MemSys::ListNode m_categories; // +0x350 ListKit::Head<VaultCategory> (vtable 0x0064D418)
+    MemSys::ListNode m_categories; // +0x350 ListKit::Foremost<VaultCategory> (vtable 0x0064D418)
     VaultSearch m_search;      // +0x364 the current category's place in the list
     VaultCategory* m_category; // +0x36C
-    uint32_t m_type;           // +0x370 kVaultParks...
+    uint32_t m_kindTag;           // +0x370 kVaultParks...
     char m_folder[0x40];       // +0x374
     uint32_t m_failScript;     // +0x3B4
     uint32_t m_doneScript;     // +0x3B8
@@ -209,8 +209,8 @@ public:
     const void* m_callback;    // +0x3C4 Download's completed callback
 };
 static_assert(offsetof(VaultMan, m_url) == 0x20 && offsetof(VaultMan, m_semaphore) == 0x320 &&
-                  offsetof(VaultMan, m_data) == 0x328 && offsetof(VaultMan, m_categories) == 0x350 &&
-                  offsetof(VaultMan, m_search) == 0x364 && offsetof(VaultMan, m_type) == 0x370 &&
+                  offsetof(VaultMan, m_content) == 0x328 && offsetof(VaultMan, m_categories) == 0x350 &&
+                  offsetof(VaultMan, m_search) == 0x364 && offsetof(VaultMan, m_kindTag) == 0x370 &&
                   offsetof(VaultMan, m_failScript) == 0x3B4 && offsetof(VaultMan, m_callback) == 0x3C4,
               "layout must match the original");
 

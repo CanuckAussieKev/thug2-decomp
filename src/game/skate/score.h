@@ -1,6 +1,6 @@
 #pragma once
 
-// GameModules::Score (0x1550 bytes, 0x00561240-0x00564BFF): a skater's score - its total, the combo being built (the trick
+// GameModules::PointTally (0x1550 bytes, 0x00561240-0x00564BFF): a skater's score - its total, the combo being built (the trick
 // log: each trick's points, its repeats, its spin, its name and the text shown), the multiplier, the special meter,
 // the balance / manual meter's on-screen positions and the "robot" detection (the same lines skated over and over
 // earn less). The SkaterScore component holds one (+0x18); CRider::GetPointsTotal returns it.
@@ -34,9 +34,9 @@ struct STrickLog {
     int m_repeats;        // +0x04 how often done before (the reduction's index)
     int m_twistRate;           // +0x08 in half turns
     int m_spinDegrees;    // +0x0C as spun (signed)
-    uint32_t m_name;      // +0x10 its name's checksum
+    uint32_t m_label;      // +0x10 its name's checksum
     int m_kind;           // +0x14 (the flags' 0x04 / 0x08 bits shifted; not 0: 1.2 times)
-    uint32_t m_flags;     // +0x18 (kTrick* below)
+    uint32_t m_flagBits;     // +0x18 (kTrick* below)
     char m_text[0x40];    // +0x1C its name, spaces escaped as "\_"
     char m_shown[0x40];   // +0x5C the text shown in the trick string
 };
@@ -48,11 +48,11 @@ static_assert(sizeof(STrickLog) == 0x9C, "layout must match the original");
 struct STrickSeen {
     uint32_t m_unused;    // +0x00 (never set)
     int m_landed[4];      // +0x04
-    int m_current[4];     // +0x14
+    int m_ongoing[4];     // +0x14
 };
 static_assert(sizeof(STrickSeen) == 0x24, "layout must match the original");
 
-// STrickLog::m_flags.
+// STrickLog::m_flagBits.
 constexpr uint32_t kTrickNoSpin = 0x02;       // the spin multiplier back to none (and the next trick's spin is set)
 constexpr uint32_t kTrickKindBits = 0x0C;     // its kind (0x0400: only the 0x08 bit counts)
 constexpr uint32_t kTrickGap = 0x10;          // a gap
@@ -63,13 +63,13 @@ constexpr uint32_t kTrickSpinPlusOne = 0x100; // the spin multiplier one more th
 constexpr uint32_t kTrickNoMultiplier = 0x200; // the multiplier not raised
 constexpr uint32_t kTrickKindHigh = 0x400;    // see kTrickKindBits
 
-class Score {
+class PointTally {
 public:
     float m_focusTimeLimit;      // +0x00 focus_time_limit
     int m_focusMaxTimes;         // +0x04 focus_max_times_in_combo
     int16_t m_riderNo;          // +0x08 the skater's object id
     uint8_t pad0A[2];
-    int m_total;                 // +0x0C the total score
+    int m_sum;                 // +0x0C the total score
     int m_potState;              // +0x10 0 none, 1 landed (the countdown to its counting), 2 counting into the total
     int m_pot;                   // +0x14 the combo's base points
     int m_potShown;              // +0x18 the pot being counted down
@@ -80,8 +80,8 @@ public:
     int m_bestTricks;            // +0x2C the most tricks in a combo
     int m_topChain;             // +0x30 the best combo's points
     int m_bestComboSent;         // +0x34 the best combo the server was told about
-    ListKit::LookupTable m_seen;     // +0x38 STrickSeen by trick name
-    ListKit::DynamicTable m_log;     // +0x4C STrickLog*
+    ListKit::ResolveMap m_seen;     // +0x38 STrickSeen by trick name
+    ListKit::GrowableMap m_log;     // +0x4C STrickLog*
     int m_tricks;                // +0x5C the tricks in the combo (the log's used entries)
     float m_multiplier;          // +0x60
     int m_comboTricks;           // +0x64 the tricks in this combo (for m_bestTricks)
@@ -206,15 +206,15 @@ public:
     void SetTeeterGauge(bool on, float lean);
     void SetWheelieGauge(bool on, float lean);
     // 0x00563440: the constructor. Returns this.
-    Score* Construct();
+    PointTally* MakeNew();
     // 0x00564B80: the destructor body.
     void DestroyBody();
     // 0x00563580: one frame: the special meter running down, the pot's countdown and counting, the special bar's
     // size and colour.
-    void Update();
+    void TickFrame();
     // 0x00563990: a trick done (`text`, `score` base points, `flags`): logged (the log trimmed when full - at 250 the
     // last one's points just grow), how often it was seen, the multiplier, the trick string and pot shown.
-    void Trigger(const char* text, int score, uint32_t flags);
+    void FireOff(const char* text, int score, uint32_t flags);
     // 0x00563F30: the spin trick's spin (the "FS" / "BS" and Cab names; ollies' sides swapped on odd half turns).
     void SetTurnAmount(int degrees);
     // 0x00564270: points added to the last trick while it is being held (no more than 10 tricks since the last
@@ -242,17 +242,17 @@ public:
 
     // (the trick log's entry `index`; the last one)
     STrickLog* Trick(int index) { return static_cast<STrickLog*>(m_log.m_items[index]); }
-    STrickLog* LastTrick() { return Trick(m_log.m_count - 1); }
+    STrickLog* LastTrick() { return Trick(m_log.m_num - 1); }
 };
-static_assert(offsetof(Score, m_seen) == 0x38 && offsetof(Score, m_log) == 0x4C && offsetof(Score, m_special) == 0x70 &&
-                  offsetof(Score, m_barColors) == 0x75 && offsetof(Score, m_specialPhase) == 0x84 &&
-                  offsetof(Score, m_arrows) == 0x94 && offsetof(Score, m_arrowStep) == 0x184 &&
-                  offsetof(Score, m_bars) == 0x198 && offsetof(Score, m_lineCounts) == 0x1B0 &&
-                  offsetof(Score, m_comboLineCounts) == 0xB74 && offsetof(Score, m_robotLines) == 0x1538 &&
-                  sizeof(Score) == 0x1550,
+static_assert(offsetof(PointTally, m_seen) == 0x38 && offsetof(PointTally, m_log) == 0x4C && offsetof(PointTally, m_special) == 0x70 &&
+                  offsetof(PointTally, m_barColors) == 0x75 && offsetof(PointTally, m_specialPhase) == 0x84 &&
+                  offsetof(PointTally, m_arrows) == 0x94 && offsetof(PointTally, m_arrowStep) == 0x184 &&
+                  offsetof(PointTally, m_bars) == 0x198 && offsetof(PointTally, m_lineCounts) == 0x1B0 &&
+                  offsetof(PointTally, m_comboLineCounts) == 0xB74 && offsetof(PointTally, m_robotLines) == 0x1538 &&
+                  sizeof(PointTally) == 0x1550,
               "layout must match the original");
 
-// 0x00561240's entry: Score::ScoreIncrement with EDX kept (Update relies on it).
+// 0x00561240's entry: PointTally::ScoreIncrement with EDX kept (Update relies on it).
 int ScoreIncrementStub();
 
 } // namespace Mdl

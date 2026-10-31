@@ -27,7 +27,7 @@ namespace {
 
 constexpr SDL_Scancode kKey = SDL_SCANCODE_F8;
 
-uint32_t Checksum(const char* name) { return Checksums::HashFromText(name); }
+uint32_t NameHash(const char* name) { return Checksums::HashFromText(name); }
 
 // A restart type's name (THUG2's and the ported games' restart_types).
 const char* TypeName(uint32_t type)
@@ -36,14 +36,14 @@ const char* TypeName(uint32_t type)
                                          "CTF_3", "CTF_4", "Team", "Generic", "PriorityRestart", "Player1TrickAttack",
                                          "Player1_Level_Event", "KingOfTheHill"};
     for (const char* name : kTypes) {
-        if (Checksum(name) == type)
+        if (NameHash(name) == type)
             return name;
     }
     const char* known = Scripts::LookUpHashName(type);
     return known ? known : "?";
 }
 
-struct Restart {
+struct Relaunch {
     uint32_t name;
     std::string text;  // the name as the node array has it (its checksum when it has no string)
     std::string types; // restart_types
@@ -51,29 +51,29 @@ struct Restart {
 };
 
 // The restarts of the loaded node arrays (the node manager's walk: the level's, in their order).
-std::vector<Restart> LevelRestarts()
+std::vector<Relaunch> LevelRestarts()
 {
-    std::vector<Restart> out;
-    const uint32_t kClass = Checksum("Class"), kRestart = Checksum("Restart"), kName = Checksum("Name"),
-                   kPos = Checksum("Pos"), kTypes = Checksum("restart_types"), kRestartName = Checksum("RestartName");
+    std::vector<Relaunch> out;
+    const uint32_t kClass = NameHash("Class"), kRestart = NameHash("Restart"), kName = NameHash("Name"),
+                   kPos = NameHash("Pos"), kTypes = NameHash("restart_types"), kRestartName = NameHash("RestartName");
     LevelNodes::StartNodeWalk(0);
     while (Scripts::CStruct* node = LevelNodes::NextNode()) {
         uint32_t cls = 0, name = 0;
         if (!node->ReadHashValue(kClass, &cls, 0) || cls != kRestart || !node->ReadHashValue(kName, &name, 0))
             continue;
-        Restart r{name, {}, {}, {0, 0, 0, 1}};
+        Relaunch r{name, {}, {}, {0, 0, 0, 1}};
         // (its name when the game knows it - level names mostly aren't -, else its RestartName text and checksum)
         const char* text = Scripts::LookUpHashName(name);
         const char* label = nullptr;
-        node->GetString(kRestartName, &label, 0);
+        node->FetchText(kRestartName, &label, 0);
         char hex[16];
         std::snprintf(hex, sizeof(hex), "#%08X", name);
         r.text = text ? text : (label && *label ? std::string(label) + " (" + hex + ")" : std::string(hex));
-        node->GetVector(kPos, &r.pos, 0);
+        node->FetchVec(kPos, &r.pos, 0);
         Scripts::CArray* types = nullptr;
-        if (node->GetArray(kTypes, &types, 0) && types) {
-            for (uint32_t t = 0; t < types->m_size; ++t) {
-                const char* type = TypeName(types->GetElement(t));
+        if (node->FetchList(kTypes, &types, 0) && types) {
+            for (uint32_t t = 0; t < types->m_extent; ++t) {
+                const char* type = TypeName(types->FetchPart(t));
                 if (!r.types.empty())
                     r.types += " ";
                 r.types += type ? type : "?";
@@ -89,12 +89,12 @@ std::vector<Restart> LevelRestarts()
 // (A text element has no line breaks: a second line is a second message.)
 void Message(const char* text, const char* id = "restart_tester_message", float y = 70.0f)
 {
-    Scripts::CStruct* params = Scripts::NewStruct()->Init();
-    params->AddString(Checksum("text"), text);
-    params->PutNameKey(Checksum("id"), Checksum(id));
-    params->InsertPair(Checksum("pos"), 320.0f, y);
-    params->PutInt(Checksum("time"), 4000);
-    Scripts::SpawnScript(Checksum("create_panel_message"), params, 0, nullptr, 0, 0, false, false, false, false);
+    Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+    params->AppendWord(NameHash("text"), text);
+    params->PutNameKey(NameHash("id"), NameHash(id));
+    params->InsertPair(NameHash("pos"), 320.0f, y);
+    params->PutInt(NameHash("time"), 4000);
+    Scripts::SpawnScript(NameHash("create_panel_message"), params, 0, nullptr, 0, 0, false, false, false, false);
     params->Clear();
     Scripts::DeleteStruct(params);
 }
@@ -105,10 +105,10 @@ bool s_keyUp = true;
 
 void Next()
 {
-    std::vector<Restart> restarts = LevelRestarts();
+    std::vector<Relaunch> restarts = LevelRestarts();
     // (another level: another set of restarts - the visited ones are forgotten)
     uint32_t level = 0;
-    for (const Restart& r : restarts)
+    for (const Relaunch& r : restarts)
         level = level * 31 + r.name;
     if (level != s_level) {
         s_level = level;
@@ -122,13 +122,13 @@ void Next()
     if (s_visited.size() >= restarts.size())
         s_visited.clear(); // (a new round)
     for (size_t i = 0; i < restarts.size(); ++i) {
-        const Restart& r = restarts[i];
+        const Relaunch& r = restarts[i];
         if (s_visited.count(r.name))
             continue;
         s_visited.insert(r.name);
-        Scripts::CStruct* params = Scripts::NewStruct()->Init();
-        params->PutNameKey(Checksum("node_name"), r.name);
-        Scripts::LaunchScript(Checksum("ResetSkaters"), params, nullptr, false, "ResetSkaters");
+        Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+        params->PutNameKey(NameHash("node_name"), r.name);
+        Scripts::LaunchScript(NameHash("ResetSkaters"), params, nullptr, false, "ResetSkaters");
         params->Clear();
         Scripts::DeleteStruct(params);
         Log("restart tester: %u / %u %s at (%.0f, %.0f, %.0f), types [%s]%s", static_cast<unsigned>(s_visited.size()),
@@ -146,21 +146,21 @@ void Next()
 
 } // namespace
 
-bool& Enabled()
+bool& IsSwitchedOn()
 {
     static bool on = ConfigInt("features", "restart_tester", 1) != 0;
     return on;
 }
 
-void Update(GameModules::FrontEnd* frontEnd)
+void TickFrame(GameModules::FrontEnd* frontEnd)
 {
-    if (!Enabled())
+    if (!IsSwitchedOn())
         return;
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     bool down = keys && keys[kKey];
     bool pressed = down && s_keyUp;
     s_keyUp = !down;
-    if (!pressed || FrameLoop::FramesRun() == 0 || MenuSystem::LevelEditor::Active() || (frontEnd && frontEnd->m_isHalted) || Engine3D::CurrentLevel() == 0)
+    if (!pressed || FrameLoop::FramesRun() == 0 || MenuSystem::LevelEditor::LiveNow() || (frontEnd && frontEnd->m_isHalted) || Engine3D::CurrentLevel() == 0)
         return;
     Next();
 }

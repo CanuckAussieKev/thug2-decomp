@@ -32,7 +32,7 @@ uint8_t* g_loadingScreenPicture;
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 HANDLE ScreenMutex() { return reinterpret_cast<HANDLE&>(g_screenMutex); }
 bool& ScreenUp() { return g_loadingScreenUp; }
 uint32_t& BarTimer() { return g_loadingBarTimer; }
@@ -77,7 +77,7 @@ void SetPictureName(const char* text)
         char* grown = static_cast<char*>(Crt::AllocBlock(newCapacity + 1));
         std::memcpy(grown, text, length + 1);
         if (capacity >= 16)
-            Crt::Free(heap);
+            Crt::Dealloc(heap);
         heap = grown;
         capacity = newCapacity;
     } else {
@@ -150,16 +150,16 @@ void __cdecl DrawLoadingScreenPicture()
     if (!Picture())
         return;
     Lock();
-    Device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-    Device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-    Device()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-    Device()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
+    InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+    InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+    InputPort()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+    InputPort()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
     DWORD minFilter;
-    Device()->GetSamplerState(0, D3DSAMP_MINFILTER, &minFilter);
-    Device()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-    Device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-    SetState(kAddressMode0, 0x10001); // (clamped both ways)
-    SetState(kLighting, 0);
+    InputPort()->GetSamplerState(0, D3DSAMP_MINFILTER, &minFilter);
+    InputPort()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+    InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    ChangePhase(kAddressMode0, 0x10001); // (clamped both ways)
+    ChangePhase(kLighting, 0);
     SetPixelShader(nullptr, nullptr);
     SetVertexFormat(D3DFVF_XYZRHW | D3DFVF_TEX1);
     ChooseBlendMode(0);
@@ -189,9 +189,9 @@ void __cdecl DrawLoadingScreenPicture()
         {width, 0.0f, 0.0f, 1.0f, u1, v1},
         {width, height, 0.0f, 1.0f, u1, v0},
     };
-    Device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(PictureVertex));
+    InputPort()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(PictureVertex));
     SetTexture(0, nullptr);
-    Device()->SetSamplerState(0, D3DSAMP_MINFILTER, minFilter);
+    InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, minFilter);
     Unlock();
 }
 
@@ -199,7 +199,7 @@ void __cdecl DrawLoadingScreenPicture()
 void __cdecl HideLoadingScreen()
 {
     Lock();
-    Device()->SetRenderState(D3DRS_FOGENABLE, FogEnabled());
+    InputPort()->SetRenderState(D3DRS_FOGENABLE, FogEnabled());
     if (BarTimer()) {
         StopTimer(BarTimer());
         BarTimer() = 0;
@@ -212,7 +212,7 @@ void __cdecl HideLoadingScreen()
 void __cdecl FreeLoadingScreenSprite()
 {
     Lock();
-    Device()->SetRenderState(D3DRS_FOGENABLE, FogEnabled());
+    InputPort()->SetRenderState(D3DRS_FOGENABLE, FogEnabled());
     if (Sprite()) {
         Engine3D::DeleteModelLights(static_cast<Engine3D::CPcModelLights*>(Sprite())); // (the engine's delete)
         Sprite() = nullptr;
@@ -251,13 +251,13 @@ void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
             name = picked;
         }
     }
-    Device()->SetRenderState(D3DRS_FOGENABLE, FALSE);
+    InputPort()->SetRenderState(D3DRS_FOGENABLE, FALSE);
     ScreenUp() = false;
     if (!keep) {
         if (black) {
             s_selectPicture = false;
             ApplyBarStyle(false);
-            Device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
+            InputPort()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
         } else {
             if (uint8_t* old = Picture()) {
                 if (std::strcmp(PictureName(), name) != 0) {
@@ -266,8 +266,8 @@ void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
                     SetPictureName(name);
                 }
             }
-            void* memory = MemSys::New(0x14);
-            Picture() = memory ? reinterpret_cast<uint8_t*>(static_cast<Engine3D::CPcTexture*>(memory)->Construct()) : nullptr;
+            void* memory = MemSys::Alloc(0x14);
+            Picture() = memory ? reinterpret_cast<uint8_t*>(static_cast<Engine3D::CPcTexture*>(memory)->MakeNew()) : nullptr;
             // the language's picture: French "fr/<name>", German "gr/<name>"
             char localised[0xC8];
             const char* file = name;
@@ -287,11 +287,11 @@ void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
             }
             s_selectPicture = IsSelectName(name);
             ApplyBarStyle(s_selectPicture);
-            Device()->BeginScene();
+            InputPort()->BeginScene();
             DrawLoadingScreenPicture();
-            Device()->EndScene();
+            InputPort()->EndScene();
         }
-        Device()->Present(nullptr, nullptr, nullptr, nullptr);
+        InputPort()->Present(nullptr, nullptr, nullptr, nullptr);
     }
     ScreenUp() = true;
     Unlock();

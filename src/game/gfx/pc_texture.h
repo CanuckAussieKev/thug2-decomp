@@ -6,7 +6,7 @@
 #include "game/gfx/texture.h"
 
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 
 // The PC texture and texture dictionary (Nx engine: the engine's CBitmapTexture - constructor 0x0049F200, destructor body
@@ -36,7 +36,7 @@ struct CPcTexture {
     textureRef* Texture() const;
 
     // 0x004C7ED0: construct (no texture). Returns this.
-    CPcTexture* Construct();
+    CPcTexture* MakeNew();
     // 0x004C7EF0: its texture (and checksum, the texture's).
     void SetTexture(textureRef* texture);
     // 0x004C8450: construct a copy of `source`: its texture copied, and an edit's copy of the pixels and kept texture
@@ -45,15 +45,15 @@ struct CPcTexture {
     // 0x004C9D00: the destructor's body: an edit ended, the texture destroyed.
     void DestroyBody();
     // 0x004CAE60 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcTexture* Destroy(unsigned int freeFlags);
+    CPcTexture* Teardown(unsigned int freeFlags);
     // 0x004C7F00 (virtual [1]): loaded from "<name>.img.xbx". Whether it was.
-    bool LoadFile(const char* name, int unused1, int unused2);
+    bool IngestFile(const char* name, int unused1, int unused2);
     // 0x004C7F80 (virtual [2]): loaded from an image in memory. Whether it was.
     bool LoadMemory(const uint8_t* data, int size, int unused1, int unused2, int unused3);
     // 0x004C8830 (virtual [3]): a new texture of the size (one level per the device: the levels' 0), P8 for up to
     // 8 bits a pixel, X1R5G5B5 for 16, X8R8G8B8 for 32 (and below 8); the old one's Direct3D texture released. The
     // texture's size from the level's. True.
-    bool Create(uint32_t checksum, uint32_t width, uint32_t height, int bitsPerPixel, int unused1, int unused2);
+    bool Fabricate(uint32_t checksum, uint32_t width, uint32_t height, int bitsPerPixel, int unused1, int unused2);
     // 0x004C86A0 (virtual [4]): its Direct3D texture made again as a copy of `source`'s, every level (exit() if it
     // can't be made). True.
     bool CopyFrom(const CPcTexture* source);
@@ -74,7 +74,7 @@ struct CPcTexture {
     // 0x004C9DE0 (virtual [16]): the edit's pixels zoomed about the centre. True.
     bool Zoom(float xZoom, float yZoom);
     // 0x004C8D30 (virtual [17]): the edit's pixels turned by `angle` about a point (below 0: the middle). True.
-    bool Rotate(float angle, float centreX, float centreY);
+    bool SpinBy(float angle, float centreX, float centreY);
     // 0x004CABE0 (virtual [18]): the edit's pixels moved; what's uncovered filled from the nearest edge unless
     // `keepEdges`. True.
     bool Offset(int dx, int dy, bool keepEdges, int unused);
@@ -97,8 +97,8 @@ struct CPcTexture {
     // 0x004CA0D0: a rectangle written in (a palettized texture's by nearest palette entry).
     void WriteRect(const uint32_t* in, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
     // 0x004C7FB0 / 0x004C7FE0 (virtual [33] / [34]): the image's width and height (0 without a texture).
-    uint16_t GetWidth();
-    uint16_t GetHeight();
+    uint16_t FetchBreadth();
+    uint16_t FetchTallness();
     // 0x004C8010 / 0x004C8030 (virtual [35] / [38]): its bits per pixel and its +0x0E (0 without one).
     uint8_t GetDepth();
     uint8_t GetUnknownE();
@@ -113,23 +113,23 @@ static_assert(offsetof(CPcTexture, flags) == 8 && offsetof(CPcTexture, engine) =
 struct CPcTexDict {
     void** vtable;
     uint8_t engine04[8];
-    void* textures;  // +0x0C: ListKit::HashTable* by checksum
+    void* textures;  // +0x0C: ListKit::KeyMap* by checksum
     uint8_t engine10[4];
 
     // 0x004C8070: construct (the engine's constructor with this checksum, 1). Returns this.
-    CPcTexDict* Construct(uint32_t checksum);
+    CPcTexDict* MakeNew(uint32_t checksum);
     // 0x004CB760: construct (the engine's constructor with the name, 1) and load the file. Returns this.
     CPcTexDict* ConstructFromFile(const char* name);
     // 0x004CB380 / 0x004CB7C0: the textures of a .tex file / image in memory added - the table remade to fit when it
     // has none yet. True.
-    bool LoadFile(const char* name);
+    bool IngestFile(const char* name);
     bool LoadMemory(const uint8_t* data);
     // 0x004C9AF0: the destructor's body (a jump to the engine's).
     void DestroyBody();
     // 0x004C9F60 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcTexDict* Destroy(unsigned int freeFlags);
+    CPcTexDict* Teardown(unsigned int freeFlags);
     // 0x004C9B00 (virtual [1]): a new texture loaded from a file (the engine's 0x0049F220 with 1). Returns it.
-    CPcTexture* LoadTexture(const char* name, int a2, int unused);
+    CPcTexture* IngestSkin(const char* name, int a2, int unused);
     // 0x004C89B0 (virtual [2]): a new texture made (the engine's 0x0049F300 with 1). Returns it.
     CPcTexture* CreateTexture(uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, uint32_t unused);
     // 0x004C9BA0 (virtual [3]): the dictionary's texture of this checksum, or a new one, loaded from memory (the
@@ -148,8 +148,8 @@ static_assert(offsetof(CPcTexDict, textures) == 0xC && sizeof(CPcTexDict) == 0x1
 // heap the old one was in). Returns the table. A palettized texture becomes an A8R8G8B8 one with its texels not
 // filled (its palette and levels read and dropped, as the original); the memory loader reads no palette and
 // leaves the cursor where it was.
-ListKit::HashTable* __cdecl LoadTexturesFromFile(const char* name, ListKit::HashTable* table, bool remake);
-ListKit::HashTable* __cdecl LoadTexturesFromMemory(const uint8_t** cursor, ListKit::HashTable* table, bool remake);
+ListKit::KeyMap* __cdecl LoadTexturesFromFile(const char* name, ListKit::KeyMap* table, bool remake);
+ListKit::KeyMap* __cdecl LoadTexturesFromMemory(const uint8_t** cursor, ListKit::KeyMap* table, bool remake);
 
 // 0x004C7270: a dictionary loaded from a file. 0x004C72E0: one made with a checksum and loaded from memory (called
 // on null without memory, as the original). 0x004C7360: an empty one.

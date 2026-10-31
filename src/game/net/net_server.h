@@ -1,7 +1,7 @@
 #pragma once
 
-// The network library's server (NetLink::Server: an App with a connection per client). vtable 0x006475EC: the
-// deleting destructor (Client's, 0x0045B8E0), 0x00459690, PullInbound, SendData, Init, Deinit (0x0045B820).
+// The network library's server (NetLink::HostEnd: an App with a connection per client). vtable 0x006475EC: the
+// deleting destructor (Client's, 0x0045B8E0), 0x00459690, PullInbound, Transmit, Init, Deinit (0x0045B820).
 
 #include <cstdint>
 
@@ -9,20 +9,20 @@
 
 namespace NetLink {
 
-class Server : public App {
+class HostEnd : public AppHost {
 public:
     // 0x0045B830: the App (0x004594C0, with `flags`), then the App's task (TaskList::Task, priority -2000).
-    Server* Construct(int flags);
+    HostEnd* MakeNew(int flags);
 
     // 0x0045B7A0: the App's Init, then handlers for connection requests, timestamps and disconnection requests.
-    bool Init();
+    bool PrepareAll();
 
     // 0x0045BBD0: everything waiting on the socket, each packet into its sender's connection (a new one for an
     // unknown address).
     void PullInbound();
     // 0x0045B920: packets to one client until its queues are empty or a packet is full: a timestamp in each, a
     // latency test when due, then the queues; the bandwidth goes down when messages wait for acks.
-    void SendData(Conn* conn);
+    void Transmit(Conn* conn);
 
     // Handlers.
     // 0x0045ADB0 (id 3): a connection request: accepted (id 4, important) for a local connection, or for a

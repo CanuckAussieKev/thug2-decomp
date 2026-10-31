@@ -31,18 +31,18 @@ public:
                               kSkitch = 0x3506CE64, kLip = 0xA549B57B;
 
     // 0x004F9170 (registered by RegisterComponentTypes): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x004F8CD0 (registered with the type): the member function table 0x00683238 (InBalanceMove).
     static void __cdecl PublishMethodTable();
     // 0x004F8F80: the constructor (returns this): the four balances made, no physics structure, no anim component.
-    CRiderTeeterMoves* Construct();
+    CRiderTeeterMoves* MakeNew();
     // 0x004F8CF0: the destructor body (the balances', last first, then the base's). 0x004F9010 (vtable slot 0).
     void DestroyBody();
-    CRiderTeeterMoves* Destroy(unsigned int flags);
+    CRiderTeeterMoves* Teardown(unsigned int flags);
     // 0x004F9040 (vtable slot 2): each balance given the skater. `params` isn't read.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x004F9080 (vtable slot 3): the anim blender component (0x7149B753).
-    void Finalize();
+    void Seal();
     // 0x004F9420 (vtable slot 12): SwitchOffBalanceMeter, SwitchOnBalanceMeter, StartBalanceTrick, AdjustBalance,
     // SetWobbleDetails, StopBalanceTrick, DoBalanceTrick; 2 for other names.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
@@ -56,7 +56,7 @@ public:
     // 0x004F8DE0: every balance reset (manual, grind, skitch, lip); no trick, not started.
     void Reset();
     // 0x004F8EE0: every balance stopped (manual, grind, lip, skitch); no trick, not started.
-    void Stop();
+    void Halt();
     // 0x004F8E20: the current balance's two buttons into `buttons` (`*count` 2), or `*count` 0 without one.
     void GetButtons(int* count, uint32_t* buttons) const;
     // 0x004F8F20: the current balance's lean (0 without one; the original also leaves the balance in EAX).
@@ -67,13 +67,13 @@ public:
     // 0x004F91D0: DoBalanceTrick's structure freed.
     void ClearParams();
     // 0x004F9370: `params` copied into DoBalanceTrick's structure (made when there's none).
-    void SetParams(Scripts::CStruct* params);
+    void ChangeArgs(Scripts::CStruct* params);
     // 0x004F9200 (not a Ghidra function): the wobble from `wobble` (WobbleAmpA / B, WobbleK1 / 2, SpazFactor - each a
     // structure scaled for the skater) given to the anim blender; the skater's script made first if it has none.
     void SetWobble(Scripts::CStruct* wobble);
 
     // The balance of the current type (null for none).
-    CBalance* Current();
+    CBalance* AtHand();
 
     uint32_t m_trick;                   // +0x18 the balance trick being balanced (0: none)
     bool m_started;                     // +0x1C StartBalanceTrick

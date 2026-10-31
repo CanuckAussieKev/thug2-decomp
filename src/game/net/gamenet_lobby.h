@@ -22,8 +22,8 @@ namespace OnlinePlay {
 
 extern void** const kLobbySearchAVtable;  // 0x0064CB6C
 extern void** const kLobbySearchBVtable;  // 0x0064CB70
-extern void** const kLobbyListNodeVtable; // 0x0064CBDC: ListKit::Node<LobbyPlayer>
-extern void** const kLobbyNodeVtable;     // 0x0064CBE0: ListKit::Node<LobbyRoom>
+extern void** const kLobbyListNodeVtable; // 0x0064CBDC: ListKit::Elem<LobbyPlayer>
+extern void** const kLobbyNodeVtable;     // 0x0064CBE0: ListKit::Elem<LobbyRoom>
 
 struct LobbyPlayer;
 struct LobbyRoom;
@@ -37,8 +37,8 @@ public:
     // 0x0053F820 (source only: 4 bytes): the room's name.
     char* GetRoomName();
     // 0x0053F830 / 0x0053F850: the name of the server chosen / hosted.
-    void SetServerName(const char* name);
-    char* GetServerName();
+    void ChangeHostName(const char* name);
+    char* FetchHostName();
     // 0x0053F860 / 0x0053F870: the lost connection to report (lost_connection_to_gamespy, by the peer task).
     void ClearLostConnection();
     void SetLostConnection();
@@ -65,7 +65,7 @@ public:
     // query task (+0x150) started.
     void StartHosting();
     // 0x00540750 (LobbyDisconnect): the three tasks off, the peer shut down and forgotten (the internet heap).
-    void Disconnect();
+    void Hangup();
     // 0x00540AB0 (thread code, stdcall: `lobby`): the peer connects with the network_id preference as its nick and
     // the presence's profile (NickErrorCallback, ConnectCallback). 0.
     static unsigned long __stdcall ConnectThread(void* lobby);
@@ -130,9 +130,9 @@ public:
     // 0x00541870: the empty lobby and player lists, no peer, its three tasks (TaskList::Task<RoomManager>, priority 0:
     // 0x00540040, 0x005400B0, 0x005400E0) and the server-browsing keys registered with GameSpy's qr2 (0x005FF660:
     // 0x33 numobservers, 0x34 maxobservers, 0x35 skilllevel, 0x36 started, 0x37 hostmode, 0x38 ranked, 0x39 rating_).
-    RoomManager* Construct();
+    RoomManager* MakeNew();
     // 0x00541AC0 (vtable slot 0): the scalar deleting destructor (the body is 0x00540860).
-    RoomManager* Destroy(unsigned int flags);
+    RoomManager* Teardown(unsigned int flags);
 
     // 0x00542DF0: the GameSpy peer made (0x005FCE60) with the lobby's callbacks, not in a lobby.
     void InitPeer();
@@ -190,8 +190,8 @@ public:
     static void __cdecl JoinRoomCallback(void* peer, int success, int result, int roomType, RoomManager* lobby);
 
 
-    MemSys::ListNode m_rooms;        // +0x00 ListKit::Head<LobbyRoom> (vtable 0x0064CBFC; its base's 0x0064CBE0)
-    MemSys::ListNode m_players;      // +0x14 ListKit::Head<LobbyPlayer> (vtable 0x0064CBF8; its base's 0x0064CBDC)
+    MemSys::ListNode m_rooms;        // +0x00 ListKit::Foremost<LobbyRoom> (vtable 0x0064CBFC; its base's 0x0064CBE0)
+    MemSys::ListNode m_participants;      // +0x14 ListKit::Foremost<LobbyPlayer> (vtable 0x0064CBF8; its base's 0x0064CBDC)
     int m_groupId;                // +0x28 the chosen room's group room (0: none; LeaveLobby passes it to 0x005FC9B0)
     int m_unknown2C;              // +0x2C the chosen room's most players (CanHostGame: +0x30 must be below it)
     int m_unknown30;              // +0x30 the chosen room's players
@@ -205,26 +205,26 @@ public:
     bool m_hosting;               // +0x139
     uint8_t m_unknown13A[2];
     int m_negotiations;           // +0x13C NAT negotiations going on (the server's)
-    void* m_peer;                 // +0x140
+    void* m_remote;                 // +0x140
     int m_natCookie;              // +0x144 (a client's)
     TaskList::SchedulerTask* m_thinkTask;   // +0x148 ThinkTask
     TaskList::SchedulerTask* m_natTask;     // +0x14C NatNegotiationTask
     TaskList::SchedulerTask* m_hostingTask; // +0x150 QueryTask
 };
-static_assert(offsetof(RoomManager, m_groupId) == 0x28 && offsetof(RoomManager, m_players) == 0x14 && offsetof(RoomManager, m_roomName) == 0x34 &&
+static_assert(offsetof(RoomManager, m_groupId) == 0x28 && offsetof(RoomManager, m_participants) == 0x14 && offsetof(RoomManager, m_roomName) == 0x34 &&
                   offsetof(RoomManager, m_serverName) == 0xB4 && offsetof(RoomManager, m_inGroupRoom) == 0x134 &&
                   offsetof(RoomManager, m_hosting) == 0x139 && offsetof(RoomManager, m_negotiations) == 0x13C &&
-                  offsetof(RoomManager, m_peer) == 0x140 && offsetof(RoomManager, m_hostingTask) == 0x150,
+                  offsetof(RoomManager, m_remote) == 0x140 && offsetof(RoomManager, m_hostingTask) == 0x150,
               "layout must match the original");
 
 // A group room the peer's room list found (0x6C bytes, constructor 0x00545860; a list node, priority -group).
 struct LobbyRoom {
     // 0x00545860: an empty one (a node of nothing, its data itself; full / out of range / neversoft cleared). Returns
     // this. (lobby.cpp)
-    LobbyRoom* Construct();
+    LobbyRoom* MakeNew();
 
     MemSys::ListNode m_listLink;
-    char m_name[0x40];       // +0x14 (63 characters)
+    char m_label[0x40];       // +0x14 (63 characters)
     int m_groupId;           // +0x54
     int m_numPlayers;        // +0x58 (the room list's "numGames")
     int m_maxPlayers;        // +0x5C (its "maxWaiting"; at least m_numPlayers)
@@ -242,12 +242,12 @@ static_assert(sizeof(LobbyRoom) == 0x6C && offsetof(LobbyRoom, m_groupId) == 0x5
 struct LobbyPlayer {
     MemSys::ListNode m_listLink;
     char m_nick[0x40];       // +0x14
-    int m_profile;           // +0x54 the GameSpy profile
+    int m_account;           // +0x54 the GameSpy profile
     int m_skillPoints;            // +0x58 (the room key b_rating)
     bool m_listed;           // +0x5C seen in the room (shown in the player list)
     uint8_t m_pad5D[3];
 };
-static_assert(offsetof(LobbyPlayer, m_profile) == 0x54 && offsetof(LobbyPlayer, m_skillPoints) == 0x58 &&
+static_assert(offsetof(LobbyPlayer, m_account) == 0x54 && offsetof(LobbyPlayer, m_skillPoints) == 0x58 &&
               offsetof(LobbyPlayer, m_listed) == 0x5C && sizeof(LobbyPlayer) == 0x60);
 
 // The lobby's script commands from 0x00541870 on (lobby.cpp).
@@ -265,17 +265,17 @@ bool __cdecl CFunc_LobbyConnect(Scripts::CStruct* params, Scripts::CScript* scri
 // over the first body.
 struct LobbyNode : MemSys::ListNode {
     void DestroyBody();                         // 0x00540840
-    LobbyNode* Destroy(unsigned int flags);     // 0x00540880
+    LobbyNode* Teardown(unsigned int flags);     // 0x00540880
     LobbyNode* DestroyOther(unsigned int flags); // 0x00540F80
 };
 struct LobbyListNode : MemSys::ListNode {
     void DestroyBody();                         // 0x00540860
-    LobbyListNode* Destroy(unsigned int flags); // 0x005408C0
+    LobbyListNode* Teardown(unsigned int flags); // 0x005408C0
 };
 
 // TaskList::Task<T>'s scalar deleting destructor (vtable 0x006476F0 slot 2, 0x005407B0: its destructor, then freed).
 struct TaskDeleter {
-    TaskList::SchedulerTask* Destroy(unsigned int flags); // 0x005407B0
+    TaskList::SchedulerTask* Teardown(unsigned int flags); // 0x005407B0
 };
 
 // 0x00540E00 (SendMessage text=): to the lobby's group room - or, with system_message, "<System> <text>" to the
@@ -298,13 +298,13 @@ struct LobbySearchA {
     void** m_vtable;
     void* m_listLink;
     void DestroyBody();                        // 0x0053F8B0
-    LobbySearchA* Destroy(unsigned int flags); // 0x005407E0
+    LobbySearchA* Teardown(unsigned int flags); // 0x005407E0
 };
 struct LobbySearchB {
     void** m_vtable;
     void* m_listLink;
     void DestroyBody();                        // 0x0053F8C0
-    LobbySearchB* Destroy(unsigned int flags); // 0x00540810
+    LobbySearchB* Teardown(unsigned int flags); // 0x00540810
 };
 
 // 0x0053F8A0 (ResetConnectionTimer): the connection timer (0x007CCE3C) restarted now. True.

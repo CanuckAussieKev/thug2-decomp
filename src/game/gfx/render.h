@@ -57,7 +57,7 @@ void Draw2DWithBlackBars();
 // 0x004DB200: the camera's view and projection. `orientation`'s rows 1 and 2 are the camera's up and backward
 // directions; `angle` is the horizontal field of view in degrees; `zoom` scales the projection (1 = none);
 // `infinite` pushes the far plane to infinity.
-void ChooseCamera(const Maths::Matrix* orientation, const Maths::Vector* position, float angle, float aspect, float zoom,
+void ChooseCamera(const Maths::Mat4* orientation, const Maths::Vec4* position, float angle, float aspect, float zoom,
                bool infinite);
 
 // 0x004DF390: the motion blur pass - blends the previous frame (one of two textures) over the screen.
@@ -69,10 +69,10 @@ void DrawWorld();
 
 extern bool g_radeon8500;
 extern int g_framesRendered;
-extern Maths::Matrix g_worldMatrix;
-extern Maths::Matrix g_viewMatrix;
-extern Maths::Matrix g_projectionMatrix;
-extern Maths::Matrix g_headingMatrix;
+extern Maths::Mat4 g_worldMatrix;
+extern Maths::Mat4 g_viewMatrix;
+extern Maths::Mat4 g_projectionMatrix;
+extern Maths::Mat4 g_headingMatrix;
 extern int g_frameTime;
 extern int g_screenCopyIndex;
 extern int g_backBufferWidth;

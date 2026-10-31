@@ -70,7 +70,7 @@ public:
     static constexpr int kImageSize = 0x4420;
 
     // 0x004875C0: not valid, the default points, the overlay "faces\CS_NSN_Head_wht_alpha". Returns this.
-    CFaceSkin* Construct();
+    CFaceSkin* MakeNew();
     // 0x00487380: the image loaded from "images\<name>.img.xbx" (with `fullPath`: "<name>.img.xbx") - all the file's
     // bytes copied in, however many - and valid.
     void LoadImageFile(const char* name, bool fullPath);
@@ -82,7 +82,7 @@ public:
     // 0x004874B0: the same read back. Returns the buffer after it.
     const uint8_t* ReadFrom(const uint8_t* buffer, int size);
     // 0x00487510: whether there is an image.
-    bool IsValid();
+    bool IsSound();
     // 0x00487520
     void MarkUsable(bool valid);
     // 0x00487530

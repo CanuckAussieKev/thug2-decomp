@@ -16,13 +16,13 @@ class CObjectModule;
 class CBalance {
 public:
     // 0x00579950: the vtable, Reset's state (without its script). Returns this.
-    CBalance* Construct();
+    CBalance* MakeNew();
     // 0x00579850: the destructor body (only the vtable). 0x005799A0: the scalar deleting destructor (vtable
     // slot 0).
     void DestroyBody();
-    CBalance* Destroy(unsigned int flags);
+    CBalance* Teardown(unsigned int flags);
     // 0x00579860: the skater and its components SkaterBalanceTrick, SkaterScore, input.
-    void Init(CGameEntity* skater);
+    void PrepareAll(CGameEntity* skater);
     // 0x005798A0: reset_balance_indicator (if the script integer 0x5D07E2BE is set); the lean, its speed, the
     // times cleared; not on a rail (-1).
     void Reset();
@@ -31,15 +31,15 @@ public:
     // shorter than half a second); the last lean speed repeated harder (at least Repeat_Min; a new manual: random
     // side, a nose manual's to the back); the lean repeated (Lean_Repeat_Multiplier, plus the cheese); kept within
     // Lean_Bail_Angle; the cheese, the start time.
-    void Start(uint32_t leftButton, uint32_t rightButton, uint32_t trick, bool flipped, bool flip);
+    void Kickoff(uint32_t leftButton, uint32_t rightButton, uint32_t trick, bool flipped, bool flip);
     // 0x00579CC0: one frame (while started): the cheese wears off; the score's trick time (0x00564270); the time
     // goes on; the lean speeds up (its physics: 0x06851748, 0xA9FEF5AB, 0xB6A634F3); the buttons push it back
     // (Lean_Push - not before the "no input" time 0x07DA1621 has passed or a button was let go); with no button,
     // a random shake; past Lean_Bail_Angle the skater's bail event; the balance meter (0x7149B753) and the score's
     // display (0x00563370 / 0x00563390) shown.
-    void Update();
+    void TickFrame();
     // 0x005799D0: the score's displays hidden, the buttons forgotten.
-    void Stop();
+    void Halt();
     // 0x00579920: the longest time so far kept (m_bestTime), the time cleared. 0x005798F0: the longest time cleared.
     void KeepBestTime();
     void ClearBestTime();

@@ -206,7 +206,7 @@ void SaveLists()
 
 } // namespace
 
-void Frame(const Ui::Model& model)
+void TickCycle(const Ui::ShapeMesh& model)
 {
     ++g_frame;
     if (model.level != g_level) {
@@ -248,7 +248,7 @@ void Frame(const Ui::Model& model)
     }
 }
 
-void Stop()
+void Halt()
 {
     UiBackend::FreeAtlas();
     g_cells.Clear();
@@ -360,7 +360,7 @@ void Chip(const char* label, int mode, const char* tip)
 
 } // namespace
 
-int ItemsPanel(const Ui::Model& model, const char* filter, bool follow, float height, ImFont* mono, ImFont* smallFont,
+int ItemsPanel(const Ui::ShapeMesh& model, const char* filter, bool follow, float height, ImFont* mono, ImFont* smallFont,
                float scale, std::vector<Ui::Request>* requests)
 {
     const std::vector<Ui::BrowserItem>& items = *model.browserItems;

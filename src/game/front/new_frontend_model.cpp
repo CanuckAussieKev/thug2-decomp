@@ -19,14 +19,14 @@ namespace {
 // --- a small JSON reader (the data file only: objects, arrays, strings, numbers, true / false / null) ---
 
 struct Json {
-    enum Kind { Null, Bool, Number, String, Array, Object } kind = Null;
+    enum Kind { Null, Bool, Number, Chars, Array, Object } kind = Null;
     bool boolean = false;
     double number = 0.0;
     std::string text;
     std::vector<Json> items;
     std::vector<std::pair<std::string, Json>> members;
 
-    const Json* Get(const char* key) const
+    const Json* Pull(const char* key) const
     {
         for (const auto& [name, value] : members)
             if (name == key)
@@ -35,8 +35,8 @@ struct Json {
     }
     std::string TextUtil(const char* key) const
     {
-        const Json* v = Get(key);
-        return v && v->kind == String ? v->text : std::string();
+        const Json* v = Pull(key);
+        return v && v->kind == Chars ? v->text : std::string();
     }
 };
 
@@ -50,13 +50,13 @@ public:
         Space();
         return m_lookAt == m_text.size() || Fail("text after the value");
     }
-    const std::string& Error() const { return m_error; }
+    const std::string& Error() const { return m_fault; }
 
 private:
     bool Fail(const char* why)
     {
-        if (m_error.empty())
-            m_error = std::string(why) + " at character " + std::to_string(m_lookAt);
+        if (m_fault.empty())
+            m_fault = std::string(why) + " at character " + std::to_string(m_lookAt);
         return false;
     }
     void Space()
@@ -188,7 +188,7 @@ private:
             }
         }
         if (c == '"') {
-            out->kind = Json::String;
+            out->kind = Json::Chars;
             return StringValue(&out->text);
         }
         if (Literal("true")) {
@@ -217,7 +217,7 @@ private:
 
     const std::string& m_text;
     size_t m_lookAt = 0;
-    std::string m_error;
+    std::string m_fault;
 };
 
 bool SameText(const std::string& a, const std::string& b)
@@ -283,15 +283,15 @@ bool ParseCatalogue(const std::string& json, Catalogue* out, std::string* error)
         return fail(reader.Error());
     if (root.kind != Json::Object)
         return fail("not an object");
-    const Json* version = root.Get("version");
+    const Json* version = root.Pull("version");
     if (!version || version->kind != Json::Number || version->number != 1.0)
         return fail("not version 1");
     Catalogue result;
-    if (const Json* art = root.Get("menu_art"); art && art->kind == Json::Object)
+    if (const Json* art = root.Pull("menu_art"); art && art->kind == Json::Object)
         for (const auto& [key, value] : art->members)
-            if (value.kind == Json::String)
+            if (value.kind == Json::Chars)
                 result.menuArt.emplace_back(key, value.text);
-    const Json* sections = root.Get("sections");
+    const Json* sections = root.Pull("sections");
     if (!sections || sections->kind != Json::Array)
         return fail("no sections");
     for (const Json& s : sections->items) {
@@ -304,38 +304,38 @@ bool ParseCatalogue(const std::string& json, Catalogue* out, std::string* error)
         section.colour = ParseColour(s.TextUtil("colour"), 0xFFC9CBD0);
         if (section.tab.empty())
             section.tab = section.id;
-        const Json* levels = s.Get("levels");
+        const Json* levels = s.Pull("levels");
         if (!levels || levels->kind != Json::Array)
             return fail("section " + section.id + " has no levels");
         for (const Json& l : levels->items) {
             if (l.kind != Json::Object)
                 return fail("a level isn't an object");
-            Level level;
+            StageMap level;
             level.name = l.TextUtil("name");
             level.load = l.TextUtil("load");
             level.art = l.TextUtil("art");
-            if (const Json* variants = l.Get("art_variants"); variants && variants->kind == Json::Array)
+            if (const Json* variants = l.Pull("art_variants"); variants && variants->kind == Json::Array)
                 for (const Json& v : variants->items)
-                    if (v.kind == Json::String && !v.text.empty())
+                    if (v.kind == Json::Chars && !v.text.empty())
                         level.artVariants.push_back(v.text);
-            if (const Json* labels = l.Get("art_labels"); labels && labels->kind == Json::Array)
+            if (const Json* labels = l.Pull("art_labels"); labels && labels->kind == Json::Array)
                 for (const Json& v : labels->items)
-                    if (v.kind == Json::String)
+                    if (v.kind == Json::Chars)
                         level.artLabels.push_back(v.text);
             if (level.artLabels.size() != level.artVariants.size())
                 level.artLabels.clear();
             level.flag = l.TextUtil("flag");
             level.seenFlag = l.TextUtil("seen_flag");
             level.gameTag = l.TextUtil("game_tag");
-            if (const Json* num = l.Get("level_num")) {
+            if (const Json* num = l.Pull("level_num")) {
                 if (num->kind == Json::Number)
                     level.levelIndex = static_cast<int>(num->number);
-                else if (num->kind == Json::String)
+                else if (num->kind == Json::Chars)
                     level.levelNumName = num->text;
             }
-            const Json* hide = l.Get("hide_when_locked");
+            const Json* hide = l.Pull("hide_when_locked");
             level.hideWhenLocked = hide && hide->kind == Json::Bool && hide->boolean;
-            const Json* generic = l.Get("generic_art");
+            const Json* generic = l.Pull("generic_art");
             level.genericArt = generic && generic->kind == Json::Bool && generic->boolean;
             if (level.name.empty() || level.load.empty())
                 return fail("a level of " + section.id + " has no name or load script");
@@ -352,7 +352,7 @@ bool Catalogue::CycleArt(const std::string& load, int step)
     int s = 0, l = 0;
     if (!Find(load, &s, &l))
         return false;
-    Level& level = sections[s].levels[l];
+    StageMap& level = sections[s].levels[l];
     int count = static_cast<int>(level.artVariants.size());
     if (count < 2)
         return false;
@@ -366,7 +366,7 @@ void Catalogue::ApplyArtChoices(const std::vector<std::pair<std::string, int>>& 
         int s = 0, l = 0;
         if (!Find(load, &s, &l))
             continue;
-        Level& level = sections[s].levels[l];
+        StageMap& level = sections[s].levels[l];
         if (variant >= 0 && variant < static_cast<int>(level.artVariants.size()))
             level.variant = variant;
     }
@@ -376,7 +376,7 @@ std::vector<std::pair<std::string, int>> Catalogue::ArtChoices() const
 {
     std::vector<std::pair<std::string, int>> out;
     for (const Section& s : sections)
-        for (const Level& l : s.levels)
+        for (const StageMap& l : s.levels)
             if (l.variant > 0)
                 out.emplace_back(l.load, l.variant);
     return out;
@@ -441,9 +441,9 @@ std::string FormatState(const SavedState& state)
 
 // --- the frame --------------------------------------------------------------------------------------------------
 
-Frame FitFrame(float windowWidth, float windowHeight)
+TickCycle FitFrame(float windowWidth, float windowHeight)
 {
-    Frame frame;
+    TickCycle frame;
     if (windowWidth <= 0.0f || windowHeight <= 0.0f)
         return frame;
     frame.scale = std::min(windowWidth / kDesignWidth, windowHeight / kDesignHeight);
@@ -518,7 +518,7 @@ bool ScreenFromName(const std::string& name, Screen* out)
     return false;
 }
 
-bool IsPauseScreen(Screen screen) { return screen == Screen::Pause; }
+bool IsPauseScreen(Screen screen) { return screen == Screen::Freeze; }
 
 std::string DefaultArt(const std::string& id)
 {
@@ -546,7 +546,7 @@ void Menu::Reset(const Catalogue* catalogue, std::vector<SectionView> views, con
     m_views = std::move(views);
     m_rowInSection.assign(m_views.size(), 0);
     m_lastLevel = lastLevel;
-    m_stack = stack.empty() ? std::vector<Screen>{Screen::Main} : std::move(stack);
+    m_pile = stack.empty() ? std::vector<Screen>{Screen::Main} : std::move(stack);
     m_levelsFor = levels;
     m_section = 0;
     m_scroll = m_scrollTarget = 0.0f;
@@ -564,7 +564,7 @@ void Menu::Reset(const Catalogue* catalogue, std::vector<SectionView> views, con
             m_rowInSection[section] = static_cast<int>(it - rows.begin());
         }
     }
-    Show(m_stack.back());
+    Show(m_pile.back());
 }
 
 void Menu::SetViews(std::vector<SectionView> views)
@@ -581,7 +581,7 @@ void Menu::SetViews(std::vector<SectionView> views)
 
 void Menu::SetOptionGroup(int group)
 {
-    int count = static_cast<int>(Options::Groups().size());
+    int count = static_cast<int>(Options::Bunches().size());
     if (count > 0)
         m_bundle = ((group % count) + count) % count;
     m_optionRow = 0;
@@ -596,12 +596,12 @@ int Menu::Selected() const
     return -1; // (the roots: never shown)
 }
 
-bool Menu::OverPause() const { return !m_stack.empty() && m_stack.front() == Screen::Pause; }
+bool Menu::OverPause() const { return !m_pile.empty() && m_pile.front() == Screen::Freeze; }
 
 const std::vector<int>& Menu::OptionRows() const
 {
     static const std::vector<int> none;
-    const std::vector<Options::Group>& groups = Options::Groups();
+    const std::vector<Options::GroupSet>& groups = Options::Bunches();
     return m_bundle >= 0 && m_bundle < static_cast<int>(groups.size()) ? groups[m_bundle].rows : none;
 }
 
@@ -637,13 +637,13 @@ int Menu::LevelRow() const
     return std::clamp(m_rowInSection[m_section], 0, static_cast<int>(view->levels.size()) - 1);
 }
 
-const Level* Menu::SelectedLevel() const
+const StageMap* Menu::SelectedLevel() const
 {
     int row = LevelRow();
     if (row < 0 || !m_catalogue || m_section >= static_cast<int>(m_catalogue->sections.size()))
         return nullptr;
     int index = View()->levels[row];
-    const std::vector<Level>& levels = m_catalogue->sections[m_section].levels;
+    const std::vector<StageMap>& levels = m_catalogue->sections[m_section].levels;
     return index >= 0 && index < static_cast<int>(levels.size()) ? &levels[index] : nullptr;
 }
 
@@ -691,7 +691,7 @@ void Menu::Show(Screen screen)
 
 void Menu::Go(Screen screen)
 {
-    m_stack.push_back(screen);
+    m_pile.push_back(screen);
     uint32_t colour = kHouseYellow;
     if (screen == Screen::Levels && m_catalogue && m_section < static_cast<int>(m_catalogue->sections.size()))
         colour = m_catalogue->sections[m_section].colour;
@@ -700,23 +700,23 @@ void Menu::Go(Screen screen)
     m_wipeColour = colour;
 }
 
-void Menu::Pop()
+void Menu::StackOff()
 {
-    if (m_stack.size() > 1)
-        m_stack.pop_back();
+    if (m_pile.size() > 1)
+        m_pile.pop_back();
     m_wipe = 0.0f;
     m_switched = false;
     m_wipeColour = kHouseYellow;
 }
 
-void Menu::Open(Screen screen, LevelsFor levels)
+void Menu::Unseal(Screen screen, LevelsFor levels)
 {
     if (screen == Screen::Levels)
         m_levelsFor = levels;
     Go(screen);
 }
 
-Action Menu::MoveTo(int index)
+ActStep Menu::MoveTo(int index)
 {
     if (m_shown == Screen::Levels)
         return MoveLevel(index);
@@ -733,7 +733,7 @@ Action Menu::MoveTo(int index)
     return {};
 }
 
-Action Menu::MoveBy(int step)
+ActStep Menu::MoveBy(int step)
 {
     if (m_shown == Screen::Levels)
         return MoveLevel(LevelRow() + step);
@@ -742,7 +742,7 @@ Action Menu::MoveBy(int step)
     return {};
 }
 
-Action Menu::MoveLevel(int row)
+ActStep Menu::MoveLevel(int row)
 {
     const SectionView* view = View();
     if (!view || view->levels.empty())
@@ -755,7 +755,7 @@ Action Menu::MoveLevel(int row)
     return {ActionKind::MoveSound};
 }
 
-Action Menu::SetSection(int section)
+ActStep Menu::SetSection(int section)
 {
     int count = static_cast<int>(m_views.size());
     if (count == 0)
@@ -769,7 +769,7 @@ Action Menu::SetSection(int section)
     return {ActionKind::MoveSound};
 }
 
-Action Menu::ChangeOption(int step, bool wrap)
+ActStep Menu::ChangeOption(int step, bool wrap)
 {
     const std::vector<int>& rows = OptionRows();
     if (m_optionRow < 0 || m_optionRow >= static_cast<int>(rows.size()))
@@ -789,7 +789,7 @@ Action Menu::ChangeOption(int step, bool wrap)
             m_options[i] = Options::Specs()[i].fallback;
     }
     m_options[option] = next;
-    Action a{ActionKind::Option};
+    ActStep a{ActionKind::Option};
     a.option = option;
     a.value = next;
     return a;
@@ -815,7 +815,7 @@ void Menu::ClampScroll(bool snap)
         m_scroll = m_scrollTarget;
 }
 
-Action Menu::StartLaunch(const std::string& load)
+ActStep Menu::StartLaunch(const std::string& load)
 {
     if (load.empty())
         return {};
@@ -825,10 +825,10 @@ Action Menu::StartLaunch(const std::string& load)
     return {ActionKind::ChooseSound};
 }
 
-Action Menu::Confirm()
+ActStep Menu::Confirm()
 {
     if (m_shown == Screen::Levels) {
-        const Level* level = SelectedLevel();
+        const StageMap* level = SelectedLevel();
         if (!level || SelectedLocked())
             return {};
         return StartLaunch(level->load);
@@ -841,82 +841,82 @@ Action Menu::Confirm()
     return {};
 }
 
-Action Menu::Back()
+ActStep Menu::Back()
 {
-    if (m_stack.size() <= 1)
+    if (m_pile.size() <= 1)
         return {};
-    Pop();
+    StackOff();
     return {ActionKind::BackSound};
 }
 
-Action Menu::Press(Input input)
+ActStep Menu::Press(Intake input)
 {
-    if (Busy())
+    if (Occupied())
         return {}; // (a wipe or a launch under way: the input waits for neither)
     bool levels = m_shown == Screen::Levels, options = m_shown == Screen::Options;
     switch (input) {
-    case Input::Up: return MoveBy(-1);
-    case Input::Down: return MoveBy(1);
-    case Input::Left:
-        return levels ? SetSection(m_section - 1) : options ? ChangeOption(-1, false) : Action{};
-    case Input::Right:
-        return levels ? SetSection(m_section + 1) : options ? ChangeOption(1, false) : Action{};
-    case Input::PrevTab:
+    case Intake::Up: return MoveBy(-1);
+    case Intake::Down: return MoveBy(1);
+    case Intake::Left:
+        return levels ? SetSection(m_section - 1) : options ? ChangeOption(-1, false) : ActStep{};
+    case Intake::Right:
+        return levels ? SetSection(m_section + 1) : options ? ChangeOption(1, false) : ActStep{};
+    case Intake::PrevTab:
         if (options) {
             SetOptionGroup(m_bundle - 1);
             ResetRows();
             return {ActionKind::MoveSound};
         }
-        return levels ? SetSection(m_section - 1) : Action{};
-    case Input::NextTab:
+        return levels ? SetSection(m_section - 1) : ActStep{};
+    case Intake::NextTab:
         if (options) {
             SetOptionGroup(m_bundle + 1);
             ResetRows();
             return {ActionKind::MoveSound};
         }
-        return levels ? SetSection(m_section + 1) : Action{};
-    case Input::Confirm: return Confirm();
-    case Input::Back: return Back();
+        return levels ? SetSection(m_section + 1) : ActStep{};
+    case Intake::Confirm: return Confirm();
+    case Intake::Back: return Back();
     }
     return {};
 }
 
-Action Menu::HoverItem(int index)
+ActStep Menu::HoverItem(int index)
 {
-    if (Busy() || m_shown == Screen::Levels)
+    if (Occupied() || m_shown == Screen::Levels)
         return {};
     return MoveTo(index);
 }
 
-Action Menu::ClickItem(int index)
+ActStep Menu::ClickItem(int index)
 {
-    if (Busy() || m_shown == Screen::Levels || index < 0 || index >= ListCount())
+    if (Occupied() || m_shown == Screen::Levels || index < 0 || index >= ListCount())
         return {};
     if (m_shown == Screen::Options) {
         MoveTo(index);
-        return index >= static_cast<int>(OptionRows().size()) ? Confirm() : Action{};
+        return index >= static_cast<int>(OptionRows().size()) ? Confirm() : ActStep{};
     }
     return {};
 }
 
-Action Menu::HoverLevel(int row)
+ActStep Menu::HoverLevel(int row)
 {
-    if (Busy() || m_shown != Screen::Levels)
+    if (Occupied() || m_shown != Screen::Levels)
         return {};
     return MoveLevel(row);
 }
 
-Action Menu::ClickLevel(int row)
+ActStep Menu::ClickLevel(int row)
 {
-    if (Busy() || m_shown != Screen::Levels || !View() || row < 0 || row >= static_cast<int>(View()->levels.size()))
+    if (Occupied() || m_shown != Screen::Levels || !View() || row < 0 || row >= static_cast<int>(View()->levels.size()))
         return {};
     MoveLevel(row);
     return Confirm();
 }
 
-Action Menu::ClickTab(int section)
+ActStep Menu::ClickTab(int section)
 {
-    if (Busy())
+    if (Occupied())
         return {};
     if (m_shown == Screen::Options) {
         if (section == m_bundle)
@@ -930,44 +930,44 @@ Action Menu::ClickTab(int section)
     return SetSection(section);
 }
 
-Action Menu::ClickBack()
+ActStep Menu::ClickBack()
 {
-    if (Busy() || (m_stack.size() <= 1 && m_shown == Screen::Main))
+    if (Occupied() || (m_pile.size() <= 1 && m_shown == Screen::Main))
         return {};
-    return Press(Input::Back);
+    return Press(Intake::Back);
 }
 
-Action Menu::ClickSkate()
+ActStep Menu::ClickSkate()
 {
-    if (Busy() || m_shown != Screen::Levels)
+    if (Occupied() || m_shown != Screen::Levels)
         return {};
     return Confirm();
 }
 
-Action Menu::ClickChoice(int row, int choice)
+ActStep Menu::ClickChoice(int row, int choice)
 {
-    if (Busy() || m_shown != Screen::Options || row < 0 || row >= static_cast<int>(OptionRows().size()))
+    if (Occupied() || m_shown != Screen::Options || row < 0 || row >= static_cast<int>(OptionRows().size()))
         return {};
     m_optionRow = row;
     int current = OptionChoice(OptionRows()[row]);
-    return choice == current ? Action{} : ChangeOption(choice - current, false);
+    return choice == current ? ActStep{} : ChangeOption(choice - current, false);
 }
 
-Action Menu::Wheel(int notches)
+ActStep Menu::Wheel(int notches)
 {
-    Action last;
+    ActStep last;
     for (; notches > 0; --notches)
-        if (Action a = Press(Input::Up); a.kind != ActionKind::None)
+        if (ActStep a = Press(Intake::Up); a.kind != ActionKind::None)
             last = a;
     for (; notches < 0; ++notches)
-        if (Action a = Press(Input::Down); a.kind != ActionKind::None)
+        if (ActStep a = Press(Intake::Down); a.kind != ActionKind::None)
             last = a;
     return last;
 }
 
 bool Menu::SelectId(const std::string& id)
 {
-    if (Busy())
+    if (Occupied())
         return false;
     if (m_shown == Screen::Levels) {
         if (id.rfind("tab:", 0) == 0) {
@@ -983,7 +983,7 @@ bool Menu::SelectId(const std::string& id)
             size_t section = (s + static_cast<size_t>(m_section)) % m_views.size();
             const std::vector<int>& rows = m_views[section].levels;
             for (size_t r = 0; r < rows.size(); ++r) {
-                const Level& level = m_catalogue->sections[section].levels[rows[r]];
+                const StageMap& level = m_catalogue->sections[section].levels[rows[r]];
                 if (SameText(level.load, id) || SameText(level.name, id)) {
                     SetSection(static_cast<int>(section));
                     MoveLevel(static_cast<int>(r));
@@ -994,7 +994,7 @@ bool Menu::SelectId(const std::string& id)
         return false;
     }
     if (m_shown == Screen::Options) {
-        const std::vector<Options::Group>& groups = Options::Groups();
+        const std::vector<Options::GroupSet>& groups = Options::Bunches();
         if (id.rfind("group:", 0) == 0) {
             for (size_t g = 0; g < groups.size(); ++g)
                 if (SameText(groups[g].id, id.substr(6))) {
@@ -1032,7 +1032,7 @@ bool Menu::SelectId(const std::string& id)
 std::string Menu::SelectedId() const
 {
     if (m_shown == Screen::Levels) {
-        const Level* level = SelectedLevel();
+        const StageMap* level = SelectedLevel();
         return level ? level->load : std::string();
     }
     if (m_shown == Screen::Options) {
@@ -1045,7 +1045,7 @@ std::string Menu::SelectedId() const
     return {};
 }
 
-Action Menu::Tick(float dt)
+ActStep Menu::Tick(float dt)
 {
     dt = std::clamp(dt, 0.0f, 0.1f); // (a long frame - a load, a hitch - doesn't skip the motion)
     m_clock += dt;
@@ -1054,7 +1054,7 @@ Action Menu::Tick(float dt)
         if (!m_switched && m_wipe >= kWipeSeconds * 0.5f) {
             // Half-way: the screen changes under the wipe; its list's rows start as they are (the selection drawn).
             m_switched = true;
-            Show(m_stack.back());
+            Show(m_pile.back());
         }
         if (m_wipe >= kWipeSeconds)
             m_wipe = -1.0f;
@@ -1074,7 +1074,7 @@ Action Menu::Tick(float dt)
             m_launch = kLaunchSeconds;
             if (!m_launchFired) {
                 m_launchFired = true;
-                Action a{ActionKind::Skate};
+                ActStep a{ActionKind::Skate};
                 a.load = m_launchLoad;
                 a.levels = m_shown == Screen::Main ? LevelsFor::FreeSkate : m_levelsFor;
                 return a;
@@ -1086,7 +1086,7 @@ Action Menu::Tick(float dt)
 
 // --- covering a hand-off ------------------------------------------------------------------------------------------
 
-void Cover::Start(Over over)
+void Cover::Kickoff(Over over)
 {
     m_over = over;
     m_clock = m_still = 0.0f;
@@ -1094,7 +1094,7 @@ void Cover::Start(Over over)
     m_seen = false;
 }
 
-bool Cover::Update(const Now& now, float dt, const char** why)
+bool Cover::TickFrame(const Now& now, float dt, const char** why)
 {
     auto end = [this, why](const char* reason) {
         m_over = Over::None;

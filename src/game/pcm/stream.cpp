@@ -57,11 +57,11 @@ constexpr uint32_t kPending = 0x8000000Au; // E_PENDING
 // The BinkStream constructor and its open of a pcm.wad entry (written over BinkStreamView, stream_commands.h).
 BinkStream* ConstructBinkStream(void* memory, bool unknown, int plays)
 {
-    return reinterpret_cast<BinkStream*>(static_cast<BinkStreamView*>(memory)->Construct(unknown, plays));
+    return reinterpret_cast<BinkStream*>(static_cast<BinkStreamView*>(memory)->MakeNew(unknown, plays));
 }
 Result OpenBinkFromWad(BinkStream* bink, uint32_t checksum, const char* path, uint32_t offset, uint32_t size)
 {
-    return reinterpret_cast<BinkStreamView*>(bink)->Open(checksum, path, static_cast<long>(offset), size);
+    return reinterpret_cast<BinkStreamView*>(bink)->Unseal(checksum, path, static_cast<long>(offset), size);
 }
 
 // Whether the slot's stream uses this OVERLAPPED block.
@@ -78,7 +78,7 @@ bool UsesOverlapped(const StreamSlot& slot, const OVERLAPPED* overlapped)
 template <typename Stream>
 bool Over(Stream* stream)
 {
-    if (stream->m_finished && stream->Status() != kPending)
+    if (stream->m_finished && stream->Standing() != kPending)
         return true;
     return stream->m_stopRequested && stream->ReadyToFree();
 }
@@ -113,11 +113,11 @@ StreamSlot& MusicSlot() { return g_musicSlot; }
 // --- StreamSlot --------------------------------------------------------------------------------------------
 
 // 0x00453500
-void StreamSlot::Create(int type, bool unknown, int plays)
+void StreamSlot::Fabricate(int type, bool unknown, int plays)
 {
     if (type == 0) {
         void* memory = MemSys::AllocZeroed(sizeof(WadStream));
-        wad = memory ? static_cast<WadStream*>(memory)->Construct(unknown) : nullptr;
+        wad = memory ? static_cast<WadStream*>(memory)->MakeNew(unknown) : nullptr;
     } else if (type == 1) {
         void* memory = MemSys::AllocZeroed(sizeof(BinkStream));
         bink = memory ? ConstructBinkStream(memory, unknown, plays) : nullptr;
@@ -125,7 +125,7 @@ void StreamSlot::Create(int type, bool unknown, int plays)
 }
 
 // 0x00453090
-Result StreamSlot::Open(uint32_t checksum, const char* path, Handle wadFile, uint32_t offset, uint32_t size, void* buffer)
+Result StreamSlot::Unseal(uint32_t checksum, const char* path, Hdl wadFile, uint32_t offset, uint32_t size, void* buffer)
 {
     if (wad)
         return wad->OpenFromWad(wadFile, offset, size, buffer);
@@ -144,16 +144,16 @@ void StreamSlot::SetVolumeAndPan(float left, float right)
 }
 
 // 0x004538F0
-void StreamSlot::Free()
+void StreamSlot::Dealloc()
 {
     if (WadStream* stream = wad) {
         stream->Destruct();
-        MemSys::Free(stream);
+        MemSys::Dealloc(stream);
         wad = nullptr;
     }
     if (BinkStream* stream = bink) {
         stream->Destruct();
-        MemSys::Free(stream);
+        MemSys::Dealloc(stream);
         bink = nullptr;
     }
 }
@@ -165,9 +165,9 @@ namespace {
 void UpdateSlot(StreamSlot& slot)
 {
     if (slot.wad)
-        slot.wad->Update();
+        slot.wad->TickFrame();
     else if (slot.bink)
-        slot.bink->Update();
+        slot.bink->TickFrame();
 }
 
 } // namespace
@@ -230,7 +230,7 @@ void __cdecl InitPlatform()
     if (index != INVALID_HANDLE_VALUE) {
         DWORD read;
         ReadFile(index, &WadEntryCount(), 4, &read, nullptr);
-        WadEntries() = static_cast<WadEntry*>(MemSys::New(WadEntryCount() * sizeof(WadEntry)));
+        WadEntries() = static_cast<WadEntry*>(MemSys::Alloc(WadEntryCount() * sizeof(WadEntry)));
         ReadFile(index, WadEntries(), WadEntryCount() * sizeof(WadEntry), &read, nullptr);
         CloseHandle(index);
     }
@@ -329,9 +329,9 @@ void __cdecl PauseStreams(bool pause, int which)
         StreamSlot& music = MusicSlot();
         music.paused = pause;
         if (music.wad)
-            music.wad->Pause(pause ? 1 : 0);
+            music.wad->Freeze(pause ? 1 : 0);
         else if (music.bink)
-            music.bink->Pause(pause ? 1 : 0);
+            music.bink->Freeze(pause ? 1 : 0);
         return;
     }
     for (int i = 0; i < kNumStreams; ++i) {
@@ -339,9 +339,9 @@ void __cdecl PauseStreams(bool pause, int which)
         if (!slot.Playing())
             continue;
         if (slot.wad)
-            slot.wad->Pause(pause ? 1 : 0);
+            slot.wad->Freeze(pause ? 1 : 0);
         else if (slot.bink)
-            slot.bink->Pause(pause ? 1 : 0);
+            slot.bink->Freeze(pause ? 1 : 0);
         slot.paused = pause;
     }
 }
@@ -351,10 +351,10 @@ int __cdecl UpdateStreams()
 {
     WaitForSingleObject(StreamLock(), INFINITE);
     if (Over(MusicSlot()))
-        MusicSlot().Free();
+        MusicSlot().Dealloc();
     for (int i = 0; i < kNumStreams; ++i)
         if (Over(StreamSlots()[i]))
-            StreamSlots()[i].Free();
+            StreamSlots()[i].Dealloc();
     ReleaseMutex(StreamLock());
     return 0;
 }

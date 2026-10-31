@@ -18,7 +18,7 @@ struct PreEntry {
     int size;           // uncompressed
     int compressedSize; // 0 if stored uncompressed
     uint16_t nameSize;
-    uint16_t useCount; // how many Packs::Load calls are using it
+    uint16_t useCount; // how many Packs::ReadIn calls are using it
     uint32_t checksum;
 };
 
@@ -33,17 +33,17 @@ struct LoadedFile {
 // The file tables' static object (0x007CFFA8, no fields of its own): its constructor, a static initialiser's
 // (0x005B70F0), empties the .pre archive and loaded file tables. Returns this.
 struct FileTables {
-    FileTables* Construct();
+    FileTables* MakeNew();
 };
 
 // Load a file into memory, or add a use to it if it's already loaded (on its own or inside a .pre
 // archive). Returns its data, or null. `async` loads through the asynchronous file loader, with an
 // optional completion callback and two arguments for it.
-void* Load(const char* name, bool async, void* callback, void* callback_arg0, void* callback_arg1);
+void* ReadIn(const char* name, bool async, void* callback, void* callback_arg0, void* callback_arg1);
 
 // Release one use of a file; a file loaded on its own is freed when its last use goes.
-void Unload(uint32_t checksum);
-void Unload(const char* name);
+void Offload(uint32_t checksum);
+void Offload(const char* name);
 // Size of a loaded file (0 if it isn't loaded).
 int GetFileSize(uint32_t checksum);
 int GetFileSize(const char* name);

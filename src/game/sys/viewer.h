@@ -10,7 +10,7 @@
 // destructor, its input handlers and tasks (the free camera, the Select combos), the PC tool's messages, the viewer
 // object it owns, and a few helpers.
 namespace PadInput {
-struct Data;
+struct Payload;
 }
 namespace NetLink {
 struct InboundMsgCtx;
@@ -22,7 +22,7 @@ namespace GameObjects {
 class CGameEntity;
 }
 namespace Maths {
-class Vector;
+class Vec4;
 }
 namespace Scripts {
 class CScript;
@@ -32,37 +32,37 @@ namespace GameModules {
 
 struct Viewer;
 
-// PadInput::Handler<Viewer> (0x2C bytes, vtable 0x0064D7D8 - the template's, shared with the front end's handlers).
+// PadInput::Responder<Viewer> (0x2C bytes, vtable 0x0064D7D8 - the template's, shared with the front end's handlers).
 struct ViewerInputHandler {
     uint8_t m_listLink[0x18];            // the handler list node (0x00406890, with the priority)
-    PadInput::Data* m_controlData;        // +0x18: the controller's data this frame
-    uint8_t* m_device;               // +0x1C
-    int m_index;                     // +0x20: the controller (the script integer 0x702247A5)
-    void(__cdecl* m_code)(ViewerInputHandler*);
-    Viewer* m_data;
+    PadInput::Payload* m_controlData;        // +0x18: the controller's data this frame
+    uint8_t* m_dev;               // +0x1C
+    int m_ordinal;                     // +0x20: the controller (the script integer 0x702247A5)
+    void(__cdecl* m_codeValue)(ViewerInputHandler*);
+    Viewer* m_content;
 
-    // 0x00577270: PadInput::Handler<T>'s vtable slot 0 (every T's): the code, given the handler.
-    void Handle();
-    // 0x00577280: PadInput::Handler<T>'s destructor body: PadInput::BaseHandler's vtable (0x00646090), then the list node's
+    // 0x00577270: PadInput::Responder<T>'s vtable slot 0 (every T's): the code, given the handler.
+    void Hdl();
+    // 0x00577280: PadInput::Responder<T>'s destructor body: PadInput::BaseHandler's vtable (0x00646090), then the list node's
     // destructor (0x00406930).
     void DestroyBody();
     // 0x00577290: a jump to the list node's destructor (0x00406930).
     void DestroyNode();
-    // 0x00536670 (vtable slot 2 of PadInput::Handler<T> and PadInput::BaseHandler, 0x0064D7E0 / 0x00646098): the scalar deleting
+    // 0x00536670 (vtable slot 2 of PadInput::Responder<T> and PadInput::BaseHandler, 0x0064D7E0 / 0x00646098): the scalar deleting
     // destructor - DestroyBody, then freed with flag 1.
-    ViewerInputHandler* Destroy(unsigned int flags);
+    ViewerInputHandler* Teardown(unsigned int flags);
 };
-static_assert(sizeof(ViewerInputHandler) == 0x2C && offsetof(ViewerInputHandler, m_code) == 0x24);
+static_assert(sizeof(ViewerInputHandler) == 0x2C && offsetof(ViewerInputHandler, m_codeValue) == 0x24);
 
 // TaskList::Task<Viewer> (0x20 bytes, vtable 0x006476F0): a node of the main loop's task list.
 struct ViewerTask {
     uint8_t m_listLink[0x18]; // the task list node (0x00406890 constructs it, with the priority)
-    void(__cdecl* m_code)(ViewerTask*);
-    Viewer* m_data;
+    void(__cdecl* m_codeValue)(ViewerTask*);
+    Viewer* m_content;
 };
-static_assert(sizeof(ViewerTask) == 0x20 && offsetof(ViewerTask, m_code) == 0x18);
+static_assert(sizeof(ViewerTask) == 0x20 && offsetof(ViewerTask, m_codeValue) == 0x18);
 
-struct Viewer : Module {
+struct Viewer : PartUnit {
     // The commands the pad gives (m_actions bits).
     enum : uint32_t {
         kCommandShoulderA = 0x2,
@@ -81,16 +81,16 @@ struct Viewer : Module {
     uint8_t m_unknown3C[8];
     uint32_t m_actions;                // +0x44 the buttons' commands (bits; AddCommands)
     uint32_t m_shiftMakes;              // +0x48 the buttons pressed with select held
-    int m_mode;                         // +0x4C 0: object mode, 1: ...
+    int m_modeSel;                         // +0x4C 0: object mode, 1: ...
     void* m_netHandler;                 // +0x50 the PC tool's message handler (vtable; +0x0C a list node)
-    void* m_object;                     // +0x54 the viewer object (0x128 bytes, 0x0058ADB0)
+    void* m_entity;                     // +0x54 the viewer object (0x128 bytes, 0x0058ADB0)
 
     // 0x00577F20: the constructor (only CFunc_LaunchViewer 0x005A54E0 makes one): the module, no commands; unless
     // the debug checks are on (0x00684FA8 - they are in this exe), the PC tool's app server "THUG2 Viewer" (port
     // 10000); the free camera task and the input handler, the speeds (move 400, turn 120), the Select combo task
     // and the shift handler (priority 1000) - the handlers on the controller the script integer 0x702247A5 names;
     // the singleton. Returns this.
-    Viewer* Construct();
+    Viewer* MakeNew();
     // 0x00577DA0: v_start_cb (vtable slot 1), in the front-end heap: the PC tool's message handlers (unless the
     // debug checks are on), the tasks onto the main loop's list, the handlers onto their controller's.
     void StartCallback();
@@ -100,7 +100,7 @@ struct Viewer : Module {
     // 0x00576DC0: the destructor body: the handlers, tasks and net handler deleted, the singleton cleared, then
     // Module's. 0x00577230: the scalar deleting destructor (vtable slot 0).
     void DestroyBody();
-    Viewer* Destroy(uint8_t flags);
+    Viewer* Teardown(uint8_t flags);
     // 0x00576D70: v_stop_cb (vtable slot 2): the viewer object deleted, the handlers and tasks off their lists,
     // the net handler's node off its list.
     void StopCallback();
@@ -114,11 +114,11 @@ struct Viewer : Module {
     void AddCommands(uint32_t commands);
 };
 static_assert(offsetof(Viewer, m_inputHandler) == 0x14 && offsetof(Viewer, m_actions) == 0x44 &&
-                  offsetof(Viewer, m_object) == 0x54,
+                  offsetof(Viewer, m_entity) == 0x54,
               "layout must match the original");
 
 // 0x00576F00: the input handler's code: the sticks into the viewer, and (if viewer_buttons_enabled) the buttons
-// as commands and the User Viewer scripts; only in a view mode (SetViewMode).
+// as commands and the User Viewer scripts; only in a view mode (ChangeViewMode).
 void __cdecl HandleViewerInput(ViewerInputHandler* handler);
 // 0x00576EB0: the shift handler's code: with select held, the buttons pressed noted, and (select_shift) the
 // controller's buttons and sticks hidden from the other handlers.
@@ -150,9 +150,9 @@ int __cdecl HandleRunScript(NetLink::InboundMsgCtx* context);
 // 0x00577140: the PC tool's "remove the object" message (0x24): the viewer object deleted (the viewer from the
 // message's first word, like 0x005775A0). Returns 1.
 int __cdecl HandleRemoveViewerObject(void** context);
-// 0x00576E70 / 0x00576E80 / 0x00576E90: the script commands SetViewMode's, SetMovementVelocity's (400 to start
+// 0x00576E70 / 0x00576E80 / 0x00576E90: the script commands ChangeViewMode's, SetMovementVelocity's (400 to start
 // with) and SetRotateVelocity's (120) values. 0x00576EA0: the singleton (0x007CE4A8).
-void SetViewMode(int mode);
+void ChangeViewMode(int mode);
 void SetMovementVelocity(float velocity);
 void SetRotateVelocity(float velocity);
 Viewer* GetLiveViewer();
@@ -162,6 +162,6 @@ Scripts::CScript* SpawnScriptIfExists(uint32_t name);
 // file loaded (0x005A5960). Returns 1.
 int __cdecl ReloadScriptFile(const char** name);
 // 0x005772E0: `object` moved by `offset` along its own axes (its matrix's rotation).
-void MoveObjectLocal(GameObjects::CGameEntity* object, const Maths::Vector* offset);
+void MoveObjectLocal(GameObjects::CGameEntity* object, const Maths::Vec4* offset);
 
 } // namespace Mdl

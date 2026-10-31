@@ -42,7 +42,7 @@ unsigned int SectorAligned(unsigned int size) { return (size + 0x7FF) & ~0x7FFu;
 // assumes it exists.)
 void* PreManagerLoadFile(const char* name, int* size)
 {
-    return Pre::Instance()->LoadFile(name, size, nullptr);
+    return Pre::Sole()->IngestFile(name, size, nullptr);
 }
 
 // A loaded .pre archive: its name, padded to 16 bytes, then the archive's own header and its files.
@@ -94,11 +94,11 @@ PreEntry* FindPreEntry(uint32_t checksum)
 }
 
 // 0x005B7C00 (PartyMod's script patching wraps calls to this, and calls it by address)
-void* Load(const char* name, bool async, void* callback, void* callback_arg0, void* callback_arg1)
+void* ReadIn(const char* name, bool async, void* callback, void* callback_arg0, void* callback_arg1)
 {
     uint32_t checksum = Checksums::HashFromText(name);
     // Not original - the data overlay (game/front/data_overlay.h): a file of the data overlay is read from it,
-    // before any archive (synchronously, through FileLoad::Open, which opens the overlay's file).
+    // before any archive (synchronously, through FileLoad::Unseal, which opens the overlay's file).
     // Original behaviour: archives first, then the cache and the data folder.
     char overlay_path[260];
     bool overlay = MenuSystem::DataOverlay::OverlayPath(name, overlay_path);
@@ -157,11 +157,11 @@ void* Load(const char* name, bool async, void* callback, void* callback_arg0, vo
                 }
                 Gfx2D::LoadingConsole::NoteFile("read (cache)", name, size); // (not original: the loading console)
             } else {
-                FileLoad::Handle file = FileLoad::Open(name, "rb");
+                FileLoad::Hdl file = FileLoad::Unseal(name, "rb");
                 size = static_cast<int>(FileLoad::GetFileSize(file));
                 data = AllocateFileMemory(SectorAligned(static_cast<unsigned int>(size)));
-                FileLoad::Read(data, 1, size, file);
-                FileLoad::Close(file);
+                FileLoad::TakeIn(data, 1, size, file);
+                FileLoad::Shut(file);
             }
             if (data)
                 ShrinkFileMemory(static_cast<unsigned int>(size), data);
@@ -177,11 +177,11 @@ void* Load(const char* name, bool async, void* callback, void* callback_arg0, vo
 void* LoadFileInto(const char* name, int* size, void* buffer)
 {
     int file_size = 0;
-    // Not original - the data overlay: a file of it is read from there (FileLoad::Open), not an archive.
+    // Not original - the data overlay: a file of it is read from there (FileLoad::Unseal), not an archive.
     // Original behaviour: archives first, then the cache and the data folder.
     char overlay_path[260];
     bool overlay = MenuSystem::DataOverlay::OverlayPath(name, overlay_path);
-    void* data = overlay ? nullptr : Pre::Instance()->LoadFile(name, &file_size, static_cast<uint8_t*>(buffer));
+    void* data = overlay ? nullptr : Pre::Sole()->IngestFile(name, &file_size, static_cast<uint8_t*>(buffer));
     if (data)
         Gfx2D::LoadingConsole::NoteFile("unpack", name, file_size); // (not original: the loading console)
     if (!data) {
@@ -194,11 +194,11 @@ void* LoadFileInto(const char* name, int* size, void* buffer)
                 data = nullptr;
             }
         } else {
-            FileLoad::Handle file = FileLoad::Open(name, "rb");
+            FileLoad::Hdl file = FileLoad::Unseal(name, "rb");
             file_size = static_cast<int>(FileLoad::GetFileSize(file));
             data = buffer ? buffer : AllocateFileMemory(SectorAligned(static_cast<unsigned int>(file_size)));
-            FileLoad::Read(data, 1, file_size, file);
-            FileLoad::Close(file);
+            FileLoad::TakeIn(data, 1, file_size, file);
+            FileLoad::Shut(file);
         }
         if (!buffer && data)
             ShrinkFileMemory(static_cast<unsigned int>(file_size), data);
@@ -239,14 +239,14 @@ void LoadPre(const char* name)
     char letter = GameConfig::g_language == 3 ? 'f' : GameConfig::g_language == 5 ? 'd' : '\0';
     if (letter) {
         path[length - 1] = letter;
-        if (!FileLoad::Exist(path)) {
+        if (!FileLoad::IsPresent(path)) {
             path[length - 2] = 'p';
-            if (FileLoad::Exist(path)) {
-                FileLoad::Handle file = FileLoad::Open(path, "rb");
+            if (FileLoad::IsPresent(path)) {
+                FileLoad::Hdl file = FileLoad::Unseal(path, "rb");
                 file_size = FileLoad::GetFileSize(file);
-                patch = static_cast<uint32_t*>(MemSys::New(file_size));
-                FileLoad::Read(patch, 1, static_cast<int>(file_size), file);
-                FileLoad::Close(file);
+                patch = static_cast<uint32_t*>(MemSys::Alloc(file_size));
+                FileLoad::TakeIn(patch, 1, static_cast<int>(file_size), file);
+                FileLoad::Shut(file);
                 path[length - 2] = 'r';
                 path[length - 1] = 'e';
                 patched = true;
@@ -271,14 +271,14 @@ void LoadPre(const char* name)
     }
 
     if (!loaded) {
-        FileLoad::Handle file = FileLoad::Open(path, "rb");
+        FileLoad::Hdl file = FileLoad::Unseal(path, "rb");
         file_size = FileLoad::GetFileSize(file);
         unsigned int needed = patched && patch[0] >= file_size ? patch[0] : file_size;
         allocated = ((needed + 0x7FF) & ~0x7FFu) + prefix;
         block = static_cast<uint8_t*>(AllocateFileMemory(allocated));
         std::memcpy(block, name, std::strlen(name) + 1);
-        FileLoad::Read(block + prefix, 1, static_cast<int>(file_size), file);
-        FileLoad::Close(file);
+        FileLoad::TakeIn(block + prefix, 1, static_cast<int>(file_size), file);
+        FileLoad::Shut(file);
     }
 
     if (patched) {
@@ -294,7 +294,7 @@ void LoadPre(const char* name)
             std::memcpy(reinterpret_cast<void*>(data + offset), p, count);
             p += count;
         }
-        MemSys::Free(patch);
+        MemSys::Dealloc(patch);
     }
 
     // Repack: every file stored uncompressed, its data 16-byte aligned after its header and name, so files
@@ -358,7 +358,7 @@ constexpr uint32_t kHeapBottomUp = 0xC80BF12D;
 const char* PreName(Scripts::CStruct* params)
 {
     const char* name = nullptr;
-    Scripts::GetString(params, 0, &name, true);
+    Scripts::FetchText(params, 0, &name, true);
     return name;
 }
 
@@ -425,7 +425,7 @@ bool __cdecl CFunc_DumpPipPreStatus(Scripts::CStruct* params, Scripts::CScript* 
 }
 
 // 0x005B7200
-void Unload(uint32_t checksum)
+void Offload(uint32_t checksum)
 {
     for (int i = 0; i < kMaxLoadedFiles; ++i) {
         LoadedFile& file = LoadedFiles()[i];
@@ -445,9 +445,9 @@ void Unload(uint32_t checksum)
 }
 
 // 0x005B7270
-void Unload(const char* name)
+void Offload(const char* name)
 {
-    Unload(Checksums::HashFromText(name));
+    Offload(Checksums::HashFromText(name));
 }
 
 // 0x005B7290
@@ -469,7 +469,7 @@ int GetFileSize(const char* name)
 }
 
 // 0x005B70F0
-FileTables* FileTables::Construct()
+FileTables* FileTables::MakeNew()
 {
     for (int i = 0; i < kMaxPreFiles; ++i)
         PreFiles()[i] = nullptr;

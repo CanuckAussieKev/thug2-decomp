@@ -77,9 +77,9 @@ uint32_t g_depthBits;
 STypeface* g_debugFont;
 
 IDirect3D9*& Direct3D() { return g_direct3D; }
-IDirect3DDevice9*& Device() { return g_d3dDevice; }
+IDirect3DDevice9*& InputPort() { return g_d3dDevice; }
 D3DPRESENT_PARAMETERS& PresentParameters() { return g_presentParameters; }
-HWND Window() { return g_gameWindow; }
+HWND Pane() { return g_gameWindow; }
 // The size the device is being created at.
 int& DeviceWidth() { return g_deviceWidth; }
 int& DeviceHeight() { return g_deviceHeight; }
@@ -97,7 +97,7 @@ void InitDirect3D()
     g_depthTextureTarget = 0;
     reinterpret_cast<uint32_t&>(g_screenCopyIndex) = 0;
     // Originally from PartyMod Fixes (its jump at 0x004D869C): the window is never maximised. The original:
-    //   if (g_showWindowFlag) ShowWindow(Window(), SW_MAXIMIZE);
+    //   if (g_showWindowFlag) ShowWindow(Pane(), SW_MAXIMIZE);
 
     // (Direct3DCreate9 and MessageBoxA through the exe's imports)
     IDirect3D9* d3d = Direct3DCreate9(31); // the game's D3D_SDK_VERSION
@@ -116,7 +116,7 @@ void InitDirect3D()
 
     D3DPRESENT_PARAMETERS& pp = PresentParameters();
     pp = {};
-    pp.hDeviceWindow = Window();
+    pp.hDeviceWindow = Pane();
     // Originally from PartyMod Fixes (its byte at 0x004D8720, written when its Windowed setting is on). The original: always full screen.
     pp.Windowed = SystemCore::Windowed() ? TRUE : FALSE;
     pp.SwapEffect = D3DSWAPEFFECT_DISCARD;
@@ -144,7 +144,7 @@ void InitDirect3D()
     pp.BackBufferFormat = D3DFMT_X8R8G8B8;
     pp.AutoDepthStencilFormat = D3DFMT_D24X8;
     pp.FullScreen_RefreshRateInHz = 0;
-    Device() = nullptr;
+    InputPort() = nullptr;
 
     // Hardware vertex processing first, multisampling (if set) first; each at every size from `first` down.
     const bool attempts[4][2] = {{true, multisample}, {false, multisample}, {true, false}, {false, false}};
@@ -164,9 +164,9 @@ void InitDirect3D()
     if (!created)
         Crt::Exit(0); // the game's exit()
     // Originally from PartyMod Fixes (its NOPs at 0x004D8891): the window is left where it is. The original:
-    //   SetWindowPos(Window(), HWND_TOP, 0, 0, DeviceWidth(), DeviceHeight(), SWP_NOZORDER);
+    //   SetWindowPos(Pane(), HWND_TOP, 0, 0, DeviceWidth(), DeviceHeight(), SWP_NOZORDER);
 
-    IDirect3DDevice9* device = Device();
+    IDirect3DDevice9* device = InputPort();
     g_drawDevice = device;
     // (the back buffer size as set by CreateDevice, unsigned)
     float scaleX = static_cast<float>(static_cast<double>(pp.BackBufferWidth) * kPer640);
@@ -192,7 +192,7 @@ void InitDirect3D()
     LoadGamma();
     // the debug font (none on PC: the original calls the shared `return 0` stub)
     g_debugFont = reinterpret_cast<STypeface*>(static_cast<uintptr_t>(Stubs::ReturnZero()));
-    FrameClock::SetFlags();
+    FrameClock::ChangeBits();
 }
 
 namespace {
@@ -209,8 +209,8 @@ D3DADAPTER_IDENTIFIER9& AdapterIdentifier() { return g_adapterIdentifier; }
 char* SoundDeviceName() { return g_soundDeviceName; }
 
 // The dynamic vertex buffer and the quads' index buffer (the platform layer's).
-void CreateDynamicVertexBuffer(uint32_t size) { Platform::CreateDynamicVertexBuffer(size); }
-void CreateDynamicIndexBuffer(uint32_t quads) { Platform::CreateQuadIndexBuffer(quads); }
+void CreateDynamicVertexBuffer(uint32_t size) { OsLayer::CreateDynamicVertexBuffer(size); }
+void CreateDynamicIndexBuffer(uint32_t quads) { OsLayer::CreateQuadIndexBuffer(quads); }
 
 using DirectSoundEnumerateFn = HRESULT(WINAPI*)(BOOL(CALLBACK*)(GUID*, const char*, const char*, void*), void*);
 
@@ -248,7 +248,7 @@ HRESULT __cdecl CreateDevice(int width, int height, bool hardwareVertices, bool 
     pp.BackBufferWidth = width;
     DWORD flags = (hardwareVertices ? D3DCREATE_HARDWARE_VERTEXPROCESSING : D3DCREATE_SOFTWARE_VERTEXPROCESSING) |
                   D3DCREATE_MULTITHREADED;
-    HRESULT result = Direct3D()->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, Window(), flags, &pp, &Device());
+    HRESULT result = Direct3D()->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, Pane(), flags, &pp, &InputPort());
     D3DADAPTER_IDENTIFIER9& id = AdapterIdentifier();
     std::memset(&id, 0, sizeof(id));
     Direct3D()->GetAdapterIdentifier(D3DADAPTER_DEFAULT, 0, &id);
@@ -279,9 +279,9 @@ void __cdecl ReleaseRenderTargets()
         DepthTextureTarget()->Release();
         DepthTextureTarget() = nullptr;
     }
-    Platform::ReleaseDynamicVertexBuffer();
-    Platform::ReleaseQuadIndexBuffer();
-    Platform::ReleaseOcclusionQueries();
+    OsLayer::ReleaseDynamicVertexBuffer();
+    OsLayer::ReleaseQuadIndexBuffer();
+    OsLayer::ReleaseOcclusionQueries();
     GraphicsOptions::ReleaseSceneTarget(); // (NOT ORIGINAL: [Graphics] msaa's scene surface)
 }
 
@@ -294,21 +294,21 @@ void __cdecl CreateRenderTargets()
     static const uint32_t kDivisors[9] = {1, 1, 4, 4, 4, 8, 8, 16, 16};
     D3DPRESENT_PARAMETERS& pp = PresentParameters();
     for (int i = 0; i < 9; ++i) {
-        Device()->CreateTexture(pp.BackBufferWidth / kDivisors[i], pp.BackBufferHeight / kDivisors[i], 1,
+        InputPort()->CreateTexture(pp.BackBufferWidth / kDivisors[i], pp.BackBufferHeight / kDivisors[i], 1,
                                 D3DUSAGE_RENDERTARGET, D3DFMT_X8R8G8B8, D3DPOOL_DEFAULT, &ScreenTextures()[i], nullptr);
         ScreenTextures()[i]->GetSurfaceLevel(0, &ScreenSurfaces()[i]);
     }
-    Device()->CreateDepthStencilSurface(pp.BackBufferWidth, pp.BackBufferHeight, pp.AutoDepthStencilFormat,
+    InputPort()->CreateDepthStencilSurface(pp.BackBufferWidth, pp.BackBufferHeight, pp.AutoDepthStencilFormat,
                                         D3DMULTISAMPLE_NONE, 0, TRUE, &DepthSurface(), nullptr);
-    Device()->GetRenderTarget(0, &BackBuffer());
-    Device()->GetDepthStencilSurface(&BackDepth());
+    InputPort()->GetRenderTarget(0, &BackBuffer());
+    InputPort()->GetDepthStencilSurface(&BackDepth());
     BackBuffer()->Release(); // (only the pointers are kept)
     BackDepth()->Release();
     if (g_depthTexturesSupported) // depth textures
-        Device()->CreateRenderTarget(256, 256, pp.BackBufferFormat, D3DMULTISAMPLE_NONE, 0, FALSE,
+        InputPort()->CreateRenderTarget(256, 256, pp.BackBufferFormat, D3DMULTISAMPLE_NONE, 0, FALSE,
                                      &DepthTextureTarget(), nullptr);
     D3DCAPS9 caps;
-    Device()->GetDeviceCaps(&caps);
+    InputPort()->GetDeviceCaps(&caps);
     if (caps.PixelShaderVersion >= D3DPS_VERSION(1, 1))
         g_shadersAvailable = true;
     if (caps.DevCaps2 & D3DDEVCAPS2_STREAMOFFSET)
@@ -317,7 +317,7 @@ void __cdecl CreateRenderTargets()
     // NOT ORIGINAL - [Graphics] anisotropy and msaa (game/gfx/graphics_options.h): the anisotropy this device can
     // give, and the multisampled scene surface for the screen copies.
     GraphicsOptions::ActiveAnisotropy() = GraphicsOptions::DeviceAnisotropy(
-        GraphicsOptions::Get().anisotropy, (caps.TextureFilterCaps & 0x400) != 0 /* D3DPTFILTERCAPS_MINFANISOTROPY */,
+        GraphicsOptions::Pull().anisotropy, (caps.TextureFilterCaps & 0x400) != 0 /* D3DPTFILTERCAPS_MINFANISOTROPY */,
         caps.MaxAnisotropy);
     GraphicsOptions::CreateSceneTarget();
     if (caps.TextureAddressCaps & D3DPTADDRESSCAPS_BORDER)
@@ -384,7 +384,7 @@ void __cdecl ShowDiscError()
     }
     alignas(4) uint8_t storage[sizeof(SGlyphRun)];
     SGlyphRun* text = reinterpret_cast<SGlyphRun*>(storage);
-    text->Construct(0.0f);
+    text->MakeNew(0.0f);
     text->font = g_debugFont;
     text->x = 48.0f;
     text->y = 128.0f;
@@ -397,25 +397,25 @@ void __cdecl ShowDiscError()
     SetTexture(3, nullptr);
     // Forever: the two lines, 16 apart, on a cleared screen.
     for (;;) {
-        Device()->Present(nullptr, nullptr, nullptr, nullptr);
-        Device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
+        InputPort()->Present(nullptr, nullptr, nullptr, nullptr);
+        InputPort()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
         ChooseBlendMode(5);
         SetTexture(0, nullptr);
-        SetState(kAddressMode0, 0x10001);
-        SetState(kDepthBias, 0);
-        SetState(kAlphaRef, 1);
-        SetState(kZWrite, 0);
-        Device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
-        Device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
+        ChangePhase(kAddressMode0, 0x10001);
+        ChangePhase(kDepthBias, 0);
+        ChangePhase(kAlphaRef, 1);
+        ChangePhase(kZWrite, 0);
+        InputPort()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
+        InputPort()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
         text->y = text->y - kOffsetLines;
         text->text = first;
         text->ResetVertices();
-        text->Draw();
+        text->Blit();
         text->DrawVertices();
         text->y = text->y + kOffsetLines;
         text->text = second;
         text->ResetVertices();
-        text->Draw();
+        text->Blit();
         text->DrawVertices();
     }
 }
@@ -423,13 +423,13 @@ void __cdecl ShowDiscError()
 // 0x0044F870
 long __cdecl SetRenderState(int state, uint32_t value)
 {
-    return Device()->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
+    return InputPort()->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
 }
 
 // 0x0044F890
 long __cdecl ClearDevice(uint32_t rectCount, const void* rects, uint32_t flags, uint32_t color, float z, uint32_t stencil)
 {
-    return Device()->Clear(rectCount, static_cast<const D3DRECT*>(rects), flags, color, z, stencil);
+    return InputPort()->Clear(rectCount, static_cast<const D3DRECT*>(rects), flags, color, z, stencil);
 }
 
 } // namespace Nx

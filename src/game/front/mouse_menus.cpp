@@ -40,7 +40,7 @@ using MenuSystem::CUiWidget;
 
 namespace {
 
-// Element types (CObject::m_type) and names.
+// Element types (CEntity::m_kindTag) and names.
 constexpr uint32_t kVMenu = 0x130EF802;          // "vmenu"
 constexpr uint32_t kHMenu = 0xCCDED1E1;          // "hmenu"
 constexpr uint32_t kWindowElement = 0xA13ADBB7;  // "windowelement" (a clipping viewport, 0x004B2060)
@@ -71,20 +71,20 @@ constexpr uint32_t kFlagPriority = 0x10000000;   // priority > 0 (pad events wit
 constexpr float kMinAlpha = 0.01f;
 
 template <typename T>
-T Field(const CUiWidget* element, uint32_t offset)
+T Prop(const CUiWidget* element, uint32_t offset)
 {
     return *reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(element) + offset);
 }
 
-const GameObjects::CObject* AsObject(const CUiWidget* element) { return reinterpret_cast<const GameObjects::CObject*>(element); }
-uint32_t Flags(const CUiWidget* element) { return Field<uint32_t>(element, 0x08); }
-uint32_t Type(const CUiWidget* element) { return AsObject(element)->m_type; }
-uint32_t Id(const CUiWidget* element) { return AsObject(element)->m_id; }
-CUiWidget* Parent(const CUiWidget* element) { return Field<CUiWidget*>(element, 0x4C); }
-CUiWidget* FirstChild(const CUiWidget* element) { return Field<CUiWidget*>(element, 0x58); }
-CUiWidget* NextSibling(const CUiWidget* element) { return Field<CUiWidget*>(element, 0x64); }
-float Alpha(const CUiWidget* element) { return Field<float>(element, 0x114); }
-float Angle(const CUiWidget* element) { return Field<float>(element, 0x14C); }
+const GameObjects::CEntity* AsObject(const CUiWidget* element) { return reinterpret_cast<const GameObjects::CEntity*>(element); }
+uint32_t Flags(const CUiWidget* element) { return Prop<uint32_t>(element, 0x08); }
+uint32_t KindTag(const CUiWidget* element) { return AsObject(element)->m_kindTag; }
+uint32_t IdentNo(const CUiWidget* element) { return AsObject(element)->m_ident; }
+CUiWidget* Parent(const CUiWidget* element) { return Prop<CUiWidget*>(element, 0x4C); }
+CUiWidget* FirstChild(const CUiWidget* element) { return Prop<CUiWidget*>(element, 0x58); }
+CUiWidget* NextSibling(const CUiWidget* element) { return Prop<CUiWidget*>(element, 0x64); }
+float Alpha(const CUiWidget* element) { return Prop<float>(element, 0x114); }
+float Bearing(const CUiWidget* element) { return Prop<float>(element, 0x14C); }
 
 // The flag on the element or a parent.
 bool FlagInChain(const CUiWidget* element, uint32_t flag)
@@ -97,24 +97,24 @@ bool FlagInChain(const CUiWidget* element, uint32_t flag)
 
 bool ClipsChildren(const CUiWidget* element)
 {
-    uint32_t type = Type(element);
+    uint32_t type = KindTag(element);
     return type == kWindowElement || type == kVScrollingMenu || type == kHScrollingMenu;
 }
 
-Rect Intersect(const Rect& a, const Rect& b)
+Rect2 Intersect(const Rect2& a, const Rect2& b)
 {
     return {std::max(a.left, b.left), std::max(a.top, b.top), std::min(a.right, b.right), std::min(a.bottom, b.bottom)};
 }
 
-Rect Union(const Rect& a, const Rect& b)
+Rect2 Union(const Rect2& a, const Rect2& b)
 {
     return {std::min(a.left, b.left), std::min(a.top, b.top), std::max(a.right, b.right), std::max(a.bottom, b.bottom)};
 }
 
 // The rectangle of an unturned box (right / bottom past left / top).
-Rect BoxRect(const Box& box)
+Rect2 BoxRect(const Cuboid& box)
 {
-    Rect rect = {box.x, box.y, box.x + box.width, box.y + box.height};
+    Rect2 rect = {box.x, box.y, box.x + box.width, box.y + box.height};
     if (rect.right < rect.left)
         std::swap(rect.left, rect.right);
     if (rect.bottom < rect.top)
@@ -123,15 +123,15 @@ Rect BoxRect(const Box& box)
 }
 
 // The rectangle around a turned box's corners.
-Rect TurnedBoxRect(const Box& box)
+Rect2 TurnedBoxRect(const Cuboid& box)
 {
     double c = std::cos(box.angle), s = std::sin(box.angle);
-    Rect rect = {box.x, box.y, box.x, box.y};
+    Rect2 rect = {box.x, box.y, box.x, box.y};
     const float corners[3][2] = {{box.width, 0.0f}, {0.0f, box.height}, {box.width, box.height}};
     for (const auto& corner : corners) {
         float x = static_cast<float>(box.x + c * corner[0] - s * corner[1]);
         float y = static_cast<float>(box.y + s * corner[0] + c * corner[1]);
-        rect = Union(rect, Rect{x, y, x, y});
+        rect = Union(rect, Rect2{x, y, x, y});
     }
     return rect;
 }
@@ -149,15 +149,15 @@ void ForEachPart(const CUiWidget* element, F& visit, bool item)
 
 // The rectangle around the item's unturned parts (false: none - with `turnedInBounds` the turned ones' too), and
 // whether a turned part contains (x, y).
-bool ItemShape(const CUiWidget* item, float x, float y, bool turnedInBounds, Rect* bounds, bool* turnedHit)
+bool ItemShape(const CUiWidget* item, float x, float y, bool turnedInBounds, Rect2* bounds, bool* turnedHit)
 {
     bool any = false;
     *turnedHit = false;
     auto visit = [&](const CUiWidget* part, bool isItem) {
-        Box box = ElementBox(part);
+        Cuboid box = ElementBox(part);
         if (!isItem && (box.width == 0.0f || box.height == 0.0f))
             return; // (an empty container somewhere: nothing to point at)
-        Rect rect;
+        Rect2 rect;
         if (Rotated(box.angle)) {
             if (BoxContains(box, x, y))
                 *turnedHit = true;
@@ -175,11 +175,11 @@ bool ItemShape(const CUiWidget* item, float x, float y, bool turnedInBounds, Rec
 }
 
 // Across its menu (a vertical menu's width, a horizontal one's height) - unless the menu is turned.
-Rect Widen(Rect area, const CUiWidget* menu)
+Rect2 Widen(Rect2 area, const CUiWidget* menu)
 {
-    if (Rotated(Angle(menu)))
+    if (Rotated(Bearing(menu)))
         return area;
-    Rect span = ElementRect(menu);
+    Rect2 span = ElementRect(menu);
     if (IsVerticalMenu(menu)) {
         if (span.right > span.left) {
             area.left = std::min(area.left, span.left);
@@ -192,7 +192,7 @@ Rect Widen(Rect area, const CUiWidget* menu)
     return area;
 }
 
-struct Search {
+struct Hunt {
     float x, y;
     MenuFilter accepts;
     bool verticalOnly; // (AnyMenu)
@@ -201,7 +201,7 @@ struct Search {
 };
 
 // Pre-order: a later find (deeper, or later in the tree) replaces an earlier one.
-void Visit(Search& search, CUiWidget* element, bool parentAccepts, int index, const Rect& clip, bool clipped)
+void Visit(Hunt& search, CUiWidget* element, bool parentAccepts, int index, const Rect2& clip, bool clipped)
 {
     if (Flags(element) & kFlagHidden)
         return;
@@ -209,15 +209,15 @@ void Visit(Search& search, CUiWidget* element, bool parentAccepts, int index, co
         return;
     CUiWidget* parent = Parent(element);
     if (parentAccepts && !ItemPassedOver(element) && ItemFocusable(element)) {
-        if (ItemContains(element, parent, search.x, search.y) && (!clipped || clip.Contains(search.x, search.y))) {
+        if (ItemContains(element, parent, search.x, search.y) && (!clipped || clip.Holds(search.x, search.y))) {
             search.found = true;
             search.hit = {parent, element, index};
         }
     }
-    Rect childClip = clip;
+    Rect2 childClip = clip;
     bool childClipped = clipped;
     if (ClipsChildren(element)) {
-        Rect own = ElementRect(element);
+        Rect2 own = ElementRect(element);
         if (own.right > own.left && own.bottom > own.top) {
             childClip = clipped ? Intersect(clip, own) : own;
             childClipped = true;
@@ -273,16 +273,16 @@ bool WindowToLayout(const ScreenMapping& mapping, float windowX, float windowY, 
     return true;
 }
 
-Box ElementBox(const CUiWidget* element)
+Cuboid ElementBox(const CUiWidget* element)
 {
-    return {Field<float>(element, 0x134), Field<float>(element, 0x138),
-            Field<float>(element, 0x160) * Field<float>(element, 0x13C),
-            Field<float>(element, 0x164) * Field<float>(element, 0x140), Angle(element)};
+    return {Prop<float>(element, 0x134), Prop<float>(element, 0x138),
+            Prop<float>(element, 0x160) * Prop<float>(element, 0x13C),
+            Prop<float>(element, 0x164) * Prop<float>(element, 0x140), Bearing(element)};
 }
 
-Rect ElementRect(const CUiWidget* element) { return BoxRect(ElementBox(element)); }
+Rect2 ElementRect(const CUiWidget* element) { return BoxRect(ElementBox(element)); }
 
-bool BoxContains(const Box& box, float x, float y)
+bool BoxContains(const Cuboid& box, float x, float y)
 {
     // Back along the angle: the point's offset from the top left in the box's own axes.
     double c = std::cos(box.angle), s = std::sin(box.angle);
@@ -301,14 +301,14 @@ bool Rotated(float angle)
 
 bool IsMenu(const CUiWidget* element)
 {
-    uint32_t type = Type(element);
+    uint32_t type = KindTag(element);
     return type == kVMenu || type == kHMenu;
 }
 
-bool IsVerticalMenu(const CUiWidget* menu) { return Field<uint8_t>(menu, 0x190) != 0; }
-int SelectedIndex(const CUiWidget* menu) { return Field<int>(menu, 0x178); }
-bool MenuHasFocus(const CUiWidget* menu) { return Field<uint8_t>(menu, 0x180) != 0; }
-bool MenuWraps(const CUiWidget* menu) { return Field<uint8_t>(menu, 0x1A1) != 0; }
+bool IsVerticalMenu(const CUiWidget* menu) { return Prop<uint8_t>(menu, 0x190) != 0; }
+int SelectedIndex(const CUiWidget* menu) { return Prop<int>(menu, 0x178); }
+bool MenuHasFocus(const CUiWidget* menu) { return Prop<uint8_t>(menu, 0x180) != 0; }
+bool MenuWraps(const CUiWidget* menu) { return Prop<uint8_t>(menu, 0x1A1) != 0; }
 
 int ChildCount(const CUiWidget* element)
 {
@@ -320,7 +320,7 @@ int ChildCount(const CUiWidget* element)
 
 bool ItemFocusable(const CUiWidget* item)
 {
-    if (const_cast<GameObjects::CObject*>(AsObject(item))->ContainsTagFlag(kTagNotFocusable))
+    if (const_cast<GameObjects::CEntity*>(AsObject(item))->ContainsTagFlag(kTagNotFocusable))
         return false;
     return !FlagInChain(item, kFlagBlockEvents);
 }
@@ -330,9 +330,9 @@ bool ItemPassedOver(const CUiWidget* item)
     // The tags' own components (SetTags stores them there; no global names or included structures to follow).
     Scripts::CStruct* tags = AsObject(item)->m_tagTable;
     for (Scripts::CComponent* c = tags ? tags->m_head : nullptr; c; c = c->next) {
-        if (c->name == 0 && c->Type() == Scripts::QBVAL_NAME && c->checksum == kTagBlank)
+        if (c->name == 0 && c->KindTag() == Scripts::QBVAL_NAME && c->checksum == kTagBlank)
             return true;
-        if (c->name == kTagActive && c->Type() == Scripts::QBVAL_INTEGER && c->integer == 0)
+        if (c->name == kTagActive && c->KindTag() == Scripts::QBVAL_INTEGER && c->integer == 0)
             return true;
     }
     return false;
@@ -340,17 +340,17 @@ bool ItemPassedOver(const CUiWidget* item)
 
 bool ItemContains(const CUiWidget* item, const CUiWidget* menu, float x, float y)
 {
-    Rect bounds;
+    Rect2 bounds;
     bool turnedHit;
     bool any = ItemShape(item, x, y, false, &bounds, &turnedHit);
     if (turnedHit)
         return true;
-    return any && Widen(bounds, menu).Contains(x, y);
+    return any && Widen(bounds, menu).Holds(x, y);
 }
 
-Rect ItemBounds(const CUiWidget* item, const CUiWidget* menu)
+Rect2 ItemBounds(const CUiWidget* item, const CUiWidget* menu)
 {
-    Rect bounds = {};
+    Rect2 bounds = {};
     bool turnedHit;
     if (!ItemShape(item, 0.0f, 0.0f, true, &bounds, &turnedHit))
         return bounds;
@@ -359,10 +359,10 @@ Rect ItemBounds(const CUiWidget* item, const CUiWidget* menu)
 
 bool IsRotatingMenu(const CUiWidget* menu)
 {
-    if (Rotated(Angle(menu)))
+    if (Rotated(Bearing(menu)))
         return true;
     for (CUiWidget* child = FirstChild(menu); child; child = NextSibling(child))
-        if (Rotated(Angle(child)))
+        if (Rotated(Bearing(child)))
             return true;
     return false;
 }
@@ -371,8 +371,8 @@ bool FindItemAt(CUiWidget* root, float x, float y, MenuFilter accepts, Hit* out)
 {
     if (!root)
         return false;
-    Search search = {x, y, accepts, false, false, {}};
-    Visit(search, root, false, 0, Rect{}, false);
+    Hunt search = {x, y, accepts, false, false, {}};
+    Visit(search, root, false, 0, Rect2{}, false);
     if (search.found)
         *out = search.hit;
     return search.found;
@@ -441,7 +441,7 @@ TargetState AdvanceTarget(Target& target, bool wait, int (*read)(void* context),
     return TargetState::Moving;
 }
 
-int OptionSide(const Rect& item, float x)
+int OptionSide(const Rect2& item, float x)
 {
     float width = item.right - item.left;
     if (x < item.left + width * 0.3f)
@@ -516,8 +516,8 @@ void* Tracker() { return reinterpret_cast<void*>(GameObjects::g_tracker); }
 bool InParkEditor()
 {
     MenuSystem::ElementPtr element;
-    MenuSystem::GetElement(&element, kParkEditorElement);
-    return element.Get() != nullptr;
+    MenuSystem::FetchPart(&element, kParkEditorElement);
+    return element.Pull() != nullptr;
 }
 
 // Whether a menu gets the pad events now: it has the focus, and - while the element manager gives pad events
@@ -540,7 +540,7 @@ bool MenuTakesPadEvents(CUiWidget* menu)
         if (listed) {
             if (!FlagInChain(menu, kFlagPriority))
                 return false;
-            if (!reinterpret_cast<MenuSystem::CUiTree*>(manager)->IsTopPriority(Id(menu)))
+            if (!reinterpret_cast<MenuSystem::CUiTree*>(manager)->IsTopPriority(IdentNo(menu)))
                 return false;
         }
     }
@@ -583,9 +583,9 @@ const char* EventName(uint32_t event)
 
 void LogElement(const char* what, const CUiWidget* element)
 {
-    Rect r = ElementRect(element);
-    Log("  %s %08X (%s %08X): rect (%.1f, %.1f)-(%.1f, %.1f), angle %.3f, alpha %.2f, flags %08X", what, Id(element),
-        TypeName(Type(element)), Type(element), r.left, r.top, r.right, r.bottom, Angle(element), Alpha(element),
+    Rect2 r = ElementRect(element);
+    Log("  %s %08X (%s %08X): rect (%.1f, %.1f)-(%.1f, %.1f), angle %.3f, alpha %.2f, flags %08X", what, IdentNo(element),
+        TypeName(KindTag(element)), KindTag(element), r.left, r.top, r.right, r.bottom, Bearing(element), Alpha(element),
         Flags(element));
 }
 
@@ -601,7 +601,7 @@ void SendPadEvent(GameModules::FrontEnd* frontEnd, uint32_t event)
         notSent = "the first controller's pad mapping is inactive";
     else if (frontEnd->m_blockMenuInput)
         notSent = "menu input is blocked (SetButtonEventMappings block_menu_input)";
-    else if (!handler || !handler->m_device)
+    else if (!handler || !handler->m_dev)
         notSent = "no input device";
     if (s_logEvents && DebugEnabled())
         Log("  %s %s%s%s", notSent ? "NOT sent:" : "sent", EventName(event), notSent ? " - " : "",
@@ -609,8 +609,8 @@ void SendPadEvent(GameModules::FrontEnd* frontEnd, uint32_t event)
     if (notSent)
         return;
     Scripts::CStruct params;
-    params.Init();
-    params.PutInt(kDeviceNum, *reinterpret_cast<int*>(handler->m_device + 0xC));
+    params.PrepareAll();
+    params.PutInt(kDeviceNum, *reinterpret_cast<int*>(handler->m_dev + 0xC));
     params.PutInt(kController, 0);
     static_cast<GameObjects::CEventWaitBoard*>(Tracker())->LaunchEvent(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);
     params.Clear();
@@ -623,7 +623,7 @@ bool HandlesEvent(const CUiWidget* item, uint32_t type)
     if (!script || !script->m_eventHandlers)
         return false;
     const GameObjects::CSignalRouteTable* table = script->m_eventHandlers;
-    for (int i = 0; i < table->m_count; ++i)
+    for (int i = 0; i < table->m_num; ++i)
         if (table->m_entries[i].type == type && table->m_entries[i].script != GameObjects::kNullScript)
             return true;
     return false;
@@ -642,9 +642,9 @@ CUiWidget* ChildAt(const CUiWidget* menu, int index)
 
 void LogMenu(CUiWidget* menu)
 {
-    Log("  menu %08X (%s): selected %d of %d, focus %d, takes pad events %d, movement %d, wraps %d%s", Id(menu),
-        TypeName(Type(menu)), SelectedIndex(menu), ChildCount(menu), MenuHasFocus(menu), MenuTakesPadEvents(menu),
-        Field<uint8_t>(menu, 0x1A0), MenuWraps(menu), IsRotatingMenu(menu) ? ", turned (a spin menu)" : "");
+    Log("  menu %08X (%s): selected %d of %d, focus %d, takes pad events %d, movement %d, wraps %d%s", IdentNo(menu),
+        TypeName(KindTag(menu)), SelectedIndex(menu), ChildCount(menu), MenuHasFocus(menu), MenuTakesPadEvents(menu),
+        Prop<uint8_t>(menu, 0x1A0), MenuWraps(menu), IsRotatingMenu(menu) ? ", turned (a spin menu)" : "");
 }
 
 // What is under the cursor when no item is: every element (not hidden) whose own box holds the point, with the
@@ -653,7 +653,7 @@ void LogElementsAt(CUiWidget* element, float x, float y, int& lines)
 {
     if (Flags(element) & kFlagHidden)
         return;
-    Box box = ElementBox(element);
+    Cuboid box = ElementBox(element);
     if (lines < 12 && box.width != 0.0f && box.height != 0.0f && BoxContains(box, x, y)) {
         ++lines;
         LogElement("under the cursor:", element);
@@ -677,7 +677,7 @@ struct Stepper {
 int ReadStepper(void* context)
 {
     auto* stepper = static_cast<Stepper*>(context);
-    return stepper->menu ? SelectedIndex(stepper->menu.Get()) : -1;
+    return stepper->menu ? SelectedIndex(stepper->menu.Pull()) : -1;
 }
 
 void SendStep(void* context, int direction)
@@ -689,14 +689,14 @@ void SendStep(void* context, int direction)
 
 // The item the mouse is moving a menu's selection to, over as many frames as the menu needs (AdvanceTarget), and
 // what to send when it gets there (a click's pad_choose / pad_left / pad_right; 0 for a hover).
-struct Pending {
+struct Awaiting {
     bool active = false;
     const CUiWidget* item = nullptr; // (only compared, never followed)
     uint32_t itemId = 0;
     Target target = {};
     uint32_t chooseEvent = 0;
 };
-Pending s_pending;
+Awaiting s_pending;
 
 // Its menu: a smart pointer (cleared if the menu dies), allocated once and never freed - no destructor running
 // on the game's memory at exit.
@@ -716,15 +716,15 @@ void ClearPending(const char* why)
 
 TargetState AdvancePending(GameModules::FrontEnd* frontEnd)
 {
-    CUiWidget* menu = PendingMenu().Get();
+    CUiWidget* menu = PendingMenu().Pull();
     // The menu still there, with the item still at its place (compared by address, then id).
     CUiWidget* item = menu ? ChildAt(menu, s_pending.target.index) : nullptr;
-    if (!item || item != s_pending.item || Id(item) != s_pending.itemId)
+    if (!item || item != s_pending.item || IdentNo(item) != s_pending.itemId)
         return TargetState::GaveUp;
     s_pending.target.count = ChildCount(menu);
     Stepper stepper;
     stepper.frontEnd = frontEnd;
-    stepper.menu.Set(menu);
+    stepper.menu.AssignValue(menu);
     stepper.vertical = IsVerticalMenu(menu);
     // Nothing to send while the menu doesn't take pad events, or while it is on an item it passes over (its own
     // focus script moves on).
@@ -761,9 +761,9 @@ bool SettlePending(GameModules::FrontEnd* frontEnd, TargetState state)
 bool AimAt(GameModules::FrontEnd* frontEnd, const Hit& hit, uint32_t event)
 {
     s_pending.active = true;
-    PendingMenu().Set(hit.menu);
+    PendingMenu().AssignValue(hit.menu);
     s_pending.item = hit.item;
-    s_pending.itemId = Id(hit.item);
+    s_pending.itemId = IdentNo(hit.item);
     s_pending.target = StartTarget(hit.index, ChildCount(hit.menu), MenuWraps(hit.menu));
     s_pending.chooseEvent = event;
     return SettlePending(frontEnd, AdvancePending(frontEnd));
@@ -780,9 +780,9 @@ void SelectUnderCursor(GameModules::FrontEnd* frontEnd, float x, float y, bool c
             s_hoverId = 0;
             return;
         }
-        bool changed = hit.item != s_hoverItem || Id(hit.item) != s_hoverId;
+        bool changed = hit.item != s_hoverItem || IdentNo(hit.item) != s_hoverId;
         s_hoverItem = hit.item;
-        s_hoverId = Id(hit.item);
+        s_hoverId = IdentNo(hit.item);
         if (!changed && !(click && pass == 0))
             return;
         if (!click && IsRotatingMenu(hit.menu))
@@ -820,11 +820,11 @@ void Click(GameModules::FrontEnd* frontEnd, float x, float y)
     }
     if (debug) {
         LogElement("item", hit.item);
-        Rect area = ItemBounds(hit.item, hit.menu);
+        Rect2 area = ItemBounds(hit.item, hit.menu);
         Log("    index %d, area (%.1f, %.1f)-(%.1f, %.1f)", hit.index, area.left, area.top, area.right, area.bottom);
         LogMenu(hit.menu);
     }
-    if (s_pending.active && s_pending.item == hit.item && PendingMenu().Get() == hit.menu) {
+    if (s_pending.active && s_pending.item == hit.item && PendingMenu().Pull() == hit.menu) {
         s_pending.chooseEvent = event;
         if (debug)
             Log("  the menu is on its way to the item (selected %d): %s once it gets there", SelectedIndex(hit.menu),
@@ -849,7 +849,7 @@ void ShowCursor(bool show)
 
 } // namespace
 
-bool& Enabled()
+bool& IsSwitchedOn()
 {
     static bool on = ConfigInt("features", "mouse_menus", 1) != 0;
     return on;
@@ -861,23 +861,23 @@ bool& DebugEnabled()
     return on;
 }
 
-void Init()
+void PrepareAll()
 {
-    if (!Enabled())
+    if (!IsSwitchedOn())
         return;
-    Platform::RegisterEventHandler(HandleMouseEvent);
+    OsLayer::RegisterEventHandler(HandleMouseEvent);
 }
 
-void Update(GameModules::FrontEnd* frontEnd)
+void TickFrame(GameModules::FrontEnd* frontEnd)
 {
     // (not original either: the THUGPRO peer mode's host options applied once a level is up -
     // game/net/thugpro_peer.h)
-    OnlinePlay::Thugpro::Update();
+    OnlinePlay::Thugpro::TickFrame();
     // Not original either - the level editor (game/front/level_editor.h) has the mouse while it runs: no menu
     // events (the clicks and wheel meanwhile are dropped), the cursor left as the editor sets it; its own input logic
     // runs here instead.
     // Original behaviour (of the mouse_menus feature): the mouse drives the menus.
-    if (MenuSystem::LevelEditor::Active()) {
+    if (MenuSystem::LevelEditor::LiveNow()) {
         s_mouse.moved = false;
         s_mouse.leftClicks = 0;
         s_mouse.rightClicks = 0;
@@ -885,26 +885,26 @@ void Update(GameModules::FrontEnd* frontEnd)
         ClearPending("the level editor runs");
         MenuSystem::LevelEditor::InputLogic();
         // (not original either: the new front end steps aside while the editor is up - game/front/new_frontend.h)
-        MenuSystem::NewFrontend::Update(frontEnd);
+        MenuSystem::NewFrontend::TickFrame(frontEnd);
         return;
     }
     // (not original either: the restart tester's key, F8 - game/front/restart_tester.h)
-    MenuSystem::RestartTester::Update(frontEnd);
+    MenuSystem::RestartTester::TickFrame(frontEnd);
     // (and THAW's BMX's key, F7 - game/skater/thaw_bmx.h)
-    Skater::ThawBmx::Update(frontEnd);
+    Skater::ThawBmx::TickFrame(frontEnd);
     // (and play from here's way back to the level editor, F5 / Ctrl+P - game/front/level_editor_play.h)
-    MenuSystem::LevelEditor::Play::Update(frontEnd);
+    MenuSystem::LevelEditor::Perform::TickFrame(frontEnd);
     // (and play testing: the skater's trail recorded, a restart's play from here - game/front/level_editor_playtest.h)
-    MenuSystem::LevelEditor::PlayTest::Update(frontEnd);
+    MenuSystem::LevelEditor::PlayTest::TickFrame(frontEnd);
     // (and debug mode's viewer and F keys - game/sys/debug_mode.h)
-    SystemCore::DebugMode::Update(frontEnd);
+    SystemCore::DebugMode::TickFrame(frontEnd);
     // (and the start level: -level <name> - game/front/start_level.h)
-    MenuSystem::BeginLevel::Update(frontEnd);
+    MenuSystem::BeginLevel::TickFrame(frontEnd);
     // (and the test-automation channel: commands from a file - game/front/automation.h)
-    MenuSystem::Automation::Update(frontEnd);
+    MenuSystem::Automation::TickFrame(frontEnd);
     // (and the new front end - game/front/new_frontend.h: while it's up it has the mouse; the original menus under it
     // get no mouse events, the cursor stays shown)
-    MenuSystem::NewFrontend::Update(frontEnd);
+    MenuSystem::NewFrontend::TickFrame(frontEnd);
     if (MenuSystem::NewFrontend::BlocksGameInput() || MenuSystem::NewFrontend::OwnsMouse()) {
         s_mouse.moved = false;
         s_mouse.leftClicks = 0;
@@ -914,7 +914,7 @@ void Update(GameModules::FrontEnd* frontEnd)
         ShowCursor(true);
         return;
     }
-    if (!Enabled())
+    if (!IsSwitchedOn())
         return;
     MouseState input = s_mouse;
     s_mouse.moved = false;

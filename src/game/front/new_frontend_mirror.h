@@ -23,8 +23,8 @@ enum class Kind {
     None,    // nothing to restyle (the original as it is, or ours)
     Dialog,  // a dialog box: its title, text and buttons
     Skaters, // the skater select: the skaters, the selected one's name and stats (the 3D skater left in view)
-    List,    // a plain vertical menu: its title, its items (label, value), the other words on its screen
-    Pause,   // a level's pause menu (pause_vmenu): its items, labelled as ours (PauseLabel), over the game
+    LinkChain,    // a plain vertical menu: its title, its items (label, value), the other words on its screen
+    Freeze,   // a level's pause menu (pause_vmenu): its items, labelled as ours (PauseLabel), over the game
     Menu,    // a front end roundbar menu (the main menu, Career, STORY / CLASSIC MODE OPTIONS, Create, the skate shop's
              // menu...): its items, in our words, art and notes where the style table has them (MenuItemStyle)
     Keyboard, // the on-screen keyboard (a vertical menu of horizontal rows of keys): the text typed, the keys
@@ -165,7 +165,7 @@ constexpr int kFramesUnsettled = 10;
 class Tracker {
 public:
     // A frame: what Build said now. Returns whether a view is up.
-    bool Update(const View& now, float dt);
+    bool TickFrame(const View& now, float dt);
     bool Up() const { return m_upDir; }
     const View& Shown() const { return m_cameraView; }
     float RowAmount(int row) const;

@@ -3,7 +3,7 @@
 #include <cstdint>
 
 namespace Gfx2D {
-class Camera;
+class ViewCam;
 }
 
 // The engine's viewports seen as a list (Nx): the active ones by index, the screen mode, a camera marked in all of
@@ -19,6 +19,6 @@ CViewRegion* __cdecl GetActiveViewport(int n);
 int __cdecl GetViewLayout();
 // 0x004A0720: `camera` marked for deletion in the first viewport showing it (CViewRegion::FlagCameraForRemoval
 // 0x004A0D50). Whether one did.
-bool __cdecl FlagCameraForRemoval(Gfx2D::Camera* camera);
+bool __cdecl FlagCameraForRemoval(Gfx2D::ViewCam* camera);
 
 } // namespace Nx

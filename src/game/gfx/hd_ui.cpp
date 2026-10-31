@@ -11,7 +11,7 @@ int s_images = 0;
 int s_fonts = 0;
 } // namespace
 
-bool Enabled()
+bool IsSwitchedOn()
 {
     static const bool on = ConfigInt("features", "hd_ui", 0) != 0;
     return on;

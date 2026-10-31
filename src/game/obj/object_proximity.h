@@ -18,15 +18,15 @@ namespace GameObjects {
 class CObjectProximityComponent : public CObjectModule {
 public:
     // 0x004EC420: a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x004EC220 (not a Ghidra function): its script member functions (the table at 0x00682620) registered.
     static void __cdecl PublishMethodTable();
     // 0x004EC370: the base's constructor, its vtable and type. Returns this.
-    CObjectProximityComponent* Construct();
+    CObjectProximityComponent* MakeNew();
     // 0x004EC240: the destructor body (the base's).
     void DestroyBody();
     // 0x004EC390 (vtable slot 0)
-    CObjectProximityComponent* Destroy(unsigned int flags);
+    CObjectProximityComponent* Teardown(unsigned int flags);
 
     // 0x004EC3C0: the squared distance from the local skater (unrounded, in ST0), its id into `skaterId`; no local
     // skater, or this object is it: 0x55CE224C (about 2.8e13).
@@ -36,7 +36,7 @@ public:
     // 0xD69BD3DE; outer avoid - outside it 0x35FDAFAE; attention - in it 0xA06C9031, else 0x9C1CDE7A. One distance
     // is worked out and reused (the nearest skater's or the local one's - as the original mixes them). A dead
     // object gets only the inner radius's first event.
-    void Update();
+    void TickFrame();
     // 0x004EC4B0: the squared distance from the nearest other skater, its id into `skaterId` (none nearer than
     // 0x55CE224C: that, the id left alone).
     float NearestSkaterDistanceSquared(uint32_t* skaterId);

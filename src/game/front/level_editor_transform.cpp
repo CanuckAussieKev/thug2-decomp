@@ -9,7 +9,7 @@
 
 #include "game/front/level_editor_prefs.h"
 
-namespace MenuSystem::LevelEditor::Transform {
+namespace MenuSystem::LevelEditor::Xform {
 
 namespace {
 
@@ -20,28 +20,28 @@ Repeat g_repeat;
 
 } // namespace
 
-Settings& Current() { return g_settings; }
+Settings& AtHand() { return g_settings; }
 
-bool FlyAlways() { return OptionStore::Get().wasdFlies; }
+bool FlyAlways() { return OptionStore::Pull().wasdFlies; }
 void SetFlyAlways(bool always)
 {
-    OptionStore::Values v = OptionStore::Get();
+    OptionStore::Values v = OptionStore::Pull();
     v.wasdFlies = always;
-    OptionStore::Set(v);
+    OptionStore::AssignValue(v);
 }
-float Grid() { return static_cast<float>(OptionStore::Get().snapMove); }
+float Grid() { return static_cast<float>(OptionStore::Pull().snapMove); }
 void SetGrid(float grid)
 {
-    OptionStore::Values v = OptionStore::Get();
+    OptionStore::Values v = OptionStore::Pull();
     v.snapMove = static_cast<int>(grid);
-    OptionStore::Set(v);
+    OptionStore::AssignValue(v);
 }
-float AngleStep() { return static_cast<float>(OptionStore::Get().snapTurn); }
+float AngleStep() { return static_cast<float>(OptionStore::Pull().snapTurn); }
 void SetAngleStep(float degrees)
 {
-    OptionStore::Values v = OptionStore::Get();
+    OptionStore::Values v = OptionStore::Pull();
     v.snapTurn = static_cast<int>(degrees);
-    OptionStore::Set(v);
+    OptionStore::AssignValue(v);
 }
 
 const std::vector<float>& GridSizes()
@@ -58,9 +58,9 @@ const std::vector<float>& AngleSteps()
 const char* ModeName(Mode mode)
 {
     switch (mode) {
-    case Mode::Move: return "Move";
-    case Mode::Rotate: return "Rotate";
-    case Mode::Scale: return "Scale";
+    case Mode::ShiftBy: return "Move";
+    case Mode::SpinBy: return "Rotate";
+    case Mode::StretchBy: return "Scale";
     }
     return "?";
 }
@@ -85,7 +85,7 @@ const char* TargetName(SnapTarget target)
 }
 Mode NextMode(Mode mode)
 {
-    return mode == Mode::Move ? Mode::Rotate : mode == Mode::Rotate ? Mode::Scale : Mode::Move;
+    return mode == Mode::ShiftBy ? Mode::SpinBy : mode == Mode::SpinBy ? Mode::StretchBy : Mode::ShiftBy;
 }
 
 // --- the pure parts ---
@@ -104,7 +104,7 @@ void UnitAxes(const V3 rows[3], V3 out[3])
 {
     static const V3 kWorld[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
     for (int i = 0; i < 3; ++i)
-        out[i] = Dot(rows[i], rows[i]) > 1e-12f ? Normalize(rows[i]) : kWorld[i];
+        out[i] = Dot(rows[i], rows[i]) > 1e-12f ? MakeUnit(rows[i]) : kWorld[i];
 }
 
 float AngleAbout(V3 pivot, V3 point) { return std::atan2(point.x - pivot.x, point.z - pivot.z); }
@@ -163,11 +163,11 @@ std::vector<Segment> GizmoSegments(const Gizmo& gizmo)
     V3 p = gizmo.pivot;
     float length = gizmo.length;
     switch (gizmo.mode) {
-    case Mode::Move:
+    case Mode::ShiftBy:
         for (int axis = 0; axis < 3; ++axis)
             out.push_back({p, p + gizmo.axes[axis] * length, axis, true});
         break;
-    case Mode::Rotate: {
+    case Mode::SpinBy: {
         if (!gizmo.rotates)
             break;
         // (the heading ring, and a spoke towards the local z: which way it faces)
@@ -176,10 +176,10 @@ std::vector<Segment> GizmoSegments(const Gizmo& gizmo)
             out.push_back({ring[i], ring[(i + 1) % ring.size()], 1, false});
         V3 forward = {gizmo.axes[2].x, 0.0f, gizmo.axes[2].z};
         if (Dot(forward, forward) > 1e-6f)
-            out.push_back({p, p + Normalize(forward) * (length * 0.8f), 1, false});
+            out.push_back({p, p + MakeUnit(forward) * (length * 0.8f), 1, false});
         break;
     }
-    case Mode::Scale: {
+    case Mode::StretchBy: {
         float cube = length * 0.06f;
         auto addCube = [&](V3 c, int handle) {
             V3 corners[8];
@@ -210,7 +210,7 @@ int HandleAt(const Gizmo& gizmo, const Projector& project, float x, float y, flo
     float bestDistance = grab;
     // (Scale's centre cube wins near the pivot: it sits where the three axes start)
     float px, py;
-    if (gizmo.mode == Mode::Scale && project(gizmo.pivot, &px, &py) &&
+    if (gizmo.mode == Mode::StretchBy && project(gizmo.pivot, &px, &py) &&
         (x - px) * (x - px) + (y - py) * (y - py) <= grab * grab * 2.25f)
         return kCentre;
     for (const Segment& s : GizmoSegments(gizmo)) {
@@ -297,13 +297,13 @@ std::string Describe(Mode mode, const Typed& typed, int defaultAxis)
     int axis = typed.axis >= 0 ? typed.axis : defaultAxis;
     std::string text;
     switch (mode) {
-    case Mode::Move:
+    case Mode::ShiftBy:
         text = std::string("Move along ") + kAxis[axis >= 0 && axis < 3 ? axis : 0];
         break;
-    case Mode::Rotate:
+    case Mode::SpinBy:
         text = "Turn (degrees of heading)";
         break;
-    case Mode::Scale:
+    case Mode::StretchBy:
         text = axis >= 0 && axis < 3 ? std::string("Scale along ") + kAxis[axis] : std::string("Scale (all axes)");
         break;
     }
@@ -353,4 +353,4 @@ V3 RepeatTarget(V3 from, const RepeatStep& step)
 
 Repeat& LastDuplicate() { return g_repeat; }
 
-} // namespace MenuSystem::LevelEditor::Transform
+} // namespace MenuSystem::LevelEditor::Xform

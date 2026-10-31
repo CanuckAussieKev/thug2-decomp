@@ -6,26 +6,26 @@ namespace MemSys {
 
 // A pool of fixed-size items carved out of one allocation, with the free items kept in a linked list (each
 // free item's first 4 bytes point to the next free item).
-class Pool {
+class SlabBank {
 public:
     // Allocates item_size * count bytes from the default heap. `name` (copied, up to 63 characters) is for
     // debug output; null gives "unnamed".
-    Pool(int item_size, int count, const char* name);
+    SlabBank(int item_size, int count, const char* name);
 
     // The next free item, or null if the pool is full.
-    void* Allocate();
+    void* Carve();
     // Return an item to the pool.
-    void Free(void* item);
+    void Dealloc(void* item);
     // True if `pointer` lies inside the pool's block.
-    bool Contains(const void* pointer) const;
+    bool Holds(const void* pointer) const;
 
-    uint8_t* m_start;
-    uint8_t* m_end;
-    int m_count;
+    uint8_t* m_outset;
+    uint8_t* m_finish;
+    int m_num;
     int m_slotBytes;
-    int m_used;
+    int m_takenCount;
     void* m_freeList;
-    char m_name[64];
+    char m_label[64];
     int m_peakUsed;
 };
 
@@ -44,7 +44,7 @@ void* CreateItem(int index);
 // Give an item back to wherever CreateItem got it.
 void FreeItem(int index, void* item);
 // Pool `index` (null if there isn't one).
-Pool* GetPool(int index);
+SlabBank* GetPool(int index);
 
 } // namespace SlotPoolSetup
 
@@ -57,10 +57,10 @@ namespace MemSys {
 struct PoolPair {
     int current;
     int unknown4;
-    Pool* pools[2];
+    SlabBank* pools[2];
 
-    void* Allocate(unsigned int size);
-    void Free(void* item);
+    void* Carve(unsigned int size);
+    void Dealloc(void* item);
 };
 
 } // namespace Mem

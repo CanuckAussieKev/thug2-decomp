@@ -2,7 +2,7 @@
 
 // The network game's script commands (CFunctions, cdecl (params, script); 0x0053B450-0x0053D900): capture the flag
 // (took / captured / retrieved / has), the teams, surveyor mode, the host mode, kicking and banning, cancelling a
-// join. They act on the network manager (OnlinePlay::Manager, the singleton 0x007CCE14).
+// join. They act on the network manager (OnlinePlay::Hub, the singleton 0x007CCE14).
 
 namespace Scripts {
 class CScript;
@@ -45,7 +45,7 @@ bool __cdecl CFunc_CancelJoinServer(Scripts::CStruct* params, Scripts::CScript* 
 // 0x0053D780: into surveyor mode (not when the local player observes or surveys already - false): the surveyor task
 // (0x0053BED0) on the logic tasks, an input handler for controller 0 (0x00536890), the surveying flag. True.
 bool __cdecl CFunc_EnterSurveyorMode(Scripts::CStruct* params, Scripts::CScript* script);
-// 0x0053EA20: the players not ready dropped (Manager::DropPlayersNotReady). True.
+// 0x0053EA20: the players not ready dropped (Hub::DropPlayersNotReady). True.
 bool __cdecl CFunc_DropPendingPlayers(Scripts::CStruct* params, Scripts::CScript* script);
 
 extern bool g_textEntry;

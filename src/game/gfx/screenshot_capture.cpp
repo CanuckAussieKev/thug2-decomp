@@ -16,7 +16,7 @@ namespace Gfx2D::ScreenshotCapture {
 
 namespace {
 
-IDirect3DDevice9* Device() { return Engine3D::g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return Engine3D::g_d3dDevice; }
 // The renderer's "device lost" flag (Engine3D::StartRender doesn't begin a scene while it's set).
 bool DeviceLostFlag() { return static_cast<uint8_t>(Engine3D::g_loadingScreenUp) != 0; }
 
@@ -43,7 +43,7 @@ void Release(T*& p)
 }
 
 // The copy, with the scene ended around it (StretchRect / GetRenderTargetData outside a scene, as Direct3D wants).
-bool Copy(IDirect3DDevice9* device, SystemCore::Screenshot::Frame* out, std::string* error)
+bool DupFrom(IDirect3DDevice9* device, SystemCore::Screenshot::TickCycle* out, std::string* error)
 {
     IDirect3DSurface9 *back = nullptr, *resolved = nullptr, *system = nullptr;
     auto fail = [&](const char* why, HRESULT hr) {
@@ -103,9 +103,9 @@ bool Copy(IDirect3DDevice9* device, SystemCore::Screenshot::Frame* out, std::str
 
 } // namespace
 
-bool CaptureBackBuffer(SystemCore::Screenshot::Frame* out, std::string* error)
+bool CaptureBackBuffer(SystemCore::Screenshot::TickCycle* out, std::string* error)
 {
-    IDirect3DDevice9* device = Device();
+    IDirect3DDevice9* device = InputPort();
     if (!device) {
         *error = "no device yet";
         return false;
@@ -116,7 +116,7 @@ bool CaptureBackBuffer(SystemCore::Screenshot::Frame* out, std::string* error)
     }
     // (the main loop's scene is open here: Engine3D::StartRender began it, the end of the frame - 0x004B2750 - ends it)
     device->EndScene();
-    bool ok = Copy(device, out, error);
+    bool ok = DupFrom(device, out, error);
     device->BeginScene();
     return ok;
 }

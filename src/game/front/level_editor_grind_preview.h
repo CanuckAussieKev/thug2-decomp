@@ -39,7 +39,7 @@ std::vector<int> Branches(const Rail& rail);
 // Chevrons along a segment: their tips, `spacing` apart (at least one, at its middle, when it's shorter).
 std::vector<V3> ChevronTips(V3 a, V3 b, float spacing);
 // A rail's length (its links' lengths summed); `positions` by point index.
-float Length(const Rail& rail, const std::vector<V3>& positions);
+float LenOf(const Rail& rail, const std::vector<V3>& positions);
 constexpr float kTransferReach = 120.0f; // (units: other rails' ends this near an end are shown as transfers)
 constexpr float kChevronSpacing = 60.0f;
 

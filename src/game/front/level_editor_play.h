@@ -19,7 +19,7 @@ struct FrontEnd;
 //   - The editor's own guards hold: never in a network session or a career-type mode (LevelEditor_Available /
 //     Layout::Refused) - the key does nothing there; not while paused in a menu (the pause menu's LEVEL EDITOR is there).
 // The play key in play is the editor's only key outside it; [features] level_editor=0 turns it off with the editor.
-namespace MenuSystem::LevelEditor::Play {
+namespace MenuSystem::LevelEditor::Perform {
 
 // What the editor was showing when play from here left it (the editor fills it in: level_editor.cpp).
 struct Resume {
@@ -41,9 +41,9 @@ void Keep(const Resume& resume, int levelLoad);
 // level load, and only once.
 bool TakeResume(Resume* resume, int levelLoad);
 
-// Once a frame from the front end's input logic while the editor isn't running (MouseMenus::Update): the pause menu
+// Once a frame from the front end's input logic while the editor isn't running (MouseMenus::TickFrame): the pause menu
 // closed after leaving, the play key in play.
-void Update(GameModules::FrontEnd* frontEnd);
+void TickFrame(GameModules::FrontEnd* frontEnd);
 
 // What the key does in play (pure): the play key pressed, and whether it's allowed (in a level, the skater there, not
 // paused, the editor offered here).
@@ -52,4 +52,4 @@ Step OnKey(bool pressed, bool inLevel, bool paused, bool offered);
 // Whether the play key is down: F5, or Ctrl+P (pure, from SDL's keyboard state).
 bool KeyDown(const uint8_t* keys);
 
-} // namespace MenuSystem::LevelEditor::Play
+} // namespace MenuSystem::LevelEditor::Perform

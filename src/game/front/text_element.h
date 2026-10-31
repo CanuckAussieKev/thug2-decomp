@@ -17,7 +17,7 @@ namespace MenuSystem {
 // The blur effect (0x47C bytes, made by blur_effect): 16 copies of the text behind it, each further along a
 // displacement, more scaled and fainter, morphing between settings over a time.
 struct CSmearEffect {
-    struct Copy {
+    struct DupFrom {
         float alpha;        // +0x00 the copy's alpha factor (1/16 of the alpha pair's value at its place)
         float unknown04[4];
         float dx, dy;       // +0x14 its displacement
@@ -33,25 +33,25 @@ struct CSmearEffect {
     };
 
     // 0x004A5770 (a function Ghidra hadn't found): copy `i`.
-    Copy* GetCopy(int i);
+    DupFrom* GetCopy(int i);
     // 0x004A5780: a morph to the target over `ms` (0: the target at once), from now.
     void StartMorph(int ms);
     // 0x004A57D0 (each frame): the settings morphed on, then the copies placed from them (copy n at n/16).
-    void Update();
+    void TickFrame();
     // 0x004A5CF0 (not found by Ghidra either): new target settings, morphed to over `ms`.
     void SetTarget(const Settings* target, int ms);
     // 0x004A5D30: the target settings from the parameters (each pair if given), morphed to over `time` seconds
     // (its milliseconds into `outMs` when given). Returns the target.
     Settings* SetFromParams(Scripts::CStruct* params, int* outMs);
 
-    Copy m_copies[16];      // +0x000
+    DupFrom m_copies[16];      // +0x000
     Settings m_aimPoint;      // +0x440
-    Settings m_current;     // +0x458
+    Settings m_ongoing;     // +0x458
     int m_lastTime;         // +0x470 (ms)
     int m_remaining;        // +0x474 the morph's time left (ms)
     uint32_t m_rgbaValue;        // +0x478 blur_rgba (the copies' colour)
 };
-static_assert(sizeof(CSmearEffect::Copy) == 0x44 && offsetof(CSmearEffect, m_aimPoint) == 0x440 &&
+static_assert(sizeof(CSmearEffect::DupFrom) == 0x44 && offsetof(CSmearEffect, m_aimPoint) == 0x440 &&
                   offsetof(CSmearEffect, m_rgbaValue) == 0x478 && sizeof(CSmearEffect) == 0x47C,
               "layout must match the original");
 
@@ -61,27 +61,27 @@ class CLabelWidget : public CUiWidget {
 public:
     // 0x004B0920: the constructor (returns this): no text / font / blur / shadow, shadow colour black at half
     // alpha, one text object; type TextElement.
-    CLabelWidget* Construct();
+    CLabelWidget* MakeNew();
     // 0x004B1830: the destructor body: the blur, the text objects and the string freed, then CUiWidget's.
     void DestroyBody();
     // 0x004B2030 (vtable slot 0)
-    CLabelWidget* Destroy(uint8_t flags);
+    CLabelWidget* Teardown(uint8_t flags);
     // 0x004B18E0 (slot 1): CUiWidget's, then font, rot_angle (at once), internal_just, text, blur_effect /
     // no_blur_effect, blur_rgba, shadow_offs, Shadow / no_shadow, shadow_rgba, the encoded colour overrides,
     // the per-character properties; the text objects go in the window's viewport.
-    void SetProperties(Scripts::CStruct* params);
+    void ChangeTraits(Scripts::CStruct* params);
     // 0x004B09D0 (slot 9): the blur's settings, CUiWidget's, rot_angle (morphed to).
     void BlendTowards(Scripts::CStruct* params);
     // 0x004AFE70 (slot 10): the text objects (the text, the shadow, the blur copies) set from the element.
-    void Update();
+    void TickFrame();
 
     // 0x004AF650: the text's length.
-    int GetLength() const;
+    int FetchMagnitude() const;
     // 0x004AF670: the first text object (and shadow) in the window's viewport.
     void SetViewports();
     // 0x004AF8C0: a copy of `text` (\\ kept, \_ a space, \m<c> a button glyph), the size from the font (unless
     // locked); kVisibleNow.
-    void SetText(const char* text);
+    void ChangeCaption(const char* text);
     // 0x004AFA00: the rotation (degrees, plus a constant) morphed to and with `now` shown, the text objects
     // turned about their internal_just point.
     void SetTextRotation(float degrees, int now);
@@ -100,12 +100,12 @@ public:
     void EnableBlur();
     void DisableBlur();
 
-    char* m_string;            // +0x178
+    char* m_chars;            // +0x178
     uint32_t m_fontName;       // +0x17C
     void* m_typeface;             // +0x180
     void** mp_texts;           // +0x184 the text objects (the first the text, the others the blur copies)
     void** mp_shadows;         // +0x188
-    int m_count;               // +0x18C
+    int m_num;               // +0x18C
     CSmearEffect* mp_blur;      // +0x190
     bool m_shadow;             // +0x194
     uint8_t m_pad195[3];

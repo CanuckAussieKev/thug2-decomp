@@ -19,15 +19,15 @@ public:
     static constexpr uint32_t kType = 0x9649D4F9;
 
     // 0x00433690 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00433650: the destructor body (the base's).
     void DestroyBody();
     // 0x00433660 (vtable slot 0)
-    CParkedVehicleModule* Destroy(unsigned int flags);
+    CParkedVehicleModule* Teardown(unsigned int flags);
     // 0x004336F0 (vtable slot 3): the skeleton component's bone matrices: bone 0 all zero; bone 1 the body (rows
     // (1, 0, 0), (0, 0, -1), (0, 1, 0)) at the model's root; each later bone a wheel (rows (-1, 0, 0), (0, 0, 1),
     // (0, 1, 0)) at the next of the hierarchy's objects 1-4.
-    void Finalize();
+    void Seal();
 
     uint8_t m_unused18[0x40];
 };

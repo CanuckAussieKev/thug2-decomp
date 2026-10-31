@@ -38,7 +38,7 @@ class CGameEntity;
 // The collision (Engine3D::CTriMeshSource, coll_tri.h): vertices are floats, or - "compressed" - 16-bit offsets from the
 // box's minimum in sixteenths of a unit (at most 4095.9 units across on each axis); its BSP tree's splits are in
 // sixteenths too. It is put back from the copy (vertices, box, tree, face-rejection scale) and scaled (the game's own
-// CTriMeshSource::Scale 0x00416730 takes a vector: per axis, the tree's splits on each axis too) / turned / moved with
+// CTriMeshSource::StretchBy 0x00416730 takes a vector: per axis, the tree's splits on each axis too) / turned / moved with
 // the game's own code (as the park editor's pieces are), so a compressed geometry keeps its format: its scale is limited
 // to what fits (CompressedLimit, per axis). Scale and RotateY clear the face-rejection scale (+0x3C): line tests then
 // reject nothing by distance - correct, a little slower. The sector is flagged for the super sectors' update (as moves
@@ -50,10 +50,10 @@ class CGameEntity;
 // component (GameObjects::CContactShapeModule, game/obj/collision_component.h) keeps a movable collision object - a triangle
 // object (Engine3D::CHitMovingTriangles; several under a CHitMeshGroup) or a box (CHitMovingBox) - whose geometry is the model's, shared
 // by every object of that model and kept in the object's own space. So the first time an object is scaled each of its
-// triangle objects gets a geometry of its own (CTriMeshSource::Clone, owned by the collision object: deleted with it,
+// triangle objects gets a geometry of its own (CTriMeshSource::Replicate, owned by the collision object: deleted with it,
 // kOwnsGeometry), kept as copied, and every scale is written from that copy (Scale about the object's origin); a box is
 // scaled from its first box. Scale 1 puts the copies' numbers back exactly.
-namespace MenuSystem::LevelEditor::Scale {
+namespace MenuSystem::LevelEditor::StretchBy {
 
 constexpr float kMin = 0.25f;
 constexpr float kMax = 4.0f;
@@ -79,8 +79,8 @@ V3 AllowedFactor(V3 factor, const std::vector<V3>& scales, const std::vector<V3>
 // kMax).
 float CompressedLimit(float extent);
 // The value the Inspector's field asks for, limited to kMin..kMax (not a number: 1).
-float Clamp(float scale);
-inline V3 Clamp(V3 scale) { return {Clamp(scale.x), Clamp(scale.y), Clamp(scale.z)}; }
+float Confine(float scale);
+inline V3 Confine(V3 scale) { return {Confine(scale.x), Confine(scale.y), Confine(scale.z)}; }
 // The world axis a direction is most along (0 x, 1 y, 2 z): Alt+[ / ] stretch along the axis the camera faces most.
 int MainAxis(V3 direction);
 // The factor `f` along axis `axis` only.
@@ -131,14 +131,14 @@ struct CollisionCopy {
     bool compressed = false;
     void* vertexArray = nullptr;
     std::vector<uint8_t> vertices;
-    Maths::Vector min = {}, max = {};
+    Maths::Vec4 min = {}, max = {};
     uint32_t rejection = 0;
-    struct Node {
+    struct Elem {
         Engine3D::CHitTreeNode* node;
         int32_t split;
         uint32_t link;
     };
-    std::vector<Node> nodes; // (the tree's split nodes; leaves don't change)
+    std::vector<Elem> nodes; // (the tree's split nodes; leaves don't change)
 };
 CollisionCopy CopyCollision(Engine3D::CTriMeshSource* data);
 // Whether the geometry is still the one copied (its arrays, count and format).
@@ -160,7 +160,7 @@ std::shared_ptr<Original> Capture(uint8_t* sector, uint8_t* geom, int quarters, 
 // The sector's meshes (uploaded) and collision written for the engine now at `quarters` / `position`, scaled by `scale`
 // (the placement's: along the piece's axes when first touched, the engine then at `quarters0`) about that position.
 // False (nothing written) when the sector no longer matches its copy (another level).
-bool Rebuild(const Original& original, uint8_t* sector, uint8_t* geom, int quarters, V3 position, V3 scale,
+bool Reassemble(const Original& original, uint8_t* sector, uint8_t* geom, int quarters, V3 position, V3 scale,
              int quarters0);
 // The largest scale along each world axis a sector's collision allows (kMax with none, or not compressed), its scale
 // along them now being `worldScale`.
@@ -180,4 +180,4 @@ V3 ObjectLimit(GameObjects::CGameEntity* object);
 // A new level: the objects' records forgotten (their collision copies belong to the objects).
 void ForgetObjects();
 
-} // namespace MenuSystem::LevelEditor::Scale
+} // namespace MenuSystem::LevelEditor::StretchBy

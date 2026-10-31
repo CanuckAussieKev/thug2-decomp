@@ -29,28 +29,28 @@ public:
 
     // 0x0041A5B0: a new one (zeroed memory, Construct). 0x00419690 (not a Ghidra function; registered with Create):
     // its script member functions (the table at 0x00682350, 0x18 bytes a record) registered.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     static void __cdecl PublishMethodTable();
     // 0x0041A410: the base's constructor, its vtable, an empty channel list, an empty observer list (its
     // sentinel node allocated), its type. Returns this.
-    CAnimBlenderComponent* Construct();
+    CAnimBlenderComponent* MakeNew();
     // 0x0041A4C0: the channels deleted, each observer deleted and the list emptied (twice) and its sentinel
     // freed, the channel list's head unlinked, the base's destructor body.
     void DestroyBody();
     // 0x0041A610 (vtable slot 0)
-    CAnimBlenderComponent* Destroy(unsigned int flags);
+    CAnimBlenderComponent* Teardown(unsigned int flags);
 
     // --- the vtable ---
     // 0x0041A260 (slot 1): each channel updated (those after the first with a weight below 0.00001 only reset,
     // weight 0); if any changed the pose, the poses blended into the shared buffer 0x006F8A60 bone set by bone
     // set (weights 0x006F8A5C, sets 0x006F8A58), the observers told and the skeleton given it.
-    void Update();
+    void TickFrame();
     // 0x00419DD0 (slot 2): with no channel yet, one made (at the front) and set up from `params` on the
     // bottom-up heap.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x004196D0 (slot 3): each channel's slot 2, then the object's 0x222756D5 (skeleton), 0x286A8D26 (model) and
     // 0xCE0CA665 components kept.
-    void Finalize();
+    void Seal();
     // 0x00419980 (slot 6): `value` to slot 6 of each channel whose id is `id`.
     void PassToChannels(uint32_t value, uint32_t id);
     // 0x00419950 (slot 12): 0x0B1E7291 and 0xEA6D0EFD go to PassToChannel; anything else isn't handled (2).
@@ -110,8 +110,8 @@ public:
     // 0x00419AB0 / 0x00419AD0 (not a Ghidra function): its +0x50 (the anim set) / +0x58; 0 without one.
     uint32_t GetAnimSet();
     uint32_t GetFirstChannel58();
-    // 0x00419AF0 / 0x00419B10: its GetValue (0 without one) / HasValue (false without one).
-    float GetValue(uint32_t offset);
+    // 0x00419AF0 / 0x00419B10: its FetchValue (0 without one) / HasValue (false without one).
+    float FetchValue(uint32_t offset);
     bool HasValue(uint32_t offset);
     // 0x00419CD0: whether its animation is complete (0x0047E210; false without one).
     bool IsClipDone();
@@ -126,12 +126,12 @@ public:
     CObjectModule* m_boneRig;      // +0x1C its 0x222756D5 component
     CObjectModule* m_meshInstance;         // +0x20 its 0x286A8D26 component
     uint32_t m_unknown24;             // +0x24 (given to the 0xCE0CA665 component's 0x00433EA0 each update)
-    MemSys::ListNode m_channels;         // +0x28 the channel list's head (vtable 0x00645D88; data -1)
+    MemSys::ListNode m_lanes;         // +0x28 the channel list's head (vtable 0x00645D88; data -1)
     void* mp_observers;               // +0x3C a std::list of observers: its sentinel node (+4 next, +8 prev)
     uint32_t m_observerCount;         // +0x40
 };
 static_assert(offsetof(CAnimBlenderComponent, mp_component18) == 0x18 &&
-                  offsetof(CAnimBlenderComponent, m_channels) == 0x28 &&
+                  offsetof(CAnimBlenderComponent, m_lanes) == 0x28 &&
                   offsetof(CAnimBlenderComponent, mp_observers) == 0x3C && sizeof(CAnimBlenderComponent) == 0x44,
               "layout must match the original");
 
@@ -154,10 +154,10 @@ float __cdecl LargerOf(float a, float b);
 // 0x0041A680: the Vector at +0x1C of the object it's called on (a component the debug-info code at 0x00421F18
 // asks).
 struct VectorAt1C {
-    Maths::Vector Get() const;
+    Maths::Vec4 Pull() const;
 
     uint8_t m_unknown00[0x1C];
-    Maths::Vector m_vector;  // +0x1C
+    Maths::Vec4 m_vector;  // +0x1C
 };
 static_assert(offsetof(VectorAt1C, m_vector) == 0x1C, "layout must match the original");
 

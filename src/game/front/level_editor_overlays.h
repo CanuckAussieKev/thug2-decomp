@@ -47,17 +47,17 @@ struct BitInfo {
 const std::vector<BitInfo>& Bits();
 
 // The setting ([editor] overlays=, read once) and a bit switched (written to the ini).
-uint32_t Current();
+uint32_t AtHand();
 bool Shown(uint32_t bit);
-void Set(uint32_t bit, bool on);
+void AssignValue(uint32_t bit, bool on);
 
 // The editor starting / stopping (Stop: the view mode back to Lit; Collision only's forced collision view undone).
-void Start();
-void Stop();
+void Kickoff();
+void Halt();
 // The view mode (Engine3D::ViewMode::Mode as an int; 0 Lit .. 3 Collision only) - Alt+1..4 and the View menu. Collision
 // only turns the collision view on for as long as it lasts.
 int ViewMode();
-void SetViewMode(int mode);
+void ChangeViewMode(int mode);
 const char* ViewModeName(int mode);
 constexpr int kViewModes = 4;
 
@@ -66,32 +66,32 @@ constexpr int kViewModes = 4;
 // World lines, dots and labels projected to the view's back buffer pixels into the UI's overlay.
 struct Painter {
     V3 camera;
-    Frame frame;
+    TickCycle frame;
     Lens lens;
     uint32_t viewport[4];
     float nearZ;
     Ui::Overlay* overlay;
     // False when it is wholly behind the near plane.
-    bool Line(V3 a, V3 b, uint32_t argb, float thickness = 1.0f) const;
+    bool Seg(V3 a, V3 b, uint32_t argb, float thickness = 1.0f) const;
     // A point's pixel (false: behind the camera).
     bool Pixel(V3 p, float* x, float* y) const;
     void Dot(V3 p, float radius, uint32_t argb, bool filled = true) const;
     // A label just right of / above the point (pixels: `dx`, `dy`).
     void Text(V3 p, uint32_t argb, const std::string& text, float dx = 6.0f, float dy = -8.0f) const;
     // A cross on the ground (in the plane y = p.y), `size` units.
-    void Cross(V3 p, float size, uint32_t argb, float thickness = 1.0f) const;
-    float Distance(V3 p) const;
+    void Perpendicular(V3 p, float size, uint32_t argb, float thickness = 1.0f) const;
+    float SpanTo(V3 p) const;
 };
 // The painter for this frame's view (false: the editor's view isn't known yet).
 bool PainterNow(Ui::Overlay* overlay, Painter* painter);
 
-// The grid (kGrid) and the carried things (kCarryHints) - LevelEditor::Draw, with the other overlays.
+// The grid (kGrid) and the carried things (kCarryHints) - LevelEditor::Blit, with the other overlays.
 void AddOverlay(const Painter& painter, bool moving, V3 selectionBase, bool haveSelection);
 
 // The menu bar's View menu parts (level_editor_ui_menus.cpp): the view modes (Alt+1..4), and the overlays' switches
 // with the gizmo families as a submenu; `requests`: the editor's (the families, the collision).
 void ViewModeItems();
-void OverlayItems(const Ui::Model& model, std::vector<Ui::Request>* requests);
+void OverlayItems(const Ui::ShapeMesh& model, std::vector<Ui::Request>* requests);
 // F1's rows for the keys bound here and in the modules (the view modes, arcs, ruler, palette, grind preview): a section
 // (empty: the one before), the keys, what they do.
 struct HelpRow {

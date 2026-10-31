@@ -53,7 +53,7 @@ void* SoundDevice() { return g_soundDevice; }
 // The pcm.wad entries open as Bink streams (16 bytes each, at 0x0069CADC; opened by 0x00452A90): the file,
 // when last let go of (the counter at 0x0069CB9C), and how many streams use it.
 struct WadFile {
-    Handle* file;
+    Hdl* file;
     uint32_t lastUse;
     uint32_t users;
     uint32_t unknownC;
@@ -76,7 +76,7 @@ Result FromWin32(DWORD error) { return static_cast<Result>((error & 0xFFFF) | 0x
 // --- BinkStream --------------------------------------------------------------------------------------------
 
 // 0x00452D20
-Result BinkStream::Open(const char* path)
+Result BinkStream::Unseal(const char* path)
 {
     if (!SoundSystemSet()) {
         if (!BinkSetSoundSystem(BinkOpenDirectSound(), SoundDevice()))
@@ -91,20 +91,20 @@ Result BinkStream::Open(const char* path)
     if (!m_bink)
         return kInvalidArgument;
     BinkSetVideoOnOff(m_bink, 0);
-    std::memcpy(m_source, path, std::strlen(path) + 1); // (unbounded, as the original's strcpy)
+    std::memcpy(m_fromWhere, path, std::strlen(path) + 1); // (unbounded, as the original's strcpy)
     m_fromHandle = false;
     return 0;
 }
 
 // 0x00452DC0
-void BinkStream::Pause(int pause)
+void BinkStream::Freeze(int pause)
 {
     if (!PauseLocked())
         m_pauseRequested = pause != 0;
 }
 
 // 0x00452DE0
-void BinkStream::SetVolume(float volume)
+void BinkStream::ChangeLoudness(float volume)
 {
     m_loudness = volume;
     int level = 0;
@@ -144,8 +144,8 @@ void BinkStream::Destruct()
     Bink* bink = m_bink;
     m_bink = nullptr;
     VideoClose(bink); // (even with none open)
-    if (m_file != INVALID_HANDLE_VALUE && !m_sharedFile)
-        CloseHandle(m_file);
+    if (m_fileRef != INVALID_HANDLE_VALUE && !m_sharedFile)
+        CloseHandle(m_fileRef);
     if (m_wadEntry >= 0) {
         WadFile& entry = WadFiles()[m_wadEntry];
         entry.lastUse = UseCounter();
@@ -153,11 +153,11 @@ void BinkStream::Destruct()
             --entry.users;
     }
     if (m_memory)
-        MemSys::Free(m_memory);
+        MemSys::Dealloc(m_memory);
 }
 
 // 0x00452EA0
-int BinkStream::Update()
+int BinkStream::TickFrame()
 {
     if (m_silent)
         return 0;
@@ -165,11 +165,11 @@ int BinkStream::Update()
         if (!m_pauseRequested) {
             if (!m_bink) {
                 // Reopen where it was paused.
-                m_bink = VideoOpen(m_source, m_fromHandle ? kBinkFileHandle : kBinkIoSize);
+                m_bink = VideoOpen(m_fromWhere, m_fromHandle ? kBinkFileHandle : kBinkIoSize);
                 if (m_bink) {
                     BinkSetVideoOnOff(m_bink, 0);
                     BinkGoto(m_bink, m_resumeFrame, 1);
-                    SetVolume(m_loudness);
+                    ChangeLoudness(m_loudness);
                 }
             }
         } else if (m_bink) {
@@ -199,14 +199,14 @@ int BinkStream::Update()
 // --- WadStream ---------------------------------------------------------------------------------------------
 
 // 0x00454340
-WadStream* WadStream::Construct(bool unknown15)
+WadStream* WadStream::MakeNew(bool unknown15)
 {
     m_unknown90 = 0;
     m_unknown20 = 0;
     m_unknown24 = 0;
     m_octets = nullptr;
     m_unknown04 = 0;
-    m_file = INVALID_HANDLE_VALUE;
+    m_fileRef = INVALID_HANDLE_VALUE;
     m_unknown15 = unknown15;
     m_unknown5F = true;
     return this;
@@ -222,7 +222,7 @@ Result WadStream::StartRead()
     m_unknown10 = 0;
     m_asyncCtl->Offset = m_fromWad ? m_shift : 0;
     m_asyncCtl->OffsetHigh = 0;
-    if (ReadFile(m_file, m_octets, 0x2000, nullptr, m_asyncCtl)) {
+    if (ReadFile(m_fileRef, m_octets, 0x2000, nullptr, m_asyncCtl)) {
         m_readDone = true;
         return 0;
     }
@@ -235,22 +235,22 @@ Result WadStream::StartRead()
 }
 
 // 0x00454450
-Result WadStream::OpenFromWad(Handle wad, uint32_t offset, uint32_t size, void* buffer)
+Result WadStream::OpenFromWad(Hdl wad, uint32_t offset, uint32_t size, void* buffer)
 {
-    m_file = wad;
+    m_fileRef = wad;
     m_shift = offset;
     m_unknown50 = 0;
     m_fromWad = true;
-    m_size = size;
+    m_extent = size;
     m_octets = buffer;
     return StartRead();
 }
 
 // 0x00454490
-Result WadStream::Open(Handle file, void* buffer)
+Result WadStream::Unseal(Hdl file, void* buffer)
 {
     m_unknown50 = 0;
-    m_file = file;
+    m_fileRef = file;
     if (file == INVALID_HANDLE_VALUE) {
         // HRESULT_FROM_WIN32(GetLastError()), the macro calling it twice
         if (static_cast<int>(GetLastError()) <= 0)
@@ -264,7 +264,7 @@ Result WadStream::Open(Handle file, void* buffer)
 // 0x004543F0
 bool WadStream::PreloadDone()
 {
-    if (m_state != 1)
+    if (m_curPhase != 1)
         return false;
     if (m_readDone)
         return true;
@@ -272,7 +272,7 @@ bool WadStream::PreloadDone()
 }
 
 // 0x00454430
-void WadStream::Pause(int pause)
+void WadStream::Freeze(int pause)
 {
     m_isHalted = static_cast<uint32_t>(pause) > 0;
 }

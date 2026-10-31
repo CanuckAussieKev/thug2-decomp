@@ -40,7 +40,7 @@ inline void SetGeomVisibility(void* geom, uint32_t mask) { GeomCall<void>(11, ge
 inline uint32_t GetGeomVisibility(void* geom) { return GeomCall<uint32_t>(12, geom); }
 inline void SetGeomActive(void* geom, uint8_t active) { GeomCall<void>(13, geom, active); }
 inline void SetGeomLights(void* geom, uint8_t* lights) { GeomCall<void>(27, geom, lights); }
-inline void SetGeomBoneMatrices(void* geom, const Maths::Matrix* transform, uint8_t* bones, int count, int flag,
+inline void SetGeomBoneMatrices(void* geom, const Maths::Mat4* transform, uint8_t* bones, int count, int flag,
                                 int index)
 {
     GeomCall<void>(28, geom, transform, bones, count, flag, index);
@@ -85,8 +85,8 @@ inline int SkeletonBoneCount(uint8_t* skeleton)
 
 // The list's first node (none without a head - which the original then reads through anyway).
 inline sModelGeomNode* First(const CRenderModel* model) { return model->m_geoms ? model->m_geoms->next : nullptr; }
-inline sModelGeom* Entry(sModelGeomNode* node) { return reinterpret_cast<sModelGeom*>(node->entry); }
-inline void* Geom(sModelGeomNode* node) { return Entry(node)->geom; }
+inline sModelGeom* TableRow(sModelGeomNode* node) { return reinterpret_cast<sModelGeom*>(node->entry); }
+inline void* Geom(sModelGeomNode* node) { return TableRow(node)->geom; }
 
 // A bit of the visible-geoms mask (the original shifts by the index's low five bits).
 inline uint32_t GeomBit(int index) { return 1u << (index & 31); }

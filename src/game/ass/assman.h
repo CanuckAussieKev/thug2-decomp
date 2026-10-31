@@ -7,11 +7,11 @@
 #include "game/sys/module.h"
 
 namespace FrameLoop {
-struct Manager;
+struct Hub;
 }
 
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 namespace TaskList {
 class SchedulerTask;
@@ -22,10 +22,10 @@ namespace AssetStore {
 // The asset manager (0x3C bytes, vtable 0x00645658; a module): every asset by checksum in a hash table, and in one
 // of two circular lists - loaded, or still being read (an async load). The singleton is 0x006918DC (references
 // 0x006918E0).
-class CResourceRegistry : public GameModules::Module {
+class CResourceRegistry : public GameModules::PartUnit {
 public:
     // 0x00407F80: the hash table (10 bits) and the task running ProcessPendingAssets (returns this).
-    CResourceRegistry* Construct();
+    CResourceRegistry* MakeNew();
     // 0x00408930: every asset unloaded, the hash table and the task deleted.
     void Destruct();
     // 0x00408A10 (scalar deleting)
@@ -93,7 +93,7 @@ public:
     bool m_unknown15;             // +0x15 cleared by the constructor
     uint8_t pad16[2];
     int m_unknown18;              // +0x18 set by 0x00407A70 (not read here)
-    ListKit::HashTable* m_assets;     // +0x1C
+    ListKit::KeyMap* m_assets;     // +0x1C
     CResource* m_readyFlag;             // +0x20 the head of the loaded list
     CResource* m_pending;            // +0x24 the head of the pending list
     LoadCallback m_callback;      // +0x28 given to the next assets loaded
@@ -113,6 +113,6 @@ void ReleaseAssetManager();
 extern CResourceRegistry* g_assetManager;
 inline CResourceRegistry*& AssetManager() { return g_assetManager; }
 
-extern FrameLoop::Manager* g_mainLoopManager;
+extern FrameLoop::Hub* g_mainLoopManager;
 
 } // namespace Ass

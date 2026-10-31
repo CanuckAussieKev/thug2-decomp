@@ -28,12 +28,12 @@ constexpr uint32_t kMirroredBoneScale = 0xDFEE29AC;
 constexpr uint32_t kTurnBone = 0x9F173EEB;
 
 // out = a * b (D3DXMatrixMultiply, 0x005BFA8C).
-void Multiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void Multiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
 
-void SetIdentity(Maths::Matrix& m)
+void SetIdentity(Maths::Mat4& m)
 {
     m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
@@ -41,23 +41,23 @@ void SetIdentity(Maths::Matrix& m)
     m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
 }
 // A bone collapsed to a point: the identity's rotation rows replaced by (0, 0, 0, 1).
-void SetCollapsed(Maths::Matrix& m)
+void SetCollapsed(Maths::Mat4& m)
 {
     SetIdentity(m);
     m.row[0] = {0.0f, 0.0f, 0.0f, 1.0f};
     m.row[1] = {0.0f, 0.0f, 0.0f, 1.0f};
     m.row[2] = {0.0f, 0.0f, 0.0f, 1.0f};
 }
-bool ZeroScale(const Maths::Vector& scale) { return scale.x == 0.0f && scale.y == 0.0f && scale.z == 0.0f; }
+bool ZeroScale(const Maths::Vec4& scale) { return scale.x == 0.0f && scale.y == 0.0f && scale.z == 0.0f; }
 
 // Whether `name` is in the script array 0x20D9AC2F.
 bool InExceptions(uint32_t name)
 {
     bool found = false;
-    Scripts::CArray* array = Scripts::GetArray(kLocalScaleExceptions);
+    Scripts::CArray* array = Scripts::FetchList(kLocalScaleExceptions);
     if (array) {
-        for (uint32_t i = 0; i < array->m_size; ++i) {
-            if (array->GetElement(i) == name)
+        for (uint32_t i = 0; i < array->m_extent; ++i) {
+            if (array->FetchPart(i) == name)
                 found = true;
         }
     }
@@ -76,7 +76,7 @@ CJoint* FindBone(CRig* skeleton, uint32_t name)
 // A new bone array (null without memory) with each bone cleared, scale 1.
 CJoint* NewBones(int count)
 {
-    auto* bones = static_cast<CJoint*>(MemSys::New(static_cast<uint32_t>(count) * sizeof(CJoint)));
+    auto* bones = static_cast<CJoint*>(MemSys::Alloc(static_cast<uint32_t>(count) * sizeof(CJoint)));
     if (!bones)
         return nullptr;
     for (int i = 0; i < count; ++i)
@@ -85,11 +85,11 @@ CJoint* NewBones(int count)
 }
 
 // The bone's matrix in its own space (ReadJointMatrix / GetBonePosition): its inverse bind times its matrix.
-Maths::Matrix BoneSpace(CRig* skeleton, int index)
+Maths::Mat4 BoneSpace(CRig* skeleton, int index)
 {
-    Maths::Matrix matrix;
+    Maths::Mat4 matrix;
     matrix = skeleton->m_matrixArray[index];
-    Maths::Matrix result;
+    Maths::Mat4 result;
     result = skeleton->m_payload->mp_inverseBind[index];
     result.InvertOrthonormal();
     Multiply(&result, &result, &matrix);
@@ -99,11 +99,11 @@ Maths::Matrix BoneSpace(CRig* skeleton, int index)
 } // namespace
 
 // 0x004A2C20
-CRigData* CRigData::Construct()
+CRigData* CRigData::MakeNew()
 {
     m_vtable = reinterpret_cast<void**>(kSkeletonDataVtable);
-    m_count = 0;
-    m_flags = 0;
+    m_num = 0;
+    m_flagBits = 0;
     m_unknown588 = 0;
     mp_inverseBind = nullptr;
     reinterpret_cast<uint32_t&>(m_lodDistances[0]) = 0x7F7FC99E;
@@ -111,26 +111,26 @@ CRigData* CRigData::Construct()
 }
 
 // 0x004A3950
-CRigData* CRigData::Destroy(unsigned int freeFlags)
+CRigData* CRigData::Teardown(unsigned int freeFlags)
 {
     m_vtable = reinterpret_cast<void**>(kSkeletonDataVtable);
     if (mp_inverseBind) {
-        MemSys::Manager::Get()->Free(mp_inverseBind);
+        MemSys::Hub::Pull()->Dealloc(mp_inverseBind);
         mp_inverseBind = nullptr;
     }
     if (mp_bindTranslations) {
-        MemSys::Manager::Get()->Free(mp_bindTranslations);
+        MemSys::Hub::Pull()->Dealloc(mp_bindTranslations);
         mp_bindTranslations = nullptr;
     }
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004A2C70
-int CRigData::GetIndex(uint32_t name)
+int CRigData::FetchSlotNo(uint32_t name)
 {
-    for (int i = 0; i < m_count; ++i) {
+    for (int i = 0; i < m_num; ++i) {
         if (m_names[i] == name)
             return i;
     }
@@ -140,7 +140,7 @@ int CRigData::GetIndex(uint32_t name)
 // 0x004A30D0
 int CRigData::FetchParentSlot(int index)
 {
-    return GetIndex(m_parentNames[index]);
+    return FetchSlotNo(m_parentNames[index]);
 }
 
 // 0x004A3100
@@ -156,30 +156,30 @@ bool CRigData::IsDescendant(uint32_t bone, uint32_t ancestor)
 }
 
 // 0x004A39C0
-bool CRigData::Load(const uint32_t* buffer, uint32_t, bool)
+bool CRigData::ReadIn(const uint32_t* buffer, uint32_t, bool)
 {
-    m_flags = buffer[1];
-    m_count = static_cast<int>(buffer[2]);
+    m_flagBits = buffer[1];
+    m_num = static_cast<int>(buffer[2]);
     const uint32_t* p = buffer + 3;
-    std::memcpy(m_names, p, 4u * m_count);
-    p += m_count;
-    std::memcpy(m_parentNames, p, 4u * m_count);
-    p += m_count;
-    std::memcpy(m_flipNames, p, 4u * m_count);
-    p += m_count;
+    std::memcpy(m_names, p, 4u * m_num);
+    p += m_num;
+    std::memcpy(m_parentNames, p, 4u * m_num);
+    p += m_num;
+    std::memcpy(m_flipNames, p, 4u * m_num);
+    p += m_num;
     const auto* bind = reinterpret_cast<const float*>(p);
-    mp_inverseBind = static_cast<Maths::Matrix*>(MemSys::New(static_cast<uint32_t>(m_count) << 6));
-    mp_bindTranslations = static_cast<Maths::Vector*>(MemSys::New(static_cast<uint32_t>(m_count) << 4));
-    for (int i = 0; i < m_count; ++i, bind += 8) {
+    mp_inverseBind = static_cast<Maths::Mat4*>(MemSys::Alloc(static_cast<uint32_t>(m_num) << 6));
+    mp_bindTranslations = static_cast<Maths::Vec4*>(MemSys::Alloc(static_cast<uint32_t>(m_num) << 4));
+    for (int i = 0; i < m_num; ++i, bind += 8) {
         float rotation[4] = {bind[0], bind[1], bind[2], bind[3]};
-        Maths::Vector translation = {bind[4], bind[5], bind[6], bind[7]};
+        Maths::Vec4 translation = {bind[4], bind[5], bind[6], bind[7]};
         mp_bindTranslations[i] = translation;
-        Maths::Matrix matrix;
+        Maths::Mat4 matrix;
         GameObjects::QuatToMatrix(rotation, &translation.x, &matrix.row[0].x);
         if (i != 0) {
             // (relative to the parent: its bind pose, the inverse of its inverse bind matrix)
-            Maths::Matrix parent;
-            parent = mp_inverseBind[GetIndex(m_parentNames[i])];
+            Maths::Mat4 parent;
+            parent = mp_inverseBind[FetchSlotNo(m_parentNames[i])];
             parent.InvertOrthonormal();
             Multiply(&matrix, &matrix, &parent);
             matrix.row[0].w = 0.0f;
@@ -190,12 +190,12 @@ bool CRigData::Load(const uint32_t* buffer, uint32_t, bool)
         matrix.InvertOrthonormal();
         mp_inverseBind[i] = matrix;
     }
-    for (int i = 0; i < m_count; ++i) {
+    for (int i = 0; i < m_num; ++i) {
         if (!m_flipNames[i]) {
             m_flipIndices[i] = -1;
             continue;
         }
-        int mirror = GetIndex(m_flipNames[i]);
+        int mirror = FetchSlotNo(m_flipNames[i]);
         m_flipIndices[i] = mirror;
         m_flipIndices[mirror] = i;
     }
@@ -203,17 +203,17 @@ bool CRigData::Load(const uint32_t* buffer, uint32_t, bool)
 }
 
 // 0x004A3D30
-CRig* CRig::Construct(CRigData* data)
+CRig* CRig::MakeNew(CRigData* data)
 {
-    m_flags = 0;
-    if (data->m_flags & 1)
-        m_flags = kMirrorData;
-    m_boneArray = NewBones(data->m_count);
-    m_matrixArray = static_cast<Maths::Matrix*>(MemSys::New(static_cast<uint32_t>(data->m_count) << 6));
-    for (int i = 0; i < data->m_count; ++i)
+    m_flagBits = 0;
+    if (data->m_flagBits & 1)
+        m_flagBits = kMirrorData;
+    m_boneArray = NewBones(data->m_num);
+    m_matrixArray = static_cast<Maths::Mat4*>(MemSys::Alloc(static_cast<uint32_t>(data->m_num) << 6));
+    for (int i = 0; i < data->m_num; ++i)
         SetIdentity(m_matrixArray[i]);
-    m_boneTotal = data->m_count;
-    for (int i = 0; i < data->m_count; ++i)
+    m_boneTotal = data->m_num;
+    for (int i = 0; i < data->m_num; ++i)
         m_boneArray[i].name = data->m_names[i]; // (no check for bones without memory, as the original)
     LinkBones(data);
     m_payload = data;
@@ -224,12 +224,12 @@ CRig* CRig::Construct(CRigData* data)
 // 0x004A3E80
 CRig* CRig::ConstructCopy(const CRig* other)
 {
-    m_boneTotal = other->m_payload->m_count;
+    m_boneTotal = other->m_payload->m_num;
     m_boneArray = NewBones(m_boneTotal);
-    m_matrixArray = static_cast<Maths::Matrix*>(MemSys::New(static_cast<uint32_t>(m_boneTotal) << 6));
+    m_matrixArray = static_cast<Maths::Mat4*>(MemSys::Alloc(static_cast<uint32_t>(m_boneTotal) << 6));
     for (int i = 0; i < m_boneTotal; ++i)
-        std::memcpy(&m_matrixArray[i], &other->m_matrixArray[i], sizeof(Maths::Matrix));
-    for (int i = 0; i < other->m_payload->m_count; ++i)
+        std::memcpy(&m_matrixArray[i], &other->m_matrixArray[i], sizeof(Maths::Mat4));
+    for (int i = 0; i < other->m_payload->m_num; ++i)
         m_boneArray[i].name = other->m_payload->m_names[i];
     LinkBones(other->m_payload);
     for (int i = 0; i < m_boneTotal; ++i) {
@@ -239,7 +239,7 @@ CRig* CRig::ConstructCopy(const CRig* other)
     }
     m_payload = other->m_payload;
     m_lod = other->m_lod;
-    m_flags = other->m_flags;
+    m_flagBits = other->m_flagBits;
     m_maxLod = other->m_maxLod;
     return this;
 }
@@ -247,8 +247,8 @@ CRig* CRig::ConstructCopy(const CRig* other)
 // 0x004A2CB0
 void CRig::DestroyBody()
 {
-    MemSys::Manager::Get()->Free(m_boneArray);
-    MemSys::Manager::Get()->Free(m_matrixArray);
+    MemSys::Hub::Pull()->Dealloc(m_boneArray);
+    MemSys::Hub::Pull()->Dealloc(m_matrixArray);
 }
 
 // 0x004A2B60
@@ -282,7 +282,7 @@ void CRig::ResetBoneScales()
 }
 
 // 0x004A2D20
-bool CRig::FetchBoneSizing(uint32_t name, Maths::Vector* scale)
+bool CRig::FetchBoneSizing(uint32_t name, Maths::Vec4* scale)
 {
     CJoint* bone = FindBone(this, name);
     if (!bone)
@@ -292,7 +292,7 @@ bool CRig::FetchBoneSizing(uint32_t name, Maths::Vector* scale)
 }
 
 // 0x004A2D80
-bool CRig::ChangeBoneSizing(uint32_t name, const Maths::Vector* scale, bool local)
+bool CRig::ChangeBoneSizing(uint32_t name, const Maths::Vec4* scale, bool local)
 {
     CJoint* bone = FindBone(this, name);
     if (!bone)
@@ -311,11 +311,11 @@ bool CRig::ChangeBoneSizing(uint32_t name, const Maths::Vector* scale, bool loca
 void CRig::CopyBoneScales(const CRig* other, bool checkList)
 {
     const CRigData* data = other->m_payload;
-    for (int i = 0; i < data->m_count; ++i) {
+    for (int i = 0; i < data->m_num; ++i) {
         uint32_t name = data->m_names[i];
         if (!FindBone(this, name))
             continue;
-        Maths::Vector scale;
+        Maths::Vec4 scale;
         if (!const_cast<CRig*>(other)->FetchBoneSizing(name, &scale))
             continue;
         bool local = true;
@@ -335,14 +335,14 @@ bool CRig::ApplyBoneScales(Scripts::CStruct* params)
     bool local = notLocal == 0; // (once a bone of the exceptions is met, false for the rest - as the original)
     for (int i = 0; i < m_boneTotal; ++i) {
         Scripts::VectorValue given;
-        if (!params->GetVector(m_boneArray[i].name, &given, 0))
+        if (!params->FetchVec(m_boneArray[i].name, &given, 0))
             continue;
         uint32_t name = m_boneArray[i].name;
-        if ((m_flags & kMirrorData) && name == kMirroredBone)
+        if ((m_flagBits & kMirrorData) && name == kMirroredBone)
             name = kMirroredBoneScale;
         if (InExceptions(name))
             local = false;
-        Maths::Vector scale = {1.0f, 1.0f, 1.0f, 1.0f};
+        Maths::Vec4 scale = {1.0f, 1.0f, 1.0f, 1.0f};
         if (!FetchBoneSizing(name, &scale))
             continue;
         scale = {given.x * scale.x, given.y * scale.y, given.z * scale.z, 1.0f};
@@ -368,26 +368,26 @@ void CRig::SetLOD(float distance)
 // 0x004A3150
 void CRig::LinkBones(CRigData* data)
 {
-    for (int i = 0; i < data->m_count; ++i) {
+    for (int i = 0; i < data->m_num; ++i) {
         uint32_t parent = data->m_parentNames[i];
-        int index = parent ? data->GetIndex(parent) : 0;
+        int index = parent ? data->FetchSlotNo(parent) : 0;
         m_boneArray[i].parent = &m_matrixArray[index];
         m_boneArray[i].flags = 0;
     }
 }
 
 // 0x004A36E0
-bool CRig::ReadJointMatrix(uint32_t name, Maths::Matrix* out)
+bool CRig::ReadJointMatrix(uint32_t name, Maths::Mat4* out)
 {
     if (!FindBone(this, name))
         return false;
-    Maths::Matrix result = BoneSpace(this, FetchBoneSlot(name));
+    Maths::Mat4 result = BoneSpace(this, FetchBoneSlot(name));
     for (int i = 0; i < m_boneTotal; ++i) {
         if (m_boneArray[i].name != kTurnBone)
             continue;
-        Maths::Vector translation = result.row[3];
+        Maths::Vec4 translation = result.row[3];
         result.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-        Maths::Matrix turn;
+        Maths::Mat4 turn;
         turn = m_payload->mp_inverseBind[i];
         Multiply(&result, &turn, &result);
         result.row[3] = translation;
@@ -398,27 +398,27 @@ bool CRig::ReadJointMatrix(uint32_t name, Maths::Matrix* out)
 }
 
 // 0x004A3870
-bool CRig::GetBonePosition(uint32_t name, Maths::Vector* out)
+bool CRig::GetBonePosition(uint32_t name, Maths::Vec4* out)
 {
     if (!FindBone(this, name))
         return false;
-    Maths::Matrix result = BoneSpace(this, FetchBoneSlot(name));
+    Maths::Mat4 result = BoneSpace(this, FetchBoneSlot(name));
     *out = result.row[3];
     return true;
 }
 
 // 0x004A31E0
-void CRig::Draw(const Maths::Matrix* world, uint32_t startColour, uint32_t endColour, int frames)
+void CRig::Blit(const Maths::Mat4* world, uint32_t startColour, uint32_t endColour, int frames)
 {
-    Maths::Matrix* inverseBind = m_payload->mp_inverseBind;
+    Maths::Mat4* inverseBind = m_payload->mp_inverseBind;
     for (int i = 0; i < m_boneTotal; ++i) {
-        Maths::Matrix matrix = m_matrixArray[i];
-        Maths::Matrix bone = inverseBind[i];
+        Maths::Mat4 matrix = m_matrixArray[i];
+        Maths::Mat4 bone = inverseBind[i];
         bone.InvertOrthonormal();
         Multiply(&bone, &bone, &matrix);
         Multiply(&bone, &bone, world);
         matrix = *m_boneArray[i].parent;
-        Maths::Matrix parent;
+        Maths::Mat4 parent;
         if (i == 0)
             SetIdentity(parent);
         else
@@ -431,7 +431,7 @@ void CRig::Draw(const Maths::Matrix* world, uint32_t startColour, uint32_t endCo
 }
 
 // 0x004A2F20
-void QuatToBoneMatrix(Maths::Matrix* out, const Maths::Vector* translation, const float* q, bool mirror, bool swapZ)
+void QuatToBoneMatrix(Maths::Mat4* out, const Maths::Vec4* translation, const float* q, bool mirror, bool swapZ)
 {
     double x = q[0], y = q[1], z = q[2], w = q[3];
     double xx = x * x, yy = y * y, zz = z * z;
@@ -490,21 +490,21 @@ __declspec(naked) void QuatToBoneMatrixStub()
 }
 
 // 0x004A4240
-void CRig::Update(const float (*rotations)[4], const float (*translations)[4])
+void CRig::TickFrame(const float (*rotations)[4], const float (*translations)[4])
 {
     uint32_t lodBit = 1u << (m_lod & 31);
     for (int i = 0; i < m_boneTotal; ++i) {
         CJoint& bone = m_boneArray[i];
-        Maths::Matrix& matrix = m_matrixArray[i];
+        Maths::Mat4& matrix = m_matrixArray[i];
         if (bone.flags & CJoint::kInactive)
             continue;
         if (m_payload->m_lodMasks[i] & lodBit) { // (collapsed into its parent at this LOD)
             matrix = *bone.parent;
             continue;
         }
-        QuatToBoneMatrix(&matrix, reinterpret_cast<const Maths::Vector*>(translations[i]), rotations[i], false, false);
+        QuatToBoneMatrix(&matrix, reinterpret_cast<const Maths::Vec4*>(translations[i]), rotations[i], false, false);
         if (bone.flags & CJoint::kScaled) {
-            matrix.Scale(bone.scale);
+            matrix.StretchBy(bone.scale);
             if (ZeroScale(bone.scale)) {
                 matrix.row[3] = bone.parent->row[3];
                 continue;
@@ -513,10 +513,10 @@ void CRig::Update(const float (*rotations)[4], const float (*translations)[4])
         if (i != 0)
             Multiply(&matrix, &matrix, bone.parent);
     }
-    Maths::Matrix* inverseBind = m_payload->mp_inverseBind;
+    Maths::Mat4* inverseBind = m_payload->mp_inverseBind;
     for (int i = 0; i < m_boneTotal; ++i) {
         CJoint& bone = m_boneArray[i];
-        Maths::Matrix& matrix = m_matrixArray[i];
+        Maths::Mat4& matrix = m_matrixArray[i];
         if (bone.flags & CJoint::kInactive)
             continue;
         bool collapsed = false;
@@ -541,15 +541,15 @@ void CRig::Update(const float (*rotations)[4], const float (*translations)[4])
 }
 
 // 0x004A44E0
-void CRig::Update(const CStance* pose)
+void CRig::TickFrame(const CStance* pose)
 {
-    Update(pose->rotations, pose->translations);
+    TickFrame(pose->rotations, pose->translations);
 }
 
 // 0x004A4000
 void CRig::CollapseZeroScaledBones()
 {
-    if (!(m_flags & kCollapseZeroScaled))
+    if (!(m_flagBits & kCollapseZeroScaled))
         return;
     int first = 1;
     while (true) {
@@ -559,8 +559,8 @@ void CRig::CollapseZeroScaledBones()
             break;
         ++first;
     }
-    Maths::Matrix* root = m_matrixArray;
-    Maths::Matrix* scaled = m_matrixArray + first;
+    Maths::Mat4* root = m_matrixArray;
+    Maths::Mat4* scaled = m_matrixArray + first;
     if (!scaled) // (the original checks the address)
         return;
     SetCollapsed(*root);
@@ -575,7 +575,7 @@ void CRig::CollapseZeroScaledBones()
 }
 
 namespace {
-static VtableSlot kSkeletonDataVtable_slots[] = {&Gfx2D::CRigData::Destroy};
+static VtableSlot kSkeletonDataVtable_slots[] = {&Gfx2D::CRigData::Teardown};
 void** const kSkeletonDataVtable = reinterpret_cast<void**>(kSkeletonDataVtable_slots);
 } // namespace
 

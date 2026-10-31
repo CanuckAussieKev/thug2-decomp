@@ -17,18 +17,18 @@ struct CPcViewport {
     uint8_t engine04[0x20];
 
     // 0x004CB8E0: construct (the engine's constructor with both). Returns this.
-    CPcViewport* Construct(uint32_t a1, uint32_t a2);
+    CPcViewport* MakeNew(uint32_t a1, uint32_t a2);
     // 0x004CB900: the destructor's body (a jump to the engine's).
     void DestroyBody();
     // 0x004CB910 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcViewport* Destroy(unsigned int freeFlags);
+    CPcViewport* Teardown(unsigned int freeFlags);
     // 0x004CB940 (virtual [1]): a world point through the view (0x00786BD0) and projection (0x00786C10) matrices onto
     // the screen (*x, *y); in front of the far plane its depth in 65536ths into *depth and a size factor returned -
     // 300 / the view depth, kept within 0x0070137C and 3 (0x0067E54C) - else -1 returned.
-    float ProjectToScreen(const Maths::Vector* point, float* x, float* y, int* depth);
+    float ProjectToScreen(const Maths::Vec4* point, float* x, float* y, int* depth);
     // 0x004CBC00 (virtual [2]): an occlusion query (under `query`) round a degenerate strip at a world point. Returns the
     // query (0 for none made: query 0, or a Radeon 8500).
-    uint8_t QueryPoint(const Maths::Vector* point, int unused, uint8_t query);
+    uint8_t QueryPoint(const Maths::Vec4* point, int unused, uint8_t query);
     // 0x004CBA90 (virtual [3]): the same over a screen rectangle at depth `z`.
     uint8_t QueryRect(float x0, float y0, float x1, float y1, uint32_t z, uint8_t query);
 };

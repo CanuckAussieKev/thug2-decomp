@@ -6,7 +6,7 @@
 #include "game/mth/geometry.h"
 
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 
 // A loaded scene's meshes and materials (Nx engine, PC: the platform part of a scene, the "mesh group" the
@@ -17,7 +17,7 @@ namespace Engine3D {
 struct sceneRef {
     uint32_t flags;          // 0x100 once its meshes are prepared
     uint8_t unknown4[0x14];
-    ListKit::HashTable* materials; // +0x18, by checksum
+    ListKit::KeyMap* materials; // +0x18, by checksum
     uint8_t** meshes;        // +0x1C
     int meshCount;           // +0x20
     int transparentCount;    // +0x24: meshes with a transparent material
@@ -37,7 +37,7 @@ struct sceneRef {
     uint32_t unknown80;
 
     // 0x004DE300: construct empty. Returns this.
-    sceneRef* Construct();
+    sceneRef* MakeNew();
     // 0x004DE490: the destructor's body: the material table, the meshes' vertex buffer 0, the list, the records,
     // the object.
     void DestroyBody();

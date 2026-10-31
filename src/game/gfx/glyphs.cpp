@@ -24,7 +24,7 @@ uint8_t& GlyphStyle() { return s_glyphStyle; }
 
 void LoadGlyphSettings()
 {
-    s_preferGlyphs = BuildInfo::GetBool(BuildInfo::kMiscellaneous, "PreferGlyphs", false);
+    s_preferGlyphs = BuildInfo::FetchFlag(BuildInfo::kMiscellaneous, "PreferGlyphs", false);
     s_glyphStyle = static_cast<uint8_t>(BuildInfo::GetInt(BuildInfo::kMiscellaneous, "GlyphStyle", 1));
 }
 

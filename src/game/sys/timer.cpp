@@ -113,7 +113,7 @@ void Reset()
 }
 
 // 0x005BEA50
-void Init()
+void PrepareAll()
 {
     Reset();
     Unknown1EB8() = 0;
@@ -191,7 +191,7 @@ float GetTimeScale() { return Slomo(); }
 void SetSlomo(float slomo) { NextSlomo() = slomo; }
 
 // 0x005BE7C0
-void SetFlags()
+void ChangeBits()
 {
     if (!Flag1EE8())
         Flag1EE8() = true;

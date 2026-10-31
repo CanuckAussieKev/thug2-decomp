@@ -94,13 +94,13 @@ struct CStoredRandom {
 
     uint32_t m_owner;         // the script using it
     const uint8_t* m_lookupTable;   // the random table's offsets in the script
-    uint16_t m_count;
+    uint16_t m_num;
     uint16_t unknownA;
-    uint32_t m_type;          // the token: 0x40 no-repeat, 0x41 permute
-    uint16_t m_index;         // permute: the position in m_order
+    uint32_t m_kindTag;          // the token: 0x40 no-repeat, 0x41 permute
+    uint16_t m_ordinal;         // permute: the position in m_order
     uint8_t m_order[0x42];    // permute: the shuffled order (from +0x12)
     uint32_t m_last;          // no-repeat: the last choice
-    CStoredRandom* m_next;    // older
+    CStoredRandom* m_succ;    // older
     CStoredRandom* m_previous; // newer
 };
 

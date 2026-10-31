@@ -21,9 +21,9 @@ struct sProjectionBatch {
     uint8_t vertices[0x600][0x18]; // +0x120: position, ARGB colour, u, v
 
     // 0x004C7610: construct (the material's constructor). Returns this.
-    sProjectionBatch* Construct();
+    sProjectionBatch* MakeNew();
     // 0x004C73D0: the destructor (the material's; the ten batches' at exit).
-    void Destroy();
+    void Teardown();
 };
 static_assert(offsetof(sProjectionBatch, material) == 0xC && offsetof(sProjectionBatch, pixelShader) == 0x11C &&
                   offsetof(sProjectionBatch, vertices) == 0x120 && sizeof(sProjectionBatch) == 0x9120,
@@ -42,20 +42,20 @@ struct CPcTextureProjection {
     uint8_t engine04[0x14];
     uint8_t* texture;     // +0x18: the texture holder (+0x10 the key, through one more pointer with flag 1 of +0x08)
     uint32_t blendName;   // +0x1C
-    Maths::Matrix projection; // +0x20: world to the projection's square (-1..1, depth -1 up)
+    Maths::Mat4 projection; // +0x20: world to the projection's square (-1..1, depth -1 up)
     uint8_t engine60[0xC];
     uint32_t fineness;    // +0x6C: 0 the triangles hit kept whole, else split down to 1 / (16 n) of their size
     uint8_t engine70[0x58];
 
     // 0x004C7E80: construct. Returns this.
-    CPcTextureProjection* Construct();
+    CPcTextureProjection* MakeNew();
     // 0x004C7EA0 (virtual [0]): destroyed (the engine's destructor body), and freed with flags & 1. Returns this.
-    CPcTextureProjection* Destroy(unsigned int freeFlags);
+    CPcTextureProjection* Teardown(unsigned int freeFlags);
     // 0x004C7620 (virtual [1]): projected onto the sectors (a null-terminated array): their meshes' strip triangles
     // in front of the projection and inside its square get the texture - split finer first with a fineness, the
     // pieces inside kept - into the texture's batch. A full batch ends it there (its buffers left locked, as the
     // original). `unused` isn't.
-    void Project(void** sectors, int unused);
+    void CastOnto(void** sectors, int unused);
 };
 static_assert(offsetof(CPcTextureProjection, texture) == 0x18 && offsetof(CPcTextureProjection, projection) == 0x20 &&
                   offsetof(CPcTextureProjection, fineness) == 0x6C && sizeof(CPcTextureProjection) == 0xC8,

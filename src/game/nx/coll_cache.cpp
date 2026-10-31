@@ -27,8 +27,8 @@ MemSys::ListNode* FirstMovable() { return g_movables.next; }
 
 // The collision grid lists the line from the box's min to its max passes through (null-terminated; null: none),
 // and one list's collision objects near the line (null-terminated). 0x0048C980 / 0x004188C0.
-void** GridListsAlong(Maths::Line* line) { return reinterpret_cast<void**>(GetCollGridsOnLine(line)); }
-CHitMesh** ObjectsAlong(void* list, Maths::Line* line)
+void** GridListsAlong(Maths::Seg* line) { return reinterpret_cast<void**>(GetCollGridsOnLine(line)); }
+CHitMesh** ObjectsAlong(void* list, Maths::Seg* line)
 {
     return static_cast<CCollGrid*>(list)->ObjectsAlongLine(line, nullptr);
 }
@@ -49,7 +49,7 @@ void Clear(CHitMeshCache* cache)
 {
     cache->m_box.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     cache->m_box.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
-    cache->m_count = 0;
+    cache->m_num = 0;
     cache->m_statics = 0;
     cache->m_movables = 0;
 }
@@ -57,7 +57,7 @@ void Clear(CHitMeshCache* cache)
 } // namespace
 
 // 0x0040AB50
-CHitMeshCache* CHitMeshCache::Construct()
+CHitMeshCache* CHitMeshCache::MakeNew()
 {
     new (&m_box) Maths::BBox();
     RegisterCollCache(this);
@@ -72,25 +72,25 @@ void CHitMeshCache::Destruct()
 }
 
 // 0x0040ABA0
-void CHitMeshCache::Update(const Maths::BBox& box)
+void CHitMeshCache::TickFrame(const Maths::BBox& box)
 {
     Clear(this);
-    Maths::Line line(box.min, box.max);
+    Maths::Seg line(box.min, box.max);
     void** lists = GridListsAlong(&line);
     if (!lists)
         return;
     m_box = box;
     // The box the objects are tested against: grown by half a unit each way.
     Maths::BBox grown;
-    grown.AddPoint({box.max.x + 0.5f, box.max.y + 0.5f, box.max.z + 0.5f, box.max.w});
-    grown.AddPoint({box.min.x - 0.5f, box.min.y - 0.5f, box.min.z - 0.5f, box.min.w});
+    grown.AppendSpot({box.max.x + 0.5f, box.max.y + 0.5f, box.max.z + 0.5f, box.max.w});
+    grown.AppendSpot({box.min.x - 0.5f, box.min.y - 0.5f, box.min.z - 0.5f, box.min.w});
     for (; *lists; ++lists) {
         for (CHitMesh** object = ObjectsAlong(*lists, &line); *object; ++object) {
             if (!TouchesBox(*object, &grown))
                 continue;
-            m_entries[m_count].geometry = Geometry(*object, 21);
-            m_entries[m_count].object = *object;
-            ++m_count;
+            m_entries[m_num].geometry = Geometry(*object, 21);
+            m_entries[m_num].object = *object;
+            ++m_num;
             ++m_statics;
         }
     }
@@ -98,9 +98,9 @@ void CHitMeshCache::Update(const Maths::BBox& box)
         auto* object = static_cast<CHitMesh*>(node->data);
         if (!object || (ObjectFlags(object) & 6) || !TouchesBox(object, &grown))
             continue;
-        m_entries[m_count].geometry = Geometry(object, 20);
-        m_entries[m_count].object = object;
-        ++m_count;
+        m_entries[m_num].geometry = Geometry(object, 20);
+        m_entries[m_num].object = object;
+        ++m_num;
         ++m_movables;
     }
 }
@@ -111,10 +111,10 @@ void CHitMeshCache::RemoveStatic(CHitMesh* object)
     for (int i = 0; i < m_statics; ++i) {
         if (m_entries[i].object != object)
             continue;
-        for (int k = i + 1; k < m_count; ++k)
+        for (int k = i + 1; k < m_num; ++k)
             m_entries[k - 1] = m_entries[k];
         --m_statics;
-        --m_count;
+        --m_num;
         return;
     }
 }
@@ -122,11 +122,11 @@ void CHitMeshCache::RemoveStatic(CHitMesh* object)
 // 0x0040A990
 void CHitMeshCache::RemoveMovable(CHitMesh* object)
 {
-    for (int i = m_statics; i < m_count; ++i) {
+    for (int i = m_statics; i < m_num; ++i) {
         if (m_entries[i].object != object)
             continue;
-        --m_count;
-        m_entries[i] = m_entries[m_count];
+        --m_num;
+        m_entries[i] = m_entries[m_num];
         --m_movables;
         return;
     }

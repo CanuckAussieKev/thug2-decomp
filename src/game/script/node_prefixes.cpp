@@ -31,32 +31,32 @@ constexpr int kGrowBy = 100;           // indices
 
 uint32_t* NodeNames() { return g_nodeNames; } // (room for 1000)
 
-// The PrefixNodes stored under `prefix` (ListKit::HashTable's lookup, inlined in the original).
-PrefixNodes* Find(ListKit::HashTable* table, uint32_t prefix) { return static_cast<PrefixNodes*>(table->GetItem(prefix)); }
+// The PrefixNodes stored under `prefix` (ListKit::KeyMap's lookup, inlined in the original).
+PrefixNodes* Find(ListKit::KeyMap* table, uint32_t prefix) { return static_cast<PrefixNodes*>(table->FetchEntry(prefix)); }
 
 } // namespace
 
 PrefixTables*& NodePrefixes() { return g_nodePrefixes; }
 
 // 0x0045BDA0
-void PrefixNodes::Add(uint16_t index)
+void PrefixNodes::AppendOne(uint16_t index)
 {
-    mp_indices[m_count] = index;
-    ++m_count;
-    if (m_count % kGrowBy == 0) {
+    mp_indices[m_num] = index;
+    ++m_num;
+    if (m_num % kGrowBy == 0) {
         uint16_t* old = mp_indices;
-        mp_indices = static_cast<uint16_t*>(MemSys::AllocBlock((m_count + kGrowBy) * sizeof(uint16_t)));
-        for (int i = 0; i < m_count; ++i)
+        mp_indices = static_cast<uint16_t*>(MemSys::AllocBlock((m_num + kGrowBy) * sizeof(uint16_t)));
+        for (int i = 0; i < m_num; ++i)
             mp_indices[i] = old[i];
         MemSys::FreeMalloc(old);
     }
 }
 
 // 0x0045C5D0
-PrefixTable* PrefixTable::Construct()
+PrefixTable* PrefixTable::MakeNew()
 {
-    void* memory = MemSys::New(sizeof(ListKit::HashTable));
-    m_slotTable = memory ? new (memory) ListKit::HashTable(8) : nullptr;
+    void* memory = MemSys::Alloc(sizeof(ListKit::KeyMap));
+    m_slotTable = memory ? new (memory) ListKit::KeyMap(8) : nullptr;
     m_nodeArray = 0;
     m_following = nullptr;
     return this;
@@ -78,31 +78,31 @@ void PrefixTable::Destruct()
         uint32_t prefix = nodes->m_namePrefix;
         if (nodes->mp_indices)
             MemSys::FreeMalloc(nodes->mp_indices);
-        MemSys::Manager::Get()->Free(nodes);
+        MemSys::Hub::Pull()->Dealloc(nodes);
         m_slotTable->EraseEntry(prefix);
         nodes = next;
     }
-    if (ListKit::HashTable* table = m_slotTable) {
-        table->~HashTable();
-        MemSys::Manager::Get()->Free(table);
+    if (ListKit::KeyMap* table = m_slotTable) {
+        table->~KeyMap();
+        MemSys::Hub::Pull()->Dealloc(table);
     }
 }
 
 // 0x0045C650
-void PrefixTable::Add(uint32_t prefix, uint16_t index)
+void PrefixTable::AppendOne(uint32_t prefix, uint16_t index)
 {
     if (PrefixNodes* nodes = Find(m_slotTable, prefix)) {
-        nodes->Add(index);
+        nodes->AppendOne(index);
         return;
     }
     auto* nodes = static_cast<PrefixNodes*>(MemSys::AllocZeroed(sizeof(PrefixNodes)));
     if (nodes) {
         nodes->m_namePrefix = 0;
-        nodes->m_count = 0;
+        nodes->m_num = 0;
         nodes->mp_indices = static_cast<uint16_t*>(MemSys::AllocBlock(kGrowBy * sizeof(uint16_t)));
     }
     nodes->m_namePrefix = prefix; // (no check that the allocation worked)
-    nodes->Add(index);
+    nodes->AppendOne(index);
     m_slotTable->StoreEntry(prefix, nodes);
 }
 
@@ -116,8 +116,8 @@ void PrefixTable::Compact()
         if (!nodes)
             break;
         uint16_t* old = nodes->mp_indices;
-        nodes->mp_indices = static_cast<uint16_t*>(MemSys::AllocBlock(nodes->m_count * sizeof(uint16_t)));
-        for (int i = 0; i < nodes->m_count; ++i)
+        nodes->mp_indices = static_cast<uint16_t*>(MemSys::AllocBlock(nodes->m_num * sizeof(uint16_t)));
+        for (int i = 0; i < nodes->m_num; ++i)
             nodes->mp_indices[i] = old[i];
         MemSys::FreeMalloc(old);
     }
@@ -128,14 +128,14 @@ void PrefixTables::AddNodeArray(uint32_t name)
 {
     // (The original first walks to the end of the list, and does nothing with it.)
     void* memory = MemSys::AllocZeroed(sizeof(PrefixTable));
-    PrefixTable* table = memory ? static_cast<PrefixTable*>(memory)->Construct() : nullptr;
+    PrefixTable* table = memory ? static_cast<PrefixTable*>(memory)->MakeNew() : nullptr;
     table->m_following = mp_first;
     mp_first = table;
     table->m_nodeArray = name;
-    CArray* nodes = Scripts::GetArray(name);
-    uint32_t count = nodes->m_size;
+    CArray* nodes = Scripts::FetchList(name);
+    uint32_t count = nodes->m_extent;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* node = reinterpret_cast<CStruct*>(nodes->GetElement(i));
+        auto* node = reinterpret_cast<CStruct*>(nodes->FetchPart(i));
         uint32_t nodeName = 0;
         node->ReadHashValue(kName, &nodeName, 0);
         const char* text = Scripts::FindScriptChecksumName(nodeName);
@@ -157,7 +157,7 @@ void PrefixTables::AddNodeArray(uint32_t name)
             if (c == '_') {
                 *at = '\0';
                 if (_stricmp(buffer, "TRG") != 0)
-                    table->Add(Checksums::HashFromText(buffer), static_cast<uint16_t>(i));
+                    table->AppendOne(Checksums::HashFromText(buffer), static_cast<uint16_t>(i));
                 Scripts::RegisterNameHash(Checksums::HashFromText(buffer), buffer);
                 at[0] = '_';
                 at[1] = '\0';
@@ -167,7 +167,7 @@ void PrefixTables::AddNodeArray(uint32_t name)
         if (digits) {
             *digits = '\0';
             uint32_t prefix = Checksums::HashFromText(buffer);
-            table->Add(prefix, static_cast<uint16_t>(i));
+            table->AppendOne(prefix, static_cast<uint16_t>(i));
             Scripts::RegisterNameHash(prefix, buffer);
         }
     }
@@ -186,7 +186,7 @@ void PrefixTables::RemoveNodeArray(uint32_t name)
             else
                 mp_first = next;
             table->Destruct();
-            MemSys::Manager::Get()->Free(table);
+            MemSys::Hub::Pull()->Dealloc(table);
         } else {
             previous = table;
         }
@@ -203,13 +203,13 @@ uint32_t* PrefixTables::GetNodes(uint32_t prefix, uint16_t* count)
         PrefixNodes* nodes = Find(table->m_slotTable, prefix);
         if (!nodes)
             continue;
-        uint16_t n = static_cast<uint16_t>(nodes->m_count);
+        uint16_t n = static_cast<uint16_t>(nodes->m_num);
         const uint16_t* indices = nodes->mp_indices;
         if (!n)
             continue;
-        CArray* array = Scripts::GetArray(table->m_nodeArray);
+        CArray* array = Scripts::FetchList(table->m_nodeArray);
         for (int i = 0; i < n; ++i) // (the buffer's size isn't checked)
-            names[found++] = GetNodeName(reinterpret_cast<CStruct*>(array->GetElement(indices[i])));
+            names[found++] = GetNodeName(reinterpret_cast<CStruct*>(array->FetchPart(indices[i])));
     }
     *count = static_cast<uint16_t>(found);
     return names;
@@ -218,7 +218,7 @@ uint32_t* PrefixTables::GetNodes(uint32_t prefix, uint16_t* count)
 // 0x0045C900
 void AddNodeArrayPrefixes(uint32_t name)
 {
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_scriptHeap);
     if (!NodePrefixes()) {
         auto* tables = static_cast<PrefixTables*>(MemSys::AllocZeroed(sizeof(PrefixTables)));
@@ -227,7 +227,7 @@ void AddNodeArrayPrefixes(uint32_t name)
         NodePrefixes() = tables;
     }
     NodePrefixes()->AddNodeArray(name);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
 }
 
 // 0x0045CE40

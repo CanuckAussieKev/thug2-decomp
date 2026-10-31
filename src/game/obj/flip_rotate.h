@@ -16,11 +16,11 @@ namespace GameObjects {
 class CFlipRotateComponent {
 public:
     // 0x004E2C50: the component of `object`, neither flipped nor rotated. Returns this.
-    CFlipRotateComponent* Construct(void* object);
+    CFlipRotateComponent* MakeNew(void* object);
     // 0x004E2C80
     void DestroyBody();
     // 0x004E2CF0 (vtable slot 0)
-    CFlipRotateComponent* Destroy(unsigned int flags);
+    CFlipRotateComponent* Teardown(unsigned int flags);
     // 0x004E2C90 (vtable slot 4): the base's parameters, then "flipped" and "rotated" (integers: non-zero = on;
     // each left as it was when not given).
     void ConfigureFromData(Scripts::CStruct* params);

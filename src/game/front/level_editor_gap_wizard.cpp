@@ -44,35 +44,35 @@ SpotKind KindOfFace(float normalY, uint16_t faceFlags)
     return SpotKind::Lip;
 }
 
-const char* TypeName(Type type)
+const char* TypeName(KindTag type)
 {
     switch (type) {
-    case Type::Grind: return "Grind";
-    case Type::Lip: return "Lip";
-    case Type::Manual: return "Manual";
-    case Type::Wallride: return "Wallride";
+    case KindTag::Grind: return "Grind";
+    case KindTag::Lip: return "Lip";
+    case KindTag::Manual: return "Manual";
+    case KindTag::Wallride: return "Wallride";
     default: return "Air";
     }
 }
 
-std::vector<std::string> FlagsFor(Type type)
+std::vector<std::string> FlagsFor(KindTag type)
 {
     switch (type) {
-    case Type::Grind: return {"REQUIRE_RAIL", "CANCEL_GROUND"};
-    case Type::Lip: return {"REQUIRE_LIP"};
-    case Type::Manual: return {"PURE_MANUAL"};
-    case Type::Wallride: return {"REQUIRE_WALLRIDE", "CANCEL_GROUND"};
+    case KindTag::Grind: return {"REQUIRE_RAIL", "CANCEL_GROUND"};
+    case KindTag::Lip: return {"REQUIRE_LIP"};
+    case KindTag::Manual: return {"PURE_MANUAL"};
+    case KindTag::Wallride: return {"REQUIRE_WALLRIDE", "CANCEL_GROUND"};
     default: return {"CANCEL_GROUND"};
     }
 }
 
-Type Suggest(const Spot& start, const Spot& end)
+KindTag Suggest(const Spot& start, const Spot& end)
 {
     if (start.kind == SpotKind::Rail && end.kind == SpotKind::Rail)
-        return Type::Grind;
+        return KindTag::Grind;
     if (start.kind == SpotKind::Wall || end.kind == SpotKind::Wall)
-        return Type::Wallride;
-    return Type::Air;
+        return KindTag::Wallride;
+    return KindTag::Air;
 }
 
 float HeadingOf(V3 d)
@@ -148,8 +148,8 @@ bool Cast(V3 from, V3 to, Hit* hit)
 {
     alignas(16) uint8_t feeler[0x100] = {};
     auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
-    ray->Construct();
-    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    ray->MakeNew();
+    Maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     // (the feeler's hit record at +0x24: normal +0x00, point +0x10, face flags +0x2C - coll_line.h's CollisionHit)
@@ -176,12 +176,12 @@ bool RailNear(V3 origin, V3 unitDir, float x, float y, float maxT, Spot* spot)
         return false;
     float best = 14.0f;
     bool found = false;
-    for (int i = 0; i < rails->m_count; ++i) {
+    for (int i = 0; i < rails->m_num; ++i) {
         const GameObjects::CGrindPoint& node = rails->m_nodes[i];
-        if (!node.m_next || (node.m_flags & GameObjects::RAIL_FLAG_CLIMBING) || !(node.m_flags & GameObjects::RAIL_FLAG_ACTIVE))
+        if (!node.m_succ || (node.m_flagBits & GameObjects::RAIL_FLAG_CLIMBING) || !(node.m_flagBits & GameObjects::RAIL_FLAG_ACTIVE))
             continue;
-        V3 a = {node.m_pos.x, node.m_pos.y, node.m_pos.z};
-        V3 b = {node.m_next->m_pos.x, node.m_next->m_pos.y, node.m_next->m_pos.z};
+        V3 a = {node.m_atPoint.x, node.m_atPoint.y, node.m_atPoint.z};
+        V3 b = {node.m_succ->m_atPoint.x, node.m_succ->m_atPoint.y, node.m_succ->m_atPoint.z};
         float ax, ay, bx, by;
         if (!ProjectToBack(a, &ax, &ay) || !ProjectToBack(b, &bx, &by))
             continue;
@@ -201,7 +201,7 @@ bool RailNear(V3 origin, V3 unitDir, float x, float y, float maxT, Spot* spot)
         spot->kind = SpotKind::Rail;
         spot->point = p;
         spot->normal = {0.0f, 1.0f, 0.0f};
-        spot->along = Normalize(b - a);
+        spot->along = MakeUnit(b - a);
     }
     return found;
 }
@@ -229,7 +229,7 @@ void DrawGate(const Overlays::Painter& painter, const Gate& gate, uint32_t argb)
     BoxCorners(box.origin, box.axes, box.min, box.max, c);
     const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
     for (const auto& e : edges)
-        painter.Line(c[e[0]], c[e[1]], argb, 2.0f);
+        painter.Seg(c[e[0]], c[e[1]], argb, 2.0f);
 }
 
 void Make()
@@ -241,9 +241,9 @@ void Make()
     end.pos = b.pos, end.yaw = b.yaw, end.spec.size = b.size;
     start.spec.text = g_name;
     start.spec.score = ClampScore(g_score);
-    start.spec.flags = FlagsFor(static_cast<Type>(g_type));
+    start.spec.flags = FlagsFor(static_cast<KindTag>(g_type));
     Log("level editor: gap wizard - \"%s\" (%d, %s) from %s to %s", g_name, start.spec.score,
-        TypeName(static_cast<Type>(g_type)), SpotName(g_spots[0].kind), SpotName(g_spots[1].kind));
+        TypeName(static_cast<KindTag>(g_type)), SpotName(g_spots[0].kind), SpotName(g_spots[1].kind));
     Triggers::Queue([start, end] { Triggers::AddGapPair(start, end); });
 }
 
@@ -311,7 +311,7 @@ void AddOverlay(const Overlays::Painter& painter)
         Gate b = GateFor(g_spots[1], g_spots[0].point);
         DrawGate(painter, b, kEnd);
         painter.Text(g_spots[1].point, kEnd, std::string("end: ") + SpotName(g_spots[1].kind));
-        painter.Line(g_spots[0].point, g_spots[1].point, 0xFFFFFFFF, 2.0f);
+        painter.Seg(g_spots[0].point, g_spots[1].point, 0xFFFFFFFF, 2.0f);
         V3 d = g_spots[1].point - g_spots[0].point;
         char text[64];
         std::snprintf(text, sizeof(text), "%.0f across, %.0f %s", std::sqrt(d.x * d.x + d.z * d.z), std::fabs(d.y),
@@ -321,11 +321,11 @@ void AddOverlay(const Overlays::Painter& painter)
         painter.Dot(g_hover.point, 5.0f, kHover);
         painter.Text(g_hover.point, kHover, SpotName(g_hover.kind));
         if (g_picked == 1)
-            painter.Line(g_spots[0].point, g_hover.point, 0x90FFFFFF, 1.0f);
+            painter.Seg(g_spots[0].point, g_hover.point, 0x90FFFFFF, 1.0f);
     }
 }
 
-void Update()
+void TickFrame()
 {
     std::vector<std::function<void()>> queue;
     queue.swap(g_queue);
@@ -333,7 +333,7 @@ void Update()
         action();
 }
 
-void Window(float viewX, float viewY, float viewWidth, float viewHeight, float scale)
+void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float scale)
 {
     (void)viewHeight;
     if (!g_formOpen)
@@ -354,10 +354,10 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
     for (int t = 0; t < kTypes; ++t) {
         if (t)
             ImGui::SameLine();
-        ImGui::RadioButton(TypeName(static_cast<Type>(t)), &g_type, t);
+        ImGui::RadioButton(TypeName(static_cast<KindTag>(t)), &g_type, t);
     }
     std::string flags;
-    for (const std::string& f : FlagsFor(static_cast<Type>(g_type)))
+    for (const std::string& f : FlagsFor(static_cast<KindTag>(g_type)))
         flags += (flags.empty() ? "" : ", ") + f;
     ImGui::TextDisabled("StartGap flags: %s", flags.c_str());
     ImGui::BeginDisabled();

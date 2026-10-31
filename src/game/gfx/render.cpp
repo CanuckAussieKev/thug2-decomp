@@ -56,10 +56,10 @@ ViewShape g_viewShape;
 
 bool g_radeon8500;
 int g_framesRendered;
-Maths::Matrix g_worldMatrix;
-Maths::Matrix g_viewMatrix;
-Maths::Matrix g_projectionMatrix;
-Maths::Matrix g_headingMatrix;
+Maths::Mat4 g_worldMatrix;
+Maths::Mat4 g_viewMatrix;
+Maths::Mat4 g_projectionMatrix;
+Maths::Mat4 g_headingMatrix;
 int g_frameTime;
 int g_screenCopyIndex;
 int g_backBufferWidth;
@@ -74,63 +74,63 @@ namespace {
 // --- the renderer's state (render_state.h) ---------------------------------------------------------------------
 
 // A render state by the renderer's own numbering (1-0x24), cached.
-void SetRenderState(int state, int value) { SetState(state, static_cast<uint32_t>(value)); }
+void SetRenderState(int state, int value) { ChangePhase(state, static_cast<uint32_t>(value)); }
 // Fog on or off (the request is kept in 0x007004C8; the device's D3DRS_FOGENABLE follows).
 void ChangeFog(bool on) { Engine::EnableFog(on); }
 
 // --- the D3D9 device (0x007D69E0) and its objects, through their vtables ----------------------------------------
 
-void* Device() { return reinterpret_cast<void*>(g_d3dDevice); }
+void* InputPort() { return reinterpret_cast<void*>(g_d3dDevice); }
 template <typename F>
 F Method(void* object, int offset) { return reinterpret_cast<F>((*reinterpret_cast<void***>(object))[offset / 4]); }
 
-void SetTransform(int type, const Maths::Matrix* m) { Method<long(__stdcall*)(void*, int, const void*)>(Device(), 0xB0)(Device(), type, m); }
-void SetRenderTarget(void* surface) { Method<long(__stdcall*)(void*, int, void*)>(Device(), 0x94)(Device(), 0, surface); }
-void SetDepthStencilSurface(void* surface) { Method<long(__stdcall*)(void*, void*)>(Device(), 0x9C)(Device(), surface); }
+void SetTransform(int type, const Maths::Mat4* m) { Method<long(__stdcall*)(void*, int, const void*)>(InputPort(), 0xB0)(InputPort(), type, m); }
+void SetRenderTarget(void* surface) { Method<long(__stdcall*)(void*, int, void*)>(InputPort(), 0x94)(InputPort(), 0, surface); }
+void SetDepthStencilSurface(void* surface) { Method<long(__stdcall*)(void*, void*)>(InputPort(), 0x9C)(InputPort(), surface); }
 void SetTextureStageState(int stage, int type, int value)
 {
-    Method<long(__stdcall*)(void*, int, int, int)>(Device(), 0x10C)(Device(), stage, type, value);
+    Method<long(__stdcall*)(void*, int, int, int)>(InputPort(), 0x10C)(InputPort(), stage, type, value);
 }
 uint32_t GetSamplerState(int sampler, int type)
 {
     uint32_t value;
-    Method<long(__stdcall*)(void*, int, int, uint32_t*)>(Device(), 0x110)(Device(), sampler, type, &value);
+    Method<long(__stdcall*)(void*, int, int, uint32_t*)>(InputPort(), 0x110)(InputPort(), sampler, type, &value);
     return value;
 }
 void SetSamplerState(int sampler, int type, uint32_t value)
 {
-    Method<long(__stdcall*)(void*, int, int, uint32_t)>(Device(), 0x114)(Device(), sampler, type, value);
+    Method<long(__stdcall*)(void*, int, int, uint32_t)>(InputPort(), 0x114)(InputPort(), sampler, type, value);
 }
 void ClearTarget(uint32_t color)
 {
-    Method<long(__stdcall*)(void*, uint32_t, const void*, uint32_t, uint32_t, float, uint32_t)>(Device(), 0xAC)(
-        Device(), 0, nullptr, 1 /* D3DCLEAR_TARGET */, color, 1.0f, 0);
+    Method<long(__stdcall*)(void*, uint32_t, const void*, uint32_t, uint32_t, float, uint32_t)>(InputPort(), 0xAC)(
+        InputPort(), 0, nullptr, 1 /* D3DCLEAR_TARGET */, color, 1.0f, 0);
 }
 void DrawPrimitiveUP(int type, unsigned int count, const void* vertices, unsigned int stride)
 {
-    Method<long(__stdcall*)(void*, int, unsigned int, const void*, unsigned int)>(Device(), 0x14C)(Device(), type, count,
+    Method<long(__stdcall*)(void*, int, unsigned int, const void*, unsigned int)>(InputPort(), 0x14C)(InputPort(), type, count,
                                                                                                vertices, stride);
 }
 
 // --- D3DX (linked library code; stdcall) ----------------------------------------------------------------------
 
-void MatrixLookAt(Maths::Matrix* out, const float* eye, const float* at, const float* up)
+void MatrixLookAt(Maths::Mat4* out, const float* eye, const float* at, const float* up)
 {
     D3dx::MatrixLookAtRH(out, eye, at, up);
 }
-void MatrixPerspective(Maths::Matrix* out, float width, float height, float nearZ, float farZ)
+void MatrixPerspective(Maths::Mat4* out, float width, float height, float nearZ, float farZ)
 {
     D3dx::MatrixPerspectiveRH(out, width, height, nearZ, farZ);
 }
-void MatrixScaling(Maths::Matrix* out, float x, float y, float z)
+void MatrixScaling(Maths::Mat4* out, float x, float y, float z)
 {
     D3dx::MatrixScaling(out, x, y, z);
 }
-void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
-void MatrixRotationY(Maths::Matrix* out, float angle)
+void MatrixRotationY(Maths::Mat4* out, float angle)
 {
     D3dx::MatrixRotationY(out, angle);
 }
@@ -254,7 +254,7 @@ void Draw2DWithBlackBars()
 static float s_nearZ = 2.0f;
 
 // 0x004DB200
-void ChooseCamera(const Maths::Matrix* orientation, const Maths::Vector* position, float angle, float aspect, float zoom,
+void ChooseCamera(const Maths::Mat4* orientation, const Maths::Vec4* position, float angle, float aspect, float zoom,
                bool infinite)
 {
     auto& camera = g_camera;
@@ -273,7 +273,7 @@ void ChooseCamera(const Maths::Matrix* orientation, const Maths::Vector* positio
     camera.up[2] = orientation->row[1].z;
     float target[3] = {camera.position[0] - camera.backward[0], camera.position[1] - camera.backward[1],
                        camera.position[2] - camera.backward[2]};
-    world = Maths::Matrix{{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}};
+    world = Maths::Mat4{{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}};
     MatrixLookAt(&view, camera.position, target, camera.up);
 
     // (not original: s_nearZ - the original: camera.nearZ = 2.0f;)
@@ -286,7 +286,7 @@ void ChooseCamera(const Maths::Matrix* orientation, const Maths::Vector* positio
         camera.farZ = static_cast<float>(static_cast<double>(static_cast<uint32_t>(Gfx2D::g_drawDistanceSetting)) * 18.0);
     // NOT ORIGINAL - [Graphics] draw_distance_scale (game/gfx/graphics_options.h): the far plane (and with it the
     // distance clipping's cull distance, 0x00786CAC) further out.
-    camera.farZ = GraphicsOptions::Scaled(camera.farZ, GraphicsOptions::Get().drawDistanceScale);
+    camera.farZ = GraphicsOptions::Scaled(camera.farZ, GraphicsOptions::Pull().drawDistanceScale);
 
     // (degrees to half the angle in radians: the tangent takes the product unrounded, later uses a float)
     double halfAngle = static_cast<double>(angle) * 0.008726646f;
@@ -295,7 +295,7 @@ void ChooseCamera(const Maths::Matrix* orientation, const Maths::Vector* positio
     float height = heightFactor * width;
     MatrixPerspective(&projection, width, height, camera.nearZ, camera.farZ);
     if (zoom != 1.0f) {
-        Maths::Matrix scale;
+        Maths::Mat4 scale;
         MatrixScaling(&scale, zoom, zoom, 1.0f);
         MatrixMultiply(&projection, &projection, &scale);
     }
@@ -504,11 +504,11 @@ void ForEachScene(F fn)
 }
 
 DeviceViewport& TheViewport() { return g_deviceViewport; }
-void SetViewport() { Method<long(__stdcall*)(void*, const void*)>(Device(), 0xBC)(Device(), &TheViewport()); }
+void SetViewport() { Method<long(__stdcall*)(void*, const void*)>(InputPort(), 0xBC)(InputPort(), &TheViewport()); }
 // The device's render state directly (not the renderer's cached one).
 void SetDeviceRenderState(int state, uint32_t value)
 {
-    Method<long(__stdcall*)(void*, int, uint32_t)>(Device(), 0xE4)(Device(), state, value);
+    Method<long(__stdcall*)(void*, int, uint32_t)>(InputPort(), 0xE4)(InputPort(), state, value);
 }
 
 void FullScreenViewport()
@@ -517,9 +517,9 @@ void FullScreenViewport()
 }
 
 // The camera (a game object).
-float CameraAngle(void* camera) { return static_cast<Gfx2D::Camera*>(camera)->FetchEffectiveHFov(); }
-const Maths::Vector* ViewerLocation(void* camera) { return static_cast<Gfx2D::Camera*>(camera)->GetPos(); }
-const Maths::Matrix* CameraMatrix(void* camera) { return static_cast<Gfx2D::Camera*>(camera)->GetMatrix(); }
+float CameraAngle(void* camera) { return static_cast<Gfx2D::ViewCam*>(camera)->FetchEffectiveHFov(); }
+const Maths::Vec4* ViewerLocation(void* camera) { return static_cast<Gfx2D::ViewCam*>(camera)->FetchLocation(); }
+const Maths::Mat4* CameraMatrix(void* camera) { return static_cast<Gfx2D::ViewCam*>(camera)->FetchMat(); }
 
 void DrawSceneGroup(Scene* scene, int pass, int viewport)
 {
@@ -538,10 +538,10 @@ void DrawViewport(int index)
     // Not original - the level editor (game/front/level_editor.h): while it runs, the first viewport's camera is put
     // where the editor flies.
     // Original behaviour: the camera is drawn where the game put it.
-    MenuSystem::LevelEditor::PlaceCamera(static_cast<Gfx2D::Camera*>(camera));
+    MenuSystem::LevelEditor::PlaceCamera(static_cast<Gfx2D::ViewCam*>(camera));
     // Not original - the automation channel's camera lock (game/front/test_view.h): viewport 0's camera held at a pose.
     // Original behaviour: the camera is drawn where the game put it.
-    MenuSystem::TestView::PlaceCamera(static_cast<Gfx2D::Camera*>(camera), index);
+    MenuSystem::TestView::PlaceCamera(static_cast<Gfx2D::ViewCam*>(camera), index);
     g_drawnViewport = index; // the viewport being drawn
     double width = g_backBufferWidth;
     double height = static_cast<float>(g_backBufferHeight);
@@ -563,25 +563,25 @@ void DrawViewport(int index)
     }
     SetViewport();
     ClearWorldTransform();
-    float aspect = reinterpret_cast<CViewRegion*>(const_cast<Viewport*>(view))->GetAspectRatio();
+    float aspect = reinterpret_cast<CViewRegion*>(const_cast<Viewport*>(view))->FetchWidthOverHeight();
 
     // Not original - the level editor's ortho views (game/front/level_editor_camera.h): its camera's field of view
     // narrowed and the near plane brought up for the world's passes (the sky's keeps the near plane).
     // Original behaviour: the camera's own angle, the near plane at 2.
-    auto* editorCamera = static_cast<Gfx2D::Camera*>(camera);
-    float editorNear = MenuSystem::LevelEditor::NearPlane(static_cast<Gfx2D::Camera*>(camera));
+    auto* editorCamera = static_cast<Gfx2D::ViewCam*>(camera);
+    float editorNear = MenuSystem::LevelEditor::NearPlane(static_cast<Gfx2D::ViewCam*>(camera));
 
     // The world: every scene but the sky.
     {
         float angle = MenuSystem::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
         s_nearZ = editorNear;
-        const Maths::Vector* position = ViewerLocation(camera);
+        const Maths::Vec4* position = ViewerLocation(camera);
         ChooseCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
         // Not original - the level editor: the view's projection noted (its mouse ray and outlines).
         // Original behaviour: nothing.
-        MenuSystem::LevelEditor::NoteView(static_cast<Gfx2D::Camera*>(camera), angle, aspect, &vp.x);
+        MenuSystem::LevelEditor::NoteView(static_cast<Gfx2D::ViewCam*>(camera), angle, aspect, &vp.x);
         // Not original - the screenshot key's sidecar (game/sys/screenshot.h): the camera noted.
-        const Maths::Matrix* frame = CameraMatrix(camera);
+        const Maths::Mat4* frame = CameraMatrix(camera);
         const float at[3] = {position->x, position->y, position->z};
         const float forward[3] = {-frame->row[2].x, -frame->row[2].y, -frame->row[2].z};
         SystemCore::Screenshot::NoteView(index, at, forward);
@@ -610,7 +610,7 @@ void DrawViewport(int index)
 
     // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
     {
-        Maths::Vector origin = {0.0f, 0.0f, 0.0f, 1.0f};
+        Maths::Vec4 origin = {0.0f, 0.0f, 0.0f, 1.0f};
         float angle = MenuSystem::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
         s_nearZ = 2.0f;
         ChooseCamera(CameraMatrix(camera), &origin, angle, aspect, 1.0f, true);
@@ -642,7 +642,7 @@ void DrawViewport(int index)
     SetRenderState(1, 1);
     SetRenderState(1, 0);
     if (g_radeon8500)
-        Sun::Render(static_cast<Gfx2D::Camera*>(camera));
+        Sun::Render(static_cast<Gfx2D::ViewCam*>(camera));
     SetRenderState(1, 1);
     SetRenderState(2, 1);
     fogStart = savedFogStart;
@@ -654,7 +654,7 @@ void DrawViewport(int index)
     // The world again, for the later passes.
     {
         float angle = MenuSystem::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
-        const Maths::Vector* position = ViewerLocation(camera);
+        const Maths::Vec4* position = ViewerLocation(camera);
         s_nearZ = editorNear;
         ChooseCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
         s_nearZ = 2.0f;
@@ -680,7 +680,7 @@ void DrawViewport(int index)
     Engine::DrawShatters();
     SetRenderState(1, 0);
     if (!g_radeon8500)
-        Sun::Render(static_cast<Gfx2D::Camera*>(camera));
+        Sun::Render(static_cast<Gfx2D::ViewCam*>(camera));
     SetRenderState(1, 1);
     SetRenderState(2, 1);
     RenderPrimitives();
@@ -698,7 +698,7 @@ void DrawWorld()
     // Not original - the level editor (game/front/level_editor.h): its frame (flying, picking, dragging) - it runs
     // while the game is paused.
     // Original behaviour: nothing.
-    MenuSystem::LevelEditor::Update();
+    MenuSystem::LevelEditor::TickFrame();
     ++g_framesRendered; // frames rendered
     if (!g_loadingScreenUp) { // (nothing while the device is lost)
         g_frameTime = static_cast<int>(FrameClock::GetTime());
@@ -735,10 +735,10 @@ void DrawWorld()
         Draw2DWithBlackBars();
         // Not original - the level editor: the hovered and selected objects outlined over everything.
         // Original behaviour: nothing more is drawn.
-        MenuSystem::LevelEditor::Draw();
+        MenuSystem::LevelEditor::Blit();
         // Not original either - the new front end ([features] new_frontend, game/front/new_frontend.h): over
         // everything while it's up in the front end.
-        MenuSystem::NewFrontend::Draw();
+        MenuSystem::NewFrontend::Blit();
         ChangeFog(fog);
     }
     FullScreenViewport();

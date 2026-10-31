@@ -24,21 +24,21 @@ struct CPcModelLights {
     uint32_t firstDynamic;   // +0x20: the renderer light the dynamic lights start at (2)
     uint32_t ambient;        // +0x24: RGBA
     uint32_t* colors;        // +0x28: one per light (0x006FAAE4 of them), RGBA
-    Maths::Vector* directions; // +0x2C
+    Maths::Vec4* directions; // +0x2C
 
     // 0x004B6270: construct - nothing overridden, every direction (0, 1, 0). Returns this.
-    CPcModelLights* Construct();
+    CPcModelLights* MakeNew();
     // 0x004B6360: the destructor's body.
     void DestroyBody();
     // 0x004B67B0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcModelLights* Destroy(unsigned int flags);
+    CPcModelLights* Teardown(unsigned int flags);
     // 0x004B6160 / 0x004B6170 (virtual [1] / [4]): the ambient colour. Set returns true; Get returns out.
     bool SetAmbientColor(const uint32_t* color);
     uint32_t* FetchAmbientTint(uint32_t* out);
     // 0x004B6780 / 0x004B6180 (virtual [2] / [5]): a light's direction (the scene's unless overridden). Set
     // returns true.
-    bool SetLightDirection(int light, const Maths::Vector* direction);
-    const Maths::Vector* GetLightDirection(int light);
+    bool SetLightDirection(int light, const Maths::Vec4* direction);
+    const Maths::Vec4* GetLightDirection(int light);
     // 0x004B61B0 / 0x004B61D0 (virtual [3] / [6]): a light's colour. Set returns true; Get returns out.
     bool SetLightDiffuseColor(int light, const uint32_t* color);
     uint32_t* GetLightDiffuseColor(uint32_t* out, int light);
@@ -46,7 +46,7 @@ struct CPcModelLights {
     // each light (overridden or the scene's; directions negated), then - with `radius` - the dynamic lights near it
     // (0x0048EF90; their directions from them to the position, type 1 coloured by 1 - their falloff), or the first
     // dynamic light's colour cleared when there are none.
-    void Update(const Maths::Vector* position, uint32_t radius);
+    void TickFrame(const Maths::Vec4* position, uint32_t radius);
     // 0x004B61F0 / 0x004B6240 (virtual [9] / [11]): whether the ambient colour is overridden.
     void EnableAmbientOverride(bool on);
     bool IsAmbientOverridden();
@@ -75,7 +75,7 @@ void __cdecl ResetLights();
 // 0x004B6A70: a scene light's direction (negated) sent to the renderer. True.
 bool __cdecl UpdateLightDirection(int light);
 // 0x004B6AB0: a scene light's direction (w 1; a static vector, 0x0070166C).
-Maths::Vector* __cdecl GetLightDirection(int light);
+Maths::Vec4* __cdecl GetLightDirection(int light);
 // 0x004B6B10: new model lights (0x30 bytes).
 CPcModelLights* __cdecl SpawnModelLights();
 

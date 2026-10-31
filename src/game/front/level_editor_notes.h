@@ -39,7 +39,7 @@ struct Note {
 };
 bool Same(const Note& a, const Note& b);
 // The text as the record keeps it, and back (false: a bad escape).
-std::string Encode(const std::string& text);
+std::string PackUp(const std::string& text);
 bool Decode(const std::string& encoded, std::string* text);
 // The record's text ("note ..."), and one read (after the word "note"; false: malformed - no pos, a bad name, colour,
 // number or escape, a key twice, text= not last / not quoted).
@@ -48,7 +48,7 @@ bool ReadRecord(std::istringstream& in, Note* out);
 // A fresh name: the stem and the lowest two-digit number no note in `notes` has.
 std::string FreshName(const std::vector<Note>& notes);
 // The pin's label: the text's first line, cut to `most` characters ("..." added); "(empty note)" for none.
-std::string Label(const std::string& text, size_t most);
+std::string Caption(const std::string& text, size_t most);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
@@ -61,13 +61,13 @@ void ForgetLevel();
 // "+ Note here" from elsewhere (the command search - level_editor_ux3.h): queued as the Outliner's button does.
 void AddHereQueued();
 // Once a frame while the editor runs: what the UI asked for (queued).
-void Update();
+void TickFrame();
 // The pins over the view (the selected one brighter): a stem from the point up, a head, the text beside it.
-void AddOverlay(V3 cameraPos, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                std::vector<Ui::Line>* lines, std::vector<Ui::Overlay::Circle>* circles,
+void AddOverlay(V3 cameraPos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
+                std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Circle>* circles,
                 std::vector<Ui::Overlay::Text>* texts);
 // The Outliner's Notes section (`search`: the Outliner's search text - rows matching it) and the selected note's window.
 void OutlinerSection(ImFont* mono, const char* search);
-void Window(float viewX, float viewY, float viewWidth, float viewHeight, float scale);
+void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float scale);
 
 } // namespace MenuSystem::LevelEditor::Notes

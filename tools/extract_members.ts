@@ -13,19 +13,19 @@
 //   - a table (RegisterMemberFunctionTable 0x0046F060, called with `push 0x18; push <table>; push <component type>`
 //     by each component's register function and the composite object manager): 0x18-byte entries {name, component
 //     type, member function pointer} up to a zero name. The script runs the entry on that component of the object
-//     (Scripts::InvokeMethodByName 0x00472980: GetComponent(type) - **a null component when the object hasn't it: a
+//     (Scripts::InvokeMethodByName 0x00472980: FetchModule(type) - **a null component when the object hasn't it: a
 //     crash**), or on the object itself for the types 0x57525413 (object) / 0x0ADA4E74 (compositeobject).
 //   - by name (PublishMethodTable 0x0046F020, called once at 0x005A5F62 with the names at 0x00681AD0, 0xFA of
 //     them - the count is 0x005A5670's `mov eax, imm32`): the object's InvokeMethodByName(name) (vtable slot 3) runs
 //     it - a composite object asks each of its components in turn (CObjectModule vtable slot 12: 0 false, 1 done, 2
-//     not mine), then CObject's own (SetProps, Die; anything else: true). **No crash when no component takes it**: the
+//     not mine), then CEntity's own (SetProps, Die; anything else: true). **No crash when no component takes it**: the
 //     statement does nothing (and is true as a condition).
 // Which component takes a by-name member: the member's checksum compared (cmp / sub with an imm32) in that component's
 // slot-12 function. The components are the 81 types RegisterComponentTypes (0x004E4860) registers: `push <register>
 // (or 0); push <create>; push <type>; mov ecx, esi; call 0x0045F270`. A component's vtable: the last one stored to
 // [reg] (C7 0x imm32) by its create function or a constructor it calls (3 deep) that also has the type's checksum - the
-// constructor stores the vtable and the type. Object classes (CObject's vtable slot 2 is 0x0045D850, the entry runner):
-// their slot 3; CObject's (0x004608F0) is "object", CRider's (vtable 0x0064EF48, the skater's constructor) "skater".
+// constructor stores the vtable and the type. Object classes (CEntity's vtable slot 2 is 0x0045D850, the entry runner):
+// their slot 3; CEntity's (0x004608F0) is "object", CRider's (vtable 0x0064EF48, the skater's constructor) "skater".
 // A function's end for the scan: the next int3 padding (CC CC) or the next known function start (a call target or a
 // pointer to code in .rdata), whichever is first.
 
@@ -46,8 +46,8 @@ const REGISTER_COMPONENT = 0x45f270;
 const ALLOC = 0x401cc0;
 const BASE_CONSTRUCT = 0x45d730;
 const BASE_VTABLE = 0x647618; // CObjectModule's
-const OBJECT_ENTRY_RUNNER = 0x45d850; // CObject vtable slot 2
-const OBJECT_CMF = 0x4608f0; // CObject::InvokeMethodByName(name)
+const OBJECT_ENTRY_RUNNER = 0x45d850; // CEntity vtable slot 2
+const OBJECT_CMF = 0x4608f0; // CEntity::InvokeMethodByName(name)
 const SKATER_VTABLE = 0x64ef48;
 const COMPONENT_COUNT = 81;
 // Component names THUG2's scripts don't use (their checksums match the types; used only when they do).
@@ -262,7 +262,7 @@ export function namedMembers(exe: Exe): string[] {
     // ... 68 <names> E8 <PublishMethodTable>, after `call <count function>; push eax`
     const call = REGISTER_NAMES_CALL;
     if (exe.u8(call) !== 0xe8 || exe.u8(call - 5) !== 0x68 || exe.u8(call - 6) !== 0x50 || exe.u8(call - 11) !== 0xe8)
-        throw new RangeError("PublishMethodTable' call isn't where expected");
+        throw new RangeError("RegisterMemberFunctions' call isn't where expected");
     const names = exe.u32(call - 4);
     const countFn = call - 6 + exe.i32(call - 10);
     if (exe.u8(countFn) !== 0xb8) throw new RangeError("the by-name member count isn't a mov eax, imm32");
@@ -359,7 +359,7 @@ export function render(m: Members, names: ReadonlyMap<number, string>): string {
         "//                  object; an object without it crashes (Scripts::InvokeMethodByName 0x00472980).",
         "//   NAMED_MEMBERS  the members registered by name: [name, the components / objects whose InvokeMethodByName(name)",
         "//                  takes it] - an object none of whose components takes it does nothing (no crash). `object`:",
-        "//                  every object (CObject); `skater`: the skater object itself (CRider).",
+        "//                  every object (CEntity); `skater`: the skater object itself (CRider).",
         "",
         "export const COMPONENTS: readonly (readonly [number, string])[] = [",
         ...m.components.map(([t, n]) => `    [${hex(t)}, "${n}"],`),

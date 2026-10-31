@@ -48,7 +48,7 @@ GameObjects::CGameEntity* SkaterObject(void* component) { return static_cast<Gam
 
 // 0x0051BA70 (GameObjects::CTowRideHandler::GetNearestHookPoint): the index of its skitch point nearest `from` (-1 if none),
 // its position in `point`.
-int NearestSkitchPoint(void* skitch, Maths::Vector* point, Maths::Vector* from)
+int NearestSkitchPoint(void* skitch, Maths::Vec4* point, Maths::Vec4* from)
 {
     return static_cast<GameObjects::CTowRideHandler*>(skitch)->GetNearestHookPoint(point, from);
 }
@@ -62,23 +62,23 @@ void CorePhysicsComponent::TryStartSkitch()
         return;
     uint8_t* button = InputOf(this) + 0x20;
     // (not original: THAW 0x005D33A7 - on the bike R2 held, not up)
-    uint8_t* hold = ThawBmx::Active(this) ? ThawBmx::SkitchButton(this) : button;
+    uint8_t* hold = ThawBmx::LiveNow(this) ? ThawBmx::SkitchButton(this) : button;
     if (FlagsOf(this)[0x88] || !hold[0])
         return;
     uint32_t held = static_cast<uint32_t>(TimeSincePress(hold));
     if (held <= static_cast<uint32_t>(Scripts::FetchIntValue(kSkitchHoldTime)) || At<int>(FlagsOf(this), kState) != 0)
         return;
     // The nearest skitch point of any other object's skitch component (that's on), within Skitch_Max_Distance.
-    float nearest = Scripts::GetFloat(kSkitchMaxDistance);
+    float nearest = Scripts::FetchFloat(kSkitchMaxDistance);
     GameObjects::CGameEntity* found = nullptr;
     for (GameObjects::CObjectModule* skitch = GameObjects::CompositeObjectManager()->FindFirstModuleOfKind(kSkitch); skitch;
          skitch = skitch->mp_nextOfType) {
         if (!At<uint8_t>(skitch, 0x18))
             continue;
-        GameObjects::CGameEntity* car = skitch->m_object;
+        GameObjects::CGameEntity* car = skitch->m_entity;
         if (car == ObjectOf(this))
             continue;
-        Maths::Vector point = {0.0f, 0.0f, 0.0f, 1.0f};
+        Maths::Vec4 point = {0.0f, 0.0f, 0.0f, 1.0f};
         int index = NearestSkitchPoint(skitch, &point, &VectorAt(ObjectOf(this), kPosition));
         if (index == -1)
             continue;
@@ -109,7 +109,7 @@ void CorePhysicsComponent::Skitch()
         SkaterObject(this)->PostOwnEvent(kOffMeterBottom, nullptr);
         return;
     }
-    void* skitch = car->GetComponent(kSkitch);
+    void* skitch = car->FetchModule(kSkitch);
 
     // A press of either pair of buttons moves to the next skitch point along the car, one way or the other.
     float direction = 0.0f;
@@ -139,18 +139,18 @@ void CorePhysicsComponent::Skitch()
         double next;
         do {
             void* object = ObjectOf(this);
-            const Maths::Vector& side = VectorAt(object, kMatrix);
-            const Maths::Vector& position = VectorAt(object, kPosition);
+            const Maths::Vec4& side = VectorAt(object, kMatrix);
+            const Maths::Vec4& position = VectorAt(object, kPosition);
             float scale = reach * direction;
             float x = static_cast<float>(static_cast<double>(side.x) * scale);
             float y = static_cast<float>(static_cast<double>(side.y) * scale);
             float z = static_cast<float>(static_cast<double>(side.z) * scale);
-            Maths::Vector target;
+            Maths::Vec4 target;
             target.w = static_cast<float>(static_cast<double>(side.w) * scale + position.w);
             target.z = z + position.z;
             target.y = y + position.y;
             target.x = x + position.x;
-            Maths::Vector point = {0.0f, 0.0f, 0.0f, 1.0f};
+            Maths::Vec4 point = {0.0f, 0.0f, 0.0f, 1.0f};
             int index = NearestSkitchPoint(skitch, &point, &target);
             if (index != At<int>(this, kSkitchPoint)) {
                 At<int>(this, kSkitchPoint) = index;
@@ -168,18 +168,18 @@ void CorePhysicsComponent::Skitch()
     // at skitch_suck_speed (let go of when 180 or more away).
     if (!At<void*>(At<void*>(this, kRide), 0x18) || !FlagsOf(this)[0x88])
         return;
-    Maths::Vector point;
+    Maths::Vec4 point;
     if (!static_cast<GameObjects::CTowRideHandler*>(skitch)->GetHookPoint(&point, At<int>(this, kSkitchPoint)))
         return;
     void* object = ObjectOf(this);
     VectorAt(object, kPosition).w = 0.0f;
-    Maths::Vector back = -VectorAt(car, kForward);
-    float offset = Scripts::GetFloat(kSkitchOffset);
-    Maths::Vector target = point + offset * back;
+    Maths::Vec4 back = -VectorAt(car, kForward);
+    float offset = Scripts::FetchFloat(kSkitchOffset);
+    Maths::Vec4 target = point + offset * back;
     if (At<uint8_t>(this, kSkitchMoving)) {
-        Maths::Vector moved = VectorAt(At<void*>(At<void*>(this, kRide), 0x18), 0x5C); // (the ride's last move)
+        Maths::Vec4 moved = VectorAt(At<void*>(At<void*>(this, kRide), 0x18), 0x5C); // (the ride's last move)
         VectorAt(ObjectOf(this), kPosition) += moved;
-        Maths::Vector toward = target - VectorAt(ObjectOf(this), kPosition);
+        Maths::Vec4 toward = target - VectorAt(ObjectOf(this), kPosition);
         float lengthSqr = static_cast<float>(LengthSqrUnrounded(toward));
         float suck = static_cast<float>(static_cast<double>(PhysicsFloat(kSkitchSuckSpeed, object)) *
                                         At<float>(this, kFrameLength));
@@ -197,8 +197,8 @@ void CorePhysicsComponent::Skitch()
     } else {
         VectorAt(ObjectOf(this), kPosition) = target;
     }
-    At<Maths::Matrix>(ObjectOf(this), kMatrix) = At<Maths::Matrix>(car, 0xC0); // (the car's display matrix)
-    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
+    At<Maths::Mat4>(ObjectOf(this), kMatrix) = At<Maths::Mat4>(car, 0xC0); // (the car's display matrix)
+    At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
 }
 
 } // namespace Skater

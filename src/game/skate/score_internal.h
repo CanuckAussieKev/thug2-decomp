@@ -47,7 +47,7 @@ inline int SpinMultiplier(int spin) { return spin < 6 ? g_spinMultiplier[spin] :
 inline int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 inline GoalSystem::CMatchRules* GameMode() { return GoalSystem::g_gameMode; }
-inline OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+inline OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
 inline GameObjects::CTrickSpotHub* TrickObjects() { return GameObjects::g_trickObjectManager; }
 inline GameObjects::CRider* SkaterById(int id)
 {
@@ -58,7 +58,7 @@ inline GameObjects::CRider* SkaterById(int id)
 inline MenuSystem::CUiWidget* FindElement(uint32_t id)
 {
     MenuSystem::ElementPtr found;
-    return MenuSystem::CUiTree::Instance()->GetElement(&found, id, 0)->m_ownerObject;
+    return MenuSystem::CUiTree::Sole()->FetchPart(&found, id, 0)->m_ownerObject;
 }
 
 // A structure from the pool (null if that fails: the original goes on with it) / deleted.

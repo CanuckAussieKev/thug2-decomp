@@ -42,7 +42,7 @@ const char* __cdecl GetPlatformExtension();
 // 0x005B6090: the NTSC flag set (only with an NTSC display).
 void __cdecl SetNtscFlag(bool on);
 // 0x005B60B0: the configuration from the registry (ReadRegistry) and the command line.
-void __cdecl Init(int argc, char** argv);
+void __cdecl PrepareAll(int argc, char** argv);
 // 0x005B6250: "THUG2\" when bootstrapped, else "".
 const char* __cdecl GetBootstrapPrefix();
 // 0x005B6270: Win32 hardware, English, no extra memory; then the language from the registry - HKCU's key, else

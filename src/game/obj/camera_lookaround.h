@@ -22,22 +22,22 @@ namespace GameObjects {
 class CFreeLookModule : public CObjectModule {
 public:
     // 0x004E42E0: a new one (0 if out of memory): the base's constructor, its vtable and type.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x004E3F60: the destructor body (the base's).
     void DestroyBody();
     // 0x004E4010 (vtable slot 0)
-    CFreeLookModule* Destroy(unsigned int flags);
+    CFreeLookModule* Teardown(unsigned int flags);
     // 0x004E3F70 (slot 2): looking ahead, not locked, nothing in progress, the factor 1. `params` isn't read.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x004E4040 (slot 3): the object's Input component.
-    void Finalize();
+    void Seal();
     // 0x004E4060 (slot 1): the pad (the second one's state when the global 0x702247A5 is set): unless the
     // global 0xF3E055E1 is set, its button at +0x1F0 runs 0x60871393 (for the object 0x967C138C) or 0xA1B1146D;
     // the button at +0x130 locks / unlocks the angles. Unlocked and not turning: the tilt eased toward the stick's
     // +0x214 (x 0.7 below 0, else x 0.5; then x -1.4) and the heading toward its +0x210 x 3, at 3.75 x their
     // distance a second (set outright within 0.001). Turning: by the rates until the time is up, then exactly to
     // the targets.
-    void Update();
+    void TickFrame();
     // 0x004E4220 (slot 12): 0xB8F23899 turns to heading=, tilt= over time= (floats, asserted) with the factor
     // 0x48D4868B (1 by default); 0xE3B327C0 stops turning. 2 for anything else. (NOT ORIGINAL, the feature on:
     // THAW's LookaroundOnDPad_On / _Off too.)
@@ -57,7 +57,7 @@ public:
     float m_factor;     // +0x1C
     float m_leanAngle;       // +0x20
     float m_heading;    // +0x24
-    float m_modeHeading;    // +0x28 the skater camera's mode's heading (its SetMode; its frame adds m_heading)
+    float m_modeHeading;    // +0x28 the skater camera's mode's heading (its ChangeRegime; its frame adds m_heading)
     float m_targetTilt;     // +0x2C
     float m_targetHeading;  // +0x30
     float m_tiltRate;       // +0x34 per second

@@ -17,12 +17,12 @@ struct CRibbonParticles : CParticleSystem {
     int m_steps; // +0x134: history + 1
 
     // 0x0049B0D0. Returns this.
-    CRibbonParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CRibbonParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                 int segments, float unknown, int history);
     // 0x0049B070: the vtables, the base's body.
     void DestroyBody();
     // 0x0049B0A0 (vtable slot 0) / 0x0049B090 (through the node)
-    CRibbonParticles* Destroy(unsigned int flags);
+    CRibbonParticles* Teardown(unsigned int flags);
 };
 
 // "ribbontrail" (vtables 0x006494F0 and 0x006494EC): history + 1 positions each (zeroed), a colour a step.
@@ -30,34 +30,34 @@ struct CRibbonTrailParticles : CParticleSystem {
     int m_steps; // +0x134: history + 1
 
     // 0x0049B380. Returns this.
-    CRibbonTrailParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+    CRibbonTrailParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                      int fixedAlpha, int segments, float unknown, int history);
     // 0x0049B320
     void DestroyBody();
     // 0x0049B350 (vtable slot 0) / 0x0049B340 (through the node)
-    CRibbonTrailParticles* Destroy(unsigned int flags);
+    CRibbonTrailParticles* Teardown(unsigned int flags);
 };
 
 // "shaded" (vtables 0x00649504 and 0x00649500): a position each, four colours.
 struct CShadedParticles : CParticleSystem {
     // 0x0049B660. Returns this.
-    CShadedParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CShadedParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                 int segments, float unknown, int history);
     // 0x0049B600
     void DestroyBody();
     // 0x0049B630 (vtable slot 0) / 0x0049B620 (through the node)
-    CShadedParticles* Destroy(unsigned int flags);
+    CShadedParticles* Teardown(unsigned int flags);
 };
 
 // "smooth" (vtables 0x00649518 and 0x00649514): a position each, two colours.
 struct CSmoothParticles : CParticleSystem {
     // 0x0049B910. Returns this.
-    CSmoothParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CSmoothParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                 int segments, float unknown, int history);
     // 0x0049B8A0
     void DestroyBody();
     // 0x0049B8E0 (vtable slot 0) / 0x0049B8D0 (through the node)
-    CSmoothParticles* Destroy(unsigned int flags);
+    CSmoothParticles* Teardown(unsigned int flags);
 };
 
 // "smoothribbon" (vtables 0x0064952C and 0x00649528): history + 1 positions each (zeroed), four colours.
@@ -65,44 +65,44 @@ struct CSmoothRibbonParticles : CParticleSystem {
     int m_steps; // +0x134: history + 1 (set once everything is allocated)
 
     // 0x0049BBD0. Returns this.
-    CSmoothRibbonParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+    CSmoothRibbonParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                       int fixedAlpha, int segments, float unknown, int history);
     // 0x0049BB50
     void DestroyBody();
     // 0x0049BBA0 (vtable slot 0) / 0x0049BB90 (through the node)
-    CSmoothRibbonParticles* Destroy(unsigned int flags);
+    CSmoothRibbonParticles* Teardown(unsigned int flags);
 };
 
 // "smoothstar" (vtables 0x00649540 and 0x0064953C): a position each, three colours; the star's points and size.
 struct CSmoothStarParticles : CParticleSystem {
     int m_segments;  // +0x134: the star's points
-    float m_size;    // +0x138
+    float m_extent;    // +0x138
 
     // 0x0049BE80. Returns this.
-    CSmoothStarParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+    CSmoothStarParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                     int fixedAlpha, int segments, float size, int history);
     // 0x0049BE20
     void DestroyBody();
     // 0x0049BE50 (vtable slot 0) / 0x0049BE40 (through the node)
-    CSmoothStarParticles* Destroy(unsigned int flags);
+    CSmoothStarParticles* Teardown(unsigned int flags);
 };
 
 // "star" (vtables 0x00649554 and 0x00649550): as smoothstar.
 struct CStarParticles : CParticleSystem {
     int m_segments; // +0x134
-    float m_size;   // +0x138
+    float m_extent;   // +0x138
 
     // 0x0049C140. Returns this.
-    CStarParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CStarParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                               int segments, float size, int history);
     // 0x0049C0D0
     void DestroyBody();
     // 0x0049C110 (vtable slot 0) / 0x0049C100 (through the node)
-    CStarParticles* Destroy(unsigned int flags);
+    CStarParticles* Teardown(unsigned int flags);
 };
 
-static_assert(offsetof(CRibbonParticles, m_steps) == 0x134 && offsetof(CSmoothStarParticles, m_size) == 0x138 &&
-                  offsetof(CStarParticles, m_size) == 0x138,
+static_assert(offsetof(CRibbonParticles, m_steps) == 0x134 && offsetof(CSmoothStarParticles, m_extent) == 0x138 &&
+                  offsetof(CStarParticles, m_extent) == 0x138,
               "layout must match the original");
 
 // The types' counts (vtable slots 3 and 2; linker-folded: one body each, shared by every class whose count it is):

@@ -21,18 +21,18 @@ extern void** const kVtable;
 } // namespace
 
 // 0x0041CB20
-CObjectModule* __cdecl CMatrixComponent::Create()
+CObjectModule* __cdecl CMatrixComponent::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CMatrixComponent));
-    return memory ? static_cast<CMatrixComponent*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CMatrixComponent*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x0041CAD0
-CMatrixComponent* CMatrixComponent::Construct()
+CMatrixComponent* CMatrixComponent::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kVtable;
-    m_type = kType;
+    m_kindTag = kType;
     for (int r = 0; r < 4; ++r)
         m_basisFrame.row[r] = {r == 0 ? 1.0f : 0.0f, r == 1 ? 1.0f : 0.0f, r == 2 ? 1.0f : 0.0f, r == 3 ? 1.0f : 0.0f};
     return this;
@@ -46,27 +46,27 @@ void CMatrixComponent::DestroyBody()
 }
 
 // 0x0041CA70
-CMatrixComponent* CMatrixComponent::Destroy(unsigned int flags)
+CMatrixComponent* CMatrixComponent::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0041CAA0
-void CMatrixComponent::Update() { m_object->m_displayMatrix = m_basisFrame; }
+void CMatrixComponent::TickFrame() { m_entity->m_displayMatrix = m_basisFrame; }
 
 // 0x0041CAC0
-void CMatrixComponent::SetMatrix(const Maths::Matrix* matrix) { m_basisFrame = *matrix; }
+void CMatrixComponent::ChangeMat(const Maths::Mat4* matrix) { m_basisFrame = *matrix; }
 
 } // namespace Obj
 
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CMatrixComponent::Destroy,
-         &GameObjects::CMatrixComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CMatrixComponent::Teardown,
+         &GameObjects::CMatrixComponent::TickFrame,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,

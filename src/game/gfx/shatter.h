@@ -7,12 +7,12 @@
 #include "game/mth/vector.h"
 
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 
 // Shattering on PC (Nx engine; the Shatter script command): a mesh broken into triangles that fly apart - each
 // shatter (0x40 bytes) keeps its triangles' vertices and their positions, and the shatters are in a table
-// (0x007004B8, ListKit::HashTable).
+// (0x007004B8, ListKit::KeyMap).
 namespace Engine3D {
 
 struct meshRef;
@@ -21,10 +21,10 @@ struct meshRef;
 // and turn a step; the settings the Shatter command gave when it was made (engine_effects.h, SetShatterParams).
 struct CShatter {
     void** vtable;
-    Maths::Vector* centres;    // +0x04
-    Maths::Vector* velocities; // +0x08
+    Maths::Vec4* centres;    // +0x04
+    Maths::Vec4* velocities; // +0x08
     uint32_t unknown0C;
-    Maths::Matrix* rotations;  // +0x10
+    Maths::Mat4* rotations;  // +0x10
     float lifetime;          // +0x14: seconds left
     float gravity;           // +0x18 (128)
     float floor;             // +0x1C: the height the triangles bounce at
@@ -35,11 +35,11 @@ struct CShatter {
 
     // 0x004912C0: construct for `count` triangles (their arrays from the default heap), with the settings. Returns
     // this.
-    CShatter* Construct(int count);
+    CShatter* MakeNew(int count);
     // 0x00490E80: the destructor's body (the arrays freed).
     void DestroyBody();
     // 0x00491380 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CShatter* Destroy(unsigned int flags);
+    CShatter* Teardown(unsigned int flags);
     // 0x004913D0: triangle `index` moved a step; below the floor and falling, it bounces (the height mirrored, the
     // speed turned up and scaled) and gets a new random turn (about a random axis, up to 0.1); then gravity.
     void Step(int index, float step);
@@ -52,10 +52,10 @@ static_assert(offsetof(CShatter, rotations) == 0x10 && offsetof(CShatter, triang
 // first 0x2C bytes: per triangle its centre, velocity and rotation, the settings it was made with).
 struct CPcShatter {
     void** vtable;
-    Maths::Vector* centres;    // +0x04
-    Maths::Vector* velocities; // +0x08
+    Maths::Vec4* centres;    // +0x04
+    Maths::Vec4* velocities; // +0x08
     uint32_t unknown0C;
-    Maths::Matrix* rotations;  // +0x10: each triangle's turn a step
+    Maths::Mat4* rotations;  // +0x10: each triangle's turn a step
     uint8_t settings14[0x10];
     uint16_t triangleCount;  // +0x24
     uint8_t unknown26[6];
@@ -66,11 +66,11 @@ struct CPcShatter {
     uint8_t* vertices;  // +0x3C: three per triangle
 
     // 0x004B8120: construct for `count` triangles of `mesh`. Returns this.
-    CPcShatter* Construct(int count, meshRef* mesh, uint32_t ownMaterial);
+    CPcShatter* MakeNew(int count, meshRef* mesh, uint32_t ownMaterial);
     // 0x004B8FA0: the destructor's body.
     void DestroyBody();
     // 0x004B9A30 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcShatter* Destroy(unsigned int flags);
+    CPcShatter* Teardown(unsigned int flags);
 };
 static_assert(offsetof(CPcShatter, positions) == 0x2C && offsetof(CPcShatter, vertices) == 0x3C &&
                   sizeof(CPcShatter) == 0x40,
@@ -90,6 +90,6 @@ void __cdecl UpdateShatter(CPcShatter* shatter, float step);
 // the table.
 void __cdecl ShatterGeom(uint8_t* geom);
 
-extern ListKit::HashTable* g_shatters;
+extern ListKit::KeyMap* g_shatters;
 
 } // namespace Nx

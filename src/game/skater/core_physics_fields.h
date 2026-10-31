@@ -58,7 +58,7 @@ constexpr uint32_t kVelocity = 0xAC;
 // --- the timed flags (offsets into the flags block) ---
 constexpr uint32_t kState = 0x18;             // an int: 0 on the ground, 1 in the air, ...
 
-inline Maths::Vector& VectorAt(void* object, uint32_t offset) { return At<Maths::Vector>(object, offset); }
+inline Maths::Vec4& VectorAt(void* object, uint32_t offset) { return At<Maths::Vec4>(object, offset); }
 inline void* ObjectOf(void* component) { return At<void*>(component, kObject); }
 inline uint8_t* FlagsOf(void* component) { return At<uint8_t*>(component, kTimedFlags); }
 inline uint8_t* InputOf(void* component) { return At<uint8_t*>(component, kInput); }
@@ -102,13 +102,13 @@ inline double StatValue(void* object, uint32_t name)
 // unrounded (a product left on the x87 stack).
 inline double Gravity(void* component) { return static_cast<Skater::CorePhysicsComponent*>(component)->GetGravity(); }
 // 0x004FDED0: the physics state (+0x18 of the flags) changed to `state`, with what goes with it.
-inline void SetState(void* component, int state)
+inline void ChangePhase(void* component, int state)
 {
     static_cast<Skater::CorePhysicsComponent*>(component)->SetPhysicsState(state);
 }
 
-// 0x0042BBF0 (Maths::Vector::SetLength): x, y and z scaled to `length` (left alone at length 0).
-inline void SetLength(Maths::Vector& v, float length) { v.SetLength(length); }
+// 0x0042BBF0 (Maths::Vec4::SetLength): x, y and z scaled to `length` (left alone at length 0).
+inline void SetLength(Maths::Vec4& v, float length) { v.SetLength(length); }
 
 // A button's times: since it was last pressed (0x0046B920) / released (0x0046B900); its press this frame taken
 // (0x0046B7E0).
@@ -141,14 +141,14 @@ inline double X87Cos(double angle)
     return result;
 }
 
-// A vector's squared length and length as the original's Vector::MagnitudeSquared (0x004023A0) / Length (0x004023C0)
+// A vector's squared length and length as the original's Vec4::MagnitudeSquared (0x004023A0) / Length (0x004023C0)
 // leave them on the x87 stack: x * x + y * y + z * z, unrounded.
-inline double LengthSqrUnrounded(const Maths::Vector& v)
+inline double LengthSqrUnrounded(const Maths::Vec4& v)
 {
     double x = v.x, y = v.y, z = v.z;
     return x * x + y * y + z * z;
 }
-inline double LengthUnrounded(const Maths::Vector& v) { return std::sqrt(LengthSqrUnrounded(v)); }
+inline double LengthUnrounded(const Maths::Vec4& v) { return std::sqrt(LengthSqrUnrounded(v)); }
 
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, the low half kept.
 inline uint32_t Ftol(double value) { return static_cast<uint32_t>(static_cast<int64_t>(value)); }

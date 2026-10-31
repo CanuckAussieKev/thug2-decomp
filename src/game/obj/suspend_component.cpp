@@ -67,15 +67,15 @@ void SetNoLod(float* distances)
 // The model component's model (+0x208) and what it's asked (not rewritten yet): drawn or not (0x00493C60), its
 // bounding sphere (0x00492F30: centre, radius in w), and whether it wants to be drawn regardless (+0x234).
 uint8_t* ModelOf(CObjectModule* component) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208); }
-void SetModelActive(uint8_t* model, bool active) { reinterpret_cast<Engine3D::CRenderModel*>(model)->SetActive(active); }
+void SetModelActive(uint8_t* model, bool active) { reinterpret_cast<Engine3D::CRenderModel*>(model)->ChangeLive(active); }
 
 } // namespace
 
 // 0x00434290
-CObjectModule* __cdecl CDormancyModule::Create()
+CObjectModule* __cdecl CDormancyModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CDormancyModule));
-    return memory ? static_cast<CDormancyModule*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CDormancyModule*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x00434610
@@ -86,12 +86,12 @@ void __cdecl CDormancyModule::PublishMethodTable()
 }
 
 // 0x00433F50
-CDormancyModule* CDormancyModule::Construct()
+CDormancyModule* CDormancyModule::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kVtable;
-    m_type = kType;
-    double distance = static_cast<double>(Scripts::GetFloat(kDefaultSuspendDistance)) * kInchesPerFoot;
+    m_kindTag = kType;
+    double distance = static_cast<double>(Scripts::FetchFloat(kDefaultSuspendDistance)) * kInchesPerFoot;
     m_suspendDistance = static_cast<float>(distance);
     m_neverSuspend = true;
     m_framesBeforeCheck = kCheckFrames;
@@ -108,23 +108,23 @@ void CDormancyModule::DestroyBody()
 }
 
 // 0x00433FD0
-CDormancyModule* CDormancyModule::Destroy(unsigned int flags)
+CDormancyModule* CDormancyModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00433E50
-void CDormancyModule::Update() { CObjectModule::Suspend(true); }
+void CDormancyModule::TickFrame() { CObjectModule::HoldOff(true); }
 
 // 0x00434000
 void CDormancyModule::ConfigureFromData(Scripts::CStruct* params)
 {
-    if (params->GetFloat(kSuspendDistance, &m_suspendDistance, 0)) {
-        if (m_suspendDistance == 0.0f && !params->GetFloat(kLodDist[0], &m_suspendDistance, 0))
-            m_suspendDistance = Scripts::GetFloat(kDefaultSuspendDistance);
+    if (params->FetchFloat(kSuspendDistance, &m_suspendDistance, 0)) {
+        if (m_suspendDistance == 0.0f && !params->FetchFloat(kLodDist[0], &m_suspendDistance, 0))
+            m_suspendDistance = Scripts::FetchFloat(kDefaultSuspendDistance);
         m_neverSuspend = false;
         double distance = static_cast<double>(m_suspendDistance) * kInchesPerFoot;
         m_suspendDistance = static_cast<float>(distance);
@@ -140,11 +140,11 @@ void CDormancyModule::ConfigureFromData(Scripts::CStruct* params)
     lod[0] = 50.0f;
     reinterpret_cast<uint32_t*>(lod)[2] = kNoLodBits[1];
     reinterpret_cast<uint32_t*>(lod)[3] = kNoLodBits[2];
-    params->GetFloat(kLodDist[0], &lod[0], 0);
+    params->FetchFloat(kLodDist[0], &lod[0], 0);
     lod[1] = lod[0] + kLod2Beyond1;
-    params->GetFloat(kLodDist[1], &lod[1], 0);
-    params->GetFloat(kLodDist[2], &lod[2], 0);
-    params->GetFloat(kLodDist[3], &lod[3], 0);
+    params->FetchFloat(kLodDist[1], &lod[1], 0);
+    params->FetchFloat(kLodDist[2], &lod[2], 0);
+    params->FetchFloat(kLodDist[3], &lod[3], 0);
     double first = static_cast<double>(lod[0]) * kInchesPerFoot, second = static_cast<double>(lod[1]) * kInchesPerFoot;
     lod[0] = static_cast<float>(first);
     lod[1] = static_cast<float>(second);
@@ -157,16 +157,16 @@ void CDormancyModule::ConfigureFromData(Scripts::CStruct* params)
         Scripts::DumpToLog(params, 0);
     if (!(lod[2] < lod[3]))
         Scripts::DumpToLog(params, 0);
-    lod[0] = Scripts::GetFloat(0xD3D072F9) * lod[0]; // LOD0DistanceMultiplier
-    lod[1] = Scripts::GetFloat(0x0432F2A1) * lod[1]; // LOD1DistanceMultiplier
+    lod[0] = Scripts::FetchFloat(0xD3D072F9) * lod[0]; // LOD0DistanceMultiplier
+    lod[1] = Scripts::FetchFloat(0x0432F2A1) * lod[1]; // LOD1DistanceMultiplier
     // NOT ORIGINAL - [Graphics] lod_distance_scale (game/gfx/graphics_options.h): animated and drawn further out.
-    float scale = Engine3D::GraphicsOptions::Get().lodDistanceScale;
+    float scale = Engine3D::GraphicsOptions::Pull().lodDistanceScale;
     lod[0] = Engine3D::GraphicsOptions::Scaled(lod[0], scale);
     lod[1] = Engine3D::GraphicsOptions::Scaled(lod[1], scale);
 }
 
 // 0x004341C0
-void CDormancyModule::Finalize() { m_meshInstance = m_object->GetComponent(kModel); }
+void CDormancyModule::Seal() { m_meshInstance = m_entity->FetchModule(kModel); }
 
 // 0x00433E60
 void CDormancyModule::ResetCounts()
@@ -192,8 +192,8 @@ bool CDormancyModule::WantsAnimating(float* distanceSquared)
     if (d > lod * lod) { // (not a number: as within)
         animate = false;
     } else {
-        float skipEvery2 = Scripts::GetFloat(0xDB120FB5); // AnimLODInterleave2
-        double skipEvery4 = Scripts::GetFloat(0x3271AA80); // AnimLODInterleave4
+        float skipEvery2 = Scripts::FetchFloat(0xDB120FB5); // AnimLODInterleave2
+        double skipEvery4 = Scripts::FetchFloat(0x3271AA80); // AnimLODInterleave4
         float within2 = static_cast<float>(static_cast<double>(skipEvery2) * skipEvery2);
         if (d > skipEvery4 * skipEvery4)
             animate = (++Interleave4Count() & 3) == 0;
@@ -209,7 +209,7 @@ void CDormancyModule::UpdateVisibility()
     if (!m_meshInstance || !ModelOf(m_meshInstance))
         return;
     bool visible = false;
-    if (!(m_object->m_objectFlags & ENTITY_HIDDEN_BIT)) {
+    if (!(m_entity->m_objectFlags & ENTITY_HIDDEN_BIT)) {
         uint8_t* model = ModelOf(m_meshInstance);
         if (reinterpret_cast<const uint32_t*>(m_lodDistances)[2] == kNoLodBits[2]) {
             visible = true;
@@ -222,10 +222,10 @@ void CDormancyModule::UpdateVisibility()
             if (m_distanceSquared < lod * lod) {
                 // In view: its bounding sphere where the object is.
                 float sphere[4];
-                reinterpret_cast<Engine3D::CRenderModel*>(model)->FetchBoundSphere(reinterpret_cast<Maths::Vector*>(sphere));
-                Maths::Vector centre = {sphere[0], sphere[1], sphere[2], 1.0f};
-                centre.MultiplyBy(m_object->m_basisFrame);
-                centre += m_object->m_pos;
+                reinterpret_cast<Engine3D::CRenderModel*>(model)->FetchBoundSphere(reinterpret_cast<Maths::Vec4*>(sphere));
+                Maths::Vec4 centre = {sphere[0], sphere[1], sphere[2], 1.0f};
+                centre.MultiplyBy(m_entity->m_basisFrame);
+                centre += m_entity->m_atPoint;
                 visible = Engine3D::Engine::SphereVisibleInOneViewport(&centre, sphere[3]) == 0;
             }
         }
@@ -234,7 +234,7 @@ void CDormancyModule::UpdateVisibility()
     bool shown = (flags & 0x2) && !(flags & 0x4);
     SetModelActive(ModelOf(m_meshInstance), visible);
     if (visible && !shown)
-        m_meshInstance->Update();
+        m_meshInstance->TickFrame();
 }
 
 // 0x004341E0
@@ -242,7 +242,7 @@ bool CDormancyModule::Obj_ResetNoSuspendCount(Scripts::CStruct* /*params*/, Scri
 {
     m_framesBeforeLod = kCheckFrames;
     m_framesBeforeCheck = kCheckFrames;
-    m_object->Suspend(false);
+    m_entity->HoldOff(false);
     return true;
 }
 
@@ -257,17 +257,17 @@ void __cdecl NextSuspendFrame()
 }
 
 // 0x00434520
-SuspendTaskHolder* SuspendTaskHolder::Construct()
+SuspendTaskHolder* SuspendTaskHolder::MakeNew()
 {
     auto* task = static_cast<TaskList::SchedulerTask*>(MemSys::AllocZeroed(0x20));
     if (task) {
-        task->Construct(kTaskPriority);
+        task->MakeNew(kTaskPriority);
         task->m_vtable = GameCode::kTaskVtable;
         reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&SuspendTask); // +0x18 the callback
         reinterpret_cast<void**>(task)[7] = this;                                  // +0x1C the data
     }
     m_jobHandle = task;
-    reinterpret_cast<TaskList::Stack*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04)->AddTask(task); // the logic tasks
+    reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04)->QueueJob(task); // the logic tasks
     return this;
 }
 
@@ -275,7 +275,7 @@ SuspendTaskHolder* SuspendTaskHolder::Construct()
 void __cdecl CreateSuspendTask()
 {
     void* memory = MemSys::AllocZeroed(sizeof(SuspendTaskHolder));
-    g_suspendTaskHolder = memory ? static_cast<SuspendTaskHolder*>(memory)->Construct() : nullptr;
+    g_suspendTaskHolder = memory ? static_cast<SuspendTaskHolder*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x00434420
@@ -298,7 +298,7 @@ void __cdecl SuspendTask(void* /*task*/)
             if (component->m_framesBeforeLod) {
                 --component->m_framesBeforeLod;
             } else {
-                const Maths::Vector& pos = component->m_object->m_pos;
+                const Maths::Vec4& pos = component->m_entity->m_atPoint;
                 const float* at = reinterpret_cast<const float*>(camera + 4);
                 double dx = static_cast<double>(pos.x) - at[0], dy = static_cast<double>(pos.y) - at[1],
                        dz = static_cast<double>(pos.z) - at[2];
@@ -307,12 +307,12 @@ void __cdecl SuspendTask(void* /*task*/)
                 component->m_far = distanceSquared > component->m_suspendDistanceSquared;
             }
         }
-        CGameEntity* object = component->m_object;
+        CGameEntity* object = component->m_entity;
         bool suspended = (object->m_compositeFlags & COMPOSITE_FLAG_SUSPENDED) != 0;
         if (component->m_far && !suspended)
-            object->Suspend(true);
+            object->HoldOff(true);
         else if (!component->m_far && suspended)
-            object->Suspend(false);
+            object->HoldOff(false);
         if (CObjectModule* model = component->m_meshInstance) {
             if (component->m_framesBeforeLod) {
                 if (ModelOf(model))
@@ -330,10 +330,10 @@ void __cdecl SuspendTask(void* /*task*/)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CDormancyModule::Destroy,
-         &GameObjects::CDormancyModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CDormancyModule::Teardown,
+         &GameObjects::CDormancyModule::TickFrame,
          &GameObjects::CDormancyModule::ConfigureFromData,
-         &GameObjects::CDormancyModule::Finalize,
+         &GameObjects::CDormancyModule::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,

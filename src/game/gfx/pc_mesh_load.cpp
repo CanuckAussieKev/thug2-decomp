@@ -38,7 +38,7 @@ void* AllocBlock(size_t size) { return Crt::AllocBlock(size); } // the game's C 
 // What the loaders read from: memory (a cursor moved on) or a file.
 struct MemoryReader {
     uint8_t* cursor;
-    void Read(void* out, int size, int count)
+    void TakeIn(void* out, int size, int count)
     {
         std::memcpy(out, cursor, static_cast<size_t>(size) * count);
         cursor += size * count;
@@ -47,8 +47,8 @@ struct MemoryReader {
     void LoadScaled(uint8_t* vertices, uint32_t stride) { LoadScaledPositionsFromMemory(&cursor, vertices, stride); }
 };
 struct FileReader {
-    FileLoad::Handle file;
-    void Read(void* out, int size, int count) { FileLoad::Read(out, size, count, file); }
+    FileLoad::Hdl file;
+    void TakeIn(void* out, int size, int count) { FileLoad::TakeIn(out, size, count, file); }
     int SkipChunk() { return SkipFileChunk(file); }
     void LoadScaled(uint8_t* vertices, uint32_t stride) { LoadScaledPositionsFromFile(file, vertices, stride); }
 };
@@ -346,7 +346,7 @@ template <typename Reader>
 uint32_t ReadU32(Reader& reader)
 {
     uint32_t value = 0;
-    reader.Read(&value, 4, 1);
+    reader.TakeIn(&value, 4, 1);
     return value;
 }
 
@@ -364,42 +364,42 @@ template <typename Reader>
 void LoadMesh(meshRef* mesh, Reader& reader, uint32_t materialChecksum, sceneRef* scene, sVertexArena* arena, bool dynamic)
 {
     for (int i = 0; i < 8; ++i) {
-        reader.Read(&mesh->indexCounts[i], 2, 1);
+        reader.TakeIn(&mesh->indexCounts[i], 2, 1);
         uint16_t count = mesh->indexCounts[i];
         if (!count)
             continue;
         void* memory = AllocBlock(sizeof(sIndexBuffer));
-        sIndexBuffer* ib = memory ? static_cast<sIndexBuffer*>(memory)->Construct(count * 2u, 0, D3DFMT_INDEX16) : nullptr;
+        sIndexBuffer* ib = memory ? static_cast<sIndexBuffer*>(memory)->MakeNew(count * 2u, 0, D3DFMT_INDEX16) : nullptr;
         mesh->indexBuffers[i] = ib;
-        reader.Read(ib->indices, 2, count);
+        reader.TakeIn(ib->indices, 2, count);
         ib->Unlock();
     }
-    reader.Read(&mesh->stride, 1, 1);
-    reader.Read(&mesh->vertexCount, 2, 1);
-    reader.Read(&mesh->vertexBufferCount, 1, 1);
+    reader.TakeIn(&mesh->stride, 1, 1);
+    reader.TakeIn(&mesh->vertexCount, 2, 1);
+    reader.TakeIn(&mesh->vertexBufferCount, 1, 1);
     uint32_t sizes[3] = {};
     uint8_t* data[3] = {};
     uint8_t scaled = 0;
     for (uint32_t v = 0; v < mesh->vertexBufferCount; ++v) {
-        reader.Read(&scaled, 1, 1);
-        reader.Read(&sizes[v], 4, 1);
-        data[v] = static_cast<uint8_t*>(MemSys::New(sizes[v]));
-        reader.Read(data[v], static_cast<int>(sizes[v]), 1);
+        reader.TakeIn(&scaled, 1, 1);
+        reader.TakeIn(&sizes[v], 4, 1);
+        data[v] = static_cast<uint8_t*>(MemSys::Alloc(sizes[v]));
+        reader.TakeIn(data[v], static_cast<int>(sizes[v]), 1);
         if (scaled)
             reader.LoadScaled(data[v], mesh->stride);
     }
     mesh->fvf = VertexFormat(ReadU32(reader));
     *reinterpret_cast<uint32_t*>(mesh->unknown3C) = VertexFormat(ReadU32(reader));
-    reader.Read(&mesh->unknown1C[1], 1, 1);
-    reader.Read(&mesh->unknown1C[0], 1, 1);
-    reader.Read(&mesh->unknown1C[2], 1, 1);
+    reader.TakeIn(&mesh->unknown1C[1], 1, 1);
+    reader.TakeIn(&mesh->unknown1C[0], 1, 1);
+    reader.TakeIn(&mesh->unknown1C[2], 1, 1);
     uint8_t hasVertexBytes = 0;
-    reader.Read(&hasVertexBytes, 1, 1);
+    reader.TakeIn(&hasVertexBytes, 1, 1);
     mesh->bufferUsage = 0;
     mesh->bufferFlags = 0;
     if (hasVertexBytes) {
-        mesh->perVertexBytes = static_cast<uint8_t*>(MemSys::New(mesh->vertexCount));
-        reader.Read(mesh->perVertexBytes, 1, mesh->vertexCount);
+        mesh->perVertexBytes = static_cast<uint8_t*>(MemSys::Alloc(mesh->vertexCount));
+        reader.TakeIn(mesh->perVertexBytes, 1, mesh->vertexCount);
         mesh->bufferFlags |= 2;
         arena = nullptr; // (written each frame: a buffer of its own)
         mesh->bufferUsage = D3DUSAGE_DYNAMIC;
@@ -408,8 +408,8 @@ void LoadMesh(meshRef* mesh, Reader& reader, uint32_t materialChecksum, sceneRef
         mesh->bufferUsage = D3DUSAGE_DYNAMIC;
     int levels = static_cast<int>(ReadU32(reader));
     if (levels > 1) {
-        mesh->unknown48 = MemSys::New(static_cast<uint32_t>(levels) * 4);
-        reader.Read(mesh->unknown48, 4, levels);
+        mesh->unknown48 = MemSys::Alloc(static_cast<uint32_t>(levels) * 4);
+        reader.TakeIn(mesh->unknown48, 4, levels);
     }
     auto* material = static_cast<materialRef*>(scene->FindMaterial(materialChecksum));
     mesh->material = reinterpret_cast<uint8_t*>(material);
@@ -431,7 +431,7 @@ void LoadMesh(meshRef* mesh, Reader& reader, uint32_t materialChecksum, sceneRef
         mesh->pixelShader = PixelShaderFromIndex(shader);
     }
     for (uint32_t v = 0; v < mesh->vertexBufferCount; ++v) // (only the first: the count is 1 by_ now)
-        MemSys::Manager::Get()->Free(data[v]);
+        MemSys::Hub::Pull()->Dealloc(data[v]);
 }
 
 } // namespace
@@ -456,22 +456,22 @@ void __cdecl LoadScaledPositionsFromMemory(uint8_t** cursor, uint8_t* vertices, 
 void __cdecl LoadScaledPositionsFromFile(void* file, uint8_t* vertices, uint32_t stride)
 {
     int count = 0;
-    FileLoad::Read(&count, 4, 1, file);
+    FileLoad::TakeIn(&count, 4, 1, file);
     for (int i = 0; i < count; ++i) {
         sScaledVertex v;
-        FileLoad::Read(&v.unused[0], 4, 1, file);
-        FileLoad::Read(&v.unused[1], 4, 1, file);
-        FileLoad::Read(&v.unused[2], 4, 1, file);
-        FileLoad::Read(v.weights, 4, 3, file);
-        FileLoad::Read(v.p, 16, 1, file);
-        FileLoad::Read(v.q, 16, 1, file);
-        FileLoad::Read(v.r, 16, 1, file);
-        FileLoad::Read(v.a, 16, 1, file);
-        FileLoad::Read(v.b, 16, 1, file);
-        FileLoad::Read(v.c, 16, 1, file);
-        FileLoad::Read(&v.bones[0], 4, 1, file);
-        FileLoad::Read(&v.bones[1], 4, 1, file);
-        FileLoad::Read(&v.bones[2], 4, 1, file);
+        FileLoad::TakeIn(&v.unused[0], 4, 1, file);
+        FileLoad::TakeIn(&v.unused[1], 4, 1, file);
+        FileLoad::TakeIn(&v.unused[2], 4, 1, file);
+        FileLoad::TakeIn(v.weights, 4, 3, file);
+        FileLoad::TakeIn(v.p, 16, 1, file);
+        FileLoad::TakeIn(v.q, 16, 1, file);
+        FileLoad::TakeIn(v.r, 16, 1, file);
+        FileLoad::TakeIn(v.a, 16, 1, file);
+        FileLoad::TakeIn(v.b, 16, 1, file);
+        FileLoad::TakeIn(v.c, 16, 1, file);
+        FileLoad::TakeIn(&v.bones[0], 4, 1, file);
+        FileLoad::TakeIn(&v.bones[1], 4, 1, file);
+        FileLoad::TakeIn(&v.bones[2], 4, 1, file);
         if (SkinScalingOn())
             ScaledPositionInFile(v, reinterpret_cast<float*>(vertices));
         vertices += stride;
@@ -534,7 +534,7 @@ void meshRef::ReadFromRamBlock(uint8_t** cursor, uint32_t materialChecksum, scen
 }
 
 // 0x004D6100
-void meshRef::LoadFromFile(void* file, uint32_t materialChecksum, sceneRef* scene, sVertexArena* arena, bool dynamic)
+void meshRef::IngestFromFile(void* file, uint32_t materialChecksum, sceneRef* scene, sVertexArena* arena, bool dynamic)
 {
     FileReader reader{file};
     LoadMesh(this, reader, materialChecksum, scene, arena, dynamic);
@@ -558,7 +558,7 @@ void meshRef::BuildCollision()
     }
     vertexBuffers[0]->Unlock();
     const uint16_t* strip = indexBuffers[0]->indices;
-    auto* found = static_cast<uint16_t*>(MemSys::New((indexCounts[0] - 2u) * 6));
+    auto* found = static_cast<uint16_t*>(MemSys::Alloc((indexCounts[0] - 2u) * 6));
     uint32_t count = 0;
     uint16_t* out = found;
     for (uint32_t k = 0; k < indexCounts[0] - 2u; ++k, ++strip) {
@@ -582,7 +582,7 @@ void meshRef::BuildCollision()
         std::memcpy(triangles, found, count * 6u);
         triangleCount = count;
     }
-    MemSys::Manager::Get()->Free(found);
+    MemSys::Hub::Pull()->Dealloc(found);
 }
 
 } // namespace Nx

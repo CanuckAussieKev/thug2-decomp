@@ -26,7 +26,7 @@ void* __cdecl GetAnimData(uint32_t checksum, int unused)
 }
 
 // 0x0048CF70
-CFrameSource* CFrameSource::Construct()
+CFrameSource* CFrameSource::MakeNew()
 {
     vtable = reinterpret_cast<void**>(kFrameSourceVtable);
     std::memset(reinterpret_cast<uint8_t*>(this) + 8, 0, sizeof(CFrameSource) - 8);
@@ -36,7 +36,7 @@ CFrameSource* CFrameSource::Construct()
 }
 
 // 0x0048D000
-CFrameSource* CFrameSource::Destroy(unsigned int flags)
+CFrameSource* CFrameSource::Teardown(unsigned int flags)
 {
     vtable = reinterpret_cast<void**>(kFrameSourceVtable);
     if (flags & 1)
@@ -63,7 +63,7 @@ void* CFrameSource::PlayClip(uint32_t anim)
 }
 
 namespace {
-static VtableSlot kFrameSourceVtable_slots[] = {&Engine3D::CFrameSource::Destroy};
+static VtableSlot kFrameSourceVtable_slots[] = {&Engine3D::CFrameSource::Teardown};
 void** const kFrameSourceVtable = reinterpret_cast<void**>(kFrameSourceVtable_slots);
 } // namespace
 

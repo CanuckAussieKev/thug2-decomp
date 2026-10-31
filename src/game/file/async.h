@@ -27,19 +27,19 @@ enum AsyncOperation : int { kAsyncIdle = 0, kAsyncOpen = 1, kAsyncRead = 3, kAsy
 class AsyncFileHandle {
 public:
     // Non-virtual methods.
-    bool Init();
-    void SetCallback(IoCompletionHook callback, void* arg0, void* arg1);
+    bool PrepareAll();
+    void ChangeHook(IoCompletionHook callback, void* arg0, void* arg1);
     int GetFileSize();
     bool Cancel();
-    bool IsBusy();
-    int Read(void* buffer, int size, int count);
-    bool Open(const char* name, bool blocking, int priority);
-    bool Close();
+    bool IsOccupied();
+    int TakeIn(void* buffer, int size, int count);
+    bool Unseal(const char* name, bool blocking, int priority);
+    bool Shut();
     // Virtual slot 1 (overridden by the platform class, which calls this one).
     void IoCallback(int event, bool error, int value, int extra);
 
     // The virtual methods, by vtable slot.
-    enum Slot {
+    enum Bay {
         kDestroy = 0, kIoCallback = 1, kPlatInit = 2, kPlatOpen = 3, kPlatClose = 4, kPlatIsDone = 5,
         kPlatIsBusy = 6, kPlatIsEOF = 7, kPlatSetPriority = 8, kPlatSetStream = 9, kPlatSetDestination = 10,
         kPlatSetBufferSize = 11, kPlatSetBlocking = 12, kPlatLoad = 13, kPlatRead = 14, kPlatWrite = 15,
@@ -53,7 +53,7 @@ public:
     }
 
     void** m_vtable;
-    int m_result;            // result of the last operation (size read, error, ...)
+    int m_outcomeVal;            // result of the last operation (size read, error, ...)
     IoCompletionHook m_callback;
     void* m_arg0;
     void* m_arg1;
@@ -61,9 +61,9 @@ public:
     int m_operation;         // the operation in progress (AsyncOperation)
     int m_unknown1C;
     bool m_feed;
-    bool m_blocking;
+    bool m_isBlocking;
     int m_bufferSize;
-    int m_priority;
+    int m_rank;
     volatile int m_payloadBytes; // -1 until the platform knows it
     int m_anchorPoint;
     void* m_preFile;         // Pre::ArchiveFile::FileInfo* when the file is inside a loaded .pre archive
@@ -115,9 +115,9 @@ inline int AsyncGetFileSize(AsyncFileHandle* file) { return file->GetFileSize();
 inline void AsyncSetCallbackMask(AsyncFileHandle* file, uint32_t mask) { file->m_callbackMask = mask; }
 inline void AsyncSetCallback(AsyncFileHandle* file, IoCompletionHook callback, void* arg0, void* arg1)
 {
-    file->SetCallback(callback, arg0, arg1);
+    file->ChangeHook(callback, arg0, arg1);
 }
-inline void StartBackgroundRead(AsyncFileHandle* file, void* buffer, int size) { file->Read(buffer, 1, size); }
+inline void StartBackgroundRead(AsyncFileHandle* file, void* buffer, int size) { file->TakeIn(buffer, 1, size); }
 inline void AsyncWaitForIO() { AsyncWaitForIO(false); }
 // Whether asynchronous loading can be used at all (a stub: always true on PC).
 // (0x005B6570: a jump to the folded stub returning true)

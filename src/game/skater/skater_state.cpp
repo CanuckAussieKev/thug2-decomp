@@ -73,15 +73,15 @@ int FindPowerup(Scripts::CStruct* params)
 } // namespace
 
 // 0x00519740
-CObjectModule* __cdecl CRiderPoseState::Create()
+CObjectModule* __cdecl CRiderPoseState::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderPoseState));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CRiderPoseState*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kSkaterState;
+    component->m_kindTag = kSkaterState;
     component->m_boostItems[0] = 0;
     return component;
 }
@@ -101,24 +101,24 @@ void CRiderPoseState::DestroyBody()
 }
 
 // 0x00519620
-CRiderPoseState* CRiderPoseState::Destroy(unsigned int flags)
+CRiderPoseState* CRiderPoseState::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00519460
-void CRiderPoseState::ConfigureFromData(Scripts::CStruct* /*params*/) { m_state = AIR; }
+void CRiderPoseState::ConfigureFromData(Scripts::CStruct* /*params*/) { m_curPhase = AIR; }
 
 // 0x00519660
-void CRiderPoseState::SetState(int state)
+void CRiderPoseState::ChangePhase(int state)
 {
-    if (state == m_state)
+    if (state == m_curPhase)
         return;
-    m_state = state;
-    m_object->PostOwnEvent(kOnSkaterStateChange, nullptr);
+    m_curPhase = state;
+    m_entity->PostOwnEvent(kOnSkaterStateChange, nullptr);
 }
 
 // 0x00519680
@@ -127,7 +127,7 @@ void CRiderPoseState::SetPhysicsMode(int mode)
     if (mode == m_physicsMode)
         return;
     m_physicsMode = mode;
-    m_object->PostOwnEvent(kOnSkaterPhysicsStateChange, nullptr);
+    m_entity->PostOwnEvent(kOnSkaterPhysicsStateChange, nullptr);
 }
 
 // 0x005196A0
@@ -136,7 +136,7 @@ void CRiderPoseState::SetSurfaceKind(uint8_t terrain)
     if (terrain == m_surfaceType)
         return;
     m_surfaceType = terrain;
-    m_object->PostOwnEvent(kOnSkaterTerrainChange, nullptr);
+    m_entity->PostOwnEvent(kOnSkaterTerrainChange, nullptr);
 }
 
 // 0x00519470
@@ -146,19 +146,19 @@ void CRiderPoseState::ClearPowerups() { m_boostItems[0] = 0; }
 void CRiderPoseState::ClearDoingTrick() { m_doingTrick = 0; }
 
 // 0x00519480
-bool CRiderPoseState::InAir(Scripts::CStruct*, Scripts::CScript*) { return m_state == AIR; }
+bool CRiderPoseState::InAir(Scripts::CStruct*, Scripts::CScript*) { return m_curPhase == AIR; }
 // 0x00519490
-bool CRiderPoseState::OnWall(Scripts::CStruct*, Scripts::CScript*) { return m_state == WALL; }
+bool CRiderPoseState::OnWall(Scripts::CStruct*, Scripts::CScript*) { return m_curPhase == WALL; }
 // 0x005194A0
-bool CRiderPoseState::OnLip(Scripts::CStruct*, Scripts::CScript*) { return m_state == LIP; }
+bool CRiderPoseState::OnLip(Scripts::CStruct*, Scripts::CScript*) { return m_curPhase == LIP; }
 // 0x005194B0
-bool CRiderPoseState::OnRail(Scripts::CStruct*, Scripts::CScript*) { return m_state == RAIL; }
+bool CRiderPoseState::OnRail(Scripts::CStruct*, Scripts::CScript*) { return m_curPhase == RAIL; }
 // 0x005194C0
-bool CRiderPoseState::InWallplant(Scripts::CStruct*, Scripts::CScript*) { return m_state == WALLPLANT; }
+bool CRiderPoseState::InWallplant(Scripts::CStruct*, Scripts::CScript*) { return m_curPhase == WALLPLANT; }
 // 0x005196D0
 bool CRiderPoseState::InBailState(Scripts::CStruct*, Scripts::CScript*) { return m_bailing != 0; }
 // 0x005194D0
-bool CRiderPoseState::Walking(Scripts::CStruct*, Scripts::CScript*)
+bool CRiderPoseState::OnFoot(Scripts::CStruct*, Scripts::CScript*)
 {
     return !m_inVehicle && m_physicsMode == WALKING;
 }
@@ -203,14 +203,14 @@ bool CRiderPoseState::PickedUpPowerup(Scripts::CStruct* params, Scripts::CScript
 // 0x005196F0
 bool CRiderPoseState::GetSurfaceKind(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PutInt(kTerrain, m_surfaceType);
+    script->m_args->PutInt(kTerrain, m_surfaceType);
     return true;
 }
 
 // 0x00519720
 bool CRiderPoseState::GetSparksPos(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PutNameKey(kSparksPos, m_sparksPos);
+    script->m_args->PutNameKey(kSparksPos, m_sparksPos);
     return true;
 }
 
@@ -230,7 +230,7 @@ uint32_t SkaterStateHistoryFrame::GetTime()
 }
 
 // 0x005197E0
-void SkaterStateHistoryFrame::SetTime(uint32_t time)
+void SkaterStateHistoryFrame::ChangeMoment(uint32_t time)
 {
     auto* self = reinterpret_cast<uint8_t*>(this);
     *reinterpret_cast<uint16_t*>(self + 0x78) = static_cast<uint16_t>(time);
@@ -249,14 +249,14 @@ void CRiderFrameLog::DestroyBody()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPoseState::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPoseState::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          &GameObjects::CRiderPoseState::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
@@ -269,14 +269,14 @@ void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 namespace GameObjects {
 
-static VtableSlot g_stateHistoryVtable_slots[] = {&GameObjects::CRiderFrameLog::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot g_stateHistoryVtable_slots[] = {&GameObjects::CRiderFrameLog::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

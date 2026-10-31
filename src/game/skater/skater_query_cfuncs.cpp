@@ -44,8 +44,8 @@ constexpr uint32_t kIntId = 0xDB1E28CD;             // intId
 constexpr uint8_t kMsgEliminated = 0x8D;            // the player of an object id eliminated (-1: none, a tie)
 constexpr uint32_t kVelX = 0x6187906D, kVelY = 0x1680A0FB, kVelZ = 0x8F89F141; // vel_x, vel_y, vel_z
 
-// The network manager and its player lists (ListKit::Search<PlayerRecord>, vtable 0x0064C1A8; JoinerRecord's 0x0064C82C).
-OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+// The network manager and its player lists (ListKit::Hunt<PlayerRecord>, vtable 0x0064C1A8; JoinerRecord's 0x0064C82C).
+OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
 struct PlayerSearch {
     void** m_vtable = GameModules::kPlayerSearchVtable;
     void* m_listLink = nullptr;
@@ -54,11 +54,11 @@ struct NewPlayerSearch {
     void** m_vtable = OnlinePlay::kNewPlayerSearchVtable;
     void* m_listLink = nullptr;
 };
-PlayerRecord* FirstPlayer(OnlinePlay::Manager* manager, PlayerSearch* search, bool observers)
+PlayerRecord* FirstPlayer(OnlinePlay::Hub* manager, PlayerSearch* search, bool observers)
 {
     return static_cast<PlayerRecord*>(manager->BeginPlayerWalk(search, observers));
 }
-PlayerRecord* NextPlayer(OnlinePlay::Manager* manager, PlayerSearch* search, bool observers)
+PlayerRecord* NextPlayer(OnlinePlay::Hub* manager, PlayerSearch* search, bool observers)
 {
     return static_cast<PlayerRecord*>(manager->StepPlayerWalk(search, observers));
 }
@@ -66,7 +66,7 @@ PlayerRecord* NextPlayer(OnlinePlay::Manager* manager, PlayerSearch* search, boo
 // 0x005535F0: a team game.
 bool IsSquadMatch() { return static_cast<GoalSystem::CMatchRules*>(GameMode())->IsSquadMatch() != 0; }
 
-// A skater's score (GameModules::Score, not rewritten yet): 0x00561B40 its total; +0x14 the trick's base score, +0x60 its
+// A skater's score (GameModules::PointTally, not rewritten yet): 0x00561B40 its total; +0x14 the trick's base score, +0x60 its
 // multiplier, +0x20 the last trick's score.
 uint8_t* ScoreOf(GameObjects::CGameEntity* skater)
 {
@@ -75,9 +75,9 @@ uint8_t* ScoreOf(GameObjects::CGameEntity* skater)
 // (a player's skater's score through its SkaterScore component)
 uint8_t* ComponentScoreOf(GameObjects::CGameEntity* skater)
 {
-    return static_cast<GameObjects::CRiderPointKeeper*>(skater->GetComponent(kSkaterScore))->m_pointsHeld;
+    return static_cast<GameObjects::CRiderPointKeeper*>(skater->FetchModule(kSkaterScore))->m_pointsHeld;
 }
-int TotalScore(uint8_t* score) { return reinterpret_cast<GameModules::Score*>(score)->GetTotalScore(); }
+int TotalScore(uint8_t* score) { return reinterpret_cast<GameModules::PointTally*>(score)->GetTotalScore(); }
 int LastScoreLanded(uint8_t* score) { return *reinterpret_cast<int*>(score + 0x20); }
 // The score pot: the base score times the multiplier, truncated (x87 at 53 bits, then the original's _ftol).
 int ScorePot(uint8_t* score)
@@ -101,18 +101,18 @@ int IntegerOrZero(Scripts::CStruct* params)
 // Message 0x8D (the eliminated player's object id, -1 for a tie) to the players.
 void PrepareEliminated(NetLink::NetMessageInfo* desc, uint32_t* data)
 {
-    desc->m_id = kMsgEliminated;
+    desc->m_ident = kMsgEliminated;
     desc->m_byteCount = 4;
-    desc->m_data = data;
+    desc->m_content = data;
     desc->m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc->m_groupId = 8;
 }
-void SendToPlayers(OnlinePlay::Manager* manager, NetLink::NetMessageInfo* desc, bool observers)
+void SendToPlayers(OnlinePlay::Hub* manager, NetLink::NetMessageInfo* desc, bool observers)
 {
     PlayerSearch search;
     for (PlayerRecord* player = FirstPlayer(manager, &search, observers); player;
          player = NextPlayer(manager, &search, observers))
-        manager->m_server->PutOnOutbox(player->GetLinkHandle(), desc);
+        manager->m_host->PutOnOutbox(player->GetLinkHandle(), desc);
 }
 
 } // namespace
@@ -122,7 +122,7 @@ void SendToPlayers(OnlinePlay::Manager* manager, NetLink::NetMessageInfo* desc, 
 bool __cdecl CFunc_SkaterSpeedGreaterThan(Scripts::CStruct* params, Scripts::CScript*)
 {
     float speed;
-    if (!params->GetFloat(0u, &speed, 0))
+    if (!params->FetchFloat(0u, &speed, 0))
         return false;
     GameObjects::CGameEntity* skater = GetHomeRider();
     return skater && SpeedOf(skater) > speed;
@@ -131,7 +131,7 @@ bool __cdecl CFunc_SkaterSpeedGreaterThan(Scripts::CStruct* params, Scripts::CSc
 bool __cdecl CFunc_SkaterSpeedLessThan(Scripts::CStruct* params, Scripts::CScript*)
 {
     float speed;
-    if (!params->GetFloat(0u, &speed, 0))
+    if (!params->FetchFloat(0u, &speed, 0))
         return false;
     GameObjects::CGameEntity* skater = GetHomeRider();
     return skater && SpeedOf(skater) < speed;
@@ -168,14 +168,14 @@ bool __cdecl CFunc_SkaterGetLastScoreLanded(Scripts::CStruct*, Scripts::CScript*
     uint8_t* score = ScoreOf(skater);
     if (!score)
         return false;
-    script->m_params->PutInt(kLastScoreLanded, LastScoreLanded(score));
+    script->m_args->PutInt(kLastScoreLanded, LastScoreLanded(score));
     return true;
 }
 
 // 0x005AC7B0: AccumulateScores - each player's total score added to the score accumulated over the session.
 bool __cdecl CFunc_AccumulateScores(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Manager* manager = NetManager();
+    OnlinePlay::Hub* manager = NetManager();
     PlayerSearch search;
     PlayerSearch unused; // (made and dropped by the original)
     (void)unused;
@@ -189,7 +189,7 @@ bool __cdecl CFunc_AccumulateScores(Scripts::CStruct*, Scripts::CScript*)
 // told its skater's id.
 bool __cdecl CFunc_EliminateLastPlacePlayer(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Manager* manager = NetManager();
+    OnlinePlay::Hub* manager = NetManager();
     PlayerSearch search;
     PlayerSearch others;
     int lowest = -1;
@@ -210,7 +210,7 @@ bool __cdecl CFunc_EliminateLastPlacePlayer(Scripts::CStruct*, Scripts::CScript*
     NetLink::NetMessageInfo desc;
     uint32_t data;
     if (highest == lowest) {
-        desc.Construct();
+        desc.MakeNew();
         data = 0xFFFFFFFF;
         PrepareEliminated(&desc, &data);
         SendToPlayers(manager, &desc, false);
@@ -219,9 +219,9 @@ bool __cdecl CFunc_EliminateLastPlacePlayer(Scripts::CStruct*, Scripts::CScript*
     for (PlayerRecord* player = FirstPlayer(manager, &search, false); player; player = NextPlayer(manager, &search, false)) {
         if (player->IsEliminated() || TotalScore(ScoreOf(player->m_skater)) != lowest)
             continue;
-        desc.Construct();
+        desc.MakeNew();
         player->MarkEliminated();
-        data = player->m_skater->m_id;
+        data = player->m_skater->m_ident;
         PrepareEliminated(&desc, &data);
         SendToPlayers(manager, &desc, true);
     }
@@ -232,7 +232,7 @@ bool __cdecl CFunc_EliminateLastPlacePlayer(Scripts::CStruct*, Scripts::CScript*
 // whether at most one player isn't (then num_players: how many).
 bool __cdecl CFunc_OnlyOnePlayerLeft(Scripts::CStruct*, Scripts::CScript* script)
 {
-    OnlinePlay::Manager* manager = NetManager();
+    OnlinePlay::Hub* manager = NetManager();
     PlayerSearch search;
     if (IsSquadMatch()) {
         int teams[4] = {0, 0, 0, 0};
@@ -253,7 +253,7 @@ bool __cdecl CFunc_OnlyOnePlayerLeft(Scripts::CStruct*, Scripts::CScript* script
     }
     if (players > 1)
         return false;
-    script->m_params->PutInt("num_players", players);
+    script->m_args->PutInt("num_players", players);
     return true;
 }
 
@@ -261,7 +261,7 @@ bool __cdecl CFunc_OnlyOnePlayerLeft(Scripts::CStruct*, Scripts::CScript* script
 // total score reaches it.
 bool __cdecl CFunc_AnySkaterTotalScoreAtLeast(Scripts::CStruct* params, Scripts::CScript*)
 {
-    OnlinePlay::Manager* manager = NetManager();
+    OnlinePlay::Hub* manager = NetManager();
     PlayerSearch search;
     int target = IntegerOrZero(params);
     if (IsSquadMatch()) {
@@ -289,7 +289,7 @@ bool __cdecl CFunc_AnySkaterTotalScoreAtLeast(Scripts::CStruct* params, Scripts:
 // game: also false with exactly one skater.)
 bool __cdecl CFunc_OnlyOneSkaterLeft(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Manager* manager = NetManager();
+    OnlinePlay::Hub* manager = NetManager();
     PlayerSearch search;
     NewPlayerSearch joining;
     int scored = 0;
@@ -374,9 +374,9 @@ bool __cdecl CFunc_SkaterGetScoreInfo(Scripts::CStruct*, Scripts::CScript* scrip
 {
     GameObjects::CGameEntity* skater = GetHomeRider();
     uint8_t* score = skater ? ScoreOf(skater) : nullptr;
-    script->m_params->PutInt(kScorePot, ScorePot(score));
-    script->m_params->PutInt(kTotalScore, TotalScore(score));
-    script->m_params->PutInt(kLastScoreLandedInfo, LastScoreLanded(score));
+    script->m_args->PutInt(kScorePot, ScorePot(score));
+    script->m_args->PutInt(kTotalScore, TotalScore(score));
+    script->m_args->PutInt(kLastScoreLandedInfo, LastScoreLanded(score));
     return true;
 }
 
@@ -385,7 +385,7 @@ bool __cdecl CFunc_SkaterGetScoreInfo(Scripts::CStruct*, Scripts::CScript* scrip
 // points: the best other player's total.
 bool __cdecl CFunc_InFirstPlace(Scripts::CStruct*, Scripts::CScript* script)
 {
-    OnlinePlay::Manager* manager = NetManager();
+    OnlinePlay::Hub* manager = NetManager();
     PlayerSearch search;
     int better = 0;
     int best = 0;
@@ -406,7 +406,7 @@ bool __cdecl CFunc_InFirstPlace(Scripts::CStruct*, Scripts::CScript* script)
     }
     if (inGame < 2)
         return false;
-    script->m_params->PutInt("points", best);
+    script->m_args->PutInt("points", best);
     return better == 0;
 }
 
@@ -414,7 +414,7 @@ bool __cdecl CFunc_InFirstPlace(Scripts::CStruct*, Scripts::CScript* script)
 // InFirstPlace); then points: the lowest other player's total.
 bool __cdecl CFunc_InLastPlace(Scripts::CStruct*, Scripts::CScript* script)
 {
-    OnlinePlay::Manager* manager = NetManager();
+    OnlinePlay::Hub* manager = NetManager();
     PlayerSearch search;
     int worse = 0;
     int lowest = -1;
@@ -440,7 +440,7 @@ bool __cdecl CFunc_InLastPlace(Scripts::CStruct*, Scripts::CScript* script)
     }
     if (inGame < 2 || worse != 0)
         return false;
-    script->m_params->PutInt("points", lowest);
+    script->m_args->PutInt("points", lowest);
     return true;
 }
 
@@ -448,7 +448,7 @@ bool __cdecl CFunc_InLastPlace(Scripts::CStruct*, Scripts::CScript* script)
 // InFirstPlace); then points: the local total less the lowest total (the local player's own counted).
 bool __cdecl CFunc_InSecondToLastPlace(Scripts::CStruct*, Scripts::CScript* script)
 {
-    OnlinePlay::Manager* manager = NetManager();
+    OnlinePlay::Hub* manager = NetManager();
     PlayerSearch search;
     int worse = 0;
     int lowest = -1;
@@ -471,7 +471,7 @@ bool __cdecl CFunc_InSecondToLastPlace(Scripts::CStruct*, Scripts::CScript* scri
     }
     if (inGame < 2 || worse != 1)
         return false;
-    script->m_params->PutInt("points", mine - lowest);
+    script->m_args->PutInt("points", mine - lowest);
     return true;
 }
 
@@ -479,7 +479,7 @@ bool __cdecl CFunc_InSecondToLastPlace(Scripts::CStruct*, Scripts::CScript* scri
 bool __cdecl CFunc_GoalsGreaterThan(Scripts::CStruct* params, Scripts::CScript*)
 {
     float goals;
-    if (!params->GetFloat(0u, &goals, 0))
+    if (!params->FetchFloat(0u, &goals, 0))
         return false;
     return static_cast<double>(Career()->CountTotalGoals()) > goals;
 }
@@ -487,7 +487,7 @@ bool __cdecl CFunc_GoalsGreaterThan(Scripts::CStruct* params, Scripts::CScript*)
 bool __cdecl CFunc_GoalsEqualTo(Scripts::CStruct* params, Scripts::CScript*)
 {
     float goals;
-    if (!params->GetFloat(0u, &goals, 0))
+    if (!params->FetchFloat(0u, &goals, 0))
         return false;
     return static_cast<double>(Career()->CountTotalGoals()) == goals;
 }
@@ -509,7 +509,7 @@ bool __cdecl CFunc_ToggleSkaterCamMode(Scripts::CStruct* params, Scripts::CScrip
     }
     if (skater) {
         auto* camera = static_cast<GameObjects::CGameEntity*>(static_cast<GameObjects::CRider*>(skater)->GetSkaterCamera());
-        static_cast<GameObjects::CRiderChaseView*>(camera->GetComponent(kSkaterCamera))->NextMode();
+        static_cast<GameObjects::CRiderChaseView*>(camera->FetchModule(kSkaterCamera))->NextMode();
     }
     return true;
 }
@@ -521,7 +521,7 @@ bool __cdecl CFunc_GetSkaterID(Scripts::CStruct* params, Scripts::CScript* scrip
     GameObjects::CGameEntity* skater = params->FetchIntValue(kSkater, &index, 0) ? GetRiderAt(index) : GetHomeRider();
     if (!skater || !skater->m_unknownBC)
         return false;
-    script->m_params->PutNameKey(kObjId, skater->m_id);
+    script->m_args->PutNameKey(kObjId, skater->m_ident);
     return true;
 }
 
@@ -534,7 +534,7 @@ bool __cdecl CFunc_SkaterExists(Scripts::CStruct* params, Scripts::CScript* scri
     GameObjects::CGameEntity* skater = GetRiderAt(index);
     if (!skater)
         return false;
-    script->m_params->PutNameKey(kObjId, skater->m_id);
+    script->m_args->PutNameKey(kObjId, skater->m_ident);
     return true;
 }
 
@@ -543,10 +543,10 @@ bool __cdecl CFunc_GetSkaterSex(Scripts::CStruct* params, Scripts::CScript* scri
 {
     int player = 0; // (uninitialised in the original, as is_male)
     params->FetchIntValue(kPlayer, &player, 1);
-    GameObjects::CRiderIdentity* profile = GameObjects::g_profileManager->GetProfile(player);
+    GameObjects::CRiderIdentity* profile = GameObjects::g_profileManager->FetchAccount(player);
     int male = 0;
     profile->InfoStructure()->FetchIntValue(kIsMale, &male, 1);
-    script->m_params->PutInt(kIsMale, male);
+    script->m_args->PutInt(kIsMale, male);
     return true;
 }
 
@@ -554,12 +554,12 @@ bool __cdecl CFunc_GetSkaterSex(Scripts::CStruct* params, Scripts::CScript* scri
 // with the composite object's +0xBC set).
 bool __cdecl CFunc_GetCurrentSkaterID(Scripts::CStruct*, Scripts::CScript* script)
 {
-    auto* object = static_cast<GameObjects::CGameEntity*>(script->m_object.Get());
+    auto* object = static_cast<GameObjects::CGameEntity*>(script->m_entity.Pull());
     if (!object || !object->m_unknownBC)
         return false;
-    uint32_t id = object->m_id;
-    script->m_params->PutNameKey(kObjId, id);
-    script->m_params->PutInt(kIntId, static_cast<int>(id));
+    uint32_t id = object->m_ident;
+    script->m_args->PutNameKey(kObjId, id);
+    script->m_args->PutInt(kIntId, static_cast<int>(id));
     return true;
 }
 
@@ -567,28 +567,28 @@ bool __cdecl CFunc_GetCurrentSkaterID(Scripts::CStruct*, Scripts::CScript* scrip
 // object.
 bool __cdecl CFunc_GetSkaterPosition(Scripts::CStruct*, Scripts::CScript* script)
 {
-    auto* object = static_cast<GameObjects::CGameEntity*>(script->m_object.Get());
+    auto* object = static_cast<GameObjects::CGameEntity*>(script->m_entity.Pull());
     if (!object)
         return false;
-    float y = object->m_pos.y, z = object->m_pos.z;
-    script->m_params->PutInt("x", static_cast<int>(static_cast<int64_t>(object->m_pos.x))); // (the original's _ftol)
-    script->m_params->PutInt("y", static_cast<int>(static_cast<int64_t>(y)));
-    script->m_params->PutInt("z", static_cast<int>(static_cast<int64_t>(z)));
+    float y = object->m_atPoint.y, z = object->m_atPoint.z;
+    script->m_args->PutInt("x", static_cast<int>(static_cast<int64_t>(object->m_atPoint.x))); // (the original's _ftol)
+    script->m_args->PutInt("y", static_cast<int>(static_cast<int64_t>(y)));
+    script->m_args->PutInt("z", static_cast<int>(static_cast<int64_t>(z)));
     return true;
 }
 
 // 0x005B00F0: SetSkaterVelocity <speed> | vel_x= vel_y= vel_z= - the script's object's velocity: its direction kept
 // at the speed given (all four components scaled), or the vector given (w 1; built on the heap and freed, as the
-// original's new Maths::Vector). False without an object.
+// original's new Maths::Vec4). False without an object.
 bool __cdecl CFunc_SetSkaterVelocity(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    auto* object = static_cast<GameObjects::CGameEntity*>(script->m_object.Get());
+    auto* object = static_cast<GameObjects::CGameEntity*>(script->m_entity.Pull());
     if (!object)
         return false;
     float speed = 0.0f;
-    if (params->GetFloat(0u, &speed, 0)) {
-        Maths::Vector direction = object->m_vel;
-        direction.Normalize();
+    if (params->FetchFloat(0u, &speed, 0)) {
+        Maths::Vec4 direction = object->m_vel;
+        direction.MakeUnit();
         object->m_vel.x = direction.x * speed;
         object->m_vel.y = direction.y * speed;
         object->m_vel.z = direction.z * speed;
@@ -596,18 +596,18 @@ bool __cdecl CFunc_SetSkaterVelocity(Scripts::CStruct* params, Scripts::CScript*
         return true;
     }
     float x = 0.0f, y = 0.0f, z = 0.0f;
-    params->GetFloat(kVelX, &x, 1);
-    params->GetFloat(kVelY, &y, 1);
-    params->GetFloat(kVelZ, &z, 1);
+    params->FetchFloat(kVelX, &x, 1);
+    params->FetchFloat(kVelY, &y, 1);
+    params->FetchFloat(kVelZ, &z, 1);
     if (!MemSys::g_managerReady)
         MemSys::EnsureManager();
-    auto* velocity = static_cast<Maths::Vector*>(MemSys::Manager::Get()->Allocate(sizeof(Maths::Vector), 1, nullptr));
+    auto* velocity = static_cast<Maths::Vec4*>(MemSys::Hub::Pull()->Carve(sizeof(Maths::Vec4), 1, nullptr));
     velocity->x = x;
     velocity->y = y;
     velocity->z = z;
     velocity->w = 1.0f;
     object->m_vel = *velocity;
-    MemSys::Manager::Get()->Free(velocity);
+    MemSys::Hub::Pull()->Dealloc(velocity);
     return true;
 }
 

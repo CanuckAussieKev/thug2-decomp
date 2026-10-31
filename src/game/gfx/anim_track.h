@@ -35,16 +35,16 @@ namespace Gfx2D {
 class CAnimEvent {
 public:
     // 0x00481A20: the event's vtable, no parameters. Returns this.
-    CAnimEvent* Construct();
+    CAnimEvent* MakeNew();
     // 0x00481DB0 (slot 0): the vector deleting destructor - `flags` 2: the whole array this starts (its count in
     // the word before it) destroyed last to first, 1: freed.
-    CAnimEvent* Destroy(uint8_t flags);
+    CAnimEvent* Teardown(uint8_t flags);
 
     void** m_vtable;
-    int m_frame;              // +0x04
+    int m_tick;              // +0x04
     bool m_armed;             // +0x08
     uint8_t m_pad09[3];
-    uint32_t m_type;          // +0x0C
+    uint32_t m_kindTag;          // +0x0C
     Scripts::CStruct* mp_params; // +0x10
 };
 static_assert(sizeof(CAnimEvent) == 0x14 && offsetof(CAnimEvent, mp_params) == 0x10, "layout must match the original");
@@ -53,7 +53,7 @@ static_assert(sizeof(CAnimEvent) == 0x14 && offsetof(CAnimEvent, mp_params) == 0
 class CAnimEventBase {
 public:
     // 0x004819F0 (slot 0): the base's vtable; freed with `flags` 1. Returns this.
-    CAnimEventBase* Destroy(uint8_t flags);
+    CAnimEventBase* Teardown(uint8_t flags);
     // 0x004819E0: the base's vtable back (its destructor body; CUserClipKey's and CAnimEvent's call it).
     void DestroyBody();
 
@@ -70,7 +70,7 @@ public:
 
     // 0x00481830: the timeline's constructor, then no controllers and no events, `object`, events on, playing.
     // Returns this.
-    CAnimTrack* Construct(GameObjects::CGameEntity* object);
+    CAnimTrack* MakeNew(GameObjects::CGameEntity* object);
     // 0x00481960 (slot 1): the timeline's Reset, then off with no fade.
     void Reset();
     // 0x00481870: each controller deleted (its slot 0 with 1; null ones skipped), none left.
@@ -80,20 +80,20 @@ public:
     // 0x00481920: each controller's pose (slot 1) into `pose` (no null check). True.
     bool GetPoses(void* pose);
     // 0x00481980 / 0x00481990: whether it isn't off / is fading.
-    bool IsActive();
+    bool IsOperative();
     bool IsFading();
     // 0x004819A0: each event armed again (0x00486150 with true).
     void ArmEvents();
     // 0x004819D0
-    GameObjects::CGameEntity* GetObject();
+    GameObjects::CGameEntity* FetchSubject();
 
     // 0x00481F20: its controllers and events deleted, then the timeline's destructor body (0x00481690).
     void DestroyBody();
     // 0x00482340 (slot 0)
-    CAnimTrack* Destroy(uint8_t flags);
+    CAnimTrack* Teardown(uint8_t flags);
     // 0x00481AC0 (slot 2): not complete; fading, the weight drops by the frame's share of the fade rate (off at
     // nothing left, or once the fade times its scale goes below 0); playing or fading, each controller's Update.
-    void Update();
+    void TickFrame();
     // 0x00482200 (slot 5): AddAnimController (1), RemoveAnimController (the one with `id`), 0xC68365EB (a new
     // animation and duration - Sync keeps the timeline's place in proportion); anything else to the controllers in
     // turn until one doesn't answer 2 (not its own).
@@ -128,7 +128,7 @@ public:
     static MemSys::PoolPair& Pools();
 
     uint32_t m_unknown34;
-    int m_state;                          // +0x38 State
+    int m_curPhase;                          // +0x38 State
     CAnimController* m_controllerList[6];   // +0x3C (by priority, highest first)
     int m_controllerCount;                // +0x54
     float m_fadeRate;                     // +0x58 (1/60 when played)
@@ -140,7 +140,7 @@ public:
     bool m_eventsOn;                      // +0x70
     uint8_t m_pad71[3];
 };
-static_assert(offsetof(CAnimTrack, m_state) == 0x38 && offsetof(CAnimTrack, m_controllerList) == 0x3C &&
+static_assert(offsetof(CAnimTrack, m_curPhase) == 0x38 && offsetof(CAnimTrack, m_controllerList) == 0x3C &&
                   offsetof(CAnimTrack, m_controllerCount) == 0x54 && offsetof(CAnimTrack, m_ownerObject) == 0x64 &&
                   offsetof(CAnimTrack, m_eventsOn) == 0x70 && sizeof(CAnimTrack) == 0x74,
               "layout must match the original");

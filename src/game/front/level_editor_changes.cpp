@@ -68,7 +68,7 @@ const char* GroupOf(const std::string& keyword)
     return nullptr;
 }
 
-const std::vector<const char*>& Groups()
+const std::vector<const char*>& Bunches()
 {
     static const std::vector<const char*> groups = {
         "Level properties", "Scenery", "Scenery copies", "Rail points", "Objects", "Object copies", "Nodes moved / fields",
@@ -87,9 +87,9 @@ uint32_t IdOf(const std::string& word)
     return w.empty() ? 0 : Fields::HashOfName(w);
 }
 
-std::vector<Entry> List(const std::string& layoutText, const Labeler& label)
+std::vector<TableRow> LinkChain(const std::string& layoutText, const Labeler& label)
 {
-    std::vector<Entry> out;
+    std::vector<TableRow> out;
     std::vector<std::string> lines = Lines(layoutText);
     for (int n = 0; n < static_cast<int>(lines.size()); ++n) {
         std::string line = lines[n];
@@ -109,7 +109,7 @@ std::vector<Entry> List(const std::string& layoutText, const Labeler& label)
         const char* group = GroupOf(keyword);
         if (!group)
             continue;
-        Entry e;
+        TableRow e;
         e.line = n;
         e.keyword = keyword;
         e.group = group;

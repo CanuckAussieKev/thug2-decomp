@@ -37,10 +37,10 @@ constexpr float kInchesPerMile = Bits(0x47778000);
 constexpr float kHoursPerSecond = Bits(0x3991A2B4);
 
 // A vertex of a collision object (its vtable slot 9).
-Maths::Vector VertexPos(Engine3D::CHitMesh* object, int vertex)
+Maths::Vec4 VertexPos(Engine3D::CHitMesh* object, int vertex)
 {
-    Maths::Vector pos;
-    reinterpret_cast<Maths::Vector*(__thiscall*)(Engine3D::CHitMesh*, Maths::Vector*, int)>(
+    Maths::Vec4 pos;
+    reinterpret_cast<Maths::Vec4*(__thiscall*)(Engine3D::CHitMesh*, Maths::Vec4*, int)>(
         (*reinterpret_cast<void***>(object))[9])(object, &pos, vertex);
     return pos;
 }
@@ -48,9 +48,9 @@ Maths::Vector VertexPos(Engine3D::CHitMesh* object, int vertex)
 } // namespace
 
 // 0x00425CB0
-bool __cdecl GroundHit(Maths::Vector* triangle, const Maths::Vector* end, const Maths::Vector* start, Maths::Vector* out)
+bool __cdecl GroundHit(Maths::Vec4* triangle, const Maths::Vec4* end, const Maths::Vec4* start, Maths::Vec4* out)
 {
-    Maths::Vector along = {static_cast<float>(static_cast<double>(end->x) - start->x),
+    Maths::Vec4 along = {static_cast<float>(static_cast<double>(end->x) - start->x),
                          static_cast<float>(static_cast<double>(end->y) - start->y),
                          static_cast<float>(static_cast<double>(end->z) - start->z),
                          static_cast<float>(static_cast<double>(end->w) - start->w)};
@@ -68,7 +68,7 @@ bool __cdecl GroundHit(Maths::Vector* triangle, const Maths::Vector* end, const 
         return true;
     }
     Engine3D::CProbeRay feeler;
-    feeler.Construct();
+    feeler.MakeNew();
     if (!feeler.GetCollisionAlong(start, end, false))
         return false;
     // (the face hit becomes the triangle tried first next time)
@@ -105,7 +105,7 @@ __declspec(naked) void GroundHitStub()
 // 0x00424870
 void CKinematicsModule::UpdateJump()
 {
-    const Maths::Vector& pos = m_object->m_pos;
+    const Maths::Vec4& pos = m_entity->m_atPoint;
     float x = pos.x;
     float z = pos.z;
     float w = pos.w;
@@ -133,7 +133,7 @@ void CKinematicsModule::UpdateJump()
             }
         } else {
             Engine3D::CProbeRay feeler;
-            feeler.Construct();
+            feeler.MakeNew();
             float above = static_cast<float>(static_cast<double>(w) + 1.0f);
             feeler.m_line.start = {x, static_cast<float>(static_cast<double>(y) + m_jumpColAbove), z, above};
             feeler.m_line.end = {x, static_cast<float>(static_cast<double>(y) + -m_jumpColBelow), z, above};
@@ -149,23 +149,23 @@ bool CKinematicsModule::StickToGround()
 {
     if (m_groundAbove == 0.0f && m_groundBelow == 0.0f)
         return false;
-    Maths::Matrix& matrix = m_object->m_basisFrame;
-    Maths::Vector& pos = m_object->m_pos;
+    Maths::Mat4& matrix = m_entity->m_basisFrame;
+    Maths::Vec4& pos = m_entity->m_atPoint;
     if (m_groundHeightOnly) {
         // The right axis from up and at, then the ground under it: the height to make up (Update eases it in).
-        const Maths::Vector& up = matrix.row[1];
-        const Maths::Vector& at = matrix.row[2];
+        const Maths::Vec4& up = matrix.row[1];
+        const Maths::Vec4& at = matrix.row[2];
         float rightX = static_cast<float>(static_cast<double>(at.z) * up.y - static_cast<double>(at.y) * up.z);
         float rightY = static_cast<float>(static_cast<double>(up.z) * at.x - static_cast<double>(at.z) * up.x);
         float rightZ = static_cast<float>(static_cast<double>(at.y) * up.x - static_cast<double>(up.y) * at.x);
         matrix.row[0] = {rightX, rightY, rightZ, 0.0f};
-        matrix.row[0].Normalize();
+        matrix.row[0].MakeUnit();
         float above = static_cast<float>(std::fabs(static_cast<double>(m_groundAbove)) * 12.0f);
         float below = -static_cast<float>(std::fabs(static_cast<double>(m_groundBelow)) * 12.0f);
         float w = static_cast<float>(static_cast<double>(pos.w) + 1.0f);
-        Maths::Vector start = {pos.x, static_cast<float>(static_cast<double>(above) + pos.y), pos.z, w};
-        Maths::Vector end = {pos.x, static_cast<float>(static_cast<double>(below) + pos.y), pos.z, w};
-        Maths::Vector hit;
+        Maths::Vec4 start = {pos.x, static_cast<float>(static_cast<double>(above) + pos.y), pos.z, w};
+        Maths::Vec4 end = {pos.x, static_cast<float>(static_cast<double>(below) + pos.y), pos.z, w};
+        Maths::Vec4 hit;
         if (!GroundHit(m_groundTriangle, &end, &start, &hit))
             return false;
         m_groundOffset = static_cast<float>(static_cast<double>(hit.y) - pos.y);
@@ -175,17 +175,17 @@ bool CKinematicsModule::StickToGround()
     // Three feelers - behind on the right, behind on the left, ahead in the middle (72 back or ahead, 30 to the
     // side): the ground's points give the height and the orientation.
     Engine3D::CProbeRay feeler; // (made and never used)
-    feeler.Construct();
-    Maths::Vector& right = matrix.row[0];
-    Maths::Vector& up = matrix.row[1];
-    Maths::Vector& at = matrix.row[2];
+    feeler.MakeNew();
+    Maths::Vec4& right = matrix.row[0];
+    Maths::Vec4& up = matrix.row[1];
+    Maths::Vec4& at = matrix.row[2];
     up = {0.0f, 1.0f, 0.0f, 1.0f};
     {
         float z = static_cast<float>(static_cast<double>(up.x) * at.y - static_cast<double>(up.y) * at.x);
         float y = static_cast<float>(static_cast<double>(up.z) * at.x - static_cast<double>(up.x) * at.z);
         float x = static_cast<float>(static_cast<double>(at.z) * up.y - static_cast<double>(at.y) * up.z);
         right = {x, y, z, 0.0f};
-        right.Normalize();
+        right.MakeUnit();
     }
     const float ahead[4] = {static_cast<float>(static_cast<double>(at.x) * 72.0f),
                             static_cast<float>(static_cast<double>(at.y) * 72.0f),
@@ -201,12 +201,12 @@ bool CKinematicsModule::StickToGround()
             p[i] = static_cast<float>(static_cast<double>(p[i]) + by[i] * scale);
     };
     // (a feeler from DistAbove over the position to DistBelow under it, feet; the products unrounded)
-    auto line = [&](Maths::Vector* start, Maths::Vector* end) {
+    auto line = [&](Maths::Vec4* start, Maths::Vec4* end) {
         float x = pos.x, y = pos.y, z = pos.z, w = pos.w;
         *start = {x, static_cast<float>(static_cast<double>(m_groundAbove) * 12.0f + y), z, w};
         *end = {x, static_cast<float>(static_cast<double>(y) - static_cast<double>(m_groundBelow) * 12.0f), z, w};
     };
-    Maths::Vector start, end, backRight, backLeft, front;
+    Maths::Vec4 start, end, backRight, backLeft, front;
     move(ahead, -1.0);
     move(side, 1.0);
     line(&start, &end);
@@ -221,7 +221,7 @@ bool CKinematicsModule::StickToGround()
                      static_cast<float>(static_cast<double>(backRight.y) - backLeft.y),
                      static_cast<float>(static_cast<double>(backRight.z) - backLeft.z),
                      static_cast<float>(static_cast<double>(backRight.w) - backLeft.w)};
-            right.Normalize();
+            right.MakeUnit();
         }
     }
     move(ahead, 2.0);
@@ -236,23 +236,23 @@ bool CKinematicsModule::StickToGround()
     pos.y = static_cast<float>(static_cast<double>(pos.y) * 0.5f);
     pos.y = static_cast<float>(static_cast<double>(front.y) + pos.y);
     pos.y = static_cast<float>(static_cast<double>(pos.y) * 0.5f);
-    Maths::Vector back = backRight + backLeft;
+    Maths::Vec4 back = backRight + backLeft;
     back /= 2.0f;
     back -= front;
     back *= -1.0f;
-    back.Normalize();
+    back.MakeUnit();
     at += back;
     at /= 2.0f;
-    up = Maths::CrossProduct(at, right);
-    up.Normalize();
+    up = Maths::CrossVec(at, right);
+    up.MakeUnit();
     return true;
 }
 
 // 0x004269F0
-bool CKinematicsModule::MoveTo(Scripts::CStruct* params, Scripts::CScript*, Maths::Vector target, uint32_t node)
+bool CKinematicsModule::MoveTo(Scripts::CStruct* params, Scripts::CScript*, Maths::Vec4 target, uint32_t node)
 {
     m_moveTarget = target;
-    const Maths::Vector& pos = m_object->m_pos;
+    const Maths::Vec4& pos = m_entity->m_atPoint;
     double dx = static_cast<double>(m_moveTarget.x) - pos.x;
     double dy = static_cast<double>(m_moveTarget.y) - pos.y;
     double dz = static_cast<double>(m_moveTarget.z) - pos.z;
@@ -263,17 +263,17 @@ bool CKinematicsModule::MoveTo(Scripts::CStruct* params, Scripts::CScript*, Math
     m_moveArriveNode = 0;
     m_motionFlags = (m_motionFlags & ~MOTION_FOLLOWING_PATH) | MOTION_MOVING;
     float time = target.x; // (the original reads `time` into the target's x argument)
-    if (params->GetFloat(kTime, &time, 0)) {
+    if (params->FetchFloat(kTime, &time, 0)) {
         m_moveSpeed = static_cast<float>(static_cast<double>(m_moveDistance) / time);
         return false;
     }
     float speed;
-    if (!params->GetFloat(kSpeed, &speed, 0)) {
+    if (!params->FetchFloat(kSpeed, &speed, 0)) {
         // (no speed or time: there at once)
-        m_object->m_pos = m_moveTarget;
+        m_entity->m_atPoint = m_moveTarget;
         m_motionFlags &= ~MOTION_MOVING;
         if (node && params->HasBareFlag(kOrient))
-            FaceNode(LevelNodes::GetNode(node, true));
+            FaceNode(LevelNodes::FetchVertex(node, true));
         return true;
     }
     int units = 2; // (miles per hour)
@@ -283,7 +283,7 @@ bool CKinematicsModule::MoveTo(Scripts::CStruct* params, Scripts::CScript*, Math
         units = 1;
     else if (params->HasBareFlag(kIps))
         units = 0;
-    params->GetFloat(kAcceleration, &m_moveAcceleration, 0);
+    params->FetchFloat(kAcceleration, &m_moveAcceleration, 0);
     double inches = speed; // (kept unrounded)
     if (units == 2) {
         inches = inches * kInchesPerMile * kHoursPerSecond;
@@ -308,8 +308,8 @@ void CKinematicsModule::GlideToNode(Scripts::CStruct* params, Scripts::CScript* 
     params->ReadHashValue(kName, &name, 0);
     if (!name)
         return;
-    Maths::Vector pos;
-    LevelNodes::GetPosition(name, &pos);
+    Maths::Vec4 pos;
+    LevelNodes::FetchPlace(name, &pos);
     if (MoveTo(params, script, pos, name))
         ArriveAtNode(name);
     else
@@ -319,12 +319,12 @@ void CKinematicsModule::GlideToNode(Scripts::CStruct* params, Scripts::CScript* 
 // 0x00426CB0
 void CKinematicsModule::MoveToPosition(Scripts::CStruct* params, Scripts::CScript* script, bool absolute)
 {
-    Maths::Vector pos = {0.0f, 0.0f, 0.0f, 1.0f};
-    params->GetVector(0u, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
+    Maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
+    params->FetchVec(0u, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
     if (params->HasBareFlag(kMaxCoords))
         pos.NegateXRotateX90();
     if (!absolute) {
-        const Maths::Vector& at = m_object->m_pos;
+        const Maths::Vec4& at = m_entity->m_atPoint;
         pos = {pos.x + at.x, pos.y + at.y, pos.z + at.z, pos.w + at.w};
     }
     MoveTo(params, script, pos, 0);
@@ -343,8 +343,8 @@ void CKinematicsModule::MoveToLink(Scripts::CStruct* params, Scripts::CScript* s
         link = Maths::Rnd(links);
     Scripts::CStruct* node = LevelNodes::GetLinkedNode(m_listLink, link);
     uint32_t name = LevelNodes::GetNodeName(node);
-    Maths::Vector pos;
-    LevelNodes::GetPosition(node, &pos);
+    Maths::Vec4 pos;
+    LevelNodes::FetchPlace(node, &pos);
     if (MoveTo(params, script, pos, 0))
         ArriveAtNode(name);
     else
@@ -353,16 +353,16 @@ void CKinematicsModule::MoveToLink(Scripts::CStruct* params, Scripts::CScript* s
 
 // The body of Obj_MoveForward / Obj_MoveLeft: `dist` along the matrix row (x, y, z through rounded products, w
 // through an unrounded one).
-void CKinematicsModule::MoveAlong(Scripts::CStruct* params, Scripts::CScript* script, const Maths::Vector& direction)
+void CKinematicsModule::MoveAlong(Scripts::CStruct* params, Scripts::CScript* script, const Maths::Vec4& direction)
 {
     float distance = 0.0f;
-    params->GetFloat(kDist, &distance, 0);
-    const Maths::Vector& pos = m_object->m_pos;
+    params->FetchFloat(kDist, &distance, 0);
+    const Maths::Vec4& pos = m_entity->m_atPoint;
     double w = static_cast<double>(distance) * direction.w;
     float z = static_cast<float>(static_cast<double>(distance) * direction.z);
     float y = static_cast<float>(static_cast<double>(distance) * direction.y);
     float x = static_cast<float>(static_cast<double>(distance) * direction.x);
-    Maths::Vector target = {static_cast<float>(static_cast<double>(x) + pos.x),
+    Maths::Vec4 target = {static_cast<float>(static_cast<double>(x) + pos.x),
                           static_cast<float>(static_cast<double>(y) + pos.y),
                           static_cast<float>(static_cast<double>(z) + pos.z), static_cast<float>(w + pos.w)};
     MoveTo(params, script, target, 0);
@@ -373,8 +373,8 @@ void CKinematicsModule::MoveAlong(Scripts::CStruct* params, Scripts::CScript* sc
 // 0x004268C0
 bool CKinematicsModule::Obj_StickToGround(Scripts::CStruct* params, Scripts::CScript*)
 {
-    params->GetFloat(kDistAbove, &m_groundAbove, 0);
-    params->GetFloat(kDistBelow, &m_groundBelow, 0);
+    params->FetchFloat(kDistAbove, &m_groundAbove, 0);
+    params->FetchFloat(kDistBelow, &m_groundBelow, 0);
     if (params->HasBareFlag(kOff)) {
         m_motionFlags2 &= ~MOTION2_STICK_TO_GROUND;
         return true;
@@ -391,14 +391,14 @@ bool CKinematicsModule::Obj_SkipToRestart(Scripts::CStruct* params, Scripts::CSc
 {
     uint32_t name = 0;
     params->ReadHashValue(0u, &name, 0);
-    Scripts::CStruct* node = LevelNodes::GetNode(name, true);
-    Maths::Vector pos;
-    LevelNodes::GetPosition(node, &pos);
-    m_object->m_pos = pos;
+    Scripts::CStruct* node = LevelNodes::FetchVertex(name, true);
+    Maths::Vec4 pos;
+    LevelNodes::FetchPlace(node, &pos);
+    m_entity->m_atPoint = pos;
     FaceNode(node);
     // (its model brought up to date: a crash without a model component)
-    CObjectModule* model = m_object->GetComponent(kModel);
-    model->Update();
+    CObjectModule* model = m_entity->FetchModule(kModel);
+    model->TickFrame();
     return true;
 }
 
@@ -412,14 +412,14 @@ bool CKinematicsModule::Obj_MoveToPosStored(Scripts::CStruct* params, Scripts::C
 // 0x00427320
 bool CKinematicsModule::Obj_MoveForward(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    MoveAlong(params, script, m_object->m_basisFrame.row[2]);
+    MoveAlong(params, script, m_entity->m_basisFrame.row[2]);
     return true;
 }
 
 // 0x004273D0
 bool CKinematicsModule::Obj_MoveLeft(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    MoveAlong(params, script, m_object->m_basisFrame.row[0]);
+    MoveAlong(params, script, m_entity->m_basisFrame.row[0]);
     return true;
 }
 

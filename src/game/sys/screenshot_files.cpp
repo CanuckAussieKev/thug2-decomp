@@ -137,7 +137,7 @@ void MarkCursor(std::vector<uint8_t>* rgb, int width, int height, int x, int y, 
     }
 }
 
-bool ToRgb(const Frame& frame, std::vector<uint8_t>* rgb)
+bool ToRgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
 {
     rgb->clear();
     int bpp = BytesPerPixel(frame.format);
@@ -211,9 +211,9 @@ std::string FormatSidecar(const std::string& heading, const std::vector<Section>
             continue;
         }
         size_t width = 0;
-        for (const Field& field : section.fields)
+        for (const Prop& field : section.fields)
             width = std::max(width, field.key.size());
-        for (const Field& field : section.fields) {
+        for (const Prop& field : section.fields) {
             text += field.key + ":" + std::string(width - field.key.size() + 2, ' ');
             text += field.value.empty() ? "(not available)" : field.value;
             text += "\n";

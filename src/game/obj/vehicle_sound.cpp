@@ -47,13 +47,13 @@ uint32_t ClockOffset() { return static_cast<uint32_t>(g_clockOffset); }
 float Rate(uint32_t name)
 {
     float value;
-    Scripts::ReadSubStruct(kRates)->GetFloat(name, &value, 1);
+    Scripts::ReadSubStruct(kRates)->FetchFloat(name, &value, 1);
     return value;
 }
 float Setting(Scripts::CStruct* settings, uint32_t name)
 {
     float value;
-    settings->GetFloat(name, &value, 1);
+    settings->FetchFloat(name, &value, 1);
     return value;
 }
 
@@ -79,22 +79,22 @@ float Fraction(double value)
 // The Sound component's 0x00433240 (not rewritten yet): the sound a structure describes played.
 void PlaySoundFromStructure(CObjectModule* sound, Scripts::CStruct* description)
 {
-    static_cast<CAudioEmitterModule*>(sound)->PlaySound(description);
+    static_cast<CAudioEmitterModule*>(sound)->EmitSound(description);
 }
 
 } // namespace
 
 // 0x0043CFC0
-CObjectModule* __cdecl CEngineAudioModule::Create()
+CObjectModule* __cdecl CEngineAudioModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CEngineAudioModule));
-    return memory ? static_cast<CEngineAudioModule*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CEngineAudioModule*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x0043C590
-CEngineAudioModule* CEngineAudioModule::Construct()
+CEngineAudioModule* CEngineAudioModule::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     mp_vehicle = nullptr;
     mp_sound = nullptr;
     m_settings = nullptr;
@@ -108,7 +108,7 @@ CEngineAudioModule* CEngineAudioModule::Construct()
     m_engineSound = 0;
     m_skidSound = 0;
     m_vtable = kVtable;
-    m_type = kType;
+    m_kindTag = kType;
     return this;
 }
 
@@ -128,11 +128,11 @@ void CEngineAudioModule::DestroyBody()
 }
 
 // 0x0043D020
-CEngineAudioModule* CEngineAudioModule::Destroy(unsigned int flags)
+CEngineAudioModule* CEngineAudioModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -143,15 +143,15 @@ void CEngineAudioModule::ConfigureFromData(Scripts::CStruct*)
 }
 
 // 0x0043D050
-void CEngineAudioModule::Finalize()
+void CEngineAudioModule::Seal()
 {
-    mp_vehicle = static_cast<CDrivableModule*>(m_object->GetComponent(kVehicle));
-    mp_sound = m_object->GetComponent(kSound);
+    mp_vehicle = static_cast<CDrivableModule*>(m_entity->FetchModule(kVehicle));
+    mp_sound = m_entity->FetchModule(kSound);
     ReadSettings();
 }
 
 // 0x0043D290
-void CEngineAudioModule::Update()
+void CEngineAudioModule::TickFrame()
 {
     if (!m_settings)
         return;
@@ -176,14 +176,14 @@ void CEngineAudioModule::ReadSettings()
     m_settings->ReadHashValue(0x306F8A9F, &m_engineSoundName, 0);
     m_settings->ReadHashValue(0x667FA96A, &m_skidSoundName, 0);
     Scripts::CArray* gears;
-    m_settings->GetArray(0x83273E6B, &gears, 1);
-    m_gearCount = static_cast<int>(gears->m_size);
+    m_settings->FetchList(0x83273E6B, &gears, 1);
+    m_gearCount = static_cast<int>(gears->m_extent);
     for (int i = 0; i < m_gearCount; ++i) {
-        auto* gear = reinterpret_cast<Scripts::CStruct*>(gears->GetElement(static_cast<uint32_t>(i)));
-        gear->GetFloat(0xFAD20901, &m_gearSteps[i].upAt, 1);
-        gear->GetFloat(0xFCF5C8A2, &m_gearSteps[i].downAt, 1);
-        gear->GetFloat(0x735B5CE4, &m_gearSteps[i].lowRpm, 1);
-        gear->GetFloat(0xE59A89A6, &m_gearSteps[i].highRpm, 1);
+        auto* gear = reinterpret_cast<Scripts::CStruct*>(gears->FetchPart(static_cast<uint32_t>(i)));
+        gear->FetchFloat(0xFAD20901, &m_gearSteps[i].upAt, 1);
+        gear->FetchFloat(0xFCF5C8A2, &m_gearSteps[i].downAt, 1);
+        gear->FetchFloat(0x735B5CE4, &m_gearSteps[i].lowRpm, 1);
+        gear->FetchFloat(0xE59A89A6, &m_gearSteps[i].highRpm, 1);
     }
     m_settings->ReadSubStruct(0xBF8E0ACE, &m_collideSound, 1);
     if (m_parkEditorLevel) {
@@ -266,9 +266,9 @@ void CEngineAudioModule::TickEngine()
     float rpm = Fraction((static_cast<double>(m_rpm) - lowRpm) / (static_cast<double>(highRpm) - lowRpm));
 
     SoundFx::volumeRef volume;
-    volume.Init();
+    volume.PrepareAll();
     SoundFx::CAudioMixer* sfx = SfxManager();
-    sfx->GetVolume(&volume, &m_object->m_pos, sfx->GetDropoffDistance(m_engineSoundName), 0, nullptr, nullptr);
+    sfx->FetchLoudness(&volume, &m_entity->m_atPoint, sfx->GetDropoffDistance(m_engineSoundName), 0, nullptr, nullptr);
     float loudest = Setting(m_settings, 0x288B029D);
     float quiet = Setting(m_settings, 0xB8F81277);
     volume.PercentTweak(
@@ -277,7 +277,7 @@ void CEngineAudioModule::TickEngine()
     float lowPitch = Setting(m_settings, 0x2660AF3B);
     float pitch = static_cast<float>((static_cast<double>(highPitch) - lowPitch) * rpm + lowPitch);
     if (!m_engineSound)
-        m_engineSound = SfxManager()->PlaySound(m_engineSoundName, &volume, pitch, 0, nullptr, 0);
+        m_engineSound = SfxManager()->EmitSound(m_engineSoundName, &volume, pitch, 0, nullptr, 0);
     else
         SfxManager()->SetSoundParamsScaled(m_engineSound, &volume, pitch);
     // (volumeRef's destructor is empty: 0x005480A0)
@@ -309,9 +309,9 @@ void CEngineAudioModule::UpdateSkid()
     float level = Fraction(static_cast<double>(m_skid) / fullSlip);
 
     SoundFx::volumeRef volume;
-    volume.Init();
+    volume.PrepareAll();
     SoundFx::CAudioMixer* sfx = SfxManager();
-    sfx->GetVolume(&volume, &m_object->m_pos, sfx->GetDropoffDistance(m_skidSoundName), 0, nullptr, nullptr);
+    sfx->FetchLoudness(&volume, &m_entity->m_atPoint, sfx->GetDropoffDistance(m_skidSoundName), 0, nullptr, nullptr);
     float loudest = Setting(m_settings, 0x42EA5746);
     float quiet = Setting(m_settings, 0x43E6CDF2);
     volume.PercentTweak(static_cast<float>((static_cast<double>(loudest) - quiet) * level + quiet));
@@ -320,7 +320,7 @@ void CEngineAudioModule::UpdateSkid()
     float pitch = static_cast<float>((static_cast<double>(highPitch) - lowPitch) * level + lowPitch);
     if (!volume.IsAudioOff()) {
         if (!m_skidSound)
-            m_skidSound = SfxManager()->PlaySound(m_skidSoundName, &volume, pitch, 0, nullptr, 0);
+            m_skidSound = SfxManager()->EmitSound(m_skidSoundName, &volume, pitch, 0, nullptr, 0);
         else
             SfxManager()->SetSoundParamsScaled(m_skidSound, &volume, pitch);
     } else if (m_skidSound) {
@@ -348,7 +348,7 @@ void CEngineAudioModule::UpdateCollideSound()
 
     // The skater told how hard (0-1). (Out of memory, the original adds to a null structure - kept.)
     Scripts::CStruct* memory = Scripts::NewStruct();
-    Scripts::CStruct* event = memory ? memory->Init() : nullptr;
+    Scripts::CStruct* event = memory ? memory->PrepareAll() : nullptr;
     float level = strength > 1.0f ? 1.0f : (strength < 0.0f ? 0.0f : strength);
     event->PushFloat(0x29461E27, level);
     mp_vehicle->m_riderRef->PostOwnEvent(0xC4A60423, event);
@@ -363,14 +363,14 @@ void CEngineAudioModule::UpdateCollideSound()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CEngineAudioModule::Destroy,
-         &GameObjects::CEngineAudioModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CEngineAudioModule::Teardown,
+         &GameObjects::CEngineAudioModule::TickFrame,
          &GameObjects::CEngineAudioModule::ConfigureFromData,
-         &GameObjects::CEngineAudioModule::Finalize,
+         &GameObjects::CEngineAudioModule::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          &GameObjects::CEngineAudioModule::FetchDiagnostics,

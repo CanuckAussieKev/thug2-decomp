@@ -83,18 +83,18 @@ int FalloffFromChecksum(uint32_t checksum)
 }
 
 // 0x0047B030
-volumeRef* volumeRef::Init()
+volumeRef* volumeRef::PrepareAll()
 {
     CAudioMixer* manager = g_sfxManager;
-    m_type = manager ? manager->m_defaultVolumeType : TYPE_STEREO;
+    m_kindTag = manager ? manager->m_defaultVolumeType : TYPE_STEREO;
     ChangeMuted();
     return this;
 }
 
 // 0x0047B070
-volumeRef* volumeRef::SetType(int type)
+volumeRef* volumeRef::ChangeSpecies(int type)
 {
-    m_type = type;
+    m_kindTag = type;
     return this;
 }
 
@@ -102,33 +102,33 @@ volumeRef* volumeRef::SetType(int type)
 void volumeRef::PercentTweak(float percent)
 {
     for (int i = 0; i < ChannelCount(); ++i)
-        m_channels[i] = static_cast<float>(static_cast<double>(percent) * m_channels[i] * 0.0099999998f);
+        m_lanes[i] = static_cast<float>(static_cast<double>(percent) * m_lanes[i] * 0.0099999998f);
 }
 
 // 0x0047ACF0
 bool volumeRef::IsAudioOff()
 {
     for (int i = 0; i < ChannelCount(); ++i) {
-        if (m_channels[i] != 0.0f)
+        if (m_lanes[i] != 0.0f)
             return false;
     }
-    return m_type != TYPE_3D;
+    return m_kindTag != TYPE_3D;
 }
 
 // 0x0047AD60
 void volumeRef::ChangeMuted()
 {
-    for (float& channel : m_channels)
+    for (float& channel : m_lanes)
         channel = 0.0f;
 }
 
 // 0x0047B080
 float volumeRef::FindPeakChannel()
 {
-    float loudest = m_channels[0];
+    float loudest = m_lanes[0];
     for (int i = 1; i < ChannelCount(); ++i) {
-        if (std::fabs(loudest) < std::fabs(m_channels[i]))
-            loudest = m_channels[i];
+        if (std::fabs(loudest) < std::fabs(m_lanes[i]))
+            loudest = m_lanes[i];
     }
     return loudest;
 }
@@ -160,7 +160,7 @@ int CountPlayingVoices()
 }
 
 // 0x0047B160
-CAudioMixer* CAudioMixer::Construct()
+CAudioMixer* CAudioMixer::MakeNew()
 {
     if (!NoSound()) {
         m_defaultVolumeType = volumeRef::TYPE_STEREO;
@@ -192,7 +192,7 @@ int CAudioMixer::GetPlayingIndex(uint32_t id)
 }
 
 // 0x0047AE20
-void CAudioMixer::AddPositionalSound(uint32_t uniqueId, uint32_t checksum, GameObjects::CObject* object)
+void CAudioMixer::AddPositionalSound(uint32_t uniqueId, uint32_t checksum, GameObjects::CEntity* object)
 {
     if (uniqueId == 0 || PositionalCount() == kMaxPositional)
         return;
@@ -277,7 +277,7 @@ void CAudioMixer::InitPlaybackProps(PlaybackProps* props, SoundWaveSlot* entry, 
 }
 
 // 0x0047B1B0
-void CAudioMixer::CleanUp()
+void CAudioMixer::SweepUp()
 {
     if (NoSound())
         return;
@@ -333,7 +333,7 @@ SoundWaveSlot* CAudioMixer::GetWaveTableEntry(uint32_t checksum)
 }
 
 // 0x0047B340
-bool CAudioMixer::IsPaused()
+bool CAudioMixer::IsFrozen()
 {
     if (m_muteOverride)
         return false;
@@ -341,7 +341,7 @@ bool CAudioMixer::IsPaused()
 }
 
 // 0x0047B360
-bool CAudioMixer::LoadSound(const char* path, uint16_t flags, int loadType, int group, float dropoff, float pitch,
+bool CAudioMixer::IngestSound(const char* path, uint16_t flags, int loadType, int group, float dropoff, float pitch,
                             float volume)
 {
     if (NoSound())

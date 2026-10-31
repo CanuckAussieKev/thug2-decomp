@@ -54,21 +54,21 @@ constexpr float kDegreesToRadians = 0.01745329238474369f; // 0x00645464
 
 // The renderer's skeleton (0x1C bytes; not rewritten yet): +0x00 flags, +0x08 its skeleton data (+0x04 the bone
 // count, +0x08 the bones' names), +0x10 the bone-skipping level of detail.
-bool SkeletonBonePosition(uint8_t* skeleton, uint32_t bone, Maths::Vector* out)
+bool SkeletonBonePosition(uint8_t* skeleton, uint32_t bone, Maths::Vec4* out)
 {
     return reinterpret_cast<Gfx2D::CRig*>(skeleton)->GetBonePosition(bone, out);
 }
-bool SkeletonBoneMatrix(uint8_t* skeleton, uint32_t bone, Maths::Matrix* out)
+bool SkeletonBoneMatrix(uint8_t* skeleton, uint32_t bone, Maths::Mat4* out)
 {
     return reinterpret_cast<Gfx2D::CRig*>(skeleton)->ReadJointMatrix(bone, out);
 }
-void ChangeBoneSizing(uint8_t* skeleton, uint32_t bone, const Maths::Vector* scale, bool alone)
+void ChangeBoneSizing(uint8_t* skeleton, uint32_t bone, const Maths::Vec4* scale, bool alone)
 {
     reinterpret_cast<Gfx2D::CRig*>(skeleton)->ChangeBoneSizing(bone, scale, alone);
 }
 // The skeleton data's index of the bone named `bone` (0x004A2C70), and whether bone `index` is `parent` or under it
 // (0x004A3100).
-uint32_t BoneIndex(uint8_t* data, uint32_t bone) { return static_cast<uint32_t>(reinterpret_cast<Gfx2D::CRigData*>(data)->GetIndex(bone)); }
+uint32_t BoneIndex(uint8_t* data, uint32_t bone) { return static_cast<uint32_t>(reinterpret_cast<Gfx2D::CRigData*>(data)->FetchSlotNo(bone)); }
 bool IsBoneUnder(uint8_t* data, uint32_t index, uint32_t parent)
 {
     return reinterpret_cast<Gfx2D::CRigData*>(data)->IsDescendant(index, parent);
@@ -83,26 +83,26 @@ void* TextureNamed(const char* name)
 }
 void* TextureByChecksum(uint32_t checksum)
 {
-    return Engine3D::g_particleTextureDict->GetTexture(checksum);
+    return Engine3D::g_particleTextureDict->FetchSkin(checksum);
 }
 
 // The game's C runtime rand().
 int Rand() { return Crt::Rand(); }
 
-Scripts::VectorValue ToValue(const Maths::Vector& v) { return {v.x, v.y, v.z, v.w}; }
+Scripts::VectorValue ToValue(const Maths::Vec4& v) { return {v.x, v.y, v.z, v.w}; }
 
 } // namespace
 
 // 0x00431F60
-CObjectModule* __cdecl CBoneRigModule::Create()
+CObjectModule* __cdecl CBoneRigModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CBoneRigModule));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CBoneRigModule*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     component->m_boneRig = nullptr;
     return component;
 }
@@ -119,17 +119,17 @@ void CBoneRigModule::DestroyBody()
     m_vtable = kVtable;
     if (uint8_t* skeleton = m_boneRig) {
         reinterpret_cast<Gfx2D::CRig*>(skeleton)->DestroyBody();
-        MemSys::Manager::Get()->Free(skeleton);
+        MemSys::Hub::Pull()->Dealloc(skeleton);
     }
     CObjectModule::DestroyBody();
 }
 
 // 0x00432790
-CBoneRigModule* CBoneRigModule::Destroy(unsigned int flags)
+CBoneRigModule* CBoneRigModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -137,8 +137,8 @@ CBoneRigModule* CBoneRigModule::Destroy(unsigned int flags)
 void CBoneRigModule::InitSkeleton(uint32_t name)
 {
     void* asset = AssetStore::g_assetManager->GetAssetData(name, 0);
-    void* memory = MemSys::New(0x1C);
-    m_boneRig = memory ? reinterpret_cast<uint8_t*>(static_cast<Gfx2D::CRig*>(memory)->Construct(static_cast<Gfx2D::CRigData*>(asset))) : nullptr;
+    void* memory = MemSys::Alloc(0x1C);
+    m_boneRig = memory ? reinterpret_cast<uint8_t*>(static_cast<Gfx2D::CRig*>(memory)->MakeNew(static_cast<Gfx2D::CRigData*>(asset))) : nullptr;
 }
 
 // 0x00431CF0
@@ -147,8 +147,8 @@ void CBoneRigModule::ConfigureFromData(Scripts::CStruct* params)
     uint32_t from = 0;
     if (params->ReadHashValue(kCopySkeletonFrom, &from, 0)) {
         auto* other = reinterpret_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(from));
-        auto* otherSkeleton = reinterpret_cast<CBoneRigModule*>(other->GetComponent(kType));
-        void* memory = MemSys::New(0x1C);
+        auto* otherSkeleton = reinterpret_cast<CBoneRigModule*>(other->FetchModule(kType));
+        void* memory = MemSys::Alloc(0x1C);
         m_boneRig = memory ? reinterpret_cast<uint8_t*>(static_cast<Gfx2D::CRig*>(memory)->ConstructCopy(
                                    reinterpret_cast<const Gfx2D::CRig*>(otherSkeleton->m_boneRig)))
                              : nullptr;
@@ -165,46 +165,46 @@ void CBoneRigModule::ConfigureFromData(Scripts::CStruct* params)
 }
 
 // 0x00431C60
-bool CBoneRigModule::GetLocalBonePosition(uint32_t bone, Maths::Vector* out)
+bool CBoneRigModule::GetLocalBonePosition(uint32_t bone, Maths::Vec4* out)
 {
     return SkeletonBonePosition(m_boneRig, bone, out);
 }
 
 // 0x00432050
-bool CBoneRigModule::GetBonePosition(uint32_t bone, Maths::Vector* out)
+bool CBoneRigModule::GetBonePosition(uint32_t bone, Maths::Vec4* out)
 {
     if (!SkeletonBonePosition(m_boneRig, bone, out))
         *out = {0.0f, 0.0f, 0.0f, 1.0f};
-    Maths::Matrix placed = m_object->m_basisFrame;
-    const Maths::Vector& pos = m_object->m_pos;
+    Maths::Mat4 placed = m_entity->m_basisFrame;
+    const Maths::Vec4& pos = m_entity->m_atPoint;
     placed.row[3] = {pos.x, pos.y, pos.z, 1.0f};
-    Maths::Vector world;
-    placed.Transform(world, *out);
+    Maths::Vec4 world;
+    placed.Xform(world, *out);
     *out = world;
     return false;
 }
 
 // 0x004320F0
-void CBoneRigModule::PlaceDecalSplat(const Maths::Vector* start, const Maths::Vector* end, uint32_t bone, float width,
+void CBoneRigModule::PlaceDecalSplat(const Maths::Vec4* start, const Maths::Vec4* end, uint32_t bone, float width,
                                            float height, float spin, float turn, float spread, float lifetime,
                                            float dropdownLength, void* texture, uint32_t blend, bool follow,
                                            bool dropdown)
 {
-    Maths::Vector from;
+    Maths::Vec4 from;
     if (!bone)
         from = *start;
     else
         GetBonePosition(bone, &from);
     const float length = dropdownLength * kInchesPerFoot;
-    const Maths::Vector& up = m_object->m_basisFrame.row[1];
-    Maths::Vector to;
+    const Maths::Vec4& up = m_entity->m_basisFrame.row[1];
+    Maths::Vec4 to;
     bool raise = true;
     if (dropdown) {
         // Straight down (in the world) by the length.
         const float zero = length * 0.0f;
         to = {from.x - zero, from.y - length, from.z - zero, from.w - length};
     } else {
-        const Maths::Vector& d = *end;
+        const Maths::Vec4& d = *end;
         double lengthSquared = (static_cast<double>(d.x) * d.x + static_cast<double>(d.y) * d.y) +
                                static_cast<double>(d.z) * d.z;
         if (lengthSquared > 0.0) {
@@ -228,8 +228,8 @@ void CBoneRigModule::PlaceDecalSplat(const Maths::Vector* start, const Maths::Ve
         const float twice = spread + spread;
         const float across = static_cast<float>(static_cast<double>(Rand()) * twice * kOneOverRandMax - spread);
         const double along = static_cast<double>(Rand()) * twice * kOneOverRandMax - spread;
-        const Maths::Vector& right = m_object->m_basisFrame.row[0];
-        const Maths::Vector& at = m_object->m_basisFrame.row[2];
+        const Maths::Vec4& right = m_entity->m_basisFrame.row[0];
+        const Maths::Vec4& at = m_entity->m_basisFrame.row[2];
         to.x = static_cast<float>(to.x + static_cast<double>(across) * right.x);
         to.y = static_cast<float>(to.y + static_cast<double>(across) * right.y);
         to.z = to.z + across * right.z;
@@ -245,17 +245,17 @@ void CBoneRigModule::PlaceDecalSplat(const Maths::Vector* start, const Maths::Ve
 
 // 0x00432490
 void CBoneRigModule::SpawnCompositeObjectAtBone(uint32_t bone, Scripts::CArray* components, Scripts::CStruct* params,
-                                                    float velocityScale, const Maths::Vector* velocity,
-                                                    const Maths::Vector* rotationalVelocity, Maths::Vector* offset)
+                                                    float velocityScale, const Maths::Vec4* velocity,
+                                                    const Maths::Vec4* rotationalVelocity, Maths::Vec4* offset)
 {
-    auto* skeleton = reinterpret_cast<CBoneRigModule*>(m_object->GetComponent(kType));
-    Maths::Matrix jointMat;
+    auto* skeleton = reinterpret_cast<CBoneRigModule*>(m_entity->FetchModule(kType));
+    Maths::Mat4 jointMat;
     SkeletonBoneMatrix(skeleton->m_boneRig, bone, &jointMat);
     // The object's matrix at its position (the rows' w cleared).
-    Maths::Matrix placed = m_object->m_basisFrame;
-    placed.row[3] = m_object->m_pos;
+    Maths::Mat4 placed = m_entity->m_basisFrame;
+    placed.row[3] = m_entity->m_atPoint;
     // The bone's matrix in the game's axes: y and z swapped, the new z turned round; moved by the offset.
-    Maths::Vector up = jointMat.row[1];
+    Maths::Vec4 up = jointMat.row[1];
     jointMat.row[1] = jointMat.row[2];
     jointMat.row[2] = {-up.x, -up.y, -up.z, -up.w};
     offset->w = 0.0f;
@@ -269,20 +269,20 @@ void CBoneRigModule::SpawnCompositeObjectAtBone(uint32_t bone, Scripts::CArray* 
         &jointMat, &jointMat, &placed);
 
     params->PutVec3(0x7F261953, ToValue(jointMat.row[3])); // pos
-    Maths::Vector quat;
+    Maths::Vec4 quat;
     reinterpret_cast<Maths::QuatRotation*>(&quat)->FromMatrix(jointMat);
     if (quat.w > 0.0f)
         params->PutVec3(0xC97F3AA9, ToValue(quat)); // Orientation (w kept positive)
     else
         params->PutVec3(0xC97F3AA9, {-quat.x, -quat.y, -quat.z, -quat.w});
-    const Maths::Vector& objectVel = m_object->m_vel;
-    Maths::Vector carried = {velocityScale * objectVel.x, velocityScale * objectVel.y, velocityScale * objectVel.z,
+    const Maths::Vec4& objectVel = m_entity->m_vel;
+    Maths::Vec4 carried = {velocityScale * objectVel.x, velocityScale * objectVel.y, velocityScale * objectVel.z,
                            velocityScale * objectVel.w};
-    Maths::Vector turned;
-    m_object->m_basisFrame.RotateVector(turned, *velocity);
+    Maths::Vec4 turned;
+    m_entity->m_basisFrame.RotateVector(turned, *velocity);
     params->PutVec3(0x0C4C809E, {carried.x + turned.x, carried.y + turned.y, carried.z + turned.z,
                                    carried.w + turned.w}); // vel
-    m_object->m_basisFrame.RotateVector(turned, *rotationalVelocity);
+    m_entity->m_basisFrame.RotateVector(turned, *rotationalVelocity);
     params->PutVec3(0xFB1A83B2, ToValue(turned)); // rotvel
     CompositeObjectManager()->SpawnEntityFromNode(components, params, true);
 }
@@ -305,10 +305,10 @@ bool CBoneRigModule::Obj_SetBoneScale(Scripts::CStruct* params, Scripts::CScript
     uint32_t bone = 0;
     params->ReadHashValue(kBone, &bone, 1);
     float scale = 0.0f;
-    params->GetFloat(0x13B9DA7B, &scale, 1); // scale
+    params->FetchFloat(0x13B9DA7B, &scale, 1); // scale
     bool propagate = params->HasBareFlag(0x4CC196D1);
     bool reverse = params->HasBareFlag(0xBA05E2DE); // propagate_reverse
-    Maths::Vector scales = {scale, scale, scale, 0.0f};
+    Maths::Vec4 scales = {scale, scale, scale, 0.0f};
     if (!reverse) {
         ChangeBoneSizing(m_boneRig, bone, &scales, !propagate);
         return true;
@@ -329,14 +329,14 @@ bool CBoneRigModule::Obj_SetBoneScale(Scripts::CStruct* params, Scripts::CScript
 // 0x004327C0
 bool CBoneRigModule::Obj_GetBonePosition(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Maths::Vector pos = {0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
     // (the bone is read into the parameters' own argument slot)
     uint32_t bone = reinterpret_cast<uint32_t>(params);
     params->ReadHashValue(kBone, &bone, 1);
     bool found = GetBonePosition(bone, &pos);
-    script->m_params->PushFloat(0x7323E97C, pos.x); // x
-    script->m_params->PushFloat(0x0424D9EA, pos.y); // y
-    script->m_params->PushFloat(0x9D2D8850, pos.z); // z
+    script->m_args->PushFloat(0x7323E97C, pos.x); // x
+    script->m_args->PushFloat(0x0424D9EA, pos.y); // y
+    script->m_args->PushFloat(0x9D2D8850, pos.z); // z
     return found;
 }
 
@@ -347,17 +347,17 @@ bool CBoneRigModule::TextureSplat(Scripts::CStruct* params, Scripts::CScript* /*
     bool dropdownVertical = params->HasBareFlag(0x7EE6C892); // dropdown_vertical
     // Not original: the size starts at 0 - the original's is left uninitialised (stack garbage) when not given.
     float size = 0.0f;
-    params->GetFloat(0x083FDB95, &size, 0); // size
+    params->FetchFloat(0x083FDB95, &size, 0); // size
     float height = size;
-    params->GetFloat(0x3786B657, &height, 0);
+    params->FetchFloat(0x3786B657, &height, 0);
     float radius = 0.0f;
-    params->GetFloat(0xC48391A5, &radius, 0); // radius
+    params->FetchFloat(0xC48391A5, &radius, 0); // radius
     float lifetime = 5.0f;
-    params->GetFloat(0xC218CF77, &lifetime, 0); // lifetime
+    params->FetchFloat(0xC218CF77, &lifetime, 0); // lifetime
     float dropdownLength = 3.0f;
-    params->GetFloat(0x12C62572, &dropdownLength, 0); // dropdown_length
+    params->FetchFloat(0x12C62572, &dropdownLength, 0); // dropdown_length
     float angle = 180.0f;
-    params->GetFloat(0x78AAF97F, &angle, 0);
+    params->FetchFloat(0x78AAF97F, &angle, 0);
     uint32_t blend = 0x54628ED7; // blend
     params->ReadHashValue(0xDD6BB3D5, &blend, 0); // blendmode
     angle = angle * kDegreesToRadians;
@@ -366,7 +366,7 @@ bool CBoneRigModule::TextureSplat(Scripts::CStruct* params, Scripts::CScript* /*
     void* texture = nullptr;
     const char* imageLabel = nullptr;
     uint32_t textureChecksum = 0; // (read into the parameters' own argument slot, cleared first)
-    if (params->GetString(0xA1DC81F9u, &imageLabel, 0) || params->GetString(0x7D99F28Du, &imageLabel, 0))
+    if (params->FetchText(0xA1DC81F9u, &imageLabel, 0) || params->FetchText(0x7D99F28Du, &imageLabel, 0))
         texture = TextureNamed(imageLabel);
     else if (params->ReadHashValue(0xA1DC81F9u, &textureChecksum, 0) || params->ReadHashValue(0x7D99F28Du, &textureChecksum, 0))
         texture = TextureByChecksum(textureChecksum);
@@ -374,26 +374,26 @@ bool CBoneRigModule::TextureSplat(Scripts::CStruct* params, Scripts::CScript* /*
     // From the bone, or `forward` along the object's at (x's product unrounded).
     uint32_t bone = 0;
     // Not original: with neither, the original passes its uninitialised stack as the start; ours the object's position.
-    Maths::Vector start = m_object->m_pos;
+    Maths::Vec4 start = m_entity->m_atPoint;
     if (!params->HashFromNameOrText(kBone, &bone, 0)) {
         float forward = 0.0f;
-        if (params->GetFloat(0x186ED079, &forward, 0)) { // forward
-            const Maths::Vector& pos = m_object->m_pos;
-            const Maths::Vector& at = m_object->m_basisFrame.row[2];
+        if (params->FetchFloat(0x186ED079, &forward, 0)) { // forward
+            const Maths::Vec4& pos = m_entity->m_atPoint;
+            const Maths::Vec4& at = m_entity->m_basisFrame.row[2];
             start = {static_cast<float>(static_cast<double>(forward) * at.x + pos.x), forward * at.y + pos.y,
                      forward * at.z + pos.z, forward * at.w + pos.w};
         }
     }
     Scripts::VectorValue end = {0.0f, 0.0f, 0.0f, 1.0f};
-    params->GetVector(0x09A7DC2E, &end, 0); // end_pos
+    params->FetchVec(0x09A7DC2E, &end, 0); // end_pos
     float spin = static_cast<float>(static_cast<double>(Rand()) * kTwoPi * kOneOverRandMax);
     if (params->HasBareFlag(0x744E673F)) {
         // The object's at's angle about z: acos of its z, on the side of its x (the C runtime's acos, 0x00623630).
-        const Maths::Vector& at = m_object->m_basisFrame.row[2];
+        const Maths::Vec4& at = m_entity->m_basisFrame.row[2];
         float side = at.x < 0.0f ? -1.0f : 1.0f;
         spin = static_cast<float>(std::acos(static_cast<double>(at.z)) * side);
     }
-    const Maths::Vector endVector = {end.x, end.y, end.z, end.w};
+    const Maths::Vec4 endVector = {end.x, end.y, end.z, end.w};
     PlaceDecalSplat(&start, &endVector, bone, size, height, spin, angle, radius, lifetime, dropdownLength, texture,
                       blend, trail, dropdownVertical);
     return true;
@@ -405,20 +405,20 @@ bool CBoneRigModule::Skeleton_SpawnCompositeObject(Scripts::CStruct* params, Scr
     uint32_t bone = 0;
     params->ReadHashValue(kBone, &bone, 1);
     Scripts::VectorValue offset = {0.0f, 0.0f, 0.0f, 1.0f};
-    params->GetVector(0xA6F5352F, &offset, 0); // offset
+    params->FetchVec(0xA6F5352F, &offset, 0); // offset
     Scripts::CArray* components = nullptr;
-    params->GetArray(0x11B70A02, &components, 1); // Components
+    params->FetchList(0x11B70A02, &components, 1); // Components
     Scripts::CStruct* objectParams = nullptr;
     params->ReadSubStruct(0x7031F10C, &objectParams, 1); // params
     Scripts::VectorValue vel = {};
-    params->GetVector(0x0C4C809E, &vel, 1); // vel
+    params->FetchVec(0x0C4C809E, &vel, 1); // vel
     Scripts::VectorValue rotvel = {};
-    params->GetVector(0xFB1A83B2, &rotvel, 1); // rotvel
+    params->FetchVec(0xFB1A83B2, &rotvel, 1); // rotvel
     float factor = 1.0f; // (read into the parameters' own argument slot)
-    params->GetFloat(0x8C6A6E08, &factor, 0); // object_vel_factor
-    Maths::Vector velocity = {vel.x, vel.y, vel.z, vel.w};
-    Maths::Vector rotation = {rotvel.x, rotvel.y, rotvel.z, rotvel.w};
-    Maths::Vector at = {offset.x, offset.y, offset.z, offset.w};
+    params->FetchFloat(0x8C6A6E08, &factor, 0); // object_vel_factor
+    Maths::Vec4 velocity = {vel.x, vel.y, vel.z, vel.w};
+    Maths::Vec4 rotation = {rotvel.x, rotvel.y, rotvel.z, rotvel.w};
+    Maths::Vec4 at = {offset.x, offset.y, offset.z, offset.w};
     SpawnCompositeObjectAtBone(bone, components, objectParams, factor, &velocity, &rotation, &at);
     return true;
 }
@@ -428,14 +428,14 @@ bool CBoneRigModule::Skeleton_SpawnCompositeObject(Scripts::CStruct* params, Scr
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CBoneRigModule::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CBoneRigModule::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          &GameObjects::CBoneRigModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

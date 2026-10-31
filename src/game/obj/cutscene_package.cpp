@@ -89,12 +89,12 @@ void DeleteVirtual(void* object)
 void* NewAnimSource()
 {
     void* memory = AnimSourceAllocate(0x214);
-    return memory ? static_cast<Engine3D::CFrameSource*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<Engine3D::CFrameSource*>(memory)->MakeNew() : nullptr;
 }
 Scripts::CStruct* MakeStruct()
 {
     Scripts::CStruct* memory = Scripts::NewStruct();
-    return memory ? memory->Init() : nullptr;
+    return memory ? memory->PrepareAll() : nullptr;
 }
 void FreeStruct(Scripts::CStruct* s)
 {
@@ -103,7 +103,7 @@ void FreeStruct(Scripts::CStruct* s)
     s->Clear();
     Scripts::DeleteStruct(s);
 }
-void Run(uint32_t script, Scripts::CStruct* params = nullptr, CObject* object = nullptr)
+void Run(uint32_t script, Scripts::CStruct* params = nullptr, CEntity* object = nullptr)
 {
     Scripts::LaunchScript(script, params, object, false, nullptr);
 }
@@ -146,7 +146,7 @@ bool CCinematicEntry::ConfigureFromData(Scripts::CStruct* params)
     uint32_t name = 0;
     if (m_ownsData) {
         const char* path;
-        params->GetString(kCutsceneName, &path, 1);
+        params->FetchText(kCutsceneName, &path, 1);
         name = Checksums::HashFromText(CutsceneNameFromPath(path));
         m_asset = Checksums::HashFromText(path);
         std::memcpy(fileName, path, std::strlen(path) + 1); // (unbounded, as the original)
@@ -158,14 +158,14 @@ bool CCinematicEntry::ConfigureFromData(Scripts::CStruct* params)
     settings->AppendStructureIfAny(params);
     reinterpret_cast<CVideoEntry*>(this)->ConfigureFromData(settings);
     if (Scripts::CStruct* defaults = Scripts::ReadSubStruct(Checksums::FoldTextIntoChecksum(name, "_params")))
-        m_params->AppendStructureIfAny(defaults);
+        m_args->AppendStructureIfAny(defaults);
     m_beginScript = Checksums::FoldTextIntoChecksum(name, "_begin");
     m_endScript = Checksums::FoldTextIntoChecksum(name, "_end");
     bool loaded = false;
     if (!m_ownsData) {
-        m_data = static_cast<CCinematicTable*>(
+        m_content = static_cast<CCinematicTable*>(
             Assets()->GetAssetData(name, 0));
-        loaded = m_data != nullptr;
+        loaded = m_content != nullptr;
     } else {
         // the loading screen; the music volumes kept to give back at the end, then muted
         Engine3D::DisplayLoadingScreen(nullptr, true, false);
@@ -179,40 +179,40 @@ bool CCinematicEntry::ConfigureFromData(Scripts::CStruct* params)
         Engine3D::UpdateSceneLightQueue();
         AssetStore::CResourceRegistry* assets = Assets();
         if (!assets->GetAssetDataByName(fileName, 0)) {
-            int music = m_params->HasBareFlag(kNoMusicFlag) ? 0 : 1;
-            int streams = m_params->HasBareFlag(kNoMusicFlag) ? 0 : 1;
+            int music = m_args->HasBareFlag(kNoMusicFlag) ? 0 : 1;
+            int streams = m_args->HasBareFlag(kNoMusicFlag) ? 0 : 1;
             if (params->HasBareFlag(kForceFlag)) {
                 music = 1;
                 streams = 1;
             }
-            m_params->PutInt(0xCDF2B13E, music);
-            m_params->PutInt(0x9A4BDFF5, streams);
-            m_params->PutInt(0xED064302, 1);
-            m_params->PutInt(0xBABF2DC9, 1);
-            m_params->AppendStructureIfAny(settings);
+            m_args->PutInt(0xCDF2B13E, music);
+            m_args->PutInt(0x9A4BDFF5, streams);
+            m_args->PutInt(0xED064302, 1);
+            m_args->PutInt(0xBABF2DC9, 1);
+            m_args->AppendStructureIfAny(settings);
             Run(0x722D9CA7);
             Gfx2D::HideModelsForCutscene();
-            Run(0xE1CE826A, m_params);
-            m_data = static_cast<CCinematicTable*>(assets->LoadAsset(fileName, 0, 0, 0, false, false, false, m_settings, 0));
+            Run(0xE1CE826A, m_args);
+            m_content = static_cast<CCinematicTable*>(assets->LoadAsset(fileName, 0, 0, 0, false, false, false, m_settings, 0));
             float start;
-            if (params->GetFloat(kStartTime, &start, 0)) {
-                CCinematicTable* data = m_data;
+            if (params->FetchFloat(kStartTime, &start, 0)) {
+                CCinematicTable* data = m_content;
                 float seconds = static_cast<float>(start * static_cast<double>(0.0010000000474974513f));
                 AudioStream::PauseMusic(1);
                 data->m_unknown3474 = 1;
                 data->m_clock = seconds;
             }
             float loop;
-            if (params->GetFloat(kLoopLength, &loop, 0)) {
+            if (params->FetchFloat(kLoopLength, &loop, 0)) {
                 loop = static_cast<float>(loop * static_cast<double>(0.0010000000474974513f));
-                CCinematicTable* data = m_data;
+                CCinematicTable* data = m_content;
                 data->m_unknown3474 = 1;
                 data->m_unknown3488 = *reinterpret_cast<uint32_t*>(&data->m_clock);
                 data->m_unknown348C = static_cast<float>(static_cast<double>(loop) + data->m_clock);
                 AudioStream::PauseMusic(1);
             }
-            if (Scripts::CArray* subtitles = Scripts::GetArray(Checksums::FoldTextIntoChecksum(name, "_subtitles")))
-                m_data->SetSubtitles(subtitles);
+            if (Scripts::CArray* subtitles = Scripts::FetchList(Checksums::FoldTextIntoChecksum(name, "_subtitles")))
+                m_content->SetSubtitles(subtitles);
             loaded = true;
         }
     }
@@ -224,8 +224,8 @@ bool CCinematicEntry::ConfigureFromData(Scripts::CStruct* params)
 void CCinematicEntry::End()
 {
     if (!m_ownsData) {
-        if (m_data)
-            m_data->DestroyObjects();
+        if (m_content)
+            m_content->DestroyObjects();
         if (m_endScript)
             Run(m_endScript);
         PrintCutsceneDetails(this);
@@ -234,25 +234,25 @@ void CCinematicEntry::End()
     Run(0xE7BC7EFD);
     Run(0x4C0FD1D7);
     reinterpret_cast<Engine3D::CFlexibleParticleManager*&>(Engine3D::g_flexibleParticleManager)->DeleteTempHeap();
-    if (m_data) {
+    if (m_content) {
         DiscardLoadedItem(m_asset);
-        m_data = nullptr;
+        m_content = nullptr;
     }
     Engine3D::ClearSceneLightQueue();
     if (m_endScript)
         Run(m_endScript);
     Run(0xF49A8C9C);
     Run(0xDEFF69FF);
-    MemSys::Manager::Get()->DeleteCutsceneHeaps();
+    MemSys::Hub::Pull()->DeleteCutsceneHeaps();
     auto* skater =
-        static_cast<CGameEntity*>(GameModules::Skate::Instance()->GetHomeRider());
+        static_cast<CGameEntity*>(GameModules::Skate::Sole()->GetHomeRider());
     if (skater) {
         Scripts::CStruct* flag = MakeStruct();
         flag->PutNameKey(kUnnamed, kFlagParam);
-        Run(0xABF617EE, flag, reinterpret_cast<CObject*>(skater));
+        Run(0xABF617EE, flag, reinterpret_cast<CEntity*>(skater));
         FreeStruct(flag);
     }
-    Run(0xBCA1791C, m_params);
+    Run(0xBCA1791C, m_args);
     Gfx2D::ShowModelsAfterCutscene();
     Run(0x94D0D528);
     PrintCutsceneDetails(this);
@@ -290,7 +290,7 @@ void CCinematicTable::DestroyBody()
         if (m_flag34B0) {
             Run(0x7216D8DA);
             char fileName[256];
-            std::snprintf(fileName, sizeof(fileName), "%08x.qb", m_name);
+            std::snprintf(fileName, sizeof(fileName), "%08x.qb", m_label);
             Scripts::UnloadQB(Checksums::HashFromText(fileName));
         }
     }
@@ -304,9 +304,9 @@ void CCinematicTable::DestroyBody()
 void CCinematicTable::LoadFromBundle()
 {
     FileLoad::AssetBundle* bundle = mp_bundle;
-    int count = bundle->m_count;
+    int count = bundle->m_num;
     for (int i = 0; i < count; ++i) {
-        FileLoad::AssetBundle::Entry* entry = mp_bundle->GetEntry(i);
+        FileLoad::AssetBundle::TableRow* entry = mp_bundle->GetEntry(i);
         void* data = mp_bundle->ObtainLoadedItem(i);
         uint32_t type = entry->type;
         switch (type) {
@@ -317,7 +317,7 @@ void CCinematicTable::LoadFromBundle()
         case kTypeQB:
             if (m_flag34B0) {
                 char fileName[256];
-                std::snprintf(fileName, sizeof(fileName), "%08x.qb", m_name);
+                std::snprintf(fileName, sizeof(fileName), "%08x.qb", m_label);
                 Scripts::LoadQBData(fileName, static_cast<const uint8_t*>(data), 1, 0, 0);
             }
             break;
@@ -368,7 +368,7 @@ void CCinematicTable::LoadFromBundle()
         case kTypeModel:
         case kTypeSkin:
         case kTypeModel2:
-            LoadModel(i, entry, data);
+            IngestMesh(i, entry, data);
             continue; // (it unloads its own assets)
         case kTypeTextures:
         case kTypeColours:
@@ -379,19 +379,19 @@ void CCinematicTable::LoadFromBundle()
         }
         mp_bundle->FreeAsset(entry->name, entry->type);
     }
-    if (!mp_params->GetFloat(kEndTime, &m_endTime, 0))
+    if (!mp_params->FetchFloat(kEndTime, &m_endTime, 0))
         m_endTime = *static_cast<float*>(m_flag34B0 ? mp_cameraAnim : mp_animList);
 }
 
 // A model in the bundle (with its textures, a skinned model's colours): loaded unless it's a skin variant that
 // isn't the skater's (variants: name + 1 ... name + 4 by face and sex).
-void CCinematicTable::LoadModel(int index, FileLoad::AssetBundle::Entry* entry, void* data)
+void CCinematicTable::IngestMesh(int index, FileLoad::AssetBundle::TableRow* entry, void* data)
 {
     uint32_t modelName = entry->name + kTypeModel; // (the original prints name + type, compiled out)
     LoadParams params;
     reinterpret_cast<AssetStore::SkinParams*>(&params)->Clear(); // (the skinned model's load parameters, 0x14 bytes)
     void* textureData = mp_bundle->FindAsset(entry->name, kTypeTextures, 1);
-    FileLoad::AssetBundle::Entry* textures = mp_bundle->FindEntry(entry->name, kTypeTextures, 1);
+    FileLoad::AssetBundle::TableRow* textures = mp_bundle->FindEntry(entry->name, kTypeTextures, 1);
     uint32_t textureSize = textures->size;
     uint32_t texturesName = textures->type + textures->name;
     uint8_t isModel = entry->type == kTypeModel;
@@ -449,7 +449,7 @@ void CCinematicTable::LoadModel(int index, FileLoad::AssetBundle::Entry* entry, 
             hasFace = false;
         }
         void* face = AppearanceFace(m_unknown34A8);
-        int skaterFace = face && reinterpret_cast<bool(__thiscall*)(void*)>(CodeAddress(&Gfx2D::CFaceSkin::IsValid))(face) ? 1 : 0;
+        int skaterFace = face && reinterpret_cast<bool(__thiscall*)(void*)>(CodeAddress(&Gfx2D::CFaceSkin::IsSound))(face) ? 1 : 0;
         int skaterMale;
         static_cast<Scripts::CStruct*>(m_unknown34AC)->FetchIntValue(0x3F813177, &skaterMale, 1);
         load = static_cast<int>(hasFace) == skaterFace && static_cast<int>(male) == skaterMale;

@@ -40,7 +40,7 @@ constexpr float kOtherHeight = 120.0f; // above the others'
 
 // The network manager (0x007CCE14): a network game on, its show_names preference on, the player with an object id,
 // this machine's player (GetCamPlayer: its +0x1CC).
-OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
 bool InNetGame() { return NetManager()->InNetGame(); }
 bool ShowNames() { return NetManager()->WantsNameTags(); }
 uint8_t* PlayerByObjectId(uint32_t id) { return NetManager()->PlayerByObjectId(static_cast<uint16_t>(id)); }
@@ -53,7 +53,7 @@ void RunWithLabelId(uint32_t name, uint32_t labelId)
 {
     Scripts::CStruct* params = Scripts::NewStruct();
     if (params)
-        params->Init();
+        params->PrepareAll();
     params->PutNameKey(kId, labelId);
     Scripts::LaunchScript(name, params, nullptr, false, nullptr);
     if (params) {
@@ -65,15 +65,15 @@ void RunWithLabelId(uint32_t name, uint32_t labelId)
 } // namespace
 
 // 0x00511810
-CObjectModule* __cdecl CRiderOverheadTag::Create()
+CObjectModule* __cdecl CRiderOverheadTag::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderOverheadTag));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CRiderOverheadTag*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kSkaterFloatingName;
+    component->m_kindTag = kSkaterFloatingName;
     return component;
 }
 
@@ -86,24 +86,24 @@ void CRiderOverheadTag::DestroyBody()
 }
 
 // 0x00511B80
-CRiderOverheadTag* CRiderOverheadTag::Destroy(unsigned int flags)
+CRiderOverheadTag* CRiderOverheadTag::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00511780
 void CRiderOverheadTag::ConfigureFromData(Scripts::CStruct* /*params*/)
 {
-    uint32_t id = m_object->m_id;
+    uint32_t id = m_entity->m_ident;
     if (id < 8)
         m_labelId = kLabelIds[id];
 }
 
 // 0x00511870
-void CRiderOverheadTag::Update()
+void CRiderOverheadTag::TickFrame()
 {
     if (!InNetGame() || !ShowNames()) {
         VirtualSuspend(true);
@@ -112,12 +112,12 @@ void CRiderOverheadTag::Update()
     MenuSystem::CUiWidget* label;
     {
         MenuSystem::ElementPtr found;
-        MenuSystem::CUiTree::Instance()->GetElement(&found, m_labelId, 0);
-        label = found.Get();
+        MenuSystem::CUiTree::Sole()->FetchPart(&found, m_labelId, 0);
+        label = found.Pull();
     }
-    uint8_t* player = PlayerByObjectId(m_object->m_id);
-    auto* skater = static_cast<CRider*>(m_object);
-    if (!skater->GetFlag2C4() || (m_object->m_compositeFlags & COMPOSITE_FLAG_HIDDEN)) {
+    uint8_t* player = PlayerByObjectId(m_entity->m_ident);
+    auto* skater = static_cast<CRider*>(m_entity);
+    if (!skater->GetFlag2C4() || (m_entity->m_compositeFlags & COMPOSITE_FLAG_HIDDEN)) {
         if (label)
             RunWithLabelId(kDestroyObjectLabel, m_labelId);
         return;
@@ -125,16 +125,16 @@ void CRiderOverheadTag::Update()
     float height = LocalPlayer() == player ? kLocalHeight : kOtherHeight;
     Scripts::CStruct* params = Scripts::NewStruct();
     if (params)
-        params->Init();
+        params->PrepareAll();
     params->PutNameKey(kId, m_labelId);
     // The text's colour: the team's (+0x30 of the player) in a team game, else the skater's own.
-    uint32_t colour = IsSquadMatch() ? *reinterpret_cast<uint32_t*>(player + 0x30) : m_object->m_id;
+    uint32_t colour = IsSquadMatch() ? *reinterpret_cast<uint32_t*>(player + 0x30) : m_entity->m_ident;
     char text[64];
-    std::snprintf(text, sizeof(text), "\\c%d%s", static_cast<int>(colour + 2), skater->GetDisplayName());
-    params->AddString(kText, text);
-    const Maths::Vector& pos = m_object->m_pos;
+    std::snprintf(text, sizeof(text), "\\c%d%s", static_cast<int>(colour + 2), skater->FetchShownName());
+    params->AppendWord(kText, text);
+    const Maths::Vec4& pos = m_entity->m_atPoint;
     params->PutVec3(kPos3D, pos.x, height + pos.y, pos.z);
-    if (label) // (its vtable's SetProperties: whatever object has the id)
+    if (label) // (its vtable's ChangeTraits: whatever object has the id)
         reinterpret_cast<void(__thiscall*)(MenuSystem::CUiWidget*, Scripts::CStruct*)>(label->m_vtable[1])(label, params);
     else
         Scripts::LaunchScript(kCreateObjectLabel, params, nullptr, false, nullptr);
@@ -149,14 +149,14 @@ void CRiderOverheadTag::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderOverheadTag::Destroy,
-         &GameObjects::CRiderOverheadTag::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderOverheadTag::Teardown,
+         &GameObjects::CRiderOverheadTag::TickFrame,
          &GameObjects::CRiderOverheadTag::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

@@ -33,21 +33,21 @@ uint16_t* LockIndices(void* buffer)
     return indices;
 }
 void UnlockIndices(void* buffer) { static_cast<sIndexBuffer*>(buffer)->Unlock(); }
-void ReleaseIndexBuffer(void* buffer) { static_cast<sIndexBuffer*>(buffer)->Destroy(); }
+void ReleaseIndexBuffer(void* buffer) { static_cast<sIndexBuffer*>(buffer)->Teardown(); }
 void* NewIndexBuffer(uint32_t bytes)
 {
     void* memory = Crt::AllocBlock(0x18); // (the renderer's operator new: a jump to the C runtime's malloc)
     if (!memory)
         return nullptr;
-    return static_cast<sIndexBuffer*>(memory)->Construct(bytes, 0, 0x65);
+    return static_cast<sIndexBuffer*>(memory)->MakeNew(bytes, 0, 0x65);
 }
 // A mesh's vertex buffers (+0xCC) and their release.
-void* VertexBuffer(uint8_t* mesh, int index) { return reinterpret_cast<meshRef*>(mesh)->GetVertexBuffer(index); }
+void* VertexBuffer(uint8_t* mesh, int index) { return reinterpret_cast<meshRef*>(mesh)->FetchVertexStore(index); }
 void SetVertexBuffer(uint8_t* mesh, int index, void* buffer)
 {
     reinterpret_cast<meshRef*>(mesh)->SetVertexBuffer(index, static_cast<sVertexBuffer*>(buffer));
 }
-void ReleaseVertexBuffer(void* buffer) { static_cast<sVertexBuffer*>(buffer)->Destroy(); }
+void ReleaseVertexBuffer(void* buffer) { static_cast<sVertexBuffer*>(buffer)->Teardown(); }
 // A material's destructor body (not rewritten yet; thiscall).
 void DestroyMaterial(void* material) { static_cast<materialRef*>(material)->DestroyBody(); }
 
@@ -65,13 +65,13 @@ void Qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(cons
 }
 
 // Iterate a hash table's values: the first (or next), null at the end.
-void* NextValue(ListKit::HashTable* table)
+void* NextValue(ListKit::KeyMap* table)
 {
     if (!table->StepIterator() || !table->m_iterItem)
         return nullptr;
     return table->m_iterItem->value;
 }
-void* FirstValue(ListKit::HashTable* table)
+void* FirstValue(ListKit::KeyMap* table)
 {
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
@@ -106,7 +106,7 @@ int __cdecl CompareMeshes(const void* a, const void* b)
 }
 
 // 0x004DE300
-sceneRef* sceneRef::Construct()
+sceneRef* sceneRef::MakeNew()
 {
     new (&bounds) Maths::BBox();
     flags = 0;
@@ -129,13 +129,13 @@ sceneRef* sceneRef::Construct()
 // 0x004DE490
 void sceneRef::DestroyBody()
 {
-    if (ListKit::HashTable* table = materials) {
+    if (ListKit::KeyMap* table = materials) {
         if (table->m_buckets) {
             table->EmptyTable();
-            MemSys::Manager::Instance()->Free(table->m_buckets);
+            MemSys::Hub::Sole()->Dealloc(table->m_buckets);
             table->m_buckets = nullptr;
         }
-        MemSys::Manager::Instance()->Free(table);
+        MemSys::Hub::Sole()->Dealloc(table);
     }
     for (int i = 0; i < meshCount; ++i) {
         uint8_t* mesh = meshes[i];
@@ -147,9 +147,9 @@ void sceneRef::DestroyBody()
         }
     }
     if (meshes)
-        MemSys::Manager::Instance()->Free(meshes);
+        MemSys::Hub::Sole()->Dealloc(meshes);
     if (extra) // (delete[]: the records' destructor is empty)
-        MemSys::Manager::Instance()->Free(extra - 4);
+        MemSys::Hub::Sole()->Dealloc(extra - 4);
     if (comObject)
         reinterpret_cast<unsigned long(__stdcall*)(void*)>((*static_cast<void***>(comObject))[2])(comObject);
 }
@@ -173,7 +173,7 @@ void sceneRef::UpdateSphere()
 void sceneRef::AllocateMeshList()
 {
     if (meshCount > 0)
-        meshes = static_cast<uint8_t**>(MemSys::New(meshCount * 4));
+        meshes = static_cast<uint8_t**>(MemSys::Alloc(meshCount * 4));
 }
 
 // 0x004DDDF0
@@ -332,14 +332,14 @@ void sceneRef::BreakStrips(uint32_t mask, const uint32_t* records, uint32_t coun
 // 0x004DE560
 void __cdecl DiscardScene(sceneRef* scene)
 {
-    if (ListKit::HashTable* table = scene->materials) {
+    if (ListKit::KeyMap* table = scene->materials) {
         for (void* material = FirstValue(table); material; material = NextValue(scene->materials)) {
             DestroyMaterial(material);
-            MemSys::Manager::Instance()->Free(material);
+            MemSys::Hub::Sole()->Dealloc(material);
         }
     }
     scene->DestroyBody();
-    MemSys::Manager::Instance()->Free(scene);
+    MemSys::Hub::Sole()->Dealloc(scene);
 }
 
 } // namespace Nx

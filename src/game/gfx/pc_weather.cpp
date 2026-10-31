@@ -40,7 +40,7 @@ namespace {
 extern void** const kWeatherVtable;
 constexpr int kNoGround = 800000; // (a cell's height when the cast hit nothing)
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 int Ftol(double value) { return static_cast<int>(value); } // (the game's _ftol)
 uint32_t Argb(const uint8_t* rgba) { return uint32_t(rgba[3]) << 24 | uint32_t(rgba[0]) << 16 | uint32_t(rgba[1]) << 8 | rgba[2]; }
 
@@ -81,9 +81,9 @@ int ClampColumn(const sWeatherRow& row, int x)
 } // namespace
 
 // 0x004CC560
-CPcWeather* CPcWeather::Construct()
+CPcWeather* CPcWeather::MakeNew()
 {
-    reinterpret_cast<CWeatherSystem*>(this)->CWeatherSystem::Construct();
+    reinterpret_cast<CWeatherSystem*>(this)->CWeatherSystem::MakeNew();
     vtable = reinterpret_cast<void**>(kWeatherVtable);
     columns = nullptr;
     splashTexture = nullptr; // (the snow's texture left as it was)
@@ -103,11 +103,11 @@ void CPcWeather::DestroyBody()
 }
 
 // 0x004CC600
-CPcWeather* CPcWeather::Destroy(unsigned int freeFlags)
+CPcWeather* CPcWeather::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -130,7 +130,7 @@ void CPcWeather::SetSnowBlendMode(uint32_t name, uint32_t fixedAlpha)
 }
 
 // 0x004CBDB0
-void CPcWeather::Update(int /*unused*/)
+void CPcWeather::TickFrame(int /*unused*/)
 {
     if (!active)
         return;
@@ -198,10 +198,10 @@ void CPcWeather::RenderRain(float x, float z)
     } else {
         ChooseBlendMode(rainBlend);
     }
-    SetState(kAlphaRef, 0);
+    ChangePhase(kAlphaRef, 0);
     SetPixelShader(nullptr, nullptr);
-    Device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
-    Device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
+    InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
+    InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     // (in 16ths of a unit)
     int baseX = Ftol(static_cast<double>(originX) * 16.0f);
@@ -223,7 +223,7 @@ void CPcWeather::RenderRain(float x, float z)
     auto flush = [&] {
         uint32_t count = used >> 5; // (a quarter of the lines: the original's count, as it is)
         if (count) {
-            Device()->DrawPrimitiveUP(D3DPT_LINELIST, count, lines, 0x10);
+            InputPort()->DrawPrimitiveUP(D3DPT_LINELIST, count, lines, 0x10);
             CountDraw(count);
         }
     };
@@ -266,8 +266,8 @@ void CPcWeather::RenderRain(float x, float z)
         }
     }
     flush();
-    Device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    Device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
 
 // 0x004CC630
@@ -281,18 +281,18 @@ void CPcWeather::RenderSnow(float x, float z)
     if (maxZ < 0 || minZ > depth - 1)
         return;
     ChooseBlendMode(snowBlend);
-    SetState(kAlphaRef, 0);
-    SetState(kAddressMode0, 0);
-    static_cast<textureRef*>(snowTexture)->Set(0);
-    Device()->SetRenderState(D3DRS_POINTSPRITEENABLE, TRUE);
-    Device()->SetRenderState(D3DRS_POINTSCALEENABLE, TRUE);
-    Device()->SetRenderState(D3DRS_POINTSIZE, std::bit_cast<DWORD>(snowSize));
-    Device()->SetRenderState(D3DRS_POINTSCALE_A, 0);
-    Device()->SetRenderState(D3DRS_POINTSCALE_B, 0);
-    Device()->SetRenderState(D3DRS_POINTSCALE_C, std::bit_cast<DWORD>(1.0f));
+    ChangePhase(kAlphaRef, 0);
+    ChangePhase(kAddressMode0, 0);
+    static_cast<textureRef*>(snowTexture)->AssignValue(0);
+    InputPort()->SetRenderState(D3DRS_POINTSPRITEENABLE, TRUE);
+    InputPort()->SetRenderState(D3DRS_POINTSCALEENABLE, TRUE);
+    InputPort()->SetRenderState(D3DRS_POINTSIZE, std::bit_cast<DWORD>(snowSize));
+    InputPort()->SetRenderState(D3DRS_POINTSCALE_A, 0);
+    InputPort()->SetRenderState(D3DRS_POINTSCALE_B, 0);
+    InputPort()->SetRenderState(D3DRS_POINTSCALE_C, std::bit_cast<DWORD>(1.0f));
     SetPixelShader(nullptr, nullptr);
-    Device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-    Device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
+    InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
+    InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     float baseX = originX, baseZ = originZ;
     float fall[0x100], spread[0x100], sway[0x100];
@@ -340,7 +340,7 @@ void CPcWeather::RenderSnow(float x, float z)
                 used += 4;
                 out += 4;
                 if (used >= 0x7FC) {
-                    Device()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points, 0x10); // (a quarter, as the original)
+                    InputPort()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points, 0x10); // (a quarter, as the original)
                     CountDraw(used >> 4);
                     used = 0;
                     out = points;
@@ -348,11 +348,11 @@ void CPcWeather::RenderSnow(float x, float z)
             }
         }
     }
-    Device()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points, 0x10); // (even none, as the original)
+    InputPort()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points, 0x10); // (even none, as the original)
     CountDraw(used >> 4);
-    Device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    Device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
-    Device()->SetRenderState(D3DRS_POINTSPRITEENABLE, FALSE);
+    InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    InputPort()->SetRenderState(D3DRS_POINTSPRITEENABLE, FALSE);
 }
 
 // 0x004CCC00
@@ -365,12 +365,12 @@ void CPcWeather::RenderSplashes(float x, float z)
         // A cast down at a random place before the camera (along its heading up to 2048 out, across by up to
         // 2048 either side - alternately - nearer in), its landing the splash's.
         CProbeRay feeler;
-        feeler.Construct();
+        feeler.MakeNew();
         const float* camera = &g_camera.position[0];
-        Maths::Vector heading = {static_cast<float>(static_cast<double>(x) - camera[0]), 0.0f,
+        Maths::Vec4 heading = {static_cast<float>(static_cast<double>(x) - camera[0]), 0.0f,
                                static_cast<float>(static_cast<double>(z) - camera[2]), 1.0f};
-        Maths::Vector at = {camera[0], 50000.0f, camera[2], 1.0f};
-        heading.Normalize();
+        Maths::Vec4 at = {camera[0], 50000.0f, camera[2], 1.0f};
+        heading.MakeUnit();
         float along = static_cast<float>(Maths::Rnd(0x8000) * (1.0 / 32768.0));
         double out = static_cast<double>(along) * 2048.0f;
         at.x = static_cast<float>(heading.x * out + at.x);
@@ -384,24 +384,24 @@ void CPcWeather::RenderSplashes(float x, float z)
         at.y = static_cast<float>(at.y + side * 0.0f);
         at.z = static_cast<float>(at.z + across * side);
         at.w = static_cast<float>(at.w + side);
-        feeler.SetStart(&at);
+        feeler.ChangeOrigin(&at);
         at.y = -50000.0f;
-        feeler.SetEnd(&at);
+        feeler.ChangeFinish(&at);
         float landing = feeler.GetHitShape(false, false) ? feeler.m_contactPos.y : 50000.0f;
         splashX[nextSplash] = at.x;
         splashY[nextSplash] = static_cast<float>(static_cast<double>(landing) + 4.0f);
         splashZ[nextSplash] = at.z;
         splashFrames[nextSplash] = splashLife;
         nextSplash = (nextSplash + 1) % 0x20;
-        feeler.m_object.Release();
+        feeler.m_entity.Release();
     }
     ChooseBlendMode(splashBlend);
-    SetState(kAlphaRef, 0);
-    SetState(kAddressMode0, 0);
-    static_cast<textureRef*>(splashTexture)->Set(0);
+    ChangePhase(kAlphaRef, 0);
+    ChangePhase(kAddressMode0, 0);
+    static_cast<textureRef*>(splashTexture)->AssignValue(0);
     SetPixelShader(nullptr, nullptr);
-    Device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-    Device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
+    InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
+    InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     struct Vertex {
         float x, y, z;
@@ -435,11 +435,11 @@ void CPcWeather::RenderSplashes(float x, float z)
     }
     uint32_t triangles = used / 6 / 3;
     if (triangles) {
-        Device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, quads, 0x18);
+        InputPort()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, quads, 0x18);
         CountDraw(triangles);
     }
-    Device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    Device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
 
 // 0x004CD1A0
@@ -470,22 +470,22 @@ void CPcWeather::TickGrid()
     originX = static_cast<float>(minX << 7);
     width = maxX - minX + 1;
     originZ = static_cast<float>(minZ << 7);
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_topDownHeap);
-    auto* grid = static_cast<uint8_t*>(MemSys::New(static_cast<uint32_t>(width * depth)));
-    MemSys::Manager::Get()->LeaveHeapScope();
+    auto* grid = static_cast<uint8_t*>(MemSys::Alloc(static_cast<uint32_t>(width * depth)));
+    MemSys::Hub::Pull()->LeaveHeapScope();
     CProbeRay feeler;
-    feeler.Construct();
+    feeler.MakeNew();
     int levels = 0;
     int* level = heights; // (no limit on the levels, as the original: past 256 they run on over the fields after)
     for (int z = minZ, r = 0; z <= maxZ; ++z, ++r) {
         float atZ = static_cast<float>(z << 7);
         for (int x = minX; x <= maxX; ++x) {
             int index = width * r - minX + x;
-            Maths::Vector at = {static_cast<float>(x << 7), 50000.0f, atZ, 1.0f};
-            feeler.SetStart(&at);
+            Maths::Vec4 at = {static_cast<float>(x << 7), 50000.0f, atZ, 1.0f};
+            feeler.ChangeOrigin(&at);
             at.y = -50000.0f;
-            feeler.SetEnd(&at);
+            feeler.ChangeFinish(&at);
             int height = feeler.GetHitShape(false, false) ? Ftol(static_cast<double>(feeler.m_contactPos.y) * 16.0f)
                                                            : kNoGround;
             int found = -1;
@@ -544,7 +544,7 @@ void CPcWeather::TickGrid()
             rows[r] = {0x4000, 0, 0};
         }
     }
-    MemSys::Manager::Get()->Free(grid);
+    MemSys::Hub::Pull()->Dealloc(grid);
     for (int i = 0; i < 0x400; ++i) {
         stage[i] = 0xFF;
         offsetX[i] = static_cast<uint8_t>(Maths::Rnd(0xFF));
@@ -554,22 +554,22 @@ void CPcWeather::TickGrid()
     next = 0x19B;
     splashTexture = nullptr;
     auto* dictionary = reinterpret_cast<void*>(g_particleTextureDict);
-    auto* splash = reinterpret_cast<uint8_t*>(static_cast<CTextureSet*>(dictionary)->GetTexture(0x45C7EB0F));
+    auto* splash = reinterpret_cast<uint8_t*>(static_cast<CTextureSet*>(dictionary)->FetchSkin(0x45C7EB0F));
     if (splash)
         splashTexture = splash[8] & 1 ? **reinterpret_cast<void***>(splash + 0x10) : *reinterpret_cast<void**>(splash + 0x10);
     auto* snow = reinterpret_cast<uint8_t*>(
-        static_cast<CTextureSet*>(reinterpret_cast<void*>(g_particleTextureDict))->GetTexture(0xC97C5A4C));
+        static_cast<CTextureSet*>(reinterpret_cast<void*>(g_particleTextureDict))->FetchSkin(0xC97C5A4C));
     if (snow)
         snowTexture = snow[8] & 1 ? **reinterpret_cast<void***>(snow + 0x10) : *reinterpret_cast<void**>(snow + 0x10);
     active = true;
     std::memset(splashFrames, 0, sizeof(splashFrames));
     nextSplash = 0;
-    feeler.m_object.Release();
+    feeler.m_entity.Release();
 }
 
 namespace {
-static VtableSlot kWeatherVtable_slots[] = {&Engine3D::CPcWeather::Destroy, &Engine3D::CPcWeather::TickGrid,
-                &Engine3D::CPcWeather::Update, &Engine3D::CPcWeather::Render, &Engine3D::CPcWeather::SetRainBlendMode,
+static VtableSlot kWeatherVtable_slots[] = {&Engine3D::CPcWeather::Teardown, &Engine3D::CPcWeather::TickGrid,
+                &Engine3D::CPcWeather::TickFrame, &Engine3D::CPcWeather::Render, &Engine3D::CPcWeather::SetRainBlendMode,
                 &Engine3D::CPcWeather::SetSplashBlendMode, &Engine3D::CPcWeather::SetSnowBlendMode};
 void** const kWeatherVtable = reinterpret_cast<void**>(kWeatherVtable_slots);
 } // namespace

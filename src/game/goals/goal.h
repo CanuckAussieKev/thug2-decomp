@@ -32,7 +32,7 @@ class CObjectiveNpc;
 // these; a child's link is marked when that child is won (Win, 0x005576D0).
 struct GoalLink {
     uint32_t m_objectiveKey;  // +0x00 (0: the list's first link, not yet used)
-    GoalLink* m_next;   // +0x04
+    GoalLink* m_succ;   // +0x04
     bool m_won;         // +0x08
     uint8_t m_pad09[3];
 };
@@ -41,12 +41,12 @@ static_assert(sizeof(GoalLink) == 0xC, "layout must match the original");
 class CObjective {
 public:
     // The vtable slots (CObjective's own entries at 0x0064DDD0).
-    enum Slot : uint32_t {
+    enum Bay : uint32_t {
         kVtDestroy = 0x00,         // 0x005566A0 (flags; bit 0: free) - returns this
         kVtShouldExpire = 0x04,    // 0x00556230
         kVtIsExpired = 0x08,       // 0x00554CD0
         kVtIsActive = 0x0C,        // 0x00553F90
-        kVtIsActive2 = 0x10,       // 0x004A10A0 (a jump to IsActive's slot: not in this range)
+        kVtIsActive2 = 0x10,       // 0x004A10A0 (a jump to IsOperative's slot: not in this range)
         kVtExpire = 0x14,          // 0x00554F40
         kVtLoadSaveData = 0x18,    // 0x00554610
         kVtGetSaveData = 0x1C,     // 0x00554770
@@ -74,7 +74,7 @@ public:
         kVtUnBeat = 0x74,          // 0x00555930
     };
 
-    // +0x6C (m_flags)
+    // +0x6C (m_flagBits)
     enum Flags : uint8_t {
         kFlagInitialized = 0x01,       // Init / Uninitialize
         kFlagSeen = 0x02,              // the player has started it (hasSeen)
@@ -85,7 +85,7 @@ public:
         kFlagDeactivateOnExpire = 0x40,
         kFlagEndOfRunStarted = 0x80,   // the skater's end of run started by the goal (HasRunOut)
     };
-    // +0x6D (m_state)
+    // +0x6D (m_curPhase)
     enum State : uint8_t {
         kStateActive = 0x01,
         kState02 = 0x02,           // (read by 0x005543E0, never set in this range)
@@ -97,7 +97,7 @@ public:
                                    // while not in a list; Deactivate unlinks it)
     CObjectiveNpc* m_ped;               // +0x14: the goal's pro (0x14 bytes)
     uint32_t m_inherited;          // +0x18: passed to the children (2: single_timer, 4: retry_stage)
-    Scripts::CStruct* m_params;     // +0x1C
+    Scripts::CStruct* m_args;     // +0x1C
     Scripts::CStruct* m_goalFlags;  // +0x20: goal_flags, each an integer (1: set); skater_flags: a structure each
     int m_runEnding;              // +0x24: 0 the goal's own end of run (GoalRunDone...), 1 the normal one
     GoalLink* m_subNodes;          // +0x28
@@ -117,8 +117,8 @@ public:
     int m_elapsed;                 // +0x60: ms since activated
     int m_unknown64;               // +0x64 (-1)
     int m_unknown68;               // +0x68 (-1)
-    uint8_t m_flags;               // +0x6C (Flags)
-    uint8_t m_state;               // +0x6D (State)
+    uint8_t m_flagBits;               // +0x6C (Flags)
+    uint8_t m_curPhase;               // +0x6D (State)
     uint8_t m_pad6E[2];
 
     void** Vtable() const { return m_listLink.vtable; }
@@ -128,7 +128,7 @@ public:
     void PassInheritedFlags(int depth);
     void ClearChildWins();
     // 0x00553E90
-    Scripts::CStruct* GetParams();
+    Scripts::CStruct* FetchArgs();
     // 0x00553EA0: the timer from time (120 if none) seconds, plus 20 ms - unless unlimited_Time is 1.
     void ResetTimer();
     // 0x00553F10 / 0x00553F20 / 0x00553F30: the time left set (seconds, no extra 20 ms) / read (ms) / added to.
@@ -136,16 +136,16 @@ public:
     int GetSecondsRemaining();
     void AdvanceClock(int seconds);
     // 0x00553F50 / 0x00553F60 (vtable +0x30 / +0x38): the active bit.
-    void SetActive();
+    void ChangeLive();
     void ClearEngagedBit();
     // 0x00553F70: `params` added to the goal's parameters. False.
     bool RewriteArgs(Scripts::CStruct* params);
     // 0x00553F90 (vtable +0x0C)
-    bool IsActive();
+    bool IsOperative();
     // 0x00553FA0
     bool HasSeen();
     // 0x00553FB0 / 0x00553FC0
-    void Pause();
+    void Freeze();
     void UnPause();
     // 0x00553FD0: goal flag `flag` (of the skater_flags structure `sub`, if any) is there and equals `value`.
     bool BitMatches(uint32_t flag, int value, uint32_t sub);
@@ -158,7 +158,7 @@ public:
     // 0x005541E0: goal flag `flag` (of `sub`'s structure, if any) is non-zero (asserted).
     bool BitIsOn(uint32_t flag, uint32_t sub);
     // 0x00554220: locked (its own lock, or its group's - the goal manager's).
-    bool IsLocked();
+    bool IsLatched();
     // 0x00554250 / 0x00554260 / 0x00554270: the Graffiti, special and tetris flags.
     bool IsGraffiti();
     bool IsSpecial();
@@ -171,7 +171,7 @@ public:
     // 0x005542C0 (vtable +0x5C): won, or one of its children's links marked.
     bool HasWonGoalOrChild();
     // 0x005542F0
-    bool IsSelected();
+    bool IsPicked();
     // 0x005519F0 (vtable +0x60): initialised (Init, until Uninitialize).
     bool IsPrepared();
     // 0x00554320: number_collected counted up (goal_update_counter run with use_hud_counter).
@@ -184,8 +184,8 @@ public:
     bool HasProsetPrefix(const char* prefix);
     // 0x00554430 / 0x00554440 / 0x00554450
     void MarkViewed();
-    void Select();
-    void Deselect();
+    void ChooseOne();
+    void Unpick();
     // 0x00554460 (vtable +0x64): can_retry_goal.
     bool MayTryAgain();
     // 0x00554470: current_time 0. 0x00554480: unless paused, current_time counted up by the frame (ms), and its
@@ -200,7 +200,7 @@ public:
     bool IsOnlineObjective();
     bool IsContestObjective();
     // 0x00554560 (vtable +0x48)
-    bool IsPaused();
+    bool IsFrozen();
     // 0x00554570: view_goals_text.
     bool GetObjectiveListCaption(const char** text);
     // 0x00554590
@@ -237,7 +237,7 @@ public:
     // 0x00554AC0 / 0x00554B40: a parent / child linked (the list's first link reused while it has no goal; a child
     // only once). A failed allocation writes through null, as the original.
     void AttachUpperLink(uint32_t id);
-    void AddChild(uint32_t id);
+    void AttachChild(uint32_t id);
     // 0x00554BD0: uninitialized (deactivated first if active; the uninit script); with `children`, every child too.
     void Uninitialize(bool children, int depth);
     // 0x00554C70 (vtable +0x40): lost - the fail script, deactivated. False if it wasn't active.
@@ -251,7 +251,7 @@ public:
     bool WantsToEnd();
     // 0x00554DD0 (vtable +0x44): while active and not paused: the active script, the timer (and its beeps under
     // ten seconds), require_combo's combo_started, expired. True.
-    bool Update();
+    bool TickFrame();
     // 0x00554F40 (vtable +0x14): the expire script; deactivated if it's to be on expiring.
     void Expire();
     // 0x00554F90: gap `gap` is one of required_gaps (and required_trick_name, if any, has been done: by its name or
@@ -298,17 +298,17 @@ public:
     // links' first entries, the career's level, group_number, the goal flags, single_timer / retry_stage (passed to
     // the children), skater, locked by unlocked_by_another / pro_goal. (m_inherited isn't cleared first, as the
     // original.) Returns this.
-    CObjective* Construct(Scripts::CStruct* params);
+    CObjective* MakeNew(Scripts::CStruct* params);
     // 0x00556110: the destructor body: the destroy script, the pro, the structures, the links freed, the node
     // unlinked. 0x005566A0 (vtable +0x00): the scalar deleting destructor.
     void DestroyBody();
-    CObjective* Destroy(uint8_t flags);
-    // 0x005560D0: the destructor of the goal's list node (ListKit::Node<CObjective>, vtable 0x0064DDCC): unlinked; freed with
+    CObjective* Teardown(uint8_t flags);
+    // 0x005560D0: the destructor of the goal's list node (ListKit::Elem<CObjective>, vtable 0x0064DDCC): unlinked; freed with
     // flags bit 0.
     CObjective* DestroyNode(uint8_t flags);
     // 0x00557270: initialized: the difficulty level's parameters, the init script, the trick texts, unlimited_Time,
     // dont_deactivate_upon_expiration (in the bottom-up heap).
-    void Init();
+    void PrepareAll();
     // 0x00556F90: the difficulty level's parameters added (and the goal flags made again).
     void MergeSkillTierArgs();
     // 0x00557360 (vtable +0x2C): started (if not active): counted, reset_score, the timer (a child with
@@ -318,7 +318,7 @@ public:
     // 0x00557560 (vtable +0x34): stopped (if active): special's key combos dropped, inactive, the goal flags reset
     // (unless kept), the deactivate script, testing_goal; not won: the skater readied, and with `resetTree` the root
     // made ready again; unlinked. (`unused` isn't read.) False if it wasn't active.
-    bool Deactivate(bool unused, bool resetTree);
+    bool Disengage(bool unused, bool resetTree);
     // 0x005576D0 (vtable +0x3C): won. With a child: the child started instead. Otherwise the record (score - the
     // custom one, high combo or total - or time), the rewards (first win, not in a net game), the success script,
     // deactivated, marked won, the cash / chapter (career) or the counter (classic). True.
@@ -366,12 +366,12 @@ public:
     // has), key_combos set to it, the texts redone. Whether it was new.
     bool AwardSpecialTrick();
 };
-static_assert(offsetof(CObjective, m_ped) == 0x14 && offsetof(CObjective, m_params) == 0x1C &&
+static_assert(offsetof(CObjective, m_ped) == 0x14 && offsetof(CObjective, m_args) == 0x1C &&
                   offsetof(CObjective, m_runEnding) == 0x24 && offsetof(CObjective, m_subNodes) == 0x28 &&
                   offsetof(CObjective, m_skater) == 0x30 && offsetof(CObjective, m_bundle) == 0x38 &&
                   offsetof(CObjective, m_timesStarted) == 0x44 && offsetof(CObjective, m_secondsRemaining) == 0x50 &&
                   offsetof(CObjective, m_numFlags) == 0x58 && offsetof(CObjective, m_elapsed) == 0x60 &&
-                  offsetof(CObjective, m_flags) == 0x6C && offsetof(CObjective, m_state) == 0x6D && sizeof(CObjective) == 0x70,
+                  offsetof(CObjective, m_flagBits) == 0x6C && offsetof(CObjective, m_curPhase) == 0x6D && sizeof(CObjective) == 0x70,
               "layout must match the original");
 
 // A goal's virtual function at vtable offset `slot` (the game's table).

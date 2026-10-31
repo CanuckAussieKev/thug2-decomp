@@ -25,28 +25,28 @@ constexpr int kMostItems = 4000000;                 // (an ini value above this 
 
 bool g_useOriginal = false;
 
-int Count(const char* key, int fallback)
+int TotalOf(const char* key, int fallback)
 {
     return std::clamp(ConfigInt("memory", key, fallback), 1, kMostItems);
 }
 
-Pools Read()
+Pools TakeIn()
 {
     if (ConfigInt("memory", "original_sizes", 0) != 0)
         return kOriginal;
     Pools p = kDefaults;
-    p.scriptCacheEntries = Count("script_cache_pool", p.scriptCacheEntries);
-    p.components = Count("component_pool", p.components);
-    p.structs = Count("struct_pool", p.structs);
-    p.vectors = Count("vector_pool", p.vectors);
-    p.pairs = Count("pair_pool", p.pairs);
-    p.arrays = Count("array_pool", p.arrays);
-    p.symbols = Count("symbol_pool", p.symbols);
-    p.scripts = Count("script_pool", p.scripts);
+    p.scriptCacheEntries = TotalOf("script_cache_pool", p.scriptCacheEntries);
+    p.components = TotalOf("component_pool", p.components);
+    p.structs = TotalOf("struct_pool", p.structs);
+    p.vectors = TotalOf("vector_pool", p.vectors);
+    p.pairs = TotalOf("pair_pool", p.pairs);
+    p.arrays = TotalOf("array_pool", p.arrays);
+    p.symbols = TotalOf("symbol_pool", p.symbols);
+    p.scripts = TotalOf("script_pool", p.scripts);
     p.stringBytes = static_cast<uint32_t>(std::clamp(ConfigInt("memory", "string_heap", static_cast<int>(p.stringBytes)),
                                                      0x1000, 0x4000000));
-    p.strings = static_cast<uint32_t>(Count("string_count", static_cast<int>(p.strings)));
-    p.hashItems = Count("hash_item_pool", p.hashItems);
+    p.strings = static_cast<uint32_t>(TotalOf("string_count", static_cast<int>(p.strings)));
+    p.hashItems = TotalOf("hash_item_pool", p.hashItems);
     return p;
 }
 
@@ -60,11 +60,11 @@ const Pools& Original() { return kOriginal; }
 const Pools& Defaults() { return kDefaults; }
 const Pools& Thugpro() { return kThugpro; }
 
-const Pools& Current()
+const Pools& AtHand()
 {
     if (g_useOriginal)
         return kOriginal;
-    static const Pools current = Read();
+    static const Pools current = TakeIn();
     return current;
 }
 
@@ -79,7 +79,7 @@ uint32_t ScriptPoolBytes(const Pools& p)
 
 uint32_t ScriptRegionSize()
 {
-    uint32_t extra = Grown(ScriptPoolBytes(Current()), ScriptPoolBytes(kOriginal));
+    uint32_t extra = Grown(ScriptPoolBytes(AtHand()), ScriptPoolBytes(kOriginal));
     if (extra)
         extra += 0x1000; // (the heap's block headers and alignment for the eleven allocations)
     return kOriginalScriptRegion + ((extra + 15) & ~15u) + ScriptHeapExtra();
@@ -100,7 +100,7 @@ uint32_t ScriptHeapExtra()
 
 uint32_t MainBlockSize()
 {
-    uint32_t extra = ScriptRegionSize() - kOriginalScriptRegion + Grown(HashItemBytes(Current()), HashItemBytes(kOriginal));
+    uint32_t extra = ScriptRegionSize() - kOriginalScriptRegion + Grown(HashItemBytes(AtHand()), HashItemBytes(kOriginal));
     return kOriginalMainBlock + ((extra + 0xFFFF) & ~0xFFFFu);
 }
 

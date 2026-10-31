@@ -8,7 +8,7 @@
 #include "game/mth/vector.h"
 #include "game/obj/smtptr.h"
 
-// GameObjects::CObject, the base of every game object (0x4C bytes; CGameEntity and its components build on it), and
+// GameObjects::CEntity, the base of every game object (0x4C bytes; CGameEntity and its components build on it), and
 // the managers that own objects (CObjectHubBase / CMiscHub, objman.h).
 //
 // An object has an id (a name checksum, the name scripts write before ':' - `id:Obj_Func`) and a type, both also
@@ -20,7 +20,7 @@
 // manager walk's callbacks: __cdecl). The member functions scripts call (Obj_SetFlag...) are entries of the member
 // function table at 0x00683550 (0x18 bytes each: the name, the component type 0x57525413 - "the object itself" - and
 // a member function pointer, filled in by 0x00642940); 0x0045D850 (the object's vtable +0x08) calls them as
-// `bool (CObject::*)(CStruct* params, CScript* script)`.
+// `bool (CEntity::*)(CStruct* params, CScript* script)`.
 namespace Scripts {
 class CArray;
 class CScript;
@@ -32,7 +32,7 @@ namespace GameObjects {
 
 class CObjectModule;
 class CObjectHubBase;
-class CObject;
+class CEntity;
 struct CSignal;
 
 // A second smart-pointer target in each object (CSharedBase, vtable 0x006477E0, +0x08 the object): the pointers to
@@ -43,19 +43,19 @@ public:
     // 0x00460920: the destructor body (a jump to ~CSharedBase 0x00463870).
     void DestroyBody();
     // 0x00460AF0: the scalar deleting destructor.
-    CObjectRef* Destroy(unsigned int flags);
+    CObjectRef* Teardown(unsigned int flags);
 
-    CObject* m_ownerObject;
+    CEntity* m_ownerObject;
 };
 static_assert(sizeof(CObjectRef) == 0xC, "layout must match the original");
 
-// An object's node in its manager's list (ListKit::Node<CObject>, vtable 0x006477E4; data = the object, priority =
+// An object's node in its manager's list (ListKit::Elem<CEntity>, vtable 0x006477E4; data = the object, priority =
 // the list's sort key: the highest first).
 struct CObjectNode : MemSys::ListNode {
     // 0x00460B20: the destructor body: out of its list (and linked to itself).
     void DestroyBody();
     // 0x00460B40: the scalar deleting destructor.
-    CObjectNode* Destroy(unsigned int flags);
+    CObjectNode* Teardown(unsigned int flags);
 };
 
 // m_objectFlags (+0x08)
@@ -69,21 +69,21 @@ constexpr uint32_t OBJECT_FLAG_SPAWN_HANDLERS = 0x10000; // its event handlers r
 constexpr uint32_t kUnassignedId = 0xFFFFFFFF;
 constexpr uint32_t kNoObjectType = 0;
 
-class CObject : public CSharedBase {
+class CEntity : public CSharedBase {
 public:
     // 0x00460B80: the constructor (returns this): vtable 0x006477E8, no id, no type, no manager, no script, no tags.
-    // m_flags (+0x24) is not initialised.
-    CObject* Construct();
+    // m_flagBits (+0x24) is not initialised.
+    CEntity* MakeNew();
     // 0x004615D0: the destructor body: tags freed, unregistered from the manager, its script's on-exit scripts
     // dropped and the script deleted, every script using the object stopped, then the smart pointers to it cleared.
     void DestroyBody();
     // 0x00461900: the scalar deleting destructor (vtable slot 0).
-    CObject* Destroy(unsigned int flags);
+    CEntity* Teardown(unsigned int flags);
 
     // --- the vtable's other slots (0x006477E8) ---
     // 0x00461710 (slot 1, the member function SetProps): event_handlers (with replace_handlers), tags (added) and
     // remove_tags from `params`.
-    void SetProperties(Scripts::CStruct* params);
+    void ChangeTraits(Scripts::CStruct* params);
     // 0x004608F0 (slot 3): a member function by name: SetProps (0x6C63C7C5) runs slot 1, Die (0xC6870028) slot 6.
     // Always true - also for names it doesn't know.
     bool InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
@@ -100,9 +100,9 @@ public:
     // 0x00460930: delete itself unless it is locked (no callers; the walks use the free DisposeWhenFree).
     void DisposeWhenFree();
     // Slot 0 through the vtable (subclasses' destructors).
-    CObject* VirtualDestroy(unsigned int flags)
+    CEntity* VirtualDestroy(unsigned int flags)
     {
-        return reinterpret_cast<CObject*(__thiscall*)(CObject*, unsigned int)>(m_vtable[0])(this, flags);
+        return reinterpret_cast<CEntity*(__thiscall*)(CEntity*, unsigned int)>(m_vtable[0])(this, flags);
     }
 
     // --- script ---
@@ -124,13 +124,13 @@ public:
     // 0x004609F0: an event of `type` from the object to itself.
     void PostOwnEvent(uint32_t type, Scripts::CStruct* data);
     // 0x00460A20: an event of `type` from the object to every listener. `radius` isn't used (-1).
-    void BroadcastEvent(uint32_t type, Scripts::CStruct* data, float radius);
+    void Announce(uint32_t type, Scripts::CStruct* data, float radius);
 
     // --- id, type, tags ---
     // 0x00461930: the new id (the manager is told first if it had one), also as the tag id.
-    void SetID(uint32_t id);
+    void ChangeSerial(uint32_t id);
     // 0x00461970: the type, also as the tag type.
-    void SetType(uint32_t type);
+    void ChangeSpecies(uint32_t type);
     // 0x004611E0: an empty tag structure if it has none (on the front-end heap).
     void CreateTagsIfNeeded();
     // 0x004616B0 / 0x004616D0: a tag as an integer / a checksum. 0x004616F0: add `tags`' components.
@@ -144,7 +144,7 @@ public:
     // tags or no such tag.
     bool GetTag(Scripts::CStruct* params, Scripts::CStruct* dest);
     // 0x00460D90: copies of the tags named in `names` (the last name first) added to `dest`. True.
-    bool GetTags(Scripts::CArray* names, Scripts::CStruct* dest);
+    bool FetchLabels(Scripts::CArray* names, Scripts::CStruct* dest);
     // 0x004607B0: remove the flag `flag` from the tags (none: nothing).
     void RemoveTagFlag(uint32_t flag);
     // 0x004607C0 / 0x004607E0: the tag `name` as an integer / a checksum (no tags, or none such: false).
@@ -166,7 +166,7 @@ public:
     bool Obj_Visible(Scripts::CStruct* params, Scripts::CScript* script);           // 0x004608D0
     bool Obj_Invisible(Scripts::CStruct* params, Scripts::CScript* script);         // 0x004608E0
     bool Obj_GetId(Scripts::CStruct* params, Scripts::CScript* script);             // 0x00460940
-    bool Obj_GetTags(Scripts::CStruct* params, Scripts::CScript* script);           // 0x00460EB0 (GetTags)
+    bool Obj_GetTags(Scripts::CStruct* params, Scripts::CScript* script);           // 0x00460EB0 (FetchLabels)
     bool Obj_GetSingleTag(Scripts::CStruct* params, Scripts::CScript* script);      // 0x00460FB0 (GetSingleTag)
     bool Obj_GetNamedTags(Scripts::CStruct* params, Scripts::CScript* script);      // 0x00460FC0 (0xEEEB7220)
     bool Obj_RemoveTags(Scripts::CStruct* params, Scripts::CScript* script);        // 0x00460FF0 (RemoveTags)
@@ -182,54 +182,54 @@ public:
     uint32_t m_objectFlags;        // +0x08 OBJECT_FLAG_*
     CObjectHubBase* m_parkOwner;      // +0x0C the manager it is registered with
     Scripts::CScript* m_runScript;     // +0x10 its own script (made on demand)
-    uint32_t m_id;                 // +0x14 kUnassignedId until registered
-    uint32_t m_type;               // +0x18
+    uint32_t m_ident;                 // +0x14 kUnassignedId until registered
+    uint32_t m_kindTag;               // +0x18
     uint32_t m_visitedMask;        // +0x1C CObjectHubBase::ForEach's bits (one per walk in progress)
     Scripts::CStruct* m_tagTable;      // +0x20 made on demand (front-end heap)
-    uint32_t m_flags;              // +0x24 the script flags (Obj_SetFlag...; never initialised here)
+    uint32_t m_flagBits;              // +0x24 the script flags (Obj_SetFlag...; never initialised here)
     CObjectNode m_listLink;            // +0x28 in the manager's list (or its dead list)
     uint32_t m_aliasCount;         // +0x3C the tracker's aliases of it (tracker.cpp)
     CObjectRef m_ref;              // +0x40
 };
-static_assert(offsetof(CObject, m_objectFlags) == 0x08 && offsetof(CObject, m_parkOwner) == 0x0C &&
-                  offsetof(CObject, m_runScript) == 0x10 && offsetof(CObject, m_id) == 0x14 &&
-                  offsetof(CObject, m_type) == 0x18 && offsetof(CObject, m_visitedMask) == 0x1C &&
-                  offsetof(CObject, m_tagTable) == 0x20 && offsetof(CObject, m_flags) == 0x24 &&
-                  offsetof(CObject, m_listLink) == 0x28 && offsetof(CObject, m_aliasCount) == 0x3C &&
-                  offsetof(CObject, m_ref) == 0x40 && sizeof(CObject) == 0x4C,
+static_assert(offsetof(CEntity, m_objectFlags) == 0x08 && offsetof(CEntity, m_parkOwner) == 0x0C &&
+                  offsetof(CEntity, m_runScript) == 0x10 && offsetof(CEntity, m_ident) == 0x14 &&
+                  offsetof(CEntity, m_kindTag) == 0x18 && offsetof(CEntity, m_visitedMask) == 0x1C &&
+                  offsetof(CEntity, m_tagTable) == 0x20 && offsetof(CEntity, m_flagBits) == 0x24 &&
+                  offsetof(CEntity, m_listLink) == 0x28 && offsetof(CEntity, m_aliasCount) == 0x3C &&
+                  offsetof(CEntity, m_ref) == 0x40 && sizeof(CEntity) == 0x4C,
               "layout must match the original (CCompositeObject's fields start at 0x4C)");
 
 // The object with the id `id` (the tracker 0x006F0FC0's 0x00462120), or null.
 // 0x00460AD0 (cdecl).
-CObject* FindObject(uint32_t id);
+CEntity* FindObject(uint32_t id);
 
 // The manager walk's callbacks (ForEach, cdecl; `data` unused).
 // 0x00460AC0: unlock the object.
-void Unlock(CObject* object, void* data);
+void Unlock(CEntity* object, void* data);
 // 0x00460AA0: delete the object unless it is locked.
-void DisposeWhenFree(CObject* object, void* data);
+void DisposeWhenFree(CEntity* object, void* data);
 
 class CGameEntity;
 
 // One of a composite object's components (GameObjects::CObjectModule, vtable 0x00647618 in the base; composite.cpp). A
-// component belongs to one object (m_object) and is linked into its list (+0x10) and into the composite object
+// component belongs to one object (m_entity) and is linked into its list (+0x10) and into the composite object
 // manager's list of the components of its type (+0x14; 0x006F0FB8, wt/coim's 0x0045F3E0 / 0x0045F420).
 //
 // The vtable's slots (from their callers): +0x00 the scalar deleting destructor; +0x04 Update; +0x08
 // ConfigureFromData(params); +0x0C Finalize; +0x10 its object is being marked dead; +0x18 a script waiting on it
-// (cscript_wait.cpp); +0x1C Suspend(bool); +0x20 Hide(bool); +0x24 Teleport; +0x2C a member function table entry
+// (cscript_wait.cpp); +0x1C HoldOff(bool); +0x20 Conceal(bool); +0x24 Teleport; +0x2C a member function table entry
 // (0x0045D720: by its name, +0x30); +0x30 a member function by name: 0 = false, 1 = true, 2 = not one of its own.
 class CObjectModule {
 public:
     // 0x0045D730: the constructor (returns this): the base vtable, no flags.
-    CObjectModule* Construct();
+    CObjectModule* MakeNew();
     // 0x0045D740: the destructor body: if a script waited on it, every script lets go of it
     // (ComponentDestroyedAllScripts).
     void DestroyBody();
     // 0x0045D780: the scalar deleting destructor (the base's vtable slot 0).
-    CObjectModule* Destroy(unsigned int flags);
+    CObjectModule* Teardown(unsigned int flags);
     // 0x0045D760 (vtable +0x1C): suspended or not (a suspended component isn't updated).
-    void Suspend(bool suspend);
+    void HoldOff(bool suspend);
     // 0x0045D720 (vtable +0x2C): a member function table entry, run by its name (vtable +0x30) - a component
     // ignores the entry's member function pointer.
     int InvokeMethodByName(Scripts::CMemberFunctionEntry* entry, Scripts::CStruct* params, Scripts::CScript* script);
@@ -242,18 +242,18 @@ public:
     {
         return reinterpret_cast<CObjectModule*(__thiscall*)(CObjectModule*, unsigned int)>(m_vtable[0])(this, flags);
     }
-    void Update() { reinterpret_cast<void(__thiscall*)(CObjectModule*)>(m_vtable[1])(this); }
+    void TickFrame() { reinterpret_cast<void(__thiscall*)(CObjectModule*)>(m_vtable[1])(this); }
     void ConfigureFromData(Scripts::CStruct* params)
     {
         reinterpret_cast<void(__thiscall*)(CObjectModule*, Scripts::CStruct*)>(m_vtable[2])(this, params);
     }
-    void Finalize() { reinterpret_cast<void(__thiscall*)(CObjectModule*)>(m_vtable[3])(this); }
+    void Seal() { reinterpret_cast<void(__thiscall*)(CObjectModule*)>(m_vtable[3])(this); }
     void ObjectMarkedDead() { reinterpret_cast<void(__thiscall*)(CObjectModule*)>(m_vtable[4])(this); }
     void VirtualSuspend(bool suspend)
     {
         reinterpret_cast<void(__thiscall*)(CObjectModule*, bool)>(m_vtable[7])(this, suspend);
     }
-    void Hide(bool hide) { reinterpret_cast<void(__thiscall*)(CObjectModule*, bool)>(m_vtable[8])(this, hide); }
+    void Conceal(bool hide) { reinterpret_cast<void(__thiscall*)(CObjectModule*, bool)>(m_vtable[8])(this, hide); }
     void JumpTo() { reinterpret_cast<void(__thiscall*)(CObjectModule*)>(m_vtable[9])(this); }
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
     {
@@ -262,18 +262,18 @@ public:
     }
 
     void** m_vtable;
-    uint32_t m_type;                // +0x04 its component type (a checksum)
-    uint32_t m_flags;               // +0x08 COMPONENT_FLAG_*
-    CGameEntity* m_object;     // +0x0C
+    uint32_t m_kindTag;                // +0x04 its component type (a checksum)
+    uint32_t m_flagBits;               // +0x08 COMPONENT_FLAG_*
+    CGameEntity* m_entity;     // +0x0C
     CObjectModule* m_following;        // +0x10 the next of its object's components
     CObjectModule* mp_nextOfType;  // +0x14 the next of the manager's components of its type
 };
-static_assert(offsetof(CObjectModule, m_type) == 0x04 && offsetof(CObjectModule, m_flags) == 0x08 &&
-                  offsetof(CObjectModule, m_object) == 0x0C && offsetof(CObjectModule, m_following) == 0x10 &&
+static_assert(offsetof(CObjectModule, m_kindTag) == 0x04 && offsetof(CObjectModule, m_flagBits) == 0x08 &&
+                  offsetof(CObjectModule, m_entity) == 0x0C && offsetof(CObjectModule, m_following) == 0x10 &&
                   offsetof(CObjectModule, mp_nextOfType) == 0x14,
               "layout must match the original");
 
-// CObjectModule::m_flags (+0x08)
+// CObjectModule::m_flagBits (+0x08)
 constexpr uint32_t COMPONENT_FLAG_SUSPENDED = 0x1;
 constexpr uint32_t COMPONENT_FLAG_SCRIPT_WAITING = 0x2; // a script waited on it (SetWaitOnComponent)
 
@@ -290,44 +290,44 @@ constexpr uint32_t COMPOSITE_FLAG_DESTROYING = 0x80; // its destructor is runnin
 // level objects. It has a position, an orientation, a velocity and a display matrix; each frame its update runs
 // its own script, then its own update (vtable +0x28, for subclasses), then its components'.
 //
-// Its vtable (11 slots): CObject's, with 0 Destroy, 3 InvokeMethodByName (components first), 6 FlagAsDead
+// Its vtable (11 slots): CEntity's, with 0 Destroy, 3 InvokeMethodByName (components first), 6 FlagAsDead
 // (components told first), 7 ShouldUpdateScripts (not paused), and three more: +0x20 Finalize, +0x24
 // CreateComponentFromStructure, +0x28 its own update (empty here). Slot 5 (+0x14, PassEventToScript) stays
-// CObject's - in its three subclasses' vtables too (0x0064EC44, 0x0064EF48, 0x0064F138).
-class CGameEntity : public CObject {
+// CEntity's - in its three subclasses' vtables too (0x0064EC44, 0x0064EF48, 0x0064F138).
+class CGameEntity : public CEntity {
 public:
     // 0x0045E510: the constructor (returns this): at the origin (w = 1), identity matrices, no velocity, no
     // components, no flags; OBJECT_FLAG_HAS_POSITION. (m_oldPos isn't initialised.)
-    CGameEntity* Construct();
+    CGameEntity* MakeNew();
     // 0x0045D890: the destructor body: DESTROYING, each component (first to last) taken off the list, out of the
-    // manager's and deleted, then CObject's.
+    // manager's and deleted, then CEntity's.
     void DestroyBody();
     // 0x0045E620: the scalar deleting destructor (vtable slot 0).
-    CGameEntity* Destroy(unsigned int flags);
+    CGameEntity* Teardown(unsigned int flags);
 
     // 0x0045D920: one frame: unless paused, its script's Update and its own update (vtable +0x28) - both skipped
     // while suspended, and nothing more if that killed the object - then the Update of each component that isn't
-    // suspended (stopping if the object dies); then m_pos.w = 1 and TELEPORTED cleared.
-    void Update();
-    // 0x0045D990: hidden or not; when that changes, each component's Hide(hide).
-    void Hide(bool hide);
-    // 0x0045D9E0: suspended or not; when that changes, each component's Suspend(suspend).
-    void Suspend(bool suspend);
+    // suspended (stopping if the object dies); then m_atPoint.w = 1 and TELEPORTED cleared.
+    void TickFrame();
+    // 0x0045D990: hidden or not; when that changes, each component's Conceal(hide).
+    void Conceal(bool hide);
+    // 0x0045D9E0: suspended or not; when that changes, each component's HoldOff(suspend).
+    void HoldOff(bool suspend);
     // 0x0045DA30: `component` added at the end of the list, its object set, and registered with the composite
     // object manager.
-    void AddComponent(CObjectModule* component);
+    void AttachModule(CObjectModule* component);
     // 0x0045DA90: CreateComponentFromStructure (vtable +0x24) for each structure in `components`, with `extra`.
     void BuildModulesFromList(Scripts::CArray* components, Scripts::CStruct* extra);
     // 0x0045DAD0: name= (the id), the position and orientation (0x0045C050 / 0x0045C0B0), `permanent` (locked).
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x0045DB30 (vtable +0x20): every component's Finalize, FINALIZED, then every component's Teleport.
-    void Finalize();
+    void Seal();
     // 0x0045DB90: its component of `type`, or null.
-    CObjectModule* GetComponent(uint32_t type);
+    CObjectModule* FetchModule(uint32_t type);
     // 0x0045E450 (vtable +0x0C): a member function by name: each component's (+0x30) in turn until one says 0
-    // (false) or 1 (true), then CObject's.
+    // (false) or 1 (true), then CEntity's.
     bool InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
-    // 0x0045D7C0 (vtable slot 6): each component's +0x10, then CObject::FlagAsDead.
+    // 0x0045D7C0 (vtable slot 6): each component's +0x10, then CEntity::FlagAsDead.
     void FlagAsDead();
     // 0x0045E4C0: TELEPORTED; with `teleportComponents`, each component's Teleport too.
     void MarkJumpedAhead(bool teleportComponents);
@@ -349,7 +349,7 @@ public:
     bool GetSpeed(Scripts::CStruct* params, Scripts::CScript* script);                // 0x0045DC80
     bool Obj_Hide(Scripts::CStruct* params, Scripts::CScript* script);                // 0x0045DCD0 (Hide)
     bool Obj_Unhide(Scripts::CStruct* params, Scripts::CScript* script);              // 0x0045DD20 (Unhide)
-    bool Obj_IsHidden(Scripts::CStruct* params, Scripts::CScript* script);            // 0x0045DD70 (IsHidden)
+    bool Obj_IsHidden(Scripts::CStruct* params, Scripts::CScript* script);            // 0x0045DD70 (IsConcealed)
     bool Obj_MoveLocal(Scripts::CStruct* params, Scripts::CScript* script);           // 0x0045DD80 [0x10C1C887]
     bool Obj_Suspend(Scripts::CStruct* params, Scripts::CScript* script);             // 0x0045DED0 (Suspend)
     bool Obj_Unsuspend(Scripts::CStruct* params, Scripts::CScript* script);           // 0x0045DF20 (Unsuspend)
@@ -384,17 +384,17 @@ public:
             this, params, extra);
     }
 
-    Maths::Vector m_pos;             // +0x4C (w = 1 after every update)
-    Maths::Vector m_oldPos;          // +0x5C (not initialised here; the skater's code sets it)
-    Maths::Matrix m_basisFrame;          // +0x6C its orientation (rows: right, up, at, and a fourth)
-    Maths::Vector m_vel;             // +0xAC
+    Maths::Vec4 m_atPoint;             // +0x4C (w = 1 after every update)
+    Maths::Vec4 m_oldPos;          // +0x5C (not initialised here; the skater's code sets it)
+    Maths::Mat4 m_basisFrame;          // +0x6C its orientation (rows: right, up, at, and a fourth)
+    Maths::Vec4 m_vel;             // +0xAC
     uint8_t m_unknownBC;           // +0xBC (cleared by the constructor)
     uint8_t padBD[3];
-    Maths::Matrix m_displayMatrix;   // +0xC0
+    Maths::Mat4 m_displayMatrix;   // +0xC0
     CObjectModule* m_moduleList; // +0x100
     uint32_t m_compositeFlags;     // +0x104 COMPOSITE_FLAG_*
 };
-static_assert(offsetof(CGameEntity, m_pos) == 0x4C && offsetof(CGameEntity, m_oldPos) == 0x5C &&
+static_assert(offsetof(CGameEntity, m_atPoint) == 0x4C && offsetof(CGameEntity, m_oldPos) == 0x5C &&
                   offsetof(CGameEntity, m_basisFrame) == 0x6C && offsetof(CGameEntity, m_vel) == 0xAC &&
                   offsetof(CGameEntity, m_unknownBC) == 0xBC &&
                   offsetof(CGameEntity, m_displayMatrix) == 0xC0 &&

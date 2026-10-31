@@ -66,7 +66,7 @@ bool Same(const Props& a, const Props& b)
            (!a.hasFog || std::memcmp(a.fog, b.fog, sizeof(a.fog)) == 0) && _stricmp(a.sky.c_str(), b.sky.c_str()) == 0;
 }
 
-bool Empty(const Props& props) { return Same(props, Props{}); }
+bool Vacant(const Props& props) { return Same(props, Props{}); }
 
 bool ValidSky(const std::string& sky)
 {
@@ -82,11 +82,11 @@ bool ValidSky(const std::string& sky)
 }
 
 int Channel(int value) { return value < 0 ? 0 : value > 255 ? 255 : value; }
-int Distance(int value) { return value < 0 ? 0 : value > 100000 ? 100000 : value; }
+int SpanTo(int value) { return value < 0 ? 0 : value > 100000 ? 100000 : value; }
 
 std::string WriteRecord(const Props& props)
 {
-    if (Empty(props))
+    if (Vacant(props))
         return "";
     std::string line = "level";
     char text[96];
@@ -177,12 +177,12 @@ std::vector<std::pair<const char*, Fields::Value>> StructureValues(const Props& 
         v.kind = Fields::Kind::Integers;
         for (int i = 0; i < 4; ++i)
             v.list.push_back(static_cast<uint32_t>(Channel(props.fog[i])));
-        v.list.push_back(static_cast<uint32_t>(Distance(props.fog[4])));
+        v.list.push_back(static_cast<uint32_t>(SpanTo(props.fog[4])));
         out.push_back({"ed_fog", v});
     }
     if (ValidSky(props.sky)) {
         Fields::Value v;
-        v.kind = Fields::Kind::String;
+        v.kind = Fields::Kind::Chars;
         v.text = props.sky;
         out.push_back({"sky", v});
     }
@@ -204,7 +204,7 @@ bool Override(const Props& edited, const Props& level, Gfx2D::TODParams* params)
     params->fogGreen = Channel(fog->fog[1]);
     params->fogBlue = Channel(fog->fog[2]);
     params->fogAlpha = Channel(fog->fog[3]);
-    params->fogDist = Distance(fog->fog[4]);
+    params->fogDist = SpanTo(fog->fog[4]);
     return true;
 }
 
@@ -214,11 +214,11 @@ void ReadOverrideKeys(Scripts::CStruct* level, Props* out)
                           kFog = Checksums::HashFromText("ed_fog");
     auto read = [&](uint32_t key, int* values, uint32_t count) {
         Scripts::CArray* array = nullptr;
-        if (!level || !level->GetArray(key, &array, 0) || !array || array->m_type != Scripts::QBVAL_INTEGER ||
-            array->m_size != count)
+        if (!level || !level->FetchList(key, &array, 0) || !array || array->m_kindTag != Scripts::QBVAL_INTEGER ||
+            array->m_extent != count)
             return false;
         for (uint32_t i = 0; i < count; ++i)
-            values[i] = static_cast<int32_t>(array->GetElement(i));
+            values[i] = static_cast<int32_t>(array->FetchPart(i));
         return true;
     };
     out->hasAmbient = read(kAmbient, out->ambient, 3);
@@ -286,9 +286,9 @@ void ShowTimeOfDay(int tod)
 
 } // namespace
 
-const Props& Current() { return g_props; }
+const Props& AtHand() { return g_props; }
 
-void Set(const Props& props)
+void AssignValue(const Props& props)
 {
     int tod = props.tod;
     if (tod != g_props.tod && tod < 0) {
@@ -347,10 +347,10 @@ bool LevelDefaults(Props* props)
         return false;
     Props p;
     const char* name = nullptr;
-    if (level->GetString(Checksums::HashFromText("name"), &name, 0) && name)
+    if (level->FetchText(Checksums::HashFromText("name"), &name, 0) && name)
         p.name = name;
     const char* sky = nullptr;
-    if (level->GetString(Checksums::HashFromText("sky"), &sky, 0) && sky)
+    if (level->FetchText(Checksums::HashFromText("sky"), &sky, 0) && sky)
         p.sky = sky;
     uint32_t state = 0;
     p.tod = 1; // (load_level: afternoon when the level names none)
@@ -397,7 +397,7 @@ const std::vector<std::string>& Skies()
         uint32_t load = 0;
         // (a level structure: it names its load script - not some other structure with a sky=)
         if (e->type != Scripts::QBVAL_STRUCT || !e->structure || !e->structure->ReadHashValue(kLoadScript, &load, 0) ||
-            !e->structure->GetString(kSky, &sky, 0) || !sky || !ValidSky(sky))
+            !e->structure->FetchText(kSky, &sky, 0) || !sky || !ValidSky(sky))
             continue;
         bool there = false;
         for (const std::string& s : g_skies)
@@ -445,7 +445,7 @@ void RestoreStructure()
 void OnEditedCopyUp(const Props& props)
 {
     static const uint32_t kClass = Checksums::HashFromText("Class"), kRestart = Checksums::HashFromText("Restart");
-    Scripts::CStruct* node = props.start && LevelNodes::NodeManagerInstance() ? LevelNodes::GetNode(props.start, false)
+    Scripts::CStruct* node = props.start && LevelNodes::NodeManagerInstance() ? LevelNodes::FetchVertex(props.start, false)
                                                                               : nullptr;
     uint32_t cls = 0;
     if (!node || !node->ReadHashValue(kClass, &cls, 0) || cls != kRestart) {
@@ -453,7 +453,7 @@ void OnEditedCopyUp(const Props& props)
             Log("level editor: the edited copy's start %08X isn't a restart of this level - not used", props.start);
         return;
     }
-    Scripts::CStruct* params = Scripts::NewStruct()->Init();
+    Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
     params->PutNameKey(Checksums::HashFromText("node_name"), props.start);
     Scripts::LaunchScript(Checksums::HashFromText("ResetSkaters"), params, nullptr, false, "ResetSkaters");
     params->Clear();

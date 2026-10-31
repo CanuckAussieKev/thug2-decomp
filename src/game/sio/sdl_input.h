@@ -11,11 +11,11 @@
 // gamecontrollerdb.txt next to the exe adds controller mappings.
 //
 // Players: a controller becomes player 1 or 2 when one of its buttons is pressed (the second rumbles once and is
-// locked out until all its buttons are up). Port 0 also reads the keyboard. Each frame Sio::Device::Process
+// locked out until all its buttons are up). Port 0 also reads the keyboard. Each frame Sio::InputPort::WorkOn
 // fills the device's PS2-format control data from them.
 namespace Sio {
 
-class Device;
+class InputPort;
 
 struct InputSettings {
     uint8_t ps2Controls; // UsePS2Controls
@@ -28,16 +28,16 @@ InputSettings& TheInputSettings();
 // controller). Button glyphs depend on it.
 bool& UsingKeyboard();
 
-// Set input up (from Platform::InitInput): SDL's game controllers, the settings and bindings, the game's key
+// Set input up (from OsLayer::InitInput): SDL's game controllers, the settings and bindings, the game's key
 // binding table (0x007D6770, DirectInput codes, for the menus' hints), the event handler; with PS2 controls,
 // the IsPS2 script command (SystemCore::InstallIsPS2).
 void InitSdlInput();
 
-// A device's frame (Sio::Device::Process): pending events handled, then the control data from the keyboard
+// A device's frame (Sio::InputPort::WorkOn): pending events handled, then the control data from the keyboard
 // (port 0) and the port's controller.
-void ProcessSdlDevice(Device* device);
+void ProcessSdlDevice(InputPort* device);
 
-// Rumble on the controller playing as `port` (Platform::SetActuators): `high` and `low` frequency motors,
+// Rumble on the controller playing as `port` (OsLayer::SetActuators): `high` and `low` frequency motors,
 // 0-65535.
 void __cdecl SetSdlActuators(int port, uint16_t high, uint16_t low);
 

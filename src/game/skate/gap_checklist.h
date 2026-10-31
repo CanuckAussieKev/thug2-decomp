@@ -18,45 +18,45 @@ class CStruct;
 
 namespace GoalSystem {
 
-// One gap (0x50 bytes, vtable 0x0064EC7C; its node type ListKit::Node<CGapEntry>'s 0x0064EC78).
+// One gap (0x50 bytes, vtable 0x0064EC7C; its node type ListKit::Elem<CGapEntry>'s 0x0064EC78).
 struct CGapEntry {
     MemSys::ListNode m_listLink;          // data = the gap itself
-    Maths::Vector m_skaterStartPos;  // +0x14 where the gap menu puts the skater (SetGapPositions)
-    Maths::Vector m_skaterStartDir;  // +0x24
+    Maths::Vec4 m_skaterStartPos;  // +0x14 where the gap menu puts the skater (SetGapPositions)
+    Maths::Vec4 m_skaterStartDir;  // +0x24
     int m_pending;                 // +0x34 landed since the last award (RegisterGapHit)
-    int m_count;                   // +0x38 times landed
+    int m_num;                   // +0x38 times landed
     int m_pointsHeld;                   // +0x3C
     bool m_inLevel;                // +0x40 found by the last scan of the level's scripts
     uint8_t pad41[3];
-    TextUtil::String m_name;            // +0x44
+    TextUtil::Chars m_label;            // +0x44
 
     // 0x005786E0: an unlinked node, an empty name, never landed, in the level. Returns this.
-    CGapEntry* Construct();
+    CGapEntry* MakeNew();
     // 0x00579510: the name freed, the node unlinked (its node type's vtable). 0x005794E0: the scalar deleting
     // destructor.
     void DestroyBody();
-    CGapEntry* Destroy(unsigned int flags);
+    CGapEntry* Teardown(unsigned int flags);
 };
 static_assert(offsetof(CGapEntry, m_skaterStartPos) == 0x14 && offsetof(CGapEntry, m_pending) == 0x34 &&
-                  offsetof(CGapEntry, m_pointsHeld) == 0x3C && offsetof(CGapEntry, m_name) == 0x44 &&
+                  offsetof(CGapEntry, m_pointsHeld) == 0x3C && offsetof(CGapEntry, m_label) == 0x44 &&
                   sizeof(CGapEntry) == 0x50,
               "layout must match the original");
 
-// ListKit::Node<CGapEntry>'s destructors: 0x00578680 (unlinked, its vtable 0x0064EC78), 0x005786A0 and 0x005794B0 (two
+// ListKit::Elem<CGapEntry>'s destructors: 0x00578680 (unlinked, its vtable 0x0064EC78), 0x005786A0 and 0x005794B0 (two
 // scalar deleting destructors of it).
 struct CGapCheckNode {
     MemSys::ListNode m_listLink;
 
     void DestroyBody();
-    CGapCheckNode* Destroy(unsigned int flags);
+    CGapCheckNode* Teardown(unsigned int flags);
     CGapCheckNode* Destroy2(unsigned int flags);
 };
 
 class CGapTally {
 public:
     // 0x00579690: no gaps, not built. Returns this.
-    CGapTally* Construct();
-    // 0x00585520: the destructor body (its list head unlinked, as a ListKit::Node<CGapEntry>; the gaps aren't freed).
+    CGapTally* MakeNew();
+    // 0x00585520: the destructor body (its list head unlinked, as a ListKit::Elem<CGapEntry>; the gaps aren't freed).
     void DestroyBody();
 
     // 0x00578840: every gap deleted, not built.
@@ -80,9 +80,9 @@ public:
     const char* GetGapTitle(int index);
     int CountGapsFound(int index);
     int GetGapPoints(int index);
-    void GetGapPositions(int index, Maths::Vector* pos, Maths::Vector* dir);
+    void GetGapPositions(int index, Maths::Vec4* pos, Maths::Vec4* dir);
     // 0x00578BC0: the gap `name`'s skater start position and direction (no such gap: nothing).
-    void SetGapPositions(const char* name, Maths::Vector pos, Maths::Vector dir);
+    void SetGapPositions(const char* name, Maths::Vec4 pos, Maths::Vec4 dir);
     // 0x00578C70: the gap `name` landed (pending until PayOutQueuedGaps).
     void RegisterGapHit(const char* name);
     // 0x00578CF0: the pending landings dropped.
@@ -94,7 +94,7 @@ public:
     // 0x00578D90: every gap never landed and in the level.
     void Reset();
     // 0x00578D20: how many gaps. 0x00578D50: whether every gap was landed (none: true).
-    int Count();
+    int TotalOf();
     bool AllGot();
 
     // The script commands' work (`script`'s parameters get the results; true unless there's nothing):
@@ -110,7 +110,7 @@ public:
 
     bool m_built;           // +0x00 (also set by RegisterGapEntry)
     uint8_t pad01[3];
-    MemSys::ListNode m_gaps;   // +0x04 the list's head (ListKit::Head<CGapEntry>, vtable 0x0064ED20)
+    MemSys::ListNode m_gaps;   // +0x04 the list's head (ListKit::Foremost<CGapEntry>, vtable 0x0064ED20)
 };
 static_assert(offsetof(CGapTally, m_gaps) == 4 && sizeof(CGapTally) == 0x18, "layout must match the original");
 

@@ -24,11 +24,11 @@ namespace Engine3D {
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 
 // The game's C runtime heap (what the buffers' copies and nodes come from).
 void* AllocBlock(size_t size) { return Crt::AllocBlock(size); }
-void Free(void* memory) { Crt::Free(memory); }
+void Dealloc(void* memory) { Crt::Dealloc(memory); }
 
 // The buffers' lists' nodes (as pc_buffers.cpp's): the buffer, the previous and the next node.
 struct sBufferNode {
@@ -58,7 +58,7 @@ IDirect3DVertexBuffer9*& ArenaBuffer(sceneRef* meshes) { return reinterpret_cast
 } // namespace
 
 // 0x004D4BE0
-meshRef* meshRef::Construct()
+meshRef* meshRef::MakeNew()
 {
     flags = 0;
     vertexBufferCount = 1;
@@ -119,7 +119,7 @@ long meshRef::ApplyVertexColors()
 }
 
 // 0x004D4D30
-void meshRef::GetPosition(float* out) const
+void meshRef::FetchPlace(float* out) const
 {
     if (!transform) {
         out[0] = out[1] = out[2] = 0;
@@ -133,7 +133,7 @@ void meshRef::GetPosition(float* out) const
 sVertexBuffer* __cdecl NewVertexBuffer(uint32_t bytes, uint32_t usage, uint32_t flags)
 {
     void* memory = AllocBlock(sizeof(sVertexBuffer));
-    return memory ? static_cast<sVertexBuffer*>(memory)->Construct(bytes, usage, flags) : nullptr;
+    return memory ? static_cast<sVertexBuffer*>(memory)->MakeNew(bytes, usage, flags) : nullptr;
 }
 
 // 0x004D57D0
@@ -200,36 +200,36 @@ void meshRef::CreateVertexBuffer(const void* vertices, uint32_t bytes, sVertexAr
 }
 
 // 0x004D6720
-uint32_t sVertexBuffer::Destroy()
+uint32_t sVertexBuffer::Teardown()
 {
     uint32_t references = static_cast<IDirect3DVertexBuffer9*>(buffer)->Release();
     buffer = nullptr;
     Unlist();
     if (data)
-        Free(data);
+        Dealloc(data);
     std::memset(this, 0, sizeof(*this));
-    Free(this);
+    Dealloc(this);
     return references;
 }
 
 // 0x004D6790
-uint32_t sIndexBuffer::Destroy()
+uint32_t sIndexBuffer::Teardown()
 {
     uint32_t references = static_cast<IDirect3DIndexBuffer9*>(buffer)->Release();
     buffer = nullptr;
     Unlist();
     if (indices)
-        Free(indices);
+        Dealloc(indices);
     std::memset(this, 0, sizeof(*this));
-    Free(this);
+    Dealloc(this);
     return references;
 }
 
 // 0x004D67F0
 void __cdecl ReleaseBuffers()
 {
-    Device()->SetStreamSource(0, nullptr, 0, 0);
-    Device()->SetIndices(nullptr);
+    InputPort()->SetStreamSource(0, nullptr, 0, 0);
+    InputPort()->SetIndices(nullptr);
     for (sBufferNode* node = VertexBufferList(); node; node = node->next) {
         auto* vb = static_cast<sVertexBuffer*>(node->buffer);
         if (!vb)
@@ -266,7 +266,7 @@ void __cdecl RecreateBuffers()
         sceneRef* meshes = SceneMeshes(node);
         if (meshes && ArenaBuffer(meshes)) {
             IDirect3DVertexBuffer9* old = ArenaBuffer(meshes);
-            Device()->CreateVertexBuffer(meshes->unknown80, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &ArenaBuffer(meshes),
+            InputPort()->CreateVertexBuffer(meshes->unknown80, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &ArenaBuffer(meshes),
                                          nullptr);
             for (sBufferNode* vbNode = VertexBufferList(); vbNode; vbNode = vbNode->next) {
                 auto* vb = static_cast<sVertexBuffer*>(vbNode->buffer);
@@ -283,7 +283,7 @@ void __cdecl RecreateBuffers()
         auto* ib = static_cast<sIndexBuffer*>(node->buffer);
         if (!ib)
             continue;
-        Device()->CreateIndexBuffer(ib->size, ib->usage | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(ib->format),
+        InputPort()->CreateIndexBuffer(ib->size, ib->usage | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(ib->format),
                                     D3DPOOL_DEFAULT, reinterpret_cast<IDirect3DIndexBuffer9**>(&ib->buffer), nullptr);
         void* card = nullptr;
         if (static_cast<IDirect3DIndexBuffer9*>(ib->buffer)->Lock(0, 0, &card, 0) >= 0) {
@@ -298,55 +298,55 @@ void meshRef::DestroyBody()
 {
     if (flags & 0x10)
         g_billboardManager.RemoveMesh(this);
-    MemSys::Manager* heap = MemSys::Manager::Get();
+    MemSys::Hub* heap = MemSys::Hub::Pull();
     if (transform)
-        heap->Free(transform);
+        heap->Dealloc(transform);
     if (!(flags & 1)) { // (its own buffers, not another mesh's)
         for (sIndexBuffer*& ib : indexBuffers) {
             if (ib)
-                ib->Destroy();
+                ib->Teardown();
             ib = nullptr;
         }
         if (perVertexBytes) {
-            heap->Free(perVertexBytes);
+            heap->Dealloc(perVertexBytes);
             perVertexBytes = nullptr;
         }
         if (unknown48) {
-            heap->Free(unknown48);
+            heap->Dealloc(unknown48);
             unknown48 = nullptr;
         }
         if (billboard) {
-            heap->Free(billboard);
+            heap->Dealloc(billboard);
             billboard = nullptr;
         }
-        Free(perVertexData);
+        Dealloc(perVertexData);
         IDirect3DVertexBuffer9* stream = nullptr;
         UINT offset = 0, streamStride = 0;
-        Device()->GetStreamSource(0, &stream, &offset, &streamStride);
+        InputPort()->GetStreamSource(0, &stream, &offset, &streamStride);
         if (stream)
             stream->Release(); // (only compared with below)
         for (uint32_t i = 0; i < vertexBufferCount; ++i) {
             if (vertexBuffers[i]) {
                 if (stream == vertexBuffers[i]->buffer)
-                    Device()->SetStreamSource(0, nullptr, 0, 0);
-                vertexBuffers[i]->Destroy();
+                    InputPort()->SetStreamSource(0, nullptr, 0, 0);
+                vertexBuffers[i]->Teardown();
                 vertexBuffers[i] = nullptr;
             }
             if (extraBuffers[i]) {
                 if (stream == extraBuffers[i]->buffer)
-                    Device()->SetStreamSource(0, nullptr, 0, 0);
-                extraBuffers[i]->Destroy(); // (left pointing at it: cleared with the rest below)
+                    InputPort()->SetStreamSource(0, nullptr, 0, 0);
+                extraBuffers[i]->Teardown(); // (left pointing at it: cleared with the rest below)
             }
         }
         if (lastBuffer) {
-            lastBuffer->Destroy();
+            lastBuffer->Teardown();
             lastBuffer = nullptr;
         }
     }
     if (triangles)
-        Free(triangles);
+        Dealloc(triangles);
     if (positions)
-        Free(positions);
+        Dealloc(positions);
     std::memset(this, 0, sizeof(*this));
 }
 

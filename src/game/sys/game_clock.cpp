@@ -19,7 +19,7 @@ float g_speed{1.0f};
 uint32_t g_lastChange;
 
 uint32_t& LastChange() { return g_lastChange; }
-float& Speed() { return g_speed; }
+float& Pace() { return g_speed; }
 
 // The original's x87 code: the unsigned difference times the speed, truncated (_ftol: through 64 bits).
 int Elapsed()
@@ -28,7 +28,7 @@ int Elapsed()
     double scaled = static_cast<double>(difference);
     if (difference < 0)
         scaled += 4294967296.0; // (0x006453B4)
-    scaled *= Speed();
+    scaled *= Pace();
     return static_cast<int>(static_cast<int64_t>(scaled));
 }
 
@@ -50,14 +50,14 @@ int GameClockTime() { return GameClockElapsed() + Offset(); }
 void PauseGameClock(bool pause)
 {
     CatchUp();
-    Speed() = pause ? 0.0f : GetTimeScale();
+    Pace() = pause ? 0.0f : GetTimeScale();
 }
 
 // 0x0044ED70
 void SetGameClockSpeed(float speed)
 {
     CatchUp();
-    Speed() = speed;
+    Pace() = speed;
     SetSlomo(speed);
 }
 

@@ -21,17 +21,17 @@ class CMenuBase : public CUiWidget {
 public:
     // 0x004A74E0: the constructor (returns this): nothing selected (-1), not focused, regular spacing off,
     // padding_scale 1, pad handling and wrapping on, no grid index.
-    CMenuBase* Construct();
+    CMenuBase* MakeNew();
     // 0x004A75C0 / 0x004A7630: a vmenu / an hmenu (type VMenu / HMenu).
     CMenuBase* ConstructVMenu();
     CMenuBase* ConstructHMenu();
     // 0x004A7620: the destructor body (CUiWidget's).
     void DestroyBody();
     // 0x004A76C0 (vtable slot 0)
-    CMenuBase* Destroy(uint8_t flags);
+    CMenuBase* Teardown(uint8_t flags);
     // 0x004A76F0 (slot 1): internal_just, regular_space_amount (an integer), padding_scale, spacing_between (an
     // integer), enable / disable_pad_handling, allow_wrap / dont_allow_wrap; then CUiWidget's.
-    void SetProperties(Scripts::CStruct* params);
+    void ChangeTraits(Scripts::CStruct* params);
     // 0x004A8100 (slot 5): the event for its script first (false if it went - or, with the manager's pad-event
     // priorities, if this menu may not have it); then: the focus-sent event 0x3056434F re-finds the selection and
     // lays the items out; focus (grid_index / child_id pick the item) / unfocus pass to the selected item; the pad
@@ -80,13 +80,13 @@ static_assert(offsetof(CMenuBase, m_selectedIndex) == 0x178 && offsetof(CMenuBas
 class CGroupWidget : public CUiWidget {
 public:
     // 0x004AAC20: the constructor (returns this): no focusable child; type ContainerElement.
-    CGroupWidget* Construct();
+    CGroupWidget* MakeNew();
     // 0x004AAC80: the destructor body (CUiWidget's).
     void DestroyBody();
     // 0x004AACC0 (vtable slot 0)
-    CGroupWidget* Destroy(uint8_t flags);
+    CGroupWidget* Teardown(uint8_t flags);
     // 0x004AA530 (slot 1): focusable_child, then CUiWidget's.
-    void SetProperties(Scripts::CStruct* params);
+    void ChangeTraits(Scripts::CStruct* params);
     // 0x004AA560 (slot 5): the event for its script first (with pad-event priorities as the menu's); focus /
     // unfocus then go on to the focusable child (with the event's controller).
     bool PassEventToScript(GameObjects::CSignal* event);

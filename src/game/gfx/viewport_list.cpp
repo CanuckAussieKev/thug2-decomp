@@ -31,7 +31,7 @@ CViewRegion* __cdecl GetActiveViewport(int n)
 int __cdecl GetViewLayout() { return g_screenMode; }
 
 // 0x004A0720
-bool __cdecl FlagCameraForRemoval(Gfx2D::Camera* camera)
+bool __cdecl FlagCameraForRemoval(Gfx2D::ViewCam* camera)
 {
     for (int i = 0; i < 10; ++i) {
         CViewRegion* viewport = Viewport(i);

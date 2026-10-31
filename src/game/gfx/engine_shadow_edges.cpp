@@ -1,4 +1,4 @@
-// The shadow volume's silhouette edges (CShadowVolume::SetModel, 0x004A22F0): see engine_shadows.h.
+// The shadow volume's silhouette edges (CShadowVolume::ChangeMesh, 0x004A22F0): see engine_shadows.h.
 
 #include <cstdint>
 #include <cstring>
@@ -15,7 +15,7 @@
 namespace Engine3D {
 
 CShadowVolume* g_shadowVolumes[16];
-ListKit::HashTable g_shadowEdgeTable{ListKit::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(8) at start-up)
+ListKit::KeyMap g_shadowEdgeTable{ListKit::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
 
 namespace {
 
@@ -24,7 +24,7 @@ namespace {
 struct EdgeCorner {
     uint16_t vertex;
     uint16_t pad; // (stack garbage in the original's records: zeroed here)
-    Maths::Vector normal;
+    Maths::Vec4 normal;
 };
 struct ShadowEdge {
     EdgeCorner corners[4];
@@ -32,7 +32,7 @@ struct ShadowEdge {
 static_assert(sizeof(ShadowEdge) == 0x50, "layout must match the original");
 
 CShadowVolume** ShadowVolumes() { return g_shadowVolumes; }
-ListKit::HashTable& EdgeTable() { return g_shadowEdgeTable; }
+ListKit::KeyMap& EdgeTable() { return g_shadowEdgeTable; }
 
 // Into the first free slot of the volumes drawn (none: not drawn).
 void AddShadowVolume(CShadowVolume* volume)
@@ -53,7 +53,7 @@ bool Skipped(const CTriMeshSource& mesh) { return (reinterpret_cast<const uint16
 // The edge from `from` to `to` of a face with `normal`: an existing edge the other way round, or the same way, gets
 // its second face's corners; otherwise a new edge is added (past the end of the array if the estimate was short,
 // as the original).
-void AddEdge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const Maths::Vector& normal)
+void AddEdge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const Maths::Vec4& normal)
 {
     ShadowEdge* all = reinterpret_cast<ShadowEdge*>(edges->edges);
     int i = 0;
@@ -85,7 +85,7 @@ void AddEdge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const M
 } // namespace
 
 // 0x004A22F0
-void CShadowVolume::SetModel(CRenderModel*, uint8_t* assetData)
+void CShadowVolume::ChangeMesh(CRenderModel*, uint8_t* assetData)
 {
     if (assetData)
         m_modelKey = *reinterpret_cast<uint32_t*>(assetData + 0x8C);
@@ -110,7 +110,7 @@ void CShadowVolume::SetModel(CRenderModel*, uint8_t* assetData)
     int estimate = vertices + faces - 2; // (Euler's formula for a closed convex mesh)
     if (estimate >= 1) {
         uint32_t size = static_cast<uint32_t>(estimate) * sizeof(ShadowEdge);
-        mp_edges->edges = static_cast<uint8_t*>(MemSys::New(size));
+        mp_edges->edges = static_cast<uint8_t*>(MemSys::Alloc(size));
         std::memset(mp_edges->edges, 0, size);
     }
     int count = 0;
@@ -133,7 +133,7 @@ void CShadowVolume::SetModel(CRenderModel*, uint8_t* assetData)
                     b = face[3];
                     c = face[4];
                 }
-                Maths::Vector normal = mesh.GetTriangleNormal(f);
+                Maths::Vec4 normal = mesh.GetTriangleNormal(f);
                 mp_edges->lastMesh = m;
                 AddEdge(mp_edges, count, a, b, normal);
                 AddEdge(mp_edges, count, b, c, normal);
@@ -152,10 +152,10 @@ void CShadowVolume::SetModel(CRenderModel*, uint8_t* assetData)
     DebugOut::Printf("Breaking Euler's formula: %df + %dv - 2 != %d!  Make sure the model is convex.", faces, vertices,
                 count);
     if (mp_edges->edges) {
-        MemSys::Manager::Get()->Free(mp_edges->edges);
+        MemSys::Hub::Pull()->Dealloc(mp_edges->edges);
         mp_edges->edges = nullptr;
     }
-    MemSys::Manager::Get()->Free(mp_edges);
+    MemSys::Hub::Pull()->Dealloc(mp_edges);
     mp_edges = nullptr;
 }
 
@@ -164,6 +164,6 @@ void CShadowVolume::SetModel(CRenderModel*, uint8_t* assetData)
 namespace Engine3D {
 
 // 0x00640CD0 (a static initialiser): the shadow edges' table, 256 buckets.
-void ConstructShadowEdgeTable() { new (&g_shadowEdgeTable) ListKit::HashTable(8); }
+void ConstructShadowEdgeTable() { new (&g_shadowEdgeTable) ListKit::KeyMap(8); }
 
 } // namespace Nx

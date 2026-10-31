@@ -45,6 +45,6 @@ void SetShown(bool on);
 void AddOverlay(const Overlays::Painter& painter);
 // The legend (ImGui; bottom right of the view) while it's shown.
 void Legend(float viewX, float viewY, float viewWidth, float viewHeight, float scale);
-void Stop(); // (the caches dropped)
+void Halt(); // (the caches dropped)
 
 } // namespace MenuSystem::LevelEditor::SkateView

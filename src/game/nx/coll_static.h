@@ -33,25 +33,25 @@ class CStaticCollider : public CHitMesh {
 public:
     // 0x00412730 (as `new CStaticCollider[n]` builds each): no flags, geometry or buffer, +0x14 0 (the checksum and
     // the grid mark left as they were). Returns this.
-    CStaticCollider* Construct();
+    CStaticCollider* MakeNew();
     // 0x00412760: the buffer freed if this object owns it, the base. (The deleting destructor is 0x0049CE00.)
     void Destruct();
     // 0x004139A0 (slot 12; not a function in Ghidra): an instance (a CCollStaticInstance sharing the geometry) or
     // a copy (with a copy of the geometry - 0x00416BF0 - and of the buffer, on the bottom-up heap). Null if the
     // geometry couldn't be copied.
-    CHitMesh* Clone(bool instance);
+    CHitMesh* Replicate(bool instance);
     // 0x00410C20 (slot 5): the geometry moved by the difference (0x00416400).
-    void PlaceAtAbsolutePoint(const Maths::Vector* position);
+    void PlaceAtAbsolutePoint(const Maths::Vec4* position);
     // 0x004123A0 / 0x004123B0 (slots 7, 8): the shared origin (0x00691914) and orientation (0x00691928).
-    const Maths::Vector* GetAbsolutePoint() const;
-    const Maths::Matrix* GetOrientation() const;
+    const Maths::Vec4* GetAbsolutePoint() const;
+    const Maths::Mat4* FetchFacing() const;
     // 0x00410980 (slot 9): the vertex, w = 1.
-    Maths::Vector ReadVertexPoint(int index) const;
+    Maths::Vec4 ReadVertexPoint(int index) const;
     // 0x00413B50 (slot 14): the line against each face of the geometry in the line's box (GetFacesInBox) that
     // isn't rejected - its rejection byte (the buffer's for 10-byte faces, the face's last byte for 8-byte ones)
     // below the line's distance from the geometry's minimum corner times the rejection scale (none at all past
     // 255) -, each hit offered to `hit` (ReportHit). Whether any was taken.
-    bool CollideWithLine(const Maths::Line* line, const Maths::Vector* direction, CollisionHit* hit,
+    bool CollideWithLine(const Maths::Seg* line, const Maths::Vec4* direction, CollisionHit* hit,
                          const Maths::BBox* lineBox);
     // 0x00410C70 (slot 13) / 0x00412750 (slot 21): the geometry's box.
     bool InsideBounds(const Maths::BBox* box) const;
@@ -81,26 +81,26 @@ static_assert(sizeof(CStaticCollider) == 0x18, "layout must match the original")
 class CCollStaticInstance : public CCollScaled {
 public:
     // 0x004127C0 (returns this)
-    CCollStaticInstance* Construct();
+    CCollStaticInstance* MakeNew();
     // 0x00414C30: a copy (returns this).
     CCollStaticInstance* ConstructCopy(const CCollStaticInstance* other);
     // 0x00412840 / 0x00413ED0
     void Destruct();
     CCollStaticInstance* ScalarDelete(uint8_t flags);
     // 0x00414CD0 (slot 12): a copy sharing the geometry.
-    CCollStaticInstance* Clone(int argument);
+    CCollStaticInstance* Replicate(int argument);
     // 0x00411480: the geometry shared (flags 0xC000) and its box taken.
     void SetSharedGeometry(CTriMeshSource* geometry);
     // 0x00413F00 / 0x00413F30 (not a function in Ghidra) / 0x00413F50 (slots 5, 6, 24): set, the inverse and the
     // world box updated.
-    void PlaceAtAbsolutePoint(const Maths::Vector* position);
-    void SetOrientation(const Maths::Matrix* orientation);
-    void ChangeScale(const Maths::Vector* scale);
+    void PlaceAtAbsolutePoint(const Maths::Vec4* position);
+    void ChangeFacing(const Maths::Mat4* orientation);
+    void ChangeScale(const Maths::Vec4* scale);
     // 0x004113B0: the world box from every vertex scaled and placed.
     void UpdateWorldBBox();
     // 0x00413FF0 (slot 14): as the sector's, in the instance's space (no rejection); the point (scaled, placed)
     // and normal (turned) back in world space.
-    bool CollideWithLine(const Maths::Line* line, const Maths::Vector* direction, CollisionHit* hit,
+    bool CollideWithLine(const Maths::Seg* line, const Maths::Vec4* direction, CollisionHit* hit,
                          const Maths::BBox* lineBox);
     // 0x00411460 (slot 13) / 0x00412830 (slot 21)
     bool InsideBounds(const Maths::BBox* box) const;
@@ -109,7 +109,7 @@ public:
     // corners; `box` unused); each hit's points scaled and placed, its normals turned back into world space.
     bool CollideWithRect(const CollRect* rect, const Maths::BBox* box, RectHits* hits);
     // 0x00411330 (slot 23): rescaled by `scale` times the current scale, if `position` is where it is already.
-    void RescaleIfAt(const Maths::Vector* position, const Maths::Vector* scale);
+    void RescaleIfAt(const Maths::Vec4* position, const Maths::Vec4* scale);
     // 0x00412F50 (slot 19): the geometry drawn with the scaled matrix (0x00414D60).
     void DrawDiagnostic(int a, int b);
 
@@ -123,21 +123,21 @@ static_assert(sizeof(CCollStaticInstance) == 0xC8 && offsetof(CCollStaticInstanc
 class CHitMovingTriangles : public CHitMovingMesh {
 public:
     // 0x00413000 (returns this)
-    CHitMovingTriangles* Construct(CTriMeshSource* geometry);
+    CHitMovingTriangles* MakeNew(CTriMeshSource* geometry);
     // 0x00413080 (returns this)
     CHitMovingTriangles* ConstructCopy(const CHitMovingTriangles* other);
     // 0x00413070 / 0x004143D0
     void Destruct();
     CHitMovingTriangles* ScalarDelete(uint8_t flags);
     // 0x00414400 (slot 12): a copy with a copy of the geometry.
-    CHitMovingTriangles* Clone(int argument);
+    CHitMovingTriangles* Replicate(int argument);
     // 0x00411780 (slot 4): the geometry and the radius from its vertices.
     void AssignShapeData(CTriMeshSource* geometry);
     // 0x00412F90 (slot 5; not a function in Ghidra)
-    void PlaceAtAbsolutePoint(const Maths::Vector* position);
+    void PlaceAtAbsolutePoint(const Maths::Vec4* position);
     // 0x00414460 (slot 14): as the sector's, in the object's space (rejection only for 8-byte faces); the point
     // and normal turned and placed back.
-    bool CollideWithLine(const Maths::Line* line, const Maths::Vector* direction, CollisionHit* hit,
+    bool CollideWithLine(const Maths::Seg* line, const Maths::Vec4* direction, CollisionHit* hit,
                          const Maths::BBox* lineBox);
     // 0x00411810 (slot 13) / 0x00412FC0 (slot 20): the box (made again if the object moved).
     bool InsideBounds(const Maths::BBox* box);
@@ -159,14 +159,14 @@ static_assert(sizeof(CHitMovingTriangles) == 0xD4 && offsetof(CHitMovingTriangle
 // Slots every collision object shares that pass straight on to its geometry (m_geometry; a multi-object has none).
 struct CollGeometryForwarders : CHitMesh {
     // 0x0040AE80 / 0x0040AE90 (a sector's slots 22, 23): the geometry turned / scaled.
-    void RotateY(const Maths::Vector* centre, int quarterTurns);
-    void Scale(const Maths::Vector* centre, const Maths::Vector* scale);
+    void RotateY(const Maths::Vec4* centre, int quarterTurns);
+    void StretchBy(const Maths::Vec4* centre, const Maths::Vec4* scale);
     // 0x0040AEA0 (a sector's slot 19): the geometry's debug rendering (0x0048DCD0, compiled out).
     void DrawDiagnostic(int a, int b);
     // 0x0040AEB0: the geometry's occlusion polygons (CTriMeshSource::AddOcclusionPolys).
     void AddOcclusionPolys();
     // 0x0040AEC0 (slot 18 of every collision class): CTriMeshSource::IsPointBehindFaces.
-    bool IsPointBehindFaces(const Maths::Vector* point, int unused);
+    bool IsPointBehindFaces(const Maths::Vec4* point, int unused);
 };
 
 // 0x00414990 (cdecl): a movable collision object made from `count` geometries (consecutive in memory): type 1 a box
@@ -176,7 +176,7 @@ CHitMesh* CreateMovableCollision(int type, CTriMeshSource* geometries, int count
 
 // 0x00414D60: the geometry's debug rendering (compiled out: returns).
 struct CollGeometryStubs {
-    void DrawDiagnostic(const Maths::Matrix* transform, int a, int b, int c);
+    void DrawDiagnostic(const Maths::Mat4* transform, int a, int b, int c);
 };
 
 } // namespace Nx

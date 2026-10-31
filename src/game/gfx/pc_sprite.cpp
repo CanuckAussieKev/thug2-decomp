@@ -24,12 +24,12 @@ SOverlayDraw* AsDrawn(SQuadSprite* sprite) { return reinterpret_cast<SOverlayDra
 } // namespace
 
 // 0x004C70E0
-CPcSprite* CPcSprite::Construct()
+CPcSprite* CPcSprite::MakeNew()
 {
-    reinterpret_cast<CBillboardQuad*>(this)->CBillboardQuad::Construct(nullptr);
+    reinterpret_cast<CBillboardQuad*>(this)->CBillboardQuad::MakeNew(nullptr);
     vtable = reinterpret_cast<void**>(kSpriteVtable);
-    void* memory = MemSys::New(0x40);
-    sprite = memory ? static_cast<SQuadSprite*>(memory)->Construct(0.0f) : nullptr;
+    void* memory = MemSys::Alloc(0x40);
+    sprite = memory ? static_cast<SQuadSprite*>(memory)->MakeNew(0.0f) : nullptr;
     return this;
 }
 
@@ -43,23 +43,23 @@ void CPcSprite::DestroyBody()
 }
 
 // 0x004C7180
-CPcSprite* CPcSprite::Destroy(unsigned int freeFlags)
+CPcSprite* CPcSprite::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004C70B0
 void CPcSprite::UpdateHidden()
 {
-    // (the byte as it is: SetHidden compares and keeps what it's given, a 2 included - not normalised to 0 / 1)
-    AsDrawn(sprite)->SetHidden(hidden);
+    // (the byte as it is: ChangeConcealed compares and keeps what it's given, a 2 included - not normalised to 0 / 1)
+    AsDrawn(sprite)->ChangeConcealed(hidden);
 }
 
 // 0x004C71B0
-void CPcSprite::Update()
+void CPcSprite::TickFrame()
 {
     if (texture) {
         uint8_t* holder = *reinterpret_cast<uint8_t**>(texture + 0x10);
@@ -84,12 +84,12 @@ void CPcSprite::Update()
 void CPcSprite::UpdatePriority()
 {
     if (sprite)
-        AsDrawn(sprite)->SetPriority(priority);
+        AsDrawn(sprite)->ChangeRank(priority);
 }
 
 namespace {
-static VtableSlot kSpriteVtable_slots[] = {&Engine3D::CPcSprite::Destroy, &Engine3D::CPcText::Update, &Engine3D::CPcSprite::UpdateHidden,
-                &Engine3D::CPcSprite::Update, &Engine3D::CPcSprite::UpdatePriority, Stubs::DoNothing};
+static VtableSlot kSpriteVtable_slots[] = {&Engine3D::CPcSprite::Teardown, &Engine3D::CPcText::TickFrame, &Engine3D::CPcSprite::UpdateHidden,
+                &Engine3D::CPcSprite::TickFrame, &Engine3D::CPcSprite::UpdatePriority, Stubs::DoNothing};
 void** const kSpriteVtable = reinterpret_cast<void**>(kSpriteVtable_slots);
 } // namespace
 

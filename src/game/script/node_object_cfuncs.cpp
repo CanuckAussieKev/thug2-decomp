@@ -87,7 +87,7 @@ constexpr uint32_t kClassA0E52802 = 0xA0E52802;      // (name unknown) killed th
 
 uint8_t* Skate() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
 GameObjects::CGrindRailHub* RailManager() { return *reinterpret_cast<GameObjects::CGrindRailHub**>(Skate() + 0x24); }
-MemSys::Manager* MemManager() { return MemSys::Manager::Get(); }
+MemSys::Hub* MemManager() { return MemSys::Hub::Pull(); }
 
 // Whether the skate module leaves a node out (0x00565BB0: its flag 0x68910AC6, in a game with more than one player).
 bool SkipsNode(Scripts::CStruct* node)
@@ -117,16 +117,16 @@ void DuplicateSceneSector(uint8_t* scene, uint8_t* sector, uint8_t* destination,
 // A sector's (CWorldCell, thiscall) settings: the viewports it shows in (0x0049E680), drawn (0x0049E9B0), collided
 // with (0x0049EA30), its orientation (0x0049E700), scale (0x0049E7C0), position (0x0049E6C0).
 void ToggleShown(uint8_t* sector, uint32_t mask) { AsSector(sector)->ToggleShown(mask); }
-void SetActive(uint8_t* sector, bool active) { AsSector(sector)->SetActive(active); }
+void ChangeLive(uint8_t* sector, bool active) { AsSector(sector)->ChangeLive(active); }
 void EnableCollision(uint8_t* sector, bool on) { AsSector(sector)->EnableCollision(on); }
-void SetOrientation(uint8_t* sector, const Maths::Matrix* m) { AsSector(sector)->SetOrientation(m); }
+void ChangeFacing(uint8_t* sector, const Maths::Mat4* m) { AsSector(sector)->ChangeFacing(m); }
 void ChangeScale(uint8_t* sector, const Scripts::VectorValue* scale)
 {
-    AsSector(sector)->ChangeScale(reinterpret_cast<const Maths::Vector*>(scale));
+    AsSector(sector)->ChangeScale(reinterpret_cast<const Maths::Vec4*>(scale));
 }
-void SetPosition(uint8_t* sector, const Scripts::VectorValue* pos)
+void ChangePlace(uint8_t* sector, const Scripts::VectorValue* pos)
 {
-    AsSector(sector)->PlaceAtAbsolutePoint(reinterpret_cast<const Maths::Vector*>(pos));
+    AsSector(sector)->PlaceAtAbsolutePoint(reinterpret_cast<const Maths::Vec4*>(pos));
 }
 // A geometry's virtual slot, called through its vtable.
 template <typename Fn>
@@ -146,7 +146,7 @@ void MarkAsOccluder(uint32_t name, int on) { Engine3D::FlagDebugLines(name, on !
 void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float angleY, float angleZ, uint32_t only)
 {
     Maths::BBox box;
-    auto* sectors = *reinterpret_cast<ListKit::HashTable**>(scene + 0xD0);
+    auto* sectors = *reinterpret_cast<ListKit::KeyMap**>(scene + 0xD0);
     if (sectors) {
         sectors->m_iterBucket = -1;
         sectors->m_iterItem = nullptr;
@@ -157,18 +157,18 @@ void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float an
             // (the sector's name: the getter folded at 0x005480C0, its +4)
             if (!only || *reinterpret_cast<uint32_t*>(sector + 4) == only) {
                 uint8_t* geometry = nullptr;
-                if (AsSector(sector)->IsActive()) // active
+                if (AsSector(sector)->IsOperative()) // active
                     geometry = static_cast<uint8_t*>(AsSector(sector)->m_geomHandle);
                 int count = geometry ? GeometrySlot<int(__thiscall*)(void*)>(geometry, 36)(geometry) : 0;
                 if (count) {
                     if (!MemSys::g_managerReady) // (the memory manager set up, if it isn't)
                         MemSys::EnsureManager();
-                    auto* vertices = static_cast<Maths::Vector*>(MemManager()->Allocate(count * sizeof(Maths::Vector), 1, nullptr));
+                    auto* vertices = static_cast<Maths::Vec4*>(MemManager()->Carve(count * sizeof(Maths::Vec4), 1, nullptr));
                     // (the original runs the vertices' empty constructor over the block, 0x00401020 with 0x005902E0)
-                    GeometrySlot<void(__thiscall*)(void*, Maths::Vector*)>(geometry, 37)(geometry, vertices);
+                    GeometrySlot<void(__thiscall*)(void*, Maths::Vec4*)>(geometry, 37)(geometry, vertices);
                     for (int i = 0; i < count; ++i)
-                        box.AddPoint(vertices[i]);
-                    MemManager()->Free(vertices);
+                        box.AppendSpot(vertices[i]);
+                    MemManager()->Dealloc(vertices);
                 }
             }
             if (!sectors->StepIterator() || !sectors->m_iterItem)
@@ -179,10 +179,10 @@ void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float an
         reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager)->LookUpEntity(kViewerCameraObject));
     if (!camera)
         return;
-    const Maths::Vector& lo = box.min;
-    const Maths::Vector& hi = box.max;
+    const Maths::Vec4& lo = box.min;
+    const Maths::Vec4& hi = box.max;
     const double half = Gfx2D::g_half; // (0.5)
-    Maths::Vector centre;
+    Maths::Vec4 centre;
     centre.x = static_cast<float>((static_cast<double>(hi.x) + lo.x) * half);
     centre.y = static_cast<float>((static_cast<double>(hi.y) + lo.y) * half);
     centre.z = static_cast<float>(static_cast<float>(static_cast<double>(hi.z) + lo.z) * half);
@@ -194,15 +194,15 @@ void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float an
     float distance = static_cast<float>(size);
     if (size < Gfx2D::g_thousand) // (1000)
         distance = 1000.0f;
-    Maths::Matrix& m = camera->m_basisFrame;
+    Maths::Mat4& m = camera->m_basisFrame;
     for (int row = 0; row < 4; ++row) {
         float* r = &m.row[row].x;
         for (int column = 0; column < 4; ++column)
             r[column] = row == column ? 1.0f : 0.0f;
     }
     const double toRadians = g_degreesToRadians;
-    auto turn = [&](Maths::Matrix& (*create)(Maths::Matrix&, float), float degrees) {
-        Maths::Matrix rotation;
+    auto turn = [&](Maths::Mat4& (*create)(Maths::Mat4&, float), float degrees) {
+        Maths::Mat4 rotation;
         create(rotation, static_cast<float>(degrees * toRadians));
         D3dx::MatrixMultiply(&m, &m, &rotation);
     };
@@ -214,10 +214,10 @@ void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float an
     float bx = static_cast<float>(back * at[0]);
     float by = static_cast<float>(back * at[1]);
     float bz = static_cast<float>(back * at[2]);
-    camera->m_pos.x = static_cast<float>(static_cast<double>(bx) + centre.x);
-    camera->m_pos.y = static_cast<float>(static_cast<double>(by) + centre.y);
-    camera->m_pos.z = static_cast<float>(static_cast<double>(bz) + centre.z);
-    camera->m_pos.w = static_cast<float>(back * at[3] + centre.w);
+    camera->m_atPoint.x = static_cast<float>(static_cast<double>(bx) + centre.x);
+    camera->m_atPoint.y = static_cast<float>(static_cast<double>(by) + centre.y);
+    camera->m_atPoint.z = static_cast<float>(static_cast<double>(bz) + centre.z);
+    camera->m_atPoint.w = static_cast<float>(back * at[3] + centre.w);
 }
 
 // 0x005A2D60: CenterCamera [scale (0.9)] [x (-45)] [y (45)] [z (0)] [id=<sector>]: the viewer's camera fitted to each
@@ -227,13 +227,13 @@ bool __cdecl CFunc_CenterCamera(Scripts::CStruct* params, Scripts::CScript*)
     if (!GameObjects::g_viewMode)
         return false;
     float scale = 0.9f;
-    params->GetFloat("scale", &scale, 0); // "scale"
+    params->FetchFloat("scale", &scale, 0); // "scale"
     float x = -45.0f;
-    params->GetFloat("x", &x, 0); // "x"
+    params->FetchFloat("x", &x, 0); // "x"
     float y = 45.0f;
-    params->GetFloat("y", &y, 0); // "y"
+    params->FetchFloat("y", &y, 0); // "y"
     float z = 0.0f;
-    params->GetFloat("z", &z, 0); // "z"
+    params->FetchFloat("z", &z, 0); // "z"
     uint32_t id = 0;
     params->ReadHashValue("id", &id, 0); // "id"
     for (SceneNode* node = FirstScene(); node;) {
@@ -269,7 +269,7 @@ bool __cdecl CreateFromNode(Scripts::CStruct* node)
         return true;
     case kClassClimbingNode:
     case kClassRailNode:
-        RailManager()->SetActive(name, 1, node->HasBareFlag("FLAG_WHOLE_RAIL")); // "FLAG_WHOLE_RAIL"
+        RailManager()->ChangeLive(name, 1, node->HasBareFlag("FLAG_WHOLE_RAIL")); // "FLAG_WHOLE_RAIL"
         return true;
     case kClassProximNode:
         GameObjects::ProximityNode_Enable(name, 1);
@@ -328,7 +328,7 @@ bool __cdecl CreateFromNode(Scripts::CStruct* node)
     }
     if (!cloneFrom) {
         ToggleShown(sector, 0xFFFFFFFF);
-        SetActive(sector, true);
+        ChangeLive(sector, true);
         EnableCollision(sector, true);
         if (node->HasBareFlag(kOccluder))
             MarkAsOccluder(sectionId, 1);
@@ -342,24 +342,24 @@ bool __cdecl CreateFromNode(Scripts::CStruct* node)
     *reinterpret_cast<uint32_t*>(sector + 8) |= 0x80;
     *reinterpret_cast<uint32_t*>(copy + 8) &= ~0x80u;
     Scripts::VectorValue angles = {0.0f, 0.0f, 0.0f, 1.0f};
-    if (node->GetVector(kAngles, &angles, 0)) {
-        Maths::Matrix orientation;
-        orientation.InitFromAngles(*reinterpret_cast<const Maths::Vector*>(&angles));
-        SetOrientation(copy, &orientation);
+    if (node->FetchVec(kAngles, &angles, 0)) {
+        Maths::Mat4 orientation;
+        orientation.InitFromAngles(*reinterpret_cast<const Maths::Vec4*>(&angles));
+        ChangeFacing(copy, &orientation);
     }
     Scripts::VectorValue scale = {1.0f, 1.0f, 1.0f, 1.0f};
-    if (node->GetVector(kScale, &scale, 0))
+    if (node->FetchVec(kScale, &scale, 0))
         ChangeScale(copy, &scale);
     Scripts::VectorValue pos = {0.0f, 0.0f, 0.0f, 1.0f};
-    node->GetVector(kPos, &pos, 0);
-    SetPosition(copy, &pos);
-    SetActive(copy, true);
+    node->FetchVec(kPos, &pos, 0);
+    ChangePlace(copy, &pos);
+    ChangeLive(copy, true);
     EnableCollision(copy, true);
     return true;
 }
 
 // 0x005A32A0: the object of the node named `name` made (CreateFromNode).
-bool __cdecl CreateFromNodeName(uint32_t name) { return CreateFromNode(LevelNodes::GetNode(name, true)); }
+bool __cdecl CreateFromNodeName(uint32_t name) { return CreateFromNode(LevelNodes::FetchVertex(name, true)); }
 
 // 0x005A32C0: the object of the node named `name` killed by its class: objects (pedestrians, skaters, level objects,
 // vehicles, game objects, particle systems, 0x061A741E) with the node's name deleted (unless locked); rail and
@@ -368,7 +368,7 @@ bool __cdecl CreateFromNodeName(uint32_t name) { return CreateFromNode(LevelNode
 // object to the walk; its callback doesn't read it.)
 bool __cdecl KillFromNodeName(uint32_t name, Scripts::CScript* script)
 {
-    Scripts::CStruct* node = LevelNodes::GetNode(name, true);
+    Scripts::CStruct* node = LevelNodes::FetchVertex(name, true);
     if (!node)
         return false;
     uint32_t nodeClass = 0;
@@ -383,14 +383,14 @@ bool __cdecl KillFromNodeName(uint32_t name, Scripts::CScript* script)
     case kClassParticleObject: {
         struct {
             uint32_t id;
-            GameObjects::CObject* object;
-        } data = {name, script->m_object.Get()};
+            GameObjects::CEntity* object;
+        } data = {name, script->m_entity.Pull()};
         reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager)->ForEach(&DestroyObjectWithId, &data);
         return true;
     }
     case kClassClimbingNode:
     case kClassRailNode:
-        RailManager()->SetActive(name, 0, node->HasBareFlag("FLAG_WHOLE_RAIL")); // "FLAG_WHOLE_RAIL"
+        RailManager()->ChangeLive(name, 0, node->HasBareFlag("FLAG_WHOLE_RAIL")); // "FLAG_WHOLE_RAIL"
         return true;
     case kClassProximNode:
         GameObjects::ProximityNode_Enable(name, 0);
@@ -408,7 +408,7 @@ bool __cdecl KillFromNodeName(uint32_t name, Scripts::CScript* script)
         for (SceneNode* at = FirstScene(); at;) {
             SceneNode* next = NextScene(at);
             if (uint8_t* sector = LookUpSector(at->scene, sectionId)) {
-                SetActive(sector, false);
+                ChangeLive(sector, false);
                 if (node->HasBareFlag(kOccluder))
                     MarkAsOccluder(sectionId, 0);
                 MarkAsOccluder(sectionId, 0);
@@ -464,7 +464,7 @@ bool __cdecl CFunc_ParseNodeArray(Scripts::CStruct* params, Scripts::CScript*)
     if (!params || !params->HasBareFlag("no_cleanup")) { // "no_cleanup"
         GameObjects::NearbyZone_Startup();
         GameObjects::Emitter_Init();
-        RailManager()->Cleanup();
+        RailManager()->TidyUp();
         TrickObjects()->RemoveAllClusters();
         Engine3D::DeleteDynamicLights();
         Engine3D::DeleteAllSceneLights();
@@ -475,24 +475,24 @@ bool __cdecl CFunc_ParseNodeArray(Scripts::CStruct* params, Scripts::CScript*)
     // (a trick object's name: an asserted parameter, so the original's local - kept from one node to the next -
     // holds the last one read when a node has none)
     uint32_t objectName = 0;
-    for (uint32_t i = 0; i < nodes->m_size; ++i) {
-        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->GetElement(i));
+    for (uint32_t i = 0; i < nodes->m_extent; ++i) {
+        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(i));
         uint32_t nodeClass = 0;
         node->ReadHashValue(kClass, &nodeClass, 0);
         if (nodeClass == kClassRailNode) {
-            node->RemoveComponent(kAngles);
-            node->RemoveComponent(kRailRemove1);
+            node->EraseModule(kAngles);
+            node->EraseModule(kRailRemove1);
         } else if (nodeClass == kClassLevelObject) {
             uint32_t name = 0;
             node->ReadHashValue(kName, &name, 0);
             if (uint8_t* sector = FindSector(name)) {
-                SetActive(sector, false);
+                ChangeLive(sector, false);
                 uint32_t terrain = kDefaultTerrain;
                 node->ReadHashValue(kTerrainType, &terrain, 0);
                 *reinterpret_cast<uint32_t*>(sector + 0xC) = terrain;
             }
         } else if (nodeClass == kClassLevelGeometry) {
-            node->RemoveComponent(kGeometryRemove);
+            node->EraseModule(kGeometryRemove);
             uint32_t name = 0;
             node->ReadHashValue(kName, &name, 0);
             if (!name) {
@@ -505,14 +505,14 @@ bool __cdecl CFunc_ParseNodeArray(Scripts::CStruct* params, Scripts::CScript*)
                         SkipsNode(node); // (asked, the answer unused)
                 } else if (node->HasBareFlag(kCreatedAtStart) && !SkipsNode(node)) {
                     ToggleShown(sector, 0xFFFFFFFF);
-                    SetActive(sector, true);
+                    ChangeLive(sector, true);
                     EnableCollision(sector, true);
                 } else {
-                    SetActive(sector, false);
+                    ChangeLive(sector, false);
                 }
                 if (node->HasBareFlag(kOccluder)) {
                     AsSector(sector)->MarkAsOccluder(true);
-                    SetActive(sector, false);
+                    ChangeLive(sector, false);
                     if (!node->HasBareFlag(kCreatedAtStart))
                         MarkAsOccluder(name, 0);
                 }
@@ -560,7 +560,7 @@ bool __cdecl CFunc_ParseNodeArray(Scripts::CStruct* params, Scripts::CScript*)
             }
         }
         if (node->HasBareFlag(kCreatedAtStart))
-            CreateFromNode(LevelNodes::GetNode(LevelNodes::GetNodeName(node), true));
+            CreateFromNode(LevelNodes::FetchVertex(LevelNodes::GetNodeName(node), true));
     }
     MemSys::PopMemProfile();
     rails->RemoveOverlapsIfNotPark();
@@ -571,8 +571,8 @@ bool __cdecl CFunc_ParseNodeArray(Scripts::CStruct* params, Scripts::CScript*)
         AsScene(at->scene)->UpdateSuperSectorsIfMarked(nullptr);
         at = next;
     }
-    for (uint32_t i = 0; i < nodes->m_size; ++i) {
-        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->GetElement(i));
+    for (uint32_t i = 0; i < nodes->m_extent; ++i) {
+        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(i));
         uint32_t nodeClass = 0;
         node->ReadHashValue(kClass, &nodeClass, 0);
         if (nodeClass == kClassA0E52802)
@@ -587,17 +587,17 @@ bool __cdecl CFunc_ParseNodeArray(Scripts::CStruct* params, Scripts::CScript*)
 // 0x005A5960) and the node manager's last array put back in.
 bool __cdecl CFunc_ReLoadNodeArray(Scripts::CStruct*, Scripts::CScript* script)
 {
-    MemManager()->EnterHeapScope(reinterpret_cast<MemSys::Allocator*>(MemManager()->m_debugHeap));
+    MemManager()->EnterHeapScope(reinterpret_cast<MemSys::MemSource*>(MemManager()->m_debugHeap));
     LevelNodes::CNodeManager* nodeManager = LevelNodes::NodeManagerInstance();
     const char* nodeArrayName = g_nodeArrayName;
     AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
     assets->DiscardLoadedItem(assets->ObtainLoadedItem(Checksums::HashFromText(nodeArrayName), 0));
     alignas(4) uint8_t storage[8];
     auto* file = reinterpret_cast<Scripts::CStruct*>(storage);
-    file->Init();
-    file->AddString(0u, nodeArrayName);
+    file->PrepareAll();
+    file->AppendWord(0u, nodeArrayName);
     const char* name = nullptr;
-    file->GetString(0u, &name, 1);
+    file->FetchText(0u, &name, 1);
     LevelNodes::NodeManagerInstance()->RemoveNodeArrayOfFile(name);
     CFunc_NodeArrayManLoad(file, script);
     Scripts::LoadQBFile(nodeArrayName, 0);
@@ -651,7 +651,7 @@ bool IsObjectClass(uint32_t nodeClass)
 // hidden or shown. True for nodes the skate module skips; false for other classes.
 bool __cdecl SetNodeHidden(uint32_t name, bool hide, int secondViewport)
 {
-    Scripts::CStruct* node = LevelNodes::GetNode(name, true);
+    Scripts::CStruct* node = LevelNodes::FetchVertex(name, true);
     if (SkipsNode(node))
         return true;
     uint32_t nodeClass = 0;
@@ -672,7 +672,7 @@ bool __cdecl SetNodeHidden(uint32_t name, bool hide, int secondViewport)
     if (!node->ReadHashValue(kName, &sectionId, 0))
         return true;
     uint8_t* sector = FindSceneSector(sectionId);
-    uint32_t mask = AsSector(sector)->GetVisibility(); // (not checked for null)
+    uint32_t mask = AsSector(sector)->FetchShown(); // (not checked for null)
     uint32_t bit = secondViewport == 1 ? 2u : 1u;
     ToggleShown(sector, hide ? mask & ~bit : mask | bit);
     return true;
@@ -683,11 +683,11 @@ bool __cdecl SetNodeHidden(uint32_t name, bool hide, int secondViewport)
 // geometry's sector active (true without a name). False for other classes.
 bool __cdecl NodeIsAlive(uint32_t name)
 {
-    Scripts::CStruct* node = LevelNodes::GetNode(name, true);
+    Scripts::CStruct* node = LevelNodes::FetchVertex(name, true);
     uint32_t nodeClass = 0;
     node->ReadHashValue(kClass, &nodeClass, 0);
     if (nodeClass == kClassClimbingNode || nodeClass == kClassRailNode)
-        return RailManager()->IsActive(name);
+        return RailManager()->IsOperative(name);
     if (IsObjectClass(nodeClass) || nodeClass == kClassLevelObject) {
         NodeFlagCommand command;
         command.value = 0;
@@ -703,7 +703,7 @@ bool __cdecl NodeIsAlive(uint32_t name)
     uint32_t sectionId = 0;
     if (!node->ReadHashValue(kName, &sectionId, 0))
         return true;
-    return AsSector(FindSceneSector(sectionId))->IsActive(); // (not checked for null)
+    return AsSector(FindSceneSector(sectionId))->IsOperative(); // (not checked for null)
 }
 
 // 0x005A3E80: the node `name`'s colour (0x99A9B716 of `params`, 0xBBGGRR (0x808080), with alpha 0x80): a level
@@ -714,7 +714,7 @@ bool __cdecl SetNodeColor(uint32_t name, Scripts::CStruct* params)
     params->FetchIntValue(kColor, &value, true);
     uint32_t rgba = (static_cast<uint32_t>(value) & 0xFF) | (static_cast<uint32_t>(value) >> 8 & 0xFF) << 8 |
                     (static_cast<uint32_t>(value) >> 16 & 0xFF) << 16 | 0x80u << 24;
-    Scripts::CStruct* node = LevelNodes::GetNode(name, true);
+    Scripts::CStruct* node = LevelNodes::FetchVertex(name, true);
     uint32_t nodeClass = 0;
     node->ReadHashValue(kClass, &nodeClass, 0);
     if (nodeClass == kClassLevelObject) {
@@ -723,7 +723,7 @@ bool __cdecl SetNodeColor(uint32_t name, Scripts::CStruct* params)
             auto* object = static_cast<GameObjects::CGameEntity*>(
                 reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager)->LookUpEntity(objectName));
             // (neither checked for null, as in the original)
-            reinterpret_cast<GameObjects::CMeshInstanceModule*>(object->GetComponent(0x286A8D26))->SetColor(rgba); // "model"
+            reinterpret_cast<GameObjects::CMeshInstanceModule*>(object->FetchModule(0x286A8D26))->ChangeTint(rgba); // "model"
         }
         return true;
     }
@@ -745,7 +745,7 @@ bool __cdecl ShatterNode(uint32_t name)
 {
     if (Skate()[0x44])
         return true;
-    Scripts::CStruct* node = LevelNodes::GetNode(name, true);
+    Scripts::CStruct* node = LevelNodes::FetchVertex(name, true);
     if (SkipsNode(node))
         return true;
     uint32_t nodeClass = 0;
@@ -765,7 +765,7 @@ bool __cdecl SetNodeTerrain(uint32_t name, Scripts::CStruct* params)
 {
     uint32_t terrain = 0; // (unset in the original when missing - an asserted parameter)
     params->ReadHashValue(kTerrain, &terrain, true);
-    Scripts::CStruct* node = LevelNodes::GetNode(name, true);
+    Scripts::CStruct* node = LevelNodes::FetchVertex(name, true);
     uint32_t nodeClass = 0;
     node->ReadHashValue(kClass, &nodeClass, 0);
     if (nodeClass != kClassLevelGeometry)
@@ -782,12 +782,12 @@ bool __cdecl SetNodeTerrain(uint32_t name, Scripts::CStruct* params)
 // hidden for the second viewport when it's the second skater's script in a two-viewport game.
 bool __cdecl NodeCommand(uint32_t name, int action, Scripts::CScript* script, Scripts::CStruct* params)
 {
-    OnlinePlay::Manager* gameNet = OnlinePlay::g_gameNetManager;
-    if (gameNet->IsNetworkGame() && SkipsNode(LevelNodes::GetNode(name, true)))
+    OnlinePlay::Hub* gameNet = OnlinePlay::g_gameNetManager;
+    if (gameNet->IsNetworkGame() && SkipsNode(LevelNodes::FetchVertex(name, true)))
         return false;
     int secondViewport = 0;
-    if (script && script->m_object.Get() && !gameNet->InNetGame() && GameModules::g_viewportCount == 2 &&
-        script->m_object.Get() == reinterpret_cast<GameObjects::CObject*>(
+    if (script && script->m_entity.Pull() && !gameNet->InNetGame() && GameModules::g_viewportCount == 2 &&
+        script->m_entity.Pull() == reinterpret_cast<GameObjects::CEntity*>(
                                        reinterpret_cast<GameModules::Skate*>(Skate())->GetRiderAt(1)))
         secondViewport = 1;
     switch (action) {
@@ -861,42 +861,42 @@ bool __cdecl CFunc_Shatter(Scripts::CStruct* params, Scripts::CScript* script)
     uint32_t name = 0; // (read and not used)
     float scale = 1.0f;
     params->ReadHashValue(kName, &name, true);
-    Maths::Vector velocity;
+    Maths::Vec4 velocity;
     if (params->HasBareFlag(0x9F98989Eu)) {
-        params->GetFloat(0x13B9DA7Bu, &scale, 0); // "scale"
-        const Maths::Vector& v = static_cast<GameObjects::CGameEntity*>(script->m_object.Get())->m_vel;
+        params->FetchFloat(0x13B9DA7Bu, &scale, 0); // "scale"
+        const Maths::Vec4& v = static_cast<GameObjects::CGameEntity*>(script->m_entity.Pull())->m_vel;
         velocity.x = static_cast<float>(static_cast<double>(scale) * v.x);
         velocity.y = static_cast<float>(static_cast<double>(scale) * v.y);
         velocity.z = static_cast<float>(static_cast<double>(scale) * v.z);
         velocity.w = static_cast<float>(static_cast<double>(scale) * v.w);
     } else {
-        params->GetFloat(0x6187906Du, &velocity.x, true);
-        params->GetFloat(0x1680A0FBu, &velocity.y, true);
-        params->GetFloat(0x8F89F141u, &velocity.z, true);
+        params->FetchFloat(0x6187906Du, &velocity.x, true);
+        params->FetchFloat(0x1680A0FBu, &velocity.y, true);
+        params->FetchFloat(0x8F89F141u, &velocity.z, true);
         velocity.w = 0.0f;
     }
     float area = 0.0f;
-    params->GetFloat(0x286BC297u, &area, 0);
+    params->FetchFloat(0x286BC297u, &area, 0);
     float valueBD30 = 0.0f;
-    params->GetFloat(0xBD309DD9u, &valueBD30, 0);
+    params->FetchFloat(0xBD309DD9u, &valueBD30, 0);
     float value834A = 0.0f;
-    params->GetFloat(0x834A5F87u, &value834A, 0);
+    params->FetchFloat(0x834A5F87u, &value834A, 0);
     float valueE632 = 0.0f;
-    params->GetFloat(0xE632C101u, &valueE632, 0);
+    params->FetchFloat(0xE632C101u, &valueE632, 0);
     float value7DC3 = 0.0f;
-    params->GetFloat(0x7DC30BA6u, &value7DC3, 0);
+    params->FetchFloat(0x7DC30BA6u, &value7DC3, 0);
     float valueF01B = 0.0f;
-    params->GetFloat(0xF01BFA01u, &valueF01B, 0);
+    params->FetchFloat(0xF01BFA01u, &valueF01B, 0);
     uint32_t checksumB3DE = 0;
     params->ReadHashValue(0xB3DE2CACu, &checksumB3DE, 0);
     uint32_t checksumAF1A = 0x54628ED7;
     params->ReadHashValue(0xAF1A25F2u, &checksumAF1A, 0);
     float value2E1C = 1.0f;
-    params->GetFloat(0x2E1C4A64u, &value2E1C, 0);
+    params->FetchFloat(0x2E1C4A64u, &value2E1C, 0);
     Scripts::VectorValue vector = {0.0f, 0.0f, 0.0f, 1.0f};
-    params->GetVector(0x210EA9E1u, &vector, 0);
+    params->FetchVec(0x210EA9E1u, &vector, 0);
     float valueC483 = 0.0f;
-    params->GetFloat(0xC48391A5u, &valueC483, 0);
+    params->FetchFloat(0xC48391A5u, &valueC483, 0);
     int value33DF = 0;
     params->FetchIntValue(0x33DF5E27u, &value33DF, 0);
     float minimumArea = 2000.0f;
@@ -904,7 +904,7 @@ bool __cdecl CFunc_Shatter(Scripts::CStruct* params, Scripts::CScript* script)
         minimumArea = g_nodeObjectMinimumArea; // (5000)
     if (area < minimumArea)
         area = minimumArea;
-    Engine3D::Engine::SetShatterParams(&velocity, reinterpret_cast<const Maths::Vector*>(&vector), valueC483, area, valueBD30,
+    Engine3D::Engine::SetShatterParams(&velocity, reinterpret_cast<const Maths::Vec4*>(&vector), valueC483, area, valueBD30,
                                  value834A, valueE632, value7DC3, valueF01B, value2E1C, checksumB3DE, checksumAF1A,
                                  value33DF);
     return NodeCommandByName(params, script, 4);

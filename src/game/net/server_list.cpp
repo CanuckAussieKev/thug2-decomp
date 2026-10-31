@@ -87,7 +87,7 @@ constexpr uint32_t kListClock = 3000;         // ms
 constexpr uint32_t kShowDelay = 500;          // ms
 constexpr uint32_t kNewsBufferSize = 0x6400;  // bytes
 
-static VtableSlot kServerVtable_slots[] = {&HostListing::Destroy};
+static VtableSlot kServerVtable_slots[] = {&HostListing::Teardown};
 void** const kServerVtable = reinterpret_cast<void**>(kServerVtable_slots); // HostListing
 
 // The manager's fields not named in gamenet_manager.h yet.
@@ -95,8 +95,8 @@ constexpr uint32_t kServiceTask = 0xE0;     // TaskList::SchedulerTask*: the onl
 constexpr uint32_t kMatchTask = 0xF0;       // TaskList::SchedulerTask*: the server-list client's task
 constexpr uint32_t kServiceState = 0x1B8;
 constexpr uint32_t kNextServiceState = 0x1BC;
-constexpr uint32_t kServers = 0x158;        // ListKit::Head<HostListing>: the listed servers
-constexpr uint32_t kWaitingServers = 0x16C; // ListKit::Head<HostListing>: found, not shown yet
+constexpr uint32_t kServers = 0x158;        // ListKit::Foremost<HostListing>: the listed servers
+constexpr uint32_t kWaitingServers = 0x16C; // ListKit::Foremost<HostListing>: found, not shown yet
 constexpr uint32_t kNewsBuffer = 0x99F4;
 constexpr uint32_t kNewsText = 0xFDF4;
 constexpr uint32_t kNewsRest = 0xFDF8;
@@ -105,10 +105,10 @@ constexpr uint32_t kRequest = 0xFE00;
 constexpr uint32_t kRequestStart = 0xFE04;
 constexpr uint32_t kNewsOk = 0xFE09;
 
-Manager* TheManager() { return g_gameNetManager; }
-MemSys::Manager* Memory() { return MemSys::Manager::Get(); }
-TaskList::Stack* LogicTasks() { return reinterpret_cast<TaskList::Stack*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
-RoomManager* Lobby(Manager* manager) { return static_cast<RoomManager*>(manager->m_lobbyMan); }
+Hub* TheManager() { return g_gameNetManager; }
+MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
+TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
+RoomManager* Lobby(Hub* manager) { return static_cast<RoomManager*>(manager->m_lobbyMan); }
 
 uint32_t g_lastRefresh;
 bool g_showPending;
@@ -134,10 +134,10 @@ T* DataOf(MemSys::ListNode* node)
 {
     return node ? static_cast<T*>(node->data) : nullptr;
 }
-MemSys::ListNode* Head(Manager* manager, uint32_t offset) { return &Field<MemSys::ListNode>(manager, offset); }
+MemSys::ListNode* Foremost(Hub* manager, uint32_t offset) { return &Prop<MemSys::ListNode>(manager, offset); }
 
 // The nodes counted (the original's inlined count: data -1 checked before null).
-int Count(MemSys::ListNode* head)
+int TotalOf(MemSys::ListNode* head)
 {
     int count = 0;
     for (MemSys::ListNode* node = head->next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next)
@@ -172,24 +172,24 @@ void Append(MemSys::ListNode* head, MemSys::ListNode* node)
     head->prev = node;
 }
 
-// A server's id in the menu and in GetServer: its SBServer on the internet, itself on the LAN.
-uint32_t ServerId(Manager* manager, HostListing* server)
+// A server's id in the menu and in FetchHost: its SBServer on the internet, itself on the LAN.
+uint32_t ServerId(Hub* manager, HostListing* server)
 {
     return manager->InInternetMode() ? reinterpret_cast<uint32_t>(server->m_sbServer) : reinterpret_cast<uint32_t>(server);
 }
 
 // The waiting servers moved to the list (and the menu), after the "none found" message.
-void MoveWaitingServers(Manager* manager)
+void MoveWaitingServers(Hub* manager)
 {
     manager->ShowNoServersFound(true);
-    MemSys::ListNode* node = FirstNode(Head(manager, kWaitingServers));
+    MemSys::ListNode* node = FirstNode(Foremost(manager, kWaitingServers));
     auto* server = DataOf<HostListing>(node);
     while (server) {
         node = NextNode(node);
         auto* following = DataOf<HostListing>(node);
         UnlinkNode(server);
-        MemSys::ListNode* list = Head(manager, kServers);
-        manager->ShowServerInMenu(server, Count(list));
+        MemSys::ListNode* list = Foremost(manager, kServers);
+        manager->ShowServerInMenu(server, TotalOf(list));
         Append(list, server);
         server = following;
     }
@@ -200,23 +200,23 @@ void MoveWaitingServers(Manager* manager)
 // --- HostListing ---
 
 // 0x00545F60
-HostListing* HostListing::Construct()
+HostListing* HostListing::MakeNew()
 {
     data = this;
     priority = 0;
     next = this;
     prev = this;
     vtable = kServerVtable;
-    m_players.data = reinterpret_cast<void*>(-1);
-    m_players.priority = 0;
-    m_players.next = &m_players;
-    m_players.prev = &m_players;
-    m_players.vtable = kPlayerHeadVtable;
+    m_participants.data = reinterpret_cast<void*>(-1);
+    m_participants.priority = 0;
+    m_participants.next = &m_participants;
+    m_participants.prev = &m_participants;
+    m_participants.vtable = kPlayerHeadVtable;
     m_inMenu = false;
     m_chosen = false;
     m_ping = 0;
     std::sprintf(m_level, "None");
-    std::sprintf(m_mode, "None");
+    std::sprintf(m_modeSel, "None");
     m_numPlayers = 1;
     m_maxObservers = 1;
     m_canReach = true;
@@ -237,40 +237,40 @@ void HostListing::DestroyBody()
 {
     vtable = kServerVtable;
     ClearPlayers();
-    m_players.vtable = kPlayerNodeVtable;
-    UnlinkNode(&m_players);
+    m_participants.vtable = kPlayerNodeVtable;
+    UnlinkNode(&m_participants);
     vtable = kServerNodeVtable;
     UnlinkNode(this);
 }
 
 // 0x00547F70
-HostListing* HostListing::Destroy(unsigned int flags)
+HostListing* HostListing::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 
 // 0x00545790
 void HostListing::EnrollPlayer(const char* name, int rating)
 {
-    Memory()->EnterHeapScope(TheManager()->InInternetMode() ? static_cast<MemSys::Allocator*>(Memory()->m_internetBottomUpHeap)
-                                                         : static_cast<MemSys::Allocator*>(Memory()->m_networkHeap));
+    RamStats()->EnterHeapScope(TheManager()->InInternetMode() ? static_cast<MemSys::MemSource*>(RamStats()->m_internetBottomUpHeap)
+                                                         : static_cast<MemSys::MemSource*>(RamStats()->m_networkHeap));
     void* block = MemSys::AllocZeroed(sizeof(PlayerRecord));
-    PlayerRecord* player = block ? static_cast<PlayerRecord*>(block)->Construct(0) : nullptr;
+    PlayerRecord* player = block ? static_cast<PlayerRecord*>(block)->MakeNew(0) : nullptr;
     player->m_skillPoints = rating;
-    std::strncpy(player->m_name, name, 15);
-    player->m_name[15] = '\0';
-    Append(&m_players, player);
-    Memory()->LeaveHeapScope();
+    std::strncpy(player->m_label, name, 15);
+    player->m_label[15] = '\0';
+    Append(&m_participants, player);
+    RamStats()->LeaveHeapScope();
 }
 
 // 0x005465A0
 void HostListing::ClearPlayers()
 {
-    Manager* manager = TheManager();
-    MemSys::ListNode* node = FirstNode(&m_players);
+    Hub* manager = TheManager();
+    MemSys::ListNode* node = FirstNode(&m_participants);
     auto* player = DataOf<PlayerRecord>(node);
     while (player) {
         node = NextNode(node);
@@ -283,19 +283,19 @@ void HostListing::ClearPlayers()
 // 0x005466D0 / 0x00546730
 const char* HostListing::GetEntrantName(int index)
 {
-    for (MemSys::ListNode* node = FirstNode(&m_players); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = FirstNode(&m_participants); node; node = NextNode(node)) {
         auto* player = static_cast<PlayerRecord*>(node->data);
         if (!player)
             return nullptr;
         if (index == 0)
-            return player->m_name;
+            return player->m_label;
         --index;
     }
     return nullptr;
 }
 int HostListing::GetEntrantRank(int index)
 {
-    for (MemSys::ListNode* node = FirstNode(&m_players); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = FirstNode(&m_participants); node; node = NextNode(node)) {
         auto* player = static_cast<PlayerRecord*>(node->data);
         if (!player)
             return 0;
@@ -307,97 +307,97 @@ int HostListing::GetEntrantRank(int index)
 }
 
 // 0x005451D0 / 0x00545460
-static VtableSlot kServerSearchVtable_slots[] = {&OnlinePlay::ServerSearch::Destroy};
+static VtableSlot kServerSearchVtable_slots[] = {&OnlinePlay::ServerSearch::Teardown};
 void** const kServerSearchVtable = reinterpret_cast<void**>(kServerSearchVtable_slots);
 
 void ServerSearch::DestroyBody() { m_vtable = kServerSearchVtable; }
-ServerSearch* ServerSearch::Destroy(unsigned int flags)
+ServerSearch* ServerSearch::Teardown(unsigned int flags)
 {
     m_vtable = kServerSearchVtable;
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 
 // --- The manager's server list ---
 
 // 0x005451B0 / 0x005451C0
-void Manager::SetNextServiceState(int state) { Field<int>(this, kNextServiceState) = state; }
-int Manager::GetServiceState() { return Field<int>(this, kServiceState); }
+void Hub::SetNextServiceState(int state) { Prop<int>(this, kNextServiceState) = state; }
+int Hub::GetServiceState() { return Prop<int>(this, kServiceState); }
 
 uint32_t g_newsMessageCount;
 
 // 0x005453E0
-void Manager::SetServiceState(int state)
+void Hub::SetServiceState(int state)
 {
-    Field<int>(this, kServiceState) = state;
+    Prop<int>(this, kServiceState) = state;
     if (state == kStateWake) {
-        LogicTasks()->AddTask(Field<TaskList::SchedulerTask*>(this, kServiceTask));
-        SetServiceState(Field<int>(this, kNextServiceState));
+        LogicTasks()->QueueJob(Prop<TaskList::SchedulerTask*>(this, kServiceTask));
+        SetServiceState(Prop<int>(this, kNextServiceState));
         g_newsMessageCount = 0;
     } else if (state == kStateStopped) {
-        Field<TaskList::SchedulerTask*>(this, kServiceTask)->Remove();
+        Prop<TaskList::SchedulerTask*>(this, kServiceTask)->DropOut();
     }
 }
 
 // 0x005451E0
-void Manager::UpdateHostingStatus()
+void Hub::UpdateHostingStatus()
 {
-    NetLink::Manager* net = NetLink::g_netManager;
-    Memory()->EnterHeapScope(Memory()->m_internetTopDownHeap);
+    NetLink::Hub* net = NetLink::g_netManager;
+    RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap);
     static_cast<RoomManager*>(m_lobbyMan)->StartHosting();
-    if (Field<bool>(m_buddyMan, 0x10)) { // (0x005480B0: logged in to presence)
+    if (Prop<bool>(m_buddyMan, 0x10)) { // (0x005480B0: logged in to presence)
         const char* serverName;
-        GetOnlineSettings()->GetPreference(kServerName)->GetString(kUiString, &serverName, 1);
+        GetOnlineSettings()->FetchSetting(kServerName)->FetchText(kUiString, &serverName, 1);
         char location[1024];
         RoomManager* lobby = Lobby(this);
-        if (lobby->m_peer) {
-            uint32_t privateIp = GameSpy::PeerGetPrivateIp(lobby->m_peer); // (the peer's private address)
+        if (lobby->m_remote) {
+            uint32_t privateIp = GameSpy::PeerGetPrivateIp(lobby->m_remote); // (the peer's private address)
             std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", net->GetLocalAddress(), privateIp, kPort, serverName,
                          lobby->m_roomName);
         } else {
             std::sprintf(location, "10thug211:0:0:0:%s (%s)", serverName, lobby->m_roomName);
         }
-        static_cast<FriendsManager*>(m_buddyMan)->SetStatus(2, Scripts::GetString(kHostingStatus), location);
+        static_cast<FriendsManager*>(m_buddyMan)->ChangeStanding(2, Scripts::FetchText(kHostingStatus), location);
     }
-    Memory()->LeaveHeapScope();
+    RamStats()->LeaveHeapScope();
 }
 
 // 0x00545300
-bool Manager::StartServerList()
+bool Hub::StartServerList()
 {
-    TaskList::Stack* logic = LogicTasks();
+    TaskList::PileUp* logic = LogicTasks();
     if (!IsLocalNetworkPlay())
         return true;
     DestroyMatchClient();
-    Memory()->EnterHeapScope(Memory()->m_networkHeap);
-    NetLink::App* client = StartMatchmakingClient();
-    Memory()->LeaveHeapScope();
+    RamStats()->EnterHeapScope(RamStats()->m_networkHeap);
+    NetLink::AppHost* client = StartMatchmakingClient();
+    RamStats()->LeaveHeapScope();
     if (!client)
         return false;
-    TaskList::SchedulerTask* task = Field<TaskList::SchedulerTask*>(this, kMatchTask);
+    TaskList::SchedulerTask* task = Prop<TaskList::SchedulerTask*>(this, kMatchTask);
     if (!task->IsOnTaskList())
-        logic->AddTask(task);
+        logic->QueueJob(task);
     return true;
 }
 
 // 0x00545370
-void Manager::StopServerList()
+void Hub::StopServerList()
 {
     if (InInternetMode()) {
-        Memory()->EnterHeapScope(Memory()->m_internetBottomUpHeap);
-        if (Lobby(this)->m_peer)
-            GameSpy::PeerStopListingGames(Lobby(this)->m_peer); // (the browsing stopped)
-        Memory()->LeaveHeapScope();
+        RamStats()->EnterHeapScope(RamStats()->m_internetBottomUpHeap);
+        if (Lobby(this)->m_remote)
+            GameSpy::PeerStopListingGames(Lobby(this)->m_remote); // (the browsing stopped)
+        RamStats()->LeaveHeapScope();
         return;
     }
-    if (NetLink::App* client = GetMatchmakingClient())
+    if (NetLink::AppHost* client = GetMatchmakingClient())
         client->m_dispatcher.TearDownState();
-    Field<TaskList::SchedulerTask*>(this, kMatchTask)->Remove();
+    Prop<TaskList::SchedulerTask*>(this, kMatchTask)->DropOut();
 }
 
 // 0x005456B0
-void Manager::ShowNoServersFound(bool refocus)
+void Hub::ShowNoServersFound(bool refocus)
 {
     Scripts::CStruct* params = NewParams();
     if (refocus)
@@ -408,9 +408,9 @@ void Manager::ShowNoServersFound(bool refocus)
 }
 
 // 0x00546010
-void Manager::ClearChosenServers()
+void Hub::ClearChosenServers()
 {
-    for (MemSys::ListNode* node = FirstNode(Head(this, kServers)); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = FirstNode(Foremost(this, kServers)); node; node = NextNode(node)) {
         auto* server = static_cast<HostListing*>(node->data);
         if (!server)
             break;
@@ -419,10 +419,10 @@ void Manager::ClearChosenServers()
 }
 
 // 0x00546070
-int Manager::NumServersInMenu()
+int Hub::NumServersInMenu()
 {
     int count = 0;
-    for (MemSys::ListNode* node = FirstNode(Head(this, kServers)); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = FirstNode(Foremost(this, kServers)); node; node = NextNode(node)) {
         auto* server = static_cast<HostListing*>(node->data);
         if (!server)
             break;
@@ -433,18 +433,18 @@ int Manager::NumServersInMenu()
 }
 
 // 0x005460D0
-void Manager::ShowServerInMenu(void* item, int index)
+void Hub::ShowServerInMenu(void* item, int index)
 {
     (void)index;
     auto* server = static_cast<HostListing*>(item);
-    Memory()->EnterHeapScope(Memory()->m_frontEndHeap);
+    RamStats()->EnterHeapScope(RamStats()->m_frontEndHeap);
     if (NumServersInMenu() == 0)
         Run(kDestroyServerChildren);
     Run(kPrepareServerMenu);
     Scripts::CStruct* params = NewParams();
-    params->AddString(kText, server->m_name);
-    params->AddString(kMode, server->m_mode);
-    DebugOut::Printf("The game mode is: %s\n", server->m_mode);
+    params->AppendWord(kText, server->m_label);
+    params->AppendWord(kMode, server->m_modeSel);
+    DebugOut::Printf("The game mode is: %s\n", server->m_modeSel);
     uint32_t id = ServerId(this, server);
     params->PutNameKey(kId, id);
     params->PutNameKey(kParent, kServerListMenu);
@@ -458,27 +458,27 @@ void Manager::ShowServerInMenu(void* item, int index)
     server->m_inMenu = true;
     DeleteParams(params);
     DeleteParams(idParams);
-    Memory()->LeaveHeapScope();
+    RamStats()->LeaveHeapScope();
 }
 
 // 0x005462F0
-void Manager::EmptyServerListing()
+void Hub::EmptyServerListing()
 {
-    DeleteAll(Head(this, kWaitingServers));
-    DeleteAll(Head(this, kServers));
+    DeleteAll(Foremost(this, kWaitingServers));
+    DeleteAll(Foremost(this, kServers));
     if (IsLocalNetworkPlay())
         DestroyMatchClient();
 }
 
 // 0x00546400
-bool Manager::HasServer(const char* name, uint32_t ip)
+bool Hub::HasServer(const char* name, uint32_t ip)
 {
     for (uint32_t list : {kServers, kWaitingServers}) {
-        for (MemSys::ListNode* node = FirstNode(Head(this, list)); node; node = NextNode(node)) {
+        for (MemSys::ListNode* node = FirstNode(Foremost(this, list)); node; node = NextNode(node)) {
             auto* server = static_cast<HostListing*>(node->data);
             if (!server)
                 break;
-            if (server->m_hostAddr == ip && _stricmp(server->m_name, name) == 0)
+            if (server->m_hostAddr == ip && _stricmp(server->m_label, name) == 0)
                 return true;
         }
     }
@@ -486,9 +486,9 @@ bool Manager::HasServer(const char* name, uint32_t ip)
 }
 
 // 0x005464D0
-void* Manager::GetServer(uint32_t id)
+void* Hub::FetchHost(uint32_t id)
 {
-    for (MemSys::ListNode* node = FirstNode(Head(this, kServers)); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = FirstNode(Foremost(this, kServers)); node; node = NextNode(node)) {
         auto* server = static_cast<HostListing*>(node->data);
         if (!server)
             return nullptr;
@@ -499,42 +499,42 @@ void* Manager::GetServer(uint32_t id)
 }
 
 // 0x00547320
-void Manager::ShowFoundServers()
+void Hub::ShowFoundServers()
 {
     MoveWaitingServers(this);
     Scripts::LaunchScript("update_lobby_server_list", nullptr, nullptr, false);
 }
 
 // 0x00547E80
-void Manager::RefreshServerList(bool force)
+void Hub::RefreshServerList(bool force)
 {
     if (!force && FrameClock::GetTime() - LastRefresh() < kRefreshInterval)
         return;
     LastRefresh() = FrameClock::GetTime();
     ShowPending() = true;
-    Memory()->EnterHeapScope(Memory()->m_networkHeap);
+    RamStats()->EnterHeapScope(RamStats()->m_networkHeap);
     StopServerList();
     EmptyServerListing();
     StartServerList();
     if (!InInternetMode()) {
         FindServersOnLan();
-        Memory()->LeaveHeapScope();
+        RamStats()->LeaveHeapScope();
         return;
     }
-    Manager* manager = TheManager();
+    Hub* manager = TheManager();
     uint8_t keys[4] = {8, 10, 4, 6}; // (in the original: over its argument's slot)
-    Memory()->EnterHeapScope(Memory()->m_internetBottomUpHeap);
+    RamStats()->EnterHeapScope(RamStats()->m_internetBottomUpHeap);
     static_cast<RoomManager*>(manager->m_lobbyMan)->ClearLostConnection();
-    GameSpy::PeerStartListingGames(Lobby(this)->m_peer, keys, 4, nullptr, CodeAddress(ListingGamesCallback),
+    GameSpy::PeerStartListingGames(Lobby(this)->m_remote, keys, 4, nullptr, CodeAddress(ListingGamesCallback),
                                    this); // (the games listed)
-    Memory()->LeaveHeapScope();
-    Memory()->LeaveHeapScope();
+    RamStats()->LeaveHeapScope();
+    RamStats()->LeaveHeapScope();
 }
 
 // 0x00547440
 void __cdecl ServerListTask(void* task)
 {
-    Manager* manager = Field<Manager*>(task, 0x1C);
+    Hub* manager = Prop<Hub*>(task, 0x1C);
     if (FrameClock::GetTime() - ListClock() > kListClock) {
         ListClock() = FrameClock::GetTime();
         return;
@@ -551,34 +551,34 @@ void __cdecl ServerListTask(void* task)
 // 0x00545540
 unsigned long __stdcall NewsThread(void* argument)
 {
-    auto* manager = static_cast<Manager*>(argument);
-    Memory()->EnterHeapScope(Memory()->m_internetBottomUpHeap);
+    auto* manager = static_cast<Hub*>(argument);
+    RamStats()->EnterHeapScope(RamStats()->m_internetBottomUpHeap);
     GameSpy::Msleep(100);
-    Field<int>(manager, kServiceState) = kStateNews;
-    Field<uint32_t>(manager, kRequestStart) = FrameClock::GetTime();
-    uint8_t* buffer = &Field<uint8_t>(manager, kNewsBuffer);
+    Prop<int>(manager, kServiceState) = kStateNews;
+    Prop<uint32_t>(manager, kRequestStart) = FrameClock::GetTime();
+    uint8_t* buffer = &Prop<uint8_t>(manager, kNewsBuffer);
     std::memset(buffer, 0, 0x1900 * 4);
     char url[256];
     std::sprintf(url, ScriptCommands::g_textureFlagCe441 ? "http://www.thug2online.com/testmotd.dat"
                                                      : "http://www.thug2online.com/motd.dat");
-    Field<int>(manager, kRequest) =
+    Prop<int>(manager, kRequest) =
         GameSpy::HttpGetEx(url, nullptr, reinterpret_cast<char*>(buffer), static_cast<int>(kNewsBufferSize), nullptr, 0, 0,
                            CodeAddress(Stubs::DoNothing), &NewsCallback, manager); // (the download started)
-    Memory()->LeaveHeapScope();
+    RamStats()->LeaveHeapScope();
     return 0;
 }
 
 // 0x00545620
 unsigned long __stdcall MotdThread(void* argument)
 {
-    auto* manager = static_cast<Manager*>(argument);
+    auto* manager = static_cast<Hub*>(argument);
     const char* uniqueId = "123456789";
-    Memory()->EnterHeapScope(Memory()->m_internetBottomUpHeap);
-    manager->GetOnlineSettings()->GetPreference(kUniqueId)->GetString(kUiString, &uniqueId, 0); // (not used)
-    Field<uint32_t>(manager, kRequestStart) = FrameClock::GetTime();
-    Field<int>(manager, kRequest) = GameSpy::TrackUsage(0, 10368, "1.0", 0, 0); // (the usage report: the SDK's MOTD request)
-    Field<int>(manager, kServiceState) = kStateMotd;
-    Memory()->LeaveHeapScope();
+    RamStats()->EnterHeapScope(RamStats()->m_internetBottomUpHeap);
+    manager->GetOnlineSettings()->FetchSetting(kUniqueId)->FetchText(kUiString, &uniqueId, 0); // (not used)
+    Prop<uint32_t>(manager, kRequestStart) = FrameClock::GetTime();
+    Prop<int>(manager, kRequest) = GameSpy::TrackUsage(0, 10368, "1.0", 0, 0); // (the usage report: the SDK's MOTD request)
+    Prop<int>(manager, kServiceState) = kStateMotd;
+    RamStats()->LeaveHeapScope();
     return 0;
 }
 
@@ -587,9 +587,9 @@ int __cdecl NewsCallback(void* request, int result, uint8_t* buffer, uint32_t si
 {
     (void)request;
     (void)param;
-    Manager* manager = TheManager();
+    Hub* manager = TheManager();
     if (result != 0) {
-        Field<int>(manager, kServiceState) = kStateNewsFailed;
+        Prop<int>(manager, kServiceState) = kStateNewsFailed;
         return 1;
     }
     int64_t size = (static_cast<int64_t>(sizeHigh) << 32) | sizeLow;
@@ -599,15 +599,15 @@ int __cdecl NewsCallback(void* request, int result, uint8_t* buffer, uint32_t si
     int remaining = *reinterpret_cast<int*>(buffer + 4);
     uint8_t* text = buffer + 8;
     if (checksum != Checksums::GenerateCRCCaseless(reinterpret_cast<const char*>(text), remaining)) {
-        Field<int>(manager, kServiceState) = kStateNewsFailed;
+        Prop<int>(manager, kServiceState) = kStateNewsFailed;
         return 1;
     }
-    Field<uint8_t*>(manager, kNewsText) = text;
+    Prop<uint8_t*>(manager, kNewsText) = text;
     int length = (static_cast<int>(std::strlen(reinterpret_cast<const char*>(text))) + 4) & ~3; // (with its NUL, a word)
-    Field<int>(manager, kNewsRestSize) = remaining - length;
-    Field<uint8_t*>(manager, kNewsRest) = text + length;
-    Field<bool>(manager, kNewsOk) = true;
-    Field<int>(manager, kServiceState) = kStateNewsDone;
+    Prop<int>(manager, kNewsRestSize) = remaining - length;
+    Prop<uint8_t*>(manager, kNewsRest) = text + length;
+    Prop<bool>(manager, kNewsOk) = true;
+    Prop<int>(manager, kServiceState) = kStateNewsDone;
     return 1;
 }
 
@@ -626,7 +626,7 @@ bool __cdecl CFunc_PostGame(Scripts::CStruct* params, Scripts::CScript* script)
 {
     (void)params;
     (void)script;
-    Manager* manager = TheManager();
+    Hub* manager = TheManager();
     if (!Lobby(manager)->m_hosting)
         manager->UpdateHostingStatus();
     return true;
@@ -636,11 +636,11 @@ bool __cdecl CFunc_PostGame(Scripts::CStruct* params, Scripts::CScript* script)
 bool __cdecl CFunc_NumServersInLobby(Scripts::CStruct* params, Scripts::CScript* script)
 {
     (void)params;
-    script->m_params->PutInt(kNumServers, Count(Head(TheManager(), kServers)));
+    script->m_args->PutInt(kNumServers, TotalOf(Foremost(TheManager(), kServers)));
     return true;
 }
 
 } // namespace OnlinePlay
 
-using OnlinePlay::Manager;
+using OnlinePlay::Hub;
 using OnlinePlay::HostListing;

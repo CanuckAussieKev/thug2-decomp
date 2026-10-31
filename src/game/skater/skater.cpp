@@ -133,7 +133,7 @@ constexpr uint32_t kModelComponent = 0x286A8D26; // model (a component)
 constexpr uint32_t kPauseValue = 0x9816E1E3;     // (a physics integer: pausing freezes the whole game)
 
 uint8_t* Skate() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
-OnlinePlay::Manager* NetLink() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetLink() { return OnlinePlay::g_gameNetManager; }
 bool Rule5A1180() { return static_cast<uint8_t>(ScriptCommands::CFunc_InSplitScreenGame(nullptr, nullptr)) != 0; }
 
 template <typename T>
@@ -172,7 +172,7 @@ bool CRider::MatchesParams(Scripts::CStruct* params)
     if (params->HasBareFlag(kIsFemale) && m_male)
         return false;
     uint32_t value;
-    if (params->ReadHashValue(kIsNamed, &value, 0) && value != m_name)
+    if (params->ReadHashValue(kIsNamed, &value, 0) && value != m_label)
         return false;
     if (params->ReadHashValue(kStance, &value, 0) && value != (m_goofy ? kGoofy : kRegular))
         return false;
@@ -196,7 +196,7 @@ void CRider::SparksOff()
 }
 
 // 0x00580030
-Maths::Matrix* CRider::GetDrawMatrix() { return reinterpret_cast<Maths::Matrix*>(m_corePhysics + 0x18); }
+Maths::Mat4* CRider::GetDrawMatrix() { return reinterpret_cast<Maths::Mat4*>(m_corePhysics + 0x18); }
 
 // 0x00580040 / 0x00580050
 void* CRider::GetBlock238() { return m_block238; }
@@ -207,18 +207,18 @@ void CRider::LoadCATInfo(Scripts::CStruct* params)
 {
     DebugOut::Printf("LoadCATInfo was called\n");
     Scripts::CArray* tricks = nullptr;
-    params->GetArray(kTricks, &tricks, 0);
+    params->FetchList(kTricks, &tricks, 0);
     for (int i = 0; i < 11; ++i) {
-        auto* trick = reinterpret_cast<Scripts::CStruct*>(tricks->GetElement(i));
+        auto* trick = reinterpret_cast<Scripts::CStruct*>(tricks->FetchPart(i));
         uint8_t* info = m_trickInfo[i];
         Scripts::CStruct* other = nullptr;
         trick->ReadSubStruct(kOther, &other, 1);
         At<Scripts::CStruct*>(info, 4)->AppendStructureIfAny(other);
         Scripts::CArray* animations = nullptr;
-        trick->GetArray(kAnimations, &animations, 1);
+        trick->FetchList(kAnimations, &animations, 1);
         Scripts::DuplicateArray(At<Scripts::CArray*>(info, 0xC), animations);
         Scripts::CArray* rotations = nullptr;
-        trick->GetArray(kRotations, &rotations, 1);
+        trick->FetchList(kRotations, &rotations, 1);
         Scripts::DuplicateArray(At<Scripts::CArray*>(info, 8), rotations);
     }
     Scripts::LaunchScript(kKillLoadPremadeCats, nullptr, nullptr, false, nullptr);
@@ -229,29 +229,29 @@ void CRider::LoadList44B66A9F(Scripts::CStruct* params)
 {
     reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(m_list28C))[5])(m_list28C, 0);
     Scripts::CArray* entries = nullptr;
-    params->GetArray(kList44B66A9F, &entries, 0);
+    params->FetchList(kList44B66A9F, &entries, 0);
     for (int i = 0; i < 0x46; ++i)
-        static_cast<CAttributeTracker*>(m_list28C)->SetGoalStatus(i, static_cast<int>(entries->GetElement(i)));
+        static_cast<CAttributeTracker*>(m_list28C)->SetGoalStatus(i, static_cast<int>(entries->FetchPart(i)));
 }
 
 // 0x005801B0
 void CRider::WriteChapterInfo(Scripts::CStruct* save)
 {
-    save->AppendArrayValue(kSaveChapterStatus, Scripts::GetArray(kChapterStatus));
-    save->AppendArrayValue(kSaveChapterIntros, Scripts::GetArray(kChapterIntros));
-    save->AppendArrayValue(kSaveChapterOuttros, Scripts::GetArray(kChapterOuttros));
+    save->AppendArrayValue(kSaveChapterStatus, Scripts::FetchList(kChapterStatus));
+    save->AppendArrayValue(kSaveChapterIntros, Scripts::FetchList(kChapterIntros));
+    save->AppendArrayValue(kSaveChapterOuttros, Scripts::FetchList(kChapterOuttros));
 }
 
 // 0x00580210
 void CRider::ReadChapterInfo(Scripts::CStruct* save)
 {
     Scripts::CArray* array = nullptr;
-    if (save->GetArray(kSaveChapterStatus, &array, 0))
-        Scripts::DuplicateArray(Scripts::GetArray(kChapterStatus), array);
-    if (save->GetArray(kSaveChapterIntros, &array, 0))
-        Scripts::DuplicateArray(Scripts::GetArray(kChapterIntros), array);
-    if (save->GetArray(kSaveChapterOuttros, &array, 0))
-        Scripts::DuplicateArray(Scripts::GetArray(kChapterOuttros), array);
+    if (save->FetchList(kSaveChapterStatus, &array, 0))
+        Scripts::DuplicateArray(Scripts::FetchList(kChapterStatus), array);
+    if (save->FetchList(kSaveChapterIntros, &array, 0))
+        Scripts::DuplicateArray(Scripts::FetchList(kChapterIntros), array);
+    if (save->FetchList(kSaveChapterOuttros, &array, 0))
+        Scripts::DuplicateArray(Scripts::FetchList(kChapterOuttros), array);
 }
 
 // 0x005802C0
@@ -262,11 +262,11 @@ Scripts::CStruct* __cdecl GetPhysicsStructure(CGameEntity* skater)
 {
     if (!skater || !At<bool>(skater, 0xBC))
         return Scripts::ReadSubStruct(kSkaterPhysics);
-    auto* core = reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterCorePhysics));
+    auto* core = reinterpret_cast<uint8_t*>(skater->FetchModule(kSkaterCorePhysics));
     // Not original - on THAW's bike, THAW's bicycle_physics (thaw_bicycle_physics: game/skater/thaw_bmx.h), as
     // THAW's own GetPhysicsStructure (0x0058ED90) picks it.
     // Original behaviour: the vehicle's, the chainsaw's or the skater's below.
-    if (Skater::ThawBmx::Enabled()) {
+    if (Skater::ThawBmx::IsSwitchedOn()) {
         if (Scripts::CStruct* bike = Skater::ThawBmx::PhysicsStructure(core))
             return bike;
     }
@@ -292,10 +292,10 @@ float __cdecl ReadTuningFloat(uint32_t name, int assert, CGameEntity* skater)
 {
     Scripts::CStruct* physics = GetPhysicsStructure(skater);
     float value;
-    if (physics->GetFloat(name, &value, 0))
+    if (physics->FetchFloat(name, &value, 0))
         return value;
     (void)assert;
-    return Scripts::GetFloat(name);
+    return Scripts::FetchFloat(name);
 }
 
 // 0x00580440
@@ -313,17 +313,17 @@ int __cdecl ReadTuningInt(uint32_t name, int assert, CGameEntity* skater)
 void* CRider::GetPointsTotal() { return At<void*>(m_scoreHolder, 0x18); }
 
 // 0x00580490
-float CRider::GetStat(int index)
+float CRider::FetchTally(int index)
 {
     float stat = At<float>(Skate(), 0x3D0); // (forced by the skate module unless 0)
     if (stat == 0.0f) {
         uint32_t bits;
         std::memcpy(&bits, &m_statOverrides[index], 4);
-        stat = bits == 0xBF800000 ? Scripts::GetFloat(kSkaterDefaultStats) : m_statOverrides[index];
+        stat = bits == 0xBF800000 ? Scripts::FetchFloat(kSkaterDefaultStats) : m_statOverrides[index];
     }
     // Online: the server's rules for this player.
     if (NetLink()->InNetGame()) {
-        auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetLink()->PlayerByObjectId(static_cast<uint16_t>(m_id)));
+        auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetLink()->PlayerByObjectId(static_cast<uint16_t>(m_ident)));
         if (!player)
             stat = 10.0f;
         else if (player->HoldsCrown())
@@ -333,7 +333,7 @@ float CRider::GetStat(int index)
         else
             stat = 10.0f;
     } else if (Rule5A1180()) {
-        auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetLink()->PlayerByObjectId(static_cast<uint16_t>(m_id)));
+        auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetLink()->PlayerByObjectId(static_cast<uint16_t>(m_ident)));
         if (player && player->HoldsCrown())
             stat = 1.0f;
     }
@@ -350,11 +350,11 @@ float CRider::GetStat(int index)
 float CRider::GetScaledValue(Scripts::CStruct* params)
 {
     Scripts::CPair range, switchRange;
-    range.Init();
-    switchRange.Init();
+    range.PrepareAll();
+    switchRange.PrepareAll();
     params->FetchPair(0u, &range, false);
     int statIndex;
-    double stat = params->FetchIntValue(0u, &statIndex, 0) ? GetStat(statIndex) : 10.0f;
+    double stat = params->FetchIntValue(0u, &statIndex, 0) ? FetchTally(statIndex) : 10.0f;
     const float low = range.x, high = range.y;
     float result = static_cast<float>((static_cast<double>(high) - low) * stat * 0.1f + low);
     // Riding switch: times the switch pair, by the switch stat (0-1).
@@ -362,7 +362,7 @@ float CRider::GetScaledValue(Scripts::CStruct* params)
     uint8_t flipped = At<uint8_t>(At<uint8_t*>(m_corePhysics, 0x1528), 0x28);
     bool riding = goofy ? flipped != 0 : flipped == 0;
     if (riding && params->FetchPair(kSwitch, &switchRange, false)) {
-        double s = GetStat(6);
+        double s = FetchTally(6);
         double scale = (static_cast<double>(switchRange.y) - switchRange.x) * s * 0.1f + switchRange.x;
         if (scale < 0.0)
             scale = 0.0;
@@ -371,13 +371,13 @@ float CRider::GetScaledValue(Scripts::CStruct* params)
         result = static_cast<float>(scale * result);
     }
     // The game's difficulty (one more in classic mode): times the diff pair's first (0) or second (2).
-    GoalSystem::CGoalManager* mode = GameModules::Skate::Instance()->GetObjectiveBoard();
+    GoalSystem::CGoalManager* mode = GameModules::Skate::Sole()->GetObjectiveBoard();
     int difficulty = mode->GetSkillTier(false);
     if (static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->IsTrue(kIsClassic))
         ++difficulty;
     if (difficulty != 1) {
         Scripts::CPair diff;
-        diff.Init();
+        diff.PrepareAll();
         if (params->FetchPair(kDiff, &diff, false)) {
             if (difficulty == 0)
                 result = static_cast<float>(static_cast<double>(diff.x) * result);
@@ -387,7 +387,7 @@ float CRider::GetScaledValue(Scripts::CStruct* params)
     }
     // The limit: a maximum for a rising range, a minimum otherwise.
     float limit;
-    if (!params->GetFloat(kLimit, &limit, 0))
+    if (!params->FetchFloat(kLimit, &limit, 0))
         return result;
     if (low < high)
         return result > limit ? limit : result;
@@ -398,7 +398,7 @@ float CRider::GetScaledValue(Scripts::CStruct* params)
 float CRider::GetScaledPhysics(uint32_t name)
 {
     Scripts::CStruct* params = nullptr;
-    CObject* object = CompositeObjectManager()->LookUpEntity(m_id);
+    CEntity* object = CompositeObjectManager()->LookUpEntity(m_ident);
     Scripts::CStruct* physics = GetPhysicsStructure(static_cast<CGameEntity*>(object));
     if (!physics->ReadSubStruct(name, &params, 0))
         params = Scripts::ReadSubStruct(name);
@@ -429,7 +429,7 @@ void CRider::MoveToRandomRestart()
 }
 
 // 0x00580880
-CObject* CRider::GetSkaterCamera()
+CEntity* CRider::GetSkaterCamera()
 {
     return CompositeObjectManager()->LookUpEntity(m_viewSlot == 1 ? kSkaterCam1 : kSkaterCam0);
 }
@@ -438,7 +438,7 @@ CObject* CRider::GetSkaterCamera()
 void CRider::SetPauseState(int state)
 {
     void* frontEnd = reinterpret_cast<void*>(GameModules::g_frontEndInstance);
-    if (m_pauseState == state || !GetComponent(kSkaterPhysicsControl))
+    if (m_pauseState == state || !FetchModule(kSkaterPhysicsControl))
         return;
     m_pauseState = state;
     auto pauseGame = [frontEnd](bool pause) {
@@ -458,13 +458,13 @@ void CRider::SetPauseState(int state)
         if (ReadTuningInt(kPauseValue, 0, nullptr)) {
             DebugOut::Printf("Freezing game\n");
             pauseGame(true);
-        } else if (CObjectModule* physicsControl = GetComponent(kSkaterPhysicsControl); At<uint8_t>(physicsControl, 0x18) != 1) {
+        } else if (CObjectModule* physicsControl = FetchModule(kSkaterPhysicsControl); At<uint8_t>(physicsControl, 0x18) != 1) {
             control(physicsControl, 1);
         }
         break;
     case 2:
         if (!ReadTuningInt(kPauseValue, 0, nullptr)) {
-            CObjectModule* physicsControl = GetComponent(kSkaterPhysicsControl);
+            CObjectModule* physicsControl = FetchModule(kSkaterPhysicsControl);
             if (At<uint8_t>(physicsControl, 0x18))
                 control(physicsControl, 0);
         }
@@ -489,10 +489,10 @@ void CRider::UpdateShadowLight(int, int)
         down[0] = 0.0f, down[1] = -1.0f, down[2] = 0.0f, down[3] = 1.0f;
     }
     // The model's light, reversed; kept at least 0.65 below the horizon.
-    if (GetComponent(kModelComponent) && At<void*>(GetComponent(kModelComponent), 0x208)) {
+    if (FetchModule(kModelComponent) && At<void*>(FetchModule(kModelComponent), 0x208)) {
         // (the model's +0x2C - read through the folded getter 0x00532EB0 - and its virtual slot 5 - through the jump
         // 0x00456B30)
-        void* lights = At<void*>(At<void*>(GetComponent(kModelComponent), 0x208), 0x2C);
+        void* lights = At<void*>(At<void*>(FetchModule(kModelComponent), 0x208), 0x2C);
         if (lights) {
             const float* v = reinterpret_cast<float*(__thiscall*)(void*, int)>((*static_cast<void***>(lights))[5])(lights, 0);
             double x = v[0] * -1.0, y = v[1] * -1.0, z = v[2] * -1.0, w = v[3] * -1.0;
@@ -523,8 +523,8 @@ void CRider::UpdateShadowLight(int, int)
         m_shadowFade = m_shadowFade > 0 ? m_shadowFade - 1 : 0;
     else
         m_shadowFade = m_shadowFade < 16 ? m_shadowFade + 1 : 16;
-    Maths::Vector direction;
-    Walk::Lerp(&direction, reinterpret_cast<const Maths::Vector*>(light), reinterpret_cast<const Maths::Vector*>(down),
+    Maths::Vec4 direction;
+    Walk::Lerp(&direction, reinterpret_cast<const Maths::Vec4*>(light), reinterpret_cast<const Maths::Vec4*>(down),
                static_cast<float>(m_shadowFade * 0.0625f));
     static_cast<CGroundShadowModule*>(m_shadow)->SetLightDirection(&direction);
 }
@@ -543,8 +543,8 @@ int Clock() { return FrameClock::GameClockElapsed() + g_clockOffset; }
 // The score's two balance displays off (0x00563370 / 0x00563390).
 void BalanceDisplaysOff(void* score)
 {
-    static_cast<GameModules::Score*>(score)->SetTeeterGauge(false, 0.0f);
-    static_cast<GameModules::Score*>(score)->SetWheelieGauge(false, 0.0f);
+    static_cast<GameModules::PointTally*>(score)->SetTeeterGauge(false, 0.0f);
+    static_cast<GameModules::PointTally*>(score)->SetWheelieGauge(false, 0.0f);
 }
 
 // An input flag (a byte and the clock when it last changed) set to `on` if it isn't already.
@@ -570,13 +570,13 @@ void CRider::SetStatsFromProfile(CRiderIdentity* profile)
         return;
     }
     for (int i = 0; i < 10; ++i)
-        SetStatOverride(i, static_cast<float>(profile->GetStat(kStatNames[i])));
+        SetStatOverride(i, static_cast<float>(profile->FetchTally(kStatNames[i])));
 }
 
 // 0x00580EB0
 void CRider::UpdateFromProfile(CRiderIdentity* profile)
 {
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_skaterHeaps[m_skaterNumber]);
     auto checksum = [profile](uint32_t name) {
         return profile->GetNameKeyField(name);
@@ -584,29 +584,29 @@ void CRider::UpdateFromProfile(CRiderIdentity* profile)
     m_strokeKind = checksum(kPushStyle);
     m_goofy = checksum(kStance) == kGoofy;
     m_pro = profile->IsPro();
-    m_shownName = profile->GetDisplayName();
+    m_shownName = profile->FetchShownName();
     Scripts::CStruct* info = profile->InfoStructure();
     m_style = 0;
     info->FetchIntValue(kIsMale, &m_male, 1);
     info->ReadHashValue(kSkateStyle, &m_style, 0);
     const char* firstName;
-    info->GetString(kFirstName, &firstName, 1);
+    info->FetchText(kFirstName, &firstName, 1);
     for (int i = 0; (m_givenName[i] = firstName[i]) != 0; ++i) { // (copied inline, unchecked)
     }
-    m_name = profile->GetName();
+    m_label = profile->FetchTitle();
     if (m_unknownBC) {
         uint8_t* stanceFlag = At<uint8_t*>(m_corePhysics, 0x1528) + 0x28;
         SetInputFlag(stanceFlag, m_goofy ? 0 : 1);
-        static_cast<CRiderSpinAndFlip*>(GetComponent(kSkaterFlipAndRotate))->ApplyFlipToAnims();
+        static_cast<CRiderSpinAndFlip*>(FetchModule(kSkaterFlipAndRotate))->ApplyFlipToAnims();
     }
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
 }
 
 // 0x00580FF0
 void CRider::ResetInput()
 {
     reinterpret_cast<CRiderPointKeeper*>(m_scoreHolder)->ResetScore();
-    static_cast<CRiderTeeterMoves*>(GetComponent(0x589E5FB3))->ClearBestTimes();
+    static_cast<CRiderTeeterMoves*>(FetchModule(0x589E5FB3))->ClearBestTimes();
     reinterpret_cast<void(__thiscall*)(CRider*)>(m_vtable[0x48 / 4])(this);
     for (int i = 0; i < 24; ++i) {
         SetInputFlag(At<uint8_t*>(m_corePhysics, 0x1528) + 0x20 + 8 * i, 1);
@@ -623,10 +623,10 @@ void CRider::ResetInput()
 // 0x005810E0
 void CRider::ResetState()
 {
-    auto* physicsControl = reinterpret_cast<uint8_t*>(GetComponent(kSkaterPhysicsControl));
+    auto* physicsControl = reinterpret_cast<uint8_t*>(FetchModule(kSkaterPhysicsControl));
     if (physicsControl[0x18])
         reinterpret_cast<CRiderBoardPhysics*>(physicsControl)->SetFrozen(false);
-    static_cast<CRiderSpinAndFlip*>(GetComponent(kSkaterFlipAndRotate))->ClearAfterFlags();
+    static_cast<CRiderSpinAndFlip*>(FetchModule(kSkaterFlipAndRotate))->ClearAfterFlags();
     auto* tricks = static_cast<CMoveExecutor*>(m_unknown258);
     tricks->ClearExtraTricks();
     tricks->ClearBlock1238();
@@ -634,22 +634,22 @@ void CRider::ResetState()
     tricks->ClearEventBuffer();
     tricks->ClearQueue();
     tricks->ResetTrickObjects();
-    static_cast<CRiderPoseState*>(GetComponent(0x43686585))->ClearDoingTrick();
+    static_cast<CRiderPoseState*>(FetchModule(0x43686585))->ClearDoingTrick();
     m_unknown250[0x1F4] = 0;
     BalanceDisplaysOff(At<void*>(m_scoreHolder, 0x18));
     if (m_unknown25C)
         static_cast<CPadRumbleModule*>(m_unknown25C)->StopAll();
-    static_cast<CGroundShadowModule*>(m_shadow)->SetPosition(&m_pos);
+    static_cast<CGroundShadowModule*>(m_shadow)->ChangePlace(&m_atPoint);
     static_cast<CGroundShadowModule*>(m_shadow)->SetNormal(&m_basisFrame.row[1]);
-    At<int>(GetComponent(0x21FC3301), 0x18) = -1;
+    At<int>(FetchModule(0x21FC3301), 0x18) = -1;
 }
 
 // 0x005811E0
 void CRider::SetUpNetwork()
 {
-    auto* client = reinterpret_cast<uint8_t*>(NetLink()->GetClient(m_skaterNumber));
-    auto* flipAndRotate = static_cast<CRiderSpinAndFlip*>(GetComponent(kSkaterFlipAndRotate));
-    flipAndRotate->SetBoardRotated(m_id, false, At<uint32_t>(client, 8), m_unknownBC != 0);
+    auto* client = reinterpret_cast<uint8_t*>(NetLink()->FetchPatron(m_skaterNumber));
+    auto* flipAndRotate = static_cast<CRiderSpinAndFlip*>(FetchModule(kSkaterFlipAndRotate));
+    flipAndRotate->SetBoardRotated(m_ident, false, At<uint32_t>(client, 8), m_unknownBC != 0);
     flipAndRotate->ApplyFlipToAnims();
     reinterpret_cast<CMeshInstanceModule*>(m_unknown250)->ConcealMesh(0xA7A9D4B8, false, m_unknownBC != 0);
     static_cast<CAnimBlenderComponent*>(m_unknown24C)->ResetChannels();
@@ -669,22 +669,22 @@ void CRider::ShowBoardElement(uint32_t type)
     Scripts::CStruct* params = Scripts::ReadSubStruct(name);
     if (!params)
         return;
-    MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_topDownHeap);
+    MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_topDownHeap);
     uint32_t modelSwap, modelSwap2;
     float width, height;
     const char* texture;
     params->ReadHashValue(0xA01371B1, &modelSwap, 1);
-    params->GetFloat(0x6AA8D676, &width, 1);
-    params->GetFloat(0xCCDFDDC2, &height, 1);
+    params->FetchFloat(0x6AA8D676, &width, 1);
+    params->FetchFloat(0xCCDFDDC2, &height, 1);
     params->ReadHashValue(0x676F1DF1, &modelSwap2, 1);
-    params->GetString(0xC553C612, &texture, 1);
+    params->FetchText(0xC553C612, &texture, 1);
     auto newElement = [](const char* text) {
-        return static_cast<Engine3D::CTextureSet*>(Elements())->LoadTexture(text, 0, 0, true);
+        return static_cast<Engine3D::CTextureSet*>(Elements())->IngestSkin(text, 0, 0, true);
     };
     auto reset = [](void* element) { reinterpret_cast<void(__thiscall*)(void*, int, int)>(&Engine3D::VirtualSlot8Jump)(element, 0, 0); };
     void* element = newElement(texture);
     reset(element);
-    void* parent = reinterpret_cast<void*(__thiscall*)(void*)>(CodeAddress(&GoalSystem::CObjective::GetParams))(GetComponent(0x5B512EDC));
+    void* parent = reinterpret_cast<void*(__thiscall*)(void*)>(CodeAddress(&GoalSystem::CObjective::FetchArgs))(FetchModule(0x5B512EDC));
     reset(parent);
     reinterpret_cast<void(__thiscall*)(void*, void*, int)>(&Engine3D::VirtualSlot15Jump)(element, parent, 1);
     reinterpret_cast<void(__thiscall*)(void*, uint32_t)>(&Engine3D::VirtualSlot19Jump)(element, 0); // (black)
@@ -698,7 +698,7 @@ void CRider::ShowBoardElement(uint32_t type)
     if (params->FetchIntValue(0x25A0E7E9, &unused, 0)) {
         second = true;
         const char* overlayTexture;
-        params->GetString(0x499F4BE9, &overlayTexture, 1);
+        params->FetchText(0x499F4BE9, &overlayTexture, 1);
         overlay = newElement(overlayTexture);
         reset(overlay);
         reinterpret_cast<void(__thiscall*)(void*, void*, int)>(&Engine3D::VirtualSlot41Jump)(overlay, element, 1);
@@ -706,22 +706,22 @@ void CRider::ShowBoardElement(uint32_t type)
     }
     reinterpret_cast<void(__thiscall*)(void*, int, int)>(&Engine3D::VirtualSlot9Jump)(element, 1, 0);
     const char* model;
-    params->GetString(0x49B318FD, &model, 1);
+    params->FetchText(0x49B318FD, &model, 1);
     // (the third is a checksum where SwapTexture takes a texture name: passed on as it is)
-    static_cast<CMeshInstanceModule*>(GetComponent(kModelComponent))
+    static_cast<CMeshInstanceModule*>(FetchModule(kModelComponent))
         ->SwapTexture(modelSwap, model, reinterpret_cast<const char*>(static_cast<uintptr_t>(modelSwap2)));
     if (second)
         static_cast<Engine3D::CTextureSet*>(Elements())->UnloadTexture(static_cast<Engine3D::CBitmapTexture*>(overlay));
     static_cast<Engine3D::CTextureSet*>(Elements())->UnloadTexture(static_cast<Engine3D::CBitmapTexture*>(element));
     reinterpret_cast<void(__thiscall*)(void*)>(&Engine3D::VirtualSlot10Jump)(parent);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
 }
 
 // 0x005814D0
 void CRider::Reset27C()
 {
     if (!m_unknownBC)
-        static_cast<CRiderRemoteSync*>(GetComponent(0x850EEF66))->ResetPlayback();
+        static_cast<CRiderRemoteSync*>(FetchModule(0x850EEF66))->ResetPlayback();
     At<uint32_t>(m_unknown27C, 0x18) = 0;
 }
 
@@ -729,9 +729,9 @@ void CRider::Reset27C()
 void CRider::ConcealSkater()
 {
     if (m_unknownBC)
-        static_cast<CRiderRollingAudio*>(GetComponent(0xB5F1E9D2))->StopSound();
+        static_cast<CRiderRollingAudio*>(FetchModule(0xB5F1E9D2))->StopSound();
     static_cast<CGroundShadowModule*>(m_shadow)->DestroyShadow();
-    Hide(true);
+    Conceal(true);
     m_flag2C4 = false;
 }
 
@@ -739,15 +739,15 @@ void CRider::ConcealSkater()
 void CRider::ShowSkater()
 {
     reinterpret_cast<GameModules::Skate*>(Skate())->SetSkaterShadow(this);
-    Hide(false);
+    Conceal(false);
     m_flag2C4 = true;
 }
 
 // 0x00581580
-const char* CRider::GetDisplayName()
+const char* CRider::FetchShownName()
 {
     if (NetLink()->InNetGame())
-        return reinterpret_cast<const char*>(NetLink()->PlayerByObjectId(static_cast<uint16_t>(m_id))) + 0x38;
+        return reinterpret_cast<const char*>(NetLink()->PlayerByObjectId(static_cast<uint16_t>(m_ident))) + 0x38;
     return m_shownName.c_str();
 }
 
@@ -760,28 +760,28 @@ void CRider::GlideToNode(uint32_t name)
     m_basisFrame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     if (!name)
         return;
-    Scripts::CStruct* node = LevelNodes::GetNode(name, !NetLink()->InNetGame());
+    Scripts::CStruct* node = LevelNodes::FetchVertex(name, !NetLink()->InNetGame());
     if (!node)
         return;
-    LevelNodes::GetPosition(name, &m_pos);
-    m_oldPos = m_pos;
-    At<Maths::Vector>(m_corePhysics, 0x98) = m_pos;
+    LevelNodes::FetchPlace(name, &m_atPoint);
+    m_oldPos = m_atPoint;
+    At<Maths::Vec4>(m_corePhysics, 0x98) = m_atPoint;
     MarkJumpedAhead(true);
-    Maths::Vector angles;
+    Maths::Vec4 angles;
     LevelNodes::ReadTurnAngles(node, &angles);
     m_basisFrame.InitFromAngles(angles);
     auto* object = At<CGameEntity*>(m_corePhysics, 0xC);
-    At<Maths::Matrix>(m_corePhysics, 0x18) = object->m_basisFrame;
-    At<Maths::Vector>(m_corePhysics, 0x68) = m_basisFrame.row[1];
-    At<Maths::Vector>(m_corePhysics, 0x78) = At<Maths::Vector>(m_corePhysics, 0x68);
-    At<Maths::Vector>(m_corePhysics, 0x58) = At<Maths::Vector>(m_corePhysics, 0x78);
-    static_cast<CGroundShadowModule*>(m_shadow)->SetPosition(&m_pos);
+    At<Maths::Mat4>(m_corePhysics, 0x18) = object->m_basisFrame;
+    At<Maths::Vec4>(m_corePhysics, 0x68) = m_basisFrame.row[1];
+    At<Maths::Vec4>(m_corePhysics, 0x78) = At<Maths::Vec4>(m_corePhysics, 0x68);
+    At<Maths::Vec4>(m_corePhysics, 0x58) = At<Maths::Vec4>(m_corePhysics, 0x78);
+    static_cast<CGroundShadowModule*>(m_shadow)->ChangePlace(&m_atPoint);
     static_cast<CGroundShadowModule*>(m_shadow)->SetNormal(&m_basisFrame.row[1]);
-    m_displayMatrix = At<Maths::Matrix>(m_corePhysics, 0x18);
+    m_displayMatrix = At<Maths::Mat4>(m_corePhysics, 0x18);
 }
 
 // 0x00581760
-void CRider::Pause()
+void CRider::Freeze()
 {
     if (m_isHalted || !m_unknownBC)
         return;
@@ -790,7 +790,7 @@ void CRider::Pause()
     BalanceDisplaysOff(At<void*>(m_scoreHolder, 0x18));
     Scripts::LaunchScript(0x1277E3FD, nullptr, nullptr, false, nullptr);
     if (uint8_t* input = m_unknown264)
-        At<Sio::Device*>(At<uint8_t*>(input, 0x490), 0x1C)->PauseActuators();
+        At<Sio::InputPort*>(At<uint8_t*>(input, 0x490), 0x1C)->PauseActuators();
     SoundFx::g_sfxManager->UpdateVoiceVolumes();
 }
 
@@ -802,8 +802,8 @@ void CRider::Unpause()
     m_isHalted = false;
     m_compositeFlags &= ~1u;
     if (uint8_t* input = m_unknown264)
-        At<Sio::Device*>(At<uint8_t*>(input, 0x490), 0x1C)->UnpauseActuators();
-    if (auto* component = reinterpret_cast<uint8_t*>(GetComponent(0xB5F1E9D2)))
+        At<Sio::InputPort*>(At<uint8_t*>(input, 0x490), 0x1C)->UnpauseActuators();
+    if (auto* component = reinterpret_cast<uint8_t*>(FetchModule(0xB5F1E9D2)))
         component[0xFE] = 1;
 }
 
@@ -819,7 +819,7 @@ template <typename Fill>
 void AddComponentFromStructure(CRider* skater, Fill fill)
 {
     Scripts::CStruct* memory = Scripts::NewStruct();
-    Scripts::CStruct* params = memory ? memory->Init() : nullptr;
+    Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
     fill(params);
     skater->VirtualCreateComponentFromStructure(params, nullptr);
     if (params) {
@@ -831,41 +831,41 @@ void AddComponentFromStructure(CRider* skater, Fill fill)
 } // namespace
 
 // 0x00581850
-void CRider::Init(CRiderIdentity* profile)
+void CRider::PrepareAll(CRiderIdentity* profile)
 {
     uint8_t* skate = Skate();
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     if (m_unknownBC) {
         // Its camera: found, or made from skatercam_composite_structure.
         manager->EnterHeapScope(manager->m_skaterInfoHeap);
         uint32_t cameraName = m_viewSlot == 1 ? kSkaterCam1 : kSkaterCam0;
         auto* camera = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(cameraName));
         if (camera) {
-            static_cast<CRiderChaseView*>(camera->GetComponent(0x5E43A604))->BindRider(this); // skatercamera
-            auto* walkCamera = reinterpret_cast<uint8_t*>(camera->GetComponent(0xC7D37EC2));                     // walkcamera
+            static_cast<CRiderChaseView*>(camera->FetchModule(0x5E43A604))->BindRider(this); // skatercamera
+            auto* walkCamera = reinterpret_cast<uint8_t*>(camera->FetchModule(0xC7D37EC2));                     // walkcamera
             reinterpret_cast<CFootView*>(walkCamera)->BindRider(this);
             *reinterpret_cast<int*>(walkCamera + 0x18) = 3;
         } else {
             Scripts::CStruct* memory = Scripts::NewStruct();
-            Scripts::CStruct* params = memory ? memory->Init() : nullptr;
-            params->PutNameKey(0x4C48DA58, m_id);
+            Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
+            params->PutNameKey(0x4C48DA58, m_ident);
             params->PutNameKey(kNameChecksum, cameraName);
-            camera = CompositeObjectManager()->SpawnEntityFromNode(Scripts::GetArray("skatercam_composite_structure"),
+            camera = CompositeObjectManager()->SpawnEntityFromNode(Scripts::FetchList("skatercam_composite_structure"),
                                                                              params, true);
             if (params) {
                 params->Clear();
                 Scripts::DeleteStruct(params);
             }
         }
-        static_cast<CFootMovement*>(GetComponent(0x726E85AA))->ChooseCamera(camera); // Walk
+        static_cast<CFootMovement*>(FetchModule(0x726E85AA))->ChooseCamera(camera); // Walk
         ScriptCommands::MakeCameraActive(cameraName, m_viewSlot, false);
         At<uint32_t>(camera, 8) |= 2;
-        static_cast<CRiderChaseView*>(camera->GetComponent(0x5E43A604))->SetMode(2, 0.0f);
-        MemSys::Manager::Get()->LeaveHeapScope();
+        static_cast<CRiderChaseView*>(camera->FetchModule(0x5E43A604))->ChangeRegime(2, 0.0f);
+        MemSys::Hub::Pull()->LeaveHeapScope();
     }
     // Its script; its anim set (skater_asset_info's skater_skeleton, else thps6_human).
     void* script = Scripts::CScript::operator new(0xF4);
-    m_runScript = script ? static_cast<Scripts::CScript*>(script)->Construct() : nullptr;
+    m_runScript = script ? static_cast<Scripts::CScript*>(script)->MakeNew() : nullptr;
     uint32_t skeleton = 0x9FE476E2;
     if (Scripts::CStruct* assetInfo = Scripts::ReadSubStruct(0x962E5CF7))
         assetInfo->ReadHashValue(0xCEEFD662, &skeleton, 0);
@@ -875,7 +875,7 @@ void CRider::Init(CRiderIdentity* profile)
         params->PutNameKey(0x09794932, skeleton);        // skeletonName
         params->PutNameKey(0x5B8C6DC2, 0x3FEC31A6);      // AnimEventTableName SkaterAnimEventTable
     });
-    m_unknown24C = GetComponent(0x7149B753);
+    m_unknown24C = FetchModule(0x7149B753);
     AddComponentFromStructure(this, [skeleton](Scripts::CStruct* params) {
         params->PutNameKey(kComponentName, 0x222756D5); // skeleton
         params->PutNameKey(0x222756D5, skeleton);
@@ -889,40 +889,40 @@ void CRider::Init(CRiderIdentity* profile)
         params->PutInt(0x2A1F92C0, local ? 1 : 0);
         params->PutNameKey(kComponentName, kModelComponent);
     });
-    m_unknown250 = reinterpret_cast<uint8_t*>(GetComponent(kModelComponent));
+    m_unknown250 = reinterpret_cast<uint8_t*>(FetchModule(kModelComponent));
     // Its geometry, in its geometry heap, with the asset manager's flag off meanwhile.
-    MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_skaterGeomHeaps[m_skaterNumber]);
+    MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_skaterGeomHeaps[m_skaterNumber]);
     auto* assets = AssetStore::g_assetManager;
     bool flag = assets->GetPermanentByDefault();
     assets->SetPermanentByDefault(false);
     reinterpret_cast<void(__thiscall*)(void*, CRiderIdentity*, int, int, int)>((*reinterpret_cast<void***>(m_unknown250))[0x34 / 4])(
         m_unknown250, profile, 0, m_skaterNumber, 0);
     assets->SetPermanentByDefault(flag);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     AddComponentFromStructure(this, [](Scripts::CStruct* params) {
         params->PutNameKey(kComponentName, 0x8A897DD2); // shadow
         params->PutNameKey(0x9AC24B18, 0x76A54CD1);     // ShadowType
     });
-    m_shadow = GetComponent(0x8A897DD2);
+    m_shadow = FetchModule(0x8A897DD2);
     At<uint8_t>(m_shadow, 0x44) = 0;
     if (m_unknownBC) {
         AddComponentFromStructure(this, [](Scripts::CStruct* params) { params->PutNameKey(kComponentName, 0x404EB936); }); // vibration
-        m_unknown25C = GetComponent(0x404EB936);
+        m_unknown25C = FetchModule(0x404EB936);
         AddComponentFromStructure(this, [](Scripts::CStruct* params) { params->PutNameKey(kComponentName, 0x21FC3301); }); // SkaterStancePanel
     } else {
         m_unknown25C = nullptr;
     }
     if (m_unknownBC) {
         AddComponentFromStructure(this, [](Scripts::CStruct* params) { params->PutNameKey(kComponentName, 0x187574FA); }); // skatersound
-        m_unknown268 = GetComponent(0x187574FA);
-        m_unknown26C = GetComponent(0x1859F772); // SkaterVehicleSound
+        m_unknown268 = FetchModule(0x187574FA);
+        m_unknown26C = FetchModule(0x1859F772); // SkaterVehicleSound
     }
     reinterpret_cast<void(__thiscall*)(CRider*)>(m_vtable[0x20 / 4])(this); // Finalize
     if (m_unknownBC) {
         // The pad's settings for its viewport (the skate module's, 8 bytes each from +0x394).
         At<uint8_t>(m_corePhysics, 0x2D9) = skate[0x395 + 8 * m_viewSlot];
         At<uint8_t>(m_corePhysics, 0x2DA) = skate[0x396 + 8 * m_viewSlot];
-        static_cast<CPadRumbleModule*>(m_unknown25C)->SetActive(skate[0x394 + 8 * m_viewSlot] != 0);
+        static_cast<CPadRumbleModule*>(m_unknown25C)->ChangeLive(skate[0x394 + 8 * m_viewSlot] != 0);
         if (m_unknownBC)
             m_runScript->BindScript("SkaterInit", nullptr, this);
     }
@@ -930,7 +930,7 @@ void CRider::Init(CRiderIdentity* profile)
     SetStatsFromProfile(profile);
     if (m_unknownBC) {
         float maxSpeed = GetScaledPhysics(0xCC5F87AA); // Skater_Max_Max_Speed_Stat
-        At<float>(GetComponent(0x187574FA), 0x20) = maxSpeed;
+        At<float>(FetchModule(0x187574FA), 0x20) = maxSpeed;
     }
     if (void* state = m_unknown258) {
         static_cast<CMoveExecutor*>(state)->SetTrickMappings(profile);
@@ -943,7 +943,7 @@ void CRider::Init(CRiderIdentity* profile)
     }
     if (uint8_t* other = m_unknown270)
         At<void*>(other, 0x44) = At<void*>(m_scoreHolder, 0x18);
-    if (CObjectModule* collision = GetComponent(0xA432DC41)) {
+    if (CObjectModule* collision = FetchModule(0xA432DC41)) {
         // (its +0x18, read through the folded getter 0x005480F0)
         if (At<uint8_t*>(collision, 0x18))
             At<uint8_t*>(collision, 0x18)[8] |= 2;
@@ -953,8 +953,8 @@ void CRider::Init(CRiderIdentity* profile)
     static_cast<CAnimBlenderComponent*>(m_unknown24C)->PlayAnimation(0x1CA1FF20, std::bit_cast<uint32_t>(0.3f)); // default
     if (m_unknownBC) {
         for (int i = 0; i < 11; ++i) {
-            void* memory = MemSys::New(0x10);
-            m_trickInfo[i] = memory ? reinterpret_cast<uint8_t*>(static_cast<GoalSystem::CCreateATrick*>(memory)->Construct()) : nullptr;
+            void* memory = MemSys::Alloc(0x10);
+            m_trickInfo[i] = memory ? reinterpret_cast<uint8_t*>(static_cast<GoalSystem::CCreateATrick*>(memory)->MakeNew()) : nullptr;
         }
         Scripts::LaunchScript(0x0BDC1C89, nullptr, this, false, nullptr); // spawn_add_premade_cats_to_skater
         CGameEntity::InvokeMethodByName(0x5C038F9B, nullptr, nullptr); // SkaterPhysicsControl_SwitchWalkingToSkating
@@ -969,9 +969,9 @@ void CRider::Init(CRiderIdentity* profile)
     // Its controls' tag (a custom skater's own, if it has one) and sticker.
     Scripts::CStruct* info = profile->InfoStructure();
     const char* tag;
-    info->GetString(0x4FA8DF27, &tag, 1); // tag_texture
-    CObjectModule* controls = GetComponent(0x5B512EDC);
-    if (m_name == kCustomSkater) {
+    info->FetchText(0x4FA8DF27, &tag, 1); // tag_texture
+    CObjectModule* controls = FetchModule(0x5B512EDC);
+    if (m_label == kCustomSkater) {
         int hasCustomTag;
         info->FetchIntValue(0xB78D4AAE, &hasCustomTag, 1);
         if (hasCustomTag)
@@ -982,33 +982,33 @@ void CRider::Init(CRiderIdentity* profile)
         static_cast<CTaggingComponent*>(controls)->SetGraffitiTexture(tag);
     }
     const char* sticker;
-    if (info->GetString(0x130618A0, &sticker, 0)) // sticker_texture
+    if (info->FetchText(0x130618A0, &sticker, 0)) // sticker_texture
         static_cast<CTaggingComponent*>(controls)->SetStickerTexture(sticker);
 }
 
 // 0x005822A0
 void CRider::InitFromProfile(CRiderIdentity* profile)
 {
-    Init(profile);
-    OnlinePlay::Manager* net = NetLink();
+    PrepareAll(profile);
+    OnlinePlay::Hub* net = NetLink();
     if (m_unknownBC && static_cast<uint8_t>(ScriptCommands::CFunc_InMultiplayerGame(nullptr, nullptr)) != 0) {
         // Its network messages.
-        auto* client = reinterpret_cast<uint8_t*>(net->GetClient(m_viewSlot));
-        auto* dispatcher = reinterpret_cast<NetLink::Dispatcher*>(client + 0xC);
+        auto* client = reinterpret_cast<uint8_t*>(net->FetchPatron(m_viewSlot));
+        auto* dispatcher = reinterpret_cast<NetLink::Router*>(client + 0xC);
         const struct {
             uint8_t id;
             void* code;
-        } handlers[] = {{0x3B, CodeAddress(&GameModules::Score::HandleScoreMessage)},
+        } handlers[] = {{0x3B, CodeAddress(&GameModules::PointTally::HandleScoreMessage)},
                         {0x44, CodeAddress(&CRiderFrameLog::HandleCollisionMessages)},
                         {0x43, CodeAddress(&CRiderFrameLog::HandleCollisionMessages)},
                         {0x85, CodeAddress(&CRiderFrameLog::HandleHitMessages)},
                         {0x84, CodeAddress(&CRiderFrameLog::HandleHitMessages)},
                         {0x4B, CodeAddress(&CRiderHostSync::HandleGraffitiSteal)}};
         for (const auto& handler : handlers)
-            dispatcher->AddHandler(handler.id, reinterpret_cast<NetLink::HandlerSlotValue>(handler.code), 0, this, 0x80);
+            dispatcher->AppendListener(handler.id, reinterpret_cast<NetLink::HandlerSlotValue>(handler.code), 0, this, 0x80);
     }
     // Never suspended (its suspend component's distances).
-    if (auto* suspend = reinterpret_cast<uint8_t*>(GetComponent(0xCE0CA665))) {
+    if (auto* suspend = reinterpret_cast<uint8_t*>(FetchModule(0xCE0CA665))) {
         At<float>(suspend, 0x34) = 3000.0f;
         At<float>(suspend, 0x38) = 5000.0f;
         At<float>(suspend, 0x3C) = 10000000.0f;
@@ -1021,12 +1021,12 @@ void CRider::RunStateScript(bool walk, bool other)
 {
     if (!m_runScript) {
         void* memory = Scripts::CScript::operator new(0xF4);
-        m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->Construct() : nullptr;
+        m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
     }
     Scripts::CStruct* params = nullptr;
     if (walk || other) {
         Scripts::CStruct* memory = Scripts::NewStruct();
-        params = memory ? memory->Init() : nullptr;
+        params = memory ? memory->PrepareAll() : nullptr;
         if (walk)
             params->PutNameKey(0u, 0x726E85AA); // Walk
         if (other)
@@ -1034,7 +1034,7 @@ void CRider::RunStateScript(bool walk, bool other)
     }
     m_runScript->BindScript(0xE740F458, params, this);
     if (m_unknownBC)
-        m_runScript->Update();
+        m_runScript->TickFrame();
     if (params) {
         params->Clear();
         Scripts::DeleteStruct(params);
@@ -1046,23 +1046,23 @@ void CRider::SwitchToScript(uint32_t name, Scripts::CStruct* params)
 {
     if (!m_runScript) {
         void* memory = Scripts::CScript::operator new(0xF4);
-        m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->Construct() : nullptr;
+        m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
     }
-    if (CObjectModule* flipAndRotate = GetComponent(kSkaterFlipAndRotate))
+    if (CObjectModule* flipAndRotate = FetchModule(kSkaterFlipAndRotate))
         static_cast<CRiderSpinAndFlip*>(flipAndRotate)->DoAfterAnim();
     m_runScript->BindScript(name, params, this);
-    m_runScript->Update();
+    m_runScript->TickFrame();
 }
 
 // 0x005825E0
 void CRider::WriteCATInfo(Scripts::CStruct* save)
 {
     Scripts::CArray* memory = Scripts::NewArray();
-    Scripts::CArray* tricks = memory ? memory->Init() : nullptr;
+    Scripts::CArray* tricks = memory ? memory->PrepareAll() : nullptr;
     tricks->ConfigureSizeKind(11, Scripts::QBVAL_STRUCT);
     for (int i = 0; i < 11; ++i) {
         Scripts::CStruct* structMemory = Scripts::NewStruct();
-        Scripts::CStruct* trick = structMemory ? structMemory->Init() : nullptr;
+        Scripts::CStruct* trick = structMemory ? structMemory->PrepareAll() : nullptr;
         uint8_t* info = m_trickInfo[i];
         trick->PutSubStruct(kOther, At<Scripts::CStruct*>(info, 4));
         trick->AppendArrayValue(kAnimations, At<Scripts::CArray*>(info, 0xC));
@@ -1076,7 +1076,7 @@ void CRider::WriteCATInfo(Scripts::CStruct* save)
 void CRider::WriteList44B66A9F(Scripts::CStruct* save)
 {
     Scripts::CArray* memory = Scripts::NewArray();
-    Scripts::CArray* entries = memory ? memory->Init() : nullptr;
+    Scripts::CArray* entries = memory ? memory->PrepareAll() : nullptr;
     entries->ConfigureSizeKind(0x46, Scripts::QBVAL_INTEGER);
     for (int i = 0; i < 0x46; ++i)
         entries->SetElement(i, static_cast<uint32_t>(static_cast<CAttributeTracker*>(m_list28C)->GetGoalStatus(i)));
@@ -1102,32 +1102,32 @@ void CRider::LaunchProjectile()
     bool flipped = At<uint8_t>(At<uint8_t*>(m_corePhysics, 0x1528), 0x28) != 0;
     bool walk = !At<bool>(walking, 0x118) && At<int>(walking, 0x1C) == 1;
     uint32_t wrist = (walk ? flipped : !flipped) ? 0x7EE14CFE : 0x84EE719D; // Bone_Wrist_L / Bone_Wrist_R
-    Maths::Vector bone, rotated;
-    static_cast<CBoneRigModule*>(GetComponent(0x222756D5))->GetLocalBonePosition(wrist, &bone);
-    const Maths::Vector* turned = &m_basisFrame.RotateVector(rotated, bone);
-    const Maths::Vector origin = {static_cast<float>(static_cast<double>(turned->x) + m_pos.x),
-                                static_cast<float>(static_cast<double>(turned->y) + m_pos.y),
-                                static_cast<float>(static_cast<double>(turned->z) + m_pos.z),
-                                static_cast<float>(static_cast<double>(turned->w) + m_pos.w)};
+    Maths::Vec4 bone, rotated;
+    static_cast<CBoneRigModule*>(FetchModule(0x222756D5))->GetLocalBonePosition(wrist, &bone);
+    const Maths::Vec4* turned = &m_basisFrame.RotateVector(rotated, bone);
+    const Maths::Vec4 origin = {static_cast<float>(static_cast<double>(turned->x) + m_atPoint.x),
+                                static_cast<float>(static_cast<double>(turned->y) + m_atPoint.y),
+                                static_cast<float>(static_cast<double>(turned->z) + m_atPoint.z),
+                                static_cast<float>(static_cast<double>(turned->w) + m_atPoint.w)};
     // The nearest projectile target (projectileproximity) ahead within the targeting distance and angle; a ped
     // that's been shot is left out, and a ped is aimed at a bone it chooses.
     float toTargetX = 0.0f, toTargetZ = 0.0f;
-    Maths::Vector aim = {};
+    Maths::Vec4 aim = {};
     for (CObjectModule* component = CompositeObjectManager()->FindFirstModuleOfKind(0x3618B878); component;
          component = component->mp_nextOfType) {
-        CGameEntity* object = component->m_object;
+        CGameEntity* object = component->m_entity;
         if (!object)
             continue;
         bool ped = false;
-        if (object->GetComponent(0x6EFDDFB8)) { // PedLogic
-            uint32_t state = static_cast<CPedestrianBrainModule*>(object->GetComponent(0x6EFDDFB8))->GetLogicState();
+        if (object->FetchModule(0x6EFDDFB8)) { // PedLogic
+            uint32_t state = static_cast<CPedestrianBrainModule*>(object->FetchModule(0x6EFDDFB8))->GetLogicState();
             ped = true;
             if (state == 0x54F87744) // shot
                 continue;
         }
-        double dz = static_cast<double>(object->m_pos.z) - origin.z;
-        double dy = static_cast<double>(object->m_pos.y) - origin.y;
-        double dx = static_cast<double>(object->m_pos.x) - origin.x;
+        double dz = static_cast<double>(object->m_atPoint.z) - origin.z;
+        double dy = static_cast<double>(object->m_atPoint.y) - origin.y;
+        double dx = static_cast<double>(object->m_atPoint.x) - origin.x;
         float distance = static_cast<float>(std::sqrt(dx * dx + dy * dy + dz * dz));
         float toZ = static_cast<float>(dz);
         float toX = static_cast<float>(dx);
@@ -1140,9 +1140,9 @@ void CRider::LaunchProjectile()
             toZ = static_cast<float>(static_cast<double>(toZ) * inverse);
         }
         float dot = static_cast<float>(static_cast<double>(toZ) * headingZ + toY * headingY + static_cast<double>(toX) * headingX);
-        if (!(Scripts::GetFloat(0x39186247) > distance)) // Physics_Projectile_Targeting_Dist
+        if (!(Scripts::FetchFloat(0x39186247) > distance)) // Physics_Projectile_Targeting_Dist
             continue;
-        double cone = std::cos(Scripts::GetFloat(0x195A7DBA) * static_cast<double>(0.017453292f)); // ..._Angle
+        double cone = std::cos(Scripts::FetchFloat(0x195A7DBA) * static_cast<double>(0.017453292f)); // ..._Angle
         if (!(cone < dot))
             continue;
         if (!(distance < best))
@@ -1154,23 +1154,23 @@ void CRider::LaunchProjectile()
         if (ped) {
             Scripts::LaunchScript(0x5DB74F79, nullptr, nullptr, false, nullptr); // choose_projectile_target_bone
             uint32_t targetBone = Scripts::GetSymbolValue(0x07A15639);       // target_bone
-            Maths::Vector at;
-            static_cast<CBoneRigModule*>(object->GetComponent(0x222756D5))->GetLocalBonePosition(targetBone, &at);
+            Maths::Vec4 at;
+            static_cast<CBoneRigModule*>(object->FetchModule(0x222756D5))->GetLocalBonePosition(targetBone, &at);
             // (turned by the object's rotation in place: 0x00411840, Nx's VectorTurn::TurnBy)
-            Maths::Vector turnedAt;
+            Maths::Vec4 turnedAt;
             object->m_basisFrame.RotateVector(turnedAt, at);
             at = turnedAt;
-            aim = {static_cast<float>(static_cast<double>(at.x) + object->m_pos.x),
-                   static_cast<float>(static_cast<double>(at.y) + object->m_pos.y),
-                   static_cast<float>(static_cast<double>(at.z) + object->m_pos.z),
-                   static_cast<float>(static_cast<double>(at.w) + object->m_pos.w)};
+            aim = {static_cast<float>(static_cast<double>(at.x) + object->m_atPoint.x),
+                   static_cast<float>(static_cast<double>(at.y) + object->m_atPoint.y),
+                   static_cast<float>(static_cast<double>(at.z) + object->m_atPoint.z),
+                   static_cast<float>(static_cast<double>(at.w) + object->m_atPoint.w)};
         } else {
-            aim = object->m_pos;
+            aim = object->m_atPoint;
         }
     }
     // LaunchProjectile from there (at the target, when there is one beyond 100).
     Scripts::CStruct* memory = Scripts::NewStruct();
-    Scripts::CStruct* params = memory ? memory->Init() : nullptr;
+    Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
     params->PutVec3("pos", {origin.x, origin.y, origin.z, origin.w});
     if (target && best > 100.0f) {
         params->PushFloat("ped_dist", best);
@@ -1186,13 +1186,13 @@ void CRider::LaunchProjectile()
 }
 
 // 0x00582D90
-CRider* CRider::Construct(int viewport, CEntityHub* manager, bool local, uint32_t id, int skaterNumber,
+CRider* CRider::MakeNew(int viewport, CEntityHub* manager, bool local, uint32_t id, int skaterNumber,
                             int /*unused*/)
 {
-    CGameEntity::Construct();
+    CGameEntity::MakeNew();
     m_vtable = kSkaterVtable;
-    new (&m_shownName) TextUtil::String();
-    // Its node in the skater list (ListKit::Node: vtable, data, priority, next, prev).
+    new (&m_shownName) TextUtil::Chars();
+    // Its node in the skater list (ListKit::Elem: vtable, data, priority, next, prev).
     auto* node = reinterpret_cast<uint32_t*>(m_block238);
     node[0] = reinterpret_cast<uint32_t>(GameModules::kSkaterNodeVtable);
     node[1] = reinterpret_cast<uint32_t>(this);
@@ -1201,10 +1201,10 @@ CRider* CRider::Construct(int viewport, CEntityHub* manager, bool local, uint32_
     node[4] = reinterpret_cast<uint32_t>(node);
     m_unknownBC = local;
     AddBaseComponents(this);
-    m_type = 0xBAF9B341;
+    m_kindTag = 0xBAF9B341;
     m_flag2C4 = false;
     m_skaterNumber = skaterNumber;
-    m_id = id;
+    m_ident = id;
     if (skaterNumber == 0)
         Tracker()->RegisterNickname(0x5B8AB877, this);
     else if (skaterNumber == 1)
@@ -1214,7 +1214,7 @@ CRider* CRider::Construct(int viewport, CEntityHub* manager, bool local, uint32_
     m_viewSlot = viewport;
     m_unknown31C = 0;
     DebugOut::Printf("D:%s:%i: m_skater_number = %i\n", "jects\\skater.cpp", 0x43C, viewport);
-    DebugOut::Printf("D:%s:%i: m_id = %i\n", "jects\\skater.cpp", 0x43D, m_id);
+    DebugOut::Printf("D:%s:%i: m_id = %i\n", "jects\\skater.cpp", 0x43D, m_ident);
     m_unknown24C = nullptr;
     m_unknown250 = nullptr;
     m_shadow = nullptr;
@@ -1230,7 +1230,7 @@ CRider* CRider::Construct(int viewport, CEntityHub* manager, bool local, uint32_
     m_state284 = nullptr;
     // Its components, one structure (component = ...) changed for each.
     Scripts::CStruct* memory = Scripts::NewStruct();
-    Scripts::CStruct* params = memory ? memory->Init() : nullptr;
+    Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
     auto add = [this, params](uint32_t type) {
         params->PutNameKey(kComponentName, type);
         CreateComponentFromStructure(params, nullptr);
@@ -1239,38 +1239,38 @@ CRider* CRider::Construct(int viewport, CEntityHub* manager, bool local, uint32_
     add(0xF27A294D);
     if (m_unknownBC) {
         add(0x27D7CD28);
-        m_unknown264 = reinterpret_cast<uint8_t*>(GetComponent(0x27D7CD28));
+        m_unknown264 = reinterpret_cast<uint8_t*>(FetchModule(0x27D7CD28));
         add(0xD262802F);
-        m_scoreHolder = reinterpret_cast<uint8_t*>(GetComponent(0xD262802F));
+        m_scoreHolder = reinterpret_cast<uint8_t*>(FetchModule(0xD262802F));
         add(0xBF518E27);
         add(0x270F56E1);
-        m_unknown258 = GetComponent(0x270F56E1);
+        m_unknown258 = FetchModule(0x270F56E1);
         add(0xD9151D4D); // SkaterPhysicsControl
-        m_state284 = reinterpret_cast<uint8_t*>(GetComponent(0xD9151D4D));
+        m_state284 = reinterpret_cast<uint8_t*>(FetchModule(0xD9151D4D));
         add(0x5BD63B29); // SkaterCorePhysics
-        m_corePhysics = reinterpret_cast<uint8_t*>(GetComponent(0x5BD63B29));
+        m_corePhysics = reinterpret_cast<uint8_t*>(FetchModule(0x5BD63B29));
         add(0x52D61A0D);
         add(0x11B4C67F);
-        m_unknown270 = reinterpret_cast<uint8_t*>(GetComponent(0x11B4C67F));
+        m_unknown270 = reinterpret_cast<uint8_t*>(FetchModule(0x11B4C67F));
         add(0x9F9CC949);
         add(0xE594F0A2);
         add(0x9B373E58);
         add(0xD8CC3428);
         add(0x726E85AA); // Walk
-        m_state288 = reinterpret_cast<uint8_t*>(GetComponent(0x726E85AA));
+        m_state288 = reinterpret_cast<uint8_t*>(FetchModule(0x726E85AA));
         add(0x7CD3E6D5);
         add(0xB1D5A3E1);
         add(0x589E5FB3);
         add(0xB5F1E9D2);
         add(0x1859F772); // SkaterVehicleSound
         add(0x4FF8DAC6);
-        m_list28C = GetComponent(0x4FF8DAC6);
+        m_list28C = FetchModule(0x4FF8DAC6);
         add(0x408D2AA9);
         add(0x8BCE7E66);
         add(0x380D909A);
     } else {
         add(0xD262802F);
-        m_scoreHolder = reinterpret_cast<uint8_t*>(GetComponent(0xD262802F));
+        m_scoreHolder = reinterpret_cast<uint8_t*>(FetchModule(0xD262802F));
         add(0x850EEF66);
         add(0xD8CC3428);
         add(0x125044E2);
@@ -1278,11 +1278,11 @@ CRider* CRider::Construct(int viewport, CEntityHub* manager, bool local, uint32_
         add(0xB5F1E9D2);
     }
     add(0x18223FD6);
-    m_unknown27C = reinterpret_cast<uint8_t*>(GetComponent(0x18223FD6));
+    m_unknown27C = reinterpret_cast<uint8_t*>(FetchModule(0x18223FD6));
     add(kSkaterFlipAndRotate);
     // The controls, told its skater number.
     Scripts::CStruct* extraMemory = Scripts::NewStruct();
-    Scripts::CStruct* extra = extraMemory ? extraMemory->Init() : nullptr;
+    Scripts::CStruct* extra = extraMemory ? extraMemory->PrepareAll() : nullptr;
     extra->PutInt(0xA2B033FD, m_skaterNumber);
     params->PutNameKey(kComponentName, 0x5B512EDC);
     CreateComponentFromStructure(params, extra);
@@ -1303,28 +1303,28 @@ void CRider::ResetComponents()
 {
     if (m_unknownBC) {
         reinterpret_cast<CRiderGapTracker*>(m_unknown270)->ClearGaps();
-        static_cast<CRiderTeeterMoves*>(GetComponent(0x589E5FB3))->ClearParams();
+        static_cast<CRiderTeeterMoves*>(FetchModule(0x589E5FB3))->ClearParams();
     }
-    static_cast<CPickupItemHandler*>(GetComponent(0xF27A294D))->DestroyItems();
+    static_cast<CPickupItemHandler*>(FetchModule(0xF27A294D))->DestroyItems();
     static_cast<CAnimBlenderComponent*>(m_unknown24C)->ResetChannels();
     if (Scripts::CScript* script = m_runScript) {
-        script->Destroy();
+        script->Teardown();
         Scripts::CScript::operator delete(script);
         m_runScript = nullptr;
     }
     // Not original - the special items gone, THAW's bike with them: off the bike (game/skater/thaw_bmx.h).
-    if (Skater::ThawBmx::Enabled())
+    if (Skater::ThawBmx::IsSwitchedOn())
         Skater::ThawBmx::OnSkaterReset(this);
 }
 
 // 0x00583470
-void CRider::Restart(uint32_t a, uint32_t b)
+void CRider::Relaunch(uint32_t a, uint32_t b)
 {
     uint8_t* walking = At<uint8_t*>(m_state284, 0x2C);
     if (!At<bool>(walking, 0x118) && At<int>(walking, 0x1C) == 1) {
         // Walking: back to skating first.
         Scripts::CStruct* memory = Scripts::NewStruct();
-        Scripts::CStruct* params = memory ? memory->Init() : nullptr;
+        Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
         params->PutNameKey(0x91D0D784, 0x1DDE4804);
         SwitchToScript(0x93A4E402, params);
         if (params) {
@@ -1336,12 +1336,12 @@ void CRider::Restart(uint32_t a, uint32_t b)
         m_runScript->RunOnExitScripts();
     reinterpret_cast<Skater::CorePhysicsComponent*>(m_corePhysics)->Reset();
     auto* camera = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(m_viewSlot == 1 ? kSkaterCam1 : kSkaterCam0));
-    static_cast<CRiderChaseView*>(camera->GetComponent(0x5E43A604))->RestoreDefaultState();
+    static_cast<CRiderChaseView*>(camera->FetchModule(0x5E43A604))->RestoreDefaultState();
     reinterpret_cast<void(__thiscall*)(CRider*)>(m_vtable[0x44 / 4])(this);
     ResetComponents();
     reinterpret_cast<void(__thiscall*)(CRider*)>(m_vtable[0x48 / 4])(this);
     reinterpret_cast<void(__thiscall*)(CRider*, uint32_t, uint32_t)>(m_vtable[0x4C / 4])(this, a, b);
-    static_cast<CRiderSessionEnd*>(GetComponent(0xB1D5A3E1))->ClearForced();
+    static_cast<CRiderSessionEnd*>(FetchModule(0xB1D5A3E1))->ClearForced();
 }
 
 namespace {
@@ -1361,16 +1361,16 @@ Scripts::CStruct* ScriptResults(Scripts::CScript* script) { return At<Scripts::C
 void CRider::SkipToCustomRestart()
 {
     SkipToRestartVirtual(this, 0, m_customRestartWalking);
-    m_pos = m_customRestartPos;
+    m_atPoint = m_customRestartPos;
     m_basisFrame = m_customRestartMatrix;
-    At<Maths::Vector>(m_corePhysics, 0x98) = m_pos;
-    m_oldPos = m_pos;
+    At<Maths::Vec4>(m_corePhysics, 0x98) = m_atPoint;
+    m_oldPos = m_atPoint;
     MarkJumpedAhead(true);
-    At<Maths::Matrix>(m_corePhysics, 0x18) = At<CGameEntity*>(m_corePhysics, 0xC)->m_basisFrame;
-    At<Maths::Vector>(m_corePhysics, 0x68) = m_basisFrame.row[1];
-    At<Maths::Vector>(m_corePhysics, 0x78) = At<Maths::Vector>(m_corePhysics, 0x68);
-    At<Maths::Vector>(m_corePhysics, 0x58) = At<Maths::Vector>(m_corePhysics, 0x78);
-    static_cast<CGroundShadowModule*>(m_shadow)->SetPosition(&m_pos);
+    At<Maths::Mat4>(m_corePhysics, 0x18) = At<CGameEntity*>(m_corePhysics, 0xC)->m_basisFrame;
+    At<Maths::Vec4>(m_corePhysics, 0x68) = m_basisFrame.row[1];
+    At<Maths::Vec4>(m_corePhysics, 0x78) = At<Maths::Vec4>(m_corePhysics, 0x68);
+    At<Maths::Vec4>(m_corePhysics, 0x58) = At<Maths::Vec4>(m_corePhysics, 0x78);
+    static_cast<CGroundShadowModule*>(m_shadow)->ChangePlace(&m_atPoint);
     static_cast<CGroundShadowModule*>(m_shadow)->SetNormal(&m_basisFrame.row[1]);
 }
 
@@ -1383,10 +1383,10 @@ bool CRider::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts
         uint32_t walking = (reinterpret_cast<uint32_t>(params) & 0xFFFFFF00u) | (params->HasEntryNamed(0xD6F06BF6) ? 1u : 0u);
         uint32_t prefix = 0;
         const char* text = nullptr;
-        if (!params->ReadHashValue(0x6C4E7971, &prefix, 0) && params->GetString(0x6C4E7971, &text, 0)) // prefix
+        if (!params->ReadHashValue(0x6C4E7971, &prefix, 0) && params->FetchText(0x6C4E7971, &text, 0)) // prefix
             prefix = Checksums::HashFromText(text);
         if (prefix) {
-            Scripts::CStruct* node = LevelNodes::FindClosestNodeWithPrefix(prefix, &m_pos);
+            Scripts::CStruct* node = LevelNodes::FindClosestNodeWithPrefix(prefix, &m_atPoint);
             SkipToRestartVirtual(this, LevelNodes::GetNodeName(node), walking);
             return true;
         }
@@ -1400,7 +1400,7 @@ bool CRider::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts
         int count = static_cast<int>(LevelNodes::GetLinkCount(from));
         int i = 0;
         for (; i < count; ++i) {
-            uint32_t link = LevelNodes::GetLink(from, i);
+            uint32_t link = LevelNodes::FetchLink(from, i);
             if (IsRestartNode(link)) {
                 SkipToRestartVirtual(this, link, walking);
                 break;
@@ -1419,7 +1419,7 @@ bool CRider::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts
     case 0x1C5612EE: { // SkaterIsNamed
         uint32_t named;
         params->ReadHashValue(0u, &named, 1);
-        return named == m_name;
+        return named == m_label;
     }
     case 0x3E8EB713: // ShouldMongo
         if (!m_unknownBC)
@@ -1443,7 +1443,7 @@ bool CRider::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts
     case 0x42832375: // SetCustomRestart
         if (params->HasBareFlag(0x19EBDA23)) { // Set: here and now - and skipped to
             m_customRestartSet = true;
-            m_customRestartPos = m_pos;
+            m_customRestartPos = m_atPoint;
             m_customRestartMatrix = m_basisFrame;
             m_customRestartWalking = reinterpret_cast<CRiderBoardPhysics*>(m_state284)->IsOnFoot();
             SkipToCustomRestart();
@@ -1465,11 +1465,11 @@ bool CRider::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts
     case 0x97C8285A: // GetCameraId
         ScriptResults(script)->PutNameKey(0x7A039889, m_viewSlot == 1 ? kSkaterCam1 : kSkaterCam0);
         return true;
-    case 0x7915AA31: { // GetStat
+    case 0x7915AA31: { // FetchTally
         int stat;
         params->FetchIntValue(0xDF4700DE, &stat, 1);
         Scripts::CStruct* results = ScriptResults(script);
-        results->PushFloat(0x8EAF7ADD, GetStat(stat)); // stat_value
+        results->PushFloat(0x8EAF7ADD, FetchTally(stat)); // stat_value
         return true;
     }
     case 0x9ABE8A21: { // GetScriptedStat
@@ -1486,22 +1486,22 @@ bool CRider::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts
         if (!Engine3D::FetchLiveCamera(m_viewSlot))
             return true;
         auto* camera = Engine3D::FetchLiveCamera(m_viewSlot);
-        const Maths::Vector* cameraPos = camera->GetPos();
+        const Maths::Vec4* cameraPos = camera->FetchLocation();
         camera = Engine3D::FetchLiveCamera(m_viewSlot);
-        const Maths::Matrix* cameraMatrix = camera->GetMatrix();
+        const Maths::Mat4* cameraMatrix = camera->FetchMat();
         m_basisFrame.ResetToIdentity();
-        m_pos = *cameraPos;
-        m_pos -= cameraMatrix->row[2] * 144.0f;
-        m_oldPos = m_pos;
-        At<Maths::Vector>(m_corePhysics, 0x98) = m_pos;
+        m_atPoint = *cameraPos;
+        m_atPoint -= cameraMatrix->row[2] * 144.0f;
+        m_oldPos = m_atPoint;
+        At<Maths::Vec4>(m_corePhysics, 0x98) = m_atPoint;
         m_basisFrame = *cameraMatrix;
         m_basisFrame.row[2] = -m_basisFrame.row[2];
         m_basisFrame.row[0] = -m_basisFrame.row[0];
-        At<Maths::Matrix>(m_corePhysics, 0x18) = At<CGameEntity*>(m_corePhysics, 0xC)->m_basisFrame;
-        At<Maths::Vector>(m_corePhysics, 0x68) = m_basisFrame.row[1];
-        At<Maths::Vector>(m_corePhysics, 0x78) = At<Maths::Vector>(m_corePhysics, 0x68);
-        At<Maths::Vector>(m_corePhysics, 0x58) = At<Maths::Vector>(m_corePhysics, 0x78);
-        static_cast<CGroundShadowModule*>(m_shadow)->SetPosition(&m_pos);
+        At<Maths::Mat4>(m_corePhysics, 0x18) = At<CGameEntity*>(m_corePhysics, 0xC)->m_basisFrame;
+        At<Maths::Vec4>(m_corePhysics, 0x68) = m_basisFrame.row[1];
+        At<Maths::Vec4>(m_corePhysics, 0x78) = At<Maths::Vec4>(m_corePhysics, 0x68);
+        At<Maths::Vec4>(m_corePhysics, 0x58) = At<Maths::Vec4>(m_corePhysics, 0x78);
+        static_cast<CGroundShadowModule*>(m_shadow)->ChangePlace(&m_atPoint);
         static_cast<CGroundShadowModule*>(m_shadow)->SetNormal(&m_basisFrame.row[1]);
         m_vel = -*cameraPos;
         m_vel.y = 0.0f;
@@ -1522,8 +1522,8 @@ bool CRider::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts
 // 0x00583DA0 (vtable +0x3C)
 void CRider::JumpToSpawn(uint32_t node, uint32_t walking)
 {
-    OnlinePlay::Manager* net = NetLink();
-    At<uint8_t>(GetComponent(kSkaterPhysicsControl), 0x26) = 1;
+    OnlinePlay::Hub* net = NetLink();
+    At<uint8_t>(FetchModule(kSkaterPhysicsControl), 0x26) = 1;
     if (m_unknownBC) {
         m_unknown264[0x498] = 0;
         reinterpret_cast<void(__thiscall*)(CRider*)>(m_vtable[0x30 / 4])(this);
@@ -1542,21 +1542,21 @@ void CRider::JumpToSpawn(uint32_t node, uint32_t walking)
         static_cast<CPadRumbleModule*>(m_unknown25C)->ResetDevice();
     if (node)
         reinterpret_cast<void(__thiscall*)(CRider*, uint32_t)>(m_vtable[0x40 / 4])(this, node);
-    Restart(walking, 0);
+    Relaunch(walking, 0);
     if (m_unknownBC) {
-        static_cast<CRiderSpinAndFlip*>(GetComponent(kSkaterFlipAndRotate))->ApplyFlipToAnims();
+        static_cast<CRiderSpinAndFlip*>(FetchModule(kSkaterFlipAndRotate))->ApplyFlipToAnims();
         if (m_unknownBC) {
             if (m_pauseState == 0) {
                 MarkJumpedAhead(false);
                 auto* camera = static_cast<CGameEntity*>(
                     CompositeObjectManager()->LookUpEntity(m_viewSlot == 1 ? kSkaterCam1 : kSkaterCam0));
                 if (camera)
-                    camera->Update();
+                    camera->TickFrame();
             }
             // The restart node's TriggerScript, run on it.
-            if (node && LevelNodes::GetNode(node, !NetLink()->InNetGame())) {
+            if (node && LevelNodes::FetchVertex(node, !NetLink()->InNetGame())) {
                 uint32_t script;
-                if (LevelNodes::GetNode(node, true)->ReadHashValue(0x2CA8A299, &script, 0))
+                if (LevelNodes::FetchVertex(node, true)->ReadHashValue(0x2CA8A299, &script, 0))
                     StartScriptTask(script, static_cast<int>(node), false, false, nullptr);
             }
         }
@@ -1566,11 +1566,11 @@ void CRider::JumpToSpawn(uint32_t node, uint32_t walking)
     auto mode = [] { return static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->GetNameKey(); };
     if (mode() == 0x6C5FF266 || mode() == 0x6EF8FDA0 || mode() == 0x5D32129C) {
         NetLink::NetMessageInfo message;
-        message.Construct();
-        auto* client = static_cast<NetLink::Client*>(net->GetClient(m_viewSlot));
-        if (uint8_t* player = net->PlayerByObjectId(static_cast<uint16_t>(m_id)))
+        message.MakeNew();
+        auto* client = static_cast<NetLink::Guest*>(net->FetchPatron(m_viewSlot));
+        if (uint8_t* player = net->PlayerByObjectId(static_cast<uint16_t>(m_ident)))
             reinterpret_cast<OnlinePlay::PlayerRecord*>(player)->MarkFaceTextureSent();
-        message.m_id = 0x57;
+        message.m_ident = 0x57;
         message.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
         message.m_groupId = 8;
         client->SendToHost(&message);
@@ -1582,8 +1582,8 @@ void CRider::DestroyBody()
 {
     m_vtable = kSkaterVtable;
     if (m_isHalted && m_unknownBC && m_unknown264) {
-        At<Sio::Device*>(At<uint8_t*>(m_unknown264, 0x490), 0x1C)->UnpauseActuators();
-        At<Sio::Device*>(At<uint8_t*>(m_unknown264, 0x490), 0x1C)->StopActuators();
+        At<Sio::InputPort*>(At<uint8_t*>(m_unknown264, 0x490), 0x1C)->UnpauseActuators();
+        At<Sio::InputPort*>(At<uint8_t*>(m_unknown264, 0x490), 0x1C)->StopActuators();
     }
     ResetComponents();
     Scripts::LaunchScript(0xF429E0AC, nullptr, this, false, nullptr);
@@ -1592,8 +1592,8 @@ void CRider::DestroyBody()
             reinterpret_cast<void*(__thiscall*)(void*, int)>((*reinterpret_cast<void***>(info))[0])(info, 1);
     }
     if (m_unknownBC && m_viewSlot == 1) {
-        if (CObject* camera = CompositeObjectManager()->LookUpEntity(kSkaterCam1))
-            reinterpret_cast<void(__thiscall*)(CObject*)>(camera->m_vtable[0x18 / 4])(camera); // (marked dead)
+        if (CEntity* camera = CompositeObjectManager()->LookUpEntity(kSkaterCam1))
+            reinterpret_cast<void(__thiscall*)(CEntity*)>(camera->m_vtable[0x18 / 4])(camera); // (marked dead)
     }
     // Out of the skater list.
     auto* node = reinterpret_cast<uint32_t*>(m_block238);
@@ -1602,16 +1602,16 @@ void CRider::DestroyBody()
     reinterpret_cast<uint32_t*>(node[3])[4] = node[4];
     node[3] = reinterpret_cast<uint32_t>(node);
     node[4] = reinterpret_cast<uint32_t>(node);
-    m_shownName.~String();
+    m_shownName.~Chars();
     CGameEntity::DestroyBody();
 }
 
 // 0x005840E0
-CRider* CRider::Destroy(unsigned int flags)
+CRider* CRider::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -1620,18 +1620,18 @@ CRider* CRider::Destroy(unsigned int flags)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kSkaterVtable_slots[] = {&GameObjects::CRider::Destroy,
-         &GameObjects::CObject::SetProperties,
-         static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+static VtableSlot kSkaterVtable_slots[] = {&GameObjects::CRider::Teardown,
+         &GameObjects::CEntity::ChangeTraits,
+         static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
          &GameObjects::CRider::InvokeMethodByName,
          Stubs::IgnoreArgument,
-         &GameObjects::CObject::PassEventToScript,
+         &GameObjects::CEntity::PassEventToScript,
          &GameObjects::CGameEntity::FlagAsDead,
          &GameObjects::CGameEntity::ShouldUpdateScripts,
-         &GameObjects::CGameEntity::Finalize,
+         &GameObjects::CGameEntity::Seal,
          &GameObjects::CGameEntity::CreateComponentFromStructure,
          Stubs::DoNothing,
-         &GameObjects::CRider::Pause,
+         &GameObjects::CRider::Freeze,
          &GameObjects::CRider::Unpause,
          &GameObjects::CRider::InitFromProfile,
          &GameObjects::CRider::ResetInput,

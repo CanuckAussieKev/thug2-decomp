@@ -20,8 +20,8 @@ namespace Skater {
 
 // What the acid drop search (CorePhysicsComponent::FindAcidDrop) finds (0x28 bytes).
 struct AcidDrop {
-    Maths::Vector point;  // +0x00 where on the wall the skater drops to
-    Maths::Vector normal; // +0x10 the wall's normal there
+    Maths::Vec4 point;  // +0x00 where on the wall the skater drops to
+    Maths::Vec4 normal; // +0x10 the wall's normal there
     float hitHeight;    // +0x20 the height the search first hit it at
     bool objectHit;     // +0x24 (the feeler's hit object was still there)
     uint8_t pad25[3];
@@ -96,14 +96,14 @@ public:
     // facing for a trigger), else carried along by what the skater rides on.
     void DoWallplantPhysics();
     // The script member functions (all return 1; neither argument used unless said): 0x00509A40 Jump (PerformLeap with
-    // `params`), 0x00509A60 StartSkitch, 0x00509A70 EndTowRide, 0x00509A80 SetState (`params`' unnamed checksum:
+    // `params`), 0x00509A60 StartSkitch, 0x00509A70 EndTowRide, 0x00509A80 ChangePhase (`params`' unnamed checksum:
     // AIR, Ground or Lip; off a lip runs the rail's TriggerScript, wall riding the up set straight), 0x00509B70
     // TriggerGrindOff (the rail's TriggerScript for grinding off), 0x00509B90 (0x675CF35E: break out of vert, forced,
     // and 0x00504DF0), 0x00509BB0 WalkingWallplant (0x00507500 with 0, 0, 1).
     int Jump(Scripts::CStruct* params, Scripts::CScript* script);
     int StartSkitch(Scripts::CStruct* params, Scripts::CScript* script);
     int EndTowRide(Scripts::CStruct* params, Scripts::CScript* script);
-    int SetState(Scripts::CStruct* params, Scripts::CScript* script);
+    int ChangePhase(Scripts::CStruct* params, Scripts::CScript* script);
     int TriggerGrindOff(Scripts::CStruct* params, Scripts::CScript* script);
     int ForceBreakVert(Scripts::CStruct* params, Scripts::CScript* script);
     int WalkingWallplant(Scripts::CStruct* params, Scripts::CScript* script);
@@ -116,7 +116,7 @@ public:
     // pushed back off the wall (Skater_Min_Distance_To_Wall) and turned along it; otherwise (no wallplant, no
     // 0x00508140) a bonk: the trigger, the sound, the velocity along the wall, the facing turned away from it, and a
     // moving object's push. False when nothing stopped the skater.
-    bool CheckAirForwardCollision(const Maths::Vector* from);
+    bool CheckAirForwardCollision(const Maths::Vec4* from);
     // 0x0050A2C0: a feeler from the skater's side height (Skater_side_collide_height) out to one side (`side` -1 or
     // 1 along the right) `length` long (more in the air: Skater_air_extra_side_col). Never while wall riding. In the air the
     // skater is pushed out of what it hit (a tenth of the overlap) - true only when 0x00508140 took over; otherwise
@@ -135,7 +135,7 @@ public:
     // coin toss when across it; nothing at the rail's end), Rail_Speed_Boost, the bad ledge feelers either side, and
     // the grind trick picked from the pad. `fromObject` (from a car plant or a vehicle): the velocity isn't
     // flattened, and too slow against the facing it starts from the facing.
-    void StartGrind(const Maths::Vector* point, GameObjects::CGrindPoint* node, GameObjects::CGrindRailHub* manager, bool noLipTrick,
+    void StartGrind(const Maths::Vec4* point, GameObjects::CGrindPoint* node, GameObjects::CGrindRailHub* manager, bool noLipTrick,
                     bool fromObject);
     // 0x0050DAE0: in the air (or `always`), grind button (+0x1A0) held, not after a wallplant for
     // Physics_Wallplant_Disallow_Grind_Duration: a rail along the last move (soon after leaving a rail, only one
@@ -170,7 +170,7 @@ public:
     // the skater is between its two nodes - or, outside the park editor, when the move is at least as long as its
     // segment (then onto its middle) - the velocity along it, the skater at its point; else off the rail into the
     // air (OffRail).
-    void TransferOrLeaveRail(const Maths::Vector* end);
+    void TransferOrLeaveRail(const Maths::Vec4* end);
 
     // --- core_ground.cpp ---
     // 0x0050EE70: the ground state's update (state 0). Off vert, no rail, the heading (+0x348, degrees from the facing,
@@ -200,19 +200,19 @@ public:
     // speed limited; flags +0x98 / +0xA0 cleared; the state's update (ground, air, wall ride, lip, rail, wallplant);
     // TryGrind (inlined in the original); free revert, focus, projectiles, special time; event 0xF225FE69 /
     // 0x5E27200A when +0x4F0 (in the air with flag +0x30, not +0x78) changes; +0x14CC cleared out of the air.
-    void Update();
+    void TickFrame();
 
     // --- core_physics_state.cpp: the component made, reset and destroyed; timers ---
     // (Fields: core_physics_fields.h. The component is 0x153C bytes, type 0x5BD63B29 SkaterCorePhysics, vtable
     // 0x0064BC48: 0 Destroy, 1 its update 0x00510830, 12 InvokeMethodByName 0x00501600.)
     // 0x00505440 (the component type's maker): a new one (0 if out of memory).
-    static void* __cdecl Create();
+    static void* __cdecl Fabricate();
     // 0x00500CA0: the base's constructor, then its vtable and type; its two feelers (+0xA8, +0x158) and its collision
     // cache (+0x4F4) made; no components (+0x150C-+0x1538); a few flags cleared, +0x308 = -1, +0x2E8 = 1. The rest
     // isn't initialised. Returns this.
-    CorePhysicsComponent* Construct();
+    CorePhysicsComponent* MakeNew();
     // 0x00500DB0 (vtable slot 0): the destructor body (0x004FC500), then freed with `flags` bit 0. Returns this.
-    CorePhysicsComponent* Destroy(unsigned int flags);
+    CorePhysicsComponent* Teardown(unsigned int flags);
     // 0x00506BE0: back to rest - the old position and +0x98 = the position (not in a network game), no velocity,
     // the ground state, every timed flag set and cleared (flag 7 telling +0x1514's +0x1E so), the ride let go of,
     // and the speed / trick timers and flags cleared.
@@ -309,7 +309,7 @@ public:
     void FindNearestWallSide();
     // 0x00501C90: one side collision feeler (`side` 0-3) from `start` to `end`, unless the opposite side hit more
     // than 500 ms ago: a hit's normal added to +0x2AC, its distance kept in +0x2BC if nearer, the side's time noted.
-    void CheckSideFeeler(const Maths::Vector* start, const Maths::Vector* end, uint32_t side);
+    void CheckSideFeeler(const Maths::Vec4* start, const Maths::Vec4* end, uint32_t side);
     // 0x005055B0: the side collisions (+0x2C0 the reach and +0x2C4 the push, both set): four feelers at
     // Skater_side_collide_height, both ways along the side and forward rows; with a hit, the skater pushed off (the
     // nearer, the harder) and turned (+0x2C8 a second) along a wall it faces into.
@@ -338,7 +338,7 @@ public:
     // 0x005039F0: bouncing off a wall of normal `normal`: the angle between the side row and the normal (acos;
     // past 90 degrees, less 180) times Wall_Bounce_Angle_Multiplier and `scale` turns the velocity and the matrices
     // (`turn` = the turn). Returns the angle.
-    float BounceOffWall(const Maths::Vector* normal, float* turn, float scale);
+    float BounceOffWall(const Maths::Vec4* normal, float* turn, float scale);
     // 0x00501B00: when the skater may (0x004FE420), turned towards straight down the slope at
     // Skater_Slow_Turn_on_slopes (along the velocity, or the facing when hardly moving). Whether it did.
     bool TurnDownSlope();
@@ -377,7 +377,7 @@ public:
     // 0x005059D0: bouncing off a wall ahead of normal `normal` (unless 0x004FF670): turned (BounceOffWall), slowed
     // the more head-on (beyond Wall_Bounce_Dont_Slow_Angle; a flail beyond Wall_Bounce_Dont_Flail_Speed), moved
     // back out 6 along the normal; another wall ahead then: turned back, half as fast.
-    void BounceOffWallAhead(const Maths::Vector* normal);
+    void BounceOffWallAhead(const Maths::Vec4* normal);
 
     // --- core_physics_wallplant.cpp: wall plants and wall rides ---
     // 0x00507500: a wall plant off what the feeler hit: in the air, not too soon after the last (the
@@ -402,7 +402,7 @@ public:
     // (`pop`: at least Physics_Acid_Drop_Pop_Speed up; at most twice that), high enough and long enough in the air
     // (Physics_Acid_Drop_Min_Air_Time), and a point up the wall (24 at a time) reached with nothing in the way: `drop`.
     // Whether one was found (`velocity` is put back if not).
-    bool FindAcidDrop(bool pop, const Maths::Vector* position, const Maths::Vector* lastPosition, Maths::Vector* velocity,
+    bool FindAcidDrop(bool pop, const Maths::Vec4* position, const Maths::Vec4* lastPosition, Maths::Vec4* velocity,
                       AcidDrop* drop);
     // 0x00502F20: starting the acid drop to `drop`: the horizontal speed to get there in the fall's time (flags block
     // +0xE4), the wall's orientation (+0x3B0, +0x490) and the slerp to it (+0x3F0) over that time; flags +0x78 (in the
@@ -557,7 +557,7 @@ public:
     // a hit on something not vert (face flag 8) whose normal's y is within 0.1 of 0. 1 or 0.
     int IsFacingWall(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FD840 (checksum 0xA038260D, name not recovered): the same feeler; on such a wall the velocity and the
-    // facing turned to point along its normal (SetDirection), the skater flipped (SkaterFlipAndRotate), the display
+    // facing turned to point along its normal (ChangeHeading), the skater flipped (SkaterFlipAndRotate), the display
     // matrix the object's. 1 then, else 0.
     int TurnFromWall(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FDA80 IsFacingVert: the same feeler from 50 higher; a hit on vert. 1 or 0.
@@ -580,7 +580,7 @@ public:
     // straight up; +0x2EC and the projectile count cleared.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x004FC690 (vtable slot 3): the object's components it works with, +0x150C Input to +0x1538 (0x380D909A).
-    void Finalize();
+    void Seal();
     // 0x004FC3C0: the projectile button (the script value projectile_control) released then pressed (the Trick
     // component's CheckReleasePress); then the projectile input (+0x308) reset to -1. Whether it was.
     bool ProjectileButtonPressed();
@@ -635,7 +635,7 @@ public:
     // facing up has a feeler 72 along it from the skater - a hit makes it straight up. A new normal becomes the
     // ground normal (+0x68; the old +0x58 kept at +0x78 and the blend +0x88 restarted at 1) and the skater's up,
     // the matrix made orthonormal about it.
-    void TurnToNormal(Maths::Vector normal);
+    void TurnToNormal(Maths::Vec4 normal);
     // 0x004FEA50: the drawn ground normal (+0x58) blended from the old (+0x78) to the new (+0x68) as +0x88 runs down
     // at 0xD8120182 a second (a script value); the display matrix's up made it, orthonormal about it, its right and
     // facing the skater's.
@@ -652,8 +652,8 @@ public:
     // vert face (normal y under 0.707) whose horizontal normal is at most 0.95 along `facing`. Found: its point and
     // normal, whether its object is still there (`objectAlive`) and whether that normal is more than -0.866 along
     // `facing` (`notOpposite`; rounded to a float first). Whether one was found.
-    bool FindVertTarget(const Maths::Vector* direction, const Maths::Vector* facing, bool* notOpposite, Maths::Vector* point,
-                        Maths::Vector* normal, bool* objectAlive);
+    bool FindVertTarget(const Maths::Vec4* direction, const Maths::Vec4* facing, bool* notOpposite, Maths::Vec4* point,
+                        Maths::Vec4* normal, bool* objectAlive);
     // 0x004FF200: the speed override (+0x3AC, a factor; 1 when off): turned on (+0x255, not in an acid drop or a
     // bail) when faster than 1.25 times the 0x2EACDDB3 stat - the factor the speed over that (at most 0xC6B38BE0),
     // the limits (+0x354, +0x358) lifted. Running down at 0xF9B006AA a second; while above 1 the max speed (+0x354)
@@ -666,7 +666,7 @@ public:
     double GetGravity();
     // 0x004FF590 (RET 4): `velocity` made to point along the facing (or against it, when it was going backwards),
     // keeping its length - unless it's barely moving.
-    void AlongFacing(Maths::Vector* velocity);
+    void AlongFacing(Maths::Vec4* velocity);
     // 0x004FF670: a wall push-off: the button (pad +0x1A0) held, 0x0017D543 ms (a script value) since the last one
     // (+0x4E4) and since +0x4E0, facing into the wall (+0x130) more than the angle 0x1483FD01 - 1 degree allows:
     // event 0x4C03635B, then (unless cancelled, flag +0xB8: cleared) the velocity bounced off the wall, its speed
@@ -690,7 +690,7 @@ public:
     // the skater and the point) to the lower, hitting ground (normal y over 0.5), then one across from above the
     // point to above the hit (the normal added): clear - the skater put there, 0.1 up. Not while bailing. Whether
     // it stepped up.
-    bool StepUp(const Maths::Vector* point);
+    bool StepUp(const Maths::Vec4* point);
 
 private:
     // (Parts of 0x0050DDF0: still on the rail - along the segment, the matrices, the move and the feeler ahead; and
@@ -703,7 +703,7 @@ private:
     // Not original: THAW's stall state's update (THAW 0x005E2E30 - core_rail.cpp, game/skater/thaw_bmx.h).
     void DoBikeStallPhysics();
     // (Part of 0x0050EE70: the move along the ground, once more for the rest when stopped short.)
-    void MoveOnGround(Maths::Vector step);
+    void MoveOnGround(Maths::Vec4 step);
     // (Part of 0x0050F830: off the wall's edge - the up straight, pushed out 18, into the air.)
     void OffWallEdge(bool resetDisplay);
 
@@ -713,9 +713,9 @@ private:
 };
 
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).
-void __cdecl TrackingPrint(int index, const Maths::Vector* a, const Maths::Vector* b);
+void __cdecl TrackingPrint(int index, const Maths::Vec4* a, const Maths::Vec4* b);
 
-extern Maths::Vector g_acidHold;
+extern Maths::Vec4 g_acidHold;
 
 // 0x0064BC48: corePhysicsVtable (defined where the class's functions are).
 extern void** const g_corePhysicsVtable;

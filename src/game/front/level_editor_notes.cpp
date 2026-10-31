@@ -27,7 +27,7 @@ bool Same(const Note& a, const Note& b)
            a.text == b.text;
 }
 
-std::string Encode(const std::string& text)
+std::string PackUp(const std::string& text)
 {
     std::string out;
     for (unsigned char c : text.substr(0, kMaxText)) {
@@ -106,7 +106,7 @@ std::string WriteRecord(const Note& note)
     char text[160];
     std::snprintf(text, sizeof(text), "note %s pos=%.9g,%.9g,%.9g color=%06X text=\"", note.name.c_str(), note.pos.x,
                   note.pos.y, note.pos.z, note.colour & 0xFFFFFF);
-    return text + Encode(note.text) + "\"";
+    return text + PackUp(note.text) + "\"";
 }
 
 bool ReadRecord(std::istringstream& in, Note* out)
@@ -169,7 +169,7 @@ std::string FreshName(const std::vector<Note>& notes)
     }
 }
 
-std::string Label(const std::string& text, size_t most)
+std::string Caption(const std::string& text, size_t most)
 {
     std::string first = text.substr(0, text.find('\n'));
     while (!first.empty() && (first.back() == '\r' || first.back() == ' '))
@@ -219,8 +219,8 @@ bool ViewPoint(V3* point)
     ViewNow view;
     if (!CurrentView(&view))
         return false;
-    Frame frame = FrameFromYawPitch(view.yaw, view.pitch);
-    V3 dir = Normalize(frame.back * -1.0f);
+    TickCycle frame = FrameFromYawPitch(view.yaw, view.pitch);
+    V3 dir = MakeUnit(frame.back * -1.0f);
     V3 hit;
     if (Checks::Cast(view.pos, view.pos + dir * 20000.0f, &hit))
         *point = hit;
@@ -290,7 +290,7 @@ void ResetAll()
 
 void ForgetLevel() { ResetAll(); }
 
-void Update()
+void TickFrame()
 {
     std::vector<std::function<void()>> queue;
     queue.swap(g_queue);
@@ -300,8 +300,8 @@ void Update()
         g_selected.clear();
 }
 
-void AddOverlay(V3 cameraPos, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                std::vector<Ui::Line>* lines, std::vector<Ui::Overlay::Circle>* circles,
+void AddOverlay(V3 cameraPos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
+                std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Circle>* circles,
                 std::vector<Ui::Overlay::Text>* texts)
 {
     for (const Note& note : g_notes) {
@@ -312,8 +312,8 @@ void AddOverlay(V3 cameraPos, const Frame& frame, const Lens& lens, const uint32
         V3 top = note.pos + V3{0.0f, height, 0.0f};
         float ax, ay, bx, by;
         float px, py, tx, ty;
-        if (!Project(cameraPos, frame, lens, note.pos, nearZ, &ax, &ay) ||
-            !Project(cameraPos, frame, lens, top, nearZ, &bx, &by))
+        if (!CastOnto(cameraPos, frame, lens, note.pos, nearZ, &ax, &ay) ||
+            !CastOnto(cameraPos, frame, lens, top, nearZ, &bx, &by))
             continue;
         NdcToPixel(viewport, ax, ay, &px, &py);
         NdcToPixel(viewport, bx, by, &tx, &ty);
@@ -326,7 +326,7 @@ void AddOverlay(V3 cameraPos, const Frame& frame, const Lens& lens, const uint32
         circles->push_back({px, py, 2.5f, argb, true, 1.0f});
         // (the label: the first line - all of it when selected - cut short when far)
         size_t most = selected ? 60 : distance > 6000.0f ? 18 : 36;
-        texts->push_back({tx + 10.0f, ty - 8.0f, argb, Label(note.text, most)});
+        texts->push_back({tx + 10.0f, ty - 8.0f, argb, Caption(note.text, most)});
     }
 }
 
@@ -359,7 +359,7 @@ void OutlinerSection(ImFont* mono, const char* search)
         ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(pos.x + h * 0.25f, pos.y + h * 0.5f), h * 0.22f,
                                                      Colour(note.colour));
         ImGui::SetCursorScreenPos(ImVec2(pos.x + h * 0.6f, pos.y));
-        std::string label = Label(note.text, 40);
+        std::string label = Caption(note.text, 40);
         bool clicked = ImGui::Selectable(label.c_str(), note.name == g_selected, ImGuiSelectableFlags_AllowDoubleClick);
         if (clicked) {
             std::string name = note.name;
@@ -380,7 +380,7 @@ void OutlinerSection(ImFont* mono, const char* search)
     ImGui::TreePop();
 }
 
-void Window(float viewX, float viewY, float viewWidth, float viewHeight, float scale)
+void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float scale)
 {
     (void)viewWidth;
     Note* note = g_selected.empty() ? nullptr : Find(g_selected);

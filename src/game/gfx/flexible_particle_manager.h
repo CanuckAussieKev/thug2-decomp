@@ -15,20 +15,20 @@ struct CParticleSystem;
 // (0x28 bytes, vtable 0x006494B0: 0 the scalar deleting destructor.)
 struct CFlexibleParticleManager {
     void** m_vtable;
-    MemSys::Region* m_zone;     // +0x04: its own memory (the script integer 0x91CB7552 bytes, else 0x5000)
-    MemSys::Heap* m_arena;         // +0x08 "FlxParticles"
-    MemSys::Region* mp_tempRegion; // +0x0C
-    MemSys::Heap* mp_tempHeap;     // +0x10 "TEMPFlxPrtcl": systems are made on it while it's there
-    MemSys::ListNode* mp_systems;  // +0x14: the list's head (ListKit::Head<CParticleSystem>, vtable 0x006494C4)
+    MemSys::Zone* m_zone;     // +0x04: its own memory (the script integer 0x91CB7552 bytes, else 0x5000)
+    MemSys::Arena* m_arena;         // +0x08 "FlxParticles"
+    MemSys::Zone* mp_tempRegion; // +0x0C
+    MemSys::Arena* mp_tempHeap;     // +0x10 "TEMPFlxPrtcl": systems are made on it while it's there
+    MemSys::ListNode* mp_systems;  // +0x14: the list's head (ListKit::Foremost<CParticleSystem>, vtable 0x006494C4)
     float m_colourScale[4];     // +0x18: the level's colour (given to the systems with flag 0x10000)
 
     // 0x0049AF20: its memory, the list, the colour white; the frame time scale (0x00700EF4) 60 / the script float
     // 0x3214C818 - 60 when that's 0. Returns this.
-    CFlexibleParticleManager* Construct();
+    CFlexibleParticleManager* MakeNew();
     // 0x0049AA10: the list's head deleted, the temporary heap, the heap and the region.
     void DestroyBody();
     // 0x0049B040 (vtable slot 0): destroyed, and freed with flags & 1. Returns this.
-    CFlexibleParticleManager* Destroy(unsigned int flags);
+    CFlexibleParticleManager* Teardown(unsigned int flags);
     // 0x0049A9D0: the temporary heap (and its region) gone, if there is one.
     void DeleteTempHeap();
     // 0x0049AA80: a temporary heap of `size` bytes (any old one gone first). Whether it was made.
@@ -68,10 +68,10 @@ static_assert(offsetof(CFlexibleParticleManager, mp_systems) == 0x14 &&
                   sizeof(CFlexibleParticleManager) == 0x28,
               "layout must match the original");
 
-// 0x0049AEF0 (the head's vtable 0x006494C4, slot 0): the list's head (ListKit::Head<CParticleSystem>) destroyed - the
+// 0x0049AEF0 (the head's vtable 0x006494C4, slot 0): the list's head (ListKit::Foremost<CParticleSystem>) destroyed - the
 // node's body 0x00496D10 -, freed with flags & 1. Returns it.
 struct CParticleSystemListHead {
-    MemSys::ListNode* Destroy(unsigned int flags);
+    MemSys::ListNode* Teardown(unsigned int flags);
 };
 
 extern float g_frameTimeScale;

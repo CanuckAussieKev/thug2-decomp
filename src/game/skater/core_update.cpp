@@ -30,17 +30,17 @@ constexpr uint32_t kLeftAir = 0x5E27200A;
 } // namespace
 
 // 0x00510830
-void CorePhysicsComponent::Update()
+void CorePhysicsComponent::TickFrame()
 {
     At<float>(this, kFrameLength) = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     CollisionEvents::Checkpoint(this, "update-start"); // (not original)
-    bool bike = ThawBmx::Active(this); // (not original: THAW's bike, thaw_bmx_physics.cpp)
+    bool bike = ThawBmx::LiveNow(this); // (not original: THAW's bike, thaw_bmx_physics.cpp)
     if (bike)
         ThawBmx::BeginFrame(this);
     At<uint8_t>(this, kLandedThisFrame) = 0;
     At<uint8_t>(this, kFrameBeganInLip) = StateOf(this) == kLip;
-    At<uint8_t>(this, kFrameFlag255) = Flag(this, 0x78);
-    if (!Flag(this, 0x20) && InputOf(this)[0x1C0])
+    At<uint8_t>(this, kFrameFlag255) = BitMark(this, 0x78);
+    if (!BitMark(this, 0x20) && InputOf(this)[0x1C0])
         SetFlag(this, 0x20, 1);
     LimitSpeed();
     SetFlag(this, 0x98, 0);
@@ -72,7 +72,7 @@ void CorePhysicsComponent::Update()
         DoWallplantPhysics();
         break;
     case kBikeStall: // (not original: THAW's stall state - only THAW's bike gets into it, thaw_bmx.h)
-        if (ThawBmx::Enabled())
+        if (ThawBmx::IsSwitchedOn())
             DoBikeStallPhysics();
         break;
     default:
@@ -91,15 +91,15 @@ void CorePhysicsComponent::Update()
     UpdateSpecialTime();
     CollisionEvents::Checkpoint(this, "update-rest"); // (not original)
 
-    uint8_t inAir = StateOf(this) == kAir && Flag(this, 0x30) && !Flag(this, 0x78);
+    uint8_t inAir = StateOf(this) == kAir && BitMark(this, 0x30) && !BitMark(this, 0x78);
     uint8_t& airFromJump = At<uint8_t>(this, kAirFromJump);
     if (airFromJump != inAir) {
         airFromJump = !airFromJump;
-        static_cast<GameObjects::CObject*>(ObjectOf(this))->BroadcastEvent(airFromJump ? kEnteredAir : kLeftAir, nullptr, 0.0f);
+        static_cast<GameObjects::CEntity*>(ObjectOf(this))->Announce(airFromJump ? kEnteredAir : kLeftAir, nullptr, 0.0f);
     }
     if (StateOf(this) != kAir)
         At<int>(this, kAirTimer) = 0;
-    if (bike && ThawBmx::Active(this))
+    if (bike && ThawBmx::LiveNow(this))
         ThawBmx::EndFrame(this); // (not original: THAW 0x005C9210, the x-up let go)
     reinterpret_cast<void*&>(Engine3D::g_currentCache) = nullptr;
     CollisionEvents::EndFrame(this); // (not original: [debug] collision_events)

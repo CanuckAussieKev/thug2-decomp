@@ -77,7 +77,7 @@ struct HitMessage {
 };
 static_assert(sizeof(HitMessage) == 8, "the message is 8 bytes");
 
-OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
 GameModules::Skate* SkateModule() { return GameModules::g_skateModule; }
 
 // The skate module's local skater (0x00566520, a register stub on our side).
@@ -92,7 +92,7 @@ void Kill(CGameEntity* object) { reinterpret_cast<void(__thiscall*)(CGameEntity*
 Scripts::CStruct* NewParams()
 {
     Scripts::CStruct* memory = Scripts::NewStruct();
-    return memory ? memory->Init() : nullptr;
+    return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
 {
@@ -102,9 +102,9 @@ void DeleteParams(Scripts::CStruct* params)
     }
 }
 
-GameModules::Score* ScoreOf(CGameEntity* skater)
+GameModules::PointTally* ScoreOf(CGameEntity* skater)
 {
-    return reinterpret_cast<GameModules::Score*>(static_cast<CRiderPointKeeper*>(skater->GetComponent(kSkaterScore))->m_pointsHeld);
+    return reinterpret_cast<GameModules::PointTally*>(static_cast<CRiderPointKeeper*>(skater->FetchModule(kSkaterScore))->m_pointsHeld);
 }
 
 } // namespace
@@ -112,19 +112,19 @@ GameModules::Score* ScoreOf(CGameEntity* skater)
 // --- the projectile collision component ---
 
 // 0x004F3010
-CObjectModule* __cdecl CShotImpactModule::Create()
+CObjectModule* __cdecl CShotImpactModule::Fabricate()
 {
     auto* component = static_cast<CShotImpactModule*>(MemSys::AllocZeroed(sizeof(CShotImpactModule)));
     if (!component)
         return nullptr;
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_radius = 0.0f;
     component->m_holderKey = 0;
     component->m_deathScript = 0;
     component->m_sizeFactor = 0.0f;
     component->m_hit = false;
     component->m_vtable = kCollisionVtable;
-    component->CObjectModule::m_type = kType;
+    component->CObjectModule::m_kindTag = kType;
     return component;
 }
 
@@ -136,24 +136,24 @@ void CShotImpactModule::DestroyBody()
 }
 
 // 0x004F2F50
-CShotImpactModule* CShotImpactModule::Destroy(unsigned int flags)
+CShotImpactModule* CShotImpactModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004F2F80
 void CShotImpactModule::ConfigureFromData(Scripts::CStruct* params)
 {
-    params->GetFloat(kRadius, &m_radius, 1);
-    params->GetFloat(kScale, &m_sizeFactor, 1);
+    params->FetchFloat(kRadius, &m_radius, 1);
+    params->FetchFloat(kScale, &m_sizeFactor, 1);
     params->ReadHashValue(kOwnerId, &m_holderKey, 1);
     params->ReadHashValue(kDeathScript, &m_deathScript, 1);
     params->ReadHashValue(kProjectileType, &m_projectileType, 1);
     m_vel = {0.0f, 0.0f, 1.0f, 1.0f};
-    m_vel.Normalize();
+    m_vel.MakeUnit();
 }
 
 // 0x004F2F40
@@ -168,9 +168,9 @@ int CShotImpactModule::ScoreTaken()
 }
 
 // 0x004F3090
-void CShotImpactModule::Update()
+void CShotImpactModule::TickFrame()
 {
-    OnlinePlay::Manager* net = NetManager();
+    OnlinePlay::Hub* net = NetManager();
     if (net->InNetGame() && m_projectileType != kFireball && !net->PlayersCanCollide())
         return;
     float reach = static_cast<float>(static_cast<double>(m_radius) + kReach);
@@ -181,33 +181,33 @@ void CShotImpactModule::Update()
     bool teamGame = GoalSystem::g_gameMode->IsSquadMatch() != 0;
     for (uint32_t i = 0; i < count; ++i) {
         CGameEntity* skater = skate->GetRiderAt(static_cast<int>(i));
-        if (skater->m_id == m_holderKey)
+        if (skater->m_ident == m_holderKey)
             continue;
         auto* owner = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->PlayerByObjectId(static_cast<uint16_t>(m_holderKey)));
-        auto* victim = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->PlayerByObjectId(static_cast<uint16_t>(skater->m_id)));
+        auto* victim = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->PlayerByObjectId(static_cast<uint16_t>(skater->m_ident)));
         if (!victim->CanBeHitAgain())
             continue;
-        GameModules::Score* score = ScoreOf(skater);
+        GameModules::PointTally* score = ScoreOf(skater);
         if (m_projectileType == kFireball && score->GetTotalScore() <= 0)
             continue;
         if (teamGame && *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(owner) + 0x30) ==
                             *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(victim) + 0x30) &&
             net->GetOnlineSettings()->GetPreferenceChecksum(kFriendlyFire, kChecksum) != kBooleanTrue)
             continue;
-        CGameEntity* object = m_object;
-        double dz = static_cast<double>(skater->m_pos.z) - object->m_pos.z;
-        double dy = static_cast<double>(skater->m_pos.y) - object->m_pos.y;
-        double dx = static_cast<double>(skater->m_pos.x) - object->m_pos.x;
+        CGameEntity* object = m_entity;
+        double dz = static_cast<double>(skater->m_atPoint.z) - object->m_atPoint.z;
+        double dy = static_cast<double>(skater->m_atPoint.y) - object->m_atPoint.y;
+        double dx = static_cast<double>(skater->m_atPoint.x) - object->m_atPoint.x;
         if (!(std::sqrt(dx * dx + dy * dy + dz * dz) < reach))
             continue;
 
         // Hit.
         NetLink::NetMessageInfo msg;
-        msg.Construct();
-        auto* server = reinterpret_cast<NetLink::App*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(net)->Word04());
-        Kill(m_object);
+        msg.MakeNew();
+        auto* server = reinterpret_cast<NetLink::AppHost*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(net)->Word04());
+        Kill(m_entity);
         if (m_deathScript) {
-            Maths::Vector pos = m_object->m_pos;
+            Maths::Vec4 pos = m_entity->m_atPoint;
             Scripts::CStruct* params = NewParams();
             params->PutVec3(kPos, Scripts::VectorValue{pos.x, pos.y, pos.z, pos.w});
             params->PutVec3(kVel, Scripts::VectorValue{m_vel.x, m_vel.y, m_vel.z, m_vel.w});
@@ -221,15 +221,15 @@ void CShotImpactModule::Update()
         hit.id = static_cast<uint8_t>(m_holderKey);
         hit.score = m_projectileType == kFireball ? static_cast<int>(m_sizeFactor) * 10 : 0;
         hit.fireball = m_projectileType == kFireball;
-        msg.m_id = kMsgHit;
-        msg.m_data = &hit;
+        msg.m_ident = kMsgHit;
+        msg.m_content = &hit;
         msg.m_byteCount = sizeof(hit);
         msg.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
         msg.m_groupId = 8;
         victim->SetLastHitTime(FrameClock::GetTime());
         server->PutOnOutbox(victim->GetLinkHandle(), &msg);
-        hit.id = static_cast<uint8_t>(skater->m_id);
-        msg.m_id = kMsgHitOwner;
+        hit.id = static_cast<uint8_t>(skater->m_ident);
+        msg.m_ident = kMsgHitOwner;
         server->PutOnOutbox(owner->GetLinkHandle(), &msg);
         if (m_projectileType != kFireball)
             return;
@@ -240,7 +240,7 @@ void CShotImpactModule::Update()
         }
         if (score->GetTotalScore() > 0 && !victim->IsOwnPlayer()) {
             Scripts::CStruct* params = NewParams();
-            params->AddString(kName, static_cast<CRider*>(skater)->GetDisplayName());
+            params->AppendWord(kName, static_cast<CRider*>(skater)->FetchShownName());
             Scripts::LaunchScript(kAnnounceElimination, params, nullptr, false, nullptr);
             DeleteParams(params);
             skate->ConcealSkater(static_cast<CRider*>(skater), true);
@@ -253,14 +253,14 @@ void CShotImpactModule::Update()
 // --- the projectile proximity component ---
 
 // 0x004F3550
-CObjectModule* __cdecl CProjectileProximityComponent::Create()
+CObjectModule* __cdecl CProjectileProximityComponent::Fabricate()
 {
     auto* component = static_cast<CProjectileProximityComponent*>(MemSys::AllocZeroed(sizeof(CProjectileProximityComponent)));
     if (!component)
         return nullptr;
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kProximityVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     return component;
 }
 
@@ -272,11 +272,11 @@ void CProjectileProximityComponent::DestroyBody()
 }
 
 // 0x004F34F0
-CProjectileProximityComponent* CProjectileProximityComponent::Destroy(unsigned int flags)
+CProjectileProximityComponent* CProjectileProximityComponent::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -284,21 +284,21 @@ CProjectileProximityComponent* CProjectileProximityComponent::Destroy(unsigned i
 void CProjectileProximityComponent::ConfigureFromData(Scripts::CStruct*)
 {
     m_riderRef = LocalSkater();
-    mp_pedLogic = static_cast<CPedestrianBrainModule*>(m_object->GetComponent(kPedLogic));
+    mp_pedLogic = static_cast<CPedestrianBrainModule*>(m_entity->FetchModule(kPedLogic));
     m_radiusSqr = kReach * kReach;
 }
 
 // 0x004F35B0
-void CProjectileProximityComponent::Update()
+void CProjectileProximityComponent::TickFrame()
 {
     if (!m_riderRef) {
         m_riderRef = LocalSkater();
         return;
     }
-    if (!m_object->m_id)
+    if (!m_entity->m_ident)
         return;
     if (!mp_pedLogic) {
-        mp_pedLogic = static_cast<CPedestrianBrainModule*>(m_object->GetComponent(kPedLogic));
+        mp_pedLogic = static_cast<CPedestrianBrainModule*>(m_entity->FetchModule(kPedLogic));
         return;
     }
     if (mp_pedLogic->GetLogicState() == kShot)
@@ -308,7 +308,7 @@ void CProjectileProximityComponent::Update()
         if (!projectile.active)
             continue;
         const auto* pos = reinterpret_cast<const float*>(reinterpret_cast<uint8_t*>(&projectile) + 8);
-        const Maths::Vector& at = m_object->m_pos;
+        const Maths::Vec4& at = m_entity->m_atPoint;
         double middle = static_cast<double>(at.y) + kAbovePed;
         float dz = static_cast<float>(static_cast<double>(pos[2]) - at.z);
         double dy = pos[1] - middle;
@@ -316,16 +316,16 @@ void CProjectileProximityComponent::Update()
         if (!(dx * dx + dy * dy + static_cast<double>(dz) * dz <= m_radiusSqr))
             continue;
         // In reach: the ped is hit.
-        m_object->PostOwnEvent(kProjectileInAvoidRadius, nullptr);
+        m_entity->PostOwnEvent(kProjectileInAvoidRadius, nullptr);
         Scripts::CStruct* params = NewParams();
-        params->PutNameKey(kPedId, m_object->m_id);
+        params->PutNameKey(kPedId, m_entity->m_ident);
         params->PutNameKey(kProjectileId, projectile.name);
-        Scripts::LaunchScript(kProjectileHitPed, params, FindObject(m_riderRef->m_id), false, nullptr);
+        Scripts::LaunchScript(kProjectileHitPed, params, FindObject(m_riderRef->m_ident), false, nullptr);
         params->PutNameKey(kAmmoType,
                             *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(
-                                                             m_riderRef->GetComponent(kSkaterCorePhysics)) +
+                                                             m_riderRef->FetchModule(kSkaterCorePhysics)) +
                                                          0x2FC));
-        Scripts::LaunchScript(kHitPedScript, params, m_object, false, nullptr);
+        Scripts::LaunchScript(kHitPedScript, params, m_entity, false, nullptr);
         DeleteParams(params);
         projectile.active = false;
         return;
@@ -337,28 +337,28 @@ void CProjectileProximityComponent::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kCollisionVtable_slots[] = {&GameObjects::CShotImpactModule::Destroy,
-         &GameObjects::CShotImpactModule::Update,
+static VtableSlot kCollisionVtable_slots[] = {&GameObjects::CShotImpactModule::Teardown,
+         &GameObjects::CShotImpactModule::TickFrame,
          &GameObjects::CShotImpactModule::ConfigureFromData,
-         &GameObjects::CImpactDestructModule::Finalize,
+         &GameObjects::CImpactDestructModule::Seal,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
          static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kCollisionVtable = reinterpret_cast<void**>(kCollisionVtable_slots);
-static VtableSlot kProximityVtable_slots[] = {&GameObjects::CProjectileProximityComponent::Destroy,
-         &GameObjects::CProjectileProximityComponent::Update,
+static VtableSlot kProximityVtable_slots[] = {&GameObjects::CProjectileProximityComponent::Teardown,
+         &GameObjects::CProjectileProximityComponent::TickFrame,
          &GameObjects::CProjectileProximityComponent::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

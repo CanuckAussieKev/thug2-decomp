@@ -21,7 +21,7 @@ struct sUVWibble {
     float offset[2];
 
     // 0x004D1A60: construct - all 0 but the matrix's first value, 1. Returns this.
-    sUVWibble* Construct();
+    sUVWibble* MakeNew();
 };
 static_assert(sizeof(sUVWibble) == 0x30, "layout must match the original");
 
@@ -39,7 +39,7 @@ struct sTextureAnim {
     sTextureKey* keys[4];  // +0x34
 
     // 0x004D1A80: started again (the time now, FrameClock::GetTime).
-    void Restart();
+    void Relaunch();
 };
 static_assert(sizeof(sTextureAnim) == 0x44, "layout must match the original");
 
@@ -88,7 +88,7 @@ struct materialRef {
     float specularPower;       // +0x10C
 
     // 0x004D1A90: construct - no passes, animations or wibbles; the per-pass defaults. Returns this.
-    materialRef* Construct();
+    materialRef* MakeNew();
     // 0x004D2BD0: the destructor's body - the animations and UV wibbles freed.
     void DestroyBody();
     // 0x004D1D90: a bit per pass taking its alpha from the texture alone (flag 0x1000).
@@ -101,7 +101,7 @@ struct materialRef {
     // 0x004D1F00: set up for drawing with the pixel shaders: the blend mode, the states, the animations, the specular
     // material, each pass's texture, addressing, mip bias and texture matrix (environment map, UV wibble or none)
     // on its stage; the pass colours into the shader constants when they changed. Nothing while 0x00786F30 is set.
-    void Submit();
+    void HandIn();
     // 0x004D23E0: the same without the blend mode and the passes.
     void SubmitStates();
     // 0x004D24D0: one pass set up on the fixed-function stages (0, and 1 for blending with the pass before), its
@@ -117,7 +117,7 @@ static_assert(offsetof(materialRef, passFlags) == 0x20 && offsetof(materialRef, 
 } // namespace Nx
 
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 
 namespace Engine3D {
@@ -125,8 +125,8 @@ namespace Engine3D {
 // 0x004D2CB0 / 0x004D3390: a scene's materials (a count, then each one's record: its passes, wibbles, animations)
 // from memory (the cursor moved past them) or from a file, into a new table by checksum (the first of a checksum
 // kept); the textures by checksum from `textures`.
-ListKit::HashTable* __cdecl ReadMaterialsFromBuffer(uint8_t** cursor, const ListKit::HashTable* textures);
-ListKit::HashTable* __cdecl LoadMaterialsFromFile(void* file, const ListKit::HashTable* textures);
+ListKit::KeyMap* __cdecl ReadMaterialsFromBuffer(uint8_t** cursor, const ListKit::KeyMap* textures);
+ListKit::KeyMap* __cdecl LoadMaterialsFromFile(void* file, const ListKit::KeyMap* textures);
 
 // Which of a material's passes a checksum names, given the pass asked for: the material's own name checksum - that
 // pass; the name plus d (1-0x7F) - with d's low three bits set, they must be the pass + 1 and name pass 0; else

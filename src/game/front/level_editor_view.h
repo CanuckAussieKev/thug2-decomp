@@ -25,10 +25,10 @@
 //     dashed, so it can be found and switched on again.
 //   - Hide (H) / Isolate (I or /) / Show all (Alt+H): the selected scenery and objects hidden from the view and from
 //     clicks, or everything else hidden; while editing only. Scenery: the sector's visibility mask (CWorldCell::
-//     ToggleShown 0x0049E680 / GetVisibility 0x0049E690 -> the geometry's +0x44 and each mesh's viewport bits +0x1B,
+//     ToggleShown 0x0049E680 / FetchShown 0x0049E690 -> the geometry's +0x44 and each mesh's viewport bits +0x1B,
 //     which the scene render tests - what the LevelGeometry Visible / Invisible node commands set, 0x005A3B80) - not
-//     its active flag (CWorldCell::SetActive also turns its collision off, and is what the editor's Delete and the layouts
-//     use). Objects: their model's geometries turned off (the geometry's SetActive, vfunc +0x34 - for an instance its
+//     its active flag (CWorldCell::ChangeLive also turns its collision off, and is what the editor's Delete and the layouts
+//     use). Objects: their model's geometries turned off (the geometry's ChangeLive, vfunc +0x34 - for an instance its
 //     +0x4C; the model's suspend pass 0x00493C60 turns them on and off when its decision changes, so Tick turns hidden
 //     ones off again every frame) - their collision and logic untouched.
 namespace MenuSystem::LevelEditor::View {
@@ -58,7 +58,7 @@ const char* SurfaceName(Surface surface);
 
 // A triangle clipped to the camera's near plane (depth along the view >= nearZ): `out` gets 0 (all behind), 3 or 4
 // points (a polygon, in order).
-int ClipTriangleToNear(V3 cameraPos, const Frame& frame, float nearZ, const V3 in[3], V3 out[4]);
+int ClipTriangleToNear(V3 cameraPos, const TickCycle& frame, float nearZ, const V3 in[3], V3 out[4]);
 // The distance from a point to an axis-aligned box (0 inside).
 float DistanceToBox(V3 point, V3 min, V3 max);
 
@@ -67,11 +67,11 @@ struct HiddenSet {
     std::vector<uint32_t> ids;
     bool Has(uint32_t id) const;
     // Added (false: already there).
-    bool Add(uint32_t id);
+    bool AppendOne(uint32_t id);
 };
 std::vector<uint32_t> IsolateOthers(const std::vector<uint32_t>& all, const std::vector<uint32_t>& keep);
 // A line drawn as dashes (dash long, gap between, from its start; at most 256 an edge) - collision switched off.
-void AddDashed(std::vector<Ui::Line>* lines, const Ui::Line& line, float dash, float gap);
+void AddDashed(std::vector<Ui::Seg>* lines, const Ui::Seg& line, float dash, float gap);
 // A colour faded (its alpha at most 0x30) - collision switched off.
 uint32_t Faded(uint32_t argb);
 
@@ -108,8 +108,8 @@ constexpr float kRadius = 3000.0f;
 constexpr float kWallRadius = 6000.0f;
 
 // The editor starting / stopping (Stop shows everything hidden and drops the caches).
-void Start();
-void Stop();
+void Kickoff();
+void Halt();
 // Once a frame (Update): hidden objects kept off.
 void Tick();
 
@@ -118,15 +118,15 @@ bool ShowCollision();
 void SetShowCollision(bool on);
 // The collision near the camera, as triangles over the view (back buffer pixels, painted far to near) and the
 // selected wall's edges as lines.
-void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                  std::vector<Ui::Overlay::Triangle>* triangles, std::vector<Ui::Line>* lines);
-struct Stats {
+void AddCollision(V3 cameraPos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
+                  std::vector<Ui::Overlay::Triangle>* triangles, std::vector<Ui::Seg>* lines);
+struct Attributes {
     int triangles = 0, sectors = 0, walls = 0, off = 0; // (off: pieces whose collision is switched off)
     int companions = 0, taken = 0; // (moved pieces' shared collision drawn; faces drawn where it was taken from)
     int triggers = 0;              // (level trigger faces coloured by kind)
     bool capped = false;
 };
-Stats LastStats();
+Attributes LastStats();
 
 // Shift+click with the collision shown: the nearest drawn face under the ray, if it is an invisible wall's (a
 // collision-only sector) - its checksum, else 0.
@@ -150,13 +150,13 @@ struct FaceHit {
 };
 bool PickFace(V3 origin, V3 unitDir, FaceHit* hit);
 // The cache made again (faces' flags were changed - level_editor_faces.h).
-void InvalidateCache();
+void StaleCache();
 
 // Hiding while editing (by a sector's checksum / an object's id).
 bool HiddenSector(uint32_t checksum);
 bool HiddenObject(uint32_t id);
 // H: these hidden. Returns how many were hidden.
-int Hide(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects);
+int Conceal(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects);
 // I or /: everything but these hidden (scenery and objects with a model). Returns how many were hidden.
 int Isolate(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects);
 // Alt+H: everything shown again.

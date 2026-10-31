@@ -49,11 +49,11 @@ bool StructureExists(uint32_t name) { return Scripts::ReadSubStruct(name) != nul
 
 bool GameModeExists(uint32_t mode)
 {
-    Scripts::CArray* modes = Scripts::GetArray(kModeInfo);
+    Scripts::CArray* modes = Scripts::FetchList(kModeInfo);
     if (!modes)
         return false;
-    for (uint32_t i = 0; i < modes->m_size; ++i) {
-        auto* entry = reinterpret_cast<Scripts::CStruct*>(modes->GetElement(i));
+    for (uint32_t i = 0; i < modes->m_extent; ++i) {
+        auto* entry = reinterpret_cast<Scripts::CStruct*>(modes->FetchPart(i));
         uint32_t checksum = 0;
         if (entry && entry->ReadHashValue(kChecksum, &checksum, 0) && checksum == mode)
             return true;

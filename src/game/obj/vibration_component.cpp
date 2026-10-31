@@ -44,15 +44,15 @@ bool IsGameHalted() { return g_gamePaused; }
 } // namespace
 
 // 0x0043D670
-CObjectModule* __cdecl CPadRumbleModule::Create()
+CObjectModule* __cdecl CPadRumbleModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CPadRumbleModule));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CPadRumbleModule*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     component->m_active = false;
     for (int i = kActuators - 1; i >= 0; --i)
         component->m_timers[i].running = false;
@@ -77,16 +77,16 @@ void CPadRumbleModule::DestroyBody()
 }
 
 // 0x0043D5E0
-CPadRumbleModule* CPadRumbleModule::Destroy(unsigned int flags)
+CPadRumbleModule* CPadRumbleModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0043D610
-void CPadRumbleModule::Update()
+void CPadRumbleModule::TickFrame()
 {
     if (!m_active) {
         VirtualSuspend(true);
@@ -99,7 +99,7 @@ void CPadRumbleModule::Update()
 void CPadRumbleModule::UpdateTimers()
 {
     for (int i = kActuators - 1; i >= 0; --i) {
-        Timer& timer = m_timers[i];
+        Stopwatch& timer = m_timers[i];
         if (!timer.running)
             continue;
         int start = timer.start;
@@ -127,7 +127,7 @@ void CPadRumbleModule::StopAll()
 void CPadRumbleModule::ResetDevice() { mp_device->ClearRumble(); }
 
 // 0x0043D560
-void CPadRumbleModule::SetActive(bool active)
+void CPadRumbleModule::ChangeLive(bool active)
 {
     if (active == m_active)
         return;
@@ -147,7 +147,7 @@ void CPadRumbleModule::SetActive(bool active)
 }
 
 // 0x0043D5C0
-void CPadRumbleModule::SetDevice(Sio::Device* device)
+void CPadRumbleModule::ChangeGadget(Sio::InputPort* device)
 {
     mp_device = device;
     if (m_active)
@@ -159,14 +159,14 @@ void CPadRumbleModule::SetDevice(Sio::Device* device)
 // 0x0043D6F0
 bool CPadRumbleModule::Vibrate(Scripts::CStruct* params, Scripts::CScript*)
 {
-    if (!params->HasBareFlag(kOff) && (IsGameHalted() || (m_object->m_compositeFlags & COMPOSITE_FLAG_PAUSED)))
+    if (!params->HasBareFlag(kOff) && (IsGameHalted() || (m_entity->m_compositeFlags & COMPOSITE_FLAG_PAUSED)))
         return true;
     if (!m_active)
         return true;
     int actuator = 0;
     params->FetchIntValue(kActuator, &actuator, 0);
     float percent = 0.0f;
-    params->GetFloat(kPercent, &percent, 0);
+    params->FetchFloat(kPercent, &percent, 0);
     if (params->HasBareFlag(kOff)) {
         mp_device->StopActuators();
         for (int i = kActuators - 1; i >= 0; --i)
@@ -175,7 +175,7 @@ bool CPadRumbleModule::Vibrate(Scripts::CStruct* params, Scripts::CScript*)
         mp_device->FireActuator(actuator, Ftol(percent));
     }
     float duration = 0.0f;
-    if (params->GetFloat(kDuration, &duration, 0)) {
+    if (params->FetchFloat(kDuration, &duration, 0)) {
         m_timers[actuator].running = true;
         m_timers[actuator].duration = static_cast<uint32_t>(Ftol(static_cast<double>(duration) * kMilliseconds));
         int clock = FrameClock::GameClockElapsed();
@@ -191,14 +191,14 @@ bool CPadRumbleModule::Vibrate(Scripts::CStruct* params, Scripts::CScript*)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CPadRumbleModule::Destroy,
-         &GameObjects::CPadRumbleModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CPadRumbleModule::Teardown,
+         &GameObjects::CPadRumbleModule::TickFrame,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

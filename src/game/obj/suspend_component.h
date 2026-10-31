@@ -27,27 +27,27 @@ public:
     static constexpr uint32_t kType = 0xCE0CA665;
 
     // 0x00434290 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00434610 (not a Ghidra function; registered with Create): its script member functions registered, then the
     // suspend task made (CreateSuspendTask).
     static void __cdecl PublishMethodTable();
     // 0x00433F50: the base's constructor, its vtable and type; NeverSuspend; the suspend distance
     // DefaultMovingObjectSuspendDistance feet (and its square); 10 frames before the first check, 3 before the LOD
     // checks. Returns this.
-    CDormancyModule* Construct();
+    CDormancyModule* MakeNew();
     // 0x00433E10: the base's body.
     void DestroyBody();
     // 0x00433FD0 (vtable slot 0)
-    CDormancyModule* Destroy(unsigned int flags);
-    // 0x00433E50 (vtable slot 1): suspends itself (the base's Suspend(true)) - the task does its work.
-    void Update();
+    CDormancyModule* Teardown(unsigned int flags);
+    // 0x00433E50 (vtable slot 1): suspends itself (the base's HoldOff(true)) - the task does its work.
+    void TickFrame();
     // 0x00434000 (vtable slot 2): SuspendDistance (feet; 0: lod_dist1, else the default) - which turns NeverSuspend
     // off -, NeverSuspend; the LOD distances (feet): none with NoLOD (the script integer), else lod_dist1 (50),
     // lod_dist2 (lod_dist1 + 75), lod_dist3 / lod_dist4 (1000001 / 1000002), the first two scaled by the script
     // floats LOD0DistanceMultiplier / LOD1DistanceMultiplier (out-of-order distances only reported, compiled out).
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x004341C0 (vtable slot 3): the model component found and kept.
-    void Finalize();
+    void Seal();
 
     // 0x00433E60: 10 frames before the next suspend check and the LOD checks.
     void ResetCounts();
@@ -95,7 +95,7 @@ void __cdecl CreateSuspendTask();
 struct SuspendTaskHolder {
     // 0x00434520: the task (TaskList::Task, 0x20 bytes, priority -1100, callback SuspendTask, its data this holder) made
     // and added to the main loop's logic tasks (none if out of memory: null added). Returns this.
-    SuspendTaskHolder* Construct();
+    SuspendTaskHolder* MakeNew();
 
     void* m_jobHandle;
 };

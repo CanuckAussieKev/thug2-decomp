@@ -20,11 +20,11 @@
 #include "game/skate/game_mode.h"
 
 namespace GameObjects {
-class CObject;
+class CEntity;
 } // namespace Obj
 
 namespace OnlinePlay {
-extern void** const kNewPlayerSearchVtable; // 0x0064C82C: ListKit::Search<JoinerRecord> (gamenet_handlers.cpp)
+extern void** const kNewPlayerSearchVtable; // 0x0064C82C: ListKit::Hunt<JoinerRecord> (gamenet_handlers.cpp)
 } // namespace OnlinePlay
 
 namespace OnlinePlay::Detail {
@@ -38,7 +38,7 @@ constexpr int kKeep = NetLink::kHandlerKeep;
 constexpr uint8_t kGroupGame = 8; // the sequenced group of the game's messages
 
 template <typename T>
-T& Field(const void* object, uint32_t offset)
+T& Prop(const void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
@@ -56,7 +56,7 @@ R Call(void* code, const void* object, A... args)
     return reinterpret_cast<R(__thiscall*)(const void*, A...)>(code)(object, args...);
 }
 
-inline Manager* ManagerOf(NetLink::InboundMsgCtx* context) { return static_cast<Manager*>(context->m_data); }
+inline Hub* ManagerOf(NetLink::InboundMsgCtx* context) { return static_cast<Hub*>(context->m_content); }
 inline const uint8_t* Message(NetLink::InboundMsgCtx* context)
 {
     return reinterpret_cast<const uint8_t*>(context->m_body);
@@ -65,7 +65,7 @@ inline uint32_t MessageWord(NetLink::InboundMsgCtx* context, uint32_t offset)
 {
     return *reinterpret_cast<const uint32_t*>(context->m_body + offset);
 }
-inline void Run(uint32_t name, Scripts::CStruct* params = nullptr, GameObjects::CObject* object = nullptr)
+inline void Run(uint32_t name, Scripts::CStruct* params = nullptr, GameObjects::CEntity* object = nullptr)
 {
     Scripts::LaunchScript(name, params, object, false, nullptr);
 }
@@ -81,28 +81,28 @@ inline uint8_t* GetGoal(uint8_t* goals, uint32_t name) { return Call<uint8_t*>(C
 // The manager's players (OnlinePlay::PlayerRecord, player_info.h; reached as bytes here): +0x14 the skater, +0x18 the
 // connection, +0x30 the team, +0x38 the name, +0x1D0 flags.
 inline PlayerRecord* AsPlayer(const uint8_t* player) { return reinterpret_cast<PlayerRecord*>(const_cast<uint8_t*>(player)); }
-inline uint8_t* PlayerByConnection(Manager* manager, NetLink::Conn* conn)
+inline uint8_t* PlayerByConnection(Hub* manager, NetLink::Conn* conn)
 {
     return manager->PlayerByConnection(conn);
 }
 // (the original pushes the id as 16 bits)
-inline uint8_t* PlayerByObjectId(Manager* manager, uint16_t id) { return manager->PlayerByObjectId(id); }
-inline uint8_t* PlayerByObjectId(Manager* manager, const uint8_t* id) // a signed byte, widened
+inline uint8_t* PlayerByObjectId(Hub* manager, uint16_t id) { return manager->PlayerByObjectId(id); }
+inline uint8_t* PlayerByObjectId(Hub* manager, const uint8_t* id) // a signed byte, widened
 {
     return PlayerByObjectId(manager, static_cast<uint16_t>(static_cast<int8_t>(*id)));
 }
-inline uint8_t* LocalPlayer(Manager* manager) { return static_cast<uint8_t*>(manager->GetOwnPlayer()); }
-inline uint8_t* KingOfTheHill(Manager* manager) { return static_cast<uint8_t*>(manager->GetHillRuler()); }
+inline uint8_t* LocalPlayer(Hub* manager) { return static_cast<uint8_t*>(manager->GetOwnPlayer()); }
+inline uint8_t* KingOfTheHill(Hub* manager) { return static_cast<uint8_t*>(manager->GetHillRuler()); }
 // (0 or 1 in EAX: the original's callers test AL)
 inline bool IsOwnPlayer(const uint8_t* player) { return AsPlayer(player)->IsOwnPlayer() != 0; }
 inline bool IsObserver(const uint8_t* player) { return AsPlayer(player)->IsObserver() != 0; }
-inline GameObjects::CObject* PlayerSkater(const uint8_t* player) { return Field<GameObjects::CObject*>(player, 0x14); }
-inline uint32_t SkaterId(const void* skater) { return Field<uint32_t>(skater, 0x14); }
+inline GameObjects::CEntity* PlayerSkater(const uint8_t* player) { return Prop<GameObjects::CEntity*>(player, 0x14); }
+inline uint32_t SkaterId(const void* skater) { return Prop<uint32_t>(skater, 0x14); }
 inline const char* PlayerName(uint8_t* player) { return reinterpret_cast<const char*>(player + 0x38); }
-inline int PlayerTeam(const uint8_t* player) { return Field<int>(player, 0x30); }
+inline int PlayerTeam(const uint8_t* player) { return Prop<int>(player, 0x30); }
 
-// ListKit::Search<PlayerRecord> (vtable 0x0064C1A8) for the manager's BeginPlayerWalk / StepPlayerWalk, and
-// ListKit::Search<JoinerRecord> (0x0064C82C) for BeginJoinerWalk / StepJoinerWalk.
+// ListKit::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the manager's BeginPlayerWalk / StepPlayerWalk, and
+// ListKit::Hunt<JoinerRecord> (0x0064C82C) for BeginJoinerWalk / StepJoinerWalk.
 struct PlayerSearch {
     void** m_vtable = GameModules::kPlayerSearchVtable;
     void* m_listLink = nullptr;
@@ -111,30 +111,30 @@ struct NewPlayerSearch {
     void** m_vtable = kNewPlayerSearchVtable;
     void* m_listLink = nullptr;
 };
-inline uint8_t* FirstPlayer(Manager* manager, PlayerSearch* search, bool observers)
+inline uint8_t* FirstPlayer(Hub* manager, PlayerSearch* search, bool observers)
 {
     return static_cast<uint8_t*>(manager->BeginPlayerWalk(search, observers));
 }
-inline uint8_t* NextPlayer(Manager* manager, PlayerSearch* search, bool observers)
+inline uint8_t* NextPlayer(Hub* manager, PlayerSearch* search, bool observers)
 {
     return static_cast<uint8_t*>(manager->StepPlayerWalk(search, observers));
 }
-inline uint8_t* FirstNewPlayer(Manager* manager, NewPlayerSearch* search)
+inline uint8_t* FirstNewPlayer(Hub* manager, NewPlayerSearch* search)
 {
     return static_cast<uint8_t*>(manager->BeginJoinerWalk(search));
 }
-inline uint8_t* NextNewPlayer(Manager* manager, NewPlayerSearch* search)
+inline uint8_t* NextNewPlayer(Hub* manager, NewPlayerSearch* search)
 {
     return static_cast<uint8_t*>(manager->StepJoinerWalk(search));
 }
 
-// A player's connection's handle, for App::PutOnOutbox (0x005434A0: 0 without a connection).
+// A player's connection's handle, for AppHost::PutOnOutbox (0x005434A0: 0 without a connection).
 inline int PlayerHandle(uint8_t* player) { return AsPlayer(player)->GetLinkHandle(); }
 
 // A message for the server through `app` (a client).
-inline void SendToServer(NetLink::App* app, NetLink::NetMessageInfo* desc)
+inline void SendToServer(NetLink::AppHost* app, NetLink::NetMessageInfo* desc)
 {
-    static_cast<NetLink::Client*>(app)->SendToHost(desc);
+    static_cast<NetLink::Guest*>(app)->SendToHost(desc);
 }
 
 // Script parameters: a new structure (the original's new CStruct - null if out of memory, then used anyway as the
@@ -142,7 +142,7 @@ inline void SendToServer(NetLink::App* app, NetLink::NetMessageInfo* desc)
 inline Scripts::CStruct* NewParams()
 {
     Scripts::CStruct* memory = Scripts::NewStruct();
-    return memory ? memory->Init() : nullptr;
+    return memory ? memory->PrepareAll() : nullptr;
 }
 inline void DeleteParams(Scripts::CStruct* params)
 {

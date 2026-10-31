@@ -46,11 +46,11 @@ class CCrownObject : public CGameEntity {
 public:
     // 0x00578240: the constructor: its base components (0x0057B250), type 0xD2156C50, id crown_object, not worn.
     // Returns this.
-    CCrownObject* Construct();
+    CCrownObject* MakeNew();
     // 0x005782F0: the destructor body (not worn, then CGameEntity's). 0x00578460: the scalar deleting
     // destructor (vtable slot 0).
     void DestroyBody();
-    CCrownObject* Destroy(unsigned int flags);
+    CCrownObject* Teardown(unsigned int flags);
     // 0x00578490: registered with `manager`, its components (the common ones, a model, the node's), id
     // crown_object, never suspended (the suspend component's distances 1000000-1000003), the model crown.mdl, at
     // the node's position, Finalize.

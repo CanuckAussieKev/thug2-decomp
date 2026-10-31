@@ -10,27 +10,27 @@ namespace ListKit {
 //
 // The game uses it as a template over the value type; the code is the same for every type, so it is
 // written once here over void*.
-class HashTable {
+class KeyMap {
 public:
     struct Item {
         uint32_t key;
         void* value;
         Item* next;
     };
-    using Callback = void(__cdecl*)(void* value, void* data);
+    using HookFn = void(__cdecl*)(void* value, void* data);
 
-    explicit HashTable(int bits);
+    explicit KeyMap(int bits);
     // A table as the exe's static storage starts: all zero (no buckets). The exe's static initialiser then makes it
-    // with HashTable(bits); done in SystemCore::RunStartupInitialisers (game/sys/startup_init.h).
+    // with KeyMap(bits); done in SystemCore::RunStartupInitialisers (game/sys/startup_init.h).
     struct Unconstructed {};
-    constexpr HashTable(Unconstructed) : m_bits(0), m_buckets(nullptr), m_size(0), m_iterBucket(0), m_iterItem(nullptr), m_flag(false) {}
+    constexpr KeyMap(Unconstructed) : m_bits(0), m_buckets(nullptr), m_extent(0), m_iterBucket(0), m_iterItem(nullptr), m_flag(false) {}
     // Frees the buckets (after removing every item).
-    ~HashTable();
+    ~KeyMap();
 
     // The value stored under `key`, or null. (Inlined at most uses in the original.)
-    void* GetItem(uint32_t key) const;
+    void* FetchEntry(uint32_t key) const;
     // 0x00462050: the same, as a function (the key by reference; the second argument, always 1, is unused).
-    void* GetItem(const uint32_t& key, bool unused) const;
+    void* FetchEntry(const uint32_t& key, bool unused) const;
 
     // Add an item. Keys aren't checked for duplicates. Always returns true.
     bool StoreEntry(const uint32_t& key, void* value);
@@ -39,7 +39,7 @@ public:
     // Remove every item.
     void EmptyTable();
     // Call `callback(value, data)` for every item.
-    void HandleCallback(Callback callback, void* data);
+    void RunHook(HookFn callback, void* data);
 
     // Iteration: set m_iterBucket = -1 and m_iterItem = null, then each StepIterator() that returns true
     // leaves the next item in m_iterItem.
@@ -47,7 +47,7 @@ public:
 
     int m_bits;
     Item* m_buckets;
-    int m_size;
+    int m_extent;
     int m_iterBucket;
     Item* m_iterItem;
     bool m_flag; // cleared by the constructor; its use isn't known yet

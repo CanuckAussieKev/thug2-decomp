@@ -17,10 +17,10 @@ namespace Engine3D {
 // The parameters a particle system is made from (0x15C bytes; kept as the system's +4). Only what the particle
 // component fills is named; names from the script parameters where known.
 struct CSparkleConfig {
-    uint32_t m_name;          // +0x000 (0xA1DC81F9, required; the manager finds a system by it)
+    uint32_t m_label;          // +0x000 (0xA1DC81F9, required; the manager finds a system by it)
     uint32_t m_unknown04;     // +0x004 (0x7321A8D6)
     uint32_t m_groupId;       // +0x008 GroupID
-    float m_size[3];          // +0x00C (0x3BEE67C8, 0x8E39913D, 0x3F243A3C; scaled)
+    float m_extent[3];          // +0x00C (0x3BEE67C8, 0x8E39913D, 0x3F243A3C; scaled)
     float m_radius[3];        // +0x018 (0x05400A25, 0xFF7D9AA9, 0x5539FCEE; scaled)
     int m_unknown24;          // +0x024 (0x9E52A20F)
     float m_unknown28;        // +0x028 (0x35B65BD4; the rate)
@@ -31,10 +31,10 @@ struct CSparkleConfig {
     uint32_t m_emitScript;    // +0x048 (0x092276DB: the component's +0x18)
     uint32_t m_entityKey;      // +0x04C its object's id (with the above)
     uint8_t unknown50[4];
-    Maths::Matrix m_orientationTurn;   // +0x054 (0x9D2D0915's angles: X, then Y, then Z)
-    Maths::Vector m_pos[3];     // +0x094 start / mid / end (scaled, oriented)
-    Maths::Vector m_box[3];     // +0x0C4 (scaled, oriented)
-    Maths::Vector m_localPos[3]; // +0x0F4 the positions again (0xB7B7240D: they move with the object)
+    Maths::Mat4 m_orientationTurn;   // +0x054 (0x9D2D0915's angles: X, then Y, then Z)
+    Maths::Vec4 m_atPoint[3];     // +0x094 start / mid / end (scaled, oriented)
+    Maths::Vec4 m_box[3];     // +0x0C4 (scaled, oriented)
+    Maths::Vec4 m_localPos[3]; // +0x0F4 the positions again (0xB7B7240D: they move with the object)
     float m_unknown124;       // +0x124
     uint8_t m_shade[3][4];   // +0x128 r, g, b (three arrays), a (three integers, at most 128)
     uint32_t m_unknown134;    // +0x134 (0xDD6BB3D5)
@@ -56,12 +56,12 @@ struct CSparkleConfig {
 
     // 0x00496240: the defaults (sizes 1, no spread, boxes 20 wide, grey colours, rate 300, lifetime 4, mid at 50%,
     // ...). Returns this.
-    CSparkleConfig* Construct();
+    CSparkleConfig* MakeNew();
     // 0x00495C80: a copy of `other` (its first 0x159 bytes: the last three are left). Returns this.
     CSparkleConfig* Assign(const CSparkleConfig& other);
 };
 static_assert(offsetof(CSparkleConfig, m_colourScale) == 0x38 && offsetof(CSparkleConfig, m_emitScript) == 0x48 &&
-                  offsetof(CSparkleConfig, m_orientationTurn) == 0x54 && offsetof(CSparkleConfig, m_pos) == 0x94 &&
+                  offsetof(CSparkleConfig, m_orientationTurn) == 0x54 && offsetof(CSparkleConfig, m_atPoint) == 0x94 &&
                   offsetof(CSparkleConfig, m_box) == 0xC4 && offsetof(CSparkleConfig, m_localPos) == 0xF4 &&
                   offsetof(CSparkleConfig, m_unknown124) == 0x124 && offsetof(CSparkleConfig, m_shade) == 0x128 &&
                   offsetof(CSparkleConfig, m_unknown150) == 0x150 && offsetof(CSparkleConfig, m_flag158) == 0x158 &&
@@ -73,23 +73,23 @@ static_assert(offsetof(CSparkleConfig, m_colourScale) == 0x38 && offsetof(CSpark
 // 7 IsEmitting - the engine's own empty or constant; the PC class's real ones).
 struct CSparkle {
     void** vtable;
-    CSparkleConfig m_params; // +0x004
+    CSparkleConfig m_args; // +0x004
     Maths::BBox m_extentBox;         // +0x160: of every particle's path
-    Maths::Vector m_boundBall;     // +0x180: around the box (centre, radius)
+    Maths::Vec4 m_boundBall;     // +0x180: around the box (centre, radius)
 
     // 0x00496360: the vtable, the default parameters, an empty box. Returns this.
-    CSparkle* Construct();
+    CSparkle* MakeNew();
     // 0x00496380: made from `params` (copied): the bounds worked out, then Initialise (vtable slot 1).
-    void Init(const CSparkleConfig* params);
+    void PrepareAll(const CSparkleConfig* params);
     // 0x00495260: m_extentBox and m_boundBall from the paths: each of the start, mid and end positions with its box and
     // size (the mid only through the extremes of the curve through them when the paths go through the mid).
     void UpdateBounds();
     // 0x00496030 / 0x00496160: position / box `which` (0 start, 1 mid, 2 end).
-    void SetPosition(int which, const Maths::Vector* pos);
-    void SetBox(int which, const Maths::Vector* box);
+    void ChangePlace(int which, const Maths::Vec4* pos);
+    void SetBox(int which, const Maths::Vec4* box);
     // 0x00496060: position `which` (relative to the start) and box `which` turned by `matrix`; the parameters'
     // rotation becomes `matrix`.
-    void Rotate(int which, const Maths::Matrix* matrix);
+    void SpinBy(int which, const Maths::Mat4* matrix);
     // 0x00496190: with the manager's colour (m_flag158), its colour scale from `rgba` (bytes, in 128ths), then
     // vtable slot 6. Null: only slot 6.
     void ChangeColour(const uint8_t* rgba);
@@ -102,10 +102,10 @@ struct CSparkle {
     // The engine's, not yet rewritten (0x00494E00, 0x00494E20, 0x00494E40): rendered (unless hidden or suspended:
     // +0x159, +0x15A), updated, released (the emit script's scripts killed, vtable slot 2).
     void Render(bool advance);
-    void Update();
+    void TickFrame();
     void Release();
 };
-static_assert(offsetof(CSparkle, m_params) == 0x4 && offsetof(CSparkle, m_extentBox) == 0x160 &&
+static_assert(offsetof(CSparkle, m_args) == 0x4 && offsetof(CSparkle, m_extentBox) == 0x160 &&
                   offsetof(CSparkle, m_boundBall) == 0x180 && sizeof(CSparkle) == 0x190,
               "layout must match the original");
 
@@ -117,11 +117,11 @@ struct CParticleManager {
     float m_shade[4];          // +0x0C: given to the systems that take it
 
     // 0x00496770: the vtable, an empty list, white. Returns this.
-    CParticleManager* Construct();
+    CParticleManager* MakeNew();
     // 0x004967D0: the list emptied (twice, as the original) and its sentinel freed.
     void DestroyBody();
     // 0x00496860 (vtable slot 0): destroyed, and freed with flags & 1. Returns this.
-    CParticleManager* Destroy(unsigned int flags);
+    CParticleManager* Teardown(unsigned int flags);
     // 0x00496510: a new system (vtable slot 1) made from `params`, given the manager's colour if it takes it, onto
     // the end of the list. Null if there's no memory.
     CSparkle* SpawnParticle(const CSparkleConfig* params);

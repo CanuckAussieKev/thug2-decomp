@@ -41,8 +41,8 @@ using GameObjects::CSignalRouteTable;
 // A new event handler table (on the current heap).
 CSignalRouteTable* NewEventHandlerTable()
 {
-    void* memory = MemSys::New(sizeof(CSignalRouteTable));
-    return memory ? static_cast<CSignalRouteTable*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::Alloc(sizeof(CSignalRouteTable));
+    return memory ? static_cast<CSignalRouteTable*>(memory)->MakeNew() : nullptr;
 }
 
 // A new, empty structure.
@@ -50,7 +50,7 @@ CStruct* NewEmptyStruct()
 {
     CStruct* structure = NewStruct();
     if (structure)
-        structure->Init();
+        structure->PrepareAll();
     return structure;
 }
 
@@ -128,7 +128,7 @@ bool CScript::IsBlocked(bool print)
 }
 
 // 0x00472BD0
-void CScript::Wait(int frames)
+void CScript::Stall(int frames)
 {
     m_waitType = SUSPEND_ON_COUNT;
     m_waitCounter = frames;
@@ -142,7 +142,7 @@ void CScript::SuspendUntilNextFrame(int frames)
 }
 
 // 0x00472C10 (the milliseconds unsigned)
-void CScript::WaitTime(int ms)
+void CScript::Lull(int ms)
 {
     m_waitType = SUSPEND_ON_TIMER;
     m_waitTimerStarted = false;
@@ -158,7 +158,7 @@ void CScript::WaitRealTime(int ms)
 }
 
 // 0x00472FD0
-void CScript::Block(uint32_t eventType)
+void CScript::GateOff(uint32_t eventType)
 {
     m_waitType = SUSPEND_ON_BLOCK;
     m_waitArg = eventType;
@@ -201,13 +201,13 @@ void ComponentDestroyedAllScripts(GameObjects::CObjectModule* component)
 // 0x00473800
 bool CScript::ReceiveEvent(GameObjects::CSignal* event)
 {
-    if (m_waitType == SUSPEND_ON_BLOCK && m_waitArg && event->m_type == m_waitArg)
+    if (m_waitType == SUSPEND_ON_BLOCK && m_waitArg && event->m_kindTag == m_waitArg)
         m_waitType = SUSPEND_ON_NOTHING;
     // Levels blocked on it further down go on when they're returned to.
     for (int i = 0; i < m_numReturnAddresses; ++i) {
         SCallFrame& frame = m_returnAddresses[i];
         if ((frame.m_suspendKind & RETURN_WAIT_TYPE_MASK) == SUSPEND_ON_BLOCK && frame.mWaitArg &&
-            event->m_type == frame.mWaitArg)
+            event->m_kindTag == frame.mWaitArg)
             frame.m_suspendKind &= ~RETURN_WAIT_TYPE_MASK;
     }
     if (m_eventHandlers)
@@ -215,33 +215,33 @@ bool CScript::ReceiveEvent(GameObjects::CSignal* event)
     return true;
 }
 
-// 0x00472F40: from the top down, the first level entered as an interrupt (the top's flag is m_flags bit 0,
+// 0x00472F40: from the top down, the first level entered as an interrupt (the top's flag is m_flagBits bit 0,
 // a lower level's is its saved frame's bit 1): the level below it - the one it interrupted - stops waiting.
 void CScript::UnblockInterruptedScript()
 {
-    bool interrupt = (m_flags & SCRIPT_RUN_INTERRUPTED) != 0;
+    bool interrupt = (m_flagBits & SCRIPT_RUN_INTERRUPTED) != 0;
     for (int level = m_numReturnAddresses; level > 0; --level) {
         SCallFrame& below = m_returnAddresses[level - 1];
         if (interrupt) {
             below.m_suspendKind &= ~RETURN_WAIT_TYPE_MASK;
             return;
         }
-        interrupt = (below.mFlags & RETURN_FLAG_INTERRUPTED) != 0;
+        interrupt = (below.m_traitMask & RETURN_FLAG_INTERRUPTED) != 0;
     }
 }
 
 // 0x004748E0
-void CScript::RunSubScript(uint32_t name, const uint8_t* code, CStruct* params, GameObjects::CObject* object, bool interrupted)
+void CScript::RunSubScript(uint32_t name, const uint8_t* code, CStruct* params, GameObjects::CEntity* object, bool interrupted)
 {
     if (!m_pc) {
         // Nothing running: just start it.
         BindScript(name, code, params, object);
-        m_flags = static_cast<uint8_t>((m_flags & ~SCRIPT_RUN_INTERRUPTED) | (interrupted ? SCRIPT_RUN_INTERRUPTED : 0));
+        m_flagBits = static_cast<uint8_t>((m_flagBits & ~SCRIPT_RUN_INTERRUPTED) | (interrupted ? SCRIPT_RUN_INTERRUPTED : 0));
         return;
     }
     // The third level: the call stack moves from inside the script to 16 on the script heap (no check beyond).
     if (m_returnAddresses == m_inlineReturnAddresses && m_numReturnAddresses == 2) {
-        MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+        MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
         m_returnAddresses = static_cast<SCallFrame*>(MemSys::AllocBlock(16 * sizeof(SCallFrame)));
         MemSys::LeaveHeapScope();
         m_returnAddresses[0] = m_inlineReturnAddresses[0];
@@ -250,9 +250,9 @@ void CScript::RunSubScript(uint32_t name, const uint8_t* code, CStruct* params, 
     // The caller's state (the frame's other wait-type and flag bits are left as they were).
     SCallFrame& frame = m_returnAddresses[m_numReturnAddresses++];
     frame.m_scriptId = m_scriptTitle;
-    frame.m_argStruct = m_params;
+    frame.m_argStruct = m_args;
     frame.m_callerFrame = m_pc;
-    frame.m_ownerEntity = m_object.Get();
+    frame.m_ownerEntity = m_entity.Pull();
     frame.m_loopState = m_currentLoop;
     frame.mOnExitScript = m_onExitScript;
     frame.m_suspendKind = (frame.m_suspendKind & ~RETURN_WAIT_TYPE_MASK) | (m_waitType & RETURN_WAIT_TYPE_MASK);
@@ -260,19 +260,19 @@ void CScript::RunSubScript(uint32_t name, const uint8_t* code, CStruct* params, 
     frame.mWaitArg = m_waitArg;
     frame.mWaitCounter = m_waitCounter;
     frame.m_sleepTimer = m_waitTimer;
-    frame.mFlags = static_cast<uint8_t>((frame.mFlags & ~(RETURN_FLAG_TIMER_STARTED | RETURN_FLAG_INTERRUPTED)) |
+    frame.m_traitMask = static_cast<uint8_t>((frame.m_traitMask & ~(RETURN_FLAG_TIMER_STARTED | RETURN_FLAG_INTERRUPTED)) |
                                         (m_waitTimerStarted ? RETURN_FLAG_TIMER_STARTED : 0) |
-                                        ((m_flags & SCRIPT_RUN_INTERRUPTED) ? RETURN_FLAG_INTERRUPTED : 0));
+                                        ((m_flagBits & SCRIPT_RUN_INTERRUPTED) ? RETURN_FLAG_INTERRUPTED : 0));
     // The callee: its default parameters (its first line), then the call's. (With no code the original reads
     // through null - not checked.) The loop pointer is kept: the callee's loops go above the caller's.
     m_scriptTitle = name;
     m_pc = code;
-    m_params = NewEmptyStruct();
-    m_pc = ParseArguments(m_params, m_pc, nullptr);
+    m_args = NewEmptyStruct();
+    m_pc = ParseArguments(m_args, m_pc, nullptr);
     if (params)
-        m_params->MergeStructure(params);
-    m_object.Set(object);
-    m_flags = static_cast<uint8_t>((m_flags & ~SCRIPT_RUN_INTERRUPTED) | (interrupted ? SCRIPT_RUN_INTERRUPTED : 0));
+        m_args->MergeStructure(params);
+    m_entity.AssignValue(object);
+    m_flagBits = static_cast<uint8_t>((m_flagBits & ~SCRIPT_RUN_INTERRUPTED) | (interrupted ? SCRIPT_RUN_INTERRUPTED : 0));
     m_waitType = SUSPEND_ON_NOTHING;
     m_onExitScript = 0;
 }
@@ -281,21 +281,21 @@ void CScript::RunSubScript(uint32_t name, const uint8_t* code, CStruct* params, 
 bool CScript::ReturnFromScript(CStruct* results)
 {
     ScriptCache()->ReleaseScript(m_scriptTitle);
-    bool interrupted = (m_flags & SCRIPT_RUN_INTERRUPTED) != 0;
+    bool interrupted = (m_flagBits & SCRIPT_RUN_INTERRUPTED) != 0;
     if (m_numReturnAddresses == 0) {
         // The bottom level: the script ends (its parameters stay, for the results).
         m_pc = nullptr;
     } else {
         --m_numReturnAddresses;
-        if (m_params) {
-            m_params->Clear();
-            DeleteStruct(m_params);
+        if (m_args) {
+            m_args->Clear();
+            DeleteStruct(m_args);
         }
         SCallFrame& frame = m_returnAddresses[m_numReturnAddresses];
         m_scriptTitle = frame.m_scriptId;
-        m_params = frame.m_argStruct;
+        m_args = frame.m_argStruct;
         m_pc = frame.m_callerFrame;
-        m_object.Set(frame.m_ownerEntity);
+        m_entity.AssignValue(frame.m_ownerEntity);
         m_currentLoop = frame.m_loopState;
         m_onExitScript = frame.mOnExitScript;
         m_waitType = frame.m_suspendKind & RETURN_WAIT_TYPE_MASK;
@@ -303,24 +303,24 @@ bool CScript::ReturnFromScript(CStruct* results)
         if (m_waitType != SUSPEND_ON_NOTHING) {
             m_waitCounter = frame.mWaitCounter;
             m_waitTimer = frame.m_sleepTimer;
-            m_waitTimerStarted = (frame.mFlags & RETURN_FLAG_TIMER_STARTED) != 0;
+            m_waitTimerStarted = (frame.m_traitMask & RETURN_FLAG_TIMER_STARTED) != 0;
             m_waitComponent = frame.m_sleepComponent;
             m_waitArg = frame.mWaitArg;
         }
-        m_flags = static_cast<uint8_t>((m_flags & ~SCRIPT_RUN_INTERRUPTED) |
-                                       ((frame.mFlags & RETURN_FLAG_INTERRUPTED) ? SCRIPT_RUN_INTERRUPTED : 0));
+        m_flagBits = static_cast<uint8_t>((m_flagBits & ~SCRIPT_RUN_INTERRUPTED) |
+                                       ((frame.m_traitMask & RETURN_FLAG_INTERRUPTED) ? SCRIPT_RUN_INTERRUPTED : 0));
     }
     if (results)
-        m_params->AppendStructureIfAny(results);
+        m_args->AppendStructureIfAny(results);
     return interrupted;
 }
 
 // 0x00475750
-EScriptOutcome CScript::Interrupt(uint32_t name, CStruct* params)
+EScriptOutcome CScript::Preempt(uint32_t name, CStruct* params)
 {
-    const uint8_t* code = ScriptCache()->GetScript(name);
-    RunSubScript(name, code, params, m_object.Get(), true);
-    return Update();
+    const uint8_t* code = ScriptCache()->FetchScript(name);
+    RunSubScript(name, code, params, m_entity.Pull(), true);
+    return TickFrame();
 }
 
 // 0x00472EA0
@@ -336,7 +336,7 @@ int CScript::PrintEventHandlerTable() { return CSignalRouteTable::PrintTable(m_e
 // 0x004734E0
 void CScript::InstallEventTable(CArray* handlers, bool replace)
 {
-    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_frontEndHeap);
+    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
     if (!m_eventHandlers)
         m_eventHandlers = NewEventHandlerTable();
     else
@@ -350,10 +350,10 @@ void CScript::InstallEventTable(CArray* handlers, bool replace)
 // 0x004735D0
 void CScript::SetEventHandler(uint32_t eventType, uint32_t script, uint32_t group, bool exception, CStruct* params)
 {
-    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_frontEndHeap);
+    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
     if (!m_eventHandlers)
         m_eventHandlers = NewEventHandlerTable();
-    m_eventHandlers->AddHandler(this, eventType, script, group, exception, params);
+    m_eventHandlers->AppendListener(this, eventType, script, group, exception, params);
     MemSys::LeaveHeapScope();
 }
 
@@ -370,10 +370,10 @@ void CScript::ClearEventHandler(uint32_t eventType)
 // [params]} - the flag `exception` makes it an exception handler. (At least three components each: not checked.)
 void CScript::ResetEventHandlersFromTable(CArray* table, uint32_t group)
 {
-    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_frontEndHeap);
+    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
     if (m_eventHandlers)
         m_eventHandlers->MarkGroup(group);
-    int count = static_cast<int>(table->m_size);
+    int count = static_cast<int>(table->m_extent);
     if (!m_eventHandlers && count)
         m_eventHandlers = NewEventHandlerTable();
     uint32_t* elements = table->FindArrayValue();
@@ -382,7 +382,7 @@ void CScript::ResetEventHandlersFromTable(CArray* table, uint32_t group)
         CComponent* type = flag->next;
         CComponent* script = type->next;
         CComponent* params = script->next;
-        m_eventHandlers->AddHandler(this, type->checksum, script->checksum, group, flag->checksum == kExceptionFlag,
+        m_eventHandlers->AppendListener(this, type->checksum, script->checksum, group, flag->checksum == kExceptionFlag,
                  params ? params->structure : nullptr);
     }
     // (the group's handlers not added again go)

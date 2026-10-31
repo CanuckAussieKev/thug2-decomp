@@ -19,7 +19,7 @@ extern void** const kWeatherVtable;
 float FloatParameter(Scripts::CStruct* params, float fallback)
 {
     float value = fallback;
-    params->GetFloat(0u, &value, 0);
+    params->FetchFloat(0u, &value, 0);
     return value;
 }
 int IntegerParameter(Scripts::CStruct* params, int fallback)
@@ -53,7 +53,7 @@ bool PassBlendMode(CWeatherSystem* weather, Scripts::CStruct* params, int slot)
 } // namespace
 
 // 0x004A14C0
-CWeatherSystem* CWeatherSystem::Construct()
+CWeatherSystem* CWeatherSystem::MakeNew()
 {
     std::memset(m_rainBottom, 0xFF, 4);
     m_vtable = reinterpret_cast<void**>(kWeatherVtable);
@@ -83,11 +83,11 @@ void CWeatherSystem::DestroyBody()
 }
 
 // 0x004A1550
-CWeatherSystem* CWeatherSystem::Destroy(unsigned int freeFlags)
+CWeatherSystem* CWeatherSystem::Teardown(unsigned int freeFlags)
 {
     m_vtable = reinterpret_cast<void**>(kWeatherVtable);
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -98,7 +98,7 @@ void CWeatherSystem::TickGrid()
 }
 
 // 0x004A1030
-void CWeatherSystem::Update(int)
+void CWeatherSystem::TickFrame(int)
 {
     DebugOut::Printf("STUB: plat_process\n");
 }
@@ -131,7 +131,7 @@ void CWeatherSystem::SetSnowBlendMode(uint32_t, int)
 bool CWeatherSystem::ScriptSetRainHeight(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_rainHeight = 2000.0f;
-    params->GetFloat(0u, &m_rainHeight, 0);
+    params->FetchFloat(0u, &m_rainHeight, 0);
     return true;
 }
 
@@ -148,7 +148,7 @@ bool CWeatherSystem::ScriptSetRainFrames(Scripts::CStruct* params, Scripts::CScr
 bool CWeatherSystem::ScriptSetRainLength(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_rainLength = 100.0f;
-    params->GetFloat(0u, &m_rainLength, 0);
+    params->FetchFloat(0u, &m_rainLength, 0);
     return true;
 }
 
@@ -162,7 +162,7 @@ bool CWeatherSystem::ScriptSetRainBlendMode(Scripts::CStruct* params, Scripts::C
 bool CWeatherSystem::ScriptSetRainRate(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_rainRate = 0.0f;
-    params->GetFloat(0u, &m_rainRate, 0);
+    params->FetchFloat(0u, &m_rainRate, 0);
     return true;
 }
 
@@ -182,7 +182,7 @@ bool CWeatherSystem::ScriptSetRainColor(Scripts::CStruct* params, Scripts::CScri
 bool CWeatherSystem::ScriptSetSplashRate(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_splashRate = 0.0f;
-    params->GetFloat(0u, &m_splashRate, 0);
+    params->FetchFloat(0u, &m_splashRate, 0);
     return true;
 }
 
@@ -198,7 +198,7 @@ bool CWeatherSystem::ScriptSetSplashLife(Scripts::CStruct* params, Scripts::CScr
 bool CWeatherSystem::ScriptSetSplashSize(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_splashSize = 16.0f;
-    params->GetFloat(0u, &m_splashSize, 0);
+    params->FetchFloat(0u, &m_splashSize, 0);
     return true;
 }
 
@@ -219,7 +219,7 @@ bool CWeatherSystem::ScriptSetSplashBlendMode(Scripts::CStruct* params, Scripts:
 bool CWeatherSystem::ScriptSetSnowHeight(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_snowHeight = 500.0f;
-    params->GetFloat(0u, &m_snowHeight, 0);
+    params->FetchFloat(0u, &m_snowHeight, 0);
     return true;
 }
 
@@ -236,7 +236,7 @@ bool CWeatherSystem::ScriptSetSnowFrames(Scripts::CStruct* params, Scripts::CScr
 bool CWeatherSystem::ScriptSetSnowSize(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_snowSize = 4.0f;
-    params->GetFloat(0u, &m_snowSize, 0);
+    params->FetchFloat(0u, &m_snowSize, 0);
     return true;
 }
 
@@ -293,7 +293,7 @@ __declspec(naked) void VirtualSlot3Jump()
 }
 
 namespace {
-static VtableSlot kWeatherVtable_slots[] = {&Engine3D::CWeatherSystem::Destroy, &Engine3D::CWeatherSystem::TickGrid, &Engine3D::CWeatherSystem::Update,
+static VtableSlot kWeatherVtable_slots[] = {&Engine3D::CWeatherSystem::Teardown, &Engine3D::CWeatherSystem::TickGrid, &Engine3D::CWeatherSystem::TickFrame,
                 &Engine3D::CWeatherSystem::Render, &Engine3D::CWeatherSystem::SetRainBlendMode, &Engine3D::CWeatherSystem::SetSplashBlendMode,
                 &Engine3D::CWeatherSystem::SetSnowBlendMode};
 void** const kWeatherVtable = reinterpret_cast<void**>(kWeatherVtable_slots);

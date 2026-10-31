@@ -31,14 +31,14 @@ namespace GameObjects {
 float g_rigidBodyPusherReach[8];
 RigidBodyCacheStorage g_rigidBodyCache;
 CBodyDynamicsModule::Contact g_rigidBodyContacts[24];
-Maths::Vector g_rigidBodyWorldContactPoints[24];
-Maths::Vector g_rigidBodyWorldSphereCenters[24];
-Maths::Vector g_rigidBodyWorldSpringPoints[2];
+Maths::Vec4 g_rigidBodyWorldContactPoints[24];
+Maths::Vec4 g_rigidBodyWorldSphereCenters[24];
+Maths::Vec4 g_rigidBodyWorldSpringPoints[2];
 CSharedRef<CGameEntity> g_rigidBodyPushers[8];
 
-Maths::Vector* CBodyDynamicsModule::WorldContactPoints() { return g_rigidBodyWorldContactPoints; }
-Maths::Vector* CBodyDynamicsModule::WorldSphereCenters() { return g_rigidBodyWorldSphereCenters; }
-Maths::Vector* CBodyDynamicsModule::WorldSpringPoints() { return g_rigidBodyWorldSpringPoints; }
+Maths::Vec4* CBodyDynamicsModule::WorldContactPoints() { return g_rigidBodyWorldContactPoints; }
+Maths::Vec4* CBodyDynamicsModule::WorldSphereCenters() { return g_rigidBodyWorldSphereCenters; }
+Maths::Vec4* CBodyDynamicsModule::WorldSpringPoints() { return g_rigidBodyWorldSpringPoints; }
 CBodyDynamicsModule::Contact* CBodyDynamicsModule::Contacts() { return g_rigidBodyContacts; }
 float g_rigidBodyPusherHeight;
 
@@ -101,18 +101,18 @@ float X87SinTimes(double angle, float value)
 }
 
 // The quaternion's matrix.
-void QuatToMatrix(const Maths::QuatRotation* quat, Maths::Matrix* matrix) { quat->GetMatrix(matrix); }
+void QuatToMatrix(const Maths::QuatRotation* quat, Maths::Mat4* matrix) { quat->FetchMat(matrix); }
 
 // A structure copied into a new one (from the script pools), and one deleted.
 Scripts::CStruct* CopyOf(Scripts::CStruct* source)
 {
     Scripts::CStruct* copy = Scripts::NewStruct();
     if (copy)
-        copy->Init();
+        copy->PrepareAll();
     copy->MergeStructure(source); // (out of memory: through null, as the original)
     return copy;
 }
-void Delete(Scripts::CStruct* structure)
+void EraseOne(Scripts::CStruct* structure)
 {
     structure->Clear();
     Scripts::DeleteStruct(structure);
@@ -123,8 +123,8 @@ template <typename T>
 T* Reallocate(T* old, uint32_t size)
 {
     if (old)
-        MemSys::Manager::Get()->Free(old);
-    return static_cast<T*>(MemSys::New(size));
+        MemSys::Hub::Pull()->Dealloc(old);
+    return static_cast<T*>(MemSys::Alloc(size));
 }
 
 // A script vector's coordinates (x at +4).
@@ -133,21 +133,21 @@ const float* VectorOf(uint32_t element) { return reinterpret_cast<const float*>(
 } // namespace
 
 // 0x0042EF00
-CObjectModule* __cdecl CBodyDynamicsModule::Create()
+CObjectModule* __cdecl CBodyDynamicsModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CBodyDynamicsModule));
-    return memory ? static_cast<CBodyDynamicsModule*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CBodyDynamicsModule*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x0042E3F0
-CBodyDynamicsModule* CBodyDynamicsModule::Construct()
+CBodyDynamicsModule* CBodyDynamicsModule::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kVtable;
     new (&m_capsule) Maths::Capsule();
-    m_flags = 0;
+    m_flagBits = 0;
     m_orientation = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_type = kType;
+    m_kindTag = kType;
     m_constAcc = {0.0f, -386.3999938964844f, 0.0f, 1.0f};
     m_skaterImpulseFactor = 1.0f;
     m_skaterRotationFactor = 1.0f;
@@ -182,29 +182,29 @@ void CBodyDynamicsModule::DestroyBody()
     for (void* array : {static_cast<void*>(mp_contacts), static_cast<void*>(mp_directedFriction),
                         static_cast<void*>(mp_spheres), static_cast<void*>(mp_springs)}) {
         if (array)
-            MemSys::Manager::Get()->Free(array);
+            MemSys::Hub::Pull()->Dealloc(array);
     }
     for (Scripts::CStruct* structure : {mp_callbackParams, mp_bounceSound, mp_collideSound}) {
         if (structure)
-            Delete(structure);
+            EraseOne(structure);
     }
     CObjectModule::DestroyBody();
 }
 
 // 0x00430DF0
-CBodyDynamicsModule* CBodyDynamicsModule::Destroy(unsigned int flags)
+CBodyDynamicsModule* CBodyDynamicsModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0042D4B0
 void CBodyDynamicsModule::SetContacts(Scripts::CArray* points)
 {
-    m_contactCount = static_cast<uint16_t>(points->m_size);
-    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vector));
+    m_contactCount = static_cast<uint16_t>(points->m_extent);
+    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vec4));
     const uint32_t* elements = points->FindArrayValue();
     for (uint32_t i = 0; i < m_contactCount; ++i) {
         const float* v = VectorOf(elements[i]);
@@ -213,14 +213,14 @@ void CBodyDynamicsModule::SetContacts(Scripts::CArray* points)
 }
 
 // 0x0042D560
-void CBodyDynamicsModule::SetBox(const Maths::Vector* top, const Maths::Vector* bottom)
+void CBodyDynamicsModule::SetBox(const Maths::Vec4* top, const Maths::Vec4* bottom)
 {
     m_contactCount = 8;
-    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vector));
+    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vec4));
     int n = 0;
     for (bool right : {false, true}) {
         for (bool upper : {false, true}) {
-            const Maths::Vector& half = upper ? *top : *bottom;
+            const Maths::Vec4& half = upper ? *top : *bottom;
             for (bool front : {false, true}) {
                 mp_contacts[n++] = {half.x * (right ? 1.0f : -1.0f), upper ? top->y : -bottom->y,
                                     half.z * (front ? 1.0f : -1.0f), 1.0f};
@@ -233,7 +233,7 @@ void CBodyDynamicsModule::SetBox(const Maths::Vector* top, const Maths::Vector* 
 void CBodyDynamicsModule::SetPyramid(float halfHeight, float halfDepth)
 {
     m_contactCount = 5;
-    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vector));
+    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vec4));
     const float base = halfHeight * kPyramidBase;
     mp_contacts[0] = {halfDepth, base, halfDepth, 1.0f};
     mp_contacts[1] = {-halfDepth, base, halfDepth, 1.0f};
@@ -246,7 +246,7 @@ void CBodyDynamicsModule::SetPyramid(float halfHeight, float halfDepth)
 void CBodyDynamicsModule::SetCylinder(float topRadius, float bottomRadius, float halfHeight, int edges)
 {
     m_contactCount = static_cast<uint16_t>(edges * 2);
-    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vector));
+    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vec4));
     int n = 0;
     for (bool upper : {false, true}) {
         const float radius = upper ? topRadius : bottomRadius;
@@ -261,11 +261,11 @@ void CBodyDynamicsModule::SetCylinder(float topRadius, float bottomRadius, float
 }
 
 // 0x0042D8A0
-void CBodyDynamicsModule::SetTriangle(const Maths::Vector* dimensions)
+void CBodyDynamicsModule::SetTriangle(const Maths::Vec4* dimensions)
 {
     m_contactCount = 6;
-    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vector));
-    const Maths::Vector& d = *dimensions;
+    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vec4));
+    const Maths::Vec4& d = *dimensions;
     int n = 0;
     for (bool back : {false, true}) {
         float z = (back ? -1.0f : 1.0f) * d.z;
@@ -278,13 +278,13 @@ void CBodyDynamicsModule::SetTriangle(const Maths::Vector* dimensions)
 // 0x0042ED60
 void CBodyDynamicsModule::SetSpheres(Scripts::CArray* spheres)
 {
-    m_sphereCount = static_cast<uint16_t>(spheres->m_size);
+    m_sphereCount = static_cast<uint16_t>(spheres->m_extent);
     mp_spheres = Reallocate(mp_spheres, m_sphereCount * sizeof(Sphere));
     const uint32_t* elements = spheres->FindArrayValue();
     for (uint32_t i = 0; i < m_sphereCount; ++i) {
         auto* settings = reinterpret_cast<Scripts::CStruct*>(elements[i]);
-        settings->GetVector(0u, reinterpret_cast<Scripts::VectorValue*>(&mp_spheres[i].center), 1);
-        settings->GetFloat(0xC48391A5, &mp_spheres[i].radius, 1); // radius
+        settings->FetchVec(0u, reinterpret_cast<Scripts::VectorValue*>(&mp_spheres[i].center), 1);
+        settings->FetchFloat(0xC48391A5, &mp_spheres[i].radius, 1); // radius
     }
 }
 
@@ -298,14 +298,14 @@ void CBodyDynamicsModule::SetSounds(uint32_t type)
     if (sounds->HasEntryNamed(0xBF8E0ACE)) { // CollideSound
         sounds->ReadSubStruct(0xBF8E0ACE, &sound, 1);
         if (mp_collideSound)
-            Delete(mp_collideSound);
+            EraseOne(mp_collideSound);
         mp_collideSound = CopyOf(sound);
     }
     if (!sounds->HasEntryNamed(0x1FB2F60C)) // BounceSound
         return;
     sounds->ReadSubStruct(0x1FB2F60C, &sound, 1);
     if (mp_bounceSound)
-        Delete(mp_bounceSound);
+        EraseOne(mp_bounceSound);
     mp_bounceSound = CopyOf(sound);
     if (sounds->HasEntryNamed(0x3818EE47)) { // CollideMuteDelay
         // (read into the argument slot, which then holds the copy's allocation)
@@ -318,67 +318,67 @@ void CBodyDynamicsModule::SetSounds(uint32_t type)
         sounds->FetchIntValue(0xAD67A34D, &delay, 0);
         m_globalCollideMuteDelay = delay;
     }
-    sounds->GetFloat(0x4511CA8D, &m_bounceCallbackThreshold, 0); // BounceVelocityCallbackThreshold
-    sounds->GetFloat(0x8FC6519F, &m_bounceFullSpeed, 0);         // BounceVelocityFullSpeed
+    sounds->FetchFloat(0x4511CA8D, &m_bounceCallbackThreshold, 0); // BounceVelocityCallbackThreshold
+    sounds->FetchFloat(0x8FC6519F, &m_bounceFullSpeed, 0);         // BounceVelocityFullSpeed
 }
 
 // 0x0042F050
 void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
 {
-    m_state = STATE_ASLEEP;
+    m_curPhase = STATE_ASLEEP;
     uint32_t state;
     if (params->ReadHashValue(0x61FBB62C, &state, 0)) { // rigidbody_state
         if (state == 0x4484B712)                       // asleep
-            m_state = STATE_ASLEEP;
+            m_curPhase = STATE_ASLEEP;
         else if (state == 0x7B01911C)                  // disabled
-            m_state = STATE_DISABLED;
+            m_curPhase = STATE_DISABLED;
         else if (state == 0x99A34896)                  // awake
-            m_state = STATE_AWAKE;
+            m_curPhase = STATE_AWAKE;
     }
     m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
     m_rotVel = {0.0f, 0.0f, 0.0f, 1.0f};
     for (int r = 0; r < 4; ++r)
         m_basisFrame.row[r] = {r == 0 ? 1.0f : 0.0f, r == 1 ? 1.0f : 0.0f, r == 2 ? 1.0f : 0.0f, r == 3 ? 1.0f : 0.0f};
-    m_pos = m_object->m_pos;
+    m_atPoint = m_entity->m_atPoint;
     Maths::QuatRotation orientation;
-    orientation.FromMatrix(m_object->m_basisFrame);
+    orientation.FromMatrix(m_entity->m_basisFrame);
     m_orientation = orientation;
-    m_orientation.Normalize(1.0f);
+    m_orientation.MakeUnit(1.0f);
     QuatToMatrix(&m_orientation, &m_basisFrame);
 
-    auto vector = [params](uint32_t name, Maths::Vector* out) {
-        return params->GetVector(name, reinterpret_cast<Scripts::VectorValue*>(out), 0);
+    auto vector = [params](uint32_t name, Maths::Vec4* out) {
+        return params->FetchVec(name, reinterpret_cast<Scripts::VectorValue*>(out), 0);
     };
     vector(0x0C4C809E, &m_vel);          // vel
     vector(0xFB1A83B2, &m_rotVel);       // rotvel
     vector(0x737612C6, &m_centerOfMass); // center_of_mass
-    if (!params->GetFloat(0x6FAE5C9A, &m_constAcc.y, 0)) // const_acc: a number is the y
+    if (!params->FetchFloat(0x6FAE5C9A, &m_constAcc.y, 0)) // const_acc: a number is the y
         vector(0x6FAE5C9A, &m_constAcc);
-    params->GetFloat(0x60B4860D, &m_restitution, 0); // coeff_restitution
-    params->GetFloat(0xF9D75930, &m_dragFactor, 0);    // coeff_friction
-    params->GetFloat(0xF1ECB30F, &m_springConst, 0); // spring_const
-    params->GetFloat(0xDE76C3A7, &m_unknown38, 0);
-    params->GetFloat(0x9DA897CF, &m_unknown3C, 0);
+    params->FetchFloat(0x60B4860D, &m_restitution, 0); // coeff_restitution
+    params->FetchFloat(0xF9D75930, &m_dragFactor, 0);    // coeff_friction
+    params->FetchFloat(0xF1ECB30F, &m_springConst, 0); // spring_const
+    params->FetchFloat(0xDE76C3A7, &m_unknown38, 0);
+    params->FetchFloat(0x9DA897CF, &m_unknown3C, 0);
     if (params->HasEntryNamed(0xC11E4DD8)) { // linear_velocity_sleep_point
-        params->GetFloat(0xC11E4DD8, &m_linearSleepSquared, 0);
+        params->FetchFloat(0xC11E4DD8, &m_linearSleepSquared, 0);
         m_linearSleepSquared = m_linearSleepSquared * m_linearSleepSquared;
     }
     if (params->HasEntryNamed(0xA457ECE3)) { // angular_velocity_sleep_point
-        params->GetFloat(0xA457ECE3, &m_angularSleepSquared, 0);
+        params->FetchFloat(0xA457ECE3, &m_angularSleepSquared, 0);
         m_angularSleepSquared = m_angularSleepSquared * m_angularSleepSquared;
     }
-    params->GetFloat(0x3390D1E5, &m_skaterImpulseFactor, 0);     // skater_collision_impulse_factor
-    params->GetFloat(0x5A18F61F, &m_skaterRotationFactor, 0);    // skater_collision_rotation_factor
-    params->GetFloat(0x85F112C1, &m_skaterRadius, 0);            // skater_collision_radius
-    params->GetFloat(0x8AB2DB68, &m_skaterApplicationRadius, 0); // skater_collision_application_radius
+    params->FetchFloat(0x3390D1E5, &m_skaterImpulseFactor, 0);     // skater_collision_impulse_factor
+    params->FetchFloat(0x5A18F61F, &m_skaterRotationFactor, 0);    // skater_collision_rotation_factor
+    params->FetchFloat(0x85F112C1, &m_skaterRadius, 0);            // skater_collision_radius
+    params->FetchFloat(0x8AB2DB68, &m_skaterApplicationRadius, 0); // skater_collision_application_radius
     if (params->HasEntryNamed(0xE9156E6D)) {            // skater_collision_assent (degrees)
         float degrees;
-        params->GetFloat(0xE9156E6D, &degrees, 0);
+        params->FetchFloat(0xE9156E6D, &degrees, 0);
         double radians = static_cast<double>(degrees) * kDegreesToRadians;
         m_skaterAssentCos = X87Cos(radians);
         m_skaterAssentSin = X87Sin(radians);
     }
-    params->GetFloat(0x1F4D0CA5, &m_pushCooldownTime, 0);
+    params->FetchFloat(0x1F4D0CA5, &m_pushCooldownTime, 0);
     params->ReadHashValue(0x58CDC0F0, &m_collideScript, 0); // CollideScript
     params->ReadHashValue(0x2D075F90, &m_bounceScript, 0);  // BounceScript
     params->ReadHashValue(0x571917FA, &m_settleScript, 0);  // SettleScript
@@ -394,14 +394,14 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
         SetSounds(type);
     }
     if (params->HasBareFlag(0x5E51924F)) // DieUponSettling
-        m_flags |= FLAG_DIE_UPON_SETTLING;
+        m_flagBits |= FLAG_DIE_UPON_SETTLING;
     else
-        m_flags &= ~FLAG_DIE_UPON_SETTLING;
+        m_flagBits &= ~FLAG_DIE_UPON_SETTLING;
 
     if (params->HasEntryNamed(0xB77BE94A)) { // springs
         Scripts::CArray* springs;
-        params->GetArray(0xB77BE94A, &springs, 1);
-        m_springCount = static_cast<uint16_t>(springs->m_size);
+        params->FetchList(0xB77BE94A, &springs, 1);
+        m_springCount = static_cast<uint16_t>(springs->m_extent);
         mp_springs = Reallocate(mp_springs, m_springCount * sizeof(Spring));
         // (each built by the vector constructor iterator 0x00401020 with 0x005902E0 - which does nothing)
         const uint32_t* elements = springs->FindArrayValue();
@@ -416,13 +416,13 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
     int shape = m_contactCount ? 4 : 0;
     if (params->HasEntryNamed(0xCCBFEA8C)) { // contacts
         Scripts::CArray* contacts;
-        params->GetArray(0xCCBFEA8C, &contacts, 0);
+        params->FetchList(0xCCBFEA8C, &contacts, 0);
         SetContacts(contacts);
         shape = 4;
     }
     if (params->HasEntryNamed(0x5B6A8D18)) { // (the spheres)
         Scripts::CArray* spheres;
-        params->GetArray(0x5B6A8D18, &spheres, 0);
+        params->FetchList(0x5B6A8D18, &spheres, 0);
         SetSpheres(spheres);
         shape = 4;
     }
@@ -436,11 +436,11 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
         shape = 3;
     switch (shape) {
     case 0: {
-        Maths::Vector top = {32.0f, 32.0f, 16.0f, 1.0f};
-        params->GetVector("dimensions", reinterpret_cast<Scripts::VectorValue*>(&top), 0);
-        Maths::Vector bottom = top;
-        params->GetVector("top_dimensions", reinterpret_cast<Scripts::VectorValue*>(&top), 0);
-        params->GetVector("bottom_dimensions", reinterpret_cast<Scripts::VectorValue*>(&bottom), 0);
+        Maths::Vec4 top = {32.0f, 32.0f, 16.0f, 1.0f};
+        params->FetchVec("dimensions", reinterpret_cast<Scripts::VectorValue*>(&top), 0);
+        Maths::Vec4 bottom = top;
+        params->FetchVec("top_dimensions", reinterpret_cast<Scripts::VectorValue*>(&top), 0);
+        params->FetchVec("bottom_dimensions", reinterpret_cast<Scripts::VectorValue*>(&bottom), 0);
         top = {top.x * kHalf, top.y * kHalf, top.z * kHalf, top.w * kHalf};
         bottom = {bottom.x * kHalf, bottom.y * kHalf, bottom.z * kHalf, bottom.w * kHalf};
         SetBox(&top, &bottom);
@@ -448,8 +448,8 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
     }
     case 1: {
         float height = 42.0f, depth = 32.0f;
-        params->GetFloat(0x0AB21AF0, &height, 0); // height
-        params->GetFloat(0x055CE396, &depth, 0);  // depth
+        params->FetchFloat(0x0AB21AF0, &height, 0); // height
+        params->FetchFloat(0x055CE396, &depth, 0);  // depth
         height = height * kHalf;
         depth = depth * kHalf;
         SetPyramid(height, depth);
@@ -458,19 +458,19 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
     case 2: {
         float radius = 12.0f, height = 60.0f;
         int edges = 6;
-        params->GetFloat(0xC48391A5, &radius, 0); // radius
+        params->FetchFloat(0xC48391A5, &radius, 0); // radius
         float bottomRadius = radius;
-        params->GetFloat(0x937E3B29, &radius, 0);       // top_radius
-        params->GetFloat(0xE2AC8C3A, &bottomRadius, 0); // bottom_radius
-        params->GetFloat(0x0AB21AF0, &height, 0);       // height
+        params->FetchFloat(0x937E3B29, &radius, 0);       // top_radius
+        params->FetchFloat(0xE2AC8C3A, &bottomRadius, 0); // bottom_radius
+        params->FetchFloat(0x0AB21AF0, &height, 0);       // height
         params->FetchIntValue(0x4055F24A, &edges, 0);      // edges
         height = height * kHalf;
         SetCylinder(radius, bottomRadius, height, edges);
         break;
     }
     case 3: {
-        Maths::Vector dimensions = {32.0f, 32.0f, 16.0f, 1.0f};
-        params->GetVector(0x1D82745A, reinterpret_cast<Scripts::VectorValue*>(&dimensions), 0); // Dimensions
+        Maths::Vec4 dimensions = {32.0f, 32.0f, 16.0f, 1.0f};
+        params->FetchVec(0x1D82745A, reinterpret_cast<Scripts::VectorValue*>(&dimensions), 0); // Dimensions
         dimensions = {dimensions.x * kHalf, dimensions.y * kHalf, dimensions.z * kHalf, dimensions.w * kHalf};
         SetTriangle(&dimensions);
         break;
@@ -481,7 +481,7 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
 
     if (params->HasEntryNamed(0xC35CAC0D)) { // directed_friction: one structure per contact
         Scripts::CArray* friction;
-        params->GetArray(0xC35CAC0D, &friction, 0);
+        params->FetchList(0xC35CAC0D, &friction, 0);
         mp_directedFriction = Reallocate(mp_directedFriction, m_contactCount * sizeof(DirectedFriction));
         const uint32_t* elements = friction->FindArrayValue();
         for (int i = m_contactCount; i != 0;) {
@@ -491,26 +491,26 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
                 mp_directedFriction[i].active = false;
             } else {
                 mp_directedFriction[i].active = true;
-                settings->GetVector(0u, reinterpret_cast<Scripts::VectorValue*>(&mp_directedFriction[i].direction), 1);
+                settings->FetchVec(0u, reinterpret_cast<Scripts::VectorValue*>(&mp_directedFriction[i].direction), 1);
             }
         }
     }
 
     if (params->HasEntryNamed(0x9D2D0915)) { // Angles: the shape turned
-        Maths::Vector angles;
+        Maths::Vec4 angles;
         LevelNodes::ReadTurnAngles(params, &angles);
-        Maths::Matrix turn;
+        Maths::Mat4 turn;
         turn.InitFromAngles(angles);
         auto m = [&turn](int r, int c) { return static_cast<double>(reinterpret_cast<const float*>(&turn.row[r])[c]); };
         for (int i = m_contactCount; i != 0;) {
-            Maths::Vector& p = mp_contacts[--i];
+            Maths::Vec4& p = mp_contacts[--i];
             double x = p.x, y = p.y, z = p.z;
             p.z = static_cast<float>((m(0, 2) * x + m(1, 2) * y) + m(2, 2) * z);
             p.x = static_cast<float>((m(0, 0) * x + m(1, 0) * y) + m(2, 0) * z);
             p.y = static_cast<float>((m(0, 1) * x + m(1, 1) * y) + m(2, 1) * z);
         }
         for (int i = m_sphereCount; i != 0;) {
-            Maths::Vector& p = mp_spheres[--i].center;
+            Maths::Vec4& p = mp_spheres[--i].center;
             double x = p.x, y = p.y, z = p.z;
             p.z = static_cast<float>((m(1, 2) * y + m(2, 2) * z) + m(0, 2) * x);
             p.x = static_cast<float>((m(1, 0) * y + m(2, 0) * z) + m(0, 0) * x);
@@ -519,28 +519,28 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
     }
 
     // The centre of mass: given, else the average of the points.
-    Maths::Vector center = {0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Vec4 center = {0.0f, 0.0f, 0.0f, 1.0f};
     if (params->HasEntryNamed(0x737612C6) && params->HasEntryNamed(0x737612C6))
         vector(0x737612C6, &center);
     if (center.x == 0.0f && center.y == 0.0f && center.z == 0.0f) {
         for (int i = m_contactCount; i != 0;) {
-            const Maths::Vector& p = mp_contacts[--i];
+            const Maths::Vec4& p = mp_contacts[--i];
             center = {center.x + p.x, center.y + p.y, center.z + p.z, center.w + p.w};
         }
         for (int i = m_sphereCount; i != 0;) {
-            const Maths::Vector& p = mp_spheres[--i].center;
+            const Maths::Vec4& p = mp_spheres[--i].center;
             center = {center.x + p.x, center.y + p.y, center.z + p.z, center.w + p.w};
         }
         double share = 1.0 / static_cast<double>(m_contactCount + m_sphereCount);
         center = {static_cast<float>(center.x * share), static_cast<float>(center.y * share),
                   static_cast<float>(center.z * share), static_cast<float>(center.w * share)};
     }
-    Maths::Vector modelOffset = {0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Vec4 modelOffset = {0.0f, 0.0f, 0.0f, 1.0f};
     vector(0x851211B0, &modelOffset); // model_offset
     m_modelOffset = {modelOffset.x - center.x, modelOffset.y - center.y, modelOffset.z - center.z,
                      modelOffset.w - center.w};
     // The shape about the centre of mass (w too).
-    auto recentre = [&center](Maths::Vector& p) {
+    auto recentre = [&center](Maths::Vec4& p) {
         p = {p.x - center.x, p.y - center.y, p.z - center.z, p.w - center.w};
     };
     for (int i = m_contactCount; i != 0;)
@@ -551,10 +551,10 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
         recentre(mp_springs[--i].point);
 
     // mass_over_moment, else the default scaled down by the size of a big shape.
-    if (!params->GetFloat(0x967CD3AE, &m_massOverMoment, 0)) {
+    if (!params->FetchFloat(0x967CD3AE, &m_massOverMoment, 0)) {
         float extent = 0.0f;
         for (int i = m_contactCount; i != 0;) {
-            const Maths::Vector& p = mp_contacts[--i];
+            const Maths::Vec4& p = mp_contacts[--i];
             double x = p.x, y = p.y, z = p.z;
             float length = static_cast<float>(std::sqrt((z * z + x * x) + y * y));
             if (!(extent > length))
@@ -573,13 +573,13 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
         }
     }
     if (params->HasBareFlag(0xA92B9954)) // disable_player_collision
-        m_flags |= FLAG_NO_PLAYER_COLLISION;
+        m_flagBits |= FLAG_NO_PLAYER_COLLISION;
     g_rigidBodyPusherHeight = 77.0f;
 
     // The bounding radius (squared lengths compared unrounded).
     m_radius = 0.0f;
     for (int i = m_contactCount; i != 0;) {
-        const Maths::Vector& p = mp_contacts[--i];
+        const Maths::Vec4& p = mp_contacts[--i];
         double x = p.x, y = p.y, z = p.z;
         double lengthSquared = (z * z + x * x) + y * y;
         if (lengthSquared > m_radius)
@@ -602,19 +602,19 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
     double ty = (r(2, 1) * oz + r(1, 1) * oy) + r(0, 1) * ox;
     float tz = static_cast<float>((r(2, 2) * oz + r(1, 2) * oy) + r(0, 2) * ox);
     float tw = m_modelOffset.w;
-    m_pos.x = static_cast<float>(m_pos.x - tx);
-    m_pos.y = static_cast<float>(m_pos.y - ty);
-    m_pos.z = m_pos.z - tz;
-    m_pos.w = m_pos.w - tw;
+    m_atPoint.x = static_cast<float>(m_atPoint.x - tx);
+    m_atPoint.y = static_cast<float>(m_atPoint.y - ty);
+    m_atPoint.z = m_atPoint.z - tz;
+    m_atPoint.w = m_atPoint.w - tw;
 }
 
 // Awake (the inlined end of the member functions): unless it is already, where the object is now kept.
 void CBodyDynamicsModule::Wake()
 {
-    if (m_state == STATE_AWAKE)
+    if (m_curPhase == STATE_AWAKE)
         return;
-    m_wakePos = m_object->m_pos;
-    m_state = STATE_AWAKE;
+    m_wakePos = m_entity->m_atPoint;
+    m_curPhase = STATE_AWAKE;
 }
 
 // 0x0042DCA0
@@ -635,15 +635,15 @@ bool CBodyDynamicsModule::RigidBody_Sleep(Scripts::CStruct* /*params*/, Scripts:
 bool CBodyDynamicsModule::Rigidbody_Kick(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     Scripts::VectorValue v;
-    if (params->GetVector(0x0C4C809E, &v, 0)) { // vel
+    if (params->FetchVec(0x0C4C809E, &v, 0)) { // vel
         m_vel = {v.x + m_vel.x, v.y + m_vel.y, v.z + m_vel.z, v.w + m_vel.w};
-        m_object->m_vel = m_vel;
+        m_entity->m_vel = m_vel;
     }
-    if (params->GetVector(0xFB1A83B2, &v, 0)) // rotvel
+    if (params->FetchVec(0xFB1A83B2, &v, 0)) // rotvel
         m_rotVel = {v.x + m_rotVel.x, v.y + m_rotVel.y, v.z + m_rotVel.z, v.w + m_rotVel.w};
-    if (params->GetVector(0x7F261953, &v, 0)) { // pos
-        m_pos = {v.x + m_pos.x, v.y + m_pos.y, v.z + m_pos.z, v.w + m_pos.w};
-        m_object->m_pos = m_pos;
+    if (params->FetchVec(0x7F261953, &v, 0)) { // pos
+        m_atPoint = {v.x + m_atPoint.x, v.y + m_atPoint.y, v.z + m_atPoint.z, v.w + m_atPoint.w};
+        m_entity->m_atPoint = m_atPoint;
     }
     Wake();
     return true;
@@ -653,11 +653,11 @@ bool CBodyDynamicsModule::Rigidbody_Kick(Scripts::CStruct* params, Scripts::CScr
 bool CBodyDynamicsModule::RigidBody_SetVelocities(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     Scripts::VectorValue v;
-    if (params->GetVector(0x0C4C809E, &v, 0)) { // vel
+    if (params->FetchVec(0x0C4C809E, &v, 0)) { // vel
         m_vel = {v.x, v.y, v.z, v.w};
-        m_object->m_vel = m_vel;
+        m_entity->m_vel = m_vel;
     }
-    if (params->GetVector(0xFB1A83B2, &v, 0)) // rotvel
+    if (params->FetchVec(0xFB1A83B2, &v, 0)) // rotvel
         m_rotVel = {v.x, v.y, v.z, v.w};
     Wake();
     return true;
@@ -666,35 +666,35 @@ bool CBodyDynamicsModule::RigidBody_SetVelocities(Scripts::CStruct* params, Scri
 // 0x0042EE30
 bool CBodyDynamicsModule::RigidBody_Enable(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
 {
-    m_state = STATE_AWAKE;
-    m_pos = m_object->m_pos;
+    m_curPhase = STATE_AWAKE;
+    m_atPoint = m_entity->m_atPoint;
     Maths::QuatRotation orientation;
-    orientation.FromMatrix(m_object->m_basisFrame);
+    orientation.FromMatrix(m_entity->m_basisFrame);
     m_orientation = orientation;
-    m_orientation.Normalize(1.0f);
+    m_orientation.MakeUnit(1.0f);
     QuatToMatrix(&m_orientation, &m_basisFrame);
-    m_vel = m_object->m_vel;
+    m_vel = m_entity->m_vel;
     return true;
 }
 
 // 0x0042DFB0
 bool CBodyDynamicsModule::RigidBody_DisablePlayerCollision(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
 {
-    m_flags |= FLAG_NO_PLAYER_COLLISION;
+    m_flagBits |= FLAG_NO_PLAYER_COLLISION;
     return true;
 }
 
 // 0x0042DFC0
 bool CBodyDynamicsModule::RigidBody_EnablePlayerCollision(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
 {
-    m_flags &= ~FLAG_NO_PLAYER_COLLISION;
+    m_flagBits &= ~FLAG_NO_PLAYER_COLLISION;
     return true;
 }
 
 // 0x0042DFD0
 bool CBodyDynamicsModule::GetCenterOfMassPos(Scripts::CStruct* /*params*/, Scripts::CScript* script)
 {
-    script->m_params->PutVec3(0x77808D3C, {m_pos.x, m_pos.y, m_pos.z, m_pos.w}); // CenterOfMassPos
+    script->m_args->PutVec3(0x77808D3C, {m_atPoint.x, m_atPoint.y, m_atPoint.z, m_atPoint.w}); // CenterOfMassPos
     return true;
 }
 
@@ -710,10 +710,10 @@ bool CBodyDynamicsModule::Rigidbody_MatchVelocityTo(Scripts::CStruct* params, Sc
         m_vel = {static_cast<float>(factor * m_vel.x), static_cast<float>(factor * m_vel.y),
                  static_cast<float>(factor * m_vel.z), static_cast<float>(factor * m_vel.w)};
     }
-    m_object->m_vel = m_vel;
-    if (m_state == STATE_ASLEEP && std::fabs(m_vel.y) < 1.0f)
+    m_entity->m_vel = m_vel;
+    if (m_curPhase == STATE_ASLEEP && std::fabs(m_vel.y) < 1.0f)
         m_vel.y = 1.0f;
-    if (auto* body = static_cast<CBodyDynamicsModule*>(other->GetComponent(kType))) {
+    if (auto* body = static_cast<CBodyDynamicsModule*>(other->FetchModule(kType))) {
         m_rotVel = body->m_rotVel;
         if (adjust) {
             double factor = Maths::PlusOrMinusExact(0.4000000059604645f);
@@ -732,7 +732,7 @@ void __cdecl AddRigidBodyPusher(CGameEntity* object)
     for (int i = 7; i >= 0; --i) {
         if (pushers[i].m_ownerObject)
             continue;
-        pushers[i].Set(object);
+        pushers[i].AssignValue(object);
         g_rigidBodyPusherReach[i] = 0.0f; // (its extra reach: SetRigidBodyPusherReach)
         return;
     }
@@ -743,14 +743,14 @@ void __cdecl AddRigidBodyPusher(CGameEntity* object)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CBodyDynamicsModule::Destroy,
-         &GameObjects::CBodyDynamicsModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CBodyDynamicsModule::Teardown,
+         &GameObjects::CBodyDynamicsModule::TickFrame,
          &GameObjects::CBodyDynamicsModule::ConfigureFromData,
-         &CBodyDynamicsModule::Finalize,
+         &CBodyDynamicsModule::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
@@ -764,6 +764,6 @@ void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 namespace GameObjects {
 
 // 0x00640900 (a static initialiser): the rigid bodies' collision cache (registered among the caches, empty).
-void ConstructRigidBodyCache() { reinterpret_cast<Engine3D::CHitMeshCache*>(&g_rigidBodyCache)->Construct(); }
+void ConstructRigidBodyCache() { reinterpret_cast<Engine3D::CHitMeshCache*>(&g_rigidBodyCache)->MakeNew(); }
 
 } // namespace Obj

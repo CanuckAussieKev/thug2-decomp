@@ -4,7 +4,7 @@
 // Each function here is THAW's bike branch (read from THAW's reference build, game/skater/thaw_bmx.h) re-expressed
 // on THUG2's component layout: THAW's fields are at other offsets (its +0x9C frame length is THUG2's +0x8C, its pad's
 // first sixteen buttons are THUG2's, its timed flags are THUG2's shifted by 8 from +0x68 and by 0x10 from +0xA8 ...).
-// Our THUG2 functions call these only while Active(core) - the feature on and the skater on the bike; otherwise
+// Our THUG2 functions call these only while LiveNow(core) - the feature on and the skater on the bike; otherwise
 // nothing here runs.
 //
 // THAW's pad has buttons THUG2's hasn't: the movement stick's four directions as buttons (LEFTUP / LEFTDOWN / LEFTLEFT
@@ -45,7 +45,7 @@ T& At(const void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
-Maths::Vector& VectorAt(const void* object, uint32_t offset) { return At<Maths::Vector>(object, offset); }
+Maths::Vec4& VectorAt(const void* object, uint32_t offset) { return At<Maths::Vec4>(object, offset); }
 
 // The core physics component's fields (THUG2's; THAW's offset in the comment).
 constexpr uint32_t kObject = 0x0C;
@@ -186,7 +186,7 @@ constexpr double kAcidDropBack = 0.1;              // 0x006EDD70
 constexpr double kStallSteepUp = 0.95;             // THAW 0x006EDDC0 (the stall's rail too steep under this up y)
 constexpr int kStallSteepFrames = 10;              // (the frames of it before the stall turns into a grind)
 constexpr float kStallSlipTimeThaw = 130.0f;       // (THAW's stall_slip_time, physics.qb - while the overlay lacks it)
-constexpr uint32_t kStateChangeTime = 0x90;        // THAW +0xA0 (SetState 0x004FDED0 notes the time of a change)
+constexpr uint32_t kStateChangeTime = 0x90;        // THAW +0xA0 (ChangePhase 0x004FDED0 notes the time of a change)
 
 // --- helpers -----------------------------------------------------------------------------------------------------
 
@@ -211,7 +211,7 @@ float HeldMs(uint8_t* button)
 float HeldMs(const StickButton& button) { return static_cast<float>(Since(button.pressTime)); }
 
 // 0x004FDED0 (not rewritten): the physics state changed.
-void SetState(void* core, int state) { static_cast<CorePhysicsComponent*>(core)->SetPhysicsState(state); }
+void ChangePhase(void* core, int state) { static_cast<CorePhysicsComponent*>(core)->SetPhysicsState(state); }
 
 void ClearTimedFlag(const void* core, uint32_t flag)
 {
@@ -234,21 +234,21 @@ float Stat(uint32_t name, const void* core) { return static_cast<GameObjects::CR
 // A global of THAW's physics.qb that THUG2 hasn't: THAW's value while the overlay lacks it.
 float ThawGlobal(const char* name, float thaw)
 {
-    float value = Scripts::GetFloat(name);
+    float value = Scripts::FetchFloat(name);
     return value != 0.0f ? value : thaw;
 }
 
-double Dot3(const Maths::Vector& a, const Maths::Vector& b)
+double Dot3(const Maths::Vec4& a, const Maths::Vec4& b)
 {
     return static_cast<double>(a.x) * b.x + static_cast<double>(a.y) * b.y + static_cast<double>(a.z) * b.z;
 }
-double Length3(const Maths::Vector& v) { return std::sqrt(Dot3(v, v)); }
+double Length3(const Maths::Vec4& v) { return std::sqrt(Dot3(v, v)); }
 bool MovingBackwards(const void* core)
 {
     void* object = ObjectOf(core);
     return Dot3(VectorAt(object, kVelocity), VectorAt(object, kFacing)) < 0.0;
 }
-float Speed(const void* core) { return static_cast<float>(Length3(VectorAt(ObjectOf(core), kVelocity))); }
+float Pace(const void* core) { return static_cast<float>(Length3(VectorAt(ObjectOf(core), kVelocity))); }
 
 // The movement stick's raw axis (THAW's pad +0x348 x / +0x34C y: THUG2's m_stick[2] / [3], -128..127). (The d-pad
 // isn't read: on the bike it's the camera, as THAW's.)
@@ -282,7 +282,7 @@ void RunBikeScript(const void* core, const char* name, Scripts::CStruct* params 
         }
         return;
     }
-    Scripts::LaunchScript(checksum, params, static_cast<GameObjects::CObject*>(ObjectOf(core)), false, name);
+    Scripts::LaunchScript(checksum, params, static_cast<GameObjects::CEntity*>(ObjectOf(core)), false, name);
 }
 
 bool WheelsOn()
@@ -291,7 +291,7 @@ bool WheelsOn()
     return on;
 }
 
-void TurnVelocity(Maths::Vector& velocity, float angle)
+void TurnVelocity(Maths::Vec4& velocity, float angle)
 {
     // (as THUG2's TurnOnGround: x87 sine and cosine)
     double s = std::sin(static_cast<double>(angle)), c = std::cos(static_cast<double>(angle));
@@ -310,12 +310,12 @@ void UpdateStickButton(StickButton& button, bool down)
 // A wheel's feeler's result (FeelWheel, below).
 struct WheelHit {
     bool hit = false;
-    Maths::Vector point{}, normal{};
+    Maths::Vec4 point{}, normal{};
     uint16_t flags = 0;
     int why = -1; // ([debug] thaw_bmx_wheels's log: -1 no hit, else Bike::WheelFeelResult's)
     float distance = 0.0f, reach = 0.0f, turn = 0.0f, limit = 0.0f;
 };
-WheelHit FeelWheel(void* core, Maths::Vector& wheel, const Maths::Vector& last, const Maths::Vector& up, float above);
+WheelHit FeelWheel(void* core, Maths::Vec4& wheel, const Maths::Vec4& last, const Maths::Vec4& up, float above);
 
 } // namespace
 
@@ -445,7 +445,7 @@ ManualOutput ManualStep(const ManualInput& in)
     return out;
 }
 
-bool JumpBoosts(const Maths::Vector& velocity, float stickY)
+bool JumpBoosts(const Maths::Vec4& velocity, float stickY)
 {
     double horizontal = std::sqrt(static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x);
     return horizontal == 0.0 && !(stickY > 0.0f);
@@ -490,29 +490,29 @@ bool VertWindow(float since, float window, bool* raise)
     return window < since;
 }
 
-Maths::Vector WheelBaseNormal(const Maths::Vector& normal, const Maths::Vector& front, const Maths::Vector& rear)
+Maths::Vec4 WheelBaseNormal(const Maths::Vec4& normal, const Maths::Vec4& front, const Maths::Vec4& rear)
 {
-    Maths::Vector base = {front.x - rear.x, front.y - rear.y, front.z - rear.z, front.w - rear.w};
-    base.Normalize();
+    Maths::Vec4 base = {front.x - rear.x, front.y - rear.y, front.z - rear.z, front.w - rear.w};
+    base.MakeUnit();
     float along = static_cast<float>(Dot3(base, normal));
-    Maths::Vector result = {normal.x - base.x * along, normal.y - base.y * along, normal.z - base.z * along,
+    Maths::Vec4 result = {normal.x - base.x * along, normal.y - base.y * along, normal.z - base.z * along,
                           normal.w - base.w * along};
-    result.Normalize();
+    result.MakeUnit();
     return result;
 }
 
-Maths::Vector WheelBaseUp(const Maths::Vector& right, const Maths::Vector& front, const Maths::Vector& rear,
-                        const Maths::Vector& hit)
+Maths::Vec4 WheelBaseUp(const Maths::Vec4& right, const Maths::Vec4& front, const Maths::Vec4& rear,
+                        const Maths::Vec4& hit)
 {
-    Maths::Vector d = {front.x - rear.x, front.y - rear.y, front.z - rear.z, 0.0f};
+    Maths::Vec4 d = {front.x - rear.x, front.y - rear.y, front.z - rear.z, 0.0f};
     if (Length3(d) > 0.0)
-        d.Normalize();
-    Maths::Vector r = {right.x, right.y, right.z, 0.0f};
+        d.MakeUnit();
+    Maths::Vec4 r = {right.x, right.y, right.z, 0.0f};
     if (Length3(r) > 0.0)
-        r.Normalize();
-    Maths::Vector up = {r.y * d.z - r.z * d.y, r.z * d.x - d.z * r.x, d.y * r.x - r.y * d.x, 0.0f};
+        r.MakeUnit();
+    Maths::Vec4 up = {r.y * d.z - r.z * d.y, r.z * d.x - d.z * r.x, d.y * r.x - r.y * d.x, 0.0f};
     if (Length3(up) > 0.0)
-        up.Normalize();
+        up.MakeUnit();
     // The way that's nearer the ground's own normal.
     auto flip = [](float u, float n) { return std::fabs(n - u) > std::fabs(u + n); };
     if (flip(up.x, hit.x) || flip(up.y, hit.y) || flip(up.z, hit.z))
@@ -529,7 +529,7 @@ WheelFeelResult FeelWheelOn(const WheelFeel& in)
     float distance = static_cast<float>(std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy +
                                                   static_cast<double>(dx) * dx));
     float along = in.up.z * dz + in.up.y * dy + in.up.x * dx; // (how far above the hit, along up)
-    const Maths::Vector onHit = {in.point.x + in.normal.x, in.point.y + in.normal.y, in.point.z + in.normal.z,
+    const Maths::Vec4 onHit = {in.point.x + in.normal.x, in.point.y + in.normal.y, in.point.z + in.normal.z,
                                in.point.w + in.normal.w};
     if (!in.skatable) {
         if (along < 0.001f) { // 0x006DBD98
@@ -538,13 +538,13 @@ WheelFeelResult FeelWheelOn(const WheelFeel& in)
         }
         return out;
     }
-    Maths::Vector direction = in.facing;
+    Maths::Vec4 direction = in.facing;
     if (in.backwards)
         direction = {-direction.x, -direction.y, -direction.z, -direction.w};
     float into = static_cast<float>(static_cast<double>(direction.z) * in.normal.z +
                                     static_cast<double>(direction.y) * in.normal.y +
                                     static_cast<double>(direction.x) * in.normal.x);
-    Maths::Vector inHit = direction, inGround = direction;
+    Maths::Vec4 inHit = direction, inGround = direction;
     inHit.AlignToPlane(in.normal);
     inGround.AlignToPlane(in.groundNormal);
     float turn = static_cast<float>(static_cast<double>(inGround.x) * inHit.x + static_cast<double>(inGround.z) * inHit.z +
@@ -575,18 +575,18 @@ WheelFeelResult FeelWheelOn(const WheelFeel& in)
     return out;
 }
 
-bool StallAcross(const Maths::Vector& startVelocity, const Maths::Vector& direction, float tolerance)
+bool StallAcross(const Maths::Vec4& startVelocity, const Maths::Vec4& direction, float tolerance)
 {
     // THAW 0x005E2972: the velocity flattened (y 0) and normalised, its dot with the rail's direction (single
     // precision, z first) - across the rail when Rail_Tolerance is more than its size.
-    Maths::Vector flat = startVelocity;
+    Maths::Vec4 flat = startVelocity;
     flat.y = 0.0f;
-    flat.Normalize();
+    flat.MakeUnit();
     float dot = direction.z * flat.z + direction.y * flat.y + flat.x * direction.x;
     return tolerance > std::fabs(dot);
 }
 
-StallSlipStep StallSlip(uint32_t elapsed, float slipTime, const Maths::Vector& velocity, const Maths::Vector& kept)
+StallSlipStep StallSlip(uint32_t elapsed, float slipTime, const Maths::Vec4& velocity, const Maths::Vec4& kept)
 {
     // THAW 0x005E7092: the time since the state changed (unsigned) against stall_slip_time; under it, the kept
     // velocity x (1 / stall_slip_time) taken off - every component, w too.
@@ -617,7 +617,7 @@ bool StallSteepStep(float upY, int* frames)
     return true;
 }
 
-Maths::Vector StallFacing(const Maths::Vector& facing, const Maths::Vector& direction)
+Maths::Vec4 StallFacing(const Maths::Vec4& facing, const Maths::Vec4& direction)
 {
     // THAW 0x005E354E: the facing's dot with the rail's direction (single precision, z first); not at least 0:
     // the direction the other way (w too).
@@ -653,8 +653,8 @@ void EndFrame(void* core)
         // (ours, a diagnostic: the bike's position or velocity no longer finite - logged once)
         static bool s_logged = false;
         void* object = ObjectOf(core);
-        const Maths::Vector& p = VectorAt(object, kPosition);
-        const Maths::Vector& v = VectorAt(object, kVelocity);
+        const Maths::Vec4& p = VectorAt(object, kPosition);
+        const Maths::Vec4& v = VectorAt(object, kVelocity);
         if (!s_logged && !(std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z) && std::isfinite(v.x) &&
                            std::isfinite(v.y) && std::isfinite(v.z) && std::fabs(v.x) + std::fabs(v.y) + std::fabs(v.z) < 1e6f)) {
             s_logged = true;
@@ -691,7 +691,7 @@ namespace {
 // table, which a call by name - CGameEntity::InvokeMethodByName - never reaches: the blender is asked directly.)
 Gfx2D::CBlendChannel* SteerChannel(GameObjects::CGameEntity* object, GameObjects::CAnimBlenderComponent** blender)
 {
-    *blender = object ? static_cast<GameObjects::CAnimBlenderComponent*>(object->GetComponent(GameObjects::CAnimBlenderComponent::kType))
+    *blender = object ? static_cast<GameObjects::CAnimBlenderComponent*>(object->FetchModule(GameObjects::CAnimBlenderComponent::kType))
                       : nullptr;
     return *blender ? (*blender)->FindChannel(Checksums::HashFromText(kSteerSubset)) : nullptr;
 }
@@ -702,7 +702,7 @@ void RemoveSteerChannel(GameObjects::CAnimBlenderComponent* blender)
     Scripts::CStruct* params = Scripts::NewStruct();
     if (!params)
         return;
-    params = params->Init();
+    params = params->PrepareAll();
     params->PutNameKey(kSubsetId, Checksums::HashFromText(kSteerSubset));
     blender->RemoveChannel(kSubsetRemove, params, nullptr);
     params->Clear();
@@ -766,14 +766,14 @@ void OnGround(void* core)
     state.tireTap = false; // (THAW 0x005E4752)
 }
 
-bool GroundGravityApplies(void* core, const Maths::Vector& gravity)
+bool GroundGravityApplies(void* core, const Maths::Vec4& gravity)
 {
     BikeState& state = *StateOf(core, true);
-    if (!(Speed(core) < kSlow))
+    if (!(Pace(core) < kSlow))
         return true;
-    Maths::Vector direction = gravity;
+    Maths::Vec4 direction = gravity;
     if (Length3(direction) > 0.0)
-        direction.Normalize();
+        direction.MakeUnit();
     if (!(Dot3(VectorAt(ObjectOf(core), kFacing), direction) < 0.0))
         return true;
     return state.manual && !BrakeHeld(core, state);
@@ -805,12 +805,12 @@ void Brake(void* core)
     }
     static const uint32_t kNames[] = {0, kBrakeAcceleration, kFrontBrakeAcceleration, kSkidAcceleration};
     float slowing = FrameLength(core) * PhysicsFloat(kNames[choice], core);
-    Maths::Vector& velocity = VectorAt(ObjectOf(core), kVelocity);
+    Maths::Vec4& velocity = VectorAt(ObjectOf(core), kVelocity);
     if (Length3(velocity) < static_cast<double>(slowing) * 2.0) {
         velocity = {0.0f, 0.0f, 0.0f, 1.0f};
         return;
     }
-    Maths::Vector slow = velocity;
+    Maths::Vec4 slow = velocity;
     slow.SetLength(0.0f - slowing);
     velocity.x += slow.x;
     velocity.y += slow.y;
@@ -825,7 +825,7 @@ bool CanKick(void* core)
         return false;
     bool crouched = FlagsOf(core)[kFlagCrouched] || At<uint8_t>(core, kCrouchedKick);
     float most = Stat(crouched ? kCrouchedKickSpeed : kStandingKickSpeed, core);
-    return !(most < Speed(core));
+    return !(most < Pace(core));
 }
 
 bool MayAccelerate(void* core)
@@ -843,9 +843,9 @@ void TurnOnGround(void* core)
     // (THAW 0x005D6342: its pad +0x60 / +0x40 - the d-pad's right / left, not the stick's buttons; with the
     // stick off the d-pad on the bike, the time since the d-pad was last pressed, as THAW's)
     if (padAxisX != 0.0f)
-        held = static_cast<int>(pad->m_right.m_heldDown ? pad->m_right.GetHeldMillis() : pad->m_left.GetHeldMillis());
+        held = static_cast<int>(pad->m_rightSide.m_heldDown ? pad->m_rightSide.GetHeldMillis() : pad->m_leftSide.GetHeldMillis());
     float sharp = PhysicsFloat(kGroundSharpRotation, core);
-    float rate = Bike::GroundTurnRate(Speed(core), Stat(kMaxSpeedStat, core), PhysicsFloat(kGroundRotation, core),
+    float rate = Bike::GroundTurnRate(Pace(core), Stat(kMaxSpeedStat, core), PhysicsFloat(kGroundRotation, core),
                                       sharp, padAxisX != 0.0f && BrakeHeld(core, state), state.manual, padAxisX, held,
                                       MovingBackwards(core), At<float>(At<void*>(core, kBalance), 0x54));
     // THAW 0x005D61F0's +0x570: the turn animation's share, every frame on the ground.
@@ -854,10 +854,10 @@ void TurnOnGround(void* core)
         // ([debug] thaw_bmx_steer=1, ours: a line each ground frame - riding backwards and the turn's lean)
         static const bool s_log = ConfigInt("debug", "thaw_bmx_steer", 0) != 0;
         if (s_log) {
-            const Maths::Vector& v = VectorAt(ObjectOf(core), kVelocity);
-            const Maths::Vector& f = VectorAt(ObjectOf(core), kFacing);
+            const Maths::Vec4& v = VectorAt(ObjectOf(core), kVelocity);
+            const Maths::Vec4& f = VectorAt(ObjectOf(core), kFacing);
             Log("thaw_bmx steer: speed %.0f along %.2f stick %.0f rate %.3f blend %.2f in %.2f anim %d manual %d",
-                Speed(core), Length3(v) > 0.0 ? Dot3(v, f) / Length3(v) : 0.0, padAxisX, rate, state.steerBlend,
+                Pace(core), Length3(v) > 0.0 ? Dot3(v, f) / Length3(v) : 0.0, padAxisX, rate, state.steerBlend,
                 state.steerIn, state.steerAnim ? 1 : 0, state.manual ? 1 : 0);
         }
     }
@@ -871,8 +871,8 @@ void TurnOnGround(void* core)
     void* object = ObjectOf(core);
     if (!At<uint8_t>(core, kTurnVelocityToo))
         TurnVelocity(VectorAt(object, kVelocity), step);
-    At<Maths::Matrix>(object, kMatrix).YawLocally(step);
-    At<Maths::Matrix>(core, kDisplayMatrix).YawLocally(step);
+    At<Maths::Mat4>(object, kMatrix).YawLocally(step);
+    At<Maths::Mat4>(core, kDisplayMatrix).YawLocally(step);
     // THAW 0x005C9710: the wheel points along the new facing.
     SetWheelPoints(state, VectorAt(object, kPosition), VectorAt(object, kFacing));
     // THAW 0x005D6579 (the manual flag +0x525): in a manual the turn
@@ -884,17 +884,17 @@ void TurnOnGround(void* core)
         float& total = At<float>(At<void*>(core, kSkaterComponent), 0x13A4);
         total = step * kRadiansToDegrees + total;
         void* display = At<void*>(At<void*>(core, kRotationDisplay), 0x18);
-        static_cast<GameModules::Score*>(display)->AdvanceTurn(static_cast<int>(static_cast<int64_t>(total)));
+        static_cast<GameModules::PointTally*>(display)->AdvanceTurn(static_cast<int>(static_cast<int64_t>(total)));
         return;
     }
-    const Maths::Vector up = VectorAt(object, kUp);
+    const Maths::Vec4 up = VectorAt(object, kUp);
     float above = PhysicsFloat(kGroundSnapUp, core);
     bool frontDown = FeelWheel(core, state.frontWheel, state.lastFrontWheel, up, above).hit;
     bool rearDown = FeelWheel(core, state.rearWheel, state.lastRearWheel, up, above).hit;
     if (frontDown && rearDown)
         return;
-    At<Maths::Matrix>(object, kMatrix).YawLocally(-step);
-    At<Maths::Matrix>(core, kDisplayMatrix).YawLocally(-step);
+    At<Maths::Mat4>(object, kMatrix).YawLocally(-step);
+    At<Maths::Mat4>(core, kDisplayMatrix).YawLocally(-step);
     SetWheelPoints(state, VectorAt(object, kPosition), VectorAt(object, kFacing));
 }
 
@@ -920,7 +920,7 @@ void ManualPitch(void* core)
     in.downHeld = static_cast<int>(HeldMs(state.stickDown));
     in.frontBrake = PadOf(core)[kL1] != 0;
     in.stickY = StickScaled(core, 1);
-    in.speed = Speed(core);
+    in.speed = Pace(core);
     in.forward = Dot3(VectorAt(object, kVelocity), VectorAt(object, kFacing)) > 0.0;
     in.noLeanTime = PhysicsFloat(kGroundNoLeanTime, core);
     in.noBalanceStart = PhysicsInteger(kNoBalanceFrames, core);
@@ -951,14 +951,14 @@ void ManualPitch(void* core)
         RunBikeScript(core, in.nose ? kBailNoseManualScript : kBailManualScript);
         break;
     case Bike::ManualEvent::Landed:
-        static_cast<GameObjects::CObject*>(object)->PostOwnEvent(kLanded, nullptr);
+        static_cast<GameObjects::CEntity*>(object)->PostOwnEvent(kLanded, nullptr);
         break;
     case Bike::ManualEvent::ExitEndo: {
         // Rolled back the way it came at 200 (the endo's velocity flattened, turned round).
-        Maths::Vector back = state.endoVelocity;
+        Maths::Vec4 back = state.endoVelocity;
         back.y = 0.0f;
-        back.Normalize();
-        Maths::Vector& velocity = VectorAt(object, kVelocity);
+        back.MakeUnit();
+        Maths::Vec4& velocity = VectorAt(object, kVelocity);
         velocity = {-back.x * kEndoBack, -back.y * kEndoBack, -back.z * kEndoBack, back.w};
         RunBikeScript(core, kExitEndoScript);
         break;
@@ -975,11 +975,11 @@ void JumpBoost(void* core)
     // THAW 0x005DDDC0: standing still (no horizontal speed at all) with the stick not pulled back: pushed along the
     // facing.
     void* object = ObjectOf(core);
-    Maths::Vector& velocity = VectorAt(object, kVelocity);
+    Maths::Vec4& velocity = VectorAt(object, kVelocity);
     if (!Bike::JumpBoosts(velocity, StickRaw(core, 1)))
         return;
     float boost = ThawGlobal(kForwardJumpBoost, kForwardJumpBoostThaw);
-    const Maths::Vector& facing = VectorAt(object, kFacing);
+    const Maths::Vec4& facing = VectorAt(object, kFacing);
     velocity.x += facing.x * boost;
     velocity.y += facing.y * boost;
     velocity.z += facing.z * boost;
@@ -994,8 +994,8 @@ void JumpPitch(void* core)
         return;
     float angle = static_cast<float>(state.manualAngle * (state.noseManual ? kJumpManualPitch : -kJumpManualPitch) *
                                      kDegreesToRadians);
-    At<Maths::Matrix>(ObjectOf(core), kMatrix).PitchLocally(angle);
-    At<Maths::Matrix>(core, kDisplayMatrix).PitchLocally(angle);
+    At<Maths::Mat4>(ObjectOf(core), kMatrix).PitchLocally(angle);
+    At<Maths::Mat4>(core, kDisplayMatrix).PitchLocally(angle);
 }
 
 // --- in the air ----------------------------------------------------------------------------------------------------
@@ -1086,15 +1086,15 @@ void AirRotation(void* core)
     }
     if (pitched && !flags[kFlagVert]) {
         // (In vert THAW pitches the model only - through its model component, which THUG2's hasn't: not here.)
-        At<Maths::Matrix>(object, kMatrix).PitchLocally(pitchStep);
-        At<Maths::Matrix>(core, kDisplayMatrix).PitchLocally(pitchStep);
+        At<Maths::Mat4>(object, kMatrix).PitchLocally(pitchStep);
+        At<Maths::Mat4>(core, kDisplayMatrix).PitchLocally(pitchStep);
     }
     float spinStep = 0.0f;
     if (spin != 0.0f) {
         At<uint8_t>(core, kSpinningLeft) = spin > 0.0f ? 1 : 0;
         spinStep = FrameLength(core) * spin;
-        At<Maths::Matrix>(object, kMatrix).YawLocally(spinStep);
-        At<Maths::Matrix>(core, kDisplayMatrix).YawLocally(spinStep);
+        At<Maths::Mat4>(object, kMatrix).YawLocally(spinStep);
+        At<Maths::Mat4>(core, kDisplayMatrix).YawLocally(spinStep);
     }
     if (spinStep != 0.0f || pitchStep != 0.0f) {
         // The trick's rotation total, shown as THUG2's Spin shows it (short of a whole turn by more than the slop
@@ -1108,13 +1108,13 @@ void AirRotation(void* core)
         }
         if (show) {
             void* display = At<void*>(At<void*>(core, kRotationDisplay), 0x18);
-            static_cast<GameModules::Score*>(display)->AdvanceTurn(static_cast<int>(static_cast<int64_t>(total)));
+            static_cast<GameModules::PointTally*>(display)->AdvanceTurn(static_cast<int>(static_cast<int64_t>(total)));
         }
     }
     // The rider's head into something (not on vert): the bail.
     if (!flags[kFlagVert]) {
-        const Maths::Vector& position = VectorAt(object, kPosition);
-        const Maths::Vector& up = VectorAt(object, kUp);
+        const Maths::Vec4& position = VectorAt(object, kPosition);
+        const Maths::Vec4& up = VectorAt(object, kUp);
         float head = PhysicsFloat(kHeadHeight, core);
         VectorAt(core, kFeelerStart) = position;
         VectorAt(core, kFeelerEnd) = {position.x + up.x * head, position.y + up.y * head, position.z + up.z * head,
@@ -1137,7 +1137,7 @@ namespace {
 // wheel could have dropped this frame at that angle (its move since `last`, the frame's start, times the angle's
 // tangent - at least Physics_Ground_Snap_Down). Kept: the wheel at the hit point plus its normal. (Phase 3 took any
 // skatable hit up to a wheel base below: the bike stuck to the ground over crests and off ledges THAW leaves.)
-WheelHit FeelWheel(void* core, Maths::Vector& wheel, const Maths::Vector& last, const Maths::Vector& up, float above)
+WheelHit FeelWheel(void* core, Maths::Vec4& wheel, const Maths::Vec4& last, const Maths::Vec4& up, float above)
 {
     WheelHit result;
     VectorAt(core, kFeelerStart) = {wheel.x + up.x * above, wheel.y + up.y * above, wheel.z + up.z * above,
@@ -1146,8 +1146,8 @@ WheelHit FeelWheel(void* core, Maths::Vector& wheel, const Maths::Vector& last, 
                                   wheel.z + up.z * kWheelFeelDown, wheel.w + up.w * kWheelFeelDown};
     if (!static_cast<CorePhysicsComponent*>(core)->CheckFeeler(0x10, 0))
         return result;
-    const Maths::Vector point = VectorAt(core, kHitPoint);
-    const Maths::Vector normal = VectorAt(core, kHitNormal);
+    const Maths::Vec4 point = VectorAt(core, kHitPoint);
+    const Maths::Vec4 normal = VectorAt(core, kHitNormal);
     Bike::WheelFeel feel = {};
     feel.wheel = wheel;
     feel.last = last;
@@ -1181,8 +1181,8 @@ WheelHit FeelWheel(void* core, Maths::Vector& wheel, const Maths::Vector& last, 
 void SnapWheels(void* core, BikeState& state, WheelHit& front, WheelHit& rear, bool& mainHit)
 {
     void* object = ObjectOf(core);
-    const Maths::Vector up = VectorAt(object, kUp);
-    const Maths::Vector facing = VectorAt(object, kFacing);
+    const Maths::Vec4 up = VectorAt(object, kUp);
+    const Maths::Vec4 facing = VectorAt(object, kFacing);
     float above = PhysicsFloat(kGroundSnapUp, core);
     front = FeelWheel(core, state.frontWheel, state.lastFrontWheel, up, above);
     rear = FeelWheel(core, state.rearWheel, state.lastRearWheel, up, above);
@@ -1198,7 +1198,7 @@ void SnapWheels(void* core, BikeState& state, WheelHit& front, WheelHit& rear, b
     if (rear.hit)
         state.rearWheel = rear.point;
     // Under the skater (the component's own feeler, kept for the ground check after).
-    const Maths::Vector position = VectorAt(object, kPosition);
+    const Maths::Vec4 position = VectorAt(object, kPosition);
     VectorAt(core, kFeelerStart) = {position.x + up.x * above, position.y + up.y * above, position.z + up.z * above,
                                     position.w + up.w * above};
     VectorAt(core, kFeelerEnd) = {position.x + up.x * kWheelFeelDown, position.y + up.y * kWheelFeelDown,
@@ -1206,39 +1206,39 @@ void SnapWheels(void* core, BikeState& state, WheelHit& front, WheelHit& rear, b
     mainHit = static_cast<CorePhysicsComponent*>(core)->CheckFeeler(0x10, 0);
     if (mainHit && PhysicsFloat(kGroundSnapDown, core) < At<float>(core, kFeelerDistance))
         mainHit = false;
-    const Maths::Vector mainPoint = VectorAt(core, kHitPoint);
+    const Maths::Vec4 mainPoint = VectorAt(core, kHitPoint);
     // One wheel down: the other a wheel base from it - towards the ground under the skater, else along the facing.
-    auto towards = [&](const Maths::Vector& from) {
-        Maths::Vector d = mainHit ? Maths::Vector{mainPoint.x - from.x, mainPoint.y - from.y, mainPoint.z - from.z,
+    auto towards = [&](const Maths::Vec4& from) {
+        Maths::Vec4 d = mainHit ? Maths::Vec4{mainPoint.x - from.x, mainPoint.y - from.y, mainPoint.z - from.z,
                                               mainPoint.w - from.w}
                                 : facing;
         if (mainHit)
-            d.Normalize();
+            d.MakeUnit();
         return d;
     };
     if (rear.hit && !front.hit) {
-        Maths::Vector d = towards(state.rearWheel);
+        Maths::Vec4 d = towards(state.rearWheel);
         state.frontWheel = {state.rearWheel.x + d.x * kWheelBase, state.rearWheel.y + d.y * kWheelBase,
                             state.rearWheel.z + d.z * kWheelBase, state.rearWheel.w + d.w * kWheelBase};
     } else if (front.hit && !rear.hit) {
         // (THAW subtracts here too - the rear a wheel base on from the front, past it, when the ground under the
         // skater was found: its slip; the rear goes back from the front, as the other case.)
-        Maths::Vector d = mainHit ? towards(state.frontWheel) : Maths::Vector{-facing.x, -facing.y, -facing.z, -facing.w};
+        Maths::Vec4 d = mainHit ? towards(state.frontWheel) : Maths::Vec4{-facing.x, -facing.y, -facing.z, -facing.w};
         state.rearWheel = {state.frontWheel.x + d.x * kWheelBase, state.frontWheel.y + d.y * kWheelBase,
                            state.frontWheel.z + d.z * kWheelBase, state.frontWheel.w + d.w * kWheelBase};
     }
     // Something between the rider and a wheel: the wheel there (out by its normal); nearly stopped, the bike pushed
     // back.
-    for (Maths::Vector* wheel : {&state.frontWheel, &state.rearWheel}) {
+    for (Maths::Vec4* wheel : {&state.frontWheel, &state.rearWheel}) {
         Engine3D::CProbeRay feeler;
-        feeler.Construct();
+        feeler.MakeNew();
         feeler.m_line.start = {position.x + up.x * kWheelOffset, position.y + up.y * kWheelOffset,
                                position.z + up.z * kWheelOffset, position.w + up.w * kWheelOffset};
         feeler.m_line.end = {wheel->x + up.x, wheel->y + up.y, wheel->z + up.z, wheel->w + up.w};
         if (feeler.GetHitShape(true, false)) {
             *wheel = {feeler.m_contactPos.x + feeler.m_surfaceDir.x, feeler.m_contactPos.y + feeler.m_surfaceDir.y,
                       feeler.m_contactPos.z + feeler.m_surfaceDir.z, feeler.m_contactPos.w + feeler.m_surfaceDir.w};
-            Maths::Vector& velocity = VectorAt(object, kVelocity);
+            Maths::Vec4& velocity = VectorAt(object, kVelocity);
             if (Length3(velocity) < kSlow)
                 velocity = {-velocity.x, -velocity.y, -velocity.z, -velocity.w};
         }
@@ -1328,20 +1328,20 @@ WheelGround WheelGroundCheck(void* core)
     if ((!front.hit && !rear.hit) || (front.hit && !rear.hit && backwards) || (!front.hit && rear.hit && !backwards)) {
         static const bool s_log = ConfigInt("debug", "thaw_bmx_wheels", 0) != 0;
         if (s_log) {
-            const Maths::Vector& p = VectorAt(object, kPosition);
+            const Maths::Vec4& p = VectorAt(object, kPosition);
             Log("thaw_bmx wheels off: pos %.1f %.1f %.1f speed %.1f%s | front %d why %d dist %.2f reach %.2f turn %.3f "
                 "limit %.3f | rear %d why %d dist %.2f reach %.2f turn %.3f limit %.3f",
-                p.x, p.y, p.z, Speed(core), backwards ? " backwards" : "", front.hit ? 1 : 0, front.why, front.distance,
+                p.x, p.y, p.z, Pace(core), backwards ? " backwards" : "", front.hit ? 1 : 0, front.why, front.distance,
                 front.reach, front.turn, front.limit, rear.hit ? 1 : 0, rear.why, rear.distance, rear.reach, rear.turn,
                 rear.limit);
         }
         return kWheelsOff;
     }
     // On it: midway between the wheels, the ground normal across the wheel base.
-    Maths::Vector& position = VectorAt(object, kPosition);
+    Maths::Vec4& position = VectorAt(object, kPosition);
     position = {(state.frontWheel.x + state.rearWheel.x) * 0.5f, (state.frontWheel.y + state.rearWheel.y) * 0.5f,
                 (state.frontWheel.z + state.rearWheel.z) * 0.5f, (state.frontWheel.w + state.rearWheel.w) * 0.5f};
-    Maths::Vector up = Bike::WheelBaseUp(VectorAt(object, kRight), state.frontWheel, state.rearWheel,
+    Maths::Vec4 up = Bike::WheelBaseUp(VectorAt(object, kRight), state.frontWheel, state.rearWheel,
                                        VectorAt(core, kHitNormal));
     static_cast<CorePhysicsComponent*>(core)->TurnToNormal(up); // (THAW's 0x005D0BD0: THUG2's own)
     if (StateOf(core) != kStateAir)
@@ -1355,11 +1355,11 @@ bool LerpDisplayNormal(void* core)
         return false;
     BikeState& state = *StateOf(core, true);
     // THUG2's 0x004FEA50 with THAW's bike target and speed.
-    Maths::Vector target = Bike::WheelBaseNormal(VectorAt(core, kGroundNormal), state.frontWheel, state.rearWheel);
+    Maths::Vec4 target = Bike::WheelBaseNormal(VectorAt(core, kGroundNormal), state.frontWheel, state.rearWheel);
     float& t = At<float>(core, kNormalLerp);
-    Maths::Vector& display = VectorAt(core, kDisplayNormal);
+    Maths::Vec4& display = VectorAt(core, kDisplayNormal);
     if (t != 0.0f) {
-        const Maths::Vector& old = VectorAt(core, kOldNormal);
+        const Maths::Vec4& old = VectorAt(core, kOldNormal);
         if (old == target) {
             t = 0.0f;
         } else {
@@ -1370,14 +1370,14 @@ bool LerpDisplayNormal(void* core)
             } else {
                 display = {(old.x - target.x) * t + target.x, (old.y - target.y) * t + target.y,
                            (old.z - target.z) * t + target.z, (old.w - target.w) * t + target.w};
-                display.Normalize();
+                display.MakeUnit();
             }
         }
     }
-    Maths::Vector& displayUp = VectorAt(core, kDisplayUp);
+    Maths::Vec4& displayUp = VectorAt(core, kDisplayUp);
     if (displayUp != display) {
         displayUp = display;
-        At<Maths::Matrix>(core, kDisplayMatrix).SquareUpAxes(1);
+        At<Maths::Mat4>(core, kDisplayMatrix).SquareUpAxes(1);
         void* object = ObjectOf(core);
         VectorAt(core, kDisplayMatrix) = VectorAt(object, kRight);
         VectorAt(core, kDisplayForward) = VectorAt(object, kFacing);
@@ -1391,22 +1391,22 @@ Scripts::CArray* GrindTrickRow(void* core, bool leftSide, bool sideways, bool ba
 {
     BikeState& state = *StateOf(core, true);
     *column = static_cast<uint32_t>(Bike::GrindColumn(leftSide, sideways, backwards, &state.overGrind));
-    Scripts::CArray* list = Scripts::GetArray(kGrindTrickList);
-    if (!list || list->m_size == 0)
+    Scripts::CArray* list = Scripts::FetchList(kGrindTrickList);
+    if (!list || list->m_extent == 0)
         return nullptr;
     // THAW reads the raw stick alone here (no d-pad at full deflection, unlike StickRaw).
     uint32_t row = static_cast<uint32_t>(Bike::GrindRow(ControlPad(core)->m_stick[3]));
-    if (row >= list->m_size)
+    if (row >= list->m_extent)
         row = 0;
-    return reinterpret_cast<Scripts::CArray*>(list->GetElement(row));
+    return reinterpret_cast<Scripts::CArray*>(list->FetchPart(row));
 }
 
 bool GrindSide(void*, bool leftSide, bool badLedgeOnThatSide) { return badLedgeOnThatSide ? !leftSide : leftSide; }
 
-bool AcidDropDirection(void* core, Maths::Vector* direction)
+bool AcidDropDirection(void* core, Maths::Vec4* direction)
 {
-    const Maths::Vector& facing = VectorAt(ObjectOf(core), kFacing);
-    Maths::Vector d = {facing.x, 0.0f, facing.z, facing.w};
+    const Maths::Vec4& facing = VectorAt(ObjectOf(core), kFacing);
+    Maths::Vec4 d = {facing.x, 0.0f, facing.z, facing.w};
     double length = std::sqrt(static_cast<double>(d.x) * d.x + static_cast<double>(d.z) * d.z);
     if (length > 0.0) {
         float inverse = static_cast<float>(1.0 / length);
@@ -1420,7 +1420,7 @@ bool AcidDropDirection(void* core, Maths::Vector* direction)
 
 // --- the stall ---------------------------------------------------------------------------------------------------
 
-void GrindStall(void* core, const Maths::Vector& startVelocity, const Maths::Vector& direction)
+void GrindStall(void* core, const Maths::Vec4& startVelocity, const Maths::Vec4& direction)
 {
     // THAW 0x005E2935. (THAW: R1 or the skater's ability 0x16 - THAW's skater stalls too; only
     // the bike's is ported. THAW runs the rail's TriggerScript here, with its stall event 0x20000 when R1 is held - our
@@ -1430,8 +1430,8 @@ void GrindStall(void* core, const Maths::Vector& startVelocity, const Maths::Vec
         state.stallScript = false;
         return;
     }
-    if (Bike::StallAcross(startVelocity, direction, Scripts::GetFloat(kRailTolerance)))
-        SetState(core, kStateBikeStall);
+    if (Bike::StallAcross(startVelocity, direction, Scripts::FetchFloat(kRailTolerance)))
+        ChangePhase(core, kStateBikeStall);
     state.stallVelocity = VectorAt(ObjectOf(core), kVelocity);
     state.stallScript = true;
 }
@@ -1447,12 +1447,12 @@ void RailStallSlip(void* core)
         return;
     }
     float slipTime = ThawGlobal(kStallSlipTime, kStallSlipTimeThaw);
-    Maths::Vector& velocity = VectorAt(ObjectOf(core), kVelocity);
+    Maths::Vec4& velocity = VectorAt(ObjectOf(core), kVelocity);
     Bike::StallSlipStep step =
         Bike::StallSlip(Since(At<int>(core, kStateChangeTime)), slipTime, velocity, state->stallVelocity);
     if (step.stall) {
         state->stallScript = false;
-        SetState(core, kStateBikeStall);
+        ChangePhase(core, kStateBikeStall);
         return;
     }
     velocity = step.velocity;
@@ -1465,7 +1465,7 @@ bool StallSteepRail(void* core)
     BikeState& state = *StateOf(core, true);
     if (!Bike::StallSteepStep(VectorAt(ObjectOf(core), kUp).y, &state.stallSteepFrames))
         return false;
-    SetState(core, kStateRail);
+    ChangePhase(core, kStateRail);
     return true;
 }
 

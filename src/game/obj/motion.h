@@ -62,15 +62,15 @@ public:
 
     // --- life ---
     // 0x00426650 (registered with the component types): a new one (MemSys::AllocZeroed; the constructor inlined).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00424AA0: the constructor (returns this): the base's, its vtable and type, no path follower or path group,
     // only the ground's height taken (+0x70), no ground offset; then Reset.
-    CKinematicsModule* Construct();
+    CKinematicsModule* MakeNew();
     // 0x00424AE0: the destructor body: the path follower deleted (its vtable), the turn's interpolator and the
     // follow trail freed, then the base's.
     void DestroyBody();
     // 0x004266F0 (vtable slot 0): the scalar deleting destructor.
-    CKinematicsModule* Destroy(unsigned int flags);
+    CKinematicsModule* Teardown(unsigned int flags);
     // 0x00423D00: every motion setting back to rest (identity-like vectors, no flags, no speeds); +0x70 and the
     // pointers are kept.
     void Reset();
@@ -92,7 +92,7 @@ public:
     // after a leader (the first that applies), the jump (0x00424870: the position it gives); the ground offset
     // eased in (384 per second squared towards it, the speed zeroed when it changes direction or overshoots);
     // objects with ids over 15 (not skaters) get their matrix as the display matrix.
-    void Update();
+    void TickFrame();
 
     // --- the update's parts ---
     // 0x00423740: the hover's bob for now: sin(2 pi * (the game clock mod the period) / period) * amplitude (the
@@ -150,16 +150,16 @@ public:
     void UpdateRotations();
     // 0x00425520: Obj_Rotate's turn from the orientation now to `target` over `time` seconds (0: at once) - its
     // interpolator made on first use (from the manager, set up first if needed).
-    void StartRotation(Scripts::CStruct* params, const Maths::Matrix* target);
+    void StartRotation(Scripts::CStruct* params, const Maths::Mat4* target);
     // 0x00424440: one frame of it (done at the end, or when there's no time).
     void UpdateTurn();
     // 0x004240E0: axis `axis` set to turn towards `target` seen from `from` (the angle in the plane across that axis
     // from row `referenceAxis`): true (turning) when the angle is beyond `threshold`.
-    bool SetupLookAxis(const Maths::Vector* target, const Maths::Vector* from, int referenceAxis, int axis, float threshold);
+    bool SetupLookAxis(const Maths::Vec4* target, const Maths::Vec4* from, int referenceAxis, int axis, float threshold);
     // 0x004252E0: turn to look at `target`: instant (about y at once when beyond AngleThreshold degrees; true if
     // turned), else the axes 0xA4AECB20 (bits, default y) turned over `time`, or at `speed` (degrees per second,
     // default 360) with Acceleration - true if any turns.
-    bool LookAt(Scripts::CStruct* params, const Maths::Vector* target);
+    bool LookAt(Scripts::CStruct* params, const Maths::Vec4* target);
     // 0x00425710: look at the node of its node's link LinkNum (1 based, default 1; out of range: the first).
     void LookAtNodeLinked(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004257A0: look at the node Name (none: nothing).
@@ -190,7 +190,7 @@ public:
     // 0x004269F0 (RET 0x1C: the target by value): moving to `target` - at once (no time or speed given: there now,
     // oriented to `node` with `orient`; true), over `time` seconds, or at `speed` (mph, fps or ips) reached by
     // Acceleration (the same units). False when it moves.
-    bool MoveTo(Scripts::CStruct* params, Scripts::CScript* script, Maths::Vector target, uint32_t node);
+    bool MoveTo(Scripts::CStruct* params, Scripts::CScript* script, Maths::Vec4 target, uint32_t node);
     // 0x00426C10: MoveTo the node Name (at once: arrived there; else the node told on arriving).
     void GlideToNode(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00426CB0: MoveTo the unnamed vector (FLAG_MAX_COORDS: converted) - relative to its position unless
@@ -200,7 +200,7 @@ public:
     // several, else the first).
     void MoveToLink(Scripts::CStruct* params, Scripts::CScript* script);
     // The body of Obj_MoveForward / Obj_MoveLeft (two copies in the original): MoveTo `dist` along `direction`.
-    void MoveAlong(Scripts::CStruct* params, Scripts::CScript* script, const Maths::Vector& direction);
+    void MoveAlong(Scripts::CStruct* params, Scripts::CScript* script, const Maths::Vec4& direction);
 
     // --- script member functions (the table at 0x00681EB8; all true) ---
     bool Obj_StorePos(Scripts::CStruct* params, Scripts::CScript* script);          // 0x004237D0
@@ -266,30 +266,30 @@ public:
     float m_pathTurnDistance;  // +0x34
     float m_groundAbove;       // +0x38 Obj_StickToGround DistAbove (feet)
     float m_groundBelow;       // +0x3C DistBelow
-    Maths::Vector m_groundTriangle[3]; // +0x40 the last ground triangle hit (0x00425CB0 tries it first)
+    Maths::Vec4 m_groundTriangle[3]; // +0x40 the last ground triangle hit (0x00425CB0 tries it first)
     bool m_groundHeightOnly;   // +0x70 (constructor: true; cars: false) - false: three feelers turn it to the ground
     uint8_t pad71[3];
-    Maths::Vector m_groundTriangles[3][3]; // +0x74 the three feelers' last triangles
+    Maths::Vec4 m_groundTriangles[3][3]; // +0x74 the three feelers' last triangles
     CObjectGroup* m_pathGroup; // +0x104 the path's group of objects (path manager)
-    Maths::Vector m_moveTarget;  // +0x108
+    Maths::Vec4 m_moveTarget;  // +0x108
     float m_moveDistance;      // +0x118 from the start to the target
     float m_moveDone;          // +0x11C how far it has gone
     float m_moveMaxSpeed;      // +0x120 with an acceleration: the speed to reach
     float m_moveAcceleration;  // +0x124
     uint32_t m_moveArriveNode; // +0x128 Obj_MoveToNode: the node told (0x00424020) on arriving (0: none)
-    Maths::Vector m_rotTarget;   // +0x12C per axis: the angle to turn through (radians; 0 forever)
-    Maths::Vector m_rotDone;     // +0x13C per axis: turned so far
-    Maths::Vector m_rotMaxSpeed; // +0x14C per axis: the speed to reach (radians per second)
-    Maths::Vector m_rotSpeed;    // +0x15C per axis: the speed now
-    Maths::Vector m_rotAcceleration; // +0x16C
-    Maths::Vector m_rotDeceleration; // +0x17C
-    Maths::Vector m_moveStart;   // +0x18C
+    Maths::Vec4 m_rotTarget;   // +0x12C per axis: the angle to turn through (radians; 0 forever)
+    Maths::Vec4 m_rotDone;     // +0x13C per axis: turned so far
+    Maths::Vec4 m_rotMaxSpeed; // +0x14C per axis: the speed to reach (radians per second)
+    Maths::Vec4 m_rotSpeed;    // +0x15C per axis: the speed now
+    Maths::Vec4 m_rotAcceleration; // +0x16C
+    Maths::Vec4 m_rotDeceleration; // +0x17C
+    Maths::Vec4 m_moveStart;   // +0x18C
     float m_groundSpeed;       // +0x19C the ground offset's speed of change
     float m_groundOffset;      // +0x1A0 how far the height has still to go to the ground
     float m_pathSpeed1A4;      // +0x1A4 (the path's speed handling: 0x00423530)
     float m_pathSpeed1A8;      // +0x1A8
     float m_pathMinStopSpeed;  // +0x1AC Obj_SetPathMinStopVel
-    Maths::Vector m_storedPos;   // +0x1B0 Obj_StorePos
+    Maths::Vec4 m_storedPos;   // +0x1B0 Obj_StorePos
     uint32_t m_storedNode;     // +0x1C0 Obj_StoreNode
     float m_turnTime;          // +0x1C4 Obj_Rotate's time (0: at once)
     float m_turnElapsed;       // +0x1C8
@@ -307,10 +307,10 @@ public:
     uint8_t pad1F5[3];
     float m_jumpSpeed;         // +0x1F8 up (per second)
     float m_jumpGravity;       // +0x1FC
-    Maths::Vector m_jumpHeading; // +0x200 along (x, z; w kept)
+    Maths::Vec4 m_jumpHeading; // +0x200 along (x, z; w kept)
     bool m_jumpHasHeading;     // +0x210
     uint8_t pad211[3];
-    Maths::Vector m_jumpPos;     // +0x214 the jump's position this frame
+    Maths::Vec4 m_jumpPos;     // +0x214 the jump's position this frame
     float m_jumpStartSpeed;    // +0x224
     float m_jumpColAbove;      // +0x228 col_dist_above
     float m_jumpColBelow;      // +0x22C col_dist_below
@@ -318,12 +318,12 @@ public:
     bool m_jumpHasLandHeight;  // +0x234
     uint8_t pad235[3];
     float m_jumpLandHeight;    // +0x238
-    Maths::Vector m_jumpStart;   // +0x23C
+    Maths::Vec4 m_jumpStart;   // +0x23C
 
     // 0x00425600 (thiscall; called by its member function for Obj_Rotate, 0x00426770): turn the object to an
     // orientation over time - `relative = (x, y, z)`: the object's orientation now turned by those angles about its
-    // own axes (Maths::Matrix::TurnInOwnFrame); `absolute = (x, y, z)`: the orientation of those angles
-    // (Maths::Matrix::SetFromEulerAngles). Degrees; with FLAG_MAX_COORDS (0x26AF9DC9) the vector is first converted
+    // own axes (Maths::Mat4::TurnInOwnFrame); `absolute = (x, y, z)`: the orientation of those angles
+    // (Maths::Mat4::SetFromEulerAngles). Degrees; with FLAG_MAX_COORDS (0x26AF9DC9) the vector is first converted
     // (z negated, then NegateXRotateX90). Neither given: nothing. The turn is started by 0x00425520 (`time` from
     // the params).
     void RotateTo(Scripts::CStruct* params);
@@ -352,7 +352,7 @@ static_assert(offsetof(CKinematicsModule, m_motionFlags) == 0x18 && offsetof(CKi
 // 0x00425CB0 (ECX the triangle, EDX the end; the start and `out` on the stack, the caller pops: GroundHitStub):
 // the line from `start` to `end` against the cached triangle (three corners) - hit: the point. Else a feeler along
 // it: hit, the face it hit becomes the cached triangle and the point is the feeler's. Whether anything was hit.
-bool __cdecl GroundHit(Maths::Vector* triangle, const Maths::Vector* end, const Maths::Vector* start, Maths::Vector* out);
+bool __cdecl GroundHit(Maths::Vec4* triangle, const Maths::Vec4* end, const Maths::Vec4* start, Maths::Vec4* out);
 void GroundHitStub();
 
 } // namespace Obj

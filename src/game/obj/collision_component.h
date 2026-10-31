@@ -32,11 +32,11 @@ public:
 
     // 0x0041C920 (registered with the composite object manager by 0x004E4860): a new one, without collision (0 if
     // out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0041C710: the collision object (if any) out of the movables' list and deleted, then the base's body.
     void DestroyBody();
     // 0x0041C780 (vtable slot 0)
-    CContactShapeModule* Destroy(unsigned int flags);
+    CContactShapeModule* Teardown(unsigned int flags);
     // 0x0041C7B0 (vtable slot 2): CollisionMode (0x2D7E583B) to a shape type (Engine3D::ShapeTypeFromChecksum; nothing
     // more when 0); a LevelObject (Class 0xB7B3BD86) takes the geometry of the level sector named as it (Name, which
     // must be there) when that sector has collision; then SetUpHitShape.
@@ -48,7 +48,7 @@ public:
     // 0x0041C980 (vtable slot 1): the collision object placed where the object is: with a model whose bone matrix
     // (0x00493040) there is, at the object's position plus that matrix's translation (not turned) and turned by the
     // matrix times the object's display matrix; else at the object's position, turned by its display matrix.
-    void Update();
+    void TickFrame();
 
     Engine3D::CHitMesh* m_hitShape; // +0x18
 };

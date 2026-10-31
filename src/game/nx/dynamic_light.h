@@ -14,7 +14,7 @@ struct CDynamicLight {
     void SetReach(float radius);
 
     uint8_t unknown00[4];
-    Maths::Vector m_pos;       // +0x04
+    Maths::Vec4 m_atPoint;       // +0x04
     uint8_t unknown14[4];
     float m_radius;          // +0x18
     float m_inverseRadius;   // +0x1C
@@ -22,7 +22,7 @@ struct CDynamicLight {
     uint32_t m_tint;        // +0x24 (bytes r, g, b, a)
     uint32_t m_holderKey;      // +0x28 the id of the object it belongs to (0 once it's let go)
 };
-static_assert(offsetof(CDynamicLight, m_pos) == 0x04 && offsetof(CDynamicLight, m_radius) == 0x18 &&
+static_assert(offsetof(CDynamicLight, m_atPoint) == 0x04 && offsetof(CDynamicLight, m_radius) == 0x18 &&
                   offsetof(CDynamicLight, m_tint) == 0x24 && offsetof(CDynamicLight, m_holderKey) == 0x28,
               "layout must match the original");
 

@@ -198,7 +198,7 @@ bool StoreGroup(Organize::State* state, const std::string& name, const std::vect
     if (at >= 0) {
         state->groups[at].members = members;
     } else {
-        Organize::Group g;
+        Organize::GroupSet g;
         g.name = name;
         g.members = members;
         state->groups.push_back(g);

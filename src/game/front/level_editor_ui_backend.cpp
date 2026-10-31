@@ -23,7 +23,7 @@ namespace MenuSystem::LevelEditor::UiBackend {
 
 namespace {
 
-IDirect3DDevice9* Device() { return Engine3D::g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return Engine3D::g_d3dDevice; }
 
 // Whether the backends are started for the current ImGui context: each context (the editor's, the new front end's -
 // game/front/new_frontend.h) has its own backend data, which the backends keep in its IO.
@@ -93,12 +93,12 @@ bool MakeOffscreen(IDirect3DDevice9* device, int size)
 
 } // namespace
 
-bool Init()
+bool PrepareAll()
 {
     if (ContextReady())
         return true;
     SDL_Window* window = SystemCore::SdlWindow();
-    IDirect3DDevice9* device = Device();
+    IDirect3DDevice9* device = InputPort();
     if (!window || !device) {
         if (!g_failedLogged)
             Log("level editor UI: no %s yet", window ? "device" : "window");
@@ -175,7 +175,7 @@ void InvalidateContextObjects()
 
 uint64_t CreateTexture(int width, int height, TextureFormat format, const void* data, int rowBytes, int rows)
 {
-    IDirect3DDevice9* device = Device();
+    IDirect3DDevice9* device = InputPort();
     if (!device || width <= 0 || height <= 0 || !data)
         return 0;
     IDirect3DTexture9* texture = nullptr;
@@ -223,7 +223,7 @@ uint64_t TextureId(void* rendererTexture)
 
 bool BeginOffscreen(int size, uint32_t argb)
 {
-    IDirect3DDevice9* device = Device();
+    IDirect3DDevice9* device = InputPort();
     if (!device || g_offscreen.active || size <= 0 || !MakeOffscreen(device, size))
         return false;
     IDirect3DSurface9* surface = nullptr;
@@ -248,7 +248,7 @@ bool BeginOffscreen(int size, uint32_t argb)
 void EndOffscreen()
 {
     Offscreen& o = g_offscreen;
-    IDirect3DDevice9* device = Device();
+    IDirect3DDevice9* device = InputPort();
     if (!o.active || !device)
         return;
     device->SetRenderTarget(0, o.savedTarget);
@@ -345,7 +345,7 @@ bool MakeAtlas(IDirect3DDevice9* device, int size)
 
 bool BeginAtlasCell(int atlasSize, int x, int y, int size, uint32_t argb)
 {
-    IDirect3DDevice9* device = Device();
+    IDirect3DDevice9* device = InputPort();
     if (!device || g_atlas.active || g_offscreen.active || atlasSize <= 0 || size <= 0 || x < 0 || y < 0 ||
         x + size > atlasSize || y + size > atlasSize || !MakeAtlas(device, atlasSize))
         return false;
@@ -373,7 +373,7 @@ bool BeginAtlasCell(int atlasSize, int x, int y, int size, uint32_t argb)
 void EndAtlasCell()
 {
     Atlas& a = g_atlas;
-    IDirect3DDevice9* device = Device();
+    IDirect3DDevice9* device = InputPort();
     if (!a.active || !device)
         return;
     device->SetRenderTarget(0, a.savedTarget);

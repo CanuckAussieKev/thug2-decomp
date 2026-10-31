@@ -25,14 +25,14 @@ public:
 
     // 0x0041D200 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined: the
     // base's, its vtable and type, no fam, no stream; 0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0041D170 (not a Ghidra function; registered with Create): its member functions' table (0x006836E8; the
     // functions are put in by the static initialiser at 0x00642B30).
     static void __cdecl PublishMethodTable();
     // 0x0041D190: the base's body.
     void DestroyBody();
     // 0x0041D1A0 (vtable slot 0)
-    CFamComponent* Destroy(unsigned int flags);
+    CFamComponent* Teardown(unsigned int flags);
 
     // 0x0041D2C0: the loaded fam's scripts (fam_play_stream) stopped, its anim controller removed from the animation
     // blender (RemoveAnimController type=partialAnim id=jawRotation), the asset unloaded; none loaded.

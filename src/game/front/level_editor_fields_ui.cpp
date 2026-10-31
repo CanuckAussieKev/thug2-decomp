@@ -26,7 +26,7 @@ const ImVec4 kWarn = ImVec4(1.0f, 0.78f, 0.45f, 1.0f);
 const ImVec4 kLive = ImVec4(0.45f, 0.85f, 0.55f, 1.0f);
 const ImVec4 kReload = ImVec4(0.56f, 0.71f, 0.92f, 1.0f);
 
-using Buffer = std::array<char, 512>;
+using ScratchBuf = std::array<char, 512>;
 
 // The text being typed into each field (kept while its box is active; otherwise the field's value now).
 struct Typing {
@@ -34,13 +34,13 @@ struct Typing {
     uint32_t generation = 0;
     uint32_t active = 0;
     bool activeSet = false;
-    std::unordered_map<uint32_t, Buffer> buffers;
+    std::unordered_map<uint32_t, ScratchBuf> buffers;
     // The "add a field" row.
-    Buffer newName = {}, newValue = {};
+    ScratchBuf newName = {}, newValue = {};
     int newKind = 0;
 } g_typing;
 
-void Copy(Buffer* buffer, const std::string& text)
+void DupFrom(ScratchBuf* buffer, const std::string& text)
 {
     std::snprintf(buffer->data(), buffer->size(), "%s", text.c_str());
 }
@@ -98,17 +98,17 @@ std::string Check(const Fields::Row& row, uint32_t self, const char* text, std::
 }
 
 const Fields::Kind kAddKinds[] = {Fields::Kind::Integer, Fields::Kind::Float, Fields::Kind::Name,
-                                  Fields::Kind::String,  Fields::Kind::Vector, Fields::Kind::Flag,
+                                  Fields::Kind::Chars,  Fields::Kind::Vec4, Fields::Kind::BitMark,
                                   Fields::Kind::Names};
 
 } // namespace
 
 void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<Request>* requests)
 {
-    const std::vector<Nodes::Node>& nodes = Nodes::All();
+    const std::vector<Nodes::Elem>& nodes = Nodes::All();
     if (nodeIndex < 0 || nodeIndex >= static_cast<int>(nodes.size()))
         return;
-    const Nodes::Node& node = nodes[nodeIndex];
+    const Nodes::Elem& node = nodes[nodeIndex];
     if (g_typing.node != nodeIndex || g_typing.generation != Nodes::Generation()) {
         if (g_typing.node != nodeIndex) {
             g_typing.buffers.clear();
@@ -159,15 +159,15 @@ void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<R
                 ImGui::EndDisabled();
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                     ImGui::SetTooltip("%s", row.why.c_str());
-            } else if (row.value.kind == Fields::Kind::Flag) {
+            } else if (row.value.kind == Fields::Kind::BitMark) {
                 bool on = row.value.on;
                 if (ImGui::Checkbox("##flag", &on))
-                    SetField(requests, node.name, row.key, Fields::Kind::Flag, on ? "on" : "off");
+                    SetField(requests, node.name, row.key, Fields::Kind::BitMark, on ? "on" : "off");
             } else {
                 bool active = g_typing.activeSet && g_typing.active == row.key;
-                Buffer& buffer = g_typing.buffers[row.key];
+                ScratchBuf& buffer = g_typing.buffers[row.key];
                 if (!active)
-                    Copy(&buffer, text);
+                    DupFrom(&buffer, text);
                 bool enter = ImGui::InputText("##value", buffer.data(), buffer.size(),
                                               ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
                 bool left = ImGui::IsItemDeactivatedAfterEdit();
@@ -208,7 +208,7 @@ void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<R
                 if (ImGui::IsItemHovered())
                     ImGui::SetTooltip("Revert");
             }
-            if (row.editable && !row.included && row.value.kind != Fields::Kind::Flag && row.key != Fields::KeyLinks()) {
+            if (row.editable && !row.included && row.value.kind != Fields::Kind::BitMark && row.key != Fields::KeyLinks()) {
                 ImGui::SameLine();
                 if (ImGui::SmallButton("x"))
                     Simple(requests, Request::kFieldRemove, node.name, row.key);
@@ -293,7 +293,7 @@ void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<R
 namespace {
 
 struct LevelTyping {
-    Buffer name = {};
+    ScratchBuf name = {};
     bool nameActive = false;
 } g_level;
 
@@ -318,7 +318,7 @@ void When(ImFont* smallFont, const char* when, const char* tip)
 
 } // namespace
 
-void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont, std::vector<Request>* requests)
+void LevelSection(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smallFont, std::vector<Request>* requests)
 {
     ImGui::Spacing();
     ImGui::Separator();
@@ -342,7 +342,7 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
         ImGui::TextDisabled("Name");
         ImGui::TableNextColumn();
         if (!g_level.nameActive)
-            Copy(&g_level.name, props.name);
+            DupFrom(&g_level.name, props.name);
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         bool enter = ImGui::InputTextWithHint("##name", level.haveDefaults ? own.name.c_str() : "Original",
                                               g_level.name.data(), 65, ImGuiInputTextFlags_EnterReturnsTrue);
@@ -506,7 +506,7 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
         int distance = f[4];
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::DragInt("##fogdist", &distance, 10.0f, 0, 100000, "distance %d")) {
-            props.fog[4] = LevelProps::Distance(distance);
+            props.fog[4] = LevelProps::SpanTo(distance);
             changed = true;
         }
         done = done || ImGui::IsItemDeactivatedAfterEdit();
@@ -518,7 +518,7 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
         When(smallFont, "live", "Fog colour, alpha and distance (alpha 0: no fog)");
         ImGui::EndTable();
     }
-    if (!LevelProps::Empty(level.props)) {
+    if (!LevelProps::Vacant(level.props)) {
         if (ImGui::SmallButton("Revert All"))
             SendProps(requests, LevelProps::Props{}, true);
     }

@@ -75,7 +75,7 @@ const char* SurfaceName(Surface surface)
     }
 }
 
-int ClipTriangleToNear(V3 cameraPos, const Frame& frame, float nearZ, const V3 in[3], V3 out[4])
+int ClipTriangleToNear(V3 cameraPos, const TickCycle& frame, float nearZ, const V3 in[3], V3 out[4])
 {
     // (Sutherland-Hodgman against one plane: depth = (p - camera) . -back)
     float depth[3];
@@ -104,7 +104,7 @@ float DistanceToBox(V3 point, V3 min, V3 max)
 
 bool HiddenSet::Has(uint32_t id) const { return std::find(ids.begin(), ids.end(), id) != ids.end(); }
 
-bool HiddenSet::Add(uint32_t id)
+bool HiddenSet::AppendOne(uint32_t id)
 {
     if (Has(id))
         return false;
@@ -112,7 +112,7 @@ bool HiddenSet::Add(uint32_t id)
     return true;
 }
 
-void AddDashed(std::vector<Ui::Line>* lines, const Ui::Line& line, float dash, float gap)
+void AddDashed(std::vector<Ui::Seg>* lines, const Ui::Seg& line, float dash, float gap)
 {
     float dx = line.bx - line.ax, dy = line.by - line.ay;
     float length = std::sqrt(dx * dx + dy * dy);
@@ -123,7 +123,7 @@ void AddDashed(std::vector<Ui::Line>* lines, const Ui::Line& line, float dash, f
     float period = std::max(dash + gap, length / 256.0f);
     for (float at = 0.0f; at < length; at += period) {
         float end = std::min(length, at + dash);
-        Ui::Line piece = line;
+        Ui::Seg piece = line;
         piece.ax = line.ax + ux * at;
         piece.ay = line.ay + uy * at;
         piece.bx = line.ax + ux * end;
@@ -205,12 +205,12 @@ Engine3D::CTriMeshSource* AnyTriDataOf(uint8_t* sector, bool* off)
 Engine3D::CTriMeshSource* DrawnTriDataOf(uint32_t checksum, uint8_t* sector, bool* off)
 {
     Engine3D::CTriMeshSource* tri = AnyTriDataOf(sector, off);
-    if (tri && *off && GeomOf(sector) && !Walls::Off(checksum))
+    if (tri && *off && GeomOf(sector) && !Walls::Disengaged(checksum))
         return nullptr;
     return tri;
 }
 
-V3 ToV3(const Maths::Vector& v) { return {v.x, v.y, v.z}; }
+V3 ToV3(const Maths::Vec4& v) { return {v.x, v.y, v.z}; }
 
 bool g_showCollision;
 bool g_settingRead;
@@ -293,7 +293,7 @@ struct Drawn {
     bool companion = false; // (a moved piece's shared collision: not a wall's, never Shift+clicked)
 };
 std::vector<Drawn> g_drawn;
-Stats g_stats;
+Attributes g_stats;
 uint32_t g_wall;
 
 // --- hiding ---
@@ -310,14 +310,14 @@ struct HiddenObjectRec {
 std::vector<HiddenSectorRec> g_hiddenSectors;
 std::vector<HiddenObjectRec> g_hiddenObjects;
 
-// CWorldCell::ToggleShown (0x0049E680, thiscall, RET 4) / GetVisibility (0x0049E690): the viewports it shows in.
+// CWorldCell::ToggleShown (0x0049E680, thiscall, RET 4) / FetchShown (0x0049E690): the viewports it shows in.
 void ToggleShown(uint8_t* sector, uint32_t mask)
 {
     reinterpret_cast<Engine3D::CWorldCell*>(sector)->ToggleShown(mask);
 }
-uint32_t GetVisibility(uint8_t* sector) { return reinterpret_cast<Engine3D::CWorldCell*>(sector)->GetVisibility(); }
+uint32_t FetchShown(uint8_t* sector) { return reinterpret_cast<Engine3D::CWorldCell*>(sector)->FetchShown(); }
 
-// A geometry's SetActive (vfunc +0x34) / IsActive (vfunc +0x38).
+// A geometry's ChangeLive (vfunc +0x34) / IsOperative (vfunc +0x38).
 void SetGeomActive(void* geom, bool on) { Method<void(__thiscall*)(void*, bool)>(geom, 0x34)(geom, on); }
 bool GeomActive(void* geom) { return Method<bool(__thiscall*)(void*)>(geom, 0x38)(geom); }
 
@@ -334,7 +334,7 @@ bool HideSector(uint32_t checksum)
     uint8_t* sector = Scenery::SectorOf(checksum);
     if (!sector || !GeomOf(sector))
         return false; // (collision only: nothing drawn to hide)
-    g_hiddenSectors.push_back({checksum, sector, GetVisibility(sector)});
+    g_hiddenSectors.push_back({checksum, sector, FetchShown(sector)});
     ToggleShown(sector, 0);
     return true;
 }
@@ -363,17 +363,17 @@ bool HideObject(uint32_t id)
 struct ObjectWalk {
     std::vector<uint32_t> ids;
 };
-void __cdecl CollectObject(GameObjects::CObject* object, void* data)
+void __cdecl CollectObject(GameObjects::CEntity* object, void* data)
 {
     auto* composite = static_cast<GameObjects::CGameEntity*>(object);
     OrientedBox box;
     if (Objects::ModelBox(composite, &box))
-        static_cast<ObjectWalk*>(data)->ids.push_back(composite->m_id);
+        static_cast<ObjectWalk*>(data)->ids.push_back(composite->m_ident);
 }
 
 } // namespace
 
-void Start()
+void Kickoff()
 {
     if (!g_settingRead) {
         g_showCollision = ConfigInt("editor", "collision", 0) != 0;
@@ -387,7 +387,7 @@ void Start()
     g_hiddenObjects.clear();
 }
 
-void Stop()
+void Halt()
 {
     ShowAll();
     g_cache.clear();
@@ -425,8 +425,8 @@ void SetShowCollision(bool on)
         g_drawn.clear();
 }
 
-void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                  std::vector<Ui::Overlay::Triangle>* triangles, std::vector<Ui::Line>* lines)
+void AddCollision(V3 cameraPos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
+                  std::vector<Ui::Overlay::Triangle>* triangles, std::vector<Ui::Seg>* lines)
 {
     g_drawn.clear();
     g_stats = {};
@@ -442,7 +442,7 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
     };
     struct Walk {
         V3 camera;
-        const Frame* frame;
+        const TickCycle* frame;
         float nearZ;
         std::vector<Candidate> found;
     } walk = {cameraPos, &frame, nearZ, {}};
@@ -479,7 +479,7 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
         float x[4], y[4];
     };
     std::vector<Polygon> polygons;
-    const V3 light = Normalize({0.35f, 0.85f, 0.4f});
+    const V3 light = MakeUnit({0.35f, 0.85f, 0.4f});
     // A face projected and styled (StyleOf): its polygon added, its edges drawn; false when it isn't on the screen.
     auto addFace = [&](const V3* p, const FaceFacts& facts) {
         V3 clipped[4];
@@ -492,7 +492,7 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
         float depth = 0.0f;
         for (int k = 0; k < count; ++k) {
             float nx, ny;
-            if (!Project(cameraPos, frame, lens, clipped[k], nearZ * 0.5f, &nx, &ny)) {
+            if (!CastOnto(cameraPos, frame, lens, clipped[k], nearZ * 0.5f, &nx, &ny)) {
                 nx = ny = 0.0f; // (on the near plane - can't happen after clipping)
             }
             left = left && nx < -1.0f;
@@ -508,7 +508,7 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
         FaceStyle style = StyleOf(facts);
         uint32_t argb = style.fill;
         // (shaded by the face's facing: the shape reads through the colour)
-        V3 normal = Cross(p[1] - p[0], p[2] - p[0]);
+        V3 normal = Perpendicular(p[1] - p[0], p[2] - p[0]);
         float length = std::sqrt(Dot(normal, normal));
         float shade = length > 0.0f ? 0.55f + 0.45f * std::fabs(Dot(normal, light)) / length : 1.0f;
         uint32_t r = static_cast<uint32_t>(((argb >> 16) & 0xFF) * shade);
@@ -519,7 +519,7 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
         if (style.edge && lines) {
             for (int k = 0; k < count; ++k) {
                 int n = (k + 1) % count;
-                Ui::Line line = {poly.x[k], poly.y[k], poly.x[n], poly.y[n], style.edge, style.thickness};
+                Ui::Seg line = {poly.x[k], poly.y[k], poly.x[n], poly.y[n], style.edge, style.thickness};
                 if (style.dashed)
                     AddDashed(lines, line, 6.0f, 5.0f);
                 else
@@ -612,7 +612,7 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
     g_stats.triangles = static_cast<int>(polygons.size());
 }
 
-Stats LastStats() { return g_stats; }
+Attributes LastStats() { return g_stats; }
 
 uint32_t PickWall(V3 origin, V3 unitDir)
 {
@@ -650,7 +650,7 @@ bool PickFace(V3 origin, V3 unitDir, FaceHit* hit)
     return true;
 }
 
-void InvalidateCache() { g_cache.clear(); }
+void StaleCache() { g_cache.clear(); }
 
 void SetHoverWall(uint32_t checksum) { g_hoverWall = g_showCollision ? checksum : 0; }
 uint32_t HoverWall() { return g_hoverWall; }
@@ -703,7 +703,7 @@ bool HiddenObject(uint32_t id)
                        [&](const HiddenObjectRec& r) { return r.id == id; });
 }
 
-int Hide(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
+int Conceal(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
 {
     int hidden = 0;
     for (uint32_t checksum : sectors)
@@ -730,7 +730,7 @@ int Isolate(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& o
     ObjectWalk objectWalk;
     if (GameObjects::CEntityHub* manager = GameObjects::CompositeObjectManager())
         manager->ForEach(CollectObject, &objectWalk);
-    return Hide(IsolateOthers(sectorWalk.ids, sectors), IsolateOthers(objectWalk.ids, objects));
+    return Conceal(IsolateOthers(sectorWalk.ids, sectors), IsolateOthers(objectWalk.ids, objects));
 }
 
 void ShowAll()
@@ -741,11 +741,11 @@ void ShowAll()
     }
     g_hiddenSectors.clear();
     // (a copy made of a hidden piece - picked in the Outliner - copied its visibility too: shown as its source is)
-    for (const Scenery::Clone& clone : Scenery::Clones()) {
+    for (const Scenery::Replicate& clone : Scenery::Clones()) {
         uint8_t* copy = Scenery::SectorOf(clone.checksum);
         uint8_t* source = Scenery::SectorOf(clone.source);
-        if (copy && source && GeomOf(copy) && GeomOf(source) && GetVisibility(copy) == 0 && GetVisibility(source) != 0)
-            ToggleShown(copy, GetVisibility(source));
+        if (copy && source && GeomOf(copy) && GeomOf(source) && FetchShown(copy) == 0 && FetchShown(source) != 0)
+            ToggleShown(copy, FetchShown(source));
     }
     for (const HiddenObjectRec& rec : g_hiddenObjects) {
         GameObjects::CGameEntity* object = LiveObject(rec.id);

@@ -73,7 +73,7 @@ const uint8_t* KeepLoadedContents(const uint8_t* data, uint32_t type);
 
 // The scalar deleting destructors of two list types (on the node; flag 1 frees it). Return the node.
 struct ListDestructors {
-    // 0x005A7520: ListKit::Node<T>'s (vtable 0x0065797C): unlinked (its destructor body inlined), then freed.
+    // 0x005A7520: ListKit::Elem<T>'s (vtable 0x0065797C): unlinked (its destructor body inlined), then freed.
     MemSys::ListNode* NodeDestroy(unsigned int flags);
     // 0x005A8E80: the type with vtable 0x00658A60's - the same body (0x005BC990) called, then freed.
     MemSys::ListNode* OtherDestroy(unsigned int flags);

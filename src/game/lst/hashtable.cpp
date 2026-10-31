@@ -9,36 +9,36 @@
 
 namespace ListKit {
 
-static_assert(sizeof(HashTable::Item) == 12 && offsetof(HashTable, m_iterItem) == 0x10 &&
-                  offsetof(HashTable, m_flag) == 0x14,
+static_assert(sizeof(KeyMap::Item) == 12 && offsetof(KeyMap, m_iterItem) == 0x10 &&
+                  offsetof(KeyMap, m_flag) == 0x14,
               "layout must match the original");
 
 // 0x0049FD90
-HashTable::HashTable(int bits)
+KeyMap::KeyMap(int bits)
 {
     m_bits = bits;
     int count = 1 << bits;
-    auto* buckets = static_cast<Item*>(MemSys::New(static_cast<unsigned int>(count) * sizeof(Item)));
+    auto* buckets = static_cast<Item*>(MemSys::Alloc(static_cast<unsigned int>(count) * sizeof(Item)));
     if (buckets) {
         for (int i = 0; i < count; ++i)
             buckets[i] = {0, nullptr, nullptr};
     }
     m_buckets = buckets;
-    m_size = 0;
+    m_extent = 0;
     m_flag = false;
 }
 
 // 0x005B89D0
-HashTable::~HashTable()
+KeyMap::~KeyMap()
 {
     if (m_buckets) {
         EmptyTable();
-        MemSys::Free(m_buckets);
+        MemSys::Dealloc(m_buckets);
         m_buckets = nullptr;
     }
 }
 
-void* HashTable::GetItem(uint32_t key) const
+void* KeyMap::FetchEntry(uint32_t key) const
 {
     for (const Item* item = &m_buckets[key & ((1u << m_bits) - 1)]; item; item = item->next) {
         if (item->key == key && item->value)
@@ -48,13 +48,13 @@ void* HashTable::GetItem(uint32_t key) const
 }
 
 // 0x00462050
-void* HashTable::GetItem(const uint32_t& key, bool /*unused*/) const
+void* KeyMap::FetchEntry(const uint32_t& key, bool /*unused*/) const
 {
-    return GetItem(key);
+    return FetchEntry(key);
 }
 
 // 0x00462740
-bool HashTable::StoreEntry(const uint32_t& key, void* value)
+bool KeyMap::StoreEntry(const uint32_t& key, void* value)
 {
     Item* bucket = &m_buckets[key & ((1u << m_bits) - 1)];
     if (bucket->value) {
@@ -66,12 +66,12 @@ bool HashTable::StoreEntry(const uint32_t& key, void* value)
         bucket->value = value;
         bucket->key = key;
     }
-    ++m_size;
+    ++m_extent;
     return true;
 }
 
 // 0x005B80D0
-void HashTable::EraseEntry(const uint32_t& key)
+void KeyMap::EraseEntry(const uint32_t& key)
 {
     if (!m_buckets)
         return;
@@ -91,11 +91,11 @@ void HashTable::EraseEntry(const uint32_t& key)
         item->key = 0;
         item->value = nullptr;
     }
-    --m_size;
+    --m_extent;
 }
 
 // 0x0049FD30
-void HashTable::EmptyTable()
+void KeyMap::EmptyTable()
 {
     if (!m_buckets)
         return;
@@ -108,11 +108,11 @@ void HashTable::EmptyTable()
         }
         *bucket = {0, nullptr, nullptr};
     }
-    m_size = 0;
+    m_extent = 0;
 }
 
 // 0x005B8060
-void HashTable::HandleCallback(Callback callback, void* data)
+void KeyMap::RunHook(HookFn callback, void* data)
 {
     Item* bucket = m_buckets;
     for (unsigned int i = 1u << m_bits; i != 0; --i, ++bucket) {
@@ -129,7 +129,7 @@ void HashTable::HandleCallback(Callback callback, void* data)
 }
 
 // 0x00588190
-bool HashTable::StepIterator()
+bool KeyMap::StepIterator()
 {
     if (m_iterItem)
         m_iterItem = m_iterItem->next;
@@ -156,8 +156,8 @@ bool HashTable::StepIterator()
 namespace {
 
 struct HashTableAdapter {
-    ListKit::HashTable* Construct(int bits) { return new (this) ListKit::HashTable(bits); }
-    void Destroy() { reinterpret_cast<ListKit::HashTable*>(this)->~HashTable(); }
+    ListKit::KeyMap* MakeNew(int bits) { return new (this) ListKit::KeyMap(bits); }
+    void Teardown() { reinterpret_cast<ListKit::KeyMap*>(this)->~KeyMap(); }
 };
 
 } // namespace

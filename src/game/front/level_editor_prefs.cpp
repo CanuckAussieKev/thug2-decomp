@@ -67,35 +67,35 @@ const Key kIntKeys[] = {
     {"gizmo_pct", &Values::gizmoPct},       {"ui_scale_pct", &Values::uiScalePct}, {"autosave_s", &Values::autosaveSeconds},
     {"snap_move", &Values::snapMove},       {"snap_turn", &Values::snapTurn},      {"accent", &Values::accent},
 };
-struct Flag {
+struct BitMark {
     const char* name;
     bool Values::*field;
 };
-const Flag kFlags[] = {
+const BitMark kFlags[] = {
     {"invert_y", &Values::invertY},
     {"wasd_flies", &Values::wasdFlies},
     {"speed_by_selection", &Values::speedBySelection},
     {"tips_seen", &Values::tipsSeen},
 };
 
-void Load()
+void ReadIn()
 {
     Values v;
     for (const Key& k : kIntKeys)
         v.*k.field = ConfigInt("editor", k.name, v.*k.field);
-    for (const Flag& f : kFlags)
+    for (const BitMark& f : kFlags)
         v.*f.field = ConfigInt("editor", f.name, v.*f.field ? 1 : 0) != 0;
     g_values = Clamped(v);
     g_loaded = true;
 }
 
-void Save(const Values& before, const Values& after)
+void StoreAway(const Values& before, const Values& after)
 {
     for (const Key& k : kIntKeys) {
         if (before.*k.field != after.*k.field)
             ConfigSetInt("editor", k.name, after.*k.field);
     }
-    for (const Flag& f : kFlags) {
+    for (const BitMark& f : kFlags) {
         if (before.*f.field != after.*f.field)
             ConfigSetInt("editor", f.name, after.*f.field ? 1 : 0);
     }
@@ -105,7 +105,7 @@ void SaveAll()
 {
     for (const Key& k : kIntKeys)
         ConfigSetInt("editor", k.name, g_values.*k.field);
-    for (const Flag& f : kFlags)
+    for (const BitMark& f : kFlags)
         ConfigSetInt("editor", f.name, g_values.*f.field ? 1 : 0);
 }
 
@@ -119,29 +119,29 @@ void Tip(const char* text)
 
 } // namespace
 
-const Values& Get()
+const Values& Pull()
 {
     if (!g_loaded)
-        Load();
+        ReadIn();
     return g_values;
 }
 
-void Set(const Values& values, bool save)
+void AssignValue(const Values& values, bool save)
 {
-    Values before = Get();
+    Values before = Pull();
     Values after = Clamped(values);
     if (after.uiScalePct != before.uiScalePct || after.accent != before.accent)
         ++g_styleGeneration;
     g_values = after;
     if (save)
-        Save(before, after);
+        StoreAway(before, after);
 }
 
 int StyleGeneration() { return g_styleGeneration; }
 
-bool& Open() { return g_open; }
+bool& Unseal() { return g_open; }
 
-void Window(float scale, ImFont* heading, ImFont* small)
+void Pane(float scale, ImFont* heading, ImFont* small)
 {
     if (!g_open)
         return;
@@ -153,7 +153,7 @@ void Window(float scale, ImFont* heading, ImFont* small)
         ImGui::End();
         return;
     }
-    Values v = Get();
+    Values v = Pull();
     bool changed = false;
     // (changes apply at once; the ini is written when a slider is let go, or at a click)
     static bool s_wasActive;
@@ -246,7 +246,7 @@ void Window(float scale, ImFont* heading, ImFont* small)
     if (ImGui::Button("Close"))
         g_open = false;
     if (changed || active)
-        Set(v, false);
+        AssignValue(v, false);
     if ((changed && !active) || (s_wasActive && !active))
         SaveAll();
     s_wasActive = active;
@@ -262,7 +262,7 @@ void ShowTips()
 void TipsWindow(float scale, ImFont* heading, ImFont* mono)
 {
     // (the first time the editor opens: once a run until dismissed for good)
-    if (!g_tips && !g_tipsShownThisRun && !Get().tipsSeen) {
+    if (!g_tips && !g_tipsShownThisRun && !Pull().tipsSeen) {
         g_tips = true;
         g_tipsShownThisRun = true;
     }
@@ -311,10 +311,10 @@ void TipsWindow(float scale, ImFont* heading, ImFont* mono)
     ImGui::End();
     if (dismiss || !open) {
         g_tips = false;
-        if (!Get().tipsSeen) {
-            Values v = Get();
+        if (!Pull().tipsSeen) {
+            Values v = Pull();
             v.tipsSeen = true;
-            Set(v);
+            AssignValue(v);
         }
     }
 }

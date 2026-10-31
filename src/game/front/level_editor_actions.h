@@ -53,7 +53,7 @@ bool ChordMatches(Chord chord, int scancode, uint8_t held);
 int Specificity(Chord chord);
 // The actions a key press fires: of `bound` (each action's keys), the indices of those matching that are most specific
 // (several when several are bound alike - a conflict).
-std::vector<int> Resolve(const std::vector<std::vector<Chord>>& bound, int scancode, uint8_t held);
+std::vector<int> SettleUp(const std::vector<std::vector<Chord>>& bound, int scancode, uint8_t held);
 // A key held counts for a chord: the key down, Ctrl as bound (held only when bound with it), Shift / Alt held when bound.
 bool HoldMatches(Chord chord, bool keyDown, uint8_t held);
 // Whether two chords can fire on the same press (the same key, Ctrl alike, and neither needs a Shift / Alt the other's
@@ -70,11 +70,11 @@ int FuzzyScore(const std::string& query, const std::string& text);
 enum class Kind : uint8_t {
     Press,  // a key press does it
     Hold,   // while its key is held (flying, nudging)
-    Toggle, // a setting switched (checked: on / off)
-    Info,   // a hint: a mouse gesture, a mode's own key - listed, not rebindable
+    FlipOver, // a setting switched (checked: on / off)
+    DetailsOf,   // a hint: a mouse gesture, a mode's own key - listed, not rebindable
 };
 
-struct Action {
+struct ActStep {
     std::string id;       // the ini key ("undo")
     std::string name;     // "Undo"
     std::string category; // "Edit"
@@ -89,7 +89,7 @@ struct Action {
 };
 
 // The editor's own actions, in the built-in table's order (an action's index is its Id).
-enum Id : int {
+enum IdentNo : int {
     kHelp, kPalette, kBrowser, kPlace, kHistory, kChanges, kKeys, kSnapshots,
     kUndo, kRedo, kSave, kDuplicate, kRestoreAutosave, kDiscardAutosave, kDelete, kHome, kResetLevel, kDeselect,
     kLock, kCopy, kPaste, kCopyProps, kPasteTransform, kPasteFields,
@@ -115,16 +115,16 @@ enum Id : int {
 };
 
 // The registry, built-ins first (made on first use; their keys read from the ini once - LoadKeys).
-const std::vector<Action>& All();
-Action* Get(int index);
+const std::vector<ActStep>& All();
+ActStep* Pull(int index);
 int Find(const std::string& id);
 // An action added (or, its id already there, its name / tip / callbacks replaced - its keys kept). Its index.
-int Register(const Action& action);
+int Enrol(const ActStep& action);
 // Callbacks set on a built-in (or any) action.
 void SetRun(int index, std::function<void()> run);
 void SetEnabled(int index, std::function<bool()> enabled);
 void SetChecked(int index, std::function<int()> checked);
-bool Enabled(int index);
+bool IsSwitchedOn(int index);
 int Checked(int index);
 // Its keys as text ("Ctrl+Z", "Ctrl+Y / Ctrl+Shift+Z", an Info's keysText; "" none).
 std::string KeysText(int index);
@@ -138,10 +138,10 @@ std::vector<int> Conflicts(int index);
 void BeginFrame(const uint8_t* keys);
 // The editor starting: the keys down now count as already down (the key that opened it doesn't act at once).
 void SeedKeys(const uint8_t* keys);
-bool Pressed(int index);
+bool Squeezed(int index);
 bool Held(const uint8_t* keys, int index);
 // As if its key had been pressed: Pressed is true next frame (the command search, menus).
-void Trigger(int index);
+void FireOff(int index);
 // The search / a menu: `run`, else Trigger (nothing when not Enabled).
 void Run(int index);
 

@@ -1,4 +1,4 @@
-// The script interpreter: CScript::Update and the statements it runs (group B of the CScript batch; see
+// The script interpreter: CScript::TickFrame and the statements it runs (group B of the CScript batch; see
 // cscript.h for the class and docs/script-runtime.md for the scheduling notes).
 //
 // How a script runs (the spec for a later port):
@@ -63,17 +63,17 @@ constexpr uint32_t kObjectComponentType = 0x57525413;
 constexpr uint32_t kObjectComponentType2 = 0x0ADA4E74;
 
 // The object's and its components' script member functions (virtual, not rewritten yet).
-// CObject vtable +0x08: InvokeMethodByName(entry, params, script); +0x0C: InvokeMethodByName(name, params, script).
-bool ObjectCallMemberFunction(GameObjects::CObject* object, CMemberFunctionEntry* entry, CStruct* params, CScript* script)
+// CEntity vtable +0x08: InvokeMethodByName(entry, params, script); +0x0C: InvokeMethodByName(name, params, script).
+bool ObjectCallMemberFunction(GameObjects::CEntity* object, CMemberFunctionEntry* entry, CStruct* params, CScript* script)
 {
     auto* vtable = *reinterpret_cast<void***>(object);
-    return reinterpret_cast<bool(__thiscall*)(GameObjects::CObject*, CMemberFunctionEntry*, CStruct*, CScript*)>(vtable[2])(
+    return reinterpret_cast<bool(__thiscall*)(GameObjects::CEntity*, CMemberFunctionEntry*, CStruct*, CScript*)>(vtable[2])(
         object, entry, params, script);
 }
-bool ObjectCallMemberFunction(GameObjects::CObject* object, uint32_t name, CStruct* params, CScript* script)
+bool ObjectCallMemberFunction(GameObjects::CEntity* object, uint32_t name, CStruct* params, CScript* script)
 {
     auto* vtable = *reinterpret_cast<void***>(object);
-    return reinterpret_cast<bool(__thiscall*)(GameObjects::CObject*, uint32_t, CStruct*, CScript*)>(vtable[3])(
+    return reinterpret_cast<bool(__thiscall*)(GameObjects::CEntity*, uint32_t, CStruct*, CScript*)>(vtable[3])(
         object, name, params, script);
 }
 // CObjectModule vtable +0x2C (the original tests the whole of EAX, not just AL).
@@ -84,14 +84,14 @@ bool ComponentCallMemberFunction(GameObjects::CObjectModule* component, CMemberF
     return reinterpret_cast<uint32_t(__thiscall*)(GameObjects::CObjectModule*, CMemberFunctionEntry*, CStruct*, CScript*)>(
                vtable[11])(component, entry, params, script) != 0;
 }
-// The object's component of `type` (CGameEntity::GetComponent).
-GameObjects::CObjectModule* GetComponent(GameObjects::CObject* object, uint32_t type)
+// The object's component of `type` (CGameEntity::FetchModule).
+GameObjects::CObjectModule* FetchModule(GameObjects::CEntity* object, uint32_t type)
 {
-    return static_cast<GameObjects::CGameEntity*>(object)->GetComponent(type);
+    return static_cast<GameObjects::CGameEntity*>(object)->FetchModule(type);
 }
 // The object named `name` (GameObjects::FindObject: the object tracker's), or null.
-GameObjects::CObject* FindObject(uint32_t name) { return GameObjects::FindObject(name); }
-// 0x0044E4F0 on OnlinePlay::Manager (0x007CCE14): called where a member function has no object to run on, its
+GameObjects::CEntity* FindObject(uint32_t name) { return GameObjects::FindObject(name); }
+// 0x0044E4F0 on OnlinePlay::Hub (0x007CCE14): called where a member function has no object to run on, its
 // result unused - what is left of a compiled-out assert.
 void NoObjectCheck() { OnlinePlay::g_gameNetManager->InNetGame(); }
 
@@ -105,19 +105,19 @@ void DeleteComponent(CComponent* component)
 } // namespace
 
 // 0x00472980: run a member function's table entry on `object` (no null checks).
-bool InvokeMethodByName(CMemberFunctionEntry* entry, CStruct* params, GameObjects::CObject* object, CScript* script)
+bool InvokeMethodByName(CMemberFunctionEntry* entry, CStruct* params, GameObjects::CEntity* object, CScript* script)
 {
     uint32_t type = entry->mComponentType;
     if (type == kObjectComponentType || type == kObjectComponentType2)
         return ObjectCallMemberFunction(object, entry, params, script);
-    return ComponentCallMemberFunction(GetComponent(object, type), entry, params, script);
+    return ComponentCallMemberFunction(FetchModule(object, type), entry, params, script);
 }
 
 // 0x004731A0
-bool CScript::InvokeMethodByName(CMemberFunctionEntry* entry, GameObjects::CObject* object)
+bool CScript::InvokeMethodByName(CMemberFunctionEntry* entry, GameObjects::CEntity* object)
 {
     if (!object)
-        object = m_object.Get();
+        object = m_entity.Pull();
     if (!object) {
         NoObjectCheck();
         return false;
@@ -126,10 +126,10 @@ bool CScript::InvokeMethodByName(CMemberFunctionEntry* entry, GameObjects::CObje
 }
 
 // 0x004731E0
-bool CScript::InvokeMethodByName(uint32_t name, GameObjects::CObject* object)
+bool CScript::InvokeMethodByName(uint32_t name, GameObjects::CEntity* object)
 {
     if (!object)
-        object = m_object.Get();
+        object = m_entity.Pull();
     if (!object) {
         NoObjectCheck();
         return false;
@@ -141,7 +141,7 @@ bool CScript::InvokeMethodByName(uint32_t name, GameObjects::CObject* object)
 void CScript::ParseFunctionParams()
 {
     m_functionParams->Clear();
-    m_pc = ParseArguments(m_functionParams, m_pc, m_params);
+    m_pc = ParseArguments(m_functionParams, m_pc, m_args);
 }
 
 // 0x004729E0: a name token, `<name>` (the parameter's checksum value) or `<...>` (the unnamed checksum
@@ -157,14 +157,14 @@ uint32_t CScript::ReadName()
         break;
     case 0x2C:
         ++m_pc;
-        m_params->ReadHashValue(0u, &name, 0);
+        m_args->ReadHashValue(0u, &name, 0);
         break;
     case 0x2D: // 2D 16 <name>
         m_pc += 2;
         {
             uint32_t parameter = FetchWord32(m_pc);
             m_pc += 4;
-            m_params->ReadHashValue(parameter, &name, 0);
+            m_args->ReadHashValue(parameter, &name, 0);
         }
         break;
     }
@@ -184,7 +184,7 @@ uint32_t CScript::ReadName()
 //     name = value          sets the script parameter `name` (the 4 bytes before the '=' are read as the name)
 //     name args             a script (called: true), a C function, or a member function on the script's object;
 //                           an unknown name is reported (except in the script 0xFB11E6CD) and is false
-// The arguments are parsed into m_functionParams (they may refer to m_params).
+// The arguments are parsed into m_functionParams (they may refer to m_args).
 bool CScript::ExecuteCommand()
 {
     switch (*m_pc) {
@@ -193,22 +193,22 @@ bool CScript::ExecuteCommand()
         uint32_t name = FetchWord32(m_pc);
         m_pc += 4;
         ParseFunctionParams();
-        if (!m_object.Get()) {
+        if (!m_entity.Pull()) {
             NoObjectCheck();
             return false;
         }
-        return ObjectCallMemberFunction(m_object.Get(), name, m_functionParams, this);
+        return ObjectCallMemberFunction(m_entity.Pull(), name, m_functionParams, this);
     }
     case 0x46: {
         ++m_pc;
         auto* entry = reinterpret_cast<CMemberFunctionEntry*>(FetchWord32(m_pc));
         m_pc += 4;
         ParseFunctionParams();
-        if (!m_object.Get()) {
+        if (!m_entity.Pull()) {
             NoObjectCheck();
             return false;
         }
-        return Scripts::InvokeMethodByName(entry, m_functionParams, m_object.Get(), this);
+        return Scripts::InvokeMethodByName(entry, m_functionParams, m_entity.Pull(), this);
     }
     case 0x43: {
         ++m_pc;
@@ -222,8 +222,8 @@ bool CScript::ExecuteCommand()
     uint32_t name;
     if (*m_pc == 0x0E) {
         CComponent* value = NewComponent();
-        m_pc = ParseExpression(m_pc, m_params, value);
-        if (value->Type() != QBVAL_NAME) {
+        m_pc = ParseExpression(m_pc, m_args, value);
+        if (value->KindTag() != QBVAL_NAME) {
             bool result = value->raw != 0;
             DeleteComponent(value);
             return result;
@@ -237,7 +237,7 @@ bool CScript::ExecuteCommand()
     }
 
     if (*m_pc == 0x42) { // name:
-        GameObjects::CObject* object = FindObject(name);
+        GameObjects::CEntity* object = FindObject(name);
         if (!object)
             return true; // (m_pc left at the ':')
         ++m_pc;
@@ -257,7 +257,7 @@ bool CScript::ExecuteCommand()
         // (anywhere else a missing name's type is read through the null symbol: the original crashes - kept)
         switch (symbol->type) {
         case QBVAL_SCRIPT_BODY: {
-            const uint8_t* code = ScriptCache()->GetScript(symbol->name);
+            const uint8_t* code = ScriptCache()->FetchScript(symbol->name);
             RunSubScript(function, code, m_functionParams, object, false);
             return true;
         }
@@ -277,12 +277,12 @@ bool CScript::ExecuteCommand()
         m_pc = ResolveRandomJumps(m_pc);
         CComponent* value = NewComponent();
         if (*m_pc == 0x0E)
-            m_pc = ParseExpression(m_pc, m_params, value);
+            m_pc = ParseExpression(m_pc, m_args, value);
         else
-            m_pc = ParseValue(m_pc, m_params, value);
-        if (value->Type() != QBVAL_NONE) {
+            m_pc = ParseValue(m_pc, m_args, value);
+        if (value->KindTag() != QBVAL_NONE) {
             value->name = target;
-            m_params->AddComponent(value);
+            m_args->AttachModule(value);
         } else {
             FreeComponent(value);
         }
@@ -298,20 +298,20 @@ bool CScript::ExecuteCommand()
     }
     // Not original - the loading console (game/gfx/loading_console.h): while a loading screen is up, the scripts
     // called and the commands that load or build things.
-    if (Gfx2D::LoadingConsole::Active() &&
+    if (Gfx2D::LoadingConsole::LiveNow() &&
         (symbol->type == QBVAL_SCRIPT_BODY || symbol->type == QBVAL_NATIVE_FUNC))
         Gfx2D::LoadingConsole::NoteScriptCall(name, symbol->type == QBVAL_NATIVE_FUNC, m_functionParams);
     switch (symbol->type) {
     case QBVAL_SCRIPT_BODY: {
-        const uint8_t* code = ScriptCache()->GetScript(symbol->name);
-        RunSubScript(name, code, m_functionParams, m_object.Get(), false);
+        const uint8_t* code = ScriptCache()->FetchScript(symbol->name);
+        RunSubScript(name, code, m_functionParams, m_entity.Pull(), false);
         return true;
     }
     case QBVAL_NATIVE_FUNC:
         return reinterpret_cast<CFunction>(symbol->raw)(m_functionParams, this);
     case QBVAL_NATIVE_METHOD: {
         auto* entry = reinterpret_cast<CMemberFunctionEntry*>(symbol->raw);
-        GameObjects::CObject* object = m_object.m_ownerObject;
+        GameObjects::CEntity* object = m_entity.m_ownerObject;
         if (entry) {
             if (object)
                 return Scripts::InvokeMethodByName(entry, m_functionParams, object, this);
@@ -423,10 +423,10 @@ void CScript::ExecuteBegin()
 {
     ++m_pc;
     if (m_currentLoop == &m_inlineLoop) {
-        MemSys::Manager* manager = MemSys::Manager::Get();
+        MemSys::Hub* manager = MemSys::Hub::Pull();
         manager->EnterHeapScope(manager->m_scriptHeap);
         m_loops = static_cast<SRepeatFrame*>(MemSys::AllocBlock(10 * sizeof(SRepeatFrame)));
-        MemSys::Manager::Get()->LeaveHeapScope();
+        MemSys::Hub::Pull()->LeaveHeapScope();
         m_loops[0] = m_inlineLoop;
         m_currentLoop = m_loops;
         for (int i = 0; i < m_numReturnAddresses; ++i) {
@@ -439,7 +439,7 @@ void CScript::ExecuteBegin()
     m_currentLoop->m_tokensEnd = nullptr;
     m_currentLoop->m_argsSeen = false;
     m_currentLoop->m_argsExpected = true;
-    m_currentLoop->mCount = 0;
+    m_currentLoop->m_headcount = 0;
 }
 
 // The loop below the current one (none: null).
@@ -455,8 +455,8 @@ void CScript::ExecuteRepeat()
     if (loop->m_argsExpected) {
         ++m_pc;
         m_functionParams->Clear();
-        m_currentLoop->m_tokensEnd = ParseArguments(m_functionParams, m_pc, m_params);
-        m_currentLoop->m_argsSeen = m_functionParams->FetchIntValue(0u, &m_currentLoop->mCount, 0);
+        m_currentLoop->m_tokensEnd = ParseArguments(m_functionParams, m_pc, m_args);
+        m_currentLoop->m_argsSeen = m_functionParams->FetchIntValue(0u, &m_currentLoop->m_headcount, 0);
         m_currentLoop->m_argsExpected = false;
     }
     loop = m_currentLoop;
@@ -464,8 +464,8 @@ void CScript::ExecuteRepeat()
         m_pc = loop->m_tokensBegin;
         return;
     }
-    --loop->mCount;
-    if (m_currentLoop->mCount != 0) {
+    --loop->m_headcount;
+    if (m_currentLoop->m_headcount != 0) {
         m_pc = m_currentLoop->m_tokensBegin;
         return;
     }
@@ -497,9 +497,9 @@ void CScript::ExecuteBreak()
 }
 
 // 0x004750B0 (see the top of the file)
-EScriptOutcome CScript::Update()
+EScriptOutcome CScript::TickFrame()
 {
-    m_flags &= ~SCRIPT_RUN_WAIT_UPDATED;
+    m_flagBits &= ~SCRIPT_RUN_WAIT_UPDATED;
     // (NOT ORIGINAL, log only: a script that runs this many steps in one Update never yields - a loop whose wait
     // ends at once, e.g. `while { Obj_WaitAnimFinished }` with no animation playing: the game hangs here, as the
     // original does. Logged once per script, with its name and its object's id, before the hang.)
@@ -514,18 +514,18 @@ EScriptOutcome CScript::Update()
             if (!seen) {
                 if (tally < 16)
                     s_logged[tally++] = m_scriptTitle;
-                GameObjects::CObject* object = m_object.m_ownerObject;
+                GameObjects::CEntity* object = m_entity.m_ownerObject;
                 // (the object's id as a number: FindChecksumNameOrUnknown's text for an unknown name is one buffer)
                 Log("script: %s (object id %08X) has run %u steps in one frame without waiting - a loop that never "
                     "yields (the game hangs here)",
-                    FindChecksumNameOrUnknown(m_scriptTitle), object ? object->m_id : 0u, steps);
+                    FindChecksumNameOrUnknown(m_scriptTitle), object ? object->m_ident : 0u, steps);
             }
         }
         CurrentScriptVar() = this;
-        if (!(m_flags & SCRIPT_RUN_WAIT_UPDATED))
+        if (!(m_flagBits & SCRIPT_RUN_WAIT_UPDATED))
             UpdateWait();
         if (m_waitType != SUSPEND_ON_NOTHING) {
-            m_flags = static_cast<uint8_t>((m_flags & ~SCRIPT_RUN_INTERRUPTED) | SCRIPT_RUN_WAIT_UPDATED);
+            m_flagBits = static_cast<uint8_t>((m_flagBits & ~SCRIPT_RUN_INTERRUPTED) | SCRIPT_RUN_WAIT_UPDATED);
             CurrentScriptVar() = nullptr;
             return m_waitType == SUSPEND_ON_BLOCK || m_waitType == WAIT_TYPE_REAL_TIMER ? SCRIPT_OUTCOME_BLOCKED
                                                                                        : SCRIPT_OUTCOME_SUSPENDED;
@@ -551,7 +551,7 @@ EScriptOutcome CScript::Update()
         case 0x24: // '$'
             if (uint32_t onExit = m_onExitScript) {
                 m_onExitScript = 0;
-                Interrupt(onExit, nullptr);
+                Preempt(onExit, nullptr);
             }
             if (ReturnFromScript(nullptr))
                 return SCRIPT_OUTCOME_ENDED_BY_INTERRUPT;
@@ -559,7 +559,7 @@ EScriptOutcome CScript::Update()
         case 0x29: // return [args]
             if (uint32_t onExit = m_onExitScript) {
                 m_onExitScript = 0;
-                Interrupt(onExit, nullptr);
+                Preempt(onExit, nullptr);
             }
             // (from wherever the on-exit script left m_pc - see docs/script-runtime.md)
             ++m_pc;
@@ -595,7 +595,7 @@ EScriptOutcome CScript::Update()
             break;
         }
     }
-    m_flags &= ~SCRIPT_RUN_INTERRUPTED;
+    m_flagBits &= ~SCRIPT_RUN_INTERRUPTED;
     CurrentScriptVar() = nullptr;
     return SCRIPT_OUTCOME_FINISHED;
 }

@@ -49,13 +49,13 @@ constexpr double kTwoTo32 = 4294967296.0;   // 0x006453B4 (FILD's correction for
 
 // The colour of `name` - an array of four bytes - into `color` (unchanged if there's none; `bytes` is the caller's
 // one slot for the array, as in the original).
-void GetColor(Scripts::CStruct* params, uint32_t name, uint32_t* color, int assert, Scripts::CArray*& bytes)
+void FetchTint(Scripts::CStruct* params, uint32_t name, uint32_t* color, int assert, Scripts::CArray*& bytes)
 {
-    if (!params->GetArray(name, &bytes, assert))
+    if (!params->FetchList(name, &bytes, assert))
         return;
     auto* out = reinterpret_cast<uint8_t*>(color);
     for (uint32_t i = 0; i < 4; ++i)
-        out[i] = static_cast<uint8_t>(bytes->GetElement(i));
+        out[i] = static_cast<uint8_t>(bytes->FetchPart(i));
 }
 
 // An unsigned value as FILD (plus 2^32 when the top bit is set) loads it.
@@ -77,14 +77,14 @@ Engine3D::CDynamicLight* NewDynamicLight(int kind)
 } // namespace
 
 // 0x0041D0F0
-CObjectModule* __cdecl CDynamicLightComponent::Create()
+CObjectModule* __cdecl CDynamicLightComponent::Fabricate()
 {
     auto* component = static_cast<CDynamicLightComponent*>(MemSys::AllocZeroed(sizeof(CDynamicLightComponent)));
     if (!component)
         return nullptr;
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     component->mp_light = nullptr;
     return component;
 }
@@ -102,11 +102,11 @@ void CDynamicLightComponent::DestroyBody()
 }
 
 // 0x0041D0C0
-CDynamicLightComponent* CDynamicLightComponent::Destroy(unsigned int flags)
+CDynamicLightComponent* CDynamicLightComponent::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -114,12 +114,12 @@ CDynamicLightComponent* CDynamicLightComponent::Destroy(unsigned int flags)
 void CDynamicLightComponent::ConfigureFromData(Scripts::CStruct* params)
 {
     Scripts::CArray* bytes = nullptr;
-    params->GetFloat(kStartRadius, &m_startRadius, 1);
-    params->GetFloat(kStartIntensity, &m_startIntensity, 1);
-    params->GetArray(kStartColor, &bytes, 1);
+    params->FetchFloat(kStartRadius, &m_startRadius, 1);
+    params->FetchFloat(kStartIntensity, &m_startIntensity, 1);
+    params->FetchList(kStartColor, &bytes, 1);
     auto* start = reinterpret_cast<uint8_t*>(&m_startColor);
     for (uint32_t i = 0; i < 4; ++i) // (read whether found or not, as the original does)
-        start[i] = static_cast<uint8_t>(bytes->GetElement(i));
+        start[i] = static_cast<uint8_t>(bytes->FetchPart(i));
     m_middleRadius = m_startRadius;
     m_endRadius = m_startRadius;
     m_middleColor = m_startColor;
@@ -127,24 +127,24 @@ void CDynamicLightComponent::ConfigureFromData(Scripts::CStruct* params)
     m_middleIntensity = m_startIntensity;
     m_endIntensity = m_startIntensity;
     m_middleTime = -1.0f;
-    params->GetFloat(kMiddleTime, &m_middleTime, 0);
-    params->GetFloat(kMiddleRadius, &m_middleRadius, 0);
-    params->GetFloat(kMiddleIntensity, &m_middleIntensity, 0);
-    GetColor(params, kMiddleColor, &m_middleColor, 0, bytes);
-    params->GetFloat(kEndRadius, &m_endRadius, 0);
-    params->GetFloat(kEndIntensity, &m_endIntensity, 0);
-    GetColor(params, kEndColor, &m_endColor, 0, bytes);
+    params->FetchFloat(kMiddleTime, &m_middleTime, 0);
+    params->FetchFloat(kMiddleRadius, &m_middleRadius, 0);
+    params->FetchFloat(kMiddleIntensity, &m_middleIntensity, 0);
+    FetchTint(params, kMiddleColor, &m_middleColor, 0, bytes);
+    params->FetchFloat(kEndRadius, &m_endRadius, 0);
+    params->FetchFloat(kEndIntensity, &m_endIntensity, 0);
+    FetchTint(params, kEndColor, &m_endColor, 0, bytes);
 }
 
 // 0x0041CDA0
-void CDynamicLightComponent::Finalize() { mp_waitAndDie = reinterpret_cast<uint8_t*>(m_object->GetComponent(kWaitAndDie)); }
+void CDynamicLightComponent::Seal() { mp_waitAndDie = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kWaitAndDie)); }
 
 // 0x0041CDC0
-void CDynamicLightComponent::Update()
+void CDynamicLightComponent::TickFrame()
 {
     if (!mp_light) {
         mp_light = NewDynamicLight(1);
-        mp_light->m_holderKey = m_object->m_id;
+        mp_light->m_holderKey = m_entity->m_ident;
     }
     // The life's fraction.
     double t = Unsigned(*reinterpret_cast<uint32_t*>(mp_waitAndDie + 0x1C)) /
@@ -176,7 +176,7 @@ void CDynamicLightComponent::Update()
                  << (8 * i);
     }
     Engine3D::CDynamicLight* light = mp_light;
-    light->m_pos = m_object->m_pos;
+    light->m_atPoint = m_entity->m_atPoint;
     light->m_tint = color;
     light->m_strength = static_cast<float>((static_cast<double>(toIntensity) - fromIntensity) * t + fromIntensity);
     light->SetReach(radius);
@@ -188,23 +188,23 @@ int CDynamicLightComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* 
     switch (name) {
     case kSetRadius: {
         float radius = 0.0f;
-        params->GetFloat(kRadius, &radius, 1);
+        params->FetchFloat(kRadius, &radius, 1);
         mp_light->SetReach(radius);
         return 1;
     }
     case kSetIntensity: {
         float intensity = 0.0f;
-        params->GetFloat(kIntensity, &intensity, 1);
+        params->FetchFloat(kIntensity, &intensity, 1);
         mp_light->m_strength = intensity;
         return 1;
     }
     case kSetColor: {
         Scripts::CArray* bytes = nullptr;
-        params->GetArray(kColor, &bytes, 1);
+        params->FetchList(kColor, &bytes, 1);
         uint32_t color;
         auto* out = reinterpret_cast<uint8_t*>(&color);
         for (uint32_t i = 0; i < 4; ++i)
-            out[i] = static_cast<uint8_t>(bytes->GetElement(i));
+            out[i] = static_cast<uint8_t>(bytes->FetchPart(i));
         mp_light->m_tint = color;
         return 1;
     }
@@ -218,14 +218,14 @@ int CDynamicLightComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* 
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CDynamicLightComponent::Destroy,
-         &GameObjects::CDynamicLightComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CDynamicLightComponent::Teardown,
+         &GameObjects::CDynamicLightComponent::TickFrame,
          &GameObjects::CDynamicLightComponent::ConfigureFromData,
-         &GameObjects::CDynamicLightComponent::Finalize,
+         &GameObjects::CDynamicLightComponent::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

@@ -108,13 +108,13 @@ void CControlButton::ForgetLetGo()
 }
 
 // 0x0046B800
-void CControlButton::SetName(const char* name)
+void CControlButton::ChangeTitle(const char* name)
 {
-    m_name = Checksums::HashFromText(name);
+    m_label = Checksums::HashFromText(name);
 }
 
 // 0x0046B820
-void CControlButton::Update(int pressure)
+void CControlButton::TickFrame(int pressure)
 {
     if (m_lockedUntil != 0.0f) {
         // (compared as the original: a NaN lock keeps holding presses off)
@@ -174,21 +174,21 @@ struct PadButtonName {
     const char* name;
 };
 constexpr PadButtonName kPadButtons[] = {
-    {&CPadState::m_upDir, "UP"},          {&CPadState::m_btnDown, "DOWN"},     {&CPadState::m_left, "LEFT"},
-    {&CPadState::m_right, "RIGHT"},    {&CPadState::m_buttonBox, "SQUARE"}, {&CPadState::m_buttonRound, "CIRCLE"},
+    {&CPadState::m_upDir, "UP"},          {&CPadState::m_btnDown, "DOWN"},     {&CPadState::m_leftSide, "LEFT"},
+    {&CPadState::m_rightSide, "RIGHT"},    {&CPadState::m_buttonBox, "SQUARE"}, {&CPadState::m_buttonRound, "CIRCLE"},
     {&CPadState::m_buttonWedge, "TRIANGLE"}, {&CPadState::m_posX, "X"},       {&CPadState::m_shoulderLeftA, "L1"},
     {&CPadState::m_shoulderLeftB, "L2"},          {&CPadState::m_stickClickLeft, "L3"},         {&CPadState::m_shoulderRightA, "R1"},
-    {&CPadState::m_shoulderRightB, "R2"},          {&CPadState::m_stickClickRight, "R3"},         {&CPadState::m_start, "START"},
+    {&CPadState::m_shoulderRightB, "R2"},          {&CPadState::m_stickClickRight, "R3"},         {&CPadState::m_outset, "START"},
     {&CPadState::m_buttonChoose, "SELECT"},
 };
 
 } // namespace
 
 // 0x0046B940
-CPadState* CPadState::Init()
+CPadState* CPadState::PrepareAll()
 {
     for (const PadButtonName& entry : kPadButtons)
-        (this->*entry.button).SetName(entry.name);
+        (this->*entry.button).ChangeTitle(entry.name);
     m_lock[0] = m_lock[1] = 0;
     return this;
 }
@@ -197,7 +197,7 @@ CPadState* CPadState::Init()
 void CPadState::Reset()
 {
     for (const PadButtonName& entry : kPadButtons)
-        (this->*entry.button).Update(0);
+        (this->*entry.button).TickFrame(0);
     for (float& f : m_stick)
         f = 0.0f;
     for (float& f : m_scaledStick)
@@ -205,7 +205,7 @@ void CPadState::Reset()
     m_polar[0] = {0.0f, 0.0f};
     m_polar[1] = {0.0f, 0.0f};
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons beside the pad up too.
-    if (Skater::ThawBmx::Enabled())
+    if (Skater::ThawBmx::IsSwitchedOn())
         Skater::ThawBmx::UpdatePadSticks(this, nullptr);
 }
 
@@ -213,7 +213,7 @@ void CPadState::Reset()
 void CPadState::Clear()
 {
     Reset();
-    CControlButton* both[] = {&m_upDir, &m_btnDown, &m_left, &m_right, &m_shoulderLeftA, &m_shoulderLeftB, &m_stickClickLeft, &m_shoulderRightA};
+    CControlButton* both[] = {&m_upDir, &m_btnDown, &m_leftSide, &m_rightSide, &m_shoulderLeftA, &m_shoulderLeftB, &m_stickClickLeft, &m_shoulderRightA};
     for (CControlButton* button : both) {
         button->ResetActivation();
         button->ForgetLetGo();
@@ -223,7 +223,7 @@ void CPadState::Clear()
     m_shoulderRightB.ResetActivation();
     m_stickClickRight.ForgetLetGo();
     m_stickClickRight.ForgetLetGo();
-    CControlButton* rest[] = {&m_buttonBox, &m_buttonRound, &m_posX, &m_buttonWedge, &m_start, &m_buttonChoose};
+    CControlButton* rest[] = {&m_buttonBox, &m_buttonRound, &m_posX, &m_buttonWedge, &m_outset, &m_buttonChoose};
     for (CControlButton* button : rest) {
         button->ResetActivation();
         button->ForgetLetGo();
@@ -231,24 +231,24 @@ void CPadState::Clear()
 }
 
 // 0x0046BDA0
-void CPadState::Update(const uint8_t* data)
+void CPadState::TickFrame(const uint8_t* data)
 {
-    m_upDir.Update(Full(data[6] != 0));
-    m_btnDown.Update(Full(data[7] != 0));
-    m_left.Update(Full(data[5] != 0));
-    m_right.Update(Full(data[4] != 0));
-    m_buttonBox.Update(Full(data[0xB] != 0));
-    m_buttonRound.Update(Full(data[9] != 0));
-    m_posX.Update(Full(data[0xA] != 0));
-    m_buttonWedge.Update(Full(data[8] != 0));
-    m_shoulderLeftA.Update(Full(data[0xC] != 0));
-    m_shoulderRightA.Update(Full(data[0xD] != 0));
-    m_shoulderLeftB.Update(Full(data[0xE] != 0));
-    m_shoulderRightB.Update(Full(data[0xF] != 0));
+    m_upDir.TickFrame(Full(data[6] != 0));
+    m_btnDown.TickFrame(Full(data[7] != 0));
+    m_leftSide.TickFrame(Full(data[5] != 0));
+    m_rightSide.TickFrame(Full(data[4] != 0));
+    m_buttonBox.TickFrame(Full(data[0xB] != 0));
+    m_buttonRound.TickFrame(Full(data[9] != 0));
+    m_posX.TickFrame(Full(data[0xA] != 0));
+    m_buttonWedge.TickFrame(Full(data[8] != 0));
+    m_shoulderLeftA.TickFrame(Full(data[0xC] != 0));
+    m_shoulderRightA.TickFrame(Full(data[0xD] != 0));
+    m_shoulderLeftB.TickFrame(Full(data[0xE] != 0));
+    m_shoulderRightB.TickFrame(Full(data[0xF] != 0));
     uint32_t bits = *reinterpret_cast<const uint32_t*>(data + 0x1C);
-    m_stickClickLeft.Update(Full((bits & 0x200) != 0));
-    m_stickClickRight.Update(Full((bits & 0x400) != 0));
-    m_buttonChoose.Update(Full((bits & 0x100) != 0));
+    m_stickClickLeft.TickFrame(Full((bits & 0x200) != 0));
+    m_stickClickRight.TickFrame(Full((bits & 0x400) != 0));
+    m_buttonChoose.TickFrame(Full((bits & 0x100) != 0));
     // (START isn't read here)
 
     for (int i = 0; i < 4; ++i)
@@ -284,7 +284,7 @@ void CPadState::Update(const uint8_t* data)
     UpdateLock(m_lock[1], m_polar[1].length, static_cast<double>(kPi) - angle < kQuarterPi);
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's pad's eight stick buttons (its 0x596CA0), beside the pad -
     // game/skater/thaw_bmx.h. Original behaviour: none.
-    if (Skater::ThawBmx::Enabled())
+    if (Skater::ThawBmx::IsSwitchedOn())
         Skater::ThawBmx::UpdatePadSticks(this, data);
 }
 
@@ -292,15 +292,15 @@ void CPadState::Update(const uint8_t* data)
 CControlButton* CPadState::ReadButton(uint32_t name)
 {
     // (the original's order)
-    CControlButton* buttons[] = {&m_upDir, &m_btnDown, &m_left, &m_right, &m_buttonBox, &m_buttonRound, &m_buttonWedge, &m_posX,
-                                 &m_shoulderLeftA, &m_shoulderLeftB, &m_stickClickLeft, &m_shoulderRightA, &m_shoulderRightB, &m_stickClickRight, &m_start, &m_buttonChoose};
+    CControlButton* buttons[] = {&m_upDir, &m_btnDown, &m_leftSide, &m_rightSide, &m_buttonBox, &m_buttonRound, &m_buttonWedge, &m_posX,
+                                 &m_shoulderLeftA, &m_shoulderLeftB, &m_stickClickLeft, &m_shoulderRightA, &m_shoulderRightB, &m_stickClickRight, &m_outset, &m_buttonChoose};
     for (CControlButton* button : buttons) {
-        if (button->m_name == name)
+        if (button->m_label == name)
             return button;
     }
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons by name (leftup ... rightright - its bike
     // scripts' DoBalanceTrick ButtonA=leftright, HeldLongerThan button=leftdown). Original behaviour: null.
-    if (Skater::ThawBmx::Enabled())
+    if (Skater::ThawBmx::IsSwitchedOn())
         return static_cast<CControlButton*>(Skater::ThawBmx::PadStickButton(this, name));
     return nullptr;
 }

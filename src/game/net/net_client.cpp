@@ -1,4 +1,4 @@
-// The network library's client (NetLink::Client). See net_client.h.
+// The network library's client (NetLink::Guest). See net_client.h.
 
 #include "game/net/net_client.h"
 
@@ -20,85 +20,85 @@ namespace NetLink {
 
 namespace {
 
-static VtableSlot kClientVtable_slots[] = {&NetLink::Client::Destroy, &NetLink::App::HandleIncoming, &NetLink::Client::PullInbound,
-        &NetLink::Client::SendData, &NetLink::Client::Init, &NetLink::Client::TearDownState};
+static VtableSlot kClientVtable_slots[] = {&NetLink::Guest::Teardown, &NetLink::AppHost::HandleIncoming, &NetLink::Guest::PullInbound,
+        &NetLink::Guest::Transmit, &NetLink::Guest::PrepareAll, &NetLink::Guest::TearDownState};
 void** const kClientVtable = reinterpret_cast<void**>(kClientVtable_slots);
 constexpr int kAppTaskPriority = -2000;
 constexpr uint32_t kTaskSize = 0x20;
 constexpr int kTimestampWindow = 5000; // timestamps further apart than this have wrapped around
 
-uint32_t& Timestamp(App* app) { return app->m_clock; }
-Dispatcher* GetDispatcher(App* app) { return &app->m_dispatcher; }
+uint32_t& Timestamp(AppHost* app) { return app->m_clock; }
+Router* GetDispatcher(AppHost* app) { return &app->m_dispatcher; }
 
-// The first connection (ListKit::Search<Conn> over the App's connections; the search's vtable is 0x0064759C).
-Conn* ServerConnection(App* app)
+// The first connection (ListKit::Hunt<Conn> over the App's connections; the search's vtable is 0x0064759C).
+Conn* ServerConnection(AppHost* app)
 {
-    ListKit::Search<Conn> search;
-    return search.HeadElement(&app->m_connections);
+    ListKit::Hunt<Conn> search;
+    return search.HeadElement(&app->m_circuits);
 }
 
 } // namespace
 
 // Shared with Server (net_server.cpp).
-void ConstructAppTask(App* app)
+void ConstructAppTask(AppHost* app)
 {
     void* task = MemSys::AllocZeroed(kTaskSize);
     if (task) {
-        static_cast<TaskList::SchedulerTask*>(task)->Construct(kAppTaskPriority); // (TaskList::Task's base)
-        Field<App*>(task, 0x1C) = app;
-        Field<void**>(task, 0x0) = GameCode::kTaskVtable;
-        Field<void*>(task, 0x18) = reinterpret_cast<void*>(&App::SendNetworkData);
+        static_cast<TaskList::SchedulerTask*>(task)->MakeNew(kAppTaskPriority); // (TaskList::Task's base)
+        Prop<AppHost*>(task, 0x1C) = app;
+        Prop<void**>(task, 0x0) = GameCode::kTaskVtable;
+        Prop<void*>(task, 0x18) = reinterpret_cast<void*>(&AppHost::SendNetworkData);
     }
     app->m_sendTask = task;
 }
 
 // 0x0045A250
-Client* Client::Construct(int flags)
+Guest* Guest::MakeNew(int flags)
 {
-    App::Construct(flags);
-    Field<void**>(this, 0) = kClientVtable;
+    AppHost::MakeNew(flags);
+    Prop<void**>(this, 0) = kClientVtable;
     ConstructAppTask(this);
     return this;
 }
 
 // 0x0045B910
-void Client::DestroyBody()
+void Guest::DestroyBody()
 {
-    App::DestroyBody();
+    AppHost::DestroyBody();
 }
 
 // 0x0045B8E0
-Client* Client::Destroy(unsigned int flags)
+Guest* Guest::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0045B820
-void Client::TearDownState()
+void Guest::TearDownState()
 {
-    App::TearDownState();
+    AppHost::TearDownState();
 }
 
 // 0x00459EC0
-bool Client::Init()
+bool Guest::PrepareAll()
 {
-    m_connected = false;
+    m_linkedUp = false;
     Timestamp(this) = 0;
-    if (!App::Init())
+    if (!AppHost::PrepareAll())
         return false;
-    Dispatcher* dispatcher = GetDispatcher(this);
-    dispatcher->AddHandler(kMsgConnectionAccepted, HandleConnectionAccepted, 3, nullptr, 0x80);
-    dispatcher->AddHandler(kMsgConnectionRefused, HandleConnectionRefused, 2, nullptr, 0x80);
-    dispatcher->AddHandler(kMsgConnectionTerminated, HandleConnectionRefused, 2, nullptr, 0x80);
-    dispatcher->AddHandler(kMsgTimestamp, HandleTimestamp, 3, nullptr, 0x80);
+    Router* dispatcher = GetDispatcher(this);
+    dispatcher->AppendListener(kMsgConnectionAccepted, HandleConnectionAccepted, 3, nullptr, 0x80);
+    dispatcher->AppendListener(kMsgConnectionRefused, HandleConnectionRefused, 2, nullptr, 0x80);
+    dispatcher->AppendListener(kMsgConnectionTerminated, HandleConnectionRefused, 2, nullptr, 0x80);
+    dispatcher->AppendListener(kMsgTimestamp, HandleTimestamp, 3, nullptr, 0x80);
     return true;
 }
 
 // 0x00459F40
-bool Client::DialServer(uint32_t ip, uint16_t port)
+bool Guest::DialServer(uint32_t ip, uint16_t port)
 {
     auto& address = *reinterpret_cast<sockaddr_in*>(m_serverAddress);
     std::memset(&address, 0, sizeof(address));
@@ -106,19 +106,19 @@ bool Client::DialServer(uint32_t ip, uint16_t port)
     address.sin_port = htons(port);
     address.sin_addr.s_addr = ip;
     std::memset(address.sin_zero, 0, sizeof(address.sin_zero));
-    while (connect(m_socket, reinterpret_cast<sockaddr*>(&address), sizeof(address)) ==
+    while (connect(m_sock, reinterpret_cast<sockaddr*>(&address), sizeof(address)) ==
            SOCKET_ERROR) {
         if (WSAGetLastError() != WSAEWOULDBLOCK) {
             ReportSocketError(this);
             return false;
         }
     }
-    m_connected = ip != 0;
+    m_linkedUp = ip != 0;
     return true;
 }
 
 // 0x00459DC0
-void Client::SendBulkToHost(uint8_t msgId, uint16_t size, void* data, const char* desc, uint8_t groupId,
+void Guest::SendBulkToHost(uint8_t msgId, uint16_t size, void* data, const char* desc, uint8_t groupId,
                                    bool allAtOnce, bool sendInPlace)
 {
     if (Conn* server = ServerConnection(this))
@@ -126,14 +126,14 @@ void Client::SendBulkToHost(uint8_t msgId, uint16_t size, void* data, const char
 }
 
 // 0x00459E50
-void Client::SendToHost(NetMessageInfo* desc)
+void Guest::SendToHost(NetMessageInfo* desc)
 {
     if (Conn* server = ServerConnection(this))
-        NetLink::PutOnOutbox(this, server->m_handle, desc);
+        NetLink::PutOnOutbox(this, server->m_hdl, desc);
 }
 
 // 0x0045A300
-void Client::PullInbound()
+void Guest::PullInbound()
 {
     int fromLength = sizeof(sockaddr_in);
     sockaddr_in from = {}; // (the original leaves it uninitialised: recv doesn't fill it in)
@@ -142,8 +142,8 @@ void Client::PullInbound()
     int received;
     do {
         char* buffer = m_receiveBuffer;
-        SOCKET socket = m_socket;
-        if (!m_connected)
+        SOCKET socket = m_sock;
+        if (!m_linkedUp)
             received = recvfrom(socket, buffer, kReceiveBufferSize, 0, reinterpret_cast<sockaddr*>(&from), &fromLength);
         else
             received = recv(socket, buffer, kReceiveBufferSize, 0);
@@ -152,7 +152,7 @@ void Client::PullInbound()
             return;
         }
         m_totalBytesIn += received;
-        int size = (m_flags & kAppSecure) ? received - 2 : received;
+        int size = (m_flagBits & kAppSecure) ? received - 2 : received;
         auto& server = *reinterpret_cast<sockaddr_in*>(m_serverAddress);
         if (Conn* conn = NetLink::FindConnAtAddress(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
             char*& readPtr = conn->m_readPtr;
@@ -168,9 +168,9 @@ void Client::PullInbound()
                     handler(buffer, received, reinterpret_cast<sockaddr*>(&from));
                 }
             }
-        } else if (!m_connected) {
+        } else if (!m_linkedUp) {
             // from an unknown address
-            if (Conn* fresh = NetLink::NewConnection(this, from.sin_addr.s_addr, ntohs(from.sin_port), 6)) {
+            if (Conn* fresh = NetLink::OpenedLink(this, from.sin_addr.s_addr, ntohs(from.sin_port), 6)) {
                 fresh->m_ownerApp = this;
                 if (ReadPacket(this, buffer, fresh->m_readPtr, received)) {
                     fresh->m_readPtr = fresh->m_readBuffer + size;
@@ -179,7 +179,7 @@ void Client::PullInbound()
                     if (auto handler = m_foreignPacketHandler)
                         handler(buffer, received, reinterpret_cast<sockaddr*>(&from));
                     DestroyConn(fresh);
-                    MemSys::Manager::Get()->Free(fresh);
+                    MemSys::Hub::Pull()->Dealloc(fresh);
                 }
             }
         }
@@ -187,7 +187,7 @@ void Client::PullInbound()
 }
 
 // 0x00459FD0
-void Client::SendData(Conn* conn)
+void Guest::Transmit(Conn* conn)
 {
     if (!TransmitDueNow(this, conn))
         return;
@@ -201,13 +201,13 @@ void Client::SendData(Conn* conn)
             NetMessageInfo desc;
             ConstructMsgDesc(&desc);
             auto timestamp = static_cast<uint16_t>(conn->m_timestampOut);
-            desc.m_data = &timestamp;
+            desc.m_content = &timestamp;
             desc.m_byteCount = sizeof(timestamp);
-            desc.m_id = kMsgTimestamp;
-            desc.m_priority = kHighestPriority;
-            NetLink::PutOnOutbox(this, conn->m_handle, &desc);
+            desc.m_ident = kMsgTimestamp;
+            desc.m_rank = kHighestPriority;
+            NetLink::PutOnOutbox(this, conn->m_hdl, &desc);
         }
-        if (IsRemote(conn) && !IsOutsider(conn) && (m_flags & kAppMeasureLatency)) {
+        if (IsOffMachine(conn) && !IsOutsider(conn) && (m_flagBits & kAppMeasureLatency)) {
             NetMessageInfo desc;
             ConstructMsgDesc(&desc);
             uint32_t& sent = conn->m_latencyTest.m_sendTime;
@@ -215,16 +215,16 @@ void Client::SendData(Conn* conn)
             if (sent == 0 || now - sent > MaxLatency()) {
                 // a test due: if the last went unanswered, the latency is at least that much more
                 if (sent > conn->m_latencyTest.m_receiveTime) {
-                    uint32_t latency = (NetLink::IsLocal(conn) ? 0 : static_cast<uint32_t>(conn->m_latencyTest.m_averageLatency)) + 100;
+                    uint32_t latency = (NetLink::IsHostLocal(conn) ? 0 : static_cast<uint32_t>(conn->m_latencyTest.m_averageLatency)) + 100;
                     if (latency > MaxLatency())
                         latency = MaxLatency();
                     AddLatency(conn, latency);
                 }
                 sent = now;
-                desc.m_data = &now;
-                desc.m_id = kMsgLatencyTest;
+                desc.m_content = &now;
+                desc.m_ident = kMsgLatencyTest;
                 desc.m_byteCount = sizeof(now);
-                NetLink::PutOnOutbox(this, conn->m_handle, &desc);
+                NetLink::PutOnOutbox(this, conn->m_hdl, &desc);
             }
         }
         if (!BundleMessages(conn, kQueueNormal, false))
@@ -239,11 +239,11 @@ void Client::SendData(Conn* conn)
             done = true;
         char*& writePtr = conn->m_writePtr;
         int size = static_cast<int>(writePtr - conn->m_writeBuffer);
-        if (size > 0 && IsRemote(conn)) {
+        if (size > 0 && IsOffMachine(conn)) {
             char* packet = conn->m_writeBuffer;
-            bool sent = m_connected
-                            ? NetLink::Send(this, packet, size, 0)
-                            : NetLink::SendTo(this, conn->m_hostAddr, conn->m_port,
+            bool sent = m_linkedUp
+                            ? NetLink::PostOut(this, packet, size, 0)
+                            : NetLink::TransmitTo(this, conn->m_hostAddr, conn->m_portNo,
                                      packet, size, 0);
             if (!sent) {
                 MarkMessagesForRetry(conn, conn->m_timestampOut);
@@ -261,21 +261,21 @@ void Client::SendData(Conn* conn)
 }
 
 // 0x0045ABC0
-int Client::HandleConnectionAccepted(InboundMsgCtx* context)
+int Guest::HandleConnectionAccepted(InboundMsgCtx* context)
 {
     context->m_Acknowledge = true;
     return kHandlerContinue;
 }
 
 // 0x0045ABD0
-int Client::HandleConnectionRefused(InboundMsgCtx* context)
+int Guest::HandleConnectionRefused(InboundMsgCtx* context)
 {
-    NetLink::TerminateConnection(context->m_receiverApp, context->m_senderConn);
+    NetLink::SeverLink(context->m_receiverApp, context->m_senderConn);
     return kHandlerHalt;
 }
 
 // 0x0045AA70
-int Client::HandleTimestamp(InboundMsgCtx* context)
+int Guest::HandleTimestamp(InboundMsgCtx* context)
 {
     context->m_bodySize = sizeof(uint16_t);
     if (context->m_wireOptions & kPacketForeign)

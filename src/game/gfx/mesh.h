@@ -25,7 +25,7 @@ struct sVertexBuffer {
 
     // 0x004D3FF0: construct - a buffer of its own (without flag 4: CreateVertexBuffer, default pool), the copy (but
     // with flag 1), on the list. Returns this.
-    sVertexBuffer* Construct(uint32_t bytes, uint32_t usageFlags, uint32_t bufferFlags);
+    sVertexBuffer* MakeNew(uint32_t bytes, uint32_t usageFlags, uint32_t bufferFlags);
     // 0x004D3BE0: taken off the list (its node freed).
     void Unlist();
     // 0x004D4090: locked - *out the copy at `offset` (or, with D3DLOCK_DISCARD, the card's buffer itself: its Lock's
@@ -40,7 +40,7 @@ struct sVertexBuffer {
     void Recreate();
     // 0x004D6720: destroyed - the card's buffer released, off the list, the copy and itself freed (the C runtime's).
     // The buffer's reference count after the release.
-    uint32_t Destroy();
+    uint32_t Teardown();
 };
 static_assert(offsetof(sVertexBuffer, data) == 0xC && offsetof(sVertexBuffer, lockFlags) == 0x18 &&
                   sizeof(sVertexBuffer) == 0x24,
@@ -60,7 +60,7 @@ struct sIndexBuffer {
     uint32_t unknown14; // (cleared when destroyed)
 
     // 0x004D4270: construct - CreateIndexBuffer (write-only, default pool), the copy, on the list. Returns this.
-    sIndexBuffer* Construct(uint32_t bytes, uint32_t usageFlags, uint32_t indexFormat);
+    sIndexBuffer* MakeNew(uint32_t bytes, uint32_t usageFlags, uint32_t indexFormat);
     // 0x004D3C40: taken off the list (its node freed).
     void Unlist();
     // 0x004D42F0: locked - *out the copy (all of it, whatever the offset). 0.
@@ -68,7 +68,7 @@ struct sIndexBuffer {
     // 0x004D4300: unlocked - the whole copy written to the card. 0.
     long Unlock();
     // 0x004D6790: destroyed, as the vertex buffers are. The reference count after the release.
-    uint32_t Destroy();
+    uint32_t Teardown();
 };
 static_assert(offsetof(sIndexBuffer, indices) == 0x10 && sizeof(sIndexBuffer) == 0x18, "layout must match the original");
 
@@ -121,7 +121,7 @@ struct meshRef {
 
     // 0x004D4BE0: construct - no buffers, one vertex buffer to come, shown (0x40) in every viewport, no bone,
     // primitive type 5. Returns this.
-    meshRef* Construct();
+    meshRef* MakeNew();
     // 0x004D69E0: the destructor's body - off the billboards (0x10), its transform freed, and unless it shares
     // another mesh's buffers (1) its index and vertex buffers destroyed (the device's stream let go of if it is one),
     // its per-vertex data and billboard freed; its positions and triangles freed; all of it cleared.
@@ -130,7 +130,7 @@ struct meshRef {
     // written into the current vertex buffer, unlocked after. Unlock's result (0 without per-vertex bytes).
     long ApplyVertexColors();
     // 0x004D4D30: its position (its transform's last row; 0, 0, 0, 1 without one).
-    void GetPosition(float* out) const;
+    void FetchPlace(float* out) const;
     // 0x004D57D0: its first strip's long runs of degenerate triangles (more than 5) cut to the four or five a join
     // needs, and the strip written to the card.
     void CleanStrip();
@@ -154,7 +154,7 @@ struct meshRef {
     // `scene` and its pixel shader; the first vertex buffer made (or, without a format, unpacked for skinning).
     // `dynamic` (the file's only): its buffers dynamic.
     void ReadFromRamBlock(uint8_t** cursor, uint32_t materialChecksum, sceneRef* scene, sVertexArena* arena);
-    void LoadFromFile(void* file, uint32_t materialChecksum, sceneRef* scene, sVertexArena* arena, bool dynamic);
+    void IngestFromFile(void* file, uint32_t materialChecksum, sceneRef* scene, sVertexArena* arena, bool dynamic);
     // 0x004D5940: the packed skinned vertices unpacked into perVertexData (normals and weights in 11/11/10 bits,
     // bones / 3), the bones a vertex counted, its format, stride and a vertex buffer without a copy made for them.
     void SetUpSkinning(const uint8_t* packed, uint32_t bytes, sVertexArena* arena);
@@ -162,7 +162,7 @@ struct meshRef {
     // triangles of its first strip.
     void BuildCollision();
     // 0x004D3FC0 / 0x004D3FD0: a vertex buffer (0-2).
-    sVertexBuffer* GetVertexBuffer(int index);
+    sVertexBuffer* FetchVertexStore(int index);
     void SetVertexBuffer(int index, sVertexBuffer* buffer);
     // 0x004D3E50: its first vertex buffer moved into the arena (a share at the next free offset, 32-byte aligned;
     // the arena's buffer gains a reference) unless it has a buffer of its own already.
@@ -175,15 +175,15 @@ struct meshRef {
     void AddVertexBuffers(int count);
     // 0x004D6E00: move it so its transform's position is `position` (vertices, positions and sphere moved by the
     // difference).
-    void MoveTo(const Maths::Vector* position);
+    void MoveTo(const Maths::Vec4* position);
     // 0x004D6FB0 (Ghidra starts it at 0x004D6FBA): turn the vertices `turns` quarter turns about the transform's
     // position (about y; 1-3 only) - and the sphere's centre once per vertex buffer.
     void TurnY(int turns);
     // 0x004D71F0: a copy - sharing the buffers (flag 1) or with copies of them. Returns the copy.
-    meshRef* Clone(bool share);
+    meshRef* Replicate(bool share);
     // 0x004D7580: make it a billboard of `type` (1: facing the camera; 2: about `axis`, or as 1 when the axis is
     // nearly vertical) about `pivot`: its quad's vertices turned into the billboard's own axes.
-    void MakeBillboard(int type, const Maths::Vector* pivot, const Maths::Vector* axis);
+    void MakeBillboard(int type, const Maths::Vec4* pivot, const Maths::Vec4* axis);
 };
 static_assert(offsetof(meshRef, material) == 0x14 && offsetof(meshRef, vertexBufferCount) == 0x1A &&
                   offsetof(meshRef, indexCounts) == 0x24 && offsetof(meshRef, billboard) == 0x4C &&

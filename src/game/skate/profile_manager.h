@@ -20,24 +20,24 @@ namespace GameObjects {
 // skater_profile.cpp (0x00585ED0-0x005871A0); the appearance's (0x00488xxx-0x00489xxx) is called through the game.
 struct CRiderIdentity {
     uint8_t m_lookData[0x5C];
-    uint8_t m_info[8]; // +0x5C (a Scripts::CStruct)
+    uint8_t m_details[8]; // +0x5C (a Scripts::CStruct)
 
-    CRiderIdentity* Construct();                           // 0x00586D60
-    uint32_t GetName();                                    // 0x00586150 (its info's name)
+    CRiderIdentity* MakeNew();                           // 0x00586D60
+    uint32_t FetchTitle();                                    // 0x00586150 (its info's name)
     bool IsPro();                                          // 0x00586170 (is_pro)
-    const char* GetDisplayName();                          // 0x00586210 (display_name)
+    const char* FetchShownName();                          // 0x00586210 (display_name)
     Scripts::CStruct* GetSpecials();                        // 0x00586130 (specials)
     int GetMaxSpecials();                                  // 0x005860A0 (max_specials)
-    int GetStat(uint32_t name);                            // 0x00585FB0
+    int FetchTally(uint32_t name);                            // 0x00585FB0
     bool SetAbilityLevel(uint32_t name, int value);                // 0x00585FD0 (0-10 only)
     CRiderIdentity* CopyFrom(CRiderIdentity* other);       // 0x00585ED0
     void ReadFromSave(uint32_t name, Scripts::CStruct* save); // 0x00585F00 (its part of a save, by name)
     void WriteToSave(Scripts::CStruct* save);               // 0x00586B00
     bool Reset(Scripts::CStruct* params);                   // 0x00586810 (its defaults, then `params`; true)
     void SetAppearance(Scripts::CStruct* appearance, bool update); // 0x00488F40
-    Scripts::CStruct* InfoStructure() { return reinterpret_cast<Scripts::CStruct*>(m_info); }
+    Scripts::CStruct* InfoStructure() { return reinterpret_cast<Scripts::CStruct*>(m_details); }
     // The destructor (inlined by the manager): the info cleared, the appearance's destructor body, freed.
-    void Delete();
+    void EraseOne();
     // 0x00543010: the destructor body (Delete without the free): the info cleared, the appearance's destructor body.
     void DestroyBody();
 
@@ -62,8 +62,8 @@ struct CRiderIdentity {
         bool flag;
         uint8_t pad9[3];
         // 0x00587100: the flag cleared. 0x00587110: whether it's the empty one (0xF60C9090).
-        SpecialTrick* Construct();
-        bool IsEmpty();
+        SpecialTrick* MakeNew();
+        bool IsVacant();
     };
     // 0x00586630: special trick slot `index` (returned through `out`). 0x00586710: set (an empty one stored as
     // 0xF60C9090 both), the skater's trick state told if `apply`. False for a slot out of range.
@@ -88,47 +88,47 @@ static_assert(sizeof(CRiderIdentity) == 0x64, "layout must match the original");
 // global array 0x5004A967.
 struct ChecksumSet {
     uint32_t m_items[256];
-    int m_count; // +0x400
-    ChecksumSet* Construct();
+    int m_num; // +0x400
+    ChecksumSet* MakeNew();
     void Fill();
 };
 
-// ListKit::LookupTable<CRiderIdentity> (0x14 bytes): a singly linked list of {key, item, next} nodes (0xC bytes) with a
+// ListKit::ResolveMap<CRiderIdentity> (0x14 bytes): a singly linked list of {key, item, next} nodes (0xC bytes) with a
 // cursor for walking it by index. Its generic code (0x00557F10 by index, 0x00561430 by key, 0x005628B0 add,
 // 0x00562970 remove) is outside this range: called through the game.
 struct ProfileTable {
-    struct Node {
+    struct Elem {
         uint32_t key;
         CRiderIdentity* item;
-        Node* next;
+        Elem* next;
     };
-    uint32_t m_count;  // +0x00
-    Node* m_first;     // +0x04
-    Node* m_last;      // +0x08
-    Node* m_cursor;    // +0x0C
+    uint32_t m_num;  // +0x00
+    Elem* m_first;     // +0x04
+    Elem* m_last;      // +0x08
+    Elem* m_cursor;    // +0x0C
     int m_cursorIndex; // +0x10
 
     CRiderIdentity* GetByIndex(int index, uint32_t* key);
-    CRiderIdentity* Get(uint32_t key);
-    bool Put(uint32_t key, CRiderIdentity* item);
-    void Remove(uint32_t key);
+    CRiderIdentity* Pull(uint32_t key);
+    bool PlaceIn(uint32_t key, CRiderIdentity* item);
+    void DropOut(uint32_t key);
     // 0x0057B9E0: every node freed (not the items); no nodes, no cursor, none counted (m_last is left as it was).
     void Clear();
     // 0x0057BBF0: the destructor (a jump to Clear).
-    void Destroy();
+    void Teardown();
 };
 static_assert(sizeof(ProfileTable) == 0x14, "layout must match the original");
 
 class CProfileRoster {
 public:
     // 0x0057BC00: the constructor: nothing in it. Returns this.
-    CProfileRoster* Construct();
+    CProfileRoster* MakeNew();
     // 0x0057BC20: the destructor body: every template deleted and dropped from the table, the second player's
     // copy and the extra profiles deleted, the table cleared.
     void DestroyBody();
     // 0x0057B690: the templates made (the init_pro_skaters script, in the skater info heap); the first player's
     // profile is the first template, the second's a copy of the second.
-    void Init();
+    void PrepareAll();
     // 0x0057BB40: a template from `params` (its name; a new profile reset to `params`), added to the table. True.
     bool AddTemplate(Scripts::CStruct* params);
     // 0x0057B970: an extra profile named `name` (a new one). True. 0x0057B650: the extra profile named `name`, or
@@ -140,8 +140,8 @@ public:
     uint32_t GetTemplateName(int index);
     // 0x0057B620: which profile is current. 0x0057B630: the current profile. 0x0057B640: the profile at `index`.
     void SetCurrentIndex(int index);
-    CRiderIdentity* GetCurrentProfile();
-    CRiderIdentity* GetProfile(int index);
+    CRiderIdentity* FetchActiveAccount();
+    CRiderIdentity* FetchAccount(int index);
     // 0x0057B680: the lock flag (+0x20).
     void SetLocked(bool locked);
     // 0x0057BA20: the current skater made the template named `name`: for the first player the template itself,
@@ -164,7 +164,7 @@ public:
 
     // 0x0057C0D0: the instance (made first, if `create`); counted. 0x0057C120: one count released; the last
     // deletes it.
-    static CProfileRoster* Create(bool create);
+    static CProfileRoster* Fabricate(bool create);
     static void Release();
 
     ProfileTable m_templates;            // +0x00

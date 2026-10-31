@@ -2,7 +2,7 @@
 
 // NetLink::Conn (Neversoft's Net library): one end of a connection - its outgoing message queues, the sequenced
 // messages and streams it has received, its buffers, latency and bandwidth; and the list types of its queues
-// (ListKit::Node<T> / ListKit::Head<T> / ListKit::Search<T> for the message links and the stream links) with the
+// (ListKit::Elem<T> / ListKit::Foremost<T> / ListKit::Hunt<T> for the message links and the stream links) with the
 // destructors and constructors in Conn's address range (0x00455970-0x00456910).
 
 #include <cstddef>
@@ -16,21 +16,21 @@
 
 namespace NetLink {
 
-struct App;
+struct AppHost;
 
 // (The message lists' node and link vtables - the heads Conn's constructor makes use the links' own, folded -
 // and node types: net_messages.h.)
 
-// ListKit::Head<OrderedMsgNode> (Conn's sequenced queue and received queues).
+// ListKit::Foremost<OrderedMsgNode> (Conn's sequenced queue and received queues).
 struct MsgSeqLinkHead : MemSys::ListNode {
     // 0x00455C60: the constructor (the received queues', through the compiler's array helper): an empty list
     // (data -1, priority 0, linked to itself).
-    MsgSeqLinkHead* Construct();
+    MsgSeqLinkHead* MakeNew();
 };
 // The same for the other heads Conn's constructor makes (inline there).
 void InitConnListHead(MemSys::ListNode* head, void** vtable);
 
-// A local ListKit::Search<T> over one of Conn's lists: its vtable (only a virtual destructor, which resets it).
+// A local ListKit::Hunt<T> over one of Conn's lists: its vtable (only a virtual destructor, which resets it).
 template <void** const& SearchVtable>
 struct ConnListSearch {
     void** m_vtable;
@@ -38,7 +38,7 @@ struct ConnListSearch {
 
     void DestroyBody();
     // The scalar deleting destructor.
-    ConnListSearch* Destroy(unsigned int flags);
+    ConnListSearch* Teardown(unsigned int flags);
 };
 extern void** const kMsgSeqLinkSearchVtable;
 extern void** const kMsgLinkSearchVtable;
@@ -52,11 +52,11 @@ using StreamLinkSearch = ConnListSearch<kStreamLinkSearchVtable>; // 0x00455A00 
 // NetLink::Conn: one end of a connection, as an App keeps it (0x3D20 bytes). Its methods: net_conn.cpp.
 // (Neversoft's NetLink::Conn; formerly `Conn`, a view of its fields at their offsets.)
 struct Conn {
-    // m_flags
+    // m_flagBits
     static constexpr uint32_t kFlagLocal = 0x1;   // the App's own client/server in this process
     static constexpr uint32_t kFlagRemote = 0x2;
     static constexpr uint32_t kFlagForeign = 0x4; // made for a packet from an unknown address
-    // m_status
+    // m_curStanding
     static constexpr uint32_t kStatusReady = 0x1;    // cleared by Invalidate
     static constexpr uint32_t kStatus2 = 0x2;        // (set by game code) resends wait 1000 ms whatever the latency
     static constexpr uint32_t kStatusInvalid = 0x4;
@@ -67,9 +67,9 @@ struct Conn {
     static constexpr int kNumGroups = 256;
 
     // 0x00455C80
-    Conn* Construct(int flags);
+    Conn* MakeNew(int flags);
     // 0x00456790 (the destructor)
-    void Destroy();
+    void Teardown();
 
     // 0x00455920 (net_conn_times.cpp): the last communication time moved to now + `extra` ms, unless it's
     // later already.
@@ -87,21 +87,21 @@ struct Conn {
     // 0x004559A0
     int GetLinkSpeedClass();
     // 0x004559B0
-    void SetBandwidth(int bytesPerSecond);
+    void ChangeThroughput(int bytesPerSecond);
     // 0x004559C0
-    int GetBandwidth();
+    int FetchThroughput();
     // 0x00455A10 / 0x00455A20 / 0x00455A30
     bool IsOutsider();
-    bool IsLocal();
-    bool IsRemote();
+    bool IsHostLocal();
+    bool IsOffMachine();
     // 0x00455A40: the type, and its bandwidth (an unknown type leaves the bandwidth).
     void SetLinkSpeedClass(int type);
     // 0x00455B40: 0 for a local connection.
     int GetMeanPing();
-    // 0x00455C10: no longer ready; invalid (App::TerminateInvalidConnections deletes it).
-    void Invalidate();
+    // 0x00455C10: no longer ready; invalid (AppHost::TerminateInvalidConnections deletes it).
+    void MarkStale();
     // 0x00455C20
-    bool IsValid();
+    bool IsSound();
     // 0x00455C30: how long an important message waits for its ack before going again: twice the average
     // latency (none for a local connection), at least 500 ms; 1000 ms with kStatus2.
     uint32_t GetRetryDelay();
@@ -129,20 +129,20 @@ struct Conn {
                                     //       a time at +0x24
     MemSys::ListNode m_sequencedMsgs;  // +0x28 links: last send time at +0x1C, a time at +0x24, SeqQueuedMsg* at
                                     //       +0x28
-    int m_handle;                   // +0x3C
+    int m_hdl;                   // +0x3C
     uint32_t m_hostAddr;                  // +0x40
-    uint32_t m_id;                  // +0x44 a running number (0x0067D800, counted by the constructor)
-    uint16_t m_port;                // +0x48
+    uint32_t m_ident;                  // +0x44 a running number (0x0067D800, counted by the constructor)
+    uint16_t m_portNo;                // +0x48
     uint8_t m_pad4A[2];
     char* m_writeBuffer;            // +0x4C the packet being built (0x514 bytes): its start
     char* m_writePtr;               // +0x50 and end
     char* m_readBuffer;             // +0x54 received data (0xA28 bytes): its start
     char* m_readPtr;                // +0x58 and end
     uint32_t m_unknown5C;           // +0x5C (never touched by the library)
-    uint32_t m_status;              // +0x60 kStatus...
-    uint32_t m_flags;               // +0x64 kFlag...
-    App* m_ownerApp;                     // +0x68 the App (set by App::NewConnection)
-    uint32_t m_lastCommTime;        // +0x6C the last communication (App::NewConnection: the creation time)
+    uint32_t m_curStanding;              // +0x60 kStatus...
+    uint32_t m_flagBits;               // +0x64 kFlag...
+    AppHost* m_ownerApp;                     // +0x68 the App (set by AppHost::OpenedLink)
+    uint32_t m_lastCommTime;        // +0x6C the last communication (AppHost::OpenedLink: the creation time)
     uint32_t m_lastSendTime;        // +0x70
     uint32_t m_sendInterval;        // +0x74
     uint32_t m_nextSequenceIds[kNumGroups]; // +0x78 outgoing: the next sequence id of each group
@@ -151,11 +151,11 @@ struct Conn {
     // +0x87C sequenced messages received ahead of their turn, by group: links with the group at +0x15, the
     // sequence number at +0x20, SeqQueuedMsg* at +0x28.
     MemSys::ListNode m_receivedQueues[kNumGroups];
-    MemSys::ListNode m_receivedStreams; // +0x1C7C ListKit::Head<BulkStreamNode>: streams being received
-    MemSys::ListNode m_sendStreams;    // +0x1C90 ListKit::Head<BulkStreamNode>: streams being sent
+    MemSys::ListNode m_receivedStreams; // +0x1C7C ListKit::Foremost<BulkStreamNode>: streams being received
+    MemSys::ListNode m_sendStreams;    // +0x1C90 ListKit::Foremost<BulkStreamNode>: streams being sent
     PingProbe m_latencyTest;      // +0x1CA4
-    Metrics m_receiveMetrics;       // +0x1CDC
-    Metrics m_sendMetrics;          // +0x2CE8
+    Gauges m_receiveMetrics;       // +0x1CDC
+    Gauges m_sendMetrics;          // +0x2CE8
     bool m_sendNow;                 // +0x3CF4 force a send this frame
     uint8_t m_pad3CF5[3];
     ConnNode m_appNode;             // +0x3CF8 in the App's connection list (data = the connection)
@@ -165,8 +165,8 @@ struct Conn {
     uint32_t m_timestampOut;        // +0x3D18
     int m_linkSpeed;                // +0x3D1C bytes per second
 };
-static_assert(offsetof(Conn, m_handle) == 0x3C && offsetof(Conn, m_port) == 0x48 &&
-                  offsetof(Conn, m_writeBuffer) == 0x4C && offsetof(Conn, m_status) == 0x60 &&
+static_assert(offsetof(Conn, m_hdl) == 0x3C && offsetof(Conn, m_portNo) == 0x48 &&
+                  offsetof(Conn, m_writeBuffer) == 0x4C && offsetof(Conn, m_curStanding) == 0x60 &&
                   offsetof(Conn, m_lastSendTime) == 0x70 && offsetof(Conn, m_nextSequenceIds) == 0x78 &&
                   offsetof(Conn, m_sequenceNumbers) == 0x478 && offsetof(Conn, m_nextStreamId) == 0x878 &&
                   offsetof(Conn, m_receivedQueues) == 0x87C && offsetof(Conn, m_receivedStreams) == 0x1C7C &&

@@ -33,12 +33,12 @@ extern void** const kTextureVtable;
 extern void** const kTexDictVtable;
 
 sTextureEdit* Edit(const CPcTexture* texture) { return static_cast<sTextureEdit*>(texture->engine); }
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 
 CPcTexture* NewTexture()
 {
-    void* memory = MemSys::New(sizeof(CPcTexture));
-    return memory ? static_cast<CPcTexture*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::Alloc(sizeof(CPcTexture));
+    return memory ? static_cast<CPcTexture*>(memory)->MakeNew() : nullptr;
 }
 
 } // namespace
@@ -49,9 +49,9 @@ textureRef* CPcTexture::Texture() const
 }
 
 // 0x004C7ED0
-CPcTexture* CPcTexture::Construct()
+CPcTexture* CPcTexture::MakeNew()
 {
-    reinterpret_cast<CBitmapTexture*>(this)->CBitmapTexture::Construct();
+    reinterpret_cast<CBitmapTexture*>(this)->CBitmapTexture::MakeNew();
     unknownD = 0;
     engine = nullptr;
     unknownC = 0;
@@ -75,22 +75,22 @@ void CPcTexture::DestroyBody()
         EndEdit();
     if (auto* texture = static_cast<textureRef*>(engine)) {
         texture->DestroyBody();
-        MemSys::Manager::Get()->Free(texture);
+        MemSys::Hub::Pull()->Dealloc(texture);
     }
     reinterpret_cast<CBitmapTexture*>(this)->CBitmapTexture::DestroyBody();
 }
 
 // 0x004CAE60
-CPcTexture* CPcTexture::Destroy(unsigned int freeFlags)
+CPcTexture* CPcTexture::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004C7F00
-bool CPcTexture::LoadFile(const char* name, int /*unused1*/, int /*unused2*/)
+bool CPcTexture::IngestFile(const char* name, int /*unused1*/, int /*unused2*/)
 {
     char path[0x100];
     size_t length = std::strlen(name); // (unchecked, as the original)
@@ -112,9 +112,9 @@ bool CPcTexture::WriteBack(int /*unused1*/, int /*unused2*/)
 {
     auto* texels = static_cast<uint32_t*>(Texture()->Lock());
     const uint32_t* pixels = flags & 1 ? Edit(this)->pixels : nullptr; // (null read from, as the original)
-    using Get = uint16_t(__thiscall*)(CPcTexture*);
-    uint32_t width = reinterpret_cast<Get>(vtable[33])(this);
-    uint32_t height = reinterpret_cast<Get>(vtable[34])(this);
+    using Pull = uint16_t(__thiscall*)(CPcTexture*);
+    uint32_t width = reinterpret_cast<Pull>(vtable[33])(this);
+    uint32_t height = reinterpret_cast<Pull>(vtable[34])(this);
     uint32_t* row = texels + (height - 1) * width;
     for (uint32_t y = height; y; --y) {
         for (uint32_t x = 0; x < width; ++x)
@@ -132,33 +132,33 @@ bool CPcTexture::EndEdit()
     auto* edit = Edit(this);
     textureRef* texture = flags & 1 ? edit->texture : static_cast<textureRef*>(engine);
     if (edit->pixels) {
-        MemSys::Manager::Get()->Free(edit->pixels);
+        MemSys::Hub::Pull()->Dealloc(edit->pixels);
         Edit(this)->pixels = nullptr;
     }
     if (Edit(this)->original) {
-        MemSys::Manager::Get()->Free(Edit(this)->original);
+        MemSys::Hub::Pull()->Dealloc(Edit(this)->original);
         Edit(this)->original = nullptr;
     }
     if (textureRef* kept = Edit(this)->kept) {
         kept->DestroyBody();
-        MemSys::Manager::Get()->Free(kept);
+        MemSys::Hub::Pull()->Dealloc(kept);
         Edit(this)->kept = nullptr;
     }
-    MemSys::Manager::Get()->Free(engine);
+    MemSys::Hub::Pull()->Dealloc(engine);
     engine = texture;
     flags &= ~1u;
     return true;
 }
 
 // 0x004C7FB0
-uint16_t CPcTexture::GetWidth()
+uint16_t CPcTexture::FetchBreadth()
 {
     textureRef* texture = Texture();
     return texture ? texture->imageWidth : 0;
 }
 
 // 0x004C7FE0
-uint16_t CPcTexture::GetHeight()
+uint16_t CPcTexture::FetchTallness()
 {
     textureRef* texture = Texture();
     return texture ? texture->imageHeight : 0;
@@ -187,23 +187,23 @@ uint8_t CPcTexture::GetUnknownD() { return unknownD; }
 // 0x004C8450
 CPcTexture* CPcTexture::ConstructCopy(const CPcTexture* source)
 {
-    reinterpret_cast<CBitmapTexture*>(this)->CBitmapTexture::Construct();
+    reinterpret_cast<CBitmapTexture*>(this)->CBitmapTexture::MakeNew();
     vtable = reinterpret_cast<void**>(kTextureVtable);
     unknownC = source->unknownC;
     flags = source->flags;
     textureRef* copy = nullptr;
     if (source->Texture()) {
-        void* memory = MemSys::New(sizeof(textureRef));
+        void* memory = MemSys::Alloc(sizeof(textureRef));
         copy = memory ? static_cast<textureRef*>(memory)->ConstructCopy(source->Texture()) : nullptr;
     }
-    using Get = uint16_t(__thiscall*)(const CPcTexture*);
-    uint32_t width = reinterpret_cast<Get>(source->vtable[33])(source);
-    uint32_t height = reinterpret_cast<Get>(source->vtable[34])(source);
+    using Pull = uint16_t(__thiscall*)(const CPcTexture*);
+    uint32_t width = reinterpret_cast<Pull>(source->vtable[33])(source);
+    uint32_t height = reinterpret_cast<Pull>(source->vtable[34])(source);
     if (!(source->flags & 1)) {
         engine = copy;
         return this;
     }
-    auto* edit = static_cast<sTextureEdit*>(MemSys::New(sizeof(sTextureEdit)));
+    auto* edit = static_cast<sTextureEdit*>(MemSys::Alloc(sizeof(sTextureEdit)));
     if (edit) // (no check after: written through null, as the original)
         *edit = {};
     engine = edit;
@@ -211,20 +211,20 @@ CPcTexture* CPcTexture::ConstructCopy(const CPcTexture* source)
     const sTextureEdit* from = Edit(source);
     if (from->original) {
         uint32_t bytes = height * width * 4;
-        edit->original = static_cast<uint32_t*>(MemSys::New(bytes));
+        edit->original = static_cast<uint32_t*>(MemSys::Alloc(bytes));
         std::memcpy(edit->original, from->original, bytes);
     } else {
         edit->original = nullptr;
     }
     // (its own pixels tested, not the source's: always null here, so never copied - as the original)
     if (edit->pixels) {
-        edit->pixels = static_cast<uint32_t*>(MemSys::New(height * height * 4));
+        edit->pixels = static_cast<uint32_t*>(MemSys::Alloc(height * height * 4));
         std::memcpy(edit->pixels, from->pixels, width * height * 4);
     } else {
         edit->pixels = nullptr;
     }
     if (from->kept) {
-        void* memory = MemSys::New(sizeof(textureRef));
+        void* memory = MemSys::Alloc(sizeof(textureRef));
         edit->kept = memory ? static_cast<textureRef*>(memory)->ConstructCopy(from->kept) : nullptr;
     } else {
         edit->kept = nullptr;
@@ -233,13 +233,13 @@ CPcTexture* CPcTexture::ConstructCopy(const CPcTexture* source)
 }
 
 // 0x004C8830
-bool CPcTexture::Create(uint32_t newChecksum, uint32_t width, uint32_t height, int bitsPerPixel, int, int)
+bool CPcTexture::Fabricate(uint32_t newChecksum, uint32_t width, uint32_t height, int bitsPerPixel, int, int)
 {
     textureRef* old = Texture();
     if (old && old->texture) // (released, the old texture itself kept)
         static_cast<IUnknown*>(old->texture)->Release();
-    void* memory = MemSys::New(sizeof(textureRef));
-    textureRef* texture = memory ? static_cast<textureRef*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::Alloc(sizeof(textureRef));
+    textureRef* texture = memory ? static_cast<textureRef*>(memory)->MakeNew() : nullptr;
     checksum = newChecksum;
     engine = texture; // (an edit's place too)
     texture->checksum = newChecksum; // (no check, as the original)
@@ -269,7 +269,7 @@ bool CPcTexture::Create(uint32_t newChecksum, uint32_t width, uint32_t height, i
         break;
     }
     auto** d3d = reinterpret_cast<IDirect3DTexture9**>(&texture->texture);
-    Device()->CreateTexture(width, height, 0, 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
+    InputPort()->CreateTexture(width, height, 0, 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
     D3DSURFACE_DESC desc;
     (*d3d)->GetLevelDesc(0, &desc);
     texture->height = static_cast<uint16_t>(desc.Height);
@@ -289,7 +289,7 @@ bool CPcTexture::CopyFrom(const CPcTexture* source)
     DWORD levels = fromTexture->GetLevelCount();
     D3DSURFACE_DESC desc;
     fromTexture->GetLevelDesc(0, &desc);
-    if (Device()->CreateTexture(desc.Width, desc.Height, levels, 0, desc.Format, D3DPOOL_MANAGED, into, nullptr) !=
+    if (InputPort()->CreateTexture(desc.Width, desc.Height, levels, 0, desc.Format, D3DPOOL_MANAGED, into, nullptr) !=
         D3D_OK)
         Crt::Exit(0); // (the game's exit())
     for (DWORD level = 0; level < levels; ++level) {
@@ -322,13 +322,13 @@ bool CPcTexture::BeginEdit(bool keepTexture, bool keepCopy)
 {
     textureRef* texture = Texture();
     uint32_t width = texture->width, height = texture->height;
-    auto* edit = static_cast<sTextureEdit*>(MemSys::New(sizeof(sTextureEdit)));
+    auto* edit = static_cast<sTextureEdit*>(MemSys::Alloc(sizeof(sTextureEdit)));
     if (edit) // (no check after: written through null, as the original)
         *edit = {};
     engine = edit;
     edit->texture = texture;
     uint32_t bytes = width * height * 4;
-    edit->pixels = static_cast<uint32_t*>(MemSys::New(bytes));
+    edit->pixels = static_cast<uint32_t*>(MemSys::Alloc(bytes));
     flags |= 1;
     uint32_t* pixels = Edit(this)->pixels;
     auto* d3d = static_cast<IDirect3DTexture9*>(texture->texture);
@@ -346,18 +346,18 @@ bool CPcTexture::BeginEdit(bool keepTexture, bool keepCopy)
     }
     static_cast<IDirect3DTexture9*>(texture->texture)->UnlockRect(0);
     if (keepCopy) {
-        Edit(this)->original = static_cast<uint32_t*>(MemSys::New(bytes));
+        Edit(this)->original = static_cast<uint32_t*>(MemSys::Alloc(bytes));
         std::memcpy(Edit(this)->original, Edit(this)->pixels, bytes);
     }
     if (keepTexture) {
-        void* memory = MemSys::New(sizeof(textureRef));
-        Edit(this)->kept = memory ? static_cast<textureRef*>(memory)->Construct() : nullptr;
+        void* memory = MemSys::Alloc(sizeof(textureRef));
+        Edit(this)->kept = memory ? static_cast<textureRef*>(memory)->MakeNew() : nullptr;
         textureRef* kept = Edit(this)->kept; // (no check, as the original)
         kept->imageWidth = static_cast<uint16_t>(width);
         kept->imageHeight = static_cast<uint16_t>(height);
         kept->depth = 32;
         auto** keptD3d = reinterpret_cast<IDirect3DTexture9**>(&kept->texture);
-        Device()->CreateTexture(width, height, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, keptD3d, nullptr);
+        InputPort()->CreateTexture(width, height, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, keptD3d, nullptr);
         (*keptD3d)->GetLevelDesc(0, &desc);
         kept->height = static_cast<uint16_t>(desc.Height);
         kept->width = static_cast<uint16_t>(desc.Width);
@@ -483,10 +483,10 @@ bool CPcTexture::Modulate(uint32_t colour, bool cumulative)
                                                              : reinterpret_cast<const uint8_t*>(Edit(this)->pixels);
     uint32_t red = (colour & 0xFF) * 0xFF >> 7, green = (colour >> 8 & 0xFF) * 0xFF >> 7,
              blue = (colour >> 16 & 0xFF) * 0xFF >> 7, alpha = colour >> 24;
-    using Get = uint16_t(__thiscall*)(CPcTexture*);
+    using Pull = uint16_t(__thiscall*)(CPcTexture*);
     using GetDepth = uint8_t(__thiscall*)(CPcTexture*);
-    int width = reinterpret_cast<Get>(vtable[33])(this);
-    int count = reinterpret_cast<Get>(vtable[34])(this) * width;
+    int width = reinterpret_cast<Pull>(vtable[33])(this);
+    int count = reinterpret_cast<Pull>(vtable[34])(this) * width;
     for (int i = 0; i < count; ++i, from += 4, into += 4) {
         into[0] = static_cast<uint8_t>(from[0] * blue / 0xFF);
         into[1] = static_cast<uint8_t>(from[1] * green / 0xFF);
@@ -524,16 +524,16 @@ bool CPcTexture::Zoom(float xZoom, float yZoom)
     uint32_t* pixels = Edit(this)->pixels; // (read before the flag's test, as the original)
     const textureRef* texture = Texture();
     uint32_t width = texture->imageWidth, height = texture->imageHeight;
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_topDownHeap);
     uint32_t bytes = height * width * 4;
-    auto* zoomed = static_cast<uint8_t*>(MemSys::New(bytes));
+    auto* zoomed = static_cast<uint8_t*>(MemSys::Alloc(bytes));
     std::memset(zoomed, 0, bytes);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     ZoomImage(reinterpret_cast<const uint8_t*>(pixels), static_cast<uint16_t>(width), static_cast<uint16_t>(height),
               zoomed, xZoom, yZoom);
     std::memcpy(pixels, zoomed, bytes);
-    MemSys::Manager::Get()->Free(zoomed);
+    MemSys::Hub::Pull()->Dealloc(zoomed);
     return true;
 }
 
@@ -587,7 +587,7 @@ void CPcTexture::WriteRect(const uint32_t* in, uint16_t x, uint16_t y, uint16_t 
 }
 
 // 0x004C8D30
-bool CPcTexture::Rotate(float angle, float centreX, float centreY)
+bool CPcTexture::SpinBy(float angle, float centreX, float centreY)
 {
     uint32_t* pixels = Edit(this)->pixels; // (read before the flag's test, as the original)
     uint32_t width = Texture()->width, height = Texture()->height;
@@ -597,11 +597,11 @@ bool CPcTexture::Rotate(float angle, float centreX, float centreY)
         centreY = static_cast<float>((static_cast<double>(height) - 1.0f) * 0.5f);
     float m[4];
     Maths::CreateRotate2D(m, -angle);
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_topDownHeap);
     uint32_t bytes = height * width * 4;
-    auto* rotated = static_cast<uint32_t*>(MemSys::New(bytes));
-    MemSys::Manager::Get()->LeaveHeapScope();
+    auto* rotated = static_cast<uint32_t*>(MemSys::Alloc(bytes));
+    MemSys::Hub::Pull()->LeaveHeapScope();
     int yMax = static_cast<int>(height * 1024 - 1024), xMax = static_cast<int>(width * 1024 - 1024);
     // the image's axes turned (each a float, as the original stores them), in 1024ths
     float xx = static_cast<float>(static_cast<double>(m[2]) * 0.0f + m[0]);
@@ -629,7 +629,7 @@ bool CPcTexture::Rotate(float angle, float centreX, float centreY)
         }
     }
     std::memcpy(pixels, rotated, bytes);
-    MemSys::Manager::Get()->Free(rotated);
+    MemSys::Hub::Pull()->Dealloc(rotated);
     return true;
 }
 
@@ -674,11 +674,11 @@ bool CPcTexture::Stretch(uint16_t position, int vertical, int amount)
             offset = 0;
         }
     }
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_cutsceneTopDownHeap ? manager->m_cutsceneTopDownHeap : manager->m_topDownHeap);
-    auto* part = static_cast<uint32_t*>(MemSys::New(static_cast<uint32_t>(readHeight) * readWidth * 4));
-    auto* stretched = static_cast<uint32_t*>(MemSys::New(static_cast<uint32_t>(newHeight) * newWidth * 4));
-    MemSys::Manager::Get()->LeaveHeapScope();
+    auto* part = static_cast<uint32_t*>(MemSys::Alloc(static_cast<uint32_t>(readHeight) * readWidth * 4));
+    auto* stretched = static_cast<uint32_t*>(MemSys::Alloc(static_cast<uint32_t>(newHeight) * newWidth * 4));
+    MemSys::Hub::Pull()->LeaveHeapScope();
     ReadRect(part, readX, readY, readWidth, readHeight);
     ResizeImage(reinterpret_cast<const uint8_t*>(part), readWidth, readHeight, reinterpret_cast<uint8_t*>(stretched),
                 newWidth, newHeight, 32);
@@ -686,9 +686,9 @@ bool CPcTexture::Stretch(uint16_t position, int vertical, int amount)
                  reinterpret_cast<const uint8_t*>(stretched + static_cast<uint16_t>(offset)), newWidth, newHeight, 32);
     WriteRect(part, readX, readY, readWidth, readHeight);
     if (part)
-        MemSys::Manager::Get()->Free(part);
+        MemSys::Hub::Pull()->Dealloc(part);
     if (stretched)
-        MemSys::Manager::Get()->Free(stretched);
+        MemSys::Hub::Pull()->Dealloc(stretched);
     return true;
 }
 
@@ -697,10 +697,10 @@ bool CPcTexture::Mirror()
 {
     uint32_t width = Texture()->imageWidth;
     int height = Texture()->imageHeight;
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_topDownHeap);
-    auto* column = static_cast<uint32_t*>(MemSys::New(height * 4));
-    MemSys::Manager::Get()->LeaveHeapScope();
+    auto* column = static_cast<uint32_t*>(MemSys::Alloc(height * 4));
+    MemSys::Hub::Pull()->LeaveHeapScope();
     uint32_t* left = flags & 1 ? Edit(this)->pixels : nullptr;
     uint32_t* right = (flags & 1 ? Edit(this)->pixels : nullptr) + width - 1;
     for (; left < right; ++left, --right) { // (the columns swapped)
@@ -711,7 +711,7 @@ bool CPcTexture::Mirror()
         for (int i = 0; i < height; ++i)
             right[i * width] = column[i];
     }
-    MemSys::Manager::Get()->Free(column);
+    MemSys::Hub::Pull()->Dealloc(column);
     return true;
 }
 
@@ -720,9 +720,9 @@ bool CPcTexture::Overlay(CPcTexture* over, int /*unused*/)
 {
     const auto* texels = static_cast<const uint8_t*>(over->Texture()->Lock());
     auto* into = reinterpret_cast<uint8_t*>(flags & 1 ? Edit(this)->pixels : nullptr);
-    using Get = uint16_t(__thiscall*)(CPcTexture*);
-    uint32_t width = reinterpret_cast<Get>(over->vtable[33])(over);
-    uint32_t height = reinterpret_cast<Get>(over->vtable[34])(over);
+    using Pull = uint16_t(__thiscall*)(CPcTexture*);
+    uint32_t width = reinterpret_cast<Pull>(over->vtable[33])(over);
+    uint32_t height = reinterpret_cast<Pull>(over->vtable[34])(over);
     const uint8_t* row = texels + (height - 1) * width * 4; // (bottom row first, by its alpha)
     for (uint32_t y = height; y; --y, row -= width * 4) {
         const uint8_t* from = row;
@@ -748,9 +748,9 @@ bool CPcTexture::AdjustHsv(float hue, float saturation, float value, bool cumula
     if (flags & 1)
         from = reinterpret_cast<const uint8_t*>(Edit(this)->original && !cumulative ? Edit(this)->original
                                                                                     : Edit(this)->pixels);
-    using Get = uint16_t(__thiscall*)(CPcTexture*);
-    int width = reinterpret_cast<Get>(vtable[33])(this);
-    int count = reinterpret_cast<Get>(vtable[34])(this) * width;
+    using Pull = uint16_t(__thiscall*)(CPcTexture*);
+    int width = reinterpret_cast<Pull>(vtable[33])(this);
+    int count = reinterpret_cast<Pull>(vtable[34])(this) * width;
     for (int i = 0; i < count; ++i, from += 4, into += 4) {
         float h, s, v;
         RgbToHsv(static_cast<float>(from[0] * (1.0f / 255.0f)), static_cast<float>(from[1] * (1.0f / 255.0f)),
@@ -774,9 +774,9 @@ bool CPcTexture::AdjustHsv(float hue, float saturation, float value, bool cumula
 // 0x004CABE0
 bool CPcTexture::Offset(int dx, int dy, bool keepEdges, int /*unused*/)
 {
-    using Get = uint16_t(__thiscall*)(CPcTexture*);
-    int width = reinterpret_cast<Get>(vtable[33])(this);
-    int height = reinterpret_cast<Get>(vtable[34])(this);
+    using Pull = uint16_t(__thiscall*)(CPcTexture*);
+    int width = reinterpret_cast<Pull>(vtable[33])(this);
+    int height = reinterpret_cast<Pull>(vtable[34])(this);
     int fromX, intoX, partWidth, fromY = 0, intoY, partHeight;
     if (dx >= 0) {
         fromX = 0;
@@ -795,11 +795,11 @@ bool CPcTexture::Offset(int dx, int dy, bool keepEdges, int /*unused*/)
         intoY = 0;
         partHeight = height + dy;
     }
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_topDownHeap);
     auto* part = static_cast<uint32_t*>(
         Crt::AllocBlock(partHeight * partWidth * 4)); // (the C runtime's malloc)
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     ReadRect(part, static_cast<uint16_t>(fromX), static_cast<uint16_t>(fromY), static_cast<uint16_t>(partWidth),
              static_cast<uint16_t>(partHeight));
     WriteRect(part, static_cast<uint16_t>(intoX), static_cast<uint16_t>(intoY), static_cast<uint16_t>(partWidth),
@@ -823,7 +823,7 @@ bool CPcTexture::Offset(int dx, int dy, bool keepEdges, int /*unused*/)
             }
         }
     }
-    Crt::Free(part); // (the C runtime's free)
+    Crt::Dealloc(part); // (the C runtime's free)
     return true;
 }
 
@@ -886,13 +886,13 @@ bool CPcTexture::Squash(uint16_t position, int vertical, int amount, bool fill, 
         }
     }
     auto crtMalloc = Crt::AllocBlock; // (the C runtime's)
-    auto crtFree = Crt::Free;
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    auto crtFree = Crt::Dealloc;
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_topDownHeap);
     int count = readHeight * readWidth;
     auto* part = static_cast<uint32_t*>(crtMalloc(count * 4));
     auto* squashed = static_cast<uint32_t*>(crtMalloc(newHeight * newWidth * 4));
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     ReadRect(part, readX, readY, readWidth, readHeight);
     ResizeImage(reinterpret_cast<const uint8_t*>(part), readWidth, readHeight, reinterpret_cast<uint8_t*>(squashed),
                 newWidth, newHeight, 32);
@@ -907,11 +907,11 @@ bool CPcTexture::Squash(uint16_t position, int vertical, int amount, bool fill, 
         if (!vertical) {
             bool right = amount > 0;
             int source = right ? 0 : newWidth - 1;
-            manager = MemSys::Manager::Get();
+            manager = MemSys::Hub::Pull();
             manager->EnterHeapScope(manager->m_topDownHeap);
             int rows = static_cast<uint16_t>(height);
             auto* column = static_cast<uint32_t*>(crtMalloc(rows * 4));
-            MemSys::Manager::Get()->LeaveHeapScope();
+            MemSys::Hub::Pull()->LeaveHeapScope();
             for (int i = 0; i < rows; ++i)
                 column[i] = squashed[source + i * newWidth];
             int first = right ? 0 : static_cast<int>(width) + amount;
@@ -922,11 +922,11 @@ bool CPcTexture::Squash(uint16_t position, int vertical, int amount, bool fill, 
         } else {
             bool down = amount > 0;
             int source = down ? 0 : newHeight - 1;
-            manager = MemSys::Manager::Get();
+            manager = MemSys::Hub::Pull();
             manager->EnterHeapScope(manager->m_topDownHeap);
             uint32_t bytes = static_cast<uint16_t>(width) * 4u;
             auto* row = static_cast<uint32_t*>(crtMalloc(bytes));
-            MemSys::Manager::Get()->LeaveHeapScope();
+            MemSys::Hub::Pull()->LeaveHeapScope();
             std::memcpy(row, squashed + newWidth * source, bytes);
             int first = down ? 0 : static_cast<int>(height) + amount;
             int last = down ? amount - 1 : static_cast<int>(height) - 1;
@@ -943,9 +943,9 @@ bool CPcTexture::Squash(uint16_t position, int vertical, int amount, bool fill, 
 }
 
 // 0x004C8070
-CPcTexDict* CPcTexDict::Construct(uint32_t checksum)
+CPcTexDict* CPcTexDict::MakeNew(uint32_t checksum)
 {
-    reinterpret_cast<CTextureSet*>(this)->CTextureSet::Construct(checksum, true);
+    reinterpret_cast<CTextureSet*>(this)->CTextureSet::MakeNew(checksum, true);
     vtable = reinterpret_cast<void**>(kTexDictVtable);
     return this;
 }
@@ -958,16 +958,16 @@ void CPcTexDict::DestroyBody()
 }
 
 // 0x004C9F60
-CPcTexDict* CPcTexDict::Destroy(unsigned int freeFlags)
+CPcTexDict* CPcTexDict::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004C9B00
-CPcTexture* CPcTexDict::LoadTexture(const char* name, int a2, int /*unused*/)
+CPcTexture* CPcTexDict::IngestSkin(const char* name, int a2, int /*unused*/)
 {
     CPcTexture* texture = NewTexture();
     // (no check: the engine's load called on null without memory, as the original)
@@ -988,10 +988,10 @@ CPcTexture* CPcTexDict::CreateTexture(uint32_t a1, uint32_t a2, uint32_t a3, uin
 CPcTexture* CPcTexDict::RefreshTexture(uint32_t checksum, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5,
                                       uint32_t a6)
 {
-    auto* texture = static_cast<CPcTexture*>(static_cast<ListKit::HashTable*>(textures)->GetItem(checksum));
+    auto* texture = static_cast<CPcTexture*>(static_cast<ListKit::KeyMap*>(textures)->FetchEntry(checksum));
     if (!texture)
         texture = NewTexture();
-    reinterpret_cast<CBitmapTexture*>(texture)->CBitmapTexture::Create(checksum, a2, a3, a4, a5, a6);
+    reinterpret_cast<CBitmapTexture*>(texture)->CBitmapTexture::Fabricate(checksum, a2, a3, a4, a5, a6);
     return texture;
 }
 
@@ -1006,7 +1006,7 @@ bool CPcTexDict::UnloadTexture(CPcTexture* texture)
 // 0x004C9C80
 CPcTexture* CPcTexDict::CopyTexture(uint32_t checksum, const CPcTexture* source)
 {
-    void* memory = MemSys::New(sizeof(CPcTexture));
+    void* memory = MemSys::Alloc(sizeof(CPcTexture));
     CPcTexture* texture = memory ? static_cast<CPcTexture*>(memory)->ConstructCopy(source) : nullptr;
     texture->Texture()->checksum = checksum; // (no check, as the original)
     return texture;
@@ -1016,7 +1016,7 @@ namespace {
 
 // The dictionary's table remade for `count` textures: 2^bits buckets, bits the first with 2^bits at least twice the
 // count (1-12), in the heap the old table was in (the old one freed).
-ListKit::HashTable* RemakeTable(ListKit::HashTable* table, uint32_t count)
+ListKit::KeyMap* RemakeTable(ListKit::KeyMap* table, uint32_t count)
 {
     uint32_t size = 2, bits = 1;
     uint32_t wanted = count * 2;
@@ -1028,19 +1028,19 @@ ListKit::HashTable* RemakeTable(ListKit::HashTable* table, uint32_t count)
             ++bits;
         } while (wanted > size);
     }
-    MemSys::Allocator* heap = MemSys::GetBlockHeader(table)->allocator; // (read before the null test, as the original)
+    MemSys::MemSource* heap = MemSys::GetBlockHeader(table)->allocator; // (read before the null test, as the original)
     if (table) {
         if (table->m_buckets) {
             table->EmptyTable();
-            MemSys::Manager::Get()->Free(table->m_buckets);
+            MemSys::Hub::Pull()->Dealloc(table->m_buckets);
             table->m_buckets = nullptr;
         }
-        MemSys::Manager::Get()->Free(table);
+        MemSys::Hub::Pull()->Dealloc(table);
     }
-    MemSys::Manager::Get()->EnterHeapScope(heap);
-    void* memory = MemSys::New(sizeof(ListKit::HashTable));
-    auto* remade = memory ? new (memory) ListKit::HashTable(static_cast<int>(bits)) : nullptr;
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->EnterHeapScope(heap);
+    void* memory = MemSys::Alloc(sizeof(ListKit::KeyMap));
+    auto* remade = memory ? new (memory) ListKit::KeyMap(static_cast<int>(bits)) : nullptr;
+    MemSys::Hub::Pull()->LeaveHeapScope();
     return remade;
 }
 
@@ -1065,10 +1065,10 @@ uint32_t TextureFormat(uint8_t compression, uint8_t depth, uint32_t last)
 }
 
 // The texture under its checksum in the table.
-void AddToTable(ListKit::HashTable* table, textureRef* texture)
+void AddToTable(ListKit::KeyMap* table, textureRef* texture)
 {
-    void* memory = MemSys::New(sizeof(CPcTexture));
-    CPcTexture* holder = memory ? static_cast<CPcTexture*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::Alloc(sizeof(CPcTexture));
+    CPcTexture* holder = memory ? static_cast<CPcTexture*>(memory)->MakeNew() : nullptr;
     holder->engine = texture; // (no check, as the original)
     holder->checksum = texture->checksum;
     table->StoreEntry(texture->checksum, holder);
@@ -1076,19 +1076,19 @@ void AddToTable(ListKit::HashTable* table, textureRef* texture)
 
 textureRef* NewEngineTexture()
 {
-    void* memory = MemSys::New(sizeof(textureRef));
-    return memory ? static_cast<textureRef*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::Alloc(sizeof(textureRef));
+    return memory ? static_cast<textureRef*>(memory)->MakeNew() : nullptr;
 }
 
 } // namespace
 
 // 0x004CAE90
-ListKit::HashTable* __cdecl LoadTexturesFromFile(const char* name, ListKit::HashTable* table, bool remake)
+ListKit::KeyMap* __cdecl LoadTexturesFromFile(const char* name, ListKit::KeyMap* table, bool remake)
 {
-    FileLoad::Handle file = FileLoad::Open(name, "rb");
+    FileLoad::Hdl file = FileLoad::Unseal(name, "rb");
     if (!file)
         return table;
-    auto read = [file](void* into, int size, int count) { FileLoad::Read(into, size, count, file); };
+    auto read = [file](void* into, int size, int count) { FileLoad::TakeIn(into, size, count, file); };
     uint32_t version;
     read(&version, 4, 1);
     int count;
@@ -1122,9 +1122,9 @@ ListKit::HashTable* __cdecl LoadTexturesFromFile(const char* name, ListKit::Hash
             // texels left as they are, as the original).
             texture->depth = 32;
             format = D3DFMT_A8R8G8B8;
-            Device()->CreateTexture(texture->width, texture->height, texture->levels, 0, D3DFMT_A8R8G8B8,
+            InputPort()->CreateTexture(texture->width, texture->height, texture->levels, 0, D3DFMT_A8R8G8B8,
                                     D3DPOOL_MANAGED, d3d, nullptr);
-            void* palette = MemSys::New(paletteSize);
+            void* palette = MemSys::Alloc(paletteSize);
             read(palette, static_cast<int>(paletteSize), 1);
             for (uint32_t level = 0; level < texture->levels; ++level) {
                 uint32_t size;
@@ -1133,14 +1133,14 @@ ListKit::HashTable* __cdecl LoadTexturesFromFile(const char* name, ListKit::Hash
                 (*d3d)->LockRect(level, &rect, nullptr, 0);
                 D3DSURFACE_DESC desc;
                 (*d3d)->GetLevelDesc(level, &desc);
-                void* texels = MemSys::New(size);
+                void* texels = MemSys::Alloc(size);
                 read(texels, static_cast<int>(size), 1);
-                MemSys::Manager::Get()->Free(texels);
+                MemSys::Hub::Pull()->Dealloc(texels);
                 (*d3d)->UnlockRect(level);
             }
-            MemSys::Manager::Get()->Free(palette);
+            MemSys::Hub::Pull()->Dealloc(palette);
         } else {
-            Device()->CreateTexture(texture->width, texture->height, texture->levels, 0, static_cast<D3DFORMAT>(format),
+            InputPort()->CreateTexture(texture->width, texture->height, texture->levels, 0, static_cast<D3DFORMAT>(format),
                                     D3DPOOL_MANAGED, d3d, nullptr);
             texture->palette = nullptr;
             for (uint32_t level = 0; level < texture->levels; ++level) {
@@ -1154,12 +1154,12 @@ ListKit::HashTable* __cdecl LoadTexturesFromFile(const char* name, ListKit::Hash
         }
         AddToTable(table, texture);
     }
-    FileLoad::Close(file);
+    FileLoad::Shut(file);
     return table;
 }
 
 // 0x004CB420
-ListKit::HashTable* __cdecl LoadTexturesFromMemory(const uint8_t** cursor, ListKit::HashTable* table, bool remake)
+ListKit::KeyMap* __cdecl LoadTexturesFromMemory(const uint8_t** cursor, ListKit::KeyMap* table, bool remake)
 {
     const auto* p = reinterpret_cast<const uint32_t*>(*cursor); // (the cursor not moved on, as the original)
     int count = static_cast<int>(p[1]);
@@ -1180,7 +1180,7 @@ ListKit::HashTable* __cdecl LoadTexturesFromMemory(const uint8_t** cursor, ListK
         texture->unknownF = static_cast<uint8_t>(compression);
         format = TextureFormat(static_cast<uint8_t>(compression), static_cast<uint8_t>(depth), format);
         auto** d3d = reinterpret_cast<IDirect3DTexture9**>(&texture->texture);
-        Device()->CreateTexture(static_cast<uint16_t>(width), static_cast<uint16_t>(height),
+        InputPort()->CreateTexture(static_cast<uint16_t>(width), static_cast<uint16_t>(height),
                                 static_cast<uint8_t>(levels), 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d,
                                 nullptr);
         if (!paletteSize)
@@ -1201,7 +1201,7 @@ ListKit::HashTable* __cdecl LoadTexturesFromMemory(const uint8_t** cursor, ListK
 namespace {
 
 // Whether the table has any textures (iterated from the start).
-bool HasTextures(ListKit::HashTable* table)
+bool HasTextures(ListKit::KeyMap* table)
 {
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
@@ -1214,9 +1214,9 @@ bool HasTextures(ListKit::HashTable* table)
 } // namespace
 
 // 0x004CB380
-bool CPcTexDict::LoadFile(const char* name)
+bool CPcTexDict::IngestFile(const char* name)
 {
-    auto* table = static_cast<ListKit::HashTable*>(textures);
+    auto* table = static_cast<ListKit::KeyMap*>(textures);
     if (!table) {
         LoadTexturesFromFile(name, nullptr, false);
     } else if (!HasTextures(table)) {
@@ -1230,7 +1230,7 @@ bool CPcTexDict::LoadFile(const char* name)
 // 0x004CB7C0
 bool CPcTexDict::LoadMemory(const uint8_t* data)
 {
-    auto* table = static_cast<ListKit::HashTable*>(textures);
+    auto* table = static_cast<ListKit::KeyMap*>(textures);
     if (!table) {
         LoadTexturesFromMemory(&data, nullptr, false);
     } else if (!HasTextures(table)) {
@@ -1246,22 +1246,22 @@ CPcTexDict* CPcTexDict::ConstructFromFile(const char* name)
 {
     reinterpret_cast<CTextureSet*>(this)->CTextureSet::ConstructNamed(name, true);
     vtable = reinterpret_cast<void**>(kTexDictVtable);
-    LoadFile(name);
+    IngestFile(name);
     return this;
 }
 
 // 0x004C7270
 CPcTexDict* __cdecl LoadTexDictFile(const char* name)
 {
-    void* memory = MemSys::New(sizeof(CPcTexDict));
+    void* memory = MemSys::Alloc(sizeof(CPcTexDict));
     return memory ? static_cast<CPcTexDict*>(memory)->ConstructFromFile(name) : nullptr;
 }
 
 // 0x004C72E0
 CPcTexDict* __cdecl LoadTexDictMemory(uint32_t checksum, const uint8_t* data)
 {
-    void* memory = MemSys::New(sizeof(CPcTexDict));
-    CPcTexDict* dict = memory ? static_cast<CPcTexDict*>(memory)->Construct(checksum) : nullptr;
+    void* memory = MemSys::Alloc(sizeof(CPcTexDict));
+    CPcTexDict* dict = memory ? static_cast<CPcTexDict*>(memory)->MakeNew(checksum) : nullptr;
     dict->LoadMemory(data); // (called on null without memory, as the original)
     return dict;
 }
@@ -1269,8 +1269,8 @@ CPcTexDict* __cdecl LoadTexDictMemory(uint32_t checksum, const uint8_t* data)
 // 0x004C7360
 CPcTexDict* __cdecl CreateTexDict(uint32_t checksum)
 {
-    void* memory = MemSys::New(sizeof(CPcTexDict));
-    return memory ? static_cast<CPcTexDict*>(memory)->Construct(checksum) : nullptr;
+    void* memory = MemSys::Alloc(sizeof(CPcTexDict));
+    return memory ? static_cast<CPcTexDict*>(memory)->MakeNew(checksum) : nullptr;
 }
 
 // 0x004C80B0
@@ -1362,19 +1362,19 @@ void __cdecl HsvToRgb(float* r, float* g, float* b, float h, float s, float v)
 }
 
 namespace {
-static VtableSlot kTextureVtable_slots[] = {&Engine3D::CPcTexture::Destroy, &Engine3D::CPcTexture::LoadFile,
-                &Engine3D::CPcTexture::LoadMemory, &Engine3D::CPcTexture::Create, &Engine3D::CPcTexture::CopyFrom, Stubs::ReturnFalse4,
+static VtableSlot kTextureVtable_slots[] = {&Engine3D::CPcTexture::Teardown, &Engine3D::CPcTexture::IngestFile,
+                &Engine3D::CPcTexture::LoadMemory, &Engine3D::CPcTexture::Fabricate, &Engine3D::CPcTexture::CopyFrom, Stubs::ReturnFalse4,
                 Stubs::ReturnFalse1, Stubs::ReturnFalse1, &Engine3D::CPcTexture::BeginEdit, &Engine3D::CPcTexture::WriteBack,
                 &Engine3D::CPcTexture::EndEdit, Stubs::ReturnFalse5, &Engine3D::CPcTexture::Modulate, &Engine3D::CPcTexture::Mirror,
-                Stubs::ReturnFalse, &Engine3D::CPcTexture::ResizeFrom, &Engine3D::CPcTexture::Zoom, &Engine3D::CPcTexture::Rotate,
+                Stubs::ReturnFalse, &Engine3D::CPcTexture::ResizeFrom, &Engine3D::CPcTexture::Zoom, &Engine3D::CPcTexture::SpinBy,
                 &Engine3D::CPcTexture::Offset, &Engine3D::CPcTexture::Border, Stubs::ReturnFalse7, &Engine3D::CPcTexture::Stretch,
                 &Engine3D::CPcTexture::Squash, Stubs::ReturnFalse2, &Engine3D::CPcTexture::AdjustHsv, Stubs::ReturnZero,
                 Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::IgnoreArguments2, Stubs::ReturnFalse1,
-                Stubs::ReturnFalse, Stubs::ReturnFalse, &Engine3D::CPcTexture::GetWidth, &Engine3D::CPcTexture::GetHeight,
+                Stubs::ReturnFalse, Stubs::ReturnFalse, &Engine3D::CPcTexture::FetchBreadth, &Engine3D::CPcTexture::FetchTallness,
                 &Engine3D::CPcTexture::GetDepth, Stubs::ReturnZero, Stubs::IgnoreArgument, &Engine3D::CPcTexture::GetUnknownE,
                 &Engine3D::CPcTexture::GetUnknownC, &Engine3D::CPcTexture::GetUnknownD, &Engine3D::CPcTexture::Overlay};
 void** const kTextureVtable = reinterpret_cast<void**>(kTextureVtable_slots);
-static VtableSlot kTexDictVtable_slots[] = {&Engine3D::CPcTexDict::Destroy, &Engine3D::CPcTexDict::LoadTexture,
+static VtableSlot kTexDictVtable_slots[] = {&Engine3D::CPcTexDict::Teardown, &Engine3D::CPcTexDict::IngestSkin,
                 &Engine3D::CPcTexDict::CreateTexture, &Engine3D::CPcTexDict::RefreshTexture, Stubs::ReturnZero1,
                 &Engine3D::CPcTexDict::UnloadTexture, Stubs::IgnoreArgument, Stubs::ReturnFalse1,
                 &Engine3D::CPcTexDict::CopyTexture};

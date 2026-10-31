@@ -11,7 +11,7 @@
 struct ImFont;
 
 namespace MenuSystem::LevelEditor::Ui {
-struct Model;
+struct ShapeMesh;
 }
 
 // NOT ORIGINAL - the level editor's history, changes, search and organising (ours; see level_editor.h): the panels and
@@ -34,15 +34,15 @@ namespace MenuSystem::LevelEditor::Ux3 {
 // --- the game side (level_editor_ux3.cpp) ----------------------------------------------------------------------------
 
 // Once (the editor's Init): the Outliner's layout records, the actions' callbacks.
-void Init();
+void PrepareAll();
 // Once a frame while the editor runs: this module's actions, the queued tasks, the Changes list kept up to date.
-void Update();
+void TickFrame();
 // A task for the next Update (the panels' clicks).
 void Queue(std::function<void()> task);
 
 // The windows (each opened / closed by its action or its toolbar button).
-enum Window : int { kPaletteWindow, kHistoryWindow, kChangesWindow, kKeysWindow, kSnapshotsWindow, kWindowCount };
-bool& Open(Window window);
+enum Pane : int { kPaletteWindow, kHistoryWindow, kChangesWindow, kKeysWindow, kSnapshotsWindow, kWindowCount };
+bool& Unseal(Pane window);
 // Asked for by the keys (Shift+G, Ctrl+G): the Select similar menu, the group name.
 bool TakeSimilarMenu();
 bool TakeGroupName();
@@ -50,7 +50,7 @@ bool TakeGroupName();
 // The Changes list (level_editor_changes.h) as of the last refresh, and its records' text (Revert finds the record by
 // it). Refreshed when the undo history moves, the panel opens, or a second has passed.
 struct ChangeRow {
-    Changes::Entry entry;
+    Changes::TableRow entry;
     std::string record;
 };
 const std::vector<ChangeRow>& ChangeList();
@@ -76,7 +76,7 @@ struct Fonts {
 };
 void SetFonts(const Fonts& fonts);
 // The windows over the view: the search, the history, the changes, the keys, the snapshots, the menus.
-void Windows(const Ui::Model& model);
+void Windows(const Ui::ShapeMesh& model);
 // The help window's list of every action from the registry (by category, with its keys as bound now).
 void HelpFromRegistry();
 // The Keys section: every rebindable action, its keys (click one to press a new key, + adds one, x clears, Reset) and
@@ -85,16 +85,16 @@ void KeysSection();
 // The Outliner: the search's type filters (Organize::ParseFilter) for a row; the user's label shown beside a row's
 // name; the groups at the top of the tree; a row's eye / lock / selectable toggles (drawn at `x`, the row's right
 // end less their width - KeysWidth); the row's right-click menu; a search asked for (Select similar on a node).
-bool RowPasses(const Nodes::Node& node, const std::string& name, const char* search);
+bool RowPasses(const Nodes::Elem& node, const std::string& name, const char* search);
 std::string RowLabel(uint32_t name);
-void Groups();
+void Bunches();
 float TogglesWidth();
-void RowToggles(const Nodes::Node& node, float x);
-void RowMenu(const Nodes::Node& node);
+void RowToggles(const Nodes::Elem& node, float x);
+void RowMenu(const Nodes::Elem& node);
 std::string TakeOutlinerSearch();
 // The Inspector's extra sections: the clipboard (copy / paste transform and fields) and, with several selected, their
 // shared fields ("mixed" where they differ - a value typed goes to all of them, one undo step).
-void InspectorSection(const Ui::Model& model);
+void InspectorSection(const Ui::ShapeMesh& model);
 // The Inspector's sections folded / unfolded as last time ([editor_sections] in the ini) - after it's drawn.
 void RememberSections();
 

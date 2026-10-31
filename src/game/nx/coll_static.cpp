@@ -20,16 +20,16 @@
 
 namespace Engine3D {
 
-Maths::Vector g_sharedOrigin;        // the origin and orientation every static object reports
-Maths::Matrix g_sharedOrientation;
+Maths::Vec4 g_sharedOrigin;        // the origin and orientation every static object reports
+Maths::Mat4 g_sharedOrientation;
 
 namespace {
 
 static VtableSlot kInstanceVtable_slots[] = {&Engine3D::CCollStaticInstance::ScalarDelete, Stubs::ReturnTrue,
         &Engine3D::CollFaceAccess::GetTriangleAttrs, &Engine3D::CollFaceAccess::GetFaceTerrain, &Engine3D::CHitMesh::AssignShapeData,
-        &Engine3D::CCollStaticInstance::PlaceAtAbsolutePoint, &Engine3D::CCollStaticInstance::SetOrientation,
-        &Engine3D::CCollScaled::GetAbsolutePoint, &Engine3D::CHitMovingMesh::GetOrientation, &Engine3D::CCollScaled::ReadVertexPoint,
-        Stubs::ReturnZero, Stubs::IgnoreArgument, &Engine3D::CCollStaticInstance::Clone, &Engine3D::CCollStaticInstance::InsideBounds,
+        &Engine3D::CCollStaticInstance::PlaceAtAbsolutePoint, &Engine3D::CCollStaticInstance::ChangeFacing,
+        &Engine3D::CCollScaled::GetAbsolutePoint, &Engine3D::CHitMovingMesh::FetchFacing, &Engine3D::CCollScaled::ReadVertexPoint,
+        Stubs::ReturnZero, Stubs::IgnoreArgument, &Engine3D::CCollStaticInstance::Replicate, &Engine3D::CCollStaticInstance::InsideBounds,
         &Engine3D::CCollStaticInstance::CollideWithLine, &Engine3D::CCollStaticInstance::CollideWithRect,
         &Engine3D::CStaticCollider::CollideWithSphere, &Engine3D::CStaticCollider::CollideWithCapsule,
         &Engine3D::CollGeometryForwarders::IsPointBehindFaces, &Engine3D::CCollStaticInstance::DrawDiagnostic, Stubs::ReturnZero,
@@ -38,10 +38,10 @@ static VtableSlot kInstanceVtable_slots[] = {&Engine3D::CCollStaticInstance::Sca
 void** const kInstanceVtable = reinterpret_cast<void**>(kInstanceVtable_slots);
 
 // The geometry's own methods: 0x00416BF0 a copy, 0x00416400 moved.
-CTriMeshSource* CloneGeometry(CTriMeshSource* geometry, int a, int b) { return geometry->Clone(a, b != 0); }
-void TranslateGeometry(CTriMeshSource* geometry, const Maths::Vector* delta) { geometry->Translate(delta); }
+CTriMeshSource* CloneGeometry(CTriMeshSource* geometry, int a, int b) { return geometry->Replicate(a, b != 0); }
+void TranslateGeometry(CTriMeshSource* geometry, const Maths::Vec4* delta) { geometry->Slide(delta); }
 // 0x00414D60 through our stub (the original's is the same empty function).
-void DrawGeometry(CTriMeshSource* geometry, const Maths::Matrix* transform, int a, int b)
+void DrawGeometry(CTriMeshSource* geometry, const Maths::Mat4* transform, int a, int b)
 {
     reinterpret_cast<CollGeometryStubs*>(geometry)->DrawDiagnostic(transform, a, b, 1);
 }
@@ -65,9 +65,9 @@ uint16_t CollFaceAccess::GetFaceTerrain(int face) const
 }
 
 // 0x00412730 (not a function in Ghidra: the array constructor's element constructor)
-CStaticCollider* CStaticCollider::Construct()
+CStaticCollider* CStaticCollider::MakeNew()
 {
-    m_flags = 0;
+    m_flagBits = 0;
     m_geometry = nullptr;
     m_vtable = Vt::kCollStatic;
     m_octets = nullptr;
@@ -79,7 +79,7 @@ CStaticCollider* CStaticCollider::Construct()
 void CStaticCollider::Destruct()
 {
     m_vtable = Vt::kCollStatic;
-    if ((m_flags & kOwnsGeometry) && m_octets) {
+    if ((m_flagBits & kOwnsGeometry) && m_octets) {
         MemSys::FreeMalloc(m_octets);
         m_octets = nullptr;
     }
@@ -87,7 +87,7 @@ void CStaticCollider::Destruct()
 }
 
 // 0x004139A0
-CHitMesh* CStaticCollider::Clone(bool instance)
+CHitMesh* CStaticCollider::Replicate(bool instance)
 {
     CTriMeshSource* geometry = instance ? m_geometry : CloneGeometry(m_geometry, 0, 1);
     if (!geometry)
@@ -96,13 +96,13 @@ CHitMesh* CStaticCollider::Clone(bool instance)
     CStaticCollider* copy = nullptr;
     CHitMesh* made;
     if (instance) {
-        void* memory = MemSys::New(sizeof(CCollStaticInstance));
-        copyInstance = memory ? static_cast<CCollStaticInstance*>(memory)->Construct() : nullptr;
+        void* memory = MemSys::Alloc(sizeof(CCollStaticInstance));
+        copyInstance = memory ? static_cast<CCollStaticInstance*>(memory)->MakeNew() : nullptr;
         made = copyInstance;
     } else {
-        auto* memory = static_cast<CStaticCollider*>(MemSys::New(sizeof(CStaticCollider)));
+        auto* memory = static_cast<CStaticCollider*>(MemSys::Alloc(sizeof(CStaticCollider)));
         if (memory) {
-            memory->m_flags = 0;
+            memory->m_flagBits = 0;
             memory->m_geometry = nullptr;
             memory->m_vtable = Vt::kCollStatic;
             memory->m_octets = nullptr;
@@ -113,13 +113,13 @@ CHitMesh* CStaticCollider::Clone(bool instance)
     }
     // (a failed allocation crashes here, as in the original)
     made->m_checksum = m_checksum;
-    made->m_flags = m_flags;
+    made->m_flagBits = m_flagBits;
     made->m_visitStamp = m_visitStamp;
     made->m_geometry = m_geometry;
     if (copyInstance) {
         copyInstance->SetSharedGeometry(geometry);
     } else if (copy) {
-        copy->m_flags |= kOwnsGeometry;
+        copy->m_flagBits |= kOwnsGeometry;
         copy->m_geometry = geometry;
         if (!instance && m_octets) {
             uint32_t size = m_geometry->m_numFaces;
@@ -137,30 +137,30 @@ CHitMesh* CStaticCollider::Clone(bool instance)
 }
 
 // 0x00410C20
-void CStaticCollider::PlaceAtAbsolutePoint(const Maths::Vector* position)
+void CStaticCollider::PlaceAtAbsolutePoint(const Maths::Vec4* position)
 {
-    const auto* current = Call<const Maths::Vector*>(7);
-    Maths::Vector delta{position->x - current->x, position->y - current->y, position->z - current->z,
+    const auto* current = Call<const Maths::Vec4*>(7);
+    Maths::Vec4 delta{position->x - current->x, position->y - current->y, position->z - current->z,
                       position->w - current->w};
     TranslateGeometry(m_geometry, &delta);
 }
 
 // 0x004123A0
-const Maths::Vector* CStaticCollider::GetAbsolutePoint() const
+const Maths::Vec4* CStaticCollider::GetAbsolutePoint() const
 {
     return &g_sharedOrigin;
 }
 
 // 0x004123B0
-const Maths::Matrix* CStaticCollider::GetOrientation() const
+const Maths::Mat4* CStaticCollider::FetchFacing() const
 {
     return &g_sharedOrientation;
 }
 
 // 0x00410980
-Maths::Vector CStaticCollider::ReadVertexPoint(int index) const
+Maths::Vec4 CStaticCollider::ReadVertexPoint(int index) const
 {
-    Maths::Vector raw = m_geometry->ReadStoredVertex(index);
+    Maths::Vec4 raw = m_geometry->ReadStoredVertex(index);
     return {raw.x, raw.y, raw.z, 1.0f};
 }
 
@@ -177,9 +177,9 @@ const Maths::BBox* CStaticCollider::GetGeometryBBox() const
 }
 
 // 0x004127C0
-CCollStaticInstance* CCollStaticInstance::Construct()
+CCollStaticInstance* CCollStaticInstance::MakeNew()
 {
-    CCollScaled::Construct();
+    CCollScaled::MakeNew();
     m_vtable = kInstanceVtable;
     new (&m_worldBox) Maths::BBox();
     m_octets = nullptr;
@@ -202,7 +202,7 @@ CCollStaticInstance* CCollStaticInstance::ConstructCopy(const CCollStaticInstanc
 void CCollStaticInstance::Destruct()
 {
     m_vtable = kInstanceVtable;
-    if ((m_flags & kOwnsGeometry) && m_octets) {
+    if ((m_flagBits & kOwnsGeometry) && m_octets) {
         MemSys::FreeMalloc(m_octets);
         m_octets = nullptr;
     }
@@ -214,14 +214,14 @@ CCollStaticInstance* CCollStaticInstance::ScalarDelete(uint8_t flags)
 {
     Destruct();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00414CD0
-CCollStaticInstance* CCollStaticInstance::Clone(int /*argument*/)
+CCollStaticInstance* CCollStaticInstance::Replicate(int /*argument*/)
 {
-    void* memory = MemSys::New(sizeof(CCollStaticInstance));
+    void* memory = MemSys::Alloc(sizeof(CCollStaticInstance));
     CCollStaticInstance* copy = memory ? static_cast<CCollStaticInstance*>(memory)->ConstructCopy(this) : nullptr;
     copy->SetSharedGeometry(m_geometry); // (on a null copy too: a crash, as in the original)
     return copy;
@@ -230,7 +230,7 @@ CCollStaticInstance* CCollStaticInstance::Clone(int /*argument*/)
 // 0x00411480
 void CCollStaticInstance::SetSharedGeometry(CTriMeshSource* geometry)
 {
-    m_flags |= kOwnsGeometry | kSharedGeometry;
+    m_flagBits |= kOwnsGeometry | kSharedGeometry;
     m_geometry = geometry;
     m_worldBox.min = geometry->m_lowerLimit;
     m_worldBox.max = geometry->m_upperLimit;
@@ -238,7 +238,7 @@ void CCollStaticInstance::SetSharedGeometry(CTriMeshSource* geometry)
 }
 
 // 0x00413F00
-void CCollStaticInstance::PlaceAtAbsolutePoint(const Maths::Vector* position)
+void CCollStaticInstance::PlaceAtAbsolutePoint(const Maths::Vec4* position)
 {
     m_basisFrame.row[3] = *position;
     UpdateInverse();
@@ -246,14 +246,14 @@ void CCollStaticInstance::PlaceAtAbsolutePoint(const Maths::Vector* position)
 }
 
 // 0x00413F30
-void CCollStaticInstance::SetOrientation(const Maths::Matrix* orientation)
+void CCollStaticInstance::ChangeFacing(const Maths::Mat4* orientation)
 {
-    CCollScaled::SetOrientation(orientation);
+    CCollScaled::ChangeFacing(orientation);
     UpdateWorldBBox();
 }
 
 // 0x00413F50
-void CCollStaticInstance::ChangeScale(const Maths::Vector* scale)
+void CCollStaticInstance::ChangeScale(const Maths::Vec4* scale)
 {
     m_sizeFactor = *scale;
     UpdateInverse();
@@ -267,12 +267,12 @@ void CCollStaticInstance::UpdateWorldBBox()
     m_worldBox.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
     int count = m_geometry->m_numVertices;
     for (int i = 0; i < count; ++i) {
-        Maths::Vector raw;
+        Maths::Vec4 raw;
         m_geometry->ReadStoredVertex(i, &raw);
-        Maths::Vector scaled{raw.x * m_sizeFactor.x, raw.y * m_sizeFactor.y, raw.z * m_sizeFactor.z, raw.w * m_sizeFactor.w};
-        Maths::Vector placed;
+        Maths::Vec4 scaled{raw.x * m_sizeFactor.x, raw.y * m_sizeFactor.y, raw.z * m_sizeFactor.z, raw.w * m_sizeFactor.w};
+        Maths::Vec4 placed;
         m_basisFrame.CarryPointThrough(placed, scaled);
-        m_worldBox.AddPoint(placed);
+        m_worldBox.AppendSpot(placed);
     }
 }
 
@@ -289,27 +289,27 @@ Maths::BBox* CCollStaticInstance::GetWorldBounds()
 }
 
 // 0x00411330 (the position compared exactly; NaN is unequal)
-void CCollStaticInstance::RescaleIfAt(const Maths::Vector* position, const Maths::Vector* scale)
+void CCollStaticInstance::RescaleIfAt(const Maths::Vec4* position, const Maths::Vec4* scale)
 {
-    const Maths::Vector& at = m_basisFrame.row[3];
+    const Maths::Vec4& at = m_basisFrame.row[3];
     if (!(position->x == at.x) || !(position->y == at.y) || !(position->z == at.z))
         return;
-    Maths::Vector scaled{scale->x * m_sizeFactor.x, scale->y * m_sizeFactor.y, scale->z * m_sizeFactor.z, scale->w * m_sizeFactor.w};
+    Maths::Vec4 scaled{scale->x * m_sizeFactor.x, scale->y * m_sizeFactor.y, scale->z * m_sizeFactor.z, scale->w * m_sizeFactor.w};
     Call<void>(24, &scaled); // ChangeScale
 }
 
 // 0x00412F50
 void CCollStaticInstance::DrawDiagnostic(int a, int b)
 {
-    Maths::Matrix transform = m_basisFrame;
+    Maths::Mat4 transform = m_basisFrame;
     transform.ScaleRows(m_sizeFactor);
     DrawGeometry(m_geometry, &transform, a, b);
 }
 
 // 0x00413000
-CHitMovingTriangles* CHitMovingTriangles::Construct(CTriMeshSource* geometry)
+CHitMovingTriangles* CHitMovingTriangles::MakeNew(CTriMeshSource* geometry)
 {
-    CHitMovingMesh::Construct();
+    CHitMovingMesh::MakeNew();
     m_vtable = Vt::kCollMovTri;
     new (&m_box) Maths::BBox();
     AssignShapeData(geometry);
@@ -343,16 +343,16 @@ CHitMovingTriangles* CHitMovingTriangles::ScalarDelete(uint8_t flags)
 {
     Destruct();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00414400
-CHitMovingTriangles* CHitMovingTriangles::Clone(int argument)
+CHitMovingTriangles* CHitMovingTriangles::Replicate(int argument)
 {
-    void* memory = MemSys::New(sizeof(CHitMovingTriangles));
+    void* memory = MemSys::Alloc(sizeof(CHitMovingTriangles));
     CHitMovingTriangles* copy = memory ? static_cast<CHitMovingTriangles*>(memory)->ConstructCopy(this) : nullptr;
-    copy->m_flags |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
+    copy->m_flagBits |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
     copy->m_geometry = CloneGeometry(m_geometry, argument, 0);
     return copy;
 }
@@ -365,7 +365,7 @@ void CHitMovingTriangles::AssignShapeData(CTriMeshSource* geometry)
         m_checksum = geometry->m_checksum;
     m_radius = 0.0f;
     for (int i = 0; i < geometry->m_numVertices; ++i) {
-        Maths::Vector v = m_geometry->ReadStoredVertex(i);
+        Maths::Vec4 v = m_geometry->ReadStoredVertex(i);
         double length = std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) +
                                   static_cast<double>(v.z) * v.z);
         if (length > m_radius)
@@ -376,7 +376,7 @@ void CHitMovingTriangles::AssignShapeData(CTriMeshSource* geometry)
 }
 
 // 0x00412F90
-void CHitMovingTriangles::PlaceAtAbsolutePoint(const Maths::Vector* position)
+void CHitMovingTriangles::PlaceAtAbsolutePoint(const Maths::Vec4* position)
 {
     m_anchorPoint = *position;
     m_boxDirty = true;
@@ -412,26 +412,26 @@ void CHitMovingTriangles::UpdateBBox()
 // 0x00413130
 void CHitMovingTriangles::DrawDiagnostic(int a, int b)
 {
-    Maths::Matrix transform = m_orientation;
+    Maths::Mat4 transform = m_orientation;
     transform.row[3] = m_anchorPoint;
     DrawGeometry(m_geometry, &transform, a, b);
 }
 
 // 0x00414D60
-void CollGeometryStubs::DrawDiagnostic(const Maths::Matrix* /*transform*/, int /*a*/, int /*b*/, int /*c*/)
+void CollGeometryStubs::DrawDiagnostic(const Maths::Mat4* /*transform*/, int /*a*/, int /*b*/, int /*c*/)
 {
 }
 
 // 0x0040AE80
-void CollGeometryForwarders::RotateY(const Maths::Vector* centre, int quarterTurns)
+void CollGeometryForwarders::RotateY(const Maths::Vec4* centre, int quarterTurns)
 {
     m_geometry->RotateY(centre, quarterTurns);
 }
 
 // 0x0040AE90
-void CollGeometryForwarders::Scale(const Maths::Vector* centre, const Maths::Vector* scale)
+void CollGeometryForwarders::StretchBy(const Maths::Vec4* centre, const Maths::Vec4* scale)
 {
-    m_geometry->Scale(centre, scale);
+    m_geometry->StretchBy(centre, scale);
 }
 
 // 0x0040AEA0
@@ -447,7 +447,7 @@ void CollGeometryForwarders::AddOcclusionPolys()
 }
 
 // 0x0040AEC0
-bool CollGeometryForwarders::IsPointBehindFaces(const Maths::Vector* point, int unused)
+bool CollGeometryForwarders::IsPointBehindFaces(const Maths::Vec4* point, int unused)
 {
     return m_geometry->IsPointBehindFaces(point, unused);
 }
@@ -457,27 +457,27 @@ CHitMesh* CreateMovableCollision(int type, CTriMeshSource* geometries, int count
 {
     CHitMesh* made;
     if (type == 1) {
-        void* memory = MemSys::New(sizeof(CHitMovingBox));
-        CHitMovingBox* box = memory ? static_cast<CHitMovingBox*>(memory)->Construct() : nullptr;
+        void* memory = MemSys::Alloc(sizeof(CHitMovingBox));
+        CHitMovingBox* box = memory ? static_cast<CHitMovingBox*>(memory)->MakeNew() : nullptr;
         if (count >= 1) {
             Maths::BBox bounds;
             for (int i = 0; i < count; ++i) {
-                bounds.AddPoint(geometries[i].m_lowerLimit);
-                bounds.AddPoint(geometries[i].m_upperLimit);
+                bounds.AppendSpot(geometries[i].m_lowerLimit);
+                bounds.AppendSpot(geometries[i].m_upperLimit);
             }
             box->m_box = bounds;
         }
         made = box;
     } else if (type == 4) {
         if (count == 1) {
-            void* memory = MemSys::New(sizeof(CHitMovingTriangles));
-            made = memory ? static_cast<CHitMovingTriangles*>(memory)->Construct(geometries) : nullptr;
+            void* memory = MemSys::Alloc(sizeof(CHitMovingTriangles));
+            made = memory ? static_cast<CHitMovingTriangles*>(memory)->MakeNew(geometries) : nullptr;
         } else if (count > 1) {
-            void* memory = MemSys::New(sizeof(CHitMeshGroup));
-            CHitMeshGroup* multi = memory ? static_cast<CHitMeshGroup*>(memory)->Construct() : nullptr;
+            void* memory = MemSys::Alloc(sizeof(CHitMeshGroup));
+            CHitMeshGroup* multi = memory ? static_cast<CHitMeshGroup*>(memory)->MakeNew() : nullptr;
             for (int i = 0; i < count; ++i) {
-                void* part = MemSys::New(sizeof(CHitMovingTriangles));
-                multi->AddChild(part ? static_cast<CHitMovingTriangles*>(part)->Construct(&geometries[i]) : nullptr);
+                void* part = MemSys::Alloc(sizeof(CHitMovingTriangles));
+                multi->AttachChild(part ? static_cast<CHitMovingTriangles*>(part)->MakeNew(&geometries[i]) : nullptr);
             }
             made = multi;
         } else {

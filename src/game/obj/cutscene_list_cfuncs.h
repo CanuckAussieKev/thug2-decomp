@@ -15,17 +15,17 @@ namespace ScriptCommands {
 
 // A std::list<T*> as MSVC 7.1 lays it out: the head node (allocated, linked to itself when empty) and the size.
 struct PointerList {
-    struct Node {
+    struct Elem {
         void* value;
-        Node* next;
-        Node* prev;
+        Elem* next;
+        Elem* prev;
     };
-    Node* m_head;
-    uint32_t m_size;
+    Elem* m_head;
+    uint32_t m_extent;
 
     // 0x005B4650: the constructor (no elements: a new head node linked to itself, null if out of memory). Returns
     // this. (Used for 0x006F0DA8, the COIM instance list 0x006F0DB0 and the cutscene destroy list.)
-    PointerList* Construct();
+    PointerList* MakeNew();
 };
 static_assert(sizeof(PointerList) == 8, "layout must match the original");
 

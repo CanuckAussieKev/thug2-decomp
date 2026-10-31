@@ -40,7 +40,7 @@ sIndexBuffer* NewIndexBuffer(uint32_t bytes)
     void* memory = Crt::AllocBlock(0x18);
     if (!memory)
         return nullptr;
-    return static_cast<sIndexBuffer*>(memory)->Construct(bytes, 0, 0x65);
+    return static_cast<sIndexBuffer*>(memory)->MakeNew(bytes, 0, 0x65);
 }
 // The index buffer's Direct3D copy written again from the one in memory.
 void UploadIndices(sIndexBuffer* buffer)
@@ -54,10 +54,10 @@ void UploadIndices(sIndexBuffer* buffer)
 }
 void* AllocBlock(size_t size) { return Crt::AllocBlock(size); } // the game's C runtime
 
-// 0x00402550's maths (Maths::CrossProduct as the original computes it: each component in double precision).
-Maths::Vector Cross(const Maths::Vector& a, const Maths::Vector& b)
+// 0x00402550's maths (Maths::CrossVec as the original computes it: each component in double precision).
+Maths::Vec4 Perpendicular(const Maths::Vec4& a, const Maths::Vec4& b)
 {
-    Maths::Vector out;
+    Maths::Vec4 out;
     out.x = static_cast<float>(static_cast<double>(a.y) * b.z - static_cast<double>(a.z) * b.y);
     out.y = static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(a.x) * b.z);
     out.z = static_cast<float>(static_cast<double>(a.x) * b.y - static_cast<double>(a.y) * b.x);
@@ -90,10 +90,10 @@ void meshRef::AddVertexBuffers(int count)
 }
 
 // 0x004D6E00
-void meshRef::MoveTo(const Maths::Vector* position)
+void meshRef::MoveTo(const Maths::Vec4* position)
 {
     if (!transform) {
-        transform = static_cast<float*>(MemSys::New(0x40));
+        transform = static_cast<float*>(MemSys::Alloc(0x40));
         Identity(transform);
     }
     float dx = static_cast<float>(static_cast<double>(position->x) - transform[12]);
@@ -129,7 +129,7 @@ void meshRef::TurnY(int turns)
     if (turns <= 0)
         return;
     if (!transform) {
-        transform = static_cast<float*>(MemSys::New(0x40));
+        transform = static_cast<float*>(MemSys::Alloc(0x40));
         Identity(transform);
     }
     for (int b = 0; b < vertexBufferCount; ++b) {
@@ -190,10 +190,10 @@ void meshRef::TurnY(int turns)
 }
 
 // 0x004D71F0
-meshRef* meshRef::Clone(bool share)
+meshRef* meshRef::Replicate(bool share)
 {
-    void* memory = MemSys::New(sizeof(meshRef));
-    auto* copy = memory ? static_cast<meshRef*>(memory)->Construct() : nullptr; // (constructor)
+    void* memory = MemSys::Alloc(sizeof(meshRef));
+    auto* copy = memory ? static_cast<meshRef*>(memory)->MakeNew() : nullptr; // (constructor)
     std::memcpy(copy, this, sizeof(meshRef));
     if (share) {
         copy->flags |= 1;
@@ -225,7 +225,7 @@ meshRef* meshRef::Clone(bool share)
             copy->AddVertexBuffers(vertexBufferCount - 1);
         }
         if (perVertexBytes) {
-            copy->perVertexBytes = static_cast<uint8_t*>(MemSys::New(copy->vertexCount));
+            copy->perVertexBytes = static_cast<uint8_t*>(MemSys::Alloc(copy->vertexCount));
             std::memcpy(copy->perVertexBytes, perVertexBytes, vertexCount);
         }
     }
@@ -239,9 +239,9 @@ meshRef* meshRef::Clone(bool share)
 }
 
 // 0x004D7580
-void meshRef::MakeBillboard(int type, const Maths::Vector* pivot, const Maths::Vector* axis)
+void meshRef::MakeBillboard(int type, const Maths::Vec4* pivot, const Maths::Vec4* axis)
 {
-    auto* info = static_cast<sBillboard*>(MemSys::New(sizeof(sBillboard)));
+    auto* info = static_cast<sBillboard*>(MemSys::Alloc(sizeof(sBillboard)));
     billboard = info;
     if (type == 1) {
         info->type = 0;
@@ -280,7 +280,7 @@ void meshRef::MakeBillboard(int type, const Maths::Vector* pivot, const Maths::V
         ny = static_cast<float>(ny * inverse);
         nz = static_cast<float>(nzExact * inverse);
     }
-    Maths::Vector normal;
+    Maths::Vec4 normal;
     normal.x = nx;
     normal.y = ny;
     normal.z = nz;
@@ -294,34 +294,34 @@ void meshRef::MakeBillboard(int type, const Maths::Vector* pivot, const Maths::V
     case 0:
     case 1:
     case 3: {
-        Maths::Vector across;
+        Maths::Vec4 across;
         across.x = static_cast<float>(static_cast<double>(ny) * 0.0f - nz);
         across.y = static_cast<float>(static_cast<double>(nz) * 0.0f - static_cast<double>(nx) * 0.0f);
         across.z = static_cast<float>(nx - static_cast<double>(ny) * 0.0f);
         across.w = 0.0f;
-        across.Normalize();
+        across.MakeUnit();
         r0[0] = across.x;
         r0[1] = across.y;
         r0[2] = across.z;
-        Maths::Vector up;
+        Maths::Vec4 up;
         up.x = static_cast<float>(static_cast<double>(r0[1]) * nz - static_cast<double>(r0[2]) * ny);
         up.y = static_cast<float>(static_cast<double>(r0[2]) * nx - static_cast<double>(nz) * r0[0]);
         up.z = static_cast<float>(static_cast<double>(ny) * r0[0] - static_cast<double>(r0[1]) * nx);
         up.w = 0.0f;
-        up.Normalize();
+        up.MakeUnit();
         r1x = up.x;
         r1y = up.y;
         r1z = up.z;
         break;
     }
     case 2: {
-        Maths::Vector across = Cross(normal, *axis);
-        across.Normalize();
+        Maths::Vec4 across = Perpendicular(normal, *axis);
+        across.MakeUnit();
         r0[0] = across.x;
         r0[1] = across.y;
         r0[2] = across.z;
-        Maths::Vector up = Cross(across, normal);
-        up.Normalize();
+        Maths::Vec4 up = Perpendicular(across, normal);
+        up.MakeUnit();
         r1x = up.x;
         r1y = up.y;
         r1z = up.z;

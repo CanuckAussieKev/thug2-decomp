@@ -23,9 +23,9 @@ namespace Engine3D {
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
-ListKit::HashTable g_glowTable{ListKit::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(8) at start-up)
-ListKit::HashTable& Glows() { return g_glowTable; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
+ListKit::KeyMap g_glowTable{ListKit::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
+ListKit::KeyMap& Glows() { return g_glowTable; }
 uint8_t g_glowQueriesInUse[0x400]; // (a byte per query: DrawGlows looks through 0x400)
 float g_glowQuad[16];
 
@@ -37,12 +37,12 @@ float* GlowQuad() { return g_glowQuad; }
 // The number of pixels a query saw: 0 when it has the answer, 1 when not yet.
 int QueryResult(uint32_t query, uint32_t* pixels)
 {
-    return Platform::GetOcclusionResult(query, reinterpret_cast<DWORD*>(pixels));
+    return OsLayer::GetOcclusionResult(query, reinterpret_cast<DWORD*>(pixels));
 }
 
 sGlow* NextGlow()
 {
-    ListKit::HashTable& table = Glows();
+    ListKit::KeyMap& table = Glows();
     if (!table.StepIterator() || !table.m_iterItem)
         return nullptr;
     return static_cast<sGlow*>(table.m_iterItem->value);
@@ -93,20 +93,20 @@ void __cdecl UpdateGlows(bool queries)
                 w[i] = static_cast<float>(w[i] * inverse);
         }
     }
-    ListKit::HashTable& table = Glows();
+    ListKit::KeyMap& table = Glows();
     table.m_iterBucket = -1;
     table.m_iterItem = nullptr;
     sGlow* glow = NextGlow();
 
     if (queries) {
         // Each glow gets an occlusion query (up to three outstanding).
-        Device()->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+        InputPort()->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
         ChooseBlendMode(0);
         SetTexture(0, nullptr);
         SetPixelShader(nullptr, nullptr);
-        Device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
-        Device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
-        Device()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
+        InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
+        InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
+        InputPort()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
         SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
         for (; glow; glow = NextGlow()) {
             if (glow->queryCount >= 3)
@@ -124,8 +124,8 @@ void __cdecl UpdateGlows(bool queries)
             if (query > 0)
                 SetQuad(glow, u, v, glow->querySize, 0xFFFFFFFF);
         }
-        Device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
-        Device()->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
+        InputPort()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
+        InputPort()->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
         return;
     }
 
@@ -159,8 +159,8 @@ void __cdecl UpdateGlows(bool queries)
         if (glow->size > 0.0f)
             SetQuad(glow, u, v, glow->size, 0x40FFFFFF);
     }
-    Device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    Device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
 
 } // namespace Nx
@@ -168,6 +168,6 @@ void __cdecl UpdateGlows(bool queries)
 namespace Engine3D {
 
 // 0x00640E10 (a static initialiser): the glows' table, 256 buckets.
-void ConstructGlowTable() { new (&g_glowTable) ListKit::HashTable(8); }
+void ConstructGlowTable() { new (&g_glowTable) ListKit::KeyMap(8); }
 
 } // namespace Nx

@@ -23,8 +23,8 @@ namespace Engine3D::ViewMode {
 enum class Mode { kLit, kUnlit, kWireframe, kCollisionOnly, kCount };
 const char* Name(Mode mode);
 
-Mode Current();
-void Set(Mode mode);
+Mode AtHand();
+void AssignValue(Mode mode);
 
 // The frame's 3D passes starting / ending (Engine3D::DrawWorld, beside Wireframe::BeginWorld / EndWorld).
 void BeginWorld();

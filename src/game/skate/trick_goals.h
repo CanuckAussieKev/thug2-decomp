@@ -16,24 +16,24 @@ class CStruct;
 namespace GoalSystem {
 
 // The first 0x70 bytes of CObjective (the goal base class, 0x00550040-0x0056C920 - not rewritten yet): only what these
-// goals use. Its virtual functions by slot: +0x0C IsActive, +0x14 Expire, +0x2C Activate, +0x34 Deactivate(a, b),
-// +0x3C Win, +0x44 Update, +0x48 IsPaused, +0x4C SetFlag(flag, a, b), +0x54 IsLocked.
+// goals use. Its virtual functions by slot: +0x0C IsOperative, +0x14 Expire, +0x2C Activate, +0x34 Disengage(a, b),
+// +0x3C Win, +0x44 Update, +0x48 IsFrozen, +0x4C SetFlag(flag, a, b), +0x54 IsLatched.
 struct GoalBase {
     void** m_vtable;
     uint8_t m_unknown04[0x1C - 0x04];
-    Scripts::CStruct* m_params; // +0x1C the goal's parameters (and its state as flags and integers)
+    Scripts::CStruct* m_args; // +0x1C the goal's parameters (and its state as flags and integers)
     uint8_t m_unknown20[0x24 - 0x20];
-    int m_state;               // +0x24 (2: ...)
+    int m_curPhase;               // +0x24 (2: ...)
     uint8_t m_unknown28[0x50 - 0x28];
     int m_secondsRemaining;            // +0x50 ms
     uint8_t m_unknown54[0x6D - 0x54];
-    uint8_t m_flags;           // +0x6D (0x10: no time limit)
+    uint8_t m_flagBits;           // +0x6D (0x10: no time limit)
     uint8_t m_unknown6E[2];
 
-    bool IsActive();
-    bool IsPaused();
+    bool IsOperative();
+    bool IsFrozen();
 };
-static_assert(sizeof(GoalBase) == 0x70 && offsetof(GoalBase, m_params) == 0x1C && offsetof(GoalBase, m_secondsRemaining) == 0x50,
+static_assert(sizeof(GoalBase) == 0x70 && offsetof(GoalBase, m_args) == 0x1C && offsetof(GoalBase, m_secondsRemaining) == 0x50,
               "layout must match the original");
 
 // One trick in the stack (0x20 bytes).
@@ -58,17 +58,17 @@ public:
 
     TetrisTrick m_tricks[kMaxTricks]; // +0x70
     int m_numTricks;                   // +0x430
-    int m_timer;                       // +0x434 ms since the last trick was added
+    int m_stopwatch;                       // +0x434 ms since the last trick was added
     bool m_groupUsed[kMaxTricks];      // +0x438 the combo groups in use
     uint8_t pad456[2];
 
     // 0x0056F090: the constructor (CObjective's, then the vtable). 0x0056F0B0 / 0x0056F290: the destructor body and the
     // scalar deleting destructor.
-    CTetrisGoal* Construct(Scripts::CStruct* params);
+    CTetrisGoal* MakeNew(Scripts::CStruct* params);
     void DestroyBody();
-    CTetrisGoal* Destroy(uint8_t flags);
+    CTetrisGoal* Teardown(uint8_t flags);
     // 0x0056F2E0: ready to start (trick_time copied to the current interval, the first trick soon).
-    void Init();
+    void PrepareAll();
     // 0x0056F130: every trick cleared (the slots left in use) and the single combo's added flag; 0x0056F5B0: the
     // slots freed and the stack's menu destroyed.
     void ClearTricks();
@@ -93,10 +93,10 @@ public:
     // The vtable's overrides: 0x0056F0C0 Win (+0x3C), 0x0056F2C0 Deactivate (+0x34), 0x0056F500 Expire (+0x14),
     // 0x0056F610 Activate (+0x2C), 0x00570C40 Update (+0x44).
     bool Win();
-    void Deactivate(int a, int b);
+    void Disengage(int a, int b);
     void Expire();
     bool Activate();
-    bool Update();
+    bool TickFrame();
 };
 static_assert(offsetof(CTetrisGoal, m_numTricks) == 0x430 && offsetof(CTetrisGoal, m_groupUsed) == 0x438 &&
                   sizeof(CTetrisGoal) == 0x458,
@@ -142,15 +142,15 @@ public:
     uint8_t pad47A[2];
 
     // 0x00574C40 / 0x00575140 / 0x00576210: constructor, destructor body, scalar deleting destructor.
-    CTrickBeatGoal* Construct(Scripts::CStruct* params);
+    CTrickBeatGoal* MakeNew(Scripts::CStruct* params);
     void DestroyBody();
-    CTrickBeatGoal* Destroy(uint8_t flags);
+    CTrickBeatGoal* Teardown(uint8_t flags);
     // 0x00574960: a new beat pattern and tempo.
     void SetBeatPattern(Scripts::CArray* pattern, int tempo);
     // 0x00574990: every trick cleared (and the added flag).
     void ClearTricks();
     // 0x00574A10: ready to start.
-    void Init();
+    void PrepareAll();
     // 0x00574AB0: a trick landed (its params): in the beat window, the matching tricks marked landed and faded.
     void TrickLanded(Scripts::CStruct* trick);
     // 0x00574B90: the landed marks cleared (tricks unfaded).
@@ -169,9 +169,9 @@ public:
     void RemoveLandedTricks();
 
     // The vtable's overrides: 0x005749F0 Deactivate (+0x34), 0x00574D50 Activate (+0x2C), 0x00576240 Update (+0x44).
-    void Deactivate(int a, int b);
+    void Disengage(int a, int b);
     bool Activate();
-    bool Update();
+    bool TickFrame();
 };
 static_assert(offsetof(CTrickBeatGoal, m_numTricks) == 0x430 && offsetof(CTrickBeatGoal, m_pattern) == 0x448 &&
                   offsetof(CTrickBeatGoal, m_unknown45C) == 0x45C && sizeof(CTrickBeatGoal) == 0x47C,
@@ -181,20 +181,20 @@ static_assert(offsetof(CTrickBeatGoal, m_numTricks) == 0x430 && offsetof(CTrickB
 class CTimedScoreRunGoal : public GoalBase {
 public:
     // 0x005710B0 / 0x005710D0 / 0x00571110
-    CTimedScoreRunGoal* Construct(Scripts::CStruct* params);
+    CTimedScoreRunGoal* MakeNew(Scripts::CStruct* params);
     void DestroyBody();
-    CTimedScoreRunGoal* Destroy(uint8_t flags);
+    CTimedScoreRunGoal* Teardown(uint8_t flags);
     // 0x005710E0 (vtable +0x28): active and not paused.
-    int IsRunning();
+    int IsUnderway();
 };
 
 // TrickObjects (vtable 0x0064EA30, 0x70 bytes).
 class CTrickObjectsGoal : public GoalBase {
 public:
     // 0x005763A0 / 0x005763C0 / 0x005763D0
-    CTrickObjectsGoal* Construct(Scripts::CStruct* params);
+    CTrickObjectsGoal* MakeNew(Scripts::CStruct* params);
     void DestroyBody();
-    CTrickObjectsGoal* Destroy(uint8_t flags);
+    CTrickObjectsGoal* Teardown(uint8_t flags);
     // 0x00576400: the goal's end: won if it's ... (0x00554110) and the local skater has Required_Score (pending
     // points included), else lost.
     void EvaluatePoints();

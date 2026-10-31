@@ -87,7 +87,7 @@ void Ask(Request::Kind kind, int value = 0, uint32_t id = 0) { g_requests.push_b
 ImVec4 Accent(float alpha)
 {
     float rgb[3];
-    OptionStore::AccentRgb(OptionStore::Get().accent, rgb);
+    OptionStore::AccentRgb(OptionStore::Pull().accent, rgb);
     return ImVec4(rgb[0], rgb[1], rgb[2], alpha);
 }
 int g_styleGeneration = -1; // (the preferences' scale / accent the style was built for)
@@ -106,7 +106,7 @@ void UpdateScale()
     int width = 0, height = 0;
     UiBackend::WindowSize(&width, &height);
     float scale = UiLayout::ScaleFor(width, height);
-    if (int pct = OptionStore::Get().uiScalePct; pct > 0) // ([editor] ui_scale_pct: the automatic one overridden)
+    if (int pct = OptionStore::Pull().uiScalePct; pct > 0) // ([editor] ui_scale_pct: the automatic one overridden)
         scale = static_cast<float>(pct) / 100.0f;
     if (scale == g_scale && g_styleGeneration == OptionStore::StyleGeneration())
         return;
@@ -120,7 +120,7 @@ void UpdateScale()
     g_heading = fonts.heading;
     UiBackend::InvalidateDeviceObjects(); // (the font texture is made again)
     float rgb[3];
-    OptionStore::AccentRgb(OptionStore::Get().accent, rgb);
+    OptionStore::AccentRgb(OptionStore::Pull().accent, rgb);
     UiTheme::ApplyStyle(scale, rgb);
     Log("level editor UI: scale %.2f for a %dx%d window (Inter %.0f px, JetBrains Mono %.0f px)", scale, width,
         height, sizes.ui, sizes.mono);
@@ -185,7 +185,7 @@ constexpr ImGuiWindowFlags kPanel = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_N
                                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar |
                                     ImGuiWindowFlags_NoBringToFrontOnFocus;
 
-void PlaceWindow(const UiLayout::Rect& rect)
+void PlaceWindow(const UiLayout::Rect2& rect)
 {
     ImGui::SetNextWindowPos(ImVec2(rect.x, rect.y));
     ImGui::SetNextWindowSize(ImVec2(rect.width, rect.height));
@@ -202,11 +202,11 @@ void PanelTitle(const char* title)
 // --- the view options (level_editor_view.h) ---
 
 // The collision's legend, over the bottom left of the view while it's shown.
-void CollisionLegend(const Model& model)
+void CollisionLegend(const ShapeMesh& model)
 {
     if (!model.view.collision || !Overlays::Shown(Overlays::kLegend)) // (the Overlays menu: level_editor_overlays.h)
         return;
-    const UiLayout::Rect& view = g_layout.viewport;
+    const UiLayout::Rect2& view = g_layout.viewport;
     ImGui::SetNextWindowPos(ImVec2(view.x + 8.0f * g_scale, view.y + view.height - 8.0f * g_scale), ImGuiCond_Always,
                             ImVec2(0.0f, 1.0f));
     ImGui::SetNextWindowBgAlpha(0.82f);
@@ -269,7 +269,7 @@ void CollisionLegend(const Model& model)
 }
 
 // The Inspector's part: an invisible wall selected (Shift+click), and what's hidden in the editor.
-void ViewSection(const Model& model)
+void ViewSection(const ShapeMesh& model)
 {
     if (model.view.wall) {
         ImGui::Spacing();
@@ -283,7 +283,7 @@ void ViewSection(const Model& model)
         ImGui::PushFont(g_mono);
         ImGui::TextWrapped("%s", model.view.wallInfo.c_str());
         ImGui::PopFont();
-        // (level_editor_walls.h: the game's own switch, CWorldCell::SetActive; moved and turned as scenery)
+        // (level_editor_walls.h: the game's own switch, CWorldCell::ChangeLive; moved and turned as scenery)
         if (model.view.wallOff)
             ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "%s", model.view.wallState.c_str());
         else
@@ -351,7 +351,7 @@ void ViewSection(const Model& model)
 // --- the panels ---
 
 // The menu bar over the tool strip (level_editor_ui_strip.h).
-void Toolbar(const Model& model)
+void Toolbar(const ShapeMesh& model)
 {
     PlaceWindow(g_layout.menu);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
@@ -371,12 +371,12 @@ void Toolbar(const Model& model)
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f * g_scale, 3.0f * g_scale));
     UiStrip::State state;
     state.selection = std::strcmp(model.mode, "FLYING") != 0 && std::strcmp(model.mode, "ADD") != 0;
-    Transform::Settings& transform = Transform::Current();
+    Xform::Settings& transform = Xform::AtHand();
     state.tool = static_cast<int>(transform.mode);
-    state.local = transform.space == Transform::Space::Local;
+    state.local = transform.space == Xform::Space::Local;
     state.snap = model.snapAlways;
-    state.grid = Transform::Grid();
-    state.grids = Transform::GridSizes();
+    state.grid = Xform::Grid();
+    state.grids = Xform::GridSizes();
     state.pickFilter = model.pickFilter;
     state.level = model.levelTitle;
     state.saved = model.editedSaved;
@@ -390,30 +390,30 @@ void Toolbar(const Model& model)
         int index = Actions::Find(id);
         return index >= 0 ? Hints::FirstKey(Actions::KeysText(index)) : std::string();
     };
-    const UiLayout::Rect& strip = g_layout.strip;
+    const UiLayout::Rect2& strip = g_layout.strip;
     float padX = 8.0f * g_scale, padY = std::max(0.0f, (strip.height - ImGui::GetFrameHeight()) * 0.5f);
     UiStrip::Output out;
-    UiStrip::Draw(state, strip.x + padX, strip.y + padY, strip.width - 2.0f * padX, g_scale, &out);
+    UiStrip::Blit(state, strip.x + padX, strip.y + padY, strip.width - 2.0f * padX, g_scale, &out);
     ImGui::PopStyleVar();
     if (out.budgetHovered)
         Budget::Tooltip();
     if (out.levelHovered)
         ImGui::SetTooltip("Editing a copy of %s. The original level is unchanged.\nLayout: %s", model.levelTitle.c_str(),
                           model.editedSaved ? (model.unsaved ? "saved, with unsaved changes" : "saved") : "not saved yet");
-    for (const UiStrip::Event& e : out.events) {
+    for (const UiStrip::Occurrence& e : out.events) {
         switch (e.kind) {
-        case UiStrip::Event::kDeselect: Ask(Request::kDeselect); break;
-        case UiStrip::Event::kTool: transform.mode = static_cast<Transform::Mode>(static_cast<int>(e.value)); break;
-        case UiStrip::Event::kSpace:
-            transform.space = transform.space == Transform::Space::World ? Transform::Space::Local : Transform::Space::World;
+        case UiStrip::Occurrence::kDeselect: Ask(Request::kDeselect); break;
+        case UiStrip::Occurrence::kTool: transform.mode = static_cast<Xform::Mode>(static_cast<int>(e.value)); break;
+        case UiStrip::Occurrence::kSpace:
+            transform.space = transform.space == Xform::Space::World ? Xform::Space::Local : Xform::Space::World;
             break;
-        case UiStrip::Event::kSnap: Ask(Request::kSnapAlways, e.value != 0.0f ? 1 : 0); break;
-        case UiStrip::Event::kGrid: Transform::SetGrid(e.value); break;
-        case UiStrip::Event::kPick: Ask(Request::kPickFilter, 0, static_cast<uint32_t>(e.value)); break;
-        case UiStrip::Event::kProblems: Checks::ToggleWindow(); break;
-        case UiStrip::Event::kBudget: Checks::OpenWindow(Checks::kBudgetTab); break;
-        case UiStrip::Event::kShowAll: Ask(Request::kViewShowAll); break;
-        case UiStrip::Event::kSimulate: Actions::Run(Actions::kSimulate); break;
+        case UiStrip::Occurrence::kSnap: Ask(Request::kSnapAlways, e.value != 0.0f ? 1 : 0); break;
+        case UiStrip::Occurrence::kGrid: Xform::SetGrid(e.value); break;
+        case UiStrip::Occurrence::kPick: Ask(Request::kPickFilter, 0, static_cast<uint32_t>(e.value)); break;
+        case UiStrip::Occurrence::kProblems: Checks::ToggleWindow(); break;
+        case UiStrip::Occurrence::kBudget: Checks::OpenWindow(Checks::kBudgetTab); break;
+        case UiStrip::Occurrence::kShowAll: Ask(Request::kViewShowAll); break;
+        case UiStrip::Occurrence::kSimulate: Actions::Run(Actions::kSimulate); break;
         }
     }
     ImGui::End();
@@ -429,7 +429,7 @@ int g_lastSelected = -1;
 
 void UpdateCache()
 {
-    const std::vector<Nodes::Node>& nodes = Nodes::All();
+    const std::vector<Nodes::Elem>& nodes = Nodes::All();
     if (g_cache.generation == Nodes::Generation() && g_cache.labels.size() == nodes.size())
         return;
     g_cache.generation = Nodes::Generation();
@@ -437,14 +437,14 @@ void UpdateCache()
     for (std::vector<int>& list : g_cache.byFamily)
         list.clear();
     for (size_t i = 0; i < nodes.size(); ++i) {
-        g_cache.labels.push_back(nodes[i].name ? Nodes::Label(nodes[i].name) : "(no name)");
+        g_cache.labels.push_back(nodes[i].name ? Nodes::Caption(nodes[i].name) : "(no name)");
         g_cache.byFamily[static_cast<int>(nodes[i].family)].push_back(static_cast<int>(i));
     }
 }
 
 // What a row shows after the name: a spawn's types, a crown's index, a flag's colour, a rail's links.
-std::string RowTagOf(const Nodes::Node& node);
-std::string RowTag(const Nodes::Node& node)
+std::string RowTagOf(const Nodes::Elem& node);
+std::string RowTag(const Nodes::Elem& node)
 {
     std::string tag = RowTagOf(node);
     if (node.hidden)
@@ -453,7 +453,7 @@ std::string RowTag(const Nodes::Node& node)
         return tag.empty() ? "added" : tag + " added";
     return tag;
 }
-std::string RowTagOf(const Nodes::Node& node)
+std::string RowTagOf(const Nodes::Elem& node)
 {
     char text[48] = "";
     switch (node.family) {
@@ -478,7 +478,7 @@ std::string RowTagOf(const Nodes::Node& node)
         std::snprintf(text, sizeof(text), "#%d", node.order);
         return text;
     case Nodes::Family::Rail:
-    case Nodes::Family::Path:
+    case Nodes::Family::RouteWay:
     case Nodes::Family::Ladder:
         if (node.links.empty())
             return "end";
@@ -488,7 +488,7 @@ std::string RowTagOf(const Nodes::Node& node)
     }
 }
 
-void FamilyChips(const Model& model)
+void FamilyChips(const ShapeMesh& model)
 {
     ImGui::PushFont(g_small);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(5.0f * g_scale, 2.0f * g_scale));
@@ -519,7 +519,7 @@ void FamilyChips(const Model& model)
     ImGui::PopFont();
 }
 
-void Outliner(const Model& model)
+void Outliner(const ShapeMesh& model)
 {
     if (!g_layout.outlinerShown)
         return;
@@ -550,8 +550,8 @@ void Outliner(const Model& model)
     FamilyChips(model);
     ImGui::Separator();
     ImGui::BeginChild("##tree");
-    Ux3::Groups(); // (the user's groups - level_editor_organize.h)
-    const std::vector<Nodes::Node>& nodes = Nodes::All();
+    Ux3::Bunches(); // (the user's groups - level_editor_organize.h)
+    const std::vector<Nodes::Elem>& nodes = Nodes::All();
     if (nodes.empty())
         Muted("No level loaded");
     int selected = model.nodes.selected;
@@ -599,7 +599,7 @@ void Outliner(const Model& model)
         while (clipper.Step()) {
             for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
                 int i = shown[row];
-                const Nodes::Node& node = nodes[i];
+                const Nodes::Elem& node = nodes[i];
                 ImGui::PushID(i);
                 bool isSelected = i == selected;
                 // (the gizmo's colour as a small swatch)
@@ -693,26 +693,26 @@ void Badge(const char* text, ImU32 colour)
     ImGui::SameLine(0.0f, pad + 4.0f * g_scale);
 }
 
-void NodeSection(const Model& model, int index)
+void NodeSection(const ShapeMesh& model, int index)
 {
-    const std::vector<Nodes::Node>& nodes = Nodes::All();
+    const std::vector<Nodes::Elem>& nodes = Nodes::All();
     if (index < 0 || index >= static_cast<int>(nodes.size()))
         return;
-    const Nodes::Node& node = nodes[index];
+    const Nodes::Elem& node = nodes[index];
     if (model.nodes.nodeOnly) {
         ImGui::PushFont(g_heading);
-        ImGui::TextWrapped("%s", node.name ? Nodes::Label(node.name).c_str() : "(no name)");
+        ImGui::TextWrapped("%s", node.name ? Nodes::Caption(node.name).c_str() : "(no name)");
         ImGui::PopFont();
     } else {
         ImGui::Spacing();
         ImGui::SeparatorText("Node");
     }
-    std::string cls = node.cls ? Nodes::Label(node.cls) : "(no class)";
+    std::string cls = node.cls ? Nodes::Caption(node.cls) : "(no class)";
     if (node.type)
-        cls += " \xC2\xB7 " + Nodes::Label(node.type);
+        cls += " \xC2\xB7 " + Nodes::Caption(node.type);
     Muted(cls.c_str());
     ImGui::PushFont(g_mono);
-    ImGui::TextDisabled("node %d in %s", node.index, Nodes::Label(Nodes::ArrayName(node)).c_str());
+    ImGui::TextDisabled("node %d in %s", node.index, Nodes::Caption(Nodes::ArrayName(node)).c_str());
     ImGui::PopFont();
     if (node.added) {
         ImGui::PushFont(g_small);
@@ -856,20 +856,20 @@ void NodeSection(const Model& model, int index)
             FieldLabel("Radius");
             Mono("%.0f inner, %.0f outer", node.innerRadius, node.radius);
         }
-        if (node.family == Nodes::Family::Trigger && node.radius > 0.0f) {
+        if (node.family == Nodes::Family::FireOff && node.radius > 0.0f) {
             FieldLabel("Radius");
             Mono("%.0f", node.radius);
         }
         if (node.terrain) {
             FieldLabel("Terrain");
-            Mono("%s", Nodes::Label(node.terrain).c_str());
+            Mono("%s", Nodes::Caption(node.terrain).c_str());
         }
         if (!node.links.empty()) {
             FieldLabel("Links");
             ImGui::PushFont(g_mono);
             for (int link : node.links) {
                 ImGui::PushID(link);
-                if (ImGui::SmallButton(Nodes::Label(nodes[link].name).c_str()))
+                if (ImGui::SmallButton(Nodes::Caption(nodes[link].name).c_str()))
                     Ask(Request::kSelectNode, link);
                 ImGui::PopID();
             }
@@ -926,7 +926,7 @@ void NodeSection(const Model& model, int index)
 }
 
 // The locks (level_editor_picking.h): each with Unlock.
-void LockList(const Model& model)
+void LockList(const ShapeMesh& model)
 {
     if (model.locks.empty())
         return;
@@ -937,7 +937,7 @@ void LockList(const Model& model)
     if (!ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen))
         return;
     for (size_t i = 0; i < model.locks.size(); ++i) {
-        const Model::LockView& lock = model.locks[i];
+        const ShapeMesh::LockView& lock = model.locks[i];
         ImGui::PushID(static_cast<int>(i));
         if (ImGui::SmallButton("Unlock"))
             Ask(Request::kUnlock, static_cast<int>(lock.kind), lock.id);
@@ -951,7 +951,7 @@ void LockList(const Model& model)
 
 // The scenery selection's parts (its pieces, shadows marked, and the rail points carried along): each with x (removed
 // from the selection, as Ctrl+click) and Keep only this.
-void MemberList(const std::vector<Model::Selection::Member>& members)
+void MemberList(const std::vector<ShapeMesh::Selection::Member>& members)
 {
     if (members.empty())
         return;
@@ -960,7 +960,7 @@ void MemberList(const std::vector<Model::Selection::Member>& members)
     float rows = static_cast<float>(std::min<size_t>(members.size(), 10));
     ImGui::BeginChild("##members", ImVec2(0.0f, rows * ImGui::GetFrameHeightWithSpacing() + 4.0f * g_scale), false);
     for (size_t i = 0; i < members.size(); ++i) {
-        const Model::Selection::Member& member = members[i];
+        const ShapeMesh::Selection::Member& member = members[i];
         ImGui::PushID(static_cast<int>(i));
         int rail = member.rail ? 1 : 0;
         if (ImGui::SmallButton("x"))
@@ -986,14 +986,14 @@ void MemberList(const std::vector<Model::Selection::Member>& members)
     ImGui::EndChild();
 }
 
-void Inspector(const Model& model)
+void Inspector(const ShapeMesh& model)
 {
     if (!g_layout.inspectorShown)
         return;
     PlaceWindow(g_layout.inspector);
     ImGui::Begin("Inspector", nullptr, kPanel);
     PanelTitle("Inspector");
-    const Model::Selection& s = model.selection;
+    const ShapeMesh::Selection& s = model.selection;
     if (model.nodes.nodeOnly) {
         NodeSection(model, model.nodes.selected);
         Triggers::InspectorSection(model.nodes.selected); // (a trigger volume's settings - level_editor_triggers.h)
@@ -1042,7 +1042,7 @@ void Inspector(const Model& model)
                 for (int axis = 0; axis < 3; ++axis) {
                     ImGui::SetNextItemWidth(110.0f * g_scale);
                     float value = values[axis];
-                    if (ImGui::DragFloat(kIds[axis], &value, 0.005f, Scale::kMin, Scale::kMax, kFormats[axis],
+                    if (ImGui::DragFloat(kIds[axis], &value, 0.005f, StretchBy::kMin, StretchBy::kMax, kFormats[axis],
                                          ImGuiSliderFlags_AlwaysClamp)) {
                         Request request = {Request::kScaleSet};
                         for (int a = 0; a < 3; ++a)
@@ -1051,7 +1051,7 @@ void Inspector(const Model& model)
                             // (every axis by the same ratio, clamped so none leaves 0.25..4)
                             float ratio = value / values[axis];
                             for (int a = 0; a < 3; ++a)
-                                ratio = std::clamp(ratio, Scale::kMin / values[a], Scale::kMax / values[a]);
+                                ratio = std::clamp(ratio, StretchBy::kMin / values[a], StretchBy::kMax / values[a]);
                             for (int a = 0; a < 3; ++a)
                                 request.a[a] = values[a] * ratio;
                         } else {
@@ -1062,7 +1062,7 @@ void Inspector(const Model& model)
                     if (ImGui::IsItemDeactivated())
                         Ask(Request::kScaleDone);
                     if (ImGui::IsItemHovered())
-                        ImGui::SetTooltip("Local %c scale (%.2f to %.0f)", "XYZ"[axis], Scale::kMin, Scale::kMax);
+                        ImGui::SetTooltip("Local %c scale (%.2f to %.0f)", "XYZ"[axis], StretchBy::kMin, StretchBy::kMax);
                 }
                 ImGui::PopFont();
                 ImGui::Checkbox("Uniform##scalelock", &g_scaleLocked);
@@ -1113,10 +1113,10 @@ void Inspector(const Model& model)
     ImGui::Spacing();
     ImGui::Separator();
     Muted("Under Cursor");
-    const std::vector<Nodes::Node>& all = Nodes::All();
+    const std::vector<Nodes::Elem>& all = Nodes::All();
     if (model.nodes.hovered >= 0 && model.nodes.hovered < static_cast<int>(all.size())) {
-        const Nodes::Node& node = all[model.nodes.hovered];
-        ImGui::TextWrapped("%s (%s)", Nodes::Label(node.name).c_str(), Nodes::Label(node.cls).c_str());
+        const Nodes::Elem& node = all[model.nodes.hovered];
+        ImGui::TextWrapped("%s (%s)", Nodes::Caption(node.name).c_str(), Nodes::Caption(node.cls).c_str());
     } else {
         ImGui::TextWrapped("%s", model.hover.c_str());
     }
@@ -1129,7 +1129,7 @@ void Inspector(const Model& model)
     ImGui::End();
 }
 
-void StatusBar(const Model& model)
+void StatusBar(const ShapeMesh& model)
 {
     PlaceWindow(g_layout.status);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * g_scale, 4.0f * g_scale));
@@ -1137,11 +1137,11 @@ void StatusBar(const Model& model)
     ImGui::PopStyleVar();
     // Right: unsaved, the changes, the camera (elided before the hints are crowded out).
     char right[224];
-    std::string view = Camera::Status(); // (an ortho view, orbiting - level_editor_camera.h)
+    std::string view = ViewCam::Standing(); // (an ortho view, orbiting - level_editor_camera.h)
     std::snprintf(right, sizeof(right), "%s%d changes  \xC2\xB7  %d moved  \xC2\xB7  %.0f, %.0f, %.0f  \xC2\xB7  speed %.0f%s%s",
                   model.unsaved ? "Unsaved  \xC2\xB7  " : "", model.changes, model.moved, model.camera.x, model.camera.y,
                   model.camera.z, model.speed, view.empty() ? "" : "  \xC2\xB7  ", view.c_str());
-    const UiLayout::Rect& bar = g_layout.status;
+    const UiLayout::Rect2& bar = g_layout.status;
     float padX = 8.0f * g_scale;
     ImGui::PushFont(g_small);
     float y = bar.y + std::max(0.0f, (bar.height - ImGui::GetTextLineHeight()) * 0.5f);
@@ -1150,7 +1150,7 @@ void StatusBar(const Model& model)
     UiStrip::StatusRow(model.message, model.keys, right, bar.x + padX, y, bar.width - 2.0f * padX, Ux8Fonts());
     ImGui::End();
 }
-void Help(const Model& model)
+void Help(const ShapeMesh& model)
 {
     if (!model.help)
         return;
@@ -1166,7 +1166,7 @@ void Help(const Model& model)
         OptionStore::ShowTips();
     ImGui::SameLine();
     if (ImGui::SmallButton("Preferences"))
-        OptionStore::Open() = true;
+        OptionStore::Unseal() = true;
     // (every action from the registry, with its keys as bound now - level_editor_actions.h; the details below)
     Ux3::HelpFromRegistry();
     if (ImGui::CollapsingHeader("Reference###helpdetails")) {
@@ -1239,9 +1239,9 @@ void Help(const Model& model)
 
 // The browser's preview (level_editor_preview.h): the picture - a drag in it orbits, the wheel zooms - and what the
 // entry is.
-void BrowserPreview(const Model& model)
+void BrowserPreview(const ShapeMesh& model)
 {
-    const Model::PreviewView& preview = model.preview;
+    const ShapeMesh::PreviewView& preview = model.preview;
     float width = ImGui::GetContentRegionAvail().x;
     float side = std::min(width, 210.0f * g_scale);
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (width - side) * 0.5f);
@@ -1291,7 +1291,7 @@ void BrowserPreview(const Model& model)
     ImGui::Separator();
 }
 
-void Browser(const Model& model)
+void Browser(const ShapeMesh& model)
 {
     if (!model.browser || !model.browserItems)
         return;
@@ -1353,7 +1353,7 @@ void Browser(const Model& model)
         Ask(Request::kToggleBrowser);
 }
 
-void AutosaveOffer(const Model& model)
+void AutosaveOffer(const ShapeMesh& model)
 {
     if (!model.offer || g_offerClosed)
         return;
@@ -1378,7 +1378,7 @@ void AutosaveOffer(const Model& model)
 }
 
 // A spawn, crown or flag moved in a level shared with THUGPRO: said once a run (the edit is made).
-void OnlineWarning(const Model& model)
+void OnlineWarning(const ShapeMesh& model)
 {
     if (!model.nodes.onlineWarning)
         return;
@@ -1404,7 +1404,7 @@ void OnlineWarning(const Model& model)
 // The Place palette (N): what can be added. A click on an entry arms it - the next click in the view places it there
 // (Shift+click: keep placing); its button places one where the view looks.
 char g_placeSearch[64];
-void Place(const Model& model)
+void Place(const ShapeMesh& model)
 {
     if (!model.place.open)
         return;
@@ -1416,13 +1416,13 @@ void Place(const Model& model)
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##placesearch", "Search\xE2\x80\xA6", g_placeSearch, sizeof(g_placeSearch));
-    const std::vector<Model::PlaceView::Entry>& entries = model.place.entries;
+    const std::vector<ShapeMesh::PlaceView::TableRow>& entries = model.place.entries;
     // (a list that scrolls: the level's peds, cars, sets, particles and sounds make it long - level_editor_entities.h)
     float listHeight = std::min(static_cast<float>(entries.size()) * ImGui::GetTextLineHeightWithSpacing() + 8.0f,
                                 std::max(160.0f * g_scale, g_layout.viewport.height * 0.6f));
     ImGui::BeginChild("##placelist", ImVec2(0.0f, listHeight));
     for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-        const Model::PlaceView::Entry& e = entries[i];
+        const ShapeMesh::PlaceView::TableRow& e = entries[i];
         if (!Matches(e.label, g_placeSearch))
             continue;
         ImGui::PushID(i);
@@ -1459,7 +1459,7 @@ void Place(const Model& model)
 }
 
 // Reset level: asked first.
-void ConfirmReset(const Model& model)
+void ConfirmReset(const ShapeMesh& model)
 {
     if (!model.confirmReset)
         return;
@@ -1484,7 +1484,7 @@ void ConfirmReset(const Model& model)
 }
 
 // Deleting a level's node: hidden, not removed - asked first.
-void ConfirmHide(const Model& model)
+void ConfirmHide(const ShapeMesh& model)
 {
     if (!model.confirm.open)
         return;
@@ -1516,13 +1516,13 @@ void ConfirmHide(const Model& model)
 
 } // namespace
 
-bool& Enabled()
+bool& IsSwitchedOn()
 {
     static bool on = ConfigInt("features", "editor_ui", 1) != 0;
     return on;
 }
 
-bool Running() { return g_running; }
+bool Underway() { return g_running; }
 
 int PreviewPixels()
 {
@@ -1530,11 +1530,11 @@ int PreviewPixels()
     return std::clamp(static_cast<int>(256.0f * scale + 0.5f), 256, 512);
 }
 
-bool Start()
+bool Kickoff()
 {
     if (g_running)
         return true;
-    if (!Enabled())
+    if (!IsSwitchedOn())
         return false;
     if (!g_created) {
         IMGUI_CHECKVERSION();
@@ -1545,7 +1545,7 @@ bool Start()
         io.ConfigWindowsMoveFromTitleBarOnly = true;
         g_created = true;
     }
-    if (!UiBackend::Init()) {
+    if (!UiBackend::PrepareAll()) {
         Log("level editor UI: not started - the old HUD instead");
         return false;
     }
@@ -1561,7 +1561,7 @@ bool Start()
     return true;
 }
 
-void Stop()
+void Halt()
 {
     g_running = false;
     g_uiButtons = g_editorButtons = 0;
@@ -1651,7 +1651,7 @@ std::vector<Request> TakeRequests()
     return requests;
 }
 
-void Frame(const Model& model, const Overlay& overlay)
+void TickCycle(const ShapeMesh& model, const Overlay& overlay)
 {
     if (!g_running)
         return;
@@ -1669,7 +1669,7 @@ void Frame(const Model& model, const Overlay& overlay)
     for (const Overlay::Triangle& t : overlay.under)
         background->AddTriangleFilled(ImVec2(t.ax * sx, t.ay * sy), ImVec2(t.bx * sx, t.by * sy),
                                       ImVec2(t.cx * sx, t.cy * sy), Colour(t.argb));
-    for (const Line& line : overlay.lines)
+    for (const Seg& line : overlay.lines)
         background->AddLine(ImVec2(line.ax * sx, line.ay * sy), ImVec2(line.bx * sx, line.by * sy), Colour(line.argb),
                             line.thickness * g_scale);
     for (const Overlay::Triangle& t : overlay.triangles)
@@ -1720,18 +1720,18 @@ void Frame(const Model& model, const Overlay& overlay)
     ConfirmReset(model);
     CollisionLegend(model);
     OnlineWarning(model);
-    OptionStore::Window(g_scale, g_heading, g_small); // (level_editor_prefs.h)
+    OptionStore::Pane(g_scale, g_heading, g_small); // (level_editor_prefs.h)
     OptionStore::TipsWindow(g_scale, g_heading, g_mono);
-    PlayTest::Window(g_scale, g_heading, g_small); // (level_editor_playtest.h)
+    PlayTest::Pane(g_scale, g_heading, g_small); // (level_editor_playtest.h)
     // (UX7: the Arrange window, the adjust-last panel - level_editor_arrange.h, level_editor_adjust.h)
-    Arrange::Window(g_scale);
+    Arrange::Pane(g_scale);
     Adjust::Panel(g_layout.viewport.x, g_layout.viewport.y + g_layout.viewport.height, g_scale);
-    Triggers::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale,
+    Triggers::Pane(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale,
                      model.nodes.selected);
     // (UX5: the Problems window, the selected note's window)
-    Checks::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale,
+    Checks::Pane(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale,
                    g_mono);
-    Notes::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale);
+    Notes::Pane(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale);
     // (UX9: the gap wizard's and the ground tool's forms, the skateability legend - level_editor_ux9.h)
     Ux9::Windows(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale);
     Ux3::Windows(model);         // (the search, history, changes, keys, snapshots - level_editor_ux3.h)

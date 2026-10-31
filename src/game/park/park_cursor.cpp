@@ -43,7 +43,7 @@ CClipboard* AsClipboard(uint8_t* clipboard) { return reinterpret_cast<CClipboard
 CParkAssembler* AsGenerator(void* generator) { return static_cast<CParkAssembler*>(generator); }
 uint8_t* NextClipboard(uint8_t* clipboard) { return *reinterpret_cast<uint8_t**>(clipboard + 0x14); }
 // A clipboard's area where the cursor would paste it.
-void ClipboardArea(uint8_t* clipboard, CBuildPointer* cursor, SCellBox* area) { AsClipboard(clipboard)->GetArea(cursor, area); }
+void ClipboardArea(uint8_t* clipboard, CBuildPointer* cursor, SCellBox* area) { AsClipboard(clipboard)->FetchExtent(cursor, area); }
 // The gap with a half at `area` (and which half), or null.
 GapRecord* GapAt(CParkLayout* manager, SCellBox* area, int* half) { return manager->GetGapInfo(area, half); }
 void DropGapEntry(CParkLayout* manager, GapRecord* gap) { manager->DropGapEntry(gap); }
@@ -59,11 +59,11 @@ int FloorHeight(CParkLayout* manager, SCellBox area, char* level)
 {
     return manager->GetGroundLevel(area, reinterpret_cast<bool*>(level));
 }
-CParkBuilderMode* ParkEditor() { return CParkBuilderMode::Create(false); }
+CParkBuilderMode* ParkEditor() { return CParkBuilderMode::Fabricate(false); }
 bool ParkFull(CParkBuilderMode* editor) { return editor->IsParkFull() != 0; }
 void ReleaseParkEditor() { CParkBuilderMode::Release(); }
 // (0x005BA1D0: `xor eax, eax; ret` - compiled out of this build, folded with Stubs::ReturnZero)
-void SetDefaultHeap(MemSys::Heap* /*heap*/) { Stubs::ReturnZero(); }
+void SetDefaultHeap(MemSys::Arena* /*heap*/) { Stubs::ReturnZero(); }
 
 } // namespace
 
@@ -76,16 +76,16 @@ void CBuildPointer::RemoveClipboardsTooBig()
         uint8_t* next = NextClipboard(clipboard);
         SCellBox area = {};
         ClipboardArea(clipboard, this, &area);
-        uint8_t parkWidth = Manager()->ParkDims().w;
-        uint8_t parkLength = Manager()->ParkDims().l;
+        uint8_t parkWidth = Hub()->ParkDims().w;
+        uint8_t parkLength = Hub()->ParkDims().l;
         if (area.w > parkWidth || area.w > parkLength || area.l > parkWidth || area.l > parkLength) {
             // Too big to paste in this park: unlinked and deleted.
             if (previous)
                 *reinterpret_cast<uint8_t**>(previous + 0x14) = next;
             if (clipboard == Clipboards())
                 Clipboards() = next;
-            AsClipboard(clipboard)->Destroy();
-            ClipboardPools().Free(clipboard);
+            AsClipboard(clipboard)->Teardown();
+            ClipboardPools().Dealloc(clipboard);
         } else {
             previous = clipboard;
         }
@@ -98,7 +98,7 @@ void CBuildPointer::RemoveClipboardsTooBig()
 // 0x0059D240
 bool CBuildPointer::PlacePiece()
 {
-    CParkLayout* manager = Manager();
+    CParkLayout* manager = Hub();
     if (!manager->CanChangeFloorHere(Area(), false))
         return false;
     if (Area().h + FloorHeight(manager, Area(), nullptr) > 17)
@@ -136,7 +136,7 @@ bool CBuildPointer::DestroyUnderCursor()
     } else {
         area = Area();
     }
-    return Manager()->DestroyMetasInAreaAndRebuild(area, false, false, true);
+    return Hub()->DestroyMetasInAreaAndRebuild(area, false, false, true);
 }
 
 // 0x0059D410
@@ -147,20 +147,20 @@ bool CBuildPointer::AddGapHalf()
         ReleaseParkEditor();
         return false;
     }
-    CCellChainScratch metas = {MetasWithin(Manager(), Area())};
+    CCellChainScratch metas = {MetasWithin(Hub(), Area())};
     bool added = false;
     if (metas.list) {
         void* meta = NodeMeta(metas.list);
         Area().DumpToLog();
         int half;
-        if (!GapAt(Manager(), &Area(), &half) && meta) {
+        if (!GapAt(Hub(), &Area(), &half) && meta) {
             GapRecord& gap = Gap();
             if (gap.m_numCompleteHalves == 1)
-                DropGapEntry(Manager(), &gap);
+                DropGapEntry(Hub(), &gap);
             else
                 gap.m_numCompleteHalves = 0;
             int n = gap.m_numCompleteHalves;
-            gap.m_pos[n] = MetaArea(meta);
+            gap.m_atPoint[n] = MetaArea(meta);
             gap.m_quarterTurns[n] = 0;
             gap.m_leftExtent[n] = 0;
             gap.m_rightExtent[n] = 0;
@@ -176,17 +176,17 @@ bool CBuildPointer::AddGapHalf()
                     std::memcpy(gap.m_text, "gap", 4);
                 ++GapCounter();
             }
-            if (RegisterGapEntry(Manager(), &gap)) {
-                Manager()->RegenerateGround(&Area(), 0);
+            if (RegisterGapEntry(Hub(), &gap)) {
+                Hub()->RegenerateGround(&Area(), 0);
                 if (gap.m_numCompleteHalves > 0)
-                    Manager()->HighlightGapPieces(true, &gap);
+                    Hub()->HighlightGapPieces(true, &gap);
                 added = true;
             } else {
                 gap.m_numCompleteHalves = 0;
             }
         }
     }
-    metas.Destroy();
+    metas.Teardown();
     ReleaseParkEditor();
     return added;
 }
@@ -194,24 +194,24 @@ bool CBuildPointer::AddGapHalf()
 // 0x0059D600
 bool CBuildPointer::RemoveGapHalf()
 {
-    CParkLayout* manager = Manager();
+    CParkLayout* manager = Hub();
     if (Gap().m_numCompleteHalves == 1) {
         DropGapEntry(manager, &Gap());
         Gap().m_numCompleteHalves = 0;
-        Manager()->RebuildArea(&Area(), false);
+        Hub()->RebuildArea(&Area(), false);
         return true;
     }
     int half;
     GapRecord* gap = GapAt(manager, &Area(), &half);
     if (!gap)
         return false;
-    DropGapEntry(Manager(), gap);
-    Manager()->RebuildArea(&Area(), false);
+    DropGapEntry(Hub(), gap);
+    Hub()->RebuildArea(&Area(), false);
     // The pieces that had gaps are told to look again.
-    manager = Manager();
+    manager = Hub();
     for (auto* node = manager->At<CMapListNode*>(0x7C); node; node = node->m_following) {
         if (MetaFlags(NodeMeta(node)) & kMetaHasGap)
-            AsMeta(NodeMeta(node))->Highlight(1, 1);
+            AsMeta(NodeMeta(node))->Spotlight(1, 1);
     }
     AsGenerator(manager->Generator())->SetPiecesHighlighted(0);
     return true;
@@ -221,12 +221,12 @@ bool CBuildPointer::RemoveGapHalf()
 bool CBuildPointer::ChangeGap(int turn, int left, int right)
 {
     int half;
-    GapRecord* gap = GapAt(Manager(), &Area(), &half);
+    GapRecord* gap = GapAt(Hub(), &Area(), &half);
     if (!gap)
         return false;
     // A gap being made: only its own first half.
     if (Gap().m_numCompleteHalves == 1 &&
-        (gap->m_pos[0].x != Gap().m_pos[0].x || gap->m_pos[0].y != Gap().m_pos[0].y || gap->m_pos[0].z != Gap().m_pos[0].z))
+        (gap->m_atPoint[0].x != Gap().m_atPoint[0].x || gap->m_atPoint[0].y != Gap().m_atPoint[0].y || gap->m_atPoint[0].z != Gap().m_atPoint[0].z))
         return false;
     GapRecord copy = *gap;
     bool changed = false;
@@ -253,10 +253,10 @@ bool CBuildPointer::ChangeGap(int turn, int left, int right)
     } else if (!changed) {
         return true;
     }
-    DropGapEntry(Manager(), gap);
+    DropGapEntry(Hub(), gap);
     copy.m_quarterTurns[half] &= 3;
-    SCellBox park = Manager()->ParkDims();
-    const SCellBox& at = copy.m_pos[half];
+    SCellBox park = Hub()->ParkDims();
+    const SCellBox& at = copy.m_atPoint[half];
     int* m_leftExtent = &copy.m_leftExtent[half];
     int* m_rightExtent = &copy.m_rightExtent[half];
     // Each extent is kept inside the park: the one behind the gap's start, the other past its end.
@@ -282,8 +282,8 @@ bool CBuildPointer::ChangeGap(int turn, int left, int right)
         break;
     }
     }
-    RegisterGapEntry(Manager(), &copy);
-    Manager()->RebuildArea(&park, false);
+    RegisterGapEntry(Hub(), &copy);
+    Hub()->RebuildArea(&park, false);
     if (Gap().m_numCompleteHalves == 1)
         Gap() = copy;
     return true;
@@ -296,7 +296,7 @@ bool CBuildPointer::DestroySelection()
         return false;
     SCellBox area = {};
     SelectedArea(this, &area);
-    bool destroyed = Manager()->DestroyMetasInAreaAndRebuild(area, true, true, false);
+    bool destroyed = Hub()->DestroyMetasInAreaAndRebuild(area, true, true, false);
     MemoryMarker("After Area deletion"); // "After Area deletion"
     Selecting() = true;
     At<bool>(0x55) = false;
@@ -310,7 +310,7 @@ void CBuildPointer::FlattenSelection()
         return;
     SCellBox area = {};
     SelectedArea(this, &area);
-    Manager()->ClearArea(area);
+    Hub()->ClearArea(area);
     Selecting() = true;
     At<bool>(0x55) = false;
 }
@@ -320,15 +320,15 @@ bool CBuildPointer::RaiseArea(SCellBox area, int height, int dir, char level)
 {
     if (area.w > 10 || area.l > 10)
         return false;
-    if (!Manager()->RaiseOrLowerFloor(area, area.y, height, dir > 0, level == 0))
+    if (!Hub()->RaiseOrLowerFloor(area, area.y, height, dir > 0, level == 0))
         return false;
-    Move(0, 0);
-    if (Manager()->RebuildArea(&area, true)) {
-        Manager()->HighlightGapPieces(false, nullptr);
+    ShiftBy(0, 0);
+    if (Hub()->RebuildArea(&area, true)) {
+        Hub()->HighlightGapPieces(false, nullptr);
         return true;
     }
-    Manager()->UndoFloorChange(); // undone
-    Manager()->RebuildArea(&area, false);
+    Hub()->UndoFloorChange(); // undone
+    Hub()->RebuildArea(&area, false);
     return false;
 }
 
@@ -344,18 +344,18 @@ bool CBuildPointer::RaiseLower(int dir)
             return false;
         ClipboardArea(CurrentClipboard(), this, &area);
     }
-    SCellBox park = CParkLayout::Instance()->ParkDims();
+    SCellBox park = CParkLayout::Sole()->ParkDims();
     if (area.w > park.w || area.l > park.l)
         return false;
     // (the original has the level flag written over the copy's first byte)
     char level = 0;
-    int height = FloorHeight(Manager(), area, &level);
+    int height = FloorHeight(Hub(), area, &level);
     if (height + dir <= -16)
         return false;
     int top = area.h + height + dir;
     // The pieces standing on the area (any height) widen it, and the highest sets the top.
     SCellBox above = {area.x, area.y, area.z, area.w, 16, area.l};
-    CMapListNode* list = MetasWithin(CParkLayout::Instance(), above);
+    CMapListNode* list = MetasWithin(CParkLayout::Sole(), above);
     for (CMapListNode* node = list; node; node = node->m_following) {
         void* meta = node->GetPieceGroup();
         SCellBox at = MetaArea(meta);
@@ -382,12 +382,12 @@ bool CBuildPointer::RaiseLower(int dir)
 }
 
 // 0x0059DCD0
-void CParkLayout::Initialize(uint32_t level)
+void CParkLayout::Commission(uint32_t level)
 {
     if (At<bool>(0x4))
         return;
     At<bool>(0x4) = true;
-    Init(level); // the park heap and pools
+    PrepareAll(level); // the park heap and pools
     for (int x = 0; x < kGridSize; ++x) {
         for (int z = 0; z < kGridSize; ++z) {
             uint8_t* cell = Bytes() + 0x352C + (x * kGridSize + z) * 0x10;
@@ -396,13 +396,13 @@ void CParkLayout::Initialize(uint32_t level)
         }
     }
     // The park's gap manager (0xA8 bytes), in the top-down heap for that level.
-    MemSys::Manager* memory = MemSys::Manager::Get();
+    MemSys::Hub* memory = MemSys::Hub::Pull();
     if (level == kTopDownLevel)
         memory->EnterHeapScope(memory->m_topDownHeap);
-    void* block = MemSys::New(0xA8);
-    mp_gapManager = block ? static_cast<CGapRegistry*>(block)->Construct(this) : nullptr;
+    void* block = MemSys::Alloc(0xA8);
+    mp_gapManager = block ? static_cast<CGapRegistry*>(block)->MakeNew(this) : nullptr;
     if (level == kTopDownLevel)
-        MemSys::Manager::Get()->LeaveHeapScope();
+        MemSys::Hub::Pull()->LeaveHeapScope();
     int theme = (Flags() & 2) ? At<uint16_t>(0x13C98) : 0;
     m_builder->LoadPieces(level, theme);
     SetUpAbstractMetas();
@@ -414,16 +414,16 @@ void CParkLayout::Initialize(uint32_t level)
 
     // The palette's sets (Ed_piece_sets): each a run of the standard meta pieces (Ed_standard_metapieces) from its
     // `first` up to the next set's, or the clipboards.
-    Scripts::CArray* sets = Scripts::GetArray("Ed_piece_sets"); // "Ed_piece_sets"
-    NumSets() = static_cast<int>(sets->m_size);
-    Scripts::CArray* standard = Scripts::GetArray("Ed_standard_metapieces"); // "Ed_standard_metapieces"
-    int end = static_cast<int>(standard->m_size);
+    Scripts::CArray* sets = Scripts::FetchList("Ed_piece_sets"); // "Ed_piece_sets"
+    NumSets() = static_cast<int>(sets->m_extent);
+    Scripts::CArray* standard = Scripts::FetchList("Ed_standard_metapieces"); // "Ed_standard_metapieces"
+    int end = static_cast<int>(standard->m_extent);
     for (int i = NumSets() - 1; i >= 0; --i) {
         PieceSet& set = Sets(this)[i];
-        auto* description = reinterpret_cast<Scripts::CStruct*>(sets->GetElement(static_cast<uint32_t>(i)));
-        set.m_name = nullptr;
-        description->GetString("name", &set.m_name, 1); // "name"
-        set.m_nameChecksum = Checksums::HashFromText(set.m_name);
+        auto* description = reinterpret_cast<Scripts::CStruct*>(sets->FetchPart(static_cast<uint32_t>(i)));
+        set.m_label = nullptr;
+        description->FetchText("name", &set.m_label, 1); // "name"
+        set.m_nameChecksum = Checksums::HashFromText(set.m_label);
         set.m_selected = 0;
         set.m_entryTotal = 0;
         uint32_t first = 0;
@@ -452,8 +452,8 @@ void CParkLayout::Initialize(uint32_t level)
                 }
                 set.m_entries[entry].checksum = MetaType(meta); // (no check for a missing piece, as in the original)
                 auto* pieceDescription =
-                    reinterpret_cast<Scripts::CStruct*>(standard->GetElement(static_cast<uint32_t>(piece)));
-                if (!pieceDescription->GetString("text_name", // "text_name"
+                    reinterpret_cast<Scripts::CStruct*>(standard->FetchPart(static_cast<uint32_t>(piece)));
+                if (!pieceDescription->FetchText("text_name", // "text_name"
                                                  &set.m_entries[entry].name, 0))
                     set.m_entries[entry].name = nullptr;
             }
@@ -462,7 +462,7 @@ void CParkLayout::Initialize(uint32_t level)
         if (description->HasBareFlag(kClipboardSet)) {
             set.m_isClipboard = true;
             set.m_entryTotal = 6;
-            const char* text = Scripts::GetString(0x4E677220u);
+            const char* text = Scripts::FetchText(0x4E677220u);
             for (int k = 0; k < 6; ++k) {
                 char name[100];
                 std::snprintf(name, sizeof(name), "Clipboard%d", k); // "Clipboard%d"

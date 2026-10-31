@@ -10,7 +10,7 @@
 // The object tracker (GameObjects::CEventWaitBoard, 0xB21C bytes, the singleton 0x006F0FC0 with its use count 0x006F0FC4):
 // - the game objects by id (+0x08) and their aliases (+0x0C) - FindObject / ObjectExists / AssignAlias;
 // - for every event type, the scripts listening for it (+0x10): a script is added when it blocks on that type
-//   (CScript::Block) or has an event handler for it (the event handler table), and removed again when it stops;
+//   (CScript::GateOff) or has an event handler for it (the event handler table), and removed again when it stops;
 // - the scripts waiting in WaitForEvent (+0xB038, 40 of them);
 // - the event listeners (+0x14, C++ objects that see every targeted event first);
 // - the event log (+0x20, the last 1024 launches and what became of them; printed by PrintEventLog - in this
@@ -27,17 +27,17 @@ class CStruct;
 
 namespace GameObjects {
 
-class CObject; // +0x08 flags (0x20: has a position), +0x14 id, +0x3C alias count, +0x4C position
+class CEntity; // +0x08 flags (0x20: has a position), +0x14 id, +0x3C alias count, +0x4C position
 
 // The "no object" id: the target or source of an event that has none.
 constexpr uint32_t kNoObjectId = 0x36B2EE74;
 
-// One script in a list of scripts (ListKit::Node<Scripts::CScript>, 0x14 bytes, vtable 0x006478D8). The list is a
+// One script in a list of scripts (ListKit::Elem<Scripts::CScript>, 0x14 bytes, vtable 0x006478D8). The list is a
 // ring through the head; the head's data is -1.
 class CScriptNode {
 public:
     // 0x00462530: the destructor body: out of its list (linked to itself again).
-    void Unlink();
+    void Uncouple();
     // 0x00462550: the scalar deleting destructor (vtable slot 0; `flags` bit 0: free it). Returns this.
     CScriptNode* ScalarDelete(uint8_t flags);
 
@@ -45,7 +45,7 @@ public:
 
     void** m_vtable;
     Scripts::CScript* m_payload; // +0x04 (the head: -1)
-    int m_priority;           // +0x08 (always 0)
+    int m_rank;           // +0x08 (always 0)
     CScriptNode* m_following;     // +0x0C
     CScriptNode* m_preceding;     // +0x10
 };
@@ -53,18 +53,18 @@ static_assert(sizeof(CScriptNode) == 0x14 && offsetof(CScriptNode, m_following) 
                   offsetof(CScriptNode, m_preceding) == 0x10,
               "layout must match the original");
 
-// The head of a list of scripts: the scripts listening for one event type (ListKit::Head<Scripts::CScript>, vtable
+// The head of a list of scripts: the scripts listening for one event type (ListKit::Foremost<Scripts::CScript>, vtable
 // 0x006478DC). Made from the pool pair 0x006F0FC8 (CPoolable).
 class CScriptList : public CScriptNode {
 public:
     // 0x00462620: add `script` at the end (nothing if it's already in), the node on the script heap.
-    void Add(Scripts::CScript* script);
+    void AppendOne(Scripts::CScript* script);
     // 0x004626B0: take `script` out (its node is deleted through its vtable).
-    void Remove(Scripts::CScript* script);
+    void DropOut(Scripts::CScript* script);
     // 0x00462710: the scalar deleting destructor (vtable slot 0; frees to the heap, not the pool). Returns this.
     CScriptList* ScalarDelete(uint8_t flags);
 
-    bool IsEmpty() const { return m_preceding == this; }
+    bool IsVacant() const { return m_preceding == this; }
 
     // CPoolable new / delete: the pool pair 0x006F0FC8 (delete is 0x004624D0, cdecl).
     static void* operator new(size_t size);
@@ -83,7 +83,7 @@ public:
         OBJECT_ADDED = 4,
         OBJECT_REMOVED = 5,
     };
-    struct Entry {
+    struct TableRow {
         uint32_t type;   // the event type (FRAME: the number of frames)
         uint32_t target;
         uint32_t source;
@@ -95,23 +95,23 @@ public:
 
     // 0x004627C0: add an entry. The first call also makes the table of event names from the global array
     // 0x08114F90 (copied into m_names, keyed by their checksums).
-    void AddEntry(uint32_t type, uint32_t target, uint32_t source, uint32_t script, uint32_t how, int kind);
+    void AddRow(uint32_t type, uint32_t target, uint32_t source, uint32_t script, uint32_t how, int kind);
     // 0x004620A0: print it (the entries' printing is compiled out of this build); there are no new entries
     // after. `onlyNew` picks the header; `count` isn't used.
-    void Print(bool onlyNew, int count);
+    void EchoOut(bool onlyNew, int count);
     // 0x00462CB0: free the name table.
-    void Destroy();
+    void Teardown();
 
-    Entry m_entries[0x400];
-    int m_index;               // +0x7000 the next entry
+    TableRow m_entries[0x400];
+    int m_ordinal;               // +0x7000 the next entry
     bool m_hasLooped;            // +0x7004 the ring is full
     char m_names[0x100][0x40]; // +0x7005 the event names (no check that there are at most 256)
     uint8_t unknownB005[3];
-    ListKit::HashTable* mp_names;  // +0xB008 name checksum -> m_names entry (made on the first AddEntry)
+    ListKit::KeyMap* mp_names;  // +0xB008 name checksum -> m_names entry (made on the first AddRow)
     int m_layer;               // +0xB00C how many launches are under way
     int m_newEntries;          // +0xB010 entries since the last Print
 };
-static_assert(sizeof(CSignalTrace::Entry) == 0x1C && offsetof(CSignalTrace, m_index) == 0x7000 &&
+static_assert(sizeof(CSignalTrace::TableRow) == 0x1C && offsetof(CSignalTrace, m_ordinal) == 0x7000 &&
                   offsetof(CSignalTrace, m_names) == 0x7005 && offsetof(CSignalTrace, mp_names) == 0xB008 &&
                   sizeof(CSignalTrace) == 0xB014,
               "layout must match the original");
@@ -127,24 +127,24 @@ public:
 
     // 0x00462CF0: the constructor (returns this). 0x00462E40: the destructor. 0x00463780: the scalar deleting
     // destructor (vtable 0x006478E0 slot 0; returns this).
-    CEventWaitBoard* Construct();
+    CEventWaitBoard* MakeNew();
     void Destruct();
     CEventWaitBoard* ScalarDelete(uint8_t flags);
 
     // 0x00462120: the object with this id or alias, or null. 0x00462190: only by alias.
-    CObject* LookUpObject(uint32_t id);
-    CObject* LookUpByNickname(uint32_t alias);
+    CEntity* LookUpObject(uint32_t id);
+    CEntity* LookUpByNickname(uint32_t alias);
     // 0x004621D0: the checksum of the next "autoid<n>" that no object has (n counts up to 999999, then 0).
-    uint32_t GetUniqueId();
+    uint32_t FetchDistinctId();
     // 0x00462980: track `object` under its id (an alias with that id is dropped).
-    void AddObject(CObject* object);
+    void AddObject(CEntity* object);
     // 0x00462A20: stop tracking `object`. `renamed`: WaitForEvent waiters on its id follow `freshId`; otherwise its
     // aliases go.
-    void RemoveObject(CObject* object, uint32_t freshId, bool renamed);
+    void RemoveObject(CEntity* object, uint32_t freshId, bool renamed);
     // 0x00462590: every alias of `object` (by id) goes.
-    void RemoveAliasesOf(CObject* object);
+    void RemoveAliasesOf(CEntity* object);
     // 0x00462A90: `alias` names `object` (replacing what it named).
-    void RegisterNickname(uint32_t alias, CObject* object);
+    void RegisterNickname(uint32_t alias, CEntity* object);
 
     // 0x00461FE0 (objman.cpp): `listener` goes on the front of the list, registered. 0x00462000: the event
     // listener stops seeing events.
@@ -155,7 +155,7 @@ public:
     void RemoveListener(uint32_t type, Scripts::CScript* script);
     // 0x00462B90: `script` stops listening for any type (when it stops).
     void ForgetScript(Scripts::CScript* script);
-    // 0x00462260: `script` waits (Block(0)) until an event of `type` reaches its object (or any, without one).
+    // 0x00462260: `script` waits (GateOff(0)) until an event of `type` reaches its object (or any, without one).
     // With all 40 slots taken by live scripts it silently doesn't wait.
     void WaitForEvent(Scripts::CScript* script, uint32_t type);
 
@@ -171,9 +171,9 @@ public:
 
     void** m_vtable;
     int m_nextAutoId;                  // +0x04
-    ListKit::HashTable* mp_objects;        // +0x08 id -> CObject (8 bits)
-    ListKit::HashTable* mp_aliases;        // +0x0C alias -> CObject (4 bits)
-    ListKit::HashTable* mp_listeners;      // +0x10 event type -> CScriptList (8 bits)
+    ListKit::KeyMap* mp_objects;        // +0x08 id -> CEntity (8 bits)
+    ListKit::KeyMap* mp_aliases;        // +0x0C alias -> CEntity (4 bits)
+    ListKit::KeyMap* mp_listeners;      // +0x10 event type -> CScriptList (8 bits)
     CSignalReceiver* mp_eventListeners; // +0x14
     bool unknown18;                    // +0x18 (cleared by the constructor only)
     uint8_t unknown19[3];

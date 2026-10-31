@@ -72,7 +72,7 @@ constexpr uint32_t kRewardPoints = 0xBAFFB052;      // reward_points
 constexpr uint8_t kMsgGoalStarted = 0x6F; // to the server: a goal (the first of its chain) started
 
 CMatchRules* GameMode() { return g_gameMode; }
-OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
 GameObjects::CProfileRoster* ProfileManager() { return GameObjects::g_profileManager; }
 
 uint32_t GoalName(Scripts::CStruct* params)
@@ -84,14 +84,14 @@ uint32_t GoalName(Scripts::CStruct* params)
 CObjective* NameThenGoal(Scripts::CStruct* params)
 {
     uint32_t name = GoalName(params);
-    return GetObjectiveBoard()->m_goals.Get(name);
+    return GetObjectiveBoard()->m_goals.Pull(name);
 }
 // The goal Name names - none without Name (0x00476EC0, the assert passed as a bool).
 CObjective* OptionalGoal(CGoalManager* manager, Scripts::CStruct* params)
 {
     uint32_t name = 0;
     params->ReadHashValue(kName, &name, true);
-    return name ? manager->m_goals.Get(name) : nullptr;
+    return name ? manager->m_goals.Pull(name) : nullptr;
 }
 
 } // namespace
@@ -116,7 +116,7 @@ bool __cdecl CFunc_GoalManager_GetTrickFromKeyCombo(Scripts::CStruct* params, Sc
     if (!params->HasBareFlag(kSpecialFlag)) {
         int created;
         if (mapping->FetchIntValue(keyCombo, &created, 0)) {
-            script->m_params->PutInt(kCatNum, created);
+            script->m_args->PutInt(kCatNum, created);
             return true;
         }
         uint32_t trick;
@@ -125,23 +125,23 @@ bool __cdecl CFunc_GoalManager_GetTrickFromKeyCombo(Scripts::CStruct* params, Sc
         Scripts::CStruct* trickParams;
         Scripts::ReadSubStruct(trick)->ReadSubStruct(kParams, &trickParams, 1);
         const char* name;
-        trickParams->GetString(kName, &name, 1);
-        script->m_params->AddString(kTrickString, name);
-        script->m_params->PutNameKey(kTrickChecksum, trick);
+        trickParams->FetchText(kName, &name, 1);
+        script->m_args->AppendWord(kTrickString, name);
+        script->m_args->PutNameKey(kTrickChecksum, trick);
         uint32_t extra = 0;
         if (!trickParams->ReadHashValue(kExtraTricks, &extra, 0)) {
             Scripts::CArray* extras;
-            if (trickParams->GetArray(kExtraTricks, &extras, 0))
-                extra = extras->GetElement(0);
+            if (trickParams->FetchList(kExtraTricks, &extras, 0))
+                extra = extras->FetchPart(0);
         }
         if (extra) {
-            auto* entry = reinterpret_cast<Scripts::CStruct*>(Scripts::GetArray(extra)->GetElement(0));
+            auto* entry = reinterpret_cast<Scripts::CStruct*>(Scripts::FetchList(extra)->FetchPart(0));
             Scripts::CStruct* extraParams;
             entry->ReadSubStruct(kParams, &extraParams, 1);
             const char* extraName;
-            extraParams->GetString(kName, &extraName, 1);
-            script->m_params->AddString(kExtraTrickString, extraName);
-            script->m_params->PutNameKey(kExtraTrickChecksum, extra);
+            extraParams->FetchText(kName, &extraName, 1);
+            script->m_args->AppendWord(kExtraTrickString, extraName);
+            script->m_args->PutNameKey(kExtraTrickChecksum, extra);
         }
         return true;
     }
@@ -159,14 +159,14 @@ bool __cdecl CFunc_GoalManager_GetTrickFromKeyCombo(Scripts::CStruct* params, Sc
             Scripts::CStruct* trickParams;
             structure->ReadSubStruct(kParams, &trickParams, 1);
             const char* name;
-            trickParams->GetString(kName, &name, 1);
-            script->m_params->AddString(kTrickString, name);
+            trickParams->FetchText(kName, &name, 1);
+            script->m_args->AppendWord(kTrickString, name);
         }
         if (special.flag)
-            script->m_params->PutInt(kTrickChecksum, static_cast<int>(special.trick));
+            script->m_args->PutInt(kTrickChecksum, static_cast<int>(special.trick));
         else
-            script->m_params->PutNameKey(kTrickChecksum, special.trick);
-        script->m_params->PutInt(kCurrentIndex, i);
+            script->m_args->PutNameKey(kTrickChecksum, special.trick);
+        script->m_args->PutInt(kCurrentIndex, i);
         return true;
     }
     return false;
@@ -190,7 +190,7 @@ bool __cdecl CFunc_GoalManager_QuickStartGoal(Scripts::CStruct* params, Scripts:
 // 0x0055AAA0
 bool __cdecl CFunc_GoalManager_InitializeGoal(Scripts::CStruct* params, Scripts::CScript*)
 {
-    NameThenGoal(params)->Init();
+    NameThenGoal(params)->PrepareAll();
     return true;
 }
 
@@ -213,7 +213,7 @@ bool __cdecl CFunc_GoalManager_AddTime(Scripts::CStruct* params, Scripts::CScrip
     uint32_t name = GoalName(params);
     int seconds;
     params->FetchIntValue(0u, &seconds, 1);
-    GetObjectiveBoard()->m_goals.Get(name)->AdvanceClock(seconds);
+    GetObjectiveBoard()->m_goals.Pull(name)->AdvanceClock(seconds);
     return true;
 }
 
@@ -221,7 +221,7 @@ bool __cdecl CFunc_GoalManager_AddTime(Scripts::CStruct* params, Scripts::CScrip
 bool __cdecl CFunc_GoalManager_GetNumberCollected(Scripts::CStruct* params, Scripts::CScript* script)
 {
     int collected = NameThenGoal(params)->CountPickedUp();
-    script->m_params->PutInt(kNumberCollected, collected);
+    script->m_args->PutInt(kNumberCollected, collected);
     return true;
 }
 
@@ -231,7 +231,7 @@ bool __cdecl CFunc_GoalManager_GetNumberOfFlags(Scripts::CStruct* params, Script
     int flags = NameThenGoal(params)->GetNumFlagsToWin();
     if (flags == -1)
         return false;
-    script->m_params->PutInt(kNumberOfFlags, flags);
+    script->m_args->PutInt(kNumberOfFlags, flags);
     return true;
 }
 
@@ -252,7 +252,7 @@ bool __cdecl CFunc_GoalManager_ColorTrickObjects(Scripts::CStruct* params, Scrip
     bool clear = params->HasBareFlag(kClear);
     int skater = 0;
     params->FetchIntValue(kSkater, &skater, 0);
-    GetObjectiveBoard()->m_goals.Get(name)->TintTaggedProps(skater + 1, clear);
+    GetObjectiveBoard()->m_goals.Pull(name)->TintTaggedProps(skater + 1, clear);
     return true;
 }
 
@@ -260,7 +260,7 @@ bool __cdecl CFunc_GoalManager_ColorTrickObjects(Scripts::CStruct* params, Scrip
 bool __cdecl CFunc_GoalManager_GetNumberOfTimesGoalStarted(Scripts::CStruct* params, Scripts::CScript* script)
 {
     int started = NameThenGoal(params)->GetTimesStarted();
-    script->m_params->PutInt(kTimesStarted, started);
+    script->m_args->PutInt(kTimesStarted, started);
     return true;
 }
 
@@ -286,7 +286,7 @@ bool __cdecl CFunc_GoalManager_GetLastGoalId(Scripts::CStruct*, Scripts::CScript
     uint32_t last = GetObjectiveBoard()->m_previousObjective;
     if (!last)
         return false;
-    script->m_params->PutNameKey(kGoalIdChecksum, last);
+    script->m_args->PutNameKey(kGoalIdChecksum, last);
     return true;
 }
 
@@ -294,7 +294,7 @@ bool __cdecl CFunc_GoalManager_GetLastGoalId(Scripts::CStruct*, Scripts::CScript
 bool __cdecl CFunc_GoalManager_ClearTetrisTricks(Scripts::CStruct* params, Scripts::CScript*)
 {
     CGoalManager* manager = GetObjectiveBoard();
-    reinterpret_cast<CTetrisGoal*>(manager->m_goals.Get(GoalName(params)))->ClearTricksAndMenu();
+    reinterpret_cast<CTetrisGoal*>(manager->m_goals.Pull(GoalName(params)))->ClearTricksAndMenu();
     return true;
 }
 
@@ -303,14 +303,14 @@ bool __cdecl CFunc_GoalManager_ClearTetrisTricks(Scripts::CStruct* params, Scrip
 // original's stack garbage.)
 bool __cdecl CFunc_GoalManager_AnnounceGoalStarted(Scripts::CStruct* params, Scripts::CScript*)
 {
-    OnlinePlay::Manager* net = NetManager();
+    OnlinePlay::Hub* net = NetManager();
     CGoalManager* manager = GetObjectiveBoard();
-    CObjective* goal = manager->m_goals.Get(GoalName(params));
+    CObjective* goal = manager->m_goals.Pull(GoalName(params));
     if (goal->IsOnlineObjective() || goal->m_parents->m_objectiveKey)
         return true;
-    NetLink::App* client = net->GetClient(0);
+    NetLink::AppHost* client = net->FetchPatron(0);
     NetLink::NetMessageInfo desc;
-    desc.Construct();
+    desc.MakeNew();
     net->GetOwnPlayer();
     struct {
         uint32_t gameId;
@@ -318,10 +318,10 @@ bool __cdecl CFunc_GoalManager_AnnounceGoalStarted(Scripts::CStruct* params, Scr
     } message = {};
     message.gameId = net->GetGameId();
     message.goal = goal->GetObjectiveKey();
-    desc.m_data = &message;
+    desc.m_content = &message;
     desc.m_byteCount = sizeof(message);
-    desc.m_id = kMsgGoalStarted;
-    static_cast<NetLink::Client*>(client)->SendToHost(&desc);
+    desc.m_ident = kMsgGoalStarted;
+    static_cast<NetLink::Guest*>(client)->SendToHost(&desc);
     return true;
 }
 
@@ -336,7 +336,7 @@ bool __cdecl CFunc_GoalManager_SetEndRunType(Scripts::CStruct* params, Scripts::
         type = 1;
     else if (params->HasBareFlag(kNone))
         type = 2;
-    GetObjectiveBoard()->m_goals.Get(name)->ChooseRunEnding(type);
+    GetObjectiveBoard()->m_goals.Pull(name)->ChooseRunEnding(type);
     return true;
 }
 
@@ -348,7 +348,7 @@ bool __cdecl CFunc_GoalManager_SetShouldDeactivateOnExpire(Scripts::CStruct* par
     params->FetchIntValue(0u, &deactivate, 1);
     CGoalManager* manager = GetObjectiveBoard();
     bool on = deactivate != 0;
-    manager->m_goals.Get(name)->SetDeactivateOnExpire(on);
+    manager->m_goals.Pull(name)->SetDeactivateOnExpire(on);
     return true;
 }
 
@@ -387,7 +387,7 @@ bool __cdecl CFunc_GoalManager_SetDifficultyLevel(Scripts::CStruct* params, Scri
     int level;
     params->FetchIntValue(0u, &level, 1);
     CGoalManager* manager = GetObjectiveBoard();
-    manager->m_params->PutInt(GameMode()->GetNameKey(), level);
+    manager->m_args->PutInt(GameMode()->GetNameKey(), level);
     return level != 0;
 }
 
@@ -397,7 +397,7 @@ bool __cdecl CFunc_GoalManager_GetDifficultyLevel(Scripts::CStruct*, Scripts::CS
 {
     CGoalManager* manager = GetObjectiveBoard();
     int level;
-    if (!manager->m_params->FetchIntValue(GameMode()->GetNameKey(), &level, 0))
+    if (!manager->m_args->FetchIntValue(GameMode()->GetNameKey(), &level, 0))
         level = 1;
     int result;
     switch (level) {
@@ -405,7 +405,7 @@ bool __cdecl CFunc_GoalManager_GetDifficultyLevel(Scripts::CStruct*, Scripts::CS
     case 2: result = 2; break;
     default: result = 1; break;
     }
-    script->m_params->PutInt(kDifficultyLevel, result);
+    script->m_args->PutInt(kDifficultyLevel, result);
     return true;
 }
 
@@ -469,7 +469,7 @@ bool __cdecl CFunc_GoalManager_SetSponsor(Scripts::CStruct* params, Scripts::CSc
 // 0x0055B400
 bool __cdecl CFunc_GoalManager_GetSponsor(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PutNameKey(kSponsor, GetObjectiveBoard()->m_backer);
+    script->m_args->PutNameKey(kSponsor, GetObjectiveBoard()->m_backer);
     return true;
 }
 
@@ -477,11 +477,11 @@ bool __cdecl CFunc_GoalManager_GetSponsor(Scripts::CStruct*, Scripts::CScript* s
 bool __cdecl CFunc_GoalManager_GetTeam(Scripts::CStruct*, Scripts::CScript* script)
 {
     Scripts::CStruct* team = GetObjectiveBoard()->m_team;
-    script->m_params->PutSubStruct(kTeam, team);
+    script->m_args->PutSubStruct(kTeam, team);
     int members = 0;
     for (Scripts::CComponent* member = team->StepToEntry(nullptr); member; member = team->StepToEntry(member))
         ++members;
-    script->m_params->PutInt(kNumTeamMembers, members);
+    script->m_args->PutInt(kNumTeamMembers, members);
     return true;
 }
 
@@ -494,7 +494,7 @@ bool __cdecl CFunc_GoalManager_SetTeamMember(Scripts::CStruct* params, Scripts::
     bool remove = params->HasBareFlag(kRemove);
     bool markUsed = params->HasBareFlag(kMarkUsed);
     if (remove)
-        manager->m_team->RemoveComponent(pro);
+        manager->m_team->EraseModule(pro);
     else
         manager->m_team->PutInt(pro, markUsed ? 1 : 0);
     return true;
@@ -512,8 +512,8 @@ bool __cdecl CFunc_GoalManager_SetTeamName(Scripts::CStruct* params, Scripts::CS
 {
     CGoalManager* manager = GetObjectiveBoard();
     const char* name;
-    params->GetString(0u, &name, 1);
-    manager->m_team->AddString(kTeamName, name);
+    params->FetchText(0u, &name, 1);
+    manager->m_team->AppendWord(kTeamName, name);
     return true;
 }
 
@@ -559,7 +559,7 @@ bool __cdecl CFunc_GoalManager_SetTrickBeatPattern(Scripts::CStruct* params, Scr
     int tempo;
     params->FetchIntValue(kTempo, &tempo, 1);
     Scripts::CArray* pattern;
-    params->GetArray(kBeatPattern, &pattern, 1);
+    params->FetchList(kBeatPattern, &pattern, 1);
     goal->SetBeatPattern(pattern, tempo);
     return true;
 }
@@ -574,7 +574,7 @@ bool __cdecl CFunc_GoalManager_ResetTrickBeatTimer(Scripts::CStruct* params, Scr
 // 0x0055B790: the saved goals' structure as the script's GoalManagerParams.
 bool __cdecl CFunc_GoalManager_GetGoalManagerParams(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PutSubStruct(kGoalManagerParams, GetObjectiveBoard()->m_goalData);
+    script->m_args->PutSubStruct(kGoalManagerParams, GetObjectiveBoard()->m_goalData);
     return true;
 }
 
@@ -585,15 +585,15 @@ bool __cdecl CFunc_GoalManager_GetActiveRewardPoints(Scripts::CStruct*, Scripts:
     CGoalManager* manager = GetObjectiveBoard();
     int won = 0;
     int total = 0;
-    for (int i = 0; i < manager->m_goals.m_count; ++i) {
+    for (int i = 0; i < manager->m_goals.m_num; ++i) {
         CObjective* goal = manager->m_goals.GetByIndex(i);
         int points = goal->GetRewardPoints();
         if (Virtual<bool>(goal, CObjective::kVtHasWon))
             won += points;
         total += points;
     }
-    script->m_params->PutInt(kActivePoints, Scripts::FetchIntValue(kTotalCheatPoints) + won);
-    script->m_params->PutInt(kTotalPoints, total);
+    script->m_args->PutInt(kActivePoints, Scripts::FetchIntValue(kTotalCheatPoints) + won);
+    script->m_args->PutInt(kTotalPoints, total);
     return true;
 }
 
@@ -601,10 +601,10 @@ bool __cdecl CFunc_GoalManager_GetActiveRewardPoints(Scripts::CStruct*, Scripts:
 bool __cdecl CFunc_GoalManager_GetGoalRewardPoints(Scripts::CStruct* params, Scripts::CScript* script)
 {
     CGoalManager* manager = GetObjectiveBoard();
-    CObjective* goal = manager->m_goals.Get(GoalName(params));
+    CObjective* goal = manager->m_goals.Pull(GoalName(params));
     if (!goal->GetRewardPoints())
         return false;
-    script->m_params->PutInt(kRewardPoints, goal->GetRewardPoints());
+    script->m_args->PutInt(kRewardPoints, goal->GetRewardPoints());
     return true;
 }
 
@@ -615,7 +615,7 @@ bool __cdecl CFunc_Goal_CollectActive(Scripts::CStruct* params, Scripts::CScript
     uint32_t id;
     params->ReadHashValue(kGoalIdChecksum, &id, 1);
     CGoalManager* manager = GetObjectiveBoard();
-    if (manager->m_goals.Get(id)->HasEveryBit())
+    if (manager->m_goals.Pull(id)->HasEveryBit())
         manager->CompleteObjective(id);
     return true;
 }

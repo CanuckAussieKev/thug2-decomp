@@ -40,10 +40,10 @@ void UpdateLists()
     g_restarts.clear();
     g_scripts.clear();
     g_cameras.clear();
-    for (const Cameras::Camera& camera : Cameras::All())
+    for (const Cameras::ViewCam& camera : Cameras::All())
         g_cameras.push_back(camera.name);
     static const uint32_t kTriggerScript = 0x2CA8A299;
-    for (const Nodes::Node& node : Nodes::All()) {
+    for (const Nodes::Elem& node : Nodes::All()) {
         if (node.family == Nodes::Family::Spawn && !node.hidden && node.name)
             g_restarts.push_back(NameOf(node.name));
         if (!node.triggerScript || node.added)
@@ -184,7 +184,7 @@ void ProximSection(uint32_t node)
 const Added* AddedNamed(uint32_t name)
 {
     for (const Added& a : AddedTriggers()) {
-        if (NodeCreate::Checksum(a.spec.name) == name)
+        if (NodeCreate::NameHash(a.spec.name) == name)
             return &a;
     }
     return nullptr;
@@ -202,9 +202,9 @@ const LevelTrigger* LevelNamed(uint32_t sector)
 void LevelTriggerDetails(const LevelTrigger& l)
 {
     ImGui::TextColored(Colour(l.off ? 0xFFA0A0A0u : KindColour(l.kind)), "%s", DescribeLevelTrigger(l).c_str());
-    ImGui::TextDisabled("Level trigger %s: %d trigger faces%s", Nodes::Label(l.sector).c_str(), l.faceCount,
+    ImGui::TextDisabled("Level trigger %s: %d trigger faces%s", Nodes::Caption(l.sector).c_str(), l.faceCount,
                         l.hasNode ? "" : " (no node)");
-    ImGui::TextDisabled("TriggerScript: %s", l.script ? Nodes::Label(l.script).c_str() : "(none)");
+    ImGui::TextDisabled("TriggerScript: %s", l.script ? Nodes::Caption(l.script).c_str() : "(none)");
     ImGui::TextDisabled("Box (%.0f, %.0f, %.0f) .. (%.0f, %.0f, %.0f)", l.min.x, l.min.y, l.min.z, l.max.x, l.max.y,
                         l.max.z);
     uint32_t sector = l.sector;
@@ -234,7 +234,7 @@ void LevelTriggerDetails(const LevelTrigger& l)
 
 } // namespace
 
-void Window(float viewX, float viewY, float viewWidth, float viewHeight, float scale, int selectedNode)
+void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float scale, int selectedNode)
 {
     (void)viewHeight;
     (void)selectedNode;
@@ -268,7 +268,7 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
         ImGui::SetTooltip("Teleport the skater to a node");
     ImGui::SameLine();
     if (ImGui::Button("Script"))
-        Queue([] { AddScript(); });
+        Queue([] { AppendScript(); });
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Run a level script");
     ImGui::SameLine();
@@ -304,7 +304,7 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
             if ((a.spec.kind == Kind::GapStart || a.spec.kind == Kind::GapEnd) && !a.spec.text.empty())
                 text += std::string("  - ") + PlayTest::GapNote(CleanText(a.spec.text)); // (landed in a test run?)
             ImGui::PushStyleColor(ImGuiCol_Text, Colour(a.problem ? 0xFFA0A0A0u : KindColour(a.spec.kind)));
-            uint32_t name = NodeCreate::Checksum(a.spec.name);
+            uint32_t name = NodeCreate::NameHash(a.spec.name);
             if (ImGui::Selectable((text + "##a" + a.spec.name).c_str(), false))
                 Queue([name] { SelectNodeNamed(name); });
             ImGui::PopStyleColor();
@@ -313,7 +313,7 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
         for (const LevelTrigger& l : LevelTriggers()) {
             if (++shown > 400)
                 break;
-            std::string text = Nodes::Label(l.sector) + "  " + DescribeLevelTrigger(l) + (l.off ? "  (off)" : "");
+            std::string text = Nodes::Caption(l.sector) + "  " + DescribeLevelTrigger(l) + (l.off ? "  (off)" : "");
             ImGui::PushStyleColor(ImGuiCol_Text, Colour(l.off ? 0xFFA0A0A0u : KindColour(l.kind)));
             uint32_t sector = l.sector;
             bool hasNode = l.hasNode;
@@ -338,7 +338,7 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
 
 void InspectorSection(int index)
 {
-    const std::vector<Nodes::Node>& all = Nodes::All();
+    const std::vector<Nodes::Elem>& all = Nodes::All();
     if (index < 0 || index >= static_cast<int>(all.size()))
         return;
     uint32_t name = all[index].name;
@@ -371,7 +371,7 @@ void InspectorSection(int index)
     }
     // The kind.
     const Kind kinds[] = {Kind::Kill,   Kind::JumpTo, Kind::Scripts, Kind::GapStart,
-                          Kind::GapEnd, Kind::Boost,    Kind::Camera};
+                          Kind::GapEnd, Kind::Boost,    Kind::ViewCam};
     if (ImGui::BeginCombo("Kind", KindName(s.kind))) {
         for (Kind k : kinds) {
             if (ImGui::Selectable(KindName(k), k == s.kind) && k != s.kind) {
@@ -459,7 +459,7 @@ void InspectorSection(int index)
             ImGui::SetTooltip("Upward speed (600 hop, 900 jump, 2000+ launch)");
         break;
     }
-    case Kind::Camera: {
+    case Kind::ViewCam: {
         // (map4) the camera played and for how long
         changed |= NameCombo("Camera", &s.target, g_cameras);
         changed |= NameField("Or a node", &s.target, target, sizeof(target), &targetEditing);
@@ -487,7 +487,7 @@ void InspectorSection(int index)
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Run the script when leaving too");
     if (s.replaces)
-        ImGui::TextDisabled("Replaces %s", Nodes::Label(s.replaces).c_str());
+        ImGui::TextDisabled("Replaces %s", Nodes::Caption(s.replaces).c_str());
     if (a->problem)
         ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.45f, 1.0f), "Not active: %s", a->problem);
     else

@@ -52,15 +52,15 @@ uint32_t g_nextRailId{1};
 
 namespace {
 
-static VtableSlot kVtable_slots[] = {&ParkEditing::CRailAuthoring::Destroy,
-         &ParkEditing::CRailAuthoring::Update,
+static VtableSlot kVtable_slots[] = {&ParkEditing::CRailAuthoring::Teardown,
+         &ParkEditing::CRailAuthoring::TickFrame,
          Stubs::IgnoreArgument,
-         &ParkEditing::CRailAuthoring::Finalize,
+         &ParkEditing::CRailAuthoring::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
-         &ParkEditing::CRailAuthoring::Hide,
+         &GameObjects::CObjectModule::HoldOff,
+         &ParkEditing::CRailAuthoring::Conceal,
          Stubs::DoNothing,
          &ParkEditing::CRailAuthoring::FetchDiagnostics,
          static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(
@@ -77,26 +77,26 @@ uint8_t& Owned(MemSys::PoolPair& pair, int which) { return reinterpret_cast<uint
 // A pool made for a pair's current slot (owned).
 void MakePool(MemSys::PoolPair& pair, int itemSize, int count, const char* name)
 {
-    void* memory = MemSys::New(sizeof(MemSys::Pool));
-    pair.pools[pair.current] = memory ? new (memory) MemSys::Pool(itemSize, count, name) : nullptr;
+    void* memory = MemSys::Alloc(sizeof(MemSys::SlabBank));
+    pair.pools[pair.current] = memory ? new (memory) MemSys::SlabBank(itemSize, count, name) : nullptr;
     Owned(pair, pair.current) = 1;
 }
 
 // The current pool freed if it was made here; the slot cleared.
 void FreePool(MemSys::PoolPair& pair)
 {
-    MemSys::Pool* pool = pair.pools[pair.current];
+    MemSys::SlabBank* pool = pair.pools[pair.current];
     if (!pool)
         return;
     if (Owned(pair, pair.current)) {
-        MemSys::Free(pool->m_start);
-        MemSys::Manager::Get()->Free(pool);
+        MemSys::Dealloc(pool->m_outset);
+        MemSys::Hub::Pull()->Dealloc(pool);
     }
     pair.pools[pair.current] = nullptr;
 }
 
 // A rail taken out of the editor's list (the head and the current rail moved on past it).
-void Unlink(CRailAuthoring* editor, CEditedRail* rail)
+void Uncouple(CRailAuthoring* editor, CEditedRail* rail)
 {
     if (editor->m_railGroups == rail)
         editor->m_railGroups = rail->m_following;
@@ -110,7 +110,7 @@ void Unlink(CRailAuthoring* editor, CEditedRail* rail)
 
 bool Inside(const CEditedRailPoint* p, float x0, float z0, float x1, float z1)
 {
-    return p->m_pos.x > x0 && p->m_pos.x < x1 && p->m_pos.z > z0 && p->m_pos.z < z1;
+    return p->m_atPoint.x > x0 && p->m_atPoint.x < x1 && p->m_atPoint.z > z0 && p->m_atPoint.z < z1;
 }
 
 } // namespace
@@ -153,17 +153,17 @@ void CEditedRailPoint::Pack(uint16_t* record) const
         record[3] = 0;
     else
         record[3] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(m_levelY) * 16.0f));
-    record[0] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(m_pos.x) * 8.0f));
-    record[1] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(m_pos.y) * 8.0f));
-    record[2] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(m_pos.z) * 8.0f));
+    record[0] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(m_atPoint.x) * 8.0f));
+    record[1] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(m_atPoint.y) * 8.0f));
+    record[2] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(m_atPoint.z) * 8.0f));
 }
 
 // --- CEditedRail --------------------------------------------------------------------------------------------------
 
 // 0x004F70C0
-CEditedRail* CEditedRail::Construct()
+CEditedRail* CEditedRail::MakeNew()
 {
-    m_id = NextRailId()++;
+    m_ident = NextRailId()++;
     mp_points = nullptr;
     m_following = nullptr;
     m_preceding = nullptr;
@@ -179,7 +179,7 @@ void CEditedRail::Clear()
         CEditedRailPoint* next = point->m_following;
         RemoveSceneSector(point->mp_segment);
         RemoveSceneSector(point->mp_post);
-        PointPools().Free(point);
+        PointPools().Dealloc(point);
         point = next;
     }
     mp_points = nullptr;
@@ -195,7 +195,7 @@ int CEditedRail::RailPointTotal() const
 }
 
 // 0x004F3BB0
-CEditedRailPoint* CEditedRail::GetPoint(int index) const
+CEditedRailPoint* CEditedRail::FetchVertexAt(int index) const
 {
     CEditedRailPoint* p = mp_points;
     while (index != 0) {
@@ -233,7 +233,7 @@ void CEditedRail::DeletePosts()
 }
 
 // 0x004F4280
-bool CEditedRail::FindNearestPoint(const Maths::Vector* position, Maths::Vector* point, float* distanceSquared, int* index,
+bool CEditedRail::FindNearestPoint(const Maths::Vec4* position, Maths::Vec4* point, float* distanceSquared, int* index,
                                    int skip) const
 {
     const CEditedRailPoint* p = mp_points;
@@ -243,12 +243,12 @@ bool CEditedRail::FindNearestPoint(const Maths::Vector* position, Maths::Vector*
     for (int i = 0; p; p = p->m_following, ++i) {
         if (i == skip)
             continue;
-        double dx = static_cast<double>(p->m_pos.x) - position->x;
-        double dz = static_cast<double>(p->m_pos.z) - position->z;
+        double dx = static_cast<double>(p->m_atPoint.x) - position->x;
+        double dz = static_cast<double>(p->m_atPoint.z) - position->z;
         double d = dx * dx + dz * dz;
         if (d < best) {
             best = static_cast<float>(d);
-            *point = p->m_pos;
+            *point = p->m_atPoint;
             *distanceSquared = static_cast<float>(d);
             *index = i;
         }
@@ -270,10 +270,10 @@ int CEditedRail::CountPointsInside(float x0, float z0, float x1, float z1) const
 // 0x004F4420
 void CEditedRail::ChangeColour(int index)
 {
-    Scripts::CArray* colours = Scripts::GetArray(kGraffitiColors);
-    auto* colour = reinterpret_cast<Scripts::CArray*>(colours->GetElement(static_cast<uint32_t>(index)));
-    uint32_t rgba = static_cast<uint8_t>(colour->GetElement(0)) | static_cast<uint8_t>(colour->GetElement(1)) << 8 |
-                    static_cast<uint32_t>(static_cast<uint8_t>(colour->GetElement(2))) << 16 | 0x80000000u;
+    Scripts::CArray* colours = Scripts::FetchList(kGraffitiColors);
+    auto* colour = reinterpret_cast<Scripts::CArray*>(colours->FetchPart(static_cast<uint32_t>(index)));
+    uint32_t rgba = static_cast<uint8_t>(colour->FetchPart(0)) | static_cast<uint8_t>(colour->FetchPart(1)) << 8 |
+                    static_cast<uint32_t>(static_cast<uint8_t>(colour->FetchPart(2))) << 16 | 0x80000000u;
     for (CEditedRailPoint* p = mp_points; p; p = p->m_following) {
         if (p->mp_post)
             SetSectorColour(p->mp_post, rgba);
@@ -286,7 +286,7 @@ void CEditedRail::ChangeColour(int index)
 bool CEditedRail::AnyPointOutside(float x0, float z0, float x1, float z1) const
 {
     for (const CEditedRailPoint* p = mp_points; p; p = p->m_following) {
-        if (p->m_pos.x < x0 || p->m_pos.x > x1 || p->m_pos.z < z0 || p->m_pos.z > z1)
+        if (p->m_atPoint.x < x0 || p->m_atPoint.x > x1 || p->m_atPoint.z < z0 || p->m_atPoint.z > z1)
             return true;
     }
     return false;
@@ -296,11 +296,11 @@ bool CEditedRail::AnyPointOutside(float x0, float z0, float x1, float z1) const
 CEditedRailPoint* CEditedRail::NewPoint()
 {
     MemSys::PoolPair& pools = PointPools();
-    if (pools.pools[pools.current]->m_used == CRailAuthoring::kMaxPoints)
+    if (pools.pools[pools.current]->m_takenCount == CRailAuthoring::kMaxPoints)
         return nullptr;
-    auto* point = static_cast<CEditedRailPoint*>(pools.Allocate(sizeof(CEditedRailPoint)));
+    auto* point = static_cast<CEditedRailPoint*>(pools.Carve(sizeof(CEditedRailPoint)));
     if (point) {
-        point->m_pos = {0.0f, 0.0f, 0.0f, 1.0f};
+        point->m_atPoint = {0.0f, 0.0f, 0.0f, 1.0f};
         point->m_hasPost = false;
         point->m_highlighted = false;
         point->m_levelY = 0.0f;
@@ -322,7 +322,7 @@ CEditedRailPoint* CEditedRail::NewPoint()
 void CEditedRail::AddPointCopy(const CEditedRailPoint* source)
 {
     CEditedRailPoint* point = NewPoint();
-    point->m_pos = source->m_pos;
+    point->m_atPoint = source->m_atPoint;
     point->m_hasPost = source->m_hasPost;
     point->m_levelY = source->m_levelY;
 }
@@ -335,7 +335,7 @@ CEditedRailPoint* CEditedRail::CutAt(CEditedRailPoint* point)
     CEditedRailPoint* prev = point->m_preceding;
     if (prev && point->m_following) {
         MemSys::PoolPair& rails = RailPools();
-        if (rails.pools[rails.current]->m_used == CRailAuthoring::kMaxRails)
+        if (rails.pools[rails.current]->m_takenCount == CRailAuthoring::kMaxRails)
             return nullptr;
     }
     if (point == mp_points) {
@@ -381,7 +381,7 @@ CEditedRail* CEditedRail::CopyInside(float x0, float z0, float x1, float z1, CEd
         } else {
             if (first) {
                 void* memory = CRailAuthoring::NewRailMemory(sizeof(CEditedRail));
-                auto* rail = memory ? static_cast<CEditedRail*>(memory)->Construct() : nullptr;
+                auto* rail = memory ? static_cast<CEditedRail*>(memory)->MakeNew() : nullptr;
                 rail->m_following = list;
                 list = rail;
                 rail->AddPointCopy(first);
@@ -397,26 +397,26 @@ CEditedRail* CEditedRail::CopyInside(float x0, float z0, float x1, float z1, CEd
 // --- CRailAuthoring -----------------------------------------------------------------------------------------
 
 // 0x004F4970
-CRailAuthoring* __cdecl CRailAuthoring::Instance()
+CRailAuthoring* __cdecl CRailAuthoring::Sole()
 {
     auto* object = reinterpret_cast<GameObjects::CGameEntity*>(
         reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager)->LookUpEntity(kType));
-    return static_cast<CRailAuthoring*>(object->GetComponent(kType));
+    return static_cast<CRailAuthoring*>(object->FetchModule(kType));
 }
 
 // 0x004F7FB0
-GameObjects::CObjectModule* __cdecl CRailAuthoring::Create()
+GameObjects::CObjectModule* __cdecl CRailAuthoring::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRailAuthoring));
-    return memory ? static_cast<CRailAuthoring*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CRailAuthoring*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x004F7C90
-CRailAuthoring* CRailAuthoring::Construct()
+CRailAuthoring* CRailAuthoring::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kVtable;
-    m_type = kType;
+    m_kindTag = kType;
     MakePointPool(kMaxPoints, "CEditedRailPoint");
     MakeRailPool(kMaxRails, "CEditedRail");
     mp_input = nullptr;
@@ -440,19 +440,19 @@ void CRailAuthoring::DestroyBody()
 }
 
 // 0x004F8010
-CRailAuthoring* CRailAuthoring::Destroy(unsigned int flags)
+CRailAuthoring* CRailAuthoring::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004F47E0
-void CRailAuthoring::Finalize()
+void CRailAuthoring::Seal()
 {
-    mp_input = m_object->GetComponent(kInput);
-    m_viewCamera = m_object->GetComponent(kEditorCamera);
+    mp_input = m_entity->FetchModule(kInput);
+    m_viewCamera = m_entity->FetchModule(kEditorCamera);
 }
 
 // 0x004F4990
@@ -468,19 +468,19 @@ void __cdecl CRailAuthoring::MakeRailPool(int count, const char* name)
 }
 
 // 0x004F4AF0
-void* __cdecl CRailAuthoring::NewRailMemory(unsigned int size) { return RailPools().Allocate(size); }
+void* __cdecl CRailAuthoring::NewRailMemory(unsigned int size) { return RailPools().Carve(size); }
 
 // 0x004F4B30
-void __cdecl CRailAuthoring::FreeRail(void* rail) { RailPools().Free(rail); }
+void __cdecl CRailAuthoring::FreeRail(void* rail) { RailPools().Dealloc(rail); }
 
 // 0x004F4A10
-void __cdecl CRailAuthoring::FreePoint(void* point) { PointPools().Free(point); }
+void __cdecl CRailAuthoring::FreePoint(void* point) { PointPools().Dealloc(point); }
 
 // 0x004F6BF0
 int __cdecl CRailAuthoring::FreePoints()
 {
     MemSys::PoolPair& pools = PointPools();
-    return kMaxPoints - pools.pools[pools.current]->m_used;
+    return kMaxPoints - pools.pools[pools.current]->m_takenCount;
 }
 
 // 0x004F7550
@@ -495,7 +495,7 @@ void CRailAuthoring::Clear()
     }
     m_railGroups = nullptr;
     m_activeNode = nullptr;
-    m_mode = 0;
+    m_modeSel = 0;
     DeleteDottedLine();
 }
 
@@ -503,7 +503,7 @@ void CRailAuthoring::Clear()
 CEditedRail* CRailAuthoring::NewRail()
 {
     void* memory = NewRailMemory(sizeof(CEditedRail));
-    CEditedRail* rail = memory ? static_cast<CEditedRail*>(memory)->Construct() : nullptr;
+    CEditedRail* rail = memory ? static_cast<CEditedRail*>(memory)->MakeNew() : nullptr;
     // (out of rails: a crash here, as in the original)
     rail->m_following = m_railGroups;
     rail->m_preceding = nullptr;
@@ -517,7 +517,7 @@ CEditedRail* CRailAuthoring::NewRail()
 // 0x004F7270
 void CRailAuthoring::DeleteRail(CEditedRail* rail)
 {
-    Unlink(this, rail);
+    Uncouple(this, rail);
     rail->Clear();
     FreeRail(rail);
 }
@@ -529,7 +529,7 @@ void CRailAuthoring::DeleteShortRails()
     while (rail) {
         CEditedRail* next = rail->m_following;
         if (!rail->mp_points || !rail->mp_points->m_following) {
-            Unlink(this, rail);
+            Uncouple(this, rail);
             rail->Clear();
             FreeRail(rail);
         }
@@ -594,7 +594,7 @@ void CRailAuthoring::DeletePoints(float x0, float z0, float x1, float z1, int in
 CEditedRail* CRailAuthoring::FindRail(uint32_t id) const
 {
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-        if (rail->m_id == id)
+        if (rail->m_ident == id)
             return rail;
     }
     return nullptr;
@@ -648,7 +648,7 @@ void CRailAuthoring::UnHighlightAll()
 }
 
 // 0x004F3D30
-void CRailAuthoring::SetActive(bool active)
+void CRailAuthoring::ChangeLive(bool active)
 {
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
         for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following) {
@@ -714,7 +714,7 @@ int CRailAuthoring::CountPointsInside(float x0, float z0, float x1, float z1) co
 }
 
 // 0x004F4710
-bool CRailAuthoring::FindNearestPoint(const Maths::Vector* position, Maths::Vector* point, float* distanceSquared,
+bool CRailAuthoring::FindNearestPoint(const Maths::Vec4* position, Maths::Vec4* point, float* distanceSquared,
                                             uint32_t* railId, int* index, uint32_t skipRail, int bypassIdx) const
 {
     bool found = false;
@@ -722,17 +722,17 @@ bool CRailAuthoring::FindNearestPoint(const Maths::Vector* position, Maths::Vect
     // The original keeps the callee's results in locals it never initialises: a rail whose only point is skipped
     // still "finds" one - the distance left from an earlier rail (or, for the first, the bits of the `index` pointer
     // the slot held), the point unset (here zero: what a cleared stack holds).
-    Maths::Vector nearest = {0.0f, 0.0f, 0.0f, 0.0f};
+    Maths::Vec4 nearest = {0.0f, 0.0f, 0.0f, 0.0f};
     float distance;
     std::memcpy(&distance, &index, sizeof(distance));
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
         int i = 0;
-        if (rail->FindNearestPoint(position, &nearest, &distance, &i, rail->m_id == skipRail ? bypassIdx : -1) &&
+        if (rail->FindNearestPoint(position, &nearest, &distance, &i, rail->m_ident == skipRail ? bypassIdx : -1) &&
             distance < best) {
             best = distance;
             *point = nearest;
             *distanceSquared = distance;
-            *railId = rail->m_id;
+            *railId = rail->m_ident;
             *index = i;
             found = true;
         }
@@ -805,9 +805,9 @@ void CRailAuthoring::Unpack()
             if (CEditedRailPoint* p = rail->NewPoint()) {
                 p->m_hasPost = record[4] != 0;
                 p->m_levelY = static_cast<float>(static_cast<double>(record[3]) * 0.0625f);
-                p->m_pos.x = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[0])) * 0.125f);
-                p->m_pos.y = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[1])) * 0.125f);
-                p->m_pos.z = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[2])) * 0.125f);
+                p->m_atPoint.x = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[0])) * 0.125f);
+                p->m_atPoint.y = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[1])) * 0.125f);
+                p->m_atPoint.z = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[2])) * 0.125f);
             }
             record += 5;
         }

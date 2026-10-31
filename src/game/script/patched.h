@@ -12,8 +12,8 @@ namespace Scripts {
 // The list of patches (at start-up; before it, nothing is patched).
 void InitScriptPatches();
 
-// Packs::Load(filename) - the file's data, or the patched copy of it if there's a patch for the file (Scripts::LoadQB
-// loads .qb files through this). The patched copy isn't freed (nor are the original's file data: Packs::Unload
+// Packs::ReadIn(filename) - the file's data, or the patched copy of it if there's a patch for the file (Scripts::LoadQB
+// loads .qb files through this). The patched copy isn't freed (nor are the original's file data: Packs::Offload
 // does that).
 const uint8_t* LoadPatchedScript(const char* filename);
 

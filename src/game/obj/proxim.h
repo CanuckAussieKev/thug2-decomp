@@ -14,7 +14,7 @@
 
 namespace GameObjects {
 
-class CObject;
+class CEntity;
 
 // The node's shape (its Shape checksum, 0x22CF0027).
 enum EProximShape : int {
@@ -28,25 +28,25 @@ enum EProximShape : int {
 struct ProximNode {
     // 0x0046ABC0: active or not. A node going inactive ends what's inside it: its objects are killed, or (none)
     // its script runs as the exit for each skater it holds. Every skater counts as outside afterwards.
-    void SetActive(bool active);
+    void ChangeLive(bool active);
     // 0x0046ACF0: the level sector the node's shape comes from (its box, and its world matrix inverted).
     void SetSector(void* sector);
     // 0x0046AD50: whether `point` is in the shape.
-    bool IsWithin(const Maths::Vector* point);
+    bool IsWithin(const Maths::Vec4* point);
     // 0x0046AEC0: the nearest point of the shape to `point` (on the sphere / the box's surface). A node without
     // a shape (or an unknown one) leaves `out` as the original's stack held it - here, as it was.
-    Maths::Vector* NearestPointOn(Maths::Vector* out, const Maths::Vector* point);
+    Maths::Vec4* NearestPointOn(Maths::Vec4* out, const Maths::Vec4* point);
 
-    uint32_t m_name;               // +0x00
-    Maths::Vector m_pos;             // +0x04
-    Maths::Matrix m_toSector;        // +0x14: the sector's world matrix, inverted
+    uint32_t m_label;               // +0x00
+    Maths::Vec4 m_atPoint;             // +0x04
+    Maths::Mat4 m_toSector;        // +0x14: the sector's world matrix, inverted
     bool m_active;                 // +0x54
     uint8_t m_unknown55[3];
     uint32_t m_entityKey;           // +0x58: ProximObject nodes: their objects' ids are this + the skater's id
     uint32_t m_entities;            // +0x5C: the skaters (by id) a ProximObject node has an object for
     uint32_t m_isWithin;             // +0x60: the skaters whose enter script ran
     uint32_t m_outside;            // +0x64: the update masks outside the shape (bits as ProximityNotify's `mask`)
-    int m_type;                    // +0x68: what it reacts to (ProximType: 0, 1, 2), ProximityNotify's `type`
+    int m_kindTag;                    // +0x68: what it reacts to (ProximType: 0, 1, 2), ProximityNotify's `type`
     int m_form;                   // +0x6C: EProximShape
     float m_radius;                // +0x70
     float m_radiusSquared;         // +0x74
@@ -54,10 +54,10 @@ struct ProximNode {
     Maths::BBox m_box;               // +0x7C
     uint32_t m_unknown9C;
     uint32_t m_runScript;             // +0xA0
-    ProximNode* m_next;            // +0xA4
+    ProximNode* m_succ;            // +0xA4
 };
 static_assert(offsetof(ProximNode, m_toSector) == 0x14 && offsetof(ProximNode, m_active) == 0x54 &&
-                  offsetof(ProximNode, m_type) == 0x68 && offsetof(ProximNode, m_box) == 0x7C &&
+                  offsetof(ProximNode, m_kindTag) == 0x68 && offsetof(ProximNode, m_box) == 0x7C &&
                   offsetof(ProximNode, m_runScript) == 0xA0 && sizeof(ProximNode) == 0xA8,
               "layout must match the original");
 
@@ -81,12 +81,12 @@ ProximNode* Proxim_GetNode(uint32_t name);
 // 0x0046ACB0: the node named `name` made active or not (nothing if there's none).
 void ProximityNode_Enable(uint32_t name, int active);
 // 0x0046B1F0: a node for the level node `name`, from its parameters. A plain node starts as holding the skaters
-// flagged at +0xBC, ends them (as SetActive(false)) and is then made `active` or not.
+// flagged at +0xBC, ends them (as ChangeLive(false)) and is then made `active` or not.
 void NearbyZone_AddNode(uint32_t name, bool active);
 // 0x0046B400: `object` (a skater: its id picks the bit; or null) at `point` for the nodes of `type`: the nodes
 // it entered (in `mask`'s bits of m_outside) run their script / make their object, those it left run their
 // script / kill their object.
-void ProximityNotify(uint32_t mask, CObject* object, const Maths::Vector* point, int type);
+void ProximityNotify(uint32_t mask, CEntity* object, const Maths::Vec4* point, int type);
 
 // 0x0046B680 (not a Ghidra function): whether the node `name` is of class Restart.
 bool IsRestartNode(uint32_t name);

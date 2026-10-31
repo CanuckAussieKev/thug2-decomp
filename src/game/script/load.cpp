@@ -54,7 +54,7 @@ const uint8_t* ParseSymbolDefinition(const uint8_t* token, uint32_t name, const 
     case 0x16: case 0x17: case 0x1A: case 0x1B: case 0x1C: case 0x1E: case 0x1F: {
         CComponent* value = NewComponent();
         const uint8_t* end = *token == 0x0E ? ParseExpression(token, nullptr, value) : ParseValue(token, nullptr, value);
-        symbol->type = value->Type();
+        symbol->type = value->KindTag();
         symbol->raw = value->raw;
         value->raw = 0;
         FreeComponent(value);
@@ -63,14 +63,14 @@ const uint8_t* ParseSymbolDefinition(const uint8_t* token, uint32_t name, const 
     case 0x03: {
         symbol->type = QBVAL_STRUCT;
         CStruct* structure = NewStruct();
-        structure = structure ? structure->Init() : nullptr;
+        structure = structure ? structure->PrepareAll() : nullptr;
         symbol->structure = structure;
         return ParseStructure(structure, token, nullptr);
     }
     case 0x05: {
         symbol->type = QBVAL_ARRAY;
         CArray* array = NewArray();
-        array = array ? array->Init() : nullptr;
+        array = array ? array->PrepareAll() : nullptr;
         symbol->raw = reinterpret_cast<uint32_t>(array);
         return ParseArray(array, token, nullptr);
     }
@@ -86,7 +86,7 @@ CSymbolTableEntry* CreateScriptSymbol(uint32_t size, const uint8_t* code, uint32
     CSymbolTableEntry* symbol = CreateSymbol(name);
     symbol->type = QBVAL_SCRIPT_BODY;
     auto* buffer = static_cast<uint8_t*>(MemSys::AllocBlock(20000));
-    int stored = Lzss::Encode(code, buffer, static_cast<int>(size), false);
+    int stored = Lzss::PackUp(code, buffer, static_cast<int>(size), false);
     if (stored >= static_cast<int>(size)) {
         // (no smaller: kept as it is)
         for (uint32_t i = 0; i < size; ++i)
@@ -135,7 +135,7 @@ void ReadQbFile(const char* filename, const uint8_t* data, int unused, int useQb
     RegisterNameHash(Checksums::HashFromText(filename), filename);
     LoadingFile() = Checksums::HashFromText(filename);
 
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     MemSys::EnterHeapScope(manager->m_scriptHeap);
     const uint8_t* p = data;
     for (;;) {
@@ -227,7 +227,7 @@ void RestartChangedScripts()
         if ((symbol->unknown0 & 1) && symbol->type == QBVAL_SCRIPT_BODY) {
             for (CScript* script = StepScriptList(nullptr); script; script = StepScriptList(script)) {
                 if (ScriptRefersTo(script, symbol->name))
-                    script->Restart();
+                    script->Relaunch();
             }
             symbol->unknown0 &= 0xFE;
         }
@@ -249,22 +249,22 @@ void LoadQB(const char* filename, int unused, int temporary)
 {
     size_t length = std::strlen(filename);
     const char* extension = PrecompiledExtension();
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     if (filename[length - 4] == '.' && _stricmp(filename + length - 3, extension) == 0) {
         // Pre-compiled: kept loaded.
         MemSys::EnterHeapScope(manager->m_scriptHeap);
-        auto* data = static_cast<uint8_t*>(Packs::Load(filename, false, nullptr, nullptr, nullptr));
+        auto* data = static_cast<uint8_t*>(Packs::ReadIn(filename, false, nullptr, nullptr, nullptr));
         MemSys::LeaveHeapScope();
         ParsePrecompiledQB(filename, data, unused);
         LoadChecksumNames(filename);
     } else {
         MemSys::EnterHeapScope(manager->m_topDownHeap);
-        // Originally from PartyMod Fixes (its call at 0x0046EE80): Packs::Load, then the binary patch for the file if there is one
-        // (scripts\engine\menu\keyboard.qb), in place of the original's plain Packs::Load.
+        // Originally from PartyMod Fixes (its call at 0x0046EE80): Packs::ReadIn, then the binary patch for the file if there is one
+        // (scripts\engine\menu\keyboard.qb), in place of the original's plain Packs::ReadIn.
         auto* data = LoadPatchedScript(filename);
         MemSys::LeaveHeapScope();
         ReadQbFile(filename, data, unused, 0, temporary);
-        Packs::Unload(filename);
+        Packs::Offload(filename);
     }
     RestartChangedScripts();
 }
@@ -281,7 +281,7 @@ void UnloadQB(uint32_t fileChecksum)
             ++count;
     }
     if (count) {
-        MemSys::EnterHeapScope(MemSys::Manager::Get()->m_topDownHeap);
+        MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_topDownHeap);
         auto** symbols = static_cast<CSymbolTableEntry**>(MemSys::AllocBlock(static_cast<unsigned int>(count) * 4));
         MemSys::LeaveHeapScope();
         CSymbolTableEntry** next = symbols;
@@ -301,7 +301,7 @@ void UnloadQB(uint32_t fileChecksum)
         }
     }
     // (a pre-compiled file stays loaded until now)
-    Packs::Unload(fileChecksum);
+    Packs::Offload(fileChecksum);
 }
 
 } // namespace Script

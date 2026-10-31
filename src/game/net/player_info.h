@@ -18,7 +18,7 @@ struct CRiderIdentity;
 // The capture-the-flag and king-of-the-hill announcements are in player_flags.cpp.
 namespace OnlinePlay {
 
-// The player's flags (PlayerRecord::m_flags).
+// The player's flags (PlayerRecord::m_flagBits).
 enum PlayerFlag : uint32_t {
     kPlayerLocal = 0x1,            // this machine's player
     kPlayerJustJoined = 0x2,       // (with m_joinTime) still settling in - see IsVulnerable
@@ -39,13 +39,13 @@ enum PlayerFlag : uint32_t {
 // A player not yet added (0x44 bytes, on the stack of the new-player handler 0x0052DB80): its name, object id,
 // connection, a skater profile (the appearance), flags, team and the numbers of the new-player message.
 struct JoinerRecord {
-    char m_name[16];                  // +0x00
+    char m_label[16];                  // +0x00
     uint8_t m_entityKey;               // +0x10
     uint8_t pad11[3];
     NetLink::Conn* m_conn;                // +0x14
     uint32_t m_unknown18;
-    GameObjects::CRiderIdentity* m_profile;   // +0x1C
-    uint32_t m_flags;                 // +0x20 PlayerFlag
+    GameObjects::CRiderIdentity* m_account;   // +0x1C
+    uint32_t m_flagBits;                 // +0x20 PlayerFlag
     uint32_t m_unknown24;
     int m_team;                       // +0x28
     int32_t m_profileId;              // +0x2C the GameSpy profile
@@ -57,15 +57,15 @@ struct JoinerRecord {
 
     // 0x005434D0: a new skater profile (made on the skater info heap; null if out of memory) and the numbers +0x24,
     // +0x2C (profile id), +0x30 (rating), +0x38, +0x40 zeroed (the rest is left). Returns this.
-    JoinerRecord* Construct();
+    JoinerRecord* MakeNew();
     // 0x00543560: the destructor: its profile destroyed and freed.
     void DestroyBody();
 };
-static_assert(offsetof(JoinerRecord, m_profile) == 0x1C && offsetof(JoinerRecord, m_team) == 0x28 &&
+static_assert(offsetof(JoinerRecord, m_account) == 0x1C && offsetof(JoinerRecord, m_team) == 0x28 &&
                   sizeof(JoinerRecord) == 0x44,
               "layout must match the original");
 
-// A player (0x1F0 bytes; vtable 0x0064CCF4; a node of the manager's player list - ListKit::Node<PlayerRecord>, its data
+// A player (0x1F0 bytes; vtable 0x0064CCF4; a node of the manager's player list - ListKit::Elem<PlayerRecord>, its data
 // itself). Also the players of a server described by the server list (HostListing's player list: only the name and
 // the rating are used there).
 class PlayerRecord : public MemSys::ListNode {
@@ -74,12 +74,12 @@ public:
 
     // 0x00543740: an empty player with `flags` (PlayerFlag): no skater, connection or profile, 
     // "<No Name>", m_lastSentSkater 7 and the update records cleared (the per-skater ones to -1). Returns this.
-    PlayerRecord* Construct(uint32_t flags);
+    PlayerRecord* MakeNew(uint32_t flags);
     // 0x00543810: the destructor: its profile (destroyed and freed), the object at +0x1EC (deleted - virtual slot 2),
     // the face texture message (freed); then the node's (out of its list).
     void DestroyBody();
     // 0x00544750 (vtable slot 0): the scalar deleting destructor.
-    PlayerRecord* Destroy(unsigned int flags);
+    PlayerRecord* Teardown(unsigned int flags);
 
     // 0x005438D0: the player's skater; a remote player the camera follows is followed again (0x0053A910).
     void BindRider(GameObjects::CRider* skater);
@@ -144,7 +144,7 @@ public:
     // = 0). The flag tested first (a bool in AL).
     bool IsEliminated();
     int HoldsCrown();              // 0x00543490
-    // 0x005434A0: its connection's handle (App::PutOnOutbox's), 0 without a connection.
+    // 0x005434A0: its connection's handle (AppHost::PutOnOutbox's), 0 without a connection.
     int GetLinkHandle();
     // 0x005434B0: the skater's +0x2BC (one of the getters folded there: no null check).
     uint32_t GetSkaterValue2BC();
@@ -182,9 +182,9 @@ public:
     int m_skillPoints;                       // +0x2C (a server list's player: its rating)
     int m_team;                         // +0x30
     int m_unknown34;                    // +0x34 (scavenger hunt: 5 minus it is its score line's number)
-    char m_name[16];                    // +0x38 ("<No Name>" until named)
+    char m_label[16];                    // +0x38 ("<No Name>" until named)
     uint32_t m_unknown48;
-    GameObjects::CRiderIdentity* m_profile;     // +0x4C
+    GameObjects::CRiderIdentity* m_account;     // +0x4C
     uint8_t m_unknown50[0x58];
     uint16_t m_updateRecordsA[kMaxPlayers][3]; // +0xA8 (-1 each)
     uint16_t m_updateRecordsB[kMaxPlayers][3]; // +0xD8 (-1 each)
@@ -193,7 +193,7 @@ public:
     uint8_t m_updateBytesA[kMaxPlayers]; // +0x148 (-1 each)
     uint8_t m_updateBytesB[kMaxPlayers]; // +0x150 (-1 each)
     uint8_t m_unknown158[0x78];
-    uint32_t m_flags;                   // +0x1D0 PlayerFlag
+    uint32_t m_flagBits;                   // +0x1D0 PlayerFlag
     uint32_t m_readyQueryOwed;          // +0x1D4
     uint32_t m_unknown1D8;
     uint32_t m_joinTime;                // +0x1DC (MarkJustJoined)
@@ -203,9 +203,9 @@ public:
     void* m_object1EC;                  // +0x1EC (deleted with it: virtual slot 2)
 };
 static_assert(offsetof(PlayerRecord, m_skater) == 0x14 && offsetof(PlayerRecord, m_team) == 0x30 &&
-                  offsetof(PlayerRecord, m_name) == 0x38 && offsetof(PlayerRecord, m_profile) == 0x4C &&
+                  offsetof(PlayerRecord, m_label) == 0x38 && offsetof(PlayerRecord, m_account) == 0x4C &&
                   offsetof(PlayerRecord, m_updateRecordsA) == 0xA8 && offsetof(PlayerRecord, m_sentUpdates) == 0x108 &&
-                  offsetof(PlayerRecord, m_updateBytesA) == 0x148 && offsetof(PlayerRecord, m_flags) == 0x1D0 &&
+                  offsetof(PlayerRecord, m_updateBytesA) == 0x148 && offsetof(PlayerRecord, m_flagBits) == 0x1D0 &&
                   offsetof(PlayerRecord, m_faceTextureData) == 0x1E8 && sizeof(PlayerRecord) == 0x1F0,
               "layout must match the original");
 
@@ -214,18 +214,18 @@ static_assert(offsetof(PlayerRecord, m_skater) == 0x14 && offsetof(PlayerRecord,
 void* ClearUpdateRecords(void* records);
 
 // The list types of the score lines (score_list.cpp) - their vtables hold only the scalar deleting destructor:
-// ListKit::Search<ScoreEntry> (0x0064CCE0): 0x00543170 the destructor body (the vtable reset), 0x00543580 the scalar
-// deleting one; ListKit::Node<ScoreEntry> (0x0064CCE4): 0x00544700 the body (out of its list), 0x005435B0 / 0x00544720
+// ListKit::Hunt<ScoreEntry> (0x0064CCE0): 0x00543170 the destructor body (the vtable reset), 0x00543580 the scalar
+// deleting one; ListKit::Elem<ScoreEntry> (0x0064CCE4): 0x00544700 the body (out of its list), 0x005435B0 / 0x00544720
 // the scalar deleting ones (inlined / calling it - two node types folded onto one vtable).
 struct ScoreSearch {
     void** m_vtable;
     MemSys::ListNode* m_listLink;
     void DestroyBody();
-    ScoreSearch* Destroy(unsigned int flags);
+    ScoreSearch* Teardown(unsigned int flags);
 };
 struct ScoreNode : MemSys::ListNode {
     void DestroyBody();
-    ScoreNode* Destroy(unsigned int flags);
+    ScoreNode* Teardown(unsigned int flags);
     ScoreNode* DestroyCalling(unsigned int flags);
 };
 

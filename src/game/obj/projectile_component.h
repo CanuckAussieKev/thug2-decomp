@@ -32,18 +32,18 @@ public:
 
     // 0x004F3890 (registered by RegisterComponentTypes): a new one (0 if out of memory): the feelers not resting;
     // the rest zero (a cleared allocation).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x004F37B0: the destructor body: its projectile slot let go (the base's after).
     void DestroyBody();
     // 0x004F37D0 (vtable slot 0)
-    CProjectileComponent* Destroy(unsigned int flags);
+    CProjectileComponent* Teardown(unsigned int flags);
     // 0x004F3800 (vtable slot 2): the local skater's projectile slot named as the object taken (none: the last one,
     // -1 kept as the slot - the original then marks the byte before the slots' first). `params` isn't read.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x004F3860 (vtable slot 3): the local skater's trigger component (none without a local skater).
-    void Finalize();
+    void Seal();
     // 0x004F3A90 (vtable slot 1): the slot's position set to the object's, then CheckTriggers.
-    void Update();
+    void TickFrame();
     // 0x004F3910 (inside Ghidra's 0x004F3A90; reached by its jump): resting: one frame less. Otherwise eight
     // feelers from the object, 12 out at 2pi/7 steps (movable objects too), each that hits a trigger face set off on
     // the trigger component (event 14) - any that does rests them for ten frames.

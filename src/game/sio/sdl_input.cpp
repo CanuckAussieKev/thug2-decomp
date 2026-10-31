@@ -33,7 +33,7 @@ bool g_inMenuFlag;
 
 namespace {
 
-using DebugLog::Level;
+using DebugLog::StageMap;
 
 // --- settings -----------------------------------------------------------------------------------------------
 
@@ -148,7 +148,7 @@ PlayerSlot s_players[kMaxPlayers] = {{nullptr, 0}, {nullptr, 0}};
 
 void AttachController(int index)
 {
-    DebugLog::Printf(Level::kInfo, "Detected controller \"%s\"\n", SDL_GameControllerNameForIndex(index));
+    DebugLog::Printf(StageMap::kInfo, "Detected controller \"%s\"\n", SDL_GameControllerNameForIndex(index));
     SDL_GameController* controller = SDL_GameControllerOpen(index);
     SDL_GameControllerSetPlayerIndex(controller, -1);
     if (!controller)
@@ -168,7 +168,7 @@ void AttachController(int index)
 void EnrollPlayer(SDL_GameController* controller)
 {
     if (s_playerCount >= 2) {
-        DebugLog::Printf(Level::kInfo, "Already two players, not adding\n");
+        DebugLog::Printf(StageMap::kInfo, "Already two players, not adding\n");
         return;
     }
     int slot = 0;
@@ -183,36 +183,36 @@ void EnrollPlayer(SDL_GameController* controller)
         SDL_JoystickRumble(SDL_GameControllerGetJoystick(controller), 0x7FFF, 0x7FFF, 250);
     }
     ++s_playerCount;
-    DebugLog::Printf(Level::kInfo, "Added player %d: %s\n", slot + 1, SDL_GameControllerName(controller));
+    DebugLog::Printf(StageMap::kInfo, "Added player %d: %s\n", slot + 1, SDL_GameControllerName(controller));
 }
 
 void PrunePlayers()
 {
     for (int i = 0; i < kMaxPlayers; ++i) {
         if (s_players[i].controller && !SDL_GameControllerGetAttached(s_players[i].controller)) {
-            DebugLog::Printf(Level::kInfo, "Pruned player %d\n", i + 1);
+            DebugLog::Printf(StageMap::kInfo, "Pruned player %d\n", i + 1);
             s_players[i].controller = nullptr;
             --s_playerCount;
-            DebugLog::Printf(Level::kInfo, "Remaining players: %d\n", s_playerCount);
+            DebugLog::Printf(StageMap::kInfo, "Remaining players: %d\n", s_playerCount);
         }
     }
 }
 
 void RemoveController(SDL_GameController* controller)
 {
-    DebugLog::Printf(Level::kInfo, "Controller \"%s\" disconnected\n", SDL_GameControllerName(controller));
+    DebugLog::Printf(StageMap::kInfo, "Controller \"%s\" disconnected\n", SDL_GameControllerName(controller));
     int i = 0;
     while (i < s_controllerCount && s_controllers[i] != controller)
         ++i;
     // (as in PartyMod: when it isn't found this looks one past the last entry, which can be a stale copy)
     if (s_controllers[i] != controller) {
-        DebugLog::Printf(Level::kWarn, "Did not find disconnected controller in list\n");
+        DebugLog::Printf(StageMap::kWarn, "Did not find disconnected controller in list\n");
         return;
     }
     SDL_GameControllerClose(controller);
     int player = SDL_GameControllerGetPlayerIndex(controller);
     if (player != -1) {
-        DebugLog::Printf(Level::kInfo, "Removed player %d\n", player + 1);
+        DebugLog::Printf(StageMap::kInfo, "Removed player %d\n", player + 1);
         s_players[player].controller = nullptr;
         --s_playerCount;
     }
@@ -224,7 +224,7 @@ void RemoveController(SDL_GameController* controller)
 
 void InitControllers()
 {
-    DebugLog::Printf(Level::kInfo, "Initializing Controller Input\n");
+    DebugLog::Printf(StageMap::kInfo, "Initializing Controller Input\n");
     s_controllerCount = 0;
     s_controllerCapacity = 1;
     s_controllers = static_cast<SDL_GameController**>(std::malloc(sizeof(SDL_GameController*) * s_controllerCapacity));
@@ -279,14 +279,14 @@ void ReadStick(SDL_GameController* controller, PadStick stick, uint8_t* x, uint8
 }
 
 // Whether the park editor is up: the screen element 0x5999551E exists (the screen element manager 0x00701440's
-// GetElement 0x004AAE20 - it returns a smart pointer, released by its destructor).
+// FetchPart 0x004AAE20 - it returns a smart pointer, released by its destructor).
 uint8_t InParkEditor()
 {
-    MenuSystem::CUiTree* manager = MenuSystem::CUiTree::Instance();
+    MenuSystem::CUiTree* manager = MenuSystem::CUiTree::Sole();
     if (!manager)
         return 0;
     MenuSystem::ElementPtr element;
-    return manager->GetElement(&element, 0x5999551E, 0)->Get() ? 1 : 0;
+    return manager->FetchPart(&element, 0x5999551E, 0)->Pull() ? 1 : 0;
 }
 
 uint8_t s_inMenu = 0;
@@ -314,7 +314,7 @@ void PressCaveman(uint8_t* data)
 // The control data's bytes: 2 and 3 the button bits (set while down here; inverted at the end - the game's
 // format has a bit set while a button is up), 4-7 the sticks, 8-19 the pressures, 20 the Xbox's black (bit 0)
 // and white (bit 1).
-void PollController(Device* device, SDL_GameController* controller)
+void PollController(InputPort* device, SDL_GameController* controller)
 {
     if (!SDL_GameControllerGetAttached(controller))
         return;
@@ -533,7 +533,7 @@ uint8_t KeyDown(const uint8_t* keys, uint8_t key)
     }
 }
 
-void PollKeyboard(Device* device)
+void PollKeyboard(InputPort* device)
 {
     uint8_t* data = device->m_controlData;
     device->m_isUsable = 1;
@@ -551,7 +551,7 @@ void PollKeyboard(Device* device)
     // runs, the keyboard gives the game only the Pause key (Start: leaves the editor), once it has been up since the
     // editor started; nothing else.
     // Original behaviour: every binding is read.
-    if (MenuSystem::LevelEditor::Active()) {
+    if (MenuSystem::LevelEditor::LiveNow()) {
         if (MenuSystem::LevelEditor::PassPauseKey(keys[s_keys.menu] != 0))
             data[2] |= 1 << 3;
         return;
@@ -737,7 +737,7 @@ void TextTyped(const char* text)
     if (std::strlen(text) == 1)
         KeyInput(text[0], 0);
     else
-        DebugLog::Printf(Level::kDebug, "Input text '%s' > 1 byte!!\n", text);
+        DebugLog::Printf(StageMap::kDebug, "Input text '%s' > 1 byte!!\n", text);
 }
 
 void HandleInputEvent(SDL_Event* event)
@@ -747,14 +747,14 @@ void HandleInputEvent(SDL_Event* event)
         if (SDL_IsGameController(event->cdevice.which))
             AttachController(event->cdevice.which);
         else
-            DebugLog::Printf(Level::kInfo, "Not a game controller: %s\n", SDL_JoystickNameForIndex(event->cdevice.which));
+            DebugLog::Printf(StageMap::kInfo, "Not a game controller: %s\n", SDL_JoystickNameForIndex(event->cdevice.which));
         return;
     case SDL_CONTROLLERDEVICEREMOVED:
         if (SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which))
             RemoveController(controller);
         return;
     case SDL_JOYDEVICEADDED:
-        DebugLog::Printf(Level::kInfo, "Joystick added: %s\n", SDL_JoystickNameForIndex(event->jdevice.which));
+        DebugLog::Printf(StageMap::kInfo, "Joystick added: %s\n", SDL_JoystickNameForIndex(event->jdevice.which));
         return;
     case SDL_KEYDOWN:
         s_usingKeyboard = true;
@@ -840,7 +840,7 @@ int32_t DirectInputKey(SDL_Scancode scanCode)
 // The bindings in the game's table (0x007D6770, port 0's actions), for the menus' key hints.
 void WriteGameKeyBindings()
 {
-    int32_t* binds = Platform::g_keyBindings;
+    int32_t* binds = OsLayer::g_keyBindings;
     binds[0] = DirectInputKey(s_keys.up);
     binds[1] = DirectInputKey(s_keys.down);
     binds[2] = DirectInputKey(s_keys.left);
@@ -873,7 +873,7 @@ void WriteGameKeyBindings()
 
 void LoadInputSettings()
 {
-    s_settings.ps2Controls = BuildInfo::GetBool(BuildInfo::kMiscellaneous, "UsePS2Controls", true);
+    s_settings.ps2Controls = BuildInfo::FetchFlag(BuildInfo::kMiscellaneous, "UsePS2Controls", true);
     s_settings.uiControls = static_cast<uint8_t>(BuildInfo::GetInt(BuildInfo::kMiscellaneous, "UIControls", 1));}
 
 SDL_Scancode Key(const char* name, SDL_Scancode fallback)
@@ -952,7 +952,7 @@ void LoadPadBinds()
 // Stores 32 bits at `offset` into the device. PartyMod's view of the device has these fields as 32-bit (the game's
 // are bytes followed by padding - and +0xEC's second byte is m_keyboardControl, cleared this way); its last one,
 // "start or A pressed" at +0xF0, lies just past the end of the 0xF0-byte device. Kept as it was.
-void PutWord32(Device* device, uint32_t offset, uint32_t value)
+void PutWord32(InputPort* device, uint32_t offset, uint32_t value)
 {
     std::memcpy(reinterpret_cast<uint8_t*>(device) + offset, &value, sizeof(value));
 }
@@ -964,7 +964,7 @@ bool& UsingKeyboard() { return s_usingKeyboard; }
 
 void InitSdlInput()
 {
-    DebugLog::Printf(Level::kInfo, "Initializing Input Manager!\n");
+    DebugLog::Printf(StageMap::kInfo, "Initializing Input Manager!\n");
     SDL_Init(SDL_INIT_GAMECONTROLLER);
     SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "false");
 
@@ -973,9 +973,9 @@ void InitSdlInput()
     if (length) {
         // (-1, a failure, counts as loaded too)
         if (SDL_GameControllerAddMappingsFromFile(mappings))
-            DebugLog::Printf(Level::kInfo, "Loaded mappings\n");
+            DebugLog::Printf(StageMap::kInfo, "Loaded mappings\n");
         else
-            DebugLog::Printf(Level::kWarn, "Failed to load %s\n", mappings);
+            DebugLog::Printf(StageMap::kWarn, "Failed to load %s\n", mappings);
     }
 
     LoadInputSettings();
@@ -987,18 +987,18 @@ void InitSdlInput()
     // (not PartyMod's - [features] debug_mode: CD false, the developers' menus - game/sys/debug_mode.h)
     SystemCore::DebugMode::Install();
     WriteGameKeyBindings();
-    Platform::RegisterEventHandler(HandleInputEvent);
+    OsLayer::RegisterEventHandler(HandleInputEvent);
     // (not PartyMod's - the mouse_menus feature: the mouse's events, when it's on)
-    MouseMenus::Init();
+    MouseMenus::PrepareAll();
     // (not PartyMod's either - the level editor: its mouse and Escape key)
-    MenuSystem::LevelEditor::Init();
+    MenuSystem::LevelEditor::PrepareAll();
     // (nor the new front end's input - game/front/new_frontend.h; nothing when it's off)
-    MenuSystem::NewFrontend::Init();
+    MenuSystem::NewFrontend::PrepareAll();
     // (nor the screenshot key - game/sys/screenshot.h)
-    SystemCore::Screenshot::Init();
+    SystemCore::Screenshot::PrepareAll();
 }
 
-void ProcessSdlDevice(Device* device)
+void ProcessSdlDevice(InputPort* device)
 {
     s_editingPark = InParkEditor();
     s_inMenu = InMenuFlag() && !s_editingPark;
@@ -1007,9 +1007,9 @@ void ProcessSdlDevice(Device* device)
     device->m_numActuators = 2;
     device->m_actuatorMax[0] = 255;
     device->m_actuatorMax[1] = 255;
-    device->m_state = Device::kReady;
+    device->m_curPhase = InputPort::kReady;
 
-    Platform::PumpSdlEvents();
+    OsLayer::PumpSdlEvents();
 
     PutWord32(device, 0x14, 0); // m_isUsable
     PutWord32(device, 0xE0, 0); // m_pluggedIn
@@ -1032,17 +1032,17 @@ void ProcessSdlDevice(Device* device)
     // are let go) it has the keyboard and the controllers - the game reads nothing pressed.
     // Original behaviour: the keyboard and the controller always read.
     bool newFrontend = MenuSystem::NewFrontend::BlocksGameInput();
-    if (device->m_port == 0) {
+    if (device->m_portNo == 0) {
         PutWord32(device, 0x14, 1);
         PutWord32(device, 0xE0, 1);
         if (!KeyboardOnScreen() && !newFrontend)
             PollKeyboard(device);
     }
-    auto port = static_cast<uint32_t>(device->m_port);
+    auto port = static_cast<uint32_t>(device->m_portNo);
     if (port < kMaxPlayers && s_players[port].controller && !s_players[port].lockedOut && !newFrontend)
         PollController(device, s_players[port].controller);
     // (not original: the buttons the test-automation channel presses - game/front/automation.h)
-    MenuSystem::Automation::AddPadButtons(device->m_port, data);
+    MenuSystem::Automation::AddPadButtons(device->m_portNo, data);
 
     data[2] = static_cast<uint8_t>(~data[2]);
     data[3] = static_cast<uint8_t>(~data[3]);

@@ -46,8 +46,8 @@ void RunStartupInitialisers()
     // 0x006408D0: the proximity skater's smart pointer (zeros)
     GameObjects::ConstructRigidBodyCache();          // 0x00640900
     // 0x00640920: the rigid bodies' pusher smart pointers (zeros)
-    Terrain::ConstructTerrainTypes();        // 0x00640950 (the first allocation: sets the memory manager up)
-    Terrain::ConstructTerrainActions();      // 0x00640970
+    SurfaceKind::ConstructTerrainTypes();        // 0x00640950 (the first allocation: sets the memory manager up)
+    SurfaceKind::ConstructTerrainActions();      // 0x00640970
     // 0x00640990: FormatText's script component (zeros); 0x006409A0: the stream frame slot (zeros)
     AudioStream::CreateStreamLock();                 // 0x006409D0
     GameObjects::ConstructSpareObjectList();         // 0x006409F0

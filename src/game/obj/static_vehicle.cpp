@@ -38,24 +38,24 @@ const uint8_t* HierarchyOf(CObjectModule* model)
 
 // The skeleton component's skeleton (+0x18), its bone matrices (+0x04) and bone count (0x004A2BA0, not rewritten).
 uint8_t* SkeletonOf(CObjectModule* skeleton) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skeleton) + 0x18); }
-Maths::Matrix* BoneMatrices(uint8_t* skeleton) { return *reinterpret_cast<Maths::Matrix**>(skeleton + 0x04); }
+Maths::Mat4* BoneMatrices(uint8_t* skeleton) { return *reinterpret_cast<Maths::Mat4**>(skeleton + 0x04); }
 int BoneCount(uint8_t* skeleton) { return reinterpret_cast<int(__thiscall*)(uint8_t*)>(CodeAddress(&Gfx2D::CRig::GetNumBones))(skeleton); }
 
 // A model position in the game's axes: x and the model's y negated, y and z swapped.
-Maths::Vector FromModel(const float* p) { return {-p[0], p[2], -p[1], 1.0f}; }
+Maths::Vec4 FromModel(const float* p) { return {-p[0], p[2], -p[1], 1.0f}; }
 
 } // namespace
 
 // 0x00433690
-CObjectModule* __cdecl CParkedVehicleModule::Create()
+CObjectModule* __cdecl CParkedVehicleModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CParkedVehicleModule));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CParkedVehicleModule*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     return component;
 }
 
@@ -67,29 +67,29 @@ void CParkedVehicleModule::DestroyBody()
 }
 
 // 0x00433660
-CParkedVehicleModule* CParkedVehicleModule::Destroy(unsigned int flags)
+CParkedVehicleModule* CParkedVehicleModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004336F0
-void CParkedVehicleModule::Finalize()
+void CParkedVehicleModule::Seal()
 {
-    const uint8_t* hierarchy = HierarchyOf(m_object->GetComponent(kModel));
+    const uint8_t* hierarchy = HierarchyOf(m_entity->FetchModule(kModel));
     // The wheels: the hierarchy's objects 1-4 (their matrices' translations).
-    Maths::Vector wheels[4];
+    Maths::Vec4 wheels[4];
     for (int k = 0; k < 4; ++k)
         wheels[k] = FromModel(reinterpret_cast<const float*>(hierarchy + 0xE0 + 0x50 * k));
     // The body: the root's (object 0's) translation.
-    Maths::Vector body = FromModel(reinterpret_cast<const float*>(hierarchy + 0x90));
+    Maths::Vec4 body = FromModel(reinterpret_cast<const float*>(hierarchy + 0x90));
 
-    CObjectModule* skeletonComponent = m_object->GetComponent(kSkeleton);
-    Maths::Matrix* bones = BoneMatrices(SkeletonOf(skeletonComponent));
+    CObjectModule* skeletonComponent = m_entity->FetchModule(kSkeleton);
+    Maths::Mat4* bones = BoneMatrices(SkeletonOf(skeletonComponent));
     for (int i = 0; i < BoneCount(SkeletonOf(skeletonComponent)); ++i) {
-        Maths::Matrix& bone = bones[i];
+        Maths::Mat4& bone = bones[i];
         std::memset(&bone, 0, sizeof(bone));
         if (i == 0)
             continue;
@@ -104,7 +104,7 @@ void CParkedVehicleModule::Finalize()
             bone.row[2].y = 1.0f;
             // Not original - a seventh bone or more would be a fifth wheel: the original reads it from past the end of
             // its four (its own stack - garbage); ours stands it at the origin.
-            bone.row[3] = i - 2 < 4 ? wheels[i - 2] : Maths::Vector{0.0f, 0.0f, 0.0f, 0.0f};
+            bone.row[3] = i - 2 < 4 ? wheels[i - 2] : Maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
         }
     }
 }
@@ -114,14 +114,14 @@ void CParkedVehicleModule::Finalize()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CParkedVehicleModule::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CParkedVehicleModule::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          Stubs::IgnoreArgument,
-         &GameObjects::CParkedVehicleModule::Finalize,
+         &GameObjects::CParkedVehicleModule::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

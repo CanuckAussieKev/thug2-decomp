@@ -12,7 +12,7 @@ struct sSimpleMaterial {
 
     // 0x004D9B80: one pass with the texture `textureChecksum` (from the texture dictionary 0x00700F20, if there),
     // blend mode `blendChecksum` (BlendModeFromName) with `fixedAlpha`, a random sort key; its shader. Returns this.
-    sSimpleMaterial* Construct(uint32_t unused0, uint32_t unused1, uint32_t textureChecksum, uint32_t blendChecksum,
+    sSimpleMaterial* MakeNew(uint32_t unused0, uint32_t unused1, uint32_t textureChecksum, uint32_t blendChecksum,
                                int fixedAlpha, uint32_t unused5, uint32_t unused6);
     // 0x004D9CD0: the destructor's body: the material destroyed and freed.
     void DestroyBody();

@@ -77,15 +77,15 @@ void FeelerEnd(int index, float x, float z, float* lastColumn, float* endZ)
 } // namespace
 
 // 0x004F3890
-CObjectModule* __cdecl CProjectileComponent::Create()
+CObjectModule* __cdecl CProjectileComponent::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CProjectileComponent));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CProjectileComponent*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     component->m_rest = 0;
     return component;
 }
@@ -99,11 +99,11 @@ void CProjectileComponent::DestroyBody()
 }
 
 // 0x004F37D0
-CProjectileComponent* CProjectileComponent::Destroy(unsigned int flags)
+CProjectileComponent* CProjectileComponent::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -112,7 +112,7 @@ void CProjectileComponent::ConfigureFromData(Scripts::CStruct* /*params*/)
 {
     auto* skater = reinterpret_cast<uint8_t*>(SkateCalls::GetHomeRider());
     m_riderRef = skater;
-    uint32_t name = m_object->m_id;
+    uint32_t name = m_entity->m_ident;
     m_seat = -1;
     for (int i = 0; i < kSlotCount; ++i) {
         if (name == *reinterpret_cast<uint32_t*>(skater + kSlots + i * kSlotSize)) {
@@ -124,17 +124,17 @@ void CProjectileComponent::ConfigureFromData(Scripts::CStruct* /*params*/)
 }
 
 // 0x004F3860
-void CProjectileComponent::Finalize()
+void CProjectileComponent::Seal()
 {
     auto* skater = SkateCalls::GetHomeRider();
     if (skater)
-        mp_trigger = static_cast<CActivationZoneModule*>(skater->GetComponent(CActivationZoneModule::kType));
+        mp_trigger = static_cast<CActivationZoneModule*>(skater->FetchModule(CActivationZoneModule::kType));
 }
 
 // 0x004F3A90
-void CProjectileComponent::Update()
+void CProjectileComponent::TickFrame()
 {
-    *reinterpret_cast<Maths::Vector*>(m_riderRef + kSlots + 8 + m_seat * static_cast<int>(kSlotSize)) = m_object->m_pos;
+    *reinterpret_cast<Maths::Vec4*>(m_riderRef + kSlots + 8 + m_seat * static_cast<int>(kSlotSize)) = m_entity->m_atPoint;
     CheckTriggers();
 }
 
@@ -146,8 +146,8 @@ void CProjectileComponent::CheckTriggers()
         return;
     }
     Engine3D::CProbeRay feeler;
-    feeler.Construct();
-    const Maths::Vector pos = m_object->m_pos;
+    feeler.MakeNew();
+    const Maths::Vec4 pos = m_entity->m_atPoint;
     float endW = static_cast<float>(static_cast<double>(pos.w) + kReach);
     for (int i = 0; i < kFeelers; ++i) {
         feeler.m_line.start = pos;
@@ -157,7 +157,7 @@ void CProjectileComponent::CheckTriggers()
         if (feeler.GetHitShape(true, false) && mp_trigger->CheckFeeler(TouchEvents(), &feeler))
             m_rest = kRestFrames;
     }
-    feeler.m_object.Release();
+    feeler.m_entity.Release();
 }
 
 } // namespace Obj
@@ -165,14 +165,14 @@ void CProjectileComponent::CheckTriggers()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CProjectileComponent::Destroy,
-         &GameObjects::CProjectileComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CProjectileComponent::Teardown,
+         &GameObjects::CProjectileComponent::TickFrame,
          &GameObjects::CProjectileComponent::ConfigureFromData,
-         &GameObjects::CProjectileComponent::Finalize,
+         &GameObjects::CProjectileComponent::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

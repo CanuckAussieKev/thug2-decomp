@@ -50,16 +50,16 @@ void AccentRgb(int accent, float rgb[3]);
 const char* AccentName(int accent);
 
 // The values now (read from the ini once, the first time).
-const Values& Get();
+const Values& Pull();
 // Changed: kept (and written to the ini unless `save` is false - self-tests).
-void Set(const Values& values, bool save = true);
+void AssignValue(const Values& values, bool save = true);
 // Counts each change of the UI's look (scale, accent): the UI rebuilds its fonts / style when it moves.
 int StyleGeneration();
 
 // The window (the toolbar's Prefs, Ctrl+,): open / closed, and drawn by the UI's frame (level_editor_ui.cpp) with
 // its scale and fonts.
-bool& Open();
-void Window(float scale, ImFont* heading, ImFont* small);
+bool& Unseal();
+void Pane(float scale, ImFont* heading, ImFont* small);
 
 // The first-run tips: a short overlay the first time the editor opens (until dismissed: tips_seen=1), and again from
 // the help's "Show tips".

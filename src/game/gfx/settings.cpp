@@ -36,16 +36,16 @@ bool& BlurDisabled() { return s_blurDisabled; }
 
 void LoadGraphicsSettings()
 {
-    s_settings.antialiasing = BuildInfo::GetBool(BuildInfo::kGraphics, "AntiAliasing", false);
-    s_settings.hqShadows = BuildInfo::GetBool(BuildInfo::kGraphics, "HQShadows", false);
-    s_settings.distanceClipping = BuildInfo::GetBool(BuildInfo::kGraphics, "DistanceClipping", false);
+    s_settings.antialiasing = BuildInfo::FetchFlag(BuildInfo::kGraphics, "AntiAliasing", false);
+    s_settings.hqShadows = BuildInfo::FetchFlag(BuildInfo::kGraphics, "HQShadows", false);
+    s_settings.distanceClipping = BuildInfo::FetchFlag(BuildInfo::kGraphics, "DistanceClipping", false);
     s_settings.clippingDistance = static_cast<uint32_t>(BuildInfo::GetInt(BuildInfo::kGraphics, "ClippingDistance", 100));
-    s_settings.fog = BuildInfo::GetBool(BuildInfo::kGraphics, "Fog", false);
-    s_blurDisabled = BuildInfo::GetBool(BuildInfo::kGraphics, "DisableBlur", true);
+    s_settings.fog = BuildInfo::FetchFlag(BuildInfo::kGraphics, "Fog", false);
+    s_blurDisabled = BuildInfo::FetchFlag(BuildInfo::kGraphics, "DisableBlur", true);
     // (NOT ORIGINAL: game/gfx/occlusion.h)
-    OcclusionOff() = !BuildInfo::GetBool(BuildInfo::kGraphics, "OcclusionCulling", true);
+    OcclusionOff() = !BuildInfo::FetchFlag(BuildInfo::kGraphics, "OcclusionCulling", true);
     // (NOT ORIGINAL: anisotropy, msaa, draw_distance_scale, lod_distance_scale - game/gfx/graphics_options.h)
-    GraphicsOptions::Load();
+    GraphicsOptions::ReadIn();
 }
 
 void WriteGraphicsSettings()

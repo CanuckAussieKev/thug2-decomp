@@ -39,12 +39,12 @@ bool Number(const std::string& text, double* out)
 const std::vector<Choice> kOffOn = {{"0", Text::kOff}, {"1", Text::kOn}};
 
 // One line of the text: where it starts, ends (before its line break) and what it is.
-struct Line {
+struct Seg {
     size_t start, end, next; // next: after its line break
 };
-std::vector<Line> Lines(const std::string& text)
+std::vector<Seg> Lines(const std::string& text)
 {
-    std::vector<Line> lines;
+    std::vector<Seg> lines;
     size_t at = 0;
     while (at < text.size()) {
         size_t nl = text.find('\n', at);
@@ -91,42 +91,42 @@ const std::vector<Spec>& Specs()
     static const std::vector<Spec> specs = {
         // Graphics (game/gfx/graphics_options.h)
         {"Graphics", "anisotropy", Text::kOptAnisotropy, Text::kOptAnisotropyHelp,
-         {{"0", Text::kOff}, {"2", "2x"}, {"4", "4x"}, {"8", "8x"}, {"16", "16x"}}, 0, Apply::Restart},
+         {{"0", Text::kOff}, {"2", "2x"}, {"4", "4x"}, {"8", "8x"}, {"16", "16x"}}, 0, Apply::Relaunch},
         {"Graphics", "msaa", Text::kOptMsaa, Text::kOptMsaaHelp, {{"0", Text::kOff}, {"2", "2x"}, {"4", "4x"}, {"8", "8x"}}, 0,
-         Apply::Restart},
+         Apply::Relaunch},
         {"Graphics", "draw_distance_scale", Text::kOptDrawDistance, Text::kOptDrawDistanceHelp,
-         {{"1", "1x"}, {"1.5", "1.5x"}, {"2", "2x"}, {"3", "3x"}}, 0, Apply::Restart},
+         {{"1", "1x"}, {"1.5", "1.5x"}, {"2", "2x"}, {"3", "3x"}}, 0, Apply::Relaunch},
         {"Graphics", "lod_distance_scale", Text::kOptLodDistance, Text::kOptLodDistanceHelp,
-         {{"1", "1x"}, {"1.5", "1.5x"}, {"2", "2x"}, {"3", "3x"}}, 0, Apply::Restart},
+         {{"1", "1x"}, {"1.5", "1.5x"}, {"2", "2x"}, {"3", "3x"}}, 0, Apply::Relaunch},
         // Interface
-        {"features", "new_frontend", Text::kOptNewFrontend, Text::kOptNewFrontendHelp, kOffOn, 0, Apply::Restart},
-        {"features", "hd_ui", Text::kOptHdUi, Text::kOptHdUiHelp, kOffOn, 0, Apply::Restart},
+        {"features", "new_frontend", Text::kOptNewFrontend, Text::kOptNewFrontendHelp, kOffOn, 0, Apply::Relaunch},
+        {"features", "hd_ui", Text::kOptHdUi, Text::kOptHdUiHelp, kOffOn, 0, Apply::Relaunch},
         {"features", "mouse_menus", Text::kOptMouse, Text::kOptMouseHelp, kOffOn, 1, Apply::Live},
-        {"features", "loading_console", Text::kOptLoadingConsole, Text::kOptLoadingConsoleHelp, kOffOn, 1, Apply::Restart},
+        {"features", "loading_console", Text::kOptLoadingConsole, Text::kOptLoadingConsoleHelp, kOffOn, 1, Apply::Relaunch},
         // Gameplay
-        {"features", "skip_intro_movies", Text::kOptSkipIntro, Text::kOptSkipIntroHelp, kOffOn, 0, Apply::Restart},
+        {"features", "skip_intro_movies", Text::kOptSkipIntro, Text::kOptSkipIntroHelp, kOffOn, 0, Apply::Relaunch},
         {"features", "restart_tester", Text::kOptRestartTester, Text::kOptRestartTesterHelp, kOffOn, 1, Apply::Live},
         {"features", "level_editor", Text::kOptLevelEditor, Text::kOptLevelEditorHelp, kOffOn, 1, Apply::Live},
-        {"features", "screenshots", Text::kOptScreenshots, Text::kOptScreenshotsHelp, kOffOn, 1, Apply::Restart},
+        {"features", "screenshots", Text::kOptScreenshots, Text::kOptScreenshotsHelp, kOffOn, 1, Apply::Relaunch},
         {"frontend", "respect_locks", Text::kOptLocks, Text::kOptLocksHelp,
          {{"0", Text::kOptLocksAll}, {"1", Text::kOptLocksUnlocked}}, 0, Apply::Live},
         // Online
         {"Miscellaneous", "OnlineGameName", Text::kOptIdentity, Text::kOptIdentityHelp,
-         {{"", Text::kIdentityThug2}, {"thugpro", Text::kIdentityThugpro}}, 0, Apply::Restart},
-        {"online", "thugpro_peer", Text::kOptThugproChat, Text::kOptThugproChatHelp, kOffOn, 0, Apply::Restart},
+         {{"", Text::kIdentityThug2}, {"thugpro", Text::kIdentityThugpro}}, 0, Apply::Relaunch},
+        {"online", "thugpro_peer", Text::kOptThugproChat, Text::kOptThugproChatHelp, kOffOn, 0, Apply::Relaunch},
         {"features", "thugpro_parts", Text::kOptThugproParts, Text::kOptThugproPartsHelp,
-         {{"0", Text::kOff}, {"1", Text::kOptThugproPartsHidden}, {"2", Text::kOptThugproPartsShown}}, 1, Apply::Restart},
+         {{"0", Text::kOff}, {"1", Text::kOptThugproPartsHidden}, {"2", Text::kOptThugproPartsShown}}, 1, Apply::Relaunch},
         // Mods
-        {"features", "anteara_mod", Text::kOptAnteara, Text::kOptAntearaHelp, kOffOn, 0, Apply::Restart},
-        {"features", "thaw_bmx", Text::kOptBmx, Text::kOptBmxHelp, kOffOn, 0, Apply::Restart},
-        {"features", "debug_mode", Text::kOptDebug, Text::kOptDebugHelp, kOffOn, 0, Apply::Restart},
+        {"features", "anteara_mod", Text::kOptAnteara, Text::kOptAntearaHelp, kOffOn, 0, Apply::Relaunch},
+        {"features", "thaw_bmx", Text::kOptBmx, Text::kOptBmxHelp, kOffOn, 0, Apply::Relaunch},
+        {"features", "debug_mode", Text::kOptDebug, Text::kOptDebugHelp, kOffOn, 0, Apply::Relaunch},
     };
     return specs;
 }
 
-const std::vector<Group>& Groups()
+const std::vector<GroupSet>& Bunches()
 {
-    static const std::vector<Group> groups = {
+    static const std::vector<GroupSet> groups = {
         {"graphics", Text::kGroupGraphics, {0, 1, 2, 3}},  {"interface", Text::kGroupInterface, {4, 5, 6, 7}},
         {"gameplay", Text::kGroupGameplay, {8, 9, 10, 11, 12}}, {"online", Text::kGroupOnline, {13, 14, 15}},
         {"mods", Text::kGroupMods, {16, 17, 18}},
@@ -162,7 +162,7 @@ int ChoiceOf(const Spec& spec, const std::string& value, bool present)
 bool IniGet(const std::string& text, const std::string& section, const std::string& key, std::string* value)
 {
     bool inSection = false;
-    for (const Line& l : Lines(text)) {
+    for (const Seg& l : Lines(text)) {
         std::string line = text.substr(l.start, l.end - l.start);
         std::string name;
         if (SectionOf(line, &name)) {
@@ -183,10 +183,10 @@ std::string IniSet(const std::string& text, const std::string& section, const st
                    const std::string& value)
 {
     std::string eol = text.find("\r\n") != std::string::npos || text.find('\n') == std::string::npos ? "\r\n" : "\n";
-    std::vector<Line> lines = Lines(text);
+    std::vector<Seg> lines = Lines(text);
     bool inSection = false, found = false;
     size_t insertAt = std::string::npos; // after the section's last line that isn't blank
-    for (const Line& l : lines) {
+    for (const Seg& l : lines) {
         std::string line = text.substr(l.start, l.end - l.start);
         std::string name;
         if (SectionOf(line, &name)) {

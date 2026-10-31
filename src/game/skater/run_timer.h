@@ -27,42 +27,42 @@ public:
     enum State : int { CLOCK_IDLE = 0, CLOCK_TICKING = 1, ACTIVE_PAUSED = 2, ACTIVE_TIME_UP = 3 };
 
     // 0x005185D0 (registered by RegisterComponentTypes): a new one (0 if out of memory). Nothing else is set.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00518240 (registered with Create): its script member functions (the table at 0x006849C0) registered.
     static void __cdecl PublishMethodTable();
     // 0x00518260: the destructor body (the base's).
     void DestroyBody();
     // 0x005182B0 (vtable slot 0)
-    CRiderRunClock* Destroy(unsigned int flags);
+    CRiderRunClock* Teardown(unsigned int flags);
     // 0x005182E0 (vtable +0x0C): the walk component found.
-    void Finalize();
+    void Seal();
     // 0x00518300 (vtable +0x04): running, the time left goes down by the frame's time (scaled while the walk's state
     // is 2-4); below 0 it's up: RunTimerUp to the skater - and again every frame while it's up.
-    void Update();
-    // 0x00518270 (vtable +0x28): m_state (the state's name) and m_timer added to `params`, then the base's (empty).
+    void TickFrame();
+    // 0x00518270 (vtable +0x28): m_curPhase (the state's name) and m_stopwatch added to `params`, then the base's (empty).
     void FetchDiagnostics(Scripts::CStruct* params);
 
     // 0x00518390: stopped (inactive); HideRunTimer to the run timer's script if it's running.
-    void Stop();
+    void Halt();
     // 0x005183F0: resumed: running if there's time left, else up; the first 8 resumes cap the time left at the
     // duration times (8 - resumes) / 8; ShowRunTimer.
     void Resume();
 
     // --- script member functions (the table at 0x006849C0; params, script; all true) ---
-    bool Pause(Scripts::CStruct* params, Scripts::CScript* script);                       // 0x005184A0 RunTimer_Pause
+    bool Freeze(Scripts::CStruct* params, Scripts::CScript* script);                       // 0x005184A0 RunTimer_Pause
     bool Unpause(Scripts::CStruct* params, Scripts::CScript* script);                     // 0x005184F0 RunTimer_unpause
     bool GetFactorComplete(Scripts::CStruct* params, Scripts::CScript* script);           // 0x00518500 (FactorComplete)
     bool GetRunTimerControllerId(Scripts::CStruct* params, Scripts::CScript* script);     // 0x00518540
     bool GetRunTimerId(Scripts::CStruct* params, Scripts::CScript* script);               // 0x00518570
     bool ChainBegan(Scripts::CStruct* params, Scripts::CScript* script);                // 0x005185A0
 
-    int m_state;           // +0x18 State
+    int m_curPhase;           // +0x18 State
     float m_secondsRemaining;      // +0x1C seconds
     int16_t m_resumes;     // +0x20
     uint8_t pad22[2];
     uint8_t* m_walk;       // +0x24 Walk (0x726E85AA)
 };
-static_assert(offsetof(CRiderRunClock, m_state) == 0x18 &&
+static_assert(offsetof(CRiderRunClock, m_curPhase) == 0x18 &&
                   offsetof(CRiderRunClock, m_secondsRemaining) == 0x1C &&
                   offsetof(CRiderRunClock, m_resumes) == 0x20 &&
                   offsetof(CRiderRunClock, m_walk) == 0x24 && sizeof(CRiderRunClock) == 0x28,

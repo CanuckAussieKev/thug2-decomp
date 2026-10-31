@@ -36,7 +36,7 @@ const Pools& Defaults();
 // THUGPRO's (its shipped thugpro.dll).
 const Pools& Thugpro();
 // What this run uses: the ini's (read once), else the defaults.
-const Pools& Current();
+const Pools& AtHand();
 
 // Bytes the script pools and the string heap take from the script region (not the HashItem pool's).
 uint32_t ScriptPoolBytes(const Pools& pools);

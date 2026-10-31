@@ -58,25 +58,25 @@ void LaunchEvent(void* tracker, uint32_t type, uint32_t target, uint32_t source)
 
 // The screen elements (the manager 0x00701440's lookup, asserting; 0x004A87C0 their position, 0x004A9100 set it,
 // 0x004A94A0 their scale, 0x004AF8C0 a text element's text).
-void GetElement(void* manager, MenuSystem::ElementPtr* out, uint32_t id)
+void FetchPart(void* manager, MenuSystem::ElementPtr* out, uint32_t id)
 {
-    static_cast<MenuSystem::CUiTree*>(manager)->GetElement(out, id, 1);
+    static_cast<MenuSystem::CUiTree*>(manager)->FetchPart(out, id, 1);
 }
-void GetPos(MenuSystem::CUiWidget* element, float* x, float* y)
+void FetchLocation(MenuSystem::CUiWidget* element, float* x, float* y)
 {
-    element->GetPos(x, y);
+    element->FetchLocation(x, y);
 }
-void SetPos(MenuSystem::CUiWidget* element, float x, float y, int flag)
+void ChangeLocation(MenuSystem::CUiWidget* element, float x, float y, int flag)
 {
-    element->SetPos(x, y, flag);
+    element->ChangeLocation(x, y, flag);
 }
 void ChangeScale(MenuSystem::CUiWidget* element, float x, float y, int a, int b)
 {
     element->ChangeScale(x, y, a != 0, b);
 }
-void SetText(MenuSystem::CUiWidget* element, const char* text)
+void ChangeCaption(MenuSystem::CUiWidget* element, const char* text)
 {
-    static_cast<MenuSystem::CLabelWidget*>(element)->SetText(text);
+    static_cast<MenuSystem::CLabelWidget*>(element)->ChangeCaption(text);
 }
 
 // The names of a metapiece's sectors, into `out`
@@ -85,16 +85,16 @@ void GetSectorNames(CPieceGroup* meta, Scripts::CArray* out) { meta->GetPieceLis
 } // namespace
 
 // 0x00598DA0
-void CTopBarMenus::DeleteInstance()
+void CTopBarMenus::DiscardOccurrence()
 {
-    CTopBarMenus* menu = Instance();
+    CTopBarMenus* menu = Sole();
     if (!menu)
         return;
     LaunchScript(kDestroyPieceMenu);
     LaunchScript(kDestroySetMenu);
     menu->mp_set = nullptr;
-    MemSys::Free(menu);
-    Instance() = nullptr;
+    MemSys::Dealloc(menu);
+    Sole() = nullptr;
 }
 
 // 0x0059A9E0
@@ -104,7 +104,7 @@ void CTopBarMenus::SelectPieceFamily(CPieceFamily* set, int /*unused*/, int fami
     int clipboardCount = 0;
     if (set->m_isClipboard) {
         clipboards = true;
-        CBuildPointer* cursor = CBuildPointer::Instance();
+        CBuildPointer* cursor = CBuildPointer::Sole();
         for (CClipboard* clipboard = cursor->m_copyBuffers; clipboard; clipboard = clipboard->m_following)
             ++clipboardCount;
         cursor->DropAreaMarquee();
@@ -122,7 +122,7 @@ void CTopBarMenus::SelectPieceFamily(CPieceFamily* set, int /*unused*/, int fami
         for (int i = 0; i < set->m_entryTotal; ++i) {
             uint32_t checksum = set->m_entries[i].checksum;
             Scripts::CStruct params;
-            params.Init();
+            params.PrepareAll();
             params.PutNameKey(kMetapieceId, checksum);
             if (clipboards) {
                 if (i < clipboardCount)
@@ -133,12 +133,12 @@ void CTopBarMenus::SelectPieceFamily(CPieceFamily* set, int /*unused*/, int fami
             } else {
                 // (an entry with no metapiece is read through a null pointer, as in the original)
                 CPieceGroup* meta = m_parkOwner->FindPieceTemplate(checksum);
-                if (meta->m_flags & CPieceGroup::kSector) {
+                if (meta->m_flagBits & CPieceGroup::kSector) {
                     params.PutNameKey(kSector, checksum);
                     LaunchScript(kMakePieceMenuItem, &params);
                 } else {
                     Scripts::CArray sectors;
-                    sectors.Init();
+                    sectors.PrepareAll();
                     GetSectorNames(meta, &sectors);
                     params.AppendArrayValue(kSectors, &sectors);
                     LaunchScript(kMakePieceMenuItem, &params);
@@ -150,7 +150,7 @@ void CTopBarMenus::SelectPieceFamily(CPieceFamily* set, int /*unused*/, int fami
         }
         LaunchScript(kMakeSetMenu);
         Scripts::CStruct params;
-        params.Init();
+        params.PrepareAll();
         params.PutInt(kSetNumber, familyNumber);
         params.PutInt(kLastSetNumber, m_setNumber);
         LaunchScript(kLockMenus, &params);
@@ -180,19 +180,19 @@ void CTopBarMenus::SelectPieceFamily(CPieceFamily* set, int /*unused*/, int fami
     }
     void* elements = MenuSystem::g_screenElementManager;
     MenuSystem::ElementPtr slider;
-    GetElement(elements, &slider, kPieceSlider);
+    FetchPart(elements, &slider, kPieceSlider);
     float x;
     float y;
-    GetPos(slider.Get(), &x, &y);
+    FetchLocation(slider.Pull(), &x, &y);
     float start = static_cast<float>(first * static_cast<double>(kSliderLength) / set->m_entryTotal);
     float end = static_cast<float>((last + 1) * static_cast<double>(kSliderLength) / set->m_entryTotal);
-    SetPos(slider.Get(), start, y, 1);
-    ChangeScale(slider.Get(), static_cast<float>((static_cast<double>(end) - start) * kSliderScale), 1.0f, 0, 1);
+    ChangeLocation(slider.Pull(), start, y, 1);
+    ChangeScale(slider.Pull(), static_cast<float>((static_cast<double>(end) - start) * kSliderScale), 1.0f, 0, 1);
 
     MenuSystem::ElementPtr text;
-    GetElement(elements, &text, kPieceMenuName);
+    FetchPart(elements, &text, kPieceMenuName);
     const char* name = set->m_entries[m_selected].name;
-    SetText(text.Get(), name ? name : "---");
+    ChangeCaption(text.Pull(), name ? name : "---");
 }
 
 } // namespace Ed

@@ -7,10 +7,10 @@
 // Nothing is logged before Configure.
 namespace DebugLog {
 
-enum class Level { kError = 0, kWarn = 1, kInfo = 2, kDebug = 3, kTrace = 4 };
+enum class StageMap { kError = 0, kWarn = 1, kInfo = 2, kDebug = 3, kTrace = 4 };
 
 // Read the [Logging] settings; `toConsole`: print to stdout too.
 void Configure(bool toConsole);
-void Printf(Level level, const char* format, ...);
+void Printf(StageMap level, const char* format, ...);
 
 } // namespace DebugLog

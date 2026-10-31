@@ -54,7 +54,7 @@ float ScreenScaleY() { return g_screenScaleY; }
 int ScreenOffsetX() { return g_screenOffsetX; }
 int ScreenOffsetY() { return g_screenOffsetY; }
 
-// The text vertex buffer (BeginDraw points it at 0x00779FD8) and how many vertices it holds.
+// The text vertex buffer (OpenSketch points it at 0x00779FD8) and how many vertices it holds.
 TextVertex*& VertexBuffer() { return g_textVertexBuffer; }
 uint32_t& VertexCount() { return g_textVertexCount; }
 constexpr uint32_t kVertexLimit = 0x400;
@@ -226,14 +226,14 @@ void SGlyphRun::DrawKeyChar(char c, float* penX, float penY)
     v[3] = {right, static_cast<float>(top), z, 1.0f, vertexColor, glyph->u1, glyph->v0};
     VertexCount() += 4;
     if (VertexCount() >= kVertexLimit) {
-        EndDraw();
-        BeginDraw();
+        CloseSketch();
+        OpenSketch();
     }
     *penX = static_cast<float>(scaleX * spacing + right);
 }
 
 // 0x004CFD00
-void SGlyphRun::Draw()
+void SGlyphRun::Blit()
 {
     double scaleX = ScreenScaleX();
     double scaleY = ScreenScaleY();
@@ -291,13 +291,13 @@ void SGlyphRun::Draw()
                     STypeface* buttons = ButtonFont();
                     glyph = &buttons->chars[buttons->specialMap[button]];
                     charFont = buttons;
-                    EndDraw();
-                    BeginDraw();
+                    CloseSketch();
+                    OpenSketch();
                     v = VertexBuffer() + VertexCount();
                     TextureFont() = buttons;
                 } else {
-                    EndDraw();
-                    BeginDraw();
+                    CloseSketch();
+                    OpenSketch();
                     v = VertexBuffer() + VertexCount();
                     drawn = false; // not the digit
                     for (const char* name = ButtonKeyName(button); *name; ++name)
@@ -395,13 +395,13 @@ void SGlyphRun::Draw()
             v[3] = {at(x1), at(y1), z, 1.0f, vertexColor, glyph->u1, glyph->v0};
             VertexCount() += 4;
             if (VertexCount() >= kVertexLimit) {
-                EndDraw();
-                BeginDraw();
+                CloseSketch();
+                OpenSketch();
             }
             posX = static_cast<float>(scaleX * glyphGap + right);
             if (charFont != font) { // back to this font's texture
-                EndDraw();
-                BeginDraw();
+                CloseSketch();
+                OpenSketch();
             }
         }
         ++p;
@@ -412,15 +412,15 @@ void SGlyphRun::Draw()
 namespace {
 
 // The D3D9 device, its methods by vtable offset.
-void** Device() { return reinterpret_cast<void**>(g_d3dDevice); }
+void** InputPort() { return reinterpret_cast<void**>(g_d3dDevice); }
 template <typename F>
 F DeviceMethod(int offset)
 {
-    return reinterpret_cast<F>((*reinterpret_cast<void***>(Device()))[offset / 4]);
+    return reinterpret_cast<F>((*reinterpret_cast<void***>(InputPort()))[offset / 4]);
 }
 void SetTextureStageState(int stage, int type, int value)
 {
-    DeviceMethod<long(__stdcall*)(void*, int, int, int)>(0x10C)(Device(), stage, type, value);
+    DeviceMethod<long(__stdcall*)(void*, int, int, int)>(0x10C)(InputPort(), stage, type, value);
 }
 template <typename F>
 F TextureMethod(void* texture, int offset)
@@ -428,7 +428,7 @@ F TextureMethod(void* texture, int offset)
     return reinterpret_cast<F>((*reinterpret_cast<void***>(texture))[offset / 4]);
 }
 
-// The vertices' store (BeginDraw points the buffer at it) and the quads' triangles as indices into it (made the
+// The vertices' store (OpenSketch points the buffer at it) and the quads' triangles as indices into it (made the
 // first time they're drawn).
 TextVertex* VertexStore() { return reinterpret_cast<TextVertex*>(g_textVertexStore); }
 uint16_t* QuadIndices() { return g_textQuadIndices; }
@@ -454,9 +454,9 @@ uint32_t U32(const uint8_t* p)
 } // namespace
 
 // 0x004CEED0
-SGlyphRun* SGlyphRun::Construct(float priority)
+SGlyphRun* SGlyphRun::MakeNew(float priority)
 {
-    reinterpret_cast<SOverlayDraw*>(this)->Construct(priority, true);
+    reinterpret_cast<SOverlayDraw*>(this)->MakeNew(priority, true);
     vtable = kSTextVtable;
     return this;
 }
@@ -469,11 +469,11 @@ void SGlyphRun::DestroyBody()
 }
 
 // 0x004CFAF0
-SGlyphRun* SGlyphRun::Destroy(unsigned int flags)
+SGlyphRun* SGlyphRun::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -510,13 +510,13 @@ void SGlyphRun::DrawVertices()
     SetTextureStageState(1, 1, 1); // stage 1 off
     SetVertexFormat(0x144);        // position (pre-transformed), colour, one texture coordinate
     SetTexture(0, textureFont->texture); // (the original also passes unknown17C, which SetTexture doesn't take)
-    DeviceMethod<long(__stdcall*)(void*, int, int)>(0xE4)(Device(), 22, 1); // D3DRS_CULLMODE: none
+    DeviceMethod<long(__stdcall*)(void*, int, int)>(0xE4)(InputPort(), 22, 1); // D3DRS_CULLMODE: none
     if (!g_skipRender) { // (rendering not skipped)
         ++g_drawCalls;            // draw calls
         g_drawnTriangles += count / 2; // "triangles"
         using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int, const void*,
                                                         int, const void*, unsigned int);
-        DeviceMethod<DrawIndexedPrimitiveUP>(0x150)(Device(), 4 /* triangle list */, 0, count, count / 2, QuadIndices(),
+        DeviceMethod<DrawIndexedPrimitiveUP>(0x150)(InputPort(), 4 /* triangle list */, 0, count, count / 2, QuadIndices(),
                                                     0x65 /* 16-bit indices */, VertexStore(), sizeof(TextVertex));
     }
     SetTextureStageState(0, 1, 4); // colour and alpha back to texture x diffuse
@@ -529,14 +529,14 @@ void SGlyphRun::DrawVertices()
 // the base), the glyphs' character map entries (6 bytes each), the texture's header (+4 width, +6 height, 16-bit),
 // its pixels (one byte each, rounded up to 4), its palette (256 RGBA, PS2 alpha: 0x80 = opaque), and the glyphs'
 // rectangles in the texture (after 4 bytes: x, y, width, height, 16-bit).
-STypeface* STypeface::Load(const char* name, bool fromMemory)
+STypeface* STypeface::ReadIn(const char* name, bool fromMemory)
 {
     const uint8_t* data = reinterpret_cast<const uint8_t*>(name); // (from memory: the next bytes)
-    FileLoad::Handle file = nullptr;
+    FileLoad::Hdl file = nullptr;
     if (!fromMemory) {
         char path[128]; // (the original strcpy/strcats into it: a longer name overflows; here it's cut short)
         std::snprintf(path, sizeof(path), "fonts/%s.fnt.xbx", name);
-        file = FileLoad::Open(path, "rb");
+        file = FileLoad::Unseal(path, "rb");
     }
     // The next size * count bytes into `to` (as the original reads them: the header as 0x14 of 1 byte, the rest
     // as one block each; from memory, the glyph rectangles - read last - don't move on).
@@ -546,12 +546,12 @@ STypeface* STypeface::Load(const char* name, bool fromMemory)
             if (advance)
                 data += size * count;
         } else {
-            FileLoad::Read(to, size, count, file);
+            FileLoad::TakeIn(to, size, count, file);
         }
     };
     uint8_t buffer[0x808]; // (the original's: the tables of more than 256 glyphs overflow it)
 
-    auto* font = static_cast<STypeface*>(MemSys::New(sizeof(STypeface)));
+    auto* font = static_cast<STypeface*>(MemSys::Alloc(sizeof(STypeface)));
     if (font)
         std::memset(font, 0, sizeof(STypeface));
     read(buffer, 1, 0x14, true);
@@ -561,7 +561,7 @@ STypeface* STypeface::Load(const char* name, bool fromMemory)
     font->base = U32(buffer + 0x10);
     std::memset(font->map, 0, sizeof(font->map));
     std::memset(font->specialMap, 0, sizeof(font->specialMap));
-    font->chars = static_cast<SChar*>(MemSys::New(static_cast<uint32_t>(count) * sizeof(SChar)));
+    font->chars = static_cast<SChar*>(MemSys::Alloc(static_cast<uint32_t>(count) * sizeof(SChar)));
 
     // The character map: which glyph each character (and special glyph) is.
     read(buffer, count * 6, 1, true);
@@ -610,7 +610,7 @@ STypeface* STypeface::Load(const char* name, bool fromMemory)
     if (hdScale != 1)
         HdUi::NoteFont(fromMemory ? nullptr : name, hdScale, width, height);
     using CreateTexture = long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, void**, void*);
-    if (DeviceMethod<CreateTexture>(0x5C)(Device(), width, height, 1, 0, 21 /* A8R8G8B8 */, 1 /* managed */,
+    if (DeviceMethod<CreateTexture>(0x5C)(InputPort(), width, height, 1, 0, 21 /* A8R8G8B8 */, 1 /* managed */,
                                          &font->texture, nullptr) != 0)
         return nullptr;
     uint32_t size = (height * width + 3) & ~3u;
@@ -622,7 +622,7 @@ STypeface* STypeface::Load(const char* name, bool fromMemory)
         pixels = static_cast<uint32_t*>(std::malloc(size * 4));
         read(pixels, static_cast<int>(size * 4), 1, true);
     } else {
-        indices = static_cast<uint8_t*>(MemSys::New(size));
+        indices = static_cast<uint8_t*>(MemSys::Alloc(size));
         uint32_t palette[256];
         read(indices, static_cast<int>(size), 1, true);
         read(palette, 0x400, 1, true);
@@ -632,9 +632,9 @@ STypeface* STypeface::Load(const char* name, bool fromMemory)
             alpha = alpha >= 0x80 ? 0xFF : alpha << 1;
             color = alpha << 24 | (argb & 0xFFFFFF);
         }
-        pixels = static_cast<uint32_t*>(MemSys::New(size * 4));
+        pixels = static_cast<uint32_t*>(MemSys::Alloc(size * 4));
         // palette indices -> colours
-        Platform::ExpandPalette(pixels, indices, static_cast<int>(size), palette);
+        OsLayer::ExpandPalette(pixels, indices, static_cast<int>(size), palette);
     }
     struct LockedRect {
         int pitch;
@@ -646,8 +646,8 @@ STypeface* STypeface::Load(const char* name, bool fromMemory)
     std::memcpy(locked.bits, pixels, size * 4);
     TextureMethod<long(__stdcall*)(void*, uint32_t)>(font->texture, 0x50)(font->texture, 0);
     if (indices) {
-        MemSys::Free(indices);
-        MemSys::Free(pixels);
+        MemSys::Dealloc(indices);
+        MemSys::Dealloc(pixels);
     } else {
         std::free(pixels); // (not original - HD menu UI)
     }
@@ -673,13 +673,13 @@ STypeface* STypeface::Load(const char* name, bool fromMemory)
     font->next = FontList();
     FontList() = font;
     if (!fromMemory)
-        FileLoad::Close(file);
+        FileLoad::Shut(file);
     font->blankGap = static_cast<int16_t>(font->chars[font->map['I']].w);
     return font;
 }
 
 // 0x004CFA80
-void STypeface::Unload(STypeface* font)
+void STypeface::Offload(STypeface* font)
 {
     if (FontList() == font) {
         FontList() = font->next;
@@ -691,12 +691,12 @@ void STypeface::Unload(STypeface* font)
             }
         }
     }
-    MemSys::Free(font->chars);
-    MemSys::Free(font);
+    MemSys::Dealloc(font->chars);
+    MemSys::Dealloc(font);
 }
 
 namespace {
-static VtableSlot kSTextVtable_slots[] = {&Engine3D::SGlyphRun::Destroy, &Engine3D::SGlyphRun::ResetVertices, &Engine3D::SGlyphRun::Draw,
+static VtableSlot kSTextVtable_slots[] = {&Engine3D::SGlyphRun::Teardown, &Engine3D::SGlyphRun::ResetVertices, &Engine3D::SGlyphRun::Blit,
                 &Engine3D::SGlyphRun::DrawVertices};
 void** const kSTextVtable = reinterpret_cast<void**>(kSTextVtable_slots);
 } // namespace

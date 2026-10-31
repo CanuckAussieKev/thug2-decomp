@@ -14,7 +14,7 @@ double __cdecl FrameBlend(float rate, float seconds);
 // line); with `sideways`, it's pushed off walls 8 to either side across `matrix`'s right row (the right side
 // first); with `refocus` - and a side wall found - `matrix` is turned to look from the position at `focus`
 // (its rows rebuilt with the original's cross products, right and at negated).
-void __cdecl AvoidCameraCollisions(Maths::Vector* position, Maths::Matrix* matrix, const Maths::Vector* target,
-                                   const Maths::Vector* focus, bool sideways, bool refocus);
+void __cdecl AvoidCameraCollisions(Maths::Vec4* position, Maths::Mat4* matrix, const Maths::Vec4* target,
+                                   const Maths::Vec4* focus, bool sideways, bool refocus);
 
 } // namespace Obj

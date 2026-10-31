@@ -4,19 +4,19 @@
 #include <cstdint>
 
 namespace Sio {
-class Device;
+class InputPort;
 }
 
-// The input manager (Neversoft's PadInput::Manager, the singleton 0x0044E7F0 makes): a server per controller that
+// The input manager (Neversoft's PadInput::Hub, the singleton 0x0044E7F0 makes): a server per controller that
 // turns its Sio device's PS2-format control data into button bits and analogue values once a frame and passes
-// them to the server's input handlers (PadInput::Handler<T>, e.g. the front end's). A server can also play back a
+// them to the server's input handlers (PadInput::Responder<T>, e.g. the front end's). A server can also play back a
 // recording (one PadFrameRecord per frame) or record what it reads.
 namespace PadInput {
 
 // One frame of a recording (0x20 bytes).
 struct PadFrameRecord {
     uint8_t m_isUsable;
-    uint8_t m_event[25]; // Data::m_event
+    uint8_t m_incident[25]; // Payload::m_incident
     uint8_t pad1A[2];
     uint32_t m_buttons;
 };
@@ -24,7 +24,7 @@ static_assert(sizeof(PadFrameRecord) == 0x20 && offsetof(PadFrameRecord, m_butto
 
 // What the handlers get (0x34 bytes): the analogue values and the button bits (PS2 order: bit 12 up, 13 right,
 // 14 down, 15 left ...; the device's extra byte above bit 16).
-struct Data {
+struct Payload {
     // The analogue values: the sticks (right X, right Y, left X, left Y: 0-255, 0x80 centred), then a pressure
     // per button (0 or 0xFF from a digital pad), and copies of the sticks before the dead zone at 0x12-0x15.
     enum : int {
@@ -35,13 +35,13 @@ struct Data {
     };
     enum : uint32_t { kButtonUp = 0x1000, kButtonRight = 0x2000, kButtonDown = 0x4000, kButtonLeft = 0x8000 };
 
-    uint8_t m_event[kNumEvents];
+    uint8_t m_incident[kNumEvents];
     uint8_t pad19[3];
     uint32_t m_buttons; // +0x1C: down
     uint32_t m_makes;   // +0x20: pressed this frame
     uint32_t m_breaks;  // +0x24: released this frame
     uint32_t m_changes; // +0x28
-    uint32_t m_current; // +0x2C: the buttons read this frame
+    uint32_t m_ongoing; // +0x2C: the buttons read this frame
     uint32_t m_previous; // +0x30: and last frame
 
     // 0x0044E840: the buttons in `mask` read as up (held, pressed and released).
@@ -58,20 +58,20 @@ struct Data {
     // pressure (the pressures as the original computes them: up's grows towards the centre).
     void OverridePadWithStick();
 };
-static_assert(sizeof(Data) == 0x34 && offsetof(Data, m_buttons) == 0x1C && offsetof(Data, m_previous) == 0x30);
+static_assert(sizeof(Payload) == 0x34 && offsetof(Payload, m_buttons) == 0x1C && offsetof(Payload, m_previous) == 0x30);
 
 // A controller's server (0x84 bytes).
-struct Server {
-    Sio::Device* m_device;
-    uint8_t m_handlers[0x3C];    // +0x04: the handler list (TaskList::List: 0x00406E80 makes it, 0x004070A0 runs it)
-    Data m_data;                 // +0x40
+struct HostEnd {
+    Sio::InputPort* m_dev;
+    uint8_t m_handlers[0x3C];    // +0x04: the handler list (TaskList::LinkChain: 0x00406E80 makes it, 0x004070A0 runs it)
+    Payload m_content;                 // +0x40
     PadFrameRecord* m_dataIn;      // +0x74: the recording played back (null: none)
     PadFrameRecord* m_dataInEnd;   // +0x78
     PadFrameRecord* m_dataOut;     // +0x7C: the recording made (null: none)
     PadFrameRecord* m_dataOutEnd;  // +0x80
 
-    // 0x0044E9E0: the handler list and everything cleared (but m_device, m_makes and m_breaks). Returns this.
-    Server* Construct();
+    // 0x0044E9E0: the handler list and everything cleared (but m_dev, m_makes and m_breaks). Returns this.
+    HostEnd* MakeNew();
     // 0x0044EAA0: a frame - the data from the recording played back (if any), else from the device (if it has
     // a pad: nothing at all when it has none), recorded if recording; the buttons noted for the device's index
     // (0x00696D48 / 50 / 58); then the handlers run.
@@ -79,13 +79,13 @@ struct Server {
     // 0x0044E520: the destructor: the handler list destroyed (0x004070E0).
     void Destruct();
 };
-static_assert(sizeof(Server) == 0x84 && offsetof(Server, m_data) == 0x40 && offsetof(Server, m_dataOutEnd) == 0x80);
+static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, m_content) == 0x40 && offsetof(HostEnd, m_dataOutEnd) == 0x80);
 
-struct Manager {
+struct Hub {
     enum { kNumServers = 2 };
 
     void* m_task;                     // TaskList::Task<Manager> (priority 2000) running the servers (0x0044E660)
-    Server m_servers[kNumServers];    // +0x04
+    HostEnd m_hosts[kNumServers];    // +0x04
     bool m_overridePadWithStick;      // +0x10C (0x0044E610 sets, 0x0044E620 gets)
     bool m_unknown10D;
     uint8_t pad10E[2];
@@ -93,7 +93,7 @@ struct Manager {
 
     // 0x0044E700: the servers, the task, each server's device (by index), the stick working the d-pad on.
     // Returns this.
-    Manager* Construct();
+    Hub* MakeNew();
     // 0x0044E530: the destructor: the task deleted (its virtual scalar deleting destructor), the servers destroyed
     // (the last first).
     void Destruct();
@@ -111,11 +111,11 @@ struct Manager {
     // recording played back or made that reached its end stops; then the server's frame (ServiceHandlers).
     static void __cdecl ServiceTask(void* task);
 };
-static_assert(sizeof(Manager) == 0x118 && offsetof(Manager, m_overridePadWithStick) == 0x10C);
+static_assert(sizeof(Hub) == 0x118 && offsetof(Hub, m_overridePadWithStick) == 0x10C);
 
 // The singleton (0x00696D40, references 0x00696D44). 0x0044E7F0: the first call with `create` makes it, every
 // call takes a reference and returns it (null if there is none).
-Manager* CreateManager(bool create);
+Hub* CreateManager(bool create);
 // 0x0044E6B0: drops a reference; the last one destroys (0x0044E530) and frees the manager.
 void ReleaseManager();
 
@@ -125,6 +125,6 @@ void ReleaseManager();
 uint32_t __cdecl ButtonHash(int index);
 int __cdecl ButtonIndex(uint32_t checksum);
 
-extern PadInput::Manager* g_inputManager;
+extern PadInput::Hub* g_inputManager;
 
 } // namespace Inp

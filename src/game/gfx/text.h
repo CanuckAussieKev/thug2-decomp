@@ -47,9 +47,9 @@ struct STypeface {
     // 0x004CF0F0: load a font - the file "fonts/<name>.fnt.xbx", or (fromMemory) the same data at `name` -
     // into a new font (its texture created on the device), put at the head of the font list. Null if the
     // texture can't be created or locked (what was allocated is then left). cdecl.
-    static STypeface* Load(const char* name, bool fromMemory);
+    static STypeface* ReadIn(const char* name, bool fromMemory);
     // 0x004CFA80: take `font` off the font list and free it (not its texture). cdecl.
-    static void Unload(STypeface* font);
+    static void Offload(STypeface* font);
 };
 static_assert(offsetof(STypeface, map) == 0xC, "layout must match the original");
 static_assert(offsetof(STypeface, specialMap) == 0x10C, "layout must match the original");
@@ -75,8 +75,8 @@ struct TextVertex {
 };
 static_assert(sizeof(TextVertex) == 0x1C, "layout must match the original");
 
-// A piece of screen text. Virtual (vtable 0x0064A89C): [0] destructor 0x4CFAF0, [1] BeginDraw 0x4CEF00
-// (vertices go to the start of the buffer), [2] Draw, [3] EndDraw 0x4CEF10 (draws what's in the buffer).
+// A piece of screen text. Virtual (vtable 0x0064A89C): [0] destructor 0x4CFAF0, [1] OpenSketch 0x4CEF00
+// (vertices go to the start of the buffer), [2] Draw, [3] CloseSketch 0x4CEF10 (draws what's in the buffer).
 // Constructor 0x4CEED0. Built on the base of things drawn in priority order (vtable 0x0064AD18; constructor
 // 0x004DFA70, destructor 0x004DFAA0 - not rewritten yet): +4 the next in the draw list (0x007CC248, by
 // priority), +8 set: not put in the list, +0xC the priority; the base constructor also zeroes +0x10 (z).
@@ -96,25 +96,25 @@ struct SGlyphRun {
 
     // 0x004CFD00 (virtual [2]): the text's quads into the vertex buffer, drawing it whenever it fills or the
     // texture changes (a button glyph).
-    void Draw();
+    void Blit();
     // 0x004CFB20: one character of a key name at *penX (advanced past it), at line height penY - plain, no
     // effects.
     void DrawKeyChar(char c, float* penX, float penY);
 
     // 0x004CEED0: construct (the base unlisted, with this priority). Returns this.
-    SGlyphRun* Construct(float priority);
+    SGlyphRun* MakeNew(float priority);
     // 0x004CEEF0: the destructor's body (back to the base, which takes itself off the draw list).
     void DestroyBody();
     // 0x004CFAF0 (virtual [0]): destroy, and free if flags & 1. Returns this.
-    SGlyphRun* Destroy(unsigned int flags);
+    SGlyphRun* Teardown(unsigned int flags);
     // 0x004CEF00 (virtual [1]): new vertices go to the start of the buffer.
     void ResetVertices();
     // 0x004CEF10 (virtual [3]): draw the vertices in the buffer (quads, as indexed triangles) with the texture
     // font's texture - the button font's after a button glyph - or this text's font's, and empty the buffer.
     void DrawVertices();
 
-    void BeginDraw() { reinterpret_cast<void(__thiscall*)(SGlyphRun*)>(vtable[1])(this); }
-    void EndDraw() { reinterpret_cast<void(__thiscall*)(SGlyphRun*)>(vtable[3])(this); }
+    void OpenSketch() { reinterpret_cast<void(__thiscall*)(SGlyphRun*)>(vtable[1])(this); }
+    void CloseSketch() { reinterpret_cast<void(__thiscall*)(SGlyphRun*)>(vtable[3])(this); }
 };
 static_assert(offsetof(SGlyphRun, z) == 0x10, "layout must match the original");
 static_assert(offsetof(SGlyphRun, text) == 0x1C, "layout must match the original");

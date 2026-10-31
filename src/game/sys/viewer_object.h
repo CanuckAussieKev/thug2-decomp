@@ -11,10 +11,10 @@
 // The PC tool drives it with messages (play an animation, its speed, a frame step, reload an animation or a script)
 // and the pad with the commands its input handler sets (m_actions, done once a frame by OwnUpdate).
 namespace PadInput {
-struct Data;
+struct Payload;
 }
 namespace NetLink {
-struct App;
+struct AppHost;
 struct InboundMsgCtx;
 } // namespace Net
 namespace Scripts {
@@ -25,16 +25,16 @@ namespace GameObjects {
 
 class CPreviewEntity;
 
-// PadInput::Handler<CPreviewEntity> (0x2C bytes, vtable 0x0064D7D8 - the template's, like GameModules::ViewerInputHandler).
+// PadInput::Responder<CPreviewEntity> (0x2C bytes, vtable 0x0064D7D8 - the template's, like GameModules::ViewerInputHandler).
 // The node is a task's (0x00406890, priority 0), on the controller's stack of handler lists.
 struct ViewerObjectInputHandler : TaskList::SchedulerTask {
-    PadInput::Data* m_controlData;        // +0x18: the controller's data this frame
-    uint8_t* m_device;               // +0x1C
-    int m_index;                     // +0x20: the controller (0)
-    void(__cdecl* m_code)(ViewerObjectInputHandler*);
-    CPreviewEntity* m_data;
+    PadInput::Payload* m_controlData;        // +0x18: the controller's data this frame
+    uint8_t* m_dev;               // +0x1C
+    int m_ordinal;                     // +0x20: the controller (0)
+    void(__cdecl* m_codeValue)(ViewerObjectInputHandler*);
+    CPreviewEntity* m_content;
 };
-static_assert(sizeof(ViewerObjectInputHandler) == 0x2C && offsetof(ViewerObjectInputHandler, m_code) == 0x24);
+static_assert(sizeof(ViewerObjectInputHandler) == 0x2C && offsetof(ViewerObjectInputHandler, m_codeValue) == 0x24);
 
 class CPreviewEntity : public CGameEntity {
 public:
@@ -56,15 +56,15 @@ public:
     // OBJECT_TYPE_COMPOSITE; its input handler on controller 0's list; speed 1 (none saved), the panel shown, not
     // paused, no skeleton loaded, identity orientation; with a net handler (`app`), its messages 0x25-0x29 and 0x2C.
     // Returns this.
-    CPreviewEntity* Construct(NetLink::App* app);
+    CPreviewEntity* MakeNew(NetLink::AppHost* app);
     // 0x00589910: set up from `params`: registered, its motion and node components; then, with the debug heap or the
     // bottom-up heap pushed: for the model names model0-3 and modelname / model, a CAS artist's (cas_artist) cached
     // copies of their .skin, .col, .mdl and .tex files dropped (so edited files are read again); the skeleton
     // (skeletonFileName as skeletonName) loaded if it isn't and remembered; placed at ViewerObjPos (or the origin)
     // with no rotation; viewerobj_add_components, Finalize, viewerobj_init_model; the idle animation played.
-    void Load(Scripts::CStruct* params);
+    void ReadIn(Scripts::CStruct* params);
     // 0x005897B0: shut down - the script kill_viewer_object_panel run. (The object isn't used.)
-    void ShutDown();
+    void PowerDown();
     // 0x005897D0: animation `anim` played from the start (to its own length, looping, blend 0.3, speed 1), if the object
     // has an animation component that knows it.
     void PlayAnimation(uint32_t anim);
@@ -72,12 +72,12 @@ public:
     // and forgotten, the handler deleted, then CGameEntity's. 0x0058A2B0: the scalar deleting destructor (vtable
     // slot 0).
     void DestroyBody();
-    CPreviewEntity* Destroy(unsigned int flags);
+    CPreviewEntity* Teardown(unsigned int flags);
     // 0x00589FD0: with an animation component, animation `file` loaded again as `anim` (its anim set's) - the asset
     // (anim set + anim, or the file name's checksum with no anim) unloaded first if it's there - and played.
     void ReloadAnimation(const char* file, uint32_t anim);
     // 0x0058A2E0: the orientation turned by `z` about z, then `x` about x (from identity; radians).
-    void SetRotation(float z, float x);
+    void ChangeSpin(float z, float x);
     // 0x0058A360: the animation speed (clamped to 0..1; NaN kept) given to the animation component (its first channel
     // and its Speed member function), not paused.
     void ScaleAnimRate(float speed);
@@ -97,7 +97,7 @@ public:
     ViewerObjectInputHandler* m_task; // +0x108: its input handler (0x0058A060)
     uint32_t m_unknown10C;
     uint32_t m_actions;     // +0x110
-    NetLink::App* m_ownerApp;         // +0x114: the PC tool's (the viewer's net handler)
+    NetLink::AppHost* m_ownerApp;         // +0x114: the PC tool's (the viewer's net handler)
     float m_speed;           // +0x118: the animation speed (0-1)
     float m_savedSpeed;      // +0x11C: the speed while paused
     uint32_t m_asset;        // +0x120 (the skeleton asset it loaded, by checksum)
@@ -116,7 +116,7 @@ static_assert(offsetof(CPreviewEntity, m_task) == 0x108 && offsetof(CPreviewEnti
 // 0x2 (one alone) the camera up / down; makes 0x4 / 0x1 faster / slower; with no animation component buttons 0x20 /
 // 0x80 roll.
 void __cdecl HandleViewerObjectInput(ViewerObjectInputHandler* handler);
-// The PC tool's messages to the object (cdecl handlers; context->m_body is the message, m_data the object; each
+// The PC tool's messages to the object (cdecl handlers; context->m_body is the message, m_content the object; each
 // returns 1): 0x00589840 (0x25) PlayAnimation(the first word); 0x0058ACA0 (0x26) ScaleAnimRate(the first word, a
 // float); 0x0058ACC0 (0x27) StepAnimation(the first byte); 0x0058A1F0 (0x28) ReloadAnimation(the message, the word at
 // +0x80); 0x0058ACE0 (0x29) ReloadSkaterCamAnim (0x005ADEC0) with the message and the checksum at +0x80 (unnamed);

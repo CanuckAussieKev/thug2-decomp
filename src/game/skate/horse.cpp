@@ -53,7 +53,7 @@ GameObjects::CRider* Skater(uint32_t id) { return static_cast<GameObjects::CRide
 char Upper(char c) { return c >= 'a' && c <= 'z' ? static_cast<char>(c - 0x20) : c; }
 
 // strcpy (no bounds, as the original).
-void Copy(char* dest, const char* text)
+void DupFrom(char* dest, const char* text)
 {
     while ((*dest++ = *text++) != 0) {
     }
@@ -62,7 +62,7 @@ void Copy(char* dest, const char* text)
 } // namespace
 
 // 0x005600D0
-CLetterMatch* CLetterMatch::Construct()
+CLetterMatch* CLetterMatch::MakeNew()
 {
     std::memcpy(m_word, "HORSE", 6);
     m_restart = 0;
@@ -70,7 +70,7 @@ CLetterMatch* CLetterMatch::Construct()
 }
 
 // 0x00560100
-void CLetterMatch::Init()
+void CLetterMatch::PrepareAll()
 {
     m_pointsTarget = 0;
     m_skater = 0;
@@ -82,36 +82,36 @@ void CLetterMatch::Init()
 }
 
 // 0x00560180
-void CLetterMatch::BeginTimedSession() { m_status = Statuses()[kIdle]; }
+void CLetterMatch::BeginTimedSession() { m_curStanding = Statuses()[kIdle]; }
 
 // 0x00560190
 bool CLetterMatch::StateMatches(Scripts::CStruct* params)
 {
     for (const uint32_t* status = Statuses(); *status; ++status)
         if (params->HasBareFlag(*status))
-            return m_status == *status;
+            return m_curStanding == *status;
     return false;
 }
 
 // 0x005601F0
-void CLetterMatch::SetLetters(TextUtil::String word)
+void CLetterMatch::SetLetters(TextUtil::Chars word)
 {
-    Copy(m_word, word.c_str());
+    DupFrom(m_word, word.c_str());
     DebugOut::Printf("New word = %s\n", m_word); // "New word = %s\n"
 }
 
 // 0x00560260
-TextUtil::String CLetterMatch::GetLetterString(int player)
+TextUtil::Chars CLetterMatch::GetLetterString(int player)
 {
     char word[0x100];
-    Copy(word, m_word);
+    DupFrom(word, m_word);
     if (std::strlen(word)) {
         uint32_t letters = static_cast<uint32_t>(m_letters[player]);
         for (uint32_t i = 0; i < std::strlen(word); ++i)
             if (i >= letters)
                 word[i] = '-';
     }
-    return TextUtil::String(word);
+    return TextUtil::Chars(word);
 }
 
 // 0x00560310
@@ -130,7 +130,7 @@ void CLetterMatch::ChooseNextSpawn()
 }
 
 // 0x00560380
-bool CLetterMatch::Ended()
+bool CLetterMatch::IsOver()
 {
     for (int i = 0; i < kPlayers; ++i)
         if (Skater(static_cast<uint32_t>(i)) && static_cast<uint32_t>(m_letters[i]) >= std::strlen(m_word))
@@ -154,7 +154,7 @@ int CLetterMatch::GetNextValidSkaterId()
 }
 
 // 0x00560440
-TextUtil::String CLetterMatch::GetString(uint32_t which)
+TextUtil::Chars CLetterMatch::FetchText(uint32_t which)
 {
     char text[0x100];
     std::memcpy(text, "Unknown", 8); // "Unknown"
@@ -163,35 +163,35 @@ TextUtil::String CLetterMatch::GetString(uint32_t which)
     case kPanelString1:
     case kPanelString2: {
         int player = which == kPanelString1 ? 0 : 1;
-        TextUtil::String word = GetLetterString(player);
-        std::snprintf(text, sizeof(text), "%s: %s", Skater(static_cast<uint32_t>(player))->GetDisplayName(),
+        TextUtil::Chars word = GetLetterString(player);
+        std::snprintf(text, sizeof(text), "%s: %s", Skater(static_cast<uint32_t>(player))->FetchShownName(),
                       word.c_str()); // "%s: %s"
         break;
     }
-    case kHorsePostRun: Copy(text, m_panel); break;
+    case kHorsePostRun: DupFrom(text, m_panel); break;
     case kYouAreA: {
         char first = Upper(m_word[0]);
         bool vowel = first == 'A' || first == 'E' || first == 'I' || first == 'O' || first == 'U';
-        const char* article = Scripts::GetString(vowel ? kIsAn : kIsA);
-        TextUtil::String name = GetString(kPlayerName);
+        const char* article = Scripts::FetchText(vowel ? kIsAn : kIsA);
+        TextUtil::Chars name = FetchText(kPlayerName);
         std::snprintf(text, sizeof(text), "%s %s", name.c_str(), article); // "%s %s"
         break;
     }
     case kHorsePreRun:
         if (m_pointsTarget > 0) {
             const char* points = TextUtil::FormatWithSeparators(m_pointsTarget);
-            std::snprintf(text, sizeof(text), "%s %s", Scripts::GetString(kScoreToBeat), points); // "%s %s"
+            std::snprintf(text, sizeof(text), "%s %s", Scripts::FetchText(kScoreToBeat), points); // "%s %s"
         } else
-            std::snprintf(text, sizeof(text), Scripts::GetString(kSetScore));
+            std::snprintf(text, sizeof(text), Scripts::FetchText(kSetScore));
         break;
     case kFinalWord: std::snprintf(text, sizeof(text), "%s", m_word); break;
     case kPlayerName:
         std::snprintf(text, sizeof(text), "%s",
-                      Skater(*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x14))->GetDisplayName());
+                      Skater(*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x14))->FetchShownName());
         break;
     default: break;
     }
-    return TextUtil::String(text);
+    return TextUtil::Chars(text);
 }
 
 // 0x00560720
@@ -200,35 +200,35 @@ void CLetterMatch::EndRun()
     std::snprintf(m_panel, sizeof(m_panel), "%s", "unknown"); // "unknown"
     m_lastSkater = m_skater;
     void* score = Skater(static_cast<uint32_t>(m_skater))->GetPointsTotal();
-    int total = static_cast<GameModules::Score*>(score)->GetTotalScore();
+    int total = static_cast<GameModules::PointTally*>(score)->GetTotalScore();
     DebugOut::Printf("End run = %d\n", total); // "End run = %d\n"
     if (total > m_pointsTarget) {
         m_pointsTarget = total;
         const char* points = TextUtil::FormatWithSeparators(total);
-        std::snprintf(m_panel, sizeof(m_panel), "%s %s", Scripts::GetString(kSetScoreIs), points); // "%s %s"
-        m_status = Statuses()[kBeatScore];
+        std::snprintf(m_panel, sizeof(m_panel), "%s %s", Scripts::FetchText(kSetScoreIs), points); // "%s %s"
+        m_curStanding = Statuses()[kBeatScore];
         return;
     }
     if (total < m_pointsTarget) {
         m_pointsTarget = 0;
         ++m_letters[m_skater];
         ChooseNextSpawn();
-        if (Ended()) {
+        if (IsOver()) {
             std::snprintf(m_panel, sizeof(m_panel), "You are a %s!", m_word); // "You are a %s!"
-            m_status = Statuses()[kGameOver];
+            m_curStanding = Statuses()[kGameOver];
             return;
         }
         char letter[2] = {Upper(m_word[m_letters[m_skater] - 1]), 0};
-        std::snprintf(m_panel, sizeof(m_panel), "%s %s", Scripts::GetString(kGetsTheLetter), letter); // "%s %s"
-        m_status = Statuses()[kGotLetter];
+        std::snprintf(m_panel, sizeof(m_panel), "%s %s", Scripts::FetchText(kGetsTheLetter), letter); // "%s %s"
+        m_curStanding = Statuses()[kGotLetter];
         return;
     }
     if (total == 0) {
-        Copy(m_panel, Scripts::GetString(kNoScoreSet));
-        m_status = Statuses()[kNoScoreSetStatus];
+        DupFrom(m_panel, Scripts::FetchText(kNoScoreSet));
+        m_curStanding = Statuses()[kNoScoreSetStatus];
     } else {
-        Copy(m_panel, Scripts::GetString(kYouTied));
-        m_status = Statuses()[kTieScore];
+        DupFrom(m_panel, Scripts::FetchText(kYouTied));
+        m_curStanding = Statuses()[kTieScore];
     }
 }
 

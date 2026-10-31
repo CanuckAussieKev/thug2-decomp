@@ -61,7 +61,7 @@ namespace {
 char s_domain[64] = "gamespy.com";
 
 template <typename Fn>
-Fn As(Callback callback)
+Fn As(HookFn callback)
 {
     return reinterpret_cast<Fn>(const_cast<void*>(callback.code));
 }
@@ -136,7 +136,7 @@ int CdKeyInit(int gameId) { return gcd_init(gameId); }
 void CdKeyShutdown() { gcd_shutdown(); }
 void CdKeyThink() { gcd_think(); }
 void CdKeyAuthenticateUser(int gameId, int localId, uint32_t ip, const char* challenge, const char* response,
-                           Callback callback, void* instance)
+                           HookFn callback, void* instance)
 {
     gcd_authenticate_user(gameId, localId, ip, challenge, response, As<AuthCallBackFn>(callback), &IgnoreRefreshAuth,
                           instance);
@@ -152,8 +152,8 @@ void CdKeyComputeResponse(const char* cdKey, const char* challenge, char* respon
 // --- qr2 ---
 
 int Qr2Init(void* qrec, const char* ip, int basePort, const char* gameName, const char* secretKey, int isPublic,
-            int natNegotiate, Callback serverKey, Callback playerKey, Callback teamKey, Callback keyList,
-            Callback count, Callback addError, void* userData)
+            int natNegotiate, HookFn serverKey, HookFn playerKey, HookFn teamKey, HookFn keyList,
+            HookFn count, HookFn addError, void* userData)
 {
     SetGameHosts(gameName);
     return static_cast<int>(qr2_init(static_cast<qr2_t*>(qrec), ip, basePort, gameName, secretKey, isPublic,
@@ -172,7 +172,7 @@ void Qr2KeyBufferAdd(void* keyBuffer, int keyId) { qr2_keybuffer_add(static_cast
 
 // --- NAT negotiation ---
 
-int NatBeginWithSocket(uint32_t socket, int cookie, int clientIndex, Callback progress, Callback completed,
+int NatBeginWithSocket(uint32_t socket, int cookie, int clientIndex, HookFn progress, HookFn completed,
                        void* userData)
 {
     return static_cast<int>(NNBeginNegotiationWithSocket(static_cast<SOCKET>(socket), cookie, clientIndex,
@@ -207,7 +207,7 @@ int PeerSetTitle(void* peer, const char* title, const char* qrSecretKey, const c
                                          reinterpret_cast<PEERBool*>(const_cast<int*>(crossPingRooms))));
 }
 void PeerClearTitle(void* peer) { peerClearTitle(peer); }
-void PeerConnect(void* peer, const char* nick, int profile, Callback nickError, Callback connected, void* param,
+void PeerConnect(void* peer, const char* nick, int profile, HookFn nickError, HookFn connected, void* param,
                  int blocking)
 {
     peerConnect(peer, nick, profile, As<peerNickErrorCallback>(nickError), As<peerConnectCallback>(connected), param,
@@ -232,11 +232,11 @@ void PeerSendNatNegotiateCookie(void* peer, uint32_t ip, int port, int cookie)
 {
     peerSendNatNegotiateCookie(peer, ip, static_cast<unsigned short>(port), cookie);
 }
-void PeerListGroupRooms(void* peer, const char* fields, Callback callback, void* param, int blocking)
+void PeerListGroupRooms(void* peer, const char* fields, HookFn callback, void* param, int blocking)
 {
     peerListGroupRooms(peer, fields, As<peerListGroupRoomsCallback>(callback), param, static_cast<PEERBool>(blocking));
 }
-void PeerJoinGroupRoom(void* peer, int groupId, Callback callback, void* param, int blocking)
+void PeerJoinGroupRoom(void* peer, int groupId, HookFn callback, void* param, int blocking)
 {
     peerJoinGroupRoom(peer, groupId, As<peerJoinRoomCallback>(callback), param, static_cast<PEERBool>(blocking));
 }
@@ -249,7 +249,7 @@ void PeerMessageRoom(void* peer, int roomType, const char* message, int messageT
 {
     peerMessageRoom(peer, static_cast<RoomType>(roomType), message, static_cast<MessageType>(messageType));
 }
-void PeerEnumPlayers(void* peer, int roomType, Callback callback, void* param)
+void PeerEnumPlayers(void* peer, int roomType, HookFn callback, void* param)
 {
     peerEnumPlayers(peer, static_cast<RoomType>(roomType), As<peerEnumPlayersCallback>(callback), param);
 }
@@ -261,13 +261,13 @@ void PeerSetRoomKeys(void* peer, int roomType, const char* nick, int count, cons
 {
     peerSetRoomKeys(peer, static_cast<RoomType>(roomType), nick, count, keys, values);
 }
-void PeerGetRoomKeys(void* peer, int roomType, const char* nick, int count, const char** keys, Callback callback,
+void PeerGetRoomKeys(void* peer, int roomType, const char* nick, int count, const char** keys, HookFn callback,
                      void* param, int blocking)
 {
     peerGetRoomKeys(peer, static_cast<RoomType>(roomType), nick, count, keys, As<peerGetRoomKeysCallback>(callback),
                     param, static_cast<PEERBool>(blocking));
 }
-void PeerStartListingGames(void* peer, const uint8_t* fields, int count, const char* filter, Callback callback,
+void PeerStartListingGames(void* peer, const uint8_t* fields, int count, const char* filter, HookFn callback,
                            void* param)
 {
     peerStartListingGames(peer, fields, count, filter, As<peerListingGamesCallback>(callback), param);
@@ -319,14 +319,14 @@ int ServerGetPing(void* server) { return SBServerGetPing(Sb(server)); }
 // --- HTTP ---
 
 int HttpGetEx(const char* url, const char* headers, char* buffer, int size, void* post, int throttle, int blocking,
-              Callback progress, Callback completed, void* param)
+              HookFn progress, HookFn completed, void* param)
 {
     return ghttpGetEx(url, headers, buffer, size, static_cast<GHTTPPost>(post), static_cast<GHTTPBool>(throttle),
                       static_cast<GHTTPBool>(blocking), As<ghttpProgressCallback>(progress),
                       As<ghttpCompletedCallback>(completed), param);
 }
-int HttpPostEx(const char* url, const char* headers, void* post, int throttle, int blocking, Callback progress,
-               Callback completed, void* param)
+int HttpPostEx(const char* url, const char* headers, void* post, int throttle, int blocking, HookFn progress,
+               HookFn completed, void* param)
 {
     return ghttpPostEx(url, headers, static_cast<GHTTPPost>(post), static_cast<GHTTPBool>(throttle),
                        static_cast<GHTTPBool>(blocking), As<ghttpProgressCallback>(progress),
@@ -363,18 +363,18 @@ int GpInitialize(void* connection, int productId, int namespaceId)
     return static_cast<int>(gpInitialize(Gp(connection), productId, namespaceId, GP_PARTNERID_GAMESPY));
 }
 int GpProcess(void* connection) { return static_cast<int>(gpProcess(Gp(connection))); }
-int GpSetCallback(void* connection, int type, Callback callback, void* param)
+int GpSetCallback(void* connection, int type, HookFn callback, void* param)
 {
     return static_cast<int>(gpSetCallback(Gp(connection), static_cast<GPEnum>(type), As<GPCallback>(callback), param));
 }
 int GpConnect(void* connection, const char* nick, const char* email, const char* password, int firewall, int blocking,
-              Callback callback, void* param)
+              HookFn callback, void* param)
 {
     return static_cast<int>(gpConnect(Gp(connection), nick, email, password, static_cast<GPEnum>(firewall),
                                       static_cast<GPEnum>(blocking), As<GPCallback>(callback), param));
 }
 int GpConnectNewUser(void* connection, const char* nick, const char* uniqueNick, const char* email,
-                     const char* password, const char* cdKey, int firewall, int blocking, Callback callback,
+                     const char* password, const char* cdKey, int firewall, int blocking, HookFn callback,
                      void* param)
 {
     return static_cast<int>(gpConnectNewUser(Gp(connection), nick, uniqueNick, email, password, cdKey,
@@ -421,7 +421,7 @@ int StatsSendSnapShot(void* game, const char* snapshot, int final)
 {
     return ::SendGameSnapShot(static_cast<statsgame_t>(game), snapshot, final);
 }
-void StatsGetPersistDataValues(int localId, int profile, int type, int index, const char* keys, Callback callback,
+void StatsGetPersistDataValues(int localId, int profile, int type, int index, const char* keys, HookFn callback,
                           void* instance)
 {
     ::GetPersistDataValues(localId, profile, static_cast<persisttype_t>(type), index, const_cast<char*>(keys),

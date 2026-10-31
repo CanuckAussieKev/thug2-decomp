@@ -27,11 +27,11 @@ uint8_t g_savedPixelShaderConstants[64]; // (4 passes of 16 bytes: the adapter i
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 
 // The game's C runtime heap (the nodes and copies are freed by code that is still the game's).
 void* AllocBlock(size_t size) { return Crt::AllocBlock(size); }
-void Free(void* memory) { Crt::Free(memory); }
+void Dealloc(void* memory) { Crt::Dealloc(memory); }
 
 // A node of the buffers' lists: the buffer, the previous and the next node.
 struct sBufferNode {
@@ -73,7 +73,7 @@ void Unlist(sBufferNode*& head, const void* buffer)
     node->buffer = nullptr;
     node->prev = nullptr;
     node->next = nullptr;
-    Free(node);
+    Dealloc(node);
 }
 
 IDirect3DVertexBuffer9* D3D(const sVertexBuffer* vb) { return static_cast<IDirect3DVertexBuffer9*>(vb->buffer); }
@@ -85,11 +85,11 @@ constexpr uint32_t kShared = 4;
 } // namespace
 
 // 0x004D3FF0
-sVertexBuffer* sVertexBuffer::Construct(uint32_t bytes, uint32_t usageFlags, uint32_t bufferFlags)
+sVertexBuffer* sVertexBuffer::MakeNew(uint32_t bytes, uint32_t usageFlags, uint32_t bufferFlags)
 {
     buffer = nullptr;
     if (!(bufferFlags & kShared))
-        Device()->CreateVertexBuffer(bytes, usageFlags, 0, D3DPOOL_DEFAULT,
+        InputPort()->CreateVertexBuffer(bytes, usageFlags, 0, D3DPOOL_DEFAULT,
                                      reinterpret_cast<IDirect3DVertexBuffer9**>(&buffer), nullptr);
     size = bytes;
     usage = usageFlags;
@@ -146,7 +146,7 @@ void sVertexBuffer::Recreate()
     if (flags & kShared)
         D3D(this)->AddRef();
     else
-        Device()->CreateVertexBuffer(size, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
+        InputPort()->CreateVertexBuffer(size, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                      reinterpret_cast<IDirect3DVertexBuffer9**>(&buffer), nullptr);
     if (flags & kNoCopy)
         return;
@@ -158,10 +158,10 @@ void sVertexBuffer::Recreate()
 }
 
 // 0x004D4270
-sIndexBuffer* sIndexBuffer::Construct(uint32_t bytes, uint32_t usageFlags, uint32_t indexFormat)
+sIndexBuffer* sIndexBuffer::MakeNew(uint32_t bytes, uint32_t usageFlags, uint32_t indexFormat)
 {
     buffer = nullptr;
-    Device()->CreateIndexBuffer(bytes, usageFlags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(indexFormat),
+    InputPort()->CreateIndexBuffer(bytes, usageFlags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(indexFormat),
                                 D3DPOOL_DEFAULT, reinterpret_cast<IDirect3DIndexBuffer9**>(&buffer), nullptr);
     size = bytes;
     usage = usageFlags;
@@ -193,7 +193,7 @@ long sIndexBuffer::Unlock()
 }
 
 // 0x004D3FC0
-sVertexBuffer* meshRef::GetVertexBuffer(int index) { return vertexBuffers[index]; }
+sVertexBuffer* meshRef::FetchVertexStore(int index) { return vertexBuffers[index]; }
 
 // 0x004D3FD0
 void meshRef::SetVertexBuffer(int index, sVertexBuffer* vb) { vertexBuffers[index] = vb; }

@@ -20,7 +20,7 @@ struct textureRef {
     bool renderTarget;
 
     // 0x004E04B0: construct (no texture) and go on the list. Returns this.
-    textureRef* Construct();
+    textureRef* MakeNew();
     // 0x004E0500: construct a copy of `source` - a managed texture of its size, format and levels, every level's
     // texels copied. Returns this.
     textureRef* ConstructCopy(const textureRef* source);
@@ -29,7 +29,7 @@ struct textureRef {
     // 0x004E03F0: off the list.
     void Unlist();
     // 0x004E0380: set on a stage.
-    void Set(int stage);
+    void AssignValue(int stage);
     // 0x004E03A0: level 0 locked: its texels, or null.
     void* Lock();
     // 0x004E03D0: level 0 unlocked.

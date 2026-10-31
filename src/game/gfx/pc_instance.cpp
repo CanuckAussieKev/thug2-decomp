@@ -30,27 +30,27 @@ namespace Engine3D {
 D3DLIGHT9 g_deviceLight1{D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}};
 D3DLIGHT9 g_deviceLight0{
     D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 0.0f}};
-Maths::Matrix* g_boneMatrices;
+Maths::Mat4* g_boneMatrices;
 int g_boneCount;
 sSingleton* g_currentInstance;
-const Maths::Matrix* g_lastBones;
+const Maths::Mat4* g_lastBones;
 sSingleton* g_instances;
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 sSingleton*& Instances() { return g_instances; }
 sSingleton* g_visibleInstances[4096]; // RenderInstances' list
 sSingleton** Visible() { return g_visibleInstances; }
-const Maths::Matrix* LastBones() { return g_lastBones; }
-void SetLastBones(const Maths::Matrix* bones) { g_lastBones = bones; }
+const Maths::Mat4* LastBones() { return g_lastBones; }
+void SetLastBones(const Maths::Mat4* bones) { g_lastBones = bones; }
 const D3DMATRIX* ViewWorld() { return reinterpret_cast<D3DMATRIX*>(&g_worldMatrix); } // the world transform to put back
 
 constexpr uint32_t kMeshLit = 0x10;          // a mesh's +0x38: it asks for lighting
 constexpr uint32_t kMeshNotLit = 0x20000;    // a mesh's flags
 constexpr uint32_t kMeshShown = 0x40;        // a mesh's flags
 constexpr int kMaxBones = 0x3A;
-constexpr int kStateLighting = 0x16;         // SetState's
+constexpr int kStateLighting = 0x16;         // ChangePhase's
 
 int BonesOnDevice(const sceneRef* scene) { return static_cast<int>(scene->unknown78); }
 // Its bones drawn by the vertex shader: it has bones, and its scene doesn't skin them on the CPU (+0x78).
@@ -61,9 +61,9 @@ bool SceneUnlit(const sceneRef* scene) { return static_cast<int8_t>(scene->flags
 uint32_t MeshFlags(const uint8_t* mesh) { return *reinterpret_cast<const uint32_t*>(mesh); }
 uint32_t& MeshFlagsRef(uint8_t* mesh) { return *reinterpret_cast<uint32_t*>(mesh); }
 
-const Maths::Vector* Position(const sSingleton* instance)
+const Maths::Vec4* Position(const sSingleton* instance)
 {
-    return reinterpret_cast<const Maths::Vector*>(reinterpret_cast<const float*>(&instance->transform) + 12);
+    return reinterpret_cast<const Maths::Vec4*>(reinterpret_cast<const float*>(&instance->transform) + 12);
 }
 
 // A colour channel (0-1) as a byte, as the original's _ftol (truncated through 64 bits).
@@ -79,7 +79,7 @@ void UpdateModelLights(sSingleton* instance)
         ResetLights();
         return;
     }
-    auto update = reinterpret_cast<void(__thiscall*)(void*, const Maths::Vector*, uint32_t)>(
+    auto update = reinterpret_cast<void(__thiscall*)(void*, const Maths::Vec4*, uint32_t)>(
         (*reinterpret_cast<void***>(lights))[7]);
     update(lights, Position(instance), *reinterpret_cast<uint32_t*>(lights + 4));
 }
@@ -95,7 +95,7 @@ void SendLights()
     lampA.Direction.x = g_lightConstants[4];
     lampA.Direction.y = g_lightConstants[5];
     lampA.Direction.z = g_lightConstants[6];
-    Device()->SetLight(0, &lampA);
+    InputPort()->SetLight(0, &lampA);
     D3DLIGHT9& lampB = g_deviceLight1;
     lampB.Diffuse.r = g_lightConstants[16];
     lampB.Diffuse.g = g_lightConstants[17];
@@ -103,14 +103,14 @@ void SendLights()
     lampB.Direction.x = g_lightConstants[12];
     lampB.Direction.y = g_lightConstants[13];
     lampB.Direction.z = g_lightConstants[14];
-    Device()->SetLight(1, &lampB);
+    InputPort()->SetLight(1, &lampB);
     uint32_t r = Channel(g_lightConstants[0]);
     uint32_t g = Channel(g_lightConstants[1]);
     uint32_t b = Channel(g_lightConstants[2]);
-    Device()->SetRenderState(D3DRS_AMBIENT, 0xFF000000u | r << 16 | g << 8 | b);
+    InputPort()->SetRenderState(D3DRS_AMBIENT, 0xFF000000u | r << 16 | g << 8 | b);
 }
 
-void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
@@ -118,7 +118,7 @@ void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Mat
 } // namespace
 
 // 0x004D1030
-sSingleton* sSingleton::Construct(sceneRef* list, const Maths::Matrix* matrix, int count, Maths::Matrix* boneMatrices)
+sSingleton* sSingleton::MakeNew(sceneRef* list, const Maths::Mat4* matrix, int count, Maths::Mat4* boneMatrices)
 {
     transform = *matrix;
     bones = boneMatrices;
@@ -147,11 +147,11 @@ void sSingleton::DestroyBody()
     if (flags & 1) {
         if (sceneRef* list = scene) {
             list->DestroyBody();
-            MemSys::Manager::Get()->Free(list);
+            MemSys::Hub::Pull()->Dealloc(list);
             scene = nullptr;
         }
         if (bones) {
-            MemSys::Manager::Get()->Free(bones);
+            MemSys::Hub::Pull()->Dealloc(bones);
             bones = nullptr;
         }
     }
@@ -170,15 +170,15 @@ void sSingleton::Render(uint32_t drawBits)
         SetWorldTransform(reinterpret_cast<const float*>(&transform));
         if (LastBones() != bones) {
             if (SceneUnlit(scene)) {
-                Device()->SetRenderState(D3DRS_LIGHTING, FALSE);
+                InputPort()->SetRenderState(D3DRS_LIGHTING, FALSE);
             } else {
                 UpdateModelLights(this);
-                Device()->SetRenderState(D3DRS_LIGHTING, TRUE);
+                InputPort()->SetRenderState(D3DRS_LIGHTING, TRUE);
                 SendLights();
             }
             SetLastBones(bones);
         }
-        Device()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(&transform));
+        InputPort()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(&transform));
         g_boneMatrices = bones;
         g_boneCount = boneCount;
         g_currentInstance = this;
@@ -207,19 +207,19 @@ void sSingleton::Render(uint32_t drawBits)
     SetLastBones(nullptr);
     if ((flags & 2) && !SceneUnlit(scene)) {
         UpdateModelLights(this);
-        SetState(kStateLighting, 1);
+        ChangePhase(kStateLighting, 1);
         SendLights();
     } else {
-        SetState(kStateLighting, 0);
+        ChangePhase(kStateLighting, 0);
     }
     if (BonesOnDevice(scene) != 0) {
         int count = boneCount < kMaxBones ? boneCount : kMaxBones;
         if (count > 0) {
             for (int bone = 0; bone < count; ++bone) {
-                Maths::Matrix world = transform;
+                Maths::Mat4 world = transform;
                 MatrixMultiply(&world, &bones[bone], &world);
                 SetWorldTransform(reinterpret_cast<const float*>(&world));
-                Device()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(&world));
+                InputPort()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(&world));
                 for (int i = 0; i < scene->meshCount; ++i) {
                     uint8_t* mesh = scene->meshes[i];
                     if (static_cast<int8_t>(mesh[0x1F]) == bone)
@@ -233,7 +233,7 @@ void sSingleton::Render(uint32_t drawBits)
         }
     }
     SetWorldTransform(reinterpret_cast<const float*>(&transform));
-    Device()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(&transform));
+    InputPort()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(&transform));
     DrawScene(scene, drawBits | kRenderNoCulling, 0);
 }
 
@@ -244,7 +244,7 @@ void __cdecl RenderInstance(sSingleton* instance, uint32_t flags)
     if (!instance->active)
         return;
     SetWorldTransform(reinterpret_cast<const float*>(&instance->transform));
-    const auto* centre = reinterpret_cast<const Maths::Vector*>(instance->scene->centre);
+    const auto* centre = reinterpret_cast<const Maths::Vec4*>(instance->scene->centre);
     if ((flags & 8) || (SphereInView(centre, instance->scene->radius) &&
                         !SphereOccluded(centre, instance->scene->radius, 1))) {
         if (instance->bones) {
@@ -255,7 +255,7 @@ void __cdecl RenderInstance(sSingleton* instance, uint32_t flags)
             instance->Render(kRenderOpaque | kRenderTransparent);
         }
     }
-    Device()->SetTransform(D3DTS_WORLD, ViewWorld());
+    InputPort()->SetTransform(D3DTS_WORLD, ViewWorld());
     SetWorldTransform(nullptr);
 }
 
@@ -281,15 +281,15 @@ void __cdecl RenderInstances(uint32_t flags, int viewport)
             float radius = instance->scene->radius;
             if (instance->bones && BonesOnDevice(instance->scene) == 0 && radius < 72.0f)
                 radius = 72.0f; // (a skinned model's sphere at least this big)
-            if (!SphereOccluded(reinterpret_cast<const Maths::Vector*>(instance->scene->centre), radius, 1))
+            if (!SphereOccluded(reinterpret_cast<const Maths::Vec4*>(instance->scene->centre), radius, 1))
                 Visible()[count++] = instance;
         }
         if (count > 0) {
             Crt::Qsort(Visible(), static_cast<uint32_t>(count), 4, CompareInstances); // (the C runtime's qsort)
-            SetState(kStateLighting, 1);
-            Device()->SetRenderState(D3DRS_COLORVERTEX, TRUE);
-            Device()->LightEnable(0, TRUE);
-            Device()->LightEnable(1, TRUE);
+            ChangePhase(kStateLighting, 1);
+            InputPort()->SetRenderState(D3DRS_COLORVERTEX, TRUE);
+            InputPort()->LightEnable(0, TRUE);
+            InputPort()->LightEnable(1, TRUE);
             SetFlag786EB4();
             int i = 0;
             for (; i < count; ++i) {
@@ -302,7 +302,7 @@ void __cdecl RenderInstances(uint32_t flags, int viewport)
             ClearFlag786EB4();
             float camera[3] = {g_camera.position[0], g_camera.position[1],
                                g_camera.position[2]};
-            double nearDistance = static_cast<double>(Scripts::GetFloat(0x4E7DC608u)) * 12.0f;
+            double nearDistance = static_cast<double>(Scripts::FetchFloat(0x4E7DC608u)) * 12.0f;
             float nearSquared = static_cast<float>(nearDistance * nearDistance);
             for (; i < count; ++i) {
                 sSingleton* instance = Visible()[i];
@@ -315,13 +315,13 @@ void __cdecl RenderInstances(uint32_t flags, int viewport)
                     instance->Render(flags);
             }
             g_nearCamera = true;
-            SetState(kStateLighting, 0);
-            Device()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
-            Device()->LightEnable(0, FALSE);
-            Device()->LightEnable(1, FALSE);
+            ChangePhase(kStateLighting, 0);
+            InputPort()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
+            InputPort()->LightEnable(0, FALSE);
+            InputPort()->LightEnable(1, FALSE);
         }
     }
-    Device()->SetTransform(D3DTS_WORLD, ViewWorld());
+    InputPort()->SetTransform(D3DTS_WORLD, ViewWorld());
     SetWorldTransform(nullptr);
 }
 
@@ -357,7 +357,7 @@ int __cdecl CompareInstances(const void* a, const void* b)
 }
 
 // 0x004D1A60
-sUVWibble* sUVWibble::Construct()
+sUVWibble* sUVWibble::MakeNew()
 {
     velocity[0] = velocity[1] = 0;
     frequency[0] = frequency[1] = 0;
@@ -370,6 +370,6 @@ sUVWibble* sUVWibble::Construct()
 }
 
 // 0x004D1A80
-void sTextureAnim::Restart() { startTime = FrameClock::GetTime(); }
+void sTextureAnim::Relaunch() { startTime = FrameClock::GetTime(); }
 
 } // namespace Nx

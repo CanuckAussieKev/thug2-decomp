@@ -12,7 +12,7 @@ static_assert(offsetof(CValueResolver, m_operators) == 0x144, "layout must match
 static_assert(offsetof(CValueResolver, m_operatorTop) == 0x1E4, "layout must match the original");
 static_assert(offsetof(CValueResolver, m_hasOperators) == 0x1E8, "layout must match the original");
 static_assert(offsetof(CValueResolver, m_token) == 0x1EC, "layout must match the original");
-static_assert(offsetof(CValueResolver, m_error) == 0x1F0, "layout must match the original");
+static_assert(offsetof(CValueResolver, m_fault) == 0x1F0, "layout must match the original");
 static_assert(offsetof(CValueResolver, m_unknown1F4) == 0x1F4, "layout must match the original");
 
 float g_evalDivisorMinimum{0.000001f};
@@ -61,7 +61,7 @@ CPair* NewResultPair()
 {
     SetResultType(QBVAL_PAIR);
     CPair* pair = NewPair();
-    pair = pair ? pair->Init() : nullptr;
+    pair = pair ? pair->PrepareAll() : nullptr;
     Result().pair = pair;
     return pair;
 }
@@ -69,7 +69,7 @@ CVector* NewResultVector()
 {
     SetResultType(QBVAL_VECTOR);
     CVector* vector = NewVector();
-    vector = vector ? vector->Init() : nullptr;
+    vector = vector ? vector->PrepareAll() : nullptr;
     Result().vector = vector;
     return vector;
 }
@@ -77,7 +77,7 @@ CStruct* NewResultStructure()
 {
     SetResultType(QBVAL_STRUCT);
     CStruct* structure = NewStruct();
-    structure = structure ? structure->Init() : nullptr;
+    structure = structure ? structure->PrepareAll() : nullptr;
     Result().structure = structure;
     return structure;
 }
@@ -96,7 +96,7 @@ bool JoinStrings(const char* a, const char* b, EQbValueKind type)
     std::memcpy(joined, a, lengthA);
     std::memcpy(joined + lengthA, b, lengthB + 1);
     SetResultType(type);
-    Result().string = CreateString(joined);
+    Result().string = SpawnText(joined);
     return true;
 }
 
@@ -105,31 +105,31 @@ bool JoinStrings(const char* a, const char* b, EQbValueKind type)
 // 0x0047A910
 void CopyArrayElementToComponent(CArray* array, uint32_t index, CComponent* to, int reference)
 {
-    to->typeAndFlag = static_cast<uint8_t>((to->typeAndFlag & 1) | (array->m_type << 1));
-    switch (array->m_type) {
+    to->typeAndFlag = static_cast<uint8_t>((to->typeAndFlag & 1) | (array->m_kindTag << 1));
+    switch (array->m_kindTag) {
     case QBVAL_INTEGER:
     case QBVAL_NAME:
-        to->raw = array->GetElement(index);
+        to->raw = array->FetchPart(index);
         break;
     case QBVAL_FLOAT:
-        to->floatValue = array->GetFloat(index);
+        to->floatValue = array->FetchFloat(index);
         break;
     case QBVAL_STRING:
-        to->string = CreateString(array->FindInlineText(index));
+        to->string = SpawnText(array->FindInlineText(index));
         break;
     case QBVAL_PAIR: {
-        auto* from = reinterpret_cast<const CPair*>(array->GetElement(index));
+        auto* from = reinterpret_cast<const CPair*>(array->FetchPart(index));
         CPair* pair = NewPair();
-        pair = pair ? pair->Init() : nullptr;
+        pair = pair ? pair->PrepareAll() : nullptr;
         to->pair = pair;
         pair->x = from->x;
         to->pair->y = from->y;
         break;
     }
     case QBVAL_VECTOR: {
-        auto* from = reinterpret_cast<const CVector*>(array->GetElement(index));
+        auto* from = reinterpret_cast<const CVector*>(array->FetchPart(index));
         CVector* vector = NewVector();
-        vector = vector ? vector->Init() : nullptr;
+        vector = vector ? vector->PrepareAll() : nullptr;
         to->vector = vector;
         vector->x = from->x;
         to->vector->y = from->y;
@@ -139,21 +139,21 @@ void CopyArrayElementToComponent(CArray* array, uint32_t index, CComponent* to, 
     case QBVAL_STRUCT:
         if (reference) {
             to->typeAndFlag = static_cast<uint8_t>((to->typeAndFlag & 1) | (QBVAL_STRUCT_REF << 1));
-            to->raw = array->GetElement(index);
+            to->raw = array->FetchPart(index);
         } else {
             CStruct* structure = NewStruct();
-            to->structure = structure ? structure->Init() : nullptr;
-            to->structure->AppendStructureIfAny(reinterpret_cast<CStruct*>(array->GetElement(index)));
+            to->structure = structure ? structure->PrepareAll() : nullptr;
+            to->structure->AppendStructureIfAny(reinterpret_cast<CStruct*>(array->FetchPart(index)));
         }
         break;
     case QBVAL_ARRAY:
         if (reference) {
             to->typeAndFlag = static_cast<uint8_t>((to->typeAndFlag & 1) | (ESYMBOLTYPE_ARRAYPOINTER << 1));
-            to->raw = array->GetElement(index);
+            to->raw = array->FetchPart(index);
         } else {
             CArray* copy = NewArray();
-            to->array = copy ? copy->Init() : nullptr;
-            DuplicateArray(to->array, reinterpret_cast<CArray*>(array->GetElement(index)));
+            to->array = copy ? copy->PrepareAll() : nullptr;
+            DuplicateArray(to->array, reinterpret_cast<CArray*>(array->FetchPart(index)));
         }
         break;
     default:
@@ -169,7 +169,7 @@ namespace {
 // A component's value and type, a name standing for a global symbol counting as the symbol's.
 void ResolvedValue(const CComponent* component, uint32_t* type, uint32_t* value)
 {
-    *type = component->Type();
+    *type = component->KindTag();
     *value = component->raw;
     if (*type == QBVAL_NAME) {
         if (CSymbolTableEntry* symbol = ResolveSymbol(*value)) {
@@ -256,39 +256,39 @@ bool GreaterThan(CComponent* a, CComponent* b)
 // 0x0046D160
 bool IsReference(const CComponent* component)
 {
-    return component->Type() == QBVAL_STRUCT_REF || component->Type() == ESYMBOLTYPE_ARRAYPOINTER;
+    return component->KindTag() == QBVAL_STRUCT_REF || component->KindTag() == ESYMBOLTYPE_ARRAYPOINTER;
 }
 
 // 0x0046D180
 void MakeReference(CComponent* component)
 {
-    if (component->Type() == QBVAL_STRUCT)
+    if (component->KindTag() == QBVAL_STRUCT)
         component->typeAndFlag = static_cast<uint8_t>((component->typeAndFlag & 1) | (QBVAL_STRUCT_REF << 1));
-    else if (component->Type() == QBVAL_ARRAY)
+    else if (component->KindTag() == QBVAL_ARRAY)
         component->typeAndFlag = static_cast<uint8_t>((component->typeAndFlag & 1) | (ESYMBOLTYPE_ARRAYPOINTER << 1));
 }
 
 // 0x0046D1A0
 void MakeOwning(CComponent* component)
 {
-    if (component->Type() == QBVAL_STRUCT_REF)
+    if (component->KindTag() == QBVAL_STRUCT_REF)
         component->typeAndFlag = static_cast<uint8_t>((component->typeAndFlag & 1) | (QBVAL_STRUCT << 1));
-    else if (component->Type() == ESYMBOLTYPE_ARRAYPOINTER)
+    else if (component->KindTag() == ESYMBOLTYPE_ARRAYPOINTER)
         component->typeAndFlag = static_cast<uint8_t>((component->typeAndFlag & 1) | (QBVAL_ARRAY << 1));
 }
 
 // 0x0046D280
-int GetBool(const CComponent* component)
+int FetchFlag(const CComponent* component)
 {
-    if (component->Type() == QBVAL_INTEGER)
+    if (component->KindTag() == QBVAL_INTEGER)
         return component->integer;
-    if (component->Type() == QBVAL_FLOAT && component->floatValue != 0.0f)
+    if (component->KindTag() == QBVAL_FLOAT && component->floatValue != 0.0f)
         return 1;
     return 0;
 }
 
 // 0x0046D380
-CValueResolver* CValueResolver::Init()
+CValueResolver* CValueResolver::PrepareAll()
 {
     for (CComponent& value : m_values)
         ConstructComponent(&value);
@@ -309,21 +309,21 @@ void CValueResolver::Clear()
         op.openParentheses = 0;
     }
     m_hasOperators = false;
-    m_error = nullptr;
+    m_fault = nullptr;
 }
 
 // 0x0046D220
 void CValueResolver::ResetIfDirty()
 {
-    if (m_valueTop || (m_values[0].typeAndFlag & 0xFE) || m_operatorTop || m_error)
+    if (m_valueTop || (m_values[0].typeAndFlag & 0xFE) || m_operatorTop || m_fault)
         Clear();
 }
 
 // 0x0046D260
-void CValueResolver::SetError(const char* error)
+void CValueResolver::ChangeFault(const char* error)
 {
     Clear();
-    m_error = error;
+    m_fault = error;
 }
 
 // 0x0046D2B0
@@ -331,7 +331,7 @@ void CValueResolver::PushOperator(int op)
 {
     if (++m_operatorTop >= 20) {
         Clear();
-        m_error = "Operator stack overflow"; // "Operator stack overflow"
+        m_fault = "Operator stack overflow"; // "Operator stack overflow"
         return;
     }
     m_operators[m_operatorTop].op = op;
@@ -340,13 +340,13 @@ void CValueResolver::PushOperator(int op)
 }
 
 // 0x0046D310
-void CValueResolver::Input(const CComponent* value)
+void CValueResolver::Intake(const CComponent* value)
 {
     // (the first value goes in the bottom slot)
     if (m_valueTop || (m_values[0].typeAndFlag & 0xFE)) {
         if (++m_valueTop >= 20) {
             Clear();
-            m_error = "Value stack overflow"; // "Value stack overflow"
+            m_fault = "Value stack overflow"; // "Value stack overflow"
             return;
         }
     }
@@ -360,7 +360,7 @@ void CValueResolver::OpenBracket()
 }
 
 // 0x0046EB70
-void CValueResolver::Input(int op)
+void CValueResolver::Intake(int op)
 {
     if (m_hasOperators) {
         while (m_operators[m_operatorTop].openParentheses == 0) {
@@ -380,20 +380,20 @@ void CValueResolver::CloseBracket()
 {
     while (m_operators[m_operatorTop].openParentheses == 0) {
         Execute();
-        if (m_error)
+        if (m_fault)
             return;
     }
     --m_operators[m_operatorTop].openParentheses;
 }
 
 // 0x0046EC40
-bool CValueResolver::GetResult(CComponent* result)
+bool CValueResolver::FetchVerdict(CComponent* result)
 {
     while (m_operators[m_operatorTop].openParentheses == 0) {
         if (m_valueTop == 0) {
             if (m_operators[0].op != OPERATOR_NONE || m_operatorTop != 0) {
                 Clear();
-                m_error = "Too many operators in expression"; // "Too many operators in expression"
+                m_fault = "Too many operators in expression"; // "Too many operators in expression"
                 return false;
             }
             // A reference result is copied as what it refers to.
@@ -408,11 +408,11 @@ bool CValueResolver::GetResult(CComponent* result)
             return true;
         }
         Execute();
-        if (m_error)
+        if (m_fault)
             return false;
     }
     Clear();
-    m_error = "Not enough close parentheses"; // "Not enough close parentheses"
+    m_fault = "Not enough close parentheses"; // "Not enough close parentheses"
     return false;
 }
 
@@ -421,18 +421,18 @@ void CValueResolver::Execute()
 {
     if (m_valueTop < 1) {
         Clear();
-        m_error = "Not enough values in stack to execute operation"; // "Not enough values in stack to execute operation"
+        m_fault = "Not enough values in stack to execute operation"; // "Not enough values in stack to execute operation"
         return;
     }
     if (m_operators[m_operatorTop].openParentheses != 0) {
         Clear();
-        m_error = "Non-zero parentheses count"; // "Non-zero parentheses count"
+        m_fault = "Non-zero parentheses count"; // "Non-zero parentheses count"
         return;
     }
     int op = m_operators[m_operatorTop].op;
     if (op == OPERATOR_NONE) {
         Clear();
-        m_error = "Tried to execute with no operator"; // "Tried to execute with no operator"
+        m_fault = "Tried to execute with no operator"; // "Tried to execute with no operator"
         return;
     }
 
@@ -441,18 +441,18 @@ void CValueResolver::Execute()
     CComponent& result = Result();
     result.typeAndFlag &= 1;
     result.raw = 0;
-    const uint32_t typeA = a->Type();
-    const uint32_t typeB = b->Type();
-    auto error = [&](const char* message) { SetError(message); };
+    const uint32_t typeA = a->KindTag();
+    const uint32_t typeB = b->KindTag();
+    auto error = [&](const char* message) { ChangeFault(message); };
 
     switch (op) {
     case OPERATOR_OR:
         SetResultType(QBVAL_INTEGER);
-        result.raw = static_cast<uint32_t>(GetBool(b) | GetBool(a));
+        result.raw = static_cast<uint32_t>(FetchFlag(b) | FetchFlag(a));
         break;
     case OPERATOR_AND:
         SetResultType(QBVAL_INTEGER);
-        result.raw = static_cast<uint32_t>(GetBool(b) & GetBool(a));
+        result.raw = static_cast<uint32_t>(FetchFlag(b) & FetchFlag(a));
         break;
     case OPERATOR_EQUALS:
         SetResultType(QBVAL_INTEGER);
@@ -542,18 +542,18 @@ void CValueResolver::Execute()
                 break;
             }
             CArray* array = NewArray();
-            array = array ? array->Init() : nullptr;
+            array = array ? array->PrepareAll() : nullptr;
             SetResultType(QBVAL_ARRAY);
             result.array = array;
-            uint32_t sizeA = a->array->m_size;
-            uint32_t sizeB = b->array->m_size;
+            uint32_t sizeA = a->array->m_extent;
+            uint32_t sizeB = b->array->m_extent;
             if (sizeA == 0) {
                 DuplicateArray(array, b->array);
             } else if (sizeB == 0) {
                 DuplicateArray(array, a->array);
             } else {
                 // (the elements are all taken to be of the first array's type)
-                EQbValueKind type = a->array->m_type;
+                EQbValueKind type = a->array->m_kindTag;
                 array->ConfigureSizeKind(sizeA + sizeB, type);
                 CopyArrayElements(array->FindArrayValue(), a->array->FindArrayValue(), sizeA, type);
                 CopyArrayElements(array->FindArrayValue() + sizeA, b->array->FindArrayValue(), sizeB, type);
@@ -609,21 +609,21 @@ void CValueResolver::Execute()
                 // Without the name (as a parameter or a flag).
                 CStruct* structure = NewResultStructure();
                 structure->AppendStructureIfAny(a->structure);
-                result.structure->RemoveComponent(b->checksum);
+                result.structure->EraseModule(b->checksum);
                 result.structure->RemoveFlag(b->checksum);
             } else if (IsArray(typeB)) {
                 // Without each name in the array.
                 CArray* names = b->array;
-                if (names->m_type != QBVAL_NAME && names->m_type != QBVAL_NONE) {
+                if (names->m_kindTag != QBVAL_NAME && names->m_kindTag != QBVAL_NONE) {
                     // "Subtracting an array from a structure requires the array to be an array of names"
                     error("Subtracting an array from a structure requires the array to be an array of names");
                     break;
                 }
                 CStruct* structure = NewResultStructure();
                 structure->AppendStructureIfAny(a->structure);
-                for (uint32_t i = 0; i < names->m_size; ++i) {
-                    result.structure->RemoveComponent(names->GetElement(i));
-                    result.structure->RemoveFlag(names->GetElement(i));
+                for (uint32_t i = 0; i < names->m_extent; ++i) {
+                    result.structure->EraseModule(names->FetchPart(i));
+                    result.structure->RemoveFlag(names->FetchPart(i));
                 }
             } else if (IsStructure(typeB)) {
                 // Without each of the other structure's parameters (by name and type) and flags.
@@ -632,9 +632,9 @@ void CValueResolver::Execute()
                 CStruct* other = b->structure;
                 for (CComponent* each = other->StepToEntry(nullptr); each; each = other->StepToEntry(each)) {
                     if (each->name) {
-                        result.structure->RemoveComponentOfType(each->name, each->Type());
-                    } else if (each->Type() == QBVAL_NAME) {
-                        result.structure->RemoveComponent(each->checksum);
+                        result.structure->RemoveComponentOfType(each->name, each->KindTag());
+                    } else if (each->KindTag() == QBVAL_NAME) {
+                        result.structure->EraseModule(each->checksum);
                         result.structure->RemoveFlag(each->checksum);
                     }
                 }
@@ -849,7 +849,7 @@ void CValueResolver::Execute()
             error("Array element operator not supported for this type"); // "Array element operator not supported for this type"
         } else if (typeB != QBVAL_INTEGER) {
             error("[] index must be an integer"); // "[] index must be an integer"
-        } else if (b->raw >= a->array->m_size) {
+        } else if (b->raw >= a->array->m_extent) {
             error("[] index out of range"); // "[] index out of range"
         } else {
             CopyArrayElementToComponent(a->array, b->raw, &result, typeA == ESYMBOLTYPE_ARRAYPOINTER);
@@ -860,7 +860,7 @@ void CValueResolver::Execute()
 
     default:
         Clear();
-        m_error = "Operator not supported"; // "Operator not supported"
+        m_fault = "Operator not supported"; // "Operator not supported"
         break;
     }
 
@@ -894,7 +894,7 @@ struct ComponentAdapters {
     bool IsReference() { return Scripts::IsReference(reinterpret_cast<Scripts::CComponent*>(this)); }
     void MakeReference() { Scripts::MakeReference(reinterpret_cast<Scripts::CComponent*>(this)); }
     void MakeOwning() { Scripts::MakeOwning(reinterpret_cast<Scripts::CComponent*>(this)); }
-    int GetBool() { return Scripts::GetBool(reinterpret_cast<Scripts::CComponent*>(this)); }
+    int FetchFlag() { return Scripts::FetchFlag(reinterpret_cast<Scripts::CComponent*>(this)); }
 };
 
 } // namespace

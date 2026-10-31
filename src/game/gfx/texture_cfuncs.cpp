@@ -36,11 +36,11 @@ void* ParticleTextures() { return reinterpret_cast<void*>(Engine3D::g_particleTe
 // A dictionary's calls (no source yet).
 void* ReadTextureFile(void* dictionary, const char* file, bool flag1, bool allocateVram, bool flag3)
 {
-    return static_cast<Engine3D::CTextureSet*>(dictionary)->LoadTexture(file, flag1, allocateVram, flag3);
+    return static_cast<Engine3D::CTextureSet*>(dictionary)->IngestSkin(file, flag1, allocateVram, flag3);
 }
-void* GetTexture(void* dictionary, uint32_t checksum)
+void* FetchSkin(void* dictionary, uint32_t checksum)
 {
-    return static_cast<Engine3D::CTextureSet*>(dictionary)->GetTexture(checksum);
+    return static_cast<Engine3D::CTextureSet*>(dictionary)->FetchSkin(checksum);
 }
 void* GetTextureByName(void* dictionary, const char* file)
 {
@@ -82,12 +82,12 @@ uint32_t __cdecl FindNameOfValue(CStruct* structure, uint32_t value, int depth)
         CStruct* named = Scripts::ReadSubStruct(RawValue(component));
         CComponent* next = structure->StepToEntry(component);
         if (!found) {
-            if (component->Type() == Scripts::QBVAL_STRUCT)
+            if (component->KindTag() == Scripts::QBVAL_STRUCT)
                 found = FindNameOfValue(component->structure, value, depth + 1);
             else if (named)
                 found = FindNameOfValue(named, value, depth + 1);
         }
-        if (component->Type() == Scripts::QBVAL_NAME && component->checksum == value)
+        if (component->KindTag() == Scripts::QBVAL_NAME && component->checksum == value)
             found = component->name;
         component = next;
     }
@@ -100,7 +100,7 @@ uint32_t FindNameOfInteger(CStruct* structure, uint32_t value)
     uint32_t found = 0;
     for (CComponent* component = structure->StepToEntry(nullptr); component;) {
         CComponent* next = structure->StepToEntry(component);
-        if (component->Type() == Scripts::QBVAL_INTEGER && component->raw == value) {
+        if (component->KindTag() == Scripts::QBVAL_INTEGER && component->raw == value) {
             DebugOut::Printf("s_find_cat_in_mapping found %i\n", value); // "s_find_cat_in_mapping found %i"
             found = component->name;
         }
@@ -151,7 +151,7 @@ bool __cdecl CFunc_CompositeObjectExists(CStruct* params, CScript*)
 bool __cdecl CFunc_LoadTexture(CStruct* params, CScript*)
 {
     const char* file;
-    params->GetString(0u, &file, 0);
+    params->FetchText(0u, &file, 0);
     bool allocateVram = !params->HasBareFlag(0x3955FF2Eu); // no_vram_alloc
     return ReadTextureFile(Textures(), file, true, allocateVram, true) != nullptr;
 }
@@ -184,10 +184,10 @@ bool __cdecl CFunc_UnloadTexture(CStruct* params, CScript*)
     void* texture = nullptr;
     const char* file;
     uint32_t checksum;
-    if (params->GetString(0u, &file, 0))
+    if (params->FetchText(0u, &file, 0))
         texture = GetTextureByName(Textures(), file);
     else if (params->ReadHashValue(0u, &checksum, 0))
-        texture = GetTexture(Textures(), checksum);
+        texture = FetchSkin(Textures(), checksum);
     if (texture) {
         UnloadTextureFrom(Textures(), texture);
         return true;
@@ -201,7 +201,7 @@ bool __cdecl CFunc_Generate32BitImage(CStruct* params, CScript*)
 {
     uint32_t id;
     params->ReadHashValue(0u, &id, 0);
-    void* texture = GetTexture(Textures(), id);
+    void* texture = FetchSkin(Textures(), id);
     if (texture) {
         bool renderable = false;
         bool storeOriginal = false;
@@ -220,7 +220,7 @@ bool __cdecl CFunc_Put32BitImageIntoTexture(CStruct* params, CScript*)
 {
     uint32_t id;
     params->ReadHashValue(0u, &id, 0);
-    void* texture = GetTexture(Textures(), id);
+    void* texture = FetchSkin(Textures(), id);
     if (texture) {
         bool paletteGen = false;
         int value = 0;
@@ -239,7 +239,7 @@ bool __cdecl CFunc_FlipTexture(CStruct* params, CScript*)
     params->ReadHashValue(0u, &id, 0);
     int horizontal = 0;
     int vertical = 0;
-    void* texture = GetTexture(Textures(), id);
+    void* texture = FetchSkin(Textures(), id);
     if (texture) {
         params->FetchIntValue(0xA04027C9u, &horizontal, 0); // horiz
         params->FetchIntValue(0x94927839u, &vertical, 0);   // vert
@@ -258,9 +258,9 @@ bool __cdecl CFunc_ResizeTextureInto(CStruct* params, CScript*)
     params->ReadHashValue(0u, &id, 0);
     uint32_t source; // (not initialised without src=, as in the original)
     params->ReadHashValue(kSrc, &source, 0);
-    void* texture = GetTexture(Textures(), id);
+    void* texture = FetchSkin(Textures(), id);
     if (texture) {
-        if (void* sourceTexture = GetTexture(Textures(), source))
+        if (void* sourceTexture = FetchSkin(Textures(), source))
             TextureCall<void(__thiscall*)(void*, void*, int)>(15, texture, sourceTexture, 0);
     }
     return true;
@@ -272,8 +272,8 @@ bool __cdecl CFunc_ScaleTexture(CStruct* params, CScript*)
     uint32_t id;
     params->ReadHashValue(0u, &id, 0);
     float scale; // (not initialised without scale=, as in the original)
-    params->GetFloat(0x13B9DA7Bu, &scale, 0);
-    if (void* texture = GetTexture(Textures(), id))
+    params->FetchFloat(0x13B9DA7Bu, &scale, 0);
+    if (void* texture = FetchSkin(Textures(), id))
         TextureCall<void(__thiscall*)(void*, float, float)>(16, texture, scale, scale);
     return true;
 }
@@ -283,7 +283,7 @@ bool __cdecl CFunc_AdjustTextureRegion(CStruct* params, CScript*)
 {
     uint32_t id;
     params->ReadHashValue(0u, &id, 0);
-    void* texture = GetTexture(Textures(), id);
+    void* texture = FetchSkin(Textures(), id);
     if (texture) {
         int x = 0;
         int y = 0;
@@ -312,7 +312,7 @@ bool __cdecl CFunc_PullTextureToEdge(CStruct* params, CScript*)
 {
     uint32_t id;
     params->ReadHashValue(0u, &id, 0);
-    void* texture = GetTexture(Textures(), id);
+    void* texture = FetchSkin(Textures(), id);
     if (texture) {
         int edge = 0;
         int axis = 0;
@@ -330,12 +330,12 @@ bool __cdecl CFunc_AdjustTextureBrightness(CStruct* params, CScript*)
 {
     uint32_t id;
     params->ReadHashValue(0u, &id, 0);
-    void* texture = GetTexture(Textures(), id);
+    void* texture = FetchSkin(Textures(), id);
     if (texture) {
         float brightness = 1.0f;
         int value = 0;
         bool flag = false;
-        params->GetFloat(0x2689291Cu, &brightness, 1); // Brightness
+        params->FetchFloat(0x2689291Cu, &brightness, 1); // Brightness
         params->FetchIntValue(kSetsPaletteFlag, &value, 0);
         if (value == 1)
             flag = true;
@@ -349,16 +349,16 @@ bool __cdecl CFunc_AdjustTextureHSV(CStruct* params, CScript*)
 {
     uint32_t id;
     params->ReadHashValue(0u, &id, 0);
-    void* texture = GetTexture(Textures(), id);
+    void* texture = FetchSkin(Textures(), id);
     if (texture) {
         float hue = 0.0f;
         float saturation = 1.0f;
         float value = 1.0f;
         int bitValue = 0;
         bool flag = false;
-        params->GetFloat(0x6E94F918u, &hue, 0);        // h
-        params->GetFloat(0xE4F130F4u, &saturation, 0); // s
-        params->GetFloat(0x949BC47Bu, &value, 0);      // v
+        params->FetchFloat(0x6E94F918u, &hue, 0);        // h
+        params->FetchFloat(0xE4F130F4u, &saturation, 0); // s
+        params->FetchFloat(0x949BC47Bu, &value, 0);      // v
         params->FetchIntValue(kSetsPaletteFlag, &bitValue, 0);
         if (bitValue == 1)
             flag = true;
@@ -374,7 +374,7 @@ bool __cdecl CFunc_CopyTexture(CStruct* params, CScript*)
 {
     uint32_t source;
     params->ReadHashValue(kSrc, &source, 0);
-    void* texture = GetTexture(Textures(), source);
+    void* texture = FetchSkin(Textures(), source);
     uint32_t copy;
     if (texture && params->ReadHashValue(kNew, &copy, 0))
         static_cast<Engine3D::CTextureSet*>(Textures())->CopyTexture(copy, static_cast<Engine3D::CBitmapTexture*>(texture));
@@ -393,10 +393,10 @@ bool __cdecl CFunc_CombineTextures(CStruct* params, CScript*)
     params->ReadHashValue(kNew, &combined, 0);
     if (params->HasBareFlag(0x5905256Bu)) // no_palette_gen
         paletteGen = false;
-    void* sourceTexture = GetTexture(Textures(), source);
+    void* sourceTexture = FetchSkin(Textures(), source);
     if (!sourceTexture)
         return true;
-    void* topTexture = GetTexture(Textures(), top);
+    void* topTexture = FetchSkin(Textures(), top);
     if (!topTexture)
         return true;
     if (combined) {
@@ -413,7 +413,7 @@ bool __cdecl CFunc_CombineTextures(CStruct* params, CScript*)
 bool __cdecl CFunc_LoadParticleTexture(CStruct* params, CScript*)
 {
     const char* file;
-    params->GetString(0u, &file, 0);
+    params->FetchText(0u, &file, 0);
     if (file[0] == '\0')
         return false;
     void* texture = GetTextureByName(ParticleTextures(), file);
@@ -427,7 +427,7 @@ bool __cdecl CFunc_LoadParticleTexture(CStruct* params, CScript*)
 bool __cdecl CFunc_UnloadParticleTexture(CStruct* params, CScript*)
 {
     const char* file;
-    params->GetString(0u, &file, 0);
+    params->FetchText(0u, &file, 0);
     if (void* texture = GetTextureByName(ParticleTextures(), file)) {
         TextureCall<void(__thiscall*)(void*)>(32, texture); // (its vtable +0x80 first)
         UnloadTextureFrom(ParticleTextures(), texture);
@@ -439,7 +439,7 @@ bool __cdecl CFunc_UnloadParticleTexture(CStruct* params, CScript*)
 bool __cdecl CFunc_LoadSFPTexture(CStruct* params, CScript*)
 {
     const char* file;
-    params->GetString(0u, &file, 0);
+    params->FetchText(0u, &file, 0);
     return ReadTextureFile(ParticleTextures(), file, false, true, true) != nullptr;
 }
 
@@ -447,7 +447,7 @@ bool __cdecl CFunc_LoadSFPTexture(CStruct* params, CScript*)
 bool __cdecl CFunc_UnloadSFPTexture(CStruct* params, CScript*)
 {
     const char* file;
-    params->GetString(0u, &file, 0);
+    params->FetchText(0u, &file, 0);
     if (void* texture = GetTextureByName(ParticleTextures(), file))
         UnloadTextureFrom(ParticleTextures(), texture);
     return true;
@@ -457,7 +457,7 @@ bool __cdecl CFunc_UnloadSFPTexture(CStruct* params, CScript*)
 bool __cdecl CFunc_SetParkName(CStruct* params, CScript*)
 {
     const char* name = ""; // ""
-    params->GetString(0u, &name, 0);
+    params->FetchText(0u, &name, 0);
     char* parkName = g_parkName;
     while ((*parkName++ = *name++) != '\0') { // (no length limit, as in the original)
     }

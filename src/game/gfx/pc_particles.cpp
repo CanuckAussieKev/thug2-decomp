@@ -40,7 +40,7 @@ namespace {
 extern void** const kSystemVtable;
 constexpr float kRandomScale = 1.0f / 16384.0f; // 0x006487C8
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 IDirect3DIndexBuffer9* QuadIndices() { return g_quadIndices; }
 int Rand() { return Crt::Rand(); } // (the game's C runtime's)
 
@@ -48,7 +48,7 @@ int Rand() { return Crt::Rand(); } // (the game's C runtime's)
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The materials' code (0x004D1A90-0x004D3390).
-uint8_t* ConstructMaterial(void* memory) { return reinterpret_cast<uint8_t*>(static_cast<materialRef*>(memory)->Construct()); }
+uint8_t* ConstructMaterial(void* memory) { return reinterpret_cast<uint8_t*>(static_cast<materialRef*>(memory)->MakeNew()); }
 void DestroyMaterial(uint8_t* material) { reinterpret_cast<materialRef*>(material)->DestroyBody(); }
 void SetMaterialStates(uint8_t* material) { reinterpret_cast<materialRef*>(material)->SubmitStates(); }
 void SetMaterialPass(uint8_t* material, int pass, int flags)
@@ -58,7 +58,7 @@ void SetMaterialPass(uint8_t* material, int pass, int flags)
 // The skater's texture dictionary's texture by checksum, its key (+0x10, through one more pointer with flag 1 of +0x08).
 const uint8_t* FindTexture(uint32_t checksum)
 {
-    return reinterpret_cast<const uint8_t*>(static_cast<CTextureSet*>(reinterpret_cast<void*>(g_particleTextureDict))->GetTexture(checksum));
+    return reinterpret_cast<const uint8_t*>(static_cast<CTextureSet*>(reinterpret_cast<void*>(g_particleTextureDict))->FetchSkin(checksum));
 }
 uint32_t TextureKey(const uint8_t* texture)
 {
@@ -222,12 +222,12 @@ void sParticleBurst::Skip(int particles)
 }
 
 // 0x004BCE90
-CPcParticleSystem* __fastcall CPcParticleSystem::Create(void*)
+CPcParticleSystem* __fastcall CPcParticleSystem::Fabricate(void*)
 {
     void* memory = MemSys::AllocZeroed(sizeof(CPcParticleSystem));
     if (!memory)
         return nullptr;
-    auto* system = reinterpret_cast<CPcParticleSystem*>(static_cast<CSparkle*>(memory)->Construct());
+    auto* system = reinterpret_cast<CPcParticleSystem*>(static_cast<CSparkle*>(memory)->MakeNew());
     system->vtable = reinterpret_cast<void**>(kSystemVtable);
     return system;
 }
@@ -236,11 +236,11 @@ CPcParticleSystem* __fastcall CPcParticleSystem::Create(void*)
 void CPcParticleSystem::DestroyBody() { EngineDestroyBody(); }
 
 // 0x004BCE50
-CPcParticleSystem* CPcParticleSystem::Destroy(unsigned int flags)
+CPcParticleSystem* CPcParticleSystem::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -250,12 +250,12 @@ void CPcParticleSystem::Initialise()
     rate = static_cast<float>(static_cast<double>(rate) * 0.75f); // (0x0064A4EC)
     capacity = 5;
     live = 0;
-    bursts = static_cast<sParticleBurst*>(MemSys::New(0x8C));
+    bursts = static_cast<sParticleBurst*>(MemSys::Alloc(0x8C));
     newest = bursts + capacity - 1;
     oldest = bursts;
     emitting = false;
 
-    void* memory = MemSys::New(0x110);
+    void* memory = MemSys::Alloc(0x110);
     material = memory ? ConstructMaterial(memory) : nullptr;
     std::memset(material, 0, 0x110);
     *reinterpret_cast<uint32_t*>(material + 0x20) = 0x44; // (its flags)
@@ -307,7 +307,7 @@ void CPcParticleSystem::UpdatePath()
 }
 
 // 0x004BC240
-void CPcParticleSystem::Update()
+void CPcParticleSystem::TickFrame()
 {
     if (localPositions)
         UpdatePath();
@@ -320,10 +320,10 @@ bool CPcParticleSystem::IsEmitting() { return live > 0; }
 void CPcParticleSystem::Release()
 {
     if (bursts)
-        MemSys::Manager::Get()->Free(bursts);
+        MemSys::Hub::Pull()->Dealloc(bursts);
     if (uint8_t* own = material) {
         DestroyMaterial(own);
-        MemSys::Manager::Get()->Free(own);
+        MemSys::Hub::Pull()->Dealloc(own);
     }
 }
 
@@ -374,7 +374,7 @@ void CPcParticleSystem::Render(bool advance)
         }
     }
     if (!localPositions) {
-        Maths::Vector centre = {bounds.x, bounds.y, bounds.z, 0.0f};
+        Maths::Vec4 centre = {bounds.x, bounds.y, bounds.z, 0.0f};
         bool visible = cullOutside ? SphereOutsideView(&centre, bounds.w) != 0 : SphereInView(&centre, bounds.w);
         if (!visible)
             return;
@@ -406,7 +406,7 @@ void CPcParticleSystem::Render(bool advance)
             IDirect3DVertexBuffer9* buffer = nullptr;
             uint32_t firstVertex = 0, room = 0;
             auto* vertex = static_cast<sParticleVertex*>(
-                Platform::LockDynamicVertices(remaining * 4, sizeof(sParticleVertex), &buffer, &firstVertex, &room));
+                OsLayer::LockDynamicVertices(remaining * 4, sizeof(sParticleVertex), &buffer, &firstVertex, &room));
             room >>= 2;
             if (room > 0x1000)
                 room = 0x1000;
@@ -510,18 +510,18 @@ void CPcParticleSystem::Render(bool advance)
                 age = static_cast<float>(t);
             }
             remaining -= static_cast<int>(quads);
-            Platform::UnlockDynamicVertices(quads * 4, sizeof(sParticleVertex));
-            Device()->SetStreamSource(0, buffer, 0, sizeof(sParticleVertex));
-            Device()->SetIndices(QuadIndices());
-            Device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, quads * 4, 0, quads * 2);
+            OsLayer::UnlockDynamicVertices(quads * 4, sizeof(sParticleVertex));
+            InputPort()->SetStreamSource(0, buffer, 0, sizeof(sParticleVertex));
+            InputPort()->SetIndices(QuadIndices());
+            InputPort()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, quads * 4, 0, quads * 2);
         }
     }
 }
 
 namespace {
-static VtableSlot kSystemVtable_slots[] = {&Engine3D::CPcParticleSystem::Destroy, &Engine3D::CPcParticleSystem::Initialise,
+static VtableSlot kSystemVtable_slots[] = {&Engine3D::CPcParticleSystem::Teardown, &Engine3D::CPcParticleSystem::Initialise,
                 &Engine3D::CPcParticleSystem::Release, Stubs::IgnoreArgument, &Engine3D::CPcParticleSystem::Render,
-                &Engine3D::CPcParticleSystem::Update, Stubs::DoNothing, &Engine3D::CPcParticleSystem::IsEmitting};
+                &Engine3D::CPcParticleSystem::TickFrame, Stubs::DoNothing, &Engine3D::CPcParticleSystem::IsEmitting};
 void** const kSystemVtable = reinterpret_cast<void**>(kSystemVtable_slots);
 } // namespace
 

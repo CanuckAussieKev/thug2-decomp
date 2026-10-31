@@ -21,7 +21,7 @@
 
 namespace ScriptCommands {
 
-GameModules::Manager* g_moduleManager;
+GameModules::Hub* g_moduleManager;
 bool g_viewerLaunched;
 
 namespace {
@@ -68,13 +68,13 @@ bool __cdecl CFunc_IsAlive(CStruct* params, CScript* script) { return NodeComman
 bool __cdecl CFunc_PauseSkaters(CStruct* params, CScript*)
 {
     bool hide = params->HasBareFlag("hide");
-    GameModules::Skate* skate = GameModules::Skate::Instance();
+    GameModules::Skate* skate = GameModules::Skate::Sole();
     uint32_t count = static_cast<uint32_t>(skate->CountRiders());
     for (uint32_t i = 0; i < count; ++i) {
         GameObjects::CGameEntity* skater = skate->GetRiderAt(static_cast<int>(i));
         if (skater && skater->m_unknownBC) {
             PauseSkater(skater);
-            skater->Hide(hide);
+            skater->Conceal(hide);
         }
     }
     return true;
@@ -83,13 +83,13 @@ bool __cdecl CFunc_PauseSkaters(CStruct* params, CScript*)
 // 0x005A5420
 bool __cdecl CFunc_UnPauseSkaters(CStruct*, CScript*)
 {
-    GameModules::Skate* skate = GameModules::Skate::Instance();
+    GameModules::Skate* skate = GameModules::Skate::Sole();
     uint32_t count = static_cast<uint32_t>(skate->CountRiders());
     for (uint32_t i = 0; i < count; ++i) {
         GameObjects::CGameEntity* skater = skate->GetRiderAt(static_cast<int>(i));
         if (skater) {
             UnpauseSkater(skater);
-            skater->Hide(false);
+            skater->Conceal(false);
         }
     }
     return true;
@@ -100,7 +100,7 @@ bool __cdecl CFunc_SkatersAreReady(CStruct*, CScript*)
 {
     if (!OnlinePlay::g_gameNetManager->m_readyToPlay)
         return false;
-    if (GameModules::Skate::Instance()->CountRiders() > 0)
+    if (GameModules::Skate::Sole()->CountRiders() > 0)
         return true;
     // IsObserving (0x005A0D90, no source yet)
     return ScriptCommands::CFunc_IsObserving(nullptr, nullptr);
@@ -111,19 +111,19 @@ bool __cdecl CFunc_LaunchViewer(CStruct*, CScript*)
 {
     if (ViewerLaunched())
         return true;
-    GameModules::Manager* modules = g_moduleManager;
+    GameModules::Hub* modules = g_moduleManager;
     void* memory = MemSys::AllocZeroed(sizeof(GameModules::Viewer));
-    GameModules::Viewer* viewer = memory ? static_cast<GameModules::Viewer*>(memory)->Construct() : nullptr;
-    modules->RegisterModule(viewer);
+    GameModules::Viewer* viewer = memory ? static_cast<GameModules::Viewer*>(memory)->MakeNew() : nullptr;
+    modules->EnrolUnit(viewer);
     modules->LaunchModule(viewer);
     ViewerLaunched() = true;
 
     CStruct* nodeData = Scripts::NewStruct();
     if (nodeData)
-        nodeData = nodeData->Init();
+        nodeData = nodeData->PrepareAll();
     nodeData->PutNameKey("name", kViewerCam);
     GameObjects::CGameEntity* camera = GameObjects::CompositeObjectManager()->SpawnEntityFromNode(
-        Scripts::GetArray("viewercam_composite_structure"), nodeData, true);
+        Scripts::FetchList("viewercam_composite_structure"), nodeData, true);
     if (nodeData) {
         nodeData->Clear();
         Scripts::DeleteStruct(nodeData);
@@ -135,10 +135,10 @@ bool __cdecl CFunc_LaunchViewer(CStruct*, CScript*)
 // 0x005A5610
 bool __cdecl CFunc_AddSkaterEarly(CStruct*, CScript*)
 {
-    if (GameModules::Skate::Instance()->CountRiders() == 0) {
-        GameModules::Skate* skate = GameModules::Skate::Instance();
+    if (GameModules::Skate::Sole()->CountRiders() == 0) {
+        GameModules::Skate* skate = GameModules::Skate::Sole();
         // its profile 0 (0x00564FC0) as a new local skater (0x00567180), no id, heap 0
-        GameObjects::CRiderIdentity* profile = skate->GetProfile(static_cast<int>(0));
+        GameObjects::CRiderIdentity* profile = skate->FetchAccount(static_cast<int>(0));
         skate->AddSkater(profile, true, 0, 0);
     }
     return true;

@@ -33,7 +33,7 @@ constexpr uint32_t kLinks = 0x2E7D5EE7;    // links
 constexpr uint32_t kPosition = 0xB9D31B0A; // position
 constexpr uint32_t kPos = 0x7F261953;      // pos
 
-CNodeManager*& Instance() { return g_nodeManager; }
+CNodeManager*& Sole() { return g_nodeManager; }
 uint32_t& RefTally() { return g_nodeManagerReferences; }
 
 // NOT ORIGINAL - a node asked for that must exist (the release build's assertion did nothing) and doesn't: logged, the
@@ -84,17 +84,17 @@ public:
     {
     }
     uint32_t Mask() const { return m_skipBits; }
-    bool Empty(uint32_t i) const { return Node(i) == -1; }
-    int Node(uint32_t i) const { return m_big ? m_big[i].m_listLink : m_small[i].m_listLink; }
+    bool Vacant(uint32_t i) const { return Elem(i) == -1; }
+    int Elem(uint32_t i) const { return m_big ? m_big[i].m_listLink : m_small[i].m_listLink; }
     uint32_t Array(uint32_t i) const { return m_big ? m_big[i].m_elementList : m_small[i].m_elementList; }
-    void Set(uint32_t i, uint32_t array, int node)
+    void AssignValue(uint32_t i, uint32_t array, int node)
     {
         if (m_big)
             m_big[i] = {array, node};
         else
             m_small[i] = {static_cast<uint16_t>(array), static_cast<int16_t>(node)};
     }
-    void Clear(uint32_t i) { Set(i, Array(i), -1); }
+    void Clear(uint32_t i) { AssignValue(i, Array(i), -1); }
 
 private:
     NodeSlot* m_small;
@@ -105,9 +105,9 @@ private:
 // The walk's place, whichever kind (as the slots).
 struct Walk {
     explicit Walk(CNodeManager* m) : big(IsBig(m)), small(m->m_walk) {}
-    int Node() const { return big ? g_bigWalk.m_listLink : small.m_listLink; }
+    int Elem() const { return big ? g_bigWalk.m_listLink : small.m_listLink; }
     uint32_t Array() const { return big ? g_bigWalk.m_elementList : small.m_elementList; }
-    void Set(uint32_t array, int node)
+    void AssignValue(uint32_t array, int node)
     {
         if (big)
             g_bigWalk = {array, node};
@@ -137,7 +137,7 @@ void CNodeManager::HashNode(uint32_t array, uint32_t index, CStruct* node)
         return;
     Slots slots(this);
     uint32_t slot = name & slots.Mask();
-    while (!slots.Empty(slot)) {
+    while (!slots.Vacant(slot)) {
         slot = (slot + 1) & slots.Mask();
         // NOT ORIGINAL: a full hash - the original went round it for ever (a level of more named nodes than slots) -
         // logged, the node left out.
@@ -151,7 +151,7 @@ void CNodeManager::HashNode(uint32_t array, uint32_t index, CStruct* node)
             return;
         }
     }
-    slots.Set(slot, array, static_cast<int>(index));
+    slots.AssignValue(slot, array, static_cast<int>(index));
 }
 
 // 0x0045CEF0
@@ -159,34 +159,34 @@ void CNodeManager::UnhashNodeArray(uint32_t array)
 {
     Slots slots(this);
     for (uint32_t i = 0; i <= slots.Mask(); ++i) {
-        if (!slots.Empty(i) && slots.Array(i) == array)
+        if (!slots.Vacant(i) && slots.Array(i) == array)
             slots.Clear(i);
     }
     // (A node may land in a later slot and be met - and moved - again.)
     for (uint32_t i = 0; i <= slots.Mask(); ++i) {
-        if (slots.Empty(i))
+        if (slots.Vacant(i))
             continue;
         uint32_t movedArray = slots.Array(i);
-        int movedNode = slots.Node(i);
+        int movedNode = slots.Elem(i);
         slots.Clear(i);
-        auto* node = reinterpret_cast<CStruct*>(m_arrays[movedArray].m_nodeList->GetElement(movedNode));
+        auto* node = reinterpret_cast<CStruct*>(m_arrays[movedArray].m_nodeList->FetchPart(movedNode));
         uint32_t name = 0;
         node->ReadHashValue(kName, &name, 1);
         uint32_t to = name & slots.Mask();
-        while (!slots.Empty(to))
+        while (!slots.Vacant(to))
             to = (to + 1) & slots.Mask();
-        slots.Set(to, movedArray, movedNode);
+        slots.AssignValue(to, movedArray, movedNode);
     }
 }
 
 // 0x0045CFC0
-CStruct* CNodeManager::GetNode(uint32_t name, bool assert)
+CStruct* CNodeManager::FetchVertex(uint32_t name, bool assert)
 {
     Slots slots(this);
     // (NOT ORIGINAL: at most every slot once - a full hash without the name went round for ever)
     uint32_t tries = slots.Mask() + 1;
-    for (uint32_t slot = name & slots.Mask(); tries-- && !slots.Empty(slot); slot = (slot + 1) & slots.Mask()) {
-        auto* node = reinterpret_cast<CStruct*>(m_arrays[slots.Array(slot)].m_nodeList->GetElement(slots.Node(slot)));
+    for (uint32_t slot = name & slots.Mask(); tries-- && !slots.Vacant(slot); slot = (slot + 1) & slots.Mask()) {
+        auto* node = reinterpret_cast<CStruct*>(m_arrays[slots.Array(slot)].m_nodeList->FetchPart(slots.Elem(slot)));
         uint32_t nodeName = 0;
         node->ReadHashValue(kName, &nodeName, 1);
         if (nodeName == name)
@@ -198,9 +198,9 @@ CStruct* CNodeManager::GetNode(uint32_t name, bool assert)
 }
 
 // 0x0045D370
-CNodeManager* CNodeManager::Construct()
+CNodeManager* CNodeManager::MakeNew()
 {
-    m_count = 0;
+    m_num = 0;
     for (NodeSlot& slot : m_slots)
         slot = {0, -1};
     m_walk.m_listLink = -1;
@@ -211,48 +211,48 @@ CNodeManager* CNodeManager::Construct()
 void CNodeManager::StartWalk(uint32_t name)
 {
     Walk walk(this);
-    walk.Set(0, 0);
+    walk.AssignValue(0, 0);
     if (!name)
         return;
     Slots slots(this);
     uint32_t slot = name & slots.Mask();
     for (;;) {
-        CStruct* node = reinterpret_cast<CStruct*>(m_arrays[slots.Array(slot)].m_nodeList->GetElement(slots.Node(slot)));
+        CStruct* node = reinterpret_cast<CStruct*>(m_arrays[slots.Array(slot)].m_nodeList->FetchPart(slots.Elem(slot)));
         uint32_t nodeName = 0;
         node->ReadHashValue(kName, &nodeName, 1);
         if (nodeName == name)
             break;
         slot = (slot + 1) & slots.Mask();
     }
-    walk.Set(slots.Array(slot), slots.Node(slot));
+    walk.AssignValue(slots.Array(slot), slots.Elem(slot));
 }
 
 // 0x0045D110
 void CNodeManager::EndWalk()
 {
     Walk walk(this);
-    walk.Set(walk.Array(), -1);
+    walk.AssignValue(walk.Array(), -1);
 }
 
 // 0x0045D3F0
 CStruct* CNodeManager::NextNode()
 {
     Walk walk(this);
-    if (walk.Node() == -1)
+    if (walk.Elem() == -1)
         return nullptr;
     uint32_t array = walk.Array();
     CArray* nodes = m_arrays[array].m_nodeList;
-    auto* node = reinterpret_cast<CStruct*>(nodes->GetElement(walk.Node()));
-    int next = walk.Node() + 1;
+    auto* node = reinterpret_cast<CStruct*>(nodes->FetchPart(walk.Elem()));
+    int next = walk.Elem() + 1;
     if (!walk.big)
         next = static_cast<int16_t>(next); // (the original's 16-bit count)
-    if (next >= static_cast<int>(nodes->m_size)) {
+    if (next >= static_cast<int>(nodes->m_extent)) {
         ++array;
         next = 0;
-        if (array >= m_count)
+        if (array >= m_num)
             next = -1;
     }
-    walk.Set(array, next);
+    walk.AssignValue(array, next);
     return node;
 }
 
@@ -260,8 +260,8 @@ CStruct* CNodeManager::NextNode()
 CArray* CNodeManager::GetLastNodeArray()
 {
     // NOT ORIGINAL: the level editor's overlay array (SetEditorNodeArray) is passed over - callers mean the level's.
-    uint32_t i = m_count;
-    while (i && g_editorArray && m_arrays[i - 1].m_name == g_editorArray)
+    uint32_t i = m_num;
+    while (i && g_editorArray && m_arrays[i - 1].m_label == g_editorArray)
         --i;
     return i ? m_arrays[i - 1].m_nodeList : nullptr;
 }
@@ -270,10 +270,10 @@ CArray* CNodeManager::GetLastNodeArray()
 uint32_t CNodeManager::GetLastNodeArrayName()
 {
     // NOT ORIGINAL: as GetLastNodeArray, the editor's overlay array passed over.
-    uint32_t i = m_count;
-    while (i && g_editorArray && m_arrays[i - 1].m_name == g_editorArray)
+    uint32_t i = m_num;
+    while (i && g_editorArray && m_arrays[i - 1].m_label == g_editorArray)
         --i;
-    return i ? m_arrays[i - 1].m_name : 0;
+    return i ? m_arrays[i - 1].m_label : 0;
 }
 
 // 0x0045D140
@@ -285,8 +285,8 @@ uint32_t CNodeManager::GetOwnerValue58() { return *reinterpret_cast<uint32_t*>(s
 // 0x0045D270
 bool CNodeManager::HasNodeArray(uint32_t name)
 {
-    for (uint32_t i = 0; i < m_count; ++i) {
-        if (m_arrays[i].m_name == name)
+    for (uint32_t i = 0; i < m_num; ++i) {
+        if (m_arrays[i].m_label == name)
             return true;
     }
     return false;
@@ -295,8 +295,8 @@ bool CNodeManager::HasNodeArray(uint32_t name)
 // 0x0045D170
 bool CNodeManager::HashNodeIn(uint32_t name, uint32_t a, uint32_t b)
 {
-    for (uint32_t i = 0; i < m_count; ++i) {
-        if (m_arrays[i].m_name == name) {
+    for (uint32_t i = 0; i < m_num; ++i) {
+        if (m_arrays[i].m_label == name) {
             HashNode(i, a, reinterpret_cast<CStruct*>(b));
             return true;
         }
@@ -308,25 +308,25 @@ bool CNodeManager::HashNodeIn(uint32_t name, uint32_t a, uint32_t b)
 void CNodeManager::HashNodes(uint32_t index)
 {
     CArray* nodes = m_arrays[index].m_nodeList;
-    for (uint32_t i = 0; i < nodes->m_size; ++i)
-        HashNode(index, i, reinterpret_cast<CStruct*>(nodes->GetElement(i)));
+    for (uint32_t i = 0; i < nodes->m_extent; ++i)
+        HashNode(index, i, reinterpret_cast<CStruct*>(nodes->FetchPart(i)));
 }
 
 // 0x0045D480
 void CNodeManager::ResolveLinks(CArray* nodes)
 {
-    uint32_t count = nodes->m_size;
+    uint32_t count = nodes->m_extent;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* node = reinterpret_cast<CStruct*>(nodes->GetElement(i));
+        auto* node = reinterpret_cast<CStruct*>(nodes->FetchPart(i));
         CArray* links = nullptr;
-        if (!node->GetArray(kLinks, &links, 0) || !links->m_size)
+        if (!node->FetchList(kLinks, &links, 0) || !links->m_extent)
             continue;
-        uint32_t linkCount = links->m_size;
+        uint32_t linkCount = links->m_extent;
         for (uint32_t j = 0; j < linkCount; ++j) {
-            auto* linked = reinterpret_cast<CStruct*>(nodes->GetElement(links->GetElement(j)));
+            auto* linked = reinterpret_cast<CStruct*>(nodes->FetchPart(links->FetchPart(j)));
             links->SetElement(j, GetNodeName(linked));
         }
-        links->SetType(Scripts::QBVAL_NAME);
+        links->ChangeSpecies(Scripts::QBVAL_NAME);
     }
 }
 
@@ -335,25 +335,25 @@ bool CNodeManager::AddNodeArray(uint32_t name, bool flag)
 {
     if (HasNodeArray(name))
         return false;
-    CArray* nodes = Scripts::GetArray(name);
-    m_arrays[m_count].m_name = name;
-    m_arrays[m_count].m_nodeList = nodes;
-    m_arrays[m_count].m_flag = flag;
-    ++m_count;
-    HashNodes(m_count - 1);
+    CArray* nodes = Scripts::FetchList(name);
+    m_arrays[m_num].m_label = name;
+    m_arrays[m_num].m_nodeList = nodes;
+    m_arrays[m_num].m_flag = flag;
+    ++m_num;
+    HashNodes(m_num - 1);
     AddNodeArrayPrefixes(name);
-    int count = static_cast<int>(nodes->m_size);
+    int count = static_cast<int>(nodes->m_extent);
     for (int i = 0; i < count; ++i) {
-        auto* node = reinterpret_cast<CStruct*>(nodes->GetElement(i));
+        auto* node = reinterpret_cast<CStruct*>(nodes->FetchPart(i));
         Scripts::VectorValue position = {0.0f, 0.0f, 0.0f, 1.0f};
-        if (node->GetVector(kPosition, &position, 0)) {
-            node->RemoveComponent(kPosition);
+        if (node->FetchVec(kPosition, &position, 0)) {
+            node->EraseModule(kPosition);
             node->PutVec3(kPos, position.x, position.y, -position.z);
         }
     }
     ResolveLinks(nodes);
     if (flag) {
-        GameObjects::CPathManager::Instance()->NumberPaths();
+        GameObjects::CPathManager::Sole()->NumberPaths();
     }
     // NOT ORIGINAL: the level editor's edited copy (see node_manager.h).
     if (g_addedHook)
@@ -366,18 +366,18 @@ bool CNodeManager::RemoveNodeArray(uint32_t name)
 {
     RemoveNodeArrayPrefixes(name);
     uint32_t index = 0;
-    while (index < m_count && m_arrays[index].m_name != name)
+    while (index < m_num && m_arrays[index].m_label != name)
         ++index;
-    if (index >= m_count)
+    if (index >= m_num)
         return false;
     UnhashNodeArray(index);
-    --m_count;
-    if (index != m_count) {
-        m_arrays[index] = m_arrays[m_count];
+    --m_num;
+    if (index != m_num) {
+        m_arrays[index] = m_arrays[m_num];
         Slots slots(this);
         for (uint32_t i = 0; i <= slots.Mask(); ++i) {
-            if (slots.Array(i) == m_count)
-                slots.Set(i, index, slots.Node(i));
+            if (slots.Array(i) == m_num)
+                slots.AssignValue(i, index, slots.Elem(i));
         }
     }
     // NOT ORIGINAL: the level editor's overlay array leaves with the level it was added after.
@@ -430,15 +430,15 @@ void UseBigNameHash(CNodeManager* manager, uint32_t slots)
 // 0x0045D690
 CNodeManager* CreateNodeManager(bool create)
 {
-    if (!Instance() && create) {
+    if (!Sole() && create) {
         void* memory = MemSys::AllocZeroed(sizeof(CNodeManager), nullptr, 1);
-        Instance() = memory ? static_cast<CNodeManager*>(memory)->Construct() : nullptr;
+        Sole() = memory ? static_cast<CNodeManager*>(memory)->MakeNew() : nullptr;
         // NOT ORIGINAL: its name hash bigger than the original's (MemSys::Sizes::NodeHashSlots - see BigSlot).
-        if (Instance() && MemSys::Sizes::NodeHashSlots() > static_cast<uint32_t>(CNodeManager::kSlots))
-            UseBigNameHash(Instance(), MemSys::Sizes::NodeHashSlots());
+        if (Sole() && MemSys::Sizes::NodeHashSlots() > static_cast<uint32_t>(CNodeManager::kSlots))
+            UseBigNameHash(Sole(), MemSys::Sizes::NodeHashSlots());
     }
     ++RefTally();
-    return Instance();
+    return Sole();
 }
 
 // 0x0045D6E0
@@ -448,12 +448,12 @@ void ReleaseNodeManager()
         --RefTally();
         return;
     }
-    if (Instance())
-        MemSys::Manager::Get()->Free(Instance());
+    if (Sole())
+        MemSys::Hub::Pull()->Dealloc(Sole());
     // NOT ORIGINAL: its bigger name hash goes with it.
-    if (Instance() == g_bigOwner)
+    if (Sole() == g_bigOwner)
         UseBigNameHash(nullptr, 0);
-    Instance() = nullptr;
+    Sole() = nullptr;
     RefTally() = 0;
 }
 

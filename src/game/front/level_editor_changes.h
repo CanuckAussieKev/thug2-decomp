@@ -16,7 +16,7 @@ namespace MenuSystem::LevelEditor::Changes {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
-struct Entry {
+struct TableRow {
     int line = -1;          // the record's line in the layout's text (0 = the first)
     std::string keyword;    // its first word ("sector")
     std::string group;      // "Scenery", "Objects", "Nodes", ...
@@ -27,11 +27,11 @@ struct Entry {
 // anything unknown).
 const char* GroupOf(const std::string& keyword);
 // The groups in the panel's order.
-const std::vector<const char*>& Groups();
+const std::vector<const char*>& Bunches();
 // A checksum's name for summaries (`label`: the name, else "" - then the record's comment, else the hex).
 using Labeler = std::function<std::string(uint32_t checksum)>;
 // The changes of a layout's text, in its order.
-std::vector<Entry> List(const std::string& layoutText, const Labeler& label);
+std::vector<TableRow> LinkChain(const std::string& layoutText, const Labeler& label);
 // The text with line `line` taken out (the record reverted); the text unchanged when there is no such line.
 std::string Without(const std::string& layoutText, int line);
 // A record's checksum argument: 8 hex digits (or 0x and 8) as they are, else a name's checksum (the script's CRC).

@@ -39,14 +39,14 @@ void** Vtable(T address)
     return reinterpret_cast<void**>(address);
 }
 
-MemSys::ListNode* Node(CAnimTimeline* timeline) { return reinterpret_cast<MemSys::ListNode*>(timeline); }
+MemSys::ListNode* Elem(CAnimTimeline* timeline) { return reinterpret_cast<MemSys::ListNode*>(timeline); }
 
 // The timeline's empty state (Reset and the constructor).
 void Clear(CAnimTimeline* t)
 {
-    t->m_start = 0.0f;
-    t->m_current = 0.0f;
-    t->m_end = 0.0f;
+    t->m_outset = 0.0f;
+    t->m_ongoing = 0.0f;
+    t->m_finish = 0.0f;
     t->m_speed = 0.0f;
     t->m_direction = 0;
     t->m_loopType = CAnimTimeline::kCycle;
@@ -65,9 +65,9 @@ void DeleteController(CAnimController* controller)
 // --- the timeline ---
 
 // 0x00481650
-CAnimTimeline* CAnimTimeline::Construct()
+CAnimTimeline* CAnimTimeline::MakeNew()
 {
-    MemSys::ListNode* node = Node(this);
+    MemSys::ListNode* node = Elem(this);
     node->data = this;
     node->priority = 0;
     node->next = node;
@@ -80,15 +80,15 @@ CAnimTimeline* CAnimTimeline::Construct()
 // 0x00481690
 void CAnimTimeline::DestroyBody()
 {
-    Node(this)->UnlinkAs(kListNodeVtable);
+    Elem(this)->UnlinkAs(kListNodeVtable);
 }
 
 // 0x004816E0
-CAnimTimeline* CAnimTimeline::Destroy(uint8_t flags)
+CAnimTimeline* CAnimTimeline::Teardown(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -99,18 +99,18 @@ void CAnimTimeline::Reset()
 }
 
 // 0x00481640
-void CAnimTimeline::Update()
+void CAnimTimeline::TickFrame()
 {
-    m_current = static_cast<float>(NextTime());
+    m_ongoing = static_cast<float>(NextTime());
 }
 
 // 0x00481430 (start: the smaller of the two - `to` when they're equal or NaN; end: the other)
 void CAnimTimeline::PlayAnim(uint32_t anim, float from, float to, int loopType, float /*blendPeriod*/, float speed)
 {
     bool forwards = from < to;
-    m_start = forwards ? from : to;
-    m_current = from;
-    m_end = forwards ? to : from;
+    m_outset = forwards ? from : to;
+    m_ongoing = from;
+    m_finish = forwards ? to : from;
     m_speed = speed * kSecondsPerFrame;
     m_direction = forwards ? 0 : -1;
     m_loopType = loopType;
@@ -121,22 +121,22 @@ void CAnimTimeline::PlayAnim(uint32_t anim, float from, float to, int loopType, 
 // 0x004813B0
 void CAnimTimeline::GetTimes(float* start, float* current, float* end)
 {
-    *current = m_current;
+    *current = m_ongoing;
     if (m_direction == 0) {
-        *start = m_start;
-        *end = m_end;
+        *start = m_outset;
+        *end = m_finish;
     } else {
-        *start = m_end;
-        *end = m_start;
+        *start = m_finish;
+        *end = m_outset;
     }
 }
 
 // 0x004813F0
-bool CAnimTimeline::IsComplete()
+bool CAnimTimeline::IsAccomplished()
 {
     if (m_loopType != kOnce)
         return false;
-    return m_direction == 0 ? m_current == m_end : m_current == m_start;
+    return m_direction == 0 ? m_ongoing == m_finish : m_ongoing == m_outset;
 }
 
 // 0x004814B0 (x87: the step and the wrapped time unrounded; the stepped time itself kept as a float)
@@ -149,31 +149,31 @@ double CAnimTimeline::NextTime()
     if (m_loopType == kHold)
         return 0.0;
     if (m_direction == 0) {
-        double next = FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond * m_speed + m_current;
+        double next = FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond * m_speed + m_ongoing;
         stepped = static_cast<float>(next);
-        m_complete = next > m_end;
-        if (m_start == m_end) {
-            bound = m_end;
-            time = m_end;
+        m_complete = next > m_finish;
+        if (m_outset == m_finish) {
+            bound = m_finish;
+            time = m_finish;
         } else {
             // (wrapped round the end, as many times as it takes - forever on a degenerate range, as the original)
-            time = static_cast<double>(stepped) - m_end + m_start;
-            while (time > m_end)
-                time = time - m_end + m_start;
-            bound = m_end;
+            time = static_cast<double>(stepped) - m_finish + m_outset;
+            while (time > m_finish)
+                time = time - m_finish + m_outset;
+            bound = m_finish;
         }
     } else if (m_direction == -1) {
-        double next = m_current - FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond * m_speed;
+        double next = m_ongoing - FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond * m_speed;
         stepped = static_cast<float>(next);
-        m_complete = next < m_start;
-        if (m_start == m_end) {
-            time = m_end;
+        m_complete = next < m_outset;
+        if (m_outset == m_finish) {
+            time = m_finish;
         } else {
-            time = static_cast<double>(stepped) - m_start + m_end;
-            while (time < m_start)
-                time = time - m_start + m_end;
+            time = static_cast<double>(stepped) - m_outset + m_finish;
+            while (time < m_outset)
+                time = time - m_outset + m_finish;
         }
-        bound = m_start;
+        bound = m_outset;
     }
     if (m_complete && m_loopType == kOnce) {
         time = bound;
@@ -183,10 +183,10 @@ double CAnimTimeline::NextTime()
     } else if (!m_complete || m_loopType != kCycle) {
         time = stepped;
     }
-    if (time < m_start)
-        time = m_start;
-    if (time > m_end)
-        time = m_end;
+    if (time < m_outset)
+        time = m_outset;
+    if (time > m_finish)
+        time = m_finish;
     return time;
 }
 
@@ -195,24 +195,24 @@ void CAnimTimeline::AdvanceClock(float frames)
 {
     float speed = m_speed;
     m_speed = 0.0f;
-    m_current = static_cast<float>(static_cast<double>(frames) + m_current);
-    m_current = static_cast<float>(NextTime());
+    m_ongoing = static_cast<float>(static_cast<double>(frames) + m_ongoing);
+    m_ongoing = static_cast<float>(NextTime());
     m_speed = speed;
 }
 
 // --- the blend timeline ---
 
 // 0x00481830
-CAnimTrack* CAnimTrack::Construct(GameObjects::CGameEntity* object)
+CAnimTrack* CAnimTrack::MakeNew(GameObjects::CGameEntity* object)
 {
-    CAnimTimeline::Construct();
+    CAnimTimeline::MakeNew();
     m_controllerCount = 0;
     mp_events = nullptr;
     m_eventCount = 0;
     m_ownerObject = object;
     m_vtable = kBlendTimelineVtable;
     m_eventsOn = true;
-    m_state = kPlaying;
+    m_curPhase = kPlaying;
     return this;
 }
 
@@ -220,7 +220,7 @@ CAnimTrack* CAnimTrack::Construct(GameObjects::CGameEntity* object)
 void CAnimTrack::Reset()
 {
     CAnimTimeline::Reset();
-    m_state = kOff;
+    m_curPhase = kOff;
     m_fadeLeft = 0.0f;
     m_fadeScale = 0.0f;
 }
@@ -265,26 +265,26 @@ bool CAnimTrack::GetPoses(void* pose)
 }
 
 // 0x00481980
-bool CAnimTrack::IsActive()
+bool CAnimTrack::IsOperative()
 {
-    return m_state != kOff;
+    return m_curPhase != kOff;
 }
 
 // 0x00481990
 bool CAnimTrack::IsFading()
 {
-    return m_state == kFading;
+    return m_curPhase == kFading;
 }
 
 // 0x004819A0
 void CAnimTrack::ArmEvents()
 {
     for (uint32_t i = 0; i < m_eventCount; ++i)
-        reinterpret_cast<CUserClipKey*>(&mp_events[i])->SetActive(true);
+        reinterpret_cast<CUserClipKey*>(&mp_events[i])->ChangeLive(true);
 }
 
 // 0x004819D0
-GameObjects::CGameEntity* CAnimTrack::GetObject()
+GameObjects::CGameEntity* CAnimTrack::FetchSubject()
 {
     return m_ownerObject;
 }
@@ -292,13 +292,13 @@ GameObjects::CGameEntity* CAnimTrack::GetObject()
 // --- the base controller ---
 
 // 0x00481710
-CAnimController* CAnimController::Construct(CAnimTimeline* timeline)
+CAnimController* CAnimController::MakeNew(CAnimTimeline* timeline)
 {
     mp_timeline = timeline;
     m_vtable = kControllerVtable;
-    m_id = 0;
+    m_ident = 0;
     m_ownerObject = nullptr;
-    m_priority = 0;
+    m_rank = 0;
     return this;
 }
 
@@ -309,30 +309,30 @@ void CAnimController::DestroyBody()
 }
 
 // 0x004817A0
-CAnimController* CAnimController::Destroy(uint8_t flags)
+CAnimController* CAnimController::Teardown(uint8_t flags)
 {
     m_vtable = kControllerVtable;
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
 // 0x00481740
 bool CAnimController::ConfigureFromData(Scripts::CStruct* params)
 {
-    return params->ReadHashValue(kId, &m_id, 0);
+    return params->ReadHashValue(kId, &m_ident, 0);
 }
 
 // 0x00481760
-GameObjects::CGameEntity* CAnimController::GetObject()
+GameObjects::CGameEntity* CAnimController::FetchSubject()
 {
-    return static_cast<CAnimTrack*>(mp_timeline)->GetObject();
+    return static_cast<CAnimTrack*>(mp_timeline)->FetchSubject();
 }
 
 // 0x00481770
 uint8_t* CAnimController::FetchRig()
 {
-    GameObjects::CObjectModule* component = static_cast<CAnimTrack*>(mp_timeline)->GetObject()->GetComponent(kSkeleton);
+    GameObjects::CObjectModule* component = static_cast<CAnimTrack*>(mp_timeline)->FetchSubject()->FetchModule(kSkeleton);
     return component ? static_cast<GameObjects::CBoneRigModule*>(component)->m_boneRig : nullptr;
 }
 
@@ -345,10 +345,10 @@ void CAnimEventBase::DestroyBody()
 }
 
 namespace {
-static VtableSlot kTimelineVtable_slots[] = {&Gfx2D::CAnimTimeline::Destroy, &Gfx2D::CAnimTimeline::Reset,
-                &Gfx2D::CAnimTimeline::Update, &Gfx2D::CAnimTimeline::PlayAnim, Stubs::IgnoreArgument};
+static VtableSlot kTimelineVtable_slots[] = {&Gfx2D::CAnimTimeline::Teardown, &Gfx2D::CAnimTimeline::Reset,
+                &Gfx2D::CAnimTimeline::TickFrame, &Gfx2D::CAnimTimeline::PlayAnim, Stubs::IgnoreArgument};
 void** const kTimelineVtable = reinterpret_cast<void**>(kTimelineVtable_slots);
-static VtableSlot kControllerVtable_slots[] = {&Gfx2D::CAnimController::Destroy, Stubs::ReturnFalse1,
+static VtableSlot kControllerVtable_slots[] = {&Gfx2D::CAnimController::Teardown, Stubs::ReturnFalse1,
                 Stubs::IgnoreArgument, &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName,
                 &Gfx2D::CAnimController::ConfigureFromData, Stubs::DoNothing};
 void** const kControllerVtable = reinterpret_cast<void**>(kControllerVtable_slots);

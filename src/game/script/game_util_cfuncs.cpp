@@ -73,12 +73,12 @@ constexpr uint32_t kChecksum = 0x21902065;    // "checksum"
 constexpr uint32_t kTime = 0x906B67BA;        // "time"
 constexpr uint32_t kScore = 0xCD66C8AE;       // "score"
 
-GameModules::Skate* Skate() { return GameModules::Skate::Instance(); }
+GameModules::Skate* Skate() { return GameModules::Skate::Sole(); }
 // The game mode (0x007CE470): its name (0x005532A0) and fireball level (0x005531F0) - neither has source yet.
 void* GameMode() { return static_cast<void*>(GoalSystem::g_gameMode); }
 uint32_t GameModeName() { return static_cast<GoalSystem::CMatchRules*>(GameMode())->GetNameKey(); }
 // The rail editor (0x004F4970 finds it).
-ParkEditing::CRailAuthoring* RailEditor() { return ParkEditing::CRailAuthoring::Instance(); }
+ParkEditing::CRailAuthoring* RailEditor() { return ParkEditing::CRailAuthoring::Sole(); }
 
 // 0x005A9E80 (ScriptCommands::WrapAngle, texture_cfuncs.cpp): an angle in degrees brought into 0..360. The original reads
 // its x87 result unrounded; ours is the float it returns (the last bits can differ when it adds or takes a turn).
@@ -95,8 +95,8 @@ bool ArrayHas(CArray* array, uint32_t name)
 {
     if (!array)
         return false;
-    for (uint32_t i = 0; i < array->m_size; ++i)
-        if (array->GetElement(i) == name)
+    for (uint32_t i = 0; i < array->m_extent; ++i)
+        if (array->FetchPart(i) == name)
             return true;
     return false;
 }
@@ -111,17 +111,17 @@ bool ArrayHas(CArray* array, uint32_t name)
 bool __cdecl CFunc_InterpolateParameters(Scripts::CStruct* params, Scripts::CScript* script)
 {
     CStruct* memory = Scripts::NewStruct();
-    CStruct* result = memory ? memory->Init() : nullptr;
+    CStruct* result = memory ? memory->PrepareAll() : nullptr;
     CStruct* a = nullptr;
     params->ReadSubStruct(kA, &a, 1);
     CStruct* b = nullptr;
     params->ReadSubStruct(kB, &b, 1);
     float t = 0.0f;
-    params->GetFloat(kFraction, &t, 0);
+    params->FetchFloat(kFraction, &t, 0);
     CArray* ignore = nullptr;
-    params->GetArray(kIgnore, &ignore, 0);
+    params->FetchList(kIgnore, &ignore, 0);
     CArray* angles = nullptr;
-    params->GetArray(kAngles, &angles, 0);
+    params->FetchList(kAngles, &angles, 0);
 
     for (CComponent* component = a->StepToEntry(nullptr); component;
          // (the original asks the command's params for the next one: the same, the component isn't null)
@@ -146,7 +146,7 @@ bool __cdecl CFunc_InterpolateParameters(Scripts::CStruct* params, Scripts::CScr
         int toInteger = 0;
         if (b->FetchIntValue(name, &toInteger, 0)) {
             to = static_cast<float>(toInteger);
-        } else if (b->GetFloat(name, &to, 0)) {
+        } else if (b->FetchFloat(name, &to, 0)) {
             integer = false;
         } else {
             continue;
@@ -166,7 +166,7 @@ bool __cdecl CFunc_InterpolateParameters(Scripts::CStruct* params, Scripts::CScr
         else
             result->PushFloat(name, value);
     }
-    script->m_params->AppendStructRef(kInterpolated, result);
+    script->m_args->AppendStructRef(kInterpolated, result);
     return true;
 }
 
@@ -175,7 +175,7 @@ bool __cdecl CFunc_InterpolateParameters(Scripts::CStruct* params, Scripts::CScr
 bool __cdecl CFunc_GetTextureFromPath(Scripts::CStruct* params, Scripts::CScript* script)
 {
     const char* path;
-    params->GetString(kPath, &path, 1);
+    params->FetchText(kPath, &path, 1);
     char name[32];
     int length = static_cast<int>(std::strlen(path));
     int i = length;
@@ -184,7 +184,7 @@ bool __cdecl CFunc_GetTextureFromPath(Scripts::CStruct* params, Scripts::CScript
             break;
     for (int from = i + 1; from <= length; ++from)
         name[from - (i + 1)] = path[from];
-    script->m_params->AddString(kTexture, name);
+    script->m_args->AppendWord(kTexture, name);
     return true;
 }
 
@@ -193,7 +193,7 @@ bool __cdecl CFunc_GetTextureFromPath(Scripts::CStruct* params, Scripts::CScript
 // true.
 bool __cdecl CFunc_ClearPowerups(Scripts::CStruct*, Scripts::CScript*)
 {
-    GameModules::Skate* skate = GameModules::Skate::Instance();
+    GameModules::Skate* skate = GameModules::Skate::Sole();
     for (int i = 0; i < 8; ++i) {
         if (skate->GetRiderAt(i)) {
             auto* state = static_cast<GameObjects::CRiderPoseState*>(
@@ -210,10 +210,10 @@ bool __cdecl CFunc_ClearPowerups(Scripts::CStruct*, Scripts::CScript*)
 // distance. False if neither is within it.
 bool __cdecl CFunc_FindNearestRailPoint(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Maths::Vector pos;
-    params->GetVector(kPos, reinterpret_cast<Scripts::VectorValue*>(&pos), 1);
+    Maths::Vec4 pos;
+    params->FetchVec(kPos, reinterpret_cast<Scripts::VectorValue*>(&pos), 1);
     float distance = 150.0f;
-    params->GetFloat(kRailDistance, &distance, 0);
+    params->FetchFloat(kRailDistance, &distance, 0);
     float maxDistanceSquared = static_cast<float>(static_cast<double>(distance) * distance);
     uint32_t ignoreRail = 0;
     params->ReadHashValue(kIgnoreRailId, &ignoreRail, 0);
@@ -223,30 +223,30 @@ bool __cdecl CFunc_FindNearestRailPoint(Scripts::CStruct* params, Scripts::CScri
     float railDistanceSquared = 1.0e8f;
     uint32_t rail = 0;
     int railIndex = 0;
-    Maths::Vector railPoint;
+    Maths::Vec4 railPoint;
     RailEditor()->FindNearestPoint(&pos, &railPoint, &railDistanceSquared, &rail, &railIndex, ignoreRail, ignoreIndex);
     float geometryDistanceSquared = 1.0e8f;
-    Maths::Vector geometryPoint;
+    Maths::Vec4 geometryPoint;
     if (params->HasBareFlag(kCheckLevelGeometry))
         ParkEditing::CParkBuilderMode::FindRestart(&pos, &geometryPoint, &geometryDistanceSquared);
     if (!(railDistanceSquared < maxDistanceSquared) && !(geometryDistanceSquared < maxDistanceSquared))
         return false;
-    Maths::Vector nearest;
+    Maths::Vec4 nearest;
     if (railDistanceSquared < geometryDistanceSquared) {
         nearest = railPoint;
-        script->m_params->PutNameKey(kRailId, rail);
-        script->m_params->PutInt(kRailPointIndex, railIndex);
+        script->m_args->PutNameKey(kRailId, rail);
+        script->m_args->PutInt(kRailPointIndex, railIndex);
     } else {
         nearest = geometryPoint;
     }
-    script->m_params->PutVec3(kNearestPos, nearest.x, nearest.y, nearest.z);
+    script->m_args->PutVec3(kNearestPos, nearest.x, nearest.y, nearest.z);
     return true;
 }
 
 // 0x005B3160: GetParkName: 0xCC23BDDB, the park's name (the buffer at 0x007CED58). Returns false.
 bool __cdecl CFunc_GetParkName(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddString(kParkName, ScriptCommands::g_parkName);
+    script->m_args->AppendWord(kParkName, ScriptCommands::g_parkName);
     return false;
 }
 
@@ -257,7 +257,7 @@ bool __cdecl CFunc_SetSpecialBarColors(Scripts::CStruct* params, Scripts::CScrip
     int index;
     params->FetchIntValue(kSkater, &index, 1);
     auto* skater = static_cast<GameObjects::CRider*>(Skate()->GetRiderAt(index));
-    static_cast<GameModules::Score*>(skater->GetPointsTotal())->SetSpecialBarColors();
+    static_cast<GameModules::PointTally*>(skater->GetPointsTotal())->SetSpecialBarColors();
     return true;
 }
 
@@ -266,7 +266,7 @@ bool __cdecl CFunc_GetInitialsString(Scripts::CStruct*, Scripts::CScript* script
 {
     auto* records = Highscores::g_gameRecords;
     // (the initials through two getters folded with others: 0x005480C0, then 0x005902E0 - returns its argument)
-    script->m_params->AddString(kString, Scripts::QBVAL_STRING, records->m_defaultInitials);
+    script->m_args->AppendWord(kString, Scripts::QBVAL_STRING, records->m_defaultInitials);
     return true;
 }
 
@@ -275,7 +275,7 @@ bool __cdecl CFunc_SetInitialsString(Scripts::CStruct* params, Scripts::CScript*
 {
     auto* records = Highscores::g_gameRecords;
     const char* initials = "ERR"; // "ERR"
-    params->GetString(kString, &initials, 0);
+    params->FetchText(kString, &initials, 0);
     records->SetStockInitials(initials);
     return true;
 }
@@ -283,7 +283,7 @@ bool __cdecl CFunc_SetInitialsString(Scripts::CStruct* params, Scripts::CScript*
 // 0x005B3230: GetFireballLevel: level, the game mode's fireball level. Always true.
 bool __cdecl CFunc_GetFireballLevel(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PutInt(kLevel, static_cast<GoalSystem::CMatchRules*>(GameMode())->GetFireballLevel());
+    script->m_args->PutInt(kLevel, static_cast<GoalSystem::CMatchRules*>(GameMode())->GetFireballLevel());
     return true;
 }
 
@@ -293,18 +293,18 @@ bool __cdecl CFunc_GetSkaterLastNameString(Scripts::CStruct* params, Scripts::CS
 {
     uint32_t name;
     params->ReadHashValue(0u, &name, 1);
-    CArray* skaters = Scripts::GetArray(kMasterSkaterList);
-    int count = static_cast<int>(skaters->m_size);
+    CArray* skaters = Scripts::FetchList(kMasterSkaterList);
+    int count = static_cast<int>(skaters->m_extent);
     for (int i = 0; i < count; ++i) {
-        auto* skater = reinterpret_cast<CStruct*>(skaters->GetElement(i));
+        auto* skater = reinterpret_cast<CStruct*>(skaters->FetchPart(i));
         uint32_t entry;
         skater->ReadHashValue(kName, &entry, 1);
         if (entry != name)
             continue;
         const char* lastName;
-        if (!skater->GetString(kLastName, &lastName, 0))
+        if (!skater->FetchText(kLastName, &lastName, 0))
             return false;
-        script->m_params->AddString(kLastName, lastName);
+        script->m_args->AppendWord(kLastName, lastName);
         return true;
     }
     return false;
@@ -316,9 +316,9 @@ bool __cdecl CFunc_GetSkaterLastNameString(Scripts::CStruct* params, Scripts::CS
 bool __cdecl CFunc_DrawDirectionalLightLines(Scripts::CStruct* params, Scripts::CScript*)
 {
     float heading;
-    params->GetFloat(kHeading, &heading, 1);
+    params->FetchFloat(kHeading, &heading, 1);
     float pitch;
-    params->GetFloat(kPitch, &pitch, 1);
+    params->FetchFloat(kPitch, &pitch, 1);
     pitch = static_cast<float>(pitch * static_cast<double>(g_gameUtilMinusDegreesToRadians)); // -pi / 180
     heading = static_cast<float>((90.0 - heading) * g_degreesToRadians);          // pi / 180
     int r;
@@ -328,15 +328,15 @@ bool __cdecl CFunc_DrawDirectionalLightLines(Scripts::CStruct* params, Scripts::
     int b;
     params->FetchIntValue(kBlue, &b, 1);
     auto* skater = reinterpret_cast<uint8_t*>(Skate()->GetHomeRider());
-    const Maths::Vector& position = *reinterpret_cast<Maths::Vector*>(skater + 0x4C);
+    const Maths::Vec4& position = *reinterpret_cast<Maths::Vec4*>(skater + 0x4C);
     double above = static_cast<double>(position.y) + 75.0;
     float horizontal = static_cast<float>(std::cos(static_cast<double>(pitch)) * 50.0);
-    Maths::Vector from;
+    Maths::Vec4 from;
     from.x = position.x;
     from.y = static_cast<float>(above);
     from.z = position.z;
     from.w = 0.0f;
-    Maths::Vector to;
+    Maths::Vec4 to;
     to.x = static_cast<float>(std::cos(static_cast<double>(heading)) * horizontal + position.x);
     to.y = static_cast<float>(std::sin(static_cast<double>(pitch)) * 50.0 + above);
     to.z = static_cast<float>(std::sin(static_cast<double>(heading)) * horizontal + position.z);
@@ -360,12 +360,12 @@ bool __cdecl CFunc_SetPreferencesFromUI(Scripts::CStruct* params, Scripts::CScri
 {
     auto* preferences = GameModules::Skate::GetPreferencesFromParams(params);
     const char* string;
-    params->GetString(kString, &string, 1);
+    params->FetchText(kString, &string, 1);
     const char* field;
-    params->GetString("field", &field, 1);
+    params->FetchText("field", &field, 1);
     CStruct* memory = Scripts::NewStruct();
-    CStruct* value = memory ? memory->Init() : nullptr;
-    value->AddString(kUiString, Scripts::QBVAL_STRING, string);
+    CStruct* value = memory ? memory->PrepareAll() : nullptr;
+    value->AppendWord(kUiString, Scripts::QBVAL_STRING, string);
     uint32_t checksum = 0;
     params->ReadHashValue("checksum", &checksum, 0);
     value->AddComponentOfType(kChecksum, Scripts::QBVAL_NAME, checksum);
@@ -382,7 +382,7 @@ bool __cdecl CFunc_SetPreferencesFromUI(Scripts::CStruct* params, Scripts::CScri
         }
         value->AddComponentOfType(kScore, Scripts::QBVAL_INTEGER, static_cast<uint32_t>(score));
     }
-    preferences->SetPreference(Checksums::HashFromText(field), value);
+    preferences->ChangeSetting(Checksums::HashFromText(field), value);
     if (value) {
         value->Clear();
         Scripts::DeleteStruct(value);

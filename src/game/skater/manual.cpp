@@ -77,8 +77,8 @@ double Physics(uint8_t* balanceTrick, uint32_t name)
 uint32_t& TrickType(uint8_t* balanceTrick) { return *reinterpret_cast<uint32_t*>(balanceTrick + 0x18); }
 void* ScoreDisplay(uint8_t* score) { return *reinterpret_cast<void**>(score + 0x18); }
 // The score's two balance displays (0x00563370 / 0x00563390): on or off, and the lean shown.
-void ShowLean(void* score, int on, float lean) { static_cast<GameModules::Score*>(score)->SetTeeterGauge(on != 0, lean); }
-void ShowLean2(void* score, int on, float lean) { static_cast<GameModules::Score*>(score)->SetWheelieGauge(on != 0, lean); }
+void ShowLean(void* score, int on, float lean) { static_cast<GameModules::PointTally*>(score)->SetTeeterGauge(on != 0, lean); }
+void ShowLean2(void* score, int on, float lean) { static_cast<GameModules::PointTally*>(score)->SetWheelieGauge(on != 0, lean); }
 // A button of the input component's control data held (its first byte).
 bool Held(uint8_t* input, uint32_t button)
 {
@@ -103,12 +103,12 @@ void ResetState(CBalance* b)
 void CBalance::DestroyBody() { m_vtable = kVtable; }
 
 // 0x00579860
-void CBalance::Init(CGameEntity* skater)
+void CBalance::PrepareAll(CGameEntity* skater)
 {
     m_skater = skater;
-    m_balanceTrick = reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterBalanceTrick));
-    m_pointsHeld = reinterpret_cast<uint8_t*>(m_skater->GetComponent(kSkaterScore));
-    m_input = reinterpret_cast<uint8_t*>(m_skater->GetComponent(kInput));
+    m_balanceTrick = reinterpret_cast<uint8_t*>(skater->FetchModule(kSkaterBalanceTrick));
+    m_pointsHeld = reinterpret_cast<uint8_t*>(m_skater->FetchModule(kSkaterScore));
+    m_input = reinterpret_cast<uint8_t*>(m_skater->FetchModule(kInput));
 }
 
 // 0x005798A0
@@ -138,7 +138,7 @@ void CBalance::KeepBestTime()
 void CBalance::ShowMeter() { m_showMeter = true; }
 
 // 0x00579950
-CBalance* CBalance::Construct()
+CBalance* CBalance::MakeNew()
 {
     m_vtable = kVtable;
     if (Scripts::FetchIntValue(kShowBalanceIndicator))
@@ -148,16 +148,16 @@ CBalance* CBalance::Construct()
 }
 
 // 0x005799A0
-CBalance* CBalance::Destroy(unsigned int flags)
+CBalance* CBalance::Teardown(unsigned int flags)
 {
     m_vtable = kVtable;
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x005799D0
-void CBalance::Stop()
+void CBalance::Halt()
 {
     if (ScoreDisplay(m_pointsHeld)) {
         ShowLean(ScoreDisplay(m_pointsHeld), 0, 0.0f);
@@ -168,7 +168,7 @@ void CBalance::Stop()
 }
 
 // 0x00579A00
-void CBalance::Start(uint32_t leftButton, uint32_t rightButton, uint32_t trick, bool flipped, bool flip)
+void CBalance::Kickoff(uint32_t leftButton, uint32_t rightButton, uint32_t trick, bool flipped, bool flip)
 {
     m_leftButton = leftButton;
     m_rightButton = rightButton;
@@ -179,7 +179,7 @@ void CBalance::Start(uint32_t leftButton, uint32_t rightButton, uint32_t trick, 
     m_flip = flip;
     uint32_t type = TrickType(m_balanceTrick);
     if (type == kGrind || type == kSlide) {
-        uint8_t* core = reinterpret_cast<uint8_t*>(m_skater->GetComponent(kSkaterCorePhysics));
+        uint8_t* core = reinterpret_cast<uint8_t*>(m_skater->FetchModule(kSkaterCorePhysics));
         void* rail = *reinterpret_cast<void**>(core + 0x22C);
         if (m_rail != -1) {
             if (static_cast<CGrindPoint*>(rail)->IsNamed(static_cast<uint32_t>(m_rail))) { // the same rail
@@ -197,12 +197,12 @@ void CBalance::Start(uint32_t leftButton, uint32_t rightButton, uint32_t trick, 
         float runTime = *reinterpret_cast<float*>(static_cast<uint8_t*>(ScoreDisplay(m_pointsHeld)) + 0x154C);
         if (runTime < 0.5f) {
             float inverse = static_cast<float>(1.0 / runTime);
-            m_railTime = static_cast<float>(Scripts::GetFloat(kRobotRailAddTime) * static_cast<double>(inverse) * 0.5 +
+            m_railTime = static_cast<float>(Scripts::FetchFloat(kRobotRailAddTime) * static_cast<double>(inverse) * 0.5 +
                                             m_railTime);
             float side = -1.0f;
             if (!(m_leanSpeed < 0.0f))
                 side = 1.0f;
-            m_lean = static_cast<float>(Scripts::GetFloat(kRobotRailNudge) * static_cast<double>(inverse) * side * 0.5 +
+            m_lean = static_cast<float>(Scripts::FetchFloat(kRobotRailNudge) * static_cast<double>(inverse) * side * 0.5 +
                                         m_lean);
         }
     }
@@ -239,14 +239,14 @@ void CBalance::Start(uint32_t leftButton, uint32_t rightButton, uint32_t trick, 
 }
 
 // 0x00579CC0
-void CBalance::Update()
+void CBalance::TickFrame()
 {
     float frame = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     if (!m_leftButton || !m_rightButton)
         return;
     auto* net = OnlinePlay::g_gameNetManager;
-    if (net->m_server) // (the folded getter 0x005480C0)
-        net->PlayerByObjectId(static_cast<uint16_t>(m_skater->m_id)); // (its result unused)
+    if (net->m_host) // (the folded getter 0x005480C0)
+        net->PlayerByObjectId(static_cast<uint16_t>(m_skater->m_ident)); // (its result unused)
     // The cheese wears off.
     if (m_cheese > 0.01f) {
         float cheese = static_cast<float>(Physics(m_balanceTrick, kCheese));
@@ -256,10 +256,10 @@ void CBalance::Update()
         if (left < 0.0)
             m_cheese = 0.0f;
     }
-    static_cast<GameModules::Score*>(ScoreDisplay(m_pointsHeld))->TweakTrick(static_cast<int>(m_trick));
+    static_cast<GameModules::PointTally*>(ScoreDisplay(m_pointsHeld))->TweakTrick(static_cast<int>(m_trick));
     m_clock = static_cast<float>(static_cast<double>(frame) + m_clock);
     m_railTime = static_cast<float>(static_cast<double>(frame) + m_railTime);
-    CObjectModule* stats = m_skater->GetComponent(kStatsManager);
+    CObjectModule* stats = m_skater->FetchModule(kStatsManager);
     static_cast<CAttributeTracker*>(stats)->CheckBalanceTime(TrickType(m_balanceTrick), m_clock, 0);
     // The lean speeds up.
     float gravity = static_cast<float>(Physics(m_balanceTrick, kLeanGravityStat));
@@ -301,7 +301,7 @@ void CBalance::Update()
     }
     if (!m_skater->m_runScript) {
         void* memory = Scripts::CScript::operator new(0xF4);
-        m_skater->m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->Construct() : nullptr;
+        m_skater->m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
     }
     // Past the bail angle: the skater falls.
     float lean = std::fabs(m_lean);
@@ -314,11 +314,11 @@ void CBalance::Update()
     if (m_showMeter) {
         bool flip = m_flip;
         if (m_mirrored) {
-            uint8_t* core = reinterpret_cast<uint8_t*>(m_skater->GetComponent(kSkaterCorePhysics));
+            uint8_t* core = reinterpret_cast<uint8_t*>(m_skater->FetchModule(kSkaterCorePhysics));
             if (*(*reinterpret_cast<uint8_t**>(core + 0x1528) + 0x28))
                 flip = !flip;
         }
-        if (CObjectModule* blender = m_skater->GetComponent(kAnimBlender)) {
+        if (CObjectModule* blender = m_skater->FetchModule(kAnimBlender)) {
             double position = flip ? 4096.0 - m_lean : m_lean + 4096.0;
             static_cast<CAnimBlenderComponent*>(blender)->FirstChannel47E280(
                 static_cast<float>(position * 0.0001220703125f), 1);
@@ -342,7 +342,7 @@ void CBalance::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CBalance::Destroy};
+static VtableSlot kVtable_slots[] = {&GameObjects::CBalance::Teardown};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

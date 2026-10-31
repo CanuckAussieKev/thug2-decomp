@@ -18,7 +18,7 @@ char s_file[kPathLength];
 
 } // namespace
 
-void Init()
+void PrepareAll()
 {
     GetModuleFileNameA(nullptr, s_executableDirectory, kPathLength);
     // up to the last backslash
@@ -29,7 +29,7 @@ void Init()
 
 const char* ExecutableDirectory() { return s_executableDirectory; }
 
-bool GetBool(const char* section, const char* key, bool fallback)
+bool FetchFlag(const char* section, const char* key, bool fallback)
 {
     return GetPrivateProfileIntA(section, key, fallback ? 1 : 0, s_file) != 0;
 }
@@ -39,7 +39,7 @@ int GetInt(const char* section, const char* key, int fallback)
     return static_cast<int>(GetPrivateProfileIntA(section, key, fallback, s_file));
 }
 
-int GetString(const char* section, const char* key, const char* fallback, char* out, size_t size)
+int FetchText(const char* section, const char* key, const char* fallback, char* out, size_t size)
 {
     return static_cast<int>(GetPrivateProfileStringA(section, key, fallback, out, static_cast<DWORD>(size), s_file));
 }

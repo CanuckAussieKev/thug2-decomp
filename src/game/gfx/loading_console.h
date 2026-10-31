@@ -12,7 +12,7 @@
 // box - clear of the loading bar, which is centred) shows:
 //   LOADING 12.3 s                    last activity 0.4 s ago
 //   [the last lines of what is being loaded, oldest first, each with its time since the load began]
-// The lines: files opened (FileLoad::Open - archives, the data overlay, the data folder - by file name and size),
+// The lines: files opened (FileLoad::Unseal - archives, the data overlay, the data folder - by file name and size),
 // files loaded whole (the PIP loader: from an archive, the cache or disk, with their size), .prx archives loaded,
 // the script commands that load or build things (Load* / Add* scene and collision / Create* / Parse* / Init* /
 // Preload*: scenes, collision, node arrays, QB files, assets, objects, the skater), the scripts called meanwhile
@@ -43,9 +43,9 @@ class CStruct;
 namespace Gfx2D::LoadingConsole {
 
 // [features] loading_console (read once).
-bool Enabled();
+bool IsSwitchedOn();
 // Whether a loading screen is up and the console runs (lines are kept only then).
-bool Active();
+bool LiveNow();
 
 // DisplayLoadingScreen (0x00490890's callers: the script command, the cutscene loader): a loading screen shown -
 // `freeze`: the last frame kept, `blank`: black instead of the picture. Starts the console's clock (the first
@@ -82,17 +82,17 @@ bool InterestingLogLine(const char* line);
 
 // The ring of lines (the console's own state, also used by the self-test on a separate instance).
 struct Ring {
-    struct Line {
+    struct Seg {
         char text[kLineWidth];
         double time;     // seconds since the load began
         unsigned repeat; // the same text again: 1 = once
     };
-    Line lines[kRingLines];
+    Seg lines[kRingLines];
     unsigned count = 0; // lines ever added
     // Add `text` at `time`; the same text as the newest line counts that one up instead.
-    void Add(const char* text, double time);
+    void AppendOne(const char* text, double time);
     // The newest `n` lines' text ("[  1.2] text (x3)"), oldest first.
-    std::vector<std::string> Last(size_t n) const;
+    std::vector<std::string> FinalOne(size_t n) const;
 };
 
 } // namespace Gfx2D::LoadingConsole

@@ -41,10 +41,10 @@ void Heading(const char* title, ImFont* heading)
 
 void RestartSection(int nodeIndex)
 {
-    const std::vector<Nodes::Node>& all = Nodes::All();
+    const std::vector<Nodes::Elem>& all = Nodes::All();
     if (nodeIndex < 0 || nodeIndex >= static_cast<int>(all.size()))
         return;
-    const Nodes::Node& node = all[nodeIndex];
+    const Nodes::Elem& node = all[nodeIndex];
     if (node.family != Nodes::Family::Spawn || node.hidden)
         return;
     uint32_t name = node.name;
@@ -54,7 +54,7 @@ void RestartSection(int nodeIndex)
     ImGui::SameLine();
 }
 
-void Window(float scale, ImFont* heading, ImFont* small)
+void Pane(float scale, ImFont* heading, ImFont* small)
 {
     if (!WindowOpen())
         return;
@@ -143,11 +143,11 @@ void Window(float scale, ImFont* heading, ImFont* small)
     Tip("Clear all runs and landed gaps");
     ImGui::SameLine();
     if (ImGui::Button("Save"))
-        Request(Ask::Save);
+        Request(Ask::StoreAway);
     Tip("Save trails to disk");
     ImGui::SameLine();
     if (ImGui::Button("Load"))
-        Request(Ask::Load);
+        Request(Ask::ReadIn);
     Tip("Reload trails from disk");
 
     // The gaps validated by skating.
@@ -188,7 +188,7 @@ void Window(float scale, ImFont* heading, ImFont* small)
     if (ImGui::Checkbox("Keep Positions", &keep))
         Request(Ask::ToggleKeepSimulation);
     Tip("Keep objects where they are when stopping");
-    ImGui::TextDisabled("%s", Status().c_str());
+    ImGui::TextDisabled("%s", Standing().c_str());
     ImGui::End();
     if (!open)
         WindowOpen() = false;

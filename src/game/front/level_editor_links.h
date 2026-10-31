@@ -31,12 +31,12 @@ struct Member {
     uint32_t id = 0;
     int quarters = 0; // (scenery: the source's quarter turns when this copy was made - 0..3)
 };
-struct Group {
+struct GroupSet {
     bool scenery = false;
     uint32_t source = 0;
     std::vector<Member> members;
 };
-using State = std::vector<Group>;
+using State = std::vector<GroupSet>;
 bool SameState(const State& a, const State& b);
 // The group `id` is in (its index; -1: none) - `isSource`: as its source.
 int GroupOf(const State& state, uint32_t id, bool* isSource = nullptr);
@@ -44,26 +44,26 @@ int GroupOf(const State& state, uint32_t id, bool* isSource = nullptr);
 void Join(State* state, bool scenery, uint32_t source, const std::vector<Member>& copies);
 // `id` made independent: a member taken out (a group left without members goes); the source: its group dissolved.
 // False: not linked.
-bool Unlink(State* state, uint32_t id);
+bool Uncouple(State* state, uint32_t id);
 // The layout's record of a group: a sector referred to by checksum, or (clone >= 0) by its clone record's index.
-struct Ref {
+struct RefTo {
     uint32_t id = 0;
     int clone = -1;
     int quarters = 0;
 };
-struct Record {
+struct LogEntry {
     bool scenery = false;
-    Ref source;
-    std::vector<Ref> members;
+    RefTo source;
+    std::vector<RefTo> members;
 };
-std::string WriteRecord(const Record& record);
+std::string WriteRecord(const LogEntry& record);
 // The words after "link" (false: malformed).
-bool ReadRecord(std::istringstream& in, Record* record);
+bool ReadRecord(std::istringstream& in, LogEntry* record);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
-const State& Current();
-void Set(const State& state);
+const State& AtHand();
+void AssignValue(const State& state);
 // Ctrl+Alt+D: the selection copied as Ctrl+D copies it, the copies linked (an undo step: the copies'). False: nothing
 // copied.
 bool LinkedDuplicate();
@@ -77,8 +77,8 @@ void Tick();
 // The layout: the groups as records (`clones`: the checksums of the clones written as `clone` records, in order -
 // a clone not among them isn't written), and records put in place (`made`: the clones made from the layout's clone
 // records, in order; 0 for one that couldn't be). Returns the groups made.
-std::vector<Record> Capture(const std::vector<uint32_t>& clones);
-int Apply(const std::vector<Record>& records, const std::vector<uint32_t>& made);
+std::vector<LogEntry> Capture(const std::vector<uint32_t>& clones);
+int Apply(const std::vector<LogEntry>& records, const std::vector<uint32_t>& made);
 // Reset level / a new level: forgotten.
 void ResetAll();
 void ForgetLevel();

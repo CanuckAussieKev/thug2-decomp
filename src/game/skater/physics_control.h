@@ -22,20 +22,20 @@ namespace GameObjects {
 class CRiderBoardPhysics : public CObjectModule {
 public:
     // 0x00517830 (registered by RegisterComponentTypes): a new one (0 if out of memory), no core physics yet.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x005176A0 (registered with Create): its script member functions (the table at 0x006846F0) registered.
     static void __cdecl PublishMethodTable();
     // 0x005176C0: the destructor body (the base's).
     void DestroyBody();
     // 0x00517740 (vtable slot 0)
-    CRiderBoardPhysics* Destroy(unsigned int flags);
+    CRiderBoardPhysics* Teardown(unsigned int flags);
     // 0x005176D0 (vtable +0x08): not paused. `params` isn't read.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x00517770 (vtable +0x0C): the core physics and state components found; the state's physics mode (+0x1C) -1.
-    void Finalize();
+    void Seal();
     // 0x00517AC0 (vtable +0x04): while paused the display matrix follows the physics' matrix (skating) or the object's
     // (walking), and the physics is paused again if something resumed it.
-    void Update();
+    void TickFrame();
     // 0x00517C80 (vtable +0x30): SkaterPhysicsControl_SwitchWalkingToSkating / _SwitchSkatingToWalking - 1; 2 for
     // any other name.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
@@ -76,13 +76,13 @@ public:
     uint8_t m_flag26;         // +0x26 (cleared each update)
     uint8_t pad27;
     uint8_t* m_corePhysics;   // +0x28 SkaterCorePhysics (0x5BD63B29)
-    uint8_t* m_state;         // +0x2C SkaterState (0x43686585)
+    uint8_t* m_curPhase;         // +0x2C SkaterState (0x43686585)
 };
 static_assert(offsetof(CRiderBoardPhysics, m_isHalted) == 0x18 &&
                   offsetof(CRiderBoardPhysics, m_switchTime) == 0x1C &&
                   offsetof(CRiderBoardPhysics, m_boardMissing) == 0x24 &&
                   offsetof(CRiderBoardPhysics, m_corePhysics) == 0x28 &&
-                  offsetof(CRiderBoardPhysics, m_state) == 0x2C &&
+                  offsetof(CRiderBoardPhysics, m_curPhase) == 0x2C &&
                   sizeof(CRiderBoardPhysics) == 0x30,
               "layout must match the original (0x00517830 allocates 0x30 bytes)");
 

@@ -1,6 +1,6 @@
 // NOT ORIGINAL - the level editor's arrange tools and adjust-last panel on the UI (ours; see level_editor_arrange.h and
 // level_editor_adjust.h). Dear ImGui only (the renderer-independence rules: level_editor_ui_backend.h); what the
-// buttons ask for is queued and done in the editor's next Update (Arrange::Update runs the queue).
+// buttons ask for is queued and done in the editor's next Update (Arrange::TickFrame runs the queue).
 
 #include <cstdio>
 #include <functional>
@@ -37,9 +37,9 @@ void RunQueued()
         action();
 }
 
-void Window(float uiScale)
+void Pane(float uiScale)
 {
-    Settings& s = Current();
+    Settings& s = AtHand();
     if (!s.window)
         return;
     ImGui::SetNextWindowSize(ImVec2(330.0f * uiScale, 0.0f), ImGuiCond_Appearing);
@@ -72,13 +72,13 @@ void Window(float uiScale)
         if (ImGui::Button(label)) {
             int axis = s.axis;
             Later([axis, edge] {
-                Align(axis, static_cast<Edge>(edge), Current().reference, Current().local);
+                Justify(axis, static_cast<Edge>(edge), AtHand().reference, AtHand().local);
             });
         }
     }
     if (ImGui::Button("Distribute")) {
         int axis = s.axis;
-        Later([axis] { Distribute(axis, Current().gaps, Current().local); });
+        Later([axis] { Distribute(axis, AtHand().gaps, AtHand().local); });
     }
     Tip("Space 3 or more evenly; ends stay");
     ImGui::SameLine();
@@ -122,7 +122,7 @@ void BrowserExtras(float uiScale)
         Later([] { Replace(); });
     Tip("Replace the selection with this item");
     ImGui::SameLine();
-    ImGui::Checkbox("Click to Place", &Current().clickPlaces);
+    ImGui::Checkbox("Click to Place", &AtHand().clickPlaces);
     Tip("Click in the view to place (Shift: more)");
 }
 
@@ -132,10 +132,10 @@ namespace MenuSystem::LevelEditor::Adjust {
 
 void Panel(float x, float y, float uiScale)
 {
-    const Action& last = Last();
+    const ActStep& last = FinalOne();
     if (!Shown() || last.kind == Kind::None)
         return;
-    static Action edit;
+    static ActStep edit;
     static bool editing;
     if (!editing)
         edit = last;
@@ -159,7 +159,7 @@ void Panel(float x, float y, float uiScale)
     };
     float speed = 1.0f;
     switch (edit.kind) {
-    case Kind::Move:
+    case Kind::ShiftBy:
         track(ImGui::DragFloat3("Offset", &edit.offset.x, speed, -100000.0f, 100000.0f, "%.1f"));
         track(ImGui::Checkbox("On the grid", &edit.grid));
         break;
@@ -167,7 +167,7 @@ void Panel(float x, float y, float uiScale)
         track(ImGui::DragFloat("Angle", &edit.degrees, edit.quarters ? 3.0f : 0.5f, -3600.0f, 3600.0f,
                                edit.quarters ? "%.0f (quarters)" : "%.1f"));
         break;
-    case Kind::Scale:
+    case Kind::StretchBy:
         if (edit.uniform)
             track(ImGui::DragFloat("Factor", &edit.factor.x, 0.01f, 0.05f, 20.0f, "%.3f"));
         else
@@ -185,7 +185,7 @@ void Panel(float x, float y, float uiScale)
         if (ImGui::Checkbox("On the grid", &edit.grid))
             done = true;
         break;
-    case Kind::Align:
+    case Kind::Justify:
     case Kind::Distribute: {
         static const char* const kAxes[] = {"X", "Y", "Z"};
         for (int axis = 0; axis < 3; ++axis) {
@@ -193,7 +193,7 @@ void Panel(float x, float y, float uiScale)
                 ImGui::SameLine();
             track(ImGui::RadioButton(kAxes[axis], &edit.axis, axis));
         }
-        if (edit.kind == Kind::Align) {
+        if (edit.kind == Kind::Justify) {
             static const char* const kEdges[] = {"Min", "Centre", "Max"};
             for (int e = 0; e < 3; ++e) {
                 if (e)

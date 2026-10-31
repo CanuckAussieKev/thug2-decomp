@@ -40,14 +40,14 @@ struct PieceNodeInfo {
 // A rail node read by NextRailNode (0x30 bytes).
 struct RailNodeInfo {
     uint32_t m_class;
-    uint32_t m_type;
+    uint32_t m_kindTag;
     uint32_t m_surfaceType;
-    Maths::Vector m_pos;        // +0x0C
-    Maths::Vector m_headings;     // +0x1C
+    Maths::Vec4 m_atPoint;        // +0x0C
+    Maths::Vec4 m_headings;     // +0x1C
     bool m_climbable;         // +0x2C: no NoClimbing
     uint8_t pad2D[3];
 };
-static_assert(offsetof(RailNodeInfo, m_pos) == 0x0C && sizeof(RailNodeInfo) == 0x30, "the original's local");
+static_assert(offsetof(RailNodeInfo, m_atPoint) == 0x0C && sizeof(RailNodeInfo) == 0x30, "the original's local");
 
 // The node array the park's level runs on (its symbol and node manager name).
 constexpr uint32_t kParkNodeArray = 0xC472ECC5; // "nodearray"

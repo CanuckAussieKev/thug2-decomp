@@ -34,14 +34,14 @@ inline void SetSectorColour(uint8_t* sector, uint32_t rgba)
         reinterpret_cast<void(__thiscall*)(void*, uint32_t)>(vtable[6])(geometry, rgba);
     }
 }
-inline void ClearSectorColour(uint8_t* sector) { reinterpret_cast<Engine3D::CWorldCell*>(sector)->ClearColor(); }
+inline void ClearSectorColour(uint8_t* sector) { reinterpret_cast<Engine3D::CWorldCell*>(sector)->WipeTint(); }
 inline void SetSectorVisibility(uint8_t* sector, uint32_t mask)
 {
     reinterpret_cast<Engine3D::CWorldCell*>(sector)->ToggleShown(mask);
 }
 inline void SetSectorActive(uint8_t* sector, bool active)
 {
-    reinterpret_cast<Engine3D::CWorldCell*>(sector)->SetActive(active);
+    reinterpret_cast<Engine3D::CWorldCell*>(sector)->ChangeLive(active);
 }
 
 } // namespace RailEditorInternal

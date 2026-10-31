@@ -56,25 +56,25 @@ constexpr int kWaiters = 40;
 MemSys::PoolPair& ScriptListPools() { return g_scriptListPools; }
 
 // --- the objects ---
-uint32_t& ObjectId(CObject* object) { return object->m_id; }
+uint32_t& ObjectId(CEntity* object) { return object->m_ident; }
 // The tracker's aliases of it (compared as a signed count by the original).
-bool HasAliases(const CObject* object) { return static_cast<int>(object->m_aliasCount) > 0; }
-bool HasPosition(const CObject* object) { return (object->m_objectFlags & OBJECT_FLAG_HAS_POSITION) != 0; }
-// The position: CGameEntity's m_pos (+0x4C, just after CObject's; read on any object).
-const float* Position(CObject* object) { return &static_cast<CGameEntity*>(object)->m_pos.x; }
+bool HasAliases(const CEntity* object) { return static_cast<int>(object->m_aliasCount) > 0; }
+bool HasPosition(const CEntity* object) { return (object->m_objectFlags & OBJECT_FLAG_HAS_POSITION) != 0; }
+// The position: CGameEntity's m_atPoint (+0x4C, just after CEntity's; read on any object).
+const float* Position(CEntity* object) { return &static_cast<CGameEntity*>(object)->m_atPoint.x; }
 // Its vtable +0x04: take the properties in `params` (SetObjectProps). +0x14: an event targeted at it.
-void SetProperties(CObject* object, Scripts::CStruct* params)
+void ChangeTraits(CEntity* object, Scripts::CStruct* params)
 {
     void** vtable = *reinterpret_cast<void***>(object);
-    reinterpret_cast<void(__thiscall*)(CObject*, Scripts::CStruct*)>(vtable[1])(object, params);
+    reinterpret_cast<void(__thiscall*)(CEntity*, Scripts::CStruct*)>(vtable[1])(object, params);
 }
-void PassEvent(CObject* object, CSignal* event)
+void PassEvent(CEntity* object, CSignal* event)
 {
     void** vtable = *reinterpret_cast<void***>(object);
-    reinterpret_cast<void(__thiscall*)(CObject*, CSignal*)>(vtable[5])(object, event);
+    reinterpret_cast<void(__thiscall*)(CEntity*, CSignal*)>(vtable[5])(object, event);
 }
 // The object with this id (the object manager 0x006F0FB8's LookUpEntity).
-CObject* FindObjectById(uint32_t id) { return reinterpret_cast<CObjectHubBase*>(g_compositeObjectManager)->LookUpEntity(id); }
+CEntity* FindObjectById(uint32_t id) { return reinterpret_cast<CObjectHubBase*>(g_compositeObjectManager)->LookUpEntity(id); }
 // 0x004AC120: the object id named by `name` in `params` (the screen element manager 0x00701440; also takes names
 // of screen elements and aliases). False if there is none.
 bool GetObjectId(Scripts::CStruct* params, uint32_t name, uint32_t* id)
@@ -98,25 +98,25 @@ double DistanceSquared(const float* a, const float* b)
 }
 
 // A new hash table of 2^bits buckets (null if there's no memory).
-ListKit::HashTable* NewHashTable(int bits)
+ListKit::KeyMap* NewHashTable(int bits)
 {
-    void* memory = MemSys::New(sizeof(ListKit::HashTable));
-    return memory ? new (memory) ListKit::HashTable(bits) : nullptr;
+    void* memory = MemSys::Alloc(sizeof(ListKit::KeyMap));
+    return memory ? new (memory) ListKit::KeyMap(bits) : nullptr;
 }
-void DeleteHashTable(ListKit::HashTable* table)
+void DeleteHashTable(ListKit::KeyMap* table)
 {
     if (table) {
-        table->~HashTable();
-        MemSys::Free(table);
+        table->~KeyMap();
+        MemSys::Dealloc(table);
     }
 }
 
-void PushScriptHeap() { MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap); }
+void PushScriptHeap() { MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap); }
 
 // Delete an empty listener list (its key `type` already gone from the table... or about to be).
 void DeleteScriptList(CScriptList* list)
 {
-    list->Unlink(); // (the head's destructor, inlined)
+    list->Uncouple(); // (the head's destructor, inlined)
     CScriptList::operator delete(list);
 }
 
@@ -125,7 +125,7 @@ void DeleteScriptList(CScriptList* list)
 // --- the list of scripts ---------------------------------------------------------------------------------
 
 // 0x00462530
-void CScriptNode::Unlink()
+void CScriptNode::Uncouple()
 {
     m_vtable = kScriptNodeVtable;
     m_preceding->m_following = m_following;
@@ -137,23 +137,23 @@ void CScriptNode::Unlink()
 // 0x00462550
 CScriptNode* CScriptNode::ScalarDelete(uint8_t flags)
 {
-    Unlink(); // (inlined in the original)
+    Uncouple(); // (inlined in the original)
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
 // 0x00462710
 CScriptList* CScriptList::ScalarDelete(uint8_t flags)
 {
-    Unlink();
+    Uncouple();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
 // 0x00462620
-void CScriptList::Add(Scripts::CScript* script)
+void CScriptList::AppendOne(Scripts::CScript* script)
 {
     for (CScriptNode* node = m_following->IsHead() ? nullptr : m_following; node;) {
         if (node->m_payload == script)
@@ -167,7 +167,7 @@ void CScriptList::Add(Scripts::CScript* script)
     if (node) {
         node->m_payload = script;
         node->m_vtable = kScriptNodeVtable;
-        node->m_priority = 0;
+        node->m_rank = 0;
         node->m_following = node;
         node->m_preceding = node;
     }
@@ -180,7 +180,7 @@ void CScriptList::Add(Scripts::CScript* script)
 }
 
 // 0x004626B0
-void CScriptList::Remove(Scripts::CScript* script)
+void CScriptList::DropOut(Scripts::CScript* script)
 {
     for (CScriptNode* node = m_following->IsHead() ? nullptr : m_following; node;) {
         if (node->m_payload == script) {
@@ -198,20 +198,20 @@ void CScriptList::Remove(Scripts::CScript* script)
     }
 }
 
-void* CScriptList::operator new(size_t size) { return ScriptListPools().Allocate(static_cast<unsigned int>(size)); }
+void* CScriptList::operator new(size_t size) { return ScriptListPools().Carve(static_cast<unsigned int>(size)); }
 
 // 0x004624D0
-void CScriptList::operator delete(void* list) { ScriptListPools().Free(list); }
+void CScriptList::operator delete(void* list) { ScriptListPools().Dealloc(list); }
 
 // --- the event log ---------------------------------------------------------------------------------------
 
 // 0x004627C0
-void CSignalTrace::AddEntry(uint32_t type, uint32_t target, uint32_t source, uint32_t script, uint32_t how, int kind)
+void CSignalTrace::AddRow(uint32_t type, uint32_t target, uint32_t source, uint32_t script, uint32_t how, int kind)
 {
     if (!mp_names) {
         mp_names = NewHashTable(8);
-        Scripts::CArray* names = Scripts::GetArray(kEventNames);
-        for (int i = 0; i < static_cast<int>(names->m_size); ++i) {
+        Scripts::CArray* names = Scripts::FetchList(kEventNames);
+        for (int i = 0; i < static_cast<int>(names->m_extent); ++i) {
             char* name = m_names[i];
             const char* string = names->FindInlineText(i);
             std::memcpy(name, string, std::strlen(string) + 1);
@@ -219,7 +219,7 @@ void CSignalTrace::AddEntry(uint32_t type, uint32_t target, uint32_t source, uin
             mp_names->StoreEntry(checksum, name);
         }
     }
-    int last = m_index - 1;
+    int last = m_ordinal - 1;
     if (last < 0)
         last = kLogSize - 1;
     if (kind == FRAME) {
@@ -230,7 +230,7 @@ void CSignalTrace::AddEntry(uint32_t type, uint32_t target, uint32_t source, uin
     } else if (kind == HANDLED) {
         --m_layer;
     }
-    Entry& entry = m_entries[m_index];
+    TableRow& entry = m_entries[m_ordinal];
     entry.kind = kind;
     entry.type = kind == FRAME ? 0 : type;
     entry.target = target;
@@ -238,8 +238,8 @@ void CSignalTrace::AddEntry(uint32_t type, uint32_t target, uint32_t source, uin
     entry.script = script;
     entry.how = how;
     entry.depth = m_layer;
-    if (++m_index == kLogSize) {
-        m_index = 0;
+    if (++m_ordinal == kLogSize) {
+        m_ordinal = 0;
         m_hasLooped = true;
     }
     if (kind == LAUNCHED)
@@ -248,13 +248,13 @@ void CSignalTrace::AddEntry(uint32_t type, uint32_t target, uint32_t source, uin
 }
 
 // 0x004620A0
-void CSignalTrace::Print(bool onlyNew, int /*count*/)
+void CSignalTrace::EchoOut(bool onlyNew, int /*count*/)
 {
     const char* const line = "========================================================\n"; // "=====...\n"
     int index = 0;
-    int count = m_index;
+    int count = m_ordinal;
     if (m_hasLooped) {
-        index = m_index;
+        index = m_ordinal;
         count = kLogSize;
     }
     DebugOut::Printf(line);
@@ -270,15 +270,15 @@ void CSignalTrace::Print(bool onlyNew, int /*count*/)
 }
 
 // 0x00462CB0
-void CSignalTrace::Destroy() { DeleteHashTable(mp_names); }
+void CSignalTrace::Teardown() { DeleteHashTable(mp_names); }
 
 // --- the tracker -----------------------------------------------------------------------------------------
 
 // 0x00462CF0
-CEventWaitBoard* CEventWaitBoard::Construct()
+CEventWaitBoard* CEventWaitBoard::MakeNew()
 {
     m_vtable = kTrackerVtable;
-    m_log.m_index = 0;
+    m_log.m_ordinal = 0;
     m_log.m_hasLooped = false;
     m_log.mp_names = nullptr;
     m_log.m_layer = 0;
@@ -302,7 +302,7 @@ void CEventWaitBoard::Destruct()
 {
     m_vtable = kTrackerVtable;
     DeleteHashTable(mp_objects);
-    m_log.Destroy();
+    m_log.Teardown();
 }
 
 // 0x00463780
@@ -310,23 +310,23 @@ CEventWaitBoard* CEventWaitBoard::ScalarDelete(uint8_t flags)
 {
     Destruct();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
 // 0x00462120
-CObject* CEventWaitBoard::LookUpObject(uint32_t id)
+CEntity* CEventWaitBoard::LookUpObject(uint32_t id)
 {
-    if (auto* object = static_cast<CObject*>(mp_objects->GetItem(id)))
+    if (auto* object = static_cast<CEntity*>(mp_objects->FetchEntry(id)))
         return object;
-    return static_cast<CObject*>(mp_aliases->GetItem(id, true));
+    return static_cast<CEntity*>(mp_aliases->FetchEntry(id, true));
 }
 
 // 0x00462190
-CObject* CEventWaitBoard::LookUpByNickname(uint32_t alias) { return static_cast<CObject*>(mp_aliases->GetItem(alias)); }
+CEntity* CEventWaitBoard::LookUpByNickname(uint32_t alias) { return static_cast<CEntity*>(mp_aliases->FetchEntry(alias)); }
 
 // 0x004621D0
-uint32_t CEventWaitBoard::GetUniqueId()
+uint32_t CEventWaitBoard::FetchDistinctId()
 {
     uint32_t checksum;
     do {
@@ -335,24 +335,24 @@ uint32_t CEventWaitBoard::GetUniqueId()
         if (m_nextAutoId >= 1000000)
             m_nextAutoId = 0;
         checksum = Checksums::HashFromText(name);
-    } while (mp_objects->GetItem(checksum));
+    } while (mp_objects->FetchEntry(checksum));
     return checksum;
 }
 
 // 0x00462980
-void CEventWaitBoard::AddObject(CObject* object)
+void CEventWaitBoard::AddObject(CEntity* object)
 {
-    if (auto* aliased = static_cast<CObject*>(mp_aliases->GetItem(ObjectId(object)))) {
+    if (auto* aliased = static_cast<CEntity*>(mp_aliases->FetchEntry(ObjectId(object)))) {
         if (HasAliases(aliased))
             --aliased->m_aliasCount;
         mp_aliases->EraseEntry(ObjectId(object));
     }
     mp_objects->StoreEntry(ObjectId(object), object);
-    m_log.AddEntry(0, ObjectId(object), kNoObjectId, 0, 0, CSignalTrace::OBJECT_ADDED);
+    m_log.AddRow(0, ObjectId(object), kNoObjectId, 0, 0, CSignalTrace::OBJECT_ADDED);
 }
 
 // 0x00462A20
-void CEventWaitBoard::RemoveObject(CObject* object, uint32_t freshId, bool renamed)
+void CEventWaitBoard::RemoveObject(CEntity* object, uint32_t freshId, bool renamed)
 {
     mp_objects->EraseEntry(ObjectId(object));
     if (renamed) {
@@ -363,20 +363,20 @@ void CEventWaitBoard::RemoveObject(CObject* object, uint32_t freshId, bool renam
     } else {
         RemoveAliasesOf(object);
     }
-    m_log.AddEntry(0, ObjectId(object), kNoObjectId, 0, 0, CSignalTrace::OBJECT_REMOVED);
+    m_log.AddRow(0, ObjectId(object), kNoObjectId, 0, 0, CSignalTrace::OBJECT_REMOVED);
 }
 
 // 0x00462590: from the start of the table again after each one removed.
-void CEventWaitBoard::RemoveAliasesOf(CObject* object)
+void CEventWaitBoard::RemoveAliasesOf(CEntity* object)
 {
-    ListKit::HashTable* table = mp_aliases;
+    ListKit::KeyMap* table = mp_aliases;
     for (;;) {
         table->m_iterBucket = -1;
         table->m_iterItem = nullptr;
         if (!table->StepIterator() || !table->m_iterItem)
             return;
         uint32_t alias = table->m_iterItem->key;
-        auto* aliased = static_cast<CObject*>(table->m_iterItem->value);
+        auto* aliased = static_cast<CEntity*>(table->m_iterItem->value);
         for (;;) {
             if (!aliased)
                 return;
@@ -385,7 +385,7 @@ void CEventWaitBoard::RemoveAliasesOf(CObject* object)
             if (!table->StepIterator() || !table->m_iterItem)
                 return;
             alias = table->m_iterItem->key;
-            aliased = static_cast<CObject*>(table->m_iterItem->value);
+            aliased = static_cast<CEntity*>(table->m_iterItem->value);
         }
         if (HasAliases(aliased))
             --aliased->m_aliasCount;
@@ -394,9 +394,9 @@ void CEventWaitBoard::RemoveAliasesOf(CObject* object)
 }
 
 // 0x00462A90 (`object` isn't checked for null)
-void CEventWaitBoard::RegisterNickname(uint32_t alias, CObject* object)
+void CEventWaitBoard::RegisterNickname(uint32_t alias, CEntity* object)
 {
-    if (auto* aliased = static_cast<CObject*>(mp_aliases->GetItem(alias))) {
+    if (auto* aliased = static_cast<CEntity*>(mp_aliases->FetchEntry(alias))) {
         if (HasAliases(aliased))
             --aliased->m_aliasCount;
         mp_aliases->EraseEntry(alias);
@@ -426,30 +426,30 @@ void CEventWaitBoard::RemoveEventListener(CSignalReceiver* listener)
 void CEventWaitBoard::AddListener(uint32_t type, Scripts::CScript* script)
 {
     PushScriptHeap();
-    auto* list = static_cast<CScriptList*>(mp_listeners->GetItem(type));
+    auto* list = static_cast<CScriptList*>(mp_listeners->FetchEntry(type));
     if (!list) {
         list = static_cast<CScriptList*>(CScriptList::operator new(sizeof(CScriptList)));
         if (list) {
             list->m_payload = reinterpret_cast<Scripts::CScript*>(-1);
-            list->m_priority = 0;
+            list->m_rank = 0;
             list->m_following = list;
             list->m_preceding = list;
             list->m_vtable = kScriptListVtable;
         }
         mp_listeners->StoreEntry(type, list); // (null too, if there was no memory - then Add crashes)
     }
-    list->Add(script);
+    list->AppendOne(script);
     MemSys::LeaveHeapScope();
 }
 
 // 0x00463450
 void CEventWaitBoard::RemoveListener(uint32_t type, Scripts::CScript* script)
 {
-    auto* list = static_cast<CScriptList*>(mp_listeners->GetItem(type));
+    auto* list = static_cast<CScriptList*>(mp_listeners->FetchEntry(type));
     if (!list)
         return;
-    list->Remove(script);
-    if (list->IsEmpty()) {
+    list->DropOut(script);
+    if (list->IsVacant()) {
         mp_listeners->EraseEntry(type);
         DeleteScriptList(list);
     }
@@ -458,7 +458,7 @@ void CEventWaitBoard::RemoveListener(uint32_t type, Scripts::CScript* script)
 // 0x00462B90: walking the table, one item ahead (the current one may be removed).
 void CEventWaitBoard::ForgetScript(Scripts::CScript* script)
 {
-    ListKit::HashTable* table = mp_listeners;
+    ListKit::KeyMap* table = mp_listeners;
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
     if (!table->StepIterator() || !table->m_iterItem)
@@ -472,8 +472,8 @@ void CEventWaitBoard::ForgetScript(Scripts::CScript* script)
             nextType = table->m_iterItem->key;
             next = static_cast<CScriptList*>(table->m_iterItem->value);
         }
-        list->Remove(script);
-        if (list->IsEmpty()) {
+        list->DropOut(script);
+        if (list->IsVacant()) {
             table->EraseEntry(type);
             DeleteScriptList(list);
         }
@@ -505,9 +505,9 @@ void CEventWaitBoard::WaitForEvent(Scripts::CScript* script, uint32_t type)
     }
     SWaiter& waiter = m_waiters[slot];
     waiter.scriptId = script->m_uniqueId;
-    waiter.objectId = script->m_object ? ObjectId(script->m_object.Get()) : 0;
+    waiter.objectId = script->m_entity ? ObjectId(script->m_entity.Pull()) : 0;
     waiter.type = type;
-    script->Block(0);
+    script->GateOff(0);
 }
 
 // 0x00462F00
@@ -515,10 +515,10 @@ bool CEventWaitBoard::LaunchEvent(uint32_t type, uint32_t target, uint32_t sourc
                            float radius)
 {
     ++m_launchDepth;
-    m_log.AddEntry(type, target, source, static_cast<uint32_t>(m_launchedFromScript), 0, CSignalTrace::LAUNCHED);
+    m_log.AddRow(type, target, source, static_cast<uint32_t>(m_launchedFromScript), 0, CSignalTrace::LAUNCHED);
     m_launchedFromScript = 0;
     CSignal event;
-    event.Construct(type, source, target, data);
+    event.MakeNew(type, source, target, data);
 
     if (!broadcast) {
         // Every event listener, then the target: an object, or else the spawned script with that id.
@@ -528,17 +528,17 @@ bool CEventWaitBoard::LaunchEvent(uint32_t type, uint32_t target, uint32_t sourc
             --listener->m_busy;
         }
         uint32_t eventTarget = event.m_aimPoint;
-        if (eventTarget != kNoObjectId && !(event.m_flags & CSignal::FLAG_HANDLED)) {
-            if (CObject* object = LookUpObject(eventTarget)) {
+        if (eventTarget != kNoObjectId && !(event.m_flagBits & CSignal::FLAG_HANDLED)) {
+            if (CEntity* object = LookUpObject(eventTarget)) {
                 PassEvent(object, &event);
             } else {
                 Scripts::CScript* script = Scripts::FindSpawnedScriptWithId(eventTarget);
                 if (!script)
-                    m_log.Print(true, kLogSize);
+                    m_log.EchoOut(true, kLogSize);
                 script->ReceiveEvent(&event); // (null when there's no such script - an original crash)
             }
         }
-    } else if (auto* list = static_cast<CScriptList*>(mp_listeners->GetItem(type, true))) {
+    } else if (auto* list = static_cast<CScriptList*>(mp_listeners->FetchEntry(type, true))) {
         // Every script listening for the type, in the order they started listening; with a radius (>= 0), only
         // those whose object is nearer the source than that (scripts without an object, or whose object has no
         // position, always get it).
@@ -550,7 +550,7 @@ bool CEventWaitBoard::LaunchEvent(uint32_t type, uint32_t target, uint32_t sourc
         auto inRange = [&](Scripts::CScript* script) {
             if (!(radius >= 0.0f))
                 return true;
-            CObject* object = script->m_object.Get();
+            CEntity* object = script->m_entity.Pull();
             if (!object || !HasPosition(object))
                 return true;
             double distance = DistanceSquared(sourcePosition, Position(object));
@@ -574,9 +574,9 @@ bool CEventWaitBoard::LaunchEvent(uint32_t type, uint32_t target, uint32_t sourc
             // Several (or none): first a smart pointer to each, so that one deleted by an earlier one's handler
             // is skipped.
             using Pointer = CSharedRef<CSharedBase>;
-            auto* scripts = static_cast<Scripts::CScript**>(MemSys::New(static_cast<unsigned int>(count) * 4));
+            auto* scripts = static_cast<Scripts::CScript**>(MemSys::Alloc(static_cast<unsigned int>(count) * 4));
             Pointer* pointers = nullptr;
-            if (auto* block = static_cast<uint32_t*>(MemSys::New(static_cast<unsigned int>(count) * sizeof(Pointer) + 4))) {
+            if (auto* block = static_cast<uint32_t*>(MemSys::Alloc(static_cast<unsigned int>(count) * sizeof(Pointer) + 4))) {
                 block[0] = static_cast<uint32_t>(count);
                 pointers = reinterpret_cast<Pointer*>(block + 1);
                 for (int i = 0; i < count; ++i)
@@ -585,7 +585,7 @@ bool CEventWaitBoard::LaunchEvent(uint32_t type, uint32_t target, uint32_t sourc
             CScriptNode* node = list->m_following->IsHead() ? nullptr : list->m_following;
             for (int i = 0; node; ++i) {
                 scripts[i] = node->m_payload;
-                pointers[i].Set(&node->m_payload->m_refCounted);
+                pointers[i].AssignValue(&node->m_payload->m_refCounted);
                 node = node->m_following;
                 if (node->IsHead())
                     break;
@@ -598,9 +598,9 @@ bool CEventWaitBoard::LaunchEvent(uint32_t type, uint32_t target, uint32_t sourc
                 uint32_t* block = reinterpret_cast<uint32_t*>(pointers) - 1;
                 for (int i = static_cast<int>(block[0]) - 1; i >= 0; --i)
                     pointers[i].Release(); // (the destructors, last first)
-                MemSys::Free(block);
+                MemSys::Dealloc(block);
             }
-            MemSys::Free(scripts);
+            MemSys::Dealloc(scripts);
         }
     }
 
@@ -617,28 +617,28 @@ bool CEventWaitBoard::LaunchEvent(uint32_t type, uint32_t target, uint32_t sourc
             }
         }
     }
-    if (!(event.m_flags & CSignal::FLAG_HANDLED))
-        m_log.AddEntry(event.m_type, event.m_aimPoint, event.m_source, 0, 3, CSignalTrace::HANDLED);
+    if (!(event.m_flagBits & CSignal::FLAG_HANDLED))
+        m_log.AddRow(event.m_kindTag, event.m_aimPoint, event.m_fromWhere, 0, 3, CSignalTrace::HANDLED);
     --m_launchDepth;
-    bool handled = (event.m_flags & CSignal::FLAG_HANDLED) != 0;
-    event.Destroy();
+    bool handled = (event.m_flagBits & CSignal::FLAG_HANDLED) != 0;
+    event.Teardown();
     return handled;
 }
 
 // 0x00462B10
 void CEventWaitBoard::LogHandled(CSignal* event, uint32_t how, uint32_t script)
 {
-    m_log.AddEntry(event->m_type, event->m_aimPoint, event->m_source, script, how, CSignalTrace::HANDLED);
+    m_log.AddRow(event->m_kindTag, event->m_aimPoint, event->m_fromWhere, script, how, CSignalTrace::HANDLED);
 }
 
 // 0x00462B40
 void CEventWaitBoard::LogRead(CSignal* event, uint32_t how, uint32_t script)
 {
-    m_log.AddEntry(event->m_type, event->m_aimPoint, event->m_source, script, how, CSignalTrace::READ);
+    m_log.AddRow(event->m_kindTag, event->m_aimPoint, event->m_fromWhere, script, how, CSignalTrace::READ);
 }
 
 // 0x00462B70
-void CEventWaitBoard::LogFrame() { m_log.AddEntry(0, 0, 0, 0, 0, CSignalTrace::FRAME); }
+void CEventWaitBoard::LogFrame() { m_log.AddRow(0, 0, 0, 0, 0, CSignalTrace::FRAME); }
 
 // 0x00463730
 CEventWaitBoard* CreateTracker(bool create)
@@ -646,7 +646,7 @@ CEventWaitBoard* CreateTracker(bool create)
     CEventWaitBoard*& tracker = Tracker();
     if (!tracker && create) {
         void* memory = MemSys::AllocZeroed(sizeof(CEventWaitBoard), nullptr, 1);
-        tracker = memory ? static_cast<CEventWaitBoard*>(memory)->Construct() : nullptr;
+        tracker = memory ? static_cast<CEventWaitBoard*>(memory)->MakeNew() : nullptr;
     }
     ++g_trackerReferences;
     return tracker;
@@ -679,11 +679,11 @@ bool __cdecl CFunc_TerminateObjectsScripts(Scripts::CStruct* params, Scripts::CS
     uint32_t id;
     if (!GetObjectId(params, kId, &id))
         return false;
-    CObject* object = Tracker()->LookUpObject(id);
+    CEntity* object = Tracker()->LookUpObject(id);
     Scripts::CArray* scripts;
-    if (params->GetArray(kScripts, &scripts, 0)) {
-        for (uint32_t i = 0; i < scripts->m_size; ++i)
-            Scripts::StopScriptsUsingObjectThatReferTo(object, scripts->GetElement(i));
+    if (params->FetchList(kScripts, &scripts, 0)) {
+        for (uint32_t i = 0; i < scripts->m_extent; ++i)
+            Scripts::StopScriptsUsingObjectThatReferTo(object, scripts->FetchPart(i));
     } else {
         uint32_t name = 0;
         params->ReadHashValue(kScriptName, &name, 0);
@@ -698,7 +698,7 @@ bool __cdecl CFunc_SetObjectProps(Scripts::CStruct* params, Scripts::CScript* /*
     uint32_t id;
     if (!GetObjectId(params, kId, &id))
         return false;
-    SetProperties(Tracker()->LookUpObject(id), params);
+    ChangeTraits(Tracker()->LookUpObject(id), params);
     return true;
 }
 
@@ -709,7 +709,7 @@ bool __cdecl CFunc_PrintEventLog(Scripts::CStruct* params, Scripts::CScript* /*s
     int count = kLogSize;
     if (params->FetchIntValue(0u, &count, 0))
         onlyNew = false;
-    Tracker()->m_log.Print(onlyNew, count);
+    Tracker()->m_log.EchoOut(onlyNew, count);
     return true;
 }
 
@@ -720,7 +720,7 @@ bool __cdecl CFunc_AssignAlias(Scripts::CStruct* params, Scripts::CScript* /*scr
     if (!GetObjectId(params, kId, &id))
         return false;
     CEventWaitBoard* tracker = Tracker();
-    CObject* object = tracker->LookUpObject(id);
+    CEntity* object = tracker->LookUpObject(id);
     uint32_t alias = 0; // (uninitialised in the original when there's no alias)
     params->ReadHashValue(kAlias, &alias, 1);
     tracker->RegisterNickname(alias, object);
@@ -732,7 +732,7 @@ bool __cdecl CFunc_AssignAlias(Scripts::CStruct* params, Scripts::CScript* /*scr
 bool __cdecl CFunc_LaunchEvent(Scripts::CStruct* params, Scripts::CScript* script)
 {
     auto ownObject = [&]() {
-        return script && script->m_object ? ObjectId(script->m_object.Get()) : kNoObjectId;
+        return script && script->m_entity ? ObjectId(script->m_entity.Pull()) : kNoObjectId;
     };
     uint32_t target;
     if (!GetObjectId(params, kTarget, &target))
@@ -744,7 +744,7 @@ bool __cdecl CFunc_LaunchEvent(Scripts::CStruct* params, Scripts::CScript* scrip
     params->ReadSubStruct(kData, &data, 0);
     bool broadcast = params->HasBareFlag(kBroadcast);
     float radius = -1.0f;
-    params->GetFloat(kRadius, &radius, 0);
+    params->FetchFloat(kRadius, &radius, 0);
     CEventWaitBoard* tracker = Tracker();
     // Whether this launch comes from a script with a name (only for the log).
     auto fromScript = [&]() { return script && script->m_scriptTitle ? 1 : 0; };
@@ -756,11 +756,11 @@ bool __cdecl CFunc_LaunchEvent(Scripts::CStruct* params, Scripts::CScript* scrip
         return true;
     }
     Scripts::CArray* types;
-    if (params->GetArray(kType, &types, 0)) {
-        uint32_t size = types->m_size;
+    if (params->FetchList(kType, &types, 0)) {
+        uint32_t size = types->m_extent;
         for (uint32_t i = 0; i < size; ++i) {
             tracker->m_launchedFromScript = fromScript();
-            tracker->LaunchEvent(types->GetElement(i), target, source, data, broadcast, radius);
+            tracker->LaunchEvent(types->FetchPart(i), target, source, data, broadcast, radius);
         }
         return true;
     }

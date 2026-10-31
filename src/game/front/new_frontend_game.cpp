@@ -24,7 +24,7 @@ namespace MenuSystem::NewFrontend::GameScreens {
 
 namespace {
 
-uint32_t Checksum(const char* name) { return Checksums::HashFromText(name); }
+uint32_t NameHash(const char* name) { return Checksums::HashFromText(name); }
 
 constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // load_mainmenu
 constexpr uint32_t kMenuEvent = 0x36B2EE74;    // the pad events' target and source (as InputLogic launches them)
@@ -34,7 +34,7 @@ constexpr uint32_t kController = 0xB30D9965;   // "controller"
 uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
 uint32_t CurrentLoadState() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
 
-uint32_t IdOf(CUiWidget* element) { return reinterpret_cast<GameObjects::CObject*>(element)->m_id; }
+uint32_t IdOf(CUiWidget* element) { return reinterpret_cast<GameObjects::CEntity*>(element)->m_ident; }
 
 bool Paused(GameModules::FrontEnd* frontEnd) { return frontEnd && frontEnd->m_isHalted; }
 
@@ -48,7 +48,7 @@ const char* AnchorName(Anchor anchor)
     case Anchor::CareerOptions: return "career options";
     case Anchor::CreateModes: return "create-a-modes";
     case Anchor::SkateShop: return "skate shop menu";
-    case Anchor::Pause: return "pause menu";
+    case Anchor::Freeze: return "pause menu";
     }
     return "?";
 }
@@ -62,7 +62,7 @@ std::string GameModeName()
     static const char* const kNames[] = {"singlesession", "freeskate", "career", "classic", "creategoals", "net",
                                          "netlobby", "freeskate_2p", "parkeditor"};
     for (const char* known : kNames)
-        if (Checksum(known) == name)
+        if (NameHash(known) == name)
             return known;
     char hex[16];
     std::snprintf(hex, sizeof(hex), "0x%08X", name);
@@ -71,46 +71,46 @@ std::string GameModeName()
 
 bool NetSession()
 {
-    if (NetLink::Manager* net = NetLink::Manager::Instance())
+    if (NetLink::Hub* net = NetLink::Hub::Sole())
         if (net->IsOnline())
             return true;
     if (void* gameNet = OnlinePlay::g_gameNetManager)
-        if (static_cast<OnlinePlay::Manager*>(gameNet)->InNetGame())
+        if (static_cast<OnlinePlay::Hub*>(gameNet)->InNetGame())
             return true;
     return GameModeName().rfind("net", 0) == 0;
 }
 
 CUiWidget* Find(uint32_t id)
 {
-    if (!CUiTree::Instance() || !id)
+    if (!CUiTree::Sole() || !id)
         return nullptr;
     ElementPtr holder;
-    GetElement(&holder, id);
-    return holder.Get(); // (the manager keeps the element; the holder's reference only for this lookup)
+    FetchPart(&holder, id);
+    return holder.Pull(); // (the manager keeps the element; the holder's reference only for this lookup)
 }
 
-Anchor Current(GameModules::FrontEnd* frontEnd)
+Anchor AtHand(GameModules::FrontEnd* frontEnd)
 {
     uint32_t level = CurrentLoadState();
-    if (!level || NetSession() || LevelEditor::Active())
+    if (!level || NetSession() || LevelEditor::LiveNow())
         return Anchor::None;
     if (level == kLoadMainMenu) {
-        if (Find(Checksum("career_options_vmenu")))
+        if (Find(NameHash("career_options_vmenu")))
             return Anchor::CareerOptions;
-        if (Find(Checksum("menu_cas")))
+        if (Find(NameHash("menu_cas")))
             return Anchor::CreateModes;
-        if (Find(Checksum("ss_play_level")) && GameModeName() == "singlesession")
+        if (Find(NameHash("ss_play_level")) && GameModeName() == "singlesession")
             return Anchor::SkateShop;
-        if (Find(Checksum("main_vmenu")))
+        if (Find(NameHash("main_vmenu")))
             return Anchor::MainMenu;
         return Anchor::None;
     }
-    if (!Paused(frontEnd) || !Find(Checksum("pause_vmenu")) || !Find(Checksum("menu_continue")))
+    if (!Paused(frontEnd) || !Find(NameHash("pause_vmenu")) || !Find(NameHash("menu_continue")))
         return Anchor::None;
     std::string mode = GameModeName();
     if (mode != "singlesession" && mode != "freeskate" && mode != "career" && mode != "classic")
         return Anchor::None;
-    return Anchor::Pause;
+    return Anchor::Freeze;
 }
 
 void LaunchPad(GameModules::FrontEnd* frontEnd, uint32_t type, CUiWidget* element)
@@ -118,10 +118,10 @@ void LaunchPad(GameModules::FrontEnd* frontEnd, uint32_t type, CUiWidget* elemen
     if (!element)
         return;
     Scripts::CStruct params;
-    params.Init();
+    params.PrepareAll();
     int device = 0;
-    if (frontEnd && frontEnd->m_inputHandlers[0] && frontEnd->m_inputHandlers[0]->m_device)
-        device = *reinterpret_cast<int*>(frontEnd->m_inputHandlers[0]->m_device + 0xC);
+    if (frontEnd && frontEnd->m_inputHandlers[0] && frontEnd->m_inputHandlers[0]->m_dev)
+        device = *reinterpret_cast<int*>(frontEnd->m_inputHandlers[0]->m_dev + 0xC);
     params.PutInt(kDeviceNum, device);
     params.PutInt(kController, 0);
     GameObjects::Tracker()->LaunchEvent(type, IdOf(element), kMenuEvent, &params, false, -1.0f);

@@ -50,7 +50,7 @@ class CAnimTrack;
 
 // An animation blender's channel (0x74 bytes, vtable 0x00648714; the blender keeps them on a list, so it's a list node
 // itself): its timelines (CAnimTrack, the newest - the one playing - first; older ones blend out) and a blend
-// value moving to a target. Vtable slots: 0 Destroy, 1 Update(pose index, blend), 2 Finalize, 3 ConfigureFromData
+// value moving to a target. Vtable slots: 0 Destroy, 1 TickFrame(pose index, blend), 2 Finalize, 3 ConfigureFromData
 // (0x00480410), 4 InvokeMethodByName (0x0047FA00), 5 (0x005BAB90), 6 ReleaseWaitingScript.
 class CBlendChannel {
 public:
@@ -61,7 +61,7 @@ public:
     void BlendTo(uint32_t target, float period);
     // 0x0047D620 / 0x0047D640: the value `offset` past the channel's key (0x0048CF50 finds it), and whether there
     // is one.
-    float GetValue(uint32_t offset);
+    float FetchValue(uint32_t offset);
     bool HasValue(uint32_t offset);
     // 0x0047D660 (code nothing calls): flag 0x5DB4115F taken out of the owner's parameters.
     void ClearFlag();
@@ -69,19 +69,19 @@ public:
     // --- 0x0047DC40-0x0047F24E ---
     // 0x0047F150: on `object` / `blender`, no timelines, events on, the blend value 1 (with `full`) or 0; the
     // rest as Reset (it reads +0x60 before setting it, as the original). Returns this.
-    CBlendChannel* Construct(GameObjects::CGameEntity* object, GameObjects::CAnimBlenderComponent* blender, bool full);
+    CBlendChannel* MakeNew(GameObjects::CGameEntity* object, GameObjects::CAnimBlenderComponent* blender, bool full);
     // 0x0047EE90: its timelines deleted, the head and its own node unlinked (the blender's node vtable 0x00645D84).
     // 0x0047F230 (slot 0): that, then freed.
     void DestroyBody();
-    CBlendChannel* Destroy(uint8_t flags);
+    CBlendChannel* Teardown(uint8_t flags);
     // 0x0047EF20: its timelines deleted, no next blend period, no time waited for (the script stops waiting), no
     // first time.
     void Reset();
     // 0x0047DCF0 (slot 2): the object's skeleton component kept.
-    void Finalize();
+    void Seal();
     // 0x0047EFB0 (slot 1): the blend value moved on, each timeline updated, the done ones deleted; with `blend` and
     // the blender's model ready, its pose blended into the blend buffer's `index` (BlendPose). Whether it was.
-    bool Update(int index, bool blend);
+    bool TickFrame(int index, bool blend);
     // 0x0047EF60 (slot 6): a script waiting on the animation (wait type 6) let go once it's complete.
     void ReleaseWaitingScript(Scripts::CScript* script);
     // 0x0047E030: the playing timeline's time kept (+0x5C), the blend value a frame on, and the time waited for
@@ -92,7 +92,7 @@ public:
     // 0x0047DDC0: the timelines no longer active unlinked and deleted.
     void RemoveDoneTimelines();
     // 0x0047DE20: the timelines past the most there may be (0x006F8A68) deleted, the playing one blended out over
-    // `period` with the weight the others leave it, and a new timeline (0x00481EE0, CAnimTrack::Construct) put
+    // `period` with the weight the others leave it, and a new timeline (0x00481EE0, CAnimTrack::MakeNew) put
     // first.
     void PushTimeline(float period);
     // 0x0047ED60: each timeline's pose (FetchPose) from the skeleton's base translations, blended (BlendPoses) and
@@ -174,11 +174,11 @@ public:
 
     MemSys::ListNode m_listLink;                 // +0x00 (vtable 0x00648714; data = this)
     MemSys::ListNode m_timelines;            // +0x14 the head (vtable 0x00648710, data -1)
-    uint32_t m_id;                        // +0x28
-    int m_priority;                       // +0x2C (0x3D836C96)
-    uint32_t m_current;                   // +0x30 the blend value (a float)
+    uint32_t m_ident;                        // +0x28
+    int m_rank;                       // +0x2C (0x3D836C96)
+    uint32_t m_ongoing;                   // +0x30 the blend value (a float)
     uint32_t m_aimPoint;                    // +0x34
-    uint32_t m_start;                     // +0x38
+    uint32_t m_outset;                     // +0x38
     float m_period;                       // +0x3C
     float m_periodLeft;                   // +0x40
     bool m_hasNextBlend;                  // +0x44 (the next play blends over m_nextBlend)
@@ -188,8 +188,8 @@ public:
     bool m_eventsOn;                      // +0x4D
     bool m_flag4E;                        // +0x4E
     uint8_t m_pad4F;
-    uint32_t m_key;                       // +0x50 the anim set
-    uint32_t m_flags;                     // +0x54 (bit 29: flipped)
+    uint32_t m_lookupKey;                       // +0x50 the anim set
+    uint32_t m_flagBits;                     // +0x54 (bit 29: flipped)
     uint32_t m_eventTable;                // +0x58 (AnimEventTableName 0x5B8C6DC2)
     float m_firstTime;                    // +0x5C the playing timeline's time last frame
     bool m_waiting;                       // +0x60 a time waited for
@@ -199,22 +199,22 @@ public:
     GameObjects::CAnimBlenderComponent* mp_blender; // +0x6C
     GameObjects::CObjectModule* m_boneRig;     // +0x70 the object's skeleton component
 };
-static_assert(offsetof(CBlendChannel, m_timelines) == 0x14 && offsetof(CBlendChannel, m_id) == 0x28 &&
-                  offsetof(CBlendChannel, m_current) == 0x30 && offsetof(CBlendChannel, m_flag4C) == 0x4C &&
-                  offsetof(CBlendChannel, m_key) == 0x50 && offsetof(CBlendChannel, m_waiting) == 0x60 &&
+static_assert(offsetof(CBlendChannel, m_timelines) == 0x14 && offsetof(CBlendChannel, m_ident) == 0x28 &&
+                  offsetof(CBlendChannel, m_ongoing) == 0x30 && offsetof(CBlendChannel, m_flag4C) == 0x4C &&
+                  offsetof(CBlendChannel, m_lookupKey) == 0x50 && offsetof(CBlendChannel, m_waiting) == 0x60 &&
                   offsetof(CBlendChannel, mp_owner) == 0x68 && sizeof(CBlendChannel) == 0x74,
               "layout must match the original");
 
 // The node type of the channel's timeline list (vtable 0x006486CC; CAnimTimeline::DestroyBody is its destructor
 // body): 0x0047DD40, its scalar deleting destructor.
 struct AnimListNode {
-    AnimListNode* Destroy(uint8_t flags);
+    AnimListNode* Teardown(uint8_t flags);
     MemSys::ListNode m_listLink;
 };
 
-// A list's head (ListKit::Head; the channel's timelines, a server list): 0x0047DD10, how many items it has.
+// A list's head (ListKit::Foremost; the channel's timelines, a server list): 0x0047DD10, how many items it has.
 struct AnimListHead {
-    int CountItems();
+    int TallyEntries();
     MemSys::ListNode m_head;
 };
 

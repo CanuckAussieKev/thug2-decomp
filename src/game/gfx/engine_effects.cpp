@@ -34,10 +34,10 @@
 
 namespace Engine3D {
 
-Maths::Vector g_shatterVelocity;
+Maths::Vec4 g_shatterVelocity;
 float g_shatterSpeed;
-ListKit::HashTable* g_splatSets;
-ListKit::HashTable* g_spawnedPolys;
+ListKit::KeyMap* g_splatSets;
+ListKit::KeyMap* g_spawnedPolys;
 float g_shatterVelocityScale{1.0f};
 namespace {
 
@@ -53,39 +53,39 @@ float g_shatterLifetime{4.0f};
 float g_shatterFloor{-10000.0f};
 float g_shatterBounce{0.8f};
 uint32_t g_fogColor{0x66806060};
-ListKit::HashTable* g_flashes;
-ListKit::HashTable* g_recentSplats;
+ListKit::KeyMap* g_flashes;
+ListKit::KeyMap* g_recentSplats;
 uint32_t g_shatterTexture;
 uint32_t g_shatterValueAF1A;
 int g_shatterValue33DF;
 bool g_fogEnabled;
-Maths::Vector g_shatterVector210E;
+Maths::Vec4 g_shatterVector210E;
 float g_levelColor[4];
 void* g_lineSectors[128];
 CHitMesh* g_lineObjects[128];
 
 // The tables.
-ListKit::HashTable*& Flashes() { return g_flashes; }
-ListKit::HashTable*& SpawnedPolys() { return g_spawnedPolys; }
-ListKit::HashTable*& SplatSets() { return g_splatSets; }
-ListKit::HashTable*& RecentSplats() { return g_recentSplats; }
-ListKit::HashTable*& Shatters() { return g_shatters; }
+ListKit::KeyMap*& Flashes() { return g_flashes; }
+ListKit::KeyMap*& SpawnedPolys() { return g_spawnedPolys; }
+ListKit::KeyMap*& SplatSets() { return g_splatSets; }
+ListKit::KeyMap*& RecentSplats() { return g_recentSplats; }
+ListKit::KeyMap*& Shatters() { return g_shatters; }
 
 // A table's first value and the next (null at the end) - the original's inlined iteration (StepIterator).
-void* NextValue(ListKit::HashTable* table)
+void* NextValue(ListKit::KeyMap* table)
 {
     if (!table->StepIterator() || !table->m_iterItem)
         return nullptr;
     return table->m_iterItem->value;
 }
-void* FirstValue(ListKit::HashTable* table)
+void* FirstValue(ListKit::KeyMap* table)
 {
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
     return NextValue(table);
 }
 // A value taken out of its table (keyed by its address).
-void Remove(ListKit::HashTable* table, void* value)
+void DropOut(ListKit::KeyMap* table, void* value)
 {
     uint32_t key = reinterpret_cast<uint32_t>(value);
     table->EraseEntry(key);
@@ -107,23 +107,23 @@ void PlatSetFogExponent(float /*exponent*/) {}
 void CompiledOut() {}
 
 // A new table of 16 buckets on the default heap (none when out of memory).
-ListKit::HashTable* NewTable()
+ListKit::KeyMap* NewTable()
 {
-    void* memory = MemSys::New(sizeof(ListKit::HashTable));
-    return memory ? new (memory) ListKit::HashTable(4) : nullptr;
+    void* memory = MemSys::Alloc(sizeof(ListKit::KeyMap));
+    return memory ? new (memory) ListKit::KeyMap(4) : nullptr;
 }
 
 } // namespace
 
 // 0x00490D80
-void sVertexStack::Pop(uint8_t* out)
+void sVertexStack::StackOff(uint8_t* out)
 {
     used -= vertexSize;
     std::memcpy(out, data + used, vertexSize);
 }
 
 // 0x00490E40
-sSplatParams* sSplatParams::Construct()
+sSplatParams* sSplatParams::MakeNew()
 {
     start[0] = start[1] = start[2] = 0.0f;
     start[3] = 1.0f;
@@ -144,12 +144,12 @@ sSplatParams* sSplatParams::Construct()
 // --- the engine's shatter ---
 
 // 0x004912C0
-CShatter* CShatter::Construct(int count)
+CShatter* CShatter::MakeNew(int count)
 {
     vtable = reinterpret_cast<void**>(kShatterVtable);
-    centres = static_cast<Maths::Vector*>(MemSys::New(count << 4));
-    velocities = static_cast<Maths::Vector*>(MemSys::New(count << 4));
-    rotations = static_cast<Maths::Matrix*>(MemSys::New(count << 6));
+    centres = static_cast<Maths::Vec4*>(MemSys::Alloc(count << 4));
+    velocities = static_cast<Maths::Vec4*>(MemSys::Alloc(count << 4));
+    rotations = static_cast<Maths::Mat4*>(MemSys::Alloc(count << 6));
     triangleCount = static_cast<uint16_t>(count);
     unknown28 = g_shatterValueAF1A;
     gravity = 128.0f;
@@ -163,25 +163,25 @@ CShatter* CShatter::Construct(int count)
 void CShatter::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kShatterVtable);
-    MemSys::Manager::Get()->Free(centres);
-    MemSys::Manager::Get()->Free(velocities);
-    MemSys::Manager::Get()->Free(rotations);
+    MemSys::Hub::Pull()->Dealloc(centres);
+    MemSys::Hub::Pull()->Dealloc(velocities);
+    MemSys::Hub::Pull()->Dealloc(rotations);
 }
 
 // 0x00491380
-CShatter* CShatter::Destroy(unsigned int flags)
+CShatter* CShatter::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004913D0
 void CShatter::Step(int index, float step)
 {
-    Maths::Vector& velocity = velocities[index];
-    Maths::Vector& centre = centres[index];
+    Maths::Vec4& velocity = velocities[index];
+    Maths::Vec4& centre = centres[index];
     double moveX = static_cast<double>(step) * velocity.x;
     double moveY = static_cast<double>(step) * velocity.y;
     float moveZ = static_cast<float>(static_cast<double>(step) * velocity.z);
@@ -197,13 +197,13 @@ void CShatter::Step(int index, float step)
         float a1 = static_cast<float>(Rand() * kPerRandTwice - 1.0f);
         float a2 = static_cast<float>(Rand() * kPerRandTwice - 1.0f);
         float a3 = static_cast<float>(Rand() * kPerRandTwice - 1.0f);
-        Maths::Vector axis = {a3, a2, a1, 1.0f};
-        axis.Normalize();
-        Maths::Matrix& rotation = rotations[index];
+        Maths::Vec4 axis = {a3, a2, a1, 1.0f};
+        axis.MakeUnit();
+        Maths::Mat4& rotation = rotations[index];
         std::memset(&rotation, 0, sizeof(rotation));
         rotation.row[0].x = rotation.row[1].y = rotation.row[2].z = rotation.row[3].w = 1.0f;
         float turnAngle = static_cast<float>(Rand() * kPerRand * 0.1f); // (up to 0.1, 0x00645D74)
-        Maths::Matrix turn;
+        Maths::Mat4 turn;
         Maths::BuildAxisAngleMatrix(turn, axis, turnAngle);
         // D3DX (linked library code): rotation = rotation * turn
         D3dx::MatrixMultiply(
@@ -248,7 +248,7 @@ void __cdecl SetFogColor(uint32_t rgba)
 void __cdecl SetLevelColor(const float* color) { std::memcpy(g_levelColor, color, 16); }
 
 // 0x00491110
-void __cdecl SetShatterParams(const Maths::Vector* velocity, const Maths::Vector* vector210E, float valueC483, float area,
+void __cdecl SetShatterParams(const Maths::Vec4* velocity, const Maths::Vec4* vector210E, float valueC483, float area,
                               float speed, float velocityScale, float lifetime, float floor, float bounce,
                               float value2E1C, uint32_t texture, uint32_t valueAF1A, int value33DF)
 {
@@ -376,8 +376,8 @@ void __cdecl KillAllTextureSplats()
 {
     for (void* recent = FirstValue(RecentSplats()); recent;) {
         void* next = NextValue(RecentSplats());
-        Remove(RecentSplats(), recent);
-        MemSys::Manager::Get()->Free(recent);
+        DropOut(RecentSplats(), recent);
+        MemSys::Hub::Pull()->Dealloc(recent);
         recent = next;
     }
     Engine3D::KillAllTextureSplats();
@@ -401,8 +401,8 @@ void __cdecl KillTextureSplatsOfTexture(uint32_t texture)
     for (void* value = FirstValue(SplatSets()); value;) {
         void* next = NextValue(SplatSets());
         if (static_cast<sTextureSplats*>(value)->texture == texture) {
-            Remove(SplatSets(), value);
-            MemSys::Manager::Get()->Free(value);
+            DropOut(SplatSets(), value);
+            MemSys::Hub::Pull()->Dealloc(value);
         }
         value = next;
     }
@@ -410,13 +410,13 @@ void __cdecl KillTextureSplatsOfTexture(uint32_t texture)
 
 // A recent splat position (0x18 bytes, in 0x007004B4): where, the id it follows, when (FrameClock::GetTime).
 struct RecentSplat {
-    Maths::Vector pos;
+    Maths::Vec4 pos;
     uint32_t follow; // +0x10
     uint32_t time;   // +0x14
 };
 
 // 0x004928A0
-bool __cdecl CreateTextureSplatAt(const Maths::Vector* from, const Maths::Vector* to, float size, float depth, float angle,
+bool __cdecl CreateTextureSplatAt(const Maths::Vec4* from, const Maths::Vec4* to, float size, float depth, float angle,
                                   float coneAngle, float lifetime, const char* imageLabel, uint32_t unknown38,
                                   uint32_t follow, uint8_t unknown40, uint8_t* texture)
 {
@@ -441,13 +441,13 @@ bool __cdecl CreateTextureSplatAt(const Maths::Vector* from, const Maths::Vector
             }
             value = NextValue(RecentSplats());
             if (dead) {
-                Remove(RecentSplats(), dead);
-                MemSys::Manager::Get()->Free(dead);
+                DropOut(RecentSplats(), dead);
+                MemSys::Hub::Pull()->Dealloc(dead);
             }
         }
         if (!recent) {
             // None: only remembered.
-            auto* added = static_cast<RecentSplat*>(MemSys::New(sizeof(RecentSplat)));
+            auto* added = static_cast<RecentSplat*>(MemSys::Alloc(sizeof(RecentSplat)));
             added->follow = follow;
             added->pos = *from;
             added->time = now;
@@ -458,12 +458,12 @@ bool __cdecl CreateTextureSplatAt(const Maths::Vector* from, const Maths::Vector
     }
     if (!texture) {
         auto* textures = static_cast<CTextureSet*>(reinterpret_cast<void*>(g_particleTextureDict)); // (the particles' dictionary)
-        texture = reinterpret_cast<uint8_t*>(textures->GetTexture(Checksums::HashFromText(imageLabel)));
+        texture = reinterpret_cast<uint8_t*>(textures->FetchSkin(Checksums::HashFromText(imageLabel)));
     }
     // The line's box grown by the size; the collision objects of the grids along the line that meet it.
-    Maths::Line line(*from, *to);
+    Maths::Seg line(*from, *to);
     Maths::BBox lineBox(line.start);
-    lineBox.AddPoint(line.end);
+    lineBox.AppendSpot(line.end);
     Maths::BBox box;
     box.min = {static_cast<float>(static_cast<double>(lineBox.min.x) - size),
                  static_cast<float>(static_cast<double>(lineBox.min.y) - size),
@@ -505,7 +505,7 @@ bool __cdecl CreateTextureSplatAt(const Maths::Vector* from, const Maths::Vector
         made = false; // (it hasn't moved)
     } else {
         sSplatParams params;
-        params.Construct();
+        params.MakeNew();
         std::memcpy(params.start, from, 16);
         std::memcpy(params.end, to, 16);
         params.angle = angle;
@@ -551,7 +551,7 @@ void __cdecl UpdateShatters()
             UpdateShatter(reinterpret_cast<CPcShatter*>(shatter), elapsed);
         value = NextValue(Shatters());
         if (dead) {
-            Remove(Shatters(), dead);
+            DropOut(Shatters(), dead);
             reinterpret_cast<void(__thiscall*)(CShatter*, unsigned int)>(dead->vtable[0])(dead, 1);
         }
     }
@@ -572,7 +572,7 @@ void __cdecl DrawShatters()
 void __cdecl AddFlash(int viewport, uint32_t start, uint32_t end, float duration, float z, uint32_t flags,
                       const char* /*texture*/)
 {
-    auto* flash = static_cast<Flash*>(MemSys::New(sizeof(Flash)));
+    auto* flash = static_cast<Flash*>(MemSys::Alloc(sizeof(Flash)));
     std::memcpy(flash->start, &start, 4);
     std::memcpy(flash->end, &end, 4);
     flash->duration = duration;
@@ -611,8 +611,8 @@ void __cdecl UpdateFlashes()
         }
         value = NextValue(Flashes());
         if (dead) {
-            Remove(Flashes(), dead);
-            MemSys::Manager::Get()->Free(dead);
+            DropOut(Flashes(), dead);
+            MemSys::Hub::Pull()->Dealloc(dead);
         }
     }
 }
@@ -655,8 +655,8 @@ void __cdecl KillAllEffects()
 {
     for (void* flash = FirstValue(Flashes()); flash;) {
         void* next = NextValue(Flashes());
-        Remove(Flashes(), flash);
-        MemSys::Manager::Get()->Free(flash);
+        DropOut(Flashes(), flash);
+        MemSys::Hub::Pull()->Dealloc(flash);
         flash = next;
     }
     KillAllSpawnedPolys();
@@ -667,7 +667,7 @@ void __cdecl KillAllEffects()
 } // namespace Engine
 
 namespace {
-static VtableSlot kShatterVtable_slots[] = {&Engine3D::CShatter::Destroy};
+static VtableSlot kShatterVtable_slots[] = {&Engine3D::CShatter::Teardown};
 void** const kShatterVtable = reinterpret_cast<void**>(kShatterVtable_slots);
 } // namespace
 

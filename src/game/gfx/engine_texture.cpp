@@ -21,10 +21,10 @@ extern void** const kTextureVtable;
 } // namespace
 
 // 0x0049F200
-CBitmapTexture* CBitmapTexture::Construct()
+CBitmapTexture* CBitmapTexture::MakeNew()
 {
     vtable = reinterpret_cast<void**>(kTextureVtable);
-    m_flags &= 0xFFFF; // (the original clears the upper word alone)
+    m_flagBits &= 0xFFFF; // (the original clears the upper word alone)
     return this;
 }
 
@@ -32,11 +32,11 @@ CBitmapTexture* CBitmapTexture::Construct()
 void CBitmapTexture::DestroyBody() { vtable = reinterpret_cast<void**>(kTextureVtable); }
 
 // 0x0049F4D0
-CBitmapTexture* CBitmapTexture::Destroy(unsigned int freeFlags)
+CBitmapTexture* CBitmapTexture::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -69,7 +69,7 @@ bool CBitmapTexture::ReadFromRamBlock(const uint8_t* data, uint32_t size, uint32
 }
 
 // 0x0049F330
-bool CBitmapTexture::Create(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bitsPerPixel, uint32_t a4,
+bool CBitmapTexture::Fabricate(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bitsPerPixel, uint32_t a4,
                       uint32_t a5)
 {
     m_checksum = checksum;
@@ -81,9 +81,9 @@ bool CBitmapTexture::Create(uint32_t checksum, uint32_t width, uint32_t height, 
 void CBitmapTexture::PinResident(bool permanent)
 {
     if (permanent)
-        m_flags |= kTexturePermanent;
+        m_flagBits |= kTexturePermanent;
     else
-        m_flags &= ~kTexturePermanent;
+        m_flagBits &= ~kTexturePermanent;
 }
 
 // --- the dispatchers --------------------------------------------------------------------------------------------
@@ -179,7 +179,7 @@ __declspec(naked) void VirtualSlot41Jump()
 }
 
 namespace {
-static VtableSlot kTextureVtable_slots[] = {&Engine3D::CBitmapTexture::Destroy, &Engine3D::CViewRegion::QueryPoint, Stubs::ReturnFalse5,
+static VtableSlot kTextureVtable_slots[] = {&Engine3D::CBitmapTexture::Teardown, &Engine3D::CViewRegion::QueryPoint, Stubs::ReturnFalse5,
                 &Engine3D::CViewRegion::QueryRect, Stubs::ReturnFalse1, Stubs::ReturnFalse4, Stubs::ReturnFalse1,
                 Stubs::ReturnFalse1, Stubs::ReturnFalse2, Stubs::ReturnFalse2, Stubs::ReturnFalse, Stubs::ReturnFalse5,
                 Stubs::ReturnFalse2, Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnFalse2, Stubs::ReturnFalse2,

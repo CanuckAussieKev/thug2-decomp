@@ -25,9 +25,9 @@ struct CPcFlexibleParticles {
     uint8_t engine04[8];
     void** secondaryVtable;  // +0x0C
     uint8_t engine10[0x10];
-    Maths::Vector position;    // +0x20: the emitter's (particles are relative to it unless emitterIndependent)
+    Maths::Vec4 position;    // +0x20: the emitter's (particles are relative to it unless emitterIndependent)
     uint8_t engine30[0x10];
-    Maths::Vector alignTo;     // +0x40: the direction the aligned types face along
+    Maths::Vec4 alignTo;     // +0x40: the direction the aligned types face along
     uint8_t engine50[0x10];
     float colourScale[3];    // +0x60: red, green, blue
     uint8_t engine6C[4];
@@ -67,7 +67,7 @@ struct CPcFlexibleParticles {
     uint32_t Colour(uint32_t from, uint32_t to, float t);
     // The axes of a quad facing along alignTo: r = alignTo x (0, 1, 0) (x when alignTo is y itself), u = r x
     // alignTo, normalised.
-    void AlignedAxes(Maths::Vector& r, Maths::Vector& u) const;
+    void AlignedAxes(Maths::Vec4& r, Maths::Vec4& u) const;
     // A destructor body: the vtables, the material destroyed and freed, the engine's destructor body.
     void DestroyParts(void** primary, void** secondary, sSimpleMaterial* material,
                       void(__cdecl* engineDestructor)(CPcFlexibleParticles*));
@@ -102,12 +102,12 @@ struct CPcNewFlatParticles : CPcFlexibleParticles {
     float emitted;             // +0x144: particles owed, a fraction
 
     // 0x004BD3A0: construct. Returns this.
-    CPcNewFlatParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+    CPcNewFlatParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                    int fixedAlpha, int segments, float unknown);
     // 0x004BD610: the destructor's body (the material freed).
     void DestroyBody();
     // 0x004BDC40 (virtual [0]) / 0x004BD390 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
-    CPcNewFlatParticles* Destroy(unsigned int freeFlags);
+    CPcNewFlatParticles* Teardown(unsigned int freeFlags);
     // 0x004BD680 (virtual [1]): the particles drawn, then emitted for the frame. While a draw fills the vertex
     // buffer to within a quad of its room, the original stops - those particles and the rest aren't drawn.
     void Render();
@@ -127,12 +127,12 @@ struct CPcFlatRibbonParticles : CPcFlexibleParticles {
     sSimpleMaterial* material; // +0x140
 
     // 0x004BDC80: construct. Returns this.
-    CPcFlatRibbonParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+    CPcFlatRibbonParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                       int fixedAlpha, int segments, float width, int history);
     // 0x004BDD60: the destructor's body (the material freed).
     void DestroyBody();
     // 0x004BECD0 (virtual [0]) / 0x004BDC70 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
-    CPcFlatRibbonParticles* Destroy(unsigned int freeFlags);
+    CPcFlatRibbonParticles* Teardown(unsigned int freeFlags);
     // 0x004BDDD0 (virtual [1]): the ribbons (untextured), then the heads (the default pixel shader); a draw that
     // fills the buffer to within four vertices of its room stops that pass undrawn, as the original. No emission.
     void Render();
@@ -154,12 +154,12 @@ struct CPcGlowParticles : CPcFlexibleParticles {
     uint8_t unknown14C[4];
 
     // 0x004BED10: construct. Returns this.
-    CPcGlowParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CPcGlowParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                 int segments, float unknown);
     // 0x004BEDE0: the destructor's body (the material freed).
     void DestroyBody();
     // 0x004BF6E0 (virtual [0]) / 0x004BED00 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
-    CPcGlowParticles* Destroy(unsigned int freeFlags);
+    CPcGlowParticles* Teardown(unsigned int freeFlags);
     // 0x004BEE50 (virtual [1]): drawn. The original's triangle count is a quarter of the triangles it writes (words /
     // 16 / 3) - kept.
     void Render();
@@ -182,12 +182,12 @@ struct CPcGlowRibbonTrailParticles : CPcFlexibleParticles {
     float glowStep;            // +0x14C: degrees between the glow's points
 
     // 0x004BF720: construct. Returns this.
-    CPcGlowRibbonTrailParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+    CPcGlowRibbonTrailParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                            int fixedAlpha, int segments, float unknown, int history);
     // 0x004C0940: the destructor's body (the material freed).
     void DestroyBody();
     // 0x004C09B0 (virtual [0]) / 0x004BF710 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
-    CPcGlowRibbonTrailParticles* Destroy(unsigned int freeFlags);
+    CPcGlowRibbonTrailParticles* Teardown(unsigned int freeFlags);
     // 0x004BF7F0 (virtual [1]): drawn. No emission.
     void Render();
     // (Inline in Render.)
@@ -207,12 +207,12 @@ struct CPcLineParticles : CPcFlexibleParticles {
     uint8_t unknown144[4];
 
     // 0x004C09F0: construct. Returns this.
-    CPcLineParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CPcLineParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                 int segments, float unknown);
     // 0x004C0AC0: the destructor's body (the material freed).
     void DestroyBody();
     // 0x004C0E70 (virtual [0]) / 0x004C09E0 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
-    CPcLineParticles* Destroy(unsigned int freeFlags);
+    CPcLineParticles* Teardown(unsigned int freeFlags);
     // 0x004C0B30 (virtual [1]): drawn as a line list (no index buffer); a draw that fills the buffer to within two
     // vertices stops undrawn, as the original. No emission.
     void Render();
@@ -231,12 +231,12 @@ struct CPcRibbonParticles : CPcFlexibleParticles {
     uint8_t unknown144[4];
 
     // 0x004C0EB0: construct. Returns this.
-    CPcRibbonParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+    CPcRibbonParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                   int fixedAlpha, int segments, float unknown, int history);
     // 0x004C0F80: the destructor's body (the material freed).
     void DestroyBody();
     // 0x004C16E0 (virtual [0]) / 0x004C0EA0 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
-    CPcRibbonParticles* Destroy(unsigned int freeFlags);
+    CPcRibbonParticles* Teardown(unsigned int freeFlags);
     // 0x004C0FF0 (virtual [1]): drawn. No emission.
     void Render();
 };
@@ -255,12 +255,12 @@ struct CPcRibbonTrailParticles : CPcFlexibleParticles {
     uint8_t unknown144[4];
 
     // 0x004C1720: construct. Returns this.
-    CPcRibbonTrailParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+    CPcRibbonTrailParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                        int fixedAlpha, int segments, float unknown, int history);
     // 0x004C17F0: the destructor's body (the material freed).
     void DestroyBody();
     // 0x004C2160 (virtual [0]) / 0x004C1710 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
-    CPcRibbonTrailParticles* Destroy(unsigned int freeFlags);
+    CPcRibbonTrailParticles* Teardown(unsigned int freeFlags);
     // 0x004C1860 (virtual [1]): drawn. No emission.
     void Render();
     // (Inline in Render.)
@@ -278,12 +278,12 @@ struct CPcShadedParticles : CPcFlexibleParticles {
     sSimpleMaterial* material; // +0x134
 
     // 0x004C21A0: construct. Returns this.
-    CPcShadedParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+    CPcShadedParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                   int fixedAlpha);
     // 0x004C2260: the destructor's body (the material freed).
     void DestroyBody();
     // 0x004C2AF0 (virtual [0]) / 0x004C2190 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
-    CPcShadedParticles* Destroy(unsigned int freeFlags);
+    CPcShadedParticles* Teardown(unsigned int freeFlags);
     // 0x004C22D0 (virtual [1]): drawn (the material's own pixel shader). No emission.
     void Render();
 };
@@ -298,12 +298,12 @@ struct CPcSmoothParticles : CPcFlexibleParticles {
     uint8_t unknown144[4];
 
     // 0x004C2B30: construct. Returns this.
-    CPcSmoothParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+    CPcSmoothParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                   int fixedAlpha, int segments, float unknown);
     // 0x004C2C00: the destructor's body (the material freed).
     void DestroyBody();
     // 0x004C3500 (virtual [0]) / 0x004C2B20 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
-    CPcSmoothParticles* Destroy(unsigned int freeFlags);
+    CPcSmoothParticles* Teardown(unsigned int freeFlags);
     // 0x004C2C70 (virtual [1]): drawn (DrawPrimitive, no index buffer; a draw that fills the buffer to within twelve
     // vertices stops undrawn, as the original). No emission.
     void Render();
@@ -320,12 +320,12 @@ struct CPcSmoothRibbonParticles : CPcFlexibleParticles {
     sSimpleMaterial* material; // +0x13C
 
     // 0x004C3550: construct. Returns this.
-    CPcSmoothRibbonParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+    CPcSmoothRibbonParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                         int fixedAlpha, int segments, float unknown, int history);
     // 0x004C3620: the destructor's body (the material freed).
     void DestroyBody();
     // 0x004C3D40 (virtual [0]) / 0x004C3540 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
-    CPcSmoothRibbonParticles* Destroy(unsigned int freeFlags);
+    CPcSmoothRibbonParticles* Teardown(unsigned int freeFlags);
     // 0x004C3690 (virtual [1]): drawn. No emission.
     void Render();
     // 0x004C3530 (virtual [2]): the history steps.
@@ -347,12 +347,12 @@ struct CPcSmoothStarParticles : CPcFlexibleParticles {
     uint8_t unknown14C[4];
 
     // 0x004C3D80: construct. Returns this.
-    CPcSmoothStarParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+    CPcSmoothStarParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                       int fixedAlpha, int segments, float unknown);
     // 0x004C3E50: the destructor's body (the material freed).
     void DestroyBody();
     // 0x004C4880 (virtual [0]) / 0x004C3D70 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
-    CPcSmoothStarParticles* Destroy(unsigned int freeFlags);
+    CPcSmoothStarParticles* Teardown(unsigned int freeFlags);
     // 0x004C3EC0 (virtual [1]): drawn. No emission.
     void Render();
 };
@@ -372,12 +372,12 @@ struct CPcStarParticles : CPcFlexibleParticles {
     uint8_t unknown14C[4];
 
     // 0x004C48C0: construct. Returns this.
-    CPcStarParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CPcStarParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                 int segments, float unknown);
     // 0x004C4990: the destructor's body (the material freed).
     void DestroyBody();
     // 0x004C5200 (virtual [0]) / 0x004C48B0 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
-    CPcStarParticles* Destroy(unsigned int freeFlags);
+    CPcStarParticles* Teardown(unsigned int freeFlags);
     // 0x004C4A00 (virtual [1]): drawn. No emission.
     void Render();
 };

@@ -23,30 +23,30 @@ R CallSlot(void* object, int slot, A... args)
     return reinterpret_cast<R(__thiscall*)(void*, A...)>(vtable[slot])(object, args...);
 }
 
-void* HeapAllocate(Allocator* heap, uint32_t size, int haltIfExhausted)
+void* HeapAllocate(MemSource* heap, uint32_t size, int haltIfExhausted)
 {
     return CallSlot<void*>(heap, 3, size, haltIfExhausted);
 }
 
 // Delete a heap / region through its scalar deleting destructor.
-void DeleteAllocator(Allocator* heap) { CallSlot<void*>(heap, 2, 1u); }
-void DeleteRegion(Region* region) { CallSlot<void*>(region, 0, 1u); }
+void DeleteAllocator(MemSource* heap) { CallSlot<void*>(heap, 2, 1u); }
+void DeleteRegion(Zone* region) { CallSlot<void*>(region, 0, 1u); }
 
-Allocator* CurrentHeap(Manager* manager) { return *manager->m_current; }
+MemSource* CurrentHeap(Hub* manager) { return *manager->m_ongoing; }
 
 } // namespace
 
 // The one memory manager (made by the exe's static initialisers: standalone start-up order, step 6).
-Manager* g_memoryManager;
+Hub* g_memoryManager;
 bool g_managerReady; // the memory manager is set up
 
-Manager* Manager::Get()
+Hub* Hub::Pull()
 {
     return g_memoryManager;
 }
 
 // 0x005BAFC0
-void* Manager::Allocate(uint32_t size, int haltIfExhausted, Allocator* heap)
+void* Hub::Carve(uint32_t size, int haltIfExhausted, MemSource* heap)
 {
     if (!heap)
         heap = CurrentHeap(this);
@@ -57,7 +57,7 @@ void* Manager::Allocate(uint32_t size, int haltIfExhausted, Allocator* heap)
 }
 
 // 0x005BB000
-void* Manager::AllocateZeroed(uint32_t size, int haltIfExhausted, Allocator* heap)
+void* Hub::AllocateZeroed(uint32_t size, int haltIfExhausted, MemSource* heap)
 {
     if (!heap)
         heap = CurrentHeap(this);
@@ -70,7 +70,7 @@ void* Manager::AllocateZeroed(uint32_t size, int haltIfExhausted, Allocator* hea
 }
 
 // 0x005BB060
-void* Manager::ExtendBlockUpward(uint32_t size, void* block, Allocator* heap)
+void* Hub::ExtendBlockUpward(uint32_t size, void* block, MemSource* heap)
 {
     if (!heap)
         heap = CurrentHeap(this);
@@ -81,7 +81,7 @@ void* Manager::ExtendBlockUpward(uint32_t size, void* block, Allocator* heap)
 }
 
 // 0x005BB0A0
-void* Manager::TrimBlockEnd(uint32_t size, void* block, Allocator* heap)
+void* Hub::TrimBlockEnd(uint32_t size, void* block, MemSource* heap)
 {
     if (!heap)
         heap = CurrentHeap(this);
@@ -92,48 +92,48 @@ void* Manager::TrimBlockEnd(uint32_t size, void* block, Allocator* heap)
 }
 
 // 0x005BABA0
-void Manager::Free(void* block)
+void Hub::Dealloc(void* block)
 {
     if (block)
         FreeBlock(block);
 }
 
 // 0x005BB050
-uint32_t Manager::Available()
+uint32_t Hub::Obtainable()
 {
     return CallSlot<uint32_t>(CurrentHeap(this), 4);
 }
 
 // 0x005BB0E0
-void Manager::EnterHeapScope(Allocator* heap)
+void Hub::EnterHeapScope(MemSource* heap)
 {
-    m_current = &m_contextStack[m_contextDepth];
-    *m_current = heap;
+    m_ongoing = &m_contextStack[m_contextDepth];
+    *m_ongoing = heap;
     ++m_contextDepth;
 }
 
 // 0x005BB110
-void Manager::LeaveHeapScope()
+void Hub::LeaveHeapScope()
 {
     --m_contextDepth;
-    m_contextStack[m_contextDepth] = reinterpret_cast<Allocator*>(-1);
-    m_current = m_contextDepth ? &m_contextStack[m_contextDepth - 1] : nullptr;
+    m_contextStack[m_contextDepth] = reinterpret_cast<MemSource*>(-1);
+    m_ongoing = m_contextDepth ? &m_contextStack[m_contextDepth - 1] : nullptr;
 }
 
 // 0x005BB150
-const char* Manager::CurrentHeapName()
+const char* Hub::CurrentHeapName()
 {
-    return CurrentHeap(this)->m_name;
+    return CurrentHeap(this)->m_label;
 }
 
 // 0x005BAC10
-Allocator* Manager::FirstZone()
+MemSource* Hub::FirstZone()
 {
     return m_heapCount ? m_heaps[0] : nullptr;
 }
 
 // 0x005BAC20 (the last heap is never found, so its "next" is null too)
-Allocator* Manager::FollowingZone(Allocator* heap)
+MemSource* Hub::FollowingZone(MemSource* heap)
 {
     for (int i = 0; i < m_heapCount - 1; ++i) {
         if (m_heaps[i] == heap)
@@ -143,7 +143,7 @@ Allocator* Manager::FollowingZone(Allocator* heap)
 }
 
 // 0x005BABC0
-void Manager::DeleteHeap(Allocator* heap)
+void Hub::DeleteHeap(MemSource* heap)
 {
     for (int i = 0; i < m_heapCount; ++i) {
         if (m_heaps[i] == heap) {
@@ -157,7 +157,7 @@ void Manager::DeleteHeap(Allocator* heap)
 }
 
 // 0x005BAF00
-Manager::LabeledZone* Manager::FindNamedHeap(uint32_t name)
+Hub::LabeledZone* Hub::FindNamedHeap(uint32_t name)
 {
     for (LabeledZone& named : m_namedHeaps) {
         if (named.used && named.name == name)
@@ -167,14 +167,14 @@ Manager::LabeledZone* Manager::FindNamedHeap(uint32_t name)
 }
 
 // 0x005BAF50
-Heap* Manager::GetNamedHeap(uint32_t name, int /*unused*/)
+Arena* Hub::GetNamedHeap(uint32_t name, int /*unused*/)
 {
     LabeledZone* named = FindNamedHeap(name);
     return named ? named->heap : nullptr;
 }
 
 // 0x005BAF70
-bool Manager::ReleaseLabeledZone(uint32_t name, int /*unused*/)
+bool Hub::ReleaseLabeledZone(uint32_t name, int /*unused*/)
 {
     LabeledZone* named = FindNamedHeap(name);
     if (!named)
@@ -219,7 +219,7 @@ enum HeapName : uint32_t {
 } // namespace
 
 // 0x005BB310
-Heap* Manager::GetMemoryPool(uint32_t name)
+Arena* Hub::GetMemoryPool(uint32_t name)
 {
     if (LabeledZone* named = FindNamedHeap(name))
         return named->heap;
@@ -253,7 +253,7 @@ Heap* Manager::GetMemoryPool(uint32_t name)
 }
 
 // 0x005BB160
-const char* Manager::GetZoneLabel(uint32_t name)
+const char* Hub::GetZoneLabel(uint32_t name)
 {
     if (LabeledZone* named = FindNamedHeap(name))
         return named->text;
@@ -284,7 +284,7 @@ const char* Manager::GetZoneLabel(uint32_t name)
 }
 
 // 0x005BAC50
-void Manager::ReleaseNetScratchZone()
+void Hub::ReleaseNetScratchZone()
 {
     if (!m_netMiscRegion)
         return;
@@ -295,7 +295,7 @@ void Manager::ReleaseNetScratchZone()
 }
 
 // 0x005BAC90
-void Manager::DeleteCutsceneHeaps()
+void Hub::DeleteCutsceneHeaps()
 {
     if (!m_cutsceneRegion)
         return;
@@ -309,7 +309,7 @@ void Manager::DeleteCutsceneHeaps()
 }
 
 // 0x005BACF0: the heaps of skaters 1 to 7 (multiplayer)
-void Manager::DeleteExtraSkaterHeaps()
+void Hub::DeleteExtraSkaterHeaps()
 {
     for (int i = 1; i < kMaxSkaters; ++i) {
         if (m_skaterRegions[i]) {
@@ -332,7 +332,7 @@ void Manager::DeleteExtraSkaterHeaps()
 }
 
 // 0x005BADD0 (the pointers are left as they were)
-void Manager::DeleteStandardHeaps()
+void Hub::DeleteStandardHeaps()
 {
     DeleteHeap(m_frontEndHeap);
     if (m_frontEndRegion)
@@ -356,7 +356,7 @@ void Manager::DeleteStandardHeaps()
 }
 
 // 0x005BBE50
-void Manager::DestroyMainHeaps()
+void Hub::DestroyMainHeaps()
 {
     CallSlot<void*>(m_topDownHeap, 2, 0u);
     CallSlot<void*>(m_bottomUpHeap, 2, 0u);
@@ -368,19 +368,19 @@ void Manager::DestroyMainHeaps()
 // 0x005BBAE0
 void* AllocBlock(unsigned int size)
 {
-    return Manager::Get()->Allocate(size, 1, nullptr);
+    return Hub::Pull()->Carve(size, 1, nullptr);
 }
 
 // 0x005BBB10
 uint32_t MallocAvailable()
 {
-    return Manager::Get()->Available();
+    return Hub::Pull()->Obtainable();
 }
 
 // 0x005BBB30
 void* TrimBlockEnd(unsigned int size, void* memory)
 {
-    void* result = CallSlot<void*>(CurrentHeap(Manager::Get()), 7, size, memory);
+    void* result = CallSlot<void*>(CurrentHeap(Hub::Pull()), 7, size, memory);
     if (result)
         MarkBlockInUse(result);
     return result;
@@ -401,11 +401,11 @@ unsigned int MallocSize(void* memory)
 
 // 0x005BBBA0: a new block of `size` with the old one's contents (copies `size` bytes, even from a smaller
 // block - as in the original)
-void* Realloc(void* memory, unsigned int size)
+void* Regrow(void* memory, unsigned int size)
 {
     void* block = nullptr;
     if (size) {
-        block = HeapAllocate(CurrentHeap(Manager::Get()), size, 1);
+        block = HeapAllocate(CurrentHeap(Hub::Pull()), size, 1);
         if (block)
             MarkBlockInUse(block);
     }
@@ -424,10 +424,10 @@ void* Realloc(void* memory, unsigned int size)
 namespace MemSys {
 
 // Where the manager and its main region and heaps live (static storage in the game, as words).
-uint32_t g_managerStorage[(sizeof(Manager) + 3) / 4];
-uint32_t g_mainRegionStorage[(sizeof(Region) + 3) / 4];
-uint32_t g_topDownStorage[(sizeof(Heap) + 3) / 4];
-uint32_t g_bottomUpStorage[(sizeof(Heap) + 3) / 4];
+uint32_t g_managerStorage[(sizeof(Hub) + 3) / 4];
+uint32_t g_mainRegionStorage[(sizeof(Zone) + 3) / 4];
+uint32_t g_topDownStorage[(sizeof(Arena) + 3) / 4];
+uint32_t g_bottomUpStorage[(sizeof(Arena) + 3) / 4];
 
 namespace {
 
@@ -449,7 +449,7 @@ MemoryArena* NewAllocRegion(uint32_t size)
 
 } // namespace
 
-Manager*& Manager::Instance()
+Hub*& Hub::Sole()
 {
     return g_memoryManager;
 }
@@ -462,9 +462,9 @@ uintptr_t g_dataStart;
 uintptr_t g_codeStart;
 
 // 0x005BBC00
-Manager* Manager::Construct()
+Hub* Hub::MakeNew()
 {
-    m_current = nullptr;
+    m_ongoing = nullptr;
     for (LabeledZone& named : m_namedHeaps) {
         named.region = nullptr;
         named.heap = nullptr;
@@ -483,14 +483,14 @@ Manager* Manager::Construct()
     g_heapBlockEnd = block + blockSize;
     g_heapBlockLimit = block + blockSize;
     uint8_t* end = g_heapBlockLimit;
-    void* region = Clear(sizeof(Region), kMainRegionStorage);
-    m_mainRegion = region ? new (region) Region(reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(block) + 15) & ~15u),
+    void* region = Clear(sizeof(Zone), kMainRegionStorage);
+    m_mainRegion = region ? new (region) Zone(reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(block) + 15) & ~15u),
                                                 reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(end) & ~15u))
                           : nullptr;
-    void* top = Clear(sizeof(Heap), kTopDownStorage);
-    m_topDownHeap = top ? new (top) Heap(m_mainRegion, Allocator::kGrowDown, "Top Down") : nullptr;
-    void* bottom = Clear(sizeof(Heap), kBottomUpStorage);
-    m_bottomUpHeap = bottom ? new (bottom) Heap(m_mainRegion, Allocator::kGrowUp, "BottomUp") : nullptr;
+    void* top = Clear(sizeof(Arena), kTopDownStorage);
+    m_topDownHeap = top ? new (top) Arena(m_mainRegion, MemSource::kGrowDown, "Top Down") : nullptr;
+    void* bottom = Clear(sizeof(Arena), kBottomUpStorage);
+    m_bottomUpHeap = bottom ? new (bottom) Arena(m_mainRegion, MemSource::kGrowUp, "BottomUp") : nullptr;
     m_heaps[1] = m_bottomUpHeap;
     m_heaps[0] = m_topDownHeap;
     m_heapCount = 2;
@@ -514,22 +514,22 @@ Manager* Manager::Construct()
 }
 
 // 0x005BB4E0
-Heap* Manager::AddHeap(Region* region, int direction, const char* name)
+Arena* Hub::AddHeap(Zone* region, int direction, const char* name)
 {
-    void* memory = AllocZeroed(sizeof(Heap));
-    Heap* heap = memory ? new (memory) Heap(region, direction, name) : nullptr;
+    void* memory = AllocZeroed(sizeof(Arena));
+    Arena* heap = memory ? new (memory) Arena(region, direction, name) : nullptr;
     m_heaps[m_heapCount++] = heap;
     return heap;
 }
 
 // 0x005BBE80
-void Manager::InitStandardHeaps()
+void Hub::InitStandardHeaps()
 {
     m_frontEndRegion = NewAllocRegion(GameConfig::g_configBootstrap ? 1000000 : 1100000);
     DebugOut::Printf("allocated mp_frontend_region at %p\n", m_frontEndRegion);
-    m_networkHeap = AddHeap(m_frontEndRegion, Allocator::kGrowDown, "Network");
+    m_networkHeap = AddHeap(m_frontEndRegion, MemSource::kGrowDown, "Network");
     DebugOut::Printf("Setup TOP_DOWN mp_network_heap at %p\n", m_networkHeap);
-    m_frontEndHeap = AddHeap(m_frontEndRegion, Allocator::kGrowUp, "FrontEnd");
+    m_frontEndHeap = AddHeap(m_frontEndRegion, MemSource::kGrowUp, "FrontEnd");
     DebugOut::Printf("Setup mp_frontend_heap at %p\n", m_frontEndHeap);
 
     // Not original - grown by what the bigger script pools take more (game/core/memory_sizes.h: pool sizes as
@@ -537,27 +537,27 @@ void Manager::InitStandardHeaps()
     // Original behaviour: 0x434770 bytes.
     m_scriptRegion = NewAllocRegion(Sizes::ScriptRegionSize());
     DebugOut::Printf("allocated mp_script_region at %p\n", m_scriptRegion);
-    m_scriptHeap = AddHeap(m_scriptRegion, Allocator::kGrowUp, "Script");
+    m_scriptHeap = AddHeap(m_scriptRegion, MemSource::kGrowUp, "Script");
     DebugOut::Printf("Setup mp_script_heap at %p\n", m_scriptHeap);
 
     m_skaterInfoRegion = NewAllocRegion(82000);
     DebugOut::Printf("allocated mp_skater_info_region at %p\n", m_skaterInfoRegion);
-    m_skaterInfoHeap = AddHeap(m_skaterInfoRegion, Allocator::kGrowUp, "skt_info");
+    m_skaterInfoHeap = AddHeap(m_skaterInfoRegion, MemSource::kGrowUp, "skt_info");
     DebugOut::Printf("Setup mp_skater_info_heap at %p\n", m_skaterInfoHeap);
 
     m_themeRegion = NewAllocRegion(0x3C00);
     DebugOut::Printf("allocated mp_theme_region at %p\n", m_themeRegion);
-    m_themeHeap = AddHeap(m_themeRegion, Allocator::kGrowUp, "theme");
+    m_themeHeap = AddHeap(m_themeRegion, MemSource::kGrowUp, "theme");
     DebugOut::Printf("Setup mp_theme_heap at %p\n", m_themeHeap);
 
     m_skaterRegions[0] = NewAllocRegion(0x1AFA4);
     DebugOut::Printf("allocated mp_skater_region at %p\n", m_skaterRegions[0]);
-    m_skaterHeaps[0] = AddHeap(m_skaterRegions[0], Allocator::kGrowUp, "skater");
+    m_skaterHeaps[0] = AddHeap(m_skaterRegions[0], MemSource::kGrowUp, "skater");
     DebugOut::Printf("Setup mp_skater_heap at %p\n", m_skaterHeaps[0]);
 
     m_skaterGeomRegions[0] = NewAllocRegion(0x73F78);
     DebugOut::Printf("allocated mp_skater_geom_region at %p\n", m_skaterGeomRegions[0]);
-    m_skaterGeomHeaps[0] = AddHeap(m_skaterGeomRegions[0], Allocator::kGrowUp, "skater_geom");
+    m_skaterGeomHeaps[0] = AddHeap(m_skaterGeomRegions[0], MemSource::kGrowUp, "skater_geom");
     DebugOut::Printf("Setup mp_skater_geom_heap at %p\n", m_skaterGeomHeaps[0]);
 
     for (int i = 1; i < kMaxSkaters; ++i) {
@@ -571,42 +571,42 @@ void Manager::InitStandardHeaps()
 }
 
 // 0x005BB560 (made with the bottom-up heap current, on the game's manager)
-void Manager::CreateNetScratchZone()
+void Hub::CreateNetScratchZone()
 {
     if (m_netMiscRegion)
         return;
-    Manager* manager = Get();
+    Hub* manager = Pull();
     manager->EnterHeapScope(manager->m_bottomUpHeap);
     m_netMiscRegion = NewAllocRegion(160000);
-    m_netMiscHeap = AddHeap(m_netMiscRegion, Allocator::kGrowUp, "NetMisc");
-    Get()->LeaveHeapScope();
+    m_netMiscHeap = AddHeap(m_netMiscRegion, MemSource::kGrowUp, "NetMisc");
+    Pull()->LeaveHeapScope();
 }
 
 // 0x005BB660 (made with the bottom-up heap current, on the game's manager)
-void Manager::InitInternetHeaps()
+void Hub::InitInternetHeaps()
 {
     if (m_internetRegion)
         return;
-    Manager* manager = Get();
+    Hub* manager = Pull();
     manager->EnterHeapScope(manager->m_bottomUpHeap);
     m_internetRegion = NewAllocRegion(450000);
-    m_internetTopDownHeap = AddHeap(m_internetRegion, Allocator::kGrowDown, "InternetTopDown");
-    m_internetBottomUpHeap = AddHeap(m_internetRegion, Allocator::kGrowUp, "InternetBottomUp");
-    Get()->LeaveHeapScope();
+    m_internetTopDownHeap = AddHeap(m_internetRegion, MemSource::kGrowDown, "InternetTopDown");
+    m_internetBottomUpHeap = AddHeap(m_internetRegion, MemSource::kGrowUp, "InternetBottomUp");
+    Pull()->LeaveHeapScope();
 }
 
 // 0x005BB780
-void Manager::InitCutsceneHeaps(uint32_t size)
+void Hub::InitCutsceneHeaps(uint32_t size)
 {
     if (m_cutsceneRegion)
         return;
     m_cutsceneRegion = NewAllocRegion(size);
-    m_cutsceneBottomUpHeap = AddHeap(m_cutsceneRegion, Allocator::kGrowUp, "CutsceneBottomUp");
-    m_cutsceneTopDownHeap = AddHeap(m_cutsceneRegion, Allocator::kGrowDown, "CutsceneTopDown");
+    m_cutsceneBottomUpHeap = AddHeap(m_cutsceneRegion, MemSource::kGrowUp, "CutsceneBottomUp");
+    m_cutsceneTopDownHeap = AddHeap(m_cutsceneRegion, MemSource::kGrowDown, "CutsceneTopDown");
 }
 
 // 0x005BB820
-void Manager::InitExtraSkaterHeaps(int count)
+void Hub::InitExtraSkaterHeaps(int count)
 {
     DebugOut::Printf("Init Skater Heaps\n");
     if (count > kMaxSkaters)
@@ -614,18 +614,18 @@ void Manager::InitExtraSkaterHeaps(int count)
     for (int i = 1; i < count; ++i) {
         m_skaterRegions[i] = NewAllocRegion(0x1AFA4);
         DebugOut::Printf("EXTRA: allocated mp_skater_region at %p\n", m_skaterRegions[i]);
-        m_skaterHeaps[i] = AddHeap(m_skaterRegions[i], Allocator::kGrowUp, "skaterX");
+        m_skaterHeaps[i] = AddHeap(m_skaterRegions[i], MemSource::kGrowUp, "skaterX");
         DebugOut::Printf("EXTRA: Setup mp_skater_heap at %p\n", m_skaterHeaps[i]);
         m_skaterGeomRegions[i] = NewAllocRegion(0x73F78);
         DebugOut::Printf("EXTRA: allocated mp_skater_geom_region at %p\n", m_skaterGeomRegions[i]);
-        m_skaterGeomHeaps[i] = AddHeap(m_skaterGeomRegions[i], Allocator::kGrowUp, "skaterGeomX");
+        m_skaterGeomHeaps[i] = AddHeap(m_skaterGeomRegions[i], MemSource::kGrowUp, "skaterGeomX");
         DebugOut::Printf("EXTRA: Setup mp_skater_geom_heap at %p\n", m_skaterGeomHeaps[i]);
     }
     DebugOut::Printf("END Init Skater Heaps\n");
 }
 
 // 0x005BB9E0
-void Manager::CreateLabeledZone(uint32_t name, uint32_t size, const char* text, int /*unused*/)
+void Hub::CreateLabeledZone(uint32_t name, uint32_t size, const char* text, int /*unused*/)
 {
     LabeledZone* named = nullptr;
     for (LabeledZone& slot : m_namedHeaps) {
@@ -638,18 +638,18 @@ void Manager::CreateLabeledZone(uint32_t name, uint32_t size, const char* text, 
     named->name = name;
     std::memcpy(named->text, text, std::strlen(text) + 1); // (unbounded, as in the original)
     named->region = NewAllocRegion(size);
-    named->heap = AddHeap(named->region, Allocator::kGrowUp, named->text);
+    named->heap = AddHeap(named->region, MemSource::kGrowUp, named->text);
     named->used = true;
 }
 
 // 0x005BC2C0
 void SetUpManager()
 {
-    if (Manager::Get())
+    if (Hub::Pull())
         return;
-    void* memory = Clear(sizeof(Manager), kManagerStorage);
-    Manager* manager = memory ? static_cast<Manager*>(memory)->Construct() : nullptr;
-    Manager::Instance() = manager;
+    void* memory = Clear(sizeof(Hub), kManagerStorage);
+    Hub* manager = memory ? static_cast<Hub*>(memory)->MakeNew() : nullptr;
+    Hub::Sole() = manager;
     manager->EnterHeapScope(manager->m_bottomUpHeap);
 }
 
@@ -666,13 +666,13 @@ int EnsureManager()
 // 0x005BC340
 void ShutDownManager()
 {
-    Manager* manager = Manager::Get();
+    Hub* manager = Hub::Pull();
     if (!manager)
         return;
     manager->DeleteStandardHeaps();
     manager->LeaveHeapScope();
     manager->DestroyMainHeaps();
-    Manager::Instance() = nullptr;
+    Hub::Sole() = nullptr;
 }
 
 } // namespace Mem

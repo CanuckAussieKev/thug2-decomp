@@ -9,7 +9,7 @@
 
 namespace D3dx {
 
-// (Maths::Matrix and the callers' float arrays are 16 floats, 4-byte aligned, like D3DXMATRIX: the casts below are
+// (Maths::Mat4 and the callers' float arrays are 16 floats, 4-byte aligned, like D3DXMATRIX: the casts below are
 // layout-exact. d3dx9_43 may differ from the exe's 2004 D3DX9 in the last bit of a float.)
 static_assert(sizeof(D3DXMATRIX) == 64 && sizeof(D3DXVECTOR3) == 12 && sizeof(D3DXVECTOR4) == 16,
               "the D3DX types must be plain floats");

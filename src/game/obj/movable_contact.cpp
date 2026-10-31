@@ -35,14 +35,14 @@ float Sum(float a, double b) { return static_cast<float>(static_cast<double>(a) 
 } // namespace
 
 // 0x00427AB0
-CObjectModule* __cdecl CMovingSurfaceModule::Create()
+CObjectModule* __cdecl CMovingSurfaceModule::Fabricate()
 {
     auto* contact = static_cast<CMovingSurfaceModule*>(MemSys::AllocZeroed(sizeof(CMovingSurfaceModule)));
     if (!contact)
         return nullptr;
-    contact->CObjectModule::Construct();
+    contact->CObjectModule::MakeNew();
     contact->m_vtable = kVtable;
-    contact->m_type = kType;
+    contact->m_kindTag = kType;
     contact->mp_ride = nullptr;
     contact->m_stopTime = 0;
     return contact;
@@ -56,23 +56,23 @@ void CMovingSurfaceModule::DestroyBody()
 }
 
 // 0x004276D0
-CMovingSurfaceModule* CMovingSurfaceModule::Destroy(unsigned int flags)
+CMovingSurfaceModule* CMovingSurfaceModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00427700
-CGameEntity* CMovingSurfaceModule::FindContact(const Maths::Vector* point, Maths::Vector* hit)
+CGameEntity* CMovingSurfaceModule::FindContact(const Maths::Vec4* point, Maths::Vec4* hit)
 {
     Engine3D::CProbeRay down;
-    down.Construct();
+    down.MakeNew();
     down.m_line.start = {point->x, Sum(point->y, kFeelerTop), point->z, point->w};
     down.m_line.end = {point->x, Sum(point->y, kFeelerBottom), point->z, point->w};
     Engine3D::CProbeRay up;
-    up.Construct();
+    up.MakeNew();
     for (int tries = 1;;) {
         if (!down.GetHitShape(true, false) || !down.HitObjectAlive())
             return nullptr;
@@ -91,9 +91,9 @@ CGameEntity* CMovingSurfaceModule::FindContact(const Maths::Vector* point, Maths
 }
 
 // 0x00427B30
-CGameEntity* CMovingSurfaceModule::FindContactAhead(Maths::Vector* pos, const Maths::Vector* next)
+CGameEntity* CMovingSurfaceModule::FindContactAhead(Maths::Vec4* pos, const Maths::Vec4* next)
 {
-    Maths::Vector hit, other;
+    Maths::Vec4 hit, other;
     CGameEntity* object = FindContact(pos, &hit);
     if (!object)
         return nullptr;
@@ -103,12 +103,12 @@ CGameEntity* CMovingSurfaceModule::FindContactAhead(Maths::Vector* pos, const Ma
     }
     // (two frames of the object's velocity ahead: x through the unrounded product, the others rounded first)
     double frame = FrameClock::GetSlomoFrameSeconds();
-    const Maths::Vector& vel = object->m_vel;
+    const Maths::Vec4& vel = object->m_vel;
     double x = frame * vel.x;
     float y = static_cast<float>(frame * vel.y);
     float z = static_cast<float>(frame * vel.z);
     float w = static_cast<float>(frame * vel.w);
-    Maths::Vector ahead = {Sum(pos->x, x + x), Sum(pos->y, static_cast<double>(y) + y), Sum(pos->z, static_cast<double>(z) + z),
+    Maths::Vec4 ahead = {Sum(pos->x, x + x), Sum(pos->y, static_cast<double>(y) + y), Sum(pos->z, static_cast<double>(z) + z),
                          Sum(pos->w, static_cast<double>(w) + w)};
     if (!FindContact(&ahead, &other)) {
         *pos = ahead;
@@ -120,15 +120,15 @@ CGameEntity* CMovingSurfaceModule::FindContactAhead(Maths::Vector* pos, const Ma
 }
 
 // 0x00427A00
-Maths::Vector* CMovingSurfaceModule::GetContactPoint(Maths::Vector* out)
+Maths::Vec4* CMovingSurfaceModule::GetContactPoint(Maths::Vec4* out)
 {
-    Maths::Vector point = m_contactPoint;
+    Maths::Vec4 point = m_contactPoint;
     if (mp_lastObject) {
-        Maths::Matrix matrix;
+        Maths::Mat4 matrix;
         matrix = mp_lastObject->m_basisFrame;
-        Maths::Vector turned;
+        Maths::Vec4 turned;
         matrix.RotateVector(turned, point);
-        const Maths::Vector& at = mp_lastObject->m_pos;
+        const Maths::Vec4& at = mp_lastObject->m_atPoint;
         point = {turned.x + at.x, turned.y + at.y, turned.z + at.z, turned.w + at.w};
     }
     *out = point;
@@ -141,9 +141,9 @@ void CMovingSurfaceModule::StopRiding()
     CRideTracker* ride = mp_ride;
     if (!ride)
         return;
-    mp_lastObject = ride->m_object.m_ownerObject;
-    reinterpret_cast<CSharedRef<CSharedBase>*>(&ride->m_object)->Release();
-    MemSys::Manager::Get()->Free(ride);
+    mp_lastObject = ride->m_entity.m_ownerObject;
+    reinterpret_cast<CSharedRef<CSharedBase>*>(&ride->m_entity)->Release();
+    MemSys::Hub::Pull()->Dealloc(ride);
     mp_ride = nullptr;
     m_stopTime = FrameClock::GameClockElapsed() + g_clockOffset;
 }
@@ -153,7 +153,7 @@ bool CMovingSurfaceModule::IsRiding()
 {
     if (!mp_ride)
         return false;
-    if (mp_ride->m_object.m_ownerObject)
+    if (mp_ride->m_entity.m_ownerObject)
         return true;
     StopRiding();
     return false;
@@ -168,23 +168,23 @@ bool CMovingSurfaceModule::StartRiding(Engine3D::CProbeRay* feeler)
         return false;
     }
     if (mp_ride) {
-        CGameEntity* riding = mp_ride->m_object.m_ownerObject;
+        CGameEntity* riding = mp_ride->m_entity.m_ownerObject;
         if (!riding || riding != feeler->GetHitObject())
             StopRiding();
     }
     if (mp_ride) {
-        if (mp_ride->m_object.m_ownerObject)
+        if (mp_ride->m_entity.m_ownerObject)
             return false; // (already riding it)
         StopRiding();
     }
     if (!MemSys::g_managerReady) // (the memory manager not set up yet)
         MemSys::EnsureManager();
-    void* memory = MemSys::Manager::Get()->Allocate(sizeof(CRideTracker), 1, nullptr);
+    void* memory = MemSys::Hub::Pull()->Carve(sizeof(CRideTracker), 1, nullptr);
     if (!memory) {
         mp_ride = nullptr;
         return true;
     }
-    mp_ride = static_cast<CRideTracker*>(memory)->Construct(feeler->GetHitObject());
+    mp_ride = static_cast<CRideTracker*>(memory)->MakeNew(feeler->GetHitObject());
     return true;
 }
 
@@ -192,8 +192,8 @@ bool CMovingSurfaceModule::StartRiding(Engine3D::CProbeRay* feeler)
 void CMovingSurfaceModule::UpdateContactPoint()
 {
     CGameEntity* object;
-    if (mp_ride && mp_ride->m_object.m_ownerObject) {
-        object = mp_ride->m_object.m_ownerObject;
+    if (mp_ride && mp_ride->m_entity.m_ownerObject) {
+        object = mp_ride->m_entity.m_ownerObject;
     } else {
         if (mp_ride)
             StopRiding();
@@ -201,16 +201,16 @@ void CMovingSurfaceModule::UpdateContactPoint()
         if (!object)
             return;
     }
-    Maths::Vector at = object->m_pos;
-    Maths::Matrix inverse;
+    Maths::Vec4 at = object->m_atPoint;
+    Maths::Mat4 inverse;
     inverse = object->m_basisFrame;
-    const Maths::Vector& pos = m_object->m_pos;
+    const Maths::Vec4& pos = m_entity->m_atPoint;
     m_contactPoint = {static_cast<float>(static_cast<double>(pos.x) - at.x),
                       static_cast<float>(static_cast<double>(pos.y) - at.y),
                       static_cast<float>(static_cast<double>(pos.z) - at.z),
                       static_cast<float>(static_cast<double>(pos.w) - at.w)};
-    inverse.Invert();
-    Maths::Vector local;
+    inverse.Upend();
+    Maths::Vec4 local;
     inverse.RotateVector(local, m_contactPoint);
     m_contactPoint = local;
 }
@@ -222,14 +222,14 @@ using GameObjects::CMovingSurfaceModule;
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&CMovingSurfaceModule::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kVtable_slots[] = {&CMovingSurfaceModule::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

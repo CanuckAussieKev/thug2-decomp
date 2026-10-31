@@ -91,7 +91,7 @@ double X87Atan(double value)
 }
 
 // D3DX's matrix product (linked library code; stdcall): out = a * b.
-void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
@@ -100,7 +100,7 @@ void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Mat
 float Argument(Scripts::CStruct* params)
 {
     float value = 0.0f;
-    params->GetFloat(0u, &value, 1);
+    params->FetchFloat(0u, &value, 1);
     return value;
 }
 
@@ -110,7 +110,7 @@ float Argument(Scripts::CStruct* params)
 bool __cdecl CFunc_Sin(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float angle = Argument(params);
-    script->m_params->PushFloat(kSin, static_cast<float>(X87Sin(static_cast<double>(angle) * DegreeToRadianConv())));
+    script->m_args->PushFloat(kSin, static_cast<float>(X87Sin(static_cast<double>(angle) * DegreeToRadianConv())));
     return true;
 }
 
@@ -118,7 +118,7 @@ bool __cdecl CFunc_Sin(Scripts::CStruct* params, Scripts::CScript* script)
 bool __cdecl CFunc_Cos(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float angle = Argument(params);
-    script->m_params->PushFloat(kCos, static_cast<float>(X87Cos(static_cast<double>(angle) * DegreeToRadianConv())));
+    script->m_args->PushFloat(kCos, static_cast<float>(X87Cos(static_cast<double>(angle) * DegreeToRadianConv())));
     return true;
 }
 
@@ -126,7 +126,7 @@ bool __cdecl CFunc_Cos(Scripts::CStruct* params, Scripts::CScript* script)
 bool __cdecl CFunc_Tan(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float angle = Argument(params);
-    script->m_params->PushFloat(kTan, static_cast<float>(X87Tan(static_cast<double>(angle) * DegreeToRadianConv())));
+    script->m_args->PushFloat(kTan, static_cast<float>(X87Tan(static_cast<double>(angle) * DegreeToRadianConv())));
     return true;
 }
 
@@ -134,7 +134,7 @@ bool __cdecl CFunc_Tan(Scripts::CStruct* params, Scripts::CScript* script)
 bool __cdecl CFunc_ASin(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float value = Argument(params);
-    script->m_params->PushFloat(kASin, static_cast<float>(std::asin(static_cast<double>(value)) * ConvertToDegrees()));
+    script->m_args->PushFloat(kASin, static_cast<float>(std::asin(static_cast<double>(value)) * ConvertToDegrees()));
     return true;
 }
 
@@ -142,7 +142,7 @@ bool __cdecl CFunc_ASin(Scripts::CStruct* params, Scripts::CScript* script)
 bool __cdecl CFunc_ACos(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float value = Argument(params);
-    script->m_params->PushFloat(kACos, static_cast<float>(std::acos(static_cast<double>(value)) * ConvertToDegrees()));
+    script->m_args->PushFloat(kACos, static_cast<float>(std::acos(static_cast<double>(value)) * ConvertToDegrees()));
     return true;
 }
 
@@ -150,7 +150,7 @@ bool __cdecl CFunc_ACos(Scripts::CStruct* params, Scripts::CScript* script)
 bool __cdecl CFunc_ATan(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float value = Argument(params);
-    script->m_params->PushFloat(kATan, static_cast<float>(X87Atan(value) * ConvertToDegrees()));
+    script->m_args->PushFloat(kATan, static_cast<float>(X87Atan(value) * ConvertToDegrees()));
     return true;
 }
 
@@ -158,7 +158,7 @@ bool __cdecl CFunc_ATan(Scripts::CStruct* params, Scripts::CScript* script)
 bool __cdecl CFunc_Sqrt(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float value = Argument(params);
-    script->m_params->PushFloat(kSqrt, static_cast<float>(std::sqrt(static_cast<double>(value))));
+    script->m_args->PushFloat(kSqrt, static_cast<float>(std::sqrt(static_cast<double>(value))));
     return true;
 }
 
@@ -167,7 +167,7 @@ bool __cdecl CFunc_Sqrt(Scripts::CStruct* params, Scripts::CScript* script)
 bool __cdecl CFunc_NormalizeVector(Scripts::CStruct* params, Scripts::CScript* script)
 {
     Scripts::VectorValue v = {};
-    params->GetVector(0u, &v, 1);
+    params->FetchVec(0u, &v, 1);
     // (x87: the sum from z down, unrounded; the length rounded to a float)
     double z2 = static_cast<double>(v.z) * v.z;
     double y2 = static_cast<double>(v.y) * v.y;
@@ -180,8 +180,8 @@ bool __cdecl CFunc_NormalizeVector(Scripts::CStruct* params, Scripts::CScript* s
         v.z = static_cast<float>(v.z * scale);
         v.w = static_cast<float>(v.w * scale);
     }
-    script->m_params->PutVec3(kNorm, v);
-    script->m_params->PushFloat(kLength, length);
+    script->m_args->PutVec3(kNorm, v);
+    script->m_args->PushFloat(kLength, length);
     return true;
 }
 
@@ -192,18 +192,18 @@ bool __cdecl CFunc_LinearMap(Scripts::CStruct* params, Scripts::CScript* script)
     uint32_t result = 0;
     params->ReadHashValue(kResult, &result, 1);
     float from = 0.0f, to = 0.0f, value = 0.0f, lower = 0.0f, upper = 0.0f;
-    params->GetFloat(kFrom, &from, 1);
-    params->GetFloat(kTo, &to, 1);
-    params->GetFloat(kValue, &value, 1);
-    params->GetFloat(kLowerBound, &lower, 1);
-    params->GetFloat(kUpperBound, &upper, 1);
+    params->FetchFloat(kFrom, &from, 1);
+    params->FetchFloat(kTo, &to, 1);
+    params->FetchFloat(kValue, &value, 1);
+    params->FetchFloat(kLowerBound, &lower, 1);
+    params->FetchFloat(kUpperBound, &upper, 1);
     // x87: the fraction stays unrounded (unless clamped)
     double fraction = (static_cast<double>(value) - lower) / (static_cast<double>(upper) - lower);
     if (fraction < 0.0)
         fraction = 0.0;
     else if (fraction > 1.0)
         fraction = 1.0;
-    script->m_params->PushFloat(result, static_cast<float>((static_cast<double>(to) - from) * fraction + from));
+    script->m_args->PushFloat(result, static_cast<float>((static_cast<double>(to) - from) * fraction + from));
     return true;
 }
 
@@ -212,13 +212,13 @@ bool __cdecl CFunc_LinearMap(Scripts::CStruct* params, Scripts::CScript* script)
 bool __cdecl CFunc_Clamp(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float value = 0.0f, min = 0.0f, max = 0.0f;
-    params->GetFloat(0u, &value, 1);
-    params->GetFloat(kMin, &min, 1);
-    params->GetFloat(kMax, &max, 1);
+    params->FetchFloat(0u, &value, 1);
+    params->FetchFloat(kMin, &min, 1);
+    params->FetchFloat(kMax, &max, 1);
     float clamped = value > max ? max : value;
     if (clamped < min)
         clamped = min;
-    script->m_params->PushFloat(kClamped, clamped);
+    script->m_args->PushFloat(kClamped, clamped);
     return true;
 }
 
@@ -226,26 +226,26 @@ bool __cdecl CFunc_Clamp(Scripts::CStruct* params, Scripts::CScript* script)
 // the X axis, then Y, then Z (each rotation applied in front: identity, then Rx * m, Ry * m, Rz * m).
 bool __cdecl CFunc_RotateVector(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Maths::Vector point = {0.0f, 0.0f, 0.0f, 1.0f};
-    params->GetFloat(kX, &point.x, 1);
-    params->GetFloat(kY, &point.y, 1);
-    params->GetFloat(kZ, &point.z, 1);
+    Maths::Vec4 point = {0.0f, 0.0f, 0.0f, 1.0f};
+    params->FetchFloat(kX, &point.x, 1);
+    params->FetchFloat(kY, &point.y, 1);
+    params->FetchFloat(kZ, &point.z, 1);
     float rx = 0.0f, ry = 0.0f, rz = 0.0f;
-    params->GetFloat(kRx, &rx, 0);
-    params->GetFloat(kRy, &ry, 0);
-    params->GetFloat(kRz, &rz, 0);
+    params->FetchFloat(kRx, &rx, 0);
+    params->FetchFloat(kRy, &ry, 0);
+    params->FetchFloat(kRz, &rz, 0);
 
-    Maths::Matrix m;
+    Maths::Mat4 m;
     m.ResetToIdentity();
-    Maths::Matrix rotation;
+    Maths::Mat4 rotation;
     MatrixMultiply(&m, &Maths::MakePitchMatrix(rotation, rx * DegreeToRadianConv()), &m);
     MatrixMultiply(&m, &Maths::MakeYawMatrix(rotation, ry * DegreeToRadianConv()), &m);
     MatrixMultiply(&m, &Maths::MakeRollMatrix(rotation, rz * DegreeToRadianConv()), &m);
-    Maths::Vector turned;
-    m.Transform(turned, point);
-    script->m_params->PushFloat(kX, turned.x);
-    script->m_params->PushFloat(kY, turned.y);
-    script->m_params->PushFloat(kZ, turned.z);
+    Maths::Vec4 turned;
+    m.Xform(turned, point);
+    script->m_args->PushFloat(kX, turned.x);
+    script->m_args->PushFloat(kY, turned.y);
+    script->m_args->PushFloat(kZ, turned.z);
     return true;
 }
 

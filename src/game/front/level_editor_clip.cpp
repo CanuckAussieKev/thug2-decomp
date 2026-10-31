@@ -121,7 +121,7 @@ GameObjects::CGameEntity* LiveObject(uint32_t id)
 }
 
 // A level's own point node as a new node of its kind (false: not a kind the editor makes).
-bool SpecOfLevelNode(const Nodes::Node& n, NodeCreate::Spec* spec)
+bool SpecOfLevelNode(const Nodes::Elem& n, NodeCreate::Spec* spec)
 {
     NodeCreate::Kind kind;
     switch (n.family) {
@@ -129,7 +129,7 @@ bool SpecOfLevelNode(const Nodes::Node& n, NodeCreate::Spec* spec)
     case Nodes::Family::Crown: kind = NodeCreate::Kind::Crown; break;
     case Nodes::Family::Light: kind = NodeCreate::Kind::Light; break;
     case Nodes::Family::Sound: kind = NodeCreate::Kind::Sound; break;
-    case Nodes::Family::Trigger: kind = NodeCreate::Kind::ProximityNode; break;
+    case Nodes::Family::FireOff: kind = NodeCreate::Kind::ProximityNode; break;
     default: return false;
     }
     *spec = NodeCreate::Default(kind, NodeCreate::Team::Red, n.pos, n.angles.y, NodeCreate::NameStem(kind) + std::string("01"));
@@ -170,7 +170,7 @@ std::vector<uint32_t> SelectedNodes()
 
 } // namespace
 
-bool Copy(std::string* message)
+bool DupFrom(std::string* message)
 {
     SelectionIds s = CurrentSelection();
     uint8_t* scene = Scenery::MainScene();
@@ -187,7 +187,7 @@ bool Copy(std::string* message)
         Placement now = {0, {0.0f, 0.0f, 0.0f}};
         Scenery::PlacementNow(checksum, &now);
         record.placement = now;
-        for (const Scenery::Clone& c : Scenery::Clones()) {
+        for (const Scenery::Replicate& c : Scenery::Clones()) {
             if (c.checksum == checksum) {
                 record.source = c.source; // (a copy: of its source, placed relative to the source as loaded)
                 record.placement = Compose(now, c.sourceAtCopy);
@@ -200,21 +200,21 @@ bool Copy(std::string* message)
         if (!object)
             continue;
         uint32_t source = id;
-        for (const Objects::Copy& c : Objects::Copies()) {
+        for (const Objects::DupFrom& c : Objects::Copies()) {
             if (c.name == id)
                 source = c.source;
         }
         if (!Objects::CanCopy(source)) {
-            skipped.push_back(Objects::Label(id));
+            skipped.push_back(Objects::Caption(id));
             continue;
         }
-        Layout::CopyRecord record = {0, source, {object->m_pos.x, object->m_pos.y, object->m_pos.z}, {}};
+        Layout::CopyRecord record = {0, source, {object->m_atPoint.x, object->m_atPoint.y, object->m_atPoint.z}, {}};
         for (int r = 0; r < 3; ++r) {
             record.rows[r * 3 + 0] = object->m_basisFrame.row[r].x;
             record.rows[r * 3 + 1] = object->m_basisFrame.row[r].y;
             record.rows[r * 3 + 2] = object->m_basisFrame.row[r].z;
         }
-        record.scale = Scale::ObjectScale(object);
+        record.scale = StretchBy::ObjectScale(object);
         fragment.copies.push_back(record);
     }
     if (s.node) {
@@ -222,14 +222,14 @@ bool Copy(std::string* message)
         bool done = false;
         if (index >= 0 && NodeCreate::IsAdded(s.node)) {
             for (const Triggers::Placed& t : Triggers::CaptureAdded()) {
-                if (Fields::HashOfName(t.spec.name) == s.node || NodeCreate::Checksum(t.spec.name) == s.node) {
+                if (Fields::HashOfName(t.spec.name) == s.node || NodeCreate::NameHash(t.spec.name) == s.node) {
                     fragment.triggers.push_back(t);
                     done = true;
                 }
             }
-            for (const NodeCreate::Spec& spec : NodeCreate::Current()) {
+            for (const NodeCreate::Spec& spec : NodeCreate::AtHand()) {
                 NodeCreate::Kind kind;
-                if (!done && NodeCreate::Checksum(spec.name) == s.node && !spec.owned && NodeCreate::KindOf(spec, &kind)) {
+                if (!done && NodeCreate::NameHash(spec.name) == s.node && !spec.owned && NodeCreate::KindOf(spec, &kind)) {
                     fragment.added.push_back(spec);
                     done = true;
                 }
@@ -242,7 +242,7 @@ bool Copy(std::string* message)
             }
         }
         if (!done)
-            skipped.push_back(Nodes::Label(s.node) + " (type not copyable)");
+            skipped.push_back(Nodes::Caption(s.node) + " (type not copyable)");
     }
     int count = static_cast<int>(fragment.clones.size() + fragment.copies.size() + fragment.added.size() +
                                  fragment.triggers.size());
@@ -251,7 +251,7 @@ bool Copy(std::string* message)
         return false;
     }
     std::string text = std::string(kHeaderComment) + " - " + std::to_string(count) + " things from " +
-                       Objects::Label(fragment.scene) + "\n" + Layout::Write(fragment);
+                       Objects::Caption(fragment.scene) + "\n" + Layout::EmitOut(fragment);
     if (SDL_SetClipboardText(text.c_str()) != 0) {
         *message = "Couldn't put it on the clipboard";
         return false;
@@ -261,7 +261,7 @@ bool Copy(std::string* message)
     return true;
 }
 
-bool Paste(std::string* message)
+bool Graft(std::string* message)
 {
     char* clip = SDL_GetClipboardText();
     std::string text = clip ? clip : "";
@@ -270,12 +270,12 @@ bool Paste(std::string* message)
     Layout::FileLoad fragment, now;
     int line = 0;
     // (the comment line first, then the layout's header: Read skips comments)
-    if (!IsClipText(text) || !Layout::Read(text.substr(text.find('\n') + 1), &fragment, &line)) {
+    if (!IsClipText(text) || !Layout::TakeIn(text.substr(text.find('\n') + 1), &fragment, &line)) {
         *message = "Clipboard has no editor data";
         return false;
     }
     std::string current;
-    if (!Layout::CaptureText(&current) || !Layout::Read(current, &now, &line)) {
+    if (!Layout::CaptureText(&current) || !Layout::TakeIn(current, &now, &line)) {
         *message = "Not in a level";
         return false;
     }
@@ -297,7 +297,7 @@ bool Paste(std::string* message)
         return false;
     }
     std::string why;
-    if (!ApplyLayoutStep(Layout::Write(now), "Paste", &why)) {
+    if (!ApplyLayoutStep(Layout::EmitOut(now), "Paste", &why)) {
         *message = "Couldn't paste: " + why;
         return false;
     }
@@ -323,7 +323,7 @@ bool CopyProps(std::string* message)
     std::vector<uint32_t> nodes = SelectedNodes();
     if (!nodes.empty()) {
         int index = Nodes::Find(nodes.front());
-        props.from = Nodes::Label(nodes.front());
+        props.from = Nodes::Caption(nodes.front());
         for (const Fields::Row& row : Fields::RowsOf(Nodes::All()[index])) {
             // (its own editable fields - not those of a shared structure; pos / angles go with the transform)
             if (!row.editable || row.included || row.key == Fields::KeyPos() || row.key == Fields::KeyAngles() ||

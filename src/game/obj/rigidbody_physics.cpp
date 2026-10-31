@@ -39,7 +39,7 @@ constexpr int kMaxSteps = 5;
 double Wide(float value) { return value; }
 float Narrow(double value) { return static_cast<float>(value); }
 // Two floats added / subtracted on the x87 (at double precision, then stored: rounded twice).
-float Add(float a, float b) { return Narrow(Wide(a) + b); }
+float AppendOne(float a, float b) { return Narrow(Wide(a) + b); }
 float Sub(float a, float b) { return Narrow(Wide(a) - b); }
 
 // Debug drawing switches (0x006939D4: the shape each frame; 0x006939D5: the centre, the contacts' pushes).
@@ -48,7 +48,7 @@ bool DrawDetails() { return g_rigidBodyDrawDetails; }
 
 // Quaternions: `quat` times `other`, in place (0x00420140); the matrix of one.
 void QuatMultiply(Maths::QuatRotation* quat, const Maths::QuatRotation* other) { *quat *= *other; }
-void QuatToMatrix(const Maths::QuatRotation* quat, Maths::Matrix* matrix) { quat->GetMatrix(matrix); }
+void QuatToMatrix(const Maths::QuatRotation* quat, Maths::Mat4* matrix) { quat->FetchMat(matrix); }
 
 void FlagAsDead(CGameEntity* object)
 {
@@ -56,15 +56,15 @@ void FlagAsDead(CGameEntity* object)
 }
 
 // The matrix's element at row `r`, column `c`.
-double At(const Maths::Matrix& m, int r, int c) { return reinterpret_cast<const float*>(&m.row[r])[c]; }
+double At(const Maths::Mat4& m, int r, int c) { return reinterpret_cast<const float*>(&m.row[r])[c]; }
 
 } // namespace
 
 // 0x0042CEE0: 1 / (n . (n + (m (r x n)) x r)) - m the mass over the moment.
-double CBodyDynamicsModule::ImpulseScale(const Maths::Vector* normal, const Maths::Vector* offset) const
+double CBodyDynamicsModule::ImpulseScale(const Maths::Vec4* normal, const Maths::Vec4* offset) const
 {
-    const Maths::Vector& n = *normal;
-    const Maths::Vector& r = *offset;
+    const Maths::Vec4& n = *normal;
+    const Maths::Vec4& r = *offset;
     const double m = m_massOverMoment;
     // a = m (r x n): x rounded, y and z not (z from its rounded cross product)
     float ax = Narrow((Wide(r.y) * n.z - Wide(r.z) * n.y) * m);
@@ -80,7 +80,7 @@ double CBodyDynamicsModule::ImpulseScale(const Maths::Vector* normal, const Math
 // 0x0042CF90
 void CBodyDynamicsModule::ApplySprings()
 {
-    const Maths::Vector* world = WorldSpringPoints();
+    const Maths::Vec4* world = WorldSpringPoints();
     // The springs' points held still: each moving point's velocity taken out by an impulse, round after round.
     int round = 0;
     bool settled;
@@ -90,12 +90,12 @@ void CBodyDynamicsModule::ApplySprings()
             --i;
             if (!mp_springs[i].active)
                 continue;
-            const Maths::Vector& r = world[i];
+            const Maths::Vec4& r = world[i];
             // its velocity: vel + rotvel x r
             double cx = Wide(r.z) * m_rotVel.y - Wide(r.y) * m_rotVel.z;
             double cy = Wide(m_rotVel.z) * r.x - Wide(r.z) * m_rotVel.x;
             float cz = Narrow(Wide(r.y) * m_rotVel.x - Wide(m_rotVel.y) * r.x);
-            Maths::Vector v = {Narrow(cx + m_vel.x), Narrow(cy + m_vel.y), Narrow(Wide(cz) + m_vel.z), m_vel.w};
+            Maths::Vec4 v = {Narrow(cx + m_vel.x), Narrow(cy + m_vel.y), Narrow(Wide(cz) + m_vel.z), m_vel.w};
             double length = std::sqrt((Wide(v.z) * v.z + Wide(v.y) * v.y) + Wide(v.x) * v.x);
             float lengthF = Narrow(length);
             if (length < kSpringMinSpeed)
@@ -130,10 +130,10 @@ void CBodyDynamicsModule::ApplySprings()
         const Spring& spring = mp_springs[i];
         if (!spring.active)
             continue;
-        const Maths::Vector& r = world[i];
-        float px = Narrow(Wide(m_pos.x) + r.x);
-        double py = Wide(m_pos.y) + r.y, pz = Wide(m_pos.z) + r.z;
-        float pw = Narrow(Wide(m_pos.w) + r.w);
+        const Maths::Vec4& r = world[i];
+        float px = Narrow(Wide(m_atPoint.x) + r.x);
+        double py = Wide(m_atPoint.y) + r.y, pz = Wide(m_atPoint.z) + r.z;
+        float pw = Narrow(Wide(m_atPoint.w) + r.w);
         float dx = Narrow(px - Wide(spring.anchor.x)), dy = Narrow(py - spring.anchor.y);
         double dz = pz - spring.anchor.z;
         float dw = Narrow(pw - Wide(spring.anchor.w));
@@ -150,9 +150,9 @@ void CBodyDynamicsModule::ApplySprings()
         float fz = Narrow(Wide(nz) * forceF), fw = Narrow(Wide(nw) * forceF);
         double tx = Wide(fz) * r.y - fy * r.z, ty = fx * r.z - Wide(fz) * r.x;
         float tz = Narrow(fy * r.x - fx * r.y);
-        Maths::Vector turn = {Narrow(tx * m), Narrow(ty * m), Narrow(tz * m), Narrow(m * kZero)};
+        Maths::Vec4 turn = {Narrow(tx * m), Narrow(ty * m), Narrow(tz * m), Narrow(m * kZero)};
         m_vel = {Narrow(fx + m_vel.x), Narrow(fy + m_vel.y), Narrow(Wide(fz) + m_vel.z), Narrow(Wide(fw) + m_vel.w)};
-        m_rotVel = {Add(turn.x, m_rotVel.x), Add(turn.y, m_rotVel.y), Add(turn.z, m_rotVel.z), Add(turn.w, m_rotVel.w)};
+        m_rotVel = {AppendOne(turn.x, m_rotVel.x), AppendOne(turn.y, m_rotVel.y), AppendOne(turn.z, m_rotVel.z), AppendOne(turn.w, m_rotVel.w)};
     }
 }
 
@@ -160,30 +160,30 @@ void CBodyDynamicsModule::ApplySprings()
 void CBodyDynamicsModule::DebugDraw()
 {
     uint32_t colour = 0;
-    switch (m_state) {
+    switch (m_curPhase) {
     case STATE_ASLEEP: colour = 0xFFC80000; break;
     case STATE_AWAKE: colour = m_pushCooldown > kZero ? 0xFF00C800 : 0xFF0000C8; break;
     case STATE_DISABLED: colour = 0xFF640064; break;
     }
-    auto at = [this](const Maths::Vector& p) {
-        return Maths::Vector{p.x + m_pos.x, p.y + m_pos.y, p.z + m_pos.z, p.w + m_pos.w};
+    auto at = [this](const Maths::Vec4& p) {
+        return Maths::Vec4{p.x + m_atPoint.x, p.y + m_atPoint.y, p.z + m_atPoint.z, p.w + m_atPoint.w};
     };
     // Every pair of contact points.
-    const Maths::Vector* points = WorldContactPoints();
+    const Maths::Vec4* points = WorldContactPoints();
     for (int i = m_contactCount - 1; i > 0; --i)
         for (int j = 0; j < i; ++j) {
-            Maths::Vector from = at(points[i]), to = at(points[j]);
+            Maths::Vec4 from = at(points[i]), to = at(points[j]);
             Gfx2D::PushDiagLine(&from, &to, colour, 0, 1);
         }
-    const Maths::Vector* centers = WorldSphereCenters();
+    const Maths::Vec4* centers = WorldSphereCenters();
     for (int i = m_sphereCount; i != 0;) {
         --i;
-        Maths::Vector center = at(centers[i]);
+        Maths::Vec4 center = at(centers[i]);
         Gfx2D::AddDebugSphere(&center, mp_spheres[i].radius, &m_basisFrame, 12, colour, 1);
     }
     if (DrawDetails())
-        Gfx2D::PushDiagMarker(m_pos, 36.0f, 0xFFC800C8, 1);
-    const Maths::Vector* springs = WorldSpringPoints();
+        Gfx2D::PushDiagMarker(m_atPoint, 36.0f, 0xFFC800C8, 1);
+    const Maths::Vec4* springs = WorldSpringPoints();
     for (int i = m_springCount; i != 0;) {
         --i;
         if (!mp_springs[i].active)
@@ -206,14 +206,14 @@ void CBodyDynamicsModule::Integrate(float dt)
         float mw = Narrow(Wide(aw) + m_vel.w);
         float px = Narrow(Wide(mx) * dt), py = Narrow(my * dt);
         double pz = mz * dt, pw = Wide(mw) * dt;
-        m_pos = {Narrow(Wide(px) + m_pos.x), Narrow(Wide(py) + m_pos.y), Narrow(pz + m_pos.z), Narrow(pw + m_pos.w)};
+        m_atPoint = {Narrow(Wide(px) + m_atPoint.x), Narrow(Wide(py) + m_atPoint.y), Narrow(pz + m_atPoint.z), Narrow(pw + m_atPoint.w)};
         double vx = Wide(dt) * m_constAcc.x, vy = Wide(dt) * m_constAcc.y;
         float vz = Narrow(Wide(dt) * m_constAcc.z), vw = Narrow(Wide(dt) * m_constAcc.w);
         m_vel = {Narrow(vx + m_vel.x), Narrow(vy + m_vel.y), Narrow(Wide(vz) + m_vel.z), Narrow(Wide(vw) + m_vel.w)};
     } else {
         double px = Wide(dt) * m_vel.x, py = Wide(dt) * m_vel.y;
         float pz = Narrow(Wide(dt) * m_vel.z), pw = Narrow(Wide(dt) * m_vel.w);
-        m_pos = {Narrow(px + m_pos.x), Narrow(py + m_pos.y), Narrow(Wide(pz) + m_pos.z), Narrow(Wide(pw) + m_pos.w)};
+        m_atPoint = {Narrow(px + m_atPoint.x), Narrow(py + m_atPoint.y), Narrow(Wide(pz) + m_atPoint.z), Narrow(Wide(pw) + m_atPoint.w)};
     }
 
     // Turned: q += (q * (-rotvel / 2, 0)) dt, normalised.
@@ -223,15 +223,15 @@ void CBodyDynamicsModule::Integrate(float dt)
     QuatMultiply(&change, &spin);
     float cz = Narrow(Wide(change.z) * dt), cw = Narrow(Wide(change.w) * dt);
     m_orientation = {Narrow(Wide(change.x) * dt + m_orientation.x), Narrow(Wide(change.y) * dt + m_orientation.y),
-                     Add(cz, m_orientation.z), Add(cw, m_orientation.w)};
-    m_orientation.Normalize(1.0f);
+                     AppendOne(cz, m_orientation.z), AppendOne(cw, m_orientation.w)};
+    m_orientation.MakeUnit(1.0f);
     QuatToMatrix(&m_orientation, &m_basisFrame);
 
     // The shape turned to the world (each set of points adds its terms in its own order).
-    const Maths::Matrix& t = m_basisFrame;
+    const Maths::Mat4& t = m_basisFrame;
     for (int i = m_contactCount; i != 0;) {
         --i;
-        const Maths::Vector& c = mp_contacts[i];
+        const Maths::Vec4& c = mp_contacts[i];
         const double x = c.x, y = c.y, z = c.z;
         WorldContactPoints()[i] = {Narrow((y * At(t, 1, 0) + At(t, 2, 0) * z) + At(t, 0, 0) * x),
                                    Narrow((At(t, 0, 1) * x + At(t, 2, 1) * z) + y * At(t, 1, 1)),
@@ -239,7 +239,7 @@ void CBodyDynamicsModule::Integrate(float dt)
     }
     for (int i = m_sphereCount; i != 0;) {
         --i;
-        const Maths::Vector& c = mp_spheres[i].center;
+        const Maths::Vec4& c = mp_spheres[i].center;
         const double x = c.x, y = c.y, z = c.z;
         WorldSphereCenters()[i] = {Narrow((y * At(t, 1, 0) + At(t, 2, 0) * z) + x * At(t, 0, 0)),
                                    Narrow((x * At(t, 0, 1) + At(t, 2, 1) * z) + y * At(t, 1, 1)),
@@ -249,7 +249,7 @@ void CBodyDynamicsModule::Integrate(float dt)
         --i;
         if (!mp_springs[i].active)
             continue;
-        const Maths::Vector& c = mp_springs[i].point;
+        const Maths::Vec4& c = mp_springs[i].point;
         const double x = c.x, y = c.y, z = c.z;
         WorldSpringPoints()[i] = {Narrow((At(t, 2, 0) * z + At(t, 1, 0) * y) + x * At(t, 0, 0)),
                                   Narrow((At(t, 2, 1) * z + At(t, 1, 1) * y) + At(t, 0, 1) * x),
@@ -258,27 +258,27 @@ void CBodyDynamicsModule::Integrate(float dt)
 }
 
 // 0x0042E980
-void CBodyDynamicsModule::OnBounce(float speed, const Maths::Vector* point)
+void CBodyDynamicsModule::OnBounce(float speed, const Maths::Vec4* point)
 {
     if (!(speed > m_bounceCallbackThreshold))
         return;
     if (m_bounceScript) {
         Scripts::CStruct* params = Scripts::NewStruct();
         if (params)
-            params = params->Init();
+            params = params->PrepareAll();
         if (mp_callbackParams)
             params->MergeStructure(mp_callbackParams); // (out of memory: through null, as the original)
         params->PutVec3(0x43F454D0, Scripts::VectorValue{point->x, point->y, point->z, point->w});
-        m_object->SpawnScript(m_bounceScript, params, 0, false)->Update();
+        m_entity->SpawnScript(m_bounceScript, params, 0, false)->TickFrame();
         if (params) {
             params->Clear();
             Scripts::DeleteStruct(params);
         }
     }
     if (mp_soundComponent && mp_bounceSound && 48 - SoundFx::CountPlayingVoices() > 12) {
-        float percent = Maths::Clamp(Narrow(Wide(speed) / m_bounceFullSpeed * 100.0f), 0.0f, 100.0f);
+        float percent = Maths::Confine(Narrow(Wide(speed) / m_bounceFullSpeed * 100.0f), 0.0f, 100.0f);
         mp_bounceSound->PushFloat(0x9E497FC6, percent); // Percent
-        mp_soundComponent->PlaySound(mp_bounceSound);
+        mp_soundComponent->EmitSound(mp_bounceSound);
     }
 }
 
@@ -287,7 +287,7 @@ void CBodyDynamicsModule::ResolveContacts()
 {
     Contact* contacts = Contacts();
     // The velocities before the impulses (friction works from these).
-    Maths::Vector vel0 = m_vel, firstTurn = m_rotVel;
+    Maths::Vec4 vel0 = m_vel, firstTurn = m_rotVel;
     float fastest = 0.0f; // the fastest approach
 
     // Impulses along the normals until nothing approaches.
@@ -297,8 +297,8 @@ void CBodyDynamicsModule::ResolveContacts()
             Contact& c = contacts[--i];
             if (!c.active)
                 continue;
-            const Maths::Vector& r = c.offset;
-            const Maths::Vector& n = c.normal;
+            const Maths::Vec4& r = c.offset;
+            const Maths::Vec4& n = c.normal;
             double cx = Wide(m_rotVel.y) * r.z - Wide(m_rotVel.z) * r.y;
             float cy = Narrow(Wide(m_rotVel.z) * r.x - Wide(m_rotVel.x) * r.z);
             float cz = Narrow(Wide(m_rotVel.x) * r.y - Wide(m_rotVel.y) * r.x);
@@ -320,17 +320,17 @@ void CBodyDynamicsModule::ResolveContacts()
             float jx = Narrow(Wide(n.x) * j);
             double jy = Wide(n.y) * j, jz = Wide(n.z) * j, jw = Wide(n.w) * j;
             c.impulse = Narrow(j + c.impulse);
-            m_vel = {Add(jx, m_vel.x), Narrow(jy + m_vel.y), Narrow(jz + m_vel.z), Narrow(jw + m_vel.w)};
+            m_vel = {AppendOne(jx, m_vel.x), Narrow(jy + m_vel.y), Narrow(jz + m_vel.z), Narrow(jw + m_vel.w)};
             float tx = Narrow(jz * r.y - jy * r.z), ty = Narrow(Wide(jx) * r.z - jz * r.x);
             double tz = jy * r.x - Wide(jx) * r.y;
             const double m = m_massOverMoment;
-            m_rotVel = {Add(Narrow(tx * m), m_rotVel.x), Add(Narrow(ty * m), m_rotVel.y), Add(Narrow(tz * m), m_rotVel.z),
+            m_rotVel = {AppendOne(Narrow(tx * m), m_rotVel.x), AppendOne(Narrow(ty * m), m_rotVel.y), AppendOne(Narrow(tz * m), m_rotVel.z),
                         Narrow(m * kZero + m_rotVel.w)};
         }
         if (++round == kMaxRounds) {
             // Stuck: the script, or no velocity at all.
             if (m_scriptD0) {
-                m_object->SpawnScript(m_scriptD0, mp_callbackParams, 0, false)->Update();
+                m_entity->SpawnScript(m_scriptD0, mp_callbackParams, 0, false)->TickFrame();
                 return;
             }
             m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -347,20 +347,20 @@ void CBodyDynamicsModule::ResolveContacts()
         Contact& c = contacts[--i];
         if (!c.active)
             continue;
-        const Maths::Vector& r = c.offset;
-        const Maths::Vector& n = c.normal;
+        const Maths::Vec4& r = c.offset;
+        const Maths::Vec4& n = c.normal;
         double cx = Wide(firstTurn.y) * r.z - Wide(firstTurn.z) * r.y;
         double cy = Wide(firstTurn.z) * r.x - Wide(firstTurn.x) * r.z;
         float cz = Narrow(Wide(firstTurn.x) * r.y - Wide(firstTurn.y) * r.x);
         float vx = Narrow(cx + vel0.x);
         double vy = cy + vel0.y, vz = Wide(cz) + vel0.z;
         double back = -((vz * n.z + Wide(vx) * n.x) + vy * n.y);
-        Maths::Vector across = {Narrow(back * n.x + vx), Narrow(Wide(Narrow(back * n.y)) + vy),
+        Maths::Vec4 across = {Narrow(back * n.x + vx), Narrow(Wide(Narrow(back * n.y)) + vy),
                               Narrow(Wide(Narrow(back * n.z)) + vz), Narrow(Wide(Narrow(back * n.w)) + vel0.w)};
         if (mp_directedFriction) {
             const DirectedFriction& friction = mp_directedFriction[c.friction];
             if (friction.active) {
-                Maths::Vector d;
+                Maths::Vec4 d;
                 m_basisFrame.RotateVector(d, friction.direction);
                 double dn = (Wide(d.x) * n.x + Wide(d.z) * n.z) + Wide(d.y) * n.y;
                 float dny = Narrow(dn * n.y), dnz = Narrow(dn * n.z), dnw = Narrow(dn * n.w);
@@ -388,11 +388,11 @@ void CBodyDynamicsModule::ResolveContacts()
         double tx = Wide(jz) * r.y - Wide(jy) * r.z, ty = jx * r.z - Wide(jz) * r.x;
         float tz = Narrow(Wide(jy) * r.x - jx * r.y);
         const double m = m_massOverMoment;
-        Maths::Vector turn = {Narrow(tx * m), Narrow(ty * m), Narrow(tz * m), Narrow(m * kZero)};
-        m_vel = {Narrow(jx + m_vel.x), Add(jy, m_vel.y), Add(jz, m_vel.z), Add(jw, m_vel.w)};
-        m_rotVel = {Add(turn.x, m_rotVel.x), Add(turn.y, m_rotVel.y), Add(turn.z, m_rotVel.z), Add(turn.w, m_rotVel.w)};
-        vel0 = {Narrow(jx + vel0.x), Add(jy, vel0.y), Add(jz, vel0.z), Add(jw, vel0.w)};
-        firstTurn = {Add(turn.x, firstTurn.x), Add(turn.y, firstTurn.y), Add(turn.z, firstTurn.z), Add(turn.w, firstTurn.w)};
+        Maths::Vec4 turn = {Narrow(tx * m), Narrow(ty * m), Narrow(tz * m), Narrow(m * kZero)};
+        m_vel = {Narrow(jx + m_vel.x), AppendOne(jy, m_vel.y), AppendOne(jz, m_vel.z), AppendOne(jw, m_vel.w)};
+        m_rotVel = {AppendOne(turn.x, m_rotVel.x), AppendOne(turn.y, m_rotVel.y), AppendOne(turn.z, m_rotVel.z), AppendOne(turn.w, m_rotVel.w)};
+        vel0 = {Narrow(jx + vel0.x), AppendOne(jy, vel0.y), AppendOne(jz, vel0.z), AppendOne(jw, vel0.w)};
+        firstTurn = {AppendOne(turn.x, firstTurn.x), AppendOne(turn.y, firstTurn.y), AppendOne(turn.z, firstTurn.z), AppendOne(turn.w, firstTurn.w)};
     }
 
     // Pushed out of the world by each contact's depth.
@@ -401,19 +401,19 @@ void CBodyDynamicsModule::ResolveContacts()
         Contact& c = contacts[--i];
         if (!c.active)
             continue;
-        const Maths::Vector& r = c.offset;
-        const Maths::Vector& n = c.normal;
+        const Maths::Vec4& r = c.offset;
+        const Maths::Vec4& n = c.normal;
         double k = -((Wide(c.depth) * m_springConst) * dt);
-        Maths::Vector push = {Narrow(k * n.x), Narrow(k * n.y), Narrow(k * n.z), Narrow(k * n.w)};
+        Maths::Vec4 push = {Narrow(k * n.x), Narrow(k * n.y), Narrow(k * n.z), Narrow(k * n.w)};
         double tx = Wide(push.z) * r.y - Wide(push.y) * r.z, ty = Wide(push.x) * r.z - Wide(push.z) * r.x;
         float tz = Narrow(Wide(push.y) * r.x - Wide(push.x) * r.y);
         const double m = m_massOverMoment;
-        m_vel = {Add(push.x, m_vel.x), Add(push.y, m_vel.y), Add(push.z, m_vel.z), Add(push.w, m_vel.w)};
-        m_rotVel = {Add(Narrow(tx * m), m_rotVel.x), Narrow(ty * m + m_rotVel.y), Narrow(Wide(tz) * m + m_rotVel.z),
-                    Add(Narrow(m * kZero), m_rotVel.w)};
+        m_vel = {AppendOne(push.x, m_vel.x), AppendOne(push.y, m_vel.y), AppendOne(push.z, m_vel.z), AppendOne(push.w, m_vel.w)};
+        m_rotVel = {AppendOne(Narrow(tx * m), m_rotVel.x), Narrow(ty * m + m_rotVel.y), Narrow(Wide(tz) * m + m_rotVel.z),
+                    AppendOne(Narrow(m * kZero), m_rotVel.w)};
         if (DrawDetails()) {
-            Maths::Vector from = {r.x + m_pos.x, m_pos.y + r.y, m_pos.z + r.z, m_pos.w + r.w};
-            Maths::Vector to = {from.x + push.x * kDebugImpulseScale, from.y + push.y * kDebugImpulseScale,
+            Maths::Vec4 from = {r.x + m_atPoint.x, m_atPoint.y + r.y, m_atPoint.z + r.z, m_atPoint.w + r.w};
+            Maths::Vec4 to = {from.x + push.x * kDebugImpulseScale, from.y + push.y * kDebugImpulseScale,
                               from.z + push.z * kDebugImpulseScale, from.w + push.w * kDebugImpulseScale};
             Gfx2D::PushDiagLine(&to, &from, 0xFF00FFFF, 0, 1);
         }
@@ -423,8 +423,8 @@ void CBodyDynamicsModule::ResolveContacts()
     for (int i = m_contactsHit; i != 0;) {
         const Contact& c = contacts[--i];
         if (c.active) {
-            Maths::Vector point = {Add(c.offset.x, m_pos.x), Add(c.offset.y, m_pos.y), Add(c.offset.z, m_pos.z),
-                                 Add(c.offset.w, m_pos.w)};
+            Maths::Vec4 point = {AppendOne(c.offset.x, m_atPoint.x), AppendOne(c.offset.y, m_atPoint.y), AppendOne(c.offset.z, m_atPoint.z),
+                                 AppendOne(c.offset.w, m_atPoint.w)};
             OnBounce(fastest, &point);
             return;
         }
@@ -434,11 +434,11 @@ void CBodyDynamicsModule::ResolveContacts()
 // 0x00430BE0
 void CBodyDynamicsModule::Collide(Engine3D::CProbeRay* feeler)
 {
-    const Maths::Vector& n = feeler->m_surfaceDir;
+    const Maths::Vec4& n = feeler->m_surfaceDir;
     double along = (Wide(m_vel.z) * n.z + Wide(m_vel.y) * n.y) + Wide(m_vel.x) * n.x;
     // The bounce: -(1 + restitution) of the speed along the normal.
     double k = -((Wide(m_restitution) + 1.0f) * along);
-    Maths::Vector bounce = {Narrow(k * n.x), Narrow(k * n.y), Narrow(k * n.z), 0.0f};
+    Maths::Vec4 bounce = {Narrow(k * n.x), Narrow(k * n.y), Narrow(k * n.z), 0.0f};
     double bounceW = k * n.w;
     // Friction against what's across the normal.
     float tx = Narrow(m_vel.x - along * n.x);
@@ -455,31 +455,31 @@ void CBodyDynamicsModule::Collide(Engine3D::CProbeRay* feeler)
                                       Wide(bounce.x) * bounce.x) *
                             m_dragFactor);
         double f = -(lengthF > most ? most : lengthF);
-        m_vel = {Narrow(ux * f + m_vel.x), Add(Narrow(uy * f), m_vel.y), Add(Narrow(uz * f), m_vel.z),
-                 Add(Narrow(uw * f), m_vel.w)};
+        m_vel = {Narrow(ux * f + m_vel.x), AppendOne(Narrow(uy * f), m_vel.y), AppendOne(Narrow(uz * f), m_vel.z),
+                 AppendOne(Narrow(uw * f), m_vel.w)};
     }
-    m_vel = {Add(bounce.x, m_vel.x), Add(bounce.y, m_vel.y), Add(bounce.z, m_vel.z), Narrow(bounceW + m_vel.w)};
+    m_vel = {AppendOne(bounce.x, m_vel.x), AppendOne(bounce.y, m_vel.y), AppendOne(bounce.z, m_vel.z), Narrow(bounceW + m_vel.w)};
     OnBounce(Narrow(-along), &feeler->m_contactPos);
 }
 
 // 0x00430E20
-void CBodyDynamicsModule::Update()
+void CBodyDynamicsModule::TickFrame()
 {
-    if (m_state == STATE_DISABLED)
+    if (m_curPhase == STATE_DISABLED)
         return;
     float frame = Narrow(FrameClock::GetSlomoFrameSeconds());
     if (m_pushCooldown > kZero)
         m_pushCooldown = Sub(m_pushCooldown, frame);
-    else if (!(m_flags & FLAG_NO_PLAYER_COLLISION))
+    else if (!(m_flagBits & FLAG_NO_PLAYER_COLLISION))
         FeelPushers();
     if (m_dieTimer >= kZero) {
         if (m_dieTimer <= frame)
-            FlagAsDead(m_object);
+            FlagAsDead(m_entity);
         else
             m_dieTimer = Sub(m_dieTimer, frame);
     }
-    if (m_state == STATE_ASLEEP) {
-        m_object->m_displayMatrix = m_basisFrame;
+    if (m_curPhase == STATE_ASLEEP) {
+        m_entity->m_displayMatrix = m_basisFrame;
         return;
     }
 
@@ -489,18 +489,18 @@ void CBodyDynamicsModule::Update()
     for (int step = 0;;) {
         float length = remaining;
         Engine3D::CProbeRay feeler;
-        feeler.Construct();
+        feeler.MakeNew();
         double vx = Wide(remaining) * m_vel.x, vy = Wide(remaining) * m_vel.y, vz = Wide(remaining) * m_vel.z,
                vw = Wide(remaining) * m_vel.w;
         double half = (Wide(remaining) * remaining) * kHalf;
-        feeler.m_line.start = m_pos;
-        feeler.m_line.end = {Narrow(half * m_constAcc.x + (Wide(Narrow(vx)) + m_pos.x)),
-                             Narrow(Wide(Narrow(half * m_constAcc.y)) + (Wide(Narrow(vy)) + m_pos.y)),
-                             Narrow(Wide(Narrow(half * m_constAcc.z)) + (vz + m_pos.z)),
-                             Narrow(Wide(Narrow(half * m_constAcc.w)) + Narrow(vw + m_pos.w))};
+        feeler.m_line.start = m_atPoint;
+        feeler.m_line.end = {Narrow(half * m_constAcc.x + (Wide(Narrow(vx)) + m_atPoint.x)),
+                             Narrow(Wide(Narrow(half * m_constAcc.y)) + (Wide(Narrow(vy)) + m_atPoint.y)),
+                             Narrow(Wide(Narrow(half * m_constAcc.z)) + (vz + m_atPoint.z)),
+                             Narrow(Wide(Narrow(half * m_constAcc.w)) + Narrow(vw + m_atPoint.w))};
         bool hit = feeler.GetHitShape(false, false) != 0;
         if (hit) {
-            const Maths::Line& line = feeler.m_line;
+            const Maths::Seg& line = feeler.m_line;
             double dx = Wide(line.end.x) - line.start.x, dy = Wide(line.end.y) - line.start.y,
                    dz = Wide(line.end.z) - line.start.z;
             double path = std::sqrt((dx * dx + dy * dy) + dz * dz);
@@ -528,12 +528,12 @@ void CBodyDynamicsModule::Update()
     Damp();
     CheckSleep();
 
-    Maths::Vector offset;
+    Maths::Vec4 offset;
     m_basisFrame.RotateVector(offset, m_modelOffset);
-    m_object->m_pos = {Add(m_pos.x, offset.x), Add(m_pos.y, offset.y), Add(m_pos.z, offset.z), Add(m_pos.w, offset.w)};
-    m_object->m_basisFrame = m_basisFrame;
-    m_object->m_displayMatrix = m_basisFrame;
-    m_object->m_vel = m_vel;
+    m_entity->m_atPoint = {AppendOne(m_atPoint.x, offset.x), AppendOne(m_atPoint.y, offset.y), AppendOne(m_atPoint.z, offset.z), AppendOne(m_atPoint.w, offset.w)};
+    m_entity->m_basisFrame = m_basisFrame;
+    m_entity->m_displayMatrix = m_basisFrame;
+    m_entity->m_vel = m_vel;
     if (DrawShape())
         DebugDraw();
 }

@@ -44,8 +44,8 @@ int Merge(const Layout::FileLoad& fragment, Layout::FileLoad* into, const PasteH
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // Ctrl+C / Ctrl+V.
-bool Copy(std::string* message);
-bool Paste(std::string* message);
+bool DupFrom(std::string* message);
+bool Graft(std::string* message);
 // The Inspector's clipboard: whether there's a transform / fields copied, and what.
 bool CopyProps(std::string* message);
 bool PasteTransform(std::string* message);

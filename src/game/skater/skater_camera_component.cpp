@@ -83,14 +83,14 @@ bool CRiderChaseView::LookDown()
 }
 
 // 0x004F9F00
-void CRiderChaseView::ApplyShake(Maths::Vector* position, const Maths::Matrix* orientation)
+void CRiderChaseView::ApplyShake(Maths::Vec4* position, const Maths::Mat4* orientation)
 {
     double left = m_shakeLeft;
     double fraction = left / m_shakeLength;
     double across = X87Sin(m_shakeRateX * left * kTwoPi) * m_shakeAmpX * fraction;
     double up = X87Sin(m_shakeRateY * left * kTwoPi) * m_shakeAmpY * fraction;
-    const Maths::Vector& row0 = orientation->row[0];
-    const Maths::Vector& row1 = orientation->row[1];
+    const Maths::Vec4& row0 = orientation->row[0];
+    const Maths::Vec4& row1 = orientation->row[1];
     float y0 = static_cast<float>(up * row0.y);
     float z0 = static_cast<float>(up * row0.z);
     float w0 = static_cast<float>(up * row0.w);
@@ -116,15 +116,15 @@ void CRiderChaseView::ApplyShake(Maths::Vector* position, const Maths::Matrix* o
 }
 
 // 0x004FA020
-void CRiderChaseView::GetTarget(Maths::Vector* out, bool instant)
+void CRiderChaseView::FetchGoal(Maths::Vec4* out, bool instant)
 {
     float seconds = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     CGameEntity* skater = m_riderRef;
     if (!skater) {
-        *out = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+        *out = Maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
         return;
     }
-    Maths::Vector position = skater->m_pos;
+    Maths::Vec4 position = skater->m_atPoint;
     if (m_rateTime > 0.0f) {
         double left = m_rateTime - static_cast<double>(seconds);
         m_rateTime = static_cast<float>(left);
@@ -154,7 +154,7 @@ void CRiderChaseView::GetTarget(Maths::Vector* out, bool instant)
         if (state[0xA0])
             snap = true;
     }
-    Maths::Vector& target = m_aimPoint;
+    Maths::Vec4& target = m_aimPoint;
     if (snap) {
         target = position;
     } else {
@@ -212,8 +212,8 @@ void CRiderChaseView::BindRider(CGameEntity* skater)
         mp_control = nullptr;
         return;
     }
-    mp_state = reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterState));
-    mp_control = reinterpret_cast<uint8_t*>(m_riderRef->GetComponent(kPhysicsControl));
+    mp_state = reinterpret_cast<uint8_t*>(skater->FetchModule(kSkaterState));
+    mp_control = reinterpret_cast<uint8_t*>(m_riderRef->FetchModule(kPhysicsControl));
     m_instantFrames = 3;
 }
 
@@ -221,22 +221,22 @@ void CRiderChaseView::BindRider(CGameEntity* skater)
 void CRiderChaseView::SaveState(WalkCameraState* state)
 {
     std::memcpy(&state->orientation, m_orientation, sizeof(m_orientation));
-    state->orientation.row[3] = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+    state->orientation.row[3] = Maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
     state->target = m_aimPoint;
     state->turnCosine = m_turnCosine;
     state->zoom = m_zoom;
 }
 
 // 0x004FA4B0
-CRiderChaseView* CRiderChaseView::Construct()
+CRiderChaseView* CRiderChaseView::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = g_skaterCameraVtable;
-    m_type = kSkaterCamera;
-    m_mode = 0;
+    m_kindTag = kSkaterCamera;
+    m_modeSel = 0;
     if (!MemSys::g_managerReady)
         MemSys::EnsureManager();
-    void* memory = MemSys::Manager::Get()->Allocate(0x98, 1, nullptr);
+    void* memory = MemSys::Hub::Pull()->Carve(0x98, 1, nullptr);
     // (The interpolator's constructor does nothing: folded with many empty ones at 0x005902E0.)
     m_arcBlender = static_cast<Maths::ArcRotationBlender*>(memory);
     m_zoom = 1.0f;
@@ -254,22 +254,22 @@ CRiderChaseView* CRiderChaseView::Construct()
 }
 
 // 0x004FA590
-CRiderChaseView* CRiderChaseView::Destroy(unsigned int flags)
+CRiderChaseView* CRiderChaseView::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004FA5C0
 void CRiderChaseView::ConfigureFromData(Scripts::CStruct* params)
 {
-    Maths::Matrix& matrix = m_object->m_basisFrame;
-    matrix.row[0] = Maths::Vector(1.0f, 0.0f, 0.0f, 0.0f);
-    matrix.row[1] = Maths::Vector(0.0f, 1.0f, 0.0f, 0.0f);
-    matrix.row[2] = Maths::Vector(0.0f, 0.0f, 1.0f, 0.0f);
-    matrix.row[3] = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+    Maths::Mat4& matrix = m_entity->m_basisFrame;
+    matrix.row[0] = Maths::Vec4(1.0f, 0.0f, 0.0f, 0.0f);
+    matrix.row[1] = Maths::Vec4(0.0f, 1.0f, 0.0f, 0.0f);
+    matrix.row[2] = Maths::Vec4(0.0f, 0.0f, 1.0f, 0.0f);
+    matrix.row[3] = Maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
     std::memcpy(m_orientation, &matrix, sizeof(m_orientation));
     uint32_t id = 0;
     params->ReadHashValue(kSkaterId, &id, 1);
@@ -281,11 +281,11 @@ int CRiderChaseView::InvokeMethodByName(uint32_t name, Scripts::CStruct* params,
 {
     if (name == kShake) {
         float duration = 0.0f, vertAmp = 0.0f, horizAmp = 0.0f, vertVel = 0.0f, horizVel = 0.0f;
-        params->GetFloat(kDuration, &duration, 0);
-        params->GetFloat(kVertAmp, &vertAmp, 0);
-        params->GetFloat(kHorizAmp, &horizAmp, 0);
-        params->GetFloat(kVertVel, &vertVel, 0);
-        params->GetFloat(kHorizVel, &horizVel, 0);
+        params->FetchFloat(kDuration, &duration, 0);
+        params->FetchFloat(kVertAmp, &vertAmp, 0);
+        params->FetchFloat(kHorizAmp, &horizAmp, 0);
+        params->FetchFloat(kVertVel, &vertVel, 0);
+        params->FetchFloat(kHorizVel, &horizVel, 0);
         m_shakeAmpX = vertAmp;
         m_shakeLeft = duration;
         m_shakeLength = duration;
@@ -297,32 +297,32 @@ int CRiderChaseView::InvokeMethodByName(uint32_t name, Scripts::CStruct* params,
     if (name == kSetMode) {
         int mode = 0;
         params->FetchIntValue(kMode, &mode, 1);
-        SetMode(mode, 1.0f);
+        ChangeRegime(mode, 1.0f);
         return 1;
     }
     return 2;
 }
 
 // 0x004FA7C0
-void CRiderChaseView::RestoreDefaultState() { SetMode(m_mode, 1.0f); }
+void CRiderChaseView::RestoreDefaultState() { ChangeRegime(m_modeSel, 1.0f); }
 
 // 0x004FA7D0
 void CRiderChaseView::NextMode()
 {
-    if (m_mode >= 5)
+    if (m_modeSel >= 5)
         return;
-    if (++m_mode >= 5)
-        m_mode = 1;
-    SetMode(m_mode, 1.0f);
+    if (++m_modeSel >= 5)
+        m_modeSel = 1;
+    ChangeRegime(m_modeSel, 1.0f);
 }
 
 // 0x004FA800
-CObjectModule* __cdecl CRiderChaseView::Create()
+CObjectModule* __cdecl CRiderChaseView::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderChaseView));
     if (!memory)
         return nullptr;
-    return static_cast<CRiderChaseView*>(memory)->Construct();
+    return static_cast<CRiderChaseView*>(memory)->MakeNew();
 }
 
 // --- the cleanup state ---
@@ -338,35 +338,35 @@ void CRiderStateReset::DestroyBody()
 void CRiderStateReset::ConfigureFromData(Scripts::CStruct*) { mp_state = nullptr; }
 
 // 0x004FBDB0
-CRiderStateReset* CRiderStateReset::Destroy(unsigned int flags)
+CRiderStateReset* CRiderStateReset::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004FBDE0
-void CRiderStateReset::Finalize() { mp_state = m_object->GetComponent(kSkaterState); }
+void CRiderStateReset::Seal() { mp_state = m_entity->FetchModule(kSkaterState); }
 
 // 0x004FBE00
-void CRiderStateReset::Update()
+void CRiderStateReset::TickFrame()
 {
-    CGameEntity* skater = m_object;
-    reinterpret_cast<CRider*>(skater)->UpdateShadowLight(reinterpret_cast<int>(&skater->m_pos),
+    CGameEntity* skater = m_entity;
+    reinterpret_cast<CRider*>(skater)->UpdateShadowLight(reinterpret_cast<int>(&skater->m_atPoint),
                                                           reinterpret_cast<int>(&skater->m_basisFrame));
 }
 
 // 0x004FBE20
-CObjectModule* __cdecl CRiderStateReset::Create()
+CObjectModule* __cdecl CRiderStateReset::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderStateReset));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CRiderStateReset*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kCleanupVtable;
-    component->m_type = kCleanupState;
+    component->m_kindTag = kCleanupState;
     return component;
 }
 
@@ -378,14 +378,14 @@ using GameObjects::CRiderStateReset;
 namespace GameObjects {
 namespace {
 
-static VtableSlot kCleanupVtable_slots[] = {&CRiderStateReset::Destroy,
-         &CRiderStateReset::Update,
+static VtableSlot kCleanupVtable_slots[] = {&CRiderStateReset::Teardown,
+         &CRiderStateReset::TickFrame,
          &CRiderStateReset::ConfigureFromData,
-         &CRiderStateReset::Finalize,
+         &CRiderStateReset::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
@@ -398,14 +398,14 @@ void** const kCleanupVtable = reinterpret_cast<void**>(kCleanupVtable_slots);
 
 namespace GameObjects {
 
-static VtableSlot g_skaterCameraVtable_slots[] = {&CRiderChaseView::Destroy,
-         &GameObjects::CRiderChaseView::Update,
+static VtableSlot g_skaterCameraVtable_slots[] = {&CRiderChaseView::Teardown,
+         &GameObjects::CRiderChaseView::TickFrame,
          &CRiderChaseView::ConfigureFromData,
-         &GameObjects::CRiderChaseView::Finalize,
+         &GameObjects::CRiderChaseView::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

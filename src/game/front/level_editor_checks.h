@@ -56,7 +56,7 @@ namespace MenuSystem::LevelEditor::Checks {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
-enum class Severity : uint8_t { Error, Warning, Info };
+enum class Severity : uint8_t { Error, Warning, DetailsOf };
 const char* SeverityName(Severity severity);
 enum class Rule : uint8_t {
     InsideSolid,
@@ -158,7 +158,7 @@ const std::vector<Issue>& LayoutIssues();
 // the editor changed, by name) - checked again a moment after they change.
 void NoteModel(int changes, const std::unordered_map<uint32_t, uint8_t>& marks);
 // Once a frame while the editor runs (its Update): the UI's actions (Go to, Fix...).
-void Update();
+void TickFrame();
 // A new level: the ignored list and the issues forgotten.
 void ForgetLevel();
 // The issues of the last check, and how many of each severity are shown (not ignored, not the level's own unless
@@ -169,6 +169,6 @@ void ShownCounts(int* errors, int* warnings, int* infos);
 constexpr int kProblemsTab = 0, kBudgetTab = 1;
 void OpenWindow(int tab);
 void ToggleWindow();
-void Window(float viewX, float viewY, float viewWidth, float viewHeight, float scale, ImFont* mono);
+void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float scale, ImFont* mono);
 
 } // namespace MenuSystem::LevelEditor::Checks

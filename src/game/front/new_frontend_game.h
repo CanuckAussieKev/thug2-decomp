@@ -24,12 +24,12 @@ enum class Anchor {
     CareerOptions, // STORY MODE / CLASSIC MODE OPTIONS (career_options_vmenu)
     CreateModes,   // CREATE-A-MODES (its menu_cas item)
     SkateShop,     // free skate's skate shop menu after the skater select (ss_play_level, single session)
-    Pause,         // a level's pause menu (pause_vmenu with its CONTINUE: free skate, story, classic)
+    Freeze,         // a level's pause menu (pause_vmenu with its CONTINUE: free skate, story, classic)
 };
 const char* AnchorName(Anchor anchor);
 
 // The menu up now (`frontEnd` for the pause state; any of it may be null).
-Anchor Current(GameModules::FrontEnd* frontEnd);
+Anchor AtHand(GameModules::FrontEnd* frontEnd);
 // The game mode's name ("singlesession", "freeskate", "career", "classic", "net"...; "" before there is one).
 std::string GameModeName();
 // A network game, online, or a network game mode: the new front end leaves those to the original screens.

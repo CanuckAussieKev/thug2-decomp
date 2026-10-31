@@ -15,7 +15,7 @@ namespace DebugLog {
 namespace {
 
 bool s_configured = false;
-int s_level = static_cast<int>(Level::kInfo);
+int s_level = static_cast<int>(StageMap::kInfo);
 bool s_toConsole = false;
 
 } // namespace
@@ -27,7 +27,7 @@ void Configure(bool toConsole)
     s_configured = true;
 }
 
-void Printf(Level level, const char* format, ...)
+void Printf(StageMap level, const char* format, ...)
 {
     if (!s_configured || static_cast<int>(level) > s_level)
         return;

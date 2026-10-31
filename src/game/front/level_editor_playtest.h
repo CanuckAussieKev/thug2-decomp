@@ -49,7 +49,7 @@ struct ImFont;
 //   - SkaterScore (0xD262802F): +0x18 the score; its +0x14 times its +0x60 is the combo's points pending (as the trick
 //     objects goal reads it: trick_goals.cpp, 0x00576520).
 //   - The gap checklist (the skate module's, 0x005656C0 - gap_checklist.h): a gap got raises its m_pending (RegisterGapHit
-//     0x00578C70); landing the combo moves pending into m_count (PayOutQueuedGaps 0x005796C0); a bail clears pending
+//     0x00578C70); landing the combo moves pending into m_num (PayOutQueuedGaps 0x005796C0); a bail clears pending
 //     (ClearPending 0x00578CF0). Read each frame - nothing of the game is hooked.
 // Never in a network session or a refused mode (Layout::Refused); [features] level_editor=0 turns it all off.
 namespace MenuSystem::LevelEditor::PlayTest {
@@ -93,13 +93,13 @@ struct Recorder {
 
 // A marker on a trail.
 enum class EventKind : uint8_t { Gap, Bail, Combo };
-enum class GapStatus : uint8_t { Pending, Landed, Lost };
-struct Event {
+enum class GapStatus : uint8_t { Awaiting, Landed, Lost };
+struct Occurrence {
     EventKind kind = EventKind::Gap;
     V3 pos = {};
     std::string name;  // a gap's
     int value = 0;     // a gap's score / a combo's points
-    GapStatus status = GapStatus::Pending; // (a gap: got, then landed or lost; a combo: Landed or Lost)
+    GapStatus status = GapStatus::Awaiting; // (a gap: got, then landed or lost; a combo: Landed or Lost)
 };
 
 // The gap checklist as read this frame: each gap's name, pending landings and times landed.
@@ -117,7 +117,7 @@ struct GapChange {
 struct GapTracker {
     bool known = false;
     std::vector<GapRead> last;
-    std::vector<GapChange> Update(const std::vector<GapRead>& now);
+    std::vector<GapChange> TickFrame(const std::vector<GapRead>& now);
     void Forget() { known = false, last.clear(); }
 };
 
@@ -132,14 +132,14 @@ struct ComboTracker {
     int pending = 0;     // the points pending last frame
     int ending = 0;      // a combo that just ended: its points (0: none) ...
     int settle = 0;      // ... and the frames left to see a bail
-    bool Update(int pendingNow, bool bailing, ComboEnd* end); // true when `end` is a combo decided this frame
+    bool TickFrame(int pendingNow, bool bailing, ComboEnd* end); // true when `end` is a combo decided this frame
 };
 
 // A recorded run.
 struct Run {
     int number = 0;
     std::vector<Sample> samples;
-    std::vector<Event> events;
+    std::vector<Occurrence> events;
     float seconds = 0.0f;
     float motionSeconds[kMotions] = {};
     bool visible = true;
@@ -155,7 +155,7 @@ struct LevelTrails {
     std::vector<Run> runs;
     std::set<std::string> landed;
     int nextNumber = 1;
-    void Add(Run run); // (the oldest dropped past kMaxRuns)
+    void AppendOne(Run run); // (the oldest dropped past kMaxRuns)
 };
 
 // The side file: "thug2-decomp trails 1", then `gap <name>` lines (landed), and each run: `run <number> <seconds>
@@ -174,9 +174,9 @@ bool SimulateKeyKeeps(int scancode, bool ctrl, bool alt, bool flyKeysSafe);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
-// Once a frame from the front end's input logic while the editor isn't running (MouseMenus::Update): the trail
+// Once a frame from the front end's input logic while the editor isn't running (MouseMenus::TickFrame): the trail
 // recorded, a restart's play from here finished.
-void Update(GameModules::FrontEnd* frontEnd);
+void TickFrame(GameModules::FrontEnd* frontEnd);
 // The editor starting (LevelEditor_Start: the run under way ends; the level's side file read if it has no runs) and
 // stopping (LevelEditor_Stop, first thing: a simulation stopped and the world put back).
 void OnEditorStart();
@@ -185,8 +185,8 @@ void OnEditorStop();
 // default, rebindable) and the UI's requests done here.
 void Tick(bool dragging);
 // The trails and markers over the view (the UI's overlay; nothing while hidden).
-void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                std::vector<Ui::Line>* lines, std::vector<Ui::Overlay::Circle>* circles,
+void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
+                std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Circle>* circles,
                 std::vector<Ui::Overlay::Text>* texts);
 
 bool Simulating();
@@ -199,10 +199,10 @@ void PlayFromRestart(uint32_t restart);
 
 // The UI (level_editor_playtest_ui.cpp, ImGui): the Trail window, a restart's Inspector row.
 bool& WindowOpen();
-void Window(float scale, ImFont* heading, ImFont* small);
+void Pane(float scale, ImFont* heading, ImFont* small);
 void RestartSection(int nodeIndex);
 // What the UI asks for (done in the next Tick).
-enum class Ask { None, ToggleSimulate, Clear, Save, Load, ToggleKeepSimulation };
+enum class Ask { None, ToggleSimulate, Clear, StoreAway, ReadIn, ToggleKeepSimulation };
 void Request(Ask ask);
 void DeleteRun(int number);
 void SetRunVisible(int number, bool visible);
@@ -212,6 +212,6 @@ const LevelTrails* CurrentTrails();
 std::vector<GapRead> LevelGaps();
 bool& Recording();
 bool& KeepSimulation(); // (Simulate's stop leaves the objects where they got to)
-std::string Status();   // a line: recording / runs / simulate
+std::string Standing();   // a line: recording / runs / simulate
 
 } // namespace MenuSystem::LevelEditor::PlayTest

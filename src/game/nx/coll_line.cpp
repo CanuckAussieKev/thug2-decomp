@@ -34,7 +34,7 @@ uint32_t Threshold(double distance, const CTriMeshSource* geometry)
 }
 
 // A face's three corners (raw vertices).
-void Corners(const CTriMeshSource* geometry, uint32_t face, Maths::Vector* v0, Maths::Vector* v1, Maths::Vector* v2)
+void Corners(const CTriMeshSource* geometry, uint32_t face, Maths::Vec4* v0, Maths::Vec4* v1, Maths::Vec4* v2)
 {
     geometry->ReadStoredVertex(geometry->FaceVertex(face, 0), v0);
     geometry->ReadStoredVertex(geometry->FaceVertex(face, 1), v1);
@@ -67,7 +67,7 @@ CollisionHit* CollisionHit::CopyFrom(const CollisionHit& other)
 }
 
 // 0x004131F0
-bool ReportHit(const Maths::Line& line, CHitMesh* object, const FaceHit& face, float distance, CollisionHit* hit)
+bool ReportHit(const Maths::Seg& line, CHitMesh* object, const FaceHit& face, float distance, CollisionHit* hit)
 {
     bool better = s_wantFarthest ? !(distance < hit->distance) : distance <= hit->distance;
     CollisionHit saved;
@@ -108,23 +108,23 @@ bool ReportHit(const Maths::Line& line, CHitMesh* object, const FaceHit& face, f
 }
 
 // 0x004137B0 (the face index handed on is left unset by the original - stack garbage; 0 here)
-bool CHitMovingBox::CollideWithLine(const Maths::Line* line, const Maths::Vector* /*direction*/, CollisionHit* hit,
+bool CHitMovingBox::CollideWithLine(const Maths::Seg* line, const Maths::Vec4* /*direction*/, CollisionHit* hit,
                                    const Maths::BBox* /*lineBox*/)
 {
-    Maths::Line local; // (its constructor, 0x005902E0, does nothing)
+    Maths::Seg local; // (its constructor, 0x005902E0, does nothing)
     BoxToLocal(reinterpret_cast<const Maths::BBox*>(line), reinterpret_cast<Maths::BBox*>(&local));
     Maths::BBox around(local.start);
-    around.AddPoint(local.end);
+    around.AppendSpot(local.end);
     if (!m_box.Intersects(around))
         return false;
-    Maths::Vector point, normal;
+    Maths::Vec4 point, normal;
     if (!m_box.SegmentCrossing(local, point, normal))
         return false;
     float hx = Difference(point.x, local.start.x), hy = Difference(point.y, local.start.y),
           hz = Difference(point.z, local.start.z);
     float lx = Difference(local.end.x, local.start.x), ly = Difference(local.end.y, local.start.y),
           lz = Difference(local.end.z, local.start.z);
-    Maths::Vector turned;
+    Maths::Vec4 turned;
     m_orientation.RotateVector(turned, point);
     FaceHit face;
     face.point = {static_cast<float>(static_cast<double>(turned.x) + m_anchorPoint.x),
@@ -140,7 +140,7 @@ bool CHitMovingBox::CollideWithLine(const Maths::Line* line, const Maths::Vector
 }
 
 // 0x00413B50
-bool CStaticCollider::CollideWithLine(const Maths::Line* line, const Maths::Vector* direction, CollisionHit* hit,
+bool CStaticCollider::CollideWithLine(const Maths::Seg* line, const Maths::Vec4* direction, CollisionHit* hit,
                                   const Maths::BBox* lineBox)
 {
     // the line's distance from the geometry's minimum corner, for the rejection test
@@ -180,7 +180,7 @@ bool CStaticCollider::CollideWithLine(const Maths::Line* line, const Maths::Vect
         uint8_t rejection = geometry->m_smallFaces ? geometry->m_faces[face * 8 + 7] : m_octets[face];
         if (threshold > rejection)
             continue;
-        Maths::Vector v0, v1, v2;
+        Maths::Vec4 v0, v1, v2;
         Corners(geometry, face, &v0, &v1, &v2);
         float t;
         if (!RayHitsTriangle(line->start, *direction, v0, v1, v2, &t))
@@ -197,7 +197,7 @@ bool CStaticCollider::CollideWithLine(const Maths::Line* line, const Maths::Vect
                           static_cast<float>(e1y * e0x - static_cast<double>(e0y) * e1x), 0.0f};
         faceHit.point = v0;
         faceHit.face = face;
-        faceHit.normal.Normalize();
+        faceHit.normal.MakeUnit();
         if (ReportHit(*line, this, faceHit, t, hit))
             any = true;
     }
@@ -205,15 +205,15 @@ bool CStaticCollider::CollideWithLine(const Maths::Line* line, const Maths::Vect
 }
 
 // 0x00413FF0
-bool CCollStaticInstance::CollideWithLine(const Maths::Line* line, const Maths::Vector* /*direction*/,
+bool CCollStaticInstance::CollideWithLine(const Maths::Seg* line, const Maths::Vec4* /*direction*/,
                                           CollisionHit* hit, const Maths::BBox* /*lineBox*/)
 {
-    Maths::Line local; // (its constructor, 0x005902E0, does nothing)
+    Maths::Seg local; // (its constructor, 0x005902E0, does nothing)
     LineToLocal(line, &local);
-    Maths::Vector way{Difference(local.end.x, local.start.x), Difference(local.end.y, local.start.y),
+    Maths::Vec4 way{Difference(local.end.x, local.start.x), Difference(local.end.y, local.start.y),
                     Difference(local.end.z, local.start.z), Difference(local.end.w, local.start.w)};
     Maths::BBox around(local.start);
-    around.AddPoint(local.end);
+    around.AppendSpot(local.end);
     int count;
     uint16_t buffer[0x800];
     const uint16_t* faces = m_geometry->GetFacesInBox(&around, &count, buffer, 0x800);
@@ -221,7 +221,7 @@ bool CCollStaticInstance::CollideWithLine(const Maths::Line* line, const Maths::
     for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
         CTriMeshSource* geometry = m_geometry;
         uint32_t face = faces[i];
-        Maths::Vector v0, v1, v2;
+        Maths::Vec4 v0, v1, v2;
         Corners(geometry, face, &v0, &v1, &v2);
         float t;
         if (!RayHitsTriangle(local.start, way, v0, v1, v2, &t))
@@ -244,12 +244,12 @@ bool CCollStaticInstance::CollideWithLine(const Maths::Line* line, const Maths::
             nz = static_cast<float>(nzExact * inverse);
         }
         // the corner scaled and placed, the normal turned
-        Maths::Vector scaled{static_cast<float>(static_cast<double>(v0.x) * m_sizeFactor.x),
+        Maths::Vec4 scaled{static_cast<float>(static_cast<double>(v0.x) * m_sizeFactor.x),
                            static_cast<float>(static_cast<double>(v0.y) * m_sizeFactor.y),
                            static_cast<float>(static_cast<double>(v0.z) * m_sizeFactor.z),
                            static_cast<float>(static_cast<double>(v0.w) * m_sizeFactor.w)};
         m_basisFrame.CarryPointThrough(faceHit.point, scaled);
-        const Maths::Vector* r = m_basisFrame.row;
+        const Maths::Vec4* r = m_basisFrame.row;
         faceHit.normal = {
             static_cast<float>((static_cast<double>(nz) * r[2].x + static_cast<double>(ny) * r[1].x) +
                                static_cast<double>(nx) * r[0].x),
@@ -265,20 +265,20 @@ bool CCollStaticInstance::CollideWithLine(const Maths::Line* line, const Maths::
 }
 
 // 0x00414460
-bool CHitMovingTriangles::CollideWithLine(const Maths::Line* line, const Maths::Vector* /*direction*/, CollisionHit* hit,
+bool CHitMovingTriangles::CollideWithLine(const Maths::Seg* line, const Maths::Vec4* /*direction*/, CollisionHit* hit,
                                   const Maths::BBox* /*lineBox*/)
 {
-    Maths::Line local; // (its constructor, 0x005902E0, does nothing)
+    Maths::Seg local; // (its constructor, 0x005902E0, does nothing)
     BoxToLocal(reinterpret_cast<const Maths::BBox*>(line), reinterpret_cast<Maths::BBox*>(&local));
-    Maths::Vector way{Difference(local.end.x, local.start.x), Difference(local.end.y, local.start.y),
+    Maths::Vec4 way{Difference(local.end.x, local.start.x), Difference(local.end.y, local.start.y),
                     Difference(local.end.z, local.start.z), Difference(local.end.w, local.start.w)};
     Maths::BBox around(local.start);
-    around.AddPoint(local.end);
+    around.AppendSpot(local.end);
     CTriMeshSource* geometry = m_geometry;
     uint32_t threshold = 0;
     if (geometry->m_smallFaces) {
-        Maths::Vector unit = way;
-        unit.Normalize();
+        Maths::Vec4 unit = way;
+        unit.MakeUnit();
         double cx = static_cast<double>(geometry->m_lowerLimit.x) - local.start.x;
         double cy = static_cast<double>(geometry->m_lowerLimit.y) - local.start.y;
         float cz = Difference(geometry->m_lowerLimit.z, local.start.z);
@@ -302,7 +302,7 @@ bool CHitMovingTriangles::CollideWithLine(const Maths::Line* line, const Maths::
         uint32_t face = faces[i];
         if (geometry->m_smallFaces && threshold > geometry->m_faces[face * 8 + 7])
             continue;
-        Maths::Vector v0, v1, v2;
+        Maths::Vec4 v0, v1, v2;
         Corners(geometry, face, &v0, &v1, &v2);
         float t;
         if (!RayHitsTriangle(local.start, way, v0, v1, v2, &t))
@@ -327,7 +327,7 @@ bool CHitMovingTriangles::CollideWithLine(const Maths::Line* line, const Maths::
             nz = static_cast<float>(static_cast<double>(nz) * inverse);
         }
         // the corner turned and placed (z rounded before it's placed), the normal turned
-        const Maths::Vector* r = m_orientation.row;
+        const Maths::Vec4* r = m_orientation.row;
         double placedX = (static_cast<double>(v0.z) * r[2].x + static_cast<double>(v0.y) * r[1].x) +
                          static_cast<double>(v0.x) * r[0].x;
         double placedY = (static_cast<double>(v0.z) * r[2].y + static_cast<double>(v0.y) * r[1].y) +

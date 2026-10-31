@@ -6,17 +6,17 @@
 namespace Util {
 
 // 0x00401050
-PackedBitBuffer::PackedBitBuffer() : m_cursor(nullptr), m_start(nullptr), m_octets(0), m_bitsLeft(32), m_size(0), m_bitsUsed(0)
+PackedBitBuffer::PackedBitBuffer() : m_cursor(nullptr), m_outset(nullptr), m_octets(0), m_bitsLeft(32), m_extent(0), m_bitsUsed(0)
 {
-    // The original leaves m_start uninitialised; zeroing it here is harmless.
+    // The original leaves m_outset uninitialised; zeroing it here is harmless.
 }
 
 // 0x00401070
-void PackedBitBuffer::SetInputData(void* data, int size)
+void PackedBitBuffer::ChangeIntakeContents(void* data, int size)
 {
     m_cursor = static_cast<uint32_t*>(data);
-    m_start = static_cast<uint32_t*>(data);
-    m_size = size;
+    m_outset = static_cast<uint32_t*>(data);
+    m_extent = size;
     m_bitsLeft = 0;
     m_bitsUsed = 0;
 }
@@ -25,8 +25,8 @@ void PackedBitBuffer::SetInputData(void* data, int size)
 void PackedBitBuffer::BindOutputBuffer(void* data, int size)
 {
     m_cursor = static_cast<uint32_t*>(data);
-    m_start = static_cast<uint32_t*>(data);
-    m_size = size;
+    m_outset = static_cast<uint32_t*>(data);
+    m_extent = size;
     m_bitsLeft = 32;
     m_bitsUsed = 0;
 }
@@ -38,7 +38,7 @@ int PackedBitBuffer::GetByteCount() const
 }
 
 // 0x00401180
-void PackedBitBuffer::Flush()
+void PackedBitBuffer::Drain()
 {
     if (m_bitsLeft != 32) {
         *m_cursor++ = m_octets;
@@ -115,7 +115,7 @@ int32_t PackedBitBuffer::ReadSignedBits(int count)
 namespace {
 
 struct BitStreamAdapter {
-    Util::PackedBitBuffer* Construct()
+    Util::PackedBitBuffer* MakeNew()
     {
         return new (this) Util::PackedBitBuffer();
     }

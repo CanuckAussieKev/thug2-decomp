@@ -54,7 +54,7 @@ inline void* SectorGeom(void* sector) { return *reinterpret_cast<void**>(static_
 // A geom cloned for a model (0x0048DDC0) or from a sector (0x0048DD80), and activated (0x0048DE60); one added to a
 // model (0x004938E0).
 inline void* CloneModelGeom(void* geom, Engine3D::CRenderModel* to) { return static_cast<Engine3D::CGeom*>(geom)->CloneForModel(1, to); }
-inline void* CloneSectorGeom(void* geom) { return static_cast<Engine3D::CGeom*>(geom)->Clone(1, nullptr); }
+inline void* CloneSectorGeom(void* geom) { return static_cast<Engine3D::CGeom*>(geom)->Replicate(1, nullptr); }
 inline void ActivateGeom(void* geom) { reinterpret_cast<void(__thiscall*)(void*, int)>(&Engine3D::VirtualSlot13Jump)(geom, 1); }
 inline void AddGeom(Engine3D::CRenderModel* model, void* geom, uint32_t name) { model->AddGeom(geom, name, true); }
 // The model loaded from an asset (0x004934A0: name, geom name, multicolour, 1).
@@ -64,11 +64,11 @@ inline bool LoadAsset(Engine3D::CRenderModel* model, uint32_t name, uint32_t mes
 }
 // The scale from a structure's scale parameters (0x00487B00, cdecl: false without any), set on a model
 // (0x00492EE0) and switched on or off (0x00492E60).
-inline bool GetScale(Maths::Vector* scale, void* params)
+inline bool FetchMagnification(Maths::Vec4* scale, void* params)
 {
     return Gfx2D::ScaleFromArgs(scale, static_cast<Scripts::CStruct*>(params));
 }
-inline void ChangeScale(Engine3D::CRenderModel* model, Maths::Vector* scale) { model->ChangeScale(scale); }
+inline void ChangeScale(Engine3D::CRenderModel* model, Maths::Vec4* scale) { model->ChangeScale(scale); }
 inline void AllowResizing(Engine3D::CRenderModel* model, bool on) { model->AllowResizing(on); }
 // The model's lights' brightness from the level's (0x0048E660).
 inline void UpdateLightsBrightness(void* lights) { static_cast<Engine3D::CModelLights*>(lights)->UpdateBrightness(); }
@@ -78,21 +78,21 @@ inline void UpdateLightsBrightness(void* lights) { static_cast<Engine3D::CModelL
 inline void* NetManager() { return reinterpret_cast<void*>(OnlinePlay::g_gameNetManager); }
 inline void* PlayerByObjectId(void* manager, uint32_t id)
 {
-    return static_cast<OnlinePlay::Manager*>(manager)->PlayerByObjectId(static_cast<uint16_t>(id));
+    return static_cast<OnlinePlay::Hub*>(manager)->PlayerByObjectId(static_cast<uint16_t>(id));
 }
 inline bool IsOwnPlayer(void* player) { return static_cast<OnlinePlay::PlayerRecord*>(player)->IsOwnPlayer() != 0; }
 inline int PlayerSkaterIndex(void* player)
 {
     return static_cast<int>(static_cast<OnlinePlay::PlayerRecord*>(player)->GetSkaterValue2BC());
 }
-inline NetLink::Client* ClientApp(void* manager, int index)
+inline NetLink::Guest* ClientApp(void* manager, int index)
 {
-    return static_cast<NetLink::Client*>(static_cast<OnlinePlay::Manager*>(manager)->GetClient(index));
+    return static_cast<NetLink::Guest*>(static_cast<OnlinePlay::Hub*>(manager)->FetchPatron(index));
 }
 
 // The model's lights' direction setter: their vtable slot 2 with (index, direction). No address of its own: the
 // original calls the tail jump to slot 2 folded at 0x004E3F90 (GameObjects::ReapplyFromData). (__fastcall with an unused
 // second argument: the lights in ECX and the two on the stack, popped - the original call's layout.)
-void __fastcall SetLightsDirection(void* lights, void* unused, int index, const Maths::Vector* direction);
+void __fastcall SetLightsDirection(void* lights, void* unused, int index, const Maths::Vec4* direction);
 
 } // namespace GameObjects::ModelNx

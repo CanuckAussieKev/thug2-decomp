@@ -5,7 +5,7 @@
 // NOT ORIGINAL - the data overlay (ours, added at the user's request; not the game's and not PartyMod's): game files
 // made by tools/pipeline/menu_level/make_menu_level.ts from the game's own (the playable skate shop, the level select's extra
 // signs, the THPS4 levels, the pause menu's LEVEL EDITOR, the standard main menu) in a folder next to the exe,
-// thug2-decomp-data, read before the game's archives and data folder (Packs::Load / LoadFileInto, FileLoad::Open / Exist,
+// thug2-decomp-data, read before the game's archives and data folder (Packs::ReadIn / LoadFileInto, FileLoad::Unseal / Exist,
 // the async file system).
 //   - Files at the top of the folder are always used.
 //   - Files in its front_end folder are used first while the new front end is on ([features] new_frontend, new_frontend.h Enabled).

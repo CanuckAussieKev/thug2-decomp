@@ -48,17 +48,17 @@ uint32_t Written(const uint8_t* end, const uint8_t* start) { return static_cast<
 // 0x00479840
 uint8_t* WriteNameAndType(uint8_t* buffer, uint8_t type, uint32_t name)
 {
-    CArray* shortNames = GetArray(kShortNames);
-    for (int i = 0; i < static_cast<int>(shortNames->m_size); ++i) {
-        if (shortNames->GetElement(i) == name) {
+    CArray* shortNames = FetchList(kShortNames);
+    for (int i = 0; i < static_cast<int>(shortNames->m_extent); ++i) {
+        if (shortNames->FetchPart(i) == name) {
             buffer[0] = type | 0x80;
             buffer[1] = static_cast<uint8_t>(i);
             return buffer + 2;
         }
     }
-    CArray* mediumNames = GetArray(kMediumNames);
-    for (int i = 0; i < static_cast<int>(mediumNames->m_size); ++i) {
-        if (mediumNames->GetElement(i) == name) {
+    CArray* mediumNames = FetchList(kMediumNames);
+    for (int i = 0; i < static_cast<int>(mediumNames->m_extent); ++i) {
+        if (mediumNames->FetchPart(i) == name) {
             buffer[0] = type | 0x40;
             return StoreWord16(buffer + 1, static_cast<uint16_t>(i));
         }
@@ -208,8 +208,8 @@ uint32_t WriteArrayToBuffer(CArray* array, uint8_t* buffer, uint32_t size, int a
 {
     if (size < 3)
         return 0;
-    uint8_t type = array->m_type;
-    uint32_t count = array->m_size;
+    uint8_t type = array->m_kindTag;
+    uint32_t count = array->m_extent;
     buffer[0] = type;
     uint8_t* p = StoreWord16(buffer + 1, static_cast<uint16_t>(count));
     uint32_t remaining = size - 3;
@@ -307,7 +307,7 @@ uint32_t EmitIntoBuffer(CStruct* structure, uint8_t* buffer, uint32_t size, int 
             if (callback)
                 callback();
             uint32_t written;
-            switch (component->Type()) {
+            switch (component->KindTag()) {
             case QBVAL_INTEGER:
                 written = WriteInteger(component->name, component->integer, p, remaining);
                 break;
@@ -394,12 +394,12 @@ uint32_t EmitIntoBuffer(CStruct* structure, uint8_t* buffer, uint32_t size, int 
 // 0x0047A070
 uint32_t MeasureBufferBytes(CStruct* structure, uint32_t maxSize)
 {
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_topDownHeap);
     auto* scratch = static_cast<uint8_t*>(MemSys::AllocBlock(maxSize));
     uint32_t size = EmitIntoBuffer(structure, scratch, maxSize, 1, nullptr);
     MemSys::FreeMalloc(scratch);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     return size;
 }
 
@@ -407,18 +407,18 @@ uint32_t MeasureBufferBytes(CStruct* structure, uint32_t maxSize)
 const uint8_t* DecodeFromBytes(CStruct* structure, const uint8_t* buffer)
 {
     structure->Clear();
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_scriptHeap);
     const uint8_t* p = buffer;
     for (uint8_t type = *p++; type != 0; type = *p++) {
         uint32_t name;
         if (type & 0x80) {
-            CArray* names = GetArray(kShortNames);
-            name = names->GetElement(*p);
+            CArray* names = FetchList(kShortNames);
+            name = names->FetchPart(*p);
             p += 1;
         } else if (type & 0x40) {
-            CArray* names = GetArray(kMediumNames);
-            name = names->GetElement(FetchWord16(p));
+            CArray* names = FetchList(kMediumNames);
+            name = names->FetchPart(FetchWord16(p));
             p += 2;
         } else {
             name = FetchWord32(p);
@@ -434,7 +434,7 @@ const uint8_t* DecodeFromBytes(CStruct* structure, const uint8_t* buffer)
             p += 4;
             break;
         case QBVAL_STRING:
-            structure->AddString(name, reinterpret_cast<const char*>(p));
+            structure->AppendWord(name, reinterpret_cast<const char*>(p));
             p += std::strlen(reinterpret_cast<const char*>(p)) + 1;
             break;
         case QBVAL_INLINE_TEXT:
@@ -459,7 +459,7 @@ const uint8_t* DecodeFromBytes(CStruct* structure, const uint8_t* buffer)
         case QBVAL_STRUCT: {
             CStruct* inner = NewStruct();
             if (inner)
-                inner->Init();
+                inner->PrepareAll();
             p = DecodeFromBytes(inner, p);
             structure->AppendStructRef(name, inner);
             break;
@@ -467,7 +467,7 @@ const uint8_t* DecodeFromBytes(CStruct* structure, const uint8_t* buffer)
         case QBVAL_ARRAY: {
             CArray* inner = NewArray();
             if (inner)
-                inner->Init();
+                inner->PrepareAll();
             p = ReadArrayFromBuffer(inner, p);
             structure->AppendArrayRef(name, inner);
             break;
@@ -502,7 +502,7 @@ const uint8_t* DecodeFromBytes(CStruct* structure, const uint8_t* buffer)
             break; // (no value: just the name was read)
         }
     }
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     return p;
 }
 
@@ -513,10 +513,10 @@ const uint8_t* ReadArrayFromBuffer(CArray* array, const uint8_t* buffer)
     uint8_t type = buffer[0];
     uint32_t count = buffer[1] | static_cast<uint32_t>(buffer[2]) << 8;
     const uint8_t* p = buffer + 3;
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_scriptHeap);
     array->ConfigureSizeKind(count, static_cast<EQbValueKind>(type));
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     switch (type) {
     case QBVAL_INTEGER:
     case QBVAL_NAME:
@@ -525,12 +525,12 @@ const uint8_t* ReadArrayFromBuffer(CArray* array, const uint8_t* buffer)
         break;
     case QBVAL_FLOAT:
         for (uint32_t i = 0; i < count; ++i, p += 4)
-            array->SetFloat(i, BitsFloat(FetchWord32(p)));
+            array->ChangeFloat(i, BitsFloat(FetchWord32(p)));
         break;
     case QBVAL_STRING:
     case QBVAL_INLINE_TEXT:
         for (uint32_t i = 0; i < count; ++i) {
-            array->SetElement(i, reinterpret_cast<uint32_t>(CreateString(reinterpret_cast<const char*>(p))));
+            array->SetElement(i, reinterpret_cast<uint32_t>(SpawnText(reinterpret_cast<const char*>(p))));
             p += std::strlen(reinterpret_cast<const char*>(p)) + 1;
         }
         break;
@@ -538,7 +538,7 @@ const uint8_t* ReadArrayFromBuffer(CArray* array, const uint8_t* buffer)
         for (uint32_t i = 0; i < count; ++i) {
             CPair* pair = NewPair();
             if (pair)
-                pair->Init();
+                pair->PrepareAll();
             pair->x = BitsFloat(FetchWord32(p));
             pair->y = BitsFloat(FetchWord32(p + 4));
             p += 8;
@@ -549,7 +549,7 @@ const uint8_t* ReadArrayFromBuffer(CArray* array, const uint8_t* buffer)
         for (uint32_t i = 0; i < count; ++i) {
             CVector* vector = NewVector();
             if (vector)
-                vector->Init();
+                vector->PrepareAll();
             vector->x = BitsFloat(FetchWord32(p));
             vector->y = BitsFloat(FetchWord32(p + 4));
             vector->z = BitsFloat(FetchWord32(p + 8));
@@ -561,7 +561,7 @@ const uint8_t* ReadArrayFromBuffer(CArray* array, const uint8_t* buffer)
         for (uint32_t i = 0; i < count; ++i) {
             CStruct* inner = NewStruct();
             if (inner)
-                inner->Init();
+                inner->PrepareAll();
             p = DecodeFromBytes(inner, p);
             array->SetElement(i, reinterpret_cast<uint32_t>(inner));
         }
@@ -570,7 +570,7 @@ const uint8_t* ReadArrayFromBuffer(CArray* array, const uint8_t* buffer)
         for (uint32_t i = 0; i < count; ++i) {
             CArray* inner = NewArray();
             if (inner)
-                inner->Init();
+                inner->PrepareAll();
             p = ReadArrayFromBuffer(inner, p);
             array->SetElement(i, reinterpret_cast<uint32_t>(inner));
         }

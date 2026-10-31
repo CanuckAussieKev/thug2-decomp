@@ -77,7 +77,7 @@ struct Props {
     std::string sky; // the sky scene ("": the level's own) - another level's, e.g. "BO_Sky"
 };
 bool Same(const Props& a, const Props& b);
-bool Empty(const Props& props);
+bool Vacant(const Props& props);
 // The record's line ("" when there's nothing to keep), and one read (after the word "level"; false: malformed).
 std::string WriteRecord(const Props& props);
 bool ReadRecord(std::istringstream& in, Props* props);
@@ -88,7 +88,7 @@ std::vector<std::pair<const char*, Fields::Value>> StructureValues(const Props& 
 bool ValidSky(const std::string& sky);
 // A colour channel / distance typed in, kept in range.
 int Channel(int value);
-int Distance(int value);
+int SpanTo(int value);
 // (map4) The ambient light and fog in effect put over a time-of-day state's parameters: the edited copy's (`edited`)
 // where it sets them, else the level structure's ed_ambient / ed_fog (`level` - a bake's); channels and the distance
 // kept in range. True when a fog is put there (the fog then shown even where the manager's is off).
@@ -100,10 +100,10 @@ void ReadOverrideKeys(Scripts::CStruct* level, Props* out);
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // The edited copy's properties now (as edited in this session, or as its layout put them).
-const Props& Current();
+const Props& AtHand();
 // Changed (the editor's panel, undo, a layout put in place): the time of day, the ambient light and the fog shown at
 // once; the rest on reload.
-void Set(const Props& props);
+void AssignValue(const Props& props);
 // A level is up (Layout::Tick, as shipped or the edited copy - before the structure is put back): its structure's
 // ed_ambient / ed_fog taken (not in a network session - `network`) and sent to the engine.
 void OnLevelUp(bool network);

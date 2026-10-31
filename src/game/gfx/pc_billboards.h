@@ -26,11 +26,11 @@ struct sBillboardBatch {
     MemSys::ListNode* lists[3];  // heads (data -1, vtable 0x0064A898) of nodes (vtable 0x0064A894) over entries
 
     // 0x004CEB30: construct for a material: three empty lists. Returns this.
-    sBillboardBatch* Construct(uint8_t* material);
+    sBillboardBatch* MakeNew(uint8_t* material);
     // 0x004CE1D0: a mesh added to the list of its billboard's type (at the end).
-    void AddEntry(meshRef* mesh);
+    void AddRow(meshRef* mesh);
     // 0x004CE250: a mesh's entry taken out (its node destroyed, the entry freed).
-    void RemoveEntry(meshRef* mesh);
+    void EraseRecord(meshRef* mesh);
     // 0x004CE2D0: drawn: the material set up, projection x view (transposed, untranslated) into c0-c3 and
     // the camera's axes into c4-c6, then each shown mesh of each list turned and drawn (the third list's turned
     // about their own axes); the vertex format unlocked after.
@@ -81,9 +81,9 @@ void PrimitiveCountStub();
 // A batch list's node (MemSys::ListNode with vtable 0x0064A894; the heads' 0x0064A898).
 struct sBillboardNode : MemSys::ListNode {
     // 0x004CE9D0: the body both destroyers share - the node's vtable set, unlinked (linked to itself).
-    void Unlink();
+    void Uncouple();
     // 0x004CE960 (a node's virtual [0]) / 0x004CE9A0 (a head's): unlinked, and freed with flags & 1. Return this.
-    sBillboardNode* Destroy(unsigned int freeFlags);
+    sBillboardNode* Teardown(unsigned int freeFlags);
     sBillboardNode* DestroyHead(unsigned int freeFlags);
 };
 
@@ -97,7 +97,7 @@ struct CPcWindow {
     // 0x004CD860: the destructor's body (the engine's 0x004A15B0).
     void DestroyBody();
     // 0x004CD870 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcWindow* Destroy(unsigned int freeFlags);
+    CPcWindow* Teardown(unsigned int freeFlags);
 };
 static_assert(sizeof(CPcWindow) == 0x18, "layout must match the original");
 // 0x004CD8A0: ten windows (640 x 480) made onto the free list (null for any without memory - written through, as

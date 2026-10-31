@@ -29,22 +29,22 @@ public:
 
     // 0x0041D0F0 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined: the
     // base's, its vtable and type, no light; 0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0041CBD0: the light let go (its owner id cleared) and forgotten, the wait-and-die component forgotten; then
     // the base's body.
     void DestroyBody();
     // 0x0041D0C0 (vtable slot 0)
-    CDynamicLightComponent* Destroy(unsigned int flags);
+    CDynamicLightComponent* Teardown(unsigned int flags);
     // 0x0041CBF0 (vtable slot 2): the start values - StartRadius, StartIntensity, StartRGBA (an array of four bytes;
     // all asserted) - are also the middle and end values unless given: midTime (the middle's fraction of the life; -1
     // none), MidRadius, MidIntensity, MidRGBA; EndRadius, EndIntensity, EndRGBA.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x0041CDA0 (vtable slot 3): the object's wait-and-die component (0x03AC8065).
-    void Finalize();
+    void Seal();
     // 0x0041CDC0 (vtable slot 1): the light made the first time (0x0048FB80(1), owned by the object); then placed at
     // the object and its radius, intensity and colour (each byte truncated) interpolated by the life's fraction (from
     // the start to the end, or to / from the middle).
-    void Update();
+    void TickFrame();
     // 0x0041CFC0 (vtable slot 12): 0xFAAD1C11 the light's radius (radius=), 0x86E1FA56 its intensity (intensity=),
     // 0x1A0F4C50 its colour (rgba=, four bytes; read whether given or not) - each asserted; 1. Anything else: 2.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);

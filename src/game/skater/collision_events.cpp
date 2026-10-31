@@ -66,7 +66,7 @@ struct Sample {
 
 struct PathRecord {
     uint32_t frame;
-    Path path;
+    RouteWay path;
     Face face;
     Ray ray;
 };
@@ -98,7 +98,7 @@ struct Spot {
 Spot g_spots[32];
 int g_spotNext = 0;
 
-void Copy3(float* to, const Maths::Vector& from)
+void Copy3(float* to, const Maths::Vec4& from)
 {
     to[0] = from.x;
     to[1] = from.y;
@@ -119,7 +119,7 @@ Face FaceOf(const Engine3D::CProbeRay& feeler)
     face.hit = feeler.m_hit.hit;
     if (!face.hit)
         return face;
-    face.object = feeler.m_object.m_ownerObject != nullptr;
+    face.object = feeler.m_entity.m_ownerObject != nullptr;
     face.checksum = face.object ? feeler.m_entityKey : feeler.m_hit.objectChecksum;
     face.index = static_cast<int>(feeler.m_hit.face);
     face.flags = feeler.m_hit.faceFlags;
@@ -234,9 +234,9 @@ Face Probe(const float* from, const float* to, bool everything)
 {
     alignas(16) uint8_t storage[sizeof(Engine3D::CProbeRay)];
     auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(storage);
-    Maths::Vector start = {from[0], from[1], from[2], 1.0f};
-    Maths::Vector end = {to[0], to[1], to[2], 1.0f};
-    feeler->Construct(&start, &end);
+    Maths::Vec4 start = {from[0], from[1], from[2], 1.0f};
+    Maths::Vec4 end = {to[0], to[1], to[2], 1.0f};
+    feeler->MakeNew(&start, &end);
     feeler->SetExcluded(everything ? 0 : 0x10, 0);
     feeler->GetHitShape(true, false);
     Face face = FaceOf(*feeler);
@@ -272,7 +272,7 @@ bool QuietSpot(const float* at, int* repeats)
     return false;
 }
 
-float Distance(const float* a, const float* b)
+float SpanTo(const float* a, const float* b)
 {
     return std::sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]));
 }
@@ -286,7 +286,7 @@ float ToSegment(const float* p, const float* a, const float* b)
     float t = ee > 0.0f ? (w[0] * e[0] + w[1] * e[1] + w[2] * e[2]) / ee : 0.0f;
     t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
     float q[3] = {a[0] + e[0] * t, a[1] + e[1] * t, a[2] + e[2] * t};
-    return Distance(p, q);
+    return SpanTo(p, q);
 }
 
 // A static face's corners, its object's box and the edge nearest `spot` - open when no other face of its object has
@@ -300,12 +300,12 @@ void FaceGeometry(const Face& face, const float* spot, Detail* detail)
     if (!geometry || face.index < 0 || face.index >= geometry->m_numFaces)
         return;
     uint32_t index[3];
-    Maths::Vector raw[3];
+    Maths::Vec4 raw[3];
     for (int k = 0; k < 3; ++k) {
         index[k] = geometry->FaceVertex(face.index, k);
         raw[k] = geometry->ReadStoredVertex(static_cast<int>(index[k]));
-        Maths::Vector world;
-        object->Call<Maths::Vector*>(9, &world, static_cast<int>(index[k])); // (slot 9: a vertex in the world)
+        Maths::Vec4 world;
+        object->Call<Maths::Vec4*>(9, &world, static_cast<int>(index[k])); // (slot 9: a vertex in the world)
         Copy3(detail->corners[k], world);
     }
     detail->geometry = true;
@@ -322,7 +322,7 @@ void FaceGeometry(const Face& face, const float* spot, Detail* detail)
     auto same = [&](uint32_t vertex, int k) {
         if (vertex == index[k])
             return true;
-        Maths::Vector v = geometry->ReadStoredVertex(static_cast<int>(vertex));
+        Maths::Vec4 v = geometry->ReadStoredVertex(static_cast<int>(vertex));
         float dx = v.x - raw[k].x, dy = v.y - raw[k].y, dz = v.z - raw[k].z;
         return dx * dx + dy * dy + dz * dz < 0.25f;
     };
@@ -384,7 +384,7 @@ void Emit(int before)
 {
     const Sample& now = SampleAt(0);
     const Sample& old = SampleAt(before);
-    Event event;
+    Occurrence event;
     Detail detail;
     event.frame = now.frame;
     event.frames = static_cast<int>(now.frame - old.frame);
@@ -398,7 +398,7 @@ void Emit(int before)
 
     // The paths that ran between the two (in order), and the strongest.
     const PathRecord* strongest = nullptr;
-    bool seen[static_cast<int>(Path::Count)] = {};
+    bool seen[static_cast<int>(RouteWay::TotalOf)] = {};
     for (int i = 0; i < g_pathCount; ++i) {
         const PathRecord& record = g_paths[(g_pathNext - g_pathCount + i + kPathRecords) % kPathRecords];
         if (record.frame < old.frame || record.frame > now.frame)
@@ -494,7 +494,7 @@ void Emit(int before)
     float high[3] = {at[0], at[1] + 48.0f, at[2]}, low[3] = {at[0], at[1] - 200.0f, at[2]};
     float beyond[3] = {at[0] + direction[0] * 24.0f, at[1], at[2] + direction[1] * 24.0f};
     float beyondHigh[3] = {beyond[0], beyond[1] + 48.0f, beyond[2]}, beyondLow[3] = {beyond[0], beyond[1] - 200.0f, beyond[2]};
-    float lift = Scripts::GetFloat(kForwardHeight);
+    float lift = Scripts::FetchFloat(kForwardHeight);
     float aheadFrom[3] = {old.pos[0], old.pos[1] + lift, old.pos[2]};
     float aheadTo[3] = {aheadFrom[0] + direction[0] * 120.0f, aheadFrom[1], aheadFrom[2] + direction[1] * 120.0f};
     for (int everything = 0; everything < 2; ++everything) {
@@ -575,20 +575,20 @@ void Detect()
 
 } // namespace
 
-const char* PathName(Path path)
+const char* PathName(RouteWay path)
 {
     switch (path) {
-    case Path::WallAheadCorner: return "wall-ahead-corner";
-    case Path::WallAhead: return "wall-ahead";
-    case Path::WallAheadPlant: return "wall-ahead-push";
-    case Path::SideWall: return "side-wall";
-    case Path::AirBonk: return "air-bonk";
-    case Path::AirWallVert: return "air-wall-vert";
-    case Path::Ceiling: return "ceiling";
-    case Path::GroundUnskatable: return "ground-unskatable";
-    case Path::GroundRejected: return "ground-rejected";
-    case Path::NoGround: return "no-ground";
-    case Path::WallAheadClimb: return "wall-ahead-climb";
+    case RouteWay::WallAheadCorner: return "wall-ahead-corner";
+    case RouteWay::WallAhead: return "wall-ahead";
+    case RouteWay::WallAheadPlant: return "wall-ahead-push";
+    case RouteWay::SideWall: return "side-wall";
+    case RouteWay::AirBonk: return "air-bonk";
+    case RouteWay::AirWallVert: return "air-wall-vert";
+    case RouteWay::Ceiling: return "ceiling";
+    case RouteWay::GroundUnskatable: return "ground-unskatable";
+    case RouteWay::GroundRejected: return "ground-rejected";
+    case RouteWay::NoGround: return "no-ground";
+    case RouteWay::WallAheadClimb: return "wall-ahead-climb";
     default: return "?";
     }
 }
@@ -647,7 +647,7 @@ bool On()
     return on;
 }
 
-void NotePath(void* component, Path path, const Maths::Vector&)
+void NotePath(void* component, RouteWay path, const Maths::Vec4&)
 {
     if (component != g_component || !On()) // (g_component: set by EndFrame, only while on)
         return;
@@ -790,7 +790,7 @@ std::string V3(const float* v, const char* format = "%.1f,%.1f,%.1f")
 
 } // namespace
 
-std::string FormatEvent(const Event& e, std::string (*name)(uint32_t))
+std::string FormatEvent(const Occurrence& e, std::string (*name)(uint32_t))
 {
     static const char* const kProbes[6] = {"probe_down_hit", "probe_down_hit_all", "probe_down_beyond",
                                            "probe_down_beyond_all", "probe_ahead", "probe_ahead_all"};

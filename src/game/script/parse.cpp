@@ -34,7 +34,7 @@ float AsFloat(uint32_t bits)
     return value;
 }
 
-void SetType(CComponent* component, uint32_t type)
+void ChangeSpecies(CComponent* component, uint32_t type)
 {
     component->typeAndFlag = static_cast<uint8_t>((component->typeAndFlag & 1) | (type << 1));
 }
@@ -54,12 +54,12 @@ const uint8_t* SkipEndOfLinesIn(const uint8_t* p)
 CStruct* NewInitStruct()
 {
     CStruct* structure = NewStruct();
-    return structure ? structure->Init() : nullptr;
+    return structure ? structure->PrepareAll() : nullptr;
 }
 CArray* NewInitArray()
 {
     CArray* array = NewArray();
-    return array ? array->Init() : nullptr;
+    return array ? array->PrepareAll() : nullptr;
 }
 
 // The evaluator expressions are parsed with, and the component values go through on the way.
@@ -76,13 +76,13 @@ const uint8_t* AddExpression(const uint8_t* token, CStruct* dest, CStruct* args)
 {
     CComponent* value = NewComponent();
     token = ParseExpression(token, args, value);
-    if (value->Type() == QBVAL_STRUCT) {
+    if (value->KindTag() == QBVAL_STRUCT) {
         dest->AppendStructureIfAny(value->structure);
         ReleaseComponent(value);
         FreeComponent(value);
-    } else if (value->Type() != QBVAL_NONE) {
+    } else if (value->KindTag() != QBVAL_NONE) {
         value->name = 0;
-        dest->AddComponent(value);
+        dest->AttachModule(value);
     } else {
         FreeComponent(value);
     }
@@ -96,7 +96,7 @@ const uint8_t* AddNamedExpression(const uint8_t* token, uint32_t name, CStruct* 
     token = ParseExpression(token, args, value);
     if (value->typeAndFlag & 0xFE) {
         value->name = name;
-        dest->AddComponent(value);
+        dest->AttachModule(value);
     } else {
         FreeComponent(value);
     }
@@ -118,8 +118,8 @@ CScript* StepScriptList(CScript* script)
 CStoredRandom* FindStoredRandom(const uint8_t* table, uint32_t type, uint32_t count)
 {
     uint32_t script = reinterpret_cast<uint32_t>(GetRunningScript());
-    for (CStoredRandom* stored = StoredRandomsNewest(); stored; stored = stored->m_next) {
-        if (stored->m_lookupTable == table && stored->m_type == type && stored->m_count == count &&
+    for (CStoredRandom* stored = StoredRandomsNewest(); stored; stored = stored->m_succ) {
+        if (stored->m_lookupTable == table && stored->m_kindTag == type && stored->m_num == count &&
             (stored->m_owner == script || stored->m_owner == 0))
             return stored;
     }
@@ -136,17 +136,17 @@ CStoredRandom* NewStoredRandom()
         FreeStoredRandom(oldest);
         StoredRandomsOldest() = newer;
         if (newer)
-            newer->m_next = nullptr;
+            newer->m_succ = nullptr;
     }
-    auto* stored = static_cast<CStoredRandom*>(g_storedRandomPools.Allocate(sizeof(CStoredRandom)));
+    auto* stored = static_cast<CStoredRandom*>(g_storedRandomPools.Carve(sizeof(CStoredRandom)));
     if (stored) {
         ++StoredRandomCount();
-        stored->m_next = nullptr;
+        stored->m_succ = nullptr;
         stored->m_previous = nullptr;
     }
     CStoredRandom* newest = StoredRandomsNewest();
     stored->m_previous = nullptr;
-    stored->m_next = newest;
+    stored->m_succ = newest;
     StoredRandomsNewest() = stored;
     if (newest)
         newest->m_previous = stored;
@@ -188,8 +188,8 @@ const uint8_t* ResolveRandomJumps(const uint8_t* token)
             if (!stored) {
                 stored = NewStoredRandom();
                 stored->m_lookupTable = table;
-                stored->m_type = 0x40;
-                stored->m_count = static_cast<uint16_t>(count);
+                stored->m_kindTag = 0x40;
+                stored->m_num = static_cast<uint16_t>(count);
                 stored->m_last = static_cast<uint32_t>(Maths::Rnd(static_cast<int>(count)));
             }
             stored->m_owner = reinterpret_cast<uint32_t>(GetRunningScript());
@@ -212,19 +212,19 @@ const uint8_t* ResolveRandomJumps(const uint8_t* token)
             if (!stored) {
                 stored = NewStoredRandom();
                 stored->m_lookupTable = table;
-                stored->m_type = 0x41;
-                stored->m_count = static_cast<uint16_t>(count);
-                stored->m_index = 0;
-                for (uint16_t i = 0; i < stored->m_count; ++i)
+                stored->m_kindTag = 0x41;
+                stored->m_num = static_cast<uint16_t>(count);
+                stored->m_ordinal = 0;
+                for (uint16_t i = 0; i < stored->m_num; ++i)
                     stored->m_order[i] = static_cast<uint8_t>(i);
                 stored->Shuffle(false);
             }
             stored->m_owner = reinterpret_cast<uint32_t>(GetRunningScript());
-            if (++stored->m_index >= stored->m_count) {
+            if (++stored->m_ordinal >= stored->m_num) {
                 stored->Shuffle(true);
-                stored->m_index = 0;
+                stored->m_ordinal = 0;
             }
-            const uint8_t* offset = table + 4 * stored->m_order[stored->m_index];
+            const uint8_t* offset = table + 4 * stored->m_order[stored->m_ordinal];
             token = offset + FetchWord32(offset) + 4;
             break;
         }
@@ -291,7 +291,7 @@ const uint8_t* ParseRandomRange(const uint8_t* token, CComponent* out, bool dete
         int range = high - low + 1;
         int pick = deterministic ? Maths::RollSideStream(range) : Maths::Rnd(range);
         out->raw = static_cast<uint32_t>(pick + low);
-        SetType(out, QBVAL_INTEGER);
+        ChangeSpecies(out, QBVAL_INTEGER);
         return token + 9;
     }
     if (a > b) {
@@ -300,7 +300,7 @@ const uint8_t* ParseRandomRange(const uint8_t* token, CComponent* out, bool dete
         b = swapped;
     }
     int pick = deterministic ? Maths::RollSideStream(0x7FF9) : Maths::Rnd(0x7FF9);
-    SetType(out, QBVAL_FLOAT);
+    ChangeSpecies(out, QBVAL_FLOAT);
     double scale = g_parseRandomScale;
     out->floatValue = static_cast<float>((static_cast<double>(b) - a) * pick * scale + a);
     return token + 9;
@@ -318,7 +318,7 @@ void EvaluateNameToken(CComponent* component)
     case QBVAL_INTEGER: case QBVAL_FLOAT: case QBVAL_STRING: case QBVAL_INLINE_TEXT:
     case QBVAL_PAIR: case QBVAL_VECTOR: case QBVAL_STRUCT: case QBVAL_ARRAY:
     case QBVAL_NAME:
-        SetType(component, symbol->type);
+        ChangeSpecies(component, symbol->type);
         component->raw = symbol->raw;
         break;
     default:
@@ -334,43 +334,43 @@ const uint8_t* ParseValue(const uint8_t* token, CStruct* args, CComponent* out)
     case 0x03: {
         CStruct* structure = NewInitStruct();
         p = ParseStructure(structure, token, args);
-        SetType(out, QBVAL_STRUCT);
+        ChangeSpecies(out, QBVAL_STRUCT);
         out->structure = structure;
         return p;
     }
     case 0x05: {
-        MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+        MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
         CArray* array = NewInitArray();
         MemSys::LeaveHeapScope();
         p = ParseArray(array, token, args);
-        SetType(out, QBVAL_ARRAY);
+        ChangeSpecies(out, QBVAL_ARRAY);
         out->array = array;
         return p;
     }
     case 0x16:
-        SetType(out, QBVAL_NAME);
+        ChangeSpecies(out, QBVAL_NAME);
         out->raw = FetchWord32(p);
         return token + 5;
     case 0x17:
-        SetType(out, QBVAL_INTEGER);
+        ChangeSpecies(out, QBVAL_INTEGER);
         out->raw = FetchWord32(p);
         return token + 5;
     case 0x1A:
-        SetType(out, QBVAL_FLOAT);
+        ChangeSpecies(out, QBVAL_FLOAT);
         out->raw = FetchWord32(p);
         return token + 5;
     case 0x1B:
     case 0x1C: {
-        SetType(out, *token == 0x1B ? QBVAL_STRING : QBVAL_INLINE_TEXT);
+        ChangeSpecies(out, *token == 0x1B ? QBVAL_STRING : QBVAL_INLINE_TEXT);
         uint32_t length = FetchWord32(p);
-        out->string = CreateString(reinterpret_cast<const char*>(token + 5));
+        out->string = SpawnText(reinterpret_cast<const char*>(token + 5));
         return token + 5 + length;
     }
     case 0x1E: {
-        SetType(out, QBVAL_VECTOR);
+        ChangeSpecies(out, QBVAL_VECTOR);
         uint32_t x = FetchWord32(p), y = FetchWord32(token + 5), z = FetchWord32(token + 9);
         CVector* vector = NewVector();
-        vector = vector ? vector->Init() : nullptr;
+        vector = vector ? vector->PrepareAll() : nullptr;
         out->vector = vector;
         std::memcpy(&vector->x, &x, 4);
         std::memcpy(&out->vector->y, &y, 4);
@@ -378,10 +378,10 @@ const uint8_t* ParseValue(const uint8_t* token, CStruct* args, CComponent* out)
         return token + 13;
     }
     case 0x1F: {
-        SetType(out, QBVAL_PAIR);
+        ChangeSpecies(out, QBVAL_PAIR);
         uint32_t x = FetchWord32(p), y = FetchWord32(token + 5);
         CPair* pair = NewPair();
-        pair = pair ? pair->Init() : nullptr;
+        pair = pair ? pair->PrepareAll() : nullptr;
         out->pair = pair;
         std::memcpy(&pair->x, &x, 4);
         std::memcpy(&out->pair->y, &y, 4);
@@ -391,9 +391,9 @@ const uint8_t* ParseValue(const uint8_t* token, CStruct* args, CComponent* out)
         out->name = FetchWord32(token + 2);
         const uint8_t* start = token + 6;
         const uint8_t* end = SkipToEndOfScript(start);
-        SetType(out, QBVAL_SCRIPT_BODY);
+        ChangeSpecies(out, QBVAL_SCRIPT_BODY);
         uint32_t size = static_cast<uint32_t>(end - start);
-        MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+        MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
         auto* code = static_cast<uint8_t*>(MemSys::AllocBlock(size));
         MemSys::LeaveHeapScope();
         for (uint32_t i = 0; i < size; ++i)
@@ -405,7 +405,7 @@ const uint8_t* ParseValue(const uint8_t* token, CStruct* args, CComponent* out)
         if (args) {
             CStruct* structure = NewInitStruct();
             structure->Assign(args);
-            SetType(out, QBVAL_STRUCT);
+            ChangeSpecies(out, QBVAL_STRUCT);
             out->structure = structure;
         }
         return token + 1;
@@ -455,7 +455,7 @@ const uint8_t* AddParameter(const uint8_t* token, uint32_t name, CStruct* dest, 
         return token + 9;
     case 0x1B: {
         uint32_t length = FetchWord32(p);
-        dest->AddString(name, reinterpret_cast<const char*>(token + 5));
+        dest->AppendWord(name, reinterpret_cast<const char*>(token + 5));
         return token + 5 + length;
     }
     case 0x1C: {
@@ -470,7 +470,7 @@ const uint8_t* AddParameter(const uint8_t* token, uint32_t name, CStruct* dest, 
         return p;
     }
     case 0x05: {
-        MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+        MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
         CArray* array = NewInitArray();
         MemSys::LeaveHeapScope();
         p = ParseArray(array, token, args);
@@ -481,7 +481,7 @@ const uint8_t* AddParameter(const uint8_t* token, uint32_t name, CStruct* dest, 
         uint32_t scriptName = FetchWord32(token + 2);
         const uint8_t* start = token + 6;
         const uint8_t* end = SkipToEndOfScript(start);
-        dest->AddScript(scriptName, start, static_cast<uint32_t>(end - start));
+        dest->AppendScript(scriptName, start, static_cast<uint32_t>(end - start));
         return end;
     }
     case 0x2D: { // <name>
@@ -499,7 +499,7 @@ const uint8_t* AddParameter(const uint8_t* token, uint32_t name, CStruct* dest, 
         CComponent* copy = NewComponent();
         DuplicateComponent(copy, found, 0);
         copy->name = name;
-        dest->AddComponent(copy);
+        dest->AttachModule(copy);
         return p;
     }
     case 0x2C: // <...>
@@ -520,7 +520,7 @@ const uint8_t* AddParameter(const uint8_t* token, uint32_t name, CStruct* dest, 
         CComponent* value = NewComponent();
         p = ParseRandomRange(p, value, deterministic);
         value->name = name;
-        dest->AddComponent(value);
+        dest->AttachModule(value);
         return p;
     }
     case 0x09:
@@ -667,7 +667,7 @@ const uint8_t* ParseArray(CArray* dest, const uint8_t* token, CStruct* args)
     if (type == 0)
         return p + 1;
 
-    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
     dest->ConfigureSizeKind(count, static_cast<EQbValueKind>(type));
     MemSys::LeaveHeapScope();
     if (type == 7 || type == 8 || type == 9 || type == 11)
@@ -738,7 +738,7 @@ const uint8_t* ParseArray(CArray* dest, const uint8_t* token, CStruct* args)
             } else if (t == (type == QBVAL_STRING ? 0x1B : 0x1C)) {
                 uint32_t length = FetchWord32(p);
                 p += 4;
-                *element++ = reinterpret_cast<uint32_t>(CreateString(reinterpret_cast<const char*>(p)));
+                *element++ = reinterpret_cast<uint32_t>(SpawnText(reinterpret_cast<const char*>(p)));
                 p += length;
             }
             break;
@@ -748,7 +748,7 @@ const uint8_t* ParseArray(CArray* dest, const uint8_t* token, CStruct* args)
                 p += 4;
             } else if (t == 0x1E) {
                 CVector* vector = NewVector();
-                vector = vector ? vector->Init() : nullptr;
+                vector = vector ? vector->PrepareAll() : nullptr;
                 uint32_t x = FetchWord32(p), y = FetchWord32(p + 4), z = FetchWord32(p + 8);
                 std::memcpy(&vector->x, &x, 4);
                 std::memcpy(&vector->y, &y, 4);
@@ -763,7 +763,7 @@ const uint8_t* ParseArray(CArray* dest, const uint8_t* token, CStruct* args)
                 p += 4;
             } else if (t == 0x1F) {
                 CPair* pair = NewPair();
-                pair = pair ? pair->Init() : nullptr;
+                pair = pair ? pair->PrepareAll() : nullptr;
                 uint32_t x = FetchWord32(p), y = FetchWord32(p + 4);
                 std::memcpy(&pair->x, &x, 4);
                 std::memcpy(&pair->y, &y, 4);
@@ -809,13 +809,13 @@ const uint8_t* ParseExpression(const uint8_t* token, CStruct* args, CComponent* 
             if (!expectValue)
                 break;
             p = ParseValue(p, args, &value);
-            evaluator.Input(&value);
+            evaluator.Intake(&value);
             ReleaseComponent(&value);
             pushed();
             continue;
         case 0x05: case 0x07: case 0x08: case 0x0A: case 0x0B: case 0x0C: case 0x0D: case 0x12: case 0x14:
         case 0x32: case 0x33: // operators
-            evaluator.Input(static_cast<int>(t));
+            evaluator.Intake(static_cast<int>(t));
             ++p;
             afterDot = t == 0x08;
             haveValue = false;
@@ -849,26 +849,26 @@ const uint8_t* ParseExpression(const uint8_t* token, CStruct* args, CComponent* 
                 switch (symbol->type) {
                 case QBVAL_INTEGER: case QBVAL_FLOAT: case QBVAL_STRING:
                 case QBVAL_INLINE_TEXT: case QBVAL_PAIR: case QBVAL_VECTOR: case QBVAL_NAME:
-                    SetType(&value, symbol->type);
+                    ChangeSpecies(&value, symbol->type);
                     value.raw = symbol->raw;
                     break;
                 case QBVAL_STRUCT:
-                    SetType(&value, QBVAL_STRUCT_REF);
+                    ChangeSpecies(&value, QBVAL_STRUCT_REF);
                     value.raw = symbol->raw;
                     break;
                 case QBVAL_ARRAY:
-                    SetType(&value, ESYMBOLTYPE_ARRAYPOINTER);
+                    ChangeSpecies(&value, ESYMBOLTYPE_ARRAYPOINTER);
                     value.raw = symbol->raw;
                     break;
                 case QBVAL_NATIVE_FUNC: {
                     // Called now, with the arguments that follow.
                     CScript* script = GetRunningScript();
-                    SetType(&value, QBVAL_INTEGER);
+                    ChangeSpecies(&value, QBVAL_INTEGER);
                     CStruct* params = NewInitStruct();
                     p = ParseArguments(params, p, args);
                     // (the byte the function returns, as it is)
-                    using Function = uint8_t(__cdecl*)(CStruct*, CScript*);
-                    value.raw = reinterpret_cast<Function>(symbol->raw)(params, script);
+                    using Routine = uint8_t(__cdecl*)(CStruct*, CScript*);
+                    value.raw = reinterpret_cast<Routine>(symbol->raw)(params, script);
                     if (params) {
                         params->Clear();
                         DeleteStruct(params);
@@ -882,9 +882,9 @@ const uint8_t* ParseExpression(const uint8_t* token, CStruct* args, CComponent* 
                     break;
                 }
                 if (push)
-                    evaluator.Input(&value);
+                    evaluator.Intake(&value);
             } else {
-                evaluator.Input(&value);
+                evaluator.Intake(&value);
             }
             value.typeAndFlag &= 1;
             value.raw = 0;
@@ -895,7 +895,7 @@ const uint8_t* ParseExpression(const uint8_t* token, CStruct* args, CComponent* 
         case 0x1A: {
             if (expectValue) {
                 p = ParseValue(p, args, &value);
-                evaluator.Input(&value);
+                evaluator.Intake(&value);
                 ReleaseComponent(&value);
                 pushed();
                 continue;
@@ -905,12 +905,12 @@ const uint8_t* ParseExpression(const uint8_t* token, CStruct* args, CComponent* 
             bool negative = t == 0x17 ? value.integer < 0 : value.floatValue < 0.0f;
             if (!negative || !haveValue)
                 break;
-            evaluator.Input(static_cast<int>(OPERATOR_MINUS));
+            evaluator.Intake(static_cast<int>(OPERATOR_MINUS));
             if (t == 0x17)
                 value.integer = -value.integer;
             else
                 value.floatValue = -value.floatValue;
-            evaluator.Input(&value);
+            evaluator.Intake(&value);
             ReleaseComponent(&value);
             p = next;
             pushed();
@@ -921,9 +921,9 @@ const uint8_t* ParseExpression(const uint8_t* token, CStruct* args, CComponent* 
                 break;
             ++p;
             if (args) {
-                SetType(&value, QBVAL_STRUCT_REF);
+                ChangeSpecies(&value, QBVAL_STRUCT_REF);
                 value.structure = args;
-                evaluator.Input(&value);
+                evaluator.Intake(&value);
             }
             pushed();
             continue;
@@ -938,7 +938,7 @@ const uint8_t* ParseExpression(const uint8_t* token, CStruct* args, CComponent* 
                 value.raw = found->raw;
                 EvaluateNameToken(&value);
                 MakeReference(&value);
-                evaluator.Input(&value);
+                evaluator.Intake(&value);
                 value.typeAndFlag &= 1;
                 value.raw = 0;
             }
@@ -951,7 +951,7 @@ const uint8_t* ParseExpression(const uint8_t* token, CStruct* args, CComponent* 
         }
         break; // the end of the expression
     }
-    evaluator.GetResult(result);
+    evaluator.FetchVerdict(result);
     return p;
 }
 
@@ -1035,6 +1035,6 @@ __declspec(naked) void Scripts::AddParameterStub()
 namespace Scripts {
 
 // 0x00640A70 (a static initialiser): the expression evaluator, cleared.
-void ConstructEvaluator() { g_evaluator.Init(); }
+void ConstructEvaluator() { g_evaluator.PrepareAll(); }
 
 } // namespace Script

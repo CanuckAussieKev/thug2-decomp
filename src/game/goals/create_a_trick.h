@@ -24,10 +24,10 @@ public:
     Scripts::CArray* m_animations;   // +0x0C six structures (Default_CAT_animation_info's)
 
     // 0x00552560: the constructor: the defaults copied. Returns this.
-    CCreateATrick* Construct();
+    CCreateATrick* MakeNew();
     // 0x00552720: the destructor body. 0x005527A0 (vtable slot 0): the scalar deleting destructor.
     void DestroyBody();
-    CCreateATrick* Destroy(uint8_t flags);
+    CCreateATrick* Teardown(uint8_t flags);
 };
 static_assert(offsetof(CCreateATrick, m_animations) == 0x0C && sizeof(CCreateATrick) == 0x10,
               "layout must match the original");

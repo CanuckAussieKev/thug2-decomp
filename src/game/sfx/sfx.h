@@ -18,7 +18,7 @@
 #include "game/mth/vector.h"
 
 namespace GameObjects {
-class CObject;
+class CEntity;
 }
 
 namespace SoundFx {
@@ -34,9 +34,9 @@ struct volumeRef {
     };
 
     // 0x0047B030 (returns this): the manager's default type, every channel 0.
-    volumeRef* Init();
+    volumeRef* PrepareAll();
     // 0x0047B070 (returns this)
-    volumeRef* SetType(int type);
+    volumeRef* ChangeSpecies(int type);
     // 0x0047AC50: every channel scaled by `percent` percent.
     void PercentTweak(float percent);
     // 0x0047ACF0: whether every channel is 0 (and it isn't 3D).
@@ -46,11 +46,11 @@ struct volumeRef {
     // 0x0047B080: the channel with the greatest magnitude (its signed value; the first of equals).
     float FindPeakChannel();
 
-    int ChannelCount() const { return m_type == TYPE_SURROUND ? 5 : 2; }
+    int ChannelCount() const { return m_kindTag == TYPE_SURROUND ? 5 : 2; }
 
-    float m_channels[5];      // +0x00
-    int m_type;               // +0x14
-    Maths::Vector m_anchorPoint;   // +0x18: 3D: where the sound is
+    float m_lanes[5];      // +0x00
+    int m_kindTag;               // +0x14
+    Maths::Vec4 m_anchorPoint;   // +0x18: 3D: where the sound is
     float m_dropoff;          // +0x28: 3D: its range
 };
 static_assert(sizeof(volumeRef) == 0x2C, "layout must match the original");
@@ -60,7 +60,7 @@ struct PCWave {
     // 0x0047C870: the .wav file's format and samples (converted, 0x005F5A20), its loops (a smpl chunk with some);
     // the buffer description with `descFlags`. False if the file can't be opened. (The sample buffer is the
     // format's bytes-per-second long: one second, whatever the data chunk's size.)
-    bool Load(const char* fileName, uint32_t descFlags);
+    bool ReadIn(const char* fileName, uint32_t descFlags);
 
     uint16_t formatTag;        // +0x00 (WAVEFORMATEX)
     uint16_t channels;         // +0x02
@@ -131,7 +131,7 @@ struct PositionalSound {
     uint32_t uniqueId;        // +0x00
     uint32_t checksum;        // +0x04
     uint32_t inUse;           // +0x08 (bit 0)
-    GameObjects::CObject* object;     // +0x0C
+    GameObjects::CEntity* object;     // +0x0C
     PositionalSound* next;    // +0x10
     PositionalSound* prev;    // +0x14
 };
@@ -150,11 +150,11 @@ struct Voice {
 class CAudioMixer {
 public:
     // 0x0047B160 (returns this): the voices set up, nothing playing.
-    CAudioMixer* Construct();
+    CAudioMixer* MakeNew();
     // 0x0047AD80: the slot of the playing sound `id` - by unique id, else by name (-1 if neither is playing).
     int GetPlayingIndex(uint32_t id);
     // 0x0047AE20: a positional sound for `object` (nothing at 128).
-    void AddPositionalSound(uint32_t uniqueId, uint32_t checksum, GameObjects::CObject* object);
+    void AddPositionalSound(uint32_t uniqueId, uint32_t checksum, GameObjects::CEntity* object);
     // 0x0047AE90: (a group's sounds stopped - empty in this build).
     void StopGroup(int group);
     // 0x0047AEA0: the permanent waves loaded for `group` (load type 2) dropped from the table.
@@ -164,10 +164,10 @@ public:
     // 0x0047AF40: `props` from the wave's defaults and the play parameters `params` (null: defaults).
     void InitPlaybackProps(PlaybackProps* props, SoundWaveSlot* entry, PlaybackProps* params);
     // 0x0047B340: whether sounds are paused (the game's two pause flags) - unless +0 is set.
-    bool IsPaused();
+    bool IsFrozen();
     // 0x0047B360: `path` loaded into the level (`loadType` 0) or the permanent table; false if it's loaded
     // already, the table is full (256) or the file can't be read.
-    bool LoadSound(const char* path, uint16_t flags, int loadType, int group, float dropoff, float pitch,
+    bool IngestSound(const char* path, uint16_t flags, int loadType, int group, float dropoff, float pitch,
                    float volume);
     // 0x0047B480: the wave's volume (and the game's 50 %) applied to `volume`, its pitch to `pitch`.
     void AdjustVolumeAndPitch(volumeRef* volume, float* pitch, SoundWaveSlot* entry);
@@ -188,7 +188,7 @@ public:
     // 0x0047B7C0: SetSoundParams by unique id with the sound's own volume and pitch percentages.
     bool SetSoundParamsScaled(uint32_t uniqueId, volumeRef* volume, float pitch);
     // 0x0047B1B0: everything dropped (the positional list, the permanent waves); the default dropoff back to 1020.
-    void CleanUp();
+    void SweepUp();
     // 0x0047B210: the default dropoff distance.
     void SetDefaultDropoff(float dropoff);
     // 0x0047B240: every voice stopped, the positional list emptied.
@@ -201,31 +201,31 @@ public:
     // --- 0x0047B8E0-0x0047C6BB ---
     // 0x0047B8E0: `pitch` shifted by the sound's motion relative to the camera (Doppler): `position` now,
     // `previous` a frame ago, over `frameSeconds` (nothing when it moved more than 360 units a 60th).
-    void DopplerShift(float* pitch, const Maths::Vector* position, const Maths::Vector* previous, float frameSeconds,
+    void DopplerShift(float* pitch, const Maths::Vec4* position, const Maths::Vec4* previous, float frameSeconds,
                       void* camera);
     // 0x0047BA00: the props of the positional sound of `object` with that unique id (or, `byChecksum`, name), if
     // it's playing.
-    PlaybackProps* GetPositionalProps(GameObjects::CObject* object, uint32_t id, bool byChecksum);
+    PlaybackProps* GetPositionalProps(GameObjects::CEntity* object, uint32_t id, bool byChecksum);
     // 0x0047BAB0: whether `id` isn't the unique id of a playing or positional sound.
     bool IsUniqueIdFree(uint32_t id);
     // 0x0047BB20: `id`, or the next free one after it.
-    uint32_t GetUniqueId(uint32_t id);
+    uint32_t FetchDistinctId(uint32_t id);
     // 0x0047BB50 / 0x0047BC30: the positional sounds of `object` (with that name, unless 0) stopped and dropped.
-    void StopObjectSounds(GameObjects::CObject* object);
-    void HaltObjectSound(GameObjects::CObject* object, uint32_t checksum);
+    void StopObjectSounds(GameObjects::CEntity* object);
+    void HaltObjectSound(GameObjects::CEntity* object, uint32_t checksum);
     // 0x0047BD20: the sound `checksum` played at `volume` / `pitch` (the unique id `uniqueId`, else the name;
     // made free); `params` its play parameters. Returns the unique id (0: not played).
-    uint32_t PlaySound(uint32_t checksum, volumeRef* volume, float pitch, uint32_t uniqueId, void* params, int unused);
+    uint32_t EmitSound(uint32_t checksum, volumeRef* volume, float pitch, uint32_t uniqueId, void* params, int unused);
     // 0x0047BE10: `volume` for a sound at `position` heard from `camera` (the nearest if null): a level by the
     // distance over `dropoff` (falloff 0 smooth, 1 linear, 2 squared, 3 root), 3D. False when it's out of range
     // (5 % past the dropoff); true otherwise, or when paused (then silent).
-    bool GetVolume(volumeRef* volume, const Maths::Vector* position, float dropoff, int falloff, void* camera,
+    bool FetchLoudness(volumeRef* volume, const Maths::Vec4* position, float dropoff, int falloff, void* camera,
                    void* extent);
     // 0x0047C140: the sound played on `object` (positional unless `notPositional`); a silent looping one is kept
     // by the object to start later (unless `force`, which plays it anyway). Returns the unique id.
-    uint32_t PlayObjectSound(uint32_t checksum, void* params, GameObjects::CObject* object, bool notPositional, bool force);
+    uint32_t PlayObjectSound(uint32_t checksum, void* params, GameObjects::CEntity* object, bool notPositional, bool force);
     // 0x0047C360: a positional sound's volume and pitch from its object's place; false when it should stop.
-    bool UpdatePositionalSound(GameObjects::CObject* object, PlayingSound* sound, uint32_t time);
+    bool UpdatePositionalSound(GameObjects::CEntity* object, PlayingSound* sound, uint32_t time);
     // 0x0047C560: every positional sound updated; those that ended or stop are dropped.
     void TickPositionalSounds();
 

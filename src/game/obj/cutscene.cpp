@@ -67,14 +67,14 @@ __declspec(naked) void CutsceneNameFromPathStub()
 uint32_t CCinematicTable::HashOfName(const char* suffix, int number)
 {
     if (number == -1)
-        return Checksums::FoldTextIntoChecksum(m_name, suffix);
+        return Checksums::FoldTextIntoChecksum(m_label, suffix);
     char text[0x200];
     std::snprintf(text, sizeof(text), "%s%d\n", suffix, number);
-    return Checksums::FoldTextIntoChecksum(m_name, text);
+    return Checksums::FoldTextIntoChecksum(m_label, text);
 }
 
 // 0x004639A0
-int CCinematicTable::IsDone()
+int CCinematicTable::IsFinished()
 {
     return m_clock >= m_endTime ? 1 : 0;
 }
@@ -91,8 +91,8 @@ void CCinematicTable::SetSubtitles(Scripts::CArray* subtitles)
 {
     m_subtitles = subtitles;
     m_nextSubtitle = 0;
-    auto* first = reinterpret_cast<Scripts::CStruct*>(subtitles->GetElement(0));
-    first->GetFloat(kTime, &m_nextSubtitleTime, 1);
+    auto* first = reinterpret_cast<Scripts::CStruct*>(subtitles->FetchPart(0));
+    first->FetchFloat(kTime, &m_nextSubtitleTime, 1);
 }
 
 // 0x00464120
@@ -101,7 +101,7 @@ void CCinematicTable::CheckSkip()
     if (Scripts::FetchIntValue(kNoSkipping) != 0 || !m_canSkip || m_clock == 0.0f)
         return;
     GameModules::FrontEndInputHandler* handler = GameModules::FrontEndInstance()->m_inputHandlers[0];
-    auto* device = reinterpret_cast<Sio::Device*>(handler->m_device);
+    auto* device = reinterpret_cast<Sio::InputPort*>(handler->m_dev);
     if (!device->IsAttached() || !device->m_isUsable)
         return;
     if (handler->m_controlData->m_makes & (kButtonX | kButtonStart)) {
@@ -116,20 +116,20 @@ void CCinematicTable::UpdateSubtitles()
     // (comparisons as the original's: a NaN time never shows a subtitle)
     if (!m_subtitles || !(m_nextSubtitleTime >= 0.0f) || !(m_clock >= m_nextSubtitleTime))
         return;
-    auto* subtitle = reinterpret_cast<Scripts::CStruct*>(m_subtitles->GetElement(m_nextSubtitle));
+    auto* subtitle = reinterpret_cast<Scripts::CStruct*>(m_subtitles->FetchPart(m_nextSubtitle));
     m_subtitleDuration = 0.0f;
-    subtitle->GetFloat(kDuration, &m_subtitleDuration, 0);
+    subtitle->FetchFloat(kDuration, &m_subtitleDuration, 0);
     Scripts::LaunchScript(kSubtitleScript, subtitle, nullptr, false, nullptr);
     m_subtitleTime = m_nextSubtitleTime;
     ++m_nextSubtitle;
     m_nextSubtitleTime = -1.0f;
-    if (m_nextSubtitle < m_subtitles->m_size) {
-        auto* next = reinterpret_cast<Scripts::CStruct*>(m_subtitles->GetElement(m_nextSubtitle));
+    if (m_nextSubtitle < m_subtitles->m_extent) {
+        auto* next = reinterpret_cast<Scripts::CStruct*>(m_subtitles->FetchPart(m_nextSubtitle));
         // (a subtitle without a time leaves the local as it was: the original's holds this object's address)
         float time;
         const CCinematicTable* self = this;
         std::memcpy(&time, &self, sizeof(time));
-        next->GetFloat(kTime, &time, 1);
+        next->FetchFloat(kTime, &time, 1);
         m_nextSubtitleTime = time;
     }
 }
@@ -156,7 +156,7 @@ void CCinematicEntry::UpdateSlot12()
 // 0x00464580
 bool CCinematicEntry::CanBeSkipped()
 {
-    return m_data ? m_data->m_canSkip : false;
+    return m_content ? m_content->m_canSkip : false;
 }
 
 } // namespace Obj

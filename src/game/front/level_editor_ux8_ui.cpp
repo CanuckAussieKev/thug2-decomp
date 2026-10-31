@@ -216,7 +216,7 @@ void Windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
     float s = fonts.scale;
     ImVec2 centre(vx + vw * 0.5f, vy + vh * 0.5f);
     // The crosshair: the controller's cursor, or walking's middle.
-    if (PadOwnsCursor() || Walking()) {
+    if (PadOwnsCursor() || OnFoot()) {
         float r = 7.0f * s;
         draw->AddCircle(centre, r, IM_COL32(255, 255, 255, 200), 0, 1.5f * s);
         draw->AddLine(ImVec2(centre.x - 2.0f * r, centre.y), ImVec2(centre.x - r, centre.y), IM_COL32(255, 255, 255, 200), 1.5f * s);
@@ -224,7 +224,7 @@ void Windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
         draw->AddLine(ImVec2(centre.x, centre.y - 2.0f * r), ImVec2(centre.x, centre.y - r), IM_COL32(255, 255, 255, 200), 1.5f * s);
         draw->AddLine(ImVec2(centre.x, centre.y + r), ImVec2(centre.x, centre.y + 2.0f * r), IM_COL32(255, 255, 255, 200), 1.5f * s);
     }
-    if (Walking() && fonts.ui) {
+    if (OnFoot() && fonts.ui) {
         const char* text = "WALK MODE  -  WASD walk, Space jump, Shift run, Esc exit";
         ImVec2 size = fonts.ui->CalcTextSizeA(fonts.ui->FontSize, 1e9f, 0.0f, text);
         ImVec2 at(centre.x - size.x * 0.5f, vy + 14.0f * s);
@@ -279,7 +279,7 @@ void SetsMenu(const Fonts& fonts)
     float s = fonts.scale;
     if (!ImGui::BeginMenu("Selection Sets"))
         return;
-    const Organize::State& state = Organize::Current();
+    const Organize::State& state = Organize::AtHand();
     ImGui::TextDisabled("Quick Sets");
     for (int i = 1; i <= Nav::kQuickSets; ++i) {
         std::string name = Nav::QuickSetName(i);
@@ -312,7 +312,7 @@ void SetsMenu(const Fonts& fonts)
     // The other groups (named in the Outliner: Ctrl+G). (Clicks queued: done in the next Update, as UX3's panels.)
     bool any = false;
     for (int g = 0; g < static_cast<int>(state.groups.size()); ++g) {
-        const Organize::Group& group = state.groups[g];
+        const Organize::GroupSet& group = state.groups[g];
         if (group.name.rfind("Set ", 0) == 0 && group.name.size() == 5 && group.name[4] >= '1' && group.name[4] <= '9')
             continue;
         if (!any) {

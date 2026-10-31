@@ -22,11 +22,11 @@ class CRiderSfxPlayer : public CObjectModule {
 public:
     // 0x00518E20 (registered by RegisterComponentTypes): a new one (0 if out of memory): full speed 1, volume_mult 1,
     // not sliding.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00518C80: the destructor body (the base's).
     void DestroyBody();
     // 0x00518C90 (vtable slot 0)
-    CRiderSfxPlayer* Destroy(unsigned int flags);
+    CRiderSfxPlayer* Teardown(unsigned int flags);
     // 0x00518CC0 (vtable +0x08): volume_mult.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x00518FD0 (vtable +0x30): PlayJumpSound / PlayLandSound (on the ground or in the air, or on a rail: the speed
@@ -51,7 +51,7 @@ public:
     void PlayBonkHere(float speed);
     void PlayCessHere(float speed);
 
-    int m_state;           // +0x18 the skater's state (0 ground, 1 air, 4 rail)
+    int m_curPhase;           // +0x18 the skater's state (0 ground, 1 air, 4 rail)
     uint8_t m_surfaceType;     // +0x1C
     uint8_t m_lastGround;  // +0x1D the terrain the ground and air sounds use
     uint8_t m_sliding;     // +0x1E on a rail: a slide, not a grind
@@ -59,7 +59,7 @@ public:
     float m_fullSpeed;     // +0x20 the speed that counts as 1
     float m_volumeMult;    // +0x24 volume_mult
 };
-static_assert(offsetof(CRiderSfxPlayer, m_state) == 0x18 && offsetof(CRiderSfxPlayer, m_surfaceType) == 0x1C &&
+static_assert(offsetof(CRiderSfxPlayer, m_curPhase) == 0x18 && offsetof(CRiderSfxPlayer, m_surfaceType) == 0x1C &&
                   offsetof(CRiderSfxPlayer, m_sliding) == 0x1E &&
                   offsetof(CRiderSfxPlayer, m_fullSpeed) == 0x20 &&
                   offsetof(CRiderSfxPlayer, m_volumeMult) == 0x24 && sizeof(CRiderSfxPlayer) == 0x28,

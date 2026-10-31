@@ -73,14 +73,14 @@ constexpr uint32_t kPedPartLists[] = {0xF56A8CFB, 0x26D93E89, 0xAF8139ED, 0xE5DC
 // (0x004935E0, eight arguments); its geom count (0x00492E40) and a geom's texture dictionary (0x004946C0).
 void* NewModel(int) { return Engine3D::SpawnModel(); } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
 void DeleteModel(void* model) { Engine3D::Engine::DeleteGeomObject(model); }
-void LoadModel(void* model, const char* file, int a, int b, int c, uint32_t d, int e, int f, int g)
+void IngestMesh(void* model, const char* file, int a, int b, int c, uint32_t d, int e, int f, int g)
 {
     static_cast<Engine3D::CRenderModel*>(model)->AddFileGeom(file, static_cast<uint32_t>(a), b != 0, c, d != 0, e != 0, f != 0, g != 0);
 }
 // 0x004879D0 (cdecl): the model file's path for `name` with `extension` (a String made in `out`, returned).
-TextUtil::String* ModelPath(void* out, const char* name, const char* extension)
+TextUtil::Chars* ModelPath(void* out, const char* name, const char* extension)
 {
-    return Gfx2D::MakeModelPath(static_cast<TextUtil::String*>(out), name, extension);
+    return Gfx2D::MakeModelPath(static_cast<TextUtil::Chars*>(out), name, extension);
 }
 // 0x0048BFE0 (cdecl): a model file's base name (without its extension) into `base`.
 void BaseName(const char* name, char* base) { Engine3D::Engine::SplitSkinName(name, base); }
@@ -116,7 +116,7 @@ void MatchingOptions(uint32_t part, uint32_t filter, Scripts::CStruct** out, int
 
 // The appearance a pedestrian profile describes (Gfx2D::CModelLook, 0x5C bytes: constructor 0x00488EA0,
 // SetAppearance 0x00488F40, destructor body 0x004890F0) and the model builder (constructor 0x004897D0 with (1, 8),
-// its build 0x0048A2F0, destroyed as the CObject it is - 0x004615D0).
+// its build 0x0048A2F0, destroyed as the CEntity it is - 0x004615D0).
 struct Appearance {
     alignas(4) uint8_t m_bytes[0x5C];
 };
@@ -126,7 +126,7 @@ struct ModelBuilder {
 
 Scripts::CStruct* Element(Scripts::CArray* array, uint32_t index)
 {
-    return reinterpret_cast<Scripts::CStruct*>(array->GetElement(index));
+    return reinterpret_cast<Scripts::CStruct*>(array->FetchPart(index));
 }
 // A pedestrian part chosen at random: allowed, not to be picked again, its place among the random choices.
 void Choose(Scripts::CStruct* option, int index)
@@ -161,20 +161,20 @@ bool __cdecl CFunc_PreloadModels(Scripts::CStruct*, Scripts::CScript*)
         if (nodeClass != kVehicle && nodeClass != kGameObject)
             continue;
         const char* model = nullptr;
-        if (!node->GetString(kModel, &model, 0))
+        if (!node->FetchText(kModel, &model, 0))
             continue;
-        node->GetString(kModel, &model, 1);
+        node->FetchText(kModel, &model, 1);
         if (_stricmp("none", model) == 0)
             continue;
-        TextUtil::String path;
+        TextUtil::Chars path;
         {
-            alignas(4) uint8_t storage[sizeof(TextUtil::String)];
-            TextUtil::String* made = ModelPath(storage, model, ".mdl");
+            alignas(4) uint8_t storage[sizeof(TextUtil::Chars)];
+            TextUtil::Chars* made = ModelPath(storage, model, ".mdl");
             path = *made;
-            made->~String();
+            made->~Chars();
         }
         void* nxModel = NewModel(1);
-        LoadModel(nxModel, path.c_str(), 0, 1, 0, node->HasBareFlag(kAllowReplaceTex), 0, 1, 0);
+        IngestMesh(nxModel, path.c_str(), 0, 1, 0, node->HasBareFlag(kAllowReplaceTex), 0, 1, 0);
         if (!node->HasBareFlag(kNoCollision)) {
             const char* file = path.c_str();
             char name[0x100];
@@ -226,24 +226,24 @@ bool __cdecl CFunc_PreloadPedestrians(Scripts::CStruct* params, Scripts::CScript
         if (nodeClass != kPedestrian)
             continue;
         const char* model;
-        if (node->GetString(kModel, &model, 0) && Checksums::HashFromText(model) != kNone) {
-            TextUtil::String path;
-            alignas(4) uint8_t storage[sizeof(TextUtil::String)];
-            TextUtil::String* made = ModelPath(storage, model, ".skin");
+        if (node->FetchText(kModel, &model, 0) && Checksums::HashFromText(model) != kNone) {
+            TextUtil::Chars path;
+            alignas(4) uint8_t storage[sizeof(TextUtil::Chars)];
+            TextUtil::Chars* made = ModelPath(storage, model, ".skin");
             path = *made;
-            made->~String();
+            made->~Chars();
             void* nxModel = NewModel(1);
-            LoadModel(nxModel, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
+            IngestMesh(nxModel, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
             DeleteModel(nxModel);
         }
-        if (node->GetString(kSecondModel, &model, 0)) {
-            TextUtil::String path;
-            alignas(4) uint8_t storage[sizeof(TextUtil::String)];
-            TextUtil::String* made = ModelPath(storage, model, ".mdl");
+        if (node->FetchText(kSecondModel, &model, 0)) {
+            TextUtil::Chars path;
+            alignas(4) uint8_t storage[sizeof(TextUtil::Chars)];
+            TextUtil::Chars* made = ModelPath(storage, model, ".mdl");
             path = *made;
-            made->~String();
+            made->~Chars();
             void* nxModel = NewModel(1);
-            LoadModel(nxModel, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
+            IngestMesh(nxModel, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
             DeleteModel(nxModel);
         }
         uint32_t profileName;
@@ -255,14 +255,14 @@ bool __cdecl CFunc_PreloadPedestrians(Scripts::CStruct* params, Scripts::CScript
         void* nxModel = NewModel(1);
         Appearance appearance;
         auto* gfxAppearance = reinterpret_cast<Gfx2D::CModelLook*>(&appearance);
-        gfxAppearance->Construct();
-        gfxAppearance->Load(profile, false);
+        gfxAppearance->MakeNew();
+        gfxAppearance->ReadIn(profile, false);
         ModelBuilder builder;
         auto* gfxBuilder = reinterpret_cast<Gfx2D::CModelAssembler*>(&builder);
-        gfxBuilder->Construct(true, 8);
+        gfxBuilder->MakeNew(true, 8);
         gfxBuilder->Build(gfxAppearance, static_cast<Engine3D::CRenderModel*>(nxModel), nullptr, kPreloadModelFromAppearance);
         DeleteModel(nxModel);
-        reinterpret_cast<GameObjects::CObject*>(&builder)->DestroyBody();
+        reinterpret_cast<GameObjects::CEntity*>(&builder)->DestroyBody();
         gfxAppearance->DestroyBody();
     }
     LevelNodes::EndNodeWalk();
@@ -279,12 +279,12 @@ bool __cdecl CFunc_PreselectRandomPedestrians(Scripts::CStruct* params, Scripts:
 {
     uint32_t part = 0; // (uninitialised in the original when missing)
     params->ReadHashValue(kPart, &part, 1);
-    Scripts::CArray* list = Scripts::GetArray(part);
-    uint32_t size = list->m_size;
+    Scripts::CArray* list = Scripts::FetchList(part);
+    uint32_t size = list->m_extent;
     uint32_t level = SkateField<uint32_t>(0x374); // (the level the parts are chosen for)
     for (uint32_t i = 0; i < size; ++i) {
         Scripts::CStruct* option = Element(list, i);
-        option->RemoveComponent(kAllowedToPick);
+        option->EraseModule(kAllowedToPick);
         option->PutInt(kAllowRandom, 0);
         option->PutInt(kAlreadySelected, 0);
         option->PutInt(kRandomIndex, -1);
@@ -382,7 +382,7 @@ bool __cdecl CFunc_ReplaceCarTextures(Scripts::CStruct* params, Scripts::CScript
     int seenCount = 0;
     for (GameObjects::CObjectModule* component = objects->FindFirstModuleOfKind(kModel); component;
          component = component->mp_nextOfType) {
-        if (component->m_object->m_type != kCarType)
+        if (component->m_entity->m_kindTag != kCarType)
             continue;
         void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
         bool added = false;

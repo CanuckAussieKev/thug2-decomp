@@ -16,11 +16,11 @@ public:
     void ResetActivation();
     void ForgetLetGo();
     // 0x0046B800: the button's name (the checksum of `name`).
-    void SetName(const char* name);
+    void ChangeTitle(const char* name);
     // 0x0046B820: the new pressure (0-255; down above 0x40). While the button is locked (+0x1C, a FrameClock::GetTime
     // millisecond time, 0 = not locked), a press isn't taken until that time has passed; any update that isn't a
     // press ends the lock.
-    void Update(int pressure);
+    void TickFrame(int pressure);
     // 0x0046B8B0: down or up as `down` (the byte itself is stored), without the pressure; a release here isn't
     // timed.
     void SetHeldDown(uint8_t down);
@@ -36,7 +36,7 @@ public:
     uint8_t m_fired;     // +0x10: went down (until ResetActivation)
     uint8_t m_unknown11[3];
     int m_letGo;          // +0x14: went up (until ForgetLetGo)
-    uint32_t m_name;         // +0x18
+    uint32_t m_label;         // +0x18
     float m_lockedUntil;     // +0x1C
 };
 static_assert(sizeof(CControlButton) == 0x20, "layout must match the original");
@@ -44,7 +44,7 @@ static_assert(sizeof(CControlButton) == 0x20, "layout must match the original");
 class CPadState {
 public:
     // 0x0046B940: the buttons' names; no locks.
-    CPadState* Init();
+    CPadState* PrepareAll();
     // 0x0046BB50: every button updated as released (pressure 0), the sticks zeroed.
     void Reset();
     // 0x0046BC60: Reset, and the buttons' events taken - except, as the original, R2's release and R3's press
@@ -52,14 +52,14 @@ public:
     void Clear();
     // 0x0046BDA0: the buttons and sticks from the controller's data (the PS2 pad layout: pressures 4-0xF, the
     // sticks 0-3 and 0x12-0x15 around 0x80, more buttons in the bits of +0x1C).
-    void Update(const uint8_t* data);
+    void TickFrame(const uint8_t* data);
     // 0x0046C270: the button named `name` (null if none).
     CControlButton* ReadButton(uint32_t name);
 
     CControlButton m_upDir;         // +0x000
     CControlButton m_btnDown;       // +0x020
-    CControlButton m_left;       // +0x040
-    CControlButton m_right;      // +0x060
+    CControlButton m_leftSide;       // +0x040
+    CControlButton m_rightSide;      // +0x060
     CControlButton m_shoulderLeftA;         // +0x080
     CControlButton m_shoulderLeftB;         // +0x0A0
     CControlButton m_stickClickLeft;         // +0x0C0
@@ -70,7 +70,7 @@ public:
     CControlButton m_buttonBox;     // +0x160
     CControlButton m_buttonWedge;   // +0x180
     CControlButton m_posX;          // +0x1A0
-    CControlButton m_start;      // +0x1C0
+    CControlButton m_outset;      // +0x1C0
     CControlButton m_buttonChoose;     // +0x1E0
     float m_stick[4];            // +0x200: two sticks' x, y: the data's 0x12-0x15 - 0x80
     float m_scaledStick[4];      // +0x210: the data's 0-3 - 0x80, moved 50 towards 0 (past it: no dead band), / 77

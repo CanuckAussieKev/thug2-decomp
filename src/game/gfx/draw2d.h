@@ -7,33 +7,33 @@
 namespace Engine3D {
 
 struct SOverlayDraw {
-    void** vtable;   // 0x0064AD18 for the base: [0] destroy, [1] BeginDraw, [2] Draw, [3] EndDraw
+    void** vtable;   // 0x0064AD18 for the base: [0] destroy, [1] OpenSketch, [2] Draw, [3] CloseSketch
     SOverlayDraw* next;
-    uint8_t hidden;  // not in the list (a byte: SetHidden keeps any value it's given)
+    uint8_t hidden;  // not in the list (a byte: ChangeConcealed keeps any value it's given)
     uint8_t pad[3];
     float priority;
     float z;         // above 0: the next frame's z test on (0x007CC24C)
 
     // 0x004DFA70: construct with this priority, in the list unless hidden. Returns this.
-    SOverlayDraw* Construct(float priority, bool hidden);
+    SOverlayDraw* MakeNew(float priority, bool hidden);
     // 0x004DFAA0: the destructor's body (out of the list).
     void DestroyBody();
     // 0x004DFC90 (virtual [0]): destroy, and free if flags & 1. Returns this.
-    SOverlayDraw* Destroy(unsigned int flags);
+    SOverlayDraw* Teardown(unsigned int flags);
     // 0x004DF900: into the list: before the first of higher or equal priority.
-    void Insert();
+    void Splice();
     // 0x004DF950: out of the list.
-    void Remove();
+    void DropOut();
     // 0x004DFAE0: a new priority (moved in the list if it's in).
-    void SetPriority(float priority);
+    void ChangeRank(float priority);
     // 0x004DFB20: the z; above 0 the priority becomes 0.
     void SetZ(float z);
     // 0x004DFB70: hide (out of the list) or show (in).
-    void SetHidden(uint8_t hidden);
+    void ChangeConcealed(uint8_t hidden);
 };
 static_assert(sizeof(SOverlayDraw) == 0x14, "layout must match the original");
 
-// 0x004DFB90: draw the list (each shown item's BeginDraw, Draw, EndDraw) with the 2D states, the z test as the last
+// 0x004DFB90: draw the list (each shown item's OpenSketch, Draw, CloseSketch) with the 2D states, the z test as the last
 // frame's items wanted.
 void __cdecl Draw2D();
 

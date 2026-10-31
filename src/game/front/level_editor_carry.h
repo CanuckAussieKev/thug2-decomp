@@ -31,7 +31,7 @@ class CGameEntity;
 //     or moving with the keys (Shift is already up / down): the carried things are put back where they were when the
 //     change started and left there for that change.
 //   - Undo / Home / layouts: each kind records its own moves - objects as the editor's moved objects (Touch, their first
-//     place noted), nodes through NodeEdit::Set (their `set` records); the scenery's undo step carries their places
+//     place noted), nodes through NodeEdit::AssignValue (their `set` records); the scenery's undo step carries their places
 //     before the change (level_editor.cpp's UndoStep).
 namespace MenuSystem::LevelEditor::Carry {
 
@@ -62,7 +62,7 @@ float TurnedHeading(float heading, int quarters);
 // --- the game side --------------------------------------------------------------------------------------------------
 
 // The toolbar's "Carry objects" ([editor] carry, default 1).
-bool Enabled();
+bool IsSwitchedOn();
 void SetEnabled(bool on);
 
 // What a change took along: the carried objects' and nodes' places before it (the undo step's).
@@ -82,7 +82,7 @@ void Leave();
 void Disarm();
 bool Armed();
 // How many objects / nodes are carried now (the status bar).
-int Count();
+int TotalOf();
 // What is carried now: the objects' ids and the nodes' names (the Overlays menu's carried-object hints,
 // level_editor_overlays.h); none while not armed.
 std::vector<uint32_t> CarriedObjects();

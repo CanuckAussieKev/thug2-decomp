@@ -18,7 +18,7 @@ struct sockaddr;
 
 namespace NetLink {
 
-struct App;
+struct AppHost;
 
 extern void** const kAppVtable; // 0x006475B4
 
@@ -30,13 +30,13 @@ struct NetMessageInfo {
     enum Queue : int { kQueueDefault = 0, kQueueImportant = 1, kQueueSequenced = 2 };
 
     // 0x004549F0 (net_descs.cpp)
-    NetMessageInfo* Construct();
+    NetMessageInfo* MakeNew();
 
-    uint8_t m_id;               // 0x00
+    uint8_t m_ident;               // 0x00
     uint8_t m_feed;           // 0x01 a piece of a streamed message (counted by Conn 0x004565E0)
     uint16_t m_byteCount;          // 0x02
-    void* m_data;               // 0x04
-    int m_priority;             // 0x08 (0x80 by default)
+    void* m_content;               // 0x04
+    int m_rank;             // 0x08 (0x80 by default)
     int m_queue;                // 0x0C
     uint8_t m_groupId;          // 0x10 sequenced messages: each group has its own sequence
     bool m_singular;            // 0x11 drop the connection's queued messages with the same id first
@@ -46,42 +46,42 @@ struct NetMessageInfo {
     uint8_t m_compression;      // 0x1C 0 none, 1 RLE, 2 LZSS (0x00454E30)
     uint8_t m_pad1D[3];
 };
-static_assert(sizeof(NetMessageInfo) == 0x20 && offsetof(NetMessageInfo, m_priority) == 0x08 &&
+static_assert(sizeof(NetMessageInfo) == 0x20 && offsetof(NetMessageInfo, m_rank) == 0x08 &&
                   offsetof(NetMessageInfo, m_groupId) == 0x10 && offsetof(NetMessageInfo, m_delay) == 0x14 &&
                   offsetof(NetMessageInfo, m_compression) == 0x1C,
               "layout must match the original");
 
 // A streamed message not sent all at once (0x44 bytes, constructor 0x004549D0, destructor body 0x00454E00): sent
-// in 256-byte pieces, a few each frame (App::ProcessStreamMessages).
+// in 256-byte pieces, a few each frame (AppHost::ProcessStreamMessages).
 struct StreamDesc {
     // 0x004549D0 (net_descs.cpp): size, data, next, group and sendInPlace zeroed.
-    StreamDesc* Construct();
+    StreamDesc* MakeNew();
     // 0x00454E00: the data freed unless it's the sender's ("Destroying StreamDesc's Data").
     void DestroyBody();
 
-    int m_size;                 // 0x00
+    int m_extent;                 // 0x00
     int m_streamId;             // 0x04
     uint8_t m_msgId;            // 0x08
     char m_desc[32];            // 0x09 the sender's description of the data
     uint8_t m_pad29[3];
-    uint8_t* m_data;            // 0x2C
-    uint8_t* m_next;            // 0x30 the first byte not sent yet
+    uint8_t* m_content;            // 0x2C
+    uint8_t* m_succ;            // 0x30 the first byte not sent yet
     uint8_t m_groupId;          // 0x34
     uint8_t m_pad35[3];
     uint32_t m_sequenceId;      // 0x38 the next piece's sequence id (reserved when the stream was queued)
     uint32_t m_checksum;        // 0x3C received streams: the whole message's checksum
-    bool m_sendInPlace;         // 0x40 m_data is the caller's (not freed)
+    bool m_sendInPlace;         // 0x40 m_content is the caller's (not freed)
     uint8_t m_pad41[3];
 };
-static_assert(sizeof(StreamDesc) == 0x44 && offsetof(StreamDesc, m_data) == 0x2C &&
+static_assert(sizeof(StreamDesc) == 0x44 && offsetof(StreamDesc, m_content) == 0x2C &&
                   offsetof(StreamDesc, m_sequenceId) == 0x38 && offsetof(StreamDesc, m_sendInPlace) == 0x40,
               "layout must match the original");
 
-// NetLink::App (vtable 0x006475B4; the Client's 0x006475CC and the Server's 0x006475EC derive from it).
+// NetLink::AppHost (vtable 0x006475B4; the Client's 0x006475CC and the Server's 0x006475EC derive from it).
 // Virtual slots: 0 deleting destructor (0x00459660), 1 HandleIncoming (0x00459690), 2 PullInbound (pure),
 // 3 FlushOutbox(Conn*) (pure), 4 Init (0x00457110), 5 Deinit (0x00457490).
-struct App {
-    // m_flags
+struct AppHost {
+    // m_flagBits
     static constexpr uint32_t kBroadcast = 0x01; // the socket may broadcast
     static constexpr uint32_t kLocal = 0x08;     // no socket of its own (a client in the same process as its server)
     static constexpr uint32_t kMeasureLatency = 0x04; // send latency tests
@@ -98,7 +98,7 @@ struct App {
     // wrong; secure packets lose their checksum (`length` - 2 bytes copied).
     bool Decrypt(const uint8_t* packet, uint8_t* out, int length);
 
-    // 0x00456A50 / 0x00456A60 / 0x00456A70 / 0x00456A80: the app's main-loop tasks (made by App::Construct and,
+    // 0x00456A50 / 0x00456A60 / 0x00456A70 / 0x00456A80: the app's main-loop tasks (made by AppHost::MakeNew and,
     // the send task, by the Server's and the Client's constructors).
     void* SendTask() { return m_sendTask; }
     void* ReceiveTask() { return m_receiveTask; }
@@ -107,16 +107,16 @@ struct App {
     // 0x00456AF0
     void* NetManager() { return m_supervisor; }
     // 0x00456B60
-    uint32_t Socket() { return m_socket; }
+    uint32_t Socket() { return m_sock; }
     // 0x00456B70
     void SetOutsidePacketHook(ForeignPacketHandler handler) { m_foreignPacketHandler = handler; }
     // 0x00456F90
-    bool IsLocal() { return (m_flags >> 3) & 1; }
+    bool IsHostLocal() { return (m_flagBits >> 3) & 1; }
     // 0x00456FA0
-    bool AllowsOutsidePeers() { return (m_flags >> 4) & 1; }
+    bool AllowsOutsidePeers() { return (m_flagBits >> 4) & 1; }
 
     // 0x00456A90: "<name>: Error <WSAGetLastError>" to the debugger output.
-    void ReportError();
+    void RaiseFault();
     // 0x00456B00: time to send to `conn` (its send interval has passed since its last send, or it's flagged to
     // send now).
     bool IsSendDue(Conn* conn);
@@ -128,17 +128,17 @@ struct App {
     // 0x00456D90: a new SeqQueuedMsg (null if out of memory).
     SeqQueuedMsg* NewQueuedMsg(uint8_t id, uint16_t length, void* data, uint8_t arg4, uint8_t arg5);
     // 0x00456E20: a datagram to ip:port (scrambled first if secure). True if sent or it would block.
-    bool SendTo(uint32_t ip, uint16_t port, const uint8_t* data, int length, int flags);
+    bool TransmitTo(uint32_t ip, uint16_t port, const uint8_t* data, int length, int flags);
     // 0x00456F10: a packet on the connected socket (scrambled first if secure). False if not connected or
     // send failed.
-    bool Send(const uint8_t* data, int length, int flags);
+    bool PostOut(const uint8_t* data, int length, int flags);
     // 0x00457110 (virtual slot 4): the socket (unless local: UDP, non-blocking, broadcast if asked), the
     // counters zeroed, the dispatcher set up with the library's own handlers. False (reported) on failure.
-    bool Init();
+    bool PrepareAll();
     // 0x00457280: a message (id, 16-bit length, data) as one datagram to ip:port.
     bool DeliverTo(uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port, int flags);
     // 0x00457300: `conn` taken out of the connection list and deleted.
-    void TerminateConnection(Conn* conn);
+    void SeverLink(Conn* conn);
     // 0x004573D0: the next connection of a search of the connection list (null at the end).
     Conn* StepConnWalk(ConnSearch* search);
     // 0x00457400: `conn`'s address added to the banned list.
@@ -166,9 +166,9 @@ struct App {
 
 
     // 0x004594C0 (constructor)
-    App* Construct(int flags);
+    AppHost* MakeNew(int flags);
     // 0x00459660 (scalar deleting destructor; the body is 0x00457710)
-    App* Destroy(unsigned int flags);
+    AppHost* Teardown(unsigned int flags);
 
     // 0x00457EB0: queue `desc` for `handle`'s connection, for every ready one (0xFF), or every one but
     // handle & 0x7F (handle with 0x80 set).
@@ -185,7 +185,7 @@ struct App {
     // 0x00458C10: FlushOutbox(conn) (virtual slot 3) for each connection.
     void FlushOutbox();
     // 0x00458CA0: !sendInFrame: advance the timestamp and make every connection send this frame.
-    void SendData(bool sendInFrame);
+    void Transmit(bool sendInFrame);
     // 0x00458D50: whether conn's address is banned.
     bool IsConnBlocked(Conn* conn);
     // 0x00458DB0: the outgoing bytes of the last second over the remote connections.
@@ -203,7 +203,7 @@ struct App {
     // dispatched. False if processing should stop.
     bool HandleIncoming();
     // 0x004597C0: a new connection to ip:port (null when there are already the maximum).
-    Conn* NewConnection(int ip, uint16_t port, int flags);
+    Conn* OpenedLink(int ip, uint16_t port, int flags);
 
     // Task callbacks (the task's +0x1C is the app).
     // 0x00456CA0: counts the frame (+0x1410), then HandleIncoming (virtual slot 1; a tail jump).
@@ -212,7 +212,7 @@ struct App {
     static void __cdecl ReceiveNetworkData(void* task);
     // 0x004593E0: each connection's bandwidth meters (in and out).
     static void __cdecl NetworkMetrics(void* task);
-    // 0x004594A0: stream pieces, then SendData(true).
+    // 0x004594A0: stream pieces, then Transmit(true).
     static void __cdecl SendNetworkData(void* task);
 
     // 0x004598C0 - 0x0045B2F0 (net_app_messages.cpp)
@@ -221,7 +221,7 @@ struct App {
     // sequenced ones stay until acked (`resendsOnly`: only those sent before whose ack is overdue).
     bool BundleMessages(Conn* conn, int queue, bool resendsOnly);
 
-    // Handlers (registered by App::Init, 0x00457110).
+    // Handlers (registered by AppHost::PrepareAll, 0x00457110).
     // 0x0045AD60 (id 1): answers a latency test with its time.
     static int __cdecl HandleLatencyTest(InboundMsgCtx* context);
     // 0x0045AB60 (id 2): the answer to our latency test: the round trip goes into the latency average.
@@ -242,8 +242,8 @@ struct App {
     void** m_vtable;          // +0x0000
     uint32_t m_unknown4;      // +0x0004
     uint32_t m_clock;          // +0x0008 the current time (ms)
-    Dispatcher m_dispatcher;  // +0x000C (wt/netC)
-    App* m_dispatcherApp;     // +0x13F8 the Dispatcher's app
+    Router m_dispatcher;  // +0x000C (wt/netC)
+    AppHost* m_dispatcherApp;     // +0x13F8 the Dispatcher's app
     // +0x13FC statistics (zeroed by Init)
     int m_totalBytesOut;      // +0x13FC
     int m_totalBytesIn;       // +0x1400
@@ -251,12 +251,12 @@ struct App {
     int m_latePackets;        // +0x1408 timestamps older than the newest
     int m_dupePackets;        // +0x140C timestamps seen twice
     int m_frameCount;         // +0x1410 frames processed (ProcessNetworkData)
-    MemSys::ListNode m_list1414; // +0x1414 ListKit::Node<App> (vtable 0x006474D8, data = the app)
-    uint32_t m_socket;        // +0x1428
+    MemSys::ListNode m_list1414; // +0x1414 ListKit::Elem<App> (vtable 0x006474D8, data = the app)
+    uint32_t m_sock;        // +0x1428
     uint8_t m_localAddress[0x10]; // +0x142C sockaddr_in (Bind)
-    bool m_connected;         // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
+    bool m_linkedUp;         // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
     uint8_t m_pad143D[3];
-    void* m_supervisor;          // +0x1440 the NetLink::Manager (its message flags: kMsgNoLength)
+    void* m_supervisor;          // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
     // TaskList::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
     // receive 0x004593C0 (1000), metrics 0x004593E0 (-2500).
     void* m_processTask;      // +0x1444
@@ -264,33 +264,33 @@ struct App {
     void* m_receiveTask;      // +0x144C
     void* m_metricsTask;      // +0x1450
     int m_numConnections;     // +0x1454 (zeroed by Init)
-    int m_maxConnections;     // +0x1458 (App::NewConnection makes no more; Server::Init clears it)
+    int m_maxConnections;     // +0x1458 (AppHost::OpenedLink makes no more; HostEnd::PrepareAll clears it)
     uint8_t m_scrambled[0x514]; // +0x145C a secure packet being sent
     char m_receiveBuffer[0x514]; // +0x1970
-    uint32_t m_flags;         // +0x1E84
+    uint32_t m_flagBits;         // +0x1E84
     ForeignPacketHandler m_foreignPacketHandler; // +0x1E88 packets from addresses that aren't connections
-    ConnNode m_connections;   // +0x1E8C head (data -1)
+    ConnNode m_circuits;   // +0x1E8C head (data -1)
     BannedConnNode m_banned;  // +0x1EA0 head
     uint32_t m_unknown1EB4;
-    char m_name[0x48];        // +0x1EB8 ("server", "client"...)
+    char m_label[0x48];        // +0x1EB8 ("server", "client"...)
     double m_unknown1F00;     // +0x1F00 (0.0 from the constructor; not used by the library)
 };
-static_assert(offsetof(App, m_dispatcher) == 0x0C && offsetof(App, m_dispatcherApp) == 0x13F8 &&
-                  offsetof(App, m_totalBytesOut) == 0x13FC && offsetof(App, m_frameCount) == 0x1410 &&
-                  offsetof(App, m_list1414) == 0x1414 && offsetof(App, m_socket) == 0x1428 &&
-                  offsetof(App, m_connected) == 0x143C && offsetof(App, m_supervisor) == 0x1440 &&
-                  offsetof(App, m_processTask) == 0x1444 && offsetof(App, m_numConnections) == 0x1454 &&
-                  offsetof(App, m_maxConnections) == 0x1458 && offsetof(App, m_scrambled) == 0x145C &&
-                  offsetof(App, m_receiveBuffer) == 0x1970 && offsetof(App, m_flags) == 0x1E84 &&
-                  offsetof(App, m_foreignPacketHandler) == 0x1E88 && offsetof(App, m_connections) == 0x1E8C &&
-                  offsetof(App, m_banned) == 0x1EA0 && offsetof(App, m_name) == 0x1EB8 &&
-                  offsetof(App, m_unknown1F00) == 0x1F00 && sizeof(App) == 0x1F08,
+static_assert(offsetof(AppHost, m_dispatcher) == 0x0C && offsetof(AppHost, m_dispatcherApp) == 0x13F8 &&
+                  offsetof(AppHost, m_totalBytesOut) == 0x13FC && offsetof(AppHost, m_frameCount) == 0x1410 &&
+                  offsetof(AppHost, m_list1414) == 0x1414 && offsetof(AppHost, m_sock) == 0x1428 &&
+                  offsetof(AppHost, m_linkedUp) == 0x143C && offsetof(AppHost, m_supervisor) == 0x1440 &&
+                  offsetof(AppHost, m_processTask) == 0x1444 && offsetof(AppHost, m_numConnections) == 0x1454 &&
+                  offsetof(AppHost, m_maxConnections) == 0x1458 && offsetof(AppHost, m_scrambled) == 0x145C &&
+                  offsetof(AppHost, m_receiveBuffer) == 0x1970 && offsetof(AppHost, m_flagBits) == 0x1E84 &&
+                  offsetof(AppHost, m_foreignPacketHandler) == 0x1E88 && offsetof(AppHost, m_circuits) == 0x1E8C &&
+                  offsetof(AppHost, m_banned) == 0x1EA0 && offsetof(AppHost, m_label) == 0x1EB8 &&
+                  offsetof(AppHost, m_unknown1F00) == 0x1F00 && sizeof(AppHost) == 0x1F08,
               "layout must match the original (the Client, 0x1F18 bytes, adds the server's address)");
 
-// NOT ORIGINAL - a look at every message App::PutOnOutbox queues, first (THUGPRO's additions to messages we send:
+// NOT ORIGINAL - a look at every message AppHost::PutOnOutbox queues, first (THUGPRO's additions to messages we send:
 // game/net/thugpro_peer.h). The filter may queue other messages itself (through PutOnOutbox) and returns true
 // when it has queued this one itself (PutOnOutbox then does nothing more). Null (the default): the original.
-using EnqueueFilter = bool (*)(App* app, int handle, NetMessageInfo* desc);
+using EnqueueFilter = bool (*)(AppHost* app, int handle, NetMessageInfo* desc);
 void SetEnqueueFilter(EnqueueFilter filter);
 
 } // namespace Net

@@ -21,22 +21,22 @@ extern void** const kModelVtable;
 void* GeomOf(const sModelGeomNode* node) { return *node->entry; }
 
 // The engine's CGeom calls (jumps through the geom's vtable).
-Maths::Vector* GetGeomBoundingSphere(void* geom, Maths::Vector* out)
+Maths::Vec4* GetGeomBoundingSphere(void* geom, Maths::Vec4* out)
 {
     return static_cast<CGeom*>(geom)->FetchBoundSphere(out);
 }
-void SetGeomBoundingSphere(void* geom, const Maths::Vector* sphere)
+void SetGeomBoundingSphere(void* geom, const Maths::Vec4* sphere)
 {
     // (slot 16, through the jump 0x0048DEB0)
-    reinterpret_cast<void(__thiscall*)(void*, const Maths::Vector*)>((*static_cast<void***>(geom))[16])(geom, sphere);
+    reinterpret_cast<void(__thiscall*)(void*, const Maths::Vec4*)>((*static_cast<void***>(geom))[16])(geom, sphere);
 }
 
 } // namespace
 
 // 0x004BAD90
-CPcModel* CPcModel::Construct()
+CPcModel* CPcModel::MakeNew()
 {
-    reinterpret_cast<CRenderModel*>(this)->CRenderModel::Construct();
+    reinterpret_cast<CRenderModel*>(this)->CRenderModel::MakeNew();
     vtable = reinterpret_cast<void**>(kModelVtable);
     unknown4C = 0;
     return this;
@@ -50,16 +50,16 @@ void CPcModel::DestroyBody()
 }
 
 // 0x004BADC0
-CPcModel* CPcModel::Destroy(unsigned int flags)
+CPcModel* CPcModel::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004BADF0
-void CPcModel::ChangeBoundSphere(const Maths::Vector* sphere)
+void CPcModel::ChangeBoundSphere(const Maths::Vec4* sphere)
 {
     sModelGeomNode* head = geoms;
     for (sModelGeomNode* node = head ? head->next : nullptr; node != head; node = node->next)
@@ -67,7 +67,7 @@ void CPcModel::ChangeBoundSphere(const Maths::Vector* sphere)
 }
 
 // 0x004BAE30
-Maths::Vector* CPcModel::FetchBoundSphere(Maths::Vector* out)
+Maths::Vec4* CPcModel::FetchBoundSphere(Maths::Vec4* out)
 {
     if (geomCount == 0) {
         *out = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -75,10 +75,10 @@ Maths::Vector* CPcModel::FetchBoundSphere(Maths::Vector* out)
     }
     sModelGeomNode* head = geoms;
     sModelGeomNode* node = head ? head->next : nullptr;
-    Maths::Vector scratch;
-    Maths::Vector sphere = *GetGeomBoundingSphere(GeomOf(node), &scratch);
+    Maths::Vec4 scratch;
+    Maths::Vec4 sphere = *GetGeomBoundingSphere(GeomOf(node), &scratch);
     for (node = node->next; node != head; node = node->next) {
-        Maths::Vector other = *GetGeomBoundingSphere(GeomOf(node), &scratch);
+        Maths::Vec4 other = *GetGeomBoundingSphere(GeomOf(node), &scratch);
         float dx = static_cast<float>(static_cast<double>(other.x) - sphere.x);
         float dy = static_cast<float>(static_cast<double>(other.y) - sphere.y);
         float dz = static_cast<float>(static_cast<double>(other.z) - sphere.z);
@@ -114,9 +114,9 @@ Maths::Vector* CPcModel::FetchBoundSphere(Maths::Vector* out)
 }
 
 namespace {
-static VtableSlot kModelVtable_slots[] = {&Engine3D::CPcModel::Destroy, &MemCard::Card::AlwaysTrue, Stubs::ReturnZero1,
-                &MemCard::Card::AlwaysTrue, &Engine3D::CRenderModel::VirtualTrue4, &MemCard::Card::AlwaysTrue, &MemCard::Card::AlwaysTrue,
-                &MemCard::Card::AlwaysTrue, Stubs::ReturnTrue2, &NetLink::Manager::LoadNetworkDrivers, Stubs::ReturnTrue,
+static VtableSlot kModelVtable_slots[] = {&Engine3D::CPcModel::Teardown, &MemCard::SaveCard::AlwaysTrue, Stubs::ReturnZero1,
+                &MemCard::SaveCard::AlwaysTrue, &Engine3D::CRenderModel::VirtualTrue4, &MemCard::SaveCard::AlwaysTrue, &MemCard::SaveCard::AlwaysTrue,
+                &MemCard::SaveCard::AlwaysTrue, Stubs::ReturnTrue2, &NetLink::Hub::LoadNetworkDrivers, Stubs::ReturnTrue,
                 Stubs::ReturnTrue, &Engine3D::CPcModel::FetchBoundSphere, &Engine3D::CPcModel::ChangeBoundSphere};
 void** const kModelVtable = reinterpret_cast<void**>(kModelVtable_slots);
 } // namespace

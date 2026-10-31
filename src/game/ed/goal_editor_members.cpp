@@ -26,7 +26,7 @@ int Sprintf(char* out, const char* format, Args... args)
     return Crt::Sprintf(out, format, args...);
 }
 
-const char* Empty() { return ""; } // ""
+const char* Vacant() { return ""; } // ""
 
 } // namespace
 
@@ -102,10 +102,10 @@ bool CObjectiveAuthoring::GetKeyComboSet(Scripts::CStruct* params, Scripts::CScr
     KeyComboSet* entry = goal->FindKeyComboSet(set);
     if (!entry)
         return false;
-    script->m_params->PutInt(0xEDF5DB70, entry->spin * 180);
-    script->m_params->PutInt(0xA4BEE6A1, entry->tapTotal);
+    script->m_args->PutInt(0xEDF5DB70, entry->spin * 180);
+    script->m_args->PutInt(0xA4BEE6A1, entry->tapTotal);
     if (entry->mustBeFlawless)
-        script->m_params->PutNameKey(0u, 0x687E2C25u);
+        script->m_args->PutNameKey(0u, 0x687E2C25u);
     return true;
 }
 
@@ -115,7 +115,7 @@ bool CObjectiveAuthoring::RemoveGoalSpecificFlag(Scripts::CStruct* params, Scrip
     if (CEditedGoal* goal = GetGoalFromParams(params)) {
         uint32_t flag = 0;
         params->ReadHashValue(0u, &flag, 0);
-        if (goal->m_type == kGoalTypeComboTricks && flag == 0xDF47B144)
+        if (goal->m_kindTag == kGoalTypeComboTricks && flag == 0xDF47B144)
             goal->m_singleCombo = false;
     }
     return true;
@@ -144,7 +144,7 @@ bool CObjectiveAuthoring::FindUnfinishedGoal(Scripts::CStruct* params, Scripts::
     params->ReadHashValue("type", &type, 0);
     m_activeNode = nullptr;
     for (CEditedGoal& goal : m_goals) {
-        if (goal.m_used && goal.m_type == type && goal.m_vertexTotal < goal.m_minPoints)
+        if (goal.m_takenCount && goal.m_kindTag == type && goal.m_vertexTotal < goal.m_minPoints)
             m_activeNode = &goal; // (the last one)
     }
     return m_activeNode != nullptr;
@@ -184,15 +184,15 @@ bool CObjectiveAuthoring::SetEditorGoalType(Scripts::CStruct* params, Scripts::C
     uint32_t type = 0;
     params->ReadHashValue("type", &type, 0);
     if (CEditedGoal* goal = GetGoalFromParams(params))
-        goal->SetType(type);
+        goal->ChangeSpecies(type);
     return true;
 }
 
 // 0x004E89F0
 bool CObjectiveAuthoring::SetEditorGoalDescription(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    const char* text = Empty();
-    params->GetString("text", &text, 0);
+    const char* text = Vacant();
+    params->FetchText("text", &text, 0);
     if (CEditedGoal* goal = GetGoalFromParams(params))
         std::strcpy(goal->m_summaryText, text);
     return true;
@@ -201,8 +201,8 @@ bool CObjectiveAuthoring::SetEditorGoalDescription(Scripts::CStruct* params, Scr
 // 0x004E8A40
 bool CObjectiveAuthoring::SetEditorGoalWinMessage(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    const char* text = Empty();
-    params->GetString("text", &text, 0);
+    const char* text = Vacant();
+    params->FetchText("text", &text, 0);
     if (CEditedGoal* goal = GetGoalFromParams(params))
         std::strcpy(goal->m_winMessage, text);
     return true;
@@ -218,18 +218,18 @@ bool CObjectiveAuthoring::GetNumEditedGoals(Scripts::CStruct* params, Scripts::C
     int count = CountCompleteGoals(level);
     if (!level && params->HasBareFlag(0xB99F6330))
         count -= CountCompleteGoals(kParkEditorLevel);
-    script->m_params->PutInt("NumGoals", count);
+    script->m_args->PutInt("NumGoals", count);
     return true;
 }
 
 // 0x004E8B30
 bool CObjectiveAuthoring::GetCurrentEditedGoalId(Scripts::CStruct* /*params*/, Scripts::CScript* script)
 {
-    script->m_params->RemoveComponent("goal_id");
+    script->m_args->EraseModule("goal_id");
     if (m_activeNode) {
         char* name = g_createdGoalName;
         Sprintf(name, "CreatedGoal%d", m_activeNode->m_goalIndex);
-        script->m_params->PutNameKey("goal_id", Checksums::HashFromText(name));
+        script->m_args->PutNameKey("goal_id", Checksums::HashFromText(name));
     }
     return true;
 }
@@ -245,10 +245,10 @@ bool CObjectiveAuthoring::WriteEditedGoalNodePositions(Scripts::CStruct* params,
 // 0x004E8BB0
 bool CObjectiveAuthoring::SetEditorGoalName(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    const char* text = Empty();
-    if (m_activeNode && params->GetString("Name", &text, 0)) {
+    const char* text = Vacant();
+    if (m_activeNode && params->FetchText("Name", &text, 0)) {
         m_activeNode = GetGoalFromParams(params); // (none named: a null write, as the original)
-        std::strcpy(m_activeNode->m_name, text);
+        std::strcpy(m_activeNode->m_label, text);
     }
     return true;
 }
@@ -256,8 +256,8 @@ bool CObjectiveAuthoring::SetEditorGoalName(Scripts::CStruct* params, Scripts::C
 // 0x004E8C20
 bool CObjectiveAuthoring::SetEditorPedName(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    const char* text = Empty();
-    if (m_activeNode && params->GetString("Name", &text, 0)) {
+    const char* text = Vacant();
+    if (m_activeNode && params->FetchText("Name", &text, 0)) {
         m_activeNode = GetGoalFromParams(params);
         std::strcpy(m_activeNode->m_pedName, text);
     }
@@ -289,7 +289,7 @@ bool CObjectiveAuthoring::NukeAllGoals(Scripts::CStruct* params, Scripts::CScrip
 // 0x004E8D30
 bool CObjectiveAuthoring::GetMaxGoalsPerLevel(Scripts::CStruct* /*params*/, Scripts::CScript* script)
 {
-    script->m_params->PutInt(0x8BC2E0DB, 10);
+    script->m_args->PutInt(0x8BC2E0DB, 10);
     return true;
 }
 
@@ -334,11 +334,11 @@ bool CObjectiveAuthoring::RefreshGoalCursorPosition(Scripts::CStruct* /*params*/
 {
     if (!m_activeNode)
         return true;
-    Maths::Vector pos = {0.0f, 0.0f, 0.0f, 0.0f};
+    Maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 0.0f};
     float height = 0.0f, angle = 0.0f;
     m_activeNode->GetCurrentPoint(&pos, &height, &angle);
     Scripts::CStruct cursor;
-    cursor.Init();
+    cursor.PrepareAll();
     cursor.PutVec3(0x7F261953, pos.x, pos.y + height, pos.z);
     cursor.PushFloat(0xFF7EBAF6, angle);
     Scripts::LaunchScript(0xDEA7FE56, &cursor, nullptr, false, nullptr);
@@ -362,7 +362,7 @@ bool CObjectiveAuthoring::EditGoal(Scripts::CStruct* params, Scripts::CScript* /
 bool CObjectiveAuthoring::GetCurrentEditedGoalInfo(Scripts::CStruct* /*params*/, Scripts::CScript* script)
 {
     if (m_activeNode)
-        m_activeNode->ExportToStruct(script->m_params);
+        m_activeNode->ExportToStruct(script->m_args);
     return true;
 }
 
@@ -377,7 +377,7 @@ bool CObjectiveAuthoring::AddEditedGoalToGoalManager(Scripts::CStruct* params, S
 // 0x004EC200
 bool CObjectiveAuthoring::GetCreatedGoals(Scripts::CStruct* /*params*/, Scripts::CScript* script)
 {
-    WriteGoals(script->m_params);
+    WriteGoals(script->m_args);
     return true;
 }
 

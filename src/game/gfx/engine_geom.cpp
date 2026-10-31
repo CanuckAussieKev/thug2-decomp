@@ -20,11 +20,11 @@
 namespace Engine3D {
 
 // The function-local statics of the stubs below (the boxes they return, and their guards).
-Maths::Vector g_positionBox;
+Maths::Vec4 g_positionBox;
 uint32_t g_positionGuard;
-Maths::Matrix g_orientationBox;
+Maths::Mat4 g_orientationBox;
 uint32_t g_orientationGuard;
-Maths::Matrix g_transformBox;
+Maths::Mat4 g_transformBox;
 uint32_t g_transformGuard;
 
 namespace {
@@ -51,7 +51,7 @@ T* LocalStatic(T& box, uint32_t& guard)
 } // namespace
 
 // 0x0048DD60
-CGeom* CGeom::Construct()
+CGeom* CGeom::MakeNew()
 {
     m_vtable = reinterpret_cast<void**>(kGeomVtable);
     m_cloneKind = 0;
@@ -66,22 +66,22 @@ void CGeom::DestroyBody()
 {
     m_vtable = reinterpret_cast<void**>(kGeomVtable);
     if (mp_renderColours)
-        MemSys::Manager::Get()->Free(mp_renderColours);
+        MemSys::Hub::Pull()->Dealloc(mp_renderColours);
 }
 
 // 0x0048E220
-CGeom* CGeom::Destroy(unsigned int flags)
+CGeom* CGeom::Teardown(unsigned int flags)
 {
     m_vtable = reinterpret_cast<void**>(kGeomVtable);
     if (mp_renderColours)
-        MemSys::Manager::Get()->Free(mp_renderColours);
+        MemSys::Hub::Pull()->Dealloc(mp_renderColours);
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0048DD80
-CGeom* CGeom::Clone(int instance, void* scene)
+CGeom* CGeom::Replicate(int instance, void* scene)
 {
     auto* clone = Virtual<CGeom*>(this, 2, instance, scene); // (the whole word passed on)
     if (clone) {
@@ -114,14 +114,14 @@ bool CGeom::InitInstance(void* mesh, void* model, int multicolour)
 }
 
 // 0x0048DE10
-uint32_t* CGeom::GetColor(uint32_t* out)
+uint32_t* CGeom::FetchTint(uint32_t* out)
 {
     Virtual(this, 7, out);
     return out;
 }
 
 // 0x0048DE90
-Maths::Vector* CGeom::FetchBoundSphere(Maths::Vector* out)
+Maths::Vec4* CGeom::FetchBoundSphere(Maths::Vec4* out)
 {
     Virtual(this, 17, out);
     return out;
@@ -134,14 +134,14 @@ void CGeom::ChooseTriSource(void* faces)
 }
 
 // 0x0048E150
-void CGeom::GetColors(uint32_t* out)
+void CGeom::FetchTints(uint32_t* out)
 {
     uint32_t count = Virtual<uint32_t>(this, 36);
     if (!mp_renderColours) {
-        MemSys::Manager* manager = MemSys::Manager::Get();
+        MemSys::Hub* manager = MemSys::Hub::Pull();
         manager->EnterHeapScope(manager->m_frontEndHeap);
         mp_renderColours = static_cast<uint32_t*>(MemSys::AllocBlock(count * 4));
-        MemSys::Manager::Get()->LeaveHeapScope();
+        MemSys::Hub::Pull()->LeaveHeapScope();
         Virtual(this, 38, mp_renderColours);
     }
     std::memcpy(out, mp_renderColours, count * 4);
@@ -202,7 +202,7 @@ bool CGeom::PlatIsActive()
     return false;
 }
 // (all zero at start, as the original's: the first PlatGetBoundingBox makes it empty)
-Maths::BBox g_platBoundingBox{Maths::BBox(Maths::Vector{0.0f, 0.0f, 0.0f, 0.0f})};
+Maths::BBox g_platBoundingBox{Maths::BBox(Maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f})};
 uint32_t g_platBoundingBoxGuard; // (bit 0: made)
 
 // 0x0048DB40 (the box 0x006FAA08, its guard 0x006FAA28: made empty the first time)
@@ -217,9 +217,9 @@ Maths::BBox* CGeom::PlatGetBoundingBox()
     return &g_platBoundingBox;
 }
 // 0x0048DC30
-void CGeom::PlatSetBoundingSphere(const Maths::Vector*) { Stub("STUB: PlatSetBoundingSphere\n"); } // "STUB: PlatSetBoundingSphere\n"
+void CGeom::PlatSetBoundingSphere(const Maths::Vec4*) { Stub("STUB: PlatSetBoundingSphere\n"); } // "STUB: PlatSetBoundingSphere\n"
 // 0x0048E0A0
-Maths::Vector* CGeom::PlatGetBoundingSphere(Maths::Vector* out)
+Maths::Vec4* CGeom::PlatGetBoundingSphere(Maths::Vec4* out)
 {
     Stub("STUB: PlatGetBoundingSphere\n"); // "STUB: PlatGetBoundingSphere\n"
     out->x = 0.0f;
@@ -229,38 +229,38 @@ Maths::Vector* CGeom::PlatGetBoundingSphere(Maths::Vector* out)
     return out;
 }
 // 0x0048DBB0
-void CGeom::PlatSetWorldPosition(const Maths::Vector*) { Stub("STUB: PlatSetWorldPosition\n"); } // "STUB: PlatSetWorldPosition\n"
+void CGeom::PlatSetWorldPosition(const Maths::Vec4*) { Stub("STUB: PlatSetWorldPosition\n"); } // "STUB: PlatSetWorldPosition\n"
 // 0x0048E0D0 (the vector 0x006FAA2C, its guard 0x006FAA3C: nothing to construct)
-Maths::Vector* CGeom::PlatGetWorldPosition()
+Maths::Vec4* CGeom::PlatGetWorldPosition()
 {
-    Maths::Vector* position = LocalStatic(g_positionBox, g_positionGuard);
+    Maths::Vec4* position = LocalStatic(g_positionBox, g_positionGuard);
     Stub("STUB: PlatGetWorldPosition\n"); // "STUB: PlatGetWorldPosition\n"
     return position;
 }
 // 0x0048DBC0
-void CGeom::PlatSetOrientation(const Maths::Matrix*) { Stub("STUB: PlatSetOrientation\n"); } // "STUB: PlatSetOrientation\n"
+void CGeom::PlatSetOrientation(const Maths::Mat4*) { Stub("STUB: PlatSetOrientation\n"); } // "STUB: PlatSetOrientation\n"
 // 0x0048E1C0 (the matrix 0x006FAA40, its guard 0x006FAA80)
-Maths::Matrix* CGeom::PlatGetOrientation()
+Maths::Mat4* CGeom::PlatGetOrientation()
 {
-    Maths::Matrix* orientation = LocalStatic(g_orientationBox, g_orientationGuard);
+    Maths::Mat4* orientation = LocalStatic(g_orientationBox, g_orientationGuard);
     Stub("STUB: PlatGetOrientation\n"); // "STUB: PlatGetOrientation\n"
     return orientation;
 }
 // 0x0048DBD0
 void CGeom::PlatRotateY(int) { Stub("STUB: PlatRotateY\n"); } // "STUB: PlatRotateY\n"
 // 0x0048DBE0
-void CGeom::PlatSetTransform(const Maths::Matrix*) { Stub("STUB: PlatSetTransform\n"); } // "STUB: PlatSetTransform\n"
+void CGeom::PlatSetTransform(const Maths::Mat4*) { Stub("STUB: PlatSetTransform\n"); } // "STUB: PlatSetTransform\n"
 // 0x0048E1F0 (the matrix 0x006FAA88, its guard 0x006FAAC8)
-Maths::Matrix* CGeom::PlatGetTransform()
+Maths::Mat4* CGeom::PlatGetTransform()
 {
-    Maths::Matrix* transform = LocalStatic(g_transformBox, g_transformGuard);
+    Maths::Mat4* transform = LocalStatic(g_transformBox, g_transformGuard);
     Stub("STUB: PlatGetTransform\n"); // "STUB: PlatGetTransform\n"
     return transform;
 }
 // 0x0048DBF0
-void CGeom::PlatSetScale(const Maths::Vector*) { Stub("STUB: PlatSetScale\n"); } // "STUB: PlatSetScale\n"
+void CGeom::PlatSetScale(const Maths::Vec4*) { Stub("STUB: PlatSetScale\n"); } // "STUB: PlatSetScale\n"
 // 0x0048E100
-Maths::Vector* CGeom::PlatGetScale(Maths::Vector* out)
+Maths::Vec4* CGeom::PlatGetScale(Maths::Vec4* out)
 {
     Stub("STUB: PlatGetScale\n"); // "STUB: PlatGetScale\n"
     out->x = 0.0f;
@@ -272,7 +272,7 @@ Maths::Vector* CGeom::PlatGetScale(Maths::Vector* out)
 // 0x0048DC00
 void CGeom::PlatSetModelLights(void*) { Stub("STUB: PlatSetModelLights\n"); } // "STUB: PlatSetModelLights\n"
 // 0x0048DC10
-bool CGeom::PlatRenderSetup(const Maths::Matrix*, const Maths::Matrix*, int, int, int)
+bool CGeom::PlatRenderSetup(const Maths::Mat4*, const Maths::Mat4*, int, int, int)
 {
     Stub("STUB: PlatRenderSetup\n"); // "STUB: PlatRenderSetup\n"
     return true;
@@ -290,7 +290,7 @@ uint32_t CGeom::PlatGetNumRenderVerts()
     return 0;
 }
 // 0x0048DC70
-void CGeom::PlatGetRenderVerts(Maths::Vector*) { Stub("STUB: CGeom::plat_get_render_verts\n"); } // "STUB: CGeom::plat_get_render_verts\n"
+void CGeom::PlatGetRenderVerts(Maths::Vec4*) { Stub("STUB: CGeom::plat_get_render_verts\n"); } // "STUB: CGeom::plat_get_render_verts\n"
 // 0x0048DC80
 uint32_t CGeom::PlatGetNumRenderPolys()
 {
@@ -306,7 +306,7 @@ uint32_t CGeom::PlatGetNumRenderBasePolys()
 // 0x0048DCA0
 void CGeom::PlatGetRenderColors(uint32_t*) { Stub("STUB: CGeom::plat_get_render_colors\n"); } // "STUB: CGeom::plat_get_render_colors\n"
 // 0x0048DCB0
-void CGeom::PlatSetRenderVerts(const Maths::Vector*) { Stub("STUB: CGeom::plat_set_render_verts\n"); } // "STUB: CGeom::plat_set_render_verts\n"
+void CGeom::PlatSetRenderVerts(const Maths::Vec4*) { Stub("STUB: CGeom::plat_set_render_verts\n"); } // "STUB: CGeom::plat_set_render_verts\n"
 // 0x0048DCC0
 void CGeom::PlatSetRenderColors(const uint32_t*) { Stub("STUB: CGeom::plat_set_render_colors\n"); } // "STUB: CGeom::plat_set_render_colors\n"
 // 0x0048DCE0
@@ -325,7 +325,7 @@ bool CGeom::PlatSetMaterialUVWibbleOffsets(uint32_t, int, float, float)
 // 0x0048DD00
 void CGeom::PlatSetUVWibbleOffsets(float, float) { Stub("STUB: CGeom::plat_set_uv_wibble_offsets\n"); } // "STUB: CGeom::plat_set_uv_wibble_offsets\n"
 // 0x0048DD30
-bool CGeom::PlatSetUVMatrix(uint32_t, int, const Maths::Matrix*)
+bool CGeom::PlatSetUVMatrix(uint32_t, int, const Maths::Mat4*)
 {
     Stub("STUB: CGeom::plat_set_uv_matrix\n"); // "STUB: CGeom::plat_set_uv_matrix\n"
     return false;
@@ -377,7 +377,7 @@ NX_VIRTUAL_SLOT_JUMP(50)
 #undef NX_VIRTUAL_SLOT_JUMP
 
 namespace {
-static VtableSlot kGeomVtable_slots[] = {&Engine3D::CGeom::Destroy, &Engine3D::CWorldCell::PlatClone, &Engine3D::CWorldCell::PlatClone,
+static VtableSlot kGeomVtable_slots[] = {&Engine3D::CGeom::Teardown, &Engine3D::CWorldCell::PlatClone, &Engine3D::CWorldCell::PlatClone,
                 &Engine3D::CGeom::PlatInitInstance, Stubs::DoNothing, &Engine3D::CGeom::PlatGetChecksum, &Engine3D::CGeom::PlatSetColor,
                 &Engine3D::CGeom::PlatGetColor, &Engine3D::CGeom::PlatClearColor, &Engine3D::CGeom::PlatSetMaterialColor,
                 &Engine3D::CGeom::PlatGetMaterialColor, &Engine3D::CGeom::PlatSetVisibility, &Engine3D::CGeom::PlatGetVisibility,
@@ -387,7 +387,7 @@ static VtableSlot kGeomVtable_slots[] = {&Engine3D::CGeom::Destroy, &Engine3D::C
                 &Engine3D::CGeom::PlatRotateY, &Engine3D::CGeom::PlatSetTransform, &Engine3D::CGeom::PlatGetTransform,
                 &Engine3D::CGeom::PlatSetScale, &Engine3D::CGeom::PlatGetScale, &Engine3D::CGeom::PlatSetModelLights,
                 &Engine3D::CGeom::PlatRenderSetup, Stubs::IgnoreArguments2, Stubs::IgnoreArguments2,
-                &Engine3D::CGeom::PlatHidePolys, &MemCard::Card::AlwaysTrue, &Engine3D::CGeom::PlatGetNumRenderPolys,
+                &Engine3D::CGeom::PlatHidePolys, &MemCard::SaveCard::AlwaysTrue, &Engine3D::CGeom::PlatGetNumRenderPolys,
                 &Engine3D::CGeom::PlatGetNumRenderBasePolys, Stubs::ReturnZero, &Engine3D::CGeom::PlatGetNumRenderVerts,
                 &Engine3D::CGeom::PlatGetRenderVerts, &Engine3D::CGeom::PlatGetRenderColors, &Engine3D::CGeom::PlatSetRenderVerts,
                 &Engine3D::CGeom::PlatSetRenderColors, Stubs::IgnoreArguments3, &Engine3D::CGeom::PlatSetUVWibbleParams,

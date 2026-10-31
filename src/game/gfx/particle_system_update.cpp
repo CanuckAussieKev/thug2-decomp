@@ -49,7 +49,7 @@ double RandomBetween(float min, float max)
 int ViewportCount() { return GameModules::g_viewportCount; }
 void* ViewportCamera(int viewport) { return FetchLiveCamera(viewport); }
 // 0x0048C490: whether a sphere is out of the camera's view.
-int SphereHidden(const Maths::Vector* centre, float radius)
+int SphereHidden(const Maths::Vec4* centre, float radius)
 {
     return Engine::SphereVisibleInOneViewport(centre, radius);
 }
@@ -134,24 +134,24 @@ const uint32_t kStartChannels[4] = {0x043FD725, 0x69E233CE, 0x1988C741, 0x808196
 void GetVectorOrXyz(Scripts::CStruct* params, uint32_t name, float& x, float& y, float& z)
 {
     Scripts::VectorValue v;
-    if (params->GetVector(name, &v, 0)) {
+    if (params->FetchVec(name, &v, 0)) {
         x = v.x;
         y = v.y;
         z = v.z;
         return;
     }
-    params->GetFloat(kX, &x, 0);
-    params->GetFloat(kY, &y, 0);
-    params->GetFloat(kZ, &z, 0);
+    params->FetchFloat(kX, &x, 0);
+    params->FetchFloat(kY, &y, 0);
+    params->FetchFloat(kZ, &z, 0);
 }
 
 // Sizes from the system's, scaled (unless the scale is exactly 1).
 void SetSizes(CParticleSystem* system, sFlexibleParticle& p)
 {
-    p.startSize[0] = system->m_size[0];
-    p.startSize[1] = system->m_size[1];
-    p.endSize[0] = system->m_size[2];
-    p.endSize[1] = system->m_size[3];
+    p.startSize[0] = system->m_extent[0];
+    p.startSize[1] = system->m_extent[1];
+    p.endSize[0] = system->m_extent[2];
+    p.endSize[1] = system->m_extent[3];
     if (std::bit_cast<uint32_t>(system->m_sizeScale) != 0x3F800000) {
         p.startSize[0] *= system->m_sizeScale;
         p.startSize[1] *= system->m_sizeScale;
@@ -171,7 +171,7 @@ void CParticleSystem::Emit(int count)
     int total = count + first;
     m_unknown8C = total > m_maxParticles ? m_maxParticles : total;
     int last = m_unknown8C;
-    Maths::Matrix m;
+    Maths::Mat4 m;
     GetEmitMatrix(&m);
     for (int i = first; i < last; ++i) {
         sFlexibleParticle& p = m_particleList[i];
@@ -233,9 +233,9 @@ void CParticleSystem::Emit(int count)
         float posY = static_cast<float>(static_cast<double>(py) + czy);
         float posZ = static_cast<float>(pz + czz);
         if (m_fillPath) { // somewhere along the way it came
-            float dx = static_cast<float>(static_cast<double>(m_lastPos.x) - m_pos.x);
-            float dy = static_cast<float>(static_cast<double>(m_lastPos.y) - m_pos.y);
-            double dz53 = static_cast<double>(m_lastPos.z) - m_pos.z;
+            float dx = static_cast<float>(static_cast<double>(m_lastPos.x) - m_atPoint.x);
+            float dy = static_cast<float>(static_cast<double>(m_lastPos.y) - m_atPoint.y);
+            double dz53 = static_cast<double>(m_lastPos.z) - m_atPoint.z;
             float dz = static_cast<float>(dz53);
             double length = (dz53 * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
             if (!(length == 0.0)) {
@@ -259,9 +259,9 @@ void CParticleSystem::Emit(int count)
         for (int step = 0; step < NumVertexLists(this); ++step) {
             float* pos = PositionOf(this, i, step);
             if (m_emitterIndependent) {
-                float worldZ = static_cast<float>(static_cast<double>(posZ) + m_pos.z);
-                float worldY = static_cast<float>(static_cast<double>(posY) + m_pos.y);
-                pos[0] = static_cast<float>(static_cast<double>(posX) + m_pos.x);
+                float worldZ = static_cast<float>(static_cast<double>(posZ) + m_atPoint.z);
+                float worldY = static_cast<float>(static_cast<double>(posY) + m_atPoint.y);
+                pos[0] = static_cast<float>(static_cast<double>(posX) + m_atPoint.x);
                 pos[1] = worldY;
                 pos[2] = worldZ;
             } else {
@@ -280,7 +280,7 @@ bool CParticleSystem::InvokeMethodByName(uint32_t name, Scripts::CStruct* params
     case kSetEmitAngle: { // (degrees)
         float x = 0.0f, y = 0.0f, z = 0.0f;
         GetVectorOrXyz(params, kAngle, x, y, z);
-        SetRotation(static_cast<float>(static_cast<double>(kDegrees) * x),
+        ChangeSpin(static_cast<float>(static_cast<double>(kDegrees) * x),
                     static_cast<float>(static_cast<double>(y) * kDegrees),
                     static_cast<float>(static_cast<double>(z) * kDegrees));
         break;
@@ -288,34 +288,34 @@ bool CParticleSystem::InvokeMethodByName(uint32_t name, Scripts::CStruct* params
     case kSetPos: {
         float x = 0.0f, y = 0.0f, z = 0.0f;
         GetVectorOrXyz(params, kPos, x, y, z);
-        m_pos.x = x;
-        m_pos.y = y;
-        m_pos.z = z;
+        m_atPoint.x = x;
+        m_atPoint.y = y;
+        m_atPoint.z = z;
         break;
     }
     case kSetParticleSize: { // (sh defaults to sw; ew to sw; eh to ew when that's given, else to sh)
         float sw = 0.0f;
-        params->GetFloat(kSw, &sw, 0);
+        params->FetchFloat(kSw, &sw, 0);
         float sh = sw;
-        params->GetFloat(kSh, &sh, 0);
-        m_size[0] = sw;
-        m_size[1] = sh;
+        params->FetchFloat(kSh, &sh, 0);
+        m_extent[0] = sw;
+        m_extent[1] = sh;
         float ew = sw;
-        float eh = params->GetFloat(kEw, &ew, 0) ? ew : sh;
-        params->GetFloat(kEh, &eh, 0);
-        m_size[2] = ew;
-        m_size[3] = eh;
+        float eh = params->FetchFloat(kEw, &ew, 0) ? ew : sh;
+        params->FetchFloat(kEh, &eh, 0);
+        m_extent[2] = ew;
+        m_extent[3] = eh;
         break;
     }
     case kSetParticleSizeScale: {
         float scale = 1.0f;
-        params->GetFloat(kScale, &scale, 0);
+        params->FetchFloat(kScale, &scale, 0);
         m_sizeScale = scale;
         break;
     }
     case kEmitRate: {
         float rate = 1.0f;
-        params->GetFloat(kRate, &rate, 0);
+        params->FetchFloat(kRate, &rate, 0);
         m_emitRate = rate;
         break;
     }
@@ -357,7 +357,7 @@ bool CParticleSystem::InvokeMethodByName(uint32_t name, Scripts::CStruct* params
                 }
             }
         }
-        params->GetFloat(kMidTime, &m_colourMid, 0);
+        params->FetchFloat(kMidTime, &m_colourMid, 0);
         break;
     }
     case kEmpty:
@@ -365,9 +365,9 @@ bool CParticleSystem::InvokeMethodByName(uint32_t name, Scripts::CStruct* params
         break;
     case kSetSpeedRange: {
         float min = 0.0f;
-        params->GetFloat(kMin, &min, 0);
+        params->FetchFloat(kMin, &min, 0);
         float max = min;
-        params->GetFloat(kMax, &max, 0);
+        params->FetchFloat(kMax, &max, 0);
         m_speed[0] = min;
         m_speed[1] = max;
         break;
@@ -380,7 +380,7 @@ bool CParticleSystem::InvokeMethodByName(uint32_t name, Scripts::CStruct* params
     }
     case kSetAngleSpread: {
         float spread = 0.0f;
-        params->GetFloat(kSpread, &spread, 0);
+        params->FetchFloat(kSpread, &spread, 0);
         m_angleSpread = spread;
         break;
     }
@@ -394,11 +394,11 @@ bool CParticleSystem::InvokeMethodByName(uint32_t name, Scripts::CStruct* params
         break;
     case kSetEmitRange: {
         float width = 0.0f;
-        params->GetFloat(kWidth, &width, 0);
+        params->FetchFloat(kWidth, &width, 0);
         float height = width;
-        params->GetFloat(kHeight, &height, 0);
+        params->FetchFloat(kHeight, &height, 0);
         float depth = 0.0f;
-        params->GetFloat(kDepth, &depth, 0);
+        params->FetchFloat(kDepth, &depth, 0);
         SetEmitRange(width, height, depth);
         break;
     }
@@ -417,9 +417,9 @@ bool CParticleSystem::InvokeMethodByName(uint32_t name, Scripts::CStruct* params
     }
     case kSetLife: {
         float min = 0.0f;
-        params->GetFloat(kMin, &min, 0);
+        params->FetchFloat(kMin, &min, 0);
         float max = min;
-        params->GetFloat(kMax, &max, 0);
+        params->FetchFloat(kMax, &max, 0);
         m_ageLeft[0] = min;
         m_ageLeft[1] = max;
         m_moving = true;
@@ -449,8 +449,8 @@ bool CParticleSystem::InvokeMethodByName(uint32_t name, Scripts::CStruct* params
         int minParticles = 0;
         params->FetchIntValue(kMinParticles, &minParticles, 0); // (the bool-assert getter, 0x00476CB0)
         float near = 0.0f, far = 0.0f;
-        params->GetFloat(kLodDist1, &near, 0);
-        params->GetFloat(kLodDist2, &far, 0);
+        params->FetchFloat(kLodDist1, &near, 0);
+        params->FetchFloat(kLodDist2, &far, 0);
         m_lodMinParticles = minParticles;
         m_lodNear = near * near;
         m_lodFar = far * far;
@@ -465,10 +465,10 @@ bool CParticleSystem::InvokeMethodByName(uint32_t name, Scripts::CStruct* params
 void CParticleSystem::UpdateGroundBrightness(bool movables)
 {
     CProbeRay feeler;
-    feeler.Construct();
-    float y = m_pos.y;
-    feeler.m_line.start = {m_pos.x, static_cast<float>(static_cast<double>(y) + 1.0), m_pos.z, m_pos.w};
-    feeler.m_line.end = {m_pos.x, static_cast<float>(static_cast<double>(y) - 4800.0), m_pos.z, m_pos.w};
+    feeler.MakeNew();
+    float y = m_atPoint.y;
+    feeler.m_line.start = {m_atPoint.x, static_cast<float>(static_cast<double>(y) + 1.0), m_atPoint.z, m_atPoint.w};
+    feeler.m_line.end = {m_atPoint.x, static_cast<float>(static_cast<double>(y) - 4800.0), m_atPoint.z, m_atPoint.w};
     if (feeler.GetHitShape(movables, false)) {
         double value = feeler.GetHitVertexValue();
         m_unknownEC = std::bit_cast<uint32_t>(static_cast<float>(value + value));
@@ -483,8 +483,8 @@ void CParticleSystem::RemoveParticle(int index, bool throughAccessors)
     for (int step = 0; step < NumVertexLists(this); ++step) {
         if (throughAccessors) {
             float x, y, z;
-            GetPosition(m_unknown8C, step, &x, &y, &z);
-            SetPosition(index, step, x, y, z);
+            FetchPlace(m_unknown8C, step, &x, &y, &z);
+            ChangePlace(index, step, x, y, z);
         } else {
             const float* from = PositionOf(this, m_unknown8C, step);
             float* to = PositionOf(this, index, step);
@@ -500,7 +500,7 @@ void CParticleSystem::RemoveParticle(int index, bool throughAccessors)
 }
 
 // 0x004987F0
-void CParticleSystem::Update(float time, bool skip)
+void CParticleSystem::TickFrame(float time, bool skip)
 {
     if (m_fadingOut && m_unknown8C == 0) {
         DeleteSystem(this);
@@ -540,7 +540,7 @@ void CParticleSystem::Update(float time, bool skip)
         }
     }
     if (mp_updateScript)
-        mp_updateScript->Update();
+        mp_updateScript->TickFrame();
     if (!m_moving || time == 0.0f)
         return;
     if (m_updateBrightness)
@@ -575,7 +575,7 @@ void CParticleSystem::Update(float time, bool skip)
             --i;
         }
     }
-    m_lastPos = m_pos;
+    m_lastPos = m_atPoint;
 }
 
 // 0x00499EE0

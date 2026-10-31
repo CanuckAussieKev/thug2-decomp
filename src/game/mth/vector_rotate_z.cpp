@@ -1,4 +1,4 @@
-// Maths::Vector::RotateAboutZ (vector.h), from the disassembly of 0x004882D0 - code Ghidra never made a function of
+// Maths::Vec4::RotateAboutZ (vector.h), from the disassembly of 0x004882D0 - code Ghidra never made a function of
 // (between 0x00488220's end and 0x00488300).
 
 #include "game/mth/vector.h"
@@ -7,7 +7,7 @@
 namespace Maths {
 
 // 0x004882D0
-Vector& Vector::RotateAboutZ(float angle)
+Vec4& Vec4::RotateAboutZ(float angle)
 {
     double s = X87::Sin(angle);
     double c = X87::Cos(angle);

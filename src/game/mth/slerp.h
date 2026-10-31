@@ -9,11 +9,11 @@ namespace Maths {
 // that angle about the axis.
 class ArcRotationBlender {
 public:
-    ArcRotationBlender(const Matrix& start, const Matrix& end);
+    ArcRotationBlender(const Mat4& start, const Mat4& end);
 
     // Store both matrices and compute the relative rotation. Returns the "small rotation" flag (the original
     // leaves it in EAX).
-    int SetMatrices(const Matrix& start, const Matrix& end);
+    int SetMatrices(const Mat4& start, const Mat4& end);
 
     // Go the other way round: negate the axis and use 2*pi - angle.
     void InvertDirection();
@@ -21,11 +21,11 @@ public:
     // The orientation a fraction `t` of the way from start to end (t <= 0 gives start; t >= 1, or NaN, gives
     // end). Small rotations blend the rows linearly and renormalise; others rotate start by t * angle about the
     // axis. The translation row is always blended linearly.
-    void GetMatrix(Matrix& out, float t) const;
+    void FetchMat(Mat4& out, float t) const;
 
-    Matrix start;
-    Matrix end;
-    Vector axis;          // w holds 1 / (2 sin angle) when computed from the matrices, else 1
+    Mat4 start;
+    Mat4 end;
+    Vec4 axis;          // w holds 1 / (2 sin angle) when computed from the matrices, else 1
     float angle;          // radians, 0..pi
     bool small_rotation;  // angle below the game's threshold (2 degrees by default)
 };

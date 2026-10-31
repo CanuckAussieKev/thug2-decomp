@@ -7,7 +7,7 @@ class CScript;
 
 // Script commands (CFunctions) for maths, 0x00448AE0-0x00448EF0: trigonometry in degrees, square roots, vector
 // normalising and rotating, linear mapping and clamping. Each reads its arguments from `params` and leaves its
-// result in the calling script's parameters (CScript::m_params) under a fixed name. All are cdecl (params,
+// result in the calling script's parameters (CScript::m_args) under a fixed name. All are cdecl (params,
 // script) and return true. A missing asserted argument leaves its value undefined in the original (the getter's
 // compiled-out assert); here it is 0.
 namespace ScriptCommands {

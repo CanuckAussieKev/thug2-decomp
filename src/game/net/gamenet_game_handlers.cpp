@@ -1,4 +1,4 @@
-// The network manager's message handlers about the game itself (OnlinePlay::Manager): new players, the crown, CTF teams,
+// The network manager's message handlers about the game itself (OnlinePlay::Hub): new players, the crown, CTF teams,
 // goal attack goals, the created rails and goals arriving, eliminations, join refusals. See gamenet_handlers.h.
 
 #include <cstddef>
@@ -87,24 +87,24 @@ constexpr uint8_t kMsgRequestGoals = 0x8A;
 constexpr int kPanelTime = 2000;
 
 // 0x005376F0: a panel message (broadcast, text, string 1, string 2, object, properties, important, time).
-void PanelMessage(Manager* manager, uint32_t text, const char* string1, GameObjects::CObject* object)
+void PanelMessage(Hub* manager, uint32_t text, const char* string1, GameObjects::CEntity* object)
 {
     manager->BuildNetNotice(false, text, string1, nullptr, object, nullptr, false, kPanelTime);
 }
 
 // The rail editor (0x004F4970) and the goal editor (0x004E8470).
-void* RailEditor() { return ParkEditing::CRailAuthoring::Instance(); }
-void* GoalEditor() { return ParkEditing::CObjectiveAuthoring::Get(); }
+void* RailEditor() { return ParkEditing::CRailAuthoring::Sole(); }
+void* GoalEditor() { return ParkEditing::CObjectiveAuthoring::Pull(); }
 
 // Leaving for the main menu while the created data couldn't come: the join cancelled with a time-out notice.
-void CancelJoin(Manager* manager, bool notifyFirst)
+void CancelJoin(Hub* manager, bool notifyFirst)
 {
     Scripts::CStruct* params = nullptr;
     if (notifyFirst) {
         params = NewParams();
         params->PutNameKey(0u, kShowTimeout);
     }
-    manager->m_joinStateTask->Remove();
+    manager->m_joinStateTask->DropOut();
     manager->SetEntryPhase(2);
     if (!notifyFirst) {
         params = NewParams();
@@ -120,25 +120,25 @@ void CancelJoin(Manager* manager, bool notifyFirst)
 int __cdecl HandleNewPlayer(NetLink::InboundMsgCtx* context)
 {
     const uint8_t* msg = Message(context);
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     alignas(4) uint8_t info[0x44]; // a JoinerRecord
-    reinterpret_cast<JoinerRecord*>(info)->Construct(); // (its constructor: a skater profile at +0x1C)
+    reinterpret_cast<JoinerRecord*>(info)->MakeNew(); // (its constructor: a skater profile at +0x1C)
     // (strncpy: 15 characters at most, the rest of the 15 zeroed)
     size_t length = strnlen(reinterpret_cast<const char*>(msg + 0x20), 15);
     std::memcpy(info, msg + 0x20, length);
     std::memset(info + length, 0, 15 - length);
     info[0x0F] = 0;
     info[0x10] = msg[0x18];                                  // the object id
-    Field<uint32_t>(info, 0x14) = 0;                         // the connection
-    Field<uint32_t>(info, 0x20) = Field<uint32_t>(msg, 0x08); // flags
-    Field<int>(info, 0x28) = static_cast<int8_t>(msg[0x19]);  // the team
-    Field<uint32_t>(info, 0x2C) = Field<uint32_t>(msg, 0x00);
-    Field<uint32_t>(info, 0x30) = Field<uint32_t>(msg, 0x04);
-    Field<uint32_t>(info, 0x38) = Field<uint32_t>(msg, 0x14);
-    Field<uint32_t>(info, 0x40) = Field<uint32_t>(msg, 0x1C);
-    Field<uint32_t>(info, 0x34) = Field<uint32_t>(msg, 0x0C);
-    if (!(Field<uint32_t>(info, 0x20) & 5))
-        Field<GameObjects::CRiderIdentity*>(info, 0x1C)->DecodeFromBytes(const_cast<uint8_t*>(msg + 0x30)); // the appearance into its profile
+    Prop<uint32_t>(info, 0x14) = 0;                         // the connection
+    Prop<uint32_t>(info, 0x20) = Prop<uint32_t>(msg, 0x08); // flags
+    Prop<int>(info, 0x28) = static_cast<int8_t>(msg[0x19]);  // the team
+    Prop<uint32_t>(info, 0x2C) = Prop<uint32_t>(msg, 0x00);
+    Prop<uint32_t>(info, 0x30) = Prop<uint32_t>(msg, 0x04);
+    Prop<uint32_t>(info, 0x38) = Prop<uint32_t>(msg, 0x14);
+    Prop<uint32_t>(info, 0x40) = Prop<uint32_t>(msg, 0x1C);
+    Prop<uint32_t>(info, 0x34) = Prop<uint32_t>(msg, 0x0C);
+    if (!(Prop<uint32_t>(info, 0x20) & 5))
+        Prop<GameObjects::CRiderIdentity*>(info, 0x1C)->DecodeFromBytes(const_cast<uint8_t*>(msg + 0x30)); // the appearance into its profile
     int delay = 0;
     if (manager->m_readyToPlay) {
         manager->BuildNetNotice(false, kNetMessageNewPlayer, reinterpret_cast<const char*>(info), nullptr, nullptr,
@@ -153,7 +153,7 @@ int __cdecl HandleNewPlayer(NetLink::InboundMsgCtx* context)
 // 0x0052E870
 int __cdecl HandleCrownSpawn(NetLink::InboundMsgCtx* context)
 {
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     uint8_t* king = KingOfTheHill(manager);
     char spot = static_cast<char>(Message(context)[0]);
     if (king) {
@@ -182,9 +182,9 @@ int __cdecl HandleCrownSpawn(NetLink::InboundMsgCtx* context)
             if (type != kCrownSpawnNode)
                 continue;
             if (spot == 0) {
-                Maths::Vector position;
-                LevelNodes::GetPosition(node, &position);
-                crown->m_pos = position;
+                Maths::Vec4 position;
+                LevelNodes::FetchPlace(node, &position);
+                crown->m_atPoint = position;
                 placed = true;
                 break;
             }
@@ -203,7 +203,7 @@ int __cdecl HandleFcfsNotice(NetLink::InboundMsgCtx* context)
     const uint8_t* msg = Message(context);
     AsPlayer(local)->SetHostPlayer(); // (its flag 0x200 set)
     Scripts::CStruct* params = NewParams();
-    params->PutNameKey(kChecksum, Field<uint32_t>(msg, 0));
+    params->PutNameKey(kChecksum, Prop<uint32_t>(msg, 0));
     Run(kLaunchFcfsNotification, params);
     DeleteParams(params);
     return kContinue;
@@ -212,7 +212,7 @@ int __cdecl HandleFcfsNotice(NetLink::InboundMsgCtx* context)
 // 0x00530CB0
 int __cdecl HandleFlagReturned(NetLink::InboundMsgCtx* context)
 {
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     uint8_t* player = PlayerByObjectId(manager, Message(context));
     if (!player || !AsPlayer(player)->IsCarryingFlag()) // (carrying a flag: 0 / 1)
         return kContinue;
@@ -221,7 +221,7 @@ int __cdecl HandleFlagReturned(NetLink::InboundMsgCtx* context)
     TeamNameKey(name, team);
     Scripts::CStruct* params = NewParams();
     params->PutInt(kTeam, team);
-    params->AddString(kString0, Scripts::QBVAL_STRING, Scripts::GetString(name));
+    params->AppendWord(kString0, Scripts::QBVAL_STRING, Scripts::FetchText(name));
     Run(kFlagReturned, params);
     DeleteParams(params);
     if (IsOwnPlayer(player))
@@ -237,24 +237,24 @@ int __cdecl HandleFlagReturned(NetLink::InboundMsgCtx* context)
 int __cdecl HandleRailsData(NetLink::InboundMsgCtx* context)
 {
     uint8_t* skate = Skate();
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     if (!(context->m_wireOptions & NetLink::kPacketChecksumMismatch)) {
-        MemSys::Manager* memory = MemSys::Manager::Get();
-        memory->EnterHeapScope(Field<MemSys::Allocator*>(memory, 0x114));
+        MemSys::Hub* memory = MemSys::Hub::Pull();
+        memory->EnterHeapScope(Prop<MemSys::MemSource*>(memory, 0x114));
         Call(CodeAddress(&ParkEditing::CRailAuthoring::SetPacked), RailEditor(), context->m_body); // the rails read
         ParkEditing::g_railEditorFlag = false;
         Call(CodeAddress(&ParkEditing::CRailAuthoring::Unpack), RailEditor());
         ParkEditing::g_railEditorFlag = true;
-        MemSys::Manager::Get()->LeaveHeapScope();
+        MemSys::Hub::Pull()->LeaveHeapScope();
         return kContinue;
     }
     NetLink::NetMessageInfo desc;
-    desc.Construct();
-    if (Field<uint32_t>(skate, 0x378) == kLoadMainMenu) {
+    desc.MakeNew();
+    if (Prop<uint32_t>(skate, 0x378) == kLoadMainMenu) {
         CancelJoin(manager, true);
         return kKeep;
     }
-    desc.m_id = kMsgRequestRails; // again
+    desc.m_ident = kMsgRequestRails; // again
     desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = kGroupGame;
     SendToServer(context->m_receiverApp, &desc);
@@ -265,22 +265,22 @@ int __cdecl HandleRailsData(NetLink::InboundMsgCtx* context)
 int __cdecl HandleGoalsData(NetLink::InboundMsgCtx* context)
 {
     NetLink::NetMessageInfo desc;
-    desc.Construct();
-    Manager* manager = ManagerOf(context);
+    desc.MakeNew();
+    Hub* manager = ManagerOf(context);
     if (!(context->m_wireOptions & NetLink::kPacketChecksumMismatch)) {
         const char* msg = context->m_body;
-        Call(CodeAddress(&ParkEditing::CObjectiveAuthoring::ReadLevelGoalsFromBuffer), GoalEditor(), Field<uint32_t>(msg, 0), msg + 4); // the level's goals read
+        Call(CodeAddress(&ParkEditing::CObjectiveAuthoring::ReadLevelGoalsFromBuffer), GoalEditor(), Prop<uint32_t>(msg, 0), msg + 4); // the level's goals read
         Scripts::CStruct* params = NewParams();
         params->PutNameKey(0u, kDoNotCreateGoalPeds);
         Run(kInitialiseCreatedGoals, params);
         DeleteParams(params);
         return kContinue;
     }
-    if (Field<uint32_t>(Skate(), 0x378) == kLoadMainMenu) {
+    if (Prop<uint32_t>(Skate(), 0x378) == kLoadMainMenu) {
         CancelJoin(manager, false);
         return kKeep;
     }
-    desc.m_id = kMsgRequestGoals; // again
+    desc.m_ident = kMsgRequestGoals; // again
     desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = kGroupGame;
     SendToServer(context->m_receiverApp, &desc);
@@ -291,15 +291,15 @@ int __cdecl HandleGoalsData(NetLink::InboundMsgCtx* context)
 int __cdecl HandleNewKing(NetLink::InboundMsgCtx* context)
 {
     const uint8_t* msg = Message(context);
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     NewPlayerSearch search;
     // The crown off the old king - or off a new player waiting to be added.
     if (uint8_t* king = KingOfTheHill(manager)) {
         AsPlayer(king)->GiveCrown(false);
     } else {
         for (uint8_t* added = FirstNewPlayer(manager, &search); added; added = NextNewPlayer(manager, &search)) {
-            if (Field<uint32_t>(added, 0x20) & 0x80) {
-                Field<uint32_t>(added, 0x20) &= ~0x80u;
+            if (Prop<uint32_t>(added, 0x20) & 0x80) {
+                Prop<uint32_t>(added, 0x20) &= ~0x80u;
                 break;
             }
         }
@@ -311,7 +311,7 @@ int __cdecl HandleNewKing(NetLink::InboundMsgCtx* context)
     }
     for (uint8_t* added = FirstNewPlayer(manager, &search); added; added = NextNewPlayer(manager, &search)) {
         if (added[0x10] == msg[0]) {
-            Field<uint32_t>(added, 0x20) |= 0x80;
+            Prop<uint32_t>(added, 0x20) |= 0x80;
             break;
         }
     }
@@ -326,11 +326,11 @@ int __cdecl HandleSelectedGoals(NetLink::InboundMsgCtx* context)
     Call(CodeAddress(&GoalSystem::CGoalManager::UnpickEveryObjective), goals);
     uint8_t show = msg[0];
     const uint8_t* name = msg + 1;
-    for (uint32_t goal = Field<uint32_t>(name, 0); goal; goal = Field<uint32_t>(name, 0)) {
+    for (uint32_t goal = Prop<uint32_t>(name, 0); goal; goal = Prop<uint32_t>(name, 0)) {
         name += 4;
         uint8_t* entry = GetGoal(goals, goal);
-        reinterpret_cast<void(__thiscall*)(uint8_t*)>(Field<void**>(entry, 0)[0x74 / 4])(entry); // select it
-        Call(CodeAddress(&GoalSystem::CObjective::Select), entry);
+        reinterpret_cast<void(__thiscall*)(uint8_t*)>(Prop<void**>(entry, 0)[0x74 / 4])(entry); // select it
+        Call(CodeAddress(&GoalSystem::CObjective::ChooseOne), entry);
     }
     if (show == 1) {
         Scripts::CStruct* params = NewParams();
@@ -345,23 +345,23 @@ int __cdecl HandleSelectedGoals(NetLink::InboundMsgCtx* context)
 int __cdecl HandleJoinedTeam(NetLink::InboundMsgCtx* context)
 {
     PlayerSearch search;
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     const uint8_t* msg = Message(context);
     uint8_t* player = PlayerByObjectId(manager, msg);
     if (!player)
         return kContinue;
-    Field<int>(player, 0x30) = static_cast<int8_t>(msg[1]);
+    Prop<int>(player, 0x30) = static_cast<int8_t>(msg[1]);
     char name[64];
     TeamNameKey(name, static_cast<int8_t>(msg[1]));
     Scripts::CStruct* params = NewParams();
     if (IsOwnPlayer(player)) {
         if (IsSquadMatch()) {
-            params->AddString(kString0, Scripts::QBVAL_STRING, Scripts::GetString(name));
+            params->AppendWord(kString0, Scripts::QBVAL_STRING, Scripts::FetchText(name));
             Run(kJoinedTeamYou, params);
         }
     } else if (IsSquadMatch()) {
-        params->AddString(kString0, Scripts::QBVAL_STRING, PlayerName(player));
-        params->AddString(kString1, Scripts::QBVAL_STRING, Scripts::GetString(name));
+        params->AppendWord(kString0, Scripts::QBVAL_STRING, PlayerName(player));
+        params->AppendWord(kString1, Scripts::QBVAL_STRING, Scripts::FetchText(name));
         Run(kJoinedTeamOther, params);
     }
     DeleteParams(params);
@@ -384,14 +384,14 @@ int __cdecl HandleJoinedTeam(NetLink::InboundMsgCtx* context)
 int __cdecl HandleGoalCompleted(NetLink::InboundMsgCtx* context)
 {
     const uint8_t* msg = Message(context);
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     uint8_t* goals = ObjectiveBoard();
-    uint8_t* goal = GetGoal(goals, Field<uint32_t>(msg, 4));
+    uint8_t* goal = GetGoal(goals, Prop<uint32_t>(msg, 4));
     uint8_t* current = Call<uint8_t*>(CodeAddress(&GoalSystem::CGoalManager::GetEngagedObjective), goals, 0);
     if (!goal)
         return kContinue;
     auto virtualCall = [](uint8_t* object, uint32_t offset) {
-        return reinterpret_cast<void**>(Field<void**>(object, 0))[offset / 4];
+        return reinterpret_cast<void**>(Prop<void**>(object, 0))[offset / 4];
     };
     uint8_t* player = PlayerByObjectId(manager, msg);
     uint8_t* local = LocalPlayer(manager);
@@ -408,7 +408,7 @@ int __cdecl HandleGoalCompleted(NetLink::InboundMsgCtx* context)
             Run(kCompletedGoal, params);
             DeleteParams(params);
         }
-        Call(CodeAddress(&GoalSystem::CObjectiveNpc::RemoveObjectiveNpc), Field<void*>(goal, 0x14));
+        Call(CodeAddress(&GoalSystem::CObjectiveNpc::RemoveObjectiveNpc), Prop<void*>(goal, 0x14));
         return kContinue;
     }
     if (current) {
@@ -418,12 +418,12 @@ int __cdecl HandleGoalCompleted(NetLink::InboundMsgCtx* context)
     if (!IsSquadMatch() || PlayerTeam(local) != PlayerTeam(player))
         return kContinue;
     // A teammate's: the goal (or the last of its chain) ended here too.
-    uint32_t* next = Field<uint32_t*>(goal, 0x28);
+    uint32_t* next = Prop<uint32_t*>(goal, 0x28);
     if (*next) {
         uint8_t* last = goal;
         while (next && *next) {
             last = GetGoal(goals, *next);
-            next = Field<uint32_t*>(last, 0x28);
+            next = Prop<uint32_t*>(last, 0x28);
         }
         reinterpret_cast<void(__thiscall*)(uint8_t*)>(virtualCall(last, 0x3C))(last);
         if (last != current)
@@ -431,7 +431,7 @@ int __cdecl HandleGoalCompleted(NetLink::InboundMsgCtx* context)
     } else {
         reinterpret_cast<void(__thiscall*)(uint8_t*)>(virtualCall(goal, 0x3C))(goal);
     }
-    Call(CodeAddress(&GoalSystem::CObjectiveNpc::RemoveObjectiveNpc), Field<void*>(current, 0x14));
+    Call(CodeAddress(&GoalSystem::CObjectiveNpc::RemoveObjectiveNpc), Prop<void*>(current, 0x14));
     reinterpret_cast<void(__thiscall*)(uint8_t*)>(virtualCall(goal, 0x68))(goal);
     int total = Call<int>(CodeAddress(&GoalSystem::CGoalManager::CountPickedObjectives), goals);
     int done = Call<int>(CodeAddress(&GoalSystem::CGoalManager::CountObjectivesCleared), goals);
@@ -440,8 +440,8 @@ int __cdecl HandleGoalCompleted(NetLink::InboundMsgCtx* context)
         Call(CodeAddress(&GoalSystem::CObjective::GetObjectiveListCaption), goal, &text);
         Scripts::CStruct* params = NewParams();
         params->PutInt(kNumGoalsLeft, total - done);
-        params->AddString(kPlayerName, PlayerName(player));
-        params->AddString(kGoalText, text);
+        params->AppendWord(kPlayerName, PlayerName(player));
+        params->AppendWord(kGoalText, text);
         Run(kCompletedGoalSameTeam, params);
         DeleteParams(params);
     }
@@ -452,8 +452,8 @@ int __cdecl HandleGoalCompleted(NetLink::InboundMsgCtx* context)
 int __cdecl HandleGoalStarted(NetLink::InboundMsgCtx* context)
 {
     const uint8_t* msg = Message(context);
-    Manager* manager = ManagerOf(context);
-    uint8_t* goal = GetGoal(ObjectiveBoard(), Field<uint32_t>(msg, 4));
+    Hub* manager = ManagerOf(context);
+    uint8_t* goal = GetGoal(ObjectiveBoard(), Prop<uint32_t>(msg, 4));
     if (!goal)
         return kContinue;
     const char* text = nullptr;
@@ -462,8 +462,8 @@ int __cdecl HandleGoalStarted(NetLink::InboundMsgCtx* context)
         return kContinue;
     Call(CodeAddress(&GoalSystem::CObjective::GetObjectiveListCaption), goal, &text);
     Scripts::CStruct* params = NewParams();
-    params->AddString(kPlayerName, PlayerName(player));
-    params->AddString(kGoalText, text);
+    params->AppendWord(kPlayerName, PlayerName(player));
+    params->AppendWord(kGoalText, text);
     Run(kStartedGoalSameTeam, params);
     DeleteParams(params);
     return kContinue;
@@ -490,7 +490,7 @@ int __cdecl HandleEliminated(NetLink::InboundMsgCtx* context)
         return kContinue;
     }
     Scripts::CStruct* params = NewParams();
-    params->AddString(kString0, PlayerName(player));
+    params->AppendWord(kString0, PlayerName(player));
     Run(kEliminatedOther, params);
     DeleteParams(params);
     return kContinue;

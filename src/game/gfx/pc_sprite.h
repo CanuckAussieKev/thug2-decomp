@@ -30,16 +30,16 @@ struct CPcSprite {
     SQuadSprite* sprite;      // +0x44
 
     // 0x004C70E0: construct - the 2D sprite made with priority 0 (none without memory). Returns this.
-    CPcSprite* Construct();
+    CPcSprite* MakeNew();
     // 0x004C7050: the destructor's body (the 2D sprite destroyed).
     void DestroyBody();
     // 0x004C7180 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcSprite* Destroy(unsigned int freeFlags);
+    CPcSprite* Teardown(unsigned int freeFlags);
     // 0x004C70B0 (virtual [2]): the 2D sprite hidden or shown as the engine's flag says.
     void UpdateHidden();
     // 0x004C71B0 (virtual [3]): the engine's settings copied into the 2D sprite (the texture only when there is
     // one; the hot spot into pixels).
-    void Update();
+    void TickFrame();
     // 0x004C70C0 (virtual [4]): the 2D sprite's priority from the engine's (when there is a 2D sprite).
     void UpdatePriority();
 };

@@ -47,7 +47,7 @@ using Gfx2D::CAnimTimeline;
 
 // The base movie's code (CVideoEntry, node_objects.h) and the base's InvokeMethodByName (0x004A0CF0).
 CVideoEntry* Base(void* movie) { return static_cast<CVideoEntry*>(movie); }
-void BaseConstruct(void* movie) { Base(movie)->Construct(); }
+void BaseConstruct(void* movie) { Base(movie)->MakeNew(); }
 void BaseDestroyBody(void* movie) { Base(movie)->DestroyBody(); }
 void BaseLoad(void* movie, Scripts::CStruct* params) { Base(movie)->ConfigureFromData(params); }
 void SetHeld(void* movie, int value) { Base(movie)->SetFlag1B(static_cast<uint8_t>(value)); }
@@ -59,9 +59,9 @@ void* FindAsset(uint32_t name) { return AssetStore::g_assetManager->GetAssetData
 void StartMovie(CMovie* movie) { reinterpret_cast<bool(__thiscall*)(CMovie*)>(movie->Vtable()[3])(movie); }
 
 // The timeline's code: constructor / destructor body, complete, PlayAnim (slot 3), Update (slot 2).
-void ConstructTimeline(CAnimTimeline* t) { t->Construct(); }
+void ConstructTimeline(CAnimTimeline* t) { t->MakeNew(); }
 void DestroyTimeline(CAnimTimeline* t) { t->DestroyBody(); }
-bool IsComplete(CAnimTimeline* t) { return t->IsComplete(); }
+bool IsAccomplished(CAnimTimeline* t) { return t->IsAccomplished(); }
 void PlayAnim(CAnimTimeline* t, uint32_t anim, float start, float end, int loopType, float blend, float speed)
 {
     reinterpret_cast<void(__thiscall*)(CAnimTimeline*, uint32_t, float, float, int, float, float)>(t->m_vtable[3])(
@@ -71,7 +71,7 @@ void UpdateTimeline(CAnimTimeline* t) { reinterpret_cast<void(__thiscall*)(CAnim
 
 // The animation asset's code: started (0x00482F10); told a step from one time to another (0x00482F40).
 void StartAsset(void* anim) { static_cast<Gfx2D::CJointClipFrames*>(anim)->ArmEvents(); }
-void StepAsset(void* anim, float from, float to, Gfx2D::Camera* camera, bool first)
+void StepAsset(void* anim, float from, float to, Gfx2D::ViewCam* camera, bool first)
 {
     static_cast<Gfx2D::CJointClipFrames*>(anim)->FireEvents(from, to, camera, first);
 }
@@ -81,7 +81,7 @@ float SecondsPerFrame() { return g_animMoviesSecondsPerFrame; } // 1/60
 constexpr uint32_t kFixedTarget = 0xC588EEBC; // a camera target that is a point (the target offset), not an object
 
 template <typename T>
-T& Field(void* base, uint32_t offset)
+T& Prop(void* base, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(base) + offset);
 }
@@ -127,7 +127,7 @@ bool LoadAnim(Movie* movie, Scripts::CStruct* params)
             return false;
         bool backwards = params->HasBareFlag(kBackwards);
         int loopType = params->HasBareFlag(kLooping) ? 1 : 0;
-        movie->Play(anim, loopType, backwards);
+        movie->Perform(anim, loopType, backwards);
     } else {
         int frames = 0;
         params->FetchIntValue(kFrames, &frames, 1);
@@ -144,7 +144,7 @@ bool LoadAnim(Movie* movie, Scripts::CStruct* params)
 // --- the object animation movie -------------------------------------------------------------------------------
 
 // 0x005871B0
-CObjectAnimMovie* CObjectAnimMovie::Construct()
+CObjectAnimMovie* CObjectAnimMovie::MakeNew()
 {
     BaseConstruct(this);
     m_base.m_listLink.vtable = kObjectAnimMovieVtable;
@@ -162,16 +162,16 @@ void CObjectAnimMovie::DestroyBody()
 }
 
 // 0x00587370
-CObjectAnimMovie* CObjectAnimMovie::Destroy(uint8_t flags)
+CObjectAnimMovie* CObjectAnimMovie::Teardown(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x005875D0
-bool CObjectAnimMovie::Load(Scripts::CStruct* params)
+bool CObjectAnimMovie::ReadIn(Scripts::CStruct* params)
 {
     BaseLoad(this, params);
     if (!LoadAnim(this, params))
@@ -181,14 +181,14 @@ bool CObjectAnimMovie::Load(Scripts::CStruct* params)
 }
 
 // 0x005873A0
-void CObjectAnimMovie::Play(void* anim, int loopType, bool backwards)
+void CObjectAnimMovie::Perform(void* anim, int loopType, bool backwards)
 {
     m_anim = anim;
     PlayOn(&m_timeline, anim, loopType, backwards);
 }
 
 // 0x00587270
-bool CObjectAnimMovie::Start()
+bool CObjectAnimMovie::Kickoff()
 {
     if (m_anim)
         StartAsset(m_anim);
@@ -196,20 +196,20 @@ bool CObjectAnimMovie::Start()
 }
 
 // 0x00587280 / 0x005872A0
-bool CObjectAnimMovie::IsDone()
+bool CObjectAnimMovie::IsFinished()
 {
     if (m_base.m_unknown1A)
         return true;
     if (m_base.m_unknown18)
         return false;
-    return IsComplete(&m_timeline);
+    return IsAccomplished(&m_timeline);
 }
-int CObjectAnimMovie::IsHeldAndComplete() { return m_base.m_unknown18 && IsComplete(&m_timeline) ? 1 : 0; }
+int CObjectAnimMovie::IsHeldAndComplete() { return m_base.m_unknown18 && IsAccomplished(&m_timeline) ? 1 : 0; }
 
 // --- the camera animation movie -------------------------------------------------------------------------------
 
 // 0x005873F0
-CCameraAnimMovie* CCameraAnimMovie::Construct()
+CCameraAnimMovie* CCameraAnimMovie::MakeNew()
 {
     BaseConstruct(this);
     m_base.m_listLink.vtable = kCameraAnimMovieVtable;
@@ -230,20 +230,20 @@ void CCameraAnimMovie::DestroyBody()
 }
 
 // 0x00587450
-CCameraAnimMovie* CCameraAnimMovie::Destroy(uint8_t flags)
+CCameraAnimMovie* CCameraAnimMovie::Teardown(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00587F70
-bool CCameraAnimMovie::Load(Scripts::CStruct* params)
+bool CCameraAnimMovie::ReadIn(Scripts::CStruct* params)
 {
     BaseLoad(this, params);
     float fov;
-    if (params->GetFloat(0x17E7321E, &fov, 0)) {
+    if (params->FetchFloat(0x17E7321E, &fov, 0)) {
         m_viewAngle = fov;
         m_base.m_viewer->ChangeHFov(fov);
     }
@@ -253,7 +253,7 @@ bool CCameraAnimMovie::Load(Scripts::CStruct* params)
     StartMovie(&m_base);
     PlaceCamera();
     if (m_anim)
-        StepAsset(m_anim, m_timeline.m_current, m_timeline.m_current, m_base.m_viewer, true);
+        StepAsset(m_anim, m_timeline.m_ongoing, m_timeline.m_ongoing, m_base.m_viewer, true);
     return true;
 }
 
@@ -265,24 +265,24 @@ void CCameraAnimMovie::LoadTarget(Scripts::CStruct* params)
         return;
     m_goalShift[0] = m_goalShift[1] = m_goalShift[2] = 0.0f;
     m_goalShift[3] = 1.0f;
-    params->GetVector(0x906642BF, reinterpret_cast<Scripts::VectorValue*>(m_goalShift), 0);
+    params->FetchVec(0x906642BF, reinterpret_cast<Scripts::VectorValue*>(m_goalShift), 0);
     float zero = g_floatZero;
     // (not equal, or unordered: a NaN counts as set)
     m_targetOffsetSet = !(m_goalShift[0] == zero) || !(m_goalShift[1] == zero) || !(m_goalShift[2] == zero);
     m_lookOffset[0] = m_lookOffset[1] = m_lookOffset[2] = 0.0f;
     m_lookOffset[3] = 1.0f;
-    m_lookOffsetSet = params->GetVector(0xA00D3D6E, reinterpret_cast<Scripts::VectorValue*>(m_lookOffset), 0);
+    m_lookOffsetSet = params->FetchVec(0xA00D3D6E, reinterpret_cast<Scripts::VectorValue*>(m_lookOffset), 0);
 }
 
 // 0x00587540
-void CCameraAnimMovie::Play(void* anim, int loopType, bool backwards)
+void CCameraAnimMovie::Perform(void* anim, int loopType, bool backwards)
 {
     m_anim = anim;
     PlayOn(&m_timeline, anim, loopType, backwards);
 }
 
 // 0x00587320
-bool CCameraAnimMovie::Start()
+bool CCameraAnimMovie::Kickoff()
 {
     if (m_anim)
         StartAsset(m_anim);
@@ -290,15 +290,15 @@ bool CCameraAnimMovie::Start()
 }
 
 // 0x00587330 / 0x00587350
-bool CCameraAnimMovie::IsDone()
+bool CCameraAnimMovie::IsFinished()
 {
     if (m_base.m_unknown1A)
         return true;
     if (m_base.m_unknown18)
         return false;
-    return IsComplete(&m_timeline);
+    return IsAccomplished(&m_timeline);
 }
-int CCameraAnimMovie::IsHeldAndComplete() { return m_base.m_unknown18 && IsComplete(&m_timeline) ? 1 : 0; }
+int CCameraAnimMovie::IsHeldAndComplete() { return m_base.m_unknown18 && IsAccomplished(&m_timeline) ? 1 : 0; }
 
 // 0x00587590
 bool CCameraAnimMovie::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
@@ -318,25 +318,25 @@ bool CCameraAnimMovie::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
 }
 
 // 0x00588090
-void CCameraAnimMovie::Update()
+void CCameraAnimMovie::TickFrame()
 {
-    float from = m_timeline.m_current;
+    float from = m_timeline.m_ongoing;
     UpdateTimeline(&m_timeline);
     m_base.m_viewer->RememberPrevPos();
     if (m_anim)
-        StepAsset(m_anim, from, m_timeline.m_current, m_base.m_viewer, false);
+        StepAsset(m_anim, from, m_timeline.m_ongoing, m_base.m_viewer, false);
     PlaceCamera();
 }
 
 // 0x00587A50
 void CCameraAnimMovie::PlaceCamera()
 {
-    float* pos = reinterpret_cast<float*>(m_base.m_viewer->GetPos());
-    float* m = reinterpret_cast<float*>(m_base.m_viewer->GetMatrix());
+    float* pos = reinterpret_cast<float*>(m_base.m_viewer->FetchLocation());
+    float* m = reinterpret_cast<float*>(m_base.m_viewer->FetchMat());
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
     uint8_t** skaters = reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(GameModules::g_frontEndInstance) + 0x20);
     for (int i = 0; i < 2; ++i) {
-        if (Field<uint8_t>(Field<uint8_t*>(skaters[i], 0x18), 0x20) & 0x40)
+        if (Prop<uint8_t>(Prop<uint8_t*>(skaters[i], 0x18), 0x20) & 0x40)
             Base(this)->CheckDone(true);
     }
     if (m_anim) {
@@ -344,7 +344,7 @@ void CCameraAnimMovie::PlaceCamera()
         float quat[4] = {0.0f, 0.0f, 0.0f, 1.0f};
         float at[4];
         bool flag = false;
-        static_cast<Gfx2D::CJointClipFrames*>(m_anim)->GetFloatKeyPose(quat, at, &flag, m_timeline.m_current, 0);
+        static_cast<Gfx2D::CJointClipFrames*>(m_anim)->GetFloatKeyPose(quat, at, &flag, m_timeline.m_ongoing, 0);
         for (int i = 0; i < 4; ++i)
             pos[i] = at[i];
         float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -356,7 +356,7 @@ void CCameraAnimMovie::PlaceCamera()
         SetIdentity(m);
         float fov = m_viewAngle;
         if (fov == g_floatZero)
-            fov = Scripts::GetFloat(0x99529205);
+            fov = Scripts::FetchFloat(0x99529205);
         m_base.m_viewer->ChangeHFov(fov);
     }
     if (!m_hasGoal)
@@ -367,15 +367,15 @@ void CCameraAnimMovie::PlaceCamera()
         auto* object = reinterpret_cast<uint8_t*>(reinterpret_cast<CObjectHubBase*>(g_compositeObjectManager)->LookUpEntity(m_aimPoint));
         if (!object)
             return;
-        float target[4] = {Field<float>(object, 0x4C), Field<float>(object, 0x50), Field<float>(object, 0x54), 1.0f};
+        float target[4] = {Prop<float>(object, 0x4C), Prop<float>(object, 0x50), Prop<float>(object, 0x54), 1.0f};
         float frame[16];
         auto moved = [&](float* offset) {
-            *reinterpret_cast<Maths::Matrix*>(frame) = *reinterpret_cast<const Maths::Matrix*>(object + 0x6C);
+            *reinterpret_cast<Maths::Mat4*>(frame) = *reinterpret_cast<const Maths::Mat4*>(object + 0x6C);
             frame[12] = target[0];
             frame[13] = target[1];
             frame[14] = target[2];
             frame[15] = 1.0f;
-            reinterpret_cast<Maths::Matrix*>(frame)->TranslateLocal(*reinterpret_cast<const Maths::Vector*>(offset));
+            reinterpret_cast<Maths::Mat4*>(frame)->OffsetLocal(*reinterpret_cast<const Maths::Vec4*>(offset));
         };
         if (m_targetOffsetSet) {
             moved(m_goalShift);
@@ -391,13 +391,13 @@ void CCameraAnimMovie::PlaceCamera()
         }
         for (int i = 0; i < 4; ++i)
             dir[i] = pos[i] - target[i];
-        reinterpret_cast<Maths::Vector*>(dir)->Normalize();
+        reinterpret_cast<Maths::Vec4*>(dir)->MakeUnit();
         SetIdentity(m);
         for (int i = 0; i < 4; ++i)
             m[8 + i] = dir[i];
         CrossInto(m, m + 4, m + 8); // the right axis: up x at
         m[3] = 0.0f;
-        reinterpret_cast<Maths::Vector*>(m)->Normalize();
+        reinterpret_cast<Maths::Vec4*>(m)->MakeUnit();
     } else {
         // A fixed point (the target offset), seen from the look offset.
         for (int i = 0; i < 4; ++i)
@@ -436,26 +436,26 @@ void CCameraAnimMovie::PlaceCamera()
 }
 
 // 0x005876A0 (and the thunk 0x00587F60)
-void CObjectAnimMovie::Update()
+void CObjectAnimMovie::TickFrame()
 {
-    float from = m_timeline.m_current;
+    float from = m_timeline.m_ongoing;
     UpdateTimeline(&m_timeline);
     if (m_anim)
-        StepAsset(m_anim, from, m_timeline.m_current, m_base.m_viewer, false);
+        StepAsset(m_anim, from, m_timeline.m_ongoing, m_base.m_viewer, false);
     // Every object the asset moves: its frame's rotation and position.
-    int count = Field<int>(m_anim, 8);
-    auto* quats = static_cast<float*>(MemSys::New(count * 16));
+    int count = Prop<int>(m_anim, 8);
+    auto* quats = static_cast<float*>(MemSys::Alloc(count * 16));
     if (quats) {
         for (int i = 0; i < count; ++i) {
             quats[4 * i] = quats[4 * i + 1] = quats[4 * i + 2] = 0.0f;
             quats[4 * i + 3] = 1.0f;
         }
     }
-    auto* positions = static_cast<float*>(MemSys::New(Field<int>(m_anim, 8) * 16));
-    auto* flags = static_cast<bool*>(MemSys::New(Field<int>(m_anim, 8)));
-    static_cast<Gfx2D::CJointClipFrames*>(m_anim)->GetFloatKeyPose(quats, positions, flags, m_timeline.m_current, 0);
-    for (int i = 0; i < Field<int>(m_anim, 8); ++i) {
-        uint32_t name = static_cast<Gfx2D::CJointClipFrames*>(m_anim)->GetBoneName(i);
+    auto* positions = static_cast<float*>(MemSys::Alloc(Prop<int>(m_anim, 8) * 16));
+    auto* flags = static_cast<bool*>(MemSys::Alloc(Prop<int>(m_anim, 8)));
+    static_cast<Gfx2D::CJointClipFrames*>(m_anim)->GetFloatKeyPose(quats, positions, flags, m_timeline.m_ongoing, 0);
+    for (int i = 0; i < Prop<int>(m_anim, 8); ++i) {
+        uint32_t name = static_cast<Gfx2D::CJointClipFrames*>(m_anim)->FetchJointName(i);
         uint8_t* object = reinterpret_cast<uint8_t*>(GameObjects::FindObject(name));
         if (!object) {
             DebugOut::Printf("object animation:  couldn't find object %s\n", Scripts::FindChecksumNameOrUnknown(name));
@@ -469,18 +469,18 @@ void CObjectAnimMovie::Update()
         std::memcpy(object + 0x4C, positions + 4 * i, 16);  // its position
         if (Scripts::FetchIntValue(0x2F510F45)) {
             DebugOut::Printf("Object %s @ time %f:  ", Scripts::FindChecksumNameOrUnknown(name),
-                        static_cast<double>(m_timeline.m_current));
-            reinterpret_cast<const Maths::Vector*>(object + 0x4C)->Print(); // (printed)
-            reinterpret_cast<const Maths::Matrix*>(object + 0x6C)->Print();
+                        static_cast<double>(m_timeline.m_ongoing));
+            reinterpret_cast<const Maths::Vec4*>(object + 0x4C)->EchoOut(); // (printed)
+            reinterpret_cast<const Maths::Mat4*>(object + 0x6C)->EchoOut();
         }
         // The object's model told (slot 1 of its 0x286A8D26 component).
-        void* component = reinterpret_cast<CGameEntity*>(object)->GetComponent(0x286A8D26);
+        void* component = reinterpret_cast<CGameEntity*>(object)->FetchModule(0x286A8D26);
         if (component)
             reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(component))[1])(component);
     }
-    MemSys::Manager::Get()->Free(quats);
-    MemSys::Manager::Get()->Free(positions);
-    MemSys::Manager::Get()->Free(flags);
+    MemSys::Hub::Pull()->Dealloc(quats);
+    MemSys::Hub::Pull()->Dealloc(positions);
+    MemSys::Hub::Pull()->Dealloc(flags);
 }
 
 } // namespace Obj
@@ -488,12 +488,12 @@ void CObjectAnimMovie::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kObjectAnimMovieVtable_slots[] = {&GameObjects::CObjectAnimMovie::Destroy,
-         &GameObjects::CObjectAnimMovie::Load,
-         &GameObjects::CObjectAnimMovie::Update,
-         &GameObjects::CObjectAnimMovie::Start,
+static VtableSlot kObjectAnimMovieVtable_slots[] = {&GameObjects::CObjectAnimMovie::Teardown,
+         &GameObjects::CObjectAnimMovie::ReadIn,
+         &GameObjects::CObjectAnimMovie::TickFrame,
+         &GameObjects::CObjectAnimMovie::Kickoff,
          &Engine3D::CViewRegion::QueryPoint,
-         &GameObjects::CObjectAnimMovie::IsDone,
+         &GameObjects::CObjectAnimMovie::IsFinished,
          &GameObjects::CObjectAnimMovie::IsHeldAndComplete,
          Stubs::ReturnFalse,
          Stubs::DoNothing,
@@ -503,12 +503,12 @@ static VtableSlot kObjectAnimMovieVtable_slots[] = {&GameObjects::CObjectAnimMov
          Stubs::IgnoreArgument,
          Stubs::DoNothing};
 void** const kObjectAnimMovieVtable = reinterpret_cast<void**>(kObjectAnimMovieVtable_slots);
-static VtableSlot kCameraAnimMovieVtable_slots[] = {&GameObjects::CCameraAnimMovie::Destroy,
-         &GameObjects::CCameraAnimMovie::Load,
-         &GameObjects::CCameraAnimMovie::Update,
-         &GameObjects::CCameraAnimMovie::Start,
+static VtableSlot kCameraAnimMovieVtable_slots[] = {&GameObjects::CCameraAnimMovie::Teardown,
+         &GameObjects::CCameraAnimMovie::ReadIn,
+         &GameObjects::CCameraAnimMovie::TickFrame,
+         &GameObjects::CCameraAnimMovie::Kickoff,
          &GameObjects::CCameraAnimMovie::InvokeMethodByName,
-         &GameObjects::CCameraAnimMovie::IsDone,
+         &GameObjects::CCameraAnimMovie::IsFinished,
          &GameObjects::CCameraAnimMovie::IsHeldAndComplete,
          Stubs::ReturnTrue,
          Stubs::DoNothing,

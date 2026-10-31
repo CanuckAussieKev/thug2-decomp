@@ -99,18 +99,18 @@ inline void DebugBeforeDelete() {}
 void CSceneNode::DestroyBody() { UnlinkAs(kSceneNodeVtable); }
 
 // 0x0048C4D0
-CSceneNode* CSceneNode::Destroy(unsigned int flags)
+CSceneNode* CSceneNode::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 namespace Engine {
 
 // 0x0048C1D0
-void __cdecl Init(uint32_t textPoolSize)
+void __cdecl PrepareAll(uint32_t textPoolSize)
 {
     MemSys::PushMemProfile("sAllocTextPool");
     AllocateTextPool(textPoolSize);
@@ -119,19 +119,19 @@ void __cdecl Init(uint32_t textPoolSize)
     CreateWindowPool();
     MemSys::PopMemProfile();
     SetScreenAspectRatio(kAspectRatio);
-    SetScreenAngle(Scripts::GetFloat(kCameraFov));
+    SetScreenAngle(Scripts::FetchFloat(kCameraFov));
     SetScreenFieldOfView(0.0f);
     MemSys::PushMemProfile("CViewportManager");
     CreateViewports();
     SetScreenMode(0);
     MemSys::PopMemProfile();
     MemSys::PushMemProfile("CFlexibleParticleManager");
-    void* memory = MemSys::New(sizeof(CFlexibleParticleManager));
-    FlexibleParticleManager() = memory ? static_cast<CFlexibleParticleManager*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::Alloc(sizeof(CFlexibleParticleManager));
+    FlexibleParticleManager() = memory ? static_cast<CFlexibleParticleManager*>(memory)->MakeNew() : nullptr;
     MemSys::PopMemProfile();
     MemSys::PushMemProfile("CImposterManager");
-    memory = MemSys::New(8);
-    ImposterManager() = memory ? static_cast<CImposterManager*>(memory)->Construct() : nullptr;
+    memory = MemSys::Alloc(8);
+    ImposterManager() = memory ? static_cast<CImposterManager*>(memory)->MakeNew() : nullptr;
     MemSys::PopMemProfile();
     MemSys::PushMemProfile("MiscFXInitialize");
     InitEffects();
@@ -158,7 +158,7 @@ void __cdecl RenderFrame()
     void* weather = Weather();
     reinterpret_cast<void(__thiscall*)(void*, float)>((*static_cast<void***>(weather))[2])(
         weather, static_cast<float>(FrameClock::GetSlomoFrameSeconds()));
-    static_cast<CImposterManager*>(ImposterManager())->Update();
+    static_cast<CImposterManager*>(ImposterManager())->TickFrame();
     UpdateAfterImposters();
     if (!OmitFromDraw())
         DrawWorld();
@@ -248,7 +248,7 @@ void* __cdecl LoadModelFile(const char* fileName, void* textures, int, bool)
 }
 
 // 0x0048C490
-int __cdecl SphereVisibleInOneViewport(const Maths::Vector* centre, float radius)
+int __cdecl SphereVisibleInOneViewport(const Maths::Vec4* centre, float radius)
 {
     if (ViewportCount() > 1)
         return 0;
@@ -339,7 +339,7 @@ CWorldScene* __cdecl FindScene(uint32_t checksum)
 } // namespace Engine
 
 namespace {
-static VtableSlot kSceneNodeVtable_slots[] = {&Engine3D::CSceneNode::Destroy};
+static VtableSlot kSceneNodeVtable_slots[] = {&Engine3D::CSceneNode::Teardown};
 void** const kSceneNodeVtable = reinterpret_cast<void**>(kSceneNodeVtable_slots);
 } // namespace
 
@@ -348,6 +348,6 @@ void** const kSceneNodeVtable = reinterpret_cast<void**>(kSceneNodeVtable_slots)
 namespace Engine3D {
 
 // 0x00640B00 (a static initialiser): the scene list, an empty head.
-void ConstructSceneList() { reinterpret_cast<CSceneListHead*>(&g_sceneList)->Construct(); }
+void ConstructSceneList() { reinterpret_cast<CSceneListHead*>(&g_sceneList)->MakeNew(); }
 
 } // namespace Nx

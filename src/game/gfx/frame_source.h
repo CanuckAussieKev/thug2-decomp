@@ -16,9 +16,9 @@ struct CFrameSource {
     uint8_t pad209[0xB];
 
     // 0x0048CF70: construct - everything after the vtable zeroed. Returns this.
-    CFrameSource* Construct();
+    CFrameSource* MakeNew();
     // 0x0048D000 (virtual [0]): destroyed, and with flags & 1 given back to the pools (0x004645E0). Returns this.
-    CFrameSource* Destroy(unsigned int flags);
+    CFrameSource* Teardown(unsigned int flags);
     // 0x0048CFA0: done or not; not done, the animation's data (null when done).
     void* SetDone(bool done);
     // 0x0048CFD0: the animation `anim` started (not done); its data.

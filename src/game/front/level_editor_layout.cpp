@@ -135,7 +135,7 @@ bool ReadScaleFields(std::istringstream& in, V3* scale)
     std::string field;
     while (in >> field) {
         if (field.compare(0, 6, "scale=") == 0) {
-            if (!Scale::ReadToken(field, scale))
+            if (!StretchBy::ReadToken(field, scale))
                 return false;
         }
     }
@@ -198,7 +198,7 @@ bool ReadNode(std::istringstream& in, NodeCreate::Spec* spec)
 
 } // namespace
 
-std::string Write(const FileLoad& file)
+std::string EmitOut(const FileLoad& file)
 {
     std::ostringstream out;
     out << kHeader << kVersion << '\n';
@@ -210,21 +210,21 @@ std::string Write(const FileLoad& file)
         out << "sector";
         Hex(out, s.checksum);
         Placed(out, s.placement);
-        out << ' ' << (s.hidden ? 1 : 0) << Scale::Token(s.placement.scale);
+        out << ' ' << (s.hidden ? 1 : 0) << StretchBy::Token(s.placement.scale);
         Comment(out, s.checksum);
     }
     for (const auto& r : file.rails) {
         out << "rail";
         Hex(out, r.name);
         Placed(out, r.placement);
-        out << ' ' << (r.hidden ? 1 : 0) << Scale::Token(r.placement.scale);
+        out << ' ' << (r.hidden ? 1 : 0) << StretchBy::Token(r.placement.scale);
         Comment(out, r.name);
     }
     for (const auto& c : file.clones) {
         out << "clone";
         Hex(out, c.source);
         Placed(out, c.placement);
-        out << Scale::Token(c.placement.scale);
+        out << StretchBy::Token(c.placement.scale);
         Comment(out, c.source);
     }
     for (const auto& o : file.objects) {
@@ -234,7 +234,7 @@ std::string Write(const FileLoad& file)
             Number(out, v);
         for (float v : o.rows)
             Number(out, v);
-        out << Scale::Token(o.scale);
+        out << StretchBy::Token(o.scale);
         Comment(out, o.id);
     }
     for (const auto& c : file.copies) {
@@ -245,7 +245,7 @@ std::string Write(const FileLoad& file)
             Number(out, v);
         for (float v : c.rows)
             Number(out, v);
-        out << Scale::Token(c.scale);
+        out << StretchBy::Token(c.scale);
         Comment(out, c.source);
     }
     for (const NodeCreate::Spec& a : file.added) {
@@ -291,7 +291,7 @@ std::string Write(const FileLoad& file)
         Comment(out, lock.id);
     }
     for (const Triggers::Placed& t : file.triggers)
-        out << "trigger " << Triggers::Record(t) << '\n';
+        out << "trigger " << Triggers::LogEntry(t) << '\n';
     for (const Triggers::ProximEdit& p : file.proxims)
         out << "proxim " << Triggers::ProximRecord(p, Objects::NameOf(p.node)) << '\n';
     for (const SetRecord& s : file.nodes) {
@@ -322,11 +322,11 @@ std::string Write(const FileLoad& file)
         out << Clusters::WriteRecord(m);
         Comment(out, m.sector);
     }
-    for (const Cameras::Camera& c : file.cameras)
+    for (const Cameras::ViewCam& c : file.cameras)
         out << Cameras::WriteRecord(c) << '\n';
     for (const Goals::Goal& g : file.goals)
         out << "goal " << Goals::WriteRecord(g) << '\n'; // (level_editor_goals.h)
-    for (const Links::Record& r : file.links)
+    for (const Links::LogEntry& r : file.links)
         out << Links::WriteRecord(r) << '\n'; // (UX7: linked copies)
     for (const std::string& line : file.extra)
         out << line << '\n';
@@ -341,7 +341,7 @@ std::string Write(const FileLoad& file)
     return out.str();
 }
 
-bool Read(const std::string& text, FileLoad* file, int* lineNumber)
+bool TakeIn(const std::string& text, FileLoad* file, int* lineNumber)
 {
     *file = FileLoad{};
     std::istringstream lines(text);
@@ -656,11 +656,11 @@ bool g_netScene;
 int g_switch;
 int g_switchWait;
 
-// The network game (OnlinePlay::Manager 0x007CCE14, 0x0044E4F0: a network game is on - host or client).
+// The network game (OnlinePlay::Hub 0x007CCE14, 0x0044E4F0: a network game is on - host or client).
 bool InNetGame()
 {
     void* net = OnlinePlay::g_gameNetManager;
-    return net && static_cast<OnlinePlay::Manager*>(net)->InNetGame();
+    return net && static_cast<OnlinePlay::Hub*>(net)->InNetGame();
 }
 
 // The level loaded: its load script (the skate module 0x007CE478, +0x378 - as automation.h and the node layer read it).
@@ -706,7 +706,7 @@ bool WriteWhole(const char* folder, const char* path, const char* data, size_t s
     return ok;
 }
 
-void RowsOf(const Maths::Matrix& m, float rows[9])
+void RowsOf(const Maths::Mat4& m, float rows[9])
 {
     for (int r = 0; r < 3; ++r) {
         rows[r * 3 + 0] = m.row[r].x;
@@ -755,7 +755,7 @@ bool Capture(FileLoad* file)
                                      [](const Scenery::RailState& r) { return NodeCreate::IsAdded(r.name); }),
                       file->rails.end());
     std::vector<uint32_t> cloneOrder; // (UX7: the linked copies' clones by their records' order)
-    for (const Scenery::Clone& clone : Scenery::Clones()) {
+    for (const Scenery::Replicate& clone : Scenery::Clones()) {
         Placement now;
         if (Scenery::PlacementNow(clone.checksum, &now) && !Scenery::Hidden(clone.checksum)) {
             file->clones.push_back({clone.source, Compose(now, clone.sourceAtCopy)});
@@ -767,25 +767,25 @@ bool Capture(FileLoad* file)
         GameObjects::CGameEntity* object = LiveObject(id);
         if (!object)
             continue;
-        ObjectRecord record = {id, {object->m_pos.x, object->m_pos.y, object->m_pos.z}, {}};
+        ObjectRecord record = {id, {object->m_atPoint.x, object->m_atPoint.y, object->m_atPoint.z}, {}};
         RowsOf(object->m_basisFrame, record.rows);
-        record.scale = Scale::ObjectScale(object);
+        record.scale = StretchBy::ObjectScale(object);
         file->objects.push_back(record);
     }
-    for (const Objects::Copy& copy : Objects::Copies()) {
+    for (const Objects::DupFrom& copy : Objects::Copies()) {
         GameObjects::CGameEntity* object = LiveObject(copy.name);
         if (!object)
             continue;
-        CopyRecord record = {copy.name, copy.source, {object->m_pos.x, object->m_pos.y, object->m_pos.z}, {}};
+        CopyRecord record = {copy.name, copy.source, {object->m_atPoint.x, object->m_atPoint.y, object->m_atPoint.z}, {}};
         RowsOf(object->m_basisFrame, record.rows);
-        record.scale = Scale::ObjectScale(object);
+        record.scale = StretchBy::ObjectScale(object);
         file->copies.push_back(record);
     }
     // Added nodes (as `node` records, where they are now; the crowns' order is theirs), hidden ones.
     // (rail / path points: the chains' `point` records; the level's points deleted: `drop`, not `hide`)
-    file->chains = Chains::Current();
-    file->entities = Entities::Current(); // (speeds, emitters' sounds)
-    file->added = NodeCreate::Current();
+    file->chains = Chains::AtHand();
+    file->entities = Entities::AtHand(); // (speeds, emitters' sounds)
+    file->added = NodeCreate::AtHand();
     // (a trigger volume's node: its own `trigger` record - level_editor_triggers.h)
     file->added.erase(std::remove_if(file->added.begin(), file->added.end(),
                                      [](const NodeCreate::Spec& spec) { return spec.owned; }),
@@ -804,7 +804,7 @@ bool Capture(FileLoad* file)
     }
     file->locks = Picking::Locks();
     file->walls = Walls::Changed();
-    for (const NodeEdit::Record& node : NodeEdit::Changed()) {
+    for (const NodeEdit::LogEntry& node : NodeEdit::Changed()) {
         if (NodeCreate::IsAdded(node.name))
             continue; // (its node record has its place)
         const NodeEdit::Values& v = node.values;
@@ -822,7 +822,7 @@ bool Capture(FileLoad* file)
         }
         it->fields = node.edits;
     }
-    file->level = LevelProps::Current();
+    file->level = LevelProps::AtHand();
     // (map3) collision faces' flags, scenery clusters, camera nodes (their nodes are owned: not `node` records)
     file->faces = Faces::Changed();
     file->clusters = Clusters::Changed();
@@ -836,7 +836,7 @@ bool Capture(FileLoad* file)
     }
     file->notes = Notes::Capture(); // (UX5)
     // (UX5) the loaded layout's records that didn't resolve, kept unless captured again (level_editor_checks.h)
-    file->carried = Checks::CarriedRecords(Write(*file));
+    file->carried = Checks::CarriedRecords(EmitOut(*file));
     return true;
 }
 
@@ -851,7 +851,7 @@ bool ReadFor(const std::string& path, uint32_t scene, FileLoad* file, std::strin
     std::stringstream text;
     text << in.rdbuf();
     int line = 0;
-    if (!Read(text.str(), file, &line) || file->scene != scene) {
+    if (!TakeIn(text.str(), file, &line) || file->scene != scene) {
         *message = "Couldn't read " + path.substr(path.find_last_of('\\') + 1);
         Log("level editor: %s %s (line %d)", message->c_str(), path.c_str(), line);
         return false;
@@ -894,20 +894,20 @@ std::string Apply(const FileLoad& file)
         NodeCreate::ApplyCrownOrder(file.crownOrder);
     int hidden = 0;
     for (uint32_t name : file.hidden) {
-        if (NodeCreate::Hide(name, true))
+        if (NodeCreate::Conceal(name, true))
             ++hidden;
     }
     // Level nodes moved / turned (a node the level no longer has is skipped).
     int nodes = 0;
     for (const SetRecord& record : file.nodes) {
         NodeEdit::Values values;
-        if (!NodeEdit::Read(record.name, &values))
+        if (!NodeEdit::TakeIn(record.name, &values))
             continue;
         if (record.hasPos)
             values.pos = {record.pos[0], record.pos[1], record.pos[2]};
         if (record.hasAngles)
             values.angles = {record.angles[0], record.angles[1], record.angles[2]};
-        if ((record.hasPos || record.hasAngles) && NodeEdit::Set(record.name, values))
+        if ((record.hasPos || record.hasAngles) && NodeEdit::AssignValue(record.name, values))
             ++nodes;
     }
     // (phase 6) the Inspector's field edits (written into the nodes already if the edited copy's level array got them
@@ -925,16 +925,16 @@ std::string Apply(const FileLoad& file)
                 Entities::ModelEdited(node.name); // (a copy's own model: made again with it)
         }
     }
-    LevelProps::Set(file.level);
+    LevelProps::AssignValue(file.level);
     Picking::SetLocks(file.locks);
     // Chains (phase 4): added rail / path points, relinked and dropped level points, terrains - the rail manager built
     // again with them; peds / cars whose path changed made again.
-    if (!Chains::Empty(file.chains))
-        Chains::SetState(file.chains);
+    if (!Chains::Vacant(file.chains))
+        Chains::ChangePhase(file.chains);
     // Collision (level_editor_walls.h): invisible walls moved / switched off, drawn pieces' collision switched off - after
     // the sectors (a piece shown by them gets its switch back).
     Walls::ApplyStates(file.walls);
-    Entities::SetState(file.entities); // (after the nodes and copies: the emitters and objects they name)
+    Entities::ChangePhase(file.entities); // (after the nodes and copies: the emitters and objects they name)
     Walls::Tick();
     int triggers = Triggers::Apply(file.triggers, &message);
     if (!message.empty())
@@ -965,7 +965,7 @@ std::string Apply(const FileLoad& file)
                   static_cast<unsigned>(file.rails.size()), objects, copies, nodes, added, hidden,
                   static_cast<unsigned>(file.chains.points.size()), static_cast<unsigned>(file.chains.links.size()),
                   static_cast<unsigned>(file.chains.dropped.size()), static_cast<unsigned>(file.walls.size()), triggers,
-                  fields, LevelProps::Empty(file.level) ? "" : ", level properties");
+                  fields, LevelProps::Vacant(file.level) ? "" : ", level properties");
     return summary;
 }
 
@@ -977,13 +977,13 @@ void ResetToLevel(const FileLoad& keep)
 {
     // (the chains first: added points removed, links and terrains as the level has them, dropped points shown, the
     // rail manager built again - then the moved rail points below are put back in it)
-    Chains::SetState(Chains::State{});
+    Chains::ChangePhase(Chains::State{});
     std::vector<Scenery::SectorState> sectors = Scenery::ChangedSectors();
     for (Scenery::SectorState& state : sectors) {
         state.placement = {0, {0.0f, 0.0f, 0.0f}};
         state.hidden = false;
     }
-    for (const Scenery::Clone& clone : Scenery::Clones()) {
+    for (const Scenery::Replicate& clone : Scenery::Clones()) {
         Placement now = {0, {0.0f, 0.0f, 0.0f}};
         Scenery::PlacementNow(clone.checksum, &now);
         if (!Scenery::Hidden(clone.checksum))
@@ -1000,8 +1000,8 @@ void ResetToLevel(const FileLoad& keep)
         if (const Objects::State* origin = Objects::Origin(id))
             Objects::Restore(*origin);
     }
-    std::vector<Objects::Copy> copies = Objects::Copies();
-    for (const Objects::Copy& copy : copies) {
+    std::vector<Objects::DupFrom> copies = Objects::Copies();
+    for (const Objects::DupFrom& copy : copies) {
         bool kept = false;
         for (const CopyRecord& record : keep.copies)
             kept = kept || record.name == copy.name;
@@ -1012,8 +1012,8 @@ void ResetToLevel(const FileLoad& keep)
     Triggers::ResetAll();   // (the editor's trigger volumes and their nodes removed, the level's turned on again)
     NodeCreate::ResetAll(); // (added nodes removed, hidden ones shown: Apply makes the layout's again)
     Fields::ResetAll();
-    LevelProps::Set(LevelProps::Props{});
-    Entities::SetState(Entities::State{});
+    LevelProps::AssignValue(LevelProps::Props{});
+    Entities::ChangePhase(Entities::State{});
     // (map3) every face's flags and every piece's cluster back as the level has them; the cameras went with the added
     // nodes (NodeCreate::ResetAll) - Apply makes the layout's again
     Faces::ResetAll();
@@ -1040,7 +1040,7 @@ void WriteSnapshotGuarded()
 
 void AddExtension(const Extension& extension) { Extensions().push_back(extension); }
 
-bool Save(std::string* message)
+bool StoreAway(std::string* message)
 {
     FileLoad file;
     if (!Capture(&file)) {
@@ -1050,7 +1050,7 @@ bool Save(std::string* message)
     CreateDirectoryA(Folder().c_str(), nullptr);
     std::string path = PathFor(file.scene);
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    out << Write(file);
+    out << EmitOut(file);
     out.close();
     if (!out) {
         *message = "Couldn't write " + path;
@@ -1078,7 +1078,7 @@ bool Save(std::string* message)
     return true;
 }
 
-bool Load(std::string* message)
+bool ReadIn(std::string* message)
 {
     uint8_t* scene = Scenery::MainScene();
     if (Engine3D::CurrentLevel() == 0 || !scene) {
@@ -1105,7 +1105,7 @@ bool Snapshot()
     FileLoad file;
     if (!Capture(&file))
         return false;
-    std::string text = Write(file);
+    std::string text = EmitOut(file);
     std::string path = AutosavePathFor(file.scene);
     if (g_snapshotReady && text == g_snapshot && path == g_snapshotPath)
         return true;
@@ -1224,7 +1224,7 @@ void SwitchInPlace(int to)
     if (to > 0 && !g_editedCopy) {
         g_editedCopy = true;
         Career::EditedCopy(true); // (the career's gap list kept as it is first - level_editor_career.h)
-        Load(&message);
+        ReadIn(&message);
         Log("level editor: switched to the edited copy in place (%s)", message.c_str());
     } else if (to < 0 && g_editedCopy) {
         ResetToLevel(FileLoad{});
@@ -1256,12 +1256,12 @@ std::unordered_map<uint32_t, LevelInfo> LevelsByLoad()
             continue;
         uint32_t load = 0;
         const char* level = nullptr;
-        if (!e->structure->ReadHashValue(kLoadScript, &load, 0) || !e->structure->GetString(kLevel, &level, 0))
+        if (!e->structure->ReadHashValue(kLoadScript, &load, 0) || !e->structure->FetchText(kLevel, &level, 0))
             continue;
         const char* title = nullptr;
-        e->structure->GetString(kName, &title, 0);
+        e->structure->FetchText(kName, &title, 0);
         const char* qb = nullptr;
-        e->structure->GetString(kQb, &qb, 0);
+        e->structure->FetchText(kQb, &qb, 0);
         levels.emplace(load, LevelInfo{SceneOfLevelText(level), title ? title : "", e->structure,
                                        qb && *qb ? LevelNodes::NodeArrayChecksum(qb) : 0});
     }
@@ -1333,7 +1333,7 @@ void Tick()
     // The mode became a career-type one with the edited copy loaded (the level not loaded again): back to the level as
     // shipped at once - nothing done from now on is done in the edited copy. (Not while the editor runs: the mode
     // can't change then; it's put back once the editor is left.)
-    if (g_editedCopy && up && !Active()) {
+    if (g_editedCopy && up && !LiveNow()) {
         if (const char* mode = CareerModeActive()) {
             ResetToLevel(FileLoad{});
             g_editedCopy = false;
@@ -1374,8 +1374,8 @@ void Tick()
     g_editedCopy = true;
     Career::EditedCopy(true); // (the career's gap list kept as it is first - level_editor_career.h)
     std::string message;
-    Load(&message);
-    LevelProps::OnEditedCopyUp(LevelProps::Current()); // (its start, if it names one)
+    ReadIn(&message);
+    LevelProps::OnEditedCopyUp(LevelProps::AtHand()); // (its start, if it names one)
 }
 
 void OnNodeArrayAdded(uint32_t array)
@@ -1401,7 +1401,7 @@ void OnNodeArrayAdded(uint32_t array)
     int applied = Fields::ApplyEarly(array, edits);
     Log("level editor: the edited copy's node array %s loaded - %d field edits written into its nodes before they're "
         "made",
-        Objects::Label(array).c_str(), applied);
+        Objects::Caption(array).c_str(), applied);
 }
 
 bool SavedProps(uint32_t scene, LevelProps::Props* props)
@@ -1414,15 +1414,15 @@ bool SavedProps(uint32_t scene, LevelProps::Props* props)
     std::stringstream text;
     text << in.rdbuf();
     int line = 0;
-    if (!Read(text.str(), &file, &line) || file.scene != scene)
+    if (!TakeIn(text.str(), &file, &line) || file.scene != scene)
         return false;
     *props = file.level;
-    return !LevelProps::Empty(file.level);
+    return !LevelProps::Vacant(file.level);
 }
 
 bool NetworkActive()
 {
-    NetLink::Manager* net = NetLink::Manager::Instance();
+    NetLink::Hub* net = NetLink::Hub::Sole();
     return NetworkSession(net && net->IsOnline(), InNetGame(), g_netScene);
 }
 
@@ -1472,8 +1472,8 @@ void PanelMessage(const char* text)
     static const uint32_t kScript = Checksums::HashFromText("create_panel_message");
     if (!text || !*text || Engine3D::CurrentLevel() == 0 || !Scripts::ScriptExists(kScript))
         return;
-    Scripts::CStruct* params = Scripts::NewStruct()->Init();
-    params->AddString(Checksums::HashFromText("text"), text);
+    Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+    params->AppendWord(Checksums::HashFromText("text"), text);
     params->PutNameKey(Checksums::HashFromText("id"), Checksums::HashFromText("level_editor_refused_message"));
     params->InsertPair(Checksums::HashFromText("pos"), 320.0f, 70.0f);
     params->PutInt(Checksums::HashFromText("time"), 5000);
@@ -1494,8 +1494,8 @@ bool HasSavedLayout()
 std::string LevelTitle()
 {
     // (phase 6: the edited copy's own name, as its level properties give it)
-    if (g_editedCopy && !LevelProps::Current().name.empty())
-        return LevelProps::Current().name;
+    if (g_editedCopy && !LevelProps::AtHand().name.empty())
+        return LevelProps::AtHand().name;
     // (the symbols walked once a level: the toolbar asks every frame)
     static uint32_t cachedLoad = 0, cachedScene = 0;
     static std::string cached;
@@ -1506,7 +1506,7 @@ std::string LevelTitle()
         std::unordered_map<uint32_t, LevelInfo> levels = LevelsByLoad();
         auto it = levels.find(load);
         cached = it != levels.end() && !it->second.title.empty() ? it->second.title
-                 : scene                                         ? Objects::Label(scene)
+                 : scene                                         ? Objects::Caption(scene)
                                                                  : "";
     }
     return cached;
@@ -1537,7 +1537,7 @@ bool EnterEditedCopy(std::string* message)
     Career::EditedCopy(true); // (the career's gap list kept as it is first - level_editor_career.h)
     g_pending = false; // (put in place here, not again by Tick)
     std::string loaded;
-    if (HasSavedLayout() && Load(&loaded))
+    if (HasSavedLayout() && ReadIn(&loaded))
         *message = "Editing " + LevelTitle() + " (Edited)";
     else
         *message = "A new edited copy of " + LevelTitle() + " - made by the first save (Ctrl+S)";
@@ -1552,7 +1552,7 @@ bool ResetLevel(std::string* before, std::string* message)
         *message = "Not in a level";
         return false;
     }
-    *before = Write(file);
+    *before = EmitOut(file);
     ResetToLevel(FileLoad{});
     // (the edited copy's files: the saved layout - its level select entry - and the autosave)
     int deleted = 0;
@@ -1576,7 +1576,7 @@ bool CaptureText(std::string* text)
     FileLoad file;
     if (!Capture(&file))
         return false;
-    *text = Write(file);
+    *text = EmitOut(file);
     return true;
 }
 
@@ -1585,7 +1585,7 @@ bool PutBack(const std::string& before, std::string* message)
     FileLoad file;
     int line = 0;
     uint8_t* scene = Scenery::MainScene();
-    if (Engine3D::CurrentLevel() == 0 || !scene || !Read(before, &file, &line) || file.scene != Scenery::SceneName(scene)) {
+    if (Engine3D::CurrentLevel() == 0 || !scene || !TakeIn(before, &file, &line) || file.scene != Scenery::SceneName(scene)) {
         *message = "Couldn't restore the changes";
         return false;
     }
@@ -1627,14 +1627,14 @@ bool __cdecl CFunc_PickLevel(Scripts::CStruct* params, Scripts::CScript*)
         g_switch = g_request ? 1 : -1;
         g_switchWait = 0;
     }
-    Log("level editor: level picked - %s%s", Objects::Label(load).c_str(),
+    Log("level editor: level picked - %s%s", Objects::Caption(load).c_str(),
         g_request ? " (its edited copy)" : " (as shipped)");
     return true;
 }
 
 bool __cdecl CFunc_EditedLevels(Scripts::CStruct*, Scripts::CScript* script)
 {
-    if (!script || !script->m_params || Refused())
+    if (!script || !script->m_args || Refused())
         return false;
     std::vector<uint32_t> saved = SavedScenes();
     if (saved.empty())
@@ -1651,11 +1651,11 @@ bool __cdecl CFunc_EditedLevels(Scripts::CStruct*, Scripts::CScript* script)
     std::vector<Scripts::CStruct*> entries;
     std::vector<uint32_t> done;
     for (const char* list : kLists) {
-        Scripts::CArray* array = Scripts::GetArray(list);
-        if (!array || array->m_type != Scripts::QBVAL_STRUCT)
+        Scripts::CArray* array = Scripts::FetchList(list);
+        if (!array || array->m_kindTag != Scripts::QBVAL_STRUCT)
             continue;
-        for (uint32_t i = 0; i < array->m_size; ++i) {
-            auto* entry = reinterpret_cast<Scripts::CStruct*>(array->GetElement(i));
+        for (uint32_t i = 0; i < array->m_extent; ++i) {
+            auto* entry = reinterpret_cast<Scripts::CStruct*>(array->FetchPart(i));
             uint32_t load = 0;
             if (!entry || !entry->ReadHashValue(kLevel, &load, 0))
                 continue;
@@ -1665,31 +1665,31 @@ bool __cdecl CFunc_EditedLevels(Scripts::CStruct*, Scripts::CScript* script)
                 continue;
             done.push_back(level->second.scene);
             const char* text = nullptr;
-            entry->GetString(kText, &text, 0);
+            entry->FetchText(kText, &text, 0);
             // (phase 6 / map4: the edited copy's own name, when its level properties give it one - its title, and the
             // label the overlay's level select draws on its sign: sign_label - tools/pipeline/menu_level/level_select.ts)
             LevelProps::Props props;
             std::string named;
             if (SavedProps(level->second.scene, &props))
                 named = props.name;
-            Scripts::CStruct* copy = Scripts::NewStruct()->Init();
+            Scripts::CStruct* copy = Scripts::NewStruct()->PrepareAll();
             copy->MergeStructure(entry);
             for (const char* flag : kDropped)
                 copy->RemoveFlag(Checksums::HashFromText(flag));
-            copy->AddString(kText, EditedTitle(text, named).c_str());
-            copy->AddString(kSignLabel, SignLabel(named).c_str());
+            copy->AppendWord(kText, EditedTitle(text, named).c_str());
+            copy->AppendWord(kSignLabel, SignLabel(named).c_str());
             copy->PutNameKey(0u, kEditedLayout);
             entries.push_back(copy);
         }
     }
     if (entries.empty())
         return false;
-    Scripts::CArray* array = Scripts::NewArray()->Init();
+    Scripts::CArray* array = Scripts::NewArray()->PrepareAll();
     array->ConfigureSizeKind(static_cast<uint32_t>(entries.size()), Scripts::QBVAL_STRUCT);
     for (size_t i = 0; i < entries.size(); ++i)
         array->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entries[i]));
-    script->m_params->AppendArrayRef("edited_list", array);
-    script->m_params->PutInt("edited_count", static_cast<int>(entries.size()));
+    script->m_args->AppendArrayRef("edited_list", array);
+    script->m_args->PutInt("edited_count", static_cast<int>(entries.size()));
     return true;
 }
 

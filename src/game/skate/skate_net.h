@@ -6,16 +6,16 @@
 
 // The skate module's network side (0x0056C920-0x0056F090): the message handlers it gives the server and client
 // apps - the game's start, the scores, the scavenger hunt, graffiti colours, scripts run on every machine, the
-// other skaters' positions -, the two tasks it runs in the main loop, and StartServer / AddClientHandlers that
+// other skaters' positions -, the two tasks it runs in the main loop, and LaunchHost / AddClientHandlers that
 // register them. GameModules::Skate itself (the singleton at 0x007CE478) isn't rewritten: only the fields used here.
 // From the disassembly; the handlers are __cdecl NetLink::HandlerSlotValue (context in, 1 = carry on; 2 / 3 stop the
 // packet - the client was told to leave; 4 = not handled).
 namespace NetLink {
-struct App;
+struct AppHost;
 struct InboundMsgCtx;
 } // namespace Net
 namespace GameObjects {
-class CObject;
+class CEntity;
 } // namespace Obj
 namespace TaskList {
 class SchedulerTask;
@@ -30,14 +30,14 @@ public:
     void CreateNetworkTasks();
     // 0x00569530: the two deleted (their vtable's scalar deleting destructor).
     void DeleteNetworkTasks();
-    // 0x0056DEE0 (CFunc StartServer): the network manager's server app (0x0053C380; whatever 0x0044E4E0 reports
+    // 0x0056DEE0 (CFunc LaunchHost): the network manager's server app (0x0053C380; whatever 0x0044E4E0 reports
     // is stopped first, 0x005399F0, and the app made with 0 instead of 1); the tasks into the main loop; the
     // server's handlers (and, when it isn't only local, the ones that relay the clients' messages).
-    void StartServer();
+    void LaunchHost();
     // 0x0056EB50 (JoinServer; a split-screen game's second client): the client's handlers, with the skaters'
     // own (their object updates, the score events...) for the skaters of client `index`; client 0 also gets the
     // scavenger hunt's 0x91 / 0x92 / 0x94.
-    void AddClientHandlers(NetLink::App* client, int index);
+    void AddClientHandlers(NetLink::AppHost* client, int index);
 
     // 0x0056C920 (0x51, 0x56): the server removed us ('Q') or moved on without us ('V'): the dialog, then back
     // to the main menu (2 when one is already on its way, otherwise 3 and the game left).
@@ -141,7 +141,7 @@ public:
     static uint32_t __cdecl GetRelayFlags(void* sentRecord, void* stateEntry, uint8_t index);
     // 0x005698F0: skater `object`'s newest state written to `out` (its 16-bit time stamp, the 9 field bits, the
     // changed fields), and recorded as sent.
-    static void __cdecl WriteObjectUpdate(GameObjects::CObject* object, RelayStream* out);
+    static void __cdecl WriteObjectUpdate(GameObjects::CEntity* object, RelayStream* out);
 };
 
 } // namespace Mdl

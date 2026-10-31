@@ -32,7 +32,7 @@ bool __cdecl CFunc_CompositeObjectExists(Scripts::CStruct* params, Scripts::CScr
 
 // The texture dictionary's commands (each finds its texture by the unnamed checksum; true unless noted).
 bool __cdecl CFunc_LoadTexture(Scripts::CStruct* params, Scripts::CScript* script);      // 0x005A9F00 (loaded?)
-// (not original) Whether the texture dictionary has the texture of a file name as LoadTexture / UnloadTexture take it
+// (not original) Whether the texture dictionary has the texture of a file name as IngestSkin / UnloadTexture take it
 // ("folder/name": the dictionary's own name lookup, as UnloadTexture's).
 bool TextureLoaded(const char* file);
 bool __cdecl CFunc_CreateTexture(Scripts::CStruct* params, Scripts::CScript* script);    // 0x005A9F60 (made?)

@@ -27,16 +27,16 @@ namespace GameObjects {
 class CObstacleDodgeModule : public CObjectModule {
 public:
     // 0x004E39E0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x004E3310 (not a Ghidra function; registered with Create): its script member functions (the table at
     // 0x006839E8) registered.
     static void __cdecl PublishMethodTable();
     // 0x004E3660: the base's constructor, its vtable and type. The rest isn't initialised. Returns this.
-    CObstacleDodgeModule* Construct();
+    CObstacleDodgeModule* MakeNew();
     // 0x004E3330: the destructor body (the base's).
     void DestroyBody();
     // 0x004E36C0 (vtable slot 0)
-    CObstacleDodgeModule* Destroy(unsigned int flags);
+    CObstacleDodgeModule* Teardown(unsigned int flags);
 
     // 0x004E34C0: the angle (degrees, as GetAngleInPlane of the display matrix) to the side of the object
     // further from the local skater, across the skater's horizontal velocity.
@@ -45,7 +45,7 @@ public:
     // at, 10 up) can be reached from `start`'s position without a collision, the end `distance` along the turned
     // at becomes `out`'s position. True if it's at least 30 from the local skater ("Too close to skater" printed
     // otherwise) and within `maxDistance` of the stored point (in x and z).
-    bool TryJump(const Maths::Matrix& start, Maths::Matrix& out, float angle, float distance, float maxDistance);
+    bool TryJump(const Maths::Mat4& start, Maths::Mat4& out, float angle, float distance, float maxDistance);
     // 0x004E3340: the jump animation for the quarter `angle` (radians: 0 / 4 ahead, 1 left, 2 back, 3 right)
     // played on the animation blender, flipped when only the other side's is given; its duration kept.
     void PlayJump(float angle, Scripts::CStruct* params);
@@ -73,16 +73,16 @@ public:
     // 0x004E38F0 [0x53BC3B4E]: the motion component's flag 0x4 back as remembered. True.
     bool RestoreMotion(Scripts::CStruct* params, Scripts::CScript* script);
 
-    float m_duration;                // +0x18 the jump animation's
+    float m_lastsFor;                // +0x18 the jump animation's
     Maths::ArcRotationBlender m_slerp;  // +0x1C from where it was to where it lands
     float m_progress;                // +0xB4 along the slerp
-    Maths::Vector m_herdPoint;         // +0xB8
-    Maths::Vector m_aimPoint;            // +0xC8
+    Maths::Vec4 m_herdPoint;         // +0xB8
+    Maths::Vec4 m_aimPoint;            // +0xC8
     bool m_motionHeld;               // +0xD8
     uint8_t padD9[3];
 };
 static_assert(sizeof(Maths::ArcRotationBlender) == 0x98, "layout must match the original");
-static_assert(offsetof(CObstacleDodgeModule, m_duration) == 0x18 && offsetof(CObstacleDodgeModule, m_slerp) == 0x1C &&
+static_assert(offsetof(CObstacleDodgeModule, m_lastsFor) == 0x18 && offsetof(CObstacleDodgeModule, m_slerp) == 0x1C &&
                   offsetof(CObstacleDodgeModule, m_progress) == 0xB4 && offsetof(CObstacleDodgeModule, m_herdPoint) == 0xB8 &&
                   offsetof(CObstacleDodgeModule, m_aimPoint) == 0xC8 && offsetof(CObstacleDodgeModule, m_motionHeld) == 0xD8 &&
                   sizeof(CObstacleDodgeModule) == 0xDC,
@@ -92,6 +92,6 @@ static_assert(offsetof(CObstacleDodgeModule, m_duration) == 0x18 && offsetof(COb
 // distLeft / distBack / distRight / distForward), 0 if not given.
 float AvoidDistance(float angle, Scripts::CStruct* params);
 // 0x004E3930 (`start` in EDI, `end` in ESI): whether the collision feeler hits anything from `start` to `end`.
-bool LineCollides(const Maths::Vector& start, const Maths::Vector& end);
+bool LineCollides(const Maths::Vec4& start, const Maths::Vec4& end);
 
 } // namespace Obj

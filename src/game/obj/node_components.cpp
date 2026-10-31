@@ -44,14 +44,14 @@ Scripts::CArray* NodeArrayOf(CObjectModule* component)
 // --- the node array ---
 
 // 0x00428010
-CObjectModule* __cdecl CWaypointListModule::Create()
+CObjectModule* __cdecl CWaypointListModule::Fabricate()
 {
     auto* component = static_cast<CWaypointListModule*>(MemSys::AllocZeroed(sizeof(CWaypointListModule)));
     if (!component)
         return nullptr;
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kNodeArrayVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     component->m_nodes = nullptr;
     return component;
 }
@@ -64,11 +64,11 @@ void CWaypointListModule::DestroyBody()
 }
 
 // 0x00427EF0
-CWaypointListModule* CWaypointListModule::Destroy(unsigned int flags)
+CWaypointListModule* CWaypointListModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -76,7 +76,7 @@ CWaypointListModule* CWaypointListModule::Destroy(unsigned int flags)
 void CWaypointListModule::ConfigureFromData(Scripts::CStruct* params)
 {
     const char* model = nullptr;
-    if (!params->GetString(kModel, &model, 0))
+    if (!params->FetchText(kModel, &model, 0))
         return;
     char path[0x100];
     std::snprintf(path, sizeof(path), "models\\%s", model); // (the original: strcpy / strcat, unbounded)
@@ -92,21 +92,21 @@ void CWaypointListModule::ConfigureFromData(Scripts::CStruct* params)
 void CWaypointListModule::ReapplyFromData(Scripts::CStruct* params)
 {
     const char* model = nullptr;
-    if (params->GetString(kModel, &model, 0))
+    if (params->FetchText(kModel, &model, 0))
         CObjectModule::ConfigureFromData(params);
 }
 
 // --- the object hooks ---
 
 // 0x00428130
-CObjectModule* __cdecl CHookPointRegistryModule::Create()
+CObjectModule* __cdecl CHookPointRegistryModule::Fabricate()
 {
     auto* component = static_cast<CHookPointRegistryModule*>(MemSys::AllocZeroed(sizeof(CHookPointRegistryModule)));
     if (!component)
         return nullptr;
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kHookManagerVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     component->mp_hooks = nullptr;
     return component;
 }
@@ -117,44 +117,44 @@ void CHookPointRegistryModule::DestroyBody()
     m_vtable = kHookManagerVtable;
     if (CClassNodeList* hooks = mp_hooks) {
         hooks->Clear(); // (its destructor)
-        MemSys::Manager::Get()->Free(hooks);
+        MemSys::Hub::Pull()->Dealloc(hooks);
     }
     CObjectModule::DestroyBody();
 }
 
 // 0x00428220
-CHookPointRegistryModule* CHookPointRegistryModule::Destroy(unsigned int flags)
+CHookPointRegistryModule* CHookPointRegistryModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00428090
 void CHookPointRegistryModule::ConfigureFromData(Scripts::CStruct*)
 {
-    CObjectModule* nodeArray = m_object->GetComponent(CWaypointListModule::kType);
+    CObjectModule* nodeArray = m_entity->FetchModule(CWaypointListModule::kType);
     if (CClassNodeList* hooks = mp_hooks) {
         hooks->Clear();
-        MemSys::Manager::Get()->Free(hooks);
+        MemSys::Hub::Pull()->Dealloc(hooks);
     }
     void* memory = MemSys::AllocZeroed(sizeof(CClassNodeList));
-    mp_hooks = memory ? static_cast<CClassNodeList*>(memory)->Init() : nullptr;
+    mp_hooks = memory ? static_cast<CClassNodeList*>(memory)->PrepareAll() : nullptr;
     mp_hooks->SetNodes(NodeArrayOf(nodeArray));
 }
 
 // --- the rails ---
 
 // 0x0042B920
-CObjectModule* __cdecl CGrindPathLinkModule::Create()
+CObjectModule* __cdecl CGrindPathLinkModule::Fabricate()
 {
     auto* component = static_cast<CGrindPathLinkModule*>(MemSys::AllocZeroed(sizeof(CGrindPathLinkModule)));
     if (!component)
         return nullptr;
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kRailManagerVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     component->m_railGroups = nullptr;
     return component;
 }
@@ -164,43 +164,43 @@ void CGrindPathLinkModule::DestroyBody()
 {
     m_vtable = kRailManagerVtable;
     if (CGrindRailHub* rails = m_railGroups) {
-        rails->Cleanup(); // (its destructor)
-        MemSys::Manager::Get()->Free(rails);
+        rails->TidyUp(); // (its destructor)
+        MemSys::Hub::Pull()->Dealloc(rails);
     }
     CObjectModule::DestroyBody();
 }
 
 // 0x0042BA90
-CGrindPathLinkModule* CGrindPathLinkModule::Destroy(unsigned int flags)
+CGrindPathLinkModule* CGrindPathLinkModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0042B880
 void CGrindPathLinkModule::ConfigureFromData(Scripts::CStruct*)
 {
-    CObjectModule* nodeArray = m_object->GetComponent(CWaypointListModule::kType);
+    CObjectModule* nodeArray = m_entity->FetchModule(CWaypointListModule::kType);
     if (CGrindRailHub* rails = m_railGroups) {
-        rails->Cleanup();
-        MemSys::Manager::Get()->Free(rails);
+        rails->TidyUp();
+        MemSys::Hub::Pull()->Dealloc(rails);
     }
     void* memory = MemSys::AllocZeroed(sizeof(CGrindRailHub));
-    m_railGroups = memory ? static_cast<CGrindRailHub*>(memory)->Init() : nullptr;
+    m_railGroups = memory ? static_cast<CGrindRailHub*>(memory)->PrepareAll() : nullptr;
     m_railGroups->AddFromNodeArray(NodeArrayOf(nodeArray));
 }
 
 // 0x0042BA10
-Maths::Matrix* CGrindPathLinkModule::UpdateRailMatrix(Maths::Matrix* out)
+Maths::Mat4* CGrindPathLinkModule::UpdateRailMatrix(Maths::Mat4* out)
 {
-    Maths::Matrix placement;
-    placement = m_object->m_basisFrame;
+    Maths::Mat4 placement;
+    placement = m_entity->m_basisFrame;
     placement.row[0].w = 0.0f;
     placement.row[1].w = 0.0f;
     placement.row[2].w = 0.0f;
-    const Maths::Vector& pos = m_object->m_pos;
+    const Maths::Vec4& pos = m_entity->m_atPoint;
     placement.row[3] = {pos.x, pos.y, pos.z, 1.0f};
     m_railGroups->SetObjectMatrix(placement);
     *out = placement;
@@ -216,14 +216,14 @@ using GameObjects::CGrindPathLinkModule;
 namespace GameObjects {
 namespace {
 
-static VtableSlot kNodeArrayVtable_slots[] = {&CWaypointListModule::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kNodeArrayVtable_slots[] = {&CWaypointListModule::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          &CWaypointListModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          &CWaypointListModule::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
@@ -231,14 +231,14 @@ static VtableSlot kNodeArrayVtable_slots[] = {&CWaypointListModule::Destroy,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName,
          &OnlinePlay::FoldedGetters::Word18};
 void** const kNodeArrayVtable = reinterpret_cast<void**>(kNodeArrayVtable_slots);
-static VtableSlot kHookManagerVtable_slots[] = {&CHookPointRegistryModule::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kHookManagerVtable_slots[] = {&CHookPointRegistryModule::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          &CHookPointRegistryModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
@@ -246,14 +246,14 @@ static VtableSlot kHookManagerVtable_slots[] = {&CHookPointRegistryModule::Destr
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName,
          &OnlinePlay::FoldedGetters::Word18};
 void** const kHookManagerVtable = reinterpret_cast<void**>(kHookManagerVtable_slots);
-static VtableSlot kRailManagerVtable_slots[] = {&CGrindPathLinkModule::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kRailManagerVtable_slots[] = {&CGrindPathLinkModule::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          &CGrindPathLinkModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

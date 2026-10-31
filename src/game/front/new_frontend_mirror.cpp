@@ -13,7 +13,7 @@ namespace MenuSystem::NewFrontend::Mirror {
 
 namespace {
 
-uint32_t Checksum(const char* name) { return Checksums::HashFromText(name); }
+uint32_t NameHash(const char* name) { return Checksums::HashFromText(name); }
 
 // The longest list restyled (ours scrolls it; past this the game's own is kept - nothing the game makes is that long).
 constexpr size_t kMaxItems = 400;
@@ -28,7 +28,7 @@ std::string Upper(std::string s)
 }
 
 // A trailing ':' and spaces off a label ("Songs:" -> "Songs").
-std::string Label(const std::string& text)
+std::string Caption(const std::string& text)
 {
     std::string s = text;
     while (!s.empty() && (s.back() == ':' || s.back() == ' '))
@@ -44,8 +44,8 @@ const char* KindName(Kind kind)
     case Kind::None: return "";
     case Kind::Dialog: return "dialog";
     case Kind::Skaters: return "skaters";
-    case Kind::List: return "list";
-    case Kind::Pause: return "pause";
+    case Kind::LinkChain: return "list";
+    case Kind::Freeze: return "pause";
     case Kind::Menu: return "menu";
     case Kind::Keyboard: return "keyboard";
     }
@@ -55,7 +55,7 @@ const char* KindName(Kind kind)
 bool OwnMenu(uint32_t menuId)
 {
     // (none any more: the main menu, the career's and Create are the game's menus, restyled - Kind::Menu; the pause
-    // menu too - Kind::Pause. Kept for the policy's shape.)
+    // menu too - Kind::Freeze. Kept for the policy's shape.)
     (void)menuId;
     return false;
 }
@@ -65,11 +65,11 @@ const char* PauseLabel(uint32_t itemId)
     // (the overlay's own items - menu_newfe_restart, menu_newfe_options - are made with these words already; the rest
     // keep the game's text: TEXT MESSAGES, VIEW GOALS, END CURRENT RUN...)
     static const std::pair<uint32_t, const char*> kLabels[] = {
-        {Checksum("menu_continue"), Text::kResume},           {Checksum("menu_retry_goal"), Text::kRetryGoal},
-        {Checksum("menu_newfe_restart"), Text::kRestart},     {Checksum("menu_view_goals"), Text::kViewGoals},
-        {Checksum("menu_chapters"), Text::kViewGoals},        {Checksum("menu_your_options"), Text::kYourOptions},
-        {Checksum("menu_level_select"), Text::kChangeLevel},  {Checksum("menu_level_editor"), Text::kPauseLevelEditor},
-        {Checksum("menu_newfe_options"), Text::kPauseOptions}, {Checksum("menu_skateshop"), Text::kQuitToMenu},
+        {NameHash("menu_continue"), Text::kResume},           {NameHash("menu_retry_goal"), Text::kRetryGoal},
+        {NameHash("menu_newfe_restart"), Text::kRestart},     {NameHash("menu_view_goals"), Text::kViewGoals},
+        {NameHash("menu_chapters"), Text::kViewGoals},        {NameHash("menu_your_options"), Text::kYourOptions},
+        {NameHash("menu_level_select"), Text::kChangeLevel},  {NameHash("menu_level_editor"), Text::kPauseLevelEditor},
+        {NameHash("menu_newfe_options"), Text::kPauseOptions}, {NameHash("menu_skateshop"), Text::kQuitToMenu},
     };
     for (const auto& [id, label] : kLabels)
         if (id == itemId)
@@ -81,24 +81,24 @@ const ItemStyle* MenuItemStyle(uint32_t itemId)
 {
     // (the main menu's items are the overlay's - make_menu_level addNewFrontendMain; the rest the game's own ids)
     static const std::pair<uint32_t, ItemStyle> kStyles[] = {
-        {Checksum("menu_newfe_career"), {"career", Text::kCareer, Text::kCareerHelp, nullptr}},
-        {Checksum("menu_singlesess"), {"freeskate", Text::kFreeSkate, Text::kFreeSkateHelp, nullptr}},
-        {Checksum("menu_net"), {"online", Text::kOnline, Text::kOnlineHelp, nullptr}},
-        {Checksum("menu_createamodes"), {"create", Text::kCreate, Text::kCreateHelp, nullptr}},
-        {Checksum("menu_newfe_options"), {"options", Text::kOptions, Text::kOptionsHelp, nullptr}},
-        {Checksum("menu_quit"), {"quit", Text::kQuit, Text::kQuitHelp, nullptr}},
-        {Checksum("menu_career"), {"thug2story", Text::kStoryThug2, Text::kStoryThug2Help, nullptr}},
-        {Checksum("menu_classic"), {"classic", Text::kClassic, Text::kClassicHelp, nullptr}},
-        {Checksum("menu_newfe_thugstory"), {"thugstory", Text::kStoryThug, Text::kStoryThugHelp, Text::kComingSoon}},
-        {Checksum("ss_continue_story"), {"continue", Text::kContinue, Text::kContinueHelp, nullptr}},
-        {Checksum("ss_new_story"), {"new", nullptr, Text::kNewHelp, nullptr}}, // (label: the mode's - Build)
-        {Checksum("ss_load_story"), {"load", Text::kLoad, Text::kLoadHelp, nullptr}},
-        {Checksum("menu_cas"), {"cas", Text::kCas, Text::kCreateItemHelp, nullptr}},
-        {Checksum("menu_cat"), {"cat", Text::kCat, Text::kCreateItemHelp, nullptr}},
-        {Checksum("menu_creategoals"), {"cag", Text::kCag, Text::kCreateItemHelp, nullptr}},
-        {Checksum("menu_parked"), {"cap", Text::kCap, Text::kCreateItemHelp, nullptr}},
-        {Checksum("menu_cagr"), {"cagr", Text::kCagr, Text::kCreateItemHelp, nullptr}},
-        {Checksum("menu_newfe_editor"), {"editor", Text::kLevelEditor, Text::kCreateItemHelp, nullptr}},
+        {NameHash("menu_newfe_career"), {"career", Text::kCareer, Text::kCareerHelp, nullptr}},
+        {NameHash("menu_singlesess"), {"freeskate", Text::kFreeSkate, Text::kFreeSkateHelp, nullptr}},
+        {NameHash("menu_net"), {"online", Text::kOnline, Text::kOnlineHelp, nullptr}},
+        {NameHash("menu_createamodes"), {"create", Text::kCreate, Text::kCreateHelp, nullptr}},
+        {NameHash("menu_newfe_options"), {"options", Text::kOptions, Text::kOptionsHelp, nullptr}},
+        {NameHash("menu_quit"), {"quit", Text::kQuit, Text::kQuitHelp, nullptr}},
+        {NameHash("menu_career"), {"thug2story", Text::kStoryThug2, Text::kStoryThug2Help, nullptr}},
+        {NameHash("menu_classic"), {"classic", Text::kClassic, Text::kClassicHelp, nullptr}},
+        {NameHash("menu_newfe_thugstory"), {"thugstory", Text::kStoryThug, Text::kStoryThugHelp, Text::kComingSoon}},
+        {NameHash("ss_continue_story"), {"continue", Text::kContinue, Text::kContinueHelp, nullptr}},
+        {NameHash("ss_new_story"), {"new", nullptr, Text::kNewHelp, nullptr}}, // (label: the mode's - Build)
+        {NameHash("ss_load_story"), {"load", Text::kLoad, Text::kLoadHelp, nullptr}},
+        {NameHash("menu_cas"), {"cas", Text::kCas, Text::kCreateItemHelp, nullptr}},
+        {NameHash("menu_cat"), {"cat", Text::kCat, Text::kCreateItemHelp, nullptr}},
+        {NameHash("menu_creategoals"), {"cag", Text::kCag, Text::kCreateItemHelp, nullptr}},
+        {NameHash("menu_parked"), {"cap", Text::kCap, Text::kCreateItemHelp, nullptr}},
+        {NameHash("menu_cagr"), {"cagr", Text::kCagr, Text::kCreateItemHelp, nullptr}},
+        {NameHash("menu_newfe_editor"), {"editor", Text::kLevelEditor, Text::kCreateItemHelp, nullptr}},
     };
     for (const auto& [id, style] : kStyles)
         if (id == itemId)
@@ -108,8 +108,8 @@ const ItemStyle* MenuItemStyle(uint32_t itemId)
 
 bool FrontEndMenu(uint32_t menuId)
 {
-    static const uint32_t kMenus[] = {Checksum("main_vmenu"), Checksum("newfe_career_vmenu"), Checksum("career_options_vmenu"),
-                                      Checksum("main_menu")};
+    static const uint32_t kMenus[] = {NameHash("main_vmenu"), NameHash("newfe_career_vmenu"), NameHash("career_options_vmenu"),
+                                      NameHash("main_menu")};
     for (uint32_t id : kMenus)
         if (id == menuId)
             return true;
@@ -201,7 +201,7 @@ View Build(const MenuRead& read, const Policy& policy)
     view.key = read.menuKey;
     view.overGame = read.inLevel;
 
-    static const uint32_t kSkaterMenu = Checksum("select_skater_hmenu");
+    static const uint32_t kSkaterMenu = NameHash("select_skater_hmenu");
 
     // The rows: every child with words (a dialog's title and text are the menu's first children: not rows).
     auto rowsFrom = [&](bool dialog) {
@@ -234,7 +234,7 @@ View Build(const MenuRead& read, const Policy& policy)
                     }
             if (labelAt >= texts.size())
                 labelAt = 0;
-            row.label = !item.display.empty() ? item.display : texts.empty() ? std::string() : Label(texts[labelAt]);
+            row.label = !item.display.empty() ? item.display : texts.empty() ? std::string() : Caption(texts[labelAt]);
             for (size_t k = 0; k < texts.size(); ++k)
                 if (!item.display.empty() || k != labelAt)
                     row.value += (row.value.empty() ? "" : " \xC2\xB7 ") + texts[k];
@@ -272,18 +272,18 @@ View Build(const MenuRead& read, const Policy& policy)
         rowsFrom(true);
         return view;
     }
-    static const uint32_t kPauseMenu = Checksum("pause_vmenu");
+    static const uint32_t kPauseMenu = NameHash("pause_vmenu");
     if (read.menuId == kPauseMenu) {
         // The pause menu: every item with words, in the game's order (roundbar items carry their bars and a shadow copy
         // of the text - the first text is the label), not-focusable ones dimmed.
-        view.kind = Kind::Pause;
+        view.kind = Kind::Freeze;
         view.title = Text::kTitlePaused;
         for (size_t i = 0; i < read.items.size(); ++i) {
             const ItemRead& item = read.items[i];
             const char* ours = PauseLabel(item.id);
             std::string label = *ours ? std::string(ours) : std::string();
             for (size_t k = 0; label.empty() && k < item.texts.size(); ++k)
-                label = Label(CleanText(item.texts[k]));
+                label = Caption(CleanText(item.texts[k]));
             if (label.empty())
                 continue;
             Row row;
@@ -301,10 +301,10 @@ View Build(const MenuRead& read, const Policy& policy)
         view.bigName = view.selected >= 0 ? view.rows[view.selected].label : view.title;
         return view;
     }
-    if (FrontEndMenu(read.menuId) && !(policy.editor && read.menuId == Checksum("main_menu"))) {
+    if (FrontEndMenu(read.menuId) && !(policy.editor && read.menuId == NameHash("main_menu"))) {
         // A front end menu: every item with words in the game's order, in our words where the style table has the
         // item (its art, the line under the list, a note); the menu's title ours for the ones we know.
-        static const uint32_t kMainMenu = Checksum("main_vmenu"), kCareerMenu = Checksum("newfe_career_vmenu");
+        static const uint32_t kMainMenu = NameHash("main_vmenu"), kCareerMenu = NameHash("newfe_career_vmenu");
         std::string title = CleanText(read.title);
         std::string upper = Upper(title);
         bool classic = upper.find("CLASSIC") != std::string::npos;
@@ -316,7 +316,7 @@ View Build(const MenuRead& read, const Policy& policy)
         } else if (read.menuId == kCareerMenu) {
             view.title = Text::kTitleCareer;
             view.screenArt = "career";
-        } else if (read.menuId == Checksum("career_options_vmenu")) {
+        } else if (read.menuId == NameHash("career_options_vmenu")) {
             view.title = classic ? Text::kTitleClassic : Text::kTitleStory;
             view.screenArt = classic ? "classic" : "story";
         } else if (upper == "CREATE-A-MODES") {
@@ -335,10 +335,10 @@ View Build(const MenuRead& read, const Policy& policy)
             std::string label;
             if (style && style->label)
                 label = style->label;
-            else if (style && item.id == Checksum("ss_new_story"))
+            else if (style && item.id == NameHash("ss_new_story"))
                 label = classic ? Text::kNewClassic : Text::kNewStory;
             for (size_t k = 0; label.empty() && k < item.texts.size(); ++k)
-                label = Label(CleanText(item.texts[k]));
+                label = Caption(CleanText(item.texts[k]));
             if (label.empty())
                 continue;
             Row row;
@@ -444,7 +444,7 @@ View Build(const MenuRead& read, const Policy& policy)
     std::string title = CleanText(read.title);
     if (ExcludedTitle(title))
         return original("a screen left original by its title");
-    view.kind = Kind::List;
+    view.kind = Kind::LinkChain;
     view.title = title;
     view.horizontal = !read.vertical;
     view.editor = policy.editor;
@@ -465,7 +465,7 @@ View Build(const MenuRead& read, const Policy& policy)
     return view;
 }
 
-bool Tracker::Update(const View& now, float dt)
+bool Tracker::TickFrame(const View& now, float dt)
 {
     if (now.kind == Kind::None) {
         m_seen = 0;

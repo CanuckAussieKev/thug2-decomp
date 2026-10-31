@@ -83,11 +83,11 @@ Engine3D::CRenderModel* NewModel(int arg) { return (void)arg, static_cast<Engine
 void DeleteModel(Engine3D::CRenderModel* model) { Engine3D::Engine::DeleteGeomObject(model); }
 void* ModelLights(Engine3D::CRenderModel* model) { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C); }
 void* CloneModelGeom(void* geom, Engine3D::CRenderModel* to) { return static_cast<Engine3D::CGeom*>(geom)->CloneForModel(1, to); }
-void* CloneSectorGeom(void* geom) { return static_cast<Engine3D::CGeom*>(geom)->Clone(1, nullptr); }
+void* CloneSectorGeom(void* geom) { return static_cast<Engine3D::CGeom*>(geom)->Replicate(1, nullptr); }
 void ActivateGeom(void* geom) { reinterpret_cast<void(__thiscall*)(void*, int)>(&Engine3D::VirtualSlot13Jump)(geom, 1); }
 void AddGeom(Engine3D::CRenderModel* model, void* geom, uint32_t name) { model->AddGeom(geom, name, true); }
 // The scale from a structure's scale parameters (0x00487B00, cdecl: false without any).
-bool GetScale(Maths::Vector* scale, Scripts::CStruct* params)
+bool FetchMagnification(Maths::Vec4* scale, Scripts::CStruct* params)
 {
     return Gfx2D::ScaleFromArgs(scale, params);
 }
@@ -106,9 +106,9 @@ void UpdateLightsBrightness(void* lights) { static_cast<Engine3D::CModelLights*>
 // sized and registered (0x0048BEA0), filled from the skeleton's data (0x0048B430).
 void* FindBoneVolumes(uint32_t name) { return Gfx2D::FindBoneVolumes(name); }
 
-// The model builder Gfx (an GameObjects::CObject, vtable 0x00648920, 0x54 bytes, constructor 0x004897D0: use the asset
+// The model builder Gfx (an GameObjects::CEntity, vtable 0x00648920, 0x54 bytes, constructor 0x004897D0: use the asset
 // manager, the texture dictionary offset) that builds a model from a profile with a build script (0x0048A2F0); its
-// destructor is the CObject's.
+// destructor is the CEntity's.
 struct ModelBuilder {
     alignas(16) uint8_t bytes[0x60];
 };
@@ -116,23 +116,23 @@ struct ModelBuilder {
 } // namespace
 
 // 0x00421490
-CObjectModule* __cdecl CMeshInstanceModule::Create()
+CObjectModule* __cdecl CMeshInstanceModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CMeshInstanceModule));
-    return memory ? static_cast<CMeshInstanceModule*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CMeshInstanceModule*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x00420BF0
-CMeshInstanceModule* CMeshInstanceModule::Construct()
+CMeshInstanceModule* CMeshInstanceModule::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kVtable;
-    m_type = kType;
+    m_kindTag = kType;
     m_meshInstance = NewModel(1);
     m_pivot = {0.0f, 0.0f, 0.0f, 1.0f};
     for (CModelSpinAxis& axis : m_twistRate) {
         for (CModelSpin& spin : axis.m_spins)
-            spin.m_flags &= ~(MODEL_SPIN_ON | MODEL_SPIN_HOLD);
+            spin.m_flagBits &= ~(MODEL_SPIN_ON | MODEL_SPIN_HOLD);
         axis.m_active = false;
     }
     m_colorValueCount = 0;
@@ -151,20 +151,20 @@ void CMeshInstanceModule::DestroyBody()
 }
 
 // 0x00420270
-CMeshInstanceModule* CMeshInstanceModule::Destroy(unsigned int flags)
+CMeshInstanceModule* CMeshInstanceModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004204B0
-void CMeshInstanceModule::Finalize()
+void CMeshInstanceModule::Seal()
 {
-    m_boneRig = m_object->GetComponent(kSkeleton);
-    mp_animBlender = m_object->GetComponent(kAnimBlender);
-    mp_suspend = m_object->GetComponent(kSuspend);
+    m_boneRig = m_entity->FetchModule(kSkeleton);
+    mp_animBlender = m_entity->FetchModule(kAnimBlender);
+    mp_suspend = m_entity->FetchModule(kSuspend);
 }
 
 // 0x004214F0
@@ -174,7 +174,7 @@ void CMeshInstanceModule::ConfigureFromData(Scripts::CStruct* params)
         if (!ModelLights(m_meshInstance)) {
             m_meshInstance->CreateLights();
             void* lights = ModelLights(m_meshInstance);
-            static_cast<Engine3D::CModelLights*>(lights)->BindPositionSource(&m_object->m_pos);
+            static_cast<Engine3D::CModelLights*>(lights)->BindPositionSource(&m_entity->m_atPoint);
             int count = 1;
             params->FetchIntValue(kMaxSceneLights, &count, 0);
             *reinterpret_cast<int*>(static_cast<uint8_t*>(lights) + 4) = count; // (0x00407700)
@@ -182,7 +182,7 @@ void CMeshInstanceModule::ConfigureFromData(Scripts::CStruct* params)
     } else if (ModelLights(m_meshInstance)) {
         m_meshInstance->DestroyLights();
     }
-    if (CObjectModule* skeleton = m_object->GetComponent(kSkeleton))
+    if (CObjectModule* skeleton = m_entity->FetchModule(kSkeleton))
         m_meshInstance->ChooseRig(reinterpret_cast<uint8_t*>(SkeletonOf(skeleton)));
     int shadow = 0;
     params->FetchIntValue(kShadowVolume, &shadow, 0);
@@ -191,15 +191,15 @@ void CMeshInstanceModule::ConfigureFromData(Scripts::CStruct* params)
 }
 
 // 0x004219F0
-void CMeshInstanceModule::Update()
+void CMeshInstanceModule::TickFrame()
 {
-    Maths::Matrix matrix;
+    Maths::Mat4 matrix;
     if (m_levelObject) {
         // A level object: its sector's model follows.
-        CGameEntity* object = m_object;
+        CGameEntity* object = m_entity;
         auto* source = static_cast<CGameEntity*>(FindObject(m_linkedEntityLabel));
-        Engine3D::CRenderModel* model = static_cast<CMeshInstanceModule*>(source->GetComponent(kModel))->m_meshInstance;
-        CObjectModule* skeleton = object->GetComponent(kSkeleton);
+        Engine3D::CRenderModel* model = static_cast<CMeshInstanceModule*>(source->FetchModule(kModel))->m_meshInstance;
+        CObjectModule* skeleton = object->FetchModule(kSkeleton);
         GetDrawMatrix(&matrix);
         model->Render(&matrix, false, reinterpret_cast<uint8_t*>(SkeletonOf(skeleton)));
         model->CopyBones(reinterpret_cast<uint8_t*>(SkeletonOf(skeleton)));
@@ -219,21 +219,21 @@ void CMeshInstanceModule::Update()
 // 0x00420480
 void CMeshInstanceModule::JumpTo()
 {
-    CObjectModule::Update(); // (through the vtable)
+    CObjectModule::TickFrame(); // (through the vtable)
     if (m_meshInstance && ModelLights(m_meshInstance))
         UpdateLightsBrightness(ModelLights(m_meshInstance));
 }
 
 // 0x00421360
-void CMeshInstanceModule::SetModel(Engine3D::CRenderModel* model)
+void CMeshInstanceModule::ChangeMesh(Engine3D::CRenderModel* model)
 {
     m_meshInstance = model;
-    if (m_object->m_compositeFlags & COMPOSITE_FLAG_FINALIZED) {
-        CObjectModule::Update();
+    if (m_entity->m_compositeFlags & COMPOSITE_FLAG_FINALIZED) {
+        CObjectModule::TickFrame();
         if (m_meshInstance && ModelLights(m_meshInstance))
             UpdateLightsBrightness(ModelLights(m_meshInstance));
     }
-    Maths::Vector sphere;
+    Maths::Vec4 sphere;
     m_enclosingBall = *model->FetchBoundSphere(&sphere);
 }
 
@@ -243,21 +243,21 @@ void CMeshInstanceModule::SetUpMeshFromProfile(void* profile, bool viaResourceSt
 {
     Engine3D::CRenderModel* model = m_meshInstance;
     void* skeleton = nullptr;
-    if (CObjectModule* component = m_object->GetComponent(kSkeleton))
+    if (CObjectModule* component = m_entity->FetchModule(kSkeleton))
         skeleton = SkeletonOf(component);
     ModelBuilder builder;
-    reinterpret_cast<Gfx2D::CModelAssembler*>(&builder)->Construct(viaResourceStore, texDictOffset);
+    reinterpret_cast<Gfx2D::CModelAssembler*>(&builder)->MakeNew(viaResourceStore, texDictOffset);
     reinterpret_cast<Gfx2D::CModelAssembler*>(&builder)->Build(static_cast<Gfx2D::CModelLook*>(profile), model, static_cast<Gfx2D::CRig*>(skeleton), buildScript ? buildScript : kDefaultBuildScript);
-    if (m_object->m_compositeFlags & COMPOSITE_FLAG_FINALIZED) {
-        CObjectModule::Update();
+    if (m_entity->m_compositeFlags & COMPOSITE_FLAG_FINALIZED) {
+        CObjectModule::TickFrame();
         if (m_meshInstance && ModelLights(m_meshInstance))
             UpdateLightsBrightness(ModelLights(m_meshInstance));
     }
-    Maths::Vector sphere;
+    Maths::Vec4 sphere;
     m_enclosingBall = *model->FetchBoundSphere(&sphere);
     if (Scripts::FetchIntValue(kBoneVolumesOn))
         InitBoneVolumes();
-    reinterpret_cast<CObject*>(&builder)->DestroyBody();
+    reinterpret_cast<CEntity*>(&builder)->DestroyBody();
 }
 
 // 0x0041FFA0
@@ -279,13 +279,13 @@ void CMeshInstanceModule::InitFromSector(uint32_t name)
 void CMeshInstanceModule::InitBoneVolumes()
 {
     if (!m_boneRig) {
-        m_boneRig = m_object->GetComponent(kSkeleton);
+        m_boneRig = m_entity->FetchModule(kSkeleton);
         if (!m_boneRig)
             return;
     }
     if (m_meshInstance->GetBoneVolumes())
         return;
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->GetNamedHeap(kBoneVolumeHeap, 1));
     void* skeleton = SkeletonOf(m_boneRig);
     void* data = SkeletonData(skeleton);
@@ -294,22 +294,22 @@ void CMeshInstanceModule::InitBoneVolumes()
         ++*reinterpret_cast<int*>(static_cast<uint8_t*>(volumes) + 8); // (another user)
     } else {
         // Made and registered for the skeleton - but not given to this model (the original's): the next one finds it.
-        void* made = MemSys::New(0x0C);
+        void* made = MemSys::Alloc(0x0C);
         if (made)
-            made = static_cast<Gfx2D::CBoneVolumes*>(made)->Construct(0);
-        static_cast<Gfx2D::CBoneVolumes*>(made)->Register(SkeletonName(skeleton));
+            made = static_cast<Gfx2D::CBoneVolumes*>(made)->MakeNew(0);
+        static_cast<Gfx2D::CBoneVolumes*>(made)->Enrol(SkeletonName(skeleton));
         static_cast<Gfx2D::CBoneVolumes*>(made)->Fill(static_cast<Gfx2D::CRigData*>(data));
     }
     m_meshInstance->SetBoneVolumes(reinterpret_cast<uint8_t*>(volumes));
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
 }
 
 // 0x00420D10
 void CMeshInstanceModule::SetUpMesh(Scripts::CStruct* params)
 {
     m_meshInstance->DropGeoms();
-    Maths::Vector scale = {1.0f, 1.0f, 1.0f, 1.0f};
-    if (GetScale(&scale, params))
+    Maths::Vec4 scale = {1.0f, 1.0f, 1.0f, 1.0f};
+    if (FetchMagnification(&scale, params))
         m_meshInstance->ChangeScale(&scale);
     uint32_t type = 0;
     params->ReadHashValue(kClass, &type, 0);
@@ -335,7 +335,7 @@ void CMeshInstanceModule::SetUpMesh(Scripts::CStruct* params)
         } else if (params->ReadHashValue(kCloneFrom, &name, 0)) {
             // Another object's model's geoms cloned (and its colour values).
             auto* object = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(name));
-            auto* source = static_cast<CMeshInstanceModule*>(object->GetComponent(kModel));
+            auto* source = static_cast<CMeshInstanceModule*>(object->FetchModule(kModel));
             m_colorValueCount = source->m_colorValueCount;
             for (int i = 0; i < m_colorValueCount; ++i)
                 m_colorValues[i] = source->m_colorValues[i];
@@ -348,9 +348,9 @@ void CMeshInstanceModule::SetUpMesh(Scripts::CStruct* params)
                 void* clone = CloneModelGeom(geom, m_meshInstance);
                 ActivateGeom(clone);
                 AddGeom(m_meshInstance, clone, meshLabel);
-            } else if (params->GetArray(kGeoms, &geoms, 0)) {
-                for (uint32_t i = 0; i < geoms->m_size; ++i) {
-                    meshLabel = geoms->GetElement(i);
+            } else if (params->FetchList(kGeoms, &geoms, 0)) {
+                for (uint32_t i = 0; i < geoms->m_extent; ++i) {
+                    meshLabel = geoms->FetchPart(i);
                     if (!meshLabel)
                         continue;
                     void* geom = source->m_meshInstance->GetGeomByName(meshLabel);
@@ -369,7 +369,7 @@ void CMeshInstanceModule::SetUpMesh(Scripts::CStruct* params)
             }
         } else {
             const char* file;
-            if (params->GetString(kModel, &file, false) || params->GetString(kModelName, &file, false)) {
+            if (params->FetchText(kModel, &file, false) || params->FetchText(kModelName, &file, false)) {
                 // A model file (unless it's the "none" name).
                 if (Checksums::HashFromText(file) != kNoModel) {
                     char path[0x200];
@@ -392,12 +392,12 @@ void CMeshInstanceModule::SetUpMesh(Scripts::CStruct* params)
             }
         }
     }
-    if (m_object->m_compositeFlags & COMPOSITE_FLAG_FINALIZED) {
-        CObjectModule::Update();
+    if (m_entity->m_compositeFlags & COMPOSITE_FLAG_FINALIZED) {
+        CObjectModule::TickFrame();
         if (m_meshInstance && ModelLights(m_meshInstance))
             UpdateLightsBrightness(ModelLights(m_meshInstance));
     }
-    Maths::Vector sphere;
+    Maths::Vec4 sphere;
     m_enclosingBall = *m_meshInstance->FetchBoundSphere(&sphere);
     if (Scripts::FetchIntValue(kBoneVolumesOn))
         InitBoneVolumes();
@@ -408,21 +408,21 @@ void CMeshInstanceModule::SetUpMesh(Scripts::CStruct* params)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CMeshInstanceModule::Destroy,
-         &GameObjects::CMeshInstanceModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CMeshInstanceModule::Teardown,
+         &GameObjects::CMeshInstanceModule::TickFrame,
          &GameObjects::CMeshInstanceModule::ConfigureFromData,
-         &GameObjects::CMeshInstanceModule::Finalize,
+         &GameObjects::CMeshInstanceModule::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
-         &GameObjects::CMeshInstanceModule::Hide,
+         &GameObjects::CObjectModule::HoldOff,
+         &GameObjects::CMeshInstanceModule::Conceal,
          &GameObjects::CMeshInstanceModule::JumpTo,
          Stubs::IgnoreArgument,
          static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
          &GameObjects::CMeshInstanceModule::InvokeMethodByName,
          &GameObjects::CMeshInstanceModule::SetUpMeshFromProfile,
-         &GameObjects::CMeshInstanceModule::SetModel};
+         &GameObjects::CMeshInstanceModule::ChangeMesh};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

@@ -9,7 +9,7 @@
 namespace Maths {
 
 // 0x00402320
-Vector& Vector::operator=(const Vector& other)
+Vec4& Vec4::operator=(const Vec4& other)
 {
     x = other.x;
     y = other.y;
@@ -19,13 +19,13 @@ Vector& Vector::operator=(const Vector& other)
 }
 
 // 0x00402310
-float& Vector::operator[](int index)
+float& Vec4::operator[](int index)
 {
     return (&x)[index];
 }
 
 // 0x00402340
-Vector& Vector::operator+=(const Vector& other)
+Vec4& Vec4::operator+=(const Vec4& other)
 {
     x += other.x;
     y += other.y;
@@ -35,7 +35,7 @@ Vector& Vector::operator+=(const Vector& other)
 }
 
 // 0x00406050
-Vector& Vector::operator-=(const Vector& other)
+Vec4& Vec4::operator-=(const Vec4& other)
 {
     x -= other.x;
     y -= other.y;
@@ -45,7 +45,7 @@ Vector& Vector::operator-=(const Vector& other)
 }
 
 // 0x00406080
-Vector& Vector::FlattenOntoPlane(const Vector& normal)
+Vec4& Vec4::FlattenOntoPlane(const Vec4& normal)
 {
     // All products are taken before writing, so this also works when `normal` is this vector. As the original's x87
     // code: the dot product and x's part along the normal stay in double; the other parts are rounded to floats
@@ -64,16 +64,16 @@ Vector& Vector::FlattenOntoPlane(const Vector& normal)
 
 // 0x004060F0
 // (The original relies on FlattenOntoPlane leaving EDX alone; with both rewritten that no longer matters.)
-Vector& Vector::AlignToPlane(const Vector& normal)
+Vec4& Vec4::AlignToPlane(const Vec4& normal)
 {
-    float length = Length();
+    float length = LenOf();
     FlattenOntoPlane(normal);
-    if (Length() == 0.0f) {
+    if (LenOf() == 0.0f) {
         x = -normal.z;
         y = normal.x;
         z = -normal.y;
     }
-    Normalize();
+    MakeUnit();
     x *= length;
     y *= length;
     z *= length;
@@ -82,7 +82,7 @@ Vector& Vector::AlignToPlane(const Vector& normal)
 }
 
 // 0x004061A0
-Vector& Vector::SetDirection(const Vector& direction)
+Vec4& Vec4::ChangeHeading(const Vec4& direction)
 {
     float length = std::sqrt(z * z + y * y + x * x);
     *this = {length * direction.x, length * direction.y, length * direction.z, length * direction.w};
@@ -90,7 +90,7 @@ Vector& Vector::SetDirection(const Vector& direction)
 }
 
 // 0x00406200
-Vector& Vector::ProjectOnto(const Vector& axis)
+Vec4& Vec4::ProjectOnto(const Vec4& axis)
 {
     // As the original's x87 code: the dot product stays in double, each component rounded once.
     double dot = (static_cast<double>(axis.x) * x + static_cast<double>(z) * axis.z) + static_cast<double>(y) * axis.y;
@@ -100,13 +100,13 @@ Vector& Vector::ProjectOnto(const Vector& axis)
 }
 
 // 0x00405FA0
-void Vector::Print() const
+void Vec4::EchoOut() const
 {
     DebugOut::Printf("[%f %f %f %f]\n", x, y, z, w);
 }
 
 // 0x00406260
-float Vector::DominantAxisIndex(int* axis) const
+float Vec4::DominantAxisIndex(int* axis) const
 {
     int index;
     if (std::fabs(y) <= std::fabs(x))
@@ -119,7 +119,7 @@ float Vector::DominantAxisIndex(int* axis) const
 }
 
 // 0x00402370
-Vector& Vector::operator*=(float scale)
+Vec4& Vec4::operator*=(float scale)
 {
     x *= scale;
     y *= scale;
@@ -129,19 +129,19 @@ Vector& Vector::operator*=(float scale)
 }
 
 // 0x004023A0
-float Vector::MagnitudeSquared() const
+float Vec4::MagnitudeSquared() const
 {
     return x * x + y * y + z * z;
 }
 
 // 0x004023C0
-float Vector::Length() const
+float Vec4::LenOf() const
 {
     return std::sqrt(MagnitudeSquared());
 }
 
 // 0x004023F0
-Vector& Vector::Normalize()
+Vec4& Vec4::MakeUnit()
 {
     // As the original's x87 code: the length and its inverse stay in double precision; each component is rounded
     // once.
@@ -156,7 +156,7 @@ Vector& Vector::Normalize()
 }
 
 // 0x00405EB0
-Vector& Vector::TurnQuarterAboutY(int quarter_turns)
+Vec4& Vec4::TurnQuarterAboutY(int quarter_turns)
 {
     float old_x = x;
     switch (quarter_turns) {
@@ -177,7 +177,7 @@ Vector& Vector::TurnQuarterAboutY(int quarter_turns)
 }
 
 // 0x00405EF0
-void Vector::DegreeToRadianConv()
+void Vec4::DegreeToRadianConv()
 {
     constexpr float kScale = 0.0174532925f; // pi / 180
     x *= kScale;
@@ -186,7 +186,7 @@ void Vector::DegreeToRadianConv()
 }
 
 // 0x00405F20
-void Vector::ConvertToDegrees()
+void Vec4::ConvertToDegrees()
 {
     constexpr float kScale = 57.2957763671875f; // 180 / pi as the exe stores it (0x00645468: 0x42652EE0, one below
                                                 // the nearest float, 57.2957795f)
@@ -196,7 +196,7 @@ void Vector::ConvertToDegrees()
 }
 
 // 0x00405F50
-void Vector::FeetAsInches()
+void Vec4::FeetAsInches()
 {
     x *= 12.0f;
     y *= 12.0f;
@@ -204,7 +204,7 @@ void Vector::FeetAsInches()
 }
 
 // 0x00405F80
-void Vector::NegateXRotateX90()
+void Vec4::NegateXRotateX90()
 {
     float prevY = y;
     x = -x;
@@ -213,43 +213,43 @@ void Vector::NegateXRotateX90()
 }
 
 // 0x00402440
-Vector operator+(const Vector& a, const Vector& b)
+Vec4 operator+(const Vec4& a, const Vec4& b)
 {
     return {a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w};
 }
 
 // 0x00402470
-Vector operator-(const Vector& a, const Vector& b)
+Vec4 operator-(const Vec4& a, const Vec4& b)
 {
     return {a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w};
 }
 
 // 0x004024A0
-Vector operator*(const Vector& v, float scale)
+Vec4 operator*(const Vec4& v, float scale)
 {
     return {v.x * scale, v.y * scale, v.z * scale, v.w * scale};
 }
 
 // 0x004024D0
-Vector operator*(float scale, const Vector& v)
+Vec4 operator*(float scale, const Vec4& v)
 {
     return v * scale;
 }
 
 // 0x00402500
-Vector operator-(const Vector& v)
+Vec4 operator-(const Vec4& v)
 {
     return {-v.x, -v.y, -v.z, -v.w};
 }
 
 // 0x00402530
-float DotProduct(const Vector& a, const Vector& b)
+float DotVec(const Vec4& a, const Vec4& b)
 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
 // 0x00402550 (each difference of products rounded once, as the original's x87 code does)
-Vector CrossProduct(const Vector& a, const Vector& b)
+Vec4 CrossVec(const Vec4& a, const Vec4& b)
 {
     auto term = [](float p, float q, float r, float s) {
         return static_cast<float>(static_cast<double>(p) * q - static_cast<double>(r) * s);
@@ -258,22 +258,22 @@ Vector CrossProduct(const Vector& a, const Vector& b)
 }
 
 // 0x00402600
-Line::Line(const Vector& from, const Vector& to) : start(from), end(to) {}
+Seg::Seg(const Vec4& from, const Vec4& to) : start(from), end(to) {}
 
 // 0x004A86D0
-bool Vector::operator!=(const Vector& other) const
+bool Vec4::operator!=(const Vec4& other) const
 {
     return other.x != x || other.y != y || other.z != z || other.w != w;
 }
 
 // 0x0040AED0 (all four components exactly; NaN is unequal)
-bool Vector::operator==(const Vector& other) const
+bool Vec4::operator==(const Vec4& other) const
 {
     return x == other.x && y == other.y && z == other.z && w == other.w;
 }
 
 // 0x0040AF20 (x87: the reciprocal rounded to a float for x, y, z; w is multiplied by the unrounded one)
-Vector operator/(const Vector& v, float divisor)
+Vec4 operator/(const Vec4& v, float divisor)
 {
     double inverse = 1.0 / static_cast<double>(divisor);
     float rounded = static_cast<float>(inverse);
@@ -281,7 +281,7 @@ Vector operator/(const Vector& v, float divisor)
 }
 
 // 0x00423650
-Vector& Vector::operator/=(float divisor)
+Vec4& Vec4::operator/=(float divisor)
 {
     double inverse = 1.0 / static_cast<double>(divisor);
     x = static_cast<float>(inverse * x);
@@ -292,7 +292,7 @@ Vector& Vector::operator/=(float divisor)
 }
 
 // 0x00423680
-double GetDistance(const Vector& a, const Vector& b)
+double GetDistance(const Vec4& a, const Vec4& b)
 {
     double dx = static_cast<double>(a.x) - b.x;
     double dy = static_cast<double>(a.y) - b.y;
@@ -301,7 +301,7 @@ double GetDistance(const Vector& a, const Vector& b)
 }
 
 // 0x00406560
-bool IsAngleBeyond(const Vector& a, const Vector& b, float degrees)
+bool IsAngleBeyond(const Vec4& a, const Vec4& b, float degrees)
 {
     double lengthA = std::sqrt((static_cast<double>(a.x) * a.x + static_cast<double>(a.y) * a.y) +
                                static_cast<double>(a.z) * a.z);
@@ -335,7 +335,7 @@ double ClampedCosine(double dot)
 
 // 0x00406460 (x87 code: the lengths, the unit vectors and the dot product in double, the dot product rounded to a
 // float; the result is returned unrounded in ST0)
-double ReadTurnAngle(const Vector& a, const Vector& b)
+double ReadTurnAngle(const Vec4& a, const Vec4& b)
 {
     double ax = a.x, ay = a.y, az = a.z;
     double length = std::sqrt((az * az + ax * ax) + ay * ay);
@@ -357,9 +357,9 @@ double ReadTurnAngle(const Vector& a, const Vector& b)
 }
 
 // 0x00406630
-double GetTurnAroundAxis(const Vector& a, const Vector& b, const Vector& axis)
+double GetTurnAroundAxis(const Vec4& a, const Vec4& b, const Vec4& axis)
 {
-    Vector normal = axis;
+    Vec4 normal = axis;
     double length = std::sqrt((static_cast<double>(normal.z) * normal.z + static_cast<double>(normal.y) * normal.y) +
                               static_cast<double>(normal.x) * normal.x);
     if (length > 0.0) {
@@ -368,8 +368,8 @@ double GetTurnAroundAxis(const Vector& a, const Vector& b, const Vector& axis)
         normal.y = static_cast<float>(normal.y * scale);
         normal.z = static_cast<float>(normal.z * scale);
     }
-    Vector from = a;
-    Vector to = b;
+    Vec4 from = a;
+    Vec4 to = b;
     from.FlattenOntoPlane(normal);
     to.FlattenOntoPlane(normal);
     length = std::sqrt((static_cast<double>(from.z) * from.z + static_cast<double>(from.y) * from.y) +
@@ -399,7 +399,7 @@ double GetTurnAroundAxis(const Vector& a, const Vector& b, const Vector& axis)
 }
 
 // 0x0041A820
-double DistanceSquared(const Vector& a, const Vector& b)
+double DistanceSquared(const Vec4& a, const Vec4& b)
 {
     double dx = static_cast<double>(a.x) - b.x;
     double dy = static_cast<double>(a.y) - b.y;
@@ -414,20 +414,20 @@ double DistanceSquared(const Vector& a, const Vector& b)
 // originals. Free functions returning a Vector use the hidden result pointer, as the originals do.
 namespace {
 
-using Maths::Vector;
+using Maths::Vec4;
 
 struct VectorAdapter {
-    Vector* ConstructPoint(float x, float y, float z)
+    Vec4* ConstructPoint(float x, float y, float z)
     {
-        *reinterpret_cast<Vector*>(this) = {x, y, z, 1.0f};
-        return reinterpret_cast<Vector*>(this);
+        *reinterpret_cast<Vec4*>(this) = {x, y, z, 1.0f};
+        return reinterpret_cast<Vec4*>(this);
     }
 };
 
 struct LineAdapter {
-    Maths::Line* Construct(const Vector& start, const Vector& end)
+    Maths::Seg* MakeNew(const Vec4& start, const Vec4& end)
     {
-        return new (this) Maths::Line(start, end);
+        return new (this) Maths::Seg(start, end);
     }
 };
 

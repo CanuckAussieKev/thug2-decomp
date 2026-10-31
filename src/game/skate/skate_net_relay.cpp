@@ -116,12 +116,12 @@ constexpr uint32_t kSentCheats[] = {
     0xD5982173, // NO_G_DISPLAY_BALANCE
 };
 
-OnlinePlay::Manager* NetLink() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetLink() { return OnlinePlay::g_gameNetManager; }
 GoalSystem::CMatchRules* GameMode() { return GoalSystem::g_gameMode; }
 GameObjects::CObjectHubBase* ObjectManager() { return reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager); }
 
 template <typename T>
-T& Field(const void* object, uint32_t offset)
+T& Prop(const void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
@@ -132,13 +132,13 @@ R Call(uint32_t address, const void* object, A... args)
     return reinterpret_cast<R(__thiscall*)(const void*, A...)>(address)(object, args...);
 }
 
-PlayerRecord* Info(uint8_t* player) { return reinterpret_cast<PlayerRecord*>(player); }
-PlayerRecord* ByConnection(NetLink::Conn* conn) { return Info(NetLink()->PlayerByConnection(conn)); }
-PlayerRecord* ByObjectId(int id) { return Info(NetLink()->PlayerByObjectId(static_cast<uint16_t>(id))); }
+PlayerRecord* DetailsOf(uint8_t* player) { return reinterpret_cast<PlayerRecord*>(player); }
+PlayerRecord* ByConnection(NetLink::Conn* conn) { return DetailsOf(NetLink()->PlayerByConnection(conn)); }
+PlayerRecord* ByObjectId(int id) { return DetailsOf(NetLink()->PlayerByObjectId(static_cast<uint16_t>(id))); }
 // An object id from a message byte (signed, as the original reads it).
 int IdByte(const uint8_t* data, int offset) { return static_cast<int8_t>(data[offset]); }
 
-// ListKit::Search<PlayerRecord> (vtable 0x0064C1A8) for the network manager's BeginPlayerWalk / StepPlayerWalk.
+// ListKit::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the network manager's BeginPlayerWalk / StepPlayerWalk.
 struct PlayerSearch {
     void** m_vtable = GameModules::kPlayerSearchVtable;
     void* m_listLink = nullptr;
@@ -152,21 +152,21 @@ void Sequence(NetLink::NetMessageInfo& desc, uint8_t group)
     desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = group;
 }
-void Enqueue(NetLink::App* app, PlayerRecord* player, NetLink::NetMessageInfo* desc)
+void Enqueue(NetLink::AppHost* app, PlayerRecord* player, NetLink::NetMessageInfo* desc)
 {
     int handle = player->GetLinkHandle();
     app->PutOnOutbox(handle, desc);
 }
-NetLink::App* ServerApp() { return reinterpret_cast<NetLink::App*>(NetLink()->m_server); }
+NetLink::AppHost* ServerApp() { return reinterpret_cast<NetLink::AppHost*>(NetLink()->m_host); }
 
 GameObjects::CRider* SkaterOf(PlayerRecord* player) { return player->m_skater; }
-uint8_t SkaterId(GameObjects::CRider* skater) { return Field<uint8_t>(skater, 0x14); }
-Score* ScoreOf(GameObjects::CRider* skater) { return static_cast<Score*>(skater->GetPointsTotal()); }
+uint8_t SkaterId(GameObjects::CRider* skater) { return Prop<uint8_t>(skater, 0x14); }
+PointTally* ScoreOf(GameObjects::CRider* skater) { return static_cast<PointTally*>(skater->GetPointsTotal()); }
 
 CStruct* NewStructure()
 {
     CStruct* memory = Scripts::NewStruct();
-    return memory ? memory->Init() : nullptr;
+    return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteStructure(CStruct* structure)
 {
@@ -179,22 +179,22 @@ void DeleteStructure(CStruct* structure)
 // A skater's state history (+0x27C) and its newest state / message.
 GameObjects::CRiderFrameLog* History(const void* object)
 {
-    return Field<GameObjects::CRiderFrameLog*>(object, 0x27C);
+    return Prop<GameObjects::CRiderFrameLog*>(object, 0x27C);
 }
-int& MessageCount(GameObjects::CRiderFrameLog* history) { return Field<int>(history, 0xA6C); }
+int& MessageCount(GameObjects::CRiderFrameLog* history) { return Prop<int>(history, 0xA6C); }
 // The newest message slot made a message of `id`, stamped with the newest state's time.
 GameObjects::StateHistoryMessage* NewMessage(GameObjects::CRiderFrameLog* history, uint8_t id)
 {
     GameObjects::StateHistoryMessage* message = history->GetLatestMessage();
-    message->m_id = id;
+    message->m_ident = id;
     auto* state = reinterpret_cast<GameObjects::SkaterStateHistoryFrame*>(history->GetLatestState());
-    message->SetTime(state->GetTime());
+    message->ChangeMoment(state->GetTime());
     return message;
 }
 template <typename T>
 T& At(GameObjects::StateHistoryMessage* message, uint32_t offset)
 {
-    return Field<T>(message, offset);
+    return Prop<T>(message, offset);
 }
 float Scaled(uint32_t value, float constant)
 {
@@ -205,8 +205,8 @@ float Scaled(uint32_t value, float constant)
 void Relay(NetLink::NetMessageInfo& desc, const NetLink::InboundMsgCtx* context)
 {
     desc.m_byteCount = static_cast<uint16_t>(context->m_bodySize);
-    desc.m_data = context->m_body;
-    desc.m_id = context->m_typeCode;
+    desc.m_content = context->m_body;
+    desc.m_ident = context->m_typeCode;
 }
 
 } // namespace
@@ -217,14 +217,14 @@ void Relay(NetLink::NetMessageInfo& desc, const NetLink::InboundMsgCtx* context)
 void SkateNet::ServerTask(TaskList::SchedulerTask* /*task*/)
 {
     PlayerSearch search;
-    NetLink::App* server = ServerApp();
+    NetLink::AppHost* server = ServerApp();
     uint8_t buffer[0x1000];
     for (PlayerRecord* player = search.First(true); player; player = search.Next(true)) {
         RelayStream out;
-        if (!player->m_conn->IsRemote())
+        if (!player->m_conn->IsOffMachine())
             continue;
         out.m_feed.BindOutputBuffer(buffer, sizeof(buffer));
-        out.m_unknown18 = static_cast<uint32_t>(player->m_conn->m_handle);
+        out.m_unknown18 = static_cast<uint32_t>(player->m_conn->m_hdl);
         out.m_sent = player;
         uint32_t mask = 0;
         int count = 0;
@@ -235,16 +235,16 @@ void SkateNet::ServerTask(TaskList::SchedulerTask* /*task*/)
             PlayerRecord* other = ByObjectId(id);
             if (!other)
                 continue;
-            other = ByObjectId(static_cast<int>(Field<uint32_t>(SkaterOf(other), 0x14)));
+            other = ByObjectId(static_cast<int>(Prop<uint32_t>(SkaterOf(other), 0x14)));
             if (!other || other == player)
                 continue;
             GameObjects::CRider* skater = SkaterOf(other);
             auto* history = History(skater);
-            int states = Field<int>(history, 0x18);
+            int states = Prop<int>(history, 0x18);
             if (!states)
                 continue;
-            uint16_t newest = Field<uint16_t>(history, 0x1C + ((states - 1) % 20) * 0x84 + 0x78);
-            if (newest == Field<uint32_t>(player, 0x70 + Field<uint32_t>(skater, 0x14) * 4))
+            uint16_t newest = Prop<uint16_t>(history, 0x1C + ((states - 1) % 20) * 0x84 + 0x78);
+            if (newest == Prop<uint32_t>(player, 0x70 + Prop<uint32_t>(skater, 0x14) * 4))
                 continue;
             mask |= 1u << id;
             if (++count >= player->GetSkatersPerUpdate())
@@ -256,17 +256,17 @@ void SkateNet::ServerTask(TaskList::SchedulerTask* /*task*/)
         for (int i = 0; i < 8; ++i) {
             if (!(mask & (1u << i)))
                 continue;
-            WriteObjectUpdate(reinterpret_cast<GameObjects::CObject*>(SkaterOf(ByObjectId(i))), &out);
+            WriteObjectUpdate(reinterpret_cast<GameObjects::CEntity*>(SkaterOf(ByObjectId(i))), &out);
             player->SetLastSentSkater(i);
         }
-        out.m_feed.Flush();
+        out.m_feed.Drain();
         int size = out.m_feed.GetByteCount();
         if (size) {
             NetLink::NetMessageInfo desc;
-            desc.Construct();
-            desc.m_data = buffer;
+            desc.MakeNew();
+            desc.m_content = buffer;
             desc.m_byteCount = static_cast<uint16_t>(size);
-            desc.m_id = 0x23;
+            desc.m_ident = 0x23;
             Enqueue(server, player, &desc);
         }
     }
@@ -275,11 +275,11 @@ void SkateNet::ServerTask(TaskList::SchedulerTask* /*task*/)
 // 0x0056BE10
 void SkateNet::ScoreTask(TaskList::SchedulerTask* task)
 {
-    auto* skate = Field<Skate*>(task, 0x1C);
-    OnlinePlay::Manager* net = NetLink();
+    auto* skate = Prop<Skate*>(task, 0x1C);
+    OnlinePlay::Hub* net = NetLink();
     if (!net->KeepsScore())
         return;
-    NetLink::App* server = ServerApp();
+    NetLink::AppHost* server = ServerApp();
     if (server->m_clock - net->GetLastScoreUpdate() >= 2000)
         skate->BroadcastPoints(false);
 }
@@ -289,14 +289,14 @@ void SkateNet::ScoreTask(TaskList::SchedulerTask* task)
 // 0x00569E20
 int SkateNet::HandleTrickObjects(NetLink::InboundMsgCtx* context)
 {
-    OnlinePlay::Manager* net = NetLink();
+    OnlinePlay::Hub* net = NetLink();
     PlayerRecord* player = ByConnection(context->m_senderConn);
     if (!player)
         return 4;
-    Score* score = ScoreOf(SkaterOf(player));
+    PointTally* score = ScoreOf(SkaterOf(player));
     auto* data = reinterpret_cast<uint8_t*>(context->m_body);
     if (static_cast<int8_t>(data[0]) == 1 && data[0xA] == net->GetGameId())
-        score->NoteTaggedProp(Field<int>(data, 0xC), Field<int>(data, 0x10), Field<uint32_t>(data, 0x14),
+        score->NoteTaggedProp(Prop<int>(data, 0xC), Prop<int>(data, 0x10), Prop<uint32_t>(data, 0x14),
                               reinterpret_cast<uint32_t*>(data + 0x18), true);
     return 1;
 }
@@ -304,29 +304,29 @@ int SkateNet::HandleTrickObjects(NetLink::InboundMsgCtx* context)
 // 0x00569E90
 int SkateNet::HandleGameStats(NetLink::InboundMsgCtx* context)
 {
-    OnlinePlay::Manager* net = NetLink();
+    OnlinePlay::Hub* net = NetLink();
     PlayerRecord* player = ByConnection(context->m_senderConn);
     if (!player)
         return 4;
     auto* data = reinterpret_cast<uint8_t*>(context->m_body);
     if (GameMode()->GetNameKey() == kNetLobby || net->GetGameId() != data[0])
         return 4;
-    player->m_unknown24 = Field<uint32_t>(data, 4);
+    player->m_unknown24 = Prop<uint32_t>(data, 4);
     return 1;
 }
 
 // 0x00569EF0
 int SkateNet::HandleComboScore(NetLink::InboundMsgCtx* context)
 {
-    OnlinePlay::Manager* net = NetLink();
+    OnlinePlay::Hub* net = NetLink();
     PlayerRecord* player = ByConnection(context->m_senderConn);
     if (!player || !SkaterOf(player))
         return 4;
     auto* data = reinterpret_cast<uint8_t*>(context->m_body);
     if (net->GetGameId() != data[0])
         return 4;
-    int combo = Field<int>(data, 4);
-    Score* score = ScoreOf(SkaterOf(player));
+    int combo = Prop<int>(data, 4);
+    PointTally* score = ScoreOf(SkaterOf(player));
     if (combo > score->m_topChain)
         score->m_topChain = combo;
     GoalSystem::CMatchRules* mode = GameMode();
@@ -347,7 +347,7 @@ int SkateNet::HandlePlayerValue48(NetLink::InboundMsgCtx* context)
     PlayerRecord* player = ByConnection(context->m_senderConn);
     if (!player)
         return 4;
-    player->m_unknown48 = Field<uint32_t>(context->m_body, 4);
+    player->m_unknown48 = Prop<uint32_t>(context->m_body, 4);
     return 1;
 }
 
@@ -360,7 +360,7 @@ int SkateNet::HandleRelay(NetLink::InboundMsgCtx* context)
         return 4;
     for (PlayerRecord* player = search.First(true); player; player = search.Next(true)) {
         NetLink::NetMessageInfo desc;
-        desc.Construct();
+        desc.MakeNew();
         if (player == sender)
             continue;
         Relay(desc, context);
@@ -379,10 +379,10 @@ int SkateNet::HandleRelay(NetLink::InboundMsgCtx* context)
             if (mode != kFirefight && GameMode()->GetNameKey() != kNetFirefight)
                 break;
             uint8_t* msg = reinterpret_cast<uint8_t*>(context->m_body);
-            if (!(Field<float>(msg, 0x30) <= 10.0f) || Field<int>(msg, 0x2C) > 0xF0)
+            if (!(Prop<float>(msg, 0x30) <= 10.0f) || Prop<int>(msg, 0x2C) > 0xF0)
                 break;
             msg[0x34] = SkaterId(SkaterOf(sender));
-            Field<int>(msg, 0) = context->m_senderConn->GetMeanPing();
+            Prop<int>(msg, 0) = context->m_senderConn->GetMeanPing();
             break;
         }
         default:
@@ -411,15 +411,15 @@ int SkateNet::HandleRelayNearby(NetLink::InboundMsgCtx* context)
             if (!to)
                 continue;
             // (x87: the differences and the sum unrounded)
-            double dx = static_cast<double>(Field<float>(to, 0x4C)) - Field<float>(from, 0x4C);
-            double dy = static_cast<double>(Field<float>(to, 0x50)) - Field<float>(from, 0x50);
-            double dz = static_cast<double>(Field<float>(to, 0x54)) - Field<float>(from, 0x54);
+            double dx = static_cast<double>(Prop<float>(to, 0x4C)) - Prop<float>(from, 0x4C);
+            double dy = static_cast<double>(Prop<float>(to, 0x50)) - Prop<float>(from, 0x50);
+            double dz = static_cast<double>(Prop<float>(to, 0x54)) - Prop<float>(from, 0x54);
             double distance = std::sqrt(dz * dz + dy * dy + dx * dx);
             if (!(distance < 1800.0))
                 continue;
         }
         NetLink::NetMessageInfo desc;
-        desc.Construct();
+        desc.MakeNew();
         Relay(desc, context);
         Enqueue(context->m_receiverApp, player, &desc);
     }
@@ -429,14 +429,14 @@ int SkateNet::HandleRelayNearby(NetLink::InboundMsgCtx* context)
 // 0x0056A2D0
 int SkateNet::HandleRelaySequenced(NetLink::InboundMsgCtx* context)
 {
-    OnlinePlay::Manager* net = NetLink();
+    OnlinePlay::Hub* net = NetLink();
     PlayerSearch search;
     PlayerRecord* sender = ByConnection(context->m_senderConn);
     if (!sender)
         return 4;
     for (PlayerRecord* player = search.First(true); player; player = search.Next(true)) {
         NetLink::NetMessageInfo desc;
-        desc.Construct();
+        desc.MakeNew();
         if (player == sender)
             continue;
         Relay(desc, context);
@@ -446,7 +446,7 @@ int SkateNet::HandleRelaySequenced(NetLink::InboundMsgCtx* context)
     // a script run on every machine (0x49): the server queues its own
     auto* msg = reinterpret_cast<uint8_t*>(context->m_body);
     if (context->m_typeCode == 0x49 && msg[0xC])
-        net->QueueScript(Field<int>(msg, 8), Field<uint32_t>(msg, 4), Field<uint32_t>(msg, 0));
+        net->QueueScript(Prop<int>(msg, 8), Prop<uint32_t>(msg, 4), Prop<uint32_t>(msg, 0));
     return 1;
 }
 
@@ -462,13 +462,13 @@ int SkateNet::HandleJoined(NetLink::InboundMsgCtx* context)
 // 0x0056AD10
 int SkateNet::HandleScavengerCollected(NetLink::InboundMsgCtx* context)
 {
-    OnlinePlay::Manager* net = NetLink();
+    OnlinePlay::Hub* net = NetLink();
     PlayerSearch search;
     auto* msg = context->m_body;
     PlayerRecord* collector = ByConnection(context->m_senderConn);
     if (SkaterOf(collector)) {
-        auto* component = SkaterOf(collector)->GetComponent(kSkaterScore);
-        Score* score = Field<Score*>(component, 0x18);
+        auto* component = SkaterOf(collector)->FetchModule(kSkaterScore);
+        PointTally* score = Prop<PointTally*>(component, 0x18);
         if (score)
             score->SetGrandTotal(score->GetTotalScore() + 1);
         int total = 0;
@@ -480,9 +480,9 @@ int SkateNet::HandleScavengerCollected(NetLink::InboundMsgCtx* context)
         uint8_t left[2];
         if (collected == total) {
             // all collected: the collect period over everywhere
-            desc.Construct();
-            NetLink::App* server = ServerApp();
-            desc.m_id = 0x94;
+            desc.MakeNew();
+            NetLink::AppHost* server = ServerApp();
+            desc.m_ident = 0x94;
             Sequence(desc, 8);
             for (PlayerRecord* player = search.First(true); player; player = search.Next(true)) {
                 if (!player->IsOwnPlayer())
@@ -499,13 +499,13 @@ int SkateNet::HandleScavengerCollected(NetLink::InboundMsgCtx* context)
             else if (score->GetTotalScore() == total - 1 && !ScriptCommands::CFunc_InSplitScreenGame(nullptr, nullptr))
                 count = 1;
             if (count) {
-                desc.Construct();
-                NetLink::App* server = ServerApp();
+                desc.MakeNew();
+                NetLink::AppHost* server = ServerApp();
                 left[0] = GameMode()->IsSquadMatch() ? static_cast<uint8_t>(collector->m_team)
                                                     : SkaterId(SkaterOf(collector));
                 left[1] = count;
-                desc.m_data = left;
-                desc.m_id = 0x95;
+                desc.m_content = left;
+                desc.m_ident = 0x95;
                 Sequence(desc, 8);
                 desc.m_byteCount = 2;
                 for (PlayerRecord* player = search.First(true); player; player = search.Next(true))
@@ -516,13 +516,13 @@ int SkateNet::HandleScavengerCollected(NetLink::InboundMsgCtx* context)
     // the object picked up: told to the collector's team mates
     if (GameMode()->IsSquadMatch()) {
         NetLink::NetMessageInfo desc;
-        desc.Construct();
-        NetLink::App* server = ServerApp();
+        desc.MakeNew();
+        NetLink::AppHost* server = ServerApp();
         for (PlayerRecord* player = search.First(false); player; player = search.Next(false)) {
             if (player == collector || player->m_team != collector->m_team)
                 continue;
-            desc.m_data = msg;
-            desc.m_id = 0x90;
+            desc.m_content = msg;
+            desc.m_ident = 0x90;
             Sequence(desc, 8);
             desc.m_byteCount = 4;
             Enqueue(server, player, &desc);
@@ -542,7 +542,7 @@ int SkateNet::HandleScavengerDropped(NetLink::InboundMsgCtx* context)
         return 4;
     auto* position = reinterpret_cast<const uint32_t*>(context->m_body);
     if (!dropper->IsOwnPlayer()) {
-        auto* to = &Field<uint32_t>(dropper, static_cast<uint32_t>((dropper->m_unknown34 + 0x18) * 0x10));
+        auto* to = &Prop<uint32_t>(dropper, static_cast<uint32_t>((dropper->m_unknown34 + 0x18) * 0x10));
         for (int i = 0; i < 4; ++i)
             to[i] = position[i];
     }
@@ -557,10 +557,10 @@ int SkateNet::HandleScavengerDropped(NetLink::InboundMsgCtx* context)
     if (dropped == players * 5) {
         // every player's five dropped: the hunt goes on (0x92 to everyone)
         NetLink::NetMessageInfo desc;
-        desc.Construct();
-        NetLink::App* server = ServerApp();
+        desc.MakeNew();
+        NetLink::AppHost* server = ServerApp();
         for (PlayerRecord* player = search.First(true); player; player = search.Next(true)) {
-            desc.m_id = 0x92;
+            desc.m_ident = 0x92;
             Sequence(desc, 8);
             Enqueue(server, player, &desc);
         }
@@ -571,7 +571,7 @@ int SkateNet::HandleScavengerDropped(NetLink::InboundMsgCtx* context)
 // 0x0056B2B0
 int SkateNet::HandleGraffitiTexture(NetLink::InboundMsgCtx* context)
 {
-    OnlinePlay::Manager* net = NetLink();
+    OnlinePlay::Hub* net = NetLink();
     auto* msg = reinterpret_cast<uint8_t*>(context->m_body);
     // (a client's server: the sender; a client: the player the last 0x96 named)
     auto from = [&]() -> PlayerRecord* {
@@ -583,7 +583,7 @@ int SkateNet::HandleGraffitiTexture(NetLink::InboundMsgCtx* context)
     auto load = [](void* texture, const void* textureData, uint32_t textureSize, const void* palette,
                    uint32_t paletteSize) {
         reinterpret_cast<void(__thiscall*)(void*, const void*, uint32_t, const void*, uint32_t)>(
-            Field<void**>(texture, 0)[5])(texture, textureData, textureSize, palette, paletteSize);
+            Prop<void**>(texture, 0)[5])(texture, textureData, textureSize, palette, paletteSize);
     };
     switch (context->m_typeCode) {
     case 0x96: // the player the next ones are for
@@ -614,7 +614,7 @@ int SkateNet::HandleGraffitiTexture(NetLink::InboundMsgCtx* context)
         }
         uint32_t parts = 0;
         if (player) {
-            parts = Field<uint32_t>(msg, 0);
+            parts = Prop<uint32_t>(msg, 0);
             if (parts & 1)
                 SkaterOf(player)->ShowBoardElement(kHatLogo);
             if (parts & 2)
@@ -628,15 +628,15 @@ int SkateNet::HandleGraffitiTexture(NetLink::InboundMsgCtx* context)
             break;
         PlayerSearch search;
         void* texture = player->GetGraffitiTexture();
-        NetLink::App* app = context->m_receiverApp;
+        NetLink::AppHost* app = context->m_receiverApp;
         for (PlayerRecord* other = search.First(true); other; other = search.Next(true)) {
             NetLink::NetMessageInfo desc;
-            desc.Construct();
+            desc.MakeNew();
             if (other->IsOwnPlayer() || other == player || other->m_conn->GetLinkSpeedClass() == 1)
                 continue;
             uint8_t id = SkaterId(SkaterOf(player));
-            desc.m_data = &id;
-            desc.m_id = 0x96;
+            desc.m_content = &id;
+            desc.m_ident = 0x96;
             desc.m_byteCount = 1;
             Sequence(desc, 10);
             Enqueue(app, other, &desc);
@@ -649,8 +649,8 @@ int SkateNet::HandleGraffitiTexture(NetLink::InboundMsgCtx* context)
             app->SendBulkToConn(other->m_conn, 0x97, static_cast<uint16_t>(pixelsSize), pixels,
                                      "CAG Texture", 10, false, true); // "CAG Texture"
             uint32_t sentParts = parts;
-            desc.m_data = &sentParts;
-            desc.m_id = 0x9A;
+            desc.m_content = &sentParts;
+            desc.m_ident = 0x9A;
             desc.m_byteCount = 4;
             Sequence(desc, 10);
             Enqueue(app, other, &desc);
@@ -666,9 +666,9 @@ int SkateNet::HandleGraffitiTexture(NetLink::InboundMsgCtx* context)
 // 0x0056B5D0
 int SkateNet::HandleFaceTexture(NetLink::InboundMsgCtx* context)
 {
-    OnlinePlay::Manager* net = NetLink();
+    OnlinePlay::Hub* net = NetLink();
     void* memory = MemSys::AllocZeroed(0x449C);
-    void* texture = memory ? reinterpret_cast<void*>(static_cast<Gfx2D::CFaceSkin*>(memory)->Construct()) : nullptr;
+    void* texture = memory ? reinterpret_cast<void*>(static_cast<Gfx2D::CFaceSkin*>(memory)->MakeNew()) : nullptr;
     auto* data = reinterpret_cast<uint8_t*>(context->m_body);
     uint32_t size = context->m_bodySize;
     PlayerRecord* player;
@@ -688,12 +688,12 @@ int SkateNet::HandleFaceTexture(NetLink::InboundMsgCtx* context)
         return 4;
     static_cast<Gfx2D::CFaceSkin*>(texture)->ReadFrom(data, static_cast<int>(size));
     static_cast<Gfx2D::CFaceSkin*>(texture)->MarkUsable(true);
-    auto* model = skater->GetComponent(kModel);
-    static_cast<Engine3D::CRenderModel*>(Field<void*>(model, 0x208))->ReplaceFaceTexture(texture, "CS_NSN_facemap.png", kAll);
+    auto* model = skater->FetchModule(kModel);
+    static_cast<Engine3D::CRenderModel*>(Prop<void*>(model, 0x208))->ReplaceFaceTexture(texture, "CS_NSN_facemap.png", kAll);
     if (net->OnServer()) {
         // the server keeps the face and streams it to the others
         PlayerSearch search;
-        NetLink::App* app = context->m_receiverApp;
+        NetLink::AppHost* app = context->m_receiverApp;
         PlayerRecord* sender = ByConnection(context->m_senderConn);
         sender->SetFaceTextureData(reinterpret_cast<const uint8_t*>(context->m_body), context->m_bodySize);
         for (PlayerRecord* other = search.First(true); other; other = search.Next(true)) {
@@ -704,7 +704,7 @@ int SkateNet::HandleFaceTexture(NetLink::InboundMsgCtx* context)
         }
     }
     // (freed without its destructor, as the original)
-    MemSys::Manager::Instance()->Free(texture);
+    MemSys::Hub::Sole()->Dealloc(texture);
     return 1;
 }
 
@@ -713,7 +713,7 @@ int SkateNet::HandleFaceTexture(NetLink::InboundMsgCtx* context)
 // 0x00569560
 int SkateNet::HandleChangeLevel(NetLink::InboundMsgCtx* context)
 {
-    static_cast<Skate*>(context->m_data)->ChangeLevel(Field<uint32_t>(context->m_body, 0));
+    static_cast<Skate*>(context->m_content)->ChangeLevel(Prop<uint32_t>(context->m_body, 0));
     return 1;
 }
 
@@ -721,45 +721,45 @@ int SkateNet::HandleChangeLevel(NetLink::InboundMsgCtx* context)
 int SkateNet::HandleHistoryValue(NetLink::InboundMsgCtx* context)
 {
     auto* data = reinterpret_cast<uint8_t*>(context->m_body);
-    GameObjects::CRider* skater = static_cast<Skate*>(context->m_data)->GetRiderByNumber(static_cast<uint32_t>(IdByte(data, 0)));
+    GameObjects::CRider* skater = static_cast<Skate*>(context->m_content)->GetRiderByNumber(static_cast<uint32_t>(IdByte(data, 0)));
     if (!skater)
         return 4;
-    auto* history = skater->GetComponent(GameObjects::CRiderFrameLog::kType);
-    Field<uint32_t>(history, 0x1104) = Field<uint32_t>(data, 4);
+    auto* history = skater->FetchModule(GameObjects::CRiderFrameLog::kType);
+    Prop<uint32_t>(history, 0x1104) = Prop<uint32_t>(data, 4);
     return 1;
 }
 
 // 0x0056A450
 int SkateNet::HandleSkaterMessages(NetLink::InboundMsgCtx* context)
 {
-    auto* skate = static_cast<Skate*>(context->m_data);
+    auto* skate = static_cast<Skate*>(context->m_content);
     auto* data = reinterpret_cast<uint8_t*>(context->m_body);
     GameObjects::CObjectHubBase* objects = ObjectManager();
     // the object (by the message's id byte at `offset`) and, for some, the skater too
     auto object = [&](int offset) { return objects->LookUpEntity(static_cast<uint32_t>(IdByte(data, offset))); };
-    auto skater = [&](int offset) -> GameObjects::CObject* {
+    auto skater = [&](int offset) -> GameObjects::CEntity* {
         if (!object(offset))
             return nullptr;
-        return reinterpret_cast<GameObjects::CObject*>(skate->GetRiderByNumber(static_cast<uint32_t>(IdByte(data, offset))));
+        return reinterpret_cast<GameObjects::CEntity*>(skate->GetRiderByNumber(static_cast<uint32_t>(IdByte(data, offset))));
     };
-    GameObjects::CObject* target = nullptr;
+    GameObjects::CEntity* target = nullptr;
     GameObjects::StateHistoryMessage* message;
     int result = 1;
     switch (context->m_typeCode) {
     case 0x29: {
         uint8_t first = data[0];
         uint8_t id = data[1];
-        uint32_t value = Field<uint32_t>(data, 2);
-        uint16_t a = Field<uint16_t>(data, 6), b = Field<uint16_t>(data, 8), time = Field<uint16_t>(data, 10);
-        uint16_t c = Field<uint16_t>(data, 12);
+        uint32_t value = Prop<uint32_t>(data, 2);
+        uint16_t a = Prop<uint16_t>(data, 6), b = Prop<uint16_t>(data, 8), time = Prop<uint16_t>(data, 10);
+        uint16_t c = Prop<uint16_t>(data, 12);
         target = objects->LookUpEntity(static_cast<uint32_t>(static_cast<int8_t>(id)));
         if (!target)
             return 1;
         float scaledTime = Scaled(time, g_relayTimeScale);
-        OnlinePlay::Manager* net = NetLink();
+        OnlinePlay::Hub* net = NetLink();
         if (net->InNetGame()) {
             // (only the camera's own player's)
-            uint8_t* player = net->PlayerByObjectId(static_cast<uint16_t>(target->m_id));
+            uint8_t* player = net->PlayerByObjectId(static_cast<uint16_t>(target->m_ident));
             void* camera = net->GetCamPlayer();
             if (!camera || player != camera)
                 scaledTime = 0.0f;
@@ -820,7 +820,7 @@ int SkateNet::HandleSkaterMessages(NetLink::InboundMsgCtx* context)
             return 1;
         message = NewMessage(History(target), 0x3E);
         At<uint8_t>(message, 1) = data[4];
-        At<uint32_t>(message, 0x20) = Field<uint32_t>(data, 0);
+        At<uint32_t>(message, 0x20) = Prop<uint32_t>(data, 0);
         At<bool>(message, 0xA) = data[5] != 0;
         break;
     case 0x41:
@@ -829,7 +829,7 @@ int SkateNet::HandleSkaterMessages(NetLink::InboundMsgCtx* context)
             return 1;
         message = NewMessage(History(target), 0x41);
         At<uint8_t>(message, 1) = data[4];
-        At<uint32_t>(message, 0x1C) = Field<uint32_t>(data, 0);
+        At<uint32_t>(message, 0x1C) = Prop<uint32_t>(data, 0);
         break;
     case 0x2C:
         // (also handled by 0x0056C8C0: 4 lets that run)
@@ -847,10 +847,10 @@ int SkateNet::HandleSkaterMessages(NetLink::InboundMsgCtx* context)
             return 1;
         message = NewMessage(History(target), 0x76);
         At<uint8_t>(message, 1) = data[0xC];
-        At<uint32_t>(message, 0x3C) = Field<uint32_t>(data, 0);
-        At<uint32_t>(message, 0x40) = Field<uint32_t>(data, 4);
-        At<float>(message, 0x48) = static_cast<float>(Field<int16_t>(data, 8));
-        At<float>(message, 0x4C) = static_cast<float>(Field<int16_t>(data, 0xA));
+        At<uint32_t>(message, 0x3C) = Prop<uint32_t>(data, 0);
+        At<uint32_t>(message, 0x40) = Prop<uint32_t>(data, 4);
+        At<float>(message, 0x48) = static_cast<float>(Prop<int16_t>(data, 8));
+        At<float>(message, 0x4C) = static_cast<float>(Prop<int16_t>(data, 0xA));
         At<uint8_t>(message, 0x50) = data[0xD];
         At<uint8_t>(message, 3) = data[0xE];
         break;
@@ -867,9 +867,9 @@ int SkateNet::HandleSkaterMessages(NetLink::InboundMsgCtx* context)
             return 1;
         message = NewMessage(History(target), 0x77);
         At<uint8_t>(message, 1) = data[8];
-        At<uint32_t>(message, 0x24) = Field<uint32_t>(data, 4);
+        At<uint32_t>(message, 0x24) = Prop<uint32_t>(data, 4);
         At<int>(message, 0x44) = static_cast<int8_t>(data[9]);
-        At<uint32_t>(message, 0x20) = Field<uint32_t>(data, 0);
+        At<uint32_t>(message, 0x20) = Prop<uint32_t>(data, 0);
         break;
     case 0x78:
         target = skater(8);
@@ -889,12 +889,12 @@ int SkateNet::HandleSkaterMessages(NetLink::InboundMsgCtx* context)
 // 0x0056ABD0
 int SkateNet::HandlePlayerLeft(NetLink::InboundMsgCtx* context)
 {
-    auto* skate = static_cast<Skate*>(context->m_data);
-    OnlinePlay::Manager* net = NetLink();
+    auto* skate = static_cast<Skate*>(context->m_content);
+    OnlinePlay::Hub* net = NetLink();
     auto* data = reinterpret_cast<uint8_t*>(context->m_body);
     uint8_t* player = net->PlayerByObjectId(static_cast<uint16_t>(IdByte(data, 0)));
     if (player) {
-        GameObjects::CRider* skater = Info(player)->m_skater;
+        GameObjects::CRider* skater = DetailsOf(player)->m_skater;
         net->EvictPlayer(player, IdByte(data, 1));
         skate->RemoveSkater(skater);
     } else {
@@ -910,7 +910,7 @@ int SkateNet::HandlePlayerLeft(NetLink::InboundMsgCtx* context)
 // 0x0056AC50
 int SkateNet::HandleServerQuit(NetLink::InboundMsgCtx* /*context*/)
 {
-    OnlinePlay::Manager* net = NetLink();
+    OnlinePlay::Hub* net = NetLink();
     Scripts::LaunchScript(kCreateServerQuitDialog, nullptr, nullptr, false, nullptr);
     net->RemovePlayers();
     net->DisconnectClients();
@@ -921,16 +921,16 @@ int SkateNet::HandleServerQuit(NetLink::InboundMsgCtx* /*context*/)
 int SkateNet::HandleGraffitiObjects(NetLink::InboundMsgCtx* context)
 {
     auto* data = reinterpret_cast<uint8_t*>(context->m_body);
-    OnlinePlay::Manager* net = NetLink();
+    OnlinePlay::Hub* net = NetLink();
     if (data[0] != net->GetGameId())
         return 4;
     int owner;
     if (GameMode()->IsSquadMatch())
-        owner = Info(net->PlayerByObjectId(Field<uint16_t>(data, 4)))->m_team;
+        owner = DetailsOf(net->PlayerByObjectId(Prop<uint16_t>(data, 4)))->m_team;
     else
-        owner = Field<int>(data, 4);
+        owner = Prop<int>(data, 4);
     auto* names = reinterpret_cast<const uint32_t*>(data + 0xC);
-    for (uint32_t i = 0; i < Field<uint32_t>(data, 8); ++i)
+    for (uint32_t i = 0; i < Prop<uint32_t>(data, 8); ++i)
         GameObjects::g_trickObjectManager->SetObjectGraffitiColor(names[i], owner);
     return 1;
 }
@@ -942,12 +942,12 @@ int SkateNet::HandlePlaceTag(NetLink::InboundMsgCtx* context)
     PlayerRecord* player = ByObjectId(IdByte(data, 0));
     if (!player)
         return 4;
-    auto* tagging = static_cast<GameObjects::CTaggingComponent*>(SkaterOf(player)->GetComponent(kTagging));
+    auto* tagging = static_cast<GameObjects::CTaggingComponent*>(SkaterOf(player)->FetchModule(kTagging));
     if (!tagging)
         return 4;
-    Maths::Vector start = Field<Maths::Vector>(data, 4);
-    Maths::Vector end = Field<Maths::Vector>(data, 0x14);
-    tagging->PlaceTag(data[1] != 0, start, end, Field<int>(data, 0x24), false);
+    Maths::Vec4 start = Prop<Maths::Vec4>(data, 4);
+    Maths::Vec4 end = Prop<Maths::Vec4>(data, 0x14);
+    tagging->PlaceTag(data[1] != 0, start, end, Prop<int>(data, 0x24), false);
     return 1;
 }
 
@@ -977,52 +977,52 @@ int SkateNet::HandleLookUpObject(NetLink::InboundMsgCtx* context)
 int SkateNet::HandleTerrainSound(NetLink::InboundMsgCtx* context)
 {
     auto* data = reinterpret_cast<uint8_t*>(context->m_body);
-    Maths::Vector position;
-    position.x = static_cast<float>(Field<int16_t>(data, 0));
-    position.y = static_cast<float>(Field<int16_t>(data, 2));
-    position.z = static_cast<float>(Field<int16_t>(data, 4));
+    Maths::Vec4 position;
+    position.x = static_cast<float>(Prop<int16_t>(data, 0));
+    position.y = static_cast<float>(Prop<int16_t>(data, 2));
+    position.z = static_cast<float>(Prop<int16_t>(data, 4));
     position.w = 0.0f; // (the original leaves w as the stack had it)
     float volume = static_cast<float>(static_cast<int8_t>(data[8]));
     float pitch = static_cast<float>(static_cast<int8_t>(data[9]));
     float value = static_cast<float>(static_cast<int8_t>(data[0xA]));
-    Terrain::PlayTerrainSound(data[6], data[7], &position, volume, pitch, value, false);
+    SurfaceKind::PlayTerrainSound(data[6], data[7], &position, volume, pitch, value, false);
     return 1;
 }
 
 // 0x0056C330
 int SkateNet::HandleRunScriptNow(NetLink::InboundMsgCtx* context)
 {
-    OnlinePlay::Manager* net = NetLink();
+    OnlinePlay::Hub* net = NetLink();
     auto* data = reinterpret_cast<uint32_t*>(context->m_body);
-    if (!Field<bool>(net, 0x18C)) {
+    if (!Prop<bool>(net, 0x18C)) {
         net->QueueScript(static_cast<int>(data[2]), data[1], data[0]);
         return 1;
     }
-    GameObjects::CObject* object = ObjectManager()->LookUpEntity(data[1]);
+    GameObjects::CEntity* object = ObjectManager()->LookUpEntity(data[1]);
     Scripts::CScript* script =
         Scripts::SpawnScript(data[0], nullptr, 0, nullptr, static_cast<int>(data[2]), 0, false, false, false, false);
-    script->m_object.Set(object);
-    script->Update();
+    script->m_entity.AssignValue(object);
+    script->TickFrame();
     return 1;
 }
 
 // 0x0056C3D0
 int SkateNet::HandleProjectile(NetLink::InboundMsgCtx* context)
 {
-    auto* skate = static_cast<Skate*>(context->m_data);
+    auto* skate = static_cast<Skate*>(context->m_content);
     auto* data = reinterpret_cast<uint8_t*>(context->m_body);
     GameObjects::CRider* skater = skate->GetRiderByNumber(static_cast<uint32_t>(IdByte(data, 0x34)));
     if (!skater)
         return 4;
-    Maths::Vector velocity = Field<Maths::Vector>(data, 0x14);
-    Maths::Vector position = Field<Maths::Vector>(data, 4);
-    velocity.Normalize();
-    uint32_t time = Field<uint32_t>(data, 0);
+    Maths::Vec4 velocity = Prop<Maths::Vec4>(data, 0x14);
+    Maths::Vec4 position = Prop<Maths::Vec4>(data, 4);
+    velocity.MakeUnit();
+    uint32_t time = Prop<uint32_t>(data, 0);
     if (!NetLink()->OnServer()) {
         // (a client: the server's latency added)
         NetLink::ConnSearch search{NetLink::kConnSearchVtable, nullptr};
         NetLink::Conn* conn = context->m_receiverApp->BeginConnWalk(&search);
-        time += conn->IsLocal() ? 0 : static_cast<uint32_t>(conn->m_latencyTest.m_averageLatency);
+        time += conn->IsHostLocal() ? 0 : static_cast<uint32_t>(conn->m_latencyTest.m_averageLatency);
     }
     // where it is now: moved along its direction for the time it took (x87: unrounded until stored)
     double seconds = static_cast<double>(time) * static_cast<double>(GoalSystem::g_goalLifeSecondsPerMillisecond);
@@ -1031,19 +1031,19 @@ int SkateNet::HandleProjectile(NetLink::InboundMsgCtx* context)
     position.z = static_cast<float>(position.z + velocity.z * seconds);
     CStruct* params = NewStructure();
     params->PutNameKey(kOwnerId, static_cast<uint32_t>(IdByte(data, 0x34)));
-    params->PutNameKey(kAmmoType, Field<uint32_t>(data, 0x28));
+    params->PutNameKey(kAmmoType, Prop<uint32_t>(data, 0x28));
     params->PutInt(kX, static_cast<int>(position.x));
     params->PutInt(kY, static_cast<int>(position.y));
     params->PutInt(kZ, static_cast<int>(position.z));
-    params->PutInt(kScaledX, static_cast<int>(Field<float>(data, 0x14)));
-    params->PutInt(kScaledY, static_cast<int>(Field<float>(data, 0x18)));
-    params->PutInt(kScaledZ, static_cast<int>(Field<float>(data, 0x1C)));
-    params->PutInt(kRadius, Field<int>(data, 0x2C));
-    params->PushFloat(kScale, Field<float>(data, 0x30));
-    params->PutVec3(kPos, Field<Scripts::VectorValue>(data, 4));
-    params->PutVec3(kVel, Field<Scripts::VectorValue>(data, 0x14));
-    uint32_t launch = Field<uint32_t>(data, 0x24) == kFireball ? kClientLaunchFireball : kClientLaunchProjectile;
-    Scripts::LaunchScript(launch, params, reinterpret_cast<GameObjects::CObject*>(skater), false, nullptr);
+    params->PutInt(kScaledX, static_cast<int>(Prop<float>(data, 0x14)));
+    params->PutInt(kScaledY, static_cast<int>(Prop<float>(data, 0x18)));
+    params->PutInt(kScaledZ, static_cast<int>(Prop<float>(data, 0x1C)));
+    params->PutInt(kRadius, Prop<int>(data, 0x2C));
+    params->PushFloat(kScale, Prop<float>(data, 0x30));
+    params->PutVec3(kPos, Prop<Scripts::VectorValue>(data, 4));
+    params->PutVec3(kVel, Prop<Scripts::VectorValue>(data, 0x14));
+    uint32_t launch = Prop<uint32_t>(data, 0x24) == kFireball ? kClientLaunchFireball : kClientLaunchProjectile;
+    Scripts::LaunchScript(launch, params, reinterpret_cast<GameObjects::CEntity*>(skater), false, nullptr);
     DeleteStructure(params);
     return 1;
 }
@@ -1070,7 +1070,7 @@ int SkateNet::HandleToggleCheat(NetLink::InboundMsgCtx* context)
     auto* data = reinterpret_cast<uint8_t*>(context->m_body);
     if (data[4])
         params->PutNameKey(kOn, 0);
-    params->PutNameKey(kCheatFlag, Field<uint32_t>(data, 0));
+    params->PutNameKey(kCheatFlag, Prop<uint32_t>(data, 0));
     Scripts::LaunchScript(kClientToggleCheat, params, nullptr, false, nullptr);
     DeleteStructure(params);
     return 1;
@@ -1080,11 +1080,11 @@ int SkateNet::HandleToggleCheat(NetLink::InboundMsgCtx* context)
 int SkateNet::HandleSkaterChannel(NetLink::InboundMsgCtx* context)
 {
     auto* data = reinterpret_cast<uint8_t*>(context->m_body);
-    GameObjects::CObject* object = ObjectManager()->LookUpEntity(static_cast<uint32_t>(IdByte(data, 0)));
+    GameObjects::CEntity* object = ObjectManager()->LookUpEntity(static_cast<uint32_t>(IdByte(data, 0)));
     if (!object)
         return 1;
     auto* blender = static_cast<GameObjects::CAnimBlenderComponent*>(
-        static_cast<GameObjects::CGameEntity*>(object)->GetComponent(kAnimBlender));
+        static_cast<GameObjects::CGameEntity*>(object)->FetchModule(kAnimBlender));
     if (!blender)
         return 1;
     Gfx2D::CBlendChannel* channel = blender->FindChannel(0);
@@ -1098,35 +1098,35 @@ int SkateNet::HandleSkaterChannel(NetLink::InboundMsgCtx* context)
 // 0x0056B890
 void Skate::LeaveServer()
 {
-    OnlinePlay::Manager* net = NetLink();
+    OnlinePlay::Hub* net = NetLink();
     Scripts::LaunchScript(kPatchCleanup, nullptr, nullptr, false, nullptr);
     Scripts::ProcessPendingSymbols();
     if (net->OnServer()) {
         // the server: everyone told it's over (0x32), the server and its tasks gone
         NetLink::NetMessageInfo desc;
-        desc.Construct();
-        NetLink::App* server = ServerApp();
+        desc.MakeNew();
+        NetLink::AppHost* server = ServerApp();
         if (net->GetHostingRole() == 1)
             net->RemoveHostTask();
-        desc.m_id = 0x32;
-        desc.m_priority = 0xFF;
+        desc.m_ident = 0x32;
+        desc.m_rank = 0xFF;
         server->PutOnOutbox(0xFF, &desc);
-        server->SendData(false);
+        server->Transmit(false);
         net->DestroyServer();
-        m_serverTasks[0]->Remove();
-        m_serverTasks[1]->Remove();
+        m_serverTasks[0]->DropOut();
+        m_serverTasks[1]->DropOut();
         net->RemovePlayersAndApps();
         return;
     }
     // a client: the server told it's leaving (0xB)
-    NetLink::App* client = net->GetClient(0);
+    NetLink::AppHost* client = net->FetchPatron(0);
     if (client) {
         NetLink::NetMessageInfo desc;
-        desc.Construct();
-        desc.m_id = 0xB;
+        desc.MakeNew();
+        desc.m_ident = 0xB;
         Sequence(desc, 8);
-        static_cast<NetLink::Client*>(client)->SendToHost(&desc);
-        client->SendData(false);
+        static_cast<NetLink::Guest*>(client)->SendToHost(&desc);
+        client->Transmit(false);
     }
     net->RemovePlayersAndApps();
 }
@@ -1134,9 +1134,9 @@ void Skate::LeaveServer()
 // 0x0056B990
 void Skate::SendCheats(OnlinePlay::PlayerRecord* player)
 {
-    OnlinePlay::Manager* net = NetLink();
+    OnlinePlay::Hub* net = NetLink();
     NetLink::NetMessageInfo desc;
-    desc.Construct();
+    desc.MakeNew();
     struct {
         int count;
         uint32_t cheats[32];
@@ -1146,18 +1146,18 @@ void Skate::SendCheats(OnlinePlay::PlayerRecord* player)
         if (m_career->IsCodeOn(cheat))
             message.cheats[message.count++] = cheat;
     }
-    desc.m_data = &message;
-    desc.m_id = 0x82;
+    desc.m_content = &message;
+    desc.m_ident = 0x82;
     desc.m_byteCount = static_cast<uint16_t>(message.count * 4 + 4);
     Sequence(desc, 8);
     int handle = player->GetLinkHandle();
-    reinterpret_cast<NetLink::App*>(net->m_server)->PutOnOutbox(handle, &desc);
+    reinterpret_cast<NetLink::AppHost*>(net->m_host)->PutOnOutbox(handle, &desc);
 }
 
 // 0x0056BB70
 void Skate::BroadcastPoints(bool final)
 {
-    OnlinePlay::Manager* net = NetLink();
+    OnlinePlay::Hub* net = NetLink();
     PlayerSearch players;
     PlayerSearch others;
     // the message (0x40): the time left in seconds, the cheats, final, the count, then 5 bytes a skater (its id and
@@ -1190,9 +1190,9 @@ void Skate::BroadcastPoints(bool final)
             uint8_t id = SkaterId(SkaterOf(other));
             int score;
             if (GameMode()->GetNameKey() == kNetGoalAttack)
-                score = GoalSystem::GetObjectiveBoard()->CountClearedByPlayer(Field<int>(SkaterOf(other), 0x14));
+                score = GoalSystem::GetObjectiveBoard()->CountClearedByPlayer(Prop<int>(SkaterOf(other), 0x14));
             else
-                score = net->GetEntrantPoints(Field<uint32_t>(SkaterOf(other), 0x14));
+                score = net->GetEntrantPoints(Prop<uint32_t>(SkaterOf(other), 0x14));
             message.entries[count].id = id;
             message.entries[count].score = score;
             ++count;
@@ -1200,12 +1200,12 @@ void Skate::BroadcastPoints(bool final)
         if (static_cast<int8_t>(count) <= 0)
             continue;
         NetLink::NetMessageInfo desc;
-        desc.Construct();
+        desc.MakeNew();
         uint32_t cheats = GetCheats();
-        desc.m_data = &message;
+        desc.m_content = &message;
         message.count = count;
         message.cheats = cheats;
-        desc.m_id = 0x40;
+        desc.m_ident = 0x40;
         desc.m_byteCount = static_cast<uint16_t>((static_cast<int8_t>(count) + 2) * 5);
         if (final || cheats)
             Sequence(desc, 8);
@@ -1214,8 +1214,8 @@ void Skate::BroadcastPoints(bool final)
             continue;
         // the cheats' check (0x80): 8 bytes, the second word whatever the stack held (zero here)
         uint32_t check[2] = {GetCheats() ^ 0xDEADFACEu, 0};
-        desc.m_data = check;
-        desc.m_id = 0x80;
+        desc.m_content = check;
+        desc.m_ident = 0x80;
         Sequence(desc, 8);
         desc.m_byteCount = 8;
         Enqueue(ServerApp(), player, &desc);

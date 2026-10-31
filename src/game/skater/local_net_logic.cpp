@@ -31,7 +31,7 @@
 
 namespace GameObjects {
 
-Maths::Vector g_localNetPosition;
+Maths::Vec4 g_localNetPosition;
 uint32_t g_localNetGuard;
 
 namespace {
@@ -40,7 +40,7 @@ namespace Thugpro = OnlinePlay::Thugpro;
 
 constexpr uint32_t kComponent6C = 0xB1D5A3E1; // the component whose +0x18 goes out as the 0x80 field's 3 bits
 
-OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
 
 extern void** const kVtable;
 constexpr uint32_t kSkaterLocalNetLogic = 0x7CD3E6D5;
@@ -54,27 +54,27 @@ bool IsVersusSession()
 }
 CRider* SkaterById(uint32_t id)
 {
-    return GameModules::Skate::Instance()->GetRiderByNumber(id);
+    return GameModules::Skate::Sole()->GetRiderByNumber(id);
 }
 // The network manager's first local player and its run count (+0x38, which the manager's code calls the game id).
 void* LocalPlayer() { return NetManager()->GetOwnPlayer(); }
 uint8_t RunCount() { return NetManager()->GetGameId(); }
 
 template <typename T>
-T& Field(const void* object, uint32_t offset)
+T& Prop(const void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
 
 // The network manager's client app for a skater (0x00532EA0: its +8 + 4 * index) and whether this machine is the
 // server (0x00533F90: its flags' bit 0).
-NetLink::App* ClientApp(int index) { return NetManager()->GetClient(index); }
+NetLink::AppHost* ClientApp(int index) { return NetManager()->FetchPatron(index); }
 bool OnServer() { return NetManager()->OnServer(); }
 
 // What the update reads of the skater: its orientation as angles, the core component's state and controls, the two
 // other components' values.
 struct UpdateState {
-    Maths::Vector angles;
+    Maths::Vec4 angles;
     uint8_t state, flag74, value7C, flag75, flag76;
     uint32_t controls, value6C, value80;
 };
@@ -86,40 +86,40 @@ int16_t PackAngle(float angle) { return static_cast<int16_t>(static_cast<int>(st
 // (shared by both: the original repeats it in each)
 static void ReadUpdateState(CRiderHostSync* self, CObjectModule* component6C, UpdateState& out)
 {
-    reinterpret_cast<Maths::Matrix*>(reinterpret_cast<uint8_t*>(self->m_object) + 0xC0)->GetEulerAngles(out.angles);
+    reinterpret_cast<Maths::Mat4*>(reinterpret_cast<uint8_t*>(self->m_entity) + 0xC0)->GetEulerAngles(out.angles);
     uint8_t* core = self->m_core;
-    out.state = Field<uint8_t>(core, 0x18);
-    out.value7C = Field<uint8_t>(core, 0xE1);
-    out.flag74 = Field<uint8_t>(core, 0xE0);
-    out.flag75 = Field<int>(core, 0x1C) == 1 ? 1 : 0;
-    out.flag76 = Field<uint8_t>(core, 0x118);
-    uint8_t* board = Field<uint8_t*>(self->m_board, 0x22C);
-    out.value80 = board ? Field<uint32_t>(board, 0x4C) : 0;
+    out.state = Prop<uint8_t>(core, 0x18);
+    out.value7C = Prop<uint8_t>(core, 0xE1);
+    out.flag74 = Prop<uint8_t>(core, 0xE0);
+    out.flag75 = Prop<int>(core, 0x1C) == 1 ? 1 : 0;
+    out.flag76 = Prop<uint8_t>(core, 0x118);
+    uint8_t* board = Prop<uint8_t*>(self->m_board, 0x22C);
+    out.value80 = board ? Prop<uint32_t>(board, 0x4C) : 0;
     // A bit per control (the core component's 24, 8 bytes apart from +0x20): set while it's held.
     uint32_t controls = 0;
     for (int k = 0; k < 24; ++k) {
-        if (Field<uint8_t>(core, 0x20 + 8 * k))
+        if (Prop<uint8_t>(core, 0x20 + 8 * k))
             controls |= 1u << k;
         else
             controls &= ~(1u << k);
     }
     out.controls = controls;
     uint32_t value;
-    out.value6C = *static_cast<CRiderSessionEnd*>(component6C)->GetFlags(&value); // (SkaterEndRun)
+    out.value6C = *static_cast<CRiderSessionEnd*>(component6C)->FetchBits(&value); // (SkaterEndRun)
 }
 
 // 0x00512EA0
 uint32_t CRiderHostSync::GetUpdateFlags()
 {
     uint32_t flags = 0;
-    NetLink::App* app = ClientApp(Field<int>(m_object, 0x2BC));
-    CObjectModule* component6C = m_object->GetComponent(kComponent6C);
+    NetLink::AppHost* app = ClientApp(Prop<int>(m_entity, 0x2BC));
+    CObjectModule* component6C = m_entity->FetchModule(kComponent6C);
     bool force = OnServer() || static_cast<uint32_t>(app->m_frameCount) % 15 == 0;
     UpdateState now;
     ReadUpdateState(this, component6C, now);
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
-        int16_t value = k == 1 ? Thugpro::PackHeight(m_object->m_pos.y) : Thugpro::PackHorizontal((&m_object->m_pos.x)[k]);
+        int16_t value = k == 1 ? Thugpro::PackHeight(m_entity->m_atPoint.y) : Thugpro::PackHorizontal((&m_entity->m_atPoint.x)[k]);
         if (value != m_sentPos[k] || force)
             flags |= 1u << k;
     }
@@ -144,10 +144,10 @@ uint32_t CRiderHostSync::GetUpdateFlags()
 void CRiderHostSync::SendUpdate()
 {
     NetLink::NetMessageInfo desc;
-    desc.Construct();
+    desc.MakeNew();
     Util::PackedBitBuffer stream;
-    auto* app = static_cast<NetLink::Client*>(ClientApp(Field<int>(m_object, 0x2BC)));
-    CObjectModule* component6C = m_object->GetComponent(kComponent6C);
+    auto* app = static_cast<NetLink::Guest*>(ClientApp(Prop<int>(m_entity, 0x2BC)));
+    CObjectModule* component6C = m_entity->FetchModule(kComponent6C);
     bool onServer = OnServer();
     if (!onServer && static_cast<uint32_t>(app->m_frameCount) % 15 != 0) {
         // Between the 15th frames: only once the connection's send interval has gone by.
@@ -171,11 +171,11 @@ void CRiderHostSync::SendUpdate()
         uint32_t& guard = g_localNetGuard;
         if (!(guard & 1))
             guard |= 1;
-        g_localNetPosition = m_object->m_pos;
+        g_localNetPosition = m_entity->m_atPoint;
     }
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
-        int16_t value = k == 1 ? Thugpro::PackHeight(m_object->m_pos.y) : Thugpro::PackHorizontal((&m_object->m_pos.x)[k]);
+        int16_t value = k == 1 ? Thugpro::PackHeight(m_entity->m_atPoint.y) : Thugpro::PackHorizontal((&m_entity->m_atPoint.x)[k]);
         if (flags & (1u << k))
             stream.WriteBits(static_cast<uint32_t>(static_cast<int>(value)), 16);
         m_sentPos[k] = value;
@@ -209,24 +209,24 @@ void CRiderHostSync::SendUpdate()
         m_sentValue80 = now.value80;
         stream.WriteBits(now.value80, 32);
     }
-    stream.Flush();
+    stream.Drain();
     int size = stream.GetByteCount();
-    desc.m_data = buffer;
-    desc.m_id = 0x23;
+    desc.m_content = buffer;
+    desc.m_ident = 0x23;
     desc.m_byteCount = static_cast<uint16_t>(size);
     desc.m_singular = true;
-    desc.m_priority = 0x81;
+    desc.m_rank = 0x81;
     app->SendToHost(&desc);
 }
 
 // 0x00513630
-CObjectModule* __cdecl CRiderHostSync::Create()
+CObjectModule* __cdecl CRiderHostSync::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderHostSync));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CRiderHostSync*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
     component->m_sentControls = 0;
     component->m_sentValue6C = 0;
@@ -234,7 +234,7 @@ CObjectModule* __cdecl CRiderHostSync::Create()
     component->m_board = nullptr;
     component->m_lastSendTime = 0;
     component->m_sentValue7C = 0xFF;
-    component->m_type = kSkaterLocalNetLogic;
+    component->m_kindTag = kSkaterLocalNetLogic;
     component->m_sentControls = 0;
     component->m_sentFlag74 = 0xFF;
     component->m_sentState = 0;
@@ -250,23 +250,23 @@ void CRiderHostSync::DestroyBody()
 }
 
 // 0x00512E40
-CRiderHostSync* CRiderHostSync::Destroy(unsigned int flags)
+CRiderHostSync* CRiderHostSync::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00512E70
-void CRiderHostSync::Finalize()
+void CRiderHostSync::Seal()
 {
-    m_core = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterState));
-    m_board = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCorePhysics));
+    m_core = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterState));
+    m_board = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterCorePhysics));
 }
 
 // 0x005136C0
-void CRiderHostSync::Update()
+void CRiderHostSync::TickFrame()
 {
     if (IsVersusSession() && LocalPlayer())
         SendUpdate();
@@ -280,7 +280,7 @@ int __cdecl CRiderHostSync::HandleGraffitiSteal(NetLink::InboundMsgCtx* context)
         return NetLink::kHandlerMsgDone;
     uint32_t victimId = *reinterpret_cast<const uint32_t*>(message + 4);
     uint32_t thiefId = *reinterpret_cast<const uint32_t*>(message + 8);
-    auto* skater = static_cast<CRider*>(context->m_data);
+    auto* skater = static_cast<CRider*>(context->m_content);
     CRider* victim = SkaterById(victimId);
     if (!victim)
         return NetLink::kHandlerContinue;
@@ -289,10 +289,10 @@ int __cdecl CRiderHostSync::HandleGraffitiSteal(NetLink::InboundMsgCtx* context)
         return NetLink::kHandlerContinue;
     uint32_t script;
     CRider* other;
-    if (skater->m_id == victimId) {
+    if (skater->m_ident == victimId) {
         script = kGraffitiStealYou;
         other = thief;
-    } else if (skater->m_id == thiefId) {
+    } else if (skater->m_ident == thiefId) {
         script = kGraffitiStealOther;
         other = victim;
     } else {
@@ -300,9 +300,9 @@ int __cdecl CRiderHostSync::HandleGraffitiSteal(NetLink::InboundMsgCtx* context)
     }
     Scripts::CStruct* params = Scripts::NewStruct();
     if (params)
-        params = params->Init();
+        params = params->PrepareAll();
     params->Clear(); // (on the new structure, as the original)
-    params->AddString(kString0, Scripts::QBVAL_STRING, other->GetDisplayName());
+    params->AppendWord(kString0, Scripts::QBVAL_STRING, other->FetchShownName());
     Scripts::LaunchScript(script, params, skater, false, nullptr);
     if (params) {
         params->Clear();
@@ -316,14 +316,14 @@ int __cdecl CRiderHostSync::HandleGraffitiSteal(NetLink::InboundMsgCtx* context)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderHostSync::Destroy,
-         &GameObjects::CRiderHostSync::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderHostSync::Teardown,
+         &GameObjects::CRiderHostSync::TickFrame,
          &CRiderStateReset::ConfigureFromData,
-         &GameObjects::CRiderHostSync::Finalize,
+         &GameObjects::CRiderHostSync::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

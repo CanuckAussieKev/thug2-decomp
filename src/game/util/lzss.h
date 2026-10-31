@@ -11,7 +11,7 @@ namespace Lzss {
 
 // Compress `size` bytes from `in` to `out` and return the compressed size. With `print_stats`, the sizes and
 // ratio are sent to the debug output. `out` needs room for size * 9 / 8 + 2 bytes in the worst case.
-int Encode(const uint8_t* in, uint8_t* out, int size, bool print_stats);
+int PackUp(const uint8_t* in, uint8_t* out, int size, bool print_stats);
 
 // Decompress `size` bytes of compressed data from `in` into `out` and return the end of the output (one past
 // the last byte written). Callers use that pointer to get the decompressed size and to pad the end of the

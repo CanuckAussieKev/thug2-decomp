@@ -12,7 +12,7 @@ class CSharedRef;
 class CSharedBase {
 public:
     // 0x004637B0: the constructor (vtable 0x006478E4, no smart pointers; returns this).
-    CSharedBase* Construct();
+    CSharedBase* MakeNew();
     // 0x00463870: the destructor: every smart pointer to it is cleared (0x00463820). 0x00463880: the scalar
     // deleting destructor (vtable slot 0; returns this).
     void Destruct();
@@ -59,7 +59,7 @@ public:
     }
 
     // 0x0042B580 (one instance, shared): the in-place default constructor - all three words cleared (returns this).
-    CSharedRef* Construct()
+    CSharedRef* MakeNew()
     {
         m_following = nullptr;
         m_preceding = nullptr;
@@ -92,11 +92,11 @@ public:
     // 0x0041D1D0 (as CSharedRef<CSharedBase>): Set, returning this (the assignment from a pointer).
     CSharedRef* AssignObject(T* object)
     {
-        Set(object);
+        AssignValue(object);
         return this;
     }
     // Point at `object` instead: out of the old object's list, onto the front of the new one's.
-    void Set(T* object)
+    void AssignValue(T* object)
     {
         Release();
         m_ownerObject = object;
@@ -104,7 +104,7 @@ public:
             Object()->AttachSharedRef(Generic());
     }
 
-    T* Get() const { return m_ownerObject; }
+    T* Pull() const { return m_ownerObject; }
     // 0x00442670 (the screen elements' instance, written out in the unoptimised lens flare code).
     bool IsNull() const { return m_ownerObject == nullptr; }
     T* operator->() const { return m_ownerObject; }

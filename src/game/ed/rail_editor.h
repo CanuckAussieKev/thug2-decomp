@@ -28,7 +28,7 @@ namespace ParkEditing {
 
 // A point of an edited rail (0x28 bytes).
 struct CEditedRailPoint {
-    Maths::Vector m_pos;           // +0x00 (w = 1)
+    Maths::Vec4 m_atPoint;           // +0x00 (w = 1)
     bool m_hasPost;              // +0x10 a post stands under it
     bool m_highlighted;          // +0x11 its sectors coloured (Highlight)
     uint8_t pad12[2];
@@ -51,17 +51,17 @@ struct CEditedRailPoint {
     // 0x004F5460: its segment drawn to the next point (none: deleted) - each point moved by `origin` -> `position`
     // turned `angle` degrees; Sk5Ed_RA_Dynamic cloned once. With a next point and a turn sharper than
     // RailEditorMaxJoinAngle the previous segment isn't joined on.
-    void DrawSegment(const Maths::Vector* origin, const Maths::Vector* position, float angle);
+    void DrawSegment(const Maths::Vec4* origin, const Maths::Vec4* position, float angle);
     // 0x004F56D0: its post drawn (with no post, or one shorter than the minimum: deleted) - Sk5Ed_RAp_Dynamic cloned
     // once, its vertices moved to stand from the ground to the point, turned along the rail.
-    void DrawPost(const Maths::Vector* origin, const Maths::Vector* position, float angle);
+    void DrawPost(const Maths::Vec4* origin, const Maths::Vec4* position, float angle);
     // 0x004F5E30: its sectors coloured as RailEditorHighlightColour (or ...BadAngle... where a segment is too long /
     // too steep or a corner too sharp), flashing at RailEditorHighlightFlashRate with `flash`; the end posts too with
     // `includeEndPosts`. Once until ClearGlow.
-    void Highlight(bool flash, bool includeEndPosts);
+    void Spotlight(bool flash, bool includeEndPosts);
     // 0x004F5D10 (fastcall: ECX the position): the ground's height under a position (a feeler 2000 up and down;
     // nothing: 0).
-    static float __fastcall GroundHeight(const Maths::Vector* position);
+    static float __fastcall GroundHeight(const Maths::Vec4* position);
 };
 static_assert(offsetof(CEditedRailPoint, m_hasPost) == 0x10 && offsetof(CEditedRailPoint, m_highlighted) == 0x11 &&
                   offsetof(CEditedRailPoint, m_levelY) == 0x14 && offsetof(CEditedRailPoint, m_following) == 0x18 &&
@@ -74,16 +74,16 @@ struct CEditedRail {
     CEditedRail* m_following;          // +0x00
     CEditedRail* m_preceding;          // +0x04
     CEditedRailPoint* mp_points;   // +0x08
-    uint32_t m_id;                 // +0x0C (from the counter 0x0067EFFC: unique)
+    uint32_t m_ident;                 // +0x0C (from the counter 0x0067EFFC: unique)
 
     // 0x004F70C0: the constructor (returns this): a new id, unlinked, no points.
-    CEditedRail* Construct();
+    CEditedRail* MakeNew();
     // 0x004F6E20 (also the destructor, 0x004F70F0 - a jump to it): every point's sectors deleted and the point freed.
     void Clear();
     // 0x004F3B90
     int RailPointTotal() const;
     // 0x004F3BB0: the point `index` from the head (counting stops at the end: then null).
-    CEditedRailPoint* GetPoint(int index) const;
+    CEditedRailPoint* FetchVertexAt(int index) const;
     // 0x004F3BD0: its sectors' colours cleared.
     void ClearColours();
     // 0x004F41C0 / 0x004F4220: every point's segment / post deleted.
@@ -91,20 +91,20 @@ struct CEditedRail {
     void DeletePosts();
     // 0x004F4280: the point nearest `position` on the ground plane (x, z; the squared distance under 1e8), skipping
     // the point `skip`: its position, squared distance and index written. Whether the rail has any points.
-    bool FindNearestPoint(const Maths::Vector* position, Maths::Vector* point, float* distanceSquared, int* index,
+    bool FindNearestPoint(const Maths::Vec4* position, Maths::Vec4* point, float* distanceSquared, int* index,
                           int skip) const;
     // 0x004F4310: how many points lie strictly inside (x0, z0)-(x1, z1).
     int CountPointsInside(float x0, float z0, float x1, float z1) const;
     // 0x004F4370: every point moved from `origin` to `position` turned `angle` degrees about y (w: the original adds
     // `position`'s to an unset local - here 0).
-    void Transform(const Maths::Vector* origin, const Maths::Vector* position, float angle);
+    void Xform(const Maths::Vec4* origin, const Maths::Vec4* position, float angle);
     // 0x004F4420: its sectors coloured as graffitiColors[`index`].
     void ChangeColour(int index);
     // 0x004F44B0: whether any point lies outside [x0, x1] x [z0, z1].
     bool AnyPointOutside(float x0, float z0, float x1, float z1) const;
     // 0x004F61C0 / 0x004F6210: every point's segment (from the last laid to the first) / post drawn.
-    void DrawSegments(const Maths::Vector* origin, const Maths::Vector* position, float angle);
-    void DrawPosts(const Maths::Vector* origin, const Maths::Vector* position, float angle);
+    void DrawSegments(const Maths::Vec4* origin, const Maths::Vec4* position, float angle);
+    void DrawPosts(const Maths::Vec4* origin, const Maths::Vec4* position, float angle);
     // 0x004F6240: a new point at the head (null when the pool is full - 400 used; an empty pool crashes, as in the
     // original). Its fields cleared, w = 1.
     CEditedRailPoint* NewPoint();
@@ -118,14 +118,14 @@ struct CEditedRail {
     // over the ground kept, its post and segment drawn again (and the previous point's segment). Whether the move is
     // valid: both segments valid (RailSegmentValid) and the point inside the park (IsInsidePark, 10 in). The flag
     // (UpdateRailPointPosition's UpdateSuperSectors) isn't read.
-    bool MovePoint(int index, const Maths::Vector* position, bool updateSuperSectors);
+    bool MovePoint(int index, const Maths::Vec4* position, bool updateSuperSectors);
     // 0x004F6F40: `source`'s points copied (after clearing).
     void CopyFrom(const CEditedRail* source);
     // 0x004F7100: copies of the runs of two or more points inside (x0, z0)-(x1, z1), each a new rail put before
     // `list` (linked by m_following only); returns the new list.
     CEditedRail* CopyInside(float x0, float z0, float x1, float z1, CEditedRail* list) const;
 };
-static_assert(offsetof(CEditedRail, mp_points) == 0x08 && offsetof(CEditedRail, m_id) == 0x0C &&
+static_assert(offsetof(CEditedRail, mp_points) == 0x08 && offsetof(CEditedRail, m_ident) == 0x0C &&
                   sizeof(CEditedRail) == 0x10,
               "layout must match the original");
 
@@ -144,26 +144,26 @@ uint8_t* __cdecl CloneRailSector(uint32_t source);
 // 0x004F3D80: `point` moved from `origin` to `position` turned `angle` degrees about y (x, z: the cosine at the x87's
 // full precision, the sine rounded to float; w: the original adds `position`'s to an unset local - here 0). Returns
 // `out`.
-Maths::Vector* TransformRailPoint(Maths::Vector* out, const Maths::Vector* point, const Maths::Vector* origin,
-                                const Maths::Vector* position, float angle);
+Maths::Vec4* TransformRailPoint(Maths::Vec4* out, const Maths::Vec4* point, const Maths::Vec4* origin,
+                                const Maths::Vec4* position, float angle);
 // 0x004F3E40: whether the turn at `b` from `a` to `c` (on the ground plane) is gentle enough: the cosine between the
 // two directions at least that of Rail_Corner_Leave_Angle.
-bool RailCornerOk(const Maths::Vector* a, const Maths::Vector* b, const Maths::Vector* c);
+bool RailCornerOk(const Maths::Vec4* a, const Maths::Vec4* b, const Maths::Vec4* c);
 // 0x004F3F30 / 0x004F3F70: whether `a` and `b` are more than 4000 (a segment's longest) / 4500 (the dotted line's
 // reach) apart. 1 or 0.
-int RailTooFar(const Maths::Vector* a, const Maths::Vector* b);
-int RailOutOfReach(const Maths::Vector* a, const Maths::Vector* b);
+int RailTooFar(const Maths::Vec4* a, const Maths::Vec4* b);
+int RailOutOfReach(const Maths::Vec4* a, const Maths::Vec4* b);
 // 0x004F3FB0: whether a segment from `a` to `b` is valid: at most 4000 long, at least
 // RailEditorMinimumPointSeparation, no steeper than RailEditorMaxSlope.
-bool RailSegmentValid(const Maths::Vector* a, const Maths::Vector* b);
+bool RailSegmentValid(const Maths::Vec4* a, const Maths::Vec4* b);
 // 0x004F4B90: the `count` vertices `indices` picks turned about the first of them to face `direction` (its up kept
 // up; straight up or down: facing z), then moved by `translation`.
-void OrientRailVertices(const Maths::Vector* direction, const Maths::Vector* translation, Maths::Vector* vertices,
+void OrientRailVertices(const Maths::Vec4* direction, const Maths::Vec4* translation, Maths::Vec4* vertices,
                         const int* indices, int count);
 // 0x004F4E70: the source sector `source`'s vertices fitted between `from` and `to` (the start half turned towards
 // the previous segment's direction and that segment's end moved onto it when `previousSector` is given) and given to
 // `sector`; with `updateCollision`, its collision's vertices too.
-void StretchRailSector(uint32_t source, const Maths::Vector* from, const Maths::Vector* previous, const Maths::Vector* to,
+void StretchRailSector(uint32_t source, const Maths::Vec4* from, const Maths::Vec4* previous, const Maths::Vec4* to,
                        uint8_t* sector, uint8_t* previousSector, bool updateCollision);
 // Their register-argument entry points (the original's conventions; see the .cpp).
 void TransformRailPointStub();
@@ -186,24 +186,24 @@ public:
     static constexpr int kMaxRails = 200;
 
     // 0x004F4970: the rail editor (the component of the object 0x5B509AD3).
-    static CRailAuthoring* __cdecl Instance();
+    static CRailAuthoring* __cdecl Sole();
     // 0x004F7FB0 (registered by RegisterComponentTypes): a new one (0 if out of memory).
-    static GameObjects::CObjectModule* __cdecl Create();
+    static GameObjects::CObjectModule* __cdecl Fabricate();
     // 0x004F7C90: the constructor (returns this): the pools made, no rails, the buffer cleared.
-    CRailAuthoring* Construct();
+    CRailAuthoring* MakeNew();
     // 0x004F7D20: the destructor body: cleared, the current pools freed (when made here).
     void DestroyBody();
     // 0x004F8010 (vtable slot 0)
-    CRailAuthoring* Destroy(unsigned int flags);
+    CRailAuthoring* Teardown(unsigned int flags);
     // 0x004F47E0 (vtable slot 3): the input and editor camera components.
-    void Finalize();
+    void Seal();
     // 0x004F4810 (vtable slot 1): the pad's X / Triangle / Square / Circle presses run RailEditorX ... (each trigger
     // cleared), then RailEditorEveryFrame - on the object.
-    void Update();
+    void TickFrame();
     // 0x004F6F90 (vtable slot 8): hidden: rail_editor_destroy_cursor, the park's rails rebuilt, highlights and the
     // dotted line gone; shown: rail_editor_create_cursor, the park's rail nodes built, the camera told of the player
     // (its slot 2), the pad cleared.
-    void Hide(bool hide);
+    void Conceal(bool hide);
     // 0x004F6C10 (vtable slot 10): NumFreeRailPoints, NumFreeRails, CurrentRail (its info or null) and Rails (an empty
     // structure each) added to `info`, then the base's (0x005BAB90).
     void FetchDiagnostics(Scripts::CStruct* info);
@@ -241,7 +241,7 @@ public:
     // 0x004F3C20: every point UnHighlighted.
     void UnHighlightAll();
     // 0x004F3D30: every rail's sectors drawn and collided with, or neither.
-    void SetActive(bool active);
+    void ChangeLive(bool active);
     // 0x004F45C0 / 0x004F45E0: every rail's segments / posts deleted.
     void DeleteAllSegments();
     void DeleteAllPosts();
@@ -251,13 +251,13 @@ public:
     int CountPointsInside(float x0, float z0, float x1, float z1) const;
     // 0x004F4710: the rail point nearest `position` (ground plane), skipping the point `bypassIdx` of the rail
     // `skipRail`: its position, squared distance, rail id and index. Whether one was found.
-    bool FindNearestPoint(const Maths::Vector* position, Maths::Vector* point, float* distanceSquared, uint32_t* railId,
+    bool FindNearestPoint(const Maths::Vec4* position, Maths::Vec4* point, float* distanceSquared, uint32_t* railId,
                           int* index, uint32_t skipRail, int bypassIdx) const;
     // 0x004F48F0: the dotted line's sector deleted.
     void DeleteDottedLine();
     // 0x004F6AF0: the dotted line from the current rail's head point to `position` (green when that segment would be
     // valid, red - flashing at RailEditorRedLineFlashRate - when not); none when too far.
-    void DrawDottedLine(const Maths::Vector* position);
+    void DrawDottedLine(const Maths::Vec4* position);
     // 0x004F4500: the rails packed into the buffer. 0x004F45B0: that, and the buffer.
     void Pack();
     RailBuffer* GetPacked();
@@ -280,7 +280,7 @@ public:
     void DrawAllSegments();
     void DrawAllPosts();
     // 0x004F6650: the collision rebuilt, heights kept, everything drawn again.
-    void Rebuild();
+    void Reassemble();
     // 0x004F7230: CopyInside of every rail, into one list (returned).
     CEditedRail* CopyRailsInside(float x0, float z0, float x1, float z1) const;
     // 0x004F6BF0 (no this): the free points of the current pool.
@@ -298,14 +298,14 @@ public:
     void* m_viewCamera;               // +0x1C the editor camera component (0xAC8946E2)
     CEditedRail* m_railGroups;         // +0x20
     CEditedRail* m_activeNode;       // +0x24 the rail points are added to
-    uint32_t m_mode;               // +0x28 SetEditingMode's Mode
+    uint32_t m_modeSel;               // +0x28 SetEditingMode's Mode
     uint32_t m_dottedLineName;     // +0x2C the dotted line's clone (Sk5Ed_RAdot_Dynamic / ..._Green)
     uint8_t* mp_dottedLine;        // +0x30 its sector
     RailBuffer m_packed;           // +0x34
     uint8_t pad1166[2];
 };
 static_assert(offsetof(CRailAuthoring, mp_input) == 0x18 && offsetof(CRailAuthoring, m_railGroups) == 0x20 &&
-                  offsetof(CRailAuthoring, m_activeNode) == 0x24 && offsetof(CRailAuthoring, m_mode) == 0x28 &&
+                  offsetof(CRailAuthoring, m_activeNode) == 0x24 && offsetof(CRailAuthoring, m_modeSel) == 0x28 &&
                   offsetof(CRailAuthoring, mp_dottedLine) == 0x30 &&
                   offsetof(CRailAuthoring, m_packed) == 0x34 && sizeof(CRailAuthoring) == 0x1168,
               "layout must match the original (0x004F7FB0 allocates 0x1168 bytes)");

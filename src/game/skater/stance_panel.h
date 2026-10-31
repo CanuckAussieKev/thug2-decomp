@@ -21,18 +21,18 @@ namespace GameObjects {
 class CRiderStanceDisplay : public CObjectModule {
 public:
     // 0x005193B0 (registered by RegisterComponentTypes): a new one (0 if out of memory), no core physics yet.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00519130: the destructor body (the base's).
     void DestroyBody();
     // 0x005191E0 (vtable slot 0)
-    CRiderStanceDisplay* Destroy(unsigned int flags);
+    CRiderStanceDisplay* Teardown(unsigned int flags);
     // 0x00519140 (vtable +0x08): no stance shown yet. `params` isn't read.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x00519210 (vtable +0x0C): the core physics component found.
-    void Finalize();
+    void Seal();
     // 0x00519230 (vtable +0x04): the skater's panel element (0x69751A23 below its skater number's id) shown the
     // stance when it changes: hidden for 5, else the stance's texture (the table at 0x0064C12C) at full alpha.
-    void Update();
+    void TickFrame();
     // 0x005192C0 (vtable +0x30): NollieOn / NollieOff / InNollie, PressureOn / PressureOff / InPressure; 2 for any
     // other name.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);

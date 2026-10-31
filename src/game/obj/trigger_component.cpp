@@ -82,7 +82,7 @@ T& At(void* object, uint32_t offset)
 // The node array of `object`'s nodearray component (its vtable slot 13), or null without one.
 Scripts::CArray* NodeArrayOf(CGameEntity* object)
 {
-    CObjectModule* nodes = object->GetComponent(kNodeArray);
+    CObjectModule* nodes = object->FetchModule(kNodeArray);
     if (!nodes)
         return nullptr;
     return reinterpret_cast<Scripts::CArray*(__thiscall*)(CObjectModule*)>(nodes->m_vtable[13])(nodes);
@@ -91,15 +91,15 @@ Scripts::CArray* NodeArrayOf(CGameEntity* object)
 } // namespace
 
 // 0x00434B90
-CObjectModule* __cdecl CActivationZoneModule::Create()
+CObjectModule* __cdecl CActivationZoneModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CActivationZoneModule));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CActivationZoneModule*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     return component;
 }
 
@@ -111,22 +111,22 @@ void CActivationZoneModule::DestroyBody()
 }
 
 // 0x00434910
-CActivationZoneModule* CActivationZoneModule::Destroy(unsigned int flags)
+CActivationZoneModule* CActivationZoneModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00434940
-void CActivationZoneModule::ConfigureFromData(Scripts::CStruct* /*params*/) { m_lastPos = m_object->m_pos; }
+void CActivationZoneModule::ConfigureFromData(Scripts::CStruct* /*params*/) { m_lastPos = m_entity->m_atPoint; }
 
 // 0x00434D90
-void CActivationZoneModule::Update()
+void CActivationZoneModule::TickFrame()
 {
-    CGameEntity* object = m_object;
-    const Maths::Vector& pos = object->m_pos;
+    CGameEntity* object = m_entity;
+    const Maths::Vec4& pos = object->m_atPoint;
     // (not a number counts as moved, as the original's FUCOMPP)
     if (m_lastPos.x == pos.x && m_lastPos.y == pos.y && m_lastPos.z == pos.z && m_lastPos.w == pos.w)
         return;
@@ -135,14 +135,14 @@ void CActivationZoneModule::Update()
         return;
     }
     Engine3D::CProbeRay feeler;
-    feeler.Construct();
+    feeler.MakeNew();
     feeler.m_line.start = m_lastPos;
-    feeler.m_line.end = m_object->m_pos;
+    feeler.m_line.end = m_entity->m_atPoint;
     feeler.SetExcluded(0, kTriggerFaces);
     feeler.m_callback = reinterpret_cast<Engine3D::FeelerCallback>(&FeelerHit);
     feeler.m_unknownA8 = reinterpret_cast<uint32_t>(this);
     feeler.GetHitShape(true, false);
-    m_lastPos = m_object->m_pos;
+    m_lastPos = m_entity->m_atPoint;
 }
 
 // 0x00434970
@@ -152,23 +152,23 @@ int CActivationZoneModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* p
         return 2;
     // (the array is read into the name's own slot, cleared first)
     Scripts::CArray* array = nullptr;
-    params->GetArray(0u, &array, 0);
+    params->FetchList(0u, &array, 0);
     // One integer array, or an array of them - any one of which may match.
     Scripts::CArray* arrays = nullptr;
     uint32_t count = 1;
-    if (array->m_type == Scripts::QBVAL_ARRAY) {
-        count = array->m_size;
+    if (array->m_kindTag == Scripts::QBVAL_ARRAY) {
+        count = array->m_extent;
         arrays = array;
     }
     for (uint32_t i = 0; i < count; ++i) {
         if (arrays)
-            array = reinterpret_cast<Scripts::CArray*>(arrays->GetElement(i));
-        if (array->m_type != Scripts::QBVAL_INTEGER)
+            array = reinterpret_cast<Scripts::CArray*>(arrays->FetchPart(i));
+        if (array->m_kindTag != Scripts::QBVAL_INTEGER)
             return 0;
         uint32_t wanted = 0;
-        for (int k = 0; k < static_cast<int>(array->m_size); ++k) {
-            if (static_cast<int>(array->GetElement(static_cast<uint32_t>(k))) >= 0)
-                wanted += 1u << (array->GetElement(static_cast<uint32_t>(k)) & 31);
+        for (int k = 0; k < static_cast<int>(array->m_extent); ++k) {
+            if (static_cast<int>(array->FetchPart(static_cast<uint32_t>(k))) >= 0)
+                wanted += 1u << (array->FetchPart(static_cast<uint32_t>(k)) & 31);
         }
         if ((m_events | wanted) == m_events)
             return 1;
@@ -181,18 +181,18 @@ bool CActivationZoneModule::TriggerNode(const int* events, uint32_t name, Script
 {
     Scripts::CStruct* node = nullptr;
     if (!nodes) {
-        node = LevelNodes::GetNode(name, false);
+        node = LevelNodes::FetchVertex(name, false);
     } else {
         // (from the last; none named so leaves the first one checked - element 0 -, as the original)
-        for (uint32_t i = nodes->m_size; i > 0;) {
-            node = reinterpret_cast<Scripts::CStruct*>(nodes->GetElement(--i));
+        for (uint32_t i = nodes->m_extent; i > 0;) {
+            node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(--i));
             if (LevelNodes::GetNodeName(node) == name)
                 break;
         }
     }
     Scripts::CStruct* params = nullptr;
     if (other) {
-        if (Scripts::CStruct* otherNode = LevelNodes::GetNode(*reinterpret_cast<const uint32_t*>(other + 0x14), false))
+        if (Scripts::CStruct* otherNode = LevelNodes::FetchVertex(*reinterpret_cast<const uint32_t*>(other + 0x14), false))
             otherNode->ReadSubStruct(kParams, &params, 0);
     }
     // Not original - a trigger face whose object has no node (a level's collision with another level's node array:
@@ -222,7 +222,7 @@ bool CActivationZoneModule::TriggerNode(const int* events, uint32_t name, Script
         recorded += 1u << (events[1] & 31);
     if (events[2])
         recorded += 1u << (events[2] & 31);
-    CObject* object = At<CObject*>(this, 0x0C);
+    CEntity* object = At<CEntity*>(this, 0x0C);
     bool permanent = node->HasBareFlag(kPermanent);
     bool replicateFlag = node->HasBareFlag(kNetEnabled);
     object->StartScriptTask(script, static_cast<int>(name), replicateFlag, permanent, params);
@@ -281,14 +281,14 @@ bool __cdecl CActivationZoneModule::FeelerHit(Engine3D::CProbeRay* feeler)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CActivationZoneModule::Destroy,
-         &GameObjects::CActivationZoneModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CActivationZoneModule::Teardown,
+         &GameObjects::CActivationZoneModule::TickFrame,
          &GameObjects::CActivationZoneModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

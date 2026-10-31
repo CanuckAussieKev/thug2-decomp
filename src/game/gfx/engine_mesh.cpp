@@ -22,12 +22,12 @@ namespace {
 extern void** const kMeshVtable;
 constexpr uint32_t kObjectSize = 0x40;
 
-uint32_t Align(uint32_t value, uint32_t to) { return (value + to - 1) & ~(to - 1); }
+uint32_t Justify(uint32_t value, uint32_t to) { return (value + to - 1) & ~(to - 1); }
 
 } // namespace
 
 // 0x00490A60
-CSubMesh* CSubMesh::Construct()
+CSubMesh* CSubMesh::MakeNew()
 {
     m_vtable = reinterpret_cast<void**>(kMeshVtable);
     new (&m_box) Maths::BBox();
@@ -42,7 +42,7 @@ CSubMesh* CSubMesh::Construct()
 void CSubMesh::RemoveCollision()
 {
     if (m_collisionName[0]) {
-        Packs::Unload(m_collisionName);
+        Packs::Offload(m_collisionName);
         m_collisionName[0] = 0;
     }
 }
@@ -55,11 +55,11 @@ void CSubMesh::DestroyBody()
 }
 
 // 0x00490C90
-CSubMesh* CSubMesh::Destroy(unsigned int flags)
+CSubMesh* CSubMesh::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -82,18 +82,18 @@ bool CSubMesh::AddCollision(const uint8_t* data)
     m_collisionCount = static_cast<int>(word(4));
     m_hitShape = const_cast<uint8_t*>(data) + 0x20;
     uint32_t objects = reinterpret_cast<uint32_t>(m_hitShape);
-    uint32_t vertices = Align((static_cast<uint32_t>(m_collisionCount) << 6) + objects, 16);
+    uint32_t vertices = Justify((static_cast<uint32_t>(m_collisionCount) << 6) + objects, 16);
     uint32_t vertexBytes = vertices + 2 * (3 * (word(0x18) + 2 * word(0x14)));
-    uint32_t faces = Align(word(8) + vertexBytes, 4);
-    uint32_t afterFaces = Align(word(0xC) * 11 + word(0x10) * 8, 4) + faces;
+    uint32_t faces = Justify(word(8) + vertexBytes, 4);
+    uint32_t afterFaces = Justify(word(0xC) * 11 + word(0x10) * 8, 4) + faces;
     uint32_t nodes = afterFaces + 4;
     uint32_t faceLists = *reinterpret_cast<const uint32_t*>(afterFaces) + nodes;
     for (int i = 0; i < static_cast<int>(word(4)); ++i) {
         auto* object = reinterpret_cast<CTriMeshSource*>(m_hitShape + i * kObjectSize);
         object->Relocate(0, vertices, vertexBytes, faces, nodes, faceLists);
         object->SetUpAllFaces();
-        m_box.AddPoint(*reinterpret_cast<const Maths::Vector*>(m_hitShape + i * kObjectSize + 0x10));
-        m_box.AddPoint(*reinterpret_cast<const Maths::Vector*>(m_hitShape + i * kObjectSize + 0x20));
+        m_box.AppendSpot(*reinterpret_cast<const Maths::Vec4*>(m_hitShape + i * kObjectSize + 0x10));
+        m_box.AppendSpot(*reinterpret_cast<const Maths::Vec4*>(m_hitShape + i * kObjectSize + 0x20));
     }
     return true;
 }
@@ -132,7 +132,7 @@ int sSplatSlots::OldestSlot(uint32_t count)
 }
 
 // 0x00490D20
-void sVertexStack::Construct()
+void sVertexStack::MakeNew()
 {
     used = 0;
     vertexSize = 0;
@@ -140,14 +140,14 @@ void sVertexStack::Construct()
 }
 
 // 0x00490D50
-void sVertexStack::Push(const uint8_t* in)
+void sVertexStack::StackOn(const uint8_t* in)
 {
     std::memcpy(data + used, in, vertexSize);
     used += vertexSize;
 }
 
 namespace {
-static VtableSlot kMeshVtable_slots[] = {&Engine3D::CSubMesh::Destroy};
+static VtableSlot kMeshVtable_slots[] = {&Engine3D::CSubMesh::Teardown};
 void** const kMeshVtable = reinterpret_cast<void**>(kMeshVtable_slots);
 } // namespace
 

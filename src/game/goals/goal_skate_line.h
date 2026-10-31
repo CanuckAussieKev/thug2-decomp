@@ -14,9 +14,9 @@ class CSkateLineGoal : public CObjective {
 public:
     // 0x005691F0: the constructor (CObjective's). Returns this. 0x00569210 / 0x00569290 (vtable +0x00): the destructor
     // body / the scalar deleting destructor.
-    CSkateLineGoal* Construct(Scripts::CStruct* params);
+    CSkateLineGoal* MakeNew(Scripts::CStruct* params);
     void DestroyBody();
-    CSkateLineGoal* Destroy(uint8_t flags);
+    CSkateLineGoal* Teardown(uint8_t flags);
     // 0x00569220: the skater landed: with a combo required (and 0x7100155D), won when every flag is set, else lost.
     // The answer is the win's / loss's (false when it doesn't apply).
     bool Land();

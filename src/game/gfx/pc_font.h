@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-// The engine's fonts and texts on PC (Nx engine): the PC font (the engine's CFont over a bitmap font, STypeface) and
+// The engine's fonts and texts on PC (Nx engine): the PC font (the engine's CTypeface over a bitmap font, STypeface) and
 // the PC text (the engine's CGlyphString over a piece of screen text, SGlyphRun), the texts' free list, and the platform calls
 // that load and unload fonts.
 namespace Engine3D {
@@ -11,7 +11,7 @@ namespace Engine3D {
 struct STypeface;
 struct SGlyphRun;
 
-// The PC font (0xC bytes, vtable 0x0064A328; the engine's CFont - constructor 0x0048D020, vtable 0x00648A6C, its
+// The PC font (0xC bytes, vtable 0x0064A328; the engine's CTypeface - constructor 0x0048D020, vtable 0x00648A6C, its
 // destructor body 0x0048D030 - with the bitmap font at +8).
 struct CPcFont {
     void** vtable;
@@ -19,24 +19,24 @@ struct CPcFont {
     STypeface* font;
 
     // 0x004B3BB0: construct (no font yet). Returns this.
-    CPcFont* Construct();
+    CPcFont* MakeNew();
     // 0x004B3E00: the destructor's body (the font unloaded if there is one).
     void DestroyBody();
     // 0x004B4060 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcFont* Destroy(unsigned int flags);
-    // 0x004B3BD0 (virtual [1]): load "fonts/<name>.fnt.xbx" (STypeface::Load). Whether it loaded.
-    bool Load(const char* name);
+    CPcFont* Teardown(unsigned int flags);
+    // 0x004B3BD0 (virtual [1]): load "fonts/<name>.fnt.xbx" (STypeface::ReadIn). Whether it loaded.
+    bool ReadIn(const char* name);
     // 0x004B3C00 (virtual [2]): the character spacing, and the space's width when above 0.
     void ChangeSpacings(int glyphGap, int blankGap);
     // 0x004B3C30 (virtual [3]): the 16 colours "\c1".."\cg" pick (RGBA as bytes).
     void ChangeColors(const uint32_t* colors);
     // 0x004B3CB0 (virtual [4]): this is the button glyph font (0x00780FDC), or no font is.
     void FlagButtonFont(bool buttons);
-    // 0x004B3CD0 (virtual [5]): the font unloaded (STypeface::Unload).
-    void Unload();
+    // 0x004B3CD0 (virtual [5]): the font unloaded (STypeface::Offload).
+    void Offload();
     // 0x004B3CF0 / 0x004B3D00 / 0x004B3D10 (virtual [6]-[8]): jumps to what the bitmap font has - its height and
     // base (0x00469490 / 0x005480C0, the shared "first / second field" getters) and the size of a text.
-    uint32_t GetHeight();
+    uint32_t FetchTallness();
     uint32_t GetBase();
     void ReadStringParam(const char* text, float* width, float* height);
 };
@@ -67,17 +67,17 @@ struct CPcText {
 
     // 0x004B3E70: construct (the engine's with 0): a screen text of its own (priority 0), then everything sent to
     // it. Returns this.
-    CPcText* Construct();
+    CPcText* MakeNew();
     // 0x004B3D20: the destructor's body (the screen text destroyed).
     void DestroyBody();
     // 0x004B3F20 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcText* Destroy(unsigned int flags);
+    CPcText* Teardown(unsigned int flags);
     // 0x004B3D80 (virtual [1]): every property sent to the screen text (virtual [3], [4], [2]).
-    void Update();
+    void TickFrame();
     // 0x004B3DA0 (virtual [2]): shown or hidden.
     void UpdateHidden();
     // 0x004B3F50 (virtual [3]): font, string, effects, position, pivot, scales, angle, colour.
-    void UpdateProperties();
+    void TickTraits();
     // 0x004B3DB0 (virtual [4]): the priority, and the z (0 without zEnabled).
     void UpdatePriority();
 };

@@ -18,7 +18,7 @@
 // table at +0xD0 (0x0049CB00).
 //
 // Moving one is what the park editor does with its pieces (0x00594730): the geometry's PlaceAtAbsolutePoint (vfunc +0x48,
-// 0x004B55D0: every mesh's meshRef::SetPosition 0x004D6E00 moves its vertices by the change and uploads them), the
+// 0x004B55D0: every mesh's meshRef::ChangePlace 0x004D6E00 moves its vertices by the change and uploads them), the
 // collision moved by the same change (CStaticCollider::PlaceAtAbsolutePoint 0x00410C20 translates by the position given
 // minus a constant origin, so it is handed the change), the sector flagged 0x20, and later the scene's
 // UpdateSuperSectors (0x0049D780) puts its collision where it now is. Quarter turns: CWorldCell::SpinAroundUp
@@ -63,7 +63,7 @@ bool Passed(uint32_t checksum, V3 camera);
 float LevelShare(uint32_t checksum);
 
 // A sector's box where it is now (false: no such sector, or no geometry).
-bool Box(uint32_t checksum, OrientedBox* box);
+bool Cuboid(uint32_t checksum, OrientedBox* box);
 // Why it can't be moved (null: it can).
 const char* WhyNotMovable(uint32_t checksum);
 // For the HUD: "scenery <name> <checksum> ..." for the hovered sector.
@@ -82,7 +82,7 @@ void SelectGroup(uint32_t checksum);
 // What SelectGroup would select for that sector (kept while it stays the same: the hover's highlight).
 const std::vector<uint32_t>& HoverGroup(uint32_t checksum);
 // Alt+click: one sector in or out (the rails chosen again). Also Ctrl+click and the Inspector's x on a selected piece.
-void Toggle(uint32_t checksum);
+void FlipOver(uint32_t checksum);
 // A group's shadows (level_editor_shadows.h) are selected with it: whether a sector has been taken as one (`caster`:
 // the member whose name it carries, or the one it lies under when taken by place). They move, turn, scale and undo with the rest; the pivot
 // and the bottom are the rest's.
@@ -140,7 +140,7 @@ void Turn(int quarters);
 V3 SelectionScale();
 int SelectionQuarters();
 V3 ScaleSelection(V3 factor, bool uniform);
-void Commit();
+void Finalise();
 // A sector's collision moved by something else (level_editor_walls.h: an invisible wall): flagged for the super sectors'
 // update as moves are, its scene updated at the next Commit.
 void NoteCollisionMoved(uint32_t checksum);
@@ -149,7 +149,7 @@ int MovedCount();
 
 // The selection's state: which sectors are selected, where the editor has put each (relative to where the level has
 // it) and whether it's hidden, and the same for its rails. Undo / redo save it before a change and restore it; reset
-// is every placement back to none, hiding is every piece hidden (CWorldCell::SetActive: neither drawn nor collided with -
+// is every placement back to none, hiding is every piece hidden (CWorldCell::ChangeLive: neither drawn nor collided with -
 // its rails turned off too).
 struct SectorState {
     uint32_t checksum;
@@ -184,12 +184,12 @@ uint32_t SceneName(uint8_t* scene);
 uint32_t Duplicate(uint32_t source);
 // The copies made this level: the copy, its source, and where the source had been put when it was copied (a copy's
 // place relative to the source as loaded is its placement after that one - Compose).
-struct Clone {
+struct Replicate {
     uint32_t checksum;
     uint32_t source;
     Placement sourceAtCopy;
 };
-std::vector<Clone>& Clones();
+std::vector<Replicate>& Clones();
 bool IsClone(uint32_t checksum);
 // Where the editor has put a sector (none: false), and whether it's hidden.
 bool PlacementNow(uint32_t checksum, Placement* placement);
@@ -215,7 +215,7 @@ uint8_t* SectorGeometry(uint32_t checksum);
 uint8_t* SectorOf(uint32_t checksum);
 void ForEachLevelSector(void (*each)(void* context, uint32_t checksum, uint8_t* sector), void* context);
 
-// Highlighting: geometry tinted with the engine's own colour (CGeom::SetColor, vfunc +0x18 - what SetObjectColor uses
+// Highlighting: geometry tinted with the engine's own colour (CGeom::ChangeTint, vfunc +0x18 - what SetObjectColor uses
 // for graffiti: each mesh's colour, or an instance's), and put back exactly as it was when no longer wanted. Each
 // frame: Tint what should show, then EndTints puts back the rest (`all`: everything - the editor stopping). Who owns
 // a geometry: a sector (`index` -1, `id` its checksum) or an object (its id, the geometry's index in its model);

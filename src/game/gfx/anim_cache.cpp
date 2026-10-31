@@ -28,11 +28,11 @@ CClipStore* g_animCache;
 CClipStore*& Cache() { return g_animCache; }
 MemSys::PoolPair& SlotPools() { return g_animSlotPools; }
 
-MemSys::Manager* Manager() { return MemSys::Manager::Get(); }
+MemSys::Hub* Hub() { return MemSys::Hub::Pull(); }
 
 // The AnimHeap made current (allocations and frees in between go to it).
-void PushAnimHeap() { Manager()->EnterHeapScope(Manager()->GetNamedHeap(kAnimHeap, 1)); }
-void PopHeap() { Manager()->LeaveHeapScope(); }
+void PushAnimHeap() { Hub()->EnterHeapScope(Hub()->GetNamedHeap(kAnimHeap, 1)); }
+void PopHeap() { Hub()->LeaveHeapScope(); }
 
 // The sizes of a rotation and a translation key for a cache type.
 void KeySizes(int type, uint8_t& rotation, uint8_t& translation)
@@ -67,22 +67,22 @@ void FreeSlots(CAnimCacheEntry* entry)
         if (slot) {
             slot->Clear();
             if (slot)
-                CAnimCacheSlot::Free(slot);
+                CAnimCacheSlot::Dealloc(slot);
             slot = nullptr;
         }
     }
 }
 
 // The fields Release and the destructor empty.
-void Empty(CAnimCacheEntry* entry)
+void Vacant(CAnimCacheEntry* entry)
 {
     entry->mp_rotationKeys = nullptr;
     entry->mp_translationKeys = nullptr;
-    entry->m_key = 0;
+    entry->m_lookupKey = 0;
     entry->m_bones = 0;
     entry->m_rotationKeySize = 0;
     entry->m_translationKeySize = 0;
-    entry->m_size = 0;
+    entry->m_extent = 0;
     entry->m_allocated = 0;
 }
 
@@ -98,7 +98,7 @@ void FreeData(CAnimCacheEntry* entry)
 {
     if (entry->m_payload) {
         PushAnimHeap();
-        Manager()->Free(entry->m_payload);
+        Hub()->Dealloc(entry->m_payload);
         PopHeap();
         entry->m_payload = nullptr;
     }
@@ -109,9 +109,9 @@ void FreeData(CAnimCacheEntry* entry)
 // --- the slots ---
 
 // 0x00480A70
-void __cdecl CAnimCacheSlot::Free(CAnimCacheSlot* slot)
+void __cdecl CAnimCacheSlot::Dealloc(CAnimCacheSlot* slot)
 {
-    SlotPools().Free(slot);
+    SlotPools().Dealloc(slot);
 }
 
 void CAnimCacheSlot::Clear()
@@ -123,44 +123,44 @@ void CAnimCacheSlot::Clear()
 
 // --- an entry ---
 
-void CAnimCacheEntry::Construct()
+void CAnimCacheEntry::MakeNew()
 {
-    m_flags &= 0xA000;
+    m_flagBits &= 0xA000;
     mp_rotationKeys = nullptr;
     mp_translationKeys = nullptr;
-    m_key = 0;
+    m_lookupKey = 0;
     m_bones = 0;
     m_rotationKeySize = 0;
     m_translationKeySize = 0;
     m_allocated = 0;
-    m_size = 0;
+    m_extent = 0;
     m_payload = nullptr;
-    m_type = 0;
+    m_kindTag = 0;
 }
 
 // 0x00480810
-uint32_t CAnimCacheEntry::Allocate(uint32_t key, int16_t bones, int rotationKeys, int translationKeys, int type)
+uint32_t CAnimCacheEntry::Carve(uint32_t key, int16_t bones, int rotationKeys, int translationKeys, int type)
 {
-    m_flags |= kReleasing;
+    m_flagBits |= kReleasing;
     m_bones = bones;
-    m_type = type;
+    m_kindTag = type;
     KeySizes(type, m_rotationKeySize, m_translationKeySize);
     uint32_t granularity = Cache()->m_granularity;
-    m_size = m_rotationKeySize * rotationKeys + m_translationKeySize * translationKeys;
-    m_allocated = (m_size / granularity + 1) * granularity;
+    m_extent = m_rotationKeySize * rotationKeys + m_translationKeySize * translationKeys;
+    m_allocated = (m_extent / granularity + 1) * granularity;
     PushAnimHeap();
-    if (Manager()->Available() < m_allocated) {
-        m_type = 0;
+    if (Hub()->Obtainable() < m_allocated) {
+        m_kindTag = 0;
         PopHeap();
         return 0;
     }
-    m_key = key;
-    m_payload = static_cast<uint8_t*>(MemSys::New(m_allocated));
+    m_lookupKey = key;
+    m_payload = static_cast<uint8_t*>(MemSys::Alloc(m_allocated));
     std::memset(m_payload, 0, m_allocated);
     mp_rotationKeys = m_payload;
     mp_translationKeys = m_payload + m_rotationKeySize * rotationKeys;
     PopHeap();
-    m_flags &= ~(kBusy | kReleasing);
+    m_flagBits &= ~(kBusy | kReleasing);
     m_lastUsed = 0;
     return m_allocated;
 }
@@ -168,37 +168,37 @@ uint32_t CAnimCacheEntry::Allocate(uint32_t key, int16_t bones, int rotationKeys
 // 0x00480AD0
 uint32_t CAnimCacheEntry::Release()
 {
-    uint16_t flags = m_flags;
+    uint16_t flags = m_flagBits;
     while (flags & kBusy) {
         // (forever, as the original: the flags were read once)
     }
-    m_flags = flags | kReleasing;
+    m_flagBits = flags | kReleasing;
     if (mp_releaseCallback) {
         mp_releaseCallback(mp_releaseArg);
         mp_releaseCallback = nullptr;
     }
     uint32_t allocated = m_allocated;
-    m_flags &= kReleasing;
-    Empty(this);
+    m_flagBits &= kReleasing;
+    Vacant(this);
     FreeData(this);
     FreeSlots(this);
-    m_type = 0;
+    m_kindTag = 0;
     return allocated;
 }
 
 // 0x00481200
 void CAnimCacheEntry::DestroyBody()
 {
-    m_flags &= ~(kKeep | kBusy);
+    m_flagBits &= ~(kKeep | kBusy);
     mp_releaseCallback = nullptr;
-    Empty(this);
+    Vacant(this);
     FreeData(this);
     if (mp_releaseCallback) { // (never: cleared above)
         mp_releaseCallback(mp_releaseArg);
         mp_releaseCallback = nullptr;
     }
     FreeSlots(this);
-    m_type = 0;
+    m_kindTag = 0;
 }
 
 // 0x00480BF0
@@ -207,7 +207,7 @@ int CAnimCacheEntry::NewSlot()
     for (int i = 0; i < kSlots; ++i) {
         if (mp_slots[i])
             continue;
-        auto* slot = static_cast<CAnimCacheSlot*>(SlotPools().Allocate(sizeof(CAnimCacheSlot)));
+        auto* slot = static_cast<CAnimCacheSlot*>(SlotPools().Carve(sizeof(CAnimCacheSlot)));
         if (slot)
             slot->m_clock = 0x8000;
         mp_slots[i] = slot;
@@ -222,16 +222,16 @@ int CAnimCacheEntry::NewSlot()
 // 0x00480C90
 void CAnimCacheEntry::FreeSlot(int index)
 {
-    if (!(m_flags & kUserMask))
+    if (!(m_flagBits & kUserMask))
         return;
     CAnimCacheSlot* slot = mp_slots[index];
     if (slot && index > 0) {
         slot->Clear();
         if (mp_slots[index])
-            CAnimCacheSlot::Free(mp_slots[index]);
+            CAnimCacheSlot::Dealloc(mp_slots[index]);
         mp_slots[index] = nullptr;
     }
-    m_flags = WithUsers(m_flags, -1);
+    m_flagBits = WithUsers(m_flagBits, -1);
 }
 
 // 0x00480590
@@ -274,59 +274,59 @@ void CAnimCacheEntry::SetReleaseCallback(void(__cdecl* callback)(void*), void* a
 // --- the cache ---
 
 // 0x00480660
-CClipStore* __cdecl CClipStore::Get() { return Cache(); }
+CClipStore* __cdecl CClipStore::Pull() { return Cache(); }
 
 // 0x00480D10
-void __cdecl CClipStore::Create(uint32_t heapSize, uint32_t granularity, int type)
+void __cdecl CClipStore::Fabricate(uint32_t heapSize, uint32_t granularity, int type)
 {
     if (Cache())
         return;
-    Manager()->CreateLabeledZone(kAnimHeap, heapSize, "AnimHeap", 0); // "AnimHeap"
+    Hub()->CreateLabeledZone(kAnimHeap, heapSize, "AnimHeap", 0); // "AnimHeap"
     DebugOut::Printf("Initializing CAnimCacheManager at %dk\n", heapSize >> 10); // "Initializing CAnimCacheManager at %dk\n"
     auto* cache = static_cast<CClipStore*>(MemSys::AllocZeroed(sizeof(CClipStore)));
     if (cache) {
         std::memset(cache->m_slotArray, 0, sizeof(cache->m_slotArray));
-        cache->m_used = 0;
+        cache->m_takenCount = 0;
         cache->m_granularity = 0;
-        cache->m_type = 0;
+        cache->m_kindTag = 0;
         cache->m_unknownD8 = 0;
-        cache->m_count = 0;
+        cache->m_num = 0;
         cache->m_evictUnused = false;
     }
     Cache() = cache;
-    cache->Init(granularity, type);
+    cache->PrepareAll(granularity, type);
 }
 
 // 0x00481340
-void __cdecl CClipStore::Destroy()
+void __cdecl CClipStore::Teardown()
 {
     if (CClipStore* cache = Cache()) {
         cache->DestroyBody();
-        MemSys::Free(cache);
+        MemSys::Dealloc(cache);
     }
     Cache() = nullptr;
-    Manager()->ReleaseLabeledZone(kAnimHeap, 1);
+    Hub()->ReleaseLabeledZone(kAnimHeap, 1);
 }
 
 // 0x00480940
 uint32_t __cdecl CClipStore::HeapAvailable()
 {
     PushAnimHeap();
-    uint32_t available = Manager()->Available();
+    uint32_t available = Hub()->Obtainable();
     PopHeap();
     return available;
 }
 
 // 0x004809F0
-void CClipStore::Init(uint32_t granularity, int type)
+void CClipStore::PrepareAll(uint32_t granularity, int type)
 {
     for (CAnimCacheEntry*& entry : m_slotArray) {
         entry = static_cast<CAnimCacheEntry*>(MemSys::AllocZeroed(sizeof(CAnimCacheEntry)));
         if (entry)
-            entry->Construct();
+            entry->MakeNew();
     }
     m_granularity = granularity;
-    m_type = type;
+    m_kindTag = type;
 }
 
 // 0x004812F0
@@ -335,17 +335,17 @@ void CClipStore::DestroyBody()
     for (CAnimCacheEntry*& entry : m_slotArray) {
         if (entry) {
             entry->DestroyBody();
-            MemSys::Free(entry);
+            MemSys::Dealloc(entry);
             entry = nullptr;
         }
     }
-    m_used = 0;
+    m_takenCount = 0;
     m_granularity = 0;
-    m_type = 0;
+    m_kindTag = 0;
 }
 
 // 0x00480800
-int CClipStore::GetType() { return m_type; }
+int CClipStore::FetchKind() { return m_kindTag; }
 
 // 0x00480670
 uint32_t CClipStore::GetEntrySize(uint32_t /*key*/, int rotationKeys, int translationKeys, int type)
@@ -357,23 +357,23 @@ uint32_t CClipStore::GetEntrySize(uint32_t /*key*/, int rotationKeys, int transl
 }
 
 // 0x00480980
-CAnimCacheEntry* CClipStore::AddEntry(uint32_t key, int16_t bones, int rotationKeys, int translationKeys, int type)
+CAnimCacheEntry* CClipStore::AddRow(uint32_t key, int16_t bones, int rotationKeys, int translationKeys, int type)
 {
     int i = 0;
     for (;; ++i) {
         CAnimCacheEntry* entry = m_slotArray[i];
-        if (entry->m_key == key)
+        if (entry->m_lookupKey == key)
             return nullptr;
-        if (entry->m_type == 0)
+        if (entry->m_kindTag == 0)
             break;
         if (i + 1 >= kEntries)
             return nullptr;
     }
-    uint32_t allocated = m_slotArray[i]->Allocate(key, bones, rotationKeys, translationKeys, type);
-    m_used += allocated;
+    uint32_t allocated = m_slotArray[i]->Carve(key, bones, rotationKeys, translationKeys, type);
+    m_takenCount += allocated;
     if (!allocated)
         return nullptr;
-    ++m_count;
+    ++m_num;
     return m_slotArray[i];
 }
 
@@ -383,10 +383,10 @@ uint32_t CClipStore::FindOldest(uint32_t size, uint32_t* users)
     uint32_t key = 0;
     uint32_t oldest = FrameClock::GetTime();
     for (CAnimCacheEntry* entry : m_slotArray) {
-        if (entry->m_allocated >= size && entry->m_lastUsed < oldest && !(entry->m_flags & CAnimCacheEntry::kKeep)) {
-            *users = entry->m_flags & CAnimCacheEntry::kUserMask;
+        if (entry->m_allocated >= size && entry->m_lastUsed < oldest && !(entry->m_flagBits & CAnimCacheEntry::kKeep)) {
+            *users = entry->m_flagBits & CAnimCacheEntry::kUserMask;
             oldest = entry->m_lastUsed;
-            key = entry->m_key;
+            key = entry->m_lookupKey;
         }
     }
     return key;
@@ -398,28 +398,28 @@ bool CClipStore::FreeOldest(uint32_t maxUsers, uint32_t size)
     uint32_t users = 999;
     uint32_t key = FindOldest(size, &users);
     if (maxUsers > users && key) {
-        Remove(key);
+        DropOut(key);
         return true;
     }
     return false;
 }
 
 // 0x00480DB0
-void CClipStore::Flush(bool unusedOnly)
+void CClipStore::Drain(bool unusedOnly)
 {
     for (CAnimCacheEntry* entry : m_slotArray) {
-        if (entry->m_type && (!unusedOnly || !(entry->m_flags & CAnimCacheEntry::kUserMask)))
-            m_used -= entry->Release();
+        if (entry->m_kindTag && (!unusedOnly || !(entry->m_flagBits & CAnimCacheEntry::kUserMask)))
+            m_takenCount -= entry->Release();
     }
 }
 
 // 0x00480DF0
-void CClipStore::Remove(uint32_t key)
+void CClipStore::DropOut(uint32_t key)
 {
     for (CAnimCacheEntry* entry : m_slotArray) {
-        if (entry->m_key == key) {
-            --m_count;
-            m_used -= entry->Release();
+        if (entry->m_lookupKey == key) {
+            --m_num;
+            m_takenCount -= entry->Release();
         }
     }
 }
@@ -428,11 +428,11 @@ void CClipStore::Remove(uint32_t key)
 int CClipStore::AddUser(uint32_t key)
 {
     for (CAnimCacheEntry* entry : m_slotArray) {
-        if (entry->m_key == key) {
+        if (entry->m_lookupKey == key) {
             int slot = entry->NewSlot();
             if (slot == -1)
                 return -1;
-            entry->m_flags = WithUsers(entry->m_flags, 1);
+            entry->m_flagBits = WithUsers(entry->m_flagBits, 1);
             return slot;
         }
     }
@@ -443,10 +443,10 @@ int CClipStore::AddUser(uint32_t key)
 void CClipStore::RemoveUser(uint32_t key, int slot)
 {
     for (CAnimCacheEntry* entry : m_slotArray) {
-        if (entry->m_key == key) {
+        if (entry->m_lookupKey == key) {
             entry->FreeSlot(slot);
-            if (!(entry->m_flags & CAnimCacheEntry::kUserMask) && m_evictUnused)
-                Remove(key);
+            if (!(entry->m_flagBits & CAnimCacheEntry::kUserMask) && m_evictUnused)
+                DropOut(key);
         }
     }
 }
@@ -455,8 +455,8 @@ void CClipStore::RemoveUser(uint32_t key, int slot)
 int CClipStore::Defragment()
 {
     for (CAnimCacheEntry* entry : m_slotArray) {
-        if (entry->m_type && !(entry->m_flags & CAnimCacheEntry::kUserMask))
-            m_used -= entry->Release();
+        if (entry->m_kindTag && !(entry->m_flagBits & CAnimCacheEntry::kUserMask))
+            m_takenCount -= entry->Release();
     }
     uint32_t total = 0;
     int withData = 0;
@@ -466,14 +466,14 @@ int CClipStore::Defragment()
             ++withData;
         }
     }
-    auto* copy = static_cast<uint8_t*>(MemSys::New(total));
-    auto* oldData = static_cast<uint8_t**>(MemSys::New(withData * 4));
+    auto* copy = static_cast<uint8_t*>(MemSys::Alloc(total));
+    auto* oldData = static_cast<uint8_t**>(MemSys::Alloc(withData * 4));
     if (!copy || !oldData) {
         if (copy)
-            MemSys::Free(copy);
+            MemSys::Dealloc(copy);
         for (CAnimCacheEntry* entry : m_slotArray) {
-            if (entry->m_type)
-                m_used -= entry->Release();
+            if (entry->m_kindTag)
+                m_takenCount -= entry->Release();
         }
         return 0;
     }
@@ -491,8 +491,8 @@ int CClipStore::Defragment()
     uint32_t offset = 0;
     PushAnimHeap();
     for (CAnimCacheEntry* entry : m_slotArray) {
-        if (entry->m_type) {
-            Manager()->Free(entry->m_payload);
+        if (entry->m_kindTag) {
+            Hub()->Dealloc(entry->m_payload);
             entry->m_payload = nullptr;
             for (CAnimCacheSlot* slot : entry->mp_slots) {
                 if (slot)
@@ -501,14 +501,14 @@ int CClipStore::Defragment()
         }
     }
     for (CAnimCacheEntry* entry : m_slotArray) {
-        if (entry->m_type)
-            entry->m_payload = static_cast<uint8_t*>(MemSys::New(entry->m_allocated));
+        if (entry->m_kindTag)
+            entry->m_payload = static_cast<uint8_t*>(MemSys::Alloc(entry->m_allocated));
     }
     PopHeap();
     // ...and the keys copied back, the pointers into them moved with them.
     old = oldData;
     for (CAnimCacheEntry* entry : m_slotArray) {
-        if (entry->m_type) {
+        if (entry->m_kindTag) {
             CopyForwards(entry->m_payload, copy + offset, entry->m_allocated);
             offset += entry->m_allocated;
             int moved = static_cast<int>(entry->m_payload - *old++);
@@ -516,8 +516,8 @@ int CClipStore::Defragment()
             entry->mp_translationKeys += moved;
         }
     }
-    MemSys::Free(copy);
-    MemSys::Free(oldData);
+    MemSys::Dealloc(copy);
+    MemSys::Dealloc(oldData);
     return 0;
 }
 

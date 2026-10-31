@@ -53,7 +53,7 @@ constexpr float kTiltRange = 0.6000000238418579f;  // 0x006463C4
 constexpr float kTiltBase = 0.4000000059604645f;   // 0x0064BAF8
 
 // D3DXMatrixMultiply (linked later; 0x005BFA8C).
-void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
@@ -91,7 +91,7 @@ void TurnByStick(double angle, float* x, float* z)
 } // namespace
 
 // 0x00524D70
-Maths::Vector* __cdecl LerpByRange(Maths::Vector* out, const Maths::Vector* a, const Maths::Vector* b, float t, float low,
+Maths::Vec4* __cdecl LerpByRange(Maths::Vec4* out, const Maths::Vec4* a, const Maths::Vec4* b, float t, float low,
                                  float high)
 {
     double dx = static_cast<double>(b->x) - a->x;
@@ -115,15 +115,15 @@ Maths::Vector* __cdecl LerpByRange(Maths::Vector* out, const Maths::Vector* a, c
 }
 
 // 0x00525DC0
-CObjectModule* __cdecl CFootView::Create()
+CObjectModule* __cdecl CFootView::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CFootView));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CFootView*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kWalkCamera;
+    component->m_kindTag = kWalkCamera;
     component->m_aimPoint = {0.0f, 0.0f, 0.0f, 1.0f};
     return component;
 }
@@ -136,11 +136,11 @@ void CFootView::DestroyBody()
 }
 
 // 0x00524F20
-CFootView* CFootView::Destroy(unsigned int flags)
+CFootView* CFootView::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -154,8 +154,8 @@ void CFootView::BindRider(CGameEntity* skater)
         return;
     }
     m_skater = skater;
-    m_walk = static_cast<CFootMovement*>(skater->GetComponent(kWalk));
-    m_physicsControl = reinterpret_cast<uint8_t*>(m_skater->GetComponent(kSkaterPhysicsControl));
+    m_walk = static_cast<CFootMovement*>(skater->FetchModule(kWalk));
+    m_physicsControl = reinterpret_cast<uint8_t*>(m_skater->FetchModule(kSkaterPhysicsControl));
 }
 
 // 0x00524F50
@@ -166,22 +166,22 @@ void CFootView::ConfigureFromData(Scripts::CStruct* params)
     BindRider(static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(id)));
     m_turnCosine = 1.0f;
     m_zoom = 1.0f;
-    m_orientation = m_object->m_basisFrame;
+    m_orientation = m_entity->m_basisFrame;
 }
 
 // 0x00524FB0
-void CFootView::Finalize()
+void CFootView::Seal()
 {
-    m_lookAround = static_cast<CFreeLookModule*>(m_object->GetComponent(kCameraLookAround));
-    m_viewer = m_object->GetComponent(kCamera);
-    m_skaterCamera = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCamera));
+    m_lookAround = static_cast<CFreeLookModule*>(m_entity->FetchModule(kCameraLookAround));
+    m_viewer = m_entity->FetchModule(kCamera);
+    m_skaterCamera = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterCamera));
 }
 
 // 0x00524C30
 void CFootView::ResetNow()
 {
     m_snapNext = true;
-    CObjectModule::Update();
+    CObjectModule::TickFrame();
     m_snapNext = false;
 }
 
@@ -211,7 +211,7 @@ int CFootView::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*params*/, S
 }
 
 // 0x00525F70
-void CFootView::SetOverrideFacing(const Maths::Vector* facing, float rate)
+void CFootView::SetOverrideFacing(const Maths::Vec4* facing, float rate)
 {
     m_override = true;
     m_overrideFacing = *facing;
@@ -246,21 +246,21 @@ void CFootView::RestoreState(const WalkCameraState* state)
 float __stdcall CFootView::Param(uint32_t name)
 {
     float value = 0.0f; // (the original's is uninitialised: the value is asserted)
-    Scripts::ReadSubStruct(kParameters)->GetFloat(name, &value, 1);
+    Scripts::ReadSubStruct(kParameters)->FetchFloat(name, &value, 1);
     return value;
 }
 
 // 0x005250E0
-void CFootView::GetTarget(Maths::Vector* out, bool instant)
+void CFootView::FetchGoal(Maths::Vec4* out, bool instant)
 {
     if (instant) {
-        m_aimPoint = m_skater->m_pos;
+        m_aimPoint = m_skater->m_atPoint;
     } else {
         float across = static_cast<float>(
             FrameBlend(At<float>(m_skaterCamera, 0xE4), static_cast<float>(FrameClock::GetSlomoFrameSeconds())));
         float up = static_cast<float>(
             FrameBlend(At<float>(m_skaterCamera, 0xE8), static_cast<float>(FrameClock::GetSlomoFrameSeconds())));
-        const Maths::Vector& skater = m_skater->m_pos;
+        const Maths::Vec4& skater = m_skater->m_atPoint;
         float x = m_aimPoint.x, y = m_aimPoint.y, z = m_aimPoint.z;
         m_aimPoint.w = 1.0f;
         m_aimPoint.x = static_cast<float>((static_cast<double>(skater.x) - x) * across + x);
@@ -294,12 +294,12 @@ void CFootView::GetZoomedOffsets(float* height, float* distance)
 }
 
 // 0x005251D0
-void CFootView::Update()
+void CFootView::TickFrame()
 {
     if (!m_skater)
         return;
     if (m_physicsControl && At<bool>(At<uint8_t*>(m_physicsControl, 0x2C), 0x118)) {
-        m_object->m_compositeFlags |= COMPOSITE_FLAG_PAUSED;
+        m_entity->m_compositeFlags |= COMPOSITE_FLAG_PAUSED;
         return;
     }
     if (m_skater->m_compositeFlags & COMPOSITE_FLAG_TELEPORTED)
@@ -311,18 +311,18 @@ void CFootView::Update()
     } else {
         instant = m_snapNext;
     }
-    At<Gfx2D::Camera*>(m_viewer, 0x18)->RememberPrevPos();
+    At<Gfx2D::ViewCam*>(m_viewer, 0x18)->RememberPrevPos();
     float frame = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
-    float turn = At<float>(m_object->GetComponent(kInput), 0x230);
-    m_object->m_basisFrame = m_orientation;
+    float turn = At<float>(m_entity->FetchModule(kInput), 0x230);
+    m_entity->m_basisFrame = m_orientation;
 
     // Where to look: along the camera's flat facing, swung round to the skater's.
-    const Maths::Vector& at = m_object->m_basisFrame.row[2];
-    Maths::Vector facing = {-at.x, 0.0f, -at.z, -at.w};
-    facing.Normalize();
-    const Maths::Vector& skaterAt = m_skater->m_basisFrame.row[2];
-    Maths::Vector skaterFacing = {skaterAt.x, 0.0f, skaterAt.z, skaterAt.w};
-    skaterFacing.Normalize();
+    const Maths::Vec4& at = m_entity->m_basisFrame.row[2];
+    Maths::Vec4 facing = {-at.x, 0.0f, -at.z, -at.w};
+    facing.MakeUnit();
+    const Maths::Vec4& skaterAt = m_skater->m_basisFrame.row[2];
+    Maths::Vec4 skaterFacing = {skaterAt.x, 0.0f, skaterAt.z, skaterAt.w};
+    skaterFacing.MakeUnit();
     if (m_flush) {
         facing = skaterFacing;
     } else {
@@ -340,16 +340,16 @@ void CFootView::Update()
                     full = Param(kDpadFullSlerpSpeed);
                     least = Param(kDpadMinSlerpSpeed);
                 }
-                const Maths::Vector& velocity = m_skater->m_vel;
+                const Maths::Vec4& velocity = m_skater->m_vel;
                 double speed = X87::Sqrt(static_cast<double>(velocity.x) * velocity.x +
                                          static_cast<double>(velocity.z) * velocity.z);
                 float speedF = static_cast<float>(speed);
                 if (!(speed < full)) {
                     swing = true;
                 } else if (speedF > least) {
-                    Maths::Vector lerped;
+                    Maths::Vec4 lerped;
                     facing = *LerpByRange(&lerped, &facing, &skaterFacing, speedF, least, full);
-                    facing.Normalize();
+                    facing.MakeUnit();
                 }
             }
         }
@@ -373,22 +373,22 @@ void CFootView::Update()
     }
 
     // The orientation that looks along it, tilted down; its right and at rows negated.
-    Maths::Matrix look;
+    Maths::Mat4 look;
     look.row[0] = {facing.z, 0.0f, -facing.x, 1.0f};
     look.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
     look.row[2] = facing;
     look.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Maths::Matrix tilt;
+    Maths::Mat4 tilt;
     Maths::MakePitchMatrix(tilt, m_lookAround->m_leanAngle + At<float>(m_skaterCamera, 0x12C));
     MatrixMultiply(&look, &tilt, &look);
     look.row[0] = {-look.row[0].x, -look.row[0].y, -look.row[0].z, -look.row[0].w};
     look.row[2] = {-look.row[2].x, -look.row[2].y, -look.row[2].z, -look.row[2].w};
-    Maths::Vector skaterUp = m_skater->m_basisFrame.row[1];
-    Maths::Matrix& matrix = m_object->m_basisFrame;
+    Maths::Vec4 skaterUp = m_skater->m_basisFrame.row[1];
+    Maths::Mat4& matrix = m_entity->m_basisFrame;
     if (instant) {
         matrix = look;
     } else {
-        auto aligned = [](const Maths::Vector& a, const Maths::Vector& b) {
+        auto aligned = [](const Maths::Vec4& a, const Maths::Vec4& b) {
             return static_cast<double>(a.z) * b.z + static_cast<double>(a.y) * b.y + static_cast<double>(a.x) * b.x >
                    kAligned;
         };
@@ -403,7 +403,7 @@ void CFootView::Update()
             // the stick, flushing; an override's own rate.
             Maths::ArcRotationBlender slerp(matrix, look);
             float base;
-            Scripts::ReadSubStruct(kParameters)->GetFloat(kMatrixSlerpRate, &base, 1);
+            Scripts::ReadSubStruct(kParameters)->FetchFloat(kMatrixSlerpRate, &base, 1);
             float rate = base;
             if (At<bool>(m_walk, 0x17A4))
                 rate = static_cast<float>(static_cast<double>(Param(kRunSlerpFactor)) * base);
@@ -426,9 +426,9 @@ void CFootView::Update()
                     rate = m_overrideRate;
                 }
             }
-            slerp.GetMatrix(matrix, static_cast<float>(FrameBlend(rate, frame)));
-            const Maths::Vector& now = matrix.row[2];
-            const Maths::Vector& before = m_orientation.row[2];
+            slerp.FetchMat(matrix, static_cast<float>(FrameBlend(rate, frame)));
+            const Maths::Vec4& now = matrix.row[2];
+            const Maths::Vec4& before = m_orientation.row[2];
             m_turnCosine = static_cast<float>(static_cast<double>(now.z) * before.z +
                                               static_cast<double>(now.y) * before.y +
                                               static_cast<double>(now.x) * before.x);
@@ -437,8 +437,8 @@ void CFootView::Update()
     m_orientation = matrix;
 
     // Where to be: behind and above the point followed, looking at a point above the skater.
-    Maths::Vector target;
-    GetTarget(&target, instant);
+    Maths::Vec4 target;
+    FetchGoal(&target, instant);
     float height, distance;
     GetZoomedOffsets(&height, &distance);
     double upX = static_cast<double>(skaterUp.x) * height;
@@ -446,7 +446,7 @@ void CFootView::Update()
     double upZ = static_cast<double>(skaterUp.z) * height;
     double upW = static_cast<double>(skaterUp.w) * height;
     float upXF = static_cast<float>(upX), upZF = static_cast<float>(upZ), upWF = static_cast<float>(upW);
-    const Maths::Vector& lookAt = matrix.row[2];
+    const Maths::Vec4& lookAt = matrix.row[2];
     double backX = static_cast<double>(distance) * lookAt.x;
     double backY = static_cast<double>(distance) * lookAt.y;
     float backZ = distance * lookAt.z;
@@ -459,25 +459,25 @@ void CFootView::Update()
     target.y = target.y + stepY;
     target.z = static_cast<float>(target.z + stepZ);
     target.w = static_cast<float>(target.w + stepW);
-    const Maths::Vector& skaterPos = m_skater->m_pos;
-    Maths::Vector focus = {upXF + skaterPos.x, static_cast<float>(upY + skaterPos.y), upZF + skaterPos.z,
+    const Maths::Vec4& skaterPos = m_skater->m_atPoint;
+    Maths::Vec4 focus = {upXF + skaterPos.x, static_cast<float>(upY + skaterPos.y), upZF + skaterPos.z,
                          upWF + skaterPos.w};
 
-    Maths::Matrix aim;
-    Maths::Vector& aimAt = aim.row[2];
+    Maths::Mat4 aim;
+    Maths::Vec4& aimAt = aim.row[2];
     aimAt = {focus.x - target.x, focus.y - target.y, focus.z - target.z, focus.w - target.w};
-    aimAt.Normalize();
-    const Maths::Vector up = matrix.row[1];
-    Maths::Vector& right = aim.row[0];
+    aimAt.MakeUnit();
+    const Maths::Vec4 up = matrix.row[1];
+    Maths::Vec4& right = aim.row[0];
     right = {static_cast<float>(static_cast<double>(up.y) * aimAt.z - static_cast<double>(up.z) * aimAt.y),
              static_cast<float>(static_cast<double>(up.z) * aimAt.x - static_cast<double>(up.x) * aimAt.z),
              static_cast<float>(static_cast<double>(up.x) * aimAt.y - static_cast<double>(up.y) * aimAt.x), 0.0f};
-    right.Normalize();
-    Maths::Vector& aimUp = aim.row[1];
+    right.MakeUnit();
+    Maths::Vec4& aimUp = aim.row[1];
     aimUp = {static_cast<float>(static_cast<double>(right.z) * aimAt.y - static_cast<double>(right.y) * aimAt.z),
              static_cast<float>(static_cast<double>(right.x) * aimAt.z - static_cast<double>(right.z) * aimAt.x),
              static_cast<float>(static_cast<double>(right.y) * aimAt.x - static_cast<double>(right.x) * aimAt.y), 0.0f};
-    aimUp.Normalize();
+    aimUp.MakeUnit();
     matrix.row[0] = {-right.x, -right.y, -right.z, -right.w};
     matrix.row[1] = aimUp;
     matrix.row[2] = {-aimAt.x, -aimAt.y, -aimAt.z, -aimAt.w};
@@ -491,17 +491,17 @@ void CFootView::Update()
     double aheadY = static_cast<double>(distance) * matrix.row[2].y;
     float aheadZ = distance * matrix.row[2].z;
     float aheadW = distance * matrix.row[2].w;
-    Maths::Vector clear = {static_cast<float>(target.x - aheadX), static_cast<float>(target.y - aheadY),
+    Maths::Vec4 clear = {static_cast<float>(target.x - aheadX), static_cast<float>(target.y - aheadY),
                          target.z - aheadZ, target.w - aheadW};
-    Maths::Vector offset;
+    Maths::Vec4 offset;
     m_walk->GetCameraOffset(&offset);
-    Maths::Vector pull = {clear.x + offset.x, clear.y + offset.y, clear.z + offset.z, clear.w + offset.w};
+    Maths::Vec4 pull = {clear.x + offset.x, clear.y + offset.y, clear.z + offset.z, clear.w + offset.w};
     AvoidCameraCollisions(&target, &matrix, &pull, &focus, true, true);
     target.w = 1.0f;
-    m_object->m_pos = target;
+    m_entity->m_atPoint = target;
     if (instant)
-        At<Gfx2D::Camera*>(m_viewer, 0x18)->RememberPrevPos();
-    At<Maths::Matrix>(m_skaterCamera, 0x74) = matrix;
+        At<Gfx2D::ViewCam*>(m_viewer, 0x18)->RememberPrevPos();
+    At<Maths::Mat4>(m_skaterCamera, 0x74) = matrix;
 }
 
 } // namespace Obj
@@ -509,14 +509,14 @@ void CFootView::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CFootView::Destroy,
-         &GameObjects::CFootView::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CFootView::Teardown,
+         &GameObjects::CFootView::TickFrame,
          &GameObjects::CFootView::ConfigureFromData,
-         &GameObjects::CFootView::Finalize,
+         &GameObjects::CFootView::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

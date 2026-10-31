@@ -22,7 +22,7 @@ namespace MenuSystem::LevelEditor::UiStrip {
 
 // A control on the strip: its width, the space before it, whether it sits at the strip's right end, and how important
 // it is (the lowest goes into the overflow menu first; ties: the later one).
-struct Slot {
+struct Bay {
     float width = 0.0f, gap = 0.0f;
     bool right = false;
     int priority = 0;
@@ -35,19 +35,19 @@ struct Plan {
 };
 // The slots placed between `left` and `right`: left-hand ones from the left, right-hand ones against the right end (the
 // overflow button, when anything is hidden, at the very end). Nothing overlaps; whatever doesn't fit is hidden.
-Plan Fit(const std::vector<Slot>& slots, float left, float right, float overflowWidth, float overflowGap);
+Plan Fit(const std::vector<Bay>& slots, float left, float right, float overflowWidth, float overflowGap);
 
 // `text` cut to fit `maxWidth` pixels in the current font, ending in "…" when cut ("" when not even that fits).
 std::string Elide(const std::string& text, float maxWidth);
 
 // --- the self-test's view of what was drawn -------------------------------------------------------------------------
 
-struct Box {
+struct Cuboid {
     float x0, y0, x1, y1;
     std::string what;
 };
 // While set, every strip control, menu bar title and status bar part drawn is noted here (its item rectangle).
-void SetRecorder(std::vector<Box>* boxes);
+void SetRecorder(std::vector<Cuboid>* boxes);
 void Note(const char* what); // (the last item's rectangle)
 void NoteRect(float x0, float y0, float x1, float y1, const char* what);
 
@@ -73,7 +73,7 @@ struct State {
     std::function<std::string(const char* id)> keyOf; // an action's keys as bound ("" none)
 };
 
-struct Event {
+struct Occurrence {
     enum Kind {
         kDeselect,  // Fly
         kTool,      // value: 0 move, 1 rotate, 2 scale
@@ -89,14 +89,14 @@ struct Event {
     float value = 0.0f;
 };
 struct Output {
-    std::vector<Event> events;
+    std::vector<Occurrence> events;
     bool budgetHovered = false; // (the UI draws the meter's tooltip)
     bool levelHovered = false;
 };
 
 // The strip's controls placed and drawn in the current window, across [x, x + width] at y (screen pixels). `scale`: the
 // UI's. Returns what was clicked.
-void Draw(const State& state, float x, float y, float width, float scale, Output* out);
+void Blit(const State& state, float x, float y, float width, float scale, Output* out);
 
 // --- the status bar ---------------------------------------------------------------------------------------------------
 

@@ -262,7 +262,7 @@ constexpr uint32_t kLimitsFrictionDefault = 0x360637BD; // (float bits: about 2e
 
 uint8_t& Byte(void* component, uint32_t offset) { return At<uint8_t>(component, offset); }
 int Is(uint8_t value) { return value ? 1 : 0; }
-Scripts::CStruct* ResultsOf(Scripts::CScript* script) { return script->m_params; }
+Scripts::CStruct* ResultsOf(Scripts::CScript* script) { return script->m_args; }
 
 // The time in the air: in the air or on a wall (states 1, 2) since it began, else the last one's length.
 uint32_t TimeAloft(void* component)
@@ -277,7 +277,7 @@ uint32_t TimeAloft(void* component)
 // as the end of a feeler from `start` `distance` long.
 void FeelAlongFacing(Engine3D::CProbeRay& feeler, void* object, float distance)
 {
-    const Maths::Vector& facing = VectorAt(object, kForward);
+    const Maths::Vec4& facing = VectorAt(object, kForward);
     double x = facing.x;
     double y = facing.y;
     float z = facing.z;
@@ -288,8 +288,8 @@ void FeelAlongFacing(Engine3D::CProbeRay& feeler, void* object, float distance)
         y *= inverse;
         z = static_cast<float>(z * inverse);
     }
-    Maths::Vector& start = feeler.m_line.start;
-    Maths::Vector& end = feeler.m_line.end;
+    Maths::Vec4& start = feeler.m_line.start;
+    Maths::Vec4& end = feeler.m_line.end;
     end.x = static_cast<float>(x * distance + start.x);
     end.y = static_cast<float>(y * distance + start.y);
     end.z = static_cast<float>(static_cast<double>(z) * distance + start.z);
@@ -300,10 +300,10 @@ void FeelAlongFacing(Engine3D::CProbeRay& feeler, void* object, float distance)
 bool FeelAhead(void* component, Scripts::CStruct* params, Engine3D::CProbeRay& feeler, bool raise)
 {
     float distance = kFacingDistance;
-    params->GetFloat(0u, &distance, 0);
-    feeler.Construct();
+    params->FetchFloat(0u, &distance, 0);
+    feeler.MakeNew();
     void* object = ObjectOf(component);
-    const Maths::Vector& position = VectorAt(object, kPosition);
+    const Maths::Vec4& position = VectorAt(object, kPosition);
     feeler.m_line.start = position;
     if (raise)
         feeler.m_line.start.y = static_cast<float>(static_cast<double>(position.y) + kVertFeelerRaise);
@@ -333,7 +333,7 @@ void __cdecl CorePhysicsComponent::PublishMethodTable()
 int CorePhysicsComponent::AirTimeThreshold(Scripts::CStruct* params)
 {
     float value = 0.0f;
-    params->GetFloat(0u, &value, 0);
+    params->FetchFloat(0u, &value, 0);
     if (params->HasBareFlag(kSeconds) || params->HasBareFlag(kSecond))
         return static_cast<int>(Ftol(static_cast<double>(value) * kMillisecondsPerSecond));
     if (params->HasBareFlag(kFrames) || params->HasBareFlag(kFrame))
@@ -686,9 +686,9 @@ int CorePhysicsComponent::SetExtraPush(Scripts::CStruct* params, Scripts::CScrip
     *radius = 48.0f;
     *speed = 100.0f;
     *third = 6.0f;
-    params->GetFloat(kRadius, radius, 0);
-    params->GetFloat(kSpeed, speed, 0);
-    params->GetFloat(kExtraPushThird, third, 0);
+    params->FetchFloat(kRadius, radius, 0);
+    params->FetchFloat(kSpeed, speed, 0);
+    params->FetchFloat(kExtraPushThird, third, 0);
     return 1;
 }
 // 0x004FC340
@@ -735,20 +735,20 @@ int CorePhysicsComponent::RestoreAutoKick(Scripts::CStruct*, Scripts::CScript*)
 int CorePhysicsComponent::DoCarPlantBoost(Scripts::CStruct*, Scripts::CScript*)
 {
     void* object = ObjectOf(this);
-    Maths::Vector& velocity = VectorAt(object, kVelocity);
+    Maths::Vec4& velocity = VectorAt(object, kVelocity);
     float upward = velocity.y;
     if (upward < 0.0f)
         upward = 0.0f;
     velocity.y = upward;
     velocity.y = static_cast<float>(static_cast<double>(PhysicsFloat(kCarPlantUpwardBoost, object)) + velocity.y);
     // Along the horizontal velocity; slower than 10: the facing; that barely anything either: (1, 0, 1).
-    Maths::Vector direction(velocity.x, 0.0f, velocity.z, velocity.w);
+    Maths::Vec4 direction(velocity.x, 0.0f, velocity.z, velocity.w);
     if (static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x < kSlowSquared) {
-        const Maths::Vector& facing = VectorAt(object, kForward);
-        direction = Maths::Vector(facing.x, 0.0f, facing.z, facing.w);
+        const Maths::Vec4& facing = VectorAt(object, kForward);
+        direction = Maths::Vec4(facing.x, 0.0f, facing.z, facing.w);
         double flat = static_cast<double>(facing.z) * facing.z + static_cast<double>(facing.x) * facing.x;
         if (flat < kStillSquared)
-            direction = Maths::Vector(1.0f, 0.0f, 1.0f, 1.0f);
+            direction = Maths::Vec4(1.0f, 0.0f, 1.0f, 1.0f);
     }
     double length = std::sqrt(static_cast<double>(direction.z) * direction.z +
                               static_cast<double>(direction.x) * direction.x);
@@ -762,7 +762,7 @@ int CorePhysicsComponent::DoCarPlantBoost(Scripts::CStruct*, Scripts::CScript*)
     float y = static_cast<float>(direction.y * boost);
     float z = static_cast<float>(direction.z * boost);
     float w = static_cast<float>(direction.w * boost);
-    Maths::Vector& v = VectorAt(ObjectOf(this), kVelocity);
+    Maths::Vec4& v = VectorAt(ObjectOf(this), kVelocity);
     v.x = static_cast<float>(v.x + direction.x * boost);
     v.y += y;
     v.z += z;
@@ -786,7 +786,7 @@ int CorePhysicsComponent::SetRollingFriction(Scripts::CStruct* params, Scripts::
 {
     void* object = ObjectOf(this);
     float* friction = &At<float>(this, kRollingFrictionValue);
-    params->GetFloat(0u, friction, 0);
+    params->FetchFloat(0u, friction, 0);
     if (params->HasBareFlag(kDefault) && At<float>(this, kSpecialFrictionTime) == 0.0f)
         *friction = PhysicsFloat(kRollingFriction, object);
     return 1;
@@ -812,16 +812,16 @@ int CorePhysicsComponent::LastSpinWas(Scripts::CStruct* params, Scripts::CScript
 int CorePhysicsComponent::TurnToFaceVelocity(Scripts::CStruct*, Scripts::CScript*)
 {
     void* object = ObjectOf(this);
-    const Maths::Vector& velocity = VectorAt(object, kVelocity);
+    const Maths::Vec4& velocity = VectorAt(object, kVelocity);
     double x = velocity.x, y = velocity.y, z = velocity.z;
     double lengthSquared = (x * x + y * y) + z * z;
     if (lengthSquared < kStillSquared)
         return 1;
-    Maths::Vector& right = VectorAt(object, kMatrix);
-    Maths::Vector& up = VectorAt(object, kUp);
-    Maths::Vector& facing = VectorAt(object, kForward);
+    Maths::Vec4& right = VectorAt(object, kMatrix);
+    Maths::Vec4& up = VectorAt(object, kUp);
+    Maths::Vec4& facing = VectorAt(object, kForward);
     facing = VectorAt(object, kVelocity);
-    facing.Normalize();
+    facing.MakeUnit();
     // right = up x facing
     double rx = static_cast<double>(facing.z) * up.y - static_cast<double>(facing.y) * up.z;
     double ry = static_cast<double>(facing.x) * up.z - static_cast<double>(facing.z) * up.x;
@@ -830,7 +830,7 @@ int CorePhysicsComponent::TurnToFaceVelocity(Scripts::CStruct*, Scripts::CScript
     right.z = rz;
     right.x = static_cast<float>(rx);
     right.y = static_cast<float>(ry);
-    right.Normalize();
+    right.MakeUnit();
     // up = facing x right
     double ux = static_cast<double>(right.z) * facing.y - static_cast<double>(right.y) * facing.z;
     double uy = static_cast<double>(right.x) * facing.z - static_cast<double>(right.z) * facing.x;
@@ -839,8 +839,8 @@ int CorePhysicsComponent::TurnToFaceVelocity(Scripts::CStruct*, Scripts::CScript
     up.z = uz;
     up.x = static_cast<float>(ux);
     up.y = static_cast<float>(uy);
-    up.Normalize();
-    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
+    up.MakeUnit();
+    At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
     return 1;
 }
 
@@ -860,18 +860,18 @@ int CorePhysicsComponent::OverrideLimits(Scripts::CStruct* params, Scripts::CScr
         return 1;
     }
     float* max = &At<float>(this, kLimitsMax);
-    params->GetFloat(kMax, max, 1);
+    params->FetchFloat(kMax, max, 1);
     float* maxMax = &At<float>(this, kLimitsMaxMax);
     At<uint32_t>(this, kLimitsMaxMax) = *reinterpret_cast<uint32_t*>(max);
-    params->GetFloat(kMaxMax, maxMax, 0);
+    params->FetchFloat(kMaxMax, maxMax, 0);
     At<uint32_t>(this, kLimitsTime) = kLimitsTimeDefault;
-    params->GetFloat(kTime, &time, 0);
+    params->FetchFloat(kTime, &time, 0);
     float* friction = &At<float>(this, kLimitsFriction);
     At<uint32_t>(this, kLimitsFriction) = kLimitsFrictionDefault;
-    params->GetFloat(kFriction, friction, 0);
+    params->FetchFloat(kFriction, friction, 0);
     float* gravity = &At<float>(this, kLimitsGravity);
     *gravity = PhysicsFloat(kGroundGravity, object);
-    params->GetFloat(kGravity, gravity, 0);
+    params->FetchFloat(kGravity, gravity, 0);
     if (params->HasBareFlag(kUntilCancelled))
         time = -1.0f;
     if (params->HasBareFlag(kCurrentLevel))
@@ -883,16 +883,16 @@ int CorePhysicsComponent::OverrideLimits(Scripts::CStruct* params, Scripts::CScr
 int CorePhysicsComponent::SetSpecialFriction(Scripts::CStruct* params, Scripts::CScript*)
 {
     Scripts::CArray* frictions = nullptr;
-    params->GetArray(0u, &frictions, 0);
+    params->FetchList(0u, &frictions, 0);
     int& index = At<int>(this, kSpecialFrictionIndex);
-    int count = static_cast<int>(frictions->m_size); // (no array: the original reads through null too)
+    int count = static_cast<int>(frictions->m_extent); // (no array: the original reads through null too)
     if (index >= count)
         index = count - 1;
-    At<float>(this, kRollingFrictionValue) = frictions->GetFloat(static_cast<uint32_t>(index));
+    At<float>(this, kRollingFrictionValue) = frictions->FetchFloat(static_cast<uint32_t>(index));
     if (index == 0)
         At<int>(this, kSpecialFrictionStart) = Now();
     ++index;
-    params->GetFloat(kDuration, &At<float>(this, kSpecialFrictionTime), 0);
+    params->FetchFloat(kDuration, &At<float>(this, kSpecialFrictionTime), 0);
     return 1;
 }
 
@@ -909,7 +909,7 @@ int CorePhysicsComponent::GetMatrixNormal(Scripts::CStruct*, Scripts::CScript* s
 // 0x004FD5E0
 int CorePhysicsComponent::GetLastGroundPos(Scripts::CStruct*, Scripts::CScript* script)
 {
-    const Maths::Vector& position = VectorAt(this, kLastGroundPos);
+    const Maths::Vec4& position = VectorAt(this, kLastGroundPos);
     ResultsOf(script)->PutVec3(kPos, position.x, position.y, position.z);
     return 1;
 }
@@ -955,12 +955,12 @@ int CorePhysicsComponent::TurnFromWall(Scripts::CStruct* params, Scripts::CScrip
     Engine3D::CProbeRay feeler;
     if (!FeelAhead(this, params, feeler, false) || !HitWall(feeler))
         return 0;
-    VectorAt(ObjectOf(this), kVelocity).SetDirection(feeler.m_surfaceDir);
-    VectorAt(ObjectOf(this), kForward).SetDirection(feeler.m_surfaceDir);
+    VectorAt(ObjectOf(this), kVelocity).ChangeHeading(feeler.m_surfaceDir);
+    VectorAt(ObjectOf(this), kForward).ChangeHeading(feeler.m_surfaceDir);
     static_cast<GameObjects::CRiderSpinAndFlip*>(
-        static_cast<GameObjects::CGameEntity*>(ObjectOf(this))->GetComponent(kSkaterFlipAndRotate))
+        static_cast<GameObjects::CGameEntity*>(ObjectOf(this))->FetchModule(kSkaterFlipAndRotate))
         ->Flip();
-    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
+    At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
     return 1;
 }
 
@@ -980,7 +980,7 @@ int CorePhysicsComponent::FocusOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kFocus) = 0;
     auto* camera = static_cast<GameObjects::CGameEntity*>(static_cast<GameObjects::CRider*>(ObjectOf(this))->GetSkaterCamera());
-    static_cast<GameObjects::CFreeLookModule*>(camera->GetComponent(kCameraLookAround))->SetLocked(false);
+    static_cast<GameObjects::CFreeLookModule*>(camera->FetchModule(kCameraLookAround))->SetLocked(false);
     return 1;
 }
 // 0x004FDCC0

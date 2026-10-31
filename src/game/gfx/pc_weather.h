@@ -71,11 +71,11 @@ struct CPcWeather {
 
     // 0x004CC560: construct (no grid, no splash texture - the snow's left as it was; blend mode 0xA86285A1 with alpha
     // 0x80 for all three). Returns this.
-    CPcWeather* Construct();
+    CPcWeather* MakeNew();
     // 0x004CBDA0: the destructor's body (a jump to the engine's).
     void DestroyBody();
     // 0x004CC600 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcWeather* Destroy(unsigned int freeFlags);
+    CPcWeather* Teardown(unsigned int freeFlags);
     // 0x004CD1A0 (virtual [1]): the grid made over the scene's collision box (at most 350 x 300 cells): every
     // cell's height cast for and put in a list of levels (within 30 units of one: the same), each cell then taking
     // the highest of itself and its right, lower and lower-right neighbours; the rows' ground spans kept; the slots
@@ -83,7 +83,7 @@ struct CPcWeather {
     void TickGrid();
     // 0x004CBDB0 (virtual [2]): the frame's new drops started (the rate, at most one a frame per slot freed), each
     // in the next free slot (none free: no more).
-    void Update(int unused);
+    void TickFrame(int unused);
     // 0x004CD120 (virtual [3]): drawn about the camera (rain and splashes, or snow), then every falling drop moved
     // on a frame.
     void Render();

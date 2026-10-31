@@ -70,19 +70,19 @@ void LoadQBFileData(const char* filename, const uint8_t* data, int unused, int u
 void UnloadQBFile(uint32_t fileChecksum)
 {
     UnloadQB(fileChecksum);
-    GetArray(kNodeArray);
+    FetchList(kNodeArray);
 }
 
 // 0x005A59D0
 void LoadStartupQBFiles()
 {
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_topDownHeap);
     // (the reference build's name, 0x00657698; THUG2.exe has "qb_scripts.prx" there - the file layer opens a .pre
     // as .prx either way)
     Packs::LoadPre("qb_scripts.pre");
-    MemSys::Manager::Get()->LeaveHeapScope();
-    auto* text = static_cast<const char*>(Packs::Load("scripts\\qdir.txt", false, nullptr, nullptr, nullptr));
+    MemSys::Hub::Pull()->LeaveHeapScope();
+    auto* text = static_cast<const char*>(Packs::ReadIn("scripts\\qdir.txt", false, nullptr, nullptr, nullptr));
     int size = Packs::GetFileSize("scripts\\qdir.txt");
     BeginPermanentStrings();
     const char* end = text + size;
@@ -100,13 +100,13 @@ void LoadStartupQBFiles()
         if (const char* data = std::strstr(line, "data\\"))
             std::memmove(line, data + 5, std::strlen(data + 5) + 1);
         UnloadQB(Checksums::HashFromText(line));
-        GetArray(kNodeArray);
+        FetchList(kNodeArray);
         PrintLoading(line);
         LoadQB(line, 1, 0);
         PrintDone();
     }
     EndPermanentStrings();
-    Packs::Unload("scripts\\qdir.txt");
+    Packs::Offload("scripts\\qdir.txt");
     Packs::UnloadPre("qb_scripts.pre");
     if (CSymbolTableEntry* symbol = FindSymbol(kDebuggerNames))
         CleanUpAndRemoveSymbol(symbol);

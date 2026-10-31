@@ -19,8 +19,8 @@ float Difference(float a, float b) { return static_cast<float>(static_cast<doubl
 } // namespace
 
 // 0x0040FC00
-bool CapsuleHitsTriangle(const Maths::Capsule* capsule, const Maths::Vector* v0, const Maths::Vector* v1,
-                         const Maths::Vector* v2, Maths::Vector* point, Maths::Vector* normal, Maths::Vector* offset)
+bool CapsuleHitsTriangle(const Maths::Capsule* capsule, const Maths::Vec4* v0, const Maths::Vec4* v1,
+                         const Maths::Vec4* v2, Maths::Vec4* point, Maths::Vec4* normal, Maths::Vec4* offset)
 {
     // The face's normal: e1 x e2 (e1 = v1 - v0, e2 = v2 - v0).
     const double e2x = static_cast<double>(v2->x) - v0->x;
@@ -37,7 +37,7 @@ bool CapsuleHitsTriangle(const Maths::Capsule* capsule, const Maths::Vector* v0,
     normal->z = static_cast<float>(nz);
     if ((nz * nz + static_cast<double>(ny) * ny) + static_cast<double>(nx) * nx <= 0.0)
         return false;
-    normal->Normalize();
+    normal->MakeUnit();
 
     float s, t, along;
     const double distance = SegmentTriangleDistanceSquared(capsule->line, *normal, *v0, *v1, *v2, &s, &t, &along);
@@ -61,8 +61,8 @@ bool CapsuleHitsTriangle(const Maths::Capsule* capsule, const Maths::Vector* v0,
     point->w = static_cast<float>(static_cast<double>(pw) + e2tW);
 
     // The segment's nearest point: start + along (end - start); the offset from it to the face's.
-    const Maths::Vector& start = capsule->line.start;
-    const Maths::Vector& end = capsule->line.end;
+    const Maths::Vec4& start = capsule->line.start;
+    const Maths::Vec4& end = capsule->line.end;
     const float dX = static_cast<float>((static_cast<double>(end.x) - start.x) * along);
     const double dY = (static_cast<double>(end.y) - start.y) * along;
     const double dZ = static_cast<double>(Difference(end.z, start.z)) * along;
@@ -97,13 +97,13 @@ bool CStaticCollider::CollideWithCapsule(const Maths::Capsule* capsule, const Ma
         uint16_t flags = *reinterpret_cast<const uint16_t*>(geometry->m_faces + face * (geometry->m_smallFaces ? 8 : 10));
         if ((flags & hits->ignoreFlags) || (~flags & hits->requireFlags))
             continue;
-        Maths::Vector v0, v1, v2;
+        Maths::Vec4 v0, v1, v2;
         geometry->ReadStoredVertex(geometry->FaceVertex(face, 0), &v0);
         geometry->ReadStoredVertex(geometry->FaceVertex(face, 1), &v1);
         geometry->ReadStoredVertex(geometry->FaceVertex(face, 2), &v2);
         if (!(hits->sweep == 0.0f)) // (a moving capsule isn't tested)
             continue;
-        Maths::Vector point, normal, offset;
+        Maths::Vec4 point, normal, offset;
         if (!CapsuleHitsTriangle(capsule, &v0, &v1, &v2, &point, &normal, &offset))
             continue;
         if (hits->count == CapsuleHits::kMost)

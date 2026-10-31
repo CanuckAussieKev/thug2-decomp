@@ -15,7 +15,7 @@
 
 namespace GameObjects {
 class CGameEntity;
-class CObject;
+class CEntity;
 class CRider;
 class CRiderStoryProgress;
 class CGrindRailHub;
@@ -52,7 +52,7 @@ extern void** const kSkateVtable;
 extern void** const kSkaterNodeVtable;
 extern void** const kSkaterHeadVtable;
 
-class Skate : public Module {
+class Skate : public PartUnit {
 public:
     // A skater slot's settings (+0x390, 8 of them).
     struct PlayerSettings {
@@ -72,19 +72,19 @@ public:
     // The singleton (0x007CE478; null before the module starts). 0x005691A0 (cdecl): made (from the default heap,
     // Calloc mode 1) if there's none and `create`; one more reference either way. 0x00564C10 (cdecl): one reference
     // less - the last deletes it.
-    static Skate* Instance();
-    static Skate* __cdecl CreateInstance(bool create);
-    static void __cdecl DeleteInstance();
+    static Skate* Sole();
+    static Skate* __cdecl SpawnOccurrence(bool create);
+    static void __cdecl DiscardOccurrence();
 
     // --- made and destroyed (skate_module_skaters.cpp) ---
     // 0x00568DE0: the constructor: the module, the empty skater list, the logic task, the network tasks, the
     // managers (game flow, goals, career, rails, checksums, split-screen preferences, competition, HORSE, two movie
     // managers), the records' 21 levels, the players' settings. Returns this.
-    Skate* Construct();
+    Skate* MakeNew();
     // 0x005663A0: the destructor body (each manager deleted). 0x00567BA0: the scalar deleting destructor (vtable
     // slot 0).
     void DestroyBody();
-    Skate* Destroy(uint8_t flags);
+    Skate* Teardown(uint8_t flags);
     // 0x00564DC0 / 0x00564C50 (vtable slots 1 / 2): the module started (the permanent assets loaded, the logic task
     // added to the main loop's) / stopped (the logic task out).
     void StartCallback();
@@ -143,7 +143,7 @@ public:
     // 0x00567BD0 / 0x00567C00 / 0x00567C30: a player's spin taps / autokick / vibration (and its skater's).
     void SetTurnTapCount(int player, bool on);
     void SetAutoEject(int player, bool on);
-    void SetVibration(int player, int on);
+    void ChangeRumble(int player, int on);
 
     // --- the level (skate_module_state.cpp, skate_module_skaters.cpp) ---
     // 0x00565000: `level`'s script run (the players asked to be ready, the connections' time-outs stretched).
@@ -153,7 +153,7 @@ public:
     // 0x005666A0: the session's objects deleted (the skaters kept, hidden while the dead are flushed). 0x005668A0:
     // the career's level restarted. 0x00566900: the level reset (the node array, graffiti, goals, reset_level).
     // 0x00566A60: the game launched (the game flow, the king, the flags).
-    void Cleanup();
+    void TidyUp();
     void RestartLevel();
     void ResetLevel();
     void LaunchGame();
@@ -167,7 +167,7 @@ public:
     // unplugged controllers.
     void RunFrameLogic();
     // 0x00564D30 (an object walk's callback): its suspend component's visibility.
-    static void __cdecl UpdateSuspendVisibility(GameObjects::CObject* object, void* data);
+    static void __cdecl UpdateSuspendVisibility(GameObjects::CEntity* object, void* data);
 
     // --- small (skate_module_state.cpp) ---
     // 0x00564CA0: the timer's beeps (`script`) speeding up as `timeLeft` runs down from `startTime`.
@@ -179,11 +179,11 @@ public:
     GoalSystem::CGoalManager* GetObjectiveBoard();
     void CheckControllers();
     // 0x00564F60: the voices' volumes on a pause.
-    void Pause(bool paused);
+    void Freeze(bool paused);
     // 0x00564F80: the profile `params`' integer `skater` names (none, or no params: the current one). 0x00564FC0:
     // profile `index`.
-    GameObjects::CRiderIdentity* GetProfile(Scripts::CStruct* params);
-    GameObjects::CRiderIdentity* GetProfile(int index);
+    GameObjects::CRiderIdentity* FetchAccount(Scripts::CStruct* params);
+    GameObjects::CRiderIdentity* FetchAccount(int index);
     // 0x005656C0: the career's gap checklist of the level.
     void* FetchGapList();
     // 0x005656D0: in a net game, out of the main menu. 0x00565700: in a net mode, or the main menu / CAS asked for.
@@ -233,7 +233,7 @@ public:
     static bool __cdecl CFunc_ResetLevel(Scripts::CStruct* params, Scripts::CScript* script);
     static bool __cdecl CFunc_FillRankingScreen(Scripts::CStruct* params, Scripts::CScript* script);
 
-    // (the list's node at `index` - ListKit::Head's GetItem; the skater there, null past the end)
+    // (the list's node at `index` - ListKit::Foremost's FetchEntry; the skater there, null past the end)
     MemSys::ListNode* SkaterNode(uint32_t index);
     GameObjects::CRider* SkaterAt(uint32_t index);
 
@@ -241,7 +241,7 @@ public:
     TaskList::SchedulerTask* m_serverTasks[2];              // +0x18 (SkateNet::CreateNetworkTasks)
     GameObjects::CRiderStoryProgress* m_career;                 // +0x20
     GameObjects::CGrindRailHub* m_railManager;             // +0x24
-    ListKit::Head m_riders;                          // +0x28 (their nodes' data the skaters, in object id order)
+    ListKit::Foremost m_riders;                          // +0x28 (their nodes' data the skaters, in object id order)
     bool m_checkControllers;                      // +0x3C
     uint8_t pad3D[3];
     int m_unpluggedFrames;                        // +0x40
@@ -270,19 +270,19 @@ public:
     uint8_t pad385[3];
     GoalSystem::CMatchFlow* m_gameFlow;                  // +0x388
     GoalSystem::CGoalManager* m_goalManager;            // +0x38C
-    PlayerSettings m_players[8];                  // +0x390
+    PlayerSettings m_participants[8];                  // +0x390
     int m_unknown3D0;                             // +0x3D0
     bool m_debugRails;                            // +0x3D4
     uint8_t pad3D5[3];
     Scripts::CScript* m_runScript;                    // +0x3D8
     bool m_noCamera;                              // +0x3DC (PreCalculateObjectUpdateInfo: no camera to measure from)
     uint8_t pad3DD[3];
-    Maths::Vector m_cameraPos;                      // +0x3E0
+    Maths::Vec4 m_cameraPos;                      // +0x3E0
 };
 static_assert(offsetof(Skate, m_logicTask) == 0x14 && offsetof(Skate, m_riders) == 0x28 &&
                   offsetof(Skate, m_matchStyle) == 0x4C && offsetof(Skate, m_scoreGoals) == 0x60 &&
                   offsetof(Skate, m_competition) == 0x360 && offsetof(Skate, m_gameFlow) == 0x388 &&
-                  offsetof(Skate, m_players) == 0x390 && offsetof(Skate, m_runScript) == 0x3D8 &&
+                  offsetof(Skate, m_participants) == 0x390 && offsetof(Skate, m_runScript) == 0x3D8 &&
                   offsetof(Skate, m_cameraPos) == 0x3E0 && sizeof(Skate) == 0x3F0,
               "layout must match the original");
 

@@ -44,7 +44,7 @@ constexpr uint32_t kRunTimerScriptId = 0x83321DEA, kRunTimerIdBase = 0x7D42821C;
 constexpr int kMaxResumes = 8;
 constexpr float kResumeShare = 0.125f; // 0x0064B960 (1 / kMaxResumes)
 
-// The state names m_state shows as (0x0064C080).
+// The state names m_curPhase shows as (0x0064C080).
 const uint32_t* StateNames() { return g_runTimerStateNames; }
 
 uint32_t SkaterIndex(CGameEntity* skater) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x2BC); }
@@ -59,21 +59,21 @@ double PhysicsValue(CGameEntity* skater, uint32_t name)
 // An event of `type` to the run timer's script (no data, not broadcast).
 void TellTimerScript(CGameEntity* skater, uint32_t type)
 {
-    Tracker()->LaunchEvent(type, TimerScriptId(skater), skater->m_id, nullptr, false, -1.0f);
+    Tracker()->LaunchEvent(type, TimerScriptId(skater), skater->m_ident, nullptr, false, -1.0f);
 }
 
 } // namespace
 
 // 0x005185D0
-CObjectModule* __cdecl CRiderRunClock::Create()
+CObjectModule* __cdecl CRiderRunClock::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderRunClock));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CRiderRunClock*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kSkaterRunTimer;
+    component->m_kindTag = kSkaterRunTimer;
     return component;
 }
 
@@ -92,77 +92,77 @@ void CRiderRunClock::DestroyBody()
 }
 
 // 0x005182B0
-CRiderRunClock* CRiderRunClock::Destroy(unsigned int flags)
+CRiderRunClock* CRiderRunClock::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x005182E0
-void CRiderRunClock::Finalize() { m_walk = reinterpret_cast<uint8_t*>(m_object->GetComponent(kWalk)); }
+void CRiderRunClock::Seal() { m_walk = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kWalk)); }
 
 // 0x00518270
 void CRiderRunClock::FetchDiagnostics(Scripts::CStruct* params)
 {
-    params->PutNameKey(kMState, StateNames()[m_state]);
+    params->PutNameKey(kMState, StateNames()[m_curPhase]);
     params->PushFloat(kMTimer, m_secondsRemaining);
     // (then the base's FetchDiagnostics, which is empty: 0x005BAB90)
 }
 
 // 0x00518300
-void CRiderRunClock::Update()
+void CRiderRunClock::TickFrame()
 {
-    if (m_state == CLOCK_TICKING) {
+    if (m_curPhase == CLOCK_TICKING) {
         int walkState = *reinterpret_cast<int*>(m_walk + 0x18);
         double elapsed;
         if (walkState >= 2 && walkState <= 4) {
-            float adjustment = Scripts::GetFloat(kHangSpeedAdjustment);
+            float adjustment = Scripts::FetchFloat(kHangSpeedAdjustment);
             elapsed = FrameClock::GetSlomoFrameSeconds() * adjustment;
         } else {
             elapsed = FrameClock::GetSlomoFrameSeconds();
         }
         m_secondsRemaining = static_cast<float>(m_secondsRemaining - elapsed);
         if (m_secondsRemaining < 0.0f) {
-            m_state = ACTIVE_TIME_UP;
-            m_object->PostOwnEvent(kRunTimerUp, nullptr);
+            m_curPhase = ACTIVE_TIME_UP;
+            m_entity->PostOwnEvent(kRunTimerUp, nullptr);
         }
-    } else if (m_state == ACTIVE_TIME_UP) {
-        m_object->PostOwnEvent(kRunTimerUp, nullptr);
+    } else if (m_curPhase == ACTIVE_TIME_UP) {
+        m_entity->PostOwnEvent(kRunTimerUp, nullptr);
     }
 }
 
 // 0x00518390
-void CRiderRunClock::Stop()
+void CRiderRunClock::Halt()
 {
-    if (Scripts::FindSpawnedScriptWithId(TimerScriptId(m_object)))
-        TellTimerScript(m_object, kHideRunTimer);
-    m_state = CLOCK_IDLE;
+    if (Scripts::FindSpawnedScriptWithId(TimerScriptId(m_entity)))
+        TellTimerScript(m_entity, kHideRunTimer);
+    m_curPhase = CLOCK_IDLE;
 }
 
 // 0x005183F0
 void CRiderRunClock::Resume()
 {
-    if (m_state == CLOCK_IDLE)
+    if (m_curPhase == CLOCK_IDLE)
         return;
-    m_state = m_secondsRemaining > 0.0f ? CLOCK_TICKING : ACTIVE_TIME_UP;
+    m_curPhase = m_secondsRemaining > 0.0f ? CLOCK_TICKING : ACTIVE_TIME_UP;
     int16_t resumes = m_resumes;
     if (resumes < kMaxResumes) {
-        double cap = PhysicsValue(m_object, kDuration) * (kMaxResumes - resumes) * kResumeShare;
+        double cap = PhysicsValue(m_entity, kDuration) * (kMaxResumes - resumes) * kResumeShare;
         if (!(m_secondsRemaining < cap))
             m_secondsRemaining = static_cast<float>(cap);
     }
     m_resumes = static_cast<int16_t>(resumes + 1);
-    TellTimerScript(m_object, kShowRunTimer);
+    TellTimerScript(m_entity, kShowRunTimer);
 }
 
 // 0x005184A0
-bool CRiderRunClock::Pause(Scripts::CStruct*, Scripts::CScript*)
+bool CRiderRunClock::Freeze(Scripts::CStruct*, Scripts::CScript*)
 {
-    if (m_state != CLOCK_IDLE) {
-        m_state = ACTIVE_PAUSED;
-        TellTimerScript(m_object, kHideRunTimer);
+    if (m_curPhase != CLOCK_IDLE) {
+        m_curPhase = ACTIVE_PAUSED;
+        TellTimerScript(m_entity, kHideRunTimer);
     }
     return true;
 }
@@ -175,28 +175,28 @@ bool CRiderRunClock::Unpause(Scripts::CStruct*, Scripts::CScript*)
 // 0x00518500
 bool CRiderRunClock::GetFactorComplete(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PushFloat(kFactorComplete,
-                               static_cast<float>(m_secondsRemaining / PhysicsValue(m_object, kDuration)));
+    script->m_args->PushFloat(kFactorComplete,
+                               static_cast<float>(m_secondsRemaining / PhysicsValue(m_entity, kDuration)));
     return true;
 }
 // 0x00518540
 bool CRiderRunClock::GetRunTimerControllerId(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PutNameKey(kRunTimerControllerId, TimerScriptId(m_object));
+    script->m_args->PutNameKey(kRunTimerControllerId, TimerScriptId(m_entity));
     return true;
 }
 // 0x00518570
 bool CRiderRunClock::GetRunTimerId(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PutNameKey(kRunTimerId, SkaterIndex(m_object) + kRunTimerIdBase);
+    script->m_args->PutNameKey(kRunTimerId, SkaterIndex(m_entity) + kRunTimerIdBase);
     return true;
 }
 // 0x005185A0
 bool CRiderRunClock::ChainBegan(Scripts::CStruct*, Scripts::CScript*)
 {
-    m_secondsRemaining = static_cast<float>(PhysicsValue(m_object, kDuration));
+    m_secondsRemaining = static_cast<float>(PhysicsValue(m_entity, kDuration));
     m_resumes = 0;
-    m_state = ACTIVE_PAUSED;
+    m_curPhase = ACTIVE_PAUSED;
     return true;
 }
 
@@ -205,14 +205,14 @@ bool CRiderRunClock::ChainBegan(Scripts::CStruct*, Scripts::CScript*)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderRunClock::Destroy,
-         &GameObjects::CRiderRunClock::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderRunClock::Teardown,
+         &GameObjects::CRiderRunClock::TickFrame,
          &CRiderStateReset::ConfigureFromData,
-         &GameObjects::CRiderRunClock::Finalize,
+         &GameObjects::CRiderRunClock::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          &GameObjects::CRiderRunClock::FetchDiagnostics,

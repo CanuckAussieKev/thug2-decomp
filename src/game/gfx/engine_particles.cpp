@@ -44,7 +44,7 @@ CPcParticleSystem* CPcParticleSystem::EngineDestroy(unsigned int flags)
 {
     vtable = reinterpret_cast<void**>(kEngineVtable);
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -74,7 +74,7 @@ void CPcParticleSystem::EngineRelease()
 }
 
 // 0x00494E70
-void CPcParticleSystem::Hide(bool hide)
+void CPcParticleSystem::Conceal(bool hide)
 {
     if (Hidden(this) == hide)
         return;
@@ -89,7 +89,7 @@ void CPcParticleSystem::SetRate(float value) { rate = value; }
 void CPcParticleSystem::SetLifespan(float value) { lifetime = value; }
 
 // 0x00494EB0
-void CPcParticleSystem::SetSize(int which, float size) { sizes[which] = ThroughX87(size); }
+void CPcParticleSystem::ChangeExtent(int which, float size) { sizes[which] = ThroughX87(size); }
 
 // 0x00494EC0
 void CPcParticleSystem::ChangeColour(int which, const uint32_t* colour)

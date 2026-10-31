@@ -4,12 +4,12 @@
 #include <cstdint>
 
 namespace NetLink {
-struct App;
+struct AppHost;
 struct Conn;
 struct InboundMsgCtx;
 } // namespace Net
 namespace GameObjects {
-class CObject;
+class CEntity;
 } // namespace Obj
 namespace OptionStore {
 class Preferences;
@@ -22,7 +22,7 @@ namespace MemSys {
 struct ListNode;
 }
 
-// The game's network manager OnlinePlay::Manager (0x00533F20-0x0054EF60; the singleton at 0x007CCE14): the network
+// The game's network manager OnlinePlay::Hub (0x00533F20-0x0054EF60; the singleton at 0x007CCE14): the network
 // game itself - the players, the levels and modes the server picks, the lobby. Partly rewritten: the join path
 // (gamenet_join.cpp) and the level name; only the fields used so far are named.
 namespace OnlinePlay {
@@ -95,7 +95,7 @@ enum EntryPhase : int {
     kJoinStateRefused = 9,   // (the join-state task shows the refusal: CreateJoinRefusedDialog with m_refusedReason)
 };
 
-class Manager {
+class Hub {
 public:
     // 0x005369A0: the current network level's name - the `text` of its entry in the level select's list
     // (`level`, a load script's checksum, matching m_level); for the created park (load_sk5ed_gameplay) with
@@ -113,9 +113,9 @@ public:
     // GetMapName's lookup for any level (null if none).
     static const char* LevelListName(uint32_t level);
     // 0x00533F90 (inline here): the server's side of the game (OnServer): flags bit 0.
-    bool OnServer() const { return (m_flags & 1) != 0; }
+    bool OnServer() const { return (m_flagBits & 1) != 0; }
     // 0x00533F80 (inline here): internet play (flags bit 2), not LAN.
-    bool InInternetMode() const { return (m_flags & 4) != 0; }
+    bool InInternetMode() const { return (m_flagBits & 4) != 0; }
 
     // --- gamenet_state.cpp: the manager's small members (0x00532AA0-0x005333F0) ---
     // 0x00532AA0 / 0x00532AC0: how the player joins (m_joinMode: 0 to play, 1 to watch - IsObserving). Setting it
@@ -159,9 +159,9 @@ public:
     void SetJoinPrivateIp(uint32_t ip);
     void SetEntryPort(int port);
     // 0x00532EA0: client `index` (ClientSlot).
-    NetLink::App* GetClient(int index);
+    NetLink::AppHost* FetchPatron(int index);
     // 0x00532EB0: the server list's client (m_matchClient).
-    NetLink::App* GetMatchmakingClient();
+    NetLink::AppHost* GetMatchmakingClient();
     // 0x00532EC0: m_camPlayer.
     void* GetCamPlayer();
     // 0x00532ED0: ask for servers on the LAN: message 0x11 (the time now, 12 bytes) through the lobby client to the
@@ -239,7 +239,7 @@ public:
     void SetMaxPlayersPreference(int count);
     void SetMaxObserversPreference(int count);
     // 0x00534310: the network preference password's ui_string.
-    const char* GetPassword();
+    const char* FetchSecret();
     // 0x00534340: whether skaters collide with each other: never in a finished game, free skate or horse (unless in
     // the lobby); always in split screen, with player_collision on, and in (net)slap.
     bool PlayersCanCollide();
@@ -255,7 +255,7 @@ public:
     // has a custom tag texture at all.
     bool SendCustomTagTexture();
     // 0x00534F40 (4 bytes: source only): the level's load script.
-    uint32_t GetLevel();
+    uint32_t FetchStage();
     // 0x00534F50 / 0x00534FC0: in the global array `list` (structures), the `name` string / the integer `field` of
     // the entry whose checksum is `choice` (the last such; null / 0 if none).
     const char* GetChoiceName(uint32_t list, uint32_t choice);
@@ -275,7 +275,7 @@ public:
     void SetPresetOptionBits(char flags);
 
     // --- gamenet_settings.cpp: the network settings and the connection (0x00535040-0x00535CB0) ---
-    // 0x00535040: the network preferences handed to the net library (NetLink::Manager): the master servers (+0x9954, ten
+    // 0x00535040: the network preferences handed to the net library (NetLink::Hub): the master servers (+0x9954, ten
     // names of 16 bytes: the two set, unless "0.0.0.0", then default_master_servers - or only those), DHCP or the
     // addresses, DNS, dial-up, the device and connection type (modems: at most 3 players, no observers),
     // dialup_authentication. Four global strings (names unknown) override the address, gateway, subnet mask and DNS
@@ -288,11 +288,11 @@ public:
     // 0x00535B20 / 0x00535B70: the goals / game_type preference's checksum (the manager's address on a miss).
     uint32_t GetGoalsPreference();
     uint32_t GetGameTypePreference();
-    // 0x00535C10: go online (NetLink::Manager::ConnectToInternet unless already); then `onlineScript` runs. If it fails, a
+    // 0x00535C10: go online (NetLink::Hub::ConnectToInternet unless already); then `onlineScript` runs. If it fails, a
     // modem or PPPoE connection (types 1 / 3) carries on in the online state task (+0xD8), `failScript` kept (+0x1C8).
     bool ConnectToInternet(uint32_t onlineScript, uint32_t failScript);
     // 0x00535CB0: go offline: the online state task added (state -1; `script`, if any, for when it's done), the lobby
-    // left (0x005453E0 with 2), NetLink::Manager::DisconnectFromInternet.
+    // left (0x005453E0 with 2), NetLink::Hub::DisconnectFromInternet.
     void DisconnectFromInternet(uint32_t script);
     // 0x00536C10 (the CFunc CancelConnectToInternet's; no `this`): by the net library's modem state - 0 / 1 (dialling):
     // the online task restarted, the lobby left (state 2), offline; 2: modem state 6; 5: the online task removed and
@@ -309,7 +309,7 @@ public:
     const char* GetGameTypeName();
     // 0x00536B90: the level (m_level); the lobby's GameSpy peer (connected, the lobby hosting - 0x0053F810) told its
     // state changed (0x005FCCF0).
-    void SetLevel(uint32_t level);
+    void ChangeArena(uint32_t level);
 
     // --- gamenet_players.cpp: the players' records (0x00536820-0x00537F40) ---
     // 0x00536820: every joining player (the list at +0x130) removed: its connection terminated on the server, its node
@@ -318,14 +318,14 @@ public:
     // 0x00536B10: the joining player `player` removed (its connection terminated on the server, or on client 0 if it
     // has one).
     void RemoveNewPlayer(void* player);
-    // 0x005372C0 / 0x00537010: the first / next player of the list (+0x11C) through `search` (a ListKit::Search -
+    // 0x005372C0 / 0x00537010: the first / next player of the list (+0x11C) through `search` (a ListKit::Hunt -
     // {vtable, node}); without `observers`, observers are skipped. Null at the end.
     void* BeginPlayerWalk(void* search, bool observers);
     void* StepPlayerWalk(void* search, bool observers);
     // 0x00537070: the first joining player (+0x130) through `search` (then the lists' generic next, 0x004573D0).
     void* BeginJoinerWalk(void* search);
     // The next joining player through `search` (null at the end). No address of its own: the original calls the lists'
-    // generic next, folded at 0x004573D0 (NetLink::App::StepConnWalk), with the manager as its unused `this`.
+    // generic next, folded at 0x004573D0 (NetLink::AppHost::StepConnWalk), with the manager as its unused `this`.
     void* StepJoinerWalk(void* search);
     // 0x005370A0: the joining player whose object id (+0x10, a signed byte) is `id`.
     void* GetNewPlayerInfoByObjectId(uint16_t id);
@@ -441,7 +441,7 @@ public:
     // 0x00546400: whether a server named `name` (case ignored) at `ip` is listed or waiting.
     bool HasServer(const char* name, uint32_t ip);
     // 0x005464D0: the listed server with id `id` (internet: its SBServer; LAN: itself), or null.
-    void* GetServer(uint32_t id);
+    void* FetchHost(uint32_t id);
     // 0x00547320: the "none found" message, then each waiting server moved to the list and the menu;
     // update_lobby_server_list.
     void ShowFoundServers();
@@ -464,18 +464,18 @@ public:
     // directly): the connection request sent, the client's join handlers added (index 0: the game's too).
     void JoinServer(uint32_t ip, uint16_t port, int index);
     // 0x00534AF0: the connection request again (state "joining"), on `client`.
-    void RetryEntry(NetLink::App* client);
+    void RetryEntry(NetLink::AppHost* client);
     // 0x00534BD0: the connection request again with `password` (state "joining with password").
     void RetryEntryWithKey(const char* password);
     // 0x00537220: client `index` made (THUG2's join port; broadcast, local - else dynamic resend and foreign
     // connections -, secure as asked); index 0 resets the ready / pro-set state. Returns it (null if it failed).
-    NetLink::App* StartClientSession(bool broadcast, bool local, bool secure, int index);
+    NetLink::AppHost* StartClientSession(bool broadcast, bool local, bool secure, int index);
     // 0x00534430: the server-list client (broadcast, dynamic resend, foreign connections, secure) and its server
     // response handler.
-    NetLink::App* StartMatchmakingClient();
+    NetLink::AppHost* StartMatchmakingClient();
     // 0x0053C380: the server made (THUG2's host port, 20 connections), host mode "serve", its lobby handlers (the
     // connection and join requests among them), the starting points shuffled. Returns it (null if it failed).
-    NetLink::App* StartHostSession(bool local, bool secure);
+    NetLink::AppHost* StartHostSession(bool local, bool secure);
 
     // The message handlers (cdecl, data: the manager).
     // 0x0052F790 (message 3, host): a connection request - ok_to_join (password, version, CD key), then a new
@@ -523,7 +523,7 @@ public:
     // of `skater` and `conn`. A local observer gets the observer's controls (hide_panel_stuff, the camera onto the
     // first player); a local player clears m_camPlayer; a remote one is watched if the local player observes and
     // watches nobody. Returns it.
-    uint8_t* NewPlayer(GameObjects::CObject* skater, NetLink::Conn* conn, uint32_t flags);
+    uint8_t* NewPlayer(GameObjects::CEntity* skater, NetLink::Conn* conn, uint32_t flags);
     // 0x0053C950: `player` deleted: the camera moved off it, its crown taken off, its flag returned (flag_returned,
     // hide_ctf_arrow for the local team); the lobby's server details and qr2 told.
     void RemovePlayerRecord(uint8_t* player);
@@ -601,28 +601,28 @@ public:
     // 0x0053EE90 (gamenet_manager_create.cpp): the constructor: the preferences (loaded), the player lists, fifteen
     // tasks (the connection task started), the lobby / vault / presence / stats managers, the CD-key challenge (eight
     // random letters and digits). Returns this.
-    Manager* Construct();
+    Hub* MakeNew();
     // 0x0053F520: the manager (made if `create` and there's none, 0xFE0C bytes); a reference counted (0x007CCE18).
-    static Manager* __cdecl Create(bool create);
+    static Hub* __cdecl Fabricate(bool create);
     // 0x0053C1F0 (+0xE8): the start of a game: while players are still loading, the server's
     // CreateWaitForPlayersDialog (no menu up) or a client's net_message_game_will_start, once; when everyone is ready
     // and the time has come, StartNetworkGame and the task removed.
     static void __cdecl StartGameTask(void* task);
 
     // Fields.
-    NetLink::App*& ClientSlot(int index) { return (&m_clientApp)[index]; }
+    NetLink::AppHost*& ClientSlot(int index) { return (&m_clientApp)[index]; }
 
-    uint8_t m_flags;          // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
+    uint8_t m_flagBits;          // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
     uint8_t m_unknown1[3];
-    NetLink::App* m_server;       // +0x04
-    NetLink::App* m_clientApp;       // +0x08 client 0 (the game's)
-    NetLink::App* m_client1;      // +0x0C client 1
+    NetLink::AppHost* m_host;       // +0x04
+    NetLink::AppHost* m_clientApp;       // +0x08 client 0 (the game's)
+    NetLink::AppHost* m_client1;      // +0x0C client 1
     void* m_lobbyMan;         // +0x10 the GameSpy lobby (its server name +0xB4, its peer +0x34)
     void* m_vaultMan;         // +0x14 the content vault and HTTP transfers (VaultMan)
     void* m_buddyMan;        // +0x18 the GameSpy presence (logged in: +0x10)
     void* m_statsMan;         // +0x1C the player's rating (+0x14)
     char m_challenge[12];     // +0x20 the host's CD-key challenge
-    NetLink::App* m_matchClient;  // +0x2C the server list's client
+    NetLink::AppHost* m_matchClient;  // +0x2C the server list's client
     uint32_t m_unknown30;
     uint32_t m_level;         // +0x34 the level's load script
     uint16_t m_unknown38;
@@ -659,12 +659,12 @@ public:
     uint8_t m_unknown1B6[0x16];
     void* m_camPlayer;                  // +0x1CC
 };
-static_assert(offsetof(Manager, m_level) == 0x34 && offsetof(Manager, m_joinMode) == 0x3C &&
-                  offsetof(Manager, m_serverAddNewPlayersTask) == 0xCC && offsetof(Manager, m_joinTimeoutTask) == 0xDC &&
-                  offsetof(Manager, m_joinStateTask) == 0xE4 && offsetof(Manager, m_observerCommand) == 0x100 &&
-                  offsetof(Manager, m_refusedReason) == 0x184 && offsetof(Manager, m_joinState) == 0x198 &&
-                  offsetof(Manager, m_joinStartTime) == 0x1AC && offsetof(Manager, m_gamePending) == 0x1B4 &&
-                  offsetof(Manager, m_camPlayer) == 0x1CC,
+static_assert(offsetof(Hub, m_level) == 0x34 && offsetof(Hub, m_joinMode) == 0x3C &&
+                  offsetof(Hub, m_serverAddNewPlayersTask) == 0xCC && offsetof(Hub, m_joinTimeoutTask) == 0xDC &&
+                  offsetof(Hub, m_joinStateTask) == 0xE4 && offsetof(Hub, m_observerCommand) == 0x100 &&
+                  offsetof(Hub, m_refusedReason) == 0x184 && offsetof(Hub, m_joinState) == 0x198 &&
+                  offsetof(Hub, m_joinStartTime) == 0x1AC && offsetof(Hub, m_gamePending) == 0x1B4 &&
+                  offsetof(Hub, m_camPlayer) == 0x1CC,
               "layout must match the original");
 
 // --- gamenet_players.cpp: outside the class ---
@@ -683,7 +683,7 @@ extern uint32_t g_askedFor;
 extern bool g_joinServerIPSucceeded;
 extern uint32_t g_levelChangeTime;
 extern uint32_t g_autoServeStart;
-extern Manager* g_gameNetManager;
+extern Hub* g_gameNetManager;
 extern uint32_t g_gameNetReferences;
 extern bool g_queryReporting;
 extern bool g_openWaiting;

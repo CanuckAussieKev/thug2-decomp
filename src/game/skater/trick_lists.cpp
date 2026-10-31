@@ -30,16 +30,16 @@ void InitNode(MemSys::ListNode& node, void* data)
 void TrickListEntry::SetFlag() { m_flag2C = true; }
 
 // 0x00578740
-TrickListEntry* TrickListEntry::Construct()
+TrickListEntry* TrickListEntry::MakeNew()
 {
     InitNode(m_listLink, this);
     m_listLink.vtable = kListEntryVtable;
-    m_key = 0;
+    m_lookupKey = 0;
     m_unknown24 = 0;
     m_unknown30 = 0;
     m_unknown34 = false;
     Scripts::CArray* memory = Scripts::NewArray();
-    m_elementList = memory ? memory->Init() : nullptr;
+    m_elementList = memory ? memory->PrepareAll() : nullptr;
     m_unknown38 = 0;
     m_unknown3C = 0;
     return this;
@@ -59,36 +59,36 @@ void TrickListEntry::DestroyBody()
 }
 
 // 0x00579820
-TrickListEntry* TrickListEntry::Destroy(unsigned int flags)
+TrickListEntry* TrickListEntry::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x005787F0
-TrickNameEntry* TrickNameEntry::Construct()
+TrickNameEntry* TrickNameEntry::MakeNew()
 {
     InitNode(m_listLink, this);
     m_listLink.vtable = kNameEntryVtable;
-    new (&m_name) TextUtil::String();
+    new (&m_label) TextUtil::Chars();
     return this;
 }
 
 // 0x00579630
 void TrickNameEntry::DestroyBody()
 {
-    m_name.~String();
+    m_label.~Chars();
     m_listLink.UnlinkAs(g_gapTrickNodeVtable);
 }
 
 // 0x00579600
-TrickNameEntry* TrickNameEntry::Destroy(unsigned int flags)
+TrickNameEntry* TrickNameEntry::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -97,9 +97,9 @@ TrickNameEntry* TrickNameEntry::Destroy(unsigned int flags)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kListEntryVtable_slots[] = {&GameObjects::TrickListEntry::Destroy};
+static VtableSlot kListEntryVtable_slots[] = {&GameObjects::TrickListEntry::Teardown};
 void** const kListEntryVtable = reinterpret_cast<void**>(kListEntryVtable_slots);
-static VtableSlot kNameEntryVtable_slots[] = {&GameObjects::TrickNameEntry::Destroy};
+static VtableSlot kNameEntryVtable_slots[] = {&GameObjects::TrickNameEntry::Teardown};
 void** const kNameEntryVtable = reinterpret_cast<void**>(kNameEntryVtable_slots);
 
 } // namespace

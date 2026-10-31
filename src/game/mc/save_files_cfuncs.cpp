@@ -34,8 +34,8 @@ namespace {
 using Scripts::CScript;
 using Scripts::CStruct;
 
-int Platform() { return GameConfig::g_platform; }
-Card* TheCard() { return g_theCard->GetStorageSlot(0, 0); }
+int OsLayer() { return GameConfig::g_platform; }
+SaveCard* TheCard() { return g_theCard->GetStorageSlot(0, 0); }
 
 // The calling script's own parameters (Scripts::CScript +0x14): where ScriptCommands leave results for it.
 CStruct* ResultParams(CScript* script) { return *reinterpret_cast<CStruct**>(reinterpret_cast<char*>(script) + 0x14); }
@@ -44,7 +44,7 @@ CStruct* ResultParams(CScript* script) { return *reinterpret_cast<CStruct**>(rei
 const char* SaveFolder() { return GameConfig::GetPathPrefix(); }
 
 // The card's delete of a console file or folder entry: on the PC the shared always-true method (0x005BC7F0).
-bool DeleteCardFile(Card* card, const char* name) { return card->AlwaysTrue(reinterpret_cast<int>(name)); }
+bool DeleteCardFile(SaveCard* card, const char* name) { return card->AlwaysTrue(reinterpret_cast<int>(name)); }
 
 // A save file's handle deleted (its vtable's scalar deleting destructor).
 void DeleteFile(FileLoad* file) { reinterpret_cast<void(__thiscall*)(FileLoad*, int)>(file->m_listLink.vtable[0])(file, 1); }
@@ -65,10 +65,10 @@ void CreateReservePool(MemSys::PoolPair& pools, int itemSize, int count, const c
 void DeleteReservePool(MemSys::PoolPair& pools)
 {
     ++pools.current;
-    if (MemSys::Pool* pool = pools.pools[pools.current]) {
+    if (MemSys::SlabBank* pool = pools.pools[pools.current]) {
         if (reinterpret_cast<uint8_t*>(&pools.unknown4)[pools.current]) {
-            MemSys::Manager::Get()->Free(pool->m_start); // (its destructor body, 0x005BA4E0)
-            MemSys::Manager::Get()->Free(pool);
+            MemSys::Hub::Pull()->Dealloc(pool->m_outset); // (its destructor body, 0x005BA4E0)
+            MemSys::Hub::Pull()->Dealloc(pool);
         }
         pools.pools[pools.current] = nullptr;
     }
@@ -80,31 +80,31 @@ void DeleteReservePool(MemSys::PoolPair& pools)
 // 0x005A6EA0
 bool DeleteMemCardFile(CStruct* params, CScript*)
 {
-    if (Platform() != 4) {
+    if (OsLayer() != 4) {
         AudioStream::PauseMusic(1);
-        AudioStream::PauseStream(1);
+        AudioStream::FreezeStream(1);
     }
-    Card* card = TheCard();
+    SaveCard* card = TheCard();
     if (!card) {
-        if (Platform() != 4) {
+        if (OsLayer() != 4) {
             AudioStream::PauseMusic(-1);
-            AudioStream::PauseStream(-1);
+            AudioStream::FreezeStream(-1);
         }
         return false;
     }
     bool deleted = true;
     const char* xboxDirectory = nullptr; // (read, not used on the PC)
-    params->GetString("XBoxDirectoryName", &xboxDirectory, 0);
+    params->FetchText("XBoxDirectoryName", &xboxDirectory, 0);
     const char* cardFileName = nullptr;
-    params->GetString("CardFileName", &cardFileName, 0);
+    params->FetchText("CardFileName", &cardFileName, 0);
     uint32_t type = 0;
     params->ReadHashValue("Type", &type, 0);
     const char* userFileName = ""; // ""
-    params->GetString("UserFileName", &userFileName, 0);
+    params->FetchText("UserFileName", &userFileName, 0);
 
     bool removed = false;
     char file[20];
-    switch (Platform()) {
+    switch (OsLayer()) {
     case 1:
     case 2:
     case 3: {
@@ -174,9 +174,9 @@ bool DeleteMemCardFile(CStruct* params, CScript*)
     }
     if (deleted && !removed)
         deleted = false;
-    if (Platform() != 4) {
+    if (OsLayer() != 4) {
         AudioStream::PauseMusic(-1);
-        AudioStream::PauseStream(-1);
+        AudioStream::FreezeStream(-1);
     }
     return deleted;
 }
@@ -194,11 +194,11 @@ bool GetMemCardSpaceRequired(CStruct* params, CScript* script)
 // 0x005A8550
 bool MemCardFileExists(CStruct* params, CScript* script)
 {
-    Card* card = TheCard();
+    SaveCard* card = TheCard();
     if (!card)
         return false;
     const char* name = nullptr;
-    params->GetString("Name", &name, 0);
+    params->FetchText("Name", &name, 0);
     uint32_t type = 0;
     params->ReadHashValue("Type", &type, 0);
     if (!name || !type)
@@ -206,7 +206,7 @@ bool MemCardFileExists(CStruct* params, CScript* script)
     const char* typeFileName = nullptr; // (only made on the PC and platform 7)
     char path[100];
     path[0] = '\0';
-    switch (Platform()) {
+    switch (OsLayer()) {
     case 4:
     case 7: {
         typeFileName = TypeFileName(type, name);
@@ -229,17 +229,17 @@ bool MemCardFileExists(CStruct* params, CScript* script)
     default:
         break;
     }
-    FileLoad* file = card->Open(path, 1, 0);
+    FileLoad* file = card->Unseal(path, 1, 0);
     if (!file) {
         // (on the PC, the file that wouldn't open is removed - by the type's name made above)
-        if (Platform() == 4)
+        if (OsLayer() == 4)
             card->RemoveFile(typeFileName);
         return false;
     }
-    int size = static_cast<int>(file->Seek(0, 2));
+    int size = static_cast<int>(file->SeekTo(0, 2));
     ResultParams(script)->PutInt("total_file_size", SaveBlocks(type, size));
-    file->Flush();
-    file->Close();
+    file->Drain();
+    file->Shut();
     DeleteFile(file);
     return true;
 }
@@ -262,7 +262,7 @@ bool CreateTemporaryMemCardPools(CStruct*, CScript*)
 {
     if (ComponentPools().pools[ComponentPools().current + 1])
         return true;
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_topDownHeap);
     MemSys::PushMemProfile("Mem card CComponent");
     CreateReservePool(ComponentPools(), 0x10, 50000, "Reserve CComponent");
@@ -273,7 +273,7 @@ bool CreateTemporaryMemCardPools(CStruct*, CScript*)
     MemSys::PushMemProfile("Mem card CVector");
     CreateReservePool(VectorPools(), 0x10, 10000, "Reserve CVector");
     MemSys::PopMemProfile();
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     return true;
 }
 
@@ -293,12 +293,12 @@ bool GetSaveInfo(CStruct* params, CScript* script)
     params->ReadHashValue(0x7321A8D6u, &type, 0); // type
     CStruct* contents = Scripts::NewStruct();
     if (contents)
-        contents = contents->Init();
+        contents = contents->PrepareAll();
     WriteSaveContents(contents, type);
     int mainSize = static_cast<int>(Scripts::MeasureBufferBytes(contents, 100000));
     CStruct* summary = Scripts::NewStruct();
     if (summary)
-        summary = summary->Init();
+        summary = summary->PrepareAll();
     WriteSummary(contents, summary, type);
     int summarySize = static_cast<int>(Scripts::MeasureBufferBytes(summary, 100000));
     CStruct* results = ResultParams(script);
@@ -351,19 +351,19 @@ FileLoad* ListEntry(MemSys::ListNode* head, int index)
 // A save file's type from its name: on the consoles its letter after the folder, on the PC its extension.
 uint32_t ListedFileType(const FileLoad* file, int folderLength)
 {
-    switch (Platform()) {
+    switch (OsLayer()) {
     case 1:
     case 2:
     case 3:
     case 5:
-        return TypeFromLetter(file->m_name[folderLength + 7]);
+        return TypeFromLetter(file->m_label[folderLength + 7]);
     case 4:
     case 7:
     case 8: {
         // (the music and sounds kept going while the files are read)
-        AudioStream::Update();
+        AudioStream::TickFrame();
         SoundFx::UpdateVoiceStates();
-        const char* extension = file->m_name + std::strlen(file->m_name) - 4;
+        const char* extension = file->m_label + std::strlen(file->m_label) - 4;
         if (_stricmp(extension, ".NWS") == 0)
             return kSaveNetworkSettings;
         if (_stricmp(extension, ".SKA") == 0)
@@ -389,7 +389,7 @@ uint32_t ListedFileType(const FileLoad* file, int folderLength)
 void MarkCorrupt(CStruct* entry, uint32_t text)
 {
     entry->PutNameKey(0u, kCorrupt);
-    entry->AddString(kFileName, Scripts::GetString(text));
+    entry->AppendWord(kFileName, Scripts::FetchText(text));
 }
 
 } // namespace
@@ -398,16 +398,16 @@ void MarkCorrupt(CStruct* entry, uint32_t text)
 bool GetMemCardDirectoryListing(CStruct* params, CScript* script)
 {
     constexpr uint32_t kDirectoryListing = 0xD8580FB5, kFilesLimitReached = 0x4EEC27B5, kTotalFiles = 0x56B7A7F6;
-    ResultParams(script)->RemoveComponent(kDirectoryListing);
-    ResultParams(script)->RemoveComponent(kFilesLimitReached);
-    ResultParams(script)->RemoveComponent(kTotalFiles);
+    ResultParams(script)->EraseModule(kDirectoryListing);
+    ResultParams(script)->EraseModule(kFilesLimitReached);
+    ResultParams(script)->EraseModule(kTotalFiles);
     uint32_t wantedType = 0;
     params->ReadHashValue(0x11093FB5u, &wantedType, 0); // FileType
-    Card* card = TheCard();
+    SaveCard* card = TheCard();
     if (!card)
         return true;
 
-    // the card's files (a ListKit::Head<File> on the stack, vtable 0x00658A60)
+    // the card's files (a ListKit::Foremost<File> on the stack, vtable 0x00658A60)
     MemSys::ListNode head;
     head.vtable = MemCard::kFileVtable;
     head.data = reinterpret_cast<void*>(-1);
@@ -434,7 +434,7 @@ bool GetMemCardDirectoryListing(CStruct* params, CScript* script)
     int gameFiles = 0;
     for (int i = 0; i < fileCount; ++i) {
         FileLoad* file = ListEntry(&head, i);
-        if (std::memcmp(file->m_name, folder, static_cast<size_t>(folderLength)) != 0)
+        if (std::memcmp(file->m_label, folder, static_cast<size_t>(folderLength)) != 0)
             continue;
         ++gameFiles;
         uint32_t type = ListedFileType(file, folderLength);
@@ -444,7 +444,7 @@ bool GetMemCardDirectoryListing(CStruct* params, CScript* script)
             continue;
         CStruct* entry = Scripts::NewStruct();
         if (entry)
-            entry = entry->Init();
+            entry = entry->PrepareAll();
         entry->PutNameKey(0xFADDC0B8u, type); // file_type
         entry->PutInt(0x7F8C98FEu, listed); // index
         entry->PutInt(0x447D8CC8u, file->m_year);   // year
@@ -454,29 +454,29 @@ bool GetMemCardDirectoryListing(CStruct* params, CScript* script)
         entry->PutInt(0x5F94B55Cu, file->m_minute); // minutes
         entry->PutInt(0xD029F619u, file->m_second); // seconds
         char path[100];
-        if (Platform() == 5)
-            std::snprintf(path, sizeof(path), "%s", file->m_name);
+        if (OsLayer() == 5)
+            std::snprintf(path, sizeof(path), "%s", file->m_label);
         else
-            std::snprintf(path, sizeof(path), "Save/%s", file->m_name);
-        entry->AddString(0x13C68F74u, path); // actual_file_name
+            std::snprintf(path, sizeof(path), "Save/%s", file->m_label);
+        entry->AppendWord(0x13C68F74u, path); // actual_file_name
         constexpr uint32_t kDamagedFile = 0x2C7CD632, kNgcDamagedFile = 0xFD4AA64E;
-        FileLoad* opened = card->Open(path, 1, 0);
+        FileLoad* opened = card->Unseal(path, 1, 0);
         if (!opened) {
             MarkCorrupt(entry, kDamagedFile);
         } else {
-            opened->Seek(0, 0);
-            opened->Read(&g_listedFile, 0x78);
+            opened->SeekTo(0, 0);
+            opened->TakeIn(&g_listedFile, 0x78);
             int summarySize = ListedHeader().summarySize;
             bool bad = summarySize > 100 ||
                        Checksums::GenerateCRCFromBuffer(ListedSummary(), summarySize) != ListedHeader().summaryCrc;
-            int size = static_cast<int>(opened->Seek(0, 2));
+            int size = static_cast<int>(opened->SeekTo(0, 2));
             entry->PutInt(0x3D1BCFEDu, SaveBlocks(type, size)); // total_file_size
             if (bad || ListedHeader().version != TypeVersion(type)) {
-                MarkCorrupt(entry, Platform() == 5 ? kNgcDamagedFile : kDamagedFile);
+                MarkCorrupt(entry, OsLayer() == 5 ? kNgcDamagedFile : kDamagedFile);
             } else {
                 CStruct* summary = Scripts::NewStruct();
                 if (summary)
-                    summary = summary->Init();
+                    summary = summary->PrepareAll();
                 Scripts::DecodeFromBytes(summary, ListedSummary());
                 entry->AppendStructureIfAny(summary);
                 if (summary) {
@@ -484,7 +484,7 @@ bool GetMemCardDirectoryListing(CStruct* params, CScript* script)
                     Scripts::DeleteStruct(summary);
                 }
             }
-            opened->Close();
+            opened->Shut();
             DeleteFile(opened);
         }
         entries[listed++] = entry;
@@ -521,7 +521,7 @@ bool GetMemCardDirectoryListing(CStruct* params, CScript* script)
         } while (swapped);
         Scripts::CArray* listing = Scripts::NewArray();
         if (listing)
-            listing = listing->Init();
+            listing = listing->PrepareAll();
         listing->ConfigureSizeKind(static_cast<uint32_t>(listed), Scripts::QBVAL_STRUCT);
         for (int j = 0; j < listed; ++j)
             listing->SetElement(static_cast<uint32_t>(j), reinterpret_cast<uint32_t>(entries[j]));
@@ -536,23 +536,23 @@ bool GetMemCardDirectoryListing(CStruct* params, CScript* script)
 // 0x005A7420: EmitIntoBuffer's callback while a save is written on the PC: the music and sounds kept going.
 void __cdecl KeepSoundGoing()
 {
-    AudioStream::Update();
+    AudioStream::TickFrame();
     SoundFx::UpdateVoiceStates();
 }
 
 // 0x005A97E0
 bool SaveToMemoryCard(CStruct* params, CScript*)
 {
-    if (Platform() == 5)
+    if (OsLayer() == 5)
         CreateTemporaryMemCardPools(nullptr, nullptr);
-    if (Platform() != 4) {
+    if (OsLayer() != 4) {
         AudioStream::PauseMusic(1);
-        AudioStream::PauseStream(1);
+        AudioStream::FreezeStream(1);
     }
     bool& outOfSpace = g_outOfSpace;
     outOfSpace = false;
     const char* name = ""; // ""
-    params->GetString("Name", &name, 0);
+    params->FetchText("Name", &name, 0);
     uint32_t type = 0;
     params->ReadHashValue("Type", &type, 0);
     int vaultData = 0;
@@ -573,16 +573,16 @@ bool SaveToMemoryCard(CStruct* params, CScript*)
     }
     CStruct* contents = Scripts::NewStruct();
     if (contents)
-        contents = contents->Init();
+        contents = contents->PrepareAll();
     if (vaultData)
         contents->AppendStructureIfAny(g_keptParams);
     else
         WriteSaveContents(contents, type);
     CStruct* summary = Scripts::NewStruct();
     if (summary)
-        summary = summary->Init();
+        summary = summary->PrepareAll();
     WriteSummary(contents, summary, type);
-    summary->AddString("filename", name);
+    summary->AppendWord("filename", name);
 
     FileLoad* file = nullptr;
     uint8_t* header = nullptr;
@@ -593,17 +593,17 @@ bool SaveToMemoryCard(CStruct* params, CScript*)
     uint32_t summarySize = Scripts::MeasureBufferBytes(summary, 100);
     uint32_t total = mainSize + summarySize + sizeof(SaveFileHeader);
     uint32_t paddingSize = static_cast<uint32_t>(fileSize) - total;
-    if (paddingSize != 0 && Platform() != 5) {
+    if (paddingSize != 0 && OsLayer() != 5) {
         padding = static_cast<uint8_t*>(MemSys::AllocBlock(paddingSize));
         if (paddingSize > 0)
             std::memset(padding, 0x69, paddingSize);
     }
-    Card* card = TheCard();
+    SaveCard* card = TheCard();
     // (the second test is a card method that's the shared always-true stub, 0x005B9760)
     if (card && Stubs::ReturnTrue()) {
         char path[104];
         bool named = true;
-        switch (Platform()) {
+        switch (OsLayer()) {
         case 5: {
             char folderName[104];
             MakeFolderFileName(type, name, folderName);
@@ -624,19 +624,19 @@ bool SaveToMemoryCard(CStruct* params, CScript*)
             break;
         }
         if (named) {
-            file = card->Open(path, 6, fileSize);
-            outOfSpace = card->m_error == 2;
+            file = card->Unseal(path, 6, fileSize);
+            outOfSpace = card->m_fault == 2;
         }
         if (file) {
             header = static_cast<uint8_t*>(MemSys::AllocBlock(total));
             std::memset(header, 0, sizeof(SaveFileHeader));
-            if (Platform() != 5) {
+            if (OsLayer() != 5) {
                 auto* fileHeader = reinterpret_cast<SaveFileHeader*>(header);
                 fileHeader->version = TypeVersion(type);
                 fileHeader->size = static_cast<int>(total);
                 fileHeader->summarySize = static_cast<int>(summarySize);
                 uint8_t* data = header + sizeof(SaveFileHeader);
-                bool pc = Platform() == 4 || Platform() == 7;
+                bool pc = OsLayer() == 4 || OsLayer() == 7;
                 Scripts::EmitIntoBuffer(summary, data, summarySize, 0, pc ? KeepSoundGoing : nullptr);
                 fileHeader->summaryCrc = Checksums::GenerateCRCFromBuffer(data, static_cast<int>(summarySize));
                 data += summarySize;
@@ -646,14 +646,14 @@ bool SaveToMemoryCard(CStruct* params, CScript*)
                         data[i] += 0x69; // (read back with 0x69 taken off)
                 }
                 fileHeader->checksum = Checksums::GenerateCRCFromBuffer(header, static_cast<int>(total));
-                int written = file->Write(header, static_cast<int>(total));
-                outOfSpace = card->m_error == 2;
+                int written = file->EmitOut(header, static_cast<int>(total));
+                outOfSpace = card->m_fault == 2;
                 if (written == static_cast<int>(total)) {
-                    if (Platform() == 5 || paddingSize == 0) {
+                    if (OsLayer() == 5 || paddingSize == 0) {
                         saved = true;
                     } else {
-                        written = file->Write(padding, static_cast<int>(paddingSize));
-                        outOfSpace = card->m_error == 2;
+                        written = file->EmitOut(padding, static_cast<int>(paddingSize));
+                        outOfSpace = card->m_fault == 2;
                         saved = written == static_cast<int>(paddingSize);
                     }
                 }
@@ -665,9 +665,9 @@ bool SaveToMemoryCard(CStruct* params, CScript*)
     if (header)
         MemSys::FreeMalloc(header);
     if (file) {
-        if (!file->Flush())
+        if (!file->Drain())
             saved = false;
-        if (!file->Close())
+        if (!file->Shut())
             saved = false;
         DeleteFile(file);
     }
@@ -684,11 +684,11 @@ bool SaveToMemoryCard(CStruct* params, CScript*)
         --StructPools().current;
         --VectorPools().current;
     }
-    if (Platform() != 4) {
+    if (OsLayer() != 4) {
         AudioStream::PauseMusic(-1);
-        AudioStream::PauseStream(-1);
+        AudioStream::FreezeStream(-1);
     }
-    if (Platform() == 5)
+    if (OsLayer() == 5)
         RemoveTemporaryMemCardPools(nullptr, nullptr);
     return saved;
 }

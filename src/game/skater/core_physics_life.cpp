@@ -98,7 +98,7 @@ void ReleasePointer(void* component, uint32_t offset)
 } // namespace
 
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).
-void __cdecl TrackingPrint(int index, const Maths::Vector* a, const Maths::Vector* b)
+void __cdecl TrackingPrint(int index, const Maths::Vec4* a, const Maths::Vec4* b)
 {
     if (!Scripts::FetchIntValue(kTrackingName))
         return;
@@ -149,14 +149,14 @@ void CorePhysicsComponent::ConfigureFromData(Scripts::CStruct*)
 {
     At<float>(this, kRollingFrictionValue) = PhysicsFloat(kRollingFriction, ObjectOf(this));
     void* object = ObjectOf(this);
-    VectorAt(object, kPosition) = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
-    Maths::Matrix& matrix = At<Maths::Matrix>(ObjectOf(this), kMatrix);
-    matrix.row[0] = Maths::Vector(1.0f, 0.0f, 0.0f, 0.0f);
-    matrix.row[1] = Maths::Vector(0.0f, 1.0f, 0.0f, 0.0f);
-    matrix.row[2] = Maths::Vector(0.0f, 0.0f, 1.0f, 0.0f);
-    matrix.row[3] = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
-    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
-    VectorAt(this, kGroundNormalA) = Maths::Vector(0.0f, 1.0f, 0.0f, 1.0f);
+    VectorAt(object, kPosition) = Maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    Maths::Mat4& matrix = At<Maths::Mat4>(ObjectOf(this), kMatrix);
+    matrix.row[0] = Maths::Vec4(1.0f, 0.0f, 0.0f, 0.0f);
+    matrix.row[1] = Maths::Vec4(0.0f, 1.0f, 0.0f, 0.0f);
+    matrix.row[2] = Maths::Vec4(0.0f, 0.0f, 1.0f, 0.0f);
+    matrix.row[3] = Maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
+    VectorAt(this, kGroundNormalA) = Maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
     VectorAt(this, kGroundNormalB) = VectorAt(this, kGroundNormalA);
     VectorAt(this, kGroundNormalC) = VectorAt(this, kGroundNormalA);
     At<uint8_t>(this, kUnknown2EC) = 0;
@@ -164,10 +164,10 @@ void CorePhysicsComponent::ConfigureFromData(Scripts::CStruct*)
 }
 
 // 0x004FC690
-void CorePhysicsComponent::Finalize()
+void CorePhysicsComponent::Seal()
 {
     for (const auto& c : kComponents)
-        At<void*>(this, c.offset) = static_cast<GameObjects::CGameEntity*>(ObjectOf(this))->GetComponent(c.type);
+        At<void*>(this, c.offset) = static_cast<GameObjects::CGameEntity*>(ObjectOf(this))->FetchModule(c.type);
 }
 
 // 0x004FDD50
@@ -175,18 +175,18 @@ void CorePhysicsComponent::LeaveSkating()
 {
     if (At<uint8_t>(this, kGetOffPending)) {
         At<uint8_t>(this, kGetOffPending) = 0;
-        static_cast<GameObjects::CObject*>(ObjectOf(this))->BroadcastEvent(kGetOffEvent, nullptr, 0.0f);
+        static_cast<GameObjects::CEntity*>(ObjectOf(this))->Announce(kGetOffEvent, nullptr, 0.0f);
     }
-    At<uint32_t>(this, kRailWait) = Ftol(Scripts::GetFloat(kRailWaitName));
+    At<uint32_t>(this, kRailWait) = Ftol(Scripts::FetchFloat(kRailWaitName));
     if (At<uint32_t>(this, kRailLeftAt) > At<uint32_t>(this, kRailLeft))
         At<uint32_t>(this, kRailLeft) = At<uint32_t>(this, kRailLeftAt);
     uint8_t* state = reinterpret_cast<uint8_t*>(StateOf(this));
     if (At<int>(state, kState) == kAir && At<int>(this, kOldState) == kLip && state[kFlagLipToAir])
         SetTimedFlag(this, kFlagLipToAir, 0);
-    StateOf(this)->SetState(kGround);
-    VectorAt(StateOf(this), 0xF8) = Maths::Vector(0.0f, 1.0f, 0.0f, 1.0f);
-    VectorAt(StateOf(this), 0x108) = Maths::Vector(0.0f, 1.0f, 0.0f, 1.0f);
-    VectorAt(StateOf(this), 0xE4) = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+    StateOf(this)->ChangePhase(kGround);
+    VectorAt(StateOf(this), 0xF8) = Maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
+    VectorAt(StateOf(this), 0x108) = Maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
+    VectorAt(StateOf(this), 0xE4) = Maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
     At<uint8_t>(StateOf(this), 0xF4) = 0;
 }
 
@@ -210,26 +210,26 @@ void CorePhysicsComponent::ClearFlags()
 // 0x004FDED0
 void CorePhysicsComponent::SetPhysicsState(int state)
 {
-    if (StateOf(this)->m_state != state) {
+    if (StateOf(this)->m_curPhase != state) {
         At<int>(this, kStateTime) = Now();
-        At<int>(this, kOldState) = StateOf(this)->m_state;
+        At<int>(this, kOldState) = StateOf(this)->m_curPhase;
     }
-    int old = StateOf(this)->m_state;
-    Maths::Vector& lip = VectorAt(this, kLipPosition);
+    int old = StateOf(this)->m_curPhase;
+    Maths::Vec4& lip = VectorAt(this, kLipPosition);
     if (old == kLip && state != kLip && (lip.x != 0.0f || lip.y != 0.0f || lip.z != 0.0f)) {
         void* object = ObjectOf(this);
         VectorAt(object, kPosition) = lip;
         VectorAt(object, kOldPosition) = VectorAt(object, kPosition);
     }
     if (state != kLip)
-        lip = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+        lip = Maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
     if (state != kGround)
         TrickOf(this)->SetTrickObjects(true);
-    if (StateOf(this)->m_state == kRail && state != kRail) {
+    if (StateOf(this)->m_curPhase == kRail && state != kRail) {
         SetTimedFlag(this, kFlagSlide, 0);
         SoundOf(this)[0x1E] = 0;
     }
-    old = StateOf(this)->m_state;
+    old = StateOf(this)->m_curPhase;
     if (old == kAir) {
         if (state != kAir) {
             At<int>(this, kAirEnd) = Now();
@@ -245,7 +245,7 @@ void CorePhysicsComponent::SetPhysicsState(int state)
         TakePress(InputOf(this) + 0x100);
         At<int>(this, kSpinQueued) = 0;
     }
-    StateOf(this)->SetState(state);
+    StateOf(this)->ChangePhase(state);
     At<int>(SoundOf(this), 0x18) = state;
 }
 
@@ -253,11 +253,11 @@ void CorePhysicsComponent::SetPhysicsState(int state)
 void CorePhysicsComponent::TurnAround()
 {
     void* object = ObjectOf(this);
-    Maths::Vector& facing = VectorAt(object, kForward);
-    facing = Maths::Vector(-facing.x, -facing.y, -facing.z, -facing.w);
-    Maths::Vector& right = VectorAt(ObjectOf(this), kMatrix);
-    right = Maths::Vector(-right.x, -right.y, -right.z, -right.w);
-    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
+    Maths::Vec4& facing = VectorAt(object, kForward);
+    facing = Maths::Vec4(-facing.x, -facing.y, -facing.z, -facing.w);
+    Maths::Vec4& right = VectorAt(ObjectOf(this), kMatrix);
+    right = Maths::Vec4(-right.x, -right.y, -right.z, -right.w);
+    At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
     At<uint8_t>(this, kFacingBackwards) = At<uint8_t>(this, kFacingBackwards) ? 0 : 1;
 }
 
@@ -273,11 +273,11 @@ void CorePhysicsComponent::ResetToAir(void*)
 namespace Maths {
 
 // 0x004FC370
-Vector& Vector::ClampTinyToNothing(float length)
+Vec4& Vec4::ClampTinyToNothing(float length)
 {
     double lengthSquared = (static_cast<double>(x) * x + static_cast<double>(y) * y) + static_cast<double>(z) * z;
     if (lengthSquared < static_cast<double>(length) * length)
-        *this = Vector(0.0f, 0.0f, 0.0f, 0.0f);
+        *this = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
     return *this;
 }
 
@@ -291,7 +291,7 @@ int CMovingSurfaceModule::TimeSinceStop() { return static_cast<int>(Skater::Phys
 // 0x004FC420
 bool CRiderBoardPhysics::IsOnFoot()
 {
-    auto* state = reinterpret_cast<CRiderPoseState*>(m_state);
+    auto* state = reinterpret_cast<CRiderPoseState*>(m_curPhase);
     return !state->m_inVehicle && state->m_physicsMode == 1;
 }
 

@@ -7,7 +7,7 @@ class CStruct;
 class CScript;
 } // namespace Script
 
-// The network manager's script commands (CFunctions, OnlinePlay::Manager, 0x00535DA0-0x00539570): capture the flag,
+// The network manager's script commands (CFunctions, OnlinePlay::Hub, 0x00535DA0-0x00539570): capture the flag,
 // the game's state, the join mode, the lobby and the message of the day, first-come-first-served requests to the server
 // (start, level, pro set, goals), teams, the crown, starting and ending network games, the player list
 // (gamenet_commands.cpp, ...). All are cdecl (params, script) and return whether the script's `if` should be taken.

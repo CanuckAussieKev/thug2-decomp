@@ -12,13 +12,13 @@
 namespace NetLink {
 
 // 0x004549F0
-NetMessageInfo* NetMessageInfo::Construct()
+NetMessageInfo* NetMessageInfo::MakeNew()
 {
-    m_id = 0;
+    m_ident = 0;
     m_feed = 0;
     m_byteCount = 0;
-    m_data = nullptr;
-    m_priority = 0x80;
+    m_content = nullptr;
+    m_rank = 0x80;
     m_queue = kQueueDefault;
     m_groupId = 0;
     m_singular = false;
@@ -29,11 +29,11 @@ NetMessageInfo* NetMessageInfo::Construct()
 }
 
 // 0x004549D0
-StreamDesc* StreamDesc::Construct()
+StreamDesc* StreamDesc::MakeNew()
 {
-    m_size = 0;
-    m_data = nullptr;
-    m_next = nullptr;
+    m_extent = 0;
+    m_content = nullptr;
+    m_succ = nullptr;
     m_groupId = 0;
     m_sendInPlace = false;
     return this;
@@ -42,14 +42,14 @@ StreamDesc* StreamDesc::Construct()
 // 0x00454E00
 void StreamDesc::DestroyBody()
 {
-    if (m_data && !m_sendInPlace) {
+    if (m_content && !m_sendInPlace) {
         DebugOut::Printf("Destroying StreamDesc's Data\n");
-        MemSys::Free(m_data);
+        MemSys::Dealloc(m_content);
     }
 }
 
 // 0x00454A20
-InboundMsgCtx* InboundMsgCtx::Construct()
+InboundMsgCtx* InboundMsgCtx::MakeNew()
 {
     m_body = nullptr;
     m_typeCode = 0;
@@ -57,7 +57,7 @@ InboundMsgCtx* InboundMsgCtx::Construct()
     m_receiverApp = nullptr;
     m_senderConn = nullptr;
     m_wireOptions = 0;
-    m_data = nullptr;
+    m_content = nullptr;
     m_NumSequencesToAck = 0;
     m_Acknowledge = false;
     for (uint32_t& sequence : m_SequencesToAck)

@@ -64,8 +64,8 @@ FlareElement* g_flareElements;
 uint32_t g_flareElementCount;
 uint32_t g_flareVisibleTime;
 uint32_t g_flareHiddenTime;
-Maths::Vector g_flareColor;
-Maths::Vector g_flarePosition;
+Maths::Vec4 g_flareColor;
+Maths::Vec4 g_flarePosition;
 
 // The sun's state.
 float& Theta() { return g_flareTheta; }
@@ -84,14 +84,14 @@ FlareElement*& Elements() { return g_flareElements; }
 uint32_t& ElementCount() { return g_flareElementCount; }
 uint32_t& VisibleTime() { return g_flareVisibleTime; } // when the sun was last seen
 uint32_t& HiddenTime() { return g_flareHiddenTime; }  // when it was last not seen
-Maths::Vector& Color() { return g_flareColor; }
-Maths::Vector& Position() { return g_flarePosition; } // in the world, this frame
+Maths::Vec4& Color() { return g_flareColor; }
+Maths::Vec4& Position() { return g_flarePosition; } // in the world, this frame
 
 // The texture `checksum` (the texture dictionary 0x00700F20's look-up), and a texture deleted (its vtable slot 0,
 // the scalar deleting destructor).
 void* FindTexture(uint32_t checksum)
 {
-    return static_cast<Engine3D::CTextureSet*>(reinterpret_cast<void*>(Engine3D::g_particleTextureDict))->GetTexture(checksum);
+    return static_cast<Engine3D::CTextureSet*>(reinterpret_cast<void*>(Engine3D::g_particleTextureDict))->FetchSkin(checksum);
 }
 void DeleteTexture(void* texture)
 {
@@ -107,10 +107,10 @@ uint32_t Since(uint32_t time) { return static_cast<uint32_t>(FrameClock::GameClo
 // screen (the depth scale returned), slot 3 (through 0x004A10A0) issues an occlusion query over a screen
 // rectangle (the query's number, 0 if none).
 void* ViewportCamera() { return Engine3D::GetActiveViewport(0); }
-void Project(void* camera, const Maths::Vector* point, float* x, float* y, float* z)
+void CastOnto(void* camera, const Maths::Vec4* point, float* x, float* y, float* z)
 {
     // (slot 1, through the jump 0x004A1090)
-    reinterpret_cast<float(__thiscall*)(void*, const Maths::Vector*, float*, float*, float*)>(
+    reinterpret_cast<float(__thiscall*)(void*, const Maths::Vec4*, float*, float*, float*)>(
         (*static_cast<void***>(camera))[1])(camera, point, x, y, z);
 }
 uint8_t IssueQuery(void* camera, float left, float top, float right, float bottom, int unknown, uint8_t query)
@@ -127,7 +127,7 @@ uint8_t IssueQuery(void* camera, float left, float top, float right, float botto
 struct Prim {
     alignas(16) uint8_t storage[0x200];
 
-    void Construct() { reinterpret_cast<Engine3D::CPcPrimitive*>(this)->Construct(2); }
+    void MakeNew() { reinterpret_cast<Engine3D::CPcPrimitive*>(this)->MakeNew(2); }
     void Destruct() { reinterpret_cast<Engine3D::CPcPrimitive*>(this)->DestroyBody(); }
     void SetTexture(void* texture)
     {
@@ -145,7 +145,7 @@ struct Prim {
     void ChooseBlendMode(uint32_t mode) { std::memcpy(storage + 0x0C, &mode, 4); }
     void SetUnknown14(bool value) { storage[0x14] = value; }
     void Ready() { reinterpret_cast<Engine3D::CPrimitive*>(this)->Ready(); }
-    void Draw(const float* corners, const uint8_t* colors, const float* uvs)
+    void Blit(const float* corners, const uint8_t* colors, const float* uvs)
     {
         reinterpret_cast<Engine3D::CPrimitive*>(this)->DrawIfReady(corners, reinterpret_cast<const uint32_t*>(colors), uvs,
                                                              nullptr);
@@ -163,13 +163,13 @@ struct QueryRequest {
     uint8_t padD[3];
 
     // 0x004426C0 (returns this)
-    QueryRequest* Init();
+    QueryRequest* PrepareAll();
 };
 static_assert(sizeof(QueryRequest) == 0x10, "the original keeps 0x10 bytes for it");
 void AddQuery(QueryRequest* request) { Engine3D::RequestOcclusionQuery(reinterpret_cast<Engine3D::OcclusionRequest*>(request)); }
 uint32_t QueryResult(uint8_t) { return Engine3D::OcclusionPixels(); } // (the original also passed the query: unused)
 // `v` times `m` in place (all four components; 0x00434200).
-void TransformInPlace(Maths::Vector* v, const Maths::Matrix* m)
+void TransformInPlace(Maths::Vec4* v, const Maths::Mat4* m)
 {
     v->MultiplyBy(*m);
 }
@@ -177,16 +177,16 @@ void TransformInPlace(Maths::Vector* v, const Maths::Matrix* m)
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 // x87's dot product order (0x00402530), unrounded.
-double Dot(const Maths::Vector& a, const Maths::Vector& b)
+double Dot(const Maths::Vec4& a, const Maths::Vec4& b)
 {
     return static_cast<double>(a.z) * b.z + static_cast<double>(a.y) * b.y + static_cast<double>(a.x) * b.x;
 }
-Scripts::VectorValue Value(const Maths::Vector& v) { return {v.x, v.y, v.z, v.w}; }
+Scripts::VectorValue Value(const Maths::Vec4& v) { return {v.x, v.y, v.z, v.w}; }
 Scripts::CStruct* NewParams()
 {
     CStruct* structure = Scripts::NewStruct();
     if (structure)
-        structure->Init();
+        structure->PrepareAll();
     return structure;
 }
 void FreeParams(CStruct* structure)
@@ -197,7 +197,7 @@ void FreeParams(CStruct* structure)
     }
 }
 // The screen centre lens flares are placed from.
-Maths::Vector ScreenCentre() { return {320.0f, 240.0f, 0.0f, 1.0f}; }
+Maths::Vec4 ScreenCentre() { return {320.0f, 240.0f, 0.0f, 1.0f}; }
 
 // The sun's colour scaled into bytes for each of the quad's four corners.
 void CornerColors(uint8_t colors[4][4], double scale)
@@ -211,7 +211,7 @@ void CornerColors(uint8_t colors[4][4], double scale)
 } // namespace
 
 // 0x004426C0
-QueryRequest* QueryRequest::Init()
+QueryRequest* QueryRequest::PrepareAll()
 {
     callback = nullptr;
     data = nullptr;
@@ -261,21 +261,21 @@ void __cdecl SetSun(const Settings* settings, uint32_t mask)
 // 0x00442810
 int __cdecl QuerySunVisibility(void*, uint8_t query)
 {
-    Maths::Vector screen = {0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Vec4 screen = {0.0f, 0.0f, 0.0f, 1.0f};
     void* camera = ViewportCamera();
     float z = 1.401298464e-45f; // (an int 1 in the original, overwritten)
-    Project(camera, &Position(), &screen[0], &screen[1], &z);
+    CastOnto(camera, &Position(), &screen[0], &screen[1], &z);
     Query() = IssueQuery(camera, screen[0] - 5.0f, screen[1] - 5.0f, screen[0] + 5.0f, screen[1] + 5.0f, 1, query);
     return Query();
 }
 
 // 0x004428F0
-void __cdecl PlaceFlareElements(float time, const Maths::Vector* sun, const Maths::Vector* centre)
+void __cdecl PlaceFlareElements(float time, const Maths::Vec4* sun, const Maths::Vec4* centre)
 {
-    Maths::Vector line = *sun - *centre;
+    Maths::Vec4 line = *sun - *centre;
     for (uint32_t i = 0; i < ElementCount(); ++i) {
         FlareElement& element = Elements()[i];
-        Maths::Vector pos = *centre + element.posScale * line;
+        Maths::Vec4 pos = *centre + element.posScale * line;
         element.morph->PushFloat(kTime, time);
         element.morph->PutVec3(kPos, Value(pos));
         MenuSystem::CFunc_DoScreenElementMorph(element.morph, nullptr);
@@ -284,7 +284,7 @@ void __cdecl PlaceFlareElements(float time, const Maths::Vector* sun, const Math
 }
 
 // 0x004429D0
-void __cdecl Init(float theta, float phi, float radius, float size, uint32_t texture, uint32_t coronaTexture,
+void __cdecl PrepareAll(float theta, float phi, float radius, float size, uint32_t texture, uint32_t coronaTexture,
                   uint32_t lensFlareData)
 {
     Theta() = theta;
@@ -295,18 +295,18 @@ void __cdecl Init(float theta, float phi, float radius, float size, uint32_t tex
     SunTexture() = nullptr;
     SunTexture() = FindTexture(texture);
     CoronaTexture() = FindTexture(coronaTexture);
-    CArray* data = Scripts::GetArray(lensFlareData);
-    ElementCount() = data->m_size;
-    Elements() = static_cast<FlareElement*>(MemSys::New(ElementCount() * sizeof(FlareElement)));
+    CArray* data = Scripts::FetchList(lensFlareData);
+    ElementCount() = data->m_extent;
+    Elements() = static_cast<FlareElement*>(MemSys::Alloc(ElementCount() * sizeof(FlareElement)));
     for (uint32_t i = 0; i < ElementCount(); ++i) {
-        auto* item = reinterpret_cast<CStruct*>(data->GetElement(i));
+        auto* item = reinterpret_cast<CStruct*>(data->FetchPart(i));
         CArray* rgba = nullptr;
         FlareElement& element = Elements()[i];
-        item->GetFloat(kPosScale, &element.posScale, 1);
-        item->GetFloat(kScale, &element.scale, 1);
-        item->GetArray(kRgba, &rgba, 1);
-        element.rgba = rgba->GetElement(3) << 24 | rgba->GetElement(2) << 16 | rgba->GetElement(1) << 8 |
-                       rgba->GetElement(0);
+        item->FetchFloat(kPosScale, &element.posScale, 1);
+        item->FetchFloat(kScale, &element.scale, 1);
+        item->FetchList(kRgba, &rgba, 1);
+        element.rgba = rgba->FetchPart(3) << 24 | rgba->FetchPart(2) << 16 | rgba->FetchPart(1) << 8 |
+                       rgba->FetchPart(0);
         item->ReadHashValue(kId, &element.id, 1);
         element.create = NewParams();
         element.create->PutNameKey(kId, element.id);
@@ -317,9 +317,9 @@ void __cdecl Init(float theta, float phi, float radius, float size, uint32_t tex
         element.morph->PutVec3(kPos, Scripts::VectorValue{0.0f, 0.0f, 0.0f, 1.0f});
         element.morph->PushFloat(kTime, 0.0f);
     }
-    MorphInTime() = Scripts::GetFloat(kMorphIn);
-    MorphOutTime() = Scripts::GetFloat(kMorphOut);
-    SunBurstOutTime() = Scripts::GetFloat(kSunBurstOut);
+    MorphInTime() = Scripts::FetchFloat(kMorphIn);
+    MorphOutTime() = Scripts::FetchFloat(kMorphOut);
+    SunBurstOutTime() = Scripts::FetchFloat(kSunBurstOut);
     Color() = {255.0f, 255.0f, 255.0f, 128.0f};
 }
 
@@ -328,12 +328,12 @@ void __cdecl UpdateFlare(CStruct* params, Scripts::CScript*)
 {
     Scripts::VectorValue centre = Value(ScreenCentre());
     float time = 0.0f;
-    params->GetVector(kCenter, &centre, 0);
-    params->GetFloat(kMorphTime, &time, 0);
+    params->FetchVec(kCenter, &centre, 0);
+    params->FetchFloat(kMorphTime, &time, 0);
     Scripts::VectorValue sun; // (unset if there's none: the getter asserts)
-    params->GetVector(kSunPos, &sun, 1);
-    Maths::Vector sunPos = {sun.x, sun.y, sun.z, sun.w};
-    Maths::Vector centrePos = {centre.x, centre.y, centre.z, centre.w};
+    params->FetchVec(kSunPos, &sun, 1);
+    Maths::Vec4 sunPos = {sun.x, sun.y, sun.z, sun.w};
+    Maths::Vec4 centrePos = {centre.x, centre.y, centre.z, centre.w};
     PlaceFlareElements(time, &sunPos, &centrePos);
 }
 
@@ -343,14 +343,14 @@ void __cdecl HideFlare(CStruct* params, Scripts::CScript* script)
     Scripts::VectorValue centre = Value(ScreenCentre()); // (read, not used)
     float time = 0.0f;
     MenuSystem::ElementPtr container;
-    MenuSystem::CUiTree::Instance()->GetElement(&container, kContainer, 0);
+    MenuSystem::CUiTree::Sole()->FetchPart(&container, kContainer, 0);
     if (container.IsNull()) {
         container.Release();
         return;
     }
     if (params) {
-        params->GetVector(kCenter, &centre, 0);
-        params->GetFloat(kMorphTime, &time, 0);
+        params->FetchVec(kCenter, &centre, 0);
+        params->FetchFloat(kMorphTime, &time, 0);
     }
     CStruct* morph = NewParams();
     morph->PutNameKey(kId, kContainer);
@@ -360,7 +360,7 @@ void __cdecl HideFlare(CStruct* params, Scripts::CScript* script)
     FreeParams(morph);
     if (params) {
         Scripts::VectorValue sun;
-        if (params->GetVector(kSunPos, &sun, 0)) {
+        if (params->FetchVec(kSunPos, &sun, 0)) {
             for (uint32_t i = 0; i < ElementCount(); ++i) {
                 FlareElement& element = Elements()[i];
                 element.morph->PutVec3(kPos, sun);
@@ -377,7 +377,7 @@ void __cdecl HideFlare(CStruct* params, Scripts::CScript* script)
 void __cdecl UnhideFlare(CStruct*, Scripts::CScript* script)
 {
     MenuSystem::ElementPtr container;
-    MenuSystem::CUiTree::Instance()->GetElement(&container, kContainer, 0);
+    MenuSystem::CUiTree::Sole()->FetchPart(&container, kContainer, 0);
     if (container.IsNull()) {
         container.Release();
         return;
@@ -394,28 +394,28 @@ void __cdecl UnhideFlare(CStruct*, Scripts::CScript* script)
 }
 
 // 0x00443180
-void __cdecl BuildSunQuad(Gfx2D::Camera* camera, void* prim, const Maths::Vector* position, float* corners)
+void __cdecl BuildSunQuad(Gfx2D::ViewCam* camera, void* prim, const Maths::Vec4* position, float* corners)
 {
     auto* quad = static_cast<Prim*>(prim);
     // facing the camera: its right axis reversed, then up and back from cross products
-    Maths::Matrix facing;
+    Maths::Mat4 facing;
     facing.ResetToIdentity();
-    facing[0] = -(*camera->GetMatrix())[0];
-    facing[2] = Maths::CrossProduct((*camera->GetMatrix())[1], facing[0]);
-    facing[1] = Maths::CrossProduct(facing[2], facing[0]);
+    facing[0] = -(*camera->FetchMat())[0];
+    facing[2] = Maths::CrossVec((*camera->FetchMat())[1], facing[0]);
+    facing[1] = Maths::CrossVec(facing[2], facing[0]);
     if (SunTexture())
         quad->SetTexture(SunTexture());
     float size = camera->m_unknownB4 * Size(); // (0x004426B0 reads the factor)
     float half = size / 2.0f;
-    Maths::Vector quadCorners[4] = {
+    Maths::Vec4 quadCorners[4] = {
         {-half, -half, 0.0f, 1.0f},
         {half, -half, 0.0f, 1.0f},
         {half, half, 0.0f, 1.0f},
         {-half, half, 0.0f, 1.0f},
     };
-    for (Maths::Vector& corner : quadCorners)
+    for (Maths::Vec4& corner : quadCorners)
         TransformInPlace(&corner, &facing);
-    for (Maths::Vector& corner : quadCorners) {
+    for (Maths::Vec4& corner : quadCorners) {
         corner.x += position->x;
         corner.y += position->y;
         corner.z += position->z;
@@ -433,11 +433,11 @@ void __cdecl BuildSunQuad(Gfx2D::Camera* camera, void* prim, const Maths::Vector
 }
 
 // 0x00443780
-void __cdecl ShowFlare(const Maths::Vector* sun, float time)
+void __cdecl ShowFlare(const Maths::Vec4* sun, float time)
 {
-    Maths::Vector centre = ScreenCentre();
+    Maths::Vec4 centre = ScreenCentre();
     MenuSystem::ElementPtr container;
-    MenuSystem::CUiTree::Instance()->GetElement(&container, kContainer, 0);
+    MenuSystem::CUiTree::Sole()->FetchPart(&container, kContainer, 0);
     if (container.IsNull())
         Scripts::LaunchScript(kCreateLensFlare, nullptr, nullptr, false, nullptr);
     if (!Scripts::FetchIntValue(kDoUpdateLensFlare)) {
@@ -453,23 +453,23 @@ void __cdecl ShowFlare(const Maths::Vector* sun, float time)
 }
 
 // 0x00443870
-void __cdecl Render(Gfx2D::Camera* camera)
+void __cdecl Render(Gfx2D::ViewCam* camera)
 {
     if (!Shown()) {
         Scripts::LaunchScript(kMaybeHideLensFlare, nullptr, nullptr, false, nullptr);
         return;
     }
     // where the sun is: theta round the vertical, phi up, `radius` from the camera
-    Maths::Vector sunPos = *camera->GetPos();
-    Maths::Matrix rotation;
+    Maths::Vec4 sunPos = *camera->FetchLocation();
+    Maths::Mat4 rotation;
     rotation.ResetToIdentity();
     rotation.RotateY(Theta());
-    Maths::Vector direction = {0.0f, 0.0f, 1.0f, 1.0f};
+    Maths::Vec4 direction = {0.0f, 0.0f, 1.0f, 1.0f};
     direction = direction * rotation;
     rotation.ResetToIdentity();
-    Maths::Vector axis = Maths::CrossProduct(direction, Maths::Vector{0.0f, 1.0f, 0.0f, 1.0f});
-    axis.Normalize();
-    rotation.Rotate(axis, Phi());
+    Maths::Vec4 axis = Maths::CrossVec(direction, Maths::Vec4{0.0f, 1.0f, 0.0f, 1.0f});
+    axis.MakeUnit();
+    rotation.SpinBy(axis, Phi());
     direction = direction * rotation;
     sunPos = sunPos + Radius() * direction;
     sunPos[3] = 1.0f;
@@ -478,15 +478,15 @@ void __cdecl Render(Gfx2D::Camera* camera)
     CornerColors(colors, 1.0);
 
     // behind the camera, or off the projection: the lens flare hidden
-    Maths::Vector toSun = sunPos - *camera->GetPos();
-    toSun.Normalize();
-    if (Dot(toSun, (*camera->GetMatrix())[2]) >= 0.0) {
+    Maths::Vec4 toSun = sunPos - *camera->FetchLocation();
+    toSun.MakeUnit();
+    if (Dot(toSun, (*camera->FetchMat())[2]) >= 0.0) {
         HideFlare(nullptr, nullptr);
         return;
     }
-    Maths::Vector screen = {0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Vec4 screen = {0.0f, 0.0f, 0.0f, 1.0f};
     float z = 1.401298464e-45f; // (an int 1 in the original, overwritten)
-    Project(ViewportCamera(), &sunPos, &screen[0], &screen[1], &z);
+    CastOnto(ViewportCamera(), &sunPos, &screen[0], &screen[1], &z);
     if (screen[0] == 0.0f && screen[1] == 0.0f) {
         HideFlare(nullptr, nullptr);
         return;
@@ -494,13 +494,13 @@ void __cdecl Render(Gfx2D::Camera* camera)
 
     // the sun, and a query for how much of it shows
     Prim sun;
-    sun.Construct();
+    sun.MakeNew();
     float corners[12] = {};
     const float uvs[8] = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f};
     BuildSunQuad(camera, &sun, &sunPos, corners);
-    sun.Draw(corners, &colors[0][0], uvs);
+    sun.Blit(corners, &colors[0][0], uvs);
     QueryRequest request;
-    request.Init();
+    request.PrepareAll();
     request.callback = QuerySunVisibility;
     request.data = nullptr;
     AddQuery(&request);
@@ -516,7 +516,7 @@ void __cdecl Render(Gfx2D::Camera* camera)
             float left = 1.0f - fade;
             CornerColors(colors, left);
             Prim corona;
-            corona.Construct();
+            corona.MakeNew();
             float coronaCorners[12] = {};
             const float coronaUvs[8] = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f};
             BuildSunQuad(camera, &corona, &sunPos, coronaCorners);
@@ -524,7 +524,7 @@ void __cdecl Render(Gfx2D::Camera* camera)
                 corona.SetTexture(CoronaTexture());
             SetPrimState(1, 2);
             SetPrimState(4, 0);
-            corona.Draw(coronaCorners, &colors[0][0], coronaUvs);
+            corona.Blit(coronaCorners, &colors[0][0], coronaUvs);
             corona.Destruct();
         }
         if (!FlareHidden()) {
@@ -545,7 +545,7 @@ void __cdecl Render(Gfx2D::Camera* camera)
         if (CoronaTexture())
             sun.SetTexture(CoronaTexture());
         sun.ChooseBlendMode(kAdd);
-        sun.Draw(corners, &colors[0][0], uvs);
+        sun.Blit(corners, &colors[0][0], uvs);
         if (static_cast<double>(MorphInTime()) * 1000.0f < static_cast<double>(unseen))
             ShowFlare(&screen, 0.0f);
         else
@@ -560,7 +560,7 @@ namespace {
 
 // 0x004426B0: a camera's +0xB4 (written out in the unoptimised lens flare code).
 struct CameraFactor {
-    float Get() { return reinterpret_cast<Gfx2D::Camera*>(this)->m_unknownB4; }
+    float Pull() { return reinterpret_cast<Gfx2D::ViewCam*>(this)->m_unknownB4; }
 };
 
 } // namespace

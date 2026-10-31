@@ -1,4 +1,4 @@
-// The network game's join (OnlinePlay::Manager): the clients and the server made, the connection request and the join
+// The network game's join (OnlinePlay::Hub): the clients and the server made, the connection request and the join
 // request both ways, ok_to_join, join proceed / refused, GameSpy's CD-key answer. See gamenet_manager.h.
 //
 // NOT ORIGINAL in it: the THUGPRO peer mode (thugpro_join.h) - our requests carry THUGPRO's trailer and machine id,
@@ -62,7 +62,7 @@ char g_pendingPassword[kPasswordSize]; // (winmain.cpp: -PASSWORD when joining)
 
 namespace {
 
-using NetLink::App;
+using NetLink::AppHost;
 using NetLink::Conn;
 using NetLink::NetMessageInfo;
 using NetLink::HandlerSlotValue;
@@ -128,8 +128,8 @@ constexpr uint32_t kPlayerPending = kPlayerPendingObserver; // (kPlayerLocal, kP
 JoinInfo g_joinInfo;
 
 struct AuthInstance {
-    App* app;
-    Manager* manager;
+    AppHost* app;
+    Hub* manager;
     Conn* conn;
 };
 
@@ -139,15 +139,15 @@ char g_joinPassword[kPasswordSize];
 char* PendingPassword() { return g_pendingPassword; }
 char* JoinPassword() { return g_joinPassword; }
 
-NetLink::Manager* NetManager() { return NetLink::Manager::Instance(); }
-TaskList::Stack* LogicTasks()
+NetLink::Hub* NetManager() { return NetLink::Hub::Sole(); }
+TaskList::PileUp* LogicTasks()
 {
-    return reinterpret_cast<TaskList::Stack*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4);
+    return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4);
 }
 int MilliSeconds() { return static_cast<int>(FrameClock::GetTime()); }
 uint32_t LocalAddress()
 {
-    return Crt::InetAddr(NetManager()->GetLocalIP());
+    return Crt::InetAddr(NetManager()->FetchOwnAddress());
 }
 
 // Calls into code that isn't source yet (thiscall).
@@ -162,44 +162,44 @@ R Call(void* code, const void* object, A... args)
     return reinterpret_cast<R(__thiscall*)(const void*, A...)>(code)(object, args...);
 }
 // The manager's methods.
-int NumObservers(Manager* m) { return m->CountObservers(); }
-int MaxObservers(Manager* m) { return m->GetSpectatorLimit(); }
-int NumPlayers(Manager* m) { return m->CountPlayers(); }
-int MaxPlayers(Manager* m) { return m->GetPlayerLimit(); }
-int RankLimit(Manager* m) { return m->GetRankLimit(); }
-int RankTest(Manager* m) { return m->GetRankTest(); }
-const char* Password(Manager* m) { return m->GetPassword(); }
-void LatePlayerArrival(Manager* m, JoinerRecord* player, int frames) { m->AddJoiningPlayer(player, frames); }
-void SetReadyState(Manager* m, bool ready) { m->SetReadyState(ready); }
-void ShuffleSpawnSlots(Manager* m) { m->ChooseStartPoints(); }
-void CancelJoinServer(Manager* m) { m->CancelJoin(); }
+int NumObservers(Hub* m) { return m->CountObservers(); }
+int MaxObservers(Hub* m) { return m->GetSpectatorLimit(); }
+int NumPlayers(Hub* m) { return m->CountPlayers(); }
+int MaxPlayers(Hub* m) { return m->GetPlayerLimit(); }
+int RankLimit(Hub* m) { return m->GetRankLimit(); }
+int RankTest(Hub* m) { return m->GetRankTest(); }
+const char* Password(Hub* m) { return m->FetchSecret(); }
+void LatePlayerArrival(Hub* m, JoinerRecord* player, int frames) { m->AddJoiningPlayer(player, frames); }
+void SetReadyState(Hub* m, bool ready) { m->SetReadyState(ready); }
+void ShuffleSpawnSlots(Hub* m) { m->ChooseStartPoints(); }
+void CancelJoinServer(Hub* m) { m->CancelJoin(); }
 uint32_t GameModeName() { return Call<uint32_t>(CodeAddress(&GoalSystem::CMatchRules::GetNameKey), reinterpret_cast<void*>(GoalSystem::g_gameMode)); }
 void SetMaximumPlayers(int count) { Call<void>(CodeAddress(&GoalSystem::CMatchRules::SetRiderCeiling), reinterpret_cast<void*>(GoalSystem::g_gameMode), count); }
-int8_t Rank(Manager* m) { return static_cast<int8_t>(static_cast<RankingsManager*>(m->m_statsMan)->GetRank()); }
-int32_t Rating(Manager* m)
+int8_t Rank(Hub* m) { return static_cast<int8_t>(static_cast<RankingsManager*>(m->m_statsMan)->GetRank()); }
+int32_t Rating(Hub* m)
 {
     // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
-    // Singletons::PointerMember::Get)
+    // Singletons::PointerMember::Pull)
     return static_cast<RankingsManager*>(m->m_statsMan)->GetPersonalStats()->m_skillPoints;
 }
-bool GameInProgress(Manager* m) { return GameModeName() != kNetLobby && !m->m_gameOver; }
+bool GameInProgress(Hub* m) { return GameModeName() != kNetLobby && !m->m_gameOver; }
 
-OptionStore::Preferences* NetworkPreferences(Manager* m) { return reinterpret_cast<OptionStore::Preferences*>(m->m_networkPreferences); }
-const char* PreferenceText(Manager* m, uint32_t name)
+OptionStore::Preferences* NetworkPreferences(Hub* m) { return reinterpret_cast<OptionStore::Preferences*>(m->m_networkPreferences); }
+const char* PreferenceText(Hub* m, uint32_t name)
 {
     const char* text = nullptr;
-    NetworkPreferences(m)->GetPreference(name)->GetString(kUiString, &text, 1);
+    NetworkPreferences(m)->FetchSetting(name)->FetchText(kUiString, &text, 1);
     return text;
 }
 
 // The presence (GameSpy) and the lobby (not source yet).
-bool PresenceLoggedIn(Manager* m) { return *(static_cast<uint8_t*>(m->m_buddyMan) + 0x10) != 0; }
-void SetPresence(Manager* m, int status, const char* text, const char* location)
+bool PresenceLoggedIn(Hub* m) { return *(static_cast<uint8_t*>(m->m_buddyMan) + 0x10) != 0; }
+void SetPresence(Hub* m, int status, const char* text, const char* location)
 {
-    static_cast<FriendsManager*>(m->m_buddyMan)->SetStatus(status, text, location);
+    static_cast<FriendsManager*>(m->m_buddyMan)->ChangeStanding(status, text, location);
 }
-char* LobbyServerName(Manager* m) { return static_cast<char*>(m->m_lobbyMan) + 0xB4; }
-char* LobbyPeerName(Manager* m) { return static_cast<char*>(m->m_lobbyMan) + 0x34; }
+char* LobbyServerName(Hub* m) { return static_cast<char*>(m->m_lobbyMan) + 0xB4; }
+char* LobbyPeerName(Hub* m) { return static_cast<char*>(m->m_lobbyMan) + 0x34; }
 
 // GameSpy's CD-key SDK (gcd) and THUG2's key.
 void ComputeCdKeyResponse(const char* key, const char* challenge, char* response)
@@ -208,9 +208,9 @@ void ComputeCdKeyResponse(const char* key, const char* challenge, char* response
 }
 void AuthenticateUser(int localId, uint32_t ip, const char* challenge, const char* response, void* instance)
 {
-    using Callback = void(__cdecl*)(int, int, int, char*, void*);
+    using HookFn = void(__cdecl*)(int, int, int, char*, void*);
     GameSpy::CdKeyAuthenticateUser(
-        kGameSpyGameId, localId, ip, challenge, response, &Manager::ClientAuthorized, instance);
+        kGameSpyGameId, localId, ip, challenge, response, &Hub::ClientAuthorized, instance);
 }
 
 void Sprintf(char* out, const char* format, uint32_t a, uint32_t b, int c, const char* d, const char* e)
@@ -221,34 +221,34 @@ void Sprintf(char* out, const char* format, uint32_t a, uint32_t b, int c, const
 NetMessageInfo NewDesc()
 {
     NetMessageInfo desc;
-    desc.Construct();
+    desc.MakeNew();
     return desc;
 }
 
 // The connection request (all four senders): THUG2's, or in the THUGPRO peer mode with THUGPRO's trailer (TP-R12).
 // `request` must outlive the send (the message is copied when queued).
-void SendConnectionRequest(NetLink::Client* client, const ConnectInfo& info, Thugpro::ConnectRequest* request)
+void SendConnectionRequest(NetLink::Guest* client, const ConnectInfo& info, Thugpro::ConnectRequest* request)
 {
     NetMessageInfo desc = NewDesc();
     if (Thugpro::PeerMode()) {
         desc.m_byteCount = Thugpro::MakeConnectRequest(info, request);
-        desc.m_data = request;
+        desc.m_content = request;
         desc.m_compression = 3; // (THUGPRO's LZHAM, as its client sends it - only if smaller)
     } else {
         request->thug2 = info;
-        desc.m_data = &request->thug2;
+        desc.m_content = &request->thug2;
         desc.m_byteCount = sizeof(ConnectInfo);
     }
-    desc.m_id = kMsgConnectionRequest;
+    desc.m_ident = kMsgConnectionRequest;
     client->SendToHost(&desc);
 }
 
-NetLink::Client* AsClient(App* app) { return static_cast<NetLink::Client*>(app); }
+NetLink::Guest* AsClient(AppHost* app) { return static_cast<NetLink::Guest*>(app); }
 
 // The handlers a joining client adds (0x00534480): on every client, then on client 0 only.
 struct HandlerEntry {
     uint8_t id;
-    uint32_t code; // (an address: a game handler, or one of ours - Handler() maps those)
+    uint32_t code; // (an address: a game handler, or one of ours - Responder() maps those)
     uint32_t flags;
     bool managerData;
     int priority;
@@ -257,11 +257,11 @@ constexpr uint32_t kOurs = 0x80000000; // (+ an index into OurHandler)
 HandlerSlotValue OurHandler(uint32_t code)
 {
     switch (code) {
-    case kOurs + 0: return &Manager::HandleJoinRefused;
-    case kOurs + 1: return &Manager::HandleJoinProceed;
+    case kOurs + 0: return &Hub::HandleJoinRefused;
+    case kOurs + 1: return &Hub::HandleJoinProceed;
     case kOurs + 2: return &OnlinePlay::HandleChat;
-    case kOurs + 3: return &Manager::HandleConnection;
-    case kOurs + 4: return &Manager::HandleJoinRequest;
+    case kOurs + 3: return &Hub::HandleConnection;
+    case kOurs + 4: return &Hub::HandleJoinRequest;
     default: return reinterpret_cast<HandlerSlotValue>(code);
     }
 }
@@ -347,25 +347,25 @@ const HandlerEntry kServerHandlers[] = {
 };
 
 template <size_t N>
-void AddHandlers(App* app, Manager* manager, const HandlerEntry (&entries)[N])
+void AddHandlers(AppHost* app, Hub* manager, const HandlerEntry (&entries)[N])
 {
     for (const HandlerEntry& entry : entries)
-        app->m_dispatcher.AddHandler(entry.id, OurHandler(entry.code), entry.flags,
+        app->m_dispatcher.AppendListener(entry.id, OurHandler(entry.code), entry.flags,
                                      entry.managerData ? manager : nullptr, entry.priority);
 }
 
-void SendRefused(App* app, Conn* conn, const char* data)
+void SendRefused(AppHost* app, Conn* conn, const char* data)
 {
-    app->DeliverTo(kMsgJoinRefused, kJoinRefusedSize, data, conn->m_hostAddr, conn->m_port, 0);
+    app->DeliverTo(kMsgJoinRefused, kJoinRefusedSize, data, conn->m_hostAddr, conn->m_portNo, 0);
 }
 
 } // namespace
 
 // 0x0052F560
-bool Manager::OkToJoin(int& reason, ConnectInfo* msg, Conn* conn, bool checkPassword, bool checkVersion,
+bool Hub::OkToJoin(int& reason, ConnectInfo* msg, Conn* conn, bool checkPassword, bool checkVersion,
                        bool checkCdKey)
 {
-    if (m_server->IsConnBlocked(conn)) {
+    if (m_host->IsConnBlocked(conn)) {
         reason = kRefusedBanned;
         return false;
     }
@@ -382,7 +382,7 @@ bool Manager::OkToJoin(int& reason, ConnectInfo* msg, Conn* conn, bool checkPass
         reason = kRefusedVersion;
         return false;
     }
-    if (conn->IsRemote()) {
+    if (conn->IsOffMachine()) {
         int limit = RankLimit(this);
         int test = RankTest(this);
         if (test == kRankTestGreater) {
@@ -418,26 +418,26 @@ bool Manager::OkToJoin(int& reason, ConnectInfo* msg, Conn* conn, bool checkPass
 }
 
 // 0x00534480
-void Manager::JoinServer(uint32_t ip, uint16_t port, int index)
+void Hub::JoinServer(uint32_t ip, uint16_t port, int index)
 {
-    NetLink::Manager* net = NetManager();
+    NetLink::Hub* net = NetManager();
     const char* name = PreferenceText(this, kNetworkId); // (not used)
     (void)name;
-    App* client = ClientSlot(index);
+    AppHost* client = ClientSlot(index);
     ConnectInfo info;
     std::memset(&info, 0, sizeof(info)); // (the original sends its stack's garbage in the fields it doesn't set)
-    if (client->IsLocal()) {
+    if (client->IsHostLocal()) {
         // The host's own client: its connection and the server's know each other.
-        Conn* serverConn = m_server->NewConnection(static_cast<int>(ip), port, Conn::kFlagLocal);
-        Conn* conn = client->NewConnection(static_cast<int>(ip), port, Conn::kFlagLocal);
+        Conn* serverConn = m_host->OpenedLink(static_cast<int>(ip), port, Conn::kFlagLocal);
+        Conn* conn = client->OpenedLink(static_cast<int>(ip), port, Conn::kFlagLocal);
         client->LinkDuplicateConns(serverConn, conn);
     } else {
         AsClient(client)->DialServer(ip, port);
-        client->NewConnection(static_cast<int>(ip), port, Conn::kFlagRemote);
+        client->OpenedLink(static_cast<int>(ip), port, Conn::kFlagRemote);
         m_joinStartTime = MilliSeconds();
-        LogicTasks()->AddTask(m_joinTimeoutTask);
+        LogicTasks()->QueueJob(m_joinTimeoutTask);
         m_joinState = kJoinStateConnecting;
-        LogicTasks()->AddTask(m_joinStateTask);
+        LogicTasks()->QueueJob(m_joinStateTask);
         m_joinPort = port;
         m_joinIp = ip;
         info.rank = Rank(this);
@@ -451,18 +451,18 @@ void Manager::JoinServer(uint32_t ip, uint16_t port, int index)
         std::memset(JoinPassword(), 0, kPasswordSize);
         info.password[0] = '\0';
     }
-    if (!client->IsLocal())
+    if (!client->IsHostLocal())
         std::memset(PendingPassword(), 0, kPasswordSize);
     info.willingToWait = false;
     info.broadband = net->GetNetLinkKind() != kConnectionTypeModem;
     Thugpro::ConnectRequest request;
     SendConnectionRequest(AsClient(client), info, &request);
-    client->SendData(false);
+    client->Transmit(false);
 
     AddHandlers(client, this, kClientHandlers);
     if (index == 0) {
         AddHandlers(m_clientApp, this, kGameClientHandlers);
-        if (!m_clientApp->IsLocal())
+        if (!m_clientApp->IsHostLocal())
             AddHandlers(m_clientApp, this, kRemoteGameClientHandlers);
         AddHandlers(m_clientApp, this, kGameClientHandlers2);
     }
@@ -470,7 +470,7 @@ void Manager::JoinServer(uint32_t ip, uint16_t port, int index)
 }
 
 // 0x00534AF0
-void Manager::RetryEntry(App* client)
+void Hub::RetryEntry(AppHost* client)
 {
     ConnectInfo info;
     std::memset(&info, 0, sizeof(info));
@@ -483,14 +483,14 @@ void Manager::RetryEntry(App* client)
         info.rank = Rank(this);
     Thugpro::ConnectRequest request;
     SendConnectionRequest(AsClient(client), info, &request);
-    client->SendData(false);
+    client->Transmit(false);
     m_joinStartTime = MilliSeconds();
-    LogicTasks()->AddTask(m_joinTimeoutTask);
+    LogicTasks()->QueueJob(m_joinTimeoutTask);
     m_joinState = kJoinStateJoining;
 }
 
 // 0x00534BD0
-void Manager::RetryEntryWithKey(const char* password)
+void Hub::RetryEntryWithKey(const char* password)
 {
     std::strcpy(JoinPassword(), password);
     const char* name = PreferenceText(this, kNetworkId); // (not used)
@@ -506,7 +506,7 @@ void Manager::RetryEntryWithKey(const char* password)
     Thugpro::ConnectRequest request;
     SendConnectionRequest(AsClient(m_clientApp), info, &request);
     m_joinStartTime = MilliSeconds();
-    LogicTasks()->AddTask(m_joinTimeoutTask);
+    LogicTasks()->QueueJob(m_joinTimeoutTask);
     m_joinState = kJoinStateJoiningWithPassword;
 }
 
@@ -517,14 +517,14 @@ const char g_matchAppName[13]{"Match Skate6"};
 const char g_skateAppName[7]{"Skate6"};
 
 // 0x00537220
-App* Manager::StartClientSession(bool broadcast, bool local, bool secure, int index)
+AppHost* Hub::StartClientSession(bool broadcast, bool local, bool secure, int index)
 {
-    NetLink::Manager* net = NetManager();
+    NetLink::Hub* net = NetManager();
     int flags = broadcast ? kAppBroadcast : 0;
     flags |= local ? kAppLocal : kAppDynamicResend | kAppForeign;
     if (secure)
         flags |= kAppSecure;
-    App* client = net->MakeClientApp(index, g_skateAppName, kJoinPort, // (its name)
+    AppHost* client = net->MakeClientApp(index, g_skateAppName, kJoinPort, // (its name)
                                           static_cast<int>(LocalAddress()), flags);
     ClientSlot(index) = client;
     if (index == 0 && client) {
@@ -540,62 +540,62 @@ App* Manager::StartClientSession(bool broadcast, bool local, bool secure, int in
 }
 
 // 0x00534430
-App* Manager::StartMatchmakingClient()
+AppHost* Hub::StartMatchmakingClient()
 {
-    NetLink::Manager* net = NetManager();
-    App* client = net->MakeClientApp(0, g_matchAppName, kJoinPort,
+    NetLink::Hub* net = NetManager();
+    AppHost* client = net->MakeClientApp(0, g_matchAppName, kJoinPort,
                                           static_cast<int>(LocalAddress()),
                                           kAppBroadcast | kAppDynamicResend | kAppForeign | kAppSecure);
     m_matchClient = client;
-    client->m_dispatcher.AddHandler(kMsgServerResponse, &HandleServerResponse,
+    client->m_dispatcher.AppendListener(kMsgServerResponse, &HandleServerResponse,
                                     kHandleForeign | kHandleLate, this, kNormalPriority);
     return m_matchClient;
 }
 
 // 0x0053C380
-App* Manager::StartHostSession(bool local, bool secure)
+AppHost* Hub::StartHostSession(bool local, bool secure)
 {
-    NetLink::Manager* net = NetManager();
+    NetLink::Hub* net = NetManager();
     int flags = kAppBroadcast | kAppDynamicResend | kAppForeign | (local ? kAppLocal : 0);
     if (secure)
         flags |= kAppSecure;
-    App* server = net->MakeServerApp(0, g_skateAppName, kMaxConnections, kHostPort,
+    AppHost* server = net->MakeServerApp(0, g_skateAppName, kMaxConnections, kHostPort,
                                           static_cast<int>(LocalAddress()), flags);
-    m_server = server;
+    m_host = server;
     if (m_hostMode != 0)
         m_hostMode = 0; // serve
     if (server) {
-        LogicTasks()->AddTask(m_serverAddNewPlayersTask);
-        AddHandlers(m_server, this, kServerHandlers);
+        LogicTasks()->QueueJob(m_serverAddNewPlayersTask);
+        AddHandlers(m_host, this, kServerHandlers);
         m_lastScoreUpdate = 0;
         m_waitingForGameToStart = false;
         ShuffleSpawnSlots(this);
         m_observerInputHandler = nullptr;
     }
-    return m_server;
+    return m_host;
 }
 
 // 0x0052F790
-int Manager::HandleConnection(InboundMsgCtx* context)
+int Hub::HandleConnection(InboundMsgCtx* context)
 {
     Conn* conn = context->m_senderConn;
-    auto* manager = static_cast<Manager*>(context->m_data);
+    auto* manager = static_cast<Hub*>(context->m_content);
     auto* msg = reinterpret_cast<ConnectInfo*>(context->m_body);
-    if (!conn->IsRemote()) {
+    if (!conn->IsOffMachine()) {
         // The host's own client: proceed at once (only the player count filled in).
         NetMessageInfo desc = NewDesc();
         ProceedInfo proceed;
         std::memset(&proceed, 0, sizeof(proceed));
         proceed.maxPlayers = static_cast<int8_t>(MaxPlayers(manager));
-        desc.m_data = &proceed;
-        desc.m_id = kMsgJoinProceed;
+        desc.m_content = &proceed;
+        desc.m_ident = kMsgJoinProceed;
         desc.m_byteCount = sizeof(proceed);
-        context->m_receiverApp->PutOnOutbox(conn->m_handle, &desc);
+        context->m_receiverApp->PutOnOutbox(conn->m_hdl, &desc);
         return NetLink::kHandlerContinue;
     }
     if (!(context->m_wireOptions & kHandleForeign))
         return NetLink::kHandlerMsgDone;
-    NetLink::Manager* net = NetManager();
+    NetLink::Hub* net = NetManager();
     if (!context->m_receiverApp->AllowsOutsidePeers())
         return NetLink::kHandlerMsgDone;
     // NOT ORIGINAL: a request shorter than THUG2's isn't read (the original reads past it).
@@ -615,19 +615,19 @@ int Manager::HandleConnection(InboundMsgCtx* context)
         SendRefused(context->m_receiverApp, conn, refused);
         return NetLink::kHandlerHalt;
     }
-    Conn* joined = context->m_receiverApp->NewConnection(static_cast<int>(conn->m_hostAddr), conn->m_port, Conn::kFlagRemote);
+    Conn* joined = context->m_receiverApp->OpenedLink(static_cast<int>(conn->m_hostAddr), conn->m_portNo, Conn::kFlagRemote);
     context->m_senderConn = joined;
     joined->SetLinkSpeedClass(msg->broadband ? Conn::kBandwidthBroadband : Conn::kBandwidthModem);
     joined->SetTransmitPeriod(static_cast<uint32_t>(1000 / GameConfig::g_frameRate * 2)); // two frames
     // NOT ORIGINAL: in the THUGPRO peer mode no GameSpy CD-key check (TP-R12): proceed as on a LAN.
     if (manager->InInternetMode() && !Thugpro::PeerMode()) {
-        auto* instance = static_cast<AuthInstance*>(MemSys::New(sizeof(AuthInstance)));
+        auto* instance = static_cast<AuthInstance*>(MemSys::Alloc(sizeof(AuthInstance)));
         if (instance)
             std::memset(instance, 0, sizeof(*instance));
         instance->manager = manager;
         instance->app = context->m_receiverApp;
         instance->conn = joined;
-        AuthenticateUser(static_cast<int>(joined->m_id), context->m_senderConn->m_hostAddr, manager->m_challenge,
+        AuthenticateUser(static_cast<int>(joined->m_ident), context->m_senderConn->m_hostAddr, manager->m_challenge,
                          msg->cdKeyResponse, instance);
         return NetLink::kHandlerContinue;
     }
@@ -642,12 +642,12 @@ int Manager::HandleConnection(InboundMsgCtx* context)
     }
     std::strncpy(proceed.serverName, PreferenceText(manager, kServerName), kServerNameSize - 1);
     proceed.serverName[kServerNameSize - 1] = '\0';
-    context->m_receiverApp->DeliverTo(kMsgJoinProceed, sizeof(proceed), &proceed, joined->m_hostAddr, joined->m_port, 0);
+    context->m_receiverApp->DeliverTo(kMsgJoinProceed, sizeof(proceed), &proceed, joined->m_hostAddr, joined->m_portNo, 0);
     return NetLink::kHandlerContinue;
 }
 
 // 0x00536530
-void Manager::ClientAuthorized(int /*gameId*/, int /*localId*/, int authenticated, char* /*error*/, void* data)
+void Hub::ClientAuthorized(int /*gameId*/, int /*localId*/, int authenticated, char* /*error*/, void* data)
 {
     auto* instance = static_cast<AuthInstance*>(data);
     if (!instance)
@@ -656,9 +656,9 @@ void Manager::ClientAuthorized(int /*gameId*/, int /*localId*/, int authenticate
         char refused[kJoinRefusedSize] = {};
         refused[0] = kRefusedCdKey;
         SendRefused(instance->app, instance->conn, refused);
-        instance->conn->Invalidate();
+        instance->conn->MarkStale();
     } else {
-        Manager* manager = instance->manager;
+        Hub* manager = instance->manager;
         ProceedInfo proceed;
         std::memset(&proceed, 0, sizeof(proceed));
         proceed.maxPlayers = static_cast<int8_t>(MaxPlayers(manager));
@@ -671,16 +671,16 @@ void Manager::ClientAuthorized(int /*gameId*/, int /*localId*/, int authenticate
         std::strncpy(proceed.serverName, PreferenceText(manager, kServerName), kServerNameSize - 1);
         proceed.serverName[kServerNameSize - 1] = '\0';
         instance->app->DeliverTo(kMsgJoinProceed, sizeof(proceed), &proceed, instance->conn->m_hostAddr,
-                                     instance->conn->m_port, 0);
+                                     instance->conn->m_portNo, 0);
     }
-    MemSys::Manager::Get()->Free(instance);
+    MemSys::Hub::Pull()->Dealloc(instance);
 }
 
 // 0x0052FA10
-int Manager::HandleJoinRequest(InboundMsgCtx* context)
+int Hub::HandleJoinRequest(InboundMsgCtx* context)
 {
     Conn* conn = context->m_senderConn;
-    auto* manager = static_cast<Manager*>(context->m_data);
+    auto* manager = static_cast<Hub*>(context->m_content);
     auto* msg = reinterpret_cast<JoinInfo*>(context->m_body);
     void* skate = reinterpret_cast<void*>(GameModules::g_skateModule);
     context->m_Acknowledge = true;
@@ -688,45 +688,45 @@ int Manager::HandleJoinRequest(InboundMsgCtx* context)
     if (context->m_bodySize < kJoinInfoHeaderSize)
         return NetLink::kHandlerMsgDone;
     int reason = 0;
-    if (conn->IsRemote() && !manager->OkToJoin(reason, msg, conn, false, false, false)) {
+    if (conn->IsOffMachine() && !manager->OkToJoin(reason, msg, conn, false, false, false)) {
         NetMessageInfo desc = NewDesc();
         char refused[kJoinRefusedSize] = {};
         refused[0] = static_cast<char>(reason);
-        desc.m_data = refused;
+        desc.m_content = refused;
         desc.m_byteCount = kJoinRefusedSize;
-        desc.m_id = kMsgJoinRefused;
-        context->m_receiverApp->PutOnOutbox(conn->m_handle, &desc);
-        context->m_senderConn->Invalidate();
+        desc.m_ident = kMsgJoinRefused;
+        context->m_receiverApp->PutOnOutbox(conn->m_hdl, &desc);
+        context->m_senderConn->MarkStale();
         return NetLink::kHandlerHalt;
     }
     void* memory = MemSys::AllocZeroed(kPlayerInfoSize);
-    auto* player = memory ? static_cast<JoinerRecord*>(memory)->Construct() : nullptr;
-    std::strncpy(player->m_name, msg->name, kNameSize - 1);
-    player->m_name[kNameSize - 1] = '\0';
+    auto* player = memory ? static_cast<JoinerRecord*>(memory)->MakeNew() : nullptr;
+    std::strncpy(player->m_label, msg->name, kNameSize - 1);
+    player->m_label[kNameSize - 1] = '\0';
     player->m_entityKey = static_cast<uint8_t>(manager->NextPlayerObjectId());
     player->m_conn = context->m_senderConn;
-    player->m_flags = 0;
+    player->m_flagBits = 0;
     player->m_profileId = msg->profile;
     player->m_skillPoints = msg->rating;
     player->m_vehicleControlType = msg->vehicleControlType;
     player->m_unknown34 = 0;
     if (msg->observer)
-        player->m_flags = kPlayerObserver;
+        player->m_flagBits = kPlayerObserver;
     else if (GameInProgress(manager))
-        player->m_flags |= kPlayerPending | kPlayerObserver;
-    if (context->m_senderConn->IsLocal()) {
+        player->m_flagBits |= kPlayerPending | kPlayerObserver;
+    if (context->m_senderConn->IsHostLocal()) {
         // The host's own player: its profile copied through a buffer.
         if (!MemSys::g_managerReady)
             MemSys::EnsureManager();
-        auto* buffer = static_cast<uint8_t*>(MemSys::Manager::Get()->Allocate(kAppearanceSize, true, nullptr));
-        auto* profile = Call<GameObjects::CRiderIdentity*>(CodeAddress(static_cast<GameObjects::CRiderIdentity* (GameModules::Skate::*)(int)>(&GameModules::Skate::GetProfile)), skate, static_cast<int>(static_cast<int8_t>(player->m_entityKey)));
+        auto* buffer = static_cast<uint8_t*>(MemSys::Hub::Pull()->Carve(kAppearanceSize, true, nullptr));
+        auto* profile = Call<GameObjects::CRiderIdentity*>(CodeAddress(static_cast<GameObjects::CRiderIdentity* (GameModules::Skate::*)(int)>(&GameModules::Skate::FetchAccount)), skate, static_cast<int>(static_cast<int8_t>(player->m_entityKey)));
         profile->EmitIntoBuffer(buffer, kAppearanceSize, 0);
-        player->m_profile->DecodeFromBytes(buffer);
-        MemSys::Manager::Get()->Free(buffer);
-        player->m_flags = kPlayerLocal;
+        player->m_account->DecodeFromBytes(buffer);
+        MemSys::Hub::Pull()->Dealloc(buffer);
+        player->m_flagBits = kPlayerLocal;
         LatePlayerArrival(manager, player, 0);
         player->DestroyBody();
-        MemSys::Manager::Get()->Free(player);
+        MemSys::Hub::Pull()->Dealloc(player);
         // On the internet the host checks its own CD key too: an answer nobody reads (no instance). NOT ORIGINAL:
         // not in the THUGPRO peer mode (TP-R12).
         if (manager->InInternetMode() && !Thugpro::PeerMode()) {
@@ -747,25 +747,25 @@ int Manager::HandleJoinRequest(InboundMsgCtx* context)
             size = kAppearanceSize;
         std::memset(appearance, 0, kAppearanceSize);
         std::memcpy(appearance, msg->appearance, size);
-        player->m_profile->DecodeFromBytes(appearance);
+        player->m_account->DecodeFromBytes(appearance);
     }
     LatePlayerArrival(manager, player, kDeferredJoinFrames);
     player->DestroyBody();
-    MemSys::Manager::Get()->Free(player);
+    MemSys::Hub::Pull()->Dealloc(player);
     // Busy until it's in: no game messages meanwhile.
-    context->m_senderConn->m_status = (context->m_senderConn->m_status & ~Conn::kStatusReady) | Conn::kStatus2;
+    context->m_senderConn->m_curStanding = (context->m_senderConn->m_curStanding & ~Conn::kStatusReady) | Conn::kStatus2;
     return NetLink::kHandlerContinue;
 }
 
 // 0x0052E490
-int Manager::HandleJoinProceed(InboundMsgCtx* context)
+int Hub::HandleJoinProceed(InboundMsgCtx* context)
 {
-    NetLink::Manager* net = NetManager();
+    NetLink::Hub* net = NetManager();
     NetMessageInfo desc = NewDesc();
     Conn* conn = context->m_senderConn;
-    auto* manager = static_cast<Manager*>(context->m_data);
+    auto* manager = static_cast<Hub*>(context->m_content);
     auto* proceed = reinterpret_cast<ProceedInfo*>(context->m_body);
-    if (conn->IsRemote()) {
+    if (conn->IsOffMachine()) {
         conn->SetLinkSpeedClass(proceed->broadband ? Conn::kBandwidthBroadband : Conn::kBandwidthModem);
         manager->m_joinIp = proceed->publicIp;
         manager->m_joinPrivateIp = proceed->privateIp;
@@ -775,7 +775,7 @@ int Manager::HandleJoinProceed(InboundMsgCtx* context)
             char location[0x1000];
             Sprintf(location, g_presenceLocationFormat, manager->m_joinIp, manager->m_joinPrivateIp,
                     manager->m_joinPort, LobbyServerName(manager), LobbyPeerName(manager));
-            const char* status = Scripts::GetString(manager->m_joinMode == 0 ? kStatusPlaying : kStatusObserving);
+            const char* status = Scripts::FetchText(manager->m_joinMode == 0 ? kStatusPlaying : kStatusObserving);
             SetPresence(manager, 2, status, location);
         }
     }
@@ -803,7 +803,7 @@ int Manager::HandleJoinProceed(InboundMsgCtx* context)
     std::strcpy(info->password, JoinPassword());
     int size = 0;
     if (!info->observer) {
-        auto* profile = Call<GameObjects::CRiderIdentity*>(CodeAddress(static_cast<GameObjects::CRiderIdentity* (GameModules::Skate::*)(int)>(&GameModules::Skate::GetProfile)), reinterpret_cast<void*>(GameModules::g_skateModule), 0);
+        auto* profile = Call<GameObjects::CRiderIdentity*>(CodeAddress(static_cast<GameObjects::CRiderIdentity* (GameModules::Skate::*)(int)>(&GameModules::Skate::FetchAccount)), reinterpret_cast<void*>(GameModules::g_skateModule), 0);
         NetLink::ConnSearch search;
         search.m_vtable = NetLink::kConnSearchVtable;
         search.m_listLink = nullptr;
@@ -811,11 +811,11 @@ int Manager::HandleJoinProceed(InboundMsgCtx* context)
             narrowband = true; // (a narrowband server gets no face)
         size = profile->EmitIntoBuffer(info->appearance, kAppearanceSize, narrowband);
     }
-    desc.m_data = info;
+    desc.m_content = info;
     desc.m_byteCount = static_cast<uint16_t>(size + kJoinInfoHeaderSize);
-    desc.m_id = kMsgJoinRequest;
+    desc.m_ident = kMsgJoinRequest;
     desc.m_compression = 2; // LZSS (in the peer mode it goes as THUGPRO's LZHAM: CompressMessage)
-    if (context->m_senderConn->IsRemote())
+    if (context->m_senderConn->IsOffMachine())
         desc.m_queue = NetMessageInfo::kQueueSequenced;
     AsClient(context->m_receiverApp)->SendToHost(&desc);
     manager->m_joinState = kJoinStateJoining;
@@ -823,9 +823,9 @@ int Manager::HandleJoinProceed(InboundMsgCtx* context)
 }
 
 // 0x0052E1E0
-int Manager::HandleJoinRefused(InboundMsgCtx* context)
+int Hub::HandleJoinRefused(InboundMsgCtx* context)
 {
-    auto* manager = static_cast<Manager*>(context->m_data);
+    auto* manager = static_cast<Hub*>(context->m_content);
     const char* msg = context->m_body;
     int reason = static_cast<int8_t>(msg[0]);
     switch (reason) {
@@ -853,12 +853,12 @@ int Manager::HandleJoinRefused(InboundMsgCtx* context)
         std::memcpy(challenge, msg + 1, challengeSize < kJoinRefusedSize - 1u ? challengeSize : kJoinRefusedSize - 1u);
         GetCdKey(key);
         ComputeCdKeyResponse(key, challenge, response);
-        NetLink::Manager* net = NetManager();
+        NetLink::Hub* net = NetManager();
         ConnectInfo info;
         std::memset(&info, 0, sizeof(info));
         std::strcpy(info.cdKeyResponse, response);
         const char* name = nullptr; // (not used)
-        NetworkPreferences(manager)->GetPreference(kNetworkId)->GetString(g_uiString,
+        NetworkPreferences(manager)->FetchSetting(kNetworkId)->FetchText(g_uiString,
                                                                             &name, 1);
         info.rank = Rank(manager);
         info.observer = manager->m_joinMode == kJoinModeObserve;
@@ -877,14 +877,14 @@ int Manager::HandleJoinRefused(InboundMsgCtx* context)
             break;
         }
         // Ask for it.
-        MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_frontEndHeap);
+        MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
         Scripts::LaunchScript(kCreateEnterPasswordControl, nullptr, nullptr, false, nullptr);
-        manager->m_joinTimeoutTask->Remove();
-        MemSys::Manager::Get()->LeaveHeapScope();
+        manager->m_joinTimeoutTask->DropOut();
+        MemSys::Hub::Pull()->LeaveHeapScope();
         return NetLink::kHandlerContinue;
     case kRefusedInProgress:
         Scripts::LaunchScript(kCreateGameInProgressDialog, nullptr, nullptr, false, nullptr);
-        manager->m_joinTimeoutTask->Remove();
+        manager->m_joinTimeoutTask->DropOut();
         return NetLink::kHandlerContinue;
     case kRefusedRankLow:
         manager->m_refusedReason = kReasonRankLow;

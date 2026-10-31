@@ -9,7 +9,7 @@
 // written each frame, appended until full, then started again), the quads' index buffer, occlusion queries kept by
 // a key until their answer is read, and releasing it all. (The hash_map, list and vector code between them,
 // 0x005F4890-0x005F5390, is the C++ library's - stdext::hash_map's internals: here a std::unordered_map.)
-namespace Platform {
+namespace OsLayer {
 
 // 0x005F45E0 (cdecl): `count` texels through a palette: out[i] = palette[indices[i]].
 void ExpandPalette(uint32_t* out, const uint8_t* indices, int count, const uint32_t* palette);

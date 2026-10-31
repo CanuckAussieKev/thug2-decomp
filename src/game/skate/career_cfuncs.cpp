@@ -36,12 +36,12 @@ constexpr uint32_t kSkaterType = 0xBAF9B341;          // OBJECT_TYPE_SKATER
 // The skate module's calls about the run (no source yet): 0x00567580 every skater idle (in a horse game only the
 // current horse skater counts), 0x00567690 the local skater's first trick started, 0x005676E0 completed;
 // 0x0056BB70 the final scores sent to every player (true: the final ones).
-bool AllSkatersIdle() { return GameModules::Skate::Instance()->AllSkatersIdle(); }
-bool FirstTrickStarted() { return GameModules::Skate::Instance()->FirstTrickStarted(); }
-bool FirstTrickCompleted() { return GameModules::Skate::Instance()->FirstTrickCompleted(); }
-void SendScores(bool final) { GameModules::Skate::Instance()->BroadcastPoints(final); }
+bool AllSkatersIdle() { return GameModules::Skate::Sole()->AllSkatersIdle(); }
+bool FirstTrickStarted() { return GameModules::Skate::Sole()->FirstTrickStarted(); }
+bool FirstTrickCompleted() { return GameModules::Skate::Sole()->FirstTrickCompleted(); }
+void SendScores(bool final) { GameModules::Skate::Sole()->BroadcastPoints(final); }
 
-OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
 
 } // namespace
 
@@ -59,7 +59,7 @@ bool __cdecl CFunc_CareerLevelIs(Scripts::CStruct* params, Scripts::CScript*)
 {
     int level = 0;
     params->FetchIntValue(0u, &level, 1);
-    return Career()->GetLevel() == level;
+    return Career()->FetchStage() == level;
 }
 
 // 0x005AE9F0: GetCareerLevelScore [level=<n>] [get_total] - the level's (the current one's) score and total score as
@@ -67,13 +67,13 @@ bool __cdecl CFunc_CareerLevelIs(Scripts::CStruct* params, Scripts::CScript*)
 bool __cdecl CFunc_GetCareerLevelScore(Scripts::CStruct* params, Scripts::CScript* script)
 {
     GameObjects::CRiderStoryProgress* career = Career();
-    int level = career->GetLevel();
+    int level = career->FetchStage();
     params->FetchIntValue(kLevel, &level, 0);
-    script->m_params->PutInt(kLevelScore, career->m_funds[level]);
-    script->m_params->PutInt(kLevelScoreTotal, career->m_amount[level]);
+    script->m_args->PutInt(kLevelScore, career->m_funds[level]);
+    script->m_args->PutInt(kLevelScoreTotal, career->m_amount[level]);
     if (params->HasBareFlag(kGetTotal)) {
-        script->m_params->PutInt(kTotalScore, career->m_lifetimeFunds);
-        script->m_params->PutInt(kTotalScorePotential, career->m_totalAmount);
+        script->m_args->PutInt(kTotalScore, career->m_lifetimeFunds);
+        script->m_args->PutInt(kTotalScorePotential, career->m_totalAmount);
     }
     return true;
 }
@@ -93,12 +93,12 @@ bool __cdecl CFunc_SetLevelTotalPoints(Scripts::CStruct* params, Scripts::CScrip
 bool __cdecl CFunc_GetClassicLevelGoalCount(Scripts::CStruct* params, Scripts::CScript* script)
 {
     GameObjects::CRiderStoryProgress* career = Career();
-    int level = career->GetLevel();
+    int level = career->FetchStage();
     params->FetchIntValue(kLevel, &level, 0);
-    script->m_params->PutInt(kClassicGoalCount, career->GetCounter(level));
+    script->m_args->PutInt(kClassicGoalCount, career->GetCounter(level));
     if (params->HasBareFlag(kGetTotal)) {
-        script->m_params->PutInt(kTotalGoalsComplete, career->m_totalCounter);
-        script->m_params->PutInt(kTotalGoalsPossible, career->m_flag5EF);
+        script->m_args->PutInt(kTotalGoalsComplete, career->m_totalCounter);
+        script->m_args->PutInt(kTotalGoalsPossible, career->m_flag5EF);
     }
     return true;
 }
@@ -116,7 +116,7 @@ bool __cdecl CFunc_SetClassicTotalGoals(Scripts::CStruct* params, Scripts::CScri
 // 0x005AEC20: GetCurrentChapter - the career's chapter as chapter.
 bool __cdecl CFunc_GetCurrentChapter(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PutInt(kChapter, Career()->m_value634);
+    script->m_args->PutInt(kChapter, Career()->m_value634);
     return true;
 }
 
@@ -195,7 +195,7 @@ bool __cdecl CFunc_UnSetFlag(Scripts::CStruct* params, Scripts::CScript*)
     return true;
 }
 
-// 0x005AEE30: GetFlag flag=<n> [level=<l>] - whether level l's flag n is set (no level, or level 0: the current
+// 0x005AEE30: FetchMarker flag=<n> [level=<l>] - whether level l's flag n is set (no level, or level 0: the current
 // level's - level 0 itself can't be asked for).
 bool __cdecl CFunc_GetFlag(Scripts::CStruct* params, Scripts::CScript*)
 {
@@ -205,8 +205,8 @@ bool __cdecl CFunc_GetFlag(Scripts::CStruct* params, Scripts::CScript*)
     params->FetchIntValue(kLevel, &level, 0);
     GameObjects::CRiderStoryProgress* career = Career();
     if (level)
-        return career->GetFlag(flag, level);
-    return career->GetFlag(flag, -1);
+        return career->FetchMarker(flag, level);
+    return career->FetchMarker(flag, -1);
 }
 
 // 0x005AEEA0: JustGotFlag flag=<n> - whether flag n was set since the level started.
@@ -248,8 +248,8 @@ bool __cdecl CFunc_GetGlobalFlag(Scripts::CStruct* params, Scripts::CScript*)
 bool __cdecl CFunc_ProfileEquals(Scripts::CStruct* params, Scripts::CScript* script)
 {
     if (script) {
-        GameObjects::CObject* object = script->m_object.Get();
-        if (object && object->m_type == kSkaterType)
+        GameObjects::CEntity* object = script->m_entity.Pull();
+        if (object && object->m_kindTag == kSkaterType)
             return static_cast<GameObjects::CRider*>(object)->MatchesParams(params);
     }
     if (!IsMultiplayer())
@@ -289,7 +289,7 @@ bool __cdecl CFunc_FirstTrickCompleted(Scripts::CStruct*, Scripts::CScript*) { r
 // final scores have come.
 bool __cdecl CFunc_CalculateFinalScores(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Manager* net = NetManager();
+    OnlinePlay::Hub* net = NetManager();
     if (net->OnServer()) {
         SendScores(true);
         return true;

@@ -31,8 +31,8 @@ ClusterCount* __cdecl CountObjectInCluster(uint8_t* object, ClusterCount* counte
 // (Its one caller, HandleGraffitiColors, calls it on the trick object manager itself: +0x38 is the manager's.)
 struct CTrickParamSet {
     uint8_t m_unknown00[0x38];
-    Scripts::CStruct* m_params; // +0x38
-    void SetParams(Scripts::CStruct* params);
+    Scripts::CStruct* m_args; // +0x38
+    void ChangeArgs(Scripts::CStruct* params);
 };
 
 // A list in the skater's trick component (its +0x13B4): 0x00588170 the constructor (no entries; its count at +0x800);
@@ -41,12 +41,12 @@ struct CTrickParamSet {
 struct CTrickObjectList {
     static constexpr uint32_t kCapacity = 0x200;
     uint32_t m_items[kCapacity];
-    int m_count; // +0x800
-    CTrickObjectList* Construct();
+    int m_num; // +0x800
+    CTrickObjectList* MakeNew();
     bool Clear();
     // 0x00588A20: the cluster of trick object `objectName` listed, unless it has none (or no name) or is listed
     // already; the goal manager is told first (0x00559150). Always false.
-    bool Add(uint32_t objectName);
+    bool AppendOne(uint32_t objectName);
     // 0x00588AA0: the listed clusters that still exist (in the manager's table of objects' clusters, with a name)
     // copied to `out` in order, until `maxBytes` bytes are written. Returns the bytes written.
     uint32_t CopyClusterNames(uint32_t* out, uint32_t maxBytes);
@@ -56,12 +56,12 @@ struct CTrickObjectList {
 // level sector, which graffiti colours.
 struct CTrickSpot {
     MemSys::ListNode m_listLink;  // +0x00
-    uint32_t m_name;       // +0x14 (its sector's)
+    uint32_t m_label;       // +0x14 (its sector's)
 
     // 0x00588BB0: the destructor's body - out of its list (the node's vtable 0x0064F0D0 put back first).
     void DestroyBody();
     // 0x00588B40: the scalar deleting destructor (vtable slot 0): the body, then freed with flags bit 0.
-    CTrickSpot* Destroy(unsigned int flags);
+    CTrickSpot* Teardown(unsigned int flags);
 
     // 0x00588200: its sector coloured as graffiti colour `index` (graffitiColors[index]: r, g, b; alpha 0x80 - the
     // sector's mesh, when it has one, vtable +0x18). True.
@@ -71,14 +71,14 @@ struct CTrickSpot {
 };
 static_assert(sizeof(CTrickSpot) == 0x18, "layout must match the original");
 
-// The destructors of the trick object list's node (ListKit::Node, vtable 0x0064F0D4): 0x00588590 the body (out of its
+// The destructors of the trick object list's node (ListKit::Elem, vtable 0x0064F0D4): 0x00588590 the body (out of its
 // list), 0x005885F0 scalar deleting; and of the cluster list's (vtable 0x0064F0D0) 0x005885B0 scalar deleting.
 struct TrickObjectNode : MemSys::ListNode {
     void DestroyBody();
-    TrickObjectNode* Destroy(unsigned int flags);
+    TrickObjectNode* Teardown(unsigned int flags);
 };
 struct TrickClusterNode : MemSys::ListNode {
-    TrickClusterNode* Destroy(unsigned int flags);
+    TrickClusterNode* Teardown(unsigned int flags);
 };
 
 // 0x00588B70: every node after this head taken out of the list (each linked to itself; none freed).
@@ -90,7 +90,7 @@ struct TrickObjectHead : MemSys::ListNode {
 // player's best score on it (by the skater's object id), the player holding it and whether anyone does, its objects.
 struct CTrickObjectCluster {
     MemSys::ListNode m_listLink;     // +0x00 (data itself; its vtable 0x0064F10C is the cluster's)
-    uint32_t m_name;          // +0x14
+    uint32_t m_label;          // +0x14
     uint32_t m_bestScore;     // +0x18
     uint32_t m_scores[8];     // +0x1C
     int m_owner;              // +0x3C (an object id)
@@ -103,7 +103,7 @@ struct CTrickObjectCluster {
     // False (nothing made) when out of memory.
     bool AddObject(uint32_t name);
     // 0x00588BD0: the constructor - named `name`, no scores, holder or objects. Returns this.
-    CTrickObjectCluster* Construct(uint32_t name);
+    CTrickObjectCluster* MakeNew(uint32_t name);
     // 0x00588C30: the destructor's body - each object deleted (its virtual destructor, slot 0: the first one each
     // time), the list emptied, the head and the cluster's own node out of their lists.
     void DestroyBody();
@@ -114,7 +114,7 @@ struct CTrickObjectCluster {
     // created park the rail editor's rail of the cluster's name cleared too (0x004F3D10). True.
     bool ClearGraffitiColor(int index);
     // 0x005891D0: the scalar deleting destructor (vtable slot 0).
-    CTrickObjectCluster* Destroy(unsigned int flags);
+    CTrickObjectCluster* Teardown(unsigned int flags);
 };
 static_assert(offsetof(CTrickObjectCluster, m_entities) == 0x44 && sizeof(CTrickObjectCluster) == 0x58,
               "layout must match the original");
@@ -127,13 +127,13 @@ struct CTrickSpotHub {
 
     void** m_vtable;
     int m_clusterCount;               // +0x04
-    ListKit::HashTable m_clusters;        // +0x08 CTrickObjectClusters by name
-    ListKit::HashTable m_objectClusters;  // +0x20 each trick object's cluster, by the object's name (a cluster's own too)
-    Scripts::CStruct* m_params;        // +0x38 (the graffiti colours' - CTrickParamSet::SetParams)
+    ListKit::KeyMap m_clusters;        // +0x08 CTrickObjectClusters by name
+    ListKit::KeyMap m_objectClusters;  // +0x20 each trick object's cluster, by the object's name (a cluster's own too)
+    Scripts::CStruct* m_args;        // +0x38 (the graffiti colours' - CTrickParamSet::ChangeArgs)
 
     // 0x00588DC0: the constructor (vtable 0x0064F110): both tables of 256 buckets, the parameters' structure made on
     // the script heap. (The cluster count isn't set.) Returns this.
-    CTrickSpotHub* Construct();
+    CTrickSpotHub* MakeNew();
     // 0x00588E90: the destructor's body - every cluster deleted, both tables emptied and their buckets freed.
     void DestroyBody();
     // 0x00588FF0: trick object `objectName`'s cluster coloured for `player` (colour player + 1; -1 stays -1). False
@@ -151,7 +151,7 @@ struct CTrickSpotHub {
     // player + 1 cleared everywhere. True.
     bool ReleasePlayerClusters(int player);
     // 0x00589200: the scalar deleting destructor (vtable slot 0).
-    CTrickSpotHub* Destroy(unsigned int flags);
+    CTrickSpotHub* Teardown(unsigned int flags);
     // 0x00589670: up to 32 clusters nobody holds (0x00588350) given to `player` - scored 1000 and sent
     // (ScoreTrickObjects) - if there are any.
     void GiveFreeClusters(int player);
@@ -187,11 +187,11 @@ struct CTrickSpotHub {
 };
 static_assert(offsetof(CTrickSpotHub, m_clusters) == 0x08 &&
                   offsetof(CTrickSpotHub, m_objectClusters) == 0x20 &&
-                  offsetof(CTrickSpotHub, m_params) == 0x38,
+                  offsetof(CTrickSpotHub, m_args) == 0x38,
               "layout must match the original");
 
 // The graffiti messages (the receivers' layouts; bytes the original leaves unset are zero here) - sent by
-// ScoreTrickObjects and GameModules::Score (score_net.cpp).
+// ScoreTrickObjects and GameModules::PointTally (score_net.cpp).
 constexpr uint8_t kMsgTagStolen = 0x4B;
 constexpr uint8_t kMsgTrickObjects = 0x3B;
 constexpr uint8_t kMsgObserverTrickObjects = 0x5B;

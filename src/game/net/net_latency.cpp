@@ -7,12 +7,12 @@
 namespace NetLink {
 
 // 0x00456970
-PingProbe* PingProbe::Construct()
+PingProbe* PingProbe::MakeNew()
 {
     for (int& time : m_times)
         time = 0;
     m_averageLatency = 1000;
-    m_next = 0;
+    m_succ = 0;
     m_sendTime = 0;
     m_receiveTime = 0;
     return this;
@@ -21,8 +21,8 @@ PingProbe* PingProbe::Construct()
 // 0x004569B0
 void PingProbe::InputDelayAmount(int latency)
 {
-    m_times[m_next] = latency;
-    m_next = (m_next + 1) % kNumTimes;
+    m_times[m_succ] = latency;
+    m_succ = (m_succ + 1) % kNumTimes;
     uint32_t total = 0; // (wraps like the original's int sum)
     int count = 0;
     for (int time : m_times) {

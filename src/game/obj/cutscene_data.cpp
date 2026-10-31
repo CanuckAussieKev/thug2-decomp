@@ -113,7 +113,7 @@ void __cdecl QuatToMatrix(float* quat, const float* translation, float* matrix)
 }
 
 // 0x00464340
-void IdentityQuat::Set()
+void IdentityQuat::AssignValue()
 {
     q[0] = 0.0f;
     q[1] = 0.0f;
@@ -126,14 +126,14 @@ const char* __cdecl SkaterModelName(Scripts::CStruct* params)
 {
     uint32_t profile;
     if (params->ReadHashValue(kProfile, &profile, 0)) {
-        Scripts::CArray* profiles = Scripts::GetArray(kProfiles);
-        for (int i = 0; i < static_cast<int>(profiles->m_size); ++i) {
-            auto* entry = reinterpret_cast<Scripts::CStruct*>(profiles->GetElement(static_cast<uint32_t>(i)));
+        Scripts::CArray* profiles = Scripts::FetchList(kProfiles);
+        for (int i = 0; i < static_cast<int>(profiles->m_extent); ++i) {
+            auto* entry = reinterpret_cast<Scripts::CStruct*>(profiles->FetchPart(static_cast<uint32_t>(i)));
             uint32_t name = 0; // (asserted: the original's is uninitialised)
             entry->ReadHashValue(kProfileName, &name, 1);
             if (name == profile) {
                 const char* model = nullptr;
-                entry->GetString(kProfileModel, &model, 1);
+                entry->FetchText(kProfileModel, &model, 1);
                 return model;
             }
         }
@@ -170,12 +170,12 @@ float* __cdecl ReadColour(float* out, Scripts::CStruct* params, uint32_t name)
 // 0x00463E80
 void AddCutsceneLights()
 {
-    Scripts::CArray* lights = Scripts::GetArray(kLights);
+    Scripts::CArray* lights = Scripts::FetchList(kLights);
     if (!lights)
         return;
-    int count = static_cast<int>(lights->m_size);
+    int count = static_cast<int>(lights->m_extent);
     for (int i = 0; i < count; ++i) {
-        Scripts::CStruct* node = Scripts::ReadSubStruct(lights->GetElement(static_cast<uint32_t>(i)));
+        Scripts::CStruct* node = Scripts::ReadSubStruct(lights->FetchPart(static_cast<uint32_t>(i)));
         Engine3D::CreateLightFromNode(node);
     }
 }
@@ -183,12 +183,12 @@ void AddCutsceneLights()
 // 0x00463ED0
 void RemoveCutsceneLights()
 {
-    Scripts::CArray* lights = Scripts::GetArray(kLights);
+    Scripts::CArray* lights = Scripts::FetchList(kLights);
     if (!lights)
         return;
-    int count = static_cast<int>(lights->m_size);
+    int count = static_cast<int>(lights->m_extent);
     for (int i = 0; i < count; ++i) {
-        Scripts::CStruct* node = Scripts::ReadSubStruct(lights->GetElement(static_cast<uint32_t>(i)));
+        Scripts::CStruct* node = Scripts::ReadSubStruct(lights->FetchPart(static_cast<uint32_t>(i)));
         Engine3D::DeleteSceneLight(LevelNodes::GetNodeName(node));
     }
 }
@@ -196,12 +196,12 @@ void RemoveCutsceneLights()
 // 0x004640D0
 void SetUpCutsceneHeaps()
 {
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_topDownHeap);
     reinterpret_cast<Engine3D::CFlexibleParticleManager*&>(Engine3D::g_flexibleParticleManager)->CreateTempHeap(0x25800);
-    uint32_t available = MemSys::Manager::Get()->Available();
-    MemSys::Manager::Get()->InitCutsceneHeaps(available - 0x32000);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    uint32_t available = MemSys::Hub::Pull()->Obtainable();
+    MemSys::Hub::Pull()->InitCutsceneHeaps(available - 0x32000);
+    MemSys::Hub::Pull()->LeaveHeapScope();
 }
 
 // 0x00463C70
@@ -211,12 +211,12 @@ void CCinematicTable::DestroyObjects()
         ObjectEntry& entry = m_entities[i];
         if (entry.active) {
             // the level's object it stood in for gets its model's settings back
-            CObjectModule* standIn = static_cast<CGameEntity*>(entry.object)->GetComponent(kModelComponent);
+            CObjectModule* standIn = static_cast<CGameEntity*>(entry.object)->FetchModule(kModelComponent);
             uint32_t id = static_cast<CMeshInstanceModule*>(standIn)->GetLinkedEntityName();
             auto* original = static_cast<CGameEntity*>(FindObject(id));
-            void* model = ModelOf(original->GetComponent(kModelComponent));
-            static_cast<Engine3D::CRenderModel*>(model)->ChangeBoundSphere(reinterpret_cast<const Maths::Vector*>(m_lent2C));
-            static_cast<Engine3D::CRenderModel*>(model)->Hide(m_lent3C);
+            void* model = ModelOf(original->FetchModule(kModelComponent));
+            static_cast<Engine3D::CRenderModel*>(model)->ChangeBoundSphere(reinterpret_cast<const Maths::Vec4*>(m_lent2C));
+            static_cast<Engine3D::CRenderModel*>(model)->Conceal(m_lent3C);
             static_cast<Engine3D::CRenderModel*>(model)->AllowResizing(m_lent3D);
             uint32_t mine = ModelGet(model);
             ModelSet(model, ModelGet(ModelOf(standIn)));
@@ -260,8 +260,8 @@ void CCinematicTable::LoadAnimation(uint32_t name, uint32_t a2, uint32_t a3)
 CGameEntity* CCinematicTable::CreateObject(Scripts::CStruct* params)
 {
     void* memory = MemSys::AllocZeroed(0x108);
-    auto* object = memory ? static_cast<CGameEntity*>(memory)->Construct() : nullptr;
-    object->SetType(kCutsceneObjectType);
+    auto* object = memory ? static_cast<CGameEntity*>(memory)->MakeNew() : nullptr;
+    object->ChangeSpecies(kCutsceneObjectType);
     void* objects = static_cast<void*>(g_compositeObjectManager);
     reinterpret_cast<void(__thiscall*)(void*, CGameEntity*)>((*reinterpret_cast<void***>(objects))[1])(objects,
                                                                                                          object);
@@ -282,17 +282,17 @@ void CCinematicTable::ShowHiddenObjects()
 {
     if (!m_flag34B0)
         return;
-    Scripts::CArray* hidden = Scripts::GetArray(kHideObjects);
+    Scripts::CArray* hidden = Scripts::FetchList(kHideObjects);
     if (!hidden)
         return;
-    for (uint32_t i = 0; i < hidden->m_size; ++i) {
-        auto* object = static_cast<CGameEntity*>(FindObject(hidden->GetElement(i)));
+    for (uint32_t i = 0; i < hidden->m_extent; ++i) {
+        auto* object = static_cast<CGameEntity*>(FindObject(hidden->FetchPart(i)));
         if (!object)
             continue;
-        CObjectModule* component = object->GetComponent(kModelComponent);
+        CObjectModule* component = object->FetchModule(kModelComponent);
         if (!component || !ModelOf(component))
             continue;
-        static_cast<Engine3D::CRenderModel*>(ModelOf(component))->SetActive(1);
+        static_cast<Engine3D::CRenderModel*>(ModelOf(component))->ChangeLive(1);
         reinterpret_cast<void(__thiscall*)(CObjectModule*)>((*reinterpret_cast<void***>(component))[1])(component);
     }
 }
@@ -302,9 +302,9 @@ void CCinematicTable::RefreshViewer(void* camera)
 {
     if (!m_flag34B0)
         return;
-    static_cast<Gfx2D::Camera*>(camera)->RememberPrevPos();
-    auto* position = reinterpret_cast<float*>(static_cast<Gfx2D::Camera*>(camera)->GetPos());
-    auto* matrix = reinterpret_cast<float*>(static_cast<Gfx2D::Camera*>(camera)->GetMatrix());
+    static_cast<Gfx2D::ViewCam*>(camera)->RememberPrevPos();
+    auto* position = reinterpret_cast<float*>(static_cast<Gfx2D::ViewCam*>(camera)->FetchLocation());
+    auto* matrix = reinterpret_cast<float*>(static_cast<Gfx2D::ViewCam*>(camera)->FetchMat());
     float rotation[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     float translation[4];
     bool flag = false;
@@ -316,11 +316,11 @@ void CCinematicTable::RefreshViewer(void* camera)
     QuatToMatrix(rotation, origin, matrix);
     if (m_skipped)
         return;
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_cutsceneBottomUpHeap);
     static_cast<Gfx2D::CJointClipFrames*>(mp_objectAnims)
         ->FireEvents(std::bit_cast<float>(m_unknown3478), m_clock, camera, 0);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
 }
 
 // 0x00464360
@@ -332,7 +332,7 @@ void CCinematicTable::UpdateObjectPoses()
         ObjectEntry& entry = m_entities[i];
         if (!entry.animation)
             continue;
-        CObjectModule* component = entry.object->GetComponent(kSkeletonComponent);
+        CObjectModule* component = entry.object->FetchModule(kSkeletonComponent);
         if (!component)
             continue;
         // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
@@ -350,10 +350,10 @@ void CCinematicTable::UpdateObjectPoses()
         if (m_clock - static_cast<double>(m_unknown3480) < 0.083333336f)
             source = nullptr;
         static_cast<Gfx2D::CJointClipFrames*>(animation)->GetFrames(
-            reinterpret_cast<Maths::QuatRotation*>(rotations), reinterpret_cast<Maths::Vector*>(translations),
+            reinterpret_cast<Maths::QuatRotation*>(rotations), reinterpret_cast<Maths::Vec4*>(translations),
             g_cutsceneCameraSlot, static_cast<float>(m_clock - static_cast<double>(m_cameraStart)), -1,
             source);
-        reinterpret_cast<Gfx2D::CRig*>(skeleton)->Update(reinterpret_cast<const float(*)[4]>(rotations),
+        reinterpret_cast<Gfx2D::CRig*>(skeleton)->TickFrame(reinterpret_cast<const float(*)[4]>(rotations),
                                                             reinterpret_cast<const float(*)[4]>(translations));
     }
 }

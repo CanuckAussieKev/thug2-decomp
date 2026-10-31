@@ -25,23 +25,23 @@ constexpr uint32_t kFence = 0x771994FF;           // "Sk4Ed_Fence_20x20"
 // 0x00417190 / 0x004171B0, tested by 0x004172F0; what it hit is held by a smart pointer.
 struct Feeler {
     uint8_t unknown00[0x78];
-    Maths::Vector m_contactPos;              // +0x78: where it hit
+    Maths::Vec4 m_contactPos;              // +0x78: where it hit
     uint8_t unknown88[0x10];
-    GameObjects::CSharedRef<GameObjects::CSharedBase> m_object; // +0x98
+    GameObjects::CSharedRef<GameObjects::CSharedBase> m_entity; // +0x98
     uint8_t unknownA4[0xC];
 
     Engine3D::CProbeRay* Ours() { return reinterpret_cast<Engine3D::CProbeRay*>(this); }
-    Feeler* Construct() { return reinterpret_cast<Feeler*>(Ours()->Construct()); }
-    void SetStart(Maths::Vector* start) { Ours()->SetStart(start); }
-    void SetEnd(Maths::Vector* end) { Ours()->SetEnd(end); }
+    Feeler* MakeNew() { return reinterpret_cast<Feeler*>(Ours()->MakeNew()); }
+    void ChangeOrigin(Maths::Vec4* start) { Ours()->ChangeOrigin(start); }
+    void ChangeFinish(Maths::Vec4* end) { Ours()->ChangeFinish(end); }
     // (the original's result is read from AL)
     bool GetHitShape(bool movables, bool farthest) { return Ours()->GetHitShape(movables, farthest) != 0; }
 };
-static_assert(offsetof(Feeler, m_object) == 0x98);
+static_assert(offsetof(Feeler, m_entity) == 0x98);
 static_assert(sizeof(Feeler) == 0xB0);
 
 // The park editor (a reference taken here, let go by ReleaseParkEditor): whether the park is full.
-bool ParkIsFull() { return CParkBuilderMode::Create(false)->IsParkFull() != 0; }
+bool ParkIsFull() { return CParkBuilderMode::Fabricate(false)->IsParkFull() != 0; }
 void ReleaseParkEditor() { CParkBuilderMode::Release(); }
 
 } // namespace
@@ -105,19 +105,19 @@ void CParkLayout::GenerateNodeArray()
             if (metas.list)
                 pos.y = static_cast<int8_t>(metas.list->GetPlacedPiece()->m_cellFootprint.h + pos.y);
         }
-        Maths::Vector point;
+        Maths::Vec4 point;
         point.x = static_cast<float>((pos.x - 29) * static_cast<double>(kCellWidth) + kCellWidth * 0.5);
         point.y = static_cast<float>(pos.y * static_cast<double>(kCellHeight));
         point.z = static_cast<float>((pos.z - 29) * static_cast<double>(kCellLength) + kCellLength * 0.5);
         point.w = 1.0f;
         Feeler feeler;
-        feeler.Construct();
-        Maths::Vector start = {point.x, static_cast<float>(static_cast<double>(point.y) + 10000.0), point.z,
+        feeler.MakeNew();
+        Maths::Vec4 start = {point.x, static_cast<float>(static_cast<double>(point.y) + 10000.0), point.z,
                              static_cast<float>(static_cast<double>(point.w) + 1.0)};
-        feeler.SetStart(&start);
-        Maths::Vector end = {point.x, static_cast<float>(static_cast<double>(point.y) - 1000.0), point.z,
+        feeler.ChangeOrigin(&start);
+        Maths::Vec4 end = {point.x, static_cast<float>(static_cast<double>(point.y) - 1000.0), point.z,
                            static_cast<float>(static_cast<double>(point.w) + 1.0)};
-        feeler.SetEnd(&end);
+        feeler.ChangeFinish(&end);
         if (feeler.GetHitShape(true, false)) {
             if (i >= 2 && i <= 5)
                 point.y = feeler.m_contactPos.y;
@@ -138,7 +138,7 @@ bool CParkLayout::CanChangeFloorHere(SCellBox area, bool uneven)
         MapListHolder metas(CollectPiecesInRegion(area));
         bool clear = true;
         for (CMapListNode* node = metas.list; node; node = node->m_following) {
-            if (!(node->GetPlacedPiece()->m_flags & CPieceGroup::kInnerShell)) {
+            if (!(node->GetPlacedPiece()->m_flagBits & CPieceGroup::kInnerShell)) {
                 clear = false;
                 break;
             }
@@ -275,7 +275,7 @@ void CParkLayout::RebuildFloorPiece(FloorPieceRequest* request)
     for (CMapListNode* node = metas.list; node;) {
         CPieceGroup* meta = node->GetPlacedPiece();
         node = node->m_following;
-        if (!(meta->m_flags & CPieceGroup::kInnerShell))
+        if (!(meta->m_flagBits & CPieceGroup::kInnerShell))
             continue;
         if (top && meta->m_nameKey == top && meta->m_cellFootprint.y == request->y) {
             top = 0;
@@ -298,7 +298,7 @@ void CParkLayout::RebuildFloorPiece(FloorPieceRequest* request)
         CPieceGroup* meta = MakePlacedPiece(FindPieceTemplate(below), 0);
         if (request->x < m_parkBounds.x || request->x >= m_parkBounds.x + m_parkBounds.w ||
             request->z < m_parkBounds.z || request->z >= m_parkBounds.z + m_parkBounds.l)
-            meta->m_flags |= CPieceGroup::kRiserBelow | CPieceGroup::kFlag400;
+            meta->m_flagBits |= CPieceGroup::kRiserBelow | CPieceGroup::kFlag400;
         PlaceMetaPieceInPark(SCellBox::Make(static_cast<uint8_t>(request->x), static_cast<int8_t>(belowY),
                                           static_cast<uint8_t>(request->z), 0, 0, 0),
                            meta);
@@ -332,7 +332,7 @@ void CParkLayout::RebuildInnerShell(SCellBox bounds)
     for (CMapListNode* node = mp_concrete_metas; node;) {
         CMapListNode* next = node->m_following;
         SCellBox area = node->GetPlacedPiece()->m_cellFootprint;
-        uint32_t flags = node->GetPlacedPiece()->m_flags;
+        uint32_t flags = node->GetPlacedPiece()->m_flagBits;
         bool destroy;
         if (flags & CPieceGroup::kFence)
             destroy = true;
@@ -355,7 +355,7 @@ void CParkLayout::RebuildInnerShell(SCellBox bounds)
             return;
         CPieceGroup* meta = MakePlacedPiece(fence, 0);
         meta->SetQuarterTurns(rot);
-        meta->m_flags |= CPieceGroup::kFence;
+        meta->m_flagBits |= CPieceGroup::kFence;
         PlaceMetaPieceInPark(at, meta);
     };
     for (int x = park.x; x < park.w + park.x; x += 2) {
@@ -379,7 +379,7 @@ void CParkLayout::RebuildInnerShell(SCellBox bounds)
                 m_floor[x][z].m_levelY = 0;
         }
     }
-    m_builder->UpdateBounds((m_flags & kMapLoaded) ? m_map.m_shellSize : 0);
+    m_builder->UpdateBounds((m_flagBits & kMapLoaded) ? m_map.m_shellSize : 0);
     MarkProgress("RebuildInnerShell-End");
 }
 
@@ -414,7 +414,7 @@ bool CParkLayout::RegenerateGround(SCellBox* area, int /*unused*/)
         // The inner shell's pieces outside the park go first.
         for (CMapListNode* node = mp_concrete_metas; node; node = node->m_following) {
             CPieceGroup* meta = node->GetPieceGroup();
-            if (!(meta->m_flags & CPieceGroup::kInnerShell))
+            if (!(meta->m_flagBits & CPieceGroup::kInnerShell))
                 continue;
             SCellBox d = meta->m_cellFootprint;
             if (d.x >= m_parkBounds.x && d.z >= m_parkBounds.z && d.w + d.x <= m_parkBounds.w + m_parkBounds.x &&

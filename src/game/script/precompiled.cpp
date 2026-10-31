@@ -26,10 +26,10 @@ uint32_t StoredStringSize(const char* text) { return Align4(static_cast<uint32_t
 // 0x0046C7B0 (a CArray method)
 void RelocateArrayElements(CArray* array, uint32_t base)
 {
-    if (array->m_size > 1) {
-        for (uint32_t i = 0; i < array->m_size; ++i)
+    if (array->m_extent > 1) {
+        for (uint32_t i = 0; i < array->m_extent; ++i)
             array->m_elements[i] += base;
-    } else if (array->m_size == 1) {
+    } else if (array->m_extent == 1) {
         array->m_single += base;
     }
 }
@@ -37,7 +37,7 @@ void RelocateArrayElements(CArray* array, uint32_t base)
 // 0x0046C830
 uint8_t* RelocateArray(CArray* array, uint32_t base)
 {
-    uint32_t size = array->m_size;
+    uint32_t size = array->m_extent;
     auto* end = reinterpret_cast<uint8_t*>(array + 1);
     uint32_t* elements;
     if (size > 1) {
@@ -48,7 +48,7 @@ uint8_t* RelocateArray(CArray* array, uint32_t base)
     } else {
         elements = &array->m_single;
     }
-    switch (array->m_type) {
+    switch (array->m_kindTag) {
     case QBVAL_STRING:
     case QBVAL_INLINE_TEXT: {
         RelocateArrayElements(array, base);
@@ -85,7 +85,7 @@ uint8_t* RelocateComponent(CComponent* component, uint32_t base)
     if (component->next)
         Relocate(component->next, base);
     auto* end = reinterpret_cast<uint8_t*>(component + 1);
-    switch (component->Type()) {
+    switch (component->KindTag()) {
     case QBVAL_STRING:
     case QBVAL_INLINE_TEXT:
         Relocate(component->string, base);

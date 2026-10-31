@@ -20,7 +20,7 @@ namespace AssetStore {
 
 AssetStore::CResourceRegistry* g_assetManager;
 int g_assManReferences;
-FrameLoop::Manager* g_mainLoopManager;
+FrameLoop::Hub* g_mainLoopManager;
 
 namespace {
 
@@ -49,9 +49,9 @@ ExtensionType g_extensions[13]{
 const ExtensionType* Extensions() { return g_extensions; }
 
 // The hash table lookup inlined in the original: the first item with the key and a value.
-CResource* Find(ListKit::HashTable* table, uint32_t checksum)
+CResource* Find(ListKit::KeyMap* table, uint32_t checksum)
 {
-    for (ListKit::HashTable::Item* item = &table->m_buckets[((1u << table->m_bits) - 1) & checksum]; item;
+    for (ListKit::KeyMap::Item* item = &table->m_buckets[((1u << table->m_bits) - 1) & checksum]; item;
          item = item->next) {
         if (item->key == checksum && item->value)
             return static_cast<CResource*>(item->value);
@@ -67,13 +67,13 @@ void WaitUntilLoaded(CResource* asset)
 void Append(CResource** head, CResource* asset)
 {
     if (*head) {
-        asset->m_next = *head;
+        asset->m_succ = *head;
         asset->m_lastValue = (*head)->m_lastValue;
-        (*head)->m_lastValue->m_next = asset;
+        (*head)->m_lastValue->m_succ = asset;
         (*head)->m_lastValue = asset;
     } else {
         *head = asset;
-        asset->m_next = asset;
+        asset->m_succ = asset;
         asset->m_lastValue = asset;
     }
 }
@@ -127,7 +127,7 @@ CResource* MakeAsset(int type, bool withCutscene)
 // The manager's callback given to a new asset (cleared after one asset if it's a one-shot).
 void GiveCallback(CResourceRegistry* manager, CResource* asset)
 {
-    asset->SetCallback(manager->m_callback, manager->m_callbackData0, manager->m_callbackData1);
+    asset->ChangeHook(manager->m_callback, manager->m_callbackData0, manager->m_callbackData1);
     if (manager->m_callbackOnce) {
         manager->m_callback = nullptr;
         manager->m_callbackOnce = false;
@@ -139,19 +139,19 @@ void JoinGroup(CResourceRegistry* manager, CResource* asset, uint32_t group)
     if (!group)
         return;
     CResource* owner = manager->ObtainLoadedItem(group, 1);
-    asset->SetGroup(owner);
+    asset->ChangeCluster(owner);
     owner->AddDependent(asset);
 }
 
 } // namespace
 
 // 0x00407F80
-CResourceRegistry* CResourceRegistry::Construct()
+CResourceRegistry* CResourceRegistry::MakeNew()
 {
-    GameModules::Module::Construct();
+    GameModules::PartUnit::MakeNew();
     m_vtable = kAssManVtable;
-    void* memory = MemSys::New(sizeof(ListKit::HashTable));
-    m_assets = memory ? new (memory) ListKit::HashTable(10) : nullptr;
+    void* memory = MemSys::Alloc(sizeof(ListKit::KeyMap));
+    m_assets = memory ? new (memory) ListKit::KeyMap(10) : nullptr;
     m_callback = nullptr;
     m_callbackOnce = false;
     m_pending = nullptr;
@@ -159,7 +159,7 @@ CResourceRegistry* CResourceRegistry::Construct()
     m_unknown15 = false;
     auto* task = static_cast<TaskList::SchedulerTask*>(MemSys::AllocZeroed(0x20));
     if (task) {
-        task->Construct(0);
+        task->MakeNew(0);
         reinterpret_cast<void**>(task)[7] = this;                                  // +0x1C the data
         task->m_vtable = GameCode::kTaskVtable;
         reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&ProcessTask); // +0x18 the callback
@@ -174,17 +174,17 @@ void CResourceRegistry::Destruct()
     m_vtable = kAssManVtable;
     UnloadAssetsInList(m_readyFlag, true);  // (inlined)
     UnloadAssetsInList(m_pending, true);
-    if (ListKit::HashTable* table = m_assets) {
+    if (ListKit::KeyMap* table = m_assets) {
         if (table->m_buckets) {
             table->EmptyTable();
-            MemSys::Manager::Get()->Free(table->m_buckets);
+            MemSys::Hub::Pull()->Dealloc(table->m_buckets);
             table->m_buckets = nullptr;
         }
-        MemSys::Manager::Get()->Free(table);
+        MemSys::Hub::Pull()->Dealloc(table);
     }
     if (m_task)
         reinterpret_cast<void(__thiscall*)(TaskList::SchedulerTask*, int)>(m_task->m_vtable[2])(m_task, 1);
-    GameModules::Module::DestroyBody();
+    GameModules::PartUnit::DestroyBody();
 }
 
 // 0x00408A10
@@ -192,20 +192,20 @@ CResourceRegistry* CResourceRegistry::ScalarDelete(uint8_t flags)
 {
     Destruct();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00407E90
 void CResourceRegistry::StartCallback()
 {
-    reinterpret_cast<TaskList::Stack*>(reinterpret_cast<uint8_t*>(g_mainLoopManager) + 0x04)->AddTask(m_task); // the logic tasks
+    reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(g_mainLoopManager) + 0x04)->QueueJob(m_task); // the logic tasks
 }
 
 // 0x00407AE0
 void CResourceRegistry::StopCallback()
 {
-    m_task->Remove();
+    m_task->DropOut();
 }
 
 // 0x00408060
@@ -216,7 +216,7 @@ void* CResourceRegistry::ReadResourceFromStream(uint32_t checksum, int type, uin
     CResource* asset = MakeAsset(type, false);
     // (a type that isn't one leaves a null asset: the original crashes here)
     asset->m_pinned = permanent;
-    asset->m_state = kUnloaded;
+    asset->m_curPhase = kUnloaded;
     asset->SetChecksum(checksum);
     GiveCallback(this, asset);
     // (the original formats "%08x from data stream" with the checksum for the memory profile, unused)
@@ -248,7 +248,7 @@ void* CResourceRegistry::LoadAsset(const char* name, int type, uint32_t checksum
     CResource* asset = MakeAsset(type, true);
     // (a type that isn't one leaves a null asset: the original crashes here)
     asset->m_pinned = permanent;
-    asset->m_state = kUnloaded;
+    asset->m_curPhase = kUnloaded;
     GiveCallback(this, asset);
     asset->SetChecksum(checksum);
     JoinGroup(this, asset, group);
@@ -432,9 +432,9 @@ void CResourceRegistry::ProcessPendingAssets()
 {
     CResource* asset = m_pending;
     while (asset) {
-        CResource* next = asset->m_next;
+        CResource* next = asset->m_succ;
         bool finished = false;
-        switch (asset->m_state) {
+        switch (asset->m_curPhase) {
         case kRead:
             // (a group that isn't loaded yet holds it back)
             if (asset->m_bundle && !asset->m_bundle->VIsLoaded())
@@ -444,7 +444,7 @@ void CResourceRegistry::ProcessPendingAssets()
             if (!asset->VProcessBuffer())
                 break;
             if (asset->m_callback)
-                asset->m_callback(asset, asset->m_size, asset->m_callbackData0, asset->m_callbackData1);
+                asset->m_callback(asset, asset->m_extent, asset->m_callbackData0, asset->m_callbackData1);
             finished = true;
             break;
         case kLoaded:
@@ -470,21 +470,21 @@ void __cdecl CResourceRegistry::ProcessTask(TaskList::SchedulerTask* task)
 // 0x00407A80
 bool CResourceRegistry::RemoveFromList(CResource** head, CResource* asset)
 {
-    if (asset->m_next == asset) {
+    if (asset->m_succ == asset) {
         // (the only one: the list emptied without checking it's this list)
         *head = nullptr;
         asset->m_lastValue = nullptr;
-        asset->m_next = nullptr;
+        asset->m_succ = nullptr;
         return true;
     }
     if (*head == asset)
-        *head = asset->m_next;
-    for (CResource* item = *head; item; item = item->m_next) {
+        *head = asset->m_succ;
+    for (CResource* item = *head; item; item = item->m_succ) {
         if (item == asset) {
-            asset->m_next->m_lastValue = asset->m_lastValue;
-            asset->m_lastValue->m_next = asset->m_next;
+            asset->m_succ->m_lastValue = asset->m_lastValue;
+            asset->m_lastValue->m_succ = asset->m_succ;
             asset->m_lastValue = nullptr;
-            asset->m_next = nullptr;
+            asset->m_succ = nullptr;
             return true;
         }
     }
@@ -513,7 +513,7 @@ CResourceRegistry* CreateAssetManager(bool create)
     if (!manager && create) {
         void* memory = MemSys::AllocZeroed(sizeof(CResourceRegistry), nullptr, 1);
         if (memory) {
-            manager = static_cast<CResourceRegistry*>(memory)->Construct();
+            manager = static_cast<CResourceRegistry*>(memory)->MakeNew();
             AssetManager() = manager;
             ++RefTally();
             return manager;

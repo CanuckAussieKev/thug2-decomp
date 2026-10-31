@@ -21,11 +21,11 @@ struct GroundTriangle {
     // 0x004EDC10 (not a Ghidra function): the copy assignment (ECX = this, RET 4; returns this).
     GroundTriangle& Assign(const GroundTriangle& source);
 
-    Maths::Vector corners[3];
+    Maths::Vec4 corners[3];
 };
 static_assert(sizeof(GroundTriangle) == 0x30, "layout must match the original");
 
-// CPedestrianBrainModule::m_flags (+0x20)
+// CPedestrianBrainModule::m_flagBits (+0x20)
 constexpr uint32_t PED_FLAG_BOARD_HIDEABLE = 0x1;   // its profile's board has a desc_id: hide_boardgeom hides it
 constexpr uint32_t PED_FLAG_MOVING = 0x2;           // following its path (Ped_StartMoving / Ped_StopMoving)
 constexpr uint32_t PED_FLAG_GRINDING = 0x4;         // Ped_SetIsGrinding
@@ -61,7 +61,7 @@ public:
     static constexpr uint32_t kType = 0x6EFDDFB8;
 
     // 0x004F0B10 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x004ECFB0 (registered with Create; not a Ghidra function): the member function table 0x00683730 (24-byte
     // records) made script symbols.
     static void __cdecl PublishMethodTable();
@@ -70,20 +70,20 @@ public:
     // 0x004EE4F0: the base's constructor, its vtable and type; no avoidance or bias, the position history at the
     // origin, ped_skater_stick_dist_above / below, the states "" (their checksums), no aux script, the next waypoint at
     // the origin. Returns this.
-    CPedestrianBrainModule* Construct();
+    CPedestrianBrainModule* MakeNew();
     // 0x004F2120: the aux script deleted, then the base's body.
     void DestroyBody();
     // 0x004F2540 (vtable slot 0)
-    CPedestrianBrainModule* Destroy(unsigned int flags);
+    CPedestrianBrainModule* Teardown(unsigned int flags);
     // 0x004ED2C0 (vtable slot 2): female if SkeletonName is Ped_Female; PED_FLAG_BOARD_HIDEABLE if profile's board has
     // a desc_id; the start node (Name, asserted) and its position; up = the object's up row (all three); DistAbove /
     // DistBelow (the stick distances); the display matrix kept.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x004F2190 (vtable slot 1): the frame time, then the move update ped_update_type names; the aux script run.
-    void Update();
+    void TickFrame();
 
     // 0x004ED140: the logic state (a state table's member name; shot, ...).
-    uint32_t GetLogicState() { return m_state; }
+    uint32_t GetLogicState() { return m_curPhase; }
 
     // 0x004F0B70: the logic state `state` of `table` (0: the object's UniqueStateTable tag, else Ped_StateLogic_Table;
     // a state the table hasn't is looked for in Ped_StateLogic_Table) set: the old state's exit_state_action (a script
@@ -91,7 +91,7 @@ public:
     // DelayedTable tags - and STATE_DELAY_waitanim runs), the board shown / hidden by hide_boardgeom, the object's
     // script switched to script_ped_state with `params`, the aux script killed, ped_initialize_movement run. False if
     // the object hasn't its ped_init tag or the state isn't found.
-    bool SetState(uint32_t state, uint32_t table, Scripts::CStruct* params);
+    bool ChangePhase(uint32_t state, uint32_t table, Scripts::CStruct* params);
     // 0x004ED460: ped_initialize_movement run on the object; moving if the update type is the generic or the skater
     // move update.
     void InitializeMovement();
@@ -141,7 +141,7 @@ public:
     void Manual(Scripts::CStruct* node);                  // 0x004F1C40 STATE_manual
     void ManualDown(Scripts::CStruct* node);              // 0x004F1C90 STATE_manualdown
     void GrabTrick(Scripts::CStruct* node, bool vert);    // 0x004F1CE0 STATE_trickgrab (is_vert, jumpTime, is_jumping)
-    void Stop(Scripts::CStruct* node);                    // 0x004F1DC0 STATE_stop
+    void Halt(Scripts::CStruct* node);                    // 0x004F1DC0 STATE_stop
     void RollOff(Scripts::CStruct* node);                 // 0x004F1F30 STATE_rolloff (no parameters)
     void FlipTrick(Scripts::CStruct* node, bool vert);    // 0x004F1F50 STATE_trickflip
     // 0x004F1E80 (not a Ghidra function): a bail off the grind it's on (STATE_bailgrind; the node after next becomes
@@ -165,7 +165,7 @@ public:
     float SteerSideways();
     float SteerForward();
     // 0x004EE650: facing `direction` (flat), upright: the display matrix, the orientation and the kept matrix.
-    void FaceAlong(const Maths::Vector* direction);
+    void FaceAlong(const Maths::Vec4* direction);
     // 0x004EE7D0: the bias away from each other ped of the path near enough (ped_avoid_ped_range, within
     // ped_max_y_distance_to_ignore up or down) that's ahead or slower; head on, to the side. Whether any was.
     bool AvoidPeds();
@@ -174,16 +174,16 @@ public:
     // 0x004EEDC0: the object moved by the steering at the motion component's speed (the position history pushed).
     void MoveSteered();
     // 0x004EEEC0: steering towards `target` with `weight`.
-    void SteerTowards(Maths::Vector target, float weight);
+    void SteerTowards(Maths::Vec4 target, float weight);
     // 0x004F2780: steering towards the next waypoint, and near it (ped_[skater_]fade_target_bias_max_distance_square)
     // towards the one after over the frames the corner takes; the waypoint reached when the turn is done (or, at a
     // dead end, when near enough). Whether it's turning.
     bool TurnTowardsNodeAfter();
     // 0x004EF350: facing where it moved from `oldPos` (a walker turning at most 3 degrees a frame - more on sharp
     // turns; a skater along its path to a lip).
-    void FaceMovement(Maths::Vector oldPos);
+    void FaceMovement(Maths::Vec4 oldPos);
     // 0x004EF740: the ground hit between `start` and `end`: the point, the face's triangle, its terrain's sounds.
-    bool ProbeGround(const Maths::Vector* start, const Maths::Vector* end, Maths::Vector* point, GroundTriangle* triangle);
+    bool ProbeGround(const Maths::Vec4* start, const Maths::Vec4* end, Maths::Vec4* point, GroundTriangle* triangle);
     // 0x004EF930 (not a Ghidra function): the orientation's across row rebuilt; the object put on the ground found
     // from m_stickAbove above to m_stickBelow below (the motion component's ground triangle kept).
     void StickToGroundPed();
@@ -194,7 +194,7 @@ public:
     void SpinUpdate();
     // 0x004F03C0: what's `range` ahead along `direction` (flattened to the up plane): a ped within 30 degrees (3, its
     // position), the world (1, the hit point), nothing (0).
-    int ProbeAhead(Maths::Vector direction, float range, Maths::Vector* out);
+    int ProbeAhead(Maths::Vec4 direction, float range, Maths::Vec4* out);
     // 0x004F1780 (gohome_move_update), 0x004F1480 (chase_move_update), 0x004F0DD0 (blocker_move_update), 0x004F1890
     // (bail_move_update): the move updates the update type names.
     void GoHomeUpdate();
@@ -250,8 +250,8 @@ public:
 
     uint32_t m_kind;               // +0x18 0 a walker, 2 a skater (Ped_SetIsSkater)
     uint32_t m_female;             // +0x1C 1: SkeletonName is Ped_Female
-    uint32_t m_flags;              // +0x20 PED_FLAG_*
-    uint32_t m_state;              // +0x24 the logic state (LogicState)
+    uint32_t m_flagBits;              // +0x20 PED_FLAG_*
+    uint32_t m_curPhase;              // +0x24 the logic state (LogicState)
     uint32_t m_stateTable;         // +0x28 its table
     uint32_t m_updateType;         // +0x2C ped_update_type (the move update run each frame)
     Scripts::CScript* mp_auxScript; // +0x30
@@ -260,16 +260,16 @@ public:
     uint32_t m_listLink;               // +0x54 the node it came from (a name)
     uint32_t m_nextNode;           // +0x58 the node it's heading for
     uint32_t m_nodeAfter;          // +0x5C the node after that (chosen ahead)
-    Maths::Vector m_nodePos;         // +0x60 m_listLink's position
-    Maths::Vector m_nextNodePos;     // +0x70
-    Maths::Vector m_nodeAfterPos;    // +0x80
+    Maths::Vec4 m_nodePos;         // +0x60 m_listLink's position
+    Maths::Vec4 m_nextNodePos;     // +0x70
+    Maths::Vec4 m_nodeAfterPos;    // +0x80
     int m_turnFrame;               // +0x90 frames into the turn towards the node after
     int m_turnFrames;              // +0x94 the turn's length (0: not turning)
     CObjectGroup* mp_peds;         // +0x98 the path manager's extra group (the other peds to avoid)
     float m_frameTime;             // +0x9C this frame's (seconds)
-    Maths::Vector m_upDir;              // +0xA0 the up it blends from
-    Maths::Vector m_upTarget;        // +0xB0 the up it blends to
-    Maths::Vector m_upShown;         // +0xC0 the up it has
+    Maths::Vec4 m_upDir;              // +0xA0 the up it blends from
+    Maths::Vec4 m_upTarget;        // +0xB0 the up it blends to
+    Maths::Vec4 m_upShown;         // +0xC0 the up it has
     float m_upBlend;               // +0xD0 1 .. 0 along the blend
     float m_stickAbove;            // +0xD4 DistAbove (ped_skater_stick_dist_above)
     float m_stickBelow;            // +0xD8 DistBelow (ped_skater_stick_dist_below)
@@ -279,13 +279,13 @@ public:
     float m_twistRate;                  // +0xE8 how far it has spun (degrees)
     float m_spinTime;              // +0xEC the jump's length (seconds)
     float m_spinElapsed;           // +0xF0
-    Maths::Matrix m_jumpMatrix;      // +0xF4 the display matrix at the take-off
+    Maths::Mat4 m_jumpMatrix;      // +0xF4 the display matrix at the take-off
     float m_vertRotation;          // +0x134 how far it has turned over the spine (degrees)
     float m_vertRotationTarget;    // +0x138
-    Maths::Matrix m_savedMatrix;     // +0x13C the display matrix kept
-    Maths::Vector m_pastFrames[5];      // +0x17C its last positions (the newest last)
+    Maths::Mat4 m_savedMatrix;     // +0x13C the display matrix kept
+    Maths::Vec4 m_pastFrames[5];      // +0x17C its last positions (the newest last)
 };
-static_assert(offsetof(CPedestrianBrainModule, m_kind) == 0x18 && offsetof(CPedestrianBrainModule, m_flags) == 0x20 &&
+static_assert(offsetof(CPedestrianBrainModule, m_kind) == 0x18 && offsetof(CPedestrianBrainModule, m_flagBits) == 0x20 &&
                   offsetof(CPedestrianBrainModule, mp_auxScript) == 0x30 && offsetof(CPedestrianBrainModule, m_avoid) == 0x34 &&
                   offsetof(CPedestrianBrainModule, m_bias) == 0x44 && offsetof(CPedestrianBrainModule, m_listLink) == 0x54 &&
                   offsetof(CPedestrianBrainModule, m_nodePos) == 0x60 && offsetof(CPedestrianBrainModule, m_turnFrame) == 0x90 &&

@@ -15,7 +15,7 @@ public:
     // 0x004AE050: the constructor (returns this): vtables 0x0064A154 / 0x0064A14C (the listener, registered for
     // the element), no menu yet, scroll_speed 10000, every item shown, no regular spacing (-1); type
     // VScrollingMenu (also for the horizontal one: its constructor doesn't change it).
-    CScrollingMenu* Construct();
+    CScrollingMenu* MakeNew();
     // 0x004AE170 / 0x004AE1C0: vertical (vtables 0x0064A188 / 0x0064A180) / horizontal (0x0064A1BC / 0x0064A1B4).
     CScrollingMenu* ConstructVertical();
     CScrollingMenu* ConstructHorizontal();
@@ -26,19 +26,19 @@ public:
     void DestroyBodyHorizontal();
     // 0x004AE240 / 0x004AE270 / 0x004AE2A0 (vtable slot 0 of each); 0x004AE210 / 0x004AE220 / 0x004AE230: the
     // same from the listener (+0x178).
-    CScrollingMenu* Destroy(uint8_t flags);
+    CScrollingMenu* Teardown(uint8_t flags);
     CScrollingMenu* DestroyVertical(uint8_t flags);
     CScrollingMenu* DestroyHorizontal(uint8_t flags);
 
     // 0x004AE520 (slot 1): internal_just, scroll_speed (an integer), num_items_to_show, reset_window_top /
     // reset_window_bottom / 0xA1F3B8BB (a new arrangement); then CUiWidget's.
-    void SetProperties(Scripts::CStruct* params);
+    void ChangeTraits(Scripts::CStruct* params);
     // 0x004AE6A0 (slot 5): the event for its script first (pad-event priorities as the menus'); the focus flag's
     // event finds the menu and arranges; focus / unfocus pass to the menu. True unless refused.
     bool PassEventToScript(GameObjects::CSignal* event);
     // 0x004AE960 (slot 10): the window follows the selected item (by scroll_speed per frame), the menu moves
     // against it and the items outside the window are hidden.
-    void Update();
+    void TickFrame();
     // 0x004AE7E0 (the listener's slot 1, `this` = the listener): the menu's focus flag event re-arranges; focus
     // on one of the menu's items selects it.
     void ListenerReceive(GameObjects::CSignal* event);

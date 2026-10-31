@@ -36,14 +36,14 @@ CClassNodeList* HookNodes(CObjectModule* hooks)
 // The nodes' transform: the object's orientation (the w column cleared) at its position.
 void PlaceNodes(CClassNodeList* nodes, CGameEntity* object)
 {
-    Maths::Matrix transform;
+    Maths::Mat4 transform;
     transform = object->m_basisFrame;
-    transform.row[3].x = object->m_pos.x;
-    transform.row[3].z = object->m_pos.z;
+    transform.row[3].x = object->m_atPoint.x;
+    transform.row[3].z = object->m_atPoint.z;
     transform.row[0].w = 0.0f;
     transform.row[1].w = 0.0f;
     transform.row[2].w = 0.0f;
-    transform.row[3].y = object->m_pos.y;
+    transform.row[3].y = object->m_atPoint.y;
     transform.row[3].w = 1.0f;
     nodes->SetTransform(&transform);
 }
@@ -51,18 +51,18 @@ void PlaceNodes(CClassNodeList* nodes, CGameEntity* object)
 } // namespace
 
 // 0x0051B970
-void ComponentWithoutUpdate::Update() { VirtualSuspend(true); }
+void ComponentWithoutUpdate::TickFrame() { VirtualSuspend(true); }
 
 // 0x0051BA10
-CObjectModule* __cdecl CTowRideHandler::Create()
+CObjectModule* __cdecl CTowRideHandler::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CTowRideHandler));
     if (!memory)
         return nullptr;
     auto* skitch = static_cast<CTowRideHandler*>(memory);
-    skitch->CObjectModule::Construct();
+    skitch->CObjectModule::MakeNew();
     skitch->m_vtable = kVtable;
-    skitch->m_type = kType;
+    skitch->m_kindTag = kType;
     skitch->m_allowed = true;
     return skitch;
 }
@@ -75,16 +75,16 @@ void CTowRideHandler::DestroyBody()
 }
 
 // 0x0051B980
-CTowRideHandler* CTowRideHandler::Destroy(unsigned int flags)
+CTowRideHandler* CTowRideHandler::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0051B9B0
-void CTowRideHandler::ConfigureFromData(Scripts::CStruct*) { m_hooks = m_object->GetComponent(kObjectHookManager); }
+void CTowRideHandler::ConfigureFromData(Scripts::CStruct*) { m_hooks = m_entity->FetchModule(kObjectHookManager); }
 
 // 0x0051B9D0
 int CTowRideHandler::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript*)
@@ -96,10 +96,10 @@ int CTowRideHandler::InvokeMethodByName(uint32_t name, Scripts::CStruct* params,
 }
 
 // 0x0051BA70
-int CTowRideHandler::GetNearestHookPoint(Maths::Vector* out, const Maths::Vector* target)
+int CTowRideHandler::GetNearestHookPoint(Maths::Vec4* out, const Maths::Vec4* target)
 {
     int nearest = -1;
-    CGameEntity* object = m_object;
+    CGameEntity* object = m_entity;
     if (!m_hooks || !object)
         return nearest;
     CClassNodeList* nodes = HookNodes(m_hooks);
@@ -107,12 +107,12 @@ int CTowRideHandler::GetNearestHookPoint(Maths::Vector* out, const Maths::Vector
         return nearest;
     PlaceNodes(nodes, object);
     float nearestDistance = std::bit_cast<float>(0x56B5E621u); // (far enough)
-    Maths::Vector nearestPoint = {0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Vec4 nearestPoint = {0.0f, 0.0f, 0.0f, 1.0f};
     int index = 0;
-    for (CClassNodeList::Entry* node = nodes->m_entries; node; node = node->next, ++index) {
-        Maths::Vector point;
-        nodes->Transform(&point, &node->pos);
-        const Maths::Vector& pos = object->m_pos;
+    for (CClassNodeList::TableRow* node = nodes->m_entries; node; node = node->next, ++index) {
+        Maths::Vec4 point;
+        nodes->Xform(&point, &node->pos);
+        const Maths::Vec4& pos = object->m_atPoint;
         point.x -= pos.x;
         point.y -= pos.y;
         point.z -= pos.z;
@@ -137,9 +137,9 @@ int CTowRideHandler::GetNearestHookPoint(Maths::Vector* out, const Maths::Vector
 }
 
 // 0x0051BC70
-bool CTowRideHandler::GetHookPoint(Maths::Vector* out, int index)
+bool CTowRideHandler::GetHookPoint(Maths::Vec4* out, int index)
 {
-    CGameEntity* object = m_object;
+    CGameEntity* object = m_entity;
     if (!m_hooks || !object)
         return false;
     CClassNodeList* nodes = HookNodes(m_hooks);
@@ -147,14 +147,14 @@ bool CTowRideHandler::GetHookPoint(Maths::Vector* out, int index)
         return false;
     PlaceNodes(nodes, object);
     int i = 0;
-    for (CClassNodeList::Entry* node = nodes->m_entries; node; node = node->next, ++i) {
+    for (CClassNodeList::TableRow* node = nodes->m_entries; node; node = node->next, ++i) {
         if (i != index)
             continue;
-        Maths::Vector point;
-        nodes->Transform(&point, &node->pos);
-        point -= object->m_pos;
+        Maths::Vec4 point;
+        nodes->Xform(&point, &node->pos);
+        point -= object->m_atPoint;
         point.FlattenOntoPlane(object->m_basisFrame.row[1]);
-        point += object->m_pos;
+        point += object->m_atPoint;
         *out = point;
         return true;
     }
@@ -166,14 +166,14 @@ bool CTowRideHandler::GetHookPoint(Maths::Vector* out, int index)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CTowRideHandler::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CTowRideHandler::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          &GameObjects::CTowRideHandler::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

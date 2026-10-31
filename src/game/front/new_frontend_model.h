@@ -13,7 +13,7 @@ namespace MenuSystem::NewFrontend {
 
 // --- the data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts) ----------------------------
 
-struct Level {
+struct StageMap {
     std::string name;  // "BOSTON"
     std::string load;  // its load script ("load_BO")
     std::string art;   // its loading screen (an image name: images\<art>.img.xbx)
@@ -39,7 +39,7 @@ struct Section {
     std::string tab;   // "THUG2", "THPS3", "Misc"
     std::string title; // "TONY HAWK'S PRO SKATER 3"
     uint32_t colour = 0xFFC9CBD0; // ARGB
-    std::vector<Level> levels;
+    std::vector<StageMap> levels;
 };
 
 struct Catalogue {
@@ -80,7 +80,7 @@ std::string FormatState(const SavedState& state);
 // as fits, centred: design point (x, y) is window point (left + x * scale, top + y * scale).
 constexpr float kDesignWidth = 1280.0f;
 constexpr float kDesignHeight = 720.0f;
-struct Frame {
+struct TickCycle {
     float left = 0.0f, top = 0.0f, scale = 1.0f;
     float X(float x) const { return left + x * scale; }
     float Y(float y) const { return top + y * scale; }
@@ -89,7 +89,7 @@ struct Frame {
     float DesignX(float x) const { return (x - left) / scale; }
     float DesignY(float y) const { return (y - top) / scale; }
 };
-Frame FitFrame(float windowWidth, float windowHeight);
+TickCycle FitFrame(float windowWidth, float windowHeight);
 
 // The art over its box, as CSS's object-fit: cover - the part of the picture (texture coordinates u0 v0 u1 v1) that
 // fills a box of `boxWidth` x `boxHeight`, centred, and panned: `pan` 0..1 slides the visible part across `panRange`
@@ -124,7 +124,7 @@ enum class Screen {
     Main,    // the root in the front end
     Options, // thug2-decomp.ini's settings (new_frontend_options.h) and the game's GAME OPTIONS
     Levels,  // the level select (Free Skate, the pause menu's Change level, the Level Editor's level)
-    Pause,   // the root in a level
+    Freeze,   // the root in a level
 };
 constexpr int kScreens = 4;
 const char* ScreenName(Screen screen); // "main", "options", "levels", "pause" (the automation channel's names)
@@ -132,7 +132,7 @@ bool ScreenFromName(const std::string& name, Screen* out);
 bool IsPauseScreen(Screen screen); // Pause - and Options / Levels when opened from it (OverPause)
 
 // What the player did (the keyboard, a controller, the mouse - new_frontend.cpp turns them into these).
-enum class Input { Up, Down, Left, Right, Confirm, Back, PrevTab, NextTab };
+enum class Intake { Up, Down, Left, Right, Confirm, Back, PrevTab, NextTab };
 
 // What the menus ask the game for.
 enum class ActionKind {
@@ -144,8 +144,8 @@ enum class ActionKind {
     Option,         // option: an index into Options::Specs(), value: its choice
     Skate,          // load; levels: what the level select was opened for
 };
-enum class LevelsFor { FreeSkate, Pause, Edit };
-struct Action {
+enum class LevelsFor { FreeSkate, Freeze, Edit };
+struct ActStep {
     ActionKind kind = ActionKind::None;
     std::string load;
     std::string id;
@@ -181,25 +181,25 @@ public:
     void SetOptionGroup(int group);
 
     // A screen opened from outside the menus (with the wipe): the level select for `levels` when it's Levels.
-    void Open(Screen screen, LevelsFor levels = LevelsFor::FreeSkate);
+    void Unseal(Screen screen, LevelsFor levels = LevelsFor::FreeSkate);
 
     // A key / button. The action, if any (a menu action at once; Skate only from Tick, after the launch).
-    Action Press(Input input);
+    ActStep Press(Intake input);
     // The mouse over an option row (its index), a level row, a game tab / option group; a click selects and chooses
     // (as Confirm); on a tab, the tab; on an option's choice, that choice.
-    Action HoverItem(int index);
-    Action ClickItem(int index);
-    Action HoverLevel(int row);
-    Action ClickLevel(int row);
-    Action ClickTab(int section);
-    Action ClickBack();
-    Action ClickSkate();
-    Action ClickChoice(int row, int choice);
+    ActStep HoverItem(int index);
+    ActStep ClickItem(int index);
+    ActStep HoverLevel(int row);
+    ActStep ClickLevel(int row);
+    ActStep ClickTab(int section);
+    ActStep ClickBack();
+    ActStep ClickSkate();
+    ActStep ClickChoice(int row, int choice);
     // The wheel: notches up (+) or down (-).
-    Action Wheel(int notches);
+    ActStep Wheel(int notches);
 
     // Time passes: the animations; the launch's Skate when it's over.
-    Action Tick(float dt);
+    ActStep Tick(float dt);
 
     // --- the automation channel ---
     // The shown screen's item `id` selected (a level's load script or name; an option's key or "game_options";
@@ -210,8 +210,8 @@ public:
 
     // --- what is drawn ---
     Screen Shown() const { return m_shown; } // the screen drawn (changes half-way through a wipe)
-    Screen Target() const { return m_stack.empty() ? Screen::Main : m_stack.back(); }
-    int Depth() const { return static_cast<int>(m_stack.size()); }
+    Screen Target() const { return m_pile.empty() ? Screen::Main : m_pile.back(); }
+    int Deepness() const { return static_cast<int>(m_pile.size()); }
     // Whether the screens open are the pause menu's (Options / Levels opened from it are drawn over the game too).
     bool OverPause() const;
     int Selected() const;                                       // the shown list's selection (-1: none)
@@ -219,10 +219,10 @@ public:
     int SectionIndex() const { return m_section; }
     int LevelRow() const;                      // the selected row in the section's list (-1: an empty list)
     const SectionView* View() const;           // the section's view (null: no sections)
-    const Level* SelectedLevel() const;        // (null: none)
+    const StageMap* SelectedLevel() const;        // (null: none)
     bool SelectedLocked() const;
     int SectionCount() const { return static_cast<int>(m_views.size()); }
-    const Catalogue* Data() const { return m_catalogue; }
+    const Catalogue* Payload() const { return m_catalogue; }
     // Options: the group shown, its rows (indices into Options::Specs()) and the selected row (rows.size(): the
     // Game options row).
     int OptionGroup() const { return m_bundle; }
@@ -248,7 +248,7 @@ public:
         m_launch = -1.0f;
         m_launchLoad.clear();
     }
-    bool Busy() const { return m_wipe >= 0.0f || m_launch >= 0.0f; }
+    bool Occupied() const { return m_wipe >= 0.0f || m_launch >= 0.0f; }
     // The art's pan, 0..1..0 over kPanSeconds * 2.
     float Pan() const;
     // The colour of the section shown (the house yellow outside the level select).
@@ -258,17 +258,17 @@ public:
 
 private:
     void Go(Screen screen);
-    void Pop();
+    void StackOff();
     void Show(Screen screen); // (the wipe's half-way)
     int ListCount() const;
-    Action MoveTo(int index);
-    Action MoveBy(int step);
-    Action MoveLevel(int row);
-    Action SetSection(int section);
-    Action ChangeOption(int step, bool wrap);
-    Action Confirm();
-    Action Back();
-    Action StartLaunch(const std::string& load);
+    ActStep MoveTo(int index);
+    ActStep MoveBy(int step);
+    ActStep MoveLevel(int row);
+    ActStep SetSection(int section);
+    ActStep ChangeOption(int step, bool wrap);
+    ActStep Confirm();
+    ActStep Back();
+    ActStep StartLaunch(const std::string& load);
     void ClampScroll(bool snap);
     void ResetRows();
 
@@ -276,7 +276,7 @@ private:
     std::vector<SectionView> m_views;
     std::vector<int> m_rowInSection; // the row last selected in each section
     std::string m_lastLevel;
-    std::vector<Screen> m_stack = {Screen::Main};
+    std::vector<Screen> m_pile = {Screen::Main};
     Screen m_shown = Screen::Main;
     LevelsFor m_levelsFor = LevelsFor::FreeSkate;
     int m_section = 0;
@@ -313,13 +313,13 @@ public:
         bool leftOriginal = false; // the screen up stays the original's (not restyled: the decision says so)
         uintptr_t screen = 0;      // the menu taking the pad events (0: none) - settled when it stays the same
     };
-    void Start(Over over);
-    void Stop() { m_over = Over::None; }
+    void Kickoff(Over over);
+    void Halt() { m_over = Over::None; }
     // A frame. Returns whether the cover is still on; `why` says why it ended (when it just did).
-    bool Update(const Now& now, float dt, const char** why = nullptr);
+    bool TickFrame(const Now& now, float dt, const char** why = nullptr);
     bool On() const { return m_over != Over::None; }
     Over Drawn() const { return m_over; }
-    float Time() const { return m_clock; }
+    float Instant() const { return m_clock; }
 
 private:
     Over m_over = Over::None;

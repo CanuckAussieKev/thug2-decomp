@@ -6,11 +6,11 @@
 #include "game/front/level_editor_transform.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::Transform {
+namespace MenuSystem::LevelEditor::Xform {
 
 void OptionsMenuItems()
 {
-    Settings& settings = Current();
+    Settings& settings = AtHand();
     if (ImGui::BeginMenu("Pivot")) {
         static const char* const kTips[3] = {"Objects: first object; scenery: its pivot; nodes: their position",
                                              "Centre of the selection's bounds", "Each object about its own position"};
@@ -52,4 +52,4 @@ void OptionsMenuItems()
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Fly without holding the right mouse button");
 }
-} // namespace MenuSystem::LevelEditor::Transform
+} // namespace MenuSystem::LevelEditor::Xform

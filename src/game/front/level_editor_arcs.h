@@ -24,7 +24,7 @@ struct Painter;
 // The launch: the skater leaves the lip at its speed along the surface there (the lip's tangent, up the slope) and
 // ollies on it: 0x00509450 (the jump) clamps a falling velocity.y to 0 and adds the jump speed to velocity.y - the
 // full charge's Physics_Jump_Speed_Stat (414 - 450 by the ollie stat). The speeds, each by the skater's speed stat
-// (CRider::GetStat 3; Skater_Default_Stats without a skater) on its (low, high) pair as GetScaledValue 0x005805B0
+// (CRider::FetchTally 3; Skater_Default_Stats without a skater) on its (low, high) pair as GetScaledValue 0x005805B0
 // scales it (low + (high - low) stat / 10, then its limit=) - the switch and difficulty factors left out:
 //   push: Skater_Max_Crouched_Kick_Speed_Stat (532 - 675, limit 900): what pushing reaches on the flat;
 //   top:  Skater_Max_Speed_Stat (757 - 900): the most rolling downhill reaches;
@@ -99,7 +99,7 @@ Flight Fly(V3 start, V3 velocity, float gravity, float dt, float maxTime, float 
 // The highest a vertical launch at `speed` (+ the jump) rises: v^2 / 2|g|.
 float RiseHeight(float verticalSpeed, float gravity);
 // A distance in units with feet ("812 (67.7 ft)": the game's units are inches).
-std::string Distance(float units);
+std::string SpanTo(float units);
 
 // --- the game side ----------------------------------------------------------------------------------------------
 

@@ -23,17 +23,17 @@
 
 namespace Engine3D {
 
-ListKit::HashTable* g_shadowCasters;
+ListKit::KeyMap* g_shadowCasters;
 bool g_pixelShadersMade;
 void* g_pixelShaders[kPixelShaderCount];
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
-void*& Handle(int slot) { return g_pixelShaders[slot]; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
+void*& Hdl(int slot) { return g_pixelShaders[slot]; }
 // The cache of generated shaders (a hash table kept in place at 0x007CA9C0), by configuration key.
-ListKit::HashTable g_shaderCache{ListKit::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(8) at start-up)
-ListKit::HashTable& Cache() { return g_shaderCache; }
+ListKit::KeyMap g_shaderCache{ListKit::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
+ListKit::KeyMap& Cache() { return g_shaderCache; }
 
 // An ID3DXBuffer (COM, through its vtable): [2] Release, [3] GetBufferPointer.
 void* BufferPointer(void* buffer) { return reinterpret_cast<void*(__stdcall*)(void*)>((*static_cast<void***>(buffer))[3])(buffer); }
@@ -79,7 +79,7 @@ struct Text {
     char buffer[1024];
     int length = 0;
     template <typename... Args>
-    void Add(const char* format, Args... args)
+    void AppendOne(const char* format, Args... args)
     {
         length += std::snprintf(buffer + length, sizeof(buffer) - length, format, args...);
     }
@@ -95,19 +95,19 @@ void __cdecl CreatePixelShaders()
         return;
     done = true;
     for (int slot = kPixelShader920; slot < kPixelShaderCount; ++slot)
-        Handle(slot) = nullptr;
+        Hdl(slot) = nullptr;
     if (!g_shadersAvailable) {
         // No pixel shaders: numbers the stand-in texture stages tell apart.
-        Handle(kPixelShader964) = reinterpret_cast<void*>(1);
-        Handle(kPixelShader960) = reinterpret_cast<void*>(2);
-        Handle(kPixelShader95C) = reinterpret_cast<void*>(3);
-        Handle(kPixelShader958) = reinterpret_cast<void*>(4);
-        Handle(kPixelShader954) = reinterpret_cast<void*>(5);
-        Handle(kPixelShader950) = reinterpret_cast<void*>(6);
-        Handle(kPixelShader94C) = reinterpret_cast<void*>(7);
-        Handle(kPixelShader930) = reinterpret_cast<void*>(8);
-        Handle(kPixelShader92C) = reinterpret_cast<void*>(9);
-        Handle(kPixelShader944) = reinterpret_cast<void*>(10);
+        Hdl(kPixelShader964) = reinterpret_cast<void*>(1);
+        Hdl(kPixelShader960) = reinterpret_cast<void*>(2);
+        Hdl(kPixelShader95C) = reinterpret_cast<void*>(3);
+        Hdl(kPixelShader958) = reinterpret_cast<void*>(4);
+        Hdl(kPixelShader954) = reinterpret_cast<void*>(5);
+        Hdl(kPixelShader950) = reinterpret_cast<void*>(6);
+        Hdl(kPixelShader94C) = reinterpret_cast<void*>(7);
+        Hdl(kPixelShader930) = reinterpret_cast<void*>(8);
+        Hdl(kPixelShader92C) = reinterpret_cast<void*>(9);
+        Hdl(kPixelShader944) = reinterpret_cast<void*>(10);
     } else {
         void* shader = nullptr;
         void* errors = nullptr;
@@ -122,18 +122,18 @@ void __cdecl CreatePixelShaders()
         };
         for (const Fixed& f : kFixed) {
             AssembleShader(f.source, static_cast<uint32_t>(std::strlen(f.source)), &shader, &errors);
-            Device()->CreatePixelShader(static_cast<const DWORD*>(BufferPointer(shader)),
-                                        reinterpret_cast<IDirect3DPixelShader9**>(&Handle(f.handle)));
+            InputPort()->CreatePixelShader(static_cast<const DWORD*>(BufferPointer(shader)),
+                                        reinterpret_cast<IDirect3DPixelShader9**>(&Hdl(f.handle)));
             // Not original - the level editor's Unlit view (game/gfx/view_mode.h): the source kept for its twin.
-            ViewMode::NoteShaderSource(Handle(f.handle), f.source);
+            ViewMode::NoteShaderSource(Hdl(f.handle), f.source);
             if (shader)
                 Release(shader);
             if (errors)
                 Release(errors);
         }
     }
-    void* table = MemSys::New(sizeof(ListKit::HashTable));
-    g_shadowCasters = table ? new (table) ListKit::HashTable(8) : nullptr; // the shadow casters
+    void* table = MemSys::Alloc(sizeof(ListKit::KeyMap));
+    g_shadowCasters = table ? new (table) ListKit::KeyMap(8) : nullptr; // the shadow casters
 }
 
 // 0x004DD2C0
@@ -153,28 +153,28 @@ void* __cdecl GeneratedPixelShader(const void* material)
     uint32_t alphaFlags = PassAlphaFlags(material);
     key |= (present * 8 | alphaFlags) << 22;
     // In the cache? (the first item with the key and a shader)
-    ListKit::HashTable& cache = Cache();
-    for (ListKit::HashTable::Item* item = cache.m_buckets + (key & ((1u << cache.m_bits) - 1)); item; item = item->next) {
+    ListKit::KeyMap& cache = Cache();
+    for (ListKit::KeyMap::Item* item = cache.m_buckets + (key & ((1u << cache.m_bits) - 1)); item; item = item->next) {
         if (item->key == key && item->value)
             return item->value;
     }
 
     Text text;
-    text.Add("ps.1.1\n");
+    text.AppendOne("ps.1.1\n");
     for (uint32_t pass = 0; pass < passes; ++pass)
-        text.Add("tex t%d\n", pass);
+        text.AppendOne("tex t%d\n", pass);
     // The first pass into r0.
     if (present & 1) {
         if (!(alphaFlags & 1))
-            text.Add("mul_x2 r0.a, v0.a, t0.a\n");
+            text.AppendOne("mul_x2 r0.a, v0.a, t0.a\n");
         else
-            text.Add("mov r0.a, t0.a\n");
-        text.Add("+mul_x2 r0.rgb, c0, t0\n");
+            text.AppendOne("mov r0.a, t0.a\n");
+        text.AppendOne("+mul_x2 r0.rgb, c0, t0\n");
     } else if (!(alphaFlags & 1)) {
-        text.Add("mul_x2 r0.a, v0.a, t0.a\n");
-        text.Add("+mov r0.rgb, r8\n");
+        text.AppendOne("mul_x2 r0.a, v0.a, t0.a\n");
+        text.AppendOne("+mov r0.rgb, r8\n");
     } else {
-        text.Add("mov r0, t0\n");
+        text.AppendOne("mov r0, t0\n");
     }
     // Each further pass into r1 (or straight from its texture), then blended into r0 by its mode. Registers by
     // number: r0, t1, t2, t3, r1.
@@ -187,19 +187,19 @@ void* __cdecl GeneratedPixelShader(const void* material)
         reg = 4;
         uint32_t bit = 1u << pass;
         if (present & bit) {
-            text.Add("mul_x2 r1.rgb, c%d, t%d\n", pass, pass);
+            text.AppendOne("mul_x2 r1.rgb, c%d, t%d\n", pass, pass);
             if (!brighten) {
                 if (!(alphaFlags & bit))
-                    text.Add(mode == 5 ? "+mul_x2_sat r1.a, v0.a, t%d.a\n"
+                    text.AppendOne(mode == 5 ? "+mul_x2_sat r1.a, v0.a, t%d.a\n"
                                                               : "+mul_x2 r1.a, v0.a, t%d.a\n",
                                      pass);
                 else
-                    text.Add("+mov r1.a, t%d\n", pass);
+                    text.AppendOne("+mov r1.a, t%d\n", pass);
             }
         } else if (!(alphaFlags & bit)) {
-            text.Add("mov r1.rgb, t%d\n", pass);
+            text.AppendOne("mov r1.rgb, t%d\n", pass);
             if (!brighten)
-                text.Add(mode == 5 ? "+mul_x2_sat r1.a, v0.a, t%d.a\n"
+                text.AppendOne(mode == 5 ? "+mul_x2_sat r1.a, v0.a, t%d.a\n"
                                                           : "+mul_x2 r1.a, v0.a, t%d.a\n",
                                  pass);
         } else {
@@ -208,30 +208,30 @@ void* __cdecl GeneratedPixelShader(const void* material)
         const char* r = kRegisters[reg];
         const char* p = kRegisters[previous];
         switch (mode) {
-        case 1: text.Add("mad r0.rgb,%s,%s.a,r0\n", r, r); break;
-        case 2: text.Add("mad r0.rgb,%s,c%d.a,r0\n", r, pass); break;
-        case 3: text.Add("mad r0.rgb,%s,-%s.a,r0\n", r, r); break;
-        case 4: text.Add("mad r0.rgb,-%s,c%d.a,r0\n", r, pass); break;
-        case 5: text.Add("lrp r0.rgb,%s.a,%s,r0\n", r, r); break;
-        case 6: text.Add("lrp r0.rgb,c%d.a,%s,r0\n", pass, r); break;
-        case 7: text.Add("mul r0.rgb,r0,%s.a\n", r); break;
-        case 8: text.Add("mul r0.rgb,r0,c%d.a\n", pass); break;
-        case 9: text.Add("mad r0.rgb,r0,%s.a,r0\n", r); break;
-        case 0xA: text.Add("mad r0.rgb,r0,c%d.a,r0\n", pass); break;
-        case 0xB: text.Add("mul v1.rgb,v1,%s.a\n", r); break;
-        case 0xC: text.Add("lrp r0.rgb, %s.a, %s, r0\n", p, r); break;
-        case 0xD: text.Add("lrp r0.rgb, %s.a, r0, %s\n", p, r); break;
+        case 1: text.AppendOne("mad r0.rgb,%s,%s.a,r0\n", r, r); break;
+        case 2: text.AppendOne("mad r0.rgb,%s,c%d.a,r0\n", r, pass); break;
+        case 3: text.AppendOne("mad r0.rgb,%s,-%s.a,r0\n", r, r); break;
+        case 4: text.AppendOne("mad r0.rgb,-%s,c%d.a,r0\n", r, pass); break;
+        case 5: text.AppendOne("lrp r0.rgb,%s.a,%s,r0\n", r, r); break;
+        case 6: text.AppendOne("lrp r0.rgb,c%d.a,%s,r0\n", pass, r); break;
+        case 7: text.AppendOne("mul r0.rgb,r0,%s.a\n", r); break;
+        case 8: text.AppendOne("mul r0.rgb,r0,c%d.a\n", pass); break;
+        case 9: text.AppendOne("mad r0.rgb,r0,%s.a,r0\n", r); break;
+        case 0xA: text.AppendOne("mad r0.rgb,r0,c%d.a,r0\n", pass); break;
+        case 0xB: text.AppendOne("mul v1.rgb,v1,%s.a\n", r); break;
+        case 0xC: text.AppendOne("lrp r0.rgb, %s.a, %s, r0\n", p, r); break;
+        case 0xD: text.AppendOne("lrp r0.rgb, %s.a, r0, %s\n", p, r); break;
         default: break;
         }
     }
-    text.Add("mul_x2 r0.rgb, r0, v0\n");
+    text.AppendOne("mul_x2 r0.rgb, r0, v0\n");
 
     void* shader = nullptr;
     void* errors = nullptr;
     void* handle = nullptr;
     if (AssembleShader(text.buffer, static_cast<uint32_t>(std::strlen(text.buffer)), &shader, &errors) != 0)
         BufferPointer(errors); // (the error text, not shown)
-    Device()->CreatePixelShader(static_cast<const DWORD*>(BufferPointer(shader)),
+    InputPort()->CreatePixelShader(static_cast<const DWORD*>(BufferPointer(shader)),
                                 reinterpret_cast<IDirect3DPixelShader9**>(&handle));
     // Not original - the Unlit view (view_mode.h): the source kept for its twin.
     ViewMode::NoteShaderSource(handle, text.buffer);
@@ -251,14 +251,14 @@ void __cdecl MaterialPixelShader(const void* material, void** shader)
         return;
     }
     if (!*reinterpret_cast<const uint32_t*>(static_cast<const uint8_t*>(material) + 0x30)) { // no texture
-        *shader = Handle(kPixelShader95C);
+        *shader = Hdl(kPixelShader95C);
         return;
     }
     uint32_t alphaFlags = PassAlphaFlags(material);
     if (BlendMode(material, 0) == 9)
-        *shader = Handle(alphaFlags ? kPixelShader940 : kPixelShader944);
+        *shader = Hdl(alphaFlags ? kPixelShader940 : kPixelShader944);
     else
-        *shader = Handle(alphaFlags ? kPixelShader960 : kPixelShader964);
+        *shader = Hdl(alphaFlags ? kPixelShader960 : kPixelShader964);
 }
 
 } // namespace Nx
@@ -266,6 +266,6 @@ void __cdecl MaterialPixelShader(const void* material, void** shader)
 namespace Engine3D {
 
 // 0x00640DF0 (a static initialiser): the generated pixel shaders' cache, 256 buckets.
-void ConstructShaderCache() { new (&g_shaderCache) ListKit::HashTable(8); }
+void ConstructShaderCache() { new (&g_shaderCache) ListKit::KeyMap(8); }
 
 } // namespace Nx

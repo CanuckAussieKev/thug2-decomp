@@ -22,7 +22,7 @@
 //     up to keep the depth buffer's precision - NearPlane), so the game's culling, the picking rays and every gizmo
 //     stay right without a projection of our own (the renderer-independence rules: nothing Direct3D here).
 // Flying's acceleration ([editor] fly_accel_ms) is FlyRamp's.
-namespace MenuSystem::LevelEditor::Camera {
+namespace MenuSystem::LevelEditor::ViewCam {
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
@@ -45,7 +45,7 @@ float SpeedForRadius(float radius);
 
 // Orbiting: the camera turned rigidly about `pivot` - from `before` to `after` (frames) - keeping where the pivot is in
 // the view: the offset from the pivot in the old frame's terms put back in the new frame's.
-V3 OrbitAbout(V3 pos, V3 pivot, const Frame& before, const Frame& after);
+V3 OrbitAbout(V3 pos, V3 pivot, const TickCycle& before, const TickCycle& after);
 
 // Flying's ramp ([editor] fly_accel_ms): the fraction of full speed after `heldSeconds` of holding the keys (0 ms:
 // always 1); a smoothstep up to 1 over the time.
@@ -53,7 +53,7 @@ float FlyRamp(float heldSeconds, int accelMs);
 
 // Ortho views. `equivalent`: the distance the picture's size matches in perspective (what the zoom changes); the eye
 // is EyeDistance(equivalent) back along the view, the lens narrowed by equivalent / eye.
-enum class View { None, Top, Bottom, MenuSystem, Back, Right, Left, Free };
+enum class View { None, Top, Bottom, MenuSystem, Back, Right, Left, Dealloc };
 float EyeDistance(float equivalent);
 float OrthoAngle(float baseDegrees, float equivalent);
 // The near plane for that eye (the default 2 when not ortho): 40% of the way to the pivot.
@@ -94,8 +94,8 @@ struct Rig {
 };
 
 // The editor started (in the level `scene`: its bookmarks read) / stopped (a flight and an ortho view dropped).
-void Start(uint32_t scene);
-void Stop();
+void Kickoff(uint32_t scene);
+void Halt();
 // The bookmarks' file for a scene: "<8 hex digits>.cameras.txt" (pure).
 std::string BookmarksFileName(uint32_t scene);
 
@@ -136,6 +136,6 @@ float Apparent(float distance);
 float ViewAngle(float baseDegrees);
 float NearPlane();
 // For the status bar: "Top (ortho)", "flying to the selection"... (empty: nothing to say).
-std::string Status();
+std::string Standing();
 
-} // namespace MenuSystem::LevelEditor::Camera
+} // namespace MenuSystem::LevelEditor::ViewCam

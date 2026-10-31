@@ -28,18 +28,18 @@ public:
 
     // 0x0041B3C0 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined:
     // the base's, no colours, off; 0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0041B280 (not a Ghidra function; registered with Create): its member functions' table (0x006845D0; the
     // functions are put in by the static initialiser at 0x00643D60).
     static void __cdecl PublishMethodTable();
     // 0x0041B2A0: the base's body.
     void DestroyBody();
     // 0x0041B2E0 (vtable slot 0)
-    CColorCycleComponent* Destroy(unsigned int flags);
+    CColorCycleComponent* Teardown(unsigned int flags);
     // 0x0041B580 (vtable slot 1): while on, the object's colour set to the current one ((z << 8 + y) << 8 + x, each
     // truncated); the time goes on (milliseconds, slow motion counted); once it reaches the period, the next colour
     // (back to the first after the last), from 0 ms.
-    void Update();
+    void TickFrame();
 
     // 0x0041B310: the colours from `colors` (vectors; their x, y, z with w 1), from the first.
     void ChangeColors(Scripts::CArray* colors);
@@ -51,7 +51,7 @@ public:
     // 0x0041B560 [0x4AF8B9AE]: on. 1.
     int On(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x0041B570 [0x1DE2F35B]: off. 1.
-    int Off(Scripts::CStruct* params, Scripts::CScript* script);
+    int Disengaged(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x0041B2B0 [0x4A752AAE]: the period from the unnamed float (asserted; the original's slot for it is the params
     // argument: without one, the period is the params pointer's bits). 1.
     int SetPeriodFromScript(Scripts::CStruct* params, Scripts::CScript* script);
@@ -59,9 +59,9 @@ public:
     // for the array, as the original does). 1.
     int SetColorsFromScript(Scripts::CStruct* params, Scripts::CScript* script);
 
-    Maths::Vector m_colors[kMaxColors]; // +0x18 (x, y, z: 0-255)
+    Maths::Vec4 m_colors[kMaxColors]; // +0x18 (x, y, z: 0-255)
     int m_colorCount;                 // +0x68
-    int m_current;                    // +0x6C
+    int m_ongoing;                    // +0x6C
     float m_period;                   // +0x70 milliseconds
     float m_clock;                     // +0x74 milliseconds on the current colour
     bool m_on;                        // +0x78

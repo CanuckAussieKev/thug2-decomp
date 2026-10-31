@@ -6,7 +6,7 @@
 // (register: tools/pipeline/compat/thugpro/README.md "Run time", TP-R8). A THUGPRO
 // player can name things THUG2 hasn't - an animation from THUGPRO's own set, a special item, a game mode, a level -
 // and THUG2's handlers look them up without checking. Checked here before the dispatcher runs a message's handlers
-// (NetLink::Dispatcher::DispatchMsg, ours), as THUGPRO's own DLL does in its DispatchMessage hook (the special item and
+// (NetLink::Router::DispatchMsg, ours), as THUGPRO's own DLL does in its DispatchMessage hook (the special item and
 // animation checks are its "BUGFIX(MORTEN)"s - idea from Morten1337's thugpro_proxy, written here in our own way):
 //   - 0x29 a skater's primary animation: one that isn't loaded is played as `default` (THUGPRO's choice).
 //   - 0x77 / 0x78 a special item made / destroyed: dropped when its details structure doesn't exist.

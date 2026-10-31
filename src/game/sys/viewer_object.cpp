@@ -56,12 +56,12 @@ constexpr int kSkeletonAsset = 6;                        // (the asset type)
 
 // `path` set to a model's file path: "models\<name>\<name><extension>", or "models\<name>" when the name holds a path
 // separator (0x004879D0, in the CAS code - not rewritten yet - makes it as a temporary String).
-void SetModelPath(TextUtil::String& path, const char* name, const char* extension)
+void SetModelPath(TextUtil::Chars& path, const char* name, const char* extension)
 {
-    alignas(TextUtil::String) uint8_t temporary[sizeof(TextUtil::String)];
-    Gfx2D::MakeModelPath(reinterpret_cast<TextUtil::String*>(temporary), name, extension);
-    path = *reinterpret_cast<TextUtil::String*>(temporary);
-    reinterpret_cast<TextUtil::String*>(temporary)->~String();
+    alignas(TextUtil::Chars) uint8_t temporary[sizeof(TextUtil::Chars)];
+    Gfx2D::MakeModelPath(reinterpret_cast<TextUtil::Chars*>(temporary), name, extension);
+    path = *reinterpret_cast<TextUtil::Chars*>(temporary);
+    reinterpret_cast<TextUtil::Chars*>(temporary)->~Chars();
 }
 
 // `path` without its .skin / .mdl part, with `extension` (".col" / ".tex") on the end (0x0048BFE0 cuts the path).
@@ -84,7 +84,7 @@ void DropCachedFile(const char* file)
 // Model `name`'s .col, .skin, .mdl and .tex files dropped (in that order).
 void DropCachedModel(const char* name)
 {
-    TextUtil::String path;
+    TextUtil::Chars path;
     SetModelPath(path, name, ".skin");
     char sibling[256];
     SiblingFile(path.c_str(), ".col", sibling);
@@ -98,11 +98,11 @@ void DropCachedModel(const char* name)
 
 CAnimBlenderComponent* Animation(CGameEntity* object)
 {
-    return static_cast<CAnimBlenderComponent*>(object->GetComponent(CAnimBlenderComponent::kType));
+    return static_cast<CAnimBlenderComponent*>(object->FetchModule(CAnimBlenderComponent::kType));
 }
 
 // The same, for its virtual member functions (vtable +0x30).
-CObjectModule* AnimationBase(CGameEntity* object) { return object->GetComponent(CAnimBlenderComponent::kType); }
+CObjectModule* AnimationBase(CGameEntity* object) { return object->FetchModule(CAnimBlenderComponent::kType); }
 
 // More names.
 constexpr uint32_t kSpeed = 0xF0D90109;                  // speed
@@ -128,7 +128,7 @@ constexpr float kDegreesToRadians = 0.017453292f;                        // 0x00
 Scripts::CStruct* NewStructure()
 {
     Scripts::CStruct* memory = Scripts::NewStruct();
-    return memory ? memory->Init() : nullptr;
+    return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
 {
@@ -139,7 +139,7 @@ void DeleteStructure(Scripts::CStruct* structure)
 }
 
 // D3DXMatrixMultiply (library code: stdcall), out = a * b.
-void MultiplyMatrix(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void MultiplyMatrix(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
@@ -157,7 +157,7 @@ uint8_t* SkeletonOf(CObjectModule* component)
 {
     return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x18);
 }
-Maths::Matrix* BoneMatrices(uint8_t* skeleton) { return *reinterpret_cast<Maths::Matrix**>(skeleton + 0x04); }
+Maths::Mat4* BoneMatrices(uint8_t* skeleton) { return *reinterpret_cast<Maths::Mat4**>(skeleton + 0x04); }
 
 uint32_t g_noSkeletonCounter{10};
 int g_repeatCount;
@@ -170,14 +170,14 @@ uint32_t& NoSkeletonCounter() { return g_noSkeletonCounter; }
 // The input handler's auto-repeat count (a function static: its guard is bit 1 of 0x007CE58C).
 int& RepeatCount() { return g_repeatCount; }
 uint32_t& RepeatCountGuard() { return g_repeatCountGuard; }
-uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(PadInput::g_inputManager); } // PadInput::Manager (0x84 bytes a controller)
+uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(PadInput::g_inputManager); } // PadInput::Hub (0x84 bytes a controller)
 
-CPreviewEntity* ObjectOf(NetLink::InboundMsgCtx* context) { return static_cast<CPreviewEntity*>(context->m_data); }
+CPreviewEntity* ObjectOf(NetLink::InboundMsgCtx* context) { return static_cast<CPreviewEntity*>(context->m_content); }
 
 } // namespace
 
 // 0x005897B0
-void CPreviewEntity::ShutDown() { Scripts::LaunchScript(kKillViewerObjectPanel, nullptr, nullptr, false, nullptr); }
+void CPreviewEntity::PowerDown() { Scripts::LaunchScript(kKillViewerObjectPanel, nullptr, nullptr, false, nullptr); }
 
 // 0x005897D0
 void CPreviewEntity::PlayAnimation(uint32_t anim)
@@ -185,7 +185,7 @@ void CPreviewEntity::PlayAnimation(uint32_t anim)
     // (The original looks the component up again for each call.)
     if (!Animation(this) || !Animation(this)->HasValue(anim))
         return;
-    const float length = Animation(this)->GetValue(anim);
+    const float length = Animation(this)->FetchValue(anim);
     Animation(this)->PlayAnimationEx(anim, 0, 0, std::bit_cast<uint32_t>(length), 1, std::bit_cast<uint32_t>(0.3f),
                                      std::bit_cast<uint32_t>(1.0f));
 }
@@ -194,7 +194,7 @@ void CPreviewEntity::PlayAnimation(uint32_t anim)
 void CPreviewEntity::DestroyBody()
 {
     m_vtable = kViewerObjectVtable;
-    m_task->Remove(); // (its input handler; not null-checked: as the original)
+    m_task->DropOut(); // (its input handler; not null-checked: as the original)
     if (m_asset) {
         AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
         if (AssetStore::CResource* asset = assets->ObtainLoadedItem(m_asset, 0)) {
@@ -209,40 +209,40 @@ void CPreviewEntity::DestroyBody()
 }
 
 // 0x0058A2B0
-CPreviewEntity* CPreviewEntity::Destroy(unsigned int flags)
+CPreviewEntity* CPreviewEntity::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
-Maths::Vector g_originPosition{0.0f, 0.0f, 0.0f, 1.0f};
+Maths::Vec4 g_originPosition{0.0f, 0.0f, 0.0f, 1.0f};
 
 // 0x00589910
-void CPreviewEntity::Load(Scripts::CStruct* params)
+void CPreviewEntity::ReadIn(Scripts::CStruct* params)
 {
     CompositeObjectManager()->VirtualRegisterObject(this);
     AddMotionComponents(this);
     AddNodeComponents(this, params);
-    MemSys::Manager* memory = MemSys::Manager::Get();
-    memory->EnterHeapScope(ScriptCommands::g_gotExtraMemory ? static_cast<MemSys::Allocator*>(memory->m_debugHeap)
-                                                        : static_cast<MemSys::Allocator*>(memory->m_bottomUpHeap));
+    MemSys::Hub* memory = MemSys::Hub::Pull();
+    memory->EnterHeapScope(ScriptCommands::g_gotExtraMemory ? static_cast<MemSys::MemSource*>(memory->m_debugHeap)
+                                                        : static_cast<MemSys::MemSource*>(memory->m_bottomUpHeap));
     const char* name;
     for (int i = 0; i < 4; ++i) {
         char key[260];
         std::snprintf(key, sizeof(key), "model%d", i);
-        if (params->GetString(key, &name, 0))
+        if (params->FetchText(key, &name, 0))
             DropCachedModel(name);
     }
-    if (params->GetString(kModelName, &name, 0) || params->GetString(kModel, &name, 0)) {
+    if (params->FetchText(kModelName, &name, 0) || params->FetchText(kModel, &name, 0)) {
         DropCachedModel(name);
     } else {
         Scripts::CStruct* profile;
         params->ReadSubStruct(kProfile, &profile, 0); // (not used)
     }
     const char* skeletonFile;
-    if (params->GetString(kSkeletonFileName, &skeletonFile, 0)) {
+    if (params->FetchText(kSkeletonFileName, &skeletonFile, 0)) {
         uint32_t skeleton; // (left unset if skeletonName is missing: as the original)
         params->ReadHashValue(kSkeletonName, &skeleton, 1);
         AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
@@ -252,13 +252,13 @@ void CPreviewEntity::Load(Scripts::CStruct* params)
         }
     }
     Scripts::VectorValue position;
-    if (params->GetVector(kViewerObjPos, &position, 0)) {
-        m_pos.x = position.x;
-        m_pos.y = position.y;
-        m_pos.z = position.z;
-        m_pos.w = position.w;
+    if (params->FetchVec(kViewerObjPos, &position, 0)) {
+        m_atPoint.x = position.x;
+        m_atPoint.y = position.y;
+        m_atPoint.z = position.z;
+        m_atPoint.w = position.w;
     } else {
-        m_pos = g_originPosition; // (0, 0, 0, 1)
+        m_atPoint = g_originPosition; // (0, 0, 0, 1)
     }
     static const float kIdentity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     std::memcpy(&m_basisFrame, kIdentity, sizeof(kIdentity));
@@ -266,7 +266,7 @@ void CPreviewEntity::Load(Scripts::CStruct* params)
     reinterpret_cast<void(__thiscall*)(CPreviewEntity*)>(m_vtable[0x20 / 4])(this); // Finalize
     Scripts::LaunchScript(kInitModel, params, this, false, nullptr);
     PlayAnimation(kIdle);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
 }
 
 // 0x00589FD0
@@ -285,11 +285,11 @@ void CPreviewEntity::ReloadAnimation(const char* file, uint32_t anim)
 }
 
 // 0x0058A2E0
-void CPreviewEntity::SetRotation(float z, float x)
+void CPreviewEntity::ChangeSpin(float z, float x)
 {
     static const float kIdentity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     std::memcpy(&m_basisFrame, kIdentity, sizeof(kIdentity));
-    Maths::Matrix rotation;
+    Maths::Mat4 rotation;
     MultiplyMatrix(&m_basisFrame, &m_basisFrame, &Maths::MakeRollMatrix(rotation, z));
     MultiplyMatrix(&m_basisFrame, &m_basisFrame, &Maths::MakePitchMatrix(rotation, x));
 }
@@ -349,18 +349,18 @@ void CPreviewEntity::StepAnimation(bool forward)
 // 0x0058A720
 void CPreviewEntity::SpinWheels()
 {
-    CObjectModule* model = GetComponent(kModel);
+    CObjectModule* model = FetchModule(kModel);
     if (!model)
         return;
     uint8_t* nxModel = ModelOf(model);
     const uint8_t* hierarchy = HierarchyOf(nxModel);
-    if (!GetComponent(kSkeleton)) {
+    if (!FetchModule(kSkeleton)) {
         NoSkeletonCounter() = (NoSkeletonCounter() + 1) & 0x1F;
         return;
     }
-    uint8_t* skeleton = SkeletonOf(GetComponent(kSkeleton));
+    uint8_t* skeleton = SkeletonOf(FetchModule(kSkeleton));
     // The angle kept in double precision through the wrap (the original's x87 register), stored as a float each time.
-    double angle = static_cast<double>(Scripts::GetFloat(kMaxWheelSpeed)) * m_speed + WheelAngle();
+    double angle = static_cast<double>(Scripts::FetchFloat(kMaxWheelSpeed)) * m_speed + WheelAngle();
     WheelAngle() = static_cast<float>(angle);
     if (angle > 360.0) {
         do
@@ -377,11 +377,11 @@ void CPreviewEntity::SpinWheels()
     if (BoneCount(nxModel) <= 5)
         return;
     // The bones from the model's hierarchy, the wheels (2-5) turned about x, and all but the first put under it.
-    Maths::Matrix* bones = BoneMatrices(skeleton);
+    Maths::Mat4* bones = BoneMatrices(skeleton);
     for (int i = 0; i < BoneCount(nxModel); ++i)
-        bones[i] = *reinterpret_cast<const Maths::Matrix*>(hierarchy + 0x10 + i * 0x50);
+        bones[i] = *reinterpret_cast<const Maths::Mat4*>(hierarchy + 0x10 + i * 0x50);
     for (int wheel = 2; wheel < 6; ++wheel) {
-        Maths::Matrix spin;
+        Maths::Mat4 spin;
         const float radians = static_cast<float>(static_cast<double>(WheelAngle()) * kDegreesToRadians);
         MultiplyMatrix(&bones[wheel], &Maths::MakePitchMatrix(spin, radians), &bones[wheel]);
     }
@@ -398,27 +398,27 @@ void CPreviewEntity::UpdatePanel()
             Scripts::CStruct* params = NewStructure();
             char line1[128], line2[128], line3[128], textRow4[128];
             std::snprintf(line1, sizeof(line1), "name %s", "Unknown");
-            params->AddString(kLine1, line1);
+            params->AppendWord(kLine1, line1);
             std::snprintf(line2, sizeof(line2), "speed %f", m_isHalted ? 0.0 : static_cast<double>(m_speed));
-            params->AddString(kLine2, line2);
+            params->AppendWord(kLine2, line2);
             // (Each value looked up again for each line, the length before the time.)
             uint32_t current = Animation(this)->GetTimeline30();
-            float length = Animation(this)->GetValue(current);
+            float length = Animation(this)->FetchValue(current);
             float time = Animation(this)->GetTimeline18();
             std::snprintf(line3, sizeof(line3), "time %f of %f", static_cast<double>(time), static_cast<double>(length));
-            params->AddString(kLine3, line3);
+            params->AppendWord(kLine3, line3);
             current = Animation(this)->GetTimeline30();
-            length = Animation(this)->GetValue(current);
+            length = Animation(this)->FetchValue(current);
             const int lastFrame = static_cast<int>(static_cast<double>(length) * 60.0);
             time = Animation(this)->GetTimeline18();
             const int frame = static_cast<int>(static_cast<double>(time) * 60.0);
             std::snprintf(textRow4, sizeof(textRow4), "frame %d of %d", frame, lastFrame);
-            params->AddString(kLine4, textRow4);
+            params->AppendWord(kLine4, textRow4);
             Scripts::LaunchScript(kDrawViewerObjectPanel, params, nullptr, false, nullptr);
             DeleteStructure(params);
         }
     }
-    CObjectModule* model = GetComponent(kModel);
+    CObjectModule* model = FetchModule(kModel);
     if (model && BoneCount(ModelOf(model)))
         SpinWheels();
 }
@@ -462,7 +462,7 @@ void CPreviewEntity::OwnUpdate()
 // 0x0058A060
 void __cdecl HandleViewerObjectInput(ViewerObjectInputHandler* handler)
 {
-    CPreviewEntity* object = handler->m_data;
+    CPreviewEntity* object = handler->m_content;
     const int delay = Scripts::FetchIntValue(kViewerAutoRepeatTime);
     const int rate = Scripts::FetchIntValue(kViewerAutoRepeatSpeed);
     int count; // (the static starts as the first call's delay)
@@ -475,20 +475,20 @@ void __cdecl HandleViewerObjectInput(ViewerObjectInputHandler* handler)
     if (handler->m_controlData->m_makes & 0x10)
         object->m_actions |= CPreviewEntity::kCommandTogglePanel;
     // A frame back / on when Left / Right is pressed, and while it's held: after `delay` frames, then every `rate`.
-    const PadInput::Data* data = handler->m_controlData;
-    if (data->m_makes & PadInput::Data::kButtonLeft) {
+    const PadInput::Payload* data = handler->m_controlData;
+    if (data->m_makes & PadInput::Payload::kButtonLeft) {
         object->m_actions |= CPreviewEntity::kCommandStepBack;
         RepeatCount() = delay;
-    } else if (data->m_makes & PadInput::Data::kButtonRight) {
+    } else if (data->m_makes & PadInput::Payload::kButtonRight) {
         object->m_actions |= CPreviewEntity::kCommandStepForward;
         RepeatCount() = delay;
-    } else if (data->m_buttons & PadInput::Data::kButtonLeft) {
+    } else if (data->m_buttons & PadInput::Payload::kButtonLeft) {
         RepeatCount() = --count;
         if (count <= 0) {
             object->m_actions |= CPreviewEntity::kCommandStepBack;
             RepeatCount() = rate;
         }
-    } else if (data->m_buttons & PadInput::Data::kButtonRight) {
+    } else if (data->m_buttons & PadInput::Payload::kButtonRight) {
         RepeatCount() = --count;
         if (count <= 0) {
             object->m_actions |= CPreviewEntity::kCommandStepForward;
@@ -511,7 +511,7 @@ void __cdecl HandleViewerObjectInput(ViewerObjectInputHandler* handler)
         object->m_actions |= CPreviewEntity::kCommandFaster;
     else if (makes & 0x1)
         object->m_actions |= CPreviewEntity::kCommandSlower;
-    if (!object->GetComponent(CAnimBlenderComponent::kType)) {
+    if (!object->FetchModule(CAnimBlenderComponent::kType)) {
         const uint32_t held = handler->m_controlData->m_buttons;
         if (held & 0x20)
             object->m_actions |= CPreviewEntity::kCommandRollLeft;
@@ -554,7 +554,7 @@ int __cdecl HandleReloadCamAnimation(NetLink::InboundMsgCtx* context)
 {
     const char* message = context->m_body;
     Scripts::CStruct* params = NewStructure();
-    params->AddString(0u, message);
+    params->AppendWord(0u, message);
     params->PutNameKey(0u, *reinterpret_cast<const uint32_t*>(message + 0x80));
     ScriptCommands::CFunc_ReloadSkaterCamAnim(params, nullptr);
     DeleteStructure(params);
@@ -570,33 +570,33 @@ int __cdecl HandleRunAnimViewScript(NetLink::InboundMsgCtx* context)
     std::snprintf(path, sizeof(path), "scripts\\animview\\%s.qb", message);
     Scripts::LoadQB(path, 0, 0);
     Scripts::CScript* script = Scripts::SpawnScript(message, nullptr, 0, nullptr, 0, 0, false, false, false, false);
-    script->m_object.Set(object); // (not null-checked: as the original)
+    script->m_entity.AssignValue(object); // (not null-checked: as the original)
     return 1;
 }
 
 // 0x0058ADB0
-CPreviewEntity* CPreviewEntity::Construct(NetLink::App* app)
+CPreviewEntity* CPreviewEntity::MakeNew(NetLink::AppHost* app)
 {
-    CGameEntity::Construct();
+    CGameEntity::MakeNew();
     m_vtable = kViewerObjectVtable;
     m_actions = 0;
     AddBaseComponents(this);
-    SetType(kObjectTypeComposite);
+    ChangeSpecies(kObjectTypeComposite);
     uint8_t* input = InputManager();
     auto* handler = static_cast<ViewerObjectInputHandler*>(MemSys::AllocZeroed(sizeof(ViewerObjectInputHandler)));
     if (handler) {
-        handler->Construct(0);
-        handler->m_index = 0;
+        handler->MakeNew(0);
+        handler->m_ordinal = 0;
         handler->m_vtable = GameCode::kInputHandlerVtable;
-        handler->m_code = &HandleViewerObjectInput;
-        handler->m_data = this;
+        handler->m_codeValue = &HandleViewerObjectInput;
+        handler->m_content = this;
     }
     m_task = handler;
     // Onto its controller's handlers (not null-checked: as the original).
-    uint8_t* controller = input + handler->m_index * 0x84;
-    reinterpret_cast<TaskList::Stack*>(controller + 0x08)->AddTask(handler);
-    handler->m_controlData = reinterpret_cast<PadInput::Data*>(controller + 0x44);
-    handler->m_device = *reinterpret_cast<uint8_t**>(controller + 0x04);
+    uint8_t* controller = input + handler->m_ordinal * 0x84;
+    reinterpret_cast<TaskList::PileUp*>(controller + 0x08)->QueueJob(handler);
+    handler->m_controlData = reinterpret_cast<PadInput::Payload*>(controller + 0x44);
+    handler->m_dev = *reinterpret_cast<uint8_t**>(controller + 0x04);
     m_savedSpeed = 0.0f;
     m_panelShown = true;
     m_speed = 1.0f;
@@ -606,23 +606,23 @@ CPreviewEntity* CPreviewEntity::Construct(NetLink::App* app)
     m_asset = 0;
     m_ownerApp = app;
     if (app) {
-        NetLink::Dispatcher& dispatcher = app->m_dispatcher;
-        dispatcher.AddHandler(0x25, &HandlePlayAnimation, 3, this, 0x80);
-        dispatcher.AddHandler(0x26, &HandleSetAnimSpeed, 3, this, 0x80);
-        dispatcher.AddHandler(0x27, &HandleStepAnimation, 3, this, 0x80);
-        dispatcher.AddHandler(0x28, &HandleReloadAnimation, 3, this, 0x80);
-        dispatcher.AddHandler(0x29, &HandleReloadCamAnimation, 3, this, 0x80);
-        dispatcher.AddHandler(0x2C, &HandleRunAnimViewScript, 3, this, 0x80);
+        NetLink::Router& dispatcher = app->m_dispatcher;
+        dispatcher.AppendListener(0x25, &HandlePlayAnimation, 3, this, 0x80);
+        dispatcher.AppendListener(0x26, &HandleSetAnimSpeed, 3, this, 0x80);
+        dispatcher.AppendListener(0x27, &HandleStepAnimation, 3, this, 0x80);
+        dispatcher.AppendListener(0x28, &HandleReloadAnimation, 3, this, 0x80);
+        dispatcher.AppendListener(0x29, &HandleReloadCamAnimation, 3, this, 0x80);
+        dispatcher.AppendListener(0x2C, &HandleRunAnimViewScript, 3, this, 0x80);
     }
     return this;
 }
 
 namespace {
-static VtableSlot kViewerObjectVtable_slots[] = {&GameObjects::CPreviewEntity::Destroy, &GameObjects::CObject::SetProperties,
-                static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+static VtableSlot kViewerObjectVtable_slots[] = {&GameObjects::CPreviewEntity::Teardown, &GameObjects::CEntity::ChangeTraits,
+                static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
                 static_cast<bool (GameObjects::CGameEntity::*)(uint32_t, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CGameEntity::InvokeMethodByName),
-                Stubs::IgnoreArgument, &GameObjects::CObject::PassEventToScript, &GameObjects::CGameEntity::FlagAsDead,
-                &GameObjects::CGameEntity::ShouldUpdateScripts, &GameObjects::CGameEntity::Finalize,
+                Stubs::IgnoreArgument, &GameObjects::CEntity::PassEventToScript, &GameObjects::CGameEntity::FlagAsDead,
+                &GameObjects::CGameEntity::ShouldUpdateScripts, &GameObjects::CGameEntity::Seal,
                 &GameObjects::CGameEntity::CreateComponentFromStructure, &GameObjects::CPreviewEntity::OwnUpdate};
 void** const kViewerObjectVtable = reinterpret_cast<void**>(kViewerObjectVtable_slots);
 } // namespace

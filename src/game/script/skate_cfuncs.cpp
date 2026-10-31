@@ -106,7 +106,7 @@ bool __cdecl ControllerPressed(const void* controller, uint32_t button)
 bool __cdecl CFunc_ControllerDebounce(Scripts::CStruct* params, Scripts::CScript*)
 {
     float time = 1.0f;
-    params->GetFloat(kTime, &time, 0);
+    params->FetchFloat(kTime, &time, 0);
     uint32_t button = 0;
     if (params->ReadHashValue(0u, &button, 0)) {
         int index = ButtonIndex(button);
@@ -164,7 +164,7 @@ bool __cdecl CFunc_LoadNodeArray(Scripts::CStruct* params, Scripts::CScript*)
     MemSys::PushMemProfile("LoadNodeArray"); // "LoadNodeArray"
     Scripts::KillAllChildScripts();
     const char* name = nullptr;
-    params->GetString(0u, &name, 0);
+    params->FetchText(0u, &name, 0);
     char* out = NodeArrayName(); // (no length limit, like strcpy)
     for (const char* in = name; (*out++ = *in++) != '\0';) {
     }
@@ -189,7 +189,7 @@ bool __cdecl CFunc_ResetCamera(Scripts::CStruct*, Scripts::CScript*)
 bool __cdecl CFunc_SetMovementVelocity(Scripts::CStruct* params, Scripts::CScript*)
 {
     float speed = 400.0f;
-    params->GetFloat(0u, &speed, 0);
+    params->FetchFloat(0u, &speed, 0);
     GameModules::SetMovementVelocity(speed);
     return true;
 }
@@ -198,7 +198,7 @@ bool __cdecl CFunc_SetMovementVelocity(Scripts::CStruct* params, Scripts::CScrip
 bool __cdecl CFunc_SetRotateVelocity(Scripts::CStruct* params, Scripts::CScript*)
 {
     float speed = 120.0f;
-    params->GetFloat(0u, &speed, 0);
+    params->FetchFloat(0u, &speed, 0);
     GameModules::SetRotateVelocity(speed);
     return true;
 }
@@ -285,13 +285,13 @@ bool __cdecl CFunc_UnPauseSpawnedScripts(Scripts::CStruct*, Scripts::CScript*)
 bool __cdecl CFunc_DisplayLoadingScreen(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* image = "images\\xxxxx"; // "images\xxxxx"
-    params->GetString(0u, &image, 0);
+    params->FetchText(0u, &image, 0);
     bool blank = params->HasBareFlag(kBlank);
     bool freeze = params->HasBareFlag(kFreeze);
     Engine3D::DisplayLoadingScreen(image, freeze, blank);
     Gfx2D::LoadingConsole::ScreenShown(freeze, blank); // not original: the loading console (gfx/loading_console.h)
     float seconds = 0.0f; // (the original leaves it unset - unused then)
-    if (params->GetFloat(0u, &seconds, 0))
+    if (params->FetchFloat(0u, &seconds, 0))
         Engine3D::SetLoadingBarTime(seconds);
     return true;
 }
@@ -325,7 +325,7 @@ bool __cdecl CFunc_OmnigonAllowed(Scripts::CStruct* params, Scripts::CScript*)
 bool __cdecl CFunc_SetLevelName(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* name = nullptr;
-    params->GetString(0u, &name, 1);
+    params->FetchText(0u, &name, 1);
 #pragma warning(suppress : 4996) // (unbounded, and the name is the format: as in the original)
     std::sprintf(LevelName(), name);
     return true;

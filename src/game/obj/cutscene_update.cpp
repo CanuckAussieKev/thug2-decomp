@@ -77,7 +77,7 @@ float VblankSeconds(uint64_t vblanks, int rate)
 void* NewAnimSource()
 {
     void* memory = AnimSourceAllocate(0x214);
-    return memory ? static_cast<Engine3D::CFrameSource*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<Engine3D::CFrameSource*>(memory)->MakeNew() : nullptr;
 }
 void DeleteVirtual(void* object)
 {
@@ -119,11 +119,11 @@ bool __stdcall ObjectsFromTable(Scripts::CStruct* params, const uint32_t* table)
     int count = static_cast<int>(table[1]);
     const uint32_t* entry = table + 2;
     Scripts::CArray* memory = Scripts::NewArray();
-    Scripts::CArray* objects = memory ? memory->Init() : nullptr;
+    Scripts::CArray* objects = memory ? memory->PrepareAll() : nullptr;
     objects->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
     for (int i = 0; i < count; ++i, entry += 5) {
         Scripts::CStruct* block = Scripts::NewStruct();
-        Scripts::CStruct* object = block ? block->Init() : nullptr;
+        Scripts::CStruct* object = block ? block->PrepareAll() : nullptr;
         object->PutNameKey(kName, entry[0]);
         object->PutNameKey(kModel, entry[1]);
         object->PutNameKey(kSkeleton, entry[2]);
@@ -215,7 +215,7 @@ void CCinematicTable::UpdateTime(int /*unused*/)
 // 0x00465AB0
 void CCinematicTable::UpdateStandIn(CGameEntity* object)
 {
-    if (CObjectModule* component = object->GetComponent(kModelComponent)) {
+    if (CObjectModule* component = object->FetchModule(kModelComponent)) {
         void* model = ModelOf(component);
         if (*(Bytes(model) + 0x44) & 4) // (hidden)
             return;
@@ -223,16 +223,16 @@ void CCinematicTable::UpdateStandIn(CGameEntity* object)
             // the level object it stands in for: faded out, moved along
             auto* level = static_cast<CGameEntity*>(
                 FindObject(static_cast<CMeshInstanceModule*>(component)->GetLinkedEntityName()));
-            CObjectModule* levelComponent = level->GetComponent(kModelComponent);
+            CObjectModule* levelComponent = level->FetchModule(kModelComponent);
             void* levelModel = ModelOf(levelComponent);
             FadeModel(levelModel, 0.0f);
             static_cast<CMeshInstanceModule*>(levelComponent)->UpdateBrightness();
-            CObjectModule* skeleton = object->GetComponent(kSkeletonComponent);
+            CObjectModule* skeleton = object->FetchModule(kSkeletonComponent);
             float matrix[16];
-            *reinterpret_cast<Maths::Matrix*>(matrix) = *reinterpret_cast<const Maths::Matrix*>(Bytes(object) + 0xC0);
+            *reinterpret_cast<Maths::Mat4*>(matrix) = *reinterpret_cast<const Maths::Mat4*>(Bytes(object) + 0xC0);
             std::memcpy(matrix + 12, Bytes(object) + 0x4C, 16);
             static_cast<Engine3D::CRenderModel*>(levelModel)->Render(
-                reinterpret_cast<Maths::Matrix*>(matrix), false,
+                reinterpret_cast<Maths::Mat4*>(matrix), false,
                 reinterpret_cast<uint8_t*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(skeleton)->Word18()));
             std::memcpy(Bytes(level) + 0x4C, Bytes(object) + 0x4C, 16);
         } else {
@@ -244,8 +244,8 @@ void CCinematicTable::UpdateStandIn(CGameEntity* object)
                 component);
         }
     }
-    if (CObjectModule* matrix = object->GetComponent(kMatrixComponent))
-        static_cast<CMatrixComponent*>(matrix)->SetMatrix(reinterpret_cast<const Maths::Matrix*>(Bytes(object) + 0xC0));
+    if (CObjectModule* matrix = object->FetchModule(kMatrixComponent))
+        static_cast<CMatrixComponent*>(matrix)->ChangeMat(reinterpret_cast<const Maths::Mat4*>(Bytes(object) + 0xC0));
 }
 
 // 0x00465C00
@@ -259,7 +259,7 @@ void CCinematicTable::UpdateObjectTransforms()
         static_cast<int>(reinterpret_cast<uint32_t>(m_objectSource)));
     // the animated objects of the level (not the cutscene's own)
     for (int j = 0; j < *reinterpret_cast<int*>(Bytes(mp_animList) + 8); ++j) {
-        uint32_t name = static_cast<Gfx2D::CJointClipFrames*>(mp_animList)->GetBoneName(j);
+        uint32_t name = static_cast<Gfx2D::CJointClipFrames*>(mp_animList)->FetchJointName(j);
         bool own = false;
         for (int k = m_objectCount - 1; k >= 0; --k) {
             if (m_entities[k].name == name)
@@ -282,11 +282,11 @@ void CCinematicTable::UpdateObjectTransforms()
         if (CGameEntity* parent = entry.parent) {
             // hanging from the parent's bone 0x5A0E0860
             auto* skeleton = reinterpret_cast<void*>(
-                reinterpret_cast<OnlinePlay::FoldedGetters*>(parent->GetComponent(kSkeletonComponent))->Word18());
+                reinterpret_cast<OnlinePlay::FoldedGetters*>(parent->FetchModule(kSkeletonComponent))->Word18());
             float bone[4], turned[4];
-            static_cast<Gfx2D::CRig*>(skeleton)->GetBonePosition(kAttachBone, reinterpret_cast<Maths::Vector*>(bone));
-            *reinterpret_cast<Maths::Vector*>(turned) =
-                *reinterpret_cast<const Maths::Vector*>(bone) * *reinterpret_cast<const Maths::Matrix*>(Bytes(parent) + 0xC0);
+            static_cast<Gfx2D::CRig*>(skeleton)->GetBonePosition(kAttachBone, reinterpret_cast<Maths::Vec4*>(bone));
+            *reinterpret_cast<Maths::Vec4*>(turned) =
+                *reinterpret_cast<const Maths::Vec4*>(bone) * *reinterpret_cast<const Maths::Mat4*>(Bytes(parent) + 0xC0);
             const float* offset = turned;
             const float* at = reinterpret_cast<const float*>(Bytes(parent) + 0x4C);
             auto* position = reinterpret_cast<float*>(Bytes(object) + 0x4C);
@@ -296,7 +296,7 @@ void CCinematicTable::UpdateObjectTransforms()
             position[1] = static_cast<float>(static_cast<double>(at[1]) + offset[1]);
             position[3] = 1.0f;
             float jointMat[16];
-            static_cast<Gfx2D::CRig*>(skeleton)->ReadJointMatrix(kAttachBone, reinterpret_cast<Maths::Matrix*>(jointMat));
+            static_cast<Gfx2D::CRig*>(skeleton)->ReadJointMatrix(kAttachBone, reinterpret_cast<Maths::Mat4*>(jointMat));
             float ownerMat[16];
             std::memcpy(ownerMat, Bytes(parent) + 0xC0, 64);
             std::memcpy(ownerMat + 12, at, 16);
@@ -340,14 +340,14 @@ void CCinematicTable::RestartObjects()
 }
 
 // 0x00466490
-CCinematicEntry* CCinematicEntry::Construct(const uint32_t* settings)
+CCinematicEntry* CCinematicEntry::MakeNew(const uint32_t* settings)
 {
-    reinterpret_cast<CVideoEntry*>(this)->Construct();
+    reinterpret_cast<CVideoEntry*>(this)->MakeNew();
     m_vtable = kCutsceneDetailsVtable;
-    m_data = nullptr;
+    m_content = nullptr;
     m_asset = 0;
     Scripts::CStruct* block = Scripts::NewStruct();
-    m_params = block ? block->Init() : nullptr;
+    m_args = block ? block->PrepareAll() : nullptr;
     std::memcpy(m_settings, settings, 12);
     m_ownsData = static_cast<uint8_t>(m_settings[2] & 0xFF);
     m_flag5D = false;
@@ -359,16 +359,16 @@ CCinematicEntry* CCinematicEntry::Construct(const uint32_t* settings)
 void CCinematicEntry::DestroyBody()
 {
     m_vtable = kCutsceneDetailsVtable;
-    if (Scripts::CStruct* params = m_params) {
+    if (Scripts::CStruct* params = m_args) {
         params->Clear();
         Scripts::DeleteStruct(params);
     }
     if (m_ownsData) {
-        if (m_data) {
+        if (m_content) {
             auto* assets = AssetStore::g_assetManager;
             AssetStore::CResource* asset = assets->ObtainLoadedItem(m_asset, 1);
             assets->DiscardLoadedItem(asset);
-            m_data = nullptr;
+            m_content = nullptr;
         }
         Engine3D::SetAmbientLightModulationFactor(m_musicVolume, 0.0f);
         Engine3D::SetDiffuseLightModulationFactor(0, m_streamVolume0, 0.0f);
@@ -382,12 +382,12 @@ void CCinematicEntry::DestroyBody()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kCutsceneDetailsVtable_slots[] = {&GameObjects::CCinematicEntry::Destroy,
+static VtableSlot kCutsceneDetailsVtable_slots[] = {&GameObjects::CCinematicEntry::Teardown,
          &GameObjects::CCinematicEntry::ConfigureFromData,
-         &GameObjects::CCinematicEntry::Update,
+         &GameObjects::CCinematicEntry::TickFrame,
          Stubs::ReturnTrue,
          &Engine3D::CViewRegion::QueryPoint,
-         &GameObjects::CCinematicEntry::IsDone,
+         &GameObjects::CCinematicEntry::IsFinished,
          Stubs::ReturnFalse,
          &GameObjects::CCinematicEntry::IsReady,
          &GameObjects::CCinematicEntry::End,

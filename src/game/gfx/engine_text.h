@@ -8,7 +8,7 @@
 // effects, each change passed on to the platform (vtable slots 2-5); texts come from a free list (0x006FA804).
 namespace Engine3D {
 
-class CFont;
+class CTypeface;
 
 // A character's effect (10 bytes): an offset, a scale and a rotation, in 1/16384ths.
 struct sCharEffect {
@@ -18,7 +18,7 @@ struct sCharEffect {
 
     // 0x0048D0A0 (Ghidra never made it: the array constructor's callback): no offset, scale 1, no rotation.
     // Returns this.
-    sCharEffect* Construct();
+    sCharEffect* MakeNew();
 };
 static_assert(sizeof(sCharEffect) == 10, "layout must match the original");
 
@@ -31,14 +31,14 @@ constexpr int kTextLength = 0x60;
 // the properties, [4] the priority, [5] the window.)
 struct CGlyphString {
     void** m_vtable;
-    CFont* m_typeface;          // +0x04
+    CTypeface* m_typeface;          // +0x04
     sCharEffect* mp_effects; // +0x08 (null until one is set)
     char* m_textBuffer;         // +0x0C (a buffer of its own, null until set)
     float m_posX, m_y;          // +0x10
     float m_pivotX, m_pivotY; // +0x18
     float m_scaleH, m_scaleV; // +0x20
     float m_angle;           // +0x28
-    float m_priority;        // +0x2C
+    float m_rank;        // +0x2C
     uint32_t m_unknown30;
     float m_layer;           // +0x34 (with m_zEnabled)
     uint32_t m_shade;       // +0x38: RGBA as bytes
@@ -51,35 +51,35 @@ struct CGlyphString {
 
     // 0x0048D220: construct in `window` - no font, string or effects, at 0, unrotated, scale 1, grey, hidden.
     // Returns this.
-    CGlyphString* Construct(void* window);
+    CGlyphString* MakeNew(void* window);
     // 0x0048D620: the destructor's body - its string and effects freed.
     void DestroyBody();
     // 0x0048D670 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CGlyphString* Destroy(unsigned int flags);
+    CGlyphString* Teardown(unsigned int flags);
     // 0x0048D5A0: the string's buffer and the effects freed.
     void FreeBuffers();
 
     // The setters (each followed by the platform's update, virtual [2]-[5]):
     // 0x0048D0C0 (not a Ghidra function) shown / hidden ([2]); 0x0048D0D0 (not a Ghidra function) the font ([3]).
-    void SetHidden(bool hidden);
-    void SetFont(CFont* font);
+    void ChangeConcealed(bool hidden);
+    void ChangeTypeface(CTypeface* font);
     // 0x0048D0E0 / 0x0048D100 (not Ghidra functions) the position / the scale ([3]).
-    void SetPos(float x, float y);
+    void ChangeLocation(float x, float y);
     void ChangeScale(float x, float y);
     // 0x0048D120: the rotation about a pivot ([3]).
-    void SetRotation(float angle, float pivotX, float pivotY);
+    void ChangeSpin(float angle, float pivotX, float pivotY);
     // 0x0048D140 / 0x0048D160 (not Ghidra functions): drawn by priority / at a depth ([4]).
-    void SetPriority(float priority);
+    void ChangeRank(float priority);
     void SetDepth(float depth);
     // 0x0048D180 / 0x0048D1A0 (not Ghidra functions): the colour and whether the string's colours are ignored;
     // its alpha overridden ([3]).
     void ChangeColour(uint32_t rgba, bool fixed);
     void SetOverrideAlpha(bool on);
     // 0x0048D1B0 (folded with the sprite's: +0x40 and [5]): the window it's drawn in.
-    void SetWindow(void* window);
+    void ChangePane(void* window);
     // 0x0048D530: the string copied into its buffer (made on the front end's heap the first time; no length
     // limit, as the original) ([3]).
-    void SetString(const char* string);
+    void ChangeText(const char* string);
     // 0x0048D280 / 0x0048D360 / 0x0048D450: character `index`'s offset, scale (times 16384, truncated) and
     // rotation (the same) - the effects made on the front end's heap the first time (none: a write through null,
     // as the original) ([3]).
@@ -87,7 +87,7 @@ struct CGlyphString {
     void SetCharScale(int index, float x, float y);
     void SetCharRotation(int index, float rotation);
 };
-static_assert(offsetof(CGlyphString, m_priority) == 0x2C && offsetof(CGlyphString, m_layer) == 0x34 &&
+static_assert(offsetof(CGlyphString, m_rank) == 0x2C && offsetof(CGlyphString, m_layer) == 0x34 &&
                   offsetof(CGlyphString, m_invisible) == 0x3E && offsetof(CGlyphString, mp_nextFree) == 0x44 && sizeof(CGlyphString) == 0x48,
               "layout must match the original");
 

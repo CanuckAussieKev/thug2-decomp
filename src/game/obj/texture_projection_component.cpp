@@ -33,7 +33,7 @@ constexpr uint32_t kTextureProjections = 0xFF7E0DAD; // texture_projections
 MemSys::ListNode* NewProjection()
 {
     void* memory = MemSys::AllocZeroed(0xC8);
-    return memory ? reinterpret_cast<MemSys::ListNode*>(static_cast<Engine3D::CPcTextureProjection*>(memory)->Construct()) : nullptr;
+    return memory ? reinterpret_cast<MemSys::ListNode*>(static_cast<Engine3D::CPcTextureProjection*>(memory)->MakeNew()) : nullptr;
 }
 
 bool IsHead(const MemSys::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
@@ -41,13 +41,13 @@ bool IsHead(const MemSys::ListNode* node) { return node->data == reinterpret_cas
 } // namespace
 
 // 0x00434870
-CObjectModule* __cdecl CTextureProjectionComponent::Create()
+CObjectModule* __cdecl CTextureProjectionComponent::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CTextureProjectionComponent));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CTextureProjectionComponent*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
     MemSys::ListNode& head = component->m_projections.m_listLink;
     head.priority = 0;
@@ -58,16 +58,16 @@ CObjectModule* __cdecl CTextureProjectionComponent::Create()
     component->mp_suspend = nullptr;
     component->m_boneRig = nullptr;
     component->m_meshInstance = nullptr;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     return component;
 }
 
 // 0x00434670
-CTextureProjectionComponent::ProjectionList* CTextureProjectionComponent::ProjectionList::Destroy(unsigned int flags)
+CTextureProjectionComponent::ProjectionList* CTextureProjectionComponent::ProjectionList::Teardown(unsigned int flags)
 {
     m_listLink.UnlinkAs(Vt::kProjectionNode);
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -81,11 +81,11 @@ void CTextureProjectionComponent::DestroyBody()
 }
 
 // 0x00434840
-CTextureProjectionComponent* CTextureProjectionComponent::Destroy(unsigned int flags)
+CTextureProjectionComponent* CTextureProjectionComponent::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -93,10 +93,10 @@ CTextureProjectionComponent* CTextureProjectionComponent::Destroy(unsigned int f
 void CTextureProjectionComponent::ConfigureFromData(Scripts::CStruct* params)
 {
     Scripts::CArray* projections = nullptr;
-    params->GetArray(kTextureProjections, &projections, 1);
+    params->FetchList(kTextureProjections, &projections, 1);
     MemSys::ListNode& head = m_projections.m_listLink;
-    for (uint32_t i = 0; i < projections->m_size; ++i) {
-        auto* settings = reinterpret_cast<Scripts::CStruct*>(projections->GetElement(i));
+    for (uint32_t i = 0; i < projections->m_extent; ++i) {
+        auto* settings = reinterpret_cast<Scripts::CStruct*>(projections->FetchPart(i));
         uint32_t name = 0; // (read into the parameters' own argument slot)
         settings->ReadHashValue(0x1EE8B7B9, &name, 1);
         MemSys::ListNode* projection = NewProjection();
@@ -112,19 +112,19 @@ void CTextureProjectionComponent::ConfigureFromData(Scripts::CStruct* params)
 }
 
 // 0x00434630
-void CTextureProjectionComponent::Finalize()
+void CTextureProjectionComponent::Seal()
 {
-    mp_suspend = m_object->GetComponent(0xCE0CA665);
-    m_boneRig = m_object->GetComponent(0x222756D5);
-    m_meshInstance = m_object->GetComponent(0x286A8D26);
+    mp_suspend = m_entity->FetchModule(0xCE0CA665);
+    m_boneRig = m_entity->FetchModule(0x222756D5);
+    m_meshInstance = m_entity->FetchModule(0x286A8D26);
 }
 
 // 0x00434810
-void CTextureProjectionComponent::Update()
+void CTextureProjectionComponent::TickFrame()
 {
     // (the head test before the null test, as the original)
     for (MemSys::ListNode* node = m_projections.m_listLink.next; !IsHead(node) && node; node = node->next)
-        reinterpret_cast<Engine3D::CTextureProjection*>(node)->Update(m_object);
+        reinterpret_cast<Engine3D::CTextureProjection*>(node)->TickFrame(m_entity);
 }
 
 } // namespace Obj
@@ -132,21 +132,21 @@ void CTextureProjectionComponent::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CTextureProjectionComponent::Destroy,
-         &GameObjects::CTextureProjectionComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CTextureProjectionComponent::Teardown,
+         &GameObjects::CTextureProjectionComponent::TickFrame,
          &GameObjects::CTextureProjectionComponent::ConfigureFromData,
-         &GameObjects::CTextureProjectionComponent::Finalize,
+         &GameObjects::CTextureProjectionComponent::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
          static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
-static VtableSlot kHeadVtable_slots[] = {&Engine3D::CPcTextureProjection::Destroy};
+static VtableSlot kHeadVtable_slots[] = {&Engine3D::CPcTextureProjection::Teardown};
 void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
 
 } // namespace

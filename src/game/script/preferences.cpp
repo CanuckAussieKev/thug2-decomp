@@ -11,7 +11,7 @@ namespace OptionStore {
 
 namespace {
 
-static VtableSlot kPreferencesVtable_slots[] = {&OptionStore::Preferences::Destroy};
+static VtableSlot kPreferencesVtable_slots[] = {&OptionStore::Preferences::Teardown};
 void** const kPreferencesVtable = reinterpret_cast<void**>(kPreferencesVtable_slots);
 
 void** Vtable() { return kPreferencesVtable; }
@@ -19,10 +19,10 @@ void** Vtable() { return kPreferencesVtable; }
 } // namespace
 
 // 0x0046C470
-Preferences* Preferences::Init()
+Preferences* Preferences::PrepareAll()
 {
     m_vtable = Vtable();
-    m_topEntry.Init();
+    m_topEntry.PrepareAll();
     return this;
 }
 
@@ -34,16 +34,16 @@ void Preferences::TearDownState()
 }
 
 // 0x0046C680
-Preferences* Preferences::Destroy(unsigned int flags)
+Preferences* Preferences::Teardown(unsigned int flags)
 {
     TearDownState();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0046C4A0
-Scripts::CStruct* Preferences::GetPreference(uint32_t name)
+Scripts::CStruct* Preferences::FetchSetting(uint32_t name)
 {
     Scripts::CStruct* preference = nullptr;
     m_topEntry.ReadSubStruct(name, &preference, 0);
@@ -54,7 +54,7 @@ Scripts::CStruct* Preferences::GetPreference(uint32_t name)
 Scripts::CArray* Preferences::GetSettingList(uint32_t name)
 {
     Scripts::CArray* array = nullptr;
-    m_topEntry.GetArray(name, &array, 0);
+    m_topEntry.FetchList(name, &array, 0);
     return array;
 }
 
@@ -70,7 +70,7 @@ const char* Preferences::GetPreferenceString(uint32_t name, uint32_t field)
     Scripts::CStruct* preference = nullptr;
     m_topEntry.ReadSubStruct(name, &preference, 0);
     const char* value = reinterpret_cast<const char*>(name); // (the argument's slot, as the original)
-    preference->GetString(field, &value, 1);
+    preference->FetchText(field, &value, 1);
     return value;
 }
 
@@ -95,7 +95,7 @@ uint32_t Preferences::GetPreferenceChecksum(uint32_t name, uint32_t field)
 }
 
 // 0x0046C5D0
-bool Preferences::SetPreference(uint32_t name, Scripts::CStruct* values)
+bool Preferences::ChangeSetting(uint32_t name, Scripts::CStruct* values)
 {
     Scripts::CStruct* preference = nullptr;
     if (!m_topEntry.ReadSubStruct(name, &preference, 0))
@@ -108,14 +108,14 @@ bool Preferences::SetPreference(uint32_t name, Scripts::CStruct* values)
 bool Preferences::SetPreferenceArray(uint32_t name, Scripts::CArray* array)
 {
     Scripts::CArray* existing = nullptr;
-    if (!m_topEntry.GetArray(name, &existing, 0))
+    if (!m_topEntry.FetchList(name, &existing, 0))
         return false;
     m_topEntry.AppendArrayValue(name, array);
     return true;
 }
 
 // 0x0046C650
-bool Preferences::Load(uint32_t name)
+bool Preferences::ReadIn(uint32_t name)
 {
     m_topEntry.AppendStructureIfAny(Scripts::ReadSubStruct(name));
     return true;

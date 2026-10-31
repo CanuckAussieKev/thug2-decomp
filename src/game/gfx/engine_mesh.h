@@ -12,11 +12,11 @@ namespace Engine3D {
 class CSubMesh {
 public:
     // 0x00490A60: construct - an empty box, no collision, no hierarchy. Returns this.
-    CSubMesh* Construct();
+    CSubMesh* MakeNew();
     // 0x00490B60: the destructor's body - the collision file unloaded.
     void DestroyBody();
     // 0x00490C90 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CSubMesh* Destroy(unsigned int flags);
+    CSubMesh* Teardown(unsigned int flags);
     // 0x00490A90: the collision file unloaded (Pip), its name cleared.
     void RemoveCollision();
     // 0x00490B80: the collision from a .col file's data in memory: its objects (0x40 bytes each, after a 0x20-byte

@@ -23,11 +23,11 @@ public:
     static constexpr uint32_t kType = 0x5B512EDC;
 
     // 0x0051DA80 (registered with the composite object manager): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0051D760: the destructor body: both textures given back, then the base's.
     void DestroyBody();
     // 0x0051D860 (vtable slot 0)
-    CTaggingComponent* Destroy(unsigned int flags);
+    CTaggingComponent* Teardown(unsigned int flags);
     // 0x0051D890 (vtable slot 2): its own copies of tags\cas_01 and tags\sticker, keyed by the skater number
     // (0xA2B033FD of `params`; without it, what its slot held: `params` itself).
     void ConfigureFromData(Scripts::CStruct* params);
@@ -44,7 +44,7 @@ public:
     void SetStickerTexture(const char* name);
     // 0x0051DBC0: a tag (or with `sticker` a sticker, turned by up to 45 degrees at random) placed from `start`
     // towards `end`, `size` big; with `send`, told to the server in a network game (message 0x99).
-    void PlaceTag(bool sticker, Maths::Vector start, Maths::Vector end, int size, bool send);
+    void PlaceTag(bool sticker, Maths::Vec4 start, Maths::Vec4 end, int size, bool send);
 
     bool m_customTag;     // +0x18
     uint8_t pad19[3];
@@ -61,13 +61,13 @@ public:
     static constexpr uint32_t kType = 0x380D909A;
 
     // 0x0051E280 (registered with the composite object manager): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0051DD50: the destructor body (the base's).
     void DestroyBody();
     // 0x0051DD60 (vtable slot 0)
-    CTaggingControlComponent* Destroy(unsigned int flags);
+    CTaggingControlComponent* Teardown(unsigned int flags);
     // 0x0051DD90 (vtable slot 3): the skater's walk, input, core physics, trigger and tagging components.
-    void Finalize();
+    void Seal();
     // 0x0051E300 (vtable slot 12): TagNow, VertStickerSlap, TagClearFlags, BlockTaggingOn / Off. Other names: 2.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
@@ -75,7 +75,7 @@ public:
     // the tag button tapped - feelers from the tagging bone in six directions ahead find the nearest wall; the first
     // tap starts the tag (script 0x8C92DEA3 / 0x5213AFD6, 30 frames), the next one places it (bigger with a bigger
     // score) and starts the cooldown. Returns whether it got past the checks.
-    bool Update();
+    bool TickFrame();
     // 0x0051DDF0: a sticker slapped (or with `sticker` false, a tag sprayed) on the wall the skater faces from the
     // air: a feeler along its facing (`walking`: the walk component's heading; `low`: the lower spray height) finds
     // the wall; a sticker is only marked the first time and placed the next. False before the cooldown or the

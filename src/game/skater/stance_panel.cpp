@@ -38,15 +38,15 @@ const uint32_t* StanceTextures() { return g_stanceTextures; }
 } // namespace
 
 // 0x005193B0
-CObjectModule* __cdecl CRiderStanceDisplay::Create()
+CObjectModule* __cdecl CRiderStanceDisplay::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderStanceDisplay));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CRiderStanceDisplay*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kSkaterStancePanel;
+    component->m_kindTag = kSkaterStancePanel;
     component->m_corePhysics = nullptr;
     return component;
 }
@@ -59,11 +59,11 @@ void CRiderStanceDisplay::DestroyBody()
 }
 
 // 0x005191E0
-CRiderStanceDisplay* CRiderStanceDisplay::Destroy(unsigned int flags)
+CRiderStanceDisplay* CRiderStanceDisplay::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -71,9 +71,9 @@ CRiderStanceDisplay* CRiderStanceDisplay::Destroy(unsigned int flags)
 void CRiderStanceDisplay::ConfigureFromData(Scripts::CStruct* /*params*/) { m_shown = -1; }
 
 // 0x00519210
-void CRiderStanceDisplay::Finalize()
+void CRiderStanceDisplay::Seal()
 {
-    m_corePhysics = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCorePhysics));
+    m_corePhysics = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterCorePhysics));
 }
 
 // 0x00519150
@@ -81,7 +81,7 @@ int CRiderStanceDisplay::GetStance()
 {
     auto* core = reinterpret_cast<CObjectModule*>(m_corePhysics);
     uint8_t flip = *(*reinterpret_cast<uint8_t**>(m_corePhysics + 0x1528) + 0x28);
-    bool reversed = reinterpret_cast<uint8_t*>(core->m_object)[0x110] != 0;
+    bool reversed = reinterpret_cast<uint8_t*>(core->m_entity)[0x110] != 0;
     bool flipped = reversed ? flip != 0 : flip == 0;
     if (m_pressAmount)
         return flipped ? 3 : 4;
@@ -91,25 +91,25 @@ int CRiderStanceDisplay::GetStance()
 }
 
 // 0x00519230
-void CRiderStanceDisplay::Update()
+void CRiderStanceDisplay::TickFrame()
 {
     MenuSystem::CUiWidget* panel;
     {
         MenuSystem::ElementPtr found;
-        uint32_t id = static_cast<uint32_t>(static_cast<CRider*>(m_object)->GetSkaterNumber()) - kPanelIdOffset;
-        MenuSystem::CUiTree::Instance()->GetElement(&found, id, 0);
-        panel = found.Get();
+        uint32_t id = static_cast<uint32_t>(static_cast<CRider*>(m_entity)->GetSkaterNumber()) - kPanelIdOffset;
+        MenuSystem::CUiTree::Sole()->FetchPart(&found, id, 0);
+        panel = found.Pull();
     }
     int stance = GetStance();
     if (stance == m_shown)
         return;
     m_shown = stance;
     if (stance == kHidden) {
-        panel->SetAlpha(0.0f, 1);
+        panel->ChangeOpacity(0.0f, 1);
         return;
     }
     static_cast<MenuSystem::CImageWidget*>(panel)->SetTexture(StanceTextures()[stance]);
-    panel->SetAlpha(1.0f, 1);
+    panel->ChangeOpacity(1.0f, 1);
 }
 
 // 0x005192C0
@@ -120,13 +120,13 @@ int CRiderStanceDisplay::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*p
     case kNollieOn:
         if (!m_nollie) {
             m_nollie = 1;
-            m_object->BroadcastEvent(kSkaterEnterNollie, nullptr, 0.0f);
+            m_entity->Announce(kSkaterEnterNollie, nullptr, 0.0f);
         }
         return 1;
     case kNollieOff:
         if (m_nollie == 1) {
             m_nollie = 0;
-            m_object->BroadcastEvent(kSkaterExitNollie, nullptr, 0.0f);
+            m_entity->Announce(kSkaterExitNollie, nullptr, 0.0f);
         }
         return 1;
     case kInNollie:
@@ -134,13 +134,13 @@ int CRiderStanceDisplay::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*p
     case kPressureOn:
         if (!m_pressAmount) {
             m_pressAmount = 1;
-            m_object->BroadcastEvent(kSkaterEnterPressure, nullptr, 0.0f);
+            m_entity->Announce(kSkaterEnterPressure, nullptr, 0.0f);
         }
         return 1;
     case kPressureOff:
         if (m_pressAmount == 1) {
             m_pressAmount = 0;
-            m_object->BroadcastEvent(kSkaterExitPressure, nullptr, 0.0f);
+            m_entity->Announce(kSkaterExitPressure, nullptr, 0.0f);
         }
         return 1;
     case kInPressure:
@@ -155,14 +155,14 @@ int CRiderStanceDisplay::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*p
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderStanceDisplay::Destroy,
-         &GameObjects::CRiderStanceDisplay::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderStanceDisplay::Teardown,
+         &GameObjects::CRiderStanceDisplay::TickFrame,
          &GameObjects::CRiderStanceDisplay::ConfigureFromData,
-         &GameObjects::CRiderStanceDisplay::Finalize,
+         &GameObjects::CRiderStanceDisplay::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

@@ -56,7 +56,7 @@ void* Textures() { return reinterpret_cast<void*>(Engine3D::g_gameTextureDict); 
 void* SkaterTextures() { return reinterpret_cast<void*>(Engine3D::g_particleTextureDict); }
 void* FindTexture(void* dictionary, uint32_t name)
 {
-    return static_cast<Engine3D::CTextureSet*>(dictionary)->GetTexture(name);
+    return static_cast<Engine3D::CTextureSet*>(dictionary)->FetchSkin(name);
 }
 void* NewTexture(uint32_t name, int width, int height, int a, int b)
 {
@@ -74,7 +74,7 @@ R TextureCall(uint32_t slot, void* texture, A... args)
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-GameModules::Skate* Skate() { return GameModules::Skate::Instance(); }
+GameModules::Skate* Skate() { return GameModules::Skate::Sole(); }
 
 } // namespace
 
@@ -90,7 +90,7 @@ bool __cdecl CFunc_GenerateCAGTexture(Scripts::CStruct* params, Scripts::CScript
 {
     uint8_t palette[0x400]; // (filled by the tag's palette call, not here)
     CArray* layers = nullptr;
-    params->GetArray(kInfoArray, &layers, 1);
+    params->FetchList(kInfoArray, &layers, 1);
     void* tag = FindTexture(SkaterTextures(), kCustomTag);
     TextureCall<void>(8, tag, 0, 0);
     TextureCall<void>(12, tag, 0u, false);
@@ -99,11 +99,11 @@ bool __cdecl CFunc_GenerateCAGTexture(Scripts::CStruct* params, Scripts::CScript
     void* workspace = NewTexture(kWorkspace, width, width, 4, 0x20);
     TextureCall<void>(8, workspace, 0, 0);
 
-    uint32_t count = layers->m_size;
+    uint32_t count = layers->m_extent;
     bool translucent = false;
     int lastLayer = -1;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* info = reinterpret_cast<CStruct*>(layers->GetElement(i));
+        auto* info = reinterpret_cast<CStruct*>(layers->FetchPart(i));
         uint32_t textureId;
         info->ReadHashValue(kTextureId, &textureId, 1);
         void* source = FindTexture(Textures(), textureId);
@@ -114,7 +114,7 @@ bool __cdecl CFunc_GenerateCAGTexture(Scripts::CStruct* params, Scripts::CScript
         TextureCall<void>(10, source);
         TextureCall<void>(19, workspace, 0u);
         float scale;
-        info->GetFloat(kScale, &scale, 1);
+        info->FetchFloat(kScale, &scale, 1);
         TextureCall<void>(16, workspace, scale, scale);
         int flipH;
         info->FetchIntValue(kFlipH, &flipH, 1);
@@ -125,24 +125,24 @@ bool __cdecl CFunc_GenerateCAGTexture(Scripts::CStruct* params, Scripts::CScript
         if (flipV)
             TextureCall<void>(14, workspace);
         float rot;
-        info->GetFloat(kRot, &rot, 1);
+        info->FetchFloat(kRot, &rot, 1);
         float radians = static_cast<float>(static_cast<double>(rot) * g_degreesToRadians); // pi / 180
         TextureCall<void>(17, workspace, radians, -1.0f, -1.0f);
         float x;
-        info->GetFloat(kPosX, &x, 1);
+        info->FetchFloat(kPosX, &x, 1);
         float y;
-        info->GetFloat(kPosY, &y, 1);
+        info->FetchFloat(kPosY, &y, 1);
         if (static_cast<uint16_t>(size) == 0x80) {
             x = x + x;
             y = y + y;
         }
         TextureCall<void>(18, workspace, Ftol(x), Ftol(y), 0, 0u);
         CArray* rgba;
-        info->GetArray(kRgba, &rgba, 1);
-        uint8_t a = static_cast<uint8_t>(Ftol(rgba->GetFloat(3)));
-        uint8_t b = static_cast<uint8_t>(Ftol(rgba->GetFloat(2)));
-        uint8_t g = static_cast<uint8_t>(Ftol(rgba->GetFloat(1)));
-        uint8_t r = static_cast<uint8_t>(Ftol(rgba->GetFloat(0)));
+        info->FetchList(kRgba, &rgba, 1);
+        uint8_t a = static_cast<uint8_t>(Ftol(rgba->FetchFloat(3)));
+        uint8_t b = static_cast<uint8_t>(Ftol(rgba->FetchFloat(2)));
+        uint8_t g = static_cast<uint8_t>(Ftol(rgba->FetchFloat(1)));
+        uint8_t r = static_cast<uint8_t>(Ftol(rgba->FetchFloat(0)));
         uint32_t colour = r | g << 8 | b << 16 | static_cast<uint32_t>(a) << 24;
         TextureCall<void>(12, workspace, colour, false);
         if (a < 0x80)
@@ -165,7 +165,7 @@ bool __cdecl CFunc_GenerateCAGTexture(Scripts::CStruct* params, Scripts::CScript
     int player;
     params->FetchIntValue(kPlayer, &player, 1);
     if (player == 0) {
-        auto* tagging = static_cast<GameObjects::CTaggingComponent*>(Skate()->GetRiderAt(0)->GetComponent(GameObjects::CTaggingComponent::kType));
+        auto* tagging = static_cast<GameObjects::CTaggingComponent*>(Skate()->GetRiderAt(0)->FetchModule(GameObjects::CTaggingComponent::kType));
         tagging->m_customTag = true; // (0x004E4000, a setter folded with others)
         tagging->ApplyCustomTagTexture();
     }
@@ -185,8 +185,8 @@ bool __cdecl CFunc_SyncCAGWorkspace(Scripts::CStruct* params, Scripts::CScript*)
     int index;
     params->FetchIntValue(kSkater, &index, 1);
     GameObjects::CGameEntity* skater = Skate()->GetRiderAt(index);
-    Skate()->GetProfile(static_cast<CStruct*>(nullptr));
-    auto* tagging = static_cast<GameObjects::CTaggingComponent*>(skater->GetComponent(GameObjects::CTaggingComponent::kType));
+    Skate()->FetchAccount(static_cast<CStruct*>(nullptr));
+    auto* tagging = static_cast<GameObjects::CTaggingComponent*>(skater->FetchModule(GameObjects::CTaggingComponent::kType));
     void* graffiti = tagging->m_graffiti; // (0x00553E90, a getter folded with others)
     if (graffiti)
         TextureCall<void>(4, FindTexture(SkaterTextures(), kCustomTag), graffiti);
@@ -199,9 +199,9 @@ bool __cdecl CFunc_SyncCAGWorkspace(Scripts::CStruct* params, Scripts::CScript*)
 bool __cdecl CFunc_Get2DPosFrom2DVec(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float magnitude;
-    params->GetFloat(kMagnitude, &magnitude, 1);
+    params->FetchFloat(kMagnitude, &magnitude, 1);
     float theta;
-    params->GetFloat(kTheta, &theta, 1);
+    params->FetchFloat(kTheta, &theta, 1);
     bool negateX = false;
     bool negateY = false;
     if (theta > 90.0f && theta < 180.0f) {
@@ -240,8 +240,8 @@ bool __cdecl CFunc_Get2DPosFrom2DVec(Scripts::CStruct* params, Scripts::CScript*
         x = x * -1.0f;
     if (negateY)
         y = y * -1.0f;
-    script->m_params->PushFloat(kX, x);
-    script->m_params->PushFloat(kY, y);
+    script->m_args->PushFloat(kX, x);
+    script->m_args->PushFloat(kY, y);
     return true;
 }
 
@@ -252,7 +252,7 @@ bool __cdecl CFunc_ResolveHeadBoneScale(Scripts::CStruct* params, Scripts::CScri
 {
     int player = 0;
     params->FetchIntValue(kPlayer, &player, 1);
-    auto* profile = Skate()->GetProfile(player);
+    auto* profile = Skate()->FetchAccount(player);
     if (!profile)
         return true;
     // the appearance's part structures (0x00489050: a part's, through its description; 0x004890B0: the appearance's

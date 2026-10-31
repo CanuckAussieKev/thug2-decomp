@@ -42,7 +42,7 @@ constexpr int kMaxLayers = 5;
 
 void* LookUpTexture(void* dictionary, uint32_t checksum)
 {
-    return static_cast<CTextureSet*>(dictionary)->GetTexture(checksum);
+    return static_cast<CTextureSet*>(dictionary)->FetchSkin(checksum);
 }
 
 } // namespace
@@ -65,12 +65,12 @@ void __cdecl SetUpAnimatedGrassMaterial(materialRef* m)
     m->sortKey = 1501.0f;
     m->hasTextureAnim = true;
     m->passFlags[0] = (m->passFlags[0] & ~9u) | 0xA40;
-    auto* anim = static_cast<sTextureAnim*>(MemSys::New(sizeof(sTextureAnim)));
+    auto* anim = static_cast<sTextureAnim*>(MemSys::Alloc(sizeof(sTextureAnim)));
     m->textureAnim = anim;
     anim->keyCounts[0] = 18;
     m->textureAnim->phases[0] = 0;
     m->textureAnim->loops[0] = 0;
-    m->textureAnim->keys[0] = static_cast<sTextureKey*>(MemSys::New(18 * sizeof(sTextureKey)));
+    m->textureAnim->keys[0] = static_cast<sTextureKey*>(MemSys::Alloc(18 * sizeof(sTextureKey)));
     m->textureAnim->keys[1] = nullptr;
     m->textureAnim->keys[2] = nullptr;
     m->textureAnim->keys[3] = nullptr;
@@ -95,14 +95,14 @@ bool __cdecl MakeAnimatedGrass(CPcGeom* /*geom*/, meshRef* mesh)
         sVertexBuffer* wider = NewVertexBuffer((mesh->stride + 8u) * mesh->vertexCount, 0, 0);
         uint8_t* from = nullptr;
         uint8_t* to = nullptr;
-        mesh->GetVertexBuffer(0)->Lock(0, 0, &from, D3DLOCK_READONLY);
+        mesh->FetchVertexStore(0)->Lock(0, 0, &from, D3DLOCK_READONLY);
         wider->Lock(0, 0, &to, 0);
         for (int i = 0; i < mesh->vertexCount; ++i) {
             std::memcpy(to, from, mesh->stride);
             to += mesh->stride + 8;
             from += mesh->stride;
         }
-        mesh->GetVertexBuffer(0)->Destroy();
+        mesh->FetchVertexStore(0)->Teardown();
         mesh->bufferUsage = 0;
         mesh->SetVertexBuffer(0, wider);
         mesh->stride = static_cast<uint8_t>(mesh->stride + 8);
@@ -112,7 +112,7 @@ bool __cdecl MakeAnimatedGrass(CPcGeom* /*geom*/, meshRef* mesh)
     mesh->flags |= 0x402;
     mesh->pixelShader = g_pixelShaders[kPixelShader924];
     uint8_t* vertices = nullptr;
-    mesh->GetVertexBuffer(0)->Lock(0, 0, &vertices, 0); // (not unlocked: the copy is what's changed)
+    mesh->FetchVertexStore(0)->Lock(0, 0, &vertices, 0); // (not unlocked: the copy is what's changed)
     for (uint32_t i = 0; i < mesh->vertexCount; ++i) {
         auto* v = reinterpret_cast<float*>(vertices + mesh->stride * i);
         auto* uv = reinterpret_cast<float*>(vertices + mesh->stride * i + mesh->unknown1C[2]);
@@ -140,9 +140,9 @@ bool __cdecl MakeGrass(CPcGeom* geom, meshRef* mesh)
         layers = kMaxLayers;
     float step = static_cast<float>(*reinterpret_cast<const float*>(&m->unknown14) / static_cast<double>(layers));
     for (int layer = 0; layer < layers; ++layer) {
-        MemSys::Manager::Get()->EnterHeapScope(MemSys::BottomUpHeap());
-        meshRef* copy = mesh->Clone(false);
-        MemSys::Manager::Get()->LeaveHeapScope();
+        MemSys::Hub::Pull()->EnterHeapScope(MemSys::BottomUpHeap());
+        meshRef* copy = mesh->Replicate(false);
+        MemSys::Hub::Pull()->LeaveHeapScope();
         copy->flags |= 0x182;
         char name[64];
         std::snprintf(name, sizeof(name), "Grass-Grass_Layer%d", layer);
@@ -157,7 +157,7 @@ bool __cdecl MakeGrass(CPcGeom* geom, meshRef* mesh)
         material->sortFlag = 0;
         material->sortKey = height;
         uint8_t* vertices = nullptr;
-        copy->GetVertexBuffer(0)->Lock(0, 0, &vertices, 0); // (not unlocked)
+        copy->FetchVertexStore(0)->Lock(0, 0, &vertices, 0); // (not unlocked)
         double lift = static_cast<double>(layer + 1) * step;
         for (uint32_t i = 0; i < copy->vertexCount; ++i) {
             auto* v = reinterpret_cast<float*>(vertices + copy->stride * i);
@@ -180,15 +180,15 @@ namespace Engine3D {
 // 0x00640D90 (a static initialiser): the grass materials' two textures (each listed among the textures).
 void ConstructGrassTextures()
 {
-    reinterpret_cast<textureRef*>(g_grassTexture0)->Construct();
-    reinterpret_cast<textureRef*>(g_grassTexture1)->Construct();
+    reinterpret_cast<textureRef*>(g_grassTexture0)->MakeNew();
+    reinterpret_cast<textureRef*>(g_grassTexture1)->MakeNew();
 }
 
 // 0x00640DC0 (a static initialiser): the grass animation's 17 textures.
 void ConstructGrassTextureAnimation()
 {
     for (int i = 0; i < 17; ++i)
-        reinterpret_cast<textureRef*>(g_grassTextureAnimation + 0x20 * i)->Construct();
+        reinterpret_cast<textureRef*>(g_grassTextureAnimation + 0x20 * i)->MakeNew();
 }
 
 } // namespace Nx

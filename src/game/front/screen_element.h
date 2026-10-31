@@ -25,7 +25,7 @@ class CUiTree;
 // morphing to (+0xC0) and the summed one the layout pass leaves (+0x114: its parents' included).
 struct SElementState {
     float alpha;                     // +0x00
-    Maths::Vector pos3d;               // +0x04 (pos3D; w 1)
+    Maths::Vec4 pos3d;               // +0x04 (pos3D; w 1)
     float x, y;                      // +0x14 the position (its justification point) on the 640x480 layout
     float z;                         // +0x1C (pos3D: the projected depth)
     float left, top;                 // +0x20 its top left (x, y moved by the justification)
@@ -40,9 +40,9 @@ struct SElementState {
 };
 static_assert(sizeof(SElementState) == 0x44, "layout must match the original");
 
-class CUiWidget : public GameObjects::CObject {
+class CUiWidget : public GameObjects::CEntity {
 public:
-    // m_objectFlags (+0x08) - the element's own bits, beside CObject's.
+    // m_objectFlags (+0x08) - the element's own bits, beside CEntity's.
     enum : uint32_t {
         kMorphCurve = 0x300,          // Anim: 0x100 0xF5B95CE4 (ease out), 0x200 fast_in, 0x300 gentle
         kDirty = 0x400,               // changed since the layout pass looked
@@ -67,20 +67,20 @@ public:
 
     // 0x004A8F90: the constructor (returns this): vtable 0x0064A090, no parent / children / siblings, the three
     // states alike (alpha 1, scale 1, rgba 0x80808080, at 0, 0), dirty and new.
-    CUiWidget* Construct();
-    // 0x004AAB30: the destructor body: out of the tree (SetParent(null)), id 0xDEADBEEF, the links let go, then
-    // CObject's.
+    CUiWidget* MakeNew();
+    // 0x004AAB30: the destructor body: out of the tree (ChangeOwner(null)), id 0xDEADBEEF, the links let go, then
+    // CEntity's.
     void DestroyBody();
     // 0x004AAC90 (vtable slot 0): the scalar deleting destructor.
-    CUiWidget* Destroy(uint8_t flags);
+    CUiWidget* Teardown(uint8_t flags);
 
     // --- the vtable's slots (0x0064A090) ---
     // 0x004A96B0 (slot 1): Pos / pos3D, dims, parent, just, rgba, rot_angle, the flags, z_priority, (not_)focusable,
-    // local_id, unpause, (un)block_events, Hide / UnHide, Priority; then CObject's.
-    void SetProperties(Scripts::CStruct* params);
+    // local_id, unpause, (un)block_events, Hide / UnHide, Priority; then CEntity's.
+    void ChangeTraits(Scripts::CStruct* params);
     // 0x004A89B0 (slot 3): SetProps (slot 1), DoMorph (the script waits `time` seconds; slot 9), Die (the manager
     // destroys it, its parent's focus event resent around it), GetProps (slot 8, into the script's parameters);
-    // others: CObject's.
+    // others: CEntity's.
     bool InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004AA710 (slot 8): alpha, rgba (an array), scale (one or a pair), Pos, rot_angle (degrees),
     // events_blocked - added to `out`.
@@ -93,14 +93,14 @@ public:
     // --- placement ---
     // 0x004A8610 / 0x004A87C0 / 0x004A87E0: the justification, the position morphed to, the top left morphed to.
     void FetchAlignment(float* x, float* y) const;
-    void GetPos(float* x, float* y) const;
+    void FetchLocation(float* x, float* y) const;
     void GetTopLeft(float* x, float* y) const;
     // 0x004A8C30: s->left / top from s's position and scale, the justification and the size.
     void PlaceTopLeft(SElementState* s);
     // 0x004A9100: the position morphed to (with `now` also the one shown).
-    void SetPos(float x, float y, int now);
+    void ChangeLocation(float x, float y, int now);
     // 0x004A91F0: pos3D (with `now` also the one shown); kPos3d.
-    void SetPos3d(const Maths::Vector* pos, int now);
+    void SetPos3d(const Maths::Vec4* pos, int now);
     // 0x004A92D0: the size; kDimsLocked if `lock`.
     void FitToSize(float w, float h, int lock);
     // 0x004A9390: the justification; the position moves so the element stays put.
@@ -110,8 +110,8 @@ public:
     void ChangeScale(float x, float y, bool relative, int now);
     // 0x004A8630 / 0x004A8800 / 0x004A88C0: alpha, rotation (degrees, plus a constant) and rgba morphed to (with
     // `now` also the ones shown).
-    void SetAlpha(float alpha, int now);
-    void SetRotation(float degrees, int now);
+    void ChangeOpacity(float alpha, int now);
+    void ChangeSpin(float degrees, int now);
     void ChangeRgba(uint32_t rgba, int now);
     // 0x004A8870: a morph lasting `ms` from now (0: at once).
     void StartMorph(int ms);
@@ -126,17 +126,17 @@ public:
     // 0x004A8B80: its parent (a smart pointer into `out`; returns out).
     GameObjects::CSharedRef<CUiWidget>* GetParent(GameObjects::CSharedRef<CUiWidget>* out) const;
     // 0x004A8BB0: the nearest window element (type WindowElement) above it, or null.
-    CUiWidget* GetWindow() const;
+    CUiWidget* FetchPane() const;
     // 0x004AA8E0: out of its old parent's children, last among `parent`'s (none: out of the tree), the parent's
     // priority and z_priority + 1 taken over (no parent: z_priority 0). The second argument isn't used.
-    void SetParent(const GameObjects::CSharedRef<CUiWidget>* parent, int unused);
+    void ChangeOwner(const GameObjects::CSharedRef<CUiWidget>* parent, int unused);
     // 0x004A95E0: its last child (null without children).
-    CUiWidget* GetLastChild() const;
+    CUiWidget* FetchYoungest() const;
     // 0x004A9600: how many children.
     int ChildTotal() const;
     // 0x004AA2A0: the child with the id `id` (0: the `*index`th; the index found goes to `index` when given) -
     // a smart pointer into `out`.
-    GameObjects::CSharedRef<CUiWidget>* GetChild(GameObjects::CSharedRef<CUiWidget>* out, uint32_t id, int* index);
+    GameObjects::CSharedRef<CUiWidget>* FetchOffspring(GameObjects::CSharedRef<CUiWidget>* out, uint32_t id, int* index);
     // 0x004AA690 / 0x004AA6D0: the same as a plain pointer, by id / by index.
     CUiWidget* FindChildWithId(uint32_t id, int* index);
     CUiWidget* FindChildAtSlot(int index);
@@ -145,9 +145,9 @@ public:
     // 0x004A8F00 / 0x004A8F20 / 0x004A8F40: block_events / priority / hidden, on it or any parent.
     bool InputSuppressed() const;
     bool HasPriority() const;
-    bool IsHidden() const;
+    bool IsConcealed() const;
     // 0x004A86C0: Priority.
-    int GetPriority() const;
+    int FetchRank() const;
     // 0x004A86B0: whether the manager has pad-event priorities.
     bool ManagerUsesPriorities() const;
     // 0x004A8680: paused (kPauseAsked) or not (both pause bits cleared).
@@ -169,7 +169,7 @@ public:
     // 0x004A8E90: an rgba from the array `name` (bytes, lowest first). False without the array.
     bool ResolveRGBA(Scripts::CStruct* params, uint32_t name, uint32_t* rgba);
 
-    // --- fields (after CObject's) ---
+    // --- fields (after CEntity's) ---
     GameObjects::CSharedRef<CUiWidget> m_container;       // +0x4C
     GameObjects::CSharedRef<CUiWidget> mp_firstChild;   // +0x58
     GameObjects::CSharedRef<CUiWidget> m_following;         // +0x64 the next sibling
@@ -186,12 +186,12 @@ public:
     uint8_t m_rgba168[4];                         // +0x168 (0x80 each)
     float m_zPriority;                            // +0x16C
     float m_rememberedAlpha;                      // +0x170 (remember_alpha / restore_alpha; 1)
-    int m_priority;                               // +0x174
+    int m_rank;                               // +0x174
 };
 
 using ElementPtr = GameObjects::CSharedRef<CUiWidget>;
 
 // The element with this id (the screen element manager's lookup, 0x004AAE20), into `out` (which must be empty).
-void GetElement(ElementPtr* out, uint32_t id);
+void FetchPart(ElementPtr* out, uint32_t id);
 
 } // namespace Front

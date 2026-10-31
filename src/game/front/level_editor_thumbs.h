@@ -14,7 +14,7 @@ struct ImFont;
 //     picture of the piece or object, drawn by the preview's own off-screen render (Preview::DrawView: the game's
 //     meshes and instances, the default angle) into the cells of one atlas texture (UiBackend::BeginAtlasCell -
 //     kAtlasPixels square, kCellPixels a cell: kCells pictures kept, the least recently shown given up first). Only
-//     the entries the grid shows are drawn, kPerFrame a frame, in LevelEditor::Draw (after the game's frame, before
+//     the entries the grid shows are drawn, kPerFrame a frame, in LevelEditor::Blit (after the game's frame, before
 //     the UI's), as the preview is. The atlas is freed with the device objects (alt-tab, a new window size) and when
 //     the editor closes; its pictures are drawn again as they're shown.
 //   - The filter (the palette's search box) searches the names in both modes.
@@ -64,11 +64,11 @@ std::string KeyOf(const std::string& scene);
 
 // --- the game side ----------------------------------------------------------------------------------------------
 
-// Once a frame from LevelEditor::Draw (before Ui::Frame): the level's lists loaded when the level changed; while the
+// Once a frame from LevelEditor::Blit (before Ui::TickCycle): the level's lists loaded when the level changed; while the
 // palette is open in grid mode, the pictures the grid asked for last frame drawn (kPerFrame at most).
-void Frame(const Ui::Model& model);
+void TickCycle(const Ui::ShapeMesh& model);
 // The editor closing: the atlas freed.
-void Stop();
+void Halt();
 // An entry placed (Recently used).
 void NoteUsed(int tab, uint32_t id);
 bool Favourite(int tab, uint32_t id);
@@ -81,7 +81,7 @@ void SetGridMode(bool on);
 // and the items (the filter `filter` applied) in `height` pixels (negative: all but that much). `follow`: the
 // highlighted entry moved by the keys (scrolled into view). Requests (select, place) added to `requests`. Returns the
 // entry under the mouse (-1: none).
-int ItemsPanel(const Ui::Model& model, const char* filter, bool follow, float height, ImFont* mono, ImFont* smallFont,
+int ItemsPanel(const Ui::ShapeMesh& model, const char* filter, bool follow, float height, ImFont* mono, ImFont* smallFont,
                float scale, std::vector<Ui::Request>* requests);
 
 } // namespace MenuSystem::LevelEditor::Thumbs

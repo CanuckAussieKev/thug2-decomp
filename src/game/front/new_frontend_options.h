@@ -11,7 +11,7 @@ namespace MenuSystem::NewFrontend::Options {
 // When a change is seen.
 enum class Apply {
     Live,    // at once (the feature's switch is set as the ini is written)
-    Restart, // the next time the game starts (read once at start-up)
+    Relaunch, // the next time the game starts (read once at start-up)
 };
 
 struct Choice {
@@ -29,7 +29,7 @@ struct Spec {
     Apply apply;
 };
 
-struct Group {
+struct GroupSet {
     const char* id;    // "graphics", ... (automation)
     const char* name;  // "Graphics"
     std::vector<int> rows; // indices into Specs()
@@ -37,7 +37,7 @@ struct Group {
 
 // Every option offered, and the groups they are shown in (Graphics, Interface, Gameplay, Online, Mods).
 const std::vector<Spec>& Specs();
-const std::vector<Group>& Groups();
+const std::vector<GroupSet>& Bunches();
 // The option `section`/`key` (any case): its index, -1 if none.
 int Find(const std::string& section, const std::string& key);
 

@@ -13,14 +13,14 @@ namespace MenuSystem::LevelEditor::Ux8::Pie {
 namespace {
 
 // A registry action as a slice (its own name unless `label`).
-Item Action(int index, const char* label, bool edits)
+Item ActStep(int index, const char* label, bool edits)
 {
     Item item;
-    const Actions::Action* a = Actions::Get(index);
+    const Actions::ActStep* a = Actions::Pull(index);
     item.label = label ? label : a ? a->name : "?";
     item.keys = Hints::FirstKey(Actions::KeysText(index));
     item.run = [index] { Actions::Run(index); };
-    item.enabled = [index] { return Actions::Enabled(index); };
+    item.enabled = [index] { return Actions::IsSwitchedOn(index); };
     item.checked = [index] { return Actions::Checked(index); };
     item.edits = edits;
     return item;
@@ -36,18 +36,18 @@ Item ActionById(const char* id, const char* label, bool edits)
         none.checked = [] { return -1; };
         return none;
     }
-    return Action(index, label, edits);
+    return ActStep(index, label, edits);
 }
 
-Item Tool(Transform::Mode mode, int action)
+Item Tool(Xform::Mode mode, int action)
 {
     Item item;
-    item.label = std::string("Tool: ") + Transform::ModeName(mode);
+    item.label = std::string("Tool: ") + Xform::ModeName(mode);
     item.keys = Hints::FirstKey(Actions::KeysText(action));
     // (set directly: the keys pick a tool only with the right button up and wasd_flies=0)
-    item.run = [mode] { Transform::Current().mode = mode; };
+    item.run = [mode] { Xform::AtHand().mode = mode; };
     item.enabled = [] { return true; };
-    item.checked = [mode] { return Transform::Current().mode == mode ? 1 : 0; };
+    item.checked = [mode] { return Xform::AtHand().mode == mode ? 1 : 0; };
     return item;
 }
 
@@ -56,7 +56,7 @@ Item ViewMode(int mode)
     Item item;
     item.label = std::string("View: ") + Overlays::ViewModeName(mode);
     item.keys = Hints::FirstKey(Actions::KeysText(Actions::kViewModeLit + mode));
-    item.run = [mode] { Overlays::SetViewMode(mode); };
+    item.run = [mode] { Overlays::ChangeViewMode(mode); };
     item.enabled = [] { return true; };
     item.checked = [mode] { return Overlays::ViewMode() == mode ? 1 : 0; };
     return item;
@@ -69,25 +69,25 @@ std::vector<Item> ContextItems(bool haveSelection)
     using namespace Actions;
     if (haveSelection) {
         // (clockwise from the top)
-        return {Tool(Transform::Mode::Move, kToolMove),
-                Tool(Transform::Mode::Rotate, kToolRotate),
+        return {Tool(Xform::Mode::ShiftBy, kToolMove),
+                Tool(Xform::Mode::SpinBy, kToolRotate),
                 ActionById("snap25", "Snap", false),
-                Action(kDrop, "Drop to the ground", true),
-                Tool(Transform::Mode::Scale, kToolScale),
-                Action(kDelete, "Delete / hide", true),
-                Action(kDuplicate, nullptr, true),
-                Action(kFrameSelection, nullptr, false),
+                ActStep(kDrop, "Drop to the ground", true),
+                Tool(Xform::Mode::StretchBy, kToolScale),
+                ActStep(kDelete, "Delete / hide", true),
+                ActStep(kDuplicate, nullptr, true),
+                ActStep(kFrameSelection, nullptr, false),
                 ActionById("linked_duplicate", nullptr, true),
                 ActionById("arrange_window", nullptr, false)};
     }
-    return {Action(kBrowser, "Add (browser)", false),
-            Action(kPlace, "Place a node", false),
-            Action(kBoxSelect, nullptr, false),
-            Action(kRuler, nullptr, false),
+    return {ActStep(kBrowser, "Add (browser)", false),
+            ActStep(kPlace, "Place a node", false),
+            ActStep(kBoxSelect, nullptr, false),
+            ActStep(kRuler, nullptr, false),
             ActionById("walk_mode", nullptr, false),
-            Action(kSimulate, nullptr, false),
-            Action(kPlay, nullptr, false),
-            Action(kTrailWindow, nullptr, false)};
+            ActStep(kSimulate, nullptr, false),
+            ActStep(kPlay, nullptr, false),
+            ActStep(kTrailWindow, nullptr, false)};
 }
 
 std::vector<Item> ViewItems()
@@ -96,12 +96,12 @@ std::vector<Item> ViewItems()
     std::vector<Item> items;
     for (int mode = 0; mode < Overlays::kViewModes && mode < 4; ++mode)
         items.push_back(ViewMode(mode));
-    items.push_back(Action(kCollision, nullptr, false));
-    items.push_back(Action(kTriggers, nullptr, false));
-    items.push_back(Action(kJumpArcs, nullptr, false));
-    Item top = Action(kViewTop, nullptr, false);
-    if (Camera::Ortho()) {
-        top = Action(kViewOrtho, "Perspective", false);
+    items.push_back(ActStep(kCollision, nullptr, false));
+    items.push_back(ActStep(kTriggers, nullptr, false));
+    items.push_back(ActStep(kJumpArcs, nullptr, false));
+    Item top = ActStep(kViewTop, nullptr, false);
+    if (ViewCam::Ortho()) {
+        top = ActStep(kViewOrtho, "Perspective", false);
     }
     items.push_back(top);
     return items;

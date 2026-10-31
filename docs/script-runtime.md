@@ -5,7 +5,7 @@ become generators driven by a scheduler (the project's long-term plan, see the R
 here. It was put together from the CScript batch (the plan and the records of
 groups A-D), and the code was checked wherever they disagreed. The code is `src/game/script/cscript.h` (class,
 fields, flags) plus `cscript_core.cpp` (A), `cscript_exec.cpp` (B), `cscript_wait.cpp` (C) and
-`cscript_manager.cpp` (D). For the script cache (GetScript / ReleaseScript use counting) see "What the cache
+`cscript_manager.cpp` (D). For the script cache (FetchScript / ReleaseScript use counting) see "What the cache
 does" (batch 70). For the token format see `src/game/script/qb.h`. Sections 11 and 12
 (events, objects) come from batches 75-77 (`src/game/obj/event.*`, `tracker.*`, `object.*`, `objman.*`), the
 front end's part of the frame (section 2) from batch 78 (`src/game/front/front_end.*`), the frame order, the
@@ -13,7 +13,7 @@ object walk, pausing objects and composite objects (sections 2 and 12) from batc
 (`src/game/obj/compositemgr.*`, `composite.*`, `src/game/lst/head.*`).
 
 Conventions in this document:
-- "Update" means one call of `CScript::Update` (0x004750B0). A "count" is one call of `UpdateWait` (0x00473050).
+- "Update" means one call of `CScript::TickFrame` (0x004750B0). A "count" is one call of `UpdateWait` (0x00473050).
 - **[quirk]** means original behaviour a faithful port must reproduce. **[bug]** means a crash, hang or
   use-after-free in the original. A port should not reproduce these, but it must not change what happens in
   the cases that work.
@@ -28,14 +28,14 @@ layout is in cscript.h. The parts that matter for scheduling are:
 | field | meaning |
 |---|---|
 | `m_pc` +0x0C | the next token. Null means not running ("finished"). |
-| `m_params` +0x14 | the current level's parameters: the defaults from the script's first line, plus the caller's arguments, plus `name = value` assignments, plus whatever C functions leave there. |
+| `m_args` +0x14 | the current level's parameters: the defaults from the script's first line, plus the caller's arguments, plus `name = value` assignments, plus whatever C functions leave there. |
 | `m_functionParams` +0x10 | the arguments of the statement being run, parsed again for every statement. |
 | `m_currentLoop` / `m_loops` | one loop stack shared by all call levels: 1 inline entry, moved to 10 on the script heap. |
 | `m_numReturnAddresses`, `m_returnAddresses` | the call stack: saved caller levels (`SCallFrame`, 0x30 bytes). 2 inline, moved to 16 on the script heap. Nothing checks the limit. |
 | `m_waitType` +0xA4 with `m_waitCounter`, `m_waitTimer`, `m_waitTimerStarted`, `m_waitArg`, `m_waitComponent` | the current level's wait (section 5). |
-| `m_flags` +0xB4 | bit 0 `SCRIPT_RUN_INTERRUPTED`: the top level was entered as an interrupt. Bit 1 `SCRIPT_RUN_WAIT_UPDATED`: the wait has already been counted in this Update. |
+| `m_flagBits` +0xB4 | bit 0 `SCRIPT_RUN_INTERRUPTED`: the top level was entered as an interrupt. Bit 1 `SCRIPT_RUN_WAIT_UPDATED`: the wait has already been counted in this Update. |
 | `m_spawnFlags` +0xCC | `SPAWNED` 1, `NOT_SESSION_SPECIFIC` 2, `PAUSED` 4, `PAUSE_WITH_OBJECT` 8, `TRACKER_BLOCKED` 0x10. |
-| `m_object` +0xBC | the object the current level runs on (a smart pointer; saved levels hold plain pointers). |
+| `m_entity` +0xBC | the object the current level runs on (a smart pointer; saved levels hold plain pointers). |
 | `m_onExitScript` +0xE8 | the current level's OnExitRun script. Each saved level has its own copy. |
 | `m_eventHandlers` +0xE0 | the event handler table, created on demand. |
 | `m_callbackScript` / `m_callbackParams` | for spawned scripts: run when the script finishes. |
@@ -90,12 +90,12 @@ What happens when the list changes during the walk:
 
 **Where it runs: the menu front end** (GameModules::FrontEnd, src/game/front/front_end.cpp; batch 78) (code + test).
 The front end's logic task (0x0054FCC0, priority -2000 on the main loop's logic task list) pushes the front-end
-heap and calls `FrontEnd::Update(paused)` (0x0054F380), then the screen element manager's update (0x004ABD00 on
+heap and calls `FrontEnd::TickFrame(paused)` (0x0054F380), then the screen element manager's update (0x004ABD00 on
 0x00701440). Update, in order:
 1. Works out the script globals "menus active" (paused, in the skateshop level unless overridden, or the
    on-screen keyboard up), "keyboard up" and "menu up" (by anchor ids: keyboard_anchor, current_menu_anchor,
    dialog_box_anchor, quit_dialog_anchor).
-2. `AudioStream::Update`, then the sound updates on 0x006F85A8 (0x0047B000, and 0x0047C560 unless paused; read in Ghidra -
+2. `AudioStream::TickFrame`, then the sound updates on 0x006F85A8 (0x0047B000, and 0x0047C560 unless paused; read in Ghidra -
    front_end.cpp's comment calls it "the object manager", but both walk sound voices / streams).
 3. **TickChildScripts** (on the bottom-up heap).
 4. The skate module's 0x00564D60, then, if a pending flag is set, `LaunchScript(0xFB11E6CD, null, the first
@@ -103,7 +103,7 @@ heap and calls `FrontEnd::Update(paused)` (0x0054F380), then the screen element 
 
 Pausing (PauseGame 0x0054F960) sets the PAUSED bit of every spawned script (PauseSpawnedScripts), pauses the
 skaters, the composite objects (0x0045F5D0 on the composite object manager 0x006F0FB8, "Pausing objects" below)
-and the screen elements, and sets the main loop's logic list mask (FrameLoop::Manager +0x08) to 0xC, which **skips** the
+and the screen elements, and sets the main loop's logic list mask (FrameLoop::Hub +0x08) to 0xC, which **skips** the
 logic tasks whose kinds (+0x14) have bit 2 or 3 set (see "Task lists" below; earlier versions of this document had
 it backwards). Neither the front end's logic task nor the object walk's task has kinds, so both still run while
 paused; paused spawned scripts with code are skipped by the walk (step 3 above). Pad input is turned into events
@@ -111,17 +111,17 @@ by the front end's input handlers (section 11, "Pad input").
 
 ### The whole frame (code; the list behaviour also test)
 
-**The main loop** (FrameLoop::Manager::MainLoop 0x0044EEF0) runs, every frame, the **system** task list
-(FrameLoop::Manager +0x7C), then the **logic** task list (+0x04), then renders.
+**The main loop** (FrameLoop::Hub::MainLoop 0x0044EEF0) runs, every frame, the **system** task list
+(FrameLoop::Hub +0x7C), then the **logic** task list (+0x04), then renders.
 
-**Task lists** (add 0x00406C90 -> 0x00406A80 -> ListKit::Head::AddNode 0x0045A540; run 0x004070A0 -> 0x00406AC0):
+**Task lists** (add 0x00406C90 -> 0x00406A80 -> ListKit::Foremost::AppendVertex 0x0045A540; run 0x004070A0 -> 0x00406AC0):
 - Tasks are kept by priority, **highest first**; a task added with the same priority as others goes **before**
-  them (newest first) - AddNode inserts before the first node whose priority is <= its own (test).
+  them (newest first) - AppendVertex inserts before the first node whose priority is <= its own (test).
 - A run goes from the front and runs each task **at most once** (the run's counter is stamped into the task,
   +0x10). If a task is added during the run (the list's +0x1C set), the walk starts again from the front,
   skipping tasks already stamped.
 - A task is skipped when its +0x04 is non-zero, or when the list's mask (the list's +0x04; the logic list's is
-  FrameLoop::Manager +0x08) shares a bit with the task's kinds (+0x14): a task runs only when `(mask & kinds) == 0`
+  FrameLoop::Hub +0x08) shares a bit with the task's kinds (+0x14): a task runs only when `(mask & kinds) == 0`
   (0x00406B61-0x00406B6D). Tasks made by the constructor 0x00406890 have kinds 0 and are never masked.
 
 **The frame, in order:**
@@ -130,7 +130,7 @@ by the front end's input handlers (section 11, "Pad input").
 2. **Logic tasks**, highest priority first: the input manager's task (priority 2000; made at 0x0044E76A, added by
    SystemCore::Main; the front end's pad handlers run in it, section 11.5) ... **the composite object manager's task
    (0x0045F6D0, priority -900): the object walk** (below) ... **the front end's logic task (0x0054FCC0, priority
-   -2000): FrontEnd::Update -> TickChildScripts** (above). Other logic tasks are not all placed yet - e.g. the
+   -2000): FrontEnd::TickFrame -> TickChildScripts** (above). Other logic tasks are not all placed yet - e.g. the
    skate module's two tasks of priority -1000 made at 0x0056E2B0 run between the object walk and the front end
    (section 13).
 3. **Render.**
@@ -149,18 +149,18 @@ Consequences (code):
 - `PAUSE_WITH_OBJECT` spawned scripts are checked against their object's vtable +0x1C in TickChildScripts,
   after the object has updated this frame.
 
-### The object walk (CEntityHub::Update 0x0045F4A0) (code + test)
+### The object walk (CEntityHub::TickFrame 0x0045F4A0) (code + test)
 
 - Every object on the composite object manager's list, **in list order: node priority highest first, equal
-  priorities newest first** (CObjectHubBase::RegisterObject -> AddNode 0x0045A540). A new object's node priority is
-  0 (CObject's constructor); CObjectHubBase::SetEntityRank moves it.
+  priorities newest first** (CObjectHubBase::EnrolSubject -> AppendVertex 0x0045A540). A new object's node priority is
+  0 (CEntity's constructor); CObjectHubBase::SetEntityRank moves it.
 - It is CObjectHubBase::ForEach's walk (section 12) with the work inline: one bit of the manager's +0x18 per walk in
   progress (nested walks take the next free bit), every object's bit cleared first, the next object looked up
   **before** the current one updates. When the list changes during an update (an object registered or
   unregistered: the manager's +0x1C set), the walk starts again from the front, skipping objects already updated.
   So an object **created during the walk is updated in the same frame**; an object unregistered (e.g. marked dead)
   before the walk reaches it is not; a list node with no object ends the walk.
-- Each object gets one CGameEntity::Update (0x0045D920): its own script, its vtable +0x28, then its
+- Each object gets one CGameEntity::TickFrame (0x0045D920): its own script, its vtable +0x28, then its
   components (section 12).
 - **Other places an object's update runs** (code): Obj_ForceUpdate (0x0045DC40, a script member function: the
   whole update, script included, nested inside the calling statement - re-entrantly when the object's own script
@@ -172,33 +172,33 @@ Consequences (code):
 
 ### Pausing objects (code + test)
 
-- `CEntityHub::Pause(bool)` (0x0045F5D0) sets or clears composite flag +0x104 bit 0 (PAUSED) on
+- `CEntityHub::Freeze(bool)` (0x0045F5D0) sets or clears composite flag +0x104 bit 0 (PAUSED) on
   **every composite object that exists at that moment** (the same walk). Callers: PauseGame (0x0054F960) and the
   script commands PauseObjects / UnPauseObjects (0x005A0620 / 0x005A0630). The member functions Pause / Unpause
   (0x0045E9B0 / 0x0045E9D0) set or clear it on one object.
 - The object walk's task isn't masked, so it still runs every frame; a paused object's update returns at once -
   **its script doesn't run and its components don't update**.
 - `PAUSE_WITH_OBJECT` for a composite object means "while the object is paused": its vtable +0x1C is 0x0045E500
-  (`!(flags & PAUSED)`); CObject's own (0x005B9760) is always true.
+  (`!(flags & PAUSED)`); CEntity's own (0x005B9760) is always true.
 - [quirk] An object created while paused is **not** paused (Pause only touches the objects it walks). Unpausing
   clears the bit on every object - also on objects paused by PauseObjects / Pause before the game was paused.
 
 ## 3. One Update (0x004750B0)
 
 ```
-Update():
-  m_flags &= ~WAIT_UPDATED
+TickFrame():
+  m_flagBits &= ~WAIT_UPDATED
   while m_pc:
     current_script = this
-    if !(m_flags & WAIT_UPDATED): UpdateWait()           # count the wait (section 5)
+    if !(m_flagBits & WAIT_UPDATED): UpdateWait()           # count the wait (section 5)
     if m_waitType != NONE:
-      m_flags = (m_flags & ~INTERRUPTED) | WAIT_UPDATED   # (!) clears the interrupt flag
+      m_flagBits = (m_flagBits & ~INTERRUPTED) | WAIT_UPDATED   # (!) clears the interrupt flag
       current_script = null
       return BLOCKED (1) if type is 3 or 4, else WAITING (2)
     run one token / statement (section 4)
     # '$' / return whose ReturnFromScript says "interrupted": return FINISHED_INTERRUPT (5) at once,
     # with current_script left set and bit 0 not cleared
-  m_flags &= ~INTERRUPTED
+  m_flagBits &= ~INTERRUPTED
   current_script = null
   return FINISHED (0)
 ```
@@ -223,7 +223,7 @@ What the caller does with each result:
   Update. So after the on-exit cut-off of section 7, the first wait the script sets later in that same Update is
   not counted in that Update: `Wait n` costs one Update more than usual, and `Wait 0` waits one Update.
 - **INTERRUPTED (bit 0)** is the top level's "I am an interrupt" flag (each saved level keeps its own as frame
-  `mFlags` bit 1). It is set by RunSubScript (from its `interrupted` argument) and restored by ReturnFromScript.
+  `m_traitMask` bit 1). It is set by RunSubScript (from its `interrupted` argument) and restored by ReturnFromScript.
   It is cleared by every Update that returns 0, 1 or 2, and by ResetScriptState. Only the *top* level's flag is
   cleared, so an interrupt that waits stops being an interrupt (section 7).
 
@@ -250,7 +250,7 @@ the loop ends with FINISHED.
 | 20 | begin | ExecuteBegin (4.4) |
 | 21 | repeat [n] | ExecuteRepeat (4.4) |
 | 22 | break | ExecuteBreak (4.4) |
-| 24 | `$` end of script | if this level has an OnExitRun: clear it, `Interrupt(it)`. Then `ReturnFromScript(null)`; "interrupted" means return 5 (section 6) |
+| 24 | `$` end of script | if this level has an OnExitRun: clear it, `Preempt(it)`. Then `ReturnFromScript(null)`; "interrupted" means return 5 (section 6) |
 | 29 | return [args] | the same on-exit step, then `++pc`, parse the arguments into m_functionParams **from wherever pc is now**, `ReturnFromScript(m_functionParams)` (see the quirk in section 7) |
 | 2E, 2F, 37, 40, 41, 49 | jump / random blocks / short jump | `pc = ResolveRandomJumps(pc)` |
 | 3C | switch | ExecuteSwitch (4.3) |
@@ -263,19 +263,19 @@ the loop ends with FINISHED.
 
 The result is a bool and is only used by `if`. Its branches, in order:
 
-1. **`44 <name> args`**: a member function by name on `m_object`, through the object's vtable +0x0C
+1. **`44 <name> args`**: a member function by name on `m_entity`, through the object's vtable +0x0C
    `(name, m_functionParams, script)`. With no object: OnlinePlay 0x0044E4F0 is called and its result ignored (what
    is left of a compiled-out assert), and the result is false.
-2. **`46 <entry> args`**: a member function table entry on `m_object`, through the free InvokeMethodByName
+2. **`46 <entry> args`**: a member function table entry on `m_entity`, through the free InvokeMethodByName
    0x00472980. For the component types 0x57525413 / 0x0ADA4E74 the object runs it itself (vtable +0x08);
    otherwise its component of that type (0x0045DB90, then the component's vtable +0x2C) does. No object: as in 1.
 3. **`43 <fnptr> args`**: a C function, `fn(m_functionParams, this)`. Its result is the statement's result.
 4. Otherwise a **name** is read first:
-   - `0E ( expression )`: evaluated into a temporary component (with `m_params` supplying `<x>` values). If the
+   - `0E ( expression )`: evaluated into a temporary component (with `m_args` supplying `<x>` values). If the
      result is not a name, the statement's value is `raw != 0` and **nothing runs**. If it is a name, that
      checksum is the name to run; if the name is 0, ReadName reads one after the expression.
    - else ReadName (0x004729E0): `16 <checksum>`; `2C` `<...>` gives the unnamed checksum parameter of
-     m_params; `2D 16 <p>` (`<p>`) gives m_params' checksum parameter p. Anything else gives 0 and pc doesn't move.
+     m_args; `2D 16 <p>` (`<p>`) gives m_args' checksum parameter p. Anything else gives 0 and pc doesn't move.
 5. Then, depending on the token after the name:
    - **`42` (`name:` on an object)**: `FindObject(name)` (0x00460AD0, through the tracker).
      - **Not found**: return true **without moving pc**. The next pass runs the `42` again as a statement:
@@ -284,7 +284,7 @@ The result is a bool and is only used by `if`. Its branches, in order:
        script loops for ever **[bug]**.
      - **Found**: ResolveRandomJumps after the `:`, then either `44 <name>` (that member function on the object)
        or a name parsed with its arguments and looked up:
-       - a script: RunSubScript on that object, with the code from `GetScript(symbol->name)` (an alias is
+       - a script: RunSubScript on that object, with the code from `FetchScript(symbol->name)` (an alias is
          followed for the code, but the call keeps the written name), result true;
        - a member function: by entry or by name on the object;
        - a C function or any other symbol: false, and **a C function is not run**.
@@ -292,16 +292,16 @@ The result is a bool and is only used by `if`. Its branches, in order:
        pointer **[bug: crash]**.
    - **`07` (`name = value`)**: the target name is re-read from the 4 bytes before the `=` (so `<p> = 1` sets
      `p`), then `pc += 5`, ResolveRandomJumps, then an expression or a single value. A typed result is added to
-     **m_params** (replacing an existing one). An empty result (for example a missing `<param>`) is dropped.
+     **m_args** (replacing an existing one). An empty result (for example a missing `<param>`) is dropped.
      Result true.
    - **otherwise a call**: ParseFunctionParams (0x00472950: clear m_functionParams, parse the rest of the line
-     with m_params supplying `<x>`), then ResolveSymbol(name):
+     with m_args supplying `<x>`), then ResolveSymbol(name):
      - missing: unless the current script is 0xFB11E6CD (presumably the default level's), print `WARNING:
        script %s not found, ignoring in default level.`; result false;
-     - a script: `RunSubScript(name, GetScript(symbol->name), m_functionParams, m_object, false)`, result true
+     - a script: `RunSubScript(name, FetchScript(symbol->name), m_functionParams, m_entity, false)`, result true
        (section 6);
      - a C function: its result;
-     - a member function: on m_object (by entry, else by name); with no object, the OnlinePlay call and false;
+     - a member function: on m_entity (by entry, else by name); with no object, the OnlinePlay call and false;
      - any other type: false.
 
 ### 4.3 if and switch
@@ -343,11 +343,11 @@ nothing. When a count ends the wait, the script carries on with its next stateme
 
 | type | set by | each count |
 |---|---|---|
-| 1 COUNTER | Wait(n) 0x00472BD0 | `counter ? --counter : done` |
+| 1 COUNTER | Stall(n) 0x00472BD0 | `counter ? --counter : done` |
 | 11 ONE_PER_FRAME | SuspendUntilNextFrame(n) 0x00472BF0 | `counter ? --counter : (released_this_frame ? stay at 0 : (released_this_frame = true, done))` |
-| 2 TIMER | WaitTime(ms) 0x00472C10: `timer = (float)((unsigned)ms * 0.001f)`, started = false | `dt = FrameClock::GetSlomoFrameSeconds()` (0x005BEAA0; a double, not rounded): if `dt > timer`: `started ? done : timer = 0`; else `timer = (float)(timer - dt)`. Then started = true |
+| 2 TIMER | Lull(ms) 0x00472C10: `timer = (float)((unsigned)ms * 0.001f)`, started = false | `dt = FrameClock::GetSlomoFrameSeconds()` (0x005BEAA0; a double, not rounded): if `dt > timer`: `started ? done : timer = 0`; else `timer = (float)(timer - dt)`. Then started = true |
 | 4 REAL_TIMER | WaitRealTime(ms) 0x00473310: type set first, then `start = clock() + offset` (0x0044ECE0 + 0x00696D60), `timer = (float)(unsigned)ms` | done when `(double)(unsigned)(clock() + offset - start) >= timer` |
-| 3 BLOCKED | Block(type) 0x00472FD0: `m_waitArg = type`; if type != 0, the tracker is told (0x00463370) and `TRACKER_BLOCKED` is set | nothing (never counted down) |
+| 3 BLOCKED | GateOff(type) 0x00472FD0: `m_waitArg = type`; if type != 0, the tracker is told (0x00463370) and `TRACKER_BLOCKED` is set | nothing (never counted down) |
 | 5-10 component | SetWaitOnComponent(type, component, arg) 0x004739A0 (marks component +0x08 \|= 2; no null check) | calls the component's vtable +0x18 `(script, m_waitArg)`; the component ends the wait itself by setting the type to 0 |
 | 0, > 11 | | nothing |
 
@@ -380,8 +380,8 @@ What these rules mean, per type:
     never referred to that object** **[quirk]**. It also drops the object from every level.
   - **UnblockInterruptedScript** (0x00472F40, section 7).
 
-  `Block(0)` can only end by one of the last three. `Block(type)` also puts the script on the tracker's list
-  for that type, and **it stays there after the block ends** (section 11). WaitForEvent is `Block(0)` plus a
+  `GateOff(0)` can only end by one of the last three. `GateOff(type)` also puts the script on the tracker's list
+  for that type, and **it stays there after the block ends** (section 11). WaitForEvent is `GateOff(0)` plus a
   tracker slot (section 11). IsBlocked (0x00472900) is `type == 3`; with `print` it prints
   `m_wait_type == %i`.
 - **Component**: **ComponentDestroyed(component)** (0x00472D20, for every script through 0x00472E70) ends the
@@ -394,30 +394,30 @@ What these rules mean, per type:
 
 **RunSubScript(name, code, params, object, interrupted)** (0x004748E0):
 - **Nothing running** (`m_pc == 0`): it is just BindScript (section 8), with bit 0 set from `interrupted`.
-- **Otherwise**, push the current level. The frame saves: name, m_params (ownership moves to the frame), pc,
+- **Otherwise**, push the current level. The frame saves: name, m_args (ownership moves to the frame), pc,
   object, loop pointer, m_onExitScript, wait component / timer / arg / counter, wait type (low 4 bits; the
-  frame's other bits are left as they were), timer-started (bit 0 of `mFlags`) and bit 0 of `m_flags` (bit 1 of
-  `mFlags`; its other bits are kept). The third call moves the stack from the 2 inline frames to 16 on the
+  frame's other bits are left as they were), timer-started (bit 0 of `m_traitMask`) and bit 0 of `m_flagBits` (bit 1 of
+  `m_traitMask`; its other bits are kept). The third call moves the stack from the 2 inline frames to 16 on the
   script heap. It never shrinks back before ResetScriptState.
-- **The callee**: `m_scriptTitle = name`; m_params = a new structure holding the defaults from the callee's
+- **The callee**: `m_scriptTitle = name`; m_args = a new structure holding the defaults from the callee's
   first line (ParseArguments with no parameter source), then `params` appended (MergeStructure 0x00478480);
-  `m_object = object`; bit 0 = `interrupted`; no wait; no on-exit script. `m_currentLoop` and m_functionParams
+  `m_entity = object`; bit 0 = `interrupted`; no wait; no on-exit script. `m_currentLoop` and m_functionParams
   are kept. **The callee's first statement runs in the same Update.**
 - `code == null` while a script is running is not checked: ParseArguments reads from null **[bug: crash]**. This
   happens with Interrupt or OnExitRun of a name that isn't a script. ExecuteCommand only calls RunSubScript for
   real script symbols.
-- Call arguments are evaluated in the caller (m_functionParams, with the caller's m_params for `<x>`). The callee
+- Call arguments are evaluated in the caller (m_functionParams, with the caller's m_args for `<x>`). The callee
   gets a copy appended over its defaults, so arguments win.
-- The object: a plain call uses the caller's `m_object`; `obj:Script` uses that object.
+- The object: a plain call uses the caller's `m_entity`; `obj:Script` uses that object.
 
 **ReturnFromScript(results)** (0x00473E70), for `$` and `return`:
 1. `ReleaseScript(m_scriptTitle)` (the cache use).
-2. `interrupted = m_flags bit 0` (this is the function's result).
-3. At the **bottom level**: `m_pc = 0` (the script ends) and **m_params is kept**. Otherwise: free m_params,
+2. `interrupted = m_flagBits bit 0` (this is the function's result).
+3. At the **bottom level**: `m_pc = 0` (the script ends) and **m_args is kept**. Otherwise: free m_args,
    pop the frame and restore name, params, pc, object, loop pointer and on-exit. Set `m_waitType = the saved
    type`, and **only if that type is non-zero** also restore the other wait fields (otherwise the callee's values
    stay in those unused fields). Bit 0 = the frame's interrupt bit.
-4. If `results`: `m_params->AppendStructureIfAny(results)`. These are return's arguments, merged into the
+4. If `results`: `m_args->AppendStructureIfAny(results)`. These are return's arguments, merged into the
    restored level's parameters. At the bottom level they go into the script's own parameters, which is how
    RunScriptOnce returns results.
 
@@ -426,9 +426,9 @@ restored level that was executing a statement has no wait).
 
 ## 7. Interrupts and on-exit scripts
 
-**Interrupt(name, params)** (0x00475750): `RunSubScript(name, GetScript(name), params, m_object, interrupted =
+**Preempt(name, params)** (0x00475750): `RunSubScript(name, FetchScript(name), params, m_entity, interrupted =
 true)`, then a **nested Update**, whose result is returned. Callers: the event handler table (0x00460470), the
-`$`/return OnExitRun step, RunOnExitScripts, CObject::RunSubScript 0x00461500 (section 12), 0x005228B0 and
+`$`/return OnExitRun step, RunOnExitScripts, CEntity::RunSubScript 0x00461500 (section 12), 0x005228B0 and
 0x00522670.
 
 - The interrupted level is pushed **with its wait intact** (frozen). If the interrupt runs to its `$`/return
@@ -446,7 +446,7 @@ true)`, then a **nested Update**, whose result is returned. Callers: the event h
 - **Nothing running**: RunSubScript is just BindScript with bit 0 set. If the script ends in the nested Update,
   that Update returns **5 with `m_pc == 0`**, and the next Update returns 0.
 - **UnblockInterruptedScript** (0x00472F40, the CFunction UnBlockInterruptedScript): from the top level down,
-  find the first level entered as an interrupt (the top's flag is m_flags bit 0, a saved level's is frame bit 1)
+  find the first level entered as an interrupt (the top's flag is m_flagBits bit 0, a saved level's is frame bit 1)
   and clear the **saved wait type of the level just below it**, the level it interrupted. That level then goes
   on without waiting once the interrupt returns. The bottom level's own flag is never examined.
 
@@ -475,11 +475,11 @@ true)`, then a **nested Update**, whose result is returned. Callers: the event h
 
 - **BindScript(name, code, params, object)** (0x00474540; overloads 0x004747A0 by checksum and 0x004747C0 by
   string):
-  1. Copy `params` if they are (inside) this script's own m_params or m_functionParams (CopyParamsIfOwned
+  1. Copy `params` if they are (inside) this script's own m_args or m_functionParams (CopyParamsIfOwned
      0x004739D0), because the next step frees those.
   2. ResetScriptState (which runs the on-exit scripts).
-  3. Create new m_functionParams and m_params; set the name and the object.
-  4. `m_pc = code` if given, else `GetScript(name)`.
+  3. Create new m_functionParams and m_args; set the name and the object.
+  4. `m_pc = code` if given, else `FetchScript(name)`.
      - **No code**: free the copy, ResetScriptState again, then ReportStopped. The script ends at once, and the
        report is the same as for a kill.
      - Otherwise parse the first line as the defaults, then AppendStructureIfAny(params) over them (later wins).
@@ -495,10 +495,10 @@ true)`, then a **nested Update**, whose result is returned. Callers: the event h
   2. Free m_codeCopy.
   3. If `m_pc` was set, `ReleaseScript(m_scriptTitle)`. This happens **even for a private copy or for code passed
      to BindScript**, which never took a cache use, so a use someone else took is given back **[quirk]**.
-  4. Clear pc; free m_params and m_functionParams.
+  4. Clear pc; free m_args and m_functionParams.
   5. For every saved level, release its script and free its parameters.
   6. Go back to the inline stacks (heap blocks freed); `m_currentLoop = 0`.
-  7. Clear wait counter, type, component and arg; release the object; clear the name; clear `m_flags` bits 0
+  7. Clear wait counter, type, component and arg; release the object; clear the name; clear `m_flagBits` bits 0
      and 1.
 
   It does **not** clear m_onExceptionScript, the timer or timer-started, the spawn flags, the identity fields,
@@ -530,8 +530,8 @@ true)`, then a **nested Update**, whose result is returned. Callers: the event h
     a **fresh copy**, an empty structure when no callback parameters are given.
   - **Network**: with `net` in a network game, message 0x49 is sent ({name, object id -1, node, permanent}, 16
     bytes); `permanent` is only used there.
-  - The new script has **no object**. The callers that want one set `m_object` themselves right after:
-    CObject::SpawnScript / StartScriptTask / Obj_SpawnScript (section 12) and the spawning event handlers
+  - The new script has **no object**. The callers that want one set `m_entity` themselves right after:
+    CEntity::SpawnScript / StartScriptTask / Obj_SpawnScript (section 12) and the spawning event handlers
     (section 11).
 
   SpawnScript returns the script. A missing name still makes a script, which BindScript stops; it is deleted at
@@ -547,7 +547,7 @@ true)`, then a **nested Update**, whose result is returned. Callers: the event h
     object's vtable +0x0C. No null check on the object **[bug: crash with no object]**.
   - A C function runs directly as `fn(params, **null**)`.
   - A script: a new script (with the script heap pushed around new + Construct + BindScript), then
-    **`while (Update() != FINISHED) {}`**, then delete. Everything is **synchronous**, and every loop turn is one
+    **`while (TickFrame() != FINISHED) {}`**, then delete. Everything is **synchronous**, and every loop turn is one
     Update, so **waits count loop turns, not frames**:
     - `Wait n` takes n extra turns;
     - a timer wait subtracts the same, unchanging slomo frame time each turn, so it ends after about t/dt turns
@@ -559,7 +559,7 @@ true)`, then a **nested Update**, whose result is returned. Callers: the event h
 
   Callbacks of spawned scripts go through LaunchScript, with the same consequences.
 - **RunScriptOnce(name, params, object, results)** (0x004752F0): a new script, BindScript, **one** Update, then
-  `results->MergeStructure(m_params)` (the script's whole parameter set: defaults, arguments, assignments,
+  `results->MergeStructure(m_args)` (the script's whole parameter set: defaults, arguments, assignments,
   C function outputs and return's results; `results` isn't null-checked), then delete whatever state the
   script is in. A wait means it is cut off there, and Destroy runs its on-exit scripts.
 
@@ -603,9 +603,9 @@ it. Nothing is queued for a later frame (test).
 
 ### 11.1 The pieces
 
-- **The event** (`GameObjects::CSignal`, built on the stack by LaunchEvent through CSignal::Construct 0x0045F7F0):
+- **The event** (`GameObjects::CSignal`, built on the stack by LaunchEvent through CSignal::MakeNew 0x0045F7F0):
   `{type, source id (+4), target id (+8), flags (+0xC), data (+0x10)}`. Flags: bit 1 HANDLED (set by SetEventHandled
-  0x0045F9B0, which also logs it), bit 2 the event owns `data` (freed by CSignal::Destroy 0x00460150; LaunchEvent's
+  0x0045F9B0, which also logs it), bit 2 the event owns `data` (freed by CSignal::Teardown 0x00460150; LaunchEvent's
   events never own it). 0x36B2EE74 is the "no object" id (`kNoObjectId`, name unknown): a target or source of
   none.
 - **The tracker** (`GameObjects::CEventWaitBoard`, singleton 0x006F0FC0) keeps:
@@ -629,14 +629,14 @@ The CFunctions and the CScript methods they use:
 
 | script command | CScript method | table function |
 |---|---|---|
-| SetEventHandler / SetException (0x0044AB20 / 0x0044ABD0) | 0x004735D0 | AddHandler 0x0045FBC0 |
-| SetProps event_handlers=[...] [replace_handlers] (CObject::SetProperties 0x00461710) | InstallEventTable 0x004734E0 | AddHandlers 0x004601A0 |
-| ResetEventHandlersFromTable (0x0044AC70) | 0x004736C0 | MarkGroup 0x0045F840, AddHandler, RemoveMarked 0x0045FED0 |
-| ClearEventHandler (0x0044ACD0; also CObject 0x004607A0) | 0x00473690 | RemoveType 0x0045FDF0, then the tracker's RemoveListener |
+| SetEventHandler / SetException (0x0044AB20 / 0x0044ABD0) | 0x004735D0 | AppendListener 0x0045FBC0 |
+| SetProps event_handlers=[...] [replace_handlers] (CEntity::ChangeTraits 0x00461710) | InstallEventTable 0x004734E0 | AddHandlers 0x004601A0 |
+| ResetEventHandlersFromTable (0x0044AC70) | 0x004736C0 | MarkGroup 0x0045F840, AppendListener, RemoveMarked 0x0045FED0 |
+| ClearEventHandler (0x0044ACD0; also CEntity 0x004607A0) | 0x00473690 | RemoveType 0x0045FDF0, then the tracker's RemoveListener |
 | ClearEventHandlerGroup (0x0044AD00) | 0x00472EA0 | RemoveGroup(script, group) 0x004600E0 |
 | PrintEventHandlerTable (0x0044AD90) | 0x00472EC0 | PrintTable 0x0045F880 |
 
-- **AddHandler** (from SetEventHandler / SetException / ResetEventHandlersFromTable): the entry of the **same
+- **AppendListener** (from SetEventHandler / SetException / ResetEventHandlersFromTable): the entry of the **same
   type** is overwritten in place (even a removed one), else the first removed slot is reused, else the array
   grows by one (the new entry last). The old parameters are freed, the new ones copied, the mark cleared. The
   tracker is told the script listens for the type unless the overwritten entry was live. Sets `changed` (test).
@@ -648,7 +648,7 @@ The CFunctions and the CScript methods they use:
   and re-registers it after. Sets `changed` (test).
 - **ResetEventHandlersFromTable**: marks the group's live entries, adds each element's `{flag, type, script,
   [params]}` (the first component compared with `exception` 0x80367192; fewer than three components is read
-  through null **[bug]**), then removes the entries still marked (AddHandler clears the mark of an entry it
+  through null **[bug]**), then removes the entries still marked (AppendListener clears the mark of an entry it
   overwrites) (code + test).
 - **Removing** by type (RemoveType, which also zeroes the type; ClearEventHandler then tells the tracker), by
   group (RemoveGroup 0x0045FE60 quietly, 0x004600E0 telling the tracker; `all_groups` 0x8B713E0E matches every
@@ -656,7 +656,7 @@ The CFunctions and the CScript methods they use:
 - **Tracker registration**: EnterWaitBoard (0x0045FA10) is one `AddListener(type, script)` (0x00463370) per
   live entry with a type and script; UnregisterWithTracker (0x0045FA60) one `RemoveListener` (0x00463450) per
   entry with a type, removed ones included (test).
-- **Block(type)** with type != 0 (CScript::Block 0x00472FD0) also calls AddListener and sets `TRACKER_BLOCKED`.
+- **GateOff(type)** with type != 0 (CScript::GateOff 0x00472FD0) also calls AddListener and sets `TRACKER_BLOCKED`.
   **The registration outlives the block [quirk]**: nothing takes the script off the type's list when the block
   ends, so until it stops (or a ClearEventHandler of that type) it keeps getting broadcasts of the type, which
   then only reach its handler table (code).
@@ -671,16 +671,16 @@ The CFunctions and the CScript methods they use:
 1. **Targeted** (not `broadcast`):
    1. Every **event listener**, in list order (its busy count +0x18 raised around the call).
    2. Then, unless a listener marked it HANDLED or the target is none (0x36B2EE74): the **object** with that id
-      or alias gets it through its vtable +0x14 - for a plain CObject that is PassEventToScript (0x00461140):
+      or alias gets it through its vtable +0x14 - for a plain CEntity that is PassEventToScript (0x00461140):
       its own script's ReceiveEvent (section 12); else the **spawned script** whose spawn id is the target gets
       ReceiveEvent; if there is neither, the game prints the event log and calls ReceiveEvent on null
       **[bug: crash]**.
    **The listener lists are not used**: a targeted event never reaches a script just because it listens for the
-   type (code). Composite objects (and the skater, ped and level objects built on them) keep CObject's +0x14, so
+   type (code). Composite objects (and the skater, ped and level objects built on them) keep CEntity's +0x14, so
    the event reaches only the object's own script, never its components; only screen elements override +0x14
    (section 12).
 2. **Broadcast**: every script on the type's listener list, in the order they started listening, gets
-   ReceiveEvent (0x00473800). With `radius` >= 0, a script whose object has a position (CObject +0x08 bit 0x20,
+   ReceiveEvent (0x00473800). With `radius` >= 0, a script whose object has a position (CEntity +0x08 bit 0x20,
    set by CGameEntity's constructor)
    gets it only if its squared distance from the **source** object (looked up by id, not checked for null
    **[bug]**) is less than radius squared (equal: not delivered); scripts without an object, or whose object has
@@ -711,15 +711,15 @@ current one and saved ones), then, if the script has a table, `PassEvent(event, 
   script's object (none without one; `target=<the none id>` gives none); `data` a structure (not copied: the
   event doesn't own it); `broadcast` a flag; `radius` a float (default -1 = none).
 - **WaitForEvent type=X** (0x00462310 -> 0x00462260): takes the first free slot, else the first whose script has
-  gone; if all 40 are held by live scripts it **silently doesn't wait [quirk]**. Then `Block(0)`: the script is
+  gone; if all 40 are held by live scripts it **silently doesn't wait [quirk]**. Then `GateOff(0)`: the script is
   blocked with no type, so it is on no listener list and ReceiveEvent doesn't release it; only LaunchEvent's
   waiter step (or StopWaiting / ObjectDestroyed / UnblockInterruptedScript) does. The slot keeps the script's
   object id from when it started waiting (an object rename moves it, section 12). A missing `type` is read
   uninitialised in the original (ours: 0). A WaitForEvent script that also has a handler for X gets ReceiveEvent
   first only if X is broadcast (it listens through its table), and is then released by the waiter step (code).
 - **The object CFunctions** - AssignAlias, ObjectExists, SetObjectProps, TerminateObjectsScripts: section 12.
-- **The C++ senders** seen so far: CObject::PostOwnEvent (0x004609F0: targeted at the object itself, source itself),
-  CObject::BroadcastEvent (0x00460A20: broadcast with source the object; **its radius argument is ignored**, -1 is
+- **The C++ senders** seen so far: CEntity::PostOwnEvent (0x004609F0: targeted at the object itself, source itself),
+  CEntity::Announce (0x00460A20: broadcast with source the object; **its radius argument is ignored**, -1 is
   passed [quirk]), the skater's physics (core_physics.cpp), and the front end's pad input (11.5).
 - **The event log** (+0x20): a ring of 1024 entries {type, target, source, script, how, kind, depth}: LAUNCHED (0),
   HANDLED (1, how 0 a handler / 2 a waiter / 3 nobody), READ (2, 0x00462B40), FRAME (3, one per call of LogFrame
@@ -740,18 +740,18 @@ current one and saved ones), then, if the script has a table, `PassEvent(event, 
      handler **replaces the whole script** (ResetScriptState drops the call stack and runs its OnExitRun scripts; the
      handler table and m_onExceptionScript survive). It is a "goto", not a call: nothing resumes what the script
      was doing.
-   - **Normal handler, the script's object has flag 0x10000** (CObject +0x08; what sets it is open):
-     `SpawnScript(handler, params)` (no callback, id 0, not networked), the new script's `m_object` set to the
+   - **Normal handler, the script's object has flag 0x10000** (CEntity +0x08; what sets it is open):
+     `SpawnScript(handler, params)` (no callback, id 0, not networked), the new script's `m_entity` set to the
      receiving script's object, and **one Update at once**; later Updates come from TickChildScripts. The
      receiving script is not disturbed. A C-function handler returns no script, which is used anyway **[bug:
      crash]**.
-   - **Normal handler otherwise**: `script->Interrupt(handler, params)` - the handler runs **now**, nested, on the
+   - **Normal handler otherwise**: `script->Preempt(handler, params)` - the handler runs **now**, nested, on the
      receiving script (section 7), over whatever level was running; it returns into that level (which keeps its
      wait) or, if it waits, stays on top as an ordinary called level.
    - Then the event is marked HANDLED and logged (`SetEventHandled(0, entry.script)`, the entry re-read).
 
    After every entry (matched or not):
-   - if the table is no longer **alive** (a handler destroyed the script: CScript::Destroy only clears `alive`
+   - if the table is no longer **alive** (a handler destroyed the script: CScript::Teardown only clears `alive`
      while `inUse != 0`, section 8): `--inUse`, and if that was the outermost PassEvent the table is destroyed and
      freed; return;
    - if **changed** (a handler *added* entries, which may have moved the array): `--inUse` and **stop** - the
@@ -775,7 +775,7 @@ Consequences for a port:
 
 ### 11.5 Pad input: how the menus get events
 
-The front end (section 2) has an input handler per controller (InputLogic 0x0054FB40, an `PadInput::Handler`, priority
+The front end (section 2) has an input handler per controller (InputLogic 0x0054FB40, an `PadInput::Responder`, priority
 -1000, run by the input manager) (code + test). Each call first logs a FRAME in the tracker's log, then loops:
 the auto-repeat event of held directions (0x0054ECE0, first pass only) or the n-th pressed (button, event) pair
 of SetButtonEventMappings (GrabControlEvent 0x0054F600; Start is `pad_start`; with the on-screen keyboard up,
@@ -783,12 +783,12 @@ controller 0's PC keys Escape -> `pad_back` / `pad_start`, Enter / Space -> `pad
 Unless the controller is inactive (SetMenuPadMappings) or menu input is blocked (`block_menu_input`), each event
 is launched at once as a **targeted event with target and source "none"** (0x36B2EE74) and data `{device_num,
 controller = 0}`. So pad events reach only the **event listeners** and the **WaitForEvent waiters** of the type -
-never a script's handler table directly, and never Block(type) scripts (11.3). Which listener turns them into
+never a script's handler table directly, and never GateOff(type) scripts (11.3). Which listener turns them into
 menu actions (presumably the screen element manager's, 0x004A1090) is open (section 13).
 
 ## 12. Objects and their scripts
 
-The code: `src/game/obj/object.*` (`GameObjects::CObject`, 0x4C bytes, vtable 0x006477E8; CGameEntity's own fields
+The code: `src/game/obj/object.*` (`GameObjects::CEntity`, 0x4C bytes, vtable 0x006477E8; CGameEntity's own fields
 start at +0x4C) and `objman.*` (CObjectHubBase / CMiscHub); batch 77. Composite objects: `composite.*`
 (batch 80) and `compositemgr.*` (the composite object manager, batch 79).
 
@@ -796,28 +796,28 @@ start at +0x4C) and `objman.*` (CObjectHubBase / CMiscHub); batch 77. Composite 
   through FindObject (0x00460AD0) or CObjectHubBase::LookUpEntity (0x004619F0, the same lookup, `this` unused) to
   the tracker's LookUpObject (0x00462120): by **id** first (+0x08), then by **alias** (+0x0C). Not found: null.
   An object's id is its name checksum, also kept as its tag `id` (its type as tag `type`).
-  - **Ids** (code + test): an object registered with id -1 gets a unique one (GetUniqueId 0x004621D0:
-    `autoid%d` checksummed, the counter wrapping at 1000000, retried while taken). SetID on a registered object
+  - **Ids** (code + test): an object registered with id -1 gets a unique one (FetchDistinctId 0x004621D0:
+    `autoid%d` checksummed, the counter wrapping at 1000000, retried while taken). ChangeSerial on a registered object
     re-registers it under the new id. AddObject (0x00462980) drops an alias equal to the new id; RemoveObject
     (0x00462A20) drops the object's aliases, or, when the object is being renamed, moves WaitForEvent slots to
     the new id (test).
   - **AssignAlias id=X alias=Y** (0x00462C40): Y names X from now on (an alias naming another object is moved;
     objects count their aliases at +0x3C). A missing alias is read uninitialised (ours: 0). **ObjectExists id=X**
     (0x00462340): X is an object id or alias. **SetObjectProps id=X ...** (0x00462440): the object's vtable +0x04
-    (SetProperties) gets the parameters. **TerminateObjectsScripts id=X [scripts=[...] | script_name=Y]**
+    (ChangeTraits) gets the parameters. **TerminateObjectsScripts id=X [scripts=[...] | script_name=Y]**
     (0x00462380): StopScriptsUsingObjectThatReferTo (section 10) for each name (no name: 0). None of them checks
     for an unknown object **[bug: crash]** (test).
 - **An object's own script is not spawned** (code): an object has at most one script of its own (+0x10), made on
   demand: CreateScriptIfNeeded (0x00461290, starts it on `empty_script`), ReplaceScript (0x00461350: BindScript
   with the object - the first statement at its next update), RunSubScript (0x00461500), and SetProps
-  `event_handlers=` (SetProperties 0x00461710). It never goes through TickChildScripts: it gets one Update
+  `event_handlers=` (ChangeTraits 0x00461710). It never goes through TickChildScripts: it gets one Update
   per frame inside its object's update (CGameEntity, below), which the object walk runs **before**
   TickChildScripts (section 2, "The whole frame"; other callers of the update there too).
-- **RunSubScript on an object** (0x00461500, code + test): `Interrupt(name, params)` on the object's script (made
+- **RunSubScript on an object** (0x00461500, code + test): `Preempt(name, params)` on the object's script (made
   if needed, its object set): the script runs **at once**, nested over whatever the object's script was doing
   (section 7) - not a new script.
-- **Spawning on an object** (code + test): CObject::SpawnScript (0x00461410) spawns with node -1, the given id and
-  `PAUSE_WITH_OBJECT` as asked, then sets the new script's `m_object` to the object. The member function
+- **Spawning on an object** (code + test): CEntity::SpawnScript (0x00461410) spawns with node -1, the given id and
+  `PAUSE_WITH_OBJECT` as asked, then sets the new script's `m_entity` to the object. The member function
   **Obj_SpawnScript** (0x004617E0): the first parameter must be a bare name (else nothing, true); `id` defaults to
   the calling script's spawn id; `params=` are its parameters; `PauseWithObject` a flag; unless 0x01917DF2 is
   given the new script records the caller's .qb file (SetSpawnerFile) - a C function's name returns no script and
@@ -828,19 +828,19 @@ start at +0x4C) and `objman.*` (CObjectHubBase / CMiscHub); batch 77. Composite 
   events targeted at the object (section 11.3). **Obj_KillSpawnedScript** (0x00460850): `name=` kills the
   object's spawned scripts with that top-level name, else `id=` those with that spawn id, never the caller
   (section 10). **Obj_SwitchScript** (0x004618A0): ReplaceScript to the unnamed name with `params=`.
-- **Events to an object** (code + test): CObject's vtable slot 5 (+0x14, PassEventToScript 0x00461140) hands a
+- **Events to an object** (code + test): CEntity's vtable slot 5 (+0x14, PassEventToScript 0x00461140) hands a
   targeted event to its own script's ReceiveEvent, holding a smart pointer to the object; it returns false if the
   object was deleted meanwhile, and true (nothing happens) with no script. **CGameEntity (vtable 0x00647650)
   and its three subclasses (vtables 0x0064EC44, 0x0064EF48, 0x0064F138: the skater, ped and level-object kinds,
   constructors around 0x0057826D, 0x00582DC3, 0x0058987F) keep 0x00461140**, so an event targeted at a composite
   object goes to that object's own script only - **never to its components** (code). Of the 21 vtables with
-  CObject's slot 2 (0x0045D850), the only ones with a different +0x14 are screen elements: 0x004A8100 (vtable
+  CEntity's slot 2 (0x0045D850), the only ones with a different +0x14 are screen elements: 0x004A8100 (vtable
   0x0064A048), 0x004AA560 (0x0064A0BC), 0x004AE6A0 (0x0064A154 / 0x0064A188 / 0x0064A1BC) - they handle targeted
   events themselves (not decompiled; likely where the menus' pad events become actions, section 11.5).
 - **Obj_LeaveScript** (0x00460840; name checksum 0xB3C262EC, real name unknown): `script->ObjectDestroyed(this)` on
   the calling script - the object is dropped from all its levels and its current wait ends (section 5) (test).
 - **Dying** (code + test): FlagAsDead (the member function `Die`, vtable slot 6, 0x00460A50): the object's own
-  script is **blocked for good** (`Block(0)`), every script using the object is stopped
+  script is **blocked for good** (`GateOff(0)`), every script using the object is stopped
   (EndScriptsBoundToEntity, section 10 - their on-exit scripts run, they lose their handlers), the object
   is unlocked, unregistered (the tracker forgets it: FindObject stops finding it at once), put at the **front** of
   its manager's dead list and flagged dead, and the smart pointers to its +0x40 target are cleared. It is deleted
@@ -859,32 +859,32 @@ start at +0x4C) and `objman.*` (CObjectHubBase / CMiscHub); batch 77. Composite 
 - **The managers' walks** (test): CObjectHubBase::ForEach (0x00461CC0) visits every object once even if the callback
   registers or unregisters objects - any list change restarts the walk from the front, skipping objects already
   visited; up to 32 nested walks, one bit each. A manager keeps its objects sorted by node priority, highest
-  first, equal priorities newest first (ListKit::Head::AddNode 0x0045A540) (test).
+  first, equal priorities newest first (ListKit::Foremost::AppendVertex 0x0045A540) (test).
 - Member functions called from script (`obj:Name` / `44` / `46` statements) come from tables of 0x18-byte entries
-  `{name, component type, a 16-byte member function pointer}` (`CMemberFunctionEntry`: mName, mComponentType,
-  mCode, mThisAdjustment, two virtual-base offsets): CObject's at 0x00683550 (type 0x57525413), CGameEntity's
+  `{name, component type, a 16-byte member function pointer}` (`CMemberFunctionEntry`: m_callsign, mComponentType,
+  mCode, mThisAdjustment, two virtual-base offsets): CEntity's at 0x00683550 (type 0x57525413), CGameEntity's
   at 0x00683268 (type 0x0ADA4E74, 30 entries), both registered by the composite object manager's constructor.
-  An entry with a member function pointer is called directly (CObject's vtable slot 2, 0x0045D850, `this` moved by
+  An entry with a member function pointer is called directly (CEntity's vtable slot 2, 0x0045D850, `this` moved by
   the entry's adjustment); with none, by name (vtable slot 3) (code + test).
 
 ### 12.1 Composite objects (CGameEntity, code + test)
 
-`GameObjects::CGameEntity` (0x108 bytes, vtable 0x00647650, 11 slots): CObject's fields, then position +0x4C, old
+`GameObjects::CGameEntity` (0x108 bytes, vtable 0x00647650, 11 slots): CEntity's fields, then position +0x4C, old
 position +0x5C, orientation matrix +0x6C, velocity +0xAC, a byte +0xBC, display matrix +0xC0, the component list
 +0x100, flags +0x104. Skaters, peds and level objects are subclasses. It is what the object walk updates.
 - **Making one**: CreateCompositeObject (0x0045F330: Calloc 0x108, the constructor 0x0045E510, type 0xCDEB9229,
   registered with the manager - so with the tracker: an id, a unique `autoid` if none, findable by FindObject at
   once). SpawnEntityFromNode (0x0045F3A0; CFunc_CreateCompositeObject 0x00449540 with `components=` and
   `params=`): registered **before** its id/position are read from the node data (ConfigureFromData 0x0045DAD0:
-  `name` -> SetID, re-registering it), then its components made from the array (0x0045DA90), then Finalize
-  (vtable +0x20, 0x0045DB30). The constructor sets **CObject flag 0x20** (has a position: the tracker's broadcast
+  `name` -> ChangeSerial, re-registering it), then its components made from the array (0x0045DA90), then Finalize
+  (vtable +0x20, 0x0045DB30). The constructor sets **CEntity flag 0x20** (has a position: the tracker's broadcast
   radius check, section 11.3).
 - **Flags (+0x104)**: 1 paused, 2 suspended, 4 hidden, 8 teleported (cleared at the end of each update), 0x20 /
   0x40 finalized, 0x80 being destroyed.
 - **Components** (`GameObjects::CObjectModule`, base vtable 0x00647618): each belongs to one object, linked in the order
   they were added (+0x10), and on the manager's list of all components of its type (static 0x006F0DB8[128],
   through +0x14, newest first; FindFirstModuleOfKind 0x0045F2D0 walks it). Component types (81) are registered by
-  0x004E4860 right after the manager is made; CreateComponent(type) calls the first matching maker. A type the
+  0x004E4860 right after the manager is made; SpawnModule(type) calls the first matching maker. A type the
   manager can't make gives a null component that is added anyway **[bug: crash]**.
 - **One update** (0x0045D920; test):
   1. Paused: return - nothing at all.
@@ -894,19 +894,19 @@ position +0x5C, orientation matrix +0x6C, velocity +0xAC, a byte +0xBC, display 
   3. Each component in list order, skipping suspended ones (component +0x08 bit 0), **stopping as soon as a
      component kills the object**.
   4. Position w = 1.0, TELEPORTED cleared.
-- **Hide / Suspend / teleport**: Hide(bool) (0x0045D990) and Suspend(bool) (0x0045D9E0) do nothing if the flag
+- **Hide / Suspend / teleport**: Conceal(bool) (0x0045D990) and HoldOff(bool) (0x0045D9E0) do nothing if the flag
   already has that value, else set or clear it and pass it to each component (vtable +0x20 / +0x1C). The base
   component's Suspend (0x0045D760) sets its suspended flag, so **suspending an object normally stops its script,
   its own update and its components** (a component class whose +0x1C doesn't set the flag keeps updating; a
   component added later isn't suspended). MarkJumpedAhead(bool) (0x0045E4C0) sets TELEPORTED and, with true, calls
   each component's Teleport (vtable +0x24). FlagAsDead (slot 6, 0x0045D7C0) tells each component (vtable +0x10),
-  then CObject's FlagAsDead.
+  then CEntity's FlagAsDead.
 - **Member functions** (`obj:Name`; InvokeMethodByName(name), slot 3 0x0045E450): first each component in turn
-  (vtable +0x30: 0 = false, 1 = true, 2 = not mine), then CObject's names (SetProps, Die...). A component given a
+  (vtable +0x30: 0 = false, 1 = true, 2 = not mine), then CEntity's names (SetProps, Die...). A component given a
   table entry (0x0045D720) always goes by the entry's name. CGameEntity's own (table 0x00683268): Obj_GetPosition,
   Obj_SetPosition, Obj_GetVelocity, GetSpeed, Obj_GetOrientation, Obj_SetOrientation, Obj_GetQuat,
   Obj_GetOrientationToObject, Obj_GetDistanceToObject (feet), Obj_GetDistToNode, Obj_GetType, Obj_HasComponent,
-  Obj_PrintDetails, Hide / Unhide / IsHidden, Suspend / Unsuspend, Pause / Unpause (section 2), **Obj_ForceUpdate**
+  Obj_PrintDetails, Hide / Unhide / IsConcealed, Suspend / Unsuspend, Pause / Unpause (section 2), **Obj_ForceUpdate**
   (0x0045DC40: a whole update at once, nested inside the calling statement - re-entrant when the object's own
   script calls it), and unnamed ones (section 13). [quirk] CreateComponentFromStructure
   and Obj_HasComponent with no type use the parameter structure's address as the type.
@@ -919,12 +919,12 @@ position +0x5C, orientation matrix +0x6C, velocity +0xAC, a byte +0xBC, display 
   but not every other logic task - e.g. the skate module's two tasks of priority -1000 made at 0x0056E2B0 (they
   run between the two), and which tasks (if any) have kinds 4 / 8 and so stop while paused. The task list code
   itself (0x00406850-0x00406E00, TaskList::Task) isn't decompiled yet.
-- **Screen elements' targeted events**: screen elements override CObject's +0x14 (0x004A8100, 0x004AA560,
+- **Screen elements' targeted events**: screen elements override CEntity's +0x14 (0x004A8100, 0x004AA560,
   0x004AE6A0, section 12); what they do with an event is not decompiled.
 - **Event listeners** (CSignalReceiver): who registers them (CEventWaitBoard::SubscribeReceiver 0x00461FE0's callers)
   and what their filter (vtable +0x04, 0x004A1090) does with an event - in particular how the menus' pad events
   (section 11.5) become screen element actions.
-- **CObject flag 0x10000** (`OBJECT_FLAG_SPAWN_HANDLERS`): what sets it (a script's normal handlers spawn instead
+- **CEntity flag 0x10000** (`OBJECT_FLAG_SPAWN_HANDLERS`): what sets it (a script's normal handlers spawn instead
   of interrupting). (Flag 0x20 is set by CGameEntity's constructor, section 12.1.)
 - **Unidentified checksums**: 0xB3C262EC (the member function Obj_LeaveScript's real name), 0xEEEB7220 (the
   member function returning the tags named in an array), 0x01917DF2 (the spawn flag that skips SetSpawnerFile),
@@ -935,12 +935,12 @@ position +0x5C, orientation matrix +0x6C, velocity +0xAC, a byte +0xBC, display 
   0x0168B09C (probably Obj_GetCollision, 0x0045E9E0, not decompiled); result names 0x976B04A3
   (Obj_GetDistanceToObject), 0x24495505 (Obj_GetType), 0xC97F3AA9 (Obj_GetOrientationToObject's angle); the script
   integer 0xBA2C7CCB read and ignored by CreateCoimHeap.
-- **The CFunctions that set waits** (Wait / WaitTime / Block / the object waits, and how their arguments map to
+- **The CFunctions that set waits** (Wait / Lull / Block / the object waits, and how their arguments map to
   frames vs seconds vs real time): not yet decompiled.
 - **0xFB11E6CD**: presumably the default level's script (missing calls are silent there). The front end runs it
   with LaunchScript on the first skater when a pending flag is set (section 2). Not confirmed.
 - **Untested, from the code only**: bit 1 staying set after a nested wait (section 3), the interrupt that calls
-  a waiting script returning 5 later (section 7), LaunchScript spinning on one-per-frame waits, and a Block(type)
+  a waiting script returning 5 later (section 7), LaunchScript spinning on one-per-frame waits, and a GateOff(type)
   registration outliving the block (section 11.2).
 - **The 0x49 message's last 3 bytes** are uninitialised stack in the original (ours zeroes them), and NetMessageInfo
   bytes 0x12-0x13 are never set. The meaning of NetMessageInfo +0x0C = 2 and +0x10 = 8 is unknown.

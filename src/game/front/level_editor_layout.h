@@ -173,9 +173,9 @@ struct FileLoad {
     std::vector<Walls::WallState> walls;  // `wall`: collision moved / switched off
     std::vector<Faces::SectorFaces> faces;      // (map3) `faces`
     std::vector<Clusters::Membership> clusters; // (map3) `cluster`
-    std::vector<Cameras::Camera> cameras;       // (map3) `camera`
+    std::vector<Cameras::ViewCam> cameras;       // (map3) `camera`
     std::vector<Goals::Goal> goals;             // `goal` (level_editor_goals.h)
-    std::vector<Links::Record> links;           // (UX7) `link`: linked copies (level_editor_links.h)
+    std::vector<Links::LogEntry> links;           // (UX7) `link`: linked copies (level_editor_links.h)
     // Records this reader doesn't know, as they are (comments taken off): another module's (AddExtension - the
     // editor's own records: level_editor_organize.h) or a later version's. Write writes them back.
     std::vector<std::string> extra;
@@ -199,8 +199,8 @@ void AddExtension(const Extension& extension);
 
 // The text of a layout, and a layout read back (false: not a layout file; `line` the first line that isn't
 // understood).
-std::string Write(const FileLoad& file);
-bool Read(const std::string& text, FileLoad* file, int* line);
+std::string EmitOut(const FileLoad& file);
+bool TakeIn(const std::string& text, FileLoad* file, int* line);
 
 // --- autosave ---------------------------------------------------------------------------------------------------
 //
@@ -221,7 +221,7 @@ bool AutosaveNewer(bool haveAutosave, uint64_t autosaveTime, bool haveSaved, uin
 // The game side.
 // Ctrl+S: the level's changes written (false: nothing to write to - not in a level; `message` says what happened);
 // the level's autosave deleted.
-bool Save(std::string* message);
+bool StoreAway(std::string* message);
 // The level's layout as it is now made into the autosave's text (after each change; false: not in a level). Kept
 // until WriteAutosave / the crash hook writes it.
 bool Snapshot();
@@ -239,7 +239,7 @@ bool DiscardAutosave(std::string* message);
 // How many times a level's scenes have loaded (the editor's unsaved changes belong to one level).
 int LevelLoads();
 // The saved layout put in place (false: none, or not in a level, or a network session).
-bool Load(std::string* message);
+bool ReadIn(std::string* message);
 // A scene loaded (Engine3D::CFunc_LoadScene): once the level is up, its layout is put back if it was picked as the edited
 // copy (Tick).
 void OnSceneLoaded(const char* name, bool isNet);

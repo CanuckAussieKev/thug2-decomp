@@ -32,7 +32,7 @@ constexpr uint32_t kSkaterMaxMaxSpeedStat = 0xCC5F87AA; // Skater_Max_Max_Speed_
 constexpr float kStillSpeed = 1.0f; // 0x006453A8: x and z speeds below this count as straight up
 
 template <typename T>
-T& Field(void* object, uint32_t offset)
+T& Prop(void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
@@ -63,17 +63,17 @@ void Note(T& stored, T value, uint8_t& changed)
 } // namespace
 
 // 0x00511280
-CObjectModule* __cdecl CRiderPhysicsCommit::Create()
+CObjectModule* __cdecl CRiderPhysicsCommit::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderPhysicsCommit));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CRiderPhysicsCommit*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kSkaterFinalizePhysics;
+    component->m_kindTag = kSkaterFinalizePhysics;
     component->m_corePhysics = nullptr;
-    component->m_state = nullptr;
+    component->m_curPhase = nullptr;
     return component;
 }
 
@@ -85,62 +85,62 @@ void CRiderPhysicsCommit::DestroyBody()
 }
 
 // 0x00511020
-CRiderPhysicsCommit* CRiderPhysicsCommit::Destroy(unsigned int flags)
+CRiderPhysicsCommit* CRiderPhysicsCommit::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00511050
-void CRiderPhysicsCommit::Finalize()
+void CRiderPhysicsCommit::Seal()
 {
-    m_corePhysics = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCorePhysics));
-    m_state = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterState));
+    m_corePhysics = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterCorePhysics));
+    m_curPhase = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterState));
 }
 
 // 0x00511080
-void CRiderPhysicsCommit::Update()
+void CRiderPhysicsCommit::TickFrame()
 {
     uint8_t* core = m_corePhysics;
-    uint8_t* state = m_state;
+    uint8_t* state = m_curPhase;
     // Out of a lip trick (the physics' +0x256: the frame began in one) straight up: into the air with hardly any speed
     // across the ground. Kept while in the air.
-    if (Field<uint8_t>(core, 0x256) && Field<int>(state, 0x18) != kStateLip) {
-        Field<uint8_t>(state, 0xF4) = 0;
-        if (Field<int>(state, 0x18) == kStateAir && std::fabs(m_object->m_vel.x) < kStillSpeed &&
-            std::fabs(m_object->m_vel.z) < kStillSpeed)
-            Field<uint8_t>(state, 0xF4) = 1;
+    if (Prop<uint8_t>(core, 0x256) && Prop<int>(state, 0x18) != kStateLip) {
+        Prop<uint8_t>(state, 0xF4) = 0;
+        if (Prop<int>(state, 0x18) == kStateAir && std::fabs(m_entity->m_vel.x) < kStillSpeed &&
+            std::fabs(m_entity->m_vel.z) < kStillSpeed)
+            Prop<uint8_t>(state, 0xF4) = 1;
     }
-    if (Field<int>(state, 0x18) != kStateAir)
-        Field<uint8_t>(state, 0xF4) = 0;
-    Field<Maths::Vector>(state, 0xF8) = Field<Maths::Vector>(core, 0x58);
-    Field<Maths::Vector>(state, 0x108) = Field<Maths::Vector>(core, 0x68);
+    if (Prop<int>(state, 0x18) != kStateAir)
+        Prop<uint8_t>(state, 0xF4) = 0;
+    Prop<Maths::Vec4>(state, 0xF8) = Prop<Maths::Vec4>(core, 0x58);
+    Prop<Maths::Vec4>(state, 0x108) = Prop<Maths::Vec4>(core, 0x68);
 
     // The matrices: orthonormal again about up; the physics' own replaced by the object's if that needed repair.
-    m_object->m_basisFrame.SquareUpAxes(1);
-    Maths::Matrix& physicsMatrix = Field<Maths::Matrix>(core, 0x18);
+    m_entity->m_basisFrame.SquareUpAxes(1);
+    Maths::Mat4& physicsMatrix = Prop<Maths::Mat4>(core, 0x18);
     physicsMatrix.SquareUpAxes(1);
-    if (m_object->m_basisFrame.RestoreRightAngles())
-        physicsMatrix = reinterpret_cast<CObjectModule*>(core)->m_object->m_basisFrame;
-    m_object->m_displayMatrix = physicsMatrix;
+    if (m_entity->m_basisFrame.RestoreRightAngles())
+        physicsMatrix = reinterpret_cast<CObjectModule*>(core)->m_entity->m_basisFrame;
+    m_entity->m_displayMatrix = physicsMatrix;
 
     // The sounds: terrain and state.
-    uint8_t* sound = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterSound));
-    Field<uint8_t>(sound, 0x1E) = Field<uint8_t>(m_state, 0x58);
-    Field<uint8_t>(sound, 0x1C) = Field<uint8_t>(m_state, 0xE1);
-    CObjectModule* looping = m_object->GetComponent(kSkaterLoopingSound);
-    double x = m_object->m_vel.x, z = m_object->m_vel.z;
+    uint8_t* sound = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterSound));
+    Prop<uint8_t>(sound, 0x1E) = Prop<uint8_t>(m_curPhase, 0x58);
+    Prop<uint8_t>(sound, 0x1C) = Prop<uint8_t>(m_curPhase, 0xE1);
+    CObjectModule* looping = m_entity->FetchModule(kSkaterLoopingSound);
+    double x = m_entity->m_vel.x, z = m_entity->m_vel.z;
     float speed = static_cast<float>(std::sqrt(x * x + z * z));
-    float fraction = static_cast<float>(speed / ScaledPhysicsValue(m_object, kSkaterMaxMaxSpeedStat));
+    float fraction = static_cast<float>(speed / ScaledPhysicsValue(m_entity, kSkaterMaxMaxSpeedStat));
     SetLoopingSoundSpeed(looping, fraction);
     uint8_t* loop = reinterpret_cast<uint8_t*>(looping);
-    Field<uint8_t>(loop, 0xFF) = Field<uint8_t>(m_state, 0x70);
-    uint8_t& changed = Field<uint8_t>(loop, 0xFD);
-    Note(Field<uint8_t>(loop, 0x100), Field<uint8_t>(m_state, 0x58), changed);
-    Note(Field<uint8_t>(loop, 0x60), Field<uint8_t>(m_state, 0xE1), changed);
-    Note(Field<int>(loop, 0x74), Field<int>(m_state, 0x18), changed);
+    Prop<uint8_t>(loop, 0xFF) = Prop<uint8_t>(m_curPhase, 0x70);
+    uint8_t& changed = Prop<uint8_t>(loop, 0xFD);
+    Note(Prop<uint8_t>(loop, 0x100), Prop<uint8_t>(m_curPhase, 0x58), changed);
+    Note(Prop<uint8_t>(loop, 0x60), Prop<uint8_t>(m_curPhase, 0xE1), changed);
+    Note(Prop<int>(loop, 0x74), Prop<int>(m_curPhase, 0x18), changed);
 }
 
 } // namespace Obj
@@ -148,14 +148,14 @@ void CRiderPhysicsCommit::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPhysicsCommit::Destroy,
-         &GameObjects::CRiderPhysicsCommit::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPhysicsCommit::Teardown,
+         &GameObjects::CRiderPhysicsCommit::TickFrame,
          Stubs::IgnoreArgument,
-         &GameObjects::CRiderPhysicsCommit::Finalize,
+         &GameObjects::CRiderPhysicsCommit::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

@@ -29,7 +29,7 @@ const char* ShortName(const std::string& path)
 
 bool Live(uint32_t id)
 {
-    GameObjects::CObject* object = GameObjects::FindObject(id);
+    GameObjects::CEntity* object = GameObjects::FindObject(id);
     return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD);
 }
 
@@ -58,7 +58,7 @@ void ModelSection(uint32_t id, Scripts::CStruct* s, std::vector<Ui::Request>* re
 {
     static const uint32_t kModel = Checksums::HashFromText("model");
     const char* model = nullptr;
-    if (!s || !s->GetString(kModel, &model, 0) || !model || !Live(id))
+    if (!s || !s->FetchText(kModel, &model, 0) || !model || !Live(id))
         return;
     std::string now = model;
     ImGui::Spacing();
@@ -72,7 +72,7 @@ void ModelSection(uint32_t id, Scripts::CStruct* s, std::vector<Ui::Request>* re
             if (ImGui::Selectable(ShortName(models[i]), same) && !same) {
                 std::string chosen = models[i];
                 Queue([id, now] { Detail::WatchModel(id, now); });
-                FieldRequest(requests, id, kModel, Fields::Kind::String, chosen);
+                FieldRequest(requests, id, kModel, Fields::Kind::Chars, chosen);
             }
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("%s", models[i].c_str());
@@ -120,12 +120,12 @@ void PhysicsSection(uint32_t name, Scripts::CStruct* s, std::vector<Ui::Request>
             ImGui::PopID();
         }
         Scripts::CArray* contacts = nullptr;
-        if (s->GetArray(kContacts, &contacts, 0) && contacts) {
+        if (s->FetchList(kContacts, &contacts, 0) && contacts) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             ImGui::TextDisabled("contacts");
             ImGui::TableNextColumn();
-            ImGui::Text("%u points", static_cast<unsigned>(contacts->m_size));
+            ImGui::Text("%u points", static_cast<unsigned>(contacts->m_extent));
         }
         ImGui::EndTable();
     }
@@ -184,7 +184,7 @@ void SoundSection(uint32_t name)
             current = s.second;
     }
     if (e.sound && current == "(none)")
-        current = Nodes::Label(e.sound);
+        current = Nodes::Caption(e.sound);
     ImGui::SetNextItemWidth(-1.0f);
     if (ImGui::BeginCombo("##emittersound", current.c_str())) {
         if (ImGui::Selectable("(none)", e.sound == 0) && e.sound != 0) {
@@ -235,7 +235,7 @@ void InspectorSection(int node, uint32_t object, ImFont* mono, std::vector<Ui::R
 {
     (void)mono;
     Detail::SetUiActive(false);
-    const std::vector<Nodes::Node>& all = Nodes::All();
+    const std::vector<Nodes::Elem>& all = Nodes::All();
     uint32_t name = object;
     int family = -1;
     if (!name && node >= 0 && node < static_cast<int>(all.size()))
@@ -245,7 +245,7 @@ void InspectorSection(int node, uint32_t object, ImFont* mono, std::vector<Ui::R
         family = static_cast<int>(all[index].family);
     if (!name)
         return;
-    Scripts::CStruct* s = LevelNodes::NodeManagerInstance() ? LevelNodes::GetNode(name, false) : nullptr;
+    Scripts::CStruct* s = LevelNodes::NodeManagerInstance() ? LevelNodes::FetchVertex(name, false) : nullptr;
     if (object) {
         ModelSection(object, s, requests);
         PhysicsSection(object, s, requests);

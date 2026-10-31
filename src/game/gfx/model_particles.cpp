@@ -28,8 +28,8 @@ constexpr float kSizeStep = 0.25f;              // 0x006467AC
 const char* const kModelExtension = ".mdl"; // ".mdl"
 
 uint8_t AssertFlag() { return g_allocAssertFlag; }
-void* Allocate(unsigned int size) { return MemSys::Manager::Get()->Allocate(size, AssertFlag(), nullptr); }
-void* AllocateZeroed(unsigned int size) { return MemSys::Manager::Get()->AllocateZeroed(size, AssertFlag(), nullptr); }
+void* Carve(unsigned int size) { return MemSys::Hub::Pull()->Carve(size, AssertFlag(), nullptr); }
+void* AllocateZeroed(unsigned int size) { return MemSys::Hub::Pull()->AllocateZeroed(size, AssertFlag(), nullptr); }
 int Rand() { return Crt::Rand(); } // (the game's C runtime's)
 CRenderModel* NewModel(int) { return static_cast<CRenderModel*>(Engine3D::SpawnModel()); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
@@ -41,11 +41,11 @@ void ModelFileName(const char* name, const char* ext, char* out)
 } // namespace
 
 // 0x0049A0C0
-CModelParticles* CModelParticles::Construct(uint32_t name, int particleCap, const char* model, uint32_t, int, int,
+CModelParticles* CModelParticles::MakeNew(uint32_t name, int particleCap, const char* model, uint32_t, int, int,
                                             float, int)
 {
-    CParticleSystem::Construct();
-    m_name = name;
+    CParticleSystem::MakeNew();
+    m_label = name;
     char fileName[512] = {};
     m_positionArray = nullptr;
     m_modelList = nullptr;
@@ -59,7 +59,7 @@ CModelParticles* CModelParticles::Construct(uint32_t name, int particleCap, cons
     m_particleList = ParticleParts::NewParticles(particleCap);
     if (!m_particleList)
         return this;
-    m_positionArray = static_cast<float*>(Allocate(m_modelCount * 12));
+    m_positionArray = static_cast<float*>(Carve(m_modelCount * 12));
     if (!m_positionArray)
         return this;
     ModelFileName(model, kModelExtension, fileName);
@@ -77,12 +77,12 @@ CModelParticles* CModelParticles::Construct(uint32_t name, int particleCap, cons
         each->DropGeoms();
         int percent = Rand() % 100;
         float scale = static_cast<float>(static_cast<double>(percent) * kScaleStep * 2.0 + 1.0);
-        Maths::Vector scales = {scale, scale, scale, 1.0f};
+        Maths::Vec4 scales = {scale, scale, scale, 1.0f};
         each->ChangeScale(&scales);
         if (!each->AddFileGeom(fileName, 0, true, 0, false, true, AssertFlag() != 0, true))
             return this;
     }
-    auto* rotations = static_cast<Maths::QuatRotation*>(Allocate(m_modelCount * sizeof(Maths::QuatRotation)));
+    auto* rotations = static_cast<Maths::QuatRotation*>(Carve(m_modelCount * sizeof(Maths::QuatRotation)));
     if (rotations) {
         for (unsigned int i = 0; i < m_modelCount; ++i)
             rotations[i] = {0.0f, 0.0f, 0.0f, 1.0f}; // (the constructor 0x00464340)
@@ -90,13 +90,13 @@ CModelParticles* CModelParticles::Construct(uint32_t name, int particleCap, cons
     mp_unknown13C = rotations;
     if (!rotations)
         return this;
-    mp_startColour = static_cast<uint8_t*>(Allocate(4));
+    mp_startColour = static_cast<uint8_t*>(Carve(4));
     if (!mp_startColour)
         return this;
-    mp_midColour = static_cast<uint8_t*>(Allocate(4));
+    mp_midColour = static_cast<uint8_t*>(Carve(4));
     if (!mp_midColour)
         return this;
-    mp_endColour = static_cast<uint8_t*>(Allocate(4));
+    mp_endColour = static_cast<uint8_t*>(Carve(4));
     if (!mp_endColour)
         return this;
     for (unsigned int i = 0; i < m_modelCount; ++i) {
@@ -104,10 +104,10 @@ CModelParticles* CModelParticles::Construct(uint32_t name, int particleCap, cons
         rotations[i].y = static_cast<float>(Rand() % 100);
         rotations[i].z = static_cast<float>(Rand() % 100);
         rotations[i].w = static_cast<float>(Rand() % 100);
-        static_cast<Maths::QuatRotation*>(mp_unknown13C)->Normalize(1.0f); // (the first, each time: the original's)
+        static_cast<Maths::QuatRotation*>(mp_unknown13C)->MakeUnit(1.0f); // (the first, each time: the original's)
     }
     m_colourMid = -1.0f;
-    m_flags |= 4u;
+    m_flagBits |= 4u;
     return this;
 }
 
@@ -118,16 +118,16 @@ void CModelParticles::Render()
     int count = m_unknown8C;
     if (count == 0) {
         for (unsigned int i = 0; i < m_drawnModels; ++i)
-            model(i)->SetActive(0);
+            model(i)->ChangeLive(0);
         return;
     }
     // (from the last particle's model: it's shown again below)
     for (unsigned int i = static_cast<unsigned int>(count - 1); i < m_drawnModels; ++i)
-        model(i)->SetActive(0);
+        model(i)->ChangeLive(0);
     auto* rotations = static_cast<Maths::QuatRotation*>(mp_unknown13C);
     for (int p = 0; p < count; ++p) {
         sFlexibleParticle& particle = m_particleList[p];
-        model(static_cast<unsigned int>(p))->SetActive(1);
+        model(static_cast<unsigned int>(p))->ChangeLive(1);
         float life = particle.age / particle.lifetime;
         const uint8_t* from;
         const uint8_t* to;
@@ -150,7 +150,7 @@ void CModelParticles::Render()
         colour = *LerpColour(&colour, reinterpret_cast<const uint8_t*>(&fromColour),
                              reinterpret_cast<const uint8_t*>(&toColour), life);
         model(static_cast<unsigned int>(p))
-            ->SetColor(static_cast<uint8_t>(colour), static_cast<uint8_t>(colour >> 8),
+            ->ChangeTint(static_cast<uint8_t>(colour), static_cast<uint8_t>(colour >> 8),
                        static_cast<uint8_t>(colour >> 16), static_cast<uint8_t>(colour >> 24));
         // the rotation moved by the velocity (w by its x too), then normalised
         Maths::QuatRotation& q = rotations[p];
@@ -167,11 +167,11 @@ void CModelParticles::Render()
             q.z = static_cast<float>(inverse * q.z);
             q.w = static_cast<float>(inverse * q.w);
         }
-        Maths::Matrix matrix;
+        Maths::Mat4 matrix;
         for (int r = 0; r < 4; ++r)
             for (int c = 0; c < 4; ++c)
                 matrix.row[r][c] = r == c ? 1.0f : 0.0f;
-        q.GetMatrix(&matrix);
+        q.FetchMat(&matrix);
         const float* position = m_positionArray + p * 3;
         matrix.row[3] = {position[0], position[1], position[2], 1.0f};
         double shrink = static_cast<double>(p % 4) * kSizeStep;

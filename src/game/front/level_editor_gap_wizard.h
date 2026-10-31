@@ -43,12 +43,12 @@ struct Spot {
     V3 along = {};                  // (a rail's direction)
 };
 
-enum class Type : uint8_t { Air, Grind, Lip, Manual, Wallride };
+enum class KindTag : uint8_t { Air, Grind, Lip, Manual, Wallride };
 constexpr int kTypes = 5;
-const char* TypeName(Type type);
-std::vector<std::string> FlagsFor(Type type);
+const char* TypeName(KindTag type);
+std::vector<std::string> FlagsFor(KindTag type);
 // The type the two spots suggest: two rails a grind, a wall in it a wallride, else air.
-Type Suggest(const Spot& start, const Spot& end);
+KindTag Suggest(const Spot& start, const Spot& end);
 
 // A gate at a spot, facing the other end (`toward`): its centre, heading (radians about up: 0 along +z, as a node's)
 // and size (across, up, through).
@@ -79,8 +79,8 @@ bool Click(V3 origin, V3 unitDir, float x, float y);
 // The ends picked and the gates they'd make, over the view.
 void AddOverlay(const Overlays::Painter& painter);
 // The form (ImGui; level_editor_ux9_ui.cpp).
-void Window(float viewX, float viewY, float viewWidth, float viewHeight, float scale);
+void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float scale);
 // Once a frame while the editor runs: what the form asked for.
-void Update();
+void TickFrame();
 
 } // namespace MenuSystem::LevelEditor::GapWizard

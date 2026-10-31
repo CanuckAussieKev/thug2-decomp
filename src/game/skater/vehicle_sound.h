@@ -37,25 +37,25 @@ public:
     };
 
     // 0x0051B880 (registered with the composite object manager): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0051AD90 (not a Ghidra function; registered with Create): its script member functions (the table at
     // 0x00684648) registered.
     static void __cdecl PublishMethodTable();
     // 0x0051ADD0: the base's constructor, its vtable and type; no sounds, no settings, the settings' name 0x1CA1FF20,
     // silenced. Returns this.
-    CSkaterVehicleSoundComponent* Construct();
+    CSkaterVehicleSoundComponent* MakeNew();
     // 0x0051ADB0: the destructor body (the base's).
     void DestroyBody();
     // 0x0051AE30 (vtable slot 0)
-    CSkaterVehicleSoundComponent* Destroy(unsigned int flags);
+    CSkaterVehicleSoundComponent* Teardown(unsigned int flags);
 
     // 0x0051AE60 (vtable slot 2): whether the level is the park editor's (its +0x40 isn't "off"); `params` isn't
     // read.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x0051B8E0 (vtable slot 3): the skater's core physics, sound and input components, then the settings read.
-    void Finalize();
+    void Seal();
     // 0x0051B920 (vtable slot 1): the engine and skid sounds while driving (not silenced, with settings).
-    void Update();
+    void TickFrame();
 
     // 0x0051B670: the settings read (see the class).
     void ReadSettings();

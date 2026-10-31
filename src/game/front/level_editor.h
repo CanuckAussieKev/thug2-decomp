@@ -7,7 +7,7 @@
 #include <vector>
 
 namespace Gfx2D {
-class Camera;
+class ViewCam;
 }
 namespace GameObjects {
 class CGameEntity;
@@ -69,7 +69,7 @@ class CScript;
 //                             sounds, particle systems moved / copied, `speed` / `emitter` records
 //   level_editor_view.cpp     the view options: the collision shown (C; invisible walls magenta, Shift+click one), the
 //                             selection hidden (H) or isolated (I or /) while editing only, Alt+H shows all
-//   level_editor_walls.cpp    collision switched off and on with the game's own switch (CWorldCell::SetActive): invisible
+//   level_editor_walls.cpp    collision switched off and on with the game's own switch (CWorldCell::ChangeLive): invisible
 //                             walls deleted (Delete) / restored and moved / turned, a drawn piece's collision off by
 //                             itself (the Inspector's Collision); undo, `wall` layout records
 //   level_editor_overlays.cpp the toolbar's View menu (Lit / Unlit / Wireframe / Collision only, Alt+1..4 - drawn by
@@ -153,10 +153,10 @@ class CScript;
 namespace MenuSystem::LevelEditor {
 
 // The setting (read once).
-bool& Enabled();
+bool& IsSwitchedOn();
 bool& DebugEnabled();
 // The editor is running (between LevelEditor_Start and LevelEditor_Stop).
-bool Active();
+bool LiveNow();
 
 // Script commands (CFunctions, registered by RegisterScriptFunctions).
 bool __cdecl CFunc_Available(Scripts::CStruct* params, Scripts::CScript* script); // LevelEditor_Available
@@ -165,25 +165,25 @@ bool __cdecl CFunc_Stop(Scripts::CStruct* params, Scripts::CScript* script);    
 // Our extra script commands, registered after the game's own table (SystemCore::Main, after 0x005A5E70).
 void RegisterScriptFunctions();
 
-// Start listening to SDL's mouse and key events (Sio::InitSdlInput, next to MouseMenus::Init).
-void Init();
-// Once a frame from the front end's input logic (MouseMenus::Update's stand-down while Active): a requested exit
+// Start listening to SDL's mouse and key events (Sio::InitSdlInput, next to MouseMenus::PrepareAll).
+void PrepareAll();
+// Once a frame from the front end's input logic (MouseMenus::TickFrame's stand-down while Active): a requested exit
 // (Escape) runs level_editor_exit here.
 void InputLogic();
 // Once a frame at the start of the render (Engine3D::DrawWorld): flying, looking, picking, dragging.
-void Update();
+void TickFrame();
 // Called by the renderer for a viewport's camera before it's read: while Active, the first viewport's camera gets the
 // editor's pose (the game's pose noted first, put back by Stop).
-void PlaceCamera(Gfx2D::Camera* camera);
+void PlaceCamera(Gfx2D::ViewCam* camera);
 // Called by the renderer once a viewport is set up: what the view's projection is (for the mouse ray and the
 // outlines). `viewport`: the device viewport (x, y, width, height in back buffer pixels).
-void NoteView(Gfx2D::Camera* camera, float angle, float aspect, const uint32_t viewport[4]);
+void NoteView(Gfx2D::ViewCam* camera, float angle, float aspect, const uint32_t viewport[4]);
 // Called by the renderer for a viewport's camera (Engine3D::DrawViewport): its field of view (degrees) and near plane - the
 // game's own, except for the editor's camera in an ortho view (level_editor_camera.h: a long lens from far back).
-float ViewAngle(Gfx2D::Camera* camera, float angle);
-float NearPlane(Gfx2D::Camera* camera);
+float ViewAngle(Gfx2D::ViewCam* camera, float angle);
+float NearPlane(Gfx2D::ViewCam* camera);
 // After the 2D pass: the selected scenery's grind rails, and outlines of what couldn't be tinted.
-void Draw();
+void Blit();
 // For the screenshot sidecar (game/sys/screenshot.h): what the editor shows now - its mode, the level, its camera,
 // the selection and the node inspected, what's under the cursor, the changes - as name / value pairs; none while it
 // isn't running.
@@ -203,17 +203,17 @@ inline V3 operator+(V3 a, V3 b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
 inline V3 operator-(V3 a, V3 b) { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
 inline V3 operator*(V3 a, float s) { return {a.x * s, a.y * s, a.z * s}; }
 inline float Dot(V3 a, V3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
-inline V3 Cross(V3 a, V3 b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
-V3 Normalize(V3 v);
+inline V3 Perpendicular(V3 a, V3 b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
+V3 MakeUnit(V3 v);
 
-// A camera's frame as the game keeps it (Gfx2D::Camera m_basisFrame rows): right, up, back (the view looks along -back).
-struct Frame {
+// A camera's frame as the game keeps it (Gfx2D::ViewCam m_basisFrame rows): right, up, back (the view looks along -back).
+struct TickCycle {
     V3 right, up, back;
 };
 // The frame looking along yaw (about the world's up axis, 0 = along +z, positive turning towards +x) and pitch
 // (up positive, radians): forward = (sin yaw cos pitch, sin pitch, cos yaw cos pitch); right = up(world) x back;
 // up = back x right.
-Frame FrameFromYawPitch(float yaw, float pitch);
+TickCycle FrameFromYawPitch(float yaw, float pitch);
 // The yaw and pitch of a frame's view direction (-back).
 void YawPitchFromBack(V3 back, float* yaw, float* pitch);
 
@@ -222,7 +222,7 @@ struct FlyInput {
     int forward, right, up;
 };
 // The camera moved: forward along the view, right along the frame's right, up along the world's up; `distance` units.
-V3 Fly(V3 pos, const Frame& frame, const FlyInput& input, float distance);
+V3 Fly(V3 pos, const TickCycle& frame, const FlyInput& input, float distance);
 // Mouse look: the yaw / pitch turned by a mouse movement (pixels; right turns right, up looks up), pitch kept within
 // +-89 degrees.
 void Look(float* yaw, float* pitch, float dx, float dy, float radiansPerPixel);
@@ -238,9 +238,9 @@ Lens LensFor(float angleDegrees, float aspect);
 bool PixelToNdc(const uint32_t viewport[4], float px, float py, float* nx, float* ny);
 void NdcToPixel(const uint32_t viewport[4], float nx, float ny, float* px, float* py);
 // The ray through normalised device coordinates from the camera (direction not normalised: depth 1 along the view).
-V3 RayDirection(const Frame& frame, const Lens& lens, float nx, float ny);
+V3 RayDirection(const TickCycle& frame, const Lens& lens, float nx, float ny);
 // A world point to normalised device coordinates; false when it isn't in front of the near plane (`nearZ`).
-bool Project(V3 cameraPos, const Frame& frame, const Lens& lens, V3 point, float nearZ, float* nx, float* ny);
+bool CastOnto(V3 cameraPos, const TickCycle& frame, const Lens& lens, V3 point, float nearZ, float* nx, float* ny);
 
 // Ray against a sphere / an oriented box (a model's box: `min` / `max` in the model's space, placed by the rows of
 // `axes` - right, up, at - and `origin`; rows needn't be unit). The nearest hit's distance along `dir` (in units of
@@ -257,7 +257,7 @@ bool BoxLooksWorldSpace(V3 min, V3 max, V3 objectPos);
 // A direction turned about the world's up axis by `angle` radians (positive: +z towards +x, as yaw).
 V3 TurnAboutUp(V3 v, float angle);
 // A line from a to b (camera space depth = distance along the view) clipped to depth >= nearZ: false if all behind.
-bool ClipToNear(V3 cameraPos, const Frame& frame, float nearZ, V3* a, V3* b);
+bool ClipToNear(V3 cameraPos, const TickCycle& frame, float nearZ, V3* a, V3* b);
 
 // A box placed in the world: p = origin + local.x * axes[0] + local.y * axes[1] + local.z * axes[2], local within
 // min..max (an object's model box, or a scene sector's box where it is now).

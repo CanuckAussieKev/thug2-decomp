@@ -57,16 +57,16 @@ bool IsLocalSkater(CGameEntity* object) { return object->m_unknownBC != 0; }
 } // namespace
 
 // 0x00510F90
-CObjectModule* __cdecl CRiderSessionEnd::Create()
+CObjectModule* __cdecl CRiderSessionEnd::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderSessionEnd));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CRiderSessionEnd*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_flags = 0;
-    component->m_type = kSkaterEndRun;
+    component->m_flagBits = 0;
+    component->m_kindTag = kSkaterEndRun;
     return component;
 }
 
@@ -78,22 +78,22 @@ void CRiderSessionEnd::DestroyBody()
 }
 
 // 0x00510D40
-CRiderSessionEnd* CRiderSessionEnd::Destroy(unsigned int flags)
+CRiderSessionEnd* CRiderSessionEnd::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00510D70
-void CRiderSessionEnd::Update()
+void CRiderSessionEnd::TickFrame()
 {
     if (!IsVersusSession()) {
         VirtualSuspend(true);
         return;
     }
-    if (IsLocalSkater(m_object) && (m_flags & END_RUN_DONE) && !ServerToldRunEnded())
+    if (IsLocalSkater(m_entity) && (m_flagBits & END_RUN_DONE) && !ServerToldRunEnded())
         TellServerRunEnded();
 }
 
@@ -103,27 +103,27 @@ int CRiderSessionEnd::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*para
 {
     switch (name) {
     case kIsInEndOfRun:
-        return (m_flags & END_RUN_STARTED) && !(m_flags & END_RUN_DONE) ? 1 : 0;
+        return (m_flagBits & END_RUN_STARTED) && !(m_flagBits & END_RUN_DONE) ? 1 : 0;
     case kGoalEndOfRunStarted:
-        m_flags |= END_RUN_GOAL_STARTED;
+        m_flagBits |= END_RUN_GOAL_STARTED;
         return 1;
     case kEndofRunDone:
-        m_flags |= END_RUN_DONE;
-        m_flags &= ~END_RUN_FORCED;
+        m_flagBits |= END_RUN_DONE;
+        m_flagBits &= ~END_RUN_FORCED;
         return 1;
     case kGoalEndOfRunDone:
-        m_flags |= END_RUN_GOAL_DONE;
-        m_flags &= ~END_RUN_FLAG_20;
+        m_flagBits |= END_RUN_GOAL_DONE;
+        m_flagBits &= ~END_RUN_FLAG_20;
         return 1;
     case kEndOfRunStarted:
-        m_flags |= END_RUN_STARTED;
+        m_flagBits |= END_RUN_STARTED;
         return 1;
     case kRunStarted:
-        m_flags &= ~(END_RUN_STARTED | END_RUN_GOAL_STARTED | END_RUN_DONE | END_RUN_GOAL_DONE | END_RUN_FORCED |
+        m_flagBits &= ~(END_RUN_STARTED | END_RUN_GOAL_STARTED | END_RUN_DONE | END_RUN_GOAL_DONE | END_RUN_FORCED |
                      END_RUN_FLAG_20);
         return 1;
     case kClearEndofRunStarted:
-        m_flags &= ~(END_RUN_STARTED | END_RUN_FORCED);
+        m_flagBits &= ~(END_RUN_STARTED | END_RUN_FORCED);
         return 1;
     default:
         return 2;
@@ -131,9 +131,9 @@ int CRiderSessionEnd::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*para
 }
 
 // 0x00510D30
-uint32_t* CRiderSessionEnd::GetFlags(uint32_t* out)
+uint32_t* CRiderSessionEnd::FetchBits(uint32_t* out)
 {
-    *out = m_flags;
+    *out = m_flagBits;
     return out;
 }
 
@@ -141,50 +141,50 @@ uint32_t* CRiderSessionEnd::GetFlags(uint32_t* out)
 void CRiderSessionEnd::EndRun(bool force)
 {
     if (!force && !GameModeEndsRuns()) {
-        m_object->PostOwnEvent(kRunHasEnded, nullptr);
-        m_flags &= ~END_RUN_DONE;
+        m_entity->PostOwnEvent(kRunHasEnded, nullptr);
+        m_flagBits &= ~END_RUN_DONE;
         return;
     }
-    if (!(m_flags & END_RUN_FORCED) && !(m_flags & END_RUN_DONE)) {
-        m_flags |= END_RUN_FORCED;
-        if (IsLocalSkater(m_object))
-            Scripts::LaunchScript(kForceEndOfRun, nullptr, m_object, false, nullptr);
+    if (!(m_flagBits & END_RUN_FORCED) && !(m_flagBits & END_RUN_DONE)) {
+        m_flagBits |= END_RUN_FORCED;
+        if (IsLocalSkater(m_entity))
+            Scripts::LaunchScript(kForceEndOfRun, nullptr, m_entity, false, nullptr);
     }
 }
 
 // 0x00510F10
 void CRiderSessionEnd::FinishObjectiveRun(void* /*unused*/)
 {
-    m_flags &= ~END_RUN_GOAL_DONE;
-    m_object->PostOwnEvent(kGoalHasEnded, nullptr);
+    m_flagBits &= ~END_RUN_GOAL_DONE;
+    m_entity->PostOwnEvent(kGoalHasEnded, nullptr);
 }
 
 // 0x00510F30
-bool CRiderSessionEnd::RunDone() { return (m_flags & END_RUN_DONE) != 0; }
+bool CRiderSessionEnd::RunDone() { return (m_flagBits & END_RUN_DONE) != 0; }
 // 0x00510F40
-bool CRiderSessionEnd::GoalRunDone() { return (m_flags & END_RUN_GOAL_DONE) != 0; }
+bool CRiderSessionEnd::GoalRunDone() { return (m_flagBits & END_RUN_GOAL_DONE) != 0; }
 // 0x00510F50
-bool CRiderSessionEnd::EndOfRunStarted() { return (m_flags & END_RUN_STARTED) != 0; }
+bool CRiderSessionEnd::EndOfRunStarted() { return (m_flagBits & END_RUN_STARTED) != 0; }
 // 0x00510F60
-void CRiderSessionEnd::ClearEndOfRunStarted() { m_flags &= ~END_RUN_STARTED; }
+void CRiderSessionEnd::ClearEndOfRunStarted() { m_flagBits &= ~END_RUN_STARTED; }
 // 0x00510F70
-void CRiderSessionEnd::ClearGoalEndOfRunStarted() { m_flags &= ~END_RUN_GOAL_STARTED; }
+void CRiderSessionEnd::ClearGoalEndOfRunStarted() { m_flagBits &= ~END_RUN_GOAL_STARTED; }
 // 0x00510F80
-void CRiderSessionEnd::ClearForced() { m_flags &= ~END_RUN_FORCED; }
+void CRiderSessionEnd::ClearForced() { m_flagBits &= ~END_RUN_FORCED; }
 
 } // namespace Obj
 
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderSessionEnd::Destroy,
-         &GameObjects::CRiderSessionEnd::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderSessionEnd::Teardown,
+         &GameObjects::CRiderSessionEnd::TickFrame,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

@@ -25,20 +25,20 @@ public:
     // 0x0043D840: the destructor body (the base's).
     void DestroyBody();
     // 0x0043D850 (vtable slot 0)
-    CWaitAndDieComponent* Destroy(unsigned int flags);
+    CWaitAndDieComponent* Teardown(unsigned int flags);
     // 0x0043D880 (vtable slot 2): the object to wait for (0x1869F559, a checksum; none: 0) - without one, the
     // LifeTime (0xC218CF77, seconds, asserted) in ms, truncated; with one the lifetime is 0. Started now.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x0043D8E0 (vtable slot 1): the time since the start kept; the object dies (vtable slot 6, FlagAsDead) when the
     // object it waits for can't be found, or - waiting for none - once the time is past the lifetime.
-    void Update();
+    void TickFrame();
 
-    int m_start;         // +0x18 the game clock (with its offset) at ConfigureFromData
+    int m_outset;         // +0x18 the game clock (with its offset) at ConfigureFromData
     uint32_t m_elapsed;  // +0x1C ms since then (each update)
     uint32_t m_lifespan; // +0x20 ms
     uint32_t m_waitFor;  // +0x24 the id of the object to wait for (0: none)
 };
-static_assert(offsetof(CWaitAndDieComponent, m_start) == 0x18 && offsetof(CWaitAndDieComponent, m_waitFor) == 0x24 &&
+static_assert(offsetof(CWaitAndDieComponent, m_outset) == 0x18 && offsetof(CWaitAndDieComponent, m_waitFor) == 0x24 &&
                   sizeof(CWaitAndDieComponent) == 0x28,
               "layout must match the original");
 

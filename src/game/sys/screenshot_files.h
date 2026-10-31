@@ -51,7 +51,7 @@ int BytesPerPixel(PixelFormat format);
 const char* FormatName(PixelFormat format);
 
 // A captured frame: rows of `pitch` bytes (at least width * BytesPerPixel), top row first.
-struct Frame {
+struct TickCycle {
     int width = 0, height = 0, pitch = 0;
     PixelFormat format = PixelFormat::Unknown;
     std::vector<uint8_t> bytes;
@@ -59,7 +59,7 @@ struct Frame {
 // The frame as tightly packed RGB (3 bytes a pixel, opaque: a back buffer's alpha means nothing on screen; 5- and
 // 6-bit channels widened by repeating their top bits, so white stays 255). False (and `rgb` empty) for an unknown
 // format or too few bytes.
-bool ToRgb(const Frame& frame, std::vector<uint8_t>* rgb);
+bool ToRgb(const TickCycle& frame, std::vector<uint8_t>* rgb);
 // Where the mouse was, marked on the RGB pixels (the cursor isn't in the back buffer): a white cross with a black
 // edge, `size` pixels each way from (x, y), with a gap of a third of that in the middle; clipped to the image. A
 // negative x or y: no mouse over the window - nothing marked.
@@ -73,12 +73,12 @@ bool EncodePng(const uint8_t* rgb, int width, int height, std::vector<uint8_t>* 
 // --- the sidecar -------------------------------------------------------------------------------------------------
 
 // A line of the sidecar: `value` empty when it isn't available now (shown as "(not available)").
-struct Field {
+struct Prop {
     std::string key, value;
 };
 struct Section {
     std::string title;
-    std::vector<Field> fields;
+    std::vector<Prop> fields;
 };
 // The sidecar's text: a heading, each section as "[title]" and its fields aligned ("key:  value"), a section
 // with no fields as "(not available)", then the log's last lines under [log]. Lines end in "\n".

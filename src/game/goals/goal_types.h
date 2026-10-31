@@ -25,15 +25,15 @@ public:
     int m_prizePaid;  // +0x74 (reward_given)
 
     // 0x005517C0: the constructor (CObjective's; no medals, the record 0x7FFFFFFF, the normal end of run). Returns this.
-    CContestObjective* Construct(Scripts::CStruct* params);
+    CContestObjective* MakeNew(Scripts::CStruct* params);
     // 0x00551800 / 0x00551A00 (vtable +0x00): the destructor body / the scalar deleting destructor.
     void DestroyBody();
-    CContestObjective* Destroy(uint8_t flags);
+    CContestObjective* Teardown(uint8_t flags);
     // 0x00551810 (vtable +0x14): the expire script only. Whether there was one.
     bool Expire();
     // 0x00551820 / 0x00551830 (vtable +0x30 / +0x38): active (and not paused) / inactive; the competition's pause
     // cleared.
-    void SetActive();
+    void ChangeLive();
     void ClearEngagedBit();
     // 0x00551840 (vtable +0x54): won (no net game variant).
     bool HasWon();
@@ -44,7 +44,7 @@ public:
     void FreezeContest();
     void ThawContest();
     // 0x005518A0 (vtable +0x48): paused (0 / 1 in all of EAX).
-    int IsPaused();
+    int IsFrozen();
     // 0x005518C0 (vtable +0x18) / 0x00551970 (vtable +0x1C): the medals, reward_given and win_record read / written
     // with CObjective's. (Any medal read sets gotBronze, as the original.)
     void RestoreSaveBlock(Scripts::CStruct* data);
@@ -73,9 +73,9 @@ public:
 
     // 0x005527D0: the constructor. Returns this. 0x005527F0 / 0x005528A0 (vtable +0x00): the destructor body / the
     // scalar deleting destructor.
-    CShootVideoObjective* Construct(Scripts::CStruct* params);
+    CShootVideoObjective* MakeNew(Scripts::CStruct* params);
     void DestroyBody();
-    CShootVideoObjective* Destroy(uint8_t flags);
+    CShootVideoObjective* Teardown(uint8_t flags);
     // 0x00552800 (vtable +0x2C): started: no time on camera; the time needed or the checkpoints; CObjective's Activate.
     bool Activate();
     // 0x005528D0: the target (film_target) is in the camera's view (its bounding sphere not hidden) and closer
@@ -83,7 +83,7 @@ public:
     bool TargetInView();
     // 0x00552A10 (vtable +0x44): last_time_on_camera; while filming: the time on camera counted, won when enough,
     // lost when it can't be any more; else won by the checkpoints. Otherwise CObjective's Update.
-    bool Update();
+    bool TickFrame();
     // 0x00552AF0: a checkpoint passed with the target in view (won after the last).
     void Checkpoint();
 };
@@ -98,9 +98,9 @@ public:
     uint32_t m_unused70; // +0x70
     // 0x00552B30: the constructor. Returns this. 0x00552B50 / 0x00552B60 (vtable +0x00): the destructor body /
     // the scalar deleting destructor.
-    CHuntGapsObjective* Construct(Scripts::CStruct* params);
+    CHuntGapsObjective* MakeNew(Scripts::CStruct* params);
     void DestroyBody();
-    CHuntGapsObjective* Destroy(uint8_t flags);
+    CHuntGapsObjective* Teardown(uint8_t flags);
     // 0x00552B90: the skater's gaps not found before counted (goal_find_gaps_found_gap for new ones).
     void ScanForGaps();
     // 0x00552D20 (vtable +0x2C): started: no gaps found yet; CObjective's Activate.

@@ -29,17 +29,17 @@ struct CPcModel {
     uint32_t unknown4C;    // +0x4C (cleared)
 
     // 0x004BAD90: construct. Returns this.
-    CPcModel* Construct();
+    CPcModel* MakeNew();
     // 0x004BADB0: the destructor's body (the engine's 0x00494D00).
     void DestroyBody();
     // 0x004BADC0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcModel* Destroy(unsigned int flags);
+    CPcModel* Teardown(unsigned int flags);
     // 0x004BADF0 (virtual [13]): every geom's bounding sphere set to `sphere`.
-    void ChangeBoundSphere(const Maths::Vector* sphere);
+    void ChangeBoundSphere(const Maths::Vec4* sphere);
     // 0x004BAE30 (virtual [12]): the geoms' bounding spheres together (zero without geoms): each next one merged in
     // unless it's inside - the one so far taken when it's inside the next. The radius comes back doubled, as the
     // original. Returns out.
-    Maths::Vector* FetchBoundSphere(Maths::Vector* out);
+    Maths::Vec4* FetchBoundSphere(Maths::Vec4* out);
 };
 static_assert(offsetof(CPcModel, geoms) == 0x10 && offsetof(CPcModel, geomCount) == 0x46 &&
                   sizeof(CPcModel) == 0x50,

@@ -59,7 +59,7 @@ IDirect3DIndexBuffer9* g_quadIndices;
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 IDirect3DIndexBuffer9* QuadIndices() { return g_quadIndices; }
 void* DefaultPixelShader() { return g_pixelShaders[kPixelShader964]; }
 // The frame's draw counts: draws, triangles.
@@ -69,11 +69,11 @@ uint32_t& DrawnTriangles() { return reinterpret_cast<uint32_t&>(g_drawnTriangles
 // _ftol: truncated to a 64-bit integer, its low half.
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-void SetMaterial(uint8_t* material) { reinterpret_cast<materialRef*>(material)->Submit(); } // (its set-up)
+void SetMaterial(uint8_t* material) { reinterpret_cast<materialRef*>(material)->HandIn(); } // (its set-up)
 
 // The camera's across and up directions from the view matrix's third column (a, b, c): r = (a, b, c) x (0, 1, 0)
-// and u = r x (a, b, c), then normalised (Maths::Vector::Normalize).
-void CameraAxes(Maths::Vector& r, Maths::Vector& u)
+// and u = r x (a, b, c), then normalised (Maths::Vec4::MakeUnit).
+void CameraAxes(Maths::Vec4& r, Maths::Vec4& u)
 {
     double a = g_viewMatrix.row[0].z;
     double b = g_viewMatrix.row[1].z;
@@ -87,8 +87,8 @@ void CameraAxes(Maths::Vector& r, Maths::Vector& u)
     u.y = static_cast<float>(r.z * a - c * r.x);
     u.z = static_cast<float>(b * r.x - r.y * a);
     u.w = 0.0f;
-    r.Normalize();
-    u.Normalize();
+    r.MakeUnit();
+    u.MakeUnit();
 }
 
 // A quad's vertex: position, colour, texture coordinates.
@@ -173,7 +173,7 @@ void CPcFlexibleParticles::DestroyParts(void** primary, void** secondary, sSimpl
     secondaryVtable = secondary;
     if (material) {
         material->DestroyBody();
-        MemSys::Manager::Get()->Free(material);
+        MemSys::Hub::Pull()->Dealloc(material);
     }
     engineDestructor(this);
 }
@@ -196,23 +196,23 @@ struct sConstructArgs {
 template <typename T>
 void* MakePlain(void* memory, const sConstructArgs& a)
 {
-    return static_cast<T*>(memory)->Construct(a.name, a.particleCap, a.texture, a.blendMode, a.fixedAlpha, a.segments,
+    return static_cast<T*>(memory)->MakeNew(a.name, a.particleCap, a.texture, a.blendMode, a.fixedAlpha, a.segments,
                                               a.unknown);
 }
 template <typename T>
 void* MakeWithHistory(void* memory, const sConstructArgs& a)
 {
-    return static_cast<T*>(memory)->Construct(a.name, a.particleCap, a.texture, a.blendMode, a.fixedAlpha, a.segments,
+    return static_cast<T*>(memory)->MakeNew(a.name, a.particleCap, a.texture, a.blendMode, a.fixedAlpha, a.segments,
                                               a.unknown, a.history);
 }
 template <typename T>
 void* MakeFive(void* memory, const sConstructArgs& a)
 {
-    return static_cast<T*>(memory)->Construct(a.name, a.particleCap, a.texture, a.blendMode, a.fixedAlpha);
+    return static_cast<T*>(memory)->MakeNew(a.name, a.particleCap, a.texture, a.blendMode, a.fixedAlpha);
 }
 void* MakeModel(void* memory, const sConstructArgs& a)
 {
-    return static_cast<CModelParticles*>(memory)->Construct(a.name, a.particleCap, a.model, a.blendMode, a.fixedAlpha,
+    return static_cast<CModelParticles*>(memory)->MakeNew(a.name, a.particleCap, a.model, a.blendMode, a.fixedAlpha,
                                                             a.segments, a.unknown, a.history);
 }
 
@@ -247,7 +247,7 @@ void* __cdecl CreateFlexibleParticles(uint32_t name, uint32_t type, int particle
     for (const sType& t : kTypes)
         if (t.type == type)
             chosen = &t;
-    void* memory = MemSys::Manager::Get()->AllocateZeroed(chosen->size, g_allocAssertFlag, nullptr);
+    void* memory = MemSys::Hub::Pull()->AllocateZeroed(chosen->size, g_allocAssertFlag, nullptr);
     if (!memory)
         return nullptr;
     const sConstructArgs args{name, particleCap, texture, blendMode, fixedAlpha, segments, unknown, history, model};
@@ -257,14 +257,14 @@ void* __cdecl CreateFlexibleParticles(uint32_t name, uint32_t type, int particle
 // --- newflat ---
 
 // 0x004BD3A0
-CPcNewFlatParticles* CPcNewFlatParticles::Construct(uint32_t name, int particleCap, uint32_t texture,
+CPcNewFlatParticles* CPcNewFlatParticles::MakeNew(uint32_t name, int particleCap, uint32_t texture,
                                                     uint32_t blendMode, int fixedAlpha, int segments, float unknown)
 {
-    reinterpret_cast<CNewFlatParticles*>(this)->CNewFlatParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segments, unknown, 0);
+    reinterpret_cast<CNewFlatParticles*>(this)->CNewFlatParticles::MakeNew(name, particleCap, texture, blendMode, fixedAlpha, segments, unknown, 0);
     vtable = kCPcNewFlatParticlesVtable;
     secondaryVtable = kCPcNewFlatParticlesSecondaryVtable;
-    void* memory = MemSys::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 1, texture, blendMode,
+    void* memory = MemSys::Alloc(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->MakeNew(particleCap, 1, texture, blendMode,
                                                                           fixedAlpha, 0, 0)
                       : nullptr;
     return this;
@@ -274,25 +274,25 @@ CPcNewFlatParticles* CPcNewFlatParticles::Construct(uint32_t name, int particleC
 void CPcNewFlatParticles::DestroyBody() { DestroyParts(kCPcNewFlatParticlesVtable, kCPcNewFlatParticlesSecondaryVtable, material, &DestroyEngine<CNewFlatParticles>); }
 
 // 0x004BDC40
-CPcNewFlatParticles* CPcNewFlatParticles::Destroy(unsigned int freeFlags)
+CPcNewFlatParticles* CPcNewFlatParticles::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004BD390: the same through the vtable at +0x0C.
 static CPcNewFlatParticles* __fastcall DestroyNewFlatSecondary(uint8_t* secondary, int, unsigned int freeFlags)
 {
-    return reinterpret_cast<CPcNewFlatParticles*>(secondary - 0xC)->Destroy(freeFlags);
+    return reinterpret_cast<CPcNewFlatParticles*>(secondary - 0xC)->Teardown(freeFlags);
 }
 
 // 0x004BD680
 void CPcNewFlatParticles::Render()
 {
     if (count > 0) {
-        Maths::Vector r, u;
+        Maths::Vec4 r, u;
         CameraAxes(r, u);
         SetMaterial(material->material);
         SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
@@ -305,7 +305,7 @@ void CPcNewFlatParticles::Render()
             IDirect3DVertexBuffer9* buffer = nullptr;
             uint32_t firstVertex = 0, room = 0;
             auto* vertex = static_cast<sQuadVertex*>(
-                Platform::LockDynamicVertices(count * 4, sizeof(sQuadVertex), &buffer, &firstVertex, &room));
+                OsLayer::LockDynamicVertices(count * 4, sizeof(sQuadVertex), &buffer, &firstVertex, &room));
             uint32_t quads = 0;
             if (index < count) {
                 for (;;) {
@@ -360,12 +360,12 @@ void CPcNewFlatParticles::Render()
                 }
             }
             remaining -= static_cast<int>(quads);
-            Platform::UnlockDynamicVertices(quads * 4, sizeof(sQuadVertex));
+            OsLayer::UnlockDynamicVertices(quads * 4, sizeof(sQuadVertex));
             if (quads >= room - 4)
                 break; // (full: the original stops here, undrawn)
-            Device()->SetStreamSource(0, buffer, 0, sizeof(sQuadVertex));
-            Device()->SetIndices(QuadIndices());
-            Device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, quads * 4, 0,
+            InputPort()->SetStreamSource(0, buffer, 0, sizeof(sQuadVertex));
+            InputPort()->SetIndices(QuadIndices());
+            InputPort()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, quads * 4, 0,
                                            quads * 2);
             ++DrawCalls();
             DrawnTriangles() += quads * 2;
@@ -422,15 +422,15 @@ void Across(const float p0[3], const float p1[3], double a, double b, double c, 
 } // namespace
 
 // 0x004BDC80
-CPcFlatRibbonParticles* CPcFlatRibbonParticles::Construct(uint32_t name, int particleCap, uint32_t texture,
+CPcFlatRibbonParticles* CPcFlatRibbonParticles::MakeNew(uint32_t name, int particleCap, uint32_t texture,
                                                           uint32_t blendMode, int fixedAlpha, int segmentCount,
                                                           float ribbonWidth, int history)
 {
-    reinterpret_cast<CFlatRibbonParticles*>(this)->CFlatRibbonParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, ribbonWidth, history);
+    reinterpret_cast<CFlatRibbonParticles*>(this)->CFlatRibbonParticles::MakeNew(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, ribbonWidth, history);
     vtable = kCPcFlatRibbonParticlesVtable;
     secondaryVtable = kCPcFlatRibbonParticlesSecondaryVtable;
-    void* memory = MemSys::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 0xB, texture, blendMode,
+    void* memory = MemSys::Alloc(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->MakeNew(particleCap, 0xB, texture, blendMode,
                                                                           fixedAlpha, segmentCount, history)
                       : nullptr;
     width = ribbonWidth;
@@ -441,18 +441,18 @@ CPcFlatRibbonParticles* CPcFlatRibbonParticles::Construct(uint32_t name, int par
 void CPcFlatRibbonParticles::DestroyBody() { DestroyParts(kCPcFlatRibbonParticlesVtable, kCPcFlatRibbonParticlesSecondaryVtable, material, &DestroyEngine<CFlatRibbonParticles>); }
 
 // 0x004BECD0
-CPcFlatRibbonParticles* CPcFlatRibbonParticles::Destroy(unsigned int freeFlags)
+CPcFlatRibbonParticles* CPcFlatRibbonParticles::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004BDC70: the same through the vtable at +0x0C.
 static CPcFlatRibbonParticles* __fastcall DestroyFlatRibbonSecondary(uint8_t* secondary, int, unsigned int freeFlags)
 {
-    return reinterpret_cast<CPcFlatRibbonParticles*>(secondary - 0xC)->Destroy(freeFlags);
+    return reinterpret_cast<CPcFlatRibbonParticles*>(secondary - 0xC)->Teardown(freeFlags);
 }
 
 // 0x004BDDD0
@@ -463,7 +463,7 @@ void CPcFlatRibbonParticles::Render()
     double a = g_viewMatrix.row[0].z;
     double b = g_viewMatrix.row[1].z;
     double c = g_viewMatrix.row[2].z;
-    Maths::Vector r, u;
+    Maths::Vec4 r, u;
     CameraAxes(r, u);
     uint32_t particleBytes = (segments - 1) * 16;
     SetMaterial(material->material);
@@ -478,7 +478,7 @@ void CPcFlatRibbonParticles::Render()
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t firstVertex = 0, room = 0, vertices = 0, triangles = 0;
         auto* vertex = static_cast<sTrailVertex*>(
-            Platform::LockDynamicVertices(remaining, sizeof(sTrailVertex), &buffer, &firstVertex, &room));
+            OsLayer::LockDynamicVertices(remaining, sizeof(sTrailVertex), &buffer, &firstVertex, &room));
         if (index < count) {
             for (uint32_t bytes = particleBytes; bytes <= 0x7FF; bytes += particleBytes) {
                 float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
@@ -546,12 +546,12 @@ void CPcFlatRibbonParticles::Render()
             }
         }
         remaining -= static_cast<int>(vertices);
-        Platform::UnlockDynamicVertices(vertices, sizeof(sTrailVertex));
+        OsLayer::UnlockDynamicVertices(vertices, sizeof(sTrailVertex));
         if (vertices >= room - 4)
             break;
-        Device()->SetStreamSource(0, buffer, 0, sizeof(sTrailVertex));
-        Device()->SetIndices(QuadIndices());
-        Device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
+        InputPort()->SetStreamSource(0, buffer, 0, sizeof(sTrailVertex));
+        InputPort()->SetIndices(QuadIndices());
+        InputPort()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
         ++DrawCalls();
         DrawnTriangles() += triangles;
     }
@@ -566,7 +566,7 @@ void CPcFlatRibbonParticles::Render()
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t firstVertex = 0, room = 0, vertices = 0, triangles = 0;
         auto* vertex = static_cast<sQuadVertex*>(
-            Platform::LockDynamicVertices(remaining, sizeof(sQuadVertex), &buffer, &firstVertex, &room));
+            OsLayer::LockDynamicVertices(remaining, sizeof(sQuadVertex), &buffer, &firstVertex, &room));
         if (index < count) {
             for (uint32_t bytes = sizeof(sQuadVertex); bytes <= 0x7FF; bytes += sizeof(sQuadVertex)) {
                 float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
@@ -617,12 +617,12 @@ void CPcFlatRibbonParticles::Render()
             }
         }
         remaining -= static_cast<int>(vertices);
-        Platform::UnlockDynamicVertices(vertices, sizeof(sQuadVertex));
+        OsLayer::UnlockDynamicVertices(vertices, sizeof(sQuadVertex));
         if (vertices >= room - 4)
             break;
-        Device()->SetStreamSource(0, buffer, 0, sizeof(sQuadVertex));
-        Device()->SetIndices(QuadIndices());
-        Device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
+        InputPort()->SetStreamSource(0, buffer, 0, sizeof(sQuadVertex));
+        InputPort()->SetIndices(QuadIndices());
+        InputPort()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
         ++DrawCalls();
         DrawnTriangles() += triangles;
     }
@@ -631,14 +631,14 @@ void CPcFlatRibbonParticles::Render()
 // --- glow ---
 
 // 0x004BED10
-CPcGlowParticles* CPcGlowParticles::Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+CPcGlowParticles* CPcGlowParticles::MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                               int fixedAlpha, int segmentCount, float unknown)
 {
-    reinterpret_cast<CGlowParticles*>(this)->CGlowParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CGlowParticles*>(this)->CGlowParticles::MakeNew(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = kCPcGlowParticlesVtable;
     secondaryVtable = kCPcGlowParticlesSecondaryVtable;
-    void* memory = MemSys::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 4, texture, blendMode,
+    void* memory = MemSys::Alloc(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->MakeNew(particleCap, 4, texture, blendMode,
                                                                           fixedAlpha, segmentCount, 0)
                       : nullptr;
     return this;
@@ -648,18 +648,18 @@ CPcGlowParticles* CPcGlowParticles::Construct(uint32_t name, int particleCap, ui
 void CPcGlowParticles::DestroyBody() { DestroyParts(kCPcGlowParticlesVtable, kCPcGlowParticlesSecondaryVtable, material, &DestroyEngine<CGlowParticles>); }
 
 // 0x004BF6E0
-CPcGlowParticles* CPcGlowParticles::Destroy(unsigned int freeFlags)
+CPcGlowParticles* CPcGlowParticles::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004BED00: the same through the vtable at +0x0C.
 static CPcGlowParticles* __fastcall DestroyGlowSecondary(uint8_t* secondary, int, unsigned int freeFlags)
 {
-    return reinterpret_cast<CPcGlowParticles*>(secondary - 0xC)->Destroy(freeFlags);
+    return reinterpret_cast<CPcGlowParticles*>(secondary - 0xC)->Teardown(freeFlags);
 }
 
 // 0x004BEE50
@@ -667,7 +667,7 @@ void CPcGlowParticles::Render()
 {
     if (count <= 0)
         return;
-    Maths::Vector r, u;
+    Maths::Vec4 r, u;
     CameraAxes(r, u);
     uint32_t particleWords = segments * 9 * 4; // (nine vertices of four words a segment)
     uint32_t remaining = count * particleWords;
@@ -769,7 +769,7 @@ void CPcGlowParticles::Render()
         if (!g_skipRender) { // (rendering not skipped)
             DrawnTriangles() += triangles;
             ++DrawCalls();
-            Device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, buffer, sizeof(sTrailVertex));
+            InputPort()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, buffer, sizeof(sTrailVertex));
         }
     }
 }
@@ -777,14 +777,14 @@ void CPcGlowParticles::Render()
 // --- line ---
 
 // 0x004C09F0
-CPcLineParticles* CPcLineParticles::Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+CPcLineParticles* CPcLineParticles::MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                               int fixedAlpha, int segmentCount, float unknown)
 {
-    reinterpret_cast<CLineParticles*>(this)->CLineParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CLineParticles*>(this)->CLineParticles::MakeNew(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = kCPcLineParticlesVtable;
     secondaryVtable = kCPcLineParticlesSecondaryVtable;
-    void* memory = MemSys::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 0, texture, blendMode,
+    void* memory = MemSys::Alloc(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->MakeNew(particleCap, 0, texture, blendMode,
                                                                           fixedAlpha, 0, 0)
                       : nullptr;
     return this;
@@ -794,18 +794,18 @@ CPcLineParticles* CPcLineParticles::Construct(uint32_t name, int particleCap, ui
 void CPcLineParticles::DestroyBody() { DestroyParts(kCPcLineParticlesVtable, kCPcLineParticlesSecondaryVtable, material, &DestroyEngine<CLineParticles>); }
 
 // 0x004C0E70
-CPcLineParticles* CPcLineParticles::Destroy(unsigned int freeFlags)
+CPcLineParticles* CPcLineParticles::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004C09E0: the same through the vtable at +0x0C.
 static CPcLineParticles* __fastcall DestroyLineSecondary(uint8_t* secondary, int, unsigned int freeFlags)
 {
-    return reinterpret_cast<CPcLineParticles*>(secondary - 0xC)->Destroy(freeFlags);
+    return reinterpret_cast<CPcLineParticles*>(secondary - 0xC)->Teardown(freeFlags);
 }
 
 // 0x004C0B30
@@ -823,7 +823,7 @@ void CPcLineParticles::Render()
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t firstVertex = 0, room = 0, vertices = 0, lines = 0;
         auto* vertex = static_cast<sTrailVertex*>(
-            Platform::LockDynamicVertices(count * 2, sizeof(sTrailVertex), &buffer, &firstVertex, &room));
+            OsLayer::LockDynamicVertices(count * 2, sizeof(sTrailVertex), &buffer, &firstVertex, &room));
         while (index < count) {
             float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             float p0[3], p1[3];
@@ -844,11 +844,11 @@ void CPcLineParticles::Render()
             ++particle;
         }
         remaining -= static_cast<int>(vertices);
-        Platform::UnlockDynamicVertices(vertices, sizeof(sTrailVertex));
+        OsLayer::UnlockDynamicVertices(vertices, sizeof(sTrailVertex));
         if (vertices >= room - 2)
             break;
-        Device()->SetStreamSource(0, buffer, 0, sizeof(sTrailVertex));
-        Device()->DrawPrimitive(D3DPT_LINELIST, firstVertex, lines);
+        InputPort()->SetStreamSource(0, buffer, 0, sizeof(sTrailVertex));
+        InputPort()->DrawPrimitive(D3DPT_LINELIST, firstVertex, lines);
         ++DrawCalls();
         DrawnTriangles() += lines;
     }
@@ -857,15 +857,15 @@ void CPcLineParticles::Render()
 // --- ribbon ---
 
 // 0x004C0EB0
-CPcRibbonParticles* CPcRibbonParticles::Construct(uint32_t name, int particleCap, uint32_t texture,
+CPcRibbonParticles* CPcRibbonParticles::MakeNew(uint32_t name, int particleCap, uint32_t texture,
                                                   uint32_t blendMode, int fixedAlpha, int segmentCount, float unknown,
                                                   int history)
 {
-    reinterpret_cast<CRibbonParticles*>(this)->CRibbonParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
+    reinterpret_cast<CRibbonParticles*>(this)->CRibbonParticles::MakeNew(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
     vtable = kCPcRibbonParticlesVtable;
     secondaryVtable = kCPcRibbonParticlesSecondaryVtable;
-    void* memory = MemSys::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 7, texture, blendMode,
+    void* memory = MemSys::Alloc(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->MakeNew(particleCap, 7, texture, blendMode,
                                                                           fixedAlpha, segmentCount, 0)
                       : nullptr;
     return this;
@@ -875,18 +875,18 @@ CPcRibbonParticles* CPcRibbonParticles::Construct(uint32_t name, int particleCap
 void CPcRibbonParticles::DestroyBody() { DestroyParts(kCPcRibbonParticlesVtable, kCPcRibbonParticlesSecondaryVtable, material, &DestroyEngine<CRibbonParticles>); }
 
 // 0x004C16E0
-CPcRibbonParticles* CPcRibbonParticles::Destroy(unsigned int freeFlags)
+CPcRibbonParticles* CPcRibbonParticles::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004C0EA0: the same through the vtable at +0x0C.
 static CPcRibbonParticles* __fastcall DestroyRibbonSecondary(uint8_t* secondary, int, unsigned int freeFlags)
 {
-    return reinterpret_cast<CPcRibbonParticles*>(secondary - 0xC)->Destroy(freeFlags);
+    return reinterpret_cast<CPcRibbonParticles*>(secondary - 0xC)->Teardown(freeFlags);
 }
 
 // 0x004C0FF0
@@ -916,7 +916,7 @@ void CPcRibbonParticles::Render()
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t firstVertex = 0, room = 0, vertices = 0, triangles = 0;
         auto* out = static_cast<uint8_t*>(
-            Platform::LockDynamicVertices(remaining, stride, &buffer, &firstVertex, &room));
+            OsLayer::LockDynamicVertices(remaining, stride, &buffer, &firstVertex, &room));
         while (index < count) {
             float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             double hx, hy;
@@ -981,12 +981,12 @@ void CPcRibbonParticles::Render()
             ++particle;
         }
         remaining -= static_cast<int>(vertices);
-        Platform::UnlockDynamicVertices(vertices, stride);
+        OsLayer::UnlockDynamicVertices(vertices, stride);
         if (vertices >= room - 4)
             break;
-        Device()->SetStreamSource(0, buffer, 0, stride);
-        Device()->SetIndices(QuadIndices());
-        Device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
+        InputPort()->SetStreamSource(0, buffer, 0, stride);
+        InputPort()->SetIndices(QuadIndices());
+        InputPort()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
         ++DrawCalls();
         DrawnTriangles() += triangles;
     }
@@ -1010,15 +1010,15 @@ uint32_t CPcRibbonTrailParticles::HeadColour(uint32_t from, uint32_t to, float t
 }
 
 // 0x004C1720
-CPcRibbonTrailParticles* CPcRibbonTrailParticles::Construct(uint32_t name, int particleCap, uint32_t texture,
+CPcRibbonTrailParticles* CPcRibbonTrailParticles::MakeNew(uint32_t name, int particleCap, uint32_t texture,
                                                             uint32_t blendMode, int fixedAlpha, int segmentCount,
                                                             float unknown, int history)
 {
-    reinterpret_cast<CRibbonTrailParticles*>(this)->CRibbonTrailParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
+    reinterpret_cast<CRibbonTrailParticles*>(this)->CRibbonTrailParticles::MakeNew(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
     vtable = kCPcRibbonTrailParticlesVtable;
     secondaryVtable = kCPcRibbonTrailParticlesSecondaryVtable;
-    void* memory = MemSys::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 9, texture, blendMode,
+    void* memory = MemSys::Alloc(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->MakeNew(particleCap, 9, texture, blendMode,
                                                                           fixedAlpha, segmentCount, history)
                       : nullptr;
     return this;
@@ -1028,18 +1028,18 @@ CPcRibbonTrailParticles* CPcRibbonTrailParticles::Construct(uint32_t name, int p
 void CPcRibbonTrailParticles::DestroyBody() { DestroyParts(kCPcRibbonTrailParticlesVtable, kCPcRibbonTrailParticlesSecondaryVtable, material, &DestroyEngine<CRibbonTrailParticles>); }
 
 // 0x004C2160
-CPcRibbonTrailParticles* CPcRibbonTrailParticles::Destroy(unsigned int freeFlags)
+CPcRibbonTrailParticles* CPcRibbonTrailParticles::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004C1710: the same through the vtable at +0x0C.
 static CPcRibbonTrailParticles* __fastcall DestroyRibbonTrailSecondary(uint8_t* secondary, int, unsigned int freeFlags)
 {
-    return reinterpret_cast<CPcRibbonTrailParticles*>(secondary - 0xC)->Destroy(freeFlags);
+    return reinterpret_cast<CPcRibbonTrailParticles*>(secondary - 0xC)->Teardown(freeFlags);
 }
 
 // 0x004C1860
@@ -1060,7 +1060,7 @@ void CPcRibbonTrailParticles::Render()
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t firstVertex = 0, room = 0, vertices = 0, triangles = 0;
         auto* vertex = static_cast<sTrailVertex*>(
-            Platform::LockDynamicVertices(remaining, sizeof(sTrailVertex), &buffer, &firstVertex, &room));
+            OsLayer::LockDynamicVertices(remaining, sizeof(sTrailVertex), &buffer, &firstVertex, &room));
         while (index < count) {
             float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             float p0[3], p1[3], n[3];
@@ -1143,12 +1143,12 @@ void CPcRibbonTrailParticles::Render()
             ++particle;
         }
         remaining -= static_cast<int>(vertices);
-        Platform::UnlockDynamicVertices(vertices, sizeof(sTrailVertex));
+        OsLayer::UnlockDynamicVertices(vertices, sizeof(sTrailVertex));
         if (vertices >= room - 4)
             break;
-        Device()->SetStreamSource(0, buffer, 0, sizeof(sTrailVertex));
-        Device()->SetIndices(QuadIndices());
-        Device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
+        InputPort()->SetStreamSource(0, buffer, 0, sizeof(sTrailVertex));
+        InputPort()->SetIndices(QuadIndices());
+        InputPort()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
         ++DrawCalls();
         DrawnTriangles() += triangles;
     }
@@ -1156,7 +1156,7 @@ void CPcRibbonTrailParticles::Render()
 
 // --- shaded ---
 
-void CPcFlexibleParticles::AlignedAxes(Maths::Vector& r, Maths::Vector& u) const
+void CPcFlexibleParticles::AlignedAxes(Maths::Vec4& r, Maths::Vec4& u) const
 {
     double ax = alignTo.x, ay = alignTo.y, az = alignTo.z;
     double p = 0.0f, q = 1.0f; // (up: y - or x when alignTo is y itself)
@@ -1171,19 +1171,19 @@ void CPcFlexibleParticles::AlignedAxes(Maths::Vector& r, Maths::Vector& u) const
     u.y = static_cast<float>(r.z * ax - az * r.x);
     u.z = static_cast<float>(ay * r.x - r.y * ax);
     u.w = 0.0f;
-    r.Normalize();
-    u.Normalize();
+    r.MakeUnit();
+    u.MakeUnit();
 }
 
 // 0x004C21A0
-CPcShadedParticles* CPcShadedParticles::Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+CPcShadedParticles* CPcShadedParticles::MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                                   int fixedAlpha)
 {
-    reinterpret_cast<CShadedParticles*>(this)->CShadedParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, 0, 0, 0);
+    reinterpret_cast<CShadedParticles*>(this)->CShadedParticles::MakeNew(name, particleCap, texture, blendMode, fixedAlpha, 0, 0, 0);
     vtable = kCPcShadedParticlesVtable;
     secondaryVtable = kCPcShadedParticlesSecondaryVtable;
-    void* memory = MemSys::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 2, texture, blendMode,
+    void* memory = MemSys::Alloc(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->MakeNew(particleCap, 2, texture, blendMode,
                                                                           fixedAlpha, 0, 0)
                       : nullptr;
     return this;
@@ -1193,18 +1193,18 @@ CPcShadedParticles* CPcShadedParticles::Construct(uint32_t name, int particleCap
 void CPcShadedParticles::DestroyBody() { DestroyParts(kCPcShadedParticlesVtable, kCPcShadedParticlesSecondaryVtable, material, &DestroyEngine<CShadedParticles>); }
 
 // 0x004C2AF0
-CPcShadedParticles* CPcShadedParticles::Destroy(unsigned int freeFlags)
+CPcShadedParticles* CPcShadedParticles::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004C2190: the same through the vtable at +0x0C.
 static CPcShadedParticles* __fastcall DestroyShadedSecondary(uint8_t* secondary, int, unsigned int freeFlags)
 {
-    return reinterpret_cast<CPcShadedParticles*>(secondary - 0xC)->Destroy(freeFlags);
+    return reinterpret_cast<CPcShadedParticles*>(secondary - 0xC)->Teardown(freeFlags);
 }
 
 // 0x004C22D0
@@ -1212,7 +1212,7 @@ void CPcShadedParticles::Render()
 {
     if (count <= 0)
         return;
-    Maths::Vector r, u;
+    Maths::Vec4 r, u;
     if (aligned)
         AlignedAxes(r, u);
     else
@@ -1228,7 +1228,7 @@ void CPcShadedParticles::Render()
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t firstVertex = 0, room = 0, vertices = 0, triangles = 0;
         auto* vertex = static_cast<sQuadVertex*>(
-            Platform::LockDynamicVertices(remaining, sizeof(sQuadVertex), &buffer, &firstVertex, &room));
+            OsLayer::LockDynamicVertices(remaining, sizeof(sQuadVertex), &buffer, &firstVertex, &room));
         if (index < count) {
             for (uint32_t bytes = sizeof(sQuadVertex); bytes <= 0x7FF; bytes += sizeof(sQuadVertex)) {
                 float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
@@ -1295,12 +1295,12 @@ void CPcShadedParticles::Render()
             }
         }
         remaining -= static_cast<int>(vertices);
-        Platform::UnlockDynamicVertices(vertices, sizeof(sQuadVertex));
+        OsLayer::UnlockDynamicVertices(vertices, sizeof(sQuadVertex));
         if (vertices >= room - 4)
             break;
-        Device()->SetStreamSource(0, buffer, 0, sizeof(sQuadVertex));
-        Device()->SetIndices(QuadIndices());
-        Device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
+        InputPort()->SetStreamSource(0, buffer, 0, sizeof(sQuadVertex));
+        InputPort()->SetIndices(QuadIndices());
+        InputPort()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
         ++DrawCalls();
         DrawnTriangles() += triangles;
     }
@@ -1309,14 +1309,14 @@ void CPcShadedParticles::Render()
 // --- smooth ---
 
 // 0x004C2B30
-CPcSmoothParticles* CPcSmoothParticles::Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+CPcSmoothParticles* CPcSmoothParticles::MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                                   int fixedAlpha, int segmentCount, float unknown)
 {
-    reinterpret_cast<CSmoothParticles*>(this)->CSmoothParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CSmoothParticles*>(this)->CSmoothParticles::MakeNew(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = kCPcSmoothParticlesVtable;
     secondaryVtable = kCPcSmoothParticlesSecondaryVtable;
-    void* memory = MemSys::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 3, texture, blendMode,
+    void* memory = MemSys::Alloc(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->MakeNew(particleCap, 3, texture, blendMode,
                                                                           fixedAlpha, 0, 0)
                       : nullptr;
     return this;
@@ -1326,18 +1326,18 @@ CPcSmoothParticles* CPcSmoothParticles::Construct(uint32_t name, int particleCap
 void CPcSmoothParticles::DestroyBody() { DestroyParts(kCPcSmoothParticlesVtable, kCPcSmoothParticlesSecondaryVtable, material, &DestroyEngine<CSmoothParticles>); }
 
 // 0x004C3500
-CPcSmoothParticles* CPcSmoothParticles::Destroy(unsigned int freeFlags)
+CPcSmoothParticles* CPcSmoothParticles::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004C2B20: the same through the vtable at +0x0C.
 static CPcSmoothParticles* __fastcall DestroySmoothSecondary(uint8_t* secondary, int, unsigned int freeFlags)
 {
-    return reinterpret_cast<CPcSmoothParticles*>(secondary - 0xC)->Destroy(freeFlags);
+    return reinterpret_cast<CPcSmoothParticles*>(secondary - 0xC)->Teardown(freeFlags);
 }
 
 // 0x004C2C70
@@ -1345,7 +1345,7 @@ void CPcSmoothParticles::Render()
 {
     if (count <= 0)
         return;
-    Maths::Vector r, u;
+    Maths::Vec4 r, u;
     if (aligned)
         AlignedAxes(r, u);
     else
@@ -1361,7 +1361,7 @@ void CPcSmoothParticles::Render()
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t firstVertex = 0, room = 0, vertices = 0, triangles = 0;
         auto* vertex = static_cast<sQuadVertex*>(
-            Platform::LockDynamicVertices(remaining, sizeof(sQuadVertex), &buffer, &firstVertex, &room));
+            OsLayer::LockDynamicVertices(remaining, sizeof(sQuadVertex), &buffer, &firstVertex, &room));
         while (index < count) {
             float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             double across = (static_cast<double>(particle->endSize[0]) - particle->startSize[0]) * life +
@@ -1419,11 +1419,11 @@ void CPcSmoothParticles::Render()
             place += 3;
         }
         remaining -= static_cast<int>(vertices);
-        Platform::UnlockDynamicVertices(vertices, sizeof(sQuadVertex));
+        OsLayer::UnlockDynamicVertices(vertices, sizeof(sQuadVertex));
         if (vertices >= room - 12)
             break;
-        Device()->SetStreamSource(0, buffer, 0, sizeof(sQuadVertex));
-        Device()->DrawPrimitive(D3DPT_TRIANGLELIST, firstVertex, triangles);
+        InputPort()->SetStreamSource(0, buffer, 0, sizeof(sQuadVertex));
+        InputPort()->DrawPrimitive(D3DPT_TRIANGLELIST, firstVertex, triangles);
         ++DrawCalls();
         DrawnTriangles() += triangles;
     }
@@ -1432,15 +1432,15 @@ void CPcSmoothParticles::Render()
 // --- smoothribbon ---
 
 // 0x004C3550
-CPcSmoothRibbonParticles* CPcSmoothRibbonParticles::Construct(uint32_t name, int particleCap, uint32_t texture,
+CPcSmoothRibbonParticles* CPcSmoothRibbonParticles::MakeNew(uint32_t name, int particleCap, uint32_t texture,
                                                               uint32_t blendMode, int fixedAlpha, int segmentCount,
                                                               float unknown, int history)
 {
-    reinterpret_cast<CSmoothRibbonParticles*>(this)->CSmoothRibbonParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
+    reinterpret_cast<CSmoothRibbonParticles*>(this)->CSmoothRibbonParticles::MakeNew(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
     vtable = kCPcSmoothRibbonParticlesVtable;
     secondaryVtable = kCPcSmoothRibbonParticlesSecondaryVtable;
-    void* memory = MemSys::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 8, texture, blendMode,
+    void* memory = MemSys::Alloc(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->MakeNew(particleCap, 8, texture, blendMode,
                                                                           fixedAlpha, 0, 0)
                       : nullptr;
     return this;
@@ -1450,18 +1450,18 @@ CPcSmoothRibbonParticles* CPcSmoothRibbonParticles::Construct(uint32_t name, int
 void CPcSmoothRibbonParticles::DestroyBody() { DestroyParts(kCPcSmoothRibbonParticlesVtable, kCPcSmoothRibbonParticlesSecondaryVtable, material, &DestroyEngine<CSmoothRibbonParticles>); }
 
 // 0x004C3D40
-CPcSmoothRibbonParticles* CPcSmoothRibbonParticles::Destroy(unsigned int freeFlags)
+CPcSmoothRibbonParticles* CPcSmoothRibbonParticles::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004C3540: the same through the vtable at +0x0C.
 static CPcSmoothRibbonParticles* __fastcall DestroySmoothRibbonSecondary(uint8_t* secondary, int, unsigned int freeFlags)
 {
-    return reinterpret_cast<CPcSmoothRibbonParticles*>(secondary - 0xC)->Destroy(freeFlags);
+    return reinterpret_cast<CPcSmoothRibbonParticles*>(secondary - 0xC)->Teardown(freeFlags);
 }
 
 // 0x004C3530
@@ -1487,7 +1487,7 @@ void CPcSmoothRibbonParticles::Render()
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t firstVertex = 0, room = 0, vertices = 0, triangles = 0;
         auto* vertex = static_cast<sTrailVertex*>(
-            Platform::LockDynamicVertices(remaining, sizeof(sTrailVertex), &buffer, &firstVertex, &room));
+            OsLayer::LockDynamicVertices(remaining, sizeof(sTrailVertex), &buffer, &firstVertex, &room));
         if (index < count) {
             for (uint32_t bytes = 0x20; bytes <= 0x7FF; bytes += 0x20) {
                 float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
@@ -1555,12 +1555,12 @@ void CPcSmoothRibbonParticles::Render()
             }
         }
         remaining -= static_cast<int>(vertices);
-        Platform::UnlockDynamicVertices(vertices, sizeof(sTrailVertex));
+        OsLayer::UnlockDynamicVertices(vertices, sizeof(sTrailVertex));
         if (vertices >= room - 8)
             break;
-        Device()->SetStreamSource(0, buffer, 0, sizeof(sTrailVertex));
-        Device()->SetIndices(QuadIndices());
-        Device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
+        InputPort()->SetStreamSource(0, buffer, 0, sizeof(sTrailVertex));
+        InputPort()->SetIndices(QuadIndices());
+        InputPort()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
         ++DrawCalls();
         DrawnTriangles() += triangles;
     }
@@ -1569,15 +1569,15 @@ void CPcSmoothRibbonParticles::Render()
 // --- smoothstar ---
 
 // 0x004C3D80
-CPcSmoothStarParticles* CPcSmoothStarParticles::Construct(uint32_t name, int particleCap, uint32_t texture,
+CPcSmoothStarParticles* CPcSmoothStarParticles::MakeNew(uint32_t name, int particleCap, uint32_t texture,
                                                           uint32_t blendMode, int fixedAlpha, int segmentCount,
                                                           float unknown)
 {
-    reinterpret_cast<CSmoothStarParticles*>(this)->CSmoothStarParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CSmoothStarParticles*>(this)->CSmoothStarParticles::MakeNew(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = kCPcSmoothStarParticlesVtable;
     secondaryVtable = kCPcSmoothStarParticlesSecondaryVtable;
-    void* memory = MemSys::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 6, texture, blendMode,
+    void* memory = MemSys::Alloc(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->MakeNew(particleCap, 6, texture, blendMode,
                                                                           fixedAlpha, segmentCount, 0)
                       : nullptr;
     return this;
@@ -1587,18 +1587,18 @@ CPcSmoothStarParticles* CPcSmoothStarParticles::Construct(uint32_t name, int par
 void CPcSmoothStarParticles::DestroyBody() { DestroyParts(kCPcSmoothStarParticlesVtable, kCPcSmoothStarParticlesSecondaryVtable, material, &DestroyEngine<CSmoothStarParticles>); }
 
 // 0x004C4880
-CPcSmoothStarParticles* CPcSmoothStarParticles::Destroy(unsigned int freeFlags)
+CPcSmoothStarParticles* CPcSmoothStarParticles::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004C3D70: the same through the vtable at +0x0C.
 static CPcSmoothStarParticles* __fastcall DestroySmoothStarSecondary(uint8_t* secondary, int, unsigned int freeFlags)
 {
-    return reinterpret_cast<CPcSmoothStarParticles*>(secondary - 0xC)->Destroy(freeFlags);
+    return reinterpret_cast<CPcSmoothStarParticles*>(secondary - 0xC)->Teardown(freeFlags);
 }
 
 // 0x004C3EC0
@@ -1606,7 +1606,7 @@ void CPcSmoothStarParticles::Render()
 {
     if (count <= 0)
         return;
-    Maths::Vector r, u;
+    Maths::Vec4 r, u;
     CameraAxes(r, u);
     SetMaterial(material->material);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
@@ -1620,7 +1620,7 @@ void CPcSmoothStarParticles::Render()
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t firstVertex = 0, room = 0, vertices = 0, triangles = 0;
         auto* vertex = static_cast<sTrailVertex*>(
-            Platform::LockDynamicVertices(remaining, sizeof(sTrailVertex), &buffer, &firstVertex, &room));
+            OsLayer::LockDynamicVertices(remaining, sizeof(sTrailVertex), &buffer, &firstVertex, &room));
         if (index < count) {
             float sin0 = static_cast<float>(X87::Sin(0.0)), cos0 = static_cast<float>(X87::Cos(0.0));
             for (;;) {
@@ -1743,12 +1743,12 @@ void CPcSmoothStarParticles::Render()
             }
         }
         remaining -= static_cast<int>(vertices);
-        Platform::UnlockDynamicVertices(vertices, sizeof(sTrailVertex));
+        OsLayer::UnlockDynamicVertices(vertices, sizeof(sTrailVertex));
         if (vertices >= room - 8)
             break;
-        Device()->SetStreamSource(0, buffer, 0, sizeof(sTrailVertex));
-        Device()->SetIndices(QuadIndices());
-        Device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
+        InputPort()->SetStreamSource(0, buffer, 0, sizeof(sTrailVertex));
+        InputPort()->SetIndices(QuadIndices());
+        InputPort()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
         ++DrawCalls();
         DrawnTriangles() += triangles;
     }
@@ -1757,14 +1757,14 @@ void CPcSmoothStarParticles::Render()
 // --- star ---
 
 // 0x004C48C0
-CPcStarParticles* CPcStarParticles::Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
+CPcStarParticles* CPcStarParticles::MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                               int fixedAlpha, int segmentCount, float unknown)
 {
-    reinterpret_cast<CStarParticles*>(this)->CStarParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CStarParticles*>(this)->CStarParticles::MakeNew(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = kCPcStarParticlesVtable;
     secondaryVtable = kCPcStarParticlesSecondaryVtable;
-    void* memory = MemSys::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 5, texture, blendMode,
+    void* memory = MemSys::Alloc(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->MakeNew(particleCap, 5, texture, blendMode,
                                                                           fixedAlpha, segmentCount, 0)
                       : nullptr;
     return this;
@@ -1774,18 +1774,18 @@ CPcStarParticles* CPcStarParticles::Construct(uint32_t name, int particleCap, ui
 void CPcStarParticles::DestroyBody() { DestroyParts(kCPcStarParticlesVtable, kCPcStarParticlesSecondaryVtable, material, &DestroyEngine<CStarParticles>); }
 
 // 0x004C5200
-CPcStarParticles* CPcStarParticles::Destroy(unsigned int freeFlags)
+CPcStarParticles* CPcStarParticles::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004C48B0: the same through the vtable at +0x0C.
 static CPcStarParticles* __fastcall DestroyStarSecondary(uint8_t* secondary, int, unsigned int freeFlags)
 {
-    return reinterpret_cast<CPcStarParticles*>(secondary - 0xC)->Destroy(freeFlags);
+    return reinterpret_cast<CPcStarParticles*>(secondary - 0xC)->Teardown(freeFlags);
 }
 
 // 0x004C4A00
@@ -1793,7 +1793,7 @@ void CPcStarParticles::Render()
 {
     if (count <= 0)
         return;
-    Maths::Vector r, u;
+    Maths::Vec4 r, u;
     CameraAxes(r, u);
     SetMaterial(material->material);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
@@ -1807,7 +1807,7 @@ void CPcStarParticles::Render()
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t firstVertex = 0, room = 0, vertices = 0, triangles = 0;
         auto* vertex = static_cast<sTrailVertex*>(
-            Platform::LockDynamicVertices(remaining, sizeof(sTrailVertex), &buffer, &firstVertex, &room));
+            OsLayer::LockDynamicVertices(remaining, sizeof(sTrailVertex), &buffer, &firstVertex, &room));
         if (index < count) {
             float sin0 = static_cast<float>(X87::Sin(0.0)), cos0 = static_cast<float>(X87::Cos(0.0));
             for (;;) {
@@ -1902,12 +1902,12 @@ void CPcStarParticles::Render()
             }
         }
         remaining -= static_cast<int>(vertices);
-        Platform::UnlockDynamicVertices(vertices, sizeof(sTrailVertex));
+        OsLayer::UnlockDynamicVertices(vertices, sizeof(sTrailVertex));
         if (vertices >= room - 4)
             break;
-        Device()->SetStreamSource(0, buffer, 0, sizeof(sTrailVertex));
-        Device()->SetIndices(QuadIndices());
-        Device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
+        InputPort()->SetStreamSource(0, buffer, 0, sizeof(sTrailVertex));
+        InputPort()->SetIndices(QuadIndices());
+        InputPort()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertices, 0, triangles);
         ++DrawCalls();
         DrawnTriangles() += triangles;
     }
@@ -1930,16 +1930,16 @@ uint32_t CPcGlowRibbonTrailParticles::FineColour(uint32_t from, uint32_t to, dou
 }
 
 // 0x004BF720
-CPcGlowRibbonTrailParticles* CPcGlowRibbonTrailParticles::Construct(uint32_t name, int particleCap,
+CPcGlowRibbonTrailParticles* CPcGlowRibbonTrailParticles::MakeNew(uint32_t name, int particleCap,
                                                                     uint32_t texture, uint32_t blendMode,
                                                                     int fixedAlpha, int segmentCount, float unknown,
                                                                     int history)
 {
-    reinterpret_cast<CGlowRibbonTrailParticles*>(this)->CGlowRibbonTrailParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
+    reinterpret_cast<CGlowRibbonTrailParticles*>(this)->CGlowRibbonTrailParticles::MakeNew(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
     vtable = kCPcGlowRibbonTrailParticlesVtable;
     secondaryVtable = kCPcGlowRibbonTrailParticlesSecondaryVtable;
-    void* memory = MemSys::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 10, texture, blendMode,
+    void* memory = MemSys::Alloc(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->MakeNew(particleCap, 10, texture, blendMode,
                                                                           fixedAlpha, segmentCount, history)
                       : nullptr;
     return this;
@@ -1949,11 +1949,11 @@ CPcGlowRibbonTrailParticles* CPcGlowRibbonTrailParticles::Construct(uint32_t nam
 void CPcGlowRibbonTrailParticles::DestroyBody() { DestroyParts(kCPcGlowRibbonTrailParticlesVtable, kCPcGlowRibbonTrailParticlesSecondaryVtable, material, &DestroyEngine<CGlowRibbonTrailParticles>); }
 
 // 0x004C09B0
-CPcGlowRibbonTrailParticles* CPcGlowRibbonTrailParticles::Destroy(unsigned int freeFlags)
+CPcGlowRibbonTrailParticles* CPcGlowRibbonTrailParticles::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -1961,7 +1961,7 @@ CPcGlowRibbonTrailParticles* CPcGlowRibbonTrailParticles::Destroy(unsigned int f
 static CPcGlowRibbonTrailParticles* __fastcall DestroyGlowRibbonTrailSecondary(uint8_t* secondary, int,
                                                                               unsigned int freeFlags)
 {
-    return reinterpret_cast<CPcGlowRibbonTrailParticles*>(secondary - 0xC)->Destroy(freeFlags);
+    return reinterpret_cast<CPcGlowRibbonTrailParticles*>(secondary - 0xC)->Teardown(freeFlags);
 }
 
 // 0x004BF7F0
@@ -1987,7 +1987,7 @@ void CPcGlowRibbonTrailParticles::Render()
     uint32_t totalVertices = (segments * 9 + (historyLength * 3 - 3) * 2) * count;
     uint32_t totalTriangles = (segments * 3 - 2 + historyLength * 2) * count;
     auto* vertex = static_cast<sTrailVertex*>(
-        Platform::LockDynamicVertices(totalVertices, sizeof(sTrailVertex), &buffer, &firstVertex, &room));
+        OsLayer::LockDynamicVertices(totalVertices, sizeof(sTrailVertex), &buffer, &firstVertex, &room));
     sFlexibleParticle* particle = particles;
     int index = 0;
     while (remaining > 0) {
@@ -2168,11 +2168,11 @@ void CPcGlowRibbonTrailParticles::Render()
             remaining -= perParticle;
         }
     }
-    Device()->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-    Platform::UnlockDynamicVertices(totalVertices, sizeof(sTrailVertex));
-    Device()->SetStreamSource(0, buffer, 0, sizeof(sTrailVertex));
-    Device()->DrawPrimitive(D3DPT_TRIANGLELIST, firstVertex, totalTriangles);
-    Device()->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
+    InputPort()->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+    OsLayer::UnlockDynamicVertices(totalVertices, sizeof(sTrailVertex));
+    InputPort()->SetStreamSource(0, buffer, 0, sizeof(sTrailVertex));
+    InputPort()->DrawPrimitive(D3DPT_TRIANGLELIST, firstVertex, totalTriangles);
+    InputPort()->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
     ++DrawCalls();
     DrawnTriangles() += totalTriangles;
 }
@@ -2180,65 +2180,65 @@ void CPcGlowRibbonTrailParticles::Render()
 namespace {
 static VtableSlot kCPcNewFlatParticlesSecondaryVtable_slots[] = {Engine3D::DestroyNewFlatSecondary};
 void** const kCPcNewFlatParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcNewFlatParticlesSecondaryVtable_slots);
-static VtableSlot kCPcNewFlatParticlesVtable_slots[] = {&Engine3D::CPcNewFlatParticles::Destroy,
+static VtableSlot kCPcNewFlatParticlesVtable_slots[] = {&Engine3D::CPcNewFlatParticles::Teardown,
                 &Engine3D::CPcNewFlatParticles::Render, OnlinePlay::HandleNothing, OnlinePlay::HandleNothing};
 void** const kCPcNewFlatParticlesVtable = reinterpret_cast<void**>(kCPcNewFlatParticlesVtable_slots);
 static VtableSlot kCPcFlatRibbonParticlesSecondaryVtable_slots[] = {Engine3D::DestroyFlatRibbonSecondary};
 void** const kCPcFlatRibbonParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcFlatRibbonParticlesSecondaryVtable_slots);
-static VtableSlot kCPcFlatRibbonParticlesVtable_slots[] = {&Engine3D::CPcFlatRibbonParticles::Destroy,
+static VtableSlot kCPcFlatRibbonParticlesVtable_slots[] = {&Engine3D::CPcFlatRibbonParticles::Teardown,
                 &Engine3D::CPcFlatRibbonParticles::Render, &Engine3D::CParticleCounts::Field134,
                 &Engine3D::CFlatRibbonParticles::GetNumColours};
 void** const kCPcFlatRibbonParticlesVtable = reinterpret_cast<void**>(kCPcFlatRibbonParticlesVtable_slots);
 static VtableSlot kCPcGlowParticlesSecondaryVtable_slots[] = {Engine3D::DestroyGlowSecondary};
 void** const kCPcGlowParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcGlowParticlesSecondaryVtable_slots);
-static VtableSlot kCPcGlowParticlesVtable_slots[] = {&Engine3D::CPcGlowParticles::Destroy, &Engine3D::CPcGlowParticles::Render,
+static VtableSlot kCPcGlowParticlesVtable_slots[] = {&Engine3D::CPcGlowParticles::Teardown, &Engine3D::CPcGlowParticles::Render,
                 OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::ThreeColours};
 void** const kCPcGlowParticlesVtable = reinterpret_cast<void**>(kCPcGlowParticlesVtable_slots);
 static VtableSlot kCPcGlowRibbonTrailParticlesSecondaryVtable_slots[] = {Engine3D::DestroyGlowRibbonTrailSecondary};
 void** const kCPcGlowRibbonTrailParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcGlowRibbonTrailParticlesSecondaryVtable_slots);
-static VtableSlot kCPcGlowRibbonTrailParticlesVtable_slots[] = {&Engine3D::CPcGlowRibbonTrailParticles::Destroy,
+static VtableSlot kCPcGlowRibbonTrailParticlesVtable_slots[] = {&Engine3D::CPcGlowRibbonTrailParticles::Teardown,
                 &Engine3D::CPcGlowRibbonTrailParticles::Render, &Engine3D::CGlowRibbonTrailParticles::GetNumVertexLists,
                 &Engine3D::CGlowRibbonTrailParticles::GetNumColours};
 void** const kCPcGlowRibbonTrailParticlesVtable = reinterpret_cast<void**>(kCPcGlowRibbonTrailParticlesVtable_slots);
 static VtableSlot kCPcLineParticlesSecondaryVtable_slots[] = {Engine3D::DestroyLineSecondary};
 void** const kCPcLineParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcLineParticlesSecondaryVtable_slots);
-static VtableSlot kCPcLineParticlesVtable_slots[] = {&Engine3D::CPcLineParticles::Destroy, &Engine3D::CPcLineParticles::Render,
+static VtableSlot kCPcLineParticlesVtable_slots[] = {&Engine3D::CPcLineParticles::Teardown, &Engine3D::CPcLineParticles::Render,
                 &Engine3D::CParticleCounts::Field134, &Engine3D::CParticleCounts::TwoColours};
 void** const kCPcLineParticlesVtable = reinterpret_cast<void**>(kCPcLineParticlesVtable_slots);
 static VtableSlot kCPcRibbonParticlesSecondaryVtable_slots[] = {Engine3D::DestroyRibbonSecondary};
 void** const kCPcRibbonParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcRibbonParticlesSecondaryVtable_slots);
-static VtableSlot kCPcRibbonParticlesVtable_slots[] = {&Engine3D::CPcRibbonParticles::Destroy,
+static VtableSlot kCPcRibbonParticlesVtable_slots[] = {&Engine3D::CPcRibbonParticles::Teardown,
                 &Engine3D::CPcRibbonParticles::Render, &Engine3D::CParticleCounts::Field134, &Engine3D::CParticleCounts::TwoColours};
 void** const kCPcRibbonParticlesVtable = reinterpret_cast<void**>(kCPcRibbonParticlesVtable_slots);
 static VtableSlot kCPcRibbonTrailParticlesSecondaryVtable_slots[] = {Engine3D::DestroyRibbonTrailSecondary};
 void** const kCPcRibbonTrailParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcRibbonTrailParticlesSecondaryVtable_slots);
-static VtableSlot kCPcRibbonTrailParticlesVtable_slots[] = {&Engine3D::CPcRibbonTrailParticles::Destroy,
+static VtableSlot kCPcRibbonTrailParticlesVtable_slots[] = {&Engine3D::CPcRibbonTrailParticles::Teardown,
                 &Engine3D::CPcRibbonTrailParticles::Render, &Engine3D::CParticleCounts::Field134, &Engine3D::CParticleCounts::Field134};
 void** const kCPcRibbonTrailParticlesVtable = reinterpret_cast<void**>(kCPcRibbonTrailParticlesVtable_slots);
 static VtableSlot kCPcShadedParticlesSecondaryVtable_slots[] = {Engine3D::DestroyShadedSecondary};
 void** const kCPcShadedParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcShadedParticlesSecondaryVtable_slots);
-static VtableSlot kCPcShadedParticlesVtable_slots[] = {&Engine3D::CPcShadedParticles::Destroy,
+static VtableSlot kCPcShadedParticlesVtable_slots[] = {&Engine3D::CPcShadedParticles::Teardown,
                 &Engine3D::CPcShadedParticles::Render, OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::FourColours};
 void** const kCPcShadedParticlesVtable = reinterpret_cast<void**>(kCPcShadedParticlesVtable_slots);
 static VtableSlot kCPcSmoothParticlesSecondaryVtable_slots[] = {Engine3D::DestroySmoothSecondary};
 void** const kCPcSmoothParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcSmoothParticlesSecondaryVtable_slots);
-static VtableSlot kCPcSmoothParticlesVtable_slots[] = {&Engine3D::CPcSmoothParticles::Destroy,
+static VtableSlot kCPcSmoothParticlesVtable_slots[] = {&Engine3D::CPcSmoothParticles::Teardown,
                 &Engine3D::CPcSmoothParticles::Render, OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::TwoColours};
 void** const kCPcSmoothParticlesVtable = reinterpret_cast<void**>(kCPcSmoothParticlesVtable_slots);
 static VtableSlot kCPcSmoothRibbonParticlesSecondaryVtable_slots[] = {Engine3D::DestroySmoothRibbonSecondary};
 void** const kCPcSmoothRibbonParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcSmoothRibbonParticlesSecondaryVtable_slots);
-static VtableSlot kCPcSmoothRibbonParticlesVtable_slots[] = {&Engine3D::CPcSmoothRibbonParticles::Destroy,
+static VtableSlot kCPcSmoothRibbonParticlesVtable_slots[] = {&Engine3D::CPcSmoothRibbonParticles::Teardown,
                 &Engine3D::CPcSmoothRibbonParticles::Render, &Engine3D::CPcSmoothRibbonParticles::GetSegments,
                 &Engine3D::CParticleCounts::FourColours};
 void** const kCPcSmoothRibbonParticlesVtable = reinterpret_cast<void**>(kCPcSmoothRibbonParticlesVtable_slots);
 static VtableSlot kCPcSmoothStarParticlesSecondaryVtable_slots[] = {Engine3D::DestroySmoothStarSecondary};
 void** const kCPcSmoothStarParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcSmoothStarParticlesSecondaryVtable_slots);
-static VtableSlot kCPcSmoothStarParticlesVtable_slots[] = {&Engine3D::CPcSmoothStarParticles::Destroy,
+static VtableSlot kCPcSmoothStarParticlesVtable_slots[] = {&Engine3D::CPcSmoothStarParticles::Teardown,
                 &Engine3D::CPcSmoothStarParticles::Render, OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::ThreeColours};
 void** const kCPcSmoothStarParticlesVtable = reinterpret_cast<void**>(kCPcSmoothStarParticlesVtable_slots);
 static VtableSlot kCPcStarParticlesSecondaryVtable_slots[] = {Engine3D::DestroyStarSecondary};
 void** const kCPcStarParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcStarParticlesSecondaryVtable_slots);
-static VtableSlot kCPcStarParticlesVtable_slots[] = {&Engine3D::CPcStarParticles::Destroy, &Engine3D::CPcStarParticles::Render,
+static VtableSlot kCPcStarParticlesVtable_slots[] = {&Engine3D::CPcStarParticles::Teardown, &Engine3D::CPcStarParticles::Render,
                 OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::ThreeColours};
 void** const kCPcStarParticlesVtable = reinterpret_cast<void**>(kCPcStarParticlesVtable_slots);
 } // namespace

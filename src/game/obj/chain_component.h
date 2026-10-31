@@ -26,14 +26,14 @@ struct CLineObject {
 // One link (point) of a chain (0x50 bytes): a Verlet point - where it is, where it was, where the step takes it.
 struct CChainLink {
     // 0x00428280: no line (returns this).
-    CChainLink* Construct();
+    CChainLink* MakeNew();
     // 0x00428250: its line deleted (its vtable slot 0).
     void DestroyBody();
 
-    Maths::Vector m_pos;       // +0x00
-    Maths::Vector m_lastPos;   // +0x10
-    Maths::Vector m_unused20;  // +0x20
-    Maths::Vector m_nextPos;   // +0x30 this frame's step
+    Maths::Vec4 m_atPoint;       // +0x00
+    Maths::Vec4 m_lastPos;   // +0x10
+    Maths::Vec4 m_unused20;  // +0x20
+    Maths::Vec4 m_nextPos;   // +0x30 this frame's step
     float m_value40;         // +0x40 (3 when made; 255 while in the collision range; 0 after a constraint pass)
     float m_byteCount;          // +0x44 the rest length to the link before it
     uint32_t m_unused48;     // +0x48
@@ -48,13 +48,13 @@ struct CChain {
     static constexpr int kMaxLinks = 20;
 
     // 0x00428290: 20 links, everything 0 (start_offset (0, 0, 0, 1)), +0x670 on (returns this).
-    CChain* Construct();
+    CChain* MakeNew();
     // 0x00428300: the lines between the links shown at the links' positions, opaque black.
     void UpdateLines();
 
-    uint32_t m_id;            // +0x000 chainid
+    uint32_t m_ident;            // +0x000 chainid
     uint32_t m_boneStart;     // +0x004 bone_start (its object's skeleton)
-    Maths::Vector m_startOffset; // +0x008 start_offset (in the bone's space)
+    Maths::Vec4 m_startOffset; // +0x008 start_offset (in the bone's space)
     uint32_t m_boneEnd;       // +0x018 bone_end
     uint32_t m_objEnd;        // +0x01C obj_end (the object whose bone_end the chain ends at)
     int m_links;              // +0x020 segments + 1
@@ -88,37 +88,37 @@ public:
     static constexpr uint32_t kType = 0x6DCFEC46;
 
     // The list of chains (std::list<CChain*>: a head node of 0xC bytes, and the count).
-    struct Node {
+    struct Elem {
         CChain* chain;
-        Node* next;
-        Node* prev;
+        Elem* next;
+        Elem* prev;
     };
     struct ChainList {
         // 0x004296B0: the list's destructor (its nodes erased, the head freed).
-        void Destroy();
+        void Teardown();
 
-        Node* head;
+        Elem* head;
         int size;
     };
 
     // 0x004298B0 (registered with the component types): a new one (MemSys::AllocZeroed, the constructor).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x004296E0: the constructor (returns this): the base's, its vtable and type, an empty list, nothing found yet,
     // the last frame's length (the slow motion frame) taken now.
-    CChainComponent* Construct();
+    CChainComponent* MakeNew();
     // 0x00429790: the destructor body: each chain's links destroyed and the chain freed, the list emptied and its
     // head freed, then the base's.
     void DestroyBody();
     // 0x00429910 (vtable slot 0): the scalar deleting destructor.
-    CChainComponent* Destroy(unsigned int flags);
+    CChainComponent* Teardown(unsigned int flags);
     // 0x00428370 (slot 3): the object's suspend, skeleton and model components kept.
-    void Finalize();
+    void Seal();
     // 0x004283B0 (slot 2): collision_info (the three bones of the collision plane: its point, and the two its axis
     // runs between), then a chain made for each structure of `chains` (each a new line between each link and the
     // next), appended to the list.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x004287A0 (slot 1): each chain stepped (see chain_component.cpp).
-    void Update();
+    void TickFrame();
     // 0x004294C0 (slot 12): 0x286BA49C (the chain chainid's dist=, 0xE4D4B316 / 0x98382F87 its collision range),
     // 0x317A113A (a link of the chain chainid put at the vector 0xEC13B28C: 0xD037C420 its index, else the first with
     // 0x3EA1D93A, else - without 0x5F78A252 - the last), 0x982C70E5 (hidden or not: 0x5B6634D4) - 1; anything else 2.

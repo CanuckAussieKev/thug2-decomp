@@ -81,8 +81,8 @@ double FrameLength(void* walk) { return At<float>(walk, kFrameLength); }
 void CFootMovement::UpdateCurbFloat()
 {
     // The facing along the ground, never downhill, made unit (its w left as it is).
-    Maths::Vector ahead = At<Maths::Vector>(this, kFacing);
-    ahead.FlattenOntoPlane(At<Maths::Vector>(this, kGroundNormal));
+    Maths::Vec4 ahead = At<Maths::Vec4>(this, kFacing);
+    ahead.FlattenOntoPlane(At<Maths::Vec4>(this, kGroundNormal));
     if (ahead.y < 0.0f)
         ahead.y = 0.0f;
     double length = std::sqrt((static_cast<double>(ahead.z) * ahead.z + static_cast<double>(ahead.x) * ahead.x) +
@@ -96,8 +96,8 @@ void CFootMovement::UpdateCurbFloat()
 
     // A feeler from half a unit above the feet, curb_float_feeler_length ahead.
     Engine3D::CProbeRay feeler;
-    feeler.Construct();
-    const Maths::Vector& pos = At<Maths::Vector>(this, kPos);
+    feeler.MakeNew();
+    const Maths::Vec4& pos = At<Maths::Vec4>(this, kPos);
     feeler.m_line.start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kHalf), pos.z, 0.0f};
     float reach = WalkParameter(kCurbFloatFeelerLength);
     float reachY = ahead.y * reach;
@@ -109,7 +109,7 @@ void CFootMovement::UpdateCurbFloat()
     float distance = feeler.m_reach;
 
     // Something ahead: straight down onto it from snap_up_height, half a unit past where it was hit.
-    Maths::Vector over = {ahead.x * kHalf + feeler.m_contactPos.x, ahead.y * kHalf + feeler.m_contactPos.y,
+    Maths::Vec4 over = {ahead.x * kHalf + feeler.m_contactPos.x, ahead.y * kHalf + feeler.m_contactPos.y,
                         ahead.z * kHalf + feeler.m_contactPos.z,
                         static_cast<float>(static_cast<double>(ahead.w) * kHalf + feeler.m_contactPos.w)};
     feeler.m_line.end = over;
@@ -122,7 +122,7 @@ void CFootMovement::UpdateCurbFloat()
     // slower than min_curb_height_adjust_vel (the original reads it through 0x0043DA70).
     float target = static_cast<float>((static_cast<double>(feeler.m_contactPos.y) - pos.y) * (kOne - static_cast<double>(distance)));
     float& curb = At<float>(this, kCurbOffset);
-    const Maths::Vector& vel = At<Maths::Vector>(this, kVel);
+    const Maths::Vec4& vel = At<Maths::Vec4>(this, kVel);
     bool settled = std::fabs(curb) < kCurbStill && At<float>(this, kControlMagnitude) == 0.0f;
     if (settled) {
         double least = WalkParameter(kMinCurbHeightAdjustVel);
@@ -149,22 +149,22 @@ void CFootMovement::CheckCeiling()
 
     // A feeler up from just above the feet to the head.
     Engine3D::CProbeRay feeler;
-    feeler.Construct();
-    Maths::Vector& pos = At<Maths::Vector>(this, kPos);
+    feeler.MakeNew();
+    Maths::Vec4& pos = At<Maths::Vec4>(this, kPos);
     feeler.m_line.start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kHeadClearance), pos.z, pos.w};
     feeler.m_line.end = {pos.x, static_cast<float>(static_cast<double>(pos.y) + top), pos.z, pos.w};
     if (!feeler.GetHitShape(true, false))
         return;
 
     // A ceiling: the velocity into it taken away, and the head moved back out of it.
-    Maths::Vector& vel = At<Maths::Vector>(this, kVel);
+    Maths::Vec4& vel = At<Maths::Vec4>(this, kVel);
     vel.y = At<float>(this, kVerticalVel);
-    const Maths::Vector& normal = feeler.m_surfaceDir;
+    const Maths::Vec4& normal = feeler.m_surfaceDir;
     if ((static_cast<double>(normal.y) * vel.y + static_cast<double>(normal.z) * vel.z) + static_cast<double>(normal.x) * vel.x <
         0.0)
         vel.FlattenOntoPlane(normal);
-    const Maths::Vector& end = feeler.m_line.end;
-    Maths::Vector back = {feeler.m_contactPos.x - end.x, feeler.m_contactPos.y - end.y, feeler.m_contactPos.z - end.z,
+    const Maths::Vec4& end = feeler.m_line.end;
+    Maths::Vec4 back = {feeler.m_contactPos.x - end.x, feeler.m_contactPos.y - end.y, feeler.m_contactPos.z - end.z,
                         feeler.m_contactPos.w - end.w};
     At<float>(this, kVerticalVel) = vel.y;
     vel.y = 0.0f;
@@ -175,7 +175,7 @@ void CFootMovement::CheckCeiling()
                feeler.m_contactPos.z + feeler.m_surfaceDir.z, feeler.m_contactPos.w + feeler.m_surfaceDir.w};
     else
         pos = feeler.m_line.end;
-    m_object->PostOwnEvent(kCeilingEvent, nullptr);
+    m_entity->PostOwnEvent(kCeilingEvent, nullptr);
 }
 
 // 0x00526E00
@@ -190,10 +190,10 @@ void CFootMovement::CheckStickerSlap()
 
     // A wall ahead: a feeler from feeler_height up, feeler_length along the facing (static collision only).
     Engine3D::CProbeRay feeler;
-    feeler.Construct();
-    const Maths::Vector& facing = At<Maths::Vector>(this, kFacing);
-    Maths::Vector& start = feeler.m_line.start;
-    start = At<Maths::Vector>(this, kPos);
+    feeler.MakeNew();
+    const Maths::Vec4& facing = At<Maths::Vec4>(this, kFacing);
+    Maths::Vec4& start = feeler.m_line.start;
+    start = At<Maths::Vec4>(this, kPos);
     start.y = static_cast<float>(static_cast<double>(start.y) + WalkParameter(kFeelerHeight));
     float reach = WalkParameter(kFeelerLength);
     feeler.m_line.end = {reach * facing.x + start.x, reach * facing.y + start.y, reach * facing.z + start.z,
@@ -202,42 +202,42 @@ void CFootMovement::CheckStickerSlap()
         return;
 
     // High enough, not just wallplanted, not just after leaving the ground, and the physics allows it.
-    if (Scripts::GetFloat(kMinWallplantHeight) > At<float>(At<uint8_t*>(this, kSkaterState), 0x11C))
+    if (Scripts::FetchFloat(kMinWallplantHeight) > At<float>(At<uint8_t*>(this, kSkaterState), 0x11C))
         return;
     auto sinceAsFloat = [](int then) {
         return static_cast<float>(static_cast<double>(static_cast<uint32_t>(ClockSince(then))));
     };
     float sinceWallplant = sinceAsFloat(At<int>(At<uint8_t*>(this, kCorePhysics), 0x4E0));
-    if (Scripts::GetFloat(kDisallowRewallplant) > sinceWallplant)
+    if (Scripts::FetchFloat(kDisallowRewallplant) > sinceWallplant)
         return;
     float sinceState = sinceAsFloat(At<int>(this, kStateTime));
-    if (Scripts::GetFloat(kLateJumpSlop) > sinceState)
+    if (Scripts::FetchFloat(kLateJumpSlop) > sinceState)
         return;
     if (!At<Skater::CorePhysicsComponent*>(this, kCorePhysics)->WallPlant(false, true, false))
         return;
     DebugOut::Printf(kSlapMessage);
-    Scripts::LaunchScript(kWalkingWallplantSwitch, nullptr, m_object, false, nullptr);
+    Scripts::LaunchScript(kWalkingWallplantSwitch, nullptr, m_entity, false, nullptr);
 }
 
 // 0x00527080
 void CFootMovement::UpdateGroundBelow()
 {
-    float depth = static_cast<float>(static_cast<double>(Scripts::GetFloat(kUberFrigCurrentHeight)) * kTwelve);
-    const Maths::Vector& pos = At<Maths::Vector>(this, kPos);
-    const Maths::Vector& offset = At<Maths::Vector>(this, kCriticalPointOffset);
+    float depth = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kUberFrigCurrentHeight)) * kTwelve);
+    const Maths::Vec4& pos = At<Maths::Vec4>(this, kPos);
+    const Maths::Vec4& offset = At<Maths::Vec4>(this, kCriticalPointOffset);
 
     // Down from the critical point: the ground below.
     Engine3D::CProbeRay down;
-    down.Construct();
+    down.MakeNew();
     float y = pos.y + offset.y;
-    Maths::Vector point = {pos.x + offset.x, y, pos.z + offset.z, pos.w + offset.w};
+    Maths::Vec4 point = {pos.x + offset.x, y, pos.z + offset.z, pos.w + offset.w};
     down.m_line.start = {point.x, static_cast<float>(static_cast<double>(y) + kOne), point.z, point.w};
     down.m_line.end = {point.x, static_cast<float>(static_cast<double>(y) - depth), point.z, point.w};
     bool below = down.GetHitShape(true, false);
 
     // From 12 higher (faces flagged 0x20 only): down to just under that ground, or as deep.
     Engine3D::CProbeRay shade;
-    shade.Construct();
+    shade.MakeNew();
     shade.SetExcluded(0, 0x20);
     shade.m_line.start = {point.x, static_cast<float>((static_cast<double>(pos.y) + offset.y) + kTwelve), point.z,
                           point.w};
@@ -257,35 +257,35 @@ void CFootMovement::UpdateGroundBelow()
     if (below) {
         // The height above it (the skater state's +0x11C), the shadow on it.
         At<float>(At<uint8_t*>(this, kSkaterState), 0x11C) = static_cast<float>(static_cast<double>(pos.y) - down.m_contactPos.y);
-        auto* shadow = static_cast<CGroundShadowModule*>(m_object->GetComponent(kShadow));
-        shadow->SetPosition(&down.m_contactPos);
+        auto* shadow = static_cast<CGroundShadowModule*>(m_entity->FetchModule(kShadow));
+        shadow->ChangePlace(&down.m_contactPos);
         shadow->SetNormal(&down.m_surfaceDir);
         return;
     }
 
     // Nothing below at all: back to where the frame began, turned around, on the ground.
     DebugOut::Printf(kMessageFormat, kSourceFile, 0x941, kUberFrigMessage);
-    At<Maths::Vector>(this, kPos) = At<Maths::Vector>(this, kOldPos);
-    Maths::Vector& vel = At<Maths::Vector>(this, kVel);
+    At<Maths::Vec4>(this, kPos) = At<Maths::Vec4>(this, kOldPos);
+    Maths::Vec4& vel = At<Maths::Vec4>(this, kVel);
     vel.y = 0.0f;
     vel.w = 1.0f;
     vel.x = vel.x * kMinus;
     vel.z = vel.z * kMinus;
-    Maths::Vector& facing = At<Maths::Vector>(this, kFacing);
+    Maths::Vec4& facing = At<Maths::Vec4>(this, kFacing);
     facing = {facing.x * kMinus, facing.y * kMinus, facing.z * kMinus, facing.w * kMinus};
     At<float>(this, kVerticalVel) = 0.0f;
     At<bool>(this, kForwardControlLock) = true;
     At<int>(this, kFrames710) = 60;
-    SetState(0);
+    ChangePhase(0);
     At<bool>(this, kFlag1864) = false;
-    At<Maths::Vector>(this, kGroundNormal) = {0.0f, 1.0f, 0.0f, 1.0f};
+    At<Maths::Vec4>(this, kGroundNormal) = {0.0f, 1.0f, 0.0f, 1.0f};
     At<uint32_t>(this, kAnimState) = kLand;
 }
 
 // 0x005278D0
 void CFootMovement::EaseCriticalPointOffset()
 {
-    Maths::Vector& offset = At<Maths::Vector>(this, kCriticalPointOffset);
+    Maths::Vec4& offset = At<Maths::Vec4>(this, kCriticalPointOffset);
     float lengthSquared = static_cast<float>(
         (static_cast<double>(offset.x) * offset.x + static_cast<double>(offset.y) * offset.y) +
         static_cast<double>(offset.z) * offset.z);
@@ -297,7 +297,7 @@ void CFootMovement::EaseCriticalPointOffset()
 
     // Eased out at 1000 a second.
     double step = FrameLength(this) * kOffsetEaseRate;
-    Maths::Vector old = offset;
+    Maths::Vec4 old = offset;
     double length = std::sqrt(static_cast<double>(lengthSquared));
     if (step < length) {
         double k = step / length;
@@ -314,13 +314,13 @@ void CFootMovement::EaseCriticalPointOffset()
 
     // The critical point's path from the frame's start: what it went through moves the position back off it.
     Engine3D::CProbeRay feeler;
-    feeler.Construct();
-    const Maths::Vector& oldPos = At<Maths::Vector>(this, kOldPos);
-    Maths::Vector& pos = At<Maths::Vector>(this, kPos);
+    feeler.MakeNew();
+    const Maths::Vec4& oldPos = At<Maths::Vec4>(this, kOldPos);
+    Maths::Vec4& pos = At<Maths::Vec4>(this, kPos);
     feeler.m_line.start = {old.x + oldPos.x, old.y + oldPos.y, old.z + oldPos.z, old.w + oldPos.w};
     feeler.m_line.end = {pos.x + offset.x, pos.y + offset.y, pos.z + offset.z, pos.w + offset.w};
     if (feeler.GetHitShape(true, false)) {
-        Maths::Vector adjustment = (feeler.m_contactPos + kAdjustClearance * feeler.m_surfaceDir) - feeler.m_line.end;
+        Maths::Vec4 adjustment = (feeler.m_contactPos + kAdjustClearance * feeler.m_surfaceDir) - feeler.m_line.end;
         pos += adjustment;
         DebugOut::Printf(kMessageFormat, kSourceFile, 0xB8C, kBadPointMessage);
         DebugOut::Printf(kAdjustmentFormat, kSourceFile, 0xB8D, static_cast<double>(adjustment.x),
@@ -330,8 +330,8 @@ void CFootMovement::EaseCriticalPointOffset()
     }
     // Pushed back off a wall: the critical point kept on its side of the plane.
     if (At<bool>(this, kPushing)) {
-        Maths::Vector point = pos + offset;
-        const Maths::Vector& normal = At<Maths::Vector>(this, kPushNormal);
+        Maths::Vec4 point = pos + offset;
+        const Maths::Vec4& normal = At<Maths::Vec4>(this, kPushNormal);
         double past = ((static_cast<double>(point.z) * normal.z + static_cast<double>(point.y) * normal.y) +
                        static_cast<double>(point.x) * normal.x) -
                       At<float>(this, kPushPlaneDistance);
@@ -345,10 +345,10 @@ void CFootMovement::PlanJumpOverObstruction()
 {
     // A feeler up from the head by jump_obstruction_check_height (static collision only)...
     Engine3D::CProbeRay feeler;
-    feeler.Construct();
-    Maths::Vector& start = feeler.m_line.start;
-    Maths::Vector& end = feeler.m_line.end;
-    start = At<Maths::Vector>(this, kPos);
+    feeler.MakeNew();
+    Maths::Vec4& start = feeler.m_line.start;
+    Maths::Vec4& end = feeler.m_line.end;
+    start = At<Maths::Vec4>(this, kPos);
     start.y = static_cast<float>(static_cast<double>(start.y) + WalkParameter(kWalkerHeight));
     end = start;
     end.y = static_cast<float>(static_cast<double>(end.y) + WalkParameter(kJumpObstructionCheckHeight));
@@ -357,8 +357,8 @@ void CFootMovement::PlanJumpOverObstruction()
     // ... meets something: the same jump_obstruction_check_back further back must be clear.
     float back = WalkParameter(kJumpObstructionCheckBack);
     float height = feeler.m_contactPos.y - start.y;
-    const Maths::Vector& facing = At<Maths::Vector>(this, kFacing);
-    for (Maths::Vector* v : {&start, &end}) {
+    const Maths::Vec4& facing = At<Maths::Vec4>(this, kFacing);
+    for (Maths::Vec4* v : {&start, &end}) {
         v->x = static_cast<float>(v->x - static_cast<double>(back) * facing.x);
         v->y = static_cast<float>(v->y - static_cast<double>(back) * facing.y);
         v->z = static_cast<float>(v->z - static_cast<double>(back) * facing.z);
@@ -378,9 +378,9 @@ void CFootMovement::PlanJumpOverObstruction()
     double time = (rise - std::sqrt(static_cast<double>(static_cast<float>(discriminant)))) * inverse;
     double speed = -(back / time);
     float speedF = static_cast<float>(speed);
-    At<Maths::Vector>(this, kJumpVelocity) = {speedF * facing.x, speedF * facing.y, speedF * facing.z,
+    At<Maths::Vec4>(this, kJumpVelocity) = {speedF * facing.x, speedF * facing.y, speedF * facing.z,
                                             static_cast<float>(speed * facing.w)};
-    At<float>(this, kJumpTargetHeight) = static_cast<float>(static_cast<double>(height) + At<Maths::Vector>(this, kPos).y);
+    At<float>(this, kJumpTargetHeight) = static_cast<float>(static_cast<double>(height) + At<Maths::Vec4>(this, kPos).y);
     At<float>(this, kJumpTime) = static_cast<float>((inverse * rise + inverse * rise) - time);
 }
 
@@ -391,16 +391,16 @@ void CFootMovement::TryWallplant()
     auto* pad = reinterpret_cast<CPadState*>(At<uint8_t*>(this, kInput) + 0x20);
     if (!pad->m_posX.m_heldDown || At<float>(this, kVerticalVel) > 0.0f)
         return;
-    if (Scripts::GetFloat(kMinWallplantHeight) > At<float>(At<uint8_t*>(this, kSkaterState), 0x11C))
+    if (Scripts::FetchFloat(kMinWallplantHeight) > At<float>(At<uint8_t*>(this, kSkaterState), 0x11C))
         return;
     auto sinceAsFloat = [](int then) {
         return static_cast<float>(static_cast<double>(static_cast<uint32_t>(ClockSince(then))));
     };
     float sinceWallplant = sinceAsFloat(At<int>(At<uint8_t*>(this, kCorePhysics), 0x4E0));
-    if (Scripts::GetFloat(kDisallowRewallplant) > sinceWallplant)
+    if (Scripts::FetchFloat(kDisallowRewallplant) > sinceWallplant)
         return;
     float sinceState = sinceAsFloat(At<int>(this, kStateTime));
-    if (Scripts::GetFloat(kLateJumpSlop) > sinceState)
+    if (Scripts::FetchFloat(kLateJumpSlop) > sinceState)
         return;
     // ... and touching a wall: the first contact in this order.
     static const int kOrder[7] = {0, 1, 6, 2, 5, 3, 4};
@@ -416,9 +416,9 @@ void CFootMovement::TryWallplant()
         return;
 
     // Off the wall: the way pushed (or the jump's way) mirrored off it, up by the hold of X.
-    Maths::Vector direction = At<float>(this, kControlMagnitude) == 0.0f ? At<Maths::Vector>(this, kJumpDirection)
-                                                                      : At<Maths::Vector>(this, kControlDirection);
-    const Maths::Vector& normal = At<Maths::Vector>(contact, 4);
+    Maths::Vec4 direction = At<float>(this, kControlMagnitude) == 0.0f ? At<Maths::Vec4>(this, kJumpDirection)
+                                                                      : At<Maths::Vec4>(this, kControlDirection);
+    const Maths::Vec4& normal = At<Maths::Vec4>(contact, 4);
     double into = (static_cast<double>(direction.z) * normal.z + static_cast<double>(direction.y) * normal.y) +
                   static_cast<double>(direction.x) * normal.x;
     if (into < 0.0)
@@ -430,15 +430,15 @@ void CFootMovement::TryWallplant()
     float least = WalkParameter(kMinJumpFactor);
     At<float>(this, kVerticalVel) = static_cast<float>(((kOne - static_cast<double>(least)) * strength + least) * rise);
     float across = WalkParameter(kHorizWallJumpSpeed);
-    At<Maths::Vector>(this, kVel) = {across * direction.x, direction.y * across, direction.z * across, direction.w * across};
-    At<Maths::Vector>(this, kJumpDirection) = At<Maths::Vector>(this, kFacing);
+    At<Maths::Vec4>(this, kVel) = {across * direction.x, direction.y * across, direction.z * across, direction.w * across};
+    At<Maths::Vec4>(this, kJumpDirection) = At<Maths::Vec4>(this, kFacing);
     // Off a moving object: its velocity added.
     auto& feeler = At<Engine3D::CProbeRay>(contact, 0x1C);
     if (feeler.HitObjectAlive()) {
-        const Maths::Vector& carried = feeler.GetHitObject()->m_vel;
+        const Maths::Vec4& carried = feeler.GetHitObject()->m_vel;
         At<float>(this, kVerticalVel) = carried.y + At<float>(this, kVerticalVel);
-        At<Maths::Vector>(this, kVel).x = carried.x + At<Maths::Vector>(this, kVel).x;
-        At<Maths::Vector>(this, kVel).z = carried.z + At<Maths::Vector>(this, kVel).z;
+        At<Maths::Vec4>(this, kVel).x = carried.x + At<Maths::Vec4>(this, kVel).x;
+        At<Maths::Vec4>(this, kVel).z = carried.z + At<Maths::Vec4>(this, kVel).z;
     }
     PlanJumpOverObstruction();
     // The trigger told (events 0x0064C63C); a trigger's script may take over.
@@ -446,7 +446,7 @@ void CFootMovement::TryWallplant()
     if (At<bool>(At<uint8_t*>(this, kPhysicsControl), 0x26))
         return;
     // The wall's checksum (the feeler hit's +0x34) to the trick objects; the wallplant's time; its animation.
-    static_cast<CMoveExecutor*>(m_object->GetComponent(kTrick))->PassToTrickObjects(At<uint32_t>(contact, 0x74));
+    static_cast<CMoveExecutor*>(m_entity->FetchModule(kTrick))->PassToTrickObjects(At<uint32_t>(contact, 0x74));
     At<int>(At<uint8_t*>(this, kCorePhysics), 0x4E0) = FrameClock::GameClockElapsed() + g_clockOffset;
     At<uint32_t>(this, kAnimState) = kWallplant;
 }
@@ -457,9 +457,9 @@ bool CFootMovement::TryGrind()
     if (At<bool>(At<uint8_t*>(this, kPhysicsControl), 0x24))
         return false;
     // A rail along the move: the level's, else one riding an object (in that object's space).
-    Maths::Vector& oldPos = At<Maths::Vector>(this, kOldPos);
-    Maths::Vector& pos = At<Maths::Vector>(this, kPos);
-    Maths::Vector& point = At<Maths::Vector>(this, kGrindPoint);
+    Maths::Vec4& oldPos = At<Maths::Vec4>(this, kOldPos);
+    Maths::Vec4& pos = At<Maths::Vec4>(this, kPos);
+    Maths::Vec4& point = At<Maths::Vec4>(this, kGrindPoint);
     CGrindPoint*& node = At<CGrindPoint*>(this, kGrindNode);
     CGrindRailHub* levelRails = At<CGrindRailHub*>(static_cast<void*>(GameModules::g_skateModule), 0x24);
     bool found = levelRails->FindGrindRail(&oldPos, &pos, &point, &node, nullptr, kOne, 0);
@@ -475,19 +475,19 @@ bool CFootMovement::TryGrind()
         // (vtable +0x34: the component's rails)
         auto railsOf = [](CObjectModule* c) { return reinterpret_cast<CGrindRailHub*(__thiscall*)(CObjectModule*)>(c->m_vtable[13])(c); };
         for (; component && !found; component = component->mp_nextOfType) {
-            Maths::Matrix world;
+            Maths::Mat4 world;
             static_cast<CGrindPathLinkModule*>(component)->UpdateRailMatrix(&world);
-            Maths::Matrix inverse = world;
-            inverse.Invert();
-            Maths::Vector localOld, relPos;
-            inverse.Transform(localOld, oldPos);
-            inverse.Transform(relPos, pos);
+            Maths::Mat4 inverse = world;
+            inverse.Upend();
+            Maths::Vec4 localOld, relPos;
+            inverse.Xform(localOld, oldPos);
+            inverse.Xform(relPos, pos);
             found = railsOf(component)->FindGrindRail(&localOld, &relPos, &point, &node, nullptr, kOne, 0);
             if (found) {
                 At<CGrindRailHub*>(this, kGrindRails) = railsOf(component);
-                Maths::Vector worldPoint;
-                point = world.Transform(worldPoint, point);
-                At<CGameEntity*>(this, kGrindObject) = component->m_object;
+                Maths::Vec4 worldPoint;
+                point = world.Xform(worldPoint, point);
+                At<CGameEntity*>(this, kGrindObject) = component->m_entity;
             }
         }
         if (!found)
@@ -498,7 +498,7 @@ bool CFootMovement::TryGrind()
                                                                              true))
         return false;
     Engine3D::CProbeRay feeler;
-    feeler.Construct(&pos, &point);
+    feeler.MakeNew(&pos, &point);
     if (feeler.GetHitShape(true, false)) {
         double dz = static_cast<double>(point.z) - feeler.m_contactPos.z;
         double dy = static_cast<double>(point.y) - feeler.m_contactPos.y;

@@ -44,15 +44,15 @@ constexpr float kLayoutWidth = 640.0f;
 constexpr float kLayoutHeight = 480.0f;
 
 // The D3D9 device, its methods by vtable offset.
-void** Device() { return reinterpret_cast<void**>(g_d3dDevice); }
+void** InputPort() { return reinterpret_cast<void**>(g_d3dDevice); }
 template <typename F>
 F DeviceMethod(int offset)
 {
-    return reinterpret_cast<F>((*reinterpret_cast<void***>(Device()))[offset / 4]);
+    return reinterpret_cast<F>((*reinterpret_cast<void***>(InputPort()))[offset / 4]);
 }
 void SetTextureStageState(int stage, int type, int value)
 {
-    DeviceMethod<long(__stdcall*)(void*, int, int, int)>(0x10C)(Device(), stage, type, value);
+    DeviceMethod<long(__stdcall*)(void*, int, int, int)>(0x10C)(InputPort(), stage, type, value);
 }
 const uint16_t* QuadIndices() { return g_spriteQuadIndices; }
 
@@ -67,7 +67,7 @@ struct Vector4 {
     float x, y, z, w;
 };
 // 0x004882D0 (a Vector member, thiscall, not rewritten yet): rotate about z by `angle` radians (x87 fsin/fcos).
-void SpinAroundZ(Vector4& v, float angle) { reinterpret_cast<Maths::Vector*>(&v)->RotateAboutZ(angle); }
+void SpinAroundZ(Vector4& v, float angle) { reinterpret_cast<Maths::Vec4*>(&v)->RotateAboutZ(angle); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, as a 64-bit integer.
 int64_t Truncated(double value) { return static_cast<int64_t>(value); }
@@ -84,7 +84,7 @@ int64_t Truncated(double value) { return static_cast<int64_t>(value); }
 // the screen's right edge - the menus' bands and panels. Each edge on its own, and only for sprites overlapping the
 // layout (one wholly outside it is drawn where it is); heights unchanged; rotated sprites only when they stay upright
 // or on their side (the bottom band is turned by 180 degrees).
-void SQuadSprite::Draw()
+void SQuadSprite::Blit()
 {
     float u0 = 0.0f, vTop = 1.0f, u1, vBottom;
     if (texture) {
@@ -249,13 +249,13 @@ void SQuadSprite::Draw()
         g_drawnTriangles += 2; // triangles
         using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int, const void*,
                                                         int, const void*, unsigned int);
-        DeviceMethod<DrawIndexedPrimitiveUP>(0x150)(Device(), 4 /* triangle list */, 0, 4, 2, QuadIndices(),
+        DeviceMethod<DrawIndexedPrimitiveUP>(0x150)(InputPort(), 4 /* triangle list */, 0, 4, 2, QuadIndices(),
                                                     0x65 /* 16-bit indices */, vertices, sizeof(Vertex));
     }
 }
 
 // 0x004DFC50
-SQuadSprite* SQuadSprite::Construct(float priority)
+SQuadSprite* SQuadSprite::MakeNew(float priority)
 {
     auto* draw = reinterpret_cast<SOverlayDraw*>(this);
     draw->priority = priority;
@@ -275,16 +275,16 @@ void SQuadSprite::DestroyBody()
 }
 
 // 0x004DFCC0
-SQuadSprite* SQuadSprite::Destroy(unsigned int flags)
+SQuadSprite* SQuadSprite::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Instance()->Free(this);
+        MemSys::Hub::Sole()->Dealloc(this);
     return this;
 }
 
 // 0x004DF990
-void SQuadSprite::BeginDraw()
+void SQuadSprite::OpenSketch()
 {
     Engine3D::SetVertexFormat(0x144); // xyzrhw, diffuse, one texture
     SetPixelShader(nullptr, nullptr);
@@ -302,15 +302,15 @@ void SQuadSprite::BeginDraw()
 }
 
 // 0x004DFA40
-void SQuadSprite::EndDraw()
+void SQuadSprite::CloseSketch()
 {
     SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
     SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
 
 namespace {
-static VtableSlot kSSpriteVtable_slots[] = {&Engine3D::SQuadSprite::Destroy, &Engine3D::SQuadSprite::BeginDraw, &Engine3D::SQuadSprite::Draw,
-                &Engine3D::SQuadSprite::EndDraw};
+static VtableSlot kSSpriteVtable_slots[] = {&Engine3D::SQuadSprite::Teardown, &Engine3D::SQuadSprite::OpenSketch, &Engine3D::SQuadSprite::Blit,
+                &Engine3D::SQuadSprite::CloseSketch};
 void** const kSSpriteVtable = reinterpret_cast<void**>(kSSpriteVtable_slots);
 } // namespace
 

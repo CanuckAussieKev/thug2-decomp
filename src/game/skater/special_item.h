@@ -24,11 +24,11 @@ public:
     static constexpr int kItems = 2;
 
     // 0x0051BD80 (registered with the composite object manager): a new one, no items (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0051BF20: the destructor body: both items destroyed, then the base's.
     void DestroyBody();
     // 0x0051C130 (vtable slot 0)
-    CPickupItemHandler* Destroy(unsigned int flags);
+    CPickupItemHandler* Teardown(unsigned int flags);
 
     // 0x0051BF80: item `slot` (the one there destroyed first) made from `params` (a game object from a node; its id,
     // if given, offset by the object's id - written back into `params`), tagged with the object's id (0x7A9597B3)

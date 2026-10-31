@@ -27,7 +27,7 @@
 // "not collidable": every feeler's default ignore mask; the camera's too).
 // From then on the companion's vertices are written from their copy by the piece's placement (the same Apply the
 // meshes follow: moved, turned, scaled exactly with it), and Commit puts the companion in the scene's collision grid
-// (CCollGrid::Update 0x00418F60 - added once, then moved - as UpdateSuperSectors 0x0049D780 does for sectors).
+// (CCollGrid::TickFrame 0x00418F60 - added once, then moved - as UpdateSuperSectors 0x0049D780 does for sectors).
 // A face belongs to the piece when:
 //   - it is collidable and not a trigger (flags 0x10 / 0x40 clear: gap and kill volumes stay where they are), its
 //     collision-only sector is on (no flag 2 / 4), and all three vertices are within the piece's box (grown kNear);
@@ -80,13 +80,13 @@ public:
     void Rebase();
     // The faces as they are now (a copy's).
     std::vector<FaceCopy> Faces() const;
-    // On / off (the object's flag 4, as CWorldCell::SetActive turns a sector's collision off).
-    void SetActive(bool active);
+    // On / off (the object's flag 4, as CWorldCell::ChangeLive turns a sector's collision off).
+    void ChangeLive(bool active);
     // A face's flags set (level_editor_faces.h: the face flags edited).
     void SetFaceFlags(int face, uint16_t flags);
-    bool Active() const;
+    bool LiveNow() const;
 
-    Engine3D::CStaticCollider* Object() { return &m_object; }
+    Engine3D::CStaticCollider* Object() { return &m_entity; }
     const Engine3D::CTriMeshSource& Geometry() const { return m_geometry; }
     int FaceCount() const { return m_geometry.m_numFaces; }
     int VertexCount() const { return m_geometry.m_numVertices; }
@@ -102,7 +102,7 @@ private:
     std::vector<uint8_t> m_bytes;      // one per vertex
     std::vector<uint8_t> m_rejection;  // one per face (all 0: the rejection scale is 0)
     Engine3D::CTriMeshSource m_geometry{};
-    Engine3D::CStaticCollider m_object{};
+    Engine3D::CStaticCollider m_entity{};
 };
 
 // --- the game side ----------------------------------------------------------------------------------------------
@@ -116,7 +116,7 @@ void Place(uint32_t checksum, const Placement& placement);
 // The piece's track started again where it is (level_editor_scenery.cpp's TrackOf): its companion's base is now.
 void Rebase(uint32_t checksum);
 // Shown / hidden with the piece.
-void SetActive(uint32_t checksum, bool active);
+void ChangeLive(uint32_t checksum, bool active);
 // A copy `copy` (in `scene`) of `source` made: the copy's companion, from the source's (or from the faces that belong
 // to the source, left on). Call before the copy exists in the level (it would compete for them) - `Prepare` - and once
 // it does - `Finish`.
@@ -124,9 +124,9 @@ std::shared_ptr<std::vector<FaceCopy>> PrepareCopy(uint32_t source);
 void FinishCopy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t copy, uint8_t* scene, uint8_t* sector,
                 uint8_t* geom);
 // The scene's companions put in its collision grid / moved there (after UpdateSuperSectors).
-void Commit(uint8_t* scene);
+void Finalise(uint8_t* scene);
 // How many pieces have a companion, and their faces (the HUD's debug line, the log).
-int Count(int* faces = nullptr);
+int TotalOf(int* faces = nullptr);
 // The collision view (level_editor_view.h): every live companion that is on (its piece's checksum and it); the faces of
 // a level geometry turned off for companions (their indices); a number that changes whenever faces are taken or given
 // back (its cache is made again then).

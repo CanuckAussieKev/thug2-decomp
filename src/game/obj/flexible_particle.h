@@ -32,16 +32,16 @@ public:
     static constexpr uint32_t kType = 0xC5BCEB9E;
 
     // 0x0041E1E0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0041D6E0 (not a Ghidra function; registered with Create): its member functions' table (0x00683AC0; the
     // functions are put in by the static initialiser at 0x00642FD0).
     static void __cdecl PublishMethodTable();
     // 0x0041DA00: the base's constructor, its vtable and type; no system, no name, nothing else. Returns this.
-    CFlexibleParticleComponent* Construct();
+    CFlexibleParticleComponent* MakeNew();
     // 0x0041DA80: the system deleted (its vtable slot 0) and let go; then the base's body.
     void DestroyBody();
     // 0x0041E240 (vtable slot 0)
-    CFlexibleParticleComponent* Destroy(unsigned int flags);
+    CFlexibleParticleComponent* Teardown(unsigned int flags);
     // 0x0041DB00 (vtable slot 2): see the class; the parameters: name, max (a float, truncated; 1), MaxStreams (2),
     // texture, blendmode (0x515E298E), type (0xAAB555BB), 0x184197D5, 0xA605B89F (0), segments (8), 0x4E0A65EE (0.5),
     // history (1), perm (0), emitterIndependent, emit_rate, model (a string), useGlobalColorModulation, groupID, params
@@ -51,15 +51,15 @@ public:
     // address. Also sets the particle manager's update time from the global Force_Particle_Update_Time.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x0041D740 (vtable slot 3): the object's suspend component, which is told to start (0x00433E70).
-    void Finalize();
+    void Seal();
     // 0x0041DF80 (vtable slot 1): no system: the object dies. Otherwise the time goes on; suspended (outside a network
     // game) the system only catches up once the time reaches Force_Particle_Update_Time; else, where the suspend
     // component says the object is to be updated, the system follows the object (its position; with EnableRotate its
     // rotation times the object's orientation becomes the display matrix it follows) and is given the time, elsewhere
     // 0x00496F60. A hidden object's system gets its +0x12F and +0x130 cleared.
-    void Update();
+    void TickFrame();
     // 0x0041D760 (vtable slot 8): the system's +0x12F = `hide`.
-    void Hide(bool hide);
+    void Conceal(bool hide);
     // 0x0041D780 (vtable slot 12): IsEmitting (0x2299A9F2; the system unchecked), ApplyEnvBrightness (0x96896315,
     // passed on); anything else 2.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
@@ -89,7 +89,7 @@ public:
     int DestroyParticles(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     CSharedRef<Engine3D::CParticleSystem> mp_system; // +0x18
-    uint32_t m_name;                        // +0x24 name (or the component's address)
+    uint32_t m_label;                        // +0x24 name (or the component's address)
     uint32_t m_unknown28;                   // +0x28 0x184197D5 (given to the system's +0x78)
     float m_clock;                           // +0x2C the time not yet given to the system
     uint8_t* mp_suspend;                    // +0x30 the suspend component
@@ -98,7 +98,7 @@ public:
     uint8_t pad39[3];
 };
 static_assert(offsetof(CFlexibleParticleComponent, mp_system) == 0x18 &&
-                  offsetof(CFlexibleParticleComponent, m_name) == 0x24 &&
+                  offsetof(CFlexibleParticleComponent, m_label) == 0x24 &&
                   offsetof(CFlexibleParticleComponent, m_clock) == 0x2C &&
                   offsetof(CFlexibleParticleComponent, mp_brightnessModel) == 0x34 &&
                   offsetof(CFlexibleParticleComponent, m_rotate) == 0x38 && sizeof(CFlexibleParticleComponent) == 0x3C,

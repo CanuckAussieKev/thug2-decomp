@@ -48,16 +48,16 @@ constexpr uint32_t kRetryDelay = 0x14D;                // (ms)
 constexpr uint32_t kWaitTime = 2000;                   // (ms)
 
 SoundFx::CAudioMixer* SfxManager() { return SoundFx::g_sfxManager; }
-CObject* AsSoundObject(CAudioEmitterModule* component) { return reinterpret_cast<CObject*>(component); }
+CEntity* AsSoundObject(CAudioEmitterModule* component) { return reinterpret_cast<CEntity*>(component); }
 
 // The camera nearest to `position` (0x004A09E0; its distance through `distance`) and a camera's position (0x00485A00).
-void* NearestCamera(const Maths::Vector* position, float* distance)
+void* NearestCamera(const Maths::Vec4* position, float* distance)
 {
     return Engine3D::GetClosestCamera(position, distance);
 }
-const Maths::Vector* ViewerLocation(void* camera)
+const Maths::Vec4* ViewerLocation(void* camera)
 {
-    return static_cast<Gfx2D::Camera*>(camera)->GetPos();
+    return static_cast<Gfx2D::ViewCam*>(camera)->FetchLocation();
 }
 
 // The CRT's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
@@ -74,10 +74,10 @@ struct SoundParams {
 } // namespace
 
 // 0x00433100
-CObjectModule* __cdecl CAudioEmitterModule::Create()
+CObjectModule* __cdecl CAudioEmitterModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CAudioEmitterModule));
-    return memory ? static_cast<CAudioEmitterModule*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CAudioEmitterModule*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x00432C80
@@ -87,14 +87,14 @@ void __cdecl CAudioEmitterModule::PublishMethodTable()
 }
 
 // 0x00432D90
-CAudioEmitterModule* CAudioEmitterModule::Construct()
+CAudioEmitterModule* CAudioEmitterModule::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_spewer = nullptr;
     mp_proxim = nullptr;
     m_vtable = kVtable;
-    m_type = kType;
-    m_pos = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_kindTag = kType;
+    m_atPoint = {0.0f, 0.0f, 0.0f, 1.0f};
     m_lastPos = {0.0f, 0.0f, 0.0f, 1.0f};
     return this;
 }
@@ -108,11 +108,11 @@ void CAudioEmitterModule::DestroyBody()
 }
 
 // 0x00433160
-CAudioEmitterModule* CAudioEmitterModule::Destroy(unsigned int flags)
+CAudioEmitterModule* CAudioEmitterModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -125,10 +125,10 @@ void CAudioEmitterModule::ConfigureFromData(Scripts::CStruct* params)
 }
 
 // 0x004335D0
-void CAudioEmitterModule::Update()
+void CAudioEmitterModule::TickFrame()
 {
-    m_lastPos = m_pos;
-    m_pos = m_object->m_pos;
+    m_lastPos = m_atPoint;
+    m_atPoint = m_entity->m_atPoint;
     UpdateWaitingSounds();
 }
 
@@ -170,18 +170,18 @@ void CAudioEmitterModule::KeepLoopingSound(const SoundFx::PlaybackProps* props, 
 }
 
 // 0x00432E50
-Maths::Vector* CAudioEmitterModule::GetSoundPosition(Maths::Vector* out, void* camera)
+Maths::Vec4* CAudioEmitterModule::GetSoundPosition(Maths::Vec4* out, void* camera)
 {
     if (m_spewer && camera) {
         m_spewer->NearestPointOn(out, ViewerLocation(camera));
         return out;
     }
-    *out = m_pos;
+    *out = m_atPoint;
     return out;
 }
 
 // 0x00432EB0
-Maths::Vector* CAudioEmitterModule::GetPreviousSoundPosition(Maths::Vector* out, void* camera)
+Maths::Vec4* CAudioEmitterModule::GetPreviousSoundPosition(Maths::Vec4* out, void* camera)
 {
     if (m_spewer && camera) {
         m_spewer->NearestPointOn(out, ViewerLocation(camera));
@@ -192,11 +192,11 @@ Maths::Vector* CAudioEmitterModule::GetPreviousSoundPosition(Maths::Vector* out,
 }
 
 // 0x00432F10
-bool CAudioEmitterModule::GetSoundExtent(void* camera, Maths::Vector* out)
+bool CAudioEmitterModule::GetSoundExtent(void* camera, Maths::Vec4* out)
 {
     if (!camera || !mp_proxim)
         return false;
-    Maths::Vector nearest;
+    Maths::Vec4 nearest;
     *out = *mp_proxim->NearestPointOn(&nearest, ViewerLocation(camera));
     return true;
 }
@@ -226,7 +226,7 @@ void CAudioEmitterModule::UpdateWaitingSounds()
         if (waiting.time > now)
             continue;
         float distance = 0.0f; // (no camera: the original's is whatever its stack held)
-        void* camera = NearestCamera(&m_pos, &distance);
+        void* camera = NearestCamera(&m_atPoint, &distance);
         // (a dropoff of exactly 0 means the default)
         float dropoff = props.dropoff == 0.0f ? kDefaultDropoff : props.dropoff;
         if (camera && static_cast<double>(kHearingMargin) + dropoff > distance) {
@@ -252,7 +252,7 @@ void CAudioEmitterModule::UpdateWaitingSounds()
 }
 
 // 0x00433240
-void CAudioEmitterModule::PlaySound(Scripts::CStruct* params)
+void CAudioEmitterModule::EmitSound(Scripts::CStruct* params)
 {
     uint32_t sound = 0;
     float volume = 100.0f, pitch = 100.0f, dropoff = 0.0f;
@@ -260,20 +260,20 @@ void CAudioEmitterModule::PlaySound(Scripts::CStruct* params)
     bool keepPlacement = false;
     int falloff = 0;
     params->ReadHashValue(0u, &sound, 0);
-    params->GetFloat(0xF6A36814, &volume, 0); // vol
-    params->GetFloat(0xD8604126, &pitch, 0);  // pitch
+    params->FetchFloat(0xF6A36814, &volume, 0); // vol
+    params->FetchFloat(0xD8604126, &pitch, 0);  // pitch
     if (params->HasEntryNamed(0x9E497FC6)) { // Percent: between the min and max
         float minVolume = 0.0f, maxVolume = 100.0f, minPitch = 100.0f, maxPitch = 100.0f, percent = 0.0f;
-        params->GetFloat(0x0693DAAF, &maxVolume, 0); // maxVol
-        params->GetFloat(0x4391992D, &minVolume, 0); // floorLoudness
-        params->GetFloat(0xFA3E14C5, &maxPitch, 0);  // maxPitch
-        params->GetFloat(0x1C5EBB24, &minPitch, 0);  // minPitch
-        params->GetFloat(0x9E497FC6, &percent, 1);   // Percent
+        params->FetchFloat(0x0693DAAF, &maxVolume, 0); // maxVol
+        params->FetchFloat(0x4391992D, &minVolume, 0); // floorLoudness
+        params->FetchFloat(0xFA3E14C5, &maxPitch, 0);  // maxPitch
+        params->FetchFloat(0x1C5EBB24, &minPitch, 0);  // minPitch
+        params->FetchFloat(0x9E497FC6, &percent, 1);   // Percent
         double fraction = static_cast<double>(percent) * kPercent;
         volume = static_cast<float>((static_cast<double>(maxVolume) - minVolume) * fraction + minVolume);
         pitch = static_cast<float>((static_cast<double>(maxPitch) - minPitch) * fraction + minPitch);
     }
-    if (params->GetFloat(0xFF2020EC, &dropoff, 0)) // dropoff (feet)
+    if (params->FetchFloat(0xFF2020EC, &dropoff, 0)) // dropoff (feet)
         dropoff = dropoff * kInchesPerFoot;
     uint32_t function = 0; // (the original's slot holds Percent's value, or garbage)
     if (params->ReadHashValue(0x0C6AC50A, &function, 0)) // dropoff_function
@@ -318,14 +318,14 @@ void CAudioEmitterModule::AdjustSound(Scripts::CStruct* params, Scripts::CScript
         if (!props)
             return;
     }
-    if (params->GetFloat(0x330F3415, &loudnessPercent, 0)) { // loudnessPercent
+    if (params->FetchFloat(0x330F3415, &loudnessPercent, 0)) { // loudnessPercent
         props->volume3 = static_cast<float>(static_cast<double>(loudnessPercent) * props->volume2 * kPercent);
-        if (!params->GetFloat(0xDAA9A3C2, reinterpret_cast<float*>(&props->unknown24), 0)) // volumeStep
+        if (!params->FetchFloat(0xDAA9A3C2, reinterpret_cast<float*>(&props->unknown24), 0)) // volumeStep
             props->volume = props->volume3;
     }
-    if (params->GetFloat(0xEE616C13, &pitchPercent, 0)) { // pitchPercent
+    if (params->FetchFloat(0xEE616C13, &pitchPercent, 0)) { // pitchPercent
         props->pitch3 = static_cast<float>(static_cast<double>(pitchPercent) * props->pitch2 * kPercent);
-        if (!params->GetFloat(0x7B090774, reinterpret_cast<float*>(&props->unknown20), 0)) // pitchStep
+        if (!params->FetchFloat(0x7B090774, reinterpret_cast<float*>(&props->unknown20), 0)) // pitchStep
             props->pitch = props->pitch3;
     }
 }
@@ -344,7 +344,7 @@ void CAudioEmitterModule::AssignSoundCue(Scripts::CStruct* params)
 // 0x00433630
 bool CAudioEmitterModule::Obj_PlaySound(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    PlaySound(params);
+    EmitSound(params);
     return true;
 }
 
@@ -353,14 +353,14 @@ bool CAudioEmitterModule::Obj_PlaySound(Scripts::CStruct* params, Scripts::CScri
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CAudioEmitterModule::Destroy,
-         &GameObjects::CAudioEmitterModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CAudioEmitterModule::Teardown,
+         &GameObjects::CAudioEmitterModule::TickFrame,
          &GameObjects::CAudioEmitterModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Engine3D::VirtualSlot1Jump,
          Stubs::IgnoreArgument,

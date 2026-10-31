@@ -64,7 +64,7 @@ void NamedTime(CStruct* params, uint32_t name, float current, float duration, fl
 void NumberTime(CStruct* params, uint32_t name, float* time)
 {
     float value = 0.0f;
-    if (!params->GetFloat(name, &value, 0))
+    if (!params->FetchFloat(name, &value, 0))
         return;
     if (params->HasBareFlag(kSeconds))
         *time = value;
@@ -75,11 +75,11 @@ void NumberTime(CStruct* params, uint32_t name, float* time)
 // A model component's object's id and its model.
 uint32_t ObjectId(GameObjects::CMeshInstanceModule* component)
 {
-    return reinterpret_cast<GameObjects::CObject*>(component->m_object)->m_id;
+    return reinterpret_cast<GameObjects::CEntity*>(component->m_entity)->m_ident;
 }
 bool Hideable(GameObjects::CMeshInstanceModule* component)
 {
-    return ObjectId(component) && !(component->m_meshInstance->m_flags & Engine3D::kModelHidden);
+    return ObjectId(component) && !(component->m_meshInstance->m_flagBits & Engine3D::kModelHidden);
 }
 
 } // namespace
@@ -121,11 +121,11 @@ bool __cdecl FetchAnimDurations(float* start, float* end, float current, float d
 }
 
 // 0x004879D0
-TextUtil::String* __cdecl MakeModelPath(TextUtil::String* out, const char* name, const char* extension)
+TextUtil::Chars* __cdecl MakeModelPath(TextUtil::Chars* out, const char* name, const char* extension)
 {
     char path[512];
     MakeModelFileName(name, extension, path);
-    return new (out) TextUtil::String(path);
+    return new (out) TextUtil::Chars(path);
 }
 
 // 0x00487A70
@@ -148,28 +148,28 @@ float __cdecl LeastOf(float a, float b, float c)
 }
 
 // 0x00487B00
-bool __cdecl ScaleFromArgs(Maths::Vector* scale, CStruct* params)
+bool __cdecl ScaleFromArgs(Maths::Vec4* scale, CStruct* params)
 {
     if (params->HasEntryNamed(kScale)) {
         float uniform;
-        if (params->GetFloat(kScale, &uniform, 0)) {
+        if (params->FetchFloat(kScale, &uniform, 0)) {
             scale->x = uniform;
             scale->y = uniform;
             scale->z = uniform;
             scale->w = 1.0f;
             return true;
         }
-        if (params->GetVector(kScale, reinterpret_cast<Scripts::VectorValue*>(scale), 0))
+        if (params->FetchVec(kScale, reinterpret_cast<Scripts::VectorValue*>(scale), 0))
             return true;
     }
-    bool x = params->GetFloat(kX, &scale->x, 0);
-    bool y = params->GetFloat(kY, &scale->y, 0);
-    bool z = params->GetFloat(kZ, &scale->z, 0);
+    bool x = params->FetchFloat(kX, &scale->x, 0);
+    bool y = params->FetchFloat(kY, &scale->y, 0);
+    bool z = params->FetchFloat(kZ, &scale->z, 0);
     return x || y || z;
 }
 
 // 0x00487BD0
-void SHiddenModels::Hide()
+void SHiddenModels::Conceal()
 {
     auto* manager = GameObjects::CompositeObjectManager();
     auto first = [manager] {
@@ -184,39 +184,39 @@ void SHiddenModels::Hide()
         return;
     if (!MemSys::g_managerReady)
         MemSys::EnsureManager();
-    mp_ids = static_cast<uint32_t*>(MemSys::Manager::Get()->Allocate(count * 4, 1, nullptr));
-    m_count = 0;
+    mp_ids = static_cast<uint32_t*>(MemSys::Hub::Pull()->Carve(count * 4, 1, nullptr));
+    m_num = 0;
     for (auto* component = first(); component; component = static_cast<GameObjects::CMeshInstanceModule*>(component->mp_nextOfType)) {
         if (Hideable(component)) {
-            mp_ids[m_count] = ObjectId(component);
-            component->m_meshInstance->Hide(1);
-            ++m_count;
+            mp_ids[m_num] = ObjectId(component);
+            component->m_meshInstance->Conceal(1);
+            ++m_num;
         }
     }
-    DebugOut::Printf("Hid %d objects\n", m_count);
+    DebugOut::Printf("Hid %d objects\n", m_num);
 }
 
 // 0x00487CB0
 void SHiddenModels::Show()
 {
     if (mp_ids) {
-        for (int i = 0; i < m_count; ++i) {
+        for (int i = 0; i < m_num; ++i) {
             if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(mp_ids[i]))) {
-                auto* component = static_cast<GameObjects::CMeshInstanceModule*>(object->GetComponent(GameObjects::CMeshInstanceModule::kType));
-                component->m_meshInstance->Hide(0);
+                auto* component = static_cast<GameObjects::CMeshInstanceModule*>(object->FetchModule(GameObjects::CMeshInstanceModule::kType));
+                component->m_meshInstance->Conceal(0);
             }
         }
-        MemSys::Manager::Get()->Free(mp_ids);
+        MemSys::Hub::Pull()->Dealloc(mp_ids);
         mp_ids = nullptr;
     }
-    m_count = 0;
+    m_num = 0;
 }
 
 // The models hidden for a cutscene (the original's one instance).
 SHiddenModels g_hiddenModels;
 
 // 0x00487D20
-void __cdecl HideModelsForCutscene() { g_hiddenModels.Hide(); }
+void __cdecl HideModelsForCutscene() { g_hiddenModels.Conceal(); }
 
 // 0x00487D30
 void __cdecl ShowModelsAfterCutscene() { g_hiddenModels.Show(); }

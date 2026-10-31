@@ -18,7 +18,7 @@ bool ReturnThemeColour(Scripts::CStruct* params, Scripts::CScript* script, uint3
 {
     uint32_t name;
     params->ReadHashValue(kReturnValue, &name, 1);
-    script->m_params->PutNameKey(name, colour);
+    script->m_args->PutNameKey(name, colour);
     return true;
 }
 

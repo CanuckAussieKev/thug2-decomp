@@ -52,16 +52,16 @@ constexpr uint32_t kTrickObjects = 0xEFC35592;              // TrickObjects
 constexpr uint8_t kMsgGoalWon = 0x6E;      // to the server: a goal (the chain's first) won
 constexpr uint8_t kGroupGoals = 8;         // (its message group)
 
-static VtableSlot kGoalListHeadVtable_slots[] = {&GoalSystem::GoalListHead::Destroy};
+static VtableSlot kGoalListHeadVtable_slots[] = {&GoalSystem::GoalListHead::Teardown};
 void** const kGoalListHeadVtable = reinterpret_cast<void**>(kGoalListHeadVtable_slots);
 
 const char* const kSpecialGap = "special_gap"; // "special_gap"
 
-OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
 CMatchRules* GameMode() { return g_gameMode; }
 
 void RemoveObjectiveNpc(CObjectiveNpc* ped) { ped->RemoveObjectiveNpc(); }
-void HideGoalPed(CObjectiveNpc* ped, bool hide) { ped->Hide(hide); }
+void HideGoalPed(CObjectiveNpc* ped, bool hide) { ped->Conceal(hide); }
 
 // The first goal of the chain `goal` is in (its parents' first links, up to one without a parent): its id - `id`'s
 // if it has no parent. (A parent that isn't in the table is read through null, as the original.)
@@ -70,7 +70,7 @@ CObjective* WalkToRoot(CGoalManager* manager, CObjective* goal, F&& onParent)
 {
     for (GoalLink* link = goal->m_parents; link && link->m_objectiveKey;) {
         onParent(link->m_objectiveKey);
-        goal = manager->m_goals.Get(link->m_objectiveKey);
+        goal = manager->m_goals.Pull(link->m_objectiveKey);
         link = goal->m_parents;
     }
     return goal;
@@ -84,18 +84,18 @@ bool HasNoParent(CObjective* goal) { return goal->m_parents->m_objectiveKey == 0
 void GoalListHead::DestroyBody() { m_listLink.UnlinkAs(kGoalNodeVtable); }
 
 // 0x0055D960
-GoalListHead* GoalListHead::Destroy(uint8_t flags)
+GoalListHead* GoalListHead::Teardown(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
 // 0x0055D9C0
-CGoalManager* CGoalManager::Construct()
+CGoalManager* CGoalManager::MakeNew()
 {
-    m_goals.m_count = 0;
+    m_goals.m_num = 0;
     m_goals.m_first = nullptr;
     m_goals.m_cursor = nullptr;
     MemSys::ListNode& head = m_activeGoals.m_listLink;
@@ -112,9 +112,9 @@ CGoalManager* CGoalManager::Construct()
     m_allUnlocked = false;
     m_startAllowed = true;
     m_backer = 0;
-    for (Scripts::CStruct** structure : {&m_team, &m_goalData, &m_params}) {
+    for (Scripts::CStruct** structure : {&m_team, &m_goalData, &m_args}) {
         Scripts::CStruct* made = Scripts::NewStruct();
-        *structure = made ? made->Init() : nullptr;
+        *structure = made ? made->PrepareAll() : nullptr;
     }
     for (int& unlocked : m_groupUnlocked)
         unlocked = 0;
@@ -149,19 +149,19 @@ void CGoalManager::ShowGoalPoints()
 void CGoalManager::ResetGoalData(uint32_t flag)
 {
     if (flag)
-        m_params->RemoveComponent(flag);
+        m_args->EraseModule(flag);
     else
-        m_params->Clear();
+        m_args->Clear();
     Scripts::CComponent* component = m_goalData->StepToEntry(nullptr);
     while (component) {
         Scripts::CComponent* next = m_goalData->StepToEntry(component);
         if (!flag) {
-            m_goalData->RemoveComponent(component->name);
+            m_goalData->EraseModule(component->name);
         } else if (component->name == kGoalManagerParams) {
             component->structure->Clear();
-            component->structure->PutSubStruct(kDifficultyLevels, m_params);
+            component->structure->PutSubStruct(kDifficultyLevels, m_args);
         } else if (component->structure && component->structure->HasBareFlag(flag)) {
-            m_goalData->RemoveComponent(component->name);
+            m_goalData->EraseModule(component->name);
         }
         component = next;
     }
@@ -172,7 +172,7 @@ void CGoalManager::ResetGoalData(uint32_t flag)
 }
 
 // 0x00557F90
-CObjective* CGoalManager::GetGoal(uint32_t id, int) { return m_goals.Get(id); }
+CObjective* CGoalManager::GetGoal(uint32_t id, int) { return m_goals.Pull(id); }
 
 // 0x00557FB0
 CObjective* CGoalManager::GetObjectiveAt(int index) { return m_goals.GetByIndex(index); }
@@ -180,8 +180,8 @@ CObjective* CGoalManager::GetObjectiveAt(int index) { return m_goals.GetByIndex(
 // 0x00557FC0
 bool CGoalManager::EngageObjective(uint32_t id, bool)
 {
-    CObjective* goal = m_goals.Get(id);
-    if (!goal || goal->IsLocked())
+    CObjective* goal = m_goals.Pull(id);
+    if (!goal || goal->IsLatched())
         return false;
     bool started = Virtual<bool>(goal, CObjective::kVtActivate);
     if (started && Virtual<bool>(goal, CObjective::kVtCanRetry) && HasNoParent(goal))
@@ -192,8 +192,8 @@ bool CGoalManager::EngageObjective(uint32_t id, bool)
 // 0x00558030
 bool CGoalManager::CompleteObjective(uint32_t id)
 {
-    OnlinePlay::Manager* net = NetManager();
-    CObjective* goal = m_goals.Get(id);
+    OnlinePlay::Hub* net = NetManager();
+    CObjective* goal = m_goals.Pull(id);
     if (!goal)
         return false;
     uint32_t root = id;
@@ -203,8 +203,8 @@ bool CGoalManager::CompleteObjective(uint32_t id)
     if (!Virtual<bool>(goal, CObjective::kVtHasWon)) {
         if (goal->m_subNodes->m_objectiveKey == 0 && net->InNetGame()) {
             NetLink::NetMessageInfo desc;
-            desc.Construct();
-            NetLink::App* client = net->GetClient(0);
+            desc.MakeNew();
+            NetLink::AppHost* client = net->FetchPatron(0);
             // The message: the game's id and the chain's first goal (the id's three padding bytes are left as the
             // original's stack had them: the network manager's address).
             struct {
@@ -215,11 +215,11 @@ bool CGoalManager::CompleteObjective(uint32_t id)
             message.goal = goal->GetTopObjectiveKey();
             desc.m_byteCount = sizeof(message);
             desc.m_groupId = kGroupGoals;
-            desc.m_data = &message;
-            desc.m_id = kMsgGoalWon;
+            desc.m_content = &message;
+            desc.m_ident = kMsgGoalWon;
             desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
-            static_cast<NetLink::Client*>(client)->SendToHost(&desc);
-        } else if (goal->m_subNodes->m_objectiveKey == 0 && !goal->GetParams()->HasBareFlag(kEditedGoal)) {
+            static_cast<NetLink::Guest*>(client)->SendToHost(&desc);
+        } else if (goal->m_subNodes->m_objectiveKey == 0 && !goal->FetchArgs()->HasBareFlag(kEditedGoal)) {
             ++m_goalsBeaten;
         }
     }
@@ -230,7 +230,7 @@ bool CGoalManager::CompleteObjective(uint32_t id)
 // 0x00558180
 bool CGoalManager::FailObjective(uint32_t id)
 {
-    CObjective* goal = m_goals.Get(id);
+    CObjective* goal = m_goals.Pull(id);
     if (!goal)
         return false;
     Virtual<bool>(goal, CObjective::kVtLose);
@@ -244,8 +244,8 @@ bool CGoalManager::FailObjective(uint32_t id)
 int CGoalManager::CountPickedObjectives()
 {
     int selected = 0;
-    for (int i = 0; i < m_goals.m_count; ++i)
-        if (m_goals.GetByIndex(i)->IsSelected())
+    for (int i = 0; i < m_goals.m_num; ++i)
+        if (m_goals.GetByIndex(i)->IsPicked())
             ++selected;
     return selected;
 }
@@ -253,7 +253,7 @@ int CGoalManager::CountPickedObjectives()
 // 0x00558250
 void CGoalManager::DisengageEveryObjective(bool unused)
 {
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (Virtual<bool>(goal, CObjective::kVtIsActive))
             Virtual<bool>(goal, CObjective::kVtDeactivate, unused, true);
@@ -263,7 +263,7 @@ void CGoalManager::DisengageEveryObjective(bool unused)
 // 0x005582B0
 void CGoalManager::ActivateAllGoals()
 {
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (!Virtual<bool>(goal, CObjective::kVtIsActive) && !Virtual<bool>(goal, CObjective::kVtHasWon) && !goal->IsOnlineObjective())
             Virtual<bool>(goal, CObjective::kVtActivate);
@@ -273,58 +273,58 @@ void CGoalManager::ActivateAllGoals()
 // 0x00558320
 void CGoalManager::ReleaseObjectiveTree(uint32_t id)
 {
-    CObjective* root = WalkToRoot(this, m_goals.Get(id), [](uint32_t) {});
+    CObjective* root = WalkToRoot(this, m_goals.Pull(id), [](uint32_t) {});
     root->Uninitialize(true, 0);
 }
 
 // 0x00558380
 void CGoalManager::ReleaseEveryObjective()
 {
-    for (int i = 0; i < m_goals.m_count; ++i)
+    for (int i = 0; i < m_goals.m_num; ++i)
         m_goals.GetByIndex(i)->Uninitialize(false, 0);
 }
 
 // 0x005583C0
 void CGoalManager::PrepareEveryObjective()
 {
-    OnlinePlay::Manager* net = NetManager();
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    OnlinePlay::Hub* net = NetManager();
+    for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (net->InNetGame() && !goal->IsOnlineObjective())
             continue;
         goal->MergeSkillTierArgs();
-        if (goal->IsLocked())
+        if (goal->IsLatched())
             continue;
-        if (Virtual<bool>(goal, CObjective::kVtHasWon) && !goal->GetParams()->HasBareFlag(kAlwaysInitializeGoal))
+        if (Virtual<bool>(goal, CObjective::kVtHasWon) && !goal->FetchArgs()->HasBareFlag(kAlwaysInitializeGoal))
             continue;
         GoalLink* parents = goal->m_parents;
-        Scripts::CStruct* params = goal->GetParams();
+        Scripts::CStruct* params = goal->FetchArgs();
         if (parents->m_objectiveKey)
             continue;
         if (GameMode()->GetNameKey() == kClassic || !Virtual<bool>(goal, CObjective::kVtHasWon) ||
             params->HasBareFlag(kAlwaysInitializeGoal) || params->HasBareFlag(kEditedGoal))
-            goal->Init();
+            goal->PrepareAll();
     }
 }
 
 // 0x005584C0
 void CGoalManager::PreparePickedObjectives()
 {
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
-        if (!goal->IsSelected())
+        if (!goal->IsPicked())
             continue;
-        Scripts::LaunchScript(kGoalCreateProsetGeom, goal->GetParams(), nullptr, false, nullptr);
-        goal->Init();
+        Scripts::LaunchScript(kGoalCreateProsetGeom, goal->FetchArgs(), nullptr, false, nullptr);
+        goal->PrepareAll();
     }
 }
 
 // 0x00558530
 void CGoalManager::ActivateAllSelectedGoals()
 {
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
-        if (goal->IsSelected())
+        if (goal->IsPicked())
             Virtual<bool>(goal, CObjective::kVtActivate);
     }
 }
@@ -332,28 +332,28 @@ void CGoalManager::ActivateAllSelectedGoals()
 // 0x00558580
 void CGoalManager::UnpickEveryObjective()
 {
-    for (int i = 0; i < m_goals.m_count; ++i)
-        m_goals.GetByIndex(i)->Deselect();
+    for (int i = 0; i < m_goals.m_num; ++i)
+        m_goals.GetByIndex(i)->Unpick();
 }
 
 // 0x005585C0
 void CGoalManager::FreezeEveryObjective()
 {
-    for (int i = 0; i < m_goals.m_count; ++i)
-        m_goals.GetByIndex(i)->Pause();
+    for (int i = 0; i < m_goals.m_num; ++i)
+        m_goals.GetByIndex(i)->Freeze();
 }
 
 // 0x00558600
 void CGoalManager::ThawEveryObjective()
 {
-    for (int i = 0; i < m_goals.m_count; ++i)
+    for (int i = 0; i < m_goals.m_num; ++i)
         m_goals.GetByIndex(i)->UnPause();
 }
 
 // 0x00558640
 bool CGoalManager::BeginObjectiveAtOnce(uint32_t id, bool checkExists)
 {
-    CObjective* goal = m_goals.Get(id);
+    CObjective* goal = m_goals.Pull(id);
     if (!goal && checkExists)
         return false;
     goal->SetQuickStart(); // (no such goal and not checkExists: written through null, as the original)
@@ -367,7 +367,7 @@ bool CGoalManager::BeginObjectiveAtOnce(uint32_t id, bool checkExists)
 // 0x005586A0
 bool CGoalManager::RaiseBit(uint32_t id, uint32_t flag, int value, uint32_t sub)
 {
-    CObjective* goal = m_goals.Get(id);
+    CObjective* goal = m_goals.Pull(id);
     if (!goal)
         return false;
     return Virtual<bool>(goal, CObjective::kVtSetFlag, flag, value, sub);
@@ -377,21 +377,21 @@ bool CGoalManager::RaiseBit(uint32_t id, uint32_t flag, int value, uint32_t sub)
 bool CGoalManager::RegisterGapHit(uint32_t gap)
 {
     bool got = false;
-    for (int i = 0; i < m_goals.m_count; ++i)
+    for (int i = 0; i < m_goals.m_num; ++i)
         got = m_goals.GetByIndex(i)->RegisterGapHit(gap);
     return got;
 }
 
 // 0x00558730
-Scripts::CStruct* CGoalManager::GetObjectiveArgs(uint32_t id) { return m_goals.Get(id)->GetParams(); }
+Scripts::CStruct* CGoalManager::GetObjectiveArgs(uint32_t id) { return m_goals.Pull(id)->FetchArgs(); }
 
 // 0x00558750
-bool CGoalManager::NextWaypoint(uint32_t id) { return m_goals.Get(id)->NextWaypoint(); }
+bool CGoalManager::NextWaypoint(uint32_t id) { return m_goals.Pull(id)->NextWaypoint(); }
 
 // 0x00558770
 void CGoalManager::KillCluster(uint32_t cluster, int score)
 {
-    int count = m_goals.m_count; // (read once)
+    int count = m_goals.m_num; // (read once)
     for (int i = 0; i < count; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (!Virtual<bool>(goal, CObjective::kVtIsActive) || goal->IsOnlineObjective())
@@ -406,11 +406,11 @@ void CGoalManager::KillCluster(uint32_t cluster, int score)
 // 0x005587F0
 void CGoalManager::CheckTrickGoals()
 {
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (!Virtual<bool>(goal, CObjective::kVtIsActive) || goal->IsOnlineObjective())
             continue;
-        Scripts::CStruct* params = goal->GetParams();
+        Scripts::CStruct* params = goal->FetchArgs();
         if (goal->IsSpecial() || params->HasBareFlag(kCreateATrick)) {
             if (!params->HasBareFlag(kSpecialGap) && goal->DidTrickString())
                 CompleteObjective(goal->GetObjectiveKey());
@@ -423,12 +423,12 @@ void CGoalManager::CheckTrickGoals()
 }
 
 // 0x005588D0
-void CGoalManager::OpenUpObjective(uint32_t id) { m_goals.Get(id)->Unlock(); }
+void CGoalManager::OpenUpObjective(uint32_t id) { m_goals.Pull(id)->Unlock(); }
 
 // 0x005588F0
 int CGoalManager::HasBeatenGoal(uint32_t id)
 {
-    if (CObjective* goal = m_goals.Get(id))
+    if (CObjective* goal = m_goals.Pull(id))
         return Virtual<bool>(goal, CObjective::kVtHasWon);
     int beaten = 0;
     Scripts::CStruct* data;
@@ -440,17 +440,17 @@ int CGoalManager::HasBeatenGoal(uint32_t id)
 // 0x00558960
 void CGoalManager::FlipObjectivePick(uint32_t id)
 {
-    CObjective* goal = m_goals.Get(id);
-    if (goal->IsSelected())
-        goal->Deselect();
+    CObjective* goal = m_goals.Pull(id);
+    if (goal->IsPicked())
+        goal->Unpick();
     else
-        goal->Select();
+        goal->ChooseOne();
 }
 
 // 0x005589A0
 bool CGoalManager::HasWonProsetGoal(const char* prefix)
 {
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (Virtual<bool>(goal, CObjective::kVtHasWon) && goal->HasProsetPrefix(prefix))
             return true;
@@ -467,9 +467,9 @@ void CGoalManager::RestoreGoalData()
         if (component->name == kGoalManagerParams) {
             Scripts::CStruct* levels;
             component->structure->ReadSubStruct(kDifficultyLevels, &levels, 1);
-            m_params->Clear();
-            m_params->AppendStructureIfAny(levels);
-        } else if (CObjective* goal = m_goals.Get(component->name)) {
+            m_args->Clear();
+            m_args->AppendStructureIfAny(levels);
+        } else if (CObjective* goal = m_goals.Pull(component->name)) {
             Virtual<void>(goal, CObjective::kVtLoadSaveData, component->structure);
         }
         component = next;
@@ -480,7 +480,7 @@ void CGoalManager::RestoreGoalData()
 int CGoalManager::CountClearedByPlayer(int bit)
 {
     int count = 0;
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (HasNoParent(goal) && Virtual<bool>(goal, CObjective::kVtStageFlagSet, bit))
             ++count;
@@ -492,7 +492,7 @@ int CGoalManager::CountClearedByPlayer(int bit)
 int CGoalManager::NumGoalsNetBeatenBy(int bit)
 {
     int count = 0;
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (HasNoParent(goal) && Virtual<bool>(goal, CObjective::kVtNetStageFlagSet, bit))
             ++count;
@@ -504,7 +504,7 @@ int CGoalManager::NumGoalsNetBeatenBy(int bit)
 int CGoalManager::CountObjectivesCleared()
 {
     int count = 0;
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (HasNoParent(goal) && Virtual<bool>(goal, CObjective::kVtHasWon))
             ++count;
@@ -516,7 +516,7 @@ int CGoalManager::CountObjectivesCleared()
 void CGoalManager::OpenUpEveryObjective()
 {
     m_allUnlocked = true;
-    for (int i = 0; i < m_goals.m_count; ++i)
+    for (int i = 0; i < m_goals.m_num; ++i)
         m_goals.GetByIndex(i)->MarkViewed();
 }
 
@@ -524,9 +524,9 @@ void CGoalManager::OpenUpEveryObjective()
 void CGoalManager::UnlockAllProGoals()
 {
     m_allUnlocked = true;
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
-        if (goal->IsProChallenge() && goal->IsLocked())
+        if (goal->IsProChallenge() && goal->IsLatched())
             goal->Unlock();
     }
 }
@@ -536,7 +536,7 @@ void CGoalManager::PlayObjectiveVoiceLine(Scripts::CStruct* params)
 {
     uint32_t name;
     params->ReadHashValue(kName, &name, 1);
-    CObjective* goal = m_goals.Get(name);
+    CObjective* goal = m_goals.Pull(name);
     uint32_t stream = 0;
     params->ReadHashValue(kVO, &stream, 0);
     if (stream) {
@@ -544,15 +544,15 @@ void CGoalManager::PlayObjectiveVoiceLine(Scripts::CStruct* params)
         return;
     }
     const char* type = nullptr;
-    if (params->GetString(kType, &type, 0))
+    if (params->FetchText(kType, &type, 0))
         goal->m_ped->PlayObjectiveVoiceLine(type, params);
 }
 
 // 0x00558D20
 int CGoalManager::IsGoalLocked(uint32_t id)
 {
-    if (CObjective* goal = m_goals.Get(id))
-        return goal->IsLocked();
+    if (CObjective* goal = m_goals.Pull(id))
+        return goal->IsLatched();
     int locked = 0;
     Scripts::CStruct* data;
     if (m_goalData->ReadSubStruct(id, &data, 0))
@@ -563,7 +563,7 @@ int CGoalManager::IsGoalLocked(uint32_t id)
 // 0x00558D90
 CObjective* CGoalManager::GetActiveCompetition()
 {
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (goal->IsContestObjective() && Virtual<bool>(goal, CObjective::kVtIsActive))
             return goal;
@@ -574,20 +574,20 @@ CObjective* CGoalManager::GetActiveCompetition()
 // 0x00558DF0
 void CGoalManager::ReplaceTrickTextAll()
 {
-    int count = m_goals.m_count; // (read once)
+    int count = m_goals.m_num; // (read once)
     for (int i = 0; i < count; ++i)
         m_goals.GetByIndex(i)->SwapMoveCaption();
 }
 
 // 0x00558E30
-bool CGoalManager::GoalExists(uint32_t id) { return m_goals.Get(id) != nullptr; }
+bool CGoalManager::GoalExists(uint32_t id) { return m_goals.Pull(id) != nullptr; }
 
 // 0x00558E50
 void CGoalManager::TestTaggedProps()
 {
     auto* skater = static_cast<GameObjects::CRider*>(SkateCalls::GetHomeRider());
     int player = *reinterpret_cast<int*>(static_cast<uint8_t*>(skater->GetPointsTotal()) + 0x20);
-    auto* trick = reinterpret_cast<uint8_t*>(skater->GetComponent(kTrick));
+    auto* trick = reinterpret_cast<uint8_t*>(skater->FetchModule(kTrick));
     // The combo's trick objects: up to 512 clusters, then their count (copied first, as the original).
     struct TrickObjects {
         uint32_t clusters[512];
@@ -603,14 +603,14 @@ void CGoalManager::TestTaggedProps()
 // 0x00558ED0
 void CGoalManager::BuildGoalTree()
 {
-    int count = m_goals.m_count; // (read once)
+    int count = m_goals.m_num; // (read once)
     for (int i = 0; i < count; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         uint32_t id = goal->GetObjectiveKey();
-        for (GoalLink* link = goal->m_subNodes; link && link->m_objectiveKey; link = link->m_next) {
-            CObjective* child = m_goals.Get(link->m_objectiveKey); // (one not in the table is read through null)
+        for (GoalLink* link = goal->m_subNodes; link && link->m_objectiveKey; link = link->m_succ) {
+            CObjective* child = m_goals.Pull(link->m_objectiveKey); // (one not in the table is read through null)
             bool linked = false;
-            for (GoalLink* parent = child->m_parents; parent && parent->m_objectiveKey; parent = parent->m_next) {
+            for (GoalLink* parent = child->m_parents; parent && parent->m_objectiveKey; parent = parent->m_succ) {
                 if (parent->m_objectiveKey == id) {
                     linked = true;
                     break;
@@ -630,12 +630,12 @@ void CGoalManager::BuildGoalTree()
 // 0x00558FD0
 void CGoalManager::SpawnObjectiveProps()
 {
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    for (int i = 0; i < m_goals.m_num; ++i) {
         Scripts::CArray* nodes;
-        if (!m_goals.GetByIndex(i)->GetParams()->GetArray(kCreateGeometry, &nodes, 0))
+        if (!m_goals.GetByIndex(i)->FetchArgs()->FetchList(kCreateGeometry, &nodes, 0))
             continue;
-        for (uint32_t n = 0; n < nodes->m_size; ++n)
-            ScriptCommands::CreateFromNodeName(nodes->GetElement(n));
+        for (uint32_t n = 0; n < nodes->m_extent; ++n)
+            ScriptCommands::CreateFromNodeName(nodes->FetchPart(n));
     }
 }
 
@@ -644,7 +644,7 @@ int CGoalManager::GetSkillTier(bool career)
 {
     uint32_t mode = career ? kCareer : GameMode()->GetNameKey();
     int level;
-    if (!m_params->FetchIntValue(mode, &level, 0))
+    if (!m_args->FetchIntValue(mode, &level, 0))
         level = 1;
     switch (level) {
     case 0: return 0;
@@ -656,7 +656,7 @@ int CGoalManager::GetSkillTier(bool career)
 // 0x005590C0
 void CGoalManager::ConcealEveryObjectiveNpc(bool hide)
 {
-    for (int i = 0; i < m_goals.m_count; ++i)
+    for (int i = 0; i < m_goals.m_num; ++i)
         HideGoalPed(m_goals.GetByIndex(i)->m_ped, hide);
 }
 
@@ -666,17 +666,17 @@ bool CGoalManager::IsGroupLocked(int group, int level)
     if (group == -1)
         return false;
     if (level == -1)
-        level = SkateCalls::Career()->GetLevel();
+        level = SkateCalls::Career()->FetchStage();
     return m_groupUnlocked[level * kGroupsPerLevel + group - 1] == 0;
 }
 
 // 0x00559150
 void CGoalManager::TrickObjectHit(uint32_t cluster)
 {
-    int count = m_goals.m_count; // (read once)
+    int count = m_goals.m_num; // (read once)
     for (int i = 0; i < count; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
-        if (goal->GetParams()->HasBareFlag(kTrickObjects))
+        if (goal->FetchArgs()->HasBareFlag(kTrickObjects))
             reinterpret_cast<CTrickObjectsGoal*>(goal)->ObjectHit(cluster);
     }
 }
@@ -684,9 +684,9 @@ void CGoalManager::TrickObjectHit(uint32_t cluster)
 // 0x0055BEA0
 bool CGoalManager::DropObjective(uint32_t id)
 {
-    CObjective* goal = m_goals.Get(id);
+    CObjective* goal = m_goals.Pull(id);
     RemoveObjectiveNpc(goal->m_ped);
-    m_goals.Remove(id);
+    m_goals.DropOut(id);
     if (m_previousObjective == id)
         m_previousObjective = 0;
     Virtual<CObjective*>(goal, CObjective::kVtDestroy, static_cast<uint8_t>(1));
@@ -697,7 +697,7 @@ bool CGoalManager::DropObjective(uint32_t id)
 void CGoalManager::WipeObjectives()
 {
     m_previousObjective = 0;
-    for (int i = 0; i < m_goals.m_count; ++i)
+    for (int i = 0; i < m_goals.m_num; ++i)
         RemoveObjectiveNpc(m_goals.GetByIndex(i)->m_ped);
     ListKit::TableItemEraser destroyer = {&m_goals};
     destroyer.EmptyTableItems();
@@ -706,7 +706,7 @@ void CGoalManager::WipeObjectives()
 // 0x0055DBE0
 void CGoalManager::AddActiveGoal(CObjective* goal)
 {
-    reinterpret_cast<ListKit::Head*>(&m_activeGoals)->AddNode(&goal->m_listLink);
+    reinterpret_cast<ListKit::Foremost*>(&m_activeGoals)->AppendVertex(&goal->m_listLink);
 }
 
 namespace {

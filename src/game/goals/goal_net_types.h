@@ -15,9 +15,9 @@ class CLetterGameObjective : public CObjective {
 public:
     // 0x005608C0: the constructor (CObjective's). Returns this. 0x005608E0 / 0x00560980 (vtable +0x00): the destructor
     // body / the scalar deleting destructor.
-    CLetterGameObjective* Construct(Scripts::CStruct* params);
+    CLetterGameObjective* MakeNew(Scripts::CStruct* params);
     void DestroyBody();
-    CLetterGameObjective* Destroy(uint8_t flags);
+    CLetterGameObjective* Teardown(uint8_t flags);
     // 0x00560930 / 0x005608F0 (vtable +0x04 / +0x08): never while 0xA32FAF13 is 1, else CObjective's.
     bool WantsToEnd();
     bool HasRunOut();
@@ -31,14 +31,14 @@ public:
 // A network game mode's goal (vtable 0x0064E150, 0x74 bytes).
 class COnlineObjective : public CObjective {
 public:
-    bool m_initialized; // +0x70 (Update initializes it once)
+    bool m_isPrepared; // +0x70 (Update initializes it once)
     uint8_t m_pad71[3];
 
     // 0x00560AC0: the constructor (the normal end of run). Returns this. 0x00560AF0 / 0x00560B40: the destructor
     // body / the scalar deleting destructor.
-    COnlineObjective* Construct(Scripts::CStruct* params);
+    COnlineObjective* MakeNew(Scripts::CStruct* params);
     void DestroyBody();
-    COnlineObjective* Destroy(uint8_t flags);
+    COnlineObjective* Teardown(uint8_t flags);
     // 0x00560B00 (vtable +0x28): the timer shown: a time limit (0 / 1 in all of EAX).
     int HasComponentA302D7CD();
     // 0x00560B10 (vtable +0x24): the timer beeps - not for elimiskate_interval / scavenger_interval.
@@ -46,10 +46,10 @@ public:
     // 0x00560BC0 (vtable +0x2C): the game not over any more; CObjective's Activate.
     bool Activate();
     // 0x00560BE0 (vtable +0x34): not in a goal attack unless forced; CObjective's Deactivate.
-    bool Deactivate(bool force, bool resetTree);
+    bool Disengage(bool force, bool resetTree);
     // 0x00560B70 (vtable +0x44): initialized once; in a goal attack expired once its victory condition is met;
     // else CObjective's Update.
-    bool Update();
+    bool TickFrame();
     // 0x00560C20 (vtable +0x04): whether the game is over - by the mode (elimiskate / scavenger hunt: out of time;
     // goal attack: everyone's goals done and their runs over), no players, or out of time with every run done
     // (the runs still going ended).
@@ -69,9 +69,9 @@ public:
 
     // 0x00560E60: the constructor. Returns this. 0x00560EE0 / 0x00560F60: the destructor body / the scalar deleting
     // destructor.
-    CRaceObjective* Construct(Scripts::CStruct* params);
+    CRaceObjective* MakeNew(Scripts::CStruct* params);
     void DestroyBody();
-    CRaceObjective* Destroy(uint8_t flags);
+    CRaceObjective* Teardown(uint8_t flags);
     // 0x00560EF0 (vtable +0x2C): the first lap; CObjective's Activate.
     bool Activate();
     // 0x00560F00 (vtable +0x08): out of time (with a time limit).

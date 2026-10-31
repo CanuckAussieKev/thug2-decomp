@@ -28,7 +28,7 @@ float g_blurTapOffsets[4]{-0.022857143f, -0.005714286f, 0.005714286f, 0.02285714
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 IDirect3DDevice9* DeviceCopy() { return g_drawDevice; } // (the same device)
 IDirect3DTexture9* ScreenCopy(int index) { return g_screenTextures[index]; }
 IDirect3DTexture9* CurrentScreenCopy() { return ScreenCopy(g_screenCopyIndex); }
@@ -57,8 +57,8 @@ void SetTarget(IDirect3DTexture9* texture, IDirect3DSurface9* depth)
         return;
     IDirect3DSurface9* surface = nullptr;
     texture->GetSurfaceLevel(0, &surface);
-    Device()->SetRenderTarget(0, surface);
-    Device()->SetDepthStencilSurface(depth);
+    InputPort()->SetRenderTarget(0, surface);
+    InputPort()->SetDepthStencilSurface(depth);
     surface->Release();
 }
 
@@ -98,8 +98,8 @@ void __cdecl DrawScreenQuad(uint32_t blend, void* target, void* source, float du
     SetTexture(0, nullptr);
     DeviceCopy()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
     DeviceCopy()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
-    SetState(kAddressMode0, 0x10001);
-    SetState(kAlphaRef, 0);
+    ChangePhase(kAddressMode0, 0x10001);
+    ChangePhase(kAlphaRef, 0);
     float width = static_cast<float>(Unsigned(targetDesc.Width));
     float height = static_cast<float>(Unsigned(targetDesc.Height));
     ChooseBlendMode(blend);
@@ -149,8 +149,8 @@ void __cdecl BeginScreenEffects()
         CurrentScreenCopy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, game/gfx/graphics_options.h)
         if (!GraphicsOptions::SetSceneTarget(CurrentScreenCopy())) {
-            Device()->SetRenderTarget(0, surface);
-            Device()->SetDepthStencilSurface(DepthSurface());
+            InputPort()->SetRenderTarget(0, surface);
+            InputPort()->SetDepthStencilSurface(DepthSurface());
         }
     } else {
         if (!g_bloomOn || !g_shadersAvailable) // no bloom (or no pixel shaders)
@@ -164,7 +164,7 @@ void __cdecl BeginScreenEffects()
     uint32_t colour = (g_fogSetting && g_distanceClipping)
                           ? g_fogColour
                           : g_camera.backgroundColour;
-    Device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, colour, 1.0f, 0);
+    InputPort()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, colour, 1.0f, 0);
     surface->Release();
     ScreenCopyInUse() = true;
 }
@@ -178,19 +178,19 @@ void __cdecl CopyScreenQuarter()
     IDirect3DTexture9* quarter = ScreenCopy(2);
     // NOT ORIGINAL - [Graphics] msaa (game/gfx/graphics_options.h): the frame so far resolved into the copy first.
     GraphicsOptions::ResolveSceneTarget(source);
-    SetState(kDepthBias, 0);
-    SetState(kLighting, 0);
-    SetState(kZWrite, 0);
-    SetState(kZTest, 0);
-    SetState(kAlphaTest, 0);
-    SetState(kAlphaBlend, 0);
-    SetState(kCullMode, D3DCULL_NONE);
+    ChangePhase(kDepthBias, 0);
+    ChangePhase(kLighting, 0);
+    ChangePhase(kZWrite, 0);
+    ChangePhase(kZTest, 0);
+    ChangePhase(kAlphaTest, 0);
+    ChangePhase(kAlphaBlend, 0);
+    ChangePhase(kCullMode, D3DCULL_NONE);
     DrawScreenQuad(0, quarter, source, 0.0f, 0.0f, 0x80808080, true);
     SetTarget(CurrentScreenCopy(), DepthSurface());
-    SetState(kZWrite, 1);
-    SetState(kZTest, 1);
-    SetState(kAlphaTest, 1);
-    SetState(kAlphaBlend, 1);
+    ChangePhase(kZWrite, 1);
+    ChangePhase(kZTest, 1);
+    ChangePhase(kAlphaTest, 1);
+    ChangePhase(kAlphaBlend, 1);
 }
 
 // 0x004DEB70
@@ -198,10 +198,10 @@ void __cdecl Bloom()
 {
     if (!g_shadersAvailable)
         return;
-    SetState(kZWrite, 0);
-    SetState(kZTest, 0);
-    SetState(kAlphaTest, 0);
-    SetState(kAlphaBlend, 0);
+    ChangePhase(kZWrite, 0);
+    ChangePhase(kZTest, 0);
+    ChangePhase(kAlphaTest, 0);
+    ChangePhase(kAlphaBlend, 0);
     IDirect3DTexture9* quarter = ScreenCopy(2);
     IDirect3DTexture9* bright = ScreenCopy(3);
     SetPixelShader(Shader(kPixelShader948), nullptr); // the cut-off
@@ -209,12 +209,12 @@ void __cdecl Bloom()
     const uint8_t* cutoff = reinterpret_cast<uint8_t*>(&g_bloomCutOff);
     float constant[4] = {static_cast<float>(cutoff[0] * (1.0 / 128)), static_cast<float>(cutoff[1] * (1.0 / 128)),
                          static_cast<float>(cutoff[2] * (1.0 / 128)), 0.5f};
-    Device()->SetPixelShaderConstantF(0, constant, 1);
+    InputPort()->SetPixelShaderConstantF(0, constant, 1);
     DrawScreenQuad(0, bright, quarter, 0.0f, 0.0f, 0x80808080, false);
     // Blur: vertically into the eighth, back horizontally; then the same at a sixteenth.
     IDirect3DTexture9* a = ScreenCopy(3);
     IDirect3DTexture9* b = ScreenCopy(4);
-    SetState(kAlphaBlend, 1);
+    ChangePhase(kAlphaBlend, 1);
     D3DSURFACE_DESC unused;
     b->GetLevelDesc(0, &unused);
     for (int tap = 0; tap < 4; ++tap)
@@ -237,12 +237,12 @@ void __cdecl Bloom()
     if (!g_blurSecondPass)
         return;
     // Both blurred copies added over the frame.
-    SetState(kZWrite, 0);
-    SetState(kZTest, 0);
-    SetState(kAlphaTest, 0);
-    SetState(kAlphaBlend, 1);
-    SetState(kAlphaRef, 0);
-    SetState(kAddressMode0, 0x10001);
+    ChangePhase(kZWrite, 0);
+    ChangePhase(kZTest, 0);
+    ChangePhase(kAlphaTest, 0);
+    ChangePhase(kAlphaBlend, 1);
+    ChangePhase(kAlphaRef, 0);
+    ChangePhase(kAddressMode0, 0x10001);
     SetPixelShader(Shader(kPixelShader950), nullptr);
     SetVertexFormat(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     ChooseBlendMode(1);
@@ -273,10 +273,10 @@ void __cdecl Bloom()
         DeviceCopy()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(TexturedVertex));
         CountDraw(2);
     }
-    SetState(kAlphaTest, 1);
-    SetState(kAlphaBlend, 1);
-    SetState(kZWrite, 1);
-    SetState(kZTest, 1);
+    ChangePhase(kAlphaTest, 1);
+    ChangePhase(kAlphaBlend, 1);
+    ChangePhase(kZWrite, 1);
+    ChangePhase(kZTest, 1);
     for (int stage = 0; stage < 4; ++stage)
         SetTexture(stage, nullptr);
     SetPixelShader(nullptr, nullptr);

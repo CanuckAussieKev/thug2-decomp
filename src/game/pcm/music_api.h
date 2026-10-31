@@ -16,7 +16,7 @@ bool __cdecl StreamsOff();
 // 0x00450D60: the music system set up - the owners of the streams forgotten; if music or streams are on, the
 // platform's set up (0x00453670), the default music and stream volumes from the script globals (0x73F8E03B and
 // 0xABD4A575: 0 means 100 and 50), the first two playlists emptied and the streams cleared.
-void __cdecl Init();
+void __cdecl PrepareAll();
 // 0x00450EB0: only with the debug flag 0x00684FA8 (the PS2's "streaming from the CD") and once set up: the
 // music and the streams stopped. Always false (no load needs to be skipped).
 bool __cdecl DiscModeActive();
@@ -49,7 +49,7 @@ bool __cdecl BeginPrimedMusicTrack(float volume);
 void __cdecl HaltStreams(int which);
 // 0x004506D0: stop the stream with this id (or name): the platform's stopped, then the first owner slot naming it
 // (an owner's +0x18 words, then the owner) cleared.
-void __cdecl StopStream(uint32_t idOrName);
+void __cdecl HaltStream(uint32_t idOrName);
 // 0x00450780: the stream's volume (0x00453DF0). False if no such stream plays (true when streams are off).
 bool __cdecl ChangeStreamLoudness(uint32_t idOrName, void* volume);
 // 0x004507D0: the stream's pitch - nothing on PC (the platform call is a stub returning true). The same results.
@@ -73,7 +73,7 @@ struct FamData {
     uint8_t data[0x1000];
 
     // 0x00450540: load fam\<name in hex>.fam (blocking). False if it can't be opened or is 4 KB or more.
-    bool Load(uint32_t name);
+    bool ReadIn(uint32_t name);
 };
 static_assert(sizeof(FamData) == 0x1008, "layout must match the original");
 

@@ -155,7 +155,7 @@ std::vector<MpProblem> MultiplayerProblems(const MpCounts& counts)
     if (counts.multiplayer == 0)
         out.push_back({Severity::Warning, "No Multiplayer restart", -1});
     else if (counts.multiplayer == 1)
-        out.push_back({Severity::Info, "Only one Multiplayer restart", -1});
+        out.push_back({Severity::DetailsOf, "Only one Multiplayer restart", -1});
     if (counts.horse == 0)
         out.push_back({Severity::Warning, "No HORSE restart", -1});
     if (counts.crowns == 0)
@@ -236,8 +236,8 @@ bool Cast(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
     // point at +0x34, the collision object at +0x54 and its checksum at +0x58 - as the editor's other modules read it)
     alignas(16) uint8_t feeler[0x100] = {};
     auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
-    ray->Construct();
-    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    ray->MakeNew();
+    Maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* n = reinterpret_cast<const float*>(feeler + 0x24);
@@ -252,7 +252,7 @@ bool Cast(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
 
 namespace {
 
-float Distance(V3 a, V3 b) { return std::sqrt(Dot(a - b, a - b)); }
+float SpanTo(V3 a, V3 b) { return std::sqrt(Dot(a - b, a - b)); }
 
 const V3 kDirections[6] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
 
@@ -265,14 +265,14 @@ void ProbeEach(V3 point, const float reach[6], Probe probes[6])
         V3 hit;
         probes[i] = {};
         if (Cast(point, far, &hit))
-            probes[i].out = Distance(hit, point);
+            probes[i].out = SpanTo(hit, point);
         // Coming back in: the face facing away nearest to the point - the last met on the way in (cast again from just
         // past each hit; a few at most).
         V3 from = far;
         for (int step = 0; step < 6 && Cast(from, point, &hit); ++step) {
-            probes[i].in = Distance(hit, point);
+            probes[i].in = SpanTo(hit, point);
             V3 on = hit + (point - far) * (0.5f / reach[i]); // (half a unit on, towards the point)
-            if (Distance(on, point) < 0.5f)
+            if (SpanTo(on, point) < 0.5f)
                 break;
             from = on;
         }
@@ -309,7 +309,7 @@ double Seconds() { return static_cast<double>(SDL_GetTicks()) / 1000.0; }
 
 uint32_t Checksums(const std::string& text) { return Checksums::HashFromText(text.c_str()); }
 
-std::string Name(uint32_t checksum) { return Nodes::Label(checksum); }
+std::string Name(uint32_t checksum) { return Nodes::Caption(checksum); }
 
 bool Marked(uint32_t name, uint8_t bits)
 {
@@ -323,11 +323,11 @@ bool SceneryChangedNear(V3 point, float margin)
     std::vector<uint32_t> pieces;
     for (const Scenery::SectorState& s : Scenery::ChangedSectors())
         pieces.push_back(s.checksum);
-    for (const Scenery::Clone& c : Scenery::Clones())
+    for (const Scenery::Replicate& c : Scenery::Clones())
         pieces.push_back(c.checksum);
     for (uint32_t piece : pieces) {
         OrientedBox box;
-        if (!Scenery::Box(piece, &box))
+        if (!Scenery::Cuboid(piece, &box))
             continue;
         V3 min, max;
         BoundsOf(box, &min, &max);
@@ -338,7 +338,7 @@ bool SceneryChangedNear(V3 point, float margin)
     return false;
 }
 
-void Add(std::vector<Issue>* out, Issue issue, const std::string& detail = "")
+void AppendOne(std::vector<Issue>* out, Issue issue, const std::string& detail = "")
 {
     issue.key = IssueKey(issue.rule, issue.node ? issue.node : issue.sector, detail.empty() ? issue.text : detail);
     out->push_back(std::move(issue));
@@ -407,10 +407,10 @@ const Placed& PlacedAt(uint32_t name, V3 point, uint32_t world)
 
 void CheckPlacement(std::vector<Issue>* out, uint32_t world)
 {
-    for (const Nodes::Node& n : Nodes::All()) {
+    for (const Nodes::Elem& n : Nodes::All()) {
         if (n.hidden || !n.hasPos)
             continue;
-        if (n.family != Nodes::Family::Spawn && n.family != Nodes::Family::Crown && n.family != Nodes::Family::Flag)
+        if (n.family != Nodes::Family::Spawn && n.family != Nodes::Family::Crown && n.family != Nodes::Family::BitMark)
             continue;
         V3 point = n.pos + V3{0.0f, kLift, 0.0f};
         const Placed& placed = PlacedAt(n.name, point, world);
@@ -427,7 +427,7 @@ void CheckPlacement(std::vector<Issue>* out, uint32_t world)
             issue.rule = Rule::InsideSolid;
             issue.severity = Severity::Error;
             issue.text = what + " " + Name(n.name) + " is inside solid collision";
-            Add(out, issue);
+            AppendOne(out, issue);
         } else if (place == Place::BelowGround) {
             issue.rule = Rule::BelowGround;
             issue.severity = Severity::Error;
@@ -435,14 +435,14 @@ void CheckPlacement(std::vector<Issue>* out, uint32_t world)
                          std::to_string(static_cast<int>(placed.upIn - kLift)) + " units below the surface)";
             issue.fixable = NodeEdit::Movable(n);
             issue.fixPos = point + V3{0.0f, placed.upIn, 0.0f};
-            Add(out, issue, "below"); // (the key without the depth: Ignore holds while it's moved about)
+            AppendOne(out, issue, "below"); // (the key without the depth: Ignore holds while it's moved about)
         } else {
             if (!placed.ground) {
                 issue.rule = Rule::NoGround;
                 issue.severity = Severity::Warning;
                 issue.text = what + " " + Name(n.name) + ": nothing below it within " +
                              std::to_string(static_cast<int>(kGroundReach)) + " units";
-                Add(out, issue);
+                AppendOne(out, issue);
             }
         }
     }
@@ -450,7 +450,7 @@ void CheckPlacement(std::vector<Issue>* out, uint32_t world)
 
 void CheckRails(std::vector<Issue>* out)
 {
-    const std::vector<Nodes::Node>& nodes = Nodes::All();
+    const std::vector<Nodes::Elem>& nodes = Nodes::All();
     std::vector<int> rails;
     std::vector<int> index(nodes.size(), -1);
     for (size_t i = 0; i < nodes.size(); ++i) {
@@ -467,7 +467,7 @@ void CheckRails(std::vector<Issue>* out)
         }
     }
     for (int r : LonelyPoints(links)) {
-        const Nodes::Node& n = nodes[rails[r]];
+        const Nodes::Elem& n = nodes[rails[r]];
         Issue issue;
         issue.rule = Rule::LonelyRail;
         issue.severity = Severity::Warning;
@@ -476,11 +476,11 @@ void CheckRails(std::vector<Issue>* out)
         issue.pos = n.pos;
         issue.levelOwn = !n.added && !Marked(n.name, Ui::kMarkAdded);
         issue.text = "Rail point " + Name(n.name) + " is not linked";
-        Add(out, issue);
+        AppendOne(out, issue);
     }
     // Floating: the rail points the editor moved or added.
     for (int i : rails) {
-        const Nodes::Node& n = nodes[i];
+        const Nodes::Elem& n = nodes[i];
         if (!n.added && !Marked(n.name, Ui::kMarkMoved | Ui::kMarkAdded))
             continue;
         V3 pos = n.pos;
@@ -497,7 +497,7 @@ void CheckRails(std::vector<Issue>* out)
         issue.pos = pos;
         issue.text = "Rail point " + Name(n.name) + " has no surface within " +
                      std::to_string(static_cast<int>(kRailNear)) + " units";
-        Add(out, issue);
+        AppendOne(out, issue);
     }
 }
 
@@ -511,19 +511,19 @@ void CheckCollision(std::vector<Issue>* out)
         Issue issue;
         issue.sector = s.checksum;
         OrientedBox box;
-        if (Scenery::Box(s.checksum, &box)) {
+        if (Scenery::Cuboid(s.checksum, &box)) {
             V3 min, max;
             BoundsOf(box, &min, &max);
             issue.hasPos = true;
             issue.pos = (min + max) * 0.5f;
         }
         if (s.hidden) {
-            if (companion && companion->Active()) {
+            if (companion && companion->LiveNow()) {
                 issue.rule = Rule::HiddenCollision;
                 issue.severity = Severity::Error;
                 issue.text = "Scenery " + Name(s.checksum) + " is hidden but its collision is still on";
                 issue.fixable = true;
-                Add(out, issue);
+                AppendOne(out, issue);
             }
             continue;
         }
@@ -532,9 +532,9 @@ void CheckCollision(std::vector<Issue>* out)
         bool own = *reinterpret_cast<uint8_t**>(sector + 0x18) != nullptr; // (its collision object - CWorldCell +0x18)
         if (moved && !own && !companion && Scenery::SectorGeometry(s.checksum)) {
             issue.rule = Rule::CollisionLeft;
-            issue.severity = Severity::Info;
+            issue.severity = Severity::DetailsOf;
             issue.text = "Scenery " + Name(s.checksum) + " was moved but its collision may not have moved";
-            Add(out, issue);
+            AppendOne(out, issue);
         }
     }
 }
@@ -559,7 +559,7 @@ void CheckLimits(std::vector<Issue>* out)
         issue.text = std::string(m.name) + ": " + Budget::UsedText(m) +
                      (severity == Severity::Error ? " - over the engine's limit (" : " - near the engine's limit (") +
                      m.where + ")";
-        Add(out, issue, m.name);
+        AppendOne(out, issue, m.name);
     }
 }
 
@@ -583,17 +583,17 @@ void CheckTriggers(std::vector<Issue>* out, uint32_t world)
             issue.severity = Severity::Warning;
             issue.text = std::string(Triggers::KindName(a.spec.kind)) + " " + a.spec.name + " does nothing yet: " +
                          a.problem;
-            Add(out, issue);
+            AppendOne(out, issue);
         }
         if (a.alive) {
             Place place = PlacedAt(issue.node, a.pos, world).place;
             if (place != Place::Clear) {
                 issue.rule = Rule::TriggerIdle;
-                issue.severity = Severity::Info;
+                issue.severity = Severity::DetailsOf;
                 issue.text = std::string(Triggers::KindName(a.spec.kind)) + " " + a.spec.name + ": its middle is " +
                              (place == Place::InsideSolid ? "inside solid collision" : "under a surface") +
                              "";
-                Add(out, issue, "reach");
+                AppendOne(out, issue, "reach");
             }
         }
         // Gaps: an end for each start, a start for each end (the editor's or a level trigger's with the GapID).
@@ -608,7 +608,7 @@ void CheckTriggers(std::vector<Issue>* out, uint32_t world)
                 issue.severity = Severity::Warning;
                 issue.text = start ? "Gap start " + a.spec.name + " (" + a.spec.gap + "): no end"
                                    : "Gap end " + a.spec.name + " (" + a.spec.gap + "): no start";
-                Add(out, issue);
+                AppendOne(out, issue);
             }
         }
     }
@@ -623,26 +623,26 @@ void CheckTriggers(std::vector<Issue>* out, uint32_t world)
         issue.levelOwn = true;
         if (!t.hasNode) {
             issue.rule = Rule::TriggerIdle;
-            issue.severity = Severity::Info;
+            issue.severity = Severity::DetailsOf;
             issue.text = "Trigger faces of " + Name(t.sector) + " have no node";
-            Add(out, issue);
+            AppendOne(out, issue);
         } else if (!t.script) {
             issue.node = t.sector;
             issue.rule = Rule::TriggerScript;
-            issue.severity = Severity::Info;
+            issue.severity = Severity::DetailsOf;
             issue.text = "Trigger " + Name(t.sector) + " has no TriggerScript";
-            Add(out, issue);
+            AppendOne(out, issue);
         } else if (!Scripts::ScriptExists(t.script)) {
             issue.node = t.sector;
             issue.rule = Rule::TriggerScript;
             issue.severity = Severity::Error;
             issue.text = "Trigger " + Name(t.sector) + ": its TriggerScript " + Name(t.script) + " isn't a script";
-            Add(out, issue);
+            AppendOne(out, issue);
         }
     }
     // Proximity nodes (not the editor's trigger volumes, which are GenericNodes of the same family).
-    for (const Nodes::Node& n : Nodes::All()) {
-        if (n.family != Nodes::Family::Trigger || n.hidden || n.cls != kProximNode || Triggers::IsTrigger(n.name))
+    for (const Nodes::Elem& n : Nodes::All()) {
+        if (n.family != Nodes::Family::FireOff || n.hidden || n.cls != kProximNode || Triggers::IsTrigger(n.name))
             continue;
         bool own = !n.added && !Marked(n.name, Ui::kMarkMoved | Ui::kMarkAdded);
         Issue issue;
@@ -657,16 +657,16 @@ void CheckTriggers(std::vector<Issue>* out, uint32_t world)
         bool edited = edit && (!edit->enter.empty() || !edit->exit.empty());
         if (!script && !edited) {
             issue.rule = Rule::TriggerScript;
-            issue.severity = own ? Severity::Info : Severity::Warning;
+            issue.severity = own ? Severity::DetailsOf : Severity::Warning;
             issue.levelOwn = own;
             issue.text = "Proximity node " + Name(n.name) + " has no TriggerScript";
-            Add(out, issue);
+            AppendOne(out, issue);
         } else if (script && !Scripts::ScriptExists(script)) {
             issue.rule = Rule::TriggerScript;
             issue.severity = Severity::Error;
             issue.levelOwn = own;
             issue.text = "Proximity node " + Name(n.name) + ": its TriggerScript " + Name(script) + " isn't a script";
-            Add(out, issue);
+            AppendOne(out, issue);
         }
         if (edit) {
             for (const std::string* name : {&edit->enter, &edit->exit}) {
@@ -677,7 +677,7 @@ void CheckTriggers(std::vector<Issue>* out, uint32_t world)
                 issue.levelOwn = false;
                 issue.text = "Proximity node " + Name(n.name) + ": its " + (name == &edit->enter ? "enter" : "exit") +
                              " script " + *name + " isn't a script";
-                Add(out, issue, *name);
+                AppendOne(out, issue, *name);
             }
         }
     }
@@ -688,7 +688,7 @@ void CheckOnline(std::vector<Issue>* out)
     const char* game = "";
     if (!Nodes::LevelIsShared(&game))
         return;
-    for (const Nodes::Node& n : Nodes::All()) {
+    for (const Nodes::Elem& n : Nodes::All()) {
         if (!Nodes::Online(n.family))
             continue;
         bool hidden = n.hidden && !n.added, added = n.added && !n.hidden;
@@ -697,13 +697,13 @@ void CheckOnline(std::vector<Issue>* out)
             continue;
         Issue issue;
         issue.rule = Rule::OnlineParity;
-        issue.severity = Severity::Info;
+        issue.severity = Severity::DetailsOf;
         issue.node = n.name;
         issue.hasPos = n.hasPos;
         issue.pos = n.pos;
         issue.text = Name(n.name) + (added ? " added" : hidden ? " hidden" : " moved") + " in a level shared with " +
                      "THUGPRO (" + game + ")";
-        Add(out, issue);
+        AppendOne(out, issue);
     }
 }
 
@@ -722,7 +722,7 @@ MpCounts CountMultiplayer(bool shipped)
     }
     static const uint32_t kCrown = Checksums("Crown");
     MpCounts counts;
-    for (const Nodes::Node& n : Nodes::All()) {
+    for (const Nodes::Elem& n : Nodes::All()) {
         // (now: what the game sees - hidden ones not; as shipped: the level's own, hidden ones too)
         if (shipped ? n.added : n.hidden)
             continue;
@@ -754,7 +754,7 @@ void CheckMultiplayer(std::vector<Issue>* out)
         issue.severity = p.severity;
         issue.text = p.text;
         issue.levelOwn = std::any_of(shipped.begin(), shipped.end(), [&](const MpProblem& s) { return s.text == p.text; });
-        Add(out, issue);
+        AppendOne(out, issue);
     }
 }
 
@@ -791,7 +791,7 @@ struct NodePlace : ModuleStep {
     NodePlace(uint32_t n, const NodeEdit::Values& v) : name(n), values(v) {}
     void Restore() override
     {
-        NodeEdit::Set(name, values);
+        NodeEdit::AssignValue(name, values);
         if (int index = Nodes::Find(name); index >= 0)
             Nodes::Reread(index);
         g_due = Seconds();
@@ -799,7 +799,7 @@ struct NodePlace : ModuleStep {
     std::shared_ptr<ModuleStep> Now() const override
     {
         NodeEdit::Values v = values;
-        NodeEdit::Read(name, &v);
+        NodeEdit::TakeIn(name, &v);
         return std::make_shared<NodePlace>(name, v);
     }
 };
@@ -820,11 +820,11 @@ void Fix(const Issue& issue)
     switch (issue.rule) {
     case Rule::BelowGround: {
         NodeEdit::Values values;
-        if (!issue.node || !NodeEdit::Read(issue.node, &values))
+        if (!issue.node || !NodeEdit::TakeIn(issue.node, &values))
             return;
         PushModuleUndo(std::make_shared<NodePlace>(issue.node, values));
         values.pos = issue.fixPos;
-        NodeEdit::Set(issue.node, values);
+        NodeEdit::AssignValue(issue.node, values);
         if (int index = Nodes::Find(issue.node); index >= 0)
             Nodes::Reread(index);
         Hud::Message(("Moved to surface: " + Name(issue.node)).c_str());
@@ -833,7 +833,7 @@ void Fix(const Issue& issue)
         break;
     }
     case Rule::HiddenCollision:
-        SharedCollision::SetActive(issue.sector, false);
+        SharedCollision::ChangeLive(issue.sector, false);
         Hud::Message(("The collision taken along by " + Name(issue.sector) + " turned off").c_str());
         break;
     case Rule::LayoutRecord: {
@@ -859,7 +859,7 @@ namespace {
 // One record's line: a file of that record alone, written (its header and scene lines left out).
 std::string LineOf(const Layout::FileLoad& one)
 {
-    std::istringstream in(Layout::Write(one));
+    std::istringstream in(Layout::EmitOut(one));
     std::string line, out;
     int number = 0;
     while (std::getline(in, line)) {
@@ -1020,7 +1020,7 @@ void NoteLayoutApplied(const Layout::FileLoad& file)
             report(s.name, "Rail speed-up of " + Name(s.name), one);
         }
     }
-    for (const Entities::Speed& s : file.entities.speeds) {
+    for (const Entities::Pace& s : file.entities.speeds) {
         if (!node(s.name)) {
             Layout::FileLoad one;
             one.entities.speeds.push_back(s);
@@ -1091,7 +1091,7 @@ void NoteModel(int changes, const std::unordered_map<uint32_t, uint8_t>& marks)
     }
 }
 
-void Update()
+void TickFrame()
 {
     std::vector<std::function<void()>> queue;
     queue.swap(g_queue);
@@ -1263,7 +1263,7 @@ void ProblemsTab(float scale, ImFont* mono)
 
 } // namespace
 
-void Window(float viewX, float viewY, float viewWidth, float viewHeight, float scale, ImFont* mono)
+void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float scale, ImFont* mono)
 {
     (void)viewHeight;
     if (!g_open)

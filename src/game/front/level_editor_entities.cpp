@@ -95,16 +95,16 @@ ParticleEmitter TurnParticle(const ParticleEmitter& origin, V3 from, V3 pos, flo
 }
 
 namespace {
-float Length(V3 v) { return std::sqrt(Dot(v, v)); }
+float LenOf(V3 v) { return std::sqrt(Dot(v, v)); }
 } // namespace
 
 float PathLength(const std::vector<V3>& points, bool closed)
 {
     float total = 0.0f;
     for (size_t i = 0; i + 1 < points.size(); ++i)
-        total += Length(points[i + 1] - points[i]);
+        total += LenOf(points[i + 1] - points[i]);
     if (closed && points.size() > 2)
-        total += Length(points.front() - points.back());
+        total += LenOf(points.front() - points.back());
     return total;
 }
 
@@ -119,7 +119,7 @@ bool PathSample(const std::vector<V3>& points, bool closed, float distance, V3* 
     size_t segments = points.size() - 1 + (closed && points.size() > 2 ? 1 : 0);
     for (size_t i = 0; i < segments; ++i) {
         V3 a = points[i], b = points[(i + 1) % points.size()];
-        float length = Length(b - a);
+        float length = LenOf(b - a);
         if (length <= 0.0f)
             continue;
         if (d <= length || i + 1 == segments) {
@@ -159,11 +159,11 @@ bool SameState(const State& a, const State& b)
     return true;
 }
 
-bool Empty(const State& state) { return state.speeds.empty() && state.emitters.empty(); }
+bool Vacant(const State& state) { return state.speeds.empty() && state.emitters.empty(); }
 
-const Speed* SpeedOf(const State& state, uint32_t name)
+const Pace* SpeedOf(const State& state, uint32_t name)
 {
-    for (const Speed& s : state.speeds) {
+    for (const Pace& s : state.speeds) {
         if (s.name == name)
             return &s;
     }
@@ -181,7 +181,7 @@ const EmitterSound* EmitterOf(const State& state, uint32_t name)
 
 void SetSpeed(State* state, uint32_t name, float mph)
 {
-    auto it = std::find_if(state->speeds.begin(), state->speeds.end(), [&](const Speed& s) { return s.name == name; });
+    auto it = std::find_if(state->speeds.begin(), state->speeds.end(), [&](const Pace& s) { return s.name == name; });
     if (!(mph > 0.0f)) {
         if (it != state->speeds.end())
             state->speeds.erase(it);
@@ -260,7 +260,7 @@ bool ParseNumber(const std::string& text, float* out)
 std::string WriteRecords(const State& state)
 {
     std::ostringstream out;
-    for (const Speed& s : state.speeds) {
+    for (const Pace& s : state.speeds) {
         out << "speed ";
         Hex(out, s.name);
         out << ' ';
@@ -357,7 +357,7 @@ double Now()
 
 Scripts::CStruct* NodeStruct(uint32_t name)
 {
-    return name && LevelNodes::NodeManagerInstance() ? LevelNodes::GetNode(name, false) : nullptr;
+    return name && LevelNodes::NodeManagerInstance() ? LevelNodes::FetchVertex(name, false) : nullptr;
 }
 
 uint32_t ClassOf(Scripts::CStruct* node)
@@ -377,13 +377,13 @@ GameObjects::CGameEntity* LiveObject(uint32_t id)
 std::string ModelOf(Scripts::CStruct* node)
 {
     const char* model = nullptr;
-    return node && node->GetString(KModel(), &model, 0) && model ? std::string(model) : std::string();
+    return node && node->FetchText(KModel(), &model, 0) && model ? std::string(model) : std::string();
 }
 
 bool InLevel() { return LevelNodes::NodeManagerInstance() != nullptr && !Nodes::All().empty(); }
 
 // A node of the editor's copies' array whose copy was deleted (its node stays until the level goes): not a ghost.
-bool DeletedCopy(const Nodes::Node& node)
+bool DeletedCopy(const Nodes::Elem& node)
 {
     static const uint32_t kCopies = Checksums::HashFromText("level_editor_copy_nodes");
     return Nodes::ArrayName(node) == kCopies && !Objects::IsCopy(node.name);
@@ -456,10 +456,10 @@ std::vector<EmitterSound> EffectiveEmitters()
     }
     return out;
 }
-std::vector<Speed> EffectiveSpeeds()
+std::vector<Pace> EffectiveSpeeds()
 {
-    std::vector<Speed> out = g_state.speeds;
-    for (const Speed& s : g_baked.speeds) {
+    std::vector<Pace> out = g_state.speeds;
+    for (const Pace& s : g_baked.speeds) {
         if (!SpeedOf(g_state, s.name))
             out.push_back(s);
     }
@@ -483,11 +483,11 @@ void QueueRemake(uint32_t name, bool keep, double delay)
         if (r.name == name && !r.killed) {
             r.due = Now() + delay;
             if (keep)
-                r.state = Objects::Save(object);
+                r.state = Objects::StoreAway(object);
             return;
         }
     }
-    Remake r = {name, keep, keep ? Objects::Save(object) : Objects::State{}, Now() + delay, false};
+    Remake r = {name, keep, keep ? Objects::StoreAway(object) : Objects::State{}, Now() + delay, false};
     g_remakes.push_back(r);
 }
 
@@ -503,7 +503,7 @@ void RunRemakes()
             }
             if (GameObjects::CGameEntity* object = LiveObject(r.name)) {
                 if (r.keep)
-                    r.state = Objects::Save(object);
+                    r.state = Objects::StoreAway(object);
                 object->FlagAsDead();
             }
             r.killed = true;
@@ -518,7 +518,7 @@ void RunRemakes()
                 Objects::Restore(r.state);
             g_speedApplied.erase(r.name); // (its speed put on it again)
             if (DebugEnabled())
-                Log("level editor: %s made again from its node", Objects::Label(r.name).c_str());
+                Log("level editor: %s made again from its node", Objects::Caption(r.name).c_str());
         }
         it = g_remakes.erase(it);
     }
@@ -527,13 +527,13 @@ void RunRemakes()
 // --- sounds on emitters ---
 
 SoundFx::CAudioMixer* SfxManager() { return SoundFx::g_sfxManager; }
-void* NearestCamera(const Maths::Vector* position, float* distance)
+void* NearestCamera(const Maths::Vec4* position, float* distance)
 {
     return Engine3D::GetClosestCamera(position, distance);
 }
-const Maths::Vector* ViewerLocation(void* camera)
+const Maths::Vec4* ViewerLocation(void* camera)
 {
-    return static_cast<Gfx2D::Camera*>(camera)->GetPos();
+    return static_cast<Gfx2D::ViewCam*>(camera)->FetchLocation();
 }
 GameObjects::EmitterNode* Emitter(uint32_t name)
 {
@@ -581,23 +581,23 @@ void UpdateSounds()
         }
         GameObjects::EmitterNode* emitter = Emitter(e.name);
         SoundFx::SoundWaveSlot* wave = m->GetWaveTableEntry(e.sound);
-        if (!emitter || !emitter->m_active || !wave || m->IsPaused()) {
+        if (!emitter || !emitter->m_active || !wave || m->IsFrozen()) {
             StopPlaying(&*p);
             continue;
         }
         // As a sound played from an emitter: from the shape's nearest point to the listener, the sound's own dropoff.
-        Maths::Vector centre = emitter->m_pos;
+        Maths::Vec4 centre = emitter->m_atPoint;
         void* camera = NearestCamera(&centre, nullptr);
         if (!camera) {
             StopPlaying(&*p);
             continue;
         }
-        Maths::Vector listener = *ViewerLocation(camera), heard = centre;
+        Maths::Vec4 listener = *ViewerLocation(camera), heard = centre;
         if (emitter->m_form != GameObjects::EMITTER_SHAPE_OTHER)
             emitter->NearestPointOn(&heard, &listener);
         SoundFx::volumeRef volume;
-        volume.Init();
-        if (!m->GetVolume(&volume, &heard, wave->dropoff, 0, camera, nullptr)) {
+        volume.PrepareAll();
+        if (!m->FetchLoudness(&volume, &heard, wave->dropoff, 0, camera, nullptr)) {
             StopPlaying(&*p); // (out of range)
             continue;
         }
@@ -605,7 +605,7 @@ void UpdateSounds()
         if (p->id && m->IsSoundPlaying(p->id, nullptr)) {
             m->SetSoundParamsScaled(p->id, &volume, 100.0f);
         } else if (!volume.IsAudioOff()) {
-            p->id = m->PlaySound(e.sound, &volume, 100.0f, e.name, nullptr, 0); // (again when it stopped: a loop)
+            p->id = m->EmitSound(e.sound, &volume, 100.0f, e.name, nullptr, 0); // (again when it stopped: a loop)
         } else {
             p->id = 0;
         }
@@ -625,8 +625,8 @@ void ApplyRadius(const EmitterSound& e)
     }
     if (Scripts::CStruct* node = NodeStruct(e.name); node && !NodeCreate::IsAdded(e.name)) {
         float now = 0.0f;
-        if (!node->GetFloat(KRadius(), &now, 0) || now != e.radius) {
-            node->RemoveComponent(KRadius());
+        if (!node->FetchFloat(KRadius(), &now, 0) || now != e.radius) {
+            node->EraseModule(KRadius());
             node->PushFloat(KRadius(), e.radius);
         }
     }
@@ -674,7 +674,7 @@ uint32_t PathSpeedScript()
 
 void ApplySpeed(GameObjects::CGameEntity* object, float mph)
 {
-    Scripts::CStruct* params = Scripts::NewStruct()->Init();
+    Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
     params->PushFloat(Key("speed"), mph);
     Scripts::LaunchScript(PathSpeedScript(), params, object, false, nullptr);
     params->Clear();
@@ -685,7 +685,7 @@ void UpdateSpeeds()
 {
     if (!InLevel() || Layout::NetworkActive())
         return;
-    for (const Speed& s : EffectiveSpeeds()) {
+    for (const Pace& s : EffectiveSpeeds()) {
         GameObjects::CGameEntity* object = LiveObject(s.name);
         if (!object)
             continue;
@@ -695,7 +695,7 @@ void UpdateSpeeds()
         ApplySpeed(object, s.mph);
         g_speedApplied[s.name] = {object, s.mph};
         if (DebugEnabled())
-            Log("level editor: %s's path speed %.1f mph", Objects::Label(s.name).c_str(), s.mph);
+            Log("level editor: %s's path speed %.1f mph", Objects::Caption(s.name).c_str(), s.mph);
     }
 }
 
@@ -705,7 +705,7 @@ void ScanBaked()
     g_baked = State{};
     if (Layout::NetworkActive())
         return;
-    for (const Nodes::Node& n : Nodes::All()) {
+    for (const Nodes::Elem& n : Nodes::All()) {
         Scripts::CStruct* s = Nodes::StructOf(n);
         if (!s || !n.name)
             continue;
@@ -715,15 +715,15 @@ void ScanBaked()
             e.name = n.name;
             e.sound = sound;
             float volume = 100.0f;
-            if (s->GetFloat(KEdVolume(), &volume, 0))
+            if (s->FetchFloat(KEdVolume(), &volume, 0))
                 e.volume = std::clamp(volume, kMinVolume, kMaxVolume);
             g_baked.emitters.push_back(e);
         }
         float mph = 0.0f;
-        if (s->GetFloat(KEdPathSpeed(), &mph, 0) && mph >= kMinMph && mph <= kMaxMph)
+        if (s->FetchFloat(KEdPathSpeed(), &mph, 0) && mph >= kMinMph && mph <= kMaxMph)
             g_baked.speeds.push_back({n.name, mph});
     }
-    if (!Empty(g_baked))
+    if (!Vacant(g_baked))
         Log("level editor: the level's baked fields: %u emitter sounds, %u path speeds",
             static_cast<unsigned>(g_baked.emitters.size()), static_cast<unsigned>(g_baked.speeds.size()));
 }
@@ -738,7 +738,7 @@ bool PathOf(uint32_t name, std::vector<V3>* points, bool* closed)
     Scripts::CStruct* node = NodeStruct(name);
     if (!node || LevelNodes::GetLinkCount(node) == 0)
         return false;
-    uint32_t next = LevelNodes::GetLink(node, 0);
+    uint32_t next = LevelNodes::FetchLink(node, 0);
     std::vector<uint32_t> seen;
     while (next && points->size() < 512) {
         if (std::find(seen.begin(), seen.end(), next) != seen.end()) {
@@ -748,18 +748,18 @@ bool PathOf(uint32_t name, std::vector<V3>* points, bool* closed)
         Scripts::CStruct* point = NodeStruct(next);
         if (!point || ClassOf(point) != KWaypoint())
             break;
-        Maths::Vector pos;
-        LevelNodes::GetPosition(point, &pos);
+        Maths::Vec4 pos;
+        LevelNodes::FetchPlace(point, &pos);
         points->push_back({pos.x, pos.y, pos.z});
         seen.push_back(next);
-        next = LevelNodes::GetLinkCount(point) ? LevelNodes::GetLink(point, 0) : 0;
+        next = LevelNodes::GetLinkCount(point) ? LevelNodes::FetchLink(point, 0) : 0;
     }
     return points->size() >= 2;
 }
 
 float PreviewMph(uint32_t name)
 {
-    for (const Speed& s : EffectiveSpeeds()) {
+    for (const Pace& s : EffectiveSpeeds()) {
         if (s.name == name)
             return s.mph;
     }
@@ -769,7 +769,7 @@ float PreviewMph(uint32_t name)
 
 float Heading(const GameObjects::CGameEntity* object)
 {
-    const Maths::Vector& at = object->m_basisFrame.row[2];
+    const Maths::Vec4& at = object->m_basisFrame.row[2];
     return std::atan2(at.x, at.z);
 }
 
@@ -791,7 +791,7 @@ void PreviewStart(uint32_t id)
     if (!object || !PathOf(id, &g_preview.points, &g_preview.closed))
         return;
     g_preview.id = id;
-    g_preview.saved = Objects::Save(object);
+    g_preview.saved = Objects::StoreAway(object);
     g_preview.distance = 0.0f;
     g_preview.playing = true;
     PreviewPlace(0.0f);
@@ -807,7 +807,7 @@ void PreviewTick(double seconds)
 
 // --- the palette ---
 
-enum class SourceKind : uint8_t { Copy, Set, Sound };
+enum class SourceKind : uint8_t { DupFrom, AssignValue, Sound };
 struct Source {
     SourceKind kind;
     std::vector<uint32_t> names; // (copies: the node(s) copied)
@@ -837,7 +837,7 @@ void BuildPalette()
     std::set<std::string> types;
     std::map<std::string, std::vector<uint32_t>> sets;
     std::vector<std::pair<std::string, Source>> peds, cars, particles;
-    for (const Nodes::Node& n : Nodes::All()) {
+    for (const Nodes::Elem& n : Nodes::All()) {
         Scripts::CStruct* s = Nodes::StructOf(n);
         if (!s || !n.name || n.hidden || NodeCreate::IsAdded(n.name) || Objects::IsCopy(n.name))
             continue;
@@ -852,23 +852,23 @@ void BuildPalette()
             if (!types.insert(TypeKey(cls, type, profile, model)).second)
                 continue;
             std::string label = cls == kPedestrian ? "Ped: " : "Car: ";
-            label += Nodes::Label(type);
+            label += Nodes::Caption(type);
             if (profile && profile != type)
-                label += " / " + Nodes::Label(profile);
+                label += " / " + Nodes::Caption(profile);
             if (!model.empty())
                 label += std::string(" (") + Short(model) + ")";
-            label += "  like " + Nodes::Label(n.name);
-            (cls == kPedestrian ? peds : cars).push_back({label, Source{SourceKind::Copy, {n.name}}});
+            label += "  like " + Nodes::Caption(n.name);
+            (cls == kPedestrian ? peds : cars).push_back({label, Source{SourceKind::DupFrom, {n.name}}});
         } else if ((cls == kLevelObject || cls == kGameObject) && s->HasBareFlag(KBouncy()) && LiveObject(n.name)) {
-            sets[SetStem(Nodes::Label(n.name))].push_back(n.name);
+            sets[SetStem(Nodes::Caption(n.name))].push_back(n.name);
         } else if (cls == kParticleObject) {
             uint32_t type = 0, texture = 0;
             s->ReadHashValue(KType(), &type, 0);
             s->ReadHashValue(KTexture(), &texture, 0);
             if (!types.insert(TypeKey(cls, type, texture, "")).second)
                 continue;
-            std::string label = "Particles: " + Nodes::Label(texture ? texture : type) + "  like " + Nodes::Label(n.name);
-            particles.push_back({label, Source{SourceKind::Copy, {n.name}}});
+            std::string label = "Particles: " + Nodes::Caption(texture ? texture : type) + "  like " + Nodes::Caption(n.name);
+            particles.push_back({label, Source{SourceKind::DupFrom, {n.name}}});
         }
     }
     auto add = [](std::vector<std::pair<std::string, Source>>& list, uint32_t colour) {
@@ -888,7 +888,7 @@ void BuildPalette()
         char label[160];
         std::snprintf(label, sizeof(label), "Bouncy set: %s (%u)", stem.c_str(), static_cast<unsigned>(names.size()));
         g_palette.push_back({label, 0xFFFFB060, ""});
-        g_sources.push_back({SourceKind::Set, names});
+        g_sources.push_back({SourceKind::AssignValue, names});
     }
     add(particles, 0xFFFF9050);
     // The level's loaded sounds (its wave table): an emitter with that sound.
@@ -897,7 +897,7 @@ void BuildPalette()
     int count = std::clamp(SoundFx::g_levelCount, 0, 256);
     std::vector<std::pair<std::string, Source>> sounds;
     for (int i = 0; i < count && !SoundFx::NoSound(); ++i) {
-        std::string label = "Sound emitter: " + Nodes::Label(waves[i].checksum);
+        std::string label = "Sound emitter: " + Nodes::Caption(waves[i].checksum);
         if (waves[i].looping)
             label += " (loop)";
         sounds.push_back({label, Source{SourceKind::Sound, {}, waves[i].checksum}});
@@ -913,7 +913,7 @@ void BuildModels()
 {
     g_models.clear();
     std::set<std::string> seen;
-    for (const Nodes::Node& n : Nodes::All()) {
+    for (const Nodes::Elem& n : Nodes::All()) {
         if (n.family != Nodes::Family::Object || !LiveObject(n.name))
             continue;
         std::string model = ModelOf(Nodes::StructOf(n));
@@ -930,10 +930,10 @@ void BuildModels()
 
 // --- the state ---
 
-State Current()
+State AtHand()
 {
     State out;
-    for (const Speed& s : g_state.speeds) {
+    for (const Pace& s : g_state.speeds) {
         if (NodeStruct(s.name))
             out.speeds.push_back(s);
     }
@@ -944,7 +944,7 @@ State Current()
     return out;
 }
 
-void SetState(const State& state)
+void ChangePhase(const State& state)
 {
     // (radii no longer set: back to the node's own - an added emitter's spec, a level emitter's Radius as loaded is
     // what its node had; the radius written into a level node stays until the level loads again)
@@ -967,9 +967,9 @@ bool TakeUndo(State* before)
 
 void Queue(std::function<void()> action) { g_queue.push_back(std::move(action)); }
 
-void Start() { StopPreview(); }
+void Kickoff() { StopPreview(); }
 
-void Stop() { StopPreview(); }
+void Halt() { StopPreview(); }
 
 void StopPreview()
 {
@@ -1051,12 +1051,12 @@ void NodeMoved(uint32_t name, V3 pos, V3 angles)
         o.from = origin ? origin->pos : pos;
         o.fromYaw = origin ? origin->angles.y : angles.y;
         Scripts::VectorValue v;
-        if ((o.emitter.hasMid = node->GetVector(kMid, &v, 0)))
+        if ((o.emitter.hasMid = node->FetchVec(kMid, &v, 0)))
             o.emitter.mid = {v.x, v.y, v.z};
-        if ((o.emitter.hasEnd = node->GetVector(kEnd, &v, 0)))
+        if ((o.emitter.hasEnd = node->FetchVec(kEnd, &v, 0)))
             o.emitter.end = {v.x, v.y, v.z};
         for (int i = 0; i < 3; ++i) {
-            if ((o.emitter.hasBox[i] = node->GetVector(kBoxes[i], &v, 0)))
+            if ((o.emitter.hasBox[i] = node->FetchVec(kBoxes[i], &v, 0)))
                 o.emitter.box[i] = {v.x, v.y, v.z};
         }
         o.at = o.from;
@@ -1072,7 +1072,7 @@ void NodeMoved(uint32_t name, V3 pos, V3 angles)
     auto put = [&](uint32_t key, bool has, V3 v) {
         if (!has)
             return;
-        node->RemoveComponent(key);
+        node->EraseModule(key);
         node->PutVec3(key, v.x, v.y, v.z);
     };
     put(kMid, now.hasMid, now.mid);
@@ -1136,17 +1136,17 @@ Placed Place(int index, V3 at, float yaw)
         placed.sound = source.sound;
         return placed;
     }
-    if (source.kind == SourceKind::Copy) {
+    if (source.kind == SourceKind::DupFrom) {
         GameObjects::CGameEntity* copy = Objects::MakeCopy(source.names.front(), at);
         if (!copy) {
-            placed.message = "Couldn't copy " + Nodes::Label(source.names.front());
+            placed.message = "Couldn't copy " + Nodes::Caption(source.names.front());
             return placed;
         }
         uint32_t cls = ClassOf(NodeStruct(source.names.front()));
         if (cls == kPedestrian || cls == kVehicle)
             Objects::TurnAbout(copy, at, yaw - Heading(copy)); // (facing the way the camera looks)
-        placed.copies.push_back(copy->m_id);
-        placed.message = "Placed a copy of " + Nodes::Label(source.names.front()) +
+        placed.copies.push_back(copy->m_ident);
+        placed.message = "Placed a copy of " + Nodes::Caption(source.names.front()) +
                          (cls == kPedestrian || cls == kVehicle
                               ? ""
                               : "");
@@ -1155,14 +1155,14 @@ Placed Place(int index, V3 at, float yaw)
     // A bouncy set: each member copied, about the anchor as the level placed them.
     std::vector<V3> places;
     for (uint32_t name : source.names) {
-        Maths::Vector p;
-        LevelNodes::GetPosition(NodeStruct(name), &p);
+        Maths::Vec4 p;
+        LevelNodes::FetchPlace(NodeStruct(name), &p);
         places.push_back({p.x, p.y, p.z});
     }
     V3 anchor = PinAnchorPoint(places);
     for (size_t i = 0; i < source.names.size(); ++i) {
         if (GameObjects::CGameEntity* copy = Objects::MakeCopy(source.names[i], at + (places[i] - anchor)))
-            placed.copies.push_back(copy->m_id);
+            placed.copies.push_back(copy->m_ident);
     }
     char text[96];
     std::snprintf(text, sizeof(text), "Placed a bouncy set: %u objects", static_cast<unsigned>(placed.copies.size()));
@@ -1182,12 +1182,12 @@ void AttachSound(uint32_t emitter, uint32_t sound)
 
 bool& ShowUncreated() { return g_showUncreated; }
 
-void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                std::vector<Ui::Line>* lines, std::vector<Ui::Overlay::Text>* texts)
+void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
+                std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Text>* texts)
 {
     auto toPixel = [&](V3 p, float* x, float* y) {
         float nx, ny;
-        if (!Project(camera, frame, lens, p, nearZ, &nx, &ny))
+        if (!CastOnto(camera, frame, lens, p, nearZ, &nx, &ny))
             return false;
         NdcToPixel(viewport, nx, ny, x, y);
         return true;
@@ -1209,11 +1209,11 @@ void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t 
     if (!g_showUncreated)
         return;
     // Ghosts: object nodes the level hasn't made, nearest first (within 4000 units, 200 at most).
-    std::vector<std::pair<float, const Nodes::Node*>> near;
-    for (const Nodes::Node& n : Nodes::All()) {
+    std::vector<std::pair<float, const Nodes::Elem*>> near;
+    for (const Nodes::Elem& n : Nodes::All()) {
         if (n.family != Nodes::Family::Object || !n.hasPos || n.hidden || LiveObject(n.name) || DeletedCopy(n))
             continue;
-        float d = Length(n.pos - camera);
+        float d = LenOf(n.pos - camera);
         if (d < 4000.0f)
             near.push_back({d, &n});
     }
@@ -1223,7 +1223,7 @@ void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t 
     constexpr uint32_t kGhost = 0xB0B0A0FF;
     for (const auto& [d, n] : near) {
         V3 at = n->forward, up = {0.0f, 1.0f, 0.0f};
-        V3 right = Normalize(Cross(up, at));
+        V3 right = MakeUnit(Perpendicular(up, at));
         V3 axes[3] = {right * 20.0f, up * 40.0f, at * 20.0f};
         V3 corners[8];
         BoxCorners(n->pos, axes, {-1.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}, corners);
@@ -1236,7 +1236,7 @@ void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t 
         line(n->pos, n->pos + at * 30.0f, kGhost, 1.5f);
         float x, y;
         if (d < 1500.0f && toPixel(n->pos + up * 48.0f, &x, &y))
-            texts->push_back({x, y, kGhost, Nodes::Label(n->name) + " (uncreated)"});
+            texts->push_back({x, y, kGhost, Nodes::Caption(n->name) + " (uncreated)"});
     }
 }
 
@@ -1291,7 +1291,7 @@ bool HasPath(uint32_t id)
 }
 float SpeedSet(uint32_t id)
 {
-    const Speed* s = SpeedOf(g_state, id);
+    const Pace* s = SpeedOf(g_state, id);
     if (s)
         return s->mph;
     s = SpeedOf(g_baked, id);
@@ -1333,7 +1333,7 @@ std::vector<std::pair<uint32_t, std::string>> Sounds()
     auto* waves = SoundFx::g_levelWaves;
     int count = std::clamp(SoundFx::g_levelCount, 0, 256);
     for (int i = 0; i < count; ++i)
-        out.push_back({waves[i].checksum, Nodes::Label(waves[i].checksum) + (waves[i].looping ? " (loop)" : "")});
+        out.push_back({waves[i].checksum, Nodes::Caption(waves[i].checksum) + (waves[i].looping ? " (loop)" : "")});
     std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
     return out;
 }

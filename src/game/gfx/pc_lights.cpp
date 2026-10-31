@@ -16,7 +16,7 @@
 
 namespace Engine3D {
 
-Maths::Vector g_sceneLightDirection;
+Maths::Vec4 g_sceneLightDirection;
 uint32_t g_sceneLightDirectionGuard;
 float g_lightConstants[28];
 
@@ -34,7 +34,7 @@ float* LightColorConstant(uint32_t light) { return g_lightConstants + 8 + 8 * li
 // The scene's lights.
 uint32_t& SceneAmbient() { return g_worldLights.ambient; }
 float SceneScale() { return g_ambientIntensity; }
-Maths::Vector* SceneDirections() { return g_worldLights.directions; } // (0x0067DC9C)
+Maths::Vec4* SceneDirections() { return g_worldLights.directions; } // (0x0067DC9C)
 uint32_t* SceneColors() { return g_worldLights.colours; }           // (0x0067DCA0)
 float* SceneIntensities() { return g_intensities; }
 uint32_t LightCount() { return g_lightCount; }
@@ -46,7 +46,7 @@ void SendColor(float* out, uint32_t rgba, float factor)
     for (int k = 0; k < 3; ++k)
         out[k] = static_cast<float>(static_cast<double>((rgba >> (8 * k)) & 0xFF) * factor * kPer128);
 }
-void SendNegated(float* out, const Maths::Vector& v)
+void SendNegated(float* out, const Maths::Vec4& v)
 {
     out[0] = -v.x;
     out[1] = -v.y;
@@ -72,7 +72,7 @@ __declspec(naked) double __stdcall Falloff(void* /*light*/, float /*distance*/)
 }
 
 // The dynamic lights within `radius` of `position` (the engine's 0x0048EF90): their count, pointers into `out`.
-uint32_t FindDynamicLights(const Maths::Vector* position, uint32_t radius, uint8_t** out)
+uint32_t FindDynamicLights(const Maths::Vec4* position, uint32_t radius, uint8_t** out)
 {
     return GetDynamicLightsNear(position, radius, reinterpret_cast<CDynamicLightBase**>(out));
 }
@@ -80,13 +80,13 @@ uint32_t FindDynamicLights(const Maths::Vector* position, uint32_t radius, uint8
 } // namespace
 
 // 0x004B6270
-CPcModelLights* CPcModelLights::Construct()
+CPcModelLights* CPcModelLights::MakeNew()
 {
-    reinterpret_cast<CModelLights*>(this)->CModelLights::Construct();
+    reinterpret_cast<CModelLights*>(this)->CModelLights::MakeNew();
     vtable = reinterpret_cast<void**>(kModelLightsVtable);
     overrides = 0;
-    colors = static_cast<uint32_t*>(MemSys::New(4 * ModelLightCount()));
-    directions = static_cast<Maths::Vector*>(MemSys::New(16 * ModelLightCount()));
+    colors = static_cast<uint32_t*>(MemSys::Alloc(4 * ModelLightCount()));
+    directions = static_cast<Maths::Vec4*>(MemSys::Alloc(16 * ModelLightCount()));
     CallVirtual<void>(this, 9, false); // EnableAmbientOverride
     for (uint32_t i = 0; i < ModelLightCount(); ++i) {
         CallVirtual<void>(this, 10, static_cast<int>(i), false); // EnableLightOverride
@@ -101,22 +101,22 @@ void CPcModelLights::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kModelLightsVtable);
     if (colors) {
-        MemSys::Manager::Get()->Free(colors);
+        MemSys::Hub::Pull()->Dealloc(colors);
         colors = nullptr;
     }
     if (directions) {
-        MemSys::Manager::Get()->Free(directions);
+        MemSys::Hub::Pull()->Dealloc(directions);
         directions = nullptr;
     }
     reinterpret_cast<CModelLights*>(this)->CModelLights::DestroyBody();
 }
 
 // 0x004B67B0
-CPcModelLights* CPcModelLights::Destroy(unsigned int flags)
+CPcModelLights* CPcModelLights::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -135,14 +135,14 @@ uint32_t* CPcModelLights::FetchAmbientTint(uint32_t* out)
 }
 
 // 0x004B6780
-bool CPcModelLights::SetLightDirection(int light, const Maths::Vector* direction)
+bool CPcModelLights::SetLightDirection(int light, const Maths::Vec4* direction)
 {
     directions[light] = *direction;
     return true;
 }
 
 // 0x004B6180
-const Maths::Vector* CPcModelLights::GetLightDirection(int light)
+const Maths::Vec4* CPcModelLights::GetLightDirection(int light)
 {
     if (CallVirtual<bool>(this, 12, light)) // IsLightOverridden
         return &directions[light];
@@ -164,7 +164,7 @@ uint32_t* CPcModelLights::GetLightDiffuseColor(uint32_t* out, int light)
 }
 
 // 0x004B63B0
-void CPcModelLights::Update(const Maths::Vector* position, uint32_t radius)
+void CPcModelLights::TickFrame(const Maths::Vec4* position, uint32_t radius)
 {
     uint32_t color;
     if (overrides & 1)
@@ -320,11 +320,11 @@ bool __cdecl UpdateLightDirection(int light)
 }
 
 // 0x004B6AB0
-Maths::Vector* __cdecl GetLightDirection(int light)
+Maths::Vec4* __cdecl GetLightDirection(int light)
 {
     g_sceneLightDirectionGuard |= 1; // (the static's initialisation guard)
-    Maths::Vector& out = g_sceneLightDirection;
-    const Maths::Vector& direction = SceneDirections()[light];
+    Maths::Vec4& out = g_sceneLightDirection;
+    const Maths::Vec4& direction = SceneDirections()[light];
     out = {direction.x, direction.y, direction.z, 1.0f};
     return &out;
 }
@@ -332,15 +332,15 @@ Maths::Vector* __cdecl GetLightDirection(int light)
 // 0x004B6B10
 CPcModelLights* __cdecl SpawnModelLights()
 {
-    void* memory = MemSys::New(sizeof(CPcModelLights));
-    return memory ? static_cast<CPcModelLights*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::Alloc(sizeof(CPcModelLights));
+    return memory ? static_cast<CPcModelLights*>(memory)->MakeNew() : nullptr;
 }
 
 namespace {
-static VtableSlot kModelLightsVtable_slots[] = {&Engine3D::CPcModelLights::Destroy, &Engine3D::CPcModelLights::SetAmbientColor,
+static VtableSlot kModelLightsVtable_slots[] = {&Engine3D::CPcModelLights::Teardown, &Engine3D::CPcModelLights::SetAmbientColor,
                 &Engine3D::CPcModelLights::SetLightDirection, &Engine3D::CPcModelLights::SetLightDiffuseColor,
                 &Engine3D::CPcModelLights::FetchAmbientTint, &Engine3D::CPcModelLights::GetLightDirection,
-                &Engine3D::CPcModelLights::GetLightDiffuseColor, &Engine3D::CPcModelLights::Update, Stubs::IgnoreArguments2,
+                &Engine3D::CPcModelLights::GetLightDiffuseColor, &Engine3D::CPcModelLights::TickFrame, Stubs::IgnoreArguments2,
                 &Engine3D::CPcModelLights::EnableAmbientOverride, &Engine3D::CPcModelLights::EnableLightOverride,
                 &Engine3D::CPcModelLights::IsAmbientOverridden, &Engine3D::CPcModelLights::IsLightOverridden};
 void** const kModelLightsVtable = reinterpret_cast<void**>(kModelLightsVtable_slots);

@@ -2,7 +2,7 @@
 // gap being made, the clipboard, the theme and the name, the camera and the cursor, the park's size, saving and
 // loading - and the two helpers of resizing (GetResizeArea, ResizeTo).
 //
-// The parameter names the original passes as strings (GetString("name") ...) are written here as string literals:
+// The parameter names the original passes as strings (FetchText("name") ...) are written here as string literals:
 // THUG2.exe has filler bytes over some of the exe's own strings (park_cfuncs.cpp).
 
 #include <cstddef>
@@ -53,13 +53,13 @@ constexpr uint32_t kMenuEvent = 0x36B2EE74;   // the menus' pad events' source (
 
 constexpr float kRailMargin = 10.0f; // 0x00646710: how far inside the park's edge a rail's points must be
 
-CParkLayout* Manager() { return CParkLayout::sSingleton(); }
+CParkLayout* Hub() { return CParkLayout::sSingleton(); }
 CBuildPointer* Cursor() { return CBuildPointer::sSingleton(); }
-CParkBuilderMode* Editor() { return CParkBuilderMode::Instance(); }
+CParkBuilderMode* Editor() { return CParkBuilderMode::Sole(); }
 bool HaveCursor() { return CBuildPointer::sSingleton() != nullptr; }
 CGapRegistry* GapRegistry() { return CGapRegistry::sSingleton(); }
-CRailAuthoring* RailEditor() { return CRailAuthoring::Instance(); }
-CObjectiveAuthoring* GoalEditor() { return CObjectiveAuthoring::Get(); }
+CRailAuthoring* RailEditor() { return CRailAuthoring::Sole(); }
+CObjectiveAuthoring* GoalEditor() { return CObjectiveAuthoring::Pull(); }
 
 // GetParkEdMemStats's compiled-out report (the empty 0x005480A0, given the script).
 inline void PrintMemStats(Scripts::CScript* /*script*/) {}
@@ -82,13 +82,13 @@ SCellBox AreaFromStructure(Scripts::CStruct* area)
 
 // The world rectangles of `area` the rails and the goals must be within: its corner and the corner plus its size
 // - the rails' 10 inside that.
-struct Rectangle {
+struct PanelRect {
     float x0, z0, x1, z1;
 };
-void WorldRectangles(SCellBox area, Rectangle* rails, Rectangle* goals)
+void WorldRectangles(SCellBox area, PanelRect* rails, PanelRect* goals)
 {
-    Maths::Vector size;
-    Maths::Vector corner = Manager()->CellToWorldPos(area, &size);
+    Maths::Vec4 size;
+    Maths::Vec4 corner = Hub()->CellToWorldPos(area, &size);
     rails->x0 = static_cast<float>(static_cast<double>(corner.x) + kRailMargin);
     rails->z0 = static_cast<float>(static_cast<double>(corner.z) + kRailMargin);
     rails->x1 = static_cast<float>(static_cast<double>(size.x) + corner.x - kRailMargin);
@@ -106,7 +106,7 @@ SCellBox& SavedArea()
     SCellBox& saved = g_savedGridDims;
     if (!(guard & 1)) {
         guard |= 1;
-        saved.Set(0, 0, 0, 0, 0, 0);
+        saved.AssignValue(0, 0, 0, 0, 0, 0);
     }
     return saved;
 }
@@ -116,20 +116,20 @@ SCellBox& SavedArea()
 // 0x0058D730
 bool __cdecl CFunc_FreeUpMemoryForPlayingPark(Scripts::CStruct*, Scripts::CScript*)
 {
-    Manager()->CreateGapManagerCopy();
-    Manager()->Destroy(1);
-    Manager()->UseGapManagerCopy();
+    Hub()->CreateGapManagerCopy();
+    Hub()->Teardown(1);
+    Hub()->UseGapManagerCopy();
     return true;
 }
 
 // 0x0058D760
-bool __cdecl CFunc_IsParkUnsaved(Scripts::CStruct*, Scripts::CScript*) { return !Manager()->HasLocalParkCopy(); }
+bool __cdecl CFunc_IsParkUnsaved(Scripts::CStruct*, Scripts::CScript*) { return !Hub()->HasLocalParkCopy(); }
 
 // 0x0058D780
 bool __cdecl CFunc_SetEditedParkGapInfo(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* name = nullptr;
-    params->GetString("name", &name, 0);
+    params->FetchText("name", &name, 0);
     int score = -1;
     params->FetchIntValue("score", &score, 0);
     Cursor()->SetGapLabelAndPoints(name, score);
@@ -183,7 +183,7 @@ bool __cdecl CFunc_SetEditorTheme(Scripts::CStruct* params, Scripts::CScript*)
 {
     int theme = 0;
     params->FetchIntValue(kTheme, &theme, 0);
-    Manager()->SetShellSize(theme);
+    Hub()->SetShellSize(theme);
     return true;
 }
 
@@ -191,15 +191,15 @@ bool __cdecl CFunc_SetEditorTheme(Scripts::CStruct* params, Scripts::CScript*)
 bool __cdecl CFunc_SetCustomParkName(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* name = nullptr;
-    params->GetString("name", &name, 1);
-    Manager()->SetParkName(name);
+    params->FetchText("name", &name, 1);
+    Hub()->SetParkName(name);
     return true;
 }
 
 // 0x0058D980
 bool __cdecl CFunc_OptimizeParkGeometry(Scripts::CStruct*, Scripts::CScript*)
 {
-    Manager()->RebuildParkGeometry(1);
+    Hub()->RebuildParkGeometry(1);
     return true;
 }
 
@@ -260,22 +260,22 @@ bool __cdecl CFunc_GetParkEditorTimeOfDayScript(Scripts::CStruct*, Scripts::CScr
     uint32_t tod = Editor()->m_timeOfDayScript;
     if (!tod)
         return false;
-    script->m_params->PutNameKey(kTodScript, tod);
+    script->m_args->PutNameKey(kTodScript, tod);
     return true;
 }
 
 // 0x0058E010
 bool __cdecl CFunc_RebuildParkNodeArray(Scripts::CStruct*, Scripts::CScript*)
 {
-    Manager()->m_builder->BuildGoalNodeArray(); // the park's node array made again
+    Hub()->m_builder->BuildGoalNodeArray(); // the park's node array made again
     return true;
 }
 
 // 0x0058E020
 bool __cdecl CFunc_GetParkEditorCursorPos(Scripts::CStruct*, Scripts::CScript* script)
 {
-    Maths::Vector pos = Cursor()->m_pos;
-    script->m_params->PutVec3(kPos, pos.x, pos.y, pos.z);
+    Maths::Vec4 pos = Cursor()->m_atPoint;
+    script->m_args->PutVec3(kPos, pos.x, pos.y, pos.z);
     return true;
 }
 
@@ -284,11 +284,11 @@ bool __cdecl CFunc_CustomParkMode(Scripts::CStruct* params, Scripts::CScript*)
 {
     CParkBuilderMode* editor = Editor();
     if (params->HasBareFlag("editing"))
-        return editor->m_state == CParkBuilderMode::kStateEdit;
+        return editor->m_curPhase == CParkBuilderMode::kStateEdit;
     if (params->HasBareFlag("testing"))
-        return editor->m_state == CParkBuilderMode::kStateTestPlay;
+        return editor->m_curPhase == CParkBuilderMode::kStateTestPlay;
     if (params->HasBareFlag("just_using"))
-        return editor->m_state != CParkBuilderMode::kStateOff;
+        return editor->m_curPhase != CParkBuilderMode::kStateOff;
     return false;
 }
 
@@ -297,14 +297,14 @@ bool __cdecl CFunc_SetParkEditorMaxPlayers(Scripts::CStruct* params, Scripts::CS
 {
     int players = 1;
     params->FetchIntValue(0u, &players, 0);
-    Manager()->m_builder->SetPlayerCap(players);
+    Hub()->m_builder->SetPlayerCap(players);
     return true;
 }
 
 // 0x0058E170
 SCellBox* __cdecl GetResizeArea(SCellBox* out, Scripts::CStruct* params)
 {
-    SCellBox area = Manager()->m_parkBounds;
+    SCellBox area = Hub()->m_parkBounds;
     int w = area.w;
     int l = area.l;
     params->FetchIntValue("w", &w, 0);
@@ -333,10 +333,10 @@ bool __cdecl CFunc_CanCleanlyResizePark(Scripts::CStruct* params, Scripts::CScri
         return false;
     area = AreaFromStructure(structure);
     bool clean = true;
-    if (Manager()->HasPiecesOutside(area))
+    if (Hub()->HasPiecesOutside(area))
         clean = false;
-    Rectangle rails;
-    Rectangle goals;
+    PanelRect rails;
+    PanelRect goals;
     WorldRectangles(area, &rails, &goals);
     // 0x004F4600: whether a rail point lies outside the rectangle
     if (RailEditor()->AnyPointOutside(rails.x0, rails.z0, rails.x1, rails.z1))
@@ -353,10 +353,10 @@ void __cdecl ResizeTo(SCellBox area)
     MarkProgress("ResizePark START--------");
     bool& collisionAllowed = g_collisionAllowed; // (the generator's RebuildCollision runs only when set)
     collisionAllowed = false;
-    Manager()->RebuildInnerShell(area);
-    Manager()->RebuildArea(nullptr, false);
-    Rectangle rails;
-    Rectangle goals;
+    Hub()->RebuildInnerShell(area);
+    Hub()->RebuildArea(nullptr, false);
+    PanelRect rails;
+    PanelRect goals;
     WorldRectangles(area, &rails, &goals);
     // 0x004F74B0: the rails' points outside the rectangle removed
     RailEditor()->DeletePoints(rails.x0, rails.z0, rails.x1, rails.z1, 0);
@@ -367,7 +367,7 @@ void __cdecl ResizeTo(SCellBox area)
     if (HaveCursor())
         Cursor()->ToggleShown(false);
     collisionAllowed = true;
-    Manager()->m_builder->RebuildCollision();
+    Hub()->m_builder->RebuildCollision();
     MarkProgress("ResizePark END--------");
 }
 
@@ -389,7 +389,7 @@ bool __cdecl CFunc_ResizePark(Scripts::CStruct* params, Scripts::CScript*)
     }
     if (params->HasBareFlag(kUseSavedArea))
         area = saved;
-    if (!Manager()->CanResizeTo(area)) {
+    if (!Hub()->CanResizeTo(area)) {
         Scripts::LaunchScript(kResizeFailed, nullptr, nullptr, false, nullptr);
         return false;
     }
@@ -400,24 +400,24 @@ bool __cdecl CFunc_ResizePark(Scripts::CStruct* params, Scripts::CScript*)
 // 0x0058E7E0
 bool __cdecl CFunc_GetCurrentParkBounds(Scripts::CStruct*, Scripts::CScript* script)
 {
-    SCellBox bounds = Manager()->m_parkBounds;
-    script->m_params->PutInt(kX, bounds.x);
-    script->m_params->PutInt(kZ, bounds.z);
-    script->m_params->PutInt(kW, bounds.w);
-    script->m_params->PutInt(kL, bounds.l);
+    SCellBox bounds = Hub()->m_parkBounds;
+    script->m_args->PutInt(kX, bounds.x);
+    script->m_args->PutInt(kZ, bounds.z);
+    script->m_args->PutInt(kW, bounds.w);
+    script->m_args->PutInt(kL, bounds.l);
     return true;
 }
 
 // 0x0058E870
 bool __cdecl CFunc_CanChangeParkDimension(Scripts::CStruct* params, Scripts::CScript*)
 {
-    SCellBox bounds = Manager()->m_parkBounds;
-    SCellBox shell = Manager()->m_shellBounds;
+    SCellBox bounds = Hub()->m_parkBounds;
+    SCellBox shell = Hub()->m_shellBounds;
     Scripts::CArray* size = nullptr;
-    if (params->GetArray(0u, &size, 0)) {
+    if (params->FetchList(0u, &size, 0)) {
         // [w l]: whether it's another size than the park's
-        uint32_t w = size->GetElement(0);
-        uint32_t l = size->GetElement(1);
+        uint32_t w = size->FetchPart(0);
+        uint32_t l = size->FetchPart(1);
         return w != bounds.w || l != bounds.l;
     }
     bool up = params->HasBareFlag(kUp);
@@ -457,21 +457,21 @@ bool __cdecl CFunc_FireCustomParkGap(Scripts::CStruct* params, Scripts::CScript*
 // 0x0058EA70
 bool __cdecl CFunc_GetEditedParkGapName(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddString("name", Cursor()->GetGapTitle());
+    script->m_args->AppendWord("name", Cursor()->GetGapTitle());
     return true;
 }
 
 // 0x0058EAA0
 bool __cdecl CFunc_GetEditorTheme(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PutInt(kTheme, Manager()->GetShellSize());
+    script->m_args->PutInt(kTheme, Hub()->GetShellSize());
     return true;
 }
 
 // 0x0058EAD0
 bool __cdecl CFunc_GetEditorMaxThemes(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PutInt(kMaxThemes, 5);
+    script->m_args->PutInt(kMaxThemes, 5);
     return true;
 }
 
@@ -480,9 +480,9 @@ bool __cdecl CFunc_GetCustomParkName(Scripts::CStruct* params, Scripts::CScript*
 {
     int length = -1;
     params->FetchIntValue(0u, &length, 0);
-    const char* name = Manager()->GetParkName();
+    const char* name = Hub()->GetParkName();
     if (length == -1) {
-        script->m_params->AddString("name", name ? name : "unnamed park");
+        script->m_args->AppendWord("name", name ? name : "unnamed park");
         return true;
     }
     // The first `length` characters (no more than the buffer holds - as the original, which doesn't check).
@@ -490,14 +490,14 @@ bool __cdecl CFunc_GetCustomParkName(Scripts::CStruct* params, Scripts::CScript*
     if (length > 0)
         std::memcpy(shortened, name, static_cast<size_t>(length));
     shortened[length] = 0;
-    script->m_params->AddString("name", shortened);
+    script->m_args->AppendWord("name", shortened);
     return true;
 }
 
 // 0x0058EB90
 bool __cdecl CFunc_IsCustomPark(Scripts::CStruct*, Scripts::CScript*)
 {
-    return Editor()->m_state != CParkBuilderMode::kStateOff;
+    return Editor()->m_curPhase != CParkBuilderMode::kStateOff;
 }
 
 // 0x0058EBB0
@@ -505,7 +505,7 @@ bool __cdecl CFunc_IsParkFull(Scripts::CStruct*, Scripts::CScript*)
 {
     MemoryStats stats;
     GetMemoryStats(&stats);
-    return Stats().maxUsage >= 1.0f;
+    return Attributes().maxUsage >= 1.0f;
 }
 
 // 0x0058ED00
@@ -525,10 +525,10 @@ bool __cdecl CFunc_SwitchToParkEditorCamera(Scripts::CStruct*, Scripts::CScript*
     if (!objects->LookUpEntity(kParkedCam)) {
         // The camera object, from parkedcam_composite_structure.
         Scripts::CStruct* memory = Scripts::NewStruct();
-        Scripts::CStruct* params = memory ? memory->Init() : nullptr;
+        Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
         params->PutNameKey("name", kParkedCam);
         auto* composites = GameObjects::g_compositeObjectManager;
-        composites->SpawnEntityFromNode(Scripts::GetArray("parkedcam_composite_structure"), params, true);
+        composites->SpawnEntityFromNode(Scripts::FetchList("parkedcam_composite_structure"), params, true);
         if (params) {
             params->Clear();
             Scripts::DeleteStruct(params);
@@ -536,7 +536,7 @@ bool __cdecl CFunc_SwitchToParkEditorCamera(Scripts::CStruct*, Scripts::CScript*
     }
     // 0x0059F890: the active camera - the rail editor's while placing rails, else parked_cam
     auto setCamera = [](uint32_t id, int viewport, int takeCurrentView) { ScriptCommands::MakeCameraActive(id, viewport, takeCurrentView != 0); };
-    if (HaveCursor() && Cursor()->m_mode == CBuildPointer::kModeRailPlacement)
+    if (HaveCursor() && Cursor()->m_modeSel == CBuildPointer::kModeRailPlacement)
         setCamera(kRailEditorCam, 0, 0);
     else
         setCamera(kParkedCam, 0, 0);

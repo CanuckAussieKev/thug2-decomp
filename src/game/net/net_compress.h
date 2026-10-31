@@ -4,7 +4,7 @@
 
 // The network library's message compression (Neversoft's Net): a message (or a whole sequenced one) goes as a
 // "compressed" message (id 0x12: the method, the 16-bit size of the id + length + data, then the compressed
-// id, length and data). Method 1 is the run-length code below, 2 LZSS (Lzss::Encode). App's handler 0x0045ABF0
+// id, length and data). Method 1 is the run-length code below, 2 LZSS (Lzss::PackUp). App's handler 0x0045ABF0
 // expands them.
 //
 // The run-length code: a byte n < 0x80 is followed by n + 1 bytes as they are; a byte n >= 0x80 by one byte

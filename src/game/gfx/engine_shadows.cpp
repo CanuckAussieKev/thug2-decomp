@@ -34,7 +34,7 @@ void DeleteThrough0(void* object)
 }
 
 CShadowVolume** ShadowVolumes() { return g_shadowVolumes; }
-ListKit::HashTable& EdgeTable() { return g_shadowEdgeTable; }
+ListKit::KeyMap& EdgeTable() { return g_shadowEdgeTable; }
 
 // The engine's model calls not rewritten yet: the shadow caster added for a render target (0x0048C870), a model
 // deleted (0x0048C3C0), a file name with its extension (0x00487A70).
@@ -50,24 +50,24 @@ void AddExtension(const char* name, const char* extension, char* out)
 
 // A new camera (null without memory: the original goes on with it) at the origin; turned to look along a direction
 // (normalised) by LookAlong: rows (z, -x, -y), (y, -z, -x), the direction.
-Gfx2D::Camera* NewShadowCamera()
+Gfx2D::ViewCam* NewShadowCamera()
 {
     void* memory = MemSys::AllocZeroed(0xC4);
-    Gfx2D::Camera* camera = memory ? static_cast<Gfx2D::Camera*>(memory)->Construct() : nullptr;
-    camera->SetPos(Maths::Vector{0.0f, 0.0f, 0.0f, 1.0f});
+    Gfx2D::ViewCam* camera = memory ? static_cast<Gfx2D::ViewCam*>(memory)->MakeNew() : nullptr;
+    camera->ChangeLocation(Maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f});
     return camera;
 }
-void LookAlong(Gfx2D::Camera* camera, Maths::Vector v)
+void LookAlong(Gfx2D::ViewCam* camera, Maths::Vec4 v)
 {
-    Maths::Matrix matrix;
+    Maths::Mat4 matrix;
     matrix.row[0] = {v.z, -v.x, -v.y, 0.0f};
     matrix.row[1] = {v.y, -v.z, -v.x, 0.0f};
     matrix.row[2] = v;
     matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    camera->SetMatrix(matrix);
+    camera->ChangeMat(matrix);
 }
 // The camera's place for a shadow at `position`: `distance` back along the light (the x product left unrounded).
-Maths::Vector BackAlongLight(const Maths::Vector& position, const Maths::Vector& direction, float distance)
+Maths::Vec4 BackAlongLight(const Maths::Vec4& position, const Maths::Vec4& direction, float distance)
 {
     double d = distance;
     return {static_cast<float>(position.x - d * direction.x),
@@ -79,10 +79,10 @@ Maths::Vector BackAlongLight(const Maths::Vector& position, const Maths::Vector&
 } // namespace
 
 // 0x004A16C0
-CShadowBase* CShadowBase::Construct()
+CShadowBase* CShadowBase::MakeNew()
 {
     m_vtable = reinterpret_cast<void**>(kShadowVtable);
-    m_type = 0;
+    m_kindTag = 0;
     return this;
 }
 
@@ -93,30 +93,30 @@ void CShadowBase::DestroyBody()
 }
 
 // 0x004A18B0
-CShadowBase* CShadowBase::Destroy(unsigned int freeFlags)
+CShadowBase* CShadowBase::Teardown(unsigned int freeFlags)
 {
     m_vtable = reinterpret_cast<void**>(kShadowVtable);
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004A18A0
-void CShadowBase::Update(const Maths::Vector*, const Maths::Matrix*, Maths::Vector) {}
+void CShadowBase::TickFrame(const Maths::Vec4*, const Maths::Mat4*, Maths::Vec4) {}
 
 // 0x004A19C0
-CFullShadow* CFullShadow::Construct(CRenderModel* model, Maths::Vector direction, float distance)
+CFullShadow* CFullShadow::MakeNew(CRenderModel* model, Maths::Vec4 direction, float distance)
 {
     m_vtable = reinterpret_cast<void**>(kDetailedShadowVtable);
-    m_type = 1;
+    m_kindTag = 1;
     m_bitmap = static_cast<uint8_t*>(CreateRenderTarget(0x100, 0x100, 0x10, 0x10));
     AddShadowCaster(m_bitmap, model, 0);
     m_reach = distance;
     m_direction = direction;
-    m_direction.Normalize();
+    m_direction.MakeUnit();
     m_viewCamera = NewShadowCamera();
-    Maths::Vector v = m_direction;
-    v.Normalize();
+    Maths::Vec4 v = m_direction;
+    v.MakeUnit();
     LookAlong(m_viewCamera, v);
     model->ActivateShadow(1);
     return this;
@@ -135,38 +135,38 @@ void CFullShadow::DestroyBody()
 }
 
 // 0x004A18E0
-CFullShadow* CFullShadow::Destroy(unsigned int freeFlags)
+CFullShadow* CFullShadow::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004A1910
-void CFullShadow::SetPosition(Maths::Vector position)
+void CFullShadow::ChangePlace(Maths::Vec4 position)
 {
-    m_viewCamera->SetPos(BackAlongLight(position, m_direction, m_reach));
+    m_viewCamera->ChangeLocation(BackAlongLight(position, m_direction, m_reach));
     AimTextureShadowCaster(m_bitmap, m_viewCamera);
 }
 
 // 0x004A1BA0
-void CFullShadow::SetLightDirection(const Maths::Vector* direction)
+void CFullShadow::SetLightDirection(const Maths::Vec4* direction)
 {
-    Maths::Vector position = *m_viewCamera->GetPos();
+    Maths::Vec4 position = *m_viewCamera->FetchLocation();
     m_direction = *direction;
-    m_direction.Normalize();
-    m_viewCamera->SetPos(Maths::Vector{0.0f, 0.0f, 0.0f, 1.0f});
+    m_direction.MakeUnit();
+    m_viewCamera->ChangeLocation(Maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f});
     LookAlong(m_viewCamera, m_direction);
-    m_viewCamera->SetPos(position);
+    m_viewCamera->ChangeLocation(position);
     AimTextureShadowCaster(m_bitmap, m_viewCamera);
 }
 
 // 0x004A1750
-CBlobShadow* CBlobShadow::Construct()
+CBlobShadow* CBlobShadow::MakeNew()
 {
     m_vtable = reinterpret_cast<void**>(kSimpleShadowVtable);
-    m_type = 2;
+    m_kindTag = 2;
     m_sizeFactor = 1.0f;
     m_shift = 1.0f;
     m_meshInstance = nullptr;
@@ -185,16 +185,16 @@ void CBlobShadow::DestroyBody()
 }
 
 // 0x004A1990
-CBlobShadow* CBlobShadow::Destroy(unsigned int freeFlags)
+CBlobShadow* CBlobShadow::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004A17E0
-void CBlobShadow::SetModel(const char* name)
+void CBlobShadow::ChangeMesh(const char* name)
 {
     if (m_meshInstance) {
         DeleteModel(m_meshInstance);
@@ -207,10 +207,10 @@ void CBlobShadow::SetModel(const char* name)
 }
 
 // 0x004A1CD0
-void CBlobShadow::Update(const Maths::Vector* position, const Maths::Matrix* matrix, Maths::Vector normal)
+void CBlobShadow::TickFrame(const Maths::Vec4* position, const Maths::Mat4* matrix, Maths::Vec4 normal)
 {
-    const Maths::Vector& forward = matrix->row[2];
-    Maths::Matrix placed;
+    const Maths::Vec4& forward = matrix->row[2];
+    Maths::Mat4 placed;
     placed.row[0] = {static_cast<float>(static_cast<double>(forward.z) * normal.y - static_cast<double>(forward.y) * normal.z),
                      static_cast<float>(static_cast<double>(forward.x) * normal.z - static_cast<double>(forward.z) * normal.x),
                      static_cast<float>(static_cast<double>(forward.y) * normal.x - static_cast<double>(forward.x) * normal.y),
@@ -218,7 +218,7 @@ void CBlobShadow::Update(const Maths::Vector* position, const Maths::Matrix* mat
     placed.row[1] = normal;
     placed.row[2] = forward;
     placed.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    placed.Scale(Maths::Vector{m_sizeFactor, m_sizeFactor, m_sizeFactor, 1.0f});
+    placed.StretchBy(Maths::Vec4{m_sizeFactor, m_sizeFactor, m_sizeFactor, 1.0f});
     double offset = m_shift;
     float dx = static_cast<float>(normal.x * offset);
     float dy = static_cast<float>(normal.y * offset);
@@ -232,31 +232,31 @@ void CBlobShadow::Update(const Maths::Vector* position, const Maths::Matrix* mat
 }
 
 // 0x004A1880
-void CBlobShadow::Hide()
+void CBlobShadow::Conceal()
 {
     if (m_meshInstance)
-        m_meshInstance->SetActive(0);
+        m_meshInstance->ChangeLive(0);
 }
 
 // 0x004A1890
 void CBlobShadow::Show()
 {
     if (m_meshInstance)
-        m_meshInstance->SetActive(1);
+        m_meshInstance->ChangeLive(1);
 }
 
 // 0x004A1F80
-CShadowVolume* CShadowVolume::Construct(CRenderModel*, Maths::Vector direction, float distance)
+CShadowVolume* CShadowVolume::MakeNew(CRenderModel*, Maths::Vec4 direction, float distance)
 {
-    CShadowBase::Construct();
+    CShadowBase::MakeNew();
     m_reach = distance;
     m_vtable = reinterpret_cast<void**>(kShadowVolumeVtable);
-    m_type = 3;
+    m_kindTag = 3;
     m_direction = direction;
-    m_direction.Normalize();
+    m_direction.MakeUnit();
     m_viewCamera = NewShadowCamera();
-    Maths::Vector v = m_direction;
-    v.Normalize();
+    Maths::Vec4 v = m_direction;
+    v.MakeUnit();
     LookAlong(m_viewCamera, v);
     m_modelKey = 0;
     mp_edges = nullptr;
@@ -280,33 +280,33 @@ void CShadowVolume::DestroyBody()
 }
 
 // 0x004A22C0
-CShadowVolume* CShadowVolume::Destroy(unsigned int freeFlags)
+CShadowVolume* CShadowVolume::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004A1E70
-void CShadowVolume::SetPosition(Maths::Vector position)
+void CShadowVolume::ChangePlace(Maths::Vec4 position)
 {
-    m_viewCamera->SetPos(BackAlongLight(position, m_direction, m_reach));
+    m_viewCamera->ChangeLocation(BackAlongLight(position, m_direction, m_reach));
 }
 
 // 0x004A21A0
-void CShadowVolume::SetLightDirection(const Maths::Vector* direction)
+void CShadowVolume::SetLightDirection(const Maths::Vec4* direction)
 {
-    Maths::Vector position = *m_viewCamera->GetPos();
+    Maths::Vec4 position = *m_viewCamera->FetchLocation();
     m_direction = *direction;
-    m_direction.Normalize();
-    m_viewCamera->SetPos(Maths::Vector{0.0f, 0.0f, 0.0f, 1.0f});
+    m_direction.MakeUnit();
+    m_viewCamera->ChangeLocation(Maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f});
     LookAlong(m_viewCamera, m_direction);
-    m_viewCamera->SetPos(position);
+    m_viewCamera->ChangeLocation(position);
 }
 
 // 0x004A1EE0
-Maths::Matrix* CShadowVolume::SetMatrix(const Maths::Matrix* matrix)
+Maths::Mat4* CShadowVolume::ChangeMat(const Maths::Mat4* matrix)
 {
     return &(m_basisFrame = *matrix);
 }
@@ -325,7 +325,7 @@ void __cdecl RemoveShadowVolume(CShadowVolume* volume)
 // 0x004A1EF0
 ShadowEdges* __cdecl FindShadowEdges(uint32_t key)
 {
-    return static_cast<ShadowEdges*>(EdgeTable().GetItem(key));
+    return static_cast<ShadowEdges*>(EdgeTable().FetchEntry(key));
 }
 
 // 0x004A1F30
@@ -335,29 +335,29 @@ void __cdecl ReleaseShadowEdges(uint32_t key)
     if (!edges || --edges->users != 0)
         return;
     if (edges->edges) {
-        MemSys::Manager::Get()->Free(edges->edges);
+        MemSys::Hub::Pull()->Dealloc(edges->edges);
         edges->edges = nullptr;
     }
     EdgeTable().EraseEntry(key);
-    MemSys::Manager::Get()->Free(edges);
+    MemSys::Hub::Pull()->Dealloc(edges);
 }
 
 namespace {
-static VtableSlot kShadowVtable_slots[] = {&Engine3D::CShadowBase::Destroy, &Engine3D::CShadowBase::Update,
+static VtableSlot kShadowVtable_slots[] = {&Engine3D::CShadowBase::Teardown, &Engine3D::CShadowBase::TickFrame,
                 &Engine3D::CollGeometryStubs::DrawDiagnostic, Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::DoNothing,
                 Stubs::DoNothing, Stubs::IgnoreArguments2};
 void** const kShadowVtable = reinterpret_cast<void**>(kShadowVtable_slots);
-static VtableSlot kDetailedShadowVtable_slots[] = {&Engine3D::CFullShadow::Destroy, &Engine3D::CShadowBase::Update,
-                &Engine3D::CFullShadow::SetPosition, &Engine3D::CFullShadow::SetLightDirection, Stubs::IgnoreArgument,
+static VtableSlot kDetailedShadowVtable_slots[] = {&Engine3D::CFullShadow::Teardown, &Engine3D::CShadowBase::TickFrame,
+                &Engine3D::CFullShadow::ChangePlace, &Engine3D::CFullShadow::SetLightDirection, Stubs::IgnoreArgument,
                 Stubs::DoNothing, Stubs::DoNothing, Stubs::IgnoreArguments2};
 void** const kDetailedShadowVtable = reinterpret_cast<void**>(kDetailedShadowVtable_slots);
-static VtableSlot kSimpleShadowVtable_slots[] = {&Engine3D::CBlobShadow::Destroy, &Engine3D::CBlobShadow::Update,
+static VtableSlot kSimpleShadowVtable_slots[] = {&Engine3D::CBlobShadow::Teardown, &Engine3D::CBlobShadow::TickFrame,
                 &Engine3D::CollGeometryStubs::DrawDiagnostic, Stubs::IgnoreArgument, Stubs::IgnoreArgument,
-                &Engine3D::CBlobShadow::Hide, &Engine3D::CBlobShadow::Show, Stubs::IgnoreArguments2};
+                &Engine3D::CBlobShadow::Conceal, &Engine3D::CBlobShadow::Show, Stubs::IgnoreArguments2};
 void** const kSimpleShadowVtable = reinterpret_cast<void**>(kSimpleShadowVtable_slots);
-static VtableSlot kShadowVolumeVtable_slots[] = {&Engine3D::CShadowVolume::Destroy, &Engine3D::CShadowBase::Update,
-                &Engine3D::CShadowVolume::SetPosition, &Engine3D::CShadowVolume::SetLightDirection, &Engine3D::CShadowVolume::SetMatrix,
-                Stubs::DoNothing, Stubs::DoNothing, &Engine3D::CShadowVolume::SetModel};
+static VtableSlot kShadowVolumeVtable_slots[] = {&Engine3D::CShadowVolume::Teardown, &Engine3D::CShadowBase::TickFrame,
+                &Engine3D::CShadowVolume::ChangePlace, &Engine3D::CShadowVolume::SetLightDirection, &Engine3D::CShadowVolume::ChangeMat,
+                Stubs::DoNothing, Stubs::DoNothing, &Engine3D::CShadowVolume::ChangeMesh};
 void** const kShadowVolumeVtable = reinterpret_cast<void**>(kShadowVolumeVtable_slots);
 } // namespace
 

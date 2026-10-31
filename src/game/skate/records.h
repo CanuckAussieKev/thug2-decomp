@@ -19,7 +19,7 @@ namespace Highscores {
 class CBestEntry {
 public:
     // 0x0057EF20 (the constructor): initials XXX, value 1000, number 0 (new left as it was). Returns this.
-    CBestEntry* Construct();
+    CBestEntry* MakeNew();
     // 0x0057ECD0: set to `value` and `number` and marked new if `value` beats it; else not new. Whether it did.
     bool TryBeatRecord(int value, int number);
     // 0x0057ED00: value, number (0 if missing) and initials (XXX if missing) from `params`.
@@ -28,7 +28,7 @@ public:
     void SetPlayerTag(const char* initials);
 
     char* m_tag; // +0x00
-    int m_value;      // +0x04
+    int m_val;      // +0x04
     int m_slotNo;     // +0x08
     bool m_isFresh;       // +0x0C
     uint8_t pad0D[3];
@@ -39,7 +39,7 @@ static_assert(sizeof(CBestEntry) == 0x10, "layout must match the original");
 class CBestEntryList {
 public:
     // 0x0057EF60 (the constructor): `count` records, constructed. Returns this.
-    CBestEntryList* Construct(int count);
+    CBestEntryList* MakeNew(int count);
     // 0x0057EFE0: none new; `value` put where it beats a record (those after it moved down one, the last dropped),
     // with `number`, initials XXX, marked new. Its index, or -1 if it beats none.
     int TryInsertEntry(int value, int number);
@@ -50,9 +50,9 @@ public:
     // 0x0057F4E0: the records written to `params` as its recordtable array of structures (value, number, initials).
     void WriteToStructure(Scripts::CStruct* params);
     // The records freed and the table (the destructor, inlined by its owners).
-    void Delete();
+    void EraseOne();
 
-    int m_count;         // +0x00
+    int m_num;         // +0x00
     CBestEntry* m_records;  // +0x04
 };
 static_assert(sizeof(CBestEntryList) == 8, "layout must match the original");
@@ -62,7 +62,7 @@ class CStageBests {
 public:
     // 0x0057F120 (the constructor): high scores and best combos (5 each), arcade scores (10), and the four longest
     // records (made in the order longest combo, grind, lip trick, manual; their values 0). Returns this.
-    CStageBests* Construct();
+    CStageBests* MakeNew();
     // 0x0057F670: the destructor body (the records, then the tables: best combos, high scores, arcade scores).
     void DestroyBody();
     // 0x0057EDD0: the new records' initials set (the longest ones: grind... as the original's order; then the
@@ -89,7 +89,7 @@ class CBestResults {
 public:
     // 0x0057EE70 (the constructor): no levels, default initials ABC (the levels pointer left as it was). Returns
     // this.
-    CBestResults* Construct();
+    CBestResults* MakeNew();
     // 0x0057EEA0: the default initials set. 0x0057EEC0: a level's records.
     void SetStockInitials(const char* initials);
     CStageBests* GetLevelRecords(int level);
@@ -103,7 +103,7 @@ public:
 
     // 0x0057EED0: the instance (made first, if `create`); counted. 0x0057FDB0: one count released; the last
     // deletes it.
-    static CBestResults* Create(bool create);
+    static CBestResults* Fabricate(bool create);
     static void Release();
 
     int m_levelCount;           // +0x00

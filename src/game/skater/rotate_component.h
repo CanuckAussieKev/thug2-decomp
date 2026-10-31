@@ -31,19 +31,19 @@ public:
     };
 
     // 0x00517D40 (registered by RegisterComponentTypes): a new one (0 if out of memory), no core physics yet.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00517CC0: the destructor body (the base's).
     void DestroyBody();
     // 0x00517CF0 (vtable slot 0)
-    CRiderTurning* Destroy(unsigned int flags);
+    CRiderTurning* Teardown(unsigned int flags);
     // 0x00517CD0 (vtable +0x08): no turns. `params` isn't read.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x00517D20 (vtable +0x0C): the core physics component found.
-    void Finalize();
+    void Seal();
     // 0x00517DC0 (vtable +0x04): each active turn steps by the frame's time (the last step cut to end exactly), the
     // object's and the core physics' matrices turned by it about the axis; with none left the component suspends
     // itself.
-    void Update();
+    void TickFrame();
     // 0x00517EA0 (vtable +0x30): Rotate (1); 2 for any other name.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 

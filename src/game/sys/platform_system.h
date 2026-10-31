@@ -7,7 +7,7 @@
 // The Win32 platform layer's system side (0x005F5740-0x005F5AF0): finding the game's CD, the game window (PartyMod's
 // SDL window replaces it: game/sys/sdl_window.h), DirectSound, and two decoders - the sound files' 4-bit ADPCM and
 // swizzled texture texels.
-namespace Platform {
+namespace OsLayer {
 
 // 0x005F5740 (cdecl): the letter of the CD-ROM drive whose volume is called `volume` (0 if none). The letter,
 // ':' and '\' are kept (0x007D6A34, 0x007D6A27, 0x007D6A25).

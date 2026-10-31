@@ -66,8 +66,8 @@ MemSys::PoolPair& SourcePools() { return Engine3D::g_frameSourcePools; }
 
 Scripts::CStruct* MakeStruct()
 {
-    void* memory = StructPools().Allocate(8);
-    return memory ? static_cast<Scripts::CStruct*>(memory)->Init() : nullptr;
+    void* memory = StructPools().Carve(8);
+    return memory ? static_cast<Scripts::CStruct*>(memory)->PrepareAll() : nullptr;
 }
 void FreeStruct(Scripts::CStruct* s)
 {
@@ -105,11 +105,11 @@ void* SkeletonOf(CObjectModule* component)
 // The level object a cutscene object stands in for.
 CGameEntity* LevelObjectOf(CGameEntity* object)
 {
-    return static_cast<CGameEntity*>(FindObject(StandInId(object->GetComponent(kModelComponent))));
+    return static_cast<CGameEntity*>(FindObject(StandInId(object->FetchModule(kModelComponent))));
 }
 void ModelSetOffset(void* model, const float* offset)
 {
-    static_cast<Engine3D::CRenderModel*>(model)->ChangeBoundSphere(reinterpret_cast<const Maths::Vector*>(offset));
+    static_cast<Engine3D::CRenderModel*>(model)->ChangeBoundSphere(reinterpret_cast<const Maths::Vec4*>(offset));
 }
 // The skater's appearance (+0x34A8) and its parts.
 void* AppearancePart(void* appearance, uint32_t part)
@@ -122,17 +122,17 @@ void* AppearancePart(void* appearance, uint32_t part)
 // 0x004645A0
 void* __cdecl AnimSourceAllocate(unsigned int size)
 {
-    return SourcePools().Allocate(size);
+    return SourcePools().Carve(size);
 }
 
 // 0x004645E0
 void __cdecl AnimSourceFree(void* item)
 {
-    SourcePools().Free(item);
+    SourcePools().Dealloc(item);
 }
 
 // 0x00464640
-CCinematicTable* CCinematicTable::Construct()
+CCinematicTable* CCinematicTable::MakeNew()
 {
     m_vtable = g_cutsceneDataVtable;
     mp_bundle = nullptr;
@@ -174,11 +174,11 @@ void CCinematicTable::RefreshObjects()
     params->PutNameKey(kUnnamed, kFlagParam);
     for (int i = 0; i < m_objectCount; ++i) {
         CGameEntity* object = m_entities[i].object;
-        if (object->GetComponent(kModelComponent))
+        if (object->FetchModule(kModelComponent))
             Scripts::LaunchScript(kRefreshScript, params, object, false, nullptr);
     }
     auto* skater =
-        static_cast<CGameEntity*>(GameModules::Skate::Instance()->GetHomeRider());
+        static_cast<CGameEntity*>(GameModules::Skate::Sole()->GetHomeRider());
     if (skater)
         Scripts::LaunchScript(kRefreshScript, params, skater, false, nullptr);
     FreeStruct(params);
@@ -191,11 +191,11 @@ void CCinematicTable::AddObjects(Scripts::CStruct* params)
     int version = 0;
     params->FetchIntValue(kVersion, &version, 1);
     Scripts::CArray* objects = nullptr;
-    params->GetArray(kObjects, &objects, 1);
+    params->FetchList(kObjects, &objects, 1);
     bool wantsSkater = false; // (an object of kind 0x6218C3C9: script 0xF37D9F53 runs...)
     bool hasSkater = false;   // (...unless a skater object was added)
-    for (uint32_t i = 0; i < objects->m_size; ++i) {
-        auto* object = reinterpret_cast<Scripts::CStruct*>(objects->GetElement(i));
+    for (uint32_t i = 0; i < objects->m_extent; ++i) {
+        auto* object = reinterpret_cast<Scripts::CStruct*>(objects->FetchPart(i));
         Scripts::CStruct* params2 = MakeStruct();
         uint32_t name = 0, kind = 0, model = 0, skeleton = 0, anim = 0;
         bool isSkater, isSkater2, special;
@@ -247,7 +247,7 @@ void CCinematicTable::AddObjects(Scripts::CStruct* params)
             }
             if (skater) {
                 void* face = AppearanceFace(m_unknown34A8);
-                if (face && reinterpret_cast<bool(__thiscall*)(void*)>(CodeAddress(&Gfx2D::CFaceSkin::IsValid))(face))
+                if (face && reinterpret_cast<bool(__thiscall*)(void*)>(CodeAddress(&Gfx2D::CFaceSkin::IsSound))(face))
                     ++modelFile;
                 int male = 0;
                 static_cast<Scripts::CStruct*>(m_unknown34AC)->FetchIntValue(kMale, &male, 1);
@@ -283,19 +283,19 @@ void CCinematicTable::AddObjects(Scripts::CStruct* params)
             }
             ObjectEntry& entry = m_entities[m_objectCount];
             entry.object = CreateObject(params2);
-            CObjectModule* standIn = entry.object->GetComponent(kModelComponent);
+            CObjectModule* standIn = entry.object->FetchModule(kModelComponent);
             if (standIn) {
                 float offset[4] = {0.0f, 0.0f, 0.0f, 150.0f};
                 ModelSetOffset(ModelOf(standIn), offset);
                 if (StandsIn(standIn)) {
                     // the level object's model lends its settings (saved once) and is hidden
                     auto* level = static_cast<CGameEntity*>(FindObject(StandInId(standIn)));
-                    CObjectModule* levelModel = level->GetComponent(kModelComponent);
+                    CObjectModule* levelModel = level->FetchModule(kModelComponent);
                     void* model2 = ModelOf(levelModel);
                     if (!m_colourSaved) {
                         float saved[4];
                         const float* settings =
-                            reinterpret_cast<const float*>(static_cast<Engine3D::CRenderModel*>(model2)->FetchBoundSphere(reinterpret_cast<Maths::Vector*>(saved)));
+                            reinterpret_cast<const float*>(static_cast<Engine3D::CRenderModel*>(model2)->FetchBoundSphere(reinterpret_cast<Maths::Vec4*>(saved)));
                         std::memcpy(m_lent2C, settings, 16);
                         uint8_t flags = *(static_cast<uint8_t*>(model2) + 0x44);
                         m_lent3C = flags >> 2 & 1;
@@ -305,7 +305,7 @@ void CCinematicTable::AddObjects(Scripts::CStruct* params)
                     }
                     float offset2[4] = {0.0f, 0.0f, 0.0f, 150.0f};
                     ModelSetOffset(model2, offset2);
-                    static_cast<Engine3D::CRenderModel*>(model2)->Hide(0);
+                    static_cast<Engine3D::CRenderModel*>(model2)->Conceal(0);
                     static_cast<Engine3D::CRenderModel*>(model2)->AllowResizing(0);
                     uint32_t mine = reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Engine3D::CRenderModel::GetBoneMatrices))(model2);
                     uint32_t theirs = reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Engine3D::CRenderModel::GetBoneMatrices))(ModelOf(standIn));
@@ -317,7 +317,7 @@ void CCinematicTable::AddObjects(Scripts::CStruct* params)
                     standIn, 1);
             }
             entry.name = name;
-            entry.object->SetID(name);
+            entry.object->ChangeSerial(name);
             entry.skeleton = skeleton;
             entry.active = special;
             entry.animation = nullptr;
@@ -331,7 +331,7 @@ void CCinematicTable::AddObjects(Scripts::CStruct* params)
                     entry.animation = animation;
                     void* memory = AnimSourceAllocate(0x214);
                     animation->source =
-                        memory ? static_cast<Engine3D::CFrameSource*>(memory)->Construct() : nullptr;
+                        memory ? static_cast<Engine3D::CFrameSource*>(memory)->MakeNew() : nullptr;
                     static_cast<Engine3D::CFrameSource*>(animation->source)->PlayClip(anim);
                     static_cast<Engine3D::CFrameSource*>(animation->source)->SetDone(true);
                     break;
@@ -341,7 +341,7 @@ void CCinematicTable::AddObjects(Scripts::CStruct* params)
         }
         FreeStruct(params2);
     }
-    if (objects->m_size != 0 && wantsSkater && !hasSkater)
+    if (objects->m_extent != 0 && wantsSkater && !hasSkater)
         Scripts::LaunchScript(kSkaterScript, nullptr, nullptr, false, nullptr);
 
     // the objects that stand in for level objects (and their children) take those's skeletons
@@ -357,7 +357,7 @@ void CCinematicTable::AddObjects(Scripts::CStruct* params)
     // their models' flags 0x00493B30 merged with their parents' level objects'
     for (int i = 0; i < m_objectCount; ++i) {
         ObjectEntry& entry = m_entities[i];
-        CObjectModule* component = entry.object->GetComponent(kModelComponent);
+        CObjectModule* component = entry.object->FetchModule(kModelComponent);
         if (!component)
             continue;
         void* model = ModelOf(component);
@@ -365,7 +365,7 @@ void CCinematicTable::AddObjects(Scripts::CStruct* params)
         ObjectEntry* parent = FindEntry(entry.name - 1);
         if (parent && parent->active) {
             CGameEntity* level = LevelObjectOf(parent->object);
-            flags |= static_cast<Engine3D::CRenderModel*>(ModelOf(level->GetComponent(kModelComponent)))->GetStripBreakFlags();
+            flags |= static_cast<Engine3D::CRenderModel*>(ModelOf(level->FetchModule(kModelComponent)))->GetStripBreakFlags();
         }
         static_cast<Engine3D::CRenderModel*>(model)->BreakStrips(flags);
     }
@@ -380,7 +380,7 @@ void CCinematicTable::AddObjects(Scripts::CStruct* params)
         }
         void* anims = mp_animList;
         for (int j = 0; j < *reinterpret_cast<int*>(static_cast<uint8_t*>(anims) + 8); ++j) {
-            if (entry.name == static_cast<Gfx2D::CJointClipFrames*>(mp_animList)->GetBoneName(j)) {
+            if (entry.name == static_cast<Gfx2D::CJointClipFrames*>(mp_animList)->FetchJointName(j)) {
                 entry.animIndex = j;
                 break;
             }
@@ -402,10 +402,10 @@ CCinematicTable::ObjectEntry* CCinematicTable::FindEntry(uint32_t name)
 // stands in itself).
 void CCinematicTable::CopySkeleton(ObjectEntry& from, ObjectEntry& to)
 {
-    void* skeleton = SkeletonOf(LevelObjectOf(from.object)->GetComponent(kSkeletonComponent));
+    void* skeleton = SkeletonOf(LevelObjectOf(from.object)->FetchModule(kSkeletonComponent));
     CGameEntity* object = to.object;
-    CObjectModule* own = object->GetComponent(kSkeletonComponent);
-    if (own && StandsIn(object->GetComponent(kModelComponent)))
+    CObjectModule* own = object->FetchModule(kSkeletonComponent);
+    if (own && StandsIn(object->FetchModule(kModelComponent)))
         static_cast<Gfx2D::CRig*>(SkeletonOf(own))->CopyBoneScales(static_cast<Gfx2D::CRig*>(skeleton), false);
 }
 
@@ -413,7 +413,7 @@ void CCinematicTable::CopySkeleton(ObjectEntry& from, ObjectEntry& to)
 // from 0x949BC47B's alternatives when 0x97DBDDE6 is set).
 void CCinematicTable::ApplySkaterLook(ObjectEntry& entry)
 {
-    CObjectModule* component = entry.object->GetComponent(kModelComponent);
+    CObjectModule* component = entry.object->FetchModule(kModelComponent);
     reinterpret_cast<void(__thiscall*)(CObjectModule*, void*, int, int, uint32_t)>(
         (*reinterpret_cast<void***>(component))[0x34 / 4])(component, m_unknown34A8, 0, 0, 0x8FB01036);
     uint32_t partName = kPartA;
@@ -454,7 +454,7 @@ void CCinematicTable::ApplySkaterLook(ObjectEntry& entry)
 
 namespace GameObjects {
 
-static VtableSlot g_cutsceneDataVtable_slots[] = {&GameObjects::CCinematicTable::Destroy};
+static VtableSlot g_cutsceneDataVtable_slots[] = {&GameObjects::CCinematicTable::Teardown};
 void** const g_cutsceneDataVtable = reinterpret_cast<void**>(g_cutsceneDataVtable_slots);
 
 } // namespace Obj

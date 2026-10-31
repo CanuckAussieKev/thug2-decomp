@@ -32,7 +32,7 @@ namespace {
 
 constexpr V3 kUp = {0.0f, 1.0f, 0.0f};
 
-float Length(V3 v) { return std::sqrt(Dot(v, v)); }
+float LenOf(V3 v) { return std::sqrt(Dot(v, v)); }
 
 bool Eligible(uint16_t flags)
 {
@@ -43,7 +43,7 @@ bool Eligible(uint16_t flags)
     return true;
 }
 
-struct Group {
+struct GroupSet {
     V3 heading = {};     // (area-weighted sum, then unit)
     float area = 0.0f;
     std::vector<int> faces;
@@ -57,17 +57,17 @@ std::vector<Lip> FindLips(const std::vector<Face>& faces, int maxLips)
     if (maxLips <= 0)
         return lips;
     // The faces' raw normals and areas; the piece's winding convention from its sloped area.
-    struct Info {
+    struct DetailsOf {
         V3 n;
         float area;
         bool use;
     };
-    std::vector<Info> info(faces.size());
+    std::vector<DetailsOf> info(faces.size());
     float upArea = 0.0f, downArea = 0.0f;
     for (size_t i = 0; i < faces.size(); ++i) {
         const Face& f = faces[i];
-        V3 n = Cross(f.b - f.a, f.c - f.a);
-        float length = Length(n);
+        V3 n = Perpendicular(f.b - f.a, f.c - f.a);
+        float length = LenOf(n);
         info[i] = {length > 1e-6f ? n * (1.0f / length) : V3{}, length * 0.5f, length > 1e-6f && Eligible(f.flags)};
         if (!info[i].use)
             continue;
@@ -82,16 +82,16 @@ std::vector<Lip> FindLips(const std::vector<Face>& faces, int maxLips)
         if (info[i].use)
             order.push_back(static_cast<int>(i));
     std::sort(order.begin(), order.end(), [&](int a, int b) { return info[a].area > info[b].area; });
-    std::vector<Group> groups;
-    auto headingOf = [](V3 n) { return Normalize({-n.x, 0.0f, -n.z}); };
+    std::vector<GroupSet> groups;
+    auto headingOf = [](V3 n) { return MakeUnit({-n.x, 0.0f, -n.z}); };
     for (int i : order) {
         V3 n = info[i].n * convention;
         if (!(n.y > kSteepNormalY && n.y < kFlatNormalY))
             continue;
         V3 h = headingOf(n);
-        Group* into = nullptr;
-        for (Group& g : groups) {
-            if (Dot(Normalize(g.heading), h) > kHeadingTolerance) {
+        GroupSet* into = nullptr;
+        for (GroupSet& g : groups) {
+            if (Dot(MakeUnit(g.heading), h) > kHeadingTolerance) {
                 into = &g;
                 break;
             }
@@ -104,15 +104,15 @@ std::vector<Lip> FindLips(const std::vector<Face>& faces, int maxLips)
         into->area += info[i].area;
         into->faces.push_back(i);
     }
-    for (Group& g : groups)
-        g.heading = Normalize(g.heading);
+    for (GroupSet& g : groups)
+        g.heading = MakeUnit(g.heading);
     // Near-vertical faces join the group whose front they face.
     for (int i : order) {
         V3 n = info[i].n * convention;
         if (std::fabs(n.y) > kSteepNormalY)
             continue;
         V3 h = headingOf(n);
-        for (Group& g : groups) {
+        for (GroupSet& g : groups) {
             if (Dot(g.heading, h) > kHeadingTolerance) {
                 g.faces.push_back(i);
                 g.area += info[i].area;
@@ -120,9 +120,9 @@ std::vector<Lip> FindLips(const std::vector<Face>& faces, int maxLips)
             }
         }
     }
-    std::sort(groups.begin(), groups.end(), [](const Group& a, const Group& b) { return a.area > b.area; });
+    std::sort(groups.begin(), groups.end(), [](const GroupSet& a, const GroupSet& b) { return a.area > b.area; });
 
-    for (const Group& g : groups) {
+    for (const GroupSet& g : groups) {
         if (static_cast<int>(lips.size()) >= maxLips)
             break;
         float top = -1e30f, bottom = 1e30f;
@@ -160,13 +160,13 @@ std::vector<Lip> FindLips(const std::vector<Face>& faces, int maxLips)
             if (!atTop)
                 continue;
             V3 n = info[i].n * convention;
-            V3 t = Normalize(kUp - n * n.y);
+            V3 t = MakeUnit(kUp - n * n.y);
             tangent = tangent + t * info[i].area;
             vertFlag |= (f.flags & 0x08) != 0;
         }
         if (count == 0 || Dot(tangent, tangent) < 1e-12f)
             continue;
-        lip.tangent = Normalize(tangent);
+        lip.tangent = MakeUnit(tangent);
         // (a tangent pointing back over the top - an overhang's - launches as vert)
         lip.vert = vertFlag || lip.tangent.y > kVertTangentY || Dot(lip.tangent, g.heading) < 0.0f;
         float s = (sMin + sMax) * 0.5f, u = uSum / static_cast<float>(count);
@@ -259,7 +259,7 @@ float RiseHeight(float verticalSpeed, float gravity)
     return verticalSpeed * verticalSpeed / (-2.0f * gravity);
 }
 
-std::string Distance(float units)
+std::string SpanTo(float units)
 {
     char text[48];
     std::snprintf(text, sizeof(text), "%.0f (%.1f ft)", units, units / 12.0f);
@@ -296,11 +296,11 @@ bool StatValue(Scripts::CStruct* physics, uint32_t name, float stat, float* valu
     if (!params)
         return false;
     Scripts::CPair pair;
-    pair.Init();
+    pair.PrepareAll();
     if (!params->FetchPair(0u, &pair, false))
         return false;
     float limit = 0.0f;
-    bool hasLimit = params->GetFloat(kLimit, &limit, 0);
+    bool hasLimit = params->FetchFloat(kLimit, &limit, 0);
     *value = ScaledStat(pair.x, pair.y, stat, hasLimit, limit);
     return true;
 }
@@ -314,11 +314,11 @@ void ReadPhysics()
         g_physics = p;
         return;
     }
-    float defaultStat = Scripts::GetFloat(kDefaultStats);
-    p.speedStat = skater ? skater->GetStat(kStatSpeed) : defaultStat;
-    p.ollieStat = skater ? skater->GetStat(kStatOllie) : defaultStat;
+    float defaultStat = Scripts::FetchFloat(kDefaultStats);
+    p.speedStat = skater ? skater->FetchTally(kStatSpeed) : defaultStat;
+    p.ollieStat = skater ? skater->FetchTally(kStatOllie) : defaultStat;
     float gravity = GameObjects::ReadTuningFloat(kAirGravity, 0, skater);
-    float airHang = Scripts::GetFloat(kAirHang), vertHang = Scripts::GetFloat(kVertHang);
+    float airHang = Scripts::FetchFloat(kAirHang), vertHang = Scripts::FetchFloat(kVertHang);
     if (gravity < 0.0f) {
         p.airGravity = airHang > 0.0f ? gravity / airHang : gravity;
         p.vertGravity = vertHang > 0.0f ? gravity / vertHang : gravity;
@@ -355,7 +355,7 @@ void SectorFaces(uint32_t checksum, std::vector<Face>* out)
                 ok = false;
                 break;
             }
-            Maths::Vector v = tri->ReadStoredVertex(static_cast<int>(index));
+            Maths::Vec4 v = tri->ReadStoredVertex(static_cast<int>(index));
             p[k] = {v.x, v.y, v.z};
         }
         if (!ok)
@@ -372,8 +372,8 @@ bool CastFeeler(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
 {
     alignas(16) uint8_t feeler[0x100] = {};
     auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
-    ray->Construct();
-    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    ray->MakeNew();
+    Maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* p = reinterpret_cast<const float*>(feeler + 0x34);
@@ -404,7 +404,7 @@ std::vector<V3> BoxesOf(const std::vector<uint32_t>& sectors)
     std::vector<V3> boxes;
     for (uint32_t s : sectors) {
         OrientedBox box;
-        if (Scenery::Box(s, &box)) {
+        if (Scenery::Cuboid(s, &box)) {
             V3 min, max;
             BoundsOf(box, &min, &max);
             boxes.push_back(min);
@@ -488,8 +488,8 @@ void AddOverlay(const Overlays::Painter& painter, const std::vector<uint32_t>& s
     for (const LipArcs& arcs : g_cache.arcs) {
         const Lip& lip = arcs.lip;
         V3 half = lip.across * (lip.width * 0.5f);
-        painter.Line(lip.point - half, lip.point + half, 0xFFFFFFFF, 2.0f);
-        painter.Line(lip.point, lip.point + lip.tangent * 40.0f, 0xC0FFFFFF, 1.5f);
+        painter.Seg(lip.point - half, lip.point + half, 0xFFFFFFFF, 2.0f);
+        painter.Seg(lip.point, lip.point + lip.tangent * 40.0f, 0xC0FFFFFF, 1.5f);
         char label[96];
         std::snprintf(label, sizeof(label), "lip %.0f high, %.0f deg%s", lip.height,
                       std::asin(std::clamp(lip.tangent.y, -1.0f, 1.0f)) * 57.29578f, lip.vert ? " (vert)" : "");
@@ -500,23 +500,23 @@ void AddOverlay(const Overlays::Painter& painter, const std::vector<uint32_t>& s
                 // (straight up and back down: how high)
                 V3 side = lip.across * (lip.width * (0.15f * static_cast<float>(i - 1)));
                 V3 base = lip.point + side, apex = base + V3{0.0f, arcs.rise[i], 0.0f};
-                painter.Line(base, apex, colour, 2.0f);
-                painter.Line(apex - lip.across * 12.0f, apex + lip.across * 12.0f, colour, 2.0f);
-                painter.Text(apex, colour, std::string(SpeedName(i)) + ": rises " + Distance(arcs.rise[i]));
+                painter.Seg(base, apex, colour, 2.0f);
+                painter.Seg(apex - lip.across * 12.0f, apex + lip.across * 12.0f, colour, 2.0f);
+                painter.Text(apex, colour, std::string(SpeedName(i)) + ": rises " + SpanTo(arcs.rise[i]));
                 continue;
             }
             const Flight& flight = arcs.flights[i];
             for (size_t k = 1; k < flight.points.size(); ++k)
-                painter.Line(flight.points[k - 1], flight.points[k], colour, 2.0f);
+                painter.Seg(flight.points[k - 1], flight.points[k], colour, 2.0f);
             if (!flight.landed) {
                 if (!flight.points.empty())
                     painter.Text(flight.points.back(), colour, std::string(SpeedName(i)) + ": no landing in 6 s");
                 continue;
             }
-            painter.Cross(flight.landing, 14.0f, colour, 2.0f);
+            painter.Perpendicular(flight.landing, 14.0f, colour, 2.0f);
             V3 gap = flight.landing - lip.point;
             float across = std::sqrt(gap.x * gap.x + gap.z * gap.z);
-            std::string text = std::string(SpeedName(i)) + ": " + Distance(across);
+            std::string text = std::string(SpeedName(i)) + ": " + SpanTo(across);
             char drop[48];
             std::snprintf(drop, sizeof(drop), gap.y < 0.0f ? ", %.0f lower" : ", %.0f higher", std::fabs(gap.y));
             text += drop;
@@ -524,7 +524,7 @@ void AddOverlay(const Overlays::Painter& painter, const std::vector<uint32_t>& s
                 text += " - hits a wall";
             if (arcs.landedOn[i] && std::find(sectors.begin(), sectors.end(), arcs.landedOn[i]) == sectors.end() &&
                 Scenery::SectorGeometry(arcs.landedOn[i]))
-                text += " on " + Objects::Label(arcs.landedOn[i]);
+                text += " on " + Objects::Caption(arcs.landedOn[i]);
             painter.Text(flight.landing, colour, text, 8.0f, -10.0f - 14.0f * static_cast<float>(i));
         }
     }

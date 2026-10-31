@@ -12,7 +12,7 @@ namespace Bps {
 
 namespace {
 
-using DebugLog::Level;
+using DebugLog::StageMap;
 
 // The standard CRC-32 (zlib's).
 uint32_t Crc32(const uint8_t* data, size_t size)
@@ -88,12 +88,12 @@ bool Apply(const uint8_t* patch, size_t patchSize, const uint8_t* input, size_t 
         magic[i] = static_cast<char>(ReadByte(patch, &at));
     magic[4] = '\0';
     if (std::strcmp(magic, "BPS1") != 0) {
-        DebugLog::Printf(Level::kError, "BPS magic number doesn't match expected: %s\n", magic);
+        DebugLog::Printf(StageMap::kError, "BPS magic number doesn't match expected: %s\n", magic);
         return false;
     }
     auto expectedInputSize = static_cast<uint32_t>(ReadNumber(patch, &at));
     if (expectedInputSize != inputSize) {
-        DebugLog::Printf(Level::kError, "Patch input of unexpected size!  expected: %d actual: %d\n", expectedInputSize,
+        DebugLog::Printf(StageMap::kError, "Patch input of unexpected size!  expected: %d actual: %d\n", expectedInputSize,
                          inputSize);
         return false;
     }
@@ -134,16 +134,16 @@ bool Apply(const uint8_t* patch, size_t patchSize, const uint8_t* input, size_t 
 
     uint32_t inputCrc = ReadWord(patch, &at);
     if (inputCrc != Crc32(input, inputSize)) {
-        DebugLog::Printf(Level::kError, "INPUT CRC DID NOT MATCH: %x %x\n", inputCrc, Crc32(input, inputSize));
+        DebugLog::Printf(StageMap::kError, "INPUT CRC DID NOT MATCH: %x %x\n", inputCrc, Crc32(input, inputSize));
     } else {
         uint32_t outputCrc = ReadWord(patch, &at);
         if (outputCrc != Crc32(*output, *outputSize)) {
-            DebugLog::Printf(Level::kError, "OUTPUT CRC DID NOT MATCH: %x %x\n", outputCrc, Crc32(*output, *outputSize));
+            DebugLog::Printf(StageMap::kError, "OUTPUT CRC DID NOT MATCH: %x %x\n", outputCrc, Crc32(*output, *outputSize));
         } else {
             uint32_t patchCrc = ReadWord(patch, &at);
             if (patchCrc == Crc32(patch, patchSize - 4))
                 return true;
-            DebugLog::Printf(Level::kError, "PATCH CRC DID NOT MATCH: %x %x\n", patchCrc, Crc32(patch, patchSize));
+            DebugLog::Printf(StageMap::kError, "PATCH CRC DID NOT MATCH: %x %x\n", patchCrc, Crc32(patch, patchSize));
         }
     }
     std::free(*output);

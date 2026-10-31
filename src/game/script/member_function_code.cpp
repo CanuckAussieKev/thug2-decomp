@@ -240,7 +240,7 @@ void FillCoreMemberFunctions()
         CodeAddress(&Skater::CorePhysicsComponent::BailOn),
         CodeAddress(&Skater::CorePhysicsComponent::BailOff),
         CodeAddress(&Skater::CorePhysicsComponent::BailIsOn),
-        CodeAddress(&Skater::CorePhysicsComponent::SetState),
+        CodeAddress(&Skater::CorePhysicsComponent::ChangePhase),
         CodeAddress(&Skater::CorePhysicsComponent::SetRailSound),
         CodeAddress(&Skater::CorePhysicsComponent::LockVelocityDirection),
         CodeAddress(&Skater::CorePhysicsComponent::SetRollingFriction),
@@ -327,7 +327,7 @@ void FillSoundComponentMemberFunctions()
 void FillTrickComponentMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&GameObjects::CMoveExecutor::Pressed),
+        CodeAddress(&GameObjects::CMoveExecutor::Squeezed),
         CodeAddress(&GameObjects::CMoveExecutor::GetCurrentBailEndpose),
         CodeAddress(&GameObjects::CMoveExecutor::SetCurrentBailEndpose),
     };
@@ -398,22 +398,22 @@ void FillCompositeObjectMemberFunctions()
 void FillObjectMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&GameObjects::CObject::Obj_GetTags),
-        CodeAddress(&GameObjects::CObject::Obj_GetSingleTag),
-        CodeAddress(&GameObjects::CObject::Obj_GetNamedTags),
-        CodeAddress(&GameObjects::CObject::Obj_SetTags),
-        CodeAddress(&GameObjects::CObject::Obj_RemoveTags),
-        CodeAddress(&GameObjects::CObject::Obj_LeaveScript),
-        CodeAddress(&GameObjects::CObject::Obj_GetId),
-        CodeAddress(&GameObjects::CObject::Obj_FlagSet),
-        CodeAddress(&GameObjects::CObject::Obj_FlagNotSet),
-        CodeAddress(&GameObjects::CObject::Obj_ClearFlag),
-        CodeAddress(&GameObjects::CObject::Obj_SetFlag),
-        CodeAddress(&GameObjects::CObject::Obj_KillSpawnedScript),
-        CodeAddress(&GameObjects::CObject::Obj_SpawnScript),
-        CodeAddress(&GameObjects::CObject::Obj_SwitchScript),
-        CodeAddress(&GameObjects::CObject::Obj_Visible),
-        CodeAddress(&GameObjects::CObject::Obj_Invisible),
+        CodeAddress(&GameObjects::CEntity::Obj_GetTags),
+        CodeAddress(&GameObjects::CEntity::Obj_GetSingleTag),
+        CodeAddress(&GameObjects::CEntity::Obj_GetNamedTags),
+        CodeAddress(&GameObjects::CEntity::Obj_SetTags),
+        CodeAddress(&GameObjects::CEntity::Obj_RemoveTags),
+        CodeAddress(&GameObjects::CEntity::Obj_LeaveScript),
+        CodeAddress(&GameObjects::CEntity::Obj_GetId),
+        CodeAddress(&GameObjects::CEntity::Obj_FlagSet),
+        CodeAddress(&GameObjects::CEntity::Obj_FlagNotSet),
+        CodeAddress(&GameObjects::CEntity::Obj_ClearFlag),
+        CodeAddress(&GameObjects::CEntity::Obj_SetFlag),
+        CodeAddress(&GameObjects::CEntity::Obj_KillSpawnedScript),
+        CodeAddress(&GameObjects::CEntity::Obj_SpawnScript),
+        CodeAddress(&GameObjects::CEntity::Obj_SwitchScript),
+        CodeAddress(&GameObjects::CEntity::Obj_Visible),
+        CodeAddress(&GameObjects::CEntity::Obj_Invisible),
     };
     FillMemberFunctionCode(GameObjects::g_objectMemberFunctions, code, 16);
 }
@@ -652,7 +652,7 @@ void FillColorCycleMemberFunctions()
 {
     void* const code[] = {
         CodeAddress(&GameObjects::CColorCycleComponent::On),
-        CodeAddress(&GameObjects::CColorCycleComponent::Off),
+        CodeAddress(&GameObjects::CColorCycleComponent::Disengaged),
         CodeAddress(&GameObjects::CColorCycleComponent::SetPeriodFromScript),
         CodeAddress(&GameObjects::CColorCycleComponent::SetColorsFromScript),
     };
@@ -728,7 +728,7 @@ void FillWalkMemberFunctions()
 void FillRunTimerMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&GameObjects::CRiderRunClock::Pause),
+        CodeAddress(&GameObjects::CRiderRunClock::Freeze),
         CodeAddress(&GameObjects::CRiderRunClock::Unpause),
         CodeAddress(&GameObjects::CRiderRunClock::GetFactorComplete),
         CodeAddress(&GameObjects::CRiderRunClock::GetRunTimerControllerId),
@@ -755,7 +755,7 @@ void FillSkaterStateMemberFunctions()
         CodeAddress(&GameObjects::CRiderPoseState::OnRail),
         CodeAddress(&GameObjects::CRiderPoseState::InWallplant),
         CodeAddress(&GameObjects::CRiderPoseState::InBailState),
-        CodeAddress(&GameObjects::CRiderPoseState::Walking),
+        CodeAddress(&GameObjects::CRiderPoseState::OnFoot),
         CodeAddress(&GameObjects::CRiderPoseState::Skating),
         CodeAddress(&GameObjects::CRiderPoseState::Driving),
         CodeAddress(&GameObjects::CRiderPoseState::SetDriving),

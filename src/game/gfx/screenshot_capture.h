@@ -14,6 +14,6 @@ namespace Gfx2D::ScreenshotCapture {
 // the frame's scene, from the main loop; the scene is ended for the copy and begun again. A multisampled back buffer
 // is resolved first. False (with why in `error`) when it can't be read now: no device, the device lost, an
 // unsupported format, a call refused. Blocks until the GPU has drawn the frame (one hitch, at most a frame's time).
-bool CaptureBackBuffer(SystemCore::Screenshot::Frame* out, std::string* error);
+bool CaptureBackBuffer(SystemCore::Screenshot::TickCycle* out, std::string* error);
 
 } // namespace Gfx2D::ScreenshotCapture

@@ -19,7 +19,7 @@ static_assert(sizeof(FrameAmp) == 0x1008, "layout must match the original");
 
 // 0x00451010: pause (1) or unpause (0) the streams; -1 unpauses only if they weren't paused when last paused
 // with 1. (As PauseMusic, for the streams.)
-void __cdecl PauseStream(int pause);
+void __cdecl FreezeStream(int pause);
 // 0x00451620: load the streams' header (PC: nothing to load) - streamed sound is on while it succeeds.
 bool __cdecl LoadStreamHeader(const char* name);
 // 0x00451660: whether a stream with this id (or else this name) is playing.
@@ -72,10 +72,10 @@ class BinkStreamView {
 public:
     // 0x00452C00: the fields cleared (slots -1); +0x19 and +0x24 from the arguments; +8 the next free stream
     // buffer (0x004535E0).
-    BinkStreamView* Construct(bool unknown19, int unknown24);
+    BinkStreamView* MakeNew(bool unknown19, int unknown24);
     // 0x00452C60: open stream file `key` (LoadStreamFile) with Bink from memory, video off; S_OK, or E_INVALIDARG
     // if it can't be read or opened. Bink is told to use DirectSound the first time ("Bink can't use DSound").
-    long Open(uint32_t key, const char* path, long offset, size_t size);
+    long Unseal(uint32_t key, const char* path, long offset, size_t size);
 
 private:
     template <typename T>

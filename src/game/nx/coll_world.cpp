@@ -27,7 +27,7 @@ constexpr float kFarthestStart = -0.01f;
 
 // The scenes' collision grids the line passes near (null-terminated; null: none) and the scenes themselves in the
 // same order (0x0048C980 / 0x0048C0B0).
-CCollGrid** GridsAlong(const Maths::Line* line)
+CCollGrid** GridsAlong(const Maths::Seg* line)
 {
     return GetCollGridsOnLine(line);
 }
@@ -37,33 +37,33 @@ uint32_t* GridScenes() { return Engine3D::Engine::GetCollisionScenes(); }
 // and the line's direction.
 struct LineQuery {
     Maths::BBox box;
-    Maths::Vector direction;
+    Maths::Vec4 direction;
     bool useCache;
 
-    LineQuery(const Maths::Line* line, CHitMeshCache* cache) : box(line->start)
+    LineQuery(const Maths::Seg* line, CHitMeshCache* cache) : box(line->start)
     {
-        box.AddPoint(line->end);
-        useCache = cache && cache->m_box.Contains(box);
-        Maths::Vector grown = box.max;
+        box.AppendSpot(line->end);
+        useCache = cache && cache->m_box.Holds(box);
+        Maths::Vec4 grown = box.max;
         grown.x += 0.5f;
         grown.y += 0.5f;
         grown.z += 0.5f;
-        box.AddPoint(grown);
+        box.AppendSpot(grown);
         grown = box.min;
         grown.x -= 0.5f;
         grown.y -= 0.5f;
         grown.z -= 0.5f;
-        box.AddPoint(grown);
+        box.AppendSpot(grown);
         direction = {line->end.x - line->start.x, line->end.y - line->start.y, line->end.z - line->start.z,
                      line->end.w - line->start.w};
     }
 };
 
 // A cache entry's box (what the cache keeps for each object).
-const Maths::BBox* EntryBox(const CHitMeshCache::Entry& entry) { return static_cast<const Maths::BBox*>(entry.geometry); }
+const Maths::BBox* EntryBox(const CHitMeshCache::TableRow& entry) { return static_cast<const Maths::BBox*>(entry.geometry); }
 
 bool MayTouch(CHitMesh* object, const Maths::BBox* box) { return object->Call<bool>(13, box); }
-bool CollideWithLine(CHitMesh* object, const Maths::Line* line, Maths::Vector* direction, CollisionHit* hit,
+bool CollideWithLine(CHitMesh* object, const Maths::Seg* line, Maths::Vec4* direction, CollisionHit* hit,
                      Maths::BBox* box)
 {
     return object->Call<bool>(14, line, direction, hit, box);
@@ -71,7 +71,7 @@ bool CollideWithLine(CHitMesh* object, const Maths::Line* line, Maths::Vector* d
 GameObjects::CGameEntity* Owner(CHitMesh* object) { return object->Call<GameObjects::CGameEntity*>(10); }
 
 // A movable object tested: its owner noted on the hit while it is; the owner if it was hit, else `owner`.
-GameObjects::CGameEntity* TestMovable(CHitMesh* object, const Maths::Line* line, LineQuery& query, CollisionHit* hit,
+GameObjects::CGameEntity* TestMovable(CHitMesh* object, const Maths::Seg* line, LineQuery& query, CollisionHit* hit,
                                    GameObjects::CGameEntity* owner)
 {
     hit->owner = reinterpret_cast<uint32_t>(Owner(object));
@@ -116,7 +116,7 @@ void UnregisterMovable(CHitMesh* object)
 }
 
 // 0x004106C0
-bool CollideWithStatics(const Maths::Line* line, CollisionHit* hit, CollisionHitCallback callback, CHitMeshCache* cache)
+bool CollideWithStatics(const Maths::Seg* line, CollisionHit* hit, CollisionHitCallback callback, CHitMeshCache* cache)
 {
     hit->callback = callback;
     LineQuery query(line, cache);
@@ -124,7 +124,7 @@ bool CollideWithStatics(const Maths::Line* line, CollisionHit* hit, CollisionHit
     bool any = false;
     if (query.useCache) {
         for (int i = 0; i < cache->m_statics; ++i) {
-            const CHitMeshCache::Entry& entry = cache->m_entries[i];
+            const CHitMeshCache::TableRow& entry = cache->m_entries[i];
             if (query.box.Intersects(*EntryBox(entry)) &&
                 CollideWithLine(entry.object, line, &query.direction, hit, &query.box))
                 any = true;
@@ -150,7 +150,7 @@ bool CollideWithStatics(const Maths::Line* line, CollisionHit* hit, CollisionHit
 }
 
 // 0x00410930
-bool CollideWithStaticsFarthest(const Maths::Line* line, CollisionHit* hit, CollisionHitCallback callback,
+bool CollideWithStaticsFarthest(const Maths::Seg* line, CollisionHit* hit, CollisionHitCallback callback,
                                 CHitMeshCache* cache)
 {
     g_wantFarthest = true;
@@ -160,7 +160,7 @@ bool CollideWithStaticsFarthest(const Maths::Line* line, CollisionHit* hit, Coll
 }
 
 // 0x004118C0
-GameObjects::CGameEntity* CollideWithMovables(const Maths::Line* line, CollisionHit* hit, CollisionHitCallback callback,
+GameObjects::CGameEntity* CollideWithMovables(const Maths::Seg* line, CollisionHit* hit, CollisionHitCallback callback,
                                            CHitMeshCache* cache)
 {
     hit->callback = callback;
@@ -169,7 +169,7 @@ GameObjects::CGameEntity* CollideWithMovables(const Maths::Line* line, Collision
         hit->distance = g_wantFarthest ? kFarthestStart : kNearestStart;
     LineQuery query(line, cache);
     if (query.useCache) {
-        const CHitMeshCache::Entry* entries = &cache->m_entries[cache->m_statics];
+        const CHitMeshCache::TableRow* entries = &cache->m_entries[cache->m_statics];
         for (int i = 0; i < cache->m_movables; ++i) {
             if (EntryBox(entries[i]) && query.box.Intersects(*EntryBox(entries[i])))
                 owner = TestMovable(entries[i].object, line, query, hit, owner);
@@ -178,14 +178,14 @@ GameObjects::CGameEntity* CollideWithMovables(const Maths::Line* line, Collision
     }
     for (MemSys::ListNode* node = g_movables.next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next) {
         auto* object = static_cast<CHitMesh*>(node->data);
-        if (object && !(object->m_flags & 6) && MayTouch(object, &query.box))
+        if (object && !(object->m_flagBits & 6) && MayTouch(object, &query.box))
             owner = TestMovable(object, line, query, hit, owner);
     }
     return owner;
 }
 
 // 0x00411AE0
-GameObjects::CGameEntity* CollideWithMovablesFarthest(const Maths::Line* line, CollisionHit* hit,
+GameObjects::CGameEntity* CollideWithMovablesFarthest(const Maths::Seg* line, CollisionHit* hit,
                                                    CollisionHitCallback callback, CHitMeshCache* cache)
 {
     g_wantFarthest = true;

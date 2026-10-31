@@ -26,7 +26,7 @@ struct PointerList {
     PointerListNode** Erase(PointerListNode** out, PointerListNode* first, PointerListNode* last);
     // 0x004964A0 (shared by every such list; gfx/particles.cpp): a new node holding *value before `position`. Out of
     // memory, the original goes on through the null node (and crashes) - kept.
-    void Insert(PointerListNode* position, void* const* value);
+    void Splice(PointerListNode* position, void* const* value);
 };
 
 // A pager message: its parameters (owned) and whether it has been read (8 bytes).
@@ -43,15 +43,15 @@ struct PagerMessage {
 class CPagerMessageComponent : public CObjectModule {
 public:
     // 0x004ECF20: a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x004EC960 (not a Ghidra function): its script member functions (the table at 0x006831A8) registered.
     static void __cdecl PublishMethodTable();
     // 0x004ECE10: the base's constructor, its vtable and type, an empty list. Returns this.
-    CPagerMessageComponent* Construct();
+    CPagerMessageComponent* MakeNew();
     // 0x004ECE90: the destructor body: every message deleted, the list freed, the base's.
     void DestroyBody();
     // 0x004ECF80 (vtable slot 0)
-    CPagerMessageComponent* Destroy(unsigned int flags);
+    CPagerMessageComponent* Teardown(unsigned int flags);
     // 0x004ECC80: the oldest messages deleted down to the parameters' 0x340FB7F4 (none: all), then the script
     // 0xE8DA4931 run with 0x14C4B1CC.
     void ClearMessages(Scripts::CStruct* params);

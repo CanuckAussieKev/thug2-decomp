@@ -36,7 +36,7 @@ struct ImFont;
 //     max_tricks, spin, single_combo, combo_size, tricktris_block_size, tricktris_total_to_win, +0x2CC ten key combo
 //     sets {set, require_perfect, spin / 180, num_taps} counted at +0x2F4, +0x2F8 ten gap numbers counted at +0x302,
 //     +0x303 required_trick_name. InitEditedGoal 0x004E69D0 (game/ed/goal_editor_util.h) gives its defaults,
-//     SetType 0x004E6DA0 its points' kinds and counts; DecodeFromStruct 0x004E96D0 / ExportToStruct 0x004EB260 turn
+//     ChangeSpecies 0x004E6DA0 its points' kinds and counts; DecodeFromStruct 0x004E96D0 / ExportToStruct 0x004EB260 turn
 //     it into a script structure and back (GetEditedGoalsInfo's entries - and the CreatedGoals save, memcard.qb's own
 //     save type, version 5).
 //   - Playing one: the level's load script (levels.qb) adds the goal editor's nodes only in create-a-goal mode, net
@@ -90,31 +90,31 @@ namespace MenuSystem::LevelEditor::Goals {
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
 // Create-a-Goal's goal types, in its SELECT GOAL TYPE order (goal_editor_menu.qb's goals_menu_info).
-enum class Type : uint8_t { Skate, Combo, HighScore, HighCombo, Skatetris, ComboSkatetris, TrickTris, TrickBeat, Race, Gap };
+enum class KindTag : uint8_t { Skate, Combo, HighScore, HighCombo, Skatetris, ComboSkatetris, TrickTris, TrickBeat, Race, Gap };
 constexpr int kTypes = 10;
-const char* TypeName(Type type);    // the record's word: the type's checksum name ("Skate"...)
-const char* TypeTitle(Type type);   // Create-a-Goal's menu name ("SKATE letters"...)
-uint32_t KindHash(Type type);   // 0x54166ACD...
-bool TypeOf(const std::string& name, Type* type);
-bool TypeOfChecksum(uint32_t checksum, Type* type);
+const char* TypeName(KindTag type);    // the record's word: the type's checksum name ("Skate"...)
+const char* TypeTitle(KindTag type);   // Create-a-Goal's menu name ("SKATE letters"...)
+uint32_t KindHash(KindTag type);   // 0x54166ACD...
+bool TypeOf(const std::string& name, KindTag* type);
+bool TypeOfChecksum(uint32_t checksum, KindTag* type);
 // Whether the type is one of the trick goals (key combo sets, spin...): Skatetris, ComboSkatetris, TrickTris, TrickBeat.
-bool TrickType(Type type);
+bool TrickType(KindTag type);
 // How many key combo sets the type offers (cag_key_combos: 8; Trick to the Beat the first 4).
-int ComboSetCount(Type type);
+int ComboSetCount(KindTag type);
 const char* ComboSetName(int set); // cag_key_combos' text
 
-// The points, as SetType (0x004E6DA0) makes them: the fewest (a complete goal) and the most, and point `index`'s kind
+// The points, as ChangeSpecies (0x004E6DA0) makes them: the fewest (a complete goal) and the most, and point `index`'s kind
 // (0 unused, 1 the pro, 2 the start, 3 a letter, 4 a checkpoint) for index 0..12.
 constexpr int kMaxPoints = 13;
-int MinPoints(Type type);
-int MaxPoints(Type type);
-int PointKind(Type type, int index);
+int MinPoints(KindTag type);
+int MaxPoints(KindTag type);
+int PointKind(KindTag type, int index);
 // A point's label ("Pro", "Start", "S"... "O", "Checkpoint 1"...) and its node's suffix ("pro", "start", "s"... "o2",
 // "cp1"...).
-std::string PointLabel(Type type, int index);
-std::string PointSuffix(Type type, int index);
+std::string PointLabel(KindTag type, int index);
+std::string PointSuffix(KindTag type, int index);
 // The default height of a point above its node (letters: GoalEditor_ObjectHeight, 27; others 0).
-float StartingHeight(Type type, int index);
+float StartingHeight(KindTag type, int index);
 
 struct Point {
     V3 pos = {};          // its node's place (on the ground)
@@ -125,7 +125,7 @@ struct Point {
 // A goal: what Create-a-Goal's record holds, by name.
 struct Goal {
     std::string id; // ed_goalNN: its points' nodes are <id>_<suffix>
-    Type type = Type::Skate;
+    KindTag type = KindTag::Skate;
     std::string name, ped, text, win; // view_goals_text, ped_name, goal_description, win_message
     int time = 120;                   // time_limit (15..3600)
     int score = 100;                  // score (HighScore / HighCombo: 1000..10000000)
@@ -147,9 +147,9 @@ struct Goal {
     std::vector<Point> points;        // MinPoints..MaxPoints of them
 };
 bool Same(const Goal& a, const Goal& b);
-// A new goal of `type` with Create-a-Goal's defaults (its menu's name, SetType's score - HighScore 15000, HighCombo
+// A new goal of `type` with Create-a-Goal's defaults (its menu's name, ChangeSpecies's score - HighScore 15000, HighCombo
 // 10000 - Trick to the Beat's spin 0) and no points.
-Goal Defaults(Type type, const std::string& id);
+Goal Defaults(KindTag type, const std::string& id);
 // Whether it has every point it needs - and (Gap) a gap, (trick goals) a key combo set: played only then. `why` says what
 // is missing.
 bool Complete(const Goal& goal, std::string* why = nullptr);
@@ -162,7 +162,7 @@ bool ReadRecord(const std::string& text, Goal* out);
 
 // The 0x338-byte created-goal record (CEditGoal) the game's own functions take: filled from a goal as DecodeFromStruct
 // (0x004E96D0) fills it from the goal's structure - InitEditedGoal's defaults, used, its level, its level_goal_index,
-// SetType's points, then every field; `gapNumbers` the gaps' numbers in the level's gap list now (those not found
+// ChangeSpecies's points, then every field; `gapNumbers` the gaps' numbers in the level's gap list now (those not found
 // left out).
 constexpr size_t kImageSize = 0x338;
 struct GoalImage {
@@ -187,11 +187,11 @@ std::vector<Goal> All();
 bool IsGoalPoint(uint32_t node);
 // A new goal of `type` laid out where the editor's view looks (the pro facing the camera, the start beside it, letters
 // / checkpoints ahead) - one undo step; selected (its pro's node). False: no view, ten goals already.
-bool Create(Type type);
+bool Fabricate(KindTag type);
 // Changed (one undo step a change; `done` false while a field is dragged - the drag is one step).
 bool Edit(const std::string& id, const Goal& changed, bool done);
 // Removed with its points (one undo step).
-bool Remove(const std::string& id);
+bool DropOut(const std::string& id);
 // A race checkpoint added after the last / the last removed (one undo step).
 bool AddCheckpoint(const std::string& id);
 bool RemoveCheckpoint(const std::string& id);
@@ -207,13 +207,13 @@ void ResetAll();
 void ForgetLevel();
 
 // The editor starting / stopping: the goals out of play / put back in play (with their changes).
-void Start();
-void Stop();
+void Kickoff();
+void Halt();
 // Once a frame while the editor runs: what the UI asked for.
-void Update();
+void TickFrame();
 // Labels and lines over the view (the goal of `selected` - a node name, 0 none - brighter).
-void AddOverlay(V3 cameraPos, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                uint32_t selected, std::vector<Ui::Line>* lines, std::vector<Ui::Overlay::Text>* texts);
+void AddOverlay(V3 cameraPos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
+                uint32_t selected, std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Text>* texts);
 // The Inspector: the selected point's goal (`node`: its name, 0 none), and the Goals section (the list, new goals).
 void InspectorSection(uint32_t node, ImFont* mono, ImFont* smallFont);
 void ListSection(ImFont* mono, ImFont* smallFont);
@@ -230,7 +230,7 @@ void EndDrag();
 int Missing(const std::string& id);
 bool RestorePoints(const std::string& id);
 bool PointOfNode(uint32_t node, std::string* id, int* point);
-void Select(const std::string& id, int point);
+void ChooseOne(const std::string& id, int point);
 bool InPlay();
 std::vector<std::string> LevelGaps();
 

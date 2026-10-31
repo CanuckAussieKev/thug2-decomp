@@ -63,7 +63,7 @@ materializes an owning copy of its outer reference target, as described below.
 
 Completed-expression materialization is not yet represented separately by the
 emitter. It can retain a live container reference where the original evaluator's
-`GetResult` copies the referenced target as an owning value. This is a known
+`FetchVerdict` copies the referenced target as an owning value. This is a known
 compatibility gap; helper-level copy/reference tests do not establish complete
 expression-result compatibility.
 
@@ -115,7 +115,7 @@ is retained. Host-specific defaults are supplied by the host, not the lookup.
 A normal parameter read uses FindLastComponent followed by a value copy.
 An expression parameter operand takes the found component, resolves a Name in
 that context and applies MakeReference. Intermediate operands and grouping can
-therefore share targets. At the outer ParseExpression/GetResult boundary,
+therefore share targets. At the outer ParseExpression/FetchVerdict boundary,
 `expressionResult(value,ctx)` copies a type-20/21 target as owning type 10/12;
 other results follow ordinary value-copy rules. Nested existing references keep
 their targets; nested owning containers are copied. An absent result remains
@@ -170,7 +170,7 @@ Resolution occurs only where
 the source operation requests it. Plain names in checksum arrays, ReadHashValue
 queries and a structure member's selector remain raw checksums.
 
-`lookupTyped(params,name,type,ctx)` follows CStruct::Search: retain the last
+`lookupTyped(params,name,type,ctx)` follows CStruct::Hunt: retain the last
 correct match, convert Integer to Float when Float is requested, resolve a
 matching Name as a global candidate, and traverse included global structures
 only through unnamed Name components on the nonmatching-name path. A later
@@ -205,7 +205,7 @@ Validation/type failures carry `ctx.site` where a context exists.
 | `string(bytes,local=false)`, `pair(coords)`, `vector(coords)` | New copied payload, preserving byte/bit representation |
 | `structure(fields,ctx)`, `array(elementType,elements,ctx)` | New owning container; copied, checked contents |
 | `copy(value,mode,ctx)` | Component copy; mode is `"value"` or `"reference"` |
-| `expressionResult(value,ctx)` | GetResult completion: copy outer reference target as owning, preserving nested references; additive API-2 capability |
+| `expressionResult(value,ctx)` | FetchVerdict completion: copy outer reference target as owning, preserving nested references; additive API-2 capability |
 | `merge(a,b,ctx)`, `append(dst,src,ctx)` | Pure merge or in-place append with typed replacement |
 | `param(params,name,mode,ctx)` | FindLastComponent; mode is `"value"` or `"expression"`; absent returns undefined |
 | `lookupGlobal(name,ctx)`, `resolve(value,ctx)` | Explicit alias lookup and Name resolution |
@@ -228,9 +228,9 @@ Operator IDs are 5 index, 7 equality, 8 dot/member, 10 subtract, 11 add,
 12 divide, 13 multiply/cross product, 18 less, 20 greater, 50 OR, 51 AND.
 Integer operations retain uint32 results; floating operations round at the
 source's float32 stores. Numerical precision cases require independent tests;
-Number arithmetic alone is not an x87 compatibility claim. GetBool is different
+Number arithmetic alone is not an x87 compatibility claim. FetchFlag is different
 from statementTruth: it keeps an Integer's word, maps nonzero Float to 1 and
-other types to 0. AND/OR evaluate both inputs and combine GetBool results
+other types to 0. AND/OR evaluate both inputs and combine FetchFlag results
 bitwise; they are not JS short-circuit operators.
 
 Equality resolves Names as ComponentsEqual does. QScript symbols compare by callable identity without execution. Numbers compare numerically;

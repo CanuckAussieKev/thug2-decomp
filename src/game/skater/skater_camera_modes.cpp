@@ -49,18 +49,18 @@ void CRiderChaseView::DestroyBody()
 {
     Maths::ArcRotationBlender* slerp = m_arcBlender;
     m_vtable = g_skaterCameraVtable;
-    MemSys::Manager::Get()->Free(slerp);
+    MemSys::Hub::Pull()->Dealloc(slerp);
     CObjectModule::DestroyBody();
 }
 
 // 0x004F9A20
-void CRiderChaseView::Finalize()
+void CRiderChaseView::Seal()
 {
-    mp_lookAround = static_cast<CFreeLookModule*>(m_object->GetComponent(kCameraLookaround));
+    mp_lookAround = static_cast<CFreeLookModule*>(m_entity->FetchModule(kCameraLookaround));
 }
 
 // 0x004F9A40
-void CRiderChaseView::SetState(const WalkCameraState* state)
+void CRiderChaseView::ChangePhase(const WalkCameraState* state)
 {
     std::memcpy(m_orientation, &state->orientation, sizeof(m_orientation));
     std::memcpy(&m_aimPoint, &state->target, sizeof(m_aimPoint));
@@ -90,45 +90,45 @@ void CRiderChaseView::UpdateLerps()
 }
 
 // 0x004F9AE0
-void CRiderChaseView::SetMode(int mode, float time)
+void CRiderChaseView::ChangeRegime(int mode, float time)
 {
-    auto* camera = m_object->GetComponent(kCamera);
+    auto* camera = m_entity->FetchModule(kCamera);
     int screen = ScreenMode();
     const char* arrayName = screen == 1   ? "Skater_Camera_2P_Vert_Array"
                             : screen == 2 ? "Skater_Camera_2P_Horiz_Array"
                                           : "Skater_Camera_Array";
-    Scripts::CArray* modes = Scripts::GetArray(arrayName);
-    Scripts::CStruct* params = Scripts::ReadSubStruct(modes->GetElement(static_cast<uint32_t>(mode)));
-    m_mode = mode;
+    Scripts::CArray* modes = Scripts::FetchList(arrayName);
+    Scripts::CStruct* params = Scripts::ReadSubStruct(modes->FetchPart(static_cast<uint32_t>(mode)));
+    m_modeSel = mode;
     m_lipTrickTilt = 0.0f;
     float fov, behind, above, tilt, offset;
-    params->GetFloat(kHorizFov, &fov, 0);
-    params->GetFloat(kBehind, &behind, 0);
-    params->GetFloat(kAbove, &above, 0);
-    params->GetFloat(kTilt, &tilt, 0);
-    params->GetFloat(kOriginOffset, &offset, 0);
-    params->GetFloat(kLipTrickTilt, &m_lipTrickTilt, 0);
-    params->GetFloat(kLipTrickAbove, &m_lipTrickAbove, 0);
-    params->GetFloat(kSlerp, &m_slerp, 0);
-    params->GetFloat(kVertAirSlerp, &m_vertAirSlerp, 0);
-    params->GetFloat(kVertAirLandedSlerp, &m_vertAirLandedSlerp, 0);
-    params->GetFloat(kLerpXZ, &m_lerpXZ, 0);
-    params->GetFloat(kLerpY, &m_lerpY, 0);
-    params->GetFloat(kVertAirLerpXZ, &m_vertAirLerpXZ, 0);
-    params->GetFloat(kVertAirLerpY, &m_vertAirLerpY, 0);
-    params->GetFloat(kLookRate, &m_lookRate, 0);
-    params->GetFloat(kWallrideOffsetAngle, &m_wallrideOffsetAngle, 0);
+    params->FetchFloat(kHorizFov, &fov, 0);
+    params->FetchFloat(kBehind, &behind, 0);
+    params->FetchFloat(kAbove, &above, 0);
+    params->FetchFloat(kTilt, &tilt, 0);
+    params->FetchFloat(kOriginOffset, &offset, 0);
+    params->FetchFloat(kLipTrickTilt, &m_lipTrickTilt, 0);
+    params->FetchFloat(kLipTrickAbove, &m_lipTrickAbove, 0);
+    params->FetchFloat(kSlerp, &m_slerp, 0);
+    params->FetchFloat(kVertAirSlerp, &m_vertAirSlerp, 0);
+    params->FetchFloat(kVertAirLandedSlerp, &m_vertAirLandedSlerp, 0);
+    params->FetchFloat(kLerpXZ, &m_lerpXZ, 0);
+    params->FetchFloat(kLerpY, &m_lerpY, 0);
+    params->FetchFloat(kVertAirLerpXZ, &m_vertAirLerpXZ, 0);
+    params->FetchFloat(kVertAirLerpY, &m_vertAirLerpY, 0);
+    params->FetchFloat(kLookRate, &m_lookRate, 0);
+    params->FetchFloat(kWallrideOffsetAngle, &m_wallrideOffsetAngle, 0);
     float zoomLerp;
     m_grindZoom = 1.0f;
     m_lipTrickZoom = 1.0f;
     m_bigAirTrickZoom = 1.0f;
-    params->GetFloat(kZoomLerp, &zoomLerp, 0);
-    params->GetFloat(kGrindZoom, &m_grindZoom, 0);
-    params->GetFloat(kBigAirTrickZoom, &m_bigAirTrickZoom, 0);
-    params->GetFloat(kLipTrickZoom, &m_lipTrickZoom, 0);
+    params->FetchFloat(kZoomLerp, &zoomLerp, 0);
+    params->FetchFloat(kGrindZoom, &m_grindZoom, 0);
+    params->FetchFloat(kBigAirTrickZoom, &m_bigAirTrickZoom, 0);
+    params->FetchFloat(kLipTrickZoom, &m_lipTrickZoom, 0);
     m_zoomLerp = zoomLerp;
     const char* name;
-    params->GetString(kName, &name, 0);
+    params->FetchText(kName, &name, 0);
     m_originOffset = static_cast<float>(static_cast<double>(offset) * kFeet);
     m_horizFov = fov;
     m_leanAngle = tilt;
@@ -149,7 +149,7 @@ void CRiderChaseView::SetMode(int mode, float time)
         m_above = static_cast<float>(static_cast<double>(above) * kFeet);
     }
     // The camera component's camera (+0x18): its field of view (half across a vertical split).
-    auto* view = *reinterpret_cast<Gfx2D::Camera**>(reinterpret_cast<uint8_t*>(camera) + 0x18);
+    auto* view = *reinterpret_cast<Gfx2D::ViewCam**>(reinterpret_cast<uint8_t*>(camera) + 0x18);
     view->ChangeHFov(screen == 1 ? static_cast<float>(static_cast<double>(fov) * kHalf) : fov);
     float heading;
     switch (mode) {

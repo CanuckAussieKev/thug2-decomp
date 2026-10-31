@@ -27,9 +27,9 @@
 // While dragging (or in that modal transform): X / Y / Z constrain it to an axis (again: free), digits with - and .
 // type an exact amount (Move: units along the axis - X when none; Rotate: degrees of heading; Scale: a factor - on the
 // axis, else all three), Backspace erases, Enter applies, Escape cancels. The status bar shows what's typed.
-namespace MenuSystem::LevelEditor::Transform {
+namespace MenuSystem::LevelEditor::Xform {
 
-enum class Mode : uint8_t { Move, Rotate, Scale };
+enum class Mode : uint8_t { ShiftBy, SpinBy, StretchBy };
 enum class Space : uint8_t { World, Local };
 // Base: as the editor always did (objects turn about the first one's position, scenery about its pivot; scenery scales
 // about the middle of its bottom, objects each about its position). Centre: about the middle of the selection's box.
@@ -39,13 +39,13 @@ enum class Pivot : uint8_t { Base, Centre, Own };
 enum class SnapTarget : uint8_t { Grid, WorldGrid, Surface, Vertex };
 
 struct Settings {
-    Mode mode = Mode::Move;
+    Mode mode = Mode::ShiftBy;
     Space space = Space::World;
     Pivot pivot = Pivot::Base;
     SnapTarget target = SnapTarget::Grid;
     bool alignToSlope = false; // (surface snapping: an object stands square to the surface)
 };
-Settings& Current();
+Settings& AtHand();
 // UX1's preferences (level_editor_prefs.h) keep these: wasd_flies (1 - W A S D fly or nudge whatever the mouse does,
 // as the editor was; 0, the default - only while the right mouse button is held), snap_move (the grid, units) and
 // snap_turn (the rotation snap, degrees - Z / X turn objects and nodes by it too). Set: written to the ini.
@@ -93,7 +93,7 @@ float SnapFactor(float factor);
 
 // The gizmo: where (`pivot`), its axes (World: the world's; Local: the selection's) and its size in world units.
 struct Gizmo {
-    Mode mode = Mode::Move;
+    Mode mode = Mode::ShiftBy;
     V3 pivot = {};
     V3 axes[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
     float length = 100.0f;
@@ -134,7 +134,7 @@ std::string Describe(Mode mode, const Typed& typed, int defaultAxis);
 
 // The repeat of the last duplicate (Ctrl+Shift+D, Blender's Shift+R): what the last Ctrl+D (or repeat) copied from and
 // made - so the copies' move and turn since can be done again from them.
-enum class Kind : uint8_t { None, Objects, Scenery, Node };
+enum class Kind : uint8_t { None, Objects, Scenery, Elem };
 struct Repeat {
     Kind kind = Kind::None;
     std::vector<uint32_t> made; // (object ids, sector checksums, a node's name)
@@ -161,4 +161,4 @@ Repeat& LastDuplicate();
 // grid are on the tool strip: level_editor_ui_strip.h.)
 void OptionsMenuItems();
 
-} // namespace MenuSystem::LevelEditor::Transform
+} // namespace MenuSystem::LevelEditor::Xform

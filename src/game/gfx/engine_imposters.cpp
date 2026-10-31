@@ -19,19 +19,19 @@ R Virtual(void* group, int slot)
 {
     return reinterpret_cast<R(__thiscall*)(void*)>((*static_cast<void***>(group))[slot])(group);
 }
-float Distance(void* group) { return reinterpret_cast<float(__thiscall*)(void*)>((*static_cast<void***>(group))[5])(group); }
+float SpanTo(void* group) { return reinterpret_cast<float(__thiscall*)(void*)>((*static_cast<void***>(group))[5])(group); }
 float& NearDistance(void* group) { return *reinterpret_cast<float*>(static_cast<uint8_t*>(group) + 4); }
 int& FrameCount(void* group) { return *reinterpret_cast<int*>(static_cast<uint8_t*>(group) + 0x58); }
 bool HasImposter(void* group) { return *(static_cast<uint8_t*>(group) + 0x5C) != 0; }
 
 // The table's iteration, inlined in the original: the first / next value (null at the end).
-void* NextGroup(ListKit::HashTable* table)
+void* NextGroup(ListKit::KeyMap* table)
 {
     if (!table->StepIterator() || !table->m_iterItem)
         return nullptr;
     return table->m_iterItem->value;
 }
-void* FirstGroup(ListKit::HashTable* table)
+void* FirstGroup(ListKit::KeyMap* table)
 {
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
@@ -41,10 +41,10 @@ void* FirstGroup(ListKit::HashTable* table)
 } // namespace
 
 // 0x0048E3E0
-CImposterManager* CImposterManager::Construct()
+CImposterManager* CImposterManager::MakeNew()
 {
-    void* memory = MemSys::New(sizeof(ListKit::HashTable));
-    mp_groups = memory ? new (memory) ListKit::HashTable(8) : nullptr;
+    void* memory = MemSys::Alloc(sizeof(ListKit::KeyMap));
+    mp_groups = memory ? new (memory) ListKit::KeyMap(8) : nullptr;
     m_maxPerFrame = 1;
     return this;
 }
@@ -61,12 +61,12 @@ void CImposterManager::DeleteAll()
 }
 
 // 0x0048E2D0
-void CImposterManager::Update()
+void CImposterManager::TickFrame()
 {
     int done = 0;
     for (void* group = FirstGroup(mp_groups); group; group = NextGroup(mp_groups)) {
         Virtual(group, 6);
-        float distance = Distance(group);
+        float distance = SpanTo(group);
         if (distance <= NearDistance(group)) { // (NaN: as beyond it)
             Virtual(group, 2);
         } else if (!HasImposter(group)) {

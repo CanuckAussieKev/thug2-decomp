@@ -200,7 +200,7 @@ int Specificity(Chord chord)
     return n;
 }
 
-std::vector<int> Resolve(const std::vector<std::vector<Chord>>& bound, int scancode, uint8_t held)
+std::vector<int> SettleUp(const std::vector<std::vector<Chord>>& bound, int scancode, uint8_t held)
 {
     std::vector<int> best;
     int bestSpecificity = -1;
@@ -274,9 +274,9 @@ constexpr int A = SDL_SCANCODE_A; // (letters: A + n)
 Chord K(int scancode, uint8_t mods = 0) { return {scancode, mods}; }
 Chord L(char letter, uint8_t mods = 0) { return {A + (letter - 'A'), mods}; }
 
-Action Make(const char* id, const char* name, const char* category, Kind kind, std::vector<Chord> keys, const char* tip)
+ActStep Make(const char* id, const char* name, const char* category, Kind kind, std::vector<Chord> keys, const char* tip)
 {
-    Action a;
+    ActStep a;
     a.id = id;
     a.name = name;
     a.category = category;
@@ -288,9 +288,9 @@ Action Make(const char* id, const char* name, const char* category, Kind kind, s
 }
 
 // The built-ins, in Id order.
-std::vector<Action> Builtins()
+std::vector<ActStep> Builtins()
 {
-    std::vector<Action> b = {
+    std::vector<ActStep> b = {
         Make("help", "Keyboard Shortcuts", "Panels", Kind::Press, {K(SDL_SCANCODE_F1)}, "Show all keys and mouse gestures"),
         Make("command_search", "Command Search", "Panels", Kind::Press, {K(SDL_SCANCODE_SPACE, kCtrl), K(SDL_SCANCODE_F3)},
              "Find and run any command by name"),
@@ -381,23 +381,23 @@ std::vector<Action> Builtins()
     };
     for (int i = 1; i <= 9; ++i) {
         std::string n = std::to_string(i);
-        Action a = Make(("bookmark_" + n).c_str(), ("Go to Bookmark " + n).c_str(), "Camera", Kind::Press,
+        ActStep a = Make(("bookmark_" + n).c_str(), ("Go to Bookmark " + n).c_str(), "Camera", Kind::Press,
                         {K(SDL_SCANCODE_1 + i - 1)}, "Move the camera to bookmark n");
         b.push_back(a);
     }
     for (int i = 1; i <= 9; ++i) {
         std::string n = std::to_string(i);
-        Action a = Make(("bookmark_store_" + n).c_str(), ("Set Bookmark " + n).c_str(), "Camera", Kind::Press,
+        ActStep a = Make(("bookmark_store_" + n).c_str(), ("Set Bookmark " + n).c_str(), "Camera", Kind::Press,
                         {K(SDL_SCANCODE_1 + i - 1, kCtrl)}, "Store the camera as bookmark n");
         b.push_back(a);
     }
-    for (Action& a : b) {
+    for (ActStep& a : b) {
         // (the bookmarks' tips name their own number)
         size_t at = a.tip.find("bookmark n");
         if (at != std::string::npos)
             a.tip.replace(at + 9, 1, a.id.substr(a.id.size() - 1));
     }
-    std::vector<Action> views = {
+    std::vector<ActStep> views = {
         Make("view_top", "Top View", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_7)}, "Orthographic view from above"),
         Make("view_bottom", "Bottom View", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_7, kCtrl)}, "Orthographic view from below"),
         Make("view_front", "Front View", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_1)}, "Orthographic view from the front"),
@@ -409,7 +409,7 @@ std::vector<Action> Builtins()
     };
     b.insert(b.end(), views.begin(), views.end());
     // (UX2 - level_editor_transform.h)
-    std::vector<Action> tools = {
+    std::vector<ActStep> tools = {
         Make("tool_move", "Move Tool", "Transform", Kind::Press, {L('W')}, "Move the selection with the gizmo"),
         Make("tool_rotate", "Rotate Tool", "Transform", Kind::Press, {L('E')}, "Rotate the selection with the gizmo"),
         Make("tool_scale", "Scale Tool", "Transform", Kind::Press, {L('R')}, "Scale the selection with the gizmo"),
@@ -427,7 +427,7 @@ std::vector<Action> Builtins()
     };
     b.insert(b.end(), tools.begin(), tools.end());
     // (UX4 / UX5)
-    std::vector<Action> views2 = {
+    std::vector<ActStep> views2 = {
         Make("view_mode_lit", "Lit", "View", Kind::Press, {K(SDL_SCANCODE_1, kAlt)}, "View mode: as in play"),
         Make("view_mode_unlit", "Unlit", "View", Kind::Press, {K(SDL_SCANCODE_2, kAlt)}, "View mode: textures without lighting"),
         Make("view_mode_wireframe", "Wireframe", "View", Kind::Press, {K(SDL_SCANCODE_3, kAlt)}, "View mode: edges only"),
@@ -472,7 +472,7 @@ std::vector<Action> Builtins()
         {"hint_outliner", "Outliner", "Panels", "Click, double-click", "Select; double-click to focus"},
     };
     for (const Hint& h : kHints) {
-        Action a = Make(h.id, h.name, h.category, Kind::Info, {}, h.tip);
+        ActStep a = Make(h.id, h.name, h.category, Kind::DetailsOf, {}, h.tip);
         a.keysText = h.keys;
         a.rebindable = false;
         b.push_back(a);
@@ -480,9 +480,9 @@ std::vector<Action> Builtins()
     return b;
 }
 
-std::vector<Action>& Registry()
+std::vector<ActStep>& Registry()
 {
-    static std::vector<Action> registry = Builtins();
+    static std::vector<ActStep> registry = Builtins();
     static bool loaded = false;
     if (!loaded) {
         loaded = true;
@@ -517,7 +517,7 @@ bool IsModifier(int scancode)
            scancode == SDL_SCANCODE_LGUI || scancode == SDL_SCANCODE_RGUI;
 }
 
-void SaveKeys(const Action& a)
+void SaveKeys(const ActStep& a)
 {
     bool asDefault = a.keys == a.defaults;
     WritePrivateProfileStringA("editor_keys", a.id.c_str(), asDefault ? nullptr : FormatKeys(a.keys).c_str(),
@@ -526,17 +526,17 @@ void SaveKeys(const Action& a)
 
 } // namespace
 
-const std::vector<Action>& All() { return Registry(); }
+const std::vector<ActStep>& All() { return Registry(); }
 
-Action* Get(int index)
+ActStep* Pull(int index)
 {
-    std::vector<Action>& r = Registry();
+    std::vector<ActStep>& r = Registry();
     return index >= 0 && index < static_cast<int>(r.size()) ? &r[index] : nullptr;
 }
 
 int Find(const std::string& id)
 {
-    const std::vector<Action>& r = Registry();
+    const std::vector<ActStep>& r = Registry();
     for (int i = 0; i < static_cast<int>(r.size()); ++i) {
         if (r[i].id == id)
             return i;
@@ -544,9 +544,9 @@ int Find(const std::string& id)
     return -1;
 }
 
-int Register(const Action& action)
+int Enrol(const ActStep& action)
 {
-    std::vector<Action>& r = Registry();
+    std::vector<ActStep>& r = Registry();
     int at = Find(action.id);
     if (at >= 0) {
         std::vector<Chord> keys = r[at].keys;
@@ -566,38 +566,38 @@ int Register(const Action& action)
 
 void SetRun(int index, std::function<void()> run)
 {
-    if (Action* a = Get(index))
+    if (ActStep* a = Pull(index))
         a->run = std::move(run);
 }
 void SetEnabled(int index, std::function<bool()> enabled)
 {
-    if (Action* a = Get(index))
+    if (ActStep* a = Pull(index))
         a->enabled = std::move(enabled);
 }
 void SetChecked(int index, std::function<int()> checked)
 {
-    if (Action* a = Get(index))
+    if (ActStep* a = Pull(index))
         a->checked = std::move(checked);
 }
 
-bool Enabled(int index)
+bool IsSwitchedOn(int index)
 {
-    const Action* a = Get(index);
-    return a && a->kind != Kind::Info && (!a->enabled || a->enabled());
+    const ActStep* a = Pull(index);
+    return a && a->kind != Kind::DetailsOf && (!a->enabled || a->enabled());
 }
 
 int Checked(int index)
 {
-    const Action* a = Get(index);
+    const ActStep* a = Pull(index);
     return a && a->checked ? a->checked() : -1;
 }
 
 std::string KeysText(int index)
 {
-    const Action* a = Get(index);
+    const ActStep* a = Pull(index);
     if (!a)
         return "";
-    if (a->kind == Kind::Info)
+    if (a->kind == Kind::DetailsOf)
         return a->keysText;
     std::string text;
     for (const Chord& c : a->keys) {
@@ -614,12 +614,12 @@ std::string KeysText(int index)
 std::vector<int> Conflicts(int index)
 {
     std::vector<int> out;
-    const Action* a = Get(index);
+    const ActStep* a = Pull(index);
     if (!a)
         return out;
-    const std::vector<Action>& r = Registry();
+    const std::vector<ActStep>& r = Registry();
     for (int i = 0; i < static_cast<int>(r.size()); ++i) {
-        if (i == index || r[i].kind == Kind::Info)
+        if (i == index || r[i].kind == Kind::DetailsOf)
             continue;
         // (a key held and a key pressed may share a key: flying's E and nudging's E are one key in two modes)
         if ((r[i].kind == Kind::Hold) != (a->kind == Kind::Hold))
@@ -637,7 +637,7 @@ std::vector<int> Conflicts(int index)
 
 void BeginFrame(const uint8_t* keys)
 {
-    std::vector<Action>& r = Registry();
+    std::vector<ActStep>& r = Registry();
     g_fired.assign(r.size(), false);
     g_triggered.resize(r.size(), false);
     for (size_t i = 0; i < r.size(); ++i) {
@@ -657,7 +657,7 @@ void BeginFrame(const uint8_t* keys)
         if (g_capture >= 0) {
             // (the key being captured: Escape cancels)
             if (s != SDL_SCANCODE_ESCAPE) {
-                if (Action* a = Get(g_capture)) {
+                if (ActStep* a = Pull(g_capture)) {
                     std::vector<Chord> next = a->keys;
                     Chord chord = {s, held};
                     if (!*KeyName(s)) {
@@ -676,12 +676,12 @@ void BeginFrame(const uint8_t* keys)
         }
         if (!haveBound) {
             for (size_t i = 0; i < r.size(); ++i) {
-                if (r[i].kind == Kind::Press || r[i].kind == Kind::Toggle)
+                if (r[i].kind == Kind::Press || r[i].kind == Kind::FlipOver)
                     bound[i] = r[i].keys;
             }
             haveBound = true;
         }
-        for (int i : Resolve(bound, s, held))
+        for (int i : SettleUp(bound, s, held))
             g_fired[i] = true;
     }
 }
@@ -692,11 +692,11 @@ void SeedKeys(const uint8_t* keys)
     g_triggered.assign(g_triggered.size(), false);
 }
 
-bool Pressed(int index) { return index >= 0 && index < static_cast<int>(g_fired.size()) && g_fired[index]; }
+bool Squeezed(int index) { return index >= 0 && index < static_cast<int>(g_fired.size()) && g_fired[index]; }
 
 bool Held(const uint8_t* keys, int index)
 {
-    const Action* a = Get(index);
+    const ActStep* a = Pull(index);
     if (!a || g_capture >= 0)
         return false;
     uint8_t held = HeldMods(keys);
@@ -707,9 +707,9 @@ bool Held(const uint8_t* keys, int index)
     return false;
 }
 
-void Trigger(int index)
+void FireOff(int index)
 {
-    std::vector<Action>& r = Registry();
+    std::vector<ActStep>& r = Registry();
     if (index < 0 || index >= static_cast<int>(r.size()))
         return;
     g_triggered.resize(r.size(), false);
@@ -718,18 +718,18 @@ void Trigger(int index)
 
 void Run(int index)
 {
-    Action* a = Get(index);
-    if (!a || !Enabled(index))
+    ActStep* a = Pull(index);
+    if (!a || !IsSwitchedOn(index))
         return;
     if (a->run)
         a->run();
     else
-        Trigger(index);
+        FireOff(index);
 }
 
 void SetKeys(int index, const std::vector<Chord>& keys)
 {
-    Action* a = Get(index);
+    ActStep* a = Pull(index);
     if (!a || !a->rebindable)
         return;
     a->keys = keys;
@@ -739,7 +739,7 @@ void SetKeys(int index, const std::vector<Chord>& keys)
 
 void ResetKeys(int index)
 {
-    Action* a = Get(index);
+    ActStep* a = Pull(index);
     if (!a)
         return;
     a->keys = a->defaults;
@@ -748,9 +748,9 @@ void ResetKeys(int index)
 
 void LoadKeys()
 {
-    std::vector<Action>& r = Registry();
+    std::vector<ActStep>& r = Registry();
     std::string path = IniPath();
-    for (Action& a : r) {
+    for (ActStep& a : r) {
         if (!a.rebindable)
             continue;
         char text[160] = "";
@@ -767,7 +767,7 @@ void LoadKeys()
 
 void BeginCapture(int index, int slot)
 {
-    g_capture = Get(index) && Get(index)->rebindable ? index : -1;
+    g_capture = Pull(index) && Pull(index)->rebindable ? index : -1;
     g_captureSlot = slot;
 }
 void CancelCapture() { g_capture = -1; }

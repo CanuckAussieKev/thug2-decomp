@@ -54,47 +54,47 @@ constexpr float kTurnFacing = 0.3f; // (how far the display facing turns to the 
 bool InParkEditor() { return At<uint32_t>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor), 0x40) == kParkEditorLevel; }
 void ChangeState(void* component, int state) { static_cast<CorePhysicsComponent*>(component)->SetPhysicsState(state); }
 
-Maths::Vector WorldPos(void* component, const GameObjects::CGrindPoint* node)
+Maths::Vec4 WorldPos(void* component, const GameObjects::CGrindPoint* node)
 {
-    Maths::Vector out;
+    Maths::Vec4 out;
     return *At<GameObjects::CGrindRailHub*>(component, kRailManager)->GetAbsolutePos(&out, node);
 }
 
 // -1 for a dot product below 0, else 1 (NaN: 1).
 float SignOf(double dot) { return dot < 0.0 ? -1.0f : 1.0f; }
-double Dot3(const Maths::Vector& a, const Maths::Vector& v)
+double Dot3(const Maths::Vec4& a, const Maths::Vec4& v)
 {
     return (static_cast<double>(a.z) * v.z + static_cast<double>(a.y) * v.y) + static_cast<double>(a.x) * v.x;
 }
 
 // A node rails go on from (flag 4 - its >> 2 & 1).
-bool Continues(const GameObjects::CGrindPoint* node) { return (node->m_flags >> 2) & 1; }
+bool Continues(const GameObjects::CGrindPoint* node) { return (node->m_flagBits >> 2) & 1; }
 
 // The corner from segment `a` (to - from) into segment `b` (level): turning less than Rail_Corner_Leave_Angle.
-bool GentleCorner(Maths::Vector a, Maths::Vector b)
+bool GentleCorner(Maths::Vec4 a, Maths::Vec4 b)
 {
     a.y = 0.0f;
     b.y = 0.0f;
-    a.Normalize();
-    b.Normalize();
+    a.MakeUnit();
+    b.MakeUnit();
     float turn = static_cast<float>((static_cast<double>(b.z) * a.z + static_cast<double>(b.y) * a.y) +
                                     static_cast<double>(b.x) * a.x);
-    return !(std::cos(static_cast<double>(Scripts::GetFloat(kCornerLeaveAngle)) * kDegrees) > turn);
+    return !(std::cos(static_cast<double>(Scripts::FetchFloat(kCornerLeaveAngle)) * kDegrees) > turn);
 }
 
 } // namespace
 
 // 0x0050C200
-void CorePhysicsComponent::TransferOrLeaveRail(const Maths::Vector* end)
+void CorePhysicsComponent::TransferOrLeaveRail(const Maths::Vec4* end)
 {
     // The line looked along: from `end` (in the park editor: back along the velocity) to the skater, raised.
     void* object = ObjectOf(this);
-    Maths::Vector start;
+    Maths::Vec4 start;
     if (!InParkEditor()) {
         start = *end;
     } else {
-        const Maths::Vector& p = VectorAt(object, kPosition);
-        const Maths::Vector& v = VectorAt(object, kVelocity);
+        const Maths::Vec4& p = VectorAt(object, kPosition);
+        const Maths::Vec4& v = VectorAt(object, kVelocity);
         float t = At<float>(this, kFrameLength);
         float bx = t * v.x, by = t * v.y, bz = t * v.z;
         double bw = static_cast<double>(t) * v.w;
@@ -104,29 +104,29 @@ void CorePhysicsComponent::TransferOrLeaveRail(const Maths::Vector* end)
         start.w = static_cast<float>(p.w - bw);
     }
     start.y = start.y + kRaise;
-    Maths::Vector stop = VectorAt(ObjectOf(this), kPosition);
+    Maths::Vec4 stop = VectorAt(ObjectOf(this), kPosition);
     stop.y = stop.y + kRaiseEnd;
-    float angle = Scripts::GetFloat(kCornerLeaveAngle);
+    float angle = Scripts::FetchFloat(kCornerLeaveAngle);
     auto* node = At<GameObjects::CGrindPoint*>(this, kRailNode);
     int side = node->GetWallSide(&VectorAt(ObjectOf(this), kVelocity));
     float alignment = static_cast<float>(std::cos(static_cast<double>(angle) * kDegrees));
-    Maths::Vector point;
+    Maths::Vec4 point;
     GameObjects::CGrindPoint* found = nullptr;
     bool onto = At<GameObjects::CGrindRailHub*>(this, kRailManager)
                     ->FindGrindRail(&start, &stop, &point, &found, At<GameObjects::CGrindPoint*>(this, kRailNode), alignment, side) &&
-                found && found != At<GameObjects::CGrindPoint*>(this, kRailNode) && found->m_next;
+                found && found != At<GameObjects::CGrindPoint*>(this, kRailNode) && found->m_succ;
     if (onto && !InParkEditor()) {
         // (Not this rail's next or last node.)
         auto* current = At<GameObjects::CGrindPoint*>(this, kRailNode);
-        onto = current->m_next != found && current->m_lastValue != found;
+        onto = current->m_succ != found && current->m_lastValue != found;
     }
     if (onto) {
-        GameObjects::CGrindPoint* next = found->m_next;
-        const Maths::Vector& p = VectorAt(ObjectOf(this), kPosition);
-        Maths::Vector foundPos = WorldPos(this, found);
-        Maths::Vector toFound = foundPos - p;
-        Maths::Vector nextPos = WorldPos(this, next);
-        Maths::Vector toNext = nextPos - VectorAt(ObjectOf(this), kPosition);
+        GameObjects::CGrindPoint* next = found->m_succ;
+        const Maths::Vec4& p = VectorAt(ObjectOf(this), kPosition);
+        Maths::Vec4 foundPos = WorldPos(this, found);
+        Maths::Vec4 toFound = foundPos - p;
+        Maths::Vec4 nextPos = WorldPos(this, next);
+        Maths::Vec4 toNext = nextPos - VectorAt(ObjectOf(this), kPosition);
         double toward = (static_cast<double>(toNext.x) * toFound.x + static_cast<double>(toNext.z) * toFound.z) +
                         static_cast<double>(toNext.y) * toFound.y;
         float towardRounded = static_cast<float>(toward);
@@ -134,15 +134,15 @@ void CorePhysicsComponent::TransferOrLeaveRail(const Maths::Vector* end)
             // Not between its two nodes: never in the park editor; elsewhere only when the move reaches as far as
             // the segment is long - then onto its middle.
             if (!InParkEditor()) {
-                Maths::Vector a = WorldPos(this, found);
-                Maths::Vector b = WorldPos(this, next);
-                Maths::Vector segment = b - a;
-                Maths::Vector move = stop - start;
+                Maths::Vec4 a = WorldPos(this, found);
+                Maths::Vec4 b = WorldPos(this, next);
+                Maths::Vec4 segment = b - a;
+                Maths::Vec4 move = stop - start;
                 float segmentLength = static_cast<float>(LengthOf(segment));
                 onto = !(LengthOf(move) < segmentLength);
                 if (onto && towardRounded >= 0.0f) {
-                    Maths::Vector c = WorldPos(this, found);
-                    Maths::Vector d = WorldPos(this, next);
+                    Maths::Vec4 c = WorldPos(this, found);
+                    Maths::Vec4 d = WorldPos(this, next);
                     point = (d + c) / 2.0f;
                 }
             } else {
@@ -153,25 +153,25 @@ void CorePhysicsComponent::TransferOrLeaveRail(const Maths::Vector* end)
     if (!onto) {
         TriggerRailScript(g_grindOffEvents);
         ChangeState(this, kAir);
-        Maths::Vector& p = VectorAt(ObjectOf(this), kPosition);
+        Maths::Vec4& p = VectorAt(ObjectOf(this), kPosition);
         p.y = p.y + 1.0f;
-        static_cast<GameObjects::CObject*>(ObjectOf(this))->PostOwnEvent(kOffRail, nullptr);
+        static_cast<GameObjects::CEntity*>(ObjectOf(this))->PostOwnEvent(kOffRail, nullptr);
         return;
     }
     // Onto it: the velocity along it (the same way), the skater at the point.
-    GameObjects::CGrindPoint* next = found->m_next;
-    Maths::Vector a = WorldPos(this, found);
-    Maths::Vector b = WorldPos(this, next);
-    Maths::Vector direction = b - a;
-    direction.Normalize();
-    Maths::Vector& v = VectorAt(ObjectOf(this), kVelocity);
+    GameObjects::CGrindPoint* next = found->m_succ;
+    Maths::Vec4 a = WorldPos(this, found);
+    Maths::Vec4 b = WorldPos(this, next);
+    Maths::Vec4 direction = b - a;
+    direction.MakeUnit();
+    Maths::Vec4& v = VectorAt(ObjectOf(this), kVelocity);
     if (v.x == 0.0f && v.z == 0.0f) {
         v.x = VectorAt(ObjectOf(this), kFacing).x;
         VectorAt(ObjectOf(this), kVelocity).z = VectorAt(ObjectOf(this), kFacing).z;
     }
-    Maths::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
+    Maths::Vec4& velocity = VectorAt(ObjectOf(this), kVelocity);
     float sign = Maths::Sign(static_cast<float>(Dot3(direction, velocity)));
-    velocity.SetDirection(direction);
+    velocity.ChangeHeading(direction);
     VectorAt(ObjectOf(this), kVelocity) *= sign;
     At<GameObjects::CGrindPoint*>(this, kRailNode) = found;
     VectorAt(ObjectOf(this), kPosition) = point;
@@ -190,19 +190,19 @@ void CorePhysicsComponent::DoRailPhysics()
     RideMovingRail();
 
     void* object = ObjectOf(this);
-    At<int>(this, 0x23C) = static_cast<int>(Scripts::GetFloat(kRerailTime));
+    At<int>(this, 0x23C) = static_cast<int>(Scripts::FetchFloat(kRerailTime));
     SetFlag(this, 0x50, 0);
     // Off the rail (0x004FFB10): the TriggerScripts, the jump's rerail time, up and out.
     if (JumpReleased()) {
         TriggerRailScript(g_jumpTriggerEvents);
         TriggerRailScript(g_grindOffEvents);
-        At<int>(this, 0x23C) = static_cast<int>(Scripts::GetFloat(kJumpRerailTime));
+        At<int>(this, 0x23C) = static_cast<int>(Scripts::FetchFloat(kJumpRerailTime));
         SetFlag(this, 0xD0, 1);
         SetFlag(this, 0xD8, 1);
-        Maths::Vector& p = VectorAt(ObjectOf(this), kPosition);
+        Maths::Vec4& p = VectorAt(ObjectOf(this), kPosition);
         p.y = p.y + 1.0f;
         FinishRail();
-        if (ThawBmx::Active(this))
+        if (ThawBmx::LiveNow(this))
             ThawBmx::RailStallSlip(this); // (not original: THAW 0x005E7074 - the bike's stall)
         return;
     }
@@ -210,7 +210,7 @@ void CorePhysicsComponent::DoRailPhysics()
 
     auto* node = At<GameObjects::CGrindPoint*>(this, kRailNode);
     GameObjects::CGrindPoint* const startNode = node;
-    GameObjects::CGrindPoint* next = node->m_next;
+    GameObjects::CGrindPoint* next = node->m_succ;
     GameObjects::CGrindPoint* goOnTo = nullptr;
     if (!next) {
         // The rail's last node.
@@ -219,23 +219,23 @@ void CorePhysicsComponent::DoRailPhysics()
     }
 
     // The segment's direction (x scaled by the unrounded inverse length, the rest by it rounded - as the original).
-    Maths::Vector from = WorldPos(this, node);
-    Maths::Vector to = WorldPos(this, next);
+    Maths::Vec4 from = WorldPos(this, node);
+    Maths::Vec4 to = WorldPos(this, next);
     double dx = static_cast<double>(to.x) - from.x, dy = static_cast<double>(to.y) - from.y;
     double dz = static_cast<double>(to.z) - from.z, dw = static_cast<double>(to.w) - from.w;
     float segmentLength = static_cast<float>(std::sqrt((dx * dx + dy * dy) + dz * dz));
     double inverse = 1.0 / segmentLength;
     float inverseRounded = static_cast<float>(inverse);
-    Maths::Vector along = {static_cast<float>(inverse * dx), static_cast<float>(inverseRounded * dy),
+    Maths::Vec4 along = {static_cast<float>(inverse * dx), static_cast<float>(inverseRounded * dy),
                          static_cast<float>(inverseRounded * dz), static_cast<float>(inverseRounded * dw)};
 
     // The rail's gravity along it; turned back by it: the other way round (+0x34C).
     float before = SignOf(Dot3(along, VectorAt(ObjectOf(this), kVelocity)));
-    Maths::Vector gravity = {0.0f, PhysicsFloat(kRailGravity, object), 0.0f, 1.0f};
+    Maths::Vec4 gravity = {0.0f, PhysicsFloat(kRailGravity, object), 0.0f, 1.0f};
     gravity.ProjectOnto(along);
     {
         float t = At<float>(this, kFrameLength);
-        Maths::Vector& v = VectorAt(ObjectOf(this), kVelocity);
+        Maths::Vec4& v = VectorAt(ObjectOf(this), kVelocity);
         float gy = t * gravity.y, gz = t * gravity.z, gw = t * gravity.w;
         v.x = static_cast<float>(static_cast<double>(gravity.x) * t + v.x);
         v.y = gy + v.y;
@@ -251,12 +251,12 @@ void CorePhysicsComponent::DoRailPhysics()
     if (after < 0.0f) {
         GameObjects::CGrindPoint* prev = node->m_lastValue;
         if (prev && Continues(prev)) {
-            Maths::Vector a = WorldPos(this, node);
-            Maths::Vector b = WorldPos(this, next);
-            Maths::Vector ahead = b - a;
-            Maths::Vector c = WorldPos(this, prev);
-            Maths::Vector d = WorldPos(this, node);
-            Maths::Vector behind = d - c;
+            Maths::Vec4 a = WorldPos(this, node);
+            Maths::Vec4 b = WorldPos(this, next);
+            Maths::Vec4 ahead = b - a;
+            Maths::Vec4 c = WorldPos(this, prev);
+            Maths::Vec4 d = WorldPos(this, node);
+            Maths::Vec4 behind = d - c;
             if (GentleCorner(ahead, behind))
                 goOnTo = node->m_lastValue;
             else
@@ -265,14 +265,14 @@ void CorePhysicsComponent::DoRailPhysics()
             noNextSegment = true;
         }
     } else {
-        GameObjects::CGrindPoint* beyond = next->m_next;
+        GameObjects::CGrindPoint* beyond = next->m_succ;
         if (beyond && Continues(beyond)) {
-            Maths::Vector a = WorldPos(this, next);
-            Maths::Vector b = WorldPos(this, node);
-            Maths::Vector back = b - a;
-            Maths::Vector c = WorldPos(this, next->m_next);
-            Maths::Vector d = WorldPos(this, next);
-            Maths::Vector backFurther = d - c;
+            Maths::Vec4 a = WorldPos(this, next);
+            Maths::Vec4 b = WorldPos(this, node);
+            Maths::Vec4 back = b - a;
+            Maths::Vec4 c = WorldPos(this, next->m_succ);
+            Maths::Vec4 d = WorldPos(this, next);
+            Maths::Vec4 backFurther = d - c;
             if (GentleCorner(back, backFurther))
                 goOnTo = next;
             else
@@ -286,19 +286,19 @@ void CorePhysicsComponent::DoRailPhysics()
     float overshoot = 0.0f;
     {
         GameObjects::CGrindPoint* fromNode = after < 0.0f ? next : node;
-        const Maths::Vector& p = VectorAt(ObjectOf(this), kPosition);
-        Maths::Vector q = WorldPos(this, fromNode);
+        const Maths::Vec4& p = VectorAt(ObjectOf(this), kPosition);
+        Maths::Vec4 q = WorldPos(this, fromNode);
         double ex = static_cast<double>(p.x) - q.x, ey = static_cast<double>(p.y) - q.y, ez = static_cast<double>(p.z) - q.z;
         double distance = std::sqrt((ez * ez + ey * ey) + ex * ex);
         if (distance > static_cast<double>(segmentLength) + 0.1f) {
             overshoot = static_cast<float>(distance - segmentLength);
             GameObjects::CGrindPoint* corner = after < 0.0f ? node : next;               // the node passed
-            GameObjects::CGrindPoint* onward = after < 0.0f ? node->m_lastValue : next->m_next; // the next segment's far node
+            GameObjects::CGrindPoint* onward = after < 0.0f ? node->m_lastValue : next->m_succ; // the next segment's far node
             GameObjects::CGrindPoint* flagged = after < 0.0f ? node->m_lastValue : next;      // the node whose flag says go on
             bool clear = false;
             if (onward && Continues(flagged)) {
-                Maths::Vector far = WorldPos(this, onward);
-                Maths::Vector near = WorldPos(this, corner);
+                Maths::Vec4 far = WorldPos(this, onward);
+                Maths::Vec4 near = WorldPos(this, corner);
                 clear = GameObjects::RailClear(near, far);
             }
             if (clear && !noNextSegment) {
@@ -307,21 +307,21 @@ void CorePhysicsComponent::DoRailPhysics()
                 SetSurfaceKind(At<GameObjects::CGrindPoint*>(this, kRailNode)->m_surfaceType);
                 TriggerRailScript(g_grindEvents);
             } else {
-                Maths::Vector end = WorldPos(this, corner);
+                Maths::Vec4 end = WorldPos(this, corner);
                 TransferOrLeaveRail(&end);
             }
         }
     }
     if (StateOf(this) != kRail) {
         FinishRail();
-        if (ThawBmx::Active(this))
+        if (ThawBmx::LiveNow(this))
             ThawBmx::RailStallSlip(this); // (not original, as above)
         return;
     }
 
     GrindAlong(startNode, goOnTo, noNextSegment, overshoot);
     FinishRail();
-    if (ThawBmx::Active(this))
+    if (ThawBmx::LiveNow(this))
         ThawBmx::RailStallSlip(this); // (not original, as above)
 }
 
@@ -329,21 +329,21 @@ void CorePhysicsComponent::DoRailPhysics()
 void CorePhysicsComponent::RideMovingRail()
 {
     if (GameObjects::CRideTracker* tracker = Tracker(this)) {
-        if (!tracker->m_object.m_ownerObject) {
+        if (!tracker->m_entity.m_ownerObject) {
             StopRiding(this);
         } else {
-            void* rails = static_cast<GameObjects::CGameEntity*>(Tracker(this)->m_object.m_ownerObject)->GetComponent(kRailManagerType);
-            Maths::Matrix matrix;
+            void* rails = static_cast<GameObjects::CGameEntity*>(Tracker(this)->m_entity.m_ownerObject)->FetchModule(kRailManagerType);
+            Maths::Mat4 matrix;
             static_cast<GameObjects::CGrindPathLinkModule*>(rails)->UpdateRailMatrix(&matrix);
             tracker = Tracker(this);
             if (tracker) {
-                if (!tracker->m_object.m_ownerObject || !tracker->Update(&VectorAt(ObjectOf(this), kPosition))) {
+                if (!tracker->m_entity.m_ownerObject || !tracker->TickFrame(&VectorAt(ObjectOf(this), kPosition))) {
                     StopRiding(this);
                 } else {
                     VectorAt(ObjectOf(this), kPosition) += Tracker(this)->m_carried;
                     if (Tracker(this)->m_turned) {
                         auto multiply = D3dx::MatrixMultiply;
-                        Maths::Matrix& m = MatrixAt(ObjectOf(this), kMatrix);
+                        Maths::Mat4& m = MatrixAt(ObjectOf(this), kMatrix);
                         multiply(&m, &m, &Tracker(this)->m_turn);
                         multiply(&MatrixAt(this, kDisplayMatrix), &MatrixAt(this, kDisplayMatrix),
                                  &Tracker(this)->m_turn);
@@ -359,7 +359,7 @@ void CorePhysicsComponent::UpdateGrindBalance()
 {
     uint32_t kind = At<uint32_t>(At<void*>(this, kBalanceTrick), 0x18);
     if (kind == kGrind || kind == kSlide) {
-        reinterpret_cast<GameObjects::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0x7C)->Update();
+        reinterpret_cast<GameObjects::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0x7C)->TickFrame();
         auto career = [] { return At<GameObjects::CRiderStoryProgress*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule), 0x20); };
         if (career()->IsCodeOn(kPerfectRail)) {
             career()->SetGlobalFlag(Scripts::FetchIntValue(kPerfectRail));
@@ -376,15 +376,15 @@ void CorePhysicsComponent::GrindAlong(GameObjects::CGrindPoint* startNode, GameO
                                       float overshoot)
 {
     auto* node = At<GameObjects::CGrindPoint*>(this, kRailNode);
-    GameObjects::CGrindPoint* next = node->m_next;
-    Maths::Vector from = WorldPos(this, node);
-    Maths::Vector to = WorldPos(this, next);
-    Maths::Vector direction = {to.x - from.x, to.y - from.y, to.z - from.z, to.w - from.w};
-    direction.Normalize();
+    GameObjects::CGrindPoint* next = node->m_succ;
+    Maths::Vec4 from = WorldPos(this, node);
+    Maths::Vec4 to = WorldPos(this, next);
+    Maths::Vec4 direction = {to.x - from.x, to.y - from.y, to.z - from.z, to.w - from.w};
+    direction.MakeUnit();
     float sign = SignOf(Dot3(direction, VectorAt(ObjectOf(this), kVelocity)));
     At<int>(this, 0x234) = Now();
-    VectorAt(ObjectOf(this), kVelocity).SetDirection(direction);
-    Maths::Vector& v = VectorAt(ObjectOf(this), kVelocity);
+    VectorAt(ObjectOf(this), kVelocity).ChangeHeading(direction);
+    Maths::Vec4& v = VectorAt(ObjectOf(this), kVelocity);
     v.x = sign * v.x;
     v.y = sign * v.y;
     v.z = sign * v.z;
@@ -393,38 +393,38 @@ void CorePhysicsComponent::GrindAlong(GameObjects::CGrindPoint* startNode, GameO
     // The facing: along the rail (the other way round with +0x34C); the display facing (+0x38) turned 0.3 of the way
     // to it, the display and the object's matrices built around them (level rights).
     float way = At<uint8_t>(this, 0x34C) ? -sign : sign;
-    Maths::Vector facing = {direction.x * way, direction.y * way, direction.z * way, way * direction.w};
-    Maths::Vector& display = VectorAt(this, 0x38);
-    Maths::Vector turned;
+    Maths::Vec4 facing = {direction.x * way, direction.y * way, direction.z * way, way * direction.w};
+    Maths::Vec4& display = VectorAt(this, 0x38);
+    Maths::Vec4 turned;
     Walk::Lerp(&turned, &display, &facing, kTurnFacing);
     display = turned;
-    display.Normalize();
-    Maths::Vector& right = VectorAt(this, 0x18);
+    display.MakeUnit();
+    Maths::Vec4& right = VectorAt(this, 0x18);
     right.x = At<float>(this, 0x40);
     right.z = -display.x;
     right.y = 0.0f;
     right.w = 0.0f;
-    right.Normalize();
-    VectorAt(this, 0x28) = Maths::CrossProduct(display, right);
-    VectorAt(this, 0x28).Normalize();
+    right.MakeUnit();
+    VectorAt(this, 0x28) = Maths::CrossVec(display, right);
+    VectorAt(this, 0x28).MakeUnit();
     void* object = ObjectOf(this);
     VectorAt(object, kFacing) = facing;
-    VectorAt(ObjectOf(this), kFacing).Normalize();
+    VectorAt(ObjectOf(this), kFacing).MakeUnit();
     object = ObjectOf(this);
-    Maths::Vector& objectRight = VectorAt(object, kRight);
+    Maths::Vec4& objectRight = VectorAt(object, kRight);
     float fz = VectorAt(object, kFacing).z;
     objectRight.z = -VectorAt(object, kFacing).x;
     objectRight.x = fz;
     objectRight.y = 0.0f;
     objectRight.w = 0.0f;
-    VectorAt(ObjectOf(this), kRight).Normalize();
+    VectorAt(ObjectOf(this), kRight).MakeUnit();
     object = ObjectOf(this);
-    VectorAt(object, kUp) = Maths::CrossProduct(VectorAt(object, kFacing), VectorAt(object, kRight));
-    VectorAt(ObjectOf(this), kUp).Normalize();
+    VectorAt(object, kUp) = Maths::CrossVec(VectorAt(object, kFacing), VectorAt(object, kRight));
+    VectorAt(ObjectOf(this), kUp).MakeUnit();
 
     // What went past the last segment's end is only carried on when this segment is longer.
-    Maths::Vector a = WorldPos(this, node);
-    Maths::Vector b = WorldPos(this, next);
+    Maths::Vec4 a = WorldPos(this, node);
+    Maths::Vec4 b = WorldPos(this, next);
     double sx = static_cast<double>(b.x) - a.x, sy = static_cast<double>(b.y) - a.y;
     double sz = static_cast<double>(b.z) - a.z;
     double length = std::sqrt((sx * sx + sz * sz) + sy * sy);
@@ -432,17 +432,17 @@ void CorePhysicsComponent::GrindAlong(GameObjects::CGrindPoint* startNode, GameO
         overshoot = 0.0f;
 
     // The move: the velocity over the frame, plus the overshoot along the facing (x, y of both unrounded).
-    Maths::Vector& p = VectorAt(ObjectOf(this), kPosition);
-    Maths::Vector old = p;
+    Maths::Vec4& p = VectorAt(ObjectOf(this), kPosition);
+    Maths::Vec4 old = p;
     {
         float t = At<float>(this, kFrameLength);
-        const Maths::Vector& u = VectorAt(ObjectOf(this), kVelocity);
+        const Maths::Vec4& u = VectorAt(ObjectOf(this), kVelocity);
         float my = t * u.y, mz = t * u.z, mw = t * u.w;
         p.x = static_cast<float>(static_cast<double>(t) * u.x + p.x);
         p.y = my + p.y;
         p.z = mz + p.z;
         p.w = mw + p.w;
-        Maths::Vector& q = VectorAt(ObjectOf(this), kPosition);
+        Maths::Vec4& q = VectorAt(ObjectOf(this), kPosition);
         float oz = facing.z * overshoot, ow = facing.w * overshoot;
         q.x = static_cast<float>(static_cast<double>(facing.x) * overshoot + q.x);
         q.y = static_cast<float>(static_cast<double>(facing.y) * overshoot + q.y);
@@ -450,30 +450,30 @@ void CorePhysicsComponent::GrindAlong(GameObjects::CGrindPoint* startNode, GameO
         q.w = ow + q.w;
         q.w = q.w + 1.0f;
     }
-    const Maths::Vector& now = VectorAt(ObjectOf(this), kPosition);
-    Maths::Vector move = {now.x - old.x, now.y - old.y, now.z - old.z, now.w - old.w};
-    Maths::Vector moveDirection = move;
-    moveDirection.Normalize();
+    const Maths::Vec4& now = VectorAt(ObjectOf(this), kPosition);
+    Maths::Vec4 move = {now.x - old.x, now.y - old.y, now.z - old.z, now.w - old.w};
+    Maths::Vec4 moveDirection = move;
+    moveDirection.MakeUnit();
 
     // Going on along the rail: only (not in the park editor) when the next segment climbs as this one does.
     if (!noNextSegment) {
         if (InParkEditor())
             return;
-        Maths::Vector c = WorldPos(this, startNode);
-        Maths::Vector d = WorldPos(this, startNode->m_next);
-        Maths::Vector thisWay = d - c;
-        Maths::Vector e = WorldPos(this, goOnTo);
-        Maths::Vector f = WorldPos(this, goOnTo->m_next);
-        Maths::Vector thatWay = f - e;
-        thisWay.Normalize();
-        thatWay.Normalize();
+        Maths::Vec4 c = WorldPos(this, startNode);
+        Maths::Vec4 d = WorldPos(this, startNode->m_succ);
+        Maths::Vec4 thisWay = d - c;
+        Maths::Vec4 e = WorldPos(this, goOnTo);
+        Maths::Vec4 f = WorldPos(this, goOnTo->m_succ);
+        Maths::Vec4 thatWay = f - e;
+        thisWay.MakeUnit();
+        thatWay.MakeUnit();
         if (!(std::fabs(static_cast<double>(thisWay.y) - thatWay.y) < 0.01f))
             return;
     }
 
     // The feeler: from the last position to 6 past the new one along the move, raised by the up.
-    Maths::Vector& start = VectorAt(this, kFeelerStart);
-    Maths::Vector& end = VectorAt(this, kFeelerEnd);
+    Maths::Vec4& start = VectorAt(this, kFeelerStart);
+    Maths::Vec4& end = VectorAt(this, kFeelerEnd);
     double aheadX = static_cast<double>(moveDirection.x) * kFeelerAhead;
     double aheadY = static_cast<double>(moveDirection.y) * kFeelerAhead;
     float aheadZ = moveDirection.z * kFeelerAhead;
@@ -488,9 +488,9 @@ void CorePhysicsComponent::GrindAlong(GameObjects::CGrindPoint* startNode, GameO
     end.y = static_cast<float>(extendY + end.y);
     end.z = static_cast<float>(extendZ + end.z);
     end.w = extendW + end.w;
-    const Maths::Vector& up = VectorAt(ObjectOf(this), kUp);
+    const Maths::Vec4& up = VectorAt(ObjectOf(this), kUp);
     start.x = up.x + start.x, start.y = up.y + start.y, start.z = up.z + start.z, start.w = up.w + start.w;
-    const Maths::Vector& up2 = VectorAt(ObjectOf(this), kUp);
+    const Maths::Vec4& up2 = VectorAt(ObjectOf(this), kUp);
     end.x = end.x + up2.x, end.y = end.y + up2.y, end.z = end.z + up2.z, end.w = end.w + up2.w;
     if (!Feel(this, 0x10, 0))
         return;
@@ -500,11 +500,11 @@ void CorePhysicsComponent::GrindAlong(GameObjects::CGrindPoint* startNode, GameO
     TriggerRailScript(g_grindOffEvents);
     void* o = ObjectOf(this);
     VectorAt(o, kPosition) = VectorAt(o, kOldPosition);
-    Maths::Vector& position = VectorAt(ObjectOf(this), kPosition);
+    Maths::Vec4& position = VectorAt(ObjectOf(this), kPosition);
     position.y = position.y + 1.0f;
     VectorAt(ObjectOf(this), kVelocity).FlattenOntoPlane(VectorAt(this, kHitNormal));
     ChangeState(this, kAir);
-    static_cast<GameObjects::CObject*>(ObjectOf(this))->PostOwnEvent(kOffRail, nullptr);
+    static_cast<GameObjects::CEntity*>(ObjectOf(this))->PostOwnEvent(kOffRail, nullptr);
 }
 
 // (Part of 0x0050DDF0) Every way out of the update (but the rail's last node): the ground normal, the score's rail
@@ -514,9 +514,9 @@ void CorePhysicsComponent::FinishRail()
     VectorAt(this, kGroundNormal) = VectorAt(ObjectOf(this), kUp);
     void* score = At<void*>(At<void*>(this, 0x1520), 0x18);
     int time = static_cast<int>(static_cast<double>(At<int>(this, 0x3A8)) * At<float>(score, 0x154C));
-    static_cast<GameModules::Score*>(score)->TweakTrick(time);
+    static_cast<GameModules::PointTally*>(score)->TweakTrick(time);
     if (At<GameObjects::CGrindRailHub*>(this, kRailManager)->m_nodeArray) {
-        Scripts::CStruct* script = LevelNodes::GetNode(At<GameObjects::CGrindPoint*>(this, kRailNode)->m_name, true);
+        Scripts::CStruct* script = LevelNodes::FetchVertex(At<GameObjects::CGrindPoint*>(this, kRailNode)->m_label, true);
         // (0x00476EC0: ReadHashValue with a bool for its last argument - the wrapper passes it on as 1)
         script->ReadHashValue(kName, &At<uint32_t>(this, kRailScriptNode), 1);
         static_cast<GameObjects::CMoveExecutor*>(At<void*>(this, kSkaterComponent))
@@ -536,60 +536,60 @@ void CorePhysicsComponent::DoBikeStallPhysics()
     SetFlag(this, 0xB0, 0);
     At<uint8_t>(this, 0x2E4) = 0;
     RideMovingRail();
-    At<int>(this, 0x23C) = static_cast<int>(Scripts::GetFloat(kRerailTime));
+    At<int>(this, 0x23C) = static_cast<int>(Scripts::FetchFloat(kRerailTime));
     SetFlag(this, 0x50, 0);
     if (JumpReleased()) {
         // Jumped (0x005E3053): the rail's TriggerScripts (THAW's with its stall event, which THUG2's haven't), the
         // jump's rerail time, up.
         TriggerRailScript(g_jumpTriggerEvents);
         TriggerRailScript(g_grindOffEvents);
-        At<int>(this, 0x23C) = static_cast<int>(Scripts::GetFloat(kJumpRerailTime));
+        At<int>(this, 0x23C) = static_cast<int>(Scripts::FetchFloat(kJumpRerailTime));
         SetFlag(this, 0xD0, 1);
         SetFlag(this, 0xD8, 1);
-        Maths::Vector& p = VectorAt(ObjectOf(this), kPosition);
+        Maths::Vec4& p = VectorAt(ObjectOf(this), kPosition);
         p.y = p.y + 1.0f;
     } else {
         UpdateGrindBalance();
         // (THAW draws the segment here with rail_highlights on - a debug view of its own)
         auto* node = At<GameObjects::CGrindPoint*>(this, kRailNode);
-        GameObjects::CGrindPoint* next = node->m_next;
+        GameObjects::CGrindPoint* next = node->m_succ;
         if (!next)
             return;
         VectorAt(ObjectOf(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
         if (StateOf(this) == kBikeStall) {
             // 0x005E34AE: the facing along the segment the way it points, the display facing turned 0.3 of the way
             // to it and the matrices built round them as a grind's (GrindAlong); no move.
-            Maths::Vector from = WorldPos(this, node);
-            Maths::Vector to = WorldPos(this, next);
-            Maths::Vector direction = {to.x - from.x, to.y - from.y, to.z - from.z, to.w - from.w};
-            direction.Normalize();
+            Maths::Vec4 from = WorldPos(this, node);
+            Maths::Vec4 to = WorldPos(this, next);
+            Maths::Vec4 direction = {to.x - from.x, to.y - from.y, to.z - from.z, to.w - from.w};
+            direction.MakeUnit();
             At<int>(this, 0x234) = Now();
-            Maths::Vector facing = ThawBmx::Bike::StallFacing(VectorAt(ObjectOf(this), kFacing), direction);
-            Maths::Vector& display = VectorAt(this, 0x38);
-            Maths::Vector turned;
+            Maths::Vec4 facing = ThawBmx::Bike::StallFacing(VectorAt(ObjectOf(this), kFacing), direction);
+            Maths::Vec4& display = VectorAt(this, 0x38);
+            Maths::Vec4 turned;
             Walk::Lerp(&turned, &display, &facing, kTurnFacing);
             display = turned;
-            display.Normalize();
-            Maths::Vector& right = VectorAt(this, 0x18);
+            display.MakeUnit();
+            Maths::Vec4& right = VectorAt(this, 0x18);
             right.x = At<float>(this, 0x40);
             right.z = -display.x;
             right.y = 0.0f;
             right.w = 0.0f;
-            right.Normalize();
-            VectorAt(this, 0x28) = Maths::CrossProduct(display, right);
-            VectorAt(this, 0x28).Normalize();
+            right.MakeUnit();
+            VectorAt(this, 0x28) = Maths::CrossVec(display, right);
+            VectorAt(this, 0x28).MakeUnit();
             void* object = ObjectOf(this);
             VectorAt(object, kFacing) = facing;
-            VectorAt(object, kFacing).Normalize();
-            Maths::Vector& objectRight = VectorAt(object, kRight);
+            VectorAt(object, kFacing).MakeUnit();
+            Maths::Vec4& objectRight = VectorAt(object, kRight);
             float fz = VectorAt(object, kFacing).z;
             objectRight.z = -VectorAt(object, kFacing).x;
             objectRight.x = fz;
             objectRight.y = 0.0f;
             objectRight.w = 0.0f;
-            objectRight.Normalize();
-            VectorAt(object, kUp) = Maths::CrossProduct(VectorAt(object, kFacing), objectRight);
-            VectorAt(object, kUp).Normalize();
+            objectRight.MakeUnit();
+            VectorAt(object, kUp) = Maths::CrossVec(VectorAt(object, kFacing), objectRight);
+            VectorAt(object, kUp).MakeUnit();
             VectorAt(object, kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
         }
     }

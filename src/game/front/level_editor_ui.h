@@ -29,7 +29,7 @@ struct Fonts;
 //     rules: level_editor_ui_backend.h).
 //   - Input: over a panel (or while ImGui holds the mouse or wants the keyboard) ImGui gets it; in the viewport the
 //     editor's camera, picking and keys work as before (level_editor_ui_layout.h's Decide).
-//   - Drawn after the game's 2D pass, where the editor draws (Engine3D::DrawWorld -> LevelEditor::Draw); nothing is drawn
+//   - Drawn after the game's 2D pass, where the editor draws (Engine3D::DrawWorld -> LevelEditor::Blit); nothing is drawn
 //     and nothing runs while the editor is closed. Device lost / reset (alt-tab): FrameLoop::ResetDeviceIfLost drops
 //     ImGui's device objects first (DeviceLost), the next frame makes them again; a new window size re-sizes the fonts.
 // thug2-decomp.ini [features] editor_ui=0 brings back the old HUD (cheap to keep: the HUD is a few script calls the
@@ -37,13 +37,13 @@ struct Fonts;
 namespace MenuSystem::LevelEditor::Ui {
 
 // [features] editor_ui (default 1; read once).
-bool& Enabled();
+bool& IsSwitchedOn();
 // The UI is up (between Start and Stop, enabled and started).
-bool Running();
+bool Underway();
 // The editor starting (LevelEditor_Start): ImGui made once, its backends started on the game's window and device.
 // False (the old HUD then) when off or when it can't start.
-bool Start();
-void Stop();
+bool Kickoff();
+void Halt();
 // FrameLoop::ResetDeviceIfLost, before the device is reset.
 void DeviceLost();
 
@@ -79,7 +79,7 @@ const char* MarkName(int bit);
 // Whether a row shows with the Outliner's "Changed only" (any mark) - and its marks as letters ("MH": moved, hidden).
 bool MarkShown(uint8_t marks, bool changedOnly);
 std::string MarkLetters(uint8_t marks);
-struct Model {
+struct ShapeMesh {
     std::string level;    // the level's scene name
     // Which level is edited (level_editor_layout.h): its title ("Training"), always its edited copy - whether that has
     // a saved layout yet.
@@ -203,12 +203,12 @@ struct Model {
     struct PlaceView {
         bool open = false;
         int armed = -1;
-        struct Entry {
+        struct TableRow {
             std::string label;
             uint32_t colour;
             std::string why;
         };
-        std::vector<Entry> entries;
+        std::vector<TableRow> entries;
     } place;
     // Deleting a level's own node asks first: it is hidden, not removed.
     struct ConfirmHide {
@@ -229,7 +229,7 @@ struct Model {
 
 // What's drawn over the view, under the panels: in back buffer pixels (as the editor projects; the UI scales them to
 // the window's), ARGB colours, thicknesses in pixels at 1280 x 720 (scaled with the UI).
-struct Line {
+struct Seg {
     float ax, ay, bx, by;
     uint32_t argb;
     float thickness;
@@ -250,7 +250,7 @@ struct Overlay {
         uint32_t argb;
         std::string text;
     };
-    std::vector<Line> lines;
+    std::vector<Seg> lines;
     std::vector<Circle> circles;
     std::vector<Triangle> triangles;
     std::vector<Triangle> under; // (drawn first, under the lines: the collision view - level_editor_view.h)
@@ -341,7 +341,7 @@ void PushRequest(const Request& request);
 
 // The menu bar's menus (level_editor_ui_menus.cpp), drawn between BeginMenuBar and EndMenuBar: File, Edit, View, Tools,
 // Help - the registry's actions with their keys.
-void MenuBar(const Model& model, const Ux8::Fonts& fonts, std::vector<Request>* requests);
+void MenuBar(const ShapeMesh& model, const Ux8::Fonts& fonts, std::vector<Request>* requests);
 
 // The Inspector's chain section (level_editor_chains_ui.cpp): drawn inside the node's section; what's asked for added
 // to `requests`.
@@ -352,12 +352,12 @@ void SpawnSection(int nodeIndex, std::vector<Request>* requests);
 // the node's section - and the level properties' section at the Inspector's foot; what's asked for added to
 // `requests`. `mono` / `small`: the UI's fonts.
 void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<Request>* requests);
-void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont, std::vector<Request>* requests);
+void LevelSection(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smallFont, std::vector<Request>* requests);
 
 // The preview picture's size in pixels for the window's size now (256 at 1280 x 720, up to 512).
 int PreviewPixels();
 
-// The frame (LevelEditor::Draw): the overlay (under the panels), the panels from the model, drawn.
-void Frame(const Model& model, const Overlay& overlay);
+// The frame (LevelEditor::Blit): the overlay (under the panels), the panels from the model, drawn.
+void TickCycle(const ShapeMesh& model, const Overlay& overlay);
 
 } // namespace MenuSystem::LevelEditor::Ui

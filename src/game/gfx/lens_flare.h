@@ -6,7 +6,7 @@
 #include "game/mth/vector.h"
 
 namespace Gfx2D {
-class Camera;
+class ViewCam;
 }
 namespace Scripts {
 class CStruct;
@@ -29,7 +29,7 @@ struct Settings {
     float size;              // +0x0C (0x08)
     uint32_t texture;        // +0x10 (0x20) the sun's texture (checksum)
     uint32_t coronaTexture;  // +0x14 (0x40)
-    Maths::Vector color;       // +0x18 (0x10) r, g, b, a (0-255)
+    Maths::Vec4 color;       // +0x18 (0x10) r, g, b, a (0-255)
     uint8_t unknown28[0x18];
     bool shown;              // +0x40 (0x80)
     uint8_t pad41[3];
@@ -60,10 +60,10 @@ void __cdecl SetSun(const Settings* settings, uint32_t mask);
 int __cdecl QuerySunVisibility(void* data, uint8_t query);
 // 0x004428F0: every flare element morphed (over `time`) to its place on the line from `centre` to `sun` (screen
 // positions); the lens flare marked shown.
-void __cdecl PlaceFlareElements(float time, const Maths::Vector* sun, const Maths::Vector* centre);
+void __cdecl PlaceFlareElements(float time, const Maths::Vec4* sun, const Maths::Vec4* centre);
 // 0x004429D0: the sun set up (shown) and its flare elements read from the global array `lensFlareData`; the morph
 // times from LensFlare_Morph_In / LensFlare_Morph_Out / SunBurst_Out; the colour 255 255 255 128.
-void __cdecl Init(float theta, float phi, float radius, float size, uint32_t texture, uint32_t coronaTexture,
+void __cdecl PrepareAll(float theta, float phi, float radius, float size, uint32_t texture, uint32_t coronaTexture,
                   uint32_t lensFlareData);
 // 0x00442D70: UpdateLensFlare's work: center (default 320 240), morph_time, sun_pos.
 void __cdecl UpdateFlare(Scripts::CStruct* params, Scripts::CScript* script);
@@ -73,12 +73,12 @@ void __cdecl HideFlare(Scripts::CStruct* params, Scripts::CScript* script);
 void __cdecl UnhideFlare(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x00443180: the sun's quad facing `camera` at `position` (its corners' x y z into `corners`, 12 floats), and
 // `prim` given the sun's texture and set up to draw it.
-void __cdecl BuildSunQuad(Gfx2D::Camera* camera, void* prim, const Maths::Vector* position, float* corners);
+void __cdecl BuildSunQuad(Gfx2D::ViewCam* camera, void* prim, const Maths::Vec4* position, float* corners);
 // 0x00443780: the lens flare placed for the sun at `sun` on the screen (made by CreateLensFlare if there's no
 // container; nothing unless DoUpdateLensFlare is set; shown again if hidden).
-void __cdecl ShowFlare(const Maths::Vector* sun, float time);
+void __cdecl ShowFlare(const Maths::Vec4* sun, float time);
 // 0x00443870: the sun drawn for `camera` (each frame): the sun and corona, the visibility query, the lens flare
 // shown or faded (MaybeHideLensFlare).
-void __cdecl Render(Gfx2D::Camera* camera);
+void __cdecl Render(Gfx2D::ViewCam* camera);
 
 } // namespace Sun

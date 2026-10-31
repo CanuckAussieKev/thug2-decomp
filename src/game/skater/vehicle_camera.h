@@ -28,23 +28,23 @@ class CCarView : public CObjectModule {
 public:
     // 0x005248C0: a new one (0 if out of memory): the base's constructor, its vtable and type, height 60,
     // distance 144, lerp 3.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00524420: its member function table (0x00684150) registered.
     static void __cdecl PublishMethodTable();
     // 0x00524440: the destructor body (the base's). 0x00524470 (slot 0): the scalar deleting destructor.
     void DestroyBody();
-    CCarView* Destroy(unsigned int flags);
+    CCarView* Teardown(unsigned int flags);
     // 0x005244A0 (slot 2): subject= (an object id: the object and its Vehicle component), then 0x9213625F (lerp),
     // 0x14849B6D (height), 0xBD3D3CA9 (distance) and angle= - each kept when not given.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x00524C00 (slot 3): the object's CameraLookAround component, then Reset.
-    void Finalize();
+    void Seal();
     // 0x00524B40: the look-around component back to straight ahead; looking along the vehicle's heading; the
     // orientation and position built and given to the camera object; the Camera component's Update.
     void Reset();
     // 0x00524940 (slot 1): the camera's old position kept; the direction turned toward the target (see the
     // class), the orientation and position built, the position kept clear of the world, given to the camera.
-    void Update();
+    void TickFrame();
     // 0x00524450 (VehicleCamera_Reset, by its member function record): its structure read again (vtable +0x14)
     // and Finalize (vtable +0x0C). True.
     bool VehicleCamera_Reset(Scripts::CStruct* params, Scripts::CScript* script);
@@ -61,10 +61,10 @@ public:
 
     CGameEntity* m_subject;          // +0x18 the vehicle
     uint8_t* m_vehicle;                   // +0x1C its Vehicle component (+0xA4 its velocity, +0x114 wheels down)
-    Maths::Vector m_direction;              // +0x20 where the camera looks (flat, normalised)
-    Maths::Vector m_targetDirection;        // +0x30
-    Maths::Vector m_anchorPoint;               // +0x40
-    Maths::Matrix m_orientation;            // +0x50
+    Maths::Vec4 m_direction;              // +0x20 where the camera looks (flat, normalised)
+    Maths::Vec4 m_targetDirection;        // +0x30
+    Maths::Vec4 m_anchorPoint;               // +0x40
+    Maths::Mat4 m_orientation;            // +0x50
     float m_levelY;                       // +0x90 (0x14849B6D)
     float m_reach;                     // +0x94 (0xBD3D3CA9)
     float m_angle;                        // +0x98 degrees (angle)

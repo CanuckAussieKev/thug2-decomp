@@ -81,14 +81,14 @@ Channel* Masked(MemSys::ListNode* node) { return IsHead(node) ? nullptr : AsChan
 // The next channel after `channel` (or the head).
 MemSys::ListNode* Next(Channel* channel) { return Link(channel)->next; }
 // The walks' end test: the head or null.
-bool Ended(MemSys::ListNode* node) { return IsHead(node) || !node; }
+bool IsOver(MemSys::ListNode* node) { return IsHead(node) || !node; }
 
 template <typename T>
-T& Field(void* object, int offset)
+T& Prop(void* object, int offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
-uint32_t& Id(Channel* channel) { return Field<uint32_t>(channel, 0x28); }
+uint32_t& IdentNo(Channel* channel) { return Prop<uint32_t>(channel, 0x28); }
 
 // A channel's virtual functions.
 template <typename R, typename... A>
@@ -105,10 +105,10 @@ bool BoolArg(float word) { return BoolArg(std::bit_cast<uint32_t>(word)); }
 } // namespace
 
 // 0x0041A5B0
-CObjectModule* __cdecl CAnimBlenderComponent::Create()
+CObjectModule* __cdecl CAnimBlenderComponent::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CAnimBlenderComponent));
-    return memory ? static_cast<CAnimBlenderComponent*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CAnimBlenderComponent*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x00419690
@@ -118,23 +118,23 @@ void __cdecl CAnimBlenderComponent::PublishMethodTable()
 }
 
 // 0x0041A410
-CAnimBlenderComponent* CAnimBlenderComponent::Construct()
+CAnimBlenderComponent* CAnimBlenderComponent::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kVtable;
-    m_channels.data = reinterpret_cast<void*>(-1);
-    m_channels.priority = 0;
-    m_channels.next = &m_channels;
-    m_channels.prev = &m_channels;
-    m_channels.vtable = kHeadVtable;
+    m_lanes.data = reinterpret_cast<void*>(-1);
+    m_lanes.priority = 0;
+    m_lanes.next = &m_lanes;
+    m_lanes.prev = &m_lanes;
+    m_lanes.vtable = kHeadVtable;
     m_observerCount = 0;
-    auto* sentinel = static_cast<void**>(MemSys::New(0xC));
+    auto* sentinel = static_cast<void**>(MemSys::Alloc(0xC));
     if (sentinel) {
         sentinel[1] = sentinel;
         sentinel[2] = sentinel;
     }
     mp_observers = sentinel;
-    m_type = kType;
+    m_kindTag = kType;
     return this;
 }
 
@@ -142,7 +142,7 @@ CAnimBlenderComponent* CAnimBlenderComponent::Construct()
 void CAnimBlenderComponent::DestroyBody()
 {
     m_vtable = kVtable;
-    reinterpret_cast<ListHead*>(&m_channels)->DeleteAllNodes();
+    reinterpret_cast<ListHead*>(&m_lanes)->DeleteAllNodes();
     auto** sentinel = static_cast<void**>(mp_observers);
     for (auto** node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr; node != mp_observers;
          node = static_cast<void**>(node[1])) {
@@ -158,51 +158,51 @@ void CAnimBlenderComponent::DestroyBody()
                     reinterpret_cast<GameObjects::PointerListNode*>(head ? head[1] : nullptr),
                     reinterpret_cast<GameObjects::PointerListNode*>(head));
     }
-    MemSys::Manager::Get()->Free(mp_observers);
-    m_channels.UnlinkAs(Vt::kBlenderChannelNode);
+    MemSys::Hub::Pull()->Dealloc(mp_observers);
+    m_lanes.UnlinkAs(Vt::kBlenderChannelNode);
     CObjectModule::DestroyBody();
 }
 
 // 0x0041A610
-CAnimBlenderComponent* CAnimBlenderComponent::Destroy(unsigned int flags)
+CAnimBlenderComponent* CAnimBlenderComponent::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0041A260 (the 0xCE0CA665 component's answer goes to each channel as a dword whose high byte, as in the
 // original, may not be clear - only its low byte is meant)
-void CAnimBlenderComponent::Update()
+void CAnimBlenderComponent::TickFrame()
 {
     uint32_t highestSet = 0;
     int count = 0;
     bool changed = false;
-    Channel* channel = Masked(m_channels.next);
+    Channel* channel = Masked(m_lanes.next);
     bool ready = static_cast<CDormancyModule*>(mp_component18)->WantsAnimating(reinterpret_cast<float*>(&m_unknown24));
     if (!channel)
         return;
     do {
-        if (!(Field<float>(channel, 0x30) >= kMinWeight) && count != 0) {
+        if (!(Prop<float>(channel, 0x30) >= kMinWeight) && count != 0) {
             // a channel after the first with (next to) no weight: only reset
             channel->UpdateBlend();
             channel->UpdateTimelines();
-            Gfx2D::g_blendSets[count] = Field<uint32_t>(channel, 0x2C);
+            Gfx2D::g_blendSets[count] = Prop<uint32_t>(channel, 0x2C);
             if (!(highestSet > Gfx2D::g_blendSets[count]))
                 highestSet = Gfx2D::g_blendSets[count];
             Gfx2D::g_blendWeights[count] = 0.0f;
         } else {
             if (Virtual<bool>(channel, 1, count, static_cast<uint32_t>(ready)))
                 changed = true;
-            Gfx2D::g_blendWeights[count] = Field<float>(channel, 0x30);
-            Gfx2D::g_blendSets[count] = Field<uint32_t>(channel, 0x2C);
+            Gfx2D::g_blendWeights[count] = Prop<float>(channel, 0x30);
+            Gfx2D::g_blendSets[count] = Prop<uint32_t>(channel, 0x2C);
             if (!(highestSet > Gfx2D::g_blendSets[count]))
                 highestSet = Gfx2D::g_blendSets[count];
         }
         MemSys::ListNode* next = Next(channel);
         ++count;
-        if (Ended(next))
+        if (IsOver(next))
             break;
         channel = AsChannel(next);
     } while (true);
@@ -226,24 +226,24 @@ void CAnimBlenderComponent::Update()
         }
         NotifyObservers(Gfx2D::g_blendBuffer);
     }
-    skeleton()->Update(Gfx2D::g_blendBuffer);
+    skeleton()->TickFrame(Gfx2D::g_blendBuffer);
 }
 
 // 0x00419DD0
 void CAnimBlenderComponent::ConfigureFromData(Scripts::CStruct* params)
 {
-    if (m_channels.prev != &m_channels)
+    if (m_lanes.prev != &m_lanes)
         return;
     void* memory = MemSys::AllocZeroed(0x74);
-    Channel* channel = memory ? static_cast<Channel*>(memory)->Construct(m_object, this, true)
+    Channel* channel = memory ? static_cast<Channel*>(memory)->MakeNew(m_entity, this, true)
                               : nullptr;
-    Link(channel)->prev = &m_channels;
-    Link(channel)->next = m_channels.next;
-    m_channels.next->prev = Link(channel);
-    m_channels.next = Link(channel);
+    Link(channel)->prev = &m_lanes;
+    Link(channel)->next = m_lanes.next;
+    m_lanes.next->prev = Link(channel);
+    m_lanes.next = Link(channel);
     MemSys::EnterHeapScope(MemSys::BottomUpHeap());
-    MemSys::ListNode* first = m_channels.next;
-    if (!Ended(first)) {
+    MemSys::ListNode* first = m_lanes.next;
+    if (!IsOver(first)) {
         Virtual<void>(first, 3, params);
         AsChannel(first)->SetEventsOn(true);
     }
@@ -251,20 +251,20 @@ void CAnimBlenderComponent::ConfigureFromData(Scripts::CStruct* params)
 }
 
 // 0x004196D0
-void CAnimBlenderComponent::Finalize()
+void CAnimBlenderComponent::Seal()
 {
-    for (MemSys::ListNode* node = m_channels.next; !Ended(node); node = node->next)
+    for (MemSys::ListNode* node = m_lanes.next; !IsOver(node); node = node->next)
         Virtual<void>(node, 2);
-    m_boneRig = m_object->GetComponent(0x222756D5);
-    m_meshInstance = m_object->GetComponent(0x286A8D26);
-    mp_component18 = m_object->GetComponent(0xCE0CA665);
+    m_boneRig = m_entity->FetchModule(0x222756D5);
+    m_meshInstance = m_entity->FetchModule(0x286A8D26);
+    mp_component18 = m_entity->FetchModule(0xCE0CA665);
 }
 
 // 0x00419980
 void CAnimBlenderComponent::PassToChannels(uint32_t value, uint32_t id)
 {
-    for (MemSys::ListNode* node = m_channels.next; !Ended(node); node = node->next) {
-        if (Id(AsChannel(node)) == id)
+    for (MemSys::ListNode* node = m_lanes.next; !IsOver(node); node = node->next) {
+        if (IdentNo(AsChannel(node)) == id)
             Virtual<void>(node, 6, value);
     }
 }
@@ -281,9 +281,9 @@ int CAnimBlenderComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* p
 int CAnimBlenderComponent::AddChannelFromScript(uint32_t, Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t id = 0;
-    Channel* first = Masked(m_channels.next);
+    Channel* first = Masked(m_lanes.next);
     params->ReadHashValue(kId, &id, 0);
-    params->PutNameKey(0x52A864B0, first->m_key);
+    params->PutNameKey(0x52A864B0, first->m_lookupKey);
     bool atFront = params->HasBareFlag(0x580C0963);
     Channel* channel = AddChannel(id, atFront);
     Virtual<void>(channel, 3, params);
@@ -295,12 +295,12 @@ int CAnimBlenderComponent::AddChannelFromScript(uint32_t, Scripts::CStruct* para
 int CAnimBlenderComponent::WaitOnChannel(uint32_t, Scripts::CStruct* params, Scripts::CScript* script)
 {
     uint32_t id = 0;
-    Channel* first = Masked(m_channels.next);
+    Channel* first = Masked(m_lanes.next);
     uint32_t waitFor;
     if (params && (params->ReadHashValue(kId, &id, 0), id != 0))
         waitFor = id;
     else
-        waitFor = Id(first);
+        waitFor = IdentNo(first);
     script->SetWaitOnComponent(static_cast<Scripts::EBlockReason>(6), this, waitFor);
     return 1;
 }
@@ -309,13 +309,13 @@ int CAnimBlenderComponent::WaitOnChannel(uint32_t, Scripts::CStruct* params, Scr
 int CAnimBlenderComponent::RemoveChannel(uint32_t, Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t id = 0;
-    Channel* channel = Masked(m_channels.next);
+    Channel* channel = Masked(m_lanes.next);
     params->ReadHashValue(kId, &id, 0);
     if (!channel)
         return 1;
-    while (Id(channel) != id) {
+    while (IdentNo(channel) != id) {
         MemSys::ListNode* next = Next(channel);
-        if (Ended(next))
+        if (IsOver(next))
             return 1;
         channel = AsChannel(next);
     }
@@ -327,21 +327,21 @@ int CAnimBlenderComponent::RemoveChannel(uint32_t, Scripts::CStruct* params, Scr
 int CAnimBlenderComponent::BlendChannel(uint32_t, Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t id = 0;
-    Channel* channel = Masked(m_channels.next);
+    Channel* channel = Masked(m_lanes.next);
     params->ReadHashValue(kId, &id, 0);
     if (id != 0) {
         if (!channel)
             return 1;
-        while (Id(channel) != id) {
+        while (IdentNo(channel) != id) {
             MemSys::ListNode* next = Next(channel);
-            if (Ended(next))
+            if (IsOver(next))
                 return 1;
             channel = AsChannel(next);
         }
     }
     float a = 0.0f, b = 0.0f;
-    params->GetFloat(0x4D786F62, &a, 1);
-    params->GetFloat(0xBF237659, &b, 0);
+    params->FetchFloat(0x4D786F62, &a, 1);
+    params->FetchFloat(0xBF237659, &b, 0);
     uint32_t target; // (BlendTo's target is a float here: its bits passed on)
     std::memcpy(&target, &a, sizeof(target));
     channel->BlendTo(target, b);
@@ -353,9 +353,9 @@ int CAnimBlenderComponent::ChannelExists(uint32_t, Scripts::CStruct* params, Scr
 {
     uint32_t id = 0;
     params->ReadHashValue(kId, &id, 0);
-    for (MemSys::ListNode* node = m_channels.next; !Ended(node); node = node->next) {
-        if (Id(AsChannel(node)) == id) {
-            script->m_params->PutNameKey(0u, 0xC7C6228C); // (an unnamed flag)
+    for (MemSys::ListNode* node = m_lanes.next; !IsOver(node); node = node->next) {
+        if (IdentNo(AsChannel(node)) == id) {
+            script->m_args->PutNameKey(0u, 0xC7C6228C); // (an unnamed flag)
             return 1;
         }
     }
@@ -366,13 +366,13 @@ int CAnimBlenderComponent::ChannelExists(uint32_t, Scripts::CStruct* params, Scr
 int CAnimBlenderComponent::PassToChannel(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
 {
     uint32_t id = 0;
-    Channel* channel = Masked(m_channels.next);
+    Channel* channel = Masked(m_lanes.next);
     if (params && (params->ReadHashValue(kId, &id, 0), id != 0)) {
         if (!channel)
             return 0;
-        while (Id(channel) != id) {
+        while (IdentNo(channel) != id) {
             MemSys::ListNode* next = Next(channel);
-            if (Ended(next))
+            if (IsOver(next))
                 return 0;
             channel = AsChannel(next);
         }
@@ -381,10 +381,10 @@ int CAnimBlenderComponent::PassToChannel(uint32_t name, Scripts::CStruct* params
     // flips a branch as it's played (Skater_Playanim's obj_is_flipped), so the channel takes the rider's flipped flag
     // before it plays - on the bike his Flip turns the flag only (game/skater/thaw_bmx.h PlayFlip). 0x0047DC40 with
     // its last argument 0: the flag set, nothing sent. Original behaviour: the channel's flip as it was.
-    if ((name == kPlayAnim || name == kObjPlayAnim) && channel && Skater::ThawBmx::Enabled()) {
-        int flip = Skater::ThawBmx::PlayFlip(m_object);
+    if ((name == kPlayAnim || name == kObjPlayAnim) && channel && Skater::ThawBmx::IsSwitchedOn()) {
+        int flip = Skater::ThawBmx::PlayFlip(m_entity);
         if (flip >= 0)
-            channel->SetFlipped(m_object->m_id, BoolArg(static_cast<uint32_t>(flip)), 0u, BoolArg(0u));
+            channel->SetFlipped(m_entity->m_ident, BoolArg(static_cast<uint32_t>(flip)), 0u, BoolArg(0u));
     }
     return Virtual<int>(channel, 4, name, params, script);
 }
@@ -392,8 +392,8 @@ int CAnimBlenderComponent::PassToChannel(uint32_t name, Scripts::CStruct* params
 // 0x00419D40
 Gfx2D::CBlendChannel* CAnimBlenderComponent::FindChannel(uint32_t id)
 {
-    for (MemSys::ListNode* node = m_channels.next; !Ended(node); node = node->next) {
-        if (Id(AsChannel(node)) == id)
+    for (MemSys::ListNode* node = m_lanes.next; !IsOver(node); node = node->next) {
+        if (IdentNo(AsChannel(node)) == id)
             return AsChannel(node);
     }
     return nullptr;
@@ -403,21 +403,21 @@ Gfx2D::CBlendChannel* CAnimBlenderComponent::FindChannel(uint32_t id)
 Gfx2D::CBlendChannel* CAnimBlenderComponent::AddChannel(uint32_t id, bool atFront)
 {
     void* memory = MemSys::AllocZeroed(0x74);
-    Channel* channel = memory ? static_cast<Channel*>(memory)->Construct(m_object, this, false)
+    Channel* channel = memory ? static_cast<Channel*>(memory)->MakeNew(m_entity, this, false)
                               : nullptr;
-    Id(channel) = id;
+    IdentNo(channel) = id;
     Virtual<void>(channel, 2);
     MemSys::ListNode* link = Link(channel);
     if (atFront) {
-        link->prev = &m_channels;
-        link->next = m_channels.next;
-        m_channels.next->prev = link;
-        m_channels.next = link;
+        link->prev = &m_lanes;
+        link->next = m_lanes.next;
+        m_lanes.next->prev = link;
+        m_lanes.next = link;
     } else {
-        link->prev = m_channels.prev;
-        link->next = &m_channels;
-        m_channels.prev->next = link;
-        m_channels.prev = link;
+        link->prev = m_lanes.prev;
+        link->next = &m_lanes;
+        m_lanes.prev->next = link;
+        m_lanes.prev = link;
     }
     return channel;
 }
@@ -434,7 +434,7 @@ void CAnimBlenderComponent::NotifyObservers(Gfx2D::CStance* pose)
 // 0x004199C0
 void CAnimBlenderComponent::VisitChannels()
 {
-    for (MemSys::ListNode* node = m_channels.next; !Ended(node); node = node->next) {
+    for (MemSys::ListNode* node = m_lanes.next; !IsOver(node); node = node->next) {
         // (0x005480A0: an empty function)
     }
 }
@@ -442,17 +442,17 @@ void CAnimBlenderComponent::VisitChannels()
 // 0x004199F0
 void CAnimBlenderComponent::PassToEachChannel(uint32_t value)
 {
-    for (MemSys::ListNode* node = m_channels.next; !Ended(node); node = node->next)
+    for (MemSys::ListNode* node = m_lanes.next; !IsOver(node); node = node->next)
         AsChannel(node)->AdvanceClock(std::bit_cast<float>(value));
 }
 
 // 0x00419A20 (with no channel, the original reads the head's next from null: a crash)
 void CAnimBlenderComponent::ResetChannels()
 {
-    for (MemSys::ListNode* node = m_channels.next; !Ended(node); node = node->next)
+    for (MemSys::ListNode* node = m_lanes.next; !IsOver(node); node = node->next)
         AsChannel(node)->Reset();
-    MemSys::ListNode* node = Link(Masked(m_channels.next))->next;
-    if (Ended(node))
+    MemSys::ListNode* node = Link(Masked(m_lanes.next))->next;
+    if (IsOver(node))
         return;
     while (node) {
         MemSys::ListNode* next = node->next;
@@ -466,7 +466,7 @@ void CAnimBlenderComponent::ResetChannels()
 bool CAnimBlenderComponent::AnyChannel(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
 {
     bool any = false;
-    for (MemSys::ListNode* node = m_channels.next; !Ended(node); node = node->next) {
+    for (MemSys::ListNode* node = m_lanes.next; !IsOver(node); node = node->next) {
         if (AsChannel(node)->SetFlipped(a, BoolArg(b), c, BoolArg(d)))
             any = true;
     }
@@ -477,32 +477,32 @@ bool CAnimBlenderComponent::AnyChannel(uint32_t a, uint32_t b, uint32_t c, uint3
 bool CAnimBlenderComponent::AllChannelsFlag29()
 {
     bool all = true;
-    for (MemSys::ListNode* node = m_channels.next; !Ended(node); node = node->next)
-        all = all && ((Field<uint32_t>(node, 0x54) >> 29) & 1);
+    for (MemSys::ListNode* node = m_lanes.next; !IsOver(node); node = node->next)
+        all = all && ((Prop<uint32_t>(node, 0x54) >> 29) & 1);
     return all;
 }
 
 // 0x00419CA0
 bool CAnimBlenderComponent::ModelReady()
 {
-    void* thing = Field<void*>(m_meshInstance, 0x208);
+    void* thing = Prop<void*>(m_meshInstance, 0x208);
     if (!thing)
         return false;
-    uint8_t flags = Field<uint8_t>(thing, 0x44);
+    uint8_t flags = Prop<uint8_t>(thing, 0x44);
     return (flags & 2) && !(flags & 4);
 }
 
 // 0x00419730
 void CAnimBlenderComponent::FirstChannel47EFF0()
 {
-    if (Channel* channel = Masked(m_channels.next))
+    if (Channel* channel = Masked(m_lanes.next))
         channel->BlendFirstPose();
 }
 
 // 0x00419A90
 void CAnimBlenderComponent::PlayAnimation(uint32_t anim, uint32_t b)
 {
-    if (Channel* channel = Masked(m_channels.next))
+    if (Channel* channel = Masked(m_lanes.next))
         channel->PlayAnimation(anim, std::bit_cast<float>(b));
 }
 
@@ -510,113 +510,113 @@ void CAnimBlenderComponent::PlayAnimation(uint32_t anim, uint32_t b)
 void CAnimBlenderComponent::PlayAnimationEx(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f,
                                             uint32_t g)
 {
-    if (Channel* channel = Masked(m_channels.next))
+    if (Channel* channel = Masked(m_lanes.next))
         channel->PlayAnim(a, BoolArg(b), std::bit_cast<float>(c), std::bit_cast<float>(d), static_cast<int>(e), std::bit_cast<float>(f), std::bit_cast<float>(g), nullptr);
 }
 
 // 0x00419B90
 void CAnimBlenderComponent::FirstChannel47E850(float a, float b, float c, float d)
 {
-    if (Channel* channel = Masked(m_channels.next))
+    if (Channel* channel = Masked(m_lanes.next))
         channel->SetSpeed(a, BoolArg(b), BoolArg(c), BoolArg(d));
 }
 
 // 0x00419BB0
 void CAnimBlenderComponent::FirstChannel47E810(uint32_t a)
 {
-    if (Channel* channel = Masked(m_channels.next))
+    if (Channel* channel = Masked(m_lanes.next))
         channel->Reverse(a);
 }
 
 // 0x00419BD0
 void CAnimBlenderComponent::FirstChannel47E280(float a, uint32_t b)
 {
-    if (Channel* channel = Masked(m_channels.next))
+    if (Channel* channel = Masked(m_lanes.next))
         channel->ChooseWobbleGoal(a, BoolArg(b));
 }
 
 // 0x00419BF0
 void CAnimBlenderComponent::FirstChannel47E450(float* a, uint32_t b)
 {
-    if (Channel* channel = Masked(m_channels.next))
+    if (Channel* channel = Masked(m_lanes.next))
         channel->SetWobbleDetails(a, BoolArg(b));
 }
 
 // 0x00419B30
 void CAnimBlenderComponent::SetFlag4C(bool value)
 {
-    if (Channel* channel = Masked(m_channels.next))
+    if (Channel* channel = Masked(m_lanes.next))
         channel->SetFlag4C(value);
 }
 
 // 0x00419AB0
 uint32_t CAnimBlenderComponent::GetAnimSet()
 {
-    Channel* channel = Masked(m_channels.next);
-    return channel ? channel->m_key : 0;
+    Channel* channel = Masked(m_lanes.next);
+    return channel ? channel->m_lookupKey : 0;
 }
 
 // 0x00419AD0
 uint32_t CAnimBlenderComponent::GetFirstChannel58()
 {
-    Channel* channel = Masked(m_channels.next);
-    return channel ? Field<uint32_t>(channel, 0x58) : 0;
+    Channel* channel = Masked(m_lanes.next);
+    return channel ? Prop<uint32_t>(channel, 0x58) : 0;
 }
 
 // 0x00419AF0
-float CAnimBlenderComponent::GetValue(uint32_t offset)
+float CAnimBlenderComponent::FetchValue(uint32_t offset)
 {
-    Channel* channel = Masked(m_channels.next);
-    return channel ? channel->GetValue(offset) : 0.0f;
+    Channel* channel = Masked(m_lanes.next);
+    return channel ? channel->FetchValue(offset) : 0.0f;
 }
 
 // 0x00419B10
 bool CAnimBlenderComponent::HasValue(uint32_t offset)
 {
-    Channel* channel = Masked(m_channels.next);
+    Channel* channel = Masked(m_lanes.next);
     return channel ? channel->HasValue(offset) : false;
 }
 
 // 0x00419CD0
 bool CAnimBlenderComponent::IsClipDone()
 {
-    Channel* channel = Masked(m_channels.next);
+    Channel* channel = Masked(m_lanes.next);
     return channel ? channel->IsClipDone() : false;
 }
 
 // 0x00419F80
 float CAnimBlenderComponent::GetTimeline18()
 {
-    Channel* channel = Masked(m_channels.next);
+    Channel* channel = Masked(m_lanes.next);
     if (!channel)
         return 0.0f;
-    auto* timeline = Field<MemSys::ListNode*>(channel, 0x20);
-    if (Ended(timeline))
+    auto* timeline = Prop<MemSys::ListNode*>(channel, 0x20);
+    if (IsOver(timeline))
         return 0.0f;
-    return Field<float>(timeline, 0x18);
+    return Prop<float>(timeline, 0x18);
 }
 
 // 0x0041A0A0
 uint32_t CAnimBlenderComponent::GetTimeline30()
 {
-    Channel* channel = Masked(m_channels.next);
+    Channel* channel = Masked(m_lanes.next);
     if (!channel)
         return 0;
-    auto* timeline = Field<MemSys::ListNode*>(channel, 0x20);
-    if (Ended(timeline))
+    auto* timeline = Prop<MemSys::ListNode*>(channel, 0x20);
+    if (IsOver(timeline))
         return 0;
-    return Field<uint32_t>(timeline, 0x30);
+    return Prop<uint32_t>(timeline, 0x30);
 }
 
 // 0x0041A0E0
 void CAnimBlenderComponent::GetTimes(float* start, float* current, float* end)
 {
-    Channel* channel = Masked(m_channels.next);
+    Channel* channel = Masked(m_lanes.next);
     if (!channel)
         return;
     float s = 0.0f, c = 0.0f, e = 0.0f;
-    auto* timeline = Field<MemSys::ListNode*>(channel, 0x20);
-    if (!Ended(timeline))
+    auto* timeline = Prop<MemSys::ListNode*>(channel, 0x20);
+    if (!IsOver(timeline))
         reinterpret_cast<Gfx2D::CAnimTimeline*>(timeline)->GetTimes(&s, &c, &e);
     *start = s;
     *current = c;
@@ -631,7 +631,7 @@ BlendChannelLinks* BlendChannelLinks::DestroyNode(unsigned int flags)
 {
     m_chainLink.UnlinkAs(Vt::kBlenderChannelNode);
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -640,7 +640,7 @@ BlendChannelLinks* BlendChannelLinks::DestroyHead(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -650,8 +650,8 @@ void BlendChannelLinks::GetTimes(float* start, float* current, float* end)
     *start = 0.0f;
     *current = 0.0f;
     *end = 0.0f;
-    auto* timeline = Field<MemSys::ListNode*>(this, 0x20);
-    if (!Ended(timeline))
+    auto* timeline = Prop<MemSys::ListNode*>(this, 0x20);
+    if (!IsOver(timeline))
         reinterpret_cast<Gfx2D::CAnimTimeline*>(timeline)->GetTimes(start, current, end);
 }
 
@@ -659,7 +659,7 @@ void BlendChannelLinks::GetTimes(float* start, float* current, float* end)
 float __cdecl LargerOf(float a, float b) { return a > b ? a : b; }
 
 // 0x0041A680
-Maths::Vector VectorAt1C::Get() const { return m_vector; }
+Maths::Vec4 VectorAt1C::Pull() const { return m_vector; }
 
 } // namespace Obj
 
@@ -668,14 +668,14 @@ namespace {
 
 static VtableSlot kHeadVtable_slots[] = {&GameObjects::BlendChannelLinks::DestroyHead};
 void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
-static VtableSlot kVtable_slots[] = {&GameObjects::CAnimBlenderComponent::Destroy,
-         &GameObjects::CAnimBlenderComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CAnimBlenderComponent::Teardown,
+         &GameObjects::CAnimBlenderComponent::TickFrame,
          &GameObjects::CAnimBlenderComponent::ConfigureFromData,
-         &GameObjects::CAnimBlenderComponent::Finalize,
+         &GameObjects::CAnimBlenderComponent::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          &GameObjects::CAnimBlenderComponent::PassToChannels,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

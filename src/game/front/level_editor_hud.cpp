@@ -31,7 +31,7 @@ bool g_elements = true; // (false while the UI shows the editor)
 float g_panelX, g_panelY, g_panelWidth;
 size_t g_panelLines;
 
-void SetText(const std::string& id, const std::string& full)
+void ChangeCaption(const std::string& id, const std::string& full)
 {
     if (!g_elements)
         return;
@@ -41,9 +41,9 @@ void SetText(const std::string& id, const std::string& full)
         return;
     g_shown[id] = text;
     alignas(4) uint8_t memory[8];
-    Scripts::CStruct* params = reinterpret_cast<Scripts::CStruct*>(memory)->Init();
+    Scripts::CStruct* params = reinterpret_cast<Scripts::CStruct*>(memory)->PrepareAll();
     params->PutNameKey(kId, Checksums::HashFromText(id.c_str()));
-    params->AddString(kText, text.c_str());
+    params->AppendWord(kText, text.c_str());
     Scripts::LaunchScript("level_editor_hud_set", params, nullptr, false);
     params->Clear();
 }
@@ -61,25 +61,25 @@ void Reset(bool screenElements)
 
 const std::string& CurrentMessage() { return g_message; }
 
-void SetLine(int line, const std::string& text)
+void ChangeStrand(int line, const std::string& text)
 {
     char id[32];
     std::snprintf(id, sizeof(id), "level_editor_hud_%d", line);
-    SetText(id, text);
+    ChangeCaption(id, text);
 }
 
 void Message(const std::string& text, double seconds)
 {
     g_message = text;
     g_messageUntil = SDL_GetTicks() + static_cast<uint32_t>(seconds * 1000.0);
-    SetLine(7, text);
+    ChangeStrand(7, text);
 }
 
 void Tick()
 {
     if (!g_message.empty() && static_cast<int32_t>(SDL_GetTicks() - g_messageUntil) >= 0) {
         g_message.clear();
-        SetLine(7, "");
+        ChangeStrand(7, "");
     }
 }
 
@@ -89,7 +89,7 @@ void ShowPanel(const std::vector<std::string>& lines, float x, float y, float wi
         return;
     if (!g_panel || g_panelX != x || g_panelY != y || g_panelWidth != width || g_panelLines != lines.size()) {
         alignas(4) uint8_t memory[8];
-        Scripts::CStruct* params = reinterpret_cast<Scripts::CStruct*>(memory)->Init();
+        Scripts::CStruct* params = reinterpret_cast<Scripts::CStruct*>(memory)->PrepareAll();
         float height = 12.0f + kLineHeight * static_cast<float>(lines.size());
         params->InsertPair(Checksums::HashFromText("pos"), x, y);
         params->InsertPair(Checksums::HashFromText("scale"), width / kSpriteUnit, height / kSpriteUnitDown);
@@ -107,7 +107,7 @@ void ShowPanel(const std::vector<std::string>& lines, float x, float y, float wi
     for (size_t i = 0; i < lines.size(); ++i) {
         char id[32];
         std::snprintf(id, sizeof(id), "level_editor_panel_%u", static_cast<unsigned>(i));
-        SetText(id, lines[i]);
+        ChangeCaption(id, lines[i]);
     }
 }
 

@@ -16,7 +16,7 @@ namespace Scripts {
 
 namespace {
 
-using DebugLog::Level;
+using DebugLog::StageMap;
 
 // The patch for scripts\engine\menu\keyboard.qb (PartyMod's patches/keyboard.bps).
 const uint8_t kKeyboardPatch[] = {
@@ -64,7 +64,7 @@ std::vector<ScriptPatch>* s_patches = nullptr;
 void RegisterPatch(const char* filename, const uint8_t* patch, size_t size)
 {
     s_patches->push_back({filename, patch, size, false, 0, nullptr, 0, nullptr});
-    DebugLog::Printf(Level::kInfo, "Registered patch for %s\n", filename);
+    DebugLog::Printf(StageMap::kInfo, "Registered patch for %s\n", filename);
 }
 
 uint8_t* Duplicate(const uint8_t* data, size_t size)
@@ -84,7 +84,7 @@ void InitScriptPatches()
 
 const uint8_t* LoadPatchedScript(const char* filename)
 {
-    auto* data = static_cast<const uint8_t*>(Packs::Load(filename, false, nullptr, nullptr, nullptr));
+    auto* data = static_cast<const uint8_t*>(Packs::ReadIn(filename, false, nullptr, nullptr, nullptr));
     int size = Packs::GetFileSize(Checksums::HashFromText(filename));
     if (!s_patches) // (offline, or before InitScriptPatches)
         return data;
@@ -97,7 +97,7 @@ const uint8_t* LoadPatchedScript(const char* filename)
 
     uint32_t checksum = Bps::PatchChecksum(entry->patch, entry->patchSize);
     if (entry->made && entry->madeWith == checksum) {
-        DebugLog::Printf(Level::kInfo, "Using cached patched script for %s\n", filename);
+        DebugLog::Printf(StageMap::kInfo, "Using cached patched script for %s\n", filename);
         if (entry->copy) {
             std::memcpy(entry->copy, entry->patched, entry->patchedSize); // (back as patched)
             return entry->copy;
@@ -107,20 +107,20 @@ const uint8_t* LoadPatchedScript(const char* filename)
         return fresh;
     }
     if (entry->made)
-        DebugLog::Printf(Level::kInfo, "Cached script checksum %08x didn't match patch %08x\n", entry->madeWith, checksum);
-    DebugLog::Printf(Level::kInfo, "Applying patch for %s\n", filename);
+        DebugLog::Printf(StageMap::kInfo, "Cached script checksum %08x didn't match patch %08x\n", entry->madeWith, checksum);
+    DebugLog::Printf(StageMap::kInfo, "Applying patch for %s\n", filename);
     uint8_t* patched = nullptr;
     size_t patchedSize = 0;
     if (!Bps::Apply(entry->patch, entry->patchSize, data, static_cast<size_t>(size), &patched, &patchedSize)) {
-        DebugLog::Printf(Level::kWarn, "Patch failed! Continuing with original script\n");
+        DebugLog::Printf(StageMap::kWarn, "Patch failed! Continuing with original script\n");
         return data;
     }
-    DebugLog::Printf(Level::kInfo, "Patch succeeded! Writing to cache...\n");
+    DebugLog::Printf(StageMap::kInfo, "Patch succeeded! Writing to cache...\n");
     entry->made = true;
     entry->madeWith = checksum;
     entry->patched = Duplicate(patched, patchedSize);
     entry->patchedSize = patchedSize;
-    DebugLog::Printf(Level::kInfo, "Done!\n");
+    DebugLog::Printf(StageMap::kInfo, "Done!\n");
     std::free(entry->copy);
     entry->copy = Duplicate(patched, patchedSize);
     return patched;

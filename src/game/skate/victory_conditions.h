@@ -22,7 +22,7 @@ public:
     // 0x005769A0: the destructor body (the base vtable back). 0x00576970: the subclasses' scalar deleting
     // destructor; 0x00576650: the base's (the same, inline).
     void DestroyBody();
-    CWinRule* Destroy(uint8_t flags);
+    CWinRule* Teardown(uint8_t flags);
     CWinRule* DestroyBase(uint8_t flags);
 
     // 0x005769B0: no other skater has a higher score than skater `player` (the HasWonMatch of highest_score,
@@ -40,7 +40,7 @@ public:
     // 0x00576A40
     bool RuleSatisfied();
     // 0x00576610: "Found CScoreReachedVictoryCondition %d".
-    bool Print();
+    bool EchoOut();
 };
 
 // complete_goals (vtable 0x0064EB34): a skater (or team) has completed every goal; nobody "wins" by score.
@@ -55,7 +55,7 @@ class CBestComboVictoryCondition : public CWinRule {
 public:
     int m_numCombos; // +0x04 num_combos=
     // 0x00576630: "Found CBestComboVictoryCondition %d".
-    bool Print();
+    bool EchoOut();
 };
 
 // last_man_standing (vtable 0x0064EB5C).

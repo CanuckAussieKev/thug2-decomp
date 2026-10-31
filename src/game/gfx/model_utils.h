@@ -6,10 +6,10 @@ namespace Scripts {
 class CStruct;
 }
 namespace TextUtil {
-class String;
+class Chars;
 }
 namespace Maths {
-class Vector;
+class Vec4;
 }
 
 // Helpers of the models and animations code: an animation's range and loop type from script parameters, a model
@@ -26,23 +26,23 @@ bool __cdecl GetAnimLoopType(int* loopType, Scripts::CStruct* params);
 bool __cdecl FetchAnimDurations(float* start, float* end, float current, float duration, Scripts::CStruct* params);
 // 0x004879D0: "models\<name>\<name><extension>" made in `out` (a new String) - or "models\<name>" when the name
 // has a path separator. Returns out.
-TextUtil::String* __cdecl MakeModelPath(TextUtil::String* out, const char* name, const char* extension);
+TextUtil::Chars* __cdecl MakeModelPath(TextUtil::Chars* out, const char* name, const char* extension);
 // 0x00487A70: the same into `out`'s characters.
 void __cdecl MakeModelFileName(const char* name, const char* extension, char* out);
 // 0x00487AD0: the least of three (a NaN loses each comparison it's second in).
 float __cdecl LeastOf(float a, float b, float c);
 // 0x00487B00: a scale from `scale` (a float: all three; or a vector), else from x / y / z (each one given). False
 // when there's none of them.
-bool __cdecl ScaleFromArgs(Maths::Vector* scale, Scripts::CStruct* params);
+bool __cdecl ScaleFromArgs(Maths::Vec4* scale, Scripts::CStruct* params);
 
 // The models hidden for a cutscene (0x006FA2F0): their objects' ids.
 struct SHiddenModels {
     uint32_t* mp_ids;
-    int m_count;
+    int m_num;
 
     // 0x00487BD0: every model component's model with an object id that isn't hidden yet is hidden, its object's id
     // kept ("Hid %d objects").
-    void Hide();
+    void Conceal();
     // 0x00487CB0: those objects still there get their models shown again; the list freed.
     void Show();
 };

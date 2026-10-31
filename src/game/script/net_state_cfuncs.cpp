@@ -60,9 +60,9 @@ GameObjects::CGameEntity* GetHomeRider()
 {
     return reinterpret_cast<GameModules::Skate*>(Skate())->GetHomeRider();
 }
-OnlinePlay::Manager* GameNetManager() { return OnlinePlay::g_gameNetManager; }
-NetLink::Manager* NetManager() { return NetLink::g_netManager; }
-MemSys::Manager* MemManager() { return MemSys::Manager::Get(); }
+OnlinePlay::Hub* GameNetManager() { return OnlinePlay::g_gameNetManager; }
+NetLink::Hub* NetManager() { return NetLink::g_netManager; }
+MemSys::Hub* MemManager() { return MemSys::Hub::Pull(); }
 // The game mode's player count (0x00553190: its integer 0x6DC3D6F1).
 uint32_t GameModePlayers()
 {
@@ -74,14 +74,14 @@ uint32_t InetAddr(const char* address) { return Crt::InetAddr(address); }
 
 } // namespace
 
-// 0x005A0880: StartServer (in the bottom-up heap): the skate module's server; the network manager's LAN mode asked
+// 0x005A0880: LaunchHost (in the bottom-up heap): the skate module's server; the network manager's LAN mode asked
 // when it isn't on the internet (the answer unused).
 bool __cdecl CFunc_StartServer(Scripts::CStruct*, Scripts::CScript*)
 {
-    MemSys::Manager* memory = MemManager();
-    OnlinePlay::Manager* gameNet = GameNetManager();
-    memory->EnterHeapScope(reinterpret_cast<MemSys::Allocator*>(memory->m_bottomUpHeap));
-    SkateNet()->StartServer();
+    MemSys::Hub* memory = MemManager();
+    OnlinePlay::Hub* gameNet = GameNetManager();
+    memory->EnterHeapScope(reinterpret_cast<MemSys::MemSource*>(memory->m_bottomUpHeap));
+    SkateNet()->LaunchHost();
     if (!gameNet->InInternetMode())
         gameNet->IsLocalNetworkPlay();
     MemManager()->LeaveHeapScope();
@@ -100,15 +100,15 @@ bool __cdecl CFunc_LeaveServer(Scripts::CStruct*, Scripts::CScript*)
 // (in a network game, 0xFF898BE6 run after each); else a client joining the address given (both needed).
 bool __cdecl CFunc_JoinServer(Scripts::CStruct* params, Scripts::CScript*)
 {
-    MemSys::Manager* memory = MemManager();
-    OnlinePlay::Manager* gameNet = GameNetManager();
-    memory->EnterHeapScope(reinterpret_cast<MemSys::Allocator*>(memory->m_bottomUpHeap));
+    MemSys::Hub* memory = MemManager();
+    OnlinePlay::Hub* gameNet = GameNetManager();
+    memory->EnterHeapScope(reinterpret_cast<MemSys::MemSource*>(memory->m_bottomUpHeap));
     Scripts::LaunchScript(kJoinScript, nullptr, nullptr, false, nullptr);
     Scripts::ProcessPendingSymbols();
     if (gameNet->OnServer()) {
         uint32_t players = GameModePlayers();
         for (uint32_t i = 0; i < players; ++i) {
-            NetLink::App* client = gameNet->StartClientSession(false, true, true, static_cast<int>(i));
+            NetLink::AppHost* client = gameNet->StartClientSession(false, true, true, static_cast<int>(i));
             gameNet->JoinServer(0, 0, static_cast<int>(i));
             SkateNet()->AddClientHandlers(client, static_cast<int>(i));
             if (gameNet->InNetGame())
@@ -117,7 +117,7 @@ bool __cdecl CFunc_JoinServer(Scripts::CStruct* params, Scripts::CScript*)
     } else {
         const char* address = nullptr;
         int port = 0;
-        params->GetString(0u, &address, false);
+        params->FetchText(0u, &address, false);
         params->FetchIntValue(0u, &port, false);
         if (port && address) {
             gameNet->StartClientSession(false, false, true, 0);
@@ -131,7 +131,7 @@ bool __cdecl CFunc_JoinServer(Scripts::CStruct* params, Scripts::CScript*)
 // 0x005A0A00: SetNetworkMode <0 | 1 | 2> (other values ignored).
 bool __cdecl CFunc_SetNetworkMode(Scripts::CStruct* params, Scripts::CScript*)
 {
-    OnlinePlay::Manager* gameNet = GameNetManager();
+    OnlinePlay::Hub* gameNet = GameNetManager();
     int mode = 0;
     params->FetchIntValue(0u, &mode, 0);
     if (mode == 0 || mode == 1 || mode == 2)
@@ -162,7 +162,7 @@ bool __cdecl CFunc_UseNetworkPreferences(Scripts::CStruct*, Scripts::CScript*)
 // 0xC4745838 and the script 0x6D51F203 run with them.
 bool __cdecl CFunc_TestNetSetup(Scripts::CStruct* params, Scripts::CScript*)
 {
-    NetLink::Manager* net = NetManager();
+    NetLink::Hub* net = NetManager();
     bool ok = Stubs::ReturnTrue(); // (the net manager's setup test, a shared stub)
     if (ok) {
         uint32_t script = 0; // (unset in the original when missing - an asserted parameter)
@@ -185,7 +185,7 @@ bool __cdecl CFunc_TestNetSetup(Scripts::CStruct* params, Scripts::CScript*)
         text = "net_error_invalid_irx";
     else
         text = "net_error_general_error";
-    params->AddString(kNetSetupError, Scripts::QBVAL_STRING, Scripts::GetString(text));
+    params->AppendWord(kNetSetupError, Scripts::QBVAL_STRING, Scripts::FetchText(text));
     Scripts::LaunchScript(kNetSetupFailedScript, params, nullptr, false, nullptr);
     return ok;
 }
@@ -198,20 +198,20 @@ bool __cdecl CFunc_CanChangeDevices(Scripts::CStruct*, Scripts::CScript*) { retu
 // viewer_gateway; else none. The net manager's answer.
 bool __cdecl CFunc_LoadNetworkDrivers(Scripts::CStruct*, Scripts::CScript*)
 {
-    NetLink::Manager* net = NetManager();
-    const char* use = Scripts::GetString("use_deci2");
+    NetLink::Hub* net = NetManager();
+    const char* use = Scripts::FetchText("use_deci2");
     if (!use || !*use)
         return net->LoadNetworkDrivers(nullptr, nullptr, nullptr);
-    const char* ip = Scripts::GetString("viewer_ip");
-    const char* gateway = Scripts::GetString("viewer_gateway");
-    const char* subnetMask = Scripts::GetString("viewer_subnet");
+    const char* ip = Scripts::FetchText("viewer_ip");
+    const char* gateway = Scripts::FetchText("viewer_gateway");
+    const char* subnetMask = Scripts::FetchText("viewer_subnet");
     return net->LoadNetworkDrivers(ip, subnetMask, gateway);
 }
 
 // 0x005A0C60: ConnectToInternet 0x90FF204D=<script> 0xDE64FC3E=<script>: the network manager's answer.
 bool __cdecl CFunc_ConnectToInternet(Scripts::CStruct* params, Scripts::CScript*)
 {
-    OnlinePlay::Manager* gameNet = GameNetManager();
+    OnlinePlay::Hub* gameNet = GameNetManager();
     uint32_t onlineScript = 0;
     uint32_t failScript = 0;
     params->ReadHashValue(kOnlineScript, &onlineScript, 0);
@@ -222,7 +222,7 @@ bool __cdecl CFunc_ConnectToInternet(Scripts::CStruct* params, Scripts::CScript*
 // 0x005A0CC0: CancelConnectToInternet.
 bool __cdecl CFunc_CancelConnectToInternet(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Manager::CancelConnectToInternet();
+    OnlinePlay::Hub::CancelConnectToInternet();
     return true;
 }
 
@@ -232,7 +232,7 @@ bool __cdecl CFunc_IsOnline(Scripts::CStruct*, Scripts::CScript*) { return NetMa
 // 0x005A0CE0: DisconnectFromInternet [callback=<script>].
 bool __cdecl CFunc_DisconnectFromInternet(Scripts::CStruct* params, Scripts::CScript*)
 {
-    OnlinePlay::Manager* gameNet = GameNetManager();
+    OnlinePlay::Hub* gameNet = GameNetManager();
     uint32_t callback = 0;
     params->ReadHashValue(kCallback, &callback, 0);
     gameNet->DisconnectFromInternet(callback);
@@ -264,7 +264,7 @@ bool __cdecl CFunc_InNetGame(Scripts::CStruct*, Scripts::CScript*) { return Game
 // and observing (flags 1 and 4), else whether the join mode is observing (1).
 bool __cdecl CFunc_IsObserving(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Manager* gameNet = GameNetManager();
+    OnlinePlay::Hub* gameNet = GameNetManager();
     OnlinePlay::Detail::NewPlayerSearch search;
     if (void* player = gameNet->GetOwnPlayer())
         return static_cast<OnlinePlay::PlayerRecord*>(player)->IsObserver() != 0;
@@ -281,10 +281,10 @@ bool __cdecl CFunc_IsObserving(Scripts::CStruct*, Scripts::CScript*)
 bool __cdecl CFunc_SetSlomo(Scripts::CStruct* params, Scripts::CScript*)
 {
     float speed = 1.0f;
-    params->GetFloat(0u, &speed, 0);
+    params->FetchFloat(0u, &speed, 0);
     FrameClock::SetGameClockSpeed(speed);
     if (GetHomeRider()) {
-        if (GameObjects::CObjectModule* component = GetHomeRider()->GetComponent(kSlomoComponent))
+        if (GameObjects::CObjectModule* component = GetHomeRider()->FetchModule(kSlomoComponent))
             *reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(component) + 0x2E8) = speed;
     }
     return true;
@@ -293,7 +293,7 @@ bool __cdecl CFunc_SetSlomo(Scripts::CStruct* params, Scripts::CScript*)
 // 0x005A0EB0: TogglePlayerNames: toggled; turned off, the script 0x271D435C runs.
 bool __cdecl CFunc_TogglePlayerNames(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Manager* gameNet = GameNetManager();
+    OnlinePlay::Hub* gameNet = GameNetManager();
     gameNet->TogglePlayerNames();
     if (!gameNet->WantsNameTags())
         Scripts::LaunchScript(kPlayerNamesOffScript, nullptr, nullptr, false, nullptr);
@@ -317,15 +317,15 @@ inline void PrintMessageStat(int /*id*/, int /*value*/) {}
 bool __cdecl CFunc_DumpNetMessageStats(Scripts::CStruct*, Scripts::CScript*)
 {
     NetLink::ConnSearch search = {NetLink::kConnSearchVtable, nullptr};
-    OnlinePlay::Manager* gameNet = GameNetManager();
-    NetLink::App* app = gameNet->m_server;
+    OnlinePlay::Hub* gameNet = GameNetManager();
+    NetLink::AppHost* app = gameNet->m_host;
     if (!app) {
-        app = gameNet->GetClient(0);
+        app = gameNet->FetchPatron(0);
         if (!app)
             return true;
     }
     for (NetLink::Conn* conn = app->BeginConnWalk(&search); conn; conn = app->StepConnWalk(&search)) {
-        for (NetLink::Metrics* metrics : {&conn->m_receiveMetrics, &conn->m_sendMetrics}) {
+        for (NetLink::Gauges* metrics : {&conn->m_receiveMetrics, &conn->m_sendMetrics}) {
             for (int pass = 0; pass < 2; ++pass) {
                 for (int id = 0; id < 256; ++id) {
                     PrintMessageStat(id, metrics->GetMsgByteTotal(id));
@@ -340,7 +340,7 @@ bool __cdecl CFunc_DumpNetMessageStats(Scripts::CStruct*, Scripts::CScript*)
 // 0x005A1020: SetServerMode [off]: the server's side on (off without the flag "off").
 bool __cdecl CFunc_SetServerMode(Scripts::CStruct* params, Scripts::CScript*)
 {
-    OnlinePlay::Manager* gameNet = GameNetManager();
+    OnlinePlay::Hub* gameNet = GameNetManager();
     gameNet->SetServerMode(!params->HasBareFlag("off")); // "off"
     return true;
 }
@@ -348,20 +348,20 @@ bool __cdecl CFunc_SetServerMode(Scripts::CStruct* params, Scripts::CScript*)
 // 0x005A1050: NotifyBailDone: run on a local skater, its client tells the server (message 0x45, sequenced, group 8).
 bool __cdecl CFunc_NotifyBailDone(Scripts::CStruct*, Scripts::CScript* script)
 {
-    OnlinePlay::Manager* gameNet = GameNetManager();
-    GameObjects::CObject* object = script ? script->m_object.Get() : nullptr;
-    if (!object || object->m_type != kSkaterType)
+    OnlinePlay::Hub* gameNet = GameNetManager();
+    GameObjects::CEntity* object = script ? script->m_entity.Pull() : nullptr;
+    if (!object || object->m_kindTag != kSkaterType)
         return true;
     auto* skater = static_cast<GameObjects::CRider*>(object);
     if (!skater->m_unknownBC)
         return true;
-    if (NetLink::App* client = gameNet->GetClient(skater->m_viewSlot)) {
+    if (NetLink::AppHost* client = gameNet->FetchPatron(skater->m_viewSlot)) {
         NetLink::NetMessageInfo desc;
-        desc.Construct();
-        desc.m_id = 0x45;
+        desc.MakeNew();
+        desc.m_ident = 0x45;
         desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
         desc.m_groupId = 8;
-        static_cast<NetLink::Client*>(client)->SendToHost(&desc);
+        static_cast<NetLink::Guest*>(client)->SendToHost(&desc);
     }
     return true;
 }
@@ -383,7 +383,7 @@ bool __cdecl CFunc_ObserveNextSkater(Scripts::CStruct*, Scripts::CScript*)
 // 0x005A10F0: RefreshServerList [force_refresh].
 bool __cdecl CFunc_RefreshServerList(Scripts::CStruct* params, Scripts::CScript*)
 {
-    OnlinePlay::Manager* gameNet = GameNetManager();
+    OnlinePlay::Hub* gameNet = GameNetManager();
     gameNet->RefreshServerList(params->HasBareFlag("force_refresh")); // "force_refresh"
     return true;
 }
@@ -399,7 +399,7 @@ bool __cdecl CFunc_StartServerList(Scripts::CStruct*, Scripts::CScript*)
 // the service is in state 2.
 bool __cdecl CFunc_StartLobbyList(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Manager* gameNet = GameNetManager();
+    OnlinePlay::Hub* gameNet = GameNetManager();
     if (gameNet->GetServiceState() == 2) {
         gameNet->SetNextServiceState(13);
         gameNet->SetServiceState(1);
@@ -426,7 +426,7 @@ bool __cdecl CFunc_FreeServerList(Scripts::CStruct*, Scripts::CScript*)
 // game. 1 or 0 in EAX.
 int __cdecl CFunc_InSplitScreenGame(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Manager* gameNet = GameNetManager();
+    OnlinePlay::Hub* gameNet = GameNetManager();
     if (GameModules::Skate::IsMultiplayer() != 0 && !gameNet->InNetGame())
         return 1;
     return 0;
@@ -448,9 +448,9 @@ bool __cdecl CFunc_ToggleScores(Scripts::CStruct*, Scripts::CScript*)
 // 0x005A1680: JoinWithPassword 0x61414D56="<password>": the join tried again with it.
 bool __cdecl CFunc_JoinWithPassword(Scripts::CStruct* params, Scripts::CScript*)
 {
-    OnlinePlay::Manager* gameNet = GameNetManager();
+    OnlinePlay::Hub* gameNet = GameNetManager();
     const char* password = nullptr; // (unset in the original when missing - an asserted parameter)
-    params->GetString(0x61414D56u, &password, true);
+    params->FetchText(0x61414D56u, &password, true);
     gameNet->RetryEntryWithKey(password);
     return true;
 }
@@ -492,7 +492,7 @@ namespace {
 // A network preference's checksum (asserting it's there).
 uint32_t NetworkPreference(uint32_t name)
 {
-    Scripts::CStruct* preference = GameNetManager()->GetOnlineSettings()->GetPreference(name);
+    Scripts::CStruct* preference = GameNetManager()->GetOnlineSettings()->FetchSetting(name);
     uint32_t value = 0; // (unset in the original when missing - an asserted parameter)
     preference->ReadHashValue(0x21902065u, &value, true); // "checksum"
     return value;
@@ -514,7 +514,7 @@ bool __cdecl CFunc_InInternetMode(Scripts::CStruct*, Scripts::CScript*) { return
 // 0x005A1C00: EnteringNetGame: a network game, and the skate module's +0x37C is 0xE92ECAFE.
 bool __cdecl CFunc_EnteringNetGame(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Manager* gameNet = GameNetManager();
+    OnlinePlay::Hub* gameNet = GameNetManager();
     return gameNet->InNetGame() && *reinterpret_cast<uint32_t*>(Skate() + 0x37C) == 0xE92ECAFE;
 }
 
@@ -547,7 +547,7 @@ bool __cdecl CFunc_TryJoinInternetGame(Scripts::CStruct*, Scripts::CScript*)
 bool __cdecl CFunc_TryJoinServerIP(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* address = nullptr; // (unset in the original when missing - an asserted parameter)
-    params->GetString("string", &address, true); // "string"
+    params->FetchText("string", &address, true); // "string"
     uint32_t ip = InetAddr(address);
     if (ip == 0xFFFFFFFF) {
         auto* host = static_cast<uint8_t*>(GetHostByName(address));
@@ -587,7 +587,7 @@ namespace {
 Scripts::CStruct* NewPreference()
 {
     auto* structure = Scripts::NewStruct();
-    return structure ? structure->Init() : nullptr;
+    return structure ? structure->PrepareAll() : nullptr;
 }
 void DeletePreference(Scripts::CStruct* structure)
 {
@@ -601,14 +601,14 @@ uint32_t Checksums(const char* name) { return Checksums::HashFromText(name); }
 void SetStringPreference(OptionStore::Preferences* prefs, const char* name, const char* text)
 {
     Scripts::CStruct* preference = NewPreference();
-    preference->AddString(Checksums("ui_string"), Scripts::QBVAL_STRING, text); // "ui_string"
-    prefs->SetPreference(Checksums(name), preference);
+    preference->AppendWord(Checksums("ui_string"), Scripts::QBVAL_STRING, text); // "ui_string"
+    prefs->ChangeSetting(Checksums(name), preference);
     DeletePreference(preference);
 }
 // ... set to {ui_string="<text>" checksum=<the checksum of `value`>}.
 void SetChoicePreference(Scripts::CStruct* preference, const char* text, const char* value)
 {
-    preference->AddString("ui_string", reinterpret_cast<const char*>(text)); // "ui_string"
+    preference->AppendWord("ui_string", reinterpret_cast<const char*>(text)); // "ui_string"
     preference->PutNameKey("checksum", Checksums(value));                        // "checksum"
 }
 
@@ -619,7 +619,7 @@ void SetChoicePreference(Scripts::CStruct* preference, const char* text, const c
 // the team mode (0x007CCBE0: 0 none, 2 / 3 / 4 teams; others leave it empty) and the skill level (0x0067EFD4, 1-5).
 void __cdecl InitBeenoxPreferences()
 {
-    OnlinePlay::Manager* gameNet = GameNetManager();
+    OnlinePlay::Hub* gameNet = GameNetManager();
     OptionStore::Preferences* prefs = gameNet->GetOnlineSettings();
     SetStringPreference(prefs, "server_name", g_hostedGameName); // "server_name"
     SetStringPreference(prefs, "password", g_networkPassword);           // "password"
@@ -634,7 +634,7 @@ void __cdecl InitBeenoxPreferences()
     case 4: SetChoicePreference(teams, "4", "teams_four"); break; // "4", teams_four
     default: break;
     }
-    prefs->SetPreference(Checksums("team_mode"), teams); // "team_mode"
+    prefs->ChangeSetting(Checksums("team_mode"), teams); // "team_mode"
     DeletePreference(teams);
     Scripts::CStruct* skill = NewPreference();
     switch (OnlinePlay::g_netSkillLevel) {
@@ -645,7 +645,7 @@ void __cdecl InitBeenoxPreferences()
     case 5: SetChoicePreference(skill, "5: Bring It On!", "num_5"); break; // "5: Bring It On!", num_5
     default: break;
     }
-    prefs->SetPreference(Checksums("skill_level"), skill); // "skill_level"
+    prefs->ChangeSetting(Checksums("skill_level"), skill); // "skill_level"
     DeletePreference(skill);
 }
 

@@ -122,8 +122,8 @@ uint32_t FirstHit(V3 from, V3 to, V3* point)
 {
     alignas(16) uint8_t feeler[0x100] = {};
     auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
-    ray->Construct();
-    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    ray->MakeNew();
+    Maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return 0;
     if (!*reinterpret_cast<void* const*>(feeler + 0x54))
@@ -133,12 +133,12 @@ uint32_t FirstHit(V3 from, V3 to, V3* point)
     return *reinterpret_cast<const uint32_t*>(feeler + 0x58);
 }
 
-Scripts::CStruct* NodeStruct(uint32_t name, const Nodes::Node** out)
+Scripts::CStruct* NodeStruct(uint32_t name, const Nodes::Elem** out)
 {
     int index = name ? Nodes::Find(name) : -1;
     if (index < 0)
         return nullptr;
-    const Nodes::Node& node = Nodes::All()[index];
+    const Nodes::Elem& node = Nodes::All()[index];
     if (out)
         *out = &node;
     return Nodes::StructOf(node);
@@ -152,12 +152,12 @@ uint32_t ClusterOf(uint32_t name)
     return cluster;
 }
 
-std::vector<uint32_t> LinkNames(const Nodes::Node* node)
+std::vector<uint32_t> LinkNames(const Nodes::Elem* node)
 {
     std::vector<uint32_t> names;
     if (!node)
         return names;
-    const std::vector<Nodes::Node>& all = Nodes::All();
+    const std::vector<Nodes::Elem>& all = Nodes::All();
     for (int link : node->links) {
         if (link >= 0 && link < static_cast<int>(all.size()))
             names.push_back(all[link].name);
@@ -194,7 +194,7 @@ uint32_t GroundUnder(const Gather& g, V3 p)
 
 Attachment AttachmentOf(const Gather& g, uint32_t name, V3 pos)
 {
-    const Nodes::Node* node = nullptr;
+    const Nodes::Elem* node = nullptr;
     uint32_t cluster = 0;
     if (Scripts::CStruct* s = NodeStruct(name, &node))
         s->ReadHashValue(kCluster, &cluster, 0);
@@ -205,7 +205,7 @@ Attachment AttachmentOf(const Gather& g, uint32_t name, V3 pos)
     return Attached(0, {}, GroundUnder(g, pos), g.members, g.clusters);
 }
 
-void __cdecl GatherObject(GameObjects::CObject* object, void* data)
+void __cdecl GatherObject(GameObjects::CEntity* object, void* data)
 {
     auto* g = static_cast<Gather*>(data);
     auto* composite = static_cast<GameObjects::CGameEntity*>(object);
@@ -213,15 +213,15 @@ void __cdecl GatherObject(GameObjects::CObject* object, void* data)
     if (!Objects::ModelBox(composite, &box))
         return;
     uint32_t cls = 0;
-    const Nodes::Node* node = nullptr;
-    if (Scripts::CStruct* s = NodeStruct(composite->m_id, &node))
+    const Nodes::Elem* node = nullptr;
+    if (Scripts::CStruct* s = NodeStruct(composite->m_ident, &node))
         s->ReadHashValue(kClass, &cls, 0);
     if (cls == kPedestrian)
         return; // (peds walk their paths: not carried)
-    if (node && node->family == Nodes::Family::Flag)
+    if (node && node->family == Nodes::Family::BitMark)
         return; // (a flag's object: its node is carried, and moves it)
-    if (AttachmentOf(*g, composite->m_id, Objects::PosOf(composite)) != Attachment::kNone)
-        g->objects.push_back(composite->m_id);
+    if (AttachmentOf(*g, composite->m_ident, Objects::PosOf(composite)) != Attachment::kNone)
+        g->objects.push_back(composite->m_ident);
 }
 
 GameObjects::CGameEntity* LiveObject(uint32_t id)
@@ -232,7 +232,7 @@ GameObjects::CGameEntity* LiveObject(uint32_t id)
 
 } // namespace
 
-bool Enabled()
+bool IsSwitchedOn()
 {
     if (!g_settingRead) {
         g_settingRead = true;
@@ -243,7 +243,7 @@ bool Enabled()
 
 void SetEnabled(bool on)
 {
-    Enabled();
+    IsSwitchedOn();
     g_enabled = on;
     ConfigSetInt("editor", "carry", on ? 1 : 0);
     if (!on)
@@ -254,7 +254,7 @@ Taken Arm()
 {
     g_carried = Carried{};
     const std::vector<uint32_t>& selection = Scenery::Selection();
-    if (!Enabled() || selection.empty())
+    if (!IsSwitchedOn() || selection.empty())
         return {};
     Gather g;
     g.members = selection;
@@ -262,7 +262,7 @@ Taken Arm()
         if (uint32_t cluster = ClusterOf(member))
             g.clusters.push_back(cluster);
         OrientedBox box;
-        if (Scenery::Box(member, &box) && !Scenery::IsShadow(member))
+        if (Scenery::Cuboid(member, &box) && !Scenery::IsShadow(member))
             g.boxes.push_back({member, box});
     }
     if (GameObjects::CEntityHub* manager = GameObjects::CompositeObjectManager())
@@ -270,19 +270,19 @@ Taken Arm()
     g_carried.objects = g.objects;
     for (uint32_t id : g_carried.objects) {
         if (GameObjects::CGameEntity* object = LiveObject(id))
-            g_carried.taken.objects.push_back(Objects::Save(object));
+            g_carried.taken.objects.push_back(Objects::StoreAway(object));
     }
-    for (const Nodes::Node& node : Nodes::All()) {
+    for (const Nodes::Elem& node : Nodes::All()) {
         if (!node.name || node.hidden || !NodeEdit::Movable(node) || NodeEdit::IsChain(node.name))
             continue;
         NodeEdit::Values values;
-        if (!NodeEdit::Read(node.name, &values))
+        if (!NodeEdit::TakeIn(node.name, &values))
             continue;
         if (AttachmentOf(g, node.name, values.pos) != Attachment::kNone &&
             std::find(g_carried.nodes.begin(), g_carried.nodes.end(), node.name) == g_carried.nodes.end())
             g_carried.nodes.push_back(node.name);
     }
-    g_carried.taken.nodes = NodeEdit::Capture(g_carried.nodes, NodeEdit::Read);
+    g_carried.taken.nodes = NodeEdit::Capture(g_carried.nodes, NodeEdit::TakeIn);
     g_carried.reference = selection.front();
     g_carried.last = PlacementOf(g_carried.reference);
     g_carried.armed = true;
@@ -319,12 +319,12 @@ void Follow(void (*onNode)(uint32_t name))
     }
     for (uint32_t name : g_carried.nodes) {
         NodeEdit::Values values;
-        if (!NodeEdit::Read(name, &values))
+        if (!NodeEdit::TakeIn(name, &values))
             continue;
         values.pos = Apply(step, values.pos);
         if (step.quarters & 3)
             values.angles.y = TurnedHeading(values.angles.y, step.quarters);
-        NodeEdit::Set(name, values);
+        NodeEdit::AssignValue(name, values);
         if (onNode)
             onNode(name);
     }
@@ -336,10 +336,10 @@ void Leave()
         return;
     for (const Objects::State& state : g_carried.taken.objects)
         Objects::Restore(state);
-    NodeEdit::Put(g_carried.taken.nodes, [](uint32_t name, const NodeEdit::Values& values) {
+    NodeEdit::PlaceIn(g_carried.taken.nodes, [](uint32_t name, const NodeEdit::Values& values) {
         NodeEdit::Values now;
-        if (NodeEdit::Read(name, &now) && !NodeEdit::Same(now, values))
-            NodeEdit::Set(name, values);
+        if (NodeEdit::TakeIn(name, &now) && !NodeEdit::Same(now, values))
+            NodeEdit::AssignValue(name, values);
     });
     g_carried = Carried{};
 }
@@ -348,7 +348,7 @@ void Disarm() { g_carried = Carried{}; }
 
 bool Armed() { return g_carried.armed; }
 
-int Count() { return g_carried.armed ? static_cast<int>(g_carried.objects.size() + g_carried.nodes.size()) : 0; }
+int TotalOf() { return g_carried.armed ? static_cast<int>(g_carried.objects.size() + g_carried.nodes.size()) : 0; }
 
 std::vector<uint32_t> CarriedObjects() { return g_carried.armed ? g_carried.objects : std::vector<uint32_t>{}; }
 

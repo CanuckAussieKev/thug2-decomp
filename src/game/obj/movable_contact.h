@@ -26,24 +26,24 @@ public:
 
     // 0x00427AB0 (registered with the component types): a new one (MemSys::AllocZeroed; the constructor inlined: the base's,
     // its vtable and type, no ride, no stop time).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x004276C0: the destructor body (its vtable, then the base's - the ride tracker isn't freed).
     void DestroyBody();
     // 0x004276D0 (vtable slot 0): the scalar deleting destructor.
-    CMovingSurfaceModule* Destroy(unsigned int flags);
+    CMovingSurfaceModule* Teardown(unsigned int flags);
 
     // 0x00427700 (thiscall, RET 8; `this` unused): the moving object under `point` - a feeler from 400 over the point
     // down to 6 over it hits a movable object that's still there, and nothing is in the way back up from the point
     // to just over the hit (else the feeler starts again just under that hit; 9 tries). The hit point into `hit`;
     // null when there's none.
-    CGameEntity* FindContact(const Maths::Vector* point, Maths::Vector* hit);
+    CGameEntity* FindContact(const Maths::Vec4* point, Maths::Vec4* hit);
     // 0x00427B30: the object under `pos` (null: none). Nothing under `next`: `pos` = `next`. Else, nothing two
     // frames of the object's velocity ahead of `pos`: `pos` = that point; else `pos` = the hit under it, a unit
     // up.
-    CGameEntity* FindContactAhead(Maths::Vector* pos, const Maths::Vector* next);
+    CGameEntity* FindContactAhead(Maths::Vec4* pos, const Maths::Vec4* next);
     // 0x00427A00: the contact point in the world (relative to the last object ridden, by its orientation and
     // position; none: as kept); returns `out` (callers read it).
-    Maths::Vector* GetContactPoint(Maths::Vector* out);
+    Maths::Vec4* GetContactPoint(Maths::Vec4* out);
     // 0x00427C70: no longer riding: the ride's object becomes the last ridden, the tracker freed, the time noted.
     void StopRiding();
     // 0x004FC400 (with the skater's core physics): the time since the skater stopped riding (+0x70).
@@ -58,7 +58,7 @@ public:
     void UpdateContactPoint();
 
     CRideTracker* mp_ride;            // +0x18
-    Maths::Vector m_contactPoint;       // +0x1C in the object's frame
+    Maths::Vec4 m_contactPoint;       // +0x1C in the object's frame
     uint8_t m_unknown2C[0x40];        // +0x2C
     CGameEntity* mp_lastObject;  // +0x6C the object last ridden
     int m_stopTime;                   // +0x70 the game clock when it stopped riding

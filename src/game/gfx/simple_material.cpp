@@ -20,10 +20,10 @@ namespace {
 // The texture dictionary's lookup (not rewritten yet; thiscall): the texture entry for a checksum, or null.
 uint8_t* FindTexture(uint32_t checksum)
 {
-    return reinterpret_cast<uint8_t*>(static_cast<CTextureSet*>(reinterpret_cast<void*>(g_particleTextureDict))->GetTexture(checksum));
+    return reinterpret_cast<uint8_t*>(static_cast<CTextureSet*>(reinterpret_cast<void*>(g_particleTextureDict))->FetchSkin(checksum));
 }
 // A material's constructor and destructor body (not rewritten yet; thiscall).
-uint8_t* ConstructMaterial(void* memory) { return reinterpret_cast<uint8_t*>(static_cast<materialRef*>(memory)->Construct()); }
+uint8_t* ConstructMaterial(void* memory) { return reinterpret_cast<uint8_t*>(static_cast<materialRef*>(memory)->MakeNew()); }
 void DestroyMaterial(void* material) { static_cast<materialRef*>(material)->DestroyBody(); }
 // The C runtime's rand (the game's: its sequence).
 int Rand() { return Crt::Rand(); }
@@ -62,14 +62,14 @@ uint32_t __cdecl BlendModeFromName(uint32_t checksum)
 }
 
 // 0x004D9B80
-sSimpleMaterial* sSimpleMaterial::Construct(uint32_t /*unused0*/, uint32_t /*unused1*/, uint32_t textureChecksum,
+sSimpleMaterial* sSimpleMaterial::MakeNew(uint32_t /*unused0*/, uint32_t /*unused1*/, uint32_t textureChecksum,
                                             uint32_t blendChecksum, int fixedAlpha, uint32_t /*unused5*/,
                                             uint32_t /*unused6*/)
 {
     uint32_t texture = 0;
     if (uint8_t* entry = FindTexture(textureChecksum))
         texture = (entry[8] & 1) ? **reinterpret_cast<uint32_t**>(entry + 0x10) : At<uint32_t>(entry, 0x10);
-    void* memory = MemSys::New(0x110);
+    void* memory = MemSys::Alloc(0x110);
     uint8_t* m = memory ? ConstructMaterial(memory) : nullptr; // (a failed allocation would crash below)
     At<uint32_t>(m, 0x20) = (texture ? 4 : 0) | 0x40;
     int first = Rand();
@@ -97,7 +97,7 @@ void sSimpleMaterial::DestroyBody()
 {
     if (uint8_t* m = material) {
         DestroyMaterial(m);
-        MemSys::Manager::Instance()->Free(m);
+        MemSys::Hub::Sole()->Dealloc(m);
     }
 }
 
@@ -105,9 +105,9 @@ void sSimpleMaterial::DestroyBody()
 int __cdecl SkipFileChunk(void* file)
 {
     uint32_t id, size;
-    FileLoad::Read(&id, 4, 1, file);
-    FileLoad::Read(&size, 4, 1, file);
-    FileLoad::Seek(file, static_cast<int>(size), SEEK_CUR);
+    FileLoad::TakeIn(&id, 4, 1, file);
+    FileLoad::TakeIn(&size, 4, 1, file);
+    FileLoad::SeekTo(file, static_cast<int>(size), SEEK_CUR);
     return 0;
 }
 

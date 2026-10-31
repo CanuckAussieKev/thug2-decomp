@@ -93,13 +93,13 @@ bool OverlayPath(const char* name, char (&path)[260])
     std::string full;
     // First, while [features] hd_ui is on: the upscaled menu images and fonts (game/gfx/hd_ui.h), in the hd_ui folder
     // under the same names (also the ones inside the .prx packs, which the overlay serves by name).
-    if (overlay && Engine3D::HdUi::Enabled()) {
+    if (overlay && Engine3D::HdUi::IsSwitchedOn()) {
         std::string candidate = Folder() + "\\hd_ui\\" + relative;
         if (IsFile(candidate))
             full = candidate;
     }
     const char* folders[4];
-    int count = overlay && full.empty() ? SearchFolders(AntearaMod(), NewFrontend::Enabled(), folders) : 0;
+    int count = overlay && full.empty() ? SearchFolders(AntearaMod(), NewFrontend::IsSwitchedOn(), folders) : 0;
     for (int i = 0; i < count && full.empty(); ++i) {
         std::string candidate = Folder() + "\\" + folders[i] + relative;
         if (IsFile(candidate))

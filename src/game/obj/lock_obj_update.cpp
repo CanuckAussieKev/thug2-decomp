@@ -55,7 +55,7 @@ double X87Sin(double angle)
 void* SkeletonOf(CObjectModule* component) { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x18); }
 // The skeleton's matrix of `bone` (0x004A36E0; false if it hasn't the bone), its bone index (0x004A2B60) and, from its
 // data (+0x08), a bone's parent (0x004A2C50).
-bool BoneMatrix(void* skeleton, uint32_t bone, Maths::Matrix* out)
+bool BoneMatrix(void* skeleton, uint32_t bone, Maths::Mat4* out)
 {
     return static_cast<Gfx2D::CRig*>(skeleton)->ReadJointMatrix(bone, out);
 }
@@ -66,23 +66,23 @@ uint32_t ParentBone(void* skeleton, int index)
     return static_cast<Gfx2D::CRigData*>(data)->FetchParentHash(index);
 }
 // The model component's 0x004215F0: its matrix into `out`.
-void ModelMatrix(CObjectModule* model, Maths::Matrix* out)
+void ModelMatrix(CObjectModule* model, Maths::Mat4* out)
 {
     static_cast<CMeshInstanceModule*>(model)->GetDrawMatrix(out);
 }
 // Whether the target's model is to be followed: a model with its +0x234 set, or a skater.
 bool FollowModel(CObjectModule* model, CGameEntity* target)
 {
-    return (model && reinterpret_cast<uint8_t*>(model)[0x234]) || target->m_id < kFirstNonSkaterId;
+    return (model && reinterpret_cast<uint8_t*>(model)[0x234]) || target->m_ident < kFirstNonSkaterId;
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
 
-void SetProduct(Maths::Matrix& out, const Maths::Matrix& a, const Maths::Matrix& b)
+void SetProduct(Maths::Mat4& out, const Maths::Mat4& a, const Maths::Mat4& b)
 {
     Maths::MatrixProduct product = {&a, &b};
     out = product;
@@ -91,19 +91,19 @@ void SetProduct(Maths::Matrix& out, const Maths::Matrix& a, const Maths::Matrix&
 } // namespace
 
 // 0x0041FF20
-CObjectModule* __cdecl CPinnedObjectModule::Create()
+CObjectModule* __cdecl CPinnedObjectModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CPinnedObjectModule));
-    return memory ? static_cast<CPinnedObjectModule*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CPinnedObjectModule*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x0041F500
-CPinnedObjectModule* CPinnedObjectModule::Construct()
+CPinnedObjectModule* CPinnedObjectModule::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_lockFlags &= ~LOCK_FLAG_LOCKED;
     m_vtable = kVtable;
-    m_type = kType;
+    m_kindTag = kType;
     return this;
 }
 
@@ -115,11 +115,11 @@ void CPinnedObjectModule::DestroyBody()
 }
 
 // 0x0041F440
-CPinnedObjectModule* CPinnedObjectModule::Destroy(unsigned int flags)
+CPinnedObjectModule* CPinnedObjectModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -133,87 +133,87 @@ void CPinnedObjectModule::UpdateLock()
         if (!target)
             return;
     }
-    Maths::Vector pos = m_object->m_pos;     // where it goes
-    Maths::Vector extra = {0.0f, 0.0f, 0.0f, 1.0f}; // added to it when there's no lag
-    Maths::Vector local;
+    Maths::Vec4 pos = m_entity->m_atPoint;     // where it goes
+    Maths::Vec4 extra = {0.0f, 0.0f, 0.0f, 1.0f}; // added to it when there's no lag
+    Maths::Vec4 local;
     if (m_bone) {
         // On a bone: its orientation, and its "at" towards its parent.
-        CObjectModule* skeletonComponent = target->GetComponent(kSkeleton);
-        void* skeleton = skeletonComponent ? SkeletonOf(target->GetComponent(kSkeleton)) : nullptr;
-        if (skeleton && BoneMatrix(skeleton, m_bone, &m_object->m_basisFrame)) {
-            Maths::Matrix parent;
+        CObjectModule* skeletonComponent = target->FetchModule(kSkeleton);
+        void* skeleton = skeletonComponent ? SkeletonOf(target->FetchModule(kSkeleton)) : nullptr;
+        if (skeleton && BoneMatrix(skeleton, m_bone, &m_entity->m_basisFrame)) {
+            Maths::Mat4 parent;
             BoneMatrix(skeleton, ParentBone(skeleton, BoneIndex(skeleton, m_bone)), &parent);
-            CGameEntity* object = m_object;
-            Maths::Vector jointWorld = object->m_basisFrame.row[3];
-            Maths::Vector ownerPos = parent.row[3];
+            CGameEntity* object = m_entity;
+            Maths::Vec4 jointWorld = object->m_basisFrame.row[3];
+            Maths::Vec4 ownerPos = parent.row[3];
             object->m_basisFrame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
             parent.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-            CObjectModule* model = target->GetComponent(kModel);
+            CObjectModule* model = target->FetchModule(kModel);
             if (model && FollowModel(model, target)) {
-                Maths::Matrix frame;
+                Maths::Mat4 frame;
                 ModelMatrix(model, &frame);
-                extra = frame.row[3] - target->m_pos;
+                extra = frame.row[3] - target->m_atPoint;
                 frame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-                SetProduct(m_object->m_basisFrame, m_object->m_basisFrame, frame);
+                SetProduct(m_entity->m_basisFrame, m_entity->m_basisFrame, frame);
                 SetProduct(parent, parent, frame);
-                pos = frame.Transform(local, jointWorld);
-                pos += target->m_pos + m_shift * m_object->m_basisFrame;
-                ownerPos = frame.Transform(local, ownerPos);
-                ownerPos += target->m_pos + m_shift * parent;
+                pos = frame.Xform(local, jointWorld);
+                pos += target->m_atPoint + m_shift * m_entity->m_basisFrame;
+                ownerPos = frame.Xform(local, ownerPos);
+                ownerPos += target->m_atPoint + m_shift * parent;
             } else {
-                const Maths::Matrix& frame = target->m_displayMatrix;
-                SetProduct(m_object->m_basisFrame, m_object->m_basisFrame, frame);
+                const Maths::Mat4& frame = target->m_displayMatrix;
+                SetProduct(m_entity->m_basisFrame, m_entity->m_basisFrame, frame);
                 SetProduct(parent, parent, frame);
-                pos = frame.Transform(local, jointWorld);
-                pos += target->m_pos + m_shift * m_object->m_basisFrame;
-                ownerPos = frame.Transform(local, ownerPos);
-                ownerPos += target->m_pos + m_shift * parent;
+                pos = frame.Xform(local, jointWorld);
+                pos += target->m_atPoint + m_shift * m_entity->m_basisFrame;
+                ownerPos = frame.Xform(local, ownerPos);
+                ownerPos += target->m_atPoint + m_shift * parent;
             }
-            object = m_object;
-            Maths::Vector& at = object->m_basisFrame.row[2];
+            object = m_entity;
+            Maths::Vec4& at = object->m_basisFrame.row[2];
             at = {ownerPos.x - pos.x, ownerPos.y - pos.y, ownerPos.z - pos.z, ownerPos.w - pos.w};
-            m_object->m_basisFrame.row[2].Normalize();
-            Maths::Vector up = target->m_displayMatrix.row[1];
-            object = m_object;
-            object->m_basisFrame.row[0] = Maths::CrossProduct(object->m_basisFrame.row[2], up);
-            object = m_object;
-            object->m_basisFrame.row[1] = Maths::CrossProduct(object->m_basisFrame.row[2], object->m_basisFrame.row[0]);
-            m_object->m_displayMatrix = m_object->m_basisFrame;
+            m_entity->m_basisFrame.row[2].MakeUnit();
+            Maths::Vec4 up = target->m_displayMatrix.row[1];
+            object = m_entity;
+            object->m_basisFrame.row[0] = Maths::CrossVec(object->m_basisFrame.row[2], up);
+            object = m_entity;
+            object->m_basisFrame.row[1] = Maths::CrossVec(object->m_basisFrame.row[2], object->m_basisFrame.row[0]);
+            m_entity->m_displayMatrix = m_entity->m_basisFrame;
         }
     } else {
         // At the target (or its model): its orientation, and the offset turned by it.
-        CObjectModule* model = target->GetComponent(kModel);
+        CObjectModule* model = target->FetchModule(kModel);
         if (model && FollowModel(model, target)) {
-            Maths::Matrix frame;
+            Maths::Mat4 frame;
             ModelMatrix(model, &frame);
             pos = m_shift * frame;
             frame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-            m_object->m_basisFrame = frame;
+            m_entity->m_basisFrame = frame;
         } else {
-            m_object->m_basisFrame = target->m_displayMatrix;
-            Maths::Vector turned = m_shift * m_object->m_basisFrame;
-            pos = {turned.x + target->m_pos.x, target->m_pos.y + turned.y, target->m_pos.z + turned.z,
-                   target->m_pos.w + turned.w};
+            m_entity->m_basisFrame = target->m_displayMatrix;
+            Maths::Vec4 turned = m_shift * m_entity->m_basisFrame;
+            pos = {turned.x + target->m_atPoint.x, target->m_atPoint.y + turned.y, target->m_atPoint.z + turned.z,
+                   target->m_atPoint.w + turned.w};
         }
     }
-    CGameEntity* object = m_object;
+    CGameEntity* object = m_entity;
     if (m_lockFlags & LOCK_FLAG_LAG) {
         // Part of the way there (the roundings where the original stores).
         float lag = m_lag;
-        double dx = static_cast<double>(pos.x) - object->m_pos.x;
-        double dy = static_cast<double>(pos.y) - object->m_pos.y;
-        float dz = pos.z - object->m_pos.z;
-        float dw = pos.w - object->m_pos.w;
+        double dx = static_cast<double>(pos.x) - object->m_atPoint.x;
+        double dy = static_cast<double>(pos.y) - object->m_atPoint.y;
+        float dz = pos.z - object->m_atPoint.z;
+        float dw = pos.w - object->m_atPoint.w;
         float stepX = static_cast<float>(dx * lag);
         float stepY = static_cast<float>(dy * lag);
         double stepZ = static_cast<double>(dz) * lag;
         float stepW = dw * lag;
-        float x = stepX + object->m_pos.x;
-        float y = stepY + object->m_pos.y;
-        object->m_pos.z = static_cast<float>(stepZ + object->m_pos.z);
-        object->m_pos.w = stepW + object->m_pos.w;
-        object->m_pos.x = x;
-        object->m_pos.y = y;
+        float x = stepX + object->m_atPoint.x;
+        float y = stepY + object->m_atPoint.y;
+        object->m_atPoint.z = static_cast<float>(stepZ + object->m_atPoint.z);
+        object->m_atPoint.w = stepW + object->m_atPoint.w;
+        object->m_atPoint.x = x;
+        object->m_atPoint.y = y;
         // The lag for the next update: as ConfigureFromData's, with the update's step.
         int t = static_cast<int>((FrameClock::GetTime() + static_cast<uint32_t>(m_wobbleSeed)) & 0x3FF);
         double time = static_cast<double>(t);
@@ -222,12 +222,12 @@ void CPinnedObjectModule::UpdateLock()
                         X87Sin(time * static_cast<double>(m_wobble[0]) * step);
         m_lag = static_cast<float>((wobble + 1.0) * (static_cast<double>(m_lagMax) - m_lagMin) * 0.5 + m_lagMin);
     } else {
-        object->m_pos = {extra.x + pos.x, extra.y + pos.y, extra.z + pos.z, extra.w + pos.w};
+        object->m_atPoint = {extra.x + pos.x, extra.y + pos.y, extra.z + pos.z, extra.w + pos.w};
     }
-    m_object->m_vel = target->m_vel;
+    m_entity->m_vel = target->m_vel;
     if (m_lockFlags & LOCK_FLAG_ANGLES)
-        MatrixMultiply(&m_object->m_basisFrame, &m_object->m_basisFrame, &m_orientationTurn);
-    m_object->m_displayMatrix = m_object->m_basisFrame;
+        MatrixMultiply(&m_entity->m_basisFrame, &m_entity->m_basisFrame, &m_orientationTurn);
+    m_entity->m_displayMatrix = m_entity->m_basisFrame;
 }
 
 } // namespace Obj
@@ -235,8 +235,8 @@ void CPinnedObjectModule::UpdateLock()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CPinnedObjectModule::Destroy,
-         &GameObjects::CPinnedObjectModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CPinnedObjectModule::Teardown,
+         &GameObjects::CPinnedObjectModule::TickFrame,
          &GameObjects::CPinnedObjectModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,

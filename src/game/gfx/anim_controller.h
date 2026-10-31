@@ -30,22 +30,22 @@ struct CAnimTimeline {
     enum LoopType : int { kOnce = 0, kCycle = 1, kPingPong = 2, kHold = 3 };
 
     // 0x00481650: an empty timeline, unlinked (once, forwards, no animation: 0xF60C9090).
-    CAnimTimeline* Construct();
+    CAnimTimeline* MakeNew();
     // 0x00481690: the list node's destructor body - its vtable 0x006486CC, unlinked (the channel's list nodes and
     // the blend timeline use it too). 0x004816E0 (slot 0, also the channel list head's): that, then freed.
     void DestroyBody();
-    CAnimTimeline* Destroy(uint8_t flags);
+    CAnimTimeline* Teardown(uint8_t flags);
     // 0x00481380 (slot 1): back to the constructor's times, speed, direction, loop type and animation.
     void Reset();
     // 0x00481640 (slot 2): the current time stepped (NextTime).
-    void Update();
+    void TickFrame();
     // 0x00481430 (slot 3): `anim` from `from` to `to` (backwards when `to` isn't above it) at `speed` (per 1/60 s);
     // `blendPeriod` isn't used here.
     void PlayAnim(uint32_t anim, float from, float to, int loopType, float blendPeriod, float speed);
     // 0x004813B0: the start, current and end times in the direction it plays (start and end swapped backwards).
     void GetTimes(float* start, float* current, float* end);
     // 0x004813F0: whether a once / ping-pong / hold timeline (not a cycling one) is at its end.
-    bool IsComplete();
+    bool IsAccomplished();
     // 0x004814B0: the time a frame on (the frame's slow-motion seconds x 60 x speed), wrapped, held or turned
     // round at the ends by the loop type, within the start and end; sets the complete flag. Unrounded (ST0).
     double NextTime();
@@ -54,9 +54,9 @@ struct CAnimTimeline {
 
     void** m_vtable;
     uint32_t m_unknown04[4];
-    float m_start;      // +0x14
-    float m_current;    // +0x18
-    float m_end;        // +0x1C
+    float m_outset;      // +0x14
+    float m_ongoing;    // +0x18
+    float m_finish;        // +0x1C
     float m_speed;      // +0x20 (per 1/60 s)
     int m_direction;    // +0x24 0 forwards, -1 backwards
     int m_loopType;     // +0x28
@@ -64,7 +64,7 @@ struct CAnimTimeline {
     uint8_t m_pad2D[3];
     uint32_t m_anim;    // +0x30 the animation's name
 };
-static_assert(offsetof(CAnimTimeline, m_start) == 0x14 && offsetof(CAnimTimeline, m_anim) == 0x30 &&
+static_assert(offsetof(CAnimTimeline, m_outset) == 0x14 && offsetof(CAnimTimeline, m_anim) == 0x30 &&
                   sizeof(CAnimTimeline) == 0x34,
               "layout must match the original");
 
@@ -72,19 +72,19 @@ static_assert(offsetof(CAnimTimeline, m_start) == 0x14 && offsetof(CAnimTimeline
 struct CAnimController {
     void** m_vtable;
     CAnimTimeline* mp_timeline;        // +0x04 (the timeline of the blender channel it belongs to)
-    GameObjects::CGameEntity* m_ownerObject;  // +0x08 (set by some controllers only; GetObject asks the channel)
-    int m_priority;                    // +0x0C
-    uint32_t m_id;                     // +0x10
+    GameObjects::CGameEntity* m_ownerObject;  // +0x08 (set by some controllers only; FetchSubject asks the channel)
+    int m_rank;                    // +0x0C
+    uint32_t m_ident;                     // +0x10
 
     // 0x00481710: on `timeline`, no object, priority 0, id 0 (vtable 0x0064877C). Returns this.
-    CAnimController* Construct(CAnimTimeline* timeline);
+    CAnimController* MakeNew(CAnimTimeline* timeline);
     // 0x00481730: the base's vtable back (its destructor body). 0x004817A0 (slot 0): that, then freed.
     void DestroyBody();
-    CAnimController* Destroy(uint8_t flags);
+    CAnimController* Teardown(uint8_t flags);
     // 0x00481740 (slot 4): `id` (0x40C698AF) from the parameters (ReadHashValue's result).
     bool ConfigureFromData(Scripts::CStruct* params);
     // 0x00481760: the object its timeline (a blend timeline) belongs to.
-    GameObjects::CGameEntity* GetObject();
+    GameObjects::CGameEntity* FetchSubject();
     // 0x00481770: the object's skeleton component (0x222756D5)'s skeleton (0x005480F0: its +0x18), or null.
     uint8_t* FetchRig();
 
@@ -100,19 +100,19 @@ class CStandardAnimController : public CAnimController {
 public:
     // 0x004A4500: on `timeline`; a frame source of its own (0x0048BFC0), the object's anim set (the blender's
     // 0x00419AB0); no frame, no frame index (-1). Returns this.
-    CStandardAnimController* Construct(CAnimTimeline* timeline);
+    CStandardAnimController* MakeNew(CAnimTimeline* timeline);
     // 0x004A4590: the frame's index let go, the frame source freed, then the base's.
     void DestroyBody();
     // 0x004A55E0 (slot 0): back to the item pools.
-    CStandardAnimController* Destroy(uint8_t flags);
+    CStandardAnimController* Teardown(uint8_t flags);
     // 0x004A4F70 (slot 1)
     bool FetchPose(uint8_t* pose);
     // 0x004A4670 (slot 3): PlayAnim (0xAF2FAE19: AnimName, StartTime, EndTime, LoopType, BlendPeriod, Speed),
     // 0xC68365EB (a new frame source for Anim), 0x92267217 (0x00485270 with the global 0x006F92B0's +0xD4),
-    // InvalidateCache (refetches, then 2).
+    // StaleCache (refetches, then 2).
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004A4620 (slot 5): the timeline steps; events between the two times; looping back refetches the frame.
-    void Update();
+    void TickFrame();
 
     // 0x004A4F30 / 0x004A5600: the class's operator new / delete (its item pools).
     static void* operator new(size_t size, int unused);
@@ -132,15 +132,15 @@ static_assert(sizeof(CStandardAnimController) == 0x28, "layout must match the or
 class CWeightedAnimController : public CAnimController {
 public:
     // 0x004A5010: on `timeline`; the object is the channel's (or `object` without a timeline). Returns this.
-    CWeightedAnimController* Construct(CAnimTimeline* timeline, GameObjects::CGameEntity* object);
+    CWeightedAnimController* MakeNew(CAnimTimeline* timeline, GameObjects::CGameEntity* object);
     // 0x004A4820
     void DestroyBody();
     // 0x004A50B0 (slot 0)
-    CWeightedAnimController* Destroy(uint8_t flags);
+    CWeightedAnimController* Teardown(uint8_t flags);
     // 0x004A5660 (slot 1): nothing (false) without a frame or with a weight of 0 or less.
     bool FetchPose(uint8_t* pose);
     // 0x004A4890 (slot 3): 0xAF2FAE19 / 0x5E3F0F17 (the animation 0xD697A799 or AnimName, the weight
-    // 0xC6AE16AC), 0xC68365EB, InvalidateCache.
+    // 0xC6AE16AC), 0xC68365EB, StaleCache.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     void* m_frameSource;   // +0x14
@@ -155,18 +155,18 @@ static_assert(sizeof(CWeightedAnimController) == 0x24, "layout must match the or
 class CWobbleDriver : public CAnimController {
 public:
     // 0x004A49F0
-    CWobbleDriver* Construct(CAnimTimeline* timeline);
+    CWobbleDriver* MakeNew(CAnimTimeline* timeline);
     // 0x004A4A80
     void DestroyBody();
     // 0x004A50E0 (slot 0)
-    CWobbleDriver* Destroy(uint8_t flags);
+    CWobbleDriver* Teardown(uint8_t flags);
     // 0x004A5110 (slot 1)
     bool FetchPose(uint8_t* pose);
     // 0x004A4AF0 (slot 3): PlayAnim, 0xD0209498 (the target as a fraction 0xD747FA0 of the timeline, 0..1),
-    // SetWobbleDetails (all five or nothing), InvalidateCache.
+    // SetWobbleDetails (all five or nothing), StaleCache.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004A52E0 (slot 5)
-    void Update();
+    void TickFrame();
     // 0x004A5180: the time to show now (ST0).
     float WobbleTime();
 
@@ -186,11 +186,11 @@ static_assert(sizeof(CWobbleDriver) == 0x38, "layout must match the original");
 class CStanceDriver : public CAnimController {
 public:
     // 0x004A5730
-    CStanceDriver* Construct(CAnimTimeline* timeline);
+    CStanceDriver* MakeNew(CAnimTimeline* timeline);
     // 0x004A4D20
     void DestroyBody();
     // 0x004A5320 (slot 0)
-    CStanceDriver* Destroy(uint8_t flags);
+    CStanceDriver* Teardown(uint8_t flags);
     // 0x004A4D30 (slot 1): its pose copied out.
     bool FetchPose(uint8_t* pose);
 
@@ -203,20 +203,20 @@ static_assert(sizeof(CStanceDriver) == 0x854, "layout must match the original");
 class CPartialClipDriver : public CAnimController {
 public:
     // 0x004A5350
-    CPartialClipDriver* Construct(CAnimTimeline* timeline);
+    CPartialClipDriver* MakeNew(CAnimTimeline* timeline);
     // 0x004A4D50
     void DestroyBody();
     // 0x004A5400 (slot 0)
-    CPartialClipDriver* Destroy(uint8_t flags);
+    CPartialClipDriver* Teardown(uint8_t flags);
     // 0x004A5430 (slot 1)
     bool FetchPose(uint8_t* pose);
     // 0x004A54A0 (slot 3): 0x6AAEB76F (a step of 0x06C9F278 frames), 0xBD4EDD44 (Speed), GetPartialAnimParams,
-    // 0xF5E2B871 (reverses), InvalidateCache.
+    // 0xF5E2B871 (reverses), StaleCache.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004A4DD0 (slot 4): the base's, then AnimName's times, loop type, Speed and Current on its timeline.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x004A4EF0 (slot 5)
-    void Update();
+    void TickFrame();
 
     CAnimTimeline* mp_partial; // +0x14 its own timeline
     void* mp_source;           // +0x18

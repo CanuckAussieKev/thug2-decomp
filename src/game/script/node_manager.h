@@ -22,7 +22,7 @@ struct NodeSlot {
 
 // A node array: its name, the script array and a flag AddNodeArray was given.
 struct NodeArrayEntry {
-    uint32_t m_name;
+    uint32_t m_label;
     Scripts::CArray* m_nodeList;
     bool m_flag;
     uint8_t pad9[3];
@@ -34,7 +34,7 @@ public:
     static constexpr int kMaxArrays = 20;
 
     // 0x0045D370: the constructor (returns this): no arrays, every slot empty, no walk.
-    CNodeManager* Construct();
+    CNodeManager* MakeNew();
 
     // 0x0045D520: `name` (a global array of nodes) added as the next node array, unless it is there already
     // (false): its nodes hashed, its prefixes added (AddNodeArrayPrefixes), every node's position= turned into pos=
@@ -59,7 +59,7 @@ public:
     // taken out and put back in the first empty slot from its name on).
     void UnhashNodeArray(uint32_t array);
     // 0x0045CFC0: the node named `name` (null if there's none; `assert` isn't used).
-    Scripts::CStruct* GetNode(uint32_t name, bool assert);
+    Scripts::CStruct* FetchVertex(uint32_t name, bool assert);
     // 0x0045D480 (`this` isn't used): each node's links= array (indices into `nodes`) becomes the names of those
     // nodes (GetNodeName), as a checksum array.
     void ResolveLinks(Scripts::CArray* nodes);
@@ -82,11 +82,11 @@ public:
 
     NodeSlot m_slots[kSlots];               // +0x00000
     NodeSlot m_walk;                        // +0x10000 the walk's place (m_listLink -1: no walk)
-    uint32_t m_count;                       // +0x10004 node arrays in use
+    uint32_t m_num;                       // +0x10004 node arrays in use
     NodeArrayEntry m_arrays[kMaxArrays];    // +0x10008
     void* mp_owner;                         // +0x100F8
 };
-static_assert(offsetof(CNodeManager, m_walk) == 0x10000 && offsetof(CNodeManager, m_count) == 0x10004 &&
+static_assert(offsetof(CNodeManager, m_walk) == 0x10000 && offsetof(CNodeManager, m_num) == 0x10004 &&
                   offsetof(CNodeManager, m_arrays) == 0x10008 && offsetof(CNodeManager, mp_owner) == 0x100F8 &&
                   sizeof(CNodeManager) == 0x100FC,
               "layout must match the original (allocated as 0x100FC bytes)");

@@ -29,7 +29,7 @@ const float kMilliseconds = 1000.0f; // 0x006453C0
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The object's vtable slot 6 (FlagAsDead), as the original's tail jump.
-void Die(CObject* object) { reinterpret_cast<void(__thiscall*)(CObject*)>(object->m_vtable[6])(object); }
+void Die(CEntity* object) { reinterpret_cast<void(__thiscall*)(CEntity*)>(object->m_vtable[6])(object); }
 
 } // namespace
 
@@ -41,11 +41,11 @@ void CWaitAndDieComponent::DestroyBody()
 }
 
 // 0x0043D850
-CWaitAndDieComponent* CWaitAndDieComponent::Destroy(unsigned int flags)
+CWaitAndDieComponent* CWaitAndDieComponent::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -54,23 +54,23 @@ void CWaitAndDieComponent::ConfigureFromData(Scripts::CStruct* params)
 {
     float seconds = 0.0f;
     if (!params->ReadHashValue(kWaitFor, &m_waitFor, 0))
-        params->GetFloat(kLifeTime, &seconds, 1);
+        params->FetchFloat(kLifeTime, &seconds, 1);
     m_lifespan = static_cast<uint32_t>(Ftol(static_cast<double>(seconds) * kMilliseconds));
     int clock = FrameClock::GameClockElapsed();
-    m_start = clock + g_clockOffset;
+    m_outset = clock + g_clockOffset;
 }
 
 // 0x0043D8E0
-void CWaitAndDieComponent::Update()
+void CWaitAndDieComponent::TickFrame()
 {
-    int start = m_start;
+    int start = m_outset;
     int clock = FrameClock::GameClockElapsed();
     m_elapsed = static_cast<uint32_t>(clock) + (static_cast<uint32_t>(g_clockOffset) - static_cast<uint32_t>(start));
     if (m_waitFor) {
         if (!FindObject(m_waitFor))
-            Die(m_object);
+            Die(m_entity);
     } else if (m_elapsed > m_lifespan) {
-        Die(m_object);
+        Die(m_entity);
     }
 }
 
@@ -84,14 +84,14 @@ namespace {
 
 namespace GameObjects {
 
-static VtableSlot g_waitAndDieVtable_slots[] = {&GameObjects::CWaitAndDieComponent::Destroy,
-         &GameObjects::CWaitAndDieComponent::Update,
+static VtableSlot g_waitAndDieVtable_slots[] = {&GameObjects::CWaitAndDieComponent::Teardown,
+         &GameObjects::CWaitAndDieComponent::TickFrame,
          &GameObjects::CWaitAndDieComponent::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

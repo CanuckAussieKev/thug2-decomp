@@ -36,15 +36,15 @@ int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 } // namespace
 
 // 0x0042B620
-void CProximityComponent::LaunchScript(uint32_t script, CObject* skater)
+void CProximityComponent::LaunchScript(uint32_t script, CEntity* skater)
 {
     Scripts::CStruct* params = Scripts::NewStruct();
     if (params)
-        params = params->Init();
-    params->PutNameKey(kSkaterId, skater->m_id);
+        params = params->PrepareAll();
+    params->PutNameKey(kSkaterId, skater->m_ident);
     if (mp_params)
         params->MergeStructure(mp_params);
-    Scripts::LaunchScript(script, params, m_object, false, nullptr);
+    Scripts::LaunchScript(script, params, m_entity, false, nullptr);
     if (params) {
         params->Clear(); // (its destructor)
         Scripts::DeleteStruct(params);
@@ -52,7 +52,7 @@ void CProximityComponent::LaunchScript(uint32_t script, CObject* skater)
 }
 
 // 0x0042B700
-void CProximityComponent::Update()
+void CProximityComponent::TickFrame()
 {
     CGameEntity* skater = Skater();
     if (!skater)
@@ -60,25 +60,25 @@ void CProximityComponent::Update()
     int inside = m_isWithin;
     bool within = false;
     if (m_active) {
-        const Maths::Vector& at = m_object->m_pos;
-        double dx = static_cast<double>(skater->m_pos.x) - at.x;
-        double dy = static_cast<double>(skater->m_pos.y) - at.y;
-        double dz = static_cast<double>(skater->m_pos.z) - at.z;
+        const Maths::Vec4& at = m_entity->m_atPoint;
+        double dx = static_cast<double>(skater->m_atPoint.x) - at.x;
+        double dy = static_cast<double>(skater->m_atPoint.y) - at.y;
+        double dz = static_cast<double>(skater->m_atPoint.z) - at.z;
         double reach = static_cast<double>(SkaterRadius()) + m_outerRadius;
         if (!(reach * reach < (dz * dz + dy * dy) + dx * dx)) {
-            Maths::Line line;
-            const Maths::Vector& head = skater->m_pos;
+            Maths::Seg line;
+            const Maths::Vec4& head = skater->m_atPoint;
             line.start = head;
             line.end = {head.x, static_cast<float>(static_cast<double>(head.y) + SkaterRadius()), head.z, head.w};
             Maths::Capsule capsule(line, 0.0f);
             if (!m_isWithin) {
                 capsule.radius = m_innerRadius;
-                if (capsule.ContainsPoint(m_object->m_pos, nullptr))
+                if (capsule.ContainsPoint(m_entity->m_atPoint, nullptr))
                     inside = 1;
                 within = true;
             } else {
                 capsule.radius = m_outerRadius;
-                within = capsule.ContainsPoint(m_object->m_pos, nullptr);
+                within = capsule.ContainsPoint(m_entity->m_atPoint, nullptr);
             }
         }
     }
@@ -94,7 +94,7 @@ void CProximityComponent::Update()
 bool CProximityComponent::Proximity_Init(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_active = false;
-    Update();
+    TickFrame();
     ConfigureFromData(params);
     m_active = true;
     VirtualSuspend(false);
@@ -107,7 +107,7 @@ bool CProximityComponent::Proximity_SetActive(Scripts::CStruct* params, Scripts:
     m_active = !params->HasBareFlag(kInactive);
     if (!m_active) {
         float delay;
-        if (params->GetFloat(kDelay, &delay, 0)) {
+        if (params->FetchFloat(kDelay, &delay, 0)) {
             int now = FrameClock::GameClockElapsed();
             m_reactivateTime =
                 now + (g_clockOffset - Truncate(static_cast<double>(delay) * -1000.0f));

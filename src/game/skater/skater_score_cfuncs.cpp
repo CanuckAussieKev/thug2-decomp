@@ -30,9 +30,9 @@ constexpr uint32_t kRadius = 0xC48391A5;        // "radius"
 constexpr uint32_t kTeam = 0x3B1F59E0;          // "team"
 constexpr uint32_t kPlayer = 0x67E6859A;        // "player"
 
-GameModules::Skate* Skate() { return GameModules::Skate::Instance(); }
+GameModules::Skate* Skate() { return GameModules::Skate::Sole(); }
 GameObjects::CRider* SkaterAt(int index) { return static_cast<GameObjects::CRider*>(Skate()->GetRiderAt(index)); }
-bool IsLocal(GameObjects::CRider* skater) { return reinterpret_cast<uint8_t*>(skater)[0xBC] != 0; }
+bool IsHostLocal(GameObjects::CRider* skater) { return reinterpret_cast<uint8_t*>(skater)[0xBC] != 0; }
 
 // The skater's score (the SkaterScore component's object): 0x00564A10 resets it, 0x00561B40 / 0x00561A80 get and set
 // its total, 0x00564860 resets its pot (bail style or not). None has source yet.
@@ -52,7 +52,7 @@ bool __cdecl CFunc_InitializeSkaters(Scripts::CStruct*, Scripts::CScript*)
 {
     for (int i = 0; i < Skate()->CountRiders(); ++i) {
         GameObjects::CRider* skater = SkaterAt(i);
-        if (IsLocal(skater)) {
+        if (IsHostLocal(skater)) {
             auto** vtable = *reinterpret_cast<void***>(skater);
             reinterpret_cast<void(__thiscall*)(GameObjects::CRider*)>(vtable[14])(skater);
         }
@@ -66,10 +66,10 @@ bool __cdecl CFunc_ReinsertSkaters(Scripts::CStruct*, Scripts::CScript*)
 {
     for (int i = 0; i < Skate()->CountRiders(); ++i) {
         GameObjects::CRider* skater = SkaterAt(i);
-        MemSys::Manager* manager = MemSys::Manager::Get();
+        MemSys::Hub* manager = MemSys::Hub::Pull();
         manager->EnterHeapScope(manager->m_skaterHeaps[skater->GetSkaterNumber()]);
         skater->ShowSkater();
-        MemSys::Manager::Get()->LeaveHeapScope();
+        MemSys::Hub::Pull()->LeaveHeapScope();
     }
     return true;
 }
@@ -81,9 +81,9 @@ bool __cdecl CFunc_ResetScore(Scripts::CStruct* params, Scripts::CScript*)
     bool all = params->HasEntryNamed(kResetAll);
     for (int i = 0; i < Skate()->CountRiders(); ++i) {
         GameObjects::CRider* skater = SkaterAt(i);
-        if (!IsLocal(skater) && !all)
+        if (!IsHostLocal(skater) && !all)
             continue;
-        static_cast<GameModules::Score*>(ScoreOf(skater))->Reset();
+        static_cast<GameModules::PointTally*>(ScoreOf(skater))->Reset();
         if (GameModeName() == kNetKing || GameModeName() == kKing)
             MenuSystem::SetScoreText("0:00", skater->GetSkaterNumber()); // "0:00"
         else
@@ -97,10 +97,10 @@ bool __cdecl CFunc_UpdateScore(Scripts::CStruct*, Scripts::CScript*)
 {
     for (int i = 0; i < Skate()->CountRiders(); ++i) {
         GameObjects::CRider* skater = SkaterAt(i);
-        if (!IsLocal(skater))
+        if (!IsHostLocal(skater))
             continue;
         void* score = ScoreOf(skater);
-        static_cast<GameModules::Score*>(score)->SetGrandTotal(static_cast<GameModules::Score*>(score)->GetTotalScore());
+        static_cast<GameModules::PointTally*>(score)->SetGrandTotal(static_cast<GameModules::PointTally*>(score)->GetTotalScore());
     }
     return true;
 }
@@ -112,8 +112,8 @@ bool __cdecl CFunc_ResetScorePot(Scripts::CStruct* params, Scripts::CScript*)
     bool bailStyle = params->HasBareFlag(kUseBailStyle);
     for (int i = 0; i < Skate()->CountRiders(); ++i) {
         GameObjects::CRider* skater = SkaterAt(i);
-        if (IsLocal(skater))
-            static_cast<GameModules::Score*>(ScoreOf(skater))->Bail(!bailStyle);
+        if (IsHostLocal(skater))
+            static_cast<GameModules::PointTally*>(ScoreOf(skater))->Bail(!bailStyle);
     }
     return true;
 }
@@ -123,36 +123,36 @@ bool __cdecl CFunc_ResetScorePot(Scripts::CStruct* params, Scripts::CScript*)
 // team (-1 for both if none). Always true.
 bool __cdecl CFunc_GetCollidingPlayerAndTeam(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Scripts::CStruct* results = script->m_params;
-    auto* object = static_cast<GameObjects::CGameEntity*>(script->m_object.m_ownerObject);
+    Scripts::CStruct* results = script->m_args;
+    auto* object = static_cast<GameObjects::CGameEntity*>(script->m_entity.m_ownerObject);
     int team = -1;
     uint32_t player = 0xFFFFFFFF;
     float nearest = 1000000.0f;
     int excludeTeam;
     params->FetchIntValue(kExcludeTeam, &excludeTeam, 1);
     float radius;
-    params->GetFloat(kRadius, &radius, 1);
+    params->FetchFloat(kRadius, &radius, 1);
     double inches = static_cast<double>(radius) * 12.0f; // x87: the square taken before rounding
     float radiusSquared = static_cast<float>(inches * inches);
-    OnlinePlay::Manager* net = OnlinePlay::g_gameNetManager;
+    OnlinePlay::Hub* net = OnlinePlay::g_gameNetManager;
     for (int i = 0; i < Skate()->CountRiders(); ++i) {
         GameObjects::CRider* skater = SkaterAt(i);
         if (!skater)
             continue;
-        auto* info = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->PlayerByObjectId(static_cast<uint16_t>(skater->m_id)));
+        auto* info = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->PlayerByObjectId(static_cast<uint16_t>(skater->m_ident)));
         if (!info)
             continue;
         if (info->m_team == excludeTeam && !info->IsCarryingFlag())
             continue;
         if (info->m_team != excludeTeam && info->IsCarryingFlag())
             continue;
-        double dx = static_cast<double>(skater->m_pos.x) - object->m_pos.x;
-        double dy = static_cast<double>(skater->m_pos.y) - object->m_pos.y;
-        double dz = static_cast<double>(skater->m_pos.z) - object->m_pos.z;
+        double dx = static_cast<double>(skater->m_atPoint.x) - object->m_atPoint.x;
+        double dy = static_cast<double>(skater->m_atPoint.y) - object->m_atPoint.y;
+        double dz = static_cast<double>(skater->m_atPoint.z) - object->m_atPoint.z;
         double distanceSquared = dz * dz + dx * dx + dy * dy;
         if (distanceSquared < radiusSquared && distanceSquared < nearest) {
             nearest = static_cast<float>(distanceSquared);
-            player = skater->m_id;
+            player = skater->m_ident;
         }
     }
     if (static_cast<int>(player) > -1)

@@ -26,7 +26,7 @@ namespace Engine3D {
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 bool PixelShaders() { return g_shadersAvailable; }
 
 // D3DX (the statically linked library's, through its thunks).
@@ -129,24 +129,24 @@ void meshRef::Render()
         reinterpret_cast<uint32_t&>(g_fogEnd) = 0;
         float start = static_cast<float>(end - (static_cast<double>(end) - g_camera.nearZ) * 0.25f);
         SetFogEnabled(true);
-        Device()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
-        Device()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));
-        Device()->SetRenderState(D3DRS_FOGCOLOR, g_fogColour);
+        InputPort()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
+        InputPort()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));
+        InputPort()->SetRenderState(D3DRS_FOGCOLOR, g_fogColour);
     }
     if (!indexCounts[0])
         return;
     D3DMATRIX world;
     if (unknown98 != -1) { // (one bone: its matrix before the world's)
-        Device()->GetTransform(D3DTS_WORLD, &world);
+        InputPort()->GetTransform(D3DTS_WORLD, &world);
         D3DMATRIX boned;
         MatrixMultiply(&boned, BoneMatrix(static_cast<uint8_t>(0)) + 16 * unknown98, &world);
-        Device()->SetTransform(D3DTS_WORLD, &boned);
+        InputPort()->SetTransform(D3DTS_WORLD, &boned);
     }
     ApplyVertexColors();
     SetVertexFormat(fvf);
     auto* mat = reinterpret_cast<materialRef*>(material);
     if (PixelShaders()) {
-        mat->Submit();
+        mat->HandIn();
         if (!g_instanceColourOn && !(flags & 4))
             SetPixelShaderWithConstants(pixelShader, mat->passCount);
         else
@@ -156,12 +156,12 @@ void meshRef::Render()
     }
     DWORD minFilter = 0, zWrite = 0;
     if (flags & 0x80) {
-        Device()->GetSamplerState(0, D3DSAMP_MINFILTER, &minFilter);
+        InputPort()->GetSamplerState(0, D3DSAMP_MINFILTER, &minFilter);
         if (minFilter != D3DTEXF_LINEAR)
-            Device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+            InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     }
     if (flags & 0x100) {
-        Device()->GetRenderState(D3DRS_ZWRITEENABLE, &zWrite);
+        InputPort()->GetRenderState(D3DRS_ZWRITEENABLE, &zWrite);
         if (zWrite == 1)
             Engine3D::SetRenderState(D3DRS_ZWRITEENABLE, 0);
     }
@@ -184,10 +184,10 @@ void meshRef::Render()
     }
     if (vertexBufferCount > 1)
         currentVertexBuffer = static_cast<uint8_t>((currentVertexBuffer + 1) % vertexBufferCount);
-    Device()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(vb->buffer), vb->arenaOffset, stride);
+    InputPort()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(vb->buffer), vb->arenaOffset, stride);
     int level = 0;
     if (unknown48) { // (the levels of detail's distances)
-        SphereInView(reinterpret_cast<const Maths::Vector*>(centre), radius);
+        SphereInView(reinterpret_cast<const Maths::Vec4*>(centre), radius);
         float distance = LastSphereDistance();
         for (; level < 8; ++level) {
             if (!indexBuffers[level]) {
@@ -199,11 +199,11 @@ void meshRef::Render()
                 break;
         }
     }
-    Device()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(IndexBufferAt(this, level)->buffer));
+    InputPort()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(IndexBufferAt(this, level)->buffer));
     uint32_t primitives = IndexCountAt(this, level) - 2u;
     if (PixelShaders()) {
         CountDraw(primitives);
-        Device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitiveType), 0, 0, vertexCount, 0, primitives);
+        InputPort()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitiveType), 0, 0, vertexCount, 0, primitives);
     } else {
         for (uint32_t pass = 0; pass < mat->passCount; ++pass) {
             float instance[3];
@@ -217,17 +217,17 @@ void meshRef::Render()
                 tint = color;
             }
             mat->SubmitPass(pass, tint);
-            Device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitiveType), 0, 0, vertexCount, 0,
+            InputPort()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitiveType), 0, 0, vertexCount, 0,
                                            IndexCountAt(this, level) - 2u);
             CountDraw(IndexCountAt(this, level) - 2u);
         }
     }
     if ((flags & 0x80) && minFilter != D3DTEXF_LINEAR)
-        Device()->SetSamplerState(0, D3DSAMP_MINFILTER, minFilter);
+        InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, minFilter);
     if ((flags & 0x100) && zWrite == 1)
-        Device()->SetRenderState(D3DRS_ZWRITEENABLE, 1);
+        InputPort()->SetRenderState(D3DRS_ZWRITEENABLE, 1);
     if (unknown98 != -1)
-        Device()->SetTransform(D3DTS_WORLD, &world);
+        InputPort()->SetTransform(D3DTS_WORLD, &world);
     SetFogEnabled(false);
 }
 

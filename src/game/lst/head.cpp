@@ -1,4 +1,4 @@
-// Intrusive list heads (ListKit::Head<T>). See head.h.
+// Intrusive list heads (ListKit::Foremost<T>). See head.h.
 
 #include "game/lst/head.h"
 
@@ -27,7 +27,7 @@ void InsertAfter(MemSys::ListNode* prev, MemSys::ListNode* node)
 } // namespace
 
 // 0x0045A540
-void Head::AddNode(MemSys::ListNode* node)
+void Foremost::AppendVertex(MemSys::ListNode* node)
 {
     int priority = node->priority;
     for (MemSys::ListNode* next = m_listLink.next;; next = next->next) {
@@ -42,7 +42,7 @@ void Head::AddNode(MemSys::ListNode* node)
 }
 
 // 0x0045AEB0
-bool Head::InsertByUniqueOrder(MemSys::ListNode* node)
+bool Foremost::InsertByUniqueOrder(MemSys::ListNode* node)
 {
     int priority = node->priority;
     for (MemSys::ListNode* next = m_listLink.next;; next = next->next) {
@@ -60,7 +60,7 @@ bool Head::InsertByUniqueOrder(MemSys::ListNode* node)
 }
 
 // 0x00457350
-void Head::AppendNode(MemSys::ListNode* node)
+void Foremost::AppendNode(MemSys::ListNode* node)
 {
     int priority = node->priority;
     for (MemSys::ListNode* prev = m_listLink.prev;; prev = prev->prev) {

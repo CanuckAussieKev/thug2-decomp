@@ -80,13 +80,13 @@ bool ReadPeerMode()
 {
     if (_stricmp(NetLink::GameName(), "thugpro") == 0)
         return true;
-    return BuildInfo::GetBool("online", "thugpro_peer", false);
+    return BuildInfo::FetchFlag("online", "thugpro_peer", false);
 }
 
 uint32_t ReadMachineId()
 {
     char text[32];
-    BuildInfo::GetString("online", "thugpro_machine_id", "", text, sizeof(text));
+    BuildInfo::FetchText("online", "thugpro_machine_id", "", text, sizeof(text));
     uint32_t id = static_cast<uint32_t>(std::strtoul(text, nullptr, 16));
     std::random_device random;
     while (id == 0)
@@ -347,7 +347,7 @@ private:
     static Scripts::CStruct* NewParams()
     {
         Scripts::CStruct* params = Scripts::NewStruct();
-        return params ? params->Init() : nullptr;
+        return params ? params->PrepareAll() : nullptr;
     }
     static void DeleteParams(Scripts::CStruct* params)
     {
@@ -370,7 +370,7 @@ private:
             return;
         Scripts::CStruct* params = NewParams();
         if (text)
-            params->AddString(key, text);
+            params->AppendWord(key, text);
         else
             params->PutNameKey(key, checksum);
         reinterpret_cast<bool(__cdecl*)(Scripts::CStruct*, Scripts::CScript*)>(command)(params, script);
@@ -387,7 +387,7 @@ const char* CurrentLevelPrefix()
         return nullptr;
     Scripts::CStruct* structure = Scripts::ReadSubStruct(*reinterpret_cast<uint32_t*>(skate + 0x380));
     const char* prefix = nullptr;
-    if (!structure || !structure->GetString(kLevel, &prefix, 0))
+    if (!structure || !structure->FetchText(kLevel, &prefix, 0))
         return nullptr;
     return prefix;
 }
@@ -412,10 +412,10 @@ struct HostOptions {
 };
 HostOptions g_host;
 
-Manager* NetManager() { return GetManager(); }
+Hub* NetManager() { return FetchHub(); }
 
-bool IsClientOfNetGame(Manager* manager) { return manager && manager->InNetGame() && !manager->OnServer(); }
-bool IsHostOfNetGame(Manager* manager) { return manager && manager->InNetGame() && manager->OnServer(); }
+bool IsClientOfNetGame(Hub* manager) { return manager && manager->InNetGame() && !manager->OnServer(); }
+bool IsHostOfNetGame(Hub* manager) { return manager && manager->InNetGame() && manager->OnServer(); }
 
 bool LevelUp() { return g_session.settle >= kSettleFrames; }
 
@@ -439,15 +439,15 @@ uint32_t Word(NetLink::InboundMsgCtx* context)
 }
 
 // Server info for `app`'s connection `handle`, before THUG2's start info.
-void SendServerInfo(NetLink::App* app, int handle)
+void SendServerInfo(NetLink::AppHost* app, int handle)
 {
     HostListing info = HostServerInfo();
     NetLink::NetMessageInfo desc;
-    desc.Construct();
-    desc.m_id = kMsgServerInfo;
+    desc.MakeNew();
+    desc.m_ident = kMsgServerInfo;
     desc.m_byteCount = sizeof(info);
-    desc.m_data = &info;
-    desc.m_priority = 0xFF;
+    desc.m_content = &info;
+    desc.m_rank = 0xFF;
     desc.m_queue = NetLink::NetMessageInfo::kQueueImportant;
     desc.m_groupId = kGroupPlayerMessages;
     app->PutOnOutbox(handle, &desc);
@@ -456,39 +456,39 @@ void SendServerInfo(NetLink::App* app, int handle)
 // A 4-byte update to every player (the host's own client ignores it).
 void Broadcast(uint8_t id, uint32_t value)
 {
-    Manager* manager = NetManager();
-    if (!IsHostOfNetGame(manager) || !manager->m_server)
+    Hub* manager = NetManager();
+    if (!IsHostOfNetGame(manager) || !manager->m_host)
         return;
     NetLink::NetMessageInfo desc;
-    desc.Construct();
-    desc.m_id = id;
+    desc.MakeNew();
+    desc.m_ident = id;
     desc.m_byteCount = 4;
-    desc.m_data = &value;
+    desc.m_content = &value;
     desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = kGroupPlayerMessages;
-    manager->m_server->PutOnOutbox(kHandleBroadcast, &desc);
+    manager->m_host->PutOnOutbox(kHandleBroadcast, &desc);
 }
 
-// NOT ORIGINAL - App::PutOnOutbox's filter (net_app.h): what THUGPRO's PutOnOutbox hook adds when we host.
-bool FilterOutgoing(NetLink::App* app, int handle, NetLink::NetMessageInfo* desc)
+// NOT ORIGINAL - AppHost::PutOnOutbox's filter (net_app.h): what THUGPRO's PutOnOutbox hook adds when we host.
+bool FilterOutgoing(NetLink::AppHost* app, int handle, NetLink::NetMessageInfo* desc)
 {
     if (!PeerMode())
         return false;
-    Manager* manager = NetManager();
-    if (!IsHostOfNetGame(manager) || app != manager->m_server)
+    Hub* manager = NetManager();
+    if (!IsHostOfNetGame(manager) || app != manager->m_host)
         return false;
-    if (desc->m_id == kMsgStartInfo) {
+    if (desc->m_ident == kMsgStartInfo) {
         SendServerInfo(app, handle);
         return false;
     }
-    if (desc->m_id == kMsgChangeLevel && desc->m_byteCount == kChangeLevelSize && desc->m_data) {
+    if (desc->m_ident == kMsgChangeLevel && desc->m_byteCount == kChangeLevelSize && desc->m_content) {
         uint8_t message[kChangeLevelThugproSize];
-        const auto* data = static_cast<const uint8_t*>(desc->m_data);
+        const auto* data = static_cast<const uint8_t*>(desc->m_content);
         uint32_t level;
         std::memcpy(&level, data, 4);
-        ExtendChangeLevel(data, ChangeLevelName(level, Manager::LevelListName(level)), message);
+        ExtendChangeLevel(data, ChangeLevelName(level, Hub::LevelListName(level)), message);
         NetLink::NetMessageInfo extended = *desc;
-        extended.m_data = message;
+        extended.m_content = message;
         extended.m_byteCount = kChangeLevelThugproSize;
         app->PutOnOutbox(handle, &extended);
         return true;
@@ -501,7 +501,7 @@ bool UnlockTimeOfDay()
 {
     if (!PeerMode())
         return false;
-    Manager* manager = NetManager();
+    Hub* manager = NetManager();
     return manager && manager->InNetGame();
 }
 
@@ -517,18 +517,18 @@ struct Install {
 
 const HostListing* ReceivedServerInfo() { return g_session.have ? &g_session.info : nullptr; }
 bool TimeOfDayUnlocked() { return UnlockTimeOfDay(); }
-bool FilterOutgoingMessage(NetLink::App* app, int handle, NetLink::NetMessageInfo* desc) { return FilterOutgoing(app, handle, desc); }
+bool FilterOutgoingMessage(NetLink::AppHost* app, int handle, NetLink::NetMessageInfo* desc) { return FilterOutgoing(app, handle, desc); }
 
 // --- The handlers ---
 
-void AddClientHandlers(NetLink::App* client, void* skate)
+void AddClientHandlers(NetLink::AppHost* client, void* skate)
 {
-    NetLink::Dispatcher& dispatcher = client->m_dispatcher;
-    dispatcher.AddHandler(kMsgServerInfo, HandleServerInfo, 0, skate, 0x80);
-    dispatcher.AddHandler(kMsgModsAllowed, HandleModsAllowed, 0, skate, 0x80);
-    dispatcher.AddHandler(kMsgUpdateTimeOfDay, HandleUpdateTimeOfDay, NetLink::kPacketLate, skate, 0x80);
-    dispatcher.AddHandler(kMsgUpdateWeather, HandleUpdateWeather, NetLink::kPacketLate, skate, 0x80);
-    dispatcher.AddHandler(kMsgUpdateLevelOption, HandleUpdateLevelOption, NetLink::kPacketLate, skate, 0x80);
+    NetLink::Router& dispatcher = client->m_dispatcher;
+    dispatcher.AppendListener(kMsgServerInfo, HandleServerInfo, 0, skate, 0x80);
+    dispatcher.AppendListener(kMsgModsAllowed, HandleModsAllowed, 0, skate, 0x80);
+    dispatcher.AppendListener(kMsgUpdateTimeOfDay, HandleUpdateTimeOfDay, NetLink::kPacketLate, skate, 0x80);
+    dispatcher.AppendListener(kMsgUpdateWeather, HandleUpdateWeather, NetLink::kPacketLate, skate, 0x80);
+    dispatcher.AppendListener(kMsgUpdateLevelOption, HandleUpdateLevelOption, NetLink::kPacketLate, skate, 0x80);
 }
 
 int __cdecl HandleServerInfo(NetLink::InboundMsgCtx* context)
@@ -586,9 +586,9 @@ int __cdecl HandleModsAllowed(NetLink::InboundMsgCtx* context)
     return GameModules::SkateNet::HandleServerRemovedYou(&removed);
 }
 
-void Update()
+void TickFrame()
 {
-    Manager* manager = NetManager();
+    Hub* manager = NetManager();
     if (!PeerMode() || !IsClientOfNetGame(manager)) {
         if (g_session.have)
             Log("thugpro: network game over - the host's options dropped");
@@ -665,7 +665,7 @@ bool HandleChatCommand(const char* text)
                          static_cast<unsigned>(sizeof(first)), second, static_cast<unsigned>(sizeof(second)));
     if (words < 1)
         return false;
-    Manager* manager = NetManager();
+    Hub* manager = NetManager();
     bool client = IsClientOfNetGame(manager);
     char line[160];
     if (_stricmp(command, "thugpro") == 0) {

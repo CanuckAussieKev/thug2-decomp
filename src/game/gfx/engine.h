@@ -8,20 +8,20 @@
 // update and render, model and scene files, and the list of loaded scenes. (The ones that only jump into the
 // platform are in engine_glue.h.) From the disassembly of 0x0048BF20-0x0048C741.
 namespace Maths {
-class Vector;
+class Vec4;
 }
 
 namespace Engine3D {
 
 struct CWorldScene;
 
-// A loaded scene's node in the engine's list (ListKit::Node<CWorldScene>, 0x14 bytes, vtable 0x00648A38; data = the scene).
+// A loaded scene's node in the engine's list (ListKit::Elem<CWorldScene>, 0x14 bytes, vtable 0x00648A38; data = the scene).
 // The list's head is at 0x006FA7E0 (its data -1).
 struct CSceneNode : MemSys::ListNode {
     // 0x0048C4B0: the destructor body: out of the list (and linked to itself).
     void DestroyBody();
     // 0x0048C4D0: the scalar deleting destructor (vtable slot 0). Returns this.
-    CSceneNode* Destroy(unsigned int flags);
+    CSceneNode* Teardown(unsigned int flags);
 };
 
 namespace Engine {
@@ -29,7 +29,7 @@ namespace Engine {
 // 0x0048C1D0: the engine started: the text pool (`textPoolSize` entries), the 2D window pool, the screen (4:3, the
 // script float camera_fov's angle, no extra field of view), the viewports, screen mode 0, the flexible particle
 // manager (0x006FA7C0), the imposter manager (0x006FA7BC), the effects, then the platform (StartEngine).
-void __cdecl Init(uint32_t textPoolSize);
+void __cdecl PrepareAll(uint32_t textPoolSize);
 // 0x0048BF20: the frame finished (FinishRendering), then the cameras marked for deletion deleted.
 void __cdecl EndRender();
 // 0x0048C330: a frame: the flashes, spawned polygons, texture splats, shatters and particles updated, the weather
@@ -65,7 +65,7 @@ bool __cdecl DeleteGeomObject(void* object);
 // (lower case). The last three arguments are passed on (the mesh load reads only the name and textures).
 void* __cdecl LoadModelFile(const char* fileName, void* textures, int texDictOffset, bool shadowVolume);
 // 0x0048C490: SphereVisible - always 0 with more than one viewport (0x00701378).
-int __cdecl SphereVisibleInOneViewport(const Maths::Vector* centre, float radius);
+int __cdecl SphereVisibleInOneViewport(const Maths::Vec4* centre, float radius);
 
 // --- the loaded scenes (the list 0x006FA7E0) ---
 // 0x0048C510: the sector `checksum` from the first scene that has it, or null.

@@ -45,20 +45,20 @@ namespace Sio {
 namespace {
 
 extern void** const kDeviceVtable;
-void** const& kDeviceNodeVtable = Vt::kDeviceNode; // ListKit::Node<Device>
+void** const& kDeviceNodeVtable = Vt::kDeviceNode; // ListKit::Elem<Device>
 
 // The platform layer: a port's DirectInput joystick read for this frame (none: null), and whether the port has
 // any keyboard bindings (the keyboard counts as a pad then).
-bool PollJoystick(int port) { return Platform::ReadJoystick(port) != nullptr; }
-bool HasKeyBindings(int port) { return Platform::HasKeyBindings(port); }
+bool PollJoystick(int port) { return OsLayer::ReadJoystick(port) != nullptr; }
+bool HasKeyBindings(int port) { return OsLayer::HasKeyBindings(port); }
 bool PadPresent(int port) { return PollJoystick(port) || HasKeyBindings(port); }
 
 } // namespace
 
-void SetActuators(int port, int left, int right) { Platform::SetActuators(port, left, right); }
+void SetActuators(int port, int left, int right) { OsLayer::SetActuators(port, left, right); }
 
 // 0x005BD920
-Device::Device(int index, int port, int slot)
+InputPort::InputPort(int index, int port, int slot)
 {
     m_vtable = kDeviceVtable;
     m_pauseCount = 0;
@@ -72,10 +72,10 @@ Device::Device(int index, int port, int slot)
         node->prev = node;
     }
     m_listLink = node;
-    m_port = port;
-    m_index = index;
+    m_portNo = port;
+    m_ordinal = index;
     m_seat = slot;
-    m_state = kIdle;
+    m_curPhase = kIdle;
     m_nextState = kIdle;
     m_capabilities = 0;
     m_numActuators = 0;
@@ -90,67 +90,67 @@ Device::Device(int index, int port, int slot)
 }
 
 // 0x005BCD00
-Device* Device::Destroy(unsigned int flags)
+InputPort* InputPort::Teardown(unsigned int flags)
 {
     m_vtable = kDeviceVtable;
     if (MemSys::ListNode* node = m_listLink)
         reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(node->vtable[0])(node, 1);
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x005BDCC0. The original steps through the states:
 //     m_pluggedIn = 0;
-//     switch (m_state) { case kDetect: Detect(); break; case kReady: ReadData(0); break;
+//     switch (m_curPhase) { case kDetect: Detect(); break; case kReady: PullData(0); break;
 //                        case kSettle: Settle(); break; }
-// where ReadData polls the pad into m_controlData. Originally from PartyMod Fixes (its jump from here): SDL game controllers
+// where PullData polls the pad into m_controlData. Originally from PartyMod Fixes (its jump from here): SDL game controllers
 // and the keyboard (game/sio/sdl_input.h).
-void Device::Process(int /*unused*/)
+void InputPort::WorkOn(int /*unused*/)
 {
     ProcessSdlDevice(this);
 }
 
 // 0x005BCC70
-void Device::Acquire()
+void InputPort::Acquire()
 {
-    if (m_state == kIdle && PadPresent(m_port)) {
+    if (m_curPhase == kIdle && PadPresent(m_portNo)) {
         m_isUsable = 0;
-        m_state = kDetect;
+        m_curPhase = kDetect;
     }
 }
 
 // 0x005BD8B0
-void Device::Detect()
+void InputPort::Detect()
 {
-    if (!PadPresent(m_port))
+    if (!PadPresent(m_portNo))
         return;
     m_unpluggedCounter = 0;
-    m_type = 7;
+    m_kindTag = 7;
     m_capabilities |= kAnalog;
     m_actuatorMax[0] = 0xFF;
     m_actuatorMax[1] = 0xFF;
     m_numActuators = 2;
     m_capabilities |= kHasActuators;
-    m_state = kSettle;
+    m_curPhase = kSettle;
     m_nextState = kReady;
 }
 
 // 0x005BCCC0 (the pad is polled, the result unused)
-void Device::Settle()
+void InputPort::Settle()
 {
-    PadPresent(m_port);
-    m_state = m_nextState;
+    PadPresent(m_portNo);
+    m_curPhase = m_nextState;
     m_nextState = kIdle;
 }
 
-// 0x005BDA20. The original first reads the pad (ReadData(0)); PartyMod removes that call (its Process does
+// 0x005BDA20. The original first reads the pad (PullData(0)); PartyMod removes that call (its Process does
 // the reading).
-void Device::FireActuator(int actuator, int percent)
+void InputPort::FireActuator(int actuator, int percent)
 {
     if (m_actuatorsDisabled)
         return;
-    if (m_state != kReady || !(m_capabilities & kHasActuators))
+    if (m_curPhase != kReady || !(m_capabilities & kHasActuators))
         return;
     if (actuator < 0 || actuator >= m_numActuators)
         return;
@@ -159,27 +159,27 @@ void Device::FireActuator(int actuator, int percent)
     m_actuatorDirect[actuator] = static_cast<uint8_t>(static_cast<int>(level));
     int motor = static_cast<int>(level * 256.0) & 0xFFFF;
     if (actuator == 0)
-        SetActuators(m_port, motor, m_actuatorDirect[1] << 8);
+        SetActuators(m_portNo, motor, m_actuatorDirect[1] << 8);
     else
-        SetActuators(m_port, m_actuatorDirect[0] << 8, motor);
+        SetActuators(m_portNo, m_actuatorDirect[0] << 8, motor);
 }
 
 // 0x005BDAD0
-void Device::StopRumble()
+void InputPort::StopRumble()
 {
     if (m_actuatorsDisabled)
         return;
-    if (m_state == kReady && (m_capabilities & kHasActuators)) {
+    if (m_curPhase == kReady && (m_capabilities & kHasActuators)) {
         for (int i = 0; i < m_numActuators; ++i)
             m_actuatorDirect[i] = 0;
-        SetActuators(m_port, 0, 0);
+        SetActuators(m_portNo, 0, 0);
     }
     m_actuatorsDisabled = 1;
 }
 
 // 0x005BDB30. Either way the motors stop; the flag ends as it was (the first branch clears it so that
 // StopRumble acts, which sets it again).
-void Device::ClearRumble()
+void InputPort::ClearRumble()
 {
     if (m_actuatorsDisabled) {
         m_actuatorsDisabled = 0;
@@ -191,46 +191,46 @@ void Device::ClearRumble()
 }
 
 // 0x005BDB60
-void Device::PauseActuators()
+void InputPort::PauseActuators()
 {
-    if (m_pauseCount == 0 && m_state == kReady && (m_capabilities & kHasActuators)) {
+    if (m_pauseCount == 0 && m_curPhase == kReady && (m_capabilities & kHasActuators)) {
         for (int i = 0; i < m_numActuators; ++i) {
             m_actuatorSaved[i] = m_actuatorDirect[i];
             m_actuatorDirect[i] = 0;
         }
-        SetActuators(m_port, 0, 0);
+        SetActuators(m_portNo, 0, 0);
     }
     ++m_pauseCount;
 }
 
 // 0x005BDBD0
-void Device::UnpauseActuators()
+void InputPort::UnpauseActuators()
 {
     if (m_pauseCount == 0 || --m_pauseCount != 0)
         return;
-    if (m_state == kReady && (m_capabilities & kHasActuators)) {
+    if (m_curPhase == kReady && (m_capabilities & kHasActuators)) {
         for (int i = 0; i < m_numActuators; ++i)
             m_actuatorDirect[i] = m_actuatorSaved[i];
-        SetActuators(m_port, m_actuatorDirect[0] << 8, m_actuatorDirect[1] << 8);
+        SetActuators(m_portNo, m_actuatorDirect[0] << 8, m_actuatorDirect[1] << 8);
     }
 }
 
 // 0x005BDC60
-void Device::StopActuators()
+void InputPort::StopActuators()
 {
-    if (m_state == kReady && (m_capabilities & kHasActuators)) {
+    if (m_curPhase == kReady && (m_capabilities & kHasActuators)) {
         for (int i = 0; i < m_numActuators; ++i) {
             m_actuatorDirect[i] = 0;
             m_actuatorSaved[i] = 0;
         }
-        SetActuators(m_port, 0, 0);
+        SetActuators(m_portNo, 0, 0);
     }
 }
 
 // --- the keyboard -------------------------------------------------------------------------------------------
 
 namespace {
-IDirectInputDevice8A*& KeyboardDevice() { return Platform::g_keyboardDevice; }
+IDirectInputDevice8A*& KeyboardDevice() { return OsLayer::g_keyboardDevice; }
 
 int g_keyboardBuffer{2};
 uint32_t g_managerReferences;
@@ -284,9 +284,9 @@ void ClearKeyboardChars() { KeyboardCharCount() = 0; }
 
 // --- the manager's lifetime --------------------------------------------------------------------------------
 
-Manager* g_manager;
+Hub* g_manager;
 
-Manager*& ManagerInstance() { return g_manager; }
+Hub*& ManagerInstance() { return g_manager; }
 
 namespace {
 uint32_t& ManagerReferences() { return g_managerReferences; }
@@ -297,7 +297,7 @@ MemSys::ListNode* DestroyDeviceNode(MemSys::ListNode* node, unsigned int flags)
 {
     node->UnlinkAs(kDeviceNodeVtable);
     if (flags & 1)
-        MemSys::Manager::Get()->Free(node);
+        MemSys::Hub::Pull()->Dealloc(node);
     return node;
 }
 
@@ -348,9 +348,9 @@ namespace {
 bool& MenuActive() { return GameModules::g_menusActive; }
 bool& QuitRequested() { return Engine3D::g_quitRequested; }
 // Port 0's key bindings (DirectInput key codes; -1 = none).
-int KeyBinding(int action) { return Platform::g_keyBindings[action]; }
+int KeyBinding(int action) { return OsLayer::g_keyBindings[action]; }
 // The platform layer's key names.
-const wchar_t* KeyNameW(int code) { return Platform::KeyName(code); }
+const wchar_t* KeyNameW(int code) { return OsLayer::KeyName(code); }
 char (&NameBuffer())[256] { return g_nameBuffer; }
 char (&KeyNameResult())[256] { return g_keyNameResult; }
 
@@ -430,24 +430,24 @@ const char* GetButtonKeyName(int button)
     bool typing = KeyboardTyping();
     bool pieceMenu = false;
     MenuSystem::ElementPtr element;
-    MenuSystem::GetElement(&element, Checksums::HashFromText("select_skater_hmenu"));
+    MenuSystem::FetchPart(&element, Checksums::HashFromText("select_skater_hmenu"));
     if (element)
-        element->IsHidden(); // (the result isn't used)
+        element->IsConcealed(); // (the result isn't used)
     {
         MenuSystem::ElementPtr found;
-        MenuSystem::GetElement(&found, Checksums::HashFromText("piece_menu_hmenu"));
+        MenuSystem::FetchPart(&found, Checksums::HashFromText("piece_menu_hmenu"));
         element = found;
     }
-    if (!QuitRequested() && element && !element->IsHidden())
+    if (!QuitRequested() && element && !element->IsConcealed())
         pieceMenu = true;
     {
         MenuSystem::ElementPtr found;
-        MenuSystem::GetElement(&found, Checksums::HashFromText("select_skater_hmenu"));
+        MenuSystem::FetchPart(&found, Checksums::HashFromText("select_skater_hmenu"));
         element = found;
         found.Release();
     }
     if (element)
-        element->IsHidden(); // (the result isn't used)
+        element->IsConcealed(); // (the result isn't used)
 
     bool menuKeys = !pieceMenu && menu && !typing;
     int code = menuKeys ? MenuKey(button) : typing ? TypingKey(button) : PlayKey(button);
@@ -481,9 +481,9 @@ const char* GetButtonKeyName(int button)
 void SpecialKeyInput(int key, int flags)
 {
     MenuSystem::ElementPtr element;
-    MenuSystem::GetElement(&element, Checksums::HashFromText("menu_network_select_refresh"));
+    MenuSystem::FetchPart(&element, Checksums::HashFromText("menu_network_select_refresh"));
     bool serverList = false;
-    if (element && !element->IsHidden())
+    if (element && !element->IsConcealed())
         serverList = true;
     else if (!KeyboardTyping() && (!TextEntry() || InMenu()))
         return;
@@ -532,16 +532,16 @@ namespace {
 bool& Flag696D95() { return Engine3D::g_moviePlaying; }
 bool& Flag6F1158() { return GameObjects::g_cutscenePlaying; }
 constexpr uint32_t kParkEditorLevel = 0x7ECA21E5;
-// The platform layer: the pad mode and the default keys' Enter / Escape (Platform::SetPadMode...), its window
+// The platform layer: the pad mode and the default keys' Enter / Escape (OsLayer::SetPadMode...), its window
 // message pump, the pad read and whether a DirectInput key is down.
-void SetPadMode(int mode) { Platform::SetPadMode(mode); }
-void SetDefaultEnterControl(int control) { Platform::SetDefaultEnterControl(control); }
-void SetDefaultEscapeControl(int control) { Platform::SetDefaultEscapeControl(control); }
-void PumpWindowMessages() { Platform::ProcessWindowEvents(); }
-void ReadPadState(int port, PadState* state) { Platform::ReadPad(port + 1, state); }
-bool KeyDown(int code) { return Platform::KeyDown(code); }
+void SetPadMode(int mode) { OsLayer::SetPadMode(mode); }
+void SetDefaultEnterControl(int control) { OsLayer::SetDefaultEnterControl(control); }
+void SetDefaultEscapeControl(int control) { OsLayer::SetDefaultEscapeControl(control); }
+void PumpWindowMessages() { OsLayer::ProcessWindowEvents(); }
+void ReadPadState(int port, PadState* state) { OsLayer::ReadPad(port + 1, state); }
+bool KeyDown(int code) { return OsLayer::KeyDown(code); }
 // The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4).
-int MenuPort() { return reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&GoalSystem::CObjective::GetParams))(reinterpret_cast<void*>(GameObjects::g_profileManager)); }
+int MenuPort() { return reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&GoalSystem::CObjective::FetchArgs))(reinterpret_cast<void*>(GameObjects::g_profileManager)); }
 
 uint8_t IfAbove(uint8_t value, uint8_t threshold, uint8_t bit) { return value > threshold ? bit : 0; }
 uint8_t PressureOrZero(uint8_t value) { return value > 0x20 ? value : 0; }
@@ -551,7 +551,7 @@ uint8_t Stick(int value) { return static_cast<uint8_t>(value / 256); }
 } // namespace
 
 // 0x005BD200
-void Device::ReadData(int)
+void InputPort::PullData(int)
 {
     if (QuitRequested())
         return;
@@ -563,22 +563,22 @@ void Device::ReadData(int)
 
     // Which menus are up (the skater select's horizontal menu is checked before and after the park editor's).
     MenuSystem::ElementPtr element;
-    MenuSystem::GetElement(&element, Checksums::HashFromText("select_skater_hmenu"));
-    if (element && !element->IsHidden())
+    MenuSystem::FetchPart(&element, Checksums::HashFromText("select_skater_hmenu"));
+    if (element && !element->IsConcealed())
         selectSkaterShown = true;
     {
         MenuSystem::ElementPtr found;
-        MenuSystem::GetElement(&found, Checksums::HashFromText("piece_menu_hmenu"));
+        MenuSystem::FetchPart(&found, Checksums::HashFromText("piece_menu_hmenu"));
         element = found;
     }
-    if (!QuitRequested() && element && !element->IsHidden())
+    if (!QuitRequested() && element && !element->IsConcealed())
         pieceMenuShown = true;
     {
         MenuSystem::ElementPtr found;
-        MenuSystem::GetElement(&found, Checksums::HashFromText("select_skater_hmenu"));
+        MenuSystem::FetchPart(&found, Checksums::HashFromText("select_skater_hmenu"));
         element = found;
     }
-    if (element && !element->IsHidden())
+    if (element && !element->IsConcealed())
         selectSkaterShown = true;
     bool menuMode = !pieceMenuShown && menu && !typing;
     if (Flag696D95() || Flag6F1158()) {
@@ -593,11 +593,11 @@ void Device::ReadData(int)
     if (typing) {
         SetPadMode(2);
     } else if (menuMode) {
-        if ((!selectSkaterShown || menuPort == m_port) && m_port == 0) {
+        if ((!selectSkaterShown || menuPort == m_portNo) && m_portNo == 0) {
             SetPadMode(1);
         } else if (!selectSkaterShown) {
             SetPadMode(2);
-        } else if (menuPort == m_port && m_port == 1) {
+        } else if (menuPort == m_portNo && m_portNo == 1) {
             SetPadMode(3);
         } else {
             m_pluggedIn = true;
@@ -605,7 +605,7 @@ void Device::ReadData(int)
             return;
         }
     } else if (pieceMenuShown) {
-        if (m_port != 0) {
+        if (m_portNo != 0) {
             m_pluggedIn = true;
             element.Release();
             return;
@@ -617,11 +617,11 @@ void Device::ReadData(int)
     }
     PumpWindowMessages();
     m_pluggedIn = false;
-    if (!PadPresent(m_port))
+    if (!PadPresent(m_portNo))
         return;
 
     PadState pad;
-    ReadPadState(m_port, &pad);
+    ReadPadState(m_portNo, &pad);
     const uint8_t* p = pad.pressure;
     uint16_t buttons = pad.buttons;
     bool keyboardMenu = m_keyboardControl && menuMode; // (the keyboard drives the menus: some buttons ignored)
@@ -644,8 +644,8 @@ void Device::ReadData(int)
         bool editorElement = false;
         if (MenuSystem::g_screenElementManager) {
             MenuSystem::ElementPtr found;
-            MenuSystem::GetElement(&found, 0x31631B98);
-            editorElement = found.Get() != nullptr;
+            MenuSystem::FetchPart(&found, 0x31631B98);
+            editorElement = found.Pull() != nullptr;
             found.Release();
         }
         second ^= IfAbove(p[7], 0x20, editorElement ? 2 : 4);
@@ -709,47 +709,47 @@ extern void** const kManagerVtable;
 } // namespace
 
 // 0x005BE1F0
-Manager::Manager()
+Hub::Hub()
 {
     m_vtable = kManagerVtable;
-    m_devices.data = reinterpret_cast<void*>(-1);
-    m_devices.priority = 0;
-    m_devices.next = &m_devices;
-    m_devices.prev = &m_devices;
-    m_devices.vtable = kDeviceNodeVtable;
+    m_devs.data = reinterpret_cast<void*>(-1);
+    m_devs.priority = 0;
+    m_devs.next = &m_devs;
+    m_devs.prev = &m_devs;
+    m_devs.vtable = kDeviceNodeVtable;
     auto* task = static_cast<uint32_t*>(MemSys::AllocZeroed(0x20));
     if (task) {
-        reinterpret_cast<TaskList::SchedulerTask*>(task)->Construct(0);                 // TaskList::SchedulerTask(priority 0)
-        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);                                             // TaskList::Task<ListKit::Head<Device>>
+        reinterpret_cast<TaskList::SchedulerTask*>(task)->MakeNew(0);                 // TaskList::SchedulerTask(priority 0)
+        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);                                             // TaskList::Task<ListKit::Foremost<Device>>
         task[6] = reinterpret_cast<uint32_t>(&ProcessTask);
-        task[7] = reinterpret_cast<uint32_t>(&m_devices);
+        task[7] = reinterpret_cast<uint32_t>(&m_devs);
     }
     m_task = task;
     int index = 0;
     for (int port = 0; port < 2; ++port) {
-        void* memory = MemSys::AllocZeroed(sizeof(Device));
-        Device* device = memory ? new (memory) Device(index, port, 0) : nullptr;
+        void* memory = MemSys::AllocZeroed(sizeof(InputPort));
+        InputPort* device = memory ? new (memory) InputPort(index, port, 0) : nullptr;
         if (!device)
             continue;
         MemSys::ListNode* node = device->m_listLink; // onto the end of the list
-        node->prev = m_devices.prev;
-        node->next = &m_devices;
-        m_devices.prev->next = node;
-        m_devices.prev = node;
+        node->prev = m_devs.prev;
+        node->next = &m_devs;
+        m_devs.prev->next = node;
+        m_devs.prev = node;
         device->Acquire();
         ++index;
     }
     if (!AudioStream::MusicOffRequested()) // (the music system is set up with the controllers)
-        AudioStream::Init();
+        AudioStream::PrepareAll();
 }
 
 // 0x005BE300
-void Manager::DestroyBody()
+void Hub::DestroyBody()
 {
     m_vtable = kManagerVtable;
-    ListKit::Search<Device> search;
-    for (Device* device = search.HeadElement(&m_devices); device;) {
-        Device* next = search.NextItem();
+    ListKit::Hunt<InputPort> search;
+    for (InputPort* device = search.HeadElement(&m_devs); device;) {
+        InputPort* next = search.FollowingItem();
         reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(device->m_vtable[0])(device, 1);
         device = next;
     }
@@ -758,25 +758,25 @@ void Manager::DestroyBody()
     Stubs::ReturnZero(); // (a folded empty function - compiled-out code)
     if (!AudioStream::MusicOffRequested())
         AudioStream::StopUserSoundtrack();
-    m_devices.UnlinkAs(kDeviceNodeVtable);
+    m_devs.UnlinkAs(kDeviceNodeVtable);
 }
 
 // 0x005BE6C0
-Manager* Manager::Destroy(unsigned int flags)
+Hub* Hub::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 namespace {
 void ProcessAll(MemSys::ListNode* devices)
 {
-    ListKit::Search<Device> search;
+    ListKit::Hunt<InputPort> search;
     bool first = true;
-    for (Device* device = search.HeadElement(devices); device; device = search.NextItem()) {
-        device->Process(first);
+    for (InputPort* device = search.HeadElement(devices); device; device = search.FollowingItem()) {
+        device->WorkOn(first);
         first = false;
     }
 }
@@ -786,52 +786,52 @@ void ProcessAll(MemSys::ListNode* devices)
 void __cdecl ProcessTask(void* task) { ProcessAll(static_cast<MemSys::ListNode*>(static_cast<void**>(task)[7])); }
 
 // 0x005BE3F0
-void Manager::PollPads() { ProcessAll(&m_devices); }
+void Hub::PollPads() { ProcessAll(&m_devs); }
 
 // 0x005BE490
-Device* Manager::GetDevice(int port, int slot)
+InputPort* Hub::FetchGadget(int port, int slot)
 {
-    ListKit::Search<Device> search;
-    for (Device* device = search.HeadElement(&m_devices); device; device = search.NextItem()) {
-        if (device->m_port == port && device->m_seat == slot)
+    ListKit::Hunt<InputPort> search;
+    for (InputPort* device = search.HeadElement(&m_devs); device; device = search.FollowingItem()) {
+        if (device->m_portNo == port && device->m_seat == slot)
             return device;
     }
     return nullptr;
 }
 
 // 0x005BE4F0
-Device* Manager::GetPadAtSlot(int index)
+InputPort* Hub::GetPadAtSlot(int index)
 {
-    ListKit::Search<Device> search;
-    for (Device* device = search.HeadElement(&m_devices); device; device = search.NextItem()) {
-        if (device->m_index == index)
+    ListKit::Hunt<InputPort> search;
+    for (InputPort* device = search.HeadElement(&m_devs); device; device = search.FollowingItem()) {
+        if (device->m_ordinal == index)
             return device;
     }
     return nullptr;
 }
 
 // 0x005BE550
-void Manager::PauseDevices()
+void Hub::PauseDevices()
 {
-    ListKit::Search<Device> search;
-    for (Device* device = search.HeadElement(&m_devices); device; device = search.NextItem())
+    ListKit::Hunt<InputPort> search;
+    for (InputPort* device = search.HeadElement(&m_devs); device; device = search.FollowingItem())
         device->PauseActuators();
 }
 
 // 0x005BE5E0
-void Manager::UnpauseDevices()
+void Hub::UnpauseDevices()
 {
-    ListKit::Search<Device> search;
-    for (Device* device = search.HeadElement(&m_devices); device; device = search.NextItem())
+    ListKit::Hunt<InputPort> search;
+    for (InputPort* device = search.HeadElement(&m_devs); device; device = search.FollowingItem())
         device->UnpauseActuators();
 }
 
 // 0x005BE670
-Manager* CreateManager(bool create)
+Hub* CreateManager(bool create)
 {
     if (!ManagerInstance() && create) {
         if (void* memory = MemSys::AllocZeroed(0x1C, nullptr, 1)) {
-            ManagerInstance() = new (memory) Manager();
+            ManagerInstance() = new (memory) Hub();
             ++ManagerReferences();
             return ManagerInstance();
         }
@@ -848,7 +848,7 @@ void ReleaseManager()
         --ManagerReferences();
         return;
     }
-    if (Manager* manager = ManagerInstance()) {
+    if (Hub* manager = ManagerInstance()) {
         void** vtable = *reinterpret_cast<void***>(manager);
         reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[0])(manager, 1);
     }
@@ -857,9 +857,9 @@ void ReleaseManager()
 }
 
 namespace {
-static VtableSlot kDeviceVtable_slots[] = {&Sio::Device::Destroy};
+static VtableSlot kDeviceVtable_slots[] = {&Sio::InputPort::Teardown};
 void** const kDeviceVtable = reinterpret_cast<void**>(kDeviceVtable_slots);
-static VtableSlot kManagerVtable_slots[] = {&Sio::Manager::Destroy};
+static VtableSlot kManagerVtable_slots[] = {&Sio::Hub::Teardown};
 void** const kManagerVtable = reinterpret_cast<void**>(kManagerVtable_slots);
 } // namespace
 
@@ -868,8 +868,8 @@ void** const kManagerVtable = reinterpret_cast<void**>(kManagerVtable_slots);
 namespace {
 
 struct DeviceAdapter {
-    Sio::Device* Construct(int index, int port, int slot) { return new (this) Sio::Device(index, port, slot); }
-    Sio::Manager* ConstructManager() { return new (this) Sio::Manager(); }
+    Sio::InputPort* MakeNew(int index, int port, int slot) { return new (this) Sio::InputPort(index, port, slot); }
+    Sio::Hub* ConstructManager() { return new (this) Sio::Hub(); }
     MemSys::ListNode* DestroyNode(unsigned int flags) { return Sio::DestroyDeviceNode(reinterpret_cast<MemSys::ListNode*>(this), flags); }
 };
 

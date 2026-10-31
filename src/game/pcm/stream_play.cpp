@@ -52,12 +52,12 @@ int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 constexpr float kPercent = 0.01f;
 constexpr float kFifth = 0.2f;
 
-void PauseStream(StreamSlot& slot)
+void FreezeStream(StreamSlot& slot)
 {
     if (slot.wad)
-        slot.wad->Pause(1);
+        slot.wad->Freeze(1);
     else if (slot.bink)
-        slot.bink->Pause(1);
+        slot.bink->Freeze(1);
 }
 
 // The flag the "start" calls set and loading clears (nothing on PC reads it).
@@ -70,13 +70,13 @@ void SetStarted(StreamSlot& slot, bool started)
 }
 
 // Freed now if it may go, else asked to stop (UpdateStreams frees it later).
-void Stop(StreamSlot& slot)
+void Halt(StreamSlot& slot)
 {
     WaitForSingleObject(StreamLock(), INFINITE);
     if (slot.Playing()) {
         bool ready = slot.wad ? slot.wad->ReadyToFree() : slot.bink->ReadyToFree();
         if (ready)
-            slot.Free();
+            slot.Dealloc();
         else if (slot.wad)
             slot.wad->m_stopRequested = true;
         else if (slot.bink)
@@ -88,7 +88,7 @@ void Stop(StreamSlot& slot)
 } // namespace
 
 // The original calls 0x0047C790, a linker-folded `return -1` (also SoundFx::GroupCount).
-Handle __cdecl OpenUserTrack(int, int) { return INVALID_HANDLE_VALUE; }
+Hdl __cdecl OpenUserTrack(int, int) { return INVALID_HANDLE_VALUE; }
 
 // --- The music ---------------------------------------------------------------------------------------------
 
@@ -99,22 +99,22 @@ bool __cdecl LoadMusicTrack(uint32_t checksum)
     if (music.Playing())
         return false;
     WaitForSingleObject(StreamLock(), INFINITE);
-    music.Create(1, false, 1);
+    music.Fabricate(1, false, 1);
     char path[256];
     std::snprintf(path, sizeof(path), "%s%s%.8x.bik", DataRoot(), "data\\streams\\music\\", checksum);
-    Result result = music.bink ? music.bink->Open(path) : -1;
+    Result result = music.bink ? music.bink->Unseal(path) : -1;
     if (music.wad)
-        music.wad->SetVolume(music.volume);
+        music.wad->ChangeLoudness(music.volume);
     else if (music.bink)
-        music.bink->SetVolume(music.volume);
+        music.bink->ChangeLoudness(music.volume);
     if (result != 0) {
-        music.Free();
+        music.Dealloc();
         ReleaseMutex(StreamLock());
         return false;
     }
     if (music.paused) {
         music.paused = true;
-        PauseStream(music);
+        FreezeStream(music);
     }
     ReleaseMutex(StreamLock());
     return true;
@@ -156,15 +156,15 @@ bool __cdecl PlayUserTrack(int soundtrack, int track)
     StreamSlot& music = MusicSlot();
     if (music.Playing())
         return false;
-    music.Create(0, false, 1);
-    Handle file = OpenUserTrack(soundtrack, track);
+    music.Fabricate(0, false, 1);
+    Hdl file = OpenUserTrack(soundtrack, track);
     if (file == INVALID_HANDLE_VALUE || !music.wad)
         return false;
-    if (music.wad->Open(file, UserTrackBuffer()) != 0)
+    if (music.wad->Unseal(file, UserTrackBuffer()) != 0)
         return false;
     if (music.paused) {
         music.paused = true;
-        PauseStream(music);
+        FreezeStream(music);
     }
     return true;
 }
@@ -172,7 +172,7 @@ bool __cdecl PlayUserTrack(int soundtrack, int track)
 // 0x00453AA0
 void __cdecl PlatformStopMusic()
 {
-    Stop(MusicSlot());
+    Halt(MusicSlot());
 }
 
 // 0x00453400
@@ -183,9 +183,9 @@ int __cdecl PlatformSetMusicVolume(float volume)
     if (music.Playing()) {
         music.volume = volume;
         if (music.wad)
-            music.wad->SetVolume(volume);
+            music.wad->ChangeLoudness(volume);
         else if (music.bink)
-            music.bink->SetVolume(volume);
+            music.bink->ChangeLoudness(volume);
     }
     ReleaseMutex(StreamLock());
     return 1;
@@ -267,13 +267,13 @@ bool __cdecl LoadStream(uint32_t checksum, int slotIndex, const StreamVolume* vo
         return false;
     WaitForSingleObject(StreamLock(), INFINITE);
     StreamSlot& slot = StreamSlots()[slotIndex];
-    slot.Create(1, true, plays);
+    slot.Fabricate(1, true, plays);
     if (preload)
         SetStarted(slot, false);
     char path[256];
     std::snprintf(path, sizeof(path), "%s%s", DataRoot(), "data\\streams\\pcm\\pcm.wad");
-    if (slot.Open(checksum, path, WadFile(), offset, size, StreamBuffer(slotIndex)) != 0) {
-        slot.Free();
+    if (slot.Unseal(checksum, path, WadFile(), offset, size, StreamBuffer(slotIndex)) != 0) {
+        slot.Dealloc();
         ReleaseMutex(StreamLock());
         return false;
     }
@@ -304,16 +304,16 @@ bool __cdecl StartPreloadedStream(int slot, const StreamVolume* volume)
 }
 
 // 0x00453B30
-void __cdecl StopStream(int slot, int)
+void __cdecl HaltStream(int slot, int)
 {
-    Stop(StreamSlots()[slot]);
+    Halt(StreamSlots()[slot]);
 }
 
 // 0x00453BD0
 void __cdecl HaltStreams()
 {
     for (int i = 0; i < kNumStreams; ++i)
-        StopStream(i, 0);
+        HaltStream(i, 0);
 }
 
 } // namespace Pcm

@@ -44,42 +44,42 @@ CParkLayout* CParkLayout::sSingleton() { return g_parkManager; }
 CompressedMap* CParkLayout::GetPackedParkData(bool flagClean)
 {
     if (flagClean)
-        m_flags &= ~kMapNotSavedLocal;
+        m_flagBits &= ~kMapNotSavedLocal;
     return &m_map;
 }
 
 void CParkLayout::SetPackedParkData(const CompressedMap* map, bool flagDirty)
 {
     std::memcpy(&m_map, map, sizeof(m_map));
-    m_flags |= kMapInSync | kMapNewerThanPark;
+    m_flagBits |= kMapInSync | kMapNewerThanPark;
     if (flagDirty)
-        m_flags |= kMapNotSavedLocal;
+        m_flagBits |= kMapNotSavedLocal;
 }
 
 bool CParkLayout::HasLocalParkCopy()
 {
-    return (m_flags & (kMapValid | kMapNewerThanPark)) && !(m_flags & kMapNotSavedLocal);
+    return (m_flagBits & (kMapValid | kMapNewerThanPark)) && !(m_flagBits & kMapNotSavedLocal);
 }
 
 int CParkLayout::GetShellSize()
 {
-    if (m_flags & kMapInSync)
+    if (m_flagBits & kMapInSync)
         return m_map.m_shellSize;
     return 0;
 }
 
 const char* CParkLayout::GetParkName()
 {
-    if (m_map.m_version == CompressedMap::kVersion)
-        return m_map.m_name;
+    if (m_map.m_rev == CompressedMap::kVersion)
+        return m_map.m_label;
     return nullptr;
 }
 
 void CParkLayout::SetParkName(const char* name)
 {
-    if (m_map.m_version != CompressedMap::kVersion)
+    if (m_map.m_rev != CompressedMap::kVersion)
         return;
-    CopyText(m_map.m_name, name);
+    CopyText(m_map.m_label, name);
     CopyText(m_parkName, name);
 }
 
@@ -102,7 +102,7 @@ void CParkLayout::RebuildParkGeometry(int how)
 uint32_t CParkLayout::GetShellChecksum()
 {
     char name[40];
-    if ((m_flags & kMapInSync) && m_map.m_shellSize != 0)
+    if ((m_flagBits & kMapInSync) && m_map.m_shellSize != 0)
         std::snprintf(name, sizeof(name), "sk5ed%d_shell", m_map.m_shellSize + 1); // 0x0064F650
     else
         std::memcpy(name, "sk5ed_shell", 12); // 0x0064F644
@@ -198,7 +198,7 @@ int CParkLayout::GetGroundLevel(SCellBox area, bool* uniform)
     return highest;
 }
 
-Maths::Vector CParkLayout::CellToWorldPos(const SCellBox& area, Maths::Vector* dimensions)
+Maths::Vec4 CParkLayout::CellToWorldPos(const SCellBox& area, Maths::Vec4* dimensions)
 {
     float x = static_cast<float>(area.x - kGridCentre) * CellSizeX();
     float y = static_cast<float>(area.y) * CellSizeY();
@@ -232,9 +232,9 @@ void*& GapManagerInstance() { return reinterpret_cast<void*&>(g_gapManager); }
 void CParkLayout::CreateGapManagerCopy()
 {
     void* current = GapManagerInstance();
-    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
-    void* memory = MemSys::New(0xA8);
-    CGapRegistry* copy = memory ? static_cast<CGapRegistry*>(memory)->Construct(nullptr) : nullptr;
+    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
+    void* memory = MemSys::Alloc(0xA8);
+    CGapRegistry* copy = memory ? static_cast<CGapRegistry*>(memory)->MakeNew(nullptr) : nullptr;
     mp_gapManagerCopy = copy;
     copy->CopyFrom(static_cast<CGapRegistry*>(current)); // (null if out of memory)
     MemSys::LeaveHeapScope();
@@ -248,16 +248,16 @@ void CParkLayout::DestroyGapManagerCopy()
     CGapRegistry* copy = mp_gapManagerCopy;
     if (!copy)
         return;
-    copy->Destroy();
-    MemSys::Manager::Get()->Free(copy);
+    copy->Teardown();
+    MemSys::Hub::Pull()->Dealloc(copy);
     mp_gapManagerCopy = nullptr;
 }
 
 void CParkLayout::HighlightGapPieces(bool on, SGapDetails* gap)
 {
     for (CMapListNode* node = mp_concrete_metas; node; node = node->m_following) {
-        if (node->GetPieceGroup()->Cast()->m_flags & CPieceGroup::kHighlightable)
-            node->GetPieceGroup()->Cast()->Highlight(on, 1);
+        if (node->GetPieceGroup()->Cast()->m_flagBits & CPieceGroup::kHighlightable)
+            node->GetPieceGroup()->Cast()->Spotlight(on, 1);
     }
     m_builder->SetPiecesHighlighted(0);
     if (on) {
@@ -277,7 +277,7 @@ void CParkLayout::ClearFloorChangeMarks()
         }
     }
     for (CMapListNode* node = mp_concrete_metas; node; node = node->m_following)
-        node->GetPieceGroup()->Cast()->m_flags &= ~CPieceGroup::kFlag20;
+        node->GetPieceGroup()->Cast()->m_flagBits &= ~CPieceGroup::kFlag20;
 }
 
 } // namespace Ed

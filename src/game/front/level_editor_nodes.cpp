@@ -26,7 +26,7 @@ namespace MenuSystem::LevelEditor::Nodes {
 
 namespace {
 
-uint32_t Checksum(const char* name) { return Checksums::HashFromText(name); }
+uint32_t NameHash(const char* name) { return Checksums::HashFromText(name); }
 
 // Colours (ARGB).
 constexpr uint32_t kRed = 0xFFE5484D, kBlue = 0xFF3E8BFF, kGreen = 0xFF46C46E, kYellow = 0xFFF2C94C;
@@ -44,26 +44,26 @@ const char* FamilyName(Family family)
 
 Family Classify(uint32_t cls, uint32_t type)
 {
-    static const uint32_t kRestart = Checksum("Restart"), kGenericNode = Checksum("GenericNode"),
-                          kGameObject = Checksum("GameObject"), kRailNode = Checksum("RailNode"),
-                          kClimbingNode = Checksum("ClimbingNode"), kWaypoint = Checksum("Waypoint"),
-                          kLevelObject = Checksum("LevelObject"), kPedestrian = Checksum("Pedestrian"),
-                          kVehicle = Checksum("Vehicle"), kLevelGeometry = Checksum("LevelGeometry"),
-                          kLevelLight = Checksum("LevelLight"), kEmitterObject = Checksum("EmitterObject"),
-                          kParticleObject = Checksum("ParticleObject"), kProximNode = Checksum("ProximNode"),
-                          kCrown = Checksum("Crown"),
-                          kEditorTrigger = Checksum("ed_trigger"); // (level_editor_triggers.h: a trigger volume's node)
-    static const uint32_t kFlags[] = {Checksum("Flag_Red"),       Checksum("Flag_Blue"),       Checksum("Flag_Green"),
-                                      Checksum("Flag_Yellow"),    Checksum("Flag_Red_Base"),   Checksum("Flag_Blue_Base"),
-                                      Checksum("Flag_Green_Base"), Checksum("Flag_Yellow_Base")};
+    static const uint32_t kRestart = NameHash("Restart"), kGenericNode = NameHash("GenericNode"),
+                          kGameObject = NameHash("GameObject"), kRailNode = NameHash("RailNode"),
+                          kClimbingNode = NameHash("ClimbingNode"), kWaypoint = NameHash("Waypoint"),
+                          kLevelObject = NameHash("LevelObject"), kPedestrian = NameHash("Pedestrian"),
+                          kVehicle = NameHash("Vehicle"), kLevelGeometry = NameHash("LevelGeometry"),
+                          kLevelLight = NameHash("LevelLight"), kEmitterObject = NameHash("EmitterObject"),
+                          kParticleObject = NameHash("ParticleObject"), kProximNode = NameHash("ProximNode"),
+                          kCrown = NameHash("Crown"),
+                          kEditorTrigger = NameHash("ed_trigger"); // (level_editor_triggers.h: a trigger volume's node)
+    static const uint32_t kFlags[] = {NameHash("Flag_Red"),       NameHash("Flag_Blue"),       NameHash("Flag_Green"),
+                                      NameHash("Flag_Yellow"),    NameHash("Flag_Red_Base"),   NameHash("Flag_Blue_Base"),
+                                      NameHash("Flag_Green_Base"), NameHash("Flag_Yellow_Base")};
     if (cls == kRestart)
         return Family::Spawn;
     if (cls == kGenericNode)
-        return type == kCrown ? Family::Crown : type == kEditorTrigger ? Family::Trigger : Family::Other;
+        return type == kCrown ? Family::Crown : type == kEditorTrigger ? Family::FireOff : Family::Other;
     if (cls == kGameObject) {
         for (uint32_t flag : kFlags) {
             if (type == flag)
-                return Family::Flag;
+                return Family::BitMark;
         }
         return Family::Object;
     }
@@ -72,7 +72,7 @@ Family Classify(uint32_t cls, uint32_t type)
     if (cls == kClimbingNode)
         return Family::Ladder;
     if (cls == kWaypoint)
-        return Family::Path;
+        return Family::RouteWay;
     if (cls == kLevelObject || cls == kPedestrian || cls == kVehicle)
         return Family::Object;
     if (cls == kLevelGeometry)
@@ -84,7 +84,7 @@ Family Classify(uint32_t cls, uint32_t type)
     if (cls == kParticleObject)
         return Family::Particle;
     if (cls == kProximNode)
-        return Family::Trigger;
+        return Family::FireOff;
     return Family::Other;
 }
 
@@ -93,11 +93,11 @@ Shape ShapeOf(Family family)
     switch (family) {
     case Family::Rail:
     case Family::Ladder:
-    case Family::Path:
+    case Family::RouteWay:
         return Shape::Chain;
-    case Family::Trigger:
+    case Family::FireOff:
     case Family::Light:
-        return Shape::Volume;
+        return Shape::Loudness;
     case Family::Scenery:
         return Shape::None;
     default:
@@ -110,10 +110,10 @@ uint32_t RestartTypeBit(uint32_t type)
     static const struct {
         uint32_t checksum, bit;
     } kTypes[] = {
-        {Checksum("Player1"), kPlayer1},        {Checksum("Player2"), kPlayer2},  {Checksum("Multiplayer"), kMultiplayer},
-        {Checksum("Horse"), kHorse},            {Checksum("CTF"), kCtf},          {Checksum("CTF_1"), kCtf},
-        {Checksum("CTF_2"), kCtf},              {Checksum("CTF_3"), kCtf},        {Checksum("CTF_4"), kCtf},
-        {Checksum("Team"), kTeam},              {Checksum("KingOfTheHill"), kKing}, {Checksum("Generic"), kGeneric},
+        {NameHash("Player1"), kPlayer1},        {NameHash("Player2"), kPlayer2},  {NameHash("Multiplayer"), kMultiplayer},
+        {NameHash("Horse"), kHorse},            {NameHash("CTF"), kCtf},          {NameHash("CTF_1"), kCtf},
+        {NameHash("CTF_2"), kCtf},              {NameHash("CTF_3"), kCtf},        {NameHash("CTF_4"), kCtf},
+        {NameHash("Team"), kTeam},              {NameHash("KingOfTheHill"), kKing}, {NameHash("Generic"), kGeneric},
     };
     for (const auto& t : kTypes) {
         if (t.checksum == type)
@@ -175,7 +175,7 @@ constexpr uint32_t kLinks = 0x2E7D5EE7;   // links
 constexpr uint32_t kPos = 0x7F261953;     // pos
 constexpr uint32_t kAngles = 0x9D2D0915;  // angles
 
-std::vector<Node> g_nodes;
+std::vector<Elem> g_nodes;
 std::unordered_map<uint32_t, int> g_byName;
 int g_counts[kFamilies];
 std::vector<uint32_t> g_signature; // (the arrays' names and sizes when scanned)
@@ -188,10 +188,10 @@ std::vector<uint32_t> Signature()
     LevelNodes::CNodeManager* manager = LevelNodes::NodeManagerInstance();
     if (!manager)
         return signature;
-    for (uint32_t i = 0; i < manager->m_count && i < LevelNodes::CNodeManager::kMaxArrays; ++i) {
+    for (uint32_t i = 0; i < manager->m_num && i < LevelNodes::CNodeManager::kMaxArrays; ++i) {
         const LevelNodes::NodeArrayEntry& entry = manager->m_arrays[i];
-        signature.push_back(entry.m_name);
-        signature.push_back(entry.m_nodeList ? entry.m_nodeList->m_size : 0);
+        signature.push_back(entry.m_label);
+        signature.push_back(entry.m_nodeList ? entry.m_nodeList->m_extent : 0);
         signature.push_back(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(entry.m_nodeList)));
     }
     return signature;
@@ -199,21 +199,21 @@ std::vector<uint32_t> Signature()
 
 Scripts::CStruct* NodeAt(Scripts::CArray* nodes, uint32_t index)
 {
-    if (!nodes || index >= nodes->m_size || nodes->m_type != Scripts::QBVAL_STRUCT)
+    if (!nodes || index >= nodes->m_extent || nodes->m_kindTag != Scripts::QBVAL_STRUCT)
         return nullptr;
-    return reinterpret_cast<Scripts::CStruct*>(nodes->GetElement(index));
+    return reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(index));
 }
 
 // The heading the game gives a node of these angles (0x0041A730: the identity turned by them - the skater's restart,
 // GameObjects::CRider's reset; not rewritten yet): its at row, flattened.
 V3 HeadingOf(V3 angles)
 {
-    Maths::Matrix matrix;
+    Maths::Mat4 matrix;
     matrix.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     matrix.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     matrix.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Maths::Vector vector = {angles.x, angles.y, angles.z, 1.0f};
+    Maths::Vec4 vector = {angles.x, angles.y, angles.z, 1.0f};
     matrix.InitFromAngles(vector);
     V3 at = {matrix.row[2].x, 0.0f, matrix.row[2].z};
     float length = std::sqrt(at.x * at.x + at.z * at.z);
@@ -228,27 +228,27 @@ void Scan()
     LevelNodes::CNodeManager* manager = LevelNodes::NodeManagerInstance();
     if (!manager)
         return;
-    static const uint32_t kRestartTypes = Checksum("restart_types"), kColor = Checksum("Color"),
-                          kOuterRadius = Checksum("OuterRadius"), kInnerRadius = Checksum("InnerRadius"),
-                          kRadius = Checksum("Radius"), kTerrainType = Checksum("TerrainType"),
-                          kTrickObject = Checksum("TrickObject"), kTriggerScript = Checksum("TriggerScript");
+    static const uint32_t kRestartTypes = NameHash("restart_types"), kColor = NameHash("Color"),
+                          kOuterRadius = NameHash("OuterRadius"), kInnerRadius = NameHash("InnerRadius"),
+                          kRadius = NameHash("Radius"), kTerrainType = NameHash("TerrainType"),
+                          kTrickObject = NameHash("TrickObject"), kTriggerScript = NameHash("TriggerScript");
     int crowns = 0, restarts = 0;
     ++g_generation;
-    for (uint32_t a = 0; a < manager->m_count && a < LevelNodes::CNodeManager::kMaxArrays; ++a) {
+    for (uint32_t a = 0; a < manager->m_num && a < LevelNodes::CNodeManager::kMaxArrays; ++a) {
         Scripts::CArray* nodes = manager->m_arrays[a].m_nodeList;
-        if (!nodes || nodes->m_type != Scripts::QBVAL_STRUCT)
+        if (!nodes || nodes->m_kindTag != Scripts::QBVAL_STRUCT)
             continue;
-        for (uint32_t i = 0; i < nodes->m_size; ++i) {
+        for (uint32_t i = 0; i < nodes->m_extent; ++i) {
             Scripts::CStruct* s = NodeAt(nodes, i);
             if (!s)
                 continue;
-            Node node;
+            Elem node;
             node.array = static_cast<int>(a);
             node.index = static_cast<int>(i);
             s->ReadHashValue(kName, &node.name, 0);
             s->ReadHashValue(kClass, &node.cls, 0);
             s->ReadHashValue(kType, &node.type, 0);
-            node.added = manager->m_arrays[a].m_name == OverlayArray();
+            node.added = manager->m_arrays[a].m_label == OverlayArray();
             if (node.cls == HiddenMarker()) {
                 // (hidden by the editor: its own class and type kept beside the marker)
                 node.hidden = true;
@@ -258,12 +258,12 @@ void Scan()
             }
             node.family = Classify(node.cls, node.type);
             Scripts::VectorValue v = {0.0f, 0.0f, 0.0f, 1.0f};
-            if (s->GetVector(kPos, &v, 0)) {
+            if (s->FetchVec(kPos, &v, 0)) {
                 node.hasPos = true;
                 node.pos = {v.x, v.y, v.z};
             }
             Scripts::VectorValue angles = {0.0f, 0.0f, 0.0f, 1.0f};
-            if (s->GetVector(kAngles, &angles, 0)) {
+            if (s->FetchVec(kAngles, &angles, 0)) {
                 node.angles = {angles.x, angles.y, angles.z};
                 if (ShapeOf(node.family) == Shape::Point)
                     node.forward = HeadingOf(node.angles);
@@ -273,9 +273,9 @@ void Scan()
             case Family::Spawn: {
                 node.order = node.hidden ? -1 : restarts++; // (the game's walks skip a hidden one)
                 Scripts::CArray* types = nullptr;
-                if (s->GetArray(kRestartTypes, &types, 0) && types) {
-                    for (uint32_t t = 0; t < types->m_size; ++t)
-                        node.restartTypes |= RestartTypeBit(types->GetElement(t));
+                if (s->FetchList(kRestartTypes, &types, 0) && types) {
+                    for (uint32_t t = 0; t < types->m_extent; ++t)
+                        node.restartTypes |= RestartTypeBit(types->FetchPart(t));
                 }
                 node.colour = SpawnColour(node.restartTypes, TeamColour(name));
                 break;
@@ -284,7 +284,7 @@ void Scan()
                 node.order = node.hidden ? -1 : crowns++;
                 node.colour = 0xFFFFC233;
                 break;
-            case Family::Flag: {
+            case Family::BitMark: {
                 uint32_t team = TeamColour(Objects::NameOf(node.type));
                 node.colour = team ? team : TeamColour(name);
                 if (!node.colour)
@@ -295,8 +295,8 @@ void Scan()
             case Family::Ladder: {
                 s->ReadHashValue(kTerrainType, &node.terrain, 0);
                 node.trickObject = s->HasBareFlag(kTrickObject);
-                static const uint32_t kMetal = Checksum("Metal"), kWood = Checksum("Wood"),
-                                      kConcrete = Checksum("Concrete");
+                static const uint32_t kMetal = NameHash("Metal"), kWood = NameHash("Wood"),
+                                      kConcrete = NameHash("Concrete");
                 node.colour = node.family == Family::Ladder ? 0xFFB98CFF
                               : node.type == kMetal         ? 0xFF7FB2D9
                               : node.type == kWood          ? 0xFFC9935A
@@ -304,23 +304,23 @@ void Scan()
                                                             : 0xFF9FE0E0;
                 break;
             }
-            case Family::Path:
+            case Family::RouteWay:
                 node.colour = 0xFF8FD18F;
                 break;
             case Family::Light: {
                 Scripts::CArray* colour = nullptr;
-                if (s->GetArray(kColor, &colour, 0) && colour && colour->m_size >= 3) {
+                if (s->FetchList(kColor, &colour, 0) && colour && colour->m_extent >= 3) {
                     auto c = [&](uint32_t k) {
-                        int value = colour->m_type == Scripts::QBVAL_FLOAT ? static_cast<int>(colour->GetFloat(k))
-                                                                                 : static_cast<int>(colour->GetElement(k));
+                        int value = colour->m_kindTag == Scripts::QBVAL_FLOAT ? static_cast<int>(colour->FetchFloat(k))
+                                                                                 : static_cast<int>(colour->FetchPart(k));
                         return static_cast<uint32_t>(std::max(0, std::min(255, value)));
                     };
                     node.colour = 0xFF000000u | (c(0) << 16) | (c(1) << 8) | c(2);
                 } else {
                     node.colour = 0xFFFFE9A8;
                 }
-                s->GetFloat(kOuterRadius, &node.radius, 0);
-                s->GetFloat(kInnerRadius, &node.innerRadius, 0);
+                s->FetchFloat(kOuterRadius, &node.radius, 0);
+                s->FetchFloat(kInnerRadius, &node.innerRadius, 0);
                 break;
             }
             case Family::Sound:
@@ -329,9 +329,9 @@ void Scan()
             case Family::Particle:
                 node.colour = 0xFFE07BE0;
                 break;
-            case Family::Trigger:
+            case Family::FireOff:
                 node.colour = 0xFFF08A3C;
-                s->GetFloat(kRadius, &node.radius, 0);
+                s->FetchFloat(kRadius, &node.radius, 0);
                 break;
             case Family::Object:
                 node.colour = 0xFFA8B0BA;
@@ -350,13 +350,13 @@ void Scan()
     g_walkedCrowns = crowns;
     g_walkedSpawns = restarts;
     // The links, as indices (links= holds the linked nodes' names once the array is added - ResolveLinks).
-    for (Node& node : g_nodes) {
+    for (Elem& node : g_nodes) {
         Scripts::CStruct* s = NodeAt(manager->m_arrays[node.array].m_nodeList, static_cast<uint32_t>(node.index));
         Scripts::CArray* links = nullptr;
-        if (!s || !s->GetArray(kLinks, &links, 0) || !links)
+        if (!s || !s->FetchList(kLinks, &links, 0) || !links)
             continue;
-        for (uint32_t l = 0; l < links->m_size; ++l) {
-            auto it = g_byName.find(links->GetElement(l));
+        for (uint32_t l = 0; l < links->m_extent; ++l) {
+            auto it = g_byName.find(links->FetchPart(l));
             if (it != g_byName.end())
                 node.links.push_back(it->second);
         }
@@ -378,7 +378,7 @@ void SyncRails()
         &points);
     if (points.empty())
         return;
-    for (Node& node : g_nodes) {
+    for (Elem& node : g_nodes) {
         if (node.family != Family::Rail && node.family != Family::Ladder)
             continue;
         auto it = points.find(node.name);
@@ -403,7 +403,7 @@ void Refresh()
 
 } // namespace
 
-const std::vector<Node>& All()
+const std::vector<Elem>& All()
 {
     Refresh();
     return g_nodes;
@@ -427,27 +427,27 @@ uint32_t Generation()
     return g_generation;
 }
 
-void Invalidate() { g_signature.clear(); }
+void MarkStale() { g_signature.clear(); }
 
 const char* const kOverlayArrayName = "thug2_decomp_editor_nodes";
 uint32_t OverlayArray()
 {
-    static const uint32_t name = Checksum(kOverlayArrayName);
+    static const uint32_t name = NameHash(kOverlayArrayName);
     return name;
 }
 uint32_t HiddenMarker()
 {
-    static const uint32_t name = Checksum("ed_hidden");
+    static const uint32_t name = NameHash("ed_hidden");
     return name;
 }
 uint32_t HiddenClassKey()
 {
-    static const uint32_t name = Checksum("ed_hidden_class");
+    static const uint32_t name = NameHash("ed_hidden_class");
     return name;
 }
 uint32_t HiddenTypeKey()
 {
-    static const uint32_t name = Checksum("ed_hidden_type");
+    static const uint32_t name = NameHash("ed_hidden_type");
     return name;
 }
 
@@ -458,10 +458,10 @@ int Find(uint32_t name)
     return it == g_byName.end() ? -1 : it->second;
 }
 
-Scripts::CStruct* StructOf(const Node& node)
+Scripts::CStruct* StructOf(const Elem& node)
 {
     LevelNodes::CNodeManager* manager = LevelNodes::NodeManagerInstance();
-    if (!manager || node.array < 0 || static_cast<uint32_t>(node.array) >= manager->m_count)
+    if (!manager || node.array < 0 || static_cast<uint32_t>(node.array) >= manager->m_num)
         return nullptr;
     return NodeAt(manager->m_arrays[node.array].m_nodeList, static_cast<uint32_t>(node.index));
 }
@@ -470,17 +470,17 @@ void Reread(int index)
 {
     if (index < 0 || index >= static_cast<int>(g_nodes.size()))
         return;
-    Node& node = g_nodes[index];
+    Elem& node = g_nodes[index];
     Scripts::CStruct* s = StructOf(node);
     if (!s)
         return;
     Scripts::VectorValue v = {0.0f, 0.0f, 0.0f, 1.0f};
-    if (s->GetVector(kPos, &v, 0)) {
+    if (s->FetchVec(kPos, &v, 0)) {
         node.hasPos = true;
         node.pos = {v.x, v.y, v.z};
     }
     Scripts::VectorValue angles = {0.0f, 0.0f, 0.0f, 1.0f};
-    s->GetVector(kAngles, &angles, 0);
+    s->FetchVec(kAngles, &angles, 0);
     node.angles = {angles.x, angles.y, angles.z};
     if (ShapeOf(node.family) == Shape::Point)
         node.forward = HeadingOf(node.angles);
@@ -490,15 +490,15 @@ void Reread(int index)
         node.pos = point;
 }
 
-uint32_t ArrayName(const Node& node)
+uint32_t ArrayName(const Elem& node)
 {
     LevelNodes::CNodeManager* manager = LevelNodes::NodeManagerInstance();
-    if (!manager || node.array < 0 || static_cast<uint32_t>(node.array) >= manager->m_count)
+    if (!manager || node.array < 0 || static_cast<uint32_t>(node.array) >= manager->m_num)
         return 0;
-    return manager->m_arrays[node.array].m_name;
+    return manager->m_arrays[node.array].m_label;
 }
 
-std::string Label(uint32_t checksum) { return Objects::Label(checksum); }
+std::string Caption(uint32_t checksum) { return Objects::Caption(checksum); }
 
 namespace {
 
@@ -518,25 +518,25 @@ std::string ArrayText(Scripts::CArray* array, int depth)
     if (!array)
         return "[]";
     std::string text = "[";
-    uint32_t shown = std::min<uint32_t>(array->m_size, 12);
+    uint32_t shown = std::min<uint32_t>(array->m_extent, 12);
     for (uint32_t i = 0; i < shown; ++i) {
         if (i)
             text += " ";
         char buffer[48];
-        switch (array->m_type) {
+        switch (array->m_kindTag) {
         case Scripts::QBVAL_INTEGER:
-            std::snprintf(buffer, sizeof(buffer), "%d", static_cast<int>(array->GetElement(i)));
+            std::snprintf(buffer, sizeof(buffer), "%d", static_cast<int>(array->FetchPart(i)));
             text += buffer;
             break;
         case Scripts::QBVAL_FLOAT:
-            std::snprintf(buffer, sizeof(buffer), "%g", array->GetFloat(i));
+            std::snprintf(buffer, sizeof(buffer), "%g", array->FetchFloat(i));
             text += buffer;
             break;
         case Scripts::QBVAL_NAME:
-            text += NameText(array->GetElement(i));
+            text += NameText(array->FetchPart(i));
             break;
         case Scripts::QBVAL_STRING:
-            text += std::string("\"") + (array->GetString(i) ? array->GetString(i) : "") + "\"";
+            text += std::string("\"") + (array->FetchText(i) ? array->FetchText(i) : "") + "\"";
             break;
         case Scripts::QBVAL_STRUCT:
             text += depth < 2 ? "{...}" : "{}";
@@ -546,15 +546,15 @@ std::string ArrayText(Scripts::CArray* array, int depth)
             break;
         }
     }
-    if (array->m_size > shown)
-        text += " ... (" + std::to_string(array->m_size) + ")";
+    if (array->m_extent > shown)
+        text += " ... (" + std::to_string(array->m_extent) + ")";
     return text + "]";
 }
 
 std::string ValueText(Scripts::CComponent* c, int depth)
 {
     char buffer[96];
-    switch (c->Type()) {
+    switch (c->KindTag()) {
     case Scripts::QBVAL_INTEGER:
         std::snprintf(buffer, sizeof(buffer), "%d", c->integer);
         return buffer;
@@ -587,12 +587,12 @@ std::string ValueText(Scripts::CComponent* c, int depth)
     }
 }
 
-void AddFields(Scripts::CStruct* s, bool included, int depth, std::vector<Field>* out)
+void AddFields(Scripts::CStruct* s, bool included, int depth, std::vector<Prop>* out)
 {
     if (!s || depth > 3)
         return;
     for (Scripts::CComponent* c = s->m_head; c; c = c->next) {
-        if (c->name == 0 && c->Type() == Scripts::QBVAL_NAME) {
+        if (c->name == 0 && c->KindTag() == Scripts::QBVAL_NAME) {
             // A bare name: a flag, or an included structure (ncomp_<class>_<n>) - expanded.
             Scripts::CSymbolTableEntry* symbol = Scripts::ResolveSymbol(c->checksum);
             if (symbol && symbol->type == Scripts::QBVAL_STRUCT && symbol->structure) {
@@ -608,9 +608,9 @@ void AddFields(Scripts::CStruct* s, bool included, int depth, std::vector<Field>
 
 } // namespace
 
-std::vector<Field> Fields(const Node& node)
+std::vector<Prop> Fields(const Elem& node)
 {
-    std::vector<Field> fields;
+    std::vector<Prop> fields;
     AddFields(StructOf(node), false, 0, &fields);
     return fields;
 }
@@ -633,17 +633,17 @@ bool LevelIsShared(const char** game)
         {"level_select_menu_thaw_level_info", "THAW"},
         {"level_select_menu_misc_level_info", nullptr}, // (skate shops, tutorials: the entry's game_tag names the game)
     };
-    static const uint32_t kLevel = Checksum("level"), kGameTag = Checksum("game_tag");
+    static const uint32_t kLevel = NameHash("level"), kGameTag = NameHash("game_tag");
     for (const auto& entry : kLists) {
-        Scripts::CArray* levels = Scripts::GetArray(entry.list);
-        if (!levels || levels->m_type != Scripts::QBVAL_STRUCT)
+        Scripts::CArray* levels = Scripts::FetchList(entry.list);
+        if (!levels || levels->m_kindTag != Scripts::QBVAL_STRUCT)
             continue;
-        for (uint32_t i = 0; i < levels->m_size; ++i) {
-            auto* info = reinterpret_cast<Scripts::CStruct*>(levels->GetElement(i));
+        for (uint32_t i = 0; i < levels->m_extent; ++i) {
+            auto* info = reinterpret_cast<Scripts::CStruct*>(levels->FetchPart(i));
             uint32_t load = 0;
             if (info && info->ReadHashValue(kLevel, &load, 0) && load == level) {
                 const char* tag = entry.game;
-                if (!tag && !info->GetString(kGameTag, &tag, 0))
+                if (!tag && !info->FetchText(kGameTag, &tag, 0))
                     break; // (a THUG2 or THP8 level of the miscellaneous list: not shared with another game's)
                 if (game)
                     *game = tag;

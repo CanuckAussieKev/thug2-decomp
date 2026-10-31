@@ -55,34 +55,34 @@ const char* const kRewardGiven = "reward_given";  // "reward_given"
 const char* const kWinRecordName = "win_record"; // "win_record"
 const char* const kRewardParams = "reward_params"; // "reward_params"
 
-static VtableSlot kCompetitionGoalVtable_slots[] = {&GoalSystem::CContestObjective::Destroy, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut,
-                 &GoalSystem::CObjective::IsActive, Engine3D::VirtualSlot3Jump, &GoalSystem::CContestObjective::Expire,
+static VtableSlot kCompetitionGoalVtable_slots[] = {&GoalSystem::CContestObjective::Teardown, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut,
+                 &GoalSystem::CObjective::IsOperative, Engine3D::VirtualSlot3Jump, &GoalSystem::CContestObjective::Expire,
                  &GoalSystem::CContestObjective::RestoreSaveBlock, &GoalSystem::CContestObjective::CaptureSaveBlock,
                  &GoalSystem::CObjective::HasTimeLimit, Stubs::ReturnTrue, &GoalSystem::CObjective::HasComponentA302D7CD,
-                 &GoalSystem::CObjective::Activate, &GoalSystem::CContestObjective::SetActive, &GoalSystem::CObjective::Deactivate,
+                 &GoalSystem::CObjective::Activate, &GoalSystem::CContestObjective::ChangeLive, &GoalSystem::CObjective::Disengage,
                  &GoalSystem::CContestObjective::ClearEngagedBit, &GoalSystem::CContestObjective::Win, &GoalSystem::CObjective::Lose,
-                 &GoalSystem::CObjective::Update, &GoalSystem::CContestObjective::IsPaused, &GoalSystem::CObjective::SetFlag,
+                 &GoalSystem::CObjective::TickFrame, &GoalSystem::CContestObjective::IsFrozen, &GoalSystem::CObjective::SetFlag,
                  &GoalSystem::CObjective::StageFlagSet, &GoalSystem::CContestObjective::HasWon, &GoalSystem::CObjective::NetStageFlagSet,
                  &GoalSystem::CObjective::HasWonGoalOrChild, &GoalSystem::CObjective::IsPrepared, &GoalSystem::CObjective::MayTryAgain,
                  &GoalSystem::CContestObjective::MarkWon, &GoalSystem::CObjective::SetStageFlag, &GoalSystem::CObjective::SetNetStageFlag,
                  &GoalSystem::CContestObjective::UnBeat};
 void** const kCompetitionGoalVtable = reinterpret_cast<void**>(kCompetitionGoalVtable_slots);
-static VtableSlot kFilmGoalVtable_slots[] = {&GoalSystem::CShootVideoObjective::Destroy, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut,
-                 &GoalSystem::CObjective::IsActive, Engine3D::VirtualSlot3Jump, &GoalSystem::CObjective::Expire, &GoalSystem::CObjective::RestoreSaveBlock,
+static VtableSlot kFilmGoalVtable_slots[] = {&GoalSystem::CShootVideoObjective::Teardown, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut,
+                 &GoalSystem::CObjective::IsOperative, Engine3D::VirtualSlot3Jump, &GoalSystem::CObjective::Expire, &GoalSystem::CObjective::RestoreSaveBlock,
                  &GoalSystem::CObjective::CaptureSaveBlock, &GoalSystem::CObjective::HasTimeLimit, Stubs::ReturnTrue,
-                 &GoalSystem::CObjective::HasComponentA302D7CD, &GoalSystem::CShootVideoObjective::Activate, &GoalSystem::CObjective::SetActive,
-                 &GoalSystem::CObjective::Deactivate, &GoalSystem::CObjective::ClearEngagedBit, &GoalSystem::CObjective::Win, &GoalSystem::CObjective::Lose,
-                 &GoalSystem::CShootVideoObjective::Update, &GoalSystem::CObjective::IsPaused, &GoalSystem::CObjective::SetFlag, &GoalSystem::CObjective::StageFlagSet,
+                 &GoalSystem::CObjective::HasComponentA302D7CD, &GoalSystem::CShootVideoObjective::Activate, &GoalSystem::CObjective::ChangeLive,
+                 &GoalSystem::CObjective::Disengage, &GoalSystem::CObjective::ClearEngagedBit, &GoalSystem::CObjective::Win, &GoalSystem::CObjective::Lose,
+                 &GoalSystem::CShootVideoObjective::TickFrame, &GoalSystem::CObjective::IsFrozen, &GoalSystem::CObjective::SetFlag, &GoalSystem::CObjective::StageFlagSet,
                  &GoalSystem::CObjective::HasWon, &GoalSystem::CObjective::NetStageFlagSet, &GoalSystem::CObjective::HasWonGoalOrChild,
                  &GoalSystem::CObjective::IsPrepared, &GoalSystem::CObjective::MayTryAgain, &GoalSystem::CObjective::MarkWon,
                  &GoalSystem::CObjective::SetStageFlag, &GoalSystem::CObjective::SetNetStageFlag, &GoalSystem::CObjective::UnBeat};
 void** const kFilmGoalVtable = reinterpret_cast<void**>(kFilmGoalVtable_slots);
-static VtableSlot kFindGapsGoalVtable_slots[] = {&GoalSystem::CHuntGapsObjective::Destroy, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut,
-                 &GoalSystem::CObjective::IsActive, Engine3D::VirtualSlot3Jump, &GoalSystem::CObjective::Expire, &GoalSystem::CObjective::RestoreSaveBlock,
+static VtableSlot kFindGapsGoalVtable_slots[] = {&GoalSystem::CHuntGapsObjective::Teardown, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut,
+                 &GoalSystem::CObjective::IsOperative, Engine3D::VirtualSlot3Jump, &GoalSystem::CObjective::Expire, &GoalSystem::CObjective::RestoreSaveBlock,
                  &GoalSystem::CObjective::CaptureSaveBlock, &GoalSystem::CObjective::HasTimeLimit, Stubs::ReturnTrue,
-                 &GoalSystem::CObjective::HasComponentA302D7CD, &GoalSystem::CHuntGapsObjective::Activate, &GoalSystem::CObjective::SetActive,
-                 &GoalSystem::CObjective::Deactivate, &GoalSystem::CObjective::ClearEngagedBit, &GoalSystem::CObjective::Win, &GoalSystem::CObjective::Lose,
-                 &GoalSystem::CObjective::Update, &GoalSystem::CObjective::IsPaused, &GoalSystem::CObjective::SetFlag, &GoalSystem::CObjective::StageFlagSet,
+                 &GoalSystem::CObjective::HasComponentA302D7CD, &GoalSystem::CHuntGapsObjective::Activate, &GoalSystem::CObjective::ChangeLive,
+                 &GoalSystem::CObjective::Disengage, &GoalSystem::CObjective::ClearEngagedBit, &GoalSystem::CObjective::Win, &GoalSystem::CObjective::Lose,
+                 &GoalSystem::CObjective::TickFrame, &GoalSystem::CObjective::IsFrozen, &GoalSystem::CObjective::SetFlag, &GoalSystem::CObjective::StageFlagSet,
                  &GoalSystem::CObjective::HasWon, &GoalSystem::CObjective::NetStageFlagSet, &GoalSystem::CObjective::HasWonGoalOrChild,
                  &GoalSystem::CObjective::IsPrepared, &GoalSystem::CObjective::MayTryAgain, &GoalSystem::CObjective::MarkWon,
                  &GoalSystem::CObjective::SetStageFlag, &GoalSystem::CObjective::SetNetStageFlag, &GoalSystem::CObjective::UnBeat};
@@ -93,7 +93,7 @@ int Truncate(double value) { return static_cast<int>(value); }
 Scripts::CStruct* NewStructure()
 {
     Scripts::CStruct* structure = Scripts::NewStruct();
-    return structure ? structure->Init() : nullptr;
+    return structure ? structure->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
 {
@@ -109,9 +109,9 @@ GameModules::CContest* TheCompetition() { return SkateCalls::SkateField<GameModu
 // --- The competition ---------------------------------------------------------------------------------------------
 
 // 0x005517C0
-CContestObjective* CContestObjective::Construct(Scripts::CStruct* params)
+CContestObjective* CContestObjective::MakeNew(Scripts::CStruct* params)
 {
-    CObjective::Construct(params);
+    CObjective::MakeNew(params);
     m_isHalted = false;
     m_hasThirdPlace = false;
     m_hasSecondPlace = false;
@@ -131,11 +131,11 @@ void CContestObjective::DestroyBody()
 }
 
 // 0x00551A00
-CContestObjective* CContestObjective::Destroy(uint8_t flags)
+CContestObjective* CContestObjective::Teardown(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -143,26 +143,26 @@ CContestObjective* CContestObjective::Destroy(uint8_t flags)
 bool CContestObjective::Expire() { return InvokeHookScript(kExpireScript); }
 
 // 0x00551820
-void CContestObjective::SetActive()
+void CContestObjective::ChangeLive()
 {
     m_isHalted = false;
-    m_state = static_cast<uint8_t>((m_state & ~kStatePaused) | kStateActive);
+    m_curPhase = static_cast<uint8_t>((m_curPhase & ~kStatePaused) | kStateActive);
 }
 
 // 0x00551830
 void CContestObjective::ClearEngagedBit()
 {
     m_isHalted = false;
-    m_state &= ~(kStateActive | kStatePaused);
+    m_curPhase &= ~(kStateActive | kStatePaused);
 }
 
 // 0x00551840
-bool CContestObjective::HasWon() { return (m_flags & kFlagWon) != 0; }
+bool CContestObjective::HasWon() { return (m_flagBits & kFlagWon) != 0; }
 
 // 0x00551850
 bool CContestObjective::UnBeat()
 {
-    m_flags &= ~kFlagWon;
+    m_flagBits &= ~kFlagWon;
     m_hasThirdPlace = false;
     m_hasSecondPlace = false;
     if (!Virtual<bool>(this, kVtHasWon))
@@ -178,11 +178,11 @@ void CContestObjective::FreezeContest() { m_isHalted = true; }
 void CContestObjective::ThawContest()
 {
     m_isHalted = false;
-    m_flags &= ~kFlagEndOfRunStarted;
+    m_flagBits &= ~kFlagEndOfRunStarted;
 }
 
 // 0x005518A0
-int CContestObjective::IsPaused() { return (m_state & kStatePaused) || m_isHalted ? 1 : 0; }
+int CContestObjective::IsFrozen() { return (m_curPhase & kStatePaused) || m_isHalted ? 1 : 0; }
 
 // 0x005518C0
 void CContestObjective::RestoreSaveBlock(Scripts::CStruct* data)
@@ -232,15 +232,15 @@ void CContestObjective::MarkWon()
     } else if (competition->PlaceIs(3)) {
         m_hasThirdPlace = true;
     }
-    m_flags |= kFlagWon;
+    m_flagBits |= kFlagWon;
 }
 
 // 0x00551A90
 bool CContestObjective::Win()
 {
-    m_params->PutNameKey(kNoName, kJustWonGoal);
+    m_args->PutNameKey(kNoName, kJustWonGoal);
     InvokeHookScript(kDeactivateScript);
-    m_params->RemoveFlag(kJustWonGoal);
+    m_args->RemoveFlag(kJustWonGoal);
     Virtual<void>(this, kVtSetInactive);
     if (!OnlinePlay::g_gameNetManager->InNetGame()) {
         GameModules::CContest* competition = TheCompetition();
@@ -252,7 +252,7 @@ bool CContestObjective::Win()
         else if (competition->PlaceIs(3))
             place = 3;
         if (place < m_bestScore) {
-            m_params->PutInt(kWinRecordName, place);
+            m_args->PutInt(kWinRecordName, place);
             m_bestScore = place;
         }
     }
@@ -264,9 +264,9 @@ bool CContestObjective::Win()
         DeleteStructure(own);
         OpenUpPrizeObjectives();
     } else {
-        m_params->RemoveComponent(kRewardParams);
+        m_args->EraseModule(kRewardParams);
     }
-    m_params->PutSubStruct(kRewardParams, rewards);
+    m_args->PutSubStruct(kRewardParams, rewards);
     InvokeHookScript(kSuccessScript);
     DeleteStructure(rewards);
     if (!Virtual<bool>(this, kVtHasWon))
@@ -277,9 +277,9 @@ bool CContestObjective::Win()
 // --- Film --------------------------------------------------------------------------------------------------------
 
 // 0x005527D0
-CShootVideoObjective* CShootVideoObjective::Construct(Scripts::CStruct* params)
+CShootVideoObjective* CShootVideoObjective::MakeNew(Scripts::CStruct* params)
 {
-    CObjective::Construct(params);
+    CObjective::MakeNew(params);
     m_listLink.vtable = kFilmGoalVtable;
     return this;
 }
@@ -292,11 +292,11 @@ void CShootVideoObjective::DestroyBody()
 }
 
 // 0x005528A0
-CShootVideoObjective* CShootVideoObjective::Destroy(uint8_t flags)
+CShootVideoObjective* CShootVideoObjective::Teardown(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -308,16 +308,16 @@ bool CShootVideoObjective::Activate()
     m_timeNeeded = 0;
     m_checkpoints = 0;
     m_recordingShot = false;
-    m_params->PutInt(kTimeOnCamera, 0);
+    m_args->PutInt(kTimeOnCamera, 0);
     int seconds;
-    if (m_params->FetchIntValue(kTotalTimeRequired, &seconds, 0)) {
+    if (m_args->FetchIntValue(kTotalTimeRequired, &seconds, 0)) {
         m_timeNeeded = static_cast<uint32_t>(seconds * 1000);
         int time;
-        m_params->FetchIntValue(kTime, &time, 1);
+        m_args->FetchIntValue(kTime, &time, 1);
         m_unknown7C = m_unknown7C * static_cast<uint32_t>(time) * 1000;
         return CObjective::Activate();
     }
-    m_params->FetchIntValue(kCheckpoints, &m_checkpoints, 0);
+    m_args->FetchIntValue(kCheckpoints, &m_checkpoints, 0);
     return CObjective::Activate();
 }
 
@@ -325,16 +325,16 @@ bool CShootVideoObjective::Activate()
 bool CShootVideoObjective::TargetInView()
 {
     uint32_t id;
-    m_params->ReadHashValue(kFilmTarget, &id, 1);
-    GameObjects::CObject* target = GameObjects::FindObject(id);
+    m_args->ReadHashValue(kFilmTarget, &id, 1);
+    GameObjects::CEntity* target = GameObjects::FindObject(id);
     if (!target)
         return false;
     auto* object = static_cast<GameObjects::CGameEntity*>(target);
-    void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(object->GetComponent(kModel)) + 0x208);
+    void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(object->FetchModule(kModel)) + 0x208);
     // The model's bounding sphere (0x00492F30) in the world.
-    Maths::Vector sphere;
-    const Maths::Vector* bounds = static_cast<Engine3D::CRenderModel*>(model)->FetchBoundSphere(&sphere);
-    Maths::Vector centre;
+    Maths::Vec4 sphere;
+    const Maths::Vec4* bounds = static_cast<Engine3D::CRenderModel*>(model)->FetchBoundSphere(&sphere);
+    Maths::Vec4 centre;
     centre[0] = sphere[0];
     centre[1] = sphere[1];
     centre[2] = sphere[2];
@@ -342,32 +342,32 @@ bool CShootVideoObjective::TargetInView()
     (void)bounds;
     centre.MultiplyBy(object->m_basisFrame);
     for (int i = 0; i < 4; ++i)
-        centre[i] = centre[i] + object->m_pos[i];
+        centre[i] = centre[i] + object->m_atPoint[i];
     // (0x0048C490: the sphere hidden from the camera)
     if (Engine3D::Engine::SphereVisibleInOneViewport(&centre, 6.0f))
         return false;
     auto* skater = static_cast<GameObjects::CRider*>(SkateCalls::GetHomeRider());
-    Maths::Vector* camera = static_cast<Gfx2D::Camera*>(skater->ObtainActiveLens())->GetPos();
-    float dx = (*camera)[0] - object->m_pos[0];
-    float dy = (*camera)[1] - object->m_pos[1];
-    float dz = (*camera)[2] - object->m_pos[2];
+    Maths::Vec4* camera = static_cast<Gfx2D::ViewCam*>(skater->ObtainActiveLens())->FetchLocation();
+    float dx = (*camera)[0] - object->m_atPoint[0];
+    float dy = (*camera)[1] - object->m_atPoint[1];
+    float dz = (*camera)[2] - object->m_atPoint[2];
     int maximum;
-    m_params->FetchIntValue(kMaxDistanceToTarget, &maximum, 1);
+    m_args->FetchIntValue(kMaxDistanceToTarget, &maximum, 1);
     double distance = std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy +
                                 static_cast<double>(dx) * dx);
     return static_cast<double>(maximum) > distance;
 }
 
 // 0x00552A10
-bool CShootVideoObjective::Update()
+bool CShootVideoObjective::TickFrame()
 {
-    m_params->PutInt(kLastTimeOnCamera, static_cast<int>(m_shotHoldTime));
+    m_args->PutInt(kLastTimeOnCamera, static_cast<int>(m_shotHoldTime));
     if (!Virtual<bool>(this, kVtIsActive) || Virtual<bool>(this, kVtIsPaused))
-        return CObjective::Update();
+        return CObjective::TickFrame();
     if (m_recordingShot) {
         if (TargetInView()) {
             m_shotHoldTime += Truncate(FrameClock::GetSlomoFrameSeconds() * Gfx2D::g_thousand); // (1000)
-            m_params->PutInt(kTimeOnCamera, static_cast<int>(m_shotHoldTime));
+            m_args->PutInt(kTimeOnCamera, static_cast<int>(m_shotHoldTime));
         }
         if (m_shotHoldTime >= m_timeNeeded) {
             void* manager = ObjectiveBoard();
@@ -378,13 +378,13 @@ bool CShootVideoObjective::Update()
             void* manager = ObjectiveBoard();
             return FailObjective(manager, GetObjectiveKey());
         }
-        return CObjective::Update();
+        return CObjective::TickFrame();
     }
     if (m_checkpoints && m_checkpointsPassed >= m_checkpoints) {
         void* manager = ObjectiveBoard();
         return CompleteObjective(manager, GetObjectiveKey());
     }
-    return CObjective::Update();
+    return CObjective::TickFrame();
 }
 
 // 0x00552AF0
@@ -401,9 +401,9 @@ void CShootVideoObjective::Checkpoint()
 // --- Find gaps ---------------------------------------------------------------------------------------------------
 
 // 0x00552B30
-CHuntGapsObjective* CHuntGapsObjective::Construct(Scripts::CStruct* params)
+CHuntGapsObjective* CHuntGapsObjective::MakeNew(Scripts::CStruct* params)
 {
-    CObjective::Construct(params);
+    CObjective::MakeNew(params);
     m_listLink.vtable = kFindGapsGoalVtable;
     return this;
 }
@@ -416,11 +416,11 @@ void CHuntGapsObjective::DestroyBody()
 }
 
 // 0x00552B60
-CHuntGapsObjective* CHuntGapsObjective::Destroy(uint8_t flags)
+CHuntGapsObjective* CHuntGapsObjective::Teardown(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -429,25 +429,25 @@ void CHuntGapsObjective::ScanForGaps()
 {
     auto* skater = static_cast<GameObjects::CRider*>(SkateCalls::GetHomeRider());
     Scripts::CStruct* found;
-    m_params->ReadSubStruct(kGapsFound, &found, 1);
+    m_args->ReadSubStruct(kGapsFound, &found, 1);
     int count;
-    m_params->FetchIntValue(kNumGapsFound, &count, 1);
+    m_args->FetchIntValue(kNumGapsFound, &count, 1);
     auto* score = static_cast<uint8_t*>(skater->GetPointsTotal());
     int gaps = *reinterpret_cast<int*>(score + 0x5C);
     bool foundNew = false;
     for (int i = 0; i < gaps; ++i) {
-        // (GameModules::Score: 0x00562740 the gap `i` is one of the run's, 0x00561660 its name)
-        if (!static_cast<GameModules::Score*>(static_cast<void*>(score))->IsGap(i))
+        // (GameModules::PointTally: 0x00562740 the gap `i` is one of the run's, 0x00561660 its name)
+        if (!static_cast<GameModules::PointTally*>(static_cast<void*>(score))->IsGap(i))
             continue;
-        uint32_t gap = reinterpret_cast<GameModules::Score*>(score)->GetTrickName(i);
+        uint32_t gap = reinterpret_cast<GameModules::PointTally*>(score)->GetTrickName(i);
         if (found->HasEntryNamed(gap))
             continue;
         found->PutInt(gap, 1);
         ++count;
         foundNew = true;
     }
-    m_params->PutInt(kNumGapsFound, count);
-    m_params->PutInt(kNumberCollected, count);
+    m_args->PutInt(kNumGapsFound, count);
+    m_args->PutInt(kNumberCollected, count);
     if (!foundNew)
         return;
     Scripts::CStruct* params = NewStructure();
@@ -459,14 +459,14 @@ void CHuntGapsObjective::ScanForGaps()
 // 0x00552D20
 bool CHuntGapsObjective::Activate()
 {
-    m_params->RemoveComponent(kGapsFound);
+    m_args->EraseModule(kGapsFound);
     Scripts::CStruct* found = NewStructure();
-    m_params->PutSubStruct(kGapsFound, found);
+    m_args->PutSubStruct(kGapsFound, found);
     DeleteStructure(found);
-    m_params->PutInt(kNumGapsFound, 0);
-    m_params->PutInt(kNumberCollected, 0);
+    m_args->PutInt(kNumGapsFound, 0);
+    m_args->PutInt(kNumberCollected, 0);
     int toFind;
-    m_params->FetchIntValue(kNumGapsToFind, &toFind, 1); // (read and not used)
+    m_args->FetchIntValue(kNumGapsToFind, &toFind, 1); // (read and not used)
     return CObjective::Activate();
 }
 

@@ -31,8 +31,8 @@ int g_viewMode;
 namespace {
 
 extern void** const kVtable;
-extern void** const kQueueVtable;     // ListKit::Head<CMovie>
-extern void** const kMovieNodeVtable; // ListKit::Node<CMovie>
+extern void** const kQueueVtable;     // ListKit::Foremost<CMovie>
+extern void** const kMovieNodeVtable; // ListKit::Elem<CMovie>
 
 constexpr uint32_t kSkaterCameraAsset = 0xB46E218F;
 constexpr uint32_t kObjectCameraAsset = 0x12743EDB;
@@ -49,19 +49,19 @@ R Virtual(CMovie* movie, int offset, A... args)
 }
 void DeleteMovie(CMovie* movie) { Virtual<void*, int>(movie, 0, 1); }
 bool HasCamera(CMovie* movie) { return Virtual<bool>(movie, 0x1C); }
-void Stop(CMovie* movie) { Virtual<void>(movie, 0x20); }
+void Halt(CMovie* movie) { Virtual<void>(movie, 0x20); }
 // The movie details' (node_objects.h) part of a movie.
 CVideoEntry* Details(CMovie* movie) { return reinterpret_cast<CVideoEntry*>(movie); }
 uint32_t NameOf(CMovie* movie) { return MovieName(movie); }
 // The game's camera (0x004A0970).
-// The movie at `index` of the list (ListKit::Head<CMovie>::GetItem, 0x0055D990; null past the end).
+// The movie at `index` of the list (ListKit::Foremost<CMovie>::FetchEntry, 0x0055D990; null past the end).
 CMovie* MovieAt(MemSys::ListNode* head, int index)
 {
     return reinterpret_cast<CMovie*>(reinterpret_cast<GoalSystem::GoalListHead*>(head)->NodeAt(index));
 }
-void SetGameCamera(Gfx2D::Camera* camera) { Engine3D::ChooseCamera(0, camera); }
+void SetGameCamera(Gfx2D::ViewCam* camera) { Engine3D::ChooseCamera(0, camera); }
 
-void Unlink(MemSys::ListNode* node)
+void Uncouple(MemSys::ListNode* node)
 {
     node->prev->next = node->next;
     node->next->prev = node->prev;
@@ -72,7 +72,7 @@ void Unlink(MemSys::ListNode* node)
 Scripts::CStruct* NewStructure()
 {
     Scripts::CStruct* memory = Scripts::NewStruct();
-    return memory ? memory->Init() : nullptr;
+    return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
 {
@@ -102,31 +102,31 @@ void ListHead::DeleteAllNodes()
 void MovieListNode::DestroyBody() { m_listLink.UnlinkAs(kMovieNodeVtable); }
 
 // 0x0057A2C0
-MovieListNode* MovieListNode::Destroy(unsigned int flags)
+MovieListNode* MovieListNode::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0057A190
-CObject* ObjectAssignment::Assign(const CObject* other)
+CEntity* ObjectAssignment::Assign(const CEntity* other)
 {
     auto* to = reinterpret_cast<uint32_t*>(this);
     const auto* from = reinterpret_cast<const uint32_t*>(other);
     for (int word : {1, 2, 3, 4, 5, 6, 7, 8, 9, 0xB, 0xC, 0xD, 0xE, 0xF, 0x11, 0x12})
         to[word] = from[word];
-    return reinterpret_cast<CObject*>(this);
+    return reinterpret_cast<CEntity*>(this);
 }
 
 // 0x0057A220
-Gfx2D::Camera* CameraAssignment::Assign(const Gfx2D::Camera* other)
+Gfx2D::ViewCam* CameraAssignment::Assign(const Gfx2D::ViewCam* other)
 {
-    auto* camera = reinterpret_cast<Gfx2D::Camera*>(this);
+    auto* camera = reinterpret_cast<Gfx2D::ViewCam*>(this);
     reinterpret_cast<ObjectAssignment*>(this)->Assign(other);
     camera->m_oldPos = other->m_oldPos;
-    camera->m_pos = other->m_pos;
+    camera->m_atPoint = other->m_atPoint;
     camera->m_basisFrame = other->m_basisFrame;
     camera->m_hFov = other->m_hFov;
     camera->m_adjustedHFov = other->m_adjustedHFov;
@@ -138,7 +138,7 @@ Gfx2D::Camera* CameraAssignment::Assign(const Gfx2D::Camera* other)
 }
 
 // 0x0057A330
-int CVideoHub::Count()
+int CVideoHub::TotalOf()
 {
     int count = 0;
     for (MemSys::ListNode* node = m_movies.next; !IsHead(node) && node; node = node->next)
@@ -147,12 +147,12 @@ int CVideoHub::Count()
 }
 
 // 0x0057B0B0
-bool CVideoHub::AnyMovies() { return Count() != 0; }
+bool CVideoHub::AnyMovies() { return TotalOf() != 0; }
 
 // 0x0057A360
 CMovie* CVideoHub::GetMovie(int index)
 {
-    if (!Count())
+    if (!TotalOf())
         return nullptr;
     return MovieAt(&m_movies, index);
 }
@@ -160,10 +160,10 @@ CMovie* CVideoHub::GetMovie(int index)
 // 0x0057A3A0
 CMovie* CVideoHub::FindMovie(uint32_t name)
 {
-    for (int i = 0; i < Count(); ++i) {
+    for (int i = 0; i < TotalOf(); ++i) {
         // (the movie at i, walked to inline)
         CMovie* movie = nullptr;
-        if (Count()) {
+        if (TotalOf()) {
             int left = i;
             for (MemSys::ListNode* node = m_movies.next; !IsHead(node) && node; node = node->next) {
                 if (left-- == 0) {
@@ -193,24 +193,24 @@ void CVideoHub::KeepCamera(CMovie* movie)
 }
 
 // 0x0057A4B0
-CVideoHub* CVideoHub::Construct()
+CVideoHub* CVideoHub::MakeNew()
 {
-    CObject::Construct();
+    CEntity::MakeNew();
     m_vtable = kVtable;
     m_movies.data = reinterpret_cast<void*>(-1);
     m_movies.priority = 0;
     m_movies.next = &m_movies;
     m_movies.prev = &m_movies;
     m_movies.vtable = kQueueVtable;
-    m_viewer.Construct();
+    m_viewer.MakeNew();
     m_keepCamera = false;
     return this;
 }
 
 // 0x0057A530
-Gfx2D::Camera* CVideoHub::ObtainActiveLens()
+Gfx2D::ViewCam* CVideoHub::ObtainActiveLens()
 {
-    if (Count()) {
+    if (TotalOf()) {
         CMovie* playing = MovieAt(&m_movies, 0);
         if (playing && HasCamera(playing))
             return playing->m_viewer;
@@ -221,10 +221,10 @@ Gfx2D::Camera* CVideoHub::ObtainActiveLens()
 // 0x0057A5A0
 void CVideoHub::StopAll()
 {
-    for (int i = 0; i < Count(); ++i) {
+    for (int i = 0; i < TotalOf(); ++i) {
         // (the movie at i, walked to inline; none: a null one - unreachable)
         CMovie* movie = nullptr;
-        if (Count()) {
+        if (TotalOf()) {
             int left = i;
             for (MemSys::ListNode* node = m_movies.next; !IsHead(node) && node; node = node->next) {
                 if (left-- == 0) {
@@ -233,7 +233,7 @@ void CVideoHub::StopAll()
                 }
             }
         }
-        Stop(movie);
+        Halt(movie);
     }
 }
 
@@ -241,7 +241,7 @@ void CVideoHub::StopAll()
 void CVideoHub::ClearMovies()
 {
     if (m_movies.prev != &m_movies)
-        KeepCamera(Count() ? MovieAt(&m_movies, 0) : nullptr);
+        KeepCamera(TotalOf() ? MovieAt(&m_movies, 0) : nullptr);
     reinterpret_cast<ListHead*>(&m_movies)->DeleteAllNodes();
 }
 
@@ -251,10 +251,10 @@ void CVideoHub::EndMovie(CMovie* movie)
     uint32_t endScript = movie->m_endScript;
     Scripts::CStruct* params = NewStructure();
     params->AppendStructureIfAny(movie->m_endParams);
-    if (Count() == 1)
+    if (TotalOf() == 1)
         KeepCamera(movie);
-    Stop(movie);
-    Unlink(&movie->m_listLink);
+    Halt(movie);
+    Uncouple(&movie->m_listLink);
     DeleteMovie(movie);
     uint64_t frame = FrameClock::GetDrawFrame();
     DebugOut::Printf("Details have been removed %ld\n", static_cast<uint32_t>(frame), static_cast<uint32_t>(frame >> 32));
@@ -270,7 +270,7 @@ void CVideoHub::EndMovie(CMovie* movie)
 bool CVideoHub::EndMovies(bool skippable)
 {
     auto first = [this]() -> CMovie* {
-        return Count() ? MovieAt(&m_movies, 0) : nullptr;
+        return TotalOf() ? MovieAt(&m_movies, 0) : nullptr;
     };
     bool ended = false;
     if (!skippable) {
@@ -284,7 +284,7 @@ bool CVideoHub::EndMovies(bool skippable)
             EndMovie(movie);
             // (the first one now, walked to inline)
             movie = nullptr;
-            if (Count() && !IsHead(m_movies.next) && m_movies.next)
+            if (TotalOf() && !IsHead(m_movies.next) && m_movies.next)
                 movie = reinterpret_cast<CMovie*>(m_movies.next);
             ended = true;
         }
@@ -302,7 +302,7 @@ bool CVideoHub::EndMovies(bool skippable)
 // 0x0057A940
 bool CVideoHub::MovieCall468F40(uint32_t name, uint32_t value)
 {
-    if (!Count())
+    if (!TotalOf())
         return false;
     if (!name) {
         Details(GetMovie(0))->SetFlag19(static_cast<uint8_t>(value)); // (the setter takes the low byte)
@@ -316,7 +316,7 @@ bool CVideoHub::MovieCall468F40(uint32_t name, uint32_t value)
 // 0x0057A9B0
 bool CVideoHub::MovieCall468F50(uint32_t name, uint32_t value)
 {
-    if (!Count())
+    if (!TotalOf())
         return false;
     if (!name) {
         Details(GetMovie(0))->SetFlag1B(static_cast<uint8_t>(value)); // (the setter takes the low byte)
@@ -330,7 +330,7 @@ bool CVideoHub::MovieCall468F50(uint32_t name, uint32_t value)
 // 0x0057AA20
 bool CVideoHub::IsMovieGone(uint32_t name)
 {
-    if (!Count())
+    if (!TotalOf())
         return true;
     if (!name)
         return false;
@@ -340,7 +340,7 @@ bool CVideoHub::IsMovieGone(uint32_t name)
 // 0x0057AA70
 bool CVideoHub::MovieFlag18(uint32_t name)
 {
-    if (!Count())
+    if (!TotalOf())
         return false;
     CMovie* movie;
     if (name) {
@@ -359,12 +359,12 @@ bool CVideoHub::KillMovie(uint32_t name)
     CMovie* movie = FindMovie(name);
     if (!movie)
         return false;
-    CMovie* playing = Count() ? MovieAt(&m_movies, 0) : nullptr;
+    CMovie* playing = TotalOf() ? MovieAt(&m_movies, 0) : nullptr;
     if (movie == playing) {
         EndMovies(false);
         return true;
     }
-    Unlink(&movie->m_listLink);
+    Uncouple(&movie->m_listLink);
     DeleteMovie(movie);
     return true;
 }
@@ -382,13 +382,13 @@ bool CVideoHub::AddMovie(uint32_t name, Scripts::CStruct* params, uint32_t type)
         bool skater;
     };
     auto skaterContext = [](bool skater) {
-        uint8_t* info = reinterpret_cast<uint8_t*>(GameModules::g_skateModule->GetProfile(0));
+        uint8_t* info = reinterpret_cast<uint8_t*>(GameModules::g_skateModule->FetchAccount(0));
         return CameraContext{info, info + 0x5C, skater};
     };
     auto newObjectCamera = [](CameraContext* context) -> CMovie* {
         void* memory = MemSys::AllocZeroed(100);
-        // (CCinematicEntry::Construct reads the context as its three settings' words)
-        return memory ? reinterpret_cast<CMovie*>(static_cast<CCinematicEntry*>(memory)->Construct(
+        // (CCinematicEntry::MakeNew reads the context as its three settings' words)
+        return memory ? reinterpret_cast<CMovie*>(static_cast<CCinematicEntry*>(memory)->MakeNew(
                             reinterpret_cast<const uint32_t*>(context)))
                       : nullptr;
     };
@@ -401,18 +401,18 @@ bool CVideoHub::AddMovie(uint32_t name, Scripts::CStruct* params, uint32_t type)
         int kind = reinterpret_cast<int(__thiscall*)(void*)>((*static_cast<void***>(asset))[0])(asset);
         if (kind == 5) {
             void* memory = MemSys::AllocZeroed(100);
-            movie = memory ? reinterpret_cast<CMovie*>(static_cast<CObjectAnimMovie*>(memory)->Construct()) : nullptr;
+            movie = memory ? reinterpret_cast<CMovie*>(static_cast<CObjectAnimMovie*>(memory)->MakeNew()) : nullptr;
         } else if (kind == 9) {
             CameraContext context = skaterContext(false);
             movie = newObjectCamera(&context);
         }
     } else if (type == kCutscene) {
         void* memory = MemSys::AllocZeroed(0x94);
-        movie = memory ? reinterpret_cast<CMovie*>(static_cast<CCameraAnimMovie*>(memory)->Construct()) : nullptr;
+        movie = memory ? reinterpret_cast<CMovie*>(static_cast<CCameraAnimMovie*>(memory)->MakeNew()) : nullptr;
     } else if (type == kSkaterCamera) {
-        if (Count()) {
-            for (int i = 0; i < Count(); ++i) {
-                CMovie* each = Count() ? MovieAt(&m_movies, i)
+        if (TotalOf()) {
+            for (int i = 0; i < TotalOf(); ++i) {
+                CMovie* each = TotalOf() ? MovieAt(&m_movies, i)
                                        : nullptr;
                 NameOf(each); // (its name read: compiled-out debug output)
             }
@@ -432,13 +432,13 @@ bool CVideoHub::AddMovie(uint32_t name, Scripts::CStruct* params, uint32_t type)
     movie->m_listLink.next = &m_movies;
     m_movies.prev->next = &movie->m_listLink;
     m_movies.prev = &movie->m_listLink;
-    if (Count() == 1 && HasCamera(movie))
+    if (TotalOf() == 1 && HasCamera(movie))
         SetGameCamera(ObtainActiveLens());
     return true;
 }
 
 // 0x0057AE60
-bool CVideoHub::Update()
+bool CVideoHub::TickFrame()
 {
     if (m_keepCamera && FrameClock::GetDrawFrame() >= m_keepUntil) {
         m_keepCamera = false;
@@ -446,7 +446,7 @@ bool CVideoHub::Update()
         for (MemSys::ListNode* node = m_movies.next; !IsHead(node) && node; node = node->next) {
         }
     }
-    if (!Count())
+    if (!TotalOf())
         return false;
     CMovie* movie = MovieAt(&m_movies, 0);
     if (!movie)
@@ -457,13 +457,13 @@ bool CVideoHub::Update()
         Virtual<void>(movie, 0x08);
     if (Virtual<bool>(movie, 0x14))
         EndMovies(false);
-    return Count() != 0;
+    return TotalOf() != 0;
 }
 
 // 0x0057AF60
 uint32_t CVideoHub::MovieValue(uint32_t name)
 {
-    if (!Count())
+    if (!TotalOf())
         return 0;
     CMovie* movie = name ? FindMovie(name) : GetMovie(0);
     if (!movie)
@@ -474,16 +474,16 @@ uint32_t CVideoHub::MovieValue(uint32_t name)
 // 0x0057AFC0
 bool CVideoHub::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
 {
-    CMovie* movie = Count() ? MovieAt(&m_movies, 0) : nullptr;
+    CMovie* movie = TotalOf() ? MovieAt(&m_movies, 0) : nullptr;
     if (Virtual<bool, uint32_t, Scripts::CStruct*, Scripts::CScript*>(movie, 0x10, name, params, script))
         return true;
-    return CObject::InvokeMethodByName(name, params, script);
+    return CEntity::InvokeMethodByName(name, params, script);
 }
 
 // 0x0057B030
 uint32_t CVideoHub::GetPlayingName()
 {
-    if (!Count())
+    if (!TotalOf())
         return 0;
     CMovie* movie = MovieAt(&m_movies, 0);
     return movie ? NameOf(movie) : 0;
@@ -492,7 +492,7 @@ uint32_t CVideoHub::GetPlayingName()
 // 0x0057B070
 bool CVideoHub::PlayingFlag24()
 {
-    if (!Count())
+    if (!TotalOf())
         return true;
     CMovie* movie = MovieAt(&m_movies, 0);
     return movie ? Virtual<bool>(movie, 0x24) : true;
@@ -513,15 +513,15 @@ void CVideoHub::DestroyBody()
     ClearMovies();
     m_viewer.DestroyBody();
     m_movies.UnlinkAs(kMovieNodeVtable);
-    CObject::DestroyBody();
+    CEntity::DestroyBody();
 }
 
 // 0x0057B220
-CVideoHub* CVideoHub::Destroy(unsigned int flags)
+CVideoHub* CVideoHub::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -535,17 +535,17 @@ namespace {
 
 static VtableSlot kMovieNodeVtable_slots[] = {&GameObjects::CVideoEntry::DestroyNode};
 void** const kMovieNodeVtable = reinterpret_cast<void**>(kMovieNodeVtable_slots);
-static VtableSlot kQueueVtable_slots[] = {&GameObjects::MovieListNode::Destroy};
+static VtableSlot kQueueVtable_slots[] = {&GameObjects::MovieListNode::Teardown};
 void** const kQueueVtable = reinterpret_cast<void**>(kQueueVtable_slots);
-static VtableSlot kVtable_slots[] = {&GameObjects::CVideoHub::Destroy,
-         &GameObjects::CObject::SetProperties,
-         static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+static VtableSlot kVtable_slots[] = {&GameObjects::CVideoHub::Teardown,
+         &GameObjects::CEntity::ChangeTraits,
+         static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
          &GameObjects::CVideoHub::InvokeMethodByName,
          Stubs::IgnoreArgument,
-         &GameObjects::CObject::PassEventToScript,
-         &GameObjects::CObject::FlagAsDead,
+         &GameObjects::CEntity::PassEventToScript,
+         &GameObjects::CEntity::FlagAsDead,
          Stubs::ReturnTrue,
-         &GameObjects::CVideoHub::Update};
+         &GameObjects::CVideoHub::TickFrame};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

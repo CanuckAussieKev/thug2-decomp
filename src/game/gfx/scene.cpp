@@ -47,7 +47,7 @@ bool __cdecl CFunc_LoadScene(Scripts::CStruct* params, Scripts::CScript* /*scrip
     bool isNet = params->HasBareFlag(kIsNet);
     bool addSuperSectors = !params->HasBareFlag(kNoSuperSectors);
     const char* name = nullptr;
-    params->GetString(kScene, &name, 1);
+    params->FetchText(kScene, &name, 1);
     DebugOut::Printf("Loading Scene %s ...", name);
 
     // (the original sprintf's into the 128 bytes unchecked; the empty string is a platform suffix)
@@ -57,7 +57,7 @@ bool __cdecl CFunc_LoadScene(Scripts::CStruct* params, Scripts::CScript* /*scrip
 
     // A structure describing the load is built here and never used (left from an older interface).
     alignas(4) uint8_t memory[8];
-    Scripts::CStruct* description = reinterpret_cast<Scripts::CStruct*>(memory)->Init();
+    Scripts::CStruct* description = reinterpret_cast<Scripts::CStruct*>(memory)->PrepareAll();
     description->PutNameKey(kTexDict, Checksums::HashFromText(texturePath));
     if (TextUtil::FindCaseless(name, "_sky") || isSky) {
         isSky = true;

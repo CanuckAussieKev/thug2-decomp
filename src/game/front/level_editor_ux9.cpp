@@ -34,8 +34,8 @@ int g_gapAction = -1, g_skateAction = -1, g_groundAction = -1;
 
 // --- the Ground tool ---
 
-enum class Stage { Off, First, Second, Form };
-Stage g_stage = Stage::Off;
+enum class Stage { Disengaged, First, Second, Form };
+Stage g_stage = Stage::Disengaged;
 bool g_editing;          // (the form edits a piece that is there - g_draft.name)
 Ground::Spec g_draft;
 float g_grid = 50.0f;
@@ -52,8 +52,8 @@ bool Cast(V3 from, V3 to, V3* hit, uint32_t* sector)
 {
     alignas(16) uint8_t feeler[0x100] = {};
     auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
-    ray->Construct();
-    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    ray->MakeNew();
+    Maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* p = reinterpret_cast<const float*>(feeler + 0x34);
@@ -95,7 +95,7 @@ void Apply()
     Ground::Spec spec = g_draft;
     if (!g_editing && spec.name.empty())
         spec.name = Ground::FreshName(Ground::All());
-    if (!Ground::Put(spec, &why)) {
+    if (!Ground::PlaceIn(spec, &why)) {
         g_formMessage = "Not made: " + why;
         ShowMessage(g_formMessage, 8.0);
         return;
@@ -125,7 +125,7 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
     if (!ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         if (!open)
-            g_queue.push_back([] { ChangeStage(Stage::Off); });
+            g_queue.push_back([] { ChangeStage(Stage::Disengaged); });
         return;
     }
     Ground::Spec& d = g_draft;
@@ -157,7 +157,7 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("0: automatic");
     ImGui::DragFloat("Grid", &g_grid, 1.0f, 0.0f, 500.0f, g_grid > 0.0f ? "%.0f" : "off");
-    ImGui::TextDisabled("Material: %s", d.material ? Objects::Label(d.material).c_str() : "(automatic)");
+    ImGui::TextDisabled("Material: %s", d.material ? Objects::Caption(d.material).c_str() : "(automatic)");
     if (ImGui::Button("Use Selected Material"))
         g_queue.push_back([] {
             const std::vector<uint32_t>& selection = Scenery::Selection();
@@ -182,9 +182,9 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
         ImGui::SameLine();
         if (ImGui::Button("Remove"))
             g_queue.push_back([] {
-                Ground::Remove(g_draft.name);
+                Ground::DropOut(g_draft.name);
                 ShowMessage("Removed ground piece " + g_draft.name);
-                ChangeStage(Stage::Off);
+                ChangeStage(Stage::Disengaged);
             });
     }
     ImGui::SameLine();
@@ -192,7 +192,7 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
         g_queue.push_back([] { ChangeStage(Stage::First); });
     ImGui::SameLine();
     if (ImGui::Button("Close"))
-        g_queue.push_back([] { ChangeStage(Stage::Off); });
+        g_queue.push_back([] { ChangeStage(Stage::Disengaged); });
     // (the pieces of this level)
     if (!Ground::All().empty() && ImGui::CollapsingHeader("Pieces in this level")) {
         for (const Ground::Spec& s : Ground::All()) {
@@ -213,7 +213,7 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
     }
     ImGui::End();
     if (!open)
-        g_queue.push_back([] { ChangeStage(Stage::Off); });
+        g_queue.push_back([] { ChangeStage(Stage::Disengaged); });
 }
 
 void GroundHover(V3 origin, V3 unitDir)
@@ -263,7 +263,7 @@ bool GroundClick(V3 origin, V3 unitDir)
     std::string why;
     if (!Ground::ChooseMaterial(g_floor, &spec, &why)) {
         ShowMessage("Ground Tool: " + why, 8.0);
-        ChangeStage(Stage::Off);
+        ChangeStage(Stage::Disengaged);
         return true;
     }
     OpenForm(spec, false);
@@ -272,21 +272,21 @@ bool GroundClick(V3 origin, V3 unitDir)
 
 } // namespace
 
-void Init()
+void PrepareAll()
 {
     static bool done;
     if (done)
         return;
     done = true;
     auto make = [](const char* id, const char* name, const char* category, int scancode, const char* tip) {
-        Actions::Action a;
+        Actions::ActStep a;
         a.id = id;
         a.name = name;
         a.category = category;
         a.tip = tip;
         a.kind = Actions::Kind::Press;
         a.defaults = a.keys = {Actions::Chord{scancode, Actions::kAlt}};
-        return Actions::Register(a);
+        return Actions::Enrol(a);
     };
     g_gapAction = make("gap_wizard", "Gap Wizard", "Triggers", SDL_SCANCODE_J, "Create a gap from a start and end point");
     g_skateAction = make("skateability", "Skateability", "View", SDL_SCANCODE_K, "Colour surfaces by skateability");
@@ -300,52 +300,52 @@ void Init()
     Layout::AddExtension(e);
 }
 
-void Start()
+void Kickoff()
 {
-    Ground::Start();
+    Ground::Kickoff();
     GapWizard::SetArmed(false);
-    g_stage = Stage::Off;
+    g_stage = Stage::Disengaged;
 }
 
-void Stop()
+void Halt()
 {
     GapWizard::SetArmed(false);
-    g_stage = Stage::Off;
-    SkateView::Stop();
-    Ground::Stop();
+    g_stage = Stage::Disengaged;
+    SkateView::Halt();
+    Ground::Halt();
     g_queue.clear();
 }
 
-void Update()
+void TickFrame()
 {
-    if (g_gapAction >= 0 && Actions::Pressed(g_gapAction)) {
+    if (g_gapAction >= 0 && Actions::Squeezed(g_gapAction)) {
         bool on = !GapWizard::Armed();
-        g_stage = Stage::Off;
+        g_stage = Stage::Disengaged;
         GapWizard::SetArmed(on);
         if (!on)
             ShowMessage("Gap Wizard off");
     }
-    if (g_skateAction >= 0 && Actions::Pressed(g_skateAction)) {
+    if (g_skateAction >= 0 && Actions::Squeezed(g_skateAction)) {
         SkateView::SetShown(!SkateView::Shown());
         ShowMessage(SkateView::Shown() ? "Skateability on" : "Skateability off");
     }
-    if (g_groundAction >= 0 && Actions::Pressed(g_groundAction)) {
+    if (g_groundAction >= 0 && Actions::Squeezed(g_groundAction)) {
         GapWizard::SetArmed(false);
-        if (g_stage == Stage::Off)
+        if (g_stage == Stage::Disengaged)
             ChangeStage(Stage::First);
         else {
-            ChangeStage(Stage::Off);
+            ChangeStage(Stage::Disengaged);
             ShowMessage("Ground Tool off");
         }
     }
-    GapWizard::Update();
+    GapWizard::TickFrame();
     std::vector<std::function<void()>> queue;
     queue.swap(g_queue);
     for (auto& action : queue)
         action();
 }
 
-bool Busy() { return GapWizard::Armed() || g_stage != Stage::Off; }
+bool Occupied() { return GapWizard::Armed() || g_stage != Stage::Disengaged; }
 
 int PickingTool()
 {
@@ -358,9 +358,9 @@ bool Cancel()
 {
     if (GapWizard::Cancel())
         return true;
-    if (g_stage == Stage::Off)
+    if (g_stage == Stage::Disengaged)
         return false;
-    ChangeStage(Stage::Off);
+    ChangeStage(Stage::Disengaged);
     ShowMessage("Ground Tool off");
     return true;
 }
@@ -390,12 +390,12 @@ void AddOverlay(const Overlays::Painter& painter)
         float y = g_first.y + 2.0f;
         V3 c[4] = {{g_first.x, y, g_first.z}, {b.x, y, g_first.z}, {b.x, y, b.z}, {g_first.x, y, b.z}};
         for (int i = 0; i < 4; ++i)
-            painter.Line(c[i], c[(i + 1) % 4], kRect, 2.0f);
+            painter.Seg(c[i], c[(i + 1) % 4], kRect, 2.0f);
         char text[64];
         std::snprintf(text, sizeof(text), "%.0f x %.0f", std::fabs(b.x - g_first.x), std::fabs(b.z - g_first.z));
         painter.Text(b, kRect, text);
     } else if (g_stage == Stage::First && g_haveHover) {
-        painter.Cross(g_hover, 25.0f, kRect, 2.0f);
+        painter.Perpendicular(g_hover, 25.0f, kRect, 2.0f);
     }
     if (g_stage == Stage::Form)
         Ground::AddPreview(painter, g_draft, kPreview);
@@ -403,7 +403,7 @@ void AddOverlay(const Overlays::Painter& painter)
 
 void Windows(float viewX, float viewY, float viewWidth, float viewHeight, float scale)
 {
-    GapWizard::Window(viewX, viewY, viewWidth, viewHeight, scale);
+    GapWizard::Pane(viewX, viewY, viewWidth, viewHeight, scale);
     GroundForm(viewX, viewY, viewWidth, scale);
     SkateView::Legend(viewX, viewY, viewWidth, viewHeight, scale);
 }

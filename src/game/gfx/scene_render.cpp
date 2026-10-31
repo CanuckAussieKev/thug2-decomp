@@ -24,7 +24,7 @@ uint8_t* g_drawnMeshes[4096];
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 uint8_t& ZWrite() { return g_zWrite; }
 float SphereDepth() { return g_lastSphereDistance; }
 constexpr float kNear = 600.0f; // 0x0064AA98
@@ -42,7 +42,7 @@ SortedMesh* Sorted() { return g_sortedMeshes; }
 // A mesh's fields and calls (not rewritten yet; thiscall).
 uint32_t MeshFlags(const uint8_t* mesh) { return *reinterpret_cast<const uint32_t*>(mesh); }
 uint8_t* MeshMaterial(const uint8_t* mesh) { return *reinterpret_cast<uint8_t* const*>(mesh + 0x14); }
-void SetMaterial(uint8_t* material) { reinterpret_cast<materialRef*>(material)->Submit(); }
+void SetMaterial(uint8_t* material) { reinterpret_cast<materialRef*>(material)->HandIn(); }
 void DrawMesh(uint8_t* mesh) { reinterpret_cast<meshRef*>(mesh)->Render(); }
 // The render statistics (0x00775B80; thiscall).
 void CountPass(int which) { g_billboardManager.Render(which); }
@@ -54,7 +54,7 @@ void Qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(cons
         base, count, size, compare);
 }
 
-struct Pass {
+struct Lap {
     sceneRef* scene;
     uint32_t flags;
     uint8_t viewportBit;
@@ -73,7 +73,7 @@ struct Pass {
             return true;
         if (!(mesh[0x1B] & viewportBit))
             return false;
-        auto* centre = reinterpret_cast<const Maths::Vector*>(mesh + 4);
+        auto* centre = reinterpret_cast<const Maths::Vec4*>(mesh + 4);
         float radius = *reinterpret_cast<const float*>(mesh + 0x10);
         if (!SphereInView(centre, radius))
             return false;
@@ -81,7 +81,7 @@ struct Pass {
             return false;
         return true;
     }
-    void Draw(uint8_t* mesh)
+    void Blit(uint8_t* mesh)
     {
         uint8_t* meshMaterial = MeshMaterial(mesh);
         if (meshMaterial != material) {
@@ -115,7 +115,7 @@ int __cdecl CompareDistances(const void* a, const void* b)
 // 0x004DC700
 void __cdecl DrawScene(sceneRef* scene, uint32_t flags, int viewport)
 {
-    Pass pass{scene, flags, 0, (flags & kRenderNoCulling) != 0};
+    Lap pass{scene, flags, 0, (flags & kRenderNoCulling) != 0};
     if (scene->unknown40)
         return;
     // Not original - the level editor's Collision only view (game/gfx/view_mode.h): no scene drawn in the 3D passes.
@@ -136,12 +136,12 @@ void __cdecl DrawScene(sceneRef* scene, uint32_t flags, int viewport)
             if (!pass.Visible(mesh))
                 continue;
             if (!(flags & kRenderNearFirst)) {
-                pass.Draw(mesh);
+                pass.Blit(mesh);
             } else {
                 // The near ones now; their depth kept for the far ones after. (Not a number: never drawn.)
                 float depth = SphereDepth();
                 if (depth < kNear || depth == kNear)
-                    pass.Draw(mesh);
+                    pass.Blit(mesh);
                 *reinterpret_cast<float*>(mesh + 0x7C) = SphereDepth();
             }
             pass.Remember(mesh);
@@ -151,7 +151,7 @@ void __cdecl DrawScene(sceneRef* scene, uint32_t flags, int viewport)
             for (int j = 0; j < count; ++j) {
                 uint8_t* mesh = Drawn()[j];
                 if (*reinterpret_cast<float*>(mesh + 0x7C) > kNear)
-                    pass.Draw(mesh);
+                    pass.Blit(mesh);
             }
         }
         if (scene->flags & 0x100) { // shadows on the meshes drawn
@@ -160,12 +160,12 @@ void __cdecl DrawScene(sceneRef* scene, uint32_t flags, int viewport)
                 ZWrite() = 0;
             }
             DWORD minFilter;
-            Device()->GetSamplerState(0, D3DSAMP_MINFILTER, &minFilter);
+            InputPort()->GetSamplerState(0, D3DSAMP_MINFILTER, &minFilter);
             if (minFilter == D3DTEXF_ANISOTROPIC)
-                Device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+                InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
             DrawShadows(scene, reinterpret_cast<void* const*>(Drawn()), pass.drawn);
             if (minFilter == D3DTEXF_ANISOTROPIC)
-                Device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+                InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             if (!ZWrite()) {
                 Engine3D::SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
                 ZWrite() = 1;
@@ -184,7 +184,7 @@ void __cdecl DrawScene(sceneRef* scene, uint32_t flags, int viewport)
         uint8_t* mesh = scene->meshes[i];
         if (!pass.Visible(mesh))
             continue;
-        pass.Draw(mesh);
+        pass.Blit(mesh);
         pass.Remember(mesh);
     }
     if (scene->flaggedCount > 0) {
@@ -203,14 +203,14 @@ void __cdecl DrawScene(sceneRef* scene, uint32_t flags, int viewport)
         if (sorted > 0) {
             Qsort(Sorted(), sorted, sizeof(SortedMesh), &CompareDistances);
             for (int s = 0; s < sorted; ++s)
-                pass.Draw(Sorted()[s].mesh);
+                pass.Blit(Sorted()[s].mesh);
         }
         // Then the rest.
         for (; i < scene->meshCount; ++i) {
             uint8_t* mesh = scene->meshes[i];
             if (!pass.Visible(mesh))
                 continue;
-            pass.Draw(mesh);
+            pass.Blit(mesh);
             pass.Remember(mesh);
         }
     }

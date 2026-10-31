@@ -41,7 +41,7 @@ int g_nonlocalLag;
 namespace {
 
 template <typename T>
-T& Field(void* object, uint32_t offset)
+T& Prop(void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
@@ -62,7 +62,7 @@ constexpr float kWallCheckReach = 120.0f;   // 0x0064BD2C: extrapolated further 
 constexpr uint32_t kFirstForwardCollisionHeight = 0xD4205C9B; // Skater_First_Forward_Collision_Height
 constexpr uint32_t kRailGravity = 0xD1F46992;         // (a physics float: the rail's pull downhill; name unknown)
 constexpr uint32_t kRailCornerLeaveAngle = 0x76C1DA15; // (the angle a rail may turn and still be followed)
-constexpr uint32_t kRailActive = 0x4;                 // CGrindPoint::m_flags
+constexpr uint32_t kRailActive = 0x4;                 // CGrindPoint::m_flagBits
 constexpr float kRailEndSlack = 0.1f;                 // 0x00645D74: past a segment's end by more than this
 constexpr float kDegreesToRadians = 0.01745329238474369f; // 0x00645464
 
@@ -72,16 +72,16 @@ constexpr float kDegreesToRadians = 0.01745329238474369f; // 0x00645464
 constexpr uint32_t kFrameSize = 0x84;
 uint8_t* HistoryFrame(uint8_t* history, int index) { return history + 0x1C + index * kFrameSize; }
 uint32_t FrameTime(uint8_t* frame) { return reinterpret_cast<SkaterStateHistoryFrame*>(frame)->GetTime(); }
-Maths::Matrix& FrameMatrix(uint8_t* frame) { return Field<Maths::Matrix>(frame, 0x08); }
-Maths::Vector& FramePosition(uint8_t* frame) { return Field<Maths::Vector>(frame, 0x48); }
+Maths::Mat4& FrameMatrix(uint8_t* frame) { return Prop<Maths::Mat4>(frame, 0x08); }
+Maths::Vec4& FramePosition(uint8_t* frame) { return Prop<Maths::Vec4>(frame, 0x48); }
 
-OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
 // The network manager's client app: +8 its frame count.
-uint8_t* ClientApp() { return reinterpret_cast<uint8_t*>(NetManager()->GetClient(0)); }
+uint8_t* ClientApp() { return reinterpret_cast<uint8_t*>(NetManager()->FetchPatron(0)); }
 int FrameRate() { return GameConfig::g_frameRate; }
 int Now() { return FrameClock::GameClockElapsed() + g_clockOffset; }
 // The level's rails (the skate module's +0x24).
-CGrindRailHub* LevelRails() { return Field<CGrindRailHub*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule), 0x24); }
+CGrindRailHub* LevelRails() { return Prop<CGrindRailHub*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule), 0x24); }
 
 // How far behind the connection is, in frames of `frameMs`: the latency - the server's connection to the skater's
 // player, a client's first (to the server) - less a frame, over a frame, as unsigned numbers (0 without a frame).
@@ -89,18 +89,18 @@ CGrindRailHub* LevelRails() { return Field<CGrindRailHub*>(reinterpret_cast<uint
 // left out: it never is.)
 float ConnectionLag(uint8_t* app, CGameEntity* skater, int frameMs)
 {
-    OnlinePlay::Manager* net = NetManager();
+    OnlinePlay::Hub* net = NetManager();
     NetLink::Conn* conn;
     if (net->OnServer()) {
-        uint8_t* player = net->PlayerByObjectId(static_cast<uint16_t>(skater->m_id));
-        conn = Field<NetLink::Conn*>(player, 0x18);
+        uint8_t* player = net->PlayerByObjectId(static_cast<uint16_t>(skater->m_ident));
+        conn = Prop<NetLink::Conn*>(player, 0x18);
     } else {
         NetLink::ConnSearch search;
         search.m_vtable = NetLink::kConnSearchVtable;
         search.m_listLink = nullptr;
-        conn = reinterpret_cast<NetLink::App*>(app)->BeginConnWalk(&search);
+        conn = reinterpret_cast<NetLink::AppHost*>(app)->BeginConnWalk(&search);
     }
-    int latency = conn->IsLocal() ? 0 : conn->m_latencyTest.m_averageLatency;
+    int latency = conn->IsHostLocal() ? 0 : conn->m_latencyTest.m_averageLatency;
     if (frameMs == 0)
         return 0.0f;
     return static_cast<float>(static_cast<double>(static_cast<uint32_t>(latency - frameMs)) /
@@ -113,38 +113,38 @@ float ConnectionLag(uint8_t* app, CGameEntity* skater, int frameMs)
 void CRiderRemoteSync::Interpolate()
 {
     uint8_t* app = ClientApp();
-    if (!app || Field<int>(m_pastFrames, 0x18) < kHistory)
+    if (!app || Prop<int>(m_pastFrames, 0x18) < kHistory)
         return;
-    auto* skater = static_cast<CRider*>(m_object);
+    auto* skater = static_cast<CRider*>(m_entity);
     if (m_syncFrame == 0) {
         // Playback starts at the newest state, a fixed time behind it.
-        int newest = (Field<int>(m_pastFrames, 0x18) - 1) % kHistory;
-        m_syncFrame = Field<uint32_t>(app, 8);
+        int newest = (Prop<int>(m_pastFrames, 0x18) - 1) % kHistory;
+        m_syncFrame = Prop<uint32_t>(app, 8);
         int delay = static_cast<int>(static_cast<double>(kMsPerSecond) / FrameRate());
         uint8_t* frame = HistoryFrame(m_pastFrames, newest);
         m_playIdx = newest;
         m_syncTime = static_cast<int>(FrameTime(frame) - delay);
         skater->m_basisFrame = FrameMatrix(frame);
-        Field<Maths::Matrix>(skater, 0xC0) = FrameMatrix(frame);
-        skater->m_pos = FramePosition(frame);
+        Prop<Maths::Mat4>(skater, 0xC0) = FrameMatrix(frame);
+        skater->m_atPoint = FramePosition(frame);
         skater->MarkJumpedAhead(true);
         skater->m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
         if (skater->GetFlag2C4())
             return;
         skater->ShowSkater();
         Scripts::LaunchScript(kSkaterAppeared, nullptr, skater, false, nullptr);
-        NetManager()->PlayerByObjectId(static_cast<uint16_t>(skater->m_id)); // (its result unused)
+        NetManager()->PlayerByObjectId(static_cast<uint16_t>(skater->m_ident)); // (its result unused)
         UpdateGroundLighting();
         return;
     }
 
     // (the original's slerp interpolator is made here: its constructor 0x005902E0 does nothing)
-    auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetManager()->PlayerByObjectId(static_cast<uint16_t>(skater->m_id)));
+    auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetManager()->PlayerByObjectId(static_cast<uint16_t>(skater->m_ident)));
     if (!player->HasFinishedJoining())
         player->SetFinishedJoining();
-    int count = Field<int>(m_pastFrames, 0x18);
+    int count = Prop<int>(m_pastFrames, 0x18);
     int oldest = count % kHistory; // (the next to be written)
-    uint32_t now = Field<uint32_t>(app, 8) - m_syncFrame + m_syncTime;
+    uint32_t now = Prop<uint32_t>(app, 8) - m_syncFrame + m_syncTime;
     uint8_t* last = HistoryFrame(m_pastFrames, (count - 1) % kHistory);
     if (now > FrameTime(last)) {
         // Past the newest state: the playback falls back (by a second's frames, or to the state when further).
@@ -154,7 +154,7 @@ void CRiderRemoteSync::Interpolate()
         else
             adjust = -1000 / FrameRate();
         m_syncTime += adjust;
-        now = Field<uint32_t>(app, 8) - m_syncFrame + m_syncTime;
+        now = Prop<uint32_t>(app, 8) - m_syncFrame + m_syncTime;
     }
     // The first state not yet reached, from the oldest (none: nothing played this frame).
     int entry = oldest;
@@ -175,35 +175,35 @@ void CRiderRemoteSync::Interpolate()
     float elapsed = static_cast<float>(static_cast<int>(now - FrameTime(from)));
     int span = static_cast<int>(FrameTime(to) - FrameTime(from));
     float t = static_cast<float>(static_cast<double>(elapsed) / span);
-    Maths::Vector move = FramePosition(to) - FramePosition(from);
+    Maths::Vec4 move = FramePosition(to) - FramePosition(from);
     m_lastPlayPos = m_playPos;
 
     // The orientation: slerped, unless the at rows are far apart (then the earlier state's).
-    Maths::Vector turn = Field<Maths::Vector>(to, 0x28) - Field<Maths::Vector>(from, 0x28);
+    Maths::Vec4 turn = Prop<Maths::Vec4>(to, 0x28) - Prop<Maths::Vec4>(from, 0x28);
     double turned = std::sqrt((static_cast<double>(turn.x) * turn.x + static_cast<double>(turn.z) * turn.z) +
                               static_cast<double>(turn.y) * turn.y);
     if (turned > kTurnSnap) {
         skater->m_basisFrame = FrameMatrix(from);
-        Field<Maths::Matrix>(skater, 0xC0) = FrameMatrix(from);
+        Prop<Maths::Mat4>(skater, 0xC0) = FrameMatrix(from);
     } else {
-        Maths::Matrix start = FrameMatrix(from), end = FrameMatrix(to), between;
+        Maths::Mat4 start = FrameMatrix(from), end = FrameMatrix(to), between;
         Maths::ArcRotationBlender slerp(start, end);
-        slerp.GetMatrix(between, t);
+        slerp.FetchMat(between, t);
         skater->m_basisFrame = between;
-        Field<Maths::Matrix>(skater, 0xC0) = between;
+        Prop<Maths::Mat4>(skater, 0xC0) = between;
     }
 
     // The position: interpolated, unless it moved too far (then put at the later state's, standing).
     double distance = std::sqrt((static_cast<double>(move.x) * move.x + static_cast<double>(move.y) * move.y) +
                                 static_cast<double>(move.z) * move.z);
     if (distance > kTeleportDistance) {
-        skater->m_pos = FramePosition(to);
+        skater->m_atPoint = FramePosition(to);
         skater->m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
         skater->MarkJumpedAhead(true);
     } else {
         move = FramePosition(from) + move * t; // (the move's storage now holds the position)
-        skater->m_pos = move;
-        skater->m_vel = (skater->m_pos - m_lastPlayPos) / m_frameSeconds;
+        skater->m_atPoint = move;
+        skater->m_vel = (skater->m_atPoint - m_lastPlayPos) / m_frameSeconds;
         m_moves[m_updates % kHistory] = skater->m_vel;
         // The velocity: the average of the moves kept - quirk kept: the sum starts from the position, not zero.
         double sum[4] = {move.x, move.y, move.z, move.w};
@@ -225,36 +225,36 @@ void CRiderRemoteSync::Interpolate()
     }
 
     // The state as the later state has it.
-    m_playPos = skater->m_pos;
-    auto* state = reinterpret_cast<CRiderPoseState*>(m_state);
-    state->SetState(Field<int>(to, 0x70));
-    Field<uint8_t>(m_state, 0xE0) = Field<uint8_t>(to, 0x74) != 0;
-    state->SetSurfaceKind(Field<uint8_t>(to, 0x7C));
-    state->SetPhysicsMode(Field<uint8_t>(to, 0x75) != 0);
-    Field<uint8_t>(m_state, 0x118) = Field<uint8_t>(to, 0x76) != 0;
-    reinterpret_cast<CRiderSessionEnd*>(m_runOver)->m_flags = Field<uint32_t>(to, 0x6C); // (0x00407A70)
+    m_playPos = skater->m_atPoint;
+    auto* state = reinterpret_cast<CRiderPoseState*>(m_curPhase);
+    state->ChangePhase(Prop<int>(to, 0x70));
+    Prop<uint8_t>(m_curPhase, 0xE0) = Prop<uint8_t>(to, 0x74) != 0;
+    state->SetSurfaceKind(Prop<uint8_t>(to, 0x7C));
+    state->SetPhysicsMode(Prop<uint8_t>(to, 0x75) != 0);
+    Prop<uint8_t>(m_curPhase, 0x118) = Prop<uint8_t>(to, 0x76) != 0;
+    reinterpret_cast<CRiderSessionEnd*>(m_runOver)->m_flagBits = Prop<uint32_t>(to, 0x6C); // (0x00407A70)
     // The timed flags (+0x20 to +0xD8, each a bool and the time it last changed) from the state's bits.
-    uint32_t bits = Field<uint32_t>(to, 0x68);
+    uint32_t bits = Prop<uint32_t>(to, 0x68);
     for (uint32_t i = 0, offset = 0x20; offset < 0xE0; ++i, offset += 8) {
         uint8_t value = (bits & (1u << i)) != 0;
-        if (Field<uint8_t>(m_state, offset) != value) {
-            Field<uint8_t>(m_state, offset) = value;
-            Field<int>(m_state, offset + 4) = Now();
+        if (Prop<uint8_t>(m_curPhase, offset) != value) {
+            Prop<uint8_t>(m_curPhase, offset) = value;
+            Prop<int>(m_curPhase, offset + 4) = Now();
         }
     }
-    if (Field<uint8_t>(m_state, 0x78))
-        Field<Maths::Vector>(m_state, 0xE4) = skater->m_vel;
+    if (Prop<uint8_t>(m_curPhase, 0x78))
+        Prop<Maths::Vec4>(m_curPhase, 0xE4) = skater->m_vel;
     else
-        Field<Maths::Vector>(m_state, 0xE4) = {0.0f, 0.0f, 0.0f, 1.0f};
+        Prop<Maths::Vec4>(m_curPhase, 0xE4) = {0.0f, 0.0f, 0.0f, 1.0f};
 }
 
 // 0x00515360
 void CRiderRemoteSync::Extrapolate()
 {
-    OnlinePlay::Manager* net = NetManager();
+    OnlinePlay::Hub* net = NetManager();
     uint8_t* app = ClientApp();
     int frameMs = static_cast<int>(static_cast<double>(m_frameSeconds) * kMsPerSecond);
-    float lag = ConnectionLag(app, m_object, frameMs);
+    float lag = ConnectionLag(app, m_entity, frameMs);
     int slot = m_updates % kHistory;
     float dw = m_playPos.w - m_lastPlayPos.w;
     float dz = m_playPos.z - m_lastPlayPos.z;
@@ -264,11 +264,11 @@ void CRiderRemoteSync::Extrapolate()
     // How well the move lines up with this machine's skater's (0 to 1; 0 without one).
     double alignment = 0.0;
     auto* local = static_cast<uint8_t*>(net->GetOwnPlayer());
-    if (local && Field<CGameEntity*>(local, 0x14)) {
-        Maths::Vector theirs = Field<CGameEntity*>(local, 0x14)->m_vel;
-        Maths::Vector mine = {dx, dy, dz, dw};
-        theirs.Normalize();
-        mine.Normalize();
+    if (local && Prop<CGameEntity*>(local, 0x14)) {
+        Maths::Vec4 theirs = Prop<CGameEntity*>(local, 0x14)->m_vel;
+        Maths::Vec4 mine = {dx, dy, dz, dw};
+        theirs.MakeUnit();
+        mine.MakeUnit();
         alignment = ((static_cast<double>(mine.x) * theirs.x + static_cast<double>(mine.z) * theirs.z) +
                      static_cast<double>(mine.y) * theirs.y + kOne) *
                     kHalf;
@@ -304,25 +304,25 @@ void CRiderRemoteSync::Extrapolate()
     float moveW = static_cast<float>(static_cast<double>(dw) * speed * scale);
     float moveZ = static_cast<float>(static_cast<double>(dirZ) * speed * scale);
     float moveX = static_cast<float>(static_cast<double>(dirX) * speed * scale);
-    Maths::Vector& pos = m_object->m_pos;
+    Maths::Vec4& pos = m_entity->m_atPoint;
     pos.w += moveW;
     pos.z += moveZ;
     pos.x += moveX;
 
     // A wall between the played position and the new one (both the collision height up the up row): bounced off.
-    CGameEntity* skater = m_object;
+    CGameEntity* skater = m_entity;
     float height = static_cast<float>(ReadTuningFloat(kFirstForwardCollisionHeight, 1, skater));
-    const Maths::Vector& up = skater->m_basisFrame.row[1];
+    const Maths::Vec4& up = skater->m_basisFrame.row[1];
     float raiseW = height * up.w, raiseZ = height * up.z, raiseY = height * up.y, raiseX = height * up.x;
-    Maths::Vector from = {raiseX + m_playPos.x, raiseY + m_playPos.y, raiseZ + m_playPos.z, raiseW + m_playPos.w};
-    Maths::Vector to = {raiseX + pos.x, raiseY + pos.y, raiseZ + pos.z, raiseW + pos.w};
+    Maths::Vec4 from = {raiseX + m_playPos.x, raiseY + m_playPos.y, raiseZ + m_playPos.z, raiseW + m_playPos.w};
+    Maths::Vec4 to = {raiseX + pos.x, raiseY + pos.y, raiseZ + pos.z, raiseW + pos.w};
     Engine3D::CProbeRay feeler;
-    feeler.Construct();
+    feeler.MakeNew();
     double ex = static_cast<double>(from.x) - to.x, ey = static_cast<double>(from.y) - to.y,
            ez = static_cast<double>(from.z) - to.z;
     if (std::sqrt((ez * ez + ey * ey) + ex * ex) > kWallCheckReach)
         return;
-    feeler.SetLine(&from, &to);
+    feeler.ChangeStrand(&from, &to);
     feeler.SetExcluded(0x10, 0);
     if (feeler.GetHitShape(true, false))
         BounceOffWall(&feeler.m_surfaceDir, &feeler.m_contactPos);
@@ -332,11 +332,11 @@ void CRiderRemoteSync::Extrapolate()
 CGrindPoint* CRiderRemoteSync::MoveAlongRail(CGrindPoint* node, float seconds)
 {
     CGrindRailHub* rails = LevelRails();
-    CGrindPoint* next = node->m_next;
+    CGrindPoint* next = node->m_succ;
     if (!next)
         return nullptr;
-    CGameEntity* skater = m_object;
-    Maths::Vector a, b, p1, p2;
+    CGameEntity* skater = m_entity;
+    Maths::Vec4 a, b, p1, p2;
     rails->GetAbsolutePos(&a, node);
     rails->GetAbsolutePos(&b, next);
     double sx = static_cast<double>(b.x) - a.x, sy = static_cast<double>(b.y) - a.y,
@@ -344,13 +344,13 @@ CGrindPoint* CRiderRemoteSync::MoveAlongRail(CGrindPoint* node, float seconds)
     float length = static_cast<float>(std::sqrt((sx * sx + sy * sy) + sz * sz));
     double inverse = static_cast<double>(kOne) / length;
     float rounded = static_cast<float>(inverse);
-    Maths::Vector along = {static_cast<float>(inverse * sx), static_cast<float>(rounded * sy),
+    Maths::Vec4 along = {static_cast<float>(inverse * sx), static_cast<float>(rounded * sy),
                          static_cast<float>(rounded * sz), static_cast<float>(rounded * sw)};
     // The rail's gravity along it.
     float gravity = ReadTuningFloat(kRailGravity, 1, skater);
-    Maths::Vector pull = {0.0f, gravity, 0.0f, 1.0f};
+    Maths::Vec4 pull = {0.0f, gravity, 0.0f, 1.0f};
     pull.ProjectOnto(along);
-    Maths::Vector& vel = skater->m_vel;
+    Maths::Vec4& vel = skater->m_vel;
     vel.x = static_cast<float>(static_cast<double>(pull.x) * seconds + vel.x);
     vel.y = static_cast<float>(static_cast<double>(pull.y) * seconds + vel.y);
     vel.z = static_cast<float>(pull.z * seconds) + vel.z;
@@ -364,11 +364,11 @@ CGrindPoint* CRiderRemoteSync::MoveAlongRail(CGrindPoint* node, float seconds)
     // Whether the rail goes on round the corner ahead (else the skater stops at its end): the next segment there
     // active and turning less than Rail_Corner_Leave_Angle (both flattened).
     bool stopped = false;
-    CGrindPoint* beyond = sign > 0.0f ? next->m_next : node->m_lastValue;
-    if (!beyond || !(beyond->m_flags & kRailActive)) {
+    CGrindPoint* beyond = sign > 0.0f ? next->m_succ : node->m_lastValue;
+    if (!beyond || !(beyond->m_flagBits & kRailActive)) {
         stopped = true;
     } else {
-        Maths::Vector here, there;
+        Maths::Vec4 here, there;
         if (sign > 0.0f) {
             rails->GetAbsolutePos(&p1, next);
             rails->GetAbsolutePos(&p2, node);
@@ -386,8 +386,8 @@ CGrindPoint* CRiderRemoteSync::MoveAlongRail(CGrindPoint* node, float seconds)
         }
         here.y = 0.0f;
         there.y = 0.0f;
-        here.Normalize();
-        there.Normalize();
+        here.MakeUnit();
+        there.MakeUnit();
         float cosine = static_cast<float>((static_cast<double>(there.z) * here.z + static_cast<double>(there.y) * here.y) +
                                           static_cast<double>(there.x) * here.x);
         double limit = Skater::X87Cos(static_cast<double>(ReadTuningFloat(kRailCornerLeaveAngle, 1, skater)) *
@@ -400,66 +400,66 @@ CGrindPoint* CRiderRemoteSync::MoveAlongRail(CGrindPoint* node, float seconds)
     // clear and not round too sharp a corner - the overshoot carried on along it.
     float overshoot = 0.0f;
     rails->GetAbsolutePos(&p1, sign > 0.0f ? node : next);
-    const Maths::Vector& pos = skater->m_pos;
+    const Maths::Vec4& pos = skater->m_atPoint;
     double dx = static_cast<double>(pos.x) - p1.x, dy = static_cast<double>(pos.y) - p1.y,
            dz = static_cast<double>(pos.z) - p1.z;
     double distance = std::sqrt((dz * dz + dy * dy) + dx * dx);
     if (distance > static_cast<double>(length) + kRailEndSlack) {
         overshoot = static_cast<float>(distance - length);
         // (quirk kept: going forward, the segment's own end is checked for being active, not the node beyond it)
-        if (!beyond || !((sign > 0.0f ? next : beyond)->m_flags & kRailActive))
+        if (!beyond || !((sign > 0.0f ? next : beyond)->m_flagBits & kRailActive))
             return nullptr;
         if (sign > 0.0f) {
-            Maths::Vector to, from;
+            Maths::Vec4 to, from;
             rails->GetAbsolutePos(&to, beyond);
             rails->GetAbsolutePos(&from, next);
             if (!RailClear(from, to) || stopped)
                 return nullptr;
             rails->GetAbsolutePos(&p1, next);
-            skater->m_pos = p1;
+            skater->m_atPoint = p1;
             node = next;
         } else {
-            Maths::Vector to, from;
+            Maths::Vec4 to, from;
             rails->GetAbsolutePos(&to, beyond);
             rails->GetAbsolutePos(&from, node);
             if (!RailClear(from, to) || stopped)
                 return nullptr;
             rails->GetAbsolutePos(&p1, node);
-            skater->m_pos = p1;
+            skater->m_atPoint = p1;
             node = beyond;
         }
     }
 
     // Along the segment it's on: the velocity and the matrix turned along it (the way it's going), the move.
-    CGrindPoint* end = node->m_next;
+    CGrindPoint* end = node->m_succ;
     rails->GetAbsolutePos(&p1, node);
     rails->GetAbsolutePos(&p2, end);
-    Maths::Vector segment = {p2.x - p1.x, p2.y - p1.y, p2.z - p1.z, p2.w - p1.w};
-    segment.Normalize();
+    Maths::Vec4 segment = {p2.x - p1.x, p2.y - p1.y, p2.z - p1.z, p2.w - p1.w};
+    segment.MakeUnit();
     sign = -1.0f;
     if (!((static_cast<double>(segment.z) * vel.z + static_cast<double>(segment.y) * vel.y) +
               static_cast<double>(segment.x) * vel.x <
           0.0))
         sign = 1.0f;
-    vel.SetDirection(segment);
+    vel.ChangeHeading(segment);
     vel.x *= sign;
     vel.y *= sign;
     vel.z *= sign;
     vel.w *= sign;
-    Maths::Vector heading = {segment.x * sign, segment.y * sign, segment.z * sign, segment.w * sign};
-    Maths::Matrix& m = skater->m_basisFrame;
+    Maths::Vec4 heading = {segment.x * sign, segment.y * sign, segment.z * sign, segment.w * sign};
+    Maths::Mat4& m = skater->m_basisFrame;
     m.row[2] = heading;
-    m.row[2].Normalize();
+    m.row[2].MakeUnit();
     m.row[0] = {m.row[2].z, 0.0f, -m.row[2].x, 0.0f};
-    m.row[0].Normalize();
-    const Maths::Vector& r = m.row[0];
-    const Maths::Vector& at = m.row[2];
+    m.row[0].MakeUnit();
+    const Maths::Vec4& r = m.row[0];
+    const Maths::Vec4& at = m.row[2];
     float upX = static_cast<float>(static_cast<double>(r.z) * at.y - static_cast<double>(r.y) * at.z);
     float upY = static_cast<float>(static_cast<double>(r.x) * at.z - static_cast<double>(at.x) * r.z);
     float upZ = static_cast<float>(static_cast<double>(at.x) * r.y - static_cast<double>(r.x) * at.y);
     m.row[1] = {upX, upY, upZ, 0.0f};
-    m.row[1].Normalize();
-    Maths::Vector& p = skater->m_pos;
+    m.row[1].MakeUnit();
+    Maths::Vec4& p = skater->m_atPoint;
     p.x = static_cast<float>(static_cast<double>(seconds) * vel.x + p.x);
     p.y = static_cast<float>(static_cast<double>(seconds) * vel.y + p.y);
     p.z = static_cast<float>(seconds * vel.z) + p.z;
@@ -475,10 +475,10 @@ CGrindPoint* CRiderRemoteSync::MoveAlongRail(CGrindPoint* node, float seconds)
 void CRiderRemoteSync::ExtrapolateOnRail()
 {
     CGrindRailHub* rails = LevelRails();
-    OnlinePlay::Manager* net = NetManager();
+    OnlinePlay::Hub* net = NetManager();
     uint8_t* app = ClientApp();
     int frameMs = static_cast<int>(static_cast<double>(m_frameSeconds) * kMsPerSecond);
-    float lag = ConnectionLag(app, m_object, frameMs);
+    float lag = ConnectionLag(app, m_entity, frameMs);
     int slot = m_updates % kHistory;
     float dx = m_playPos.x - m_lastPlayPos.x;
     float dy = m_playPos.y - m_lastPlayPos.y;
@@ -487,10 +487,10 @@ void CRiderRemoteSync::ExtrapolateOnRail()
     double alignment = 0.0;
     auto* local = static_cast<uint8_t*>(net->GetOwnPlayer());
     if (local) { // (its skater isn't checked here)
-        Maths::Vector theirs = Field<CGameEntity*>(local, 0x14)->m_vel;
-        Maths::Vector mine = {dx, dy, dz, dw};
-        theirs.Normalize();
-        mine.Normalize();
+        Maths::Vec4 theirs = Prop<CGameEntity*>(local, 0x14)->m_vel;
+        Maths::Vec4 mine = {dx, dy, dz, dw};
+        theirs.MakeUnit();
+        mine.MakeUnit();
         alignment = ((static_cast<double>(mine.z) * theirs.z + static_cast<double>(mine.y) * theirs.y) +
                      static_cast<double>(mine.x) * theirs.x + kOne) *
                     kHalf;
@@ -514,14 +514,14 @@ void CRiderRemoteSync::ExtrapolateOnRail()
     if (ahead > kOne)
         left = kOne;
 
-    CGrindPoint* node = rails->FindNode(Field<uint32_t>(HistoryFrame(m_pastFrames, m_playIdx), 0x80));
+    CGrindPoint* node = rails->FindNode(Prop<uint32_t>(HistoryFrame(m_pastFrames, m_playIdx), 0x80));
     if (!node || !(left > 0.0f))
         return;
     do {
         node = MoveAlongRail(node, left > m_frameSeconds ? m_frameSeconds : left);
         if (!node) {
             // Off the rail's end: from the played position, as on the ground.
-            m_object->m_pos = m_playPos;
+            m_entity->m_atPoint = m_playPos;
             Extrapolate();
             return;
         }
@@ -533,10 +533,10 @@ void CRiderRemoteSync::ExtrapolateOnRail()
 void CRiderRemoteSync::PlayHistoryEvents()
 {
     uint8_t* app = ClientApp();
-    if (!app || Field<int>(m_pastFrames, 0x18) < kHistory)
+    if (!app || Prop<int>(m_pastFrames, 0x18) < kHistory)
         return;
-    int first = Field<int>(m_pastFrames, 0xA6C) % kHistory;
-    uint32_t now = Field<uint32_t>(app, 8) - m_syncFrame + m_syncTime;
+    int first = Prop<int>(m_pastFrames, 0xA6C) % kHistory;
+    uint32_t now = Prop<uint32_t>(app, 8) - m_syncFrame + m_syncTime;
     auto* messages = reinterpret_cast<StateHistoryMessage*>(m_pastFrames + 0xA70);
     auto* blender = static_cast<CAnimBlenderComponent*>(m_animBlender);
     int i = first;
@@ -544,23 +544,23 @@ void CRiderRemoteSync::PlayHistoryEvents()
         StateHistoryMessage* msg = &messages[i];
         uint8_t* m = reinterpret_cast<uint8_t*>(msg);
         if (msg->GetTime() > m_lastEventTime && msg->GetTime() <= now) {
-            switch (msg->m_id) {
+            switch (msg->m_ident) {
             case 0x29: // an animation played (the primary channel)
                 if (Gfx2D::CBlendChannel* channel = blender->FindChannel(0))
-                    channel->PlayAnim(Field<uint32_t>(m, 0x20), false, Field<float>(m, 0x10), Field<float>(m, 0x14),
-                                      Field<int8_t>(m, 0x02), Field<float>(m, 0x18), Field<float>(m, 0x1C), nullptr);
+                    channel->PlayAnim(Prop<uint32_t>(m, 0x20), false, Prop<float>(m, 0x10), Prop<float>(m, 0x14),
+                                      Prop<int8_t>(m, 0x02), Prop<float>(m, 0x18), Prop<float>(m, 0x1C), nullptr);
                 break;
             case 0x2A: // the board rotated (the byte passed as it was sent)
                 static_cast<CRiderSpinAndFlip*>(m_flipAndRotate)
-                    ->SetBoardRotated(static_cast<uint32_t>(Field<int8_t>(m, 0x01)), Field<bool>(m, 0x09), 0, false);
+                    ->SetBoardRotated(static_cast<uint32_t>(Prop<int8_t>(m, 0x01)), Prop<bool>(m, 0x09), 0, false);
                 break;
             case 0x2B:
                 if (Gfx2D::CBlendChannel* channel = blender->FindChannel(0))
-                    channel->ChooseWobbleGoal(Field<float>(m, 0x0C), false);
+                    channel->ChooseWobbleGoal(Prop<float>(m, 0x0C), false);
                 break;
             case 0x2C:
                 if (Gfx2D::CBlendChannel* channel = blender->FindChannel(0))
-                    channel->SetFlipped(static_cast<uint32_t>(Field<int8_t>(m, 0x01)), Field<bool>(m, 0x08), 0,
+                    channel->SetFlipped(static_cast<uint32_t>(Prop<int8_t>(m, 0x01)), Prop<bool>(m, 0x08), 0,
                                         false); // (the byte passed as it was sent)
                 break;
             case 0x3C: { // (20 bytes of the message passed by address)
@@ -572,38 +572,38 @@ void CRiderRemoteSync::PlayHistoryEvents()
             }
             case 0x3D:
                 if (Gfx2D::CBlendChannel* channel = blender->FindChannel(0))
-                    channel->SetLoopType(Field<int8_t>(m, 0x02), false);
+                    channel->SetLoopType(Prop<int8_t>(m, 0x02), false);
                 break;
             case 0x3E:
-                reinterpret_cast<CMeshInstanceModule*>(m_meshSet)->ConcealMesh(Field<uint32_t>(m, 0x20),
-                                                                      Field<uint8_t>(m, 0x0A) != 0, false);
+                reinterpret_cast<CMeshInstanceModule*>(m_meshSet)->ConcealMesh(Prop<uint32_t>(m, 0x20),
+                                                                      Prop<uint8_t>(m, 0x0A) != 0, false);
                 break;
             case 0x41:
                 if (Gfx2D::CBlendChannel* channel = blender->FindChannel(0))
-                    channel->SetSpeed(Field<float>(m, 0x1C), false, false, false);
+                    channel->SetSpeed(Prop<float>(m, 0x1C), false, false, false);
                 break;
             case 0x76: { // the model's three parts set going, by the message's bits
-                Field<Maths::Vector>(m_meshSet, 0x28) = {0.0f, 30.0f, 0.0f, 1.0f};
+                Prop<Maths::Vec4>(m_meshSet, 0x28) = {0.0f, 30.0f, 0.0f, 1.0f};
                 int time = Now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
-                    if (Field<uint8_t>(m, 0x03) & (1u << bit))
+                    if (Prop<uint8_t>(m, 0x03) & (1u << bit))
                         reinterpret_cast<CModelSpinAxis*>(m_meshSet + kModelParts[bit])
-                            ->Add(static_cast<float>(Field<int>(m, 0x3C)), static_cast<uint32_t>(time),
-                                  Field<float>(m, 0x48), Field<float>(m, 0x4C), Field<int>(m, 0x40),
-                                  Field<uint8_t>(m, 0x50) != 0, false);
+                            ->AppendOne(static_cast<float>(Prop<int>(m, 0x3C)), static_cast<uint32_t>(time),
+                                  Prop<float>(m, 0x48), Prop<float>(m, 0x4C), Prop<int>(m, 0x40),
+                                  Prop<uint8_t>(m, 0x50) != 0, false);
                 }
                 break;
             }
             case 0x77: { // a special item made: its +0x5CB5CB7E component told its name and owner
-                auto* items = static_cast<CPickupItemHandler*>(m_object->GetComponent(CPickupItemHandler::kType));
-                Scripts::CStruct* structure = Scripts::ReadSubStruct(Field<uint32_t>(m, 0x20)); // (the original also passes 1)
-                CGameEntity* item = items->CreateItem(Field<int>(m, 0x44), structure);
+                auto* items = static_cast<CPickupItemHandler*>(m_entity->FetchModule(CPickupItemHandler::kType));
+                Scripts::CStruct* structure = Scripts::ReadSubStruct(Prop<uint32_t>(m, 0x20)); // (the original also passes 1)
+                CGameEntity* item = items->CreateItem(Prop<int>(m, 0x44), structure);
                 Scripts::CStruct* params = Scripts::NewStruct();
                 if (params)
-                    params = params->Init();
-                params->PutNameKey(kItemName, Field<uint32_t>(m, 0x24));
-                params->PutNameKey(kItemOwner, m_object->m_id);
-                item->GetComponent(kItemComponent)->ConfigureFromData(params);
+                    params = params->PrepareAll();
+                params->PutNameKey(kItemName, Prop<uint32_t>(m, 0x24));
+                params->PutNameKey(kItemOwner, m_entity->m_ident);
+                item->FetchModule(kItemComponent)->ConfigureFromData(params);
                 if (params) {
                     params->Clear();
                     Scripts::DeleteStruct(params);
@@ -611,8 +611,8 @@ void CRiderRemoteSync::PlayHistoryEvents()
                 break;
             }
             case 0x78: // the special item gone
-                static_cast<CPickupItemHandler*>(m_object->GetComponent(CPickupItemHandler::kType))
-                    ->DestroyItem(Field<int>(m, 0x44));
+                static_cast<CPickupItemHandler*>(m_entity->FetchModule(CPickupItemHandler::kType))
+                    ->DestroyItem(Prop<int>(m, 0x44));
                 break;
             case 0x8C:
                 for (uint32_t part : kModelParts)

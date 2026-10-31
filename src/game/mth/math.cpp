@@ -53,7 +53,7 @@ SinCosEntry* SinTable() { return g_sinTable; }
 
 } // namespace
 
-float Clamp(float value, float min, float max)
+float Confine(float value, float min, float max)
 {
     if (value > max)
         value = max;

@@ -68,9 +68,9 @@ Layout Compute(float width, float height, float scale, bool outlinerOpen, bool i
 
 bool OnPanel(const Layout& layout, float x, float y)
 {
-    return layout.toolbar.Contains(x, y) || layout.status.Contains(x, y) ||
-           (layout.outlinerShown && layout.outliner.Contains(x, y)) ||
-           (layout.inspectorShown && layout.inspector.Contains(x, y));
+    return layout.toolbar.Holds(x, y) || layout.status.Holds(x, y) ||
+           (layout.outlinerShown && layout.outliner.Holds(x, y)) ||
+           (layout.inspectorShown && layout.inspector.Holds(x, y));
 }
 
 Route Decide(const RouteInput& input)

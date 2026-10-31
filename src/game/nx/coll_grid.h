@@ -18,7 +18,7 @@ class CStaticCollider;
 // A cell (0x30 bytes).
 struct CollGridCell {
     // 0x004183B0: an empty box, nothing listed. Returns this.
-    CollGridCell* Construct();
+    CollGridCell* MakeNew();
     // 0x00418410: the two blocks freed.
     void Destruct();
 
@@ -35,7 +35,7 @@ public:
     static constexpr int kSize = 20;
 
     // 0x00418440: the box taken and cut into cells (their corners added up from the minimum in double precision).
-    void Init(const Maths::BBox* bounds);
+    void PrepareAll(const Maths::BBox* bounds);
     // 0x004183D0: every cell's list freed and emptied.
     void Clear();
     // 0x00418BD0: the cells filled from `count` static objects (those whose geometry has faces), each listed in
@@ -44,15 +44,15 @@ public:
     // 0x00418F60: the lists brought up to date, cell by cell: the objects of `removed` taken out where their boxes
     // touch the cell, those of `added` put in where they touch it, those of `moved` taken out or put in as they
     // now do or don't; each list's block resized once and, at the end, every list moved to a fresh block. (Lists
-    // of ListKit::Head<CHitMesh>.)
-    void Update(MemSys::ListNode* added, MemSys::ListNode* removed, MemSys::ListNode* moved);
+    // of ListKit::Foremost<CHitMesh>.)
+    void TickFrame(MemSys::ListNode* added, MemSys::ListNode* removed, MemSys::ListNode* moved);
 
     // 0x00418710: the objects (neither flag 2 nor 4) of the cells `box` (grown by 0.5 on x and z) covers, each
     // once; null-terminated, in the shared list 0x00691998.
     CHitMesh** ObjectsInBox(const Maths::BBox* box);
     // 0x004188C0: the same for the cells the line (made half a unit longer at each end) spans; one cell: its
     // objects as they are; more: each once, 2047 at most. The number found goes to `count` if it's given.
-    CHitMesh** ObjectsAlongLine(const Maths::Line* line, int* count);
+    CHitMesh** ObjectsAlongLine(const Maths::Seg* line, int* count);
 
     CollGridCell* Cell(int x, int z) { return &m_cells[x][z]; }
 

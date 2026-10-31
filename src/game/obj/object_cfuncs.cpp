@@ -66,9 +66,9 @@ GameObjects::CGameEntity* ObjectById(uint32_t id)
 // The camera of viewport `index` (0x004A06D0), and its projection of a world position to the screen (0x004A1090,
 // vtable slot 1 of the camera: x, y and depth out; returns a scale, unused here).
 void* ViewportCamera(int index) { return Engine3D::GetActiveViewport(index); }
-float ProjectToScreen(void* camera, const Maths::Vector* position, float* x, float* y, float* depth)
+float ProjectToScreen(void* camera, const Maths::Vec4* position, float* x, float* y, float* depth)
 {
-    return reinterpret_cast<float(__thiscall*)(void*, const Maths::Vector*, float*, float*, float*)>(&Engine3D::VirtualSlot1Jump)(
+    return reinterpret_cast<float(__thiscall*)(void*, const Maths::Vec4*, float*, float*, float*)>(&Engine3D::VirtualSlot1Jump)(
         camera, position, x, y, depth);
 }
 
@@ -87,13 +87,13 @@ uint32_t ParticleGroup(GameObjects::CObjectModule* component)
 }
 
 // The rotation of `angles` (radians) as a matrix (0x0041A730: the identity times RotationX, RotationY, RotationZ).
-void AnglesToMatrix(Maths::Matrix* matrix, const Scripts::VectorValue* angles)
+void AnglesToMatrix(Maths::Mat4* matrix, const Scripts::VectorValue* angles)
 {
-    matrix->InitFromAngles(*reinterpret_cast<const Maths::Vector*>(angles));
+    matrix->InitFromAngles(*reinterpret_cast<const Maths::Vec4*>(angles));
 }
 
 // D3DX's matrix product (linked library code; stdcall): out = a * b.
-void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
@@ -105,13 +105,13 @@ void* SkeletonOf(GameObjects::CObjectModule* component)
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
     return reinterpret_cast<void*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(component)->Word18());
 }
-bool ReadJointMatrix(void* skeleton, uint32_t bone, Maths::Matrix* out)
+bool ReadJointMatrix(void* skeleton, uint32_t bone, Maths::Mat4* out)
 {
     return static_cast<Gfx2D::CRig*>(skeleton)->ReadJointMatrix(bone, out);
 }
 
 // The object's FlagAsDead (vtable slot 6).
-void FlagAsDead(GameObjects::CObject* object) { reinterpret_cast<void(__thiscall*)(GameObjects::CObject*)>(object->m_vtable[6])(object); }
+void FlagAsDead(GameObjects::CEntity* object) { reinterpret_cast<void(__thiscall*)(GameObjects::CEntity*)>(object->m_vtable[6])(object); }
 
 } // namespace
 
@@ -120,7 +120,7 @@ bool __cdecl CFunc_AppendNodeParams(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name = 0;
     params->ReadHashValue(kNode, &name, 1);
-    Scripts::CStruct* node = LevelNodes::GetNode(name, true);
+    Scripts::CStruct* node = LevelNodes::FetchVertex(name, true);
     Scripts::CStruct* extra = nullptr;
     params->ReadSubStruct(kParams, &extra, 1);
     node->AppendStructureIfAny(extra);
@@ -136,7 +136,7 @@ bool __cdecl CFunc_InitCOIM(Scripts::CStruct* params, Scripts::CScript*)
     params->FetchIntValue(kSize, &size, 1);
     params->FetchIntValue(kCoimB0847D54, &b, 1);
     params->FetchIntValue(kCoimBB9A31B5, &a, 1);
-    params->GetFloat(kCoim03D6DE47, &factor, 1);
+    params->FetchFloat(kCoim03D6DE47, &factor, 1);
     // (x87: the square unrounded, _ftol's truncation)
     int squared = static_cast<int>(static_cast<int64_t>(static_cast<double>(factor) * factor));
     GameObjects::InitCoim(a, static_cast<uint32_t>(size), b, squared);
@@ -156,7 +156,7 @@ bool __cdecl CFunc_ResizeCOIMHeap(Scripts::CStruct* params, Scripts::CScript*)
 bool __cdecl CFunc_CreateCompositeObject(Scripts::CStruct* params, Scripts::CScript*)
 {
     Scripts::CArray* components = nullptr;
-    params->GetArray(kComponents, &components, 1);
+    params->FetchList(kComponents, &components, 1);
     Scripts::CStruct* nodeData = nullptr;
     params->ReadSubStruct(kParams, &nodeData, 0);
     GameObjects::CompositeObjectManager()->SpawnEntityFromNode(components, nodeData, true);
@@ -170,7 +170,7 @@ bool __cdecl CFunc_GetUniqueCompositeObjectID(Scripts::CStruct* params, Scripts:
     params->ReadHashValue(kPreferredId, &id, 0);
     while (ObjectById(id))
         ++id;
-    script->m_params->PutNameKey(kUniqueId, id);
+    script->m_args->PutNameKey(kUniqueId, id);
     return true;
 }
 
@@ -185,9 +185,9 @@ bool __cdecl CFunc_GetObjScreenCoords(Scripts::CStruct* params, Scripts::CScript
     if (!object)
         return false;
     float x, y, depth;
-    ProjectToScreen(camera, &object->m_pos, &x, &y, &depth);
-    script->m_params->PushFloat(kScreenX, x);
-    script->m_params->PushFloat(kScreenY, y);
+    ProjectToScreen(camera, &object->m_atPoint, &x, &y, &depth);
+    script->m_args->PushFloat(kScreenX, x);
+    script->m_args->PushFloat(kScreenY, y);
     return true;
 }
 
@@ -212,14 +212,14 @@ bool __cdecl CFunc_RunScriptOnComponentType(Scripts::CStruct* params, Scripts::C
 bool __cdecl CFunc_TransformLocalToWorld(Scripts::CStruct* params, Scripts::CScript* script)
 {
     Scripts::VectorValue offset = {};
-    params->GetVector(kLocalOffset, &offset, 0);
+    params->FetchVec(kLocalOffset, &offset, 0);
     uint32_t id = 0;
     params->ReadHashValue(kObject, &id, 0);
     GameObjects::CGameEntity* object = ObjectById(id);
-    Maths::Vector local = {offset.x, offset.y, offset.z, offset.w};
-    Maths::Vector world;
-    object->m_displayMatrix.Transform(world, local);
-    script->m_params->PutVec3(kWorldOffset, world.x, world.y, world.z);
+    Maths::Vec4 local = {offset.x, offset.y, offset.z, offset.w};
+    Maths::Vec4 world;
+    object->m_displayMatrix.Xform(world, local);
+    script->m_args->PutVec3(kWorldOffset, world.x, world.y, world.z);
     return true;
 }
 
@@ -233,32 +233,32 @@ bool __cdecl CFunc_DestroyParticlesByGroupID(Scripts::CStruct* params, Scripts::
         DestroyParticleGroup(manager, group);
     for (GameObjects::CObjectModule* component = GameObjects::CompositeObjectManager()->FindFirstModuleOfKind(kParticle); component;
          component = component->mp_nextOfType) {
-        GameObjects::CGameEntity* object = component->m_object;
+        GameObjects::CGameEntity* object = component->m_entity;
         if (!(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) && ParticleGroup(component) == group)
             FlagAsDead(object);
     }
     return true;
 }
 
-// 0x00449850: GetNode <name>: node = the node's structure. False if there is none.
+// 0x00449850: FetchVertex <name>: node = the node's structure. False if there is none.
 bool __cdecl CFunc_GetNode(Scripts::CStruct* params, Scripts::CScript* script)
 {
     uint32_t name = 0;
     params->ReadHashValue(0u, &name, 1);
-    Scripts::CStruct* node = LevelNodes::GetNode(name, false);
+    Scripts::CStruct* node = LevelNodes::FetchVertex(name, false);
     if (!node)
         return false;
-    script->m_params->PutSubStruct(kNode, node);
+    script->m_args->PutSubStruct(kNode, node);
     return true;
 }
 
 // 0x00449890: GetNodeName: nodename = the id of the object the script runs on. False with no object or id 0.
 bool __cdecl CFunc_GetNodeName(Scripts::CStruct*, Scripts::CScript* script)
 {
-    GameObjects::CObject* object = script->m_object.Get();
-    if (!object || !object->m_id)
+    GameObjects::CEntity* object = script->m_entity.Pull();
+    if (!object || !object->m_ident)
         return false;
-    script->m_params->PutNameKey(kNodeName, object->m_id);
+    script->m_args->PutNameKey(kNodeName, object->m_ident);
     return true;
 }
 
@@ -267,7 +267,7 @@ bool __cdecl CFunc_GetTriggerNodeName(Scripts::CStruct*, Scripts::CScript* scrip
 {
     if (!script->m_listLink)
         return false;
-    script->m_params->PutNameKey(kNodeName, static_cast<uint32_t>(script->m_listLink));
+    script->m_args->PutNameKey(kNodeName, static_cast<uint32_t>(script->m_listLink));
     return true;
 }
 
@@ -281,13 +281,13 @@ bool __cdecl CFunc_RunScriptOnObject(Scripts::CStruct* params, Scripts::CScript*
     params->ReadHashValue(0u, &name, 1);
     Scripts::CStruct* scriptParams = nullptr;
     params->ReadSubStruct(kParams, &scriptParams, 0);
-    script->m_params->RemoveComponent(kUniqueId);
-    GameObjects::CObject* object = GameObjects::FindObject(id);
+    script->m_args->EraseModule(kUniqueId);
+    GameObjects::CEntity* object = GameObjects::FindObject(id);
     if (!object)
         return false;
     Scripts::CScript* own = object->m_runScript;
-    if (own && !own->m_object.Get())
-        own->m_object.Set(object);
+    if (own && !own->m_entity.Pull())
+        own->m_entity.AssignValue(object);
     object->RunSubScript(name, scriptParams);
     return true;
 }
@@ -309,10 +309,10 @@ bool __cdecl CFunc_Orient(Scripts::CStruct* params, Scripts::CScript*)
     uint32_t bone = 0;
     params->ReadHashValue(kBone, &bone, 0);
     Scripts::VectorValue offset;
-    if (!params->GetVector(kOffset, &offset, 0))
+    if (!params->FetchVec(kOffset, &offset, 0))
         offset = {0.0f, 0.0f, 0.0f, 1.0f};
     Scripts::VectorValue angles;
-    if (!params->GetVector(kAngles, &angles, 0))
+    if (!params->FetchVec(kAngles, &angles, 0))
         angles = {0.0f, 0.0f, 0.0f, 1.0f};
     if (params->HasBareFlag(kDegrees)) {
         float degrees = g_degreesToRadians; // pi / 180
@@ -322,21 +322,21 @@ bool __cdecl CFunc_Orient(Scripts::CStruct* params, Scripts::CScript*)
         angles.w *= degrees;
     }
 
-    Maths::Matrix& matrix = object->m_basisFrame;
+    Maths::Mat4& matrix = object->m_basisFrame;
     AnglesToMatrix(&matrix, &angles);
     matrix.row[3] = {offset.x, offset.y, offset.z, offset.w};
     if (bone) {
-        Maths::Matrix jointMat;
-        ReadJointMatrix(SkeletonOf(relativeTo->GetComponent(kSkeleton)), bone, &jointMat);
+        Maths::Mat4 jointMat;
+        ReadJointMatrix(SkeletonOf(relativeTo->FetchModule(kSkeleton)), bone, &jointMat);
         MatrixMultiply(&matrix, &matrix, &jointMat);
     }
     if (relativeTo) {
-        Maths::Matrix relative;
+        Maths::Mat4 relative;
         relative = relativeTo->m_displayMatrix;
-        relative.row[3] = relativeTo->m_pos;
+        relative.row[3] = relativeTo->m_atPoint;
         MatrixMultiply(&matrix, &matrix, &relative);
     }
-    object->m_pos = matrix.row[3];
+    object->m_atPoint = matrix.row[3];
     matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     object->m_displayMatrix = matrix;
     return true;
@@ -359,7 +359,7 @@ bool __cdecl CFunc_SetEventHandlerOnObject(Scripts::CStruct* params, Scripts::CS
     GameObjects::CGameEntity* object = ObjectById(id);
     if (!object->m_runScript) {
         void* memory = Scripts::CScript::operator new(sizeof(Scripts::CScript));
-        object->m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->Construct() : nullptr;
+        object->m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
     }
     object->m_runScript->SetEventHandler(eventType, handler, group, exception, handlerParams);
     return true;

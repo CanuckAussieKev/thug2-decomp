@@ -44,7 +44,7 @@ void ReadMilesPerHour(Scripts::CStruct* params, uint32_t name, float& value)
 {
     if (!params->HasEntryNamed(name))
         return;
-    params->GetFloat(name, &value, 0);
+    params->FetchFloat(name, &value, 0);
     value = static_cast<float>(static_cast<double>(value) * kInchesPerMile * kHoursPerSecond);
 }
 
@@ -52,7 +52,7 @@ void ReadFeet(Scripts::CStruct* params, uint32_t name, float& value)
 {
     if (!params->HasEntryNamed(name))
         return;
-    params->GetFloat(name, &value, 0);
+    params->FetchFloat(name, &value, 0);
     value = value * kInchesPerFoot;
 }
 
@@ -86,19 +86,19 @@ void __stdcall ReadWheelSettings(uint8_t* wheel, Scripts::CStruct* params)
         else if (choice == kNo)
             At<bool>(wheel, 0xB4) = false;
     }
-    params->GetFloat(0x9E931FDF, &At<float>(wheel, 0xC8), 0); // spring_rate
-    params->GetFloat(0xAFA960FF, &At<float>(wheel, 0xCC), 0); // damping_rate
-    params->GetFloat(0xC48391A5, &At<float>(wheel, 0xC0), 0); // radius
+    params->FetchFloat(0x9E931FDF, &At<float>(wheel, 0xC8), 0); // spring_rate
+    params->FetchFloat(0xAFA960FF, &At<float>(wheel, 0xCC), 0); // damping_rate
+    params->FetchFloat(0xC48391A5, &At<float>(wheel, 0xC0), 0); // radius
     if (params->HasEntryNamed(0xCA73775D)) {         // moment
         float& moment = At<float>(wheel, 0xC4);
-        params->GetFloat(0xCA73775D, &moment, 0);
+        params->FetchFloat(0xCA73775D, &moment, 0);
         moment = kGravity / moment;
     }
-    params->GetFloat(0xD87D0183, &At<float>(wheel, 0xBC), 0);
-    params->GetFloat(0xF36B97C8, &At<float>(wheel, 0xDC), 0); // static_friction
-    params->GetFloat(0x674852F6, &At<float>(wheel, 0xE0), 0); // dynamic_friction
-    params->GetFloat(0x52242919, &At<float>(wheel, 0xE4), 0); // handbrake_throttle_friction
-    params->GetFloat(0x6D615F67, &At<float>(wheel, 0xE8), 0); // handbrake_locked_friction
+    params->FetchFloat(0xD87D0183, &At<float>(wheel, 0xBC), 0);
+    params->FetchFloat(0xF36B97C8, &At<float>(wheel, 0xDC), 0); // static_friction
+    params->FetchFloat(0x674852F6, &At<float>(wheel, 0xE0), 0); // dynamic_friction
+    params->FetchFloat(0x52242919, &At<float>(wheel, 0xE4), 0); // handbrake_throttle_friction
+    params->FetchFloat(0x6D615F67, &At<float>(wheel, 0xE8), 0); // handbrake_locked_friction
     ReadMilesPerHour(params, 0x60B2C097, At<float>(wheel, 0xD0)); // min_static_grip_velocity
     ReadMilesPerHour(params, 0xBB0D9370, At<float>(wheel, 0xD4)); // max_static_grip_velocity
     ReadMilesPerHour(params, 0xB71803AD, At<float>(wheel, 0xD8)); // min_dynamic_grip_velocity

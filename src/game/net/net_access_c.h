@@ -18,12 +18,12 @@ namespace NetLink {
 
 // An object's field by offset (the tests' stand-in objects use it with offsetof).
 template <typename T, typename O>
-T& Field(O* object, uint32_t offset)
+T& Prop(O* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(object) + offset);
 }
 
-// The network manager (NetLink::Manager, App +0x1440) keeps a flags byte per message id (at +0x28).
+// The network manager (NetLink::Hub, App +0x1440) keeps a flags byte per message id (at +0x28).
 // Bit 0: the message is sent without its length (fixed size).
 constexpr uint8_t kMsgNoLength = 1;
 
@@ -78,109 +78,109 @@ inline uint32_t MaxLatency() { return g_maxLatency; }
 // --- Functions of other classes, by address ---
 
 // NetMessageInfo (0x004549F0)
-inline void ConstructMsgDesc(NetMessageInfo* desc) { desc->Construct(); }
+inline void ConstructMsgDesc(NetMessageInfo* desc) { desc->MakeNew(); }
 
 // App (wt/netA's App and wt/netB's App, net_app.h): short names for the calls this range makes
-inline void PutOnOutbox(App* app, int handle, NetMessageInfo* desc) { app->PutOnOutbox(handle, desc); }
+inline void PutOnOutbox(AppHost* app, int handle, NetMessageInfo* desc) { app->PutOnOutbox(handle, desc); }
 // Whether this frame sends to the connection at all (its send interval has passed, or it's flagged).
-inline bool TransmitDueNow(App* app, Conn* conn) { return app->IsSendDue(conn); }
+inline bool TransmitDueNow(AppHost* app, Conn* conn) { return app->IsSendDue(conn); }
 // Anything to send to the connection now.
-inline bool OutgoingBacklog(App* app, Conn* conn) { return app->MessagesDue(conn); }
-inline bool OverBandwidthBudget(App* app, Conn* conn) { return app->OverBandwidthBudget(conn); }
+inline bool OutgoingBacklog(AppHost* app, Conn* conn) { return app->MessagesDue(conn); }
+inline bool OverBandwidthBudget(AppHost* app, Conn* conn) { return app->OverBandwidthBudget(conn); }
 // An important or sequenced message is due (unsent, or overdue for its ack): the client sends a timestamp
 // with the packet so it gets acked.
-inline bool TimestampDue(App* app, Conn* conn) { return app->ImportantMessagesDue(conn); }
+inline bool TimestampDue(AppHost* app, Conn* conn) { return app->ImportantMessagesDue(conn); }
 // A packet to ip:port (sendto) / on the connected socket.
-inline bool SendTo(App* app, uint32_t ip, uint16_t port, char* data, int size, int flags)
+inline bool TransmitTo(AppHost* app, uint32_t ip, uint16_t port, char* data, int size, int flags)
 {
-    return app->SendTo(ip, port, reinterpret_cast<const uint8_t*>(data), size, flags);
+    return app->TransmitTo(ip, port, reinterpret_cast<const uint8_t*>(data), size, flags);
 }
-inline bool Send(App* app, char* data, int size, int flags)
+inline bool PostOut(AppHost* app, char* data, int size, int flags)
 {
-    return app->Send(reinterpret_cast<const uint8_t*>(data), size, flags);
+    return app->PostOut(reinterpret_cast<const uint8_t*>(data), size, flags);
 }
 // App flag 0x8: the App has no socket of its own (nothing to receive).
-inline bool HasNoSocket(App* app) { return app->IsLocal(); }
+inline bool HasNoSocket(AppHost* app) { return app->IsHostLocal(); }
 // App flag 0x10: connection requests from foreign addresses are answered.
-inline bool AllowsOutsidePeers(App* app) { return app->AllowsOutsidePeers(); }
-inline Conn* FindConnAtAddress(App* app, uint32_t ip, uint16_t port)
+inline bool AllowsOutsidePeers(AppHost* app) { return app->AllowsOutsidePeers(); }
+inline Conn* FindConnAtAddress(AppHost* app, uint32_t ip, uint16_t port)
 {
     return app->FindConnAtAddress(ip, port);
 }
-inline Conn* NewConnection(App* app, uint32_t ip, uint16_t port, int flags)
+inline Conn* OpenedLink(AppHost* app, uint32_t ip, uint16_t port, int flags)
 {
-    return app->NewConnection(static_cast<int>(ip), port, flags);
+    return app->OpenedLink(static_cast<int>(ip), port, flags);
 }
 // A received packet into the connection's read buffer (false: not valid; secure packets lose their checksum).
-inline bool ReadPacket(App* app, char* packet, char* to, int size)
+inline bool ReadPacket(AppHost* app, char* packet, char* to, int size)
 {
     return app->Decrypt(reinterpret_cast<const uint8_t*>(packet), reinterpret_cast<uint8_t*>(to), size);
 }
 // A message straight to ip:port, not through a connection.
-inline void DeliverTo(App* app, uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port,
+inline void DeliverTo(AppHost* app, uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port,
                           int flags)
 {
     app->DeliverTo(id, length, data, ip, port, flags);
 }
-inline void TerminateConnection(App* app, Conn* conn) { app->TerminateConnection(conn); }
-inline void ReportSocketError(App* app) { app->ReportError(); }
-inline uint8_t* GetManager(App* app) { return static_cast<uint8_t*>(app->NetManager()); }
-// NetLink::Manager's flags for a message id (0x00454980).
+inline void SeverLink(AppHost* app, Conn* conn) { app->SeverLink(conn); }
+inline void ReportSocketError(AppHost* app) { app->RaiseFault(); }
+inline uint8_t* FetchHub(AppHost* app) { return static_cast<uint8_t*>(app->NetManager()); }
+// NetLink::Hub's flags for a message id (0x00454980).
 inline uint8_t MessageFlags(uint8_t* manager, uint8_t id)
 {
-    return static_cast<uint8_t>(reinterpret_cast<Manager*>(manager)->GetMsgOptions(id));
+    return static_cast<uint8_t>(reinterpret_cast<Hub*>(manager)->GetMsgOptions(id));
 }
 
 // Conn's methods (net_conn.cpp). Its flags (+0x64): 1 local (the App's own client/server in this process),
-// 2 remote, 4 foreign (created for a packet from an unknown address: NewConnection's flags 6).
-inline bool IsRemote(Conn* conn) { return conn->IsRemote(); }
+// 2 remote, 4 foreign (created for a packet from an unknown address: OpenedLink's flags 6).
+inline bool IsOffMachine(Conn* conn) { return conn->IsOffMachine(); }
 inline bool IsOutsider(Conn* conn) { return conn->IsOutsider(); }
-inline bool IsLocal(Conn* conn) { return conn->IsLocal(); }
-// Status bit 2 clear: not invalidated (MarkNewConnection = Conn::Invalidate hasn't been called).
-inline bool IsNew(Conn* conn) { return conn->IsValid(); }
-// Status: bit 0 off, bit 2 on (Conn::Invalidate)
-inline void MarkNewConnection(Conn* conn) { conn->Invalidate(); }
+inline bool IsHostLocal(Conn* conn) { return conn->IsHostLocal(); }
+// Status bit 2 clear: not invalidated (MarkNewConnection = Conn::MarkStale hasn't been called).
+inline bool IsNew(Conn* conn) { return conn->IsSound(); }
+// Status: bit 0 off, bit 2 on (Conn::MarkStale)
+inline void MarkNewConnection(Conn* conn) { conn->MarkStale(); }
 // How long an important message waits for its ack before going again.
 inline uint32_t GetRetryDelay(Conn* conn) { return conn->GetRetryDelay(); }
 inline void ForceSendNow(Conn* conn, bool on) { conn->ForceSendNow(on); }
-inline int GetBandwidth(Conn* conn) { return conn->GetBandwidth(); }
-inline void SetBandwidth(Conn* conn, int bandwidth) { conn->SetBandwidth(bandwidth); }
+inline int FetchThroughput(Conn* conn) { return conn->FetchThroughput(); }
+inline void ChangeThroughput(Conn* conn, int bandwidth) { conn->ChangeThroughput(bandwidth); }
 // The most times one important/sequenced message has been resent (Conn::GetHighestResendCount).
 inline int GetNumPendingMessages(Conn* conn) { return conn->GetHighestResendCount(); }
 // A send failed: the messages that went with this packet's timestamp go again.
 inline void MarkMessagesForRetry(Conn* conn, uint32_t timestamp) { conn->MarkMessagesForRetry(timestamp); }
 // The connection's destructor.
-inline void DestroyConn(Conn* conn) { conn->Destroy(); }
+inline void DestroyConn(Conn* conn) { conn->Teardown(); }
 // The connection's latency test takes a measurement.
 inline void AddLatency(Conn* conn, uint32_t latency) { conn->m_latencyTest.InputDelayAmount(static_cast<int>(latency)); }
 // Message/packet metrics (0x00454550, 0x00454D90).
 inline void AddMessageMetric(void* metrics, uint8_t id, uint32_t size)
 {
-    static_cast<Metrics*>(metrics)->AddMessage(id, static_cast<int>(size));
+    static_cast<Gauges*>(metrics)->AppendNote(id, static_cast<int>(size));
 }
 inline void AddPacketMetric(void* metrics, uint32_t size, uint32_t time)
 {
-    static_cast<Metrics*>(metrics)->CountPacket(static_cast<int>(size), static_cast<int>(time));
+    static_cast<Gauges*>(metrics)->CountPacket(static_cast<int>(size), static_cast<int>(time));
 }
 
 // Queued messages: the destructor frees the data (0x004550F0).
 inline void DestroyQueuedMsg(void* msg) { static_cast<PendingMsg*>(msg)->DestroyBody(); }
 inline SeqQueuedMsg* ConstructSeqMsg(void* memory, uint8_t id, uint16_t length, char* data, uint8_t group, bool compressed)
 {
-    return static_cast<SeqQueuedMsg*>(memory)->Construct(id, length, data, group, compressed);
+    return static_cast<SeqQueuedMsg*>(memory)->MakeNew(id, length, data, group, compressed);
 }
 inline OrderedMsgNode* ConstructMsgSeqLink(void* memory, SeqQueuedMsg* msg)
 {
-    return static_cast<OrderedMsgNode*>(memory)->Construct(msg);
+    return static_cast<OrderedMsgNode*>(memory)->MakeNew(msg);
 }
-inline StreamDesc* ConstructStreamDesc(void* memory) { return static_cast<StreamDesc*>(memory)->Construct(); }
+inline StreamDesc* ConstructStreamDesc(void* memory) { return static_cast<StreamDesc*>(memory)->MakeNew(); }
 inline BulkStreamNode* ConstructStreamLink(void* memory, StreamDesc* desc)
 {
-    return static_cast<BulkStreamNode*>(memory)->Construct(desc);
+    return static_cast<BulkStreamNode*>(memory)->MakeNew(desc);
 }
 inline void DestroyStreamDesc(StreamDesc* desc) { desc->DestroyBody(); }
 
-// ListKit::Node<T>'s deleting destructor (each node type's vtable slot 0).
+// ListKit::Elem<T>'s deleting destructor (each node type's vtable slot 0).
 inline void UnlinkListNode(void* node)
 {
     auto* vtable = *static_cast<void***>(node);

@@ -48,9 +48,9 @@ constexpr uint32_t kBonus = 0x60678085;           // bonus
 // The skate module's split screen preferences (0x00564D80: +0x58) and its time limit (0x00564D50: +0x370).
 OptionStore::Preferences* SplitScreenPreferences()
 {
-    return GameModules::Skate::Instance()->GetSplitViewSettings();
+    return GameModules::Skate::Sole()->GetSplitViewSettings();
 }
-void SetCountdownSeconds(int seconds) { GameModules::Skate::Instance()->SetUnknown370(seconds); }
+void SetCountdownSeconds(int seconds) { GameModules::Skate::Sole()->SetUnknown370(seconds); }
 
 // The game mode: 0x00553AD0 the mode `type` loaded (its structure from the mode list); 0x00553BE0 its options
 // overridden by `options`; 0x00553000 / 0x00553020 / 0x00553040 / 0x00553060 its accumulate_score / score_frozen /
@@ -77,9 +77,9 @@ GameModules::CContest* TheCompetition() { return reinterpret_cast<GameModules::C
 GameModules::CLetterMatch* TheHorse() { return reinterpret_cast<GameModules::CLetterMatch*>(Horse()); }
 uint32_t CurrentHorseSkater() { return *reinterpret_cast<uint32_t*>(Horse() + 4); }
 // The horse's string `which`, built in `storage` (the caller destroys it).
-TextUtil::String* GetHorseString(void* storage, uint32_t which)
+TextUtil::Chars* GetHorseString(void* storage, uint32_t which)
 {
-    return new (storage) TextUtil::String(TheHorse()->GetString(which));
+    return new (storage) TextUtil::Chars(TheHorse()->FetchText(which));
 }
 
 // A skater's score (CRider::GetPointsTotal): 0x00561B40 its total; 0x00561410 / 0x00561420 its bonus (+0x28) added to /
@@ -88,22 +88,22 @@ uint8_t* ScoreOf(GameObjects::CGameEntity* skater)
 {
     return static_cast<uint8_t*>(static_cast<GameObjects::CRider*>(skater)->GetPointsTotal());
 }
-int TotalScore(uint8_t* score) { return reinterpret_cast<GameModules::Score*>(score)->GetTotalScore(); }
-void AddToBonus(uint8_t* score, int bonus) { reinterpret_cast<GameModules::Score*>(score)->AddBonus(bonus); }
-int GetBonus(uint8_t* score) { return reinterpret_cast<GameModules::Score*>(score)->GetBonus(); }
+int TotalScore(uint8_t* score) { return reinterpret_cast<GameModules::PointTally*>(score)->GetTotalScore(); }
+void AddToBonus(uint8_t* score, int bonus) { reinterpret_cast<GameModules::PointTally*>(score)->AddBonus(bonus); }
+int GetBonus(uint8_t* score) { return reinterpret_cast<GameModules::PointTally*>(score)->GetBonus(); }
 
 // The skater info heap, current while the competition's standings change.
 void PushSkaterInfoHeap()
 {
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_skaterInfoHeap);
 }
-void PopHeap() { MemSys::Manager::Get()->LeaveHeapScope(); }
+void PopHeap() { MemSys::Hub::Pull()->LeaveHeapScope(); }
 
 Scripts::CStruct* NewParams()
 {
     Scripts::CStruct* memory = Scripts::NewStruct();
-    return memory ? memory->Init() : nullptr;
+    return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
 {
@@ -122,14 +122,14 @@ bool __cdecl CFunc_ApplySplitScreenOptions(Scripts::CStruct*, Scripts::CScript*)
 {
     OptionStore::Preferences* prefs = SplitScreenPreferences();
     uint32_t type = 0;
-    prefs->GetPreference(kGameType)->ReadHashValue(kChecksum, &type, 1);
+    prefs->FetchSetting(kGameType)->ReadHashValue(kChecksum, &type, 1);
     LoadGameMode(type);
     prefs->GetSettingValue(kTimeLimit, kTime);
     if (GameModeIsTrue(kIsHorse)) {
         int timeLimit = prefs->GetSettingValue(kHorseTimeLimit, kTime);
         const char* word = prefs->GetPreferenceString(kHorseWord, kUiString);
         // (the string is passed by value: the horse's code destroys it)
-        TheHorse()->SetLetters(TextUtil::String(word));
+        TheHorse()->SetLetters(TextUtil::Chars(word));
         Scripts::CStruct* options = NewParams();
         options->AddComponentOfType(kDefaultTimeLimit, Scripts::QBVAL_INTEGER, static_cast<uint32_t>(timeLimit));
         OverrideGameModeOptions(options);
@@ -146,19 +146,19 @@ bool __cdecl CFunc_StartCompetition(Scripts::CStruct* params, Scripts::CScript*)
     // (uninitialised in the original when missing)
     float gold = 0.0f, silver = 0.0f, bronze = 0.0f, goldScore = 0.0f, silverScore = 0.0f, bronzeScore = 0.0f,
           bail = 0.0f;
-    params->GetFloat("gold", &gold, 0);
-    params->GetFloat("silver", &silver, 0);
-    params->GetFloat("bronze", &bronze, 0);
-    params->GetFloat("gold_score", &goldScore, 0);
-    params->GetFloat("silver_score", &silverScore, 0);
-    params->GetFloat("bronze_score", &bronzeScore, 0);
-    params->GetFloat("bail", &bail, 0);
+    params->FetchFloat("gold", &gold, 0);
+    params->FetchFloat("silver", &silver, 0);
+    params->FetchFloat("bronze", &bronze, 0);
+    params->FetchFloat("gold_score", &goldScore, 0);
+    params->FetchFloat("silver_score", &silverScore, 0);
+    params->FetchFloat("bronze_score", &bronzeScore, 0);
+    params->FetchFloat("bail", &bail, 0);
     Scripts::CStruct* extra = nullptr;
     params->ReadSubStruct(kExtraParams, &extra, 0);
     PushSkaterInfoHeap();
     if (extra)
         TheCompetition()->RewriteArgs(extra);
-    TheCompetition()->Start(bronze, silver, gold, bronzeScore, silverScore, goldScore, bail);
+    TheCompetition()->Kickoff(bronze, silver, gold, bronzeScore, silverScore, goldScore, bail);
     PopHeap();
     return true;
 }
@@ -215,13 +215,13 @@ bool __cdecl CFunc_CompetitionEnded(Scripts::CStruct*, Scripts::CScript*)
 // 0x005AF4C0 EndHorseRun, 0x005AF4E0 SwitchHorsePlayers.
 bool __cdecl CFunc_StartHorse(Scripts::CStruct*, Scripts::CScript*)
 {
-    TheHorse()->Init();
+    TheHorse()->PrepareAll();
     return true;
 }
 
 bool __cdecl CFunc_HorseEnded(Scripts::CStruct*, Scripts::CScript*)
 {
-    return TheHorse()->Ended();
+    return TheHorse()->IsOver();
 }
 
 bool __cdecl CFunc_HorseStatusEquals(Scripts::CStruct* params, Scripts::CScript*)
@@ -254,16 +254,16 @@ bool __cdecl CFunc_ApplyToHorsePanelString(Scripts::CStruct* params, Scripts::CS
     uint32_t which = 0, id = 0;
     params->ReadHashValue(kWhichString, &which, 1);
     params->ReadHashValue(kId, &id, 1);
-    alignas(4) uint8_t storage[sizeof(TextUtil::String)];
-    TextUtil::String* text = GetHorseString(storage, which);
+    alignas(4) uint8_t storage[sizeof(TextUtil::Chars)];
+    TextUtil::Chars* text = GetHorseString(storage, which);
     GameObjects::CGameEntity* skater = GetRiderByNumber(CurrentHorseSkater());
     Scripts::CStruct* panel = NewParams();
     panel->MergeStructure(params);
-    panel->AddString(kText, text->c_str());
+    panel->AppendWord(kText, text->c_str());
     panel->PutNameKey(kId, id);
     Scripts::LaunchScript(kCreateHorsePanelMessage, panel, skater, false, nullptr);
     DeleteParams(panel);
-    text->~String();
+    text->~Chars();
     return true;
 }
 
@@ -272,10 +272,10 @@ bool __cdecl CFunc_GetHorseString(Scripts::CStruct* params, Scripts::CScript* sc
 {
     uint32_t which = 0;
     params->ReadHashValue(kWhichString, &which, 1);
-    alignas(4) uint8_t storage[sizeof(TextUtil::String)];
-    TextUtil::String* text = GetHorseString(storage, which);
-    script->m_params->AddString(kText, text->c_str());
-    text->~String();
+    alignas(4) uint8_t storage[sizeof(TextUtil::Chars)];
+    TextUtil::Chars* text = GetHorseString(storage, which);
+    script->m_args->AppendWord(kText, text->c_str());
+    text->~Chars();
     return true;
 }
 
@@ -351,7 +351,7 @@ bool __cdecl CFunc_GetBonusValue(Scripts::CStruct* params, Scripts::CScript* scr
     params->FetchIntValue(kSkater, &index, 1);
     GameObjects::CGameEntity* skater = GetRiderAt(index);
     if (skater->m_unknownBC)
-        script->m_params->PutInt(kBonus, GetBonus(ScoreOf(skater)));
+        script->m_args->PutInt(kBonus, GetBonus(ScoreOf(skater)));
     return true;
 }
 

@@ -60,40 +60,40 @@ T& At(const void* base, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(base) + offset);
 }
-Maths::Vector& VectorAt(const void* base, uint32_t offset) { return At<Maths::Vector>(base, offset); }
+Maths::Vec4& VectorAt(const void* base, uint32_t offset) { return At<Maths::Vec4>(base, offset); }
 
 int StateOf(void* core) { return At<int>(At<void*>(core, kTimedFlags), 0x18); }
-void SetState(void* core, int state) { static_cast<Skater::CorePhysicsComponent*>(core)->SetPhysicsState(state); }
+void ChangePhase(void* core, int state) { static_cast<Skater::CorePhysicsComponent*>(core)->SetPhysicsState(state); }
 
 } // namespace
 
 // 0x004F8420
-void CRiderPhysicsTweaks::Update()
+void CRiderPhysicsTweaks::TickFrame()
 {
     void* core = mp_core;
-    void* object = m_object;
+    void* object = m_entity;
     m_uberFrigged = 0;
-    Maths::Vector& position = VectorAt(object, kPosition);
-    const Maths::Vector& frameStart = VectorAt(core, kFrameStart);
+    Maths::Vec4& position = VectorAt(object, kPosition);
+    const Maths::Vec4& frameStart = VectorAt(core, kFrameStart);
     if (position.x == frameStart.x && position.y == frameStart.y && position.z == frameStart.z &&
         position.w == frameStart.w)
         return; // (not moved this frame)
 
     // The ground below: a feeler from just over the skater (8 up) to uber_frig_current_height feet under it.
-    Maths::Vector& start = VectorAt(core, kFeelerStart);
-    Maths::Vector& end = VectorAt(core, kFeelerEnd);
+    Maths::Vec4& start = VectorAt(core, kFeelerStart);
+    Maths::Vec4& end = VectorAt(core, kFeelerEnd);
     start = position;
     end = position;
-    const Maths::Vector& up = VectorAt(object, kUp);
+    const Maths::Vec4& up = VectorAt(object, kUp);
     start.x = static_cast<float>(static_cast<double>(up.x) * kUpNudge + start.x);
     start.y = static_cast<float>(static_cast<double>(up.y) * kUpNudge + start.y);
     start.z = static_cast<float>(static_cast<double>(up.z) * kUpNudge + start.z);
     start.w = static_cast<float>(static_cast<double>(up.w) * kUpNudge + start.w);
     start.y = static_cast<float>(static_cast<double>(start.y) + kFeelerAbove);
     end.y = static_cast<float>(static_cast<double>(end.y) -
-                               static_cast<double>(Scripts::GetFloat(kUberFrigCurrentHeight)) * kFeet);
+                               static_cast<double>(Scripts::FetchFloat(kUberFrigCurrentHeight)) * kFeet);
     // Not original: THAW 0x005C2820 - on the bike the feeler starts higher (thaw_bmx_physics.cpp).
-    float raise = Skater::ThawBmx::Active(core) ? Skater::ThawBmx::StuckCheckRaise(core) : 0.0f;
+    float raise = Skater::ThawBmx::LiveNow(core) ? Skater::ThawBmx::StuckCheckRaise(core) : 0.0f;
     if (raise != 0.0f)
         start.y += raise;
     auto* physics = static_cast<Skater::CorePhysicsComponent*>(core);
@@ -107,16 +107,16 @@ void CRiderPhysicsTweaks::Update()
             m_uberFrigged = 1;
             if (m_uberFrigTries < 5) {
                 const float* offset = kUberFrigOffsets[m_uberFrigTries++];
-                const Maths::Vector& from = VectorAt(core, kFrameStart);
+                const Maths::Vec4& from = VectorAt(core, kFrameStart);
                 position = {offset[0] + from.x, from.y + offset[1], from.z + offset[2], from.w + offset[3]};
             } else {
                 m_uberFrigTries = 0;
             }
-            Maths::Vector& velocity = VectorAt(object, kVelocity);
+            Maths::Vec4& velocity = VectorAt(object, kVelocity);
             velocity = {-velocity.x + kNudgeXY, -velocity.y + kNudgeXY, -velocity.z + kNudgeZ, -velocity.w + kOne};
             state = StateOf(core);
             if (state != 0 && state != 1)
-                SetState(core, 1);
+                ChangePhase(core, 1);
         }
         At<float>(mp_state, kHeightOverGround) = 0.0f;
         return;
@@ -128,17 +128,17 @@ void CRiderPhysicsTweaks::Update()
     if (!flags[0x88] && !flags[0x78] && mp_ride->mp_ride) {
         CRideTracker* ride = mp_ride->mp_ride;
         bool leave = true;
-        if (ride->m_object.m_ownerObject) {
+        if (ride->m_entity.m_ownerObject) {
             int state = At<int>(flags, 0x18);
             if (state == 0 || state == 1) {
                 Engine3D::CProbeRay& feeler = At<Engine3D::CProbeRay>(core, kFeeler);
-                if (feeler.HitObjectAlive() && feeler.GetHitObject() == ride->m_object.m_ownerObject)
+                if (feeler.HitObjectAlive() && feeler.GetHitObject() == ride->m_entity.m_ownerObject)
                     leave = false;
             } else {
                 leave = false;
             }
             if (leave)
-                VectorAt(object, kVelocity) += VectorAt(mp_ride->mp_ride->m_object.m_ownerObject, kVelocity);
+                VectorAt(object, kVelocity) += VectorAt(mp_ride->mp_ride->m_entity.m_ownerObject, kVelocity);
         }
         if (leave)
             mp_ride->StopRiding();
@@ -151,7 +151,7 @@ void CRiderPhysicsTweaks::Update()
         if (over < kLeastHeight)
             position.y = static_cast<float>(static_cast<double>(VectorAt(core, kHitPoint).y) + kLeastHeight);
     }
-    m_shadowHandle->SetPosition(&VectorAt(core, kHitPoint));
+    m_shadowHandle->ChangePlace(&VectorAt(core, kHitPoint));
     m_shadowHandle->SetNormal(&VectorAt(core, kHitNormal));
     if (StateOf(core) != 4)
         UpdateBrightness(&At<Engine3D::CProbeRay>(core, kFeeler));
@@ -161,40 +161,40 @@ void CRiderPhysicsTweaks::Update()
         // passed over) hits a floor. Within 6 of it: onto it. Further, moved this frame: back where the frame began
         // at half the speed the other way (a lip: out of it, into the air, 2 up); hardly moved: onto it.
         Engine3D::CProbeRay feeler;
-        feeler.Construct();
+        feeler.MakeNew();
         feeler.SetExcluded(0x810, 0);
-        Maths::Vector from = {position.x, static_cast<float>(static_cast<double>(position.y) + kFloorProbeHeight),
+        Maths::Vec4 from = {position.x, static_cast<float>(static_cast<double>(position.y) + kFloorProbeHeight),
                             position.z, position.w};
-        feeler.SetStart(&from);
-        Maths::Vector to = {up.x + position.x, position.y + up.y, position.z + up.z, position.w + up.w};
+        feeler.ChangeOrigin(&from);
+        Maths::Vec4 to = {up.x + position.x, position.y + up.y, position.z + up.z, position.w + up.w};
         // Not original: on the bike as far up as the ground check's start (thaw_bmx_physics.cpp StuckCheckRaise).
         if (raise != 0.0f)
             to.y += raise;
-        feeler.SetEnd(&to);
+        feeler.ChangeFinish(&to);
         if (feeler.GetHitShape(true, false)) {
-            Maths::Vector off = {position.x - feeler.m_contactPos.x, position.y - feeler.m_contactPos.y,
+            Maths::Vec4 off = {position.x - feeler.m_contactPos.x, position.y - feeler.m_contactPos.y,
                                position.z - feeler.m_contactPos.z, position.w - feeler.m_contactPos.w};
             double near = static_cast<double>(off.x) * off.x + static_cast<double>(off.y) * off.y +
                           static_cast<double>(off.z) * off.z;
             if (near < kFloorNear) {
                 position = feeler.m_contactPos;
             } else {
-                const Maths::Vector& began = VectorAt(core, kFrameStart);
-                Maths::Vector moved = {position.x - began.x, position.y - began.y, position.z - began.z,
+                const Maths::Vec4& began = VectorAt(core, kFrameStart);
+                Maths::Vec4 moved = {position.x - began.x, position.y - began.y, position.z - began.z,
                                      position.w - began.w};
                 double movedSqr = static_cast<double>(moved.x) * moved.x + static_cast<double>(moved.y) * moved.y +
                                   static_cast<double>(moved.z) * moved.z;
                 position = movedSqr < kOne ? feeler.m_contactPos : began;
-                Maths::Vector& velocity = VectorAt(object, kVelocity);
+                Maths::Vec4& velocity = VectorAt(object, kVelocity);
                 velocity = {kBounce * velocity.x, kBounce * velocity.y, kBounce * velocity.z, kBounce * velocity.w};
                 if (StateOf(core) == 4) {
-                    SetState(core, 1);
-                    static_cast<CObject*>(object)->PostOwnEvent(kUnderTheFloor, nullptr);
+                    ChangePhase(core, 1);
+                    static_cast<CEntity*>(object)->PostOwnEvent(kUnderTheFloor, nullptr);
                     position.y = static_cast<float>(static_cast<double>(position.y) + kLift);
                 }
             }
         }
-        feeler.m_object.Release();
+        feeler.m_entity.Release();
     }
     m_uberFrigTries = 0;
     VectorAt(core, kFrameStart) = position;

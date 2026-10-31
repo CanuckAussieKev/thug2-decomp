@@ -53,7 +53,7 @@ double X87Sin(double angle)
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The rotation of `angles` (radians) as a matrix (0x0041A730: the identity times RotationX, RotationY, RotationZ).
-void AnglesToMatrix(Maths::Matrix* matrix, const Maths::Vector* angles)
+void AnglesToMatrix(Maths::Mat4* matrix, const Maths::Vec4* angles)
 {
     matrix->InitFromAngles(*angles);
 }
@@ -76,19 +76,19 @@ void CPinnedObjectModule::ConfigureFromData(Scripts::CStruct* params)
     m_lockFlags |= LOCK_FLAG_LOCKED;
     params->ReadHashValue(kObjectName, &m_entityLabel, 0);
     auto* offset = reinterpret_cast<Scripts::VectorValue*>(&m_shift);
-    if (!params->GetVector(0u, offset, 0))
-        params->GetVector(kBoneOffset, offset, 0);
+    if (!params->FetchVec(0u, offset, 0))
+        params->FetchVec(kBoneOffset, offset, 0);
     params->ReadHashValue(kId, &m_targetId, 0);
     params->ReadHashValue(kBone, &m_bone, 0);
     // (updated after the target: its priority less one)
     CEntityHub* manager = CompositeObjectManager();
-    CObject* target = manager->LookUpEntity(m_targetId);
+    CEntity* target = manager->LookUpEntity(m_targetId);
     if (!target)
         target = manager->LookUpEntity(m_entityLabel);
     if (target) {
         int priority = Truncated(static_cast<double>(target->m_listLink.priority) - 1.0);
-        reinterpret_cast<void(__thiscall*)(CObjectHubBase*, CObject*, int)>(manager->m_vtable[4])(
-            manager, reinterpret_cast<CObject*>(m_object), priority);
+        reinterpret_cast<void(__thiscall*)(CObjectHubBase*, CEntity*, int)>(manager->m_vtable[4])(
+            manager, reinterpret_cast<CEntity*>(m_entity), priority);
     }
     m_lockFlags &= ~LOCK_FLAG_LAG;
     m_lagMin = 1.0f;
@@ -113,7 +113,7 @@ void CPinnedObjectModule::ConfigureFromData(Scripts::CStruct* params)
     else
         m_lockFlags &= ~LOCK_FLAG_ANGLES;
     if (m_lockFlags & LOCK_FLAG_ANGLES) {
-        Maths::Vector angles;
+        Maths::Vec4 angles;
         LevelNodes::ReadTurnAngles(params, &angles);
         AnglesToMatrix(&m_orientationTurn, &angles);
     }
@@ -123,7 +123,7 @@ void CPinnedObjectModule::ConfigureFromData(Scripts::CStruct* params)
 }
 
 // 0x0041FF90
-void CPinnedObjectModule::Update()
+void CPinnedObjectModule::TickFrame()
 {
     if (!(m_lockFlags & LOCK_FLAG_LOCKED))
         return;
@@ -133,10 +133,10 @@ void CPinnedObjectModule::Update()
     }
     // NOT ORIGINAL: THAW's no_rotate - placed by the lock (the offset turned by the target, as THAW's ferris cars go
     // round with the wheel), its own orientation kept.
-    Maths::Matrix own = m_object->m_basisFrame;
+    Maths::Mat4 own = m_entity->m_basisFrame;
     UpdateLock();
-    m_object->m_basisFrame = own;
-    m_object->m_displayMatrix = own;
+    m_entity->m_basisFrame = own;
+    m_entity->m_displayMatrix = own;
 }
 
 // 0x0041F410

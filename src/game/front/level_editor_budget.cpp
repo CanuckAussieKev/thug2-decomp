@@ -36,20 +36,20 @@ namespace MenuSystem::LevelEditor::Budget {
 
 double Fill(double used, double limit) { return limit > 0.0 ? used / limit : 0.0; }
 
-Level LevelOf(double used, double limit)
+StageMap LevelOf(double used, double limit)
 {
     if (limit <= 0.0)
-        return Level::Ok;
+        return StageMap::Ok;
     if (used > limit)
-        return Level::Over;
-    return used >= 0.8 * limit ? Level::Near : Level::Ok;
+        return StageMap::Over;
+    return used >= 0.8 * limit ? StageMap::Near : StageMap::Ok;
 }
 
-uint32_t LevelColour(Level level)
+uint32_t LevelColour(StageMap level)
 {
     switch (level) {
-    case Level::Over: return 0xFFE5484D;
-    case Level::Near: return 0xFFF5A524;
+    case StageMap::Over: return 0xFFE5484D;
+    case StageMap::Near: return 0xFFF5A524;
     default: return 0xFF46A758;
     }
 }
@@ -137,25 +137,25 @@ constexpr int kPoolCount = static_cast<int>(sizeof(kPools) / sizeof(kPools[0]));
 
 bool PoolUse(MemSys::PoolPair& pools, int* used, int* count)
 {
-    MemSys::Pool* pool = pools.current == 0 || pools.current == 1 ? pools.pools[pools.current] : nullptr;
+    MemSys::SlabBank* pool = pools.current == 0 || pools.current == 1 ? pools.pools[pools.current] : nullptr;
     if (!pool)
         return false;
-    *used = pool->m_used;
-    *count = pool->m_count;
+    *used = pool->m_takenCount;
+    *count = pool->m_num;
     return true;
 }
 
 // A region's bytes and what's free in it: between its two allocators' tops, and their free blocks.
-bool RegionUse(MemSys::Region* region, double* size, double* used)
+bool RegionUse(MemSys::Zone* region, double* size, double* used)
 {
     if (!region)
         return false;
     double free = region->FreeByteCount();
-    for (MemSys::Allocator* allocator : region->m_allocators) {
+    for (MemSys::MemSource* allocator : region->m_allocators) {
         if (allocator)
             free += allocator->m_freeSize;
     }
-    *size = static_cast<double>(region->m_end - region->m_start);
+    *size = static_cast<double>(region->m_finish - region->m_outset);
     *used = *size - free;
     return true;
 }
@@ -167,17 +167,17 @@ bool LevelUp()
 }
 
 // The baseline: taken in the first frame a level (each load) is up.
-struct Baseline {
+struct Datum {
     int loads = -1;
     bool taken = false;
     double main = 0.0, script = 0.0;
     int pools[kPoolCount] = {};
 };
-Baseline g_base;
+Datum g_base;
 
 void TakeBaseline()
 {
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     double size = 0.0;
     g_base.main = g_base.script = 0.0;
     if (manager) {
@@ -207,14 +207,14 @@ void Observe()
 std::vector<Meter> Meters()
 {
     std::vector<Meter> meters;
-    const std::vector<Nodes::Node>& nodes = Nodes::All();
+    const std::vector<Nodes::Elem>& nodes = Nodes::All();
     if (nodes.empty())
         return meters;
     // Counted as the game counts them now, and as the level has them (no added node; hidden ones counted).
     int crownsShipped = 0, restartsShipped = 0, addedNodes = 0;
     static const uint32_t kRestart = Checksums::HashFromText("Restart"),
                           kCrown = Checksums::HashFromText("Crown");
-    for (const Nodes::Node& n : nodes) {
+    for (const Nodes::Elem& n : nodes) {
         if (n.added) {
             ++addedNodes;
             continue;
@@ -237,7 +237,7 @@ std::vector<Meter> Meters()
     count("Restarts", counts.restarts, NodeCreate::kMaxRestarts, counts.restarts - restartsShipped,
           "GetRestartNode 0x0046B790: a 256-name stack array for every restart (more overruns it)");
     int addedLights = 0;
-    for (const Nodes::Node& n : nodes)
+    for (const Nodes::Elem& n : nodes)
         addedLights += n.added && !n.hidden && n.family == Nodes::Family::Light;
     count("Level lights", counts.levelLights, NodeCreate::kMaxLevelLights, addedLights,
           "the light manager's level light list (count 0x006FAEF4; AddLight 0x00490570)");
@@ -247,12 +247,12 @@ std::vector<Meter> Meters()
           "the node manager's name hash 0x006F0D84 (HashNode 0x0045CE60): original 0x4000 slots, ours [memory] "
           "node_hash_slots");
     if (LevelNodes::CNodeManager* manager = LevelNodes::NodeManagerInstance())
-        count("Node arrays", manager->m_count, LevelNodes::CNodeManager::kMaxArrays, 0,
+        count("Node arrays", manager->m_num, LevelNodes::CNodeManager::kMaxArrays, 0,
               "CNodeManager's 20 node arrays (AddNodeArray 0x0045D520)");
     count("Editor trigger volumes", static_cast<double>(Triggers::AddedTriggers().size()), 0,
           static_cast<double>(Triggers::AddedTriggers().size()), "the movable collision list (no fixed limit)");
     int faces = 0;
-    int companions = SharedCollision::Count(&faces);
+    int companions = SharedCollision::TotalOf(&faces);
     (void)companions;
     count("Collision faces taken along", faces, 0, faces,
           "companions' faces (at most 2048 a piece: SharedCollision::kMostFaces)");
@@ -273,7 +273,7 @@ std::vector<Meter> Meters()
         m.where = kPools[i].where;
         meters.push_back(m);
     }
-    if (MemSys::Manager* manager = MemSys::Manager::Get()) {
+    if (MemSys::Hub* manager = MemSys::Hub::Pull()) {
         double size = 0.0, used = 0.0;
         if (RegionUse(manager->m_scriptRegion, &size, &used)) {
             Meter m;
@@ -343,7 +343,7 @@ void Tooltip()
     ImGui::Text("Budget: %s %s (click for details)", meters[worst].name, UsedText(meters[worst]).c_str());
     ImGui::Separator();
     for (const Meter& m : meters) {
-        Level l = LevelOf(m.used, m.limit);
+        StageMap l = LevelOf(m.used, m.limit);
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(Colour(LevelColour(l))), "%s", "\xE2\x97\x8F");
         ImGui::SameLine();
         std::string added = AddedText(m);
@@ -377,7 +377,7 @@ void Table()
         ImGui::TextUnformatted(UsedText(m).c_str());
         ImGui::TableNextColumn();
         if (m.limit > 0.0) {
-            Level l = LevelOf(m.used, m.limit);
+            StageMap l = LevelOf(m.used, m.limit);
             ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImGui::ColorConvertU32ToFloat4(Colour(LevelColour(l))));
             ImGui::ProgressBar(static_cast<float>(std::min(1.0, Fill(m.used, m.limit))), ImVec2(-1.0f, 0.0f), "");
             ImGui::PopStyleColor();

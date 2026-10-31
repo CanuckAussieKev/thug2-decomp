@@ -66,9 +66,9 @@ void KeyBufferAdd(void* keyBuffer, int key) { GameSpy::Qr2KeyBufferAdd(keyBuffer
 // 0x0053F7E0
 void RoomManager::StopHosting()
 {
-    if (m_peer) {
-        GameSpy::PeerStopGame(m_peer); // peerStopGame
-        m_hostingTask->Remove();
+    if (m_remote) {
+        GameSpy::PeerStopGame(m_remote); // peerStopGame
+        m_hostingTask->DropOut();
     }
     m_hosting = false;
 }
@@ -78,15 +78,15 @@ bool RoomManager::IsHosting() { return m_hosting; }
 // 0x0053F820
 char* RoomManager::GetRoomName() { return m_roomName; }
 // 0x0053F830
-void RoomManager::SetServerName(const char* name) { std::strcpy(m_serverName, name); }
+void RoomManager::ChangeHostName(const char* name) { std::strcpy(m_serverName, name); }
 // 0x0053F850
-char* RoomManager::GetServerName() { return m_serverName; }
+char* RoomManager::FetchHostName() { return m_serverName; }
 // 0x0053F860
 void RoomManager::ClearLostConnection() { m_lostConnection = false; }
 // 0x0053F870
 void RoomManager::SetLostConnection() { m_lostConnection = true; }
 // 0x0053F880
-void* RoomManager::GetLobbyHandle() { return m_peer; }
+void* RoomManager::GetLobbyHandle() { return m_remote; }
 // 0x0053F890
 bool RoomManager::InGroupRoom() { return m_inGroupRoom; }
 
@@ -105,12 +105,12 @@ bool __cdecl CFunc_ResetConnectionTimer(Scripts::CStruct*, Scripts::CScript*)
 // 0x0053F8D0
 void __cdecl RoomManager::ServerKeyCallback(void*, int key, void* buffer, void*)
 {
-    Manager* manager = g_gameNetManager;
+    Hub* manager = g_gameNetManager;
     OptionStore::Preferences* prefs = manager->GetOnlineSettings();
     switch (key) {
     case kKeyHostname: {
         const char* text = nullptr;
-        prefs->GetPreference(kServerName)->GetString(kUiString, &text, 1);
+        prefs->FetchSetting(kServerName)->FetchText(kUiString, &text, 1);
         BufferAdd(buffer, text);
         break;
     }
@@ -137,7 +137,7 @@ void __cdecl RoomManager::ServerKeyCallback(void*, int key, void* buffer, void*)
         BufferAddInt(buffer, 0);
         break;
     case kKeyPassword:
-        BufferAddInt(buffer, *manager->GetPassword() != '\0' ? 1 : 0);
+        BufferAddInt(buffer, *manager->FetchSecret() != '\0' ? 1 : 0);
         break;
     case kKeyObservers:
         BufferAddInt(buffer, manager->CountObservers());
@@ -155,7 +155,7 @@ void __cdecl RoomManager::ServerKeyCallback(void*, int key, void* buffer, void*)
         BufferAddInt(buffer, manager->GetHostingRole());
         break;
     case kKeyLoggedIn:
-        BufferAddInt(buffer, Field<bool>(manager->m_buddyMan, 0x10) ? 1 : 0); // (the presence)
+        BufferAddInt(buffer, Prop<bool>(manager->m_buddyMan, 0x10) ? 1 : 0); // (the presence)
         break;
     default:
         BufferAdd(buffer, "");

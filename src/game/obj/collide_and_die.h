@@ -7,7 +7,7 @@
 #include "game/obj/object.h"
 
 namespace OnlinePlay {
-class Manager;
+class Hub;
 }
 
 namespace Scripts {
@@ -29,21 +29,21 @@ public:
     static constexpr uint32_t kType = 0x6259B52B;
 
     // 0x0041C370 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0041C210: the base's constructor, its vtable and type; no radius, scale or script, made now (the game clock),
     // not dying, the first update to come. Returns this.
-    CImpactDestructModule* Construct();
+    CImpactDestructModule* MakeNew();
     // 0x0041C1F0: the base's body.
     void DestroyBody();
     // 0x0041C280 (vtable slot 0)
-    CImpactDestructModule* Destroy(unsigned int flags);
+    CImpactDestructModule* Teardown(unsigned int flags);
     // 0x0041C2B0 (vtable slot 2): radius, scale, death_script (each asserted), vel (asserted; default (0, 0, 1),
     // normalised).
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x0041C330 (vtable slot 3): the object's suspend component.
-    void Finalize();
+    void Seal();
     // 0x0041C3D0 (vtable slot 1): see the class. The times are the game clock's, compared unsigned.
-    void Update();
+    void TickFrame();
 
     uint8_t* mp_suspend;    // +0x18 the suspend component (+0x30: suspended)
     float m_radius;         // +0x1C radius
@@ -54,8 +54,8 @@ public:
     bool m_fadingOut;           // +0x30
     bool m_firstUpdate;     // +0x31
     uint8_t pad32[2];
-    Maths::Vector m_vel;      // +0x34 vel (normalised)
-    Maths::Vector m_lastPos;  // +0x44 the object's position at the last update
+    Maths::Vec4 m_vel;      // +0x34 vel (normalised)
+    Maths::Vec4 m_lastPos;  // +0x44 the object's position at the last update
 };
 static_assert(offsetof(CImpactDestructModule, m_radius) == 0x1C &&
                   offsetof(CImpactDestructModule, m_deathTime) == 0x2C &&
@@ -64,6 +64,6 @@ static_assert(offsetof(CImpactDestructModule, m_radius) == 0x1C &&
                   offsetof(CImpactDestructModule, m_lastPos) == 0x44 && sizeof(CImpactDestructModule) == 0x54,
               "layout must match the original");
 
-extern OnlinePlay::Manager* g_gameNetManager;
+extern OnlinePlay::Hub* g_gameNetManager;
 
 } // namespace Obj

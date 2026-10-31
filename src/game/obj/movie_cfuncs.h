@@ -17,13 +17,13 @@ namespace ScriptCommands {
 // An entry of the cutscene destroy list (AddToCutsceneDestroyList, 0x005B5320; 0xC bytes): the object's name, the
 // script that destroys it (destroy_func) and its parameters (destroy_params, a structure of the entry's own).
 struct CutsceneDestroyEntry {
-    uint32_t m_name;            // +0x00
+    uint32_t m_label;            // +0x00
     uint32_t m_destroyScript;   // +0x04
-    Scripts::CStruct* m_params;  // +0x08
+    Scripts::CStruct* m_args;  // +0x08
     // 0x005ADF60: the constructor: no name or script, a new empty structure (null if out of memory). Returns this.
-    CutsceneDestroyEntry* Construct();
+    CutsceneDestroyEntry* MakeNew();
 };
-static_assert(sizeof(CutsceneDestroyEntry) == 0xC && offsetof(CutsceneDestroyEntry, m_params) == 8,
+static_assert(sizeof(CutsceneDestroyEntry) == 0xC && offsetof(CutsceneDestroyEntry, m_args) == 8,
               "layout must match the original");
 
 bool __cdecl CFunc_PlaySkaterCamAnim(Scripts::CStruct* params, Scripts::CScript* script);          // 0x005AD830

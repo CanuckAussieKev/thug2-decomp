@@ -25,7 +25,7 @@ constexpr uint32_t kVolL = 0x5E285A66;          // "volL"
 constexpr uint32_t kVolR = 0xA4276705;          // "volR"
 constexpr uint32_t kId = 0x40C698AF;            // "id"
 constexpr uint32_t kBank = 0x279F4085;          // "bank"
-constexpr uint32_t kLevelSound = 0x389129E4;    // (name unknown) LoadSound: a level sound (load type 0)
+constexpr uint32_t kLevelSound = 0x389129E4;    // (name unknown) IngestSound: a level sound (load type 0)
 constexpr uint32_t kPosUpdateWithDoppler = 0xCF15C120; // "PosUpdateWithDoppler"
 constexpr uint32_t kNoReverb = 0x8B87176F;      // "NoReverb"
 constexpr uint32_t kDebugSoundFx = 0xD7BB618D;  // "DebugSoundFX"
@@ -46,31 +46,31 @@ SoundFx::CAudioMixer* SfxManager() { return SoundFx::g_sfxManager; }
 // A stereo volume of the manager's default type: left and right.
 void SetStereo(SoundFx::volumeRef& volume, float left, float right)
 {
-    volume.Init();
+    volume.PrepareAll();
     volume.ChangeMuted();
-    volume.m_channels[0] = left;
-    volume.m_channels[1] = right;
+    volume.m_lanes[0] = left;
+    volume.m_lanes[1] = right;
 }
 
 } // namespace
 
-// 0x0044D7D0: LoadSound <file> [pitch=100] [dropoff=feet] [vol=100] [0x389129E4 | bank=n] [PosUpdateWithDoppler |
+// 0x0044D7D0: IngestSound <file> [pitch=100] [dropoff=feet] [vol=100] [0x389129E4 | bank=n] [PosUpdateWithDoppler |
 // NoReverb]: the sound loaded - into the level's table with the flag 0x389129E4 (load type 0), as a bank's sound
 // (2) with bank=, else permanently (1); the flags 1 / 2. Always true (nothing without a file).
 bool __cdecl CFunc_LoadSound(CStruct* params, CScript*)
 {
     const char* file;
-    if (!params->GetString(0u, &file, 1))
+    if (!params->FetchText(0u, &file, 1))
         return true;
     float pitch = 100.0f;
     float volume = 100.0f;
     float dropoff = 0.0f;
     int bank = 0;
     int loadType = 1;
-    params->GetFloat(kPitch, &pitch, 0);
-    if (params->GetFloat(kDropoff, &dropoff, 0))
+    params->FetchFloat(kPitch, &pitch, 0);
+    if (params->FetchFloat(kDropoff, &dropoff, 0))
         dropoff *= kFeetToInches;
-    params->GetFloat(kVol, &volume, 0);
+    params->FetchFloat(kVol, &volume, 0);
     if (params->HasBareFlag(kLevelSound))
         loadType = 0;
     else if (params->FetchIntValue(kBank, &bank, 0))
@@ -80,11 +80,11 @@ bool __cdecl CFunc_LoadSound(CStruct* params, CScript*)
         flags = 1;
     else if (params->HasBareFlag(kNoReverb))
         flags = 2;
-    SfxManager()->LoadSound(file, flags, loadType, bank, dropoff, pitch, volume);
+    SfxManager()->IngestSound(file, flags, loadType, bank, dropoff, pitch, volume);
     return true;
 }
 
-// 0x0044DC10: PlaySound <sound> [volL= volR= | vol= (100)] [pitch=100] [id=<unique id>]: played (stereo). Always
+// 0x0044DC10: EmitSound <sound> [volL= volR= | vol= (100)] [pitch=100] [id=<unique id>]: played (stereo). Always
 // true.
 bool __cdecl CFunc_PlaySound(CStruct* params, CScript*)
 {
@@ -95,17 +95,17 @@ bool __cdecl CFunc_PlaySound(CStruct* params, CScript*)
     float right = 100.0f;
     float pitch = 100.0f;
     params->ReadHashValue(0u, &sound, 0);
-    params->GetFloat(kVolL, &left, 0);
-    params->GetFloat(kVolR, &right, 0);
-    if (params->GetFloat(kVol, &vol, 0)) {
+    params->FetchFloat(kVolL, &left, 0);
+    params->FetchFloat(kVolR, &right, 0);
+    if (params->FetchFloat(kVol, &vol, 0)) {
         left = vol;
         right = vol;
     }
-    params->GetFloat(kPitch, &pitch, 0);
+    params->FetchFloat(kPitch, &pitch, 0);
     params->ReadHashValue(kId, &id, 0);
     SoundFx::volumeRef volume;
     SetStereo(volume, left, right);
-    SfxManager()->PlaySound(sound, &volume, pitch, id, nullptr, 0);
+    SfxManager()->EmitSound(sound, &volume, pitch, id, nullptr, 0);
     return true;
 }
 
@@ -139,13 +139,13 @@ bool __cdecl CFunc_SetSoundParams(CStruct* params, CScript*)
     float right = 100.0f;
     float pitch = 100.0f;
     float vol = 0.0f; // (uninitialised in the original: only read when found)
-    params->GetFloat(kVolL, &left, 0);
-    params->GetFloat(kVolR, &right, 0);
-    if (params->GetFloat(kVol, &vol, 0)) {
+    params->FetchFloat(kVolL, &left, 0);
+    params->FetchFloat(kVolR, &right, 0);
+    if (params->FetchFloat(kVol, &vol, 0)) {
         left = vol;
         right = vol;
     }
-    params->GetFloat(kPitch, &pitch, 0);
+    params->FetchFloat(kPitch, &pitch, 0);
     SoundFx::volumeRef volume;
     SetStereo(volume, left, right);
     SfxManager()->SetSoundParams(sound, &volume, pitch);
@@ -166,10 +166,10 @@ bool __cdecl CFunc_IsSoundPlaying(CStruct* params, CScript*)
 bool __cdecl CFunc_AddSoundBanks(CStruct* params, CScript*)
 {
     CArray* banks = nullptr; // (uninitialised in the original: only read when found)
-    if (params->GetArray(0u, &banks, 0)) {
+    if (params->FetchList(0u, &banks, 0)) {
         SoundFx::CAudioMixer* manager = SfxManager();
-        for (uint32_t i = 0; i < banks->m_size; ++i)
-            manager->StopGroup(static_cast<int>(banks->GetElement(i) << 10));
+        for (uint32_t i = 0; i < banks->m_extent; ++i)
+            manager->StopGroup(static_cast<int>(banks->FetchPart(i) << 10));
     }
     return true;
 }
@@ -196,7 +196,7 @@ bool __cdecl CFunc_SetSfxReverb(CStruct* params, CScript*)
 {
     float level = 0.0f;
     int mode = 0;
-    params->GetFloat(0u, &level, 0);
+    params->FetchFloat(0u, &level, 0);
     if (level > 100.0f) // (0x006463D4; a NaN is kept)
         level = 100.0f;
     params->FetchIntValue(kMode, &mode, 0);
@@ -209,7 +209,7 @@ bool __cdecl CFunc_SetSfxReverb(CStruct* params, CScript*)
 bool __cdecl CFunc_SetSfxDropoff(CStruct* params, CScript*)
 {
     float dropoff = 1020.0f;
-    params->GetFloat(0u, &dropoff, 0);
+    params->FetchFloat(0u, &dropoff, 0);
     if (dropoff <= 0.0f) // (0x0066D520; a NaN goes on)
         return false;
     SfxManager()->SetDefaultDropoff(dropoff * kFeetToInches);
@@ -220,7 +220,7 @@ bool __cdecl CFunc_SetSfxDropoff(CStruct* params, CScript*)
 bool __cdecl CFunc_SetSfxVolume(CStruct* params, CScript*)
 {
     float volume = 100.0f;
-    params->GetFloat(0u, &volume, 0);
+    params->FetchFloat(0u, &volume, 0);
     SfxManager()->ChangeMasterLoudness(volume);
     return true;
 }
@@ -229,7 +229,7 @@ bool __cdecl CFunc_SetSfxVolume(CStruct* params, CScript*)
 bool __cdecl CFunc_SetGlobalPitchModulation(CStruct* params, CScript*)
 {
     float pitch = 1.0f;
-    params->GetFloat(0u, &pitch, 0);
+    params->FetchFloat(0u, &pitch, 0);
     SoundFx::CAudioMixer* manager = SfxManager();
     bool a = params->HasBareFlag(kPitchFlagA);
     bool b = params->HasBareFlag(kPitchFlagB);
@@ -257,7 +257,7 @@ bool __cdecl CFunc_GetValueFromVolume(CStruct* params, CScript* script)
     default:
         return true;
     }
-    script->m_params->AddComponentOfType(kValue, Scripts::QBVAL_INTEGER,
+    script->m_args->AddComponentOfType(kValue, Scripts::QBVAL_INTEGER,
                                          static_cast<uint32_t>(static_cast<int>(volume) / 10));
     return true;
 }

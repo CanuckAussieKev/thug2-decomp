@@ -1,6 +1,6 @@
 #pragma once
 
-// The messages a NetLink::Conn's queues share (PendingMsg, SeqQueuedMsg) and the queue links' common part. NetLink::App's
+// The messages a NetLink::Conn's queues share (PendingMsg, SeqQueuedMsg) and the queue links' common part. NetLink::AppHost's
 // methods 0x00456910-0x00457EB0 are defined in net_app_view.cpp (App: net_app.h; Conn: net_conn.h).
 
 #include <cstddef>
@@ -16,28 +16,28 @@ namespace NetLink {
 struct PendingMsg {
     // 0x00454FA0: a copy of `data` (`length` bytes; none if 0). With a compression method (1 RLE, 2 LZSS) the
     // copy is compressed if that makes it smaller: the id becomes 0x12 (compressed) and the length shrinks.
-    PendingMsg* Construct(uint8_t id, uint16_t length, void* data, uint8_t compression);
+    PendingMsg* MakeNew(uint8_t id, uint16_t length, void* data, uint8_t compression);
     // 0x004550F0 (SeqQueuedMsg's too): the data freed.
     void DestroyBody();
 
-    uint8_t m_id;      // +0x00
+    uint8_t m_ident;      // +0x00
     uint16_t m_byteCount; // +0x02
-    char* m_data;      // +0x04
+    char* m_content;      // +0x04
     int m_shareCount;    // +0x08
 };
 struct SeqQueuedMsg {
     // 0x00455040: as PendingMsg's, with the +0x08 byte.
-    SeqQueuedMsg* Construct(uint8_t id, uint16_t length, void* data, uint8_t byte8, uint8_t compression);
+    SeqQueuedMsg* MakeNew(uint8_t id, uint16_t length, void* data, uint8_t byte8, uint8_t compression);
     // (0x004550F0: PendingMsg::DestroyBody - the data is at the same place)
     void DestroyBody() { reinterpret_cast<PendingMsg*>(this)->DestroyBody(); }
 
-    uint8_t m_id;      // +0x00
+    uint8_t m_ident;      // +0x00
     uint16_t m_byteCount; // +0x02
-    char* m_data;      // +0x04
+    char* m_content;      // +0x04
     uint8_t m_byte8;   // +0x08 (the constructor's 4th argument)
     int m_shareCount;    // +0x0C
 };
-static_assert(offsetof(PendingMsg, m_shareCount) == 0x08 && offsetof(SeqQueuedMsg, m_data) == 0x04 &&
+static_assert(offsetof(PendingMsg, m_shareCount) == 0x08 && offsetof(SeqQueuedMsg, m_content) == 0x04 &&
                   offsetof(SeqQueuedMsg, m_shareCount) == 0x0C && sizeof(SeqQueuedMsg) == 0x10,
               "layout must match the original");
 
@@ -54,7 +54,7 @@ struct TimedMsgNode : MemSys::ListNode {
     }
 };
 
-// 0x00456B30: a call through the object's vtable slot 5 (App::TearDownState for an App) - a jump, its arguments left
+// 0x00456B30: a call through the object's vtable slot 5 (AppHost::TearDownState for an App) - a jump, its arguments left
 // for the callee: the linker folded the identical non-virtual wrappers of several classes into this one.
 void VirtualSlot5Jump();
 

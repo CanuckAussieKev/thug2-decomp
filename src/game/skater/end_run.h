@@ -18,7 +18,7 @@ class CStruct;
 // Vtable: 0 Destroy, 1 Update, 12 InvokeMethodByName; the rest the base's or shared empty functions.
 namespace GameObjects {
 
-// CRiderSessionEnd::m_flags (+0x18)
+// CRiderSessionEnd::m_flagBits (+0x18)
 constexpr uint32_t END_RUN_STARTED = 0x01;      // EndOfRunStarted
 constexpr uint32_t END_RUN_DONE = 0x02;         // EndofRunDone: the run is over
 constexpr uint32_t END_RUN_FORCED = 0x04;       // ForceEndOfRun has been run (EndRun)
@@ -29,22 +29,22 @@ constexpr uint32_t END_RUN_FLAG_20 = 0x20;      // cleared by Goal_EndOfRunDone 
 class CRiderSessionEnd : public CObjectModule {
 public:
     // 0x00510F90 (registered by RegisterComponentTypes): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00510D20: the destructor body (the base's).
     void DestroyBody();
     // 0x00510D40 (vtable slot 0)
-    CRiderSessionEnd* Destroy(unsigned int flags);
+    CRiderSessionEnd* Teardown(unsigned int flags);
 
     // 0x00510D70 (vtable +0x04): outside a multiplayer game the component suspends itself. A local skater whose run
     // is over tells the network manager (0x00533250: message 0x59 to the server) unless it has already.
-    void Update();
+    void TickFrame();
     // 0x00510DC0 (vtable +0x30): the script member functions IsInEndOfRun (the end started but not done),
     // EndOfRunStarted, EndofRunDone, ClearEndofRunStarted, Goal_EndOfRunStarted, Goal_EndOfRunDone and RunStarted
     // (every flag cleared): 1 / 0; 2 for any other name.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     // 0x00510D30: the flags, copied into `out` (returned).
-    uint32_t* GetFlags(uint32_t* out);
+    uint32_t* FetchBits(uint32_t* out);
     // 0x00510EA0: end the run. Unless `force`, a game mode that doesn't end runs here (0x00553550) only sends the
     // skater RunHasEnded and clears END_RUN_DONE. Otherwise, once: END_RUN_FORCED, and a local skater runs
     // ForceEndOfRun.
@@ -61,9 +61,9 @@ public:
     void ClearGoalEndOfRunStarted();
     void ClearForced();
 
-    uint32_t m_flags; // +0x18 END_RUN_*
+    uint32_t m_flagBits; // +0x18 END_RUN_*
 };
-static_assert(offsetof(CRiderSessionEnd, m_flags) == 0x18 && sizeof(CRiderSessionEnd) == 0x1C,
+static_assert(offsetof(CRiderSessionEnd, m_flagBits) == 0x18 && sizeof(CRiderSessionEnd) == 0x1C,
               "layout must match the original (0x00510F90 allocates 0x1C bytes)");
 
 } // namespace Obj

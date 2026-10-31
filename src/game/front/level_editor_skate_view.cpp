@@ -112,13 +112,13 @@ bool g_capped;
 int g_railSegments;
 float g_threshold = -1.0f;
 
-V3 ToV3(const Maths::Vector& v) { return {v.x, v.y, v.z}; }
+V3 ToV3(const Maths::Vec4& v) { return {v.x, v.y, v.z}; }
 
 float GameThreshold()
 {
     if (g_threshold < 0.0f) {
         // (0x005003A0: the script float 0x3EEDE4D3 - 0x00478F00 with its assert on, as it asks - times 0x00645464)
-        float angle = Scripts::GetFloat(0x3EEDE4D3u); // (the original also passes 1, unused)
+        float angle = Scripts::FetchFloat(0x3EEDE4D3u); // (the original also passes 1, unused)
         float factor = ::ScriptCommands::g_degreesToRadians;
         g_threshold = Threshold(angle, factor);
     }
@@ -155,7 +155,7 @@ const Cached& CacheOf(uint32_t checksum, const Engine3D::CTriMeshSource* tri, in
         if (!ok)
             continue;
         uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->m_faces + f * (tri->m_smallFaces ? 8 : 10));
-        V3 n = Cross(p[1] - p[0], p[2] - p[0]);
+        V3 n = Perpendicular(p[1] - p[0], p[2] - p[0]);
         float length = std::sqrt(Dot(n, n));
         float ny = length > 0.0f ? n.y / length : 0.0f;
         Kind kind = Classify(flags, ny, threshold, (flags & 0x40) ? trigger : 0);
@@ -170,8 +170,8 @@ const Cached& CacheOf(uint32_t checksum, const Engine3D::CTriMeshSource* tri, in
 } // namespace
 
 bool Shown() { return Overlays::Shown(Overlays::kSkateability); }
-void SetShown(bool on) { Overlays::Set(Overlays::kSkateability, on); }
-void Stop() { g_cache.clear(); }
+void SetShown(bool on) { Overlays::AssignValue(Overlays::kSkateability, on); }
+void Halt() { g_cache.clear(); }
 
 void AddOverlay(const Overlays::Painter& painter)
 {
@@ -236,7 +236,7 @@ void AddOverlay(const Overlays::Painter& painter)
             float depth = 0.0f;
             for (int k = 0; k < count; ++k) {
                 float nx = 0.0f, ny = 0.0f;
-                Project(painter.camera, painter.frame, painter.lens, clipped[k], painter.nearZ * 0.5f, &nx, &ny);
+                CastOnto(painter.camera, painter.frame, painter.lens, clipped[k], painter.nearZ * 0.5f, &nx, &ny);
                 left = left && nx < -1.0f, right = right && nx > 1.0f, below = below && ny < -1.0f;
                 above = above && ny > 1.0f;
                 NdcToPixel(painter.viewport, nx, ny, &poly.x[k], &poly.y[k]);
@@ -270,22 +270,22 @@ void AddOverlay(const Overlays::Painter& painter)
         const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
         uint32_t colour = (Colour(a.spec.water ? Kind::Water : Kind::Kill) & 0x00FFFFFF) | 0xFF000000;
         for (const auto& e : edges)
-            painter.Line(corner[e[0]], corner[e[1]], colour, 2.0f);
+            painter.Seg(corner[e[0]], corner[e[1]], colour, 2.0f);
     }
     // Grind rails: the rail manager's active segments near the camera.
     uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
     auto* rails = skate ? *reinterpret_cast<GameObjects::CGrindRailHub**>(skate + 0x24) : nullptr;
     if (rails && !rails->m_onObject && rails->m_nodes) {
         int drawn = 0;
-        for (int i = 0; i < rails->m_count; ++i) {
+        for (int i = 0; i < rails->m_num; ++i) {
             const GameObjects::CGrindPoint& node = rails->m_nodes[i];
-            if (!node.m_next || (node.m_flags & GameObjects::RAIL_FLAG_CLIMBING) || !(node.m_flags & GameObjects::RAIL_FLAG_ACTIVE))
+            if (!node.m_succ || (node.m_flagBits & GameObjects::RAIL_FLAG_CLIMBING) || !(node.m_flagBits & GameObjects::RAIL_FLAG_ACTIVE))
                 continue;
-            V3 a = {node.m_pos.x, node.m_pos.y, node.m_pos.z}, b = {node.m_next->m_pos.x, node.m_next->m_pos.y,
-                                                                   node.m_next->m_pos.z};
-            if (painter.Distance(a) > kRadius && painter.Distance(b) > kRadius)
+            V3 a = {node.m_atPoint.x, node.m_atPoint.y, node.m_atPoint.z}, b = {node.m_succ->m_atPoint.x, node.m_succ->m_atPoint.y,
+                                                                   node.m_succ->m_atPoint.z};
+            if (painter.SpanTo(a) > kRadius && painter.SpanTo(b) > kRadius)
                 continue;
-            if (painter.Line(a, b, kRail, 3.0f))
+            if (painter.Seg(a, b, kRail, 3.0f))
                 ++drawn;
         }
         g_railSegments = drawn;

@@ -5,7 +5,7 @@
 
 #include "game/obj/object.h"
 
-// The model builder (Gfx2D::CModelAssembler, an GameObjects::CObject, 0x54 bytes, vtable 0x00648920): builds a model from an
+// The model builder (Gfx2D::CModelAssembler, an GameObjects::CEntity, 0x54 bytes, vtable 0x00648920): builds a model from an
 // appearance by running a build script on itself - the script's member functions (ModelAddGeom, GeomReplaceTexture,
 // ModelApplyBoneScale, ...) each do one step on the model, its skeleton and a copy of the appearance, which are held
 // in globals while Build runs. The steps are virtual (slots 9-25; the script's names go through InvokeMethodByName).
@@ -17,20 +17,20 @@ namespace Gfx2D {
 class CRig;
 class CModelLook;
 
-class CModelAssembler : public GameObjects::CObject {
+class CModelAssembler : public GameObjects::CEntity {
 public:
-    // 0x004897D0: a CObject with its own vtable; `viaResourceStore` and the texture dictionary offset its geoms are
+    // 0x004897D0: a CEntity with its own vtable; `viaResourceStore` and the texture dictionary offset its geoms are
     // loaded with. Returns this.
-    CModelAssembler* Construct(bool viaResourceStore, int texDictOffset);
-    // 0x0048A2C0: the scalar deleting destructor (vtable slot 0: CObject's destructor body - 0x00420060 - and freed
+    CModelAssembler* MakeNew(bool viaResourceStore, int texDictOffset);
+    // 0x0048A2C0: the scalar deleting destructor (vtable slot 0: CEntity's destructor body - 0x00420060 - and freed
     // with flags & 1). Returns this.
-    CModelAssembler* Destroy(unsigned int flags);
+    CModelAssembler* Teardown(unsigned int flags);
 
     // 0x0048A2F0 (slot 8): `model` (with `skeleton`) built from `appearance` by the build script `script`: a copy of
     // the appearance made on the top-down heap, the script run on the builder, the copy deleted.
     void Build(CModelLook* appearance, Engine3D::CRenderModel* model, CRig* skeleton, uint32_t script);
     // 0x0048A3B0 (slot 3): the build script's member functions (their parameters read here, then the step's slot);
-    // anything else CObject's.
+    // anything else CEntity's.
     bool InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     // --- the steps (vtable slots 9-25, in order; each returns whether it did what it was asked, mostly true) ---
@@ -70,7 +70,7 @@ public:
     // object_scaling slot's x / y / z %. Whether it was set (true with an incomplete object_scaling too).
     bool ApplyObjectScale();
     // 0x0048A220 (slot 23): the model's instance strips cleaned. True.
-    bool Finalize();
+    bool Seal();
     // 0x00489F10 (slot 24): the head's colour (its own, else its part's defaults) given to the torso (unless None,
     // men only), the hands (only the Hands part), the lower legs, the shoes (bare feet only) and the body. False
     // without a head.

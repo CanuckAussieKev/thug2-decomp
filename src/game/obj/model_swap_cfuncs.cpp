@@ -69,13 +69,13 @@ void ModelSet(Engine3D::CRenderModel* model, uint32_t value)
 {
     model->SetBoneMatrices(reinterpret_cast<uint8_t*>(value));
 }
-void FollowPosition(Engine3D::CRenderModel* model, Maths::Vector* position)
+void FollowPosition(Engine3D::CRenderModel* model, Maths::Vec4* position)
 {
     void* lights = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C);
     static_cast<Engine3D::CModelLights*>(lights)->BindPositionSource(position);
 }
 
-// The model component's SetModel through its vtable (slot 14).
+// The model component's ChangeMesh through its vtable (slot 14).
 void SetModelVirtual(GameObjects::CMeshInstanceModule* component, Engine3D::CRenderModel* model)
 {
     auto** vtable = *reinterpret_cast<void***>(component);
@@ -85,11 +85,11 @@ void SetModelVirtual(GameObjects::CMeshInstanceModule* component, Engine3D::CRen
 // An object's shadow made again: a skater's in its skater heap (type 1), anything else's type 2.
 void RemakeShadow(CGameEntity* object, GameObjects::CGroundShadowModule* shadow, GameObjects::CRider* skater)
 {
-    if (object->GetComponent(kSkaterCorePhysics)) {
-        MemSys::Manager* manager = MemSys::Manager::Get();
+    if (object->FetchModule(kSkaterCorePhysics)) {
+        MemSys::Hub* manager = MemSys::Hub::Pull();
         manager->EnterHeapScope(manager->m_skaterHeaps[skater->GetSkaterNumber()]);
         shadow->CreateShadow(1, kPedShadow);
-        MemSys::Manager::Get()->LeaveHeapScope();
+        MemSys::Hub::Pull()->LeaveHeapScope();
     } else {
         shadow->CreateShadow(2, kPedShadow);
     }
@@ -111,39 +111,39 @@ bool __cdecl CFunc_SwapObjectModels(Scripts::CStruct* params, Scripts::CScript*)
     params->ReadHashValue(kObj2, &id2, 1);
     auto* a = static_cast<CGameEntity*>(GameObjects::CompositeObjectManager()->LookUpEntity(id1));
     auto* b = static_cast<CGameEntity*>(GameObjects::CompositeObjectManager()->LookUpEntity(id2));
-    if (a->GetComponent(kSkaterCorePhysics))
+    if (a->FetchModule(kSkaterCorePhysics))
         skater = static_cast<GameObjects::CRider*>(a);
-    if (b->GetComponent(kSkaterCorePhysics))
+    if (b->FetchModule(kSkaterCorePhysics))
         skater = static_cast<GameObjects::CRider*>(b);
     if (!a || !b || a == b)
         return false;
-    RecordSwap(a->m_id, b->m_id);
+    RecordSwap(a->m_ident, b->m_ident);
 
-    auto* modelA = static_cast<GameObjects::CMeshInstanceModule*>(a->GetComponent(kModel));
-    auto* modelB = static_cast<GameObjects::CMeshInstanceModule*>(b->GetComponent(kModel));
-    auto* shadowA = static_cast<GameObjects::CGroundShadowModule*>(a->GetComponent(kShadow));
-    auto* shadowB = static_cast<GameObjects::CGroundShadowModule*>(b->GetComponent(kShadow));
+    auto* modelA = static_cast<GameObjects::CMeshInstanceModule*>(a->FetchModule(kModel));
+    auto* modelB = static_cast<GameObjects::CMeshInstanceModule*>(b->FetchModule(kModel));
+    auto* shadowA = static_cast<GameObjects::CGroundShadowModule*>(a->FetchModule(kShadow));
+    auto* shadowB = static_cast<GameObjects::CGroundShadowModule*>(b->FetchModule(kShadow));
     if (!modelA || !modelB)
         return false;
     shadowA->DestroyShadow();
     shadowB->DestroyShadow();
 
     // the skeletons swapped through a copy
-    uint8_t* skeletonA = SkeletonOf(a->GetComponent(kSkeleton));
-    uint8_t* skeletonB = SkeletonOf(b->GetComponent(kSkeleton));
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    uint8_t* skeletonA = SkeletonOf(a->FetchModule(kSkeleton));
+    uint8_t* skeletonB = SkeletonOf(b->FetchModule(kSkeleton));
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_topDownHeap);
-    void* memory = MemSys::New(0x1C);
-    uint8_t* temp = memory ? reinterpret_cast<uint8_t*>(static_cast<Gfx2D::CRig*>(memory)->Construct(
+    void* memory = MemSys::Alloc(0x1C);
+    uint8_t* temp = memory ? reinterpret_cast<uint8_t*>(static_cast<Gfx2D::CRig*>(memory)->MakeNew(
                                  *reinterpret_cast<Gfx2D::CRigData**>(skeletonA + 8)))
                            : nullptr;
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     CopySkeleton(temp, skeletonA);
     CopySkeleton(skeletonA, skeletonB);
     CopySkeleton(skeletonB, temp);
     if (temp) {
         reinterpret_cast<Gfx2D::CRig*>(temp)->DestroyBody();
-        MemSys::Manager::Get()->Free(temp);
+        MemSys::Hub::Pull()->Dealloc(temp);
     }
 
     // the renderable models swapped
@@ -155,17 +155,17 @@ bool __cdecl CFunc_SwapObjectModels(Scripts::CStruct* params, Scripts::CScript*)
     SetModelVirtual(modelA, nxB);
     SetModelVirtual(modelB, nxA);
 
-    auto* suspendA = static_cast<GameObjects::CDormancyModule*>(a->GetComponent(kSuspend));
-    auto* suspendB = static_cast<GameObjects::CDormancyModule*>(b->GetComponent(kSuspend));
+    auto* suspendA = static_cast<GameObjects::CDormancyModule*>(a->FetchModule(kSuspend));
+    auto* suspendB = static_cast<GameObjects::CDormancyModule*>(b->FetchModule(kSuspend));
     suspendA->ResetCounts();
     suspendB->ResetCounts();
-    a->Suspend(false);
-    b->Suspend(false);
+    a->HoldOff(false);
+    b->HoldOff(false);
 
     if (skater) {
         // (each component's model as it is now)
-        FollowPosition(modelA->m_meshInstance, &a->m_pos);
-        FollowPosition(modelB->m_meshInstance, &b->m_pos);
+        FollowPosition(modelA->m_meshInstance, &a->m_atPoint);
+        FollowPosition(modelB->m_meshInstance, &b->m_atPoint);
         bool found = false;
         for (int i = 0; i < kSwapCount; ++i) {
             if (Swaps()[i].used && Swaps()[i].current == 0) {
@@ -200,14 +200,14 @@ bool __cdecl CFunc_RestoreAllSwappedObjectModels(Scripts::CStruct*, Scripts::CSc
                 continue;
             any = true;
             CStruct* memory = Scripts::NewStruct();
-            CStruct* swap = memory ? memory->Init() : nullptr;
+            CStruct* swap = memory ? memory->PrepareAll() : nullptr;
             swap->PutNameKey(kObj1, entry.id);
             swap->PutNameKey(kObj2, entry.current);
             CFunc_SwapObjectModels(swap, script);
             if (swap) {
                 // (delete inlined: the structure pool pair's Free)
                 swap->Clear();
-                Scripts::g_structPools.Free(swap);
+                Scripts::g_structPools.Dealloc(swap);
             }
         }
         if (!any || --remaining == 0)
@@ -222,9 +222,9 @@ bool __cdecl CFunc_GetSkaterModelIsSwapped(Scripts::CStruct* params, Scripts::CS
     int index;
     GameObjects::CRider* skater;
     if (params->FetchIntValue(kSkater, &index, 0))
-        skater = static_cast<GameObjects::CRider*>(GameModules::Skate::Instance()->GetRiderAt(index));
+        skater = static_cast<GameObjects::CRider*>(GameModules::Skate::Sole()->GetRiderAt(index));
     else
-        skater = GameModules::Skate::Instance()->GetHomeRider();
+        skater = GameModules::Skate::Sole()->GetHomeRider();
     return skater->m_unknown31C != 0;
 }
 

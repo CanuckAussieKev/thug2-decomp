@@ -33,12 +33,12 @@ void ViewModeItems()
         char keys[16];
         std::snprintf(keys, sizeof(keys), "Alt+%d", mode + 1);
         if (ImGui::MenuItem(ViewModeName(mode), keys, ViewMode() == mode))
-            SetViewMode(mode);
+            ChangeViewMode(mode);
         Tip(kTips[mode]);
     }
 }
 
-void OverlayItems(const Ui::Model& model, std::vector<Ui::Request>* requests)
+void OverlayItems(const Ui::ShapeMesh& model, std::vector<Ui::Request>* requests)
 {
     if (ImGui::MenuItem("Collision", "C", model.view.collision)) {
         Ui::Request r{Ui::Request::kCollision};
@@ -53,7 +53,7 @@ void OverlayItems(const Ui::Model& model, std::vector<Ui::Request>* requests)
         char item[64];
         std::snprintf(item, sizeof(item), "%s##ov%u", info.label, info.bit);
         if (ImGui::MenuItem(item, info.key[0] ? info.key : nullptr, Shown(info.bit)))
-            Set(info.bit, !Shown(info.bit));
+            AssignValue(info.bit, !Shown(info.bit));
         Tip(info.tip);
     }
     if (ImGui::BeginMenu("Gizmos")) {

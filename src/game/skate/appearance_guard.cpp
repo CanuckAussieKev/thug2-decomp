@@ -19,9 +19,9 @@ constexpr uint32_t kDefaultAppearance = 0x33D0ACDE; // appearance_custom_skater_
 
 // (an appearance read from a buffer owns its slots' structures: a structure pointer - one it doesn't own - is left
 // alone)
-bool IsStructure(const Scripts::CComponent* component) { return component->Type() == Scripts::QBVAL_STRUCT; }
+bool IsStructure(const Scripts::CComponent* component) { return component->KindTag() == Scripts::QBVAL_STRUCT; }
 
-Scripts::CArray* GamePartList(uint32_t slot) { return Scripts::GetArray(slot); }
+Scripts::CArray* GamePartList(uint32_t slot) { return Scripts::FetchList(slot); }
 Scripts::CStruct* GameDefaults() { return Scripts::ReadSubStruct(kDefaultAppearance); }
 const Catalog kGameCatalog = {GamePartList, GameDefaults};
 Catalog s_catalog = kGameCatalog;
@@ -30,15 +30,15 @@ Catalog s_catalog = kGameCatalog;
 Scripts::CArray* PartList(uint32_t slot)
 {
     Scripts::CArray* list = s_catalog.partList(slot);
-    if (!list || list->m_size == 0 || list->m_type != Scripts::QBVAL_STRUCT)
+    if (!list || list->m_extent == 0 || list->m_kindTag != Scripts::QBVAL_STRUCT)
         return nullptr;
     return list;
 }
 
 bool ListHas(Scripts::CArray* list, uint32_t desc)
 {
-    for (uint32_t i = 0; i < list->m_size; ++i) {
-        auto* part = reinterpret_cast<Scripts::CStruct*>(list->GetElement(i));
+    for (uint32_t i = 0; i < list->m_extent; ++i) {
+        auto* part = reinterpret_cast<Scripts::CStruct*>(list->FetchPart(i));
         uint32_t id = 0;
         if (part && part->ReadHashValue(kDescId, &id, 0) && id == desc)
             return true;
@@ -58,7 +58,7 @@ uint32_t Fallback(uint32_t slot, Scripts::CArray* list)
             ListHas(list, desc))
             return desc;
     }
-    auto* first = reinterpret_cast<Scripts::CStruct*>(list->GetElement(0));
+    auto* first = reinterpret_cast<Scripts::CStruct*>(list->FetchPart(0));
     uint32_t desc = 0;
     if (first && first->ReadHashValue(kDescId, &desc, 0))
         return desc;
@@ -121,7 +121,7 @@ int Sanitise(Scripts::CStruct* appearance)
         change.part->PutNameKey(kDescId, change.to);
     }
     for (uint32_t slot : remove)
-        appearance->RemoveComponent(slot);
+        appearance->EraseModule(slot);
     return static_cast<int>(changes.size() + remove.size());
 }
 

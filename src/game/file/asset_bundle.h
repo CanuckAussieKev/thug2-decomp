@@ -3,7 +3,7 @@
 #include <cstdint>
 
 namespace MemSys {
-class Heap;
+class Arena;
 }
 
 namespace FileLoad {
@@ -17,7 +17,7 @@ class AsyncFileHandle;
 // file, size, name checksum, type checksum}, then the asset data.
 class AssetBundle {
 public:
-    struct Entry {
+    struct TableRow {
         uint32_t offset;
         uint32_t size;
         uint32_t name;
@@ -27,36 +27,36 @@ public:
 
     AssetBundle();
     // The vtable's only slot (scalar deleting destructor). Doesn't free the assets themselves.
-    AssetBundle* Destroy(unsigned int flags);
+    AssetBundle* Teardown(unsigned int flags);
 
     // The heap the bundle file is loaded into (`fileHeap`), and the heap each asset is copied out to.
-    void SetHeaps(MemSys::Heap* fileHeap, MemSys::Heap* assetHeap);
+    void SetHeaps(MemSys::Arena* fileHeap, MemSys::Arena* assetHeap);
     // Load `name` and split it. `unused` arguments are ignored (as in the original).
-    bool Load(const char* name, int unused1, int unused2);
+    bool ReadIn(const char* name, int unused1, int unused2);
     // Split the loaded file (`size` bytes at m_loadedData) into the assets.
     bool Split(int unused, int size);
 
     bool IsLoaded();
     void* ObtainLoadedItem(int index);
-    Entry* GetEntry(int index);
-    Entry* FindEntry(uint32_t name, uint32_t type, int unused);
+    TableRow* GetEntry(int index);
+    TableRow* FindEntry(uint32_t name, uint32_t type, int unused);
     void* FindAsset(uint32_t name, uint32_t type, int unused);
     bool HasAsset(uint32_t name, uint32_t type);
     // Free every asset with this name and type; whether there was one.
     bool FreeAsset(uint32_t name, uint32_t type);
 
     void** m_vtable;                 // 0x0065822C
-    AsyncFileHandle* m_file;         // an async load in progress (closed when the bundle is split / destroyed)
+    AsyncFileHandle* m_fileRef;         // an async load in progress (closed when the bundle is split / destroyed)
     void* m_fileData;                // the whole file, as loaded (shrinks as the assets are split off)
     uint8_t* m_loadedData;           // the start of the file
-    int m_count;                     // number of entries
+    int m_num;                     // number of entries
     int m_unknown14;
-    Entry m_entries[kMaxEntries];
+    TableRow m_entries[kMaxEntries];
     void* m_assets[kMaxEntries];     // each asset's own copy
     bool m_readyFlag;
     uint8_t m_pad2341[3];
-    MemSys::Heap* m_assetHeap;
-    MemSys::Heap* m_fileHeap;
+    MemSys::Arena* m_assetHeap;
+    MemSys::Arena* m_fileHeap;
     int m_unknown234C;
     int m_unknown2350;
 };

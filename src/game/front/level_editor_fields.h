@@ -18,7 +18,7 @@ class CStruct;
 //
 // Where a field's change is written: the node's own structure (the node manager's - what the game reads). A field
 // that comes from the class's shared structure (an unnamed name naming ncomp_<class>_<n>, which many nodes include) is
-// given to this node alone as an override: a component of its own after the include - CStruct::Search and
+// given to this node alone as an override: a component of its own after the include - CStruct::Hunt and
 // FindLastComponent take the last one there is (0x004764B0 / 0x00476430), so the node's wins and the shared structure
 // isn't touched. A flag of the shared structure can't be taken away from one node (a bare name has no "off"): those
 // stay read-only, said in the Inspector.
@@ -53,11 +53,11 @@ enum class Kind : uint8_t {
     Integer,
     Float,
     Name,
-    String,
+    Chars,
     LocalString,
-    Vector,
+    Vec4,
     Pair,
-    Flag,
+    BitMark,
     Names,    // an array of names (Links, restart_types)
     Integers, // an array of integers
     Floats,   // an array of floats
@@ -157,7 +157,7 @@ struct Row {
     std::string why;        // why not (read-only)
 };
 // Every field of the node (its own and its shared structures', each name once, in the order they first appear).
-std::vector<Row> RowsOf(const Nodes::Node& node);
+std::vector<Row> RowsOf(const Nodes::Elem& node);
 // The game's name for a checksum (the name table, the qb files' kept names, the names typed in this session).
 const char* NameOf(uint32_t checksum);
 // A name typed in: remembered for NameOf (the layout's records then carry it).
@@ -166,10 +166,10 @@ void Remember(const std::string& name);
 // The field `key` of node `name` set to `value` (its own; over a shared structure's as an override), or removed
 // (`removed`: an own field gone, a flag off). Links and pos / angles don't come here (the chains, the node edits).
 // False, `error`: not a level node, not editable, invalid.
-bool Set(uint32_t name, uint32_t key, const Value& value, bool removed, std::string* error);
+bool AssignValue(uint32_t name, uint32_t key, const Value& value, bool removed, std::string* error);
 // The node's own field now, and put back to `own` (undo, Home).
 bool Capture(uint32_t name, uint32_t key, Own* own);
-bool Put(uint32_t name, uint32_t key, const Own& own);
+bool PlaceIn(uint32_t name, uint32_t key, const Own& own);
 // As the level has it (false: never changed).
 bool Origin(uint32_t name, uint32_t key, Own* own);
 // The node's fields the editor changed, put back as the level has them (Home); whether any.

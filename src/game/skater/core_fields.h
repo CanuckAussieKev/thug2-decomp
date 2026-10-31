@@ -25,8 +25,8 @@ T& At(void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
-inline Maths::Vector& VectorAt(void* object, uint32_t offset) { return At<Maths::Vector>(object, offset); }
-inline Maths::Matrix& MatrixAt(void* object, uint32_t offset) { return At<Maths::Matrix>(object, offset); }
+inline Maths::Vec4& VectorAt(void* object, uint32_t offset) { return At<Maths::Vec4>(object, offset); }
+inline Maths::Mat4& MatrixAt(void* object, uint32_t offset) { return At<Maths::Mat4>(object, offset); }
 
 // The component's fields (offsets).
 constexpr uint32_t kObject = 0xC;            // the skater's object (below)
@@ -99,7 +99,7 @@ inline void SetTimedFlag(void* flags, uint32_t offset, uint8_t value)
     At<int>(flags, offset + 4) = Now();
 }
 inline void SetFlag(void* component, uint32_t offset, uint8_t value) { SetTimedFlag(FlagsOf(component), offset, value); }
-inline uint8_t Flag(void* component, uint32_t offset) { return At<uint8_t>(FlagsOf(component), offset); }
+inline uint8_t BitMark(void* component, uint32_t offset) { return At<uint8_t>(FlagsOf(component), offset); }
 
 // 0x00580400 / 0x00580440: a physics value (the skater's own tuning structure for `object`, else the global script
 // value).
@@ -122,8 +122,8 @@ inline void TriggerFeeler(void* component, const int* events, uint32_t feelerOff
 inline bool TriggerTookOver(void* component) { return At<uint8_t>(At<uint8_t*>(component, kTriggerState), 0x26) != 0; }
 
 // A vector's length as the original's 0x004023C0 leaves it in ST0: sqrt((x*x + y*y) + z*z) in double, unrounded
-// (Maths::Vector::Length rounds it to a float).
-inline double LengthOf(const Maths::Vector& v)
+// (Maths::Vec4::LenOf rounds it to a float).
+inline double LengthOf(const Maths::Vec4& v)
 {
     return std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) + static_cast<double>(v.z) * v.z);
 }

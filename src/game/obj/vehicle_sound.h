@@ -38,20 +38,20 @@ public:
     };
 
     // 0x0043CFC0 (registered with the composite object manager): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0043C590: the base's constructor, its vtable and type; no components, settings or sounds. Returns this.
-    CEngineAudioModule* Construct();
+    CEngineAudioModule* MakeNew();
     // 0x0043C5F0: the destructor body: both sounds stopped, then the base's.
     void DestroyBody();
     // 0x0043D020 (vtable slot 0)
-    CEngineAudioModule* Destroy(unsigned int flags);
+    CEngineAudioModule* Teardown(unsigned int flags);
     // 0x0043C670 (vtable slot 2): whether the level is the park editor's (its +0x40 isn't "off"); `params` isn't
     // read.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x0043D050 (vtable slot 3): the object's Vehicle and Sound components, then the settings read.
-    void Finalize();
+    void Seal();
     // 0x0043D290 (vtable slot 1): with settings, the engine, the tyres and the crash sound.
-    void Update();
+    void TickFrame();
     // 0x0043C540 (vtable slot 10): the sounds' names (engine_sound 0x2A19E830, tire_sound 0xE798FE80) and the crash
     // sound's structure (0x36FA68D2) added to `info` (then the base's, empty: 0x005BAB90).
     void FetchDiagnostics(Scripts::CStruct* info);

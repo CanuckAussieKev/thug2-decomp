@@ -24,26 +24,26 @@ void RemovePieceCost(CPieceGroup* meta) { RemovePieceDma(meta); }
 bool& GeneratorRebuildsCollision() { return g_collisionAllowed; }
 
 // The park editor's pools (the clipboards', the lists'...) freed (0x0059E4E0).
-void DestroyParkPools() { ShutDown(); }
+void DestroyParkPools() { PowerDown(); }
 
 } // namespace
 
 // 0x00598E00
-CParkLayout* CParkLayout::Construct()
+CParkLayout* CParkLayout::MakeNew()
 {
     m_parkBounds = SCellBox::Make(0, 0, 0, 0, 0, 0);
     m_shellBounds = SCellBox::Make(0, 0, 0, 0, 0, 0);
     for (SCellBox& area : m_blockedAreas)
         area = SCellBox::Make(0, 0, 0, 0, 0, 0);
-    void* memory = MemSys::New(0x4A4);
-    m_builder = memory ? static_cast<CParkAssembler*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::Alloc(0x4A4);
+    m_builder = memory ? static_cast<CParkAssembler*>(memory)->MakeNew() : nullptr;
     mp_concrete_metas = nullptr;
     mp_abstract_metas = nullptr;
     m_numConcreteMetas = 0;
     m_numAbstractMetas = 0;
     std::memset(m_cellMetas, 0, sizeof(m_cellMetas));
     m_parkBuilt = false;
-    m_flags = 0;
+    m_flagBits = 0;
     m_05 = false;
     mp_gapManager = nullptr;
     mp_gapManagerCopy = nullptr;
@@ -67,57 +67,57 @@ CParkLayout* CParkLayout::Construct()
 }
 
 // 0x00599BF0
-void CParkLayout::CreateInstance()
+void CParkLayout::SpawnOccurrence()
 {
-    void* memory = MemSys::New(sizeof(CParkLayout));
-    Instance() = memory ? static_cast<CParkLayout*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::Alloc(sizeof(CParkLayout));
+    Sole() = memory ? static_cast<CParkLayout*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x00599C70
-void CParkLayout::DeleteInstance()
+void CParkLayout::DiscardOccurrence()
 {
-    if (CParkLayout* manager = Instance()) {
+    if (CParkLayout* manager = Sole()) {
         if (manager->mp_78) {
             MemSys::FreeMalloc(manager->mp_78);
             manager->mp_78 = nullptr;
         }
         if (CParkAssembler* generator = manager->m_builder) {
-            generator->Destroy();
-            MemSys::Free(generator);
+            generator->Teardown();
+            MemSys::Dealloc(generator);
         }
-        MemSys::Free(manager);
+        MemSys::Dealloc(manager);
     }
-    Instance() = nullptr;
+    Sole() = nullptr;
 }
 
 // 0x00599A20
 void CParkLayout::PlaceMetaPieceInPark(SCellBox pos, CPieceGroup* meta)
 {
-    meta->m_flags |= CPieceGroup::kInPark;
+    meta->m_flagBits |= CPieceGroup::kInPark;
     meta->m_cellFootprint.x = pos.x;
     meta->m_cellFootprint.y = pos.y;
     meta->m_cellFootprint.z = pos.z;
 
     // Where its pieces go from: the middle of the metapiece in the world (the grid centred on the origin).
-    Maths::Vector origin;
+    Maths::Vec4 origin;
     origin.x = static_cast<float>((meta->m_cellFootprint.w * 0.5 + pos.x) * kCellWidth -
                                   static_cast<double>(kCellWidth) * kGridCells * 0.5);
     origin.z = static_cast<float>((meta->m_cellFootprint.l * 0.5 + pos.z) * kCellLength -
                                   static_cast<double>(kCellLength) * kGridCells * 0.5);
     origin.y = static_cast<float>(pos.y * static_cast<double>(kCellHeight));
-    if (meta->m_flags & CPieceGroup::kRiserBelow)
+    if (meta->m_flagBits & CPieceGroup::kRiserBelow)
         origin.y = static_cast<float>(static_cast<double>(origin.y) - kRiserBelowDrop);
     origin.w = 1.0f; // (the original leaves w as it was on the stack)
     for (uint32_t i = 0; i < meta->m_filledSlots; ++i) {
-        Maths::Vector relative;
+        Maths::Vec4 relative;
         meta->GetRelativePosition(&relative, i);
         CParkTile* piece = meta->GetPiece(i);
-        Maths::Vector position;
+        Maths::Vec4 position;
         position.x = static_cast<float>(static_cast<double>(relative.x) + origin.x);
         position.z = static_cast<float>(static_cast<double>(relative.z) + origin.z);
         position.y = static_cast<float>(static_cast<double>(relative.y) + origin.y);
         position.w = 1.0f; // (likewise)
-        piece->SetPosition(&position, 1);
+        piece->ChangePlace(&position, 1);
         piece->SetQuarterTurns((piece->m_quarterTurns + meta->m_quarterTurns) & 3, 1);
         m_builder->AddPiece(piece);
         m_builder->LightPiece(piece);
@@ -130,8 +130,8 @@ void CParkLayout::PlaceMetaPieceInPark(SCellBox pos, CPieceGroup* meta)
             break;
         }
     }
-    if (!(meta->m_flags & CPieceGroup::kFence) && !(meta->m_flags & CPieceGroup::kInnerShell))
-        m_flags &= ~(kMapUpToDate | kMapSaved);
+    if (!(meta->m_flagBits & CPieceGroup::kFence) && !(meta->m_flagBits & CPieceGroup::kInnerShell))
+        m_flagBits &= ~(kMapUpToDate | kMapSaved);
     AddPieceCost(meta);
 }
 
@@ -143,7 +143,7 @@ uint32_t CParkLayout::FreePieceGroupsInRegion(SCellBox area, uint32_t flags)
     CMapListNode* list = GetIntersectingMetas(area, 0, nullptr, (flags >> 1) & 0xFFFFFF01);
     if (list) {
         for (CMapListNode* node = list; node; node = node->m_following) {
-            if ((flags & 4) && (node->GetPlacedPiece()->m_flags & CPieceGroup::kFlag20))
+            if ((flags & 4) && (node->GetPlacedPiece()->m_flagBits & CPieceGroup::kFlag20))
                 continue;
             ++metas;
             pieces = static_cast<uint16_t>(pieces + node->GetPlacedPiece()->m_filledSlots);
@@ -161,17 +161,17 @@ void CParkLayout::HighlightMetasWithinArea(SCellBox area, int on)
     MapListHolder metas(CollectPiecesInRegion(area));
     for (CMapListNode* node = metas.list; node; node = node->m_following) {
         CPieceGroup* meta = node->GetPieceGroup();
-        if (meta && (meta->m_flags & CPieceGroup::kFlag1) && meta->FitsInsideRegion(&area))
-            node->GetPlacedPiece()->Highlight(on, 0);
+        if (meta && (meta->m_flagBits & CPieceGroup::kFlag1) && meta->FitsInsideRegion(&area))
+            node->GetPlacedPiece()->Spotlight(on, 0);
     }
 }
 
 // 0x0059AE90
 void CParkLayout::FreePlacedPiece(CPieceGroup* meta, uint32_t flags)
 {
-    if (meta->m_flags & CPieceGroup::kCursor)
+    if (meta->m_flagBits & CPieceGroup::kCursor)
         return;
-    if (CBuildPointer* cursor = CBuildPointer::Instance())
+    if (CBuildPointer* cursor = CBuildPointer::Sole())
         cursor->ForgetGapAt(meta);
     int gap;
     if (mp_gapManager->GetGapIndex(meta, &gap)) {
@@ -179,11 +179,11 @@ void CParkLayout::FreePlacedPiece(CPieceGroup* meta, uint32_t flags)
         DropGapEntry(mp_gapManager->GetGapInfo(gap, &half));
     }
     // A change to the park the player made: the compressed map is out of date.
-    uint32_t metaFlags = meta->m_flags;
+    uint32_t metaFlags = meta->m_flagBits;
     if (!(metaFlags & CPieceGroup::kFence) && (metaFlags & CPieceGroup::kInPark) && !(metaFlags & CPieceGroup::kInnerShell))
-        m_flags &= ~(kMapUpToDate | kMapSaved);
+        m_flagBits &= ~(kMapUpToDate | kMapSaved);
     // What stands on it goes too.
-    if (!(meta->m_flags & CPieceGroup::kInnerShell) && (flags & 1)) {
+    if (!(meta->m_flagBits & CPieceGroup::kInnerShell) && (flags & 1)) {
         SCellBox above = meta->m_cellFootprint;
         above.y = static_cast<int8_t>(above.h + above.y);
         above.StretchVertically();
@@ -201,7 +201,7 @@ void CParkLayout::FreePlacedPiece(CPieceGroup* meta, uint32_t flags)
     for (uint32_t i = 0; i < meta->m_filledSlots; ++i)
         m_builder->DestroyPiece(meta->GetDescriptor(i)->piece);
     RemovePieceCost(meta);
-    meta->Delete();
+    meta->EraseOne();
     --m_numConcreteMetas;
 }
 
@@ -228,18 +228,18 @@ CPieceGroup* CParkLayout::ShiftPlacedPiece(CPieceGroup* meta, int dx, int dy, in
     SCellBox pos = meta->m_cellFootprint;
     uint32_t checksum = meta->m_nameKey;
     int rot = meta->m_quarterTurns;
-    uint32_t flags = meta->m_flags;
+    uint32_t flags = meta->m_flagBits;
     // The gap it's an end of goes with it (the lookup shrinks `pos` to 1x1x1, which the move ignores).
     bool hadGap = false;
     int half;
     SGapDetails* gap = GetGapInfo(&pos, &half);
     SGapDetails moved;
-    moved.Construct();
+    moved.MakeNew();
     if (gap) {
         moved = *gap;
         hadGap = true;
         DropGapEntry(gap);
-        SCellBox& end = moved.m_pos[half];
+        SCellBox& end = moved.m_atPoint[half];
         end.x = static_cast<uint8_t>(end.x + dx);
         end.y = static_cast<int8_t>(end.y + dy);
         end.z = static_cast<uint8_t>(end.z + dz);
@@ -251,7 +251,7 @@ CPieceGroup* CParkLayout::ShiftPlacedPiece(CPieceGroup* meta, int dx, int dy, in
     pos.z = static_cast<uint8_t>(pos.z + dz);
     CPieceGroup* copy = MakePlacedPiece(FindPieceTemplate(checksum), 0);
     copy->SetQuarterTurns(rot);
-    copy->m_flags = flags & ~CPieceGroup::kInPark;
+    copy->m_flagBits = flags & ~CPieceGroup::kInPark;
     PlaceMetaPieceInPark(pos, copy);
     if (hadGap)
         RegisterGapEntry(&moved);
@@ -259,28 +259,28 @@ CPieceGroup* CParkLayout::ShiftPlacedPiece(CPieceGroup* meta, int dx, int dy, in
 }
 
 // 0x0059BD40
-void CParkLayout::Destroy(int keepRails)
+void CParkLayout::Teardown(int keepRails)
 {
     if (!m_parkBuilt)
         return;
-    if (!(m_flags & (kMapUpToDate | kMapSaved)))
+    if (!(m_flagBits & (kMapUpToDate | kMapSaved)))
         WriteCompressedMap();
     mp_gapManager->ClearGapEntries();
     while (mp_abstract_metas) {
         CPieceGroup* meta = mp_abstract_metas->GetPieceGroup();
         RemoveMetaFromList(meta, &mp_abstract_metas);
         if (meta)
-            meta->Delete();
+            meta->EraseOne();
     }
     m_numAbstractMetas = 0;
     DestroyConcreteMetas(keepRails);
-    m_builder->CleanUp(keepRails);
+    m_builder->SweepUp(keepRails);
     m_parkBuilt = false;
-    m_flags = (m_flags & ~kMapUpToDate) | kMapSaved;
+    m_flagBits = (m_flagBits & ~kMapUpToDate) | kMapSaved;
     m_05 = false;
     if (CGapRegistry* gaps = mp_gapManager) {
-        gaps->Destroy();
-        MemSys::Free(gaps);
+        gaps->Teardown();
+        MemSys::Dealloc(gaps);
     }
     mp_gapManager = nullptr;
     if (mp_riserList)

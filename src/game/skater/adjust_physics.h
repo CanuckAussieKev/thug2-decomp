@@ -28,18 +28,18 @@ public:
     static constexpr uint32_t kType = 0x9F9CC949;
 
     // 0x004F80E0 (registered by RegisterComponentTypes): a new one (0 if out of memory): no components, not frigged.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x004F8040: the destructor body (the base's). 0x004F8050 (vtable slot 0): the scalar deleting destructor.
     void DestroyBody();
-    CRiderPhysicsTweaks* Destroy(unsigned int flags);
+    CRiderPhysicsTweaks* Teardown(unsigned int flags);
     // 0x004F8080 (vtable slot 3): the core physics, model, shadow, movable contact and state components.
-    void Finalize();
+    void Seal();
     // 0x004F8C40 (vtable slot 1): the component's frame: on the ground or falling (state 0, or moving down), the
     // state component's "landed" flag (+0x60) set with the game clock's time (+0x64) the first time; unless skitching
     // (+0x88) CheckInsideMovingObject; Update; the object's last position = its position.
     void FrameUpdate();
     // 0x004F8420 (called by FrameUpdate)
-    void Update();
+    void TickFrame();
     // 0x004F8AA0: inside a moving object (the movable contact finds one along the frame's move): a debug message, a
     // feeler 30 up and down (movable objects too) - riding the object it hits; in the lip state (4) out into the air
     // with the under-the-floor event; else, not moved this frame: the velocity cleared.

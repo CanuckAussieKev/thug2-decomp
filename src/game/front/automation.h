@@ -116,28 +116,28 @@ class CStruct;
 namespace MenuSystem::Automation {
 
 // [features] automation (read once).
-bool& Enabled();
-// Once a frame from the front end's input logic (MouseMenus::Update): the command file, the running command, the
+bool& IsSwitchedOn();
+// Once a frame from the front end's input logic (MouseMenus::TickFrame): the command file, the running command, the
 // status file; and the -run script.
-void Update(GameModules::FrontEnd* frontEnd);
+void TickFrame(GameModules::FrontEnd* frontEnd);
 // The buttons a `press` holds, added to port 0's PS2-format control data (Sio's ProcessSdlDevice, before the bits
 // are inverted: a set bit is a button down).
 void AddPadButtons(int port, uint8_t* data);
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
-enum class Op { Run, Choose, Focus, Press, Hold, Wait, WaitFor, Level, Echo, Quit, JumpTo, Camera, Capture, LogTricks, Crash, Trace, Frontend };
-enum class Condition { None, Ready, FrontEnd, InGame, Level, Menu, Focus, NewFrontend };
+enum class Op { Run, Choose, Focus, Press, Hold, Stall, WaitFor, StageMap, Echo, Quit, JumpTo, ViewCam, Capture, LogTricks, Crash, Trace, Frontend };
+enum class Condition { None, Ready, FrontEnd, InGame, StageMap, Menu, Focus, NewFrontend };
 
 struct Param {
-    enum Kind { Flag, Integer, Float, String, Name } kind;
+    enum Kind { BitMark, Integer, Float, Chars, Name } kind;
     std::string name;  // "" for a flag (its name is `text`)
     std::string text;  // a string's / name's text
     int integer;
     float real;
 };
 
-struct Command {
+struct OrderCode {
     Op op;
     std::string target;        // run: the script; choose / focus: the id; press: the button; level / echo: the text;
                                // waitfor level / menu / focus: the name; capture: the folder ("" default); camera:
@@ -149,9 +149,9 @@ struct Command {
     std::vector<float> numbers; // teleport: x y z [heading]; camera: x y z dx dy dz
 };
 
-enum class ParseResult { Command, Empty, Error };
+enum class ParseResult { OrderCode, Vacant, Error };
 // One line of the command file. Empty: a blank line or a comment.
-ParseResult ParseCommand(const std::string& line, Command* out, std::string* error);
+ParseResult ParseCommand(const std::string& line, OrderCode* out, std::string* error);
 
 // A pad button: its bit in the control data's button bytes (2 or 3) and its pressure byte (0: none).
 struct Button {
@@ -180,14 +180,14 @@ bool ParamsDenied(Scripts::CStruct* params);
 // script, or its menus' (parents') pad_choose / pad_start handlers doing so.
 std::string ElementRefusal(const MenuSystem::CUiWidget* element);
 // Why the command is refused by its words alone (a script, a parameter, an id), or "" - before any game state.
-std::string RefusalByName(const Command& command);
+std::string RefusalByName(const OrderCode& command);
 // The name of a checksum if known (the tables and the names commands used), else 0x<hex>.
 std::string NameOf(uint32_t checksum);
 // A command as text (for the log and the status).
-std::string Describe(const Command& command);
+std::string Describe(const OrderCode& command);
 
 // The status file's contents.
-struct Status {
+struct Standing {
     uint32_t frames;
     bool ready, mainMenu, paused, loading;
     std::string where, level, gameMode;
@@ -197,7 +197,7 @@ struct Status {
     int errors, refusals;
     std::string frontend; // the new front end's state ("" when off: not written)
 };
-std::string StatusJson(const Status& status);
+std::string StatusJson(const Standing& status);
 
 
 } // namespace MenuSystem::Automation

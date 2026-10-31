@@ -10,13 +10,13 @@ public:
     PackedBitBuffer();
 
     // Prepare to read `size` bytes from `data`. The word buffer starts empty, so the first read loads it.
-    void SetInputData(void* data, int size);
+    void ChangeIntakeContents(void* data, int size);
     // Prepare to write into `data` (capacity `size` bytes).
     void BindOutputBuffer(void* data, int size);
     // Bytes touched so far, rounding a partial byte up.
     int GetByteCount() const;
     // Write out a partially filled word (writing only).
-    void Flush();
+    void Drain();
 
     // Append the low `count` bits of `value` (count 0..32). Bits of `value` above `count` are not masked
     // off, matching the original; callers pass clean values.
@@ -28,10 +28,10 @@ public:
     int32_t ReadSignedBits(int count);
 
     uint32_t* m_cursor;   // next word to read/write
-    uint32_t* m_start;    // start of the data
+    uint32_t* m_outset;    // start of the data
     uint32_t m_octets;    // bits waiting to be written / not yet read
     int m_bitsLeft;       // writing: free bits in m_octets (32 = empty); reading: unread bits (0 = empty)
-    int m_size;           // size of the data in bytes
+    int m_extent;           // size of the data in bytes
     int m_bitsUsed;       // bits read or written so far
 };
 

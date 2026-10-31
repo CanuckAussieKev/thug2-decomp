@@ -42,7 +42,7 @@ constexpr uint32_t kKing = 0x5D32129C;               // king
 constexpr uint32_t kFirstLine = 0x00039447;          // the first score line's id
 
 GoalSystem::CMatchRules* GameMode() { return GoalSystem::g_gameMode; }
-OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
 bool KingOfTheHill() { return GameMode()->GetNameKey() == kNetKing || GameMode()->GetNameKey() == kKing; }
 
 struct PlayerSearch {
@@ -51,7 +51,7 @@ struct PlayerSearch {
 };
 OnlinePlay::PlayerRecord* AsPlayer(void* player) { return static_cast<OnlinePlay::PlayerRecord*>(player); }
 
-// The ranking's list (ListKit::Head<ScoreEntry>, the entries' vtable 0x0064CCF8): highest priority (score) first.
+// The ranking's list (ListKit::Foremost<ScoreEntry>, the entries' vtable 0x0064CCF8): highest priority (score) first.
 struct RankingList {
     MemSys::ListNode m_head;
     RankingList()
@@ -95,7 +95,7 @@ void DeleteEntry(OnlinePlay::ScoreEntry* entry)
 Scripts::CStruct* NewStructure()
 {
     Scripts::CStruct* made = Scripts::NewStruct();
-    return made ? made->Init() : nullptr;
+    return made ? made->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
 {
@@ -109,7 +109,7 @@ void DeleteStructure(Scripts::CStruct* structure)
 void AddPlayerLine(const char* text, bool teamScore)
 {
     Scripts::CStruct* params = NewStructure();
-    params->AddString(kText, text);
+    params->AppendWord(kText, text);
     if (teamScore)
         params->PutNameKey(0u, kTeamScore);
     params->PutNameKey(kParent, kPlayerListMenu);
@@ -125,7 +125,7 @@ void AddScoreLine(Format format, uint32_t id, bool teamScore, bool fontFirst = f
     Scripts::CStruct* params = NewStructure();
     char text[0x40];
     format(text, sizeof(text));
-    params->AddString(kText, text);
+    params->AppendWord(kText, text);
     if (fontFirst)
         params->PutNameKey(kFont, kDialog);
     params->PutNameKey(kId, id);
@@ -160,22 +160,22 @@ void FormatScore(char* out, size_t size, uint32_t score, int colour, bool colour
 // 0x00567C70: elimiskate's rankings - by the time each player was out (the last out first; still in: 100000).
 void __cdecl FillEliminationRanking()
 {
-    OnlinePlay::Manager* net = NetManager();
+    OnlinePlay::Hub* net = NetManager();
     PlayerSearch search;
     RankingList list;
-    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_frontEndHeap);
+    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
     bool resetScores = GameMode()->IsTrue(kShouldResetScores);
     for (void* player = net->BeginPlayerWalk(&search, false); player; player = net->StepPlayerWalk(&search, false)) {
         OnlinePlay::PlayerRecord* info = AsPlayer(player);
         OnlinePlay::ScoreEntry* entry = NewEntry();
-        const char* name = info->m_skater->GetDisplayName();
+        const char* name = info->m_skater->FetchShownName();
         char* out = entry->m_text;
         while ((*out++ = *name++) != 0) {
         }
-        entry->m_teamScore = resetScores ? info->GetAccumulatedScore() : net->GetEntrantPoints(info->m_skater->m_id);
+        entry->m_teamScore = resetScores ? info->GetAccumulatedScore() : net->GetEntrantPoints(info->m_skater->m_ident);
         entry->m_shade = static_cast<uint8_t>(GameMode()->IsSquadMatch()) ? info->m_team + 2 : 0;
         entry->priority = info->m_eliminatedTime ? static_cast<int>(info->m_eliminatedTime) : 100000;
-        reinterpret_cast<ListKit::Head*>(&list.m_head)->AddNode(entry); // (inlined there)
+        reinterpret_cast<ListKit::Foremost*>(&list.m_head)->AppendVertex(entry); // (inlined there)
     }
     uint32_t id = kFirstLine;
     for (OnlinePlay::ScoreEntry* entry = RankingList::After(&list.m_head); entry; ++id) {
@@ -195,20 +195,20 @@ void __cdecl FillEliminationRanking()
 // 0x00568120
 bool __cdecl Skate::CFunc_FillRankingScreen(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Manager* net = NetManager();
+    OnlinePlay::Hub* net = NetManager();
     PlayerSearch search;
     RankingList list;
     if (GameMode()->GetNameKey() == kElimiskate || GameMode()->GetNameKey() == kNetElimiskate) {
         FillEliminationRanking();
         return true;
     }
-    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_frontEndHeap);
+    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
     bool goalAttack = GameMode()->GetNameKey() == kNetGoalAttack;
     // A player's score: the goals beaten in goal attack.
     auto scoreOf = [&](OnlinePlay::PlayerRecord* info) -> uint32_t {
         if (goalAttack)
-            return static_cast<uint32_t>(GoalSystem::GetObjectiveBoard()->CountClearedByPlayer(static_cast<int>(info->m_skater->m_id)));
-        return static_cast<uint32_t>(net->GetEntrantPoints(info->m_skater->m_id));
+            return static_cast<uint32_t>(GoalSystem::GetObjectiveBoard()->CountClearedByPlayer(static_cast<int>(info->m_skater->m_ident)));
+        return static_cast<uint32_t>(net->GetEntrantPoints(info->m_skater->m_ident));
     };
     if (static_cast<uint8_t>(GameMode()->IsSquadMatch())) {
         // The teams with players, by their scores; under each its players, then its total.
@@ -222,12 +222,12 @@ bool __cdecl Skate::CFunc_FillRankingScreen(Scripts::CStruct*, Scripts::CScript*
             entry->m_teamScore = net->GetSquadPoints(team);
             char name[0x40];
             std::snprintf(name, sizeof(name), "team_%d_name", team + 1); // "team_%d_name"
-            const char* total = Scripts::GetString("total_str"); // "total_str"
-            const char* teamName = Scripts::GetString(name);
+            const char* total = Scripts::FetchText("total_str"); // "total_str"
+            const char* teamName = Scripts::FetchText(name);
             std::snprintf(entry->m_text, sizeof(OnlinePlay::ScoreEntry) - offsetof(OnlinePlay::ScoreEntry, m_text),
                           "\\c%d%s %s", entry->m_shade, teamName, total); // "\c%d%s %s" (unbounded there)
             entry->priority = net->GetSquadPoints(team);
-            reinterpret_cast<ListKit::Head*>(&list.m_head)->AddNode(entry);
+            reinterpret_cast<ListKit::Foremost*>(&list.m_head)->AppendVertex(entry);
         }
         uint32_t line = 0;
         for (OnlinePlay::ScoreEntry* entry = RankingList::After(&list.m_head); entry;) {
@@ -240,7 +240,7 @@ bool __cdecl Skate::CFunc_FillRankingScreen(Scripts::CStruct*, Scripts::CScript*
                 char text[0x40];
                 std::snprintf(text, sizeof(text),
                               (static_cast<uint8_t>(info->IsOwnPlayer()) ? "\\c%d> %s" : "\\c%d%s"), // "\c%d> %s" / "\c%d%s"
-                              entry->m_shade, info->m_name);
+                              entry->m_shade, info->m_label);
                 AddPlayerLine(text, false);
                 AddScoreLine([&](char* shown, size_t size) { FormatScore(shown, size, score, 0, false); },
                              kFirstLine + line, false, true);
@@ -259,12 +259,12 @@ bool __cdecl Skate::CFunc_FillRankingScreen(Scripts::CStruct*, Scripts::CScript*
             OnlinePlay::PlayerRecord* info = AsPlayer(player);
             uint32_t score = scoreOf(info);
             OnlinePlay::ScoreEntry* entry = NewEntry();
-            const char* name = info->m_skater->GetDisplayName();
+            const char* name = info->m_skater->FetchShownName();
             char* out = entry->m_text;
             while ((*out++ = *name++) != 0) {
             }
             entry->priority = static_cast<int>(score);
-            reinterpret_cast<ListKit::Head*>(&list.m_head)->AddNode(entry);
+            reinterpret_cast<ListKit::Foremost*>(&list.m_head)->AppendVertex(entry);
         }
         uint32_t id = kFirstLine;
         for (OnlinePlay::ScoreEntry* entry = RankingList::After(&list.m_head); entry; ++id) {

@@ -28,11 +28,11 @@ struct CPcPrimitive {
     uint8_t engine150[8];
 
     // 0x004C5230: construct (`ownsVertices` for the engine's constructor). Returns this.
-    CPcPrimitive* Construct(int own);
+    CPcPrimitive* MakeNew(int own);
     // 0x004C5A20: the destructor's body.
     void DestroyBody();
     // 0x004C5ED0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcPrimitive* Destroy(unsigned int freeFlags);
+    CPcPrimitive* Teardown(unsigned int freeFlags);
     // 0x004C5A90 (virtual [1]): the texture (its key; none: the material's flag 4 off), a new sort key, the
     // material set up again.
     void SetTexture(const uint8_t* texture, int unused1, int unused2);
@@ -40,16 +40,16 @@ struct CPcPrimitive {
     void ChangeColour(uint32_t rgba);
     // 0x004C5F00 (virtual [3]): the vertex layout (1 colour, 2 texture, 4 normal), the type and the vertex count; the
     // vertices allocated when they're its own (left uninitialised: their constructor does nothing).
-    void Init(uint32_t layoutFlags, int primitiveType, int count);
+    void PrepareAll(uint32_t layoutFlags, int primitiveType, int count);
     // 0x004C5320 (virtual [4]): ready to draw unless textured without a texture.
     void Ready();
     // 0x004C5370 (virtual [5]): drawn (the vertices copied into the dynamic vertex buffer).
     void Render();
     // 0x004C55D0 (virtual [6]): drawn from arrays (positions, and optional colours, texture coordinates and normals),
     // through the static buffer 0x00705620.
-    void Draw(const float* positions, const uint32_t* colours, const float* uvs, const float* normals);
+    void Blit(const float* positions, const uint32_t* colours, const float* uvs, const float* normals);
     // 0x004C5B20 / 0x004C5B60 / 0x004C5B80 / 0x004C5BA0 (virtual [7] - [10]): a vertex's position.
-    void SetPosition(int index, float x, float y, float z);
+    void ChangePlace(int index, float x, float y, float z);
     void SetX(int index, float x);
     void SetY(int index, float y);
     void SetZ(int index, float z);
@@ -79,7 +79,7 @@ struct CPcPrimitive {
     float GetU(int index);
     float GetV(int index);
     // 0x004C5D10 / 0x004C5D80 / 0x004C5DC0 / 0x004C5E00 (virtual [28] - [31]): every vertex moved.
-    void Translate(float x, float y, float z);
+    void Slide(float x, float y, float z);
     void TranslateX(float x);
     void TranslateY(float y);
     void TranslateZ(float z);
@@ -88,7 +88,7 @@ struct CPcPrimitive {
     void ScrollU(float u);
     void ScrollV(float v);
     // 0x004C5340 (virtual [35]): the sort order by type: 1 before `other`, 0 the same, -1 after.
-    int Compare(const CPcPrimitive* other);
+    int Weigh(const CPcPrimitive* other);
 };
 static_assert(offsetof(CPcPrimitive, vertices) == 0x24 && offsetof(CPcPrimitive, stride) == 0x38 &&
                   offsetof(CPcPrimitive, material) == 0x3C && offsetof(CPcPrimitive, colour) == 0x14C &&

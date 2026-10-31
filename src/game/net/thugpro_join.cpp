@@ -20,7 +20,7 @@ uint32_t g_hashOverride = 0;
 uint32_t ReadScriptsHash()
 {
     char text[32];
-    BuildInfo::GetString("online", "thugpro_scripts_hash", "", text, sizeof(text));
+    BuildInfo::FetchText("online", "thugpro_scripts_hash", "", text, sizeof(text));
     uint32_t hash = static_cast<uint32_t>(std::strtoul(text, nullptr, 16));
     return hash ? hash : kReleaseScriptsHash;
 }
@@ -93,7 +93,7 @@ uint32_t RefusedReasonText(int reason)
     if (!Scripts::FindSymbol(text.name)) {
         Scripts::CSymbolTableEntry* symbol = Scripts::CreateSymbol(text.name);
         symbol->type = Scripts::QBVAL_STRING;
-        symbol->raw = reinterpret_cast<uint32_t>(Scripts::CreateString(text.words));
+        symbol->raw = reinterpret_cast<uint32_t>(Scripts::SpawnText(text.words));
     }
     Log("THUGPRO join refused (TP-R13): reason %d - %s", reason, text.words);
     return text.name;

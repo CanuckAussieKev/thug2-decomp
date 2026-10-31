@@ -207,7 +207,7 @@ void __cdecl SetNtscFlag(bool on)
 }
 
 // 0x005B60B0
-void __cdecl Init(int argc, char** argv)
+void __cdecl PrepareAll(int argc, char** argv)
 {
     CopyString(PathPrefix(), kEmpty);
     ReadRegistry(argc, argv);

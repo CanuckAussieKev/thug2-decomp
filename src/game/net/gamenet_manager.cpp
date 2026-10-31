@@ -1,4 +1,4 @@
-// The game's network manager (OnlinePlay::Manager).
+// The game's network manager (OnlinePlay::Hub).
 
 #include "game/net/gamenet_manager.h"
 
@@ -11,7 +11,7 @@
 
 namespace OnlinePlay {
 
-static_assert(offsetof(Manager, m_level) == 0x34, "layout must match the original");
+static_assert(offsetof(Hub, m_level) == 0x34, "layout must match the original");
 
 namespace {
 
@@ -33,8 +33,8 @@ constexpr const char* kPortedLevelLists[] = {
 // before (the original's quirk: at first it holds the manager's address, its stack slot was ECX's).
 Scripts::CStruct* FindLevel(Scripts::CArray* levels, uint32_t level, uint32_t& entryLevel)
 {
-    for (uint32_t i = 0; i < levels->m_size; ++i) {
-        auto* entry = reinterpret_cast<Scripts::CStruct*>(levels->GetElement(i));
+    for (uint32_t i = 0; i < levels->m_extent; ++i) {
+        auto* entry = reinterpret_cast<Scripts::CStruct*>(levels->FetchPart(i));
         entry->ReadHashValue(kLevel, &entryLevel, 0);
         if (entryLevel == level)
             return entry;
@@ -45,15 +45,15 @@ Scripts::CStruct* FindLevel(Scripts::CArray* levels, uint32_t level, uint32_t& e
 } // namespace
 
 // 0x005369A0
-const char* Manager::GetMapName(bool parkName)
+const char* Hub::GetMapName(bool parkName)
 {
     // (like the original, THUG2's own list is taken to exist)
     auto entryLevel = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(this));
-    Scripts::CStruct* entry = FindLevel(Scripts::GetArray(kLevelSelectMenuLevelInfo), m_level, entryLevel);
+    Scripts::CStruct* entry = FindLevel(Scripts::FetchList(kLevelSelectMenuLevelInfo), m_level, entryLevel);
     for (const char* list : kPortedLevelLists) {
         if (entry)
             break;
-        if (Scripts::CArray* levels = Scripts::GetArray(list))
+        if (Scripts::CArray* levels = Scripts::FetchList(list))
             entry = FindLevel(levels, m_level, entryLevel);
     }
     if (!entry)
@@ -61,26 +61,26 @@ const char* Manager::GetMapName(bool parkName)
     if (parkName && m_level == kLoadSk5edGameplay)
         return ParkEditing::CParkLayout::sSingleton()->GetParkName(); // (0x0058D720)
     const char* name;
-    entry->GetString(kText, &name, 1);
+    entry->FetchText(kText, &name, 1);
     return name;
 }
 
 // NOT ORIGINAL (game/net/thugpro_peer.h: the name in a change level message)
-const char* Manager::LevelListName(uint32_t level)
+const char* Hub::LevelListName(uint32_t level)
 {
     uint32_t entryLevel = 0;
     Scripts::CStruct* entry = nullptr;
-    if (Scripts::CArray* levels = Scripts::GetArray(kLevelSelectMenuLevelInfo))
+    if (Scripts::CArray* levels = Scripts::FetchList(kLevelSelectMenuLevelInfo))
         entry = FindLevel(levels, level, entryLevel);
     for (const char* list : kPortedLevelLists) {
         if (entry)
             break;
         entryLevel = 0;
-        if (Scripts::CArray* levels = Scripts::GetArray(list))
+        if (Scripts::CArray* levels = Scripts::FetchList(list))
             entry = FindLevel(levels, level, entryLevel);
     }
     const char* name = nullptr;
-    if (entry && !entry->GetString(kText, &name, 0))
+    if (entry && !entry->FetchText(kText, &name, 0))
         name = nullptr;
     return name;
 }
@@ -89,20 +89,20 @@ const char* Manager::LevelListName(uint32_t level)
 
 namespace OnlinePlay {
 
-static_assert(offsetof(Manager, m_server) == 0x04 && offsetof(Manager, m_clientApp) == 0x08,
+static_assert(offsetof(Hub, m_host) == 0x04 && offsetof(Hub, m_clientApp) == 0x08,
               "layout must match the original");
 
 // 0x0044E4E0
-int Manager::IsNetworkGame() { return (m_flags & 0x0C) != 0 ? 1 : 0; }
+int Hub::IsNetworkGame() { return (m_flagBits & 0x0C) != 0 ? 1 : 0; }
 
 // 0x0044E4F0
-bool Manager::InNetGame()
+bool Hub::InNetGame()
 {
-    if (!(m_flags & 0x0C))
+    if (!(m_flagBits & 0x0C))
         return false;
-    if (m_server && !m_server->IsLocal())
+    if (m_host && !m_host->IsHostLocal())
         return true;
-    return m_clientApp && !m_clientApp->IsLocal();
+    return m_clientApp && !m_clientApp->IsHostLocal();
 }
 
 } // namespace OnlinePlay

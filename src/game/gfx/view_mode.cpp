@@ -81,7 +81,7 @@ const char* Name(Mode mode)
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 void*& CurrentPixelShader() { return g_currentPixelShader; } // (render_state.cpp's cache)
 int& RenderMode() { return g_renderMode; }              // (wireframe.h)
 
@@ -117,8 +117,8 @@ void* MakeTwin(void* original, Twin* twin)
     void* errors = nullptr;
     void* made = nullptr;
     long result = AssembleShader(text.c_str(), static_cast<uint32_t>(text.size()), &code, &errors);
-    if (result >= 0 && code && Device())
-        Device()->CreatePixelShader(static_cast<const DWORD*>(BufferPointer(code)),
+    if (result >= 0 && code && InputPort())
+        InputPort()->CreatePixelShader(static_cast<const DWORD*>(BufferPointer(code)),
                                     reinterpret_cast<IDirect3DPixelShader9**>(&made));
     if (!made && !g_assembleFailedLogged) {
         g_assembleFailedLogged = true;
@@ -135,9 +135,9 @@ void* MakeTwin(void* original, Twin* twin)
 
 } // namespace
 
-Mode Current() { return g_mode; }
+Mode AtHand() { return g_mode; }
 
-void Set(Mode mode)
+void AssignValue(Mode mode)
 {
     if (mode == g_mode || mode >= Mode::kCount)
         return;
@@ -159,8 +159,8 @@ void BeginWorld()
     g_inWorld = true;
     if (g_mode == Mode::kUnlit)
         CurrentPixelShader() = nullptr; // (the next SetPixelShader sends the twin)
-    if (g_mode == Mode::kCollisionOnly && Device())
-        Device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0xFF1E2024, 1.0f, 0);
+    if (g_mode == Mode::kCollisionOnly && InputPort())
+        InputPort()->Clear(0, nullptr, D3DCLEAR_TARGET, 0xFF1E2024, 1.0f, 0);
 }
 
 void EndWorld()

@@ -43,13 +43,13 @@ constexpr uint32_t kRgb = 0xDECB67C7;             // "rgb"
 
 // The texture dictionary (0x00700F1C) and its texture by checksum (0x0049F540; null if none).
 void* TextureDictionary() { return reinterpret_cast<void*>(Engine3D::g_gameTextureDict); }
-void* FindTexture(uint32_t name) { return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->GetTexture(name); }
+void* FindTexture(uint32_t name) { return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->FetchSkin(name); }
 
 // The current profile's face texture (its appearance's +0x54, through the getter 0x00576E60 folded with others) - the
 // skate module's 0x00564F80 with no params is the current profile.
 void* FaceTexture()
 {
-    auto* profile = GameModules::Skate::Instance()->GetProfile(static_cast<CStruct*>(nullptr));
+    auto* profile = GameModules::Skate::Sole()->FetchAccount(static_cast<CStruct*>(nullptr));
     return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(profile) + 0x54);
 }
 
@@ -90,10 +90,10 @@ int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 CArray* NewColourArray(CArray* source)
 {
     CArray* memory = Scripts::NewArray();
-    CArray* colour = memory ? memory->Init() : nullptr;
-    if (source->m_size == 4) {
+    CArray* colour = memory ? memory->PrepareAll() : nullptr;
+    if (source->m_extent == 4) {
         colour->ConfigureSizeKind(4, Scripts::QBVAL_INTEGER);
-        colour->SetElement(3, source->GetElement(3));
+        colour->SetElement(3, source->FetchPart(3));
     } else {
         colour->ConfigureSizeKind(3, Scripts::QBVAL_INTEGER);
     }
@@ -165,7 +165,7 @@ bool __cdecl CFunc_RotateTexture(Scripts::CStruct* params, Scripts::CScript*)
     uint32_t name = 0; // (both uninitialised in the original when missing)
     params->ReadHashValue(0u, &name, 0);
     float angle = 0.0f;
-    params->GetFloat(kAngle, &angle, 0);
+    params->FetchFloat(kAngle, &angle, 0);
     void* texture = FindTexture(name);
     if (texture) {
         // x87: degrees * (pi / 180, 0x00645464) in double, rounded once
@@ -230,11 +230,11 @@ bool __cdecl CFunc_HSVtoRGB(Scripts::CStruct* params, Scripts::CScript* script)
     float g = 0.0f;
     float b = 0.0f;
     CArray* hsv = nullptr;
-    params->GetArray(kHsv, &hsv, 1);
+    params->FetchList(kHsv, &hsv, 1);
 
     constexpr float kSixtieth = 0x1.111112p-6f; // 0x006463B8
     constexpr float kNinetieth = 0x1.6c16c2p-7f; // 0x00657CC4
-    double hue = static_cast<int>(hsv->GetElement(0)) * static_cast<double>(kSixtieth);
+    double hue = static_cast<int>(hsv->FetchPart(0)) * static_cast<double>(kSixtieth);
     float h = static_cast<float>(hue);
     if (!(hue < 6.0)) {
         do
@@ -248,12 +248,12 @@ bool __cdecl CFunc_HSVtoRGB(Scripts::CStruct* params, Scripts::CScript* script)
         while (hue < 0.0);
         h = static_cast<float>(hue);
     }
-    float s = static_cast<float>(static_cast<int>(hsv->GetElement(1)) * static_cast<double>(kNinetieth));
+    float s = static_cast<float>(static_cast<int>(hsv->FetchPart(1)) * static_cast<double>(kNinetieth));
     if (!(s > 0.0f))
         s = 0.01f;
     else if (s > 1.0f)
         s = 1.0f;
-    double v = static_cast<int>(hsv->GetElement(2)) * static_cast<double>(kSixtieth);
+    double v = static_cast<int>(hsv->FetchPart(2)) * static_cast<double>(kSixtieth);
     if (!(v > 0.0))
         v = 0.01f;
     else if (v > 1.0)
@@ -279,7 +279,7 @@ bool __cdecl CFunc_HSVtoRGB(Scripts::CStruct* params, Scripts::CScript* script)
     rgb->SetElement(0, static_cast<uint32_t>(Ftol(static_cast<double>(r) * 128.0f)));
     rgb->SetElement(1, static_cast<uint32_t>(Ftol(static_cast<double>(g) * 128.0f)));
     rgb->SetElement(2, static_cast<uint32_t>(Ftol(static_cast<double>(b) * 128.0f)));
-    script->m_params->AppendArrayRef(kRgb, rgb);
+    script->m_args->AppendArrayRef(kRgb, rgb);
     return true;
 }
 
@@ -289,11 +289,11 @@ bool __cdecl CFunc_RGBtoHSV(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float h = 0.0f;
     CArray* rgbArray = nullptr;
-    params->GetArray(kRgb, &rgbArray, 1);
+    params->FetchList(kRgb, &rgbArray, 1);
     constexpr float kScale = 1.0f / 128.0f; // 0x0064A2FC
-    float r = static_cast<float>(static_cast<int>(rgbArray->GetElement(0)) * static_cast<double>(kScale));
-    float g = static_cast<float>(static_cast<int>(rgbArray->GetElement(1)) * static_cast<double>(kScale));
-    float b = static_cast<float>(static_cast<int>(rgbArray->GetElement(2)) * static_cast<double>(kScale));
+    float r = static_cast<float>(static_cast<int>(rgbArray->FetchPart(0)) * static_cast<double>(kScale));
+    float g = static_cast<float>(static_cast<int>(rgbArray->FetchPart(1)) * static_cast<double>(kScale));
+    float b = static_cast<float>(static_cast<int>(rgbArray->FetchPart(2)) * static_cast<double>(kScale));
     float max = r;
     float min = r;
     if (g < r)
@@ -335,7 +335,7 @@ bool __cdecl CFunc_RGBtoHSV(Scripts::CStruct* params, Scripts::CScript* script)
     hsv->SetElement(0, static_cast<uint32_t>(Ftol(h)));
     hsv->SetElement(1, static_cast<uint32_t>(Ftol(static_cast<double>(s) * 90.0f)));
     hsv->SetElement(2, static_cast<uint32_t>(Ftol(static_cast<double>(max) * 60.0f)));
-    script->m_params->AppendArrayRef(kHsv, hsv);
+    script->m_args->AppendArrayRef(kHsv, hsv);
     return true;
 }
 

@@ -15,7 +15,7 @@ struct SSpriteTexture {
 };
 static_assert(offsetof(SSpriteTexture, actualWidth) == 8, "layout must match the original");
 
-// A sprite. Virtual (vtable 0x0064AD28): [0] destructor 0x4DFCC0, [1] BeginDraw 0x4DF990, [2] Draw, [3] EndDraw
+// A sprite. Virtual (vtable 0x0064AD28): [0] destructor 0x4DFCC0, [1] OpenSketch 0x4DF990, [2] Draw, [3] CloseSketch
 // 0x4DFA40. Built on the base of things drawn in priority order (vtable 0x0064AD18, as SGlyphRun - see text.h).
 struct SQuadSprite {
     void** vtable;
@@ -31,19 +31,19 @@ struct SQuadSprite {
     bool flipV;              // swap the texture's top and bottom (see Draw)
     bool flipU;              // swap its left and right
 
-    // 0x004DFCF0 (virtual [2]): draw the quad (2 triangles) on the device with the texture BeginDraw set.
-    void Draw();
+    // 0x004DFCF0 (virtual [2]): draw the quad (2 triangles) on the device with the texture OpenSketch set.
+    void Blit();
     // 0x004DFC50: construct with this priority - hidden (not in the draw list), no texture. Returns this.
-    SQuadSprite* Construct(float priority);
+    SQuadSprite* MakeNew(float priority);
     // 0x004DFC80: the destructor's body (the base's: out of the draw list).
     void DestroyBody();
     // 0x004DFCC0 (virtual [0]): destroy, and free if flags & 1. Returns this.
-    SQuadSprite* Destroy(unsigned int flags);
+    SQuadSprite* Teardown(unsigned int flags);
     // 0x004DF990 (virtual [1]): the device made ready - format 0x144, no pixel shader, the texture (+0x10 of the
     // sprite's texture) modulated by the vertex colour, or the vertex colour alone without one.
-    void BeginDraw();
+    void OpenSketch();
     // 0x004DFA40 (virtual [3]): the first stage back to modulate.
-    void EndDraw();
+    void CloseSketch();
 };
 static_assert(offsetof(SQuadSprite, texture) == 0x14, "layout must match the original");
 static_assert(offsetof(SQuadSprite, width) == 0x20, "layout must match the original");

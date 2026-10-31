@@ -44,7 +44,7 @@ much of it already done for the ported levels by the compatibility register.
 The installed release thugpro.dll does *not* use the 48-byte `MsgSkProConnectInfo` of thugpro_proxy's source (that
 snapshot is an unreleased 0.8): its client sends THUG2's 92-byte connection request (version 0x0004000B) followed by
 32 bytes - `_THUG_PRO_`, protocol version 0x00070000, release type, scripts hash, machine id, a "modified scripts"
-byte - 124 bytes, LZHAM; its host (a hook on NetLink::Server's connection request handler) refuses a remote THUG2-version
+byte - 124 bytes, LZHAM; its host (a hook on NetLink::HostEnd's connection request handler) refuses a remote THUG2-version
 request without the text (reason 6), with a version below 0.7 (31), "modified" while mods aren't allowed (32) or a
 banned machine id (36) - the scripts hash itself isn't compared by the host. Its join request is THUG2's with the
 machine id as the profile id. Its client maps reasons 31-37 to its own texts. Ours now sends exactly that (TP-R12, the

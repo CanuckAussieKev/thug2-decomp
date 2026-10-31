@@ -23,7 +23,7 @@ public:
     uint32_t m_feed;     // +0x10: the stream playing (0: none)
 
     // 0x0055EB40: the constructor: `params`' goal_id (asserted), nothing playing. Returns this.
-    CObjectiveNpc* Construct(Scripts::CStruct* params);
+    CObjectiveNpc* MakeNew(Scripts::CStruct* params);
 
     // 0x0055EB70 (cdecl): the first word of `*name` (up to its first space, `*name` left there) into `out` - the
     // whole name if there's no space. (`size` isn't read.)
@@ -56,7 +56,7 @@ public:
     void UnloadAnimBank();
     // 0x0055F5B0: the trigger object hidden (its arrow killed) or shown (its arrow added unless the goal is won);
     // not for null goals.
-    void Hide(bool hide);
+    void Conceal(bool hide);
     // 0x0055F710: the stream's .fam (fam\<stream>.fam) loaded into `animSet`.
     void LoadAnimBank(uint32_t stream, uint32_t animSet);
     // 0x0055F7A0: `stream` played (goal_play_stream) by the object `objectId` (0: the trigger object; skater: the

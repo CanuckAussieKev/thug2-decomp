@@ -14,21 +14,21 @@
 // (SetPart, GetPart, ...). From the disassembly of 0x00488DB0-0x004897BE.
 namespace Gfx2D {
 
-class CModelLook : public GameObjects::CObject {
+class CModelLook : public GameObjects::CEntity {
 public:
-    // 0x00488EA0: a CObject with its own vtable, an empty structure, no face texture. Returns this.
-    CModelLook* Construct();
-    // 0x004890F0: the destructor body: the face texture freed, the structure cleared, CObject's.
+    // 0x00488EA0: a CEntity with its own vtable, an empty structure, no face texture. Returns this.
+    CModelLook* MakeNew();
+    // 0x004890F0: the destructor body: the face texture freed, the structure cleared, CEntity's.
     void DestroyBody();
     // 0x00489370: the scalar deleting destructor (vtable slot 0). Returns this.
-    CModelLook* Destroy(unsigned int flags);
+    CModelLook* Teardown(unsigned int flags);
 
     // 0x00488F00: back to the defaults: the global appearance_init_structure's slots (if there is one), the face
     // texture marked unused. True.
     bool Reset();
     // 0x00488F40: the defaults, then `appearance`'s slots (global structures it includes expanded); with `resolve`,
     // the randomized slots get their parts (ResolveRandomParts). True.
-    bool Load(Scripts::CStruct* appearance, bool resolve);
+    bool ReadIn(Scripts::CStruct* appearance, bool resolve);
     // 0x00488FA0: Load from the global structure `name` (asserted).
     bool LoadByName(uint32_t name, bool resolve);
     // 0x00488DB0: every slot that is a structure gets a definite part: one marked randomized_desc_id a random one of
@@ -44,7 +44,7 @@ public:
     // the colour `params` gives (use_default_hsv, else h / s / v).
     void SetPart(uint32_t part, uint32_t descriptorId, Scripts::CStruct* params);
     // 0x004894D0 (vtable slot 3): the member functions scripts call: SetPart, GetPart (into the script's
-    // parameters), ClearPart, GotPart, PartGotFlag, SetChecksum; anything else CObject's.
+    // parameters), ClearPart, GotPart, PartGotFlag, SetChecksum; anything else CEntity's.
     bool InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     // 0x00489160: a new face texture (null when out of memory). 0x004891D0: freed.

@@ -14,13 +14,13 @@ struct CTriMeshSource;
 // nothing drawn for it (a sector whose geometry is null - level_editor_view.h shows it magenta, Shift+click selects it)
 // switched off and on, moved and turned; and a drawn piece's collision switched off by itself.
 //
-//   - The switch is the game's own: CWorldCell::SetActive (0x0049E9B0, thiscall, RET 4) sets / clears flag 4 of the
+//   - The switch is the game's own: CWorldCell::ChangeLive (0x0049E9B0, thiscall, RET 4) sets / clears flag 4 of the
 //     sector's collision (CStaticCollider +0x08) and the geometry's active flag (when it has one) - what a LevelGeometry
 //     node's Kill does (0x005A32C0) and what the editor's Delete (hiding scenery) already uses. The world's collision
 //     query (the grid lists, 0x004188C0) skips collision objects with flag 2 or 4, so the skater's feelers, the camera's
-//     and every other one pass a wall switched off. For an invisible wall (no geometry) SetActive touches only that
-//     flag; for a drawn piece the editor sets / clears the flag by itself (the collision half of SetActive), keeping
-//     the piece drawn - and sets it again whenever something shows the piece (SetActive(true) clears it: the editor's
+//     and every other one pass a wall switched off. For an invisible wall (no geometry) ChangeLive touches only that
+//     flag; for a drawn piece the editor sets / clears the flag by itself (the collision half of ChangeLive), keeping
+//     the piece drawn - and sets it again whenever something shows the piece (ChangeLive(true) clears it: the editor's
 //     Home / undo of a hidden piece), every frame while editing (Tick) and after a layout goes in place.
 //   - Moving and quarter turns: the collision geometry's own methods (CTriMeshSource::RotateY 0x004164F0 and
 //     Translate 0x00416400 - what CStaticCollider's slot 22 and PlaceAtAbsolutePoint 0x00410C20 hand on to), then the sector
@@ -71,30 +71,30 @@ int Combined(const std::vector<bool>& offs);
 // An invisible wall: a sector with level collision (CStaticCollider) and no geometry.
 bool IsWall(uint32_t checksum);
 // Its collision's box now (whether off or on); false: none.
-bool Box(uint32_t checksum, V3* min, V3* max);
+bool Cuboid(uint32_t checksum, V3* min, V3* max);
 // The middle of its box, and its bottom.
 V3 Pivot(uint32_t checksum);
 float Bottom(uint32_t checksum);
 // Moved so that its pivot is at `pivot` / turned `quarters` about its pivot (collision only; Commit after).
 bool MoveTo(uint32_t checksum, V3 pivot);
 bool Turn(uint32_t checksum, int quarters);
-// The collision switched off / on (a wall: CWorldCell::SetActive; a drawn piece: its collision's flag 4 only).
+// The collision switched off / on (a wall: CWorldCell::ChangeLive; a drawn piece: its collision's flag 4 only).
 bool SetOff(uint32_t checksum, bool off);
 // Whether its collision is off now (a drawn piece: off by this switch - not hidden).
-bool Off(uint32_t checksum);
+bool Disengaged(uint32_t checksum);
 // Where the editor has put it (false: not moved).
 bool Moved(uint32_t checksum, Placement* placement);
-// The super sectors brought up to date after moves (Scenery::Commit).
-void Commit();
+// The super sectors brought up to date after moves (Scenery::Finalise).
+void Finalise();
 
 // Undo / layouts: these pieces' states now; states put in place (a drawn piece: only `off`); what the editor has
 // changed in this level (copies of scenery left out); everything put back as the level has it.
-std::vector<WallState> Save(const std::vector<uint32_t>& checksums);
+std::vector<WallState> StoreAway(const std::vector<uint32_t>& checksums);
 void ApplyStates(const std::vector<WallState>& states);
 std::vector<WallState> Changed();
 void ResetAll();
 // Once a frame while editing (and after a layout goes in place): drawn pieces switched off kept off (something that
-// showed them - SetActive(true) - turned their collision on with them).
+// showed them - ChangeLive(true) - turned their collision on with them).
 void Tick();
 // The Inspector's lines about it: off or on, moved or not.
 std::string DescribeState(uint32_t checksum);

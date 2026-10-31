@@ -13,7 +13,7 @@
 
 namespace Maths {
 class QuatRotation;
-class Vector;
+class Vec4;
 } // namespace Mth
 
 namespace Gfx2D {
@@ -105,7 +105,7 @@ public:
 
     void* m_payload;                   // +0x00 the frame data it holds
     uint32_t m_unknown04[4];         // (+0x04: the frame it was last used)
-    uint32_t m_size;                 // +0x14 the keys' size
+    uint32_t m_extent;                 // +0x14 the keys' size
     uint8_t* mp_quatKeys;            // +0x18
     uint8_t* mp_transKeys;           // +0x1C
     uint32_t m_unknown20[2];
@@ -115,10 +115,10 @@ public:
     uint16_t m_quatOffsets[60];      // +0x72
     uint16_t m_transOffsets[60];     // +0xEA
     uint16_t m_boneCount;            // +0x162
-    uint16_t m_flags;                // +0x164 (0x4000 searching, 0x8000 not ready)
+    uint16_t m_flagBits;                // +0x164 (0x4000 searching, 0x8000 not ready)
 };
 static_assert(offsetof(CFrameCacheEntry, mp_cursors) == 0x28 && offsetof(CFrameCacheEntry, m_quatOffsets) == 0x72 &&
-                  offsetof(CFrameCacheEntry, m_transOffsets) == 0xEA && offsetof(CFrameCacheEntry, m_flags) == 0x164,
+                  offsetof(CFrameCacheEntry, m_transOffsets) == 0xEA && offsetof(CFrameCacheEntry, m_flagBits) == 0x164,
               "layout must match the original");
 
 class CJointClipFrames {
@@ -140,7 +140,7 @@ public:
     // `valid`. True.
     bool FetchPose(float* rotations, float* translations, uint8_t* valid, float time, int cursor, CFrameSource* source);
     // 0x00482AF0: empty. Returns this.
-    CJointClipFrames* Construct();
+    CJointClipFrames* MakeNew();
     // 0x00482B30: its events deleted and their array freed; out of the frame cache (0x006F92B0) if it's in it.
     void DestroyBody();
     // 0x00482BA0: one more reference, and its index in the frame cache (-1: none).
@@ -148,7 +148,7 @@ public:
     // 0x00482BD0: with a reference, one less, and the cache told the index is let go.
     void ReleaseCacheIndex(int index);
     // 0x00482F00: bone `index`'s name.
-    uint32_t GetBoneName(int index);
+    uint32_t FetchJointName(int index);
     // 0x00482F10: every event armed. True.
     bool ArmEvents();
     // 0x00482F40: the events between two times (in seconds, as frames) fired at `target` (`flag` passed to the
@@ -165,9 +165,9 @@ public:
     // bones' masks, +0x210 the bit) or by the frames' own bit array (flag 0x80000) - gets its first rotation key added
     // (pose rotation * key, then slerped there by `weight`) and its first translation key (a weight of the way to
     // the translation plus the key - with flags 0x4000 and 0x20000, twice the translation). True. (`unused` isn't.)
-    bool ApplyAdditive(Maths::QuatRotation* rotations, Maths::Vector* translations, void* unused, float weight, uint8_t* mask);
+    bool ApplyAdditive(Maths::QuatRotation* rotations, Maths::Vec4* translations, void* unused, float weight, uint8_t* mask);
     // 0x00485250: the same for compressed frames (flag 0x800000; a tail jump), else false.
-    bool ApplyAdditiveIfCompressed(Maths::QuatRotation* rotations, Maths::Vector* translations, void* unused, float weight,
+    bool ApplyAdditiveIfCompressed(Maths::QuatRotation* rotations, Maths::Vec4* translations, void* unused, float weight,
                                    uint8_t* mask);
     // 0x00485270: the compressed keys decoded into an animation cache entry in `format` (3 and 4: rotations as
     // quaternions - two decoders -, translations as floats; others as they come) - at most 10 a frame (the vblank
@@ -175,16 +175,16 @@ public:
     void BuildCache(int format);
     // 0x004856C0: loaded from the .ska's data (flags +4, bones +8, then the keys - compressed 0x10000000 or 0x800000
     // ones by their loaders; plain ones not at all: false), then cached at once with flag 0x800. Whether loaded.
-    bool Load(const uint8_t* data, uint32_t size, bool unused);
+    bool ReadIn(const uint8_t* data, uint32_t size, bool unused);
     // 0x00485730: each bone's rotation and translation at `time` (seconds, at 60 frames a second) - the pair of keys
     // around it and how far between (the last key: both it, 0) given to 0x00483B30 / 0x00483C40 (slerped / lerped;
     // flags 0x9000000: their other way). A bone without keys around the time reuses the bone before's pair (the
     // original's: its pointers aren't reset). Compressed frames are cached first (unless flag 0x1000) and sampled by
     // 0x00484760 (a tail jump with all the arguments). True.
-    bool GetFrames(Maths::QuatRotation* rotations, Maths::Vector* translations, uint8_t* arg2, float time, int arg4, void* arg5);
+    bool GetFrames(Maths::QuatRotation* rotations, Maths::Vec4* translations, uint8_t* arg2, float time, int arg4, void* arg5);
 
     uint32_t m_unknown00;
-    uint32_t m_flags;              // +0x04
+    uint32_t m_flagBits;              // +0x04
     int m_boneCount;               // +0x08
     uint8_t* mp_keyTable;          // +0x0C (flag 0x2000: the animation's own quaternion table)
     uint8_t* mp_quatKeys;          // +0x10

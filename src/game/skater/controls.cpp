@@ -29,7 +29,7 @@ T& At(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-int& Platform() { return GameConfig::g_platform; }
+int& OsLayer() { return GameConfig::g_platform; }
 
 // The fields the acid drops use (offsets into the skater component).
 constexpr uint32_t kVelocity = 0x34;    // four floats, then one more at +0x44
@@ -49,7 +49,7 @@ constexpr uint32_t kAcidDropState = 0x2EDA83EA;
 bool FindAcidDrop(void* skater, float* velocity)
 {
     return At<CorePhysicsComponent*>(skater, kPhysics)->FindAcidDrop(
-        false, &At<Maths::Vector>(skater, 0x24), &At<Maths::Vector>(skater, 0x68), reinterpret_cast<Maths::Vector*>(velocity),
+        false, &At<Maths::Vec4>(skater, 0x24), &At<Maths::Vec4>(skater, 0x68), reinterpret_cast<Maths::Vec4*>(velocity),
         &At<AcidDrop>(skater, 0x768));
 }
 
@@ -84,12 +84,12 @@ Scripts::CStruct* Component::PlatformStructure(Scripts::CStruct* params)
 {
     Scripts::CStruct* found = nullptr;
     int xbox = Ps2Controls() ? 5 : 7; // (PartyMod's byte at 0x0051F4C8)
-    if (Platform() == xbox) {
+    if (OsLayer() == xbox) {
         if (!params->ReadSubStruct(0xCE42EE1A, &found, 0))
             params->ReadSubStruct(0xE594F0A2, &found, 1);
         return found;
     }
-    if (Platform() == 5) {
+    if (OsLayer() == 5) {
         if (!params->ReadSubStruct(0xCB0E600C, &found, 0))
             params->ReadSubStruct(0xE594F0A2, &found, 1);
         return found;
@@ -129,7 +129,7 @@ bool Component::TryAcidDrop()
         if (At<bool>(At<uint8_t*>(this, kFlags), 0x26))
             return true;
     }
-    reinterpret_cast<GameObjects::CFootMovement*>(this)->SetState(1);
+    reinterpret_cast<GameObjects::CFootMovement*>(this)->ChangePhase(1);
     EnterAcidDrop(this, velocity);
     return true;
 }

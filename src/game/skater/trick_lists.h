@@ -6,7 +6,7 @@
 #include "game/core/alloc.h"
 #include "game/core/string.h"
 
-// Two kinds of list entries the skater's trick code (0x00512000-) keeps (each a ListKit::Node of its own type with a
+// Two kinds of list entries the skater's trick code (0x00512000-) keeps (each a ListKit::Elem of its own type with a
 // one-slot vtable: the scalar deleting destructor). Their constructors and destructors were placed at
 // 0x00578670-0x005787F0 and 0x00579570-0x00579690.
 namespace Scripts {
@@ -20,7 +20,7 @@ namespace GameObjects {
 struct TrickListEntry {
     MemSys::ListNode m_listLink;
     uint32_t m_unknown14[3];
-    uint32_t m_key;           // +0x20
+    uint32_t m_lookupKey;           // +0x20
     uint32_t m_unknown24;
     uint32_t m_unknown28;
     bool m_flag2C;            // +0x2C (0x00578670 sets it)
@@ -34,15 +34,15 @@ struct TrickListEntry {
     Scripts::CArray* m_elementList;  // +0x60
 
     // 0x00578740: an unlinked node (its data itself), the fields cleared, a new empty script array. Returns this.
-    TrickListEntry* Construct();
+    TrickListEntry* MakeNew();
     // 0x00579570: the array's contents and the array freed, then the node unlinked (its node type's vtable).
     // 0x00579820: the scalar deleting destructor.
     void DestroyBody();
-    TrickListEntry* Destroy(unsigned int flags);
+    TrickListEntry* Teardown(unsigned int flags);
     // 0x00578670
     void SetFlag();
 };
-static_assert(offsetof(TrickListEntry, m_key) == 0x20 && offsetof(TrickListEntry, m_flag2C) == 0x2C &&
+static_assert(offsetof(TrickListEntry, m_lookupKey) == 0x20 && offsetof(TrickListEntry, m_flag2C) == 0x2C &&
                   offsetof(TrickListEntry, m_unknown38) == 0x38 && offsetof(TrickListEntry, m_elementList) == 0x60 &&
                   sizeof(TrickListEntry) == 0x64,
               "layout must match the original");
@@ -51,17 +51,17 @@ static_assert(offsetof(TrickListEntry, m_key) == 0x20 && offsetof(TrickListEntry
 // sets after it.
 struct TrickNameEntry {
     MemSys::ListNode m_listLink;
-    TextUtil::String m_name;      // +0x14
+    TextUtil::Chars m_label;      // +0x14
     uint32_t m_unknown20[5];
 
     // 0x005787F0: an unlinked node (its data itself), an empty name. Returns this.
-    TrickNameEntry* Construct();
+    TrickNameEntry* MakeNew();
     // 0x00579630: the name freed, the node unlinked (its node type's vtable). 0x00579600: the scalar deleting
     // destructor.
     void DestroyBody();
-    TrickNameEntry* Destroy(unsigned int flags);
+    TrickNameEntry* Teardown(unsigned int flags);
 };
-static_assert(offsetof(TrickNameEntry, m_name) == 0x14 && sizeof(TrickNameEntry) == 0x34,
+static_assert(offsetof(TrickNameEntry, m_label) == 0x14 && sizeof(TrickNameEntry) == 0x34,
               "layout must match the original");
 
 } // namespace Obj

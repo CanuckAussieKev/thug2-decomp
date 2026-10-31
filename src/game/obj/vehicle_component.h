@@ -56,17 +56,17 @@ public:
         float rotation;            // +0x0C the tyre's roll angle (kept within -pi..pi)
         float steering;            // +0x10 the steering angle (Ackermann)
         float displaySteering;     // +0x14 the same from the smoothed steering (the model's)
-        Maths::Vector pos;           // +0x18 the contact point (world)
-        Maths::Vector vel;           // +0x28 the body's velocity there
+        Maths::Vec4 pos;           // +0x18 the contact point (world)
+        Maths::Vec4 vel;           // +0x28 the body's velocity there
         float load;                // +0x38 the suspension's force, averaged over the last ten steps
         float loadHistory[10];     // +0x3C
-        Maths::Vector normal;        // +0x64 the ground's normal under it
+        Maths::Vec4 normal;        // +0x64 the ground's normal under it
         float friction;            // +0x74 the tyre's friction coefficient this step (0x00435250)
-        Maths::Vector feelerStart;   // +0x78 the suspension's line (world): top
-        Maths::Vector feelerEnd;     // +0x88 bottom
+        Maths::Vec4 feelerStart;   // +0x78 the suspension's line (world): top
+        Maths::Vec4 feelerEnd;     // +0x88 bottom
         float slip;                // +0x98 the tyre's sideways / spinning slip speed
         float torque;              // +0x9C the torques on the tyre this step (summed)
-        Maths::Vector offset;        // +0xA0 the wheel's position in the body (the model's, less the centre of mass)
+        Maths::Vec4 offset;        // +0xA0 the wheel's position in the body (the model's, less the centre of mass)
         int steeringSide;          // +0xB0 steering (0x07560E63): 0 Fixed, 1 left, 2 right
         bool drive;                // +0xB4 drive (0x97E20A70): yes / no
         uint8_t padB5[3];
@@ -86,12 +86,12 @@ public:
         float brakeExcess;         // +0xEC the brake torque left over once the tyre stopped
         float brakeTorque;         // +0xF0 brake_torque (* 12)
         float handbrakeTorque;     // +0xF4 handbrake_torque (* 12)
-        Maths::Vector sideways;      // +0xF8 the tyre's sideways direction (world, unit, w = 1)
-        Maths::Vector contactVel;    // +0x108 the body's velocity at the wheel, before the suspension (world)
+        Maths::Vec4 sideways;      // +0xF8 the tyre's sideways direction (world, unit, w = 1)
+        Maths::Vec4 contactVel;    // +0x108 the body's velocity at the wheel, before the suspension (world)
         Engine3D::CProbeRay feeler;        // +0x118 the suspension's line against the world
 
         // 0x00435870: the feeler constructed. Returns this.
-        Wheel* Construct();
+        Wheel* MakeNew();
         // 0x00437CF0 (not a Ghidra function): the destructor (the feeler's smart pointer let go).
         void Destruct();
     };
@@ -99,18 +99,18 @@ public:
     // A collision box's face (0x88 bytes): a corner and two edges in the body, the same in the world, the edges as
     // unit vectors and their lengths.
     struct Collider {
-        Maths::Vector corner;        // +0x00 (body)
-        Maths::Vector edges[2];      // +0x10
-        Maths::Vector worldCorner;   // +0x30
-        Maths::Vector worldEdges[2]; // +0x40
-        Maths::Vector directions[2]; // +0x60 the world edges, unit
+        Maths::Vec4 corner;        // +0x00 (body)
+        Maths::Vec4 edges[2];      // +0x10
+        Maths::Vec4 worldCorner;   // +0x30
+        Maths::Vec4 worldEdges[2]; // +0x40
+        Maths::Vec4 directions[2]; // +0x60 the world edges, unit
         float lengths[2];          // +0x80
     };
 
     // A contact point of the colliders with the world this step (0x2C bytes; in the array at 0x006951C8).
     struct Contact {
-        Maths::Vector point;         // +0x00 (world)
-        Maths::Vector normal;        // +0x10 the world's, out of it
+        Maths::Vec4 point;         // +0x00 (world)
+        Maths::Vec4 normal;        // +0x10 the world's, out of it
         float depth;               // +0x20 how far in
         float impulse;             // +0x24 the impulses at it this step (summed)
         bool fromFeeler;           // +0x28 (set on the record after a feeler's - as the original)
@@ -121,31 +121,31 @@ public:
 
     // --- the component ---
     // 0x0043AA30 (registered with the composite object manager): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00437C00: the base's constructor; identity orientation, the collision cache, no input, no debug drawing, no
     // wheels, no contacts, awake; the sounds' name 0x1CA1FF20. Returns this.
-    CDrivableModule* Construct();
+    CDrivableModule* MakeNew();
     // 0x0043B990: the destructor body: the wheels destroyed and freed, the collision cache unregistered, the base's.
     void DestroyBody();
     // 0x0043C1A0 (vtable slot 0)
-    CDrivableModule* Destroy(unsigned int flags);
+    CDrivableModule* Teardown(unsigned int flags);
     // 0x00437D10 (vtable slot 2): the vehicle's parameters (see vehicle_component.cpp).
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x0043BA20 (vtable slot 3): the components, the wheels' and the skater's positions from the model, the
     // wheelbase and track, the centre of mass, the skater's components; the body's state into the object.
-    void Finalize();
+    void Seal();
     // 0x0043C1D0 (vtable slot 1): the controls (none when passive); asleep, only the steering, the wheels' roll, the
     // model and the skater; else in up to six sub-steps of at most 1/30 s: Integrate, Collide (not when passive), the
     // wheels' contacts, steering, damping and forces, the air and free-fall times; then (not when passive) the body
     // into the object, CheckSleep, the model and the skater. Stops as soon as a trigger's script took over or the
     // object died. A gravity override ends when its time is up or two wheels touch.
-    void Update();
+    void TickFrame();
     // 0x0043A070: the model's bones: 1 the skater's place, 2 on the wheels (steered, rolled, at their suspension's
     // extension but no lower than maxDrawnY); nothing in debug mode 2 (all zero). Skipped while rendering is off.
     void RefreshBoneRig();
     // 0x0043A2C0: a point on a tyre's rim in the world: `spoke` of twelve around (at its roll), on its outer or inner
     // face, steered. Returns out.
-    Maths::Vector* GetWheelRimPoint(Maths::Vector* out, const Wheel* wheel, int spoke, bool outer);
+    Maths::Vec4* GetWheelRimPoint(Maths::Vec4* out, const Wheel* wheel, int spoke, bool outer);
     // 0x0043A400: the wheels and the centre of mass drawn (with m_debugMode; compiled out of this build).
     void DebugDraw();
     // 0x0043AA90 (not a Ghidra function): moved to a node: its fixed axle at the node, on the ground below it (from
@@ -159,22 +159,22 @@ public:
     void UpdateVelocities();
     // 0x004355B0: the velocity at `offset` from the body's position: the angular velocity across it, plus the
     // velocity (w the velocity's). Returns out.
-    Maths::Vector* GetPointVelocity(Maths::Vector* out, const Maths::Vector* offset);
+    Maths::Vec4* GetPointVelocity(Maths::Vec4* out, const Maths::Vec4* offset);
     // 0x00435640: `force` added to the force, and its torque about the centre of mass at `point` (relative to the
     // body's position) to the torque. (`colour`: a debug line's, compiled out.)
-    void AddForceAtPoint(const Maths::Vector* force, const Maths::Vector* point, uint32_t colour);
+    void AddForceAtPoint(const Maths::Vec4* force, const Maths::Vec4* point, uint32_t colour);
     // 0x00435710: the same with the lever `offset` as it is.
-    void AddForceAtOffset(const Maths::Vector* force, const Maths::Vector* offset);
+    void AddForceAtOffset(const Maths::Vec4* force, const Maths::Vec4* offset);
     // 0x004357C0: `impulse` added to the momentum, its moment at `offset` to the angular momentum; the velocities
     // updated.
-    void ApplyImpulseAtOffset(const Maths::Vector* impulse, const Maths::Vector* offset);
+    void ApplyImpulseAtOffset(const Maths::Vec4* impulse, const Maths::Vec4* offset);
     // 0x00435850: whether a random kick is still going (m_kickTime > 0).
     bool IsKicked();
     // 0x00435890: a random kick along `along` (flattened, unit): pushed forward (0x3DB3FA83 * (1 +- 0.5)),
     // sideways (0x39E99FEC * +-1.5) and up (0x738500FD * (1 +- 0.2)); spun about the up axis (0x14DDB3EF * +-1.5)
     // and the sideways one (0x4088E6EC * (1 +- 0.8)) - the spin through the first moment of inertia for every axis
     // (as the original). Kicked for 0x771922A6 seconds; awake.
-    void KickRandomlyAlong(const Maths::Vector* along);
+    void KickRandomlyAlong(const Maths::Vec4* along);
 
     // --- the wheels ---
     // 0x004351C0: each wheel's roll angle on by its spin (less half its torque over the step), wrapped by 100 pi
@@ -255,7 +255,7 @@ public:
     // 0x00437120: the position moved by `move` - not through the world: a hit puts it at the surface with the rest of
     // the move reflected and the momentum into it bounced (1.5); then, with nothing at all within 4800 below, put
     // back where it was ("uber frig"), else the model lit from the ground.
-    void MoveBy(const Maths::Vector* move);
+    void MoveBy(const Maths::Vec4* move);
     // 0x00438770: righting itself: stuck upside down or on its side (slow, after a collision, the throttle held) it
     // stops and, from 300 ms to 5.3 s on, turns upright (a slerp, 3 a second). Upright (up.y > 0.999): not.
     void UpdateRighting();
@@ -277,7 +277,7 @@ public:
     bool NormalFacesAway(const Contact* contact);
     // 0x00437450: 1 / (n . (n / m + (I^-1 (r x n)) x r)) - the impulse for a unit velocity change along `direction`
     // at `offset`. Unrounded.
-    double GetImpulseDenominator(const Maths::Vector* offset, const Maths::Vector* direction);
+    double GetImpulseDenominator(const Maths::Vec4* offset, const Maths::Vec4* direction);
 
     // --- script member functions (the table at 0x00684060) ---
     // 0x00437A60 Vehicle_Kick (0x93B713A6): `linear` and `angular` (vectors, rotated into the world) added to the
@@ -302,18 +302,18 @@ public:
     bool IsSkaterVisible(Scripts::CStruct* params, Scripts::CScript* script);
 
     // --- the fields ---
-    Maths::Vector m_pos;             // +0x18 the centre of mass (world)
-    Maths::Vector m_linearMomentum;             // +0x28 linear momentum
-    Maths::Vector m_orientation;     // +0x38 a quaternion (x, y, z, w)
-    Maths::Vector m_rotmom;          // +0x48 angular momentum
+    Maths::Vec4 m_atPoint;             // +0x18 the centre of mass (world)
+    Maths::Vec4 m_linearMomentum;             // +0x28 linear momentum
+    Maths::Vec4 m_orientation;     // +0x38 a quaternion (x, y, z, w)
+    Maths::Vec4 m_rotmom;          // +0x48 angular momentum
     int m_awake;                   // +0x58 0: asleep (only the model kept up to date)
     int m_stillFrames;             // +0x5C frames it has hardly moved (asleep after three)
     int m_contactCount;            // +0x60 the colliders' contact points this step (in s_contacts)
-    Maths::Matrix m_basisFrame;          // +0x64 the orientation as a matrix
-    Maths::Vector m_vel;             // +0xA4 m_linearMomentum * m_invMass
-    Maths::Vector m_rotvel;          // +0xB4 the angular velocity
-    Maths::Matrix m_invInertia;      // +0xC4 the inverse inertia tensor in the world
-    Maths::Vector m_comOffset;       // +0x104 m_centerOfMass turned into the world
+    Maths::Mat4 m_basisFrame;          // +0x64 the orientation as a matrix
+    Maths::Vec4 m_vel;             // +0xA4 m_linearMomentum * m_invMass
+    Maths::Vec4 m_rotvel;          // +0xB4 the angular velocity
+    Maths::Mat4 m_invInertia;      // +0xC4 the inverse inertia tensor in the world
+    Maths::Vec4 m_comOffset;       // +0x104 m_centerOfMass turned into the world
     int m_wheelsInContact;         // +0x114
     int8_t m_loadIndex;            // +0x118 the wheels' load history slot (0-9)
     bool m_cutShort;            // +0x119 a trigger's script took over during the step
@@ -321,10 +321,10 @@ public:
     uint8_t pad11B;
     int m_rightingStart;           // +0x11C the game clock (with its offset) when it started righting itself
     float m_kickTime;              // +0x120 seconds left of a random kick (0x00435890)
-    Maths::Vector m_force;           // +0x124 the force this step
-    Maths::Vector m_twistForce;          // +0x134 the torque this step
+    Maths::Vec4 m_force;           // +0x124 the force this step
+    Maths::Vec4 m_twistForce;          // +0x134 the torque this step
     float m_stepLength;              // +0x144 the sub-step's length (seconds)
-    Maths::Vector m_centerOfMass;    // +0x148 (body; y from 0x93346B8C)
+    Maths::Vec4 m_centerOfMass;    // +0x148 (body; y from 0x93346B8C)
     float m_invMass;               // +0x158 386.4 / mass
     float m_invMoments[3];         // +0x15C 386.4 / moment_of_inertia
     uint32_t m_unknown168;
@@ -347,7 +347,7 @@ public:
     float m_yawDamping;            // +0x1A4 (0x386837DB) the turning damped when not steering
     float m_spinDamping;           // +0x1A8 (0x469CF79A) the angular momentum damped
     Collider m_colliders[2];       // +0x1AC colliders (0xFC8C4AC6)
-    Maths::Vector m_skaterBone;      // +0x2BC the skater's place on the model (Finalize; the skeleton's bone 1)
+    Maths::Vec4 m_skaterBone;      // +0x2BC the skater's place on the model (Finalize; the skeleton's bone 1)
     bool m_canDismount;               // +0x2CC Exitable
     bool m_noHandbrake;            // +0x2CD no_handbrake
     uint8_t pad2CE[2];
@@ -367,7 +367,7 @@ public:
     Engine3D::CHitMeshCache m_collCache;    // +0x30C the feelers' collision cache
     bool m_skaterVisible;          // +0x12D8 (0x2ED67657) a skater is shown driving
     uint8_t pad12D9[3];
-    Maths::Vector m_skaterPos;       // +0x12DC skater_pos (made relative to the centre of mass by Finalize)
+    Maths::Vec4 m_skaterPos;       // +0x12DC skater_pos (made relative to the centre of mass by Finalize)
     uint32_t m_skaterAnim;         // +0x12EC skater_anim (0xDA75A33E)
     float m_displaySteering;       // +0x12F0 m_steering smoothed (the model's wheels, the skater's animation)
     uint32_t m_soundsName;         // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
@@ -391,7 +391,7 @@ public:
 };
 // 0x004354C0 (cdecl): the quaternion product a * b into `out` (0x00420140, a quaternion's *=, on a copy of a).
 // Returns out.
-Maths::Vector* QuatProduct(Maths::Vector* out, const Maths::Vector* a, const Maths::Vector* b);
+Maths::Vec4* QuatProduct(Maths::Vec4* out, const Maths::Vec4* a, const Maths::Vec4* b);
 
 static_assert(sizeof(CDrivableModule::Wheel) == 0x1C8 && offsetof(CDrivableModule::Wheel, load) == 0x38 &&
                   offsetof(CDrivableModule::Wheel, normal) == 0x64 &&
@@ -403,7 +403,7 @@ static_assert(sizeof(CDrivableModule::Wheel) == 0x1C8 && offsetof(CDrivableModul
                   offsetof(CDrivableModule::Wheel, feeler) == 0x118,
               "layout must match the original");
 static_assert(sizeof(CDrivableModule::Collider) == 0x88, "layout must match the original");
-static_assert(offsetof(CDrivableModule, m_pos) == 0x18 && offsetof(CDrivableModule, m_awake) == 0x58 &&
+static_assert(offsetof(CDrivableModule, m_atPoint) == 0x18 && offsetof(CDrivableModule, m_awake) == 0x58 &&
                   offsetof(CDrivableModule, m_basisFrame) == 0x64 && offsetof(CDrivableModule, m_vel) == 0xA4 &&
                   offsetof(CDrivableModule, m_invInertia) == 0xC4 &&
                   offsetof(CDrivableModule, m_wheelsInContact) == 0x114 &&

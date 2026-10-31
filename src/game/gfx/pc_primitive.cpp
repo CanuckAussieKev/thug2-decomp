@@ -32,7 +32,7 @@ namespace {
 
 extern void** const kVtable;
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 IDirect3DIndexBuffer9* QuadIndices() { return g_quadIndices; }
 uint32_t& DrawCalls() { return reinterpret_cast<uint32_t&>(g_drawCalls); }
 uint32_t& DrawnTriangles() { return reinterpret_cast<uint32_t&>(g_drawnTriangles); }
@@ -50,11 +50,11 @@ uint32_t Swapped(uint32_t rgba) { return (rgba & 0xFF00FF00u) | (rgba & 0xFF) <<
 } // namespace
 
 // 0x004C5230
-CPcPrimitive* CPcPrimitive::Construct(int own)
+CPcPrimitive* CPcPrimitive::MakeNew(int own)
 {
-    reinterpret_cast<CPrimitive*>(this)->CPrimitive::Construct(own);
+    reinterpret_cast<CPrimitive*>(this)->CPrimitive::MakeNew(own);
     vtable = reinterpret_cast<void**>(kVtable);
-    reinterpret_cast<materialRef*>(material)->Construct();
+    reinterpret_cast<materialRef*>(material)->MakeNew();
     uint32_t made = flags | 1;
     vertexFormat = 2;
     vertices = nullptr;
@@ -82,17 +82,17 @@ void CPcPrimitive::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kVtable);
     if (ownsVertices == 1 && vertices)
-        MemSys::Manager::Get()->Free(vertices);
+        MemSys::Hub::Pull()->Dealloc(vertices);
     reinterpret_cast<materialRef*>(material)->DestroyBody();
     reinterpret_cast<CPrimitive*>(this)->CPrimitive::DestroyBody();
 }
 
 // 0x004C5ED0
-CPcPrimitive* CPcPrimitive::Destroy(unsigned int freeFlags)
+CPcPrimitive* CPcPrimitive::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -120,7 +120,7 @@ void CPcPrimitive::SetTexture(const uint8_t* texture, int, int)
 void CPcPrimitive::ChangeColour(uint32_t rgba) { colour = rgba; }
 
 // 0x004C5F00
-void CPcPrimitive::Init(uint32_t layoutFlags, int primitiveType, int count)
+void CPcPrimitive::PrepareAll(uint32_t layoutFlags, int primitiveType, int count)
 {
     vertexFormat = 2;
     if (layoutFlags & 1)
@@ -140,8 +140,8 @@ void CPcPrimitive::Init(uint32_t layoutFlags, int primitiveType, int count)
         default: break;
         }
         if (size) {
-            // (the 0x102 layout's allocation is MemSys::New's inline; the others through it)
-            vertices = static_cast<uint8_t*>(MemSys::New(count * size));
+            // (the 0x102 layout's allocation is MemSys::Alloc's inline; the others through it)
+            vertices = static_cast<uint8_t*>(MemSys::Alloc(count * size));
             stride = size;
         }
     }
@@ -162,28 +162,28 @@ void CPcPrimitive::Ready()
 void CPcPrimitive::Render()
 {
     At<uint32_t>(material, 0x80) = BlendModeFromName(blendMode);
-    reinterpret_cast<materialRef*>(material)->Submit(); // (its set-up)
+    reinterpret_cast<materialRef*>(material)->HandIn(); // (its set-up)
     IDirect3DVertexBuffer9* buffer = nullptr;
     uint32_t firstVertex = 0, room = 0;
     SetVertexFormat(vertexFormat);
     SetPixelShader(g_pixelShaders[kPixelShader964], nullptr);
     if (type != 0 && type != 2 && type != 4)
         return;
-    void* out = Platform::LockDynamicVertices(vertexCount, stride, &buffer, &firstVertex, &room);
+    void* out = OsLayer::LockDynamicVertices(vertexCount, stride, &buffer, &firstVertex, &room);
     std::memcpy(out, vertices, static_cast<uint32_t>(vertexCount * stride));
-    Platform::UnlockDynamicVertices(vertexCount, stride);
-    Device()->SetStreamSource(0, buffer, 0, stride);
+    OsLayer::UnlockDynamicVertices(vertexCount, stride);
+    InputPort()->SetStreamSource(0, buffer, 0, stride);
     int primitives;
     if (type == 0) {
         primitives = vertexCount / 2;
-        Device()->DrawPrimitive(D3DPT_LINELIST, firstVertex, primitives);
+        InputPort()->DrawPrimitive(D3DPT_LINELIST, firstVertex, primitives);
     } else if (type == 2) {
         primitives = vertexCount / 3;
-        Device()->DrawPrimitive(D3DPT_TRIANGLELIST, firstVertex, primitives);
+        InputPort()->DrawPrimitive(D3DPT_TRIANGLELIST, firstVertex, primitives);
     } else {
-        Device()->SetIndices(QuadIndices());
+        InputPort()->SetIndices(QuadIndices());
         primitives = vertexCount / 2;
-        Device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertexCount, 0,
+        InputPort()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(firstVertex), 0, vertexCount, 0,
                                        primitives);
     }
     ++DrawCalls();
@@ -191,7 +191,7 @@ void CPcPrimitive::Render()
 }
 
 // 0x004C55D0
-void CPcPrimitive::Draw(const float* positions, const uint32_t* colours, const float* uvs, const float* normals)
+void CPcPrimitive::Blit(const float* positions, const uint32_t* colours, const float* uvs, const float* normals)
 {
     int size = 0;
     switch (vertexFormat) {
@@ -221,7 +221,7 @@ void CPcPrimitive::Draw(const float* positions, const uint32_t* colours, const f
 }
 
 // 0x004C5B20
-void CPcPrimitive::SetPosition(int index, float x, float y, float z)
+void CPcPrimitive::ChangePlace(int index, float x, float y, float z)
 {
     At<float>(vertices, stride * index) = x;
     At<float>(vertices, stride * index + 4) = y;
@@ -332,7 +332,7 @@ float CPcPrimitive::GetV(int index)
 }
 
 // 0x004C5D10
-void CPcPrimitive::Translate(float x, float y, float z)
+void CPcPrimitive::Slide(float x, float y, float z)
 {
     for (int i = 0; i < vertexCount; ++i) {
         At<float>(vertices, stride * i) = x + At<float>(vertices, stride * i);
@@ -394,7 +394,7 @@ void CPcPrimitive::ScrollV(float v)
 }
 
 // 0x004C5340
-int CPcPrimitive::Compare(const CPcPrimitive* other)
+int CPcPrimitive::Weigh(const CPcPrimitive* other)
 {
     if (type < other->type)
         return 1;
@@ -414,22 +414,22 @@ void __cdecl SetPrimitiveDepthTest(int state, int value)
         default: break;
         }
     }
-    Device()->SetRenderState(D3DRS_ZFUNC, function);
+    InputPort()->SetRenderState(D3DRS_ZFUNC, function);
 }
 
 namespace {
-static VtableSlot kVtable_slots[] = {&Engine3D::CPcPrimitive::Destroy, &Engine3D::CPcPrimitive::SetTexture,
-                &Engine3D::CPcPrimitive::ChangeColour, &Engine3D::CPcPrimitive::Init, &Engine3D::CPcPrimitive::Ready,
-                &Engine3D::CPcPrimitive::Render, &Engine3D::CPcPrimitive::Draw, &Engine3D::CPcPrimitive::SetPosition,
+static VtableSlot kVtable_slots[] = {&Engine3D::CPcPrimitive::Teardown, &Engine3D::CPcPrimitive::SetTexture,
+                &Engine3D::CPcPrimitive::ChangeColour, &Engine3D::CPcPrimitive::PrepareAll, &Engine3D::CPcPrimitive::Ready,
+                &Engine3D::CPcPrimitive::Render, &Engine3D::CPcPrimitive::Blit, &Engine3D::CPcPrimitive::ChangePlace,
                 &Engine3D::CPcPrimitive::SetX, &Engine3D::CPcPrimitive::SetY, &Engine3D::CPcPrimitive::SetZ, &Engine3D::CPcPrimitive::SetNormal,
                 &Engine3D::CPcPrimitive::SetNormalX, &Engine3D::CPcPrimitive::SetNormalY, &Engine3D::CPcPrimitive::SetNormalZ,
                 &Engine3D::CPcPrimitive::SetVertexColour, &Engine3D::CPcPrimitive::SetUV, &Engine3D::CPcPrimitive::ChooseU,
                 &Engine3D::CPcPrimitive::ChooseV, &Engine3D::CPcPrimitive::FetchPosX, &Engine3D::CPcPrimitive::FetchPosY, &Engine3D::CPcPrimitive::FetchPosZ,
                 &Engine3D::CPcPrimitive::GetNormalX, &Engine3D::CPcPrimitive::GetNormalY, &Engine3D::CPcPrimitive::GetNormalZ,
                 &Engine3D::CPcPrimitive::GetVertexColour, &Engine3D::CPcPrimitive::GetU, &Engine3D::CPcPrimitive::GetV,
-                &Engine3D::CPcPrimitive::Translate, &Engine3D::CPcPrimitive::TranslateX, &Engine3D::CPcPrimitive::TranslateY,
+                &Engine3D::CPcPrimitive::Slide, &Engine3D::CPcPrimitive::TranslateX, &Engine3D::CPcPrimitive::TranslateY,
                 &Engine3D::CPcPrimitive::TranslateZ, &Engine3D::CPcPrimitive::ScrollUV, &Engine3D::CPcPrimitive::ScrollU,
-                &Engine3D::CPcPrimitive::ScrollV, &Engine3D::CPcPrimitive::Compare};
+                &Engine3D::CPcPrimitive::ScrollV, &Engine3D::CPcPrimitive::Weigh};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 } // namespace
 

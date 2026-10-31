@@ -28,20 +28,20 @@ constexpr int kCameraPriority = -1000;
 } // namespace
 
 // 0x0041B840
-CObjectModule* __cdecl CViewpointModule::Create()
+CObjectModule* __cdecl CViewpointModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CViewpointModule));
-    return memory ? static_cast<CViewpointModule*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CViewpointModule*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x0041B730
-CViewpointModule* CViewpointModule::Construct()
+CViewpointModule* CViewpointModule::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kVtable;
-    m_type = kType;
-    void* memory = MemSys::AllocZeroed(sizeof(Gfx2D::Camera));
-    m_viewCamera = memory ? static_cast<Gfx2D::Camera*>(memory)->Construct() : nullptr;
+    m_kindTag = kType;
+    void* memory = MemSys::AllocZeroed(sizeof(Gfx2D::ViewCam));
+    m_viewCamera = memory ? static_cast<Gfx2D::ViewCam*>(memory)->MakeNew() : nullptr;
     return this;
 }
 
@@ -50,16 +50,16 @@ void CViewpointModule::DestroyBody()
 {
     m_vtable = kVtable;
     if (m_viewCamera)
-        reinterpret_cast<void*(__thiscall*)(Gfx2D::Camera*, unsigned int)>(m_viewCamera->m_vtable[0])(m_viewCamera, 1);
+        reinterpret_cast<void*(__thiscall*)(Gfx2D::ViewCam*, unsigned int)>(m_viewCamera->m_vtable[0])(m_viewCamera, 1);
     CObjectModule::DestroyBody();
 }
 
 // 0x0041B7C0
-CViewpointModule* CViewpointModule::Destroy(unsigned int flags)
+CViewpointModule* CViewpointModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -67,26 +67,26 @@ CViewpointModule* CViewpointModule::Destroy(unsigned int flags)
 void CViewpointModule::ConfigureFromData(Scripts::CStruct*)
 {
     CObjectHubBase* manager = reinterpret_cast<CObjectHubBase*>(CompositeObjectManager());
-    reinterpret_cast<void(__thiscall*)(CObjectHubBase*, CObject*, int)>(manager->m_vtable[4])(manager, m_object,
+    reinterpret_cast<void(__thiscall*)(CObjectHubBase*, CEntity*, int)>(manager->m_vtable[4])(manager, m_entity,
                                                                                          kCameraPriority);
 }
 
 // 0x0041B810
-void CViewpointModule::Finalize()
+void CViewpointModule::Seal()
 {
-    m_viewCamera->SetPos(m_object->m_pos);
-    m_viewCamera->SetMatrix(m_object->m_basisFrame);
+    m_viewCamera->ChangeLocation(m_entity->m_atPoint);
+    m_viewCamera->ChangeMat(m_entity->m_basisFrame);
 }
 
 // 0x0041B8A0
-void CViewpointModule::Update()
+void CViewpointModule::TickFrame()
 {
-    Maths::Vector pos = m_object->m_pos;
-    Maths::Matrix matrix;
-    matrix = m_object->m_basisFrame;
-    m_object->m_displayMatrix = matrix;
-    m_viewCamera->SetPos(pos);
-    m_viewCamera->SetMatrix(matrix);
+    Maths::Vec4 pos = m_entity->m_atPoint;
+    Maths::Mat4 matrix;
+    matrix = m_entity->m_basisFrame;
+    m_entity->m_displayMatrix = matrix;
+    m_viewCamera->ChangeLocation(pos);
+    m_viewCamera->ChangeMat(matrix);
 }
 
 } // namespace Obj
@@ -94,14 +94,14 @@ void CViewpointModule::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CViewpointModule::Destroy,
-         &GameObjects::CViewpointModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CViewpointModule::Teardown,
+         &GameObjects::CViewpointModule::TickFrame,
          &GameObjects::CViewpointModule::ConfigureFromData,
-         &GameObjects::CViewpointModule::Finalize,
+         &GameObjects::CViewpointModule::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

@@ -48,7 +48,7 @@ GameObjects::CVideoHub* CameraMovies() { return SkateField<GameObjects::CVideoHu
 GameObjects::CVideoHub* ObjectMovies() { return SkateField<GameObjects::CVideoHub*>(0x36C); }
 
 // The skater a camera command names: SkaterId=<object id>, else skater=<n> (0) of the skate module.
-GameObjects::CObject* NamedSkater(Scripts::CStruct* params)
+GameObjects::CEntity* NamedSkater(Scripts::CStruct* params)
 {
     uint32_t id;
     if (params->ReadHashValue(kSkaterId, &id, 0))
@@ -58,7 +58,7 @@ GameObjects::CObject* NamedSkater(Scripts::CStruct* params)
     return GetRiderAt(index);
 }
 // (the composite object's +0xBC: a local skater)
-bool IsLocal(GameObjects::CObject* object) { return static_cast<GameObjects::CGameEntity*>(object)->m_unknownBC != 0; }
+bool IsHostLocal(GameObjects::CEntity* object) { return static_cast<GameObjects::CGameEntity*>(object)->m_unknownBC != 0; }
 
 // A movie's name (0 if missing).
 uint32_t MovieName(Scripts::CStruct* params, int assert)
@@ -71,12 +71,12 @@ uint32_t MovieName(Scripts::CStruct* params, int assert)
 } // namespace
 
 // 0x005ADF60
-CutsceneDestroyEntry* CutsceneDestroyEntry::Construct()
+CutsceneDestroyEntry* CutsceneDestroyEntry::MakeNew()
 {
-    m_name = 0;
+    m_label = 0;
     m_destroyScript = 0;
     Scripts::CStruct* memory = Scripts::NewStruct();
-    m_params = memory ? memory->Init() : nullptr;
+    m_args = memory ? memory->PrepareAll() : nullptr;
     return this;
 }
 
@@ -89,10 +89,10 @@ bool __cdecl CFunc_PlaySkaterCamAnim(Scripts::CStruct* params, Scripts::CScript*
         CameraMovies()->UseKeptCamera();
         return true;
     }
-    GameObjects::CObject* skater = NamedSkater(params);
+    GameObjects::CEntity* skater = NamedSkater(params);
     if (!skater)
         return true;
-    if (!IsLocal(skater)) {
+    if (!IsHostLocal(skater)) {
         DebugOut::Printf("this isn't a local skater!\n");
         return true;
     }
@@ -110,8 +110,8 @@ bool __cdecl CFunc_PlaySkaterCamAnim(Scripts::CStruct* params, Scripts::CScript*
 // SetCutsceneShouldPause) [SkaterId= | skater=] name=<anim> skippable= / should_pause=<0/1> - for a local skater.
 bool __cdecl CFunc_SetSkaterCamAnimSkippable(Scripts::CStruct* params, Scripts::CScript*)
 {
-    GameObjects::CObject* skater = NamedSkater(params);
-    if (skater && IsLocal(skater)) {
+    GameObjects::CEntity* skater = NamedSkater(params);
+    if (skater && IsHostLocal(skater)) {
         uint32_t name = MovieName(params, 0);
         int skippable = 0;
         params->FetchIntValue(kSkippable, &skippable, 0);
@@ -122,8 +122,8 @@ bool __cdecl CFunc_SetSkaterCamAnimSkippable(Scripts::CStruct* params, Scripts::
 
 bool __cdecl CFunc_SetSkaterCamAnimShouldPause(Scripts::CStruct* params, Scripts::CScript*)
 {
-    GameObjects::CObject* skater = NamedSkater(params);
-    if (skater && IsLocal(skater)) {
+    GameObjects::CEntity* skater = NamedSkater(params);
+    if (skater && IsHostLocal(skater)) {
         uint32_t name = MovieName(params, 0);
         int pause = 0;
         params->FetchIntValue(kShouldPause, &pause, 0);
@@ -138,10 +138,10 @@ bool __cdecl CFunc_GetCurrentSkaterCamAnimName(Scripts::CStruct*, Scripts::CScri
 {
     uint32_t name = CameraMovies()->GetPlayingName();
     if (name) {
-        script->m_params->PutNameKey(kCurrentAnimName, name);
+        script->m_args->PutNameKey(kCurrentAnimName, name);
         return true;
     }
-    script->m_params->PutNameKey(kCurrentAnimName, kNone);
+    script->m_args->PutNameKey(kCurrentAnimName, kNone);
     return false;
 }
 
@@ -150,13 +150,13 @@ bool __cdecl CFunc_GetCurrentSkaterCamAnimName(Scripts::CStruct*, Scripts::CScri
 bool __cdecl CFunc_GetSkaterCamAnimParams(Scripts::CStruct* params, Scripts::CScript* script)
 {
     uint32_t name = MovieName(params, 0);
-    GameObjects::CObject* skater = NamedSkater(params);
-    if (!skater || !IsLocal(skater))
+    GameObjects::CEntity* skater = NamedSkater(params);
+    if (!skater || !IsHostLocal(skater))
         return false;
     auto* animParams = reinterpret_cast<Scripts::CStruct*>(CameraMovies()->MovieValue(name));
     if (!animParams)
         return false;
-    script->m_params->AppendStructureIfAny(animParams);
+    script->m_args->AppendStructureIfAny(animParams);
     return true;
 }
 
@@ -164,16 +164,16 @@ bool __cdecl CFunc_GetSkaterCamAnimParams(Scripts::CStruct* params, Scripts::CSc
 // [SkaterId= | skater=] name=<anim> - for a local skater (otherwise true).
 bool __cdecl CFunc_SkaterCamAnimFinished(Scripts::CStruct* params, Scripts::CScript*)
 {
-    GameObjects::CObject* skater = NamedSkater(params);
-    if (!skater || !IsLocal(skater))
+    GameObjects::CEntity* skater = NamedSkater(params);
+    if (!skater || !IsHostLocal(skater))
         return true;
     return CameraMovies()->IsMovieGone(MovieName(params, 0));
 }
 
 bool __cdecl CFunc_SkaterCamAnimHeld(Scripts::CStruct* params, Scripts::CScript*)
 {
-    GameObjects::CObject* skater = NamedSkater(params);
-    if (!skater || !IsLocal(skater))
+    GameObjects::CEntity* skater = NamedSkater(params);
+    if (!skater || !IsHostLocal(skater))
         return true;
     return CameraMovies()->MovieFlag18(MovieName(params, 0));
 }
@@ -184,7 +184,7 @@ bool __cdecl CFunc_SkaterCamAnimHeld(Scripts::CStruct* params, Scripts::CScript*
 bool __cdecl CFunc_KillSkaterCamAnim(Scripts::CStruct* params, Scripts::CScript*)
 {
     bool result = true;
-    GameObjects::CObject* skater;
+    GameObjects::CEntity* skater;
     uint32_t id;
     if (params->ReadHashValue(kSkaterId, &id, 0)) {
         skater = GameObjects::FindObject(id);
@@ -192,7 +192,7 @@ bool __cdecl CFunc_KillSkaterCamAnim(Scripts::CStruct* params, Scripts::CScript*
         int index = 0;
         skater = params->FetchIntValue(kSkater, &index, 0) ? GetRiderAt(index) : GetHomeRider();
     }
-    if (skater && IsLocal(skater)) {
+    if (skater && IsHostLocal(skater)) {
         if (params->HasBareFlag(kCurrent)) {
             result = CameraMovies()->EndMovies(false);
         } else {
@@ -203,8 +203,8 @@ bool __cdecl CFunc_KillSkaterCamAnim(Scripts::CStruct* params, Scripts::CScript*
             result = true;
         }
     }
-    if (CameraMovies()->Count() == 0) {
-        if (ParkEditing::CParkBuilderMode::Instance()->m_state == kEdit)
+    if (CameraMovies()->TotalOf() == 0) {
+        if (ParkEditing::CParkBuilderMode::Sole()->m_curPhase == kEdit)
             ParkEditing::CParkBuilderMode::SwitchCamera();
         else
             Scripts::LaunchScript(kRestoreSkaterCamera, nullptr, nullptr, false, nullptr);
@@ -220,13 +220,13 @@ bool __cdecl CFunc_ReloadSkaterCamAnim(Scripts::CStruct* params, Scripts::CScrip
         return false;
     uint32_t name;
     const char* file;
-    if (!params->ReadHashValue(0u, &name, 0) || !params->GetString(0u, &file, 0))
+    if (!params->ReadHashValue(0u, &name, 0) || !params->FetchText(0u, &file, 0))
         return false;
     CameraMovies()->ClearMovies();
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_debugHeap);
     bool result = AssetStore::AssetManager()->RefreshResource(name, file, 0);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     return result;
 }
 

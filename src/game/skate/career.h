@@ -24,7 +24,7 @@ public:
 
     // 0x00584110: level `level`'s gap checklist (-1: the current level's). 0x00584130: the current level.
     GoalSystem::CGapTally* FetchGapList(int level);
-    int GetLevel();
+    int FetchStage();
     // 0x00584140 / 0x00584180 / 0x005841D0: goal `goal` of `level` (-1: the current one) set / cleared (also from
     // the level-start copy) / asked. 0x00584210: whether the current level's goal changed since the level started.
     void SetGoal(int goal, int level);
@@ -43,7 +43,7 @@ public:
     // 0x00584430 / 0x00584470 / 0x005844C0 / 0x00584500: a level flag, as the goals.
     void SetFlag(int flag, int level);
     void UnSetFlag(int flag, int level);
-    bool GetFlag(int flag, int level);
+    bool FetchMarker(int flag, int level);
     bool JustGotFlag(int flag);
     // 0x00584540 / 0x00584560: an integer of its info structure (by name) read / set (true).
     int GetInfoInteger(uint32_t name);
@@ -76,9 +76,9 @@ public:
     bool IsCodeOn(uint32_t name);
     // 0x00585270: the constructor: a gap checklist per level (none visited), an info structure, Reset(true, 0).
     // 0x00585E40: the destructor body (the checklists and the info freed). 0x00585EA0: the scalar deleting one.
-    CRiderStoryProgress* Construct();
+    CRiderStoryProgress* MakeNew();
     void DestroyBody();
-    CRiderStoryProgress* Destroy(unsigned int flags);
+    CRiderStoryProgress* Teardown(unsigned int flags);
     // 0x00584D00: read from a save's career structure (0x4DA4937B): goals, flags, global flags, each level's gaps
     // (got ones with their positions), visited levels, cash / amounts and totals, counters (an older save without the
     // counter total: it's summed), +0x634 / +0x638, the info. 0x00585550: written there the same way (with the skate
@@ -88,11 +88,11 @@ public:
 
     // The goal / flag words of every level, in one run (level * 8 + word).
     uint32_t* GoalWords() { return &m_goals[0][0]; }
-    uint32_t* FlagWords() { return &m_flags[0][0]; }
+    uint32_t* FlagWords() { return &m_flagBits[0][0]; }
 
     void** m_vtable;                     // +0x000 (0x0064EFD4)
     uint32_t m_goals[kLevels][8];        // +0x004
-    uint32_t m_flags[kLevels][8];        // +0x2A4
+    uint32_t m_flagBits[kLevels][8];        // +0x2A4
     uint32_t m_startGoals[8];            // +0x544
     uint32_t m_startFlags[8];            // +0x564
     uint16_t m_funds[kLevels];            // +0x584
@@ -109,13 +109,13 @@ public:
     GoalSystem::CGapTally* m_gaps[kLevels]; // +0x63C
     bool m_visited[kLevels];             // +0x690
     uint8_t pad6A5[3];
-    Scripts::CStruct* m_info;             // +0x6A8
+    Scripts::CStruct* m_details;             // +0x6A8
 };
-static_assert(offsetof(CRiderStoryProgress, m_flags) == 0x2A4 && offsetof(CRiderStoryProgress, m_startGoals) == 0x544 &&
+static_assert(offsetof(CRiderStoryProgress, m_flagBits) == 0x2A4 && offsetof(CRiderStoryProgress, m_startGoals) == 0x544 &&
                   offsetof(CRiderStoryProgress, m_funds) == 0x584 && offsetof(CRiderStoryProgress, m_lifetimeFunds) == 0x5D8 &&
                   offsetof(CRiderStoryProgress, m_counter) == 0x5DC && offsetof(CRiderStoryProgress, m_globalFlags) == 0x5F0 &&
                   offsetof(CRiderStoryProgress, m_level) == 0x630 && offsetof(CRiderStoryProgress, m_gaps) == 0x63C &&
-                  offsetof(CRiderStoryProgress, m_visited) == 0x690 && offsetof(CRiderStoryProgress, m_info) == 0x6A8,
+                  offsetof(CRiderStoryProgress, m_visited) == 0x690 && offsetof(CRiderStoryProgress, m_details) == 0x6A8,
               "layout must match the original");
 
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career (+0x20) written to the script's results.

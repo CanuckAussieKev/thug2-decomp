@@ -20,10 +20,10 @@
 #include "game/sys/module.h"
 
 namespace PadInput {
-struct Data;
+struct Payload;
 }
 namespace Maths {
-class Vector;
+class Vec4;
 }
 
 namespace ParkEditing {
@@ -35,35 +35,35 @@ extern void** const kParkEditorListenerVtable; // 0x0064F22C
 // TaskList::Task<CParkBuilderMode> (0x20 bytes, vtable 0x006476F0).
 struct ParkEditorTask {
     uint8_t m_listLink[0x18];   // the task list node (0x00406890, with the priority)
-    void(__cdecl* m_code)(ParkEditorTask*);
-    CParkBuilderMode* m_data;
+    void(__cdecl* m_codeValue)(ParkEditorTask*);
+    CParkBuilderMode* m_content;
 };
-static_assert(sizeof(ParkEditorTask) == 0x20 && offsetof(ParkEditorTask, m_code) == 0x18);
+static_assert(sizeof(ParkEditorTask) == 0x20 && offsetof(ParkEditorTask, m_codeValue) == 0x18);
 
-// PadInput::Handler<CParkBuilderMode> (0x2C bytes, vtable 0x0064D7D8).
+// PadInput::Responder<CParkBuilderMode> (0x2C bytes, vtable 0x0064D7D8).
 struct ParkEditorInputHandler {
     uint8_t m_listLink[0x18];         // the handler list node (0x00406890)
-    PadInput::Data* m_controlData;     // +0x18: the controller's data this frame
-    uint8_t* m_device;            // +0x1C
-    int m_index;                  // +0x20: the controller it's on at the start
-    void(__cdecl* m_code)(ParkEditorInputHandler*);
-    CParkBuilderMode* m_data;
+    PadInput::Payload* m_controlData;     // +0x18: the controller's data this frame
+    uint8_t* m_dev;            // +0x1C
+    int m_ordinal;                  // +0x20: the controller it's on at the start
+    void(__cdecl* m_codeValue)(ParkEditorInputHandler*);
+    CParkBuilderMode* m_content;
 };
-static_assert(sizeof(ParkEditorInputHandler) == 0x2C && offsetof(ParkEditorInputHandler, m_code) == 0x24);
+static_assert(sizeof(ParkEditorInputHandler) == 0x2C && offsetof(ParkEditorInputHandler, m_codeValue) == 0x24);
 
 extern CParkBuilderMode* g_parkEditor;
 extern uint32_t g_parkEditorReferences;
 
-class CParkBuilderMode : public GameModules::Module {
+class CParkBuilderMode : public GameModules::PartUnit {
 public:
-    // m_state
+    // m_curPhase
     enum State : uint32_t {
         kStateOff = 0xD443A2BC,         // off
         kStateEdit = 0x7ECA21E5,        // edit
         kStateTestPlay = 0xA40F0B8A,    // test_play
         kStateRegularPlay = 0xCD3682C1, // regular_play
     };
-    // m_flags
+    // m_flagBits
     enum : uint32_t { kFlagPaused = 0x2 };
     // m_actions: what the controls asked for this frame (the input handler's buttons, the menu events).
     enum : uint32_t {
@@ -85,7 +85,7 @@ public:
         kCommandNarrowGapLeft = 0x10000, // button 0x20000 pressed
     };
 
-    static CParkBuilderMode*& Instance() { return g_parkEditor; }
+    static CParkBuilderMode*& Sole() { return g_parkEditor; }
     static uint32_t& RefTally() { return g_parkEditorReferences; }
 
     // --- the module (park_editor.cpp) ---
@@ -94,7 +94,7 @@ public:
     // 0x0058D2D0: the destructor body: the park manager deleted, the listener, the module (the tasks and the
     // handler aren't deleted - as in the original). 0x0058DAA0: the scalar deleting destructor (vtable slot 0).
     void DestroyBody();
-    CParkBuilderMode* Destroy(uint8_t flags);
+    CParkBuilderMode* Teardown(uint8_t flags);
     // 0x0058DAD0 (v_start_cb): the logic task onto the main loop's logic tasks, the input handler onto its
     // controller's handlers, the display task onto the display tasks.
     void StartCallback();
@@ -121,7 +121,7 @@ public:
     // 0x0058D6D0: whether the main heap has room for `count` * `size` floor pieces (ParkEditing::MainHeapHasRoom).
     bool MainHeapHasRoom(int count, int size);
     // 0x0058D6F0: the cursor's position.
-    Maths::Vector* GetCursorPos();
+    Maths::Vec4* GetCursorPos();
     // 0x0058D700
     void SetDaylightScript(uint32_t script);
     static uint32_t __cdecl GetShellChecksum();  // 0x0058D710
@@ -136,7 +136,7 @@ public:
     // 0x0058DDE0: the piece menu shows the cursor's set again and the scripts are told the mode.
     void RefreshPieceMenu();
     // 0x0058DEC0: whether `pos` (x and z) lies inside the park more than `margin` from its edges.
-    static bool __cdecl IsInsidePark(Maths::Vector pos, float margin);
+    static bool __cdecl IsInsidePark(Maths::Vec4 pos, float margin);
     // 0x0058DF80: the generator's restart point search (0x00592A10).
     static bool __cdecl FindRestart(void* a, void* b, void* c);
     // 0x0058DFA0: the park's player count.
@@ -146,7 +146,7 @@ public:
     void ChangeSelection();
     // 0x0058ED50: a frame of editing: the camera (parked_cam) placed from the cursor, its angle, tilt and
     // distance; then (not paused) the sticks move the cursor and turn the camera, and the commands are carried out.
-    void Update();
+    void TickFrame();
     // 0x0058F640: the left stick works the menus unless editing (not paused).
     void UpdateMenuStick();
     // 0x0058F6C0: the input handler onto controller `controller`'s handlers.
@@ -158,17 +158,17 @@ public:
     // 0x0058FA50: the state becomes `state` (unless 0): the cursor shown while editing; the editor's look on, or
     // (test play, regular play) off with the gaps listed; the front end's auto-repeat (320 ms; 100 or 50); the menu
     // stick.
-    void SetState(uint32_t state);
+    void ChangePhase(uint32_t state);
 
     // --- park_editor_state.cpp (0x0058FBD0-0x005901AA) ---
     static inline const VtableRef kVtable{&kParkEditorVtable};
     static inline const VtableRef kListenerVtable{&kParkEditorListenerVtable};
     // 0x0058FFF0: the constructor (state off; the logic task, the empty display task, the input handler, the
     // listener; the park manager made). Returns this.
-    CParkBuilderMode* Construct();
+    CParkBuilderMode* MakeNew();
     // 0x00590160: Singletons::LazyInstance<CParkBuilderMode>'s Create: the first call with `create` makes the instance; every
     // call takes a reference and returns it (null if there is none).
-    static CParkBuilderMode* __cdecl Create(bool create);
+    static CParkBuilderMode* __cdecl Fabricate(bool create);
     // 0x0058FFC0: the logic task's code: the park editor's clock (0x007CE5EC) moved on, then LogicUpdate.
     static void __cdecl LogicTask(ParkEditorTask* task);
 
@@ -188,9 +188,9 @@ public:
     ParkEditorTask* mp_logicTask;           // +0x34 (0x0058FFC0, priority 0)
     ParkEditorTask* mp_displayTask;         // +0x38 (the empty 0x005480A0, priority -1000)
     ParkEditorInputHandler* mp_inputHandler; // +0x3C (HandleInput, priority 0)
-    uint32_t m_state;                       // +0x40
+    uint32_t m_curPhase;                       // +0x40
     uint32_t m_actions;                    // +0x44
-    uint32_t m_flags;                       // +0x48
+    uint32_t m_flagBits;                       // +0x48
     float m_moveSpeed;                      // +0x4C (480)
     float m_turnSpeed;                      // +0x50 (120)
     float m_padRX;                         // +0x54: the sticks (-128..127, then their dead zone taken off)
@@ -205,7 +205,7 @@ public:
     uint32_t m_timeOfDayScript;             // +0x78 (SetParkEditorTimeOfDay's tod_script)
 };
 static_assert(offsetof(CParkBuilderMode, m_listener) == 0x14 && offsetof(CParkBuilderMode, m_commandDone) == 0x30 &&
-                  offsetof(CParkBuilderMode, mp_inputHandler) == 0x3C && offsetof(CParkBuilderMode, m_state) == 0x40 &&
+                  offsetof(CParkBuilderMode, mp_inputHandler) == 0x3C && offsetof(CParkBuilderMode, m_curPhase) == 0x40 &&
                   offsetof(CParkBuilderMode, m_moveSpeed) == 0x4C && offsetof(CParkBuilderMode, m_cameraAngle) == 0x68 &&
                   offsetof(CParkBuilderMode, m_timeOfDayScript) == 0x78 && sizeof(CParkBuilderMode) == 0x7C,
               "layout must match the original");

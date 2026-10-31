@@ -1,4 +1,4 @@
-// A connection's traffic counts (NetLink::Metrics). See net_metrics.h.
+// A connection's traffic counts (NetLink::Gauges). See net_metrics.h.
 
 #include <cstdint>
 
@@ -7,7 +7,7 @@
 namespace NetLink {
 
 // 0x004544E0
-Metrics* Metrics::Construct()
+Gauges* Gauges::MakeNew()
 {
     m_numPackets = 0;
     m_totalBytes = 0;
@@ -20,30 +20,30 @@ Metrics* Metrics::Construct()
 }
 
 // 0x00454550
-void Metrics::AddMessage(int msgId, int size)
+void Gauges::AppendNote(int msgId, int size)
 {
     ++m_numMessages[msgId];
     m_messageData[msgId] += size;
 }
 
 // 0x00454D90
-void Metrics::CountPacket(int size, int time)
+void Gauges::CountPacket(int size, int time)
 {
     Packet& packet = m_packetTally[m_numPackets % kNumPackets]; // (a signed remainder, like the original's)
     packet.m_clock = time;
-    packet.m_size = size;
+    packet.m_extent = size;
     m_totalBytes += size;
     ++m_numPackets;
 }
 
 // 0x00454D00
-void Metrics::CalculateUsage(int time)
+void Gauges::CalculateUsage(int time)
 {
     int total = 0;
     for (int i = 0; i < kNumPackets && i < m_numPackets; ++i) {
         int age = static_cast<int>(static_cast<uint32_t>(time) - static_cast<uint32_t>(m_packetTally[i].m_clock));
         if (age < kUsagePeriod) // (a packet "from the future" counts too)
-            total += m_packetTally[i].m_size;
+            total += m_packetTally[i].m_extent;
     }
     m_bytesPerSec = total;
 }

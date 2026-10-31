@@ -4,7 +4,7 @@
 #include <cstdint>
 
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 
 // The engine's imposter manager (Nx; the object at 0x006FA7BC, 8 bytes): its imposter groups in a hash table, each
@@ -16,17 +16,17 @@ class HashTable;
 namespace Engine3D {
 
 struct CImposterManager {
-    ListKit::HashTable* mp_groups;
+    ListKit::KeyMap* mp_groups;
     int m_maxPerFrame;
 
     // 0x0048E3E0: construct - a table of 2^8 buckets, 1 imposter a frame. Returns this.
-    CImposterManager* Construct();
+    CImposterManager* MakeNew();
     // 0x0048E260: every group deleted (virtual destructor, flag 1), the table emptied.
     void DeleteAll();
     // 0x0048E2D0: each group updated, its imposter dropped when it's within its distance, else made or brought up to
     // date while the frame's count allows (made: counted; brought up to date: its frame count +1, counted when it
     // was).
-    void Update();
+    void TickFrame();
     // 0x0048E370: the imposters drawn (the groups that have one), between SetPrimitiveStates and
     // ResetPrimitiveStates.
     void Render();

@@ -23,9 +23,9 @@
 
 namespace Scripts {
 
-static_assert(offsetof(CStoredRandom, m_count) == 8, "layout must match the original");
+static_assert(offsetof(CStoredRandom, m_num) == 8, "layout must match the original");
 static_assert(offsetof(CStoredRandom, m_order) == 0x12, "layout must match the original");
-static_assert(offsetof(CStoredRandom, m_last) == 0x54 && offsetof(CStoredRandom, m_next) == 0x58,
+static_assert(offsetof(CStoredRandom, m_last) == 0x54 && offsetof(CStoredRandom, m_succ) == 0x58,
               "layout must match the original");
 static_assert(sizeof(CStoredRandom) == 0x60, "layout must match the original");
 
@@ -59,8 +59,8 @@ void CreatePool(MemSys::PoolPair& pools, int item_size, int count, const char* n
 {
     if (!MemSys::g_managerReady)
         MemSys::EnsureManager();
-    void* memory = MemSys::Manager::Get()->Allocate(sizeof(MemSys::Pool), 1, nullptr);
-    MemSys::Pool* pool = memory ? new (memory) MemSys::Pool(item_size, count, name) : nullptr;
+    void* memory = MemSys::Hub::Pull()->Carve(sizeof(MemSys::SlabBank), 1, nullptr);
+    MemSys::SlabBank* pool = memory ? new (memory) MemSys::SlabBank(item_size, count, name) : nullptr;
     pools.pools[pools.current] = pool;
     reinterpret_cast<uint8_t*>(&pools.unknown4)[pools.current] = 1;
 }
@@ -310,16 +310,16 @@ void ForgetStoredRandomsOf(uint32_t owner)
 // 0x0046F8A0
 void CStoredRandom::Shuffle(bool avoidRepeat)
 {
-    uint8_t last = m_order[m_count - 1];
-    for (int swaps = m_count * 10; swaps; --swaps) {
-        int a = Maths::Rnd(m_count);
-        int b = Maths::Rnd(m_count);
+    uint8_t last = m_order[m_num - 1];
+    for (int swaps = m_num * 10; swaps; --swaps) {
+        int a = Maths::Rnd(m_num);
+        int b = Maths::Rnd(m_num);
         uint8_t swapped = m_order[a];
         m_order[a] = m_order[b];
         m_order[b] = swapped;
     }
     if (avoidRepeat && m_order[0] == last) {
-        int other = Maths::Rnd(m_count - 1) + 1;
+        int other = Maths::Rnd(m_num - 1) + 1;
         uint8_t swapped = m_order[0];
         m_order[0] = m_order[other];
         m_order[other] = swapped;
@@ -342,14 +342,14 @@ void AllocatePermanentStringHeap(uint32_t size, uint32_t count)
 void CreateScriptPools()
 {
     // Not original - the counts are ours (game/core/memory_sizes.h: pool sizes as THUGPRO's, thug2-decomp.ini
-    // [memory]); the script region they come from is grown to match (MemSys::Manager::InitStandardHeaps).
+    // [memory]); the script region they come from is grown to match (MemSys::Hub::InitStandardHeaps).
     // Original behaviour: CScriptCacheEntry 300, CComponent 86000, CStruct 19800, CVector 9500, CPair 800, CArray
     // 7000, CSymbolTableEntry 12500, CScript 300, CStoredRandom 100, the string heap 190000 bytes / 7000 strings.
-    const MemSys::Sizes::Pools& sizes = MemSys::Sizes::Current();
+    const MemSys::Sizes::Pools& sizes = MemSys::Sizes::AtHand();
     MemSys::PushMemProfile("AllocateChecksumNameLookupTables");
     AllocateChecksumNameLookupTables();
     MemSys::PopMemProfile();
-    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
     // (0x0046F090, 0x0046F110, 0x0046F190, 0x0046F210, 0x0046F290, 0x0046F310, 0x0046F390, 0x0046F410,
     // 0x0046F4A0: one function per class)
     MemSys::PushMemProfile("CScriptCacheEntry");
@@ -405,12 +405,12 @@ void LogScriptPoolUse(const char* when)
     std::string line;
     for (const Named& p : kPools) {
         int used = 0, peak = 0, count = 0;
-        for (MemSys::Pool* pool : p.pair->pools) {
+        for (MemSys::SlabBank* pool : p.pair->pools) {
             if (!pool)
                 continue;
-            used += pool->m_used;
+            used += pool->m_takenCount;
             peak += pool->m_peakUsed;
-            count += pool->m_count;
+            count += pool->m_num;
         }
         char part[96];
         std::snprintf(part, sizeof(part), "%s%s %d (peak %d) of %d", line.empty() ? "" : ", ", p.name, used, peak,
@@ -418,10 +418,10 @@ void LogScriptPoolUse(const char* when)
         line += part;
     }
     // (and the hash tables' items, Main's HashItem pool - memory_sizes.h hash_item_pool)
-    if (MemSys::Pool* items = MemSys::SlotPoolSetup::GetPool(0)) {
+    if (MemSys::SlabBank* items = MemSys::SlotPoolSetup::GetPool(0)) {
         char part[96];
-        std::snprintf(part, sizeof(part), ", HashItem %d (peak %d) of %d", items->m_used, items->m_peakUsed,
-                      items->m_count);
+        std::snprintf(part, sizeof(part), ", HashItem %d (peak %d) of %d", items->m_takenCount, items->m_peakUsed,
+                      items->m_num);
         line += part;
     }
     Log("script pools in use %s: %s", when, line.c_str());
@@ -454,7 +454,7 @@ namespace Scripts {
 // The script cache (0x006F3558, or null): the scripts' decompressed code, by name.
 CScriptStore* ScriptCache() { return g_scriptCache; }
 
-void RemoveFromScriptCache(uint32_t name) { ScriptCache()->Invalidate(name); }
+void RemoveFromScriptCache(uint32_t name) { ScriptCache()->MarkStale(name); }
 
 namespace {
 
@@ -486,7 +486,7 @@ void SetScriptFlag6F2564() { g_evaluator.m_unknown1F4 = true; }
 // 0x00470010
 void AllocateScriptChecksumNames(bool debugHeap)
 {
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     MemSys::EnterHeapScope(debugHeap ? manager->m_debugHeap : manager->m_scriptHeap);
     auto* names = static_cast<uint32_t*>(MemSys::AllocBlock(0x1000 * 12));
     reinterpret_cast<uint32_t*&>(g_scriptNames) = names;
@@ -496,10 +496,10 @@ void AllocateScriptChecksumNames(bool debugHeap)
 }
 
 // 0x0044C1D0 / 0x0044C230 / 0x00470070 / 0x004700D0
-void FreePair(void* pair) { g_pairPools.Free(pair); }
-void FreeVector(void* vector) { g_vectorPools.Free(vector); }
-void FreeStoredRandom(void* random) { g_storedRandomPools.Free(random); }
-void FreeSymbol(CSymbolTableEntry* symbol) { g_symbolPools.Free(symbol); }
+void FreePair(void* pair) { g_pairPools.Dealloc(pair); }
+void FreeVector(void* vector) { g_vectorPools.Dealloc(vector); }
+void FreeStoredRandom(void* random) { g_storedRandomPools.Dealloc(random); }
+void FreeSymbol(CSymbolTableEntry* symbol) { g_symbolPools.Dealloc(symbol); }
 
 // 0x004711D0
 void CleanUpAndRemoveSymbol(CSymbolTableEntry* symbol)

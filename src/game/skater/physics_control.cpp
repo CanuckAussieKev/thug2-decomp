@@ -54,7 +54,7 @@ constexpr int kSkating = 0, kWalking = 1; // the state component's physics mode 
 constexpr float kSecondsPerMs = 0.001f;   // 0x006461D8
 
 template <typename T>
-T& Field(void* object, uint32_t offset)
+T& Prop(void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
@@ -89,7 +89,7 @@ void SkaterCameraSave(CObjectModule* camera, void* state)
 }
 void SkaterCameraSet(CObjectModule* camera, void* state)
 {
-    static_cast<CRiderChaseView*>(camera)->SetState(static_cast<const WalkCameraState*>(state));
+    static_cast<CRiderChaseView*>(camera)->ChangePhase(static_cast<const WalkCameraState*>(state));
 }
 void WalkCameraSave(CObjectModule* camera, void* state)
 {
@@ -103,15 +103,15 @@ void WalkCameraRestore(CObjectModule* camera, void* state)
 } // namespace
 
 // 0x00517830
-CObjectModule* __cdecl CRiderBoardPhysics::Create()
+CObjectModule* __cdecl CRiderBoardPhysics::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderBoardPhysics));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CRiderBoardPhysics*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kSkaterPhysicsControl;
+    component->m_kindTag = kSkaterPhysicsControl;
     component->m_corePhysics = nullptr;
     return component;
 }
@@ -131,11 +131,11 @@ void CRiderBoardPhysics::DestroyBody()
 }
 
 // 0x00517740
-CRiderBoardPhysics* CRiderBoardPhysics::Destroy(unsigned int flags)
+CRiderBoardPhysics* CRiderBoardPhysics::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -143,28 +143,28 @@ CRiderBoardPhysics* CRiderBoardPhysics::Destroy(unsigned int flags)
 void CRiderBoardPhysics::ConfigureFromData(Scripts::CStruct* /*params*/) { m_isHalted = false; }
 
 // 0x00517770
-void CRiderBoardPhysics::Finalize()
+void CRiderBoardPhysics::Seal()
 {
-    m_corePhysics = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCorePhysics));
-    m_state = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterState));
-    Field<int>(m_state, 0x1C) = -1;
+    m_corePhysics = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterCorePhysics));
+    m_curPhase = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterState));
+    Prop<int>(m_curPhase, 0x1C) = -1;
 }
 
 // 0x005178B0
 void CRiderBoardPhysics::SetFrozen(bool paused)
 {
     m_isHalted = paused;
-    if (!paused && (m_object->m_compositeFlags & COMPOSITE_FLAG_SUSPENDED))
+    if (!paused && (m_entity->m_compositeFlags & COMPOSITE_FLAG_SUSPENDED))
         return;
-    switch (Field<int>(m_state, 0x1C)) {
+    switch (Prop<int>(m_curPhase, 0x1C)) {
     case kSkating:
         SuspendComponent(reinterpret_cast<CObjectModule*>(m_corePhysics), paused);
-        SuspendComponent(m_object->GetComponent(kSkaterRotate), paused);
-        SuspendComponent(m_object->GetComponent(kSkaterAdjustPhysics), paused);
-        SuspendComponent(m_object->GetComponent(kSkaterFinalizePhysics), paused);
+        SuspendComponent(m_entity->FetchModule(kSkaterRotate), paused);
+        SuspendComponent(m_entity->FetchModule(kSkaterAdjustPhysics), paused);
+        SuspendComponent(m_entity->FetchModule(kSkaterFinalizePhysics), paused);
         break;
     case kWalking:
-        SuspendComponent(m_object->GetComponent(kWalk), paused);
+        SuspendComponent(m_entity->FetchModule(kWalk), paused);
         break;
     default:
         break;
@@ -174,22 +174,22 @@ void CRiderBoardPhysics::SetFrozen(bool paused)
 // 0x00517940
 void CRiderBoardPhysics::SwitchSkatingToWalking()
 {
-    if (Field<int>(m_state, 0x1C) == kWalking)
+    if (Prop<int>(m_curPhase, 0x1C) == kWalking)
         return;
     m_previousDuration = Clock() - m_switchTime;
     m_switchTime = Clock();
-    CObjectModule* walk = m_object->GetComponent(kWalk);
-    auto* camera = static_cast<CGameEntity*>(static_cast<CRider*>(m_object)->GetSkaterCamera());
-    CObjectModule* skaterCamera = camera->GetComponent(kSkaterCamera);
-    CObjectModule* walkCamera = camera->GetComponent(kWalkCamera);
-    int skaterState = Field<int>(Field<uint8_t*>(m_corePhysics, 0x1528), 0x18);
+    CObjectModule* walk = m_entity->FetchModule(kWalk);
+    auto* camera = static_cast<CGameEntity*>(static_cast<CRider*>(m_entity)->GetSkaterCamera());
+    CObjectModule* skaterCamera = camera->FetchModule(kSkaterCamera);
+    CObjectModule* walkCamera = camera->FetchModule(kWalkCamera);
+    int skaterState = Prop<int>(Prop<uint8_t*>(m_corePhysics, 0x1528), 0x18);
     CoreLeaving(m_corePhysics);
     SuspendComponent(reinterpret_cast<CObjectModule*>(m_corePhysics), true);
-    SuspendComponent(m_object->GetComponent(kSkaterRotate), true);
-    SuspendComponent(m_object->GetComponent(kSkaterAdjustPhysics), true);
-    SuspendComponent(m_object->GetComponent(kSkaterFinalizePhysics), true);
+    SuspendComponent(m_entity->FetchModule(kSkaterRotate), true);
+    SuspendComponent(m_entity->FetchModule(kSkaterAdjustPhysics), true);
+    SuspendComponent(m_entity->FetchModule(kSkaterFinalizePhysics), true);
     SuspendComponent(skaterCamera, true);
-    SetWalking(m_state, true);
+    SetWalking(m_curPhase, true);
     SuspendComponent(walk, false);
     WalkStarting(walk, skaterState == 0);
     SuspendComponent(walkCamera, false);
@@ -203,27 +203,27 @@ void CRiderBoardPhysics::SwitchSkatingToWalking()
 // 0x00517B20
 void CRiderBoardPhysics::SwitchWalkingToSkating()
 {
-    if (Field<int>(m_state, 0x1C) == kSkating)
+    if (Prop<int>(m_curPhase, 0x1C) == kSkating)
         return;
     m_previousDuration = Clock() - m_switchTime;
     m_switchTime = Clock();
-    CObjectModule* walk = m_object->GetComponent(kWalk);
-    auto* camera = static_cast<CGameEntity*>(static_cast<CRider*>(m_object)->GetSkaterCamera());
-    CObjectModule* skaterCamera = camera->GetComponent(kSkaterCamera);
-    CObjectModule* walkCamera = camera->GetComponent(kWalkCamera);
+    CObjectModule* walk = m_entity->FetchModule(kWalk);
+    auto* camera = static_cast<CGameEntity*>(static_cast<CRider*>(m_entity)->GetSkaterCamera());
+    CObjectModule* skaterCamera = camera->FetchModule(kSkaterCamera);
+    CObjectModule* walkCamera = camera->FetchModule(kWalkCamera);
     WalkLeaving(walk);
     SuspendComponent(walk, true);
     SuspendComponent(walkCamera, true);
-    SetWalking(m_state, false);
+    SetWalking(m_curPhase, false);
     SuspendComponent(reinterpret_cast<CObjectModule*>(m_corePhysics), false);
     // The walk's ground state (+0x18 0) and what it holds (+0x748: 1 - its +0x74C -, or 2 - its +0x768).
-    int hold = Field<int>(walk, 0x748);
+    int hold = Prop<int>(walk, 0x748);
     void* hold2 = hold == 2 ? reinterpret_cast<uint8_t*>(walk) + 0x768 : nullptr;
     void* hold1 = hold == 1 ? reinterpret_cast<uint8_t*>(walk) + 0x74C : nullptr;
-    CoreReturning(m_corePhysics, Field<int>(walk, 0x18) == 0, hold1, hold2);
-    SuspendComponent(m_object->GetComponent(kSkaterRotate), false);
-    SuspendComponent(m_object->GetComponent(kSkaterAdjustPhysics), false);
-    SuspendComponent(m_object->GetComponent(kSkaterFinalizePhysics), false);
+    CoreReturning(m_corePhysics, Prop<int>(walk, 0x18) == 0, hold1, hold2);
+    SuspendComponent(m_entity->FetchModule(kSkaterRotate), false);
+    SuspendComponent(m_entity->FetchModule(kSkaterAdjustPhysics), false);
+    SuspendComponent(m_entity->FetchModule(kSkaterFinalizePhysics), false);
     SuspendComponent(skaterCamera, false);
     alignas(16) uint8_t cameraState[0x60];
     WalkCameraSave(walkCamera, cameraState);
@@ -233,17 +233,17 @@ void CRiderBoardPhysics::SwitchWalkingToSkating()
 }
 
 // 0x00517AC0
-void CRiderBoardPhysics::Update()
+void CRiderBoardPhysics::TickFrame()
 {
     m_flag26 = 0;
     if (!m_isHalted)
         return;
-    switch (Field<int>(m_state, 0x1C)) {
-    case kSkating: m_object->m_displayMatrix = Field<Maths::Matrix>(m_corePhysics, 0x18); break;
-    case kWalking: m_object->m_displayMatrix = m_object->m_basisFrame; break;
+    switch (Prop<int>(m_curPhase, 0x1C)) {
+    case kSkating: m_entity->m_displayMatrix = Prop<Maths::Mat4>(m_corePhysics, 0x18); break;
+    case kWalking: m_entity->m_displayMatrix = m_entity->m_basisFrame; break;
     default: break;
     }
-    if (!(reinterpret_cast<CObjectModule*>(m_corePhysics)->m_flags & COMPONENT_FLAG_SUSPENDED))
+    if (!(reinterpret_cast<CObjectModule*>(m_corePhysics)->m_flagBits & COMPONENT_FLAG_SUSPENDED))
         SetFrozen(true);
 }
 
@@ -275,13 +275,13 @@ bool CRiderBoardPhysics::UnPausePhysics(Scripts::CStruct*, Scripts::CScript*)
 // 0x005177A0
 bool CRiderBoardPhysics::GetTimeSincePhysicsSwitch(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PushFloat(kTimeSincePhysicsSwitch, Seconds(Clock() - m_switchTime));
+    script->m_args->PushFloat(kTimeSincePhysicsSwitch, Seconds(Clock() - m_switchTime));
     return true;
 }
 // 0x005177F0
 bool CRiderBoardPhysics::GetPreviousPhysicsStateDuration(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PushFloat(kPreviousPhysicsStateDuration, Seconds(m_previousDuration));
+    script->m_args->PushFloat(kPreviousPhysicsStateDuration, Seconds(m_previousDuration));
     return true;
 }
 // 0x005176E0
@@ -320,14 +320,14 @@ bool CRiderBoardPhysics::IsForceWalkOn(Scripts::CStruct*, Scripts::CScript*) { r
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderBoardPhysics::Destroy,
-         &GameObjects::CRiderBoardPhysics::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderBoardPhysics::Teardown,
+         &GameObjects::CRiderBoardPhysics::TickFrame,
          &GameObjects::CRiderBoardPhysics::ConfigureFromData,
-         &GameObjects::CRiderBoardPhysics::Finalize,
+         &GameObjects::CRiderBoardPhysics::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

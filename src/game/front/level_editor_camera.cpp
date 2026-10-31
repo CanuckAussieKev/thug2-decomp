@@ -17,7 +17,7 @@
 #include "game/front/level_editor_prefs.h"
 #include "game/sys/log.h"
 
-namespace MenuSystem::LevelEditor::Camera {
+namespace MenuSystem::LevelEditor::ViewCam {
 
 namespace {
 constexpr float kPi = 3.14159265f;
@@ -60,7 +60,7 @@ float FrameDistance(float radius, float tanHalf, float minimum)
 
 float SpeedForRadius(float radius) { return std::clamp(radius * 4.0f, 100.0f, 20000.0f); }
 
-V3 OrbitAbout(V3 pos, V3 pivot, const Frame& before, const Frame& after)
+V3 OrbitAbout(V3 pos, V3 pivot, const TickCycle& before, const TickCycle& after)
 {
     V3 v = pos - pivot;
     float r = Dot(v, before.right), u = Dot(v, before.up), b = Dot(v, before.back);
@@ -111,7 +111,7 @@ const char* ViewName(View view)
     case View::Back: return "Back";
     case View::Right: return "Right";
     case View::Left: return "Left";
-    case View::Free: return "User";
+    case View::Dealloc: return "User";
     default: return "Perspective";
     }
 }
@@ -144,7 +144,7 @@ bool ParseBookmarks(const std::string& text, Bookmark marks[kBookmarks])
         float x, y, z, yaw, pitch, equivalent;
         if (sscanf_s(line.c_str(), "%d %f %f %f %f %f %d %f", &n, &x, &y, &z, &yaw, &pitch, &view, &equivalent) != 8)
             continue;
-        if (n < 1 || n > kBookmarks || view < 0 || view > static_cast<int>(View::Free))
+        if (n < 1 || n > kBookmarks || view < 0 || view > static_cast<int>(View::Dealloc))
             continue;
         Bookmark& m = marks[n - 1];
         m.set = true;
@@ -282,7 +282,7 @@ V3 LookPoint(const Rig& rig)
 
 } // namespace
 
-void Start(uint32_t scene)
+void Kickoff(uint32_t scene)
 {
     g_flight = Flight{};
     g_ortho = OrthoState{};
@@ -292,7 +292,7 @@ void Start(uint32_t scene)
     LoadBookmarks();
 }
 
-void Stop()
+void Halt()
 {
     g_flight = Flight{};
     g_ortho.view = View::None;
@@ -320,7 +320,7 @@ float ViewAngle(float baseDegrees) { return Ortho() ? OrthoAngle(baseDegrees, g_
 
 float NearPlane() { return Ortho() ? OrthoNear(g_ortho.equivalent) : 2.0f; }
 
-std::string Status()
+std::string Standing()
 {
     std::string s;
     if (Ortho()) {
@@ -355,7 +355,7 @@ void FilterMouse(const Rig& rig, MouseIn m, bool alt, bool haveLastRay, V3 lastR
         *m.leftPresses = 0;
         // (the pivot: the selection, else the surface under the cursor where the press was)
         if (!rig.haveSelection && haveLastRay && rig.cast) {
-            V3 dir = Normalize(lastRay);
+            V3 dir = MakeUnit(lastRay);
             g_orbit.havePivot = rig.cast(*rig.pos, *rig.pos + dir * 30000.0f, &g_orbit.pivot);
         }
         if (!rig.haveSelection && !g_orbit.havePivot) {
@@ -398,10 +398,10 @@ void ApplyOrbit(const Rig& rig)
 {
     if (!g_orbit.orbiting && g_orbit.dx == 0.0f && g_orbit.dy == 0.0f && g_orbit.wheel == 0)
         return;
-    const OptionStore::Values& prefs = OptionStore::Get();
+    const OptionStore::Values& prefs = OptionStore::Pull();
     float sensitivity = 0.0035f * static_cast<float>(prefs.lookPct) / 100.0f;
     float dy = prefs.invertY ? -g_orbit.dy : g_orbit.dy;
-    Frame before = FrameFromYawPitch(*rig.yaw, *rig.pitch);
+    TickCycle before = FrameFromYawPitch(*rig.yaw, *rig.pitch);
     Look(rig.yaw, rig.pitch, g_orbit.dx, dy, sensitivity);
     g_orbit.dx = g_orbit.dy = 0.0f;
     int wheel = g_orbit.wheel;
@@ -414,7 +414,7 @@ void ApplyOrbit(const Rig& rig)
     }
     if (!g_orbit.havePivot)
         return;
-    Frame after = FrameFromYawPitch(*rig.yaw, *rig.pitch);
+    TickCycle after = FrameFromYawPitch(*rig.yaw, *rig.pitch);
     V3 pos = OrbitAbout(*rig.pos, g_orbit.pivot, before, after);
     if (wheel) {
         V3 offset = pos - g_orbit.pivot;
@@ -432,7 +432,7 @@ void Keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browserOpen)
     (void)keys;
     (void)ctrl;
     // F: the selection framed (the browser has its own F).
-    if (Actions::Pressed(Actions::kFrameSelection) && !browserOpen) {
+    if (Actions::Squeezed(Actions::kFrameSelection) && !browserOpen) {
         if (!rig.haveSelection) {
             Hud::Message("Nothing selected", 2.0);
         } else {
@@ -443,18 +443,18 @@ void Keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browserOpen)
                 g_ortho.equivalent = std::clamp(FrameDistance(rig.radius, base, 100.0f), 50.0f, 20000.0f);
             } else {
                 float distance = std::min(20000.0f, FrameDistance(rig.radius, tanHalf, 100.0f));
-                Frame frame = FrameFromYawPitch(*rig.yaw, *rig.pitch);
+                TickCycle frame = FrameFromYawPitch(*rig.yaw, *rig.pitch);
                 FlyTo(rig, {rig.target + frame.back * distance, *rig.yaw, *rig.pitch});
             }
-            if (OptionStore::Get().speedBySelection)
+            if (OptionStore::Pull().speedBySelection)
                 *rig.speed = SpeedForRadius(rig.radius);
         }
     }
     // 1..9 recall a bookmark, Ctrl+1..9 store it. (Alt+1..4 are the view modes - level_editor_overlays.h.)
     bool alt = keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT];
     for (int i = 0; i < kBookmarks; ++i) {
-        bool store = Actions::Pressed(Actions::kBookmarkStore1 + i);
-        if (alt || (!store && !Actions::Pressed(Actions::kBookmark1 + i)))
+        bool store = Actions::Squeezed(Actions::kBookmarkStore1 + i);
+        if (alt || (!store && !Actions::Squeezed(Actions::kBookmark1 + i)))
             continue;
         char text[96];
         if (store) {
@@ -495,8 +495,8 @@ void Keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browserOpen)
                                    {Actions::kViewRight, Actions::kViewLeft},
                                    {Actions::kViewOrtho, Actions::kViewOrtho}};
     for (int i = 0; i < 4; ++i) {
-        bool opposite = Actions::Pressed(kPad[i][1]) && i != 3;
-        if (!opposite && !Actions::Pressed(kPad[i][0]))
+        bool opposite = Actions::Squeezed(kPad[i][1]) && i != 3;
+        if (!opposite && !Actions::Squeezed(kPad[i][0]))
             continue;
         g_flight.on = false;
         if (i == 3) {
@@ -505,7 +505,7 @@ void Keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browserOpen)
             } else {
                 V3 pivot = LookPoint(rig);
                 V3 d = pivot - *rig.pos;
-                EnterOrtho(rig, View::Free, *rig.yaw, *rig.pitch, pivot, std::sqrt(Dot(d, d)));
+                EnterOrtho(rig, View::Dealloc, *rig.yaw, *rig.pitch, pivot, std::sqrt(Dot(d, d)));
             }
             continue;
         }
@@ -534,7 +534,7 @@ void AfterUpdate(const Rig& rig, int wheel, bool interrupted)
         Pose to = g_flight.to;
         if (rig.haveSelection) {
             // (the selection may move meanwhile: the place is kept relative to it)
-            Frame frame = FrameFromYawPitch(to.yaw, to.pitch);
+            TickCycle frame = FrameFromYawPitch(to.yaw, to.pitch);
             V3 d = g_flight.to.pos - rig.target;
             to.pos = rig.target + frame.back * std::sqrt(Dot(d, d));
         }
@@ -585,7 +585,7 @@ void AfterUpdate(const Rig& rig, int wheel, bool interrupted)
 float FlyFactor(bool held, double seconds)
 {
     g_flyHeld = held ? g_flyHeld + static_cast<float>(seconds) : 0.0f;
-    return FlyRamp(g_flyHeld, OptionStore::Get().flyAccelMs);
+    return FlyRamp(g_flyHeld, OptionStore::Pull().flyAccelMs);
 }
 
-} // namespace MenuSystem::LevelEditor::Camera
+} // namespace MenuSystem::LevelEditor::ViewCam

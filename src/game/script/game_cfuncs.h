@@ -11,7 +11,7 @@ class CStruct;
 class CScript;
 } // namespace Script
 namespace GameObjects {
-class CObject;
+class CEntity;
 }
 
 // Script commands (CFunctions) of the skate game, 0x0059F610-0x005A5360 (after skate_cfuncs.h's): the viewer,
@@ -71,7 +71,7 @@ void __cdecl SecondControllerCheckTask(void* task);
 // False if there's no such object.
 bool __cdecl MakeCameraActive(uint32_t id, int viewport, bool takeCurrentView);
 // 0x0059FB10: a manager walk's callback: the object deletes itself (unless locked) if its id is `*id`.
-void __cdecl DestroyObjectWithId(GameObjects::CObject* object, void* id);
+void __cdecl DestroyObjectWithId(GameObjects::CEntity* object, void* id);
 
 // --- cleaning up, object flags, skater scripts, pausing, the flash (game_flow_cfuncs.cpp) --------------------------
 
@@ -229,11 +229,11 @@ enum : int {
 bool __cdecl FlagCommandByName(Scripts::CStruct* params, Scripts::CScript* script, int action);
 // 0x005A01B0: its manager walk's callback (`data`: {id, value, action, result, found}): the command done if the
 // object has the id.
-void __cdecl ApplyFlagCommandToObject(GameObjects::CObject* object, void* data);
+void __cdecl ApplyFlagCommandToObject(GameObjects::CEntity* object, void* data);
 // 0x005A0120: the command done to an object (`data` from the value on, in ESI; the object in EAX): the naked
 // adapter, and our code behind it.
 void ApplyFlagCommandStub();
-void __cdecl ApplyFlagCommandRegisters(void* data, GameObjects::CObject* object);
+void __cdecl ApplyFlagCommandRegisters(void* data, GameObjects::CEntity* object);
 
 extern bool g_tryingToJoin;
 extern Gfx2D::CTODManager* g_todManager;

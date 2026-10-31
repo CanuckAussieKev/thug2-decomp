@@ -38,12 +38,12 @@ constexpr uint32_t kViewGoalsMenuAddItem = 0x380AEA65; // view_goals_menu_add_it
 constexpr uint32_t kCountAll = 0xA21884B5;         // count_all
 constexpr uint32_t kTrickBeat = 0xD0DD047B;        // TrickBeat
 
-OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
 
 Scripts::CStruct* NewStructure()
 {
     Scripts::CStruct* made = Scripts::NewStruct();
-    return made ? made->Init() : nullptr;
+    return made ? made->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
 {
@@ -55,7 +55,7 @@ void DeleteStructure(Scripts::CStruct* structure)
 Scripts::CArray* NewArray()
 {
     Scripts::CArray* made = Scripts::NewArray();
-    return made ? made->Init() : nullptr;
+    return made ? made->PrepareAll() : nullptr;
 }
 
 // The active list's nodes, counted (as GetEngagedObjective walks them).
@@ -94,9 +94,9 @@ void CGoalManager::UpdateTimeDisplay()
         break;
     }
     MenuSystem::ElementPtr element;
-    MenuSystem::CUiTree::Instance()->GetElement(&element, kTheTime, 0);
+    MenuSystem::CUiTree::Sole()->FetchPart(&element, kTheTime, 0);
     if (element)
-        static_cast<MenuSystem::CLabelWidget*>(element.m_ownerObject)->SetText(text);
+        static_cast<MenuSystem::CLabelWidget*>(element.m_ownerObject)->ChangeCaption(text);
 }
 
 // 0x0055DEA0
@@ -108,7 +108,7 @@ bool CGoalManager::HasActiveGapGoal()
         if (!Virtual<bool>(goal, CObjective::kVtIsActive))
             continue;
         Scripts::CArray* gaps = nullptr;
-        if (goal->GetParams()->GetArray(kRequiredGaps, &gaps, 0))
+        if (goal->FetchArgs()->FetchList(kRequiredGaps, &gaps, 0))
             return true;
     }
     return false;
@@ -117,8 +117,8 @@ bool CGoalManager::HasActiveGapGoal()
 // 0x0055DF90
 void CGoalManager::RevokeEveryClear()
 {
-    OnlinePlay::Manager* net = NetManager();
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    OnlinePlay::Hub* net = NetManager();
+    for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (Virtual<bool>(goal, CObjective::kVtUnBeat) && !net->InNetGame()) {
             --m_goalsBeaten;
@@ -135,7 +135,7 @@ void CGoalManager::RevokeEveryClear()
 // 0x0055E050
 void CGoalManager::AppendObjectiveListEntries()
 {
-    int count = m_goals.m_count; // (read once)
+    int count = m_goals.m_num; // (read once)
     Scripts::CArray* ordered = NewArray();
     Scripts::CArray* unordered = NewArray();
     ordered->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_NAME);
@@ -145,7 +145,7 @@ void CGoalManager::AppendObjectiveListEntries()
     for (int i = 0; i < count; ++i) {
         uint32_t key;
         CObjective* goal = m_goals.GetByIndex(i, &key);
-        if (goal->GetParams()->HasEntryNamed(kViewGoalsOrder))
+        if (goal->FetchArgs()->HasEntryNamed(kViewGoalsOrder))
             ordered->SetElement(static_cast<uint32_t>(numOrdered++), goal->GetObjectiveKey());
         else
             unordered->SetElement(static_cast<uint32_t>(numUnordered++), goal->GetObjectiveKey());
@@ -154,15 +154,15 @@ void CGoalManager::AppendObjectiveListEntries()
     // read through null, as the original).
     for (int slot = 0; slot < numOrdered; ++slot) {
         for (int k = slot; k < numOrdered; ++k) {
-            uint32_t id = ordered->GetElement(static_cast<uint32_t>(k));
+            uint32_t id = ordered->FetchPart(static_cast<uint32_t>(k));
             int place;
-            m_goals.Get(id)->GetParams()->FetchIntValue(kViewGoalsOrder, &place, 1);
+            m_goals.Pull(id)->FetchArgs()->FetchIntValue(kViewGoalsOrder, &place, 1);
             if (place - 1 != slot)
                 continue;
             if (k != slot) {
-                uint32_t other = ordered->GetElement(static_cast<uint32_t>(slot));
+                uint32_t other = ordered->FetchPart(static_cast<uint32_t>(slot));
                 int unused;
-                m_goals.Get(other)->GetParams()->FetchIntValue(kViewGoalsOrder, &unused, 1);
+                m_goals.Pull(other)->FetchArgs()->FetchIntValue(kViewGoalsOrder, &unused, 1);
                 ordered->SetElement(static_cast<uint32_t>(slot), id);
                 ordered->SetElement(static_cast<uint32_t>(k), other);
             }
@@ -170,12 +170,12 @@ void CGoalManager::AppendObjectiveListEntries()
         }
     }
     for (int i = 0; i < numUnordered; ++i)
-        ordered->SetElement(static_cast<uint32_t>(numOrdered + i), unordered->GetElement(static_cast<uint32_t>(i)));
+        ordered->SetElement(static_cast<uint32_t>(numOrdered + i), unordered->FetchPart(static_cast<uint32_t>(i)));
     // A menu item for each goal with view_goals_text (not pro goals until the cheat, not network goals): its id,
     // its text, its record if won.
     for (int i = 0; i < count; ++i) {
-        CObjective* goal = m_goals.Get(ordered->GetElement(static_cast<uint32_t>(i)));
-        Scripts::CStruct* params = goal->GetParams();
+        CObjective* goal = m_goals.Pull(ordered->FetchPart(static_cast<uint32_t>(i)));
+        Scripts::CStruct* params = goal->FetchArgs();
         const char* text = nullptr;
         goal->GetObjectiveListCaption(&text);
         if (!text)
@@ -186,7 +186,7 @@ void CGoalManager::AppendObjectiveListEntries()
             continue;
         Scripts::CStruct* item = NewStructure();
         item->PutNameKey(kGoalIdChecksum, goal->GetObjectiveKey());
-        item->AddString(kText, text);
+        item->AppendWord(kText, text);
         if (Virtual<bool>(goal, CObjective::kVtHasWon)) {
             char record[128];
             int value = 0;
@@ -199,14 +199,14 @@ void CGoalManager::AppendObjectiveListEntries()
                                                   : "";
                 std::size_t length = std::strlen(record);
                 std::snprintf(record + length, sizeof(record) - length, "%s", suffix);
-                item->AddString(kRecordText, record);
+                item->AppendWord(kRecordText, record);
             } else {
                 uint32_t type;
                 if (params->ReadHashValue(kRecordType, &type, 0)) {
                     if (type == kScore) {
                         params->FetchIntValue(kWinRecord, &value, 0);
                         std::snprintf(record, sizeof(record), "%s", TextUtil::FormatWithSeparators(value)); // "%s"
-                        item->AddString(kRecordText, record);
+                        item->AppendWord(kRecordText, record);
                     } else if (type == kTime) {
                         int ms = 0;
                         params->FetchIntValue(kWinRecord, &ms, 0);
@@ -214,7 +214,7 @@ void CGoalManager::AppendObjectiveListEntries()
                         int minutes = totalSeconds / 60;
                         std::snprintf(record, sizeof(record), "%i:%02i.%02i", minutes, totalSeconds - minutes * 60,
                                       (ms % 1000) / 10); // "%i:%02i.%02i"
-                        item->AddString(kRecordText, record);
+                        item->AppendWord(kRecordText, record);
                     }
                 } else {
                     item->PutNameKey(0u, kNoRecord);
@@ -240,7 +240,7 @@ void CGoalManager::TrickLanded(Scripts::CStruct* trick)
     int count = CountActive(&m_activeGoals.m_listLink);
     for (int i = 0; i < count; ++i) {
         CObjective* goal = GetEngagedObjective(i);
-        if (goal->GetParams()->HasBareFlag(kTrickBeat))
+        if (goal->FetchArgs()->HasBareFlag(kTrickBeat))
             reinterpret_cast<CTrickBeatGoal*>(goal)->TrickLanded(trick);
     }
 }
@@ -258,14 +258,14 @@ CObjective* CGoalManager::GetActiveNetGoal()
 }
 
 // 0x0055EA40
-void CGoalManager::Update()
+void CGoalManager::TickFrame()
 {
-    for (int i = 0; i < m_goals.m_count; ++i) {
+    for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (Virtual<bool>(goal, CObjective::kVtIsActive))
             Virtual<bool>(goal, CObjective::kVtUpdate);
         if (goal->State02()) {
-            m_goals.Remove(goal->GetObjectiveKey());
+            m_goals.DropOut(goal->GetObjectiveKey());
             Virtual<CObjective*>(goal, CObjective::kVtDestroy, static_cast<uint8_t>(1));
         }
     }
@@ -310,7 +310,7 @@ bool __cdecl CFunc_GoalManager_GoalShouldExpire(Scripts::CStruct*, Scripts::CScr
 // 0x0055EAC0
 bool __cdecl CFunc_GoalManager_UpdateAllGoals(Scripts::CStruct*, Scripts::CScript*)
 {
-    GetObjectiveBoard()->Update();
+    GetObjectiveBoard()->TickFrame();
     return true;
 }
 
@@ -318,7 +318,7 @@ bool __cdecl CFunc_GoalManager_UpdateAllGoals(Scripts::CStruct*, Scripts::CScrip
 bool __cdecl CFunc_GoalManager_GetTimeLeftInNetGame(Scripts::CStruct*, Scripts::CScript* script)
 {
     if (CObjective* goal = GetObjectiveBoard()->GetActiveNetGoal())
-        script->m_params->PutInt("time_left", goal->GetSecondsRemaining()); // "time_left"
+        script->m_args->PutInt("time_left", goal->GetSecondsRemaining()); // "time_left"
     return true;
 }
 

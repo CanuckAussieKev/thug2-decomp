@@ -3,10 +3,10 @@
 #include <cstdint>
 
 namespace Maths {
-class Vector;
+class Vec4;
 }
 namespace Gfx2D {
-class Camera;
+class ViewCam;
 }
 
 // The engine's platform calls (Engine3D::CEngine's s_plat_* on PC, cdecl): the engine's own entry points at
@@ -25,13 +25,13 @@ void __cdecl SetScreenClip(const void* rect);
 // (What it reaches is occlusion.h's InsertOccluderPoly - `colour` is the polygon's checksum; the two below are
 // ActivateOccluderPoly and ClearOccluderPolys, and SphereVisible is SphereOutsideView: 1 when the sphere is
 // outside the view. The names here are kept for their callers.)
-void __cdecl AddDebugShape(int type, const Maths::Vector* points, uint32_t colour);
+void __cdecl AddDebugShape(int type, const Maths::Vec4* points, uint32_t colour);
 // 0x004B22F0 / 0x004B2300: jumps to 0x004D8C90 (the debug lines with this id get `flag` in their byte at +0)
 // and 0x004D8CC0 (all debug lines cleared).
 void __cdecl FlagDebugLines(uint32_t id, bool flag);
 void __cdecl ClearDebugLines();
 // 0x004B2310: a jump to 0x004DB570 - whether a sphere (a centre, a radius) is in view (1 / 0).
-int __cdecl SphereVisible(const Maths::Vector* centre, float radius);
+int __cdecl SphereVisible(const Maths::Vec4* centre, float radius);
 // 0x004B2320: the platform's file extension, "Xbx".
 const char* __cdecl PlatformExtension();
 
@@ -64,7 +64,7 @@ void* __cdecl CreateRenderTarget(int width, int height, uint8_t depth, int unuse
 // 0x004B2C30 / 0x004B2C50 / 0x004B2D10: a texture's shadow caster (the key: its +0x10, through one more pointer
 // with its flag 1 of +0x08) added for `model`, aimed from the camera along its matrix's third row, and removed.
 void __cdecl AddTextureShadowCaster(const uint8_t* texture, void* model, uint32_t unused);
-void __cdecl AimTextureShadowCaster(const uint8_t* texture, Gfx2D::Camera* camera);
+void __cdecl AimTextureShadowCaster(const uint8_t* texture, Gfx2D::ViewCam* camera);
 void __cdecl RemoveTextureShadowCaster(const uint8_t* texture);
 
 // The PC particle manager (0x1C bytes, vtable 0x0064A304; the engine's particle manager 0x00496770 with nothing of
@@ -74,7 +74,7 @@ struct CPcParticleManager {
     uint8_t base[0x18];
 
     // 0x004B2710 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcParticleManager* Destroy(unsigned int flags);
+    CPcParticleManager* Teardown(unsigned int flags);
     // 0x004B2740: a jump to the engine's destructor body (0x004967D0).
     void DestroyBody();
 };

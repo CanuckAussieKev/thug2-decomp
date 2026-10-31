@@ -14,33 +14,33 @@ class CStruct;
 // folded at 0x005480B0-0x005480F0.
 namespace OnlinePlay {
 
-extern void** const kBuddyNodeVtable;   // 0x0064CF60: ListKit::Node<Buddy> / ListKit::Head<Buddy>
+extern void** const kBuddyNodeVtable;   // 0x0064CF60: ListKit::Elem<Buddy> / ListKit::Foremost<Buddy>
 extern void** const kMessageNodeVtable; // 0x0064CF64
 
 // The buddy lists' list types (their vtables hold only the scalar deleting destructor):
-// ListKit::Search<Buddy> (0x0064CECC): 0x005480D0 the body (the vtable reset), 0x00548440 the scalar deleting one;
-// ListKit::Search<BuddyMessage> (0x0064CED0): 0x005480E0 / 0x00548470;
-// ListKit::Node<Buddy> (0x0064CF60): 0x005484A0 the body (out of its list), 0x005484E0 the scalar deleting one;
-// ListKit::Node<BuddyMessage> (0x0064CF64): 0x005484C0 / 0x00548520.
+// ListKit::Hunt<Buddy> (0x0064CECC): 0x005480D0 the body (the vtable reset), 0x00548440 the scalar deleting one;
+// ListKit::Hunt<BuddyMessage> (0x0064CED0): 0x005480E0 / 0x00548470;
+// ListKit::Elem<Buddy> (0x0064CF60): 0x005484A0 the body (out of its list), 0x005484E0 the scalar deleting one;
+// ListKit::Elem<BuddyMessage> (0x0064CF64): 0x005484C0 / 0x00548520.
 struct BuddySearch {
     void** m_vtable;
     MemSys::ListNode* m_listLink;
     void DestroyBody();
-    BuddySearch* Destroy(unsigned int flags);
+    BuddySearch* Teardown(unsigned int flags);
 };
 struct BuddyMessageSearch {
     void** m_vtable;
     MemSys::ListNode* m_listLink;
     void DestroyBody();
-    BuddyMessageSearch* Destroy(unsigned int flags);
+    BuddyMessageSearch* Teardown(unsigned int flags);
 };
 struct BuddyNode : MemSys::ListNode {
     void DestroyBody();
-    BuddyNode* Destroy(unsigned int flags);
+    BuddyNode* Teardown(unsigned int flags);
 };
 struct BuddyMessageNode : MemSys::ListNode {
     void DestroyBody();
-    BuddyMessageNode* Destroy(unsigned int flags);
+    BuddyMessageNode* Teardown(unsigned int flags);
 };
 
 // The getters folded at one address each (4 bytes: source only), named for an object with the field.

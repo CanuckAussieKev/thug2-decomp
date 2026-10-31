@@ -50,7 +50,7 @@ namespace {
 // The global structure an unnamed name component includes, or null.
 CStruct* IncludedStructure(const CComponent* component)
 {
-    if (component->name != 0 || component->Type() != QBVAL_NAME)
+    if (component->name != 0 || component->KindTag() != QBVAL_NAME)
         return nullptr;
     CSymbolTableEntry* symbol = ResolveSymbol(component->checksum);
     return symbol && symbol->type == QBVAL_STRUCT ? symbol->structure : nullptr;
@@ -74,7 +74,7 @@ CSymbolTableEntry* ResolveSymbol(uint32_t name)
 }
 
 // 0x00476410
-CStruct* CStruct::Init()
+CStruct* CStruct::PrepareAll()
 {
     m_head = nullptr;
     m_unknown1 = 0;
@@ -82,7 +82,7 @@ CStruct* CStruct::Init()
 }
 
 // 0x00476420
-bool CStruct::IsEmpty()
+bool CStruct::IsVacant()
 {
     return m_head == nullptr;
 }
@@ -114,7 +114,7 @@ CComponent* CStruct::FindComponent(uint32_t name)
     for (CComponent* component = m_head; component; component = component->next) {
         if (component->name == name)
             return component;
-        if (component->name == 0 && component->Type() == QBVAL_NAME) {
+        if (component->name == 0 && component->KindTag() == QBVAL_NAME) {
             if (component->checksum == name)
                 return component;
             CSymbolTableEntry* symbol = ResolveSymbol(component->checksum);
@@ -128,13 +128,13 @@ CComponent* CStruct::FindComponent(uint32_t name)
 }
 
 // 0x004764B0 (the last match wins)
-bool CStruct::Search(uint32_t name, uint32_t type, void* out)
+bool CStruct::Hunt(uint32_t name, uint32_t type, void* out)
 {
     auto* value = static_cast<uint32_t*>(out);
     bool found = false;
     for (CComponent* component = m_head; component; component = component->next) {
         if (component->name == name) {
-            EQbValueKind componentType = component->Type();
+            EQbValueKind componentType = component->KindTag();
             if (componentType == type) {
                 *value = component->raw;
                 found = true;
@@ -156,7 +156,7 @@ bool CStruct::Search(uint32_t name, uint32_t type, void* out)
             }
         } else if (CStruct* included = IncludedStructure(component)) {
             uint32_t inner;
-            if (included->Search(name, type, &inner)) {
+            if (included->Hunt(name, type, &inner)) {
                 *value = inner;
                 found = true;
             }
@@ -181,7 +181,7 @@ bool CStruct::HasEntryNamed(const char* name)
 bool CStruct::HasBareFlag(uint32_t flag)
 {
     for (CComponent* component = m_head; component; component = component->next) {
-        if (component->name != 0 || component->Type() != QBVAL_NAME)
+        if (component->name != 0 || component->KindTag() != QBVAL_NAME)
             continue;
         if (component->checksum == flag)
             return true;
@@ -204,7 +204,7 @@ bool CStruct::RefTally(CStruct* other)
     if (other == this)
         return true;
     for (CComponent* component = m_head; component; component = component->next) {
-        if (component->Type() == QBVAL_STRUCT && component->structure->RefTally(other))
+        if (component->KindTag() == QBVAL_STRUCT && component->structure->RefTally(other))
             return true;
     }
     return false;
@@ -226,10 +226,10 @@ bool CStruct::IsSubsetOf(CStruct* other)
 // --- the typed getters -------------------------------------------------------------------------------------
 
 // 0x00476590 (strings and local strings)
-bool CStruct::GetString(uint32_t name, const char** out, int assert)
+bool CStruct::FetchText(uint32_t name, const char** out, int assert)
 {
     const char* value;
-    if (!Search(name, QBVAL_STRING, &value) && !Search(name, QBVAL_INLINE_TEXT, &value)) {
+    if (!Hunt(name, QBVAL_STRING, &value) && !Hunt(name, QBVAL_INLINE_TEXT, &value)) {
         if (assert)
             DumpToLog(this);
         return false;
@@ -239,16 +239,16 @@ bool CStruct::GetString(uint32_t name, const char** out, int assert)
 }
 
 // 0x004765F0
-bool CStruct::GetString(const char* name, const char** out, int assert)
+bool CStruct::FetchText(const char* name, const char** out, int assert)
 {
-    return GetString(Checksums::HashFromText(name), out, assert);
+    return FetchText(Checksums::HashFromText(name), out, assert);
 }
 
 // 0x00476630
 bool CStruct::FetchIntValue(uint32_t name, int* out, int assert)
 {
     int value;
-    if (!Search(name, QBVAL_INTEGER, &value)) {
+    if (!Hunt(name, QBVAL_INTEGER, &value)) {
         if (assert)
             DumpToLog(this);
         return false;
@@ -264,10 +264,10 @@ bool CStruct::FetchIntValue(const char* name, int* out, int assert)
 }
 
 // 0x004766D0
-bool CStruct::GetFloat(uint32_t name, float* out, int assert)
+bool CStruct::FetchFloat(uint32_t name, float* out, int assert)
 {
     float value;
-    if (!Search(name, QBVAL_FLOAT, &value)) {
+    if (!Hunt(name, QBVAL_FLOAT, &value)) {
         if (assert)
             DumpToLog(this);
         return false;
@@ -277,16 +277,16 @@ bool CStruct::GetFloat(uint32_t name, float* out, int assert)
 }
 
 // 0x00476720
-bool CStruct::GetFloat(const char* name, float* out, int assert)
+bool CStruct::FetchFloat(const char* name, float* out, int assert)
 {
-    return GetFloat(Checksums::HashFromText(name), out, assert);
+    return FetchFloat(Checksums::HashFromText(name), out, assert);
 }
 
 // 0x00476770
 bool CStruct::FetchPair(uint32_t name, float* x, float* y, int assert)
 {
     CPair* pair;
-    if (!Search(name, QBVAL_PAIR, &pair)) {
+    if (!Hunt(name, QBVAL_PAIR, &pair)) {
         if (assert)
             DumpToLog(this);
         return false;
@@ -300,7 +300,7 @@ bool CStruct::FetchPair(uint32_t name, float* x, float* y, int assert)
 bool CStruct::FetchPair(uint32_t name, CPair* out, bool assert)
 {
     CPair* pair;
-    if (Search(name, QBVAL_PAIR, &pair)) {
+    if (Hunt(name, QBVAL_PAIR, &pair)) {
         out->x = pair->x;
         out->y = pair->y;
         return true;
@@ -316,7 +316,7 @@ bool CStruct::FetchPair(uint32_t name, CPair* out, bool assert)
 bool CStruct::ReadSubStruct(uint32_t name, CStruct** out, int assert)
 {
     CStruct* value;
-    if (!Search(name, QBVAL_STRUCT, &value)) {
+    if (!Hunt(name, QBVAL_STRUCT, &value)) {
         if (assert)
             DumpToLog(this);
         return false;
@@ -332,10 +332,10 @@ bool CStruct::ReadSubStruct(const char* name, CStruct** out, int assert)
 }
 
 // 0x00476860
-bool CStruct::GetArray(uint32_t name, CArray** out, int assert)
+bool CStruct::FetchList(uint32_t name, CArray** out, int assert)
 {
     CArray* value;
-    if (!Search(name, QBVAL_ARRAY, &value)) {
+    if (!Hunt(name, QBVAL_ARRAY, &value)) {
         if (assert)
             DumpToLog(this);
         return false;
@@ -345,16 +345,16 @@ bool CStruct::GetArray(uint32_t name, CArray** out, int assert)
 }
 
 // 0x004768B0
-bool CStruct::GetArray(const char* name, CArray** out, int assert)
+bool CStruct::FetchList(const char* name, CArray** out, int assert)
 {
-    return GetArray(Checksums::HashFromText(name), out, assert);
+    return FetchList(Checksums::HashFromText(name), out, assert);
 }
 
 // 0x00476900
-bool CStruct::GetScript(uint32_t name, SParamScript* out, int assert)
+bool CStruct::FetchScript(uint32_t name, SParamScript* out, int assert)
 {
     const uint8_t* code;
-    if (!Search(name, QBVAL_SCRIPT_BODY, &code)) {
+    if (!Hunt(name, QBVAL_SCRIPT_BODY, &code)) {
         if (assert)
             DumpToLog(this);
         return false;
@@ -370,7 +370,7 @@ bool CStruct::ReadHashValue(uint32_t name, uint32_t* out, int assert)
     bool found = false;
     for (CComponent* component = m_head; component; component = component->next) {
         if (component->name == name) {
-            if (component->Type() == QBVAL_NAME) {
+            if (component->KindTag() == QBVAL_NAME) {
                 CSymbolTableEntry* symbol = nullptr;
                 if (name != 0 || !(symbol = ResolveSymbol(component->checksum)) ||
                     symbol->type != QBVAL_STRUCT) {
@@ -400,17 +400,17 @@ bool CStruct::HashFromNameOrText(uint32_t name, uint32_t* out, int assert)
     if (ReadHashValue(name, out, assert))
         return true;
     const char* string = nullptr;
-    if (!GetString(name, &string, assert))
+    if (!FetchText(name, &string, assert))
         return false;
     *out = Checksums::HashFromText(string);
     return true;
 }
 
 // 0x00476FB0
-bool CStruct::GetVector(uint32_t name, VectorValue* out, int assert)
+bool CStruct::FetchVec(uint32_t name, VectorValue* out, int assert)
 {
     CVector* vector;
-    if (!Search(name, QBVAL_VECTOR, &vector)) {
+    if (!Hunt(name, QBVAL_VECTOR, &vector)) {
         if (assert)
             DumpToLog(this);
         return false;
@@ -423,9 +423,9 @@ bool CStruct::GetVector(uint32_t name, VectorValue* out, int assert)
 }
 
 // 0x00477010
-bool CStruct::GetVector(const char* name, VectorValue* out, int assert)
+bool CStruct::FetchVec(const char* name, VectorValue* out, int assert)
 {
-    return GetVector(Checksums::HashFromText(name), out, assert);
+    return FetchVec(Checksums::HashFromText(name), out, assert);
 }
 
 } // namespace Script
@@ -439,19 +439,19 @@ using Scripts::VectorValue;
 // The overloads taking the assert flag as a bool (they pass it on as 0 or 1).
 struct BoolAssertGetters {
     CStruct* Self() { return reinterpret_cast<CStruct*>(this); }
-    bool GetString(uint32_t name, const char** out, bool assert) { return Self()->GetString(name, out, assert); }
-    bool GetStringNamed(const char* name, const char** out, bool assert) { return Self()->GetString(name, out, assert); }
+    bool FetchText(uint32_t name, const char** out, bool assert) { return Self()->FetchText(name, out, assert); }
+    bool GetStringNamed(const char* name, const char** out, bool assert) { return Self()->FetchText(name, out, assert); }
     bool FetchIntValue(uint32_t name, int* out, bool assert) { return Self()->FetchIntValue(name, out, assert); }
     bool GetIntegerNamed(const char* name, int* out, bool assert) { return Self()->FetchIntValue(name, out, assert); }
-    bool GetFloat(uint32_t name, float* out, bool assert) { return Self()->GetFloat(name, out, assert); }
-    bool GetFloatNamed(const char* name, float* out, bool assert) { return Self()->GetFloat(name, out, assert); }
+    bool FetchFloat(uint32_t name, float* out, bool assert) { return Self()->FetchFloat(name, out, assert); }
+    bool GetFloatNamed(const char* name, float* out, bool assert) { return Self()->FetchFloat(name, out, assert); }
     bool ReadSubStruct(uint32_t name, CStruct** out, bool assert) { return Self()->ReadSubStruct(name, out, assert); }
     bool ReadHashValue(uint32_t name, uint32_t* out, bool assert) { return Self()->ReadHashValue(name, out, assert); }
     bool GetChecksumNamed(const char* name, uint32_t* out, bool assert) { return Self()->ReadHashValue(name, out, assert); }
-    bool GetArray(uint32_t name, CArray** out, bool assert) { return Self()->GetArray(name, out, assert); }
-    bool GetArrayNamed(const char* name, CArray** out, bool assert) { return Self()->GetArray(name, out, assert); }
-    bool GetVector(uint32_t name, VectorValue* out, bool assert) { return Self()->GetVector(name, out, assert); }
-    bool GetVectorNamed(const char* name, VectorValue* out, bool assert) { return Self()->GetVector(name, out, assert); }
+    bool FetchList(uint32_t name, CArray** out, bool assert) { return Self()->FetchList(name, out, assert); }
+    bool GetArrayNamed(const char* name, CArray** out, bool assert) { return Self()->FetchList(name, out, assert); }
+    bool FetchVec(uint32_t name, VectorValue* out, bool assert) { return Self()->FetchVec(name, out, assert); }
+    bool GetVectorNamed(const char* name, VectorValue* out, bool assert) { return Self()->FetchVec(name, out, assert); }
 };
 
 template <typename R, typename... A>
@@ -489,7 +489,7 @@ uint32_t& PermanentStringsSize() { return g_permanentStringsSize; }
 PermanentString*& PermanentStringTable() { return g_permanentStringTable; }
 uint32_t& PermanentStringCount() { return g_permanentStringCount; }
 
-// 0x00476260 (the string in EAX: called only by CreateString, so registered source-only)
+// 0x00476260 (the string in EAX: called only by SpawnText, so registered source-only)
 char* CreatePermanentString(const char* string)
 {
     int length = static_cast<int>(std::strlen(string));
@@ -507,19 +507,19 @@ char* CreatePermanentString(const char* string)
     return copy;
 }
 
-void DeletePair(CPair* pair) { PairPools().Free(pair); }
-void DeleteVector(CVector* vector) { VectorPools().Free(vector); }
+void DeletePair(CPair* pair) { PairPools().Dealloc(pair); }
+void DeleteVector(CVector* vector) { VectorPools().Dealloc(vector); }
 
 void MergeStructure(CStruct* to, CStruct* from) { to->MergeStructure(from); }
 
 } // namespace
 
 // 0x004763A0
-char* CreateString(const char* string)
+char* SpawnText(const char* string)
 {
     if (UsePermanentStrings())
         return CreatePermanentString(string);
-    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
     size_t size = std::strlen(string) + 1;
     auto* copy = static_cast<char*>(MemSys::AllocBlock(static_cast<unsigned int>(size)));
     std::memcpy(copy, string, size);
@@ -565,19 +565,19 @@ void FreeString(const char* string)
 }
 
 // 0x00409030 / 0x00409070
-CStruct* NewStruct() { return static_cast<CStruct*>(StructPools().Allocate(sizeof(CStruct))); }
-void DeleteStruct(CStruct* structure) { StructPools().Free(structure); }
+CStruct* NewStruct() { return static_cast<CStruct*>(StructPools().Carve(sizeof(CStruct))); }
+void DeleteStruct(CStruct* structure) { StructPools().Dealloc(structure); }
 // 0x00408F90 / 0x00408FD0
-CArray* NewArray() { return static_cast<CArray*>(ArrayPools().Allocate(sizeof(CArray))); }
-void DeleteArray(CArray* array) { ArrayPools().Free(array); }
-void FreeComponent(CComponent* component) { ComponentPools().Free(component); }
+CArray* NewArray() { return static_cast<CArray*>(ArrayPools().Carve(sizeof(CArray))); }
+void DeleteArray(CArray* array) { ArrayPools().Dealloc(array); }
+void FreeComponent(CComponent* component) { ComponentPools().Dealloc(component); }
 
 // 0x0046CAA0
-CArray* CArray::Init()
+CArray* CArray::PrepareAll()
 {
-    m_type = QBVAL_NONE;
+    m_kindTag = QBVAL_NONE;
     m_elements = nullptr;
-    m_size = 0;
+    m_extent = 0;
     m_unknown0 = 0;
     return this;
 }
@@ -585,10 +585,10 @@ CArray* CArray::Init()
 // 0x0046CAB0
 void CArray::Clear()
 {
-    if (m_size == 1) {
+    if (m_extent == 1) {
         // (the single element is in place: nothing to free)
-        m_size = 0;
-        m_type = QBVAL_NONE;
+        m_extent = 0;
+        m_kindTag = QBVAL_NONE;
         if (m_elements)
             m_elements = nullptr;
         return;
@@ -597,24 +597,24 @@ void CArray::Clear()
         MemSys::FreeMalloc(m_elements);
         m_elements = nullptr;
     }
-    m_type = QBVAL_NONE;
-    m_size = 0;
+    m_kindTag = QBVAL_NONE;
+    m_extent = 0;
 }
 
 // 0x0046CAF0
-void CArray::SetType(EQbValueKind type) { m_type = type; }
+void CArray::ChangeSpecies(EQbValueKind type) { m_kindTag = type; }
 
 // 0x0046CB00
 uint32_t* CArray::FindArrayValue()
 {
-    return m_size == 1 ? &m_single : m_elements;
+    return m_extent == 1 ? &m_single : m_elements;
 }
 
 // 0x00477140
 void ReleaseArrayStorage(CArray* array)
 {
-    uint32_t count = array->m_size;
-    EQbValueKind type = array->m_type;
+    uint32_t count = array->m_extent;
+    EQbValueKind type = array->m_kindTag;
     uint32_t* elements = array->FindArrayValue();
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t& element = elements[i];
@@ -655,7 +655,7 @@ void ReleaseArrayStorage(CArray* array)
 // 0x004772A0
 void ReleaseComponent(CComponent* component)
 {
-    switch (component->Type()) {
+    switch (component->KindTag()) {
     case QBVAL_STRING:
     case QBVAL_INLINE_TEXT:
         if (component->string)
@@ -701,13 +701,13 @@ void DuplicateComponent(CComponent* dest, CComponent* source, int reference)
         ReleaseComponent(dest);
     dest->typeAndFlag = static_cast<uint8_t>((source->typeAndFlag & ~1) | (dest->typeAndFlag & 1));
     dest->name = source->name;
-    switch (source->Type()) {
+    switch (source->KindTag()) {
     case QBVAL_STRING:
     case QBVAL_INLINE_TEXT:
-        dest->string = CreateString(source->string);
+        dest->string = SpawnText(source->string);
         break;
     case QBVAL_PAIR: {
-        auto* pair = static_cast<CPair*>(PairPools().Allocate(sizeof(CPair)));
+        auto* pair = static_cast<CPair*>(PairPools().Carve(sizeof(CPair)));
         if (pair) {
             // (the constructor: only the first byte of the first word is cleared)
             pair->y = 0.0f;
@@ -720,7 +720,7 @@ void DuplicateComponent(CComponent* dest, CComponent* source, int reference)
         break;
     }
     case QBVAL_VECTOR: {
-        auto* vector = static_cast<CVector*>(VectorPools().Allocate(sizeof(CVector)));
+        auto* vector = static_cast<CVector*>(VectorPools().Carve(sizeof(CVector)));
         if (vector) {
             vector->z = 0.0f;
             vector->y = 0.0f;
@@ -735,7 +735,7 @@ void DuplicateComponent(CComponent* dest, CComponent* source, int reference)
     }
     case QBVAL_SCRIPT_BODY: {
         // The compiled script, `unknown2` bytes.
-        MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+        MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
         dest->raw = reinterpret_cast<uint32_t>(MemSys::AllocBlock(source->unknown2));
         dest->unknown2 = source->unknown2;
         MemSys::LeaveHeapScope();
@@ -753,7 +753,7 @@ void DuplicateComponent(CComponent* dest, CComponent* source, int reference)
         }
         CStruct* structure = NewStruct();
         if (structure)
-            structure->Init();
+            structure->PrepareAll();
         dest->structure = structure;
         if (source->structure != structure) {
             structure->Clear();
@@ -765,7 +765,7 @@ void DuplicateComponent(CComponent* dest, CComponent* source, int reference)
         if (!reference) {
             CArray* array = NewArray();
             if (array)
-                array->Init();
+                array->PrepareAll();
             dest->array = array;
             DuplicateArray(array, source->array);
             break;
@@ -800,7 +800,7 @@ void CStruct::Clear()
 }
 
 // 0x004776B0
-void CStruct::RemoveComponent(uint32_t name)
+void CStruct::EraseModule(uint32_t name)
 {
     CComponent* previous = nullptr;
     CComponent* component = m_head;
@@ -821,9 +821,9 @@ void CStruct::RemoveComponent(uint32_t name)
 }
 
 // 0x00477770
-void CStruct::RemoveComponent(const char* name)
+void CStruct::EraseModule(const char* name)
 {
-    RemoveComponent(Checksums::HashFromText(name));
+    EraseModule(Checksums::HashFromText(name));
 }
 
 // 0x00477790
@@ -833,7 +833,7 @@ void CStruct::RemoveComponentOfType(uint32_t name, uint8_t type)
     CComponent* component = m_head;
     while (component) {
         CComponent* next = component->next;
-        if (component->name == name && component->Type() == type) {
+        if (component->name == name && component->KindTag() == type) {
             if (previous)
                 previous->next = next;
             else
@@ -879,7 +879,7 @@ CComponent* NewTypedComponent(uint32_t name, EQbValueKind type)
 // 0x0044C130 (+ the constructor, as the callers do)
 CComponent* NewComponent()
 {
-    void* memory = ComponentPools().Allocate(sizeof(CComponent));
+    void* memory = ComponentPools().Carve(sizeof(CComponent));
     return memory ? ConstructComponent(static_cast<CComponent*>(memory)) : nullptr;
 }
 
@@ -905,15 +905,15 @@ void CStruct::RemoveFlag(uint32_t flag)
 }
 
 // 0x00477920
-void CStruct::AddComponent(CComponent* added)
+void CStruct::AttachModule(CComponent* added)
 {
     CComponent* last = nullptr;
     CComponent* component = m_head;
     while (component) {
         bool replace = false;
         if (component->name == added->name) {
-            EQbValueKind mine = component->Type();
-            EQbValueKind theirs = added->Type();
+            EQbValueKind mine = component->KindTag();
+            EQbValueKind theirs = added->KindTag();
             if (mine == theirs)
                 replace = !(mine == QBVAL_NAME && component->name == 0) || component->raw == added->raw;
             else
@@ -942,32 +942,32 @@ void CStruct::AddComponent(CComponent* added)
 }
 
 // 0x004779D0
-void CStruct::AddString(uint32_t name, const char* value)
+void CStruct::AppendWord(uint32_t name, const char* value)
 {
     CComponent* component = NewTypedComponent(name, QBVAL_STRING);
-    component->string = CreateString(value);
-    AddComponent(component);
+    component->string = SpawnText(value);
+    AttachModule(component);
 }
 
 // 0x00477A90
-void CStruct::AddString(const char* name, const char* value)
+void CStruct::AppendWord(const char* name, const char* value)
 {
-    AddString(Checksums::HashFromText(name), value);
+    AppendWord(Checksums::HashFromText(name), value);
 }
 
 // 0x00477AC0
 void CStruct::AppendInlineText(uint32_t name, const char* value)
 {
     CComponent* component = NewTypedComponent(name, QBVAL_INLINE_TEXT);
-    component->string = CreateString(value);
-    AddComponent(component);
+    component->string = SpawnText(value);
+    AttachModule(component);
 }
 
 // 0x00478390
-void CStruct::AddString(uint32_t name, uint32_t type, const char* value)
+void CStruct::AppendWord(uint32_t name, uint32_t type, const char* value)
 {
     if (type == QBVAL_STRING)
-        AddString(name, value);
+        AppendWord(name, value);
     else
         AppendInlineText(name, value);
 }
@@ -977,7 +977,7 @@ void CStruct::PutInt(uint32_t name, int value)
 {
     CComponent* component = NewTypedComponent(name, QBVAL_INTEGER);
     component->integer = value;
-    AddComponent(component);
+    AttachModule(component);
 }
 
 // 0x00477C30
@@ -991,7 +991,7 @@ void CStruct::PushFloat(uint32_t name, float value)
 {
     CComponent* component = NewTypedComponent(name, QBVAL_FLOAT);
     component->floatValue = value;
-    AddComponent(component);
+    AttachModule(component);
 }
 
 // 0x00477D10
@@ -1005,7 +1005,7 @@ void CStruct::PutNameKey(uint32_t name, uint32_t value)
 {
     CComponent* component = NewTypedComponent(name, QBVAL_NAME);
     component->checksum = value;
-    AddComponent(component);
+    AttachModule(component);
 }
 
 // 0x00477DF0
@@ -1018,7 +1018,7 @@ void CStruct::PutNameKey(const char* name, uint32_t value)
 void CStruct::PutVec3(uint32_t name, float x, float y, float z)
 {
     CComponent* component = NewTypedComponent(name, QBVAL_VECTOR);
-    auto* vector = static_cast<CVector*>(VectorPools().Allocate(sizeof(CVector)));
+    auto* vector = static_cast<CVector*>(VectorPools().Carve(sizeof(CVector)));
     if (vector) {
         vector->z = 0.0f;
         vector->y = 0.0f;
@@ -1029,7 +1029,7 @@ void CStruct::PutVec3(uint32_t name, float x, float y, float z)
     vector->x = x;
     component->vector->y = y;
     component->vector->z = z;
-    AddComponent(component);
+    AttachModule(component);
 }
 
 // 0x00477F40
@@ -1054,7 +1054,7 @@ void CStruct::PutVec3(const char* name, VectorValue value)
 void CStruct::InsertPair(uint32_t name, float x, float y)
 {
     CComponent* component = NewTypedComponent(name, QBVAL_PAIR);
-    auto* pair = static_cast<CPair*>(PairPools().Allocate(sizeof(CPair)));
+    auto* pair = static_cast<CPair*>(PairPools().Carve(sizeof(CPair)));
     if (pair) {
         pair->y = 0.0f;
         pair->x = 0.0f;
@@ -1063,7 +1063,7 @@ void CStruct::InsertPair(uint32_t name, float x, float y)
     component->pair = pair;
     pair->x = x;
     component->pair->y = y;
-    AddComponent(component);
+    AttachModule(component);
 }
 
 // 0x004780D0
@@ -1071,7 +1071,7 @@ void CStruct::AppendArrayRef(uint32_t name, CArray* value)
 {
     CComponent* component = NewTypedComponent(name, QBVAL_ARRAY);
     component->array = value;
-    AddComponent(component);
+    AttachModule(component);
 }
 
 // 0x00478180
@@ -1085,7 +1085,7 @@ void CStruct::AppendStructRef(uint32_t name, CStruct* value)
 {
     CComponent* component = NewTypedComponent(name, QBVAL_STRUCT);
     component->structure = value;
-    AddComponent(component);
+    AttachModule(component);
 }
 
 // 0x00478260
@@ -1100,13 +1100,13 @@ void CStruct::PutSubStruct(uint32_t name, CStruct* value)
     CComponent* component = NewTypedComponent(name, QBVAL_STRUCT);
     CStruct* copy = NewStruct();
     if (copy)
-        copy->Init();
+        copy->PrepareAll();
     component->structure = copy;
     if (value != copy) {
         copy->Clear();
         copy->MergeStructure(value);
     }
-    AddComponent(component);
+    AttachModule(component);
 }
 
 // 0x00478770
@@ -1116,17 +1116,17 @@ void CStruct::PutSubStruct(const char* name, CStruct* value)
 }
 
 // 0x00478290
-void CStruct::AddScript(uint32_t name, const uint8_t* code, uint32_t size)
+void CStruct::AppendScript(uint32_t name, const uint8_t* code, uint32_t size)
 {
     CComponent* component = NewTypedComponent(name, QBVAL_SCRIPT_BODY);
     component->unknown2 = static_cast<uint16_t>(size);
-    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
     auto* copy = static_cast<uint8_t*>(MemSys::AllocBlock(size));
     MemSys::LeaveHeapScope();
     for (uint32_t i = 0; i < size; ++i)
         copy[i] = code[i];
     component->raw = reinterpret_cast<uint32_t>(copy);
-    AddComponent(component);
+    AttachModule(component);
 }
 
 // 0x004783C0
@@ -1162,7 +1162,7 @@ CStruct* CStruct::MergeStructure(CStruct* source)
     for (CComponent* component = source->m_head; component; component = component->next) {
         CComponent* copy = NewComponent();
         DuplicateComponent(copy, component, 0);
-        AddComponent(copy);
+        AttachModule(copy);
     }
     return this;
 }
@@ -1194,7 +1194,7 @@ void CStruct::InlineInto(CStruct* dest, int depth)
         }
         CComponent* copy = NewComponent();
         DuplicateComponent(copy, component, 0);
-        dest->AddComponent(copy);
+        dest->AttachModule(copy);
     }
 }
 
@@ -1211,9 +1211,9 @@ using AddMethod = void (CStruct::*)(A...);
 // 0x0044C170: free a component (pooled)
 void DeleteComponentAdapter(Scripts::CComponent* component) { Scripts::FreeComponent(component); }
 // 0x0044C130: operator new (the size is always 16)
-void* NewComponentMemory(unsigned int size) { return Scripts::g_componentPools.Allocate(size); }
+void* NewComponentMemory(unsigned int size) { return Scripts::g_componentPools.Carve(size); }
 struct ComponentAdapter {
-    Scripts::CComponent* Construct() { return Scripts::ConstructComponent(reinterpret_cast<Scripts::CComponent*>(this)); }
+    Scripts::CComponent* MakeNew() { return Scripts::ConstructComponent(reinterpret_cast<Scripts::CComponent*>(this)); }
 };
 
 } // namespace
@@ -1227,7 +1227,7 @@ namespace {
 // Allocate `count` elements on the script heap.
 uint32_t* AllocateElements(uint32_t count)
 {
-    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
     auto* elements = static_cast<uint32_t*>(MemSys::AllocBlock(count * 4));
     MemSys::LeaveHeapScope();
     return elements;
@@ -1240,14 +1240,14 @@ int& StructCopyPeak() { return g_structCopyPeak; }
 } // namespace
 
 // 0x0046D410 / 0x0046D3D0 (operator new; the size is always the object's)
-CPair* NewPair() { return static_cast<CPair*>(g_pairPools.Allocate(sizeof(CPair))); }
+CPair* NewPair() { return static_cast<CPair*>(g_pairPools.Carve(sizeof(CPair))); }
 CVector* NewVector()
 {
-    return static_cast<CVector*>(g_vectorPools.Allocate(sizeof(CVector)));
+    return static_cast<CVector*>(g_vectorPools.Carve(sizeof(CVector)));
 }
 
 // 0x0047AC00
-CPair* CPair::Init()
+CPair* CPair::PrepareAll()
 {
     y = 0.0f;
     x = 0.0f;
@@ -1256,7 +1256,7 @@ CPair* CPair::Init()
 }
 
 // 0x0047ABF0
-CVector* CVector::Init()
+CVector* CVector::PrepareAll()
 {
     z = 0.0f;
     y = 0.0f;
@@ -1268,7 +1268,7 @@ CVector* CVector::Init()
 // 0x0046CC50
 void CArray::ConfigureSizeKind(uint32_t size, EQbValueKind type)
 {
-    if (m_size == 1) {
+    if (m_extent == 1) {
         // (the single element is in place: nothing to free)
         if (m_elements)
             m_elements = nullptr;
@@ -1276,78 +1276,78 @@ void CArray::ConfigureSizeKind(uint32_t size, EQbValueKind type)
         MemSys::FreeMalloc(m_elements);
         m_elements = nullptr;
     }
-    m_type = type;
-    m_size = size;
+    m_kindTag = type;
+    m_extent = size;
     if (size == 0) {
-        m_type = QBVAL_NONE;
+        m_kindTag = QBVAL_NONE;
         return;
     }
     if (size == 1)
         return;
-    m_elements = AllocateElements(m_size);
-    for (uint32_t i = 0; i < m_size; ++i)
+    m_elements = AllocateElements(m_extent);
+    for (uint32_t i = 0; i < m_extent; ++i)
         m_elements[i] = 0;
 }
 
 // 0x0046CCF0
-void CArray::Resize(uint32_t size)
+void CArray::Rescale(uint32_t size)
 {
-    if (size == m_size)
+    if (size == m_extent)
         return;
     uint32_t* elements = AllocateElements(size);
     const uint32_t* from = FindArrayValue();
-    for (uint32_t i = 0; i < m_size; ++i)
+    for (uint32_t i = 0; i < m_extent; ++i)
         elements[i] = from[i];
-    for (uint32_t i = m_size; i < size; ++i)
+    for (uint32_t i = m_extent; i < size; ++i)
         elements[i] = 0;
-    if (m_size > 1)
+    if (m_extent > 1)
         MemSys::FreeMalloc(m_elements);
     // (growing to one element leaves the block's pointer in place of the single value, as the original does)
     m_elements = elements;
-    m_size = size;
+    m_extent = size;
 }
 
 // 0x0046CB10
 void CArray::SetElement(uint32_t index, uint32_t value)
 {
-    if (m_size == 1)
+    if (m_extent == 1)
         m_single = value;
     else
         m_elements[index] = value;
 }
 
 // 0x0046CB40
-void CArray::SetFloat(uint32_t index, float value)
+void CArray::ChangeFloat(uint32_t index, float value)
 {
-    if (m_size == 1)
+    if (m_extent == 1)
         std::memcpy(&m_single, &value, 4);
     else
         std::memcpy(&m_elements[index], &value, 4);
 }
 
 // 0x0046CC30
-uint32_t CArray::GetElement(uint32_t index)
+uint32_t CArray::FetchPart(uint32_t index)
 {
-    return m_size == 1 ? m_single : m_elements[index];
+    return m_extent == 1 ? m_single : m_elements[index];
 }
 
 // 0x0046CBB0
-const char* CArray::GetString(uint32_t index)
+const char* CArray::FetchText(uint32_t index)
 {
-    return reinterpret_cast<const char*>(GetElement(index));
+    return reinterpret_cast<const char*>(FetchPart(index));
 }
 
 // 0x0046CB70
 const char* CArray::FindInlineText(uint32_t index)
 {
-    return reinterpret_cast<const char*>(GetElement(index));
+    return reinterpret_cast<const char*>(FetchPart(index));
 }
 
 // 0x0046CBF0
-float CArray::GetFloat(uint32_t index)
+float CArray::FetchFloat(uint32_t index)
 {
-    uint32_t bits = GetElement(index);
-    if (m_type == QBVAL_FLOAT) {
+    uint32_t bits = FetchPart(index);
+    if (m_kindTag == QBVAL_FLOAT) {
         float value;
         std::memcpy(&value, &bits, 4);
         return value;
@@ -1369,13 +1369,13 @@ void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, u
         case QBVAL_STRING:
         case QBVAL_INLINE_TEXT:
             if (element)
-                dest[i] = reinterpret_cast<uint32_t>(CreateString(reinterpret_cast<const char*>(element)));
+                dest[i] = reinterpret_cast<uint32_t>(SpawnText(reinterpret_cast<const char*>(element)));
             break;
         case QBVAL_PAIR:
             if (element) {
                 auto* from = reinterpret_cast<const CPair*>(element);
                 CPair* pair = NewPair();
-                pair = pair ? pair->Init() : nullptr;
+                pair = pair ? pair->PrepareAll() : nullptr;
                 pair->x = from->x;
                 pair->y = from->y;
                 dest[i] = reinterpret_cast<uint32_t>(pair);
@@ -1385,7 +1385,7 @@ void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, u
             if (element) {
                 auto* from = reinterpret_cast<const CVector*>(element);
                 CVector* vector = NewVector();
-                vector = vector ? vector->Init() : nullptr;
+                vector = vector ? vector->PrepareAll() : nullptr;
                 vector->x = from->x;
                 vector->y = from->y;
                 vector->z = from->z;
@@ -1397,7 +1397,7 @@ void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, u
                 auto* from = reinterpret_cast<CStruct*>(element);
                 CStruct* structure = NewStruct();
                 if (structure)
-                    structure->Init();
+                    structure->PrepareAll();
                 if (from != structure) {
                     structure->Clear();
                     structure->MergeStructure(from);
@@ -1409,7 +1409,7 @@ void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, u
             if (element) {
                 CArray* array = NewArray();
                 if (array)
-                    array = array->Init();
+                    array = array->PrepareAll();
                 DuplicateArray(array, reinterpret_cast<CArray*>(element));
                 dest[i] = reinterpret_cast<uint32_t>(array);
             }
@@ -1425,8 +1425,8 @@ void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, u
 void DuplicateArray(CArray* dest, CArray* source)
 {
     ReleaseArrayStorage(dest);
-    EQbValueKind type = source->m_type;
-    uint32_t size = source->m_size;
+    EQbValueKind type = source->m_kindTag;
+    uint32_t size = source->m_extent;
     dest->ConfigureSizeKind(size, type);
     if (size)
         CopyArrayElements(dest->FindArrayValue(), source->FindArrayValue(), size, type);
@@ -1509,7 +1509,7 @@ void CreateSymbolTable()
 }
 
 // 0x004790F0
-CSymbolTableEntry* CSymbolTableEntry::Init()
+CSymbolTableEntry* CSymbolTableEntry::PrepareAll()
 {
     unknown0 &= 0xF8;
     name = 0;
@@ -1523,8 +1523,8 @@ CSymbolTableEntry* CSymbolTableEntry::Init()
 // 0x00479110
 CSymbolTableEntry* CreateSymbol(uint32_t name)
 {
-    void* memory = g_symbolPools.Allocate(sizeof(CSymbolTableEntry));
-    CSymbolTableEntry* entry = memory ? static_cast<CSymbolTableEntry*>(memory)->Init() : nullptr;
+    void* memory = g_symbolPools.Carve(sizeof(CSymbolTableEntry));
+    CSymbolTableEntry* entry = memory ? static_cast<CSymbolTableEntry*>(memory)->PrepareAll() : nullptr;
     entry->name = name;
     entry->unknown0 |= 1;
     LinkSymbol(entry);
@@ -1582,8 +1582,8 @@ CSymbolTableEntry* GetNextSymbol(CSymbolTableEntry* previous)
 int FetchIntValue(uint32_t name) { return SymbolInteger(ResolveSymbol(name)); }
 int FetchIntValue(const char* name) { return FetchIntValue(Checksums::HashFromText(name)); }
 // 0x00478F00 / 0x00478F30
-float GetFloat(uint32_t name) { return SymbolFloat(ResolveSymbol(name)); }
-float GetFloat(const char* name) { return GetFloat(Checksums::HashFromText(name)); }
+float FetchFloat(uint32_t name) { return SymbolFloat(ResolveSymbol(name)); }
+float FetchFloat(const char* name) { return FetchFloat(Checksums::HashFromText(name)); }
 // 0x00478F90 / 0x00478FB0
 uint32_t GetSymbolValue(uint32_t name)
 {
@@ -1592,12 +1592,12 @@ uint32_t GetSymbolValue(uint32_t name)
 }
 uint32_t GetSymbolValue(const char* name) { return GetSymbolValue(Checksums::HashFromText(name)); }
 // 0x00478FD0 / 0x00478FF0 (any type: the raw value)
-const char* GetString(uint32_t name)
+const char* FetchText(uint32_t name)
 {
     CSymbolTableEntry* entry = ResolveSymbol(name);
     return entry ? reinterpret_cast<const char*>(entry->raw) : EmptyString();
 }
-const char* GetString(const char* name) { return GetString(Checksums::HashFromText(name)); }
+const char* FetchText(const char* name) { return FetchText(Checksums::HashFromText(name)); }
 // 0x00479020 / 0x00479040
 CStruct* ReadSubStruct(uint32_t name)
 {
@@ -1605,18 +1605,18 @@ CStruct* ReadSubStruct(uint32_t name)
 }
 CStruct* ReadSubStruct(const char* name) { return ReadSubStruct(Checksums::HashFromText(name)); }
 // 0x00479070 / 0x00479090
-CArray* GetArray(uint32_t name)
+CArray* FetchList(uint32_t name)
 {
     return reinterpret_cast<CArray*>(SymbolValueOfType(ResolveSymbol(name), QBVAL_ARRAY));
 }
-CArray* GetArray(const char* name) { return GetArray(Checksums::HashFromText(name)); }
+CArray* FetchList(const char* name) { return FetchList(Checksums::HashFromText(name)); }
 
 // 0x004791A0
 bool ComponentsEqual(CComponent* a, CComponent* b)
 {
     // A name standing for a global symbol counts as the symbol's value.
     auto resolve = [](CComponent* component, uint32_t* type, uint32_t* value) {
-        *type = component->Type();
+        *type = component->KindTag();
         *value = component->raw;
         if (*type == QBVAL_NAME) {
             if (CSymbolTableEntry* symbol = ResolveSymbol(*value)) {
@@ -1680,10 +1680,10 @@ void CStruct::AppendArrayValue(uint32_t name, CArray* value)
     CComponent* component = NewTypedComponent(name, QBVAL_ARRAY);
     CArray* array = NewArray();
     if (array)
-        array = array->Init();
+        array = array->PrepareAll();
     component->array = array;
     DuplicateArray(array, value);
-    AddComponent(component);
+    AttachModule(component);
 }
 
 // 0x00478C50
@@ -1710,6 +1710,6 @@ struct ComponentEqualsAdapter {
 };
 
 template <typename R, typename... A>
-using Function = R (*)(A...);
+using Routine = R (*)(A...);
 
 } // namespace

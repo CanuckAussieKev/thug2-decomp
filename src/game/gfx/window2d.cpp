@@ -24,7 +24,7 @@ void Changed(CScreenWindow* window)
 } // namespace
 
 // 0x004A1580
-CScreenWindow* CScreenWindow::Construct(int x, int y, int width, int height)
+CScreenWindow* CScreenWindow::MakeNew(int x, int y, int width, int height)
 {
     m_posX = x;
     m_y = y;
@@ -42,11 +42,11 @@ void CScreenWindow::DestroyBody()
 }
 
 // 0x004A1690
-CScreenWindow* CScreenWindow::Destroy(unsigned int freeFlags)
+CScreenWindow* CScreenWindow::Teardown(unsigned int freeFlags)
 {
     m_vtable = reinterpret_cast<void**>(kWindowVtable);
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -57,7 +57,7 @@ void CScreenWindow::TickEngine()
 }
 
 // 0x004A15C0
-void CScreenWindow::SetPos(int x, int y)
+void CScreenWindow::ChangeLocation(int x, int y)
 {
     m_posX = x;
     m_y = y;
@@ -65,7 +65,7 @@ void CScreenWindow::SetPos(int x, int y)
 }
 
 // 0x004A15E0
-void CScreenWindow::SetSize(int width, int height)
+void CScreenWindow::ChangeExtent(int width, int height)
 {
     m_span = width;
     m_levelY = height;
@@ -95,7 +95,7 @@ void __cdecl FreeWindow2D(CScreenWindow* window)
 }
 
 namespace {
-static VtableSlot kWindowVtable_slots[] = {&Engine3D::CScreenWindow::Destroy, &Engine3D::CScreenWindow::TickEngine};
+static VtableSlot kWindowVtable_slots[] = {&Engine3D::CScreenWindow::Teardown, &Engine3D::CScreenWindow::TickEngine};
 void** const kWindowVtable = reinterpret_cast<void**>(kWindowVtable_slots);
 } // namespace
 

@@ -31,9 +31,9 @@ struct Options {
 };
 
 // The options as read (defaults until Load runs).
-Options& Get();
+Options& Pull();
 // Read them from [Graphics] (at start-up, with the other graphics settings).
-void Load();
+void ReadIn();
 
 // --- The parsing and choices (no device: the self-tests check these) ---
 

@@ -22,12 +22,12 @@ float Difference(float a, float b) { return static_cast<float>(static_cast<doubl
 // A plane distance this small counts as on the plane (0x006453B8).
 constexpr float kOnPlane = 0.00001f;
 
-float Component(const Maths::Vector& v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
+float Component(const Maths::Vec4& v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
 
 // Where the triangle edge from `a` to `b` - plane distances da and db, on either side - meets the plane:
 // a + (b - a) da / (da - db); a itself when the distances are (nearly) equal. Rounded as the original's x87 code
 // does it for P (and for Q on v0 v2): the x and w parts of (b - a) da rounded before the division, y and z not.
-Maths::Vector EdgeCrossing(const Maths::Vector& a, const Maths::Vector& b, float da, float db)
+Maths::Vec4 EdgeCrossing(const Maths::Vec4& a, const Maths::Vec4& b, float da, float db)
 {
     double difference = static_cast<double>(da) - db;
     if (!(std::fabs(difference) > kOnPlane))
@@ -39,7 +39,7 @@ Maths::Vector EdgeCrossing(const Maths::Vector& a, const Maths::Vector& b, float
     float sx = static_cast<float>(ex * da);
     float sw = static_cast<float>(static_cast<double>(ew) * da);
     float inverse = static_cast<float>(1.0 / difference);
-    Maths::Vector p;
+    Maths::Vec4 p;
     p.x = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(sx) * inverse)) + a.x);
     p.y = static_cast<float>(static_cast<double>(static_cast<float>(ey * da * inverse)) + a.y);
     p.z = static_cast<float>(static_cast<double>(ez) * da * inverse + a.z);
@@ -49,17 +49,17 @@ Maths::Vector EdgeCrossing(const Maths::Vector& a, const Maths::Vector& b, float
 
 // The same as Q's other form computes it: (b - a) da rounded part by part, divided by (da - db) as a float
 // (Maths::operator/), added to a.
-Maths::Vector EdgeCrossingScaled(const Maths::Vector& a, const Maths::Vector& b, float da, float db)
+Maths::Vec4 EdgeCrossingScaled(const Maths::Vec4& a, const Maths::Vec4& b, float da, float db)
 {
     double difference = static_cast<double>(da) - db;
     if (!(std::fabs(difference) > kOnPlane))
         return a;
     float ez = Difference(b.z, a.z);
     float ew = Difference(b.w, a.w);
-    Maths::Vector scaled{static_cast<float>((static_cast<double>(b.x) - a.x) * da),
+    Maths::Vec4 scaled{static_cast<float>((static_cast<double>(b.x) - a.x) * da),
                        static_cast<float>((static_cast<double>(b.y) - a.y) * da),
                        static_cast<float>(static_cast<double>(ez) * da), static_cast<float>(static_cast<double>(ew) * da)};
-    Maths::Vector r = Maths::operator/(scaled, static_cast<float>(difference));
+    Maths::Vec4 r = Maths::operator/(scaled, static_cast<float>(difference));
     return {a.x + r.x, r.y + a.y, r.z + a.z, r.w + a.w};
 }
 
@@ -70,10 +70,10 @@ bool Inside(bool towardsPositive, double value) { return towardsPositive ? value
 } // namespace
 
 // 0x0040B420 (NaN in the determinant or the first barycentric coordinate doesn't rule a hit out by itself)
-bool RayHitsTriangle(const Maths::Vector& start, const Maths::Vector& direction, const Maths::Vector& v0,
-                     const Maths::Vector& v1, const Maths::Vector& v2, float* t)
+bool RayHitsTriangle(const Maths::Vec4& start, const Maths::Vec4& direction, const Maths::Vec4& v0,
+                     const Maths::Vec4& v1, const Maths::Vec4& v2, float* t)
 {
-    Maths::Vector legAlpha{Difference(v1.x, v0.x), Difference(v1.y, v0.y), Difference(v1.z, v0.z), Difference(v1.w, v0.w)};
+    Maths::Vec4 legAlpha{Difference(v1.x, v0.x), Difference(v1.y, v0.y), Difference(v1.z, v0.z), Difference(v1.w, v0.w)};
     float e2x = Difference(v2.x, v0.x), e2y = Difference(v2.y, v0.y), e2z = Difference(v2.z, v0.z);
     // p = direction x edge2
     double px = static_cast<double>(e2z) * direction.y - static_cast<double>(e2y) * direction.z;
@@ -84,12 +84,12 @@ bool RayHitsTriangle(const Maths::Vector& start, const Maths::Vector& direction,
         return false;
     float det = static_cast<float>(determinant);
     float bound = static_cast<float>(static_cast<double>(det) * kBoundSlack);
-    Maths::Vector offset{Difference(start.x, v0.x), Difference(start.y, v0.y), Difference(start.z, v0.z),
+    Maths::Vec4 offset{Difference(start.x, v0.x), Difference(start.y, v0.y), Difference(start.z, v0.z),
                        Difference(start.w, v0.w)};
     float u = static_cast<float>((offset.z * pz + offset.y * py) + offset.x * px);
     if (u < 0.0f || u > bound)
         return false;
-    Maths::Vector q = Maths::CrossProduct(offset, legAlpha);
+    Maths::Vec4 q = Maths::CrossVec(offset, legAlpha);
     double v = (static_cast<double>(q.z) * direction.z + static_cast<double>(q.x) * direction.x) +
                static_cast<double>(q.y) * direction.y;
     if (v < 0.0 || u + v > bound)
@@ -101,8 +101,8 @@ bool RayHitsTriangle(const Maths::Vector& start, const Maths::Vector& direction,
 }
 
 // 0x0040B610
-bool LineHitsSphere(const Maths::Vector& start, const Maths::Vector& base, const CollSphere& sphere,
-                    const Maths::Vector& end, float* t, float limit)
+bool LineHitsSphere(const Maths::Vec4& start, const Maths::Vec4& base, const CollSphere& sphere,
+                    const Maths::Vec4& end, float* t, float limit)
 {
     double dx = static_cast<double>(end.x) - base.x;
     double dy = static_cast<double>(end.y) - base.y;
@@ -152,8 +152,8 @@ bool SegmentsCross2D(float ax, float ay, float adx, float ady, float bx, float b
 
 // 0x0040B860 (a = |e0|^2, b = e0.e1, c = |e1|^2, d = e0.D, e = e1.D, f = |D|^2 with e0 = v1 - v0, e1 = v2 - v0,
 // D = v0 - point; rounded where the original's x87 code stores, a few terms kept unrounded as it keeps them)
-double PointTriangleDistanceSquared(const Maths::Vector& point, const Maths::Vector& v0, const Maths::Vector& v1,
-                                    const Maths::Vector& v2, float* sOut, float* tOut)
+double PointTriangleDistanceSquared(const Maths::Vec4& point, const Maths::Vec4& v0, const Maths::Vec4& v1,
+                                    const Maths::Vec4& v2, float* sOut, float* tOut)
 {
     double dx = static_cast<double>(v0.x) - point.x;
     double dy = static_cast<double>(v0.y) - point.y;
@@ -319,11 +319,11 @@ double PointTriangleDistanceSquared(const Maths::Vector& point, const Maths::Vec
 
 // 0x0040BDC0 (with e1 = v1 - v0, e2 = v2 - v0, d = end - start, D = v0 - start: the 3x3 system for the segment's
 // t and the triangle's s, t solved by Cramer's rule; rounded where the original's x87 code stores)
-double SegmentTriangleDistanceSquared(const Maths::Line& segment, const Maths::Vector& /*normal*/, const Maths::Vector& v0,
-                                      const Maths::Vector& v1, const Maths::Vector& v2, float* sOut, float* tOut,
+double SegmentTriangleDistanceSquared(const Maths::Seg& segment, const Maths::Vec4& /*normal*/, const Maths::Vec4& v0,
+                                      const Maths::Vec4& v1, const Maths::Vec4& v2, float* sOut, float* tOut,
                                       float* alongOut)
 {
-    const Maths::Vector& start = segment.start;
+    const Maths::Vec4& start = segment.start;
     const double Dx = static_cast<double>(v0.x) - start.x;
     const double Dy = static_cast<double>(v0.y) - start.y;
     const double Dz = static_cast<double>(v0.z) - start.z;
@@ -361,10 +361,10 @@ double SegmentTriangleDistanceSquared(const Maths::Line& segment, const Maths::V
         return result;
     };
     // The segment against one triangle edge, and against the triangle from one of its ends.
-    auto edge = [&](const Maths::Vector& a, const Maths::Vector& b, float* segmentT, float* edgeT) {
-        return segment.DistanceSqrToLine(Maths::Line(a, b), segmentT, edgeT);
+    auto edge = [&](const Maths::Vec4& a, const Maths::Vec4& b, float* segmentT, float* edgeT) {
+        return segment.DistanceSqrToLine(Maths::Seg(a, b), segmentT, edgeT);
     };
-    auto fromPoint = [&](const Maths::Vector& point, float* pointS, float* pointT) {
+    auto fromPoint = [&](const Maths::Vec4& point, float* pointS, float* pointT) {
         return PointTriangleDistanceSquared(point, v0, v1, v2, pointS, pointT);
     };
 
@@ -404,7 +404,7 @@ double SegmentTriangleDistanceSquared(const Maths::Line& segment, const Maths::V
     };
     // Last, one of the segment's ends (rounded before it's compared), and the result.
     auto finishWithEnd = [&](bool atEnd) {
-        Maths::Vector point = atEnd ? segment.end : segment.start;
+        Maths::Vec4 point = atEnd ? segment.end : segment.start;
         float pointS, pointT;
         float distance = static_cast<float>(fromPoint(point, &pointS, &pointT));
         if (distance < best) {
@@ -576,12 +576,12 @@ __declspec(naked) void SegmentsCross2DKeepingEdx()
 
 // 0x0040D370 (P's side tests use its line values unrounded, Q's rounded to floats; each pair of sides' direction
 // test the first time unrounded, the second time rounded - as the original's x87 code keeps them)
-bool RectHitsTriangle(const CollRect& rect, const Maths::Vector& v0, const Maths::Vector& v1, const Maths::Vector& v2,
-                      Maths::Vector* points, int* kinds)
+bool RectHitsTriangle(const CollRect& rect, const Maths::Vec4& v0, const Maths::Vec4& v1, const Maths::Vec4& v2,
+                      Maths::Vec4* points, int* kinds)
 {
-    const Maths::Vector& o = rect.origin;
-    const Maths::Vector& a = rect.sideA;
-    const Maths::Vector& b = rect.sideB;
+    const Maths::Vec4& o = rect.origin;
+    const Maths::Vec4& a = rect.sideA;
+    const Maths::Vec4& b = rect.sideB;
     // the rect's plane: n = a x b, and the triangle's corners' distances from it
     float nx = static_cast<float>(static_cast<double>(b.z) * a.y - static_cast<double>(b.y) * a.z);
     float ny = static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(b.z) * a.x);
@@ -605,7 +605,7 @@ bool RectHitsTriangle(const CollRect& rect, const Maths::Vector& v0, const Maths
         d2 = 0.0f;
 
     // the segment P Q where the plane cuts the triangle
-    Maths::Vector p, q;
+    Maths::Vec4 p, q;
     int pKind, qKind;
     if ((d0 <= 0.0f && d1 >= 0.0f) || (d0 >= 0.0f && d1 <= 0.0f)) {
         pKind = 1;
@@ -699,7 +699,7 @@ bool RectHitsTriangle(const CollRect& rect, const Maths::Vector& v0, const Maths
     }
     float dq1 = q1 - p1, dq2 = q2 - p2;
     float s;
-    auto take = [&](const Maths::Vector& point) { // (true: that was the second)
+    auto take = [&](const Maths::Vec4& point) { // (true: that was the second)
         points[found] = point;
         kinds[found] = 0;
         bool second = found == 1;
@@ -707,20 +707,20 @@ bool RectHitsTriangle(const CollRect& rect, const Maths::Vector& v0, const Maths
         return second;
     };
     if (SegmentsCross2D(o1, o2, a1, a2, p1, p2, dq1, dq2, &s)) {
-        Maths::Vector point{s * a.x, s * a.y, s * a.z, s * a.w};
+        Maths::Vec4 point{s * a.x, s * a.y, s * a.z, s * a.w};
         point = {o.x + point.x, point.y + o.y, point.z + o.z, o.w + point.w};
         if (take(point))
             return true;
     }
     if (SegmentsCross2D(far1, far2, a1, a2, p1, p2, dq1, dq2, &s)) {
-        Maths::Vector point{s * a.x, s * a.y, s * a.z, s * a.w};
+        Maths::Vec4 point{s * a.x, s * a.y, s * a.z, s * a.w};
         point = {o.x + point.x, point.y + o.y, point.z + o.z, o.w + point.w};
         point = {b.x + point.x, b.y + point.y, b.z + point.z, b.w + point.w};
         if (take(point))
             return true;
     }
     if (SegmentsCross2D(o1, o2, b1, b2, p1, p2, dq1, dq2, &s)) {
-        Maths::Vector point = b;
+        Maths::Vec4 point = b;
         point *= s;
         point += o;
         if (take(point))
@@ -729,7 +729,7 @@ bool RectHitsTriangle(const CollRect& rect, const Maths::Vector& v0, const Maths
     // (the last side only counts as the second point)
     if (!SegmentsCross2D(far3, far4, b1, b2, p1, p2, dq1, dq2, &s) || found != 1)
         return false;
-    Maths::Vector point = b;
+    Maths::Vec4 point = b;
     point *= s;
     point += o;
     point += a;

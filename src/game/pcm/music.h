@@ -39,7 +39,7 @@ void __cdecl PlayNextTrackInOrder();
 // and the music paused when it reports a failure), the streams that finished let go of, and every 64 frames,
 // unless paused, the next track (PlayNextTrack, or PlayNextTrackInOrder when tracks don't play in random order
 // and it isn't the user's playlist) - if the music is audible or it's playlist 1.
-void __cdecl Update();
+void __cdecl TickFrame();
 
 struct FrameAmp;
 

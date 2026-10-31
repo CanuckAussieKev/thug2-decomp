@@ -35,14 +35,14 @@ struct CPcMesh {
     uint8_t* scene;          // +0xC4
 
     // 0x004B7B30: construct. Returns this.
-    CPcMesh* Construct();
+    CPcMesh* MakeNew();
     // 0x004B7D50: construct for a model file: a "skin" one has its skin file (".cas.xbx" in place of ".skin.xbx",
     // lower case) loaded. Returns this.
     CPcMesh* ConstructFromFile(const char* name);
     // 0x004B7E30: the destructor's body - the breaks freed, the scene unloaded (with its collision).
     void DestroyBody();
     // 0x004B7F00 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcMesh* Destroy(unsigned int flags);
+    CPcMesh* Teardown(unsigned int flags);
     // 0x004B7B50: the skin file read (opened "rb"). Whether it had breaks.
     bool LoadSkinFile(const char* name);
     // 0x004B7C60: the same from memory (*data moved past it).

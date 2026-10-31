@@ -5,16 +5,16 @@
 
 #include "game/core/task.h"
 
-// The main loop's task manager (FrameLoop::Manager, the singleton 0x0044F260 creates). SystemCore::Main hands it the engine's
+// The main loop's task manager (FrameLoop::Hub, the singleton 0x0044F260 creates). SystemCore::Main hands it the engine's
 // tasks and then runs its loop (MainLoop), which returns only when the game is quit or the loop is told to stop.
 namespace FrameLoop {
 
-struct Manager {
+struct Hub {
     uint8_t m_isFinished;             // +0x00: (a bool) ends the loop after the current frame
     uint8_t pad01[3];
-    TaskList::Stack m_logicTasks;     // +0x04: a task list (0x00406C90 adds, 0x004070A0 runs)
-    TaskList::Stack m_displayTasks;   // +0x40 (not run by the loop)
-    TaskList::Stack m_systemTasks;    // +0x7C: the module manager's and the input devices' tasks
+    TaskList::PileUp m_logicTasks;     // +0x04: a task list (0x00406C90 adds, 0x004070A0 runs)
+    TaskList::PileUp m_displayTasks;   // +0x40 (not run by the loop)
+    TaskList::PileUp m_systemTasks;    // +0x7C: the module manager's and the input devices' tasks
     uint32_t m_unknownB8;       // +0xB8 (cleared by the constructor, otherwise unused here)
     uint32_t m_unknownBC;       // +0xBC (the same)
     uint8_t padC0[0x04];
@@ -22,7 +22,7 @@ struct Manager {
     int m_profiling;            // +0xC8: this frame is being profiled (passed to the task lists)
 
     // 0x0044EDC0: the three task lists (0x00406E80 each), the +0xB8/+0xBC words and m_isFinished cleared. Returns this.
-    Manager* Construct();
+    Hub* MakeNew();
     // 0x0044EE30: the task lists destroyed (0x004070E0), the last first.
     void DestroyBody();
     // 0x0044EE90 (also reached by the jump at 0x0044F250): after the device was lost (0x00786AB4), once
@@ -40,13 +40,13 @@ struct Manager {
     // back as it was on entry. PartyMod's letterbox per level is built in (RenderFrameLetterboxed).
     void MainLoop();
 };
-static_assert(offsetof(Manager, m_logicTasks) == 0x04);
-static_assert(offsetof(Manager, m_displayTasks) == 0x40);
-static_assert(offsetof(Manager, m_systemTasks) == 0x7C);
-static_assert(offsetof(Manager, m_unknownB8) == 0xB8);
-static_assert(offsetof(Manager, m_profileFrames) == 0xC4);
-static_assert(offsetof(Manager, m_profiling) == 0xC8);
-static_assert(sizeof(Manager) == 0xCC);
+static_assert(offsetof(Hub, m_logicTasks) == 0x04);
+static_assert(offsetof(Hub, m_displayTasks) == 0x40);
+static_assert(offsetof(Hub, m_systemTasks) == 0x7C);
+static_assert(offsetof(Hub, m_unknownB8) == 0xB8);
+static_assert(offsetof(Hub, m_profileFrames) == 0xC4);
+static_assert(offsetof(Hub, m_profiling) == 0xC8);
+static_assert(sizeof(Hub) == 0xCC);
 
 // NOT ORIGINAL: the main loop's passes so far (ours: features that need the game up - the front end's input logic
 // also runs in the early self-tests, on stand-in state - wait for the first).
@@ -54,7 +54,7 @@ uint32_t& FramesRun();
 
 // The singleton (0x00696D68, references 0x00696D6C). 0x0044F260: the first call with `create` makes it (0xCC
 // bytes, zeroed, on the current heap), every call takes a reference and returns it (null if there is none).
-Manager* CreateManager(bool create);
+Hub* CreateManager(bool create);
 // 0x0044F2B0: drops a reference; the last one destroys and frees the manager.
 void ReleaseManager();
 

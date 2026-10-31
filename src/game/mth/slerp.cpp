@@ -20,18 +20,18 @@ float SmallRotationThreshold() { return g_slerpSmallRotationThreshold; }
 } // namespace
 
 // 0x00405E90
-ArcRotationBlender::ArcRotationBlender(const Matrix& from, const Matrix& to)
+ArcRotationBlender::ArcRotationBlender(const Mat4& from, const Mat4& to)
 {
     SetMatrices(from, to);
 }
 
 // 0x00405990
-int ArcRotationBlender::SetMatrices(const Matrix& from, const Matrix& to)
+int ArcRotationBlender::SetMatrices(const Mat4& from, const Mat4& to)
 {
     start = from;
     end = to;
-    Matrix relative = start;
-    relative.Invert();
+    Mat4 relative = start;
+    relative.Upend();
     Multiply(relative, relative, end); // the rotation taking start to end
     relative.GetRotationAxisAngle(axis, angle);
     small_rotation = angle < SmallRotationThreshold();
@@ -46,7 +46,7 @@ void ArcRotationBlender::InvertDirection()
 }
 
 // 0x00405A20
-void ArcRotationBlender::GetMatrix(Matrix& out, float t) const
+void ArcRotationBlender::FetchMat(Mat4& out, float t) const
 {
     if (t <= 0.0f) {
         out = start;
@@ -58,10 +58,10 @@ void ArcRotationBlender::GetMatrix(Matrix& out, float t) const
     }
 
     // The translation is read first, as in the original (so `out` may be one of the stored matrices).
-    const Vector from = start.row[3];
-    const Vector to = end.row[3];
-    auto lerp = [t](const Vector& a, const Vector& b) {
-        return Vector{(b.x - a.x) * t + a.x, (b.y - a.y) * t + a.y, (b.z - a.z) * t + a.z, (b.w - a.w) * t + a.w};
+    const Vec4 from = start.row[3];
+    const Vec4 to = end.row[3];
+    auto lerp = [t](const Vec4& a, const Vec4& b) {
+        return Vec4{(b.x - a.x) * t + a.x, (b.y - a.y) * t + a.y, (b.z - a.z) * t + a.z, (b.w - a.w) * t + a.w};
     };
 
     if (small_rotation) {
@@ -69,7 +69,7 @@ void ArcRotationBlender::GetMatrix(Matrix& out, float t) const
         for (int i = 0; i < 3; ++i)
             out.row[i] = lerp(start.row[i], end.row[i]);
         for (int i = 0; i < 3; ++i)
-            out.row[i].Normalize();
+            out.row[i].MakeUnit();
         out.row[0].w = out.row[1].w = out.row[2].w = 0.0f;
         out.row[3] = lerp(from, to);
         return;
@@ -77,7 +77,7 @@ void ArcRotationBlender::GetMatrix(Matrix& out, float t) const
 
     out = start;
     out.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    out.Rotate(axis, t * angle);
+    out.SpinBy(axis, t * angle);
     out.row[3] = lerp(from, to);
     out.row[3].w = 1.0f;
 }
@@ -87,7 +87,7 @@ void ArcRotationBlender::GetMatrix(Matrix& out, float t) const
 namespace {
 
 struct SlerpAdapter {
-    Maths::ArcRotationBlender* Construct(const Maths::Matrix& from, const Maths::Matrix& to)
+    Maths::ArcRotationBlender* MakeNew(const Maths::Mat4& from, const Maths::Mat4& to)
     {
         return new (this) Maths::ArcRotationBlender(from, to);
     }

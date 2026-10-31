@@ -152,7 +152,7 @@ inline bool CosAbove(double angle, float value)
 
 // (a, b) turned by `angle`: a' = cos * a + sin * b, b' = cos * b - sin * a - each product and sum rounded to 53
 // bits from the full-precision sine and cosine (exact as doubles).
-inline void Rotate(double angle, double a, double b, double* rotatedA, double* rotatedB)
+inline void SpinBy(double angle, double a, double b, double* rotatedA, double* rotatedB)
 {
     double ra, rb;
     __asm {

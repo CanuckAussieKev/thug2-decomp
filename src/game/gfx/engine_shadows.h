@@ -8,7 +8,7 @@
 #include "game/lst/hashtable.h"
 
 namespace Gfx2D {
-class Camera;
+class ViewCam;
 }
 
 // The engine's shadows (Nx): what an object's shadow component makes (obj/shadow_component.h) - detailed (type 1: the
@@ -16,8 +16,8 @@ class Camera;
 // shadow model - "Ped_Shadow" - laid on the ground) or a volume (type 3: the model's silhouette edges, shared by every
 // shadow of the same model - 0x00701418 - and extruded along the light).
 //
-// The vtable: [0] the scalar deleting destructor; [1] Update(position, matrix, ground normal by value); [2]
-// SetPosition(by value); [3] SetLightDirection; [4] SetMatrix; [5] Hide; [6] Show; [7] SetModel(model, asset data).
+// The vtable: [0] the scalar deleting destructor; [1] TickFrame(position, matrix, ground normal by value); [2]
+// ChangePlace(by value); [3] SetLightDirection; [4] ChangeMat; [5] Hide; [6] Show; [7] ChangeMesh(model, asset data).
 namespace Engine3D {
 
 class CRenderModel;
@@ -26,16 +26,16 @@ class CRenderModel;
 class CShadowBase {
 public:
     // 0x004A16C0: type 0. Returns this.
-    CShadowBase* Construct();
+    CShadowBase* MakeNew();
     // 0x004A16D0: the destructor's body.
     void DestroyBody();
     // 0x004A18B0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CShadowBase* Destroy(unsigned int freeFlags);
+    CShadowBase* Teardown(unsigned int freeFlags);
     // 0x004A18A0 (virtual [1] of the base, the detailed shadow and the volume): nothing.
-    void Update(const Maths::Vector* position, const Maths::Matrix* matrix, Maths::Vector normal);
+    void TickFrame(const Maths::Vec4* position, const Maths::Mat4* matrix, Maths::Vec4 normal);
 
     void** m_vtable;
-    int m_type; // +0x04 1 detailed, 2 simple, 3 volume
+    int m_kindTag; // +0x04 1 detailed, 2 simple, 3 volume
 };
 
 // The detailed shadow (0x24 bytes, vtable 0x00649E98).
@@ -44,20 +44,20 @@ public:
     // 0x004A19C0: a 256 x 256 render target (depth 16) the model's shadow caster draws into; the light's direction
     // (normalised) and the camera's distance; the camera made (at the origin, looking along the light) and the model
     // told it casts a shadow. Returns this.
-    CFullShadow* Construct(CRenderModel* model, Maths::Vector direction, float distance);
+    CFullShadow* MakeNew(CRenderModel* model, Maths::Vec4 direction, float distance);
     // 0x004A16E0: the caster removed, the render target and the camera deleted; the base's body.
     void DestroyBody();
     // 0x004A18E0 (virtual [0])
-    CFullShadow* Destroy(unsigned int freeFlags);
+    CFullShadow* Teardown(unsigned int freeFlags);
     // 0x004A1910 (virtual [2]): the camera put `distance` back along the light from `position`, the caster aimed.
-    void SetPosition(Maths::Vector position);
+    void ChangePlace(Maths::Vec4 position);
     // 0x004A1BA0 (virtual [3]): the light's direction (normalised) and the camera turned to look along it (its
     // position kept); the caster aimed.
-    void SetLightDirection(const Maths::Vector* direction);
+    void SetLightDirection(const Maths::Vec4* direction);
 
-    Gfx2D::Camera* m_viewCamera;  // +0x08
+    Gfx2D::ViewCam* m_viewCamera;  // +0x08
     uint8_t* m_bitmap;     // +0x0C the render target
-    Maths::Vector m_direction; // +0x10 the light's
+    Maths::Vec4 m_direction; // +0x10 the light's
     float m_reach;        // +0x20
 };
 static_assert(offsetof(CFullShadow, m_reach) == 0x20 && sizeof(CFullShadow) == 0x24,
@@ -67,18 +67,18 @@ static_assert(offsetof(CFullShadow, m_reach) == 0x20 && sizeof(CFullShadow) == 0
 class CBlobShadow : public CShadowBase {
 public:
     // 0x004A1750: no model yet, scale and offset 1. Returns this.
-    CBlobShadow* Construct();
+    CBlobShadow* MakeNew();
     // 0x004A1780: the model deleted; the base's body.
     void DestroyBody();
     // 0x004A1990 (virtual [0])
-    CBlobShadow* Destroy(unsigned int freeFlags);
+    CBlobShadow* Teardown(unsigned int freeFlags);
     // 0x004A17E0: a new model (the old one deleted) loaded from "<name>.mdl".
-    void SetModel(const char* name);
+    void ChangeMesh(const char* name);
     // 0x004A1CD0 (virtual [1]): the model drawn lying on the ground: its rows (the normal x the matrix's third row,
     // the normal, the matrix's third row) scaled, at `position` raised along the normal by the offset.
-    void Update(const Maths::Vector* position, const Maths::Matrix* matrix, Maths::Vector normal);
+    void TickFrame(const Maths::Vec4* position, const Maths::Mat4* matrix, Maths::Vec4 normal);
     // 0x004A1880 / 0x004A1890 (virtual [5] / [6]): the model made inactive / active.
-    void Hide();
+    void Conceal();
     void Show();
 
     CRenderModel* m_meshInstance; // +0x08
@@ -99,25 +99,25 @@ struct ShadowEdges {
 class CShadowVolume : public CShadowBase {
 public:
     // 0x004A1F80: as the detailed shadow's camera (no texture); no model or edges yet. Returns this.
-    CShadowVolume* Construct(CRenderModel* model, Maths::Vector direction, float distance);
+    CShadowVolume* MakeNew(CRenderModel* model, Maths::Vec4 direction, float distance);
     // 0x004A2120: the camera deleted; with edges (and some), taken out of the volumes' list and released.
     void DestroyBody();
     // 0x004A22C0 (virtual [0])
-    CShadowVolume* Destroy(unsigned int freeFlags);
+    CShadowVolume* Teardown(unsigned int freeFlags);
     // 0x004A1E70 (virtual [2])
-    void SetPosition(Maths::Vector position);
+    void ChangePlace(Maths::Vec4 position);
     // 0x004A21A0 (virtual [3])
-    void SetLightDirection(const Maths::Vector* direction);
-    // 0x004A1EE0 (virtual [4]): a copy of the object's matrix (a jump to Maths::Matrix::operator=).
-    Maths::Matrix* SetMatrix(const Maths::Matrix* matrix);
+    void SetLightDirection(const Maths::Vec4* direction);
+    // 0x004A1EE0 (virtual [4]): a copy of the object's matrix (a jump to Maths::Mat4::operator=).
+    Maths::Mat4* ChangeMat(const Maths::Mat4* matrix);
     // 0x004A22F0 (virtual [7]): the edges of `assetData`'s meshes (by the asset data's +0x8C - the key: none, the one
     // kept) found or built, and this volume put in the volumes' list.
-    void SetModel(CRenderModel* model, uint8_t* assetData);
+    void ChangeMesh(CRenderModel* model, uint8_t* assetData);
 
-    Gfx2D::Camera* m_viewCamera;  // +0x08
-    Maths::Matrix m_basisFrame;    // +0x0C
+    Gfx2D::ViewCam* m_viewCamera;  // +0x08
+    Maths::Mat4 m_basisFrame;    // +0x0C
     uint32_t m_modelKey;     // +0x4C the asset data's meshes
-    Maths::Vector m_direction; // +0x50
+    Maths::Vec4 m_direction; // +0x50
     ShadowEdges* mp_edges;   // +0x60
     float m_reach;        // +0x64
 };
@@ -133,6 +133,6 @@ ShadowEdges* __cdecl FindShadowEdges(uint32_t key);
 void __cdecl ReleaseShadowEdges(uint32_t key);
 
 extern CShadowVolume* g_shadowVolumes[16];
-extern ListKit::HashTable g_shadowEdgeTable; // 0x00701418: the silhouette edges by model
+extern ListKit::KeyMap g_shadowEdgeTable; // 0x00701418: the silhouette edges by model
 
 } // namespace Nx

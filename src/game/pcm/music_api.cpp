@@ -63,7 +63,7 @@ struct StreamFields {
     uint8_t pad29[3];
     int falloffCurve; // +0x2C
     uint8_t pad30[4];
-    struct Entry {
+    struct TableRow {
         uint32_t first;
         uint32_t second;
     } queue[8]; // +0x34
@@ -88,7 +88,7 @@ int CurrentPlaylist() { return g_currentPlaylist; }
 // The platform layer (stream.h). The original passes the music's stop 1 (StopMusic) or 0 (the music streams),
 // which it doesn't use; the stream's stop is given 1 (unused too).
 void PlatformStopStreams() { AudioStream::HaltStreams(); }
-void PlatformStopStream(int index) { AudioStream::StopStream(index, 1); }
+void PlatformStopStream(int index) { AudioStream::HaltStream(index, 1); }
 void PlatformSetStreamVolume(const void* volume, int index)
 {
     // (an volumeRef starts with the platform's StreamVolume: five channels and the type)
@@ -215,7 +215,7 @@ void __cdecl HaltStreams(int which)
 }
 
 // 0x004506D0
-void __cdecl StopStream(uint32_t idOrName)
+void __cdecl HaltStream(uint32_t idOrName)
 {
     if (!StreamsOn())
         return;
@@ -340,28 +340,28 @@ bool __cdecl UpdateStreamVolume(int slot)
         return false;
     StreamFields* stream = StreamAt(index);
     SoundFx::volumeRef volume;
-    volume.Init();
+    volume.PrepareAll();
     SoundFx::CAudioMixer* manager = SoundManager();
     if (stream->positional) {
         // (the emitter nearest the owner's object: 0x004A09E0, not rewritten yet)
         void* object = Engine3D::GetClosestCamera(
-            reinterpret_cast<const Maths::Vector*>(*reinterpret_cast<uint8_t**>(owner + 0xC) + 0x4C), nullptr);
+            reinterpret_cast<const Maths::Vec4*>(*reinterpret_cast<uint8_t**>(owner + 0xC) + 0x4C), nullptr);
         if (object) {
             auto* component = reinterpret_cast<GameObjects::CAudioStreamModule*>(owner);
-            Maths::Vector extent;
-            Maths::Vector* extentOrNull = nullptr;
+            Maths::Vec4 extent;
+            Maths::Vec4* extentOrNull = nullptr;
             if (component->GetStreamExtent(object, &extent))
                 extentOrNull = &extent;
-            Maths::Vector position;
-            Maths::Vector* where = component->GetStreamPosition(&position, object);
-            manager->GetVolume(&volume, where, std::bit_cast<float>(stream->dropoff), stream->falloffCurve, object,
+            Maths::Vec4 position;
+            Maths::Vec4* where = component->GetStreamPosition(&position, object);
+            manager->FetchLoudness(&volume, where, std::bit_cast<float>(stream->dropoff), stream->falloffCurve, object,
                                extentOrNull);
         } else {
             volume.ChangeMuted();
         }
     } else {
-        std::memcpy(&volume.m_channels[0], &stream->volume, 4);
-        std::memcpy(&volume.m_channels[1], &stream->volume, 4);
+        std::memcpy(&volume.m_lanes[0], &stream->volume, 4);
+        std::memcpy(&volume.m_lanes[1], &stream->volume, 4);
     }
     if (stream->volume != kHundredPercent)
         volume.PercentTweak(std::bit_cast<float>(stream->volume));
@@ -370,7 +370,7 @@ bool __cdecl UpdateStreamVolume(int slot)
 }
 
 // 0x00450D60
-void __cdecl Init()
+void __cdecl PrepareAll()
 {
     Owners()[0] = Owners()[1] = Owners()[2] = nullptr;
     if (SoundAvailable() && (g_musicHeaderLoaded || StreamsOn())) {
@@ -410,7 +410,7 @@ bool __cdecl DiscModeActive()
 }
 
 // 0x00450540
-bool FamData::Load(uint32_t famName)
+bool FamData::ReadIn(uint32_t famName)
 {
     char path[256];
     std::snprintf(path, sizeof(path), "fam\\%x.fam", famName);
@@ -422,7 +422,7 @@ bool FamData::Load(uint32_t famName)
         FileLoad::AsyncClose(file);
         return false;
     }
-    file->Read(data, 1, size);
+    file->TakeIn(data, 1, size);
     FileLoad::AsyncClose(file);
     name = famName;
     return true;

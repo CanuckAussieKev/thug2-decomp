@@ -16,7 +16,7 @@ class CScript;
 
 namespace GameObjects {
 
-class CObject;
+class CEntity;
 
 // A fixed number of slots for objects (8 bytes; the slots are an array new[] of smart pointers).
 class CObjectGroup {
@@ -25,35 +25,35 @@ public:
     // smart pointers let go (last first) and the array freed.
     void Destruct();
     // 0x004698C0: `size` empty slots (from the current heap).
-    void Init(int size);
+    void PrepareAll(int size);
     // 0x00469540: every slot let go.
     void ReleaseAll();
     // 0x00469580: every slot holding `object` let go.
-    void Remove(CObject* object);
+    void DropOut(CEntity* object);
     // 0x004695D0: `object` into the first empty slot (nothing if they're all taken).
-    void Add(CObject* object);
+    void AppendOne(CEntity* object);
 
-    CSharedRef<CObject>* m_slots;
-    int m_size;
+    CSharedRef<CEntity>* m_slots;
+    int m_extent;
 };
 static_assert(sizeof(CObjectGroup) == 8, "layout must match the original");
 
 class CPathManager {
 public:
     // 0x004694E0: the instance, made on first use (empty).
-    static CPathManager* Instance();
+    static CPathManager* Sole();
     // 0x00469620: `object` into the group of the path its node `node` is on; returns that group.
-    CObjectGroup* AddToPath(CObject* object, uint32_t node);
+    CObjectGroup* AddToPath(CEntity* object, uint32_t node);
     // 0x00469670: `object` into the extra group (the node's path is read, not used); returns the extra group.
-    CObjectGroup* AddToExtraGroup(CObject* object, uint32_t node);
+    CObjectGroup* AddToExtraGroup(CEntity* object, uint32_t node);
     // 0x004696C0: the groups emptied and every path numbered again (nodes of a path's class with links - or of
     // class 0x4C23A77E - that have no PathNum start one and give it to every node down their first links; a
     // chain that runs into a numbered node takes that number instead). Nothing if not allocated.
     void NumberPaths();
     // 0x00469820: the groups and the extra group freed.
-    void Free();
+    void Dealloc();
     // 0x00469960: `groups` groups of `groupSize` slots and an extra group of `extraSize` (bottom-up heap).
-    void Allocate(int groups, int groupSize, int extraSize);
+    void Carve(int groups, int groupSize, int extraSize);
 
     CObjectGroup* m_groups;     // +0x00 (new[]: the count before it)
     CObjectGroup* m_extra;      // +0x04

@@ -69,7 +69,7 @@ bool g_paletteWasOpen;
 
 void Palette()
 {
-    bool& open = Open(kPaletteWindow);
+    bool& open = Unseal(kPaletteWindow);
     if (!open) {
         g_paletteWasOpen = false;
         return;
@@ -97,10 +97,10 @@ void Palette()
         if (ImGui::IsKeyPressed(ImGuiKey_Escape))
             open = false;
     }
-    const std::vector<Actions::Action>& all = Actions::All();
+    const std::vector<Actions::ActStep>& all = Actions::All();
     std::vector<std::pair<int, int>> found; // (score, index)
     for (int i = 0; i < static_cast<int>(all.size()); ++i) {
-        const Actions::Action& a = all[i];
+        const Actions::ActStep& a = all[i];
         int score = std::max({Actions::FuzzyScore(g_query, a.name) * 2, Actions::FuzzyScore(g_query, a.category + " " + a.name),
                               std::strlen(g_query) >= 3 ? Actions::FuzzyScore(g_query, a.tip) / 2 : 0,
                               Actions::FuzzyScore(g_query, Actions::KeysText(i))});
@@ -114,8 +114,8 @@ void Palette()
     int run = -1;
     for (int r = 0; r < static_cast<int>(found.size()); ++r) {
         int i = found[r].second;
-        const Actions::Action& a = all[i];
-        bool enabled = Actions::Enabled(i);
+        const Actions::ActStep& a = all[i];
+        bool enabled = Actions::IsSwitchedOn(i);
         ImGui::PushID(i);
         int checked = Actions::Checked(i);
         std::string text = (checked == 1 ? "[x] " : checked == 0 ? "[ ] " : "") + a.name;
@@ -128,7 +128,7 @@ void Palette()
         if (r == g_highlight && (ImGui::IsKeyPressed(ImGuiKey_DownArrow) || ImGui::IsKeyPressed(ImGuiKey_UpArrow)))
             ImGui::SetScrollHereY(0.5f);
         if (ImGui::IsItemHovered() && !a.tip.empty())
-            ImGui::SetTooltip("%s%s", a.tip.c_str(), a.kind == Actions::Kind::Info ? "\n(mouse gesture)" : "");
+            ImGui::SetTooltip("%s%s", a.tip.c_str(), a.kind == Actions::Kind::DetailsOf ? "\n(mouse gesture)" : "");
         ImGui::SameLine(0.0f, 10.0f * S());
         ImGui::TextColored(kMuted, "%s", a.category.c_str());
         std::string keys = Actions::KeysText(i);
@@ -151,10 +151,10 @@ void Palette()
     ImGui::End();
     if (run >= 0) {
         open = false;
-        if (Actions::Enabled(run)) {
+        if (Actions::IsSwitchedOn(run)) {
             Queue([run] { Actions::Run(run); });
         } else {
-            std::string why = all[run].kind == Actions::Kind::Info ? all[run].name + ": " + Actions::KeysText(run)
+            std::string why = all[run].kind == Actions::Kind::DetailsOf ? all[run].name + ": " + Actions::KeysText(run)
                                                                      : all[run].name + " is unavailable";
             Queue([why] { ShowMessage(why); });
         }
@@ -165,7 +165,7 @@ void Palette()
 
 void HistoryWindow()
 {
-    bool& open = Open(kHistoryWindow);
+    bool& open = Unseal(kHistoryWindow);
     if (!open)
         return;
     ImGuiIO& io = ImGui::GetIO();
@@ -220,7 +220,7 @@ char g_changesFilter[64];
 
 void ChangesWindow()
 {
-    bool& open = Open(kChangesWindow);
+    bool& open = Unseal(kChangesWindow);
     if (!open)
         return;
     ImGuiIO& io = ImGui::GetIO();
@@ -238,7 +238,7 @@ void ChangesWindow()
     ImGui::BeginChild("##changes");
     if (rows.empty())
         ImGui::TextDisabled("No changes");
-    for (const char* group : Changes::Groups()) {
+    for (const char* group : Changes::Bunches()) {
         std::vector<const ChangeRow*> in;
         for (const ChangeRow& row : rows) {
             if (row.entry.group == group && Actions::FuzzyScore(g_changesFilter, row.entry.summary + " " + group) > 0)
@@ -281,7 +281,7 @@ char g_keysFilter[64];
 
 void KeysWindow()
 {
-    bool& open = Open(kKeysWindow);
+    bool& open = Unseal(kKeysWindow);
     if (!open) {
         if (Actions::Capturing())
             Actions::CancelCapture();
@@ -306,7 +306,7 @@ bool g_snapshotsStale = true;
 
 void SnapshotsWindow()
 {
-    bool& open = Open(kSnapshotsWindow);
+    bool& open = Unseal(kSnapshotsWindow);
     if (!open) {
         g_snapshotsStale = true;
         return;
@@ -404,7 +404,7 @@ void Menus()
             {"Same mesh", Organize::Similar::Mesh, "Same model or scenery piece"},
             {"Same class", Organize::Similar::Class, "Same node class"},
             {"Same family", Organize::Similar::Family, "Same Outliner family"},
-            {"Same type", Organize::Similar::Type, "Same node type"}};
+            {"Same type", Organize::Similar::KindTag, "Same node type"}};
         for (const Item& item : kItems) {
             Organize::Similar by = item.by;
             if (ImGui::MenuItem(item.name))
@@ -454,7 +454,7 @@ void Menus()
             std::string text = g_labelText;
             uint32_t id = g_labelFor;
             Queue([id, text] {
-                Organize::State next = Organize::Current();
+                Organize::State next = Organize::AtHand();
                 std::string clean;
                 Organize::SetLabel(&next, id, Organize::CleanName(text, &clean) ? clean : "");
                 Organize::Change(next, "Label");
@@ -512,7 +512,7 @@ ImGuiID g_sharedActive;
 
 void SetFonts(const Fonts& fonts) { g_fonts = fonts; }
 
-void Windows(const Ui::Model& model)
+void Windows(const Ui::ShapeMesh& model)
 {
     (void)model;
     Palette();
@@ -525,15 +525,15 @@ void Windows(const Ui::Model& model)
 
 void HelpFromRegistry()
 {
-    const std::vector<Actions::Action>& all = Actions::All();
+    const std::vector<Actions::ActStep>& all = Actions::All();
     std::vector<std::string> categories;
-    for (const Actions::Action& a : all) {
+    for (const Actions::ActStep& a : all) {
         if (std::find(categories.begin(), categories.end(), a.category) == categories.end())
             categories.push_back(a.category);
     }
     ImGui::TextDisabled("All commands and their keys");
     if (ImGui::SmallButton("Keys..."))
-        Open(kKeysWindow) = true;
+        Unseal(kKeysWindow) = true;
     if (!ImGui::BeginTable("##registry", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg))
         return;
     ImGui::TableSetupColumn("##category", ImGuiTableColumnFlags_WidthFixed, 90.0f * S());
@@ -542,7 +542,7 @@ void HelpFromRegistry()
     for (const std::string& category : categories) {
         bool first = true;
         for (int i = 0; i < static_cast<int>(all.size()); ++i) {
-            const Actions::Action& a = all[i];
+            const Actions::ActStep& a = all[i];
             if (a.category != category)
                 continue;
             ImGui::TableNextRow();
@@ -570,7 +570,7 @@ void HelpFromRegistry()
 
 void KeysSection()
 {
-    const std::vector<Actions::Action>& all = Actions::All();
+    const std::vector<Actions::ActStep>& all = Actions::All();
     ImGui::TextDisabled("Click a key to rebind, + to add, right-click to remove");
     ImGui::SetNextItemWidth(220.0f * S());
     ImGui::InputTextWithHint("##keysfilter", "Filter\xE2\x80\xA6", g_keysFilter, sizeof(g_keysFilter));
@@ -582,7 +582,7 @@ void KeysSection()
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Shift+click to reset all keys");
     if (Actions::Capturing()) {
-        const Actions::Action* a = Actions::Get(Actions::CapturingIndex());
+        const Actions::ActStep* a = Actions::Pull(Actions::CapturingIndex());
         ImGui::TextColored(kKeyColour, "Press a key for \"%s\" (Esc: cancel)",
                            a ? a->name.c_str() : "?");
     }
@@ -594,7 +594,7 @@ void KeysSection()
         ImGui::TableSetupColumn("##reset", ImGuiTableColumnFlags_WidthFixed, 60.0f * S());
         std::string category;
         for (int i = 0; i < static_cast<int>(all.size()); ++i) {
-            const Actions::Action& a = all[i];
+            const Actions::ActStep& a = all[i];
             if (!a.rebindable || Actions::FuzzyScore(g_keysFilter, a.category + " " + a.name + " " + Actions::KeysText(i)) == 0)
                 continue;
             ImGui::PushID(i);
@@ -652,7 +652,7 @@ void KeysSection()
     ImGui::EndChild();
 }
 
-bool RowPasses(const Nodes::Node& node, const std::string& name, const char* search)
+bool RowPasses(const Nodes::Elem& node, const std::string& name, const char* search)
 {
     static std::string last;
     static Organize::Filter filter;
@@ -664,20 +664,20 @@ bool RowPasses(const Nodes::Node& node, const std::string& name, const char* sea
         return true;
     std::string label = filter.labeled || !filter.text.empty() ? RowLabel(node.name) : "";
     bool inGroup = !filter.group.empty() && Organize::InGroup(filter.group, node);
-    bool locked = filter.locked && Organize::Locked(node.name);
+    bool locked = filter.locked && Organize::Latched(node.name);
     bool hidden = filter.hidden && Organize::HiddenInEditor(node);
     return Organize::RowPasses(filter, node.family, name, label, inGroup, locked, hidden);
 }
 
 std::string RowLabel(uint32_t name)
 {
-    const Organize::State& state = Organize::Current();
+    const Organize::State& state = Organize::AtHand();
     return state.labels.empty() ? "" : Organize::LabelOf(state, name);
 }
 
-void Groups()
+void Bunches()
 {
-    const Organize::State& state = Organize::Current();
+    const Organize::State& state = Organize::AtHand();
     if (state.groups.empty())
         return;
     char header[48];
@@ -688,7 +688,7 @@ void Groups()
     if (!open)
         return;
     for (int i = 0; i < static_cast<int>(state.groups.size()); ++i) {
-        const Organize::Group& g = state.groups[i];
+        const Organize::GroupSet& g = state.groups[i];
         ImGui::PushID(i);
         char text[96];
         std::snprintf(text, sizeof(text), "%s  (%d)", g.name.c_str(), static_cast<int>(g.members.size()));
@@ -719,17 +719,17 @@ float TogglesWidth()
     return 3.0f * (glyph + 6.0f * S()) + 6.0f * S();
 }
 
-void RowToggles(const Nodes::Node& node, float x)
+void RowToggles(const Nodes::Elem& node, float x)
 {
-    bool hidden = Organize::HiddenInEditor(node), locked = Organize::Locked(node.name),
+    bool hidden = Organize::HiddenInEditor(node), locked = Organize::Latched(node.name),
          selectable = Organize::Selectable(node);
-    struct Toggle {
+    struct FlipOver {
         const char* on;
         const char* off;
         bool state;
         const char* tip;
     };
-    const Toggle toggles[3] = {
+    const FlipOver toggles[3] = {
         {"\xE2\x80\xA2", "-", !hidden, "Visible in editor"},
         {"L", "L", locked, "Locked against changes"},
         {"S", "S", selectable, "Selectable in the view"},
@@ -737,7 +737,7 @@ void RowToggles(const Nodes::Node& node, float x)
     float step = ImGui::CalcTextSize("W").x + 6.0f * S();
     for (int t = 0; t < 3; ++t) {
         ImGui::SameLine(x + 6.0f * S() + step * static_cast<float>(t));
-        const Toggle& toggle = toggles[t];
+        const FlipOver& toggle = toggles[t];
         // (lit when on: the lock orange; the eye and selectable light; off: dim)
         ImGui::PushID(t);
         ImGui::PushStyleColor(ImGuiCol_Text, toggle.state ? (t == 1 ? ImVec4(1.0f, 0.6f, 0.3f, 1.0f)
@@ -751,7 +751,7 @@ void RowToggles(const Nodes::Node& node, float x)
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("%s", toggle.tip);
         if (clicked) {
-            Nodes::Node copy = node;
+            Nodes::Elem copy = node;
             bool value = !toggle.state;
             if (t == 0)
                 Queue([copy, value] { Organize::SetHiddenInEditor(copy, !value); });
@@ -764,19 +764,19 @@ void RowToggles(const Nodes::Node& node, float x)
     }
 }
 
-void RowMenu(const Nodes::Node& node)
+void RowMenu(const Nodes::Elem& node)
 {
     if (!ImGui::BeginPopupContextItem("##rowmenu"))
         return;
-    Heading(Nodes::Label(node.name).c_str());
+    Heading(Nodes::Caption(node.name).c_str());
     ImGui::Separator();
     if (ImGui::MenuItem("Label...")) {
         g_labelFor = node.name;
         std::snprintf(g_labelText, sizeof(g_labelText), "%s", RowLabel(node.name).c_str());
         g_labelAsked = true;
     }
-    Nodes::Node copy = node;
-    bool hidden = Organize::HiddenInEditor(node), locked = Organize::Locked(node.name), selectable = Organize::Selectable(node);
+    Nodes::Elem copy = node;
+    bool hidden = Organize::HiddenInEditor(node), locked = Organize::Latched(node.name), selectable = Organize::Selectable(node);
     if (ImGui::MenuItem("Hidden in Editor", nullptr, hidden))
         Queue([copy, hidden] { Organize::SetHiddenInEditor(copy, !hidden); });
     if (ImGui::MenuItem("Locked", nullptr, locked))
@@ -786,7 +786,7 @@ void RowMenu(const Nodes::Node& node)
     ImGui::Separator();
     if (ImGui::MenuItem("Group Selection...", Actions::KeysText(Actions::kMakeGroup).c_str()))
         g_groupAsked = true;
-    const Organize::State& state = Organize::Current();
+    const Organize::State& state = Organize::AtHand();
     if (!state.groups.empty() && ImGui::BeginMenu("Add Selection to")) {
         for (int i = 0; i < static_cast<int>(state.groups.size()); ++i) {
             if (ImGui::MenuItem(state.groups[i].name.c_str()))
@@ -795,13 +795,13 @@ void RowMenu(const Nodes::Node& node)
         ImGui::EndMenu();
     }
     if (ImGui::MenuItem("Select Similar...", Actions::KeysText(Actions::kSelectSimilar).c_str()))
-        Queue([] { Actions::Trigger(Actions::kSelectSimilar); });
+        Queue([] { Actions::FireOff(Actions::kSelectSimilar); });
     ImGui::EndPopup();
 }
 
 std::string TakeOutlinerSearch() { return Organize::TakeOutlinerSearch(); }
 
-void InspectorSection(const Ui::Model& model)
+void InspectorSection(const Ui::ShapeMesh& model)
 {
     (void)model;
     SelectionIds s = CurrentSelection();

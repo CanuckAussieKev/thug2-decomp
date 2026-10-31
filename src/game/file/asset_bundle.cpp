@@ -21,7 +21,7 @@ AssetBundle::AssetBundle()
     m_vtable = kAssetBundleVtable;
     m_fileData = nullptr;
     m_loadedData = nullptr;
-    m_file = nullptr;
+    m_fileRef = nullptr;
     m_readyFlag = false;
     m_fileHeap = nullptr;
     m_assetHeap = nullptr;
@@ -30,29 +30,29 @@ AssetBundle::AssetBundle()
 }
 
 // 0x005B6EA0
-AssetBundle* AssetBundle::Destroy(unsigned int flags)
+AssetBundle* AssetBundle::Teardown(unsigned int flags)
 {
     m_vtable = kAssetBundleVtable;
     if (m_fileData) {
         MemSys::FreeMalloc(m_fileData);
         m_fileData = nullptr;
     }
-    if (m_file)
-        AsyncClose(m_file);
+    if (m_fileRef)
+        AsyncClose(m_fileRef);
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
 // 0x005B6D30
-void AssetBundle::SetHeaps(MemSys::Heap* fileHeap, MemSys::Heap* assetHeap)
+void AssetBundle::SetHeaps(MemSys::Arena* fileHeap, MemSys::Arena* assetHeap)
 {
     m_fileHeap = fileHeap;
     m_assetHeap = assetHeap;
 }
 
 // 0x005B7090
-bool AssetBundle::Load(const char* name, int unused1, int /*unused2*/)
+bool AssetBundle::ReadIn(const char* name, int unused1, int /*unused2*/)
 {
     int size = 0;
     MemSys::EnterHeapScope(m_fileHeap);
@@ -66,26 +66,26 @@ bool AssetBundle::Load(const char* name, int unused1, int /*unused2*/)
 // then free the file
 bool AssetBundle::Split(int /*unused*/, int size)
 {
-    if (m_file) {
-        AsyncClose(m_file);
-        m_file = nullptr;
+    if (m_fileRef) {
+        AsyncClose(m_fileRef);
+        m_fileRef = nullptr;
     }
     uint8_t* end = m_loadedData + size;
     auto* header = reinterpret_cast<uint32_t*>(m_loadedData);
     auto* entries = m_loadedData + 8;
     if (entries > end)
         return false;
-    m_count = static_cast<int>(header[1]);
+    m_num = static_cast<int>(header[1]);
     // The entries are copied before the table is checked against the file size (and the count against
     // kMaxEntries is never checked) - as in the original.
-    uint32_t tableSize = static_cast<uint32_t>(m_count) * sizeof(Entry);
+    uint32_t tableSize = static_cast<uint32_t>(m_num) * sizeof(TableRow);
     std::memcpy(m_entries, entries, tableSize);
     if (entries + tableSize > end)
         return false;
 
-    for (int i = 0; i < m_count; ++i)
+    for (int i = 0; i < m_num; ++i)
         m_assets[i] = m_loadedData + m_entries[i].offset;
-    for (int i = m_count - 1; i >= 0; --i) {
+    for (int i = m_num - 1; i >= 0; --i) {
         uint32_t assetSize = m_entries[i].size;
         void* source = m_assets[i];
         MemSys::EnterHeapScope(m_assetHeap);
@@ -118,15 +118,15 @@ void* AssetBundle::ObtainLoadedItem(int index)
 }
 
 // 0x005B6D70
-AssetBundle::Entry* AssetBundle::GetEntry(int index)
+AssetBundle::TableRow* AssetBundle::GetEntry(int index)
 {
     return &m_entries[index];
 }
 
 // 0x005B6D80
-AssetBundle::Entry* AssetBundle::FindEntry(uint32_t name, uint32_t type, int /*unused*/)
+AssetBundle::TableRow* AssetBundle::FindEntry(uint32_t name, uint32_t type, int /*unused*/)
 {
-    for (int i = 0; i < m_count; ++i) {
+    for (int i = 0; i < m_num; ++i) {
         if (m_entries[i].name == name && m_entries[i].type == type)
             return &m_entries[i];
     }
@@ -136,7 +136,7 @@ AssetBundle::Entry* AssetBundle::FindEntry(uint32_t name, uint32_t type, int /*u
 // 0x005B6DC0
 void* AssetBundle::FindAsset(uint32_t name, uint32_t type, int /*unused*/)
 {
-    for (int i = 0; i < m_count; ++i) {
+    for (int i = 0; i < m_num; ++i) {
         if (m_entries[i].name == name && m_entries[i].type == type)
             return m_assets[i];
     }
@@ -146,7 +146,7 @@ void* AssetBundle::FindAsset(uint32_t name, uint32_t type, int /*unused*/)
 // 0x005B6E60
 bool AssetBundle::HasAsset(uint32_t name, uint32_t type)
 {
-    for (int i = 0; i < m_count; ++i) {
+    for (int i = 0; i < m_num; ++i) {
         if (m_entries[i].name == name && m_entries[i].type == type)
             return true;
     }
@@ -157,7 +157,7 @@ bool AssetBundle::HasAsset(uint32_t name, uint32_t type)
 bool AssetBundle::FreeAsset(uint32_t name, uint32_t type)
 {
     bool found = false;
-    for (int i = 0; i < m_count; ++i) {
+    for (int i = 0; i < m_num; ++i) {
         if (m_entries[i].name == name && m_entries[i].type == type) {
             MemSys::FreeMalloc(m_assets[i]);
             m_assets[i] = nullptr;
@@ -168,7 +168,7 @@ bool AssetBundle::FreeAsset(uint32_t name, uint32_t type)
 }
 
 namespace {
-static VtableSlot kAssetBundleVtable_slots[] = {&FileLoad::AssetBundle::Destroy};
+static VtableSlot kAssetBundleVtable_slots[] = {&FileLoad::AssetBundle::Teardown};
 void** const kAssetBundleVtable = reinterpret_cast<void**>(kAssetBundleVtable_slots);
 } // namespace
 
@@ -178,7 +178,7 @@ namespace {
 
 // The constructor returns `this` in EAX (callers use it).
 struct AssetBundleAdapter {
-    FileLoad::AssetBundle* Construct() { return new (this) FileLoad::AssetBundle; }
+    FileLoad::AssetBundle* MakeNew() { return new (this) FileLoad::AssetBundle; }
 };
 
 } // namespace

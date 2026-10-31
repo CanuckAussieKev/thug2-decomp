@@ -57,7 +57,7 @@ bool EditorGap(const std::string& name, const std::vector<std::string>& editorGa
 
 // The game side.
 // The checklist as it is now.
-Checklist Read(GoalSystem::CGapTally* checklist);
+Checklist TakeIn(GoalSystem::CGapTally* checklist);
 // The level became its edited copy (true: the baseline taken from the current level's checklist) or stopped being it
 // (false: that checklist put back as the baseline, the baseline dropped). Repeats are ignored.
 void EditedCopy(bool on);

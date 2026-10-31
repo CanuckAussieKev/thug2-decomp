@@ -24,16 +24,16 @@ struct CContest {
 
     // One of the eight standings (0x20 bytes).
     struct Leader {
-        TextUtil::String m_name;   // +0x00
-        int m_id;             // +0x0C: 0 the player, 1-7 the pros (a random order)
+        TextUtil::Chars m_label;   // +0x00
+        int m_ident;             // +0x0C: 0 the player, 1-7 the pros (a random order)
         int m_scores[kRuns];  // +0x10: each run's score
         bool m_unknown1C;     // +0x1C (copied with the leader, never set: the leader board's debug output reads it
                               // and its padding as a fourth score)
         uint8_t m_pad1D[3];
 
         // 0x0054FFD0: the constructor (the name's). Returns this.
-        Leader* Construct();
-        // 0x0054FFE0 is its destructor: a jump to TextUtil::String's (string.cpp).
+        Leader* MakeNew();
+        // 0x0054FFE0 is its destructor: a jump to TextUtil::Chars's (string.cpp).
 
         // The best two of the first `count` scores summed (none above 0: 0).
         int BestTwo(int count) const;
@@ -42,7 +42,7 @@ struct CContest {
         int Word(int index) const { return reinterpret_cast<const int*>(m_scores)[index]; }
     };
 
-    Scripts::CStruct* m_params;     // +0x00: StartCompetition's extra parameters (leader_board_names,
+    Scripts::CStruct* m_args;     // +0x00: StartCompetition's extra parameters (leader_board_names,
                                    // first_place_name)
     int m_runs;                    // +0x04: the current run (BeginTimedSession counts them; -1 after Start)
     Leader m_leaders[kLeaders];    // +0x08: sorted by score after each run (SortLeaders)
@@ -64,7 +64,7 @@ struct CContest {
 
     // 0x005504B0: the constructor (the leaders' names, an empty parameter structure). The argument isn't used.
     // Returns this.
-    CContest* Construct(int unused);
+    CContest* MakeNew(int unused);
     // 0x0054FFF0: the destructor body - the leaders' names, last first.
     void DestroyBody();
     // 0x00550010: copies of `params`' components added to the competition's parameters (if any).
@@ -74,7 +74,7 @@ struct CContest {
     // 0x00550560: the competition starts: the medal points and scores stored, the player first (the current
     // profile's name), seven pros (a random order of the pros that aren't hidden or the player) with scores made up
     // around the medal points, sorted; the judges' names.
-    void Start(float bronze, float silver, float gold, float bronzeScore, float silverScore, float goldScore,
+    void Kickoff(float bronze, float silver, float gold, float bronzeScore, float silverScore, float goldScore,
                float bailPenalty);
     // 0x00550B50: the top five shown (goal_comp_add_leader_board) - only while a competition goal is active.
     void ShowLeaderBoard();
@@ -94,7 +94,7 @@ struct CContest {
     void End();
     bool IsEnded();
 };
-static_assert(sizeof(CContest::Leader) == 0x20 && offsetof(CContest::Leader, m_id) == 0x0C &&
+static_assert(sizeof(CContest::Leader) == 0x20 && offsetof(CContest::Leader, m_ident) == 0x0C &&
                   offsetof(CContest::Leader, m_scores) == 0x10 && offsetof(CContest::Leader, m_unknown1C) == 0x1C,
               "layout must match the original");
 static_assert(offsetof(CContest, m_leaders) == 0x08 && offsetof(CContest, m_thirdMark) == 0x108 &&

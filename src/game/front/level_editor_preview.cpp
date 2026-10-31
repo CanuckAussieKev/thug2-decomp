@@ -82,7 +82,7 @@ std::chrono::steady_clock::time_point g_lastFrame, g_lastDrag;
 bool g_failedLogged;
 
 // The renderer's calls (not rewritten yet; thiscall / cdecl).
-void SetMaterial(uint8_t* material) { reinterpret_cast<Engine3D::materialRef*>(material)->Submit(); }
+void SetMaterial(uint8_t* material) { reinterpret_cast<Engine3D::materialRef*>(material)->HandIn(); }
 void DrawMesh(uint8_t* mesh) { reinterpret_cast<Engine3D::meshRef*>(mesh)->Render(); }
 // 0x004D16B0: one instance drawn (flag 8: not culled) - its world matrix, its bones, its lights.
 void DrawInstance(uint8_t* instance) { Engine3D::RenderInstance(reinterpret_cast<Engine3D::sSingleton*>(instance), 8); }
@@ -95,25 +95,25 @@ struct SavedRange {
     uint32_t size;
 };
 constexpr SavedRange kSaved[] = {
-    {[]() -> void* { return &Engine3D::g_worldMatrix; }, sizeof(Maths::Matrix)},
-    {[]() -> void* { return &Engine3D::g_viewMatrix; }, sizeof(Maths::Matrix)},
-    {[]() -> void* { return &Engine3D::g_projectionMatrix; }, sizeof(Maths::Matrix)},
-    {[]() -> void* { return &Engine3D::g_headingMatrix; }, sizeof(Maths::Matrix)},
+    {[]() -> void* { return &Engine3D::g_worldMatrix; }, sizeof(Maths::Mat4)},
+    {[]() -> void* { return &Engine3D::g_viewMatrix; }, sizeof(Maths::Mat4)},
+    {[]() -> void* { return &Engine3D::g_projectionMatrix; }, sizeof(Maths::Mat4)},
+    {[]() -> void* { return &Engine3D::g_headingMatrix; }, sizeof(Maths::Mat4)},
     {[]() -> void* { return &Engine3D::g_deviceViewport; }, sizeof(Engine3D::DeviceViewport)},
     {[]() -> void* { return &Engine3D::g_camera; }, sizeof(Engine3D::RenderCamera)},
     {[]() -> void* { return &Engine3D::g_viewShape; }, sizeof(Engine3D::ViewShape)}, // (the view's shape: culling)
     {[]() -> void* { return &Engine3D::g_worldTransform; }, sizeof(void*)},      // (the culling world matrix: none or the copy)
     {[]() -> void* { return &Engine3D::g_worldTransformCopy; }, sizeof(float[16])},
 };
-constexpr uint32_t kSavedBytes = 4 * sizeof(Maths::Matrix) + sizeof(Engine3D::DeviceViewport) + sizeof(Engine3D::RenderCamera) +
+constexpr uint32_t kSavedBytes = 4 * sizeof(Maths::Mat4) + sizeof(Engine3D::DeviceViewport) + sizeof(Engine3D::RenderCamera) +
                                  sizeof(Engine3D::ViewShape) + sizeof(void*) + sizeof(float[16]);
 // (the camera's globals from the world matrix to the camera's end: 0x164 bytes; the view's shape: 0x18)
-static_assert(4 * sizeof(Maths::Matrix) + sizeof(Engine3D::DeviceViewport) + sizeof(Engine3D::RenderCamera) == 0x164 &&
+static_assert(4 * sizeof(Maths::Mat4) + sizeof(Engine3D::DeviceViewport) + sizeof(Engine3D::RenderCamera) == 0x164 &&
                   sizeof(Engine3D::ViewShape) == 0x18,
               "the saved camera globals");
 struct SavedView {
     uint8_t bytes[kSavedBytes];
-    void Save()
+    void StoreAway()
     {
         uint8_t* at = bytes;
         for (const SavedRange& range : kSaved) {
@@ -173,7 +173,7 @@ void DrawGeometry(uint8_t* geom)
 bool BoxOf(Kind kind, uint32_t id, OrientedBox* box)
 {
     if (kind == Kind::kSector)
-        return Scenery::SectorGeometry(id) && Scenery::Box(id, box);
+        return Scenery::SectorGeometry(id) && Scenery::Cuboid(id, box);
     if (kind != Kind::kObject)
         return false;
     auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
@@ -210,7 +210,7 @@ void Show(Kind kind, uint32_t id)
     g_lastDrag = {};
 }
 
-void Input(float dx, float dy, float wheel)
+void Intake(float dx, float dy, float wheel)
 {
     if (dx != 0.0f || dy != 0.0f) {
         Drag(&g_orbit, dx, dy, kRadiansPerPixel);
@@ -260,17 +260,17 @@ bool DrawView(Kind kind, uint32_t id, const Orbit& orbit)
     float halfAngle = std::atan(std::min(lens.tanX, lens.tanY));
     Eye eye = OrbitEye(centre, FitDistance(radius, halfAngle, kMargin) / orbit.zoom, orbit);
     SavedView saved;
-    saved.Save();
-    Maths::Matrix orientation = {};
+    saved.StoreAway();
+    Maths::Mat4 orientation = {};
     orientation.row[0] = {eye.frame.right.x, eye.frame.right.y, eye.frame.right.z, 0.0f};
     orientation.row[1] = {eye.frame.up.x, eye.frame.up.y, eye.frame.up.z, 0.0f};
     orientation.row[2] = {eye.frame.back.x, eye.frame.back.y, eye.frame.back.z, 0.0f};
     orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Maths::Vector position = {eye.pos.x, eye.pos.y, eye.pos.z, 1.0f};
+    Maths::Vec4 position = {eye.pos.x, eye.pos.y, eye.pos.z, 1.0f};
     Engine3D::ChooseCamera(&orientation, &position, kAngle, kSquareAspect, 1.0f, false);
     Engine3D::SetWorldTransform(nullptr);
-    Engine3D::SetState(Engine3D::kZWrite, 1);
-    Engine3D::SetState(Engine3D::kZTest, 1);
+    Engine3D::ChangePhase(Engine3D::kZWrite, 1);
+    Engine3D::ChangePhase(Engine3D::kZTest, 1);
     DrawSubject(kind, id);
     // Put back: the camera's globals, the frustum from them, no instance's lights taken as set (0x007825BC: the
     // next instance sets its own); the device's target and transforms are the caller's (the backend's) to put back.
@@ -280,7 +280,7 @@ bool DrawView(Kind kind, uint32_t id, const Orbit& orbit)
     return true;
 }
 
-void Hide()
+void Conceal()
 {
     g_kind = Kind::kNone;
     gId = 0;
@@ -288,18 +288,18 @@ void Hide()
     UiBackend::FreeOffscreen();
 }
 
-void Frame(Ui::Model* model)
+void TickCycle(Ui::ShapeMesh* model)
 {
-    Ui::Model::PreviewView& view = model->preview;
+    Ui::ShapeMesh::PreviewView& view = model->preview;
     const std::vector<Ui::BrowserItem>* items = model->browserItems;
     if (!model->browser || !items || view.index < 0 || view.index >= static_cast<int>(items->size())) {
         if (g_kind != Kind::kNone)
-            Hide();
+            Conceal();
         return;
     }
     uint32_t id = (*items)[view.index].id;
     Show(model->browserTab == 0 ? Kind::kSector : Kind::kObject, id);
-    view.name = Objects::Label(id);
+    view.name = Objects::Caption(id);
     OrientedBox box;
     if (SubjectBox(&box)) {
         char size[96];

@@ -33,19 +33,19 @@ struct TrickNameEntry;
 class CRiderGapTracker : public CObjectModule {
 public:
     // 0x00512C60 (registered by RegisterComponentTypes): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x005122A0: the base, its vtable and type, two empty lists, no core physics or balance trick yet. Returns this.
-    CRiderGapTracker* Construct();
+    CRiderGapTracker* MakeNew();
     // 0x00511F10: the two lists' heads unlinked (their entries aren't freed: ClearGaps), then the base's.
     void DestroyBody();
     // 0x005122F0 (vtable slot 0)
-    CRiderGapTracker* Destroy(unsigned int flags);
+    CRiderGapTracker* Teardown(unsigned int flags);
     // 0x00511BB0 (vtable +0x08): the frame count reset. `params` isn't read.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x00511BC0 (vtable +0x0C): the core physics, balance trick, physics control and walk components found.
-    void Finalize();
+    void Seal();
     // 0x00512320 (vtable +0x04): one more frame; the gaps checked against the skater's state.
-    void Update();
+    void TickFrame();
     // 0x00512CC0 (vtable +0x30): StartGap, EndGap, StartGapTrick, CheckGapTricks, ClearGapTricks, DuplicateTrigger (the
     // TriggerScript of the first node the script's node links to that has one, run on the skater) - 1; 2 for any
     // other name.
@@ -82,34 +82,34 @@ public:
     // begins again after each.
     void EndGap(Scripts::CStruct* params, Scripts::CScript* script);
 
-    MemSys::ListNode m_gaps;      // +0x18 ListKit::Head<TrickListEntry> (vtable 0x0064BEC4)
-    MemSys::ListNode m_gapTricks; // +0x2C ListKit::Head<TrickNameEntry> (vtable 0x0064BEC8)
-    uint32_t m_frame;          // +0x40 counted by Update
-    uint8_t* m_pointsHeld;          // +0x44 the skater's score (GameModules::Score; set by the skater)
+    MemSys::ListNode m_gaps;      // +0x18 ListKit::Foremost<TrickListEntry> (vtable 0x0064BEC4)
+    MemSys::ListNode m_gapTricks; // +0x2C ListKit::Foremost<TrickNameEntry> (vtable 0x0064BEC8)
+    uint32_t m_tick;          // +0x40 counted by Update
+    uint8_t* m_pointsHeld;          // +0x44 the skater's score (GameModules::PointTally; set by the skater)
     uint8_t* m_corePhysics;    // +0x48 SkaterCorePhysics (0x5BD63B29)
     uint8_t* m_balanceTrick;   // +0x4C SkaterBalanceTrick (0x589E5FB3)
     uint8_t* m_physicsControl; // +0x50 SkaterPhysicsControl (0xD9151D4D)
     uint8_t* m_walk;           // +0x54 Walk (0x726E85AA)
 };
 static_assert(offsetof(CRiderGapTracker, m_gaps) == 0x18 && offsetof(CRiderGapTracker, m_gapTricks) == 0x2C &&
-                  offsetof(CRiderGapTracker, m_frame) == 0x40 && offsetof(CRiderGapTracker, m_pointsHeld) == 0x44 &&
+                  offsetof(CRiderGapTracker, m_tick) == 0x40 && offsetof(CRiderGapTracker, m_pointsHeld) == 0x44 &&
                   offsetof(CRiderGapTracker, m_corePhysics) == 0x48 &&
                   offsetof(CRiderGapTracker, m_walk) == 0x54 && sizeof(CRiderGapTracker) == 0x58,
               "layout must match the original (0x00512C60 allocates 0x58 bytes)");
 
-// The two lists' node types (ListKit::Node<TrickListEntry>, vtable 0x0064BE88; ListKit::Node<TrickNameEntry>, 0x0064BE8C) and
-// heads (ListKit::Head<...>, 0x0064BEC4 / 0x0064BEC8): the destructor bodies unlink.
+// The two lists' node types (ListKit::Elem<TrickListEntry>, vtable 0x0064BE88; ListKit::Elem<TrickNameEntry>, 0x0064BE8C) and
+// heads (ListKit::Foremost<...>, 0x0064BEC4 / 0x0064BEC8): the destructor bodies unlink.
 struct GapListNode : MemSys::ListNode {
-    // 0x00511E50 / 0x00511E90: ListKit::Node<TrickListEntry>'s destructor body and scalar deleting destructor.
+    // 0x00511E50 / 0x00511E90: ListKit::Elem<TrickListEntry>'s destructor body and scalar deleting destructor.
     void DestroyBody();
-    GapListNode* Destroy(unsigned int flags);
-    // 0x00512240: ListKit::Head<TrickListEntry>'s scalar deleting destructor.
+    GapListNode* Teardown(unsigned int flags);
+    // 0x00512240: ListKit::Foremost<TrickListEntry>'s scalar deleting destructor.
     GapListNode* DestroyHead(unsigned int flags);
 };
 struct GapTrickListNode : MemSys::ListNode {
     // 0x00511E70 / 0x00511ED0 / 0x00512270: the same for TrickNameEntry.
     void DestroyBody();
-    GapTrickListNode* Destroy(unsigned int flags);
+    GapTrickListNode* Teardown(unsigned int flags);
     GapTrickListNode* DestroyHead(unsigned int flags);
 };
 

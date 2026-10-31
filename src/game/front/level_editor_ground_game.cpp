@@ -55,9 +55,9 @@ uint8_t* LookupSector(uint8_t* scene, uint32_t checksum)
 {
     return scene ? static_cast<uint8_t*>(reinterpret_cast<Engine3D::CWorldScene*>(scene)->LookUpSector(checksum)) : nullptr;
 }
-// CWorldCell::SetActive (0x0049E9B0) / IsActive (0x0049E9E0): drawn and collided with, or neither.
-void SetActive(uint8_t* sector, bool on) { reinterpret_cast<Engine3D::CWorldCell*>(sector)->SetActive(on); }
-bool IsActive(uint8_t* sector) { return reinterpret_cast<Engine3D::CWorldCell*>(sector)->IsActive(); }
+// CWorldCell::ChangeLive (0x0049E9B0) / IsOperative (0x0049E9E0): drawn and collided with, or neither.
+void ChangeLive(uint8_t* sector, bool on) { reinterpret_cast<Engine3D::CWorldCell*>(sector)->ChangeLive(on); }
+bool IsOperative(uint8_t* sector) { return reinterpret_cast<Engine3D::CWorldCell*>(sector)->IsOperative(); }
 
 Engine3D::CStaticCollider* StaticOf(uint8_t* sector)
 {
@@ -67,7 +67,7 @@ Engine3D::CStaticCollider* StaticOf(uint8_t* sector)
     return reinterpret_cast<Engine3D::CStaticCollider*>(coll);
 }
 
-// The buffers as meshRef::Clone (mesh.cpp) makes them: a vertex buffer (0x004D5760: its memory copy and the card's) and
+// The buffers as meshRef::Replicate (mesh.cpp) makes them: a vertex buffer (0x004D5760: its memory copy and the card's) and
 // an index buffer (the C runtime's malloc 0x00624031, constructor 0x004D4270).
 Engine3D::sVertexBuffer* NewVertexBuffer(uint32_t size)
 {
@@ -85,7 +85,7 @@ Engine3D::sIndexBuffer* NewIndexBuffer(uint32_t bytes)
     void* memory = Crt::AllocBlock(0x18);
     if (!memory)
         return nullptr;
-    return static_cast<Engine3D::sIndexBuffer*>(memory)->Construct(bytes, 0, 0x65);
+    return static_cast<Engine3D::sIndexBuffer*>(memory)->MakeNew(bytes, 0, 0x65);
 }
 void UploadIndices(Engine3D::sIndexBuffer* buffer)
 {
@@ -141,9 +141,9 @@ void HideTiles(const std::vector<uint32_t>& tiles, bool hide)
         int& count = g_tileHides[tile];
         if (hide) {
             if (count++ == 0)
-                SetActive(sector, false);
+                ChangeLive(sector, false);
         } else if (count > 0 && --count == 0) {
-            SetActive(sector, true);
+            ChangeLive(sector, true);
         }
     }
 }
@@ -160,7 +160,7 @@ struct GroundStep : ModuleStep {
 };
 
 // The generated piece written into a copy of its donor (see the header). False and why.
-bool Write(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* why)
+bool EmitOut(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* why)
 {
     uint8_t* geom = GeomOf(sector);
     if (!geom || *reinterpret_cast<void***>(geom) != kPcGeomVtable || MeshCountOf(geom) == 0) {
@@ -176,7 +176,7 @@ bool Write(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* why
         return false;
     }
     Engine3D::CStaticCollider* coll = StaticOf(sector);
-    if (!coll || !coll->m_geometry || !(coll->m_flags & Engine3D::CHitMesh::kOwnsGeometry)) {
+    if (!coll || !coll->m_geometry || !(coll->m_flagBits & Engine3D::CHitMesh::kOwnsGeometry)) {
         *why = "the copy has no collision of its own";
         return false;
     }
@@ -215,7 +215,7 @@ bool Write(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* why
         first->indexCounts[k] = static_cast<uint16_t>(strip.size());
     }
     if (first->perVertexBytes) {
-        first->perVertexBytes = static_cast<uint8_t*>(MemSys::New(count));
+        first->perVertexBytes = static_cast<uint8_t*>(MemSys::Alloc(count));
         if (first->perVertexBytes)
             std::memset(first->perVertexBytes, 0, count);
     }
@@ -246,15 +246,15 @@ bool Write(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* why
     box[0] = mesh.min.x, box[1] = mesh.min.y, box[2] = mesh.min.z;
     box[4] = mesh.max.x, box[5] = mesh.max.y, box[6] = mesh.max.z;
 
-    // The collision: new arrays (MemSys::New - the game frees them with MemSys::Free, CTriMeshSource::Destruct), floats,
+    // The collision: new arrays (MemSys::Alloc - the game frees them with MemSys::Dealloc, CTriMeshSource::Destruct), floats,
     // 10-byte faces, one leaf listing every face.
     Engine3D::CTriMeshSource* tri = coll->m_geometry;
     uint32_t faces = static_cast<uint32_t>(mesh.faces.size());
-    auto* vertices = static_cast<float*>(MemSys::New(count * 12));
-    auto* faceData = static_cast<uint8_t*>(MemSys::New(faces * 10));
-    auto* nodeMemory = static_cast<uint32_t*>(MemSys::New(8 + 4));
-    auto* leafFaces = static_cast<uint16_t*>(MemSys::New(faces * 2));
-    uint8_t* bytes = tri->m_vertexBytes ? static_cast<uint8_t*>(MemSys::New(count)) : nullptr;
+    auto* vertices = static_cast<float*>(MemSys::Alloc(count * 12));
+    auto* faceData = static_cast<uint8_t*>(MemSys::Alloc(faces * 10));
+    auto* nodeMemory = static_cast<uint32_t*>(MemSys::Alloc(8 + 4));
+    auto* leafFaces = static_cast<uint16_t*>(MemSys::Alloc(faces * 2));
+    uint8_t* bytes = tri->m_vertexBytes ? static_cast<uint8_t*>(MemSys::Alloc(count)) : nullptr;
     if (!vertices || !faceData || !nodeMemory || !leafFaces || (tri->m_vertexBytes && !bytes)) {
         *why = "out of memory for the collision";
         return false;
@@ -270,11 +270,11 @@ bool Write(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* why
     if (bytes)
         std::memset(bytes, 0x80, count);
     if (tri->m_vertices)
-        MemSys::Free(tri->m_vertices);
+        MemSys::Dealloc(tri->m_vertices);
     if (tri->m_faces)
-        MemSys::Free(tri->m_faces);
+        MemSys::Dealloc(tri->m_faces);
     if (tri->m_vertexBytes)
-        MemSys::Free(tri->m_vertexBytes);
+        MemSys::Dealloc(tri->m_vertexBytes);
     tri->DeleteBSP();
     tri->m_vertices = vertices;
     tri->m_faces = faceData;
@@ -293,7 +293,7 @@ bool Write(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* why
     leaf->m_chainLink = reinterpret_cast<uint32_t>(leafFaces);
     tri->m_bsp = leaf;
     tri->SetUpAllFaces();
-    // (the face-rejection bytes: one a face, on the bottom-up heap as CStaticCollider::Clone keeps them)
+    // (the face-rejection bytes: one a face, on the bottom-up heap as CStaticCollider::Replicate keeps them)
     if (coll->m_octets)
         MemSys::FreeMalloc(coll->m_octets);
     MemSys::EnterHeapScope(MemSys::BottomUpHeap());
@@ -338,26 +338,26 @@ bool Make(const Spec& spec, std::string* why)
         g_pool.insert(made);
         name = made;
     }
-    if (!Write(sector, spec, mesh, why)) {
-        SetActive(sector, false);
+    if (!EmitOut(sector, spec, mesh, why)) {
+        ChangeLive(sector, false);
         return false;
     }
-    SetActive(sector, true);
+    ChangeLive(sector, true);
     Scenery::NoteCollisionMoved(name);
-    Scenery::Commit();
+    Scenery::Finalise();
     // (a piece already there under this name: its old sector hidden when it was another, its tiles shown again)
     auto it = g_made.find(spec.name);
     if (it != g_made.end()) {
         if (it->second.sector != name)
             if (uint8_t* old = LookupSector(scene, it->second.sector))
-                SetActive(old, false);
+                ChangeLive(old, false);
         HideTiles(it->second.built.hides, false);
     }
     HideTiles(spec.hides, true);
     g_made[spec.name] = {name, spec};
     Log("level editor: ground piece %s (%s, %.0f x %.0f, %.0f %s, %u faces) in place - material %s", spec.name.c_str(),
         spec.lower ? "pit" : "platform", spec.x1 - spec.x0, spec.z1 - spec.z0, spec.height, spec.lower ? "deep" : "high",
-        static_cast<unsigned>(mesh.faces.size()), Objects::Label(spec.material).c_str());
+        static_cast<unsigned>(mesh.faces.size()), Objects::Caption(spec.material).c_str());
     return true;
 }
 
@@ -367,7 +367,7 @@ void Unmake(const std::string& pieceName)
     if (it == g_made.end())
         return;
     if (uint8_t* sector = LookupSector(Scenery::MainScene(), it->second.sector))
-        SetActive(sector, false);
+        ChangeLive(sector, false);
     HideTiles(it->second.built.hides, false);
     g_made.erase(it);
 }
@@ -387,8 +387,8 @@ const Spec* Find(const std::string& name)
     return nullptr;
 }
 
-void Start() { NoteLevel(); }
-void Stop() {}
+void Kickoff() { NoteLevel(); }
+void Halt() {}
 
 const char* WhyNotDonor(uint32_t checksum)
 {
@@ -441,7 +441,7 @@ bool ChooseMaterial(uint32_t wanted, Spec* spec, std::string* why)
         Scenery::ForEachLevelSector(
             [](void* context, uint32_t checksum, uint8_t* sector) {
                 auto* w = static_cast<Walk*>(context);
-                if (!IsActive(sector) || WhyNotDonor(checksum))
+                if (!IsOperative(sector) || WhyNotDonor(checksum))
                     return;
                 const Engine3D::CTriMeshSource* tri = StaticOf(sector)->m_geometry;
                 V3 c = {(w->spec->x0 + w->spec->x1) * 0.5f, w->spec->base, (w->spec->z0 + w->spec->z1) * 0.5f};
@@ -531,11 +531,11 @@ bool FindPitTiles(Spec* spec, std::string* why)
             auto* w = static_cast<Walk*>(context);
             // (a tile a pit hides now still counts - the pit being edited)
             bool mine = g_tileHides.count(checksum) && g_tileHides[checksum] > 0;
-            if (!w->refused.empty() || g_pool.count(checksum) || (!IsActive(sector) && !mine))
+            if (!w->refused.empty() || g_pool.count(checksum) || (!IsOperative(sector) && !mine))
                 return;
             Engine3D::CStaticCollider* coll = StaticOf(sector);
             const Engine3D::CTriMeshSource* tri = coll ? coll->m_geometry : nullptr;
-            if (!tri || !tri->m_faces || !tri->m_vertices || ((coll->m_flags & 4) && !mine))
+            if (!tri || !tri->m_faces || !tri->m_vertices || ((coll->m_flagBits & 4) && !mine))
                 return;
             const Spec& s = *w->spec;
             if (tri->m_upperLimit.x < s.x0 || tri->m_lowerLimit.x > s.x1 || tri->m_upperLimit.z < s.z0 || tri->m_lowerLimit.z > s.z1 ||
@@ -553,7 +553,7 @@ bool FindPitTiles(Spec* spec, std::string* why)
                     uint32_t index = tri->FaceVertex(f, k);
                     ok = index < tri->m_numVertices;
                     if (ok) {
-                        Maths::Vector p = tri->ReadStoredVertex(static_cast<int>(index));
+                        Maths::Vec4 p = tri->ReadStoredVertex(static_cast<int>(index));
                         c[k] = {p.x, p.y, p.z};
                     }
                 }
@@ -570,7 +570,7 @@ bool FindPitTiles(Spec* spec, std::string* why)
             std::snprintf(text, sizeof(text),
                           "the floor here is %s%s, %.0f x %.0f - bigger than the rectangle. THUG2's floors can't be cut: "
                           "make the rectangle cover that whole piece, or raise around it instead",
-                          Objects::Label(checksum).c_str(), GeomOf(sector) ? "" : " (collision only)", hi.x - lo.x,
+                          Objects::Caption(checksum).c_str(), GeomOf(sector) ? "" : " (collision only)", hi.x - lo.x,
                           hi.z - lo.z);
             w->refused = text;
         },
@@ -587,7 +587,7 @@ bool FindPitTiles(Spec* spec, std::string* why)
     return true;
 }
 
-bool Put(const Spec& in, std::string* why)
+bool PlaceIn(const Spec& in, std::string* why)
 {
     NoteLevel();
     Spec spec = in;
@@ -615,7 +615,7 @@ bool Put(const Spec& in, std::string* why)
     return true;
 }
 
-void Remove(const std::string& name)
+void DropOut(const std::string& name)
 {
     NoteLevel();
     if (!Find(name))
@@ -659,7 +659,7 @@ std::vector<std::string> CaptureRecords()
 {
     std::vector<std::string> lines;
     for (const Spec& s : g_specs)
-        lines.push_back("ground " + Record(s, Objects::Label(s.material).c_str()));
+        lines.push_back("ground " + LogEntry(s, Objects::Caption(s.material).c_str()));
     return lines;
 }
 
@@ -705,9 +705,9 @@ void AddPreview(const Overlays::Painter& painter, const Spec& spec, uint32_t arg
     for (size_t f = 0; f < faces; ++f) {
         const Face& face = mesh.faces[f];
         V3 a = mesh.vertices[face.a].pos, b = mesh.vertices[face.b].pos, c = mesh.vertices[face.c].pos;
-        painter.Line(a, b, argb);
-        painter.Line(b, c, argb);
-        painter.Line(c, a, argb);
+        painter.Seg(a, b, argb);
+        painter.Seg(b, c, argb);
+        painter.Seg(c, a, argb);
     }
 }
 

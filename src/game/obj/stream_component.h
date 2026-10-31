@@ -29,22 +29,22 @@ public:
     static constexpr uint32_t kType = 0x0F1641E3;
 
     // 0x00433D90 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00433870 (not a Ghidra function; registered with Create): its script member functions registered.
     static void __cdecl PublishMethodTable();
     // 0x00433C10: the base's constructor, its vtable and type; no emitter or proxim node. Returns this.
-    CAudioStreamModule* Construct();
-    // 0x00433890: its streams stopped (AudioStream::StopStream); the base's body.
+    CAudioStreamModule* MakeNew();
+    // 0x00433890: its streams stopped (AudioStream::HaltStream); the base's body.
     void DestroyBody();
     // 0x00433C40 (vtable slot 0)
-    CAudioStreamModule* Destroy(unsigned int flags);
+    CAudioStreamModule* Teardown(unsigned int flags);
     // 0x00433900 (vtable slot 2): ProximNode= (the proxim node heard from).
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x00433CD0: where its streams are heard from by `camera`: the emitter's nearest point (with an emitter and a
     // camera), else the object's position.
-    Maths::Vector* GetStreamPosition(Maths::Vector* out, void* camera);
+    Maths::Vec4* GetStreamPosition(Maths::Vec4* out, void* camera);
     // 0x00433D30: the nearest point of the proxim node to `camera` (false without one or without a camera).
-    bool GetStreamExtent(void* camera, Maths::Vector* out);
+    bool GetStreamExtent(void* camera, Maths::Vec4* out);
     // 0x00433970: a stream played (Obj_PlayStream's body), if one of the three places is free and the unnamed
     // checksum is given: vol / pitch (100), priority (50), num_loops, id, dropoff (feet), dropoff_function, emitter
     // and use_pos_info (1), through AudioStream::PlayStreamAtObject. Whether it played.

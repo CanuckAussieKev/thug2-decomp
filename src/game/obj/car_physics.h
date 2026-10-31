@@ -32,30 +32,30 @@ public:
         int16_t parent;      // +0x08 (the matrix it is relative to)
         int8_t index;        // +0x0A (its matrix in the skeleton)
         uint8_t unknown0B[5];
-        Maths::Matrix matrix;  // +0x10 (relative to its parent)
+        Maths::Mat4 matrix;  // +0x10 (relative to its parent)
     };
 
     // 0x0041BD90 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined; 0
     // if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0041B910 (not a Ghidra function; registered with Create): its member functions' table (0x006846A8; the
     // functions are put in by the static initialiser at 0x00643E80).
     static void __cdecl PublishMethodTable();
     // 0x0041BAD0: the base's constructor, its vtable and type, no spin or steering, the body shown. Returns this.
-    CAutomobileDynamicsModule* Construct();
+    CAutomobileDynamicsModule* MakeNew();
     // 0x0041B930: the base's body.
     void DestroyBody();
     // 0x0041BB00 (vtable slot 0)
-    CAutomobileDynamicsModule* Destroy(unsigned int flags);
+    CAutomobileDynamicsModule* Teardown(unsigned int flags);
     // 0x0041B940 (vtable slot 2): the tilt's minimum (0x877DB8DA), maximum (0xFB3464DF), rate (0xFD8BC8D6) and
     // acceleration divisor (0xB2C7447B): the script globals of those names, overridden by `params`.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x0041BE10 (vtable slot 3): the object's motion, suspend, skeleton and model components; with a skeleton, its
     // skeleton and the model, and the distance between the positions of bones 2 and 4 (each times bone 0's matrix).
-    void Finalize();
+    void Seal();
     // 0x0041C1B0 (vtable slot 1): unless suspended (the suspend component's +0x30, or it says not to update), dead or
     // without a skeleton: UpdateAngles, then UpdateBones.
-    void Update();
+    void TickFrame();
 
     // 0x0041BB30: the wheels' spin (the motion's speed; kept within 0-360), the steering (towards
     // -asin(m_wheelBase / the distance to the path follower's point) - negated for a negative turn, 0 without one or

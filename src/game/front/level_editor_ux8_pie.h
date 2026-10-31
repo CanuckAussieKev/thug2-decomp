@@ -10,7 +10,7 @@
 // a tool / a view mode directly; its keys are shown beside its name.
 namespace MenuSystem::LevelEditor::Ux8::Pie {
 
-enum class Kind : uint8_t { Context, View };
+enum class Kind : uint8_t { CtxInfo, View };
 struct Item {
     std::string label;
     std::string keys;                // as bound now ("" none)
@@ -21,7 +21,7 @@ struct Item {
 };
 struct State {
     bool open = false;
-    Kind kind = Kind::Context;
+    Kind kind = Kind::CtxInfo;
     std::vector<Item> items;
     float x = 0, y = 0; // the centre (window pixels)
     int key = -1;       // the registry action that opened it (-1: a controller button)

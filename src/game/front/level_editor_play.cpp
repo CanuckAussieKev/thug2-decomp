@@ -15,7 +15,7 @@
 #include "game/sys/mlp.h"
 #include "game/sys/log.h"
 
-namespace MenuSystem::LevelEditor::Play {
+namespace MenuSystem::LevelEditor::Perform {
 
 Step OnKey(bool pressed, bool inLevel, bool paused, bool offered)
 {
@@ -88,9 +88,9 @@ bool TakeResume(Resume* resume, int levelLoad)
     return true;
 }
 
-void Update(GameModules::FrontEnd* frontEnd)
+void TickFrame(GameModules::FrontEnd* frontEnd)
 {
-    if (!LevelEditor::Enabled() || FrameLoop::FramesRun() == 0)
+    if (!LevelEditor::IsSwitchedOn() || FrameLoop::FramesRun() == 0)
         return;
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     bool down = KeyDown(keys);
@@ -138,7 +138,7 @@ void Update(GameModules::FrontEnd* frontEnd)
     case Phase::Idle:
         break;
     }
-    if (!pressed || LevelEditor::Active())
+    if (!pressed || LevelEditor::LiveNow())
         return;
     bool offered = EnterScriptLoaded() && CFunc_Available(nullptr, nullptr) && !Layout::Refused();
     if (OnKey(pressed, inLevel, paused, offered) != Step::PauseThenEnter) {
@@ -153,4 +153,4 @@ void Update(GameModules::FrontEnd* frontEnd)
     g_frames = 0;
 }
 
-} // namespace MenuSystem::LevelEditor::Play
+} // namespace MenuSystem::LevelEditor::Perform

@@ -42,20 +42,20 @@ namespace {
 using Detail::DeleteParams;
 using Detail::NewParams;
 
-static VtableSlot kEntryVtable_slots[] = {&OnlinePlay::TopEntry::Destroy};
+static VtableSlot kEntryVtable_slots[] = {&OnlinePlay::TopEntry::Teardown};
 void** const kEntryVtable = reinterpret_cast<void**>(kEntryVtable_slots); // TopEntry (and the entries' heads)
 static VtableSlot kLevelsHeadVtable_slots[] = {&OnlinePlay::StatsNode::DeleteLevelsHead};
 void** const kLevelsHeadVtable = reinterpret_cast<void**>(kLevelsHeadVtable_slots); // a top list's levels head
-static VtableSlot kLevelVtable_slots[] = {&OnlinePlay::LevelScores::Destroy};
+static VtableSlot kLevelVtable_slots[] = {&OnlinePlay::LevelScores::Teardown};
 void** const kLevelVtable = reinterpret_cast<void**>(kLevelVtable_slots); // LevelScores
-static VtableSlot kSortVtable_slots[] = {&OnlinePlay::SortEntry::Destroy};
+static VtableSlot kSortVtable_slots[] = {&OnlinePlay::SortEntry::Teardown};
 void** const kSortVtable = reinterpret_cast<void**>(kSortVtable_slots); // SortEntry (and the sorted list's head)
 static VtableSlot kEntryNodeVtable_slots[] = {&OnlinePlay::StatsNode::DeleteEntryNode};
-void** const kEntryNodeVtable = reinterpret_cast<void**>(kEntryNodeVtable_slots); // ListKit::Node<TopEntry>
+void** const kEntryNodeVtable = reinterpret_cast<void**>(kEntryNodeVtable_slots); // ListKit::Elem<TopEntry>
 static VtableSlot kLevelNodeVtable_slots[] = {&OnlinePlay::StatsNode::DeleteLevelNode};
-void** const kLevelNodeVtable = reinterpret_cast<void**>(kLevelNodeVtable_slots); // ListKit::Node<LevelScores>
+void** const kLevelNodeVtable = reinterpret_cast<void**>(kLevelNodeVtable_slots); // ListKit::Elem<LevelScores>
 static VtableSlot kSortNodeVtable_slots[] = {&OnlinePlay::StatsNode::DeleteSortNode};
-void** const kSortNodeVtable = reinterpret_cast<void**>(kSortNodeVtable_slots); // ListKit::Node<SortEntry>
+void** const kSortNodeVtable = reinterpret_cast<void**>(kSortNodeVtable_slots); // ListKit::Elem<SortEntry>
 static VtableSlot kSortSearchVtable_slots[] = {&OnlinePlay::StatsSearch::DeleteSortSearch};
 void** const kSortSearchVtable = reinterpret_cast<void**>(kSortSearchVtable_slots);
 static VtableSlot kEntrySearchVtable_slots[] = {&OnlinePlay::StatsSearch::DeleteEntrySearch};
@@ -88,13 +88,13 @@ uint32_t& LoginStart() { return g_statsLoginStart; }
 // Set by the cheat script commands (career.cpp): the game reported as a cheat's.
 bool CheatFlag() { return g_cheatFlag; }
 
-Manager* NetManager() { return g_gameNetManager; }
-RankingsManager* Stats() { return static_cast<RankingsManager*>(NetManager()->m_statsMan); }
-MemSys::Manager* Memory() { return MemSys::Manager::Get(); }
-void PushTopDown() { Memory()->EnterHeapScope(Memory()->m_internetTopDownHeap); }
-void PushBottomUp() { Memory()->EnterHeapScope(Memory()->m_internetBottomUpHeap); }
-void PopHeap() { Memory()->LeaveHeapScope(); }
-TaskList::Stack* LogicTasks() { return reinterpret_cast<TaskList::Stack*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
+Hub* NetManager() { return g_gameNetManager; }
+RankingsManager* Attributes() { return static_cast<RankingsManager*>(NetManager()->m_statsMan); }
+MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
+void PushTopDown() { RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap); }
+void PushBottomUp() { RamStats()->EnterHeapScope(RamStats()->m_internetBottomUpHeap); }
+void PopHeap() { RamStats()->LeaveHeapScope(); }
+TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
 
 uint32_t Checksums(const char* name) { return Checksums::HashFromText(name); }
 void Run(uint32_t script, Scripts::CStruct* params = nullptr) { Scripts::LaunchScript(script, params, nullptr, false, nullptr); }
@@ -140,10 +140,10 @@ char* GcdSecretKey() { return GameSpy::StatsSecretKey(); }
 const char* StatsKey() { return NetLink::GameKey(); } // (OnlineGameKey or the game's own)
 
 // The manager's calls.
-const char* GameModeName(Manager* manager) { return manager->GetGameTypeName(); }
-uint32_t LevelChecksum(Manager* manager) { return manager->GetLevel(); }
-uint32_t GameModeChecksum(Manager* manager) { return manager->GetGameTypePreference(); }
-int PlayerScore(Manager* manager, int id) { return manager->GetEntrantPoints(static_cast<uint32_t>(id)); }
+const char* GameModeName(Hub* manager) { return manager->GetGameTypeName(); }
+uint32_t LevelChecksum(Hub* manager) { return manager->FetchStage(); }
+uint32_t GameModeChecksum(Hub* manager) { return manager->GetGameTypePreference(); }
+int PlayerScore(Hub* manager, int id) { return manager->GetEntrantPoints(static_cast<uint32_t>(id)); }
 
 void UnlinkListNode(void* node)
 {
@@ -188,7 +188,7 @@ void DeleteAll(MemSys::ListNode* head)
         node = next;
     }
 }
-int Count(const MemSys::ListNode* head)
+int TotalOf(const MemSys::ListNode* head)
 {
     int count = 0;
     for (const MemSys::ListNode* node = head->next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next)
@@ -213,11 +213,11 @@ SortEntry* NewSortEntry()
     }
     return entry;
 }
-// A local sorted list (ListKit::Head<SortEntry>, highest priority first), emptied and unlinked as the original does.
+// A local sorted list (ListKit::Foremost<SortEntry>, highest priority first), emptied and unlinked as the original does.
 struct SortedList {
     MemSys::ListNode head;
     SortedList() { SetupListSentinel(&head, kSortVtable); }
-    void Add(SortEntry* entry) { reinterpret_cast<ListKit::Head*>(&head)->AddNode(&entry->m_listLink); }
+    void AppendOne(SortEntry* entry) { reinterpret_cast<ListKit::Foremost*>(&head)->AppendVertex(&entry->m_listLink); }
     ~SortedList()
     {
         DeleteAll(&head);
@@ -240,7 +240,7 @@ StatsNode* StatsNode::DeleteEntryNode(unsigned int flags)
 {
     DestroyEntryNode();
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 
@@ -249,7 +249,7 @@ StatsNode* StatsNode::DeleteLevelNode(unsigned int flags)
 {
     DestroyLevelNode();
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 
@@ -258,7 +258,7 @@ StatsNode* StatsNode::DeleteSortNode(unsigned int flags)
 {
     DestroySortNode();
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 
@@ -267,7 +267,7 @@ StatsNode* StatsNode::DeleteLevelsHead(unsigned int flags)
 {
     DestroyLevelNode();
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 
@@ -281,7 +281,7 @@ StatsSearch* StatsSearch::DeleteSortSearch(unsigned int flags)
 {
     m_vtable = kSortSearchVtable;
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 
@@ -290,7 +290,7 @@ StatsSearch* StatsSearch::DeleteEntrySearch(unsigned int flags)
 {
     m_vtable = kEntrySearchVtable;
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 
@@ -299,25 +299,25 @@ StatsSearch* StatsSearch::DeleteLevelSearch(unsigned int flags)
 {
     m_vtable = kLevelSearchVtable;
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 
 // 0x0054D6E0
-TopEntry* TopEntry::Destroy(unsigned int flags)
+TopEntry* TopEntry::Teardown(unsigned int flags)
 {
     reinterpret_cast<StatsNode*>(this)->DestroyEntryNode();
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 
 // 0x0054D780
-SortEntry* SortEntry::Destroy(unsigned int flags)
+SortEntry* SortEntry::Teardown(unsigned int flags)
 {
     reinterpret_cast<StatsNode*>(this)->DestroySortNode();
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 
@@ -331,18 +331,18 @@ void LevelScores::DestroyBody()
 }
 
 // 0x0054EBB0
-LevelScores* LevelScores::Destroy(unsigned int flags)
+LevelScores* LevelScores::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 
 // --- the top lists ---
 
 // 0x0054D8B0
-TopList* TopList::Construct()
+TopList* TopList::MakeNew()
 {
     SetupListSentinel(&m_levels, kLevelsHeadVtable);
     SetupListSentinel(&m_entries, kEntryVtable);
@@ -357,7 +357,7 @@ void TopList::DestroyBody()
 }
 
 // 0x0054E920
-void TopList::Free()
+void TopList::Dealloc()
 {
     DeleteAll(&m_levels);
     DeleteAll(&m_entries);
@@ -370,9 +370,9 @@ void TopList::FillLevelScores()
         auto* level = static_cast<LevelScores*>(node->data);
         if (!level)
             break;
-        if (Count(&level->m_entries) > 0) {
+        if (TotalOf(&level->m_entries) > 0) {
             Scripts::CStruct* params = NewParams();
-            params->AddString(0xC4745838, RankingsManager::LevelName(level->m_level));
+            params->AppendWord(0xC4745838, RankingsManager::LevelName(level->m_level));
             Run(0x1AADEE21, params);
             DeleteParams(params);
         }
@@ -386,15 +386,15 @@ void TopList::FillLevelScores()
             params->PutInt(0xCD66C8AE, entry->m_pointsHeld);
             // (here the rating is read as unsigned)
             params->PutInt(0x7786171A, Rank(static_cast<double>(static_cast<uint32_t>(entry->m_skillPoints))));
-            params->AddString(0xA1DC81F9, entry->m_name);
-            params->AddString(0x651533EC, RankingsManager::LevelName(level->m_level));
+            params->AppendWord(0xA1DC81F9, entry->m_label);
+            params->AppendWord(0x651533EC, RankingsManager::LevelName(level->m_level));
             Run(0x19F7BC28, params);
             DeleteParams(params);
             ++shown;
         }
     }
     Scripts::CStruct* params = NewParams();
-    params->AddString(0xC4745838, Scripts::GetString(0xC2283319u));
+    params->AppendWord(0xC4745838, Scripts::FetchText(0xC2283319u));
     Run(0x1AADEE21, params);
     DeleteParams(params);
 }
@@ -412,8 +412,8 @@ void TopList::FillSortedScores(bool ratings)
             line->m_listLink.priority = entry->m_skillPoints;
             line->m_pointsHeld = entry->m_pointsHeld;
             line->m_skillPoints = entry->m_skillPoints;
-            Text::Copy(line->m_name, entry->m_name);
-            sorted.Add(line);
+            Text::DupFrom(line->m_label, entry->m_label);
+            sorted.AppendOne(line);
         }
     } else {
         for (MemSys::ListNode* node = NextNode(&m_levels); node; node = NextNode(node)) {
@@ -429,8 +429,8 @@ void TopList::FillSortedScores(bool ratings)
                 line->m_pointsHeld = entry->m_pointsHeld;
                 line->m_level = level->m_level;
                 line->m_skillPoints = entry->m_skillPoints;
-                Text::Copy(line->m_name, entry->m_name);
-                sorted.Add(line); // (inlined in the original)
+                Text::DupFrom(line->m_label, entry->m_label);
+                sorted.AppendOne(line); // (inlined in the original)
             }
         }
     }
@@ -443,11 +443,11 @@ void TopList::FillSortedScores(bool ratings)
         params->PutInt(0x2776D9DD, line->m_skillPoints);
         params->PutInt(0xCD66C8AE, line->m_pointsHeld);
         params->PutInt(0x7786171A, Rank(static_cast<double>(line->m_skillPoints)));
-        params->AddString(0xA1DC81F9, line->m_name);
+        params->AppendWord(0xA1DC81F9, line->m_label);
         if (ratings) {
             Run(0x0AC09E3B, params);
         } else {
-            params->AddString(0x651533EC, RankingsManager::LevelName(line->m_level));
+            params->AppendWord(0x651533EC, RankingsManager::LevelName(line->m_level));
             Run(0x19F7BC28, params);
         }
         DeleteParams(params);
@@ -473,7 +473,7 @@ void PersonalStats::Fill()
         line->m_listLink.priority = score;
         line->m_pointsHeld = score;
         line->m_level = levels[i];
-        sorted.Add(line);
+        sorted.AppendOne(line);
     }
     for (MemSys::ListNode* node = NextNode(&sorted.head); node; node = NextNode(node)) {
         auto* line = static_cast<SortEntry*>(node->data);
@@ -481,7 +481,7 @@ void PersonalStats::Fill()
             break;
         Scripts::CStruct* params = NewParams(); // (never freed - as in the original)
         params->PutInt(0xCD66C8AE, line->m_pointsHeld);
-        params->AddString(0x651533EC, RankingsManager::LevelName(line->m_level));
+        params->AppendWord(0x651533EC, RankingsManager::LevelName(line->m_level));
         Run(0xA6111F30, params);
     }
 }
@@ -489,24 +489,24 @@ void PersonalStats::Fill()
 // --- the stats manager ---
 
 // 0x0054DBD0
-RankingsManager* RankingsManager::Construct()
+RankingsManager* RankingsManager::MakeNew()
 {
     m_personal.m_skillPoints = 0;
     std::memset(m_personal.m_highScores, 0, sizeof(m_personal.m_highScores));
     std::memset(m_personal.m_highCombos, 0, sizeof(m_personal.m_highCombos));
     for (TopList& list : m_topLists)
-        list.Construct();
-    Memory()->EnterHeapScope(Memory()->m_networkHeap);
+        list.MakeNew();
+    RamStats()->EnterHeapScope(RamStats()->m_networkHeap);
     auto* task = static_cast<TaskList::SchedulerTask*>(MemSys::AllocZeroed(0x20));
     if (task) {
-        task->Construct(0);
+        task->MakeNew(0);
         task->m_vtable = GameCode::kTaskVtable;
         reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&StatsTask); // +0x18 the callback
         reinterpret_cast<void**>(task)[7] = this;                                // +0x1C the data
     }
     m_task = task;
     m_loggedIn = false;
-    m_state = kNone;
+    m_curPhase = kNone;
     m_game = nullptr;
     m_needTopStats = true;
     PopHeap();
@@ -526,7 +526,7 @@ void RankingsManager::DestroyBody()
 void RankingsManager::LogIn()
 {
     PushBottomUp();
-    m_state = kLoggingIn;
+    m_curPhase = kLoggingIn;
     LoginStart() = FrameClock::GetTime();
     Run(0x23343580);
     DWORD id;
@@ -534,7 +534,7 @@ void RankingsManager::LogIn()
     NetManager()->SetRoomId(id);
     ResumeThread(thread); // (never closed)
     if (!m_task->IsOnTaskList())
-        LogicTasks()->AddTask(m_task);
+        LogicTasks()->QueueJob(m_task);
     PopHeap();
 }
 
@@ -542,9 +542,9 @@ void RankingsManager::LogIn()
 void RankingsManager::LogOff()
 {
     CloseStatsConnection();
-    m_task->Remove();
+    m_task->DropOut();
     m_loggedIn = false;
-    m_state = kNone;
+    m_curPhase = kNone;
 }
 
 // 0x0054C9B0
@@ -566,15 +566,15 @@ void RankingsManager::OnLoggedIn()
 // 0x0054CE80
 void RankingsManager::StartGame()
 {
-    Manager* manager = NetManager();
+    Hub* manager = NetManager();
     Detail::PlayerSearch search;
     PushBottomUp();
     m_game = NewGame(1);
     const char* challenge = GetChallenge(m_game);
-    auto* server = static_cast<NetLink::App*>(manager->m_server);
+    auto* server = static_cast<NetLink::AppHost*>(manager->m_host);
     OptionStore::Preferences* prefs = manager->GetOnlineSettings();
     const char* hostName;
-    prefs->GetPreference(0x2A5CF019)->GetString(0x96875C0Fu, &hostName, 1);
+    prefs->FetchSetting(0x2A5CF019)->FetchText(0x96875C0Fu, &hostName, 1);
     int timeLimit = prefs->GetSettingValue(0xC51BF6E3, 0x906B67BA);
     int fragLimit = prefs->GetSettingValue(0x71CD53A2, 0xCD66C8AE);
     SetGameString(m_game, "hostname", hostName);
@@ -588,7 +588,7 @@ void RankingsManager::StartGame()
     for (uint8_t* player = Detail::FirstPlayer(manager, &search, false); player;
          player = Detail::NextPlayer(manager, &search, false)) {
         NetLink::NetMessageInfo desc;
-        desc.Construct();
+        desc.MakeNew();
         int id = static_cast<int>(Detail::SkaterId(Detail::PlayerSkater(player)));
         const char* name = Detail::PlayerName(player);
         NewPlayer(m_game, id, name);
@@ -596,13 +596,13 @@ void RankingsManager::StartGame()
         std::snprintf(key, sizeof(key), "%s", "player");
         SetPlayerString(m_game, key, name, id);
         std::snprintf(key, sizeof(key), "%s", "pid");
-        int profile = Detail::Field<int>(player, 0x28);
+        int profile = Detail::Prop<int>(player, 0x28);
         SetPlayerInt(m_game, key, profile, id);
         if (profile > 0) {
             // The player's client answers with its response to the challenge.
-            desc.m_data = const_cast<char*>(challenge);
+            desc.m_content = const_cast<char*>(challenge);
             desc.m_byteCount = static_cast<uint16_t>(std::strlen(challenge) + 1);
-            desc.m_id = 0x7C;
+            desc.m_ident = 0x7C;
             desc.m_queue = 2;
             desc.m_groupId = 8;
             server->PutOnOutbox(Detail::PlayerHandle(player), &desc);
@@ -612,9 +612,9 @@ void RankingsManager::StartGame()
 }
 
 // 0x0054D170
-void RankingsManager::ReportStats(bool final)
+void RankingsManager::RaiseTallies(bool final)
 {
-    Manager* manager = NetManager();
+    Hub* manager = NetManager();
     Detail::PlayerSearch search;
     if (!m_game)
         return;
@@ -622,15 +622,15 @@ void RankingsManager::ReportStats(bool final)
     for (uint8_t* player = Detail::FirstPlayer(manager, &search, false); player;
          player = Detail::NextPlayer(manager, &search, false)) {
         auto* skater = reinterpret_cast<GameObjects::CGameEntity*>(Detail::PlayerSkater(player));
-        skater->GetComponent(0xD262802F); // (unused)
+        skater->FetchModule(0xD262802F); // (unused)
         int id = static_cast<int>(Detail::SkaterId(skater));
         SetPlayerInt(m_game, "score", PlayerScore(manager, id), id);
-        SetPlayerInt(m_game, "combo", Detail::Field<int>(player, 0x24), id);
+        SetPlayerInt(m_game, "combo", Detail::Prop<int>(player, 0x24), id);
     }
     SetGameInt(m_game, "highscore", manager->CheatingNoted() | CheatFlag());
     SendGameSnapShot(m_game, nullptr, final);
     if (final) {
-        m_state = kReady;
+        m_curPhase = kReady;
         if (m_game) {
             FreeGame(m_game);
             m_game = nullptr;
@@ -643,7 +643,7 @@ void RankingsManager::ReportStats(bool final)
 // 0x0054C9F0
 void RankingsManager::RemovePlayer(int id)
 {
-    if (m_state == kReporting)
+    if (m_curPhase == kReporting)
         RemovePlayerFromGame(m_game, id);
 }
 
@@ -674,7 +674,7 @@ void RankingsManager::ParseRatings(char* text)
         entry->m_skillPoints = std::atol(token);
         if (!(token = Text::Token(nullptr, "\n")))
             break;
-        Text::Copy(entry->m_name, token);
+        Text::DupFrom(entry->m_label, token);
     }
     PopHeap();
 }
@@ -685,7 +685,7 @@ void RankingsManager::ParseTopList(int index, char* text, bool titled)
     TopList& list = m_topLists[index];
     PushTopDown();
     if (titled) {
-        Text::Copy(list.m_title, Text::Token(text, "\n"));
+        Text::DupFrom(list.m_title, Text::Token(text, "\n"));
         text = nullptr;
     }
     char* token = Text::Token(text, ":");
@@ -712,7 +712,7 @@ void RankingsManager::ParseTopList(int index, char* text, bool titled)
             entry->m_skillPoints = std::atol(token);
             if (!(token = Text::Token(nullptr, "\n")))
                 break;
-            Text::Copy(entry->m_name, token);
+            Text::DupFrom(entry->m_label, token);
             token = Text::Token(nullptr, ":");
         }
     }
@@ -725,27 +725,27 @@ void __cdecl RankingsManager::StatsTask(TaskList::SchedulerTask* task)
     PushTopDown();
     auto* stats = reinterpret_cast<RankingsManager*>(reinterpret_cast<void**>(task)[7]);
     bool failed = false;
-    switch (stats->m_state) {
+    switch (stats->m_curPhase) {
     case kLoggingIn:
         failed = FrameClock::GetTime() - LoginStart() > kLoginTimeout;
         break;
     case kLoggedIn:
-        stats->m_state = kReady;
+        stats->m_curPhase = kReady;
         stats->OnLoggedIn();
         break;
     case kLoginFailed:
         Run(0xCBA113AF);
         CloseStatsConnection();
-        stats->m_task->Remove();
+        stats->m_task->DropOut();
         stats->m_loggedIn = false;
-        stats->m_state = kNone;
+        stats->m_curPhase = kNone;
         break;
     case kGettingStats:
         failed = FrameClock::GetTime() - LoginStart() > kLoginTimeout || PersistThink() == 0;
         break;
     case kReporting:
         if (FrameClock::GetTime() - stats->m_lastReport > kReportInterval)
-            stats->ReportStats(false);
+            stats->RaiseTallies(false);
         break;
     default: // kReady
         break;
@@ -761,7 +761,7 @@ void __cdecl RankingsManager::StatsTask(TaskList::SchedulerTask* task)
 unsigned long __stdcall RankingsManager::LogInThread(void* param)
 {
     PushBottomUp();
-    RankingsManager* stats = Stats();
+    RankingsManager* stats = Attributes();
     (void)param;
     // The game name: the online identity's (OnlineGameName; the original pushes "thps6pc", which online_identity
     // used to write over). The key: what online_identity leaves in the stats key's data (OnlineGameKey).
@@ -769,13 +769,13 @@ unsigned long __stdcall RankingsManager::LogInThread(void* param)
     std::snprintf(GcdSecretKey(), 0x100, "%s", StatsKey());
     switch (InitStatsConnection(kStatsPort)) {
     case 0: // connected
-        stats->m_state = kLoggedIn;
+        stats->m_curPhase = kLoggedIn;
         break;
     case 1:
     case 2:
     case 3:
     case 5:
-        stats->m_state = kLoginFailed;
+        stats->m_curPhase = kLoginFailed;
         break;
     default: // 4 and others
         break;
@@ -789,7 +789,7 @@ void __cdecl RankingsManager::OnPersonalStats(int, int, int, int index, int succ
 {
     if (success < 1)
         return;
-    RankingsManager* stats = Stats();
+    RankingsManager* stats = Attributes();
     int* values = &stats->m_personal.m_skillPoints; // (index 0 the rating, then the high scores; combos 15 further)
     if (index == 0) {
         if (Text::Token(data, "\\")) // "THUG2Rating"
@@ -810,7 +810,7 @@ void __cdecl RankingsManager::OnPersonalStats(int, int, int, int index, int succ
     }
     if (index == 14) {
         Run(0x955801C6);
-        stats->m_state = kReady;
+        stats->m_curPhase = kReady;
     }
 }
 
@@ -820,13 +820,13 @@ int __cdecl RankingsManager::OnTopStats(void*, int result, char* buffer, int64_t
     auto* vault = static_cast<VaultMan*>(param);
     vault->m_progress = 100; // (the setters folded at 0x0048DF10, 0x00428270, 0x004076E0)
     if (result != 0) {
-        vault->m_result = 2;
-        vault->m_error = result;
+        vault->m_outcomeVal = 2;
+        vault->m_fault = result;
         return 1;
     }
-    vault->m_result = 1;
-    vault->m_error = 0;
-    RankingsManager* stats = Stats();
+    vault->m_outcomeVal = 1;
+    vault->m_fault = 0;
+    RankingsManager* stats = Attributes();
     switch (stats->m_topFile) {
     case 0:
     case 1:
@@ -848,16 +848,16 @@ int __cdecl RankingsManager::OnTopStats(void*, int result, char* buffer, int64_t
 // 0x0054D2F0
 const char* __stdcall RankingsManager::LevelName(uint32_t level)
 {
-    Scripts::CArray* levels = Scripts::GetArray(0xB8D3EEECu);
+    Scripts::CArray* levels = Scripts::FetchList(0xB8D3EEECu);
     // (the found level is read into one variable: an entry without one counts as the last one read - at first
     // the level asked for)
     uint32_t found = level;
-    for (uint32_t i = 0; i < levels->m_size; ++i) {
-        auto* entry = reinterpret_cast<Scripts::CStruct*>(levels->GetElement(i));
+    for (uint32_t i = 0; i < levels->m_extent; ++i) {
+        auto* entry = reinterpret_cast<Scripts::CStruct*>(levels->FetchPart(i));
         entry->ReadHashValue(0x651533ECu, &found, 0);
         if (found == level) {
             const char* name = nullptr;
-            entry->GetString(0xC4745838u, &name, 1);
+            entry->FetchText(0xC4745838u, &name, 1);
             return name;
         }
     }
@@ -873,19 +873,19 @@ void __stdcall RankingsManager::GenerateAuth(const char* challenge, const char* 
 // --- the script commands ---
 
 // 0x0054CC90
-bool __cdecl StatsLoggedIn(Scripts::CStruct*, Scripts::CScript*) { return Stats()->UpdateLoggedIn(); }
+bool __cdecl StatsLoggedIn(Scripts::CStruct*, Scripts::CScript*) { return Attributes()->UpdateLoggedIn(); }
 
 // 0x0054CCB0
 bool __cdecl StatsLogIn(Scripts::CStruct*, Scripts::CScript*)
 {
-    Stats()->LogIn();
+    Attributes()->LogIn();
     return true;
 }
 
 // 0x0054CCC0
 bool __cdecl StatsLogOff(Scripts::CStruct*, Scripts::CScript*)
 {
-    Stats()->LogOff();
+    Attributes()->LogOff();
     return true;
 }
 
@@ -893,51 +893,51 @@ bool __cdecl StatsLogOff(Scripts::CStruct*, Scripts::CScript*)
 // indexes 0-15; state 5 until the answer to 14).
 bool __cdecl RetrievePersonalStats(Scripts::CStruct*, Scripts::CScript*)
 {
-    Manager* manager = NetManager();
+    Hub* manager = NetManager();
     const void* callback = reinterpret_cast<const void*>(&RankingsManager::OnPersonalStats);
-    int profile = static_cast<FriendsManager*>(manager->m_buddyMan)->m_profile;
+    int profile = static_cast<FriendsManager*>(manager->m_buddyMan)->m_account;
     GetPersistDataValues(0, profile, 2, 0, "\\THUG2Rating", callback, nullptr);
     for (int index = 1; index <= kPersonalStatsLevels; ++index) { // (1-15: the answer to 14 ends the wait)
-        profile = static_cast<FriendsManager*>(manager->m_buddyMan)->m_profile;
+        profile = static_cast<FriendsManager*>(manager->m_buddyMan)->m_account;
         GetPersistDataValues(0, profile, 2, index, "\\THUG2HighScore\\THUG2HighCombo", callback, nullptr);
     }
-    static_cast<RankingsManager*>(manager->m_statsMan)->m_state = RankingsManager::kGettingStats;
+    static_cast<RankingsManager*>(manager->m_statsMan)->m_curPhase = RankingsManager::kGettingStats;
     return true;
 }
 
 // 0x0054CE70
-bool __cdecl NeedToRetrieveTopStats(Scripts::CStruct*, Scripts::CScript*) { return Stats()->m_needTopStats; }
+bool __cdecl NeedToRetrieveTopStats(Scripts::CStruct*, Scripts::CScript*) { return Attributes()->m_needTopStats; }
 
-// 0x0054D670: ReportStats [0x132AA339: the final report]
-bool __cdecl ReportStats(Scripts::CStruct* params, Scripts::CScript*)
+// 0x0054D670: RaiseTallies [0x132AA339: the final report]
+bool __cdecl RaiseTallies(Scripts::CStruct* params, Scripts::CScript*)
 {
     bool final = params->HasBareFlag(0x132AA339u);
-    Stats()->ReportStats(final);
+    Attributes()->RaiseTallies(final);
     return true;
 }
 
 // 0x0054D6A0: the rank (0..10) into the script's parameters (0x7786171A).
 bool __cdecl GetRank(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PutInt(0x7786171A, Rank(static_cast<double>(Stats()->m_personal.m_skillPoints)));
+    script->m_args->PutInt(0x7786171A, Rank(static_cast<double>(Attributes()->m_personal.m_skillPoints)));
     return true;
 }
 
 // 0x0054EA40: the top lists and the stats menus' arrays emptied (once: until the top stats are needed again).
 bool __cdecl CleanUpTopStats(Scripts::CStruct*, Scripts::CScript*)
 {
-    RankingsManager* stats = Stats();
+    RankingsManager* stats = Attributes();
     if (stats->m_needTopStats)
         return true;
     for (TopList& list : stats->m_topLists)
-        list.Free();
+        list.Dealloc();
     stats->m_needTopStats = true;
-    Scripts::ReleaseArrayStorage(Scripts::GetArray("high_scores_array_all_time"));
-    Scripts::ReleaseArrayStorage(Scripts::GetArray("best_combos_array_all_time"));
-    Scripts::ReleaseArrayStorage(Scripts::GetArray("high_scores_array_monthly"));
-    Scripts::ReleaseArrayStorage(Scripts::GetArray("best_combos_array_monthly"));
-    Scripts::ReleaseArrayStorage(Scripts::GetArray("top_players_array"));
-    Scripts::ReleaseArrayStorage(Scripts::GetArray("personal_stats_array"));
+    Scripts::ReleaseArrayStorage(Scripts::FetchList("high_scores_array_all_time"));
+    Scripts::ReleaseArrayStorage(Scripts::FetchList("best_combos_array_all_time"));
+    Scripts::ReleaseArrayStorage(Scripts::FetchList("high_scores_array_monthly"));
+    Scripts::ReleaseArrayStorage(Scripts::FetchList("best_combos_array_monthly"));
+    Scripts::ReleaseArrayStorage(Scripts::FetchList("top_players_array"));
+    Scripts::ReleaseArrayStorage(Scripts::FetchList("personal_stats_array"));
     GhttpCleanup();
     return true;
 }
@@ -946,7 +946,7 @@ bool __cdecl CleanUpTopStats(Scripts::CStruct*, Scripts::CScript*)
 // then all sorted).
 bool __cdecl FillStatsArrays(Scripts::CStruct* params, Scripts::CScript*)
 {
-    RankingsManager* stats = Stats();
+    RankingsManager* stats = Attributes();
     uint32_t which = 0;
     params->ReadHashValue(0x5EF31148u, &which, 1);
     TopList* list = nullptr;

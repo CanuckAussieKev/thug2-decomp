@@ -29,7 +29,7 @@ struct sModelGeom {
 static_assert(offsetof(sModelGeom, assetName) == 0x10 && sizeof(sModelGeom) == 0x18,
               "layout must match the original");
 
-// CRenderModel::m_flags (the flag setters take a byte and keep its low bit - the original's shifts and masks)
+// CRenderModel::m_flagBits (the flag setters take a byte and keep its low bit - the original's shifts and masks)
 enum : uint8_t {
     kModelSphereValid = 0x01, // m_enclosingBall holds the platform's
     kModelActive = 0x02,
@@ -53,18 +53,18 @@ public:
     // 0x00494C40: construct: an empty geom list, display mode 6 (if the platform agrees), active, not hidden,
     // scale 1, no lights, the file name "none". Returns this. (m_visibleGeoms and the geom counts by kind are left
     // as they were.)
-    CRenderModel* Construct();
+    CRenderModel* MakeNew();
     // 0x00494D00: the destructor's body: the lights deleted, the bone volumes released (0x0048B400), the geoms
     // cleared, the list's nodes erased and its head freed.
     void DestroyBody();
     // 0x00494DC0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CRenderModel* Destroy(unsigned int flags);
+    CRenderModel* Teardown(unsigned int flags);
 
     // 0x00492DC0 (virtual [4]): true (the four arguments unused).
     bool VirtualTrue4(int a, int b, int c, int d);
     // 0x00492EB0 (virtual [12]): the default bounding sphere: (0, 36, 0) with a radius of 48 for a model with bones,
     // else 1200. Returns out.
-    Maths::Vector* PlatGetBoundingSphere(Maths::Vector* out);
+    Maths::Vec4* PlatGetBoundingSphere(Maths::Vec4* out);
 
     // 0x00492DD0: the skeleton's bones taken once (their count, the platform told - virtual [1] -, the matrices).
     // Always true.
@@ -80,13 +80,13 @@ public:
     // 0x00492E60: drawn scaled or not.
     void AllowResizing(uint8_t on);
     // 0x00492E80: the bounding sphere set (the platform's, virtual [13]); the cached one forgotten.
-    void ChangeBoundSphere(const Maths::Vector* sphere);
+    void ChangeBoundSphere(const Maths::Vec4* sphere);
     // 0x00492E90: model files loaded with their shadow volumes or not.
     void ActivateShadowVolume(uint8_t on);
     // 0x00492EE0: the scale (scaled unless it's exactly 1, 1, 1). Always true.
-    bool ChangeScale(const Maths::Vector* scale);
+    bool ChangeScale(const Maths::Vec4* scale);
     // 0x00492F30: the bounding sphere (the platform's, virtual [12], cached). Returns out.
-    Maths::Vector* FetchBoundSphere(Maths::Vector* out);
+    Maths::Vec4* FetchBoundSphere(Maths::Vec4* out);
     // 0x00492F90 / 0x00492FC0: the bone volumes (the first geom's): set unless it has some; read (null if none).
     void SetBoneVolumes(uint8_t* volumes);
     uint8_t* GetBoneVolumes();
@@ -97,7 +97,7 @@ public:
     // 0x00493090: each geom made active (the model's display mode 0, active and the geom visible) and given the
     // display matrix (scaled when scaling is on) - with the skeleton's bones in mode 0 unless there's no skeleton or
     // `noBones`; mode 1 draws the skeleton (0x004A31E0), mode 5 / above 6 a debug box (compiled out). Always true.
-    bool Render(Maths::Matrix* matrix, bool noBones, uint8_t* skeleton);
+    bool Render(Maths::Mat4* matrix, bool noBones, uint8_t* skeleton);
     // 0x00493410: the skeleton's bone matrices copied to each geom. Always true.
     bool CopyBones(uint8_t* skeleton);
     // 0x004934A0: a geom made from the asset manager's scene `assetName` (named `name`) and added. The node comes
@@ -129,7 +129,7 @@ public:
     bool CreateLights();
     bool DestroyLights();
     // 0x00493C60: active or not (each geom told when it changes); not while hidden. False only for hidden + active.
-    bool SetActive(uint8_t active);
+    bool ChangeLive(uint8_t active);
     // 0x00493CD0 / 0x00494640 / 0x00494680 / 0x004946C0: the geom named `name`, geom `index`, its name and its
     // textures (null / 0 past the end).
     void* GetGeomByName(uint32_t name);
@@ -151,7 +151,7 @@ public:
     // 0x00494110 / 0x00494160 / 0x004941B0: each geom's material pass given UV offsets, a UV matrix, UV matrix
     // parameters (0x0048DFE0 / 0x0048DFF0 / 0x0048E000). Whether any geom did.
     bool ChooseUvShift(uint32_t material, int pass, float u, float v);
-    bool ChooseUvMatrix(uint32_t material, int pass, const Maths::Matrix* matrix);
+    bool ChooseUvMatrix(uint32_t material, int pass, const Maths::Mat4* matrix);
     bool CreateUvAnimParams(uint32_t material, int pass);
     // 0x00494200: a script's colour (h, s, v): the geoms `name` (or all) that aren't multicolour coloured; the
     // multicolour ones' material passes (an array of structures of a material and a pass - materials=, else
@@ -166,9 +166,9 @@ public:
     bool ConcealMesh(uint32_t name, bool hide);
     bool IsGeomHidden(uint32_t name);
     // 0x004948D0: every geom coloured. Always true.
-    bool SetColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+    bool ChangeTint(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
     // 0x00494930 / 0x00494970: the geoms' viewport masks together; each geom's set. (Always true.)
-    uint32_t GetVisibility();
+    uint32_t FetchShown();
     bool ToggleShown(uint32_t mask);
     // 0x004949B0: shadows on or off (each geom told).
     void ActivateShadow(uint8_t on);
@@ -176,8 +176,8 @@ public:
     // profile's skin colour (0x00486F70), then the image replaces `source` in the geom `name`; both textures taken out
     // again. Whether it was replaced.
     bool ReplaceFaceTexture(void* face, const char* source, uint32_t name);
-    // 0x00494B70: hidden or not - and made inactive or active (SetActive).
-    bool Hide(uint8_t hide);
+    // 0x00494B70: hidden or not - and made inactive or active (ChangeLive).
+    bool Conceal(uint8_t hide);
     // 0x00494BA0: every geom deleted (their scenes too, if the model's) and the list emptied.
     void DropGeoms();
 
@@ -188,11 +188,11 @@ public:
     sModelGeomNode* m_geoms;      // +0x10: the list's head (a ring of nodes: std::list)
     uint32_t m_geomListSize;      // +0x14
     uint32_t m_visibleGeoms;      // +0x18: a bit per geom (in list order, modulo 32)
-    Maths::Vector m_sizeFactor;          // +0x1C
+    Maths::Vec4 m_sizeFactor;          // +0x1C
     uint8_t* mp_lights;           // +0x2C
     uint32_t m_sourcePath;          // +0x30: the first geom's (a checksum; "none" when made)
-    Maths::Vector m_enclosingBall; // +0x34 (with kModelSphereValid)
-    uint8_t m_flags;              // +0x44
+    Maths::Vec4 m_enclosingBall; // +0x34 (with kModelSphereValid)
+    uint8_t m_flagBits;              // +0x44
     uint8_t pad45;
     int16_t m_geomTotal;           // +0x46
     int16_t m_numFileGeoms;       // +0x48: geoms with a scene of their own
@@ -200,7 +200,7 @@ public:
 };
 static_assert(offsetof(CRenderModel, m_geoms) == 0x10 && offsetof(CRenderModel, m_sizeFactor) == 0x1C &&
                   offsetof(CRenderModel, mp_lights) == 0x2C && offsetof(CRenderModel, m_enclosingBall) == 0x34 &&
-                  offsetof(CRenderModel, m_flags) == 0x44 && offsetof(CRenderModel, m_numAssetGeoms) == 0x4A &&
+                  offsetof(CRenderModel, m_flagBits) == 0x44 && offsetof(CRenderModel, m_numAssetGeoms) == 0x4A &&
                   sizeof(CRenderModel) == 0x4C,
               "layout must match the original");
 

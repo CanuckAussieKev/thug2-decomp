@@ -12,7 +12,7 @@
 namespace Maths {
 
 // 0x00404090
-Matrix& Matrix::operator=(const Matrix& other)
+Mat4& Mat4::operator=(const Mat4& other)
 {
     for (int i = 0; i < 4; ++i)
         row[i] = other.row[i];
@@ -20,13 +20,13 @@ Matrix& Matrix::operator=(const Matrix& other)
 }
 
 // 0x00404080
-Vector& Matrix::operator[](int index)
+Vec4& Mat4::operator[](int index)
 {
     return row[index];
 }
 
 // 0x00404DD0 (the FPU's FSIN / FCOS, as for Y, Z and the axis number below)
-Matrix& MakePitchMatrix(Matrix& m, float angle)
+Mat4& MakePitchMatrix(Mat4& m, float angle)
 {
     float s = X87::SinF(angle);
     float c = X87::CosF(angle);
@@ -38,7 +38,7 @@ Matrix& MakePitchMatrix(Matrix& m, float angle)
 }
 
 // 0x00404E20
-Matrix& MakeYawMatrix(Matrix& m, float angle)
+Mat4& MakeYawMatrix(Mat4& m, float angle)
 {
     float s = X87::SinF(angle);
     float c = X87::CosF(angle);
@@ -50,7 +50,7 @@ Matrix& MakeYawMatrix(Matrix& m, float angle)
 }
 
 // 0x00404E70
-Matrix& MakeRollMatrix(Matrix& m, float angle)
+Mat4& MakeRollMatrix(Mat4& m, float angle)
 {
     float s = X87::SinF(angle);
     float c = X87::CosF(angle);
@@ -61,9 +61,9 @@ Matrix& MakeRollMatrix(Matrix& m, float angle)
     return m;
 }
 
-Matrix& Multiply(Matrix& out, const Matrix& a, const Matrix& b)
+Mat4& Multiply(Mat4& out, const Mat4& a, const Mat4& b)
 {
-    Matrix result;
+    Mat4 result;
     for (int i = 0; i < 4; ++i) {
         const float* ra = &a.row[i].x;
         float* rr = &result.row[i].x;
@@ -78,37 +78,37 @@ Matrix& Multiply(Matrix& out, const Matrix& a, const Matrix& b)
 // The originals build the rotation and call the statically linked D3DXMatrixMultiply(this, &rotation, this).
 
 // 0x00405670
-Matrix& Matrix::PitchLocally(float angle)
+Mat4& Mat4::PitchLocally(float angle)
 {
-    Matrix rotation;
+    Mat4 rotation;
     return Multiply(*this, MakePitchMatrix(rotation, angle), *this);
 }
 
 // 0x0041A6A0 / 0x0041A6D0 / 0x0041A700 (the originals: D3DXMatrixMultiply(this, this, &rotation))
-Matrix& Matrix::SpinAroundX(float angle)
+Mat4& Mat4::SpinAroundX(float angle)
 {
-    Matrix rotation;
+    Mat4 rotation;
     return Multiply(*this, *this, MakePitchMatrix(rotation, angle));
 }
 
-Matrix& Matrix::RotateY(float angle)
+Mat4& Mat4::RotateY(float angle)
 {
-    Matrix rotation;
+    Mat4 rotation;
     return Multiply(*this, *this, MakeYawMatrix(rotation, angle));
 }
 
-Matrix& Matrix::SpinAroundZ(float angle)
+Mat4& Mat4::SpinAroundZ(float angle)
 {
-    Matrix rotation;
+    Mat4 rotation;
     return Multiply(*this, *this, MakeRollMatrix(rotation, angle));
 }
 
 // 0x0041A730 (the original: D3DXMatrixMultiply(this, this, &rotation) for each angle, as SpinAroundX / Y / Z)
-Matrix& Matrix::InitFromAngles(const Vector& angles)
+Mat4& Mat4::InitFromAngles(const Vec4& angles)
 {
     ResetToIdentity();
     if (angles.x != 0.0f || angles.y != 0.0f || angles.z != 0.0f) {
-        Matrix rotation;
+        Mat4 rotation;
         auto multiply = D3dx::MatrixMultiply;
         multiply(this, this, &MakePitchMatrix(rotation, angles.x));
         multiply(this, this, &MakeYawMatrix(rotation, angles.y));
@@ -118,7 +118,7 @@ Matrix& Matrix::InitFromAngles(const Vector& angles)
 }
 
 // 0x0041A640
-Matrix& Matrix::ResetToIdentity()
+Mat4& Mat4::ResetToIdentity()
 {
     row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
@@ -128,9 +128,9 @@ Matrix& Matrix::ResetToIdentity()
 }
 
 // 0x0041BA30
-Matrix& Matrix::Scale(const Vector& scale)
+Mat4& Mat4::StretchBy(const Vec4& scale)
 {
-    for (Vector& r : row) {
+    for (Vec4& r : row) {
         r.x *= scale.x;
         r.y *= scale.y;
         r.z *= scale.z;
@@ -140,7 +140,7 @@ Matrix& Matrix::Scale(const Vector& scale)
 }
 
 // 0x0048A230
-Matrix& Matrix::Translate(const Vector& offset)
+Mat4& Mat4::Slide(const Vec4& offset)
 {
     row[3].x += offset.x;
     row[3].y += offset.y;
@@ -151,7 +151,7 @@ Matrix& Matrix::Translate(const Vector& offset)
 
 // 0x0048A260. Each sum in the original's order (x87, rounded once): x as (row 1 + row 2) + row 0, y and z as
 // (row 1 + row 0) + row 2, then the old value.
-Matrix& Matrix::TranslateLocal(const Vector& offset)
+Mat4& Mat4::OffsetLocal(const Vec4& offset)
 {
     auto term = [&](int r, int c) { return static_cast<double>((&row[r].x)[c]) * (&offset.x)[r]; };
     row[3].x = static_cast<float>(term(1, 0) + term(2, 0) + term(0, 0) + row[3].x);
@@ -162,10 +162,10 @@ Matrix& Matrix::TranslateLocal(const Vector& offset)
 
 // 0x0041F470. Each component's sum in the original's order (x87, rounded once): the w row's term and the x row's
 // first, then z's, then y's (for x: w, z, y, then x's term last).
-Vector operator*(const Vector& v, const Matrix& m)
+Vec4 operator*(const Vec4& v, const Mat4& m)
 {
     auto term = [&](int r, int c) { return static_cast<double>((&m.row[r].x)[c]) * (&v.x)[r]; };
-    Vector out;
+    Vec4 out;
     out.w = static_cast<float>(term(3, 3) + term(0, 3) + term(2, 3) + term(1, 3));
     out.z = static_cast<float>(term(3, 2) + term(0, 2) + term(2, 2) + term(1, 2));
     out.y = static_cast<float>(term(3, 1) + term(0, 1) + term(2, 1) + term(1, 1));
@@ -174,21 +174,21 @@ Vector operator*(const Vector& v, const Matrix& m)
 }
 
 // 0x00405710
-Matrix& Matrix::YawLocally(float angle)
+Mat4& Mat4::YawLocally(float angle)
 {
-    Matrix rotation;
+    Mat4 rotation;
     return Multiply(*this, MakeYawMatrix(rotation, angle), *this);
 }
 
 // 0x004057B0
-Matrix& Matrix::RollInOwnFrame(float angle)
+Mat4& Mat4::RollInOwnFrame(float angle)
 {
-    Matrix rotation;
+    Mat4 rotation;
     return Multiply(*this, MakeRollMatrix(rotation, angle), *this);
 }
 
 // 0x00404C60
-Matrix& BuildAxisAngleMatrix(Matrix& m, const Vector& axis, float angle)
+Mat4& BuildAxisAngleMatrix(Mat4& m, const Vec4& axis, float angle)
 {
     // As the original's x87 code, rounding where it stores: the axis made unit (x and y kept in double, z rounded
     // to float), 1 - cos from the FPU's full-precision cosine, the sine rounded to float, the products as below.
@@ -230,13 +230,13 @@ Matrix& BuildAxisAngleMatrix(Matrix& m, const Vector& axis, float angle)
 }
 
 // 0x00404100 (the original calls the statically linked D3DXMatrixMultiply)
-Matrix& Matrix::operator=(const MatrixProduct& product)
+Mat4& Mat4::operator=(const MatrixProduct& product)
 {
     return Multiply(*this, *product.left, *product.right);
 }
 
 // 0x0040AF60 (x87: each sum in double, rounded once; `in` may be `out`)
-Vector& Matrix::Transform(Vector& out, const Vector& in) const
+Vec4& Mat4::Xform(Vec4& out, const Vec4& in) const
 {
     double x = in.x, y = in.y, z = in.z, w = in.w;
     double rx = ((row[3].x * w + row[1].x * y) + row[2].x * z) + x * row[0].x;
@@ -248,7 +248,7 @@ Vector& Matrix::Transform(Vector& out, const Vector& in) const
 }
 
 // 0x0040B000
-Vector& Matrix::CarryPointThrough(Vector& out, const Vector& in) const
+Vec4& Mat4::CarryPointThrough(Vec4& out, const Vec4& in) const
 {
     double x = in.x, y = in.y, z = in.z;
     double rx = ((row[2].x * z + row[1].x * y) + x * row[0].x) + row[3].x;
@@ -260,7 +260,7 @@ Vector& Matrix::CarryPointThrough(Vector& out, const Vector& in) const
 }
 
 // 0x0040B090
-Vector& Matrix::RotateVector(Vector& out, const Vector& in) const
+Vec4& Mat4::RotateVector(Vec4& out, const Vec4& in) const
 {
     double x = in.x, y = in.y, z = in.z;
     float w = in.w;
@@ -272,7 +272,7 @@ Vector& Matrix::RotateVector(Vector& out, const Vector& in) const
 }
 
 // 0x00416D80
-bool Matrix::operator==(const Matrix& other) const
+bool Mat4::operator==(const Mat4& other) const
 {
     for (int i = 0; i < 4; ++i) {
         const float* mine = &row[i].x;
@@ -286,7 +286,7 @@ bool Matrix::operator==(const Matrix& other) const
 }
 
 // 0x0040B100
-Matrix& Matrix::ScaleRows(const Vector& scale)
+Mat4& Mat4::ScaleRows(const Vec4& scale)
 {
     const float factors[3] = {scale.x, scale.y, scale.z};
     for (int i = 0; i < 3; ++i) {
@@ -299,16 +299,16 @@ Matrix& Matrix::ScaleRows(const Vector& scale)
 }
 
 // 0x004062D0
-float GetAngleInPlane(const Matrix& m, const Vector& v, int ref_axis, int normal_axis)
+float GetAngleInPlane(const Mat4& m, const Vec4& v, int ref_axis, int normal_axis)
 {
-    const Vector& normal = m.row[normal_axis];
-    const Vector& ref = m.row[ref_axis];
+    const Vec4& normal = m.row[normal_axis];
+    const Vec4& ref = m.row[ref_axis];
 
-    Vector in_plane = v;
+    Vec4 in_plane = v;
     in_plane.FlattenOntoPlane(normal);
     if (in_plane.z * in_plane.z + in_plane.x * in_plane.x + in_plane.y * in_plane.y < 0.0001f)
         return 0.0f;
-    in_plane.Normalize();
+    in_plane.MakeUnit();
 
     float cosine = in_plane.z * ref.z + in_plane.y * ref.y + in_plane.x * ref.x;
     if (!(cosine <= 1.0f)) // NaN also becomes 1, as in the original
@@ -318,7 +318,7 @@ float GetAngleInPlane(const Matrix& m, const Vector& v, int ref_axis, int normal
     float angle = std::acos(cosine);
 
     // Which way round: compare ref x in_plane with the plane normal on its largest axis.
-    Vector cross{ref.y * in_plane.z - ref.z * in_plane.y, ref.z * in_plane.x - ref.x * in_plane.z,
+    Vec4 cross{ref.y * in_plane.z - ref.z * in_plane.y, ref.z * in_plane.x - ref.x * in_plane.z,
                  ref.x * in_plane.y - ref.y * in_plane.x, 0.0f};
     int axis;
     bool cross_positive = cross.DominantAxisIndex(&axis) > 0.0f;
@@ -328,7 +328,7 @@ float GetAngleInPlane(const Matrix& m, const Vector& v, int ref_axis, int normal
 
 // 0x00405310 (x87: the trace and the length stay on the FPU; the three differences are stored as floats - z's unrounded
 // difference squared against its float - and the angle is FPATAN's)
-void Matrix::GetRotationAxisAngle(Vector& axis, float& angle) const
+void Mat4::GetRotationAxisAngle(Vec4& axis, float& angle) const
 {
     const double trace = ((static_cast<double>(row[1].y) + row[0].x) + row[2].z) - 1.0; // 2 cos(angle)
     const float x = static_cast<float>(static_cast<double>(row[1].z) - row[2].y);
@@ -353,18 +353,18 @@ void Matrix::GetRotationAxisAngle(Vector& axis, float& angle) const
     // Near 180 degrees the differences above vanish: rebuild the axis from the largest diagonal element.
     // (Compared as in the original, so NaNs choose the same case.)
     const float m00 = row[0].x, m11 = row[1].y, m22 = row[2].z;
-    const Vector y_largest{row[1].x + row[0].y, m11 + 1.0f + m11 + 1.0f, row[1].z + row[2].y, 1.0f};
-    const Vector x_largest{m00 + 1.0f + m00 + 1.0f, row[1].x + row[0].y, row[0].z + row[2].x, 1.0f};
-    const Vector z_largest{row[0].z + row[2].x, row[1].z + row[2].y, m22 + 1.0f + m22 + 1.0f, 1.0f};
+    const Vec4 y_largest{row[1].x + row[0].y, m11 + 1.0f + m11 + 1.0f, row[1].z + row[2].y, 1.0f};
+    const Vec4 x_largest{m00 + 1.0f + m00 + 1.0f, row[1].x + row[0].y, row[0].z + row[2].x, 1.0f};
+    const Vec4 z_largest{row[0].z + row[2].x, row[1].z + row[2].y, m22 + 1.0f + m22 + 1.0f, 1.0f};
     if (!(m00 > m11))
         axis = m11 > m22 ? y_largest : z_largest;
     else
         axis = m00 > m22 ? x_largest : z_largest;
-    axis.Normalize();
+    axis.MakeUnit();
 }
 
 // 0x00405850
-void Matrix::TurnInOwnFrame(const Vector& angles)
+void Mat4::TurnInOwnFrame(const Vec4& angles)
 {
     if (angles.x != 0.0f)
         PitchLocally(angles.x);
@@ -375,16 +375,16 @@ void Matrix::TurnInOwnFrame(const Vector& angles)
 }
 
 // 0x00404BA0
-void Matrix::Print() const
+void Mat4::EchoOut() const
 {
     DebugOut::Printf("-----------------\n");
-    for (const Vector& r : row)
+    for (const Vec4& r : row)
         DebugOut::Printf("%f %f %f %f\n", r.x, r.y, r.z, r.w);
     DebugOut::Printf("-----------------\n");
 }
 
 // 0x00405170
-Matrix& Matrix::SquareUpAxes(int axis)
+Mat4& Mat4::SquareUpAxes(int axis)
 {
     int bestIndex = axis + 1;
     if (bestIndex == 3)
@@ -392,18 +392,18 @@ Matrix& Matrix::SquareUpAxes(int axis)
     int c_index = bestIndex + 1;
     if (c_index == 3)
         c_index = 0;
-    const Vector& a = row[axis];
-    Vector& b = row[bestIndex];
-    Vector& c = row[c_index];
+    const Vec4& a = row[axis];
+    Vec4& b = row[bestIndex];
+    Vec4& c = row[c_index];
 
     // b = c x a and c = a x b, written out in the original's operand order.
     auto rebuild_b = [&] {
         b = {a.z * c.y - a.y * c.z, c.z * a.x - a.z * c.x, a.y * c.x - c.y * a.x, 0.0f};
-        b.Normalize();
+        b.MakeUnit();
     };
     auto rebuild_c = [&] {
         c = {b.z * a.y - b.y * a.z, b.x * a.z - a.x * b.z, a.x * b.y - b.x * a.y, 0.0f};
-        c.Normalize();
+        c.MakeUnit();
     };
 
     float c_dot_a = c.x * a.x + c.y * a.y + c.z * a.z;
@@ -420,7 +420,7 @@ Matrix& Matrix::SquareUpAxes(int axis)
 
 // 0x00405480 (the lengths at the FPU's 53 bits - row 1's stored as a float first - and each compared with 0.99f,
 // 0x00645450: a NaN length counts as long enough)
-bool Matrix::RestoreRightAngles()
+bool Mat4::RestoreRightAngles()
 {
     constexpr float kMinLength = 0.99f;
     const double length1 = static_cast<float>(X87::Sqrt(
@@ -436,9 +436,9 @@ bool Matrix::RestoreRightAngles()
     const bool short1 = length1 < kMinLength;
     const bool short2 = length2 < kMinLength;
 
-    auto rebuild = [](Vector& target, const Vector& a, const Vector& b) {
-        Vector cross = CrossProduct(a, b);
-        target = cross.Normalize();
+    auto rebuild = [](Vec4& target, const Vec4& a, const Vec4& b) {
+        Vec4 cross = CrossVec(a, b);
+        target = cross.MakeUnit();
     };
     if (short0 + short1 + short2 >= 2) {
         ResetToIdentity();
@@ -456,7 +456,7 @@ bool Matrix::RestoreRightAngles()
 }
 
 // 0x00404EC0
-Matrix& BuildAxisAngleMatrix(Matrix& m, int axis, float angle)
+Mat4& BuildAxisAngleMatrix(Mat4& m, int axis, float angle)
 {
     float s = X87::SinF(angle);
     float c = X87::CosF(angle);
@@ -474,7 +474,7 @@ Matrix& BuildAxisAngleMatrix(Matrix& m, int axis, float angle)
 }
 
 // 0x00404F50
-Matrix& CreateLookAtMatrix(Matrix& m, const Vector& eye, const Vector& target, const Vector& up)
+Mat4& CreateLookAtMatrix(Mat4& m, const Vec4& eye, const Vec4& target, const Vec4& up)
 {
     float fx = target.x - eye.x, fy = target.y - eye.y, fz = target.z - eye.z;
     float length = std::sqrt(fy * fy + fx * fx + fz * fz);
@@ -497,7 +497,7 @@ Matrix& CreateLookAtMatrix(Matrix& m, const Vector& eye, const Vector& target, c
 }
 
 // 0x00405080
-Matrix& CreateOrthographicMatrix(Matrix& m, float width, float height, float nearDepth, float farDepth)
+Mat4& CreateOrthographicMatrix(Mat4& m, float width, float height, float nearDepth, float farDepth)
 {
     m.row[0] = {2.0f / width, 0.0f, 0.0f, 0.0f};
     m.row[1] = {0.0f, 2.0f / height, 0.0f, 0.0f};
@@ -507,7 +507,7 @@ Matrix& CreateOrthographicMatrix(Matrix& m, float width, float height, float nea
 }
 
 // 0x004050F0
-Matrix& CreatePerspectiveMatrix(Matrix& m, float fov, float aspect, float nearDepth, float farDepth)
+Mat4& CreatePerspectiveMatrix(Mat4& m, float fov, float aspect, float nearDepth, float farDepth)
 {
     // (x87: q and the cotangent of FSIN / FCOS kept on the FPU until stored)
     double q = farDepth / (static_cast<double>(farDepth) - nearDepth);
@@ -520,24 +520,24 @@ Matrix& CreatePerspectiveMatrix(Matrix& m, float fov, float aspect, float nearDe
 }
 
 // 0x00405950
-Matrix& Matrix::Rotate(const Vector& axis, float angle)
+Mat4& Mat4::SpinBy(const Vec4& axis, float angle)
 {
-    Matrix rotation;
+    Mat4 rotation;
     return Multiply(*this, *this, BuildAxisAngleMatrix(rotation, axis, angle));
 }
 
 // 0x005772A0 (the original: D3DXMatrixMultiply(this, &rotation, this))
-Matrix& Matrix::TurnInOwnFrame(const Vector& axis, float angle)
+Mat4& Mat4::TurnInOwnFrame(const Vec4& axis, float angle)
 {
-    Matrix rotation;
+    Mat4 rotation;
     return Multiply(*this, BuildAxisAngleMatrix(rotation, axis, angle), *this);
 }
 
 // 0x00404120 (each element as scale * element on the FPU: a NaN times a NaN gives the FPU's NaN)
-Matrix& Matrix::operator*=(float scale)
+Mat4& Mat4::operator*=(float scale)
 {
     if (scale != 1.0f) {
-        for (Vector& r : row) {
+        for (Vec4& r : row) {
             for (float* e : {&r.x, &r.y, &r.z, &r.w})
                 *e = X87::MultiplyF(scale, *e);
         }
@@ -546,7 +546,7 @@ Matrix& Matrix::operator*=(float scale)
 }
 
 // 0x004048D0
-Matrix& Matrix::SetFromEulerAngles(float x, float y, float z)
+Mat4& Mat4::SetFromEulerAngles(float x, float y, float z)
 {
     // As the original's x87 code: the cosines and sin z stored as floats, sin x and sin y kept on the FPU at full
     // precision (their products rounded to 53 bits), the sums too until each element is stored; cos x * sin y stored
@@ -567,7 +567,7 @@ Matrix& Matrix::SetFromEulerAngles(float x, float y, float z)
 namespace {
 
 // Element (r, c), treating the four row vectors as a 4x4 array.
-float At(const Matrix& m, int r, int c)
+float At(const Mat4& m, int r, int c)
 {
     return (&m.row[r].x)[c];
 }
@@ -575,7 +575,7 @@ float At(const Matrix& m, int r, int c)
 // Determinant of the 3x3 matrix left after removing row `skip_row` and column `skip_col`, expanded along its
 // first row in the same order as the original: a(ei - fh) - b(di - fg) + c(dh - eg) - on the FPU (53 bits; the
 // float products are exact).
-double Minor(const Matrix& m, int skip_row, int skip_col)
+double Minor(const Mat4& m, int skip_row, int skip_col)
 {
     int r[3], c[3];
     for (int i = 0, n = 0; i < 4; ++i)
@@ -593,14 +593,14 @@ double Minor(const Matrix& m, int skip_row, int skip_col)
 } // namespace
 
 // 0x004041E0
-double Matrix::Determinant() const
+double Mat4::Det() const
 {
     return At(*this, 0, 0) * Minor(*this, 0, 0) - At(*this, 0, 1) * Minor(*this, 0, 1) +
            At(*this, 0, 2) * Minor(*this, 0, 2) - At(*this, 0, 3) * Minor(*this, 0, 3);
 }
 
 // 0x004043A0
-Matrix& Matrix::Adjugate(const Matrix& source)
+Mat4& Mat4::Adjugate(const Mat4& source)
 {
     for (int r = 0; r < 4; ++r) {
         for (int c = 0; c < 4; ++c) {
@@ -612,7 +612,7 @@ Matrix& Matrix::Adjugate(const Matrix& source)
 }
 
 // 0x00416DF0 (the dot products summed in double precision)
-Matrix& Matrix::InvertOrthonormal()
+Mat4& Mat4::InvertOrthonormal()
 {
     const double tx = row[3].x, ty = row[3].y, tz = row[3].z;
     row[3].x = static_cast<float>(-((ty * row[0].y + tz * row[0].z) + tx * row[0].x));
@@ -625,11 +625,11 @@ Matrix& Matrix::InvertOrthonormal()
 }
 
 // 0x00405600
-Matrix& Matrix::Invert()
+Mat4& Mat4::Upend()
 {
-    Matrix adjugate;
+    Mat4 adjugate;
     adjugate.Adjugate(*this);
-    double determinant = Determinant();
+    double determinant = Det();
     if (determinant != 1.0) // (a NaN scales too)
         adjugate *= static_cast<float>(1.0 / determinant);
     *this = adjugate;
@@ -637,7 +637,7 @@ Matrix& Matrix::Invert()
 }
 
 // 0x00404AB0
-Vector& Matrix::GetEulerAngles(Vector& out) const
+Vec4& Mat4::GetEulerAngles(Vec4& out) const
 {
     float sin_y = row[0].z;
     if (sin_y > 1.0f) // (a NaN passes, as in the original: its asin is NaN)

@@ -16,11 +16,11 @@ CBuildPointer* g_cursor;
 namespace {
 
 // The gap manager in use's StoreGapDetails.
-void StoreGapDetails(int tab, SGapDetails* info) { CGapRegistry::Instance()->StoreGapDetails(tab, info); }
+void StoreGapDetails(int tab, SGapDetails* info) { CGapRegistry::Sole()->StoreGapDetails(tab, info); }
 
 } // namespace
 
-void CClipboard::Free(void* item) { g_clipboardPools.Free(item); }
+void CClipboard::Dealloc(void* item) { g_clipboardPools.Dealloc(item); }
 
 CBuildPointer* CBuildPointer::sSingleton() { return g_cursor; }
 
@@ -86,13 +86,13 @@ void CBuildPointer::ToggleShown(bool visible)
 void CBuildPointer::OnModeChanged()
 {
     Scripts::CStruct params;
-    params.Init();
+    params.PrepareAll();
     uint32_t mode;
-    if (m_mode == kModeGapAdjust)
+    if (m_modeSel == kModeGapAdjust)
         mode = 0xE75A3A17; // gap_adjust
-    else if (m_mode == kModeGap)
+    else if (m_modeSel == kModeGap)
         mode = 0x780A5CF3; // gap_regular
-    else if (m_mode == kModeRailPlacement)
+    else if (m_modeSel == kModeRailPlacement)
         mode = 0xFFD81C08; // rail_placement
     else
         mode = 0xB58EFC2B; // regular
@@ -104,7 +104,7 @@ void CBuildPointer::OnModeChanged()
 void CBuildPointer::GetMarqueeBounds(SCellBox* area)
 {
     if (m_areaSelect == 0) {
-        area->Set(0, 0, 0, 0, 0, 0);
+        area->AssignValue(0, 0, 0, 0, 0, 0);
         return;
     }
     uint8_t lowX = m_areaStart.x, highX = m_areaLast.x;
@@ -135,8 +135,8 @@ void CBuildPointer::RemoveOldestClipboard()
         previous = last;
         last = last->m_following;
     }
-    last->Destroy();
-    CClipboard::Free(last);
+    last->Teardown();
+    CClipboard::Dealloc(last);
     if (previous)
         previous->m_following = nullptr;
     else
@@ -156,12 +156,12 @@ void CBuildPointer::ClampToPark()
     if (pos.l + pos.z > bounds.l + bounds.z)
         pos.z = static_cast<uint8_t>(bounds.l - pos.l + bounds.z);
 
-    if (m_mode != kModePaste || !mp_clipboard)
+    if (m_modeSel != kModePaste || !mp_clipboard)
         return;
     // the pasted area (whose corner may be off the grid: signed) is pushed back inside too
     SCellBox area;
-    area.Set(0, 0, 0, 0, 0, 0);
-    mp_clipboard->GetArea(this, &area);
+    area.AssignValue(0, 0, 0, 0, 0, 0);
+    mp_clipboard->FetchExtent(this, &area);
     int last = bounds.w + bounds.x - 1;
     int shift = 0;
     if (static_cast<int8_t>(area.x) < bounds.x)
@@ -185,8 +185,8 @@ void CBuildPointer::DestroyClipboards()
     CClipboard* clipboard = m_copyBuffers;
     while (clipboard) {
         CClipboard* next = clipboard->m_following;
-        clipboard->Destroy();
-        CClipboard::Free(clipboard);
+        clipboard->Teardown();
+        CClipboard::Dealloc(clipboard);
         clipboard = next;
     }
     mp_clipboard = nullptr;
@@ -200,8 +200,8 @@ void CBuildPointer::ForgetGapAt(CPieceGroup* meta)
     if (!gap)
         return;
     if (m_gap.m_numCompleteHalves != 1 ||
-        (gap->m_pos[0].x == m_gap.m_pos[0].x && gap->m_pos[0].y == m_gap.m_pos[0].y &&
-         gap->m_pos[0].z == m_gap.m_pos[0].z))
+        (gap->m_atPoint[0].x == m_gap.m_atPoint[0].x && gap->m_atPoint[0].y == m_gap.m_atPoint[0].y &&
+         gap->m_atPoint[0].z == m_gap.m_atPoint[0].z))
         m_gap.m_numCompleteHalves = 0;
 }
 
@@ -216,7 +216,7 @@ int CBuildPointer::AdvanceAreaSelection()
     }
     if (m_areaSelect == 1) {
         SCellBox area;
-        area.Set(0, 0, 0, 0, 0, 0);
+        area.AssignValue(0, 0, 0, 0, 0, 0);
         GetMarqueeBounds(&area);
         if (area.w <= 10 && area.l <= 10)
             m_areaSelect = 2;

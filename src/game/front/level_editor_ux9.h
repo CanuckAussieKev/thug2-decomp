@@ -19,15 +19,15 @@ struct Painter;
 // The keys are the action registry's (level_editor_actions.h: gap_wizard, skateability, ground_tool - rebindable).
 namespace MenuSystem::LevelEditor::Ux9 {
 
-// The actions and the layout records registered (once, from LevelEditor::Init).
-void Init();
+// The actions and the layout records registered (once, from LevelEditor::PrepareAll).
+void PrepareAll();
 // The editor starting / stopping.
-void Start();
-void Stop();
+void Kickoff();
+void Halt();
 // Once a frame while the editor runs (after the actions' frame): the keys, the forms' requests.
-void Update();
+void TickFrame();
 // A tool armed or a form open: Escape goes to Cancel first.
-bool Busy();
+bool Occupied();
 bool Cancel();
 // For the status bar's hints (level_editor_hints.h): 1 the gap wizard picking its ends, 2 the ground tool marking its
 // rectangle, 0 neither (a form open counts as neither).

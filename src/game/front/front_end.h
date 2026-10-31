@@ -33,10 +33,10 @@ struct FrontEnd;
 // TaskList::Task<FrontEnd> (0x20 bytes, vtable 0x006476F0): a node of a main loop task list.
 struct FrontEndTask {
     uint8_t m_listLink[0x18];   // the task list node (0x00406890 constructs it, with the priority)
-    void(__cdecl* m_code)(FrontEndTask*);
-    FrontEnd* m_data;
+    void(__cdecl* m_codeValue)(FrontEndTask*);
+    FrontEnd* m_content;
 };
-static_assert(sizeof(FrontEndTask) == 0x20 && offsetof(FrontEndTask, m_code) == 0x18);
+static_assert(sizeof(FrontEndTask) == 0x20 && offsetof(FrontEndTask, m_codeValue) == 0x18);
 
 // One controller's place in the input manager (0x84 bytes each, from +4).
 struct InputServer;
@@ -48,16 +48,16 @@ struct InputControlData {
     uint32_t m_makes; // +0x20: the buttons pressed (with the manager's auto-repeat)
 };
 
-// PadInput::Handler<FrontEnd> (0x2C bytes, vtable 0x0064D7D8): gets one controller's presses once a frame.
+// PadInput::Responder<FrontEnd> (0x2C bytes, vtable 0x0064D7D8): gets one controller's presses once a frame.
 struct FrontEndInputHandler {
     uint8_t m_listLink[0x18];               // the handler list node (0x00406890)
     InputControlData* m_controlData;    // +0x18: set when it's added to a controller's handler list
-    uint8_t* m_device;                  // +0x1C: the Sio device (its number at +0x0C)
-    int m_index;                        // +0x20: which of the front end's two handlers
-    void(__cdecl* m_code)(FrontEndInputHandler*);
-    FrontEnd* m_data;
+    uint8_t* m_dev;                  // +0x1C: the Sio device (its number at +0x0C)
+    int m_ordinal;                        // +0x20: which of the front end's two handlers
+    void(__cdecl* m_codeValue)(FrontEndInputHandler*);
+    FrontEnd* m_content;
 };
-static_assert(sizeof(FrontEndInputHandler) == 0x2C && offsetof(FrontEndInputHandler, m_code) == 0x24);
+static_assert(sizeof(FrontEndInputHandler) == 0x2C && offsetof(FrontEndInputHandler, m_codeValue) == 0x24);
 
 struct FrontEnd {
     // The menu's pad events.
@@ -78,12 +78,12 @@ struct FrontEnd {
     };
     struct ButtonEvent {
         uint32_t m_button; // the index of the button's name (ButtonEventMappings)
-        uint32_t m_event;  // 0: a free slot
+        uint32_t m_incident;  // 0: a free slot
     };
     static constexpr int kMaxButtonEvents = 32;
 
     void** m_vtable;
-    uint8_t m_owningModule[0x14 - 4];          // GameModules::Module's fields
+    uint8_t m_owningModule[0x14 - 4];          // GameModules::PartUnit's fields
     FrontEndTask* m_logicTask;           // +0x14: LogicTask, priority -2000
     FrontEndTask* m_keyboardTask;        // +0x18: KeyboardTask, priority -1000 (added by RegisterKeyListener)
     uint32_t m_unknown1C;
@@ -101,18 +101,18 @@ struct FrontEnd {
     uint32_t m_startupScriptId;          // +0x160: the spawned script's unique id
 
     // 0x0054FE00: the constructor (the module, its tasks and handlers; mappings active, 300/50 ms). Returns this.
-    FrontEnd* Construct();
+    FrontEnd* MakeNew();
 
     // 0x0054EC20 (destructor body): the logic task and the input handlers deleted (the keyboard task isn't - an
     // original leak), then the module's.
     void DestroyBody();
     // 0x0054EE70 (scalar deleting destructor, vtable slot 0)
-    FrontEnd* Destroy(unsigned int flags);
+    FrontEnd* Teardown(unsigned int flags);
     // 0x0054EEA0 (v_start_cb, vtable slot 1): the logic task joins the main loop's logic tasks and each input
     // handler the handler list of the controller its own index names (not m_deviceServerMap's).
-    void Start();
+    void Kickoff();
     // 0x0054EF30 (v_stop_cb, vtable slot 2): the logic task and the input handlers out of their lists.
-    void Stop();
+    void Halt();
     // 0x0054ECA0: whether either handler's controller is plugged in (the script command PadsPluggedIn).
     bool PadsPluggedIn();
     // 0x0054ECD0: no more typed keys (the keyboard task out of the logic tasks; StopKeyboardHandler).
@@ -127,7 +127,7 @@ struct FrontEnd {
     // 0x0054EF80: the button-event pairs from the `xbox` array of `params` (see the top of this file).
     void UpdateButtonEventMappings(Scripts::CStruct* params);
     // 0x0054F380: once a frame (LogicTask): whether a menu / the keyboard is up, the music, the spawned scripts.
-    void Update(bool gamePaused);
+    void TickFrame(bool gamePaused);
     // 0x0054F600: the `index`-th pad event of the pressed buttons, else pad_start for Start, else (controller 0,
     // the on-screen keyboard up) Escape / Enter / Space as pad_back / pad_start / pad_choose. 0 if none.
     uint32_t GrabControlEvent(uint32_t makes, int index, int deviceIndex, uint32_t held);

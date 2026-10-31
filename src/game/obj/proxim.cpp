@@ -36,48 +36,48 @@ constexpr uint32_t kRestart = 0x1806DDF8;         // Restart
 // The skaters by object id (0-31).
 constexpr int kMaxSkaters = 32;
 
-ProximManager*& Manager() { return reinterpret_cast<ProximManager*&>(g_proximManager); }
+ProximManager*& Hub() { return reinterpret_cast<ProximManager*&>(g_proximManager); }
 CEntityHub* ObjectManager() { return g_compositeObjectManager; }
-CObject* ObjectById(uint32_t id) { return ObjectManager()->LookUpEntity(id); }
+CEntity* ObjectById(uint32_t id) { return ObjectManager()->LookUpEntity(id); }
 
 // A level sector's bounding box and world matrix (not rewritten yet).
 const Maths::BBox* SectorBox(void* sector)
 {
-    return static_cast<Engine3D::CWorldCell*>(sector)->GetBoundingBox();
+    return static_cast<Engine3D::CWorldCell*>(sector)->FetchBounds();
 }
-const Maths::Matrix* SectorWorldMatrix(void* sector)
+const Maths::Mat4* SectorWorldMatrix(void* sector)
 {
-    return static_cast<Engine3D::CWorldCell*>(sector)->GetOrientation();
+    return static_cast<Engine3D::CWorldCell*>(sector)->FetchFacing();
 }
 // The sector's collision (+0x18) asked whether `point` is inside (its vtable +0x48; `offset` gets the point from
 // the node, which it may use).
-bool SectorContains(void* sector, const Maths::Vector* point, Maths::Vector* offset)
+bool SectorContains(void* sector, const Maths::Vec4* point, Maths::Vec4* offset)
 {
     // (the sector's +0x18, its collision, through the getter folded at 0x005480F0)
     auto* collision = reinterpret_cast<void*>(static_cast<OnlinePlay::FoldedGetters*>(sector)->Word18());
     void** vtable = *reinterpret_cast<void***>(collision);
-    return reinterpret_cast<bool(__thiscall*)(void*, const Maths::Vector*, Maths::Vector*)>(vtable[0x48 / 4])(
+    return reinterpret_cast<bool(__thiscall*)(void*, const Maths::Vec4*, Maths::Vec4*)>(vtable[0x48 / 4])(
         collision, point, offset);
 }
 // The level sector named `name` (null if none).
 void* LookUpSector(uint32_t name) { return Engine3D::Engine::LookUpSector(name); }
 
-void FlagAsDead(CObject* object)
+void FlagAsDead(CEntity* object)
 {
-    reinterpret_cast<void(__thiscall*)(CObject*)>(object->m_vtable[6])(object);
+    reinterpret_cast<void(__thiscall*)(CEntity*)>(object->m_vtable[6])(object);
 }
 
 // The node's script, run for `object` (as a spawned script on it) or by itself; `entering` tells it which.
-void ExecuteNodeScript(ProximManager* manager, ProximNode* node, CObject* object, bool entering)
+void ExecuteNodeScript(ProximManager* manager, ProximNode* node, CEntity* object, bool entering)
 {
     manager->m_entering = entering;
     manager->m_inScript = true;
     if (object) {
-        object->StartScriptTask(node->m_runScript, static_cast<int>(node->m_name), false, false, nullptr);
+        object->StartScriptTask(node->m_runScript, static_cast<int>(node->m_label), false, false, nullptr);
         if (entering)
-            node->m_isWithin |= 1u << object->m_id;
+            node->m_isWithin |= 1u << object->m_ident;
         else
-            node->m_isWithin &= ~(1u << object->m_id);
+            node->m_isWithin &= ~(1u << object->m_ident);
     } else {
         Scripts::LaunchScript(node->m_runScript, nullptr, nullptr, false, nullptr);
     }
@@ -85,7 +85,7 @@ void ExecuteNodeScript(ProximManager* manager, ProximNode* node, CObject* object
 }
 
 // `point` taken into the sector's frame about the box's centre `center`.
-Maths::Vector IntoSector(const ProximNode* node, const Maths::Vector* point, const Maths::Vector& center)
+Maths::Vec4 IntoSector(const ProximNode* node, const Maths::Vec4* point, const Maths::Vec4& center)
 {
     return (*point - center) * node->m_toSector + center;
 }
@@ -111,45 +111,45 @@ void Proxim_AllocateManager()
     auto* manager = static_cast<ProximManager*>(MemSys::AllocZeroed(sizeof(ProximManager)));
     if (manager)
         manager->m_inScript = false;
-    Manager() = manager;
+    Hub() = manager;
 }
 
 // 0x0046AB30
 void NearbyZone_Startup()
 {
-    if (Manager())
+    if (Hub())
         return;
     Proxim_AllocateManager();
-    Manager()->m_head = nullptr; // (out of memory: a null write, as the original)
+    Hub()->m_head = nullptr; // (out of memory: a null write, as the original)
 }
 
 // 0x0046AB50
 void NearbyZone_Shutdown()
 {
-    ProximManager* manager = Manager();
+    ProximManager* manager = Hub();
     if (!manager)
         return;
     for (ProximNode* node = manager->m_head; node;) {
-        ProximNode* next = node->m_next;
-        MemSys::Manager::Get()->Free(node);
+        ProximNode* next = node->m_succ;
+        MemSys::Hub::Pull()->Dealloc(node);
         node = next;
     }
-    Manager()->m_head = nullptr;
+    Hub()->m_head = nullptr;
 }
 
 // 0x0046AB90
 ProximNode* Proxim_GetNode(uint32_t name)
 {
     // (no manager: a null read, as the original)
-    for (ProximNode* node = Manager()->m_head; node; node = node->m_next) {
-        if (node->m_name == name)
+    for (ProximNode* node = Hub()->m_head; node; node = node->m_succ) {
+        if (node->m_label == name)
             return node;
     }
     return nullptr;
 }
 
 // 0x0046ABC0
-void ProximNode::SetActive(bool active)
+void ProximNode::ChangeLive(bool active)
 {
     if (m_active == active)
         return;
@@ -158,20 +158,20 @@ void ProximNode::SetActive(bool active)
             // its objects killed
             for (int id = 0; m_entities != 0; ++id) {
                 if (m_entities & 1) {
-                    if (CObject* object = ObjectById(m_entityKey + id))
+                    if (CEntity* object = ObjectById(m_entityKey + id))
                         FlagAsDead(object);
                 }
                 m_entities >>= 1;
             }
-        } else if (ProximManager* manager = Manager()) {
+        } else if (ProximManager* manager = Hub()) {
             // the exit script for each skater inside
             for (int id = 0; m_isWithin != 0; ++id) {
                 if (m_isWithin & 1) {
-                    CObject* object = ObjectById(id);
+                    CEntity* object = ObjectById(id);
                     manager->m_entering = false;
                     manager->m_inScript = true;
                     if (object)
-                        object->StartScriptTask(m_runScript, static_cast<int>(m_name), false, false, nullptr);
+                        object->StartScriptTask(m_runScript, static_cast<int>(m_label), false, false, nullptr);
                     manager->m_inScript = false;
                 }
                 m_isWithin >>= 1;
@@ -185,12 +185,12 @@ void ProximNode::SetActive(bool active)
 // 0x0046ACB0
 void ProximityNode_Enable(uint32_t name, int active)
 {
-    ProximManager* manager = Manager();
+    ProximManager* manager = Hub();
     if (!manager)
         return;
-    for (ProximNode* node = manager->m_head; node; node = node->m_next) {
-        if (node->m_name == name) {
-            node->SetActive(active != 0);
+    for (ProximNode* node = manager->m_head; node; node = node->m_succ) {
+        if (node->m_label == name) {
+            node->ChangeLive(active != 0);
             return;
         }
     }
@@ -210,7 +210,7 @@ void ProximNode::SetSector(void* sector)
     case PROXIM_SHAPE_SECTOR:
         m_box = *SectorBox(sector);
         m_toSector = *SectorWorldMatrix(m_sector);
-        m_toSector.Invert();
+        m_toSector.Upend();
         break;
     default:
         break;
@@ -218,12 +218,12 @@ void ProximNode::SetSector(void* sector)
 }
 
 // 0x0046AD50
-bool ProximNode::IsWithin(const Maths::Vector* point)
+bool ProximNode::IsWithin(const Maths::Vec4* point)
 {
-    Maths::Vector offset; // (w not set)
-    offset.x = point->x - m_pos.x;
-    offset.y = point->y - m_pos.y;
-    offset.z = point->z - m_pos.z;
+    Maths::Vec4 offset; // (w not set)
+    offset.x = point->x - m_atPoint.x;
+    offset.y = point->y - m_atPoint.y;
+    offset.z = point->z - m_atPoint.z;
     switch (m_form) {
     case PROXIM_SHAPE_SPHERE: {
         // (summed unrounded, z first, as the original)
@@ -234,9 +234,9 @@ bool ProximNode::IsWithin(const Maths::Vector* point)
     case PROXIM_SHAPE_BOX:
         return m_box.ContainsPoint(*point) != 0;
     case PROXIM_SHAPE_SECTOR_BOX: {
-        Maths::Vector center;
+        Maths::Vec4 center;
         m_box.GetCenter(center);
-        Maths::Vector local = IntoSector(this, point, center);
+        Maths::Vec4 local = IntoSector(this, point, center);
         return m_box.ContainsPoint(local) != 0;
     }
     case PROXIM_SHAPE_SECTOR:
@@ -247,21 +247,21 @@ bool ProximNode::IsWithin(const Maths::Vector* point)
 }
 
 // 0x0046AEC0
-Maths::Vector* ProximNode::NearestPointOn(Maths::Vector* out, const Maths::Vector* point)
+Maths::Vec4* ProximNode::NearestPointOn(Maths::Vec4* out, const Maths::Vec4* point)
 {
     switch (m_form) {
     case PROXIM_SHAPE_SPHERE: {
-        Maths::Vector direction = *point - m_pos;
-        direction.Normalize();
-        out->x = direction.x * m_radius + m_pos.x;
-        out->y = direction.y * m_radius + m_pos.y;
-        out->z = direction.z * m_radius + m_pos.z;
+        Maths::Vec4 direction = *point - m_atPoint;
+        direction.MakeUnit();
+        out->x = direction.x * m_radius + m_atPoint.x;
+        out->y = direction.y * m_radius + m_atPoint.y;
+        out->z = direction.z * m_radius + m_atPoint.z;
         // (w's product unrounded before the add, as the original)
-        out->w = static_cast<float>(static_cast<double>(m_radius) * direction.w + m_pos.w);
+        out->w = static_cast<float>(static_cast<double>(m_radius) * direction.w + m_atPoint.w);
         return out;
     }
     case PROXIM_SHAPE_BOX: {
-        Maths::Vector closest;
+        Maths::Vec4 closest;
         m_box.GetClosestSurfacePoint(*point, closest);
         *out = closest;
         return out;
@@ -269,10 +269,10 @@ Maths::Vector* ProximNode::NearestPointOn(Maths::Vector* out, const Maths::Vecto
     case PROXIM_SHAPE_SECTOR_BOX:
     case PROXIM_SHAPE_SECTOR: {
         // into the sector's frame, the box's nearest point, and back out by its world matrix
-        Maths::Vector center;
+        Maths::Vec4 center;
         m_box.GetCenter(center);
-        Maths::Vector local = IntoSector(this, point, center);
-        Maths::Vector closest;
+        Maths::Vec4 local = IntoSector(this, point, center);
+        Maths::Vec4 closest;
         m_box.GetClosestSurfacePoint(local, closest);
         closest = closest - center;
         *out = closest * *SectorWorldMatrix(m_sector) + center;
@@ -290,31 +290,31 @@ void NearbyZone_AddNode(uint32_t name, bool active)
     auto* node = static_cast<ProximNode*>(MemSys::AllocZeroed(sizeof(ProximNode)));
     if (node)
         new (&node->m_box) Maths::BBox();
-    ProximManager* manager = Manager();
-    node->m_next = manager->m_head;
-    Manager()->m_head = node;
-    node->m_name = name;
+    ProximManager* manager = Hub();
+    node->m_succ = manager->m_head;
+    Hub()->m_head = node;
+    node->m_label = name;
     node->m_active = active;
     node->m_sector = nullptr;
     node->m_form = PROXIM_SHAPE_SPHERE;
-    Scripts::CStruct* params = LevelNodes::GetNode(name, true);
-    params->ReadHashValue(kName, &node->m_name, 0);
+    Scripts::CStruct* params = LevelNodes::FetchVertex(name, true);
+    params->ReadHashValue(kName, &node->m_label, 0);
     uint32_t shape;
     if (params->ReadHashValue(kShape, &shape, 0))
         node->m_form = ProximShapeFromChecksum(shape);
-    node->SetSector(LookUpSector(node->m_name));
-    LevelNodes::GetPosition(params, &node->m_pos);
-    node->m_type = 0;
+    node->SetSector(LookUpSector(node->m_label));
+    LevelNodes::FetchPlace(params, &node->m_atPoint);
+    node->m_kindTag = 0;
     uint32_t type = 0;
     if (params->ReadHashValue(kProximType, &type, 0)) {
         if (type == 0x57525413)
-            node->m_type = 2;
+            node->m_kindTag = 2;
         else if (type == 0x806FFF30)
-            node->m_type = 0;
+            node->m_kindTag = 0;
         else
-            node->m_type = type == 0xC4E311FA ? 1 : 0;
+            node->m_kindTag = type == 0xC4E311FA ? 1 : 0;
     }
-    params->GetFloat(kRadius, &node->m_radius, 0);
+    params->FetchFloat(kRadius, &node->m_radius, 0);
     node->m_radiusSquared = node->m_radius * node->m_radius;
     params->ReadHashValue(kScript, &node->m_runScript, 0);
     node->m_entityKey = 0;
@@ -328,22 +328,22 @@ void NearbyZone_AddNode(uint32_t name, bool active)
     node->m_outside = 0;
     node->m_active = true;
     int id = 0;
-    for (CObject* skater = ObjectById(0); skater && id < kMaxSkaters; skater = ObjectById(++id)) {
+    for (CEntity* skater = ObjectById(0); skater && id < kMaxSkaters; skater = ObjectById(++id)) {
         if (reinterpret_cast<uint8_t*>(skater)[0xBC])
             node->m_isWithin |= 1u << id;
     }
-    node->SetActive(false);
-    node->SetActive(active);
+    node->ChangeLive(false);
+    node->ChangeLive(active);
 }
 
 // 0x0046B400
-void ProximityNotify(uint32_t mask, CObject* object, const Maths::Vector* point, int type)
+void ProximityNotify(uint32_t mask, CEntity* object, const Maths::Vec4* point, int type)
 {
-    ProximManager* manager = Manager();
+    ProximManager* manager = Hub();
     if (!manager)
         return;
-    for (ProximNode* node = manager->m_head; node; node = node->m_next) {
-        if (!node->m_active || node->m_type != type)
+    for (ProximNode* node = manager->m_head; node; node = node->m_succ) {
+        if (!node->m_active || node->m_kindTag != type)
             continue;
         bool inside = node->IsWithin(point);
         if (node->m_outside & mask) {
@@ -355,17 +355,17 @@ void ProximityNotify(uint32_t mask, CObject* object, const Maths::Vector* point,
                 ExecuteNodeScript(manager, node, object, true);
             } else if (object) {
                 CGameEntity* made = ObjectManager()->CreateCompositeObject();
-                made->SetID(node->m_entityKey + object->m_id);
-                made->m_pos = node->m_pos;
-                node->m_entities |= 1u << object->m_id;
+                made->ChangeSerial(node->m_entityKey + object->m_ident);
+                made->m_atPoint = node->m_atPoint;
+                node->m_entities |= 1u << object->m_ident;
                 Scripts::CStruct params;
-                params.Init();
+                params.PrepareAll();
                 if (node->m_sector)
-                    params.PutNameKey(kSectorName, node->m_name);
-                made->BuildModulesFromList(Scripts::GetArray("proximobj_composite_structure"), &params);
+                    params.PutNameKey(kSectorName, node->m_label);
+                made->BuildModulesFromList(Scripts::FetchList("proximobj_composite_structure"), &params);
                 reinterpret_cast<void(__thiscall*)(CGameEntity*)>(made->m_vtable[0x20 / 4])(made);
                 Scripts::CStruct scriptParams;
-                scriptParams.Init();
+                scriptParams.PrepareAll();
                 made->ReplaceScript(node->m_runScript, &scriptParams);
                 scriptParams.Clear();
                 params.Clear();
@@ -378,9 +378,9 @@ void ProximityNotify(uint32_t mask, CObject* object, const Maths::Vector* point,
             if (node->m_entityKey == 0) {
                 ExecuteNodeScript(manager, node, object, false);
             } else if (object) {
-                if (CObject* made = ObjectById(node->m_entityKey + object->m_id))
+                if (CEntity* made = ObjectById(node->m_entityKey + object->m_ident))
                     FlagAsDead(made);
-                node->m_entities &= ~(1u << object->m_id);
+                node->m_entities &= ~(1u << object->m_ident);
             }
         }
     }
@@ -390,7 +390,7 @@ void ProximityNotify(uint32_t mask, CObject* object, const Maths::Vector* point,
 bool IsRestartNode(uint32_t name)
 {
     uint32_t nodeClass = 0;
-    LevelNodes::GetNode(name, true)->ReadHashValue(kClass, &nodeClass, 0);
+    LevelNodes::FetchVertex(name, true)->ReadHashValue(kClass, &nodeClass, 0);
     return nodeClass == kRestart;
 }
 
@@ -412,10 +412,10 @@ int GetRestartNodes(uint32_t type, uint32_t* out, uint32_t start)
             continue;
         }
         Scripts::CArray* types;
-        if (!node->GetArray("restart_types", &types, 0))
+        if (!node->FetchList("restart_types", &types, 0))
             continue;
-        for (int i = 0; i < static_cast<int>(types->m_size); ++i) {
-            if (types->GetElement(i) == type)
+        for (int i = 0; i < static_cast<int>(types->m_extent); ++i) {
+            if (types->FetchPart(i) == type)
                 out[count++] = name;
         }
     }

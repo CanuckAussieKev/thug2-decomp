@@ -38,12 +38,12 @@ constexpr uint32_t kProStuff = 0x18653764;        // pro_stuff
 constexpr uint32_t kShowGoalPoints = 0x888EF05E;  // GoalManager_ShowGoalPoints
 
 // strcpy / strcat (no bounds, as the original).
-void Copy(char* dest, const char* text)
+void DupFrom(char* dest, const char* text)
 {
     while ((*dest++ = *text++) != 0) {
     }
 }
-void Append(char* dest, const char* text) { Copy(dest + std::strlen(dest), text); }
+void Append(char* dest, const char* text) { DupFrom(dest + std::strlen(dest), text); }
 
 CMatchRules* GameMode() { return g_gameMode; }
 // The level structure being played (the skate module's +0x380 names it).
@@ -60,12 +60,12 @@ uint32_t GoalName(Scripts::CStruct* params)
 CObjective* ManagerThenGoal(Scripts::CStruct* params)
 {
     CGoalManager* manager = GetObjectiveBoard();
-    return manager->m_goals.Get(GoalName(params));
+    return manager->m_goals.Pull(GoalName(params));
 }
 CObjective* NameThenGoal(Scripts::CStruct* params)
 {
     uint32_t name = GoalName(params);
-    return GetObjectiveBoard()->m_goals.Get(name);
+    return GetObjectiveBoard()->m_goals.Pull(name);
 }
 
 } // namespace
@@ -75,17 +75,17 @@ CObjective* NameThenGoal(Scripts::CStruct* params)
 bool __cdecl CFunc_GoalManager_CreateGoalName(Scripts::CStruct* params, Scripts::CScript* script)
 {
     const char* type;
-    params->GetString(kGoalType, &type, true);
+    params->FetchText(kGoalType, &type, true);
     const char* level;
-    LevelStructure()->GetString(kLevel, &level, 1);
+    LevelStructure()->FetchText(kLevel, &level, 1);
     char name[128];
-    Copy(name, level);
+    DupFrom(name, level);
     if (GameMode()->IsTrue(kIsClassicMode) || params->HasBareFlag(kClassicModeGoal))
         Append(name, "_classic"); // "_classic"
     Append(name, "_goal_");     // "_goal_"
     Append(name, type);
-    script->m_params->PutNameKey(kGoalIdChecksum, Checksums::HashFromText(name));
-    script->m_params->AddString(kGoalName, name);
+    script->m_args->PutNameKey(kGoalIdChecksum, Checksums::HashFromText(name));
+    script->m_args->AppendWord(kGoalName, name);
     return true;
 }
 
@@ -93,8 +93,8 @@ bool __cdecl CFunc_GoalManager_CreateGoalName(Scripts::CStruct* params, Scripts:
 bool __cdecl CFunc_GoalManager_GetLevelPrefix(Scripts::CStruct*, Scripts::CScript* script)
 {
     const char* level;
-    LevelStructure()->GetString(kLevel, &level, 1);
-    script->m_params->AddString(kLevelPrefix, level);
+    LevelStructure()->FetchText(kLevel, &level, 1);
+    script->m_args->AppendWord(kLevelPrefix, level);
     return true;
 }
 
@@ -118,17 +118,17 @@ bool __cdecl CFunc_GoalManager_HasWonGoal(Scripts::CStruct* params, Scripts::CSc
 // 0x00559BC0
 bool __cdecl CFunc_GoalManager_GoalIsSelected(Scripts::CStruct* params, Scripts::CScript*)
 {
-    return ManagerThenGoal(params)->IsSelected();
+    return ManagerThenGoal(params)->IsPicked();
 }
 
 // 0x00559C10
 bool __cdecl CFunc_GoalManager_ToggleGoalSelection(Scripts::CStruct* params, Scripts::CScript*)
 {
     CObjective* goal = ManagerThenGoal(params);
-    if (goal->IsSelected())
-        goal->Deselect();
+    if (goal->IsPicked())
+        goal->Unpick();
     else
-        goal->Select();
+        goal->ChooseOne();
     return true;
 }
 
@@ -151,7 +151,7 @@ bool __cdecl CFunc_GoalManager_GotCounterObject(Scripts::CStruct* params, Script
     uint32_t name;
     if (!params->ReadHashValue(kName, &name, 0))
         return false;
-    CObjective* goal = GetObjectiveBoard()->m_goals.Get(name);
+    CObjective* goal = GetObjectiveBoard()->m_goals.Pull(name);
     if (Virtual<bool>(goal, CObjective::kVtIsActive))
         goal->PickedUpCountable();
     return true;
@@ -206,7 +206,7 @@ bool __cdecl CFunc_GoalManager_GetNumberOfGoalPoints(Scripts::CStruct* params, S
 {
     CGoalManager* manager = GetObjectiveBoard();
     int points = params->HasBareFlag(kTotal) ? manager->m_totalGoalPoints : manager->m_objectiveScore;
-    script->m_params->PutInt(kGoalPoints, points);
+    script->m_args->PutInt(kGoalPoints, points);
     return true;
 }
 
@@ -214,7 +214,7 @@ bool __cdecl CFunc_GoalManager_GetNumberOfGoalPoints(Scripts::CStruct* params, S
 bool __cdecl CFunc_GoalManager_HasBeatenGoalWithProset(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* prefix;
-    params->GetString(0u, &prefix, 1);
+    params->FetchText(0u, &prefix, 1);
     return GetObjectiveBoard()->HasWonProsetGoal(prefix);
 }
 
@@ -223,7 +223,7 @@ bool __cdecl CFunc_GoalManager_HasBeatenGoalWithProset(Scripts::CStruct* params,
 bool __cdecl CFunc_GoalManager_GetProsetNotPrefix(Scripts::CStruct* params, Scripts::CScript* script)
 {
     const char* prefix;
-    params->GetString(0u, &prefix, 1);
+    params->FetchText(0u, &prefix, 1);
     char text[128];
     text[0] = 0;
     int length = 0;
@@ -235,7 +235,7 @@ bool __cdecl CFunc_GoalManager_GetProsetNotPrefix(Scripts::CStruct* params, Scri
     }
     text[length] = 0;
     Append(text, "NOT_"); // "NOT_"
-    script->m_params->AddString(kProsetNotPrefix, text);
+    script->m_args->AppendWord(kProsetNotPrefix, text);
     return true;
 }
 
@@ -332,7 +332,7 @@ bool __cdecl CFunc_GoalManager_TurnPro(Scripts::CStruct*, Scripts::CScript*)
 // 0x0055A2C0
 bool __cdecl CFunc_GoalManager_PauseGoal(Scripts::CStruct* params, Scripts::CScript*)
 {
-    NameThenGoal(params)->Pause();
+    NameThenGoal(params)->Freeze();
     return true;
 }
 
@@ -370,7 +370,7 @@ bool __cdecl CFunc_GoalManager_IsInCompetition(Scripts::CStruct*, Scripts::CScri
     CObjective* competition = GetObjectiveBoard()->GetActiveCompetition();
     if (!competition)
         return false;
-    script->m_params->PutNameKey(kGoalIdChecksum, competition->GetObjectiveKey());
+    script->m_args->PutNameKey(kGoalIdChecksum, competition->GetObjectiveKey());
     return true;
 }
 
@@ -379,12 +379,12 @@ bool __cdecl CFunc_GoalManager_GetGoalAnimations(Scripts::CStruct* params, Scrip
 {
     uint32_t name = GoalName(params);
     const char* type = nullptr;
-    params->GetString(kType, &type, 0);
-    CObjective* goal = GetObjectiveBoard()->m_goals.Get(name);
+    params->FetchText(kType, &type, 0);
+    CObjective* goal = GetObjectiveBoard()->m_goals.Pull(name);
     uint32_t animations = goal->m_ped->GetObjectiveAnimSets(type);
-    script->m_params->RemoveComponent(kProStuff);
+    script->m_args->EraseModule(kProStuff);
     if (animations)
-        script->m_params->PutNameKey(kProStuff, animations);
+        script->m_args->PutNameKey(kProStuff, animations);
     return true;
 }
 

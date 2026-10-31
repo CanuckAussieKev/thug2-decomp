@@ -43,19 +43,19 @@ void AddressSpace(uint64_t& total, uint64_t& largest)
 
 void LogMemoryUse(const char* when)
 {
-    Manager* manager = Manager::Get();
+    Hub* manager = Hub::Pull();
     if (!manager || !manager->m_mainRegion)
         return;
-    Region* main = manager->m_mainRegion;
+    Zone* main = manager->m_mainRegion;
     std::string line;
     char part[160];
     std::snprintf(part, sizeof(part), "main block %d KB, free %d KB (least %d KB); heaps:", Kb(Sizes::MainBlockSize()),
                   Kb(main->FreeByteCount()), Kb(main->m_minAvailable));
     line += part;
-    for (Allocator* heap = manager->FirstZone(); heap; heap = manager->FollowingZone(heap)) {
+    for (MemSource* heap = manager->FirstZone(); heap; heap = manager->FollowingZone(heap)) {
         if (heap->m_maxUsedSize < 64 * 1024)
             continue; // (the small ones: themes, skater info...)
-        std::snprintf(part, sizeof(part), " %s %d KB (peak %d KB)", heap->m_name ? heap->m_name : "?",
+        std::snprintf(part, sizeof(part), " %s %d KB (peak %d KB)", heap->m_label ? heap->m_label : "?",
                       Kb(heap->m_usedSize), Kb(heap->m_maxUsedSize));
         line += part;
     }

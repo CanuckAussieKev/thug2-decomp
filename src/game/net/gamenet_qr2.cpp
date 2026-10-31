@@ -74,8 +74,8 @@ constexpr int kQueryPort = 0x1423;           // 5155 (qr2's own)
 void BufferAdd(void* buffer, const char* text) { GameSpy::Qr2BufferAdd(buffer, text); }
 void BufferAddInt(void* buffer, int value) { GameSpy::Qr2BufferAddInt(buffer, value); }
 
-Manager* NetManager() { return g_gameNetManager; }
-OptionStore::Preferences* NetworkPreferences(Manager* m) { return reinterpret_cast<OptionStore::Preferences*>(m->m_networkPreferences); }
+Hub* NetManager() { return g_gameNetManager; }
+OptionStore::Preferences* NetworkPreferences(Hub* m) { return reinterpret_cast<OptionStore::Preferences*>(m->m_networkPreferences); }
 
 char g_fallbackMapName[128]{"Boston"};
 
@@ -89,11 +89,11 @@ int g_lobbyGroupId;
 // 0x0053B9C0
 void __cdecl ServerKeyCallback(int key, void* buffer, void*)
 {
-    Manager* manager = NetManager();
+    Hub* manager = NetManager();
     switch (key) {
     case kKeyHostname: {
         const char* text = nullptr;
-        NetworkPreferences(manager)->GetPreference(kServerName)->GetString("ui_string", &text, 0);
+        NetworkPreferences(manager)->FetchSetting(kServerName)->FetchText("ui_string", &text, 0);
         BufferAdd(buffer, text);
         return;
     }
@@ -132,7 +132,7 @@ void __cdecl ServerKeyCallback(int key, void* buffer, void*)
             BufferAdd(buffer, "closedwaiting");
         return;
     case kKeyPassword:
-        BufferAddInt(buffer, *manager->GetPassword() != '\0' ? 1 : 0);
+        BufferAddInt(buffer, *manager->FetchSecret() != '\0' ? 1 : 0);
         return;
     case kKeyGroupid:
         BufferAddInt(buffer, g_lobbyGroupId); // (the lobby's group room)
@@ -146,7 +146,7 @@ void __cdecl ServerKeyCallback(int key, void* buffer, void*)
 // 0x0053BBC0
 void __cdecl PlayerKeyCallback(int key, int index, void* buffer, void*)
 {
-    Manager* manager = NetManager();
+    Hub* manager = NetManager();
     if (index >= manager->CountPlayers()) {
         BufferAdd(buffer, "");
         return;
@@ -167,8 +167,8 @@ void __cdecl PlayerKeyCallback(int key, int index, void* buffer, void*)
         BufferAdd(buffer, PlayerName(player));
         return;
     case kKeyPing: {
-        NetLink::Conn* conn = Field<NetLink::Conn*>(player, 0x18);
-        BufferAddInt(buffer, conn->IsLocal() ? 0 : conn->m_latencyTest.m_averageLatency);
+        NetLink::Conn* conn = Prop<NetLink::Conn*>(player, 0x18);
+        BufferAddInt(buffer, conn->IsHostLocal() ? 0 : conn->m_latencyTest.m_averageLatency);
         return;
     }
     case kKeyTeam:
@@ -195,7 +195,7 @@ void __cdecl StartQueryReporting(bool keepMapName)
 {
     if (!keepMapName) { // the level's name, for mapname when the level select has none
         const char* text = nullptr;
-        NetworkPreferences(NetManager())->GetPreference(kLevel)->GetString("ui_string", &text, 0);
+        NetworkPreferences(NetManager())->FetchSetting(kLevel)->FetchText("ui_string", &text, 0);
         std::strcpy(FallbackMapName(), text);
     }
     bool& reporting = g_queryReporting;

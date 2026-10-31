@@ -22,7 +22,7 @@ constexpr uint32_t kDofColourA = 0x0F3BF443, kDofColourB = 0xFC5C7D61;
 
 // The platform's slot `slot` with one argument.
 template <typename A>
-void Platform(CScreenEffects* effects, int slot, A argument)
+void OsLayer(CScreenEffects* effects, int slot, A argument)
 {
     reinterpret_cast<void(__thiscall*)(CScreenEffects*, A)>(effects->vtable[slot])(effects, argument);
 }
@@ -30,16 +30,16 @@ void Platform(CScreenEffects* effects, int slot, A argument)
 // An [r g b] array as RGBA bytes, alpha 0 (each element's low byte).
 uint32_t ArrayColour(Scripts::CArray* array)
 {
-    uint8_t r = static_cast<uint8_t>(array->GetElement(0));
-    uint8_t g = static_cast<uint8_t>(array->GetElement(1));
-    uint8_t b = static_cast<uint8_t>(array->GetElement(2));
+    uint8_t r = static_cast<uint8_t>(array->FetchPart(0));
+    uint8_t g = static_cast<uint8_t>(array->FetchPart(1));
+    uint8_t b = static_cast<uint8_t>(array->FetchPart(2));
     return r | (g << 8) | (b << 16);
 }
 
 } // namespace
 
 // 0x0049E2F0
-CScreenEffects* CScreenEffects::Construct()
+CScreenEffects* CScreenEffects::MakeNew()
 {
     vtable = reinterpret_cast<void**>(kScreenEffectsVtable);
     m_on = true;
@@ -50,11 +50,11 @@ CScreenEffects* CScreenEffects::Construct()
 void CScreenEffects::DestroyBody() { vtable = reinterpret_cast<void**>(kScreenEffectsVtable); }
 
 // 0x0049E330
-CScreenEffects* CScreenEffects::Destroy(unsigned int freeFlags)
+CScreenEffects* CScreenEffects::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -79,17 +79,17 @@ bool CScreenEffects::SetBloomParams(Scripts::CStruct* params, int)
     int alpha1 = -1;
     int alpha2 = -1;
     if (params->FetchIntValue(kOn, &on, 0))
-        Platform(this, 2, on);
+        OsLayer(this, 2, on);
     params->FetchIntValue(kBloomAlpha1, &alpha1, 0);
     params->FetchIntValue(kBloomAlpha2, &alpha2, 0);
     if (alpha1 != -1 || alpha2 != -1)
         reinterpret_cast<void(__thiscall*)(CScreenEffects*, int, int)>(vtable[4])(this, alpha1, alpha2);
     Scripts::CArray* array = nullptr;
-    if (params->GetArray(kColour, &array, 0))
-        Platform(this, 5, ArrayColour(array));
+    if (params->FetchList(kColour, &array, 0))
+        OsLayer(this, 5, ArrayColour(array));
     array = nullptr;
-    if (params->GetArray(kBloomCutOff, &array, 0))
-        Platform(this, 3, ArrayColour(array));
+    if (params->FetchList(kBloomCutOff, &array, 0))
+        OsLayer(this, 3, ArrayColour(array));
     return true;
 }
 
@@ -99,29 +99,29 @@ bool CScreenEffects::SetDOFParams(Scripts::CStruct* params, Scripts::CScript*)
 {
     int on;
     if (params->FetchIntValue(kOn, &on, 0))
-        Platform(this, 6, on);
+        OsLayer(this, 6, on);
     float a = 0.0f;
-    if (params->GetFloat(kDofFloatA, &a, 0))
-        Platform(this, 10, a);
+    if (params->FetchFloat(kDofFloatA, &a, 0))
+        OsLayer(this, 10, a);
     float b;
-    if (params->GetFloat(kDofFloatB, &b, 0))
-        Platform(this, 9, a); // (the first float's: the original passes the wrong variable)
+    if (params->FetchFloat(kDofFloatB, &b, 0))
+        OsLayer(this, 9, a); // (the first float's: the original passes the wrong variable)
     float c;
-    if (params->GetFloat(kColour, &c, 0))
-        Platform(this, 11, c);
+    if (params->FetchFloat(kColour, &c, 0))
+        OsLayer(this, 11, c);
     float d;
-    if (params->GetFloat(kDofFloatD, &d, 0))
-        Platform(this, 12, d);
+    if (params->FetchFloat(kDofFloatD, &d, 0))
+        OsLayer(this, 12, d);
     Scripts::CArray* array;
-    if (params->GetArray(kDofColourA, &array, 0))
-        Platform(this, 8, ArrayColour(array));
-    if (params->GetArray(kDofColourB, &array, 0))
-        Platform(this, 7, ArrayColour(array));
+    if (params->FetchList(kDofColourA, &array, 0))
+        OsLayer(this, 8, ArrayColour(array));
+    if (params->FetchList(kDofColourB, &array, 0))
+        OsLayer(this, 7, ArrayColour(array));
     return true;
 }
 
 namespace {
-static VtableSlot kScreenEffectsVtable_slots[] = {&Engine3D::CScreenEffects::Destroy, &_purecall,
+static VtableSlot kScreenEffectsVtable_slots[] = {&Engine3D::CScreenEffects::Teardown, &_purecall,
                 &_purecall, &_purecall, &_purecall,
                 &_purecall, &_purecall, &_purecall,
                 &_purecall, &_purecall, &_purecall,

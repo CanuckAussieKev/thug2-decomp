@@ -1,4 +1,4 @@
-// The network manager's network settings (OnlinePlay::Manager, 0x00535040-0x00535CB0): the network preferences handed
+// The network manager's network settings (OnlinePlay::Hub, 0x00535040-0x00535CB0): the network preferences handed
 // to the net library (master servers, addresses, DNS, dial-up, the device), the preferences of the game being set up,
 // and connecting to / disconnecting from the internet.
 
@@ -107,7 +107,7 @@ const char* const kDefaultDns2 = "205.147.0.102"; // "205.147.0.102"
 const char* const kEmpty = "";       // ""
 const char* const kChecksumName = "checksum"; // "checksum"
 
-TaskList::Stack* LogicTasks() { return reinterpret_cast<TaskList::Stack*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4 /* the main loop's task stacks (+4: the logic tasks) */); }
+TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4 /* the main loop's task stacks (+4: the logic tasks) */); }
 
 bool Filled(const char* text) { return text && *text; }
 
@@ -115,17 +115,17 @@ bool Filled(const char* text) { return text && *text; }
 void SetPreferenceText(OptionStore::Preferences* preferences, uint32_t name, const char* text)
 {
     Scripts::CStruct* values = NewParams();
-    values->AddString(kUiString, Scripts::QBVAL_STRING, text);
-    preferences->SetPreference(name, values);
+    values->AppendWord(kUiString, Scripts::QBVAL_STRING, text);
+    preferences->ChangeSetting(name, values);
     DeleteParams(values);
 }
 
 } // namespace
 
 // 0x00535040
-void Manager::UseNetworkPreferences()
+void Hub::UseNetworkPreferences()
 {
-    NetLink::Manager* net = NetLink::Manager::Instance();
+    NetLink::Hub* net = NetLink::Hub::Sole();
     char(*servers)[16] = reinterpret_cast<char(*)[16]>(reinterpret_cast<uint8_t*>(this) + kMasterServers);
     for (int i = 0; i < kMasterServerCount; ++i)
         servers[i][0] = 0;
@@ -137,33 +137,33 @@ void Manager::UseNetworkPreferences()
     uint32_t check = 0;
 
     // The master servers: the default list, or the two set (unless "0.0.0.0") before it.
-    Scripts::CArray* defaults = Scripts::GetArray(kDefaultMasterServers);
-    preferences->GetPreference(kUseDefaultMasterServers)->ReadHashValue(kChecksum, &check, 1);
+    Scripts::CArray* defaults = Scripts::FetchList(kDefaultMasterServers);
+    preferences->FetchSetting(kUseDefaultMasterServers)->ReadHashValue(kChecksum, &check, 1);
     int next = 0;
     if (check != kBooleanTrue) {
-        preferences->GetPreference(kMasterServer1)->GetString(kUiString, &text, 1);
+        preferences->FetchSetting(kMasterServer1)->FetchText(kUiString, &text, 1);
         if (std::strcmp(text, kNoAddress) != 0)
             std::strcpy(servers[next++], text);
-        preferences->GetPreference(kMasterServer2)->GetString(kUiString, &text, 1);
+        preferences->FetchSetting(kMasterServer2)->FetchText(kUiString, &text, 1);
         if (std::strcmp(text, kNoAddress) != 0)
             std::strcpy(servers[next++], text);
     }
     // (no bounds check: more than 10 names run over what follows, as in the original)
-    for (int i = 0; i < static_cast<int>(defaults->m_size); ++i) {
-        auto* entry = reinterpret_cast<Scripts::CStruct*>(defaults->GetElement(i));
-        entry->GetString(kName, &text, 1);
+    for (int i = 0; i < static_cast<int>(defaults->m_extent); ++i) {
+        auto* entry = reinterpret_cast<Scripts::CStruct*>(defaults->FetchPart(i));
+        entry->FetchText(kName, &text, 1);
         std::strcpy(servers[next + i], text);
     }
 
     uint32_t broadbandType = 0;
-    preferences->GetPreference(kBroadbandType)->ReadHashValue(kChecksum, &broadbandType, 1);
+    preferences->FetchSetting(kBroadbandType)->ReadHashValue(kChecksum, &broadbandType, 1);
     bool dhcp = broadbandType == kIpDhcp;
 
     // Addresses given outside the preferences (set into them; an address of our own means no DHCP).
-    const char* ipOverride = Scripts::GetString(kIpAddressOverride);
-    const char* gatewayOverride = Scripts::GetString(kGatewayOverride);
-    const char* subnetOverride = Scripts::GetString(kSubnetMaskOverride);
-    const char* dnsOverride = Scripts::GetString(kDnsServerOverride);
+    const char* ipOverride = Scripts::FetchText(kIpAddressOverride);
+    const char* gatewayOverride = Scripts::FetchText(kGatewayOverride);
+    const char* subnetOverride = Scripts::FetchText(kSubnetMaskOverride);
+    const char* dnsOverride = Scripts::FetchText(kDnsServerOverride);
     if (ipOverride) {
         if (!*ipOverride) {
             ipOverride = nullptr;
@@ -183,22 +183,22 @@ void Manager::UseNetworkPreferences()
     if (dhcp) {
         const char* hostName = nullptr;
         const char* domainName = nullptr;
-        preferences->GetPreference(kHostName)->GetString(kUiString, &hostName, 1);
+        preferences->FetchSetting(kHostName)->FetchText(kUiString, &hostName, 1);
         net->SetMachineLabel(hostName);
-        preferences->GetPreference(kDomainName)->GetString(kUiString, &domainName, 1);
+        preferences->FetchSetting(kDomainName)->FetchText(kUiString, &domainName, 1);
         net->SetNetworkDomain(domainName);
     } else {
-        preferences->GetPreference(kIpAddress)->GetString(kUiString, &text, 1);
+        preferences->FetchSetting(kIpAddress)->FetchText(kUiString, &text, 1);
         net->SetOwnAddress(text);
-        preferences->GetPreference(kGateway)->GetString(kUiString, &text, 1);
+        preferences->FetchSetting(kGateway)->FetchText(kUiString, &text, 1);
         net->SetRouterAddr(text);
-        preferences->GetPreference(kSubnetMask)->GetString(kUiString, &text, 1);
+        preferences->FetchSetting(kSubnetMask)->FetchText(kUiString, &text, 1);
         net->SetAddressMask(text);
     }
 
     // DNS: none with auto_dns (and no address of our own); with an address of our own but no DNS server, the two
     // defaults; else the preferences'.
-    preferences->GetPreference(kAutoDns)->ReadHashValue(kChecksum, &check, 1);
+    preferences->FetchSetting(kAutoDns)->ReadHashValue(kChecksum, &check, 1);
     if (check == kBooleanTrue && !ipOverride) {
         net->SetNameResolver(0, kEmpty);
         net->SetNameResolver(1, kEmpty);
@@ -207,30 +207,30 @@ void Manager::UseNetworkPreferences()
         net->SetNameResolver(0, kDefaultDns1);
         net->SetNameResolver(1, kDefaultDns2);
     } else {
-        preferences->GetPreference(kDnsServer)->GetString(kUiString, &text, 1);
+        preferences->FetchSetting(kDnsServer)->FetchText(kUiString, &text, 1);
         net->SetNameResolver(0, text);
-        preferences->GetPreference(kDnsServer2)->GetString(kUiString, &text, 1);
+        preferences->FetchSetting(kDnsServer2)->FetchText(kUiString, &text, 1);
         net->SetNameResolver(1, text);
     }
 
     // Dial-up.
     const char* number = nullptr;
     for (int i = 0; i < 3; ++i) {
-        preferences->GetPreference(kDialupNumber[i])->GetString(kUiString, &number, 1);
+        preferences->FetchSetting(kDialupNumber[i])->FetchText(kUiString, &number, 1);
         net->SetDialupNumber(i, number);
     }
     const char* username = nullptr;
-    preferences->GetPreference(kDialupUsername)->GetString(kUiString, &username, 1);
+    preferences->FetchSetting(kDialupUsername)->FetchText(kUiString, &username, 1);
     net->SetDialupUserName(username);
     const char* password = nullptr;
-    preferences->GetPreference(kDialupPassword)->GetString(kUiString, &password, 1);
+    preferences->FetchSetting(kDialupPassword)->FetchText(kUiString, &password, 1);
     net->SetDialupPassword(password);
 
     // The device: its type and the connection type.
     uint32_t device = 0;
-    preferences->GetPreference(kDeviceType)->ReadHashValue(kChecksum, &device, 1);
-    bool forceBroadbandPc = *Scripts::GetString(kForceBroadbandPc) != 0;
-    if (*Scripts::GetString(kForcePcmcia)) {
+    preferences->FetchSetting(kDeviceType)->ReadHashValue(kChecksum, &device, 1);
+    bool forceBroadbandPc = *Scripts::FetchText(kForceBroadbandPc) != 0;
+    if (*Scripts::FetchText(kForcePcmcia)) {
         if (ipOverride)
             Run(kSpoofPcmciaAdaptorSetup);
         net->SetAdapterKind(3);
@@ -262,21 +262,21 @@ void Manager::UseNetworkPreferences()
         net->SetAdapterKind(0);
     }
 
-    preferences->GetPreference(kDialupAuthentication)->ReadHashValue(kChecksum, &check, 1);
+    preferences->FetchSetting(kDialupAuthentication)->ReadHashValue(kChecksum, &check, 1);
     net->SetFlag2E6(check == kBooleanTrue);
 }
 
 // 0x00535AD0
-uint32_t Manager::GetTeamGraffitiMode()
+uint32_t Hub::GetTeamGraffitiMode()
 {
     uint32_t mode = kGraffitiIndividualScoring;
     if (InNetGame() && IsSquadMatch())
-        GetOnlineSettings()->GetPreference(kTeamGraffitiMode)->ReadHashValue(kChecksum, &mode, 1);
+        GetOnlineSettings()->FetchSetting(kTeamGraffitiMode)->ReadHashValue(kChecksum, &mode, 1);
     return mode;
 }
 
 // The preferences of the game being set up: the network game's, else the skate module's (+0x58: split screen's).
-OptionStore::Preferences* Manager::GetGamePreferences()
+OptionStore::Preferences* Hub::GetGamePreferences()
 {
     uint8_t* skate = Detail::Skate();
     if (InNetGame())
@@ -285,84 +285,84 @@ OptionStore::Preferences* Manager::GetGamePreferences()
 }
 
 // 0x00535B20
-uint32_t Manager::GetGoalsPreference()
+uint32_t Hub::GetGoalsPreference()
 {
     // On a miss the original returns its uninitialised local: the slot ECX was pushed into - the manager.
     auto goals = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(this));
-    GetGamePreferences()->GetPreference(kGoals)->ReadHashValue(kChecksumName, &goals, 1);
+    GetGamePreferences()->FetchSetting(kGoals)->ReadHashValue(kChecksumName, &goals, 1);
     return goals;
 }
 
 // 0x00535B70
-uint32_t Manager::GetGameTypePreference()
+uint32_t Hub::GetGameTypePreference()
 {
     auto type = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(this)); // (as above)
-    GetGamePreferences()->GetPreference(kGameType)->ReadHashValue(kChecksum, &type, 1);
+    GetGamePreferences()->FetchSetting(kGameType)->ReadHashValue(kChecksum, &type, 1);
     return type;
 }
 
 // 0x00535C10
-bool Manager::ConnectToInternet(uint32_t onlineScript, uint32_t failScript)
+bool Hub::ConnectToInternet(uint32_t onlineScript, uint32_t failScript)
 {
-    TaskList::Stack* tasks = LogicTasks();
-    NetLink::Manager* net = NetLink::Manager::Instance();
-    Field<uint32_t>(this, kOfflineScript) = failScript;
-    Field<uint32_t>(this, kOnlineScript) = onlineScript;
+    TaskList::PileUp* tasks = LogicTasks();
+    NetLink::Hub* net = NetLink::Hub::Sole();
+    Prop<uint32_t>(this, kOfflineScript) = failScript;
+    Prop<uint32_t>(this, kOnlineScript) = onlineScript;
     bool online;
     if (net->IsOnline()) {
         online = true;
     } else {
-        Field<int>(this, kOnlineState) = -1;
+        Prop<int>(this, kOnlineState) = -1;
         online = net->ConnectToInternet();
         if (!online) {
             // A modem or a PPPoE connection carries on in the online state's task.
             if (net->GetNetLinkKind() == 1 || net->GetNetLinkKind() == 3)
-                tasks->AddTask(Field<TaskList::SchedulerTask*>(this, kConnectTask));
+                tasks->QueueJob(Prop<TaskList::SchedulerTask*>(this, kConnectTask));
             return online;
         }
     }
-    if (Field<uint32_t>(this, kOnlineScript))
-        Run(Field<uint32_t>(this, kOnlineScript));
+    if (Prop<uint32_t>(this, kOnlineScript))
+        Run(Prop<uint32_t>(this, kOnlineScript));
     return online;
 }
 
 // 0x00535CB0
-void Manager::DisconnectFromInternet(uint32_t script)
+void Hub::DisconnectFromInternet(uint32_t script)
 {
-    TaskList::Stack* tasks = LogicTasks();
-    NetLink::Manager* net = NetLink::Manager::Instance();
-    Field<int>(this, kOnlineState) = -1;
+    TaskList::PileUp* tasks = LogicTasks();
+    NetLink::Hub* net = NetLink::Hub::Sole();
+    Prop<int>(this, kOnlineState) = -1;
     if (script)
-        Field<uint32_t>(this, kOfflineScript) = script;
-    tasks->AddTask(Field<TaskList::SchedulerTask*>(this, kConnectTask));
+        Prop<uint32_t>(this, kOfflineScript) = script;
+    tasks->QueueJob(Prop<TaskList::SchedulerTask*>(this, kConnectTask));
     SetServiceState(2);
     net->DisconnectFromInternet();
 }
 
 // 0x00536C10
-void __cdecl Manager::CancelConnectToInternet()
+void __cdecl Hub::CancelConnectToInternet()
 {
-    Manager* manager = g_gameNetManager;
-    NetLink::Manager* net = NetLink::Manager::Instance();
-    TaskList::SchedulerTask* task = Field<TaskList::SchedulerTask*>(manager, kConnectTask);
+    Hub* manager = g_gameNetManager;
+    NetLink::Hub* net = NetLink::Hub::Sole();
+    TaskList::SchedulerTask* task = Prop<TaskList::SchedulerTask*>(manager, kConnectTask);
     switch (net->GetDialupStatus()) {
     case 0:
     case 1:
-        task->Remove();
-        Field<int>(manager, kOnlineState) = -1;
-        LogicTasks()->AddTask(Field<TaskList::SchedulerTask*>(manager, kConnectTask));
+        task->DropOut();
+        Prop<int>(manager, kOnlineState) = -1;
+        LogicTasks()->QueueJob(Prop<TaskList::SchedulerTask*>(manager, kConnectTask));
         manager->SetServiceState(2);
-        NetLink::Manager::Instance()->DisconnectFromInternet();
+        NetLink::Hub::Sole()->DisconnectFromInternet();
         break;
     case 2:
         net->SetDialupStatus(6);
         break;
     case 5:
-        task->Remove();
-        Run(Field<uint32_t>(manager, kOfflineScript));
+        task->DropOut();
+        Run(Prop<uint32_t>(manager, kOfflineScript));
         break;
     case 9:
-        task->Remove();
+        task->DropOut();
         break;
     default:
         break;
@@ -373,7 +373,7 @@ uint32_t g_askedFor;
 bool g_joinServerIPSucceeded;
 
 // 0x00536490
-void Manager::FindServerAt(uint32_t ip)
+void Hub::FindServerAt(uint32_t ip)
 {
     StopServerList(); // (the server lists cleared)
     EmptyServerListing();
@@ -395,7 +395,7 @@ void Manager::FindServerAt(uint32_t ip)
 }
 
 // 0x00536640
-void __cdecl Manager::ServiceGameSpy()
+void __cdecl Hub::ServiceGameSpy()
 {
     GameSpy::CdKeyThink();
     if (g_netEnabled && g_gameNetManager->InNetGame() &&
@@ -404,19 +404,19 @@ void __cdecl Manager::ServiceGameSpy()
 }
 
 // 0x00536A40
-const char* Manager::GetGameTypeName()
+const char* Hub::GetGameTypeName()
 {
-    Scripts::CArray* modes = Scripts::GetArray(kModeInfo);
+    Scripts::CArray* modes = Scripts::FetchList(kModeInfo);
     // (the original's locals, reused: a missing checksum compares the last value read - uninitialised at first)
     uint32_t type = 0;
     uint32_t mode = 0;
-    for (int i = 0; i < static_cast<int>(modes->m_size); ++i) {
-        auto* entry = reinterpret_cast<Scripts::CStruct*>(modes->GetElement(i));
-        GetGamePreferences()->GetPreference(kGameType)->ReadHashValue(kChecksum, &type, 1);
+    for (int i = 0; i < static_cast<int>(modes->m_extent); ++i) {
+        auto* entry = reinterpret_cast<Scripts::CStruct*>(modes->FetchPart(i));
+        GetGamePreferences()->FetchSetting(kGameType)->ReadHashValue(kChecksum, &type, 1);
         entry->ReadHashValue(kChecksum, &mode, 0);
         if (type == mode) {
             const char* name = reinterpret_cast<const char*>(type);
-            entry->GetString(kName, &name, 1);
+            entry->FetchText(kName, &name, 1);
             return name;
         }
     }
@@ -424,7 +424,7 @@ const char* Manager::GetGameTypeName()
 }
 
 // 0x00536B90
-void Manager::SetLevel(uint32_t level)
+void Hub::ChangeArena(uint32_t level)
 {
     m_level = level;
     void* peer = static_cast<RoomManager*>(m_lobbyMan)->GetLobbyHandle();

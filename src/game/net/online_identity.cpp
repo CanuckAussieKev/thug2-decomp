@@ -62,8 +62,8 @@ char s_nameSetting[64];
 // OnlineGameName, or the game's own (an invalid one too: SetUpOnlineIdentity reports it); never freed.
 const char* ReadGameName()
 {
-    BuildInfo::Init(); // (WinMain needs the name before the PC set-up has read the settings)
-    BuildInfo::GetString(BuildInfo::kMiscellaneous, "OnlineGameName", "", s_nameSetting, sizeof(s_nameSetting));
+    BuildInfo::PrepareAll(); // (WinMain needs the name before the PC set-up has read the settings)
+    BuildInfo::FetchText(BuildInfo::kMiscellaneous, "OnlineGameName", "", s_nameSetting, sizeof(s_nameSetting));
     return s_nameSetting[0] != '\0' && ValidName(s_nameSetting) ? s_nameSetting : kOwnName;
 }
 
@@ -72,8 +72,8 @@ char s_keySetting[64];
 // OnlineGameKey, or the game's own (an invalid one too); never freed.
 const char* ReadGameKey()
 {
-    BuildInfo::Init();
-    BuildInfo::GetString(BuildInfo::kMiscellaneous, "OnlineGameKey", "", s_keySetting, sizeof(s_keySetting));
+    BuildInfo::PrepareAll();
+    BuildInfo::FetchText(BuildInfo::kMiscellaneous, "OnlineGameKey", "", s_keySetting, sizeof(s_keySetting));
     return s_keySetting[0] != '\0' && ValidKey(s_keySetting) ? s_keySetting : kOwnKey;
 }
 
@@ -96,20 +96,20 @@ void SetUpOnlineIdentity()
 {
     const char* name = GameName();
     if (s_nameSetting[0] != '\0' && name != s_nameSetting)
-        DebugLog::Printf(DebugLog::Level::kWarn, "OnlineGameName \"%s\" ignored (1-31 letters or digits)\n",
+        DebugLog::Printf(DebugLog::StageMap::kWarn, "OnlineGameName \"%s\" ignored (1-31 letters or digits)\n",
                          s_nameSetting);
     char key[64];
-    BuildInfo::GetString(BuildInfo::kMiscellaneous, "OnlineGameKey", "", key, sizeof(key));
+    BuildInfo::FetchText(BuildInfo::kMiscellaneous, "OnlineGameKey", "", key, sizeof(key));
     const char* useKey = nullptr;
     if (key[0] != '\0') {
         if (ValidKey(key))
             useKey = key;
         else
-            DebugLog::Printf(DebugLog::Level::kWarn, "OnlineGameKey \"%s\" ignored (6 characters)\n", key);
+            DebugLog::Printf(DebugLog::StageMap::kWarn, "OnlineGameKey \"%s\" ignored (6 characters)\n", key);
     }
     if (useKey && std::strcmp(useKey, kOwnKey) == 0)
         useKey = nullptr;
-    DebugLog::Printf(DebugLog::Level::kInfo, "ONLINE IDENTITY: game name %s%s, key %s\n", name,
+    DebugLog::Printf(DebugLog::StageMap::kInfo, "ONLINE IDENTITY: game name %s%s, key %s\n", name,
                      std::strcmp(name, kOwnName) == 0 ? "" : " (OnlineGameName)",
                      useKey ? "OnlineGameKey" : "the game's own");
 }

@@ -54,7 +54,7 @@ void MakeFaceTexture(CRiderIdentity* p) { reinterpret_cast<Gfx2D::CModelLook*>(p
 Scripts::CStruct* NewEmptyStruct()
 {
     Scripts::CStruct* memory = Scripts::NewStruct();
-    return memory ? memory->Init() : nullptr;
+    return memory ? memory->PrepareAll() : nullptr;
 }
 void FreeStruct(Scripts::CStruct* s)
 {
@@ -74,9 +74,9 @@ uint8_t* ReadStruct(Scripts::CStruct* s, uint8_t* buffer)
     return const_cast<uint8_t*>(Scripts::DecodeFromBytes(s, buffer));
 }
 
-void PushSkaterInfoHeap() { MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_skaterInfoHeap); }
-void PushScriptHeap() { MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap); }
-void PopHeap() { MemSys::Manager::Get()->LeaveHeapScope(); }
+void PushSkaterInfoHeap() { MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_skaterInfoHeap); }
+void PushScriptHeap() { MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap); }
+void PopHeap() { MemSys::Hub::Pull()->LeaveHeapScope(); }
 
 } // namespace
 
@@ -109,7 +109,7 @@ void CRiderIdentity::ReadFromSave(uint32_t name, Scripts::CStruct* save)
 }
 
 // 0x00585FB0 / 0x00585FD0
-int CRiderIdentity::GetStat(uint32_t name)
+int CRiderIdentity::FetchTally(uint32_t name)
 {
     int value;
     InfoStructure()->FetchIntValue(name, &value, 1);
@@ -177,7 +177,7 @@ Scripts::CStruct* CRiderIdentity::GetSpecials()
 }
 
 // 0x00586150 / 0x00586170
-uint32_t CRiderIdentity::GetName()
+uint32_t CRiderIdentity::FetchTitle()
 {
     uint32_t name;
     InfoStructure()->ReadHashValue(kName, &name, 1);
@@ -201,16 +201,16 @@ void CRiderIdentity::SetValue09F350E5(uint8_t value)
 const char* CRiderIdentity::GetStringF36C1878()
 {
     const char* text = "Unimplemented";
-    InfoStructure()->GetString(0xF36C1878, &text, 0);
+    InfoStructure()->FetchText(0xF36C1878, &text, 0);
     return text;
 }
-void CRiderIdentity::SetStringF36C1878(const char* text) { InfoStructure()->AddString(0xF36C1878, text); }
+void CRiderIdentity::SetStringF36C1878(const char* text) { InfoStructure()->AppendWord(0xF36C1878, text); }
 
 // 0x00586210
-const char* CRiderIdentity::GetDisplayName()
+const char* CRiderIdentity::FetchShownName()
 {
     const char* name;
-    InfoStructure()->GetString(kDisplayName, &name, 1);
+    InfoStructure()->FetchText(kDisplayName, &name, 1);
     return name;
 }
 
@@ -218,18 +218,18 @@ const char* CRiderIdentity::GetDisplayName()
 CRiderIdentity::SpecialTrick* CRiderIdentity::GetSpecialTrick(SpecialTrick* out, int index)
 {
     SpecialTrick trick;
-    trick.Construct();
+    trick.MakeNew();
     Scripts::CStruct* specials;
     InfoStructure()->ReadSubStruct(kSpecials, &specials, 1);
     Scripts::CArray* slots;
-    specials->GetArray(0u, &slots, 1);
-    if (index < 0 || index >= static_cast<int>(slots->m_size)) {
+    specials->FetchList(0u, &slots, 1);
+    if (index < 0 || index >= static_cast<int>(slots->m_extent)) {
         // (asserts, compiled out)
         // (0x005480A0, an empty function, given the info structure and the specials)
         Stubs::DoNothing();
         Stubs::DoNothing();
     }
-    auto* slot = reinterpret_cast<Scripts::CStruct*>(slots->GetElement(static_cast<uint32_t>(index)));
+    auto* slot = reinterpret_cast<Scripts::CStruct*>(slots->FetchPart(static_cast<uint32_t>(index)));
     slot->ReadHashValue(kTrickSlot, &trick.trick, 1);
     slot->ReadHashValue(kTrickKeys, &trick.keys, 1);
     int flag = 0;
@@ -246,57 +246,57 @@ bool CRiderIdentity::SetSpecialTrick(int index, SpecialTrick* trick, bool apply)
     Scripts::CStruct* specials;
     InfoStructure()->ReadSubStruct(kSpecials, &specials, 1);
     Scripts::CArray* slots;
-    specials->GetArray(0u, &slots, 1);
-    if (index < 0 || index >= static_cast<int>(slots->m_size))
+    specials->FetchList(0u, &slots, 1);
+    if (index < 0 || index >= static_cast<int>(slots->m_extent))
         return false;
     uint32_t name = trick->trick, keys = trick->keys;
-    if (trick->IsEmpty())
+    if (trick->IsVacant())
         name = keys = kEmptyTrick;
-    auto* slot = reinterpret_cast<Scripts::CStruct*>(slots->GetElement(static_cast<uint32_t>(index)));
+    auto* slot = reinterpret_cast<Scripts::CStruct*>(slots->FetchPart(static_cast<uint32_t>(index)));
     slot->AddComponentOfType(kTrickSlot, Scripts::QBVAL_NAME, name);
     slot->AddComponentOfType(kTrickKeys, Scripts::QBVAL_NAME, keys);
     if (trick->flag)
         slot->PutInt(kTrickFlag, 1);
     else
-        slot->RemoveComponent(kTrickFlag);
+        slot->EraseModule(kTrickFlag);
     if (apply) {
         // The current skater's trick state told.
-        auto* skater = reinterpret_cast<CGameEntity*>(GameModules::Skate::Instance()->GetHomeRider());
+        auto* skater = reinterpret_cast<CGameEntity*>(GameModules::Skate::Sole()->GetHomeRider());
         if (skater)
-            static_cast<CMoveExecutor*>(skater->GetComponent(0x270F56E1))->SetTrickMappings(this);
+            static_cast<CMoveExecutor*>(skater->FetchModule(0x270F56E1))->SetTrickMappings(this);
     }
     return true;
 }
 
 // 0x00587100 / 0x00587110
-CRiderIdentity::SpecialTrick* CRiderIdentity::SpecialTrick::Construct()
+CRiderIdentity::SpecialTrick* CRiderIdentity::SpecialTrick::MakeNew()
 {
     flag = false;
     return this;
 }
-bool CRiderIdentity::SpecialTrick::IsEmpty() { return trick == kEmptyTrick; }
+bool CRiderIdentity::SpecialTrick::IsVacant() { return trick == kEmptyTrick; }
 
 // 0x00587120
-ChecksumSet* ChecksumSet::Construct()
+ChecksumSet* ChecksumSet::MakeNew()
 {
-    m_count = 0;
+    m_num = 0;
     return this;
 }
 
 // 0x00587130
 void ChecksumSet::Fill()
 {
-    m_count = 0;
-    Scripts::CArray* array = Scripts::GetArray(0x5004A967);
-    for (uint32_t i = 0; i < array->m_size; ++i) {
-        uint32_t item = array->GetElement(i);
+    m_num = 0;
+    Scripts::CArray* array = Scripts::FetchList(0x5004A967);
+    for (uint32_t i = 0; i < array->m_extent; ++i) {
+        uint32_t item = array->FetchPart(i);
         int j = 0;
-        for (; j < m_count; ++j) {
+        for (; j < m_num; ++j) {
             if (item == m_items[j])
                 break;
         }
-        if (j == m_count) // (not there yet)
-            m_items[m_count++] = item;
+        if (j == m_num) // (not there yet)
+            m_items[m_num++] = item;
     }
 }
 
@@ -319,8 +319,8 @@ bool CRiderIdentity::SetFromParams(Scripts::CStruct* params, bool info, bool spe
         params->ReadHashValue(kAppearanceName, &appearance, 1);
         LoadAppearance(this, appearance, true);
         for (uint32_t name : {kDisplayName, 0x562E3ECDu, 0x2820E997u, 0x6C375B95u}) {
-            params->GetString(name, &text, 1);
-            mine->AddString(name, text);
+            params->FetchText(name, &text, 1);
+            mine->AppendWord(name, text);
         }
         for (uint32_t name : {kIsPro, 0x3F813177u, 0x09F350E5u, 0x4564BAB1u, 0x27EB9B9Du, 0x5ECFEF4Du}) {
             params->FetchIntValue(name, reinterpret_cast<int*>(&number), name != 0x27EB9B9D);
@@ -359,9 +359,9 @@ bool CRiderIdentity::SetFromParams(Scripts::CStruct* params, bool info, bool spe
     reinterpret_cast<Scripts::CStruct*>(number)->Clear();
     reinterpret_cast<Scripts::CStruct*>(number)->AppendStructureIfAny(style);
     // Every stat in the global list.
-    Scripts::CArray* stats = Scripts::GetArray(kStatList);
-    for (uint32_t i = 0; i < stats->m_size; ++i) {
-        reinterpret_cast<Scripts::CStruct*>(stats->GetElement(i))->ReadHashValue(kName, &statName, 1);
+    Scripts::CArray* stats = Scripts::FetchList(kStatList);
+    for (uint32_t i = 0; i < stats->m_extent; ++i) {
+        reinterpret_cast<Scripts::CStruct*>(stats->FetchPart(i))->ReadHashValue(kName, &statName, 1);
         params->FetchIntValue(statName, &stat, 1);
         mine->PutInt(statName, stat);
     }
@@ -380,9 +380,9 @@ bool CRiderIdentity::Reset(Scripts::CStruct* params)
     Scripts::CStruct* mine = InfoStructure();
     mine->Clear();
     Scripts::CStruct* memory = Scripts::NewStruct();
-    mine->AddComponentOfType(kTrickStyle, kOwnedStructure, reinterpret_cast<uint32_t>(memory ? memory->Init() : nullptr));
+    mine->AddComponentOfType(kTrickStyle, kOwnedStructure, reinterpret_cast<uint32_t>(memory ? memory->PrepareAll() : nullptr));
     memory = Scripts::NewStruct();
-    mine->AddComponentOfType(kSpecials, kOwnedStructure, reinterpret_cast<uint32_t>(memory ? memory->Init() : nullptr));
+    mine->AddComponentOfType(kSpecials, kOwnedStructure, reinterpret_cast<uint32_t>(memory ? memory->PrepareAll() : nullptr));
     PopHeap();
     if (!params)
         return true;
@@ -409,7 +409,7 @@ bool CRiderIdentity::Reset(Scripts::CStruct* params)
     mine->ReadHashValue(kName, &name, 1);
     if (name != kCustomSkater) {
         const char* unused; // (read, unused)
-        mine->GetString(0x37F745A5, &unused, 1);
+        mine->FetchText(0x37F745A5, &unused, 1);
     }
     return true;
 }
@@ -427,7 +427,7 @@ void CRiderIdentity::WriteToSave(Scripts::CStruct* save)
         mine->AddComponentOfType(kAppearance, kOwnedStructure, reinterpret_cast<uint32_t>(appearance));
     }
     void* face = *reinterpret_cast<void**>(m_lookData + 0x54); // (the appearance's face: 0x00576E60, a folded getter)
-    if (face && static_cast<Gfx2D::CFaceSkin*>(face)->IsValid()) {
+    if (face && static_cast<Gfx2D::CFaceSkin*>(face)->IsSound()) {
         Scripts::CStruct* texture = NewEmptyStruct();
         static_cast<Gfx2D::CFaceSkin*>(face)->SaveToStructure(texture);
         mine->AddComponentOfType(0xF0D3BC94, kOwnedStructure, reinterpret_cast<uint32_t>(texture));
@@ -442,10 +442,10 @@ void CRiderIdentity::WriteToSave(Scripts::CStruct* save)
 }
 
 // 0x00586D60
-CRiderIdentity* CRiderIdentity::Construct()
+CRiderIdentity* CRiderIdentity::MakeNew()
 {
-    reinterpret_cast<Gfx2D::CModelLook*>(this)->Construct(); // the appearance
-    InfoStructure()->Init();
+    reinterpret_cast<Gfx2D::CModelLook*>(this)->MakeNew(); // the appearance
+    InfoStructure()->PrepareAll();
     Reset(nullptr);
     return this;
 }
@@ -516,7 +516,7 @@ int CRiderIdentity::WriteInfoToBuffer(uint8_t* buffer, int size)
         case 0x130618A0:
         case 0x2820E997:
         case 0x562E3ECD:
-            sent->AddString(c->name, Scripts::QBVAL_STRING, c->string);
+            sent->AppendWord(c->name, Scripts::QBVAL_STRING, c->string);
             break;
         case kStance:
         case kPushStyle:

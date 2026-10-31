@@ -28,7 +28,7 @@ namespace {
 OcclusionPoly* Polys() { return g_occlusionPolys; }
 uint32_t& PolyCount() { return g_occlusionPolyCount; }
 uint32_t& NextPoly() { return g_occlusionNextPoly; } // where AddOccluders carries on
-int& Frame() { return g_occlusionFrame; }
+int& TickCycle() { return g_occlusionFrame; }
 Occluder* OccluderArray() { return g_occluders; }
 uint32_t& OccluderCount() { return g_occluderCount; }
 constexpr uint32_t kMaxOccluders = 8;
@@ -46,7 +46,7 @@ float SideSin() { return g_viewShape.cosX; }
 float VerticalSin() { return g_viewShape.cosY; }
 
 // D3DXVec3Transform (linked library code; stdcall): (x, y, z, 1) x matrix.
-void Transform(float* out, const float* point, const void* matrix)
+void Xform(float* out, const float* point, const void* matrix)
 {
     D3dx::Vec3Transform(out, point, matrix);
 }
@@ -150,7 +150,7 @@ void __cdecl SortOccluders()
             occluder.poly->inUse = 0;
             --OccluderCount();
         } else {
-            occluder.hidden[Frame()] = 0;
+            occluder.hidden[TickCycle()] = 0;
         }
     }
 }
@@ -204,14 +204,14 @@ void __cdecl AddOccluders()
 }
 
 // 0x004D8D70
-void __cdecl InsertOccluderPoly(const Maths::Vector* p0, const Maths::Vector* p1, const Maths::Vector* p2,
-                              const Maths::Vector* p3, uint32_t checksum)
+void __cdecl InsertOccluderPoly(const Maths::Vec4* p0, const Maths::Vec4* p1, const Maths::Vec4* p2,
+                              const Maths::Vec4* p3, uint32_t checksum)
 {
     OcclusionPoly& poly = Polys()[PolyCount()];
     poly.inUse = 0;
     poly.enabled = 1;
     poly.checksum = checksum;
-    const Maths::Vector* corners[4] = {p0, p1, p2, p3};
+    const Maths::Vec4* corners[4] = {p0, p1, p2, p3};
     for (int i = 0; i < 4; ++i) {
         poly.corners[i][0] = corners[i]->x;
         poly.corners[i][1] = corners[i]->y;
@@ -229,14 +229,14 @@ void __cdecl InsertOccluderPoly(const Maths::Vector* p0, const Maths::Vector* p1
     poly.normal[1] = static_cast<float>(b2 * a0 - static_cast<double>(a2) * b0);
     poly.normal[2] = static_cast<float>(static_cast<double>(b0) * a1 - b1 * a0);
     poly.normal[3] = 0.0f;
-    reinterpret_cast<Maths::Vector*>(poly.normal)->Normalize();
+    reinterpret_cast<Maths::Vec4*>(poly.normal)->MakeUnit();
     ++PolyCount();
 }
 
 // 0x004D8ED0
-void __cdecl CollectOccluders(const Maths::Vector* eye, int frame)
+void __cdecl CollectOccluders(const Maths::Vec4* eye, int frame)
 {
-    Frame() = frame;
+    TickCycle() = frame;
     SortOccluders();
     AddOccluders();
     const float* e = &eye->x;
@@ -276,7 +276,7 @@ bool& OcclusionOff()
 }
 
 // 0x004D9AC0
-bool __cdecl SphereOccluded(const Maths::Vector* centre, float radius, int weight)
+bool __cdecl SphereOccluded(const Maths::Vec4* centre, float radius, int weight)
 {
     if (OcclusionOff()) // (NOT ORIGINAL: the level editor's switch)
         return false;
@@ -297,7 +297,7 @@ bool __cdecl SphereOccluded(const Maths::Vector* centre, float radius, int weigh
                 break;
         }
         if (plane == 5) {
-            occluder.hidden[Frame()] += weight;
+            occluder.hidden[TickCycle()] += weight;
             return true;
         }
     }
@@ -305,15 +305,15 @@ bool __cdecl SphereOccluded(const Maths::Vector* centre, float radius, int weigh
 }
 
 // 0x004DB570
-int __cdecl SphereOutsideView(const Maths::Vector* centre, float radius)
+int __cdecl SphereOutsideView(const Maths::Vec4* centre, float radius)
 {
     float view[4];
-    Transform(view, &centre->x, ViewMatrix());
+    Xform(view, &centre->x, ViewMatrix());
     return InsideFrustum(view, radius) ? 0 : 1;
 }
 
 // 0x004DB790
-bool __cdecl SphereInView(const Maths::Vector* centre, float radius)
+bool __cdecl SphereInView(const Maths::Vec4* centre, float radius)
 {
     float moved[4];
     const float* point = &centre->x;
@@ -324,7 +324,7 @@ bool __cdecl SphereInView(const Maths::Vector* centre, float radius)
         point = moved;
     }
     float view[4];
-    Transform(view, point, ViewMatrix());
+    Xform(view, point, ViewMatrix());
     g_lastSphereDistance = static_cast<float>(-static_cast<double>(view[2]) - radius);
     return InsideFrustum(view, radius);
 }
@@ -346,7 +346,7 @@ bool __cdecl BeyondClipDistance(const void* bounds)
         point = moved;
     }
     float view[4];
-    Transform(view, point, ViewMatrix());
+    Xform(view, point, ViewMatrix());
     double distance = std::sqrt((static_cast<double>(view[2]) * view[2] + static_cast<double>(view[1]) * view[1]) +
                                 static_cast<double>(view[0]) * view[0]);
     return distance - radius > FarClip();

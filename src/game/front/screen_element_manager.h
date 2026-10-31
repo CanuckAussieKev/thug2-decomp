@@ -45,42 +45,42 @@ public:
     static_assert(sizeof(PriorityEntry) == 0x18, "layout must match the original");
     enum { kFocusEntries = 0x30, kPriorities = 10, kMaxPadEventTypes = 0x30 };
 
-    static CUiTree*& Instance() { return g_screenElementManager; }
+    static CUiTree*& Sole() { return g_screenElementManager; }
 
     // 0x004AB990: the constructor (returns this): vtables 0x0064A0E8 / 0x0064A104 (the listener), no root, the
     // listener on the tracker's list for no object, no focus, no priorities, no pad event types read yet.
-    CUiTree* Construct();
+    CUiTree* MakeNew();
     // 0x004ABB00: the destructor body (the entries' smart pointers, the root, the listener, the object list).
     void DestroyBody();
     // 0x004ACB40 (vtable slot 0): the scalar deleting destructor. 0x004ABAF0: the same from the listener.
-    CUiTree* Destroy(uint8_t flags);
+    CUiTree* Teardown(uint8_t flags);
 
     // --- the vtable (0x0064A0E8: CObjectHubBase's with 0, 2 and 6 overridden; 0x004AAD30 slot 1 jumps to
-    //     RegisterObject 0x00461A00) ---
+    //     EnrolSubject 0x00461A00) ---
     // 0x004AAFF0 (slot 2): the root unregistered: the first element without a parent becomes the root.
-    void DropEntityRegistration(GameObjects::CObject* object);
+    void DropEntityRegistration(GameObjects::CEntity* object);
     // 0x004AAD40 (slot 6): the object list's head.
     GameObjects::CObjectListHead* FetchObjectSet();
 
     // --- elements ---
     // 0x004AAE20: the object with the id (any object: the tracker's lookup) as a smart pointer into `out`;
     // `this` and `assert` aren't used.
-    ElementPtr* GetElement(ElementPtr* out, uint32_t id, int assert);
+    ElementPtr* FetchPart(ElementPtr* out, uint32_t id, int assert);
     // 0x004ACB70 (screen_element_cfuncs.cpp): a new element of `type` (none for an unknown type) on the heap
     // `params` names (none given: the front end's; Default: the current one), with the id, registered, its
     // properties and morph from `params`, a pad-event priority if given; into `out`.
-    ElementPtr* CreateElement(ElementPtr* out, uint32_t type, uint32_t id, Scripts::CStruct* params);
+    ElementPtr* SpawnPart(ElementPtr* out, uint32_t type, uint32_t id, Scripts::CStruct* params);
     // 0x004AB730: the root (the element `id`).
-    void SetRoot(uint32_t id);
-    // 0x004ABBE0: `child` under `parent` (CUiWidget::SetParent; the third argument is passed on): a root
+    void ChangeRoot(uint32_t id);
+    // 0x004ABBE0: `child` under `parent` (CUiWidget::ChangeOwner; the third argument is passed on): a root
     // that was the child (or none) becomes the new parent's topmost ancestor; the child's focus entries go.
-    void SetParent(ElementPtr* parent, ElementPtr* child, int unused);
+    void ChangeOwner(ElementPtr* parent, ElementPtr* child, int unused);
     // 0x004AC400: `element`'s children destroyed (depth first), then - unless `keep` - the element itself: the
     // script forgets it, out of the tree, unregistered, deleted. Its focus flag is cleared first.
     void DestroyTree(int keep, ElementPtr* element, Scripts::CScript* script);
     // 0x004AD100: the element `id` (asserting) destroyed: with `recurse` its tree (DestroyTree, its parent's focus
     // flag cleared first); else just the element (out of the tree, unregistered, deleted).
-    void DestroyElement(uint32_t id, int recurse, int keep, Scripts::CScript* script);
+    void DismantlePart(uint32_t id, int recurse, int keep, Scripts::CScript* script);
     // 0x004AB130: the child of `parent` with the tag_local_id `localId` (null: none) into `out`.
     ElementPtr* FindByLocalId(ElementPtr* out, const ElementPtr* parent, uint32_t localId);
     // 0x004AC120: an element id from `params`' `name`: a structure (an unnamed id or index - an index of the
@@ -92,7 +92,7 @@ public:
 
     // --- each frame ---
     // 0x004ABD00: the tree locked, laid out, unlocked; the priorities checked.
-    void Update();
+    void TickFrame();
     // 0x004AAF90: every element's use count up (1) or down.
     void LockTree(int lock);
     // 0x004AAEE0: every element paused or not (the front end's pause).

@@ -8,7 +8,7 @@ namespace GameModules {
 
 Skate* g_skateModule;
 
-Skate* Skate::Instance() { return g_skateModule; }
+Skate* Skate::Sole() { return g_skateModule; }
 
 // 0x0041AD90
 int Skate::CountRiders()

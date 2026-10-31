@@ -16,30 +16,30 @@ class CHitMesh;
 // most) so a dying object can be taken out of all of them.
 class CHitMeshCache {
 public:
-    struct Entry {
+    struct TableRow {
         CHitMesh* object;
         void* geometry;
     };
 
     // 0x0040AB50: an empty box, no objects; registered (returns this).
-    CHitMeshCache* Construct();
+    CHitMeshCache* MakeNew();
     // 0x0040AB40: unregistered.
     void Destruct();
     // 0x0040ABA0: refilled for `box`: the box kept if any collision grid lists cover it, and the objects of those
     // lists and the movable ones (neither flag 2 nor 4) whose boxes touch it grown by 0.5.
-    void Update(const Maths::BBox& box);
+    void TickFrame(const Maths::BBox& box);
     // 0x0040A910: `object` out of the static ones (the rest shifted down).
     void RemoveStatic(CHitMesh* object);
     // 0x0040A990: `object` out of the movable ones (the last entry moved into its place).
     void RemoveMovable(CHitMesh* object);
 
     Maths::BBox m_box;            // +0x000
-    Entry m_entries[500];       // +0x020
-    int m_count;                // +0xFC0
+    TableRow m_entries[500];       // +0x020
+    int m_num;                // +0xFC0
     int m_statics;              // +0xFC4
     int m_movables;             // +0xFC8
 };
-static_assert(sizeof(CHitMeshCache) == 0xFCC && offsetof(CHitMeshCache, m_count) == 0xFC0, "layout must match the original");
+static_assert(sizeof(CHitMeshCache) == 0xFCC && offsetof(CHitMeshCache, m_num) == 0xFC0, "layout must match the original");
 
 // The registered caches (0x006918EC, in use: the bits of 0x0069190C). 0x0040AA00 / 0x0040AA40: one registered (no
 // room: ignored) / unregistered. 0x0040AA80: `object` out of every cache's movable ones; 0x0040AAC0: out of both.

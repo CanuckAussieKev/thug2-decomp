@@ -30,7 +30,7 @@ IDirect3DSurface9* s_sceneDepth = nullptr;
 IDirect3DTexture9* s_drawnFor = nullptr;
 bool s_unresolved = false;
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 D3DPRESENT_PARAMETERS& PresentParameters() { return g_presentParameters; }
 IDirect3DTexture9* ScreenCopy(int index) { return g_screenTextures[index]; }
 
@@ -74,16 +74,16 @@ bool InUse() { return s_samples > 0 && s_sceneColour && s_sceneDepth; }
 
 } // namespace
 
-Options& Get() { return s_options; }
+Options& Pull() { return s_options; }
 
-void Load()
+void ReadIn()
 {
     s_options.anisotropy = ParseAnisotropy(BuildInfo::GetInt(BuildInfo::kGraphics, "anisotropy", 0));
     s_options.msaa = ParseMultisample(BuildInfo::GetInt(BuildInfo::kGraphics, "msaa", 0));
     char text[32];
-    BuildInfo::GetString(BuildInfo::kGraphics, "draw_distance_scale", "1", text, sizeof(text));
+    BuildInfo::FetchText(BuildInfo::kGraphics, "draw_distance_scale", "1", text, sizeof(text));
     s_options.drawDistanceScale = ParseScale(text);
-    BuildInfo::GetString(BuildInfo::kGraphics, "lod_distance_scale", "1", text, sizeof(text));
+    BuildInfo::FetchText(BuildInfo::kGraphics, "lod_distance_scale", "1", text, sizeof(text));
     s_options.lodDistanceScale = ParseScale(text);
     if (s_options.anisotropy || s_options.msaa || s_options.drawDistanceScale != 1.0f ||
         s_options.lodDistanceScale != 1.0f)
@@ -158,7 +158,7 @@ void CreateSceneTarget()
     const D3DPRESENT_PARAMETERS& pp = PresentParameters();
     if (s_samples <= 0 || pp.MultiSampleType == D3DMULTISAMPLE_NONE)
         return; // (the device was made without: the fallbacks in InitDirect3D)
-    IDirect3DDevice9* device = Device();
+    IDirect3DDevice9* device = InputPort();
     HRESULT colour = device->CreateRenderTarget(pp.BackBufferWidth, pp.BackBufferHeight, pp.BackBufferFormat,
                                                 pp.MultiSampleType, pp.MultiSampleQuality, FALSE, &s_sceneColour,
                                                 nullptr);
@@ -184,8 +184,8 @@ bool SetSceneTarget(IDirect3DTexture9* texture)
 {
     if (!InUse() || !texture || (texture != ScreenCopy(0) && texture != ScreenCopy(1)))
         return false;
-    Device()->SetRenderTarget(0, s_sceneColour);
-    Device()->SetDepthStencilSurface(s_sceneDepth);
+    InputPort()->SetRenderTarget(0, s_sceneColour);
+    InputPort()->SetDepthStencilSurface(s_sceneDepth);
     s_drawnFor = texture;
     s_unresolved = true;
     return true;
@@ -197,7 +197,7 @@ void ResolveSceneTarget(IDirect3DTexture9* texture)
         return;
     IDirect3DSurface9* surface = nullptr;
     if (SUCCEEDED(texture->GetSurfaceLevel(0, &surface)) && surface) {
-        Device()->StretchRect(s_sceneColour, nullptr, surface, nullptr, D3DTEXF_NONE);
+        InputPort()->StretchRect(s_sceneColour, nullptr, surface, nullptr, D3DTEXF_NONE);
         surface->Release();
     }
     s_unresolved = false;

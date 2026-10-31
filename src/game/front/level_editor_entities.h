@@ -44,7 +44,7 @@ struct ImFont;
 //   - Sound emitters (EmitterObject): a sound for an emitter - one of the sounds the level has loaded (the level's wave
 //     table, 0x006F5E68) - played by this module as THUG2's own emitter sounds sound (a sound played "from" an emitter
 //     sounds from the shape's nearest point to the listener: EmitterNode::NearestPointOn, the sound's own dropoff,
-//     CAudioMixer::GetVolume), again whenever it stops (a loop keeps going; a one-shot repeats) while the listener is
+//     CAudioMixer::FetchLoudness), again whenever it stops (a loop keeps going; a one-shot repeats) while the listener is
 //     in range, volume in percent; a sphere emitter's radius set (its node's Radius and the emitter manager's copy).
 //     The Place palette's "Sound emitter: <sound>" entries add an emitter (level_editor_node_create.h) with that sound.
 //     `emitter` records. Silent while the game is paused (the editor).
@@ -100,7 +100,7 @@ V3 TurnBoxExtents(V3 extents, float turn);
 std::string TypeKey(uint32_t cls, uint32_t type, uint32_t profile, const std::string& model);
 
 // What the layout keeps.
-struct Speed {
+struct Pace {
     uint32_t name = 0;
     float mph = 0.0f;
 };
@@ -111,13 +111,13 @@ struct EmitterSound {
     float radius = 0.0f;    // a sphere's radius (0: the node's own)
 };
 struct State {
-    std::vector<Speed> speeds;
+    std::vector<Pace> speeds;
     std::vector<EmitterSound> emitters;
 };
 bool SameState(const State& a, const State& b);
-bool Empty(const State& state);
+bool Vacant(const State& state);
 // The entry for `name` (null: none).
-const Speed* SpeedOf(const State& state, uint32_t name);
+const Pace* SpeedOf(const State& state, uint32_t name);
 const EmitterSound* EmitterOf(const State& state, uint32_t name);
 // Set (replaced) / taken out (mph 0, an emitter with no sound and no radius: taken out).
 void SetSpeed(State* state, uint32_t name, float mph);
@@ -135,18 +135,18 @@ bool ReadRecord(const std::string& kind, std::istringstream& in, State* state);
 // `dragging` the editor is moving something.
 void Tick(bool editorActive, uint32_t selected, bool dragging);
 // The editor started / stopped (the preview stopped).
-void Start();
-void Stop();
+void Kickoff();
+void Halt();
 
 // The state (layouts, undo).
-State Current();
+State AtHand();
 // Put in place: speeds applied to their objects, emitters' sounds and radii (those no longer named: as the level has
 // them).
-void SetState(const State& state);
+void ChangePhase(const State& state);
 // A change made from the Inspector since the last call: the state before it (the editor pushes it as one undo step).
 bool TakeUndo(State* before);
 
-// A node the node edits moved or turned (NodeEdit::Set): a particle system's emitter places and boxes moved and turned
+// A node the node edits moved or turned (NodeEdit::AssignValue): a particle system's emitter places and boxes moved and turned
 // with it (TurnParticle, from the node as the level - or the copy - had it), the system made again.
 void NodeMoved(uint32_t name, V3 pos, V3 angles);
 // Whether the node edits move this node: a particle node, an object node the level hasn't made (a ghost).
@@ -188,8 +188,8 @@ void AttachSound(uint32_t emitter, uint32_t sound);
 // The view: objects the level hasn't made shown as ghosts (the Inspector's View: "Show uncreated objects").
 bool& ShowUncreated();
 // The ghosts and the previewed path drawn over the view (back buffer pixels).
-void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                std::vector<Ui::Line>* lines, std::vector<Ui::Overlay::Text>* texts);
+void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
+                std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Text>* texts);
 
 // The UI (level_editor_entities_ui.cpp, ImGui): the Inspector's sections for the selected node (`node`: Nodes::All()
 // index, -1 none) and object (`object`: its id, 0 none) - model, physics, moving, sound, particle; field edits go to

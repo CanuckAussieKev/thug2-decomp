@@ -89,12 +89,12 @@ bool __cdecl CFunc_RemoveStream(CStruct* params, CScript*)
     return AudioStream::RemoveStream(stream, entry, nullptr);
 }
 
-// 0x0044D220: StopStream [<id or name>]: that stream stopped, or every stream. Always true.
+// 0x0044D220: HaltStream [<id or name>]: that stream stopped, or every stream. Always true.
 bool __cdecl CFunc_StopStream(CStruct* params, CScript*)
 {
     uint32_t stream = 0; // (uninitialised in the original: only read when found)
     if (params->ReadHashValue(0u, &stream, 0))
-        AudioStream::StopStream(stream);
+        AudioStream::HaltStream(stream);
     else
         AudioStream::HaltStreams(-1);
     return true;
@@ -119,7 +119,7 @@ bool __cdecl CFunc_PlayTrack(CStruct* params, CScript*)
     int track = 999;
     int loop = 0;
     char path[0x28];
-    if (!params->GetString(0u, &name, 0)) {
+    if (!params->FetchText(0u, &name, 0)) {
         params->FetchIntValue(0u, &track, 0);
         name = AudioStream::TrackLabelAt(track, 0);
         Sprintf(path, "MUSIC\\VAG\\SONGS\\%s", name); // "MUSIC\VAG\SONGS\%s"
@@ -142,7 +142,7 @@ bool __cdecl CFunc_PlayMusicStream(CStruct* params, CScript*)
     if (!params->ReadHashValue(0u, &name, 0))
         return false;
     float volume = -1.0f;
-    params->GetFloat(kVol, &volume, 0);
+    params->FetchFloat(kVol, &volume, 0);
     AudioStream::PlayMusicStream(name, volume);
     return true;
 }
@@ -169,7 +169,7 @@ bool __cdecl CFunc_FreeStreamFrameAmp(CStruct* params, CScript*)
 bool __cdecl CFunc_SetMusicVolume(CStruct* params, CScript*)
 {
     float volume = 100.0f;
-    params->GetFloat(0u, &volume, 0);
+    params->FetchFloat(0u, &volume, 0);
     AudioStream::SetMusicVolume(volume);
     return true;
 }
@@ -178,7 +178,7 @@ bool __cdecl CFunc_SetMusicVolume(CStruct* params, CScript*)
 bool __cdecl CFunc_SetMusicStreamVolume(CStruct* params, CScript*)
 {
     float volume = 100.0f;
-    params->GetFloat(0u, &volume, 0);
+    params->FetchFloat(0u, &volume, 0);
     AudioStream::SetMusicStreamVolume(volume);
     return true;
 }
@@ -199,12 +199,12 @@ bool __cdecl CFunc_PauseMusic(CStruct* params, CScript*)
     return true;
 }
 
-// 0x0044D500: PauseStream [n (1)]: as PauseMusic, for the streams. Always true.
+// 0x0044D500: FreezeStream [n (1)]: as PauseMusic, for the streams. Always true.
 bool __cdecl CFunc_PauseStream(CStruct* params, CScript*)
 {
     int pause = 1;
     params->FetchIntValue(0u, &pause, 0);
-    AudioStream::PauseStream(pause);
+    AudioStream::FreezeStream(pause);
     return true;
 }
 
@@ -214,8 +214,8 @@ bool __cdecl CFunc_AddMusicTrack(CStruct* params, CScript*)
 {
     const char* name = nullptr;
     const char* title = nullptr;
-    params->GetString(0u, &name, 0);
-    params->GetString(kTrackTitle, &title, 0);
+    params->FetchText(0u, &name, 0);
+    params->FetchText(kTrackTitle, &title, 0);
     int list = params->HasBareFlag(kPlaylist0) ? 0 : 1;
     if (name)
         AudioStream::QueueTrack(name, list, title);
@@ -330,13 +330,13 @@ bool __cdecl CFunc_PlayStream(CStruct* params, CScript*)
     int option = 0;
     uint32_t id = 0;
     int lipsync = 0;
-    params->GetFloat(kVolL, &left, 0);
-    params->GetFloat(kVolR, &right, 0);
-    if (params->GetFloat(kVol, &vol, 0)) {
+    params->FetchFloat(kVolL, &left, 0);
+    params->FetchFloat(kVolR, &right, 0);
+    if (params->FetchFloat(kVol, &vol, 0)) {
         left = vol;
         right = vol;
     }
-    params->GetFloat(kPitch, &pitch, 0);
+    params->FetchFloat(kPitch, &pitch, 0);
     params->FetchIntValue(kPriority, &priority, 0);
     params->FetchIntValue(kStreamOption, &option, 0);
     params->ReadHashValue(kId, &id, 0);
@@ -344,9 +344,9 @@ bool __cdecl CFunc_PlayStream(CStruct* params, CScript*)
     if (lipsync == 1 && !AudioStream::LoadStreamFrameAmp(stream))
         return false;
     SoundFx::volumeRef volume;
-    volume.SetType(SoundFx::volumeRef::TYPE_STEREO); // (the channels as they were, the first two set below)
-    volume.m_channels[0] = left;
-    volume.m_channels[1] = right;
+    volume.ChangeSpecies(SoundFx::volumeRef::TYPE_STEREO); // (the channels as they were, the first two set below)
+    volume.m_lanes[0] = left;
+    volume.m_lanes[1] = right;
     AudioStream::PlayStream(stream, &volume, pitch, option, priority, id); // (the original pushes a seventh argument, 1)
     return true;
 }
@@ -362,9 +362,9 @@ bool __cdecl CFunc_SetStreamParams(CStruct* params, CScript*)
     float left = 0.0f;  // (uninitialised in the original: a channel not given passes on whatever was there)
     float right = 0.0f;
     float vol = 0.0f;
-    bool gotLeft = params->GetFloat(kVolL, &left, 0);
-    bool gotVolume = params->GetFloat(kVolR, &right, 0) || gotLeft;
-    if (params->GetFloat(kVol, &vol, 0)) {
+    bool gotLeft = params->FetchFloat(kVolL, &left, 0);
+    bool gotVolume = params->FetchFloat(kVolR, &right, 0) || gotLeft;
+    if (params->FetchFloat(kVol, &vol, 0)) {
         left = vol;
         right = vol;
         gotVolume = true;
@@ -372,14 +372,14 @@ bool __cdecl CFunc_SetStreamParams(CStruct* params, CScript*)
     bool ok = true;
     if (gotVolume) {
         SoundFx::volumeRef volume;
-        volume.Init();
+        volume.PrepareAll();
         volume.ChangeMuted();
-        volume.m_channels[0] = left;
-        volume.m_channels[1] = right;
+        volume.m_lanes[0] = left;
+        volume.m_lanes[1] = right;
         ok = AudioStream::ChangeStreamLoudness(stream, &volume);
     }
     float pitch = 0.0f;
-    if (params->GetFloat(kPitch, &pitch, 0))
+    if (params->FetchFloat(kPitch, &pitch, 0))
         return AudioStream::SetStreamPitch(stream, pitch) && ok;
     return ok;
 }
@@ -389,30 +389,30 @@ bool __cdecl CFunc_SetStreamParams(CStruct* params, CScript*)
 bool __cdecl CFunc_LoadMusicHeader(CStruct* params, CScript*)
 {
     const char* file = nullptr;
-    params->GetString(0u, &file, 0);
+    params->FetchText(0u, &file, 0);
     if (!file)
         return false;
-    MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_bottomUpHeap);
+    MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_bottomUpHeap);
     bool loaded = AudioStream::LoadMusicHeader(file);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     return loaded;
 }
 bool __cdecl CFunc_LoadStreamHeader(CStruct* params, CScript*)
 {
     const char* file = nullptr;
-    params->GetString(0u, &file, 0);
+    params->FetchText(0u, &file, 0);
     if (!file)
         return false;
-    MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_bottomUpHeap);
+    MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_bottomUpHeap);
     bool loaded = AudioStream::LoadStreamHeader(file);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     return loaded;
 }
 
 // 0x0044E1E0: GetCurrentTrack: the track playing as the script's current_track. Always true.
 bool __cdecl CFunc_GetCurrentTrack(CStruct*, CScript* script)
 {
-    script->m_params->PutInt(kCurrentTrack, AudioStream::GetCurrentTrack());
+    script->m_args->PutInt(kCurrentTrack, AudioStream::GetCurrentTrack());
     return true;
 }
 
@@ -424,14 +424,14 @@ bool __cdecl CFunc_StartPreLoadedStream(CStruct* params, CScript*)
     uint32_t stream = 0;
     params->ReadHashValue(kStreamId, &stream, 1);
     float level = 100.0f;
-    params->GetFloat(kVolume, &level, 0);
-    auto* volume = static_cast<SoundFx::volumeRef*>(MemSys::New(sizeof(SoundFx::volumeRef)));
+    params->FetchFloat(kVolume, &level, 0);
+    auto* volume = static_cast<SoundFx::volumeRef*>(MemSys::Alloc(sizeof(SoundFx::volumeRef)));
     if (volume)
-        volume = volume->Init();
-    volume->m_channels[0] = level;
-    volume->m_channels[1] = level;
+        volume = volume->PrepareAll();
+    volume->m_lanes[0] = level;
+    volume->m_lanes[1] = level;
     bool started = AudioStream::StartPreLoadedStream(stream, volume, 100.0f, 0);
-    MemSys::Manager::Get()->Free(volume);
+    MemSys::Hub::Pull()->Dealloc(volume);
     return started;
 }
 

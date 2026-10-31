@@ -36,9 +36,9 @@ SOverlayDraw* Draw2D(SGlyphRun* text) { return reinterpret_cast<SOverlayDraw*>(t
 } // namespace
 
 // 0x004B3BB0
-CPcFont* CPcFont::Construct()
+CPcFont* CPcFont::MakeNew()
 {
-    reinterpret_cast<CFont*>(this)->CFont::Construct();
+    reinterpret_cast<CTypeface*>(this)->CTypeface::MakeNew();
     vtable = reinterpret_cast<void**>(kPcFontVtable);
     font = nullptr;
     return this;
@@ -49,25 +49,25 @@ void CPcFont::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kPcFontVtable);
     if (font) {
-        STypeface::Unload(font);
+        STypeface::Offload(font);
         font = nullptr;
     }
-    reinterpret_cast<CFont*>(this)->CFont::DestroyBody();
+    reinterpret_cast<CTypeface*>(this)->CTypeface::DestroyBody();
 }
 
 // 0x004B4060
-CPcFont* CPcFont::Destroy(unsigned int flags)
+CPcFont* CPcFont::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004B3BD0
-bool CPcFont::Load(const char* name)
+bool CPcFont::ReadIn(const char* name)
 {
-    font = STypeface::Load(name, false);
+    font = STypeface::ReadIn(name, false);
     return font != nullptr;
 }
 
@@ -93,14 +93,14 @@ void CPcFont::FlagButtonFont(bool buttons)
 }
 
 // 0x004B3CD0
-void CPcFont::Unload()
+void CPcFont::Offload()
 {
-    STypeface::Unload(font);
+    STypeface::Offload(font);
     font = nullptr;
 }
 
 // 0x004B3CF0
-uint32_t CPcFont::GetHeight()
+uint32_t CPcFont::FetchTallness()
 {
     return font->height;
 }
@@ -118,14 +118,14 @@ void CPcFont::ReadStringParam(const char* string, float* width, float* height)
 }
 
 // 0x004B3E70
-CPcText* CPcText::Construct()
+CPcText* CPcText::MakeNew()
 {
-    reinterpret_cast<CGlyphString*>(this)->CGlyphString::Construct(nullptr);
+    reinterpret_cast<CGlyphString*>(this)->CGlyphString::MakeNew(nullptr);
     vtable = reinterpret_cast<void**>(kPcTextVtable);
-    void* memory = MemSys::New(sizeof(SGlyphRun));
-    text = memory ? static_cast<SGlyphRun*>(memory)->Construct(0.0f) : nullptr;
+    void* memory = MemSys::Alloc(sizeof(SGlyphRun));
+    text = memory ? static_cast<SGlyphRun*>(memory)->MakeNew(0.0f) : nullptr;
     z = 0;
-    CallVirtual(this, 3); // UpdateProperties
+    CallVirtual(this, 3); // TickTraits
     CallVirtual(this, 4); // UpdatePriority
     CallVirtual(this, 2); // UpdateHidden
     return this;
@@ -141,18 +141,18 @@ void CPcText::DestroyBody()
 }
 
 // 0x004B3F20
-CPcText* CPcText::Destroy(unsigned int flags)
+CPcText* CPcText::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004B3D80
-void CPcText::Update()
+void CPcText::TickFrame()
 {
-    CallVirtual(this, 3); // UpdateProperties
+    CallVirtual(this, 3); // TickTraits
     CallVirtual(this, 4); // UpdatePriority
     CallVirtual(this, 2); // UpdateHidden
 }
@@ -160,11 +160,11 @@ void CPcText::Update()
 // 0x004B3DA0
 void CPcText::UpdateHidden()
 {
-    Draw2D(text)->SetHidden(hidden);
+    Draw2D(text)->ChangeConcealed(hidden);
 }
 
 // 0x004B3F50
-void CPcText::UpdateProperties()
+void CPcText::TickTraits()
 {
     text->text = string;
     if (font)
@@ -184,7 +184,7 @@ void CPcText::UpdateProperties()
 // 0x004B3DB0
 void CPcText::UpdatePriority()
 {
-    Draw2D(text)->SetPriority(priority);
+    Draw2D(text)->ChangeRank(priority);
     if (zEnabled)
         Draw2D(text)->SetZ(static_cast<float>(static_cast<double>(z) * (1.0 / 65536.0)));
     else
@@ -195,8 +195,8 @@ void CPcText::UpdatePriority()
 void __cdecl AllocateTextPool(uint32_t count)
 {
     for (uint32_t i = 0; i < count; ++i) {
-        void* memory = MemSys::New(sizeof(CPcText));
-        CPcText* text = memory ? static_cast<CPcText*>(memory)->Construct() : nullptr;
+        void* memory = MemSys::Alloc(sizeof(CPcText));
+        CPcText* text = memory ? static_cast<CPcText*>(memory)->MakeNew() : nullptr;
         // (no check: a failed allocation writes through null, as the original)
         text->nextFree = FreeTexts();
         FreeTexts() = text;
@@ -206,26 +206,26 @@ void __cdecl AllocateTextPool(uint32_t count)
 // 0x004B4090
 void __cdecl UnloadPcFont(CPcFont* font)
 {
-    reinterpret_cast<CFont*>(font)->Unload();
+    reinterpret_cast<CTypeface*>(font)->Offload();
 }
 
 // 0x004B40A0
 CPcFont* __cdecl CreatePcFont(const char* name)
 {
-    void* memory = MemSys::New(sizeof(CPcFont));
-    CPcFont* font = memory ? static_cast<CPcFont*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::Alloc(sizeof(CPcFont));
+    CPcFont* font = memory ? static_cast<CPcFont*>(memory)->MakeNew() : nullptr;
     // (the engine's Load: virtual [1], through 0x004A1090; no check for a failed allocation, as the original)
     reinterpret_cast<bool(__thiscall*)(CPcFont*, const char*)>(font->vtable[1])(font, name);
     return font;
 }
 
 namespace {
-static VtableSlot kPcFontVtable_slots[] = {&Engine3D::CPcFont::Destroy, &Engine3D::CPcFont::Load, &Engine3D::CPcFont::ChangeSpacings,
-                &Engine3D::CPcFont::ChangeColors, &Engine3D::CPcFont::FlagButtonFont, &Engine3D::CPcFont::Unload, &Engine3D::CPcFont::GetHeight,
+static VtableSlot kPcFontVtable_slots[] = {&Engine3D::CPcFont::Teardown, &Engine3D::CPcFont::ReadIn, &Engine3D::CPcFont::ChangeSpacings,
+                &Engine3D::CPcFont::ChangeColors, &Engine3D::CPcFont::FlagButtonFont, &Engine3D::CPcFont::Offload, &Engine3D::CPcFont::FetchTallness,
                 &Engine3D::CPcFont::GetBase, &Engine3D::CPcFont::ReadStringParam};
 void** const kPcFontVtable = reinterpret_cast<void**>(kPcFontVtable_slots);
-static VtableSlot kPcTextVtable_slots[] = {&Engine3D::CPcText::Destroy, &Engine3D::CPcText::Update, &Engine3D::CPcText::UpdateHidden,
-                &Engine3D::CPcText::UpdateProperties, &Engine3D::CPcText::UpdatePriority, Stubs::DoNothing};
+static VtableSlot kPcTextVtable_slots[] = {&Engine3D::CPcText::Teardown, &Engine3D::CPcText::TickFrame, &Engine3D::CPcText::UpdateHidden,
+                &Engine3D::CPcText::TickTraits, &Engine3D::CPcText::UpdatePriority, Stubs::DoNothing};
 void** const kPcTextVtable = reinterpret_cast<void**>(kPcTextVtable_slots);
 } // namespace
 

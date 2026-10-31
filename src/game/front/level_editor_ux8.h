@@ -36,17 +36,17 @@ struct ImFont;
 //   - Walk mode (Shift+`, Blender's walk navigation): the camera at a skater's eye height with gravity and collision (the
 //     game's collision ray) - W A S D walk (the fly keys), Space / E jump, Shift runs, the mouse looks; Shift+` or Esc
 //     stops (the camera stays). For judging a level's scale without a test run.
-// Every key is the registry's (level_editor_actions.h: rebindable; registered here with Actions::Register).
+// Every key is the registry's (level_editor_actions.h: rebindable; registered here with Actions::Enrol).
 namespace MenuSystem::LevelEditor::Ux8 {
 
 // --- the editor's hooks (level_editor.cpp) --------------------------------------------------------------------------
 
-// Once: the actions registered (Actions::Register - also the self-test's), the controller-mode setting read.
-void Init();
+// Once: the actions registered (Actions::Enrol - also the self-test's), the controller-mode setting read.
+void PrepareAll();
 void RegisterActions();
 // The editor started / stopped (a pie closed, walking stopped, the follow camera off).
-void Start();
-void Stop();
+void Kickoff();
+void Halt();
 
 // A game controller this frame (controller mode on and one attached; else `active` false and nothing else set).
 struct Pad {
@@ -71,12 +71,12 @@ const uint8_t* PadKeys(const uint8_t* keys, const Pad& pad);
 // moved. `x`, `y`: where (window pixels).
 bool PadCursor(const Pad& pad, bool mouseMoved, float* x, float* y);
 // What the controller asks of the editor this frame, besides the mouse and keys: B (cancel), the turn / frame / undo
-// buttons (Actions::Trigger'ed here; a simulation stopped first - level_editor_playtest.h).
+// buttons (Actions::FireOff'ed here; a simulation stopped first - level_editor_playtest.h).
 bool PadCancel(const Pad& pad);
 
 // Once a frame after the keymap's BeginFrame (Actions): this module's actions and the pies. `leftPresses` /
 // `leftReleases` / `rightPress`: the mouse's this frame (a pie takes them: the view doesn't see them).
-struct Frame {
+struct TickCycle {
     float mouseX = 0, mouseY = 0; // window pixels
     int* leftPresses = nullptr;
     int* leftReleases = nullptr;
@@ -87,7 +87,7 @@ struct Frame {
     Pad pad;
     bool haveSelection = false;
 };
-void Update(Frame& frame);
+void TickFrame(TickCycle& frame);
 // Escape: a pie closed or walking stopped (true: it was taken).
 bool Cancel();
 bool WantsEscape(); // (a pie or walking: Escape doesn't leave the editor)
@@ -96,7 +96,7 @@ bool WantsEscape(); // (a pie or walking: Escape doesn't leave the editor)
 bool Following();
 Nav::Follower& Follower();
 // Walk mode (the editor runs it: Update returns early - level_editor.cpp).
-bool Walking();
+bool OnFoot();
 void SetWalking(bool on, V3 camera);
 Nav::Walker& WalkerState();
 // Asked for by an action this frame (taken once): walk mode switched, a teleport to the cursor.

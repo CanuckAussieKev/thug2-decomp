@@ -81,7 +81,7 @@ constexpr float kDefaultMinStopVelocity = 15.0f;
 // second.
 void GetSpeed(Scripts::CStruct* params, float* value, uint32_t feet, uint32_t inches)
 {
-    if (!params->GetFloat(0u, value, 0))
+    if (!params->FetchFloat(0u, value, 0))
         return;
     if (params->HasBareFlag(feet)) {
         *value *= kFeetToInches;
@@ -237,7 +237,7 @@ int CMotionPathMembers::StopAlongPath(Scripts::CStruct* params, Scripts::CScript
     m_stopCovered = 0.0f;
     if (m_minStopVelocity == 0.0f)
         m_minStopVelocity = kDefaultMinStopVelocity;
-    params->GetFloat(0u, &m_stopDistance, 0);
+    params->FetchFloat(0u, &m_stopDistance, 0);
     if (!params->HasBareFlag(kInches)) {
         // (in feet: the stop's starting speed noted - not with `inches`, as the original)
         m_stopStartVelocity = m_velocity;

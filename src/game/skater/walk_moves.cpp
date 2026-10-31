@@ -54,7 +54,7 @@ T& At(const void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
-Maths::Vector& VectorAt(const void* object, uint32_t offset) { return At<Maths::Vector>(object, offset); }
+Maths::Vec4& VectorAt(const void* object, uint32_t offset) { return At<Maths::Vec4>(object, offset); }
 
 // The component's fields (offsets).
 constexpr uint32_t kState = 0x18;              // 0 ground, 1 air, 2 hang, 3 ladder, 4 hang move
@@ -197,7 +197,7 @@ constexpr float kHangTurnBack = -0.95f;    // 0xBF733333
 float WalkParameter(uint32_t name)
 {
     float value;
-    Scripts::ReadSubStruct(kWalkParameters)->GetFloat(name, &value, 1);
+    Scripts::ReadSubStruct(kWalkParameters)->FetchFloat(name, &value, 1);
     return value;
 }
 
@@ -211,7 +211,7 @@ bool Halted(const void* walk) { return At<bool>(At<void*>(walk, kTrigger), 0x26)
 void ClearCurrentCache() { reinterpret_cast<void*&>(Engine3D::g_currentCache) = nullptr; }
 
 // The ride component's moving object containing the segment from `from` to `to` (0x00427B30), or null.
-CGameEntity* MovingObjectAround(void* ride, Maths::Vector* to, Maths::Vector* from)
+CGameEntity* MovingObjectAround(void* ride, Maths::Vec4* to, Maths::Vec4* from)
 {
     return static_cast<CMovingSurfaceModule*>(ride)->FindContactAhead(to, from);
 }
@@ -225,16 +225,16 @@ void ReportInside(int line, const char* where)
 // A local feeler going away: the object hit let go of (the original's inlined smart pointer destructor).
 void ReleaseHit(Engine3D::CProbeRay* feeler)
 {
-    if (CGameEntity* hit = feeler->m_object.Get())
+    if (CGameEntity* hit = feeler->m_entity.Pull())
         reinterpret_cast<CSharedBase*>(hit)->DetachSharedRef(
-            reinterpret_cast<CSharedRef<CSharedBase>*>(&feeler->m_object));
+            reinterpret_cast<CSharedRef<CSharedBase>*>(&feeler->m_entity));
 }
 
 // `position` put `gap` off the feeler's hit along its normal (x, y and z's offsets rounded first, w's not).
-void PutOff(Maths::Vector* position, const Engine3D::CProbeRay* feeler, float gap)
+void PutOff(Maths::Vec4* position, const Engine3D::CProbeRay* feeler, float gap)
 {
-    const Maths::Vector& point = feeler->m_contactPos;
-    const Maths::Vector& normal = feeler->m_surfaceDir;
+    const Maths::Vec4& point = feeler->m_contactPos;
+    const Maths::Vec4& normal = feeler->m_surfaceDir;
     double scale = gap;
     position->x = point.x + static_cast<float>(normal.x * scale);
     position->y = point.y + static_cast<float>(normal.y * scale);
@@ -250,7 +250,7 @@ const uint8_t* RiderStateBits(const void* walk) { return At<uint8_t*>(At<void*>(
 struct Contact {
     bool hit;
     uint8_t unknown1[3];
-    Maths::Vector normal;  // +0x04 the hit's, flattened and made unit length
+    Maths::Vec4 normal;  // +0x04 the hit's, flattened and made unit length
     bool clear;          // +0x14 (a barrier jump: nothing in the way at the highest barrier's height)
     uint8_t unknown15[3];
     float objectSpeed;   // +0x18 how fast the object hit moves along the normal
@@ -286,9 +286,9 @@ double X87Cos(double angle)
 // Where it hangs along the hang's facing (+0x18B4): (the position plus the ride check's offset) . that facing.
 float HangPlane(const void* walk)
 {
-    const Maths::Vector& position = VectorAt(walk, kPosition);
-    const Maths::Vector& offset = VectorAt(walk, kRideOffset);
-    const Maths::Vector& facing = VectorAt(walk, kHangJumpFacing);
+    const Maths::Vec4& position = VectorAt(walk, kPosition);
+    const Maths::Vec4& offset = VectorAt(walk, kRideOffset);
+    const Maths::Vec4& facing = VectorAt(walk, kHangJumpFacing);
     double x = static_cast<double>(position.x) + offset.x;
     double y = static_cast<double>(position.y) + offset.y;
     double z = static_cast<double>(position.z) + offset.z;
@@ -296,7 +296,7 @@ float HangPlane(const void* walk)
 }
 
 // Stopped by what it walks into: no velocity, the run animation's speed down to min_anim_run_speed, blocked.
-void Stop(void* walk)
+void Halt(void* walk)
 {
     VectorAt(walk, kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
     float minimum = WalkParameter(kMinAnimRunSpeed);
@@ -306,10 +306,10 @@ void Stop(void* walk)
 }
 
 // a + b in the x87's double precision, stored as a float.
-float Add(float a, float b) { return static_cast<float>(static_cast<double>(a) + b); }
+float AppendOne(float a, float b) { return static_cast<float>(static_cast<double>(a) + b); }
 
 // The walk camera's override (0x00525F70: SetOverrideFacing - the walk camera component, not rewritten here).
-void SetCameraOverride(void* camera, const Maths::Vector* facing, float rate)
+void SetCameraOverride(void* camera, const Maths::Vec4* facing, float rate)
 {
     static_cast<CFootView*>(camera)->SetOverrideFacing(facing, rate);
 }
@@ -317,24 +317,24 @@ void SetCameraOverride(void* camera, const Maths::Vector* facing, float rate)
 } // namespace
 
 // 0x0052A5C0
-CObjectModule* __cdecl CFootMovement::Create()
+CObjectModule* __cdecl CFootMovement::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(0x1960);
-    return memory ? static_cast<CFootMovement*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CFootMovement*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x0052A190
-CFootMovement* CFootMovement::Construct()
+CFootMovement* CFootMovement::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kWalkVtable;
     for (uint32_t i = 0; i < 8; ++i)
-        reinterpret_cast<WalkContact*>(&At<uint8_t>(this, kContacts + 0xCC * i))->Construct(); // (each contact's constructor)
-    reinterpret_cast<Engine3D::CHitMeshCache*>(&At<uint8_t>(this, kCollCache))->Construct();
-    reinterpret_cast<Engine3D::CProbeRay*>(&At<uint8_t>(this, kTriggerFeeler))->Construct();
+        reinterpret_cast<WalkContact*>(&At<uint8_t>(this, kContacts + 0xCC * i))->MakeNew(); // (each contact's constructor)
+    reinterpret_cast<Engine3D::CHitMeshCache*>(&At<uint8_t>(this, kCollCache))->MakeNew();
+    reinterpret_cast<Engine3D::CProbeRay*>(&At<uint8_t>(this, kTriggerFeeler))->MakeNew();
     for (uint32_t offset = kComponents; offset <= 0x178C; offset += 4)
         At<void*>(this, offset) = nullptr;
-    m_type = 0x726E85AA; // Walk
+    m_kindTag = 0x726E85AA; // Walk
     VectorAt(this, kControlDirection) = {0.0f, 0.0f, 0.0f, 1.0f};
     VectorAt(this, kExtraVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
     At<float>(this, 0x72C) = 0.0f;
@@ -343,11 +343,11 @@ CFootMovement* CFootMovement::Construct()
 }
 
 // 0x0052A290
-CFootMovement* CFootMovement::Destroy(unsigned int flags)
+CFootMovement* CFootMovement::Teardown(unsigned int flags)
 {
     CFootMovement::DestroyBody(); // the destructor body
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -355,7 +355,7 @@ CFootMovement* CFootMovement::Destroy(unsigned int flags)
 void CFootMovement::UpdateCameraOverride()
 {
     void* camera = At<void*>(this, kWalkCamera);
-    const Maths::Vector& facing = VectorAt(this, kFacing);
+    const Maths::Vec4& facing = VectorAt(this, kFacing);
     switch (At<uint32_t>(this, kAnimState)) {
     case kAnimWait: {
         At<bool>(camera, 0x78) = true;
@@ -369,7 +369,7 @@ void CFootMovement::UpdateCameraOverride()
         auto sine = static_cast<float>(X87Sin(kHangTurn));
         auto cosine = static_cast<float>(X87Cos(kHangTurn));
         At<bool>(camera, 0x78) = true;
-        Maths::Vector& target = VectorAt(camera, 0x7C);
+        Maths::Vec4& target = VectorAt(camera, 0x7C);
         float x = facing.x;
         float z = facing.z;
         target.x = static_cast<float>(static_cast<double>(z) * sine + static_cast<double>(cosine) * x);
@@ -380,7 +380,7 @@ void CFootMovement::UpdateCameraOverride()
         return;
     }
     case kHangMoveLeft: {
-        Maths::Vector turned = facing;
+        Maths::Vec4 turned = facing;
         turned.RotateAboutY(kHangTurnBack);
         SetCameraOverride(camera, &turned, kCameraRate);
         return;
@@ -413,7 +413,7 @@ void CFootMovement::UpdateAnimSpeed()
     // The animation component's member function 0xBD4EDD44 with speed = `speed`.
     auto tell = [animation](float speed) {
         Scripts::CStruct* params = Scripts::NewStruct();
-        params = params ? params->Init() : nullptr;
+        params = params ? params->PrepareAll() : nullptr;
         params->PushFloat(kSpeedName, speed);
         reinterpret_cast<CObjectModule*>(animation)->InvokeMethodByName(kSetAnimSpeed, params, nullptr);
         if (params) {
@@ -462,35 +462,35 @@ void CFootMovement::UpdateRide()
     auto* tracker = At<CRideTracker*>(ride, 0x18);
     if (!tracker)
         return;
-    Maths::Vector& position = VectorAt(this, kPosition);
-    if (!tracker->m_object.Get() || !tracker->Update(&position)) {
+    Maths::Vec4& position = VectorAt(this, kPosition);
+    if (!tracker->m_entity.Pull() || !tracker->TickFrame(&position)) {
         static_cast<CMovingSurfaceModule*>(ride)->StopRiding(); // (what it stood on is gone)
         return;
     }
     tracker = At<CRideTracker*>(ride, 0x18);
-    position.x = Add(tracker->m_carried.x, position.x);
-    position.y = Add(tracker->m_carried.y, position.y);
-    position.z = Add(tracker->m_carried.z, position.z);
-    position.w = Add(tracker->m_carried.w, position.w);
+    position.x = AppendOne(tracker->m_carried.x, position.x);
+    position.y = AppendOne(tracker->m_carried.y, position.y);
+    position.z = AppendOne(tracker->m_carried.z, position.z);
+    position.w = AppendOne(tracker->m_carried.w, position.w);
     if (!At<CRideTracker*>(ride, 0x18)->m_turned)
         return;
-    Maths::Vector& facing = VectorAt(this, kFacing);
-    Maths::Vector turned;
+    Maths::Vec4& facing = VectorAt(this, kFacing);
+    Maths::Vec4 turned;
     facing = At<CRideTracker*>(ride, 0x18)->m_turn.RotateVector(turned, facing);
     if (!(facing.y == 0.0f)) { // kept level
         facing.y = 0.0f;
-        facing.Normalize();
+        facing.MakeUnit();
     }
 }
 
 // 0x0052AB90
-void CFootMovement::LeaveRide(Maths::Vector* velocity, float* vertical)
+void CFootMovement::LeaveRide(Maths::Vec4* velocity, float* vertical)
 {
     void* ride = At<void*>(this, kRide);
     auto* tracker = At<CRideTracker*>(ride, 0x18);
-    Maths::Vector& carried = VectorAt(this, kCarried);
-    if (tracker && tracker->m_object.Get()) {
-        carried = VectorAt(tracker->m_object.Get(), 0xAC); // its velocity
+    Maths::Vec4& carried = VectorAt(this, kCarried);
+    if (tracker && tracker->m_entity.Pull()) {
+        carried = VectorAt(tracker->m_entity.Pull(), 0xAC); // its velocity
         double heading = static_cast<double>(carried.z) * velocity->z + static_cast<double>(carried.y) * velocity->y +
                          static_cast<double>(carried.x) * velocity->x;
         if (heading > 0.0) {
@@ -499,18 +499,18 @@ void CFootMovement::LeaveRide(Maths::Vector* velocity, float* vertical)
             auto y = static_cast<float>(frame * carried.y);
             auto z = static_cast<float>(frame * carried.z);
             auto w = static_cast<float>(frame * carried.w);
-            Maths::Vector& position = VectorAt(this, kPosition);
+            Maths::Vec4& position = VectorAt(this, kPosition);
             position.x = static_cast<float>(frame * carried.x + position.x);
-            position.y = Add(y, position.y);
-            position.z = Add(z, position.z);
-            position.w = Add(w, position.w);
+            position.y = AppendOne(y, position.y);
+            position.z = AppendOne(z, position.z);
+            position.w = AppendOne(w, position.w);
         }
-        *vertical = Add(carried.y, *vertical);
+        *vertical = AppendOne(carried.y, *vertical);
         carried.y = 0.0f;
-        velocity->x = Add(carried.x, velocity->x);
-        velocity->y = Add(carried.y, velocity->y);
-        velocity->z = Add(carried.z, velocity->z);
-        velocity->w = Add(carried.w, velocity->w);
+        velocity->x = AppendOne(carried.x, velocity->x);
+        velocity->y = AppendOne(carried.y, velocity->y);
+        velocity->z = AppendOne(carried.z, velocity->z);
+        velocity->w = AppendOne(carried.w, velocity->w);
     } else {
         if (tracker)
             static_cast<CMovingSurfaceModule*>(ride)->StopRiding(); // (what it stood on is gone)
@@ -521,9 +521,9 @@ void CFootMovement::LeaveRide(Maths::Vector* velocity, float* vertical)
     tracker = At<CRideTracker*>(ride, 0x18);
     if (!tracker)
         return;
-    At<CGameEntity*>(ride, 0x6C) = tracker->m_object.Get();
-    reinterpret_cast<CSharedRef<CSharedBase>*>(&tracker->m_object)->Release();
-    MemSys::Manager::Get()->Free(tracker);
+    At<CGameEntity*>(ride, 0x6C) = tracker->m_entity.Pull();
+    reinterpret_cast<CSharedRef<CSharedBase>*>(&tracker->m_entity)->Release();
+    MemSys::Hub::Pull()->Dealloc(tracker);
     At<CRideTracker*>(ride, 0x18) = nullptr;
     At<int>(ride, 0x70) = Now();
 }
@@ -531,14 +531,14 @@ void CFootMovement::LeaveRide(Maths::Vector* velocity, float* vertical)
 // 0x0052B2D0
 void CFootMovement::GoToAir()
 {
-    SetState(1); // (the state: in the air)
-    Maths::Vector& heading = VectorAt(this, kHeading);
-    heading = m_object->m_vel;
+    ChangePhase(1); // (the state: in the air)
+    Maths::Vec4& heading = VectorAt(this, kHeading);
+    heading = m_entity->m_vel;
     heading.y = 0.0f;
-    heading.Normalize();
-    LeaveRide(&m_object->m_vel, &m_object->m_vel.y);
-    Maths::Vector& carried = VectorAt(this, kCarried);
-    carried = m_object->m_vel;
+    heading.MakeUnit();
+    LeaveRide(&m_entity->m_vel, &m_entity->m_vel.y);
+    Maths::Vec4& carried = VectorAt(this, kCarried);
+    carried = m_entity->m_vel;
     carried.y = 0.0f;
 }
 
@@ -560,7 +560,7 @@ int CFootMovement::ReleaseHang(Scripts::CStruct*, Scripts::CScript*)
 int CFootMovement::ForceToAirFromHang(Scripts::CStruct*, Scripts::CScript*)
 {
     GoToAir();
-    m_object->PostOwnEvent(kAir, nullptr);
+    m_entity->PostOwnEvent(kAir, nullptr);
     return 1;
 }
 
@@ -568,7 +568,7 @@ int CFootMovement::ForceToAirFromHang(Scripts::CStruct*, Scripts::CScript*)
 void CFootMovement::GoToAirFor(void*) { GoToAir(); }
 
 // 0x0052D4B0
-void CFootMovement::Update()
+void CFootMovement::TickFrame()
 {
     if (At<bool>(this, kJumpHeld) && !At<bool>(At<void*>(this, kInput), 0x100))
         At<bool>(this, kJumpHeld) = false;
@@ -577,7 +577,7 @@ void CFootMovement::Update()
     At<uint32_t>(this, kAnimState) = 0;
     UpdateControl();
     CopyFromObject();
-    Maths::Vector& position = VectorAt(this, kPosition);
+    Maths::Vec4& position = VectorAt(this, kPosition);
     VectorAt(this, kOldPosition) = position;
     At<float>(this, kFrameLength) = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     At<bool>(this, kCurbSnapped) = false;
@@ -628,7 +628,7 @@ void CFootMovement::Update()
     CopyToObject();
     UpdateRotateUpright();
     LimitSpeed(previousAnim);
-    m_object->PostOwnEvent(At<uint32_t>(this, kAnimState), nullptr);
+    m_entity->PostOwnEvent(At<uint32_t>(this, kAnimState), nullptr);
     UpdateAnimSpeed();
     UpdateCameraOverride();
     static_cast<Skater::CorePhysicsComponent*>(At<void*>(this, kSkater))->UpdateFocusButton();
@@ -642,7 +642,7 @@ void CFootMovement::UpdateGround()
 {
     UpdateRide();
     UpdateCollisionCache();
-    Maths::Vector& velocity = VectorAt(this, kVelocity);
+    Maths::Vec4& velocity = VectorAt(this, kVelocity);
     UpdateGroundVelocity(&velocity);
     if (At<uint32_t>(this, kAnimState) == kSkid) {
         float pegged = WalkParameter(kPeggedDurationForSkid);
@@ -661,7 +661,7 @@ void CFootMovement::UpdateGround()
 
     // Moved on by the velocity (x's move unrounded; y, z and w's stored first).
     double frame = At<float>(this, kFrameLength);
-    Maths::Vector& position = VectorAt(this, kPosition);
+    Maths::Vec4& position = VectorAt(this, kPosition);
     auto y = static_cast<float>(frame * velocity.y);
     auto z = static_cast<float>(frame * velocity.z);
     auto w = static_cast<float>(frame * velocity.w);
@@ -709,11 +709,11 @@ void CFootMovement::UpdateAir()
     // Moved on by the velocity and the extra velocity (each move unrounded), then by the vertical speed under
     // gravity.
     double frame = At<float>(this, kFrameLength);
-    Maths::Vector& position = VectorAt(this, kPosition);
-    const Maths::Vector& velocity = VectorAt(this, kVelocity);
+    Maths::Vec4& position = VectorAt(this, kPosition);
+    const Maths::Vec4& velocity = VectorAt(this, kVelocity);
     for (int i = 0; i < 4; ++i)
         (&position.x)[i] = static_cast<float>(frame * (&velocity.x)[i] + (&position.x)[i]);
-    Maths::Vector& extra = VectorAt(this, kExtraVelocity);
+    Maths::Vec4& extra = VectorAt(this, kExtraVelocity);
     for (int i = 0; i < 4; ++i)
         (&position.x)[i] = static_cast<float>(frame * (&extra.x)[i] + (&position.x)[i]);
     float& vertical = At<float>(this, kVerticalSpeed);
@@ -722,7 +722,7 @@ void CFootMovement::UpdateAir()
     if (position.y > At<float>(this, kExtraVelocityTop))
         extra = {0.0f, 0.0f, 0.0f, 1.0f};
     static_cast<Skater::CorePhysicsComponent*>(At<void*>(this, kSkater))->UpdateProjectiles();
-    Maths::Vector& oldPosition = VectorAt(this, kOldPosition);
+    Maths::Vec4& oldPosition = VectorAt(this, kOldPosition);
     CollideAirMove(&oldPosition, &position);
     if (At<int>(this, kState) != 1 || Halted(this))
         return;
@@ -754,21 +754,21 @@ void CFootMovement::UpdateAir()
 
     // Inside a moving object: put back where it was, standing on it (a feeler 30 up and down through the object
     // finds it), stopped.
-    Maths::Vector start = position;
-    const Maths::Vector& offset = VectorAt(this, kRideOffset);
-    Maths::Vector to = position + offset;
-    Maths::Vector from = oldPosition + offset;
+    Maths::Vec4 start = position;
+    const Maths::Vec4& offset = VectorAt(this, kRideOffset);
+    Maths::Vec4 to = position + offset;
+    Maths::Vec4 from = oldPosition + offset;
     if (!MovingObjectAround(At<void*>(this, kRide), &to, &from))
         return;
     position = to - offset;
     ReportInside(0x74B, "WALKING_AIR, within moving object");
     alignas(16) uint8_t storage[sizeof(Engine3D::CProbeRay)];
-    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(storage)->Construct();
-    const Maths::Vector up = {0.0f, 30.0f, 0.0f, 0.0f};
-    Maths::Vector top = m_object->m_pos + up;
-    feeler->SetStart(&top);
-    Maths::Vector bottom = m_object->m_pos - up;
-    feeler->SetEnd(&bottom);
+    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(storage)->MakeNew();
+    const Maths::Vec4 up = {0.0f, 30.0f, 0.0f, 0.0f};
+    Maths::Vec4 top = m_entity->m_atPoint + up;
+    feeler->ChangeOrigin(&top);
+    Maths::Vec4 bottom = m_entity->m_atPoint - up;
+    feeler->ChangeFinish(&bottom);
     if (feeler->GetHitShape(true, false) && feeler->HitObjectAlive())
         static_cast<Walk::MovableContact*>(At<void*>(this, kRide))->StartRiding(feeler->GetHitObject());
     VectorAt(this, kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -783,23 +783,23 @@ void CFootMovement::UpdateAnimWait()
     // Carried by what it rides on: the offset moved, the facing turned (kept level).
     void* ride = At<void*>(this, kRide);
     if (auto* tracker = At<CRideTracker*>(ride, 0x18)) {
-        if (!tracker->m_object.Get() || !tracker->Update(&VectorAt(this, kPosition))) {
+        if (!tracker->m_entity.Pull() || !tracker->TickFrame(&VectorAt(this, kPosition))) {
             static_cast<CMovingSurfaceModule*>(ride)->StopRiding(); // (what it stood on is gone)
         } else {
             tracker = At<CRideTracker*>(ride, 0x18);
-            Maths::Vector& carried = VectorAt(this, kWaitCarried);
+            Maths::Vec4& carried = VectorAt(this, kWaitCarried);
             carried.x += tracker->m_carried.x;
             carried.y += tracker->m_carried.y;
             carried.z += tracker->m_carried.z;
             carried.w += tracker->m_carried.w;
             tracker = At<CRideTracker*>(ride, 0x18);
             if (tracker->m_turned) {
-                Maths::Vector& facing = VectorAt(this, kHangMoveFacing);
-                Maths::Vector turned;
+                Maths::Vec4& facing = VectorAt(this, kHangMoveFacing);
+                Maths::Vec4 turned;
                 facing = tracker->m_turn.RotateVector(turned, facing);
                 if (!(facing.y == 0.0f)) {
                     facing.y = 0.0f;
-                    facing.Normalize();
+                    facing.MakeUnit();
                 }
             }
         }
@@ -812,10 +812,10 @@ void CFootMovement::UpdateAnimWait()
     float end;
     reinterpret_cast<CAnimBlenderComponent*>(At<void*>(this, kAnimation))->GetTimes(&start, &current, &end);
     auto t = static_cast<float>((static_cast<double>(current) - start) / (static_cast<double>(end) - start));
-    Maths::Vector between;
+    Maths::Vec4 between;
     Walk::Lerp(&between, &VectorAt(this, kWaitFrom), &VectorAt(this, kWaitTo), t);
-    const Maths::Vector& carried = VectorAt(this, kWaitCarried);
-    Maths::Vector& position = VectorAt(this, kPosition);
+    const Maths::Vec4& carried = VectorAt(this, kWaitCarried);
+    Maths::Vec4& position = VectorAt(this, kPosition);
     position.x = between.x + carried.x;
     position.y = between.y + carried.y;
     position.z = between.z + carried.z;
@@ -825,7 +825,7 @@ void CFootMovement::UpdateAnimWait()
         turnPart = 1.0;
     double turn = At<float>(this, kWaitTurn);
     double angle = turn * turnPart - turn;
-    Maths::Vector& facing = VectorAt(this, kFacing);
+    Maths::Vec4& facing = VectorAt(this, kFacing);
     facing = VectorAt(this, kHangMoveFacing);
     double sine = X87Sin(angle);
     double cosine = X87Cos(angle);
@@ -838,27 +838,27 @@ void CFootMovement::UpdateAnimWait()
 }
 
 // 0x0052A700
-void CFootMovement::CollideAirMove(const Maths::Vector* from, const Maths::Vector* to)
+void CFootMovement::CollideAirMove(const Maths::Vec4* from, const Maths::Vec4* to)
 {
     alignas(16) uint8_t storage[sizeof(Engine3D::CProbeRay)];
-    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(storage)->Construct();
+    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(storage)->MakeNew();
     feeler->m_line.start = *from;
     feeler->m_line.end = *to;
     if (!feeler->GetHitShape(true, false)) {
         ReleaseHit(feeler);
         return;
     }
-    Maths::Vector& position = VectorAt(this, kPosition);
+    Maths::Vec4& position = VectorAt(this, kPosition);
     if (feeler->m_hit.faceFlags & kFaceWall) {
         // A wall: put 0.1 off it, the rest of the move slid along it - stopped 0.05 off anything that meets.
         PutOff(&position, feeler, kWallGap);
         auto left = static_cast<float>(1.0 - feeler->m_reach);
-        const Maths::Line& line = feeler->m_line;
+        const Maths::Seg& line = feeler->m_line;
         auto dx = line.end.x - line.start.x;
         auto dy = line.end.y - line.start.y;
         auto dz = line.end.z - line.start.z;
         double dw = static_cast<double>(line.end.w) - line.start.w;
-        Maths::Vector rest = {dx * left, dy * left, dz * left, static_cast<float>(dw * left)};
+        Maths::Vec4 rest = {dx * left, dy * left, dz * left, static_cast<float>(dw * left)};
         rest.FlattenOntoPlane(feeler->m_surfaceDir);
         feeler->m_line.start = position;
         feeler->m_line.end = rest + position;
@@ -875,7 +875,7 @@ void CFootMovement::CollideAirMove(const Maths::Vector* from, const Maths::Vecto
     // control.
     position = feeler->m_contactPos;
     At<float>(this, kVerticalSpeed) = 0.0f;
-    SetState(0);
+    ChangePhase(0);
     Engine3D::CProbeRay* ground = &At<Engine3D::CProbeRay>(this, kTriggerFeeler);
     reinterpret_cast<Engine3D::CProbeRay*>(ground)->Assign(*feeler); // (the feeler copied)
     At<bool>(this, kHasGround) = true;
@@ -884,17 +884,17 @@ void CFootMovement::CollideAirMove(const Maths::Vector* from, const Maths::Vecto
         VectorAt(this, kGroundNormal) = feeler->m_surfaceDir;
         void* ride = At<void*>(this, kRide);
         static_cast<CMovingSurfaceModule*>(ride)->StartRiding(feeler); // (what it landed on)
-        Maths::Vector& velocity = VectorAt(this, kVelocity);
+        Maths::Vec4& velocity = VectorAt(this, kVelocity);
         ride = At<void*>(this, kRide);
         if (auto* tracker = At<CRideTracker*>(ride, 0x18)) {
-            if (!tracker->m_object.Get()) {
+            if (!tracker->m_entity.Pull()) {
                 static_cast<CMovingSurfaceModule*>(ride)->StopRiding(); // (what it stood on is gone)
             } else {
-                velocity -= At<CRideTracker*>(ride, 0x18)->m_object.Get()->m_vel;
+                velocity -= At<CRideTracker*>(ride, 0x18)->m_entity.Pull()->m_vel;
                 velocity.y = 0.0f;
             }
         }
-        const Maths::Vector& facing = VectorAt(this, kFacing);
+        const Maths::Vec4& facing = VectorAt(this, kFacing);
         double along = static_cast<double>(velocity.z) * facing.z + static_cast<double>(velocity.y) * facing.y +
                        static_cast<double>(velocity.x) * facing.x;
         bool stop = true;
@@ -922,8 +922,8 @@ void CFootMovement::SnapToGround()
 {
     // A feeler from snap_up_height above to snap_down_height below the position.
     alignas(16) uint8_t storage[sizeof(Engine3D::CProbeRay)];
-    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(storage)->Construct();
-    Maths::Vector& position = VectorAt(this, kPosition);
+    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(storage)->MakeNew();
+    Maths::Vec4& position = VectorAt(this, kPosition);
     feeler->m_line.start = position;
     feeler->m_line.start.y += WalkParameter(kSnapUpHeight);
     feeler->m_line.end = position;
@@ -934,7 +934,7 @@ void CFootMovement::SnapToGround()
         float step = feeler->m_contactPos.y - position.y;
         float unnoticed = WalkParameter(kMaxUnnoticedGroundSnap);
         if (std::fabs(step) > unnoticed)
-            m_object->PostOwnEvent(step > 0.0f ? kSteppedUp : kSteppedDown, nullptr);
+            m_entity->PostOwnEvent(step > 0.0f ? kSteppedUp : kSteppedDown, nullptr);
         position.y = feeler->m_contactPos.y;
         if (step > 0.0f || step < kBigStepDown) {
             double offset = static_cast<double>(At<float>(this, kCurbOffset)) - step;
@@ -977,7 +977,7 @@ void CFootMovement::SnapToGround()
         }
     }
     if (At<uint8_t*>(this, kInput)[0x1A0]) {
-        Maths::Vector& oldPosition = VectorAt(this, kOldPosition);
+        Maths::Vec4& oldPosition = VectorAt(this, kOldPosition);
         if (position == oldPosition)
             oldPosition.y += kNudge; // (so the two differ)
         if (TryGrind()) {
@@ -989,11 +989,11 @@ void CFootMovement::SnapToGround()
         ReleaseHit(feeler);
         return;
     }
-    SetState(1);
+    ChangePhase(1);
     VectorAt(this, kHeading) = VectorAt(this, kFacing);
     LeaveRide(&VectorAt(this, kVelocity), &At<float>(this, kVerticalSpeed));
     At<uint32_t>(this, kAnimState) = kWalkOffEdge;
-    m_object->BroadcastEvent(kSkaterOffEdge, nullptr, 0.0f);
+    m_entity->Announce(kSkaterOffEdge, nullptr, 0.0f);
     ReleaseHit(feeler);
 }
 
@@ -1002,20 +1002,20 @@ void CFootMovement::Begin(bool onGround)
 {
     At<int>(this, kStateTime) = Now();
     if (onGround) {
-        SetState(0);
+        ChangePhase(0);
         VectorAt(this, kGroundNormal) = {0.0f, 1.0f, 0.0f, 1.0f};
         At<bool>(this, kHasGround) = false;
-        m_object->m_vel.y = 0.0f;
+        m_entity->m_vel.y = 0.0f;
         At<bool>(this, kOffVert) = false;
     } else {
-        SetState(1);
+        ChangePhase(1);
         // Off a vert ramp (the skater's flag +0x30) with a turn under way: thrown out along the object's forward
         // axis turned on (by +0x730 about +0x734) times initial_vert_vel_boost.
         if (RiderStateBits(this)[0x30] && !(At<float>(this, kVertTurnSpeed) == 0.0f)) {
-            Maths::Vector forward = VectorAt(m_object, kObjectForward);
+            Maths::Vec4 forward = VectorAt(m_entity, kObjectForward);
             forward.RotateAboutAxis(VectorAt(this, kVertTurnAxis), At<float>(this, kVertTurn));
             double boost = WalkParameter(kInitialVertVelBoost);
-            Maths::Vector& velocity = m_object->m_vel;
+            Maths::Vec4& velocity = m_entity->m_vel;
             auto z = static_cast<float>(forward.z * boost);
             auto w = static_cast<float>(forward.w * boost);
             velocity.x = static_cast<float>(forward.x * boost + velocity.x); // (x and y's products unrounded)
@@ -1027,20 +1027,20 @@ void CFootMovement::Begin(bool onGround)
             At<bool>(this, kFlag1958) = true;
         // The heading: the velocity flattened, else the forward axis flattened, else the up axis reversed and
         // flattened; made unit length.
-        Maths::Vector& heading = VectorAt(this, kHeading);
-        heading = m_object->m_vel;
+        Maths::Vec4& heading = VectorAt(this, kHeading);
+        heading = m_entity->m_vel;
         heading.y = 0.0f;
         double length = std::sqrt((static_cast<double>(heading.x) * heading.x +
                                    static_cast<double>(heading.y) * heading.y) +
                                   static_cast<double>(heading.z) * heading.z);
         if (length < kMinHeadingLength) {
-            heading = VectorAt(m_object, kObjectForward);
+            heading = VectorAt(m_entity, kObjectForward);
             heading.y = 0.0f;
             length = std::sqrt((static_cast<double>(heading.z) * heading.z +
                                 static_cast<double>(heading.x) * heading.x) +
                                static_cast<double>(heading.y) * heading.y);
             if (length < kMinHeadingLength) {
-                heading = -VectorAt(m_object, kObjectUp);
+                heading = -VectorAt(m_entity, kObjectUp);
                 heading.y = 0.0f;
                 length = std::sqrt((static_cast<double>(heading.x) * heading.x +
                                     static_cast<double>(heading.y) * heading.y) +
@@ -1052,7 +1052,7 @@ void CFootMovement::Begin(bool onGround)
         heading.y = static_cast<float>(inverse * heading.y);
         heading.z = static_cast<float>(inverse * heading.z);
         heading.w = static_cast<float>(inverse * heading.w);
-        LeaveRide(&m_object->m_vel, &m_object->m_vel.y);
+        LeaveRide(&m_entity->m_vel, &m_entity->m_vel.y);
         At<uint32_t>(this, 0x1898) = 0;
         At<bool>(this, 0x18B0) = false;
         At<bool>(this, kOffVert) = RiderStateBits(this)[0x30] || RiderStateBits(this)[0xB0];
@@ -1095,24 +1095,24 @@ void CFootMovement::Jump()
         if (Halted(this))
             return;
     }
-    m_object->m_vel.y = WalkParameter(kJumpVelocity) * factor;
+    m_entity->m_vel.y = WalkParameter(kJumpVelocity) * factor;
 
-    Maths::Vector& heading = VectorAt(this, kHeading);
-    const Maths::Vector& facing = VectorAt(this, kFacing);
+    Maths::Vec4& heading = VectorAt(this, kHeading);
+    const Maths::Vec4& facing = VectorAt(this, kFacing);
     switch (At<int>(this, kState)) {
     case 0:
     case 1: {
         // Running: pushed along the control's direction at least as fast as jump_horiz_speed (scaled by how far
         // the control is pushed, over the run speed's range); the heading the velocity's when moving.
         CopyFromObject();
-        Maths::Vector& velocity = VectorAt(this, kVelocity);
+        Maths::Vec4& velocity = VectorAt(this, kVelocity);
         if (At<float>(this, kControlMagnitude) == 0.0f) {
             heading = facing;
         } else {
             float push = static_cast<float>(GetControlSpeed()); // (how far the control is pushed, 0 - 1)
             float scaled = Param(kJumpHorizSpeed) * push;
             auto speed = static_cast<float>(scaled / RunSpeed());
-            const Maths::Vector& direction = VectorAt(this, kControlDirection);
+            const Maths::Vec4& direction = VectorAt(this, kControlDirection);
             double along = (static_cast<double>(velocity.z) * direction.z + static_cast<double>(velocity.y) * direction.y) +
                            static_cast<double>(velocity.x) * direction.x;
             if (along > 0.0) {
@@ -1145,26 +1145,26 @@ void CFootMovement::Jump()
         VectorAt(this, kHangJumpFacing) = facing;
         At<float>(this, kHangJumpPlane) = HangPlane(this);
         At<float>(this, kHangJumpHeight) = VectorAt(this, kPosition).y - At<float>(this, kHangHeight);
-        m_object->m_vel.x = 0.0f;
-        m_object->m_vel.z = 0.0f;
+        m_entity->m_vel.x = 0.0f;
+        m_entity->m_vel.z = 0.0f;
         heading = facing;
         break;
     case 3: // on a ladder
-        m_object->m_vel.x = 0.0f;
-        m_object->m_vel.z = 0.0f;
+        m_entity->m_vel.x = 0.0f;
+        m_entity->m_vel.z = 0.0f;
         heading = facing;
         break;
     case 4: // moving along a hang: the plane along the facing it had when the hang began
         At<bool>(this, kHangJump) = true;
         At<float>(this, kHangJumpPlane) = HangPlane(this);
-        m_object->m_vel.x = 0.0f;
-        m_object->m_vel.z = 0.0f;
+        m_entity->m_vel.x = 0.0f;
+        m_entity->m_vel.z = 0.0f;
         heading = facing;
         break;
     }
-    LeaveRide(&m_object->m_vel, &m_object->m_vel.y);
-    SetState(1);
-    m_object->BroadcastEvent(kSkaterJump, nullptr, 0.0f);
+    LeaveRide(&m_entity->m_vel, &m_entity->m_vel.y);
+    ChangePhase(1);
+    m_entity->Announce(kSkaterJump, nullptr, 0.0f);
 }
 
 // 0x0052BC70
@@ -1179,10 +1179,10 @@ bool CFootMovement::TryBarrierJump()
     float feelerHeight = WalkParameter(kFeelerHeight);
     auto step = static_cast<float>((static_cast<double>(highest) - feelerHeight) * kNinth);
     alignas(16) uint8_t feelerStorage[sizeof(Engine3D::CProbeRay)];
-    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(feelerStorage)->Construct();
+    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(feelerStorage)->MakeNew();
 
     // The collision near it: `reach` + 1 to each side, from its feet to above the highest barrier.
-    const Maths::Vector& position = VectorAt(this, kPosition);
+    const Maths::Vec4& position = VectorAt(this, kPosition);
     auto side = static_cast<float>(static_cast<double>(reach) + 1.0);
     Maths::BBox box;
     box.max = {side + position.x, static_cast<float>(static_cast<double>(highest) + 1.0) + position.y,
@@ -1190,8 +1190,8 @@ bool CFootMovement::TryBarrierJump()
     box.min = {position.x - side, position.y, position.z - side,
                static_cast<float>(static_cast<double>(position.w) - 1.0)};
     alignas(16) uint8_t cacheStorage[sizeof(Engine3D::CHitMeshCache)];
-    auto* cache = reinterpret_cast<Engine3D::CHitMeshCache*>(cacheStorage)->Construct();
-    cache->Update(box);
+    auto* cache = reinterpret_cast<Engine3D::CHitMeshCache*>(cacheStorage)->MakeNew();
+    cache->TickFrame(box);
     feeler->m_hitCache = cache;
 
     // Clear: a contact ahead, facing the control's direction head-on (within barrier_jump_max_angle), with nothing in
@@ -1202,7 +1202,7 @@ bool CFootMovement::TryBarrierJump()
         if (!contact.hit || (contact.feeler.m_hit.faceFlags & kFaceWall))
             continue;
         double limit = X87Cos(WalkParameter(kBarrierJumpMaxAngle) * kDegrees);
-        const Maths::Vector& control = VectorAt(this, kControlDirection);
+        const Maths::Vec4& control = VectorAt(this, kControlDirection);
         double facingIt = (static_cast<double>(control.z) * contact.normal.z +
                            static_cast<double>(control.y) * contact.normal.y) +
                           static_cast<double>(control.x) * contact.normal.x;
@@ -1210,12 +1210,12 @@ bool CFootMovement::TryBarrierJump()
             contact.clear = false;
             continue;
         }
-        Maths::Vector& start = feeler->m_line.start;
+        Maths::Vec4& start = feeler->m_line.start;
         start = position;
         start.y = position.y + highest;
-        Maths::Vector direction;
+        Maths::Vec4 direction;
         GetTurnedFacing(&direction, index); // (the contact's direction)
-        Maths::Vector& end = feeler->m_line.end;
+        Maths::Vec4& end = feeler->m_line.end;
         end.x = static_cast<float>(static_cast<double>(reach) * direction.x) + start.x;
         end.y = static_cast<float>(static_cast<double>(reach) * direction.y) + start.y;
         end.z = static_cast<float>(static_cast<double>(reach) * direction.z) + start.z;
@@ -1231,20 +1231,20 @@ bool CFootMovement::TryBarrierJump()
     }
 
     // How high the barrier is: from the highest barrier down in ninths until each clear contact's feeler meets it.
-    const Maths::Vector& facing = VectorAt(this, kFacing);
+    const Maths::Vec4& facing = VectorAt(this, kFacing);
     float top = highest + position.y;
     for (int index : kAhead) {
         const auto& contact = ContactAt(this, index);
         if (!contact.hit || !contact.clear)
             continue;
-        Maths::Vector& start = feeler->m_line.start;
+        Maths::Vec4& start = feeler->m_line.start;
         start = position;
         start.y = position.y + highest;
         double angle = index * kSeventhTurn;
         double c = X87Cos(angle);
         double s = X87Sin(angle);
         auto x = static_cast<float>(c * facing.x - s * facing.z);
-        Maths::Vector& end = feeler->m_line.end;
+        Maths::Vec4& end = feeler->m_line.end;
         end.x = static_cast<float>(static_cast<double>(x) * reach) + start.x;
         end.y = static_cast<float>(static_cast<double>(reach) * 0.0) + start.y;
         end.z = static_cast<float>((s * facing.x + c * facing.z) * reach) + start.z;
@@ -1275,12 +1275,12 @@ bool CFootMovement::TryBarrierJump()
         }
     }
     At<float>(this, kVerticalSpeed) = speed;
-    SetState(1);
+    ChangePhase(1);
     VectorAt(this, kHeading) = VectorAt(this, kFacing);
     LeaveRide(&VectorAt(this, kVelocity), &At<float>(this, kVerticalSpeed));
     At<uint32_t>(this, kAnimState) = kJump;
-    m_object->BroadcastEvent(kSkaterJump, nullptr, 0.0f);
-    m_object->ClearEventHandler(kJumpRequested);
+    m_entity->Announce(kSkaterJump, nullptr, 0.0f);
+    m_entity->ClearEventHandler(kJumpRequested);
     cache->Destruct();
     ReleaseHit(feeler);
     return true;
@@ -1292,24 +1292,24 @@ bool CFootMovement::UpdateContacts()
     float reach = WalkParameter(kFeelerLength);
     float feelerHeight = WalkParameter(kFeelerHeight);
     alignas(16) uint8_t storage[sizeof(Engine3D::CProbeRay)];
-    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(storage)->Construct();
-    Maths::Vector& position = VectorAt(this, kPosition);
-    Maths::Vector& velocity = VectorAt(this, kVelocity);
-    const Maths::Vector& facing = VectorAt(this, kFacing);
+    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(storage)->MakeNew();
+    Maths::Vec4& position = VectorAt(this, kPosition);
+    Maths::Vec4& velocity = VectorAt(this, kVelocity);
+    const Maths::Vec4& facing = VectorAt(this, kFacing);
 
     // The eight feelers: seven around it at feeler_height, a seventh of a turn apart from the facing, and in the air
     // one along this frame's fall.
     bool any = false;
     for (int i = 0; i < 8; ++i) {
-        Maths::Vector& start = feeler->m_line.start;
-        Maths::Vector& end = feeler->m_line.end;
+        Maths::Vec4& start = feeler->m_line.start;
+        Maths::Vec4& end = feeler->m_line.end;
         if (i == 7) {
             if (At<int>(this, kState) != 1) {
                 ContactAt(this, 7).hit = false;
                 continue;
             }
             float frame = At<float>(this, kFrameLength);
-            const Maths::Vector& offset = VectorAt(this, kRideOffset);
+            const Maths::Vec4& offset = VectorAt(this, kRideOffset);
             float z = position.z + offset.z;
             float y = position.y + offset.y;
             float x = offset.x + position.x;
@@ -1348,7 +1348,7 @@ bool CFootMovement::UpdateContacts()
         contact.normal = feeler->m_surfaceDir;
         contact.normal.y = 0.0f;
         any = true;
-        Maths::Vector& normal = contact.normal;
+        Maths::Vec4& normal = contact.normal;
         double length = std::sqrt((static_cast<double>(normal.x) * normal.x + static_cast<double>(normal.y) * normal.y) +
                                   static_cast<double>(normal.z) * normal.z);
         if (length > 0.0) {
@@ -1362,13 +1362,13 @@ bool CFootMovement::UpdateContacts()
             void* ride = At<void*>(this, kRide);
             bool ridden = false;
             if (auto* tracker = At<CRideTracker*>(ride, 0x18)) {
-                if (!tracker->m_object.Get())
+                if (!tracker->m_entity.Pull())
                     static_cast<CMovingSurfaceModule*>(ride)->StopRiding(); // (what it stood on is gone)
                 else
-                    ridden = tracker->m_object.Get() == feeler->GetHitObject();
+                    ridden = tracker->m_entity.Pull() == feeler->GetHitObject();
             }
             if (!ridden) {
-                const Maths::Vector& moving = feeler->GetHitObject()->m_vel;
+                const Maths::Vec4& moving = feeler->GetHitObject()->m_vel;
                 contact.objectSpeed = static_cast<float>(
                     (static_cast<double>(moving.z) * normal.z + static_cast<double>(moving.y) * normal.y) +
                     static_cast<double>(moving.x) * normal.x);
@@ -1404,7 +1404,7 @@ bool CFootMovement::UpdateContacts()
         }
         // On steep ground: pushed down the slope by push_strength.
         if (At<int>(this, kState) == 0 && VectorAt(this, kGroundNormal).y < kSteepGround) {
-            const Maths::Vector& ground = VectorAt(this, kGroundNormal);
+            const Maths::Vec4& ground = VectorAt(this, kGroundNormal);
             float x = ground.x;
             float y = 0.0f;
             float z = ground.z;
@@ -1475,7 +1475,7 @@ bool CFootMovement::UpdateContacts()
                             static_cast<double>(first.normal.y) * second.normal.y) +
                            static_cast<double>(second.normal.x) * first.normal.x;
             if (apart <= 0.0) {
-                Stop(this);
+                Halt(this);
                 ReleaseHit(feeler);
                 return true;
             }
@@ -1493,7 +1493,7 @@ bool CFootMovement::UpdateContacts()
         const auto& contact = ContactAt(this, i);
         if (!contact.hit)
             continue;
-        const Maths::Vector& normal = contact.normal;
+        const Maths::Vec4& normal = contact.normal;
         double into = (static_cast<double>(z) * normal.z + static_cast<double>(y) * normal.y) + x * normal.x;
         if (into >= contact.objectSpeed)
             continue;
@@ -1507,7 +1507,7 @@ bool CFootMovement::UpdateContacts()
         w -= offW;
         double still = (static_cast<double>(z) * velocity.z + static_cast<double>(y) * velocity.y) + x * velocity.x;
         if (still <= 0.0) {
-            Stop(this);
+            Halt(this);
             ReleaseHit(feeler);
             return true;
         }
@@ -1576,14 +1576,14 @@ using GameObjects::CFootMovement;
 namespace GameObjects {
 namespace {
 
-static VtableSlot kWalkVtable_slots[] = {&CFootMovement::Destroy,
-         &CFootMovement::Update,
+static VtableSlot kWalkVtable_slots[] = {&CFootMovement::Teardown,
+         &CFootMovement::TickFrame,
          &GameObjects::CFootMovement::ConfigureFromData,
-         &GameObjects::CFootMovement::Finalize,
+         &GameObjects::CFootMovement::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

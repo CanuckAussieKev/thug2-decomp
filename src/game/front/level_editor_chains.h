@@ -28,7 +28,7 @@
 //     from CFunc_ParseNodeArray 0x005A34E0, after 0x0057C330 Cleanup - the only other caller is a moving object's rail
 //     manager 0x0042B880) and has no way to add one later, so the editor builds it again the same way (RebuildRails):
 //     every node it has is kept as it is (moved places, terrain, on / off - RemoveOverlaps' choices), new rail points
-//     are added with the game's own AddNode (0x0057D090), and every node's next / previous is made again from the
+//     are added with the game's own AppendVertex (0x0057D090), and every node's next / previous is made again from the
 //     links= as AddFromNodeArray makes them (a node's next: its first link, or a DefaultLine one). The old node array
 //     isn't freed while the level is up (a skater's grind may still point into it): it goes with the level.
 //   - Terrain: a rail's terrain is the rail manager node's byte (0x004442C0 maps the TerrainType checksum, from the
@@ -39,7 +39,7 @@
 //     reload: the layout applies a second after the level is up, and does the same).
 //   - Ladders (phase 4b): two ClimbingNodes of Type Ladder (CreatedAtStart, the same Angles (0, a, 0) - THUG2's own
 //     ladders: AP's palms, PH's and NO's buildings), the foot linked to the top. The rail manager keeps a climbing
-//     node's orientation as a quaternion (CGrindPoint::m_climb, from its Angles in AddNode); the skater climbing it
+//     node's orientation as a quaternion (CGrindPoint::m_climb, from its Angles in AppendVertex); the skater climbing it
 //     stands back from it against its at row (0x004413E0: the point minus at * a script distance), so the at row -
 //     (sin a, 0, cos a) - points into the wall: measured on the levels' ladders against their collision (the nearer
 //     front face is along +at for buildings). Drawn: the foot clicked on a wall (4 out from it, down to the ground
@@ -52,7 +52,7 @@
 //     combo's trick objects (0x00588A20 through 0x00588380 - graffiti / trick-object scoring). A drawn rail is
 //     registered the same way when the rail manager is built again: its cluster the scenery piece the first click hit
 //     (as the levels name their rails' clusters), else its first point; Inspector "Trick object" off takes its points
-//     out of the map again (ListKit::HashTable::EraseEntry). Gaps aren't trick objects: a level's gaps are its nodes'
+//     out of the map again (ListKit::KeyMap::EraseEntry). Gaps aren't trick objects: a level's gaps are its nodes'
 //     scripts (StartGap / EndGap) - a drawn rail has none.
 //   - Grindable on flat ground (phase 4b): the game has no node flag for it - RailClear (0x0057C600, all its callers:
 //     the rail manager's finds and the skater's 0x0043E29F, 0x0050E5FB, 0x00516ABF...) passes every rail only in the
@@ -60,8 +60,8 @@
 //     ends' places): an added point's `grindflat=1`, a level point's `grindflat` record, and in a baked level
 //     (tools/pipeline/game/apply_layout.ts) the node flag ed_grind_flat, which only this game reads.
 //   - Ledges (the feature map): ClimbingNode chains of Type Ledge (THUG2's own form: CreatedAtStart, Type=Ledge, and
-//     HangLeft / HangRight when the level says which side the skater hangs from - ST's TRG_619... - AddNode
-//     0x0057D090 reads them as for any climbing node), drawn and edited as rails are (Draw::Ledge: the clicks snapped
+//     HangLeft / HangRight when the level says which side the skater hangs from - ST's TRG_619... - AppendVertex
+//     0x0057D090 reads them as for any climbing node), drawn and edited as rails are (Blit::Ledge: the clicks snapped
 //     to edges, Insert / Delete / Extend / Link / Unlink), their hang side for the whole ledge (kOpHang). Ladders keep
 //     their own tools (a ledge isn't turned or deleted whole).
 //   - Rail speed-ups (the feature map; THAW's RailAccelerate, which the THAW ports carry in their scripts - skutils.qb's:
@@ -139,7 +139,7 @@ struct State {
 };
 bool SamePoint(const Point& a, const Point& b);
 bool SameState(const State& a, const State& b);
-bool Empty(const State& state);
+bool Vacant(const State& state);
 // The records' lines, and one record read (`kind` its first word: point / links / drop / terrain; false: malformed -
 // a repeated key, a bad value, no pos; unknown keys are skipped).
 std::string WriteRecords(const State& state);
@@ -177,11 +177,11 @@ bool Extend(Graph* graph, uint32_t from, uint32_t point);
 // `point` put between `from` and its next. False: `from` has no next.
 bool InsertAfter(Graph* graph, uint32_t from, uint32_t point);
 // `name` taken out: the nodes linking to it link on to its next (if any, and not already); its links cleared.
-void Remove(Graph* graph, uint32_t name);
+void DropOut(Graph* graph, uint32_t name);
 // Two ends linked: a (no next) -> b, else b (no next) -> a. False: neither has a free next, or the same node.
 bool Link(Graph* graph, uint32_t a, uint32_t b);
 // `name`'s link to its next (its first link) removed: the chain split there. False: none.
-bool Unlink(Graph* graph, uint32_t name);
+bool Uncouple(Graph* graph, uint32_t name);
 // The points of `name`'s chain (linked either way), `name` first.
 std::vector<uint32_t> Connected(const Graph& graph, uint32_t name);
 
@@ -237,11 +237,11 @@ const char* HangWord(int hang);
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // What the editor has changed in the level's chains now.
-State Current();
+State AtHand();
 // `state` put in place (from the current one): points added / removed / moved / relinked, level links rewritten or put
 // back, points dropped or shown, terrains set or put back; the rail manager built again; objects whose path changed
 // made again. False: not in a level.
-bool SetState(const State& state);
+bool ChangePhase(const State& state);
 // A new level: forgotten (the last level's links put back if its node array is still the one loaded).
 void ForgetLevel();
 // Once a frame (on or off): objects waiting to be made again.
@@ -283,7 +283,7 @@ enum Op : int {
 bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* select);
 // Drawing new chains (the Place palette's Rail / Path / Ladder, or Extend): each click a point linked on from the
 // last; a ladder: its foot on a wall, then its top.
-enum class Draw : uint8_t { None, Rail, Path, Ladder, Ledge };
+enum class Blit : uint8_t { None, Rail, RouteWay, Ladder, Ledge };
 // A ClimbingNode of Type Ledge (a level's or the editor's).
 bool IsLedgeNode(uint32_t name);
 // Once a frame (Tick) and after every state change: the speed-ups' TriggerScripts in place (the scripts defined, the
@@ -303,8 +303,8 @@ bool LadderClick(V3 from, V3 dir, float maxT, std::string* message, uint32_t* se
 // The rail manager's RailClear override (GameObjects::SetRailClearOverride): a segment of a rail marked grindable on flat
 // ground.
 bool FlatGrindable(V3 a, V3 b);
-void StartDrawing(Draw kind);
-Draw Drawing();
+void StartDrawing(Blit kind);
+Blit Drawing();
 // `end`: a chain's free end the click snapped to (SnapPoint) - the first click draws on from it, a later one links
 // onto it and finishes. True: a point was added.
 bool DrawAt(V3 at, uint32_t end, std::string* message, uint32_t* select);

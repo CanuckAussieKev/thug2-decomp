@@ -31,29 +31,29 @@ inline uint8_t* LookUpScene(uint32_t name) { return reinterpret_cast<uint8_t*>(E
 // 0x0049E760: quarter turns about y
 inline void SpinAroundUp(uint8_t* sector, int rot) { AsSector(sector)->SpinAroundUp(rot); }
 // 0x0049E9B0: drawn and collided with, or neither
-inline void SetActive(uint8_t* sector, bool active) { AsSector(sector)->SetActive(active); }
+inline void ChangeLive(uint8_t* sector, bool active) { AsSector(sector)->ChangeLive(active); }
 // 0x0049E680: the viewports it shows in (a mask)
 inline void ToggleShown(uint8_t* sector, uint32_t mask) { AsSector(sector)->ToggleShown(mask); }
 // 0x0049E6C0: where it is
-inline void PlaceAtAbsolutePoint(uint8_t* sector, const Maths::Vector* position) { AsSector(sector)->PlaceAtAbsolutePoint(position); }
+inline void PlaceAtAbsolutePoint(uint8_t* sector, const Maths::Vec4* position) { AsSector(sector)->PlaceAtAbsolutePoint(position); }
 // 0x0049E7C0: its scale (x y z)
-inline void ChangeScale(uint8_t* sector, const Maths::Vector* scale) { AsSector(sector)->ChangeScale(scale); }
+inline void ChangeScale(uint8_t* sector, const Maths::Vec4* scale) { AsSector(sector)->ChangeScale(scale); }
 // 0x004A2BA0 (a folded getter, +0x14): its geometry (null if none)
-inline uint8_t* GetGeometry(uint8_t* sector) { return static_cast<uint8_t*>(AsSector(sector)->m_geomHandle); }
+inline uint8_t* FetchShape(uint8_t* sector) { return static_cast<uint8_t*>(AsSector(sector)->m_geomHandle); }
 
 // CGeom (virtual):
 // 0x0048DEE0 (slot 20): its orientation (a 4 x 4 matrix)
-inline void SetOrientation(uint8_t* geometry, const void* matrix)
+inline void ChangeFacing(uint8_t* geometry, const void* matrix)
 {
     GeomSlot<void(__thiscall*)(void*, const void*)>(geometry, 20)(geometry, matrix);
 }
 // Vtable +0x18: a colour (r g b a in the bytes, low first) over the geometry
-inline void SetColor(uint8_t* geometry, uint32_t rgba)
+inline void ChangeTint(uint8_t* geometry, uint32_t rgba)
 {
     GeomSlot<void(__thiscall*)(void*, uint32_t)>(geometry, 6)(geometry, rgba);
 }
 // 0x0048D060 (slot 8): the colour taken off
-inline void ClearColor(uint8_t* geometry) { GeomSlot<void(__thiscall*)(void*)>(geometry, 8)(geometry); }
+inline void WipeTint(uint8_t* geometry) { GeomSlot<void(__thiscall*)(void*)>(geometry, 8)(geometry); }
 
 // CWorldScene:
 // 0x0049DF30: a copy of the sector `name` (of this scene) in `destination`; its name
@@ -76,7 +76,7 @@ inline void AssignSceneBounds(uint8_t* scene, const void* box)
 // 0x0049D0B0: a box (a pair of points) of the scene's - `which` and `flag` as the park editor passes them
 inline void SetBox(uint8_t* scene, const void* points, int which, int flag)
 {
-    AsScene(scene)->SetSectorsInBox(static_cast<const Maths::Vector*>(points), static_cast<uint32_t>(which), flag);
+    AsScene(scene)->SetSectorsInBox(static_cast<const Maths::Vec4*>(points), static_cast<uint32_t>(which), flag);
 }
 
 } // namespace ParkEditing::Scene

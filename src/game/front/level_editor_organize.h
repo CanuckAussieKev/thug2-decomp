@@ -39,12 +39,12 @@ struct Member {
     uint32_t id = 0;
 };
 inline bool operator==(const Member& a, const Member& b) { return a.kind == b.kind && a.id == b.id; }
-struct Group {
+struct GroupSet {
     std::string name;
     std::vector<Member> members;
 };
 struct State {
-    std::vector<Group> groups;
+    std::vector<GroupSet> groups;
     std::vector<std::pair<uint32_t, std::string>> labels;
     std::vector<uint32_t> locked;     // edlock
     std::vector<uint32_t> unpickable; // nopick
@@ -80,18 +80,18 @@ bool RowPasses(const Filter& filter, Nodes::Family family, const std::string& na
 
 // Box select: the box (back buffer pixels) dragged from (x0, y0) to (x1, y1); inside when dragged to the right, crossing
 // when to the left. A thing's screen box (its projected corners' bounds) taken: wholly inside, or (crossing) touching.
-struct Rect {
+struct Rect2 {
     float x0, y0, x1, y1; // x0 <= x1, y0 <= y1
 };
-Rect RectOf(float ax, float ay, float bx, float by);
+Rect2 RectOf(float ax, float ay, float bx, float by);
 bool CrossingDrag(float originCoordX, float lastColumn);
-bool BoxTakes(const Rect& box, const Rect& thing, bool crossing);
+bool BoxTakes(const Rect2& box, const Rect2& thing, bool crossing);
 // The selection after a box: `found` replacing `current`, added to it, or taken from it (`op`: 0 / 1 add / 2 remove),
 // in order, no repeats.
 std::vector<uint32_t> Combine(const std::vector<uint32_t>& current, const std::vector<uint32_t>& found, int op);
 
 // Select similar: what a thing is, and whether two are alike by a criterion.
-enum class Similar : uint8_t { Mesh, Class, Family, Type };
+enum class Similar : uint8_t { Mesh, Class, Family, KindTag };
 struct Thing {
     uint32_t id = 0;
     Nodes::Family family = Nodes::Family::Other;
@@ -111,18 +111,18 @@ bool SnapshotOf(const std::string& fileName, uint32_t scene, std::string* name);
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // Registers the layout's records (Layout::AddExtension) and the actions' callbacks; once.
-void Init();
-const State& Current();
+void PrepareAll();
+const State& AtHand();
 // Changed as one undo step (`label`).
 void Change(const State& next, const char* label);
 
 // Per row (a node's name: an object's id, a scenery piece's checksum, a node's own name).
-bool HiddenInEditor(const Nodes::Node& node);
-void SetHiddenInEditor(const Nodes::Node& node, bool hidden);
-bool Locked(uint32_t id);
+bool HiddenInEditor(const Nodes::Elem& node);
+void SetHiddenInEditor(const Nodes::Elem& node, bool hidden);
+bool Latched(uint32_t id);
 void SetLocked(uint32_t id, bool locked);
-bool Selectable(const Nodes::Node& node);
-void SetSelectable(const Nodes::Node& node, bool selectable);
+bool Selectable(const Nodes::Elem& node);
+void SetSelectable(const Nodes::Elem& node, bool selectable);
 // The editor's hooks: a node's gizmo not drawn (hidden in the editor) / not picked; the selection locked against changes
 // (said on the message line when `say`).
 bool GizmoHidden(uint32_t name);
@@ -135,7 +135,7 @@ void SelectGroup(int index);
 void DeleteGroup(int index);
 void RenameGroup(int index, const std::string& name);
 void AddToGroup(int index); // the selection added
-bool InGroup(const std::string& group, const Nodes::Node& node);
+bool InGroup(const std::string& group, const Nodes::Elem& node);
 
 // Box select (the editor's click handling): armed (Ctrl+B: the next press starts one anywhere); a press where nothing is
 // (`x`, `y`: back buffer pixels; `mods`: Actions' bits); the drag; let go - applied when it moved.
@@ -145,7 +145,7 @@ void BoxPress(float x, float y, uint8_t mods);
 void BoxTrack(bool down, float x, float y);
 bool BoxActive(); // (a drag drawing a box)
 // The box's outline for the overlay (back buffer pixels): false when there is none.
-bool BoxOutline(Rect* rect, bool* crossing);
+bool BoxOutline(Rect2* rect, bool* crossing);
 
 // Select similar / all / invert (the Shift+G menu, the command search).
 void SelectSimilar(Similar by);

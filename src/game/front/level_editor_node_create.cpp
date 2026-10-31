@@ -123,7 +123,7 @@ bool SameSpec(const Spec& a, const Spec& b)
            a.colour[2] == b.colour[2] && a.brightness == b.brightness && a.inner == b.inner && a.outer == b.outer &&
            a.radius == b.radius && a.like == b.like && a.terrain == b.terrain && a.links == b.links &&
            a.owned == b.owned && a.extra.size() == b.extra.size() &&
-           std::equal(a.extra.begin(), a.extra.end(), b.extra.begin(), [](const Field& x, const Field& y) {
+           std::equal(a.extra.begin(), a.extra.end(), b.extra.begin(), [](const Prop& x, const Prop& y) {
                return x.type == y.type && x.key == y.key && x.text == y.text && x.value[0] == y.value[0] &&
                       x.value[1] == y.value[1] && x.value[2] == y.value[2] && x.integer == y.integer &&
                       x.list == y.list && x.integers == y.integers;
@@ -257,38 +257,38 @@ bool ValidName(const std::string& name)
     return true;
 }
 
-std::vector<Field> Fields(const Spec& spec)
+std::vector<Prop> Fields(const Spec& spec)
 {
-    std::vector<Field> fields;
+    std::vector<Prop> fields;
     auto name = [&](const char* key, const std::string& value) {
-        Field f = {Field::kName, key};
+        Prop f = {Prop::kName, key};
         f.text = value;
         fields.push_back(f);
     };
     auto flag = [&](const char* value) {
-        Field f = {Field::kFlag, ""};
+        Prop f = {Prop::kFlag, ""};
         f.text = value;
         fields.push_back(f);
     };
     auto vector = [&](const char* key, V3 v) {
-        Field f = {Field::kVector, key};
+        Prop f = {Prop::kVector, key};
         f.value[0] = v.x;
         f.value[1] = v.y;
         f.value[2] = v.z;
         fields.push_back(f);
     };
     auto number = [&](const char* key, float v) {
-        Field f = {Field::kFloat, key};
+        Prop f = {Prop::kFloat, key};
         f.value[0] = v;
         fields.push_back(f);
     };
     auto integer = [&](const char* key, int v) {
-        Field f = {Field::kInteger, key};
+        Prop f = {Prop::kInteger, key};
         f.integer = v;
         fields.push_back(f);
     };
     auto string = [&](const char* key, const std::string& v) {
-        Field f = {Field::kString, key};
+        Prop f = {Prop::kString, key};
         f.text = v;
         fields.push_back(f);
     };
@@ -323,7 +323,7 @@ std::vector<Field> Fields(const Spec& spec)
     case Kind::TeamSpawn: {
         flag("CreatedAtStart");
         string("RestartName", kind == Kind::TeamSpawn ? "Team: CTF " + colour : std::string("Multi: Restart"));
-        Field types = {Field::kNames, "restart_types"};
+        Prop types = {Prop::kNames, "restart_types"};
         types.list = spec.types;
         fields.push_back(types);
         break;
@@ -349,7 +349,7 @@ std::vector<Field> Fields(const Spec& spec)
         number("Brightness", spec.brightness);
         number("InnerRadius", spec.inner);
         number("OuterRadius", spec.outer);
-        Field c = {Field::kIntegers, "Color"};
+        Prop c = {Prop::kIntegers, "Color"};
         c.integers = {spec.colour[0], spec.colour[1], spec.colour[2]};
         fields.push_back(c);
         break;
@@ -393,7 +393,7 @@ bool HideLeavesNoRestart(uint32_t types, uint32_t others)
     return false;
 }
 
-int IndexOf(const List& list, const std::string& name)
+int IndexOf(const LinkChain& list, const std::string& name)
 {
     for (size_t i = 0; i < list.size(); ++i) {
         if (SameText(list[i].name, name.c_str()))
@@ -402,13 +402,13 @@ int IndexOf(const List& list, const std::string& name)
     return -1;
 }
 
-int Add(List* list, const Spec& spec)
+int AppendOne(LinkChain* list, const Spec& spec)
 {
     list->push_back(spec);
     return static_cast<int>(list->size()) - 1;
 }
 
-bool Take(List* list, const std::string& name, Spec* spec, int* index)
+bool Take(LinkChain* list, const std::string& name, Spec* spec, int* index)
 {
     int i = IndexOf(*list, name);
     if (i < 0)
@@ -419,7 +419,7 @@ bool Take(List* list, const std::string& name, Spec* spec, int* index)
     return true;
 }
 
-void PutBack(List* list, const Spec& spec, int index)
+void PutBack(LinkChain* list, const Spec& spec, int index)
 {
     index = std::max(0, std::min(index, static_cast<int>(list->size())));
     list->insert(list->begin() + index, spec);
@@ -433,7 +433,7 @@ bool IsCrown(const Spec& s)
 }
 } // namespace
 
-std::vector<std::string> CrownOrder(const List& list)
+std::vector<std::string> CrownOrder(const LinkChain& list)
 {
     std::vector<std::string> order;
     for (const Spec& s : list) {
@@ -443,7 +443,7 @@ std::vector<std::string> CrownOrder(const List& list)
     return order;
 }
 
-bool MoveCrown(List* list, const std::string& name, int delta)
+bool MoveCrown(LinkChain* list, const std::string& name, int delta)
 {
     int at = IndexOf(*list, name);
     if (at < 0 || !IsCrown((*list)[at]) || (delta != -1 && delta != 1))
@@ -457,7 +457,7 @@ bool MoveCrown(List* list, const std::string& name, int delta)
     return false;
 }
 
-void ApplyCrownOrder(List* list, const std::vector<std::string>& order)
+void ApplyCrownOrder(LinkChain* list, const std::vector<std::string>& order)
 {
     std::vector<int> slots;
     std::vector<Spec> crowns;
@@ -488,7 +488,7 @@ void ApplyCrownOrder(List* list, const std::vector<std::string>& order)
 
 // --- the game side ----------------------------------------------------------------------------------------------
 
-uint32_t Checksum(const std::string& name) { return Checksums::HashFromText(name.c_str()); }
+uint32_t NameHash(const std::string& name) { return Checksums::HashFromText(name.c_str()); }
 
 
 namespace {
@@ -499,7 +499,7 @@ constexpr uint32_t kPos = 0x7F261953;    // pos
 constexpr uint32_t kAngles = 0x9D2D0915; // angles
 
 // The overlay: its specs (names, classes...; places are the structures') and structures, in array order.
-List g_list;
+LinkChain g_list;
 std::vector<Scripts::CStruct*> g_structs;
 Scripts::CArray* g_array;
 bool g_registered;
@@ -513,7 +513,7 @@ struct HiddenNode {
 };
 std::vector<HiddenNode> g_hidden;
 
-LevelNodes::CNodeManager* Manager() { return LevelNodes::NodeManagerInstance(); }
+LevelNodes::CNodeManager* Hub() { return LevelNodes::NodeManagerInstance(); }
 
 // The game's managers made at the level's load (null outside a level).
 bool HaveProxim() { return GameObjects::g_proximManager != nullptr; }
@@ -543,56 +543,56 @@ Scripts::CStruct* Build(const Spec& spec)
     Scripts::CStruct* node = Scripts::NewStruct();
     if (!node)
         return nullptr;
-    node->Init();
+    node->PrepareAll();
     // A chain point drawn on from another copies that one's fields (its own name, place and links aside; not a trick
     // object of the other's cluster) - level_editor_chains.h.
-    Scripts::CStruct* like = spec.like && Manager() ? LevelNodes::GetNode(spec.like, false) : nullptr;
+    Scripts::CStruct* like = spec.like && Hub() ? LevelNodes::FetchVertex(spec.like, false) : nullptr;
     if (like) {
         node->MergeStructure(like);
         for (const char* key : {"Name", "Pos", "Angles", "Links", "Cluster", "ed_hidden_class", "ed_hidden_type"})
-            node->RemoveComponent(Checksum(key));
-        node->RemoveFlag(Checksum("TrickObject"));
-        node->RemoveFlag(Checksum("ed_grind_flat")); // (its own choice: level_editor_chains.h)
+            node->EraseModule(NameHash(key));
+        node->RemoveFlag(NameHash("TrickObject"));
+        node->RemoveFlag(NameHash("ed_grind_flat")); // (its own choice: level_editor_chains.h)
     }
-    for (const Field& f : Fields(spec)) {
-        uint32_t key = f.key.empty() ? 0u : Checksum(f.key);
-        if (like && f.type == Field::kFlag && node->HasBareFlag(Checksum(f.text)))
+    for (const Prop& f : Fields(spec)) {
+        uint32_t key = f.key.empty() ? 0u : NameHash(f.key);
+        if (like && f.type == Prop::kFlag && node->HasBareFlag(NameHash(f.text)))
             continue;
         if (like && f.key == "TerrainType" && spec.terrain.empty())
             continue; // (the copied one)
         if (like && key)
-            node->RemoveComponent(key);
+            node->EraseModule(key);
         switch (f.type) {
-        case Field::kFlag:
-            node->PutNameKey(0u, Checksum(f.text));
+        case Prop::kFlag:
+            node->PutNameKey(0u, NameHash(f.text));
             break;
-        case Field::kName:
-            node->PutNameKey(key, Checksum(f.text));
-            Scripts::NoteQbName(Checksum(f.text), f.text.c_str());
+        case Prop::kName:
+            node->PutNameKey(key, NameHash(f.text));
+            Scripts::NoteQbName(NameHash(f.text), f.text.c_str());
             break;
-        case Field::kString:
-            node->AddString(key, f.text.c_str());
+        case Prop::kString:
+            node->AppendWord(key, f.text.c_str());
             break;
-        case Field::kInteger:
+        case Prop::kInteger:
             node->PutInt(key, f.integer);
             break;
-        case Field::kFloat:
+        case Prop::kFloat:
             node->PushFloat(key, f.value[0]);
             break;
-        case Field::kVector:
+        case Prop::kVector:
             node->PutVec3(key, f.value[0], f.value[1], f.value[2]);
             break;
-        case Field::kNames:
-        case Field::kIntegers: {
+        case Prop::kNames:
+        case Prop::kIntegers: {
             Scripts::CArray* array = Scripts::NewArray();
             if (!array)
                 break;
-            array->Init();
-            bool names = f.type == Field::kNames;
+            array->PrepareAll();
+            bool names = f.type == Prop::kNames;
             uint32_t count = static_cast<uint32_t>(names ? f.list.size() : f.integers.size());
             array->ConfigureSizeKind(count, names ? Scripts::QBVAL_NAME : Scripts::QBVAL_INTEGER);
             for (uint32_t i = 0; i < count; ++i)
-                array->SetElement(i, names ? Checksum(f.list[i]) : static_cast<uint32_t>(f.integers[i]));
+                array->SetElement(i, names ? NameHash(f.list[i]) : static_cast<uint32_t>(f.integers[i]));
             node->AppendArrayRef(key, array);
             break;
         }
@@ -601,7 +601,7 @@ Scripts::CStruct* Build(const Spec& spec)
     return node;
 }
 
-void Free(Scripts::CStruct* node)
+void Dealloc(Scripts::CStruct* node)
 {
     if (!node)
         return;
@@ -614,13 +614,13 @@ constexpr uint32_t kLinks = 0x2E7D5EE7; // links
 // A structure's links= set to these names (none: removed).
 void WriteLinks(Scripts::CStruct* node, const std::vector<uint32_t>& links)
 {
-    node->RemoveComponent(kLinks);
+    node->EraseModule(kLinks);
     if (links.empty())
         return;
     Scripts::CArray* array = Scripts::NewArray();
     if (!array)
         return;
-    array->Init();
+    array->PrepareAll();
     array->ConfigureSizeKind(static_cast<uint32_t>(links.size()), Scripts::QBVAL_NAME);
     for (size_t i = 0; i < links.size(); ++i)
         array->SetElement(static_cast<uint32_t>(i), links[i]);
@@ -630,7 +630,7 @@ void WriteLinks(Scripts::CStruct* node, const std::vector<uint32_t>& links)
 // The overlay registered again with its structures as they are now (none: not registered).
 bool Sync()
 {
-    LevelNodes::CNodeManager* manager = Manager();
+    LevelNodes::CNodeManager* manager = Hub();
     if (!manager)
         return false;
     LevelNodes::SetNodeArrayRemovedHook(&OnArrayRemoved);
@@ -639,7 +639,7 @@ bool Sync()
         g_registered = false;
         manager->RemoveNodeArray(Nodes::OverlayArray());
     }
-    Nodes::Invalidate();
+    Nodes::MarkStale();
     if (g_structs.empty())
         return true;
     if (!g_array) {
@@ -650,12 +650,12 @@ bool Sync()
         g_array = Scripts::NewArray();
         if (!g_array)
             return false;
-        g_array->Init();
+        g_array->PrepareAll();
         Scripts::CSymbolTableEntry* symbol = Scripts::CreateSymbol(name);
         symbol->type = Scripts::QBVAL_ARRAY;
         symbol->raw = reinterpret_cast<uint32_t>(g_array);
     }
-    if (manager->m_count >= static_cast<uint32_t>(LevelNodes::CNodeManager::kMaxArrays)) {
+    if (manager->m_num >= static_cast<uint32_t>(LevelNodes::CNodeManager::kMaxArrays)) {
         Log("level editor: the node manager's 20 node arrays are in use - added nodes not registered");
         return false;
     }
@@ -664,12 +664,12 @@ bool Sync()
     for (size_t i = 0; i < g_structs.size(); ++i) {
         g_array->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(g_structs[i]));
         // (links= are names already: kept out of AddNodeArray's ResolveLinks, which reads indices - put on after)
-        g_structs[i]->RemoveComponent(kLinks);
+        g_structs[i]->EraseModule(kLinks);
     }
     g_registered = manager->AddNodeArray(Nodes::OverlayArray(), false);
     for (size_t i = 0; i < g_structs.size(); ++i)
         WriteLinks(g_structs[i], g_list[i].links);
-    Nodes::Invalidate();
+    Nodes::MarkStale();
     return g_registered;
 }
 
@@ -679,12 +679,12 @@ void MakeLive(const Spec& spec, Scripts::CStruct* node)
     Kind kind;
     if (!KindOf(spec, &kind))
         return;
-    uint32_t name = Checksum(spec.name);
-    Maths::Vector pos = {spec.pos.x, spec.pos.y, spec.pos.z, 1.0f};
+    uint32_t name = NameHash(spec.name);
+    Maths::Vec4 pos = {spec.pos.x, spec.pos.y, spec.pos.z, 1.0f};
     if (kind == Kind::ProximityNode && HaveProxim()) {
         if (GameObjects::ProximNode* proxim = GameObjects::Proxim_GetNode(name)) {
             // (made before and removed: the game can't free one - used again)
-            proxim->m_pos = pos;
+            proxim->m_atPoint = pos;
             proxim->m_radius = spec.radius;
             proxim->m_radiusSquared = spec.radius * spec.radius;
             GameObjects::ProximityNode_Enable(name, 1);
@@ -693,7 +693,7 @@ void MakeLive(const Spec& spec, Scripts::CStruct* node)
         }
     } else if (kind == Kind::Sound && HaveEmitters()) {
         if (GameObjects::EmitterNode* emitter = GameObjects::Emitter_GetNode(name)) {
-            emitter->m_pos = pos;
+            emitter->m_atPoint = pos;
             emitter->m_radius = spec.radius;
             emitter->m_radiusSquared = spec.radius * spec.radius;
             emitter->m_active = true;
@@ -710,7 +710,7 @@ void KillLive(const Spec& spec)
     Kind kind;
     if (!KindOf(spec, &kind))
         return;
-    uint32_t name = Checksum(spec.name);
+    uint32_t name = NameHash(spec.name);
     if (kind == Kind::ProximityNode && HaveProxim())
         GameObjects::ProximityNode_Enable(name, 0);
     else if (kind == Kind::Sound && HaveEmitters())
@@ -723,8 +723,8 @@ void KillLive(const Spec& spec)
 Spec WithPlace(const Spec& spec, Scripts::CStruct* node)
 {
     Spec s = spec;
-    Maths::Vector pos, angles;
-    LevelNodes::GetPosition(node, &pos);
+    Maths::Vec4 pos, angles;
+    LevelNodes::FetchPlace(node, &pos);
     LevelNodes::ReadTurnAngles(node, &angles);
     s.pos = {pos.x, pos.y, pos.z};
     s.angles = {angles.x, angles.y, angles.z};
@@ -733,28 +733,28 @@ Spec WithPlace(const Spec& spec, Scripts::CStruct* node)
 
 void Forget()
 {
-    LevelNodes::CNodeManager* manager = Manager();
+    LevelNodes::CNodeManager* manager = Hub();
     if (g_registered && manager) {
         g_registered = false;
         manager->RemoveNodeArray(Nodes::OverlayArray());
     }
     g_registered = false;
     for (const Spec& spec : g_list)
-        NodeEdit::Forget(Checksum(spec.name));
+        NodeEdit::Forget(NameHash(spec.name));
     for (Scripts::CStruct* node : g_structs)
-        Free(node);
+        Dealloc(node);
     g_structs.clear();
     g_list.clear();
     if (g_array)
         g_array->ConfigureSizeKind(0, Scripts::QBVAL_STRUCT);
     g_hidden.clear();
-    Nodes::Invalidate();
+    Nodes::MarkStale();
 }
 
 bool InLevel()
 {
-    LevelNodes::CNodeManager* manager = Manager();
-    return manager && manager->m_count > (g_registered ? 1u : 0u) && Engine3D::CurrentLevel() != 0;
+    LevelNodes::CNodeManager* manager = Hub();
+    return manager && manager->m_num > (g_registered ? 1u : 0u) && Engine3D::CurrentLevel() != 0;
 }
 
 } // namespace
@@ -765,9 +765,9 @@ void SetArrayRemovedListener(void (*listener)(uint32_t name))
     LevelNodes::SetNodeArrayRemovedHook(&OnArrayRemoved);
 }
 
-List Current()
+LinkChain AtHand()
 {
-    List list;
+    LinkChain list;
     for (size_t i = 0; i < g_list.size(); ++i)
         list.push_back(WithPlace(g_list[i], g_structs[i]));
     return list;
@@ -776,7 +776,7 @@ List Current()
 bool IsAdded(uint32_t name)
 {
     for (const Spec& spec : g_list) {
-        if (Checksum(spec.name) == name)
+        if (NameHash(spec.name) == name)
             return true;
     }
     return false;
@@ -784,10 +784,10 @@ bool IsAdded(uint32_t name)
 
 bool NameTaken(const std::string& name)
 {
-    uint32_t checksum = Checksum(name);
+    uint32_t checksum = NameHash(name);
     if (IndexOf(g_list, name) >= 0)
         return true;
-    if (Manager() && LevelNodes::GetNode(checksum, false))
+    if (Hub() && LevelNodes::FetchVertex(checksum, false))
         return true;
     return GameObjects::FindObject(checksum) != nullptr;
 }
@@ -795,8 +795,8 @@ bool NameTaken(const std::string& name)
 Counts CountsNow()
 {
     Counts counts;
-    static const uint32_t kRestart = Checksum("Restart"), kCrown = Checksum("Crown");
-    for (const Nodes::Node& node : Nodes::All()) {
+    static const uint32_t kRestart = NameHash("Restart"), kCrown = NameHash("Crown");
+    for (const Nodes::Elem& node : Nodes::All()) {
         if (node.hidden)
             continue;
         if (node.type == kCrown)
@@ -831,9 +831,9 @@ const char* WhyNotLobbyFlag(Team team)
     return nullptr;
 }
 
-bool Create(const Spec& spec, int index, std::string* message)
+bool Fabricate(const Spec& spec, int index, std::string* message)
 {
-    List one = {spec};
+    LinkChain one = {spec};
     if (!InLevel()) {
         *message = "Not in a level";
         return false;
@@ -854,7 +854,7 @@ bool Create(const Spec& spec, int index, std::string* message)
     if (!Sync()) {
         g_list.erase(g_list.begin() + index);
         g_structs.erase(g_structs.begin() + index);
-        Free(node);
+        Dealloc(node);
         Sync();
         *message = "Couldn't add it to the node manager";
         return false;
@@ -865,7 +865,7 @@ bool Create(const Spec& spec, int index, std::string* message)
     return true;
 }
 
-int CreateAll(const List& specs, std::string* message)
+int CreateAll(const LinkChain& specs, std::string* message)
 {
     if (!InLevel()) {
         *message = "Not in a level";
@@ -891,7 +891,7 @@ int CreateAll(const List& specs, std::string* message)
     if (!Sync()) {
         for (size_t i = 0; i < made.size(); ++i) {
             g_list.pop_back();
-            Free(g_structs.back());
+            Dealloc(g_structs.back());
             g_structs.pop_back();
         }
         Sync();
@@ -903,10 +903,10 @@ int CreateAll(const List& specs, std::string* message)
     return static_cast<int>(made.size());
 }
 
-bool Remove(uint32_t name, Spec* spec, int* index)
+bool DropOut(uint32_t name, Spec* spec, int* index)
 {
     for (size_t i = 0; i < g_list.size(); ++i) {
-        if (Checksum(g_list[i].name) != name)
+        if (NameHash(g_list[i].name) != name)
             continue;
         *spec = WithPlace(g_list[i], g_structs[i]);
         *index = static_cast<int>(i);
@@ -916,7 +916,7 @@ bool Remove(uint32_t name, Spec* spec, int* index)
         g_structs.erase(g_structs.begin() + static_cast<std::ptrdiff_t>(i));
         Sync();
         NodeEdit::Forget(name);
-        Free(node);
+        Dealloc(node);
         Log("level editor: removed the added node %s", spec->name.c_str());
         return true;
     }
@@ -926,11 +926,11 @@ bool Remove(uint32_t name, Spec* spec, int* index)
 bool SetLinks(uint32_t name, const std::vector<uint32_t>& links)
 {
     for (size_t i = 0; i < g_list.size(); ++i) {
-        if (Checksum(g_list[i].name) != name)
+        if (NameHash(g_list[i].name) != name)
             continue;
         g_list[i].links = links;
         WriteLinks(g_structs[i], links);
-        Nodes::Invalidate();
+        Nodes::MarkStale();
         return true;
     }
     return false;
@@ -946,7 +946,7 @@ std::vector<std::string> Order()
 
 void SetOrder(const std::vector<std::string>& names)
 {
-    List list;
+    LinkChain list;
     std::vector<Scripts::CStruct*> structs;
     std::vector<bool> used(g_list.size(), false);
     for (const std::string& name : names) {
@@ -971,9 +971,9 @@ void SetOrder(const std::vector<std::string>& names)
 bool MoveCrown(uint32_t name, int delta, std::string* message)
 {
     for (const Spec& spec : g_list) {
-        if (Checksum(spec.name) != name)
+        if (NameHash(spec.name) != name)
             continue;
-        List list = g_list;
+        LinkChain list = g_list;
         if (!NodeCreate::MoveCrown(&list, spec.name, delta)) {
             *message = delta < 0 ? "Already the first added crown"
                                  : "Already the last crown";
@@ -991,7 +991,7 @@ bool MoveCrown(uint32_t name, int delta, std::string* message)
 
 void ApplyCrownOrder(const std::vector<std::string>& order)
 {
-    List list = g_list;
+    LinkChain list = g_list;
     NodeCreate::ApplyCrownOrder(&list, order);
     std::vector<std::string> names;
     for (const Spec& s : list)
@@ -999,7 +999,7 @@ void ApplyCrownOrder(const std::vector<std::string>& order)
     SetOrder(names);
 }
 
-bool CanHide(const Nodes::Node& node, const char** why)
+bool CanHide(const Nodes::Elem& node, const char** why)
 {
     *why = nullptr;
     if (node.added) {
@@ -1013,10 +1013,10 @@ bool CanHide(const Nodes::Node& node, const char** why)
     switch (node.family) {
     case Nodes::Family::Spawn:
     case Nodes::Family::Crown:
-    case Nodes::Family::Flag:
+    case Nodes::Family::BitMark:
     case Nodes::Family::Light:
     case Nodes::Family::Sound:
-    case Nodes::Family::Trigger:
+    case Nodes::Family::FireOff:
         break;
     default:
         *why = "This node type can't be hidden";
@@ -1030,7 +1030,7 @@ bool CanHide(const Nodes::Node& node, const char** why)
     }
     if (node.family == Nodes::Family::Spawn) {
         uint32_t others = 0;
-        for (const Nodes::Node& n : Nodes::All()) {
+        for (const Nodes::Elem& n : Nodes::All()) {
             if (n.family == Nodes::Family::Spawn && !n.hidden && n.name != node.name)
                 others |= n.restartTypes;
         }
@@ -1055,16 +1055,16 @@ std::vector<uint32_t> HiddenNames()
     return names;
 }
 
-bool Hide(uint32_t name, bool hide)
+bool Conceal(uint32_t name, bool hide)
 {
-    if (!Manager() || IsAdded(name))
+    if (!Hub() || IsAdded(name))
         return false;
-    Scripts::CStruct* node = LevelNodes::GetNode(name, false);
+    Scripts::CStruct* node = LevelNodes::FetchVertex(name, false);
     if (!node)
         return false;
     auto it = std::find_if(g_hidden.begin(), g_hidden.end(), [&](const HiddenNode& h) { return h.name == name; });
-    static const uint32_t kLight = Checksum("LevelLight"), kProxim = Checksum("ProximNode"),
-                          kEmitter = Checksum("EmitterObject");
+    static const uint32_t kLight = NameHash("LevelLight"), kProxim = NameHash("ProximNode"),
+                          kEmitter = NameHash("EmitterObject");
     if (hide) {
         if (it != g_hidden.end())
             return true;
@@ -1098,7 +1098,7 @@ bool Hide(uint32_t name, bool hide)
             cls != kLight)
             object->FlagAsDead();
         g_hidden.push_back(h);
-        Log("level editor: hid the level's node %s", Objects::Label(name).c_str());
+        Log("level editor: hid the level's node %s", Objects::Caption(name).c_str());
     } else {
         if (it == g_hidden.end())
             return true;
@@ -1107,10 +1107,10 @@ bool Hide(uint32_t name, bool hide)
         uint32_t cls = 0, type = 0;
         node->ReadHashValue(Nodes::HiddenClassKey(), &cls, 0);
         node->ReadHashValue(Nodes::HiddenTypeKey(), &type, 0);
-        node->RemoveComponent(Nodes::HiddenClassKey());
-        node->RemoveComponent(Nodes::HiddenTypeKey());
-        node->RemoveComponent(kClass);
-        node->RemoveComponent(kType);
+        node->EraseModule(Nodes::HiddenClassKey());
+        node->EraseModule(Nodes::HiddenTypeKey());
+        node->EraseModule(kClass);
+        node->EraseModule(kType);
         node->PutNameKey(kClass, cls);
         if (type)
             node->PutNameKey(kType, type);
@@ -1120,9 +1120,9 @@ bool Hide(uint32_t name, bool hide)
             GameObjects::Emitter_SetActive(name, 1);
         if (cls == kLight)
             AddLight(node);
-        Log("level editor: showed the level's node %s again", Objects::Label(name).c_str());
+        Log("level editor: showed the level's node %s again", Objects::Caption(name).c_str());
     }
-    Nodes::Invalidate();
+    Nodes::MarkStale();
     return true;
 }
 
@@ -1130,22 +1130,22 @@ void ResetAll()
 {
     std::vector<uint32_t> hidden = HiddenNames();
     for (uint32_t name : hidden)
-        Hide(name, false);
+        Conceal(name, false);
     std::vector<std::string> names = Order();
     for (const std::string& name : names) {
         Spec spec;
         int index;
-        Remove(Checksum(name), &spec, &index);
+        DropOut(NameHash(name), &spec, &index);
     }
 }
 
 void ForgetLevel()
 {
     // (a level whose node array stays loaded: hidden nodes shown, added ones removed; another level's: forgotten)
-    if (Manager()) {
+    if (Hub()) {
         for (const HiddenNode& h : std::vector<HiddenNode>(g_hidden)) {
-            if (LevelNodes::GetNode(h.name, false) == h.node)
-                Hide(h.name, false);
+            if (LevelNodes::FetchVertex(h.name, false) == h.node)
+                Conceal(h.name, false);
         }
     }
     Forget();

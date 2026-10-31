@@ -1,7 +1,7 @@
 #pragma once
 
 // Neversoft's Singletons::LazyInstance<T>: a reference to one of the reference-counted singletons (the managers and
-// modules SystemCore::Main makes), taken when it's constructed - T's Create(create): with `create` the first one makes
+// modules SystemCore::Main makes), taken when it's constructed - T's Fabricate(create): with `create` the first one makes
 // the instance - and dropped when it's destroyed (T's Release: the last one deletes the instance).
 //
 // The game's LazyInstance objects are locals (SystemCore::Main, the movie player, the network code...): their
@@ -12,7 +12,7 @@
 //   struct Something {
 //       using Type = ...;                          // what the pointer points to
 //       static void** Vtable();                    // the instance's vtable
-//       static Type* Create(bool create);
+//       static Type* Fabricate(bool create);
 //       static void Release();
 //   };
 
@@ -24,18 +24,18 @@ namespace Singletons {
 
 template <typename Singleton>
 struct LazyInstance {
-    using Type = typename Singleton::Type;
+    using KindTag = typename Singleton::KindTag;
 
     void** m_vtable;
-    Type* m_instance;
+    KindTag* m_instance;
 
     static void** Vtable() { return Singleton::Vtable(); }
 
     // The constructor: a reference taken (and the instance made if `create` and there's none). Returns this.
-    LazyInstance* Construct(bool create)
+    LazyInstance* MakeNew(bool create)
     {
         m_vtable = Vtable();
-        m_instance = Singleton::Create(create);
+        m_instance = Singleton::Fabricate(create);
         return this;
     }
     // The destructor: the reference dropped.
@@ -45,11 +45,11 @@ struct LazyInstance {
         Singleton::Release();
     }
     // The scalar deleting destructor (vtable slot 0).
-    LazyInstance* Destroy(unsigned int flags)
+    LazyInstance* Teardown(unsigned int flags)
     {
         DestroyBody();
         if (flags & 1)
-            MemSys::Manager::Get()->Free(this);
+            MemSys::Hub::Pull()->Dealloc(this);
         return this;
     }
 };
@@ -60,10 +60,10 @@ struct LazyInstance {
 struct PointerMember {
     void* m_pointer;
 
-    PointerMember* Construct(void* pointer);
+    PointerMember* MakeNew(void* pointer);
     // 0x00469490 (3 bytes: source only): its pointer - folded likewise (12 callers: the park editor's list
     // holders, ...).
-    void* Get();
+    void* Pull();
 };
 
 } // namespace Spt

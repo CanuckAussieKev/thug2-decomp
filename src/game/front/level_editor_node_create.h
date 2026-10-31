@@ -44,8 +44,8 @@ const char* TeamName(Team team); // "Red"...
 
 // One component of a node: a flag (no key), a name, a string, an integer, a float, a vector, an array of names or of
 // integers.
-struct Field {
-    enum Type : uint8_t { kFlag, kName, kString, kInteger, kFloat, kVector, kNames, kIntegers } type;
+struct Prop {
+    enum KindTag : uint8_t { kFlag, kName, kString, kInteger, kFloat, kVector, kNames, kIntegers } type;
     std::string key;
     std::string text;              // kFlag, kName, kString
     float value[3] = {};           // kFloat (value[0]), kVector
@@ -66,7 +66,7 @@ struct Spec {
     // A node another of the editor's modules makes in the overlay (level_editor_triggers.h: a trigger volume's
     // node): `extra` fields after the kind's own (its TriggerScript...), and `owned` - its module writes its own
     // layout records, so it isn't a `node` record.
-    std::vector<Field> extra;
+    std::vector<Prop> extra;
     bool owned = false;
     // Chain points (level_editor_chains.h - RailNode, Waypoint, a ladder's ClimbingNode of `type` Ladder): the node
     // whose fields it copies (0: none), a rail's TerrainType ("": the default) and its links= (names: kept out of the
@@ -101,7 +101,7 @@ bool ValidName(const std::string& name);
 // The whole node, in THUG2's own levels' form (as the converters make them): name, pos, angles, class, type and what
 // each kind has (CreatedAtStart, RestartName, restart_types, a flag's model and trigger script, a light's colour and
 // radii, a sphere's Shape and Radius).
-std::vector<Field> Fields(const Spec& spec);
+std::vector<Prop> Fields(const Spec& spec);
 
 // The game's limits, enforced before adding: CFunc_SpawnCrown collects the crowns into two 10-entry stack arrays,
 // GetSpawnNode a 256-name one (both unchecked); the light lists hold 256 dynamic and 150 level lights.
@@ -117,27 +117,27 @@ const char* LimitMessage(Kind kind, const Counts& counts);
 bool HideLeavesNoRestart(uint32_t types, uint32_t others);
 
 // The overlay's nodes in array order, and what undo / redo do to them.
-using List = std::vector<Spec>;
-int IndexOf(const List& list, const std::string& name);
+using LinkChain = std::vector<Spec>;
+int IndexOf(const LinkChain& list, const std::string& name);
 // Added at the end (its index).
-int Add(List* list, const Spec& spec);
+int AppendOne(LinkChain* list, const Spec& spec);
 // Taken out (false: not there): the spec and where it was.
-bool Take(List* list, const std::string& name, Spec* spec, int* index);
+bool Take(LinkChain* list, const std::string& name, Spec* spec, int* index);
 // Put back where it was (clamped to the list).
-void PutBack(List* list, const Spec& spec, int index);
+void PutBack(LinkChain* list, const Spec& spec, int index);
 // The crowns' names in order.
-std::vector<std::string> CrownOrder(const List& list);
+std::vector<std::string> CrownOrder(const LinkChain& list);
 // Crown `name` swapped with the crown before (delta -1) / after (+1) it (false: none there, or not a crown).
-bool MoveCrown(List* list, const std::string& name, int delta);
+bool MoveCrown(LinkChain* list, const std::string& name, int delta);
 // The crowns put in `order` in the slots the crowns hold (those `order` doesn't name after, as they were; names that
 // aren't crowns of the list skipped).
-void ApplyCrownOrder(List* list, const std::vector<std::string>& order);
+void ApplyCrownOrder(LinkChain* list, const std::vector<std::string>& order);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
-uint32_t Checksum(const std::string& name);
+uint32_t NameHash(const std::string& name);
 // The overlay's nodes now (their places as the nodes have them).
-List Current();
+LinkChain AtHand();
 bool IsAdded(uint32_t name);
 // A node of this name in any loaded node array, or an object of it.
 bool NameTaken(const std::string& name);
@@ -149,14 +149,14 @@ const char* WhyNot(Kind kind, Team team);
 const char* WhyNotLobbyFlag(Team team);
 // Added (`index`: in the overlay, -1 at the end) - its structure made, the overlay re-registered, the game's
 // proximity node / emitter / light made. False (and `message`): a name already there, not in a level.
-bool Create(const Spec& spec, int index, std::string* message);
+bool Fabricate(const Spec& spec, int index, std::string* message);
 // An added node's links= (names) set: its spec and its structure (chain points - level_editor_chains.h). False: not
 // an added node.
 bool SetLinks(uint32_t name, const std::vector<uint32_t>& links);
 // Several at once (a layout: one re-registration). How many were made.
-int CreateAll(const List& specs, std::string* message);
+int CreateAll(const LinkChain& specs, std::string* message);
 // An added node removed (its spec as it is now and its index: undo puts it back).
-bool Remove(uint32_t name, Spec* spec, int* index);
+bool DropOut(uint32_t name, Spec* spec, int* index);
 // The overlay's order (by names) set again (undo of a reorder); crowns moved (delta -1 / +1).
 std::vector<std::string> Order();
 void SetOrder(const std::vector<std::string>& names);
@@ -164,8 +164,8 @@ bool MoveCrown(uint32_t name, int delta, std::string* message);
 void ApplyCrownOrder(const std::vector<std::string>& order);
 
 // Hiding a level's node (not an added one): whether it can be (`why` when not), and done / undone.
-bool CanHide(const Nodes::Node& node, const char** why);
-bool Hide(uint32_t name, bool hide);
+bool CanHide(const Nodes::Elem& node, const char** why);
+bool Conceal(uint32_t name, bool hide);
 bool Hidden(uint32_t name);
 std::vector<uint32_t> HiddenNames();
 

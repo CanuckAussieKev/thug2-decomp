@@ -139,11 +139,11 @@ void LoadChecksumNames(const char* file)
     while (*extension && *extension != '.')
         ++extension;
     std::memcpy(extension, ".chk", 5);
-    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
-    auto* text = static_cast<const char*>(Packs::Load(name, false, nullptr, nullptr, nullptr));
+    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
+    auto* text = static_cast<const char*>(Packs::ReadIn(name, false, nullptr, nullptr, nullptr));
     MemSys::LeaveHeapScope();
     ParseChecksumNames(text, Packs::GetFileSize(name), RegisterNameHash);
-    Packs::Unload(name);
+    Packs::Offload(name);
 }
 
 // 0x0046EFD0

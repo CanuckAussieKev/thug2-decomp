@@ -146,13 +146,13 @@ uint8_t* CompressMessage(uint8_t* msgId, uint16_t* length, const void* data, cha
     // The whole message - id, length, data - is compressed.
     int size = static_cast<uint16_t>(*length + 3); // (16 bits: wraps for a length of 0xFFFD up)
     int compressedSize = 0;
-    auto* message = static_cast<uint8_t*>(MemSys::New(size));
+    auto* message = static_cast<uint8_t*>(MemSys::Alloc(size));
     message[0] = *msgId;
     std::memcpy(message + 1, length, 2);
     std::memcpy(message + 3, data, *length);
     DebugOut::Printf("*** Sending compressed message %d. Old size : %d ", *msgId, *length);
     int maxSize = size * 4 / 3 + size;
-    auto* compressed = static_cast<uint8_t*>(MemSys::New(maxSize + 3));
+    auto* compressed = static_cast<uint8_t*>(MemSys::Alloc(maxSize + 3));
     compressed[0] = static_cast<uint8_t>(method);
     uint16_t expandedSize = static_cast<uint16_t>(size);
     std::memcpy(compressed + 1, &expandedSize, 2);
@@ -160,7 +160,7 @@ uint8_t* CompressMessage(uint8_t* msgId, uint16_t* length, const void* data, cha
         compressedSize = RleCompress(message, size, compressed + 3, maxSize);
         DebugOut::Printf("RLE : New payload len : %d, New size : %d\n", size, compressedSize);
     } else if (method == kMethodLzss) {
-        compressedSize = Lzss::Encode(message, compressed + 3, size, false);
+        compressedSize = Lzss::PackUp(message, compressed + 3, size, false);
         DebugOut::Printf("LZSS : New payload len : %d, New size : %d\n", size, compressedSize);
     } else if (method == Lzham::kMethod) {
         // NOT ORIGINAL: THUGPRO's LZHAM (TP-R11). A stream that fails or doesn't fit counts as "no smaller".
@@ -169,14 +169,14 @@ uint8_t* CompressMessage(uint8_t* msgId, uint16_t* length, const void* data, cha
         DebugOut::Printf("LZHAM : New payload len : %d, New size : %d\n", size, compressedSize);
     }
     // (Another method compresses to nothing: the 3-byte header "wins".)
-    MemSys::Free(message);
+    MemSys::Dealloc(message);
     if (static_cast<uint32_t>(compressedSize) < *length) {
         *length = static_cast<uint16_t>(compressedSize + 3);
         *msgId = kMsgCompressed;
         return compressed;
     }
     DebugOut::Printf("*** Compressed message was larger. Defaulting back to uncompressed version\n");
-    MemSys::Free(compressed);
+    MemSys::Dealloc(compressed);
     return nullptr;
 }
 

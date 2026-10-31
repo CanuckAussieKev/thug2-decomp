@@ -12,7 +12,7 @@ class CScript;
 class CStruct;
 } // namespace Script
 namespace MemSys {
-class Heap;
+class Arena;
 } // namespace Mem
 
 // Create-a-goal: a goal the player made in the goal editor (CEditedGoal, a 0x338-byte record) - its level, texts,
@@ -24,7 +24,7 @@ namespace ParkEditing {
 struct EditedGoalPoint {
     // 1 the pro, 2 the start (restart), 3 an object (a letter), 4 a checkpoint (the cone goal's).
     int kind;            // +0x00
-    Maths::Vector pos;     // +0x04
+    Maths::Vec4 pos;     // +0x04
     float height;        // +0x14 above pos
     float angle;         // +0x18 heading (radians)
 };
@@ -53,7 +53,7 @@ class CEditedGoal {
 public:
     // 0x004E93C0 (not a Ghidra function: the goal editor's array constructor's element function): its defaults
     // (InitEditedGoal). Returns this.
-    CEditedGoal* Construct();
+    CEditedGoal* MakeNew();
 
     // 0x004E6B80: `gap` taken out of the gap list (the rest moved down), if it's there.
     void DropGapEntry(uint8_t gap);
@@ -70,7 +70,7 @@ public:
 
     // 0x004E6DA0: the goal's type: its points' kinds and how many it takes, then the type's defaults structure's
     // time limit, score and text (GoalTypeStructure).
-    void SetType(uint32_t type);
+    void ChangeSpecies(uint32_t type);
     // 0x004E6F70: the time limit (a trick goal's "stop adding tricks" time kept 5 below it).
     void SetCountdownSeconds(int seconds);
 
@@ -81,15 +81,15 @@ public:
     void CreateMarkers();
     // 0x004E7210: whether `pos` is too near another set point (one radius between a letter and the start, another
     // otherwise; the current point isn't counted).
-    bool NearOtherPoint(const Maths::Vector& pos);
+    bool NearOtherPoint(const Maths::Vec4& pos);
     // 0x004E7300: whether a point can go at `pos` raised by `height` (inside the park in the park editor; not too
     // near another point).
-    bool CanPlacePoint(const Maths::Vector& pos, float height);
+    bool CanPlacePoint(const Maths::Vec4& pos, float height);
     // 0x004E77C0: the current point placed at `pos` (false if it can't go there): its marker made, the next point
     // current (starting where this one is).
-    bool PlacePoint(const Maths::Vector& pos, float height, float angle);
+    bool PlacePoint(const Maths::Vec4& pos, float height, float angle);
     // 0x004E7960: the current point's place, height and heading. True.
-    bool GetCurrentPoint(Maths::Vector* pos, float* height, float* angle);
+    bool GetCurrentPoint(Maths::Vec4* pos, float* height, float* angle);
     // 0x004E79C0: point `index`'s node (`nodeName`) given the point's Pos and Angles (and a letter's type / model).
     void WriteNodePosition(int index, uint32_t nodeName);
     // 0x004E7A80: every set point's node (TRG_EditedGoal<n>_Pro / _Restart / _Object_<k>) given its position.
@@ -110,7 +110,7 @@ public:
     void PlacePointsOnGround();
     // 0x004EB550: the current point (not the pro's) placed again at `pos` (false if it can't go there), and the
     // point before it current; back at the first, the script 0xD066A889 run with 0x7F1538E0.
-    bool PlacePointAndStepBack(const Maths::Vector& pos, float height, float angle);
+    bool PlacePointAndStepBack(const Maths::Vec4& pos, float height, float angle);
 
     // 0x004E96D0: the goal from a structure (GetEditedGoalsInfo's entries, the CreatedGoals save): its defaults, then
     // level, number, type, score, time, control, texts, points and the type's settings. Marked used, not won.
@@ -133,11 +133,11 @@ public:
     void AddToGoalManager(bool unwin);
 
     uint32_t m_level;                // +0x000 the level's load script
-    char m_name[0x32];               // +0x004 view_goals_text
+    char m_label[0x32];               // +0x004 view_goals_text
     char m_pedName[0x15];            // +0x036
     char m_summaryText[0x64];        // +0x04B goal_description
     char m_winMessage[0x65];         // +0x0AF
-    uint32_t m_type;                 // +0x114
+    uint32_t m_kindTag;                 // +0x114
     EditedGoalPoint m_pathVertices[13];    // +0x118
     uint8_t m_maxPoints;             // +0x284
     uint8_t m_minPoints;             // +0x285 (complete with this many)
@@ -145,7 +145,7 @@ public:
     uint8_t m_currentPoint;          // +0x287
     bool m_lastPointPlaced;          // +0x288
     bool m_won;                      // +0x289
-    bool m_used;                     // +0x28A
+    bool m_takenCount;                     // +0x28A
     uint8_t pad28B;
     int m_goalIndex;                 // +0x28C its number in its level (CreatedGoal<n>)
     int m_timeLimit;                 // +0x290
@@ -170,7 +170,7 @@ public:
     uint8_t m_numGaps;               // +0x302
     char m_requiredTrick[0x35];      // +0x303
 };
-static_assert(offsetof(CEditedGoal, m_type) == 0x114 && offsetof(CEditedGoal, m_pathVertices) == 0x118 &&
+static_assert(offsetof(CEditedGoal, m_kindTag) == 0x114 && offsetof(CEditedGoal, m_pathVertices) == 0x118 &&
                   offsetof(CEditedGoal, m_maxPoints) == 0x284 && offsetof(CEditedGoal, m_goalIndex) == 0x28C &&
                   offsetof(CEditedGoal, m_singleCombo) == 0x2BC && offsetof(CEditedGoal, m_keyComboSets) == 0x2CC &&
                   offsetof(CEditedGoal, m_numKeyComboSets) == 0x2F4 && offsetof(CEditedGoal, m_gaps) == 0x2F8 &&
@@ -181,7 +181,7 @@ static_assert(offsetof(CEditedGoal, m_type) == 0x114 && offsetof(CEditedGoal, m_
 // structures 0x8F0F67D7 / 0xC9119673 / 0x000B52B3, numbered from *index) on `heap`: into `nodes` from *index
 // (the structures already there) - or, without `nodes`, added to the node manager's last node array (grown by 0x82)
 // and hashed. ("Inserting Goal Editor Nodes")
-void __cdecl AddGoalEditorNodes(Scripts::CArray* nodes, int* index, MemSys::Heap* heap);
+void __cdecl AddGoalEditorNodes(Scripts::CArray* nodes, int* index, MemSys::Arena* heap);
 
 // The goal editor component ("goaleditor", type 0x81F01058, vtable 0x0064B534, 0xA114 bytes; made by 0x004EB7F0) of
 // the permanent object GoalEditor: every created goal of every level (50 slots), the one being edited, and the
@@ -193,31 +193,31 @@ void __cdecl AddGoalEditorNodes(Scripts::CArray* nodes, int* index, MemSys::Heap
 class CObjectiveAuthoring : public GameObjects::CObjectModule {
 public:
     // 0x004EB7F0: a new one (0 if out of memory).
-    static GameObjects::CObjectModule* __cdecl Create();
+    static GameObjects::CObjectModule* __cdecl Fabricate();
     // 0x004E6FB0 (not a Ghidra function): its script member functions (the table at 0x00684270) registered.
     static void __cdecl PublishMethodTable();
     // 0x004EA230: the base's constructor, its vtable and type, every goal's defaults (the array constructor with
     // 0x004E93C0), the goals cleared; no input or camera yet. Returns this.
-    CObjectiveAuthoring* Construct();
+    CObjectiveAuthoring* MakeNew();
     // 0x004E6FD0: the destructor body: the script 0xFCC60D8B run, then the base's.
     void DestroyBody();
     // 0x004E7B20 (vtable slot 0)
-    CObjectiveAuthoring* Destroy(unsigned int flags);
+    CObjectiveAuthoring* Teardown(unsigned int flags);
     // 0x004E8210 (vtable slot 3): the object's input (0x27D7CD28) and editor camera components found.
-    void Finalize();
+    void Seal();
     // 0x004EBD30 (vtable slot 1): with a goal being edited, the input's two buttons (+0x1C0: place the current point
     // at the cursor and go on; +0x1A0: place it and step back) - refused near another goal's pro / start (the
     // scripts 0xAEBC7020 / 0xADE100D6), else placed (0x718B071B / 0xFA275CC5, the cursor refreshed and moved;
     // the last point: 0xC05E7E20); then the cursor script.
-    void Update();
+    void TickFrame();
     // 0x004EBC40 (vtable slot 8, not a Ghidra function): hidden - the script 0xFCC60D8B; shown - the input
     // component given 0x67E6859A = 0 and the cursor refreshed.
-    void Hide(bool hide);
+    void Conceal(bool hide);
     // 0x004EC010 [GetEditedGoalsInfo]: EditedGoalsInfo = the level's (0x651533EC, any without) complete goals.
     bool GetEditedGoalsInfo(Scripts::CStruct* params, Scripts::CScript* script);
 
     // 0x004E8470: the goal editor (the object GoalEditor's component).
-    static CObjectiveAuthoring* __cdecl Get();
+    static CObjectiveAuthoring* __cdecl Pull();
 
     // 0x004E7BE0: the current level's goal named `name` (view_goals_text, any case), or null.
     CEditedGoal* FindGoalByName(const char* name);
@@ -232,7 +232,7 @@ public:
     int CountCompleteGoals(uint32_t level);
     // 0x004E8130: whether point `index` of any goal of `level` is within the radius 0x71B20276 of `pos` raised by
     // `height`.
-    bool PointNearAnyGoal(const Maths::Vector& pos, float height, uint32_t level, int index);
+    bool PointNearAnyGoal(const Maths::Vec4& pos, float height, uint32_t level, int index);
     // 0x004E8240: every goal outside the park editor cleared; none current.
     void ClearLevelGoals();
     // 0x004E8280: every goal of the park editor cleared; none current.

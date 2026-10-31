@@ -21,31 +21,31 @@ struct CStance;
 class CRigData {
 public:
     // 0x004A2C20: empty, no flags, the first LOD distance FLT_MAX-ish (0x7F7FC99E). Returns this.
-    CRigData* Construct();
+    CRigData* MakeNew();
     // 0x004A3950 (virtual [0]): the inverse bind matrices and bind translations freed; freed itself with flags & 1.
     // Returns this.
-    CRigData* Destroy(unsigned int freeFlags);
+    CRigData* Teardown(unsigned int freeFlags);
     // 0x004A39C0: read from a .ske file in memory (+4 the flags, +8 the count, then the names, parents' names and
     // mirror bones' names, then each bone's bind rotation (a quaternion) and translation): the inverse bind
     // matrices built down the hierarchy, the mirror pairs found (no mirror: -1). The size and the flag aren't used.
     // Always true.
-    bool Load(const uint32_t* buffer, uint32_t size, bool unused);
+    bool ReadIn(const uint32_t* buffer, uint32_t size, bool unused);
     // 0x004A2C50: bone `index`'s parent's name (0: none).
     uint32_t FetchParentHash(int index) { return m_parentNames[index]; }
     // 0x004A2C60 (not a Ghidra function): bone `index`'s mirror bone (-1: none).
     int FetchMirrorSlot(int index) { return m_flipIndices[index]; }
     // 0x004A2C70: the index of the bone named `name` (0 when there's none).
-    int GetIndex(uint32_t name);
+    int FetchSlotNo(uint32_t name);
     // 0x004A30D0: bone `index`'s parent's index (0 when it has none).
     int FetchParentSlot(int index);
     // 0x004A3100: whether `ancestor` (lower) is up `bone`'s hierarchy - walked while the parents are above it
     // (unsigned).
     bool IsDescendant(uint32_t bone, uint32_t ancestor);
     // 0x004A2CA0
-    Maths::Matrix* GetInverseBindMatrices() { return mp_inverseBind; }
+    Maths::Mat4* GetInverseBindMatrices() { return mp_inverseBind; }
 
     void** m_vtable;
-    int m_count;                      // +0x004
+    int m_num;                      // +0x004
     uint32_t m_names[64];             // +0x008
     uint32_t m_parentNames[64];       // +0x108
     uint32_t m_flipNames[64];         // +0x208
@@ -53,9 +53,9 @@ public:
     uint32_t m_lodMasks[64];          // +0x408 per bone: the LODs it's collapsed into its parent at (bit per LOD)
     float m_lodDistances[32];         // +0x508
     uint32_t m_unknown588;            // +0x588
-    Maths::Matrix* mp_inverseBind;      // +0x58C
-    Maths::Vector* mp_bindTranslations; // +0x590
-    uint32_t m_flags;                 // +0x594 1: the skeleton's flag 0x10000000
+    Maths::Mat4* mp_inverseBind;      // +0x58C
+    Maths::Vec4* mp_bindTranslations; // +0x590
+    uint32_t m_flagBits;                 // +0x594 1: the skeleton's flag 0x10000000
 };
 static_assert(offsetof(CRigData, m_lodMasks) == 0x408 && offsetof(CRigData, mp_inverseBind) == 0x58C &&
                   sizeof(CRigData) == 0x598,
@@ -69,9 +69,9 @@ struct CJoint {
         kInactive = 0x40000000,    // left as it is
     };
     uint32_t name;
-    Maths::Matrix* parent; // its parent's matrix (the root: the first matrix)
+    Maths::Mat4* parent; // its parent's matrix (the root: the first matrix)
     uint32_t flags;
-    Maths::Vector scale;
+    Maths::Vec4 scale;
 };
 static_assert(sizeof(CJoint) == 0x1C, "layout must match the original");
 
@@ -85,7 +85,7 @@ public:
 
     // 0x004A3D30: for `data`: its bones (names, parents' matrices, scale 1) and identity matrices, LOD limit 31.
     // Returns this.
-    CRig* Construct(CRigData* data);
+    CRig* MakeNew(CRigData* data);
     // 0x004A3E80: a copy of `other` (its matrices and bones' state).
     CRig* ConstructCopy(const CRig* other);
     // 0x004A2CB0: the bones and matrices freed.
@@ -101,10 +101,10 @@ public:
     // 0x004A2CE0: every bone's scale back to 1 (unflagged).
     void ResetBoneScales();
     // 0x004A2D20: the scale of the bone named `name`. Whether it was found.
-    bool FetchBoneSizing(uint32_t name, Maths::Vector* scale);
+    bool FetchBoneSizing(uint32_t name, Maths::Vec4* scale);
     // 0x004A2D80: the bone's scale set; unless it's exactly 1 (x, y, z), flagged local (`local`) or not. Whether it
     // was found.
-    bool ChangeBoneSizing(uint32_t name, const Maths::Vector* scale, bool local);
+    bool ChangeBoneSizing(uint32_t name, const Maths::Vec4* scale, bool local);
     // 0x004A2E20: `other`'s scales of the bones both have, set here - local unless `checkList` and the bone is in
     // the script array 0x20D9AC2F.
     void CopyBoneScales(const CRig* other, bool checkList);
@@ -117,23 +117,23 @@ public:
     void LinkBones(CRigData* data);
     // 0x004A36E0: bone `name`'s matrix in its own space (its inverse bind x its matrix; with the bone 0x9F173EEB, turned
     // by that bone's inverse bind about the origin). Whether it was found.
-    bool ReadJointMatrix(uint32_t name, Maths::Matrix* out);
+    bool ReadJointMatrix(uint32_t name, Maths::Mat4* out);
     // 0x004A3870: that matrix's translation (without the turn).
-    bool GetBonePosition(uint32_t name, Maths::Vector* out);
+    bool GetBonePosition(uint32_t name, Maths::Vec4* out);
     // 0x004A31E0: each bone's position and its parent's, in the world (a debug line - compiled out).
-    void Draw(const Maths::Matrix* world, uint32_t startColour, uint32_t endColour, int frames);
+    void Blit(const Maths::Mat4* world, uint32_t startColour, uint32_t endColour, int frames);
     // 0x004A4240: the matrices from the pose's rotations and translations: each bone's local matrix (scaled
     // when flagged) times its parent's (or its parent's when collapsed at this LOD), then times its inverse bind
     // matrix (rows scaled when flagged local), the rows' w cleared; then CollapseZeroScaledBones.
-    void Update(const float (*rotations)[4], const float (*translations)[4]);
+    void TickFrame(const float (*rotations)[4], const float (*translations)[4]);
     // 0x004A44E0
-    void Update(const CStance* pose);
+    void TickFrame(const CStance* pose);
     // 0x004A4000: with kCollapseZeroScaled: the bones scaled to nothing (x, y, z all 0) put at the first scaled
     // bone's position (the first matrix's translation: that bone's GetBonePosition), their rotation rows (0, 0, 0, 1).
     void CollapseZeroScaledBones();
 
-    uint32_t m_flags;          // +0x00
-    Maths::Matrix* m_matrixArray;  // +0x04
+    uint32_t m_flagBits;          // +0x00
+    Maths::Mat4* m_matrixArray;  // +0x04
     CRigData* m_payload;    // +0x08
     uint32_t m_lod;            // +0x0C
     uint32_t m_maxLod;         // +0x10
@@ -145,7 +145,7 @@ static_assert(offsetof(CRig, m_boneArray) == 0x18 && sizeof(CRig) == 0x1C, "layo
 // 0x004A2F20 (EAX: out, EDX: the translation, BL: `swapZ`; the quaternion and `mirror` on the stack, the caller
 // pops them): a bone's matrix from a rotation and a translation (x87: the products and the -z w term unrounded, the
 // -x w and -y w terms rounded); `mirror` / `swapZ` negate entries to mirror it.
-void QuatToBoneMatrix(Maths::Matrix* out, const Maths::Vector* translation, const float* quat, bool mirror, bool swapZ);
+void QuatToBoneMatrix(Maths::Mat4* out, const Maths::Vec4* translation, const float* quat, bool mirror, bool swapZ);
 void QuatToBoneMatrixStub();
 
 } // namespace Gfx

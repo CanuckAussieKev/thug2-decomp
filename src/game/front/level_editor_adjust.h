@@ -18,9 +18,9 @@
 // F4 hides / shows the panel.
 namespace MenuSystem::LevelEditor::Adjust {
 
-enum class Kind : uint8_t { None, Move, Turn, Scale, Duplicate, Align, Distribute, Place };
+enum class Kind : uint8_t { None, ShiftBy, Turn, StretchBy, Duplicate, Justify, Distribute, Place };
 
-struct Action {
+struct ActStep {
     Kind kind = Kind::None;
     V3 offset = {};        // Move: from where it was; Duplicate: each copy from the one before (before its turn)
     float degrees = 0.0f;  // Turn; Duplicate: each copy turned; Place: turned since it was placed
@@ -41,24 +41,24 @@ const char* Title(Kind kind);
 // a turn of scenery the nearest whole quarter turns (degrees multiples of 90), an offset on `grid` (when asked; 0: as
 // it is).
 constexpr int kMaxCopies = 64;
-Action Normalised(const Action& action, float grid);
-bool Same(const Action& a, const Action& b);
-// A duplicate's step for the copies (Transform::RepeatStep: its offset, turn - or quarter turns for scenery).
-Transform::RepeatStep StepOf(const Action& action);
+ActStep Normalised(const ActStep& action, float grid);
+bool Same(const ActStep& a, const ActStep& b);
+// A duplicate's step for the copies (Xform::RepeatStep: its offset, turn - or quarter turns for scenery).
+Xform::RepeatStep StepOf(const ActStep& action);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // The editor made an adjustable action (its undo step just pushed - except Place's, whose step may be older): it
 // becomes the last action. Duplicate: `source` the selection it copied. Ignored while an adjustment is being made.
-void Note(const Action& action);
-void NoteDuplicate(const Edit::Selected& source, const Action& action);
+void Note(const ActStep& action);
+void NoteDuplicate(const Edit::Selected& source, const ActStep& action);
 bool Applying();
 // The panel's numbers changed (the UI): made again in the next Tick.
-void Request(const Action& action, bool now);
+void Request(const ActStep& action, bool now);
 // Once a frame while the editor runs (after the editor's keys: F4).
 void Tick();
 // What the panel shows: the last action (kind None: nothing), whether it can still be adjusted, shown or hidden (F4).
-const Action& Last();
+const ActStep& FinalOne();
 bool Adjustable();
 bool& Shown();
 // The panel (level_editor_arrange_ui.cpp): at the view's bottom left (`x`, `y`: its corner; back buffer pixels as the

@@ -7,13 +7,13 @@
 
 namespace OnlinePlay {
 
-static VtableSlot kPlayerNodeVtable_slots[] = {&PlayerNode::Destroy};
+static VtableSlot kPlayerNodeVtable_slots[] = {&PlayerNode::Teardown};
 void** const kPlayerNodeVtable = reinterpret_cast<void**>(kPlayerNodeVtable_slots);
-static VtableSlot kNewPlayerNodeVtable_slots[] = {&NewPlayerNode::Destroy};
+static VtableSlot kNewPlayerNodeVtable_slots[] = {&NewPlayerNode::Teardown};
 void** const kNewPlayerNodeVtable = reinterpret_cast<void**>(kNewPlayerNodeVtable_slots);
-static VtableSlot kServerNodeVtable_slots[] = {&ServerNode::Destroy};
+static VtableSlot kServerNodeVtable_slots[] = {&ServerNode::Teardown};
 void** const kServerNodeVtable = reinterpret_cast<void**>(kServerNodeVtable_slots);
-static VtableSlot kQueuedScriptNodeVtable_slots[] = {&QueuedScriptNode::Destroy};
+static VtableSlot kQueuedScriptNodeVtable_slots[] = {&QueuedScriptNode::Teardown};
 void** const kQueuedScriptNodeVtable = reinterpret_cast<void**>(kQueuedScriptNodeVtable_slots);
 static VtableSlot kQueuedScriptVtable_slots[] = {&QueuedScript::DestroyRecord};
 void** const kQueuedScriptVtable = reinterpret_cast<void**>(kQueuedScriptVtable_slots);
@@ -26,7 +26,7 @@ void** const kServerHeadVtable = reinterpret_cast<void**>(kServerHeadVtable_slot
 
 namespace {
 
-void Free(void* memory) { MemSys::Manager::Get()->Free(memory); }
+void Dealloc(void* memory) { MemSys::Hub::Pull()->Dealloc(memory); }
 
 } // namespace
 
@@ -34,11 +34,11 @@ void Free(void* memory) { MemSys::Manager::Get()->Free(memory); }
 void PlayerNode::DestroyBody() { UnlinkAs(kPlayerNodeVtable); }
 
 // 0x00536760
-PlayerNode* PlayerNode::Destroy(unsigned int flags)
+PlayerNode* PlayerNode::Teardown(unsigned int flags)
 {
     UnlinkAs(kPlayerNodeVtable);
     if (flags & 1)
-        Free(this);
+        Dealloc(this);
     return this;
 }
 
@@ -47,7 +47,7 @@ PlayerNode* PlayerNode::DestroyHead(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Free(this);
+        Dealloc(this);
     return this;
 }
 
@@ -55,11 +55,11 @@ PlayerNode* PlayerNode::DestroyHead(unsigned int flags)
 void NewPlayerNode::DestroyBody() { UnlinkAs(kNewPlayerNodeVtable); }
 
 // 0x005367E0
-NewPlayerNode* NewPlayerNode::Destroy(unsigned int flags)
+NewPlayerNode* NewPlayerNode::Teardown(unsigned int flags)
 {
     UnlinkAs(kNewPlayerNodeVtable);
     if (flags & 1)
-        Free(this);
+        Dealloc(this);
     return this;
 }
 
@@ -68,7 +68,7 @@ NewPlayerNode* NewPlayerNode::DestroyHead(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Free(this);
+        Dealloc(this);
     return this;
 }
 
@@ -76,11 +76,11 @@ NewPlayerNode* NewPlayerNode::DestroyHead(unsigned int flags)
 void ServerNode::DestroyBody() { UnlinkAs(kServerNodeVtable); }
 
 // 0x005367A0
-ServerNode* ServerNode::Destroy(unsigned int flags)
+ServerNode* ServerNode::Teardown(unsigned int flags)
 {
     UnlinkAs(kServerNodeVtable);
     if (flags & 1)
-        Free(this);
+        Dealloc(this);
     return this;
 }
 
@@ -89,7 +89,7 @@ ServerNode* ServerNode::DestroyHead(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Free(this);
+        Dealloc(this);
     return this;
 }
 
@@ -97,11 +97,11 @@ ServerNode* ServerNode::DestroyHead(unsigned int flags)
 void QueuedScriptNode::DestroyBody() { UnlinkAs(kQueuedScriptNodeVtable); }
 
 // 0x00536720
-QueuedScriptNode* QueuedScriptNode::Destroy(unsigned int flags)
+QueuedScriptNode* QueuedScriptNode::Teardown(unsigned int flags)
 {
     UnlinkAs(kQueuedScriptNodeVtable);
     if (flags & 1)
-        Free(this);
+        Dealloc(this);
     return this;
 }
 
@@ -110,7 +110,7 @@ QueuedScript* QueuedScript::DestroyRecord(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Free(this);
+        Dealloc(this);
     return this;
 }
 

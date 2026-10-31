@@ -67,7 +67,7 @@ void Join(State* state, bool scenery, uint32_t source, const std::vector<Member>
         state->push_back({scenery, source, {}});
         index = static_cast<int>(state->size()) - 1;
     }
-    Group& group = (*state)[index];
+    GroupSet& group = (*state)[index];
     for (const Member& m : copies) {
         if (m.id == source || GroupOf(*state, m.id) >= 0)
             continue;
@@ -77,13 +77,13 @@ void Join(State* state, bool scenery, uint32_t source, const std::vector<Member>
         state->erase(state->begin() + index);
 }
 
-bool Unlink(State* state, uint32_t id)
+bool Uncouple(State* state, uint32_t id)
 {
     bool isSource = false;
     int index = GroupOf(*state, id, &isSource);
     if (index < 0)
         return false;
-    Group& group = (*state)[index];
+    GroupSet& group = (*state)[index];
     if (!isSource) {
         group.members.erase(std::remove_if(group.members.begin(), group.members.end(),
                                            [&](const Member& m) { return m.id == id; }),
@@ -96,7 +96,7 @@ bool Unlink(State* state, uint32_t id)
 
 namespace {
 
-std::string RefText(const Ref& ref, bool member, bool scenery)
+std::string RefText(const RefTo& ref, bool member, bool scenery)
 {
     char text[32];
     if (ref.clone >= 0)
@@ -111,9 +111,9 @@ std::string RefText(const Ref& ref, bool member, bool scenery)
     return out;
 }
 
-bool ParseRef(const std::string& text, bool member, bool scenery, Ref* ref)
+bool ParseRef(const std::string& text, bool member, bool scenery, RefTo* ref)
 {
-    *ref = Ref{};
+    *ref = RefTo{};
     std::string body = text;
     size_t at = text.find('@');
     if (at != std::string::npos) {
@@ -144,7 +144,7 @@ bool ParseRef(const std::string& text, bool member, bool scenery, Ref* ref)
 
 } // namespace
 
-std::string WriteRecord(const Record& record)
+std::string WriteRecord(const LogEntry& record)
 {
     std::string out = "link ";
     out += record.scenery ? "sector " : "object ";
@@ -158,9 +158,9 @@ std::string WriteRecord(const Record& record)
     return out;
 }
 
-bool ReadRecord(std::istringstream& in, Record* record)
+bool ReadRecord(std::istringstream& in, LogEntry* record)
 {
-    *record = Record{};
+    *record = LogEntry{};
     std::string kind, source, members;
     if (!(in >> kind >> source >> members))
         return false;
@@ -173,7 +173,7 @@ bool ReadRecord(std::istringstream& in, Record* record)
     while (start <= members.size()) {
         size_t comma = members.find(',', start);
         std::string word = members.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
-        Ref ref;
+        RefTo ref;
         if (!ParseRef(word, true, record->scenery, &ref))
             return false;
         record->members.push_back(ref);
@@ -270,7 +270,7 @@ struct Step : ModuleStep {
     }
 };
 
-void PropagateScenery(const Group& group)
+void PropagateScenery(const GroupSet& group)
 {
     if (Scenery::Hidden(group.source) || !Scenery::SectorOf(group.source))
         return;
@@ -292,7 +292,7 @@ void PropagateScenery(const Group& group)
             continue;
         Scenery::SetSelection({m.id});
         Scenery::ScaleSelection(TurnedScale(f, m.quarters + PlacementOf(m.id).quarters), IsUniformScale(f));
-        Scenery::Commit();
+        Scenery::Finalise();
         ++done;
     }
     if (saved.empty())
@@ -300,16 +300,16 @@ void PropagateScenery(const Group& group)
     else
         Scenery::SetSelection(saved);
     if (done)
-        Log("level editor: linked copies of %s scaled with it (%d)", Objects::Label(group.source).c_str(), done);
+        Log("level editor: linked copies of %s scaled with it (%d)", Objects::Caption(group.source).c_str(), done);
 }
 
-void PropagateObjects(const Group& group)
+void PropagateObjects(const GroupSet& group)
 {
     GameObjects::CGameEntity* source = LiveObject(group.source);
     if (!source)
         return;
     Watch& w = g_watch[group.source];
-    V3 scale = Scale::ObjectScale(source);
+    V3 scale = StretchBy::ObjectScale(source);
     std::string fields = FieldsOf(group.source);
     if (!w.init) {
         w = {true, scale, fields};
@@ -319,8 +319,8 @@ void PropagateObjects(const Group& group)
         V3 f = Ratio(scale, w.scale);
         w.scale = scale;
         for (const Member& m : group.members) {
-            if (GameObjects::CGameEntity* copy = LiveObject(m.id); copy && Scale::ObjectScalable(copy))
-                Scale::SetObjectScale(copy, PerAxis(Scale::ObjectScale(copy), f));
+            if (GameObjects::CGameEntity* copy = LiveObject(m.id); copy && StretchBy::ObjectScalable(copy))
+                StretchBy::SetObjectScale(copy, PerAxis(StretchBy::ObjectScale(copy), f));
         }
     }
     if (fields != w.fields) {
@@ -330,10 +330,10 @@ void PropagateObjects(const Group& group)
             GameObjects::CGameEntity* copy = LiveObject(m.id);
             if (!copy || !Objects::IsCopy(m.id))
                 continue;
-            g_remakes.push_back({m.id, group.source, Objects::Save(copy)});
+            g_remakes.push_back({m.id, group.source, Objects::StoreAway(copy)});
             Objects::RemoveCopy(m.id);
         }
-        Log("level editor: the fields of %s changed - its linked copies made again", Objects::Label(group.source).c_str());
+        Log("level editor: the fields of %s changed - its linked copies made again", Objects::Caption(group.source).c_str());
     }
 }
 
@@ -347,7 +347,7 @@ void RunRemakes()
             V3 pos = {r.state.pos.x, r.state.pos.y, r.state.pos.z};
             if (GameObjects::CGameEntity* made = Objects::MakeCopy(r.source, pos, r.name)) {
                 Objects::State state = r.state;
-                state.id = made->m_id;
+                state.id = made->m_ident;
                 Objects::Restore(state);
                 g_remakes.erase(g_remakes.begin() + static_cast<long>(i));
                 continue;
@@ -364,8 +364,8 @@ void RunRemakes()
 
 } // namespace
 
-const State& Current() { return g_state; }
-void Set(const State& state) { g_state = state; }
+const State& AtHand() { return g_state; }
+void AssignValue(const State& state) { g_state = state; }
 
 bool LinkedDuplicate()
 {
@@ -391,7 +391,7 @@ bool LinkedDuplicate()
         }
         Join(&g_state, scenery, pair.first, {{pair.second, q}});
     }
-    Adjust::Note(Adjust::Action{}); // (a linked copy isn't adjusted afterwards: its count would make plain copies)
+    Adjust::Note(Adjust::ActStep{}); // (a linked copy isn't adjusted afterwards: its count would make plain copies)
     Hud::Message(std::string("Linked copy created"),
                  5.0);
     Log("level editor: %u linked cop%s made", static_cast<unsigned>(pairs.size()), pairs.size() == 1 ? "y" : "ies");
@@ -404,7 +404,7 @@ bool UnlinkSelection()
     State next = g_state;
     bool any = false;
     for (uint32_t id : selection.ids)
-        any = Unlink(&next, id) || any;
+        any = Uncouple(&next, id) || any;
     if (!any) {
         Hud::Message("Selection is not linked");
         return false;
@@ -426,13 +426,13 @@ std::string Describe()
     int index = GroupOf(g_state, selection.ids.front(), &isSource);
     if (index < 0)
         return {};
-    const Group& group = g_state[index];
+    const GroupSet& group = g_state[index];
     char text[160];
     if (isSource)
         std::snprintf(text, sizeof(text), "Linked: the source of %d cop%s", static_cast<int>(group.members.size()),
                       group.members.size() == 1 ? "y" : "ies");
     else
-        std::snprintf(text, sizeof(text), "Linked copy of %s (%d copies)", Objects::Label(group.source).c_str(),
+        std::snprintf(text, sizeof(text), "Linked copy of %s (%d copies)", Objects::Caption(group.source).c_str(),
                       static_cast<int>(group.members.size()));
     return text;
 }
@@ -448,7 +448,7 @@ void Tick()
     RunRemakes();
     if (Edit::Dragging())
         return; // (a drag's scale reaches the copies once it's let go)
-    for (const Group& group : g_state) {
+    for (const GroupSet& group : g_state) {
         if (group.scenery)
             PropagateScenery(group);
         else
@@ -456,11 +456,11 @@ void Tick()
     }
 }
 
-std::vector<Record> Capture(const std::vector<uint32_t>& clones)
+std::vector<LogEntry> Capture(const std::vector<uint32_t>& clones)
 {
-    std::vector<Record> out;
-    auto refOf = [&](uint32_t id, bool scenery, Ref* ref) {
-        *ref = Ref{};
+    std::vector<LogEntry> out;
+    auto refOf = [&](uint32_t id, bool scenery, RefTo* ref) {
+        *ref = RefTo{};
         if (!scenery) {
             ref->id = id;
             return GameObjects::FindObject(id) != nullptr;
@@ -475,13 +475,13 @@ std::vector<Record> Capture(const std::vector<uint32_t>& clones)
         ref->id = id;
         return !Scenery::Hidden(id);
     };
-    for (const Group& group : g_state) {
-        Record record;
+    for (const GroupSet& group : g_state) {
+        LogEntry record;
         record.scenery = group.scenery;
         if (!refOf(group.source, group.scenery, &record.source))
             continue;
         for (const Member& m : group.members) {
-            Ref ref;
+            RefTo ref;
             if (!refOf(m.id, group.scenery, &ref))
                 continue;
             ref.quarters = m.quarters;
@@ -493,20 +493,20 @@ std::vector<Record> Capture(const std::vector<uint32_t>& clones)
     return out;
 }
 
-int Apply(const std::vector<Record>& records, const std::vector<uint32_t>& made)
+int Apply(const std::vector<LogEntry>& records, const std::vector<uint32_t>& made)
 {
-    auto resolve = [&](const Ref& ref) -> uint32_t {
+    auto resolve = [&](const RefTo& ref) -> uint32_t {
         if (ref.clone < 0)
             return ref.id;
         return ref.clone < static_cast<int>(made.size()) ? made[ref.clone] : 0;
     };
     int groups = 0;
-    for (const Record& record : records) {
+    for (const LogEntry& record : records) {
         uint32_t source = resolve(record.source);
         if (!source)
             continue;
         std::vector<Member> members;
-        for (const Ref& ref : record.members) {
+        for (const RefTo& ref : record.members) {
             if (uint32_t id = resolve(ref))
                 members.push_back({id, ref.quarters});
         }

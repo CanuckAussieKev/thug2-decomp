@@ -29,13 +29,13 @@ public:
 
     // 0x00431F60 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the
     // base's constructor, its vtable and type, no skeleton.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00431BE0 (not a Ghidra function; registered with Create): its script member functions registered.
     static void __cdecl PublishMethodTable();
     // 0x00431FE0: the skeleton destroyed (0x004A2CB0) and freed; the base's body.
     void DestroyBody();
     // 0x00432790 (vtable slot 0)
-    CBoneRigModule* Destroy(unsigned int flags);
+    CBoneRigModule* Teardown(unsigned int flags);
     // 0x00431CF0 (vtable slot 2): CopySkeletonFrom=<object id>: a copy (0x004A3E80) of that object's skeleton;
     // otherwise the skeleton made from the asset skeleton= (or skeletonName=, asserted), and max_bone_skip_lod= to
     // its +0x10.
@@ -43,16 +43,16 @@ public:
     // 0x00431C70: a new skeleton (0x004A3D30) from the asset `name` (the asset manager's data; out of memory: none).
     void InitSkeleton(uint32_t name);
     // 0x00431C60: the skeleton's position of `bone` (0x004A3870: its own space; whether the bone was found).
-    bool GetLocalBonePosition(uint32_t bone, Maths::Vector* out);
+    bool GetLocalBonePosition(uint32_t bone, Maths::Vec4* out);
     // 0x00432050: `out` = where `bone` is in the world (the skeleton's position - (0, 0, 0, 1) if the bone isn't found -
     // turned by the object's orientation and moved to its position). Always false (the original's AL is cleared).
-    bool GetBonePosition(uint32_t bone, Maths::Vector* out);
+    bool GetBonePosition(uint32_t bone, Maths::Vec4* out);
     // 0x004320F0 (RET 0x38): a texture splat (0x004928A0) along a line: from `start` (or the world position of `bone`
     // when not 0) towards `end` - or, with `dropdown`, `dropdownLength` (feet) down the object's up; without it, an
     // `end` of length 0 means the same length down the up - the start first raised a foot up the object's up; the end
     // scattered by up to `spread` along the object's right and at (two rand()s). `width` / `height` / `spin` / `turn`
     // / `lifetime` / `texture` / `blend` passed on, and `bone` when `follow`.
-    void PlaceDecalSplat(const Maths::Vector* start, const Maths::Vector* end, uint32_t bone, float width, float height,
+    void PlaceDecalSplat(const Maths::Vec4* start, const Maths::Vec4* end, uint32_t bone, float width, float height,
                            float spin, float turn, float spread, float lifetime, float dropdownLength, void* texture,
                            uint32_t blend, bool follow, bool dropdown);
     // 0x00432490 (RET 0x1C): a composite object made of `components` (0x0045F3A0, finalised) with `params` given
@@ -61,8 +61,8 @@ public:
     // object's matrix): vel = `velocityScale` * the object's velocity + `velocity` turned by the object; rotvel =
     // `rotationalVelocity` turned by the object.
     void SpawnCompositeObjectAtBone(uint32_t bone, Scripts::CArray* components, Scripts::CStruct* params,
-                                    float velocityScale, const Maths::Vector* velocity,
-                                    const Maths::Vector* rotationalVelocity, Maths::Vector* offset);
+                                    float velocityScale, const Maths::Vec4* velocity,
+                                    const Maths::Vec4* rotationalVelocity, Maths::Vec4* offset);
 
     // --- script member functions (the table at 0x00684DE0) ---
     // 0x00431C00 Obj_SetBoneActive: bone= and active= (both asserted) to the skeleton (0x004A2BB0). True.

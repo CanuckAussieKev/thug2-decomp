@@ -16,8 +16,8 @@ using CollisionHitCallback = void(__cdecl*)(CollisionHit* hit);
 // What a line test fills in (0x50 bytes; the caller sets the flags, the distance to beat and the callback): the
 // nearest hit so far. (Our name: the original's isn't known.)
 struct CollisionHit {
-    Maths::Vector normal;             // +0x00 the face's normal (world space)
-    Maths::Vector point;              // +0x10 where the line hits (w = 1)
+    Maths::Vec4 normal;             // +0x00 the face's normal (world space)
+    Maths::Vec4 point;              // +0x10 where the line hits (w = 1)
     uint32_t face;                  // +0x20 the face's index in its geometry
     float distance;                 // +0x24 along the line, 0..1 (the one to beat)
     uint16_t ignoreFlags;           // +0x28 faces with any of these flags are passed over
@@ -43,8 +43,8 @@ static_assert(sizeof(CollisionHit) == 0x50 && offsetof(CollisionHit, hit) == 0x4
 
 // A face the line crosses, as a line test hands it on: its normal, where it's crossed, and its index.
 struct FaceHit {
-    Maths::Vector normal;
-    Maths::Vector point;
+    Maths::Vec4 normal;
+    Maths::Vec4 point;
     uint32_t face;
 };
 static_assert(sizeof(FaceHit) == 0x24, "layout must match the original");
@@ -54,7 +54,7 @@ static_assert(sizeof(FaceHit) == 0x24, "layout must match the original");
 // one of the ignored ones or lack a required one; but unless it's nearer than the record's distance (or not
 // nearer, while 0x00691910 asks for the farthest), the record is put back as it was afterwards and false
 // returned - the callback has still run.
-bool ReportHit(const Maths::Line& line, CHitMesh* object, const FaceHit& face, float distance, CollisionHit* hit);
+bool ReportHit(const Maths::Seg& line, CHitMesh* object, const FaceHit& face, float distance, CollisionHit* hit);
 
 extern bool g_wantFarthest;
 

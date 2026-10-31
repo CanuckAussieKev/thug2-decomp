@@ -14,7 +14,7 @@ extern void** const kRefCountedVtable;
 } // namespace
 
 // 0x004637B0
-CSharedBase* CSharedBase::Construct()
+CSharedBase* CSharedBase::MakeNew()
 {
     m_vtable = kRefCountedVtable;
     mp_smartPointers = nullptr;
@@ -33,7 +33,7 @@ CSharedBase* CSharedBase::ScalarDelete(uint8_t flags)
 {
     Destruct(); // (inlined in the original)
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 

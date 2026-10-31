@@ -29,18 +29,18 @@ public:
     static constexpr uint32_t kType = 0xA9DB601E;
 
     // 0x0042A000 (registered with the component types): a new one (MemSys::AllocZeroed, the constructor).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00429940: its member function table registered.
     static void __cdecl PublishMethodTable();
     // 0x00429B20: the constructor (returns this): the base's, its vtable and type, no particle system, no
     // lifetime, started now (the game clock).
-    CEffectsEmitterModule* Construct();
+    CEffectsEmitterModule* MakeNew();
     // 0x00429B90: the destructor body: the particle system destroyed by the particle manager, then the base's.
     void DestroyBody();
     // 0x0042A060 (vtable slot 0): the scalar deleting destructor.
-    CEffectsEmitterModule* Destroy(unsigned int flags);
+    CEffectsEmitterModule* Teardown(unsigned int flags);
     // 0x00429BF0 (slot 3): the object's suspend component kept.
-    void Finalize();
+    void Seal();
     // 0x0042A090 (slot 2): its particle system made by the particle manager from the parameters (sizes, radii,
     // positions and boxes scaled by 0x13B9DA7B and turned to face 0x0C4C809E with 0x7045843A; colours; a
     // rotation...); the emit target's script spawned on the object; the model to follow (0x5E2A8D9F's object).
@@ -48,13 +48,13 @@ public:
     // 0x0042AD90 (slot 1): nothing while suspended (unless a network game runs and it has a lifetime); past its
     // lifetime the object dies; the model's +0x22C to the particle system; with its parameters' +0x152, its three
     // positions (+0xF4, offsets from the object) moved with the object, and with +0x154 turned by its orientation.
-    void Update();
+    void TickFrame();
     // 0x0042AEE0 (slot 12): 0x2299A9F2 (whether the particle system's vtable slot 7 says so: 1 / 0), 0x96896315 (a
     // feeler from 1 above its position (+0x94 of its parameters) to 4800 below: the vertex value hit doubled, else
     // 1, to the particle system's +0x38) - 1; anything else 2.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00429960 (slot 8): the particle system hidden or shown (its 0x00494E70; none: a crash).
-    void Hide(bool hide);
+    void Conceal(bool hide);
 
     // --- script member functions (all true; nothing without a particle system) ---
     // 0x00429970 SetEmitRate / 0x004299A0 SetLifespan / 0x004299E0 (0x19AF74D1) / 0x00429A20 SetMidPointPct: the
@@ -105,7 +105,7 @@ static_assert(offsetof(CEffectsEmitterModule, m_emitTarget) == 0x18 && offsetof(
 
 // The particle system's (Nx, not rewritten) parameters - its +4 - and its +0x34 set. No addresses of their own: the
 // original reaches them through code folded at 0x004AAD40 (CUiTree::FetchObjectSet: the address of +4)
-// and 0x004076F0 (AssetStore::CResource::SetGroup). (__fastcall: the particle system in ECX, as the original's calls pass it.)
+// and 0x004076F0 (AssetStore::CResource::ChangeCluster). (__fastcall: the particle system in ECX, as the original's calls pass it.)
 const uint8_t* __fastcall ParticleSystemParams(void* particle);
 void __fastcall SetParticleValue34(void* particle, float value);
 

@@ -35,16 +35,16 @@ public:
 
     // 0x004F3010 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the
     // base's constructor, its vtable and type, no radius, scale, death script or owner, not hit.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x004F2F10: the base's body.
     void DestroyBody();
     // 0x004F2F50 (vtable slot 0)
-    CShotImpactModule* Destroy(unsigned int flags);
+    CShotImpactModule* Teardown(unsigned int flags);
     // 0x004F2F80 (vtable slot 2): radius, scale, owner_id, death_script, projectile_type (each asserted); vel
     // (0, 0, 1) normalised - not read from the parameters.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x004F3090 (vtable slot 1): see the class.
-    void Update();
+    void TickFrame();
     // 0x004F2F40: it has hit the world (the collide-and-die component's call): no more skaters are hit.
     void MarkHit();
     // 0x004F2F20 (not a Ghidra function): the score a hit takes - a fireball's scale (truncated) times ten, 0 for
@@ -57,7 +57,7 @@ public:
     uint32_t m_deathScript;   // +0x24 death_script
     uint32_t m_holderKey;       // +0x28 owner_id (the skater who threw it)
     uint32_t m_projectileType; // +0x2C projectile_type
-    Maths::Vector m_vel;        // +0x30 (0, 0, 1) normalised
+    Maths::Vec4 m_vel;        // +0x30 (0, 0, 1) normalised
     bool m_hit;               // +0x40
     uint8_t pad41[3];
 };
@@ -82,17 +82,17 @@ public:
     static constexpr uint32_t kType = 0x3618B878;
 
     // 0x004F3550 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x004F34E0: the base's body.
     void DestroyBody();
     // 0x004F34F0 (vtable slot 0)
-    CProjectileProximityComponent* Destroy(unsigned int flags);
+    CProjectileProximityComponent* Teardown(unsigned int flags);
     // 0x004F3520 (vtable slot 2): the local skater, the object's PedLogic component, 48 squared. (The parameters
     // aren't read.)
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x004F35B0 (vtable slot 1): see the class. With no skater yet, it's looked up instead; with no PedLogic
     // component yet (and an object id), that is.
-    void Update();
+    void TickFrame();
 
     float m_radiusSqr;                 // +0x18 2304 (48 squared)
     CRider* m_riderRef;                // +0x1C the local skater

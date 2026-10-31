@@ -6,7 +6,7 @@
 #include "game/core/pool.h"
 
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 
 namespace Scripts {
@@ -14,7 +14,7 @@ namespace Scripts {
 // The script cache (one instance, 0x006F3558, reference counted by 0x006F355C): the scripts' code, decompressed
 // and pre-processed, by script name. Scripts are stored compressed in the symbol table (see CreateScriptSymbol);
 // a running script (and every script it has called and is waiting on) holds a use of its cached code, which
-// GetScript takes and ReleaseScript gives back.
+// FetchScript takes and ReleaseScript gives back.
 //
 // Code nobody uses is kept, on a list of unused entries (newest first), until room is needed: before a script is
 // decompressed, the oldest unused entries are dropped while the script heap's largest free block, less 128
@@ -35,19 +35,19 @@ struct CScriptCacheEntry {
 };
 static_assert(sizeof(CScriptCacheEntry) == 0x14, "allocated as 0x14 bytes by the original");
 
-// An engine module (GameModules::Module: registered and started with the module manager, but its Start and Stop do
+// An engine module (GameModules::PartUnit: registered and started with the module manager, but its Start and Stop do
 // nothing).
 struct CScriptStore {
     // 0x00475DD0
-    CScriptStore* Construct();
+    CScriptStore* MakeNew();
     // 0x00476090 (destructor body): every entry and its code is freed, then the table.
     void DestroyBody();
     // 0x004761E0 (scalar deleting destructor, vtable slot 0)
-    CScriptStore* Destroy(unsigned int flags);
+    CScriptStore* Teardown(unsigned int flags);
 
     // 0x00475E80: the code of script `name` (a name naming another symbol is followed), taking a use of it;
     // null if `name` isn't a script. Decompressed and pre-processed on first use.
-    uint8_t* GetScript(uint32_t name);
+    uint8_t* FetchScript(uint32_t name);
     // 0x00475D60: give back a use of script `name` (from its cached name). Unused code goes on the unused list
     // (or, with m_deleteUnused, is freed at once).
     void ReleaseScript(uint32_t name);
@@ -55,7 +55,7 @@ struct CScriptStore {
     // now), keeping its use count. The old code is freed - scripts still running it are restarted by the loader
     // (RestartChangedScripts). An entry that was unused gets a count of 0 but stays off the unused list, so it's
     // never dropped (an original quirk, kept).
-    void Invalidate(uint32_t name);
+    void MarkStale(uint32_t name);
 
     // 0x00475A40: put an entry at the new end of the unused list.
     void AddToUnused(CScriptCacheEntry* entry);
@@ -68,8 +68,8 @@ struct CScriptStore {
     void MakeRoom(int size, uint32_t name);
 
     void** m_vtable;            // 0x00648468: {Destroy, Start, Stop}
-    uint8_t m_owningModule[0x14 - 4]; // GameModules::Module's fields
-    ListKit::HashTable* m_entries;  // 8 bits, from the script heap
+    uint8_t m_owningModule[0x14 - 4]; // GameModules::PartUnit's fields
+    ListKit::KeyMap* m_entries;  // 8 bits, from the script heap
     CScriptCacheEntry* m_newestUnused;
     CScriptCacheEntry* m_oldestUnused;
     bool m_deleteUnused;        // never set in this game

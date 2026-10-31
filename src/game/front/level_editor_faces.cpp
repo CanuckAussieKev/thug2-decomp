@@ -51,7 +51,7 @@ int HexDigit(char c)
 
 } // namespace
 
-const FlagInfo& Flag(int index) { return kFlags[std::clamp(index, 0, kFlagCount - 1)]; }
+const FlagInfo& BitMark(int index) { return kFlags[std::clamp(index, 0, kFlagCount - 1)]; }
 
 uint16_t Applied(uint16_t flags, uint16_t set, uint16_t clear)
 {
@@ -154,7 +154,7 @@ bool ReadRecord(std::istringstream& in, SectorFaces* out)
     return true;
 }
 
-std::vector<SectorFaces> Group(const std::vector<Change>& changes)
+std::vector<SectorFaces> GroupSet(const std::vector<Change>& changes)
 {
     std::map<uint32_t, std::vector<std::pair<uint16_t, uint16_t>>> bySector;
     for (const Change& c : changes) {
@@ -200,14 +200,14 @@ uint16_t* Raw(Engine3D::CTriMeshSource* tri, int face)
 }
 
 // The face's flags written (a taken face: in its companion - the original keeps 0x10); its level's flags noted first.
-bool Write(FaceKey key, uint16_t flags)
+bool EmitOut(FaceKey key, uint16_t flags)
 {
     Engine3D::CTriMeshSource* tri = Geometry(key.checksum);
     if (!tri || key.face >= tri->m_numFaces)
         return false;
     if (!g_origins.count(key)) {
         uint16_t origin = 0;
-        if (!Read(key, &origin))
+        if (!TakeIn(key, &origin))
             return false;
         g_origins[key] = origin;
     }
@@ -240,7 +240,7 @@ bool Corners(FaceKey key, V3 out[3])
         uint32_t v = tri->FaceVertex(key.face, k);
         if (v >= tri->m_numVertices)
             return false;
-        Maths::Vector p;
+        Maths::Vec4 p;
         tri->ReadStoredVertex(static_cast<int>(v), &p);
         out[k] = {p.x, p.y, p.z};
     }
@@ -279,16 +279,16 @@ struct Step : ModuleStep {
     void Restore() override
     {
         for (const auto& f : flags)
-            Write(f.first, f.second);
+            EmitOut(f.first, f.second);
         g_selection = selection;
-        View::InvalidateCache();
+        View::StaleCache();
     }
     std::shared_ptr<ModuleStep> Now() const override
     {
         auto now = std::make_shared<Step>();
         for (const auto& f : flags) {
             uint16_t value = f.second;
-            Read(f.first, &value);
+            TakeIn(f.first, &value);
             now->flags.push_back({f.first, value});
         }
         now->selection = g_selection;
@@ -301,14 +301,14 @@ std::shared_ptr<Step> Capture(const std::vector<FaceKey>& keys)
     auto step = std::make_shared<Step>();
     for (const FaceKey& key : keys) {
         uint16_t value = 0;
-        if (Read(key, &value))
+        if (TakeIn(key, &value))
             step->flags.push_back({key, value});
     }
     step->selection = g_selection;
     return step;
 }
 
-std::string PieceLabel(uint32_t checksum) { return Objects::Label(checksum); }
+std::string PieceLabel(uint32_t checksum) { return Objects::Caption(checksum); }
 
 } // namespace
 
@@ -332,7 +332,7 @@ void SetPicking(bool on)
         g_haveHover = false;
 }
 
-void Start()
+void Kickoff()
 {
     Actions::SetChecked(Actions::kFaces, [] { return g_picking ? 1 : 0; }); // (its check in the View menu)
     g_picking = false;
@@ -340,7 +340,7 @@ void Start()
     g_haveHover = false;
 }
 
-void Stop()
+void Halt()
 {
     g_picking = false;
     g_selection.clear();
@@ -373,7 +373,7 @@ bool ClickAt(V3 origin, V3 unitDir, bool add)
     }
     bool selected = Click(&g_selection, key, add);
     uint16_t flags = 0;
-    Read(key, &flags);
+    TakeIn(key, &flags);
     char text[160];
     std::snprintf(text, sizeof(text), "Face %u of %s %s - flags 0x%04X (%u selected)", static_cast<unsigned>(key.face),
                   PieceLabel(key.checksum).c_str(), selected ? "selected" : "dropped", flags,
@@ -424,7 +424,7 @@ bool SelectPiece(uint32_t checksum, bool add)
     return true;
 }
 
-bool Read(FaceKey key, uint16_t* flags)
+bool TakeIn(FaceKey key, uint16_t* flags)
 {
     Engine3D::CTriMeshSource* tri = Geometry(key.checksum);
     if (!tri || key.face >= tri->m_numFaces)
@@ -443,10 +443,10 @@ bool SetFlag(uint16_t bit, bool on)
     int faces = 0;
     for (const FaceKey& key : g_selection) {
         uint16_t flags = 0;
-        if (!Read(key, &flags))
+        if (!TakeIn(key, &flags))
             continue;
         uint16_t now = on ? Applied(flags, bit, 0) : Applied(flags, 0, bit);
-        if (now != flags && Write(key, now)) {
+        if (now != flags && EmitOut(key, now)) {
             changed = true;
             ++faces;
         }
@@ -454,7 +454,7 @@ bool SetFlag(uint16_t bit, bool on)
     if (!changed)
         return false;
     PushModuleUndo(before);
-    View::InvalidateCache();
+    View::StaleCache();
     char text[128];
     std::snprintf(text, sizeof(text), "Face flag 0x%04X %s on %d face%s", bit,
                   on ? "set" : "cleared", faces, faces == 1 ? "" : "s");
@@ -472,12 +472,12 @@ bool HomeSelection()
     for (const FaceKey& key : g_selection) {
         auto origin = g_origins.find(key);
         uint16_t now = 0;
-        if (origin != g_origins.end() && Read(key, &now) && now != origin->second && Write(key, origin->second))
+        if (origin != g_origins.end() && TakeIn(key, &now) && now != origin->second && EmitOut(key, origin->second))
             ++faces;
     }
     if (faces) {
         PushModuleUndo(before);
-        View::InvalidateCache();
+        View::StaleCache();
     }
     Hud::Message(faces ? "Face flags reverted" : "Face flags already original");
     return true;
@@ -488,10 +488,10 @@ std::vector<SectorFaces> Changed()
     std::vector<Change> changes;
     for (const auto& origin : g_origins) {
         uint16_t now = 0;
-        if (Read(origin.first, &now))
+        if (TakeIn(origin.first, &now))
             changes.push_back({origin.first, origin.second, now});
     }
-    return Group(changes);
+    return GroupSet(changes);
 }
 
 int Apply(const std::vector<SectorFaces>& sectors)
@@ -499,14 +499,14 @@ int Apply(const std::vector<SectorFaces>& sectors)
     int count = 0, missing = 0;
     for (const SectorFaces& s : sectors) {
         for (const auto& face : s.faces) {
-            if (Write({s.checksum, face.first}, face.second))
+            if (EmitOut({s.checksum, face.first}, face.second))
                 ++count;
             else
                 ++missing;
         }
     }
     if (count)
-        View::InvalidateCache();
+        View::StaleCache();
     if (missing)
         Log("level editor: %d edited collision faces aren't in this level's collision - skipped", missing);
     return count;
@@ -516,11 +516,11 @@ void ResetAll()
 {
     for (const auto& origin : g_origins) {
         uint16_t now = 0;
-        if (Read(origin.first, &now) && now != origin.second)
-            Write(origin.first, origin.second);
+        if (TakeIn(origin.first, &now) && now != origin.second)
+            EmitOut(origin.first, origin.second);
     }
     g_selection.clear();
-    View::InvalidateCache();
+    View::StaleCache();
 }
 
 void ForgetLevel()
@@ -531,7 +531,7 @@ void ForgetLevel()
     g_queue.clear();
 }
 
-void Update()
+void TickFrame()
 {
     std::vector<std::function<void()>> queue;
     queue.swap(g_queue);
@@ -541,13 +541,13 @@ void Update()
     g_selection.erase(std::remove_if(g_selection.begin(), g_selection.end(),
                                      [](const FaceKey& key) {
                                          uint16_t flags;
-                                         return !Read(key, &flags);
+                                         return !TakeIn(key, &flags);
                                      }),
                       g_selection.end());
 }
 
-void AddOverlay(V3 cameraPos, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                std::vector<Ui::Line>* lines)
+void AddOverlay(V3 cameraPos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
+                std::vector<Ui::Seg>* lines)
 {
     auto outline = [&](FaceKey key, uint32_t argb, float thickness) {
         V3 p[3];
@@ -558,10 +558,10 @@ void AddOverlay(V3 cameraPos, const Frame& frame, const Lens& lens, const uint32
             if (!ClipToNear(cameraPos, frame, nearZ + 0.01f, &a, &b))
                 continue;
             float ax, ay, bx, by, nx, ny;
-            if (!Project(cameraPos, frame, lens, a, nearZ, &nx, &ny))
+            if (!CastOnto(cameraPos, frame, lens, a, nearZ, &nx, &ny))
                 continue;
             NdcToPixel(viewport, nx, ny, &ax, &ay);
-            if (!Project(cameraPos, frame, lens, b, nearZ, &nx, &ny))
+            if (!CastOnto(cameraPos, frame, lens, b, nearZ, &nx, &ny))
                 continue;
             NdcToPixel(viewport, nx, ny, &bx, &by);
             lines->push_back({ax, ay, bx, by, argb, thickness});
@@ -607,7 +607,7 @@ void InspectorSection(ImFont* mono, ImFont* smallFont)
     std::vector<uint32_t> pieces;
     for (const FaceKey& key : g_selection) {
         uint16_t f = 0;
-        if (Read(key, &f))
+        if (TakeIn(key, &f))
             flags.push_back(f);
         if (std::find(pieces.begin(), pieces.end(), key.checksum) == pieces.end())
             pieces.push_back(key.checksum);

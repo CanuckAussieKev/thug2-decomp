@@ -9,7 +9,7 @@
 // - The skater's physics paths that turn, reflect or stop the skater against collision call NotePath after they ran
 //   (core_physics_walls.cpp, core_collision.cpp, core_physics.cpp): which path, the face the component's feeler hit
 //   and the feeler's line. Nothing is changed; with the switch off NotePath returns at once.
-// - EndFrame (the end of CorePhysicsComponent::Update, once a frame) keeps the last 90 frames (FindReversal). A
+// - EndFrame (the end of CorePhysicsComponent::TickFrame, once a frame) keeps the last 90 frames (FindReversal). A
 //   reversal: on the ground now, moving (5+ inches a second); within the last 60 frames a ground frame moving 60+
 //   along a direction at least 145 degrees from today's (dot < -0.8); and between them a sudden change - one frame's
 //   direction turning by more than 60 degrees or the speed going through zero (a turn, even a sharp one, is a few
@@ -52,7 +52,7 @@
 namespace Skater::CollisionEvents {
 
 // Which physics path ran (the order is the priority when several ran: the first wins).
-enum class Path : uint8_t {
+enum class RouteWay : uint8_t {
     WallAheadCorner,  // 0x005059D0's second feeler: into a corner - turned back by pi less the bounce, halved
     WallAhead,        // 0x00506E50 -> 0x005059D0: the forward feeler hit a wall / unskatable face - bounced off it
     WallAheadPlant,   // 0x005059D0 left to 0x004FF670 (the wall push-off) instead
@@ -64,16 +64,16 @@ enum class Path : uint8_t {
     GroundRejected,   // 0x00509BD0: ground too steep against the last or too far below - off the ground
     NoGround,         // 0x00509BD0: nothing under the skater - off the ground
     WallAheadClimb,   // 0x00506E50: the forward feeler hit skatable ground at an angle - moved onto it
-    Count,
+    TotalOf,
 };
-const char* PathName(Path path);
+const char* PathName(RouteWay path);
 
 // [debug] collision_events (read once).
 bool On();
 
 // After a path ran: `component` the skater's core physics component (its feeler's hit and line are read), `before`
 // the skater's velocity when the path began.
-void NotePath(void* component, Path path, const Maths::Vector& before);
+void NotePath(void* component, RouteWay path, const Maths::Vec4& before);
 
 // The end of the core physics component's update.
 void EndFrame(void* component);
@@ -112,7 +112,7 @@ struct Face {
     const void* collObj = nullptr; // (not printed: the Engine3D::CHitMesh hit, for its geometry)
 };
 
-struct Event {
+struct Occurrence {
     int number = 0;
     std::string level;
     uint32_t frame = 0;
@@ -163,7 +163,7 @@ std::string FlagNames(uint16_t flags);
 // ("object:<name>" for a movable's). `name` names a checksum (no spaces).
 std::string FaceText(const Face& face, std::string (*name)(uint32_t));
 // The main line, starting "collision-event: ".
-std::string FormatEvent(const Event& event, std::string (*name)(uint32_t));
+std::string FormatEvent(const Occurrence& event, std::string (*name)(uint32_t));
 // The second line, starting "collision-event-detail: n=<n> ".
 std::string FormatDetail(const Detail& detail);
 // The pad's buttons held in `mask` (bit i: the CPadState's i-th button), '+'-joined ("-" for none).

@@ -10,9 +10,9 @@
 // default, as the original: game/gfx/occlusion.h).
 namespace Engine3D {
 
-// Read them (at start-up, before Platform::InitInput writes them).
+// Read them (at start-up, before OsLayer::InitInput writes them).
 void LoadGraphicsSettings();
-// Put them where the engine reads its options (0x007D6434...): Platform::InitInput.
+// Put them where the engine reads its options (0x007D6434...): OsLayer::InitInput.
 void WriteGraphicsSettings();
 
 // The DisableBlur setting (see SetScreenBlur).

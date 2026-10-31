@@ -25,28 +25,28 @@ class CPadInputModule : public CObjectModule {
 public:
     static constexpr uint32_t kType = 0x27D7CD28;
 
-    // Its input handler (PadInput::Handler<CPadInputModule>, 0x2C bytes, vtable 0x0064D7D8; the front end's has the same
+    // Its input handler (PadInput::Responder<CPadInputModule>, 0x2C bytes, vtable 0x0064D7D8; the front end's has the same
     // shape).
-    struct Handler : TaskList::SchedulerTask {
+    struct Responder : TaskList::SchedulerTask {
         uint8_t* m_controlData;         // +0x18 its server's data (the button pressures first)
-        void* m_device;                 // +0x1C its server's Sio device
-        int m_index;                    // +0x20 which of the two
-        void(__cdecl* m_code)(Handler*); // +0x24
+        void* m_dev;                 // +0x1C its server's Sio device
+        int m_ordinal;                    // +0x20 which of the two
+        void(__cdecl* m_codeValue)(Responder*); // +0x24
         CPadInputModule* m_component;   // +0x28
     };
 
     // 0x0041EEC0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0041E6F0 (not a Ghidra function; registered with Create): its member functions' table (0x00684C78; the
     // functions are put in by the static initialiser at 0x006445B0).
     static void __cdecl PublishMethodTable();
     // 0x0041E850: the base's constructor, its vtable, both pads' Init, its type; no handler, 0x49C cleared. Returns
     // this.
-    CPadInputModule* Construct();
+    CPadInputModule* MakeNew();
     // 0x0041E710: each handler out of its list and deleted; then the base's body.
     void DestroyBody();
     // 0x0041E8C0 (vtable slot 0)
-    CPadInputModule* Destroy(unsigned int flags);
+    CPadInputModule* Teardown(unsigned int flags);
     // 0x0041F390 (vtable slot 2): the controller of Player (the input manager's) or controller (LinkToPad);
     // 0xB9B1E3B6 into +0x49C.
     void ConfigureFromData(Scripts::CStruct* params);
@@ -56,8 +56,8 @@ public:
 
     // 0x0041F170 / 0x0041F190 (cdecl; not Ghidra functions): the handlers' code - UpdatePad / UpdatePad2 of their
     // component with their data.
-    static void __cdecl HandlerCode(Handler* handler);
-    static void __cdecl HandlerCode2(Handler* handler);
+    static void __cdecl HandlerCode(Responder* handler);
+    static void __cdecl HandlerCode2(Responder* handler);
     // 0x0041F090: unless its object is paused: the pad events (UpdateEvents), then the pad updated from `data` - or,
     // with input disabled (or net disabled) or blocked (IsInputBlocked), reset (and, blocked, no events this frame).
     void UpdatePad(const uint8_t* data);
@@ -108,8 +108,8 @@ public:
     uint32_t m_events;        // +0x1C this frame's
     CPadState m_padPrimary;        // +0x20
     CPadState m_padSecondary;       // +0x258
-    Handler* mp_handler;      // +0x490
-    Handler* mp_handler2;     // +0x494
+    Responder* mp_handler;      // +0x490
+    Responder* mp_handler2;     // +0x494
     bool m_disabled;          // +0x498 DisablePlayerInput
     bool m_netDisabled;       // +0x499 NetDisablePlayerInput
     bool m_inputEvents;       // +0x49A EnableInputEvents
@@ -120,8 +120,8 @@ static_assert(offsetof(CPadInputModule, m_padPrimary) == 0x20 && offsetof(CPadIn
                   offsetof(CPadInputModule, mp_handler) == 0x490 && offsetof(CPadInputModule, m_disabled) == 0x498 &&
                   offsetof(CPadInputModule, m_unknown49C) == 0x49C && sizeof(CPadInputModule) == 0x4A0,
               "layout must match the original");
-static_assert(offsetof(CPadInputModule::Handler, m_controlData) == 0x18 &&
-                  offsetof(CPadInputModule::Handler, m_component) == 0x28 && sizeof(CPadInputModule::Handler) == 0x2C,
+static_assert(offsetof(CPadInputModule::Responder, m_controlData) == 0x18 &&
+                  offsetof(CPadInputModule::Responder, m_component) == 0x28 && sizeof(CPadInputModule::Responder) == 0x2C,
               "layout must match the original");
 
 } // namespace Obj

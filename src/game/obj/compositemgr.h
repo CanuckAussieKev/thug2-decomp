@@ -31,17 +31,17 @@ public:
     // -900) on the main loop's logic task list, and the member functions of objects (0x00683550) and of composite
     // objects (0x00683268) registered for scripts. The component count isn't set: the instance is made zeroed
     // (0x0045F7A0).
-    CEntityHub* Construct();
+    CEntityHub* MakeNew();
     // 0x0045F200: the destructor body: the logic task off its list and deleted, then CMiscHub's.
     void DestroyBody();
     // 0x0045F300: the scalar deleting destructor (vtable slot 0).
-    CEntityHub* Destroy(unsigned int flags);
+    CEntityHub* Teardown(unsigned int flags);
 
     // 0x0045F270: a component type: `create` makes one; `registerFunction` (if any) is called at once. (No check
     // against kMaxComponentTypes.)
-    void RegisterComponent(uint32_t type, ComponentCreateFunction create, ComponentRegisterFunction registerFunction);
+    void EnrolModule(uint32_t type, ComponentCreateFunction create, ComponentRegisterFunction registerFunction);
     // 0x0045F2A0: a new component of `type` (its maker's result), or null for a type not registered.
-    CObjectModule* CreateComponent(uint32_t type);
+    CObjectModule* SpawnModule(uint32_t type);
     // 0x0045F2D0: the first component of `type` (the newest; each one's +0x14 is the next), or null.
     CObjectModule* FindFirstModuleOfKind(uint32_t type);
     // 0x0045F3E0: `component` goes to the front of its type's list (its +0x04 type; not registered: nothing).
@@ -50,7 +50,7 @@ public:
     void DetachModuleOfKind(CObjectModule* component);
 
     // 0x0045F330: a new composite object (0x108 bytes, CGameEntity's constructor 0x0045E510), of type
-    // 0xCDEB9229, registered with this manager (vtable slot 1). Out of memory: crash (SetType on null).
+    // 0xCDEB9229, registered with this manager (vtable slot 1). Out of memory: crash (ChangeSpecies on null).
     CGameEntity* CreateCompositeObject();
     // 0x0045F3A0: a new composite object set up from `nodeData` (0x0045DAD0), with the components `components`
     // names (0x0045DA90, each with `nodeData`), then, with `finalize`, its vtable +0x20 (Finalize).
@@ -60,9 +60,9 @@ public:
     // 0x0045F4A0: every object's update (CGameEntity 0x0045D920), in list order (node priority, highest
     // first), each once even if updates register or unregister objects (the walk starts again from the front,
     // skipping those done - as CObjectHubBase::ForEach).
-    void Update();
+    void TickFrame();
     // 0x0045F5D0: COMPOSITE_FLAG_PAUSED set (or cleared) on every object it has now - the same walk.
-    void Pause(bool pause);
+    void Freeze(bool pause);
 
     void* m_logicTask;        // +0x40 a TaskList::Task (vtable 0x006476F0) running UpdateTask
     uint32_t m_componentTypes; // +0x44

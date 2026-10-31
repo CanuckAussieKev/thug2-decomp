@@ -21,9 +21,9 @@ namespace MenuSystem::LevelEditor::Hints {
 // --- the pieces (pure) ---------------------------------------------------------------------------------------------
 
 enum class Selection : uint8_t { None, Objects, Scenery, PointNode, OtherNode, Wall };
-enum class Drag : uint8_t { None, Move, MoveAxis, Rotate, Scale };
+enum class Drag : uint8_t { None, ShiftBy, MoveAxis, SpinBy, StretchBy };
 
-struct Context {
+struct CtxInfo {
     bool rmb = false;       // the right button held (looking / flying)
     bool flyAlways = false; // [editor] wasd_flies=1
     uint8_t mods = 0;       // Actions::kCtrl | kShift | kAlt held
@@ -57,7 +57,7 @@ using KeyText = std::function<std::string(const char* id)>;
 
 // The hints for this state (at most kMaxHints).
 constexpr size_t kMaxHints = 16;
-std::vector<Hint> Build(const Context& context, const KeyText& keyOf);
+std::vector<Hint> Build(const CtxInfo& context, const KeyText& keyOf);
 // The first of a KeysText's alternatives ("Ctrl+Y / Ctrl+Shift+Z" -> "Ctrl+Y"; an Info's text as it is).
 std::string FirstKey(const std::string& keysText);
 // Single plain keys run together for a cap ("W", "A", "S", "D" -> "WASD"; a key with modifiers or a long name: joined
@@ -65,7 +65,7 @@ std::string FirstKey(const std::string& keysText);
 std::string JoinKeys(const std::vector<std::string>& keys);
 // The registry's actions bound with exactly `mods` held (their first such chord), as (keys, name): Press and Toggle,
 // in the registry's order, at most `limit`.
-std::vector<std::pair<std::string, std::string>> ModifierHints(const std::vector<Actions::Action>& actions, uint8_t mods,
+std::vector<std::pair<std::string, std::string>> ModifierHints(const std::vector<Actions::ActStep>& actions, uint8_t mods,
                                                                size_t limit);
 
 // A hint's keys split into tokens ('+' between them; a key ending in '+' - "Keypad+" - kept whole).

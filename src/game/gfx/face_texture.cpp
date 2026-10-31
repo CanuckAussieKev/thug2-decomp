@@ -46,7 +46,7 @@ SFaceAnchors& ModelFacePoints() { return g_modelFacePoints; }
 Engine3D::CBitmapTexture*& FaceOverlay() { return g_faceOverlay; }
 
 // The game's texture dictionary (0x00700F1C) and its texture `name`.
-Engine3D::CBitmapTexture* FindTexture(uint32_t name) { return Engine3D::g_gameTextureDict->GetTexture(name); }
+Engine3D::CBitmapTexture* FindTexture(uint32_t name) { return Engine3D::g_gameTextureDict->FetchSkin(name); }
 
 // A texture's virtual slot (the original calls most through the folded jumps 0x0048D060 [8], 0x0048DE30 [9],
 // 0x0048DEC0 [18], 0x0049F370 [21], 0x0048DEF0 [22], 0x0049F390 [24], 0x0049F3C0 [33], 0x0049F3D0 [34], 0x0049F420
@@ -66,7 +66,7 @@ void Offset(Engine3D::CBitmapTexture* texture, int x, int y, bool useColour, uin
 // Pixels pulled in towards `point` along `axis` (0 x, 1 y) by `amount` (negative: from the other side)...
 void Stretch(Engine3D::CBitmapTexture* texture, int point, int axis, int amount) { TextureSlot<void>(texture, 21, point, axis, amount); }
 // ... or pushed out from it, the gap filled with `colour`.
-void Push(Engine3D::CBitmapTexture* texture, int point, int axis, int amount, bool useColour, uint32_t colour)
+void StackOn(Engine3D::CBitmapTexture* texture, int point, int axis, int amount, bool useColour, uint32_t colour)
 {
     TextureSlot<void>(texture, 22, point, axis, amount, useColour, colour);
 }
@@ -88,11 +88,11 @@ void CopyString(char* to, const char* from) { std::memcpy(to, from, std::strlen(
 bool ReadPoint(CStruct* params, uint32_t name, int* point)
 {
     CArray* array = nullptr;
-    params->GetArray(name, &array, 0);
+    params->FetchList(name, &array, 0);
     if (!array)
         return false;
-    point[0] = static_cast<int>(array->GetElement(0));
-    point[1] = static_cast<int>(array->GetElement(1));
+    point[0] = static_cast<int>(array->FetchPart(0));
+    point[1] = static_cast<int>(array->FetchPart(1));
     return true;
 }
 
@@ -100,7 +100,7 @@ bool ReadPoint(CStruct* params, uint32_t name, int* point)
 CArray* NewPointArray(const int* point)
 {
     CArray* memory = Scripts::NewArray();
-    CArray* array = memory ? memory->Init() : nullptr;
+    CArray* array = memory ? memory->PrepareAll() : nullptr;
     array->ConfigureSizeKind(2, Scripts::QBVAL_INTEGER);
     array->SetElement(0, static_cast<uint32_t>(point[0]));
     array->SetElement(1, static_cast<uint32_t>(point[1]));
@@ -124,9 +124,9 @@ bool __cdecl ReadFacePoints(SFaceAnchors* points, CStruct* params)
     if (!ReadPoint(params, kLeftEye, points->m_leftEye) || !ReadPoint(params, kRightEye, points->m_rightEye) ||
         !ReadPoint(params, kNose, points->m_noseSlot) || !ReadPoint(params, kLips, points->m_mouthPart))
         return false;
-    points->m_hasHSV = params->GetFloat(kH, &points->m_h, 0);
-    points->m_hasHSV = params->GetFloat(kS, &points->m_s, 0) && points->m_hasHSV;
-    points->m_hasHSV = params->GetFloat(kV, &points->m_v, 0) && points->m_hasHSV;
+    points->m_hasHSV = params->FetchFloat(kH, &points->m_h, 0);
+    points->m_hasHSV = params->FetchFloat(kS, &points->m_s, 0) && points->m_hasHSV;
+    points->m_hasHSV = params->FetchFloat(kV, &points->m_v, 0) && points->m_hasHSV;
     points->m_span = 0;
     points->m_levelY = 0;
     params->FetchIntValue(kWidth, &points->m_span, 0);
@@ -194,25 +194,25 @@ bool __cdecl FitFaceTexture(Engine3D::CBitmapTexture* texture, const SFaceAnchor
     if (amount < 0)
         Stretch(texture, modelNoseX, 0, amount);
     else
-        Push(texture, modelNoseX, 0, amount, useColour, colour);
+        StackOn(texture, modelNoseX, 0, amount, useColour, colour);
     // Right of it
     amount = Ftol(static_cast<double>(model.m_rightEye[0] - dx - face.m_rightEye[0]) * scaleRight + 0.5f);
     if (amount >= 0)
         Stretch(texture, modelNoseX, 0, amount);
     else
-        Push(texture, modelNoseX, 0, amount, useColour, colour);
+        StackOn(texture, modelNoseX, 0, amount, useColour, colour);
     // Above it
     amount = Ftol(static_cast<double>(modelEyesY - eyesY) * scaleUp + 0.5f);
     if (amount < 0)
         Stretch(texture, modelNoseY, 1, amount);
     else
-        Push(texture, modelNoseY, 1, amount, useColour, colour);
+        StackOn(texture, modelNoseY, 1, amount, useColour, colour);
     // Below it
     amount = Ftol(static_cast<double>(model.m_mouthPart[1] - dy - face.m_mouthPart[1]) * scaleDown + 0.5f);
     if (amount >= 0)
         Stretch(texture, modelNoseY, 1, amount);
     else
-        Push(texture, modelNoseY, 1, amount, useColour, colour);
+        StackOn(texture, modelNoseY, 1, amount, useColour, colour);
     return true;
 }
 
@@ -220,10 +220,10 @@ bool __cdecl FitFaceTexture(Engine3D::CBitmapTexture* texture, const SFaceAnchor
 bool __cdecl MassageFaceTexture(Engine3D::CBitmapTexture* texture, const SFaceAnchors* points, uint8_t generatePalette, bool useColour,
                                 uint32_t colour)
 {
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_bottomUpHeap);
     BeginEdit(texture);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     FitFaceTexture(texture, points, useColour, colour);
     if (points->m_hasHSV)
         ShiftHsv(texture, points->m_h, points->m_s, points->m_v);
@@ -236,7 +236,7 @@ bool __cdecl MassageFaceTexture(Engine3D::CBitmapTexture* texture, const SFaceAn
 // --- the face texture -------------------------------------------------------------------------------------------
 
 // 0x004875C0
-CFaceSkin* CFaceSkin::Construct()
+CFaceSkin* CFaceSkin::MakeNew()
 {
     m_isUsable = false;
     GetDefaultFacePoints(&m_pathVertices);
@@ -286,7 +286,7 @@ const uint8_t* CFaceSkin::ReadFrom(const uint8_t* buffer, int /*size*/)
 }
 
 // 0x00487510
-bool CFaceSkin::IsValid() { return m_isUsable; }
+bool CFaceSkin::IsSound() { return m_isUsable; }
 
 // 0x00487520
 void CFaceSkin::MarkUsable(bool valid) { m_isUsable = valid; }
@@ -317,12 +317,12 @@ char* CFaceSkin::GetOverlayName() { return m_overlayName; }
 void CFaceSkin::LoadFromStructure(CStruct* params)
 {
     CArray* image = nullptr; // (uninitialised in the original when missing)
-    params->GetArray(kImageData, &image, 1);
+    params->FetchList(kImageData, &image, 1);
     auto* words = reinterpret_cast<uint32_t*>(m_image);
-    for (uint32_t i = 0; i < image->m_size; ++i)
-        words[i] = image->GetElement(i);
+    for (uint32_t i = 0; i < image->m_extent; ++i)
+        words[i] = image->FetchPart(i);
     const char* overlay = nullptr; // (uninitialised in the original when missing)
-    params->GetString(kOverlay, &overlay, 1);
+    params->FetchText(kOverlay, &overlay, 1);
     CopyString(m_overlayName, overlay);
     ReadFacePoints(&m_pathVertices, params);
 }
@@ -331,14 +331,14 @@ void CFaceSkin::LoadFromStructure(CStruct* params)
 void CFaceSkin::SaveToStructure(CStruct* params)
 {
     CArray* memory = Scripts::NewArray();
-    CArray* image = memory ? memory->Init() : nullptr;
+    CArray* image = memory ? memory->PrepareAll() : nullptr;
     constexpr uint32_t kWords = kImageSize / 4;
     image->ConfigureSizeKind(kWords, Scripts::QBVAL_NAME);
     auto* words = reinterpret_cast<uint32_t*>(m_image);
     for (uint32_t i = 0; i < kWords; ++i)
         image->SetElement(i, words[i]);
     params->AppendArrayRef(kImageData, image);
-    params->AddString(kOverlay, m_overlayName);
+    params->AppendWord(kOverlay, m_overlayName);
     WriteFacePoints(&m_pathVertices, params);
 }
 

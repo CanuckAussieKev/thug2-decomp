@@ -16,8 +16,8 @@ struct FrontEnd;
 // thug2-decomp.ini [features] restart_tester=0 turns it off (default 1).
 namespace MenuSystem::RestartTester {
 
-bool& Enabled();
-// Once a frame from the front end's input logic (MouseMenus::Update).
-void Update(GameModules::FrontEnd* frontEnd);
+bool& IsSwitchedOn();
+// Once a frame from the front end's input logic (MouseMenus::TickFrame).
+void TickFrame(GameModules::FrontEnd* frontEnd);
 
 } // namespace MenuSystem::RestartTester

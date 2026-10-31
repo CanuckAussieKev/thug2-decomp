@@ -70,13 +70,13 @@ uint32_t* LevelSpecificQbFiles() { return g_levelQbFiles; }
 // heap's name checksum> free_mem=<the space left in its region> min_free_mem=<the least there has been>.
 bool __cdecl CFunc_DisplayFreeMem(Scripts::CStruct*, Scripts::CScript*)
 {
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     Scripts::CStruct* memory = Scripts::NewStruct();
-    Scripts::CStruct* params = memory ? memory->Init() : nullptr;
-    for (MemSys::Allocator* heap = manager->FirstZone(); heap; heap = manager->FollowingZone(heap)) {
-        MemSys::Region* region = heap->m_region;
+    Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
+    for (MemSys::MemSource* heap = manager->FirstZone(); heap; heap = manager->FollowingZone(heap)) {
+        MemSys::Zone* region = heap->m_region;
         params->Clear();
-        params->PutNameKey(kId, Checksums::HashFromText(heap->m_name));
+        params->PutNameKey(kId, Checksums::HashFromText(heap->m_label));
         params->PutInt(kFreeMem, region->FreeByteCount());
         params->PutInt(kMinFreeMem, region->m_minAvailable);
         Scripts::LaunchScript(kUpdateDisplayFreeMemory, params, nullptr, false, nullptr);
@@ -94,7 +94,7 @@ bool __cdecl CFunc_DisplayFreeMem(Scripts::CStruct*, Scripts::CScript*)
 bool __cdecl CFunc_Test(Scripts::CStruct*, Scripts::CScript*)
 {
     Scripts::CSymbolTableEntry entry;
-    entry.Init();
+    entry.PrepareAll();
     std::memset(&entry, 0, sizeof(entry));
     entry.unknown0 = 4;
     entry.type = Scripts::QBVAL_STRUCT;
@@ -124,7 +124,7 @@ bool __cdecl CFunc_Test(Scripts::CStruct*, Scripts::CScript*)
 bool __cdecl CFunc_LoadQB(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* name = nullptr;
-    params->GetString(0u, &name, 0);
+    params->FetchText(0u, &name, 0);
     if (!params->HasBareFlag(kLevelSpecific)) {
         LoadQbFile(name, false);
         return true;
@@ -144,7 +144,7 @@ bool __cdecl CFunc_LoadQB(Scripts::CStruct* params, Scripts::CScript*)
 bool __cdecl CFunc_UnloadQB(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* name = nullptr;
-    params->GetString(0u, &name, 0);
+    params->FetchText(0u, &name, 0);
     uint32_t checksum = Checksums::HashFromText(name);
     UnloadQbFile(checksum);
     uint32_t* files = LevelSpecificQbFiles();
@@ -159,7 +159,7 @@ bool __cdecl CFunc_UnloadQB(Scripts::CStruct* params, Scripts::CScript*)
 bool __cdecl CFunc_ScreenShot(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* name;
-    if (!params->GetString(kFileName, &name, 0))
+    if (!params->FetchText(kFileName, &name, 0))
         name = "screen";
     TakeScreenShot(name, 0);
     return true;

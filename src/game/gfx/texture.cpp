@@ -18,17 +18,17 @@ namespace Engine3D {
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 IDirect3DTexture9* D3d(const textureRef* t) { return static_cast<IDirect3DTexture9*>(t->texture); }
 
 // The list (0x007CC254): doubly linked nodes.
-struct Node {
+struct Elem {
     textureRef* texture;
-    Node* previous;
-    Node* next;
+    Elem* previous;
+    Elem* next;
 };
-Node* g_textureListHead;
-Node*& Head() { return g_textureListHead; }
+Elem* g_textureListHead;
+Elem*& Foremost() { return g_textureListHead; }
 
 // What the textures being drawn with are (the render state cache's).
 void* CachedTexture(int stage) { return g_textures[stage]; }
@@ -36,18 +36,18 @@ void* CachedTexture(int stage) { return g_textures[stage]; }
 } // namespace
 
 // 0x004E04B0
-textureRef* textureRef::Construct()
+textureRef* textureRef::MakeNew()
 {
     texture = nullptr;
     palette = nullptr;
     surface = nullptr;
     renderTarget = false;
-    auto* node = static_cast<Node*>(MemSys::New(sizeof(Node)));
-    Node* head = Head();
+    auto* node = static_cast<Elem*>(MemSys::Alloc(sizeof(Elem)));
+    Elem* head = Foremost();
     node->texture = this;
     node->previous = nullptr;
     node->next = head;
-    Head() = node;
+    Foremost() = node;
     if (head)
         head->previous = node;
     return this;
@@ -72,7 +72,7 @@ textureRef* textureRef::ConstructCopy(const textureRef* source)
     DWORD levelCount = from->GetLevelCount();
     D3DSURFACE_DESC desc;
     from->GetLevelDesc(0, &desc);
-    Device()->CreateTexture(desc.Width, desc.Height, levelCount, 0, desc.Format, D3DPOOL_MANAGED,
+    InputPort()->CreateTexture(desc.Width, desc.Height, levelCount, 0, desc.Format, D3DPOOL_MANAGED,
                             reinterpret_cast<IDirect3DTexture9**>(&texture), nullptr);
     for (uint32_t level = 0; level < levels; ++level) {
         D3DSURFACE_DESC levelDesc;
@@ -105,7 +105,7 @@ textureRef* textureRef::ConstructCopy(const textureRef* source)
 // 0x004E03F0
 void textureRef::Unlist()
 {
-    Node* node = Head();
+    Elem* node = Foremost();
     for (; node; node = node->next) {
         if (node->texture == this)
             break;
@@ -115,10 +115,10 @@ void textureRef::Unlist()
     if (node->previous)
         node->previous->next = node->next;
     else
-        Head() = node->next;
+        Foremost() = node->next;
     if (node->next)
         node->next->previous = node->previous;
-    MemSys::Manager::Instance()->Free(node);
+    MemSys::Hub::Sole()->Dealloc(node);
 }
 
 // 0x004E06A0
@@ -137,7 +137,7 @@ void textureRef::DestroyBody()
 }
 
 // 0x004E0380
-void textureRef::Set(int stage)
+void textureRef::AssignValue(int stage)
 {
     SetTexture(stage, texture); // (the original also passes the second texture, unused)
 }
@@ -168,7 +168,7 @@ bool textureRef::CreateRenderTarget(int newWidth, int newHeight, uint8_t newDept
 {
     if (texture)
         D3d(this)->Release();
-    HRESULT result = Device()->CreateTexture(newWidth, newHeight, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8,
+    HRESULT result = InputPort()->CreateTexture(newWidth, newHeight, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8,
                                              D3DPOOL_DEFAULT, reinterpret_cast<IDirect3DTexture9**>(&texture), nullptr);
     D3d(this)->GetSurfaceLevel(0, reinterpret_cast<IDirect3DSurface9**>(&surface));
     renderTarget = true;
@@ -190,8 +190,8 @@ bool textureRef::CreateRenderTarget(int newWidth, int newHeight, uint8_t newDept
 void __cdecl ReleaseRenderTargetTextures()
 {
     for (DWORD stage = 0; stage < 8; ++stage)
-        Device()->SetTexture(stage, nullptr); // (the cache isn't told)
-    for (Node* node = Head(); node; node = node->next) {
+        InputPort()->SetTexture(stage, nullptr); // (the cache isn't told)
+    for (Elem* node = Foremost(); node; node = node->next) {
         textureRef* t = node->texture;
         if (!t->texture || !t->renderTarget)
             continue;
@@ -206,11 +206,11 @@ void __cdecl ReleaseRenderTargetTextures()
 // 0x004E0440
 void __cdecl RestoreRenderTargetTextures()
 {
-    for (Node* node = Head(); node; node = node->next) {
+    for (Elem* node = Foremost(); node; node = node->next) {
         textureRef* t = node->texture;
         if (t->texture || !t->renderTarget)
             continue;
-        Device()->CreateTexture(t->width, t->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
+        InputPort()->CreateTexture(t->width, t->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
                                 reinterpret_cast<IDirect3DTexture9**>(&t->texture), nullptr);
         if (t->texture)
             D3d(t)->GetSurfaceLevel(0, reinterpret_cast<IDirect3DSurface9**>(&t->surface));

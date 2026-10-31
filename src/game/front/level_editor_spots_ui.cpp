@@ -17,10 +17,10 @@ namespace MenuSystem::LevelEditor::Ui {
 
 void SpawnSection(int nodeIndex, std::vector<Request>* requests)
 {
-    const std::vector<Nodes::Node>& all = Nodes::All();
+    const std::vector<Nodes::Elem>& all = Nodes::All();
     if (nodeIndex < 0 || nodeIndex >= static_cast<int>(all.size()))
         return;
-    const Nodes::Node& node = all[nodeIndex];
+    const Nodes::Elem& node = all[nodeIndex];
     if (node.family != Nodes::Family::Spawn || node.hidden)
         return;
     static const uint32_t kHorse = Fields::HashOfName("Horse");
@@ -28,9 +28,9 @@ void SpawnSection(int nodeIndex, std::vector<Request>* requests)
     std::vector<uint32_t> types;
     if (Scripts::CStruct* s = Nodes::StructOf(node)) {
         Scripts::CArray* list = nullptr;
-        if (s->GetArray(Fields::KeyRestartTypes(), &list, 0) && list) {
-            for (uint32_t i = 0; i < list->m_size; ++i)
-                types.push_back(list->GetElement(i));
+        if (s->FetchList(Fields::KeyRestartTypes(), &list, 0) && list) {
+            for (uint32_t i = 0; i < list->m_extent; ++i)
+                types.push_back(list->FetchPart(i));
         }
     }
     bool horse = (node.restartTypes & Nodes::kHorse) != 0;

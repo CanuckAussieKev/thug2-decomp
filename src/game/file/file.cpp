@@ -19,26 +19,26 @@ namespace {
 
 // While a pre manager exists, each file call goes to it first; it sets the "handled" flag when the file was
 // in one of its archives.
-bool ArchivesActive() { return Pre::Manager() != nullptr; }
+bool ArchivesActive() { return Pre::Hub() != nullptr; }
 bool& HandledByArchive() { return g_handledByArchive; }
 
-Pre::ArchiveFile::FileInfo* AsArchiveFile(Handle file) { return static_cast<Pre::ArchiveFile::FileInfo*>(file); }
-bool ArchiveExist(const char* name) { return Pre::Exist(name); }
-Handle ArchiveOpen(const char* name, const char* mode) { return Pre::Open(name, mode, false); }
-int ArchiveClose(Handle file) { return Pre::Close(AsArchiveFile(file), false); }
-int ArchiveRead(void* buffer, int size, int count, Handle file)
+Pre::ArchiveFile::FileInfo* AsArchiveFile(Hdl file) { return static_cast<Pre::ArchiveFile::FileInfo*>(file); }
+bool ArchiveExist(const char* name) { return Pre::IsPresent(name); }
+Hdl ArchiveOpen(const char* name, const char* mode) { return Pre::Unseal(name, mode, false); }
+int ArchiveClose(Hdl file) { return Pre::Shut(AsArchiveFile(file), false); }
+int ArchiveRead(void* buffer, int size, int count, Hdl file)
 {
-    return Pre::Read(buffer, size, count, AsArchiveFile(file));
+    return Pre::TakeIn(buffer, size, count, AsArchiveFile(file));
 }
-int ArchiveWrite(const void* buffer, int size, int count, Handle file)
+int ArchiveWrite(const void* buffer, int size, int count, Hdl file)
 {
-    return Pre::Write(buffer, size, count, AsArchiveFile(file));
+    return Pre::EmitOut(buffer, size, count, AsArchiveFile(file));
 }
-uint32_t ArchiveSeek(Handle file, int offset, int origin)
+uint32_t ArchiveSeek(Hdl file, int offset, int origin)
 {
-    return static_cast<uint32_t>(Pre::Seek(AsArchiveFile(file), offset, origin));
+    return static_cast<uint32_t>(Pre::SeekTo(AsArchiveFile(file), offset, origin));
 }
-uint32_t ArchiveGetFileSize(Handle file) { return static_cast<uint32_t>(Pre::GetFileSize(AsArchiveFile(file))); }
+uint32_t ArchiveGetFileSize(Hdl file) { return static_cast<uint32_t>(Pre::GetFileSize(AsArchiveFile(file))); }
 
 // Shows the fatal file error screen; never returns.
 [[noreturn]] void FatalFileError(DWORD error)
@@ -55,9 +55,9 @@ bool UseAlternateDrive() { return g_useAlternateDrive != 0; }
 
 // Not original - the loading console (game/gfx/loading_console.h): a file opened, with its size (read without
 // FileLoad::GetFileSize, which would change the "handled by an archive" flag callers may still look at).
-void NoteOpened(const char* name, Handle file, bool archive)
+void NoteOpened(const char* name, Hdl file, bool archive)
 {
-    if (!Gfx2D::LoadingConsole::Active())
+    if (!Gfx2D::LoadingConsole::LiveNow())
         return;
     if (!file) {
         Gfx2D::LoadingConsole::NoteFile("missing", name, -1);
@@ -96,7 +96,7 @@ void MakeDiskPath(char (&path)[256], const char* name)
 }
 
 // 0x005B9CB0 (takes `name` in EDX)
-Handle OpenOnDisk(const char* name)
+Hdl OpenOnDisk(const char* name)
 {
     char path[256];
     MakeDiskPath(path, name);
@@ -120,7 +120,7 @@ Handle OpenOnDisk(const char* name)
 }
 
 // 0x005B9E60
-Handle Open(const char* name, const char* mode)
+Hdl Unseal(const char* name, const char* mode)
 {
     // Not original - the data overlay (game/front/data_overlay.h): a file of the data overlay is opened from it,
     // before any archive (its handle isn't an archive's: Read, Seek, Close... fall through to the disk's).
@@ -135,19 +135,19 @@ Handle Open(const char* name, const char* mode)
         }
     }
     if (ArchivesActive()) {
-        Handle file = ArchiveOpen(name, mode);
+        Hdl file = ArchiveOpen(name, mode);
         if (HandledByArchive()) {
             NoteOpened(name, file, true);
             return file;
         }
     }
-    Handle file = OpenOnDisk(name);
+    Hdl file = OpenOnDisk(name);
     NoteOpened(name, file, false);
     return file;
 }
 
 // 0x005B9EA0
-int Close(Handle file)
+int Shut(Hdl file)
 {
     if (ArchivesActive()) {
         int result = ArchiveClose(file);
@@ -159,7 +159,7 @@ int Close(Handle file)
 }
 
 // 0x005B9EE0
-int Read(void* buffer, int size, int count, Handle file)
+int TakeIn(void* buffer, int size, int count, Hdl file)
 {
     if (ArchivesActive()) {
         int result = ArchiveRead(buffer, size, count, file);
@@ -176,7 +176,7 @@ int Read(void* buffer, int size, int count, Handle file)
 }
 
 // 0x005B9F60
-int Write(const void* buffer, int size, int count, Handle file)
+int EmitOut(const void* buffer, int size, int count, Hdl file)
 {
     if (ArchivesActive()) {
         int result = ArchiveWrite(buffer, size, count, file);
@@ -187,7 +187,7 @@ int Write(const void* buffer, int size, int count, Handle file)
 }
 
 // 0x005B9FA0
-uint32_t Seek(Handle file, int offset, int origin)
+uint32_t SeekTo(Hdl file, int offset, int origin)
 {
     if (ArchivesActive()) {
         uint32_t result = ArchiveSeek(file, offset, origin);
@@ -199,7 +199,7 @@ uint32_t Seek(Handle file, int offset, int origin)
 }
 
 // 0x005B9E00
-uint32_t GetFileSize(Handle file)
+uint32_t GetFileSize(Hdl file)
 {
     if (ArchivesActive()) {
         uint32_t result = ArchiveGetFileSize(file);
@@ -211,7 +211,7 @@ uint32_t GetFileSize(Handle file)
 }
 
 // 0x005BA010
-bool Exist(const char* name)
+bool IsPresent(const char* name)
 {
     // Not original - the data overlay (game/front/data_overlay.h): its files exist.
     // Original behaviour: archives first, then the data folder.
@@ -223,7 +223,7 @@ bool Exist(const char* name)
         if (HandledByArchive())
             return result;
     }
-    Handle file = OpenOnDisk(name);
+    Hdl file = OpenOnDisk(name);
     if (file) {
         bool closed_by_archive = false;
         if (ArchivesActive()) {
@@ -241,10 +241,10 @@ bool Exist(const char* name)
 namespace {
 
 // 0x005B8040 / 0x005B8050: one-line accessors for the archive manager and the "handled" flag.
-bool __cdecl ArchivesActiveAccessor() { return Pre::Manager() != nullptr; }
+bool __cdecl ArchivesActiveAccessor() { return Pre::Hub() != nullptr; }
 bool __cdecl HandledByArchiveAccessor() { return FileLoad::g_handledByArchive; }
 
-FileLoad::Handle __cdecl OpenOnDiskFromEdx(const char* name) { return FileLoad::OpenOnDisk(name); }
+FileLoad::Hdl __cdecl OpenOnDiskFromEdx(const char* name) { return FileLoad::OpenOnDisk(name); }
 
 // The original takes its argument in EDX.
 __declspec(naked) void OpenOnDiskAdapter()

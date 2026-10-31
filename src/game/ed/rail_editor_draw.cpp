@@ -25,7 +25,7 @@
 namespace ParkEditing {
 
 using namespace RailEditorInternal;
-using Maths::Vector;
+using Maths::Vec4;
 
 int g_railFlashCounter;
 
@@ -65,7 +65,7 @@ constexpr float kFar = 1e6f;                    // 0x0064B904
 // The flashing's frame counter (shared by the highlight and the dotted line).
 int& FlashCounter() { return g_railFlashCounter; }
 // A zero vector (0x007CCD30): drawing in place (no move).
-const Vector& Zero() { return g_railOrigin; }
+const Vec4& Zero() { return g_railOrigin; }
 
 // The visibility mask for a flashing frame: shown in the first half of every `rate` frames.
 uint32_t FlashMask(int rate)
@@ -84,15 +84,15 @@ Fn GeometrySlot(const uint8_t* geometry, int slot)
     return reinterpret_cast<Fn>((*reinterpret_cast<void* const* const*>(geometry))[slot]);
 }
 uint8_t* LookUpSector(uint32_t name) { return static_cast<uint8_t*>(Engine3D::Engine::LookUpSector(name)); }
-uint8_t* GetGeometry(uint8_t* sector) { return static_cast<uint8_t*>(reinterpret_cast<Engine3D::CWorldCell*>(sector)->m_geomHandle); }
+uint8_t* FetchShape(uint8_t* sector) { return static_cast<uint8_t*>(reinterpret_cast<Engine3D::CWorldCell*>(sector)->m_geomHandle); }
 int VertexCount(uint8_t* geometry) { return GeometrySlot<int(__thiscall*)(uint8_t*)>(geometry, 36)(geometry); }
-void GetVertices(uint8_t* geometry, Vector* out)
+void GetVertices(uint8_t* geometry, Vec4* out)
 {
-    GeometrySlot<void(__thiscall*)(uint8_t*, Vector*)>(geometry, 37)(geometry, out);
+    GeometrySlot<void(__thiscall*)(uint8_t*, Vec4*)>(geometry, 37)(geometry, out);
 }
-void SetVertices(uint8_t* geometry, Vector* vertices)
+void SetVertices(uint8_t* geometry, Vec4* vertices)
 {
-    GeometrySlot<void(__thiscall*)(uint8_t*, Vector*)>(geometry, 39)(geometry, vertices);
+    GeometrySlot<void(__thiscall*)(uint8_t*, Vec4*)>(geometry, 39)(geometry, vertices);
 }
 Engine3D::CTriMeshSource* GetHitShape(uint8_t* geometry)
 {
@@ -102,7 +102,7 @@ uint16_t CollisionVertexCount(const Engine3D::CTriMeshSource* collision)
 {
     return *reinterpret_cast<const uint16_t*>(reinterpret_cast<const uint8_t*>(collision) + 6);
 }
-void SetCollisionVertices(uint8_t* sector, Vector* vertices)
+void SetCollisionVertices(uint8_t* sector, Vec4* vertices)
 {
     reinterpret_cast<Engine3D::CWorldCell*>(sector)->ChooseRawVerts(vertices);
 }
@@ -179,7 +179,7 @@ const int kEndVertices[10] = {6, 11, 7, 8, 15, 18, 4, 12, 5, 17};
 uint8_t* __cdecl CloneRailSector(uint32_t source) { return DuplicateSceneSector(source); }
 
 // 0x004F3D80
-Vector* TransformRailPoint(Vector* out, const Vector* point, const Vector* origin, const Vector* position, float angle)
+Vec4* TransformRailPoint(Vec4* out, const Vec4* point, const Vec4* origin, const Vec4* position, float angle)
 {
     double dx = static_cast<double>(point->x) - origin->x;
     float dy = static_cast<float>(static_cast<double>(point->y) - origin->y);
@@ -196,11 +196,11 @@ Vector* TransformRailPoint(Vector* out, const Vector* point, const Vector* origi
 }
 
 // 0x004F3E40
-bool RailCornerOk(const Vector* a, const Vector* b, const Vector* c)
+bool RailCornerOk(const Vec4* a, const Vec4* b, const Vec4* c)
 {
     // The two directions on the ground plane, each normalised by its length rounded to float (y 0, times the
     // inverse); the cosine between them rounded to float.
-    auto direction = [](const Vector* from, const Vector* to, double* x, double* y, double* z) {
+    auto direction = [](const Vec4* from, const Vec4* to, double* x, double* y, double* z) {
         *x = static_cast<double>(to->x) - from->x;
         *z = static_cast<double>(to->z) - from->z;
         *y = 0.0;
@@ -217,12 +217,12 @@ bool RailCornerOk(const Vector* a, const Vector* b, const Vector* c)
     direction(a, b, &x1, &y1, &z1);
     direction(b, c, &x2, &y2, &z2);
     float dot = static_cast<float>((z2 * z1 + y2 * y1) + x2 * x1);
-    return !X87::CosAbove(static_cast<double>(Scripts::GetFloat(kCornerLeaveAngle)) * kDegToRad, dot);
+    return !X87::CosAbove(static_cast<double>(Scripts::FetchFloat(kCornerLeaveAngle)) * kDegToRad, dot);
 }
 
 namespace {
 // The distance between two points (the squares summed z, x, then y - as 0x004F3F30 does).
-double Distance(const Vector* a, const Vector* b)
+double SpanTo(const Vec4* a, const Vec4* b)
 {
     double dx = static_cast<double>(a->x) - b->x;
     double dy = static_cast<double>(a->y) - b->y;
@@ -230,7 +230,7 @@ double Distance(const Vector* a, const Vector* b)
     return X87::Sqrt((dz * dz + dx * dx) + dy * dy);
 }
 // The same summed z, y, then x (as MovePoint does).
-double DistanceZYX(const Vector* a, const Vector* b)
+double DistanceZYX(const Vec4* a, const Vec4* b)
 {
     double dx = static_cast<double>(a->x) - b->x;
     double dy = static_cast<double>(a->y) - b->y;
@@ -240,35 +240,35 @@ double DistanceZYX(const Vector* a, const Vector* b)
 } // namespace
 
 // 0x004F3F30
-int RailTooFar(const Vector* a, const Vector* b) { return Distance(a, b) > kMaxSegment ? 1 : 0; }
+int RailTooFar(const Vec4* a, const Vec4* b) { return SpanTo(a, b) > kMaxSegment ? 1 : 0; }
 
 // 0x004F3F70
-int RailOutOfReach(const Vector* a, const Vector* b) { return Distance(a, b) > kMaxReach ? 1 : 0; }
+int RailOutOfReach(const Vec4* a, const Vec4* b) { return SpanTo(a, b) > kMaxReach ? 1 : 0; }
 
 // 0x004F3FB0
-bool RailSegmentValid(const Vector* a, const Vector* b)
+bool RailSegmentValid(const Vec4* a, const Vec4* b)
 {
     double dx = static_cast<double>(b->x) - a->x;
     double dy = static_cast<double>(b->y) - a->y;
     double dz = static_cast<double>(b->z) - a->z;
     if (X87::Sqrt((dz * dz + dy * dy) + dx * dx) > kMaxSegment)
         return false;
-    Vector d = {static_cast<float>(dx), static_cast<float>(dy), static_cast<float>(dz),
+    Vec4 d = {static_cast<float>(dx), static_cast<float>(dy), static_cast<float>(dz),
                 static_cast<float>(static_cast<double>(b->w) - a->w)};
     float length = static_cast<float>(X87::Sqrt((static_cast<double>(d.z) * d.z + static_cast<double>(d.y) * d.y) +
                                                 static_cast<double>(d.x) * d.x));
-    if (Scripts::GetFloat(kMinimumSeparation) > length)
+    if (Scripts::FetchFloat(kMinimumSeparation) > length)
         return false;
-    d.Normalize();
+    d.MakeUnit();
     float slope = d.y < 0.0f ? -d.y : d.y;
-    return SinAtLeast(static_cast<double>(Scripts::GetFloat(kMaxSlope)) * kDegToRad, slope);
+    return SinAtLeast(static_cast<double>(Scripts::FetchFloat(kMaxSlope)) * kDegToRad, slope);
 }
 
 // 0x004F4B90
-void OrientRailVertices(const Vector* direction, const Vector* translation, Vector* vertices, const int* indices,
+void OrientRailVertices(const Vec4* direction, const Vec4* translation, Vec4* vertices, const int* indices,
                         int count)
 {
-    const Vector origin = vertices[indices[0]];
+    const Vec4 origin = vertices[indices[0]];
     float x = direction->x, y = direction->y, z = direction->z;
     double length = X87::Sqrt((static_cast<double>(z) * z + static_cast<double>(y) * y) + static_cast<double>(x) * x);
     if (length > 0.0) {
@@ -278,7 +278,7 @@ void OrientRailVertices(const Vector* direction, const Vector* translation, Vect
         z = static_cast<float>(z * inverse);
     }
     // A side across the direction on the ground (straight up or down: z), and the up between them.
-    Vector side;
+    Vec4 side;
     float sideW;
     if ((y < 0.0f ? -y : y) > kNearlyVertical) {
         side = {0.0f, 0.0f, 1.0f, 0.0f}; // (its w isn't written: the last row's w is 1)
@@ -287,7 +287,7 @@ void OrientRailVertices(const Vector* direction, const Vector* translation, Vect
         double a = static_cast<double>(y) * 0.0f;
         side = {static_cast<float>(z - a), static_cast<float>(static_cast<double>(x) * 0.0f - static_cast<double>(z) * 0.0f),
                 static_cast<float>(a - x), 0.0f};
-        side.Normalize();
+        side.MakeUnit();
         sideW = side.w;
     }
     double ux = static_cast<double>(side.z) * y - static_cast<double>(side.y) * z;
@@ -301,19 +301,19 @@ void OrientRailVertices(const Vector* direction, const Vector* translation, Vect
         uy *= inverse;
         uzF = static_cast<float>(uzF * inverse);
     }
-    Maths::Matrix m;
+    Maths::Mat4 m;
     m.row[0] = {x, y, z, direction->w};
     m.row[1] = {static_cast<float>(ux), static_cast<float>(uy), uzF, 0.0f};
     m.row[2] = {side.x, side.y, side.z, sideW};
     // (the original leaves the last row's x, y, z unset - only its w is written; here 0)
     m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     for (int i = 0; i < count; ++i) {
-        Vector& v = vertices[indices[i]];
-        Vector offset = {static_cast<float>(static_cast<double>(v.x) - origin.x),
+        Vec4& v = vertices[indices[i]];
+        Vec4 offset = {static_cast<float>(static_cast<double>(v.x) - origin.x),
                          static_cast<float>(static_cast<double>(v.y) - origin.y),
                          static_cast<float>(static_cast<double>(v.z) - origin.z),
                          static_cast<float>(static_cast<double>(v.w) - origin.w)};
-        Vector turned = offset * m;
+        Vec4 turned = offset * m;
         v.x = static_cast<float>(static_cast<double>(turned.x) + translation->x);
         v.y = static_cast<float>(static_cast<double>(turned.y) + translation->y);
         v.z = static_cast<float>(static_cast<double>(turned.z) + translation->z);
@@ -322,13 +322,13 @@ void OrientRailVertices(const Vector* direction, const Vector* translation, Vect
 }
 
 // 0x004F4E70
-void StretchRailSector(uint32_t source, const Vector* from, const Vector* previous, const Vector* to, uint8_t* sector,
+void StretchRailSector(uint32_t source, const Vec4* from, const Vec4* previous, const Vec4* to, uint8_t* sector,
                        uint8_t* previousSector, bool updateCollision)
 {
-    uint8_t* sourceGeometry = GetGeometry(LookUpSector(source));
+    uint8_t* sourceGeometry = FetchShape(LookUpSector(source));
     int count = VertexCount(sourceGeometry);
     uint32_t bytes = static_cast<uint32_t>(count) << 4;
-    auto* vertices = static_cast<Vector*>(MemSys::AllocBlock(bytes));
+    auto* vertices = static_cast<Vec4*>(MemSys::AllocBlock(bytes));
     GetVertices(sourceGeometry, vertices);
     double dx = static_cast<double>(to->x) - from->x;
     double dy = static_cast<double>(to->y) - from->y;
@@ -345,38 +345,38 @@ void StretchRailSector(uint32_t source, const Vector* from, const Vector* previo
         float sy = static_cast<float>(static_cast<double>(py) + dy);
         double sz = static_cast<double>(pz) + dz;
         float sw = static_cast<float>(static_cast<double>(pw) + dw);
-        Vector halfway = {static_cast<float>(static_cast<double>(sx) * 0.5f),
+        Vec4 halfway = {static_cast<float>(static_cast<double>(sx) * 0.5f),
                           static_cast<float>(static_cast<double>(sy) * 0.5f), static_cast<float>(sz * 0.5f),
                           static_cast<float>(static_cast<double>(sw) * 0.5f)};
         OrientRailVertices(&halfway, from, vertices, kStartVertices, 10);
-        uint8_t* previousGeometry = GetGeometry(previousSector);
-        auto* previousVertices = static_cast<Vector*>(MemSys::AllocBlock(static_cast<uint32_t>(VertexCount(previousGeometry)) << 4));
+        uint8_t* previousGeometry = FetchShape(previousSector);
+        auto* previousVertices = static_cast<Vec4*>(MemSys::AllocBlock(static_cast<uint32_t>(VertexCount(previousGeometry)) << 4));
         GetVertices(previousGeometry, previousVertices);
         for (int i = 0; i < 10; ++i)
             previousVertices[kEndVertices[i]] = vertices[kStartVertices[i]];
         SetVertices(previousGeometry, previousVertices);
         MemSys::FreeMalloc(previousVertices);
     } else {
-        Vector direction = {static_cast<float>(dx), static_cast<float>(dy), dz, dw};
+        Vec4 direction = {static_cast<float>(dx), static_cast<float>(dy), dz, dw};
         OrientRailVertices(&direction, from, vertices, kStartVertices, 10);
     }
-    Vector direction = {static_cast<float>(static_cast<double>(to->x) - from->x),
+    Vec4 direction = {static_cast<float>(static_cast<double>(to->x) - from->x),
                         static_cast<float>(static_cast<double>(to->y) - from->y),
                         static_cast<float>(static_cast<double>(to->z) - from->z),
                         static_cast<float>(static_cast<double>(to->w) - from->w)};
     OrientRailVertices(&direction, to, vertices, kEndVertices, 10);
-    SetVertices(GetGeometry(sector), vertices);
+    SetVertices(FetchShape(sector), vertices);
     if (updateCollision) {
         // The collision's vertices moved as the drawn ones were: each found among the source geometry's (as read
         // back now) by its position - or by x and z alone, keeping its height over that vertex.
-        auto* before = static_cast<Vector*>(MemSys::AllocBlock(bytes));
+        auto* before = static_cast<Vec4*>(MemSys::AllocBlock(bytes));
         GetVertices(sourceGeometry, before);
         Engine3D::CTriMeshSource* collision = GetHitShape(sourceGeometry);
         int collisionCount = CollisionVertexCount(collision);
-        auto* raw = static_cast<Vector*>(MemSys::AllocBlock(static_cast<uint32_t>(collisionCount) << 4));
+        auto* raw = static_cast<Vec4*>(MemSys::AllocBlock(static_cast<uint32_t>(collisionCount) << 4));
         collision->GetStoredVertexArray(raw);
         for (int v = 0; v < collisionCount; ++v) {
-            Vector vertex = raw[v];
+            Vec4 vertex = raw[v];
             bool found = false;
             for (int i = 0; i < count && !found; ++i) {
                 if (vertex.x == before[i].x && vertex.y == before[i].y && vertex.z == before[i].z) {
@@ -393,7 +393,7 @@ void StretchRailSector(uint32_t source, const Vector* from, const Vector* previo
                 }
             }
             if (!found)
-                vertex.Print();
+                vertex.EchoOut();
         }
         SetCollisionVertices(sector, raw);
         MemSys::FreeMalloc(raw);
@@ -406,7 +406,7 @@ void StretchRailSector(uint32_t source, const Vector* from, const Vector* previo
 // --- CEditedRailPoint ---------------------------------------------------------------------------------------------
 
 // 0x004F5460
-void CEditedRailPoint::DrawSegment(const Vector* origin, const Vector* position, float angle)
+void CEditedRailPoint::DrawSegment(const Vec4* origin, const Vec4* position, float angle)
 {
     if (!m_following) {
         DeleteSegment();
@@ -418,43 +418,43 @@ void CEditedRailPoint::DrawSegment(const Vector* origin, const Vector* position,
     if (next->m_following) {
         // Joined on to the previous segment unless the turn is sharper than RailEditorMaxJoinAngle.
         CEditedRailPoint* nextNext = next->m_following;
-        Vector before = {static_cast<float>(static_cast<double>(next->m_pos.x) - nextNext->m_pos.x),
-                         static_cast<float>(static_cast<double>(next->m_pos.y) - nextNext->m_pos.y),
-                         static_cast<float>(static_cast<double>(next->m_pos.z) - nextNext->m_pos.z),
-                         static_cast<float>(static_cast<double>(next->m_pos.w) - nextNext->m_pos.w)};
-        Vector here = {static_cast<float>(static_cast<double>(m_pos.x) - next->m_pos.x),
-                       static_cast<float>(static_cast<double>(m_pos.y) - next->m_pos.y),
-                       static_cast<float>(static_cast<double>(m_pos.z) - next->m_pos.z),
-                       static_cast<float>(static_cast<double>(m_pos.w) - next->m_pos.w)};
-        before.Normalize();
-        here.Normalize();
+        Vec4 before = {static_cast<float>(static_cast<double>(next->m_atPoint.x) - nextNext->m_atPoint.x),
+                         static_cast<float>(static_cast<double>(next->m_atPoint.y) - nextNext->m_atPoint.y),
+                         static_cast<float>(static_cast<double>(next->m_atPoint.z) - nextNext->m_atPoint.z),
+                         static_cast<float>(static_cast<double>(next->m_atPoint.w) - nextNext->m_atPoint.w)};
+        Vec4 here = {static_cast<float>(static_cast<double>(m_atPoint.x) - next->m_atPoint.x),
+                       static_cast<float>(static_cast<double>(m_atPoint.y) - next->m_atPoint.y),
+                       static_cast<float>(static_cast<double>(m_atPoint.z) - next->m_atPoint.z),
+                       static_cast<float>(static_cast<double>(m_atPoint.w) - next->m_atPoint.w)};
+        before.MakeUnit();
+        here.MakeUnit();
         float dot = static_cast<float>((static_cast<double>(here.z) * before.z + static_cast<double>(here.y) * before.y) +
                                        static_cast<double>(here.x) * before.x);
-        bool join = !X87::CosAbove(static_cast<double>(Scripts::GetFloat(kMaxJoinAngle)) * kDegToRad, dot);
-        Vector c, b, a;
-        TransformRailPoint(&c, &nextNext->m_pos, origin, position, angle);
-        TransformRailPoint(&b, &next->m_pos, origin, position, angle);
-        TransformRailPoint(&a, &m_pos, origin, position, angle);
+        bool join = !X87::CosAbove(static_cast<double>(Scripts::FetchFloat(kMaxJoinAngle)) * kDegToRad, dot);
+        Vec4 c, b, a;
+        TransformRailPoint(&c, &nextNext->m_atPoint, origin, position, angle);
+        TransformRailPoint(&b, &next->m_atPoint, origin, position, angle);
+        TransformRailPoint(&a, &m_atPoint, origin, position, angle);
         StretchRailSector(kRailSource, &b, &c, &a, mp_segment, join ? next->mp_segment : nullptr, true);
         return;
     }
-    Vector b, a;
-    TransformRailPoint(&b, &next->m_pos, origin, position, angle);
-    TransformRailPoint(&a, &m_pos, origin, position, angle);
+    Vec4 b, a;
+    TransformRailPoint(&b, &next->m_atPoint, origin, position, angle);
+    TransformRailPoint(&a, &m_atPoint, origin, position, angle);
     // (the original passes an unset local as the previous point: unread without a previous sector)
     StretchRailSector(kRailSource, &b, &b, &a, mp_segment, nullptr, true);
 }
 
 // 0x004F56D0
-void CEditedRailPoint::DrawPost(const Vector* origin, const Vector* position, float angle)
+void CEditedRailPoint::DrawPost(const Vec4* origin, const Vec4* position, float angle)
 {
     if (!m_hasPost || m_levelY < kPostWidth) {
         DeletePost();
         return;
     }
-    uint8_t* geometry = GetGeometry(LookUpSector(kPostSource));
+    uint8_t* geometry = FetchShape(LookUpSector(kPostSource));
     int count = VertexCount(geometry);
-    auto* vertices = static_cast<Vector*>(MemSys::AllocBlock(static_cast<uint32_t>(count) << 4));
+    auto* vertices = static_cast<Vec4*>(MemSys::AllocBlock(static_cast<uint32_t>(count) << 4));
     GetVertices(geometry, vertices);
     float low = kFar, high = -kFar;
     for (int i = 0; i < count; ++i) {
@@ -467,28 +467,28 @@ void CEditedRailPoint::DrawPost(const Vector* origin, const Vector* position, fl
     // Leaning along the rail at an inner point: the post narrower as the rail climbs.
     float width = kPostWidth;
     if (m_following && m_preceding) {
-        double ax = static_cast<double>(m_preceding->m_pos.x) - m_pos.x;
-        double ay = static_cast<double>(m_preceding->m_pos.y) - m_pos.y;
-        float az = static_cast<float>(static_cast<double>(m_preceding->m_pos.z) - m_pos.z);
-        float aw = static_cast<float>(static_cast<double>(m_preceding->m_pos.w) - m_pos.w);
-        double bx = static_cast<double>(m_pos.x) - m_following->m_pos.x;
-        float by = static_cast<float>(static_cast<double>(m_pos.y) - m_following->m_pos.y);
-        float bz = static_cast<float>(static_cast<double>(m_pos.z) - m_following->m_pos.z);
-        float bw = static_cast<float>(static_cast<double>(m_pos.w) - m_following->m_pos.w);
+        double ax = static_cast<double>(m_preceding->m_atPoint.x) - m_atPoint.x;
+        double ay = static_cast<double>(m_preceding->m_atPoint.y) - m_atPoint.y;
+        float az = static_cast<float>(static_cast<double>(m_preceding->m_atPoint.z) - m_atPoint.z);
+        float aw = static_cast<float>(static_cast<double>(m_preceding->m_atPoint.w) - m_atPoint.w);
+        double bx = static_cast<double>(m_atPoint.x) - m_following->m_atPoint.x;
+        float by = static_cast<float>(static_cast<double>(m_atPoint.y) - m_following->m_atPoint.y);
+        float bz = static_cast<float>(static_cast<double>(m_atPoint.z) - m_following->m_atPoint.z);
+        float bw = static_cast<float>(static_cast<double>(m_atPoint.w) - m_following->m_atPoint.w);
         float sx = static_cast<float>(bx + ax);
         double sy = static_cast<double>(by) + ay;
         double sz = static_cast<double>(bz) + az;
         float sw = static_cast<float>(static_cast<double>(bw) + aw);
-        Vector along = {static_cast<float>(static_cast<double>(sx) * 0.5f), static_cast<float>(sy * 0.5f),
+        Vec4 along = {static_cast<float>(static_cast<double>(sx) * 0.5f), static_cast<float>(sy * 0.5f),
                         static_cast<float>(sz * 0.5f), static_cast<float>(static_cast<double>(sw) * 0.5f)};
-        along.Normalize();
+        along.MakeUnit();
         width = static_cast<float>(X87::Sqrt(1.0f - static_cast<double>(along.y) * along.y) * kPostWidth);
     }
-    Vector at;
-    TransformRailPoint(&at, &m_pos, origin, position, angle);
+    Vec4 at;
+    TransformRailPoint(&at, &m_atPoint, origin, position, angle);
     double drop = static_cast<double>(width) + high;
     for (int i = 0; i < count; ++i) {
-        Vector& v = vertices[i];
+        Vec4& v = vertices[i];
         v.x = static_cast<float>(static_cast<double>(at.x) + v.x);
         v.y = static_cast<float>(static_cast<double>(at.y) + v.y);
         v.z = static_cast<float>(static_cast<double>(at.z) + v.z);
@@ -501,8 +501,8 @@ void CEditedRailPoint::DrawPost(const Vector* origin, const Vector* position, fl
         vertices[i].y = static_cast<float>(static_cast<double>(vertices[i].y) - foot);
     if (m_following) {
         // Turned to face along the rail.
-        double dx = static_cast<double>(m_pos.x) - m_following->m_pos.x;
-        double dz = static_cast<double>(m_pos.z) - m_following->m_pos.z;
+        double dx = static_cast<double>(m_atPoint.x) - m_following->m_atPoint.x;
+        double dz = static_cast<double>(m_atPoint.z) - m_following->m_atPoint.z;
         double length = X87::Sqrt(dz * dz + dx * dx);
         if (length > 0.0) {
             double inverse = 1.0 / length;
@@ -511,7 +511,7 @@ void CEditedRailPoint::DrawPost(const Vector* origin, const Vector* position, fl
         }
         float minusZ = static_cast<float>(-dz);
         for (int i = 0; i < count; ++i) {
-            Vector& v = vertices[i];
+            Vec4& v = vertices[i];
             double rx = static_cast<double>(v.x) - at.x;
             double rz = static_cast<double>(v.z) - at.z;
             v.x = static_cast<float>((dx * rx + rz * minusZ) + at.x);
@@ -520,32 +520,32 @@ void CEditedRailPoint::DrawPost(const Vector* origin, const Vector* position, fl
     }
     if (!mp_post)
         mp_post = DuplicateSceneSector(kPostSource);
-    SetVertices(GetGeometry(mp_post), vertices);
+    SetVertices(FetchShape(mp_post), vertices);
     MemSys::FreeMalloc(vertices);
 }
 
 // 0x004F5D10
-float __fastcall CEditedRailPoint::GroundHeight(const Vector* position)
+float __fastcall CEditedRailPoint::GroundHeight(const Vec4* position)
 {
     Engine3D::CProbeRay feeler;
-    feeler.Construct();
-    Vector start = {position->x, static_cast<float>(static_cast<double>(position->y) + kGroundProbe), position->z,
+    feeler.MakeNew();
+    Vec4 start = {position->x, static_cast<float>(static_cast<double>(position->y) + kGroundProbe), position->z,
                     position->w};
-    feeler.SetStart(&start);
-    Vector end = {position->x, static_cast<float>(static_cast<double>(position->y) - kGroundProbe), position->z,
+    feeler.ChangeOrigin(&start);
+    Vec4 end = {position->x, static_cast<float>(static_cast<double>(position->y) - kGroundProbe), position->z,
                   position->w};
-    feeler.SetEnd(&end);
+    feeler.ChangeFinish(&end);
     if (feeler.GetHitShape(true, false)) {
         float height = feeler.m_contactPos.y;
-        feeler.m_object.Release();
+        feeler.m_entity.Release();
         return height;
     }
-    feeler.m_object.Release();
+    feeler.m_entity.Release();
     return 0.0f;
 }
 
 // 0x004F5E30
-void CEditedRailPoint::Highlight(bool flash, bool includeEndPosts)
+void CEditedRailPoint::Spotlight(bool flash, bool includeEndPosts)
 {
     if (m_highlighted)
         return;
@@ -557,12 +557,12 @@ void CEditedRailPoint::Highlight(bool flash, bool includeEndPosts)
                   static_cast<uint8_t>(Scripts::FetchIntValue(kBadB))};
     // Too long a segment either side: everything in the bad colour.
     bool tooLong = false;
-    if (m_following && RailTooFar(&m_pos, &m_following->m_pos))
+    if (m_following && RailTooFar(&m_atPoint, &m_following->m_atPoint))
         tooLong = true;
-    if (m_preceding && RailTooFar(&m_pos, &m_preceding->m_pos))
+    if (m_preceding && RailTooFar(&m_atPoint, &m_preceding->m_atPoint))
         tooLong = true;
     auto cornerOk = [](const CEditedRailPoint* p) {
-        return !p->m_following || !p->m_preceding || RailCornerOk(&p->m_following->m_pos, &p->m_pos, &p->m_preceding->m_pos);
+        return !p->m_following || !p->m_preceding || RailCornerOk(&p->m_following->m_atPoint, &p->m_atPoint, &p->m_preceding->m_atPoint);
     };
     auto paint = [mask](uint8_t* sector, const Colour& colour) {
         SetSectorColour(sector, colour.Word());
@@ -593,25 +593,25 @@ void CEditedRailPoint::Highlight(bool flash, bool includeEndPosts)
 // --- CEditedRail --------------------------------------------------------------------------------------------------
 
 // 0x004F4370
-void CEditedRail::Transform(const Vector* origin, const Vector* position, float angle)
+void CEditedRail::Xform(const Vec4* origin, const Vec4* position, float angle)
 {
     // (TransformRailPoint's turn, but z' not rounded to float before the position is added)
     for (CEditedRailPoint* p = mp_points; p; p = p->m_following) {
-        double dx = static_cast<double>(p->m_pos.x) - origin->x;
-        float dy = static_cast<float>(static_cast<double>(p->m_pos.y) - origin->y);
-        double dz = static_cast<double>(p->m_pos.z) - origin->z;
+        double dx = static_cast<double>(p->m_atPoint.x) - origin->x;
+        float dy = static_cast<float>(static_cast<double>(p->m_atPoint.y) - origin->y);
+        double dz = static_cast<double>(p->m_atPoint.z) - origin->z;
         float x;
         double z;
         TurnAboutY(dx, dz, angle, &x, &z);
-        p->m_pos.z = static_cast<float>(z + position->z);
-        p->m_pos.w = static_cast<float>(0.0 + position->w); // (the original adds an unset local - here 0)
-        p->m_pos.x = static_cast<float>(static_cast<double>(x) + position->x);
-        p->m_pos.y = static_cast<float>(static_cast<double>(dy) + position->y);
+        p->m_atPoint.z = static_cast<float>(z + position->z);
+        p->m_atPoint.w = static_cast<float>(0.0 + position->w); // (the original adds an unset local - here 0)
+        p->m_atPoint.x = static_cast<float>(static_cast<double>(x) + position->x);
+        p->m_atPoint.y = static_cast<float>(static_cast<double>(dy) + position->y);
     }
 }
 
 // 0x004F61C0
-void CEditedRail::DrawSegments(const Vector* origin, const Vector* position, float angle)
+void CEditedRail::DrawSegments(const Vec4* origin, const Vec4* position, float angle)
 {
     CEditedRailPoint* last = nullptr;
     for (CEditedRailPoint* p = mp_points; p; p = p->m_following)
@@ -621,30 +621,30 @@ void CEditedRail::DrawSegments(const Vector* origin, const Vector* position, flo
 }
 
 // 0x004F6210
-void CEditedRail::DrawPosts(const Vector* origin, const Vector* position, float angle)
+void CEditedRail::DrawPosts(const Vec4* origin, const Vec4* position, float angle)
 {
     for (CEditedRailPoint* p = mp_points; p; p = p->m_following)
         p->DrawPost(origin, position, angle);
 }
 
 // 0x004F63B0
-bool CEditedRail::MovePoint(int index, const Vector* position, bool /*updateSuperSectors*/)
+bool CEditedRail::MovePoint(int index, const Vec4* position, bool /*updateSuperSectors*/)
 {
-    CEditedRailPoint* p = GetPoint(index);
+    CEditedRailPoint* p = FetchVertexAt(index);
     bool valid = true;
-    if (p->m_following && !RailSegmentValid(&p->m_following->m_pos, position))
+    if (p->m_following && !RailSegmentValid(&p->m_following->m_atPoint, position))
         valid = false;
-    if (p->m_preceding && !RailSegmentValid(&p->m_preceding->m_pos, position))
+    if (p->m_preceding && !RailSegmentValid(&p->m_preceding->m_atPoint, position))
         valid = false;
     if (!CParkBuilderMode::IsInsidePark(*position, 10.0f))
         valid = false;
     // Moved (even when not valid) unless a neighbour would be out of reach.
-    if (p->m_following && DistanceZYX(position, &p->m_following->m_pos) > kMaxReach)
+    if (p->m_following && DistanceZYX(position, &p->m_following->m_atPoint) > kMaxReach)
         return valid;
-    if (p->m_preceding && DistanceZYX(position, &p->m_preceding->m_pos) > kMaxReach)
+    if (p->m_preceding && DistanceZYX(position, &p->m_preceding->m_atPoint) > kMaxReach)
         return valid;
-    p->m_pos = *position;
-    p->m_levelY = static_cast<float>(static_cast<double>(p->m_pos.y) - CEditedRailPoint::GroundHeight(&p->m_pos));
+    p->m_atPoint = *position;
+    p->m_levelY = static_cast<float>(static_cast<double>(p->m_atPoint.y) - CEditedRailPoint::GroundHeight(&p->m_atPoint));
     p->DrawPost(&Zero(), &Zero(), 0.0f);
     p->DrawSegment(&Zero(), &Zero(), 0.0f);
     if (p->m_preceding)
@@ -657,15 +657,15 @@ bool CEditedRail::MovePoint(int index, const Vector* position, bool /*updateSupe
 // 0x004F6510
 void CRailAuthoring::RestoreHeights()
 {
-    SetActive(false);
+    ChangeLive(false);
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
         for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following) {
             if (p->m_hasPost)
-                p->m_pos.y = static_cast<float>(static_cast<double>(CEditedRailPoint::GroundHeight(&p->m_pos)) +
+                p->m_atPoint.y = static_cast<float>(static_cast<double>(CEditedRailPoint::GroundHeight(&p->m_atPoint)) +
                                                 p->m_levelY);
         }
     }
-    SetActive(true);
+    ChangeLive(true);
 }
 
 // 0x004F6560
@@ -673,7 +673,7 @@ void CRailAuthoring::StoreHeights()
 {
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
         for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following)
-            p->m_levelY = static_cast<float>(static_cast<double>(p->m_pos.y) - CEditedRailPoint::GroundHeight(&p->m_pos));
+            p->m_levelY = static_cast<float>(static_cast<double>(p->m_atPoint.y) - CEditedRailPoint::GroundHeight(&p->m_atPoint));
     }
 }
 
@@ -692,7 +692,7 @@ void CRailAuthoring::DrawAllPosts()
 }
 
 // 0x004F6650
-void CRailAuthoring::Rebuild()
+void CRailAuthoring::Reassemble()
 {
     CParkLayout::sSingleton()->m_builder->RebuildCollision();
     StoreHeights();
@@ -701,7 +701,7 @@ void CRailAuthoring::Rebuild()
 }
 
 // 0x004F6AF0
-void CRailAuthoring::DrawDottedLine(const Vector* position)
+void CRailAuthoring::DrawDottedLine(const Vec4* position)
 {
     if (!m_activeNode)
         return;
@@ -709,13 +709,13 @@ void CRailAuthoring::DrawDottedLine(const Vector* position)
     if (!head)
         return;
     uint32_t source = kDottedGreen;
-    if (RailTooFar(&head->m_pos, position)) {
-        if (RailOutOfReach(&head->m_pos, position)) {
+    if (RailTooFar(&head->m_atPoint, position)) {
+        if (RailOutOfReach(&head->m_atPoint, position)) {
             DeleteDottedLine();
             return;
         }
         source = kDottedRed;
-    } else if (head->m_following && !RailCornerOk(&head->m_following->m_pos, &head->m_pos, position)) {
+    } else if (head->m_following && !RailCornerOk(&head->m_following->m_atPoint, &head->m_atPoint, position)) {
         source = kDottedRed;
     }
     if (!mp_dottedLine || source != m_dottedLineName) {
@@ -724,7 +724,7 @@ void CRailAuthoring::DrawDottedLine(const Vector* position)
         m_dottedLineName = source;
     }
     // (the original passes an unset local as the previous point: unread without a previous sector)
-    StretchRailSector(m_dottedLineName, &head->m_pos, position, position, mp_dottedLine, nullptr, false);
+    StretchRailSector(m_dottedLineName, &head->m_atPoint, position, position, mp_dottedLine, nullptr, false);
     if (source == kDottedRed)
         SetSectorVisibility(mp_dottedLine, FlashMask(Scripts::FetchIntValue(kRedLineFlashRate)));
 }

@@ -12,7 +12,7 @@
 #include "game/gfx/device.h"
 #include "game/pcm/music.h"
 
-namespace Platform {
+namespace OsLayer {
 
 namespace {
 

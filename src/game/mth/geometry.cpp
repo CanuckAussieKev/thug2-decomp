@@ -17,10 +17,10 @@ constexpr float kPi = 3.14159265f;
 BBox::BBox() : min{kHuge, kHuge, kHuge, 1.0f}, max{-kHuge, -kHuge, -kHuge, 1.0f} {}
 
 // 0x00403410
-BBox::BBox(const Vector& point) : min(point), max(point) {}
+BBox::BBox(const Vec4& point) : min(point), max(point) {}
 
 // 0x00403450
-void BBox::AddPoint(const Vector& point)
+void BBox::AppendSpot(const Vec4& point)
 {
     if (point.x < min.x)
         min.x = point.x;
@@ -57,7 +57,7 @@ bool BBox::Intersects(const BBox& other) const
 }
 
 // 0x0040B1D0
-bool BBox::Contains(const BBox& other) const
+bool BBox::Holds(const BBox& other) const
 {
     if (!(other.min.x >= min.x) || !(other.max.x <= max.x))
         return false;
@@ -69,17 +69,17 @@ bool BBox::Contains(const BBox& other) const
 }
 
 // 0x00404060 (Ghidra's signature database labels this MFC's CRect constructor; it is the same simple code)
-Rect::Rect(int l, int t, int r, int b) : left(l), top(t), right(r), bottom(b) {}
+Rect2::Rect2(int l, int t, int r, int b) : left(l), top(t), right(r), bottom(b) {}
 
 // 0x00403BB0
-Vector& BBox::GetCenter(Vector& out) const
+Vec4& BBox::GetCenter(Vec4& out) const
 {
     out = {(max.x - min.x) * 0.5f + min.x, (max.y - min.y) * 0.5f + min.y, (max.z - min.z) * 0.5f + min.z, 1.0f};
     return out;
 }
 
 // 0x004025A0
-int BBox::ContainsPoint(const Vector& point) const
+int BBox::ContainsPoint(const Vec4& point) const
 {
     // Written as "not outside" so NaN coordinates count as outside, as in the original.
     if (!(point.x >= min.x) || !(point.y >= min.y) || !(point.z >= min.z))
@@ -90,7 +90,7 @@ int BBox::ContainsPoint(const Vector& point) const
 }
 
 // 0x004034D0
-int BBox::CountAxesContaining(const Vector& point, uint32_t& axes) const
+int BBox::CountAxesContaining(const Vec4& point, uint32_t& axes) const
 {
     axes = 0;
     int count = 0;
@@ -110,10 +110,10 @@ int BBox::CountAxesContaining(const Vector& point, uint32_t& axes) const
 }
 
 // 0x00403550
-bool BBox::SegmentCrossing(const Line& line, Vector& hit, Vector& normal) const
+bool BBox::SegmentCrossing(const Seg& line, Vec4& hit, Vec4& normal) const
 {
-    const Vector& s = line.start;
-    const Vector& e = line.end;
+    const Vec4& s = line.start;
+    const Vec4& e = line.end;
     if (ContainsPoint(s) && ContainsPoint(e))
         return false;
 
@@ -203,7 +203,7 @@ bool BBox::SegmentCrossing(const Line& line, Vector& hit, Vector& normal) const
 }
 
 // 0x00403C00
-void BBox::GetClosestSurfacePoint(const Vector& point, Vector& out) const
+void BBox::GetClosestSurfacePoint(const Vec4& point, Vec4& out) const
 {
     uint32_t axes;
     if (CountAxesContaining(point, axes) == 3) {
@@ -244,22 +244,22 @@ void BBox::GetClosestSurfacePoint(const Vector& point, Vector& out) const
 Capsule::Capsule() : radius(0.0f) {}
 
 // 0x00403230
-Capsule::Capsule(const Vector& start, const Vector& offset, float r) : line(start, start + offset), radius(r) {}
+Capsule::Capsule(const Vec4& start, const Vec4& offset, float r) : line(start, start + offset), radius(r) {}
 
 // 0x004032A0
-Capsule::Capsule(const Line& segment, float r) : line(segment), radius(r) {}
+Capsule::Capsule(const Seg& segment, float r) : line(segment), radius(r) {}
 
 // 0x00403390
-float Capsule::Volume() const
+float Capsule::Loudness() const
 {
-    float length = (line.end - line.start).Length();
+    float length = (line.end - line.start).LenOf();
     return radius * radius * radius * (4.0f / 3.0f * kPi) + length * radius * radius * kPi;
 }
 
 // 0x00403330
-bool Capsule::ContainsPoint(const Vector& point, Vector* offset) const
+bool Capsule::ContainsPoint(const Vec4& point, Vec4* offset) const
 {
-    Vector local_offset;
+    Vec4 local_offset;
     float squaredGap = line.DistanceSqrToPoint(point, &local_offset);
     if (!(radius * radius >= squaredGap))
         return false;
@@ -269,7 +269,7 @@ bool Capsule::ContainsPoint(const Vector& point, Vector* offset) const
 }
 
 // 0x00402D60
-float Line::DistanceSqrToPoint(const Vector& point, Vector* offset) const
+float Seg::DistanceSqrToPoint(const Vec4& point, Vec4* offset) const
 {
     float dx = end.x - start.x, dy = end.y - start.y, dz = end.z - start.z;
     float dw = end.w - start.w;
@@ -278,7 +278,7 @@ float Line::DistanceSqrToPoint(const Vector& point, Vector* offset) const
     // Project onto the segment: before the start, past the end, or in between.
     float along = vx * dx + vy * dy + vz * dz;
     float squaredLen = dx * dx + dy * dy + dz * dz;
-    Vector result;
+    Vec4 result;
     if (along <= 0.0f) {
         result = point - start;
     } else if (squaredLen <= along) {
@@ -298,7 +298,7 @@ float Line::DistanceSqrToPoint(const Vector& point, Vector* offset) const
 // distance is a quadratic in (s, t):  a00 s^2 + 2 a01 s t + a11 t^2 + 2 b0 s + 2 b1 t + c.  Its unconstrained
 // minimum is checked against the unit square, and the edge or corner it falls outside of is minimised instead.
 // The branch order follows the original exactly (it matters for which edge wins at region boundaries).
-double Line::DistanceSqrToLine(const Line& other, float* s_out, float* t_out) const
+double Seg::DistanceSqrToLine(const Seg& other, float* s_out, float* t_out) const
 {
     const float dx = start.x - other.start.x, dy = start.y - other.start.y, dz = start.z - other.start.z;
     const float d0x = end.x - start.x, d0y = end.y - start.y, d0z = end.z - start.z;
@@ -473,7 +473,7 @@ double Line::DistanceSqrToLine(const Line& other, float* s_out, float* t_out) co
 }
 
 // 0x004032E0
-int Capsule::IntersectsSegment(const Line& segment, float* s, float* t, float* squaredGap) const
+int Capsule::IntersectsSegment(const Seg& segment, float* s, float* t, float* squaredGap) const
 {
     float distance = static_cast<float>(line.DistanceSqrToLine(segment, s, t));
     if (squaredGap)
@@ -501,7 +501,7 @@ float Clamp01(float value)
 } // namespace
 
 // 0x00402F00
-bool ClosestPointsBetweenLines(const Line& a, const Line& b, Vector& point_a, Vector& point_b, float& s,
+bool ClosestPointsBetweenLines(const Seg& a, const Seg& b, Vec4& point_a, Vec4& point_b, float& s,
                                float& t, bool clamp)
 {
     float vx = b.end.x - b.start.x, vy = b.end.y - b.start.y, vz = b.end.z - b.start.z;
@@ -532,7 +532,7 @@ bool ClosestPointsBetweenLines(const Line& a, const Line& b, Vector& point_a, Ve
 }
 
 // 0x004817D0
-bool __cdecl PointInBox(const Vector* point, const Vector* max, const Vector* min)
+bool __cdecl PointInBox(const Vec4* point, const Vec4* max, const Vec4* min)
 {
     return !(point->x > max->x) && !(point->y > max->y) && !(point->z > max->z) && !(point->x < min->x) &&
            !(point->y < min->y) && !(point->z < min->z);
@@ -545,23 +545,23 @@ namespace {
 
 using Maths::BBox;
 using Maths::Capsule;
-using Maths::Line;
-using Maths::Vector;
+using Maths::Seg;
+using Maths::Vec4;
 
 // Constructors keep the original __thiscall shape (object in ECX, returned in EAX).
 struct GeometryAdapter {
     BBox* ConstructBBox() { return new (this) BBox(); }
     Capsule* ConstructEmptyCapsule() { return new (this) Capsule(); }
     Maths::Sphere* ConstructSphere() { return new (this) Maths::Sphere(); }
-    BBox* ConstructBBoxAt(const Vector& point) { return new (this) BBox(point); }
-    Capsule* ConstructCapsule(const Vector& start, const Vector& offset, float radius)
+    BBox* ConstructBBoxAt(const Vec4& point) { return new (this) BBox(point); }
+    Capsule* ConstructCapsule(const Vec4& start, const Vec4& offset, float radius)
     {
         return new (this) Capsule(start, offset, radius);
     }
-    Capsule* ConstructCapsuleFromLine(const Line& line, float radius) { return new (this) Capsule(line, radius); }
-    Maths::Rect* ConstructRect(int left, int top, int right, int bottom)
+    Capsule* ConstructCapsuleFromLine(const Seg& line, float radius) { return new (this) Capsule(line, radius); }
+    Maths::Rect2* ConstructRect(int left, int top, int right, int bottom)
     {
-        return new (this) Maths::Rect(left, top, right, bottom);
+        return new (this) Maths::Rect2(left, top, right, bottom);
     }
 };
 

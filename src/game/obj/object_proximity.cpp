@@ -48,7 +48,7 @@ float FarAway()
 // The unnamed float, if given, as (12 x it) squared (rounded once, as the original's x87 product).
 bool SetSquaredRadius(Scripts::CStruct* params, float& radius)
 {
-    if (params->GetFloat(0u, &radius, 0)) {
+    if (params->FetchFloat(0u, &radius, 0)) {
         double inches = static_cast<double>(radius) * kFeetToInches;
         radius = static_cast<float>(inches * inches);
     }
@@ -57,19 +57,19 @@ bool SetSquaredRadius(Scripts::CStruct* params, float& radius)
 
 double DistanceSquared(const CGameEntity* a, const CGameEntity* b)
 {
-    double dx = static_cast<double>(a->m_pos.x) - b->m_pos.x;
-    double dy = static_cast<double>(a->m_pos.y) - b->m_pos.y;
-    double dz = static_cast<double>(a->m_pos.z) - b->m_pos.z;
+    double dx = static_cast<double>(a->m_atPoint.x) - b->m_atPoint.x;
+    double dy = static_cast<double>(a->m_atPoint.y) - b->m_atPoint.y;
+    double dz = static_cast<double>(a->m_atPoint.z) - b->m_atPoint.z;
     return (dx * dx + dz * dz) + dy * dy;
 }
 
 } // namespace
 
 // 0x004EC420
-CObjectModule* __cdecl CObjectProximityComponent::Create()
+CObjectModule* __cdecl CObjectProximityComponent::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CObjectProximityComponent));
-    return memory ? static_cast<CObjectProximityComponent*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CObjectProximityComponent*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x004EC220
@@ -80,11 +80,11 @@ void __cdecl CObjectProximityComponent::PublishMethodTable()
 }
 
 // 0x004EC370
-CObjectProximityComponent* CObjectProximityComponent::Construct()
+CObjectProximityComponent* CObjectProximityComponent::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kVtable;
-    m_type = kObjectProximity;
+    m_kindTag = kObjectProximity;
     return this;
 }
 
@@ -96,55 +96,55 @@ void CObjectProximityComponent::DestroyBody()
 }
 
 // 0x004EC390
-CObjectProximityComponent* CObjectProximityComponent::Destroy(unsigned int flags)
+CObjectProximityComponent* CObjectProximityComponent::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004EC3C0
 double CObjectProximityComponent::LocalSkaterDistanceSquared(uint32_t* skaterId)
 {
-    auto* skater = reinterpret_cast<CGameEntity*>(GameModules::Skate::Instance()->GetHomeRider());
-    if (!skater || skater == m_object)
+    auto* skater = reinterpret_cast<CGameEntity*>(GameModules::Skate::Sole()->GetHomeRider());
+    if (!skater || skater == m_entity)
         return FarAway();
-    *skaterId = skater->m_id;
-    return DistanceSquared(skater, m_object);
+    *skaterId = skater->m_ident;
+    return DistanceSquared(skater, m_entity);
 }
 
 // 0x004EC4B0
 float CObjectProximityComponent::NearestSkaterDistanceSquared(uint32_t* skaterId)
 {
     float nearest = FarAway();
-    GameModules::Skate* skate = GameModules::Skate::Instance();
+    GameModules::Skate* skate = GameModules::Skate::Sole();
     int count = skate->CountRiders();
     for (int i = 0; i < count; ++i) {
-        CGameEntity* skater = GameModules::Skate::Instance()->GetRiderAt(i);
-        if (!skater || skater == m_object)
+        CGameEntity* skater = GameModules::Skate::Sole()->GetRiderAt(i);
+        if (!skater || skater == m_entity)
             continue;
-        double distance = DistanceSquared(skater, m_object);
+        double distance = DistanceSquared(skater, m_entity);
         if (distance < nearest) {
             nearest = static_cast<float>(distance);
-            *skaterId = skater->m_id;
+            *skaterId = skater->m_ident;
         }
     }
     return nearest;
 }
 
 // 0x004EC560
-void CObjectProximityComponent::Update()
+void CObjectProximityComponent::TickFrame()
 {
     // (the skater's id: the original's is a stack slot only written when a skater is found - left as it was
     // otherwise; ours starts at 0)
     uint32_t id = 0;
     float distance = 0.0f;
     bool dead;
-    auto event = [this](uint32_t type, Scripts::CStruct* data) { m_object->PostOwnEvent(type, data); };
+    auto event = [this](uint32_t type, Scripts::CStruct* data) { m_entity->PostOwnEvent(type, data); };
     auto newData = []() {
         Scripts::CStruct* data = Scripts::NewStruct();
-        return data ? data->Init() : nullptr;
+        return data ? data->PrepareAll() : nullptr;
     };
     auto deleteData = [](Scripts::CStruct* data) {
         if (data) {
@@ -161,7 +161,7 @@ void CObjectProximityComponent::Update()
             data->PutNameKey(0xF79C90AE, id);
             data->PutInt(0xDB1E28CD, id);
             event(0x7048029A, data);
-            if (!(m_object->m_objectFlags & OBJECT_FLAG_DEAD))
+            if (!(m_entity->m_objectFlags & OBJECT_FLAG_DEAD))
                 event(0xF5B2A042, data);
             deleteData(data);
         } else {
@@ -179,7 +179,7 @@ void CObjectProximityComponent::Update()
     if (m_outerRadiusSquared != 0.0f) {
         if (distance == 0.0f)
             distance = NearestSkaterDistanceSquared(&id);
-        if (distance >= m_outerRadiusSquared && !(m_object->m_objectFlags & OBJECT_FLAG_DEAD)) {
+        if (distance >= m_outerRadiusSquared && !(m_entity->m_objectFlags & OBJECT_FLAG_DEAD)) {
             Scripts::CStruct* data = newData();
             data->PutNameKey(0x873A40D0, id);
             data->PutInt(0x5F3602F5, id);
@@ -193,7 +193,7 @@ void CObjectProximityComponent::Update()
         if (distance <= m_innerAvoidRadiusSquared) {
             Scripts::CStruct* data = newData();
             data->PutNameKey(0xF79C90AE, id);
-            if (!(m_object->m_objectFlags & OBJECT_FLAG_DEAD))
+            if (!(m_entity->m_objectFlags & OBJECT_FLAG_DEAD))
                 event(0xD69BD3DE, data);
             deleteData(data);
         }
@@ -201,13 +201,13 @@ void CObjectProximityComponent::Update()
     if (m_outerAvoidRadiusSquared != 0.0f) {
         if (distance == 0.0f)
             distance = static_cast<float>(LocalSkaterDistanceSquared(&id));
-        if (distance >= m_outerAvoidRadiusSquared && !(m_object->m_objectFlags & OBJECT_FLAG_DEAD))
+        if (distance >= m_outerAvoidRadiusSquared && !(m_entity->m_objectFlags & OBJECT_FLAG_DEAD))
             event(0x35FDAFAE, nullptr);
     }
     if (m_attentionRadiusSquared != 0.0f) {
         if (distance == 0.0f)
             distance = static_cast<float>(LocalSkaterDistanceSquared(&id));
-        dead = (m_object->m_objectFlags & OBJECT_FLAG_DEAD) != 0;
+        dead = (m_entity->m_objectFlags & OBJECT_FLAG_DEAD) != 0;
         if (!dead)
             event(distance <= m_attentionRadiusSquared ? 0xA06C9031 : 0x9C1CDE7A, nullptr);
     }
@@ -258,14 +258,14 @@ bool CObjectProximityComponent::Obj_ObjectInAttentionRadius(Scripts::CStruct* /*
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CObjectProximityComponent::Destroy,
-         &GameObjects::CObjectProximityComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CObjectProximityComponent::Teardown,
+         &GameObjects::CObjectProximityComponent::TickFrame,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

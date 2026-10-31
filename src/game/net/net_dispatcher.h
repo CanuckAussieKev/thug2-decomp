@@ -1,6 +1,6 @@
 #pragma once
 
-// The network library's message dispatcher (NetLink::Dispatcher, an App's +0x0C): handler lists per message id,
+// The network library's message dispatcher (NetLink::Router, an App's +0x0C): handler lists per message id,
 // and the context a handler gets.
 
 #include <cstddef>
@@ -12,7 +12,7 @@
 
 namespace NetLink {
 
-struct App;
+struct AppHost;
 struct Conn;
 
 // What a handler returns.
@@ -33,16 +33,16 @@ constexpr uint32_t kPacketChecksumMismatch = 0x4;   // a stream whose checksum d
 // What a handler gets (0xA4 bytes, constructor 0x00454A20).
 struct InboundMsgCtx {
     // 0x00454A20 (net_descs.cpp): every field zeroed.
-    InboundMsgCtx* Construct();
+    InboundMsgCtx* MakeNew();
 
     char* m_body;
     uint8_t m_typeCode;
     uint8_t spareSlot5[3];
     uint32_t m_bodySize;
-    App* m_receiverApp;
+    AppHost* m_receiverApp;
     Conn* m_senderConn;
     uint32_t m_wireOptions;
-    void* m_data;                       // the handler's own data (MsgHandler::m_data)
+    void* m_content;                       // the handler's own data (NoteHandler::m_content)
     uint32_t m_SequencesToAck[32];      // the timestamps to acknowledge after the packet (low 16 bits)
     int m_NumSequencesToAck;
     bool m_Acknowledge;                 // send those acks
@@ -53,20 +53,20 @@ static_assert(offsetof(InboundMsgCtx, m_SequencesToAck) == 0x1C &&
 
 using HandlerSlotValue = int(__cdecl*)(InboundMsgCtx* context);
 
-// A message handler (0x20 bytes, from the network heap): an ListKit::Node<MsgHandler> (data: itself, priority: the
+// A message handler (0x20 bytes, from the network heap): an ListKit::Elem<NoteHandler> (data: itself, priority: the
 // order in its list) with the code, its data and the packet flags it takes.
-struct MsgHandler {
+struct NoteHandler {
     MemSys::ListNode m_listLink;   // vtable 0x006475E8
     HandlerSlotValue m_Code;
-    void* m_data;
+    void* m_content;
     uint32_t m_modeBits;
 
     // 0x0045A590 (scalar deleting destructor: the node unlinks itself)
-    MsgHandler* Destroy(unsigned int flags);
+    NoteHandler* Teardown(unsigned int flags);
 };
-static_assert(sizeof(MsgHandler) == 0x20);
+static_assert(sizeof(NoteHandler) == 0x20);
 
-// The destructors behind ListKit::Search<MsgHandler>'s vtable (0x006475E4), like ListKit::SearchDestructors.
+// The destructors behind ListKit::Hunt<NoteHandler>'s vtable (0x006475E4), like ListKit::SearchDestructors.
 struct MsgHandlerSearch {
     void** m_vtable;
     MemSys::ListNode* m_listLink;
@@ -74,28 +74,28 @@ struct MsgHandlerSearch {
     // 0x0045A500 (only resets the vtable)
     void DestroyBody();
     // 0x0045A510 (scalar deleting)
-    MsgHandlerSearch* Destroy(unsigned int flags);
+    MsgHandlerSearch* Teardown(unsigned int flags);
 };
 
 // (Its handler lists, HandlerLists, and its destructor 0x00457260 are in net_lists.h.)
-class Dispatcher : public HandlerLists {
+class Router : public HandlerLists {
 public:
     static constexpr int kNumMessageIds = HandlerLists::kCount;
 
-    ListKit::Head& List(int id) { return reinterpret_cast<ListKit::Head&>(m_lists[id]); }
+    ListKit::Foremost& LinkChain(int id) { return reinterpret_cast<ListKit::Foremost&>(m_lists[id]); }
 
     // 0x0045A640: every handler deleted (each list walked node by node).
-    void Init();
+    void PrepareAll();
     // 0x0045A690: every handler deleted (walked by item).
     void TearDownState();
     // 0x0045A5C0: a handler for message `id`, in the network heap.
-    MsgHandler* AddHandler(uint8_t id, HandlerSlotValue code, uint32_t flags, void* data, int priority);
+    NoteHandler* AppendListener(uint8_t id, HandlerSlotValue code, uint32_t flags, void* data, int priority);
     // 0x0045A750: the message's handlers, in order, until one stops; HandlerResult (4 comes back as 1).
     int DispatchMsg(InboundMsgCtx* context);
     // 0x0045A830: every message in the connection's read buffer, then the acks they asked for. 1, or 2 (a
     // handler stopped the packet), or 3 (the connection was destroyed).
     int InvokeHandlersForMsg(Conn* conn, uint32_t flags);
 };
-static_assert(sizeof(Dispatcher) == 0x13EC);
+static_assert(sizeof(Router) == 0x13EC);
 
 } // namespace Net

@@ -30,7 +30,7 @@ int Truncate(double value) { return static_cast<int>(value); }
 void CObjective::PassInheritedFlags(int depth)
 {
     void* manager = ObjectiveBoard();
-    for (GoalLink* link = m_subNodes; link && link->m_objectiveKey; link = link->m_next) {
+    for (GoalLink* link = m_subNodes; link && link->m_objectiveKey; link = link->m_succ) {
         CObjective* child = GetGoal(manager, link->m_objectiveKey, 1);
         if (child) {
             child->m_inherited |= m_inherited;
@@ -43,7 +43,7 @@ void CObjective::PassInheritedFlags(int depth)
 void CObjective::ClearChildWins()
 {
     void* manager = ObjectiveBoard();
-    for (GoalLink* link = m_subNodes; link && link->m_objectiveKey; link = link->m_next) {
+    for (GoalLink* link = m_subNodes; link && link->m_objectiveKey; link = link->m_succ) {
         link->m_won = false;
         CObjective* child = GetGoal(manager, link->m_objectiveKey, 1);
         if (child)
@@ -52,21 +52,21 @@ void CObjective::ClearChildWins()
 }
 
 // 0x00553E90
-Scripts::CStruct* CObjective::GetParams() { return m_params; }
+Scripts::CStruct* CObjective::FetchArgs() { return m_args; }
 
 // 0x00553EA0
 void CObjective::ResetTimer()
 {
     int unlimited = 0;
-    m_params->FetchIntValue(kUnlimitedTime, &unlimited, 0);
+    m_args->FetchIntValue(kUnlimitedTime, &unlimited, 0);
     if (unlimited == 1)
         return;
     m_secondsRemaining = 120;
     int seconds;
-    if (m_params->FetchIntValue(kTime, &seconds, 0))
+    if (m_args->FetchIntValue(kTime, &seconds, 0))
         m_secondsRemaining = seconds;
     m_secondsRemaining = m_secondsRemaining * 1000 + 20;
-    m_state &= ~kStateNoTimeLimit;
+    m_curPhase &= ~kStateNoTimeLimit;
 }
 
 // 0x00553F10
@@ -79,29 +79,29 @@ int CObjective::GetSecondsRemaining() { return m_secondsRemaining; }
 void CObjective::AdvanceClock(int seconds) { m_secondsRemaining += seconds * 1000 + 20; }
 
 // 0x00553F50
-void CObjective::SetActive() { m_state |= kStateActive; }
+void CObjective::ChangeLive() { m_curPhase |= kStateActive; }
 
 // 0x00553F60
-void CObjective::ClearEngagedBit() { m_state &= ~kStateActive; }
+void CObjective::ClearEngagedBit() { m_curPhase &= ~kStateActive; }
 
 // 0x00553F70
 bool CObjective::RewriteArgs(Scripts::CStruct* params)
 {
-    m_params->AppendStructureIfAny(params);
+    m_args->AppendStructureIfAny(params);
     return false;
 }
 
 // 0x00553F90
-bool CObjective::IsActive() { return (m_state & kStateActive) != 0; }
+bool CObjective::IsOperative() { return (m_curPhase & kStateActive) != 0; }
 
 // 0x00553FA0
-bool CObjective::HasSeen() { return (m_flags & kFlagSeen) != 0; }
+bool CObjective::HasSeen() { return (m_flagBits & kFlagSeen) != 0; }
 
 // 0x00553FB0
-void CObjective::Pause() { m_state |= kStatePaused; }
+void CObjective::Freeze() { m_curPhase |= kStatePaused; }
 
 // 0x00553FC0
-void CObjective::UnPause() { m_state &= ~kStatePaused; }
+void CObjective::UnPause() { m_curPhase &= ~kStatePaused; }
 
 // 0x00553FD0
 bool CObjective::BitMatches(uint32_t flag, int value, uint32_t sub)
@@ -159,14 +159,14 @@ void CObjective::ZeroObjectiveBits()
         ClearFlagValues(m_goalFlags);
     }
     m_numFlagsSet = 0;
-    m_params->PutInt(kNumFlagsSet, 0);
+    m_args->PutInt(kNumFlagsSet, 0);
 }
 
 // 0x00554110
 bool CObjective::HasEveryBit()
 {
     int toWin = m_numFlags;
-    m_params->FetchIntValue(kNumFlagsToWin, &toWin, 0);
+    m_args->FetchIntValue(kNumFlagsToWin, &toWin, 0);
     if (m_goalFlags->HasBareFlag(kSkaterFlags)) {
         for (Scripts::CComponent* component = m_goalFlags->StepToEntry(nullptr); component;) {
             Scripts::CComponent* next = m_goalFlags->StepToEntry(component);
@@ -204,41 +204,41 @@ bool CObjective::BitIsOn(uint32_t flag, uint32_t sub)
 }
 
 // 0x00554220
-bool CObjective::IsLocked()
+bool CObjective::IsLatched()
 {
     void* manager = ObjectiveBoard();
-    return (m_flags & kFlagLocked) || IsGroupLocked(manager, m_bundle, m_level);
+    return (m_flagBits & kFlagLocked) || IsGroupLocked(manager, m_bundle, m_level);
 }
 
 // 0x00554250
-bool CObjective::IsGraffiti() { return m_params->HasBareFlag(kGraffiti); }
+bool CObjective::IsGraffiti() { return m_args->HasBareFlag(kGraffiti); }
 
 // 0x00554260
-bool CObjective::IsSpecial() { return m_params->HasBareFlag(kSpecial); }
+bool CObjective::IsSpecial() { return m_args->HasBareFlag(kSpecial); }
 
 // 0x00554270
-bool CObjective::IsTetris() { return m_params->HasBareFlag(kTetris); }
+bool CObjective::IsTetris() { return m_args->HasBareFlag(kTetris); }
 
 // 0x00554280
 uint32_t CObjective::GetObjectiveKey()
 {
     uint32_t id = 0;
-    m_params->ReadHashValue(kGoalIdName, &id, 1);
+    m_args->ReadHashValue(kGoalIdName, &id, 1);
     return id;
 }
 
 // 0x005542B0
-bool CObjective::IsUserMadeObjective() { return m_params->HasBareFlag(kEditedGoal); }
+bool CObjective::IsUserMadeObjective() { return m_args->HasBareFlag(kEditedGoal); }
 
 // 0x00554300
-bool CObjective::IsEditedGoal2() { return m_params->HasBareFlag(kEditedGoal); }
+bool CObjective::IsEditedGoal2() { return m_args->HasBareFlag(kEditedGoal); }
 
 // 0x005542C0
 bool CObjective::HasWonGoalOrChild()
 {
     if (Virtual<bool>(this, kVtHasWon))
         return true;
-    for (GoalLink* link = m_subNodes; link; link = link->m_next) {
+    for (GoalLink* link = m_subNodes; link; link = link->m_succ) {
         if (link->m_won)
             return true;
     }
@@ -246,57 +246,57 @@ bool CObjective::HasWonGoalOrChild()
 }
 
 // 0x005542F0
-bool CObjective::IsSelected() { return (m_flags & kFlagSelected) != 0; }
+bool CObjective::IsPicked() { return (m_flagBits & kFlagSelected) != 0; }
 // 0x005519F0
-bool CObjective::IsPrepared() { return (m_flags & kFlagInitialized) != 0; }
+bool CObjective::IsPrepared() { return (m_flagBits & kFlagInitialized) != 0; }
 
 // 0x00554320
 void CObjective::PickedUpCountable()
 {
     int collected = 0;
-    m_params->FetchIntValue(kNumberCollected, &collected, 0);
+    m_args->FetchIntValue(kNumberCollected, &collected, 0);
     ++collected;
-    m_params->PutInt(kNumberCollected, collected);
-    if (m_params->HasBareFlag(kUseHudCounter))
-        Scripts::LaunchScript(kGoalUpdateCounter, m_params, nullptr, false, nullptr);
+    m_args->PutInt(kNumberCollected, collected);
+    if (m_args->HasBareFlag(kUseHudCounter))
+        Scripts::LaunchScript(kGoalUpdateCounter, m_args, nullptr, false, nullptr);
 }
 
 // 0x00554390
 bool CObjective::TallyObjectiveFinished()
 {
     int collected = 0;
-    m_params->FetchIntValue(kNumberCollected, &collected, 0);
+    m_args->FetchIntValue(kNumberCollected, &collected, 0);
     int number;
-    m_params->FetchIntValue(kNumber, &number, 1);
+    m_args->FetchIntValue(kNumber, &number, 1);
     return collected >= number;
 }
 
 // 0x005543E0
-bool CObjective::State02() { return (m_state & kState02) != 0; }
+bool CObjective::State02() { return (m_curPhase & kState02) != 0; }
 
 // 0x005543F0
 bool CObjective::HasProsetPrefix(const char* prefix)
 {
     const char* own;
-    if (!m_params->GetString(kProsetPrefix, &own, 0))
+    if (!m_args->FetchText(kProsetPrefix, &own, 0))
         return false;
     return _stricmp(own, prefix) == 0;
 }
 
 // 0x00554430
-void CObjective::MarkViewed() { m_flags |= kFlagSeen; }
+void CObjective::MarkViewed() { m_flagBits |= kFlagSeen; }
 
 // 0x00554440
-void CObjective::Select() { m_flags |= kFlagSelected; }
+void CObjective::ChooseOne() { m_flagBits |= kFlagSelected; }
 
 // 0x00554450
-void CObjective::Deselect() { m_flags &= ~kFlagSelected; }
+void CObjective::Unpick() { m_flagBits &= ~kFlagSelected; }
 
 // 0x00554460
-bool CObjective::MayTryAgain() { return m_params->HasBareFlag(kCanRetryGoal); }
+bool CObjective::MayTryAgain() { return m_args->HasBareFlag(kCanRetryGoal); }
 
 // 0x00554470
-void CObjective::ResetCurrentTime() { m_params->PutInt(kCurrentTime, 0); }
+void CObjective::ResetCurrentTime() { m_args->PutInt(kCurrentTime, 0); }
 
 // 0x00554480
 void CObjective::UpdateCurrentTime()
@@ -305,50 +305,50 @@ void CObjective::UpdateCurrentTime()
         return;
     // (a current_time that isn't there leaves the goal's address in the original's local)
     int time = static_cast<int>(reinterpret_cast<uintptr_t>(this));
-    m_params->FetchIntValue(kCurrentTime, &time, 0);
+    m_args->FetchIntValue(kCurrentTime, &time, 0);
     time += Truncate(FrameClock::GetSlomoFrameSeconds() * Gfx2D::g_thousand); // (1000)
-    m_params->PutInt(kCurrentTime, time);
+    m_args->PutInt(kCurrentTime, time);
     uint32_t ms = static_cast<uint32_t>(time);
-    m_params->PutInt(kCurrentTimeSeconds, static_cast<int>(ms / 1000));
-    m_params->PutInt(kCurrentTimeFraction, static_cast<int>(ms / 10 % 100));
+    m_args->PutInt(kCurrentTimeSeconds, static_cast<int>(ms / 1000));
+    m_args->PutInt(kCurrentTimeFraction, static_cast<int>(ms / 10 % 100));
 }
 
 // 0x00554510
-void CObjective::SetQuickStart() { m_params->PutNameKey(kNoName, kQuickStart); }
+void CObjective::SetQuickStart() { m_args->PutNameKey(kNoName, kQuickStart); }
 
 // 0x00554520
-void CObjective::UnsetQuickStart() { m_params->RemoveFlag(kQuickStart); }
+void CObjective::UnsetQuickStart() { m_args->RemoveFlag(kQuickStart); }
 
 // 0x00554530
-bool CObjective::IsProChallenge() { return m_params->HasEntryNamed(kProGoal); }
+bool CObjective::IsProChallenge() { return m_args->HasEntryNamed(kProGoal); }
 
 // 0x00554540
-bool CObjective::IsOnlineObjective() { return m_params->HasEntryNamed(kNet); }
+bool CObjective::IsOnlineObjective() { return m_args->HasEntryNamed(kNet); }
 
 // 0x00554550
-bool CObjective::IsContestObjective() { return m_params->HasBareFlag(kCompetition); }
+bool CObjective::IsContestObjective() { return m_args->HasBareFlag(kCompetition); }
 
 // 0x00554560
-bool CObjective::IsPaused() { return (m_state & kStatePaused) != 0; }
+bool CObjective::IsFrozen() { return (m_curPhase & kStatePaused) != 0; }
 
 // 0x00554570
-bool CObjective::GetObjectiveListCaption(const char** text) { return m_params->GetString(kViewGoalsTextName, text, 0); }
+bool CObjective::GetObjectiveListCaption(const char** text) { return m_args->FetchText(kViewGoalsTextName, text, 0); }
 
 // 0x00554590
-bool CObjective::EndOfRunStarted() { return (m_flags & kFlagEndOfRunStarted) != 0; }
+bool CObjective::EndOfRunStarted() { return (m_flagBits & kFlagEndOfRunStarted) != 0; }
 
 // 0x005545A0
 bool CObjective::HasTimeLimit()
 {
     int unlimited = 0;
-    m_params->FetchIntValue(kUnlimitedTime, &unlimited, 0);
-    if (m_params->HasBareFlag(kUnlimitedTime))
+    m_args->FetchIntValue(kUnlimitedTime, &unlimited, 0);
+    if (m_args->HasBareFlag(kUnlimitedTime))
         unlimited = 1;
     return unlimited == 0;
 }
 
 // 0x005545F0
-bool CObjective::HasComponentA302D7CD() { return m_params->HasEntryNamed(kComponentA302D7CD); }
+bool CObjective::HasComponentA302D7CD() { return m_args->HasEntryNamed(kComponentA302D7CD); }
 
 // 0x00554610
 void CObjective::RestoreSaveBlock(Scripts::CStruct* data)
@@ -360,16 +360,16 @@ void CObjective::RestoreSaveBlock(Scripts::CStruct* data)
     int locked = 1;
     data->FetchIntValue(kIsLocked, &locked, 1);
     if (!locked)
-        m_flags &= ~kFlagLocked;
+        m_flagBits &= ~kFlagLocked;
     int seen = 0;
     data->FetchIntValue(kHasSeen, &seen, 1);
     if (seen)
-        m_flags |= kFlagSeen;
+        m_flagBits |= kFlagSeen;
     int record = 0;
     data->FetchIntValue(kWinRecord, &record, 1);
-    m_params->PutInt(kWinRecord, record);
+    m_args->PutInt(kWinRecord, record);
     uint32_t type;
-    if (m_params->ReadHashValue(kRecordType, &type, 0)) {
+    if (m_args->ReadHashValue(kRecordType, &type, 0)) {
         if (type == kTime)
             m_bestTime = record;
         else if (type == kScore)
@@ -397,21 +397,21 @@ void CObjective::CaptureSaveBlock(Scripts::CStruct* data)
 {
     data->PutInt(kLevelNum, m_level);
     void* manager = ObjectiveBoard();
-    bool locked = (m_flags & kFlagLocked) || IsGroupLocked(manager, m_bundle, m_level);
+    bool locked = (m_flagBits & kFlagLocked) || IsGroupLocked(manager, m_bundle, m_level);
     data->PutInt(kIsLocked, locked);
-    data->PutInt(kHasSeen, (m_flags & kFlagSeen) ? 1 : 0);
+    data->PutInt(kHasSeen, (m_flagBits & kFlagSeen) ? 1 : 0);
     data->PutInt(kHasBeaten, Virtual<bool>(this, kVtHasWon));
     int record = 0;
     uint32_t type;
-    if (m_params->ReadHashValue(kRecordType, &type, 0)) {
+    if (m_args->ReadHashValue(kRecordType, &type, 0)) {
         if (type == kTime)
             record = m_bestTime;
         else if (type == kScore)
             record = m_bestScore;
     }
     data->PutInt(kWinRecord, record);
-    data->PutNameKey(kNoName, m_params->HasEntryNamed(kClassicModeGoal) ? kClassic : kCareer);
-    if (m_params->HasBareFlag(kSaveGoalFlags) && !m_goalFlags->IsEmpty())
+    data->PutNameKey(kNoName, m_args->HasEntryNamed(kClassicModeGoal) ? kClassic : kCareer);
+    if (m_args->HasBareFlag(kSaveGoalFlags) && !m_goalFlags->IsVacant())
         data->PutSubStruct(kGoalFlags, m_goalFlags);
 }
 
@@ -453,7 +453,7 @@ void CObjective::ReplaceTrickTokens(const char* text, char* out, Scripts::CArray
 int CObjective::CountPickedUp()
 {
     int collected = 0;
-    if (!m_params->FetchIntValue(kNumberCollected, &collected, 0))
+    if (!m_args->FetchIntValue(kNumberCollected, &collected, 0))
         collected = m_numFlagsSet;
     return collected;
 }
@@ -462,7 +462,7 @@ int CObjective::CountPickedUp()
 int CObjective::GetNumFlagsToWin()
 {
     int toWin = m_numFlags;
-    m_params->FetchIntValue(kNumFlagsToWin, &toWin, 0);
+    m_args->FetchIntValue(kNumFlagsToWin, &toWin, 0);
     return toWin ? toWin : -1;
 }
 
@@ -475,19 +475,19 @@ void CObjective::ChooseRunEnding(int type) { m_runEnding = type; }
 // 0x00554A20
 void CObjective::SetDeactivateOnExpire(bool deactivate)
 {
-    m_flags = static_cast<uint8_t>((m_flags & ~kFlagDeactivateOnExpire) | ((deactivate << 6) & kFlagDeactivateOnExpire));
+    m_flagBits = static_cast<uint8_t>((m_flagBits & ~kFlagDeactivateOnExpire) | ((deactivate << 6) & kFlagDeactivateOnExpire));
 }
 
 // 0x00554A40
-bool CObjective::IsHorse() { return m_params->HasBareFlag(kHorse); }
+bool CObjective::IsHorse() { return m_args->HasBareFlag(kHorse); }
 
 // 0x00554A50
-bool CObjective::IsFindGaps() { return m_params->HasBareFlag(kFindGaps); }
+bool CObjective::IsFindGaps() { return m_args->HasBareFlag(kFindGaps); }
 
 // 0x00554A60
-bool CObjective::HasNoTimeLimit() { return (m_state & kStateNoTimeLimit) != 0; }
+bool CObjective::HasNoTimeLimit() { return (m_curPhase & kStateNoTimeLimit) != 0; }
 
 // 0x00554A70
-bool CObjective::RequiresCombo() { return m_params->HasBareFlag(kRequireCombo); }
+bool CObjective::RequiresCombo() { return m_args->HasBareFlag(kRequireCombo); }
 
 } // namespace Game

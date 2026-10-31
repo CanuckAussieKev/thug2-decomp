@@ -44,7 +44,7 @@ constexpr float kPi = 3.14159265f;
 // The node of that name (0x0045C1B0: by name).
 Scripts::CStruct* NodeOf(uint32_t name)
 {
-    return LevelNodes::GetNode(name, false);
+    return LevelNodes::FetchVertex(name, false);
 }
 
 uint32_t NodeClass(Scripts::CStruct* node)
@@ -55,7 +55,7 @@ uint32_t NodeClass(Scripts::CStruct* node)
     return cls;
 }
 
-std::vector<Copy> g_copies;
+std::vector<DupFrom> g_copies;
 
 // The copies' nodes: a node array of ours (level_editor_copy_nodes) in the node manager, so the game finds a copy's
 // node by its name as it does any object's - creating a LevelObject runs scripts that look it up (SetObjectColor's
@@ -81,20 +81,20 @@ bool AddCopyNode(Scripts::CStruct* node)
         return false;
     uint32_t name = CopyNodesName();
     int index = -1;
-    for (uint32_t i = 0; i < manager->m_count; ++i) {
-        if (manager->m_arrays[i].m_name == name)
+    for (uint32_t i = 0; i < manager->m_num; ++i) {
+        if (manager->m_arrays[i].m_label == name)
             index = static_cast<int>(i);
     }
     if (index < 0) {
-        if (manager->m_count >= static_cast<uint32_t>(LevelNodes::CNodeManager::kMaxArrays))
+        if (manager->m_num >= static_cast<uint32_t>(LevelNodes::CNodeManager::kMaxArrays))
             return false;
-        g_copyNodes = Scripts::NewArray()->Init();
+        g_copyNodes = Scripts::NewArray()->PrepareAll();
         g_copyNodeList.clear();
-        index = static_cast<int>(manager->m_count);
-        manager->m_arrays[index].m_name = name;
+        index = static_cast<int>(manager->m_num);
+        manager->m_arrays[index].m_label = name;
         manager->m_arrays[index].m_nodeList = g_copyNodes;
         manager->m_arrays[index].m_flag = false;
-        ++manager->m_count;
+        ++manager->m_num;
     }
     g_copyNodeList.push_back(node);
     uint32_t count = static_cast<uint32_t>(g_copyNodeList.size());
@@ -130,12 +130,12 @@ struct PickWalk {
     std::vector<std::pair<GameObjects::CGameEntity*, float>>* all; // (click-to-cycle: every hit)
 };
 
-void __cdecl PickOne(GameObjects::CObject* object, void* data)
+void __cdecl PickOne(GameObjects::CEntity* object, void* data)
 {
     auto* walk = static_cast<PickWalk*>(data);
     auto* composite = static_cast<GameObjects::CGameEntity*>(object);
     OrientedBox box;
-    if (Picking::Locked(Picking::kObjects, composite->m_id) || View::HiddenObject(composite->m_id) || // (H: level_editor_view.h)
+    if (Picking::Latched(Picking::kObjects, composite->m_ident) || View::HiddenObject(composite->m_ident) || // (H: level_editor_view.h)
         !ModelBox(composite, &box))
         return;
     float t;
@@ -151,7 +151,7 @@ void __cdecl PickOne(GameObjects::CObject* object, void* data)
 struct Census {
     int objects, pickable;
 };
-void __cdecl CountOne(GameObjects::CObject* object, void* data)
+void __cdecl CountOne(GameObjects::CEntity* object, void* data)
 {
     auto* census = static_cast<Census*>(data);
     auto* composite = static_cast<GameObjects::CGameEntity*>(object);
@@ -159,27 +159,27 @@ void __cdecl CountOne(GameObjects::CObject* object, void* data)
     OrientedBox box;
     if (!ModelBox(composite, &box)) {
         if (census->objects <= 80) {
-            GameObjects::CObjectModule* component = composite->GetComponent(kModelComponent);
+            GameObjects::CObjectModule* component = composite->FetchModule(kModelComponent);
             uint8_t* model = component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208)
                                        : nullptr;
             Log("level editor:   not pickable %s at (%.0f, %.0f, %.0f): flags %X, model component %p, model %p "
                 "(flags %02X)",
-                Label(composite->m_id).c_str(), composite->m_pos.x, composite->m_pos.y, composite->m_pos.z,
+                Caption(composite->m_ident).c_str(), composite->m_atPoint.x, composite->m_atPoint.y, composite->m_atPoint.z,
                 composite->m_compositeFlags, static_cast<void*>(component), static_cast<void*>(model),
                 model ? model[0x44] : 0);
         }
         return;
     }
     if (++census->pickable <= 8)
-        Log("level editor:   pickable %s at (%.1f, %.1f, %.1f)", Label(composite->m_id).c_str(), composite->m_pos.x,
-            composite->m_pos.y, composite->m_pos.z);
+        Log("level editor:   pickable %s at (%.1f, %.1f, %.1f)", Caption(composite->m_ident).c_str(), composite->m_atPoint.x,
+            composite->m_atPoint.y, composite->m_atPoint.z);
 }
 
 // An object's model's geometry `index` (the model component's model +0x208, 0x00494640 - as 0x00420700 colours a
 // level object for SetObjectColor).
 void* ModelGeometry(GameObjects::CGameEntity* object, int index)
 {
-    GameObjects::CObjectModule* component = object->GetComponent(kModelComponent);
+    GameObjects::CObjectModule* component = object->FetchModule(kModelComponent);
     auto* model = component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208) : nullptr;
     return model ? reinterpret_cast<Engine3D::CRenderModel*>(model)->FetchGeom(index) : nullptr;
 }
@@ -195,7 +195,7 @@ const char* NameOf(uint32_t checksum)
     return Scripts::LookUpHashName(checksum);
 }
 
-std::string Label(uint32_t checksum)
+std::string Caption(uint32_t checksum)
 {
     char text[96];
     const char* name = NameOf(checksum);
@@ -216,9 +216,9 @@ bool ModelBox(GameObjects::CGameEntity* object, OrientedBox* out)
         return false;
     if (object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD)
         return false;
-    if (object->GetComponent(kSkaterPhysicsControl) || object->GetComponent(kCameraComponent))
+    if (object->FetchModule(kSkaterPhysicsControl) || object->FetchModule(kCameraComponent))
         return false;
-    GameObjects::CObjectModule* component = object->GetComponent(kModelComponent);
+    GameObjects::CObjectModule* component = object->FetchModule(kModelComponent);
     if (!component)
         return false;
     auto* model = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208);
@@ -232,8 +232,8 @@ bool ModelBox(GameObjects::CGameEntity* object, OrientedBox* out)
     if (!cloned && (!(flags & 1) || (flags & 4)))
         return false;
     void* geometry = reinterpret_cast<Engine3D::CRenderModel*>(model)->GetGeomByName(0);
-    const Maths::Vector* box =
-        geometry ? reinterpret_cast<const Maths::Vector*(__thiscall*)(void*)>(&Engine3D::VirtualSlot15Jump)(geometry) : nullptr;
+    const Maths::Vec4* box =
+        geometry ? reinterpret_cast<const Maths::Vec4*(__thiscall*)(void*)>(&Engine3D::VirtualSlot15Jump)(geometry) : nullptr;
     // (no geometry box - peds' animated models -: a person-sized box standing on the object's position)
     V3 min = {-25.0f, 0.0f, -25.0f}, max = {25.0f, 80.0f, 25.0f};
     if (box && box[0].x <= box[1].x && box[0].y <= box[1].y && box[0].z <= box[1].z) {
@@ -263,7 +263,7 @@ bool ModelBox(GameObjects::CGameEntity* object, OrientedBox* out)
     // (the model is drawn with the display matrix's rows and the object's position: 0x004215F0)
     out->origin = pos;
     for (int i = 0; i < 3; ++i) {
-        const Maths::Vector& row = object->m_displayMatrix.row[i];
+        const Maths::Vec4& row = object->m_displayMatrix.row[i];
         out->axes[i] = {row.x, row.y, row.z};
     }
     return true;
@@ -275,7 +275,7 @@ GameObjects::CGameEntity* Pick(V3 origin, V3 dir, float maxT, float* t)
     GameObjects::CEntityHub* manager = GameObjects::CompositeObjectManager();
     if (!manager)
         return nullptr;
-    PickWalk walk = {origin, Normalize(dir), maxT, nullptr, nullptr};
+    PickWalk walk = {origin, MakeUnit(dir), maxT, nullptr, nullptr};
     manager->ForEach(PickOne, &walk);
     *t = walk.bestT;
     return walk.best;
@@ -285,7 +285,7 @@ std::vector<std::pair<GameObjects::CGameEntity*, float>> PickAll(V3 origin, V3 d
 {
     std::vector<std::pair<GameObjects::CGameEntity*, float>> all;
     if (GameObjects::CEntityHub* manager = GameObjects::CompositeObjectManager()) {
-        PickWalk walk = {origin, Normalize(dir), maxT, nullptr, &all};
+        PickWalk walk = {origin, MakeUnit(dir), maxT, nullptr, &all};
         manager->ForEach(PickOne, &walk);
     }
     std::stable_sort(all.begin(), all.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
@@ -300,7 +300,7 @@ void LogCensus()
     Log("level editor: %d composite objects, %d pickable", census.objects, census.pickable);
 }
 
-V3 PosOf(const GameObjects::CGameEntity* object) { return {object->m_pos.x, object->m_pos.y, object->m_pos.z}; }
+V3 PosOf(const GameObjects::CGameEntity* object) { return {object->m_atPoint.x, object->m_atPoint.y, object->m_atPoint.z}; }
 
 V3 Centre(GameObjects::CGameEntity* object)
 {
@@ -315,16 +315,16 @@ V3 Centre(GameObjects::CGameEntity* object)
 
 void Place(GameObjects::CGameEntity* object, V3 pos)
 {
-    object->m_pos = {pos.x, pos.y, pos.z, 1.0f};
-    object->m_oldPos = object->m_pos;
+    object->m_atPoint = {pos.x, pos.y, pos.z, 1.0f};
+    object->m_oldPos = object->m_atPoint;
     object->MarkJumpedAhead(true); // (its components follow: the model, the collision)
 }
 
 void TurnAbout(GameObjects::CGameEntity* object, V3 pivot, float angle)
 {
     for (int i = 0; i < 3; ++i) {
-        for (Maths::Matrix* m : {&object->m_basisFrame, &object->m_displayMatrix}) {
-            Maths::Vector& row = m->row[i];
+        for (Maths::Mat4* m : {&object->m_basisFrame, &object->m_displayMatrix}) {
+            Maths::Vec4& row = m->row[i];
             V3 turned = TurnAboutUp({row.x, row.y, row.z}, angle);
             row.x = turned.x;
             row.y = turned.y;
@@ -353,17 +353,17 @@ std::string Describe(GameObjects::CGameEntity* object)
 {
     if (!object)
         return "-";
-    const Maths::Vector& at = object->m_basisFrame.row[2];
+    const Maths::Vec4& at = object->m_basisFrame.row[2];
     char text[200];
-    std::snprintf(text, sizeof(text), "%s %s  at (%.0f, %.0f, %.0f)  heading %.0f", ClassOf(object->m_id),
-                  Label(object->m_id).c_str(), object->m_pos.x, object->m_pos.y, object->m_pos.z,
+    std::snprintf(text, sizeof(text), "%s %s  at (%.0f, %.0f, %.0f)  heading %.0f", ClassOf(object->m_ident),
+                  Caption(object->m_ident).c_str(), object->m_atPoint.x, object->m_atPoint.y, object->m_atPoint.z,
                   std::atan2(at.x, at.z) * 180.0f / kPi);
     return text;
 }
 
-State Save(GameObjects::CGameEntity* object)
+State StoreAway(GameObjects::CGameEntity* object)
 {
-    return {object->m_id, object->m_pos, object->m_basisFrame, object->m_displayMatrix, Scale::ObjectScale(object)};
+    return {object->m_ident, object->m_atPoint, object->m_basisFrame, object->m_displayMatrix, StretchBy::ObjectScale(object)};
 }
 
 bool Restore(const State& state)
@@ -374,8 +374,8 @@ bool Restore(const State& state)
     object->m_basisFrame = state.matrix;
     object->m_displayMatrix = state.drawMatrix;
     Place(object, {state.pos.x, state.pos.y, state.pos.z});
-    if (!SameScale(Scale::ObjectScale(object), state.scale))
-        Scale::SetObjectScale(object, state.scale);
+    if (!SameScale(StretchBy::ObjectScale(object), state.scale))
+        StretchBy::SetObjectScale(object, state.scale);
     return true;
 }
 
@@ -389,7 +389,7 @@ std::string ModelFile(uint32_t name)
     static const uint32_t kModel = Checksums::HashFromText("model");
     Scripts::CStruct* node = NodeOf(name);
     const char* model = nullptr;
-    if (!node || !node->GetString(kModel, &model, 0) || !model || !*model)
+    if (!node || !node->FetchText(kModel, &model, 0) || !model || !*model)
         return {};
     const char* base = std::max(std::strrchr(model, '\\'), std::strrchr(model, '/'));
     return base ? base + 1 : model;
@@ -403,7 +403,7 @@ bool Tint(GameObjects::CGameEntity* object, uint32_t rgba)
         if (!geom)
             break;
         if (Scenery::Tintable(geom)) {
-            Scenery::Tint({object->m_id, i}, geom, rgba);
+            Scenery::Tint({object->m_ident, i}, geom, rgba);
             any = true;
         }
     }
@@ -437,31 +437,31 @@ GameObjects::CGameEntity* MakeCopy(uint32_t source, V3 pos, uint32_t name)
             std::snprintf(text, sizeof(text), "level_editor_copy_%08X_%d", source, g_copyCounter);
             name = Checksums::HashFromText(text);
         } while (GameObjects::FindObject(name));
-        std::snprintf(text, sizeof(text), "%s copy %d", Label(source).c_str(), g_copyCounter);
+        std::snprintf(text, sizeof(text), "%s copy %d", Caption(source).c_str(), g_copyCounter);
         Scripts::NoteQbName(name, text);
     }
     if (GameObjects::FindObject(name))
         return nullptr;
     if (!NameOf(name))
-        Scripts::NoteQbName(name, (Label(source) + " copy").c_str());
+        Scripts::NoteQbName(name, (Caption(source) + " copy").c_str());
     // The node's structure copied, named and placed anew, made a node (AddCopyNode), then created from it as the
     // level's objects are (CreateFromStructure's 0x005A2E50).
-    Scripts::CStruct* copy = Scripts::NewStruct()->Init();
+    Scripts::CStruct* copy = Scripts::NewStruct()->PrepareAll();
     copy->MergeStructure(node);
-    copy->RemoveComponent(kName);
+    copy->EraseModule(kName);
     copy->PutNameKey(kName, name);
-    copy->RemoveComponent(kPos);
+    copy->EraseModule(kPos);
     copy->PutVec3(kPos, pos.x, pos.y, pos.z);
     if (NodeClass(node) == kParticleObject) {
         // (a particle system's emitter has world places besides its pos=: moved with it - level_editor_entities.h)
         static const uint32_t kMid = Checksums::HashFromText("MidPosition"),
                               kEnd = Checksums::HashFromText("EndPosition");
-        Maths::Vector from;
-        LevelNodes::GetPosition(node, &from);
+        Maths::Vec4 from;
+        LevelNodes::FetchPlace(node, &from);
         for (uint32_t key : {kMid, kEnd}) {
             Scripts::VectorValue v;
-            if (copy->GetVector(key, &v, 0)) {
-                copy->RemoveComponent(key);
+            if (copy->FetchVec(key, &v, 0)) {
+                copy->EraseModule(key);
                 copy->PutVec3(key, v.x + pos.x - from.x, v.y + pos.y - from.y, v.z + pos.z - from.z);
             }
         }
@@ -477,14 +477,14 @@ GameObjects::CGameEntity* MakeCopy(uint32_t source, V3 pos, uint32_t name)
     if (object)
         g_copies.push_back({name, source});
     if (DebugEnabled())
-        Log("level editor: copy %08X of %s at (%.0f, %.0f, %.0f): %s", name, Label(source).c_str(), pos.x, pos.y,
+        Log("level editor: copy %08X of %s at (%.0f, %.0f, %.0f): %s", name, Caption(source).c_str(), pos.x, pos.y,
             pos.z, object ? "made" : "NOT made");
     return object;
 }
 
 bool RemoveCopy(uint32_t name)
 {
-    auto it = std::find_if(g_copies.begin(), g_copies.end(), [&](const Copy& c) { return c.name == name; });
+    auto it = std::find_if(g_copies.begin(), g_copies.end(), [&](const DupFrom& c) { return c.name == name; });
     if (it == g_copies.end())
         return false;
     g_copies.erase(it);
@@ -495,11 +495,11 @@ bool RemoveCopy(uint32_t name)
     return true;
 }
 
-const std::vector<Copy>& Copies() { return g_copies; }
+const std::vector<DupFrom>& Copies() { return g_copies; }
 
 bool IsCopy(uint32_t id)
 {
-    return std::any_of(g_copies.begin(), g_copies.end(), [&](const Copy& c) { return c.name == id; });
+    return std::any_of(g_copies.begin(), g_copies.end(), [&](const DupFrom& c) { return c.name == id; });
 }
 
 void Touch(uint32_t id)
@@ -512,8 +512,8 @@ const std::vector<uint32_t>& Touched() { return g_touched; }
 
 void NoteOrigin(GameObjects::CGameEntity* object)
 {
-    if (!Origin(object->m_id))
-        g_origins.push_back(Save(object));
+    if (!Origin(object->m_ident))
+        g_origins.push_back(StoreAway(object));
 }
 
 const State* Origin(uint32_t id)
@@ -527,26 +527,26 @@ const State* Origin(uint32_t id)
 
 void ForgetLevel()
 {
-    Scale::ForgetObjects();
+    StretchBy::ForgetObjects();
     ForgetCopyNodes();
     g_copies.clear();
     g_touched.clear();
     g_origins.clear();
 }
 
-std::vector<Entry> Copyable()
+std::vector<TableRow> Copyable()
 {
-    std::vector<Entry> entries;
+    std::vector<TableRow> entries;
     LevelNodes::CNodeManager* manager = LevelNodes::g_nodeManager;
     if (!manager)
         return entries;
     static const uint32_t kModel = Checksums::HashFromText("model");
-    for (uint32_t a = 0; a < manager->m_count && a < LevelNodes::CNodeManager::kMaxArrays; ++a) {
+    for (uint32_t a = 0; a < manager->m_num && a < LevelNodes::CNodeManager::kMaxArrays; ++a) {
         Scripts::CArray* nodes = manager->m_arrays[a].m_nodeList;
-        if (!nodes || nodes->m_type != Scripts::QBVAL_STRUCT)
+        if (!nodes || nodes->m_kindTag != Scripts::QBVAL_STRUCT)
             continue;
-        for (uint32_t i = 0; i < nodes->m_size; ++i) {
-            auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->GetElement(i));
+        for (uint32_t i = 0; i < nodes->m_extent; ++i) {
+            auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(i));
             uint32_t cls = NodeClass(node), name = 0;
             if ((cls != kLevelObject && cls != kGameObject && cls != kPedestrian && cls != kVehicle) ||
                 !node->ReadHashValue(kName, &name, 0))
@@ -554,12 +554,12 @@ std::vector<Entry> Copyable()
             if (!GameObjects::FindObject(name)) // (only what's in the level now: nodes not created have nothing to copy)
                 continue;
             const char* model = nullptr;
-            node->GetString(kModel, &model, 0);
+            node->FetchText(kModel, &model, 0);
             std::string label = cls == kLevelObject  ? "LevelObject "
                                 : cls == kGameObject ? "GameObject "
                                 : cls == kPedestrian ? "Pedestrian "
                                                      : "Vehicle ";
-            label += Label(name);
+            label += Caption(name);
             if (model && *model) {
                 const char* base = std::max(std::strrchr(model, '\\'), std::strrchr(model, '/'));
                 label += std::string("  (") + (base ? base + 1 : model) + ")";
@@ -567,7 +567,7 @@ std::vector<Entry> Copyable()
             entries.push_back({name, label});
         }
     }
-    std::sort(entries.begin(), entries.end(), [](const Entry& a, const Entry& b) { return a.label < b.label; });
+    std::sort(entries.begin(), entries.end(), [](const TableRow& a, const TableRow& b) { return a.label < b.label; });
     return entries;
 }
 

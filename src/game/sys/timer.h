@@ -7,7 +7,7 @@
 namespace FrameClock {
 
 // 0x005BEA50: start the clock (also notes the C runtime clock and the CPU's time stamp counter).
-void Init();
+void PrepareAll();
 // 0x005BE9B0: back to frame 0 with a one-vblank frame length (the vblank rate is set the first time).
 void Reset();
 
@@ -37,6 +37,6 @@ void SetSlomo(float slomo);
 // 0x005BE6F0: the CPU's time stamp counter.
 uint64_t ReadCpuTimeStamp();
 // 0x005BE7C0: sets the two flags at 0x007D1EE8 / 0x007D1EE9 (meaning not known yet).
-void SetFlags();
+void ChangeBits();
 
 } // namespace Tmr

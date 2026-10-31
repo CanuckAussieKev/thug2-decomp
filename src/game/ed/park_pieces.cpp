@@ -15,11 +15,11 @@
 
 namespace ParkEditing {
 
-static VtableSlot kPieceVtable_slots[] = {&_purecall, &CParkTile::Destroy};
+static VtableSlot kPieceVtable_slots[] = {&_purecall, &CParkTile::Teardown};
 void** const kPieceVtable = reinterpret_cast<void**>(kPieceVtable_slots);
-static VtableSlot kSourcePieceVtable_slots[] = {&CTileTemplate::MeasureSpan, &CTileTemplate::Destroy};
+static VtableSlot kSourcePieceVtable_slots[] = {&CTileTemplate::MeasureSpan, &CTileTemplate::Teardown};
 void** const kSourcePieceVtable = reinterpret_cast<void**>(kSourcePieceVtable_slots);
-static VtableSlot kClonedPieceVtable_slots[] = {&CCopiedPiece::MeasureSpan, &CTileTemplate::Destroy};
+static VtableSlot kClonedPieceVtable_slots[] = {&CCopiedPiece::MeasureSpan, &CTileTemplate::Teardown};
 void** const kClonedPieceVtable = reinterpret_cast<void**>(kClonedPieceVtable_slots);
 
 namespace {
@@ -33,7 +33,7 @@ constexpr float kDegreesToRadians = 0.0174532924f;
 uint8_t Cells(float size, float cell) { return static_cast<uint8_t>(static_cast<int>((size + kCellSlack) / cell)); }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
-void MultiplyMatrices(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void MultiplyMatrices(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
@@ -42,7 +42,7 @@ void MultiplyMatrices(Maths::Matrix* out, const Maths::Matrix* a, const Maths::M
 
 // --- SCellBox ----------------------------------------------------------------------------------------------------
 
-SCellBox* SCellBox::Set(uint8_t x_, int8_t y_, uint8_t z_, uint8_t w_, uint8_t h_, uint8_t l_)
+SCellBox* SCellBox::AssignValue(uint8_t x_, int8_t y_, uint8_t z_, uint8_t w_, uint8_t h_, uint8_t l_)
 {
     x = x_;
     y = y_;
@@ -72,15 +72,15 @@ void SCellBox::DumpToLog() const
 
 void CParkTile::DestroyBody() { m_vtable = kVtable; }
 
-CParkTile* CParkTile::Destroy(unsigned int flags)
+CParkTile* CParkTile::Teardown(unsigned int flags)
 {
     m_vtable = kVtable;
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
-uint32_t CParkTile::GetId() { return m_id; }
+uint32_t CParkTile::FetchSerial() { return m_ident; }
 
 void CParkTile::SetQuarterTurns(int rot, int update)
 {
@@ -89,25 +89,25 @@ void CParkTile::SetQuarterTurns(int rot, int update)
         Scene::SpinAroundUp(Scene::LookUpSector(m_sector), rot);
 }
 
-void CParkTile::SetActive(bool active) { Scene::SetActive(Scene::LookUpSector(m_sector), active); }
+void CParkTile::ChangeLive(bool active) { Scene::ChangeLive(Scene::LookUpSector(m_sector), active); }
 
 void CParkTile::SetVisible(bool visible) { Scene::ToggleShown(Scene::LookUpSector(m_sector), visible ? 0xFF : 0); }
 
 void CParkTile::GetFootprintSize(SCellBox* dims)
 {
-    Maths::Vector size;
+    Maths::Vec4 size;
     MeasureSpan(&size);
     dims->l = Cells(size.z, kCellLength);
     dims->h = Cells(size.y, kCellHeight);
     dims->w = Cells(size.x, kCellWidth);
 }
 
-Maths::Vector* CParkTile::GetDimsTurned(Maths::Vector* out, int rot)
+Maths::Vec4* CParkTile::GetDimsTurned(Maths::Vec4* out, int rot)
 {
-    CParkTile* source = (m_flags & kSource) ? this : mp_source->AsPiece();
+    CParkTile* source = (m_flagBits & kSource) ? this : mp_source->AsPiece();
     // (The original asks the source three times, once per component; it's a plain getter. Its w: the source's when
     // the turn is odd, a stack leftover when it's even - the source's here.)
-    Maths::Vector size;
+    Maths::Vec4 size;
     source->MeasureSpan(&size);
     const bool across = (rot & 1) != 0;
     out->x = across ? size.z : size.x;
@@ -117,12 +117,12 @@ Maths::Vector* CParkTile::GetDimsTurned(Maths::Vector* out, int rot)
     return out;
 }
 
-void CParkTile::SetPosition(Maths::Vector* position, int update)
+void CParkTile::ChangePlace(Maths::Vec4* position, int update)
 {
-    m_pos.x = position->x;
-    m_pos.y = position->y;
-    m_pos.z = position->z;
-    m_pos.w = position->w;
+    m_atPoint.x = position->x;
+    m_atPoint.y = position->y;
+    m_atPoint.z = position->z;
+    m_atPoint.w = position->w;
     if (update == 1)
         Scene::PlaceAtAbsolutePoint(Scene::LookUpSector(m_sector), position);
 }
@@ -132,21 +132,21 @@ void CParkTile::SetLength(float length)
     uint8_t* sector = Scene::LookUpSector(m_sector);
     const bool across = (m_quarterTurns & 1) != 0;
     // (w is a stack leftover in the original)
-    Maths::Vector scale = {across ? 1.0f : length, 1.0f, across ? length : 1.0f, 1.0f};
+    Maths::Vec4 scale = {across ? 1.0f : length, 1.0f, across ? length : 1.0f, 1.0f};
     Scene::ChangeScale(sector, &scale);
 }
 
 void CParkTile::SetAngle(float degrees)
 {
-    uint8_t* geometry = Scene::GetGeometry(Scene::LookUpSector(m_sector));
+    uint8_t* geometry = Scene::FetchShape(Scene::LookUpSector(m_sector));
     if (!geometry)
         return;
-    Maths::Matrix orientation;
+    Maths::Mat4 orientation;
     orientation.ResetToIdentity();
-    Maths::Matrix turn;
+    Maths::Mat4 turn;
     Maths::MakeYawMatrix(turn, static_cast<float>(static_cast<double>(degrees) * kDegreesToRadians));
     MultiplyMatrices(&orientation, &orientation, &turn);
-    Scene::SetOrientation(geometry, &orientation);
+    Scene::ChangeFacing(geometry, &orientation);
 }
 
 void CParkTile::SetHighlight(bool on, bool gap)
@@ -154,26 +154,26 @@ void CParkTile::SetHighlight(bool on, bool gap)
     uint8_t* sector = Scene::LookUpSector(m_sector);
     if (!sector)
         return;
-    uint8_t* geometry = Scene::GetGeometry(sector);
+    uint8_t* geometry = Scene::FetchShape(sector);
     if (!geometry)
         return;
     if (!on) {
-        Scene::ClearColor(geometry);
+        Scene::WipeTint(geometry);
         return;
     }
     // r g b (a 0): purple over a gap's pieces, red otherwise
-    Scene::SetColor(geometry, gap ? 0x00A064A0u : 0x006464A0u);
+    Scene::ChangeTint(geometry, gap ? 0x00A064A0u : 0x006464A0u);
 }
 
 // --- CTileTemplate / CCopiedPiece ---------------------------------------------------------------------------------
 
-CTileTemplate* CTileTemplate::Construct()
+CTileTemplate* CTileTemplate::MakeNew()
 {
-    m_name = 0;
+    m_label = 0;
     m_following = nullptr;
     m_vtable = kVtable;
-    m_flags = CParkTile::kSource;
-    m_size = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_flagBits = CParkTile::kSource;
+    m_extent = {0.0f, 0.0f, 0.0f, 1.0f};
     m_20 = 1;
     m_triggerScript = 0;
     m_numRailPoints = 0;
@@ -181,37 +181,37 @@ CTileTemplate* CTileTemplate::Construct()
     return this;
 }
 
-Maths::Vector* CTileTemplate::MeasureSpan(Maths::Vector* out)
+Maths::Vec4* CTileTemplate::MeasureSpan(Maths::Vec4* out)
 {
-    out->x = m_size.x;
-    out->y = m_size.y;
-    out->z = m_size.z;
-    out->w = m_size.w;
+    out->x = m_extent.x;
+    out->y = m_extent.y;
+    out->z = m_extent.z;
+    out->w = m_extent.w;
     return out;
 }
 
-CTileTemplate* CTileTemplate::Destroy(unsigned int flags)
+CTileTemplate* CTileTemplate::Teardown(unsigned int flags)
 {
     AsPiece()->DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
-CCopiedPiece* CCopiedPiece::Construct()
+CCopiedPiece* CCopiedPiece::MakeNew()
 {
     m_sector = 0;
     m_following = nullptr;
     m_vtable = kVtable;
-    m_id = 0;
-    m_flags = kCloned;
+    m_ident = 0;
+    m_flagBits = kCloned;
     mp_source = nullptr;
     return this;
 }
 
-Maths::Vector* CCopiedPiece::MeasureSpan(Maths::Vector* out)
+Maths::Vec4* CCopiedPiece::MeasureSpan(Maths::Vec4* out)
 {
-    const Maths::Vector& size = mp_source->m_size;
+    const Maths::Vec4& size = mp_source->m_extent;
     const bool across = (m_quarterTurns & 1) != 0;
     out->x = across ? size.z : size.x;
     out->y = size.y;

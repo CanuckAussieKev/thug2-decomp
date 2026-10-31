@@ -31,13 +31,13 @@ void** Vtable(CPrimitive* primitive) { return primitive->m_vtable; }
 } // namespace
 
 // 0x0049C660
-CPrimitive* CPrimitive::Construct(int own)
+CPrimitive* CPrimitive::MakeNew(int own)
 {
     unknown1C = 0;
     m_ready = false;
     m_following = nullptr;
     unknown14 = 0;
-    m_flags = 0;
+    m_flagBits = 0;
     m_vtable = reinterpret_cast<void**>(kVtable);
     m_blendMode = kDefaultBlendMode;
     m_ownsVertices = own;
@@ -55,11 +55,11 @@ void CPrimitive::DestroyBody()
 }
 
 // 0x0049C790
-CPrimitive* CPrimitive::Destroy(unsigned int flags)
+CPrimitive* CPrimitive::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -89,11 +89,11 @@ void CPrimitive::DrawIfReady(const float* positions, const uint32_t* colours, co
 
 void CPrimitive::SetTexture(const uint8_t*, int, int) { DebugOut::Printf("STUB: plat_set_texture\n"); }
 void CPrimitive::ChangeColour(uint32_t) { DebugOut::Printf("STUB: plat_set_base_color\n"); }
-void CPrimitive::Init(uint32_t, int, int) { DebugOut::Printf("STUB: plat_begin\n"); }
+void CPrimitive::PrepareAll(uint32_t, int, int) { DebugOut::Printf("STUB: plat_begin\n"); }
 void CPrimitive::End() { DebugOut::Printf("STUB: plat_end\n"); }
 void CPrimitive::Render() { DebugOut::Printf("STUB: plat_draw\n"); }
-void CPrimitive::Draw(const float*, const uint32_t*, const float*, const float*) { DebugOut::Printf("STUB: plat_render\n"); }
-void CPrimitive::SetPosition(int, float, float, float) { DebugOut::Printf("STUB: plat_set_pos\n"); }
+void CPrimitive::Blit(const float*, const uint32_t*, const float*, const float*) { DebugOut::Printf("STUB: plat_render\n"); }
+void CPrimitive::ChangePlace(int, float, float, float) { DebugOut::Printf("STUB: plat_set_pos\n"); }
 void CPrimitive::SetX(int, float) { DebugOut::Printf("STUB: plat_set_pos_x\n"); }
 void CPrimitive::SetY(int, float) { DebugOut::Printf("STUB: plat_set_pos_y\n"); }
 void CPrimitive::SetZ(int, float) { DebugOut::Printf("STUB: plat_set_pos_z\n"); }
@@ -150,14 +150,14 @@ float CPrimitive::GetV(int)
     DebugOut::Printf("STUB: plat_get_v\n");
     return 0.0f;
 }
-void CPrimitive::Translate(float, float, float) { DebugOut::Printf("STUB: plat_add_pos\n"); }
+void CPrimitive::Slide(float, float, float) { DebugOut::Printf("STUB: plat_add_pos\n"); }
 void CPrimitive::TranslateX(float) { DebugOut::Printf("STUB: plat_add_pos_x\n"); }
 void CPrimitive::TranslateY(float) { DebugOut::Printf("STUB: plat_add_pos_y\n"); }
 void CPrimitive::TranslateZ(float) { DebugOut::Printf("STUB: plat_add_pos_z\n"); }
 void CPrimitive::ScrollUV(float, float) { DebugOut::Printf("STUB: plat_add_uv\n"); }
 void CPrimitive::ScrollU(float) { DebugOut::Printf("STUB: plat_add_u\n"); }
 void CPrimitive::ScrollV(float) { DebugOut::Printf("STUB: plat_add_v\n"); }
-int CPrimitive::Compare(const CPrimitive*)
+int CPrimitive::Weigh(const CPrimitive*)
 {
     DebugOut::Printf("STUB: plat_sort\n");
     return 0;
@@ -179,13 +179,13 @@ void __cdecl LinkPrimitive(CPrimitive* primitive)
 {
     primitive->m_following = NewPrimitives();
     NewPrimitives() = primitive;
-    primitive->m_flags |= kNewFlag;
+    primitive->m_flagBits |= kNewFlag;
 }
 
 // 0x0049C7F0
 void __cdecl UnlinkPrimitive(CPrimitive* primitive)
 {
-    CPrimitive** list = (primitive->m_flags & kNewFlag) ? &NewPrimitives() : &DrawnPrimitives();
+    CPrimitive** list = (primitive->m_flagBits & kNewFlag) ? &NewPrimitives() : &DrawnPrimitives();
     CPrimitive* before = *list;
     if (before == primitive) {
         *list = before->m_following;
@@ -201,7 +201,7 @@ void __cdecl RenderPrimitives()
 {
     while (CPrimitive* primitive = NewPrimitives()) {
         UnlinkPrimitive(primitive);
-        primitive->m_flags &= ~kNewFlag;
+        primitive->m_flagBits &= ~kNewFlag;
         CPrimitive** at = &DrawnPrimitives();
         if (*at) {
             for (;;) {
@@ -245,17 +245,17 @@ void __cdecl SetPrimitiveState(int state, int value)
 }
 
 namespace {
-static VtableSlot kVtable_slots[] = {&Engine3D::CPrimitive::Destroy, &Engine3D::CPrimitive::SetTexture, &Engine3D::CPrimitive::ChangeColour,
-                &Engine3D::CPrimitive::Init, &Engine3D::CPrimitive::End, &Engine3D::CPrimitive::Render, &Engine3D::CPrimitive::Draw,
-                &Engine3D::CPrimitive::SetPosition, &Engine3D::CPrimitive::SetX, &Engine3D::CPrimitive::SetY, &Engine3D::CPrimitive::SetZ,
+static VtableSlot kVtable_slots[] = {&Engine3D::CPrimitive::Teardown, &Engine3D::CPrimitive::SetTexture, &Engine3D::CPrimitive::ChangeColour,
+                &Engine3D::CPrimitive::PrepareAll, &Engine3D::CPrimitive::End, &Engine3D::CPrimitive::Render, &Engine3D::CPrimitive::Blit,
+                &Engine3D::CPrimitive::ChangePlace, &Engine3D::CPrimitive::SetX, &Engine3D::CPrimitive::SetY, &Engine3D::CPrimitive::SetZ,
                 &Engine3D::CPrimitive::SetNormal, &Engine3D::CPrimitive::SetNormalX, &Engine3D::CPrimitive::SetNormalY,
                 &Engine3D::CPrimitive::SetNormalZ, &Engine3D::CPrimitive::SetVertexColour, &Engine3D::CPrimitive::SetUV,
                 &Engine3D::CPrimitive::ChooseU, &Engine3D::CPrimitive::ChooseV, &Engine3D::CPrimitive::FetchPosX, &Engine3D::CPrimitive::FetchPosY,
                 &Engine3D::CPrimitive::FetchPosZ, &Engine3D::CPrimitive::GetNormalX, &Engine3D::CPrimitive::GetNormalY,
                 &Engine3D::CPrimitive::GetNormalZ, &Engine3D::CPrimitive::GetVertexColour, &Engine3D::CPrimitive::GetU,
-                &Engine3D::CPrimitive::GetV, &Engine3D::CPrimitive::Translate, &Engine3D::CPrimitive::TranslateX,
+                &Engine3D::CPrimitive::GetV, &Engine3D::CPrimitive::Slide, &Engine3D::CPrimitive::TranslateX,
                 &Engine3D::CPrimitive::TranslateY, &Engine3D::CPrimitive::TranslateZ, &Engine3D::CPrimitive::ScrollUV,
-                &Engine3D::CPrimitive::ScrollU, &Engine3D::CPrimitive::ScrollV, &Engine3D::CPrimitive::Compare};
+                &Engine3D::CPrimitive::ScrollU, &Engine3D::CPrimitive::ScrollV, &Engine3D::CPrimitive::Weigh};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 } // namespace
 

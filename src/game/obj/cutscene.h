@@ -33,11 +33,11 @@ void __cdecl QuatToMatrix(float* quat, const float* translation, float* matrix);
 // 0x00576E60 (GameModules::Viewer::GetViewerEntity). (__fastcall: the appearance in ECX, as the original's call passes it.)
 void* __fastcall AppearanceFace(void* appearance);
 // A model's fader (its +0x2C). No address of its own: the original reads it through the getter folded at 0x00532EB0
-// (OnlinePlay::Manager::GetMatchmakingClient). (__fastcall: the model in ECX.)
+// (OnlinePlay::Hub::GetMatchmakingClient). (__fastcall: the model in ECX.)
 void* __fastcall ModelFader(void* model);
 // 0x00464340 (code Ghidra missed; nothing calls it): an identity rotation (0, 0, 0, 1).
 struct IdentityQuat {
-    void Set();
+    void AssignValue();
     float q[4];
 };
 // 0x00463BA0: the name of the skater model a cutscene uses: the profile 0x1804A7C4 names looked up in array
@@ -66,7 +66,7 @@ public:
     // newline ("%s%d\n" - the newline is part of the original's format).
     uint32_t HashOfName(const char* suffix, int number);
     // 0x004639A0: whether the cutscene has reached its end (1 / 0).
-    int IsDone();
+    int IsFinished();
     // 0x004639C0: the vblanks since the last call added to the cutscene's own count.
     void UpdateVblanks();
     // 0x00463A10: the subtitles (an array of structures {time, ...}, each run through script 0x625985F9 when its
@@ -96,7 +96,7 @@ public:
     // 0x00464360: each object's skeleton posed by its animation at the cutscene's time.
     void UpdateObjectPoses();
     // 0x00464640 (returns this): nothing loaded, a new parameters structure.
-    CCinematicTable* Construct();
+    CCinematicTable* MakeNew();
     // 0x00464780: (when +0x34B0 and the global integer 0x4AF50A5B is set) script 0x2E20EA32 run again on every
     // object with a model and the skater; the global cleared.
     void RefreshObjects();
@@ -146,23 +146,23 @@ public:
     bool FinishLoading(int unused);
     // 0x004678A0: the cutscene file `path` loaded (asynchronously: `a2` passed on) with the settings {appearance,
     // profile, skater cutscene}; its music and heaps set up first. True.
-    bool Load(const char* path, int a2, int unused, const uint32_t* settings);
+    bool ReadIn(const char* path, int a2, int unused, const uint32_t* settings);
     // 0x00467B50: whether the file has loaded (a skater cutscene's finished loading the first time it has).
     bool IsLoaded();
     // 0x00467BA0: a frame of the cutscene: the clock, skipping, the camera, subtitles, poses and transforms (and
     // the debug time / screenshots).
-    void Update(void* camera, Scripts::CStruct* params);
+    void TickFrame(void* camera, Scripts::CStruct* params);
     // 0x00467EA0: Update once the music is ready (the objects refreshed first).
-    void Play(void* camera, Scripts::CStruct* params);
+    void Perform(void* camera, Scripts::CStruct* params);
     // 0x00468080 (vtable slot 0): the scalar deleting destructor.
-    CCinematicTable* Destroy(unsigned int flags);
+    CCinematicTable* Teardown(unsigned int flags);
     // 0x00466C20: the destructor body: the bundle, the animation sources, the objects, the lights and every asset
     // dropped; the cutscene's .qb unloaded.
     void DestroyBody();
     // 0x00466DD0: the bundle's assets taken in by type (parameters, objects, .qb, camera / object / plain
     // animations, images, models with their textures - a skater's skin only when it's the skater's); the end time.
     void LoadFromBundle();
-    void LoadModel(int index, FileLoad::AssetBundle::Entry* entry, void* data);
+    void IngestMesh(int index, FileLoad::AssetBundle::TableRow* entry, void* data);
 
     void** m_vtable;              // +0x00 (0x00647908)
     uint32_t m_unknown4;
@@ -212,7 +212,7 @@ public:
     void* m_unknown34AC;          // +0x34AC: the skater's profile structure
     uint8_t m_flag34B0;           // +0x34B0: a skater cutscene with its own heaps, music, camera (kept as given)
     uint8_t m_unknown34B1[3];
-    uint32_t m_name;              // +0x34B4: the cutscene's name checksum
+    uint32_t m_label;              // +0x34B4: the cutscene's name checksum
     Scripts::CArray* m_subtitles;  // +0x34B8
     float m_subtitleDuration;     // +0x34BC: the last subtitle's (0 if it gave none)
     float m_subtitleTime;         // +0x34C0: when the last subtitle started
@@ -232,18 +232,18 @@ public:
     // 0x00464580 (vtable slot 9): whether the loaded cutscene may be skipped (false if none is loaded).
     bool CanBeSkipped();
     // 0x00467F30 (vtable slot 0): the scalar deleting destructor.
-    CCinematicEntry* Destroy(unsigned int flags);
+    CCinematicEntry* Teardown(unsigned int flags);
     // 0x00467F60 (vtable slot 2): once loaded: the begin script (once), then the cutscene played - or, with +0x5D,
     // only its clock and objects; +0x60 counts down to a call of slot 12.
-    void Update();
+    void TickFrame();
     // 0x00468040 (vtable slot 5): done (the movie details' flag, or the cutscene loaded and at its end).
-    bool IsDone();
+    bool IsFinished();
     // 0x004680B0 (vtable slot 7): a skater cutscene loaded with its music started.
     bool IsReady();
 
     // 0x00466490 (returns this): the movie details' constructor, then the cutscene's: no data, a parameters
     // structure, the three settings (the third's low byte: whether it owns its data).
-    CCinematicEntry* Construct(const uint32_t* settings);
+    CCinematicEntry* MakeNew(const uint32_t* settings);
     // 0x00466620 (vtable slot 1): the cutscene named by 0xA1DC81F9 set up: an asset found by name, or (when it
     // owns its data) its bundle loaded with the loading screen up and the music muted (start time / loop length
     // in milliseconds, subtitles from <name>_subtitles). Whether it's there.
@@ -263,13 +263,13 @@ public:
     bool m_isFinished;                  // +0x1A
     bool m_flag1B;
     uint8_t m_unknown1C[0x10];
-    CCinematicTable* m_data;        // +0x2C
+    CCinematicTable* m_content;        // +0x2C
     uint32_t m_asset;             // +0x30
     uint32_t m_beginScript;       // +0x34: the cutscene's name + "_begin"
     bool m_begun;                 // +0x38: the begin script run
     uint8_t m_unknown39[3];
     uint32_t m_endScript;         // +0x3C: + "_end"
-    Scripts::CStruct* m_params;    // +0x40
+    Scripts::CStruct* m_args;    // +0x40
     float m_musicVolume;          // +0x44: the volumes before the cutscene (given back at its end)
     float m_streamVolume0;        // +0x48
     float m_streamVolume1;        // +0x4C
@@ -290,12 +290,12 @@ static_assert(offsetof(CCinematicTable, m_entities) == 0x54 && offsetof(CCinemat
               "layout must match the original");
 static_assert(offsetof(CCinematicTable, m_canSkip) == 0x3461 && offsetof(CCinematicTable, m_endTime) == 0x346C &&
                   offsetof(CCinematicTable, m_clock) == 0x347C && offsetof(CCinematicTable, m_vblanks) == 0x3498 &&
-                  offsetof(CCinematicTable, m_name) == 0x34B4 && offsetof(CCinematicTable, m_nextSubtitle) == 0x34C8,
+                  offsetof(CCinematicTable, m_label) == 0x34B4 && offsetof(CCinematicTable, m_nextSubtitle) == 0x34C8,
               "layout must match the original");
-static_assert(offsetof(CCinematicEntry, m_params) == 0x40 && offsetof(CCinematicEntry, m_settings) == 0x50 &&
+static_assert(offsetof(CCinematicEntry, m_args) == 0x40 && offsetof(CCinematicEntry, m_settings) == 0x50 &&
                   offsetof(CCinematicEntry, m_ownsData) == 0x5C && offsetof(CCinematicTable, m_pausedVblanks) == 0x3490,
               "layout must match the original");
-static_assert(offsetof(CCinematicEntry, m_data) == 0x2C && offsetof(CCinematicEntry, m_flag5D) == 0x5D &&
+static_assert(offsetof(CCinematicEntry, m_content) == 0x2C && offsetof(CCinematicEntry, m_flag5D) == 0x5D &&
                   offsetof(CCinematicEntry, m_unknown60) == 0x60,
               "layout must match the original");
 

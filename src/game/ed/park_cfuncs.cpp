@@ -21,7 +21,7 @@ namespace ParkEditing {
 bool __cdecl CFunc_GetParkEditorMaxPlayers(Scripts::CStruct*, Scripts::CScript* script)
 {
     CParkAssembler* generator = CParkLayout::sSingleton()->m_builder;
-    script->m_params->PutInt("MaxPlayers", generator->GetPlayerLimit()); // 0xB7E39B53
+    script->m_args->PutInt("MaxPlayers", generator->GetPlayerLimit()); // 0xB7E39B53
     return true;
 }
 
@@ -29,7 +29,7 @@ bool __cdecl CFunc_GetParkEditorMaxPlayers(Scripts::CStruct*, Scripts::CScript* 
 bool __cdecl CFunc_GetParkEditorMaxPlayersPossible(Scripts::CStruct*, Scripts::CScript* script)
 {
     CParkAssembler* generator = CParkLayout::sSingleton()->m_builder;
-    script->m_params->PutInt("MaxPlayersPossible", generator->GetPlayerCapLimit()); // 0x1FD6359C
+    script->m_args->PutInt("MaxPlayersPossible", generator->GetPlayerCapLimit()); // 0x1FD6359C
     return true;
 }
 

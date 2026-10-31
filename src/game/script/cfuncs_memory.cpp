@@ -37,18 +37,18 @@ constexpr uint32_t kDumpHeapsBytes = 0xD65B9AC7; // (name unknown) DumpHeaps: si
 // Compiled out of this build (calls of the empty function 0x005480A0).
 inline void SetMemThreadSafe(bool /*safe*/) {}
 inline void DumpFragments(int /*size*/, bool /*kilobytes*/) {}
-inline void AnalyzeHeap(MemSys::Heap* /*heap*/) {}
+inline void AnalyzeHeap(MemSys::Arena* /*heap*/) {}
 inline void PrintMemInfo(const char* /*heapName*/) {}
 inline void DumpHeapsBegin() {}
 
-MemSys::Manager* Manager() { return MemSys::Manager::Get(); }
+MemSys::Hub* Hub() { return MemSys::Hub::Pull(); }
 
 // The heap a command names: name="<text>" or name=<checksum>.
 uint32_t HeapName(CStruct* params)
 {
     const char* text;
     uint32_t name = 0; // (uninitialised in the original: asserted)
-    if (params->GetString(kName, &text, 0))
+    if (params->FetchText(kName, &text, 0))
         name = Checksums::HashFromText(text);
     else
         params->ReadHashValue(kName, &name, 1);
@@ -65,7 +65,7 @@ int FreeSoundMemory() { return Stubs::ReturnZero(); }
 bool __cdecl CFunc_PushMemProfile(CStruct* params, CScript*)
 {
     const char* name = nullptr;
-    params->GetString(0u, &name, 1);
+    params->FetchText(0u, &name, 1);
     MemSys::PushMemProfile(name);
     return true;
 }
@@ -113,19 +113,19 @@ bool __cdecl CFunc_MemPushContext(CStruct* params, CScript*)
     int number = 0;
     if (params->FetchIntValue(0u, &number, 0)) {
         if (number == 0)
-            Manager()->EnterHeapScope(Manager()->m_bottomUpHeap);
+            Hub()->EnterHeapScope(Hub()->m_bottomUpHeap);
         return true;
     }
     uint32_t name = 0; // (uninitialised in the original: asserted)
     params->ReadHashValue(0u, &name, 1);
-    Manager()->EnterHeapScope(Manager()->GetMemoryPool(name));
+    Hub()->EnterHeapScope(Hub()->GetMemoryPool(name));
     return true;
 }
 
 // 0x00448130: MemPopContext. Always true.
 bool __cdecl CFunc_MemPopContext(CStruct*, CScript*)
 {
-    Manager()->LeaveHeapScope();
+    Hub()->LeaveHeapScope();
     return true;
 }
 
@@ -134,22 +134,22 @@ bool __cdecl CFunc_MemInitHeap(CStruct* params, CScript*)
 {
     const char* text = nullptr; // (both asserted; uninitialised in the original)
     int size = 0;
-    params->GetString(kName, &text, 1);
+    params->FetchText(kName, &text, 1);
     params->FetchIntValue(kSize, &size, 1);
-    Manager()->CreateLabeledZone(Checksums::HashFromText(text), static_cast<uint32_t>(size), text, 0);
+    Hub()->CreateLabeledZone(Checksums::HashFromText(text), static_cast<uint32_t>(size), text, 0);
     return true;
 }
 
 // 0x004481A0: MemDeleteHeap name=...: whether the named heap was there (and is deleted).
 bool __cdecl CFunc_MemDeleteHeap(CStruct* params, CScript*)
 {
-    return Manager()->ReleaseLabeledZone(HeapName(params), 0);
+    return Hub()->ReleaseLabeledZone(HeapName(params), 0);
 }
 
 // 0x00448200: MemHeapExists name=...: whether there is such a named heap.
 bool __cdecl CFunc_MemHeapExists(CStruct* params, CScript*)
 {
-    return Manager()->GetNamedHeap(HeapName(params), 0) != nullptr;
+    return Hub()->GetNamedHeap(HeapName(params), 0) != nullptr;
 }
 
 // 0x00448270: AnalyzeHeap [<heap name> (BottomUpHeap)] (compiled out; params may be null). Always true.
@@ -158,7 +158,7 @@ bool __cdecl CFunc_AnalyzeHeap(CStruct* params, CScript*)
     uint32_t name = kBottomUpHeap;
     if (params)
         params->ReadHashValue(0u, &name, 0);
-    if (MemSys::Heap* heap = Manager()->GetMemoryPool(name))
+    if (MemSys::Arena* heap = Hub()->GetMemoryPool(name))
         AnalyzeHeap(heap);
     return true;
 }
@@ -170,9 +170,9 @@ bool __cdecl CFunc_PrintMemInfo(CStruct* params, CScript*)
     uint32_t name = kBottomUpHeap;
     if (params)
         params->ReadHashValue(0u, &name, 0);
-    Manager()->GetMemoryPool(name);
+    Hub()->GetMemoryPool(name);
     char heapName[64];
-    std::snprintf(heapName, sizeof(heapName), "%s", Manager()->GetZoneLabel(name)); // (the original's copy is unbounded)
+    std::snprintf(heapName, sizeof(heapName), "%s", Hub()->GetZoneLabel(name)); // (the original's copy is unbounded)
     PrintMemInfo(heapName);
     return true;
 }
@@ -194,8 +194,8 @@ void __cdecl DumpPoolUsage(bool toDumpFile, bool print)
         std::snprintf(line, sizeof(line), message);
         emit();
     };
-    auto pool = [&](const char* format, const MemSys::Pool* p) {
-        std::snprintf(line, sizeof(line), format, p->m_used, p->m_count, p->m_peakUsed);
+    auto pool = [&](const char* format, const MemSys::SlabBank* p) {
+        std::snprintf(line, sizeof(line), format, p->m_takenCount, p->m_num, p->m_peakUsed);
         emit();
     };
     auto current = [](const MemSys::PoolPair& pools) {
@@ -226,21 +226,21 @@ bool __cdecl CFunc_DumpHeaps(CStruct* params, CScript*)
 {
     auto format = [](const char* text) { return text; }; // (the exe's texts)
     DumpHeapsBegin();
-    MemSys::Manager* manager = Manager();
+    MemSys::Hub* manager = Hub();
     DebugOut::Printf(format("Current Heap: %s\n\n"), manager->CurrentHeapName()); // "Current Heap: %s\n"
     bool bytes = params && params->HasBareFlag(kDumpHeapsBytes);
     DebugOut::Printf(format(bytes ? "Name                       Used    Frag    Free    Min Blocks\n" : "Name                       Used  Frag  Free   Min  Blocks\n")); // "Name                       Used ..." (two layouts)
     DebugOut::Printf(format(bytes ? "------------------------- ------ ------- ------- ------ ------\n" : "------------------------- ----- ----- ---- ------ ------\n")); // "------------------------- -----..."
-    for (MemSys::Allocator* heap = manager->FirstZone(); heap; heap = manager->FollowingZone(heap)) {
-        MemSys::Region* region = heap->m_region;
+    for (MemSys::MemSource* heap = manager->FirstZone(); heap; heap = manager->FollowingZone(heap)) {
+        MemSys::Zone* region = heap->m_region;
         int minimum = region->m_minAvailable; // (read before FreeByteCount)
         int blocks = heap->m_usedBlocks;
         int available = region->FreeByteCount();
         if (bytes)
-            DebugOut::Printf(format("%23s: %8d %7d %7d %7d  %5d \n"), heap->m_name, heap->m_usedSize, heap->m_freeSize, available, minimum,
+            DebugOut::Printf(format("%23s: %8d %7d %7d %7d  %5d \n"), heap->m_label, heap->m_usedSize, heap->m_freeSize, available, minimum,
                         blocks); // "%23s: %8d %7d %7d %7d  %5d \n"
         else
-            DebugOut::Printf(format("%23s: %5dK %4dK %4dK %4dK  %5d \n"), heap->m_name, heap->m_usedSize / 1024, heap->m_freeSize / 1024,
+            DebugOut::Printf(format("%23s: %5dK %4dK %4dK %4dK  %5d \n"), heap->m_label, heap->m_usedSize / 1024, heap->m_freeSize / 1024,
                         available / 1024, minimum / 1024, blocks); // "%23s: %5dK %4dK %4dK %4dK  %5d \n"
     }
     int soundFree = FreeSoundMemory();

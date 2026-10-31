@@ -1,4 +1,4 @@
-// GameModules::Score's combo: tricks logged and scored, the multiplier, the special meter, landing and bailing, the balance
+// GameModules::PointTally's combo: tricks logged and scored, the multiplier, the special meter, landing and bailing, the balance
 // meter (see score.h).
 
 #include "game/skate/score.h"
@@ -69,11 +69,11 @@ struct PointsMessage {
 };
 
 // The tricks since the last no-spin one (index 0 not looked at).
-int TricksSinceNoSpin(Score* score)
+int TricksSinceNoSpin(PointTally* score)
 {
     int since = 0;
     for (int i = score->m_tricks - 1; i > 0; --i) {
-        if (score->Trick(i)->m_flags & kTrickNoSpin)
+        if (score->Trick(i)->m_flagBits & kTrickNoSpin)
             break;
         ++since;
     }
@@ -83,28 +83,28 @@ int TricksSinceNoSpin(Score* score)
 // The skater's adjust-physics component holding the tricks' points (its +0x1C).
 bool PointsHeld(GameObjects::CRider* skater)
 {
-    auto* adjust = reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterAdjustPhysics));
+    auto* adjust = reinterpret_cast<uint8_t*>(skater->FetchModule(kSkaterAdjustPhysics));
     return adjust && adjust[0x1C];
 }
 
 // `points` to the server (message `id`, the client of the skater's viewport).
-void SendPoints(OnlinePlay::Manager* net, GameObjects::CRider* skater, uint8_t id, int points)
+void SendPoints(OnlinePlay::Hub* net, GameObjects::CRider* skater, uint8_t id, int points)
 {
     NetLink::NetMessageInfo desc;
-    desc.Construct();
+    desc.MakeNew();
     PointsMessage message;
     message.points = points;
     message.gameId = net->GetGameId();
-    desc.m_id = id;
-    desc.m_data = &message;
+    desc.m_ident = id;
+    desc.m_content = &message;
     desc.m_byteCount = sizeof(message);
     desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = kGroupGame;
-    static_cast<NetLink::Client*>(net->GetClient(skater->m_viewSlot))->SendToHost(&desc);
+    static_cast<NetLink::Guest*>(net->FetchPatron(skater->m_viewSlot))->SendToHost(&desc);
 }
 
 // The robot counts: of the run (`run`) and of the combo; the factor back to 1.
-void ResetRobot(Score* score, bool run)
+void ResetRobot(PointTally* score, bool run)
 {
     if (run) {
         score->m_robotLines = 0;
@@ -119,12 +119,12 @@ void ResetRobot(Score* score, bool run)
 }
 
 // The log's tricks freed and the combo emptied (Land and Bail; the pot itself is the caller's).
-void ClearCombo(Score* score)
+void ClearCombo(PointTally* score)
 {
-    int count = score->m_log.m_count;
+    int count = score->m_log.m_num;
     for (int i = 0; i < count; ++i)
-        MemSys::Free(score->m_log.m_items[i]);
-    score->m_log.m_count = 0;
+        MemSys::Dealloc(score->m_log.m_items[i]);
+    score->m_log.m_num = 0;
     score->m_lastNoSpin = -1;
     score->m_spinTrick = -1;
     score->m_tricks = 0;
@@ -136,7 +136,7 @@ void ClearCombo(Score* score)
 } // namespace
 
 // 0x00562E40
-void Score::CaptureScore()
+void PointTally::CaptureScore()
 {
     if (!m_tricks) {
         m_potSpecial = 0;
@@ -147,10 +147,10 @@ void Score::CaptureScore()
     int spin = 2;
     for (int i = 0; i < m_tricks; ++i) {
         STrickLog* trick = Trick(i);
-        uint32_t flags = trick->m_flags;
+        uint32_t flags = trick->m_flagBits;
         if (flags & kTrickNoSpin)
             spin = 2;
-        else if (i == 0 || (Trick(i - 1)->m_flags & kTrickNoSpin))
+        else if (i == 0 || (Trick(i - 1)->m_flagBits & kTrickNoSpin))
             spin = ((flags >> 8) & 1) ? trick->m_twistRate + 1 : SpinMultiplier(trick->m_twistRate);
         int reduction = Reduction(trick->m_repeats);
         int points = reduction * spin * trick->m_pointsHeld / 200; // (percent times half the multiplier)
@@ -184,7 +184,7 @@ void Score::CaptureScore()
 }
 
 // 0x00563020
-void Score::ResetScorePot()
+void PointTally::ResetScorePot()
 {
     m_pot = 0;
     ListKit::TableReleaser destroyer{&m_log};
@@ -202,7 +202,7 @@ void Score::ResetScorePot()
 }
 
 // 0x00563080
-void Score::PositionBalanceMeter(bool on, float lean, bool manual)
+void PointTally::PositionBalanceMeter(bool on, float lean, bool manual)
 {
     GameObjects::CRider* skater = SkaterById(m_riderNo);
     auto* meter = static_cast<MenuSystem::CImageWidget*>(
@@ -231,43 +231,43 @@ void Score::PositionBalanceMeter(bool on, float lean, bool manual)
     double x;
     double y;
     if (manual) {
-        meter->SetPos(m_bars[1].x, m_bars[1].y, 1);
+        meter->ChangeLocation(m_bars[1].x, m_bars[1].y, 1);
         meter->SetSpriteRotation(-90.0f, 1);
         y = static_cast<double>(meter->m_levelY) * 0.5 + m_meterOffset.y + 50.0;
         x = static_cast<double>(meter->m_span) * 0.5 - 80.0;
     } else {
-        meter->SetPos(m_bars[0].x, m_bars[0].y, 1);
+        meter->ChangeLocation(m_bars[0].x, m_bars[0].y, 1);
         meter->SetSpriteRotation(0.0f, 1);
         y = static_cast<double>(meter->m_levelY) * 0.5 + m_meterOffset.y;
         x = static_cast<double>(meter->m_span) * 0.5;
     }
     x = left ? x - m_meterOffset.x : x + m_meterOffset.x;
-    arrow->SetPos(static_cast<float>(x), static_cast<float>(y), 1);
+    arrow->ChangeLocation(static_cast<float>(x), static_cast<float>(y), 1);
     arrow->SetSpriteRotation(-m_meterRotation, 1);
 }
 
 // 0x00563370
-void Score::SetTeeterGauge(bool on, float lean) { PositionBalanceMeter(on, lean, false); }
+void PointTally::SetTeeterGauge(bool on, float lean) { PositionBalanceMeter(on, lean, false); }
 
 // 0x00563390
-void Score::SetWheelieGauge(bool on, float lean) { PositionBalanceMeter(on, lean, true); }
+void PointTally::SetWheelieGauge(bool on, float lean) { PositionBalanceMeter(on, lean, true); }
 
 // 0x00563440
-Score* Score::Construct()
+PointTally* PointTally::MakeNew()
 {
-    m_seen.m_count = 0;
+    m_seen.m_num = 0;
     m_seen.m_first = nullptr;
     m_seen.m_cursor = nullptr;
-    m_log.Construct(8, 8);
+    m_log.MakeNew(8, 8);
     for (Scripts::CPair& arrow : m_arrows)
-        arrow.Init();
-    m_meterOffset.Init();
+        arrow.PrepareAll();
+    m_meterOffset.PrepareAll();
     for (Scripts::CPair& bar : m_bars)
-        bar.Init();
+        bar.PrepareAll();
     m_lastNoSpin = -1;
     m_spinTrick = -1;
     m_riderNo = 0;
-    m_total = 0;
+    m_sum = 0;
     m_pot = 0;
     m_potScore = 0;
     m_potSpecial = 0;
@@ -280,14 +280,14 @@ Score* Score::Construct()
     m_topChain = 0;
     m_bestComboSent = 0;
     m_verbosePrint = Scripts::FetchIntValue(kDebugScore) != 0;
-    m_focusTimeLimit = Scripts::GetFloat(kFocusTimeLimit);
+    m_focusTimeLimit = Scripts::FetchFloat(kFocusTimeLimit);
     m_focusMaxTimes = Scripts::FetchIntValue(kFocusMaxTimesInCombo);
     SetupBalanceMeter();
     return this;
 }
 
 // 0x00564B80
-void Score::DestroyBody()
+void PointTally::DestroyBody()
 {
     Reset();
     MemSys::FreeMalloc(m_log.m_items);
@@ -295,7 +295,7 @@ void Score::DestroyBody()
 }
 
 // 0x00563580
-void Score::Update()
+void PointTally::TickFrame()
 {
     if (m_special) {
         float special = static_cast<float>(m_special);
@@ -325,7 +325,7 @@ void Score::Update()
         MenuSystem::ElementPtr found;
         GameObjects::CRider* skater = SkaterById(m_riderNo);
         uint32_t id = skater ? kTheSpecialBarSprite + static_cast<uint32_t>(skater->GetSkaterNumber()) : kTheSpecialBarSprite;
-        bar = *MenuSystem::CUiTree::Instance()->GetElement(&found, id, 0);
+        bar = *MenuSystem::CUiTree::Sole()->FetchPart(&found, id, 0);
     }
     double full = static_cast<double>(m_special) * static_cast<double>(1.0f / 3000.0f); // (0x0064E334)
     float size = static_cast<float>(full);
@@ -351,17 +351,17 @@ void Score::Update()
 }
 
 // 0x00563990
-void Score::Trigger(const char* text, int score, uint32_t flags)
+void PointTally::FireOff(const char* text, int score, uint32_t flags)
 {
     bool unnamed = !text[0];
     GameObjects::CRider* skater = SkaterById(m_riderNo);
     if (!skater)
         return;
-    auto* trickComponent = reinterpret_cast<uint8_t*>(skater->GetComponent(kTrick));
-    auto* stats = static_cast<GameObjects::CAttributeTracker*>(skater->GetComponent(kStatsManager));
+    auto* trickComponent = reinterpret_cast<uint8_t*>(skater->FetchModule(kTrick));
+    auto* stats = static_cast<GameObjects::CAttributeTracker*>(skater->FetchModule(kStatsManager));
     if (text[0])
         trickComponent[0x13A8] = 1;
-    auto* physics = reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterCorePhysics));
+    auto* physics = reinterpret_cast<uint8_t*>(skater->FetchModule(kSkaterCorePhysics));
     auto* physicsSkater = *reinterpret_cast<GameObjects::CRider**>(physics + 0xC);
     uint8_t flipped = (*reinterpret_cast<uint8_t**>(physics + 0x1528))[0x28];
     int stance = physicsSkater->m_goofy ? flipped : !flipped;
@@ -379,18 +379,18 @@ void Score::Trigger(const char* text, int score, uint32_t flags)
             return;
         }
     }
-    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_frontEndHeap);
+    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
     uint32_t name = Checksums::HashFromText(text);
     int kind = (flags & kTrickKindHigh) ? (flags >> 1) & 4 : (flags >> 1) & 6;
-    if (m_log.m_count < 250) {
-        m_log.Add(MemSys::New(sizeof(STrickLog)));
+    if (m_log.m_num < 250) {
+        m_log.AppendOne(MemSys::Alloc(sizeof(STrickLog)));
         LastTrick()->m_pointsHeld = 0;
     }
     STrickLog* trick = LastTrick();
     trick->m_pointsHeld += score;
-    trick->m_name = name;
+    trick->m_label = name;
     trick->m_kind = kind;
-    trick->m_flags = flags;
+    trick->m_flagBits = flags;
     trick->m_twistRate = 0;
     trick->m_text[0] = 0;
     trick->m_shown[0] = 0;
@@ -406,7 +406,7 @@ void Score::Trigger(const char* text, int score, uint32_t flags)
             format = "%s%s "; // "%s%s "
         std::snprintf(trick->m_shown, sizeof(trick->m_shown), format, "", trick->m_text);
         // The trick before it (the last one named, not "...") gets the " + " joining them.
-        for (int i = m_log.m_count - 2; i >= 0; --i) {
+        for (int i = m_log.m_num - 2; i >= 0; --i) {
             char* shown = Trick(i)->m_shown;
             size_t length = std::strlen(shown);
             if (shown[0] == '.' || !length)
@@ -421,21 +421,21 @@ void Score::Trigger(const char* text, int score, uint32_t flags)
         m_spinTrick = m_tricks;
     if (flags & kTrickNoSpin)
         m_lastNoSpin = m_tricks;
-    auto* seen = static_cast<STrickSeen*>(m_seen.GetItem(&name));
+    auto* seen = static_cast<STrickSeen*>(m_seen.FetchEntry(&name));
     bool notCounted = false;
     if (flags & kTrickNotCounted) {
         LastTrick()->m_repeats = 0;
         notCounted = true;
     } else {
         if (!seen) {
-            seen = static_cast<STrickSeen*>(MemSys::New(sizeof(STrickSeen)));
+            seen = static_cast<STrickSeen*>(MemSys::Alloc(sizeof(STrickSeen)));
             m_seen.StoreEntry(&name, seen);
             for (int k = 0; k < 4; ++k) {
                 seen->m_landed[k] = 0;
-                seen->m_current[k] = 0;
+                seen->m_ongoing[k] = 0;
             }
         }
-        int* counts = seen->m_landed; // (m_landed then m_current; the kind can reach past them, as the original)
+        int* counts = seen->m_landed; // (m_landed then m_ongoing; the kind can reach past them, as the original)
         LastTrick()->m_repeats = counts[kind] + counts[kind + 4];
         ++counts[kind + 4];
     }
@@ -460,13 +460,13 @@ void Score::Trigger(const char* text, int score, uint32_t flags)
         if (addOne)
             m_multiplier = static_cast<float>(static_cast<double>(m_multiplier) + 1.0);
         if (m_multiplier == 1.0f) {
-            auto* timer = static_cast<GameObjects::CRiderRunClock*>(skater->GetComponent(kSkaterRunTimer));
-            timer->m_secondsRemaining = static_cast<GameObjects::CRider*>(timer->m_object)->GetScaledPhysics(kPhysicsRunTimerDuration);
+            auto* timer = static_cast<GameObjects::CRiderRunClock*>(skater->FetchModule(kSkaterRunTimer));
+            timer->m_secondsRemaining = static_cast<GameObjects::CRider*>(timer->m_entity)->GetScaledPhysics(kPhysicsRunTimerDuration);
             timer->m_resumes = 0;
-            timer->m_state = 2;
-            m_focusTimeLimit = Scripts::GetFloat(kFocusTimeLimit);
+            timer->m_curPhase = 2;
+            m_focusTimeLimit = Scripts::FetchFloat(kFocusTimeLimit);
             m_focusMaxTimes = Scripts::FetchIntValue(kFocusMaxTimesInCombo);
-            skater->BroadcastEvent(kSkaterEnterCombo, nullptr, 0.0f);
+            skater->Announce(kSkaterEnterCombo, nullptr, 0.0f);
         }
         if (TricksSinceNoSpin(this) > 10) {
             LastTrick()->m_pointsHeld = 0;
@@ -487,12 +487,12 @@ void Score::Trigger(const char* text, int score, uint32_t flags)
 }
 
 // 0x00563F30
-void Score::SetTurnAmount(int degrees)
+void PointTally::SetTurnAmount(int degrees)
 {
     if (!m_tricks || m_spinTrick < 0)
         return;
     GameObjects::CRider* skater = SkaterById(m_riderNo);
-    bool flipped = static_cast<GameObjects::CAnimBlenderComponent*>(skater->GetComponent(kAnimBlender))->AllChannelsFlag29();
+    bool flipped = static_cast<GameObjects::CAnimBlenderComponent*>(skater->FetchModule(kAnimBlender))->AllChannelsFlag29();
     int size = degrees;
     const char* side;
     if (degrees < 0) {
@@ -525,7 +525,7 @@ void Score::SetTurnAmount(int degrees)
     if (m_verbosePrint)
         DebugOut::Printf("New spin value %d:\n", halfTurns * 180); // "New spin value %d:\n"
     STrickLog* trick = Trick(m_spinTrick);
-    if (trick->m_name == kOllie && halfTurns % 2 == 1) { // (an odd number of half turns: the other side)
+    if (trick->m_label == kOllie && halfTurns % 2 == 1) { // (an odd number of half turns: the other side)
         if (side == "FS")
             side = "BS";
         else if (side == "BS")
@@ -536,8 +536,8 @@ void Score::SetTurnAmount(int degrees)
             side = "FS Cab";
     }
     int shownDegrees = halfTurns * 180;
-    bool joined = m_log.m_count - 1 > m_spinTrick;
-    uint8_t flags = static_cast<uint8_t>(trick->m_flags);
+    bool joined = m_log.m_num - 1 > m_spinTrick;
+    uint8_t flags = static_cast<uint8_t>(trick->m_flagBits);
     if (!renamed) {
         const char* format;
         if (flags & kTrickColour3)
@@ -560,15 +560,15 @@ void Score::SetTurnAmount(int degrees)
     DispatchTrickSequence(false);
     Trick(m_spinTrick)->m_twistRate = halfTurns;
     CaptureScore();
-    static_cast<GameObjects::CAttributeTracker*>(skater->GetComponent(kStatsManager))
+    static_cast<GameObjects::CAttributeTracker*>(skater->FetchModule(kStatsManager))
         ->SetValue58(static_cast<float>(shownDegrees));
     m_potState = 0;
     DispatchScorePot(m_pot, m_multiplier);
-    skater->BroadcastEvent(kSkaterSpinDisplayed, nullptr, 0.0f);
+    skater->Announce(kSkaterSpinDisplayed, nullptr, 0.0f);
 }
 
 // 0x00564270
-void Score::TweakTrick(int points)
+void PointTally::TweakTrick(int points)
 {
     if (m_tricks <= 0)
         return;
@@ -577,7 +577,7 @@ void Score::TweakTrick(int points)
         return;
     if (TricksSinceNoSpin(this) > 10)
         return;
-    if (!(trick->m_flags & kTrickNoSpin) && trick->m_pointsHeld > 20000)
+    if (!(trick->m_flagBits & kTrickNoSpin) && trick->m_pointsHeld > 20000)
         return;
     if (PointsHeld(SkaterById(m_riderNo)))
         return;
@@ -589,9 +589,9 @@ void Score::TweakTrick(int points)
 }
 
 // 0x00564330
-void Score::Land()
+void PointTally::Land()
 {
-    OnlinePlay::Manager* net = NetManager();
+    OnlinePlay::Hub* net = NetManager();
     GoalSystem::CMatchRules* mode = GameMode();
     CaptureScore();
     int points = Ftol(static_cast<double>(m_pot) * m_multiplier);
@@ -600,7 +600,7 @@ void Score::Land()
     GoalSystem::GetObjectiveBoard()->Land();
     if (byClusters || (mode->IsTrue(kShouldModulateColor) && points > 0))
         NoteTaggedPropAsk(points);
-    static_cast<GameObjects::CMoveExecutor*>(skater->GetComponent(kTrick))->SetTrickObjects(false);
+    static_cast<GameObjects::CMoveExecutor*>(skater->FetchModule(kTrick))->SetTrickObjects(false);
     if (!Scripts::FetchIntValue(kNewSpecial)) {
         m_special += Ftol(static_cast<double>(m_pot) * m_multiplier);
         if (m_special >= 3000) {
@@ -624,20 +624,20 @@ void Score::Land()
         m_bestComboSent = m_potScore;
     }
     if (!mode->RepeatsLosePoints()) {
-        for (int i = 0; i < m_seen.m_count; ++i) {
-            auto* seen = static_cast<STrickSeen*>(m_seen.GetItemByIndex(&i, nullptr)); // (inlined there)
+        for (int i = 0; i < m_seen.m_num; ++i) {
+            auto* seen = static_cast<STrickSeen*>(m_seen.FetchEntryAt(&i, nullptr)); // (inlined there)
             for (int k = 0; k < 4; ++k) {
                 seen->m_landed[k] = 0;
-                seen->m_current[k] = 0;
+                seen->m_ongoing[k] = 0;
             }
         }
         ResetRobot(this, true);
     } else {
-        for (int i = 0; i < m_seen.m_count; ++i) {
-            auto* seen = static_cast<STrickSeen*>(m_seen.GetItemByIndex(&i, nullptr));
+        for (int i = 0; i < m_seen.m_num; ++i) {
+            auto* seen = static_cast<STrickSeen*>(m_seen.FetchEntryAt(&i, nullptr));
             for (int k = 0; k < 4; ++k) {
-                seen->m_landed[k] += seen->m_current[k];
-                seen->m_current[k] = 0;
+                seen->m_landed[k] += seen->m_ongoing[k];
+                seen->m_ongoing[k] = 0;
             }
         }
     }
@@ -658,22 +658,22 @@ void Score::Land()
         if (send) {
             if (!net->OnServer())
                 SendPoints(net, skater, kMsgLandedScore, points);
-            SetGrandTotal(mode->KeepsBestChain() ? points : m_total + points);
+            SetGrandTotal(mode->KeepsBestChain() ? points : m_sum + points);
         } else if (!mode->KeepsBestChain() && !static_cast<uint8_t>(mode->IsScoreFrozen())) {
             SetGrandTotal(points);
         }
     }
     CheckHighScore(before, GetTotalScore());
-    static_cast<GameObjects::CRiderRunClock*>(skater->GetComponent(kSkaterRunTimer))->Stop();
+    static_cast<GameObjects::CRiderRunClock*>(skater->FetchModule(kSkaterRunTimer))->Halt();
 }
 
 // 0x00564860
-void Score::Bail(bool clear)
+void PointTally::Bail(bool clear)
 {
-    for (int i = 0; i < m_seen.m_count; ++i) {
-        auto* seen = static_cast<STrickSeen*>(m_seen.GetItemByIndex(&i, nullptr)); // (inlined there)
+    for (int i = 0; i < m_seen.m_num; ++i) {
+        auto* seen = static_cast<STrickSeen*>(m_seen.FetchEntryAt(&i, nullptr)); // (inlined there)
         for (int k = 0; k < 4; ++k)
-            seen->m_current[k] = 0;
+            seen->m_ongoing[k] = 0;
     }
     if (m_tricks) {
         m_potState = 0;
@@ -690,17 +690,17 @@ void Score::Bail(bool clear)
     ClearCombo(this);
     m_special = 0;
     SetSpecialActive(false); // (inlined there)
-    static_cast<GameObjects::CRiderRunClock*>(SkaterById(m_riderNo)->GetComponent(kSkaterRunTimer))->Stop();
+    static_cast<GameObjects::CRiderRunClock*>(SkaterById(m_riderNo)->FetchModule(kSkaterRunTimer))->Halt();
     GoalSystem::GetObjectiveBoard()->Bail();
 }
 
 // 0x00564A10
-void Score::Reset()
+void PointTally::Reset()
 {
     if (!SkateCalls::Skate())
         return;
     GameObjects::CRider* skater = SkaterById(m_riderNo);
-    DebugOut::Printf("Score::RESET ...............\n"); // "Score::RESET ...............\n"
+    DebugOut::Printf("Score::RESET ...............\n"); // "PointTally::RESET ...............\n"
     ResetRobot(this, true);
     ResetScorePot();
     ListKit::TableItemEraser destroyer{&m_seen};
@@ -709,7 +709,7 @@ void Score::Reset()
         DispatchTrickSequence(false);
         DispatchScorePot(0, 0.0f);
     }
-    m_total = GameMode()->GetNameKey() == kNetFirefight || GameMode()->GetNameKey() == kFirefight ? 100 : 0;
+    m_sum = GameMode()->GetNameKey() == kNetFirefight || GameMode()->GetNameKey() == kFirefight ? 100 : 0;
     m_pot = 0;
     m_potScore = 0;
     m_potSpecial = 0;
@@ -721,13 +721,13 @@ void Score::Reset()
     SetSpecialBarColors();
     skater = SkaterById(m_riderNo);
     if (skater && skater->m_unknownBC)
-        static_cast<GameObjects::CRiderRunClock*>(skater->GetComponent(kSkaterRunTimer))->Stop();
+        static_cast<GameObjects::CRiderRunClock*>(skater->FetchModule(kSkaterRunTimer))->Halt();
 }
 
 // 0x00564BE0
-void Score::AdvanceTurn(int degrees)
+void PointTally::AdvanceTurn(int degrees)
 {
-    if (m_tricks && m_spinTrick >= 0 && !(Trick(m_spinTrick)->m_flags & kTrickNoSpin))
+    if (m_tricks && m_spinTrick >= 0 && !(Trick(m_spinTrick)->m_flagBits & kTrickNoSpin))
         SetTurnAmount(degrees);
 }
 
@@ -738,14 +738,14 @@ namespace ListKit {
 // 0x005633E0
 void TableItemEraser::FreeTableContents()
 {
-    int count = m_lookupTable->m_count;
+    int count = m_lookupTable->m_num;
     int index = 0;
     for (; count > 0; --count) {
         uint32_t key;
-        void* item = m_lookupTable->GetItemByIndex(&index, &key);
+        void* item = m_lookupTable->FetchEntryAt(&index, &key);
         m_lookupTable->EraseEntry(&key);
         if (item)
-            MemSys::Free(item);
+            MemSys::Dealloc(item);
     }
 }
 

@@ -27,14 +27,14 @@
 
 namespace Engine3D {
 
-ListKit::HashTable* g_shatters;
+ListKit::KeyMap* g_shatters;
 
 namespace {
 
 extern void** const kShatterVtable;
 
 IDirect3DDevice9* DrawDevice() { return g_drawDevice; }
-ListKit::HashTable* Shatters() { return g_shatters; }
+ListKit::KeyMap* Shatters() { return g_shatters; }
 
 uint16_t TriangleCount(const CPcShatter* shatter) { return shatter->triangleCount; }
 
@@ -45,17 +45,17 @@ void* MeshPixelShader(const meshRef* mesh) { return *reinterpret_cast<void* cons
 } // namespace
 
 // 0x004B8120
-CPcShatter* CPcShatter::Construct(int count, meshRef* sourceMesh, uint32_t own)
+CPcShatter* CPcShatter::MakeNew(int count, meshRef* sourceMesh, uint32_t own)
 {
-    reinterpret_cast<CShatter*>(this)->CShatter::Construct(count);
+    reinterpret_cast<CShatter*>(this)->CShatter::MakeNew(count);
     mesh = sourceMesh;
     vtable = reinterpret_cast<void**>(kShatterVtable);
-    vertices = static_cast<uint8_t*>(MemSys::New(3 * sourceMesh->stride * count));
+    vertices = static_cast<uint8_t*>(MemSys::Alloc(3 * sourceMesh->stride * count));
     ownMaterial = own;
-    positions = static_cast<float*>(MemSys::New(12 * count));
+    positions = static_cast<float*>(MemSys::Alloc(12 * count));
     if (own) {
-        void* memory = MemSys::New(0x110);
-        material = memory ? reinterpret_cast<uint8_t*>(static_cast<materialRef*>(memory)->Construct()) : nullptr;
+        void* memory = MemSys::Alloc(0x110);
+        material = memory ? reinterpret_cast<uint8_t*>(static_cast<materialRef*>(memory)->MakeNew()) : nullptr;
     } else {
         material = nullptr;
     }
@@ -66,22 +66,22 @@ CPcShatter* CPcShatter::Construct(int count, meshRef* sourceMesh, uint32_t own)
 void CPcShatter::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kShatterVtable);
-    MemSys::Manager::Get()->Free(vertices);
+    MemSys::Hub::Pull()->Dealloc(vertices);
     if (uint8_t* own = material) {
         reinterpret_cast<materialRef*>(own)->DestroyBody(); // (the material's destructor body)
-        MemSys::Manager::Get()->Free(own);
+        MemSys::Hub::Pull()->Dealloc(own);
     }
     if (positions)
-        MemSys::Manager::Get()->Free(positions);
+        MemSys::Hub::Pull()->Dealloc(positions);
     reinterpret_cast<CShatter*>(this)->CShatter::DestroyBody();
 }
 
 // 0x004B9A30
-CPcShatter* CPcShatter::Destroy(unsigned int flags)
+CPcShatter* CPcShatter::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -89,7 +89,7 @@ CPcShatter* CPcShatter::Destroy(unsigned int flags)
 void __cdecl DrawShatter(CPcShatter* shatter)
 {
     meshRef* mesh = shatter->mesh;
-    reinterpret_cast<materialRef*>(mesh->material)->Submit(); // (the material's set-up)
+    reinterpret_cast<materialRef*>(mesh->material)->HandIn(); // (the material's set-up)
     SetPixelShader(MeshPixelShader(mesh), mesh->material);
     SetVertexFormat(MeshVertexFormat(mesh));
     ++g_drawCalls; // the frame's draw calls and triangles
@@ -100,7 +100,7 @@ void __cdecl DrawShatter(CPcShatter* shatter)
 // 0x004B9550
 void __cdecl KillAllShatters()
 {
-    ListKit::HashTable* table = Shatters();
+    ListKit::KeyMap* table = Shatters();
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
     if (!table->StepIterator() || !table->m_iterItem)
@@ -120,7 +120,7 @@ void __cdecl KillAllShatters()
 namespace {
 
 // x' = (z m20 + y m10) + x m00 and so on, each rounded to a float (the original's order of operations).
-void Turn(const Maths::Matrix& m, double x, double y, double z, float* out)
+void Turn(const Maths::Mat4& m, double x, double y, double z, float* out)
 {
     for (int k = 0; k < 3; ++k)
         out[k] = static_cast<float>(z * (&m.row[2].x)[k] + y * (&m.row[1].x)[k] + x * (&m.row[0].x)[k]);
@@ -134,7 +134,7 @@ constexpr double kPerRandTwice = std::bit_cast<float>(0x38800100u); // 0x0064930
 // The vertex stack the splitter works from (0x006FC4A0; not rewritten yet: pushed onto).
 void PushVertex(const uint8_t* vertex)
 {
-    reinterpret_cast<sVertexStack*>(reinterpret_cast<uint8_t*>(&g_vertexStack))->Push(vertex);
+    reinterpret_cast<sVertexStack*>(reinterpret_cast<uint8_t*>(&g_vertexStack))->StackOn(vertex);
 }
 uint8_t* LockVertices(sVertexBuffer* buffer)
 {
@@ -159,8 +159,8 @@ void __cdecl UpdateShatter(CPcShatter* shatter, float step)
     uint8_t* v1 = v0 + stride;
     uint8_t* v2 = v0 + 2 * stride;
     for (int i = 0; i < shatter->triangleCount; ++i, v0 += 3 * stride, v1 += 3 * stride, v2 += 3 * stride) {
-        const Maths::Vector& c = shatter->centres[i];
-        const Maths::Matrix& m = shatter->rotations[i];
+        const Maths::Vec4& c = shatter->centres[i];
+        const Maths::Mat4& m = shatter->rotations[i];
         // (the first vertex's offsets stay in registers, the others' are stored)
         double d0[3], d1[3], d2[3];
         for (int k = 0; k < 3; ++k) {
@@ -173,7 +173,7 @@ void __cdecl UpdateShatter(CPcShatter* shatter, float step)
         Turn(m, d1[0], d1[1], d1[2], r1);
         Turn(m, d2[0], d2[1], d2[2], r2);
         reinterpret_cast<CShatter*>(shatter)->CShatter::Step(i, step); // (the centre moved)
-        const Maths::Vector& moved = shatter->centres[i];
+        const Maths::Vec4& moved = shatter->centres[i];
         for (int k = 0; k < 3; ++k) {
             At(v0)[k] = static_cast<float>(static_cast<double>(r0[k]) + (&moved.x)[k]);
             At(v1)[k] = static_cast<float>(static_cast<double>(r1[k]) + (&moved.x)[k]);
@@ -186,7 +186,7 @@ void __cdecl UpdateShatter(CPcShatter* shatter, float step)
         return;
     uint8_t* n0 = shatter->vertices + normalOffset;
     for (int i = 0; i < shatter->triangleCount; ++i, n0 += 3 * stride) {
-        const Maths::Matrix& m = shatter->rotations[i];
+        const Maths::Mat4& m = shatter->rotations[i];
         for (int v = 0; v < 3; ++v) {
             float* n = At(n0 + v * stride);
             float turned[3];
@@ -207,7 +207,7 @@ void __cdecl ShatterGeom(uint8_t* geom)
             continue;
         uint32_t stride = mesh->stride;
         g_vertexStack.vertexSize = stride; // (the vertex stack's vertex size)
-        sVertexBuffer* vertexBuffer = mesh->GetVertexBuffer(0);
+        sVertexBuffer* vertexBuffer = mesh->FetchVertexStore(0);
         uint8_t* vertices = LockVertices(vertexBuffer);
         auto* indices = reinterpret_cast<uint16_t*>(LockIndices(mesh->indexBuffers[0]));
         // the strip's triangles onto the stack, counted with what their splitting will make of them
@@ -247,8 +247,8 @@ void __cdecl ShatterGeom(uint8_t* geom)
         }
         if (!count)
             continue; // (the buffers left locked, as the original)
-        void* memory = MemSys::New(sizeof(CPcShatter));
-        CPcShatter* shatter = memory ? static_cast<CPcShatter*>(memory)->Construct(count, mesh, 0) : nullptr;
+        void* memory = MemSys::Alloc(sizeof(CPcShatter));
+        CPcShatter* shatter = memory ? static_cast<CPcShatter*>(memory)->MakeNew(count, mesh, 0) : nullptr;
         // the centre they fly from: the mesh's, moved back along the shatter direction (its length the base speed)
         const float* direction = reinterpret_cast<const float*>(&g_shatterVelocity);
         double scale = -static_cast<double>(g_shatterVelocityScale);
@@ -269,7 +269,7 @@ void __cdecl ShatterGeom(uint8_t* geom)
             ;
         int j = 0;
         for (uint8_t* t = shatter->vertices; t < cursor; t += 3 * stride, ++j) {
-            Maths::Vector& centre = shatter->centres[j];
+            Maths::Vec4& centre = shatter->centres[j];
             for (int k = 0; k < 3; ++k)
                 (&centre.x)[k] = static_cast<float>(
                     (static_cast<double>(At(t + 2 * stride)[k]) + At(t + stride)[k] + At(t)[k]) * (1.0f / 3.0f));
@@ -293,7 +293,7 @@ void __cdecl ShatterGeom(uint8_t* geom)
             float a1 = static_cast<float>(Rand() * kPerRandTwice - 1.0f);
             float a2 = static_cast<float>(Rand() * kPerRandTwice - 1.0f);
             float a3 = static_cast<float>(Rand() * kPerRandTwice - 1.0f);
-            Maths::Vector axis = {a3, a2, a1, 1.0f};
+            Maths::Vec4 axis = {a3, a2, a1, 1.0f};
             double axisLength = std::sqrt(static_cast<double>(a3) * a3 + static_cast<double>(a2) * a2 +
                                           static_cast<double>(a1) * a1);
             if (axisLength > 0.0) {
@@ -302,23 +302,23 @@ void __cdecl ShatterGeom(uint8_t* geom)
                 axis.y = static_cast<float>(a2 * inverse);
                 axis.z = static_cast<float>(inverse * a1);
             }
-            Maths::Matrix& rotation = shatter->rotations[j];
+            Maths::Mat4& rotation = shatter->rotations[j];
             std::memset(&rotation, 0, sizeof(rotation));
             rotation.row[0].x = rotation.row[1].y = rotation.row[2].z = rotation.row[3].w = 1.0f;
             float angle = static_cast<float>(Rand() * kPerRand * 0.1f); // (up to 0.1, 0x00645D74)
-            Maths::Matrix turn;
+            Maths::Mat4 turn;
             Maths::BuildAxisAngleMatrix(turn, axis, angle);
             // D3DX (linked library code): rotation = rotation * turn
             D3dx::MatrixMultiply(
                 &rotation, &rotation, &turn);
         }
         mesh->indexBuffers[0]->Unlock(); // (unlocked)
-        mesh->GetVertexBuffer(0)->Unlock();
+        mesh->FetchVertexStore(0)->Unlock();
     }
 }
 
 namespace {
-static VtableSlot kShatterVtable_slots[] = {&Engine3D::CPcShatter::Destroy};
+static VtableSlot kShatterVtable_slots[] = {&Engine3D::CPcShatter::Teardown};
 void** const kShatterVtable = reinterpret_cast<void**>(kShatterVtable_slots);
 } // namespace
 

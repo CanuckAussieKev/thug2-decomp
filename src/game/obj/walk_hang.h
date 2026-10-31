@@ -25,7 +25,7 @@ public:
 };
 
 // 0x0043D990 (cdecl): out = a + (b - a) * t, each component rounded as the original's x87 code does. Returns out.
-Maths::Vector* __cdecl Lerp(Maths::Vector* out, const Maths::Vector* a, const Maths::Vector* b, float t);
+Maths::Vec4* __cdecl Lerp(Maths::Vec4* out, const Maths::Vec4* a, const Maths::Vec4* b, float t);
 // 0x0043DA20 (thiscall on the skater core physics component, or the walk component's control at +0x1770's +0x20):
 // whether its +0x228 angle is within 45 degrees of a half turn, with nothing at +0x234 and +0x22C not 0. Returns
 // 1 / 0.

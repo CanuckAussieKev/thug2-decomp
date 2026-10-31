@@ -1,4 +1,4 @@
-// NetLink::Manager: its constructor and destructor, the singleton, and making / destroying its apps. See
+// NetLink::Hub: its constructor and destructor, the singleton, and making / destroying its apps. See
 // net_manager.h.
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_addr, inet_ntoa: what the game uses
@@ -17,7 +17,7 @@
 
 namespace NetLink {
 
-Manager* g_netManager;
+Hub* g_netManager;
 
 namespace {
 
@@ -32,7 +32,7 @@ constexpr int kClientMaxConnections = 1;
 constexpr uint32_t kServerSize = 0x2308;
 constexpr uint32_t kClientSize = 0x1F18;
 
-Manager*& Instance() { return g_netManager; }
+Hub*& Sole() { return g_netManager; }
 
 uint32_t g_netManagerReferences;
 
@@ -65,14 +65,14 @@ void CopyName(char* out, const char* text)
     std::strncpy(out, text, 0x40);
 }
 
-bool InitApp(App* app) { return reinterpret_cast<bool(__thiscall*)(App*)>(app->m_vtable[4])(app); }
+bool InitApp(AppHost* app) { return reinterpret_cast<bool(__thiscall*)(AppHost*)>(app->m_vtable[4])(app); }
 
 } // namespace
 
 // 0x004556E0
-Manager* Manager::Construct()
+Hub* Hub::MakeNew()
 {
-    SetupListSentinel(&m_servers);
+    SetupListSentinel(&m_hosts);
     SetupListSentinel(&m_clients);
     for (int id = 0; id < kMaxMsgIds; ++id)
         m_messageFlags[id] = 0;
@@ -97,33 +97,33 @@ Manager* Manager::Construct()
 }
 
 // 0x004555A0
-void Manager::DestroyBody()
+void Hub::DestroyBody()
 {
     m_clients.DestroyBody();
-    m_servers.DestroyBody();
+    m_hosts.DestroyBody();
 }
 
 // 0x00455270
-Server* Manager::MakeServerApp(int id, const char* name, int maxClients, uint16_t port, int address,
+HostEnd* Hub::MakeServerApp(int id, const char* name, int maxClients, uint16_t port, int address,
                                         int flags)
 {
-    MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_networkHeap);
+    MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_networkHeap);
     if (m_connectionType != kConnectionType3 && m_connectionType != kConnectionTypeNone && m_useDHCP)
         address = static_cast<int>(inet_addr(m_localIP));
-    void* memory = MemSys::New(kServerSize);
-    Server* server = memory ? static_cast<Server*>(memory)->Construct(flags) : nullptr;
+    void* memory = MemSys::Alloc(kServerSize);
+    HostEnd* server = memory ? static_cast<HostEnd*>(memory)->MakeNew(flags) : nullptr;
     server->m_supervisor = this;
     InitApp(server);
     server->m_unknown1EB4 = static_cast<uint32_t>(id);
-    CopyName(server->m_name, name);
+    CopyName(server->m_label, name);
     server->m_maxConnections = maxClients;
-    AppendLast(&m_servers, &server->m_list1414);
-    if (server->IsLocal()) {
-        server->m_connected = true;
+    AppendLast(&m_hosts, &server->m_list1414);
+    if (server->IsHostLocal()) {
+        server->m_linkedUp = true;
     } else {
         server->Bind(static_cast<uint32_t>(address), port);
         if (flags & 1)
-            server->m_connected = true;
+            server->m_linkedUp = true;
     }
     AddAppTasks(server);
     in_addr ip;
@@ -131,60 +131,60 @@ Server* Manager::MakeServerApp(int id, const char* name, int maxClients, uint16_
     DebugOut::Printf("Created new: %s server %p, Max Clients: %d, IP: %s, Port: %d", name, server, maxClients,
                 inet_ntoa(ip), port);
     ++m_numApps;
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     return server;
 }
 
 // 0x004553F0
-Client* Manager::MakeClientApp(int id, const char* name, uint16_t port, int address, int flags)
+Guest* Hub::MakeClientApp(int id, const char* name, uint16_t port, int address, int flags)
 {
-    MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_networkHeap);
+    MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_networkHeap);
     if (m_connectionType != kConnectionType3 && m_connectionType != kConnectionTypeNone && m_useDHCP)
         address = static_cast<int>(inet_addr(m_localIP));
-    void* memory = MemSys::New(kClientSize);
-    Client* client = memory ? static_cast<Client*>(memory)->Construct(flags) : nullptr;
-    CopyName(client->m_name, name);
+    void* memory = MemSys::Alloc(kClientSize);
+    Guest* client = memory ? static_cast<Guest*>(memory)->MakeNew(flags) : nullptr;
+    CopyName(client->m_label, name);
     client->m_supervisor = this;
     InitApp(client);
     client->m_unknown1EB4 = static_cast<uint32_t>(id);
     client->m_maxConnections = kClientMaxConnections;
     AppendLast(&m_clients, &client->m_list1414);
-    if (!client->IsLocal())
+    if (!client->IsHostLocal())
         client->Bind(static_cast<uint32_t>(address), port);
     AddAppTasks(client);
     DebugOut::Printf("Created new: %s client %p on port %d\n", name, client, port);
     ++m_numApps;
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     return client;
 }
 
 // 0x00455550
-void Manager::ReleaseApp(App* app)
+void Hub::ReleaseApp(AppHost* app)
 {
     MemSys::ListNode& node = app->m_list1414;
     node.prev->next = node.next;
     node.next->prev = node.prev;
     node.next = &node;
     node.prev = &node;
-    reinterpret_cast<void(__thiscall*)(App*)>(app->m_vtable[5])(app); // Deinit (through 0x00456B30)
+    reinterpret_cast<void(__thiscall*)(AppHost*)>(app->m_vtable[5])(app); // Deinit (through 0x00456B30)
     if (app) // (checked only now)
-        reinterpret_cast<void*(__thiscall*)(App*, unsigned int)>(app->m_vtable[0])(app, 1);
+        reinterpret_cast<void*(__thiscall*)(AppHost*, unsigned int)>(app->m_vtable[0])(app, 1);
     --m_numApps;
 }
 
 // 0x00455880
-Manager* CreateManager(bool create)
+Hub* CreateManager(bool create)
 {
-    if (!Instance() && create) {
-        if (void* memory = MemSys::AllocZeroed(sizeof(Manager), nullptr, 1)) {
-            Instance() = static_cast<Manager*>(memory)->Construct();
+    if (!Sole() && create) {
+        if (void* memory = MemSys::AllocZeroed(sizeof(Hub), nullptr, 1)) {
+            Sole() = static_cast<Hub*>(memory)->MakeNew();
             ++RefTally();
-            return Instance();
+            return Sole();
         }
-        Instance() = nullptr;
+        Sole() = nullptr;
     }
     ++RefTally();
-    return Instance();
+    return Sole();
 }
 
 // 0x004558D0
@@ -194,11 +194,11 @@ void ReleaseManager()
         --RefTally();
         return;
     }
-    if (Manager* manager = Instance()) {
+    if (Hub* manager = Sole()) {
         manager->DestroyBody();
-        MemSys::Manager::Get()->Free(manager);
+        MemSys::Hub::Pull()->Dealloc(manager);
     }
-    Instance() = nullptr;
+    Sole() = nullptr;
     RefTally() = 0;
 }
 

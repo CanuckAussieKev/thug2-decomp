@@ -38,20 +38,20 @@ public:
     };
 
     // 0x00433100 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00432C80 (not a Ghidra function; registered with Create): its script member functions registered.
     static void __cdecl PublishMethodTable();
     // 0x00432D90: the base's constructor, its vtable and type; no emitter or proxim node; at the origin (w 1) now and
     // before. (The sound slots and waiting sounds are left as allocated - zero.) Returns this.
-    CAudioEmitterModule* Construct();
+    CAudioEmitterModule* MakeNew();
     // 0x00432DF0: every sound of it stopped (the manager's StopObjectSounds); the base's body.
     void DestroyBody();
     // 0x00433160 (vtable slot 0)
-    CAudioEmitterModule* Destroy(unsigned int flags);
+    CAudioEmitterModule* Teardown(unsigned int flags);
     // 0x00432CA0 (vtable slot 2): ProximNode= (the proxim node heard from).
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x004335D0 (vtable slot 1): the position a frame ago kept, the object's taken; then UpdateWaitingSounds.
-    void Update();
+    void TickFrame();
     // 0x00433190 (vtable slot 12): Obj_AdjustSound, Obj_StopSound (the unnamed sound stopped and no longer waited
     // for), Obj_SetSound: 1; other names 2.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
@@ -61,10 +61,10 @@ public:
     void KeepLoopingSound(const SoundFx::PlaybackProps* props, uint32_t time);
     // 0x00432E50 / 0x00432EB0: where the sound is heard from by `camera` now / a frame ago: the nearest point of the
     // emitter (if any, and given a camera), else the position.
-    Maths::Vector* GetSoundPosition(Maths::Vector* out, void* camera);
-    Maths::Vector* GetPreviousSoundPosition(Maths::Vector* out, void* camera);
+    Maths::Vec4* GetSoundPosition(Maths::Vec4* out, void* camera);
+    Maths::Vec4* GetPreviousSoundPosition(Maths::Vec4* out, void* camera);
     // 0x00432F10: the nearest point of the proxim node to `camera` (false without one or without a camera).
-    bool GetSoundExtent(void* camera, Maths::Vector* out);
+    bool GetSoundExtent(void* camera, Maths::Vec4* out);
     // 0x00432F70 (`this` unused): the props' pitch and volume moved towards their targets (+0x18 / +0x1C) by their
     // steps (+0x20 / +0x24) a 60th of a second.
     void UpdateProps(SoundFx::PlaybackProps* props);
@@ -75,7 +75,7 @@ public:
     // 0x00433240: a sound played (Obj_PlaySound): the unnamed checksum, or the slot `Type` (0-8) set by Obj_SetSound;
     // vol / pitch (100), or Percent between floorLoudness..maxVol / minPitch..maxPitch; dropoff (feet), dropoff_function,
     // NoPosUpdate, emitter.
-    void PlaySound(Scripts::CStruct* params);
+    void EmitSound(Scripts::CStruct* params);
     // 0x00432FF0 Obj_AdjustSound: the unnamed sound's (playing, or waiting) target volume / pitch = loudnessPercent /
     // pitchPercent of their originals, reached at once unless volumeStep / pitchStep are given.
     void AdjustSound(Scripts::CStruct* params, Scripts::CScript* script);
@@ -83,19 +83,19 @@ public:
     void AssignSoundCue(Scripts::CStruct* params);
 
     // --- script member functions (the table at 0x00683118) ---
-    // 0x00433630 (not a Ghidra function) Obj_PlaySound: PlaySound. True.
+    // 0x00433630 (not a Ghidra function) Obj_PlaySound: EmitSound. True.
     bool Obj_PlaySound(Scripts::CStruct* params, Scripts::CScript* script);
 
     uint32_t m_soundCues[8];          // +0x18 the sounds by type (Obj_SetSound - which takes 8 too: the next field)
     WaitingSound m_waiting[2];     // +0x38
-    Maths::Vector m_pos;             // +0x98 where it is
-    Maths::Vector m_lastPos;         // +0xA8 where it was a frame ago
+    Maths::Vec4 m_atPoint;             // +0x98 where it is
+    Maths::Vec4 m_lastPos;         // +0xA8 where it was a frame ago
     EmitterNode* m_spewer;       // +0xB8 heard from its nearest point
     ProximNode* mp_proxim;         // +0xBC
 };
 static_assert(sizeof(CAudioEmitterModule::WaitingSound) == 0x30, "layout must match the original");
 static_assert(offsetof(CAudioEmitterModule, m_soundCues) == 0x18 && offsetof(CAudioEmitterModule, m_waiting) == 0x38 &&
-                  offsetof(CAudioEmitterModule, m_pos) == 0x98 && offsetof(CAudioEmitterModule, m_lastPos) == 0xA8 &&
+                  offsetof(CAudioEmitterModule, m_atPoint) == 0x98 && offsetof(CAudioEmitterModule, m_lastPos) == 0xA8 &&
                   offsetof(CAudioEmitterModule, m_spewer) == 0xB8 && offsetof(CAudioEmitterModule, mp_proxim) == 0xBC &&
                   sizeof(CAudioEmitterModule) == 0xC0,
               "layout must match the original");

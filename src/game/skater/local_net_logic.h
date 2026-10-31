@@ -20,16 +20,16 @@ class CRiderHostSync : public CObjectModule {
 public:
     // 0x00513630 (registered by RegisterComponentTypes): a new one (0 if out of memory): nothing sent yet (the state
     // and +0x35 0xFF, so the first update sends them).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00512E30: the destructor body (the base's).
     void DestroyBody();
     // 0x00512E40 (vtable slot 0)
-    CRiderHostSync* Destroy(unsigned int flags);
+    CRiderHostSync* Teardown(unsigned int flags);
     // 0x00512E70 (vtable +0x0C): the state and core physics components found.
-    void Finalize();
+    void Seal();
     // 0x005136C0 (vtable +0x04): in a multiplayer game with a local player (the network manager's 0x00537320),
     // SendUpdate.
-    void Update();
+    void TickFrame();
     // 0x005136F0 (the client's handler for message 0x4B, registered by 0x0056EB50; not a Ghidra function): someone's
     // graffiti was stolen - the message's +4 the victim's skater id, +8 the thief's, +0 the network manager's run
     // count (+0x38) it belongs to (another: kHandlerMsgDone). The handler's data is the local skater: its victim runs

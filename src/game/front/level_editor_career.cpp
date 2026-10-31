@@ -57,7 +57,7 @@ int Landed(const Checklist& list)
 void TakeBaseline(const char* why)
 {
     g_of = CurrentChecklist();
-    g_baseline = g_of ? Read(g_of) : Checklist{};
+    g_baseline = g_of ? TakeIn(g_of) : Checklist{};
     if (g_of)
         Log("level editor: the career's gap list kept as it is (%s: %u gaps, %d landed) - the edited copy doesn't "
             "change it",
@@ -66,18 +66,18 @@ void TakeBaseline(const char* why)
 
 } // namespace
 
-Checklist Read(GoalSystem::CGapTally* checklist)
+Checklist TakeIn(GoalSystem::CGapTally* checklist)
 {
     Checklist out;
     out.built = checklist->m_built;
-    int count = checklist->Count();
+    int count = checklist->TotalOf();
     for (int i = 0; i < count; ++i) {
         Gap gap;
         gap.name = checklist->GetGapTitle(i);
         gap.score = checklist->GetGapPoints(i);
         gap.count = checklist->CountGapsFound(i);
         if (gap.count) {
-            Maths::Vector pos, dir;
+            Maths::Vec4 pos, dir;
             checklist->GetGapPositions(i, &pos, &dir);
             const float p[4] = {pos.x, pos.y, pos.z, pos.w}, d[4] = {dir.x, dir.y, dir.z, dir.w};
             std::copy(p, p + 4, gap.pos);
@@ -99,7 +99,7 @@ void EditedCopy(bool on)
     }
     if (GoalSystem::CGapTally* checklist = g_of) {
         // Put back as the career's load puts a checklist (CRiderStoryProgress::DecodeFromStruct): cleared, the gaps added.
-        Checklist now = Read(checklist);
+        Checklist now = TakeIn(checklist);
         checklist->Clear();
         for (const Gap& gap : g_baseline.gaps) {
             checklist->RegisterGapEntry(gap.name.c_str(), gap.count, gap.score);
@@ -130,7 +130,7 @@ bool SaveView(GoalSystem::CGapTally* checklist, Checklist* out)
     bool baseline = g_on && checklist && checklist == g_of;
     if (!baseline && !editor)
         return false;
-    Checklist live = Read(checklist);
+    Checklist live = TakeIn(checklist);
     *out = ForSave(live, baseline ? &g_baseline : nullptr, editorGaps, levelGaps);
     Log("level editor: the career save gets this level's gap list %s (%u gaps, %d landed; it has %u, %d landed)",
         baseline ? "as before the edited copy" : "without the editor's gaps", static_cast<unsigned>(out->gaps.size()),

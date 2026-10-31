@@ -49,9 +49,9 @@ int NearestWithin(const std::vector<std::pair<float, float>>& pixels, float x, f
 
 std::string Describe(const Measure& m)
 {
-    std::string text = Arcs::Distance(m.distance) + " - across " + Arcs::Distance(m.horizontal) + ", ";
+    std::string text = Arcs::SpanTo(m.distance) + " - across " + Arcs::SpanTo(m.horizontal) + ", ";
     text += m.height < 0.0f ? "down " : "up ";
-    return text + Arcs::Distance(std::fabs(m.height));
+    return text + Arcs::SpanTo(std::fabs(m.height));
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
@@ -71,8 +71,8 @@ bool CastFeeler(V3 from, V3 to, V3* hit, uint32_t* sector)
 {
     alignas(16) uint8_t feeler[0x100] = {};
     auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
-    ray->Construct();
-    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    ray->MakeNew();
+    Maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* p = reinterpret_cast<const float*>(feeler + 0x34);
@@ -96,7 +96,7 @@ std::vector<V3> CornersNear(uint32_t checksum, V3 near, float reach)
         return corners;
     int count = tri->m_numVertices < 20000 ? tri->m_numVertices : 20000;
     for (int i = 0; i < count; ++i) {
-        Maths::Vector v = tri->ReadStoredVertex(i);
+        Maths::Vec4 v = tri->ReadStoredVertex(i);
         V3 p = {v.x, v.y, v.z};
         V3 d = p - near;
         if (Dot(d, d) <= reach * reach)
@@ -140,12 +140,12 @@ void Hover(V3 origin, V3 unitDir, float x, float y, bool noSnap)
     V3 d = hit - origin;
     float reach = std::max(50.0f, std::sqrt(Dot(d, d)) * 0.08f);
     std::vector<V3> corners = CornersNear(sector, hit, reach);
-    Frame frame = FrameFromYawPitch(view.yaw, view.pitch);
+    TickCycle frame = FrameFromYawPitch(view.yaw, view.pitch);
     std::vector<std::pair<float, float>> pixels;
     std::vector<V3> shown;
     for (V3 c : corners) {
         float nx, ny, px, py;
-        if (!Project(view.pos, frame, view.lens, c, view.nearZ, &nx, &ny))
+        if (!CastOnto(view.pos, frame, view.lens, c, view.nearZ, &nx, &ny))
             continue;
         NdcToPixel(view.viewport, nx, ny, &px, &py);
         pixels.push_back({px, py});
@@ -194,16 +194,16 @@ void AddOverlay(const Overlays::Painter& painter)
         else
             end(b, false);
         Measure m = MeasureOf(g_a, b);
-        painter.Line(g_a, b, kRuler, 2.0f);
+        painter.Seg(g_a, b, kRuler, 2.0f);
         // (the horizontal gap at the lower end's height, the rise straight up from it)
         V3 low = g_a.y <= b.y ? g_a : b, high = g_a.y <= b.y ? b : g_a;
         V3 corner = {high.x, low.y, high.z};
-        painter.Line(low, corner, kGap, 1.5f);
-        painter.Line(corner, high, kRise, 1.5f);
-        painter.Text((g_a + b) * 0.5f, kRuler, Arcs::Distance(m.distance));
-        painter.Text((low + corner) * 0.5f, kGap, "across " + Arcs::Distance(m.horizontal), 6.0f, 6.0f);
+        painter.Seg(low, corner, kGap, 1.5f);
+        painter.Seg(corner, high, kRise, 1.5f);
+        painter.Text((g_a + b) * 0.5f, kRuler, Arcs::SpanTo(m.distance));
+        painter.Text((low + corner) * 0.5f, kGap, "across " + Arcs::SpanTo(m.horizontal), 6.0f, 6.0f);
         if (std::fabs(m.height) > 0.5f)
-            painter.Text((corner + high) * 0.5f, kRise, (m.height < 0.0f ? "down " : "up ") + Arcs::Distance(std::fabs(m.height)));
+            painter.Text((corner + high) * 0.5f, kRise, (m.height < 0.0f ? "down " : "up ") + Arcs::SpanTo(std::fabs(m.height)));
     }
 }
 

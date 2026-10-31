@@ -22,7 +22,7 @@ namespace Engine3D {
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 
 // The image's header.
 struct ImageHeader {
@@ -52,18 +52,18 @@ bool PowerOfTwo(uint32_t n) { return (n & (n - 1)) == 0; }
 // The swizzled texels into rows and 8-bit indices through a palette (the platform layer's).
 void Unswizzle(void* out, const void* in, uint32_t width, uint32_t height, uint32_t bytesPerPixel)
 {
-    Platform::Unswizzle(out, in, static_cast<int>(width), static_cast<int>(height), bytesPerPixel);
+    OsLayer::Unswizzle(out, in, static_cast<int>(width), static_cast<int>(height), bytesPerPixel);
 }
 void ExpandPalette(void* out, const void* indices, uint32_t size, const void* palette)
 {
-    Platform::ExpandPalette(static_cast<uint32_t*>(out), static_cast<const uint8_t*>(indices), static_cast<int>(size),
+    OsLayer::ExpandPalette(static_cast<uint32_t*>(out), static_cast<const uint8_t*>(indices), static_cast<int>(size),
                             static_cast<const uint32_t*>(palette));
 }
 
 textureRef* NewTexture()
 {
-    void* memory = MemSys::New(sizeof(textureRef));
-    return memory ? static_cast<textureRef*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::Alloc(sizeof(textureRef));
+    return memory ? static_cast<textureRef*>(memory)->MakeNew() : nullptr;
 }
 
 // The texture's sizes from the header: its own (the image's if the size isn't a power of two) and the image's.
@@ -91,18 +91,18 @@ void Finish(textureRef* texture)
 
 // The buffer the stored texels are read into. Not original - HD menu UI (game/gfx/hd_ui.h): an upscaled image's
 // (up to 16 MB) comes from the C runtime's heap, not the game's - the game's heap in use while the front end loads its
-// sprites hasn't room for them (the first one made MemSys::New fail and the read end the game).
+// sprites hasn't room for them (the first one made MemSys::Alloc fail and the read end the game).
 void* NewTexelBuffer(uint32_t size, [[maybe_unused]] const ImageHeader& header)
 {
     if (HdUi::ImageScale(header.unknown14) != 1)
         return std::malloc(size);
-    return MemSys::New(size);
+    return MemSys::Alloc(size);
 }
 void FreeTexelBuffer(void* buffer, [[maybe_unused]] const ImageHeader& header)
 {
     if (HdUi::ImageScale(header.unknown14) != 1)
         return std::free(buffer);
-    MemSys::Manager::Instance()->Free(buffer);
+    MemSys::Hub::Sole()->Dealloc(buffer);
 }
 
 // Not original - HD menu UI (game/gfx/hd_ui.h, [features] hd_ui): an upscaled image keeps its full-size
@@ -134,21 +134,21 @@ uint32_t HdDxtSize(const ImageHeader& header) { return header.width * header.hei
 // 0x004E0790
 textureRef* __cdecl ReadTextureFile(const char* name)
 {
-    FileLoad::Handle file = FileLoad::Open(name, "rb");
+    FileLoad::Hdl file = FileLoad::Unseal(name, "rb");
     if (!file)
         return nullptr;
     ImageHeader header;
-    FileLoad::Read(&header, 0x20, 1, file);
+    FileLoad::TakeIn(&header, 0x20, 1, file);
     if (IsHdDxt(header)) { // (not original - hd_ui.h)
         textureRef* hd = NewTexture();
         hd->palette = nullptr;
-        Device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
+        InputPort()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
                                 reinterpret_cast<IDirect3DTexture9**>(&hd->texture), nullptr);
         SetSizes(hd, header, false);
         D3DLOCKED_RECT locked;
         static_cast<IDirect3DTexture9*>(hd->texture)->LockRect(0, &locked, nullptr, 0);
-        FileLoad::Read(locked.pBits, HdDxtSize(header), 1, file);
-        FileLoad::Close(file);
+        FileLoad::TakeIn(locked.pBits, HdDxtSize(header), 1, file);
+        FileLoad::Shut(file);
         Finish(hd);
         ApplyHdScale(hd, header);
         return hd;
@@ -160,34 +160,34 @@ textureRef* __cdecl ReadTextureFile(const char* name)
     texture->palette = nullptr;
     uint8_t palette[0x400];
     if (palettized)
-        FileLoad::Read(palette, header.paletteSize, 1, file);
+        FileLoad::TakeIn(palette, header.paletteSize, 1, file);
     // Not a power of two each way: the image is loaded as it is (no swizzling).
     bool plain = !(header.width && PowerOfTwo(header.width) && header.height && PowerOfTwo(header.height));
-    Device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
+    InputPort()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
                             reinterpret_cast<IDirect3DTexture9**>(&texture->texture), nullptr);
     SetSizes(texture, header, plain);
     uint32_t size = ((bits >> 3) * texture->height * texture->width + 3) & ~3u;
     D3DLOCKED_RECT locked;
     static_cast<IDirect3DTexture9*>(texture->texture)->LockRect(0, &locked, nullptr, 0);
     if (plain && !palettized) {
-        FileLoad::Read(locked.pBits, size, 1, file);
+        FileLoad::TakeIn(locked.pBits, size, 1, file);
     } else {
         void* buffer = NewTexelBuffer(size, header);
-        FileLoad::Read(buffer, size, 1, file);
+        FileLoad::TakeIn(buffer, size, 1, file);
         void* indices = nullptr;
         void* texels;
         if (plain) {
             texels = buffer;
         } else {
-            texels = palettized ? (indices = MemSys::New(size)) : locked.pBits;
+            texels = palettized ? (indices = MemSys::Alloc(size)) : locked.pBits;
             Unswizzle(texels, buffer, header.width, header.height, bits >> 3);
         }
         if (palettized)
             ExpandPalette(locked.pBits, texels, size, palette);
         FreeTexelBuffer(buffer, header);
-        MemSys::Manager::Instance()->Free(indices);
+        MemSys::Hub::Sole()->Dealloc(indices);
     }
-    FileLoad::Close(file);
+    FileLoad::Shut(file);
     Finish(texture);
     ApplyHdScale(texture, header); // (not original - hd_ui.h)
     return texture;
@@ -202,7 +202,7 @@ textureRef* __cdecl LoadTextureMemory(const uint8_t* data)
     if (IsHdDxt(header)) { // (not original - hd_ui.h)
         textureRef* hd = NewTexture();
         hd->palette = nullptr;
-        Device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
+        InputPort()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
                                 reinterpret_cast<IDirect3DTexture9**>(&hd->texture), nullptr);
         if (!hd->texture)
             return nullptr;
@@ -227,7 +227,7 @@ textureRef* __cdecl LoadTextureMemory(const uint8_t* data)
     bool plain = !(header.width && PowerOfTwo(header.width) && header.height && PowerOfTwo(header.height));
     if (header.id == 0x9B)
         plain = true;
-    Device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
+    InputPort()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
                             reinterpret_cast<IDirect3DTexture9**>(&texture->texture), nullptr);
     if (!texture->texture)
         return nullptr; // (the texture object stays made and listed)
@@ -246,13 +246,13 @@ textureRef* __cdecl LoadTextureMemory(const uint8_t* data)
         if (plain) {
             texels = buffer;
         } else {
-            texels = palettized ? (indices = MemSys::New(size)) : locked.pBits;
+            texels = palettized ? (indices = MemSys::Alloc(size)) : locked.pBits;
             Unswizzle(texels, buffer, header.width, header.height, bytesPerPixel);
         }
         if (palettized)
             ExpandPalette(locked.pBits, texels, size, palette);
         FreeTexelBuffer(buffer, header);
-        MemSys::Manager::Instance()->Free(indices);
+        MemSys::Hub::Sole()->Dealloc(indices);
     }
     Finish(texture);
     ApplyHdScale(texture, header); // (not original - hd_ui.h)

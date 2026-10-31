@@ -20,11 +20,11 @@ class CProximityComponent : public CObjectModule {
 public:
     // 0x0042B620 (RET 8): `script` run on the object with a new structure: 0x0AE89B6C = the skater's id, plus its
     // own parameters (+0x30).
-    void LaunchScript(uint32_t script, CObject* skater);
+    void LaunchScript(uint32_t script, CEntity* skater);
     // 0x0042B700: the skater's head (its position and the line a radius 0x006939A8 up from it, as a capsule of the
     // inner radius - the outer once inside) holding its position: in or out; a change runs the enter / exit script.
     // Inactive: out.
-    void Update();
+    void TickFrame();
 
     // --- script member functions (true) ---
     // 0x0042B850 (Proximity_Init): inactive, updated, then ConfigureFromData (vtable slot 2), active, not suspended.

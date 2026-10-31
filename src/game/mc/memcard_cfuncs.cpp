@@ -28,7 +28,7 @@ namespace MemCard {
 // PartyMod's free space (code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md): with a card
 // (its +0x0C flag), the disk's free 16 KB blocks, clamped to 0x7FFE0001 so that scripts can add to it without
 // overflowing (the original's count, card->GetFreeBlocks(), is unclamped).
-int32_t __fastcall FreeDiskBlocks(Card* card)
+int32_t __fastcall FreeDiskBlocks(SaveCard* card)
 {
     if (!reinterpret_cast<const uint8_t*>(card)[0xC])
         return 0;
@@ -62,7 +62,7 @@ bool GetMemCardSpaceAvailable(Scripts::CStruct*, Scripts::CScript* script)
 {
     ResultParams(script)->PutInt(kSpaceAvailable, 0);
     ResultParams(script)->PutInt(kFilesLeft, 1000000);
-    Card* card = g_theCard->GetStorageSlot(0, 0);
+    SaveCard* card = g_theCard->GetStorageSlot(0, 0);
     if (!card)
         return false;
     // Originally from PartyMod Fixes (its call at 0x005A6E7E): the clamped disk count in place of the original's
@@ -75,16 +75,16 @@ bool GetMemCardSpaceAvailable(Scripts::CStruct*, Scripts::CScript* script)
 
 namespace {
 
-int Platform() { return GameConfig::g_platform; }
+int OsLayer() { return GameConfig::g_platform; }
 
 // Pause (1), unpause (0) or restore (-1) the music and the music streams.
 void PauseMusic(int pause) { AudioStream::PauseMusic(pause); }
-void PauseStream(int pause) { AudioStream::PauseStream(pause); }
+void FreezeStream(int pause) { AudioStream::FreezeStream(pause); }
 
 Scripts::CStruct* NewParams()
 {
     Scripts::CStruct* params = Scripts::NewStruct();
-    return params ? params->Init() : nullptr;
+    return params ? params->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
 {
@@ -128,9 +128,9 @@ bool g_loadedCustomSkater;
 // leaves kLoadFailed in the script's parameters. Originally from PartyMod Fixes: the checksum isn't checked.
 bool LoadFromMemoryCard(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    if (Platform() != 4) {
+    if (OsLayer() != 4) {
         PauseMusic(1);
-        PauseStream(1);
+        FreezeStream(1);
     }
     Scripts::CStruct* header = NewParams();   // the file's first structure (read, then dropped)
     Scripts::CStruct* contents = NewParams(); // the second: what's loaded
@@ -140,15 +140,15 @@ bool LoadFromMemoryCard(Scripts::CStruct* params, Scripts::CScript* script)
     bool loaded = false;
     int noApply = 0;
     params->FetchIntValue(kNoApply, &noApply, 0);
-    Card* card = g_theCard->GetStorageSlot(0, 0);
+    SaveCard* card = g_theCard->GetStorageSlot(0, 0);
     // (the second test is a card method that's the shared always-true stub, 0x005B9760: always true)
     if (card && Stubs::ReturnTrue()) {
-        params->GetString("Name", &name, 0);
+        params->FetchText("Name", &name, 0);
         params->ReadHashValue("Type", &type, 0);
         char path[104];
         path[0] = '\0';
         bool named = true;
-        switch (Platform()) {
+        switch (OsLayer()) {
         case 1:
         case 2:
         case 3: { // console folders: /<dir><file>/<dir><file>
@@ -177,14 +177,14 @@ bool LoadFromMemoryCard(Scripts::CStruct* params, Scripts::CScript* script)
             named = false;
             break;
         }
-        FileLoad* file = named ? card->Open(path, 1, 0) : nullptr;
+        FileLoad* file = named ? card->Unseal(path, 1, 0) : nullptr;
         if (file) {
-            int size = static_cast<int>(file->Seek(0, 2));
+            int size = static_cast<int>(file->SeekTo(0, 2));
             bool bad = size != TypeFileSize(type);
             if (!bad) {
                 data = static_cast<uint8_t*>(MemSys::AllocBlock(size));
-                file->Seek(0, 0);
-                if (file->Read(data, size) == size) {
+                file->SeekTo(0, 0);
+                if (file->TakeIn(data, size) == size) {
                     auto* fileHeader = reinterpret_cast<SaveHeader*>(data);
                     fileHeader->checksum = 0;
                     // The original also rejected the file unless
@@ -218,7 +218,7 @@ bool LoadFromMemoryCard(Scripts::CStruct* params, Scripts::CScript* script)
             }
             if (bad)
                 ResultParams(script)->PutNameKey(0u, kLoadFailed);
-            file->Close();
+            file->Shut();
             reinterpret_cast<void(__thiscall*)(FileLoad*, int)>(file->m_listLink.vtable[0])(file, 1); // delete
             if (data)
                 MemSys::FreeMalloc(data);
@@ -226,9 +226,9 @@ bool LoadFromMemoryCard(Scripts::CStruct* params, Scripts::CScript* script)
     }
     DeleteParams(header);
     DeleteParams(contents);
-    if (Platform() != 4) {
+    if (OsLayer() != 4) {
         PauseMusic(-1);
-        PauseStream(-1);
+        FreezeStream(-1);
     }
     return loaded;
 }
@@ -266,7 +266,7 @@ uint32_t& SectionsToApplyWhenLoading() { return g_sectionsToApplyWhenLoading; }
 
 namespace {
 
-Card* TheCard() { return g_theCard->GetStorageSlot(0, 0); }
+SaveCard* TheCard() { return g_theCard->GetStorageSlot(0, 0); }
 
 // The script pools' pairs whose current pool the temporary pools switch: components, structures, vectors.
 MemSys::PoolPair& ComponentPools() { return Scripts::g_componentPools; }
@@ -278,22 +278,22 @@ MemSys::PoolPair& VectorPools() { return Scripts::g_vectorPools; }
 // 0x005A6D30
 bool GetMostRecentSave(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    ResultParams(script)->RemoveComponent("MostRecentSave");
+    ResultParams(script)->EraseModule("MostRecentSave");
     Scripts::CArray* saves = nullptr;
-    params->GetArray(0u, &saves, 0);
+    params->FetchList(0u, &saves, 0);
     if (!saves)
         return false;
     uint32_t type = 0;
     params->ReadHashValue(0u, &type, 0);
     Scripts::CStruct* best = nullptr;
-    for (uint32_t i = 0; i < saves->m_size; ++i) {
-        auto* save = reinterpret_cast<Scripts::CStruct*>(saves->GetElement(i));
+    for (uint32_t i = 0; i < saves->m_extent; ++i) {
+        auto* save = reinterpret_cast<Scripts::CStruct*>(saves->FetchPart(i));
         uint32_t fileType = 0;
         save->ReadHashValue("file_type", &fileType, 0);
         if (type != 0 && fileType != type) // (any type when none is asked for)
             continue;
         // a bad save only counts on the PC (4) and platform 5
-        if ((save->HasBareFlag("BadVersion") || save->HasBareFlag("Corrupt")) && Platform() != 4 && Platform() != 5)
+        if ((save->HasBareFlag("BadVersion") || save->HasBareFlag("Corrupt")) && OsLayer() != 4 && OsLayer() != 5)
             continue;
         if (!best || IsLater(save, best))
             best = save;
@@ -308,12 +308,12 @@ bool GetMostRecentSave(Scripts::CStruct* params, Scripts::CScript* script)
 bool FormatCard(Scripts::CStruct*, Scripts::CScript*)
 {
     PauseMusic(1);
-    PauseStream(1);
+    FreezeStream(1);
     bool formatted = false;
     if (TheCard())
         formatted = Stubs::ReturnFalse(); // (the card's Format: the shared always-false stub, 0x005B9E50)
     PauseMusic(-1);
-    PauseStream(-1);
+    FreezeStream(-1);
     return formatted;
 }
 

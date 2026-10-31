@@ -63,10 +63,10 @@ void StopSimulation()
 
 Actions::Chord K(int scancode, uint8_t mods = 0) { return {scancode, mods}; }
 
-int Add(const char* id, const char* name, const char* category, Actions::Kind kind, std::vector<Actions::Chord> keys,
+int AppendOne(const char* id, const char* name, const char* category, Actions::Kind kind, std::vector<Actions::Chord> keys,
         const char* tip, std::function<void()> run = nullptr, std::function<int()> checked = nullptr)
 {
-    Actions::Action a;
+    Actions::ActStep a;
     a.id = id;
     a.name = name;
     a.category = category;
@@ -76,20 +76,20 @@ int Add(const char* id, const char* name, const char* category, Actions::Kind ki
     a.tip = tip;
     a.run = std::move(run);
     a.checked = std::move(checked);
-    return Actions::Register(a);
+    return Actions::Enrol(a);
 }
 
 void AddHint(const char* id, const char* name, const char* category, const char* keys, const char* tip)
 {
-    Actions::Action a;
+    Actions::ActStep a;
     a.id = id;
     a.name = name;
     a.category = category;
-    a.kind = Actions::Kind::Info;
+    a.kind = Actions::Kind::DetailsOf;
     a.rebindable = false;
     a.keysText = keys;
     a.tip = tip;
-    Actions::Register(a);
+    Actions::Enrol(a);
 }
 
 // The selection as group members (UX3's groups).
@@ -112,7 +112,7 @@ std::vector<Organize::Member> SelectionMembers()
 
 void StoreSet(const std::string& name)
 {
-    Organize::State next = Organize::Current();
+    Organize::State next = Organize::AtHand();
     std::vector<Organize::Member> members = SelectionMembers();
     if (!Nav::StoreGroup(&next, name, members)) {
         Say("Nothing selected");
@@ -124,7 +124,7 @@ void StoreSet(const std::string& name)
 
 void RecallSet(const std::string& name)
 {
-    int at = Nav::FindGroup(Organize::Current(), name);
+    int at = Nav::FindGroup(Organize::AtHand(), name);
     if (at < 0) {
         Say(name + " is empty");
         return;
@@ -143,7 +143,7 @@ void AddToSet(int index)
 
 void TakeFromSet(int index)
 {
-    Organize::State next = Organize::Current();
+    Organize::State next = Organize::AtHand();
     if (!Nav::RemoveFromGroup(&next, index, SelectionMembers())) {
         Say("Selection is not in the set");
         return;
@@ -159,32 +159,32 @@ void RegisterActions()
     using Actions::kCtrl;
     using Actions::kShift;
     using Actions::Kind;
-    g_ids.pieContext = Add("pie_context", "Pie Menu", "Panels", Kind::Press,
+    g_ids.pieContext = AppendOne("pie_context", "Pie Menu", "Panels", Kind::Press,
                            {K(SDL_SCANCODE_Q), K(SDL_SCANCODE_TAB)},
                            "Hold for common actions; release over one to run it");
-    g_ids.pieView = Add("pie_view", "View Pie Menu", "Panels", Kind::Press,
+    g_ids.pieView = AppendOne("pie_view", "View Pie Menu", "Panels", Kind::Press,
                         {K(SDL_SCANCODE_Q, kAlt), K(SDL_SCANCODE_TAB, kShift)},
                         "Hold for view modes and overlays");
-    g_ids.walk = Add("walk_mode", "Walk Mode", "Camera", Kind::Press, {K(SDL_SCANCODE_GRAVE, kShift)},
+    g_ids.walk = AppendOne("walk_mode", "Walk Mode", "Camera", Kind::Press, {K(SDL_SCANCODE_GRAVE, kShift)},
                      "Walk at skater height with gravity");
-    g_ids.follow = Add("follow_selection", "Follow Selection", "Camera", Kind::Press, {K(SDL_SCANCODE_F, kShift)},
+    g_ids.follow = AppendOne("follow_selection", "Follow Selection", "Camera", Kind::Press, {K(SDL_SCANCODE_F, kShift)},
                        "Keep the camera on the selection as it moves", nullptr, [] { return g_following ? 1 : 0; });
-    g_ids.teleport = Add("teleport", "Go to Cursor", "Camera", Kind::Press, {},
+    g_ids.teleport = AppendOne("teleport", "Go to Cursor", "Camera", Kind::Press, {},
                          "Move the camera to the surface under the cursor");
-    g_ids.pad = Add("controller_mode", "Controller Mode", "Settings", Kind::Toggle, {},
+    g_ids.pad = AppendOne("controller_mode", "Controller Mode", "Settings", Kind::FlipOver, {},
                     "Use a game controller in the editor",
                     [] { SetPadMode(!g_padMode); }, [] { return g_padMode ? 1 : 0; });
     for (int i = 0; i < Nav::kQuickSets; ++i) {
         std::string n = std::to_string(i + 1);
         std::string storeId = "quick_set_store_" + n, recallId = "quick_set_" + n;
         std::string storeName = "Store Set " + n, recallName = "Select Set " + n;
-        g_ids.store[i] = Add(storeId.c_str(), storeName.c_str(), "Select", Kind::Press,
+        g_ids.store[i] = AppendOne(storeId.c_str(), storeName.c_str(), "Select", Kind::Press,
                              {K(SDL_SCANCODE_1 + i, kCtrl | kAlt)},
                              "Store the selection as Set n");
-        g_ids.recall[i] = Add(recallId.c_str(), recallName.c_str(), "Select", Kind::Press,
+        g_ids.recall[i] = AppendOne(recallId.c_str(), recallName.c_str(), "Select", Kind::Press,
                               {K(SDL_SCANCODE_1 + i, kAlt | kShift)}, "Select Set n");
         for (int index : {g_ids.store[i], g_ids.recall[i]}) {
-            if (Actions::Action* a = Actions::Get(index)) {
+            if (Actions::ActStep* a = Actions::Pull(index)) {
                 size_t at = a->tip.find("Set n");
                 if (at != std::string::npos)
                     a->tip.replace(at + 4, 1, n);
@@ -197,7 +197,7 @@ void RegisterActions()
             "Enable Controller Mode in Preferences");
 }
 
-void Init()
+void PrepareAll()
 {
     static bool done = false;
     if (done)
@@ -207,7 +207,7 @@ void Init()
     RegisterActions();
 }
 
-void Start()
+void Kickoff()
 {
     g_pie = Pie::State{};
     g_walking = false;
@@ -218,7 +218,7 @@ void Start()
     g_padOwns = false;
 }
 
-void Stop() { Start(); }
+void Halt() { Kickoff(); }
 
 // --- the controller ---
 
@@ -309,7 +309,7 @@ const uint8_t* PadKeys(const uint8_t* keys, const Pad& pad)
         return keys;
     std::memcpy(merged, keys, sizeof(merged));
     auto hold = [&](int action) {
-        const Actions::Action* a = Actions::Get(action);
+        const Actions::ActStep* a = Actions::Pull(action);
         if (!a)
             return;
         for (const Actions::Chord& c : a->keys) {
@@ -356,13 +356,13 @@ bool PadCancel(const Pad& pad)
     if (g_pie.open)
         return false; // (the pie takes B)
     if (pad.back)
-        Actions::Trigger(Actions::kUndo);
+        Actions::FireOff(Actions::kUndo);
     if (pad.lb)
-        Actions::Trigger(Actions::kTurnLeft);
+        Actions::FireOff(Actions::kTurnLeft);
     if (pad.rb)
-        Actions::Trigger(Actions::kTurnRight);
+        Actions::FireOff(Actions::kTurnRight);
     if (pad.r3)
-        Actions::Trigger(Actions::kFrameSelection);
+        Actions::FireOff(Actions::kFrameSelection);
     return pad.b && !g_walking;
 }
 
@@ -397,20 +397,20 @@ void RunSlice()
 
 } // namespace
 
-void Update(Frame& f)
+void TickFrame(TickCycle& f)
 {
     using namespace Actions;
     // Quick sets: Ctrl+Alt+n stores, Alt+Shift+n selects (not while dragging: digits are typed values then).
     if (!f.dragging) {
         for (int i = 0; i < Nav::kQuickSets; ++i) {
-            if (Pressed(g_ids.store[i]))
+            if (Squeezed(g_ids.store[i]))
                 StoreSet(Nav::QuickSetName(i + 1));
-            if (Pressed(g_ids.recall[i]))
+            if (Squeezed(g_ids.recall[i]))
                 RecallSet(Nav::QuickSetName(i + 1));
         }
     }
     // The follow camera: on frames the selection (F) and keeps with it.
-    if (Pressed(g_ids.follow) && !f.dragging) {
+    if (Squeezed(g_ids.follow) && !f.dragging) {
         if (g_following) {
             g_following = false;
             Say("Follow off");
@@ -419,17 +419,17 @@ void Update(Frame& f)
         } else {
             g_following = true;
             g_follower = {};
-            Trigger(kFrameSelection);
+            FireOff(kFrameSelection);
             Say("Following selection");
         }
     }
     // The pies.
     bool padOpen = f.pad.active && (f.pad.x || f.pad.y) && !g_pie.open;
-    bool keyContext = Pressed(g_ids.pieContext), keyView = Pressed(g_ids.pieView);
+    bool keyContext = Squeezed(g_ids.pieContext), keyView = Squeezed(g_ids.pieView);
     if ((keyContext || keyView || padOpen) && !g_pie.open && !f.right && !f.dragging && !f.browser && !g_walking &&
-        Ui::Running()) { // (drawn by the UI: the old HUD has no pies)
+        Ui::Underway()) { // (drawn by the UI: the old HUD has no pies)
         // ([editor] wasd_flies=1: a pie key that's also a fly key held flies)
-        bool flying = Transform::FlyAlways() && !padOpen &&
+        bool flying = Xform::FlyAlways() && !padOpen &&
                       (Held(f.keys, kFlyDown) || Held(f.keys, kFlyUp) || Held(f.keys, kForward) ||
                        Held(f.keys, kBack) || Held(f.keys, kLeft) || Held(f.keys, kRight));
         if (!flying) {
@@ -439,9 +439,9 @@ void Update(Frame& f)
                 y = g_viewY;
             }
             if (padOpen)
-                OpenPie(f.pad.y ? Pie::Kind::View : Pie::Kind::Context, f.haveSelection, x, y, -1, true);
+                OpenPie(f.pad.y ? Pie::Kind::View : Pie::Kind::CtxInfo, f.haveSelection, x, y, -1, true);
             else
-                OpenPie(keyView ? Pie::Kind::View : Pie::Kind::Context, f.haveSelection, x, y,
+                OpenPie(keyView ? Pie::Kind::View : Pie::Kind::CtxInfo, f.haveSelection, x, y,
                         keyView ? g_ids.pieView : g_ids.pieContext, false);
         }
     }
@@ -497,7 +497,7 @@ bool WantsEscape() { return g_pie.open || g_walking; }
 bool Following() { return g_following; }
 Nav::Follower& Follower() { return g_follower; }
 
-bool Walking() { return g_walking; }
+bool OnFoot() { return g_walking; }
 void SetWalking(bool on, V3 camera)
 {
     g_walking = on;
@@ -512,8 +512,8 @@ void SetWalking(bool on, V3 camera)
 }
 Nav::Walker& WalkerState() { return g_walker; }
 
-bool TakeWalkToggle() { return Actions::Pressed(g_ids.walk); }
-bool TakeTeleport() { return Actions::Pressed(g_ids.teleport); }
+bool TakeWalkToggle() { return Actions::Squeezed(g_ids.walk); }
+bool TakeTeleport() { return Actions::Squeezed(g_ids.teleport); }
 
 bool NoteEmptyClick(uint32_t now, float x, float y)
 {
@@ -538,7 +538,7 @@ bool Glide(V3* pos, double seconds)
     if (!g_glide.on)
         return false;
     g_glide.t = std::min(1.0f, g_glide.t + static_cast<float>(seconds / 0.35));
-    float e = Camera::Ease(g_glide.t);
+    float e = ViewCam::Ease(g_glide.t);
     *pos = g_glide.from + (g_glide.to - g_glide.from) * e;
     if (g_glide.t >= 1.0f)
         g_glide.on = false;

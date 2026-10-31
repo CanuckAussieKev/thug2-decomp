@@ -37,10 +37,10 @@ constexpr int kStateGround = 0, kStateAir = 1, kStateRail = 4;
 constexpr float kPercent = 100.0f; // 0x006463D4
 
 // The terrain sounds: a table by name; `terrain`'s sound in it played at `pos` (and sent to the other players).
-uint8_t SoundTable(uint32_t name) { return Terrain::GetTableIndex(name); }
-void PlayTerrainSound(uint32_t table, int terrain, const Maths::Vector* pos, float volume, float percent)
+uint8_t SoundTable(uint32_t name) { return SurfaceKind::GetTableIndex(name); }
+void PlayTerrainSound(uint32_t table, int terrain, const Maths::Vec4* pos, float volume, float percent)
 {
-    Terrain::PlayTerrainSound(SoundTable(table), static_cast<uint8_t>(terrain), pos, volume, percent, percent, true);
+    SurfaceKind::PlayTerrainSound(SoundTable(table), static_cast<uint8_t>(terrain), pos, volume, percent, percent, true);
 }
 
 bool OnGroundOrInAir(int state) { return state == kStateGround || state == kStateAir; }
@@ -50,19 +50,19 @@ bool OnGroundOrInAir(int state) { return state == kStateGround || state == kStat
 // Whether it was the bike's (played, or none).
 bool PlayBikeSound(CGameEntity* skater, Skater::ThawBmx::BikeSound kind, float volume, float percent)
 {
-    if (!Skater::ThawBmx::Enabled())
+    if (!Skater::ThawBmx::IsSwitchedOn())
         return false;
-    Terrain::SoundInfo info;
+    SurfaceKind::SoundInfo info;
     int bike = Skater::ThawBmx::BikeSoundOf(skater, kind, &info);
     if (bike < 0)
         return false;
     if (bike > 0)
-        Terrain::PlaySoundInfo(info, &skater->m_pos, volume, percent);
+        SurfaceKind::PlaySoundInfo(info, &skater->m_atPoint, volume, percent);
     return true;
 }
 
 // The speed (x, y, z summed in that order) over full speed.
-float FullLength(const Maths::Vector& v, float fullSpeed)
+float FullLength(const Maths::Vec4& v, float fullSpeed)
 {
     double x = v.x, y = v.y, z = v.z;
     return static_cast<float>(std::sqrt((x * x + y * y) + z * z) / fullSpeed);
@@ -71,17 +71,17 @@ float FullLength(const Maths::Vector& v, float fullSpeed)
 } // namespace
 
 // 0x00518E20
-CObjectModule* __cdecl CRiderSfxPlayer::Create()
+CObjectModule* __cdecl CRiderSfxPlayer::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderSfxPlayer));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CRiderSfxPlayer*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_fullSpeed = 1.0f;
     component->m_volumeMult = 1.0f;
     component->m_vtable = kVtable;
-    component->m_type = kSkaterSound;
+    component->m_kindTag = kSkaterSound;
     component->m_sliding = 0;
     return component;
 }
@@ -94,11 +94,11 @@ void CRiderSfxPlayer::DestroyBody()
 }
 
 // 0x00518C90
-CRiderSfxPlayer* CRiderSfxPlayer::Destroy(unsigned int flags)
+CRiderSfxPlayer* CRiderSfxPlayer::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -106,20 +106,20 @@ CRiderSfxPlayer* CRiderSfxPlayer::Destroy(unsigned int flags)
 void CRiderSfxPlayer::ConfigureFromData(Scripts::CStruct* params)
 {
     float mult;
-    if (params->GetFloat(kVolumeMult, &mult, 0))
+    if (params->FetchFloat(kVolumeMult, &mult, 0))
         m_volumeMult = mult;
 }
 
 // 0x00518CF0
 void CRiderSfxPlayer::PlayLand(float speed, int terrain)
 {
-    uint32_t table = m_state == kStateRail ? (m_sliding ? kTableSlideLand : kTableGrindLand) : kTableLand;
+    uint32_t table = m_curPhase == kStateRail ? (m_sliding ? kTableSlideLand : kTableGrindLand) : kTableLand;
     float percent = static_cast<float>(static_cast<double>(speed) * kPercent);
     float volume = static_cast<float>(static_cast<double>(percent) * m_volumeMult);
     using Skater::ThawBmx::BikeSound;
-    if (PlayBikeSound(m_object, m_state == kStateRail ? BikeSound::GrindLand : BikeSound::Land, volume, percent))
+    if (PlayBikeSound(m_entity, m_curPhase == kStateRail ? BikeSound::GrindLand : BikeSound::Land, volume, percent))
         return;
-    PlayTerrainSound(table, terrain, &m_object->m_pos, volume, percent);
+    PlayTerrainSound(table, terrain, &m_entity->m_atPoint, volume, percent);
 }
 
 // 0x00518D60
@@ -129,9 +129,9 @@ void CRiderSfxPlayer::PlayJump(float speed, int terrain, int state)
     float percent = static_cast<float>(static_cast<double>(speed) * kPercent);
     float volume = static_cast<float>(static_cast<double>(percent) * m_volumeMult);
     using Skater::ThawBmx::BikeSound;
-    if (PlayBikeSound(m_object, state == kStateRail ? BikeSound::GrindJump : BikeSound::Ollie, volume, percent))
+    if (PlayBikeSound(m_entity, state == kStateRail ? BikeSound::GrindJump : BikeSound::Ollie, volume, percent))
         return;
-    PlayTerrainSound(table, terrain, &m_object->m_pos, volume, percent);
+    PlayTerrainSound(table, terrain, &m_entity->m_atPoint, volume, percent);
 }
 
 // 0x00518DD0
@@ -139,34 +139,34 @@ void CRiderSfxPlayer::PlayBonk(float speed, int terrain)
 {
     float percent = static_cast<float>(static_cast<double>(speed) * kPercent);
     float volume = static_cast<float>(static_cast<double>(percent) * m_volumeMult);
-    if (PlayBikeSound(m_object, Skater::ThawBmx::BikeSound::Bonk, volume, percent))
+    if (PlayBikeSound(m_entity, Skater::ThawBmx::BikeSound::Bonk, volume, percent))
         return;
-    PlayTerrainSound(kTableBonk, terrain, &m_object->m_pos, volume, percent);
+    PlayTerrainSound(kTableBonk, terrain, &m_entity->m_atPoint, volume, percent);
 }
 
 // 0x00518EA0
 void CRiderSfxPlayer::PlayLandHere(float speed)
 {
-    PlayLand(speed, OnGroundOrInAir(m_state) ? m_lastGround : m_surfaceType);
+    PlayLand(speed, OnGroundOrInAir(m_curPhase) ? m_lastGround : m_surfaceType);
 }
 
 // 0x00518FA0
 void CRiderSfxPlayer::PlayJumpHere(float speed)
 {
-    PlayJump(speed, OnGroundOrInAir(m_state) ? m_lastGround : m_surfaceType, m_state);
+    PlayJump(speed, OnGroundOrInAir(m_curPhase) ? m_lastGround : m_surfaceType, m_curPhase);
 }
 
 // 0x00518EE0
-void CRiderSfxPlayer::PlayJumpInState(float speed, int terrain) { PlayJump(speed, terrain, m_state); }
+void CRiderSfxPlayer::PlayJumpInState(float speed, int terrain) { PlayJump(speed, terrain, m_curPhase); }
 
 // 0x00518F00
 void CRiderSfxPlayer::PlayBonkHere(float speed)
 {
     float percent = static_cast<float>(static_cast<double>(speed) * kPercent);
     float volume = static_cast<float>(static_cast<double>(percent) * m_volumeMult);
-    if (PlayBikeSound(m_object, Skater::ThawBmx::BikeSound::Bonk, volume, percent))
+    if (PlayBikeSound(m_entity, Skater::ThawBmx::BikeSound::Bonk, volume, percent))
         return;
-    PlayTerrainSound(kTableBonk, m_surfaceType, &m_object->m_pos, volume, percent);
+    PlayTerrainSound(kTableBonk, m_surfaceType, &m_entity->m_atPoint, volume, percent);
 }
 
 // 0x00518F50
@@ -174,26 +174,26 @@ void CRiderSfxPlayer::PlayCessHere(float speed)
 {
     float percent = static_cast<float>(static_cast<double>(speed) * kPercent);
     float volume = static_cast<float>(static_cast<double>(percent) * m_volumeMult);
-    PlayTerrainSound(kTableCess, m_surfaceType, &m_object->m_pos, volume, percent);
+    PlayTerrainSound(kTableCess, m_surfaceType, &m_entity->m_atPoint, volume, percent);
 }
 
 // 0x00518FD0
 int CRiderSfxPlayer::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
 {
-    const Maths::Vector& vel = m_object->m_vel;
+    const Maths::Vec4& vel = m_entity->m_vel;
     switch (name) {
     case kPlayJumpSound:
-        if (m_state >= 0 && (m_state <= kStateAir || m_state == kStateRail))
-            PlayJumpHere(static_cast<float>(vel.Length() / m_fullSpeed));
+        if (m_curPhase >= 0 && (m_curPhase <= kStateAir || m_curPhase == kStateRail))
+            PlayJumpHere(static_cast<float>(vel.LenOf() / m_fullSpeed));
         return 1;
     case kPlayBonkSound:
         PlayBonkHere(FullLength(vel, m_fullSpeed));
         return 1;
     case kPlayLandSound:
-        if (m_state >= 0 && m_state <= kStateAir)
+        if (m_curPhase >= 0 && m_curPhase <= kStateAir)
             PlayLandHere(static_cast<float>(std::fabs(vel.y) / m_fullSpeed));
-        else if (m_state == kStateRail)
-            PlayLandHere(static_cast<float>(vel.Length() / m_fullSpeed));
+        else if (m_curPhase == kStateRail)
+            PlayLandHere(static_cast<float>(vel.LenOf() / m_fullSpeed));
         return 1;
     case kPlayCessSound:
         PlayCessHere(FullLength(vel, m_fullSpeed));
@@ -208,14 +208,14 @@ int CRiderSfxPlayer::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*param
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderSfxPlayer::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderSfxPlayer::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          &GameObjects::CRiderSfxPlayer::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

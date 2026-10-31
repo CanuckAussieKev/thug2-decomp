@@ -19,7 +19,7 @@ struct CHitTreeNode {
     uint32_t m_chainLink;
 
     // 0x00414D70 (not a function in Ghidra: new[]'s constructor): zeroed.
-    CHitTreeNode* Construct();
+    CHitTreeNode* MakeNew();
 
     bool IsEndNode() const { return (m_axisTag & 3) == 3; }
     int Axis() const { return m_axisTag & 3; }
@@ -37,17 +37,17 @@ struct CHitTreeNode {
     // 0x00415D30: the lowest of the leaves' face pointers (where their shared array starts).
     uint16_t* FirstFaceList() const;
     // 0x00415D80: the splits moved by `delta` (each rounded down to a sixteenth, toward zero).
-    void Translate(const Maths::Vector* delta);
+    void Slide(const Maths::Vec4* delta);
     // 0x00415E00: turned by `quarterTurns` (1-3) quarter turns about Y around `centre` (moved there and back
     // when `moveToCentre`): x and z splits swap axis, some negated (their sides swapped).
-    void RotateY(const Maths::Vector* centre, int quarterTurns, bool moveToCentre);
+    void RotateY(const Maths::Vec4* centre, int quarterTurns, bool moveToCentre);
     // 0x00415F30: scaled by `scale` around `centre` (moved there and back when `moveToCentre`).
-    void Scale(const Maths::Vector* centre, const Maths::Vector* scale, bool moveToCentre);
+    void StretchBy(const Maths::Vec4* centre, const Maths::Vec4* scale, bool moveToCentre);
     // 0x00416000 (cdecl): the tree read from a file fixed up: child offsets + `nodeBase`, leaf face offsets
     // (in u16s) into pointers from `faceBase`. Returns true.
     static bool Relocate(CHitTreeNode* node, uint32_t nodeBase, uint32_t faceBase);
     // 0x00416A10: a copy of the tree and its face indices (the argument unused); null if it has no nodes.
-    CHitTreeNode* Clone(int unused) const;
+    CHitTreeNode* Replicate(int unused) const;
 };
 static_assert(sizeof(CHitTreeNode) == 8, "layout must match the original");
 
@@ -61,8 +61,8 @@ struct CTriMeshSource {
     bool m_smallFaces;        // +0x0A faces of 8 bytes (else 10)
     bool m_compressed;        // +0x0B the vertices are 16-bit
     uint8_t* m_faces;         // +0x0C each: u16 flags, u16 terrain, the three vertex indices (u8 / u16)
-    Maths::Vector m_lowerLimit;        // +0x10 the box (+0x20 its max)
-    Maths::Vector m_upperLimit;
+    Maths::Vec4 m_lowerLimit;        // +0x10 the box (+0x20 its max)
+    Maths::Vec4 m_upperLimit;
     void* m_vertices;         // +0x30 float[3] each, or uint16_t[3] when compressed
     CHitTreeNode* m_bsp;      // +0x34
     uint8_t* m_vertexBytes;   // +0x38 one byte per vertex (copied and freed with the geometry), or null
@@ -70,22 +70,22 @@ struct CTriMeshSource {
                               // triangle object keeps a copy)
 
     // 0x0040B230: vertex `index` (w = 0).
-    Maths::Vector ReadStoredVertex(int index) const;
+    Maths::Vec4 ReadStoredVertex(int index) const;
     // 0x0040B2D0: the same into `out`.
-    void ReadStoredVertex(int index, Maths::Vector* out) const;
+    void ReadStoredVertex(int index, Maths::Vec4* out) const;
     // 0x00414EE0: vertex `index` set (compressed: in sixteenths from the box's minimum, toward zero).
-    void WriteStoredVertex(int index, const Maths::Vector* position);
+    void WriteStoredVertex(int index, const Maths::Vec4* position);
     // 0x00414F90 (0x00415C00 jumps to it): every vertex into `out` (w = 0).
-    void GetStoredVertexArray(Maths::Vector* out) const;
+    void GetStoredVertexArray(Maths::Vec4* out) const;
     // 0x00415C10: every vertex set from `positions`, the box made from them first.
-    void ChooseRawVerts(const Maths::Vector* positions);
+    void ChooseRawVerts(const Maths::Vec4* positions);
     // 0x00414D80: face `face`'s normal ((v1 - v0) x (v2 - v0), normalised unless zero; w = 0).
-    Maths::Vector GetTriangleNormal(int face) const;
+    Maths::Vec4 GetTriangleNormal(int face) const;
     // 0x00415B70: every field copied (the arrays shared). Returns this.
     CTriMeshSource* CopyFrom(const CTriMeshSource* other);
     // 0x00416BF0: a copy with its own vertices, faces, vertex bytes and tree (`bspArgument` passed to the tree's
     // Clone). Null when `needVertices` and there are none, or an array couldn't be allocated.
-    CTriMeshSource* Clone(int bspArgument, bool needVertices) const;
+    CTriMeshSource* Replicate(int bspArgument, bool needVertices) const;
     // 0x00416970: the arrays freed, the tree deleted.
     void Destruct();
     // 0x00416080: the tree and its face indices freed (false if there was none).
@@ -94,12 +94,12 @@ struct CTriMeshSource {
     bool Relocate(uint32_t unused, uint32_t vertexBase, uint32_t vertexByteBase, uint32_t faceBase,
                   uint32_t nodeBase, uint32_t faceListBase);
     // 0x00416400: vertices (uncompressed), box and tree moved by `delta`.
-    void Translate(const Maths::Vector* delta);
+    void Slide(const Maths::Vec4* delta);
     // 0x004164F0: turned by `quarterTurns` quarter turns about Y around `centre` (compressed vertices through a
     // temporary array on the top-down heap); the box made from its turned corners.
-    void RotateY(const Maths::Vector* centre, int quarterTurns);
+    void RotateY(const Maths::Vec4* centre, int quarterTurns);
     // 0x00416730: scaled by `scale` around `centre`; the box's corners scaled (w kept, not re-sorted).
-    void Scale(const Maths::Vector* centre, const Maths::Vector* scale);
+    void StretchBy(const Maths::Vec4* centre, const Maths::Vec4* scale);
     // 0x00414D30: the shared index table 0x0067C6B8 filled with 0..2047 the first time (its first entry is
     // 0xFFFF until then); whether the geometry has a tree.
     bool SetUpAllFaces();
@@ -114,9 +114,9 @@ struct CTriMeshSource {
     void GatherFaces(const CHitTreeNode* node, const Maths::BBox* box);
     // 0x004163B0: whether `point` is behind every face of the leaf it falls in, counted against all faces (the
     // second argument unused).
-    bool IsPointBehindFaces(const Maths::Vector* point, int unused);
+    bool IsPointBehindFaces(const Maths::Vec4* point, int unused);
     // 0x004161D0: its walk (always true).
-    bool CountFacesBehind(const CHitTreeNode* node, const Maths::Vector* point, int unused);
+    bool CountFacesBehind(const CHitTreeNode* node, const Maths::Vec4* point, int unused);
 
     // +0x3C as the line tests read it: a float.
     float RejectionScale() const

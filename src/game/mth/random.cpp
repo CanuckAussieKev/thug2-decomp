@@ -32,7 +32,7 @@ uint32_t Next(RandomState& s)
     return s.value & 0xFFFF;
 }
 
-int Scale(uint32_t sample, int n)
+int StretchBy(uint32_t sample, int n)
 {
     return static_cast<int>(sample * static_cast<uint32_t>(n)) >> 16;
 }
@@ -49,13 +49,13 @@ void SeedRandom(uint32_t seed)
 // 0x00403DE0
 int Rnd(int n)
 {
-    return Scale(Next(Stream1()), n);
+    return StretchBy(Next(Stream1()), n);
 }
 
 // 0x00403E30
 int RollSideStream(int n)
 {
-    return Scale(Next(Stream2()), n);
+    return StretchBy(Next(Stream2()), n);
 }
 
 // 0x00403E80
@@ -65,7 +65,7 @@ float SignedSpread(float range) { return static_cast<float>(PlusOrMinusExact(ran
 double PlusOrMinusExact(float range)
 {
     // A sample in [0, 10000), centred on 0 and scaled so that +/-5000 maps to +/-range.
-    double centred = static_cast<double>(Scale(Next(Stream1()), 10000)) - 5000.0f;
+    double centred = static_cast<double>(StretchBy(Next(Stream1()), 10000)) - 5000.0f;
     return centred * range * 0.0002f;
 }
 

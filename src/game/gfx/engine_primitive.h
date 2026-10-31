@@ -12,7 +12,7 @@ namespace Engine3D {
 struct CPrimitive {
     void** m_vtable;
     CPrimitive* m_following;  // +0x04: in the new or the drawing list
-    uint32_t m_flags;     // +0x08: 0x100 on the list of new ones (the PC class's: 1 made, 2 set up, 4 ready)
+    uint32_t m_flagBits;     // +0x08: 0x100 on the list of new ones (the PC class's: 1 made, 2 set up, 4 ready)
     uint32_t m_blendMode; // +0x0C: a checksum (0x54628ED7 to start)
     int m_ownsVertices;   // +0x10: 1: listed (and the vertices its own)
     uint8_t unknown14;    // +0x14
@@ -22,11 +22,11 @@ struct CPrimitive {
 
     // 0x0049C660: the fields cleared, the vtable, blend mode 0x54628ED7, `own` kept - 1: on the list of new ones.
     // Returns this.
-    CPrimitive* Construct(int own);
+    CPrimitive* MakeNew(int own);
     // 0x0049C6A0: the vtable; off its list when listed.
     void DestroyBody();
     // 0x0049C790 (vtable slot 0): destroyed, and freed with flags & 1. Returns this.
-    CPrimitive* Destroy(unsigned int flags);
+    CPrimitive* Teardown(unsigned int flags);
     // 0x0049C6C0: the platform's end (vtable slot 4), then readied.
     void Ready();
     // 0x0049C6D0: drawn (vtable slot 5) when readied.
@@ -38,11 +38,11 @@ struct CPrimitive {
     // return 0.
     void SetTexture(const uint8_t* texture, int unused1, int unused2);  // 0x0049C390
     void ChangeColour(uint32_t rgba);                                       // 0x0049C3A0
-    void Init(uint32_t layoutFlags, int primitiveType, int count);      // 0x0049C3B0
+    void PrepareAll(uint32_t layoutFlags, int primitiveType, int count);      // 0x0049C3B0
     void End();                                                          // 0x0049C3C0
     void Render();                                                       // 0x0049C3D0
-    void Draw(const float* positions, const uint32_t* colours, const float* uvs, const float* normals); // 0x0049C3E0
-    void SetPosition(int index, float x, float y, float z);             // 0x0049C3F0
+    void Blit(const float* positions, const uint32_t* colours, const float* uvs, const float* normals); // 0x0049C3E0
+    void ChangePlace(int index, float x, float y, float z);             // 0x0049C3F0
     void SetX(int index, float x);                                       // 0x0049C400
     void SetY(int index, float y);                                       // 0x0049C410
     void SetZ(int index, float z);                                       // 0x0049C420
@@ -63,16 +63,16 @@ struct CPrimitive {
     uint32_t GetVertexColour(int index);                                 // 0x0049C570
     float GetU(int index);                                               // 0x0049C590
     float GetV(int index);                                               // 0x0049C5B0
-    void Translate(float x, float y, float z);                          // 0x0049C5D0
+    void Slide(float x, float y, float z);                          // 0x0049C5D0
     void TranslateX(float x);                                            // 0x0049C5E0
     void TranslateY(float y);                                            // 0x0049C5F0
     void TranslateZ(float z);                                            // 0x0049C600
     void ScrollUV(float u, float v);                                     // 0x0049C610
     void ScrollU(float u);                                               // 0x0049C620
     void ScrollV(float v);                                               // 0x0049C630
-    int Compare(const CPrimitive* other);                                // 0x0049C640
+    int Weigh(const CPrimitive* other);                                // 0x0049C640
 };
-static_assert(offsetof(CPrimitive, m_flags) == 0x08 && offsetof(CPrimitive, m_ownsVertices) == 0x10 &&
+static_assert(offsetof(CPrimitive, m_flagBits) == 0x08 && offsetof(CPrimitive, m_ownsVertices) == 0x10 &&
                   offsetof(CPrimitive, m_ready) == 0x15 && offsetof(CPrimitive, unknown1C) == 0x1C &&
                   sizeof(CPrimitive) == 0x20,
               "layout must match the original");

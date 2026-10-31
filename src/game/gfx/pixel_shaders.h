@@ -3,7 +3,7 @@
 #include <cstdint>
 
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 
 // The pixel shaders (Nx engine, PC, ps.1.1): a few fixed ones made at start-up (their handles at 0x007CA920-64),
@@ -19,6 +19,6 @@ void* __cdecl GeneratedPixelShader(const void* material);
 // 0x004DDC00: the shader a material draws with, into *shader: a fixed one for one pass, else generated.
 void __cdecl MaterialPixelShader(const void* material, void** shader);
 
-extern ListKit::HashTable* g_shadowCasters;
+extern ListKit::KeyMap* g_shadowCasters;
 
 } // namespace Nx

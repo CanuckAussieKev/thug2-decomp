@@ -93,24 +93,24 @@ GameObjects::CGameEntity* SkaterObject(void* component) { return static_cast<Gam
 } // namespace
 
 // 0x00505440
-void* __cdecl CorePhysicsComponent::Create()
+void* __cdecl CorePhysicsComponent::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(0x153C);
-    return memory ? static_cast<CorePhysicsComponent*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CorePhysicsComponent*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x00500CA0
-CorePhysicsComponent* CorePhysicsComponent::Construct()
+CorePhysicsComponent* CorePhysicsComponent::MakeNew()
 {
-    reinterpret_cast<GameObjects::CObjectModule*>(this)->Construct();
+    reinterpret_cast<GameObjects::CObjectModule*>(this)->MakeNew();
     At<void**>(this, 0) = g_corePhysicsVtable;
-    reinterpret_cast<Engine3D::CProbeRay*>(&At<uint8_t>(this, kFeeler))->Construct();
-    reinterpret_cast<Engine3D::CProbeRay*>(&At<uint8_t>(this, kLastGroundFeeler))->Construct();
+    reinterpret_cast<Engine3D::CProbeRay*>(&At<uint8_t>(this, kFeeler))->MakeNew();
+    reinterpret_cast<Engine3D::CProbeRay*>(&At<uint8_t>(this, kLastGroundFeeler))->MakeNew();
     At<uint32_t>(this, 0x368) = 0;
     At<uint32_t>(this, 0x36C) = 0;
     At<uint32_t>(this, 0x364) = 0;
     // (+0x3F0: its constructor 0x005902E0 only returns it.)
-    reinterpret_cast<Engine3D::CHitMeshCache*>(&At<uint8_t>(this, 0x4F4))->Construct();
+    reinterpret_cast<Engine3D::CHitMeshCache*>(&At<uint8_t>(this, 0x4F4))->MakeNew();
     for (uint32_t component = kInput; component <= 0x1538; component += 4)
         At<void*>(this, component) = nullptr;
     At<uint8_t>(this, kSpecialTimed) = 0;
@@ -122,17 +122,17 @@ CorePhysicsComponent* CorePhysicsComponent::Construct()
     At<int>(this, 0x308) = -1;
     At<float>(this, kModelRotationStep) = 1.0f;
     // Not original - a component made where an old one was starts off THAW's bike (game/skater/thaw_bmx.h).
-    if (ThawBmx::Enabled())
+    if (ThawBmx::IsSwitchedOn())
         ThawBmx::Forget(this);
     return this;
 }
 
 // 0x00500DB0
-CorePhysicsComponent* CorePhysicsComponent::Destroy(unsigned int flags)
+CorePhysicsComponent* CorePhysicsComponent::Teardown(unsigned int flags)
 {
     CorePhysicsComponent::DestroyBody(); // (the destructor body)
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -148,7 +148,7 @@ void CorePhysicsComponent::Reset()
     VectorAt(this, 0x258) = {0.0f, 0.0f, 0.0f, 1.0f};
     At<int>(this, kFrameStart) = Now();
     VectorAt(ObjectOf(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
-    Physics::SetState(this, 0);
+    Physics::ChangePhase(this, 0);
     At<uint32_t>(this, 0x94) = 0;
     // Every timed flag (23 down to 0) set, then cleared; flag 7 tells +0x1514's +0x1E each time.
     for (int flag = 0x17; flag >= 0; --flag) {
@@ -167,7 +167,7 @@ void CorePhysicsComponent::Reset()
     if (rider) {
         At<void*>(ride, 0x6C) = rider->m_ownerObject;
         rider->Release();
-        MemSys::Manager::Get()->Free(rider);
+        MemSys::Hub::Pull()->Dealloc(rider);
         At<void*>(ride, 0x18) = nullptr;
         At<int>(ride, 0x70) = Now();
     }
@@ -208,12 +208,12 @@ int CorePhysicsComponent::CancelRotateDisplayandUpdateMatrix(Scripts::CStruct*, 
 // 0x00500670
 void CorePhysicsComponent::UpdateCollisionCache()
 {
-    const Maths::Vector& position = VectorAt(ObjectOf(this), kPosition);
+    const Maths::Vec4& position = VectorAt(ObjectOf(this), kPosition);
     Maths::BBox box;
     box.min = {position.x - kCacheReach, position.y - kCacheBelow, position.z - kCacheReach, position.w};
     box.max = {position.x + kCacheReach, position.y + kCacheAbove, position.z + kCacheReach, position.w};
     Engine3D::CHitMeshCache& cache = At<Engine3D::CHitMeshCache>(this, kCollisionCache);
-    cache.Update(box);
+    cache.TickFrame(box);
     Engine3D::g_currentCache = &cache; // the feelers' current cache
 }
 
@@ -223,7 +223,7 @@ void CorePhysicsComponent::UpdateFreeRevert()
     if (!At<int>(this, kFreeRevertsPending))
         return;
     uint32_t start = At<uint32_t>(this, kFreeRevertStart);
-    uint32_t wait = Ftol(static_cast<double>(Scripts::GetFloat(kTimeBeforeFreeRevert)) * kMillisecondsPerSecond);
+    uint32_t wait = Ftol(static_cast<double>(Scripts::FetchFloat(kTimeBeforeFreeRevert)) * kMillisecondsPerSecond);
     if (Since(start) <= wait)
         return;
     --At<int>(this, kFreeRevertsPending);
@@ -279,7 +279,7 @@ void CorePhysicsComponent::UpdateModelRotation()
 {
     if (!At<uint8_t>(this, kModelRotating))
         return;
-    auto* model = static_cast<GameObjects::CMeshInstanceModule*>(SkaterObject(this)->GetComponent(kModel));
+    auto* model = static_cast<GameObjects::CMeshInstanceModule*>(SkaterObject(this)->FetchModule(kModel));
     double left = static_cast<double>(At<float>(this, kModelRotationLeft)) - At<float>(this, kModelRotationStep);
     At<float>(this, kModelRotationLeft) = static_cast<float>(left); // (compared below unrounded)
     auto resetRotations = [model] { model->CancelRotateDisplay(); };
@@ -297,7 +297,7 @@ void CorePhysicsComponent::UpdateModelRotation()
         At<uint8_t>(this, kModelRotating) = 0;
         At<uint32_t>(this, kModelRotationLeft) = 0;
         if (At<uint8_t>(this, kModelFlipped)) {
-            static_cast<GameObjects::CRiderSpinAndFlip*>(SkaterObject(this)->GetComponent(kSkaterFlipAndRotate))->Flip();
+            static_cast<GameObjects::CRiderSpinAndFlip*>(SkaterObject(this)->FetchModule(kSkaterFlipAndRotate))->Flip();
         }
         resetRotations();
     }
@@ -316,7 +316,7 @@ void CorePhysicsComponent::UpdateSpecialTime()
         return;
     }
     Scripts::CStruct* params = Scripts::NewStruct();
-    params = params ? params->Init() : nullptr;
+    params = params ? params->PrepareAll() : nullptr;
     params->PutNameKey(kTimeLimit, 1);
     Scripts::LaunchScript(kKillSpecial, params, SkaterObject(this), false, nullptr);
     if (params) {
@@ -342,7 +342,7 @@ int CorePhysicsComponent::GetAirTimeLeft(Scripts::CStruct*, Scripts::CScript* sc
     } else {
         left = kNeverLands;
     }
-    script->m_params->PushFloat(kAirTimeLeft, left);
+    script->m_args->PushFloat(kAirTimeLeft, left);
     return 1;
 }
 
@@ -367,7 +367,7 @@ void CorePhysicsComponent::StartGrindTrick(uint32_t railType, bool trick1, bool 
     GameObjects::CGameEntity* object = SkaterObject(this);
     if (!object->m_runScript) {
         void* memory = Scripts::CScript::operator new(sizeof(Scripts::CScript));
-        SkaterObject(this)->m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->Construct() : nullptr;
+        SkaterObject(this)->m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
     }
     if (At<uint8_t>(this, kMotoGrind)) {
         object = SkaterObject(this);
@@ -375,7 +375,7 @@ void CorePhysicsComponent::StartGrindTrick(uint32_t railType, bool trick1, bool 
     } else {
         // GrindTrickList[the rail's type (0-8; anything else 0)][the four trick buttons as bits 0-3].
         uint32_t index = railType <= 8 ? railType : 0;
-        auto* tricks = reinterpret_cast<Scripts::CArray*>(Scripts::GetArray(kGrindTrickList)->GetElement(index));
+        auto* tricks = reinterpret_cast<Scripts::CArray*>(Scripts::FetchList(kGrindTrickList)->FetchPart(index));
         uint32_t buttons = trick1 ? 1 : 0;
         if (trick2)
             buttons |= 2;
@@ -383,7 +383,7 @@ void CorePhysicsComponent::StartGrindTrick(uint32_t railType, bool trick1, bool 
             buttons |= 4;
         if (trick4)
             buttons |= 8;
-        if (ThawBmx::Active(this)) {
+        if (ThawBmx::LiveNow(this)) {
             // Not original: THAW 0x005CF2F0 - on the bike BikeGrindTrickList by the stick's pitch (when the overlay
             // has it), the over-grind state.
             uint32_t column = 0;
@@ -393,12 +393,12 @@ void CorePhysicsComponent::StartGrindTrick(uint32_t railType, bool trick1, bool 
             }
         }
         At<uint32_t>(this, 0x3A8) = 0;
-        static_cast<GameObjects::CRiderSpinAndFlip*>(SkaterObject(this)->GetComponent(kSkaterFlipAndRotate))
+        static_cast<GameObjects::CRiderSpinAndFlip*>(SkaterObject(this)->FetchModule(kSkaterFlipAndRotate))
             ->DoAfterAnim();
         object = SkaterObject(this);
-        object->m_runScript->BindScript(tricks->GetElement(buttons), nullptr, object);
+        object->m_runScript->BindScript(tricks->FetchPart(buttons), nullptr, object);
     }
-    SkaterObject(this)->m_runScript->Update();
+    SkaterObject(this)->m_runScript->TickFrame();
     FlagsOf(this)[0xE0] = 1;
 }
 
@@ -412,14 +412,14 @@ namespace {
 
 namespace Skater {
 
-static VtableSlot g_corePhysicsVtable_slots[] = {&Skater::CorePhysicsComponent::Destroy,
-         &Skater::CorePhysicsComponent::Update,
+static VtableSlot g_corePhysicsVtable_slots[] = {&Skater::CorePhysicsComponent::Teardown,
+         &Skater::CorePhysicsComponent::TickFrame,
          &CorePhysicsComponent::ConfigureFromData,
-         &CorePhysicsComponent::Finalize,
+         &CorePhysicsComponent::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

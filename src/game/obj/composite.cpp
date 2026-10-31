@@ -82,19 +82,19 @@ constexpr float kFarAway = 5322672.0f;                // (0x4AA26F60)
 
 // The composite object manager (0x006F0FB8, compositemgr.cpp): its lists of the components of each type, and the
 // component makers.
-void RegisterComponent(CObjectModule* component) { CompositeObjectManager()->AttachModuleOfKind(component); }
+void EnrolModule(CObjectModule* component) { CompositeObjectManager()->AttachModuleOfKind(component); }
 void UnregisterComponent(CObjectModule* component) { CompositeObjectManager()->DetachModuleOfKind(component); }
-CObjectModule* CreateComponent(uint32_t type) { return CompositeObjectManager()->CreateComponent(type); }
+CObjectModule* SpawnModule(uint32_t type) { return CompositeObjectManager()->SpawnModule(type); }
 // The position (pos=) / orientation in a structure, if it has them (LevelNodes, nodes.h).
-void GetPositionFromStructure(CStruct* params, Maths::Vector* pos) { LevelNodes::GetPosition(params, pos); }
-void GetOrientationFromStructure(CStruct* params, Maths::Matrix* matrix) { LevelNodes::GetOrientation(params, matrix); }
+void GetPositionFromStructure(CStruct* params, Maths::Vec4* pos) { LevelNodes::FetchPlace(params, pos); }
+void GetOrientationFromStructure(CStruct* params, Maths::Mat4* matrix) { LevelNodes::FetchFacing(params, matrix); }
 
 // The node named `name` (LevelNodes).
-CStruct* GetNode(uint32_t name, int assert) { return LevelNodes::GetNode(name, assert != 0); }
+CStruct* FetchVertex(uint32_t name, int assert) { return LevelNodes::FetchVertex(name, assert != 0); }
 // Quaternions (x, y, z, w): to a rotation matrix (0x0042BC40, on the quaternion), from one (0x0042E1F0, constructing
 // the quaternion).
-void QuatToMatrix(const float* quat, Maths::Matrix* matrix) { reinterpret_cast<const Maths::QuatRotation*>(quat)->GetMatrix(matrix); }
-void MatrixToQuat(float* quat, const Maths::Matrix* matrix) { reinterpret_cast<Maths::QuatRotation*>(quat)->FromMatrix(*matrix); }
+void QuatToMatrix(const float* quat, Maths::Mat4* matrix) { reinterpret_cast<const Maths::QuatRotation*>(quat)->FetchMat(matrix); }
+void MatrixToQuat(float* quat, const Maths::Mat4* matrix) { reinterpret_cast<Maths::QuatRotation*>(quat)->FromMatrix(*matrix); }
 // A manager's object list (its vtable +0x18).
 MemSys::ListNode* ManagerObjectList(CObjectHubBase* manager)
 {
@@ -118,7 +118,7 @@ double FastACosUnrounded(float value)
     return (((x * a3 + a2) * x - a1) * x + a0) * root;
 }
 // a x b in double precision, each component rounded once; w = 0.
-Maths::Vector Cross(const Maths::Vector& a, const Maths::Vector& b)
+Maths::Vec4 Perpendicular(const Maths::Vec4& a, const Maths::Vec4& b)
 {
     return {static_cast<float>(static_cast<double>(a.y) * b.z - static_cast<double>(a.z) * b.y),
             static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(a.x) * b.z),
@@ -126,14 +126,14 @@ Maths::Vector Cross(const Maths::Vector& a, const Maths::Vector& b)
 }
 
 // The object's vtable slot 3 (a member function by name).
-bool VirtualCallMemberFunction(CObject* object, uint32_t name, CStruct* params, CScript* script)
+bool VirtualCallMemberFunction(CEntity* object, uint32_t name, CStruct* params, CScript* script)
 {
-    return reinterpret_cast<bool(__thiscall*)(CObject*, uint32_t, CStruct*, CScript*)>(object->m_vtable[3])(
+    return reinterpret_cast<bool(__thiscall*)(CEntity*, uint32_t, CStruct*, CScript*)>(object->m_vtable[3])(
         object, name, params, script);
 }
 
 // |v| as the original's x87 code works it out: (x*x + y*y) + z*z in double precision, not rounded to a float.
-double Length(float x, float y, float z)
+double LenOf(float x, float y, float z)
 {
     double x2 = static_cast<double>(x) * x;
     double y2 = static_cast<double>(y) * y;
@@ -143,7 +143,7 @@ double Length(float x, float y, float z)
 
 // pos += row * scale, as the original rounds it: the x and y products stay in double precision, the z and w ones
 // are rounded to floats first.
-void AddScaled(Maths::Vector& pos, const Maths::Vector& row, float scale)
+void AddScaled(Maths::Vec4& pos, const Maths::Vec4& row, float scale)
 {
     double x = static_cast<double>(scale) * row.x;
     double y = static_cast<double>(scale) * row.y;
@@ -162,15 +162,15 @@ inline void PrintObjectDetails(const char* /*text*/) {}
 // from +0x00 to +0x10, tested by 0x004172F0; what it hit is held by a smart pointer at +0x98, its only destructor.
 class CollisionFeeler {
 public:
-    CollisionFeeler() { reinterpret_cast<Engine3D::CProbeRay*>(m_bytes)->Construct(); }
+    CollisionFeeler() { reinterpret_cast<Engine3D::CProbeRay*>(m_bytes)->MakeNew(); }
     ~CollisionFeeler()
     {
         reinterpret_cast<GameObjects::CSharedRef<GameObjects::CSharedBase>*>(m_bytes + 0x98)->~CSharedRef();
     }
     CollisionFeeler(const CollisionFeeler&) = delete;
     CollisionFeeler& operator=(const CollisionFeeler&) = delete;
-    Maths::Vector& Start() { return *reinterpret_cast<Maths::Vector*>(m_bytes); }
-    Maths::Vector& End() { return *reinterpret_cast<Maths::Vector*>(m_bytes + 0x10); }
+    Maths::Vec4& Kickoff() { return *reinterpret_cast<Maths::Vec4*>(m_bytes); }
+    Maths::Vec4& End() { return *reinterpret_cast<Maths::Vec4*>(m_bytes + 0x10); }
     bool GetHitShape(bool a, bool b)
     {
         return reinterpret_cast<Engine3D::CProbeRay*>(m_bytes)->GetHitShape(a, b) != 0;
@@ -184,25 +184,25 @@ float FeetAsInches() { return g_compositeFeetToInches; } // 12
 
 } // namespace
 
-// --- CObject: a member function table entry -------------------------------------------------------------------
+// --- CEntity: a member function table entry -------------------------------------------------------------------
 
 // 0x0045D850
-bool CObject::InvokeMethodByName(CMemberFunctionEntry* entry, CStruct* params, CScript* script)
+bool CEntity::InvokeMethodByName(CMemberFunctionEntry* entry, CStruct* params, CScript* script)
 {
     if (entry->mCode) {
         void* self = reinterpret_cast<uint8_t*>(this) + entry->mThisAdjustment;
         return reinterpret_cast<bool(__thiscall*)(void*, CStruct*, CScript*)>(entry->mCode)(self, params, script);
     }
-    return VirtualCallMemberFunction(this, entry->mName, params, script);
+    return VirtualCallMemberFunction(this, entry->m_callsign, params, script);
 }
 
 // --- CObjectModule -------------------------------------------------------------------------------------------
 
 // 0x0045D730
-CObjectModule* CObjectModule::Construct()
+CObjectModule* CObjectModule::MakeNew()
 {
     m_vtable = kComponentVtable;
-    m_flags = 0;
+    m_flagBits = 0;
     return this;
 }
 
@@ -210,43 +210,43 @@ CObjectModule* CObjectModule::Construct()
 void CObjectModule::DestroyBody()
 {
     m_vtable = kComponentVtable;
-    if (m_flags & COMPONENT_FLAG_SCRIPT_WAITING)
+    if (m_flagBits & COMPONENT_FLAG_SCRIPT_WAITING)
         Scripts::ComponentDestroyedAllScripts(this);
 }
 
 // 0x0045D780
-CObjectModule* CObjectModule::Destroy(unsigned int flags)
+CObjectModule* CObjectModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0045D760
-void CObjectModule::Suspend(bool suspend)
+void CObjectModule::HoldOff(bool suspend)
 {
     if (suspend)
-        m_flags |= COMPONENT_FLAG_SUSPENDED;
+        m_flagBits |= COMPONENT_FLAG_SUSPENDED;
     else
-        m_flags &= ~COMPONENT_FLAG_SUSPENDED;
+        m_flagBits &= ~COMPONENT_FLAG_SUSPENDED;
 }
 
 // 0x0045D720 (a jump to vtable +0x30 with the entry's name in place of the entry)
 int CObjectModule::InvokeMethodByName(CMemberFunctionEntry* entry, CStruct* params, CScript* script)
 {
-    return InvokeMethodByName(entry->mName, params, script);
+    return InvokeMethodByName(entry->m_callsign, params, script);
 }
 
 // --- CGameEntity: life -----------------------------------------------------------------------------------
 
 // 0x0045E510
-CGameEntity* CGameEntity::Construct()
+CGameEntity* CGameEntity::MakeNew()
 {
-    CObject::Construct();
+    CEntity::MakeNew();
     m_vtable = kCompositeObjectVtable;
     m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_pos = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_atPoint = {0.0f, 0.0f, 0.0f, 1.0f};
     m_basisFrame.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     m_basisFrame.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     m_basisFrame.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -273,45 +273,45 @@ void CGameEntity::DestroyBody()
         UnregisterComponent(component);
         component->VirtualDestroy(1);
     }
-    CObject::DestroyBody();
+    CEntity::DestroyBody();
 }
 
 // 0x0045E620
-CGameEntity* CGameEntity::Destroy(unsigned int flags)
+CGameEntity* CGameEntity::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // --- CGameEntity: the frame ------------------------------------------------------------------------------
 
 // 0x0045D920
-void CGameEntity::Update()
+void CGameEntity::TickFrame()
 {
     if (m_compositeFlags & COMPOSITE_FLAG_PAUSED)
         return;
     if (!(m_compositeFlags & COMPOSITE_FLAG_SUSPENDED)) {
         if (m_runScript)
-            m_runScript->Update();
+            m_runScript->TickFrame();
         if (m_objectFlags & OBJECT_FLAG_DEAD)
             return;
         VirtualOwnUpdate();
     }
     for (CObjectModule* component = m_moduleList; component; component = component->m_following) {
-        if (component->m_flags & COMPONENT_FLAG_SUSPENDED)
+        if (component->m_flagBits & COMPONENT_FLAG_SUSPENDED)
             continue;
-        component->Update();
+        component->TickFrame();
         if (m_objectFlags & OBJECT_FLAG_DEAD)
             break;
     }
-    m_pos.w = 1.0f;
+    m_atPoint.w = 1.0f;
     m_compositeFlags &= ~COMPOSITE_FLAG_TELEPORTED;
 }
 
 // 0x0045D990
-void CGameEntity::Hide(bool hide)
+void CGameEntity::Conceal(bool hide)
 {
     if (hide == ((m_compositeFlags & COMPOSITE_FLAG_HIDDEN) != 0))
         return;
@@ -320,11 +320,11 @@ void CGameEntity::Hide(bool hide)
     else
         m_compositeFlags &= ~COMPOSITE_FLAG_HIDDEN;
     for (CObjectModule* component = m_moduleList; component; component = component->m_following)
-        component->Hide(hide);
+        component->Conceal(hide);
 }
 
 // 0x0045D9E0
-void CGameEntity::Suspend(bool suspend)
+void CGameEntity::HoldOff(bool suspend)
 {
     if (suspend == ((m_compositeFlags & COMPOSITE_FLAG_SUSPENDED) != 0))
         return;
@@ -354,13 +354,13 @@ void CGameEntity::FlagAsDead()
 {
     for (CObjectModule* component = m_moduleList; component; component = component->m_following)
         component->ObjectMarkedDead();
-    CObject::FlagAsDead();
+    CEntity::FlagAsDead();
 }
 
 // --- CGameEntity: components -----------------------------------------------------------------------------
 
 // 0x0045DA30 (the component's +0x10 isn't cleared: it is expected to be null already)
-void CGameEntity::AddComponent(CObjectModule* component)
+void CGameEntity::AttachModule(CObjectModule* component)
 {
     if (!m_moduleList) {
         m_moduleList = component;
@@ -370,15 +370,15 @@ void CGameEntity::AddComponent(CObjectModule* component)
             last = last->m_following;
         last->m_following = component;
     }
-    component->m_object = this;
-    RegisterComponent(component);
+    component->m_entity = this;
+    EnrolModule(component);
 }
 
 // 0x0045DA90
 void CGameEntity::BuildModulesFromList(CArray* components, CStruct* extra)
 {
     uint32_t* elements = components->FindArrayValue();
-    int count = static_cast<int>(components->m_size);
+    int count = static_cast<int>(components->m_extent);
     for (int i = 0; i < count; ++i)
         VirtualCreateComponentFromStructure(reinterpret_cast<CStruct*>(elements[i]), extra);
 }
@@ -389,14 +389,14 @@ void CGameEntity::CreateComponentFromStructure(CStruct* params, CStruct* extra)
 {
     uint32_t type = reinterpret_cast<uint32_t>(params);
     params->ReadHashValue(kComponent, &type, 1);
-    CObjectModule* component = CreateComponent(type);
-    AddComponent(component);
+    CObjectModule* component = SpawnModule(type);
+    AttachModule(component);
     if (!extra) {
         component->ConfigureFromData(params);
         return;
     }
     CStruct* memory = Scripts::NewStruct();
-    CStruct* merged = memory ? memory->Init() : nullptr;
+    CStruct* merged = memory ? memory->PrepareAll() : nullptr;
     merged->MergeStructure(params);
     merged->MergeStructure(extra);
     component->ConfigureFromData(merged);
@@ -411,18 +411,18 @@ void CGameEntity::ConfigureFromData(CStruct* params)
 {
     uint32_t id = 0;
     if (params->ReadHashValue(kName, &id, 0))
-        SetID(id);
-    GetPositionFromStructure(params, &m_pos);
+        ChangeSerial(id);
+    GetPositionFromStructure(params, &m_atPoint);
     GetOrientationFromStructure(params, &m_basisFrame);
     if (params->HasBareFlag(kPermanent))
         m_objectFlags |= OBJECT_FLAG_LOCKED;
 }
 
 // 0x0045DB30
-void CGameEntity::Finalize()
+void CGameEntity::Seal()
 {
     for (CObjectModule* component = m_moduleList; component; component = component->m_following)
-        component->Finalize();
+        component->Seal();
     m_compositeFlags |= COMPOSITE_FLAG_FINALIZED;
     m_compositeFlags |= COMPOSITE_FLAG_FINALIZED2;
     for (CObjectModule* component = m_moduleList; component; component = component->m_following)
@@ -430,10 +430,10 @@ void CGameEntity::Finalize()
 }
 
 // 0x0045DB90
-CObjectModule* CGameEntity::GetComponent(uint32_t type)
+CObjectModule* CGameEntity::FetchModule(uint32_t type)
 {
     for (CObjectModule* component = m_moduleList; component; component = component->m_following) {
-        if (component->m_type == type)
+        if (component->m_kindTag == type)
             return component;
     }
     return nullptr;
@@ -449,7 +449,7 @@ bool CGameEntity::InvokeMethodByName(uint32_t name, CStruct* params, CScript* sc
         if (result == 1)
             return true;
     }
-    return CObject::InvokeMethodByName(name, params, script);
+    return CEntity::InvokeMethodByName(name, params, script);
 }
 
 // --- CGameEntity: the member functions scripts call ------------------------------------------------------
@@ -458,7 +458,7 @@ bool CGameEntity::InvokeMethodByName(uint32_t name, CStruct* params, CScript* sc
 bool CGameEntity::Obj_PrintDetails(CStruct* params, CScript* /*script*/)
 {
     const char* text = reinterpret_cast<const char*>(params);
-    params->GetString(kUnnamed, &text, 0);
+    params->FetchText(kUnnamed, &text, 0);
     PrintObjectDetails(text);
     return true;
 }
@@ -473,14 +473,14 @@ bool CGameEntity::Obj_CreateComponent(CStruct* params, CScript* /*script*/)
 // 0x0045D830: position= (if given) as the position.
 bool CGameEntity::Obj_SetPosition(CStruct* params, CScript* /*script*/)
 {
-    params->GetVector(kPosition, reinterpret_cast<Scripts::VectorValue*>(&m_pos), 0);
+    params->FetchVec(kPosition, reinterpret_cast<Scripts::VectorValue*>(&m_atPoint), 0);
     return true;
 }
 
 // 0x0045DBC0: pos = the position, in the calling script's parameters.
 bool CGameEntity::Obj_GetPosition(CStruct* /*params*/, CScript* script)
 {
-    script->m_params->PutVec3(kPos, m_pos.x, m_pos.y, m_pos.z);
+    script->m_args->PutVec3(kPos, m_atPoint.x, m_atPoint.y, m_atPoint.z);
     return true;
 }
 
@@ -489,39 +489,39 @@ bool CGameEntity::Obj_ComponentExists(CStruct* params, CScript* /*script*/)
 {
     uint32_t type = 0;
     params->ReadHashValue(kName, &type, 1);
-    return GetComponent(type) != nullptr;
+    return FetchModule(type) != nullptr;
 }
 
 // 0x0045DC40: an extra update now.
 bool CGameEntity::Obj_ForceUpdate(CStruct* /*params*/, CScript* /*script*/)
 {
-    Update();
+    TickFrame();
     return true;
 }
 
 // 0x0045DC50: vel = the velocity.
 bool CGameEntity::Obj_GetVelocity(CStruct* /*params*/, CScript* script)
 {
-    script->m_params->PutVec3(kVel, m_vel.x, m_vel.y, m_vel.z);
+    script->m_args->PutVec3(kVel, m_vel.x, m_vel.y, m_vel.z);
     return true;
 }
 
 // 0x0045DC80: speed = the velocity's length.
 bool CGameEntity::GetSpeed(CStruct* /*params*/, CScript* script)
 {
-    script->m_params->PushFloat(kSpeed, static_cast<float>(Length(m_vel.x, m_vel.y, m_vel.z)));
+    script->m_args->PushFloat(kSpeed, static_cast<float>(LenOf(m_vel.x, m_vel.y, m_vel.z)));
     return true;
 }
 
 // 0x0045DCD0 / 0x0045DD20 / 0x0045DD70
 bool CGameEntity::Obj_Hide(CStruct* /*params*/, CScript* /*script*/)
 {
-    Hide(true);
+    Conceal(true);
     return true;
 }
 bool CGameEntity::Obj_Unhide(CStruct* /*params*/, CScript* /*script*/)
 {
-    Hide(false);
+    Conceal(false);
     return true;
 }
 bool CGameEntity::Obj_IsHidden(CStruct* /*params*/, CScript* /*script*/)
@@ -533,26 +533,26 @@ bool CGameEntity::Obj_IsHidden(CStruct* /*params*/, CScript* /*script*/)
 bool CGameEntity::Obj_MoveLocal(CStruct* params, CScript* /*script*/)
 {
     float distance = 0.0f;
-    params->GetFloat(kX, &distance, 0);
-    AddScaled(m_pos, m_basisFrame.row[0], distance);
+    params->FetchFloat(kX, &distance, 0);
+    AddScaled(m_atPoint, m_basisFrame.row[0], distance);
     distance = 0.0f;
-    params->GetFloat(kY, &distance, 0);
-    AddScaled(m_pos, m_basisFrame.row[1], distance);
+    params->FetchFloat(kY, &distance, 0);
+    AddScaled(m_atPoint, m_basisFrame.row[1], distance);
     distance = 0.0f;
-    params->GetFloat(kZ, &distance, 0);
-    AddScaled(m_pos, m_basisFrame.row[2], distance);
+    params->FetchFloat(kZ, &distance, 0);
+    AddScaled(m_atPoint, m_basisFrame.row[2], distance);
     return true;
 }
 
 // 0x0045DED0 / 0x0045DF20
 bool CGameEntity::Obj_Suspend(CStruct* /*params*/, CScript* /*script*/)
 {
-    Suspend(true);
+    HoldOff(true);
     return true;
 }
 bool CGameEntity::Obj_Unsuspend(CStruct* /*params*/, CScript* /*script*/)
 {
-    Suspend(false);
+    HoldOff(false);
     return true;
 }
 
@@ -564,19 +564,19 @@ bool CGameEntity::Obj_GetDistanceToObject(CStruct* params, CScript* script)
     auto* other = static_cast<CGameEntity*>(FindObject(name));
     float distance = 0.0f;
     if (other) {
-        double dx = static_cast<double>(m_pos.x) - other->m_pos.x;
-        double dy = static_cast<double>(m_pos.y) - other->m_pos.y;
-        double dz = static_cast<double>(m_pos.z) - other->m_pos.z;
+        double dx = static_cast<double>(m_atPoint.x) - other->m_atPoint.x;
+        double dy = static_cast<double>(m_atPoint.y) - other->m_atPoint.y;
+        double dz = static_cast<double>(m_atPoint.z) - other->m_atPoint.z;
         distance = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx) * kInchesToFeet);
     }
-    script->m_params->PushFloat(kDistanceResult, distance);
+    script->m_args->PushFloat(kDistanceResult, distance);
     return true;
 }
 
 // 0x0045E260: whether the velocity points backwards (against its matrix's at row).
 bool CGameEntity::Obj_MovingBackward(CStruct* /*params*/, CScript* /*script*/)
 {
-    const Maths::Vector& at = m_basisFrame.row[2];
+    const Maths::Vec4& at = m_basisFrame.row[2];
     double along = static_cast<double>(m_vel.z) * at.z + static_cast<double>(m_vel.y) * at.y;
     along += static_cast<double>(m_vel.x) * at.x;
     return along < 0.0;
@@ -586,28 +586,28 @@ bool CGameEntity::Obj_MovingBackward(CStruct* /*params*/, CScript* /*script*/)
 bool CGameEntity::Obj_SpeedNear(CStruct* params, CScript* /*script*/)
 {
     float speed = 0.0f;
-    params->GetFloat(kUnnamed, &speed, 0);
-    return std::fabs(Length(m_vel.x, m_vel.y, m_vel.z) - speed) < kSpeedTolerance;
+    params->FetchFloat(kUnnamed, &speed, 0);
+    return std::fabs(LenOf(m_vel.x, m_vel.y, m_vel.z) - speed) < kSpeedTolerance;
 }
 
 // 0x0045E310 / 0x0045E380: whether the speed is above / below the unnamed float (0 if missing).
 bool CGameEntity::Obj_SpeedAbove(CStruct* params, CScript* /*script*/)
 {
     float speed = 0.0f;
-    params->GetFloat(kUnnamed, &speed, 0);
-    return Length(m_vel.x, m_vel.y, m_vel.z) > speed;
+    params->FetchFloat(kUnnamed, &speed, 0);
+    return LenOf(m_vel.x, m_vel.y, m_vel.z) > speed;
 }
 bool CGameEntity::Obj_SpeedBelow(CStruct* params, CScript* /*script*/)
 {
     float speed = 0.0f;
-    params->GetFloat(kUnnamed, &speed, 0);
-    return Length(m_vel.x, m_vel.y, m_vel.z) < speed;
+    params->FetchFloat(kUnnamed, &speed, 0);
+    return LenOf(m_vel.x, m_vel.y, m_vel.z) < speed;
 }
 
 // 0x0045E3F0: its type, in the calling script's parameters.
 bool CGameEntity::Obj_GetType(CStruct* /*params*/, CScript* script)
 {
-    script->m_params->PutNameKey(kTypeResult, m_type);
+    script->m_args->PutNameKey(kTypeResult, m_kindTag);
     return true;
 }
 
@@ -617,7 +617,7 @@ bool CGameEntity::Obj_HasComponent(CStruct* params, CScript* /*script*/)
 {
     uint32_t type = reinterpret_cast<uint32_t>(params);
     params->ReadHashValue(kUnnamed, &type, 1);
-    return GetComponent(type) != nullptr;
+    return FetchModule(type) != nullptr;
 }
 
 // 0x0045E9E0
@@ -625,20 +625,20 @@ bool CGameEntity::Obj_GetCollision(CStruct* params, CScript* /*script*/)
 {
     CollisionFeeler feeler;
     float length = 3.0f;
-    params->GetFloat(kLength, &length, 0);
+    params->FetchFloat(kLength, &length, 0);
     length *= FeetAsInches();
     float height = 3.0f;
-    params->GetFloat(kHeight, &height, 0);
+    params->FetchFloat(kHeight, &height, 0);
     height *= FeetAsInches();
     float distance = 0.0f;
-    params->GetFloat(kDistance, &distance, 0);
+    params->FetchFloat(kDistance, &distance, 0);
     distance *= FeetAsInches();
     float shift = 0.0f;
-    params->GetFloat(kShift, &shift, 0);
+    params->FetchFloat(kShift, &shift, 0);
     shift *= FeetAsInches();
-    const Maths::Vector& right = m_basisFrame.row[0];
-    const Maths::Vector& up = m_basisFrame.row[1];
-    const Maths::Vector& at = m_basisFrame.row[2];
+    const Maths::Vec4& right = m_basisFrame.row[0];
+    const Maths::Vec4& up = m_basisFrame.row[1];
+    const Maths::Vec4& at = m_basisFrame.row[2];
     // The start: pos + up * height + at * distance + right * shift (x87: some sums kept at 53 bits, as below).
     float offsetCellX = shift * right.x, shiftY = shift * right.y, offsetCellZ = shift * right.z;
     double shiftW = static_cast<double>(shift) * right.w;
@@ -646,17 +646,17 @@ bool CGameEntity::Obj_GetCollision(CStruct* params, CScript* /*script*/)
     double atZ = static_cast<double>(distance) * at.z, atW = static_cast<double>(distance) * at.w;
     float upX = height * up.x, upY = height * up.y;
     double upZ = static_cast<double>(height) * up.z, upW = static_cast<double>(height) * up.w;
-    float w1 = static_cast<float>(upW + m_pos.w);
-    double z1 = upZ + m_pos.z;
-    float y1 = upY + m_pos.y;
-    float x1 = upX + m_pos.x;
+    float w1 = static_cast<float>(upW + m_atPoint.w);
+    double z1 = upZ + m_atPoint.z;
+    float y1 = upY + m_atPoint.y;
+    float x1 = upX + m_atPoint.x;
     w1 = static_cast<float>(w1 + atW);
     float z2 = static_cast<float>(z1 + atZ);
     y1 = y1 + atY;
     x1 = x1 + atX;
-    Maths::Vector start = {x1 + offsetCellX, y1 + shiftY, z2 + offsetCellZ, static_cast<float>(shiftW + w1)};
-    feeler.Start() = start;
-    Maths::Vector& end = feeler.End();
+    Maths::Vec4 start = {x1 + offsetCellX, y1 + shiftY, z2 + offsetCellZ, static_cast<float>(shiftW + w1)};
+    feeler.Kickoff() = start;
+    Maths::Vec4& end = feeler.End();
     end = start;
     // The end: `length` along the right (side), down (down) or ahead.
     if (params->HasBareFlag(kSide)) {
@@ -697,9 +697,9 @@ bool CGameEntity::Obj_GetOrientation(CStruct* /*params*/, CScript* script)
         y = static_cast<float>(y * scale);
         z = static_cast<float>(z * scale);
     }
-    script->m_params->PushFloat(kX, x);
-    script->m_params->PushFloat(kY, y);
-    script->m_params->PushFloat(kZ, z);
+    script->m_args->PushFloat(kX, x);
+    script->m_args->PushFloat(kY, y);
+    script->m_args->PushFloat(kZ, z);
     return true;
 }
 
@@ -708,12 +708,12 @@ bool CGameEntity::Obj_GetDistToNode(CStruct* params, CScript* script)
 {
     uint32_t name = 0;
     params->ReadHashValue(kUnnamed, &name, 0);
-    Maths::Vector nodePos;
-    GetPositionFromStructure(GetNode(name, 1), &nodePos);
-    double dx = static_cast<double>(m_pos.x) - nodePos.x;
-    double dy = static_cast<double>(m_pos.y) - nodePos.y;
-    double dz = static_cast<double>(m_pos.z) - nodePos.z;
-    script->m_params->PushFloat(kDist, static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx)));
+    Maths::Vec4 nodePos;
+    GetPositionFromStructure(FetchVertex(name, 1), &nodePos);
+    double dx = static_cast<double>(m_atPoint.x) - nodePos.x;
+    double dy = static_cast<double>(m_atPoint.y) - nodePos.y;
+    double dz = static_cast<double>(m_atPoint.z) - nodePos.z;
+    script->m_args->PushFloat(kDist, static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx)));
     return true;
 }
 
@@ -727,16 +727,16 @@ bool CGameEntity::Obj_GetOrientationToObject(CStruct* params, CScript* script)
     float dot = 0.0f;
     float angle = 0.0f;
     if (other) {
-        Maths::Vector right = {m_basisFrame.row[0].x, m_basisFrame.row[0].y, m_basisFrame.row[0].z, 0.0f};
-        right.Normalize();
-        Maths::Vector toOther = {other->m_pos.x - m_pos.x, other->m_pos.y - m_pos.y, other->m_pos.z - m_pos.z, 0.0f};
-        toOther.Normalize();
+        Maths::Vec4 right = {m_basisFrame.row[0].x, m_basisFrame.row[0].y, m_basisFrame.row[0].z, 0.0f};
+        right.MakeUnit();
+        Maths::Vec4 toOther = {other->m_atPoint.x - m_atPoint.x, other->m_atPoint.y - m_atPoint.y, other->m_atPoint.z - m_atPoint.z, 0.0f};
+        toOther.MakeUnit();
         double sum = static_cast<double>(toOther.z) * right.z + static_cast<double>(toOther.y) * right.y;
         dot = static_cast<float>(sum + static_cast<double>(toOther.x) * right.x);
         angle = static_cast<float>(FastACosUnrounded(dot) * kRadiansToDegrees - kRightAngle);
     }
-    script->m_params->PushFloat(kDotProd, dot);
-    script->m_params->PushFloat(kAngleResult, angle);
+    script->m_args->PushFloat(kDotProd, dot);
+    script->m_args->PushFloat(kAngleResult, angle);
     return true;
 }
 
@@ -746,24 +746,24 @@ bool CGameEntity::Obj_GetOrientationToObject(CStruct* params, CScript* script)
 bool CGameEntity::Obj_SetOrientation(CStruct* params, CScript* /*script*/)
 {
     Scripts::VectorValue value = {0.0f, 0.0f, 1.0f, 1.0f};
-    if (params->GetVector(kDir, &value, 0)) {
-        Maths::Matrix m;
+    if (params->FetchVec(kDir, &value, 0)) {
+        Maths::Mat4 m;
         m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
         m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
         m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
         if (std::fabs(value.y) > kNearlyVertical)
             m.row[1] = {1.0f, 0.0f, 0.0f, 1.0f};
         m.row[2] = {value.x, value.y, value.z, 0.0f};
-        m.row[2].Normalize();
-        m.row[0] = Cross(m.row[1], m.row[2]);
-        m.row[0].Normalize();
-        m.row[1] = Cross(m.row[2], m.row[0]);
-        m.row[1].Normalize();
+        m.row[2].MakeUnit();
+        m.row[0] = Perpendicular(m.row[1], m.row[2]);
+        m.row[0].MakeUnit();
+        m.row[1] = Perpendicular(m.row[2], m.row[0]);
+        m.row[1].MakeUnit();
         m_basisFrame = m;
         m_displayMatrix = m;
         return true;
     }
-    if (params->GetVector(kQuat, &value, 0)) {
+    if (params->FetchVec(kQuat, &value, 0)) {
         double sum = static_cast<double>(value.z) * value.z + static_cast<double>(value.y) * value.y;
         sum += static_cast<double>(value.x) * value.x;
         float quat[4] = {value.x, value.y, value.z, static_cast<float>(std::sqrt(1.0 - sum))};
@@ -774,13 +774,13 @@ bool CGameEntity::Obj_SetOrientation(CStruct* params, CScript* /*script*/)
     float x = 0.0f;
     float y = 0.0f;
     float z = 0.0f;
-    params->GetFloat(kX, &x, 0);
-    params->GetFloat(kY, &y, 0);
-    params->GetFloat(kZ, &z, 0);
+    params->FetchFloat(kX, &x, 0);
+    params->FetchFloat(kY, &y, 0);
+    params->FetchFloat(kZ, &z, 0);
     x *= kDegreesToRadians;
     y *= kDegreesToRadians;
     z *= kDegreesToRadians;
-    Maths::Matrix m;
+    Maths::Mat4 m;
     m.SetFromEulerAngles(x, y, z);
     m_basisFrame = m;
     m_displayMatrix = m;
@@ -797,7 +797,7 @@ bool CGameEntity::Obj_GetQuat(CStruct* /*params*/, CScript* script)
         quat[1] = -quat[1];
         quat[2] = -quat[2];
     }
-    script->m_params->PutVec3(kQuat, quat[0], quat[1], quat[2]);
+    script->m_args->PutVec3(kQuat, quat[0], quat[1], quat[2]);
     return true;
 }
 
@@ -816,9 +816,9 @@ CGameEntity* CGameEntity::FindNearestObjectOfType(uint32_t type)
     CGameEntity* nearest = object;
     float nearestDistance = kFarAway;
     for (; object; object = static_cast<CGameEntity*>(search.NextItemOfType())) {
-        double dx = static_cast<double>(object->m_pos.x) - m_pos.x;
-        double dy = static_cast<double>(object->m_pos.y) - m_pos.y;
-        double dz = static_cast<double>(object->m_pos.z) - m_pos.z;
+        double dx = static_cast<double>(object->m_atPoint.x) - m_atPoint.x;
+        double dy = static_cast<double>(object->m_atPoint.y) - m_atPoint.y;
+        double dz = static_cast<double>(object->m_atPoint.z) - m_atPoint.z;
         double distance = std::sqrt(dz * dz + dy * dy + dx * dx);
         if (object != this && distance < nearestDistance) {
             nearestDistance = static_cast<float>(distance);
@@ -836,10 +836,10 @@ bool CGameEntity::Obj_NearestOutsideAngle(CStruct* params, CScript* /*script*/)
     if (!other)
         return false;
     float angle = 0.0f; // (uninitialised in the original: a missing angle compares with stack garbage)
-    params->GetFloat(kUnnamed, &angle, 1);
+    params->FetchFloat(kUnnamed, &angle, 1);
     angle *= kDegreesToRadians;
-    Maths::Vector offset = {other->m_pos.x - m_pos.x, other->m_pos.y - m_pos.y, other->m_pos.z - m_pos.z,
-                          other->m_pos.w - m_pos.w};
+    Maths::Vec4 offset = {other->m_atPoint.x - m_atPoint.x, other->m_atPoint.y - m_atPoint.y, other->m_atPoint.z - m_atPoint.z,
+                          other->m_atPoint.w - m_atPoint.w};
     return std::fabs(Maths::GetAngleInPlane(m_basisFrame, offset, 2, 1)) > angle;
 }
 
@@ -848,29 +848,29 @@ bool CGameEntity::Obj_NearestOutsideAngle(CStruct* params, CScript* /*script*/)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kComponentVtable_slots[] = {&GameObjects::CObjectModule::Destroy,
+static VtableSlot kComponentVtable_slots[] = {&GameObjects::CObjectModule::Teardown,
          &_purecall,
          &_purecall,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
          static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kComponentVtable = reinterpret_cast<void**>(kComponentVtable_slots);
-static VtableSlot kCompositeObjectVtable_slots[] = {&GameObjects::CGameEntity::Destroy,
-         &GameObjects::CObject::SetProperties,
-         static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+static VtableSlot kCompositeObjectVtable_slots[] = {&GameObjects::CGameEntity::Teardown,
+         &GameObjects::CEntity::ChangeTraits,
+         static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
          static_cast<bool (GameObjects::CGameEntity::*)(uint32_t, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CGameEntity::InvokeMethodByName),
          Stubs::IgnoreArgument,
-         &GameObjects::CObject::PassEventToScript,
+         &GameObjects::CEntity::PassEventToScript,
          &GameObjects::CGameEntity::FlagAsDead,
          &GameObjects::CGameEntity::ShouldUpdateScripts,
-         &GameObjects::CGameEntity::Finalize,
+         &GameObjects::CGameEntity::Seal,
          &GameObjects::CGameEntity::CreateComponentFromStructure,
          Stubs::DoNothing};
 void** const kCompositeObjectVtable = reinterpret_cast<void**>(kCompositeObjectVtable_slots);

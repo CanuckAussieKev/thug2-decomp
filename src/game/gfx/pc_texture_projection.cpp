@@ -40,13 +40,13 @@ extern void** const kProjectionVtable;
 constexpr uint32_t kBatchLimit = 10;
 constexpr uint32_t kBatchVertices = 0x600;
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 IDirect3DDevice9* DrawDevice() { return g_drawDevice; } // (the same device, kept twice)
 uint32_t& BatchCount() { return g_projectionBatchCount; }
 sProjectionBatch* Batches() { return g_projectionBatches; }
 int Rand() { return Crt::Rand(); } // (the game's C runtime's)
 
-void TransformCoord(float* out, const float* v, const Maths::Matrix* m)
+void TransformCoord(float* out, const float* v, const Maths::Mat4* m)
 {
     D3dx::Vec3TransformCoord(out, v, m); // (D3DX)
 }
@@ -55,7 +55,7 @@ void TransformCoord(float* out, const float* v, const Maths::Matrix* m)
 uint8_t* VertexStack() { return reinterpret_cast<uint8_t*>(&g_vertexStack); }
 void PushVertex(const uint8_t* vertex)
 {
-    reinterpret_cast<sVertexStack*>(VertexStack())->Push(vertex);
+    reinterpret_cast<sVertexStack*>(VertexStack())->StackOn(vertex);
 }
 
 float* Uv(uint8_t* vertex) { return reinterpret_cast<float*>(vertex + 0x10); }
@@ -82,14 +82,14 @@ void CopyTriangle(uint8_t* into, uint8_t* from)
 } // namespace
 
 // 0x004C7610
-sProjectionBatch* sProjectionBatch::Construct()
+sProjectionBatch* sProjectionBatch::MakeNew()
 {
-    reinterpret_cast<materialRef*>(material)->Construct();
+    reinterpret_cast<materialRef*>(material)->MakeNew();
     return this;
 }
 
 // 0x004C73D0
-void sProjectionBatch::Destroy()
+void sProjectionBatch::Teardown()
 {
     reinterpret_cast<materialRef*>(material)->DestroyBody();
 }
@@ -133,41 +133,41 @@ sProjectionBatch* __cdecl GetProjectionBatch(uint32_t texture, uint32_t blendNam
 void __cdecl DrawProjectionBatches()
 {
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    Device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
+    InputPort()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
     DWORD minFilter;
-    Device()->GetSamplerState(0, D3DSAMP_MINFILTER, &minFilter);
-    Device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    InputPort()->GetSamplerState(0, D3DSAMP_MINFILTER, &minFilter);
+    InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     for (uint32_t i = 0; i < BatchCount(); ++i) {
         sProjectionBatch* batch = &Batches()[i];
-        reinterpret_cast<materialRef*>(batch->material)->Submit(); // (the material's set-up)
+        reinterpret_cast<materialRef*>(batch->material)->HandIn(); // (the material's set-up)
         SetPixelShader(batch->pixelShader, batch->material);
         DrawDevice()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangleCount, batch->vertices, 0x18);
         ++reinterpret_cast<uint32_t&>(g_drawCalls); // (the frame's draw calls)
         reinterpret_cast<uint32_t&>(g_drawnTriangles) += batch->triangleCount; // (and triangles)
     }
-    Device()->SetSamplerState(0, D3DSAMP_MINFILTER, minFilter);
+    InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, minFilter);
     BatchCount() = 0;
 }
 
 // 0x004C7E80
-CPcTextureProjection* CPcTextureProjection::Construct()
+CPcTextureProjection* CPcTextureProjection::MakeNew()
 {
-    reinterpret_cast<CTextureProjection*>(this)->CTextureProjection::Construct();
+    reinterpret_cast<CTextureProjection*>(this)->CTextureProjection::MakeNew();
     vtable = reinterpret_cast<void**>(kProjectionVtable);
     return this;
 }
 
 // 0x004C7EA0
-CPcTextureProjection* CPcTextureProjection::Destroy(unsigned int freeFlags)
+CPcTextureProjection* CPcTextureProjection::Teardown(unsigned int freeFlags)
 {
     reinterpret_cast<CTextureProjection*>(this)->CTextureProjection::DestroyBody();
     if (freeFlags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004C7620
-void CPcTextureProjection::Project(void** sectors, int /*unused*/)
+void CPcTextureProjection::CastOnto(void** sectors, int /*unused*/)
 {
     sProjectionBatch* batch = nullptr;
     uint8_t* batchVertices = nullptr;
@@ -245,15 +245,15 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
                     double cx = e2z * e1y - e2y * e1z;
                     double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
                     g_splitAreaLimit = static_cast<float>(total / (static_cast<double>(fineness) * 16.0f));
-                    reinterpret_cast<sVertexStack*>(VertexStack())->Construct(); // (emptied)
+                    reinterpret_cast<sVertexStack*>(VertexStack())->MakeNew(); // (emptied)
                     g_vertexStack.vertexSize = 0x18;
                     PushVertex(v0);
                     PushVertex(v1);
                     PushVertex(v2);
-                    pieces = static_cast<uint8_t*>(MemSys::New(0x2000));
+                    pieces = static_cast<uint8_t*>(MemSys::Alloc(0x2000));
                     std::memset(pieces, 0, 0x2000);
-                    void* memory = MemSys::New(0xD8);
-                    format = memory ? reinterpret_cast<uint8_t*>(static_cast<meshRef*>(memory)->Construct()) : nullptr;
+                    void* memory = MemSys::Alloc(0xD8);
+                    format = memory ? reinterpret_cast<uint8_t*>(static_cast<meshRef*>(memory)->MakeNew()) : nullptr;
                     format[0x1C] = 0x0C; // (no check: written through null, as the original)
                     format[0x1E] = 0x10;
                     end = pieces;
@@ -286,9 +286,9 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
                 if (fineness) {
                     if (format) {
                         reinterpret_cast<meshRef*>(format)->DestroyBody(); // (its destructor body)
-                        MemSys::Manager::Get()->Free(format);
+                        MemSys::Hub::Pull()->Dealloc(format);
                     }
-                    MemSys::Manager::Get()->Free(pieces);
+                    MemSys::Hub::Pull()->Dealloc(pieces);
                 }
                 if (full)
                     return; // (the buffers left locked, as the original)
@@ -300,7 +300,7 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
 }
 
 namespace {
-static VtableSlot kProjectionVtable_slots[] = {&Engine3D::CPcTextureProjection::Destroy, &Engine3D::CPcTextureProjection::Project};
+static VtableSlot kProjectionVtable_slots[] = {&Engine3D::CPcTextureProjection::Teardown, &Engine3D::CPcTextureProjection::CastOnto};
 void** const kProjectionVtable = reinterpret_cast<void**>(kProjectionVtable_slots);
 } // namespace
 
@@ -312,7 +312,7 @@ namespace Engine3D {
 void ConstructProjectionBatches()
 {
     for (sProjectionBatch& batch : g_projectionBatches)
-        batch.Construct();
+        batch.MakeNew();
 }
 
 } // namespace Nx

@@ -22,9 +22,9 @@ namespace SystemCore {
 
 void InitPcSetup()
 {
-    using DebugLog::Level;
-    BuildInfo::Init();
-    bool debug = BuildInfo::GetBool(BuildInfo::kMiscellaneous, "Debug", false);
+    using DebugLog::StageMap;
+    BuildInfo::PrepareAll();
+    bool debug = BuildInfo::FetchFlag(BuildInfo::kMiscellaneous, "Debug", false);
     DebugLog::Configure(debug);
     if (debug) {
         AllocConsole();
@@ -33,14 +33,14 @@ void InitPcSetup()
         freopen_s(&unused, "CONOUT$", "w", stderr);
         freopen_s(&unused, "CONOUT$", "w", stdout);
     }
-    DebugLog::Printf(Level::kInfo, "PC set-up\n");
-    DebugLog::Printf(Level::kInfo, "DIRECTORY: %s\n", BuildInfo::ExecutableDirectory());
+    DebugLog::Printf(StageMap::kInfo, "PC set-up\n");
+    DebugLog::Printf(StageMap::kInfo, "DIRECTORY: %s\n", BuildInfo::ExecutableDirectory());
 
     Scripts::InitScriptPatches();
-    Platform::InitEvents();
+    OsLayer::InitEvents();
     // the music shuffle's randomness (AudioStream::ShuffleRandom)
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
-    DebugLog::Printf(Level::kInfo, "Patch Initialized\n");
+    DebugLog::Printf(StageMap::kInfo, "Patch Initialized\n");
 
     NetLink::SetUpOnlineHosts();
     NetLink::SetUpOnlineIdentity();

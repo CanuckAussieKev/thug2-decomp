@@ -56,16 +56,16 @@ CRider* SkaterOf(CGameEntity* object) { return static_cast<CRider*>(object); }
 Scripts::CStruct* NewStruct()
 {
     Scripts::CStruct* structure = Scripts::NewStruct();
-    return structure ? structure->Init() : nullptr;
+    return structure ? structure->PrepareAll() : nullptr;
 }
 
 } // namespace
 
 // 0x004F9170
-CObjectModule* __cdecl CRiderTeeterMoves::Create()
+CObjectModule* __cdecl CRiderTeeterMoves::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderTeeterMoves));
-    return memory ? static_cast<CRiderTeeterMoves*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CRiderTeeterMoves*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x004F8CD0
@@ -76,15 +76,15 @@ void __cdecl CRiderTeeterMoves::PublishMethodTable()
 }
 
 // 0x004F8F80
-CRiderTeeterMoves* CRiderTeeterMoves::Construct()
+CRiderTeeterMoves* CRiderTeeterMoves::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kVtable;
-    m_manual.Construct();
-    m_grind.Construct();
-    m_lip.Construct();
-    m_skitch.Construct();
-    m_type = kType;
+    m_manual.MakeNew();
+    m_grind.MakeNew();
+    m_lip.MakeNew();
+    m_skitch.MakeNew();
+    m_kindTag = kType;
     mp_animBlender = nullptr;
     mp_params = nullptr;
     return this;
@@ -102,27 +102,27 @@ void CRiderTeeterMoves::DestroyBody()
 }
 
 // 0x004F9010
-CRiderTeeterMoves* CRiderTeeterMoves::Destroy(unsigned int flags)
+CRiderTeeterMoves* CRiderTeeterMoves::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004F9040
 void CRiderTeeterMoves::ConfigureFromData(Scripts::CStruct* /*params*/)
 {
-    m_manual.Init(m_object);
-    m_grind.Init(m_object);
-    m_lip.Init(m_object);
-    m_skitch.Init(m_object);
+    m_manual.PrepareAll(m_entity);
+    m_grind.PrepareAll(m_entity);
+    m_lip.PrepareAll(m_entity);
+    m_skitch.PrepareAll(m_entity);
 }
 
 // 0x004F9080
-void CRiderTeeterMoves::Finalize()
+void CRiderTeeterMoves::Seal()
 {
-    mp_animBlender = static_cast<CAnimBlenderComponent*>(m_object->GetComponent(kAnimBlender));
+    mp_animBlender = static_cast<CAnimBlenderComponent*>(m_entity->FetchModule(kAnimBlender));
 }
 
 // 0x004F8D70
@@ -161,17 +161,17 @@ void CRiderTeeterMoves::Reset()
 }
 
 // 0x004F8EE0
-void CRiderTeeterMoves::Stop()
+void CRiderTeeterMoves::Halt()
 {
-    m_manual.Stop();
-    m_grind.Stop();
-    m_lip.Stop();
-    m_skitch.Stop();
+    m_manual.Halt();
+    m_grind.Halt();
+    m_lip.Halt();
+    m_skitch.Halt();
     m_trick = 0;
     m_started = false;
 }
 
-CBalance* CRiderTeeterMoves::Current()
+CBalance* CRiderTeeterMoves::AtHand()
 {
     switch (m_trick) {
     case kManual:
@@ -192,7 +192,7 @@ CBalance* CRiderTeeterMoves::Current()
 // 0x004F8E20
 void CRiderTeeterMoves::GetButtons(int* count, uint32_t* buttons) const
 {
-    const CBalance* balance = const_cast<CRiderTeeterMoves*>(this)->Current();
+    const CBalance* balance = const_cast<CRiderTeeterMoves*>(this)->AtHand();
     if (!balance) {
         *count = 0;
         return;
@@ -205,7 +205,7 @@ void CRiderTeeterMoves::GetButtons(int* count, uint32_t* buttons) const
 // 0x004F8F20
 float CRiderTeeterMoves::GetLean() const
 {
-    const CBalance* balance = const_cast<CRiderTeeterMoves*>(this)->Current();
+    const CBalance* balance = const_cast<CRiderTeeterMoves*>(this)->AtHand();
     return balance ? balance->m_lean : 0.0f;
 }
 
@@ -213,7 +213,7 @@ float CRiderTeeterMoves::GetLean() const
 float CRiderTeeterMoves::GetPhysicsValue(uint32_t name)
 {
     if (mp_params)
-        return SkaterOf(m_object)->GetScaledParam(name, mp_params);
+        return SkaterOf(m_entity)->GetScaledParam(name, mp_params);
     uint32_t structure;
     switch (m_trick) {
     case kGrind:
@@ -233,7 +233,7 @@ float CRiderTeeterMoves::GetPhysicsValue(uint32_t name)
     default:
         return 0.0f;
     }
-    CRider* skater = SkaterOf(m_object);
+    CRider* skater = SkaterOf(m_entity);
     return skater->GetScaledParam(name, Scripts::ReadSubStruct(structure));
 }
 
@@ -248,7 +248,7 @@ void CRiderTeeterMoves::ClearParams()
 }
 
 // 0x004F9370
-void CRiderTeeterMoves::SetParams(Scripts::CStruct* params)
+void CRiderTeeterMoves::ChangeArgs(Scripts::CStruct* params)
 {
     if (!mp_params)
         mp_params = NewStruct();
@@ -259,15 +259,15 @@ void CRiderTeeterMoves::SetParams(Scripts::CStruct* params)
 // 0x004F9200
 void CRiderTeeterMoves::SetWobble(Scripts::CStruct* wobble)
 {
-    if (!m_object->m_runScript) {
-        void* memory = Scripts::g_scriptPools.Allocate(0xF4);
-        m_object->m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->Construct() : nullptr;
+    if (!m_entity->m_runScript) {
+        void* memory = Scripts::g_scriptPools.Carve(0xF4);
+        m_entity->m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
     }
     float values[5];
     Scripts::CStruct* value = nullptr; // (not cleared again: a missing one leaves the last found)
     for (int i = 0; i < 5; ++i) {
         wobble->ReadSubStruct(kWobbleNames[i], &value, 1);
-        values[i] = SkaterOf(m_object)->GetScaledValue(value);
+        values[i] = SkaterOf(m_entity)->GetScaledValue(value);
     }
     mp_animBlender->FirstChannel47E450(values, 1);
 }
@@ -278,8 +278,8 @@ int CRiderTeeterMoves::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
 {
     switch (name) {
     case kSwitchOffBalanceMeter: {
-        auto* score = m_object->GetComponent(kSkaterScore);
-        GameModules::Score* display = *reinterpret_cast<GameModules::Score**>(reinterpret_cast<uint8_t*>(score) + 0x18);
+        auto* score = m_entity->FetchModule(kSkaterScore);
+        GameModules::PointTally* display = *reinterpret_cast<GameModules::PointTally**>(reinterpret_cast<uint8_t*>(score) + 0x18);
         display->SetTeeterGauge(false, 0.0f);
         display->SetWheelieGauge(false, 0.0f);
         m_manual.HideDisplay();
@@ -301,14 +301,14 @@ int CRiderTeeterMoves::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
         if (!m_trick)
             return 1;
         float timeAdd = 0.0f, leanAdd = 0.0f, speedAdd = 0.0f, timeMult = 1.0f, leanMult = 1.0f, speedMult = 1.0f;
-        params->GetFloat(kTimeAdd, &timeAdd, 0);
-        params->GetFloat(kLeanAdd, &leanAdd, 0);
-        params->GetFloat(kSpeedAdd, &speedAdd, 0);
-        params->GetFloat(kTimeMult, &timeMult, 0);
-        params->GetFloat(kLeanMult, &leanMult, 0);
-        params->GetFloat(kSpeedMult, &speedMult, 0);
+        params->FetchFloat(kTimeAdd, &timeAdd, 0);
+        params->FetchFloat(kLeanAdd, &leanAdd, 0);
+        params->FetchFloat(kSpeedAdd, &speedAdd, 0);
+        params->FetchFloat(kTimeMult, &timeMult, 0);
+        params->FetchFloat(kLeanMult, &leanMult, 0);
+        params->FetchFloat(kSpeedMult, &speedMult, 0);
         // (an unknown type has no balance: the original crashes here)
-        CBalance* balance = Current();
+        CBalance* balance = AtHand();
         double time = static_cast<double>(timeMult) * balance->m_railTime + timeAdd;
         balance->m_railTime = time < 0.0 ? 0.0f : static_cast<float>(time);
         // The lean and its speed scaled, then pushed further the way they lean.
@@ -333,13 +333,13 @@ int CRiderTeeterMoves::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
         return 1;
     }
     case kStopBalanceTrick:
-        Stop();
+        Halt();
         return 1;
     case kDoBalanceTrick: {
         ClearParams();
         Scripts::CStruct* balanceParams = nullptr;
         if (params->ReadSubStruct(kBalanceParams, &balanceParams, 0))
-            SetParams(balanceParams);
+            ChangeArgs(balanceParams);
         int tweak = 0;
         params->FetchIntValue(kTweak, &tweak, 0);
         uint32_t buttonA = 0, buttonB = 0, type = 0;
@@ -356,13 +356,13 @@ int CRiderTeeterMoves::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
         bool doFlip = params->HasBareFlag(kDoFlipCheck);
         bool backwards = params->HasBareFlag(kPlayRangeAnimBackwards);
         bool clearCheese = params->HasBareFlag(kClearCheese);
-        CBalance* balance = Current();
+        CBalance* balance = AtHand();
         if (!balance)
             return 1;
         if (clearCheese)
             balance->Reset();
         balance->KeepBestTime();
-        balance->Start(buttonA, buttonB, static_cast<uint32_t>(tweak), doFlip, backwards);
+        balance->Kickoff(buttonA, buttonB, static_cast<uint32_t>(tweak), doFlip, backwards);
         return 1;
     }
     default:
@@ -375,14 +375,14 @@ int CRiderTeeterMoves::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderTeeterMoves::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderTeeterMoves::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          &GameObjects::CRiderTeeterMoves::ConfigureFromData,
-         &GameObjects::CRiderTeeterMoves::Finalize,
+         &GameObjects::CRiderTeeterMoves::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

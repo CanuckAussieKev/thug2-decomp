@@ -4,7 +4,7 @@
 #include <cstdint>
 
 namespace Maths {
-class Vector;
+class Vec4;
 }
 namespace Scripts {
 class CStruct;
@@ -21,7 +21,7 @@ class CStruct;
 // A terrain's settings are the global structure named by its checksum (or STANDARD_TERRAIN_DEFAULT's); its sounds
 // are its SoundActions: for each action (TA_*), one soundAction or an array of {useUpTo soundAction} picked by a
 // value (speed...), a soundAction itself being one structure or an array of {chance ...} picked at random.
-namespace Terrain {
+namespace SurfaceKind {
 
 // A terrain sound's settings (0x84 bytes; the defaults 100 except floorLoudness 0).
 struct SoundInfo {
@@ -75,7 +75,7 @@ void __cdecl LoadTableSounds(Scripts::CStruct* soundActions, uint8_t table);
 bool __cdecl GetTerrainSound(SoundInfo* info, uint8_t terrain, uint8_t table, float value);
 // 0x00444BB0: that sound played at `position`, its volume and pitch `loudnessPercent` / `pitchPercent` of their
 // ranges; with `propagate`, also sent to the server (message 0x35) for the other players.
-void __cdecl PlayTerrainSound(uint8_t table, uint8_t terrain, const Maths::Vector* position, float loudnessPercent,
+void __cdecl PlayTerrainSound(uint8_t table, uint8_t terrain, const Maths::Vec4* position, float loudnessPercent,
                               float pitchPercent, float value, bool propagate);
 // 0x00444EB0: every sound of the terrain `checksum` loaded (its SoundActions merged over TERRAIN_DEFAULT's). False
 // without sound.
@@ -83,6 +83,6 @@ bool __cdecl LoadTerrainSounds(uint32_t checksum);
 
 // NOT ORIGINAL (THAW's BMX, game/skater/thaw_bmx.h): `info` played at `position` as PlayTerrainSound plays the sound it
 // finds (its volume and pitch `loudnessPercent` / `pitchPercent` of their ranges), not sent to the other players.
-void PlaySoundInfo(const SoundInfo& info, const Maths::Vector* position, float loudnessPercent, float pitchPercent);
+void PlaySoundInfo(const SoundInfo& info, const Maths::Vec4* position, float loudnessPercent, float pitchPercent);
 
 } // namespace Terrain

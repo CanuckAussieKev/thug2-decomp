@@ -48,7 +48,7 @@ void ConstructCutsceneRotations();  // 0x00640A30
 void FillProximityMemberFunctions(); // 0x00644910
 } // namespace Obj
 
-namespace Terrain {
+namespace SurfaceKind {
 void ConstructTerrainTypes();   // 0x00640950
 void ConstructTerrainActions(); // 0x00640970
 } // namespace Terrain

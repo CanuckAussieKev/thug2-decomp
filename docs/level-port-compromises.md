@@ -81,7 +81,7 @@ back: the crash is in THUG2's code, which we are rewriting.
 | Too many script components | THUG2's script component pool | THUG1's shared node parts made global structures again | None (NJ 58k -> 40k) |
 | An animation the ped's set hasn't | 0x00482BA0 | All object animation commands left out; animal peds left out | THUG1 anims, animals |
 | A skeleton THUG2 doesn't load | 0x004A3D30 | Vehicles needing `car_6` left out | HI's bus, VC's 6 trucks |
-| GetFlag of a THUG1 flag number | 0x005844C0 | Flag commands left out | THUG1 story flags |
+| FetchMarker of a THUG1 flag number | 0x005844C0 | Flag commands left out | THUG1 story flags |
 | An endless loop that lost its waits | hang | `Wait 1 frame` added to such loops | One frame per loop |
 | A gap script that isn't defined (gap scan) | ForEachScriptCall 0x0045C950 | Empty scripts defined for the kept models' gap scripts | Car-hop gaps of THUG1 models do nothing |
 | A shader pass blending on an unwritten register | THUG2's ps.1.1 builder 0x004DD2C0 | A third pass blending like the second is dropped | One Santa Monica material |
@@ -92,7 +92,7 @@ back: the crash is in THUG2's code, which we are rewriting.
 | A restart whose own script "kills" (respawn loop) | a restart's TriggerScript runs when the skater is put there | nodes.is_kill_call: camera animations (KillSkaterCamAnim) and other "kill" names that aren't kills don't count; add_kill_restarts never gives a restart a kill | THPS4 skate shop's start point and THAW BH's Gap14 restart lose their (camera / goal) scripts |
 | No Multiplayer restart (single-player levels) | a network game's spawn | nodes.net_restarts: Player1 restarts also Multiplayer and Horse (as THUG2's skate shop) | None |
 | A restart over nothing (THAW's shop interiors: separate zones) or over a kill zone (respawn loop / under the world) | the kill's nodename= restart, a network spawn | nodes.ground_restarts (after the collision is written, all games): no network spawn there; kills sent there go to the nearest grounded restart | East L.A.'s freeway kill no longer goes "into" the CAS shop; Hollywood's hill kills skip the sign restart; Suburbia's hell box |
-| A ported level named in a network game (2026-10-19) | OnlinePlay::Manager::GetMapName 0x005369A0 (THUG2's list only) | Fixed in the engine (batch 122): the ported lists are searched too | None |
+| A ported level named in a network game (2026-10-19) | OnlinePlay::Hub::GetMapName 0x005369A0 (THUG2's list only) | Fixed in the engine (batch 122): the ported lists are searched too | None |
 
 ## 4. THPS3
 
@@ -128,7 +128,7 @@ back: the crash is in THUG2's code, which we are rewriting.
 **Scripts** (THPS3's own, translated; a called script gets its caller's parameters as in THPS3). Statements left out,
 counts across all levels:
 - SetParticleSysVisibility: 743 (no particles).
-- Sound and music commands (LoadSound, PlayStream, Obj_PlaySound...).
+- Sound and music commands (IngestSound, PlayStream, Obj_PlaySound...).
 - BouncyObj_Go: 191 (no bounce physics).
 - (TriggerType lip checks and DuplicateTrigger are translated.)
 - Object variables (Obj_VarSet / VarEQ / VarInc).
@@ -205,8 +205,8 @@ nodes, run by THUG2's code.
 
 **Scripts**
 - Goal manager calls (and conditions on them: false), panels, printf, cutscene cameras, MakeSkaterGoto / KillSkater.
-- THUG1 level / career flags (GetFlag, SetFlag...).
-- 29 LoadSound calls of sounds THUG2 lacks. Music and voice streams.
+- THUG1 level / career flags (FetchMarker, SetFlag...).
+- 29 IngestSound calls of sounds THUG2 lacks. Music and voice streams.
 - Classic levels: DuplicateTrigger gap sectors get the trigger script of the node they link to (as THUG1).
 
 **Drivable cars** (THUG1's "Press ... to drive" cars, unlocked by story goals)
@@ -319,7 +319,7 @@ Formats marked "not identified" haven't been looked into yet.
 1. **Particles.** THAW's own particle textures (a format conversion we already do for levels). Readers for THPS3's
    and THPS4's particle systems. THUG1 only needs the textures THUG2 lacks.
 2. **Sounds.** One sound converter into THUG2's format, installed in the data overlay: THPS3, THPS4, THAW, and THUG1's
-   29. This brings back LoadSound / PlaySound statements now left out, THAW's glass sound and the ambient emitters.
+   29. This brings back IngestSound / EmitSound statements now left out, THAW's glass sound and the ambient emitters.
    Per-level ambient streams come with it.
 3. **Cars.** The original models in THUG2's car setup. First check whether each game's car models have separate
    wheels. If so it's renaming parts; if not, splitting off the wheel geometry by position. The same work fixes

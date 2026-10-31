@@ -57,8 +57,8 @@ void LoadWindowSettings()
     s_clientWidth = BuildInfo::GetInt(BuildInfo::kGraphics, "ResolutionX", 0);
     s_clientHeight = BuildInfo::GetInt(BuildInfo::kGraphics, "ResolutionY", 0);
     if (!s_windowed)
-        s_windowed = BuildInfo::GetBool(BuildInfo::kGraphics, "Windowed", false);
-    s_borderless = BuildInfo::GetBool(BuildInfo::kGraphics, "Borderless", false);
+        s_windowed = BuildInfo::FetchFlag(BuildInfo::kGraphics, "Windowed", false);
+    s_borderless = BuildInfo::FetchFlag(BuildInfo::kGraphics, "Borderless", false);
 }
 
 void HandleWindowEvent(SDL_Event* event)
@@ -71,7 +71,7 @@ void HandleWindowEvent(SDL_Event* event)
         // the background, so a test's picture of its window (PrintWindow) shows the frame now, not the last one
         // drawn before the window lost the focus (the main loop draws nothing while the flag is off).
         // Original behaviour (PartyMod v1.0.4): Focused() = false always.
-        if (!MenuSystem::Automation::Enabled())
+        if (!MenuSystem::Automation::IsSwitchedOn())
             Focused() = false;
     } else if (event->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
         RecreateDevice() = true;
@@ -89,7 +89,7 @@ SDL_Window* SdlWindow() { return s_window; }
 void CreateSdlWindow()
 {
     LoadWindowSettings();
-    Platform::RegisterEventHandler(HandleWindowEvent);
+    OsLayer::RegisterEventHandler(HandleWindowEvent);
     SDL_Init(SDL_INIT_VIDEO);
 
     uint32_t flags = s_windowed ? SDL_WINDOW_SHOWN : SDL_WINDOW_FULLSCREEN;
@@ -111,7 +111,7 @@ void CreateSdlWindow()
     s_window = SDL_CreateWindow("THUG2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, s_clientWidth, s_clientHeight,
                                 flags);
     if (!s_window)
-        DebugLog::Printf(DebugLog::Level::kError, "Failed to create window! Error: %s\n", SDL_GetError());
+        DebugLog::Printf(DebugLog::StageMap::kError, "Failed to create window! Error: %s\n", SDL_GetError());
 
     SDL_SysWMinfo info;
     SDL_VERSION(&info.version);

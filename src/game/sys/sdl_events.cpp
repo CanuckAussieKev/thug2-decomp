@@ -9,7 +9,7 @@
 
 #include "game/gfx/movie.h"
 
-namespace Platform {
+namespace OsLayer {
 
 namespace {
 

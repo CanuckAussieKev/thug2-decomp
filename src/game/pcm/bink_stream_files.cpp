@@ -35,7 +35,7 @@ int CrtFseek(FILE* file, long offset, int origin) { return Crt::Fseek(file, offs
 size_t CrtFread(void* buffer, size_t size, size_t count, FILE* file) { return Crt::Fread(buffer, size, count, file); }
 int CrtFclose(FILE* file) { return Crt::Fclose(file); }
 void* CrtMalloc(size_t size) { return Crt::AllocBlock(size); }
-void CrtFree(void* block) { Crt::Free(block); }
+void CrtFree(void* block) { Crt::Dealloc(block); }
 
 // The Bink SDK (binkw32.dll), through the game's import table.
 int BinkSetSoundSystem(void* open, void* param)
@@ -108,7 +108,7 @@ int __cdecl LoadStreamFile(uint32_t key, const char* path, long offset, size_t s
 }
 
 // 0x00452C00
-BinkStreamView* BinkStreamView::Construct(bool unknown19, int unknown24)
+BinkStreamView* BinkStreamView::MakeNew(bool unknown19, int unknown24)
 {
     At<int>(0xC) = -1; // the stream file's slot
     At<uint8_t>(0x10) = 0;
@@ -130,7 +130,7 @@ BinkStreamView* BinkStreamView::Construct(bool unknown19, int unknown24)
 }
 
 // 0x00452C60
-long BinkStreamView::Open(uint32_t key, const char* path, long offset, size_t size)
+long BinkStreamView::Unseal(uint32_t key, const char* path, long offset, size_t size)
 {
     if (!BinkSoundSet()) {
         if (!BinkSetSoundSystem(BinkOpenDirectSound(), g_soundDevice))

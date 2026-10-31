@@ -39,30 +39,30 @@ enum EQbValueKind : uint8_t {
 // A script array: `size` elements of one type. A single element is kept in place of the pointer.
 class CArray {
 public:
-    CArray* Init();
+    CArray* PrepareAll();
     void Clear();
     // The elements (for one element, the value stored in the array itself).
     uint32_t* FindArrayValue();
     // Make the array `size` zeroed elements of `type` (frees the old element block, not what it refers to).
     void ConfigureSizeKind(uint32_t size, EQbValueKind type);
     // Only the type (the elements are left as they are).
-    void SetType(EQbValueKind type);
+    void ChangeSpecies(EQbValueKind type);
     // Grow the array to `size` elements, keeping the old ones (the new ones are zero; shrinking isn't supported).
-    void Resize(uint32_t size);
+    void Rescale(uint32_t size);
 
-    // The elements. Any 32-bit value (integer, checksum, structure, array...) by SetElement / GetElement.
+    // The elements. Any 32-bit value (integer, checksum, structure, array...) by SetElement / FetchPart.
     void SetElement(uint32_t index, uint32_t value);
-    void SetFloat(uint32_t index, float value);
-    uint32_t GetElement(uint32_t index);
-    const char* GetString(uint32_t index);
+    void ChangeFloat(uint32_t index, float value);
+    uint32_t FetchPart(uint32_t index);
+    const char* FetchText(uint32_t index);
     const char* FindInlineText(uint32_t index);
     // An integer array's elements are converted.
-    float GetFloat(uint32_t index);
+    float FetchFloat(uint32_t index);
 
     uint8_t m_unknown0;
-    EQbValueKind m_type;
+    EQbValueKind m_kindTag;
     uint16_t m_unknown2;
-    uint32_t m_size;
+    uint32_t m_extent;
     union {
         uint32_t* m_elements;
         uint32_t m_single;
@@ -73,14 +73,14 @@ static_assert(sizeof(CArray) == 0xC, "layout must match the original");
 // Pair and vector values are separate objects; the coordinates start at +4.
 // Their constructors clear only byte 0 of the first word.
 struct CPair {
-    CPair* Init();
+    CPair* PrepareAll();
 
     uint32_t unknown0;
     float x;
     float y;
 };
 struct CVector {
-    CVector* Init();
+    CVector* PrepareAll();
 
     uint32_t unknown0;
     float x;
@@ -108,12 +108,12 @@ struct CComponent {
     };
     CComponent* next;
 
-    EQbValueKind Type() const { return static_cast<EQbValueKind>(typeAndFlag >> 1); }
+    EQbValueKind KindTag() const { return static_cast<EQbValueKind>(typeAndFlag >> 1); }
 };
 static_assert(sizeof(CComponent) == 0x10, "layout must match the original");
 
 struct CSymbolTableEntry {
-    CSymbolTableEntry* Init();
+    CSymbolTableEntry* PrepareAll();
 
     uint8_t unknown0; // bit 0: in use
     EQbValueKind type;
@@ -148,16 +148,16 @@ CSymbolTableEntry* GetNextSymbol(CSymbolTableEntry* previous);
 // (or the wrong type) give 0 / 0.0 / null; GetSymbolValue gives the raw value of any type; strings give "".
 int FetchIntValue(uint32_t name);
 int FetchIntValue(const char* name);
-float GetFloat(uint32_t name);
-float GetFloat(const char* name);
+float FetchFloat(uint32_t name);
+float FetchFloat(const char* name);
 uint32_t GetSymbolValue(uint32_t name);
 uint32_t GetSymbolValue(const char* name);
-const char* GetString(uint32_t name);
-const char* GetString(const char* name);
+const char* FetchText(uint32_t name);
+const char* FetchText(const char* name);
 CStruct* ReadSubStruct(uint32_t name);
 CStruct* ReadSubStruct(const char* name);
-CArray* GetArray(uint32_t name);
-CArray* GetArray(const char* name);
+CArray* FetchList(uint32_t name);
+CArray* FetchList(const char* name);
 
 // Whether two components' values are equal (names standing for global symbols are looked up; integers and
 // floats compare by value; structures and arrays only when they are the same one).
@@ -169,9 +169,9 @@ inline void DumpToLog(const CStruct* /*structure*/, int /*indent*/ = 0) {}
 
 // Strings owned by components: copied to the script heap (or, while the permanent string cache is on, shared
 // in its block).
-char* CreateString(const char* string);
+char* SpawnText(const char* string);
 void FreeString(const char* string);
-// While on, CreateString puts strings in the permanent block, sharing equal ones (startup scripts).
+// While on, SpawnText puts strings in the permanent block, sharing equal ones (startup scripts).
 void BeginPermanentStrings();
 // Off again; the lookup table is freed (the strings stay).
 void EndPermanentStrings();
@@ -210,10 +210,10 @@ struct VectorValue {
 
 class CStruct {
 public:
-    CStruct* Init();
+    CStruct* PrepareAll();
     // Initialise as a copy of `source` (the copy constructor).
     CStruct* InitCopy(CStruct* source);
-    bool IsEmpty();
+    bool IsVacant();
     // The next component after `component` (null: the first).
     CComponent* StepToEntry(CComponent* component);
     // The component `name` - the last one there is, also in included structures.
@@ -222,7 +222,7 @@ public:
     CComponent* FindComponent(uint32_t name);
     // The value of the last component `name` of type `type` (integers are converted for floats; name components
     // naming a global symbol of the type count too), into `out` (4 bytes).
-    bool Search(uint32_t name, uint32_t type, void* out);
+    bool Hunt(uint32_t name, uint32_t type, void* out);
 
     bool HasEntryNamed(uint32_t name);
     bool HasEntryNamed(const char* name);
@@ -237,19 +237,19 @@ public:
     // Remove (and free) every component.
     void Clear();
     // Remove every component named `name` (of type `type`).
-    void RemoveComponent(uint32_t name);
-    void RemoveComponent(const char* name);
+    void EraseModule(uint32_t name);
+    void EraseModule(const char* name);
     void RemoveComponentOfType(uint32_t name, uint8_t type);
     // Remove the bare name `flag`.
     void RemoveFlag(uint32_t flag);
 
     // Add `component` at the end, replacing any component of the same name and compatible type (integers and
     // floats replace each other; a bare name only replaces the same name).
-    void AddComponent(CComponent* component);
-    void AddString(uint32_t name, const char* value);
-    void AddString(const char* name, const char* value);
+    void AttachModule(CComponent* component);
+    void AppendWord(uint32_t name, const char* value);
+    void AppendWord(const char* name, const char* value);
     void AppendInlineText(uint32_t name, const char* value);
-    void AddString(uint32_t name, uint32_t type, const char* value); // string or local string
+    void AppendWord(uint32_t name, uint32_t type, const char* value); // string or local string
     void PutInt(uint32_t name, int value);
     void PutInt(const char* name, int value);
     void PushFloat(uint32_t name, float value);
@@ -272,7 +272,7 @@ public:
     void AppendArrayValue(uint32_t name, CArray* value);
     void AppendArrayValue(const char* name, CArray* value);
     // A compiled script, copied to the script heap.
-    void AddScript(uint32_t name, const uint8_t* code, uint32_t size);
+    void AppendScript(uint32_t name, const uint8_t* code, uint32_t size);
     // By type: integer, float, 11 structure pointer, 12 array pointer, 13 checksum (others are ignored).
     void AddComponentOfType(uint32_t name, uint32_t type, uint32_t value);
 
@@ -286,26 +286,26 @@ public:
 
     // The typed getters: false if missing. With `assert` set, a miss also prints the structure (DumpToLog -
     // compiled out of this build) before a compiled-out assert.
-    bool GetString(uint32_t name, const char** out, int assert);
-    bool GetString(const char* name, const char** out, int assert);
+    bool FetchText(uint32_t name, const char** out, int assert);
+    bool FetchText(const char* name, const char** out, int assert);
     bool FetchIntValue(uint32_t name, int* out, int assert);
     bool FetchIntValue(const char* name, int* out, int assert);
-    bool GetFloat(uint32_t name, float* out, int assert);
-    bool GetFloat(const char* name, float* out, int assert);
+    bool FetchFloat(uint32_t name, float* out, int assert);
+    bool FetchFloat(const char* name, float* out, int assert);
     bool FetchPair(uint32_t name, float* x, float* y, int assert);
     bool FetchPair(uint32_t name, CPair* out, bool assert);
     bool ReadSubStruct(uint32_t name, CStruct** out, int assert);
     bool ReadSubStruct(const char* name, CStruct** out, int assert);
-    bool GetArray(uint32_t name, CArray** out, int assert);
-    bool GetArray(const char* name, CArray** out, int assert);
+    bool FetchList(uint32_t name, CArray** out, int assert);
+    bool FetchList(const char* name, CArray** out, int assert);
     // A script component: its name and code into `out`.
-    bool GetScript(uint32_t name, SParamScript* out, int assert);
+    bool FetchScript(uint32_t name, SParamScript* out, int assert);
     bool ReadHashValue(uint32_t name, uint32_t* out, int assert);
     bool ReadHashValue(const char* name, uint32_t* out, int assert);
     // The checksum `name`, or else the checksum of the string `name`.
     bool HashFromNameOrText(uint32_t name, uint32_t* out, int assert);
-    bool GetVector(uint32_t name, VectorValue* out, int assert);
-    bool GetVector(const char* name, VectorValue* out, int assert);
+    bool FetchVec(uint32_t name, VectorValue* out, int assert);
+    bool FetchVec(const char* name, VectorValue* out, int assert);
 
     uint8_t m_unknown0;
     uint8_t m_unknown1;

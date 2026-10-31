@@ -55,7 +55,7 @@ void JumpHistory(int steps);
 void PushModuleUndoLabelled(std::shared_ptr<ModuleStep> before, const char* label);
 // The locks (level_editor_picking.h) as they are now, as an undo step - before a change of them.
 void PushLocksUndoLabelled(const char* label);
-// A layout's text (Layout::Write's) put in place of the level's changes as one undo step `label` (the layout as it is now
+// A layout's text (Layout::EmitOut's) put in place of the level's changes as one undo step `label` (the layout as it is now
 // kept for Ctrl+Z): the Changes panel's Revert, a paste, a snapshot switched to. False (`message`): not in a level, or
 // the text isn't a layout of this level.
 bool ApplyLayoutStep(const std::string& text, const char* label, std::string* message);
@@ -107,14 +107,14 @@ void ShowMessage(const std::string& text, double seconds = 4.0);
 // said). Only while the editor runs.
 namespace Edit {
 
-enum class Kind : uint8_t { None, Objects, Scenery, Node, Wall };
+enum class Kind : uint8_t { None, Objects, Scenery, Elem, Wall };
 struct Selected {
     Kind kind = Kind::None;
     std::vector<uint32_t> ids; // objects' ids, sectors' checksums, the node's name, the wall's checksum
 };
 Selected Selection();
 // Exactly that selected again (objects by id - those still there -, sectors, a node by name).
-void Select(const Selected& selected);
+void ChooseOne(const Selected& selected);
 // The selection's place (as the drags go by: the first object's position, a node's place, the scenery's pivot), its
 // base and the middle of its box.
 V3 Pos();
@@ -137,7 +137,7 @@ std::vector<std::pair<uint32_t, uint32_t>> Duplicate(const void* repeat);
 // since `depth` folded into one (one Ctrl+Z takes them all); the top step put back and dropped (no redo - the last action
 // about to be made again). False: nothing to take.
 uint64_t TopSerial();
-size_t Depth();
+size_t Deepness();
 void Fold(size_t depth);
 bool TakeBack();
 // Copies made (objects' ids - Objects' copies -, sectors' checksums): one undo step that takes them away.
@@ -157,7 +157,7 @@ bool Ground(V3 from, V3* ground);
 // What the editor is doing: dragging (and with which tool), the cursor (back buffer pixels), the ray under it (false:
 // none - over a panel, looking about), the ground marker (the selection's base and the ground below it).
 bool Dragging();
-int DragMode(); // (Transform::Mode)
+int DragMode(); // (Xform::Mode)
 void Cursor(float* x, float* y);
 bool Ray(V3* origin, V3* dir);
 bool GroundMark(V3* base, V3* ground);

@@ -92,7 +92,7 @@ bool& IsGameHalted() { return GameObjects::g_gamePaused; }
 uint8_t* SkateBytes() { return reinterpret_cast<uint8_t*>(g_skateModule); } // GameModules::Skate
 void* Tracker() { return reinterpret_cast<void*>(GameObjects::g_tracker); }    // GameObjects::CEventWaitBoard
 uint8_t* MainLoopManager() { return reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager); }
-uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(PadInput::g_inputManager); } // PadInput::Manager
+uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(PadInput::g_inputManager); } // PadInput::Hub
 
 // The typed arrow keys (Sio::GetKeyboardChars).
 constexpr char kKeyLeft = 0x14;
@@ -118,11 +118,11 @@ bool ObjectExists(Scripts::CStruct* params) // the script command ObjectExists
     return GameObjects::CFunc_ObjectExists(params, nullptr);
 }
 // The module base, and the tasks (the logic and input handlers) in the main loop's / input manager's stacks.
-void ConstructModule(void* module) { static_cast<Module*>(module)->Construct(); }
-void DestroyModule(void* module) { static_cast<Module*>(module)->DestroyBody(); }
-void ConstructNode(void* node, int priority) { static_cast<TaskList::SchedulerTask*>(node)->Construct(priority); }
-void AddNode(void* list, void* node) { static_cast<TaskList::Stack*>(list)->AddTask(static_cast<TaskList::SchedulerTask*>(node)); }
-void RemoveNode(void* node) { static_cast<TaskList::SchedulerTask*>(node)->Remove(); }
+void ConstructModule(void* module) { static_cast<PartUnit*>(module)->MakeNew(); }
+void DestroyModule(void* module) { static_cast<PartUnit*>(module)->DestroyBody(); }
+void ConstructNode(void* node, int priority) { static_cast<TaskList::SchedulerTask*>(node)->MakeNew(priority); }
+void AppendVertex(void* list, void* node) { static_cast<TaskList::PileUp*>(list)->QueueJob(static_cast<TaskList::SchedulerTask*>(node)); }
+void RemoveNode(void* node) { static_cast<TaskList::SchedulerTask*>(node)->DropOut(); }
 
 // A task list node's scalar deleting destructor (vtable slot 2).
 void UnlinkListNode(void* node)
@@ -130,7 +130,7 @@ void UnlinkListNode(void* node)
     reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(node))[2])(node, 1);
 }
 
-// A reference to the input manager (Singletons::LazyInstance<PadInput::Manager>, 0x0044E7F0 / 0x0044E6B0), not making it.
+// A reference to the input manager (Singletons::LazyInstance<PadInput::Hub>, 0x0044E7F0 / 0x0044E6B0), not making it.
 struct InputManagerRef {
     uint8_t* m_supervisor;
     InputManagerRef() : m_supervisor(reinterpret_cast<uint8_t*>(PadInput::CreateManager(false))) {}
@@ -143,7 +143,7 @@ Scripts::CStruct* NewParams()
 {
     Scripts::CStruct* params = Scripts::NewStruct();
     if (params)
-        params = params->Init();
+        params = params->PrepareAll();
     return params;
 }
 void DeleteParams(Scripts::CStruct* params)
@@ -199,7 +199,7 @@ void FrontEnd::DestroyBody()
 bool FrontEnd::PadsPluggedIn()
 {
     for (FrontEndInputHandler* handler : m_inputHandlers) {
-        if (reinterpret_cast<Sio::Device*>(handler->m_device)->IsAttached())
+        if (reinterpret_cast<Sio::InputPort*>(handler->m_dev)->IsAttached())
             return true;
     }
     return false;
@@ -280,32 +280,32 @@ uint32_t FrontEnd::AutoRepeat(uint32_t held, int deviceIndex)
 }
 
 // 0x0054EE70
-FrontEnd* FrontEnd::Destroy(unsigned int flags)
+FrontEnd* FrontEnd::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0054EEA0
-void FrontEnd::Start()
+void FrontEnd::Kickoff()
 {
-    MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_frontEndHeap);
-    AddNode(MainLoopManager() + 4, m_logicTask); // the logic tasks
+    MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
+    AppendVertex(MainLoopManager() + 4, m_logicTask); // the logic tasks
     uint8_t* input = InputManager();
     for (FrontEndInputHandler* handler : m_inputHandlers) {
         // The controller's place in the input manager (see UpdateInputMappings).
-        AddNode(input + handler->m_index * 0x84 + 8, handler);
-        uint8_t* server = input + handler->m_index * 0x84;
+        AppendVertex(input + handler->m_ordinal * 0x84 + 8, handler);
+        uint8_t* server = input + handler->m_ordinal * 0x84;
         handler->m_controlData = reinterpret_cast<InputControlData*>(server + 0x44);
-        handler->m_device = *reinterpret_cast<uint8_t**>(server + 4);
+        handler->m_dev = *reinterpret_cast<uint8_t**>(server + 4);
     }
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
 }
 
 // 0x0054EF30
-void FrontEnd::Stop()
+void FrontEnd::Halt()
 {
     RemoveNode(m_logicTask);
     for (FrontEndInputHandler* handler : m_inputHandlers)
@@ -316,19 +316,19 @@ void FrontEnd::Stop()
 void FrontEnd::RegisterKeyListener(int device)
 {
     m_keyboardDevice = device;
-    AddNode(MainLoopManager() + 4, m_keyboardTask); // the logic tasks
+    AppendVertex(MainLoopManager() + 4, m_keyboardTask); // the logic tasks
 }
 
 // 0x0054EF80
 void FrontEnd::UpdateButtonEventMappings(Scripts::CStruct* params)
 {
     Scripts::CArray* mappings;
-    if (!params->GetArray("xbox", &mappings, 0))
+    if (!params->FetchList("xbox", &mappings, 0))
         return;
-    for (uint32_t i = 0; i < mappings->m_size; ++i) {
-        auto* pair = reinterpret_cast<Scripts::CArray*>(mappings->GetElement(i));
-        uint32_t padButtonLabel = pair->GetElement(0);
-        uint32_t event = pair->GetElement(1);
+    for (uint32_t i = 0; i < mappings->m_extent; ++i) {
+        auto* pair = reinterpret_cast<Scripts::CArray*>(mappings->FetchPart(i));
+        uint32_t padButtonLabel = pair->FetchPart(0);
+        uint32_t event = pair->FetchPart(1);
         uint32_t button = 0;
         for (; button < 18; ++button) {
             if (padButtonLabel == Checksums::HashFromText(kXboxButtonNames[button]) || padButtonLabel == kNull)
@@ -340,13 +340,13 @@ void FrontEnd::UpdateButtonEventMappings(Scripts::CStruct* params)
         // (0, event) - the event moves to left_trigger_full; event null removes the button's pairs, then a free
         // slot gets (button, null).
         for (ButtonEvent& entry : m_buttonEvents) {
-            if (padButtonLabel == kNull && entry.m_event == event) {
-                entry.m_event = 0;
+            if (padButtonLabel == kNull && entry.m_incident == event) {
+                entry.m_incident = 0;
             } else if (event == kNull && entry.m_button == button) {
-                entry.m_event = 0;
-            } else if (entry.m_event == 0) {
+                entry.m_incident = 0;
+            } else if (entry.m_incident == 0) {
                 entry.m_button = button;
-                entry.m_event = event;
+                entry.m_incident = event;
                 break;
             }
         }
@@ -357,7 +357,7 @@ void FrontEnd::UpdateButtonEventMappings(Scripts::CStruct* params)
 bool __cdecl CFunc_SetMenuAutoRepeatTimes(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     Scripts::CPair times;
-    times.Init();
+    times.PrepareAll();
     params->FetchPair(0, &times, true);
     FrontEnd* frontEnd = FrontEndInstance();
     int rate = Ftol(static_cast<double>(times.y) * 1000.0);
@@ -371,10 +371,10 @@ bool __cdecl CFunc_SetMenuAutoRepeatTimes(Scripts::CStruct* params, Scripts::CSc
 bool __cdecl CFunc_SetMenuPadMappings(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     Scripts::CArray* mappings;
-    params->GetArray(0u, &mappings, 1);
+    params->FetchList(0u, &mappings, 1);
     FrontEnd* frontEnd = FrontEndInstance();
     for (int i = 0; i < 2; ++i) {
-        uint32_t mapping = mappings->GetElement(i);
+        uint32_t mapping = mappings->FetchPart(i);
         uint32_t value = 0; // inactive, or anything else
         if (mapping != kInactive) {
             if (mapping == kActive)
@@ -402,7 +402,7 @@ bool __cdecl CFunc_SetButtonEventMappings(Scripts::CStruct* params, Scripts::CSc
 // 0x0054F200
 void __cdecl FrontEnd::KeyboardTask(FrontEndTask* task)
 {
-    FrontEnd* frontEnd = task->m_data;
+    FrontEnd* frontEnd = task->m_content;
     char keys[256];
     int count = Sio::GetKeyboardChars(keys);
     for (int i = 0; i < count; ++i) {
@@ -417,7 +417,7 @@ void __cdecl FrontEnd::KeyboardTask(FrontEndTask* task)
             params->PutNameKey(0u, kBackspaceKey);
         } else {
             char text[2] = {keys[i], '\0'};
-            params->AddString(kText, text);
+            params->AppendWord(kText, text);
         }
         params->PutInt(kKeyboardDeviceParam, frontEnd->m_keyboardDevice);
         Scripts::LaunchScript(kHandleKeyboardInput, params, nullptr, false, nullptr);
@@ -427,7 +427,7 @@ void __cdecl FrontEnd::KeyboardTask(FrontEndTask* task)
 }
 
 // 0x0054F380
-void FrontEnd::Update(bool gamePaused)
+void FrontEnd::TickFrame(bool gamePaused)
 {
     uint8_t* skate = SkateBytes();
     bool inSkateshop = *reinterpret_cast<uint32_t*>(skate + 0x374) == 0xE92ECAFE; // (the level / game mode)
@@ -451,26 +451,26 @@ void FrontEnd::Update(bool gamePaused)
     KeyboardOnScreen() = keyboardUp;
     MenuOnScreen() = menuUp;
 
-    AudioStream::Update();
+    AudioStream::TickFrame();
     // (the sound manager: its voices' states, and its positional sounds; the original calls the first - which
     // takes no manager - as its method)
     auto* objects = SoundFx::g_sfxManager;
     SoundFx::UpdateVoiceStates();
-    MemSys::Manager* memory = MemSys::Manager::Get();
+    MemSys::Hub* memory = MemSys::Hub::Pull();
     if (!gamePaused) {
         memory->EnterHeapScope(memory->m_bottomUpHeap);
         objects->TickPositionalSounds();
-        MemSys::Manager::Get()->LeaveHeapScope();
+        MemSys::Hub::Pull()->LeaveHeapScope();
     }
-    MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_bottomUpHeap);
+    MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_bottomUpHeap);
     Scripts::TickChildScripts();
     reinterpret_cast<GameModules::Skate*>(SkateBytes())->AdvanceMatchFlow();
     if (PendingScript()) {
         PendingScript() = false;
-        auto* object = static_cast<GameObjects::CObject*>(reinterpret_cast<GameModules::Skate*>(SkateBytes())->GetHomeRider());
+        auto* object = static_cast<GameObjects::CEntity*>(reinterpret_cast<GameModules::Skate*>(SkateBytes())->GetHomeRider());
         Scripts::LaunchScript(0xFB11E6CD, nullptr, object, false, nullptr);
     }
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
 }
 
 // 0x0054F600
@@ -478,8 +478,8 @@ uint32_t FrontEnd::GrabControlEvent(uint32_t makes, int index, int deviceIndex, 
 {
     for (int i = 0; i < kMaxButtonEvents; ++i) {
         ButtonEvent& entry = m_buttonEvents[i];
-        if ((makes & (1u << (entry.m_button & 31))) && entry.m_event != 0 && --index < 0)
-            return m_buttonEvents[i].m_event;
+        if ((makes & (1u << (entry.m_button & 31))) && entry.m_incident != 0 && --index < 0)
+            return m_buttonEvents[i].m_incident;
     }
     // Start is pad_start (unless the global 0xF3E055E1 is set and the 0x100 button is down).
     if (!((held & 0x100) && Scripts::FetchIntValue(0xF3E055E1u) != 0)) {
@@ -522,7 +522,7 @@ uint32_t FrontEnd::GrabControlEvent(uint32_t makes, int index, int deviceIndex, 
 void FrontEnd::SetAnalogStickActiveForMenus(bool active)
 {
     InputManagerRef input;
-    reinterpret_cast<PadInput::Manager*>(input.m_supervisor)->SetOverridePadWithStick(active);
+    reinterpret_cast<PadInput::Hub*>(input.m_supervisor)->SetOverridePadWithStick(active);
 }
 
 // 0x0054F960
@@ -533,7 +533,7 @@ void FrontEnd::PauseGame(bool pause)
     uint8_t* skate = SkateBytes();
     auto* devices = Sio::g_manager;
     if (pause) {
-        reinterpret_cast<GameModules::Skate*>(skate)->Pause(true);
+        reinterpret_cast<GameModules::Skate*>(skate)->Freeze(true);
         devices->PauseDevices();
     } else {
         devices->UnpauseDevices();
@@ -554,9 +554,9 @@ void FrontEnd::PauseGame(bool pause)
         else
             reinterpret_cast<void(__thiscall*)(void*)>((*skater)[0x30 / 4])(skater);
     }
-    GameObjects::CompositeObjectManager()->Pause(pause);
+    GameObjects::CompositeObjectManager()->Freeze(pause);
     FrameClock::PauseGameClock(pause);
-    MenuSystem::CUiTree::Instance()->SetPausedAll(pause);
+    MenuSystem::CUiTree::Sole()->SetPausedAll(pause);
     IsGameHalted() = pause;
     m_isHalted = pause;
     // The main loop's logic tasks: while paused those of the 0xC kinds (a task's +0x14 bits) are skipped
@@ -566,7 +566,7 @@ void FrontEnd::PauseGame(bool pause)
         ReportPauseState();
     } else {
         *reinterpret_cast<uint32_t*>(MainLoopManager() + 8) = 0;
-        reinterpret_cast<GameModules::Skate*>(SkateBytes())->Pause(false);
+        reinterpret_cast<GameModules::Skate*>(SkateBytes())->Freeze(false);
         ReportPauseState();
     }
     if (m_isHalted || !reinterpret_cast<GameModules::Skate*>(skate)->GetHomeRider())
@@ -581,12 +581,12 @@ void FrontEnd::PauseGame(bool pause)
 // 0x0054FB40
 void __cdecl FrontEnd::InputLogic(FrontEndInputHandler* handler)
 {
-    FrontEnd* frontEnd = handler->m_data;
+    FrontEnd* frontEnd = handler->m_content;
     // (not original - the mouse_menus feature: once a frame, with the first controller's handler, the mouse's menu
     // events; nothing when it's off - Update checks; the level editor's input logic runs there too, whatever the
     // setting)
-    if (handler->m_index == 0)
-        MouseMenus::Update(frontEnd);
+    if (handler->m_ordinal == 0)
+        MouseMenus::TickFrame(frontEnd);
     void* tracker = Tracker();
     static_cast<GameObjects::CEventWaitBoard*>(tracker)->LogFrame();
     for (int index = 0;; ++index) {
@@ -601,21 +601,21 @@ void __cdecl FrontEnd::InputLogic(FrontEndInputHandler* handler)
                 }
                 frontEnd->m_checkStartupScript = false;
             }
-            uint32_t repeated = frontEnd->AutoRepeat(handler->m_controlData->m_held, handler->m_index);
+            uint32_t repeated = frontEnd->AutoRepeat(handler->m_controlData->m_held, handler->m_ordinal);
             if (repeated)
                 event = repeated;
         }
-        uint32_t pressed = frontEnd->GrabControlEvent(handler->m_controlData->m_makes, index, handler->m_index,
+        uint32_t pressed = frontEnd->GrabControlEvent(handler->m_controlData->m_makes, index, handler->m_ordinal,
                                                       handler->m_controlData->m_held);
         if (pressed)
             event = pressed;
         if (!event)
             return;
-        if (frontEnd->m_padMappings[handler->m_index].m_mapping == 0 || frontEnd->m_blockMenuInput)
+        if (frontEnd->m_padMappings[handler->m_ordinal].m_mapping == 0 || frontEnd->m_blockMenuInput)
             continue;
         Scripts::CStruct params;
-        params.Init();
-        params.PutInt(kDeviceNum, *reinterpret_cast<int*>(handler->m_device + 0xC));
+        params.PrepareAll();
+        params.PutInt(kDeviceNum, *reinterpret_cast<int*>(handler->m_dev + 0xC));
         params.PutInt(kController, 0); // (the original loads the mapping, then passes 0)
         static_cast<GameObjects::CEventWaitBoard*>(tracker)->LaunchEvent(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);
         params.Clear();
@@ -625,10 +625,10 @@ void __cdecl FrontEnd::InputLogic(FrontEndInputHandler* handler)
 // 0x0054FCC0
 void __cdecl FrontEnd::LogicTask(FrontEndTask* task)
 {
-    MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_frontEndHeap);
-    task->m_data->Update(task->m_data->m_isHalted);
-    MenuSystem::CUiTree::Instance()->Update();
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
+    task->m_content->TickFrame(task->m_content->m_isHalted);
+    MenuSystem::CUiTree::Sole()->TickFrame();
+    MemSys::Hub::Pull()->LeaveHeapScope();
 }
 
 // 0x0054FD00
@@ -644,9 +644,9 @@ void FrontEnd::UpdateInputMappings()
         RemoveNode(handler);
         // The controller's place in the input manager: its device, its handler list, its control data.
         uint8_t* server = input.m_supervisor + m_deviceServerMap[i] * 0x84;
-        AddNode(server + 8, handler);
+        AppendVertex(server + 8, handler);
         handler->m_controlData = reinterpret_cast<InputControlData*>(server + 0x44);
-        handler->m_device = *reinterpret_cast<uint8_t**>(server + 4);
+        handler->m_dev = *reinterpret_cast<uint8_t**>(server + 4);
     }
 }
 
@@ -660,7 +660,7 @@ bool __cdecl CFunc_SetAnalogStickActiveForMenus(Scripts::CStruct* params, Script
 }
 
 // 0x0054FE00
-FrontEnd* FrontEnd::Construct()
+FrontEnd* FrontEnd::MakeNew()
 {
     ConstructModule(this);
     m_vtable = kFrontEndVtable;
@@ -668,26 +668,26 @@ FrontEnd* FrontEnd::Construct()
     if (task) {
         ConstructNode(task, -2000);
         *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable); // TaskList::Task<FrontEnd>
-        task->m_code = &LogicTask;
-        task->m_data = this;
+        task->m_codeValue = &LogicTask;
+        task->m_content = this;
     }
     m_logicTask = task;
     task = static_cast<FrontEndTask*>(MemSys::AllocZeroed(sizeof(FrontEndTask)));
     if (task) {
         ConstructNode(task, -1000);
         *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
-        task->m_code = &KeyboardTask;
-        task->m_data = this;
+        task->m_codeValue = &KeyboardTask;
+        task->m_content = this;
     }
     m_keyboardTask = task;
     for (int i = 0; i < 2; ++i) {
         auto* handler = static_cast<FrontEndInputHandler*>(MemSys::AllocZeroed(sizeof(FrontEndInputHandler)));
         if (handler) {
             ConstructNode(handler, -1000);
-            handler->m_index = i;
-            *reinterpret_cast<uint32_t*>(handler) = reinterpret_cast<uint32_t>(GameCode::kInputHandlerVtable); // PadInput::Handler<FrontEnd>
-            handler->m_code = &InputLogic;
-            handler->m_data = this;
+            handler->m_ordinal = i;
+            *reinterpret_cast<uint32_t*>(handler) = reinterpret_cast<uint32_t>(GameCode::kInputHandlerVtable); // PadInput::Responder<FrontEnd>
+            handler->m_codeValue = &InputLogic;
+            handler->m_content = this;
         }
         m_inputHandlers[i] = handler;
         m_padMappings[i].m_repeatState = 0;
@@ -701,7 +701,7 @@ FrontEnd* FrontEnd::Construct()
     m_checkStartupScript = true;
     m_startupScriptId = 0;
     for (ButtonEvent& entry : m_buttonEvents)
-        entry.m_event = 0;
+        entry.m_incident = 0;
     m_deviceServerMap[0] = 0;
     m_deviceServerMap[1] = 1;
     return this;
@@ -712,14 +712,14 @@ FrontEnd* CreateFrontEnd(bool create)
 {
     if (!FrontEndInstance() && create) {
         void* memory = MemSys::AllocZeroed(sizeof(FrontEnd), nullptr, 1);
-        FrontEndInstance() = memory ? static_cast<FrontEnd*>(memory)->Construct() : nullptr;
+        FrontEndInstance() = memory ? static_cast<FrontEnd*>(memory)->MakeNew() : nullptr;
     }
     ++FrontEndRefs();
     return FrontEndInstance();
 }
 
 namespace {
-static VtableSlot kFrontEndVtable_slots[] = {&GameModules::FrontEnd::Destroy, &GameModules::FrontEnd::Start, &GameModules::FrontEnd::Stop};
+static VtableSlot kFrontEndVtable_slots[] = {&GameModules::FrontEnd::Teardown, &GameModules::FrontEnd::Kickoff, &GameModules::FrontEnd::Halt};
 void** const kFrontEndVtable = reinterpret_cast<void**>(kFrontEndVtable_slots);
 } // namespace
 

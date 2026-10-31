@@ -10,67 +10,67 @@
 
 namespace MemSys {
 
-static_assert(offsetof(Pool, m_freeList) == 0x14 && offsetof(Pool, m_name) == 0x18 &&
-                  offsetof(Pool, m_peakUsed) == 0x58,
+static_assert(offsetof(SlabBank, m_freeList) == 0x14 && offsetof(SlabBank, m_label) == 0x18 &&
+                  offsetof(SlabBank, m_peakUsed) == 0x58,
               "layout must match the original");
 
 // 0x005BA420
-Pool::Pool(int item_size, int count, const char* name)
+SlabBank::SlabBank(int item_size, int count, const char* name)
 {
     m_slotBytes = item_size;
-    m_count = count;
-    auto* block = static_cast<uint8_t*>(New(static_cast<unsigned int>(item_size * count)));
-    m_end = block + m_count * m_slotBytes;
-    m_start = block;
-    m_used = 0;
+    m_num = count;
+    auto* block = static_cast<uint8_t*>(Alloc(static_cast<unsigned int>(item_size * count)));
+    m_finish = block + m_num * m_slotBytes;
+    m_outset = block;
+    m_takenCount = 0;
     m_peakUsed = 0;
     m_freeList = block;
 
     // Link every item to the next; the last one ends the list.
     uint8_t* item = block;
-    for (int i = 0; i < m_count; ++i, item += m_slotBytes)
-        *reinterpret_cast<void**>(item) = i < m_count - 1 ? item + m_slotBytes : nullptr;
+    for (int i = 0; i < m_num; ++i, item += m_slotBytes)
+        *reinterpret_cast<void**>(item) = i < m_num - 1 ? item + m_slotBytes : nullptr;
 
     // The original copies with no length limit, like strcpy.
     const char* source = name ? name : "unnamed";
-    char* out = m_name;
+    char* out = m_label;
     while ((*out++ = *source++) != '\0') {
     }
 }
 
 // 0x005BA3D0
-void* Pool::Allocate()
+void* SlabBank::Carve()
 {
     void* item = m_freeList;
     if (!item) {
         // Not original - the log names a pool that ran dry, once per pool (most callers don't check for null).
-        static const Pool* reported[16];
+        static const SlabBank* reported[16];
         static int reportedCount;
         bool seen = false;
         for (int i = 0; i < reportedCount; ++i)
             seen = seen || reported[i] == this;
         // (a pool without a name is a self-test's: the game names every pool, "unnamed" for none)
-        if (!seen && reportedCount < 16 && m_name[0] != '\0') {
+        if (!seen && reportedCount < 16 && m_label[0] != '\0') {
             reported[reportedCount++] = this;
-            Log("pool %s full: all %d items (%d bytes each) in use", m_name, m_count, m_slotBytes);
+            Log("pool %s full: all %d items (%d bytes each) in use", m_label, m_num, m_slotBytes);
         }
         return nullptr;
     }
-    ++m_used;
-    if (m_used > m_peakUsed) {
-        m_peakUsed = m_used;
+    ++m_takenCount;
+    if (m_takenCount > m_peakUsed) {
+        m_peakUsed = m_takenCount;
         // Not original either - a pool reaching 80 % is logged once per pool (which pools a big level comes near:
         // the script pools' sizes are ours, game/core/memory_sizes.h).
-        if (static_cast<int64_t>(m_used) * 5 == static_cast<int64_t>(m_count) * 4 && m_count >= 50 &&
-            m_name[0] != '\0') {
-            static const Pool* nearlyFull[32];
+        if (static_cast<int64_t>(m_takenCount) * 5 == static_cast<int64_t>(m_num) * 4 && m_num >= 50 &&
+            m_label[0] != '\0') {
+            static const SlabBank* nearlyFull[32];
             static int nearlyFullCount;
             bool seen = false;
             for (int i = 0; i < nearlyFullCount; ++i)
                 seen = seen || nearlyFull[i] == this;
             if (!seen && nearlyFullCount < 32) {
                 nearlyFull[nearlyFullCount++] = this;
-                Log("pool %s 80%% full: %d of %d items in use", m_name, m_used, m_count);
+                Log("pool %s 80%% full: %d of %d items in use", m_label, m_takenCount, m_num);
             }
         }
     }
@@ -79,46 +79,46 @@ void* Pool::Allocate()
 }
 
 // 0x005BA400
-void Pool::Free(void* item)
+void SlabBank::Dealloc(void* item)
 {
-    --m_used;
+    --m_takenCount;
     *static_cast<void**>(item) = m_freeList;
     m_freeList = item;
 }
 
 // 0x005BA3B0
-bool Pool::Contains(const void* pointer) const
+bool SlabBank::Holds(const void* pointer) const
 {
     auto* p = static_cast<const uint8_t*>(pointer);
-    return m_start <= p && p < m_end;
+    return m_outset <= p && p < m_finish;
 }
 
 namespace SlotPoolSetup {
 
-Pool* g_pools[2]; // (the memory card's path buffer follows)
+SlabBank* g_pools[2]; // (the memory card's path buffer follows)
 
-static Pool*& PoolAt(int index) { return g_pools[index]; }
+static SlabBank*& PoolAt(int index) { return g_pools[index]; }
 
 // 0x005BC3C0
 void SetUp(int index, int count)
 {
     if (index != 0)
         return;
-    void* memory = New(sizeof(Pool));
-    PoolAt(0) = memory ? new (memory) Pool(12, count, "HashItem") : nullptr;
+    void* memory = Alloc(sizeof(SlabBank));
+    PoolAt(0) = memory ? new (memory) SlabBank(12, count, "HashItem") : nullptr;
 }
 
 // 0x005BC450
 void* CreateItem(int index)
 {
-    if (Pool* pool = PoolAt(index))
-        return pool->Allocate();
+    if (SlabBank* pool = PoolAt(index))
+        return pool->Carve();
     // Only pool 0 has a known item size; the original asks for 0 bytes for the others.
-    return New(index == 0 ? 12 : 0);
+    return Alloc(index == 0 ? 12 : 0);
 }
 
 // 0x005BC3B0
-Pool* GetPool(int index)
+SlabBank* GetPool(int index)
 {
     return PoolAt(index);
 }
@@ -126,31 +126,31 @@ Pool* GetPool(int index)
 // 0x005BC4A0
 void FreeItem(int index, void* item)
 {
-    if (Pool* pool = PoolAt(index))
-        pool->Free(item);
+    if (SlabBank* pool = PoolAt(index))
+        pool->Dealloc(item);
     else
-        Free(item);
+        Dealloc(item);
 }
 
 } // namespace SlotPoolSetup
 
-void* PoolPair::Allocate(unsigned int size)
+void* PoolPair::Carve(unsigned int size)
 {
-    if (Pool* pool = pools[current])
-        return pool->Allocate();
-    return New(size);
+    if (SlabBank* pool = pools[current])
+        return pool->Carve();
+    return Alloc(size);
 }
 
-void PoolPair::Free(void* item)
+void PoolPair::Dealloc(void* item)
 {
     for (int which : {current, current ^ 1}) {
-        Pool* pool = pools[which];
-        if (pool && pool->Contains(item)) {
-            pool->Free(item);
+        SlabBank* pool = pools[which];
+        if (pool && pool->Holds(item)) {
+            pool->Dealloc(item);
             return;
         }
     }
-    MemSys::Free(item);
+    MemSys::Dealloc(item);
 }
 
 } // namespace Mem
@@ -158,9 +158,9 @@ void PoolPair::Free(void* item)
 namespace {
 
 struct PoolAdapter {
-    MemSys::Pool* Construct(int item_size, int count, const char* name)
+    MemSys::SlabBank* MakeNew(int item_size, int count, const char* name)
     {
-        return new (this) MemSys::Pool(item_size, count, name);
+        return new (this) MemSys::SlabBank(item_size, count, name);
     }
 };
 

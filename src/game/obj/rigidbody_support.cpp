@@ -62,7 +62,7 @@ CSharedRef<CGameEntity>* Pushers() { return g_rigidBodyPushers; }
 float* PusherReach() { return g_rigidBodyPusherReach; }
 
 // The matrix's element at byte offset `offset` from its start.
-double M(const Maths::Matrix& m, int offset) { return *reinterpret_cast<const float*>(reinterpret_cast<const uint8_t*>(&m) + offset); }
+double M(const Maths::Mat4& m, int offset) { return *reinterpret_cast<const float*>(reinterpret_cast<const uint8_t*>(&m) + offset); }
 
 } // namespace
 
@@ -95,13 +95,13 @@ int CObjectModule::RunMemberFunction(Scripts::CMemberFunctionEntry* entry, Scrip
         return reinterpret_cast<int(__thiscall*)(void*, Scripts::CStruct*, Scripts::CScript*)>(entry->mCode)(self, params,
                                                                                                          script);
     }
-    return InvokeMethodByName(entry->mName, params, script);
+    return InvokeMethodByName(entry->m_callsign, params, script);
 }
 
 // 0x0042BB60
 bool CBodyDynamicsModule::RigidBody_IgnoreSkater(Scripts::CStruct* params, Scripts::CScript*)
 {
-    params->GetFloat(0u, &m_pushCooldown, 1);
+    params->FetchFloat(0u, &m_pushCooldown, 1);
     if (params->HasBareFlag(kFrames) || params->HasBareFlag(kFrame))
         m_pushCooldown = Narrow(Wide(m_pushCooldown) * kFrameSeconds);
     return true;
@@ -110,7 +110,7 @@ bool CBodyDynamicsModule::RigidBody_IgnoreSkater(Scripts::CStruct* params, Scrip
 // 0x0042BBB0
 bool CBodyDynamicsModule::RigidBody_Disable(Scripts::CStruct*, Scripts::CScript*)
 {
-    m_state = STATE_DISABLED;
+    m_curPhase = STATE_DISABLED;
     return true;
 }
 
@@ -133,20 +133,20 @@ void __cdecl SetRigidBodyPusherReach(CGameEntity* object, float reach)
 }
 
 // 0x0042BD90
-void CBodyDynamicsModule::Finalize()
+void CBodyDynamicsModule::Seal()
 {
-    mp_soundComponent = static_cast<CAudioEmitterModule*>(m_object->GetComponent(kSound));
-    const Maths::Matrix& m = m_basisFrame;
+    mp_soundComponent = static_cast<CAudioEmitterModule*>(m_entity->FetchModule(kSound));
+    const Maths::Mat4& m = m_basisFrame;
     for (int i = 0; i < m_springCount; ++i) {
         Spring& spring = mp_springs[i];
-        const Maths::Vector& p = spring.point;
+        const Maths::Vec4& p = spring.point;
         double x = (Wide(p.y) * M(m, 0x10) + Wide(p.x) * M(m, 0x00)) + Wide(p.z) * M(m, 0x20);
         float y = Narrow((Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14));
         float z = Narrow((Wide(p.x) * M(m, 0x08) + Wide(p.z) * M(m, 0x28)) + Wide(p.y) * M(m, 0x18));
-        spring.anchor.z = Narrow(Wide(z) + m_pos.z);
-        spring.anchor.w = Narrow(Wide(p.w) + m_pos.w);
-        spring.anchor.x = Narrow(x + m_pos.x);
-        spring.anchor.y = Narrow(Wide(y) + m_pos.y);
+        spring.anchor.z = Narrow(Wide(z) + m_atPoint.z);
+        spring.anchor.w = Narrow(Wide(p.w) + m_atPoint.w);
+        spring.anchor.x = Narrow(x + m_atPoint.x);
+        spring.anchor.y = Narrow(Wide(y) + m_atPoint.y);
     }
 }
 
@@ -154,27 +154,27 @@ void CBodyDynamicsModule::Finalize()
 void CBodyDynamicsModule::Sleep()
 {
     if (m_settleScript)
-        m_object->SpawnScript(m_settleScript, mp_callbackParams, 0, false)->Update();
+        m_entity->SpawnScript(m_settleScript, mp_callbackParams, 0, false)->TickFrame();
     m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
     m_rotVel = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_state = STATE_ASLEEP;
+    m_curPhase = STATE_ASLEEP;
 }
 
 // 0x0042BF00 (each array from its last element back)
 void CBodyDynamicsModule::UpdateWorldPoints()
 {
-    const Maths::Matrix& m = m_basisFrame;
+    const Maths::Mat4& m = m_basisFrame;
     for (int i = m_contactCount - 1; i >= 0; --i) {
-        const Maths::Vector& p = mp_contacts[i];
-        Maths::Vector& out = WorldContactPoints()[i];
+        const Maths::Vec4& p = mp_contacts[i];
+        Maths::Vec4& out = WorldContactPoints()[i];
         double x = (Wide(p.y) * M(m, 0x10) + Wide(p.z) * M(m, 0x20)) + Wide(p.x) * M(m, 0x00);
         double y = (Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14);
         double z = (Wide(p.z) * M(m, 0x28) + Wide(p.y) * M(m, 0x18)) + Wide(p.x) * M(m, 0x08);
         out = {Narrow(x), Narrow(y), Narrow(z), p.w};
     }
     for (int i = m_sphereCount - 1; i >= 0; --i) {
-        const Maths::Vector& p = mp_spheres[i].center;
-        Maths::Vector& out = WorldSphereCenters()[i];
+        const Maths::Vec4& p = mp_spheres[i].center;
+        Maths::Vec4& out = WorldSphereCenters()[i];
         double x = (Wide(p.y) * M(m, 0x10) + Wide(p.z) * M(m, 0x20)) + Wide(p.x) * M(m, 0x00);
         double y = (Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14);
         double z = (Wide(p.x) * M(m, 0x08) + Wide(p.z) * M(m, 0x28)) + Wide(p.y) * M(m, 0x18);
@@ -184,8 +184,8 @@ void CBodyDynamicsModule::UpdateWorldPoints()
         const Spring& spring = mp_springs[i];
         if (!spring.active)
             continue;
-        const Maths::Vector& p = spring.point;
-        Maths::Vector& out = WorldSpringPoints()[i];
+        const Maths::Vec4& p = spring.point;
+        Maths::Vec4& out = WorldSpringPoints()[i];
         double x = (Wide(p.z) * M(m, 0x20) + Wide(p.y) * M(m, 0x10)) + Wide(p.x) * M(m, 0x00);
         double y = (Wide(p.z) * M(m, 0x24) + Wide(p.y) * M(m, 0x14)) + Wide(p.x) * M(m, 0x04);
         double z = (Wide(p.z) * M(m, 0x28) + Wide(p.y) * M(m, 0x18)) + Wide(p.x) * M(m, 0x08);
@@ -197,7 +197,7 @@ namespace {
 
 // A velocity slowed by `drag` (a speed; 0: left alone): stopped (w 1) at or below it, else each component, w too,
 // less its share (a not-a-number speed or drag: that).
-void Slow(Maths::Vector& v, float drag)
+void Slow(Maths::Vec4& v, float drag)
 {
     if (drag == 0.0f)
         return;
@@ -218,7 +218,7 @@ void Slow(Maths::Vector& v, float drag)
 }
 
 // x * x + y * y + z * z, as the original sums it.
-double MagnitudeSquared(const Maths::Vector& v) { return (Wide(v.x) * v.x + Wide(v.y) * v.y) + Wide(v.z) * v.z; }
+double MagnitudeSquared(const Maths::Vec4& v) { return (Wide(v.x) * v.x + Wide(v.y) * v.y) + Wide(v.z) * v.z; }
 
 } // namespace
 
@@ -239,7 +239,7 @@ void CBodyDynamicsModule::CheckSleep()
     if (MagnitudeSquared(m_rotVel) > m_angularSleepSquared)
         return;
     Sleep();
-    if ((m_flags & FLAG_DIE_UPON_SETTLING) && !(Maths::DistanceSquared(m_pos, m_wakePos) < kSettledDistanceSqr))
+    if ((m_flagBits & FLAG_DIE_UPON_SETTLING) && !(Maths::DistanceSquared(m_atPoint, m_wakePos) < kSettledDistanceSqr))
         m_dieTimer = kDieAfterSettling;
 }
 
@@ -267,7 +267,7 @@ void HideSector(uint32_t checksum)
     Engine3D::CWorldScene* scene = Engine3D::GetMainScene();
     void* sector = scene->LookUpSector(checksum);
     if (sector)
-        static_cast<Engine3D::CWorldCell*>(sector)->SetActive(false);
+        static_cast<Engine3D::CWorldCell*>(sector)->ChangeLive(false);
 }
 
 // A mute delay: 50-149 % of `delay` milliseconds from now (the product divided unsigned).
@@ -293,21 +293,21 @@ void CBodyDynamicsModule::FeelPushers()
         if (!pusher)
             continue;
         const float reach = PusherReach()[i];
-        const Maths::Vector& at = pusher->m_pos;
+        const Maths::Vec4& at = pusher->m_atPoint;
         double outer = Wide(reach) + m_skaterRadius;
-        double dz = Wide(m_pos.z) - at.z;
-        double dx = Wide(m_pos.x) - at.x;
+        double dz = Wide(m_atPoint.z) - at.z;
+        double dx = Wide(m_atPoint.x) - at.x;
         if (outer * outer < dx * dx + dz * dz)
             continue;
-        float dy = Narrow(Wide(at.y) - m_pos.y);
+        float dy = Narrow(Wide(at.y) - m_atPoint.y);
         if (Wide(reach) + m_skaterApplicationRadius < dy)
             continue;
         if (-((Wide(PusherHeight()) + m_skaterApplicationRadius) + reach) > dy)
             continue;
 
         // Away from the pusher (horizontally), and how they move relative to each other.
-        float ex = Narrow(Wide(m_pos.x) - at.x);
-        double ez = Wide(m_pos.z) - at.z;
+        float ex = Narrow(Wide(m_atPoint.x) - at.x);
+        double ez = Wide(m_atPoint.z) - at.z;
         double inverse = 1.0 / std::sqrt(ez * ez + Wide(ex) * ex);
         float nx = Narrow(Wide(ex) * inverse);
         float nz = Narrow(ez * inverse);
@@ -342,12 +342,12 @@ void CBodyDynamicsModule::FeelPushers()
         float jx = Narrow(Wide(ax) * ig * m_skaterAssentCos);
         jz = Narrow(Wide(jz) * m_skaterAssentCos);
         double size = push * m_skaterImpulseFactor;
-        Maths::Vector impulse = {Narrow(Wide(jx) * size), Narrow(Wide(m_skaterAssentSin) * size),
+        Maths::Vec4 impulse = {Narrow(Wide(jx) * size), Narrow(Wide(m_skaterAssentSin) * size),
                                Narrow(Wide(jz) * size), 0.0f};
 
         // Where it's applied (from the centre).
-        double px = Wide(at.x) - m_pos.x;
-        float pz = Narrow(Wide(at.z) - m_pos.z);
+        double px = Wide(at.x) - m_atPoint.x;
+        float pz = Narrow(Wide(at.z) - m_atPoint.z);
         double across = std::sqrt(px * px + Wide(pz) * pz);
         if (across > 0.0) {
             double scale = m_skaterApplicationRadius / across;
@@ -356,9 +356,9 @@ void CBodyDynamicsModule::FeelPushers()
         }
         double py;
         if (dy > 0.0f)
-            py = Wide(at.y) - m_pos.y;
+            py = Wide(at.y) - m_atPoint.y;
         else if (-PusherHeight() > dy)
-            py = (Wide(PusherHeight()) + at.y) - m_pos.y;
+            py = (Wide(PusherHeight()) + at.y) - m_atPoint.y;
         else
             py = kBelowFeet;
 
@@ -381,15 +381,15 @@ void CBodyDynamicsModule::FeelPushers()
         Wake();
         m_pushCooldown = m_pushCooldownTime;
         if (m_collideScript)
-            m_object->SpawnScript(m_collideScript, mp_callbackParams, 0, false)->Update();
-        HideSector(Checksums::FoldTextIntoChecksum(m_object->m_id, "_Shadow"));
+            m_entity->SpawnScript(m_collideScript, mp_callbackParams, 0, false)->TickFrame();
+        HideSector(Checksums::FoldTextIntoChecksum(m_entity->m_ident, "_Shadow"));
         int now = static_cast<int>(FrameClock::GetTime());
         if (now - static_cast<int>(m_unknownF0) > 0 && now - NextCollideSoundTime() > 0 && mp_soundComponent &&
             mp_collideSound) {
             double length = std::sqrt((Wide(impulse.x) * impulse.x + Wide(impulse.z) * impulse.z) +
                                       Wide(impulse.y) * impulse.y);
             mp_collideSound->PushFloat(kPercent, Narrow(length * kSoundScale));
-            mp_soundComponent->PlaySound(mp_collideSound);
+            mp_soundComponent->EmitSound(mp_collideSound);
             m_unknownF0 = static_cast<uint32_t>(MuteUntil(m_collideMuteDelay));
             NextCollideSoundTime() = MuteUntil(m_globalCollideMuteDelay);
         }

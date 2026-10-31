@@ -48,16 +48,16 @@ V3 PositionOffset(V3 pos, V3 angles, float distance);
 // The frustum's far corners `depth` ahead (the lens's half-angle tangents): right-up, left-up, left-down, right-down.
 void FrustumCorners(V3 pos, V3 angles, float tanX, float tanY, float depth, V3 out[4]);
 
-struct Camera {
+struct ViewCam {
     std::string name;
     V3 pos = {}, angles = {};
     float distance = kDefaultDistance;
 };
-bool Same(const Camera& a, const Camera& b);
+bool Same(const ViewCam& a, const ViewCam& b);
 // The record's text and one read (after the word "camera"; false: malformed - no pos, a bad name or number, a key
 // twice).
-std::string WriteRecord(const Camera& camera);
-bool ReadRecord(std::istringstream& in, Camera* out);
+std::string WriteRecord(const ViewCam& camera);
+bool ReadRecord(std::istringstream& in, ViewCam* out);
 // The stem of fresh names.
 constexpr const char* kStem = "ed_camera";
 
@@ -77,7 +77,7 @@ int ShotFrames(float seconds);
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // The cameras there are now (their nodes' places).
-std::vector<Camera> All();
+std::vector<ViewCam> All();
 // LevelEditor_PlayCamera (registered with the editor's other commands - level_editor.h's RegisterScriptFunctions).
 bool __cdecl CFunc_PlayCamera(Scripts::CStruct* params, Scripts::CScript* script);
 bool IsCamera(uint32_t name);
@@ -91,17 +91,17 @@ bool AimFromView(uint32_t name);
 bool SetPitch(uint32_t name, float degrees, bool done);
 bool PlaceAtRange(uint32_t name, float distance, bool done);
 // Removed (one undo step).
-bool Remove(uint32_t name);
+bool DropOut(uint32_t name);
 // Layouts: the cameras now; records made (how many); every camera removed; a new level (forgotten).
-std::vector<Camera> Capture();
-int Apply(const std::vector<Camera>& cameras);
+std::vector<ViewCam> Capture();
+int Apply(const std::vector<ViewCam>& cameras);
 void ResetAll();
 void ForgetLevel();
 // Once a frame while the editor runs: what the UI asked for; the nodes' offsets kept in step with their places.
-void Update();
+void TickFrame();
 // The frustums (the selected camera - `selected`: its node name, 0 none - brighter) over the view.
-void AddOverlay(V3 cameraPos, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                uint32_t selected, std::vector<Ui::Line>* lines);
+void AddOverlay(V3 cameraPos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
+                uint32_t selected, std::vector<Ui::Seg>* lines);
 // The Inspector: the selected camera's section (`node`: its name, 0 none), and the Cameras section (new from the
 // view, the list with Look through).
 void InspectorSection(uint32_t node, ImFont* mono, ImFont* smallFont);

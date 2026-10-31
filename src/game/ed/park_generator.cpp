@@ -50,7 +50,7 @@ void CCellChainScratch::DumpToLog()
     }
 }
 
-void CCellChainScratch::Destroy()
+void CCellChainScratch::Teardown()
 {
     if (list)
         CMapListNode::FreeNodeChain(list);
@@ -102,7 +102,7 @@ int CParkAssembler::GetPlayerCapLimit()
 CTileTemplate* CParkAssembler::GetPieceSource(uint32_t name)
 {
     for (CTileTemplate* source = mp_sources; source; source = source->m_following) {
-        if (source->m_name == name)
+        if (source->m_label == name)
             return source;
     }
     return nullptr;
@@ -169,7 +169,7 @@ bool CParkAssembler::HasFreeRestartSlot(int type)
     int last = 0;
     GetRestartSlots(type, &first, &last);
     for (int i = first; i <= last; ++i) {
-        if (!m_restarts[i].m_type || m_restarts[i].m_automatic)
+        if (!m_restarts[i].m_kindTag || m_restarts[i].m_automatic)
             return true;
     }
     return false;
@@ -178,14 +178,14 @@ bool CParkAssembler::HasFreeRestartSlot(int type)
 void CParkAssembler::ClearRestarts()
 {
     for (RestartPoint& slot : m_restarts)
-        slot.m_type = RestartPoint::kFree;
+        slot.m_kindTag = RestartPoint::kFree;
 }
 
 void CParkAssembler::PurgeAutoRestartPoints()
 {
     for (RestartPoint& slot : m_restarts) {
         if (slot.m_automatic)
-            slot.m_type = RestartPoint::kFree;
+            slot.m_kindTag = RestartPoint::kFree;
     }
 }
 
@@ -193,10 +193,10 @@ void CParkAssembler::SetUpBounds()
 {
     // The most the park can take up: 56 x 56 cells, 16 steps down and 66 up.
     Maths::BBox box;
-    Maths::Vector low = {-3360.0f, -768.0f, -3360.0f, 1.0f};
-    box.AddPoint(low);
-    Maths::Vector high = {3360.0f, 3168.0f, 3360.0f, 1.0f};
-    box.AddPoint(high);
+    Maths::Vec4 low = {-3360.0f, -768.0f, -3360.0f, 1.0f};
+    box.AppendSpot(low);
+    Maths::Vec4 high = {3360.0f, 3168.0f, 3360.0f, 1.0f};
+    box.AppendSpot(high);
     Scene::AssignSceneBounds(SceneOf(m_sceneHandle), &box);
 }
 
@@ -204,11 +204,11 @@ void CParkAssembler::RebuildCollision()
 {
     if (!RebuildsCollision())
         return;
-    m_flags &= ~CParkAssembler::kSceneChanged;
+    m_flagBits &= ~CParkAssembler::kSceneChanged;
     MemSys::EnterHeapScope(MemSys::BottomUpHeap());
     Scene::UpdateSuperSectors(SceneOf(m_sceneHandle), nullptr);
     MemSys::LeaveHeapScope();
-    m_flags |= CParkAssembler::kSuperSectorsUpdated;
+    m_flagBits |= CParkAssembler::kSuperSectorsUpdated;
 }
 
 void CParkAssembler::UpdateBounds(uint32_t /*unused*/)
@@ -218,25 +218,25 @@ void CParkAssembler::UpdateBounds(uint32_t /*unused*/)
     if (!shell)
         return;
     // The shell's first box: as big as can be.
-    Maths::Vector far = {200000.0f, 200000.0f, 200000.0f, 1.0f};
-    Maths::Vector near = {-200000.0f, -200000.0f, -200000.0f, 1.0f};
-    Maths::Line everything(near, far);
+    Maths::Vec4 far = {200000.0f, 200000.0f, 200000.0f, 1.0f};
+    Maths::Vec4 near = {-200000.0f, -200000.0f, -200000.0f, 1.0f};
+    Maths::Seg everything(near, far);
     Scene::SetBox(shell, &everything, 1, 0);
     // The second: the park's bounds, from the middle of its first cell to the middle of its last, every height.
     SCellBox area;
-    area.Set(0, 0, 0, 0, 0, 0);
+    area.AssignValue(0, 0, 0, 0, 0, 0);
     area = CParkLayout::sSingleton()->m_parkBounds;
-    Maths::Vector corner = CParkLayout::sSingleton()->CellToWorldPos(area, nullptr);
+    Maths::Vec4 corner = CParkLayout::sSingleton()->CellToWorldPos(area, nullptr);
     area.x = static_cast<uint8_t>(area.x + (area.w - 1));
     area.z = static_cast<uint8_t>(area.z + (area.l - 1));
-    Maths::Vector farCorner = CParkLayout::sSingleton()->CellToWorldPos(area, nullptr);
+    Maths::Vec4 farCorner = CParkLayout::sSingleton()->CellToWorldPos(area, nullptr);
     corner.x = static_cast<float>(static_cast<double>(corner.x) + 60.0);
     corner.y = -100000.0f;
     corner.z = static_cast<float>(static_cast<double>(corner.z) + 60.0);
     farCorner.y = 100000.0f;
     farCorner.x = static_cast<float>(static_cast<double>(farCorner.x) + 60.0);
     farCorner.z = static_cast<float>(static_cast<double>(farCorner.z) + 60.0);
-    Maths::Line park(corner, farCorner);
+    Maths::Seg park(corner, farCorner);
     Scene::SetBox(shell, &park, 0, 0);
 }
 
@@ -244,7 +244,7 @@ void CParkAssembler::SetPiecesHighlighted(int on)
 {
     for (CParkTile* piece = mp_pieces; piece;) {
         CParkTile* next = piece->m_following;
-        if (piece->m_flags & CParkTile::kGap)
+        if (piece->m_flagBits & CParkTile::kGap)
             piece->SetVisible(on != 0);
         piece = next;
     }
@@ -254,15 +254,15 @@ void CParkAssembler::SetRestartPiecesActive(bool active)
 {
     for (CParkTile* piece = mp_pieces; piece;) {
         CParkTile* next = piece->m_following;
-        if (CParkLayout::sSingleton()->GetRestartIndex(piece->mp_source->m_name))
-            piece->SetActive(active);
+        if (CParkLayout::sSingleton()->GetRestartIndex(piece->mp_source->m_label))
+            piece->ChangeLive(active);
         piece = next;
     }
 }
 
 uint32_t CParkAssembler::DuplicateSceneSector(uint32_t name, int a, int b, int /*unused*/)
 {
-    m_flags |= CParkAssembler::kSceneChanged;
+    m_flagBits |= CParkAssembler::kSceneChanged;
     MemSys::EnterHeapScope(MemSys::BottomUpHeap());
     uint32_t clone = Scene::DuplicateSceneSector(SceneOf(mp_sourceScene), name, SceneOf(m_sceneHandle), a, b, 0);
     MemSys::LeaveHeapScope();
@@ -279,11 +279,11 @@ bool CParkAssembler::DestroySector(uint32_t name, int /*unused*/)
 CParkTile* CParkAssembler::CreatePiece(CParkTile* source, uint32_t flags)
 {
     flags &= CParkTile::kCursor | CParkTile::kNoNode20 | CParkTile::kNoRails | CParkTile::kDestroyNow;
-    CTileTemplate* from = (source->m_flags & CParkTile::kSource) ? reinterpret_cast<CTileTemplate*>(source) : source->mp_source;
+    CTileTemplate* from = (source->m_flagBits & CParkTile::kSource) ? reinterpret_cast<CTileTemplate*>(source) : source->mp_source;
     // The source's sector copied into the park's scene (on the bottom-up heap).
     CloningPiece() = 1;
-    const uint32_t name = from->m_name;
-    m_flags |= CParkAssembler::kSceneChanged;
+    const uint32_t name = from->m_label;
+    m_flagBits |= CParkAssembler::kSceneChanged;
     MemSys::EnterHeapScope(MemSys::BottomUpHeap());
     uint32_t clone = (flags & CParkTile::kCursor)
                          ? Scene::DuplicateSceneSector(SceneOf(mp_sourceScene), name, SceneOf(m_sceneHandle), 1, 0, 0)
@@ -292,37 +292,37 @@ CParkTile* CParkAssembler::CreatePiece(CParkTile* source, uint32_t flags)
     CloningPiece() = 0;
     // The piece itself on the park editor's heap.
     MemSys::EnterHeapScope(GetParkHeap());
-    void* memory = MemSys::New(sizeof(CCopiedPiece));
-    CCopiedPiece* piece = memory ? static_cast<CCopiedPiece*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::Alloc(sizeof(CCopiedPiece));
+    CCopiedPiece* piece = memory ? static_cast<CCopiedPiece*>(memory)->MakeNew() : nullptr;
     MemSys::LeaveHeapScope();
     piece->m_sector = clone; // (out of memory crashes, as in the original)
-    piece->m_id = m_nextPieceId++;
+    piece->m_ident = m_nextPieceId++;
     piece->mp_source = from;
     piece->SetQuarterTurns(0, 0);
-    piece->m_flags |= flags;
+    piece->m_flagBits |= flags;
     uint32_t rgba;
     if (GetPieceColor(piece, &rgba)) { // (never)
         if (uint8_t* sector = Scene::LookUpSector(clone)) {
-            if (uint8_t* geometry = Scene::GetGeometry(sector))
-                Scene::SetColor(geometry, rgba);
+            if (uint8_t* geometry = Scene::FetchShape(sector))
+                Scene::ChangeTint(geometry, rgba);
         }
     }
     SetCountsDirty();
-    m_flags |= CParkAssembler::kPiecesCreated;
+    m_flagBits |= CParkAssembler::kPiecesCreated;
     return piece;
 }
 
 void CParkAssembler::AddPiece(CParkTile* piece)
 {
-    piece->m_flags |= CParkTile::kInList;
+    piece->m_flagBits |= CParkTile::kInList;
     piece->m_following = mp_pieces;
     mp_pieces = piece;
-    m_flags |= CParkAssembler::kHasPieces;
+    m_flagBits |= CParkAssembler::kHasPieces;
 }
 
 void CParkAssembler::DeletePiece(CParkTile* piece, int keepSector)
 {
-    if (!(piece->m_flags & CParkTile::kCursor)) {
+    if (!(piece->m_flagBits & CParkTile::kCursor)) {
         CParkTile* previous = nullptr;
         for (CParkTile* p = mp_pieces; p; previous = p, p = p->m_following) {
             if (p != piece)
@@ -335,17 +335,17 @@ void CParkAssembler::DeletePiece(CParkTile* piece, int keepSector)
         }
     }
     if (!keepSector)
-        DestroySector(piece->m_sector, static_cast<int>(piece->m_flags));
+        DestroySector(piece->m_sector, static_cast<int>(piece->m_flagBits));
     SetCountsDirty();
-    piece->Delete();
+    piece->EraseOne();
     if (!mp_pieces)
-        m_flags &= ~CParkAssembler::kHasPieces;
+        m_flagBits &= ~CParkAssembler::kHasPieces;
 }
 
 void CParkAssembler::ReadPieceFlags(Scripts::CArray* nodes)
 {
-    for (uint32_t i = 0; i < nodes->m_size; ++i) {
-        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->GetElement(i));
+    for (uint32_t i = 0; i < nodes->m_extent; ++i) {
+        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(i));
         uint32_t nodeClass = 0;
         node->ReadHashValue(0x12B4E660u, &nodeClass, 0); // Class
         if (nodeClass != 0xBF4D3536u && nodeClass != 0xEF59C100u) // LevelGeometry, GameObject
@@ -358,9 +358,9 @@ void CParkAssembler::ReadPieceFlags(Scripts::CArray* nodes)
         if (!source)
             continue;
         if (nodeClass == 0xEF59C100u) {
-            source->m_flags |= CTileTemplate::kGameObject;
+            source->m_flagBits |= CTileTemplate::kGameObject;
             if (node->HasBareFlag(0x68910AC6u))
-                source->m_flags |= CTileTemplate::kAbsentInNetGames;
+                source->m_flagBits |= CTileTemplate::kAbsentInNetGames;
         }
         uint32_t script = 0;
         node->ReadHashValue(0x2CA8A299u, &script, 0); // TriggerScript
@@ -372,7 +372,7 @@ void CParkAssembler::ReadPieceFlags(Scripts::CArray* nodes)
         case 0x22C20ED8u:
         case 0x28673697u:
         case 0xF6187E48u:
-            source->m_flags |= CTileTemplate::kRebuilt;
+            source->m_flagBits |= CTileTemplate::kRebuilt;
             break;
         default:
             break;

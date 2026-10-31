@@ -19,7 +19,7 @@ namespace Engine3D {
 namespace {
 
 static VtableSlot kHeadVtable_slots[] = {&Engine3D::CollObjListNodes::DestroyHead};
-void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots); // ListKit::Head<CHitMesh>
+void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots); // ListKit::Foremost<CHitMesh>
 
 void* const kHeadData = reinterpret_cast<void*>(-1);
 
@@ -63,7 +63,7 @@ static VtableSlot kCollObjVtable_slots[] = {&Engine3D::CHitMesh::ScalarDelete, S
         &_purecall, &_purecall, Stubs::ReturnZero};
 void** const kCollObjVtable = reinterpret_cast<void**>(kCollObjVtable_slots);
 static VtableSlot kNodeVtable_slots[] = {&Engine3D::CollObjListNodes::DestroyNode};
-void** const kNodeVtable = reinterpret_cast<void**>(kNodeVtable_slots); // ListKit::Node<CHitMesh>
+void** const kNodeVtable = reinterpret_cast<void**>(kNodeVtable_slots); // ListKit::Elem<CHitMesh>
 
 // 0x0040B370
 void CHitMesh::AssignShapeData(CTriMeshSource* geometry)
@@ -77,9 +77,9 @@ void CHitMesh::DestroyBase()
 {
     CTriMeshSource* geometry = m_geometry;
     m_vtable = kCollObjVtable;
-    if (geometry && (m_flags & kOwnsGeometry) && !(m_flags & kSharedGeometry)) {
+    if (geometry && (m_flagBits & kOwnsGeometry) && !(m_flagBits & kSharedGeometry)) {
         FreeShapeData(geometry);
-        MemSys::Manager::Get()->Free(geometry);
+        MemSys::Hub::Pull()->Dealloc(geometry);
     }
 }
 
@@ -88,7 +88,7 @@ CHitMesh* CHitMesh::ScalarDelete(uint8_t flags)
 {
     DestroyBase();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -103,7 +103,7 @@ MemSys::ListNode* CollObjListNodes::DestroyNode(uint8_t flags)
 {
     DestroyNodeBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return reinterpret_cast<MemSys::ListNode*>(this);
 }
 
@@ -124,14 +124,14 @@ MemSys::ListNode* CollObjListNodes::DestroyHead(uint8_t flags)
 {
     DestroyNodeBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return reinterpret_cast<MemSys::ListNode*>(this);
 }
 
 // 0x004133E0
-CHitMeshGroup* CHitMeshGroup::Construct()
+CHitMeshGroup* CHitMeshGroup::MakeNew()
 {
-    m_flags = 0;
+    m_flagBits = 0;
     m_geometry = nullptr;
     m_vtable = Vt::kCollMulti;
     new (&m_box) Maths::BBox();
@@ -147,7 +147,7 @@ CHitMeshGroup* CHitMeshGroup::ConstructCopy(const CHitMeshGroup* other)
 {
     m_vtable = kCollObjVtable;
     m_checksum = other->m_checksum;
-    m_flags = other->m_flags;
+    m_flagBits = other->m_flagBits;
     m_visitStamp = other->m_visitStamp;
     m_geometry = other->m_geometry;
     m_vtable = Vt::kCollMulti;
@@ -186,16 +186,16 @@ CHitMeshGroup* CHitMeshGroup::ScalarDelete(uint8_t flags)
 {
     Destruct();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00413490
-CHitMeshGroup* CHitMeshGroup::Clone(int argument)
+CHitMeshGroup* CHitMeshGroup::Replicate(int argument)
 {
-    void* memory = MemSys::New(sizeof(CHitMeshGroup));
+    void* memory = MemSys::Alloc(sizeof(CHitMeshGroup));
     CHitMeshGroup* copy = memory ? static_cast<CHitMeshGroup*>(memory)->ConstructCopy(this) : nullptr;
-    copy->m_flags |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
+    copy->m_flagBits |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
     copy->m_subNodes = NewHead();
     ForEachChild(m_subNodes, [&](CHitMesh* child) {
         auto* node = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
@@ -217,7 +217,7 @@ CHitMeshGroup* CHitMeshGroup::Clone(int argument)
 }
 
 // 0x00411BE0
-void CHitMeshGroup::AddChild(CHitMesh* child)
+void CHitMeshGroup::AttachChild(CHitMesh* child)
 {
     auto* node = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
     if (node) {
@@ -257,7 +257,7 @@ void CHitMeshGroup::PlaceAtAbsolutePoint(const void* position)
 }
 
 // 0x00411C80
-void CHitMeshGroup::SetOrientation(const void* orientation)
+void CHitMeshGroup::ChangeFacing(const void* orientation)
 {
     ForEachChild(m_subNodes, [&](CHitMesh* child) { child->Call<void>(6, orientation); });
 }
@@ -269,13 +269,13 @@ void* CHitMeshGroup::GetAbsolutePoint()
 }
 
 // 0x00411F80
-void* CHitMeshGroup::GetOrientation()
+void* CHitMeshGroup::FetchFacing()
 {
     return static_cast<CHitMesh*>(First(m_subNodes)->data)->Call<void*>(8);
 }
 
 // 0x00410960
-Maths::Vector CHitMeshGroup::ReadVertexPoint(int /*vertex*/) const
+Maths::Vec4 CHitMeshGroup::ReadVertexPoint(int /*vertex*/) const
 {
     return {0.0f, 0.0f, 0.0f, 0.0f};
 }
@@ -343,8 +343,8 @@ void CHitMeshGroup::RecomputeBBox()
             m_boxValid = false;
             return;
         }
-        m_box.AddPoint(box->min);
-        m_box.AddPoint(box->max);
+        m_box.AppendSpot(box->min);
+        m_box.AppendSpot(box->max);
     }
 }
 

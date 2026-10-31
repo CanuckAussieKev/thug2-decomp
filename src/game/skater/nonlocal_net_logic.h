@@ -25,23 +25,23 @@ public:
     static constexpr int kHistory = 20;
 
     // 0x005147F0 (registered by RegisterComponentTypes): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x005144E0: the base, its vtable and type, no components, the two positions (0, 0, 0, 1), no updates. Returns
     // this.
-    CRiderRemoteSync* Construct();
+    CRiderRemoteSync* MakeNew();
     // 0x005144B0: the destructor body (the base's).
     void DestroyBody();
     // 0x00514550 (vtable slot 0)
-    CRiderRemoteSync* Destroy(unsigned int flags);
+    CRiderRemoteSync* Teardown(unsigned int flags);
     // 0x00514580 (vtable +0x0C): the state history, state, end run, animation blender, flip-and-rotate, model and
     // shadow components found.
-    void Finalize();
+    void Seal();
     // 0x00517270 (vtable +0x04): the frame: the light and shadow from the ground (UpdateGroundLighting), the state
     // played back (Interpolate); when this machine's player plays (not observing) in a game that extrapolates
     // (0x00534340, or firefight) and the history is full, extrapolated (on a rail ExtrapolateOnRail, else Extrapolate
     // and SnapToGround); the history's events (PlayHistoryEvents); the out-of-a-lip flag; driving in or out told to
     // the scripts (0x7853F8C4 / 0x0F02E44F with skaterId / control_type); the looping sound kept to the state.
-    void Update();
+    void TickFrame();
 
     // 0x005144D0: the playback restarted (the synced time and the last event time cleared).
     void ResetPlayback();
@@ -55,12 +55,12 @@ public:
     void SnapToGround();
     // 0x00514D10: the velocity and the matrix turned (about y) towards `dir` by Wall_Bounce_Angle_Multiplier times
     // the angle between it and the right row (folded to at most pi / 2): that turn into `turn`; the angle returned.
-    double TurnTowards(Maths::Vector dir, float* turn);
+    double TurnTowards(Maths::Vec4 dir, float* turn);
     // 0x00514E20: a wall met while extrapolating (`normal`, `point`): turned along it (slowed past
     // Wall_Bounce_Dont_Slow_Angle), put back at the point (Skater_First_Forward_Collision_Height up the up row, 6
     // out along the normal); if a feeler ahead (Skater_First_Forward_Collision_Length) hits again within 240, turned
     // round by what's left of a half turn and halved.
-    void BounceOffWall(const Maths::Vector* normal, const Maths::Vector* point);
+    void BounceOffWall(const Maths::Vec4* normal, const Maths::Vec4* point);
 
     // --- nonlocal_playback.cpp ---
     // 0x00515940: the states played back. The first time, from the newest state (a second's frames behind it): put
@@ -92,14 +92,14 @@ public:
     int m_syncTime;                 // +0x1C the history's time then, less the app's frames since
     uint32_t m_lastEventTime;       // +0x20 the history's events played up to here
     int m_playIdx;                    // +0x24 the history entry being played
-    Maths::Vector m_playPos;          // +0x28 the position playback put the skater at
-    Maths::Vector m_lastPlayPos;      // +0x38 the one before
-    Maths::Vector m_lastPos;          // +0x48 the object's position before this frame
-    Maths::Vector m_groundNormal;     // +0x58 the last ground snapped to
+    Maths::Vec4 m_playPos;          // +0x28 the position playback put the skater at
+    Maths::Vec4 m_lastPlayPos;      // +0x38 the one before
+    Maths::Vec4 m_lastPos;          // +0x48 the object's position before this frame
+    Maths::Vec4 m_groundNormal;     // +0x58 the last ground snapped to
     float m_speeds[kHistory];       // +0x68 per update: the playback's speed
     float m_lags[kHistory];         // +0xB8 per update: how far behind the connection is
     float m_alignments[kHistory];   // +0x108 per update: how the move lines up with the local skater's
-    Maths::Vector m_moves[kHistory];  // +0x158 per update: the playback's move
+    Maths::Vec4 m_moves[kHistory];  // +0x158 per update: the playback's move
     int m_updates;                  // +0x298
     float m_frameSeconds;           // +0x29C this frame's length
     uint8_t m_wasDriving;           // +0x2A0
@@ -107,7 +107,7 @@ public:
     uint8_t* m_pastFrames;             // +0x2A4 SkaterStateHistory (0x18223FD6)
     CObjectModule* m_animBlender;  // +0x2A8 (0x7149B753)
     uint8_t* m_meshSet;               // +0x2AC Model (0x286A8D26)
-    uint8_t* m_state;               // +0x2B0 SkaterState (0x43686585)
+    uint8_t* m_curPhase;               // +0x2B0 SkaterState (0x43686585)
     uint8_t* m_runOver;              // +0x2B4 SkaterEndRun (0xB1D5A3E1)
     CObjectModule* m_flipAndRotate;// +0x2B8 SkaterFlipAndRotate (0x488AF07A)
     CObjectModule* m_shadow;       // +0x2BC Shadow (0x8A897DD2)

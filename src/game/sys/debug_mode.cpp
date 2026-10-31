@@ -21,7 +21,7 @@ namespace SystemCore::DebugMode {
 
 namespace {
 
-uint32_t Checksum(const char* name) { return Checksums::HashFromText(name); }
+uint32_t NameHash(const char* name) { return Checksums::HashFromText(name); }
 
 // The start-up scripts, which keep the disc build's CD: false there makes default_system_startup take the
 // developers' path - no UsePreFilesForLevelLoading (their loose files: the retail data's archives aren't loaded, the
@@ -33,8 +33,8 @@ bool IsStartupScript(const Scripts::CScript* script)
         return false;
     // (the script it's running now: CScript +0xC8)
     uint32_t name = *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(script) + 0xC8);
-    static const uint32_t kStartup[] = {Checksum("default_system_startup"), Checksum("autolaunch"),
-                                        Checksum("startup_loading_screen")};
+    static const uint32_t kStartup[] = {NameHash("default_system_startup"), NameHash("autolaunch"),
+                                        NameHash("startup_loading_screen")};
     for (uint32_t startup : kStartup) {
         if (name == startup)
             return true;
@@ -49,16 +49,16 @@ void Point(const char* name, void* function)
         Scripts::SetCFunction(*entry, function);
 }
 
-void Run(const char* script) { Scripts::LaunchScript(Checksum(script), nullptr, nullptr, false, script); }
+void Run(const char* script) { Scripts::LaunchScript(NameHash(script), nullptr, nullptr, false, script); }
 
-// The view mode (the viewer's free camera): the script global view_mode, which SetViewMode copies to 0x007CE4A4.
+// The view mode (the viewer's free camera): the script global view_mode, which ChangeViewMode copies to 0x007CE4A4.
 bool InViewMode() { return GameObjects::g_viewMode != 0; }
 
 // A key's press (down now, up the frame before).
 struct Key {
     SDL_Scancode code;
     bool wasDown;
-    bool Pressed(const uint8_t* keys)
+    bool Squeezed(const uint8_t* keys)
     {
         bool down = keys[code] != 0;
         bool pressed = down && !wasDown;
@@ -71,7 +71,7 @@ bool s_started;
 
 } // namespace
 
-bool& Enabled()
+bool& IsSwitchedOn()
 {
     static bool on = ConfigInt("features", "debug_mode", 0) != 0;
     return on;
@@ -79,7 +79,7 @@ bool& Enabled()
 
 bool __cdecl CFunc_CD(Scripts::CStruct* /*params*/, Scripts::CScript* script)
 {
-    return !Enabled() || IsStartupScript(script); // (the original: true - 0x005B9760)
+    return !IsSwitchedOn() || IsStartupScript(script); // (the original: true - 0x005B9760)
 }
 
 bool __cdecl CFunc_NotCD(Scripts::CStruct* /*params*/, Scripts::CScript* script)
@@ -89,7 +89,7 @@ bool __cdecl CFunc_NotCD(Scripts::CStruct* /*params*/, Scripts::CScript* script)
 
 void Install()
 {
-    if (!Enabled())
+    if (!IsSwitchedOn())
         return;
     Point("CD", reinterpret_cast<void*>(&CFunc_CD));
     Point("NotCD", reinterpret_cast<void*>(&CFunc_NotCD));
@@ -97,9 +97,9 @@ void Install()
         "menu - and the viewer: F9 free camera)");
 }
 
-void Update(GameModules::FrontEnd* frontEnd)
+void TickFrame(GameModules::FrontEnd* frontEnd)
 {
-    if (!Enabled() || FrameLoop::FramesRun() == 0) // (not in the early self-tests, which run this on stand-in state)
+    if (!IsSwitchedOn() || FrameLoop::FramesRun() == 0) // (not in the early self-tests, which run this on stand-in state)
         return;
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     if (!keys)
@@ -108,10 +108,10 @@ void Update(GameModules::FrontEnd* frontEnd)
         f12{SDL_SCANCODE_F12, false}, tab{SDL_SCANCODE_TAB, false}, t{SDL_SCANCODE_T, false},
         home{SDL_SCANCODE_HOME, false};
     // (every key's state noted each frame, so a press counts once wherever it happened)
-    bool pressedF9 = f9.Pressed(keys), pressedF10 = f10.Pressed(keys), pressedF11 = f11.Pressed(keys),
-         pressedF12 = f12.Pressed(keys), pressedTab = tab.Pressed(keys), pressedT = t.Pressed(keys),
-         pressedHome = home.Pressed(keys);
-    if (MenuSystem::LevelEditor::Active() || (frontEnd && frontEnd->m_isHalted) || Engine3D::CurrentLevel() == 0)
+    bool pressedF9 = f9.Squeezed(keys), pressedF10 = f10.Squeezed(keys), pressedF11 = f11.Squeezed(keys),
+         pressedF12 = f12.Squeezed(keys), pressedTab = tab.Squeezed(keys), pressedT = t.Squeezed(keys),
+         pressedHome = home.Squeezed(keys);
+    if (MenuSystem::LevelEditor::LiveNow() || (frontEnd && frontEnd->m_isHalted) || Engine3D::CurrentLevel() == 0)
         return;
     if (!s_started) {
         // In the first level (start-up long over; not the early self-tests, which run the front end's input logic
@@ -145,7 +145,7 @@ void Update(GameModules::FrontEnd* frontEnd)
 
 bool KeyboardViewer(float* leftX, float* leftY, float* rightX, float* rightY, uint32_t* commands)
 {
-    if (!Enabled() || MenuSystem::LevelEditor::Active())
+    if (!IsSwitchedOn() || MenuSystem::LevelEditor::LiveNow())
         return false;
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     if (!keys)

@@ -116,7 +116,7 @@ bool __cdecl CFunc_LoadTerrainSounds(CStruct* params, CScript*)
     uint32_t terrain;
     if (!params->ReadHashValue(kTerrain, &terrain, 0))
         return false;
-    Terrain::LoadTerrainSounds(terrain);
+    SurfaceKind::LoadTerrainSounds(terrain);
     return true;
 }
 
@@ -124,16 +124,16 @@ bool __cdecl CFunc_LoadTerrainSounds(CStruct* params, CScript*)
 bool __cdecl CFunc_PreloadModel(CStruct* params, CScript*)
 {
     const char* name;
-    params->GetString(kName, &name, true);
+    params->FetchText(kName, &name, true);
     void* model = SpawnModel(1);
     bool allowReplaceTex = params->HasBareFlag(kAllowReplaceTex);
-    TextUtil::String file;
+    TextUtil::Chars file;
     {
         // <name>.mdl (0x004879D0 returns a String: made in `storage`)
-        alignas(TextUtil::String) uint8_t storage[sizeof(TextUtil::String)];
-        auto* path = Gfx2D::MakeModelPath(reinterpret_cast<TextUtil::String*>(storage), name, ".mdl");
+        alignas(TextUtil::Chars) uint8_t storage[sizeof(TextUtil::Chars)];
+        auto* path = Gfx2D::MakeModelPath(reinterpret_cast<TextUtil::Chars*>(storage), name, ".mdl");
         file = *path;
-        path->~String();
+        path->~Chars();
     }
     LoadModelFile(model, file.c_str(), allowReplaceTex);
     DestroyModel(model);
@@ -151,7 +151,7 @@ bool __cdecl CFunc_UnloadAllLevelGeometry(CStruct*, CScript*)
 bool __cdecl CFunc_LoadCollision(CStruct* params, CScript*)
 {
     const char* name = nullptr;
-    params->GetString(kScene, &name, false);
+    params->FetchText(kScene, &name, false);
     if (name) {
         bool isNet = params->HasBareFlag(kIsNet);
         LoadSceneCollision(LookUpScene(name), name, isNet);
@@ -164,8 +164,8 @@ bool __cdecl CFunc_AddCollision(CStruct* params, CScript*)
 {
     const char* scene = nullptr;
     const char* add = nullptr;
-    params->GetString(kScene, &scene, false);
-    params->GetString(kAdd, &add, false);
+    params->FetchText(kScene, &scene, false);
+    params->FetchText(kAdd, &add, false);
     if (scene && add)
         AddSceneCollision(LookUpScene(scene), add);
     return true;
@@ -175,7 +175,7 @@ bool __cdecl CFunc_AddCollision(CStruct* params, CScript*)
 bool __cdecl CFunc_QuickReload(CStruct* params, CScript*)
 {
     const char* name = nullptr;
-    params->GetString(kScene, &name, false);
+    params->FetchText(kScene, &name, false);
     if (name)
         QuickReloadScene(name);
     return true;
@@ -186,7 +186,7 @@ bool __cdecl CFunc_UnloadAnim(CStruct* params, CScript*)
 {
     AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
     const char* name = nullptr;
-    params->GetString(kName, &name, true);
+    params->FetchText(kName, &name, true);
     uint32_t desc = 0;
     uint32_t reference = 0;
     params->ReadHashValue(kDescChecksum, &desc, 1);
@@ -204,8 +204,8 @@ bool __cdecl CFunc_LoadAsset(CStruct* params, CScript*)
     AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
     uint32_t parent = 0;
     const char* name;
-    if (!params->GetString(kName, &name, false))
-        params->GetString(0u, &name, true);
+    if (!params->FetchText(kName, &name, false))
+        params->FetchText(0u, &name, true);
     params->ReadHashValue(kParent, &parent, false);
     bool async = params->HasBareFlag(kAsync);
     uint32_t desc = 0;
@@ -222,7 +222,7 @@ bool __cdecl CFunc_LoadAnim(CStruct* params, CScript*)
     AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
     const char* name;
     uint32_t desc = 0;
-    params->GetString(kName, &name, false);
+    params->FetchText(kName, &name, false);
     params->ReadHashValue(kDescChecksum, &desc, true);
     bool async = params->HasBareFlag(kAsync);
     bool usePip = params->HasBareFlag(kUsePip);
@@ -235,7 +235,7 @@ bool __cdecl CFunc_LoadSkeleton(CStruct* params, CScript*)
     AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
     const char* name;
     uint32_t checksum;
-    params->GetString(kName, &name, true);
+    params->FetchText(kName, &name, true);
     params->ReadHashValue(0u, &checksum, 1);
     assets->FetchOrLoadResource(name, 0, checksum, 0, false, false, assets->GetPermanentByDefault(), nullptr, 0);
     return true;
@@ -267,13 +267,13 @@ bool __cdecl CFunc_AddScene(CStruct* params, CScript*)
 {
     const char* scene = nullptr;
     const char* add = nullptr;
-    params->GetString(kScene, &scene, false);
-    params->GetString(kAdd, &add, false);
+    params->FetchText(kScene, &scene, false);
+    params->FetchText(kAdd, &add, false);
     if (scene && add) {
-        MemSys::Manager* manager = MemSys::Manager::Instance();
+        MemSys::Hub* manager = MemSys::Hub::Sole();
         manager->EnterHeapScope(manager->m_debugHeap);
         AddToScene(scene, add);
-        MemSys::Manager::Instance()->LeaveHeapScope();
+        MemSys::Hub::Sole()->LeaveHeapScope();
     }
     return true;
 }
@@ -282,7 +282,7 @@ bool __cdecl CFunc_AddScene(CStruct* params, CScript*)
 bool __cdecl CFunc_UnloadScene(CStruct* params, CScript*)
 {
     const char* name = nullptr;
-    params->GetString(kScene, &name, false);
+    params->FetchText(kScene, &name, false);
     bool found = false;
     if (name) {
         void* scene = LookUpScene(name);
@@ -377,14 +377,14 @@ bool __cdecl CFunc_InitSun(CStruct* params, CScript*)
     uint32_t texture = 0;
     uint32_t coronaTexture = 0;
     uint32_t lensFlareData = 0;
-    params->GetFloat(kTheta, &theta, 1);
-    params->GetFloat(kPhi, &phi, 1);
-    params->GetFloat(kRadius, &radius, 1);
-    params->GetFloat(kSize, &size, 1);
+    params->FetchFloat(kTheta, &theta, 1);
+    params->FetchFloat(kPhi, &phi, 1);
+    params->FetchFloat(kRadius, &radius, 1);
+    params->FetchFloat(kSize, &size, 1);
     params->ReadHashValue(kTexture, &texture, 1);
     params->ReadHashValue(kCoronaTexture, &coronaTexture, 1);
     params->ReadHashValue(kLensFlareData, &lensFlareData, 1);
-    Sun::Init(theta, phi, radius, size, texture, coronaTexture, lensFlareData);
+    Sun::PrepareAll(theta, phi, radius, size, texture, coronaTexture, lensFlareData);
     return true;
 }
 

@@ -22,16 +22,16 @@ namespace GameObjects {
 // One of the history's other messages (0x54 bytes, 20 of them at +0xA70; the newest at +0xA6C % 20): the message's
 // id first, then its time stamp as two halves.
 struct StateHistoryMessage {
-    uint8_t m_id;        // +0x00 the network message's id (0x29-0x8C: 0x00516180's switch)
+    uint8_t m_ident;        // +0x00 the network message's id (0x29-0x8C: 0x00516180's switch)
     uint8_t pad01[3];
     uint16_t m_clock;     // +0x04 the low half of the 32-bit time stamp
     uint16_t m_timeHigh; // +0x06 the high half
-    uint8_t m_data[0x4C];
+    uint8_t m_content[0x4C];
 
     // 0x00519800: the 32-bit time stamp.
     uint32_t GetTime();
     // 0x00519810: the time stamp set (its two halves).
-    void SetTime(uint32_t time);
+    void ChangeMoment(uint32_t time);
 };
 static_assert(offsetof(StateHistoryMessage, m_clock) == 0x04 && sizeof(StateHistoryMessage) == 0x54,
               "layout must match the original");
@@ -42,19 +42,19 @@ public:
     static constexpr int kEntries = 20;
 
     // 0x0051AD30 (registered with the composite object manager): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0051ACB0: the base's constructor, its vtable and type, every entry and the counts cleared. Returns this.
-    CRiderFrameLog* Construct();
+    CRiderFrameLog* MakeNew();
     // 0x00519840 (vtable slot 0): the destructor body (0x005197C0), then freed with flags & 1.
-    CRiderFrameLog* Destroy(unsigned int flags);
+    CRiderFrameLog* Teardown(unsigned int flags);
     // 0x005197C0: the destructor body (the base's; in skater_state.cpp).
     void DestroyBody();
 
     // 0x00519FA0: how far the object moves this frame: its velocity times the frame's length (w from the unrounded
     // frame length, x / y / z from it rounded).
-    void GetFrameMovement(Maths::Vector* out);
+    void GetFrameMovement(Maths::Vec4* out);
     // 0x00519FF0: the object's position.
-    void GetPosition(Maths::Vector* out);
+    void FetchPlace(Maths::Vec4* out);
     // 0x0051A020: how far ahead of a skater a collision is looked for: the script float 0x25F78481 (0x0D24273B when
     // the object's +0xBC is set), with `driving` times 1 + the script float 0x0A49FF23. Unrounded (x87).
     double GetCollisionReach(bool driving);
@@ -88,7 +88,7 @@ public:
 };
 static_assert(sizeof(CRiderFrameLog) == 0x18, "fields are reached by offset");
 
-// The destructors behind ListKit::Search<PlayerRecord>'s vtable (0x0064C1A8: the network manager's player searches).
+// The destructors behind ListKit::Hunt<PlayerRecord>'s vtable (0x0064C1A8: the network manager's player searches).
 struct PlayerSearchDestructors {
     void** m_vtable;
     void* m_listLink;
@@ -96,7 +96,7 @@ struct PlayerSearchDestructors {
     // 0x00519830 (only resets the vtable)
     void DestroyBody();
     // 0x0051A120 (scalar deleting)
-    PlayerSearchDestructors* Destroy(unsigned int flags);
+    PlayerSearchDestructors* Teardown(unsigned int flags);
 };
 
 // 0x0064C174: stateHistoryVtable (defined where the class's functions are).

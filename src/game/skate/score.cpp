@@ -1,4 +1,4 @@
-// GameModules::Score's queries and displays, and the trick log's table (see score.h).
+// GameModules::PointTally's queries and displays, and the trick log's table (see score.h).
 
 #include "game/skate/score.h"
 
@@ -22,24 +22,24 @@
 namespace ListKit {
 
 // 0x00561470
-DynamicTable* DynamicTable::Construct(int capacity, int grow)
+GrowableMap* GrowableMap::MakeNew(int capacity, int grow)
 {
     m_capacity = capacity;
     m_grow = grow;
     m_items = static_cast<void**>(MemSys::AllocBlock(static_cast<unsigned int>(capacity) * 4));
     for (int i = 0; i < m_capacity; ++i)
         m_items[i] = nullptr;
-    m_count = 0;
+    m_num = 0;
     return this;
 }
 
 // 0x005614C0
-void DynamicTable::DestroyBody() { MemSys::FreeMalloc(m_items); }
+void GrowableMap::DestroyBody() { MemSys::FreeMalloc(m_items); }
 
 // 0x005614D0
-void DynamicTable::Add(void* item)
+void GrowableMap::AppendOne(void* item)
 {
-    if (m_capacity <= m_count) {
+    if (m_capacity <= m_num) {
         int capacity = m_capacity + m_grow;
         auto** items = static_cast<void**>(MemSys::AllocBlock(static_cast<unsigned int>(capacity) * 4));
         for (int i = 0; i < m_capacity; ++i)
@@ -50,16 +50,16 @@ void DynamicTable::Add(void* item)
         m_items = items;
         m_capacity = capacity;
     }
-    m_items[m_count++] = item;
+    m_items[m_num++] = item;
 }
 
 // 0x00562920
 void TableReleaser::EmptyTableItems()
 {
-    int count = m_lookupTable->m_count;
+    int count = m_lookupTable->m_num;
     for (int i = 0; i < count; ++i)
-        MemSys::Free(m_lookupTable->m_items[i]);
-    m_lookupTable->m_count = 0;
+        MemSys::Dealloc(m_lookupTable->m_items[i]);
+    m_lookupTable->m_num = 0;
 }
 
 } // namespace Lst
@@ -74,7 +74,7 @@ int g_spinMultiplier[6]{2, 3, 4, 5, 6, 7};
 Scripts::CStruct* NewStructure()
 {
     Scripts::CStruct* made = Scripts::NewStruct();
-    return made ? made->Init() : nullptr;
+    return made ? made->PrepareAll() : nullptr;
 }
 
 void DeleteStructure(Scripts::CStruct* structure)
@@ -140,7 +140,7 @@ uint32_t CreatedTrickName(int index)
         return 0;
     const char* name;
     reinterpret_cast<Scripts::CStruct*>(*reinterpret_cast<uint32_t*>(skater->m_trickInfo[index] + 4))
-        ->GetString(kName, &name, 1);
+        ->FetchText(kName, &name, 1);
     return Checksums::HashFromText(name);
 }
 
@@ -148,10 +148,10 @@ uint32_t CreatedTrickName(int index)
 // either; `none` when no created trick either).
 bool KeyComboName(uint32_t keyCombo, int taps, uint32_t* name)
 {
-    *name = Score::TrickFromKeyCombo(keyCombo, taps);
+    *name = PointTally::TrickFromKeyCombo(keyCombo, taps);
     if (*name)
         return true;
-    int index = Score::CreatedTrickFromKeyCombo(keyCombo);
+    int index = PointTally::CreatedTrickFromKeyCombo(keyCombo);
     if (index == -1)
         return false;
     *name = CreatedTrickName(index);
@@ -172,7 +172,7 @@ void RunTrickTextScript(uint32_t script, int skater)
 } // namespace
 
 // 0x00561240
-int Score::ScoreIncrement(int value)
+int PointTally::ScoreIncrement(int value)
 {
     if (value > 1000000)
         return 1000000;
@@ -191,7 +191,7 @@ __declspec(naked) int ScoreIncrementStub()
     __asm {
         push edx
         push dword ptr [esp + 8]
-        call Score::ScoreIncrement
+        call PointTally::ScoreIncrement
         add esp, 4
         pop edx
         ret
@@ -199,10 +199,10 @@ __declspec(naked) int ScoreIncrementStub()
 }
 
 // 0x00561290
-void Score::SetRiderNumber(int16_t id) { m_riderNo = id; }
+void PointTally::SetRiderNumber(int16_t id) { m_riderNo = id; }
 
 // 0x005612A0
-void Score::EscapeSpaces(char* out, const char* text)
+void PointTally::EscapeSpaces(char* out, const char* text)
 {
     for (; *text; ++text) {
         if (*text == ' ') {
@@ -216,19 +216,19 @@ void Score::EscapeSpaces(char* out, const char* text)
 }
 
 // 0x005612D0
-void Score::SetSpecialBarColors()
+void PointTally::SetSpecialBarColors()
 {
-    Scripts::CArray* colors = Scripts::GetArray(kSpecialBarColors);
+    Scripts::CArray* colors = Scripts::FetchList(kSpecialBarColors);
     for (uint32_t i = 0; i < 3; ++i) {
-        auto* color = reinterpret_cast<Scripts::CArray*>(colors->GetElement(i));
+        auto* color = reinterpret_cast<Scripts::CArray*>(colors->FetchPart(i));
         for (uint32_t c = 0; c < 4; ++c)
-            m_barColors[i][c] = static_cast<uint8_t>(color->GetElement(c));
+            m_barColors[i][c] = static_cast<uint8_t>(color->FetchPart(c));
     }
-    m_specialRate = Scripts::GetFloat(kSpecialBarInterpolatorRate);
+    m_specialRate = Scripts::FetchFloat(kSpecialBarInterpolatorRate);
 }
 
 // 0x00561360
-uint32_t Score::TrickNameAfterTaps(uint32_t trick, int taps)
+uint32_t PointTally::TrickNameAfterTaps(uint32_t trick, int taps)
 {
     Scripts::CStruct* params;
     Scripts::ReadSubStruct(trick)->ReadSubStruct(kParams, &params, 1);
@@ -236,16 +236,16 @@ uint32_t Score::TrickNameAfterTaps(uint32_t trick, int taps)
         uint32_t extra = static_cast<uint32_t>(taps); // (the slot the original reuses: kept when ExtraTricks is missing)
         for (int left = taps - 1; left; --left) {
             params->ReadHashValue(kExtraTricks, &extra, 0);
-            reinterpret_cast<Scripts::CStruct*>(Scripts::GetArray(extra)->GetElement(0))->ReadSubStruct(kParams, &params, 1);
+            reinterpret_cast<Scripts::CStruct*>(Scripts::FetchList(extra)->FetchPart(0))->ReadSubStruct(kParams, &params, 1);
         }
     }
     const char* name;
-    params->GetString(kName, &name, 1);
+    params->FetchText(kName, &name, 1);
     return Checksums::HashFromText(name);
 }
 
 // 0x00561400
-void Score::ResetBests()
+void PointTally::ResetBests()
 {
     m_bestTricks = 0;
     m_topChain = 0;
@@ -253,21 +253,21 @@ void Score::ResetBests()
 }
 
 // 0x00561410
-void Score::AddBonus(int points) { m_bonus += points; }
+void PointTally::AddBonus(int points) { m_bonus += points; }
 
 // 0x00561420
-int Score::GetBonus() { return m_bonus; }
+int PointTally::GetBonus() { return m_bonus; }
 
 // 0x00561550
-int Score::GetScoreOfRange(int first, int last)
+int PointTally::GetScoreOfRange(int first, int last)
 {
     int total = 0;
     int spin = 2;
     for (int i = first; i < last; ++i) {
         STrickLog* trick = Trick(i);
-        if (trick->m_flags & kTrickNoSpin)
+        if (trick->m_flagBits & kTrickNoSpin)
             spin = 2;
-        else if (i == 0 || (Trick(i - 1)->m_flags & kTrickNoSpin))
+        else if (i == 0 || (Trick(i - 1)->m_flagBits & kTrickNoSpin))
             spin = SpinMultiplier(trick->m_twistRate);
         int points = trick->m_pointsHeld * Reduction(trick->m_repeats) * spin / 200; // (percent times half the multiplier)
         if (trick->m_kind)
@@ -278,13 +278,13 @@ int Score::GetScoreOfRange(int first, int last)
 }
 
 // 0x00561640
-uint32_t Score::GetLastTrickName() { return m_log.m_count ? LastTrick()->m_name : 0; }
+uint32_t PointTally::GetLastTrickName() { return m_log.m_num ? LastTrick()->m_label : 0; }
 
 // 0x00561660
-uint32_t Score::GetTrickName(int index) { return Trick(index)->m_name; }
+uint32_t PointTally::GetTrickName(int index) { return Trick(index)->m_label; }
 
 // 0x00561670
-void Score::DispatchTrickSequence(bool clear)
+void PointTally::DispatchTrickSequence(bool clear)
 {
     GameObjects::CRider* skater = SkaterById(m_riderNo);
     int number = skater ? skater->GetSkaterNumber() : 0;
@@ -293,24 +293,24 @@ void Score::DispatchTrickSequence(bool clear)
         return;
     const char* lines[0xFD];
     if (!clear) {
-        for (int i = 0; i < m_log.m_count; ++i)
+        for (int i = 0; i < m_log.m_num; ++i)
             lines[i] = Trick(i)->m_shown;
-        text->SetText(lines, m_log.m_count);
+        text->ChangeCaption(lines, m_log.m_num);
     } else {
-        text->SetText(lines, 0);
+        text->ChangeCaption(lines, 0);
     }
     Scripts::LaunchScript(kUpdateTrickText, nullptr, nullptr, false, nullptr);
 }
 
 // 0x00561730
-void Score::SetupBalanceMeter()
+void PointTally::SetupBalanceMeter()
 {
     Scripts::CStruct* info = Scripts::ReadSubStruct(kBalanceMeterInfo);
     Scripts::CArray* arrows = nullptr;
-    info->GetArray(kArrowPositions, &arrows, 0);
-    m_arrowCount = static_cast<int>(arrows->m_size); // (no check: as the original)
+    info->FetchList(kArrowPositions, &arrows, 0);
+    m_arrowCount = static_cast<int>(arrows->m_extent); // (no check: as the original)
     for (int i = 0; i < m_arrowCount; ++i)
-        m_arrows[i] = *reinterpret_cast<Scripts::CPair*>(arrows->GetElement(static_cast<uint32_t>(i)));
+        m_arrows[i] = *reinterpret_cast<Scripts::CPair*>(arrows->FetchPart(static_cast<uint32_t>(i)));
     m_arrows[m_arrowCount] = m_arrows[m_arrowCount - 1];
     m_arrowStep = static_cast<float>(1.0 / m_arrowCount);
     Scripts::CArray* bars = nullptr;
@@ -318,13 +318,13 @@ void Score::SetupBalanceMeter()
     if (static_cast<uint8_t>(ScriptCommands::CFunc_InSplitScreenGame(nullptr, nullptr)) && GameMode()->GetNameKey() != kHorse &&
         GameMode()->GetNameKey() != kNetHorse)
         name = ScreenMode() == 1 ? kBarPositionsMpV : kBarPositionsMpH;
-    info->GetArray(name, &bars, 0);
+    info->FetchList(name, &bars, 0);
     for (uint32_t i = 0; i < 2; ++i)
-        m_bars[i] = *reinterpret_cast<Scripts::CPair*>(bars->GetElement(i));
+        m_bars[i] = *reinterpret_cast<Scripts::CPair*>(bars->FetchPart(i));
 }
 
 // 0x00561890
-void Score::DispatchScorePot(int points, float multiplier)
+void PointTally::DispatchScorePot(int points, float multiplier)
 {
     GameObjects::CRider* skater = SkaterById(m_riderNo);
     int number = skater ? skater->GetSkaterNumber() : 0;
@@ -343,12 +343,12 @@ void Score::DispatchScorePot(int points, float multiplier)
             std::snprintf(shown, sizeof(shown), "%s X %.1f", TextUtil::FormatWithSeparators(points),
                           static_cast<double>(multiplier)); // "%s X %.1f"
     }
-    text->SetText(shown); // (no check: as the original)
+    text->ChangeCaption(shown); // (no check: as the original)
     Scripts::LaunchScript(kUpdateScorepot, nullptr, nullptr, false, nullptr);
 }
 
 // 0x005619E0
-void Score::CheckHighScore(int before, int after)
+void PointTally::CheckHighScore(int before, int after)
 {
     uint8_t* skate = SkateCalls::Skate();
     if (!GameMode()->IsTrue(kIsCareer))
@@ -366,42 +366,42 @@ void Score::CheckHighScore(int before, int after)
 }
 
 // 0x00561A80
-void Score::SetGrandTotal(int total)
+void PointTally::SetGrandTotal(int total)
 {
-    m_total = total;
+    m_sum = total;
     GameObjects::CRider* skater = SkaterById(m_riderNo);
     if (!skater->m_unknownBC) // (no check: as the original)
         return;
     char shown[0x40];
     if (GameMode()->GetNameKey() == kNetKing || GameMode()->GetNameKey() == kKing) {
-        uint32_t seconds = static_cast<uint32_t>(m_total) / 1000;
+        uint32_t seconds = static_cast<uint32_t>(m_sum) / 1000;
         std::snprintf(shown, sizeof(shown), "%d:%.2d", seconds / 60, seconds % 60); // "%d:%.2d"
     } else {
-        std::snprintf(shown, sizeof(shown), "%d", m_total); // "%d"
+        std::snprintf(shown, sizeof(shown), "%d", m_sum); // "%d"
     }
     MenuSystem::SetScoreText(shown, skater->GetSkaterNumber());
 }
 
 // 0x00561B40
-int Score::GetTotalScore()
+int PointTally::GetTotalScore()
 {
     if (NetManager()->OnServer() && (Scripts::FetchIntValue(kScoreByClusters) || GameMode()->IsTrue(kShouldModulateColor)))
         return TrickObjects()->CountClustersHeldBy(m_riderNo);
-    return m_total;
+    return m_sum;
 }
 
 // 0x00562080
-uint32_t Score::TrickFromKeyCombo(uint32_t keyCombo, int taps)
+uint32_t PointTally::TrickFromKeyCombo(uint32_t keyCombo, int taps)
 {
     GameObjects::CRiderIdentity* profile = SkateCalls::GetProfileFromParams(nullptr);
     Scripts::CStruct* mapping = profile->GetInfoStructure(kTrickMapping);
     uint32_t trick = 0;
     if (!mapping->ReadHashValue(keyCombo, &trick, 0)) {
         Scripts::CArray* specials;
-        profile->GetSpecials()->GetArray(0u, &specials, 1);
-        int count = static_cast<int>(specials->m_size);
+        profile->GetSpecials()->FetchList(0u, &specials, 1);
+        int count = static_cast<int>(specials->m_extent);
         for (int i = 0; i < count; ++i) {
-            auto* special = reinterpret_cast<Scripts::CStruct*>(specials->GetElement(static_cast<uint32_t>(i)));
+            auto* special = reinterpret_cast<Scripts::CStruct*>(specials->FetchPart(static_cast<uint32_t>(i)));
             uint32_t slot;
             special->ReadHashValue(kTrickSlot, &slot, 1);
             if (slot == keyCombo) {
@@ -416,7 +416,7 @@ uint32_t Score::TrickFromKeyCombo(uint32_t keyCombo, int taps)
 }
 
 // 0x00562150
-int Score::CreatedTrickFromKeyCombo(uint32_t keyCombo)
+int PointTally::CreatedTrickFromKeyCombo(uint32_t keyCombo)
 {
     GameObjects::CRiderIdentity* profile = SkateCalls::GetProfileFromParams(nullptr);
     Scripts::CStruct* mapping = profile->GetInfoStructure(kTrickMapping);
@@ -424,10 +424,10 @@ int Score::CreatedTrickFromKeyCombo(uint32_t keyCombo)
     if (mapping->FetchIntValue(keyCombo, &index, 0))
         return index;
     Scripts::CArray* specials;
-    profile->GetSpecials()->GetArray(0u, &specials, 1);
-    int count = static_cast<int>(specials->m_size);
+    profile->GetSpecials()->FetchList(0u, &specials, 1);
+    int count = static_cast<int>(specials->m_extent);
     for (int i = 0; i < count; ++i) {
-        auto* special = reinterpret_cast<Scripts::CStruct*>(specials->GetElement(static_cast<uint32_t>(i)));
+        auto* special = reinterpret_cast<Scripts::CStruct*>(specials->FetchPart(static_cast<uint32_t>(i)));
         int isCat = 0;
         special->FetchIntValue(kIsCat, &isCat, 0);
         if (!isCat)
@@ -444,12 +444,12 @@ int Score::CreatedTrickFromKeyCombo(uint32_t keyCombo)
 }
 
 // 0x00562250
-bool Score::IsTrickAt(int index, uint32_t name, int spin, bool perfect)
+bool PointTally::IsTrickAt(int index, uint32_t name, int spin, bool perfect)
 {
     if (index >= m_tricks)
         return false;
     STrickLog* trick = Trick(index);
-    if (trick->m_name != name)
+    if (trick->m_label != name)
         return false;
     if (!spin)
         return true;
@@ -465,17 +465,17 @@ bool Score::IsTrickAt(int index, uint32_t name, int spin, bool perfect)
 }
 
 // 0x005622C0
-int Score::CountTrick(uint32_t name, int spin, bool perfect)
+int PointTally::CountTrick(uint32_t name, int spin, bool perfect)
 {
     int count = 0;
     int shared = 1;
     for (int i = 0; i < m_tricks; ++i) {
         STrickLog* trick = Trick(i);
-        if (trick->m_flags & kTrickNoSpin)
+        if (trick->m_flagBits & kTrickNoSpin)
             shared = 1;
-        else if (i == 0 || (Trick(i - 1)->m_flags & kTrickNoSpin))
+        else if (i == 0 || (Trick(i - 1)->m_flagBits & kTrickNoSpin))
             shared = trick->m_twistRate;
-        if (trick->m_name != name)
+        if (trick->m_label != name)
             continue;
         if (spin) {
             if (spin != shared)
@@ -495,7 +495,7 @@ int Score::CountTrick(uint32_t name, int spin, bool perfect)
 }
 
 // 0x00562370
-int Score::CountTricksNamed(const char* text)
+int PointTally::CountTricksNamed(const char* text)
 {
     int count = 0;
     for (int i = 0; i < m_tricks; ++i)
@@ -505,7 +505,7 @@ int Score::CountTricksNamed(const char* text)
 }
 
 // 0x005623B0
-bool Score::LastTrickIs(uint32_t name, int spin, bool perfect, int taps)
+bool PointTally::LastTrickIs(uint32_t name, int spin, bool perfect, int taps)
 {
     int index = m_tricks;
     do {
@@ -518,7 +518,7 @@ bool Score::LastTrickIs(uint32_t name, int spin, bool perfect, int taps)
 }
 
 // 0x00562410
-bool Score::LastTrickIsKeyCombo(uint32_t keyCombo, int spin, bool perfect, int taps)
+bool PointTally::LastTrickIsKeyCombo(uint32_t keyCombo, int spin, bool perfect, int taps)
 {
     int index = m_tricks;
     do {
@@ -533,7 +533,7 @@ bool Score::LastTrickIsKeyCombo(uint32_t keyCombo, int spin, bool perfect, int t
 }
 
 // 0x005624C0
-int Score::CountTrickAfterTaps(uint32_t name, int spin, bool perfect, int taps)
+int PointTally::CountTrickAfterTaps(uint32_t name, int spin, bool perfect, int taps)
 {
     if (taps > 1)
         name = TrickNameAfterTaps(name, taps);
@@ -541,7 +541,7 @@ int Score::CountTrickAfterTaps(uint32_t name, int spin, bool perfect, int taps)
 }
 
 // 0x00562510
-int Score::CountKeyCombo(uint32_t keyCombo, int spin, bool perfect, int taps)
+int PointTally::CountKeyCombo(uint32_t keyCombo, int spin, bool perfect, int taps)
 {
     uint32_t trick;
     if (!KeyComboName(keyCombo, taps, &trick))
@@ -552,18 +552,18 @@ int Score::CountKeyCombo(uint32_t keyCombo, int spin, bool perfect, int taps)
 namespace {
 
 // 0x005625A0 / 0x00562620's count.
-int CountRepeats(Score* score, uint32_t name, int spin)
+int CountRepeats(PointTally* score, uint32_t name, int spin)
 {
     int count = 0;
     bool latest = false;
     for (int i = 0; i < score->m_tricks; ++i) {
         STrickLog* trick = score->Trick(i);
-        if (trick->m_name == name) {
+        if (trick->m_label == name) {
             if (!spin || spin == trick->m_twistRate) {
                 ++count;
                 latest = true;
             }
-        } else if (!(trick->m_flags & kTrickGap)) {
+        } else if (!(trick->m_flagBits & kTrickGap)) {
             latest = false;
         }
     }
@@ -575,14 +575,14 @@ int CountRepeats(Score* score, uint32_t name, int spin)
 } // namespace
 
 // 0x005625A0
-int Score::CountTrickRepeats(uint32_t name, int spin, int taps)
+int PointTally::CountTrickRepeats(uint32_t name, int spin, int taps)
 {
     uint32_t trick = taps > 1 ? TrickNameAfterTaps(name, taps) : name;
     return CountRepeats(this, trick, spin);
 }
 
 // 0x00562620
-int Score::CountKeyComboRepeats(uint32_t keyCombo, int spin, int taps)
+int PointTally::CountKeyComboRepeats(uint32_t keyCombo, int spin, int taps)
 {
     uint32_t trick;
     if (!KeyComboName(keyCombo, taps, &trick))
@@ -591,23 +591,23 @@ int Score::CountKeyComboRepeats(uint32_t keyCombo, int spin, int taps)
 }
 
 // 0x005626E0
-void Score::RefreshBalanceMeter() { SetupBalanceMeter(); }
+void PointTally::RefreshBalanceMeter() { SetupBalanceMeter(); }
 
 // 0x00562740
-bool Score::IsGap(int index) { return (Trick(index)->m_flags >> 4) & 1; }
+bool PointTally::IsGap(int index) { return (Trick(index)->m_flagBits >> 4) & 1; }
 
 // 0x00562760
-void Score::SetSpecialActive(bool active)
+void PointTally::SetSpecialActive(bool active)
 {
     if (active == m_specialActive)
         return;
     m_specialActive = active;
     if (GameObjects::CRider* skater = SkaterById(m_riderNo))
-        skater->BroadcastEvent(m_specialActive ? kSkaterEnterSpecial : kSkaterExitSpecial, nullptr, 0.0f);
+        skater->Announce(m_specialActive ? kSkaterEnterSpecial : kSkaterExitSpecial, nullptr, 0.0f);
 }
 
 // 0x005627B0
-void Score::RefreshBotCheck(int line)
+void PointTally::RefreshBotCheck(int line)
 {
     if (line >= 2500) {
         m_robotFactor = 1.0f;
@@ -637,13 +637,13 @@ void Score::RefreshBotCheck(int line)
 }
 
 // 0x005629D0
-void Score::TrimLog()
+void PointTally::TrimLog()
 {
     STrickLog merged = {};
     std::memcpy(merged.m_text, "... + ", 7);  // "... + "
     std::memcpy(merged.m_shown, "...\\_+\\_", 9); // "...\_+\_"
-    int end = m_log.m_count;
-    for (int i = 0; i < m_log.m_count; ++i) {
+    int end = m_log.m_num;
+    for (int i = 0; i < m_log.m_num; ++i) {
         if (i != 0 && !Trick(i)->m_text[0]) {
             end = i;
             break;
@@ -654,44 +654,44 @@ void Score::TrimLog()
     merged.m_pointsHeld = GetScoreOfRange(0, end);
     // (entries 1 to `end` taken out - one more than the points summed, as the original)
     for (int left = end; left > 0; --left) {
-        MemSys::Free(m_log.m_items[1]);
-        for (int i = 1; i < m_log.m_count - 1; ++i)
+        MemSys::Dealloc(m_log.m_items[1]);
+        for (int i = 1; i < m_log.m_num - 1; ++i)
             m_log.m_items[i] = m_log.m_items[i + 1];
-        m_log.m_items[m_log.m_count - 1] = nullptr;
-        --m_log.m_count;
+        m_log.m_items[m_log.m_num - 1] = nullptr;
+        --m_log.m_num;
         --m_tricks;
         --m_spinTrick;
         --m_lastNoSpin;
     }
     *Trick(0) = merged;
-    Trick(0)->m_flags |= kTrickNoSpin;
+    Trick(0)->m_flagBits |= kTrickNoSpin;
 }
 
 // 0x00562B20
-void Score::MoveCaptionTimer(int skater) { RunTrickTextScript(kTrickTextCountdown, skater); }
+void PointTally::MoveCaptionTimer(int skater) { RunTrickTextScript(kTrickTextCountdown, skater); }
 
 // 0x00562C10
-void Score::MoveCaptionLanded(int skater) { RunTrickTextScript(kTrickTextLanded, skater); }
+void PointTally::MoveCaptionLanded(int skater) { RunTrickTextScript(kTrickTextLanded, skater); }
 
 // 0x00562D00
-void Score::MoveCaptionWipeout(int skater) { RunTrickTextScript(kTrickTextBail, skater); }
+void PointTally::MoveCaptionWipeout(int skater) { RunTrickTextScript(kTrickTextBail, skater); }
 
 // 0x005638A0
-void Score::MoveCaptionPulse(int skater) { RunTrickTextScript(kTrickTextPulse, skater); }
+void PointTally::MoveCaptionPulse(int skater) { RunTrickTextScript(kTrickTextPulse, skater); }
 
 // 0x00562DF0
-void Score::FillSpecial()
+void PointTally::FillSpecial()
 {
     SetSpecialActive(true); // (inlined there)
     m_special = 3000;
 }
 
 // 0x005633B0
-int Score::CountNonGapTricks()
+int PointTally::CountNonGapTricks()
 {
     int count = 0;
     for (int i = 0; i < m_tricks; ++i)
-        if (!((Trick(i)->m_flags >> 4) & 1))
+        if (!((Trick(i)->m_flagBits >> 4) & 1))
             ++count;
     return count;
 }

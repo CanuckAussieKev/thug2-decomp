@@ -1,4 +1,4 @@
-// The network library's manager (NetLink::Manager): its settings getters and setters. See net_manager.h.
+// The network library's manager (NetLink::Hub): its settings getters and setters. See net_manager.h.
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_addr, gethostbyname, inet_ntoa: what the game uses
 
@@ -32,50 +32,50 @@ void CopyIfDifferent(char* out, const char* source)
         CopyString(out, source);
 }
 
-// Adds a task to the main loop's logic tasks (FrameLoop::Manager +0x04).
+// Adds a task to the main loop's logic tasks (FrameLoop::Hub +0x04).
 void RegisterLogicTask(uint8_t* mlp, void* task)
 {
-    reinterpret_cast<FrameLoop::Manager*>(mlp)->m_logicTasks.AddTask(static_cast<TaskList::SchedulerTask*>(task));
+    reinterpret_cast<FrameLoop::Hub*>(mlp)->m_logicTasks.QueueJob(static_cast<TaskList::SchedulerTask*>(task));
 }
 
 } // namespace
 
-Manager* Manager::Instance() { return g_netManager; }
+Hub* Hub::Sole() { return g_netManager; }
 
 // 0x00454580
-bool Manager::ConnectToInternet()
+bool Hub::ConnectToInternet()
 {
     m_isNetworked = true;
     return true;
 }
 
 // 0x00454590
-bool Manager::DisconnectFromInternet()
+bool Hub::DisconnectFromInternet()
 {
     m_isNetworked = false;
     return true;
 }
 
 // 0x004545D0
-void Manager::SetDialupNumber(int index, const char* number) { CopyString(m_dialupNumbers[index], number); }
+void Hub::SetDialupNumber(int index, const char* number) { CopyString(m_dialupNumbers[index], number); }
 
 // 0x00454600
-void Manager::SetDialupUserName(const char* name) { CopyString(m_dialupUserName, name); }
+void Hub::SetDialupUserName(const char* name) { CopyString(m_dialupUserName, name); }
 
 // 0x00454620
-void Manager::SetDialupPassword(const char* password) { CopyString(m_dialupPassword, password); }
+void Hub::SetDialupPassword(const char* password) { CopyString(m_dialupPassword, password); }
 
 // 0x00454640
-void Manager::SetRouterAddr(const char* ip) { CopyIfDifferent(m_routerAddr, ip); }
+void Hub::SetRouterAddr(const char* ip) { CopyIfDifferent(m_routerAddr, ip); }
 
 // 0x004546A0
-void Manager::SetAddressMask(const char* ip) { CopyIfDifferent(m_subnetMask, ip); }
+void Hub::SetAddressMask(const char* ip) { CopyIfDifferent(m_subnetMask, ip); }
 
 // 0x00454710
-void Manager::SetOwnAddress(const char* ip) { CopyIfDifferent(m_localIP, ip); }
+void Hub::SetOwnAddress(const char* ip) { CopyIfDifferent(m_localIP, ip); }
 
 // 0x00454770
-void Manager::SetNetLinkKind(int type)
+void Hub::SetNetLinkKind(int type)
 {
     if (m_connectionType == type)
         return;
@@ -97,24 +97,24 @@ void Manager::SetNetLinkKind(int type)
 }
 
 // 0x004547D0
-void Manager::SetAdapterKind(int type)
+void Hub::SetAdapterKind(int type)
 {
     if (m_deviceType != type)
         m_deviceType = type;
 }
 
 // 0x004547F0
-void Manager::SetAutoAddress(bool useDHCP)
+void Hub::SetAutoAddress(bool useDHCP)
 {
     if (m_useDHCP != useDHCP)
         m_useDHCP = useDHCP;
 }
 
 // 0x00454820
-void Manager::SetNameResolver(int index, const char* ip) { CopyIfDifferent(m_dnsServers[index], ip); }
+void Hub::SetNameResolver(int index, const char* ip) { CopyIfDifferent(m_dnsServers[index], ip); }
 
 // 0x00454890
-void Manager::SetMachineLabel(const char* name)
+void Hub::SetMachineLabel(const char* name)
 {
     if (!name)
         m_hostName[0] = '\0'; // (and the copy below still reads from the null pointer, as in the original)
@@ -122,7 +122,7 @@ void Manager::SetMachineLabel(const char* name)
 }
 
 // 0x004548C0
-void Manager::SetNetworkDomain(const char* name)
+void Hub::SetNetworkDomain(const char* name)
 {
     if (!name)
         m_domainName[0] = '\0'; // (likewise)
@@ -130,7 +130,7 @@ void Manager::SetNetworkDomain(const char* name)
 }
 
 // 0x004548F0
-uint32_t Manager::GetLocalAddress()
+uint32_t Hub::GetLocalAddress()
 {
     if (m_localAddress)
         return m_localAddress;
@@ -138,7 +138,7 @@ uint32_t Manager::GetLocalAddress()
 }
 
 // 0x00454910
-const char* Manager::GetLocalIP()
+const char* Hub::FetchOwnAddress()
 {
     hostent* localhost = gethostbyname("localhost");
     if (!localhost)
@@ -152,15 +152,15 @@ const char* Manager::GetLocalIP()
 }
 
 // 0x004549C0
-bool Manager::LoadNetworkDrivers(const char* /*ip*/, const char* /*subnetMask*/, const char* /*gateway*/)
+bool Hub::LoadNetworkDrivers(const char* /*ip*/, const char* /*subnetMask*/, const char* /*gateway*/)
 {
     return true;
 }
 
 // 0x00454CB0
-void Manager::AddAppTasks(App* app)
+void Hub::AddAppTasks(AppHost* app)
 {
-    uint8_t* mlp = reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager); // the FrameLoop::Manager
+    uint8_t* mlp = reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager); // the FrameLoop::Hub
     RegisterLogicTask(mlp, app->ReceiveTask());
     RegisterLogicTask(mlp, app->SendTask());
     RegisterLogicTask(mlp, app->ProcessTask());
@@ -168,7 +168,7 @@ void Manager::AddAppTasks(App* app)
 }
 
 // 0x00454DE0
-const char* Manager::GetDialupNumber()
+const char* Hub::GetDialupNumber()
 {
     if (m_connectionType == kConnection3)
         return "";

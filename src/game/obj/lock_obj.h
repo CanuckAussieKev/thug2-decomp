@@ -37,13 +37,13 @@ public:
 
     // 0x0041FF20 (registered with the composite object manager): a new one (Construct on zeroed memory; 0 if out of
     // memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0041F500: the base's constructor, not locked, its vtable and type. Returns this.
-    CPinnedObjectModule* Construct();
+    CPinnedObjectModule* MakeNew();
     // 0x0041F400: its vtable back, then the base's body.
     void DestroyBody();
     // 0x0041F440 (vtable slot 0)
-    CPinnedObjectModule* Destroy(unsigned int flags);
+    CPinnedObjectModule* Teardown(unsigned int flags);
     // 0x0041F760: the lock's update - finds the target by id, else by name (none: nothing), takes its orientation
     // (its model's matrix when the model is followed - a model with +0x234 set, or a skater -, else its display
     // matrix) or, on a bone, the bone's turned by it with "at" pointing to the bone's parent; puts the object at its
@@ -60,7 +60,7 @@ public:
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x0041FF90 (vtable slot 1): when locked, the lock's update (UpdateLock). NOT ORIGINAL: with LOCK_FLAG_NO_ROTATE the object's own
     // orientation (matrix and display matrix) is put back after it - the position stays the lock's.
-    void Update();
+    void TickFrame();
     // 0x0041F410 (vtable slot 12): Obj_LockToObject (0x785E57C7) - ConfigureFromData(params) through the vtable,
     // 1; any other member: 2 (not its own).
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
@@ -68,8 +68,8 @@ public:
     uint32_t m_entityLabel;    // +0x18 ObjectName (0 none)
     uint32_t m_targetId;      // +0x1C id (default the "no id" value at 0x0064780C)
     uint32_t m_bone;          // +0x20 bone (0 none)
-    Maths::Vector m_shift;     // +0x24 (w 1)
-    Maths::Matrix m_orientationTurn;   // +0x34 the rotation of Angles
+    Maths::Vec4 m_shift;     // +0x24 (w 1)
+    Maths::Mat4 m_orientationTurn;   // +0x34 the rotation of Angles
     float m_lag;              // +0x74
     float m_lagMin;           // +0x78 LagRange
     float m_lagMax;           // +0x7C

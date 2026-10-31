@@ -1,4 +1,4 @@
-// The main loop (FrameLoop::Manager), with PartyMod's per-level letterbox built in.
+// The main loop (FrameLoop::Hub), with PartyMod's per-level letterbox built in.
 // (The letterbox per level contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md)
 
 #include "game/sys/mlp.h"
@@ -53,7 +53,7 @@ bool AppActive() { return SystemCore::g_appActive; }
 bool TextEntry() { return OnlinePlay::g_textEntry; } // keeps the loop running while the window is inactive
 bool QuitRequested() { return Engine3D::g_quitRequested; }
 bool& DeviceLost() { return Engine3D::g_deviceLost; }
-IDirect3DDevice9* Device() { return Engine3D::g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return Engine3D::g_d3dDevice; }
 D3DPRESENT_PARAMETERS* PresentParameters() { return &Engine3D::g_presentParameters; }
 
 uint32_t g_mlpReferences;
@@ -64,7 +64,7 @@ int g_skippedInARow;
 int& SkippedInARow() { return g_skippedInARow; }
 int& SkippedTotal() { return g_skippedTotal; }
 
-void ServiceNetwork() { OnlinePlay::Manager::ServiceGameSpy(); }
+void ServiceNetwork() { OnlinePlay::Hub::ServiceGameSpy(); }
 // Around a device Reset: the device objects released first (default pool) and made again after.
 void ReleaseDeviceObjects()
 {
@@ -79,9 +79,9 @@ void RestoreDeviceObjects()
     Engine3D::CreateRenderTargets();
 }
 // A task list's tasks, in order (0x004070A0; the profiling flag is passed but unused).
-void RunTasks(TaskList::Stack& list, bool profiling)
+void RunTasks(TaskList::PileUp& list, bool profiling)
 {
-    list.Process(reinterpret_cast<void*>(static_cast<uintptr_t>(profiling)));
+    list.WorkOn(reinterpret_cast<void*>(static_cast<uintptr_t>(profiling)));
 }
 void BeginScene() { Engine3D::StartRender(); }      // the device's BeginScene
 void RenderFrame() { Engine3D::Engine::RenderFrame(); }     // the world, then the 2D
@@ -109,16 +109,16 @@ void RenderFrameLetterboxed()
 namespace {
 
 // The task lists (Lst-style lists of tasks, 0x3C bytes each).
-void ConstructTaskList(TaskList::Stack& list) { list.Construct(); }
-void DestroyTaskList(TaskList::Stack& list) { list.Destruct(); }
+void ConstructTaskList(TaskList::PileUp& list) { list.MakeNew(); }
+void DestroyTaskList(TaskList::PileUp& list) { list.Destruct(); }
 
-Manager*& Instance() { return AssetStore::g_mainLoopManager; }
+Hub*& Sole() { return AssetStore::g_mainLoopManager; }
 uint32_t& RefTally() { return g_mlpReferences; }
 
 } // namespace
 
 // 0x0044EDC0
-Manager* Manager::Construct()
+Hub* Hub::MakeNew()
 {
     ConstructTaskList(m_logicTasks);
     ConstructTaskList(m_displayTasks);
@@ -130,7 +130,7 @@ Manager* Manager::Construct()
 }
 
 // 0x0044EE30
-void Manager::DestroyBody()
+void Hub::DestroyBody()
 {
     DestroyTaskList(m_systemTasks);
     DestroyTaskList(m_displayTasks);
@@ -138,11 +138,11 @@ void Manager::DestroyBody()
 }
 
 // 0x0044EE90
-void Manager::ResetDeviceIfLost()
+void Hub::ResetDeviceIfLost()
 {
     if (!DeviceLost())
         return;
-    if (Device()->TestCooperativeLevel() == D3DERR_DEVICELOST) // (not yet: it can't be reset)
+    if (InputPort()->TestCooperativeLevel() == D3DERR_DEVICELOST) // (not yet: it can't be reset)
         return;
     // Not original - the level editor's UI (game/front/level_editor_ui.h): ImGui's default-pool objects dropped before
     // the reset (made again on its next frame).
@@ -150,35 +150,35 @@ void Manager::ResetDeviceIfLost()
     MenuSystem::LevelEditor::Ui::DeviceLost();
     MenuSystem::NewFrontend::DeviceLost(); // (not original either: the new front end's - game/front/new_frontend.h)
     ReleaseDeviceObjects();
-    if (Device()->Reset(PresentParameters()) < 0)
+    if (InputPort()->Reset(PresentParameters()) < 0)
         return;
     RestoreDeviceObjects();
     DeviceLost() = false;
 }
 
 // 0x0044F220
-void Manager::ProfileFrames(int frames)
+void Hub::ProfileFrames(int frames)
 {
     m_profileFrames = frames;
     m_profiling = 0;
 }
 
 // 0x0044F240
-void Manager::StopLoop() { m_isFinished = true; }
+void Hub::StopLoop() { m_isFinished = true; }
 
 // 0x0044F260
-Manager* CreateManager(bool create)
+Hub* CreateManager(bool create)
 {
-    if (!Instance() && create) {
-        if (void* memory = MemSys::AllocZeroed(sizeof(Manager), nullptr, 1)) {
-            Instance() = static_cast<Manager*>(memory)->Construct();
+    if (!Sole() && create) {
+        if (void* memory = MemSys::AllocZeroed(sizeof(Hub), nullptr, 1)) {
+            Sole() = static_cast<Hub*>(memory)->MakeNew();
             ++RefTally();
-            return Instance();
+            return Sole();
         }
-        Instance() = nullptr;
+        Sole() = nullptr;
     }
     ++RefTally();
-    return Instance();
+    return Sole();
 }
 
 // 0x0044F2B0
@@ -188,16 +188,16 @@ void ReleaseManager()
         --RefTally();
         return;
     }
-    if (Manager* manager = Instance()) {
+    if (Hub* manager = Sole()) {
         manager->DestroyBody();
-        MemSys::Manager::Get()->Free(manager);
+        MemSys::Hub::Pull()->Dealloc(manager);
     }
-    Instance() = nullptr;
+    Sole() = nullptr;
     RefTally() = 0;
 }
 
 // 0x0044EEF0
-void Manager::MainLoop()
+void Hub::MainLoop()
 {
     // The test runner's EngineStarted stage: every engine module exists, the first frame is next.
 
@@ -222,7 +222,7 @@ void Manager::MainLoop()
         OmitFromDraw() = false;
         Flag6F1158() = false;
         Sio::ReadKeyboard();
-        Platform::ProcessWindowEvents();
+        OsLayer::ProcessWindowEvents();
         ServiceNetwork();
         // Not original - THUGPRO's big-level positions in network games (TP-R6, game/net/thugpro_compat.h).
         OnlinePlay::Thugpro::RefreshPositionScale();
@@ -233,7 +233,7 @@ void Manager::MainLoop()
                 // Inactive: idle until the window is active again (nothing else runs meanwhile).
                 do {
                     Sleep(100);
-                    Platform::ProcessWindowEvents();
+                    OsLayer::ProcessWindowEvents();
                 } while (!AppActive());
                 continue;
             }

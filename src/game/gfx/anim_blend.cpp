@@ -22,8 +22,8 @@ constexpr float kMinWeight = 9.99999975e-06f; // (0x006453B8)
 // a + (b - a) * t (Walk::Lerp).
 void LerpVector(float* out, const float* a, const float* b, float t)
 {
-    Walk::Lerp(reinterpret_cast<Maths::Vector*>(out), reinterpret_cast<const Maths::Vector*>(a),
-               reinterpret_cast<const Maths::Vector*>(b), t);
+    Walk::Lerp(reinterpret_cast<Maths::Vec4*>(out), reinterpret_cast<const Maths::Vec4*>(a),
+               reinterpret_cast<const Maths::Vec4*>(b), t);
 }
 
 void Copy4(float* to, const float* from)
@@ -174,30 +174,30 @@ void CBlendChannel::BlendTo(uint32_t target, float period)
     m_periodLeft = period;
     m_period = period;
     if (period == 0.0f) {
-        m_current = target;
-        m_start = target;
+        m_ongoing = target;
+        m_outset = target;
     } else {
-        m_start = m_current;
+        m_outset = m_ongoing;
     }
 }
 
 // 0x0047D620
-float CBlendChannel::GetValue(uint32_t offset)
+float CBlendChannel::FetchValue(uint32_t offset)
 {
-    return *static_cast<float*>(Engine3D::GetAnimData(m_key + offset, 0));
+    return *static_cast<float*>(Engine3D::GetAnimData(m_lookupKey + offset, 0));
 }
 
 // 0x0047D640
 bool CBlendChannel::HasValue(uint32_t offset)
 {
-    return Engine3D::GetAnimData(m_key + offset, 0) != nullptr;
+    return Engine3D::GetAnimData(m_lookupKey + offset, 0) != nullptr;
 }
 
 // 0x0047D660
 void CBlendChannel::ClearFlag()
 {
     if (auto* params = *reinterpret_cast<Scripts::CStruct**>(mp_owner + 0x20))
-        params->RemoveComponent(0x5DB4115F);
+        params->EraseModule(0x5DB4115F);
 }
 
 } // namespace Gfx

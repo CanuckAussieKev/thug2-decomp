@@ -32,13 +32,13 @@ float g_environmentMatrix[16]{
 
 namespace {
 
-IDirect3DDevice9* Device() { return g_d3dDevice; }
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 float* PassConstants() { return g_pixelShaderConstants; } // the pixel shader's colours, 16 bytes a pass
 bool& ConstantsChanged() { return reinterpret_cast<bool&>(g_pixelShaderChanged); }
 
 void DeviceStageState(uint32_t stage, D3DTEXTURESTAGESTATETYPE type, uint32_t value)
 {
-    Device()->SetTextureStageState(stage, type, value);
+    InputPort()->SetTextureStageState(stage, type, value);
 }
 
 constexpr uint32_t kPassUVWibble = 0x1;      // the texture matrix from the pass's UV wibble
@@ -155,9 +155,9 @@ float WibbleOffset(float t, float frequency, float phase, float amplitude, float
 // (pass 0's flag 0x100) - or none, once, when the last material had it (0x00786E4C).
 void SetCommonStates(materialRef* material)
 {
-    SetState(kAlphaRef, material->alphaRef);
-    SetState(kCullMode, material->twoSided ? D3DCULL_NONE : D3DCULL_CW);
-    SetState(kDepthBias, material->depthBias);
+    ChangePhase(kAlphaRef, material->alphaRef);
+    ChangePhase(kCullMode, material->twoSided ? D3DCULL_NONE : D3DCULL_CW);
+    ChangePhase(kDepthBias, material->depthBias);
     material->UpdateUVWibbles();
     material->UpdateColorAnims();
     material->UpdateTextureAnims();
@@ -166,7 +166,7 @@ void SetCommonStates(materialRef* material)
     if (material->passFlags[0] & kPassSpecular) {
         if (specularOn)
             return;
-        SetState(kSpecular, 1);
+        ChangePhase(kSpecular, 1);
         std::memset(&specular, 0, sizeof(specular));
         specular.Specular.r = material->specular[0];
         specular.Specular.g = material->specular[1];
@@ -176,10 +176,10 @@ void SetCommonStates(materialRef* material)
     } else {
         if (!specularOn)
             return;
-        SetState(kSpecular, 0);
+        ChangePhase(kSpecular, 0);
         std::memset(&specular, 0, sizeof(specular));
     }
-    Device()->SetMaterial(&specular);
+    InputPort()->SetMaterial(&specular);
 }
 
 // The pass's border colour (0x00786EA4, a word a stage): 0xE0000000 with flag 0x200, else 0.
@@ -218,7 +218,7 @@ uint32_t FactorChannel(float value) { return static_cast<uint32_t>(static_cast<i
 } // namespace
 
 // 0x004D1A90
-materialRef* materialRef::Construct()
+materialRef* materialRef::MakeNew()
 {
     passCount = 0;
     colorAnimCount = 0;
@@ -243,21 +243,21 @@ materialRef* materialRef::Construct()
 // 0x004D2BD0
 void materialRef::DestroyBody()
 {
-    MemSys::Manager* heap = MemSys::Manager::Get();
+    MemSys::Hub* heap = MemSys::Hub::Pull();
     if (colorAnims) {
         for (uint32_t i = 0; i < colorAnimCount; ++i)
-            heap->Free(colorAnims[i].keys);
-        heap->Free(colorAnims);
+            heap->Dealloc(colorAnims[i].keys);
+        heap->Dealloc(colorAnims);
     }
     if (animColors)
-        heap->Free(animColors);
+        heap->Dealloc(animColors);
     for (sUVWibble* wibble : uvWibble)
         if (wibble)
-            heap->Free(wibble);
+            heap->Dealloc(wibble);
     if (textureAnim) {
         for (sTextureKey* keys : textureAnim->keys)
-            heap->Free(keys);
-        heap->Free(textureAnim);
+            heap->Dealloc(keys);
+        heap->Dealloc(textureAnim);
     }
 }
 
@@ -335,7 +335,7 @@ void materialRef::UpdateUVWibbles()
 }
 
 // 0x004D1F00
-void materialRef::Submit()
+void materialRef::HandIn()
 {
     if (g_submitLocked)
         return;
@@ -352,8 +352,8 @@ void materialRef::Submit()
             continue;
         }
         SetTexture(static_cast<int>(pass), *reinterpret_cast<void**>(texture + 0x10));
-        SetState(kAddressMode0 + static_cast<int>(pass), addressModes[pass]);
-        SetState(kMipLodBias0 + static_cast<int>(pass), mipLodBias[pass]);
+        ChangePhase(kAddressMode0 + static_cast<int>(pass), addressModes[pass]);
+        ChangePhase(kMipLodBias0 + static_cast<int>(pass), mipLodBias[pass]);
         SetBorderColor(this, pass, pass);
         uint32_t flags = passFlags[pass];
         if (flags & kPassBumpEnv)
@@ -364,8 +364,8 @@ void materialRef::Submit()
             float* matrix = g_environmentMatrixPass;
             matrix[0] = static_cast<float>(envMapTiling[pass][0] * 0.5);
             matrix[5] = static_cast<float>(envMapTiling[pass][1] * 0.5);
-            SetState(kLocalViewer, 1);
-            Device()->SetTransform(textureMatrix, reinterpret_cast<const D3DMATRIX*>(matrix));
+            ChangePhase(kLocalViewer, 1);
+            InputPort()->SetTransform(textureMatrix, reinterpret_cast<const D3DMATRIX*>(matrix));
             DeviceStageState(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
             DeviceStageState(pass, D3DTSS_TEXCOORDINDEX, pass | D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR);
         } else if (flags & kPassUVWibble) {
@@ -373,7 +373,7 @@ void materialRef::Submit()
             DeviceStageState(pass, D3DTSS_TEXCOORDINDEX, pass);
             float* matrix = g_wibbleMatrixPass;
             FillWibbleMatrix(matrix, uvWibble[pass]);
-            Device()->SetTransform(textureMatrix, reinterpret_cast<const D3DMATRIX*>(matrix));
+            InputPort()->SetTransform(textureMatrix, reinterpret_cast<const D3DMATRIX*>(matrix));
         } else {
             if (g_billboardFlag) { // (the billboard flag: a static matrix's 2x2 part reset)
                 float* m = g_billboardUvMatrix;
@@ -385,8 +385,8 @@ void materialRef::Submit()
                 m[7] = 0;
             }
             DWORD transformFlags = 0, coordinates = 0;
-            Device()->GetTextureStageState(pass, D3DTSS_TEXTURETRANSFORMFLAGS, &transformFlags);
-            Device()->GetTextureStageState(pass, D3DTSS_TEXCOORDINDEX, &coordinates);
+            InputPort()->GetTextureStageState(pass, D3DTSS_TEXTURETRANSFORMFLAGS, &transformFlags);
+            InputPort()->GetTextureStageState(pass, D3DTSS_TEXCOORDINDEX, &coordinates);
             if (transformFlags)
                 DeviceStageState(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
             if (coordinates != pass)
@@ -417,8 +417,8 @@ void materialRef::SubmitPass(uint32_t pass, const float* color)
             SetTexture(0, nullptr);
         } else {
             SetTexture(0, *reinterpret_cast<void**>(texture + 0x10));
-            SetState(kAddressMode0, addressModes[pass]);
-            SetState(kMipLodBias0, mipLodBias[pass]);
+            ChangePhase(kAddressMode0, addressModes[pass]);
+            ChangePhase(kMipLodBias0, mipLodBias[pass]);
             SetBorderColor(this, pass, pass);
             if (passFlags[pass] & kPassBumpEnv)
                 SetBumpEnvMatrix(0);
@@ -427,7 +427,7 @@ void materialRef::SubmitPass(uint32_t pass, const float* color)
                 float* matrix = g_environmentMatrix;
                 matrix[0] = static_cast<float>(envMapTiling[pass][0] * 0.5);
                 matrix[5] = static_cast<float>(envMapTiling[pass][1] * 0.5);
-                SetState(kLocalViewer, 1);
+                ChangePhase(kLocalViewer, 1);
                 Engine3D::SetTransform(D3DTS_TEXTURE0, matrix);
                 SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
                 SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, pass | D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR);
@@ -436,11 +436,11 @@ void materialRef::SubmitPass(uint32_t pass, const float* color)
                 DeviceStageState(0, D3DTSS_TEXCOORDINDEX, pass);
                 float* matrix = g_wibbleMatrix;
                 FillWibbleMatrix(matrix, uvWibble[pass]);
-                Device()->SetTransform(D3DTS_TEXTURE0, reinterpret_cast<const D3DMATRIX*>(matrix));
+                InputPort()->SetTransform(D3DTS_TEXTURE0, reinterpret_cast<const D3DMATRIX*>(matrix));
             } else {
                 DWORD transformFlags = 0, coordinates = 0;
-                Device()->GetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, &transformFlags);
-                Device()->GetTextureStageState(0, D3DTSS_TEXCOORDINDEX, &coordinates);
+                InputPort()->GetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, &transformFlags);
+                InputPort()->GetTextureStageState(0, D3DTSS_TEXCOORDINDEX, &coordinates);
                 if (transformFlags)
                     SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
                 if (coordinates != pass)
@@ -451,8 +451,8 @@ void materialRef::SubmitPass(uint32_t pass, const float* color)
                     if (static_cast<int>(pass) > 0) {
                         SetTextureStageState(1, D3DTSS_TEXCOORDINDEX, pass - 1);
                         SetTexture(1, *reinterpret_cast<void**>(textures[pass - 1] + 0x10));
-                        SetState(kAddressMode0 + 1, addressModes[pass - 1]);
-                        SetState(kMipLodBias0 + 1, mipLodBias[pass - 1]);
+                        ChangePhase(kAddressMode0 + 1, addressModes[pass - 1]);
+                        ChangePhase(kMipLodBias0 + 1, mipLodBias[pass - 1]);
                     } else {
                         SetTextureStageState(1, D3DTSS_TEXCOORDINDEX, pass);
                         SetTexture(1, *reinterpret_cast<void**>(textures[pass] + 0x10));
@@ -501,7 +501,7 @@ void materialRef::SubmitPass(uint32_t pass, const float* color)
         uint32_t r = FactorChannel(factor[0]);
         uint32_t g = FactorChannel(factor[1]);
         uint32_t b = FactorChannel(factor[2]);
-        Device()->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFF000000u | r << 16 | g << 8 | b);
+        InputPort()->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFF000000u | r << 16 | g << 8 | b);
         if (alphaFromTexture) {
             DeviceStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
         } else {
@@ -534,6 +534,6 @@ materialRef g_spareMaterial;
 } // namespace
 
 // 0x00640D70 (a static initialiser)
-void ConstructSpareMaterial() { g_spareMaterial.Construct(); }
+void ConstructSpareMaterial() { g_spareMaterial.MakeNew(); }
 
 } // namespace Nx

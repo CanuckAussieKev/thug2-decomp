@@ -28,7 +28,7 @@ char* HostName(const char* format, const char* domain)
     size_t size = std::strlen(format) + std::strlen(domain) + 1; // (enough)
     auto* name = static_cast<char*>(std::malloc(size));
     std::snprintf(name, size, format, domain);
-    DebugLog::Printf(DebugLog::Level::kTrace, "ALLOC'D STRING %s\n", name);
+    DebugLog::Printf(DebugLog::StageMap::kTrace, "ALLOC'D STRING %s\n", name);
     return name;
 }
 
@@ -40,7 +40,7 @@ const char*& GamestatsHost() { return s_gamestatsHost; }
 void SetUpOnlineHosts()
 {
     char domain[256];
-    BuildInfo::GetString(BuildInfo::kMiscellaneous, "OnlineDomain", "openspy.net", domain, sizeof(domain));
+    BuildInfo::FetchText(BuildInfo::kMiscellaneous, "OnlineDomain", "openspy.net", domain, sizeof(domain));
 
     // gamestats: also the game's own top stats request (NetLink::RetrieveTopStats reads GamestatsHost)
     char* gamestats = HostName("gamestats.%s", domain);

@@ -23,7 +23,7 @@
 
 namespace GameObjects {
 
-OnlinePlay::Manager* g_gameNetManager;
+OnlinePlay::Hub* g_gameNetManager;
 
 namespace {
 
@@ -53,18 +53,18 @@ void ProjectileHit(CObjectModule* projectile)
 } // namespace
 
 // 0x0041C370
-CObjectModule* __cdecl CImpactDestructModule::Create()
+CObjectModule* __cdecl CImpactDestructModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CImpactDestructModule));
-    return memory ? static_cast<CImpactDestructModule*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CImpactDestructModule*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x0041C210
-CImpactDestructModule* CImpactDestructModule::Construct()
+CImpactDestructModule* CImpactDestructModule::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kVtable;
-    m_type = kType;
+    m_kindTag = kType;
     m_radius = 0.0f;
     m_sizeFactor = 0.0f;
     m_madeTime = static_cast<uint32_t>(FrameClock::GameClockElapsed() + g_clockOffset);
@@ -82,70 +82,70 @@ void CImpactDestructModule::DestroyBody()
 }
 
 // 0x0041C280
-CImpactDestructModule* CImpactDestructModule::Destroy(unsigned int flags)
+CImpactDestructModule* CImpactDestructModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0041C2B0
 void CImpactDestructModule::ConfigureFromData(Scripts::CStruct* params)
 {
-    params->GetFloat(kRadius, &m_radius, 1);
-    params->GetFloat(kScale, &m_sizeFactor, 1);
+    params->FetchFloat(kRadius, &m_radius, 1);
+    params->FetchFloat(kScale, &m_sizeFactor, 1);
     params->ReadHashValue(kDeathScript, &m_deathScript, 1);
     m_vel = {0.0f, 0.0f, 1.0f, 1.0f};
-    params->GetVector(kVel, reinterpret_cast<Scripts::VectorValue*>(&m_vel), 1);
-    m_vel.Normalize();
+    params->FetchVec(kVel, reinterpret_cast<Scripts::VectorValue*>(&m_vel), 1);
+    m_vel.MakeUnit();
 }
 
 // 0x0041C330
-void CImpactDestructModule::Finalize() { mp_suspend = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSuspend)); }
+void CImpactDestructModule::Seal() { mp_suspend = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSuspend)); }
 
 // 0x0041C3D0
-void CImpactDestructModule::Update()
+void CImpactDestructModule::TickFrame()
 {
     if (!g_gameNetManager->InNetGame() && mp_suspend[0x30])
         return;
     int& offset = g_clockOffset;
     if (static_cast<uint32_t>(FrameClock::GameClockElapsed()) + (static_cast<uint32_t>(offset) - m_madeTime) > kLifetime) {
-        Kill(m_object);
+        Kill(m_entity);
     } else if (m_fadingOut) {
         if (static_cast<uint32_t>(FrameClock::GameClockElapsed() + offset) > m_deathTime)
-            Kill(m_object);
+            Kill(m_entity);
     } else {
         Engine3D::CProbeRay feeler;
-        feeler.Construct();
-        CGameEntity* object = m_object;
-        Maths::Vector direction = object->m_vel;
-        direction.Normalize();
+        feeler.MakeNew();
+        CGameEntity* object = m_entity;
+        Maths::Vec4 direction = object->m_vel;
+        direction.MakeUnit();
         // From where it was (24 up)...
-        Maths::Vector start = m_firstUpdate ? object->m_pos : m_lastPos;
+        Maths::Vec4 start = m_firstUpdate ? object->m_atPoint : m_lastPos;
         start.y = start.y + kAbove;
         // ...to where it is (24 up), `radius` on along its velocity.
-        double up = static_cast<double>(object->m_pos.y) + kAbove;
+        double up = static_cast<double>(object->m_atPoint.y) + kAbove;
         float alongW = m_radius * direction.w;
         float alongZ = m_radius * direction.z;
         float alongY = m_radius * direction.y;
-        Maths::Vector end;
-        end.x = static_cast<float>(static_cast<double>(m_radius) * direction.x + object->m_pos.x);
+        Maths::Vec4 end;
+        end.x = static_cast<float>(static_cast<double>(m_radius) * direction.x + object->m_atPoint.x);
         end.y = static_cast<float>(up + alongY);
-        end.z = object->m_pos.z + alongZ;
-        end.w = object->m_pos.w + alongW;
-        feeler.SetStart(&start);
-        feeler.SetEnd(&end);
+        end.z = object->m_atPoint.z + alongZ;
+        end.w = object->m_atPoint.w + alongW;
+        feeler.ChangeOrigin(&start);
+        feeler.ChangeFinish(&end);
         if (feeler.GetHitShape(true, false) && !m_fadingOut) {
-            if (CObjectModule* projectile = m_object->GetComponent(kProjectileCollision))
+            if (CObjectModule* projectile = m_entity->FetchModule(kProjectileCollision))
                 ProjectileHit(projectile);
             m_fadingOut = true;
             m_deathTime = static_cast<uint32_t>(FrameClock::GameClockElapsed() + offset + static_cast<int>(kDyingTime));
             if (m_deathScript) {
-                Maths::Vector point = feeler.m_contactPos;
+                Maths::Vec4 point = feeler.m_contactPos;
                 Scripts::CStruct* params = Scripts::NewStruct();
                 if (params)
-                    params->Init();
+                    params->PrepareAll();
                 params->PutVec3(kPos, *reinterpret_cast<Scripts::VectorValue*>(&point));
                 params->PutVec3(kVel, *reinterpret_cast<Scripts::VectorValue*>(&m_vel));
                 params->PushFloat(kScale, m_sizeFactor);
@@ -157,7 +157,7 @@ void CImpactDestructModule::Update()
             }
         }
     } // (the feeler's destructor lets go of the object it hit)
-    m_lastPos = m_object->m_pos;
+    m_lastPos = m_entity->m_atPoint;
     m_firstUpdate = false;
 }
 
@@ -166,14 +166,14 @@ void CImpactDestructModule::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CImpactDestructModule::Destroy,
-         &GameObjects::CImpactDestructModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CImpactDestructModule::Teardown,
+         &GameObjects::CImpactDestructModule::TickFrame,
          &GameObjects::CImpactDestructModule::ConfigureFromData,
-         &GameObjects::CImpactDestructModule::Finalize,
+         &GameObjects::CImpactDestructModule::Seal,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

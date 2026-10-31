@@ -6,7 +6,7 @@
 #include "game/mth/vector.h"
 
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 namespace Scripts {
 class CArray;
@@ -23,16 +23,16 @@ struct CWorldScene;
 class CWorldCell;
 
 struct sSceneLight {
-    Maths::Vector m_pos;            // +0x00
+    Maths::Vec4 m_atPoint;            // +0x00
     float m_strength;            // +0x10 (0-1)
     float m_radius;               // +0x14
-    uint32_t m_name;              // +0x18: the node's (its dynamic light's owner)
+    uint32_t m_label;              // +0x18: the node's (its dynamic light's owner)
     uint32_t m_shade;            // +0x1C: RGBA
-    ListKit::HashTable* mp_sectors;   // +0x20: the sectors it reaches (keyed by their address)
+    ListKit::KeyMap* mp_sectors;   // +0x20: the sectors it reaches (keyed by their address)
 
     // 0x0048FF40 (the array's static constructor's callback): an empty table of 2^4 buckets, grey, nothing else
     // set. Returns this.
-    sSceneLight* Construct();
+    sSceneLight* MakeNew();
     // 0x0048F1A0: a new radius (nothing when it's the same) - its dynamic light's too (1e10 inverse for 0).
     void SetReach(float radius);
     // 0x0048F200: whether it reaches `sector`.
@@ -44,16 +44,16 @@ struct sSceneLight {
     // distance between the centres), unless its name is in `excluded`.
     void FindSectors(Scripts::CArray* excluded);
 };
-static_assert(offsetof(sSceneLight, m_name) == 0x18 && sizeof(sSceneLight) == 0x24, "layout must match the original");
+static_assert(offsetof(sSceneLight, m_label) == 0x18 && sizeof(sSceneLight) == 0x24, "layout must match the original");
 
-// 0x0048F250: a sector's vertex colours made again: its own (CGeom::GetColors) with up to 8 lights that reach it
+// 0x0048F250: a sector's vertex colours made again: its own (CGeom::FetchTints) with up to 8 lights that reach it
 // added - each (radius - distance) / radius x its intensity x its colour, the sums added to the colour's RGB and
 // clamped at 255.
 void __cdecl ApplySceneLightsToSector(CWorldCell* sector);
 // 0x0048F620: `count` vertex colours from `in` to `out`, lit by up to 3 lights that reach the first position (and,
 // with a `normal`, face it); unlit vertices left as they are in `out`, all copied when no light does.
-void __cdecl LightVertexColours(const uint32_t* in, uint32_t* out, const Maths::Vector* positions,
-                                const Maths::Vector* normal, uint32_t count);
+void __cdecl LightVertexColours(const uint32_t* in, uint32_t* out, const Maths::Vec4* positions,
+                                const Maths::Vec4* normal, uint32_t count);
 // 0x0048FC00: the sectors the light `name` reaches coloured again (`scene` isn't used).
 void __cdecl ApplySceneLight(CWorldScene* scene, uint32_t name);
 // 0x0048FCA0: the dynamic light and the scene light of `name` deleted (the last ones moved into their slots).
@@ -73,7 +73,7 @@ void __cdecl UpdateSceneLightQueue();
 void __cdecl UpdateSceneLight(uint32_t name, Scripts::CStruct* params);
 // 0x00490400: a new scene light (null past 150) - its dynamic light's brightness and colour set too -, its sectors
 // found and, when it's on, coloured.
-sSceneLight* __cdecl AddSceneLight(uint32_t name, const Maths::Vector* pos, float brightness, uint32_t colour,
+sSceneLight* __cdecl AddSceneLight(uint32_t name, const Maths::Vec4* pos, float brightness, uint32_t colour,
                                    float radius, Scripts::CArray* excluded);
 // 0x00490570: a level node's light: a dynamic light (unless 0xE1509E4F) and a scene light (unless 0x6F050E18) from
 // its brightness (0x2689291C, 100), radius (0x833950CC, 300), colour array (0x99A9B716, white) and excluded sectors

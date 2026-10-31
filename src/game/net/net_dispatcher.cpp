@@ -1,4 +1,4 @@
-// The network library's message dispatcher (NetLink::Dispatcher). See net_dispatcher.h.
+// The network library's message dispatcher (NetLink::Router). See net_dispatcher.h.
 
 #include "game/net/net_dispatcher.h"
 
@@ -15,25 +15,25 @@
 
 namespace NetLink {
 
-static VtableSlot kMsgHandlerHeadVtable_slots[] = {&NetLink::MsgHandler::Destroy};
+static VtableSlot kMsgHandlerHeadVtable_slots[] = {&NetLink::NoteHandler::Teardown};
 void** const kMsgHandlerHeadVtable = reinterpret_cast<void**>(kMsgHandlerHeadVtable_slots);
 
 namespace {
 
-static VtableSlot kMsgHandlerSearchVtable_slots[] = {&NetLink::MsgHandlerSearch::Destroy};
+static VtableSlot kMsgHandlerSearchVtable_slots[] = {&NetLink::MsgHandlerSearch::Teardown};
 void** const kMsgHandlerSearchVtable = reinterpret_cast<void**>(kMsgHandlerSearchVtable_slots);
 constexpr uint32_t kFixedSizeCopy = 0x514; // what a message without a length field copies
 
-void ConstructContext(InboundMsgCtx* context) { context->Construct(); }
+void ConstructContext(InboundMsgCtx* context) { context->MakeNew(); }
 
 } // namespace
 
 // 0x0045A590
-MsgHandler* MsgHandler::Destroy(unsigned int flags)
+NoteHandler* NoteHandler::Teardown(unsigned int flags)
 {
-    static_cast<MsgHandlerNode*>(&m_listLink)->DestroyBody(); // (ListKit::Node<MsgHandler>: unlinks it)
+    static_cast<MsgHandlerNode*>(&m_listLink)->DestroyBody(); // (ListKit::Elem<NoteHandler>: unlinks it)
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -41,19 +41,19 @@ MsgHandler* MsgHandler::Destroy(unsigned int flags)
 void MsgHandlerSearch::DestroyBody() { m_vtable = kMsgHandlerSearchVtable; }
 
 // 0x0045A510
-MsgHandlerSearch* MsgHandlerSearch::Destroy(unsigned int flags)
+MsgHandlerSearch* MsgHandlerSearch::Teardown(unsigned int flags)
 {
     m_vtable = kMsgHandlerSearchVtable;
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0045A640
-void Dispatcher::Init()
+void Router::PrepareAll()
 {
     for (int id = 0; id < kNumMessageIds; ++id) {
-        MemSys::ListNode* node = List(id).m_listLink.next;
+        MemSys::ListNode* node = LinkChain(id).m_listLink.next;
         // (the head check comes before the null check)
         if (node->data == reinterpret_cast<void*>(-1) || !node)
             continue;
@@ -68,12 +68,12 @@ void Dispatcher::Init()
 }
 
 // 0x0045A690
-void Dispatcher::TearDownState()
+void Router::TearDownState()
 {
     for (int id = 0; id < kNumMessageIds; ++id) {
-        ListKit::Search<MsgHandler> search;
-        for (MsgHandler* handler = search.HeadElement(&List(id).m_listLink); handler;) {
-            MsgHandler* next = search.NextItem();
+        ListKit::Hunt<NoteHandler> search;
+        for (NoteHandler* handler = search.HeadElement(&LinkChain(id).m_listLink); handler;) {
+            NoteHandler* next = search.FollowingItem();
             UnlinkListNode(handler);
             handler = next;
         }
@@ -81,11 +81,11 @@ void Dispatcher::TearDownState()
 }
 
 // 0x0045A5C0
-MsgHandler* Dispatcher::AddHandler(uint8_t id, HandlerSlotValue code, uint32_t flags, void* data, int priority)
+NoteHandler* Router::AppendListener(uint8_t id, HandlerSlotValue code, uint32_t flags, void* data, int priority)
 {
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_networkHeap);
-    auto* handler = static_cast<MsgHandler*>(MemSys::AllocZeroed(sizeof(MsgHandler)));
+    auto* handler = static_cast<NoteHandler*>(MemSys::AllocZeroed(sizeof(NoteHandler)));
     if (handler) {
         handler->m_listLink.vtable = kMsgHandlerHeadVtable;
         handler->m_listLink.data = handler;
@@ -93,29 +93,29 @@ MsgHandler* Dispatcher::AddHandler(uint8_t id, HandlerSlotValue code, uint32_t f
         handler->m_listLink.next = &handler->m_listLink;
         handler->m_listLink.prev = &handler->m_listLink;
         handler->m_Code = code;
-        handler->m_data = data;
+        handler->m_content = data;
         handler->m_modeBits = flags;
     }
-    // (a failed allocation reaches AddNode as null and crashes there, as in the original)
-    List(id).AddNode(reinterpret_cast<MemSys::ListNode*>(handler));
-    MemSys::Manager::Get()->LeaveHeapScope();
+    // (a failed allocation reaches AppendVertex as null and crashes there, as in the original)
+    LinkChain(id).AppendVertex(reinterpret_cast<MemSys::ListNode*>(handler));
+    MemSys::Hub::Pull()->LeaveHeapScope();
     return handler;
 }
 
 // 0x0045A750
-int Dispatcher::DispatchMsg(InboundMsgCtx* context)
+int Router::DispatchMsg(InboundMsgCtx* context)
 {
     // Not original - what THUGPRO players send that THUG2 hasn't, checked first (TP-R8, net_guards.h).
     int guarded = OnlinePlay::Guards::CheckReceivedMessage(context);
     if (guarded >= 0)
         return guarded;
-    ListKit::Search<MsgHandler> search;
-    MsgHandler* next;
-    for (MsgHandler* handler = search.HeadElement(&List(context->m_typeCode).m_listLink); handler; handler = next) {
-        next = search.NextItem();
+    ListKit::Hunt<NoteHandler> search;
+    NoteHandler* next;
+    for (NoteHandler* handler = search.HeadElement(&LinkChain(context->m_typeCode).m_listLink); handler; handler = next) {
+        next = search.FollowingItem();
         if ((handler->m_modeBits & context->m_wireOptions) != context->m_wireOptions)
             continue;
-        context->m_data = handler->m_data;
+        context->m_content = handler->m_content;
         int result = handler->m_Code(context);
         switch (result) {
         case kHandlerError:
@@ -133,7 +133,7 @@ int Dispatcher::DispatchMsg(InboundMsgCtx* context)
 }
 
 // 0x0045A830
-int Dispatcher::InvokeHandlersForMsg(Conn* conn, uint32_t flags)
+int Router::InvokeHandlersForMsg(Conn* conn, uint32_t flags)
 {
     InboundMsgCtx context;
     char buffer[kConnReceiveBufferSize];
@@ -149,7 +149,7 @@ int Dispatcher::InvokeHandlersForMsg(Conn* conn, uint32_t flags)
 
     for (char* p = readBuffer; p < readPtr; p += context.m_bodySize) {
         context.m_typeCode = static_cast<uint8_t>(*p++);
-        uint8_t* table = GetManager(conn->m_ownerApp);
+        uint8_t* table = FetchHub(conn->m_ownerApp);
         bool hasLength = !(MessageFlags(table, context.m_typeCode) & kMsgNoLength);
         if (hasLength) {
             context.m_bodySize = *reinterpret_cast<uint16_t*>(p);
@@ -182,10 +182,10 @@ int Dispatcher::InvokeHandlersForMsg(Conn* conn, uint32_t flags)
             NetMessageInfo desc;
             ConstructMsgDesc(&desc);
             uint16_t sequence = static_cast<uint16_t>(context.m_SequencesToAck[i]);
-            desc.m_data = &sequence;
+            desc.m_content = &sequence;
             desc.m_byteCount = sizeof(sequence);
-            desc.m_id = kMsgAck;
-            PutOnOutbox(context.m_receiverApp, context.m_senderConn->m_handle, &desc);
+            desc.m_ident = kMsgAck;
+            PutOnOutbox(context.m_receiverApp, context.m_senderConn->m_hdl, &desc);
         }
     }
     readPtr = readBuffer;

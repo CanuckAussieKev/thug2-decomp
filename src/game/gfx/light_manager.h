@@ -4,7 +4,7 @@
 #include <cstdint>
 
 namespace Maths {
-class Vector;
+class Vec4;
 }
 
 // The engine's light manager (Engine3D::CLightManager's statics, cdecl): the world lights (0x0067DC98: an ambient colour,
@@ -21,7 +21,7 @@ struct CDynamicLightBase;
 // The world lights (0x1C bytes: 0x0067DC98, and each of the stack's entries).
 struct sWorldLights {
     uint32_t ambient;      // +0x00: RGBA
-    Maths::Vector* directions; // +0x04: one per light
+    Maths::Vec4* directions; // +0x04: one per light
     uint32_t* colours;     // +0x08: one per light
     float ambientLow;      // +0x0C: the ambient's range below the middle brightness
     float ambientHigh;     // +0x10: ... above it
@@ -30,7 +30,7 @@ struct sWorldLights {
 
     // 0x0048EAC0 (not a Ghidra function): grey ambient (0x48, 0x48, 0x48, 0x80), no arrays, a low range of 0.5.
     // Returns this.
-    sWorldLights* Construct();
+    sWorldLights* MakeNew();
     // 0x0048EB00: the four arrays freed.
     void FreeArrays();
 };
@@ -50,7 +50,7 @@ bool __cdecl SetLightDiffuseColor(int light, uint32_t rgba);
 // 0x0048E950: a light's colour into *out (0x004B68E0). Returns out.
 uint32_t* __cdecl GetLightDiffuseColor(uint32_t* out, int light);
 // 0x0048ED70: a light's direction set and sent (0x004B6A70). That one's result.
-bool __cdecl SetLightDirection(int light, const Maths::Vector* direction);
+bool __cdecl SetLightDirection(int light, const Maths::Vec4* direction);
 // 0x0048E970 / 0x0048E990: the ambient's / a light's modulation ranges.
 void __cdecl SetAmbientLightModulationFactor(float low, float high);
 void __cdecl SetDiffuseLightModulationFactor(int light, float low, float high);
@@ -72,7 +72,7 @@ CDynamicLightBase** __cdecl FindDynamicLight(uint32_t owner);
 // 0x0048EF90 (not a Ghidra function): the dynamic lights on and owned whose radius reaches `position`, into `out` by
 // their falloff (virtual [2] of the distance) - at most `max`, kept in 0x0067DD38 / 0x0067DCB8 with their indexes;
 // the original's insertion quirks kept (see the source). How many.
-uint32_t __cdecl GetDynamicLightsNear(const Maths::Vector* position, uint32_t max, CDynamicLightBase** out);
+uint32_t __cdecl GetDynamicLightsNear(const Maths::Vec4* position, uint32_t max, CDynamicLightBase** out);
 // 0x0048F160: a new dynamic light of a type (1: a point light, zeroed, radius 50, not owned; others: none).
 CDynamicLightBase* __cdecl CreateDynamicLight(int type);
 // 0x0048FB80: a dynamic light: the first free slot's (made), else a let-go one (owner 0) reused, else a new slot's

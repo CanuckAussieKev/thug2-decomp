@@ -40,11 +40,11 @@ PositionScale LevelPositionScale(uint32_t level)
 {
     PositionScale scale;
     for (const char* list : kLevelLists) {
-        Scripts::CArray* levels = Scripts::GetArray(list);
+        Scripts::CArray* levels = Scripts::FetchList(list);
         if (!levels)
             continue;
-        for (uint32_t i = 0; i < levels->m_size; ++i) {
-            auto* entry = reinterpret_cast<Scripts::CStruct*>(levels->GetElement(i));
+        for (uint32_t i = 0; i < levels->m_extent; ++i) {
+            auto* entry = reinterpret_cast<Scripts::CStruct*>(levels->FetchPart(i));
             uint32_t entryLevel = 0;
             if (!entry || !entry->ReadHashValue(kLevel, &entryLevel, 0) || entryLevel != level)
                 continue;

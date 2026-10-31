@@ -6,7 +6,7 @@
 //
 // Two layers, so nothing leaks even through code that isn't ours yet (or a [replacements] disable):
 //  - the process's Windows audio session (the default endpoint's GUID_NULL session, the one DirectSound and Bink's
-//    DirectSound output play into) is muted right after DirectSound is made (Platform::InitDirectSound) and
+//    DirectSound output play into) is muted right after DirectSound is made (OsLayer::InitDirectSound) and
 //    unmuted when it's released (Windows keeps a session's mute for the exe's next run otherwise);
 //  - the volume paths in our source: a voice's DirectSound attenuation (Sfx ApplyVoiceSettings) is -100 dB and
 //    every VideoSetLoudness (music / ambient streams, voice, movies) is 0. The game's own volume settings (and what

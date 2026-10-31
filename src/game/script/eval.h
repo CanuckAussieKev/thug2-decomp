@@ -14,7 +14,7 @@ bool IsReference(const CComponent* component);
 void MakeReference(CComponent* component);
 void MakeOwning(CComponent* component);
 // A component's truth value: an integer's value itself, 1 for a non-zero float, else 0.
-int GetBool(const CComponent* component);
+int FetchFlag(const CComponent* component);
 // a < b and a > b: numbers by value, strings by their lengths, structures by one being a subset of the other
 // (names standing for global symbols are looked up).
 bool LessThan(CComponent* a, CComponent* b);
@@ -41,22 +41,22 @@ enum EOperator : int {
 
 class CValueResolver {
 public:
-    CValueResolver* Init(); // the constructor
+    CValueResolver* PrepareAll(); // the constructor
 
     // Free the values and empty both stacks (and the error).
     void Clear();
     void ResetIfDirty();
     void SetReadCursor(const uint8_t* token) { m_token = token; }
-    void SetError(const char* error);
+    void ChangeFault(const char* error);
 
-    void Input(const CComponent* value);
+    void Intake(const CComponent* value);
     // An operator: pending operators of higher or equal precedence (in the same parentheses) run first.
-    void Input(int op);
+    void Intake(int op);
     void OpenBracket();
     // Runs the operators inside the parentheses.
     void CloseBracket();
     // Run what's left, and copy the result to `result`. False (with an error) if the expression is incomplete.
-    bool GetResult(CComponent* result);
+    bool FetchVerdict(CComponent* result);
 
     // Run the top operator on the top two values, leaving the result in their place.
     void Execute();
@@ -73,7 +73,7 @@ public:
     int m_operatorTop;
     bool m_hasOperators;
     const uint8_t* m_token;
-    const char* m_error;
+    const char* m_fault;
     bool m_unknown1F4;
 };
 static_assert(sizeof(CComponent) * 20 == 0x140, "layout must match the original");

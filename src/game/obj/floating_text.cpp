@@ -26,7 +26,7 @@
 namespace MenuSystem {
 
 // 0x0041E2A0
-CUiTree* __cdecl GetScreenElementManager() { return CUiTree::Instance(); }
+CUiTree* __cdecl GetScreenElementManager() { return CUiTree::Sole(); }
 
 } // namespace Front
 
@@ -67,7 +67,7 @@ int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value
 Scripts::CStruct* NewParams()
 {
     Scripts::CStruct* params = Scripts::NewStruct();
-    return params ? params->Init() : nullptr;
+    return params ? params->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
 {
@@ -80,17 +80,17 @@ void DeleteParams(Scripts::CStruct* params)
 } // namespace
 
 // 0x0041E3C0
-CObjectModule* __cdecl CFloatingTextComponent::Create()
+CObjectModule* __cdecl CFloatingTextComponent::Fabricate()
 {
     auto* component = static_cast<CFloatingTextComponent*>(MemSys::AllocZeroed(sizeof(CFloatingTextComponent)));
     if (!component)
         return nullptr;
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_text[0] = 0;
-    component->m_id = 0;
+    component->m_ident = 0;
     component->m_endTime = 0;
     component->m_vtable = kVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     component->m_tint = 2;
     component->m_yOffset = 120.0f;
     return component;
@@ -101,28 +101,28 @@ void CFloatingTextComponent::DestroyBody()
 {
     m_vtable = kVtable;
     Scripts::CStruct* params = NewParams();
-    params->PutNameKey(kId, m_id);
+    params->PutNameKey(kId, m_ident);
     Scripts::LaunchScript(kDestroyScript, params, nullptr, false, nullptr);
     DeleteParams(params);
     CObjectModule::DestroyBody();
 }
 
 // 0x0041E6C0
-CFloatingTextComponent* CFloatingTextComponent::Destroy(unsigned int flags)
+CFloatingTextComponent* CFloatingTextComponent::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0041E2B0
 void CFloatingTextComponent::ConfigureFromData(Scripts::CStruct* params)
 {
-    if (!m_id)
-        m_id = m_object->m_id - kIdBase;
+    if (!m_ident)
+        m_ident = m_entity->m_ident - kIdBase;
     const char* text;
-    if (params->GetString(kString, &text, 0)) {
+    if (params->FetchText(kString, &text, 0)) {
         if (!text[0]) {
             m_endTime = static_cast<uint32_t>(FrameClock::GameClockElapsed() + g_clockOffset);
         } else {
@@ -131,11 +131,11 @@ void CFloatingTextComponent::ConfigureFromData(Scripts::CStruct* params)
         }
     }
     params->FetchIntValue(kColor, &m_tint, 0);
-    params->GetFloat(kYOffset, &m_yOffset, 0);
-    params->ReadHashValue(kElementId, &m_id, 0);
+    params->FetchFloat(kYOffset, &m_yOffset, 0);
+    params->ReadHashValue(kElementId, &m_ident, 0);
     if (params->HasEntryNamed(kDuration)) {
         float duration;
-        params->GetFloat(kDuration, &duration, 0);
+        params->FetchFloat(kDuration, &duration, 0);
         int elapsed = FrameClock::GameClockElapsed();
         int milliseconds = Truncated(static_cast<double>(duration) * kMinusMilliseconds);
         m_endTime = static_cast<uint32_t>(elapsed + (g_clockOffset - milliseconds));
@@ -143,10 +143,10 @@ void CFloatingTextComponent::ConfigureFromData(Scripts::CStruct* params)
 }
 
 // 0x0041E3A0
-void CFloatingTextComponent::Finalize() { m_meshInstance = m_object->GetComponent(kModel); }
+void CFloatingTextComponent::Seal() { m_meshInstance = m_entity->FetchModule(kModel); }
 
 // 0x0041E450
-void CFloatingTextComponent::Update()
+void CFloatingTextComponent::TickFrame()
 {
     uint8_t* model = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(m_meshInstance) + 0x208);
     if (!model || !(model[0x44] & 2) || (model[0x44] & 4))
@@ -158,17 +158,17 @@ void CFloatingTextComponent::Update()
         m_endTime = 0;
     }
     Scripts::CStruct* params = NewParams();
-    params->PutNameKey(kId, m_id);
+    params->PutNameKey(kId, m_ident);
     // (the original: the game's sprintf, 0x006234FE, into 64 bytes - a text of more than about 60 characters overran
     // them into the stack cookie, ending the game; here it's cut short)
     char text[0x40];
     std::snprintf(text, sizeof(text), "\\c%d%s", m_tint, m_text);
-    params->AddString(kText, text);
-    const Maths::Vector& pos = m_object->m_pos;
+    params->AppendWord(kText, text);
+    const Maths::Vec4& pos = m_entity->m_atPoint;
     params->PutVec3(kPos3D, pos.x, pos.y + m_yOffset, pos.z);
     MenuSystem::ElementPtr found;
-    MenuSystem::CUiTree::Instance()->GetElement(&found, m_id, 0);
-    MenuSystem::CUiWidget* element = found.Get();
+    MenuSystem::CUiTree::Sole()->FetchPart(&found, m_ident, 0);
+    MenuSystem::CUiWidget* element = found.Pull();
     found.Release();
     if (element)
         reinterpret_cast<void(__thiscall*)(MenuSystem::CUiWidget*, Scripts::CStruct*)>(element->m_vtable[1])(element, params);
@@ -191,14 +191,14 @@ int CFloatingTextComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* 
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CFloatingTextComponent::Destroy,
-         &GameObjects::CFloatingTextComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CFloatingTextComponent::Teardown,
+         &GameObjects::CFloatingTextComponent::TickFrame,
          &GameObjects::CFloatingTextComponent::ConfigureFromData,
-         &GameObjects::CFloatingTextComponent::Finalize,
+         &GameObjects::CFloatingTextComponent::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

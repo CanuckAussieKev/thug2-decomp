@@ -8,7 +8,7 @@ class CScript;
 } // namespace Script
 
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 
 // .pre archives ("pre files", .prx on PC): many data files packed into one, loaded into memory in one go.
@@ -47,12 +47,12 @@ public:
     FileInfo* FindEntryInArchive(const char* name);
     // Read from / seek in the active file. Read returns the number of bytes copied; Seek returns 0, or -1
     // (position unchanged) if the new position would be outside the file. Origins: 0 start, 1 current, 2 end.
-    int Read(void* out, unsigned int count);
-    int Seek(int offset, int origin);
+    int TakeIn(void* out, unsigned int count);
+    int SeekTo(int offset, int origin);
 
     uint8_t* m_block;
     int m_entryCount;
-    ListKit::HashTable* m_files; // FileInfo by name checksum
+    ListKit::KeyMap* m_files; // FileInfo by name checksum
     FileInfo* m_activeFile;
     int m_openCount;
     bool m_bottomUpHeap;
@@ -71,7 +71,7 @@ public:
     void LoadPre(const char* name, bool async, bool report_missing, bool bottom_up);
 
     // Load the file `name` from whichever archive has it (see ArchiveFile::ReadEntryFromArchive).
-    uint8_t* LoadFile(const char* name, int* size, uint8_t* out);
+    uint8_t* IngestFile(const char* name, int* size, uint8_t* out);
     // True if some archive contains `name`.
     bool IsFilePresent(const char* name);
     // Open `name` from whichever archive has it and make it the active file. Language-specific script
@@ -99,15 +99,15 @@ public:
     ArchiveFile::FileInfo* m_activeHandle;
     uint8_t* m_activeData;
     ArchiveFile::FileInfo* m_missingHandle; // the last handle no archive had (a quick "no" next time)
-    ListKit::HashTable* m_pres;             // ArchiveFile by archive name checksum
+    ListKit::KeyMap* m_pres;             // ArchiveFile by archive name checksum
     bool m_holdArchiveLoads;
     PendingLoad m_pending[8];
     int m_numPending;
 };
 
 // The pre manager, if one exists (set by its constructor), and the one CreateManager made - the same object.
-ArchiveManager* Manager();
-ArchiveManager* Instance();
+ArchiveManager* Hub();
+ArchiveManager* Sole();
 // Reference-counted creation: the first call with `create` makes the manager, the last DestroyManager
 // deletes it. Returns the instance (null if there is none).
 ArchiveManager* CreateManager(bool create);
@@ -115,12 +115,12 @@ void DestroyManager();
 
 // The archive side of the FileLoad:: calls. Each sets File's "handled" flag: whether the file was in an archive
 // (if not, FileLoad:: goes to disk). `count_open` keeps the archive's count of open files.
-bool Exist(const char* name);
-ArchiveFile::FileInfo* Open(const char* name, const char* mode, bool count_open);
-int Close(ArchiveFile::FileInfo* file, bool count_open);
-int Read(void* buffer, int size, int count, ArchiveFile::FileInfo* file);
-int Write(const void* buffer, int size, int count, ArchiveFile::FileInfo* file);
-int Seek(ArchiveFile::FileInfo* file, int offset, int origin);
+bool IsPresent(const char* name);
+ArchiveFile::FileInfo* Unseal(const char* name, const char* mode, bool count_open);
+int Shut(ArchiveFile::FileInfo* file, bool count_open);
+int TakeIn(void* buffer, int size, int count, ArchiveFile::FileInfo* file);
+int EmitOut(const void* buffer, int size, int count, ArchiveFile::FileInfo* file);
+int SeekTo(ArchiveFile::FileInfo* file, int offset, int origin);
 int GetFileSize(ArchiveFile::FileInfo* file);
 
 // Script functions (in the CFunction table)

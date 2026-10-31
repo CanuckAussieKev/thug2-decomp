@@ -29,7 +29,7 @@ public:
     void SetStatOverride(int index, float value);
     // 0x00580490: stat `index` (the override, the default stats if none, the skate module's forced value; online
     // limits; CHEAT_STATS_13: 15; +3 with the score's bonus flag).
-    float GetStat(int index);
+    float FetchTally(int index);
     // 0x005805B0: a value from `params`: its unnamed pair scaled by the stat named by its unnamed integer (10 if
     // none), times its switch pair (by the switch stat, 0-1) when riding switch, times its diff pair's first or
     // second for game difficulty 0 or 2, kept within its limit (the pair's direction says which side).
@@ -43,9 +43,9 @@ public:
     // or skatercam1, by viewport).
     void* ObtainActiveLens();
     int GetSkaterNumber();
-    CObject* GetSkaterCamera();
+    CEntity* GetSkaterCamera();
     // 0x00580030: the core physics' display matrix (its +0x18).
-    Maths::Matrix* GetDrawMatrix();
+    Maths::Mat4* GetDrawMatrix();
     // 0x00580040: its +0x238 block. 0x00580050: the flag at +0x2C4. 0x00580480: its score.
     void* GetBlock238();
     bool GetFlag2C4();
@@ -96,17 +96,17 @@ public:
     void ConcealSkater();
     void ShowSkater();
     // 0x00581580: its display name (online: the player's).
-    const char* GetDisplayName();
+    const char* FetchShownName();
     // 0x005815C0: moved to the node named `node` (no node: only the orientation reset).
     void GlideToNode(uint32_t node);
     // 0x00581760 / 0x005817F0: paused (the displays off, a script, the pad's vibration, the sounds) / unpaused.
-    void Pause();
+    void Freeze();
     void Unpause();
     // 0x00581850: set up from `profile`: a local skater's camera (found or made from skatercam_composite_structure),
     // its script, its components (motion, an anim set's, skeleton, model - its geometry loaded in the skater's
     // geometry heap -, shadow, a local skater's input / vibration / two more), Finalize, a local skater's pad
     // settings and SkaterInit, its profile and stats, ... its trick infos and projectiles, its controls' textures.
-    void Init(CRiderIdentity* profile);
+    void PrepareAll(CRiderIdentity* profile);
     // 0x005822A0: Init, then a local skater's network message handlers (when 0x005A11B0 says so), and never suspended.
     void InitFromProfile(CRiderIdentity* profile);
     // 0x005823A0: its state script 0xE740F458 started (with Walk / 0x7B738580 flags), run once if local.
@@ -123,14 +123,14 @@ public:
     // 0x00582D90: the constructor (vtable 0x0064EF48): its skater-list node, local or not, base components, type
     // 0xBAF9B341, number and id (skaters 0 and 1 get tracker aliases), registered with `manager`, its viewport, and
     // its components (a local skater's full set, a remote one's few). Returns this.
-    CRider* Construct(int viewport, CEntityHub* manager, bool local, uint32_t id, int skaterNumber, int unused);
+    CRider* MakeNew(int viewport, CEntityHub* manager, bool local, uint32_t id, int skaterNumber, int unused);
     // 0x00583400: a local skater's +0x270 and 0x589E5FB3 reset, 0xF27A294D's, the anim blender's; its script deleted.
     void ResetComponents();
     // 0x00583470: restarted (a walking skater back to skating, the script's exit scripts, its physics, its camera,
     // vtable +0x44, ResetComponents, +0x48, +0x4C with `a` and `b`, 0xB1D5A3E1 told).
-    void Restart(uint32_t a, uint32_t b);
+    void Relaunch(uint32_t a, uint32_t b);
     // 0x005835D0: its script member functions (KillSkater, AddSkaterToWorld, SkaterIsNamed, ShouldMongo, the
-    // sparks, SetCustomRestart / SkipToCustomRestart, IsLocalSkater, GetCameraId, GetStat, GetScriptedStat,
+    // sparks, SetCustomRestart / SkipToCustomRestart, IsLocalSkater, GetCameraId, FetchTally, GetScriptedStat,
     // MoveToRandomRestart, PlaceBeforeCamera, GetSkaterNumber...); the rest the composite object's.
     bool InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
     // (the code SkipToCustomRestart and SetCustomRestart share)
@@ -141,7 +141,7 @@ public:
     void JumpToSpawn(uint32_t node, uint32_t walking);
     // 0x00583FB0: the destructor body. 0x005840E0: the scalar deleting destructor.
     void DestroyBody();
-    CRider* Destroy(unsigned int flags);
+    CRider* Teardown(unsigned int flags);
 
     uint32_t m_strokeKind;        // +0x108 (the profile's pushstyle)
     uint32_t m_style;            // +0x10C (skatestyle)
@@ -150,8 +150,8 @@ public:
     uint8_t pad112[2];
     int m_male;                  // +0x114
     char m_givenName[0x40];      // +0x118
-    uint32_t m_name;             // +0x158
-    TextUtil::String m_shownName;   // +0x15C
+    uint32_t m_label;             // +0x158
+    TextUtil::Chars m_shownName;   // +0x15C
     uint8_t m_unknown168[0x16C - 0x168];
     uint32_t m_lastRestart;      // +0x16C
     bool m_sparks;               // +0x170
@@ -189,8 +189,8 @@ public:
     int m_pauseState;            // +0x2C0
     bool m_flag2C4;              // +0x2C4
     uint8_t pad2C5[3];
-    Maths::Vector m_customRestartPos;    // +0x2C8 (SetCustomRestart)
-    Maths::Matrix m_customRestartMatrix; // +0x2D8
+    Maths::Vec4 m_customRestartPos;    // +0x2C8 (SetCustomRestart)
+    Maths::Mat4 m_customRestartMatrix; // +0x2D8
     bool m_customRestartWalking; // +0x318
     bool m_customRestartSet;     // +0x319
     uint8_t pad31A[2];
@@ -198,7 +198,7 @@ public:
     bool m_isHalted;               // +0x320
     uint8_t pad321[3];
 };
-static_assert(offsetof(CRider, m_style) == 0x10C && offsetof(CRider, m_name) == 0x158 &&
+static_assert(offsetof(CRider, m_style) == 0x10C && offsetof(CRider, m_label) == 0x158 &&
                   offsetof(CRider, m_trickInfo) == 0x17C && offsetof(CRider, m_shadow) == 0x254 &&
                   offsetof(CRider, m_statOverrides) == 0x290 && offsetof(CRider, m_skaterNumber) == 0x2B8 &&
                   offsetof(CRider, m_flag2C4) == 0x2C4 && offsetof(CRider, m_shownName) == 0x15C &&

@@ -49,12 +49,12 @@ namespace MenuSystem::BeginLevel {
 // The level asked for ("" if none), and whether it came from -edit / edit_level (the editor opens there).
 const char* Requested();
 bool EditRequested();
-// Once a frame from the front end's input logic (MouseMenus::Update).
-void Update(GameModules::FrontEnd* frontEnd);
+// Once a frame from the front end's input logic (MouseMenus::TickFrame).
+void TickFrame(GameModules::FrontEnd* frontEnd);
 // What Update does once the menu is up: the level `name` (with or without Load_) in free skate. False (logged, and
 // why in `why` if given) for an unknown level or one whose scene isn't installed. (Also the automation channel's
 // `level` command - game/front/automation.h.)
-bool Load(const char* name, std::string* why);
+bool ReadIn(const char* name, std::string* why);
 
 // The command line's option (pure): the word after `-<option> `, `--<option> ` or `--<option>=` in
 // `line` ("" if none; a quoted value keeps what is inside the quotes).

@@ -62,7 +62,7 @@ constexpr float kSpinSpeedScale = 90.0f;          // 0x00645EB0
 constexpr float kDegreesToRadians = 0.0174532924f; // 0x00645464
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
@@ -86,7 +86,7 @@ CAutomobileDynamicsModule::BoneDesc* ModelBones(void* model)
     return reinterpret_cast<CAutomobileDynamicsModule::BoneDesc*>(static_cast<Engine3D::CRenderModel*>(model)->GetAssetHierarchy());
 }
 // A skeleton's bone matrices (+0x04) and bone count (+0x14) - the folded getters 0x005480C0 / 0x004A2BA0.
-Maths::Matrix* SkeletonMatrices(void* skeleton) { return *reinterpret_cast<Maths::Matrix**>(static_cast<uint8_t*>(skeleton) + 4); }
+Maths::Mat4* SkeletonMatrices(void* skeleton) { return *reinterpret_cast<Maths::Mat4**>(static_cast<uint8_t*>(skeleton) + 4); }
 int SkeletonBoneCount(void* skeleton) { return *reinterpret_cast<int*>(static_cast<uint8_t*>(skeleton) + 0x14); }
 
 // The motion component's speed (+0x30) and path follower (0x00423510).
@@ -107,10 +107,10 @@ bool SuspendShouldUpdate(uint8_t* suspend, float* distance)
 } // namespace
 
 // 0x0041BD90
-CObjectModule* __cdecl CAutomobileDynamicsModule::Create()
+CObjectModule* __cdecl CAutomobileDynamicsModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CAutomobileDynamicsModule));
-    return memory ? static_cast<CAutomobileDynamicsModule*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CAutomobileDynamicsModule*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x0041B910
@@ -120,14 +120,14 @@ void __cdecl CAutomobileDynamicsModule::PublishMethodTable()
 }
 
 // 0x0041BAD0
-CAutomobileDynamicsModule* CAutomobileDynamicsModule::Construct()
+CAutomobileDynamicsModule* CAutomobileDynamicsModule::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_wheelSpin = 0.0f;
     m_steer = 0.0f;
     m_targetSteer = 0.0f;
     m_vtable = kVtable;
-    m_type = kType;
+    m_kindTag = kType;
     m_bodyShown = true;
     return this;
 }
@@ -140,41 +140,41 @@ void CAutomobileDynamicsModule::DestroyBody()
 }
 
 // 0x0041BB00
-CAutomobileDynamicsModule* CAutomobileDynamicsModule::Destroy(unsigned int flags)
+CAutomobileDynamicsModule* CAutomobileDynamicsModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0041B940
 void CAutomobileDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
 {
-    m_minTilt = Scripts::GetFloat(kMinTilt);
-    params->GetFloat(kMinTilt, &m_minTilt, 0);
-    m_maxTilt = Scripts::GetFloat(kMaxTilt);
-    params->GetFloat(kMaxTilt, &m_maxTilt, 0);
-    m_tiltRate = Scripts::GetFloat(kTiltRate);
-    params->GetFloat(kTiltRate, &m_tiltRate, 0);
-    m_tiltDivisor = Scripts::GetFloat(kTiltDivisor);
-    params->GetFloat(kTiltDivisor, &m_tiltDivisor, 0);
+    m_minTilt = Scripts::FetchFloat(kMinTilt);
+    params->FetchFloat(kMinTilt, &m_minTilt, 0);
+    m_maxTilt = Scripts::FetchFloat(kMaxTilt);
+    params->FetchFloat(kMaxTilt, &m_maxTilt, 0);
+    m_tiltRate = Scripts::FetchFloat(kTiltRate);
+    params->FetchFloat(kTiltRate, &m_tiltRate, 0);
+    m_tiltDivisor = Scripts::FetchFloat(kTiltDivisor);
+    params->FetchFloat(kTiltDivisor, &m_tiltDivisor, 0);
 }
 
 // 0x0041BE10
-void CAutomobileDynamicsModule::Finalize()
+void CAutomobileDynamicsModule::Seal()
 {
-    mp_motion = reinterpret_cast<uint8_t*>(m_object->GetComponent(kMotion));
-    mp_suspend = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSuspend));
-    CObjectModule* skeleton = m_object->GetComponent(kSkeleton);
+    mp_motion = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kMotion));
+    mp_suspend = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSuspend));
+    CObjectModule* skeleton = m_entity->FetchModule(kSkeleton);
     if (!skeleton)
         return;
-    m_meshInstance = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(m_object->GetComponent(kModel)) + 0x208);
+    m_meshInstance = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(m_entity->FetchModule(kModel)) + 0x208);
     m_boneRig = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(skeleton) + 0x18);
     BoneDesc* bones = ModelBones(m_meshInstance);
-    Maths::Matrix a = bones[2].matrix;
+    Maths::Mat4 a = bones[2].matrix;
     MatrixMultiply(&a, &a, &bones[0].matrix);
-    Maths::Matrix b = bones[4].matrix;
+    Maths::Mat4 b = bones[4].matrix;
     MatrixMultiply(&b, &b, &bones[0].matrix);
     double dx = static_cast<double>(a.row[3].x) - b.row[3].x;
     double dy = static_cast<double>(a.row[3].y) - b.row[3].y;
@@ -237,10 +237,10 @@ void CAutomobileDynamicsModule::UpdateAngles()
     float acceleration = static_cast<float>(static_cast<double>(speed) - m_lastSpeed);
     m_lastSpeed = speed;
     if (Scripts::FetchIntValue(kReadGlobalsEveryUpdate)) {
-        m_minTilt = Scripts::GetFloat(kMinTilt);
-        m_maxTilt = Scripts::GetFloat(kMaxTilt);
-        m_tiltRate = Scripts::GetFloat(kTiltRate);
-        m_tiltDivisor = Scripts::GetFloat(kTiltDivisor);
+        m_minTilt = Scripts::FetchFloat(kMinTilt);
+        m_maxTilt = Scripts::FetchFloat(kMaxTilt);
+        m_tiltRate = Scripts::FetchFloat(kTiltRate);
+        m_tiltDivisor = Scripts::FetchFloat(kTiltDivisor);
     }
     double target = m_tiltDivisor == 0.0f ? 0.0 : -(static_cast<double>(acceleration) / m_tiltDivisor);
     m_targetTilt = static_cast<float>(target);
@@ -256,15 +256,15 @@ void CAutomobileDynamicsModule::UpdateAngles()
 void __cdecl CAutomobileDynamicsModule::RefreshBoneRig(void* skeleton, void* model, float tilt, float spin, float steer)
 {
     BoneDesc* bones = ModelBones(model);
-    Maths::Matrix* matrices = SkeletonMatrices(skeleton);
+    Maths::Mat4* matrices = SkeletonMatrices(skeleton);
     float tiltRadians = tilt * kDegreesToRadians;
     float steerRadians = steer * kDegreesToRadians;
     float spinRadians = spin * kDegreesToRadians;
     for (int i = 0; i < SkeletonBoneCount(skeleton); ++i) {
         BoneDesc& bone = bones[i];
-        Maths::Matrix* matrix = &matrices[bone.index];
+        Maths::Mat4* matrix = &matrices[bone.index];
         *matrix = bone.matrix;
-        Maths::Matrix rotation;
+        Maths::Mat4 rotation;
         switch (bone.name) {
         case kWheelA:
         case kWheelB:
@@ -294,19 +294,19 @@ void CAutomobileDynamicsModule::UpdateBones()
     RefreshBoneRig(m_boneRig, m_meshInstance, m_leanAngle, m_wheelSpin, m_steer);
     if (m_bodyShown)
         return;
-    Maths::Matrix collapsed;
+    Maths::Mat4 collapsed;
     collapsed.ResetToIdentity();
-    Maths::Vector nothing = {0.0f, 0.0f, 0.0f, 1.0f};
-    collapsed.Scale(nothing);
+    Maths::Vec4 nothing = {0.0f, 0.0f, 0.0f, 1.0f};
+    collapsed.StretchBy(nothing);
     SkeletonMatrices(m_boneRig)[0] = collapsed;
 }
 
 // 0x0041C1B0
-void CAutomobileDynamicsModule::Update()
+void CAutomobileDynamicsModule::TickFrame()
 {
     if (SuspendSuspended(mp_suspend))
         return;
-    if (m_object->m_objectFlags & 1)
+    if (m_entity->m_objectFlags & 1)
         return;
     if (!SuspendShouldUpdate(mp_suspend, nullptr))
         return;
@@ -333,14 +333,14 @@ int CAutomobileDynamicsModule::DoNothing(Scripts::CStruct*, Scripts::CScript*) {
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CAutomobileDynamicsModule::Destroy,
-         &GameObjects::CAutomobileDynamicsModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CAutomobileDynamicsModule::Teardown,
+         &GameObjects::CAutomobileDynamicsModule::TickFrame,
          &GameObjects::CAutomobileDynamicsModule::ConfigureFromData,
-         &GameObjects::CAutomobileDynamicsModule::Finalize,
+         &GameObjects::CAutomobileDynamicsModule::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

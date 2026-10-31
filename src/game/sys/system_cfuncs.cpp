@@ -25,7 +25,7 @@ constexpr uint32_t kStartTime = 0xD16B61E6;   // "StartTime"
 constexpr uint32_t kElapsedTime = 0x3EB3566B; // "ElapsedTime"
 
 // The platform the game runs on (0x007CEFA8; 7: Windows).
-int Platform() { return GameConfig::g_platform; }
+int OsLayer() { return GameConfig::g_platform; }
 
 uint32_t g_timerStart;
 
@@ -37,12 +37,12 @@ int ScriptClock() { return FrameClock::GameClockElapsed() + GameObjects::g_clock
 } // namespace
 
 // 0x0044E3A0: IsWIN32: whether the platform is Windows.
-bool __cdecl CFunc_IsWIN32(CStruct*, CScript*) { return Platform() == 7; }
+bool __cdecl CFunc_IsWIN32(CStruct*, CScript*) { return OsLayer() == 7; }
 
 // 0x0044E3B0: GetPlatform: the script's platform=xbox. Always true.
 bool __cdecl CFunc_GetPlatform(CStruct*, CScript* script)
 {
-    script->m_params->PutNameKey(kPlatform, kXbox);
+    script->m_args->PutNameKey(kPlatform, kXbox);
     return true;
 }
 
@@ -65,7 +65,7 @@ bool __cdecl CFunc_ResetTimer(CStruct*, CScript*)
 bool __cdecl CFunc_TimeGreaterThan(CStruct* params, CScript*)
 {
     float seconds = 0.0f;
-    params->GetFloat(0u, &seconds, 0);
+    params->FetchFloat(0u, &seconds, 0);
     uint32_t elapsed = FrameClock::GetTime() - TimerStart();
     return static_cast<double>(seconds) * 1000.0 < static_cast<double>(elapsed);
 }
@@ -73,7 +73,7 @@ bool __cdecl CFunc_TimeGreaterThan(CStruct* params, CScript*)
 // 0x0044E460: GetStartTime: the script clock now as the script's StartTime. Always true.
 bool __cdecl CFunc_GetStartTime(CStruct*, CScript* script)
 {
-    script->m_params->PutInt(kStartTime, ScriptClock());
+    script->m_args->PutInt(kStartTime, ScriptClock());
     return true;
 }
 
@@ -83,7 +83,7 @@ bool __cdecl CFunc_GetElapsedTime(CStruct* params, CScript* script)
 {
     int start = 0;
     params->FetchIntValue(kStartTime, &start, 0);
-    script->m_params->PutInt(kElapsedTime, FrameClock::GameClockElapsed() + (GameObjects::g_clockOffset - start));
+    script->m_args->PutInt(kElapsedTime, FrameClock::GameClockElapsed() + (GameObjects::g_clockOffset - start));
     return true;
 }
 

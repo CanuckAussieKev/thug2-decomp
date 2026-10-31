@@ -15,7 +15,7 @@
 //     loader (Engine3D::ReadTextureFile / LoadTextureMemory) has made the full-size Direct3D texture, the textureRef's sizes
 //     are divided by the scale - texture coordinates are ratios of them, so the whole HD texture is still drawn;
 //   - an upscaled .fnt.xbx has HdUi::kFontMarker at its glyph page's header +8 and the scale at +0xC, and the page as
-//     32-bit BGRA texels (no palette); its glyph rectangles stay in the original's pixels, so STypeface::Load makes the
+//     32-bit BGRA texels (no palette); its glyph rectangles stay in the original's pixels, so STypeface::ReadIn makes the
 //     texture coordinates from the page's size divided by the scale.
 // Textures something edits texel by texel after loading (Create-A-Graphic, faces) aren't upscaled by the tool: their
 // code still takes the textureRef's sizes as the Direct3D texture's.
@@ -41,7 +41,7 @@ inline uint32_t FontScale(uint32_t marker, uint32_t scale)
 }
 
 // [features] hd_ui (read once).
-bool Enabled();
+bool IsSwitchedOn();
 
 // Counts the upscaled images / fonts loaded and logs the first of each (hd_ui.cpp).
 void NoteImage(uint32_t scale, uint32_t width, uint32_t height);

@@ -22,13 +22,13 @@ class CRiderSpinAndFlip : public CObjectModule {
 public:
     // 0x00511470 (registered by RegisterComponentTypes): a new one (0 if out of memory): the board not rotated, no
     // components yet. The "after" flags aren't initialised.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00511300: the destructor body (the base's).
     void DestroyBody();
     // 0x00511320 (vtable slot 0)
-    CRiderSpinAndFlip* Destroy(unsigned int flags);
+    CRiderSpinAndFlip* Teardown(unsigned int flags);
     // 0x00511350 (vtable +0x0C): the core physics, model and animation blender components found.
-    void Finalize();
+    void Seal();
     // 0x00511600 (vtable +0x30): BoardIsRotated, BoardRotate (to `Normal` - not rotated - or the other way; told to
     // the server), BoardRotateAfter, flip, FlipAndRotate, RotateNoFlip, FlipAfter, IsFlipAfterSet, RotateAfter, the
     // flip only if the core physics says so (0x72289A28, name unknown) - 1, or the flag; PlayAnim does what was

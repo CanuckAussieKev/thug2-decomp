@@ -50,18 +50,18 @@ CUiTree* ManagerOf(const CUiWidget* e) { return static_cast<CUiTree*>(e->m_parkO
 bool MayHave(CUiWidget* e, GameObjects::CSignal* event)
 {
     CUiTree* manager = ManagerOf(e);
-    if (e->ManagerUsesPriorities() && manager->IsPadEvent(event->m_type))
-        return e->HasPriority() && manager->IsTopPriority(e->m_id);
+    if (e->ManagerUsesPriorities() && manager->IsPadEvent(event->m_kindTag))
+        return e->HasPriority() && manager->IsTopPriority(e->m_ident);
     return true;
 }
 
 } // namespace
 
 // 0x004AE050
-CScrollingMenu* CScrollingMenu::Construct()
+CScrollingMenu* CScrollingMenu::MakeNew()
 {
-    CUiWidget::Construct();
-    m_listener.Construct();
+    CUiWidget::MakeNew();
+    m_listener.MakeNew();
     m_vtable = kCScrollingMenuVtable;
     m_listener.m_vtable = kListenerAdapterVtable;
     m_listener.EnterWaitBoard(this);
@@ -74,14 +74,14 @@ CScrollingMenu* CScrollingMenu::Construct()
     m_numItemsToShow = -1;
     m_windowLength = 0.0f;
     m_regularSpace = -1.0f;
-    SetType(kVScrollingMenu);
+    ChangeSpecies(kVScrollingMenu);
     return this;
 }
 
 // 0x004AE170
 CScrollingMenu* CScrollingMenu::ConstructVertical()
 {
-    Construct();
+    MakeNew();
     m_vtable = kCScrollingMenuVtableA188;
     m_listener.m_vtable = kListenerAdapterVtableA180;
     m_vertical = true;
@@ -91,7 +91,7 @@ CScrollingMenu* CScrollingMenu::ConstructVertical()
 // 0x004AE1C0
 CScrollingMenu* CScrollingMenu::ConstructHorizontal()
 {
-    Construct();
+    MakeNew();
     m_vtable = kCScrollingMenuVtableA1BC;
     m_listener.m_vtable = kListenerAdapterVtableA1B4;
     m_vertical = false;
@@ -103,7 +103,7 @@ void CScrollingMenu::DestroyBody()
 {
     m_vtable = kCScrollingMenuVtable;
     m_listener.m_vtable = kListenerAdapterVtable;
-    m_listener.Destroy();
+    m_listener.Teardown();
     CUiWidget::DestroyBody();
 }
 
@@ -124,11 +124,11 @@ void CScrollingMenu::DestroyBodyHorizontal()
 }
 
 // 0x004AE240
-CScrollingMenu* CScrollingMenu::Destroy(uint8_t flags)
+CScrollingMenu* CScrollingMenu::Teardown(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -137,7 +137,7 @@ CScrollingMenu* CScrollingMenu::DestroyVertical(uint8_t flags)
 {
     DestroyBodyVertical();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -146,7 +146,7 @@ CScrollingMenu* CScrollingMenu::DestroyHorizontal(uint8_t flags)
 {
     DestroyBodyHorizontal();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -155,13 +155,13 @@ void CScrollingMenu::FindMenu()
 {
     {
         ElementPtr child;
-        child.Set(mp_firstChild.m_ownerObject);
+        child.AssignValue(mp_firstChild.m_ownerObject);
         while (child) {
-            if (child->m_type == VMenuType() && m_vertical)
+            if (child->m_kindTag == VMenuType() && m_vertical)
                 mp_menu = child.m_ownerObject;
-            else if (child->m_type == HMenuType() && !m_vertical)
+            else if (child->m_kindTag == HMenuType() && !m_vertical)
                 mp_menu = child.m_ownerObject;
-            child.Set(child->m_following.m_ownerObject);
+            child.AssignValue(child->m_following.m_ownerObject);
         }
     }
     float space = -1.0f;
@@ -177,7 +177,7 @@ void CScrollingMenu::FindMenu()
 // 0x004AE450 (the item's justification is read into the original's argument slots - no effect)
 void CScrollingMenu::ItemPlace(ElementPtr* item, float* x, float* y, float* w, float* h)
 {
-    item->m_ownerObject->GetPos(x, y);
+    item->m_ownerObject->FetchLocation(x, y);
     *x = static_cast<float>(static_cast<double>(mp_menu->m_shown.scaleX) * *x);
     *y = static_cast<float>(static_cast<double>(mp_menu->m_shown.scaleY) * *y);
     *w = static_cast<float>(static_cast<double>(mp_menu->m_shown.scaleX) * item->m_ownerObject->m_span *
@@ -191,7 +191,7 @@ void CScrollingMenu::ItemPlace(ElementPtr* item, float* x, float* y, float* w, f
 }
 
 // 0x004AE520 (reset_window_bottom: the last item's bottom - the vertical place, also for the horizontal one)
-void CScrollingMenu::SetProperties(Scripts::CStruct* params)
+void CScrollingMenu::ChangeTraits(Scripts::CStruct* params)
 {
     float alignH = 0.0f, alignV = 0.0f;
     if (ResolveJust(params, kInternalJust, &alignH, &alignV)) {
@@ -207,7 +207,7 @@ void CScrollingMenu::SetProperties(Scripts::CStruct* params)
         m_rearrange = true;
     } else if (params->HasBareFlag(kResetWindowBottom)) {
         ElementPtr last;
-        last.Set(mp_menu->GetLastChild());
+        last.AssignValue(mp_menu->FetchYoungest());
         float x, y, w, h;
         ItemPlace(&last, &x, &y, &w, &h);
         m_rearrange = true;
@@ -215,35 +215,35 @@ void CScrollingMenu::SetProperties(Scripts::CStruct* params)
     } else if (params->HasBareFlag(kRearrange)) {
         m_rearrange = true;
     }
-    CUiWidget::SetProperties(params);
+    CUiWidget::ChangeTraits(params);
 }
 
 // 0x004AE6A0
 bool CScrollingMenu::PassEventToScript(GameObjects::CSignal* event)
 {
-    if (!MayHave(this, event) || !GameObjects::CObject::PassEventToScript(event))
+    if (!MayHave(this, event) || !GameObjects::CEntity::PassEventToScript(event))
         return false;
     GameObjects::CEventWaitBoard* tracker = GameObjects::Tracker();
-    if (event->m_type == kFocusSentEvent) {
+    if (event->m_kindTag == kFocusSentEvent) {
         FindMenu();
         m_rearrange = true;
         VUpdate(this);
-        event->SetEventHandled(m_id, 0);
+        event->SetEventHandled(m_ident, 0);
     }
-    if (event->m_type == kFocus) {
+    if (event->m_kindTag == kFocus) {
         if (!mp_menu)
             FindMenu();
         if (!m_focused) {
             m_focused = true;
-            tracker->LaunchEvent(kFocus, mp_menu->m_id, kSystem, event->m_payload, false, -1.0f);
-            event->SetEventHandled(m_id, 0);
+            tracker->LaunchEvent(kFocus, mp_menu->m_ident, kSystem, event->m_payload, false, -1.0f);
+            event->SetEventHandled(m_ident, 0);
         }
     }
-    if (event->m_type == kUnfocus && m_focused) {
+    if (event->m_kindTag == kUnfocus && m_focused) {
         FindMenu();
         m_focused = false;
-        tracker->LaunchEvent(kUnfocus, mp_menu->m_id, kSystem, nullptr, false, -1.0f);
-        event->SetEventHandled(m_id, 0);
+        tracker->LaunchEvent(kUnfocus, mp_menu->m_ident, kSystem, nullptr, false, -1.0f);
+        event->SetEventHandled(m_ident, 0);
     }
     return true;
 }
@@ -255,32 +255,32 @@ void CScrollingMenu::ListenerReceive(GameObjects::CSignal* event)
     auto* self = reinterpret_cast<CScrollingMenu*>(reinterpret_cast<uint8_t*>(this) - offsetof(CScrollingMenu, m_listener));
     if (!MayHave(self, event))
         return;
-    if (event->m_type == kFocusSentEvent && self->mp_menu) {
-        if (event->m_aimPoint == self->mp_menu->m_id) {
+    if (event->m_kindTag == kFocusSentEvent && self->mp_menu) {
+        if (event->m_aimPoint == self->mp_menu->m_ident) {
             self->m_rearrange = true;
             VUpdate(self);
         }
-        SetEventConsumed(event, self->m_id, 0);
+        SetEventConsumed(event, self->m_ident, 0);
     }
-    if (event->m_type == kFocus) {
+    if (event->m_kindTag == kFocus) {
         if (!self->mp_menu)
             self->FindMenu();
         ElementPtr item;
-        item.Set(self->mp_menu->mp_firstChild.m_ownerObject);
+        item.AssignValue(self->mp_menu->mp_firstChild.m_ownerObject);
         while (item) {
-            if (item->m_id == event->m_aimPoint) {
-                self->m_selectedId = item->m_id;
+            if (item->m_ident == event->m_aimPoint) {
+                self->m_selectedId = item->m_ident;
                 self->m_rearrange = true;
-                SetEventConsumed(event, self->m_id, 0);
+                SetEventConsumed(event, self->m_ident, 0);
                 break;
             }
-            item.Set(item->m_following.m_ownerObject);
+            item.AssignValue(item->m_following.m_ownerObject);
         }
     }
 }
 
 // 0x004AE960
-void CScrollingMenu::Update()
+void CScrollingMenu::TickFrame()
 {
     if (!mp_menu)
         return;
@@ -288,9 +288,9 @@ void CScrollingMenu::Update()
     float before = 0.0f, after = 0.0f; // the window's margins before / after the selected item
     ElementPtr selected;
     if (m_selectedId)
-        selected.Set(mp_menu->FindChildWithId(m_selectedId, &index));
+        selected.AssignValue(mp_menu->FindChildWithId(m_selectedId, &index));
     else
-        selected.Set(mp_menu->FindChildAtSlot(0));
+        selected.AssignValue(mp_menu->FindChildAtSlot(0));
     if (!selected)
         return;
     int count = mp_menu->ChildTotal();
@@ -304,7 +304,7 @@ void CScrollingMenu::Update()
     }
     mp_menu->ChangeAlignment(-1.0f, -1.0f);
     float menuX, menuY;
-    mp_menu->GetPos(&menuX, &menuY);
+    mp_menu->FetchLocation(&menuX, &menuY);
     float place, length, other1, other2; // along the menu, and across it
     if (m_vertical)
         ItemPlace(&selected, &other1, &place, &other2, &length);
@@ -335,13 +335,13 @@ void CScrollingMenu::Update()
         return;
     float shift = -m_windowStart;
     if (m_vertical)
-        mp_menu->SetPos(menuX, shift, 1);
+        mp_menu->ChangeLocation(menuX, shift, 1);
     else
-        mp_menu->SetPos(shift, menuY, 1);
+        mp_menu->ChangeLocation(shift, menuY, 1);
     // the items in the window shown, the others hidden
     index = 0;
     ElementPtr item;
-    item.Set(mp_menu->mp_firstChild.m_ownerObject);
+    item.AssignValue(mp_menu->mp_firstChild.m_ownerObject);
     while (item) {
         if (m_vertical)
             ItemPlace(&item, &other1, &place, &other2, &length);
@@ -353,8 +353,8 @@ void CScrollingMenu::Update()
         }
         bool inside = !(place < m_windowStart) &&
                       !(static_cast<double>(m_windowLength) + m_windowStart < static_cast<double>(place) + length);
-        item->SetAlpha(inside ? 1.0f : 0.0f, 1);
-        item.Set(item->m_following.m_ownerObject);
+        item->ChangeOpacity(inside ? 1.0f : 0.0f, 1);
+        item.AssignValue(item->m_following.m_ownerObject);
         ++index;
     }
     m_rearrange = false;
@@ -367,7 +367,7 @@ namespace {
 // The listener's slot 0 (`this` = the listener at +0x178): the element's destructor.
 struct ListenerAdapter {
     MenuSystem::CScrollingMenu* Self() { return reinterpret_cast<MenuSystem::CScrollingMenu*>(reinterpret_cast<uint8_t*>(this) - 0x178); }
-    MenuSystem::CScrollingMenu* Destroy(uint8_t flags) { return Self()->Destroy(flags); }
+    MenuSystem::CScrollingMenu* Teardown(uint8_t flags) { return Self()->Teardown(flags); }
     MenuSystem::CScrollingMenu* DestroyVertical(uint8_t flags) { return Self()->DestroyVertical(flags); }
     MenuSystem::CScrollingMenu* DestroyHorizontal(uint8_t flags) { return Self()->DestroyHorizontal(flags); }
 };
@@ -378,32 +378,32 @@ using MenuSystem::CScrollingMenu;
 
 namespace MenuSystem {
 namespace {
-static VtableSlot kListenerAdapterVtable_slots[] = {&ListenerAdapter::Destroy, &CScrollingMenu::ListenerReceive};
+static VtableSlot kListenerAdapterVtable_slots[] = {&ListenerAdapter::Teardown, &CScrollingMenu::ListenerReceive};
 void** const kListenerAdapterVtable = reinterpret_cast<void**>(kListenerAdapterVtable_slots);
-static VtableSlot kCScrollingMenuVtable_slots[] = {&CScrollingMenu::Destroy, &CScrollingMenu::SetProperties,
-                static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+static VtableSlot kCScrollingMenuVtable_slots[] = {&CScrollingMenu::Teardown, &CScrollingMenu::ChangeTraits,
+                static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
                 &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &CScrollingMenu::PassEventToScript,
-                &GameObjects::CObject::FlagAsDead, Stubs::ReturnTrue, &CUiWidget::GetProperties, &CUiWidget::BlendTowards,
-                &CScrollingMenu::Update};
+                &GameObjects::CEntity::FlagAsDead, Stubs::ReturnTrue, &CUiWidget::GetProperties, &CUiWidget::BlendTowards,
+                &CScrollingMenu::TickFrame};
 void** const kCScrollingMenuVtable = reinterpret_cast<void**>(kCScrollingMenuVtable_slots);
 static VtableSlot kListenerAdapterVtableA180_slots[] = {&ListenerAdapter::DestroyVertical,
                 &CScrollingMenu::ListenerReceive};
 void** const kListenerAdapterVtableA180 = reinterpret_cast<void**>(kListenerAdapterVtableA180_slots);
-static VtableSlot kCScrollingMenuVtableA188_slots[] = {&CScrollingMenu::DestroyVertical, &CScrollingMenu::SetProperties,
-                static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+static VtableSlot kCScrollingMenuVtableA188_slots[] = {&CScrollingMenu::DestroyVertical, &CScrollingMenu::ChangeTraits,
+                static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
                 &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &CScrollingMenu::PassEventToScript,
-                &GameObjects::CObject::FlagAsDead, Stubs::ReturnTrue, &CUiWidget::GetProperties, &CUiWidget::BlendTowards,
-                &CScrollingMenu::Update};
+                &GameObjects::CEntity::FlagAsDead, Stubs::ReturnTrue, &CUiWidget::GetProperties, &CUiWidget::BlendTowards,
+                &CScrollingMenu::TickFrame};
 void** const kCScrollingMenuVtableA188 = reinterpret_cast<void**>(kCScrollingMenuVtableA188_slots);
 static VtableSlot kListenerAdapterVtableA1B4_slots[] = {&ListenerAdapter::DestroyHorizontal,
                 &CScrollingMenu::ListenerReceive};
 void** const kListenerAdapterVtableA1B4 = reinterpret_cast<void**>(kListenerAdapterVtableA1B4_slots);
 static VtableSlot kCScrollingMenuVtableA1BC_slots[] = {&CScrollingMenu::DestroyHorizontal,
-                &CScrollingMenu::SetProperties,
-                static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+                &CScrollingMenu::ChangeTraits,
+                static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
                 &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &CScrollingMenu::PassEventToScript,
-                &GameObjects::CObject::FlagAsDead, Stubs::ReturnTrue, &CUiWidget::GetProperties, &CUiWidget::BlendTowards,
-                &CScrollingMenu::Update};
+                &GameObjects::CEntity::FlagAsDead, Stubs::ReturnTrue, &CUiWidget::GetProperties, &CUiWidget::BlendTowards,
+                &CScrollingMenu::TickFrame};
 void** const kCScrollingMenuVtableA1BC = reinterpret_cast<void**>(kCScrollingMenuVtableA1BC_slots);
 } // namespace
 } // namespace Front

@@ -55,22 +55,22 @@ constexpr float kDegreesToRadians = 0.017453292f; // 0x00645464
 constexpr float kInch = 12.0f;                   // 0x0064546C (feet to inches)
 
 template <typename T>
-T& Field(const void* object, uint32_t offset)
+T& Prop(const void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
 
 // --- textures (the texture dictionary 0x00700F20) ---
 void* TextureDictionary() { return reinterpret_cast<void*>(Engine3D::g_particleTextureDict); }
-void* LoadTexture(const char* name, bool a, bool b, bool c)
+void* IngestSkin(const char* name, bool a, bool b, bool c)
 {
-    return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->LoadTexture(name, a, b, c);
+    return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->IngestSkin(name, a, b, c);
 }
 void* CopyTexture(uint32_t key, void* texture)
 {
     return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->CopyTexture(key, static_cast<Engine3D::CBitmapTexture*>(texture));
 }
-void* FindTexture(uint32_t checksum) { return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->GetTexture(checksum); }
+void* FindTexture(uint32_t checksum) { return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->FetchSkin(checksum); }
 void UnloadTexture(void* texture) { static_cast<Engine3D::CTextureSet*>(TextureDictionary())->UnloadTexture(static_cast<Engine3D::CBitmapTexture*>(texture)); }
 void ReleaseTexture(void* texture) { reinterpret_cast<void(__thiscall*)(void*)>(&Engine3D::VirtualSlot32Jump)(texture); }
 // A texture's image put on `texture` (its vtable +0x10).
@@ -81,7 +81,7 @@ void FreeTexture(void*& texture)
 {
     if (!texture)
         return;
-    Engine3D::Engine::KillTextureSplatsOfTexture(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(Field<void*>(texture, 4))));
+    Engine3D::Engine::KillTextureSplatsOfTexture(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(Prop<void*>(texture, 4))));
     static_cast<Engine3D::CBitmapTexture*>(texture)->PinResident(false);
     ReleaseTexture(texture);
     UnloadTexture(texture);
@@ -91,19 +91,19 @@ void FreeTexture(void*& texture)
 // A texture loaded on the memory manager's +0x110 heap.
 void* LoadOnTextureHeap(const char* name, bool c)
 {
-    MemSys::Manager* memory = MemSys::Manager::Get();
-    memory->EnterHeapScope(Field<MemSys::Allocator*>(memory, 0x110));
-    void* texture = LoadTexture(name, true, true, c);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub* memory = MemSys::Hub::Pull();
+    memory->EnterHeapScope(Prop<MemSys::MemSource*>(memory, 0x110));
+    void* texture = IngestSkin(name, true, true, c);
+    MemSys::Hub::Pull()->LeaveHeapScope();
     return texture;
 }
 
-OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
 
 Scripts::CStruct* NewParams()
 {
     Scripts::CStruct* memory = Scripts::NewStruct();
-    return memory ? memory->Init() : nullptr;
+    return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
 {
@@ -146,18 +146,18 @@ float TagSetting(uint32_t name) { return CFootMovement::Param(name); }
 // --- CTaggingComponent ---
 
 // 0x0051DA80
-CObjectModule* __cdecl CTaggingComponent::Create()
+CObjectModule* __cdecl CTaggingComponent::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CTaggingComponent));
     if (!memory)
         return nullptr;
     auto* tagging = static_cast<CTaggingComponent*>(memory);
-    tagging->CObjectModule::Construct();
+    tagging->CObjectModule::MakeNew();
     tagging->m_customTag = false;
     tagging->m_graffiti = nullptr;
     tagging->m_sticker = nullptr;
     tagging->m_vtable = kTaggingVtable;
-    tagging->m_type = kType;
+    tagging->m_kindTag = kType;
     return tagging;
 }
 
@@ -171,11 +171,11 @@ void CTaggingComponent::DestroyBody()
 }
 
 // 0x0051D860
-CTaggingComponent* CTaggingComponent::Destroy(unsigned int flags)
+CTaggingComponent* CTaggingComponent::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -226,13 +226,13 @@ int CTaggingComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
     switch (name) {
     case 0x19504222: { // SetGraffitiTexture
         const char* texture = reinterpret_cast<const char*>(name);
-        if (params->GetString(0u, &texture, 0))
+        if (params->FetchText(0u, &texture, 0))
             SetGraffitiTexture(texture);
         return 1;
     }
     case 0x90042D4A: { // SetStickerTexture
         const char* texture = reinterpret_cast<const char*>(name);
-        if (params->GetString(0u, &texture, 0))
+        if (params->FetchText(0u, &texture, 0))
             SetStickerTexture(texture);
         return 1;
     }
@@ -247,9 +247,9 @@ int CTaggingComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
 }
 
 // 0x0051DBC0
-void CTaggingComponent::PlaceTag(bool sticker, Maths::Vector start, Maths::Vector end, int size, bool send)
+void CTaggingComponent::PlaceTag(bool sticker, Maths::Vec4 start, Maths::Vec4 end, int size, bool send)
 {
-    float turn = static_cast<float>(Scripts::GetFloat(0x2D7DF904u) * static_cast<double>(kDegreesToRadians));
+    float turn = static_cast<float>(Scripts::FetchFloat(0x2D7DF904u) * static_cast<double>(kDegreesToRadians));
     float spin = 0.0f;
     if (sticker)
         spin = static_cast<float>((Maths::Rnd(90) - 45) * static_cast<double>(kDegreesToRadians));
@@ -260,38 +260,38 @@ void CTaggingComponent::PlaceTag(bool sticker, Maths::Vector start, Maths::Vecto
     if (!send)
         return;
     NetLink::NetMessageInfo msg;
-    msg.Construct();
-    OnlinePlay::Manager* manager = NetManager();
+    msg.MakeNew();
+    OnlinePlay::Hub* manager = NetManager();
     if (!manager->InNetGame())
         return;
     struct {
         uint8_t objectId;
         uint8_t sticker;
         uint8_t pad[2];
-        Maths::Vector start;
-        Maths::Vector end;
+        Maths::Vec4 start;
+        Maths::Vec4 end;
         int size;
-    } tag = {static_cast<uint8_t>(m_object->m_id), sticker, {}, start, end, size};
-    msg.m_data = &tag;
+    } tag = {static_cast<uint8_t>(m_entity->m_ident), sticker, {}, start, end, size};
+    msg.m_content = &tag;
     msg.m_byteCount = 0x28;
-    msg.m_id = 0x99;
+    msg.m_ident = 0x99;
     msg.m_groupId = 0xA;
     msg.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
-    static_cast<NetLink::Client*>(manager->GetClient(0))->SendToHost(&msg);
+    static_cast<NetLink::Guest*>(manager->FetchPatron(0))->SendToHost(&msg);
 }
 
 // --- CTaggingControlComponent ---
 
 // 0x0051E280
-CObjectModule* __cdecl CTaggingControlComponent::Create()
+CObjectModule* __cdecl CTaggingControlComponent::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CTaggingControlComponent));
     if (!memory)
         return nullptr;
     auto* control = static_cast<CTaggingControlComponent*>(memory);
-    control->CObjectModule::Construct();
+    control->CObjectModule::MakeNew();
     control->m_vtable = kControlVtable;
-    control->m_type = kType;
+    control->m_kindTag = kType;
     control->m_pending = false;
     control->m_blocked = false;
     return control;
@@ -305,22 +305,22 @@ void CTaggingControlComponent::DestroyBody()
 }
 
 // 0x0051DD60
-CTaggingControlComponent* CTaggingControlComponent::Destroy(unsigned int flags)
+CTaggingControlComponent* CTaggingControlComponent::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x0051DD90
-void CTaggingControlComponent::Finalize()
+void CTaggingControlComponent::Seal()
 {
-    m_walk = m_object->GetComponent(kWalk);
-    m_input = m_object->GetComponent(kInput);
-    m_corePhysics = m_object->GetComponent(kSkaterCorePhysics);
-    m_trigger = m_object->GetComponent(kTrigger);
-    m_tagging = static_cast<CTaggingComponent*>(m_object->GetComponent(CTaggingComponent::kType));
+    m_walk = m_entity->FetchModule(kWalk);
+    m_input = m_entity->FetchModule(kInput);
+    m_corePhysics = m_entity->FetchModule(kSkaterCorePhysics);
+    m_trigger = m_entity->FetchModule(kTrigger);
+    m_tagging = static_cast<CTaggingComponent*>(m_entity->FetchModule(CTaggingComponent::kType));
 }
 
 // 0x0051E300
@@ -361,35 +361,35 @@ bool CTaggingControlComponent::SlapSticker(bool sticker, bool walking, bool low)
     if (m_countdown > 0)
         return false;
     Engine3D::CProbeRay feeler;
-    feeler.Construct();
+    feeler.MakeNew();
     Scripts::CStruct* settings = Scripts::ReadSubStruct(0x6775E538u);
     float reach;
-    Maths::Vector facing;
-    CGameEntity* skater = m_corePhysics->m_object;
+    Maths::Vec4 facing;
+    CGameEntity* skater = m_corePhysics->m_entity;
     if (!sticker) {
-        settings->GetFloat(0xE7AB5365u, &reach, 1);
+        settings->FetchFloat(0xE7AB5365u, &reach, 1);
         if (!walking) {
             facing.x = skater->m_vel.x;
             facing.z = skater->m_vel.z;
             facing.w = skater->m_vel.w;
         } else {
-            Maths::Vector heading;
-            const Maths::Vector* got = static_cast<CFootMovement*>(m_walk)->GetFacing(&heading);
+            Maths::Vec4 heading;
+            const Maths::Vec4* got = static_cast<CFootMovement*>(m_walk)->GetFacing(&heading);
             facing.x = got->x;
             facing.z = got->z;
             facing.w = got->w;
         }
     } else {
-        settings->GetFloat(0x7B5E76C4u, &reach, 1);
-        const Maths::Vector& up = skater->m_basisFrame.row[1];
+        settings->FetchFloat(0x7B5E76C4u, &reach, 1);
+        const Maths::Vec4& up = skater->m_basisFrame.row[1];
         facing.x = -up.x;
         facing.z = -up.z;
         facing.w = up.w;
     }
     facing.y = 0.0f;
-    facing.Normalize();
+    facing.MakeUnit();
 
-    Maths::Vector from = m_object->m_pos;
+    Maths::Vec4 from = m_entity->m_atPoint;
     double height = sticker ? 30.0 : (low ? 20.0 : 50.0); // 0x00646240 / 0x006486AC / 0x006463CC
     from.y = static_cast<float>(from.y + height);
     feeler.SetExcluded(0x3000, 0);
@@ -406,17 +406,17 @@ bool CTaggingControlComponent::SlapSticker(bool sticker, bool walking, bool low)
     }
 
     // The wall: 12 out from it along its normal, and 12 into it (as the original rounds them).
-    const Maths::Vector& point = feeler.m_contactPos;
-    const Maths::Vector& normal = feeler.m_surfaceDir;
+    const Maths::Vec4& point = feeler.m_contactPos;
+    const Maths::Vec4& normal = feeler.m_surfaceDir;
     double nw = static_cast<double>(normal.w) * kInch;
     double nz = static_cast<double>(normal.z) * kInch;
     double ny = static_cast<double>(normal.y) * kInch;
     float nxf = static_cast<float>(static_cast<double>(normal.x) * kInch);
     float nwf = static_cast<float>(nw);
     float nyf = static_cast<float>(ny);
-    Maths::Vector inside = {static_cast<float>(point.x - static_cast<double>(nxf)), static_cast<float>(point.y - ny),
+    Maths::Vec4 inside = {static_cast<float>(point.x - static_cast<double>(nxf)), static_cast<float>(point.y - ny),
                           static_cast<float>(point.z - nz), static_cast<float>(point.w - static_cast<double>(nwf))};
-    Maths::Vector outside = {static_cast<float>((point.x + static_cast<double>(nxf)) + 1.0),
+    Maths::Vec4 outside = {static_cast<float>((point.x + static_cast<double>(nxf)) + 1.0),
                            static_cast<float>(point.y + static_cast<double>(nyf)),
                            static_cast<float>(static_cast<float>(point.z + nz) + 1.0),
                            static_cast<float>(point.w + static_cast<double>(nwf))};
@@ -436,10 +436,10 @@ bool CTaggingControlComponent::SlapSticker(bool sticker, bool walking, bool low)
 }
 
 // 0x0051E390
-bool CTaggingControlComponent::Update()
+bool CTaggingControlComponent::TickFrame()
 {
-    uint8_t* state = Field<uint8_t*>(m_object->GetComponent(kSkaterPhysicsControl), 0x2C);
-    if (Field<bool>(state, 0x118) || Field<int>(state, 0x1C) != 1 || m_blocked)
+    uint8_t* state = Prop<uint8_t*>(m_entity->FetchModule(kSkaterPhysicsControl), 0x2C);
+    if (Prop<bool>(state, 0x118) || Prop<int>(state, 0x1C) != 1 || m_blocked)
         return false;
     if (m_cooldown > 0.0f) {
         m_cooldown = static_cast<float>(m_cooldown - 1.0);
@@ -447,31 +447,31 @@ bool CTaggingControlComponent::Update()
     }
     if (m_countdown > 0)
         return false;
-    int walkState = Field<int>(m_walk, 0x18);
+    int walkState = Prop<int>(m_walk, 0x18);
     if (walkState != 2 && walkState != 0)
         return false;
-    CObjectModule* core = m_object->GetComponent(kSkaterCorePhysics);
-    CObjectModule* skeleton = m_object->GetComponent(kSkeleton);
-    uint32_t bone = Field<bool>(Field<uint8_t*>(core, 0x1528), 0x28) ? 0x82B37CBCu : 0x78BC41DFu;
-    if (Field<uint32_t>(m_object, 0x158) == 0xFC3A8D7F)
+    CObjectModule* core = m_entity->FetchModule(kSkaterCorePhysics);
+    CObjectModule* skeleton = m_entity->FetchModule(kSkeleton);
+    uint32_t bone = Prop<bool>(Prop<uint8_t*>(core, 0x1528), 0x28) ? 0x82B37CBCu : 0x78BC41DFu;
+    if (Prop<uint32_t>(m_entity, 0x158) == 0xFC3A8D7F)
         bone = 0xDDEC28AF;
     auto* button = reinterpret_cast<CControlButton*>(reinterpret_cast<uint8_t*>(m_input) + 0x1A0);
-    bool tapped = Field<bool>(button, 0) && static_cast<uint32_t>(button->GetHeldMillis()) < 100u;
+    bool tapped = Prop<bool>(button, 0) && static_cast<uint32_t>(button->GetHeldMillis()) < 100u;
     if (!tapped && (!m_pending || m_countdown != 0))
         return true;
 
     float reach = TagSetting(0xDC98A1BE);
     Engine3D::CProbeRay feeler;
-    feeler.Construct();
-    Maths::Vector jointWorld;
+    feeler.MakeNew();
+    Maths::Vec4 jointWorld;
     static_cast<CBoneRigModule*>(skeleton)->GetBonePosition(bone, &jointWorld);
-    if (Field<int>(m_walk, 0x18) == 2)
+    if (Prop<int>(m_walk, 0x18) == 2)
         jointWorld.y = static_cast<float>(jointWorld.y - 10.0); // 0x00646710
-    Maths::Vector hits[6];
+    Maths::Vec4 hits[6];
     float distances[6];
     float rise = static_cast<float>(reach * 0.0);
     bool found = false;
-    const Maths::Vector& heading = Field<Maths::Vector>(m_walk, 0x48);
+    const Maths::Vec4& heading = Prop<Maths::Vec4>(m_walk, 0x48);
     // A direction across the heading: `index` of six steps of 27 degrees from 67.5 degrees one side.
     auto direction = [&](int index, float& dx, float& dz) {
         double angle = index * static_cast<double>(std::bit_cast<float>(0x3EF1463Au)) -
@@ -526,23 +526,23 @@ bool CTaggingControlComponent::Update()
             break;
         distance = static_cast<float>(distance + 10.0);
     }
-    Maths::Vector start = feeler.m_line.start, end = feeler.m_line.end;
+    Maths::Vec4 start = feeler.m_line.start, end = feeler.m_line.end;
 
     if (!m_pending) {
         m_pending = true;
-        Scripts::LaunchScript(Field<int>(m_walk, 0x18) == 2 ? 0x8C92DEA3u : 0x5213AFD6u, nullptr, m_object, false, nullptr);
+        Scripts::LaunchScript(Prop<int>(m_walk, 0x18) == 2 ? 0x8C92DEA3u : 0x5213AFD6u, nullptr, m_entity, false, nullptr);
         m_countdown = 30;
         return true;
     }
-    void* score = Field<void*>(m_object->GetComponent(kSkaterScore), 0x18);
-    int comboScore = Truncated(Field<int>(score, 0x14) * static_cast<double>(Field<float>(score, 0x60)));
+    void* score = Prop<void*>(m_entity->FetchModule(kSkaterScore), 0x18);
+    int comboScore = Truncated(Prop<int>(score, 0x14) * static_cast<double>(Prop<float>(score, 0x60)));
     int size = comboScore > 5000 ? 100 : (comboScore > 1000 ? 75 : 50);
     m_tagging->PlaceTag(false, start, end, size, true);
-    m_cooldown = Scripts::GetFloat(0xD29DE3D7u);
+    m_cooldown = Scripts::FetchFloat(0xD29DE3D7u);
     if (comboScore > 0) {
         Scripts::CStruct* params = NewParams();
         params->PushFloat(0xE6306423u, static_cast<float>(size));
-        Scripts::LaunchScript(0x2B8E0B2B, params, m_object, false, nullptr);
+        Scripts::LaunchScript(0x2B8E0B2B, params, m_entity, false, nullptr);
         DeleteParams(params);
     }
     m_pending = false;
@@ -554,28 +554,28 @@ bool CTaggingControlComponent::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kTaggingVtable_slots[] = {&GameObjects::CTaggingComponent::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kTaggingVtable_slots[] = {&GameObjects::CTaggingComponent::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          &GameObjects::CTaggingComponent::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
          static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
          &GameObjects::CTaggingComponent::InvokeMethodByName};
 void** const kTaggingVtable = reinterpret_cast<void**>(kTaggingVtable_slots);
-static VtableSlot kControlVtable_slots[] = {&GameObjects::CTaggingControlComponent::Destroy,
-         &GameObjects::CTaggingControlComponent::Update,
+static VtableSlot kControlVtable_slots[] = {&GameObjects::CTaggingControlComponent::Teardown,
+         &GameObjects::CTaggingControlComponent::TickFrame,
          Stubs::IgnoreArgument,
-         &GameObjects::CTaggingControlComponent::Finalize,
+         &GameObjects::CTaggingControlComponent::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

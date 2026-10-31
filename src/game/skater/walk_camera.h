@@ -19,15 +19,15 @@ class CFootMovement;
 
 // What the camera keeps for a later restore (WalkCamera's SaveState / RestoreState: 0x58 bytes).
 struct WalkCameraState {
-    Maths::Matrix orientation;  // +0x00
-    Maths::Vector target;       // +0x40
+    Maths::Mat4 orientation;  // +0x00
+    Maths::Vec4 target;       // +0x40
     float turnCosine;         // +0x50
     float zoom;               // +0x54
 };
 
 // 0x00524D70 (cdecl): `a` toward `b` by where `t` lies from `low` to `high` (x through a float step, y with its
 // step unrounded, z and w as floats). Returns `out`.
-Maths::Vector* __cdecl LerpByRange(Maths::Vector* out, const Maths::Vector* a, const Maths::Vector* b, float t, float low,
+Maths::Vec4* __cdecl LerpByRange(Maths::Vec4* out, const Maths::Vec4* a, const Maths::Vec4* b, float t, float low,
                                  float high);
 
 // The WalkCamera component (type 0xC7D37EC2, vtable 0x0064C5E0, 0xA8 bytes; made by 0x00525DC0): the camera
@@ -44,20 +44,20 @@ class CFootView : public CObjectModule {
 public:
     // 0x00525DC0: a new one (0 if out of memory): the base's constructor, its vtable and type, the target (0, 0,
     // 0, 1).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00524C20: the destructor body (the base's). 0x00524F20 (slot 0): the scalar deleting destructor.
     void DestroyBody();
-    CFootView* Destroy(unsigned int flags);
+    CFootView* Teardown(unsigned int flags);
     // 0x00524F50 (slot 2): its skater from 0x4C48DA58 (an object id, asserted; name not recovered), the zoom and
     // the turn cosine 1, its orientation from the camera object's matrix.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x00524FB0 (slot 3): the object's CameraLookAround, Camera and skatercamera components.
-    void Finalize();
+    void Seal();
     // 0x00525D40 (slot 12): WalkCamera_FlushRequest (ApplyQueuedChange's work) and WalkCamera_Reset (ResetNow); 2
     // for anything else.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
     // 0x005251D0 (slot 1): one frame (see the class).
-    void Update();
+    void TickFrame();
 
     // 0x00524C50: the skater followed, its Walk and SkaterPhysicsControl components (none: all null).
     void BindRider(CGameEntity* skater);
@@ -67,7 +67,7 @@ public:
     // look-around back to straight ahead, unlocked, its factor 1.
     void ApplyQueuedChange();
     // 0x00525F70: look along `facing` (turned by the look-around heading) at `rate`, until RestoreState.
-    void SetOverrideFacing(const Maths::Vector* facing, float rate);
+    void SetOverrideFacing(const Maths::Vec4* facing, float rate);
     // 0x00525060 / 0x00524FF0: its orientation, target, turn cosine and zoom saved / restored (restoring also
     // ends a flush, the instant frames, an override and the look-around's heading and lock).
     void SaveState(WalkCameraState* state);
@@ -76,7 +76,7 @@ public:
     static float __stdcall Param(uint32_t name);
     // 0x005250E0: the point followed: the skater's position (at once when `instant`), else eased toward it at the
     // skater camera's rates (+0xE4 across, +0xE8 up) over the frame. Written to `out`.
-    void GetTarget(Maths::Vector* out, bool instant);
+    void FetchGoal(Maths::Vec4* out, bool instant);
     // 0x00524CB0: the height above the skater (the skater camera's +0xD0, from 3 when zoomed in) and the
     // distance behind (+0xC4 x the zoom, nearer when the look-around tilts up). The zoom eases toward the
     // look-around's factor while it turns (else 1) at the skater camera's +0x110.
@@ -87,12 +87,12 @@ public:
     bool m_snapNext;                   // +0x1D (ResetNow)
     uint8_t pad1E[2];
     float m_zoom;                   // +0x20
-    Maths::Vector m_aimPoint;           // +0x24
-    Maths::Matrix m_orientation;      // +0x34
+    Maths::Vec4 m_aimPoint;           // +0x24
+    Maths::Mat4 m_orientation;      // +0x34
     float m_turnCosine;             // +0x74 the last turn's cosine (the new at-row against the old)
     bool m_override;                // +0x78 (SetOverrideFacing)
     uint8_t pad79[3];
-    Maths::Vector m_overrideFacing;   // +0x7C
+    Maths::Vec4 m_overrideFacing;   // +0x7C
     float m_overrideRate;           // +0x8C
     CFreeLookModule* m_lookAround; // +0x90
     CObjectModule* m_viewer;       // +0x94 (+0x18 its camera)

@@ -187,16 +187,16 @@ uint32_t Rgba(int r, int g, int b, uint8_t a)
 // A colour from a script array [r g b] (elements truncated to bytes; the fourth byte 0).
 uint32_t ColorFromArray(Scripts::CArray* array)
 {
-    uint8_t r = static_cast<uint8_t>(array->GetElement(0));
-    uint8_t g = static_cast<uint8_t>(array->GetElement(1));
-    uint8_t b = static_cast<uint8_t>(array->GetElement(2));
+    uint8_t r = static_cast<uint8_t>(array->FetchPart(0));
+    uint8_t g = static_cast<uint8_t>(array->FetchPart(1));
+    uint8_t b = static_cast<uint8_t>(array->FetchPart(2));
     return Rgba(r, g, b, 0);
 }
 
 Scripts::CStruct* NewStructure()
 {
     Scripts::CStruct* memory = Scripts::NewStruct();
-    return memory ? memory->Init() : nullptr;
+    return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
 {
@@ -219,7 +219,7 @@ void SetLightModulation(int index, float lo, float hi)
 }
 void SetLightDirectionVector(int index, const float* direction)
 {
-    Engine3D::SetLightDirection(index, reinterpret_cast<const Maths::Vector*>(direction));
+    Engine3D::SetLightDirection(index, reinterpret_cast<const Maths::Vec4*>(direction));
 }
 // The sun: its parameters (theta +0x00, phi +0x04, colour +0x18 as r g b 128, shown +0x40) by mask.
 struct SunParams {
@@ -288,7 +288,7 @@ uint8_t* LookUpSector(uint32_t name) { return static_cast<uint8_t*>(Engine3D::En
 // A model component's colour (0x00420700).
 void SetModelColor(GameObjects::CObjectModule* model, uint32_t color)
 {
-    static_cast<GameObjects::CMeshInstanceModule*>(model)->SetColor(color);
+    static_cast<GameObjects::CMeshInstanceModule*>(model)->ChangeTint(color);
 }
 
 TODSystem& SystemAt(CTODManager* manager, int index)
@@ -386,9 +386,9 @@ void CTODManager::ReadGroup(int index)
 {
     TODSystem& system = SystemAt(this, index);
     Scripts::CArray* groups;
-    system.params->GetArray(kGroups, &groups, 1);
-    system.groupCount = static_cast<int>(groups->m_size);
-    auto* group = reinterpret_cast<Scripts::CStruct*>(groups->GetElement(static_cast<uint32_t>(system.group)));
+    system.params->FetchList(kGroups, &groups, 1);
+    system.groupCount = static_cast<int>(groups->m_extent);
+    auto* group = reinterpret_cast<Scripts::CStruct*>(groups->FetchPart(static_cast<uint32_t>(system.group)));
     group->FetchIntValue(kParts, &system.parts, 1);
     group->FetchIntValue(kWaitFrames, &system.waitFrames, 1);
     group->ReadHashValue(kLightGroup, &system.lightGroup, 1);
@@ -467,36 +467,36 @@ void CTODManager::ParseParams(Scripts::CStruct* structure, TODParams* out)
     structure->FetchIntValue(kAmbientRed, &out->ambientRed, 0);
     structure->FetchIntValue(kAmbientGreen, &out->ambientGreen, 0);
     structure->FetchIntValue(kAmbientBlue, &out->ambientBlue, 0);
-    structure->GetFloat(kAmbientModLo, &out->ambientModLo, 0);
-    structure->GetFloat(kAmbientModHi, &out->ambientModHi, 0);
-    structure->GetFloat(kHeading0, &out->heading0, 0);
-    structure->GetFloat(kPitch0, &out->pitch0, 0);
+    structure->FetchFloat(kAmbientModLo, &out->ambientModLo, 0);
+    structure->FetchFloat(kAmbientModHi, &out->ambientModHi, 0);
+    structure->FetchFloat(kHeading0, &out->heading0, 0);
+    structure->FetchFloat(kPitch0, &out->pitch0, 0);
     structure->FetchIntValue(kRed0, &out->red0, 0);
     structure->FetchIntValue(kGreen0, &out->green0, 0);
     structure->FetchIntValue(kBlue0, &out->blue0, 0);
-    structure->GetFloat(kModLo0, &out->modLo0, 0);
-    structure->GetFloat(kModHi0, &out->modHi0, 0);
-    structure->GetFloat(kHeading1, &out->headingA, 0);
-    structure->GetFloat(kPitch1, &out->pitch1, 0);
+    structure->FetchFloat(kModLo0, &out->modLo0, 0);
+    structure->FetchFloat(kModHi0, &out->modHi0, 0);
+    structure->FetchFloat(kHeading1, &out->headingA, 0);
+    structure->FetchFloat(kPitch1, &out->pitch1, 0);
     structure->FetchIntValue(kRed1, &out->red1, 0);
     structure->FetchIntValue(kGreen1, &out->green1, 0);
     structure->FetchIntValue(kBlue1, &out->blue1, 0);
-    structure->GetFloat(kModLo1, &out->modLo1, 0);
-    structure->GetFloat(kModHi1, &out->modHi1, 0);
+    structure->FetchFloat(kModLo1, &out->modLo1, 0);
+    structure->FetchFloat(kModHi1, &out->modHi1, 0);
 
     float value = 0.0f;
-    if (structure->GetFloat(kSunTheta, &value, 0))
+    if (structure->FetchFloat(kSunTheta, &value, 0))
         out->sunTheta = static_cast<float>(static_cast<double>(value) * DegreeToRadianConv());
-    if (structure->GetFloat(kSunPhi, &value, 0))
+    if (structure->FetchFloat(kSunPhi, &value, 0))
         out->sunPhi = static_cast<float>(static_cast<double>(value) * DegreeToRadianConv());
     out->sunRed = 255.0f;
     out->sunGreen = 255.0f;
     out->sunBlue = 255.0f;
-    if (structure->GetFloat(kSunRed, &value, 0))
+    if (structure->FetchFloat(kSunRed, &value, 0))
         out->sunRed = value;
-    if (structure->GetFloat(kSunGreen, &value, 0))
+    if (structure->FetchFloat(kSunGreen, &value, 0))
         out->sunGreen = value;
-    if (structure->GetFloat(kSunBlue, &value, 0))
+    if (structure->FetchFloat(kSunBlue, &value, 0))
         out->sunBlue = value;
 
     structure->FetchIntValue(kBloomOn, &out->bloomOn, 0);
@@ -505,10 +505,10 @@ void CTODManager::ParseParams(Scripts::CStruct* structure, TODParams* out)
     structure->FetchIntValue(kBloom1, &out->bloom1, 0);
     structure->FetchIntValue(kBloom2, &out->bloom2, 0);
     Scripts::CArray* array = nullptr;
-    if (structure->GetArray(kBloomStrength, &array, 0))
+    if (structure->FetchList(kBloomStrength, &array, 0))
         out->bloomStrength = ColorFromArray(array);
     array = nullptr;
-    if (structure->GetArray(kBloomColor, &array, 0))
+    if (structure->FetchList(kBloomColor, &array, 0))
         out->bloomColor = ColorFromArray(array);
 }
 
@@ -535,7 +535,7 @@ void CTODManager::CreateObjects(Scripts::CStruct* params, Scripts::CScript* /*sc
 {
     uint32_t name = 0;
     if (params->ReadHashValue(kName, &name, 0)) {
-        if (!m_deadObjects->GetItem(name, true))
+        if (!m_deadObjects->FetchEntry(name, true))
             CreateFromNode(name);
         return;
     }
@@ -547,13 +547,13 @@ void CTODManager::CreateObjects(Scripts::CStruct* params, Scripts::CScript* /*sc
     uint16_t count;
     uint32_t* nodes = LevelNodes::CollectNodesByPrefix(prefix, &count);
     for (int i = 0; i < count; ++i) {
-        if (!m_deadObjects->GetItem(nodes[i]))
+        if (!m_deadObjects->FetchEntry(nodes[i]))
             CreateFromNode(nodes[i]);
     }
 }
 
 // 0x00572130
-void CTODManager::SetParams(Scripts::CStruct* params)
+void CTODManager::ChangeArgs(Scripts::CStruct* params)
 {
     m_paramsSet = true;
     int number;
@@ -647,7 +647,7 @@ void ApplyColorToScene(uint8_t* scene, uint32_t color, uint32_t lightGroup, uint
                        int endPercent)
 {
     // The scene's sectors: +0x0C the light group, +0x14 the geometry (vtable +0x18: its colour).
-    auto* table = *reinterpret_cast<ListKit::HashTable**>(scene + 0xD0);
+    auto* table = *reinterpret_cast<ListKit::KeyMap**>(scene + 0xD0);
     if (!table)
         return;
     auto colour = [](uint8_t* sector, uint32_t value) {
@@ -667,7 +667,7 @@ void ApplyColorToScene(uint8_t* scene, uint32_t color, uint32_t lightGroup, uint
     uint8_t* sector = nullptr;
     if (table->StepIterator() && table->m_iterItem)
         sector = static_cast<uint8_t*>(table->m_iterItem->value);
-    int count = table->m_size;
+    int count = table->m_extent;
     int remaining = count;
     if (startPercent >= 0) {
         int skip = Ftol(static_cast<double>(startPercent) * count * OnePercent());
@@ -832,7 +832,7 @@ void AddBloomParams(int on, int bloom1, int bloom2, uint32_t strength, uint32_t 
     out->PutInt(kBloom1, bloom1);
     out->PutInt(kBloom2, bloom2);
     Scripts::CArray* memory = Scripts::NewArray();
-    Scripts::CArray* array = memory ? memory->Init() : nullptr;
+    Scripts::CArray* array = memory ? memory->PrepareAll() : nullptr;
     array->ConfigureSizeKind(3, Scripts::QBVAL_INTEGER);
     array->SetElement(0, strength & 0xFF);
     array->SetElement(1, strength >> 8 & 0xFF);
@@ -880,7 +880,7 @@ void CTODManager::MarkPermanentlyDead(Scripts::CStruct* params)
 {
     uint32_t name;
     if (params->ReadHashValue(kName, &name, 0)) {
-        if (!m_deadObjects->GetItem(name, true))
+        if (!m_deadObjects->FetchEntry(name, true))
             m_deadObjects->StoreEntry(name, this);
         return;
     }
@@ -891,7 +891,7 @@ void CTODManager::MarkPermanentlyDead(Scripts::CStruct* params)
     uint16_t count = 0;
     uint32_t* nodes = LevelNodes::CollectNodesByPrefix(prefix, &count);
     for (int i = 0; i < count; ++i) {
-        if (!m_deadObjects->GetItem(nodes[i]))
+        if (!m_deadObjects->FetchEntry(nodes[i]))
             m_deadObjects->StoreEntry(nodes[i], this);
     }
 }
@@ -909,11 +909,11 @@ void CTODManager::SetBloom(int on, int bloom1, int bloom2, uint32_t strength, ui
 }
 
 // 0x00573620
-CTODManager* CTODManager::Construct()
+CTODManager* CTODManager::MakeNew()
 {
     m_unknown4 = NewStructure();
-    void* table = MemSys::New(sizeof(ListKit::HashTable));
-    m_deadObjects = table ? new (table) ListKit::HashTable(8) : nullptr;
+    void* table = MemSys::Alloc(sizeof(ListKit::KeyMap));
+    m_deadObjects = table ? new (table) ListKit::KeyMap(8) : nullptr;
     for (TODSystem& system : m_systems)
         system.params = NewStructure();
     Reset();
@@ -930,8 +930,8 @@ void CTODManager::Destruct()
     DeleteStructure(m_unknown4);
     m_deadObjects->EmptyTable();
     if (m_deadObjects) {
-        m_deadObjects->~HashTable();
-        MemSys::Manager::Get()->Free(m_deadObjects);
+        m_deadObjects->~KeyMap();
+        MemSys::Hub::Pull()->Dealloc(m_deadObjects);
     }
 }
 
@@ -1033,9 +1033,9 @@ void CTODManager::RefreshAll(bool tempState)
         uint32_t skyColor = Rgba(current.skyRed, current.skyGreen, current.skyBlue, 0x80);
         bool sky = system.sky;
         Scripts::CArray* groups;
-        system.params->GetArray(kGroups, &groups, 1);
+        system.params->FetchList(kGroups, &groups, 1);
         for (int g = 0; g < system.groupCount; ++g) {
-            auto* group = reinterpret_cast<Scripts::CStruct*>(groups->GetElement(static_cast<uint32_t>(g)));
+            auto* group = reinterpret_cast<Scripts::CStruct*>(groups->FetchPart(static_cast<uint32_t>(g)));
             uint32_t lightGroup;
             group->ReadHashValue(kLightGroup, &lightGroup, 1);
             uint32_t resetLightGroup = 0;
@@ -1102,10 +1102,10 @@ void CTODManager::SetTempBloomParams(Scripts::CStruct* params)
     params->FetchIntValue(kBloom1, &m_tempBloom.bloom1, 0);
     params->FetchIntValue(kBloom2, &m_tempBloom.bloom2, 0);
     Scripts::CArray* array = nullptr;
-    if (params->GetArray(kStrength, &array, 0))
+    if (params->FetchList(kStrength, &array, 0))
         m_tempBloom.strength = ColorFromArray(array);
     array = nullptr;
-    if (params->GetArray(kColor, &array, 0))
+    if (params->FetchList(kColor, &array, 0))
         m_tempBloom.color = ColorFromArray(array);
     // Off: back to the state's bloom (in a single player game).
     if (!m_tempBloom.on && !IsMultiplayer()) {
@@ -1129,7 +1129,7 @@ void CTODManager::EnableBloom(int on)
 }
 
 // 0x00574590
-void CTODManager::Update()
+void CTODManager::TickFrame()
 {
     if (GameModeName() != kCareer || Scripts::FetchIntValue(kInactive) == 1 || m_tempTOD || !m_active || IsGameHalted())
         return;
@@ -1231,7 +1231,7 @@ CTODManager* CreateTODManager(bool create)
     CTODManager*& manager = TODManager();
     if (!manager && create) {
         void* memory = MemSys::AllocZeroed(sizeof(CTODManager), nullptr, 1);
-        manager = memory ? static_cast<CTODManager*>(memory)->Construct() : nullptr;
+        manager = memory ? static_cast<CTODManager*>(memory)->MakeNew() : nullptr;
     }
     ++RefTally();
     return manager;
@@ -1247,7 +1247,7 @@ void ReleaseTODManager()
     CTODManager* manager = TODManager();
     if (manager) {
         manager->Destruct();
-        MemSys::Manager::Get()->Free(manager);
+        MemSys::Hub::Pull()->Dealloc(manager);
     }
     TODManager() = nullptr;
     RefTally() = 0;
@@ -1271,7 +1271,7 @@ bool __cdecl CFunc_TODManager_GetNumberOfDaysPassed(Scripts::CStruct* params, Sc
     CTODManager* manager = TODManager();
     int index = 0;
     params->FetchIntValue(kSystemIndex, &index, 0);
-    script->m_params->PutInt(kNumDaysPassed, SystemAt(manager, index).daysPassed);
+    script->m_args->PutInt(kNumDaysPassed, SystemAt(manager, index).daysPassed);
     return true;
 }
 
@@ -1279,7 +1279,7 @@ bool __cdecl CFunc_TODManager_GetNumberOfDaysPassed(Scripts::CStruct* params, Sc
 bool __cdecl CFunc_TODManager_SetTimeMultiplier(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     float multiplier = 1.0f;
-    params->GetFloat(0u, &multiplier, 0);
+    params->FetchFloat(0u, &multiplier, 0);
     if (!TODManager())
         return false;
     TODManager()->m_timeMultiplier = multiplier;
@@ -1291,7 +1291,7 @@ bool __cdecl CFunc_TODManager_GetTimeMultiplier(Scripts::CStruct* /*params*/, Sc
 {
     if (!TODManager())
         return false;
-    script->m_params->PushFloat(kTimeMultiplierName, TODManager()->m_timeMultiplier);
+    script->m_args->PushFloat(kTimeMultiplierName, TODManager()->m_timeMultiplier);
     return true;
 }
 
@@ -1315,7 +1315,7 @@ bool __cdecl CFunc_TODManager_Create(Scripts::CStruct* params, Scripts::CScript*
 // 0x00572BE0: TODManager_SetParams
 bool __cdecl CFunc_TODManager_SetParams(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    TODManager()->SetParams(params);
+    TODManager()->ChangeArgs(params);
     return true;
 }
 
@@ -1367,7 +1367,7 @@ bool __cdecl CFunc_TODManager_GetCurrentTODParams(Scripts::CStruct* params, Scri
     out->PutInt(kBloom1, p.bloom1);
     out->PutInt(kBloom2, p.bloom2);
     Scripts::CArray* memory = Scripts::NewArray();
-    Scripts::CArray* array = memory ? memory->Init() : nullptr;
+    Scripts::CArray* array = memory ? memory->PrepareAll() : nullptr;
     array->ConfigureSizeKind(3, Scripts::QBVAL_INTEGER);
     array->SetElement(0, p.bloomStrength & 0xFF);
     array->SetElement(1, p.bloomStrength >> 8 & 0xFF);
@@ -1382,7 +1382,7 @@ bool __cdecl CFunc_TODManager_GetCurrentTODParams(Scripts::CStruct* params, Scri
         array->Clear();
         Scripts::DeleteArray(array);
     }
-    script->m_params->AppendStructRef(kTodParams, out);
+    script->m_args->AppendStructRef(kTodParams, out);
     return true;
 }
 

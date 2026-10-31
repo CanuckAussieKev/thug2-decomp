@@ -18,19 +18,19 @@ public:
     static constexpr uint32_t kType = 0x208353AC;
 
     // 0x0041CB20 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x0041CAD0: the base's constructor, its vtable and type, the matrix the identity. Returns this.
-    CMatrixComponent* Construct();
+    CMatrixComponent* MakeNew();
     // 0x0041CA60: the base's body.
     void DestroyBody();
     // 0x0041CA70 (vtable slot 0)
-    CMatrixComponent* Destroy(unsigned int flags);
+    CMatrixComponent* Teardown(unsigned int flags);
     // 0x0041CAA0 (vtable slot 1): the object's display matrix = the matrix.
-    void Update();
+    void TickFrame();
     // 0x0041CAC0: the matrix set.
-    void SetMatrix(const Maths::Matrix* matrix);
+    void ChangeMat(const Maths::Mat4* matrix);
 
-    Maths::Matrix m_basisFrame; // +0x18
+    Maths::Mat4 m_basisFrame; // +0x18
 };
 static_assert(offsetof(CMatrixComponent, m_basisFrame) == 0x18 && sizeof(CMatrixComponent) == 0x58,
               "layout must match the original");

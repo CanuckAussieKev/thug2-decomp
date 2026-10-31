@@ -102,7 +102,7 @@ struct Resolved {
     float blockT = 0.0f;
 };
 // `met` in any order, a piece any number of times (each entry's own distance and kind; one piece is one kind).
-Resolved Resolve(const std::vector<Met>& met);
+Resolved SettleUp(const std::vector<Met>& met);
 
 // Gizmos (nodes' icons, rails, trigger volumes) are drawn over everything, so a gizmo behind a wall is still under the
 // cursor: a plain click takes it only when it's no further along the view than the first occluding surface under the
@@ -138,7 +138,7 @@ Choice Choose(const Candidates& candidates, uint32_t filter, bool everything);
 // selection), takes the next thing under the cursor after what that click took - the gizmo, then the objects (nearest
 // first), then the scenery, then the passed pieces (structure, see-through); wrapping round. The status bar says
 // "n of m under the cursor".
-struct Entry {
+struct TableRow {
     Choice kind;
     uint32_t id; // a node's index, an object's id, a sector's checksum
     float t;
@@ -150,10 +150,10 @@ struct Layered {
 };
 // Everything under the cursor in the cycle's order, as the filter lets it be clicked (`objects` and `scenery` each
 // nearest first).
-std::vector<Entry> CycleOrder(int node, const std::vector<Layered>& objects, const std::vector<Layered>& scenery,
+std::vector<TableRow> CycleOrder(int node, const std::vector<Layered>& objects, const std::vector<Layered>& scenery,
                               uint32_t filter);
 // Where `kind` / `id` is in the order (-1: not in it).
-int IndexOf(const std::vector<Entry>& order, Choice kind, uint32_t id);
+int IndexOf(const std::vector<TableRow>& order, Choice kind, uint32_t id);
 // Within `tolerance` pixels of the last click.
 bool SameSpot(float x0, float y0, float x1, float y1, float tolerance);
 
@@ -170,7 +170,7 @@ struct Lock {
     uint32_t kind;
     uint32_t id;
 };
-bool Locked(uint32_t kind, uint32_t id);
+bool Latched(uint32_t kind, uint32_t id);
 // Locked / unlocked (false: nothing changed).
 bool SetLocked(uint32_t kind, uint32_t id, bool locked);
 const std::vector<Lock>& Locks();

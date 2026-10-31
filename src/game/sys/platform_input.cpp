@@ -15,7 +15,7 @@
 
 #pragma warning(disable : 4996) // (sprintf / wcscpy: the original's own, into its fixed buffers)
 
-namespace Platform {
+namespace OsLayer {
 
 IDirectInput8A* g_directInput;
 IDirectInputDevice8A* g_keyboardDevice;

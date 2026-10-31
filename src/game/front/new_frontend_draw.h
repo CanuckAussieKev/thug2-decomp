@@ -47,16 +47,16 @@ struct Highscores {
     int goals = -1;
     int gapsGot = -1, gapsTotal = -1;
 };
-using RecordsLookup = Highscores (*)(const Level& level);
+using RecordsLookup = Highscores (*)(const StageMap& level);
 
 // A place the mouse can point at, in design pixels (the last frame's).
 struct Hit {
     // (Item: a list's item / an option row; Tab: a game tab / an option group; Skate: the level select's Skate, the
     // Game options row's Open; Choice: an option's choice - index row * 16 + choice)
-    enum Kind { Item, Level, Tab, Back, Skate, Continue, Choice } kind;
+    enum Kind { Item, StageMap, Tab, Back, Skate, Continue, Choice } kind;
     int index;
     float x0, y0, x1, y1;
-    bool Contains(float x, float y) const { return x >= x0 && x < x1 && y >= y0 && y < y1; }
+    bool Holds(float x, float y) const { return x >= x0 && x < x1 && y >= y0 && y < y1; }
 };
 
 // The session in the level (the pause menu's panel; -1: not known - not shown).
@@ -86,7 +86,7 @@ struct Extras {
 
 // The whole window: the screen the menu shows, the wipe and the launch over it. `hits` gets what the mouse can point
 // at; the list's rows that fit (for Menu::SetVisibleRows) in `visibleRows`.
-void Screen(const Menu& menu, const Frame& frame, float windowWidth, float windowHeight, const Extras& extras,
+void Screen(const Menu& menu, const TickCycle& frame, float windowWidth, float windowHeight, const Extras& extras,
             std::vector<Hit>* hits, int* visibleRows);
 
 }
@@ -100,11 +100,11 @@ namespace MenuSystem::NewFrontend::Paint {
 // Phase 3: an original screen restyled (new_frontend_mirror.h) - a level's pause menu, a dialog box, the skater select
 // (the 3D skater left in view), a plain list. `hits`: its rows (Item, the row's index), Back. `scroll`: the list's
 // first row shown, kept by the caller (in and out). `extras`: the pause menu's level and session (null: none).
-void Restyled(const Mirror::Tracker& tracker, const Frame& frame, float windowWidth, float windowHeight,
+void Restyled(const Mirror::Tracker& tracker, const TickCycle& frame, float windowWidth, float windowHeight,
               std::vector<Hit>* hits, float* scroll, const Extras* extras = nullptr);
 // The front end come up before any of its menus has: the screen's ground and the art with id `artId` full-bleed (the
 // main menu's), no rows - so the front end's 3D scene is never seen behind a menu that isn't there yet.
-void Waiting(const Frame& frame, float windowWidth, float windowHeight, const Extras& extras, const char* artId);
+void Waiting(const TickCycle& frame, float windowWidth, float windowHeight, const Extras& extras, const char* artId);
 
 // --- the layout's numbers (design px; exposed for the self-tests) ---
 

@@ -3,9 +3,9 @@
 // NOT ORIGINAL - the level editor's UI layout and input routing (ours; see level_editor_ui.h): pure.
 namespace MenuSystem::LevelEditor::UiLayout {
 
-struct Rect {
+struct Rect2 {
     float x, y, width, height;
-    bool Contains(float px, float py) const { return px >= x && px < x + width && py >= y && py < y + height; }
+    bool Holds(float px, float py) const { return px >= x && px < x + width && py >= y && py < y + height; }
 };
 
 // The UI's scale for a window: 1 at 1920 x 1080, the smaller of width / 1920 and height / 1080 rounded down to a quarter
@@ -23,8 +23,8 @@ FontSizes FontSizesFor(float scale);
 // no room; the side panels narrow (to 180 at scale 1) so the viewport keeps at least 40% of the width, and close if
 // even that doesn't fit.
 struct Layout {
-    Rect toolbar, outliner, inspector, status, viewport;
-    Rect menu, strip; // (the toolbar's two rows)
+    Rect2 toolbar, outliner, inspector, status, viewport;
+    Rect2 menu, strip; // (the toolbar's two rows)
     bool outlinerShown, inspectorShown;
 };
 Layout Compute(float width, float height, float scale, bool outlinerOpen, bool inspectorOpen);

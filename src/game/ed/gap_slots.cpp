@@ -49,7 +49,7 @@ void CGapRegistry::EndGap(void* piece, CPieceGroup* meta, int index)
     ++m_nextId;
     mp_gaps[slot]->mp_pieces[1] = static_cast<CParkTile*>(piece);
     mp_gaps[slot]->mp_metas[1] = meta;
-    mp_gaps[slot]->m_info.m_tabIndex = index;
+    mp_gaps[slot]->m_details.m_tabIndex = index;
     m_startedFirst[slot] = false;
 }
 
@@ -76,7 +76,7 @@ uint32_t CGapRegistry::GetGapTriggerName(CParkTile* piece)
             continue;
         if ((slot & 1) && Scripts::FetchIntValue("PrintGaps")) {
             Gap* record = mp_gaps[slot];
-            DebugOut::Printf("Editor Gap %d points: %s\n", record->m_info.m_pointsHeld, record->m_info.m_text);
+            DebugOut::Printf("Editor Gap %d points: %s\n", record->m_details.m_pointsHeld, record->m_details.m_text);
         }
         char name[32];
         std::snprintf(name, sizeof(name), "EditorTrgGap%d", slot);
@@ -93,11 +93,11 @@ SGapDetails* CGapRegistry::GetGapInfo(int index, int* half)
         return nullptr;
     *half = Half(this, index);
     // The name copied over the text (unbounded: as the original's inline strcpy).
-    char* to = mp_gaps[index]->m_info.m_text;
-    const char* from = mp_gaps[index]->m_name;
+    char* to = mp_gaps[index]->m_details.m_text;
+    const char* from = mp_gaps[index]->m_label;
     while ((*to++ = *from++) != '\0') {
     }
-    return &mp_gaps[index]->m_info;
+    return &mp_gaps[index]->m_details;
 }
 
 // 0x0058CB70
@@ -112,39 +112,39 @@ void CGapRegistry::SetCurrentGap(int index)
 }
 
 // 0x0058CBB0
-CGapRegistry* CGapRegistry::sSingleton() { return Instance(); }
+CGapRegistry* CGapRegistry::sSingleton() { return Sole(); }
 
 // 0x0058CCC0
-CGapRegistry* CGapRegistry::Construct(CParkLayout* manager)
+CGapRegistry* CGapRegistry::MakeNew(CParkLayout* manager)
 {
     m_nextId = 2000;
     for (Gap*& gap : mp_gaps)
         gap = nullptr;
     m_parkOwner = manager;
-    Instance() = this;
+    Sole() = this;
     return this;
 }
 
 // 0x0058CBC0
-SGapDetails* SGapDetails::Construct()
+SGapDetails* SGapDetails::MakeNew()
 {
-    for (SCellBox& pos : m_pos)
-        pos.Set(0, 0, 0, 0, 0, 0);
+    for (SCellBox& pos : m_atPoint)
+        pos.AssignValue(0, 0, 0, 0, 0, 0);
     return this;
 }
 
 // 0x0058CBF0
-float SGapDetails::GetLength(int half)
+float SGapDetails::FetchMagnitude(int half)
 {
     // Its extents and its half's piece across the gap: the piece's length when it faces along z, its width along x.
     const int extents = m_rightExtent[half] + m_leftExtent[half];
     switch (m_quarterTurns[half]) {
     case 0:
     case 2:
-        return static_cast<float>((extents + m_pos[half].l) * static_cast<double>(kCellLength));
+        return static_cast<float>((extents + m_atPoint[half].l) * static_cast<double>(kCellLength));
     case 1:
     case 3:
-        return static_cast<float>((extents + m_pos[half].w) * static_cast<double>(kCellWidth));
+        return static_cast<float>((extents + m_atPoint[half].w) * static_cast<double>(kCellWidth));
     default:
         return 0.0f;
     }

@@ -90,40 +90,40 @@ float Degrees() { return ::ScriptCommands::g_degreesToRadians; }        // pi / 
 float VisibleAlpha() { return ::GameModules::g_competitionTiny; }   // 0.0001
 
 // CUiWidget's pieces.
-void BaseConstruct(CUiWidget* e) { e->CUiWidget::Construct(); }
+void BaseConstruct(CUiWidget* e) { e->CUiWidget::MakeNew(); }
 void BaseDestroyBody(CUiWidget* e) { e->CUiWidget::DestroyBody(); }
-void BaseSetProperties(CUiWidget* e, CStruct* params) { e->CUiWidget::SetProperties(params); }
+void BaseSetProperties(CUiWidget* e, CStruct* params) { e->CUiWidget::ChangeTraits(params); }
 void BaseSetMorph(CUiWidget* e, CStruct* params) { e->CUiWidget::BlendTowards(params); }
 
 // The viewport's camera (0x004A09C0, cdecl; null if none) and the camera's matrix, position and horizontal angle
 // in degrees (thiscall getters).
 void* ViewportCamera(int viewport) { return Engine3D::FetchLiveCamera(viewport); }
-const Maths::Matrix* CameraMatrix(void* camera)
+const Maths::Mat4* CameraMatrix(void* camera)
 {
-    return static_cast<Gfx2D::Camera*>(camera)->GetMatrix();
+    return static_cast<Gfx2D::ViewCam*>(camera)->FetchMat();
 }
-const Maths::Vector* ViewerLocation(void* camera)
+const Maths::Vec4* ViewerLocation(void* camera)
 {
-    return static_cast<Gfx2D::Camera*>(camera)->GetPos();
+    return static_cast<Gfx2D::ViewCam*>(camera)->FetchLocation();
 }
-float CameraAngle(void* camera) { return static_cast<Gfx2D::Camera*>(camera)->FetchEffectiveHFov(); }
+float CameraAngle(void* camera) { return static_cast<Gfx2D::ViewCam*>(camera)->FetchEffectiveHFov(); }
 
 // A geom's bounding box (0x0048DE80, thiscall).
-const Maths::Vector* GeometryBoundingBox(void* geometry)
+const Maths::Vec4* GeometryBoundingBox(void* geometry)
 {
-    return reinterpret_cast<const Maths::Vector*(__thiscall*)(void*)>(&Engine3D::VirtualSlot15Jump)(geometry);
+    return reinterpret_cast<const Maths::Vec4*(__thiscall*)(void*)>(&Engine3D::VirtualSlot15Jump)(geometry);
 }
 
 // A model's model (the model component's +0x208) and that model's bounding box (min x y z w, max x y z w): the
 // model's 0x00493CD0(0), then its 0x0048DE80 (thiscall).
-const Maths::Vector* ModelBoundingBox(GameObjects::CObjectModule* component)
+const Maths::Vec4* ModelBoundingBox(GameObjects::CObjectModule* component)
 {
     void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
     void* geometry = static_cast<Engine3D::CRenderModel*>(model)->GetGeomByName(0);
     return GeometryBoundingBox(geometry);
 }
 // The same, or null when the model has no geometry yet (the widescreen rule asks every frame, for every element).
-const Maths::Vector* ModelBoundingBoxIfAny(GameObjects::CObjectModule* component)
+const Maths::Vec4* ModelBoundingBoxIfAny(GameObjects::CObjectModule* component)
 {
     void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
     if (!model)
@@ -140,15 +140,15 @@ void SetModelViewports(GameObjects::CObjectModule* component, uint32_t mask)
 }
 
 // The node `name`'s structure (0x0045C1B0, asserting) and its position (0x0045C050).
-CStruct* NodeStructure(uint32_t name) { return LevelNodes::GetNode(name, true); }
-void NodePosition(CStruct* node, Maths::Vector* out) { LevelNodes::GetPosition(node, out); }
+CStruct* NodeStructure(uint32_t name) { return LevelNodes::FetchVertex(name, true); }
+void NodePosition(CStruct* node, Maths::Vec4* out) { LevelNodes::FetchPlace(node, out); }
 
 // The composite objects' vtable slots used here.
 void MarkObjectDead(GameObjects::CGameEntity* object)
 {
     reinterpret_cast<void(__thiscall*)(void*)>(object->m_vtable[6])(object);
 }
-void Finalize(GameObjects::CGameEntity* object)
+void Seal(GameObjects::CGameEntity* object)
 {
     reinterpret_cast<void(__thiscall*)(void*)>(object->m_vtable[8])(object);
 }
@@ -178,11 +178,11 @@ float Wrapped(double angle)
 } // namespace
 
 // 0x004A6060
-CModelWidget* CModelWidget::Construct()
+CModelWidget* CModelWidget::MakeNew()
 {
     BaseConstruct(this);
     m_vtable = kCElement3dVtable;
-    for (Model& model : m_models) {
+    for (ShapeMesh& model : m_models) {
         new (&model.object) GameObjects::CSharedRef<GameObjects::CGameEntity>(); // (0x0042B580: all three words cleared)
         model.object.Release();
         model.offset = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -207,8 +207,8 @@ CModelWidget* CModelWidget::Construct()
     m_basisFrame.ResetToIdentity();
     m_pivot = {0.0f, 0.0f, 0.0f, 1.0f};
     m_centre = {0.0f, 0.0f, 0.0f, 1.0f};
-    // (not set here: the hover, ParentParams' offset and node - SetProperties sets them)
-    reinterpret_cast<GameObjects::CObject*>(this)->SetType(kElement3d);
+    // (not set here: the hover, ParentParams' offset and node - ChangeTraits sets them)
+    reinterpret_cast<GameObjects::CEntity*>(this)->ChangeSpecies(kElement3d);
     return this;
 }
 
@@ -223,21 +223,21 @@ void CModelWidget::DestroyBody()
 }
 
 // 0x004A6D00
-CModelWidget* CModelWidget::Destroy(uint8_t flags)
+CModelWidget* CModelWidget::Teardown(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004A5E30
 void CModelWidget::ClearModels()
 {
-    for (Model& model : m_models) {
+    for (ShapeMesh& model : m_models) {
         if (model.object) {
-            model.object->Hide(true);
-            MarkObjectDead(model.object.Get());
+            model.object->Conceal(true);
+            MarkObjectDead(model.object.Pull());
         }
         model.offset = {0.0f, 0.0f, 0.0f, 1.0f};
     }
@@ -250,18 +250,18 @@ void CModelWidget::ApplyViewport()
     uint32_t mask = 1u << (m_viewSlot & 31);
     for (int i = 0; i < m_numModels; ++i) {
         if (m_models[i].object)
-            SetModelViewports(m_models[i].object->GetComponent(kModelComponent), mask);
+            SetModelViewports(m_models[i].object->FetchModule(kModelComponent), mask);
     }
 }
 
 // 0x004A6540
-void CModelWidget::AttachModel(CStruct* params, Maths::Vector offset)
+void CModelWidget::AttachModel(CStruct* params, Maths::Vec4 offset)
 {
     GameObjects::CGameEntity* object = GameObjects::CompositeObjectManager()->CreateCompositeObject();
-    m_models[m_numModels].object.Set(object);
-    Scripts::LaunchScript(kAddComponentsScript, params, m_models[m_numModels].object.Get(), false, nullptr);
-    Finalize(m_models[m_numModels].object.Get());
-    Scripts::LaunchScript(kInitModelScript, params, m_models[m_numModels].object.Get(), false, nullptr);
+    m_models[m_numModels].object.AssignValue(object);
+    Scripts::LaunchScript(kAddComponentsScript, params, m_models[m_numModels].object.Pull(), false, nullptr);
+    Seal(m_models[m_numModels].object.Pull());
+    Scripts::LaunchScript(kInitModelScript, params, m_models[m_numModels].object.Pull(), false, nullptr);
     m_models[m_numModels].offset = offset;
     ++m_numModels;
 }
@@ -274,10 +274,10 @@ void CModelWidget::ScaleToScreenDims()
     // (left uninitialised by the original when the first slot is empty)
     float minX = 0, minY = 0, minZ = 0, maxX = 0, maxY = 0, maxZ = 0;
     for (int i = 0; i < m_numModels; ++i) {
-        Model& model = m_models[i];
+        ShapeMesh& model = m_models[i];
         if (!model.object)
             continue;
-        const Maths::Vector* box = ModelBoundingBox(model.object->GetComponent(kModelComponent));
+        const Maths::Vec4* box = ModelBoundingBox(model.object->FetchModule(kModelComponent));
         double lowX = static_cast<double>(box[0].x) + model.offset.x; // (compared unrounded)
         float lowY = box[0].y + model.offset.y;
         float lowZ = box[0].z + model.offset.z;
@@ -323,10 +323,10 @@ void CModelWidget::ScaleToScreenDims()
 }
 
 // 0x004A6630
-void CModelWidget::SetProperties(CStruct* params)
+void CModelWidget::ChangeTraits(CStruct* params)
 {
     BaseSetProperties(this, params);
-    Maths::Vector offset = {0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Vec4 offset = {0.0f, 0.0f, 0.0f, 1.0f};
     if (params->HasEntryNamed(kSkeletonName) || params->HasEntryNamed(kCloneModel) ||
         params->HasEntryNamed(kModel) || params->HasEntryNamed(kModels)) {
         ClearModels();
@@ -344,24 +344,24 @@ void CModelWidget::SetProperties(CStruct* params)
         ClearModels();
         params->PutNameKey(kClass, kLevelObject);
         Scripts::CArray* sectors = nullptr;
-        params->GetArray(kSectors, &sectors, 0);
-        for (uint32_t i = 0; i < sectors->m_size; ++i) {
-            auto* entry = reinterpret_cast<CStruct*>(sectors->GetElement(i));
+        params->FetchList(kSectors, &sectors, 0);
+        for (uint32_t i = 0; i < sectors->m_extent; ++i) {
+            auto* entry = reinterpret_cast<CStruct*>(sectors->FetchPart(i));
             uint32_t sector;
             entry->ReadHashValue(0u, &sector, 0);
             params->PutNameKey(kName, sector);
-            entry->GetVector(0u, reinterpret_cast<Scripts::VectorValue*>(&offset), 0);
+            entry->FetchVec(0u, reinterpret_cast<Scripts::VectorValue*>(&offset), 0);
             AttachModel(params, offset);
         }
     }
 
-    params->GetFloat(kCameraZ, &m_cameraZ, 0);
-    params->GetFloat(kAngleX, &m_angle[0], 0);
-    params->GetFloat(kAngleY, &m_angle[1], 0);
-    params->GetFloat(kAngleZ, &m_angle[2], 0);
-    params->GetFloat(kAngVelX, &m_angularVelocity[0], 0);
-    params->GetFloat(kAngVelY, &m_angularVelocity[1], 0);
-    params->GetFloat(kAngVelZ, &m_angularVelocity[2], 0);
+    params->FetchFloat(kCameraZ, &m_cameraZ, 0);
+    params->FetchFloat(kAngleX, &m_angle[0], 0);
+    params->FetchFloat(kAngleY, &m_angle[1], 0);
+    params->FetchFloat(kAngleZ, &m_angle[2], 0);
+    params->FetchFloat(kAngVelX, &m_angularVelocity[0], 0);
+    params->FetchFloat(kAngVelY, &m_angularVelocity[1], 0);
+    params->FetchFloat(kAngVelZ, &m_angularVelocity[2], 0);
     for (int order = 0; order < 6; ++order) {
         if (params->HasBareFlag(kAngleOrders[order]))
             m_angleOrder = order;
@@ -377,15 +377,15 @@ void CModelWidget::SetProperties(CStruct* params)
     if (params->ReadHashValue(kObjectToPointTo, &m_targetObject, 0))
         m_pointAt = kPointAtObject;
     m_leanAngle = 0.0f;
-    params->GetFloat(kTilt, &m_leanAngle, 0);
+    params->FetchFloat(kTilt, &m_leanAngle, 0);
 
     m_hoverAmplitude = 0.0f;
     m_hoverPeriod = 0;
     CStruct* hover = nullptr;
     if (params->ReadSubStruct(kHoverParams, &hover, 0)) {
-        hover->GetFloat(kAmp, &m_hoverAmplitude, 0);
+        hover->FetchFloat(kAmp, &m_hoverAmplitude, 0);
         float frequency = 1.0f;
-        hover->GetFloat(kFreq, &frequency, 0);
+        hover->FetchFloat(kFreq, &frequency, 0);
         m_hoverPeriod = Truncated(1000.0 / frequency);
     }
 
@@ -396,7 +396,7 @@ void CModelWidget::SetProperties(CStruct* params)
     CStruct* parent = nullptr;
     if (params->ReadSubStruct(kParentParams, &parent, 0)) {
         parent->ReadHashValue(kName, &m_parentObject, 0);
-        parent->GetVector(0u, reinterpret_cast<Scripts::VectorValue*>(&m_parentOffset), 0);
+        parent->FetchVec(0u, reinterpret_cast<Scripts::VectorValue*>(&m_parentOffset), 0);
         if (parent->FetchIntValue(kSkater, &m_parentInteger, 0))
             m_parentObject = kSkater;
         parent->ReadHashValue(kNode, &m_parentNode, 0);
@@ -404,15 +404,15 @@ void CModelWidget::SetProperties(CStruct* params)
 
     if (params->HasBareFlag(kScaleToScreenDims)) {
         ScaleToScreenDims();
-    } else if (params->GetVector("PivotPoint",
+    } else if (params->FetchVec("PivotPoint",
                                  reinterpret_cast<Scripts::VectorValue*>(&m_pivot), 0)) {
         m_pivot.w = 1.0f;
     }
     m_scaleWithDistance = params->HasBareFlag(kScaleWithDistance);
     m_distanceScale = 0.002f;
-    params->GetFloat(kDistanceScale, &m_distanceScale, 0);
+    params->FetchFloat(kDistanceScale, &m_distanceScale, 0);
     m_maxScale = 3.0f;
-    params->GetFloat(kMaxScale, &m_maxScale, 0);
+    params->FetchFloat(kMaxScale, &m_maxScale, 0);
     int viewport;
     if (params->FetchIntValue(kActiveViewport, &viewport, 0)) {
         m_viewSlot = viewport;
@@ -429,7 +429,7 @@ void CModelWidget::BlendTowards(CStruct* params)
 }
 
 // 0x004A6BD0
-void ApplyAngles(Maths::Matrix* m, float x, float y, float z, int order)
+void ApplyAngles(Maths::Mat4* m, float x, float y, float z, int order)
 {
     switch (order) {
     case 0:
@@ -468,8 +468,8 @@ void ApplyAngles(Maths::Matrix* m, float x, float y, float z, int order)
 }
 
 // 0x004A5EE0
-void ScreenToWorld(const Maths::Vector* centre, Maths::Matrix* out, int viewport, float x, float y, float z,
-                   Maths::Vector* local)
+void ScreenToWorld(const Maths::Vec4* centre, Maths::Mat4* out, int viewport, float x, float y, float z,
+                   Maths::Vec4* local)
 {
     float down = y - 224.0f; // (stored: rounded to float)
     double across = (static_cast<double>(x) - 320.0f) * (static_cast<double>(Engine3D::GetScreenAspect()) * AspectToLayout());
@@ -479,7 +479,7 @@ void ScreenToWorld(const Maths::Vector* centre, Maths::Matrix* out, int viewport
     }
     across = across * z * MinusInv448();
     double up = static_cast<double>(down) * z * Inv448();
-    Maths::Vector point;
+    Maths::Vec4 point;
     point.x = static_cast<float>(across + centre->x);
     point.y = static_cast<float>(up + centre->y);
     point.z = static_cast<float>(static_cast<double>(z) + centre->z);
@@ -490,10 +490,10 @@ void ScreenToWorld(const Maths::Vector* centre, Maths::Matrix* out, int viewport
     void* camera = ViewportCamera(viewport);
     if (!camera)
         return;
-    Maths::Matrix rotation = *CameraMatrix(camera);
+    Maths::Mat4 rotation = *CameraMatrix(camera);
     rotation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Maths::Vector place = point * rotation;
-    const Maths::Vector* position = ViewerLocation(camera);
+    Maths::Vec4 place = point * rotation;
+    const Maths::Vec4* position = ViewerLocation(camera);
     place.x = position->x + place.x;
     place.y = place.y + position->y;
     place.z = place.z + position->z;
@@ -535,7 +535,7 @@ __declspec(naked) void ScreenToWorldStub()
 // on 16:9, the 4:3 area 0.75; the goals menu's sign, the largest of the others, starts right of the centre).
 // `corners` are in the element's frame scaled (x right, y up, z backward, as the camera's), `place` is the
 // element's place in the camera's frame; a corner is seen at x / (-z * tan(half angle)) of the half-width.
-float WidescreenStretch(const Maths::Vector* corners, int count, const Maths::Vector& place, double tanHalfAngle)
+float WidescreenStretch(const Maths::Vec4* corners, int count, const Maths::Vec4& place, double tanHalfAngle)
 {
     if (!Engine3D::FrontEndWidescreen() || count <= 0 || !(tanHalfAngle > 0.0))
         return 1.0f;
@@ -584,71 +584,71 @@ float WidescreenStretch(const Maths::Vector* corners, int count, const Maths::Ve
 // its target, if any, and tilted. Then the models' own turn (the angles, advanced by the angular velocities, about
 // the pivot), scale (also with the distance to the camera, ScaleWithDistance) and hover, and each model's object
 // placed: hidden while the element is transparent.
-void CModelWidget::Update()
+void CModelWidget::TickFrame()
 {
     if (m_isDead || !m_numModels)
         return;
     bool onLayout = false;
-    Maths::Vector place = {};
+    Maths::Vec4 place = {};
     if (m_parentObject) {
         auto* manager = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::CompositeObjectManager());
-        GameObjects::CObject* parent = manager->LookUpEntity(m_parentObject);
+        GameObjects::CEntity* parent = manager->LookUpEntity(m_parentObject);
         if (parent) {
             m_basisFrame.ResetToIdentity();
-            m_basisFrame.row[3] = reinterpret_cast<GameObjects::CGameEntity*>(parent)->m_pos + m_parentOffset * m_basisFrame;
+            m_basisFrame.row[3] = reinterpret_cast<GameObjects::CGameEntity*>(parent)->m_atPoint + m_parentOffset * m_basisFrame;
         } else {
             Scripts::CScript* script = Scripts::SpawnScript(kKillScript, nullptr, 0, nullptr, 0, 0, false, false, false,
                                                           false);
-            script->m_object.Set(reinterpret_cast<GameObjects::CObject*>(this));
+            script->m_entity.AssignValue(reinterpret_cast<GameObjects::CEntity*>(this));
             m_isDead = true;
         }
     } else if (m_parentNode) {
-        Maths::Vector position;
+        Maths::Vec4 position;
         NodePosition(NodeStructure(m_parentNode), &position);
         m_basisFrame.ResetToIdentity();
-        Maths::Vector offset = m_parentOffset * m_basisFrame;
+        Maths::Vec4 offset = m_parentOffset * m_basisFrame;
         m_basisFrame.row[3].z = position.z + offset.z;
         m_basisFrame.row[3].w = position.w + offset.w;
         m_basisFrame.row[3].x = position.x + offset.x;
         m_basisFrame.row[3].y = position.y + offset.y;
     } else {
-        Maths::Vector centre = {static_cast<float>(static_cast<double>(m_centre.x) * m_fitScale),
+        Maths::Vec4 centre = {static_cast<float>(static_cast<double>(m_centre.x) * m_fitScale),
                               static_cast<float>(static_cast<double>(m_centre.y) * m_fitScale),
                               static_cast<float>(static_cast<double>(m_centre.z) * m_fitScale), 1.0f};
         float y = static_cast<float>(GetLayoutHeight() * 0.5f + m_summed.top);
         float x = static_cast<float>(GetLayoutWidth() * 0.5f + m_summed.left);
         ScreenToWorld(&centre, &m_basisFrame, m_viewSlot, x, y, m_cameraZ, &place);
         onLayout = m_pointAt == kPointAtNothing;
-        Maths::Vector target; // (left uninitialised by the original if the object isn't found)
+        Maths::Vec4 target; // (left uninitialised by the original if the object isn't found)
         target = {};
         if (m_pointAt == kPointAtNode) {
             target = m_targetPosition;
         } else if (m_pointAt == kPointAtObject) {
-            if (GameObjects::CObject* object = GameObjects::FindObject(m_targetObject))
-                target = reinterpret_cast<GameObjects::CGameEntity*>(object)->m_pos;
+            if (GameObjects::CEntity* object = GameObjects::FindObject(m_targetObject))
+                target = reinterpret_cast<GameObjects::CGameEntity*>(object)->m_atPoint;
         }
         if (m_pointAt != kPointAtNothing) {
             // Facing the target (row 2 the direction to it, row 0 across, w 1 - sic), then tilted about the
             // across axis by the tilt plus the tilt times the direction's height (degrees).
-            Maths::Vector from = m_basisFrame.row[3];
+            Maths::Vec4 from = m_basisFrame.row[3];
             m_basisFrame.ResetToIdentity();
-            Maths::Vector direction = target - from;
-            direction.Normalize();
+            Maths::Vec4 direction = target - from;
+            direction.MakeUnit();
             m_basisFrame.row[2] = direction;
             m_basisFrame.row[0].z = -direction.x;
             m_basisFrame.row[0].x = direction.z;
             m_basisFrame.row[0].y = 0.0f;
             m_basisFrame.row[0].w = 1.0f;
-            m_basisFrame.row[0].Normalize();
+            m_basisFrame.row[0].MakeUnit();
             m_basisFrame.SquareUpAxes(2);
             double tilt = m_leanAngle;
             m_basisFrame.PitchLocally(static_cast<float>((tilt - -(tilt * m_basisFrame.row[2].y)) * Degrees()));
-            m_basisFrame.Translate(from);
+            m_basisFrame.Slide(from);
         }
     }
 
     // The models' own turn about the pivot.
-    Maths::Matrix local;
+    Maths::Mat4 local;
     local.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     local.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     local.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -666,10 +666,10 @@ void CModelWidget::Update()
     local.row[3].w += m_pivot.w;
 
     float scaleX = static_cast<float>(static_cast<double>(m_summed.scaleX) * m_fitScale);
-    Maths::Vector scale = {scaleX, static_cast<float>(static_cast<double>(m_summed.scaleY) * m_fitScale), scaleX, 1.0f};
+    Maths::Vec4 scale = {scaleX, static_cast<float>(static_cast<double>(m_summed.scaleY) * m_fitScale), scaleX, 1.0f};
     void* camera = nullptr;
     if (m_scaleWithDistance && (camera = ViewportCamera(m_viewSlot)) != nullptr) {
-        Maths::Vector away = m_basisFrame.row[3] - *ViewerLocation(camera);
+        Maths::Vec4 away = m_basisFrame.row[3] - *ViewerLocation(camera);
         double distance =
             std::sqrt(static_cast<double>(away.x) * away.x + static_cast<double>(away.z) * away.z +
                       static_cast<double>(away.y) * away.y) *
@@ -689,22 +689,22 @@ void CModelWidget::Update()
     if (onLayout && Engine3D::FrontEndWidescreen()) {
         void* view = ViewportCamera(m_viewSlot);
         if (view) {
-            Maths::Vector corners[8 * kMaxModels];
+            Maths::Vec4 corners[8 * kMaxModels];
             int count = 0;
             for (int i = 0; i < m_numModels; ++i) {
                 if (!m_models[i].object)
                     continue;
-                GameObjects::CObjectModule* component = m_models[i].object->GetComponent(kModelComponent);
-                const Maths::Vector* box = component ? ModelBoundingBoxIfAny(component) : nullptr;
+                GameObjects::CObjectModule* component = m_models[i].object->FetchModule(kModelComponent);
+                const Maths::Vec4* box = component ? ModelBoundingBoxIfAny(component) : nullptr;
                 if (!box) {
                     count = 0; // (a model without a box yet: left as it is this frame)
                     break;
                 }
                 for (int c = 0; c < 8; ++c) {
-                    Maths::Vector corner = {(c & 1 ? box[1].x : box[0].x) + m_models[i].offset.x,
+                    Maths::Vec4 corner = {(c & 1 ? box[1].x : box[0].x) + m_models[i].offset.x,
                                           (c & 2 ? box[1].y : box[0].y) + m_models[i].offset.y,
                                           (c & 4 ? box[1].z : box[0].z) + m_models[i].offset.z, 1.0f};
-                    Maths::Vector e = corner * local;
+                    Maths::Vec4 e = corner * local;
                     corners[count++] = {e.x * scale.x, e.y * scale.y, e.z * scale.z, 1.0f};
                 }
             }
@@ -714,10 +714,10 @@ void CModelWidget::Update()
         }
     }
 
-    local.Scale(scale);
+    local.StretchBy(scale);
     Maths::Multiply(m_basisFrame, local, m_basisFrame);
 
-    Maths::Vector hover = {};
+    Maths::Vec4 hover = {};
     if (m_hoverAmplitude > 0.0f) {
         uint32_t period = static_cast<uint32_t>(m_hoverPeriod);
         uint32_t phase = FrameClock::GetTime() % period * 2;
@@ -729,31 +729,31 @@ void CModelWidget::Update()
     }
     bool visible = m_summed.alpha >= VisibleAlpha();
     for (int i = 0; i < m_numModels; ++i) {
-        Model& model = m_models[i];
+        ShapeMesh& model = m_models[i];
         if (!model.object)
             continue;
-        GameObjects::CObjectModule* component = model.object->GetComponent(kModelComponent);
-        Maths::Vector position = model.offset * m_basisFrame;
-        Maths::Matrix orientation = m_basisFrame;
+        GameObjects::CObjectModule* component = model.object->FetchModule(kModelComponent);
+        Maths::Vec4 position = model.offset * m_basisFrame;
+        Maths::Mat4 orientation = m_basisFrame;
         if (m_hoverAmplitude > 0.0f) {
             position.x = hover.x + position.x;
             position.y = position.y + hover.y;
             position.z = position.z + hover.z;
             position.w = position.w + hover.w;
         }
-        model.object->Hide(!visible);
-        model.object->m_pos = position;
+        model.object->Conceal(!visible);
+        model.object->m_atPoint = position;
         model.object->m_displayMatrix = orientation;
-        component->Update();
+        component->TickFrame();
     }
 }
 
 namespace {
-static VtableSlot kCElement3dVtable_slots[] = {&MenuSystem::CModelWidget::Destroy, &MenuSystem::CModelWidget::SetProperties,
-                static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
-                &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &GameObjects::CObject::PassEventToScript,
-                &GameObjects::CObject::FlagAsDead, Stubs::ReturnTrue, &CUiWidget::GetProperties,
-                &MenuSystem::CModelWidget::BlendTowards, &MenuSystem::CModelWidget::Update};
+static VtableSlot kCElement3dVtable_slots[] = {&MenuSystem::CModelWidget::Teardown, &MenuSystem::CModelWidget::ChangeTraits,
+                static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
+                &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &GameObjects::CEntity::PassEventToScript,
+                &GameObjects::CEntity::FlagAsDead, Stubs::ReturnTrue, &CUiWidget::GetProperties,
+                &MenuSystem::CModelWidget::BlendTowards, &MenuSystem::CModelWidget::TickFrame};
 void** const kCElement3dVtable = reinterpret_cast<void**>(kCElement3dVtable_slots);
 } // namespace
 

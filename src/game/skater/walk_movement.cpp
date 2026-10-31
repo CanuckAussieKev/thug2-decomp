@@ -72,7 +72,7 @@ float AcosDegrees(float value)
 }
 
 // a + (b - a) * t.
-Maths::Vector* Lerp(Maths::Vector* out, const Maths::Vector* a, const Maths::Vector* b, float t) { return Walk::Lerp(out, a, b, t); }
+Maths::Vec4* Lerp(Maths::Vec4* out, const Maths::Vec4* a, const Maths::Vec4* b, float t) { return Walk::Lerp(out, a, b, t); }
 
 double FrameLength(void* walk) { return At<float>(walk, kFrameLength); }
 
@@ -81,14 +81,14 @@ double FrameLength(void* walk) { return At<float>(walk, kFrameLength); }
 // 0x00526260
 void CFootMovement::TurnFacingToVelocity()
 {
-    const Maths::Vector& vel = At<Maths::Vector>(this, kVel);
+    const Maths::Vec4& vel = At<Maths::Vec4>(this, kVel);
     float speed = static_cast<float>(
         X87::Sqrt((static_cast<double>(vel.x) * vel.x + static_cast<double>(vel.y) * vel.y) +
                   static_cast<double>(vel.z) * vel.z));
     if (speed < WalkParameter(kWallTurnSpeedThreshold))
         return;
-    Maths::Vector direction = vel;
-    direction.Normalize();
+    Maths::Vec4 direction = vel;
+    direction.MakeUnit();
     // The turn this frame: wall_turn_factor a second at max_wall_turn_speed_threshold and above, less from the
     // threshold up.
     double rate;
@@ -101,28 +101,28 @@ void CFootMovement::TurnFacingToVelocity()
         rate = (static_cast<double>(speed) - least) / (static_cast<double>(most) - least) *
                (static_cast<double>(factor) * FrameLength(this));
     }
-    Maths::Vector& facing = At<Maths::Vector>(this, kFacing);
+    Maths::Vec4& facing = At<Maths::Vec4>(this, kFacing);
     if (rate >= kOne) {
         facing = direction;
         return;
     }
     // (below 1 - or NaN - the rate rounded to float)
-    Maths::Vector turned;
+    Maths::Vec4 turned;
     facing = *Lerp(&turned, &facing, &direction, static_cast<float>(rate));
-    facing.Normalize();
+    facing.MakeUnit();
 }
 
 // 0x00526430
-double CFootMovement::AdjustSpeedForSlope(float speed, const Maths::Vector* direction)
+double CFootMovement::AdjustSpeedForSlope(float speed, const Maths::Vec4* direction)
 {
-    const Maths::Vector& normal = At<Maths::Vector>(this, kGroundNormal);
+    const Maths::Vec4& normal = At<Maths::Vec4>(this, kGroundNormal);
     if (normal.y > kSteepSlope)
         return speed;
     if (speed <= WalkParameter(kWalkSpeed))
         return speed;
     // On a steep slope, faster than walking: slowed by how much the direction runs up or down it.
-    Maths::Vector downhill = {normal.x, 0.0f, normal.z, normal.w};
-    downhill.Normalize();
+    Maths::Vec4 downhill = {normal.x, 0.0f, normal.z, normal.w};
+    downhill.MakeUnit();
     double along = std::fabs((static_cast<double>(downhill.z) * direction->z +
                               static_cast<double>(downhill.y) * direction->y) +
                              static_cast<double>(downhill.x) * direction->x);
@@ -132,7 +132,7 @@ double CFootMovement::AdjustSpeedForSlope(float speed, const Maths::Vector* dire
 // 0x00527420
 void CFootMovement::UpdateUpright()
 {
-    Maths::Vector& up = At<Maths::Vector>(this, kUp);
+    Maths::Vec4& up = At<Maths::Vec4>(this, kUp);
     if (At<uint32_t>(this, kUp + 4) == 0x3F800000) // (up.y exactly 1)
         return;
     if (up.y > kNearlyUpright) {
@@ -143,21 +143,21 @@ void CFootMovement::UpdateUpright()
     if (!(At<float>(this, kUpright) == 0.0f))
         return;
     float rate = WalkParameter(kLerpUprightRate);
-    Maths::Vector upright = {0.0f, 1.0f, 0.0f, 1.0f};
-    Maths::Vector eased;
+    Maths::Vec4 upright = {0.0f, 1.0f, 0.0f, 1.0f};
+    Maths::Vec4 eased;
     up = *Lerp(&eased, &up, &upright, static_cast<float>(FrameClock::GetSlomoFrameSeconds() * rate));
-    up.Normalize();
+    up.MakeUnit();
 }
 
 // 0x00527720
-void CFootMovement::SetTransitionFacing(const Maths::Vector* facing, float rate)
+void CFootMovement::SetTransitionFacing(const Maths::Vec4* facing, float rate)
 {
-    const Maths::Vector& current = At<Maths::Vector>(this, kFacing);
+    const Maths::Vec4& current = At<Maths::Vec4>(this, kFacing);
     double turn = X87::Atan2Difference(facing->x, facing->z, current.x, current.z);
     At<float>(this, kTransitionTurn) = static_cast<float>(turn);
     if (std::fabs(turn) > kPi) // the shorter way round
         At<float>(this, kTransitionTurn) = static_cast<float>(turn - (turn < 0.0 ? -1.0f : kOne) * kTwoPi);
-    At<Maths::Vector>(this, kTransitionFacing) = *facing;
+    At<Maths::Vec4>(this, kTransitionFacing) = *facing;
     At<float>(this, kTransitionRate) = rate;
 }
 
@@ -168,13 +168,13 @@ void CFootMovement::UpdateCollisionCache()
     float height = WalkParameter(kWalkerHeight);
     float below = WalkParameter(kSnapDownHeight);
     float above = static_cast<float>(static_cast<double>(height) + kOne);
-    const Maths::Vector& pos = static_cast<CGameEntity*>(m_object)->m_pos;
+    const Maths::Vec4& pos = static_cast<CGameEntity*>(m_entity)->m_atPoint;
     Maths::BBox box;
     box.max = {pos.x + reach, pos.y + above, pos.z + reach, pos.w};
     below = static_cast<float>(static_cast<double>(below) + kOne);
     box.min = {pos.x - reach, pos.y - below, pos.z - reach, pos.w};
     Engine3D::CHitMeshCache& cache = At<Engine3D::CHitMeshCache>(this, kCollCache);
-    cache.Update(box);
+    cache.TickFrame(box);
     Engine3D::g_currentCache = &cache; // the feelers' current cache
 }
 
@@ -195,12 +195,12 @@ void CFootMovement::UpdatePush()
 {
     if (!At<bool>(this, kPushing))
         return;
-    Maths::Vector& pos = At<Maths::Vector>(this, kPos);
+    Maths::Vec4& pos = At<Maths::Vec4>(this, kPos);
     if (pos.y > At<float>(this, kPushHeight)) {
         At<bool>(this, kPushing) = false;
         return;
     }
-    const Maths::Vector& normal = At<Maths::Vector>(this, kPushNormal);
+    const Maths::Vec4& normal = At<Maths::Vec4>(this, kPushNormal);
     float distance = static_cast<float>(((static_cast<double>(normal.z) * pos.z + static_cast<double>(normal.y) * pos.y) +
                                          static_cast<double>(normal.x) * pos.x) -
                                         At<float>(this, kPushPlaneDistance));
@@ -216,7 +216,7 @@ void CFootMovement::UpdatePush()
     pos.y = pos.y - pushY;
     pos.z = pos.z - pushZ;
     pos.w = pos.w - pushW;
-    Maths::Vector& vel = At<Maths::Vector>(this, kVel);
+    Maths::Vec4& vel = At<Maths::Vec4>(this, kVel);
     double into = (static_cast<double>(normal.z) * vel.z + static_cast<double>(normal.y) * vel.y) +
                   static_cast<double>(vel.x) * normal.x;
     if (into == 0.0)
@@ -227,15 +227,15 @@ void CFootMovement::UpdatePush()
 // 0x00527DB0
 void CFootMovement::CopyFromObject()
 {
-    auto* object = static_cast<CGameEntity*>(m_object);
-    At<Maths::Vector>(this, kPos) = object->m_pos;
-    Maths::Vector& vel = At<Maths::Vector>(this, kVel);
+    auto* object = static_cast<CGameEntity*>(m_entity);
+    At<Maths::Vec4>(this, kPos) = object->m_atPoint;
+    Maths::Vec4& vel = At<Maths::Vec4>(this, kVel);
     vel = object->m_vel;
     vel.y = 0.0f;
     At<float>(this, kVerticalVel) = object->m_vel.y;
-    Maths::Vector& up = At<Maths::Vector>(this, kUp);
+    Maths::Vec4& up = At<Maths::Vec4>(this, kUp);
     up = object->m_basisFrame.row[1];
-    Maths::Vector& facing = At<Maths::Vector>(this, kFacing);
+    Maths::Vec4& facing = At<Maths::Vec4>(this, kFacing);
     facing = object->m_basisFrame.row[2];
     At<float>(this, kFacingY) = facing.y;
     facing.y = 0.0f;
@@ -243,12 +243,12 @@ void CFootMovement::CopyFromObject()
                               static_cast<double>(facing.z) * facing.z);
     if (length < kMinFacingLength) {
         // Facing straight up or down: the way the up row leans, backwards; the up row nudged upright.
-        const Maths::Vector& objectUp = object->m_basisFrame.row[1];
+        const Maths::Vec4& objectUp = object->m_basisFrame.row[1];
         facing = {-objectUp.x, -objectUp.y, -objectUp.z, -objectUp.w};
         facing.y = 0.0f;
-        facing.Normalize();
+        facing.MakeUnit();
         up.y = static_cast<float>(static_cast<double>(up.y) + kUprightNudge);
-        up.Normalize();
+        up.MakeUnit();
         return;
     }
     double inverse = kOne / length;
@@ -263,7 +263,7 @@ void CFootMovement::UpdateControl()
 {
     // The camera's flat forward (its at-row backwards), turned by the stick's angle - straight ahead within
     // forward_tolerance degrees.
-    const Maths::Vector& at = At<CGameEntity*>(this, kCamera)->m_basisFrame.row[2];
+    const Maths::Vec4& at = At<CGameEntity*>(this, kCamera)->m_basisFrame.row[2];
     auto* pad = reinterpret_cast<CPadState*>(At<uint8_t*>(this, kInput) + 0x20);
     float forwardX = -at.x;
     float forwardZ = -at.z;
@@ -277,8 +277,8 @@ void CFootMovement::UpdateControl()
     if (WalkParameter(kForwardTolerance) * static_cast<double>(kDegreesToRadians) > std::fabs(angle))
         angle = 0.0f;
     double turnedZ, turnedX;
-    X87::Rotate(angle, forwardZ, forwardX, &turnedZ, &turnedX);
-    Maths::Vector& control = At<Maths::Vector>(this, kControlDirection);
+    X87::SpinBy(angle, forwardZ, forwardX, &turnedZ, &turnedX);
+    Maths::Vec4& control = At<Maths::Vec4>(this, kControlDirection);
     control.x = static_cast<float>(turnedX);
     control.z = static_cast<float>(turnedZ);
 
@@ -311,7 +311,7 @@ void CFootMovement::UpdateControl()
         }
     }
     if (At<int>(this, kState) == 0 && At<bool>(this, kForwardControlLock))
-        control = At<Maths::Vector>(this, kFacing);
+        control = At<Maths::Vec4>(this, kFacing);
 }
 
 // 0x00528120
@@ -347,11 +347,11 @@ void CFootMovement::SteerJump()
     }
     // The velocity apart from what the jump carries along unsteered, eased toward what the push asks for: across
     // the jump's direction and along it.
-    Maths::Vector& vel = At<Maths::Vector>(this, kVel);
-    const Maths::Vector& carried = At<Maths::Vector>(this, kJumpBaseVel);
+    Maths::Vec4& vel = At<Maths::Vec4>(this, kVel);
+    const Maths::Vec4& carried = At<Maths::Vec4>(this, kJumpBaseVel);
     vel = {vel.x - carried.x, vel.y - carried.y, vel.z - carried.z, vel.w - carried.w};
-    const Maths::Vector& dir = At<Maths::Vector>(this, kJumpDirection);
-    const Maths::Vector& control = At<Maths::Vector>(this, kControlDirection);
+    const Maths::Vec4& dir = At<Maths::Vec4>(this, kJumpDirection);
+    const Maths::Vec4& control = At<Maths::Vec4>(this, kControlDirection);
     float magnitude = At<float>(this, kControlMagnitude);
     float sideX = -dir.z, sideZ = dir.x; // (the jump's sideways direction: y 0, w 1)
     float sideTarget = static_cast<float>(((static_cast<double>(sideZ) * control.z + static_cast<double>(sideX) * control.x) +
@@ -395,7 +395,7 @@ void CFootMovement::SteerJump()
 }
 
 // 0x00528950
-void CFootMovement::UpdateGroundVelocity(Maths::Vector* velocity)
+void CFootMovement::UpdateGroundVelocity(Maths::Vec4* velocity)
 {
     float speed = static_cast<float>(std::sqrt(
         (static_cast<double>(velocity->x) * velocity->x + static_cast<double>(velocity->y) * velocity->y) +
@@ -407,7 +407,7 @@ void CFootMovement::UpdateGroundVelocity(Maths::Vector* velocity)
     // The way it's going: the velocity's (past ignore_velocity_threshold), else the push's, else the velocity's
     // (past 0.01), else the facing.
     float magnitude = At<float>(this, kControlMagnitude);
-    Maths::Vector direction;
+    Maths::Vec4 direction;
     double directionW;
     if (speed > WalkParameter(kIgnoreVelocityThreshold)) {
         double inverse = kOne / static_cast<double>(speed);
@@ -415,21 +415,21 @@ void CFootMovement::UpdateGroundVelocity(Maths::Vector* velocity)
         direction = {inverseF * velocity->x, inverseF * velocity->y, inverseF * velocity->z, 0.0f};
         directionW = inverse * velocity->w;
     } else if (!(magnitude == 0.0f)) {
-        direction = At<Maths::Vector>(this, kControlDirection);
+        direction = At<Maths::Vec4>(this, kControlDirection);
         directionW = direction.w;
     } else if (speed > kMinMoveSpeed) {
         direction = Maths::operator/(*velocity, speed);
         directionW = direction.w;
     } else {
-        direction = At<Maths::Vector>(this, kFacing);
+        direction = At<Maths::Vec4>(this, kFacing);
         directionW = direction.w;
     }
     direction.w = static_cast<float>(directionW);
-    Maths::Vector result = direction;
+    Maths::Vec4 result = direction;
 
     if (magnitude > 0.0f) {
-        const Maths::Vector& control = At<Maths::Vector>(this, kControlDirection);
-        Maths::Vector& facing = At<Maths::Vector>(this, kFacing);
+        const Maths::Vec4& control = At<Maths::Vec4>(this, kControlDirection);
+        Maths::Vec4& facing = At<Maths::Vec4>(this, kFacing);
         // Pushed against the way it's going: no speed asked for.
         if ((static_cast<double>(direction.z) * control.z + static_cast<double>(direction.y) * control.y) +
                 static_cast<double>(direction.x) * control.x <=
@@ -452,12 +452,12 @@ void CFootMovement::UpdateGroundVelocity(Maths::Vector* velocity)
                 turn = static_cast<float>(static_cast<double>(WalkParameter(kWallRotateFactor)) * turn);
             } else {
                 double turnedX, turnedZ;
-                X87::Rotate(left ? turn : -turn, facing.x, facing.z, &turnedX, &turnedZ);
+                X87::SpinBy(left ? turn : -turn, facing.x, facing.z, &turnedX, &turnedZ);
                 float aheadX = static_cast<float>(turnedX), aheadZ = static_cast<float>(turnedZ);
                 Engine3D::CProbeRay feeler;
-                feeler.Construct();
-                Maths::Vector& start = feeler.m_line.start;
-                start = At<Maths::Vector>(this, kPos);
+                feeler.MakeNew();
+                Maths::Vec4& start = feeler.m_line.start;
+                start = At<Maths::Vec4>(this, kPos);
                 start.y = static_cast<float>(static_cast<double>(start.y) + WalkParameter(kFeelerHeight));
                 float reach = WalkParameter(kFeelerLength);
                 float none = reach * 0.0f;
@@ -467,7 +467,7 @@ void CFootMovement::UpdateGroundVelocity(Maths::Vector* velocity)
                     turn = static_cast<float>(static_cast<double>(WalkParameter(kWallRotateFactor)) * turn);
             }
             double newX, newZ;
-            X87::Rotate(left ? turn : -turn, facing.x, facing.z, &newX, &newZ);
+            X87::SpinBy(left ? turn : -turn, facing.x, facing.z, &newX, &newZ);
             facing.z = static_cast<float>(newZ);
             facing.x = static_cast<float>(newX);
             // Turned past the push: onto it.
@@ -490,9 +490,9 @@ void CFootMovement::UpdateGroundVelocity(Maths::Vector* velocity)
             if (step >= kOne) {
                 facing = control;
             } else {
-                Maths::Vector eased;
+                Maths::Vec4 eased;
                 facing = *Lerp(&eased, &facing, &control, static_cast<float>(step));
-                facing.Normalize();
+                facing.MakeUnit();
             }
             result = facing;
         }
@@ -527,9 +527,9 @@ void CFootMovement::UpdateRotateUpright()
     // This frame's share of the turn (+0x730 about +0x734) over rotate_upright_duration.
     float duration = WalkParameter(kRotateUprightDuration);
     float angle = static_cast<float>(FrameLength(this) / duration * At<float>(this, kUprightAngle));
-    Maths::Matrix rotation;
-    Maths::BuildAxisAngleMatrix(rotation, At<Maths::Vector>(this, kUprightAxis), angle);
-    auto* object = static_cast<CGameEntity*>(m_object);
+    Maths::Mat4 rotation;
+    Maths::BuildAxisAngleMatrix(rotation, At<Maths::Vec4>(this, kUprightAxis), angle);
+    auto* object = static_cast<CGameEntity*>(m_entity);
     // D3DXMatrixMultiply (0x005BFA8C)
     D3dx::MatrixMultiply(
         &object->m_basisFrame, &object->m_basisFrame, &rotation);
@@ -541,13 +541,13 @@ void CFootMovement::UpdateRotateUpright()
 // 0x005298D0
 void CFootMovement::ApplyTransition()
 {
-    auto* object = static_cast<CGameEntity*>(m_object);
-    const Maths::Vector& at = At<Maths::Vector>(this, kTransitionPos);
-    const Maths::Vector& offset = At<Maths::Vector>(this, kClimbOffset);
-    object->m_pos = {at.x + offset.x, at.y + offset.y, at.z + offset.z, at.w + offset.w};
+    auto* object = static_cast<CGameEntity*>(m_entity);
+    const Maths::Vec4& at = At<Maths::Vec4>(this, kTransitionPos);
+    const Maths::Vec4& offset = At<Maths::Vec4>(this, kClimbOffset);
+    object->m_atPoint = {at.x + offset.x, at.y + offset.y, at.z + offset.z, at.w + offset.w};
     // Upright, facing the transition's facing (row 0's w 1, as the original).
-    const Maths::Vector& facing = At<Maths::Vector>(this, kTransitionFacing);
-    Maths::Matrix matrix;
+    const Maths::Vec4& facing = At<Maths::Vec4>(this, kTransitionFacing);
+    Maths::Mat4 matrix;
     matrix.row[0] = {facing.z, 0.0f, -facing.x, 1.0f};
     matrix.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
     matrix.row[2] = facing;
@@ -567,33 +567,33 @@ void CFootMovement::CopyToObject()
     float facingY = At<float>(this, kFacingY);
     double flat = kOne - static_cast<double>(facingY) * facingY;
     double k = flat > 0.0 ? std::sqrt(flat) : static_cast<double>(kNoFlat);
-    Maths::Vector& facing = At<Maths::Vector>(this, kFacing);
+    Maths::Vec4& facing = At<Maths::Vec4>(this, kFacing);
     facing = {static_cast<float>(k * facing.x), static_cast<float>(k * facing.y), static_cast<float>(k * facing.z),
               static_cast<float>(k * facing.w)};
     facing.y = facingY;
     // The orientation from the up vector and the facing.
-    const Maths::Vector& up = At<Maths::Vector>(this, kUp);
-    Maths::Matrix matrix;
-    Maths::Vector& right = matrix.row[0];
+    const Maths::Vec4& up = At<Maths::Vec4>(this, kUp);
+    Maths::Mat4 matrix;
+    Maths::Vec4& right = matrix.row[0];
     right = {static_cast<float>(static_cast<double>(up.y) * facing.z - static_cast<double>(up.z) * facing.y),
              static_cast<float>(static_cast<double>(up.z) * facing.x - static_cast<double>(up.x) * facing.z),
              static_cast<float>(static_cast<double>(up.x) * facing.y - static_cast<double>(up.y) * facing.x), 0.0f};
-    right.Normalize();
+    right.MakeUnit();
     matrix.row[1] = up;
     matrix.row[2] = {static_cast<float>(static_cast<double>(up.z) * right.y - static_cast<double>(up.y) * right.z),
                      static_cast<float>(static_cast<double>(up.x) * right.z - static_cast<double>(up.z) * right.x),
                      static_cast<float>(static_cast<double>(up.y) * right.x - static_cast<double>(up.x) * right.y), 0.0f};
     matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    auto* object = static_cast<CGameEntity*>(m_object);
-    object->m_pos = At<Maths::Vector>(this, kPos);
+    auto* object = static_cast<CGameEntity*>(m_entity);
+    object->m_atPoint = At<Maths::Vec4>(this, kPos);
     object->m_basisFrame = matrix;
     object->m_displayMatrix = matrix;
     // The object's velocity by state.
-    Maths::Vector& vel = object->m_vel;
+    Maths::Vec4& vel = object->m_vel;
     switch (At<int>(this, kState)) {
     case 0: // on the ground, in the air
     case 1:
-        vel = At<Maths::Vector>(this, kVel);
+        vel = At<Maths::Vec4>(this, kVel);
         vel.y = At<float>(this, kVerticalVel);
         break;
     case 2: { // hanging: sideways along the ledge
@@ -610,7 +610,7 @@ void CFootMovement::CopyToObject()
     }
     // The model raised along the up vector by the display offset.
     float offset = At<float>(this, kDisplayOffset);
-    At<Maths::Vector>(At<void*>(this, kModel), 0x1F8) = {matrix.row[1].x * offset, matrix.row[1].y * offset,
+    At<Maths::Vec4>(At<void*>(this, kModel), 0x1F8) = {matrix.row[1].x * offset, matrix.row[1].y * offset,
                                                        matrix.row[1].z * offset, matrix.row[1].w * offset};
 }
 

@@ -7,8 +7,8 @@
 // orientation= place it. Nodes are found through the node manager's name hash (0x006F0D84). From the disassembly of
 // 0x0045BE10-0x0045C590 (all cdecl).
 namespace Maths {
-class Vector;
-class Matrix;
+class Vec4;
+class Mat4;
 } // namespace Mth
 namespace Scripts {
 class CArray;
@@ -23,35 +23,35 @@ uint32_t GetNodeName(Scripts::CStruct* node);
 // 0x0045C020: how many links= it has (0 if none).
 uint32_t GetLinkCount(Scripts::CStruct* node);
 // 0x0045BE10: the name of its link `index` [it has to have links=: the original reads a null array otherwise].
-uint32_t GetLink(Scripts::CStruct* node, int index);
-// 0x0045C420: the node its link `index` names (GetNode, asserting).
+uint32_t FetchLink(Scripts::CStruct* node, int index);
+// 0x0045C420: the node its link `index` names (FetchVertex, asserting).
 Scripts::CStruct* GetLinkedNode(Scripts::CStruct* node, int index);
 // 0x0045C4B0: whether one of its links is `target`.
 bool HasLinkTo(Scripts::CStruct* node, Scripts::CStruct* target);
 // 0x0045C050: `out` = its pos=, else its position= with z negated, else (0, 0, 0, 1). Whether it had either.
-bool GetPosition(Scripts::CStruct* node, Maths::Vector* out);
+bool FetchPlace(Scripts::CStruct* node, Maths::Vec4* out);
 // 0x0045C180: `out` = its angles= (default (0, 0, 0, 1)). Whether it had them.
-bool ReadTurnAngles(Scripts::CStruct* node, Maths::Vector* out);
+bool ReadTurnAngles(Scripts::CStruct* node, Maths::Vec4* out);
 // 0x0045C0B0: `out` = the rotation of its orientation= (a unit quaternion's x, y, z; w = sqrt(1 - x2 - y2 - z2),
 // 0 if they're longer than 1); the identity if it has none.
-void GetOrientation(Scripts::CStruct* node, Maths::Matrix* out);
+void FetchFacing(Scripts::CStruct* node, Maths::Mat4* out);
 
 // --- a node, by its name ---
 // 0x0045C1B0: the node named `name` (null if there's none; `assert` isn't used).
-Scripts::CStruct* GetNode(uint32_t name, bool assert);
+Scripts::CStruct* FetchVertex(uint32_t name, bool assert);
 // 0x0045BE70: whether there's a node named `name`.
 bool NodeExists(uint32_t name);
 // 0x0045C3A0 / 0x0045C3E0 / 0x0045C460 / 0x0045C560 / 0x0045C590: as above, for the node named `name`.
 uint32_t GetLinkCount(uint32_t name);
-uint32_t GetLink(uint32_t name, int index);
+uint32_t FetchLink(uint32_t name, int index);
 Scripts::CStruct* GetLinkedNode(uint32_t name, int index);
-bool GetPosition(uint32_t name, Maths::Vector* out);
-bool ReadTurnAngles(uint32_t name, Maths::Vector* out);
+bool FetchPlace(uint32_t name, Maths::Vec4* out);
+bool ReadTurnAngles(uint32_t name, Maths::Vec4* out);
 // 0x0045C520: whether the node named `name` links to the node named `target`.
 bool HasLinkTo(uint32_t name, uint32_t target);
 // 0x0045C2D0: of the nodes whose names start with `prefix` (node_prefixes.h), the one nearest `pos` (the first
 // of equals; null if there are none) [a node without pos= is taken to be where the one before it was].
-Scripts::CStruct* FindClosestNodeWithPrefix(uint32_t prefix, const Maths::Vector* pos);
+Scripts::CStruct* FindClosestNodeWithPrefix(uint32_t prefix, const Maths::Vec4* pos);
 
 // --- the calls scripts make ---
 // What a call is handed to: its arguments (parsed with the calling script's) and its first token.

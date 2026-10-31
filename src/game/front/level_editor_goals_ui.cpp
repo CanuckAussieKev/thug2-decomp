@@ -76,12 +76,12 @@ void Settings(const Goal& goal, ImFont* mono)
     ImGui::PushFont(mono);
     if (IntField("Time limit##goal", &g.time, 1.0f, 15, 3600, "%d s", &done))
         changed = true;
-    if (g.type == Type::HighScore || g.type == Type::HighCombo) {
-        if (IntField(g.type == Type::HighScore ? "High score##goal" : "High combo##goal", &g.score, 250.0f, 1000,
+    if (g.type == KindTag::HighScore || g.type == KindTag::HighCombo) {
+        if (IntField(g.type == KindTag::HighScore ? "High score##goal" : "High combo##goal", &g.score, 250.0f, 1000,
                      10000000, "%d", &done))
             changed = true;
     }
-    if (g.type == Type::Race) {
+    if (g.type == KindTag::Race) {
         if (IntField("Laps##goal", &g.laps, 0.1f, 1, 10, "%d", &done))
             changed = true;
         if (IntField("Per-checkpoint##goal", &g.checkpointTime, 0.2f, 0, 60, g.checkpointTime ? "%d s" : "Off", &done))
@@ -89,7 +89,7 @@ void Settings(const Goal& goal, ImFont* mono)
     }
     ImGui::PopFont();
     // (goal_update_control: SKATE letters and gap goals keep theirs; the trick goals have none)
-    if (!TrickType(g.type) && g.type != Type::Skate && g.type != Type::Gap) {
+    if (!TrickType(g.type) && g.type != KindTag::Skate && g.type != KindTag::Gap) {
         int control = g.walk ? 1 : 0;
         ImGui::SetNextItemWidth(150.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::Combo("Control##goal", &control, "Skate\0Walk\0")) {
@@ -97,7 +97,7 @@ void Settings(const Goal& goal, ImFont* mono)
             changed = done = true;
         }
     }
-    if (g.type == Type::Gap) {
+    if (g.type == KindTag::Gap) {
         ImGui::TextUnformatted("Gaps");
         std::vector<std::string> gaps = LevelGaps();
         for (const std::string& name : g.gaps) {
@@ -132,23 +132,23 @@ void Settings(const Goal& goal, ImFont* mono)
             }
         }
         ImGui::PushFont(mono);
-        if (g.type != Type::TrickBeat) {
+        if (g.type != KindTag::TrickBeat) {
             if (IntField("Spin##goal", &g.spin, 2.0f, 0, 900, g.spin ? "%d" : "Off", &done))
                 changed = true;
         }
-        if (g.type == Type::ComboSkatetris) {
+        if (g.type == KindTag::ComboSkatetris) {
             if (ImGui::Checkbox("Single combo##goal", &g.singleCombo))
                 changed = done = true;
             if (IntField("Combo size##goal", &g.comboSize, 0.1f, 1, 15, "%d", &done))
                 changed = true;
         }
-        if (g.type == Type::TrickTris) {
+        if (g.type == KindTag::TrickTris) {
             if (IntField("Block size##goal", &g.blockSize, 0.1f, 1, 15, "%d", &done))
                 changed = true;
             if (IntField("Total to win##goal", &g.toWin, 0.5f, 1, 1000, "%d", &done))
                 changed = true;
         }
-        if (g.type == Type::Skatetris || (g.type == Type::ComboSkatetris && !g.singleCombo)) {
+        if (g.type == KindTag::Skatetris || (g.type == KindTag::ComboSkatetris && !g.singleCombo)) {
             if (IntField("Accel. interval##goal", &g.accelInterval, 0.1f, 1, 10, "%d", &done))
                 changed = true;
             int percent = static_cast<int>(g.accelPercent * 100.0f + 0.01f);
@@ -232,10 +232,10 @@ void InspectorSection(uint32_t node, ImFont* mono, ImFont* smallFont)
         std::string goalId = g.id;
         int index = static_cast<int>(k);
         if (ImGui::SmallButton(label.c_str()))
-            Queue([goalId, index] { Select(goalId, index); });
+            Queue([goalId, index] { ChooseOne(goalId, index); });
     }
     ImGui::PopFont();
-    if (g.type == Type::Race) {
+    if (g.type == KindTag::Race) {
         std::string goalId = g.id;
         if (static_cast<int>(g.points.size()) < MaxPoints(g.type) && ImGui::Button("Add checkpoint##goal"))
             Queue([goalId] { AddCheckpoint(goalId); });
@@ -260,7 +260,7 @@ void InspectorSection(uint32_t node, ImFont* mono, ImFont* smallFont)
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
     if (ImGui::Button("Delete goal##goal"))
-        Queue([goalId] { Remove(goalId); });
+        Queue([goalId] { DropOut(goalId); });
     ImGui::PopStyleColor();
     
 }
@@ -275,9 +275,9 @@ void ListSection(ImFont* mono, ImFont* smallFont)
     ImGui::TextDisabled("Goals for this level, saved with the layout");
     ImGui::PopFont();
     ImGui::SetNextItemWidth(170.0f * ImGui::GetFontSize() / 13.0f);
-    if (ImGui::BeginCombo("##goaltype", TypeTitle(static_cast<Type>(g_newType)))) {
+    if (ImGui::BeginCombo("##goaltype", TypeTitle(static_cast<KindTag>(g_newType)))) {
         for (int t = 0; t < kTypes; ++t) {
-            if (ImGui::Selectable(TypeTitle(static_cast<Type>(t)), t == g_newType))
+            if (ImGui::Selectable(TypeTitle(static_cast<KindTag>(t)), t == g_newType))
                 g_newType = t;
         }
         ImGui::EndCombo();
@@ -287,8 +287,8 @@ void ListSection(ImFont* mono, ImFont* smallFont)
     if (static_cast<int>(all.size()) >= kMaxGoals)
         ImGui::BeginDisabled();
     if (ImGui::Button("New goal")) {
-        Type type = static_cast<Type>(g_newType);
-        Queue([type] { Create(type); });
+        KindTag type = static_cast<KindTag>(g_newType);
+        Queue([type] { Fabricate(type); });
     }
     if (static_cast<int>(all.size()) >= kMaxGoals)
         ImGui::EndDisabled();
@@ -309,7 +309,7 @@ void ListSection(ImFont* mono, ImFont* smallFont)
         ImGui::SameLine();
         std::string goalId = g.id;
         if (ImGui::SmallButton("Select"))
-            Queue([goalId] { Select(goalId, 0); });
+            Queue([goalId] { ChooseOne(goalId, 0); });
         ImGui::PopID();
     }
     ImGui::PopFont();

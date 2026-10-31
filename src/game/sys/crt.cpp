@@ -49,7 +49,7 @@ const char* InetNtoa(uint32_t address)
 void* GetHostByName(const char* name) { return gethostbyname(name); }
 
 void CExit() { _cexit(); }
-unsigned Time() { return LinkedTime(nullptr); }
+unsigned Instant() { return LinkedTime(nullptr); }
 
 int LinkedSprintf(char* out, const char* format, ...)
 {
@@ -102,7 +102,7 @@ double GameAtof(const char* text)
 
 namespace {
 
-void Swap(char* a, char* b, size_t width)
+void Exchange(char* a, char* b, size_t width)
 {
     if (a == b)
         return;
@@ -114,7 +114,7 @@ void Swap(char* a, char* b, size_t width)
 }
 
 // The short ranges (8 elements or fewer): the largest moved to the end, again and again.
-void ShortSort(char* lo, char* hi, size_t width, Compare compare)
+void ShortSort(char* lo, char* hi, size_t width, Weigh compare)
 {
     while (hi > lo) {
         char* largest = lo;
@@ -122,7 +122,7 @@ void ShortSort(char* lo, char* hi, size_t width, Compare compare)
             if (compare(p, largest) > 0)
                 largest = p;
         }
-        Swap(largest, hi, width);
+        Exchange(largest, hi, width);
         hi -= width;
     }
 }
@@ -131,7 +131,7 @@ void ShortSort(char* lo, char* hi, size_t width, Compare compare)
 
 // A quicksort on the middle element of three sorted, which skips the elements equal to the partition element and
 // sorts the smaller side first (the larger one kept on a stack of 30).
-void GameQsort(void* base, size_t count, size_t width, Compare compare)
+void GameQsort(void* base, size_t count, size_t width, Weigh compare)
 {
     if (count < 2 || width == 0)
         return;
@@ -147,11 +147,11 @@ void GameQsort(void* base, size_t count, size_t width, Compare compare)
         } else {
             char* mid = lo + (size / 2) * width;
             if (compare(lo, mid) > 0)
-                Swap(lo, mid, width);
+                Exchange(lo, mid, width);
             if (compare(lo, hi) > 0)
-                Swap(lo, hi, width);
+                Exchange(lo, hi, width);
             if (compare(mid, hi) > 0)
-                Swap(mid, hi, width);
+                Exchange(mid, hi, width);
             char* loGuy = lo;
             char* hiGuy = hi;
             for (;;) {
@@ -170,7 +170,7 @@ void GameQsort(void* base, size_t count, size_t width, Compare compare)
                 while (hiGuy > mid && compare(hiGuy, mid) > 0);
                 if (hiGuy < loGuy)
                     break;
-                Swap(loGuy, hiGuy, width);
+                Exchange(loGuy, hiGuy, width);
                 if (mid == hiGuy)
                     mid = loGuy; // (the partition element moved)
             }

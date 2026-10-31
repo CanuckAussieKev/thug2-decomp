@@ -85,7 +85,7 @@ bool CompetitionGoalActive()
 Scripts::CStruct* NewStructure()
 {
     Scripts::CStruct* structure = Scripts::NewStruct();
-    return structure ? structure->Init() : nullptr;
+    return structure ? structure->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
 {
@@ -97,7 +97,7 @@ void DeleteStructure(Scripts::CStruct* structure)
 Scripts::CArray* NewArray()
 {
     Scripts::CArray* array = Scripts::NewArray();
-    return array ? array->Init() : nullptr;
+    return array ? array->PrepareAll() : nullptr;
 }
 // An array handed to a structure (which copied it): its contents and itself freed.
 void FreeArray(Scripts::CArray* array)
@@ -144,9 +144,9 @@ int CContest::Leader::BestTwoOfFourWords() const
 }
 
 // 0x0054FFD0
-CContest::Leader* CContest::Leader::Construct()
+CContest::Leader* CContest::Leader::MakeNew()
 {
-    new (&m_name) TextUtil::String();
+    new (&m_label) TextUtil::Chars();
     return this;
 }
 
@@ -155,11 +155,11 @@ void CContest::DestroyBody()
 {
     // (the compiler's array-destructor helper, 0x0062382B: last to first)
     for (int i = 7; i >= 0; --i)
-        m_leaders[i].m_name.~String();
+        m_leaders[i].m_label.~Chars();
 }
 
 // 0x00550010
-void CContest::RewriteArgs(Scripts::CStruct* params) { m_params->AppendStructureIfAny(params); }
+void CContest::RewriteArgs(Scripts::CStruct* params) { m_args->AppendStructureIfAny(params); }
 
 // 0x00550020
 void CContest::BeginTimedSession()
@@ -207,24 +207,24 @@ void CContest::SortLeaders()
         for (int j = i + 1; j < kLeaders; ++j) {
             int score = m_leaders[j].BestTwo(count);
             int bestScore = m_leaders[best].BestTwo(count);
-            if (score > bestScore || (m_leaders[j].m_id == 0 && score == bestScore))
+            if (score > bestScore || (m_leaders[j].m_ident == 0 && score == bestScore))
                 best = j;
         }
         if (best != i) {
             // (a leader's copy: the name, the id, the scores and m_unknown1C - not the padding)
             Leader& a = m_leaders[best];
             Leader& b = m_leaders[i];
-            TextUtil::String name(a.m_name);
-            int id = a.m_id;
+            TextUtil::Chars name(a.m_label);
+            int id = a.m_ident;
             int scores[kRuns] = {a.m_scores[0], a.m_scores[1], a.m_scores[2]};
             bool unknown = a.m_unknown1C;
-            a.m_name = b.m_name;
-            a.m_id = b.m_id;
+            a.m_label = b.m_label;
+            a.m_ident = b.m_ident;
             for (int k = 0; k < kRuns; ++k)
                 a.m_scores[k] = b.m_scores[k];
             a.m_unknown1C = b.m_unknown1C;
-            b.m_name = name;
-            b.m_id = id;
+            b.m_label = name;
+            b.m_ident = id;
             for (int k = 0; k < kRuns; ++k)
                 b.m_scores[k] = scores[k];
             b.m_unknown1C = unknown;
@@ -233,17 +233,17 @@ void CContest::SortLeaders()
 }
 
 // 0x005504B0
-CContest* CContest::Construct(int)
+CContest* CContest::MakeNew(int)
 {
     // (the compiler's array-constructor helper, 0x0062388B)
     for (Leader& leader : m_leaders)
-        leader.Construct();
-    m_params = NewStructure();
+        leader.MakeNew();
+    m_args = NewStructure();
     return this;
 }
 
 // 0x00550560
-void CContest::Start(float bronze, float silver, float gold, float bronzeScore, float silverScore,
+void CContest::Kickoff(float bronze, float silver, float gold, float bronzeScore, float silverScore,
                          float goldScore, float bailPenalty)
 {
     m_thirdMark = bronze;
@@ -256,17 +256,17 @@ void CContest::Start(float bronze, float silver, float gold, float bronzeScore, 
     m_ended = false;
 
     GameObjects::CProfileRoster* manager = ProfileManager();
-    m_leaders[0].m_name = manager->GetCurrentProfile()->GetDisplayName();
+    m_leaders[0].m_label = manager->FetchActiveAccount()->FetchShownName();
 
     // The pros that can compete: not hidden (0xF3149AC5) and not the player, in a random order.
     int pros[96]; // (the original's stack room)
     int proCount = 0;
-    int templates = static_cast<int>(manager->m_templates.m_count);
+    int templates = static_cast<int>(manager->m_templates.m_num);
     for (int i = 0; i < templates; ++i) {
         GameObjects::CRiderIdentity* profile = TemplateAt(manager, i);
         if (profile->IsPro() && !profile->HasFlagF3149AC5() &&
-            Checksums::HashFromText(profile->GetDisplayName()) !=
-                Checksums::HashFromText(m_leaders[0].m_name.c_str()))
+            Checksums::HashFromText(profile->FetchShownName()) !=
+                Checksums::HashFromText(m_leaders[0].m_label.c_str()))
             pros[proCount++] = i;
     }
     for (int i = 0; i < proCount; ++i) {
@@ -283,7 +283,7 @@ void CContest::Start(float bronze, float silver, float gold, float bronzeScore, 
         ids[other] = swap;
     }
 
-    m_leaders[0].m_id = 0;
+    m_leaders[0].m_ident = 0;
     for (int& score : m_leaders[0].m_scores)
         score = 0;
     bronze = static_cast<float>(Maths::PlusOrMinusExact(Two()) + bronze);
@@ -296,14 +296,14 @@ void CContest::Start(float bronze, float silver, float gold, float bronzeScore, 
 
     for (int i = 0; i < kLeaders - 1; ++i) {
         Leader& leader = m_leaders[i + 1];
-        leader.m_id = ids[i];
+        leader.m_ident = ids[i];
         Scripts::CArray* names;
         const char* name;
-        if (m_params->GetArray(kLeaderBoardNames, &names, 0))
+        if (m_args->FetchList(kLeaderBoardNames, &names, 0))
             name = names->FindInlineText(static_cast<uint32_t>(i));
         else
-            name = manager->GetTemplate(manager->GetTemplateName(pros[i]))->GetDisplayName();
-        leader.m_name = name;
+            name = manager->GetTemplate(manager->GetTemplateName(pros[i]))->FetchShownName();
+        leader.m_label = name;
 
         // The first three pros near the medal points, the others near the bronze.
         float points;
@@ -341,21 +341,21 @@ void CContest::Start(float bronze, float silver, float gold, float bronzeScore, 
     DebugOut::Printf("\n\n");
     for (int i = 0; i < kLeaders; ++i) {
         Leader& leader = m_leaders[i];
-        DebugOut::Printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
+        DebugOut::Printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.m_ident, leader.m_label.c_str(), leader.Word(0),
                     leader.Word(1), leader.Word(2), leader.BestTwoOfFourWords());
     }
     SortLeaders();
     const char* firstPlace;
-    if (m_params->GetString(kFirstPlaceName, &firstPlace, 0))
-        m_leaders[0].m_name = firstPlace;
+    if (m_args->FetchText(kFirstPlaceName, &firstPlace, 0))
+        m_leaders[0].m_label = firstPlace;
     DebugOut::Printf("\nSorted\n");
     for (int i = 0; i < kLeaders; ++i) {
         Leader& leader = m_leaders[i];
-        DebugOut::Printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
+        DebugOut::Printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.m_ident, leader.m_label.c_str(), leader.Word(0),
                     leader.Word(1), leader.Word(2), leader.BestTwoOfFourWords());
     }
     for (int i = 0; i < kJudges; ++i)
-        m_judgeNames[i] = Scripts::GetString(kJudgeNames[i]);
+        m_judgeNames[i] = Scripts::FetchText(kJudgeNames[i]);
     m_runs = -1;
 }
 
@@ -370,16 +370,16 @@ void CContest::ShowLeaderBoard()
     DebugOut::Printf("\nSetupJudgeText\n");
     for (int i = 0; i < kLeaders; ++i) {
         Leader& leader = m_leaders[i];
-        DebugOut::Printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.m_id, leader.m_name.c_str(), leader.Word(0),
+        DebugOut::Printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.m_ident, leader.m_label.c_str(), leader.Word(0),
                     leader.Word(1), leader.Word(2), leader.BestTwoOfFourWords());
     }
     for (int i = 0; i < 5; ++i) {
         Leader& leader = m_leaders[i];
         Scripts::CStruct* entry = NewStructure();
-        entry->AddString(kName, leader.m_name.c_str());
+        entry->AppendWord(kName, leader.m_label.c_str());
         DebugOut::Printf("m_current_round: %i\n", m_runs);
         entry->PutInt(kScore, leader.BestTwo(m_runs + 1));
-        if (leader.m_id == 0)
+        if (leader.m_ident == 0)
             entry->PutNameKey(kNoName, kPlayer);
         board->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
     }
@@ -475,12 +475,12 @@ void CContest::EndRun(int score)
 
     // The player's score of the run, the standings, the place.
     for (Leader& leader : m_leaders) {
-        if (leader.m_id == 0)
+        if (leader.m_ident == 0)
             leader.m_scores[m_runs] = m_runScores[m_runs];
     }
     SortLeaders();
     for (int i = 0; i < kLeaders; ++i) {
-        if (m_leaders[i].m_id == 0)
+        if (m_leaders[i].m_ident == 0)
             m_standing = i + 1;
     }
 

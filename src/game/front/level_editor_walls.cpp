@@ -39,12 +39,12 @@ void StepCollision(Engine3D::CTriMeshSource* tri, const Placement& from, const P
 {
     Step step = StepBetween(from, to);
     if (step.turns) {
-        Maths::Vector centre = {step.centre.x, step.centre.y, step.centre.z, 0.0f};
+        Maths::Vec4 centre = {step.centre.x, step.centre.y, step.centre.z, 0.0f};
         tri->RotateY(&centre, step.turns);
     }
     if (step.delta.x != 0.0f || step.delta.y != 0.0f || step.delta.z != 0.0f) {
-        Maths::Vector delta = {step.delta.x, step.delta.y, step.delta.z, 0.0f};
-        tri->Translate(&delta);
+        Maths::Vec4 delta = {step.delta.x, step.delta.y, step.delta.z, 0.0f};
+        tri->Slide(&delta);
     }
 }
 
@@ -98,15 +98,15 @@ uint8_t* CollOf(uint8_t* sector)
 Engine3D::CTriMeshSource* TriOf(uint8_t* coll) { return *reinterpret_cast<Engine3D::CTriMeshSource**>(coll + 0x0C); }
 bool FlagOff(uint8_t* coll) { return (coll[0x08] & 4) != 0; }
 
-// CWorldCell::SetActive (0x0049E9B0: the collision's flag 4, the geometry's active flag when it has one).
-void SetActive(uint8_t* sector, bool active)
+// CWorldCell::ChangeLive (0x0049E9B0: the collision's flag 4, the geometry's active flag when it has one).
+void ChangeLive(uint8_t* sector, bool active)
 {
-    reinterpret_cast<Engine3D::CWorldCell*>(sector)->SetActive(active);
+    reinterpret_cast<Engine3D::CWorldCell*>(sector)->ChangeLive(active);
 }
-// The geometry's IsActive (0x0048DE70, as CWorldCell::IsActive 0x0049E9E0 asks it).
+// The geometry's IsOperative (0x0048DE70, as CWorldCell::IsOperative 0x0049E9E0 asks it).
 bool GeomActive(uint8_t* geom) { return reinterpret_cast<bool(__thiscall*)(void*)>(&Engine3D::VirtualSlot14Jump)(geom); }
 
-bool SameV(const Maths::Vector& a, const Maths::Vector& b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
+bool SameV(const Maths::Vec4& a, const Maths::Vec4& b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 
 // What the editor has done to a sector's collision: where it put it (walls), whether it switched it off, how it was
 // when first touched; the box after its last step (a wall's: anything else moving it - another level at the same
@@ -118,12 +118,12 @@ struct Track {
     bool wall;
     Placement placement;
     bool off0, off;
-    Maths::Vector min, max;
+    Maths::Vec4 min, max;
 };
 std::map<uint32_t, Track> g_tracks;
 
 // Whether a track is still of the sector that has that checksum now, as the editor left it.
-bool Current(uint32_t checksum, const Track& t)
+bool AtHand(uint32_t checksum, const Track& t)
 {
     uint8_t* sector = Scenery::SectorOf(checksum);
     uint8_t* coll = sector ? CollOf(sector) : nullptr;
@@ -146,7 +146,7 @@ Track* TrackOf(uint32_t checksum)
     bool wall = GeomOf(sector) == nullptr;
     auto it = g_tracks.find(checksum);
     if (it != g_tracks.end()) {
-        if (Current(checksum, it->second))
+        if (AtHand(checksum, it->second))
             return &it->second;
         g_tracks.erase(it); // (another level, or moved by something else: started again from where it is)
     }
@@ -168,7 +168,7 @@ void PutSwitch(Track* t)
 {
     if (t->wall) {
         if (FlagOff(t->coll) != t->off)
-            SetActive(t->sector, !t->off);
+            ChangeLive(t->sector, !t->off);
         return;
     }
     uint8_t* geom = GeomOf(t->sector);
@@ -203,7 +203,7 @@ bool IsWall(uint32_t checksum)
     return coll && TriOf(coll) && GeomOf(sector) == nullptr;
 }
 
-bool Box(uint32_t checksum, V3* min, V3* max)
+bool Cuboid(uint32_t checksum, V3* min, V3* max)
 {
     uint8_t* sector = Scenery::SectorOf(checksum);
     uint8_t* coll = sector ? CollOf(sector) : nullptr;
@@ -218,14 +218,14 @@ bool Box(uint32_t checksum, V3* min, V3* max)
 V3 Pivot(uint32_t checksum)
 {
     V3 min = {}, max = {};
-    Box(checksum, &min, &max);
+    Cuboid(checksum, &min, &max);
     return (min + max) * 0.5f;
 }
 
 float Bottom(uint32_t checksum)
 {
     V3 min = {}, max = {};
-    Box(checksum, &min, &max);
+    Cuboid(checksum, &min, &max);
     return min.y;
 }
 
@@ -260,7 +260,7 @@ bool SetOff(uint32_t checksum, bool off)
     return true;
 }
 
-bool Off(uint32_t checksum)
+bool Disengaged(uint32_t checksum)
 {
     auto it = g_tracks.find(checksum);
     if (it != g_tracks.end()) {
@@ -282,9 +282,9 @@ bool Moved(uint32_t checksum, Placement* placement)
     return !IsHome(*placement);
 }
 
-void Commit() { Scenery::Commit(); }
+void Finalise() { Scenery::Finalise(); }
 
-std::vector<WallState> Save(const std::vector<uint32_t>& checksums)
+std::vector<WallState> StoreAway(const std::vector<uint32_t>& checksums)
 {
     std::vector<WallState> states;
     for (uint32_t checksum : checksums) {
@@ -304,7 +304,7 @@ void ApplyStates(const std::vector<WallState>& states)
         t->off = state.off;
         PutSwitch(t);
     }
-    Scenery::Commit();
+    Scenery::Finalise();
 }
 
 std::vector<WallState> Changed()
@@ -312,7 +312,7 @@ std::vector<WallState> Changed()
     std::vector<WallState> changed;
     for (const auto& entry : g_tracks) {
         const Track& t = entry.second;
-        if (Scenery::IsClone(entry.first) || !Current(entry.first, t))
+        if (Scenery::IsClone(entry.first) || !AtHand(entry.first, t))
             continue;
         if (!IsHome(t.placement) || t.off != t.off0)
             changed.push_back({entry.first, t.wall ? t.placement : Placement{0, {0.0f, 0.0f, 0.0f}}, t.off});
@@ -325,7 +325,7 @@ void ResetAll()
     // (tracks of another level - the sector gone or not the one tracked - are forgotten, not applied)
     std::vector<WallState> home;
     for (auto it = g_tracks.begin(); it != g_tracks.end();) {
-        if (!Current(it->first, it->second)) {
+        if (!AtHand(it->first, it->second)) {
             it = g_tracks.erase(it);
             continue;
         }
@@ -339,7 +339,7 @@ void Tick()
 {
     for (auto& entry : g_tracks) {
         Track& t = entry.second;
-        if (t.wall || !t.off || !Current(entry.first, t))
+        if (t.wall || !t.off || !AtHand(entry.first, t))
             continue;
         uint8_t* geom = GeomOf(t.sector);
         if (geom && GeomActive(geom) && !FlagOff(t.coll))
@@ -349,7 +349,7 @@ void Tick()
 
 std::string DescribeState(uint32_t checksum)
 {
-    bool off = Off(checksum);
+    bool off = Disengaged(checksum);
     Placement placement = {0, {0.0f, 0.0f, 0.0f}};
     bool moved = Moved(checksum, &placement);
     char text[192];

@@ -50,7 +50,7 @@ constexpr uint8_t kMsgCreateSpecialItem = 0x77;
 constexpr uint8_t kMsgDestroySpecialItem = 0x78;
 
 template <typename T>
-T& Field(const void* object, uint32_t offset)
+T& Prop(const void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
@@ -58,7 +58,7 @@ T& Field(const void* object, uint32_t offset)
 Scripts::CStruct* NewParams()
 {
     Scripts::CStruct* memory = Scripts::NewStruct();
-    return memory ? memory->Init() : nullptr;
+    return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
 {
@@ -74,8 +74,8 @@ void FlagAsDead(CGameEntity* object) { reinterpret_cast<void(__thiscall*)(CGameE
 // An object's model's data (its model component's +0x208), or null.
 uint8_t* ModelData(CGameEntity* object)
 {
-    CObjectModule* model = object->GetComponent(kModel);
-    return model ? Field<uint8_t*>(model, 0x208) : nullptr;
+    CObjectModule* model = object->FetchModule(kModel);
+    return model ? Prop<uint8_t*>(model, 0x208) : nullptr;
 }
 
 // A message to the server, in a network game.
@@ -85,26 +85,26 @@ void SendToServer(uint8_t id, void* data)
     if (!manager->InNetGame())
         return;
     NetLink::NetMessageInfo msg;
-    msg.Construct();
-    auto* client = static_cast<NetLink::Client*>(manager->GetClient(0));
-    msg.m_data = data;
+    msg.MakeNew();
+    auto* client = static_cast<NetLink::Guest*>(manager->FetchPatron(0));
+    msg.m_content = data;
     msg.m_byteCount = 0xC;
-    msg.m_id = id;
+    msg.m_ident = id;
     client->SendToHost(&msg);
 }
 
 } // namespace
 
 // 0x0051BD80
-CObjectModule* __cdecl CPickupItemHandler::Create()
+CObjectModule* __cdecl CPickupItemHandler::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CPickupItemHandler));
     if (!memory)
         return nullptr;
     auto* items = static_cast<CPickupItemHandler*>(memory);
-    items->CObjectModule::Construct();
+    items->CObjectModule::MakeNew();
     items->m_vtable = kVtable;
-    items->m_type = kType;
+    items->m_kindTag = kType;
     items->m_items[0] = nullptr;
     items->m_items[1] = nullptr;
     return items;
@@ -120,11 +120,11 @@ void CPickupItemHandler::DestroyBody()
 }
 
 // 0x0051C130
-CPickupItemHandler* CPickupItemHandler::Destroy(unsigned int flags)
+CPickupItemHandler* CPickupItemHandler::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -157,7 +157,7 @@ CGameEntity* CPickupItemHandler::CreateItem(int slot, Scripts::CStruct* params)
         DestroyItem(slot);
     uint32_t id;
     if (params->ReadHashValue(kId, &id, 0)) {
-        id += m_object->m_id;
+        id += m_entity->m_ident;
         params->PutNameKey(kId, id);
     }
     MemSys::PushMemProfile("Game Objects");
@@ -166,7 +166,7 @@ CGameEntity* CPickupItemHandler::CreateItem(int slot, Scripts::CStruct* params)
     m_items[slot] = item;
 
     Scripts::CStruct* tags = NewParams();
-    tags->PutNameKey(kOwner, m_object->m_id);
+    tags->PutNameKey(kOwner, m_entity->m_ident);
     uint32_t script;
     if (params->ReadHashValue(kDeathScript, &script, 0))
         tags->PutNameKey(kDeathScript, script);
@@ -174,12 +174,12 @@ CGameEntity* CPickupItemHandler::CreateItem(int slot, Scripts::CStruct* params)
     DeleteParams(tags);
 
     // In the object's colour.
-    uint8_t* mine = ModelData(m_object);
+    uint8_t* mine = ModelData(m_entity);
     uint8_t* its = ModelData(item);
     if (mine && its) {
-        uint32_t colour[4] = {Field<uint32_t>(mine, 0x1C), Field<uint32_t>(mine, 0x20), Field<uint32_t>(mine, 0x24),
-                              Field<uint32_t>(mine, 0x28)};
-        reinterpret_cast<Engine3D::CRenderModel*>(its)->ChangeScale(reinterpret_cast<const Maths::Vector*>(colour)); // (0x00492EE0: four words set)
+        uint32_t colour[4] = {Prop<uint32_t>(mine, 0x1C), Prop<uint32_t>(mine, 0x20), Prop<uint32_t>(mine, 0x24),
+                              Prop<uint32_t>(mine, 0x28)};
+        reinterpret_cast<Engine3D::CRenderModel*>(its)->ChangeScale(reinterpret_cast<const Maths::Vec4*>(colour)); // (0x00492EE0: four words set)
     }
     return item;
 }
@@ -200,8 +200,8 @@ int CPickupItemHandler::InvokeMethodByName(uint32_t name, Scripts::CStruct* para
         CGameEntity* item = CreateItem(slot, Scripts::ReadSubStruct(itemParams));
         Scripts::CStruct* lock = NewParams();
         lock->AppendStructureIfAny(params);
-        lock->PutNameKey(kObjectId, m_object->m_id);
-        item->GetComponent(kLockObj)->ConfigureFromData(lock);
+        lock->PutNameKey(kObjectId, m_entity->m_ident);
+        item->FetchModule(kLockObj)->ConfigureFromData(lock);
         DeleteParams(lock);
         struct {
             uint32_t params;
@@ -209,7 +209,7 @@ int CPickupItemHandler::InvokeMethodByName(uint32_t name, Scripts::CStruct* para
             uint8_t objectId;
             uint8_t slot;
             uint8_t pad[2];
-        } created = {itemParams, bone, static_cast<uint8_t>(m_object->m_id), static_cast<uint8_t>(slot), {}};
+        } created = {itemParams, bone, static_cast<uint8_t>(m_entity->m_ident), static_cast<uint8_t>(slot), {}};
         SendToServer(kMsgCreateSpecialItem, &created);
         return 1;
     }
@@ -222,7 +222,7 @@ int CPickupItemHandler::InvokeMethodByName(uint32_t name, Scripts::CStruct* para
             uint8_t objectId;
             uint8_t slot;
             uint8_t pad[2];
-        } destroyed = {{}, static_cast<uint8_t>(m_object->m_id), static_cast<uint8_t>(slot), {}};
+        } destroyed = {{}, static_cast<uint8_t>(m_entity->m_ident), static_cast<uint8_t>(slot), {}};
         SendToServer(kMsgDestroySpecialItem, &destroyed);
         return 1;
     }
@@ -248,14 +248,14 @@ int CPickupItemHandler::InvokeMethodByName(uint32_t name, Scripts::CStruct* para
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CPickupItemHandler::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CPickupItemHandler::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

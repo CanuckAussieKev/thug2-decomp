@@ -55,7 +55,7 @@ AssetStore::CResourceRegistry* AssetManager() { return AssetStore::g_assetManage
 Scripts::CStruct* NewParams()
 {
     Scripts::CStruct* params = Scripts::NewStruct();
-    return params ? params->Init() : nullptr;
+    return params ? params->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
 {
@@ -68,14 +68,14 @@ void DeleteParams(Scripts::CStruct* params)
 } // namespace
 
 // 0x0041D200
-CObjectModule* __cdecl CFamComponent::Create()
+CObjectModule* __cdecl CFamComponent::Fabricate()
 {
     auto* component = static_cast<CFamComponent*>(MemSys::AllocZeroed(sizeof(CFamComponent)));
     if (!component)
         return nullptr;
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     component->m_fam = 0;
     component->m_feed = 0;
     return component;
@@ -96,11 +96,11 @@ void CFamComponent::DestroyBody()
 }
 
 // 0x0041D1A0
-CFamComponent* CFamComponent::Destroy(unsigned int flags)
+CFamComponent* CFamComponent::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -109,12 +109,12 @@ void CFamComponent::UnloadFam()
 {
     if (!m_fam)
         return;
-    Scripts::StopScriptsUsingObjectThatReferTo(m_object, kFamScript);
+    Scripts::StopScriptsUsingObjectThatReferTo(m_entity, kFamScript);
     Scripts::CStruct* params = NewParams();
     params->PutNameKey(kTypeParam, kPartialAnim);
     params->PutNameKey(kId, kJawRotation);
-    if (m_object)
-        m_object->GetComponent(CAnimBlenderComponent::kType)->InvokeMethodByName(kRemoveAnimController, params, nullptr);
+    if (m_entity)
+        m_entity->FetchModule(CAnimBlenderComponent::kType)->InvokeMethodByName(kRemoveAnimController, params, nullptr);
     DeleteParams(params);
     AssetStore::CResourceRegistry* assets = AssetManager();
     if (AssetStore::CResource* asset = assets->ObtainLoadedItem(m_fam, 0))
@@ -144,8 +144,8 @@ bool CFamComponent::PlayFam(uint32_t name, bool streamOnly, int volume, int prio
     if (!AudioStream::StreamExists(name))
         return false;
     if (m_feed) {
-        Scripts::StopScriptsUsingObjectThatReferTo(m_object, kFamScript);
-        AudioStream::StopStream(m_feed);
+        Scripts::StopScriptsUsingObjectThatReferTo(m_entity, kFamScript);
+        AudioStream::HaltStream(m_feed);
         m_feed = 0;
     }
     Scripts::CStruct* params = NewParams();
@@ -154,7 +154,7 @@ bool CFamComponent::PlayFam(uint32_t name, bool streamOnly, int volume, int prio
         params->PutInt(kVol, volume);
     if (!streamOnly) {
         params->PutInt(kUsePosInfo, 0);
-        auto* blender = static_cast<CAnimBlenderComponent*>(m_object->GetComponent(CAnimBlenderComponent::kType));
+        auto* blender = static_cast<CAnimBlenderComponent*>(m_entity->FetchModule(CAnimBlenderComponent::kType));
         uint32_t animSet = blender->GetAnimSet();
         LoadAnimBank(name, animSet);
         uint32_t stream = AudioStream::PrimeStream(name, priority);
@@ -164,7 +164,7 @@ bool CFamComponent::PlayFam(uint32_t name, bool streamOnly, int volume, int prio
             params->PutNameKey(0u, kPlayAnim);
     }
     Scripts::CScript* script = Scripts::SpawnScript(kFamScript, params, 0, nullptr, 0, 0, false, false, false, false);
-    script->m_object.Set(m_object);
+    script->m_entity.AssignValue(m_entity);
     DeleteParams(params);
     return true;
 }
@@ -185,8 +185,8 @@ int CFamComponent::Obj_PlayFam(Scripts::CStruct* params, Scripts::CScript*)
 int CFamComponent::Obj_StopLastFam(Scripts::CStruct*, Scripts::CScript*)
 {
     if (m_feed) {
-        Scripts::StopScriptsUsingObjectThatReferTo(m_object, kFamScript);
-        AudioStream::StopStream(m_feed);
+        Scripts::StopScriptsUsingObjectThatReferTo(m_entity, kFamScript);
+        AudioStream::HaltStream(m_feed);
         m_feed = 0;
     }
     return 1;
@@ -197,14 +197,14 @@ int CFamComponent::Obj_StopLastFam(Scripts::CStruct*, Scripts::CScript*)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CFamComponent::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CFamComponent::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

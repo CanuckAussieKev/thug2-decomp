@@ -48,13 +48,13 @@ namespace {
 
 extern void** const kSystemVtable;
 extern void** const kSystemNodeVtable;
-void** const& kNodeVtable = Vt::kParticleNode; // (ListKit::Node<CParticleSystem>'s own)
+void** const& kNodeVtable = Vt::kParticleNode; // (ListKit::Elem<CParticleSystem>'s own)
 constexpr float kNearlyUp = 0.99f;                                // 0x00645450
 constexpr float kFramesPerSecond = 60.0f;                         // 0x00645EA0
 
 void* ParticleManager() { return g_flexibleParticleManager; }
 int ViewportCount() { return GameModules::g_viewportCount; }
-Gfx2D::Camera* ViewportCamera(int viewport)
+Gfx2D::ViewCam* ViewportCamera(int viewport)
 {
     return FetchLiveCamera(viewport);
 }
@@ -62,29 +62,29 @@ Gfx2D::Camera* ViewportCamera(int viewport)
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The allocations of the types' constructors: the manager's, its assert flag the global byte 0x00658555.
-void* Allocate(unsigned int size)
+void* Carve(unsigned int size)
 {
-    return MemSys::Manager::Get()->Allocate(size, g_allocAssertFlag, nullptr);
+    return MemSys::Hub::Pull()->Carve(size, g_allocAssertFlag, nullptr);
 }
 void* AllocateZeroed(unsigned int size)
 {
-    return MemSys::Manager::Get()->AllocateZeroed(size, g_allocAssertFlag, nullptr);
+    return MemSys::Hub::Pull()->AllocateZeroed(size, g_allocAssertFlag, nullptr);
 }
 
 void DeleteScript(Scripts::CScript* script)
 {
-    script->Destroy();
+    script->Teardown();
     Scripts::CScript::operator delete(script);
 }
 Scripts::CScript* NewScript()
 {
     void* memory = Scripts::CScript::operator new(sizeof(Scripts::CScript));
-    return memory ? static_cast<Scripts::CScript*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
 }
 Scripts::CStruct* NewStructure()
 {
     Scripts::CStruct* structure = Scripts::NewStruct();
-    return structure ? structure->Init() : nullptr;
+    return structure ? structure->PrepareAll() : nullptr;
 }
 
 } // namespace
@@ -95,7 +95,7 @@ namespace ParticleParts {
 // The particles: `count` after their count (the compiler's array new; their constructor and destructor are empty).
 sFlexibleParticle* NewParticles(int count)
 {
-    auto* memory = static_cast<int*>(Allocate(static_cast<unsigned int>(count) * sizeof(sFlexibleParticle) + 4));
+    auto* memory = static_cast<int*>(Carve(static_cast<unsigned int>(count) * sizeof(sFlexibleParticle) + 4));
     if (!memory)
         return nullptr;
     *memory = count; // (then the empty constructor run over each: 0x0062388B with 0x005902E0)
@@ -104,7 +104,7 @@ sFlexibleParticle* NewParticles(int count)
 void DeleteParticles(sFlexibleParticle* particles)
 {
     // (the empty destructor run over each first: 0x0062382B with 0x005480A0)
-    MemSys::Free(reinterpret_cast<int*>(particles) - 1);
+    MemSys::Dealloc(reinterpret_cast<int*>(particles) - 1);
 }
 
 // The three colour arrays, `count` RGBA colours each (the constructor iterator 0x00401020 runs an empty one over
@@ -113,7 +113,7 @@ bool NewColours(CParticleSystem* system, int count)
 {
     uint8_t** colours[3] = {&system->mp_startColour, &system->mp_midColour, &system->mp_endColour};
     for (uint8_t** colour : colours) {
-        *colour = static_cast<uint8_t*>(Allocate(static_cast<unsigned int>(count) * 4));
+        *colour = static_cast<uint8_t*>(Carve(static_cast<unsigned int>(count) * 4));
         if (!*colour)
             return false;
     }
@@ -129,13 +129,13 @@ bool NewColours(CParticleSystem* system, int count)
 bool ConstructParts(CParticleSystem* system, uint32_t name, int particleCap, unsigned int positionsSize,
                     bool positionsZeroed, int colours)
 {
-    system->m_name = name;
+    system->m_label = name;
     system->m_maxParticles = particleCap;
     system->m_unknown8C = 0;
     system->m_particleList = NewParticles(particleCap);
     if (!system->m_particleList)
         return false;
-    system->m_positionArray = static_cast<float*>(positionsZeroed ? AllocateZeroed(positionsSize) : Allocate(positionsSize));
+    system->m_positionArray = static_cast<float*>(positionsZeroed ? AllocateZeroed(positionsSize) : Carve(positionsSize));
     if (!system->m_positionArray)
         return false;
     return NewColours(system, colours);
@@ -154,9 +154,9 @@ using namespace ParticleParts;
 // --- life ---
 
 // 0x00496F10
-CParticleSystem* CParticleSystem::Construct()
+CParticleSystem* CParticleSystem::MakeNew()
 {
-    GameObjects::CSharedBase::Construct();
+    GameObjects::CSharedBase::MakeNew();
     m_listLink.priority = 0;
     m_listLink.vtable = kNodeVtable;
     m_listLink.data = this;
@@ -164,7 +164,7 @@ CParticleSystem* CParticleSystem::Construct()
     m_listLink.prev = &m_listLink;
     m_vtable = kSystemVtable;
     m_listLink.vtable = kSystemNodeVtable;
-    m_flags = 0;
+    m_flagBits = 0;
     Reset();
     return this;
 }
@@ -181,8 +181,8 @@ void CParticleSystem::Reset()
     m_lodMinParticles = 0;
     m_lodNear = 0.0f;
     m_lodFar = 0.0f;
-    m_pos = Maths::Vector{2048.0f, 144.0f, -928.0f, 0.0f};
-    m_lastPos = Maths::Vector{0.0f, 0.0f, 0.0f, 0.0f};
+    m_atPoint = Maths::Vec4{2048.0f, 144.0f, -928.0f, 0.0f};
+    m_lastPos = Maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
     m_sizeScale = 1.0f;
     m_emitRange[0] = 1.0f;
     m_emitRange[1] = 1.0f;
@@ -199,23 +199,23 @@ void CParticleSystem::Reset()
     m_orientationTurn[0] = 0.0f;
     m_orientationTurn[1] = 0.0f;
     m_orientationTurn[2] = 0.0f;
-    m_priority = 0;
-    for (float& size : m_size)
+    m_rank = 0;
+    for (float& size : m_extent)
         size = 2.0f;
     m_ageLeft[0] = 2.0f;
     m_ageLeft[1] = 2.0f;
     m_speed[1] = 2.0f;
-    m_flags &= ~1u;
+    m_flagBits &= ~1u;
     for (float& scale : m_colourScale)
         scale = 1.0f;
     m_moving = false;
     m_endColourSet = false;
-    m_flags |= 1u;
+    m_flagBits |= 1u;
     m_unknown12F = true;
-    m_flags &= ~0x10u;
-    m_flags &= ~1u;
+    m_flagBits &= ~0x10u;
+    m_flagBits &= ~1u;
     m_randomDirection = false;
-    m_flags |= 0x100u;
+    m_flagBits |= 0x100u;
     m_circularEmit = true;
     m_aligned = false;
     m_fadingOut = false;
@@ -241,13 +241,13 @@ void CParticleSystem::DestroyBody()
         Scripts::DeleteStruct(params);
     }
     if (mp_startColour)
-        MemSys::Free(mp_startColour);
+        MemSys::Dealloc(mp_startColour);
     if (mp_midColour)
-        MemSys::Free(mp_midColour);
+        MemSys::Dealloc(mp_midColour);
     if (mp_endColour)
-        MemSys::Free(mp_endColour);
+        MemSys::Dealloc(mp_endColour);
     if (m_positionArray)
-        MemSys::Free(m_positionArray);
+        MemSys::Dealloc(m_positionArray);
     if (m_particleList)
         DeleteParticles(m_particleList);
     // the particle manager lets go of it
@@ -257,11 +257,11 @@ void CParticleSystem::DestroyBody()
 }
 
 // 0x00498F80
-CParticleSystem* CParticleSystem::Destroy(unsigned int flags)
+CParticleSystem* CParticleSystem::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -292,7 +292,7 @@ void CParticleSystem::SetEmitTarget(float x, float y, float z)
 }
 
 // 0x00496940
-void CParticleSystem::SetRotation(float x, float y, float z)
+void CParticleSystem::ChangeSpin(float x, float y, float z)
 {
     m_orientationTurn[0] = x;
     m_orientationTurn[1] = y;
@@ -300,7 +300,7 @@ void CParticleSystem::SetRotation(float x, float y, float z)
 }
 
 // 0x00496970
-void CParticleSystem::GetPosition(int particle, int step, float* x, float* y, float* z)
+void CParticleSystem::FetchPlace(int particle, int step, float* x, float* y, float* z)
 {
     const float* position = m_positionArray + 3 * (m_maxParticles * step + particle);
     *x = position[0];
@@ -309,7 +309,7 @@ void CParticleSystem::GetPosition(int particle, int step, float* x, float* y, fl
 }
 
 // 0x004969B0
-void CParticleSystem::SetPosition(int particle, int step, float x, float y, float z)
+void CParticleSystem::ChangePlace(int particle, int step, float x, float y, float z)
 {
     float* position = m_positionArray + 3 * (m_maxParticles * step + particle);
     position[0] = x;
@@ -318,32 +318,32 @@ void CParticleSystem::SetPosition(int particle, int step, float x, float y, floa
 }
 
 // 0x004969F0
-void CParticleSystem::GetEmitMatrix(Maths::Matrix* out)
+void CParticleSystem::GetEmitMatrix(Maths::Mat4* out)
 {
     if (mp_matrix) {
         *out = *mp_matrix;
         return;
     }
-    out->row[0] = Maths::Vector{1.0f, 0.0f, 0.0f, 0.0f};
-    out->row[1] = Maths::Vector{0.0f, 1.0f, 0.0f, 0.0f};
-    out->row[2] = Maths::Vector{0.0f, 0.0f, 1.0f, 0.0f};
-    out->row[3] = Maths::Vector{0.0f, 0.0f, 0.0f, 1.0f};
-    Maths::Vector& at = out->row[2];
-    at = Maths::Vector{m_emitTarget[0], m_emitTarget[1], m_emitTarget[2], 1.0f};
-    at.Normalize();
+    out->row[0] = Maths::Vec4{1.0f, 0.0f, 0.0f, 0.0f};
+    out->row[1] = Maths::Vec4{0.0f, 1.0f, 0.0f, 0.0f};
+    out->row[2] = Maths::Vec4{0.0f, 0.0f, 1.0f, 0.0f};
+    out->row[3] = Maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Vec4& at = out->row[2];
+    at = Maths::Vec4{m_emitTarget[0], m_emitTarget[1], m_emitTarget[2], 1.0f};
+    at.MakeUnit();
     // across: up x the target (along x when the target is nearly up); then the second row across both (x87, 53 bits)
     double up = 1.0, along = 0.0;
     if (std::fabs(at.y) > kNearlyUp) {
         up = 0.0;
         along = 1.0;
     }
-    Maths::Vector& across = out->row[0];
+    Maths::Vec4& across = out->row[0];
     across.w = 0.0f;
     float z = static_cast<float>(along * at.y - up * at.x);
     across.x = static_cast<float>(up * at.z - static_cast<double>(at.y) * 0.0);
     across.y = static_cast<float>(static_cast<double>(at.x) * 0.0 - along * at.z);
     across.z = z;
-    Maths::Vector& second = out->row[1];
+    Maths::Vec4& second = out->row[1];
     second.w = 0.0f;
     float secondZ = static_cast<float>(static_cast<double>(at.y) * across.x - static_cast<double>(at.x) * across.y);
     second.x = static_cast<float>(static_cast<double>(across.y) * at.z - static_cast<double>(across.z) * at.y);
@@ -356,13 +356,13 @@ int CParticleSystem::LodParticleCount(int count)
 {
     if (m_lodNear >= m_lodFar || ViewportCount() > 1) // (NaN distances go on)
         return count;
-    Gfx2D::Camera* camera = ViewportCamera(0);
+    Gfx2D::ViewCam* camera = ViewportCamera(0);
     if (!camera)
         return count;
-    const Maths::Vector* eye = camera->GetPos();
-    double dx = static_cast<double>(m_pos.x) - eye->x;
-    double dy = static_cast<double>(m_pos.y) - eye->y;
-    double dz = static_cast<double>(m_pos.z) - eye->z;
+    const Maths::Vec4* eye = camera->FetchLocation();
+    double dx = static_cast<double>(m_atPoint.x) - eye->x;
+    double dy = static_cast<double>(m_atPoint.y) - eye->y;
+    double dz = static_cast<double>(m_atPoint.z) - eye->z;
     float distance = static_cast<float>(dz * dz + dy * dy + dx * dx);
     if (distance < m_lodNear)
         return count;
@@ -382,7 +382,7 @@ void CParticleSystem::UpdateBounds()
     if (std::fabs(m_force[0]) > force)
         force = std::fabs(m_force[0]);
     double travel = static_cast<double>(force) * m_ageLeft[1] + m_speed[1];
-    m_bounds = m_pos;
+    m_bounds = m_atPoint;
     float range = m_emitRange[2];
     if (m_emitRange[1] > range)
         range = m_emitRange[1];
@@ -394,7 +394,7 @@ void CParticleSystem::UpdateBounds()
 // 0x00496CE0
 void CParticleSystem::SetColourScale(const float* rgba)
 {
-    if (m_flags & 0x10000) {
+    if (m_flagBits & 0x10000) {
         for (int i = 0; i < 4; ++i)
             m_colourScale[i] = rgba[i];
     }
@@ -403,7 +403,7 @@ void CParticleSystem::SetColourScale(const float* rgba)
 // 0x00496F60
 void CParticleSystem::RunEmitScript()
 {
-    if (mp_emitScript && mp_emitScript->Update() == Scripts::SCRIPT_OUTCOME_FINISHED) {
+    if (mp_emitScript && mp_emitScript->TickFrame() == Scripts::SCRIPT_OUTCOME_FINISHED) {
         if (Scripts::CScript* script = mp_emitScript)
             DeleteScript(script);
         mp_emitScript = nullptr;
@@ -415,7 +415,7 @@ void CParticleSystem::RenderIfVisible(bool force)
 {
     if ((m_unknown12F && m_unknown130) || force) {
         reinterpret_cast<void(__thiscall*)(CParticleSystem*)>(m_vtable[1])(this);
-        m_flags &= ~1u;
+        m_flagBits &= ~1u;
         m_unknown12F = false;
     }
 }
@@ -437,7 +437,7 @@ void BindScript(CParticleSystem* system, Scripts::CScript*& slot, uint32_t scrip
     if (!system->mp_scriptParams)
         system->mp_scriptParams = NewStructure();
     system->mp_scriptParams->AppendStructureIfAny(params);
-    slot->BindScript(script, system->mp_scriptParams, static_cast<GameObjects::CObject*>(object));
+    slot->BindScript(script, system->mp_scriptParams, static_cast<GameObjects::CEntity*>(object));
 }
 
 } // namespace
@@ -458,17 +458,17 @@ void CParticleSystem::SetUpdateScript(uint32_t script, Scripts::CStruct* params,
 void CParticleSystem::SetWantsTime(uint8_t on)
 {
     if (on)
-        m_flags |= 0x10000u;
+        m_flagBits |= 0x10000u;
     else
-        m_flags &= ~0x10000u;
+        m_flagBits &= ~0x10000u;
     reinterpret_cast<uint8_t&>(m_wantsTime) = on;
 }
 
 // 0x00497AB0
-Maths::Matrix* CParticleSystem::GetRotationMatrix(Maths::Matrix* out)
+Maths::Mat4* CParticleSystem::GetRotationMatrix(Maths::Mat4* out)
 {
-    Maths::Vector angles{m_orientationTurn[0], m_orientationTurn[1], m_orientationTurn[2], 1.0f};
-    Maths::Matrix rotation;
+    Maths::Vec4 angles{m_orientationTurn[0], m_orientationTurn[1], m_orientationTurn[2], 1.0f};
+    Maths::Mat4 rotation;
     rotation.InitFromAngles(angles);
     *out = rotation;
     return out;
@@ -491,14 +491,14 @@ int __cdecl CParticleSystem::GetNumVertexListsStub()
 // --- the types ---
 
 // 0x00499010
-CNewFlatParticles* CNewFlatParticles::Construct(uint32_t name, int particleCap, uint32_t, uint32_t, int, int, float,
+CNewFlatParticles* CNewFlatParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int, int, float,
                                                 int)
 {
-    CParticleSystem::Construct();
+    CParticleSystem::MakeNew();
     SetVtables(this, kCNewFlatParticlesVtable, kCNewFlatParticlesNodeVtable);
     if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap) * 12, false, 1)) {
         m_colourMid = -1.0f;
-        m_flags |= 4u;
+        m_flagBits |= 4u;
     }
     return this;
 }
@@ -511,26 +511,26 @@ void CNewFlatParticles::DestroyBody()
 }
 
 // 0x00498FE0
-CNewFlatParticles* CNewFlatParticles::Destroy(unsigned int flags)
+CNewFlatParticles* CNewFlatParticles::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
 // 0x004992C0
-CFlatRibbonParticles* CFlatRibbonParticles::Construct(uint32_t name, int particleCap, uint32_t, uint32_t, int, int,
+CFlatRibbonParticles* CFlatRibbonParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int, int,
                                                       float, int history)
 {
-    CParticleSystem::Construct();
+    CParticleSystem::MakeNew();
     SetVtables(this, kCFlatRibbonParticlesVtable, kCFlatRibbonParticlesNodeVtable);
     m_segments = history + 1;
     // (the colours' count read again as m_segments + 3 for each array and each step of the loop)
     if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap * m_segments * 12), true,
                        m_segments + 3)) {
         m_colourMid = -1.0f;
-        m_flags |= 4u;
+        m_flagBits |= 4u;
     }
     return this;
 }
@@ -547,11 +547,11 @@ void CFlatRibbonParticles::DestroyBody()
 }
 
 // 0x00499290
-CFlatRibbonParticles* CFlatRibbonParticles::Destroy(unsigned int flags)
+CFlatRibbonParticles* CFlatRibbonParticles::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -559,16 +559,16 @@ CFlatRibbonParticles* CFlatRibbonParticles::Destroy(unsigned int flags)
 int CFlatRibbonParticles::GetNumColours() { return m_segments + 3; }
 
 // 0x004995B0
-CGlowParticles* CGlowParticles::Construct(uint32_t name, int particleCap, uint32_t, uint32_t, int, int segments,
+CGlowParticles* CGlowParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int, int segments,
                                           float glowWidth, int)
 {
-    CParticleSystem::Construct();
+    CParticleSystem::MakeNew();
     SetVtables(this, kCGlowParticlesVtable, kCGlowParticlesNodeVtable);
     if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap) * 12, false, 3)) {
         m_segments = segments;
         m_colourMid = -1.0f;
         m_glowWidth = glowWidth;
-        m_flags |= 4u;
+        m_flagBits |= 4u;
     }
     return this;
 }
@@ -581,19 +581,19 @@ void CGlowParticles::DestroyBody()
 }
 
 // 0x00499580
-CGlowParticles* CGlowParticles::Destroy(unsigned int flags)
+CGlowParticles* CGlowParticles::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
 // 0x00499880
-CGlowRibbonTrailParticles* CGlowRibbonTrailParticles::Construct(uint32_t name, int particleCap, uint32_t, uint32_t,
+CGlowRibbonTrailParticles* CGlowRibbonTrailParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t,
                                                                 int, int segments, float width, int history)
 {
-    CParticleSystem::Construct();
+    CParticleSystem::MakeNew();
     SetVtables(this, kCGlowRibbonTrailParticlesVtable, kCGlowRibbonTrailParticlesNodeVtable);
     m_historyLength = history + 1;
     if (ConstructParts(this, name, particleCap, static_cast<unsigned int>((history + 1) * particleCap * 12), true,
@@ -601,7 +601,7 @@ CGlowRibbonTrailParticles* CGlowRibbonTrailParticles::Construct(uint32_t name, i
         m_segments = segments;
         m_colourMid = -1.0f;
         m_span = width;
-        m_flags |= 4u;
+        m_flagBits |= 4u;
     }
     return this;
 }
@@ -614,11 +614,11 @@ void CGlowRibbonTrailParticles::DestroyBody()
 }
 
 // 0x00499850
-CGlowRibbonTrailParticles* CGlowRibbonTrailParticles::Destroy(unsigned int flags)
+CGlowRibbonTrailParticles* CGlowRibbonTrailParticles::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -627,16 +627,16 @@ int CGlowRibbonTrailParticles::GetNumColours() { return m_historyLength + 3; }
 int CGlowRibbonTrailParticles::GetNumVertexLists() { return m_historyLength; }
 
 // 0x00499B80
-CLineParticles* CLineParticles::Construct(uint32_t name, int particleCap, uint32_t, uint32_t, int, int, float,
+CLineParticles* CLineParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int, int, float,
                                           int history)
 {
-    CParticleSystem::Construct();
+    CParticleSystem::MakeNew();
     SetVtables(this, kCLineParticlesVtable, kCLineParticlesNodeVtable);
     m_steps = history + 1;
     if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap * (history + 1) * 12), true,
                        m_steps)) {
         m_colourMid = -1.0f;
-        m_flags |= 4u;
+        m_flagBits |= 4u;
     }
     return this;
 }
@@ -649,11 +649,11 @@ void CLineParticles::DestroyBody()
 }
 
 // 0x00499B50
-CLineParticles* CLineParticles::Destroy(unsigned int flags)
+CLineParticles* CLineParticles::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -662,24 +662,24 @@ void CModelParticles::DestroyBody()
 {
     SetVtables(this, Vt::kModelParticles, Vt::kModelParticlesNode);
     if (mp_unknown13C) {
-        MemSys::Free(mp_unknown13C);
+        MemSys::Dealloc(mp_unknown13C);
         mp_unknown13C = nullptr;
     }
     if (m_modelList) {
         for (unsigned int i = 0; i < m_modelCount; ++i)
             Engine::DeleteGeomObject(m_modelList[i]); // (the model deleted)
-        MemSys::Free(m_modelList);
+        MemSys::Dealloc(m_modelList);
         m_modelList = nullptr;
     }
     CParticleSystem::DestroyBody();
 }
 
 // 0x0049A090
-CModelParticles* CModelParticles::Destroy(unsigned int flags)
+CModelParticles* CModelParticles::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
@@ -689,14 +689,14 @@ namespace {
 
 // The destructors reached through the node's vtable (`this` the node at +0x0C): each a jump to the type's.
 struct NodeAdapters {
-    // 0x00496D10 / 0x00496D30: ListKit::Node<CParticleSystem>'s own destructor body (its vtable, out of its list) and
+    // 0x00496D10 / 0x00496D30: ListKit::Elem<CParticleSystem>'s own destructor body (its vtable, out of its list) and
     // scalar deleting destructor (freed with flags & 1; returns this).
     void NodeDestroyBody() { reinterpret_cast<MemSys::ListNode*>(this)->UnlinkAs(Vt::kParticleNode); }
     MemSys::ListNode* NodeDestroy(unsigned int flags)
     {
         NodeDestroyBody();
         if (flags & 1)
-            MemSys::Free(this);
+            MemSys::Dealloc(this);
         return reinterpret_cast<MemSys::ListNode*>(this);
     }
     template <typename T>
@@ -704,54 +704,54 @@ struct NodeAdapters {
     {
         return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(this) - offsetof(Engine3D::CParticleSystem, m_listLink));
     }
-    Engine3D::CParticleSystem* DestroySystem(unsigned int flags) { return System<Engine3D::CParticleSystem>()->Destroy(flags); }
-    Engine3D::CNewFlatParticles* DestroyNewFlat(unsigned int flags) { return System<Engine3D::CNewFlatParticles>()->Destroy(flags); }
+    Engine3D::CParticleSystem* DestroySystem(unsigned int flags) { return System<Engine3D::CParticleSystem>()->Teardown(flags); }
+    Engine3D::CNewFlatParticles* DestroyNewFlat(unsigned int flags) { return System<Engine3D::CNewFlatParticles>()->Teardown(flags); }
     Engine3D::CFlatRibbonParticles* DestroyFlatRibbon(unsigned int flags)
     {
-        return System<Engine3D::CFlatRibbonParticles>()->Destroy(flags);
+        return System<Engine3D::CFlatRibbonParticles>()->Teardown(flags);
     }
-    Engine3D::CGlowParticles* DestroyGlow(unsigned int flags) { return System<Engine3D::CGlowParticles>()->Destroy(flags); }
+    Engine3D::CGlowParticles* DestroyGlow(unsigned int flags) { return System<Engine3D::CGlowParticles>()->Teardown(flags); }
     Engine3D::CGlowRibbonTrailParticles* DestroyGlowRibbonTrail(unsigned int flags)
     {
-        return System<Engine3D::CGlowRibbonTrailParticles>()->Destroy(flags);
+        return System<Engine3D::CGlowRibbonTrailParticles>()->Teardown(flags);
     }
-    Engine3D::CLineParticles* DestroyLine(unsigned int flags) { return System<Engine3D::CLineParticles>()->Destroy(flags); }
-    Engine3D::CModelParticles* DestroyModel(unsigned int flags) { return System<Engine3D::CModelParticles>()->Destroy(flags); }
+    Engine3D::CLineParticles* DestroyLine(unsigned int flags) { return System<Engine3D::CLineParticles>()->Teardown(flags); }
+    Engine3D::CModelParticles* DestroyModel(unsigned int flags) { return System<Engine3D::CModelParticles>()->Teardown(flags); }
 };
 
 } // namespace
 
 namespace Engine3D {
 namespace {
-static VtableSlot kSystemVtable_slots[] = {&Engine3D::CParticleSystem::Destroy, &Engine3D::CWeatherSystem::Render,
+static VtableSlot kSystemVtable_slots[] = {&Engine3D::CParticleSystem::Teardown, &Engine3D::CWeatherSystem::Render,
                 Engine3D::CParticleSystem::GetNumVertexListsStub, Engine3D::CParticleSystem::GetNumColoursStub};
 void** const kSystemVtable = reinterpret_cast<void**>(kSystemVtable_slots);
 static VtableSlot kSystemNodeVtable_slots[] = {&NodeAdapters::DestroySystem};
 void** const kSystemNodeVtable = reinterpret_cast<void**>(kSystemNodeVtable_slots);
 static VtableSlot kCNewFlatParticlesNodeVtable_slots[] = {&NodeAdapters::DestroyNewFlat};
 void** const kCNewFlatParticlesNodeVtable = reinterpret_cast<void**>(kCNewFlatParticlesNodeVtable_slots);
-static VtableSlot kCNewFlatParticlesVtable_slots[] = {&Engine3D::CNewFlatParticles::Destroy, &Engine3D::CWeatherSystem::Render,
+static VtableSlot kCNewFlatParticlesVtable_slots[] = {&Engine3D::CNewFlatParticles::Teardown, &Engine3D::CWeatherSystem::Render,
                 OnlinePlay::HandleNothing, OnlinePlay::HandleNothing};
 void** const kCNewFlatParticlesVtable = reinterpret_cast<void**>(kCNewFlatParticlesVtable_slots);
 static VtableSlot kCFlatRibbonParticlesNodeVtable_slots[] = {&NodeAdapters::DestroyFlatRibbon};
 void** const kCFlatRibbonParticlesNodeVtable = reinterpret_cast<void**>(kCFlatRibbonParticlesNodeVtable_slots);
-static VtableSlot kCFlatRibbonParticlesVtable_slots[] = {&Engine3D::CFlatRibbonParticles::Destroy, &Engine3D::CWeatherSystem::Render,
+static VtableSlot kCFlatRibbonParticlesVtable_slots[] = {&Engine3D::CFlatRibbonParticles::Teardown, &Engine3D::CWeatherSystem::Render,
                 &Engine3D::CParticleCounts::Field134, &Engine3D::CFlatRibbonParticles::GetNumColours};
 void** const kCFlatRibbonParticlesVtable = reinterpret_cast<void**>(kCFlatRibbonParticlesVtable_slots);
 static VtableSlot kCGlowParticlesNodeVtable_slots[] = {&NodeAdapters::DestroyGlow};
 void** const kCGlowParticlesNodeVtable = reinterpret_cast<void**>(kCGlowParticlesNodeVtable_slots);
-static VtableSlot kCGlowParticlesVtable_slots[] = {&Engine3D::CGlowParticles::Destroy, &Engine3D::CWeatherSystem::Render,
+static VtableSlot kCGlowParticlesVtable_slots[] = {&Engine3D::CGlowParticles::Teardown, &Engine3D::CWeatherSystem::Render,
                 OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::ThreeColours};
 void** const kCGlowParticlesVtable = reinterpret_cast<void**>(kCGlowParticlesVtable_slots);
 static VtableSlot kCGlowRibbonTrailParticlesNodeVtable_slots[] = {&NodeAdapters::DestroyGlowRibbonTrail};
 void** const kCGlowRibbonTrailParticlesNodeVtable = reinterpret_cast<void**>(kCGlowRibbonTrailParticlesNodeVtable_slots);
-static VtableSlot kCGlowRibbonTrailParticlesVtable_slots[] = {&Engine3D::CGlowRibbonTrailParticles::Destroy,
+static VtableSlot kCGlowRibbonTrailParticlesVtable_slots[] = {&Engine3D::CGlowRibbonTrailParticles::Teardown,
                 &Engine3D::CWeatherSystem::Render, &Engine3D::CGlowRibbonTrailParticles::GetNumVertexLists,
                 &Engine3D::CGlowRibbonTrailParticles::GetNumColours};
 void** const kCGlowRibbonTrailParticlesVtable = reinterpret_cast<void**>(kCGlowRibbonTrailParticlesVtable_slots);
 static VtableSlot kCLineParticlesNodeVtable_slots[] = {&NodeAdapters::DestroyLine};
 void** const kCLineParticlesNodeVtable = reinterpret_cast<void**>(kCLineParticlesNodeVtable_slots);
-static VtableSlot kCLineParticlesVtable_slots[] = {&Engine3D::CLineParticles::Destroy, &Engine3D::CWeatherSystem::Render,
+static VtableSlot kCLineParticlesVtable_slots[] = {&Engine3D::CLineParticles::Teardown, &Engine3D::CWeatherSystem::Render,
                 &Engine3D::CParticleCounts::Field134, &Engine3D::CParticleCounts::TwoColours};
 void** const kCLineParticlesVtable = reinterpret_cast<void**>(kCLineParticlesVtable_slots);
 } // namespace
@@ -762,7 +762,7 @@ static VtableSlot kParticleNode_slots[] = {&NodeAdapters::NodeDestroy};
 void** const kParticleNode = reinterpret_cast<void**>(kParticleNode_slots);
 static VtableSlot kModelParticlesNode_slots[] = {&NodeAdapters::DestroyModel};
 void** const kModelParticlesNode = reinterpret_cast<void**>(kModelParticlesNode_slots);
-static VtableSlot kModelParticles_slots[] = {&Engine3D::CModelParticles::Destroy, &Engine3D::CModelParticles::Render,
+static VtableSlot kModelParticles_slots[] = {&Engine3D::CModelParticles::Teardown, &Engine3D::CModelParticles::Render,
                 OnlinePlay::HandleNothing, OnlinePlay::HandleNothing};
 void** const kModelParticles = reinterpret_cast<void**>(kModelParticles_slots);
 } // namespace Vt

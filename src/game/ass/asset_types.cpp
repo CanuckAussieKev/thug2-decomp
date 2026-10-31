@@ -39,17 +39,17 @@ using Scripts::CStruct;
 
 // --- the engine's loaders ---------------------------------------------------------------------------------
 // Gfx2D::CJointClipFrames (0x3C bytes): 0x00482AF0 the constructor, 0x00482B30 the destructor, 0x004856C0 Load.
-void* ConstructAnimFrames(void* frames) { return static_cast<Gfx2D::CJointClipFrames*>(frames)->Construct(); }
+void* ConstructAnimFrames(void* frames) { return static_cast<Gfx2D::CJointClipFrames*>(frames)->MakeNew(); }
 void DestroyAnimFrames(void* frames) { static_cast<Gfx2D::CJointClipFrames*>(frames)->DestroyBody(); }
 bool LoadAnimFrames(void* frames, void* buffer, uint32_t size)
 {
-    return static_cast<Gfx2D::CJointClipFrames*>(frames)->Load(static_cast<const uint8_t*>(buffer), size, true);
+    return static_cast<Gfx2D::CJointClipFrames*>(frames)->ReadIn(static_cast<const uint8_t*>(buffer), size, true);
 }
 // The skeleton data (0x598 bytes): 0x004A2C20 the constructor, 0x004A39C0 Load.
-void* ConstructSkeletonData(void* skeleton) { return static_cast<Gfx2D::CRigData*>(skeleton)->Construct(); }
+void* ConstructSkeletonData(void* skeleton) { return static_cast<Gfx2D::CRigData*>(skeleton)->MakeNew(); }
 bool LoadSkeletonData(void* skeleton, void* buffer, uint32_t size)
 {
-    return static_cast<Gfx2D::CRigData*>(skeleton)->Load(static_cast<const uint32_t*>(buffer), size, true);
+    return static_cast<Gfx2D::CRigData*>(skeleton)->ReadIn(static_cast<const uint32_t*>(buffer), size, true);
 }
 // Scripts: 0x005A5990 parses a .qb file's contents, 0x005A59B0 unloads one (by its name's checksum).
 void ParseQbFile(const char* name, void* buffer)
@@ -116,10 +116,10 @@ void CopyString(char* to, const char* from) { std::memcpy(to, from, std::strlen(
 // The file opened (null: false) and read into a new buffer; an async read calls back when it's done.
 bool ReadFile(CResource* asset, const char* file, bool async, uint32_t* size)
 {
-    asset->m_file = FileLoad::AsyncOpen(file, !async, 100);
-    if (!asset->m_file)
+    asset->m_fileRef = FileLoad::AsyncOpen(file, !async, 100);
+    if (!asset->m_fileRef)
         return false;
-    *size = static_cast<uint32_t>(asset->m_file->GetFileSize());
+    *size = static_cast<uint32_t>(asset->m_fileRef->GetFileSize());
     asset->m_octets = MemSys::AllocBlock(*size);
     return true;
 }
@@ -128,9 +128,9 @@ void StartReading(CResource* asset, FileLoad::AsyncFileHandle* file, void* buffe
     if (async) {
         file->m_callbackMask = 0;
         file->m_callbackMask |= 1u << FileLoad::kAsyncRead;
-        file->SetCallback(&CResource::ReadCallback, asset, nullptr);
+        file->ChangeHook(&CResource::ReadCallback, asset, nullptr);
     }
-    file->Read(buffer, 1, static_cast<int>(size));
+    file->TakeIn(buffer, 1, static_cast<int>(size));
 }
 // An archive file through Pip: its lowercased name's checksum kept (`lowered` false: the name is already).
 void ReadArchive(CResource* asset, uint32_t* archive, const char* file, uint32_t* size, bool lower)
@@ -143,13 +143,13 @@ void ReadArchive(CResource* asset, uint32_t* archive, const char* file, uint32_t
         key = lowered;
     }
     *archive = Checksums::HashFromText(key);
-    asset->m_octets = Packs::Load(file, false, nullptr, nullptr, nullptr);
+    asset->m_octets = Packs::ReadIn(file, false, nullptr, nullptr, nullptr);
     *size = static_cast<uint32_t>(Packs::GetFileSize(file));
 }
 // A blocking load finishes at once.
 void FinishNow(CResource* asset, uint32_t size)
 {
-    asset->m_size = size;
+    asset->m_extent = size;
     asset->VProcessBuffer();
 }
 // LoadFromBuffer's copy: the data copied into a buffer of the asset's own.
@@ -218,9 +218,9 @@ bool RefreshResource(CResource* asset, const char* name)
 // --- animation ------------------------------------------------------------------------------------------------
 
 // 0x004072E0
-int CAnimResource::GetType() const { return kAnimation; }
+int CAnimResource::FetchKind() const { return kAnimation; }
 // 0x004072D0
-const char* CAnimResource::GetName() const { return "Animation"; }
+const char* CAnimResource::FetchTitle() const { return "Animation"; }
 
 // 0x004071C0
 int CAnimResource::LoadFromBuffer(void* data, uint32_t size, bool copy, void* params, void* structure)
@@ -239,7 +239,7 @@ int CAnimResource::LoadFromBuffer(void* data, uint32_t size, bool copy, void* pa
 }
 
 // 0x00407300
-int CAnimResource::Load(const char* name, bool async, bool useArchive, void* params, void* structure)
+int CAnimResource::ReadIn(const char* name, bool async, bool useArchive, void* params, void* structure)
 {
     StartLoading(reinterpret_cast<uint32_t>(name), async, useArchive, reinterpret_cast<uint32_t>(params),
                  reinterpret_cast<uint32_t>(structure));
@@ -253,7 +253,7 @@ int CAnimResource::Load(const char* name, bool async, bool useArchive, void* par
     } else {
         if (!ReadFile(this, file, async, &size))
             return -1;
-        StartReading(this, m_file, m_octets, size, async);
+        StartReading(this, m_fileRef, m_octets, size, async);
     }
     if (!async)
         FinishNow(this, size); // (the original reads the checksum first and doesn't use it)
@@ -264,40 +264,40 @@ int CAnimResource::Load(const char* name, bool async, bool useArchive, void* par
 // 0x004074F0
 bool CAnimResource::FinishLoading(void* buffer, uint32_t size)
 {
-    void* memory = MemSys::New(0x3C);
+    void* memory = MemSys::Alloc(0x3C);
     void* frames = memory ? ConstructAnimFrames(memory) : nullptr;
     if (!LoadAnimFrames(frames, buffer, size)) { // (called on a failed allocation too, as in the original)
         Scripts::FetchIntValue(0x25DC7904u);
         if (frames) {
             DestroyAnimFrames(frames);
-            MemSys::Manager::Get()->Free(frames);
+            MemSys::Hub::Pull()->Dealloc(frames);
         }
         frames = nullptr;
     }
     VSetData(frames);
-    CloseFile(m_file);
+    CloseFile(m_fileRef);
     return CResource::FinishLoading(buffer, size);
 }
 
 // 0x004074A0
-int CAnimResource::Unload()
+int CAnimResource::Offload()
 {
     if (VData()) {
         if (void* frames = VData()) {
             DestroyAnimFrames(frames);
-            MemSys::Manager::Get()->Free(frames);
+            MemSys::Hub::Pull()->Dealloc(frames);
         }
         VSetData(nullptr);
     }
     VFreeBuffer();
-    return CResource::Unload();
+    return CResource::Offload();
 }
 
 // 0x00407290
 void CAnimResource::FreeBuffer()
 {
     if (m_archive) {
-        Packs::Unload(m_archive);
+        Packs::Offload(m_archive);
         m_archive = 0;
         m_octets = nullptr;
         return;
@@ -311,19 +311,19 @@ void CAnimResource::FreeBuffer()
 // --- cutscene -------------------------------------------------------------------------------------------------
 
 // 0x00408AC0
-int CCutsceneResource::GetType() const { return kCutscene; }
+int CCutsceneResource::FetchKind() const { return kCutscene; }
 // 0x00408AB0
-const char* CCutsceneResource::GetName() const { return "Cutscene"; }
+const char* CCutsceneResource::FetchTitle() const { return "Cutscene"; }
 
 // 0x00408AD0 (no StartLoading: the state stays as it was)
-int CCutsceneResource::Load(const char* name, bool async, bool /*useArchive*/, void* params, void* /*structure*/)
+int CCutsceneResource::ReadIn(const char* name, bool async, bool /*useArchive*/, void* params, void* /*structure*/)
 {
     MemSys::PushMemProfile(name);
     void* memory = MemSys::AllocZeroed(0x34D0);
-    auto* cutscene = memory ? static_cast<GameObjects::CCinematicTable*>(memory)->Construct() : nullptr;
+    auto* cutscene = memory ? static_cast<GameObjects::CCinematicTable*>(memory)->MakeNew() : nullptr;
     char file[256];
     PlatformName(name, file);
-    if (!cutscene->Load(file, 1, async, static_cast<const uint32_t*>(params)))
+    if (!cutscene->ReadIn(file, 1, async, static_cast<const uint32_t*>(params)))
         return -1;
     VSetData(cutscene);
     MemSys::PopMemProfile();
@@ -331,7 +331,7 @@ int CCutsceneResource::Load(const char* name, bool async, bool /*useArchive*/, v
 }
 
 // 0x00408A40
-int CCutsceneResource::Unload()
+int CCutsceneResource::Offload()
 {
     if (void* cutscene = VData()) {
         reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(cutscene))[0])(cutscene, 1);
@@ -349,31 +349,31 @@ bool CCutsceneResource::IsLoaded()
 // --- node array -----------------------------------------------------------------------------------------------
 
 // 0x00408BE0
-int CNodeTableResource::GetType() const { return m_owned ? kOwnedNodeArray : kNodeArray; }
+int CNodeTableResource::FetchKind() const { return m_owned ? kOwnedNodeArray : kNodeArray; }
 // 0x00408BD0
-const char* CNodeTableResource::GetName() const { return "Node Array"; }
+const char* CNodeTableResource::FetchTitle() const { return "Node Array"; }
 
 // 0x00408EA0
 int CNodeTableResource::LoadFromBuffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
     StartLoading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
                  reinterpret_cast<uint32_t>(structure));
-    m_params = static_cast<char*>(AllocLoadParams(0x40));
+    m_args = static_cast<char*>(AllocLoadParams(0x40));
     if (params)
-        CopyWords(m_params, params, 0x10);
+        CopyWords(m_args, params, 0x10);
     VFinishLoading(data, size);
     return 0;
 }
 
 // 0x00408D10
-int CNodeTableResource::Load(const char* name, bool async, bool useArchive, void* params, void* structure)
+int CNodeTableResource::ReadIn(const char* name, bool async, bool useArchive, void* params, void* structure)
 {
     StartLoading(reinterpret_cast<uint32_t>(name), async, useArchive, reinterpret_cast<uint32_t>(params),
                  reinterpret_cast<uint32_t>(structure));
-    m_params = static_cast<char*>(AllocLoadParams(0x40));
+    m_args = static_cast<char*>(AllocLoadParams(0x40));
     if (params)
-        CopyWords(m_params, params, 0x10);
-    CopyString(m_params, name);
+        CopyWords(m_args, params, 0x10);
+    CopyString(m_args, name);
     MemSys::EnterHeapScope(MemSys::TopDownHeap());
     uint32_t size;
     if (useArchive) {
@@ -381,7 +381,7 @@ int CNodeTableResource::Load(const char* name, bool async, bool useArchive, void
     } else {
         if (!ReadFile(this, name, async, &size))
             return -1; // (with the heap context still pushed, as in the original)
-        StartReading(this, m_file, m_octets, size, async);
+        StartReading(this, m_fileRef, m_octets, size, async);
     }
     if (!async)
         FinishNow(this, size);
@@ -392,32 +392,32 @@ int CNodeTableResource::Load(const char* name, bool async, bool useArchive, void
 // 0x00408C10
 bool CNodeTableResource::FinishLoading(void* buffer, uint32_t size)
 {
-    m_sourcePath = Checksums::HashFromText(m_params);
+    m_sourcePath = Checksums::HashFromText(m_args);
     char arrayName[128];
-    LevelNodes::MakeNodeArrayName(m_params, arrayName);
-    ParseQbFile(m_params, buffer);
-    LevelNodes::NodeManagerInstance()->AddNodeArray(LevelNodes::NodeArrayChecksum(m_params), m_owned);
+    LevelNodes::MakeNodeArrayName(m_args, arrayName);
+    ParseQbFile(m_args, buffer);
+    LevelNodes::NodeManagerInstance()->AddNodeArray(LevelNodes::NodeArrayChecksum(m_args), m_owned);
     Scripts::FreeScriptChecksumNames();
-    Scripts::CArray* nodes = Scripts::GetArray(arrayName);
+    Scripts::CArray* nodes = Scripts::FetchList(arrayName);
     m_arrayName = Checksums::HashFromText(arrayName);
     VSetData(nodes);
     m_nodes = VData();
-    CloseFile(m_file);
+    CloseFile(m_fileRef);
     VFreeBuffer();
-    FreeLoadParams(m_params);
-    m_params = nullptr;
+    FreeLoadParams(m_args);
+    m_args = nullptr;
     return CResource::FinishLoading(buffer, size);
 }
 
 // 0x00408F00
-int CNodeTableResource::Unload()
+int CNodeTableResource::Offload()
 {
     auto* nodes = static_cast<Scripts::CArray*>(m_nodes);
-    for (uint32_t i = 0; i < nodes->m_size; ++i) {
+    for (uint32_t i = 0; i < nodes->m_extent; ++i) {
         uint32_t id;
-        reinterpret_cast<CStruct*>(nodes->GetElement(i))->ReadHashValue(0xA1DC81F9u, &id, 0); // name
-        if (GameObjects::CObject* object = GameObjects::FindObject(id))
-            reinterpret_cast<void(__thiscall*)(GameObjects::CObject*)>((*reinterpret_cast<void***>(object))[6])(object);
+        reinterpret_cast<CStruct*>(nodes->FetchPart(i))->ReadHashValue(0xA1DC81F9u, &id, 0); // name
+        if (GameObjects::CEntity* object = GameObjects::FindObject(id))
+            reinterpret_cast<void(__thiscall*)(GameObjects::CEntity*)>((*reinterpret_cast<void***>(object))[6])(object);
         nodes = static_cast<Scripts::CArray*>(m_nodes);
     }
     if (LevelNodes::CNodeManager* manager = LevelNodes::NodeManagerInstance())
@@ -425,7 +425,7 @@ int CNodeTableResource::Unload()
     if (VData())
         UnloadQbFile(m_sourcePath);
     VFreeBuffer();
-    return CResource::Unload();
+    return CResource::Offload();
 }
 
 // 0x004090D0
@@ -433,12 +433,12 @@ void* CNodeTableResource::BuildNodeTable(uint32_t name, int count)
 {
     Scripts::CArray* array = Scripts::NewArray();
     if (array)
-        array->Init();
+        array->PrepareAll();
     array->ConfigureSizeKind(count, Scripts::QBVAL_STRUCT);
     for (int i = 0; i < count; ++i) {
         CStruct* node = Scripts::NewStruct();
         if (node)
-            node->Init();
+            node->PrepareAll();
         array->SetElement(i, reinterpret_cast<uint32_t>(node));
     }
     if (Scripts::CSymbolTableEntry* old = Scripts::FindSymbol(name))
@@ -454,25 +454,25 @@ void* CNodeTableResource::BuildNodeTable(uint32_t name, int count)
 // --- scene ----------------------------------------------------------------------------------------------------
 
 // 0x004093D0
-const char* CSceneAsset::GetName() const { return "Scene"; }
+const char* CSceneAsset::FetchTitle() const { return "Scene"; }
 
 // 0x004092D0
 void CSceneAsset::SetUpParams(void* params, void* structure)
 {
-    m_params = static_cast<uint8_t*>(AllocLoadParams(0x48));
-    *reinterpret_cast<uint32_t*>(m_params) = 0;
-    m_params[4] = 1;
-    m_params[5] = 0;
-    m_params[6] = 0;
-    m_params[7] = 0;
+    m_args = static_cast<uint8_t*>(AllocLoadParams(0x48));
+    *reinterpret_cast<uint32_t*>(m_args) = 0;
+    m_args[4] = 1;
+    m_args[5] = 0;
+    m_args[6] = 0;
+    m_args[7] = 0;
     if (params)
-        CopyWords(m_params, params, 0x12);
+        CopyWords(m_args, params, 0x12);
     if (auto* s = static_cast<CStruct*>(structure)) {
-        s->ReadHashValue(0xDC8116B2u, reinterpret_cast<uint32_t*>(m_params), 0);
-        m_params[4] = s->HasBareFlag(0x9E6EA452u);
-        m_params[5] = s->HasBareFlag(0xB5BD28D8u);
-        m_params[6] = s->HasBareFlag(0x3D559E7Du);
-        m_params[7] = s->HasBareFlag(0x417149C8u);
+        s->ReadHashValue(0xDC8116B2u, reinterpret_cast<uint32_t*>(m_args), 0);
+        m_args[4] = s->HasBareFlag(0x9E6EA452u);
+        m_args[5] = s->HasBareFlag(0xB5BD28D8u);
+        m_args[6] = s->HasBareFlag(0x3D559E7Du);
+        m_args[7] = s->HasBareFlag(0x417149C8u);
     }
 }
 
@@ -492,18 +492,18 @@ int CSceneAsset::LoadFromBuffer(void* data, uint32_t size, bool copy, void* para
 }
 
 // 0x004093F0
-int CSceneAsset::Load(const char* name, bool async, bool useArchive, void* params, void* structure)
+int CSceneAsset::ReadIn(const char* name, bool async, bool useArchive, void* params, void* structure)
 {
     StartLoading(reinterpret_cast<uint32_t>(name), async, useArchive, reinterpret_cast<uint32_t>(params),
                  reinterpret_cast<uint32_t>(structure));
     SetUpParams(params, structure);
-    CopyString(reinterpret_cast<char*>(m_params + 8), name);
+    CopyString(reinterpret_cast<char*>(m_args + 8), name);
     char file[256];
-    SceneFileName(file, name, m_params[7]);
+    SceneFileName(file, name, m_args[7]);
     uint32_t size;
     if (!ReadFile(this, file, async, &size))
         return -1;
-    StartReading(this, m_file, m_octets, size, async);
+    StartReading(this, m_fileRef, m_octets, size, async);
     if (!async)
         FinishNow(this, size);
     return 0;
@@ -513,41 +513,41 @@ int CSceneAsset::Load(const char* name, bool async, bool useArchive, void* param
 bool CSceneAsset::FinishLoading(void* buffer, uint32_t size)
 {
     void* textures = GroupData(this);
-    VSetData(MakeScene(reinterpret_cast<char*>(m_params + 8), buffer, textures, m_params[4], m_params[5], m_params[6],
-                       m_params[7]));
-    FreeLoadParams(m_params);
-    m_params = nullptr;
-    CloseFile(m_file);
+    VSetData(MakeScene(reinterpret_cast<char*>(m_args + 8), buffer, textures, m_args[4], m_args[5], m_args[6],
+                       m_args[7]));
+    FreeLoadParams(m_args);
+    m_args = nullptr;
+    CloseFile(m_fileRef);
     return CResource::FinishLoading(buffer, size);
 }
 
 // 0x00409380
-int CSceneAsset::Unload()
+int CSceneAsset::Offload()
 {
     if (VData()) {
         UnloadScene(VData(), 0);
         FreeMallocBuffer(m_octets);
         VSetData(nullptr);
     }
-    return CResource::Unload();
+    return CResource::Offload();
 }
 
 // --- scene collision ------------------------------------------------------------------------------------------
 
 // 0x00409750
-const char* CSceneCollisionAsset::GetName() const { return "SceneColl"; }
+const char* CSceneCollisionAsset::FetchTitle() const { return "SceneColl"; }
 
 // 0x00409690
 void CSceneCollisionAsset::SetUpParams(void* params, void* structure)
 {
-    m_params = static_cast<uint8_t*>(AllocLoadParams(0x48));
-    *reinterpret_cast<uint32_t*>(m_params) = 0;
-    m_params[4] = 0;
+    m_args = static_cast<uint8_t*>(AllocLoadParams(0x48));
+    *reinterpret_cast<uint32_t*>(m_args) = 0;
+    m_args[4] = 0;
     if (params)
-        CopyWords(m_params, params, 0x12);
+        CopyWords(m_args, params, 0x12);
     if (auto* s = static_cast<CStruct*>(structure)) {
-        s->ReadHashValue(0x26861025u, reinterpret_cast<uint32_t*>(m_params), 0);
-        m_params[4] = s->HasBareFlag(0x417149C8u);
+        s->ReadHashValue(0x26861025u, reinterpret_cast<uint32_t*>(m_args), 0);
+        m_args[4] = s->HasBareFlag(0x417149C8u);
     }
 }
 
@@ -569,18 +569,18 @@ int CSceneCollisionAsset::LoadFromBuffer(void* data, uint32_t size, bool copy, v
 }
 
 // 0x00409760
-int CSceneCollisionAsset::Load(const char* name, bool async, bool useArchive, void* params, void* structure)
+int CSceneCollisionAsset::ReadIn(const char* name, bool async, bool useArchive, void* params, void* structure)
 {
     StartLoading(reinterpret_cast<uint32_t>(name), async, useArchive, reinterpret_cast<uint32_t>(params),
                  reinterpret_cast<uint32_t>(structure));
     SetUpParams(params, structure);
-    CopyString(reinterpret_cast<char*>(m_params + 5), name);
+    CopyString(reinterpret_cast<char*>(m_args + 5), name);
     char file[256];
-    CollisionFileName(file, name, m_params[4]);
+    CollisionFileName(file, name, m_args[4]);
     uint32_t size;
     if (!ReadFile(this, file, async, &size))
         return -1;
-    StartReading(this, m_file, m_octets, size, async);
+    StartReading(this, m_fileRef, m_octets, size, async);
     if (!async)
         FinishNow(this, size);
     return 0;
@@ -590,31 +590,31 @@ int CSceneCollisionAsset::Load(const char* name, bool async, bool useArchive, vo
 bool CSceneCollisionAsset::FinishLoading(void* buffer, uint32_t size)
 {
     void* scene = GroupData(this);
-    AddCollision(scene, buffer, m_params[4]);
+    AddCollision(scene, buffer, m_args[4]);
     VSetData(SceneCollision(scene));
-    FreeLoadParams(m_params);
-    m_params = nullptr;
-    CloseFile(m_file);
+    FreeLoadParams(m_args);
+    m_args = nullptr;
+    CloseFile(m_fileRef);
     return CResource::FinishLoading(buffer, size);
 }
 
 // 0x00409700
-int CSceneCollisionAsset::Unload()
+int CSceneCollisionAsset::Offload()
 {
     if (VData()) {
         RemoveCollision(GroupData(this));
         FreeMallocBuffer(m_octets);
         VSetData(nullptr);
     }
-    return CResource::Unload();
+    return CResource::Offload();
 }
 
 // --- skeleton -------------------------------------------------------------------------------------------------
 
 // 0x00409A40
-int CRigResource::GetType() const { return kSkeleton; }
+int CRigResource::FetchKind() const { return kSkeleton; }
 // 0x00409A30
-const char* CRigResource::GetName() const { return "Skeleton"; }
+const char* CRigResource::FetchTitle() const { return "Skeleton"; }
 
 // 0x00409990 (the data isn't copied, whatever `copy` says)
 int CRigResource::LoadFromBuffer(void* data, uint32_t size, bool copy, void* params, void* structure)
@@ -628,20 +628,20 @@ int CRigResource::LoadFromBuffer(void* data, uint32_t size, bool copy, void* par
 }
 
 // 0x00409A50
-int CRigResource::Load(const char* name, bool async, bool useArchive, void* params, void* structure)
+int CRigResource::ReadIn(const char* name, bool async, bool useArchive, void* params, void* structure)
 {
     StartLoading(reinterpret_cast<uint32_t>(name), async, useArchive, reinterpret_cast<uint32_t>(params),
                  reinterpret_cast<uint32_t>(structure));
     char file[256];
     PlatformName(name, file);
-    m_file = FileLoad::AsyncOpen(file, !async, 100);
-    if (!m_file)
+    m_fileRef = FileLoad::AsyncOpen(file, !async, 100);
+    if (!m_fileRef)
         return -1;
-    uint32_t size = static_cast<uint32_t>(m_file->GetFileSize());
+    uint32_t size = static_cast<uint32_t>(m_fileRef->GetFileSize());
     MemSys::EnterHeapScope(MemSys::TopDownHeap());
     m_octets = MemSys::AllocBlock(size);
     MemSys::LeaveHeapScope();
-    StartReading(this, m_file, m_octets, size, async);
+    StartReading(this, m_fileRef, m_octets, size, async);
     if (!async)
         FinishNow(this, size);
     return 0;
@@ -655,20 +655,20 @@ bool CRigResource::FinishLoading(void* buffer, uint32_t size)
     if (!LoadSkeletonData(skeleton, buffer, size))
         return false; // (the skeleton data leaks, as in the original)
     VSetData(skeleton);
-    CloseFile(m_file);
+    CloseFile(m_fileRef);
     VFreeBuffer();
     return CResource::FinishLoading(buffer, size);
 }
 
 // 0x004099E0
-int CRigResource::Unload()
+int CRigResource::Offload()
 {
     if (void* skeleton = VData()) {
         reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(skeleton))[0])(skeleton, 1);
         VSetData(nullptr);
         VFreeBuffer();
     }
-    return CResource::Unload();
+    return CResource::Offload();
 }
 
 // 0x00409A10
@@ -691,20 +691,20 @@ SkinParams* SkinParams::Clear()
 }
 
 // 0x00409E00
-int CSkinResource::GetType() const { return kSkinnedModel; }
+int CSkinResource::FetchKind() const { return kSkinnedModel; }
 // 0x00409DF0
-const char* CSkinResource::GetName() const { return "Skin"; }
+const char* CSkinResource::FetchTitle() const { return "Skin"; }
 
 // 0x00409E10
 void CSkinResource::SetUpParams(void* params, void* structure)
 {
-    m_params = static_cast<SkinParams*>(AllocLoadParams(0x14));
-    m_params->Clear(); // (inlined)
+    m_args = static_cast<SkinParams*>(AllocLoadParams(0x14));
+    m_args->Clear(); // (inlined)
     if (params)
-        CopyWords(m_params, params, 5);
+        CopyWords(m_args, params, 5);
     if (auto* s = static_cast<CStruct*>(structure)) {
-        s->FetchIntValue(0xBF34D221u, &m_params->value, 0);
-        m_params->flag0 = s->HasBareFlag(0x01A1482Eu);
+        s->FetchIntValue(0xBF34D221u, &m_args->value, 0);
+        m_args->flag0 = s->HasBareFlag(0x01A1482Eu);
     }
 }
 
@@ -714,7 +714,7 @@ int CSkinResource::LoadFromBuffer(void* data, uint32_t size, bool copy, void* pa
     StartLoading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
                  reinterpret_cast<uint32_t>(structure));
     SetUpParams(params, structure);
-    if (copy && !m_params->onHeap) {
+    if (copy && !m_args->onHeap) {
         MemSys::PushMemProfile("skin from data stream");
         data = CopyData(this, data, size);
         MemSys::PopMemProfile();
@@ -724,7 +724,7 @@ int CSkinResource::LoadFromBuffer(void* data, uint32_t size, bool copy, void* pa
 }
 
 // 0x00409EB0
-int CSkinResource::Load(const char* name, bool async, bool useArchive, void* params, void* structure)
+int CSkinResource::ReadIn(const char* name, bool async, bool useArchive, void* params, void* structure)
 {
     StartLoading(reinterpret_cast<uint32_t>(name), async, useArchive, reinterpret_cast<uint32_t>(params),
                  reinterpret_cast<uint32_t>(structure));
@@ -733,12 +733,12 @@ int CSkinResource::Load(const char* name, bool async, bool useArchive, void* par
     char base[512];
     bool hasCas = SplitSkinName(name, base);
     TextUtil::ToLowerText(base);
-    m_params->onHeap = 0;
+    m_args->onHeap = 0;
     // (0x00645904 / 0x00645900: "skin" for a model with a .cas file, else "mdl")
     const char* kind = hasCas ? "skin" : "mdl";
     char file[512];
     std::snprintf(file, sizeof(file), "%s.%s.%s", base, kind, Engine3D::PlatformExtension());
-    m_params->hasCas = hasCas;
+    m_args->hasCas = hasCas;
     ++m_filesReading;
     uint32_t size;
     if (hasCas && !async) {
@@ -746,7 +746,7 @@ int CSkinResource::Load(const char* name, bool async, bool useArchive, void* par
     } else {
         if (!ReadFile(this, file, async, &size))
             return -1;
-        StartReading(this, m_file, m_octets, size, async);
+        StartReading(this, m_fileRef, m_octets, size, async);
     }
     if (hasCas) {
         char cas[512];
@@ -757,10 +757,10 @@ int CSkinResource::Load(const char* name, bool async, bool useArchive, void* par
             return -1;
         uint32_t casSize = static_cast<uint32_t>(m_casFile->GetFileSize());
         m_casBuffer = MemSys::AllocBlock(casSize);
-        m_params->casData = m_casBuffer;
+        m_args->casData = m_casBuffer;
         StartReading(this, m_casFile, m_casBuffer, casSize, async);
     }
-    if (m_params->onHeap)
+    if (m_args->onHeap)
         MemSys::LeaveHeapScope();
     if (!async) {
         if (m_casBuffer)
@@ -776,38 +776,38 @@ int CSkinResource::Load(const char* name, bool async, bool useArchive, void* par
 bool CSkinResource::FinishLoading(void* buffer, uint32_t size)
 {
     void* textures = GroupData(this);
-    SkinParams* p = m_params;
+    SkinParams* p = m_args;
     VSetData(MakeSkinnedModel(m_checksum, buffer, size, p->casData, textures, p->value, p->hasCas, p->flag0));
-    if (m_params->onHeap && m_octets)
+    if (m_args->onHeap && m_octets)
         VFreeBuffer();
-    FreeLoadParams(m_params);
-    m_params = nullptr;
-    CloseFile(m_file);
+    FreeLoadParams(m_args);
+    m_args = nullptr;
+    CloseFile(m_fileRef);
     CloseFile(m_casFile);
     FreeMallocBuffer(m_casBuffer);
     return CResource::FinishLoading(buffer, size);
 }
 
 // 0x00409D30
-int CSkinResource::Unload()
+int CSkinResource::Offload()
 {
     if (VData()) {
         UnloadSkinnedModel(VData(), 1);
         VSetData(nullptr);
     }
     VFreeBuffer();
-    return CResource::Unload();
+    return CResource::Offload();
 }
 
 // 0x00409D70
-bool CSkinResource::Abort()
+bool CSkinResource::CancelNow()
 {
     if (m_casFile) {
         m_casFile->Cancel();
         FileLoad::AsyncClose(m_casFile);
         m_casFile = nullptr;
     }
-    return CResource::Abort();
+    return CResource::CancelNow();
 }
 
 // 0x00409DA0
@@ -815,7 +815,7 @@ void CSkinResource::FreeBuffer()
 {
     FreeMallocBuffer(m_casBuffer);
     if (m_archive) {
-        Packs::Unload(m_archive);
+        Packs::Offload(m_archive);
         m_archive = 0;
         m_octets = nullptr;
         return;
@@ -837,9 +837,9 @@ bool CSkinResource::SetRead()
 // --- skin collision -------------------------------------------------------------------------------------------
 
 // 0x0040A290
-int CSkinCollisionAsset::GetType() const { return kSkinCollision; }
+int CSkinCollisionAsset::FetchKind() const { return kSkinCollision; }
 // 0x0040A280
-const char* CSkinCollisionAsset::GetName() const { return "SkinColl"; }
+const char* CSkinCollisionAsset::FetchTitle() const { return "SkinColl"; }
 
 namespace {
 // The skin collision's parameters (0x44 bytes): from `params`, then the structure's checksum.
@@ -860,7 +860,7 @@ int CSkinCollisionAsset::LoadFromBuffer(void* data, uint32_t size, bool copy, vo
 {
     StartLoading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
                  reinterpret_cast<uint32_t>(structure));
-    m_params = SkinCollisionParams(params, structure);
+    m_args = SkinCollisionParams(params, structure);
     if (copy) {
         MemSys::PushMemProfile("SkinColl from data stream");
         data = CopyData(this, data, size);
@@ -871,18 +871,18 @@ int CSkinCollisionAsset::LoadFromBuffer(void* data, uint32_t size, bool copy, vo
 }
 
 // 0x0040A2A0
-int CSkinCollisionAsset::Load(const char* name, bool async, bool useArchive, void* params, void* structure)
+int CSkinCollisionAsset::ReadIn(const char* name, bool async, bool useArchive, void* params, void* structure)
 {
     StartLoading(reinterpret_cast<uint32_t>(name), async, useArchive, reinterpret_cast<uint32_t>(params),
                  reinterpret_cast<uint32_t>(structure));
-    m_params = SkinCollisionParams(params, structure);
-    CopyString(reinterpret_cast<char*>(m_params + 4), name);
+    m_args = SkinCollisionParams(params, structure);
+    CopyString(reinterpret_cast<char*>(m_args + 4), name);
     char file[256];
     SkinCollisionFileName(file, name);
     uint32_t size;
     if (!ReadFile(this, file, async, &size))
         return -1;
-    StartReading(this, m_file, m_octets, size, async);
+    StartReading(this, m_fileRef, m_octets, size, async);
     if (!async)
         FinishNow(this, size);
     return 0;
@@ -894,43 +894,43 @@ bool CSkinCollisionAsset::FinishLoading(void* buffer, uint32_t size)
     void* model = GroupData(this);
     AddSkinCollision(model, buffer);
     VSetData(*reinterpret_cast<void**>(static_cast<uint8_t*>(model) + 0x8C));
-    FreeLoadParams(m_params);
-    m_params = nullptr;
-    CloseFile(m_file);
+    FreeLoadParams(m_args);
+    m_args = nullptr;
+    CloseFile(m_fileRef);
     return CResource::FinishLoading(buffer, size);
 }
 
 // 0x0040A230
-int CSkinCollisionAsset::Unload()
+int CSkinCollisionAsset::Offload()
 {
     if (VData()) {
         RemoveSkinCollision(GroupData(this));
         FreeMallocBuffer(m_octets);
         VSetData(nullptr);
     }
-    return CResource::Unload();
+    return CResource::Offload();
 }
 
 // --- texture dictionary ---------------------------------------------------------------------------------------
 
 // 0x0040A710
-const char* CTexDictAsset::GetName() const { return "TexDict"; }
+const char* CTexDictAsset::FetchTitle() const { return "TexDict"; }
 
 // 0x0040A620
 void CTexDictAsset::SetUpParams(void* params, void* structure)
 {
-    m_params = static_cast<uint8_t*>(AllocLoadParams(0x4C));
-    m_params[0] = 1;
-    *reinterpret_cast<int*>(m_params + 4) = 0;
-    m_params[8] = 0;
-    m_params[9] = 0;
+    m_args = static_cast<uint8_t*>(AllocLoadParams(0x4C));
+    m_args[0] = 1;
+    *reinterpret_cast<int*>(m_args + 4) = 0;
+    m_args[8] = 0;
+    m_args[9] = 0;
     if (params)
-        CopyWords(m_params, params, 0x13);
+        CopyWords(m_args, params, 0x13);
     if (auto* s = static_cast<CStruct*>(structure)) {
-        s->FetchIntValue(0xBF34D221u, reinterpret_cast<int*>(m_params + 4), 0);
-        m_params[0] = s->HasBareFlag(0xE6237329u);
-        m_params[8] = s->HasBareFlag(0x6875B9C0u);
-        m_params[9] = s->HasBareFlag(0x86B52462u);
+        s->FetchIntValue(0xBF34D221u, reinterpret_cast<int*>(m_args + 4), 0);
+        m_args[0] = s->HasBareFlag(0xE6237329u);
+        m_args[8] = s->HasBareFlag(0x6875B9C0u);
+        m_args[9] = s->HasBareFlag(0x86B52462u);
     }
 }
 
@@ -950,18 +950,18 @@ int CTexDictAsset::LoadFromBuffer(void* data, uint32_t size, bool copy, void* pa
 }
 
 // 0x0040A720
-int CTexDictAsset::Load(const char* name, bool async, bool useArchive, void* params, void* structure)
+int CTexDictAsset::ReadIn(const char* name, bool async, bool useArchive, void* params, void* structure)
 {
     StartLoading(reinterpret_cast<uint32_t>(name), async, useArchive, reinterpret_cast<uint32_t>(params),
                  reinterpret_cast<uint32_t>(structure));
     SetUpParams(params, structure);
-    CopyString(reinterpret_cast<char*>(m_params + 0xA), name);
+    CopyString(reinterpret_cast<char*>(m_args + 0xA), name);
     char file[256];
     TexDictFileName(file, name);
     uint32_t size;
     if (!ReadFile(this, file, async, &size))
         return -1;
-    StartReading(this, m_file, m_octets, size, async);
+    StartReading(this, m_fileRef, m_octets, size, async);
     if (!async)
         FinishNow(this, size);
     return 0;
@@ -970,23 +970,23 @@ int CTexDictAsset::Load(const char* name, bool async, bool useArchive, void* par
 // 0x0040A5A0
 bool CTexDictAsset::FinishLoading(void* buffer, uint32_t size)
 {
-    VSetData(MakeTexDict(m_checksum, buffer, size, m_params[0], *reinterpret_cast<int*>(m_params + 4), m_params[8],
-                         m_params[9]));
-    FreeLoadParams(m_params);
-    m_params = nullptr;
-    CloseFile(m_file);
+    VSetData(MakeTexDict(m_checksum, buffer, size, m_args[0], *reinterpret_cast<int*>(m_args + 4), m_args[8],
+                         m_args[9]));
+    FreeLoadParams(m_args);
+    m_args = nullptr;
+    CloseFile(m_fileRef);
     return CResource::FinishLoading(buffer, size);
 }
 
 // 0x0040A6C0
-int CTexDictAsset::Unload()
+int CTexDictAsset::Offload()
 {
     if (VData()) {
         UnloadTexDict(VData());
         FreeMallocBuffer(m_octets);
         VSetData(nullptr);
     }
-    return CResource::Unload();
+    return CResource::Offload();
 }
 
 } // namespace Ass

@@ -289,7 +289,7 @@ struct FaultName {
 };
 constexpr FaultName kFaultNames[] = {
     {TestFault::Access, "access"},     {TestFault::RunTimeCheck, "rtc"},     {TestFault::CrtError, "crterror"},
-    {TestFault::InvalidParameter, "invalidparam"}, {TestFault::PureCall, "purecall"}, {TestFault::Abort, "abort"},
+    {TestFault::InvalidParameter, "invalidparam"}, {TestFault::PureCall, "purecall"}, {TestFault::CancelNow, "abort"},
     {TestFault::GameOverrun, "overrun"}, {TestFault::GameCrtMessage, "crtbox"}, {TestFault::FastFail, "fastfail"},
     {TestFault::Hang, "hang"},
 };
@@ -401,7 +401,7 @@ bool CauseTestFault(TestFault fault)
     case TestFault::PureCall:
         _purecall();
         break;
-    case TestFault::Abort:
+    case TestFault::CancelNow:
         abort();
     case TestFault::GameOverrun:
     case TestFault::GameCrtMessage:

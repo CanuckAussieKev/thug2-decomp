@@ -7,7 +7,7 @@
 // each '_' (but not "TRG") and the name without its trailing digits - get the node's index, in one table per node
 // array, so scripts can find e.g. every "Ped_" node. From the disassembly of 0x0045BDA0-0x0045CE40.
 namespace ListKit {
-class HashTable;
+class KeyMap;
 } // namespace Lst
 
 namespace LevelNodes {
@@ -15,9 +15,9 @@ namespace LevelNodes {
 // The nodes with one prefix in one node array: their indices (a block grown 100 at a time, MemSys::AllocBlock).
 struct PrefixNodes {
     // 0x0045BDA0: `index` added at the end.
-    void Add(uint16_t index);
+    void AppendOne(uint16_t index);
 
-    int m_count;
+    int m_num;
     uint16_t* mp_indices;
     uint32_t m_namePrefix;
 };
@@ -26,15 +26,15 @@ static_assert(sizeof(PrefixNodes) == 0xC, "allocated as 0xC bytes");
 // One node array's prefixes: a hash table (2^8 buckets) from the prefix to its PrefixNodes.
 struct PrefixTable {
     // 0x0045C5D0: the constructor (returns this).
-    PrefixTable* Construct();
+    PrefixTable* MakeNew();
     // 0x0045CD30: the destructor: every PrefixNodes freed, then the table.
     void Destruct();
     // 0x0045C650: node `index` added under `prefix` (a new PrefixNodes if it has none yet).
-    void Add(uint32_t prefix, uint16_t index);
+    void AppendOne(uint32_t prefix, uint16_t index);
     // 0x0045C240: every PrefixNodes' block cut down to its size.
     void Compact();
 
-    ListKit::HashTable* m_slotTable;
+    ListKit::KeyMap* m_slotTable;
     uint32_t m_nodeArray; // the node array's name
     PrefixTable* m_following;
 };

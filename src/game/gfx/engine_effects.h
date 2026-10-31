@@ -12,7 +12,7 @@
 // (ListKit::HashTables of 16 buckets, each keyed by its value's address) - plus the vertex stack the splats and shatters
 // split triangles on (0x006FC4A0).
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 
 namespace Engine3D {
@@ -24,11 +24,11 @@ struct sVertexStack {
     uint8_t data[0x4000];
 
     // 0x00490D80: the top vertex popped into `out`.
-    void Pop(uint8_t* out);
+    void StackOff(uint8_t* out);
     // 0x00490D20 (engine_mesh.cpp): empty, no vertex size, the data filled with 3s.
-    void Construct();
+    void MakeNew();
     // 0x00490D50 (engine_mesh.cpp): a vertex pushed (vertexSize bytes).
-    void Push(const uint8_t* in);
+    void StackOn(const uint8_t* in);
 };
 static_assert(sizeof(sVertexStack) == 0x4008, "layout must match the original");
 
@@ -48,10 +48,10 @@ void __cdecl SetLevelColor(const float* color);
 // - 82944 for 0 -, the random speed (0x007004CC, 0 for 0), the velocity's scale (0x0067DDF4, 1 for 0), a shatter's
 // lifetime (0x0067DDF8, 4 for 0), floor (0x0067DDFC, -10000 for 0) and bounce (0x0067DE00, 0.8 for 0); 0x0067DDD8,
 // the texture (0x007004BC), 0x007004C0 and 0x007004C4 as given.
-void __cdecl SetShatterParams(const Maths::Vector* velocity, const Maths::Vector* vector210E, float valueC483, float area,
+void __cdecl SetShatterParams(const Maths::Vec4* velocity, const Maths::Vec4* vector210E, float valueC483, float area,
                               float speed, float velocityScale, float lifetime, float floor, float bounce,
                               float value2E1C, uint32_t texture, uint32_t valueAF1A, int value33DF);
-// 0x00490DC0 (not a Ghidra function; what a PC sector's SetActive calls): a geom shattered with the shatter texture
+// 0x00490DC0 (not a Ghidra function; what a PC sector's ChangeLive calls): a geom shattered with the shatter texture
 // (0x007004BC, from the particles' texture dictionary 0x00700F20).
 void __cdecl ShatterGeom(void* geom);
 
@@ -80,7 +80,7 @@ void __cdecl KillTextureSplatsOfTexture(uint32_t texture);
 // a recent splat position of the same id near `from` (within 66 - squared 4356 - and half a second) is the projection's
 // up and is moved on (no splat when `from` is still at its x and z); with none, `from` is only remembered (true). The
 // fade threshold (0x0067DDE0) read from the script integer 0x26FCB7BE each time. Whether a splat was made.
-bool __cdecl CreateTextureSplatAt(const Maths::Vector* from, const Maths::Vector* to, float size, float depth, float angle,
+bool __cdecl CreateTextureSplatAt(const Maths::Vec4* from, const Maths::Vec4* to, float size, float depth, float angle,
                                   float coneAngle, float lifetime, const char* imageLabel, uint32_t unknown38,
                                   uint32_t follow, uint8_t unknown40, uint8_t* texture);
 
@@ -109,9 +109,9 @@ void __cdecl KillAllEffects();
 
 extern sVertexStack g_vertexStack;
 
-extern Maths::Vector g_shatterVelocity;
+extern Maths::Vec4 g_shatterVelocity;
 extern float g_shatterVelocityScale;
 extern float g_shatterSpeed;
-extern ListKit::HashTable* g_spawnedPolys;
-extern ListKit::HashTable* g_splatSets;
+extern ListKit::KeyMap* g_spawnedPolys;
+extern ListKit::KeyMap* g_splatSets;
 } // namespace Nx

@@ -101,23 +101,23 @@ uint32_t g_lastFlagBaseWarning;
 uint32_t& LastFlagBaseWarning() { return g_lastFlagBaseWarning; }
 uint32_t& NetGameStartTime() { return g_netGameStartTime; }
 
-TaskList::Stack* LogicTasks() { return reinterpret_cast<TaskList::Stack*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4); }
-Manager* NetLink() { return g_gameNetManager; }
+TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4); }
+Hub* NetLink() { return g_gameNetManager; }
 
 // The lobby (OnlinePlay's GameSpy peer side): its peer, whether it's in a group room; the lobby's state (the manager's
 // SetServiceState, 0x005453E0) and services state (SetNextServiceState, 0x005451B0).
-void* LobbyPeer(Manager* manager) { return static_cast<RoomManager*>(manager->m_lobbyMan)->GetLobbyHandle(); }
-bool InGroupRoom(Manager* manager) { return static_cast<RoomManager*>(manager->m_lobbyMan)->InGroupRoom(); }
-void SetLobbyState(Manager* manager, int state) { manager->SetServiceState(state); }
-void SetServicesState(Manager* manager, int state) { manager->SetNextServiceState(state); }
+void* LobbyPeer(Hub* manager) { return static_cast<RoomManager*>(manager->m_lobbyMan)->GetLobbyHandle(); }
+bool InGroupRoom(Hub* manager) { return static_cast<RoomManager*>(manager->m_lobbyMan)->InGroupRoom(); }
+void SetLobbyState(Hub* manager, int state) { manager->SetServiceState(state); }
+void SetServicesState(Hub* manager, int state) { manager->SetNextServiceState(state); }
 
 // A message for the server through client 0, sequenced in the game's group.
-void SendRequest(Manager* manager, uint8_t id, void* data, uint16_t length)
+void SendRequest(Hub* manager, uint8_t id, void* data, uint16_t length)
 {
     NetLink::NetMessageInfo desc;
-    desc.Construct();
-    desc.m_id = id;
-    desc.m_data = data;
+    desc.MakeNew();
+    desc.m_ident = id;
+    desc.m_content = data;
     desc.m_byteCount = length;
     desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = kGroupGame;
@@ -129,14 +129,14 @@ void SendRequest(Manager* manager, uint8_t id, void* data, uint16_t length)
 // 0x00535DA0: StartCTFGame - capture the flag's task into the logic tasks.
 bool __cdecl CFunc_StartCTFGame(CStruct*, CScript*)
 {
-    LogicTasks()->AddTask(Field<TaskList::SchedulerTask*>(NetLink(), kCtfTask));
+    LogicTasks()->QueueJob(Prop<TaskList::SchedulerTask*>(NetLink(), kCtfTask));
     return true;
 }
 
 // 0x00535DC0: EndCTFGame - its task removed.
 bool __cdecl CFunc_EndCTFGame(CStruct*, CScript*)
 {
-    Field<TaskList::SchedulerTask*>(NetLink(), kCtfTask)->Remove();
+    Prop<TaskList::SchedulerTask*>(NetLink(), kCtfTask)->DropOut();
     return true;
 }
 
@@ -163,7 +163,7 @@ bool __cdecl CFunc_MarkGameOver(CStruct*, CScript*)
 // 0x00535E40: SetJoinMode <n> (an unnamed integer: 0 to play, anything else to watch).
 bool __cdecl CFunc_SetJoinMode(CStruct* params, CScript*)
 {
-    Manager* manager = NetLink();
+    Hub* manager = NetLink();
     int mode = 0;
     params->FetchIntValue(0u, &mode, 0);
     manager->SetJoinMode(mode == 0 ? 0 : 1);
@@ -173,7 +173,7 @@ bool __cdecl CFunc_SetJoinMode(CStruct* params, CScript*)
 // 0x00535E90: GetNumTeams - the game mode's team count into the script's num_teams.
 bool __cdecl CFunc_GetNumTeams(CStruct*, CScript* script)
 {
-    script->m_params->PutInt(kNumTeams, Call<int>(CodeAddress(&GoalSystem::CMatchRules::NumTeams), GameMode()));
+    script->m_args->PutInt(kNumTeams, Call<int>(CodeAddress(&GoalSystem::CMatchRules::NumTeams), GameMode()));
     return true;
 }
 
@@ -190,8 +190,8 @@ bool __cdecl CFunc_InGroupRoom(CStruct*, CScript*) { return InGroupRoom(NetLink(
 // 0x00535EF0: IsAutoServing - the server of a network game in host mode 1.
 bool __cdecl CFunc_IsAutoServing(CStruct*, CScript*)
 {
-    Manager* manager = NetLink();
-    if (!manager->InNetGame() || !(manager->m_flags & 1))
+    Hub* manager = NetLink();
+    if (!manager->InNetGame() || !(manager->m_flagBits & 1))
         return false;
     return manager->m_hostMode == 1;
 }
@@ -199,13 +199,13 @@ bool __cdecl CFunc_IsAutoServing(CStruct*, CScript*)
 // 0x00535F20: ChangeLevelPending - the level change's task is in a list.
 bool __cdecl CFunc_ChangeLevelPending(CStruct*, CScript*)
 {
-    return Field<TaskList::SchedulerTask*>(NetLink(), kChangeLevelTask)->IsOnTaskList();
+    return Prop<TaskList::SchedulerTask*>(NetLink(), kChangeLevelTask)->IsOnTaskList();
 }
 
 // 0x00535F30: CancelMotdDownload.
 bool __cdecl CFunc_CancelMotdDownload(CStruct*, CScript*)
 {
-    Field<bool>(NetLink(), kMotdCancelled) = true;
+    Prop<bool>(NetLink(), kMotdCancelled) = true;
     return true;
 }
 
@@ -220,9 +220,9 @@ bool __cdecl CFunc_DownloadMotd(CStruct*, CScript*)
 // yet, services state 0 and lobby state 1 first); else services state 3, lobby state 1, false.
 bool __cdecl CFunc_ServicesAreAvailable(CStruct*, CScript*)
 {
-    Manager* manager = NetLink();
-    if (Field<uint8_t>(manager, kServicesState) == 1) {
-        if (!Field<bool>(manager, kMotdReceived)) {
+    Hub* manager = NetLink();
+    if (Prop<uint8_t>(manager, kServicesState) == 1) {
+        if (!Prop<bool>(manager, kMotdReceived)) {
             SetServicesState(manager, 0);
             SetLobbyState(manager, 1);
         }
@@ -234,7 +234,7 @@ bool __cdecl CFunc_ServicesAreAvailable(CStruct*, CScript*)
 }
 
 // 0x00535FA0: AlreadyGotMotd.
-bool __cdecl CFunc_AlreadyGotMotd(CStruct*, CScript*) { return Field<bool>(NetLink(), kMotdReceived); }
+bool __cdecl CFunc_AlreadyGotMotd(CStruct*, CScript*) { return Prop<bool>(NetLink(), kMotdReceived); }
 
 // 0x00535FB0: JoinServerComplete - ready to play.
 bool __cdecl CFunc_JoinServerComplete(CStruct*, CScript*) { return NetLink()->m_readyToPlay; }
@@ -250,13 +250,13 @@ bool __cdecl CFunc_JustStartedNetGame(CStruct*, CScript*)
 bool __cdecl CFunc_FCFSRequestStartGame(CStruct*, CScript*)
 {
     StartGameRequest request; // (+0x18 is never set: the original's stack)
-    Manager* manager = NetLink();
+    Hub* manager = NetLink();
     OptionStore::Preferences* preferences = manager->GetOnlineSettings();
     request.unused18 = 0;
     request.skillLevel = preferences->GetPreferenceChecksum(kSkillLevel, kChecksum);
     request.fireballLevel = preferences->GetPreferenceChecksum(kFireballDifficulty, kChecksum);
     uint32_t gameType = 0;
-    manager->GetGamePreferences()->GetPreference(kGameType)->ReadHashValue(kChecksum, &gameType, 1);
+    manager->GetGamePreferences()->FetchSetting(kGameType)->ReadHashValue(kChecksum, &gameType, 1);
     request.gameType = gameType;
     request.timeLimit = preferences->GetPreferenceChecksum(kTimeLimit, kChecksum);
     request.targetScore = preferences->GetPreferenceChecksum(kTargetScore, kChecksum);
@@ -276,15 +276,15 @@ bool __cdecl CFunc_FCFSRequestStartGame(CStruct*, CScript*)
 // rail editor's rails (0x88, 4402 bytes) streamed to the server first; then the level (0x62).
 bool __cdecl CFunc_FCFSRequestChangeLevel(CStruct* params, CScript*)
 {
-    Manager* manager = NetLink();
+    Hub* manager = NetLink();
     uint32_t level = 0;
     params->ReadHashValue(kLevel, &level, 0);
-    auto* client = static_cast<NetLink::Client*>(manager->m_clientApp);
+    auto* client = static_cast<NetLink::Guest*>(manager->m_clientApp);
     if (level == kCreatedPark) {
-        void* map = ParkEditing::CParkBuilderMode::Instance()->GetPackedParkData(false);
+        void* map = ParkEditing::CParkBuilderMode::Sole()->GetPackedParkData(false);
         client->SendBulkToHost(kMsgParkMap, kParkMapSize, map, kParkMapDesc, kGroupGame, true, false);
-        ParkEditing::CRailAuthoring::Instance(); // (the rail editor looked up once for nothing)
-        void* rails = Call<void*>(CodeAddress(&ParkEditing::CRailAuthoring::GetPacked), ParkEditing::CRailAuthoring::Instance());
+        ParkEditing::CRailAuthoring::Sole(); // (the rail editor looked up once for nothing)
+        void* rails = Call<void*>(CodeAddress(&ParkEditing::CRailAuthoring::GetPacked), ParkEditing::CRailAuthoring::Sole());
         client->SendBulkToHost(kMsgRailsData, kRailsDataSize, rails, kRailsDesc, kGroupGame, true, false);
     }
     SendRequest(manager, kMsgChangeLevelRequest, &level, 4);
@@ -294,7 +294,7 @@ bool __cdecl CFunc_FCFSRequestChangeLevel(CStruct* params, CScript*)
 // 0x00536240: ReattemptJoinServer - the connection request again on client 0.
 bool __cdecl CFunc_ReattemptJoinServer(CStruct*, CScript*)
 {
-    Manager* manager = NetLink();
+    Hub* manager = NetLink();
     manager->RetryEntry(manager->m_clientApp);
     return true;
 }
@@ -302,7 +302,7 @@ bool __cdecl CFunc_ReattemptJoinServer(CStruct*, CScript*)
 // 0x00536260: FCFSRequestToggleProSet bit=<n> param_id=<checksum> - message 0x63: the id, then the bit's byte.
 bool __cdecl CFunc_FCFSRequestToggleProSet(CStruct* params, CScript*)
 {
-    Manager* manager = NetLink();
+    Hub* manager = NetLink();
     int bit;
     uint32_t id;
     params->FetchIntValue(kBit, &bit, 1);
@@ -319,7 +319,7 @@ bool __cdecl CFunc_FCFSRequestToggleProSet(CStruct* params, CScript*)
 // 0x005362F0: FCFSRequestToggleGoalSelection name=<goal> - message 0x64.
 bool __cdecl CFunc_FCFSRequestToggleGoalSelection(CStruct* params, CScript*)
 {
-    Manager* manager = NetLink();
+    Hub* manager = NetLink();
     uint32_t goal; // (uninitialised in the original: a missing name sends what its slot held)
     params->ReadHashValue(kName, &goal, 1);
     uint32_t request = goal;
@@ -331,7 +331,7 @@ bool __cdecl CFunc_FCFSRequestToggleGoalSelection(CStruct* params, CScript*)
 // {flag = <its number>} as m_proSetFlags has its bit.
 bool __cdecl CFunc_ResetProSetFlags(CStruct*, CScript*)
 {
-    Manager* manager = NetLink();
+    Hub* manager = NetLink();
     for (int bit = 0; bit < kProSetCount; ++bit) {
         CStruct* params = NewParams();
         params->PutInt(kFlag, Scripts::FetchIntValue(kFirstProSetFlag) + bit);
@@ -350,7 +350,7 @@ bool __cdecl CFunc_HasSignedDisclaimer(CStruct*, CScript*)
 // 0x00537100: FoundServers - the server list (+0x158) has an entry.
 bool __cdecl CFunc_FoundServers(CStruct*, CScript*)
 {
-    const MemSys::ListNode* node = Field<MemSys::ListNode*>(NetLink(), 0x164); // (the list's first node)
+    const MemSys::ListNode* node = Prop<MemSys::ListNode*>(NetLink(), 0x164); // (the list's first node)
     int count = 0;
     // (the head's mark tested before a null node, as in the original)
     while (reinterpret_cast<intptr_t>(node->data) != -1 && node) {

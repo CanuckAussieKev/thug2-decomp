@@ -31,7 +31,7 @@ constexpr int kMostFound = 0x7FF;
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-int Clamp(int value, int size)
+int Confine(int value, int size)
 {
     if (value < 0)
         return 0;
@@ -39,14 +39,14 @@ int Clamp(int value, int size)
 }
 
 // An object's box as the grid sees it (slot 21).
-const Maths::BBox* Box(CHitMesh* object) { return object->Call<const Maths::BBox*>(21); }
+const Maths::BBox* Cuboid(CHitMesh* object) { return object->Call<const Maths::BBox*>(21); }
 
-bool Listable(CHitMesh* object) { return !(object->m_flags & 6); }
+bool Listable(CHitMesh* object) { return !(object->m_flagBits & 6); }
 
 bool IsHead(const MemSys::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
 MemSys::ListNode* Masked(MemSys::ListNode* node) { return IsHead(node) ? nullptr : node; }
 
-int Length(MemSys::ListNode* head)
+int LenOf(MemSys::ListNode* head)
 {
     int count = 0;
     for (MemSys::ListNode* node = head->next; !IsHead(node) && node; node = node->next)
@@ -125,11 +125,11 @@ struct CellUpdate {
         int count = cell->count + delta;
         uint32_t size = static_cast<uint32_t>(count) * 4;
         if (delta < 0) {
-            if (!cell->objects || !MemSys::Manager::Get()->TrimBlockEnd(size, cell->objects, nullptr))
-                cell->objects = static_cast<CHitMesh**>(MemSys::Realloc(cell->objects, size));
+            if (!cell->objects || !MemSys::Hub::Pull()->TrimBlockEnd(size, cell->objects, nullptr))
+                cell->objects = static_cast<CHitMesh**>(MemSys::Regrow(cell->objects, size));
         } else if (delta > 0) {
-            if (!cell->objects || !MemSys::Manager::Get()->ExtendBlockUpward(size, cell->objects, nullptr))
-                cell->objects = static_cast<CHitMesh**>(MemSys::Realloc(cell->objects, size));
+            if (!cell->objects || !MemSys::Hub::Pull()->ExtendBlockUpward(size, cell->objects, nullptr))
+                cell->objects = static_cast<CHitMesh**>(MemSys::Regrow(cell->objects, size));
             int at = cell->count;
             if (!IsHead(pending->next)) {
                 for (MemSys::ListNode* node = pending->next; node;) {
@@ -147,7 +147,7 @@ struct CellUpdate {
 } // namespace
 
 // 0x004183B0
-CollGridCell* CollGridCell::Construct()
+CollGridCell* CollGridCell::MakeNew()
 {
     new (&box) Maths::BBox();
     unknown20 = 0;
@@ -161,13 +161,13 @@ CollGridCell* CollGridCell::Construct()
 void CollGridCell::Destruct()
 {
     if (unknown28)
-        MemSys::Manager::Get()->Free(unknown28);
+        MemSys::Hub::Pull()->Dealloc(unknown28);
     if (objects)
         MemSys::FreeMalloc(objects);
 }
 
 // 0x00418440 (the corners are kept in double precision from one cell to the next and rounded where stored)
-void CCollGrid::Init(const Maths::BBox* bounds)
+void CCollGrid::PrepareAll(const Maths::BBox* bounds)
 {
     m_box = *bounds;
     m_cellWidth = static_cast<float>((static_cast<double>(bounds->max.x) - bounds->min.x) * 0.05f);
@@ -205,7 +205,7 @@ void CCollGrid::Clear()
 void CCollGrid::Fill(CStaticCollider* statics, int count)
 {
     auto cellsOf = [this](CStaticCollider* object, int& x0, int& x1, int& z0, int& z1) {
-        const Maths::BBox* box = Box(object);
+        const Maths::BBox* box = Cuboid(object);
         float inverseWidth = static_cast<float>(1.0 / m_cellWidth);
         x0 = Truncate((static_cast<double>(box->min.x) - m_box.min.x) * inverseWidth);
         x1 = Truncate((static_cast<double>(box->max.x) - m_box.min.x) * inverseWidth);
@@ -236,7 +236,7 @@ void CCollGrid::Fill(CStaticCollider* statics, int count)
     }
     // how many each cell has so far (a scratch block on the top-down heap)
     MemSys::EnterHeapScope(MemSys::TopDownHeap());
-    auto* filled = static_cast<int*>(MemSys::New(kSize * kSize * sizeof(int)));
+    auto* filled = static_cast<int*>(MemSys::Alloc(kSize * kSize * sizeof(int)));
     std::memset(filled, 0, kSize * kSize * sizeof(int));
     MemSys::LeaveHeapScope();
     for (int i = 0; i < count; ++i) {
@@ -249,11 +249,11 @@ void CCollGrid::Fill(CStaticCollider* statics, int count)
                 m_cells[x][z].objects[filled[x * kSize + z]++] = &statics[i];
         }
     }
-    MemSys::Manager::Get()->Free(filled);
+    MemSys::Hub::Pull()->Dealloc(filled);
 }
 
 // 0x00418F60
-void CCollGrid::Update(MemSys::ListNode* added, MemSys::ListNode* removed, MemSys::ListNode* moved)
+void CCollGrid::TickFrame(MemSys::ListNode* added, MemSys::ListNode* removed, MemSys::ListNode* moved)
 {
     MemSys::ListNode pending;
     pending.vtable = Vt::kCollGridHead;
@@ -261,7 +261,7 @@ void CCollGrid::Update(MemSys::ListNode* added, MemSys::ListNode* removed, MemSy
     pending.priority = 0;
     pending.next = &pending;
     pending.prev = &pending;
-    int addedCount = Length(added), removedCount = Length(removed), movedCount = Length(moved);
+    int addedCount = LenOf(added), removedCount = LenOf(removed), movedCount = LenOf(moved);
     for (int x = 0; x < kSize; ++x) {
         for (int z = 0; z < kSize; ++z) {
             CellUpdate update{&m_cells[x][z], &pending};
@@ -270,20 +270,20 @@ void CCollGrid::Update(MemSys::ListNode* added, MemSys::ListNode* removed, MemSy
             MemSys::ListNode* node = Masked(removed->next);
             for (int i = 0; i < removedCount; ++i, node = Masked(node->next)) {
                 auto* object = static_cast<CHitMesh*>(node->data);
-                if (cell->box.Intersects(*Box(object)))
+                if (cell->box.Intersects(*Cuboid(object)))
                     update.TakeOut(object);
             }
             node = Masked(added->next);
             for (int i = 0; i < addedCount; ++i, node = Masked(node->next)) {
                 auto* object = static_cast<CHitMesh*>(node->data);
-                if (cell->box.Intersects(*Box(object)))
+                if (cell->box.Intersects(*Cuboid(object)))
                     update.PutIn(object);
             }
             node = Masked(moved->next);
             for (int i = 0; i < movedCount; ++i, node = Masked(node->next)) {
                 auto* object = static_cast<CHitMesh*>(node->data);
                 bool listed = update.Lists(object);
-                if (cell->box.Intersects(*Box(object)) != listed) {
+                if (cell->box.Intersects(*Cuboid(object)) != listed) {
                     if (listed)
                         update.TakeOut(object);
                     else
@@ -324,10 +324,10 @@ CHitMesh** CCollGrid::ObjectsInBox(const Maths::BBox* box)
     int z0 = Truncate((static_cast<double>(box->min.z) - m_box.min.z - 0.5f) * inverseDepth);
     int x1 = Truncate((static_cast<double>(box->max.x) - m_box.min.x + 0.5f) * inverseWidth);
     int z1 = Truncate((static_cast<double>(box->max.z) - m_box.min.z + 0.5f) * inverseDepth);
-    x0 = Clamp(x0, m_columns);
-    z0 = Clamp(z0, m_rows);
-    x1 = Clamp(x1, m_columns);
-    z1 = Clamp(z1, m_rows);
+    x0 = Confine(x0, m_columns);
+    z0 = Confine(z0, m_rows);
+    x1 = Confine(x1, m_columns);
+    z1 = Confine(z1, m_rows);
     int found = 0;
     for (int x = x0; x <= x1; ++x) {
         for (int z = z0; z <= z1; ++z) {
@@ -347,7 +347,7 @@ CHitMesh** CCollGrid::ObjectsInBox(const Maths::BBox* box)
 
 // 0x004188C0 (the line's direction: its float parts, the x part unrounded; made a unit vector when it has a
 // length, its x part again unrounded; the longer line's w left unset by the original)
-CHitMesh** CCollGrid::ObjectsAlongLine(const Maths::Line* line, int* count)
+CHitMesh** CCollGrid::ObjectsAlongLine(const Maths::Seg* line, int* count)
 {
     double dx = static_cast<double>(line->end.x) - line->start.x;
     float dy = line->end.y - line->start.y;
@@ -362,7 +362,7 @@ CHitMesh** CCollGrid::ObjectsAlongLine(const Maths::Line* line, int* count)
     }
     double ex = dx * 0.5f, ey = static_cast<double>(dy) * 0.5f;
     float ez = static_cast<float>(static_cast<double>(dz) * 0.5f);
-    Maths::Line longer;
+    Maths::Seg longer;
     longer.start = {static_cast<float>(line->start.x - ex), static_cast<float>(line->start.y - ey),
                     static_cast<float>(static_cast<double>(line->start.z) - ez), 0.0f};
     longer.end = {static_cast<float>(ex + line->end.x), static_cast<float>(ey + line->end.y),
@@ -372,12 +372,12 @@ CHitMesh** CCollGrid::ObjectsAlongLine(const Maths::Line* line, int* count)
     int x0 = Truncate((static_cast<double>(longer.start.x) - m_box.min.x) * inverseWidth);
     float inverseDepth = static_cast<float>(1.0 / m_cellDepth);
     int z0 = Truncate((static_cast<double>(longer.start.z) - m_box.min.z) * inverseDepth);
-    x0 = Clamp(x0, m_columns);
-    z0 = Clamp(z0, m_rows);
+    x0 = Confine(x0, m_columns);
+    z0 = Confine(z0, m_rows);
     int x1 = Truncate((static_cast<double>(longer.end.x) - m_box.min.x) * inverseWidth);
     int z1 = Truncate((static_cast<double>(longer.end.z) - m_box.min.z) * inverseDepth);
-    x1 = Clamp(x1, m_columns);
-    z1 = Clamp(z1, m_rows);
+    x1 = Confine(x1, m_columns);
+    z1 = Confine(z1, m_rows);
     if (x1 < x0) {
         int swap = x0;
         x0 = x1;
@@ -424,7 +424,7 @@ MemSys::ListNode* CollGridListNodes::DestroyNode(uint8_t flags)
 {
     DestroyNodeBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return reinterpret_cast<MemSys::ListNode*>(this);
 }
 
@@ -433,7 +433,7 @@ MemSys::ListNode* CollGridListNodes::DestroyHead(uint8_t flags)
 {
     DestroyNodeBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return reinterpret_cast<MemSys::ListNode*>(this);
 }
 

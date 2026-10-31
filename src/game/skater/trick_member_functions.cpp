@@ -99,11 +99,11 @@ bool IsSwitch(CMoveExecutor* self)
 // The score component (+0x1C): the trick's points (0x00563990), the spin's (0x00563F30).
 void ScoreTrick(CMoveExecutor* self, const char* name, int score, uint32_t flags)
 {
-    static_cast<GameModules::Score*>(Component(self, kScore))->Trigger(name, score, flags);
+    static_cast<GameModules::PointTally*>(Component(self, kScore))->FireOff(name, score, flags);
 }
 void ScoreSpin(CMoveExecutor* self, int degrees)
 {
-    static_cast<GameModules::Score*>(Component(self, kScore))->SetTurnAmount(degrees);
+    static_cast<GameModules::PointTally*>(Component(self, kScore))->SetTurnAmount(degrees);
 }
 
 // The trick names of unnamed name components (SetQueueTricks and the others): into `arrays`, counted at `count`.
@@ -124,9 +124,9 @@ void ExitCombo(CMoveExecutor* self)
         return;
     Scripts::CStruct* params = Scripts::NewStruct();
     if (params)
-        params = params->Init();
-    params->PutNameKey(kSkaterId, self->m_object->m_id);
-    self->m_object->BroadcastEvent(kSkaterExitCombo, params, 0.0f);
+        params = params->PrepareAll();
+    params->PutNameKey(kSkaterId, self->m_entity->m_ident);
+    self->m_entity->Announce(kSkaterExitCombo, params, 0.0f);
     if (params) {
         params->Clear();
         Scripts::DeleteStruct(params);
@@ -138,7 +138,7 @@ void ExitCombo(CMoveExecutor* self)
 bool SpinCounts(CMoveExecutor* self, bool fullTurn)
 {
     float spin = std::fabs(At<float>(self, kSpinTotal));
-    double slop = ReadTuningFloat(kSpinCountSlop, 1, static_cast<CGameEntity*>(self->m_object));
+    double slop = ReadTuningFloat(kSpinCountSlop, 1, static_cast<CGameEntity*>(self->m_entity));
     double threshold = (static_cast<double>(fullTurn ? kFullTurn : kHalfTurn) - slop) + kSpinMargin;
     return threshold <= spin;
 }
@@ -147,7 +147,7 @@ bool SpinCounts(CMoveExecutor* self, bool fullTurn)
 bool SameTrickShown(CMoveExecutor* self, void* score)
 {
     uint32_t name = Checksums::HashFromText(&At<char>(self, kTrickName));
-    return static_cast<GameModules::Score*>(score)->GetLastTrickName() == name;
+    return static_cast<GameModules::PointTally*>(score)->GetLastTrickName() == name;
 }
 
 } // namespace
@@ -164,7 +164,7 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
         return IsPadHeld(this, button) ? 0 : 1;
     }
     case kGetSpazzFactor:
-        script->m_params->PutInt(kSpazzFactor, Truncate(CountTriangleBashes()));
+        script->m_args->PutInt(kSpazzFactor, Truncate(CountTriangleBashes()));
         return 1;
     case kUseEventsX:
         // Every event of the button x marked used (+0x14), in the buffer's order.
@@ -176,7 +176,7 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
         return 1;
     case kClearPanelLanded: {
         void* score = Component(this, kScore);
-        if (reinterpret_cast<CGameEntity*>(m_object)->m_unknownBC) {
+        if (reinterpret_cast<CGameEntity*>(m_entity)->m_unknownBC) {
             char* deferred = &At<char>(this, kDeferredName);
             if (*deferred) {
                 bool onRail = At<bool>(Component(this, kCorePhysics), 0x374);
@@ -188,14 +188,14 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
             }
             GoalSystem::GetObjectiveBoard()->CheckTrickGoals(); // the goal manager
             ExitCombo(this);
-            static_cast<void>(m_object->GetComponent(kSkaterGap)); // (its only use was ECX of the call below)
+            static_cast<void>(m_entity->FetchModule(kSkaterGap)); // (its only use was ECX of the call below)
             PayOutQueuedGaps();
-            static_cast<GameModules::Score*>(score)->Land();
+            static_cast<GameModules::PointTally*>(score)->Land();
             At<float>(this, kSpinTotal) = 0.0f;
             At<bool>(Component(this, kState), 0xE0) = false;
             static_cast<CAttributeTracker*>(Component(this, kComponent34))->AnnounceMetGoals();
         }
-        m_object->BroadcastEvent(kSkaterLanded, nullptr, 0.0f);
+        m_entity->Announce(kSkaterLanded, nullptr, 0.0f);
         if (At<bool>(this, kBailed))
             At<bool>(this, kBailedPanel) = true;
         At<int>(this, kTrickCount) = 0;
@@ -208,7 +208,7 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
         At<bool>(this, kQuickGetupDone) = false;
         return 1;
     case kGetActualSpin:
-        script->m_params->PushFloat(kSpin, static_cast<float>(Truncate(std::fabs(At<float>(this, kSpinTotal)))));
+        script->m_args->PushFloat(kSpin, static_cast<float>(Truncate(std::fabs(At<float>(this, kSpinTotal)))));
         return 1;
     case kSetManualTricks:
         CollectNames(params, At<int>(this, kManualCount), &At<uint32_t>(this, kManualArrays));
@@ -222,7 +222,7 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
         uint32_t value;
         params->ReadHashValue(0u, &value, 1);
         if (At<bool>(this, kTrickObjectsOn))
-            At<CTrickObjectList>(this, kTrickObjects).Add(value);
+            At<CTrickObjectList>(this, kTrickObjects).AppendOne(value);
         return 1;
     }
     case kNoQuickGetup:
@@ -230,7 +230,7 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
         return 1;
     case kSetTrickName: {
         const char* text = nullptr;
-        params->GetString(0u, &text, 0);
+        params->FetchText(0u, &text, 0);
         if (text)
             CopyText(&At<char>(this, kTrickName), text);
         else
@@ -239,9 +239,9 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
     }
     case kGetSpin: {
         float spin = At<float>(this, kSpinTotal);
-        double slop = ReadTuningFloat(kSpinCountSlop, 1, static_cast<CGameEntity*>(m_object));
+        double slop = ReadTuningFloat(kSpinCountSlop, 1, static_cast<CGameEntity*>(m_entity));
         int turns = Truncate(slop + std::fabs(spin)) / 180;
-        script->m_params->PushFloat(kSpin, static_cast<float>(turns * static_cast<double>(kHalfTurn)));
+        script->m_args->PushFloat(kSpin, static_cast<float>(turns * static_cast<double>(kHalfTurn)));
         return 1;
     }
     case kClearTrickQueue:
@@ -301,12 +301,12 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
     case kClearEventBuffer: {
         // buttons= with OlderThan=: each button's events (0x0051F610); else the whole buffer (0x0051EB00).
         Scripts::CArray* buttons = nullptr;
-        if (params->GetArray(kButtonsName, &buttons, 0)) {
+        if (params->FetchList(kButtonsName, &buttons, 0)) {
             int olderThan = 0;
             params->FetchIntValue(kOlderThan, &olderThan, 0);
-            int count = static_cast<int>(buttons->m_size);
+            int count = static_cast<int>(buttons->m_extent);
             for (int i = 0; i < count; ++i)
-                ExpireButton(buttons->GetElement(i), static_cast<uint32_t>(olderThan));
+                ExpireButton(buttons->FetchPart(i), static_cast<uint32_t>(olderThan));
             return 1;
         }
         ClearEventBuffer();
@@ -340,11 +340,11 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
         return 1;
     }
     case kClearPanelBailed: {
-        if (reinterpret_cast<CGameEntity*>(m_object)->m_unknownBC) {
+        if (reinterpret_cast<CGameEntity*>(m_entity)->m_unknownBC) {
             ExitCombo(this);
-            static_cast<GameModules::Score*>(Component(this, kScore))->Bail(false);
+            static_cast<GameModules::PointTally*>(Component(this, kScore))->Bail(false);
         }
-        m_object->BroadcastEvent(kSkaterBailed, nullptr, 0.0f);
+        m_entity->Announce(kSkaterBailed, nullptr, 0.0f);
         At<bool>(this, kBailed) = true;
         At<bool>(this, kBailedPanel) = true;
         At<bool>(this, kTrickObjectsOn) = false;
@@ -356,7 +356,7 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
         At<float>(this, kSpinTotal) = 0.0f;
         At<uint32_t>(Component(this, kCorePhysics), 0x318) = 0;
         list.Clear();
-        static_cast<void>(m_object->GetComponent(kSkaterGap)); // (its only use was ECX of the call below)
+        static_cast<void>(m_entity->FetchModule(kSkaterGap)); // (its only use was ECX of the call below)
         DiscardQueuedGaps();
         static_cast<CAttributeTracker*>(Component(this, kComponent34))->Reset();
         return 1;
@@ -382,7 +382,7 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
         return 1;
     case kSetQueueTricks:
         CollectNames(params, At<int>(this, kQueueCount), &At<uint32_t>(this, kQueueArrays));
-        if (At<int>(this, kQueueCount) == 1 && !Scripts::GetArray(At<uint32_t>(this, kQueueArrays)))
+        if (At<int>(this, kQueueCount) == 1 && !Scripts::FetchList(At<uint32_t>(this, kQueueArrays)))
             At<uint32_t>(this, kQueueArrays) = kNoQueue;
         At<uint32_t>(this, kQueueSpecial) = 0;
         params->ReadHashValue(kSpecial, &At<uint32_t>(this, kQueueSpecial), 0);
@@ -396,20 +396,20 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
     case kHeld: {
         // buttons=: whether any is held; else the unnamed button's state (0x0051ECF0).
         Scripts::CArray* buttons = nullptr;
-        if (params->GetArray(kButtonsName, &buttons, 0)) {
-            int count = static_cast<int>(buttons->m_size);
+        if (params->FetchList(kButtonsName, &buttons, 0)) {
+            int count = static_cast<int>(buttons->m_extent);
             for (int i = 0; i < count; ++i) {
                 // NOT ORIGINAL - THAW's BMX (the feature on, on the bike): THAW's stick directions too (its trick
                 // lists' buttons=[rightright, RightUpRight, RightDownRight]). Original behaviour: THUG2's only.
-                if (Skater::ThawBmx::Enabled()) {
-                    int held = Skater::ThawBmx::TrickStickHeld(this, buttons->GetElement(i));
+                if (Skater::ThawBmx::IsSwitchedOn()) {
+                    int held = Skater::ThawBmx::TrickStickHeld(this, buttons->FetchPart(i));
                     if (held >= 0) {
                         if (held)
                             return 1;
                         continue;
                     }
                 }
-                if (At<bool>(this, kHeldButtons + PadInput::ButtonIndex(buttons->GetElement(i))))
+                if (At<bool>(this, kHeldButtons + PadInput::ButtonIndex(buttons->FetchPart(i))))
                     return 1;
             }
             return 0;
@@ -434,8 +434,8 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
         } else if (params->FetchIntValue(kAddSpin, &addSpin, 0) && SameTrickShown(this, score)) {
             double spin = static_cast<double>(addSpin) + At<float>(this, kSpinTotal);
             At<float>(this, kSpinTotal) = static_cast<float>(spin);
-            if (reinterpret_cast<CGameEntity*>(m_object)->m_unknownBC)
-                static_cast<GameModules::Score*>(score)->AdvanceTurn(Truncate(spin));
+            if (reinterpret_cast<CGameEntity*>(m_entity)->m_unknownBC)
+                static_cast<GameModules::PointTally*>(score)->AdvanceTurn(Truncate(spin));
         } else {
             uint32_t flags = 0;
             if (params->HasBareFlag(kBlockspin))
@@ -458,7 +458,7 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
                 flags |= 0x200;
             if (params->HasBareFlag(kNoSwitch))
                 flags |= 0x400;
-            if (reinterpret_cast<CGameEntity*>(m_object)->m_unknownBC) {
+            if (reinterpret_cast<CGameEntity*>(m_entity)->m_unknownBC) {
                 uint8_t* core = static_cast<uint8_t*>(Component(this, kCorePhysics));
                 if (At<int>(At<uint8_t*>(core, 0x1528), 0x18) == 4) {
                     int trickScore = At<int>(this, kTrickScore);
@@ -472,7 +472,7 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
                 char* trickName = &At<char>(this, kTrickName);
                 ScoreTrick(this, trickName, At<int>(this, kTrickScore), flags);
                 if (*trickName) {
-                    m_object->BroadcastEvent(kSkaterTrickDisplayed, nullptr, 0.0f);
+                    m_entity->Announce(kSkaterTrickDisplayed, nullptr, 0.0f);
                     bool special = At<bool>(At<uint8_t*>(core, 0x1528), 0x30);
                     if ((!special && !At<bool>(core, 0x374)) || SpinCounts(this, true))
                         ScoreSpin(this, Truncate(At<float>(this, kSpinTotal)));

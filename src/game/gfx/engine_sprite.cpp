@@ -31,7 +31,7 @@ void Notify(T* object, int slot)
 // --- the sprite ---------------------------------------------------------------------------------------------
 
 // 0x0049ED60
-CBillboardQuad* CBillboardQuad::Construct(void* window)
+CBillboardQuad* CBillboardQuad::MakeNew(void* window)
 {
     m_posX = -1.0f;
     m_y = -1.0f;
@@ -42,7 +42,7 @@ CBillboardQuad* CBillboardQuad::Construct(void* window)
     m_scaleH = 1.0f;
     m_scaleV = 1.0f;
     m_orientationTurn = 0.0f;
-    m_priority = 0.0f;
+    m_rank = 0.0f;
     m_span = 0;
     m_levelY = 0;
     std::memset(m_rgbaValue, 0x80, sizeof(m_rgbaValue));
@@ -59,16 +59,16 @@ CBillboardQuad* CBillboardQuad::Construct(void* window)
 void CBillboardQuad::DestroyBody() { vtable = reinterpret_cast<void**>(kSpriteVtable); }
 
 // 0x0049EDD0
-CBillboardQuad* CBillboardQuad::Destroy(unsigned int freeFlags)
+CBillboardQuad* CBillboardQuad::Teardown(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
 // 0x0049EBB0
-void CBillboardQuad::SetHidden(bool hidden)
+void CBillboardQuad::ChangeConcealed(bool hidden)
 {
     m_invisible = hidden;
     Notify(this, 2);
@@ -93,7 +93,7 @@ void CBillboardQuad::ChooseBlendMode(uint32_t blend)
 }
 
 // 0x0049EC10
-void CBillboardQuad::SetPos(float x, float y)
+void CBillboardQuad::ChangeLocation(float x, float y)
 {
     m_posX = x;
     m_y = y;
@@ -101,7 +101,7 @@ void CBillboardQuad::SetPos(float x, float y)
 }
 
 // 0x0049EC30
-void CBillboardQuad::SetSize(uint16_t width, uint16_t height)
+void CBillboardQuad::ChangeExtent(uint16_t width, uint16_t height)
 {
     m_span = width;
     m_levelY = height;
@@ -145,16 +145,16 @@ void CBillboardQuad::SetHotSpot(float x, float y)
 }
 
 // 0x0049EC90
-void CBillboardQuad::SetRotation(float rotation)
+void CBillboardQuad::ChangeSpin(float rotation)
 {
     m_orientationTurn = rotation;
     Notify(this, 3);
 }
 
 // 0x0049ECA0
-void CBillboardQuad::SetPriority(float priority)
+void CBillboardQuad::ChangeRank(float priority)
 {
-    m_priority = priority;
+    m_rank = priority;
     m_useDepth = false;
     Notify(this, 4);
 }
@@ -184,7 +184,7 @@ void CBillboardQuad::ChangeRgba(uint32_t rgba)
 // --- the textured quad ----------------------------------------------------------------------------------------
 
 // 0x0049EED0
-CTexturedQuad* CTexturedQuad::Construct(void* window)
+CTexturedQuad* CTexturedQuad::MakeNew(void* window)
 {
     m_viewWindow = window;
     vtable = reinterpret_cast<void**>(kQuadVtable);
@@ -196,23 +196,23 @@ CTexturedQuad* CTexturedQuad::Construct(void* window)
 }
 
 // 0x0049EF00
-CTexturedQuad* CTexturedQuad::Destroy(unsigned int freeFlags)
+CTexturedQuad* CTexturedQuad::Teardown(unsigned int freeFlags)
 {
     vtable = reinterpret_cast<void**>(kQuadVtable);
     if (freeFlags & 1)
-        MemSys::Free(this);
+        MemSys::Dealloc(this);
     return this;
 }
 
 // 0x0049EF30
-CTexturedQuad* CTexturedQuad::Create()
+CTexturedQuad* CTexturedQuad::Fabricate()
 {
-    void* memory = MemSys::New(sizeof(CTexturedQuad));
-    return memory ? static_cast<CTexturedQuad*>(memory)->Construct(nullptr) : nullptr;
+    void* memory = MemSys::Alloc(sizeof(CTexturedQuad));
+    return memory ? static_cast<CTexturedQuad*>(memory)->MakeNew(nullptr) : nullptr;
 }
 
 // 0x0049ED10
-void CTexturedQuad::SetHidden(bool hidden)
+void CTexturedQuad::ChangeConcealed(bool hidden)
 {
     m_invisible = hidden;
     Notify(this, 4);
@@ -233,9 +233,9 @@ void CTexturedQuad::ChooseBlendMode(uint32_t blend)
 }
 
 // 0x0049ED20
-void CTexturedQuad::SetPriority(float priority)
+void CTexturedQuad::ChangeRank(float priority)
 {
-    m_priority = priority;
+    m_rank = priority;
     m_useDepth = false;
     Notify(this, 6);
 }
@@ -248,10 +248,10 @@ void CTexturedQuad::ChangeRgba(uint32_t rgba)
 }
 
 namespace {
-static VtableSlot kSpriteVtable_slots[] = {&Engine3D::CBillboardQuad::Destroy, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
+static VtableSlot kSpriteVtable_slots[] = {&Engine3D::CBillboardQuad::Teardown, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
                 Stubs::DoNothing, Stubs::DoNothing};
 void** const kSpriteVtable = reinterpret_cast<void**>(kSpriteVtable_slots);
-static VtableSlot kQuadVtable_slots[] = {&Engine3D::CTexturedQuad::Destroy, &Engine3D::CTexturedQuad::Create, Stubs::DoNothing,
+static VtableSlot kQuadVtable_slots[] = {&Engine3D::CTexturedQuad::Teardown, &Engine3D::CTexturedQuad::Fabricate, Stubs::DoNothing,
                 Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
                 Stubs::IgnoreArgument, Stubs::IgnoreArgument};
 void** const kQuadVtable = reinterpret_cast<void**>(kQuadVtable_slots);

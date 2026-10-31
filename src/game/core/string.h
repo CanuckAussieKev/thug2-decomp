@@ -3,15 +3,15 @@
 namespace TextUtil {
 
 // The engine's owning string. Memory comes from the game's allocator.
-class String {
+class Chars {
 public:
-    String();
-    String(const char* text);
-    String(const String& other);
-    ~String();
+    Chars();
+    Chars(const char* text);
+    Chars(const Chars& other);
+    ~Chars();
 
-    String& operator=(const char* text);
-    String& operator=(const String& other);
+    Chars& operator=(const char* text);
+    Chars& operator=(const Chars& other);
 
     const char* c_str() const { return m_octets; }
 

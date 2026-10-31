@@ -22,7 +22,7 @@ struct Painter;
 //     pipe (a circular transition, vert at its top) - `length` long (0: a kicker twice the height, a quarter pipe its
 //     height as its radius).
 //   - Lower: a pit - impossible without cutting the floor, so only where the floor under the rectangle is pieces wholly
-//     inside it (tiles): those are hidden (CWorldCell::SetActive - neither drawn nor collided with) and the pit is made:
+//     inside it (tiles): those are hidden (CWorldCell::ChangeLive - neither drawn nor collided with) and the pit is made:
 //     walls facing in, a floor `height` below, ramps inside the walls (a bowl with quarter pipes). Where a floor piece
 //     (or a collision-only object holding the ground's faces) reaches outside the rectangle, it is refused with why.
 //
@@ -30,9 +30,9 @@ struct Painter;
 // as the editor's copies - its own meshes, buffers and collision, in the scene's render lists and collision) whose
 // material the piece takes (the "material" - by default the floor piece clicked); then the copy's first mesh gets new
 // buffers holding the generated vertices (the donor's vertex format: position, normal, colour, texture coordinates;
-// NewVertexBuffer 0x004D5760 / NewIndexBuffer 0x004D4270, as meshRef::Clone makes them) and a triangle strip with every
+// NewVertexBuffer 0x004D5760 / NewIndexBuffer 0x004D4270, as meshRef::Replicate makes them) and a triangle strip with every
 // triangle both ways (drawn whatever the material's culling), its other meshes' strips made degenerate; its collision
-// geometry gets new arrays (MemSys::New, as CTriMeshSource::Clone - the game frees them with the level) holding the
+// geometry gets new arrays (MemSys::Alloc, as CTriMeshSource::Replicate - the game frees them with the level) holding the
 // generated faces (floats, 10-byte faces) and a one-leaf BSP tree, the face-rejection scale 0; the super sectors
 // updated. Face flags: decks and ramps skatable (0x01), quarter pipes' faces steeper than 45 degrees vert too (0x08),
 // walls and cheeks wall-ridable (0x04); terrain the donor's commonest. A piece isn't movable as scenery
@@ -48,7 +48,7 @@ namespace MenuSystem::LevelEditor::Ground {
 // --- the pure parts (tools/pipeline/game/ground_pieces.ts is their port) -------------------------------------------------------
 
 enum class Ramp : uint8_t { None, Kicker, Quarter };
-enum Side { kMinusX, kPlusX, kMinusZ, kPlusZ };
+enum Flank { kMinusX, kPlusX, kMinusZ, kPlusZ };
 
 struct Spec {
     std::string name;  // ed_ground01 (the sector's name)
@@ -118,7 +118,7 @@ void WriteVertices(const Mesh& mesh, const Layout& layout, uint32_t stride, uint
 
 // The record (after "ground ") and back (false: a bad or repeated key, a missing rect / base / height / material, an
 // unknown kind; `known`: the material's name, if any).
-std::string Record(const Spec& spec, const char* materialName);
+std::string LogEntry(const Spec& spec, const char* materialName);
 bool ReadRecord(const std::string& text, Spec* spec);
 // "ed_ground" and the lowest two-digit number not taken.
 std::string FreshName(const std::vector<Spec>& specs);
@@ -141,11 +141,11 @@ const std::vector<Spec>& All();
 bool IsPiece(uint32_t sector);
 const Spec* Find(const std::string& name);
 // The editor starting / stopping.
-void Start();
-void Stop();
+void Kickoff();
+void Halt();
 // A piece made / changed (`spec.name` new or one of the pieces) - or refused (`why`): one undo step. Removed likewise.
-bool Put(const Spec& spec, std::string* why);
-void Remove(const std::string& name);
+bool PlaceIn(const Spec& spec, std::string* why);
+void DropOut(const std::string& name);
 // Everything as `specs` says (undo, a layout put in place): made, changed, removed. How many are in place.
 int ApplyToEach(const std::vector<Spec>& specs, std::string* message);
 // A pit's tiles under the rectangle (`spec.hides` set) - false and why when the floor there reaches out of it.

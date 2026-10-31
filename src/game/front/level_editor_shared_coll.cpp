@@ -28,14 +28,14 @@ namespace MenuSystem::LevelEditor::SharedCollision {
 
 namespace {
 
-float Length(V3 v) { return std::sqrt(Dot(v, v)); }
+float LenOf(V3 v) { return std::sqrt(Dot(v, v)); }
 
 float SegmentDistance(V3 p, V3 a, V3 b)
 {
     V3 ab = b - a;
     float len2 = Dot(ab, ab);
     float t = len2 > 0.0f ? std::clamp(Dot(p - a, ab) / len2, 0.0f, 1.0f) : 0.0f;
-    return Length(p - (a + ab * t));
+    return LenOf(p - (a + ab * t));
 }
 
 } // namespace
@@ -43,14 +43,14 @@ float SegmentDistance(V3 p, V3 a, V3 b)
 float PointTriangleDistance(V3 p, V3 a, V3 b, V3 c)
 {
     V3 ab = b - a, ac = c - a;
-    V3 n = Cross(ab, ac);
+    V3 n = Perpendicular(ab, ac);
     float n2 = Dot(n, n);
     float scale = std::max({Dot(ab, ab), Dot(ac, ac), Dot(c - b, c - b)});
     if (!(n2 > scale * scale * 1e-12f)) // (degenerate: a line or a point)
         return std::min({SegmentDistance(p, a, b), SegmentDistance(p, b, c), SegmentDistance(p, a, c)});
     // Inside the triangle's prism: the distance to its plane; else to the nearest edge.
     V3 ap = p - a, bp = p - b, cp = p - c;
-    bool inside = Dot(Cross(ab, ap), n) >= 0.0f && Dot(Cross(c - b, bp), n) >= 0.0f && Dot(Cross(a - c, cp), n) >= 0.0f;
+    bool inside = Dot(Perpendicular(ab, ap), n) >= 0.0f && Dot(Perpendicular(c - b, bp), n) >= 0.0f && Dot(Perpendicular(a - c, cp), n) >= 0.0f;
     if (inside)
         return std::fabs(Dot(ap, n)) / std::sqrt(n2);
     return std::min({SegmentDistance(p, a, b), SegmentDistance(p, b, c), SegmentDistance(p, c, a)});
@@ -89,7 +89,7 @@ FaceCopy ReadFace(const Engine3D::CTriMeshSource* geometry, int face)
     std::memcpy(&copy.terrain, data + 2, 2);
     for (int k = 0; k < 3; ++k) {
         uint32_t vertex = geometry->FaceVertex(face, k);
-        Maths::Vector v;
+        Maths::Vec4 v;
         geometry->ReadStoredVertex(static_cast<int>(vertex), &v);
         copy.v[k] = {v.x, v.y, v.z};
         copy.bytes[k] = geometry->m_vertexBytes ? geometry->m_vertexBytes[vertex] : 0x80;
@@ -141,12 +141,12 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
     m_geometry.m_vertexBytes = m_bytes.data();
     m_geometry.m_unknown3C = 0; // (the rejection scale 0.0f: no face rejected by distance)
 
-    m_object.Construct(); // (the sector collision's vtable, no flags)
-    m_object.m_checksum = checksum;
-    m_object.m_visitStamp = 0;
-    m_object.m_geometry = &m_geometry;
-    m_object.m_octets = m_rejection.data();
-    m_object.m_unknown14 = 0;
+    m_entity.MakeNew(); // (the sector collision's vtable, no flags)
+    m_entity.m_checksum = checksum;
+    m_entity.m_visitStamp = 0;
+    m_entity.m_geometry = &m_geometry;
+    m_entity.m_octets = m_rejection.data();
+    m_entity.m_unknown14 = 0;
     Place({0, {0.0f, 0.0f, 0.0f}});
 }
 
@@ -180,12 +180,12 @@ std::vector<FaceCopy> Companion::Faces() const
     return faces;
 }
 
-void Companion::SetActive(bool active)
+void Companion::ChangeLive(bool active)
 {
-    m_object.m_flags = static_cast<uint16_t>(active ? m_object.m_flags & ~4u : m_object.m_flags | 4u);
+    m_entity.m_flagBits = static_cast<uint16_t>(active ? m_entity.m_flagBits & ~4u : m_entity.m_flagBits | 4u);
 }
 
-bool Companion::Active() const { return !(m_object.m_flags & 4); }
+bool Companion::LiveNow() const { return !(m_entity.m_flagBits & 4); }
 
 void Companion::SetFaceFlags(int face, uint16_t flags)
 {
@@ -221,7 +221,7 @@ struct Taken {
     uint16_t flags;
 };
 
-struct Entry {
+struct TableRow {
     uint8_t* scene = nullptr;
     uint8_t* sector = nullptr;
     uint8_t* geom = nullptr;
@@ -231,10 +231,10 @@ struct Entry {
     bool inGrid = false;
     bool moved = false;
 };
-std::map<uint32_t, Entry> g_entries;
+std::map<uint32_t, TableRow> g_entries;
 uint32_t g_generation; // (faces taken or given back: the collision view's cache made again)
 
-bool Enabled()
+bool IsSwitchedOn()
 {
     static const bool enabled = ConfigInt("editor", "shared_collision", 1) != 0;
     return enabled;
@@ -295,7 +295,7 @@ bool FaceInside(const FaceCopy& face, V3 min, V3 max)
 bool Bounds(uint32_t checksum, float grow, V3* min, V3* max)
 {
     OrientedBox box;
-    if (!Scenery::Box(checksum, &box))
+    if (!Scenery::Cuboid(checksum, &box))
         return false;
     BoundsOf(box, min, max);
     *min = *min - V3{grow, grow, grow};
@@ -309,7 +309,7 @@ Engine3D::CTriMeshSource* CollisionOnly(uint8_t* sector)
     if (!sector || GeomOf(sector))
         return nullptr;
     Engine3D::CStaticCollider* coll = CollOf(sector);
-    if (!coll || (coll->m_flags & 6) || !coll->m_geometry || !coll->m_geometry->m_faces)
+    if (!coll || (coll->m_flagBits & 6) || !coll->m_geometry || !coll->m_geometry->m_faces)
         return nullptr;
     return coll->m_geometry;
 }
@@ -386,7 +386,7 @@ std::vector<FaceCopy> Gather(uint32_t checksum, std::vector<Taken>* taken)
     std::vector<uint32_t> mine = NamedFor(checksum);
 
     // The other solid pieces near it (the editor's copies left out: they'd tie with their sources).
-    struct Context {
+    struct CtxInfo {
         uint32_t self;
         V3 min, max;
         std::vector<Other> others;
@@ -394,7 +394,7 @@ std::vector<FaceCopy> Gather(uint32_t checksum, std::vector<Taken>* taken)
     } context{checksum, min, max, {}, {}};
     Scenery::ForEachLevelSector(
         [](void* raw, uint32_t other, uint8_t* sector) {
-            auto* c = static_cast<Context*>(raw);
+            auto* c = static_cast<CtxInfo*>(raw);
             if (CollisionOnly(sector)) {
                 c->sources.push_back({other, sector});
                 return;
@@ -414,8 +414,8 @@ std::vector<FaceCopy> Gather(uint32_t checksum, std::vector<Taken>* taken)
 
     for (const auto& source : context.sources) {
         Engine3D::CTriMeshSource* geometry = CollisionOnly(source.second);
-        const Maths::Vector& lo = geometry->m_lowerLimit;
-        const Maths::Vector& hi = geometry->m_upperLimit;
+        const Maths::Vec4& lo = geometry->m_lowerLimit;
+        const Maths::Vec4& hi = geometry->m_upperLimit;
         if (lo.x > max.x || hi.x < min.x || lo.y > max.y || hi.y < min.y || lo.z > max.z || hi.z < min.z)
             continue;
         bool named = std::find(mine.begin(), mine.end(), source.first) != mine.end();
@@ -454,7 +454,7 @@ std::vector<FaceCopy> Gather(uint32_t checksum, std::vector<Taken>* taken)
     return faces;
 }
 
-// A list of collision objects for CCollGrid::Update (ListKit::Head / ListKit::Node<CHitMesh>, on the stack: Update only reads
+// A list of collision objects for CCollGrid::TickFrame (ListKit::Foremost / ListKit::Elem<CHitMesh>, on the stack: Update only reads
 // them).
 struct GridList {
     MemSys::ListNode head;
@@ -488,11 +488,11 @@ void TickGrid(void* grid, const std::vector<Engine3D::CHitMesh*>& added, const s
         return;
     GridList addedList(added), removedList(removed), movedList(moved);
     MemSys::EnterHeapScope(MemSys::TopDownHeap());
-    static_cast<Engine3D::CCollGrid*>(grid)->Update(&addedList.head, &removedList.head, &movedList.head);
+    static_cast<Engine3D::CCollGrid*>(grid)->TickFrame(&addedList.head, &removedList.head, &movedList.head);
     MemSys::LeaveHeapScope();
 }
 
-bool Live(const Entry& entry, uint32_t checksum)
+bool Live(const TableRow& entry, uint32_t checksum)
 {
     return Scenery::SceneLive(entry.scene) && GridOf(entry.scene) == entry.grid &&
            Scenery::SectorOf(checksum) == entry.sector && GeomOf(entry.sector) == entry.geom;
@@ -500,9 +500,9 @@ bool Live(const Entry& entry, uint32_t checksum)
 
 // An entry dropped: out of its grid and the originals back on while its piece is still there (a level gone: its grid
 // and geometries are gone with it - nothing touched); out of every collision cache.
-void Drop(std::map<uint32_t, Entry>::iterator it)
+void Drop(std::map<uint32_t, TableRow>::iterator it)
 {
-    Entry& entry = it->second;
+    TableRow& entry = it->second;
     if (entry.companion) {
         if (Live(entry, it->first)) {
             if (entry.inGrid)
@@ -516,7 +516,7 @@ void Drop(std::map<uint32_t, Entry>::iterator it)
     g_entries.erase(it);
 }
 
-Entry* Find(uint32_t checksum)
+TableRow* Find(uint32_t checksum)
 {
     auto it = g_entries.find(checksum);
     if (it == g_entries.end())
@@ -528,10 +528,10 @@ Entry* Find(uint32_t checksum)
     return &it->second;
 }
 
-void Add(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom, std::vector<FaceCopy> faces,
+void AppendOne(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom, std::vector<FaceCopy> faces,
          std::vector<Taken> taken)
 {
-    Entry& entry = g_entries[checksum];
+    TableRow& entry = g_entries[checksum];
     entry.scene = scene;
     entry.sector = sector;
     entry.geom = geom;
@@ -551,19 +551,19 @@ void Add(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom, std:
 
 void Ensure(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom)
 {
-    if (!Enabled() || Find(checksum))
+    if (!IsSwitchedOn() || Find(checksum))
         return;
     std::vector<Taken> taken;
     std::vector<FaceCopy> faces = Gather(checksum, &taken);
     if (DebugEnabled() || !faces.empty())
         Log("level editor: shared collision of %08X: %u face%s taken along", checksum, static_cast<unsigned>(faces.size()),
             faces.size() == 1 ? "" : "s");
-    Add(checksum, scene, sector, geom, std::move(faces), std::move(taken));
+    AppendOne(checksum, scene, sector, geom, std::move(faces), std::move(taken));
 }
 
 void Place(uint32_t checksum, const Placement& placement)
 {
-    Entry* entry = Find(checksum);
+    TableRow* entry = Find(checksum);
     if (!entry || !entry->companion)
         return;
     entry->companion->Place(placement);
@@ -572,23 +572,23 @@ void Place(uint32_t checksum, const Placement& placement)
 
 void Rebase(uint32_t checksum)
 {
-    Entry* entry = Find(checksum);
+    TableRow* entry = Find(checksum);
     if (entry && entry->companion)
         entry->companion->Rebase();
 }
 
-void SetActive(uint32_t checksum, bool active)
+void ChangeLive(uint32_t checksum, bool active)
 {
-    Entry* entry = Find(checksum);
+    TableRow* entry = Find(checksum);
     if (entry && entry->companion)
-        entry->companion->SetActive(active);
+        entry->companion->ChangeLive(active);
 }
 
 std::shared_ptr<std::vector<FaceCopy>> PrepareCopy(uint32_t source)
 {
-    if (!Enabled())
+    if (!IsSwitchedOn())
         return nullptr;
-    if (Entry* entry = Find(source))
+    if (TableRow* entry = Find(source))
         return entry->companion ? std::make_shared<std::vector<FaceCopy>>(entry->companion->Faces()) : nullptr;
     auto faces = std::make_shared<std::vector<FaceCopy>>(Gather(source, nullptr));
     return faces->empty() ? nullptr : faces;
@@ -602,12 +602,12 @@ void FinishCopy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t co
     auto it = g_entries.find(copy);
     if (it != g_entries.end())
         Drop(it);
-    Add(copy, scene, sector, geom, *faces, {});
+    AppendOne(copy, scene, sector, geom, *faces, {});
     if (DebugEnabled())
         Log("level editor: shared collision of copy %08X: %u faces", copy, static_cast<unsigned>(faces->size()));
 }
 
-void Commit(uint8_t* scene)
+void Finalise(uint8_t* scene)
 {
     std::vector<Engine3D::CHitMesh*> added, moved;
     void* grid = nullptr;
@@ -616,7 +616,7 @@ void Commit(uint8_t* scene)
         if (!Live(it->second, it->first)) {
             Drop(it);
         } else if (it->second.scene == scene && it->second.companion) {
-            Entry& entry = it->second;
+            TableRow& entry = it->second;
             grid = entry.grid;
             if (!entry.inGrid)
                 added.push_back(entry.companion->Object());
@@ -630,7 +630,7 @@ void Commit(uint8_t* scene)
     TickGrid(grid, added, {}, moved);
 }
 
-int Count(int* faces)
+int TotalOf(int* faces)
 {
     int pieces = 0, total = 0;
     for (const auto& entry : g_entries) {
@@ -650,7 +650,7 @@ void ForEachCompanion(void (*each)(void* context, uint32_t checksum, const Compa
         auto next = std::next(it);
         if (!Live(it->second, it->first))
             Drop(it); // (its level gone: forgotten, nothing touched)
-        else if (it->second.companion && it->second.companion->Active())
+        else if (it->second.companion && it->second.companion->LiveNow())
             each(context, it->first, *it->second.companion);
         it = next;
     }
@@ -691,7 +691,7 @@ bool TakenFace(const Engine3D::CTriMeshSource* geometry, int face, uint32_t* pie
 
 bool OriginOf(uint32_t piece, int index, Engine3D::CTriMeshSource** geometry, int* face)
 {
-    Entry* entry = Find(piece);
+    TableRow* entry = Find(piece);
     // (the companion's faces are the taken ones, in order - Gather / Add; a copy's took none)
     if (!entry || !entry->companion || index < 0 || index >= static_cast<int>(entry->taken.size()))
         return false;
@@ -702,7 +702,7 @@ bool OriginOf(uint32_t piece, int index, Engine3D::CTriMeshSource** geometry, in
 
 const Companion* CompanionOf(uint32_t piece)
 {
-    Entry* entry = Find(piece);
+    TableRow* entry = Find(piece);
     return entry ? entry->companion.get() : nullptr;
 }
 

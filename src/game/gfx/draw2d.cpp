@@ -19,7 +19,7 @@ namespace {
 SOverlayDraw* g_draw2dHead;
 uint32_t g_draw2dZTestNextFrame;
 
-SOverlayDraw*& Head() { return g_draw2dHead; }
+SOverlayDraw*& Foremost() { return g_draw2dHead; }
 uint32_t& ZTestNextFrame() { return g_draw2dZTestNextFrame; }
 void** BaseVtable() { return kSDraw2DVtable; }
 
@@ -28,13 +28,13 @@ void Call(SOverlayDraw* item, int slot) { reinterpret_cast<void(__thiscall*)(SOv
 } // namespace
 
 // 0x004DF900
-void SOverlayDraw::Insert()
+void SOverlayDraw::Splice()
 {
-    SOverlayDraw* head = Head();
+    SOverlayDraw* head = Foremost();
     // (a priority that isn't a number goes on past every item)
     if (!head || priority <= head->priority) {
         next = head;
-        Head() = this;
+        Foremost() = this;
         return;
     }
     SOverlayDraw* at = head;
@@ -45,11 +45,11 @@ void SOverlayDraw::Insert()
 }
 
 // 0x004DF950
-void SOverlayDraw::Remove()
+void SOverlayDraw::DropOut()
 {
-    SOverlayDraw* at = Head();
+    SOverlayDraw* at = Foremost();
     if (at == this) {
-        Head() = next;
+        Foremost() = next;
         return;
     }
     if (!at)
@@ -63,7 +63,7 @@ void SOverlayDraw::Remove()
 }
 
 // 0x004DFA70
-SOverlayDraw* SOverlayDraw::Construct(float newPriority, bool newHidden)
+SOverlayDraw* SOverlayDraw::MakeNew(float newPriority, bool newHidden)
 {
     priority = newPriority;
     vtable = BaseVtable();
@@ -71,7 +71,7 @@ SOverlayDraw* SOverlayDraw::Construct(float newPriority, bool newHidden)
     z = 0.0f;
     next = nullptr;
     if (!newHidden)
-        Insert();
+        Splice();
     return this;
 }
 
@@ -79,27 +79,27 @@ SOverlayDraw* SOverlayDraw::Construct(float newPriority, bool newHidden)
 void SOverlayDraw::DestroyBody()
 {
     vtable = BaseVtable();
-    Remove();
+    DropOut();
 }
 
 // 0x004DFC90
-SOverlayDraw* SOverlayDraw::Destroy(unsigned int flags)
+SOverlayDraw* SOverlayDraw::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Instance()->Free(this);
+        MemSys::Hub::Sole()->Dealloc(this);
     return this;
 }
 
 // 0x004DFAE0
-void SOverlayDraw::SetPriority(float newPriority)
+void SOverlayDraw::ChangeRank(float newPriority)
 {
     if (priority == newPriority)
         return;
     priority = newPriority;
     if (!hidden) {
-        Remove();
-        Insert();
+        DropOut();
+        Splice();
     }
 }
 
@@ -113,42 +113,42 @@ void SOverlayDraw::SetZ(float newZ)
         return;
     priority = 0.0f;
     if (!hidden) {
-        Remove();
-        Insert();
+        DropOut();
+        Splice();
     }
 }
 
 // 0x004DFB70
-void SOverlayDraw::SetHidden(uint8_t newHidden)
+void SOverlayDraw::ChangeConcealed(uint8_t newHidden)
 {
     if (hidden == newHidden)
         return;
     hidden = newHidden;
     if (newHidden)
-        Remove();
+        DropOut();
     else
-        Insert();
+        Splice();
 }
 
 // 0x004DFB90
 void __cdecl Draw2D()
 {
     ChooseBlendMode(5);
-    SetState(kAddressMode0, 0x10001);
-    SetState(kDepthBias, 0);
-    SetState(kAlphaRef, 1);
-    SetState(kZWrite, 0);
+    ChangePhase(kAddressMode0, 0x10001);
+    ChangePhase(kDepthBias, 0);
+    ChangePhase(kAlphaRef, 1);
+    ChangePhase(kZWrite, 0);
     SetTexture(1, nullptr);
     SetTexture(2, nullptr);
     SetTexture(3, nullptr);
-    SetState(kZTest, ZTestNextFrame());
+    ChangePhase(kZTest, ZTestNextFrame());
     uint32_t zTest = 0;
-    for (SOverlayDraw* item = Head(); item; item = item->next) {
+    for (SOverlayDraw* item = Foremost(); item; item = item->next) {
         if (item->hidden)
             continue;
-        Call(item, 1); // BeginDraw
+        Call(item, 1); // OpenSketch
         Call(item, 2); // Draw
-        Call(item, 3); // EndDraw
+        Call(item, 3); // CloseSketch
         if (!zTest && item->z > 0.0f)
             zTest = 1;
     }
@@ -156,7 +156,7 @@ void __cdecl Draw2D()
 }
 
 namespace {
-static VtableSlot kSDraw2DVtable_slots[] = {&Engine3D::SOverlayDraw::Destroy, &_purecall,
+static VtableSlot kSDraw2DVtable_slots[] = {&Engine3D::SOverlayDraw::Teardown, &_purecall,
                 &_purecall, &_purecall};
 void** const kSDraw2DVtable = reinterpret_cast<void**>(kSDraw2DVtable_slots);
 } // namespace

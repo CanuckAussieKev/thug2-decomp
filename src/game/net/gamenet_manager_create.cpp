@@ -1,4 +1,4 @@
-// The network manager made (OnlinePlay::Manager, 0x0053EE90 / 0x0053F520): its lists, preferences, tasks, the lobby,
+// The network manager made (OnlinePlay::Hub, 0x0053EE90 / 0x0053F520): its lists, preferences, tasks, the lobby,
 // vault, presence and stats managers, and the CD-key challenge. See gamenet_manager.h.
 
 #include <cstdint>
@@ -50,19 +50,19 @@ constexpr int kChallengeLength = 8;
 // TaskList::Task<Manager> (0x20 bytes, vtable 0x006476F0).
 struct ManagerTask {
     uint8_t m_listLink[0x18];
-    void* m_code;
-    Manager* m_data;
+    void* m_codeValue;
+    Hub* m_content;
 };
 static_assert(sizeof(ManagerTask) == 0x20);
 
-TaskList::SchedulerTask* NewTask(Manager* manager, void* code, int priority)
+TaskList::SchedulerTask* NewTask(Hub* manager, void* code, int priority)
 {
     auto* task = static_cast<ManagerTask*>(MemSys::AllocZeroed(sizeof(ManagerTask)));
     if (task) {
-        reinterpret_cast<TaskList::SchedulerTask*>(task)->Construct(priority);
+        reinterpret_cast<TaskList::SchedulerTask*>(task)->MakeNew(priority);
         *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
-        task->m_code = code;
-        task->m_data = manager;
+        task->m_codeValue = code;
+        task->m_content = manager;
     }
     return reinterpret_cast<TaskList::SchedulerTask*>(task);
 }
@@ -72,7 +72,7 @@ void* Code(F function)
     return reinterpret_cast<void*>(function);
 }
 
-// A list head (ListKit::Head<T>, its own vtable): empty.
+// A list head (ListKit::Foremost<T>, its own vtable): empty.
 void SetupListSentinel(MemSys::ListNode* head, uint32_t vtable)
 {
     head->priority = 0;
@@ -83,77 +83,77 @@ void SetupListSentinel(MemSys::ListNode* head, uint32_t vtable)
 }
 
 // From the memory manager's current heap (its operator new: the manager made first if need be).
-void* Allocate(uint32_t size)
+void* Carve(uint32_t size)
 {
     if (!MemSys::g_managerReady)
         MemSys::EnsureManager();
-    return MemSys::Manager::Get()->Allocate(size, 1, nullptr);
+    return MemSys::Hub::Pull()->Carve(size, 1, nullptr);
 }
 
 } // namespace
 
 // 0x0053EE90
-Manager* Manager::Construct()
+Hub* Hub::MakeNew()
 {
-    Field<uint32_t>(this, 0) = 0; // the flags
-    reinterpret_cast<OptionStore::Preferences*>(m_networkPreferences)->Init();
-    auto* taunts = &Field<OptionStore::Preferences>(this, 0x110);
-    taunts->Init();
-    SetupListSentinel(&Field<MemSys::ListNode>(this, 0x11C), reinterpret_cast<uint32_t>(kPlayerHeadVtable)); // the players
-    SetupListSentinel(&Field<MemSys::ListNode>(this, 0x130), reinterpret_cast<uint32_t>(kNewPlayerHeadVtable)); // the joining players
-    SetupListSentinel(&Field<MemSys::ListNode>(this, 0x144), reinterpret_cast<uint32_t>(kQueuedScriptVtable));
-    SetupListSentinel(&Field<MemSys::ListNode>(this, 0x158), reinterpret_cast<uint32_t>(kServerHeadVtable));
-    SetupListSentinel(&Field<MemSys::ListNode>(this, 0x16C), reinterpret_cast<uint32_t>(kServerHeadVtable));
+    Prop<uint32_t>(this, 0) = 0; // the flags
+    reinterpret_cast<OptionStore::Preferences*>(m_networkPreferences)->PrepareAll();
+    auto* taunts = &Prop<OptionStore::Preferences>(this, 0x110);
+    taunts->PrepareAll();
+    SetupListSentinel(&Prop<MemSys::ListNode>(this, 0x11C), reinterpret_cast<uint32_t>(kPlayerHeadVtable)); // the players
+    SetupListSentinel(&Prop<MemSys::ListNode>(this, 0x130), reinterpret_cast<uint32_t>(kNewPlayerHeadVtable)); // the joining players
+    SetupListSentinel(&Prop<MemSys::ListNode>(this, 0x144), reinterpret_cast<uint32_t>(kQueuedScriptVtable));
+    SetupListSentinel(&Prop<MemSys::ListNode>(this, 0x158), reinterpret_cast<uint32_t>(kServerHeadVtable));
+    SetupListSentinel(&Prop<MemSys::ListNode>(this, 0x16C), reinterpret_cast<uint32_t>(kServerHeadVtable));
     m_proSetFlags = 0;
-    TaskList::Stack* tasks =
-        reinterpret_cast<TaskList::Stack*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
-    NetLink::Manager::Instance()->SetMsgOptions(0x23, 1); // (the object update message's)
+    TaskList::PileUp* tasks =
+        reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
+    NetLink::Hub::Sole()->SetMsgOptions(0x23, 1); // (the object update message's)
     m_clientApp = nullptr;
     m_client1 = nullptr;
     m_matchClient = nullptr;
-    m_server = nullptr;
-    Field<bool>(this, 0x45) = false;
-    Field<bool>(this, 0x46) = false;
-    Field<bool>(this, 0x3B) = false;
-    Field<bool>(this, 0x47) = true; // the players' names shown
-    Field<uint32_t>(this, 0x180) = 0;
+    m_host = nullptr;
+    Prop<bool>(this, 0x45) = false;
+    Prop<bool>(this, 0x46) = false;
+    Prop<bool>(this, 0x3B) = false;
+    Prop<bool>(this, 0x47) = true; // the players' names shown
+    Prop<uint32_t>(this, 0x180) = 0;
     m_hostMode = 0;
-    Field<int>(this, 0x1B8) = 2;
-    Field<int>(this, 0x1BC) = 2;
-    reinterpret_cast<OptionStore::Preferences*>(m_networkPreferences)->Load(kNetworkPreferences);
-    taunts->Load(kTauntPreferences);
-    Field<TaskList::SchedulerTask*>(this, 0xC0) = NewTask(this, Code(&Manager::ConnectionTask), -2000);
-    Field<TaskList::SchedulerTask*>(this, 0xC4) = NewTask(this, Code(&NetMetricsTask), 0);
-    Field<TaskList::SchedulerTask*>(this, 0xF0) = NewTask(this, CodeAddress(OnlinePlay::ServerListTask), 0);
-    Field<TaskList::SchedulerTask*>(this, 0xF4) = NewTask(this, Code(&Manager::AutoServeTask), 0);
-    Field<TaskList::SchedulerTask*>(this, 0xC8) = NewTask(this, CodeAddress(OnlinePlay::ScoreUpdateTask), 0);
-    m_clientAddNewPlayersTask = NewTask(this, Code(&Manager::ClientAddNewPlayersTask), -2000);
-    m_serverAddNewPlayersTask = NewTask(this, Code(&Manager::ServerAddNewPlayersTask), -2000);
-    Field<TaskList::SchedulerTask*>(this, 0xD4) = NewTask(this, Code(&KeyboardTask), 0);
-    Field<TaskList::SchedulerTask*>(this, 0xD8) = NewTask(this, Code(&ModemStateTask), 0);
+    Prop<int>(this, 0x1B8) = 2;
+    Prop<int>(this, 0x1BC) = 2;
+    reinterpret_cast<OptionStore::Preferences*>(m_networkPreferences)->ReadIn(kNetworkPreferences);
+    taunts->ReadIn(kTauntPreferences);
+    Prop<TaskList::SchedulerTask*>(this, 0xC0) = NewTask(this, Code(&Hub::ConnectionTask), -2000);
+    Prop<TaskList::SchedulerTask*>(this, 0xC4) = NewTask(this, Code(&NetMetricsTask), 0);
+    Prop<TaskList::SchedulerTask*>(this, 0xF0) = NewTask(this, CodeAddress(OnlinePlay::ServerListTask), 0);
+    Prop<TaskList::SchedulerTask*>(this, 0xF4) = NewTask(this, Code(&Hub::AutoServeTask), 0);
+    Prop<TaskList::SchedulerTask*>(this, 0xC8) = NewTask(this, CodeAddress(OnlinePlay::ScoreUpdateTask), 0);
+    m_clientAddNewPlayersTask = NewTask(this, Code(&Hub::ClientAddNewPlayersTask), -2000);
+    m_serverAddNewPlayersTask = NewTask(this, Code(&Hub::ServerAddNewPlayersTask), -2000);
+    Prop<TaskList::SchedulerTask*>(this, 0xD4) = NewTask(this, Code(&KeyboardTask), 0);
+    Prop<TaskList::SchedulerTask*>(this, 0xD8) = NewTask(this, Code(&ModemStateTask), 0);
     m_joinTimeoutTask = NewTask(this, Code(&JoinTimeoutTask), 0);
-    Field<TaskList::SchedulerTask*>(this, 0xE0) = NewTask(this, Code(&NetLink::ServiceTask), 0);
-    m_joinStateTask = NewTask(this, Code(&Manager::JoinStateTask), 0);
-    Field<TaskList::SchedulerTask*>(this, 0xE8) = NewTask(this, Code(&Manager::StartGameTask), 0);
-    Field<TaskList::SchedulerTask*>(this, 0xEC) = NewTask(this, Code(&LevelChangeTask), 0);
-    Field<TaskList::SchedulerTask*>(this, 0xF8) = NewTask(this, CodeAddress(CarriedFlagsTask), 0);
-    tasks->AddTask(Field<TaskList::SchedulerTask*>(this, 0xC0));
-    Field<int>(this, 0x1A8) = 5; // the modem state shown last
-    Field<uint32_t>(this, 0x1948) = 0; // the created goals' message
-    Field<uint32_t>(this, 0x194C) = 0;
+    Prop<TaskList::SchedulerTask*>(this, 0xE0) = NewTask(this, Code(&NetLink::ServiceTask), 0);
+    m_joinStateTask = NewTask(this, Code(&Hub::JoinStateTask), 0);
+    Prop<TaskList::SchedulerTask*>(this, 0xE8) = NewTask(this, Code(&Hub::StartGameTask), 0);
+    Prop<TaskList::SchedulerTask*>(this, 0xEC) = NewTask(this, Code(&LevelChangeTask), 0);
+    Prop<TaskList::SchedulerTask*>(this, 0xF8) = NewTask(this, CodeAddress(CarriedFlagsTask), 0);
+    tasks->QueueJob(Prop<TaskList::SchedulerTask*>(this, 0xC0));
+    Prop<int>(this, 0x1A8) = 5; // the modem state shown last
+    Prop<uint32_t>(this, 0x1948) = 0; // the created goals' message
+    Prop<uint32_t>(this, 0x194C) = 0;
     m_joinMode = 0;
-    Field<bool>(this, 0xFE09) = false;
-    void* memory = Allocate(0x154);
-    m_lobbyMan = memory ? static_cast<RoomManager*>(memory)->Construct() : nullptr;
-    memory = Allocate(0x3C8);
-    m_vaultMan = memory ? static_cast<VaultMan*>(memory)->Construct() : nullptr;
-    memory = Allocate(0x3C);
-    m_buddyMan = memory ? static_cast<FriendsManager*>(memory)->Construct() : nullptr;
-    memory = Allocate(0x200);
-    m_statsMan = memory ? static_cast<RankingsManager*>(memory)->Construct() : nullptr;
+    Prop<bool>(this, 0xFE09) = false;
+    void* memory = Carve(0x154);
+    m_lobbyMan = memory ? static_cast<RoomManager*>(memory)->MakeNew() : nullptr;
+    memory = Carve(0x3C8);
+    m_vaultMan = memory ? static_cast<VaultMan*>(memory)->MakeNew() : nullptr;
+    memory = Carve(0x3C);
+    m_buddyMan = memory ? static_cast<FriendsManager*>(memory)->MakeNew() : nullptr;
+    memory = Carve(0x200);
+    m_statsMan = memory ? static_cast<RankingsManager*>(memory)->MakeNew() : nullptr;
     GameSpy::CdKeyInit(kGameSpyGameId); // the CD-key SDK (gcd_init)
     // The CD-key challenge: eight random letters or digits (the game's C runtime srand(time(0)) / rand).
-    Crt::Srand(Crt::Time());
+    Crt::Srand(Crt::Instant());
     for (int i = 0; i < kChallengeLength; ++i) {
         int c = Crt::Rand() % 62;
         m_challenge[i] = static_cast<char>(c < 10 ? '0' + c : c < 36 ? 'A' + c - 10 : 'a' + c - 36);
@@ -165,12 +165,12 @@ Manager* Manager::Construct()
 uint32_t g_gameNetReferences;
 
 // 0x0053F520
-Manager* __cdecl Manager::Create(bool create)
+Hub* __cdecl Hub::Fabricate(bool create)
 {
-    Manager*& instance = g_gameNetManager;
+    Hub*& instance = g_gameNetManager;
     if (!instance && create) {
         void* memory = MemSys::AllocZeroed(0xFE0C, nullptr, 1);
-        instance = memory ? static_cast<Manager*>(memory)->Construct() : nullptr;
+        instance = memory ? static_cast<Hub*>(memory)->MakeNew() : nullptr;
     }
     ++g_gameNetReferences; // (the references)
     return instance;

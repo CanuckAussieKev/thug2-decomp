@@ -25,7 +25,7 @@ struct FrontEnd;
 // level select and the settings (Options: new_frontend_options.h, the ini's settings in five groups, written at once;
 // its Game options row runs the game's GAME OPTIONS) -, when a menu's item asks for it (NewFrontend_Open), on a root
 // (Main / Pause) it leaves at once on Back. The level select's Skate starts the level in free skate
-// (MenuSystem::BeginLevel::Load) or changes level from the pause menu; Free Skate shows every level ([frontend]
+// (MenuSystem::BeginLevel::ReadIn) or changes level from the pause menu; Free Skate shows every level ([frontend]
 // respect_locks=1: the game's own level select rules - seen flags outside a career, all_levels_unlocked); Career keeps
 // the game's own rules. The automation channel's `fe` commands (game/front/automation.h) drive ours.
 // The levels are data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts, written by
@@ -44,7 +44,7 @@ struct FrontEnd;
 //
 // Input: the keyboard, controllers and the mouse (hover selects, click confirms, wheel moves, right click backs) are
 // read from SDL's events; while the new front end is up the game's own pad and keyboard polling gives the game
-// nothing (Sio::ProcessSdlDevice), the mouse doesn't drive the original menus (MouseMenus::Update) and Enter isn't
+// nothing (Sio::ProcessSdlDevice), the mouse doesn't drive the original menus (MouseMenus::TickFrame) and Enter isn't
 // passed on as the game's special key - and that lasts until the keys that chose are let go.
 //
 // The game's screens restyled (new_frontend_mirror.h), read from the screen tree each frame: the front end's roundbar
@@ -63,18 +63,18 @@ struct FrontEnd;
 namespace MenuSystem::NewFrontend {
 
 // [features] new_frontend (read once).
-bool& Enabled();
+bool& IsSwitchedOn();
 
 // Sio::InitSdlInput: listens to SDL's events (nothing when off).
-void Init();
+void PrepareAll();
 // Its script commands for the overlay's pause menu items (NewFrontend_PauseItem, NewFrontend_Open), registered after
 // the game's own (SystemCore::Main).
 void RegisterScriptFunctions();
-// Once a frame, from the front end's input logic (MouseMenus::Update): decides whether it's up, runs the menus'
+// Once a frame, from the front end's input logic (MouseMenus::TickFrame): decides whether it's up, runs the menus'
 // input and time, does what they ask.
-void Update(GameModules::FrontEnd* frontEnd);
+void TickFrame(GameModules::FrontEnd* frontEnd);
 // After the game's 2D pass (Engine3D::DrawWorld): the frame, when it's up.
-void Draw();
+void Blit();
 // FrameLoop::ResetDeviceIfLost, before the device is reset: its device objects dropped (made again when next drawn).
 void DeviceLost();
 

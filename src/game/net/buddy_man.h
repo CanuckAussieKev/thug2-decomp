@@ -13,19 +13,19 @@ namespace TaskList {
 class SchedulerTask;
 } // namespace Tsk
 
-// The online profile and buddy list ("homies"): OnlinePlay::Manager's m_buddyMan (+0x18), a wrapper of the GameSpy
+// The online profile and buddy list ("homies"): OnlinePlay::Hub's m_buddyMan (+0x18), a wrapper of the GameSpy
 // presence SDK (GP: library code, not decompiled - called by address). The profile is created or logged into from
 // a thread; the GP callbacks keep the buddy list and the buddy messages up to date and run the lobby menus' scripts.
 // 0x00548560-0x0054A660 (the rest of the class, 0x00548040-0x00548560, is with the lobby code before it).
 namespace OnlinePlay {
 
-// A buddy (0x24C bytes, MemSys::AllocZeroed'd): an ListKit::Node<Buddy> (vtable 0x0064D140, its scalar deleting destructor
+// A buddy (0x24C bytes, MemSys::AllocZeroed'd): an ListKit::Elem<Buddy> (vtable 0x0064D140, its scalar deleting destructor
 // 0x00548CF0) carrying the GP buddy's details.
 struct Buddy {
     MemSys::ListNode m_listLink;   // +0x00 data = this
     char m_nick[32];        // +0x14
-    int m_profile;          // +0x34 the GameSpy profile id
-    int m_status;           // +0x38 GP status: 0 offline, 1 online, 2 playing (in a THUG2 game: the location is one)
+    int m_account;          // +0x34 the GameSpy profile id
+    int m_curStanding;           // +0x38 GP status: 0 offline, 1 online, 2 playing (in a THUG2 game: the location is one)
     bool m_pending;         // +0x3C asked to be a buddy, no answer yet (not shown in the list)
     uint8_t m_pad3D[3];
     uint32_t m_joinIp;      // +0x40 the game the buddy plays in (from the location string, kThug2Location)
@@ -36,26 +36,26 @@ struct Buddy {
 
     // 0x00548CF0 (vtable 0x0064D140 slot 0, scalar deleting): the node destructor (0x005484A0: unlinked), freed with
     // flag 1. Returns this.
-    Buddy* Destroy(unsigned int flags);
+    Buddy* Teardown(unsigned int flags);
 };
-static_assert(sizeof(Buddy) == 0x24C && offsetof(Buddy, m_profile) == 0x34 && offsetof(Buddy, m_joinIp) == 0x40 &&
+static_assert(sizeof(Buddy) == 0x24C && offsetof(Buddy, m_account) == 0x34 && offsetof(Buddy, m_joinIp) == 0x40 &&
                   offsetof(Buddy, m_location) == 0x4C && offsetof(Buddy, m_statusText) == 0x14C,
               "layout must match the original");
 
-// A buddy message waiting to be shown (0x68 bytes): an ListKit::Node<BuddyMessage> (vtable 0x0064D14C, its scalar
+// A buddy message waiting to be shown (0x68 bytes): an ListKit::Elem<BuddyMessage> (vtable 0x0064D14C, its scalar
 // deleting destructor 0x00548D20). GP messages are "nick\ntext" (SendBuddyMessage); a message of one line comes
 // from a buddy and gets the buddy's nick.
 struct BuddyMessage {
     MemSys::ListNode m_listLink;   // +0x00 data = this
-    int m_profile;          // +0x14 the sender
+    int m_account;          // +0x14 the sender
     char m_nick[16];        // +0x18
     char m_text[64];        // +0x28
 
     // 0x00548CB0: unlinked, profile 0, nick "Proskater", no text. Returns this.
-    BuddyMessage* Construct();
+    BuddyMessage* MakeNew();
     // 0x00548D20 (vtable 0x0064D14C slot 0, scalar deleting): the node destructor (0x005484C0: unlinked), freed with
     // flag 1. Returns this.
-    BuddyMessage* Destroy(unsigned int flags);
+    BuddyMessage* Teardown(unsigned int flags);
 };
 static_assert(sizeof(BuddyMessage) == 0x68 && offsetof(BuddyMessage, m_nick) == 0x18 &&
                   offsetof(BuddyMessage, m_text) == 0x28,
@@ -66,7 +66,7 @@ public:
     // 0x0054A480: GP set up (product 0x2880) with this as the connection and the callbacks (error, buddy request -
     // 0x00548100, buddy status, buddy message; two ignored), on the network heap; the task (BuddyTask, not added
     // yet). Returns this.
-    FriendsManager* Construct();
+    FriendsManager* MakeNew();
     // 0x005488B0 (destructor body): the task deleted, the two list heads unlinked (the buddies themselves aren't
     // freed).
     void DestroyBody();
@@ -76,7 +76,7 @@ public:
     void LogIn();
     // 0x0054A5C0: create the profile (state 1): a thread (CreateProfileThread) asks GP for a new user; the task
     // joins the logic tasks.
-    void CreateProfile();
+    void SpawnAccount();
     // 0x00549B90: GP disconnected, the task out of its list, not logged in; every buddy and message deleted.
     void LogOff();
 
@@ -134,18 +134,18 @@ public:
     // 0x005482A0: logged in as `profile` (state 4): profile_logged_in, the status online ("logging in").
     void SetLoggedIn(int profile);
     // 0x00548320: the presence status (gpSetStatus, 0x00600330: status, its text, the location).
-    void SetStatus(int status, const char* text, const char* location);
+    void ChangeStanding(int status, const char* text, const char* location);
 
     void* m_connection;       // +0x00 GPConnection (this object is passed as its address)
-    int m_profile;            // +0x04 the logged-in profile id
-    int m_state;              // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in
+    int m_account;            // +0x04 the logged-in profile id
+    int m_curPhase;              // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in
     TaskList::SchedulerTask* m_task;    // +0x0C TaskList::Task<FriendsManager> (BuddyTask)
     bool m_loggedIn;          // +0x10
     uint8_t m_pad11[3];
-    MemSys::ListNode m_buddies;  // +0x14 ListKit::Head<Buddy>
-    MemSys::ListNode m_messages; // +0x28 ListKit::Head<BuddyMessage>
+    MemSys::ListNode m_friends;  // +0x14 ListKit::Foremost<Buddy>
+    MemSys::ListNode m_messages; // +0x28 ListKit::Foremost<BuddyMessage>
 };
-static_assert(offsetof(FriendsManager, m_loggedIn) == 0x10 && offsetof(FriendsManager, m_buddies) == 0x14 &&
+static_assert(offsetof(FriendsManager, m_loggedIn) == 0x10 && offsetof(FriendsManager, m_friends) == 0x14 &&
                   offsetof(FriendsManager, m_messages) == 0x28 && sizeof(FriendsManager) == 0x3C,
               "layout must match the original");
 
@@ -164,6 +164,6 @@ bool __cdecl ShowNextBuddyMessage(Scripts::CStruct* params, Scripts::CScript* sc
 bool __cdecl IsAlreadyMyBuddy(Scripts::CStruct* params, Scripts::CScript* script);       // 0x00549EA0
 bool __cdecl ProfileLogIn(Scripts::CStruct* params, Scripts::CScript* script);           // 0x0054A250
 bool __cdecl FillProspectiveBuddyList(Scripts::CStruct* params, Scripts::CScript* script); // 0x0054A2B0
-bool __cdecl CreateProfile(Scripts::CStruct* params, Scripts::CScript* script);          // 0x0054A650
+bool __cdecl SpawnAccount(Scripts::CStruct* params, Scripts::CScript* script);          // 0x0054A650
 
 } // namespace OnlinePlay

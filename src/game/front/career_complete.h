@@ -36,7 +36,7 @@ class CStruct;
 //     when switched off or without the skate module.
 namespace MenuSystem::CareerComplete {
 
-bool& Enabled();
+bool& IsSwitchedOn();
 
 bool __cdecl CFunc_Available(Scripts::CStruct* params, Scripts::CScript* script); // Career100_Available
 bool __cdecl CFunc_Apply(Scripts::CStruct* params, Scripts::CScript* script);     // Career100_Apply

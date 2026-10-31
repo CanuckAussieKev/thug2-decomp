@@ -10,7 +10,7 @@ class CScript;
 // splashes, snow, its grid) and the screen effects, IsPal. All are cdecl (params, script) and return whether the
 // script's `if` should be taken.
 namespace GameModules {
-struct Manager;
+struct Hub;
 }
 
 namespace ScriptCommands {
@@ -61,5 +61,5 @@ bool __cdecl CFunc_SetScreenEffectsDOFParams(Scripts::CStruct* params, Scripts::
 // 0x005A5950: IsPal: whether the game's region / language setting (0x007CEFA0) isn't 2.
 bool __cdecl CFunc_IsPal(Scripts::CStruct* params, Scripts::CScript* script);
 
-extern GameModules::Manager* g_moduleManager;
+extern GameModules::Hub* g_moduleManager;
 } // namespace ScriptCommands

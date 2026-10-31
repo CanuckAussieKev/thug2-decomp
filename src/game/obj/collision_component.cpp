@@ -53,26 +53,26 @@ Engine3D::CHitMesh* SectorCollision(uint8_t* sector)
 // +0x10, its translation at +0x40 (the matrix's fourth row).
 const uint8_t* BoneOf(uint8_t* model) { return reinterpret_cast<const uint8_t*>(reinterpret_cast<Engine3D::CRenderModel*>(model)->GetAssetHierarchy()); }
 
-void D3dxMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void D3dxMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
 
 // The collision object's slots 5 / 6: its world position, its orientation.
-void PlaceAtAbsolutePoint(Engine3D::CHitMesh* collision, const Maths::Vector* position) { collision->Call<void>(5, position); }
-void SetOrientation(Engine3D::CHitMesh* collision, const Maths::Matrix* orientation) { collision->Call<void>(6, orientation); }
+void PlaceAtAbsolutePoint(Engine3D::CHitMesh* collision, const Maths::Vec4* position) { collision->Call<void>(5, position); }
+void ChangeFacing(Engine3D::CHitMesh* collision, const Maths::Mat4* orientation) { collision->Call<void>(6, orientation); }
 
 } // namespace
 
 // 0x0041C920
-CObjectModule* __cdecl CContactShapeModule::Create()
+CObjectModule* __cdecl CContactShapeModule::Fabricate()
 {
     auto* component = static_cast<CContactShapeModule*>(MemSys::AllocZeroed(sizeof(CContactShapeModule)));
     if (!component)
         return nullptr;
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kType;
+    component->m_kindTag = kType;
     return component;
 }
 
@@ -89,11 +89,11 @@ void CContactShapeModule::DestroyBody()
 }
 
 // 0x0041C780
-CContactShapeModule* CContactShapeModule::Destroy(unsigned int flags)
+CContactShapeModule* CContactShapeModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -127,39 +127,39 @@ void CContactShapeModule::ConfigureFromData(Scripts::CStruct* params)
 void CContactShapeModule::SetUpHitShape(int type, Engine3D::CTriMeshSource* geometry)
 {
     if (geometry) {
-        m_hitShape = Engine3D::CreateMovableCollision(type, geometry, 1, reinterpret_cast<int>(m_object));
+        m_hitShape = Engine3D::CreateMovableCollision(type, geometry, 1, reinterpret_cast<int>(m_entity));
         return;
     }
-    uint8_t* model = ModelOf(m_object->GetComponent(kModelComponent));
+    uint8_t* model = ModelOf(m_entity->FetchModule(kModelComponent));
     auto* data = static_cast<uint8_t*>(AssetStore::AssetManager()->GetAssetData(*reinterpret_cast<uint32_t*>(model + 0x30), 0));
     if (data) {
         m_hitShape = Engine3D::CreateMovableCollision(type, *reinterpret_cast<Engine3D::CTriMeshSource**>(data + 0x8C),
-                                                  *reinterpret_cast<int*>(data + 0x88), reinterpret_cast<int>(m_object));
+                                                  *reinterpret_cast<int*>(data + 0x88), reinterpret_cast<int>(m_entity));
     } else {
-        m_hitShape = Engine3D::CreateMovableCollision(type, nullptr, 0, reinterpret_cast<int>(m_object));
+        m_hitShape = Engine3D::CreateMovableCollision(type, nullptr, 0, reinterpret_cast<int>(m_entity));
     }
 }
 
 // 0x0041C980
-void CContactShapeModule::Update()
+void CContactShapeModule::TickFrame()
 {
     Engine3D::CHitMesh* collision = m_hitShape;
     if (!collision)
         return;
-    CObjectModule* model = m_object->GetComponent(kModelComponent);
+    CObjectModule* model = m_entity->FetchModule(kModelComponent);
     const uint8_t* bone = model ? BoneOf(ModelOf(model)) : nullptr;
     if (!bone) {
-        PlaceAtAbsolutePoint(collision, &m_object->m_pos);
-        SetOrientation(collision, &m_object->m_displayMatrix);
+        PlaceAtAbsolutePoint(collision, &m_entity->m_atPoint);
+        ChangeFacing(collision, &m_entity->m_displayMatrix);
         return;
     }
     const auto* translation = reinterpret_cast<const float*>(bone + 0x40);
-    const Maths::Vector& pos = m_object->m_pos;
-    Maths::Vector position = {translation[0] + pos.x, translation[1] + pos.y, translation[2] + pos.z, pos.w};
+    const Maths::Vec4& pos = m_entity->m_atPoint;
+    Maths::Vec4 position = {translation[0] + pos.x, translation[1] + pos.y, translation[2] + pos.z, pos.w};
     PlaceAtAbsolutePoint(collision, &position);
-    Maths::Matrix orientation;
-    D3dxMultiply(&orientation, reinterpret_cast<const Maths::Matrix*>(bone + 0x10), &m_object->m_displayMatrix);
-    SetOrientation(collision, &orientation);
+    Maths::Mat4 orientation;
+    D3dxMultiply(&orientation, reinterpret_cast<const Maths::Mat4*>(bone + 0x10), &m_entity->m_displayMatrix);
+    ChangeFacing(collision, &orientation);
 }
 
 } // namespace Obj
@@ -167,14 +167,14 @@ void CContactShapeModule::Update()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CContactShapeModule::Destroy,
-         &GameObjects::CContactShapeModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CContactShapeModule::Teardown,
+         &GameObjects::CContactShapeModule::TickFrame,
          &GameObjects::CContactShapeModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Engine3D::VirtualSlot1Jump,
          Stubs::IgnoreArgument,

@@ -11,7 +11,7 @@ namespace MenuSystem::LevelEditor::UiStrip {
 
 // --- the pure placement ----------------------------------------------------------------------------------------------
 
-Plan Fit(const std::vector<Slot>& slots, float left, float right, float overflowWidth, float overflowGap)
+Plan Fit(const std::vector<Bay>& slots, float left, float right, float overflowWidth, float overflowGap)
 {
     const size_t n = slots.size();
     Plan plan;
@@ -111,10 +111,10 @@ std::string Elide(const std::string& text, float maxWidth)
 // --- the recorder ----------------------------------------------------------------------------------------------------
 
 namespace {
-std::vector<Box>* g_boxes;
+std::vector<Cuboid>* g_boxes;
 } // namespace
 
-void SetRecorder(std::vector<Box>* boxes) { g_boxes = boxes; }
+void SetRecorder(std::vector<Cuboid>* boxes) { g_boxes = boxes; }
 
 void NoteRect(float x0, float y0, float x1, float y1, const char* what)
 {
@@ -149,7 +149,7 @@ ImVec4 AccentButton()
 }
 
 // A button lit while `on`.
-bool Toggle(const char* label, bool on)
+bool FlipOver(const char* label, bool on)
 {
     if (on)
         ImGui::PushStyleColor(ImGuiCol_Button, AccentButton());
@@ -222,7 +222,7 @@ enum ItemId { kMode, kTools, kSpace, kSnapGrid, kPickItem, kShowAllItem, kStopIt
 
 struct Item {
     ItemId id;
-    Slot slot;
+    Bay slot;
 };
 
 std::vector<Item> Items(const State& s, float scale)
@@ -253,12 +253,12 @@ void DrawItem(ItemId id, const State& s, float scale, Output* out)
     const float inner = 2.0f * scale;
     switch (id) {
     case kMode:
-        if (Toggle("Fly", !s.selection))
-            out->events.push_back({Event::kDeselect});
+        if (FlipOver("Fly", !s.selection))
+            out->events.push_back({Occurrence::kDeselect});
         Tip("Fly the camera; nothing selected", KeyOf(s, "deselect"));
         Note("Fly");
         ImGui::SameLine(0.0f, inner);
-        Toggle("Select", s.selection);
+        FlipOver("Select", s.selection);
         Tip("Click an object, piece or gizmo to select it");
         Note("Select");
         break;
@@ -269,8 +269,8 @@ void DrawItem(ItemId id, const State& s, float scale, Output* out)
         for (int t = 0; t < 3; ++t) {
             if (t)
                 ImGui::SameLine(0.0f, inner);
-            if (Toggle(kLabels[t], s.tool == t))
-                out->events.push_back({Event::kTool, static_cast<float>(t)});
+            if (FlipOver(kLabels[t], s.tool == t))
+                out->events.push_back({Occurrence::kTool, static_cast<float>(t)});
             Tip(kTips[t], KeyOf(s, kIds[t]));
             Note(kLabels[t]);
         }
@@ -280,14 +280,14 @@ void DrawItem(ItemId id, const State& s, float scale, Output* out)
         // (as wide as the wider label, so it doesn't move when switched)
         float width = std::max(ButtonWidth("World"), ButtonWidth("Local"));
         if (ImGui::Button(s.local ? "Local###stripspace" : "World###stripspace", ImVec2(width, 0.0f)))
-            out->events.push_back({Event::kSpace});
+            out->events.push_back({Occurrence::kSpace});
         Tip(s.local ? "Gizmo axes: local" : "Gizmo axes: world", KeyOf(s, "tool_space"));
         Note("Space");
         break;
     }
     case kSnapGrid: {
-        if (Toggle("Snap", s.snap))
-            out->events.push_back({Event::kSnap, s.snap ? 0.0f : 1.0f});
+        if (FlipOver("Snap", s.snap))
+            out->events.push_back({Occurrence::kSnap, s.snap ? 0.0f : 1.0f});
         Tip("Snap while moving");
         Note("Snap");
         ImGui::SameLine(0.0f, inner);
@@ -301,7 +301,7 @@ void DrawItem(ItemId id, const State& s, float scale, Output* out)
                 char label[16];
                 std::snprintf(label, sizeof(label), "%g", size);
                 if (ImGui::Selectable(label, size == s.grid))
-                    out->events.push_back({Event::kGrid, size});
+                    out->events.push_back({Occurrence::kGrid, size});
             }
             ImGui::EndPopup();
         }
@@ -320,7 +320,7 @@ void DrawItem(ItemId id, const State& s, float scale, Output* out)
             } kPick[] = {{"Nodes", 1}, {"Objects", 2}, {"Scenery", 4}};
             for (const auto& p : kPick) {
                 if (ImGui::MenuItem(p.label, nullptr, (s.pickFilter & p.bit) != 0))
-                    out->events.push_back({Event::kPick, static_cast<float>(s.pickFilter ^ p.bit)});
+                    out->events.push_back({Occurrence::kPick, static_cast<float>(s.pickFilter ^ p.bit)});
             }
             ImGui::EndPopup();
         }
@@ -329,7 +329,7 @@ void DrawItem(ItemId id, const State& s, float scale, Output* out)
     case kShowAllItem:
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.45f, 0.28f, 0.52f, 0.9f));
         if (ImGui::Button(ShowAllText(s).c_str()))
-            out->events.push_back({Event::kShowAll});
+            out->events.push_back({Occurrence::kShowAll});
         ImGui::PopStyleColor();
         Tip("Show items hidden in the editor", KeyOf(s, "show_all"));
         Note("ShowAll");
@@ -337,7 +337,7 @@ void DrawItem(ItemId id, const State& s, float scale, Output* out)
     case kStopItem:
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.75f, 0.25f, 0.15f, 1.0f));
         if (ImGui::Button("Stop Simulation"))
-            out->events.push_back({Event::kSimulate});
+            out->events.push_back({Occurrence::kSimulate});
         ImGui::PopStyleColor();
         Tip("Stop the simulation", KeyOf(s, "simulate"));
         Note("Stop");
@@ -356,7 +356,7 @@ void DrawItem(ItemId id, const State& s, float scale, Output* out)
         ImVec2 at = ImGui::GetCursorScreenPos();
         ImGui::InvisibleButton("##stripbudget", ImVec2(width, frame));
         if (ImGui::IsItemClicked())
-            out->events.push_back({Event::kBudget});
+            out->events.push_back({Occurrence::kBudget});
         out->budgetHovered = ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
         Note("Budget");
         float bar = ImGui::GetTextLineHeight() * 0.6f;
@@ -379,7 +379,7 @@ void DrawItem(ItemId id, const State& s, float scale, Output* out)
             ++colours;
         }
         if (ImGui::Button(ProblemsText(s).c_str()))
-            out->events.push_back({Event::kProblems});
+            out->events.push_back({Occurrence::kProblems});
         ImGui::PopStyleColor(colours);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip)) {
             std::string keys = KeyOf(s, "problems");
@@ -394,10 +394,10 @@ void DrawItem(ItemId id, const State& s, float scale, Output* out)
 
 } // namespace
 
-void Draw(const State& state, float x, float y, float width, float scale, Output* out)
+void Blit(const State& state, float x, float y, float width, float scale, Output* out)
 {
     std::vector<Item> items = Items(state, scale);
-    std::vector<Slot> slots;
+    std::vector<Bay> slots;
     for (const Item& item : items)
         slots.push_back(item.slot);
     const char* more = "\xC2\xBB###stripmore"; // ("»")
@@ -420,7 +420,7 @@ void Draw(const State& state, float x, float y, float width, float scale, Output
     Note("More");
     if (ImGui::BeginPopup("##stripoverflow")) {
         // (the hidden controls, one a line; not recorded - they're in a popup of their own)
-        std::vector<Box>* boxes = g_boxes;
+        std::vector<Cuboid>* boxes = g_boxes;
         g_boxes = nullptr;
         for (size_t i = 0; i < items.size(); ++i) {
             if (plan.shown[i])

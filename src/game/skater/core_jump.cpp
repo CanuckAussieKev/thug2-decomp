@@ -64,7 +64,7 @@ float ScaledPhysics(void* object, uint32_t name) { return static_cast<GameObject
 void PlayJumpSound(void* component, uint8_t terrain)
 {
     void* object = ObjectOf(component);
-    const Maths::Vector& v = VectorAt(object, kVelocity);
+    const Maths::Vec4& v = VectorAt(object, kVelocity);
     float speed = static_cast<float>(std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y +
                                                static_cast<double>(v.z) * v.z));
     float fraction = speed / ScaledPhysics(object, kMaxMaxSpeed);
@@ -81,7 +81,7 @@ void CorePhysicsComponent::TriggerRailScript(const int* events)
         return;
     if (!At<void*>(this, kRailManager))
         At<void*>(this, kRailManager) = At<void*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule), 0x24); // (the skate module's)
-    Scripts::CStruct* script = LevelNodes::GetNode(node->m_name, false);
+    Scripts::CStruct* script = LevelNodes::FetchVertex(node->m_label, false);
     if (!script)
         return;
     // The node's TriggerScript, else the first one back along the rail (the walk stops at a loop: a second
@@ -91,7 +91,7 @@ void CorePhysicsComponent::TriggerRailScript(const int* events)
         GameObjects::CGrindPoint* slow = node;
         bool step = false;
         for (GameObjects::CGrindPoint* p = node->m_lastValue; p && p != node && p != slow;) {
-            script = LevelNodes::GetNode(p->m_name, true);
+            script = LevelNodes::FetchVertex(p->m_label, true);
             if (script->ReadHashValue(kTriggerScript, &triggerScript, 0)) // (a node without a script: a crash)
                 break;
             p = p->m_lastValue;
@@ -109,8 +109,8 @@ void CorePhysicsComponent::TriggerRailScript(const int* events)
     At<uint32_t>(this, kLastRailScript) = name;
     const uint8_t* rideObject = nullptr;
     if (GameObjects::CRideTracker* tracker = Tracker(this)) {
-        if (tracker->m_object.m_ownerObject)
-            rideObject = reinterpret_cast<const uint8_t*>(tracker->m_object.m_ownerObject);
+        if (tracker->m_entity.m_ownerObject)
+            rideObject = reinterpret_cast<const uint8_t*>(tracker->m_entity.m_ownerObject);
         else
             StopRiding(this);
     }
@@ -127,7 +127,7 @@ void CorePhysicsComponent::PerformLeap(Scripts::CStruct* params)
         TriggerFeeler(this, g_jumpTriggerEvents, kOtherFeeler);
         if (TriggerTookOver(this))
             return;
-        std::memcpy(&At<Maths::Vector>(this, 0x338), &VectorAt(ObjectOf(this), kPosition), 16); // (where it jumped)
+        std::memcpy(&At<Maths::Vec4>(this, 0x338), &VectorAt(ObjectOf(this), kPosition), 16); // (where it jumped)
         if (sound)
             PlayJumpSound(this, At<uint8_t>(this, 0x1AA));
         StartVertAir();
@@ -139,7 +139,7 @@ void CorePhysicsComponent::PerformLeap(Scripts::CStruct* params)
         break;
     case kRail:
         if (sound)
-            PlayJumpSound(this, Flag(this, 0xE1));
+            PlayJumpSound(this, BitMark(this, 0xE1));
         break;
     default:
         break;
@@ -150,20 +150,20 @@ void CorePhysicsComponent::PerformLeap(Scripts::CStruct* params)
     int& tense = At<int>(this, kTenseTime);
     if (tense >= maxTense)
         tense = maxTense;
-    bool fromVert = Flag(this, 0x30) || (StateOf(this) == kGround && Flag(this, 0x40));
+    bool fromVert = BitMark(this, 0x30) || (StateOf(this) == kGround && BitMark(this, 0x40));
     const uint32_t* names = kJumpSpeed[params->HasBareFlag(kBonelessHeight)][fromVert];
     void* object = ObjectOf(this);
     float most = ScaledPhysics(object, names[0]);
     float least = ScaledPhysics(ObjectOf(this), names[1]);
     double held = static_cast<double>(tense) / static_cast<double>(maxTense);
     float speed = static_cast<float>((static_cast<double>(most) - least) * held + least);
-    params->GetFloat(kSpeed, &speed, 0);
+    params->FetchFloat(kSpeed, &speed, 0);
 
     SetFlag(this, 0x20, 0);
-    Maths::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
-    if (Flag(this, 0x30) && velocity.y < 0.0f) {
+    Maths::Vec4& velocity = VectorAt(ObjectOf(this), kVelocity);
+    if (BitMark(this, 0x30) && velocity.y < 0.0f) {
         // Off vert, going down: pushed off the ramp (along +0x58) instead; no longer on vert.
-        const Maths::Vector& away = VectorAt(this, 0x58);
+        const Maths::Vec4& away = VectorAt(this, 0x58);
         float z = speed * away.z, w = speed * away.w;
         velocity.x = static_cast<float>(static_cast<double>(speed) * away.x + velocity.x);
         velocity.y = static_cast<float>(static_cast<double>(speed) * away.y + velocity.y);
@@ -176,16 +176,16 @@ void CorePhysicsComponent::PerformLeap(Scripts::CStruct* params)
         velocity.y = 0.0f;
     }
     VectorAt(ObjectOf(this), kVelocity).y += speed;
-    bool bike = ThawBmx::Active(this); // (not original: THAW 0x005DDDC0's bike branches, thaw_bmx_physics.cpp)
+    bool bike = ThawBmx::LiveNow(this); // (not original: THAW 0x005DDDC0's bike branches, thaw_bmx_physics.cpp)
     if (bike)
         ThawBmx::JumpBoost(this);
     object = ObjectOf(this);
     if (VectorAt(object, kUp).y < kSteepUp) {
         // A ramp too steep (upside down): less up, and lifted off it along the up.
-        Maths::Vector& v = VectorAt(object, kVelocity);
+        Maths::Vec4& v = VectorAt(object, kVelocity);
         v.y = static_cast<float>(v.y - static_cast<double>(speed) * kSteepDrop);
-        const Maths::Vector& up = VectorAt(object, kUp);
-        Maths::Vector& position = VectorAt(object, kPosition);
+        const Maths::Vec4& up = VectorAt(object, kUp);
+        Maths::Vec4& position = VectorAt(object, kPosition);
         float z = up.z * kFeelerAhead, w = up.w * kFeelerAhead;
         position.x = static_cast<float>(static_cast<double>(up.x) * kFeelerAhead + position.x);
         position.y = static_cast<float>(static_cast<double>(up.y) * kFeelerAhead + position.y);
@@ -201,7 +201,7 @@ void CorePhysicsComponent::PerformLeap(Scripts::CStruct* params)
         ThawBmx::JumpPitch(this);
     SetPhysicsState(kAir);
     At<int>(this, kJumpTime) = Now();
-    static_cast<GameObjects::CObject*>(ObjectOf(this))->BroadcastEvent(kSkaterJump, nullptr, 0.0f);
+    static_cast<GameObjects::CEntity*>(ObjectOf(this))->Announce(kSkaterJump, nullptr, 0.0f);
 }
 
 // 0x00509920
@@ -214,27 +214,27 @@ void CorePhysicsComponent::BeginSkitch()
     SetFlag(this, 0x88, 1);
     At<uint8_t>(this, 0x24A) = 1;
     Skitch();
-    if (auto* skitched = At<GameObjects::CObject*>(this, kSkitched))
+    if (auto* skitched = At<GameObjects::CEntity*>(this, kSkitched))
         skitched->PostOwnEvent(0x35224F25, nullptr);
 }
 
 // 0x00509990
 void CorePhysicsComponent::EndSkitch()
 {
-    if (!Flag(this, 0x88))
+    if (!BitMark(this, 0x88))
         return;
     SetFlag(this, 0x88, 0);
     auto& skitched = At<GameObjects::CSharedRef<GameObjects::CGameEntity>>(this, kSkitched);
     if (skitched.m_ownerObject) {
-        static_cast<GameObjects::CObject*>(skitched.m_ownerObject)->PostOwnEvent(0x2739B86D, nullptr);
+        static_cast<GameObjects::CEntity*>(skitched.m_ownerObject)->PostOwnEvent(0x2739B86D, nullptr);
         skitched.Release();
         skitched.m_ownerObject = nullptr;
     }
     void* ride = At<void*>(this, kRide);
     if (GameObjects::CRideTracker* tracker = At<GameObjects::CRideTracker*>(ride, 0x18)) {
-        At<void*>(ride, 0x6C) = tracker->m_object.m_ownerObject; // (what it rode last)
-        reinterpret_cast<GameObjects::CSharedRef<GameObjects::CSharedBase>*>(&tracker->m_object)->Release();
-        MemSys::Manager::Get()->Free(tracker);
+        At<void*>(ride, 0x6C) = tracker->m_entity.m_ownerObject; // (what it rode last)
+        reinterpret_cast<GameObjects::CSharedRef<GameObjects::CSharedBase>*>(&tracker->m_entity)->Release();
+        MemSys::Hub::Pull()->Dealloc(tracker);
         At<GameObjects::CRideTracker*>(ride, 0x18) = nullptr;
         At<int>(ride, 0x70) = Now();
     }
@@ -246,11 +246,11 @@ void CorePhysicsComponent::DoWallplantPhysics()
     int planted = At<int>(this, 0x90);
     At<uint8_t>(this, 0x2E4) = 0;
     uint32_t elapsed = Since(static_cast<uint32_t>(planted));
-    if (static_cast<float>(elapsed) > Scripts::GetFloat(kWallplantDuration)) {
+    if (static_cast<float>(elapsed) > Scripts::FetchFloat(kWallplantDuration)) {
         // Over: into the air, with a feeler along the facing (12 ahead to 36 behind) for a trigger.
         SetPhysicsState(kAir);
-        Maths::Vector& start = VectorAt(this, kFeelerStart);
-        Maths::Vector& end = VectorAt(this, kFeelerEnd);
+        Maths::Vec4& start = VectorAt(this, kFeelerStart);
+        Maths::Vec4& end = VectorAt(this, kFeelerEnd);
         start = VectorAt(ObjectOf(this), kFacing) * kFeelerAhead;
         end = VectorAt(ObjectOf(this), kFacing) * kFeelerBehind;
         start += VectorAt(ObjectOf(this), kPosition);
@@ -265,7 +265,7 @@ void CorePhysicsComponent::DoWallplantPhysics()
     GameObjects::CRideTracker* tracker = Tracker(this);
     if (!tracker)
         return;
-    if (!tracker->m_object.m_ownerObject || !tracker->Update(&VectorAt(ObjectOf(this), kPosition))) {
+    if (!tracker->m_entity.m_ownerObject || !tracker->TickFrame(&VectorAt(ObjectOf(this), kPosition))) {
         StopRiding(this);
         return;
     }
@@ -273,7 +273,7 @@ void CorePhysicsComponent::DoWallplantPhysics()
     tracker = Tracker(this);
     if (tracker->m_turned) {
         auto multiply = D3dx::MatrixMultiply;
-        Maths::Matrix& matrix = MatrixAt(ObjectOf(this), kMatrix);
+        Maths::Mat4& matrix = MatrixAt(ObjectOf(this), kMatrix);
         multiply(&matrix, &matrix, &tracker->m_turn);
         multiply(&MatrixAt(this, kDisplayMatrix), &MatrixAt(this, kDisplayMatrix), &Tracker(this)->m_turn);
     }
@@ -301,7 +301,7 @@ int CorePhysicsComponent::EndTowRide(Scripts::CStruct*, Scripts::CScript*)
 }
 
 // 0x00509A80
-int CorePhysicsComponent::SetState(Scripts::CStruct* params, Scripts::CScript*)
+int CorePhysicsComponent::ChangePhase(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t state = 0;
     params->ReadHashValue(0u, &state, 0);
@@ -310,7 +310,7 @@ int CorePhysicsComponent::SetState(Scripts::CStruct* params, Scripts::CScript*)
     if (StateOf(this) != kLip && state == kLipName)
         At<void*>(this, kRailNode) = nullptr;
     if (StateOf(this) == kWallRide) {
-        TurnToNormal(Maths::Vector{0.0f, 1.0f, 0.0f, 1.0f});
+        TurnToNormal(Maths::Vec4{0.0f, 1.0f, 0.0f, 1.0f});
         MatrixAt(this, kDisplayMatrix) = MatrixAt(ObjectOf(this), kMatrix);
     }
     switch (state) {

@@ -25,7 +25,7 @@ int Sprintf(char* out, const char* format, Args... args)
 } // namespace
 
 // 0x004E8F50
-void __cdecl AddGoalEditorNodes(Scripts::CArray* nodes, int* index, MemSys::Heap* heap)
+void __cdecl AddGoalEditorNodes(Scripts::CArray* nodes, int* index, MemSys::Arena* heap)
 {
     DebugOut::Printf("M:%s:%i: %s\n", "mponents\\GoalEditorComponent.cpp", 0x152, "Inserting Goal Editor Nodes");
     bool inPlace = true;
@@ -38,24 +38,24 @@ void __cdecl AddGoalEditorNodes(Scripts::CArray* nodes, int* index, MemSys::Heap
         manager = LevelNodes::NodeManagerInstance();
         arrayName = LevelNodes::GetLastNodeArrayName();
         inPlace = false;
-        count = static_cast<int>(nodes->m_size);
+        count = static_cast<int>(nodes->m_extent);
         index = &count;
         if (!count)
             nodes->ConfigureSizeKind(0x82, Scripts::QBVAL_STRUCT);
         else
-            nodes->Resize(nodes->m_size + 0x82);
+            nodes->Rescale(nodes->m_extent + 0x82);
     }
-    MemSys::Manager::Get()->EnterHeapScope(reinterpret_cast<MemSys::Allocator*>(heap));
+    MemSys::Hub::Pull()->EnterHeapScope(reinterpret_cast<MemSys::MemSource*>(heap));
     char name[100];
     for (int goal = 0; goal < 10; ++goal) {
         // The pro, the restart, then eleven objects.
         for (int which = 0; which < 13; ++which) {
             Scripts::CStruct* node;
             if (inPlace) {
-                node = reinterpret_cast<Scripts::CStruct*>(nodes->GetElement(static_cast<uint32_t>(*index)));
+                node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(static_cast<uint32_t>(*index)));
             } else {
                 node = Scripts::NewStruct();
-                node = node ? node->Init() : nullptr;
+                node = node ? node->PrepareAll() : nullptr;
             }
             static const uint32_t kKinds[3] = {0x8F0F67D7, 0xC9119673, 0x000B52B3};
             node->AppendStructureIfAny(Scripts::ReadSubStruct(kKinds[which < 2 ? which : 2]));
@@ -75,7 +75,7 @@ void __cdecl AddGoalEditorNodes(Scripts::CArray* nodes, int* index, MemSys::Heap
             ++*index;
         }
     }
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
 }
 
 } // namespace Ed

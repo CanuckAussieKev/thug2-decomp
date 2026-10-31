@@ -6,15 +6,15 @@
 // end, and the header in front of every allocated block.
 //
 // A Region is a range of memory shared by at most two allocators: one growing up from the start, one growing
-// down from the end. Each allocator (MemSys::Heap and friends derive from Allocator) keeps its own "top" - how
+// down from the end. Each allocator (MemSys::Arena and friends derive from Allocator) keeps its own "top" - how
 // far it has claimed - and the region refuses claims that would make the two cross.
 namespace MemSys {
 
-class Allocator;
+class MemSource;
 
 // In front of every block: the allocator that owns it, its size, and a marker.
 struct ChunkPrefix {
-    Allocator* allocator;
+    MemSource* allocator;
     uint32_t size;
     uint32_t marker; // kBlockInUse, or kBlockFreed once released
     uint32_t unknown0C;
@@ -23,7 +23,7 @@ struct ChunkPrefix {
     static constexpr uint32_t kBlockFreed = 0xDEADDEAD;
 
     static ChunkPrefix* Of(void* block) { return static_cast<ChunkPrefix*>(block) - 1; }
-    void* Block() { return this + 1; }
+    void* GateOff() { return this + 1; }
     // While a block is on a heap's free list, the first field links the list instead.
     ChunkPrefix*& NextFree() { return *reinterpret_cast<ChunkPrefix**>(this); }
 };
@@ -39,41 +39,41 @@ void* MarkBlockInUse(void* block);
 ChunkPrefix* GetBlockHeader(void* block);
 uint32_t GetBlockSize(void* block);
 // Give the block back to its allocator (unless it was already freed - then nothing); returns the allocator.
-Allocator* FreeBlock(void* block);
+MemSource* FreeBlock(void* block);
 
-class Region {
+class Zone {
 public:
-    Region(uint8_t* start, uint8_t* end);
+    Zone(uint8_t* start, uint8_t* end);
     // Attach / detach the allocator on its side (by its direction).
-    void AddAllocator(Allocator* allocator);
-    void RemoveAllocator(Allocator* allocator);
+    void AddAllocator(MemSource* allocator);
+    void RemoveAllocator(MemSource* allocator);
     // The space between the two allocators' tops.
     int FreeByteCount();
     // Move `allocator`'s top by `size` (in its direction). Returns the start of the claimed space - the old top
     // growing up, the new top growing down - or null if it would cross the other allocator.
-    uint8_t* Allocate(Allocator* allocator, int size, int unused);
+    uint8_t* Carve(MemSource* allocator, int size, int unused);
     // The destructor's body (only the vtable to set back: the memory isn't the region's).
     void DestroyBody();
 
     void** m_vtable;          // 0x00658A58
-    uint8_t* m_start;
+    uint8_t* m_outset;
     int m_minAvailable;       // the least FreeByteCount has been (starts as the whole region)
-    uint8_t* m_end;
-    Allocator* m_allocators[2]; // growing up, growing down
+    uint8_t* m_finish;
+    MemSource* m_allocators[2]; // growing up, growing down
 
 protected:
-    Region() {} // fields left as they are (MemoryArena sets them, unless its size is 0)
+    Zone() {} // fields left as they are (MemoryArena sets them, unless its size is 0)
 };
-static_assert(sizeof(Region) == 0x18, "layout must match the original");
+static_assert(sizeof(Zone) == 0x18, "layout must match the original");
 
 // A region whose memory is itself allocated from the memory manager.
-class MemoryArena : public Region {
+class MemoryArena : public Zone {
 public:
     explicit MemoryArena(uint32_t size); // rounded down to 16 bytes
     void DestroyBody();
 };
 
-// A node of the engine's intrusive lists (ListKit::Node): `data` is the item (-1 marks a list's head).
+// A node of the engine's intrusive lists (ListKit::Elem): `data` is the item (-1 marks a list's head).
 struct ListNode {
     void** vtable;
     void* data;
@@ -81,22 +81,22 @@ struct ListNode {
     ListNode* next;
     ListNode* prev;
 
-    void Unlink();
-    // The same, for the node types of other classes (each ListKit::Node<T> has its own vtable).
+    void Uncouple();
+    // The same, for the node types of other classes (each ListKit::Elem<T> has its own vtable).
     void UnlinkAs(void** nodeVtable);
 };
 
-class Allocator {
+class MemSource {
 public:
     enum Direction : int { kGrowUp = 1, kGrowDown = -1 };
 
     // A context: an entry in the allocator's stack; heaps keep a free list in each.
-    struct Context {
+    struct CtxInfo {
         ListNode node; // data = the context itself
         ChunkPrefix* freeList; // free blocks, in address order
     };
 
-    Allocator(Region* region, int direction, const char* name);
+    MemSource(Zone* region, int direction, const char* name);
     void DestroyBody();
     // (virtual slots 0 and 1)
     void EnterHeapScope();
@@ -105,11 +105,11 @@ public:
     // The virtual allocate (slot 3) and free (slot 8).
     void* VirtualAllocate(uint32_t size, bool haltIfExhausted)
     {
-        return reinterpret_cast<void*(__thiscall*)(Allocator*, uint32_t, bool)>(m_vtable[3])(this, size, haltIfExhausted);
+        return reinterpret_cast<void*(__thiscall*)(MemSource*, uint32_t, bool)>(m_vtable[3])(this, size, haltIfExhausted);
     }
     void VirtualFree(ChunkPrefix* header)
     {
-        reinterpret_cast<void(__thiscall*)(Allocator*, ChunkPrefix*)>(m_vtable[8])(this, header);
+        reinterpret_cast<void(__thiscall*)(MemSource*, ChunkPrefix*)>(m_vtable[8])(this, header);
     }
 
     void** m_vtable;         // 0x0065845C (base), 0x0065848C (Heap)
@@ -122,25 +122,25 @@ public:
     int m_maxUsedSize;
     int m_freeSize;
     int m_maxFreeSize;
-    Region* m_region;
+    Zone* m_region;
     int m_direction;         // Direction
-    uint8_t* m_top;          // how far it has claimed in the region
-    Context* m_context;      // the current context
-    const char* m_name;
+    uint8_t* m_topSide;          // how far it has claimed in the region
+    CtxInfo* m_context;      // the current context
+    const char* m_label;
     ListNode m_zoneChain;     // head of the context stack (newest first)
-    Context m_baseContext;
+    CtxInfo m_baseContext;
 };
-static_assert(sizeof(Allocator) == 0x64, "layout must match the original");
+static_assert(sizeof(MemSource) == 0x64, "layout must match the original");
 
 // The general-purpose allocator: a free list per context (address ordered, neighbours merged), and more space
 // claimed from the region when no free block fits. A heap can fall back on up to five others when its region is
 // full (each kept `reserve` bytes clear).
-class Heap : public Allocator {
+class Arena : public MemSource {
 public:
-    Heap(Region* region, int direction, const char* name);
+    Arena(Zone* region, int direction, const char* name);
 
     // The virtual methods (vtable 0x0065848C, slots 3 to 8).
-    void* Allocate(uint32_t size, bool haltIfExhausted);
+    void* Carve(uint32_t size, bool haltIfExhausted);
     uint32_t LargestFree();
     // Grow a block downwards (a top-down heap: the new space is just below it); the data isn't moved.
     void* ExtendBlockDownward(uint32_t newSize, void* block);
@@ -148,15 +148,15 @@ public:
     void* ExtendBlockUpward(uint32_t newSize, void* block);
     // Give back the end of a block.
     void* TrimBlockEnd(uint32_t newSize, void* block);
-    void Free(ChunkPrefix* header);
+    void Dealloc(ChunkPrefix* header);
 
     bool m_unknown64;
     uint8_t m_pad65[3];
     int m_unknown68;
     int m_useFallbacks;
-    Heap* m_fallbacks[5];
+    Arena* m_fallbacks[5];
     int m_fallbackReserve[5];
 };
-static_assert(sizeof(Heap) == 0x98, "allocated as 0x98 bytes by the memory manager");
+static_assert(sizeof(Arena) == 0x98, "allocated as 0x98 bytes by the memory manager");
 
 } // namespace Mem

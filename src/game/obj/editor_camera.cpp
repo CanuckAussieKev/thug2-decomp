@@ -53,8 +53,8 @@ constexpr float kStickScale = 0.0078125f;        // 0x0064A2FC (1 / 128)
 constexpr float kDeadZone = 0.009999999776482582f; // 0x0064544C
 constexpr double kHeightSlack = 0.01;            // 0x0064B310
 
-// Script globals (Scripts::GetFloat).
-float Global(uint32_t name) { return Scripts::GetFloat(name); }
+// Script globals (Scripts::FetchFloat).
+float Global(uint32_t name) { return Scripts::FetchFloat(name); }
 
 uint8_t& Flagged() { return g_editorCameraFlagged; }
 int& SeenCount() { return g_editorCameraSeenCount; }
@@ -64,7 +64,7 @@ uint32_t* Seen() { return g_editorCameraSeen; }
 // +0x20, the hit's point at +0x78 and normal at +0x88; what it hit held by a smart pointer at +0x98.
 class Feeler {
 public:
-    Feeler() { AsFeeler()->Construct(); }
+    Feeler() { AsFeeler()->MakeNew(); }
     ~Feeler() { reinterpret_cast<CSharedRef<CSharedBase>*>(m_bytes + 0x98)->~CSharedRef(); }
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
@@ -72,15 +72,15 @@ public:
     {
         AsFeeler()->SetExcluded(static_cast<uint16_t>(skip), static_cast<uint16_t>(need));
     }
-    void SetStart(const Maths::Vector& v) { AsFeeler()->SetStart(&v); }
-    void SetEnd(const Maths::Vector& v) { AsFeeler()->SetEnd(&v); }
+    void ChangeOrigin(const Maths::Vec4& v) { AsFeeler()->ChangeOrigin(&v); }
+    void ChangeFinish(const Maths::Vec4& v) { AsFeeler()->ChangeFinish(&v); }
     bool GetHitShape(int a, int b) { return AsFeeler()->GetHitShape(a != 0, b != 0) != 0; }
     Engine3D::CProbeRay* AsFeeler() { return reinterpret_cast<Engine3D::CProbeRay*>(m_bytes); }
-    Maths::Vector& Start() { return *reinterpret_cast<Maths::Vector*>(m_bytes); }
-    Maths::Vector& End() { return *reinterpret_cast<Maths::Vector*>(m_bytes + 0x10); }
-    void*& Callback() { return *reinterpret_cast<void**>(m_bytes + 0x20); }
-    const Maths::Vector& Point() const { return *reinterpret_cast<const Maths::Vector*>(m_bytes + 0x78); }
-    const Maths::Vector& Normal() const { return *reinterpret_cast<const Maths::Vector*>(m_bytes + 0x88); }
+    Maths::Vec4& Kickoff() { return *reinterpret_cast<Maths::Vec4*>(m_bytes); }
+    Maths::Vec4& End() { return *reinterpret_cast<Maths::Vec4*>(m_bytes + 0x10); }
+    void*& HookFn() { return *reinterpret_cast<void**>(m_bytes + 0x20); }
+    const Maths::Vec4& Point() const { return *reinterpret_cast<const Maths::Vec4*>(m_bytes + 0x78); }
+    const Maths::Vec4& Normal() const { return *reinterpret_cast<const Maths::Vec4*>(m_bytes + 0x88); }
     uint8_t* Bytes() { return m_bytes; }
 
 private:
@@ -98,7 +98,7 @@ void DeleteShadow(void*& shadow)
 // The rail editor's 0x004F3D30 (thiscall; the editor from 0x004F4970), around the cursor's move in the park editor.
 void RailEditorMoving(int moved)
 {
-    ParkEditing::CRailAuthoring::Instance()->SetActive(moved != 0);
+    ParkEditing::CRailAuthoring::Sole()->ChangeLive(moved != 0);
 }
 bool InParkEditor()
 {
@@ -122,7 +122,7 @@ bool __cdecl ScriptFlagged(uint32_t name)
             return true;
     }
     Scripts::CScriptStore* cache = Scripts::g_scriptCache;
-    const uint8_t* token = cache->GetScript(name);
+    const uint8_t* token = cache->FetchScript(name);
     if (!token)
         return false;
     token = Scripts::SkipToEndOfStatement(token);
@@ -171,7 +171,7 @@ void __cdecl FlagScriptedHit(void* feeler)
     uint32_t nodeName = *reinterpret_cast<uint32_t*>(bytes + 0x58);
     if (!nodeName)
         return;
-    Scripts::CStruct* node = LevelNodes::GetNode(nodeName, false);
+    Scripts::CStruct* node = LevelNodes::FetchVertex(nodeName, false);
     if (!node)
         return;
     uint32_t script = 0;
@@ -184,32 +184,32 @@ void __cdecl FlagScriptedHit(void* feeler)
 }
 
 // 0x004E5390
-bool FlaggedObjectBetween(const Maths::Vector& start, const Maths::Vector& end)
+bool FlaggedObjectBetween(const Maths::Vec4& start, const Maths::Vec4& end)
 {
     Flagged() = 0;
     Feeler feeler;
-    feeler.Start() = start;
+    feeler.Kickoff() = start;
     feeler.End() = end;
     feeler.SetExcluded(0, 0x50);
-    feeler.Callback() = reinterpret_cast<void*>(&FlagScriptedHit);
+    feeler.HookFn() = reinterpret_cast<void*>(&FlagScriptedHit);
     feeler.GetHitShape(1, 0);
     return Flagged() != 0;
 }
 
 // 0x004E5940
-CObjectModule* __cdecl CEditorViewModule::Create()
+CObjectModule* __cdecl CEditorViewModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CEditorViewModule));
-    return memory ? static_cast<CEditorViewModule*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CEditorViewModule*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x004E5060
-CEditorViewModule* CEditorViewModule::Construct()
+CEditorViewModule* CEditorViewModule::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kVtable;
-    m_type = kEditorCamera;
-    for (Maths::Vector* v : {&m_focus, &m_viewer, &m_cursor, &m_right, &m_forward})
+    m_kindTag = kEditorCamera;
+    for (Maths::Vec4* v : {&m_focus, &m_viewer, &m_cursor, &m_rightSide, &m_forward})
         *v = {0.0f, 0.0f, 0.0f, 1.0f};
     m_zoom = m_minZoom = m_maxZoom = m_heading = m_leanAngle = m_minTilt = m_maxTilt = m_levelY = m_minHeight = 0.0f;
     m_shadowHandle = nullptr;
@@ -229,11 +229,11 @@ void CEditorViewModule::DestroyBody()
 }
 
 // 0x004E59A0
-CEditorViewModule* CEditorViewModule::Destroy(unsigned int flags)
+CEditorViewModule* CEditorViewModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -241,19 +241,19 @@ CEditorViewModule* CEditorViewModule::Destroy(unsigned int flags)
 void CEditorViewModule::ConfigureFromData(Scripts::CStruct* params)
 {
     m_minHeight = 0.0f;
-    params->GetFloat(0x9CDF40CD, &m_minHeight, 0); // min_height
+    params->FetchFloat(0x9CDF40CD, &m_minHeight, 0); // min_height
     m_minZoom = 100.0f;
-    params->GetFloat(0x52EECB98, &m_minZoom, 0);
+    params->FetchFloat(0x52EECB98, &m_minZoom, 0);
     m_maxZoom = 2000.0f;
-    params->GetFloat(0x53E2512C, &m_maxZoom, 0);
+    params->FetchFloat(0x53E2512C, &m_maxZoom, 0);
     m_simpleCollision = params->HasBareFlag(0xA0D7FBAB); // SimpleCollision
     m_noWallCheck = params->HasBareFlag(0xF5680DEF);
 }
 
 // 0x004E51F0
-void CEditorViewModule::Finalize()
+void CEditorViewModule::Seal()
 {
-    mp_input = reinterpret_cast<uint8_t*>(m_object->GetComponent(kInput));
+    mp_input = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kInput));
 }
 
 // 0x004E5170
@@ -262,13 +262,13 @@ void CEditorViewModule::CreateShadow()
     if (m_shadowHandle)
         return;
     void* memory = MemSys::AllocZeroed(0x14);
-    m_shadowHandle = memory ? static_cast<Engine3D::CBlobShadow*>(memory)->Construct() : nullptr;
+    m_shadowHandle = memory ? static_cast<Engine3D::CBlobShadow*>(memory)->MakeNew() : nullptr;
     *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(m_shadowHandle) + 0xC) = 0x3F99999A; // 1.2 (no null check)
-    static_cast<Engine3D::CBlobShadow*>(m_shadowHandle)->SetModel("Ped_Shadow");
+    static_cast<Engine3D::CBlobShadow*>(m_shadowHandle)->ChangeMesh("Ped_Shadow");
 }
 
 // 0x004E59D0
-void CEditorViewModule::Hide(bool hide)
+void CEditorViewModule::Conceal(bool hide)
 {
     if (!hide)
         CreateShadow();
@@ -279,31 +279,31 @@ void CEditorViewModule::Hide(bool hide)
 // 0x004E5A10
 void CEditorViewModule::ResyncGroundShadow()
 {
-    Maths::Vector top = {m_cursor.x, m_cursor.y + m_levelY, m_cursor.z, m_cursor.w};
+    Maths::Vec4 top = {m_cursor.x, m_cursor.y + m_levelY, m_cursor.z, m_cursor.w};
     Feeler feeler;
-    feeler.SetStart(top);
-    Maths::Vector bottom = {top.x, top.y - kDown, top.z, top.w};
-    feeler.SetEnd(bottom);
+    feeler.ChangeOrigin(top);
+    Maths::Vec4 bottom = {top.x, top.y - kDown, top.z, top.w};
+    feeler.ChangeFinish(bottom);
     if (!feeler.GetHitShape(1, 0)) {
         if (m_shadowHandle)
             DeleteShadow(m_shadowHandle);
         return;
     }
     CreateShadow();
-    Maths::Vector point = feeler.Point();
-    Maths::Matrix identity;
+    Maths::Vec4 point = feeler.Point();
+    Maths::Mat4 identity;
     identity.ResetToIdentity();
-    Maths::Vector normal = feeler.Normal();
-    reinterpret_cast<void(__thiscall*)(void*, const Maths::Vector*, const Maths::Matrix*, Maths::Vector)>(
+    Maths::Vec4 normal = feeler.Normal();
+    reinterpret_cast<void(__thiscall*)(void*, const Maths::Vec4*, const Maths::Mat4*, Maths::Vec4)>(
         (*static_cast<void***>(m_shadowHandle))[1])(m_shadowHandle, &point, &identity, normal);
 }
 
 // 0x004E5460
-bool CEditorViewModule::GroundHeight(Maths::Vector start, Maths::Vector end, float* height)
+bool CEditorViewModule::GroundHeight(Maths::Vec4 start, Maths::Vec4 end, float* height)
 {
     Feeler feeler;
-    feeler.SetStart(start);
-    feeler.SetEnd(end);
+    feeler.ChangeOrigin(start);
+    feeler.ChangeFinish(end);
     if (!feeler.GetHitShape(1, 0))
         return false;
     Flagged() = 0;
@@ -317,12 +317,12 @@ bool CEditorViewModule::GroundHeight(Maths::Vector start, Maths::Vector end, flo
     if (feeler.Normal().y < kMaxSlope)
         return false;
     *height = feeler.Point().y;
-    Maths::Vector point = feeler.Point();
+    Maths::Vec4 point = feeler.Point();
     return !FlaggedObjectBetween(start, point);
 }
 
 // 0x004E5640
-bool CEditorViewModule::PlaceCursor(Maths::Vector previous, float step)
+bool CEditorViewModule::PlaceCursor(Maths::Vec4 previous, float step)
 {
     float above = m_cursor.y + step;
     float below = Global(0xF230D521) + m_cursor.y;
@@ -333,16 +333,16 @@ bool CEditorViewModule::PlaceCursor(Maths::Vector previous, float step)
     // Nothing in the way at head height from where it was?
     double was = static_cast<double>(previous.y) + m_levelY;
     float top = static_cast<float>((height > was ? static_cast<double>(height) : was) + kWallHeight);
-    Maths::Vector to = {m_cursor.x, top, m_cursor.z, m_cursor.w};
-    Maths::Vector from = {previous.x, top, previous.z, previous.w};
+    Maths::Vec4 to = {m_cursor.x, top, m_cursor.z, m_cursor.w};
+    Maths::Vec4 from = {previous.x, top, previous.z, previous.w};
     bool clear = true;
     if (!m_simpleCollision && FlaggedObjectBetween(from, to))
         clear = false;
     if (!m_noWallCheck) {
         Feeler feeler;
         feeler.SetExcluded(0x10, 0);
-        feeler.SetStart(from);
-        feeler.SetEnd(to);
+        feeler.ChangeOrigin(from);
+        feeler.ChangeFinish(to);
         if (feeler.GetHitShape(1, 0))
             clear = false;
     }
@@ -351,7 +351,7 @@ bool CEditorViewModule::PlaceCursor(Maths::Vector previous, float step)
     if (height >= m_cursor.y) { // (not a number goes down)
         // Up: the height above it less the rise (the editor's own camera only if it's no lower than 0x71EC75E9).
         float lowered = static_cast<float>(m_levelY - (static_cast<double>(height) - m_cursor.y));
-        if (!m_simpleCollision || m_object->m_id == 0x5B509AD3 || Global(0x71EC75E9) < m_levelY)
+        if (!m_simpleCollision || m_entity->m_ident == 0x5B509AD3 || Global(0x71EC75E9) < m_levelY)
             m_levelY = lowered;
         if (m_levelY < m_minHeight)
             m_levelY = m_minHeight;
@@ -371,7 +371,7 @@ int CEditorViewModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
 {
     if (name == 0x69CB3AE1) {
         Scripts::VectorValue position;
-        params->GetVector(0xB9D31B0A, &position, 1); // Position
+        params->FetchVec(0xB9D31B0A, &position, 1); // Position
         m_cursor = {position.x, position.y, position.z, position.w};
         m_levelY = 0.0f;
         reinterpret_cast<void(__thiscall*)(CObjectModule*)>(m_vtable[1])(this); // Update
@@ -379,21 +379,21 @@ int CEditorViewModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
         return 1;
     }
     if (name == 0xF362BBBF) {
-        params->GetVector(0xB9D31B0A, reinterpret_cast<Scripts::VectorValue*>(&m_cursor), 0);
+        params->FetchVec(0xB9D31B0A, reinterpret_cast<Scripts::VectorValue*>(&m_cursor), 0);
         m_focus = m_cursor;
         m_zoom = 700.0f;
-        params->GetFloat(0xC48391A5, &m_zoom, 0);
+        params->FetchFloat(0xC48391A5, &m_zoom, 0);
         m_leanAngle = 0.6f;
-        params->GetFloat(0xE3C07609, &m_leanAngle, 0); // tilt
+        params->FetchFloat(0xE3C07609, &m_leanAngle, 0); // tilt
         m_levelY = 0.0f;
-        params->GetFloat(0xB8D629CA, &m_levelY, 0);
+        params->FetchFloat(0xB8D629CA, &m_levelY, 0);
         return 1;
     }
     return 2;
 }
 
 // 0x004E5C20
-void CEditorViewModule::Update()
+void CEditorViewModule::TickFrame()
 {
     m_minTilt = Global(0x7D16D113);
     m_maxTilt = Global(0x411BEE4A);
@@ -477,12 +477,12 @@ void CEditorViewModule::Update()
             rise = -rise;
     }
     if ((raise || lower) && rise > 0.0f) {
-        Maths::Vector from = {m_cursor.x, static_cast<float>(static_cast<double>(m_cursor.y) + m_levelY + kAbove),
+        Maths::Vec4 from = {m_cursor.x, static_cast<float>(static_cast<double>(m_cursor.y) + m_levelY + kAbove),
                             m_cursor.z, m_cursor.w};
-        Maths::Vector to = {m_cursor.x, from.y - kDown, m_cursor.z, m_cursor.w};
+        Maths::Vec4 to = {m_cursor.x, from.y - kDown, m_cursor.z, m_cursor.w};
         Feeler ceiling;
-        ceiling.SetStart(from);
-        ceiling.SetEnd(to);
+        ceiling.ChangeOrigin(from);
+        ceiling.ChangeFinish(to);
         if (ceiling.GetHitShape(1, 0)) {
             float room = from.y - ceiling.Point().y;
             if (Global(0x61D56FA0) < room)
@@ -503,18 +503,18 @@ void CEditorViewModule::Update()
     Feeler feeler;
     {
         float height = m_levelY;
-        Maths::Vector above = {m_cursor.x, static_cast<float>(static_cast<double>(height) + m_cursor.y), m_cursor.z,
+        Maths::Vec4 above = {m_cursor.x, static_cast<float>(static_cast<double>(height) + m_cursor.y), m_cursor.z,
                              static_cast<float>(static_cast<double>(m_cursor.w) + 1.0f)};
-        feeler.SetStart(above);
-        feeler.SetEnd(m_cursor);
+        feeler.ChangeOrigin(above);
+        feeler.ChangeFinish(m_cursor);
         if (feeler.GetHitShape(1, 0)) {
             m_levelY = static_cast<float>((static_cast<double>(m_cursor.y) + m_levelY) - feeler.Point().y);
             m_cursor = feeler.Point();
         }
-        feeler.SetStart(m_cursor);
+        feeler.ChangeOrigin(m_cursor);
         float up = m_levelY + kAbove;
-        Maths::Vector top = {m_cursor.x, up + m_cursor.y, m_cursor.z, static_cast<float>(static_cast<double>(m_cursor.w) + 1.0f)};
-        feeler.SetEnd(top);
+        Maths::Vec4 top = {m_cursor.x, up + m_cursor.y, m_cursor.z, static_cast<float>(static_cast<double>(m_cursor.w) + 1.0f)};
+        feeler.ChangeFinish(top);
         if (feeler.GetHitShape(1, 0))
             m_levelY = static_cast<float>((static_cast<double>(feeler.Point().y) - m_cursor.y) - kAbove);
     }
@@ -525,7 +525,7 @@ void CEditorViewModule::Update()
 
     // The heading's axes.
     float headingNow = m_heading;
-    m_right = {static_cast<float>(std::cos(static_cast<double>(headingNow))), 0.0f,
+    m_rightSide = {static_cast<float>(std::cos(static_cast<double>(headingNow))), 0.0f,
                static_cast<float>(-std::sin(static_cast<double>(headingNow))), 1.0f};
     m_forward = {static_cast<float>(std::sin(static_cast<double>(headingNow))), 0.0f,
                  static_cast<float>(std::cos(static_cast<double>(headingNow))), 1.0f};
@@ -555,11 +555,11 @@ void CEditorViewModule::Update()
     double a4 = ahead * m_forward.x;
     float b1 = static_cast<float>(a1 * speed), b2 = static_cast<float>(a2 * speed), b3 = static_cast<float>(a3 * speed);
     float b4 = static_cast<float>(a4 * speed);
-    double c1 = static_cast<double>(side) * m_right.w, c2 = static_cast<double>(side) * m_right.z;
-    float c3 = side * m_right.y, c4 = side * m_right.x;
+    double c1 = static_cast<double>(side) * m_rightSide.w, c2 = static_cast<double>(side) * m_rightSide.z;
+    float c3 = side * m_rightSide.y, c4 = side * m_rightSide.x;
     float d1 = static_cast<float>(c1 * speed), d2 = static_cast<float>(c2 * speed), d3 = static_cast<float>(c3 * speed);
     double x0 = speed * c4;
-    Maths::Vector previous = m_cursor;
+    Maths::Vec4 previous = m_cursor;
     m_cursor.x = static_cast<float>((x0 + b4) + m_cursor.x);
     m_cursor.y = static_cast<float>((static_cast<double>(d3) + b3) + m_cursor.y);
     m_cursor.z = static_cast<float>((static_cast<double>(d2) + b2) + m_cursor.z);
@@ -578,15 +578,15 @@ void CEditorViewModule::Update()
     float atX = static_cast<float>(std::cos(static_cast<double>(tiltNow)) * m_forward.x);
     float atZ = static_cast<float>(std::cos(static_cast<double>(tiltNow)) * m_forward.z);
     float atY = static_cast<float>(std::sin(static_cast<double>(tiltNow)));
-    Maths::Matrix look;
-    look.row[0] = {m_right.x, m_right.y, m_right.z, 0.0f};
-    look.row[1] = {static_cast<float>(static_cast<double>(atY) * m_right.z - static_cast<double>(atZ) * m_right.y),
-                   static_cast<float>(static_cast<double>(atZ) * m_right.x - static_cast<double>(atX) * m_right.z),
-                   static_cast<float>(static_cast<double>(atX) * m_right.y - static_cast<double>(atY) * m_right.x),
+    Maths::Mat4 look;
+    look.row[0] = {m_rightSide.x, m_rightSide.y, m_rightSide.z, 0.0f};
+    look.row[1] = {static_cast<float>(static_cast<double>(atY) * m_rightSide.z - static_cast<double>(atZ) * m_rightSide.y),
+                   static_cast<float>(static_cast<double>(atZ) * m_rightSide.x - static_cast<double>(atX) * m_rightSide.z),
+                   static_cast<float>(static_cast<double>(atX) * m_rightSide.y - static_cast<double>(atY) * m_rightSide.x),
                    0.0f};
     look.row[2] = {atX, atY, atZ, 0.0f};
     look.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_object->m_basisFrame = look;
+    m_entity->m_basisFrame = look;
     float zoomNow = m_zoom;
     float offW = previous.w * zoomNow; // (the cursor's w from before the move, as the original reuses it)
     float offZ = atZ * zoomNow, nudgeAlongY = atY * zoomNow, sideShiftX = atX * zoomNow;
@@ -595,7 +595,7 @@ void CEditorViewModule::Update()
     m_viewer.z = m_focus.z + offZ;
     m_viewer.w = m_focus.w + offW;
     m_viewer.w = 1.0f;
-    m_object->m_pos = m_viewer;
+    m_entity->m_atPoint = m_viewer;
     ResyncGroundShadow();
 }
 
@@ -620,15 +620,15 @@ __declspec(naked) void FlaggedObjectBetweenStub()
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CEditorViewModule::Destroy,
-         &GameObjects::CEditorViewModule::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CEditorViewModule::Teardown,
+         &GameObjects::CEditorViewModule::TickFrame,
          &GameObjects::CEditorViewModule::ConfigureFromData,
-         &GameObjects::CEditorViewModule::Finalize,
+         &GameObjects::CEditorViewModule::Seal,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
-         &GameObjects::CEditorViewModule::Hide,
+         &GameObjects::CObjectModule::HoldOff,
+         &GameObjects::CEditorViewModule::Conceal,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
          static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),

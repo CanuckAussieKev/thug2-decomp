@@ -26,16 +26,16 @@ std::string JoinKeys(const std::vector<std::string>& keys)
     return out;
 }
 
-std::vector<std::pair<std::string, std::string>> ModifierHints(const std::vector<Actions::Action>& actions, uint8_t mods,
+std::vector<std::pair<std::string, std::string>> ModifierHints(const std::vector<Actions::ActStep>& actions, uint8_t mods,
                                                                size_t limit)
 {
     std::vector<std::pair<std::string, std::string>> out;
     if (!mods)
         return out;
-    for (const Actions::Action& a : actions) {
+    for (const Actions::ActStep& a : actions) {
         if (out.size() >= limit)
             break;
-        if (a.kind != Actions::Kind::Press && a.kind != Actions::Kind::Toggle)
+        if (a.kind != Actions::Kind::Press && a.kind != Actions::Kind::FlipOver)
             continue;
         for (const Actions::Chord& c : a.keys) {
             if (c.scancode && c.mods == mods) {
@@ -132,13 +132,13 @@ struct Builder {
         Raw(prefix ? std::string(prefix) + "+" + joined : joined, what);
     }
     // The fly keys ("WASD" - with the right button unless wasd_flies=1).
-    void Fly(const Context& c, const char* what)
+    void Fly(const CtxInfo& c, const char* what)
     {
         Acts({"forward", "left", "back", "right"}, what, c.flyAlways || c.rmb ? nullptr : "RMB");
     }
 };
 
-void PadHints(const Context& c, Builder& b)
+void PadHints(const CtxInfo& c, Builder& b)
 {
     if (c.pieOpen) {
         b.Raw("LS", "point at a slice");
@@ -171,7 +171,7 @@ void PadHints(const Context& c, Builder& b)
 
 } // namespace
 
-std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
+std::vector<Hint> Build(const CtxInfo& c, const KeyText& keyOf)
 {
     Builder b{keyOf, {}};
     if (c.pad) {
@@ -245,11 +245,11 @@ std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
             b.Raw("Esc", "put it back");
             return b.out;
         }
-        if (c.drag == Drag::Rotate) {
+        if (c.drag == Drag::SpinBy) {
             b.Raw("Mouse", "turns it");
             b.Raw("Ctrl", "steps");
             b.Raw("0-9", "degrees");
-        } else if (c.drag == Drag::Scale) {
+        } else if (c.drag == Drag::StretchBy) {
             b.Raw("Mouse", "scales it");
             b.Raw("Ctrl", "tenths");
             b.Raw("X/Y/Z", "axis");

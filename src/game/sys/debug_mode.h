@@ -43,7 +43,7 @@ class CScript;
 //   next time of day (UserViewerTriangle).
 namespace SystemCore::DebugMode {
 
-bool& Enabled();
+bool& IsSwitchedOn();
 // CD: false in debug mode (but for the start-up scripts), else true (the original's stub).
 bool __cdecl CFunc_CD(Scripts::CStruct* params, Scripts::CScript* script);
 // NotCD: CD's opposite (the original: false).
@@ -52,8 +52,8 @@ bool __cdecl CFunc_NotCD(Scripts::CStruct* params, Scripts::CScript* script);
 // table is the game's own source, this stands in for its entries (done by Sio::InitSdlInput, before the script
 // functions are registered).
 void Install();
-// Once a frame from the front end's input logic (MouseMenus::Update): the viewer launched once, the F keys.
-void Update(GameModules::FrontEnd* frontEnd);
+// Once a frame from the front end's input logic (MouseMenus::TickFrame): the viewer launched once, the F keys.
+void TickFrame(GameModules::FrontEnd* frontEnd);
 // For the viewer's input handler (GameModules::HandleViewerInput, in the free camera): the movement keys as the sticks (raw,
 // -127..127) and the up / down commands (0x2 / 0x4). False when no key is held (the controller's values stand).
 bool KeyboardViewer(float* leftX, float* leftY, float* rightX, float* rightY, uint32_t* commands);

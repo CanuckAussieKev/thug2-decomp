@@ -52,37 +52,37 @@ constexpr uint32_t kLadderTrigger = 0xF5B17B09;  // TRG_Ladder03 (a node: counte
 // (+0x98). Going away: the smart pointer let go of (the destructor inlined), or the destructor 0x0041C350 - the
 // original uses either (no C++ destructor here: callers say which).
 struct Feeler {
-    Maths::Vector m_start;   // +0x00
-    Maths::Vector m_end;     // +0x10
+    Maths::Vec4 m_outset;   // +0x00
+    Maths::Vec4 m_finish;     // +0x10
     uint8_t m_unknown20[0x58];
-    Maths::Vector m_contactPos;   // +0x78
+    Maths::Vec4 m_contactPos;   // +0x78
     uint8_t m_unknown88[0x10];
-    GameObjects::CSharedBase* m_object; // +0x98 (a CSharedRef<CSharedBase>: the object, then its links)
+    GameObjects::CSharedBase* m_entity; // +0x98 (a CSharedRef<CSharedBase>: the object, then its links)
     uint32_t m_links[2];
     uint8_t m_unknownA4[0xC];
 
     // (Engine3D::CProbeRay, seen by its fields here)
     Engine3D::CProbeRay* AsFeeler() { return reinterpret_cast<Engine3D::CProbeRay*>(this); }
-    Feeler* Construct()
+    Feeler* MakeNew()
     {
-        AsFeeler()->Construct();
+        AsFeeler()->MakeNew();
         return this;
     }
-    void SetLine(const Maths::Vector* from, const Maths::Vector* to) { AsFeeler()->SetLine(from, to); }
+    void ChangeStrand(const Maths::Vec4* from, const Maths::Vec4* to) { AsFeeler()->ChangeStrand(from, to); }
     bool GetHitShape(int a, int b) { return AsFeeler()->GetHitShape(a != 0, b != 0) != 0; }
     void ReleaseObject()
     {
-        if (m_object)
-            m_object->DetachSharedRef(reinterpret_cast<GameObjects::CSharedRef<GameObjects::CSharedBase>*>(&m_object));
+        if (m_entity)
+            m_entity->DetachSharedRef(reinterpret_cast<GameObjects::CSharedRef<GameObjects::CSharedBase>*>(&m_entity));
     }
-    void Destroy() { AsFeeler()->Destruct(); }
+    void Teardown() { AsFeeler()->Destruct(); }
 };
-static_assert(offsetof(Feeler, m_contactPos) == 0x78 && offsetof(Feeler, m_object) == 0x98 && sizeof(Feeler) == 0xB0);
+static_assert(offsetof(Feeler, m_contactPos) == 0x78 && offsetof(Feeler, m_entity) == 0x98 && sizeof(Feeler) == 0xB0);
 
 // The matrix times `in` (all four components; 0x0040AF60, returns `out`).
-Maths::Vector* Transform(const Maths::Matrix* matrix, Maths::Vector* out, const Maths::Vector* in)
+Maths::Vec4* Xform(const Maths::Mat4* matrix, Maths::Vec4* out, const Maths::Vec4* in)
 {
-    return &matrix->Transform(*out, *in);
+    return &matrix->Xform(*out, *in);
 }
 
 } // namespace
@@ -108,18 +108,18 @@ double __cdecl Span4(float a, float b, float c, float d)
 }
 
 // 0x0057C200
-bool CGrindPoint::IsNamed(uint32_t name) { return m_name == name; }
+bool CGrindPoint::IsNamed(uint32_t name) { return m_label == name; }
 
 // 0x0057C210
-void BoxPair::Swap()
+void BoxPair::Exchange()
 {
-    Maths::Vector held = second;
+    Maths::Vec4 held = second;
     second = first;
     first = held;
 }
 
 // 0x0057C260
-void __cdecl BoxOf(const Maths::Vector* a, const Maths::Vector* b, Maths::Vector* min, Maths::Vector* max)
+void __cdecl BoxOf(const Maths::Vec4* a, const Maths::Vec4* b, Maths::Vec4* min, Maths::Vec4* max)
 {
     float minX, maxX, minY, maxY, minZ, maxZ;
     if (a->x < b->x)
@@ -145,9 +145,9 @@ void __cdecl BoxOf(const Maths::Vector* a, const Maths::Vector* b, Maths::Vector
 }
 
 // 0x0057C330
-void CGrindRailHub::Cleanup()
+void CGrindRailHub::TidyUp()
 {
-    m_count = 0;
+    m_num = 0;
     MemSys::FreeMalloc(m_nodes);
     m_nodes = nullptr;
     m_onObject = false;
@@ -171,34 +171,34 @@ int __cdecl NearlyEqual4(float a, float b, float c, float d, float tolerance)
 }
 
 // 0x0057C3F0
-void CGrindRailHub::MoveNode(uint32_t name, const Maths::Vector* pos)
+void CGrindRailHub::MoveNode(uint32_t name, const Maths::Vec4* pos)
 {
     int index = 0;
     CGrindPoint* node = m_nodes;
-    for (; index < m_count; ++index, ++node) {
-        if (node->m_name == name)
+    for (; index < m_num; ++index, ++node) {
+        if (node->m_label == name)
             break;
     }
-    if (index >= m_count)
+    if (index >= m_num)
         return;
-    node->m_pos = *pos;
-    if (CGrindPoint* next = node->m_next) {
-        Maths::Vector here = node->m_pos;
-        Maths::Vector there = next->m_pos;
+    node->m_atPoint = *pos;
+    if (CGrindPoint* next = node->m_succ) {
+        Maths::Vec4 here = node->m_atPoint;
+        Maths::Vec4 there = next->m_atPoint;
         BoxOf(&here, &there, &node->m_lowerLimit, &node->m_upperLimit);
     }
     if (node->m_lastValue) {
         // (the original tests the found node's own link each time, not each node's)
-        for (int i = 0; i < m_count; ++i) {
+        for (int i = 0; i < m_num; ++i) {
             CGrindPoint* each = &m_nodes[index];
-            if (each->m_next == node)
-                BoxOf(&each->m_pos, &node->m_pos, &each->m_lowerLimit, &each->m_upperLimit);
+            if (each->m_succ == node)
+                BoxOf(&each->m_atPoint, &node->m_atPoint, &each->m_lowerLimit, &each->m_upperLimit);
         }
     }
 }
 
 // 0x0057C4F0
-Maths::Matrix& CGrindRailHub::SetObjectMatrix(const Maths::Matrix& matrix)
+Maths::Mat4& CGrindRailHub::SetObjectMatrix(const Maths::Mat4& matrix)
 {
     m_onObject = true;
     return m_objectMatrix = matrix;
@@ -224,9 +224,9 @@ Record34* Record34::Assign(const Record34* other)
 bool __stdcall NodesTogether(const CGrindPoint* a, const CGrindPoint* b)
 {
     // (NaN counts as near: the original only fails on "greater")
-    return !(std::fabs(static_cast<double>(a->m_pos.x) - b->m_pos.x) > 1.0) &&
-           !(std::fabs(static_cast<double>(a->m_pos.y) - b->m_pos.y) > 1.0) &&
-           !(std::fabs(static_cast<double>(a->m_pos.z) - b->m_pos.z) > 1.0);
+    return !(std::fabs(static_cast<double>(a->m_atPoint.x) - b->m_atPoint.x) > 1.0) &&
+           !(std::fabs(static_cast<double>(a->m_atPoint.y) - b->m_atPoint.y) > 1.0) &&
+           !(std::fabs(static_cast<double>(a->m_atPoint.z) - b->m_atPoint.z) > 1.0);
 }
 
 namespace {
@@ -236,14 +236,14 @@ RailClearOverride g_railClearOverride; // (NOT ORIGINAL: SetRailClearOverride)
 void SetRailClearOverride(RailClearOverride override) { g_railClearOverride = override; }
 
 // 0x0057C600
-bool __cdecl RailClear(Maths::Vector a, Maths::Vector b)
+bool __cdecl RailClear(Maths::Vec4 a, Maths::Vec4 b)
 {
     if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor) + 0x40) == 0xD443A2BC) // (the park editor's)
         return true;
     if (g_railClearOverride && g_railClearOverride(&a, &b)) // (NOT ORIGINAL: the level editor's flat-ground rails)
         return true;
     Feeler feeler;
-    feeler.Construct();
+    feeler.MakeNew();
     // A quarter of the way from a to b, 6 above (the original's rounding: some sums kept unrounded).
     double sumW = static_cast<double>(b.w) + a.w;
     double sumZ = static_cast<double>(b.z) + a.z;
@@ -267,7 +267,7 @@ bool __cdecl RailClear(Maths::Vector a, Maths::Vector b)
     float atX = static_cast<float>(static_cast<double>(a.x) + quarterX);
     float highY = static_cast<float>(atY + 6.0);
     // Across the rail (horizontally), 7 long (0x0042BBF0: the length set).
-    Maths::Vector along = {static_cast<float>(static_cast<double>(b.x) - a.x), 0.0f,
+    Maths::Vec4 along = {static_cast<float>(static_cast<double>(b.x) - a.x), 0.0f,
                          static_cast<float>(static_cast<double>(b.z) - a.z),
                          static_cast<float>(static_cast<double>(b.w) - a.w)};
     along.SetLength(7.0f);
@@ -275,23 +275,23 @@ bool __cdecl RailClear(Maths::Vector a, Maths::Vector b)
                 acrossW = along.w;
     auto sub = [](float p, float q) { return static_cast<float>(static_cast<double>(p) - q); };
     auto add = [](float p, float q) { return static_cast<float>(static_cast<double>(p) + q); };
-    const Maths::Vector minus = {sub(atX, acrossX), sub(highY, acrossY), sub(atZ, acrossZ), sub(atW, acrossW)};
-    const Maths::Vector plus = {add(acrossX, atX), add(acrossY, highY), add(acrossZ, atZ), add(acrossW, atW)};
+    const Maths::Vec4 minus = {sub(atX, acrossX), sub(highY, acrossY), sub(atZ, acrossZ), sub(atW, acrossW)};
+    const Maths::Vec4 plus = {add(acrossX, atX), add(acrossY, highY), add(acrossZ, atZ), add(acrossW, atW)};
     // Anything across it (either way): not clear.
-    feeler.SetLine(&plus, &minus);
+    feeler.ChangeStrand(&plus, &minus);
     if (feeler.GetHitShape(1, 0)) {
         feeler.ReleaseObject();
         return false;
     }
-    reinterpret_cast<BoxPair*>(&feeler)->Swap();
+    reinterpret_cast<BoxPair*>(&feeler)->Exchange();
     if (feeler.GetHitShape(1, 0)) {
         feeler.ReleaseObject();
         return false;
     }
     // Down 12 from one side: nothing there, clear.
-    Maths::Vector top = plus;
-    Maths::Vector bottom = {plus.x, static_cast<float>(plus.y - 12.0), plus.z, static_cast<float>(plus.w + 1.0)};
-    feeler.SetLine(&top, &bottom);
+    Maths::Vec4 top = plus;
+    Maths::Vec4 bottom = {plus.x, static_cast<float>(plus.y - 12.0), plus.z, static_cast<float>(plus.w + 1.0)};
+    feeler.ChangeStrand(&top, &bottom);
     if (!feeler.GetHitShape(1, 0)) {
         feeler.ReleaseObject();
         return true;
@@ -301,15 +301,15 @@ bool __cdecl RailClear(Maths::Vector a, Maths::Vector b)
     // And from the other.
     top = minus;
     bottom = {minus.x, static_cast<float>(minus.y - 12.0), minus.z, static_cast<float>(minus.w + 1.0)};
-    feeler.SetLine(&top, &bottom);
+    feeler.ChangeStrand(&top, &bottom);
     if (!feeler.GetHitShape(1, 0)) {
-        feeler.Destroy();
+        feeler.Teardown();
         return true;
     }
     double heightTwo = static_cast<double>(feeler.m_contactPos.y) - base;
     // Ground on both sides: clear only if one side is at the rail's height (within 1) or 2 below it.
     if (heightOne > -1.0f && heightTwo > -1.0) { // (NaN: on to the next test)
-        feeler.Destroy();
+        feeler.Teardown();
         return false;
     }
     double higher, lower;
@@ -320,32 +320,32 @@ bool __cdecl RailClear(Maths::Vector a, Maths::Vector b)
         higher = heightOne;
         lower = heightTwo;
     }
-    feeler.Destroy();
+    feeler.Teardown();
     if (!(higher > 1.0))
         return true;
     return !(lower > -2.0);
 }
 
 // 0x0057CB20
-Maths::Vector* CGrindRailHub::ToWorld(Maths::Vector* out, const Maths::Vector* in)
+Maths::Vec4* CGrindRailHub::ToWorld(Maths::Vec4* out, const Maths::Vec4* in)
 {
     if (!m_onObject) {
         *out = *in;
         return out;
     }
-    Transform(&m_objectMatrix, out, in);
+    Xform(&m_objectMatrix, out, in);
     return out;
 }
 
 // 0x0057CB60
-Maths::Vector* CGrindRailHub::GetAbsolutePos(Maths::Vector* out, const CGrindPoint* node)
+Maths::Vec4* CGrindRailHub::GetAbsolutePos(Maths::Vec4* out, const CGrindPoint* node)
 {
     if (!m_onObject) {
-        *out = node->m_pos;
+        *out = node->m_atPoint;
         return out;
     }
-    Maths::Vector world;
-    Transform(&m_objectMatrix, &world, &node->m_pos);
+    Maths::Vec4 world;
+    Xform(&m_objectMatrix, &world, &node->m_atPoint);
     *out = world;
     return out;
 }
@@ -355,20 +355,20 @@ CGrindPoint* CGrindRailHub::FindNode(uint32_t name)
 {
     if (!m_nodes)
         return nullptr;
-    for (int i = 0; i < m_count; ++i) {
-        if (m_nodes[i].m_name == name)
+    for (int i = 0; i < m_num; ++i) {
+        if (m_nodes[i].m_label == name)
             return &m_nodes[i];
     }
     return nullptr;
 }
 
 // 0x0057CC30
-int CGrindPoint::GetWallSide(const Maths::Vector* direction)
+int CGrindPoint::GetWallSide(const Maths::Vec4* direction)
 {
-    const Maths::Vector p = m_pos;
-    const Maths::Vector q = m_next->m_pos;
+    const Maths::Vec4 p = m_atPoint;
+    const Maths::Vec4 q = m_succ->m_atPoint;
     Feeler feeler;
-    feeler.Construct();
+    feeler.MakeNew();
     // A quarter of the way along the segment, 6 below it (the original's rounding: some sums kept unrounded).
     float sumY = static_cast<float>(static_cast<double>(q.y) + p.y);
     float sumX = static_cast<float>(static_cast<double>(q.x) + p.x);
@@ -405,18 +405,18 @@ int CGrindPoint::GetWallSide(const Maths::Vector* direction)
         acrossX = static_cast<float>(dz * scale);
     }
     float acrossZ = static_cast<float>(-alongX);
-    Maths::Vector from = {static_cast<float>(static_cast<double>(acrossX) + atX),
+    Maths::Vec4 from = {static_cast<float>(static_cast<double>(acrossX) + atX),
                         static_cast<float>(static_cast<double>(acrossY) + lowY),
                         static_cast<float>(static_cast<double>(acrossZ) + atZ), static_cast<float>(dw + atW)};
-    Maths::Vector to = {static_cast<float>(static_cast<double>(atX) - acrossX),
+    Maths::Vec4 to = {static_cast<float>(static_cast<double>(atX) - acrossX),
                       static_cast<float>(static_cast<double>(lowY) - acrossY),
                       static_cast<float>(static_cast<double>(atZ) - acrossZ),
                       static_cast<float>(static_cast<double>(atW) - dw)};
-    feeler.SetLine(&from, &to);
+    feeler.ChangeStrand(&from, &to);
     bool hitOneWay = feeler.GetHitShape(1, 0);
-    Maths::Vector start = feeler.m_start;
-    feeler.m_start = feeler.m_end;
-    feeler.m_end = start;
+    Maths::Vec4 start = feeler.m_outset;
+    feeler.m_outset = feeler.m_finish;
+    feeler.m_finish = start;
     bool hitOtherWay = feeler.GetHitShape(1, 0);
     int side = 0;
     if (hitOneWay != hitOtherWay) {
@@ -431,10 +431,10 @@ int CGrindPoint::GetWallSide(const Maths::Vector* direction)
 }
 
 // 0x0057CFB0
-Maths::Matrix* CGrindRailHub::GetClimbMatrix(Maths::Matrix* out, const CGrindPoint* node)
+Maths::Mat4* CGrindRailHub::GetClimbMatrix(Maths::Mat4* out, const CGrindPoint* node)
 {
-    Maths::Matrix local;
-    reinterpret_cast<const Maths::QuatRotation*>(&node->m_climb)->GetMatrix(&local); // the quaternion's
+    Maths::Mat4 local;
+    reinterpret_cast<const Maths::QuatRotation*>(&node->m_climb)->FetchMat(&local); // the quaternion's
     local.row[0].w = 0.0f;
     local.row[1].w = 0.0f;
     local.row[2].w = 0.0f;
@@ -442,7 +442,7 @@ Maths::Matrix* CGrindRailHub::GetClimbMatrix(Maths::Matrix* out, const CGrindPoi
     if (!m_onObject) {
         *out = local;
     } else {
-        Maths::Matrix world;
+        Maths::Mat4 world;
         Maths::Multiply(world, m_objectMatrix, local);
         *out = world;
     }
@@ -450,7 +450,7 @@ Maths::Matrix* CGrindRailHub::GetClimbMatrix(Maths::Matrix* out, const CGrindPoi
 }
 
 // 0x0057D090
-void CGrindRailHub::AddNode(uint32_t name, Scripts::CStruct* params)
+void CGrindRailHub::AppendVertex(uint32_t name, Scripts::CStruct* params)
 {
     CGrindPoint* node = &m_nodes[m_adding];
     uint32_t nodeClass = 0; // (the original's are uninitialised: read only if the node has them)
@@ -458,51 +458,51 @@ void CGrindRailHub::AddNode(uint32_t name, Scripts::CStruct* params)
     bool climbing = nodeClass == kClimbingNode;
     uint32_t type = 0;
     params->ReadHashValue(kType, &type, 0);
-    node->m_next = nullptr;
+    node->m_succ = nullptr;
     node->m_lastValue = nullptr;
-    node->m_name = name;
-    node->m_flags = 0;
+    node->m_label = name;
+    node->m_flagBits = 0;
     if (params->HasBareFlag(kCreatedAtStart))
-        node->m_flags |= RAIL_FLAG_ACTIVE;
+        node->m_flagBits |= RAIL_FLAG_ACTIVE;
     else
-        node->m_flags &= ~RAIL_FLAG_ACTIVE;
-    LevelNodes::GetPosition(params, &node->m_pos);
+        node->m_flagBits &= ~RAIL_FLAG_ACTIVE;
+    LevelNodes::FetchPlace(params, &node->m_atPoint);
     if (params->HasBareFlag(kLipOverride))
-        node->m_flags |= RAIL_FLAG_LIP_OVERRIDE;
+        node->m_flagBits |= RAIL_FLAG_LIP_OVERRIDE;
     if (params->HasBareFlag(kDefaultLine))
-        node->m_flags |= RAIL_FLAG_DEFAULT_LINE;
+        node->m_flagBits |= RAIL_FLAG_DEFAULT_LINE;
     if (climbing) {
-        node->m_flags |= RAIL_FLAG_CLIMBING;
+        node->m_flagBits |= RAIL_FLAG_CLIMBING;
         if (type == kLadder)
-            node->m_flags |= RAIL_FLAG_LADDER;
+            node->m_flagBits |= RAIL_FLAG_LADDER;
         else
-            node->m_flags &= ~RAIL_FLAG_LADDER;
+            node->m_flagBits &= ~RAIL_FLAG_LADDER;
     }
     auto flag = [&](uint32_t name, uint32_t bit) {
         if (params->HasBareFlag(name))
-            node->m_flags |= bit;
+            node->m_flagBits |= bit;
         else
-            node->m_flags &= ~bit;
+            node->m_flagBits &= ~bit;
     };
     flag(kHangLeft, RAIL_FLAG_HANG_LEFT);
     flag(kHangRight, RAIL_FLAG_HANG_RIGHT);
     flag(kNoClimbing, RAIL_FLAG_NO_CLIMBING);
     if (climbing) {
         // Its orientation from its angles, as a quaternion.
-        Maths::Vector angles;
+        Maths::Vec4 angles;
         LevelNodes::ReadTurnAngles(params, &angles);
-        Maths::Matrix matrix;
-        Maths::Matrix* built = &matrix.InitFromAngles(angles);
-        Maths::Vector quat;
+        Maths::Mat4 matrix;
+        Maths::Mat4* built = &matrix.InitFromAngles(angles);
+        Maths::Vec4 quat;
         reinterpret_cast<Maths::QuatRotation*>(&quat)->FromMatrix(*built);
         node->m_climb = quat;
     } else {
         node->m_surfaceType = 0;
         uint32_t terrain = 0; // (the original's: its params argument's slot, the low byte the climbing flag)
         params->ReadHashValue(kTerrainType, &terrain, 1);
-        node->m_surfaceType = static_cast<uint8_t>(Terrain::GetTerrainIndex(terrain));
+        node->m_surfaceType = static_cast<uint8_t>(SurfaceKind::GetTerrainIndex(terrain));
     }
-    BoxOf(&node->m_pos, &node->m_pos, &node->m_lowerLimit, &node->m_upperLimit);
+    BoxOf(&node->m_atPoint, &node->m_atPoint, &node->m_lowerLimit, &node->m_upperLimit);
 }
 
 // 0x0057D260
@@ -510,13 +510,13 @@ void CGrindRailHub::RemoveOverlaps()
 {
     DebugOut::Printf("Starting overlapping rail removal\n");
     int removed = 0;
-    for (int i = 0; i < m_count; ++i) {
+    for (int i = 0; i < m_num; ++i) {
         CGrindPoint* a = &m_nodes[i];
-        CGrindPoint* aNext = a->m_next;
+        CGrindPoint* aNext = a->m_succ;
         if (!aNext)
             continue;
-        const Maths::Vector p = a->m_pos;
-        const Maths::Vector q = aNext->m_pos;
+        const Maths::Vec4 p = a->m_atPoint;
+        const Maths::Vec4 q = aNext->m_atPoint;
         // Its direction (each step stored as a float, as the original), made unit length.
         float dx = static_cast<float>(static_cast<double>(q.x) - p.x);
         float dy = static_cast<float>(static_cast<double>(q.y) - p.y);
@@ -534,36 +534,36 @@ void CGrindRailHub::RemoveOverlaps()
                     loZ = static_cast<float>(a->m_lowerLimit.z - 16.0);
         const float hiX = static_cast<float>(a->m_upperLimit.x + 16.0), hiY = static_cast<float>(a->m_upperLimit.y + 16.0),
                     hiZ = static_cast<float>(a->m_upperLimit.z + 16.0);
-        for (int j = i + 1; j < m_count; ++j) {
-            if (!(a->m_flags & RAIL_FLAG_ACTIVE))
+        for (int j = i + 1; j < m_num; ++j) {
+            if (!(a->m_flagBits & RAIL_FLAG_ACTIVE))
                 break;
             CGrindPoint* b = &m_nodes[j];
-            CGrindPoint* bNext = b->m_next;
+            CGrindPoint* bNext = b->m_succ;
             if (!bNext)
                 continue;
             // (the tests as the original's: NaN passes them)
             if (b->m_lowerLimit.x > hiX || b->m_upperLimit.x < loX || b->m_lowerLimit.z > hiZ || b->m_upperLimit.z < loZ || b->m_lowerLimit.y > hiY ||
                 b->m_upperLimit.y < loY)
                 continue;
-            const Maths::Vector r = b->m_pos;
-            const Maths::Vector s = bNext->m_pos;
-            Maths::Vector along = {static_cast<float>(static_cast<double>(s.x) - r.x),
+            const Maths::Vec4 r = b->m_atPoint;
+            const Maths::Vec4 s = bNext->m_atPoint;
+            Maths::Vec4 along = {static_cast<float>(static_cast<double>(s.x) - r.x),
                                  static_cast<float>(static_cast<double>(s.y) - r.y),
                                  static_cast<float>(static_cast<double>(s.z) - r.z),
                                  static_cast<float>(static_cast<double>(s.w) - r.w)};
-            along.Normalize();
+            along.MakeUnit();
             double dot = static_cast<double>(along.y) * dy + static_cast<double>(along.x) * dx +
                          static_cast<double>(along.z) * dz;
             // Parallel (or opposite) to within about 8 degrees.
             if (!(dot < -0.99f) && !(dot > 0.99f))
                 continue;
-            Maths::Vector offset = {static_cast<float>(static_cast<double>(r.x) - p.x),
+            Maths::Vec4 offset = {static_cast<float>(static_cast<double>(r.x) - p.x),
                                   static_cast<float>(static_cast<double>(r.y) - p.y),
                                   static_cast<float>(static_cast<double>(r.z) - p.z),
                                   static_cast<float>(static_cast<double>(r.w) - p.w)};
-            Maths::Vector direction = {rawX, rawY, rawZ, static_cast<float>(static_cast<double>(q.w) - p.w)};
-            direction.Normalize();
-            Maths::Vector apart = offset;
+            Maths::Vec4 direction = {rawX, rawY, rawZ, static_cast<float>(static_cast<double>(q.w) - p.w)};
+            direction.MakeUnit();
+            Maths::Vec4 apart = offset;
             apart.FlattenOntoPlane(direction);
             double distance = std::sqrt(static_cast<double>(apart.x) * apart.x + static_cast<double>(apart.z) * apart.z +
                                         static_cast<double>(apart.y) * apart.y);
@@ -579,10 +579,10 @@ void CGrindRailHub::RemoveOverlaps()
                 continue;
             // Overlapping: the lower one goes.
             ++removed;
-            if (a->m_pos.y < b->m_pos.y)
-                a->m_flags &= ~RAIL_FLAG_ACTIVE;
+            if (a->m_atPoint.y < b->m_atPoint.y)
+                a->m_flagBits &= ~RAIL_FLAG_ACTIVE;
             else
-                b->m_flags &= ~RAIL_FLAG_ACTIVE;
+                b->m_flagBits &= ~RAIL_FLAG_ACTIVE;
             break;
         }
     }
@@ -598,71 +598,71 @@ void CGrindRailHub::RemoveOverlapsIfNotPark()
 }
 
 // 0x0057D7C0
-void CGrindRailHub::SetActive(uint32_t name, int active, bool entireRail)
+void CGrindRailHub::ChangeLive(uint32_t name, int active, bool entireRail)
 {
     int index = 0;
     CGrindPoint* node = m_nodes;
-    for (; index < m_count; ++index, ++node) {
-        if (node->m_name == name)
+    for (; index < m_num; ++index, ++node) {
+        if (node->m_label == name)
             break;
     }
-    if (index >= m_count)
+    if (index >= m_num)
         return;
     if (entireRail) {
         // This node and every one after it.
-        for (; node; node = node->m_next) {
+        for (; node; node = node->m_succ) {
             if (active)
-                node->m_flags |= RAIL_FLAG_ACTIVE;
+                node->m_flagBits |= RAIL_FLAG_ACTIVE;
             else
-                node->m_flags &= ~RAIL_FLAG_ACTIVE;
+                node->m_flagBits &= ~RAIL_FLAG_ACTIVE;
         }
         return;
     }
     if (active)
-        node->m_flags |= RAIL_FLAG_ACTIVE;
+        node->m_flagBits |= RAIL_FLAG_ACTIVE;
     else
-        node->m_flags &= ~RAIL_FLAG_ACTIVE;
+        node->m_flagBits &= ~RAIL_FLAG_ACTIVE;
 }
 
 // 0x0057D840
-bool CGrindRailHub::IsActive(uint32_t name)
+bool CGrindRailHub::IsOperative(uint32_t name)
 {
-    for (int index = 0; index < m_count; ++index) {
-        if (m_nodes[index].m_name == name)
-            return (m_nodes[index].m_flags & RAIL_FLAG_ACTIVE) != 0;
+    for (int index = 0; index < m_num; ++index) {
+        if (m_nodes[index].m_label == name)
+            return (m_nodes[index].m_flagBits & RAIL_FLAG_ACTIVE) != 0;
     }
     return false;
 }
 
 // 0x0057D880
-bool CGrindRailHub::FindLadder(const Maths::Vector* pos, float radius, float height, bool up, void* checker, uint32_t extra,
+bool CGrindRailHub::FindLadder(const Maths::Vec4* pos, float radius, float height, bool up, void* checker, uint32_t extra,
                               CGrindPoint** found)
 {
     float radiusSquared = static_cast<float>(static_cast<double>(radius) * radius);
-    for (int index = m_count; index != 0;) {
+    for (int index = m_num; index != 0;) {
         CGrindPoint* node = &m_nodes[--index];
-        if (!(node->m_flags & RAIL_FLAG_LADDER) || !(node->m_flags & RAIL_FLAG_ACTIVE))
+        if (!(node->m_flagBits & RAIL_FLAG_LADDER) || !(node->m_flagBits & RAIL_FLAG_ACTIVE))
             continue;
-        if (std::fabs(static_cast<double>(node->m_pos.x) - pos->x) > radius ||
-            std::fabs(static_cast<double>(node->m_pos.z) - pos->z) > radius ||
-            std::fabs(static_cast<double>(node->m_pos.y) - pos->y) > height)
+        if (std::fabs(static_cast<double>(node->m_atPoint.x) - pos->x) > radius ||
+            std::fabs(static_cast<double>(node->m_atPoint.z) - pos->z) > radius ||
+            std::fabs(static_cast<double>(node->m_atPoint.y) - pos->y) > height)
             continue;
-        double dx = static_cast<double>(node->m_pos.x) - pos->x;
-        double dz = static_cast<double>(node->m_pos.z) - pos->z;
+        double dx = static_cast<double>(node->m_atPoint.x) - pos->x;
+        double dz = static_cast<double>(node->m_atPoint.z) - pos->z;
         if (dz * dz + dx * dx > radiusSquared)
             continue;
-        CGrindPoint* other = node->m_next ? node->m_next : node->m_lastValue;
-        Maths::Matrix matrix;
+        CGrindPoint* other = node->m_succ ? node->m_succ : node->m_lastValue;
+        Maths::Mat4 matrix;
         if (up) {
-            Maths::Matrix* orientation = GetClimbMatrix(&matrix, node);
-            if (static_cast<CFootMovement*>(checker)->CheckLadderBottom(&node->m_pos, &other->m_pos, orientation,
+            Maths::Mat4* orientation = GetClimbMatrix(&matrix, node);
+            if (static_cast<CFootMovement*>(checker)->CheckLadderBottom(&node->m_atPoint, &other->m_atPoint, orientation,
                                                                           reinterpret_cast<Record24*>(extra))) {
                 *found = node;
                 return true;
             }
         } else {
-            Maths::Matrix* orientation = GetClimbMatrix(&matrix, other);
-            if (static_cast<CFootMovement*>(checker)->CheckLadderTop(&other->m_pos, &node->m_pos, orientation,
+            Maths::Mat4* orientation = GetClimbMatrix(&matrix, other);
+            if (static_cast<CFootMovement*>(checker)->CheckLadderTop(&other->m_atPoint, &node->m_atPoint, orientation,
                                                                        reinterpret_cast<Record24*>(extra))) {
                 *found = other;
                 return true;
@@ -673,16 +673,16 @@ bool CGrindRailHub::FindLadder(const Maths::Vector* pos, float radius, float hei
 }
 
 // 0x0057DA20
-bool CGrindRailHub::FindLadderOnLine(const Maths::Vector* start, const Maths::Vector* end, void* checker, Record24* result,
+bool CGrindRailHub::FindLadderOnLine(const Maths::Vec4* start, const Maths::Vec4* end, void* checker, Record24* result,
                                     CGrindPoint** found)
 {
     *found = nullptr;
-    Maths::Line line;
+    Maths::Seg line;
     line.start = *start;
     line.end = *end;
-    Maths::Vector min, max;
+    Maths::Vec4 min, max;
     BoxOf(&line.start, &line.end, &min, &max);
-    double snap = Scripts::GetFloat(kClimbMaxSnap);
+    double snap = Scripts::FetchFloat(kClimbMaxSnap);
     min.x = static_cast<float>(min.x - snap);
     float best = 1e14f;
     min.y = static_cast<float>(min.y - snap);
@@ -691,40 +691,40 @@ bool CGrindRailHub::FindLadderOnLine(const Maths::Vector* start, const Maths::Ve
     max.y = static_cast<float>(max.y + snap);
     max.z = static_cast<float>(max.z + snap);
     float snapSquared = static_cast<float>(snap * snap);
-    for (int index = 0; index < m_count; ++index) {
+    for (int index = 0; index < m_num; ++index) {
         CGrindPoint* node = &m_nodes[index];
-        if (!(node->m_flags & RAIL_FLAG_LADDER) || !(node->m_flags & RAIL_FLAG_ACTIVE) || !node->m_next)
+        if (!(node->m_flagBits & RAIL_FLAG_LADDER) || !(node->m_flagBits & RAIL_FLAG_ACTIVE) || !node->m_succ)
             continue;
         // (the tests as the original's: NaN passes them)
         if (min.x > node->m_upperLimit.x || max.x < node->m_lowerLimit.x || min.z > node->m_upperLimit.z || max.z < node->m_lowerLimit.z ||
             min.y > node->m_upperLimit.y || max.y < node->m_lowerLimit.y)
             continue;
-        CGrindPoint* next = node->m_next;
-        Maths::Line rail;
-        rail.start = node->m_pos;
-        rail.end = next->m_pos;
-        Maths::Vector onLine, onRail;
+        CGrindPoint* next = node->m_succ;
+        Maths::Seg rail;
+        rail.start = node->m_atPoint;
+        rail.end = next->m_atPoint;
+        Maths::Vec4 onLine, onRail;
         float s, t;
         if (!Maths::ClosestPointsBetweenLines(line, rail, onLine, onRail, s, t, true))
             continue;
-        Maths::Vector apart = onRail - onLine;
+        Maths::Vec4 apart = onRail - onLine;
         float distanceSquared = apart.MagnitudeSquared();
-        if (node->m_name == kLadderTrigger || next->m_name == kLadderTrigger)
+        if (node->m_label == kLadderTrigger || next->m_label == kLadderTrigger)
             distanceSquared = static_cast<float>(distanceSquared * 4.0);
         if (distanceSquared > snapSquared || distanceSquared > best)
             continue;
         Record24 record;
-        Maths::Matrix matrix;
-        if (node->m_pos.y < next->m_pos.y) {
+        Maths::Mat4 matrix;
+        if (node->m_atPoint.y < next->m_atPoint.y) {
             // Climbing up from this node.
-            Maths::Matrix* orientation = GetClimbMatrix(&matrix, node);
-            if (!static_cast<CFootMovement*>(checker)->CheckLadderLine(&node->m_pos, &next->m_pos, orientation, &onRail, t,
+            Maths::Mat4* orientation = GetClimbMatrix(&matrix, node);
+            if (!static_cast<CFootMovement*>(checker)->CheckLadderLine(&node->m_atPoint, &next->m_atPoint, orientation, &onRail, t,
                                                                          &record))
                 continue;
             *found = node;
         } else {
-            Maths::Matrix* orientation = GetClimbMatrix(&matrix, next);
-            if (!static_cast<CFootMovement*>(checker)->CheckLadderLine(&next->m_pos, &node->m_pos, orientation, &onRail,
+            Maths::Mat4* orientation = GetClimbMatrix(&matrix, next);
+            if (!static_cast<CFootMovement*>(checker)->CheckLadderLine(&next->m_atPoint, &node->m_atPoint, orientation, &onRail,
                                                                          static_cast<float>(1.0 - t), &record))
                 continue;
             *found = next;
@@ -736,14 +736,14 @@ bool CGrindRailHub::FindLadderOnLine(const Maths::Vector* start, const Maths::Ve
 }
 
 // 0x0057DDA0
-bool CGrindRailHub::FindRail(const Maths::Vector* start, const Maths::Vector* end, const Maths::Vector* direction, void* checker,
+bool CGrindRailHub::FindRail(const Maths::Vec4* start, const Maths::Vec4* end, const Maths::Vec4* direction, void* checker,
                             Record34* result, float margin)
 {
     bool found = false;
-    Maths::Line line;
+    Maths::Seg line;
     line.start = *start;
     line.end = *end;
-    Maths::Vector min, max;
+    Maths::Vec4 min, max;
     BoxOf(&line.start, &line.end, &min, &max);
     min.x = static_cast<float>(static_cast<double>(min.x) - margin);
     float best = 1e14f;
@@ -753,24 +753,24 @@ bool CGrindRailHub::FindRail(const Maths::Vector* start, const Maths::Vector* en
     max.y = static_cast<float>(static_cast<double>(max.y) + margin);
     max.z = static_cast<float>(static_cast<double>(max.z) + margin);
     float marginSquared = static_cast<float>(static_cast<double>(margin) * margin);
-    for (int index = 0; index < m_count; ++index) {
+    for (int index = 0; index < m_num; ++index) {
         CGrindPoint* node = &m_nodes[index];
-        if ((node->m_flags & RAIL_FLAG_LADDER) || (node->m_flags & RAIL_FLAG_NO_CLIMBING) ||
-            !(node->m_flags & RAIL_FLAG_ACTIVE) || !node->m_next)
+        if ((node->m_flagBits & RAIL_FLAG_LADDER) || (node->m_flagBits & RAIL_FLAG_NO_CLIMBING) ||
+            !(node->m_flagBits & RAIL_FLAG_ACTIVE) || !node->m_succ)
             continue;
         // (the tests as the original's: NaN passes them)
         if (min.x > node->m_upperLimit.x || max.x < node->m_lowerLimit.x || min.z > node->m_upperLimit.z || max.z < node->m_lowerLimit.z ||
             min.y > node->m_upperLimit.y || max.y < node->m_lowerLimit.y)
             continue;
-        CGrindPoint* next = node->m_next;
-        Maths::Line rail;
-        rail.start = node->m_pos;
-        rail.end = next->m_pos;
-        Maths::Vector onLine, onRail;
+        CGrindPoint* next = node->m_succ;
+        Maths::Seg rail;
+        rail.start = node->m_atPoint;
+        rail.end = next->m_atPoint;
+        Maths::Vec4 onLine, onRail;
         float s, t;
         if (!Maths::ClosestPointsBetweenLines(line, rail, onLine, onRail, s, t, true))
             continue;
-        Maths::Vector apart = onRail - onLine;
+        Maths::Vec4 apart = onRail - onLine;
         if (apart.MagnitudeSquared() > marginSquared)
             continue;
         // Distance along `direction` counts a third.
@@ -781,18 +781,18 @@ bool CGrindRailHub::FindRail(const Maths::Vector* start, const Maths::Vector* en
         float distanceSquared = apart.MagnitudeSquared();
         if (distanceSquared > best)
             continue;
-        Maths::Vector nodeWorld, nextWorld;
+        Maths::Vec4 nodeWorld, nextWorld;
         GetAbsolutePos(&nextWorld, next);
         GetAbsolutePos(&nodeWorld, node);
         if (!RailClear(nodeWorld, nextWorld))
             continue;
         Record34 record;
         record.words[12] = reinterpret_cast<uint32_t>(node);
-        Maths::Vector lineWorld, railWorld, nextAt, nodeAt;
-        Maths::Vector* lineAt = ToWorld(&lineWorld, &onLine);
-        Maths::Vector* railAt = ToWorld(&railWorld, &onRail);
-        Maths::Vector* nextPos = GetAbsolutePos(&nextAt, next);
-        Maths::Vector* nodePos = GetAbsolutePos(&nodeAt, node);
+        Maths::Vec4 lineWorld, railWorld, nextAt, nodeAt;
+        Maths::Vec4* lineAt = ToWorld(&lineWorld, &onLine);
+        Maths::Vec4* railAt = ToWorld(&railWorld, &onRail);
+        Maths::Vec4* nextPos = GetAbsolutePos(&nextAt, next);
+        Maths::Vec4* nodePos = GetAbsolutePos(&nodeAt, node);
         if (!static_cast<CFootMovement*>(checker)->CheckRail(nodePos, nextPos, railAt, lineAt, t, &record, false))
             continue;
         best = distanceSquared;
@@ -805,20 +805,20 @@ bool CGrindRailHub::FindRail(const Maths::Vector* start, const Maths::Vector* en
 // 0x0057E170
 bool CGrindRailHub::FindJoiningRail(const CGrindPoint* from, uint32_t excludeFlags, CGrindPoint** found)
 {
-    for (int index = 0; index < m_count; ++index) {
+    for (int index = 0; index < m_num; ++index) {
         CGrindPoint* node = &m_nodes[index];
         // (the tests as the original's: NaN passes them)
-        if (std::fabs(static_cast<double>(node->m_pos.x) - from->m_pos.x) > 1.0 ||
-            std::fabs(static_cast<double>(node->m_pos.y) - from->m_pos.y) > 1.0 ||
-            std::fabs(static_cast<double>(node->m_pos.z) - from->m_pos.z) > 1.0)
+        if (std::fabs(static_cast<double>(node->m_atPoint.x) - from->m_atPoint.x) > 1.0 ||
+            std::fabs(static_cast<double>(node->m_atPoint.y) - from->m_atPoint.y) > 1.0 ||
+            std::fabs(static_cast<double>(node->m_atPoint.z) - from->m_atPoint.z) > 1.0)
             continue;
-        CGrindPoint* next = node->m_next;
+        CGrindPoint* next = node->m_succ;
         if (!next && !node->m_lastValue)
             continue;
         if (node == from)
             continue;
-        if (next && (node->m_flags & RAIL_FLAG_ACTIVE) && !(excludeFlags & node->m_flags)) {
-            Maths::Vector nodeWorld, nextWorld;
+        if (next && (node->m_flagBits & RAIL_FLAG_ACTIVE) && !(excludeFlags & node->m_flagBits)) {
+            Maths::Vec4 nodeWorld, nextWorld;
             GetAbsolutePos(&nextWorld, next);
             GetAbsolutePos(&nodeWorld, node);
             if (RailClear(nodeWorld, nextWorld)) {
@@ -827,8 +827,8 @@ bool CGrindRailHub::FindJoiningRail(const CGrindPoint* from, uint32_t excludeFla
             }
         }
         CGrindPoint* prev = node->m_lastValue;
-        if (prev && (prev->m_flags & RAIL_FLAG_ACTIVE) && !(excludeFlags & prev->m_flags)) {
-            Maths::Vector prevWorld, nodeWorld;
+        if (prev && (prev->m_flagBits & RAIL_FLAG_ACTIVE) && !(excludeFlags & prev->m_flagBits)) {
+            Maths::Vec4 prevWorld, nodeWorld;
             GetAbsolutePos(&nodeWorld, node);
             GetAbsolutePos(&prevWorld, node->m_lastValue);
             if (RailClear(prevWorld, nodeWorld)) {
@@ -852,40 +852,40 @@ void CGrindRailHub::AddFromNodeArray(Scripts::CArray* nodes)
         node->ReadHashValue(kClass, &nodeClass, 0);
         return nodeClass == kRailNode || nodeClass == kClimbingNode;
     };
-    m_count = 0;
-    for (uint32_t i = 0; i < nodes->m_size; ++i) {
-        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->GetElement(i));
+    m_num = 0;
+    for (uint32_t i = 0; i < nodes->m_extent; ++i) {
+        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(i));
         if (!skipped(node) && isRail(node))
-            ++m_count;
+            ++m_num;
     }
-    if (!m_count)
+    if (!m_num)
         return;
-    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_bottomUpHeap);
-    m_nodes = static_cast<CGrindPoint*>(MemSys::AllocBlock(m_count * sizeof(CGrindPoint)));
+    m_nodes = static_cast<CGrindPoint*>(MemSys::AllocBlock(m_num * sizeof(CGrindPoint)));
     // A hash table of the nodes' names (0x4000 slots, linear probing) to their indexes.
     // NOT ORIGINAL: with 0x2000 rail nodes or more (THP8's whole town has ~18,000; past 0x4000 the original's table
     // was full and adding went round it for ever) a bigger one, 32-bit indexes, at most a quarter full. Original
     // behaviour: 0x4000 16-bit slots whatever the count.
-    const bool big = m_count >= 0x2000;
+    const bool big = m_num >= 0x2000;
     uint32_t slots = 0x4000;
-    while (big && slots < static_cast<uint32_t>(m_count) * 4)
+    while (big && slots < static_cast<uint32_t>(m_num) * 4)
         slots <<= 1;
     const uint32_t mask = slots - 1;
     void* tableMemory = MemSys::AllocBlock(big ? slots * 4 : 0x8000);
-    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Hub::Pull()->LeaveHeapScope();
     std::memset(tableMemory, 0xFF, big ? slots * 4 : 0x8000);
     auto* small = static_cast<int16_t*>(tableMemory);
     auto* wide = static_cast<int32_t*>(tableMemory);
     auto entry = [&](uint32_t slot) { return big ? wide[slot] : small[slot]; };
     m_adding = 0;
     bool allTrickObjects = Scripts::FetchIntValue(kAllRailsTrickObjects) != 0;
-    for (uint32_t i = 0; i < nodes->m_size; ++i) {
-        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->GetElement(i));
+    for (uint32_t i = 0; i < nodes->m_extent; ++i) {
+        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(i));
         if (skipped(node) || !isRail(node))
             continue;
         uint32_t name = LevelNodes::GetNodeName(node);
-        AddNode(name, node);
+        AppendVertex(name, node);
         uint32_t slot = name & mask;
         while (entry(slot) != -1)
             slot = (slot + 1) & mask;
@@ -907,27 +907,27 @@ void CGrindRailHub::AddFromNodeArray(Scripts::CArray* nodes)
         ++m_adding;
     }
     // The links: each node's Links (by name, through the table).
-    for (int i = 0; i < m_count; ++i) {
+    for (int i = 0; i < m_num; ++i) {
         CGrindPoint* node = &m_nodes[i];
-        Scripts::CStruct* params = LevelNodes::GetNode(node->m_name, 1);
+        Scripts::CStruct* params = LevelNodes::FetchVertex(node->m_label, 1);
         Scripts::CArray* links = nullptr;
-        params->GetArray(kLinks, &links, 0);
+        params->FetchList(kLinks, &links, 0);
         if (!links)
             continue;
-        int linkCount = static_cast<int>(links->m_size);
+        int linkCount = static_cast<int>(links->m_extent);
         for (int l = 0; l < linkCount; ++l) {
-            uint32_t link = links->GetElement(l);
+            uint32_t link = links->FetchPart(l);
             uint32_t slot = link & mask;
             CGrindPoint* other = &m_nodes[entry(slot)];
-            while (other->m_name != link) {
+            while (other->m_label != link) {
                 slot = (slot + 1) & mask;
                 other = &m_nodes[entry(slot)];
             }
-            if (!node->m_next || (other->m_flags & RAIL_FLAG_DEFAULT_LINE)) {
-                node->m_next = other;
-                BoxOf(&node->m_pos, &other->m_pos, &node->m_lowerLimit, &node->m_upperLimit);
+            if (!node->m_succ || (other->m_flagBits & RAIL_FLAG_DEFAULT_LINE)) {
+                node->m_succ = other;
+                BoxOf(&node->m_atPoint, &other->m_atPoint, &node->m_lowerLimit, &node->m_upperLimit);
             }
-            if (!other->m_lastValue || (node->m_flags & RAIL_FLAG_DEFAULT_LINE))
+            if (!other->m_lastValue || (node->m_flagBits & RAIL_FLAG_DEFAULT_LINE))
                 other->m_lastValue = node;
         }
     }
@@ -935,15 +935,15 @@ void CGrindRailHub::AddFromNodeArray(Scripts::CArray* nodes)
 }
 
 // 0x0057E2D0
-bool CGrindRailHub::FindGrindRail(const Maths::Vector* start, const Maths::Vector* end, Maths::Vector* point, CGrindPoint** found,
+bool CGrindRailHub::FindGrindRail(const Maths::Vec4* start, const Maths::Vec4* end, Maths::Vec4* point, CGrindPoint** found,
                                  const CGrindPoint* exclude, float minAlignment, int side)
 {
-    Maths::Line line;
+    Maths::Seg line;
     line.start = *start;
     line.end = *end;
-    Maths::Vector min, max;
+    Maths::Vec4 min, max;
     BoxOf(&line.start, &line.end, &min, &max);
-    float snap = Scripts::GetFloat(kRailMaxSnap);
+    float snap = Scripts::FetchFloat(kRailMaxSnap);
     min.x = static_cast<float>(static_cast<double>(min.x) - snap);
     float best = 1e7f;
     CGrindPoint* bestNode = nullptr;
@@ -953,32 +953,32 @@ bool CGrindRailHub::FindGrindRail(const Maths::Vector* start, const Maths::Vecto
     max.x = static_cast<float>(static_cast<double>(max.x) + snap);
     max.y = static_cast<float>(static_cast<double>(max.y) + snap);
     max.z = static_cast<float>(static_cast<double>(max.z) + snap);
-    Maths::Vector bestPoint;
-    for (int index = 0; index < m_count; ++index) {
+    Maths::Vec4 bestPoint;
+    for (int index = 0; index < m_num; ++index) {
         CGrindPoint* node = &m_nodes[index];
-        if ((node->m_flags & RAIL_FLAG_CLIMBING) || node == exclude || !(node->m_flags & RAIL_FLAG_ACTIVE))
+        if ((node->m_flagBits & RAIL_FLAG_CLIMBING) || node == exclude || !(node->m_flagBits & RAIL_FLAG_ACTIVE))
             continue;
         // (the tests as the original's: NaN passes them)
         bool outside = min.x > node->m_upperLimit.x || max.x < node->m_lowerLimit.x || min.z > node->m_upperLimit.z ||
                        max.z < node->m_lowerLimit.z || min.y > node->m_upperLimit.y || max.y < node->m_lowerLimit.y;
-        if (CGrindPoint* next = node->m_next) {
-            if (outside || !RailClear(node->m_pos, next->m_pos))
+        if (CGrindPoint* next = node->m_succ) {
+            if (outside || !RailClear(node->m_atPoint, next->m_atPoint))
                 continue;
-            Maths::Line rail;
-            rail.start = node->m_pos;
-            rail.end = next->m_pos;
-            Maths::Vector onLine, onRail;
+            Maths::Seg rail;
+            rail.start = node->m_atPoint;
+            rail.end = next->m_atPoint;
+            Maths::Vec4 onLine, onRail;
             float s, t;
             if (!Maths::ClosestPointsBetweenLines(line, rail, onLine, onRail, s, t, true))
                 continue;
-            float distance = (onRail - onLine).Length();
+            float distance = (onRail - onLine).LenOf();
             // How well the rail lines up with the line (flat).
-            Maths::Vector railDir = next->m_pos - node->m_pos;
+            Maths::Vec4 railDir = next->m_atPoint - node->m_atPoint;
             railDir.y = 0.0f;
-            Maths::Vector segDirection = *end - *start;
+            Maths::Vec4 segDirection = *end - *start;
             segDirection.y = 0.0f;
-            railDir.Normalize();
-            segDirection.Normalize();
+            railDir.MakeUnit();
+            segDirection.MakeUnit();
             float alignment = static_cast<float>(std::fabs(
                 static_cast<double>(segDirection.x) * railDir.x + static_cast<double>(segDirection.z) * railDir.z +
                 static_cast<double>(segDirection.y) * railDir.y));
@@ -987,7 +987,7 @@ bool CGrindRailHub::FindGrindRail(const Maths::Vector* start, const Maths::Vecto
             float score = static_cast<float>((1.122f - static_cast<double>(alignment)) * distance);
             float reach = static_cast<float>((2.0 - alignment) * distance);
             if (side) {
-                Maths::Vector direction = *end - *start;
+                Maths::Vec4 direction = *end - *start;
                 if (node->GetWallSide(&direction) != side)
                     score = score + score;
             }
@@ -1007,10 +1007,10 @@ bool CGrindRailHub::FindGrindRail(const Maths::Vector* start, const Maths::Vecto
             // A rail of one node: its point.
             if (outside)
                 continue;
-            Maths::Vector offset = node->m_pos - *start;
-            Maths::Vector direction = *end - *start;
-            Maths::Vector& unit = direction.Normalize();
-            Maths::Vector along = unit;
+            Maths::Vec4 offset = node->m_atPoint - *start;
+            Maths::Vec4 direction = *end - *start;
+            Maths::Vec4& unit = direction.MakeUnit();
+            Maths::Vec4 along = unit;
             double k = static_cast<double>(offset.x) * along.x + static_cast<double>(offset.z) * along.z +
                        static_cast<double>(offset.y) * along.y;
             offset -= static_cast<float>(k) * along;
@@ -1022,7 +1022,7 @@ bool CGrindRailHub::FindGrindRail(const Maths::Vector* start, const Maths::Vecto
             double twice = distance + distance;
             if (best < twice)
                 continue;
-            bestPoint = node->m_pos;
+            bestPoint = node->m_atPoint;
             best = static_cast<float>(twice);
             bestNode = node;
             any = true;
@@ -1036,10 +1036,10 @@ bool CGrindRailHub::FindGrindRail(const Maths::Vector* start, const Maths::Vecto
 }
 
 // 0x0057CC10
-CGrindRailHub* CGrindRailHub::Init()
+CGrindRailHub* CGrindRailHub::PrepareAll()
 {
     m_nodes = nullptr;
-    m_count = 0;
+    m_num = 0;
     m_onObject = false;
     m_nodeArray = nullptr;
     return this;

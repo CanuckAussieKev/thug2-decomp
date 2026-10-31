@@ -7,7 +7,7 @@
 #include "game/mth/geometry.h"
 
 namespace ListKit {
-class HashTable;
+class KeyMap;
 }
 namespace Scripts {
 class CStruct;
@@ -29,7 +29,7 @@ class CTextureSet;
 // 6 UnloadAddScene, 7 SpawnSector (the platform's), 8 -, 9 GetDefaultColour, 10 SetRendered.)
 struct CWorldScene {
     void** m_vtable;
-    char m_name[0x80];            // +0x04: the file it was loaded from
+    char m_label[0x80];            // +0x04: the file it was loaded from
     uint32_t m_checksum;          // +0x84: its name's
     CTextureSet* m_textureSet;         // +0x88
     bool m_hasCollision;          // +0x8C: its collision gets a grid (super sectors)
@@ -37,7 +37,7 @@ struct CWorldScene {
     uint8_t pad8E[2];
     Maths::BBox m_unknownBox;       // +0x90 (made empty)
     Maths::BBox m_collisionBox;     // +0xB0
-    ListKit::HashTable* mp_sectors;   // +0xD0
+    ListKit::KeyMap* mp_sectors;   // +0xD0
     CCollGrid* mp_collGrid;       // +0xD4
     char m_pipName[0x80];         // +0xD8: the collision file's (unloaded with the collision)
     int m_collStaticCount;        // +0x158
@@ -52,8 +52,8 @@ struct CWorldScene {
     bool m_sectorKept;            // +0x274: a sector couldn't be deleted (flag 0x40): marked instead
     bool m_added;                 // +0x275: the added scene shown
     uint8_t pad276[2];
-    MemSys::ListNode* mp_hiddenSectors;   // +0x278: ListKit::Head<CWorldCell> - the base's sectors the added scene hides
-    MemSys::ListNode* mp_addSceneSectors; // +0x27C: ListKit::Head<CWorldCell> - the sectors the added scene made
+    MemSys::ListNode* mp_hiddenSectors;   // +0x278: ListKit::Foremost<CWorldCell> - the base's sectors the added scene hides
+    MemSys::ListNode* mp_addSceneSectors; // +0x27C: ListKit::Foremost<CWorldCell> - the sectors the added scene made
 
     // 0x0049C910: the name kept, then PostLoad (vtable slot 1) with `arena`.
     void FinishLoad(const char* name, void* arena);
@@ -87,7 +87,7 @@ struct CWorldScene {
     void DeleteMarkedSectors();
     // 0x0049D0B0: every sector whose box touches `box` (two points) given 0x0049E9B0(`on`) - stopping at the first
     // gap in the table.
-    void SetSectorsInBox(const Maths::Vector* box, uint32_t on, int unused);
+    void SetSectorsInBox(const Maths::Vec4* box, uint32_t on, int unused);
 
     // The virtuals' base bodies (STUB messages; false / null).
     void PostLoad(void* arena);          // 0x0049CA50
@@ -104,13 +104,13 @@ struct CWorldScene {
     // --- engine_scene_sectors.cpp ---
     // 0x0049D390: construct - empty boxes, no grid, a sector table of 2^`bits` buckets (none without memory), no
     // names, no collision, empty lists of hidden and added sectors (none without memory). Returns this.
-    CWorldScene* Construct(int bits);
+    CWorldScene* MakeNew(int bits);
     // 0x0049DD10: the destructor's body - every sector deleted (out of the grid first), the table emptied and freed,
     // the collision let go of (0x0049CFB0), the two lists' heads deleted (their nodes left), the added scene's
     // texture dictionary unloaded.
     void DestroyBody();
     // 0x0049E1D0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CWorldScene* Destroy(unsigned int freeFlags);
+    CWorldScene* Teardown(unsigned int freeFlags);
     // 0x0049D1A0: its statistics into `info` - name, sectors, collision objects, and its geometry's counts.
     void FetchDiagnostics(Scripts::CStruct* info);
     // 0x0049D4E0: `sector` put in the table under its name.
@@ -162,7 +162,7 @@ static_assert(offsetof(CWorldScene, m_hasCollision) == 0x8C && offsetof(CWorldSc
 // into `out`. The length.
 int __cdecl MakeCollisionFileName(char* out, const char* level);
 
-// The nodes of the scene's lists of sectors (ListKit::Node<CWorldCell>, vtable 0x006499D8; the heads' 0x006499DC).
+// The nodes of the scene's lists of sectors (ListKit::Elem<CWorldCell>, vtable 0x006499D8; the heads' 0x006499DC).
 struct SectorListNodes {
     // 0x0049D300: the destructor's body (unlinked).
     void DestroyBody();

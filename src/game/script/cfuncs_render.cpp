@@ -111,7 +111,7 @@ inline void AllowBoneLOD(bool /*allow*/) {}
 inline void PrintAnimCacheInfo(void* /*cache*/) {}
 
 // The animation cache manager (0x006F92B0 through its getter 0x00480660).
-Gfx2D::CClipStore* AnimCache() { return Gfx2D::CClipStore::Get(); }
+Gfx2D::CClipStore* AnimCache() { return Gfx2D::CClipStore::Pull(); }
 
 // The viewport's camera `index` (0x004A0950: null if the viewport has none).
 uint8_t* ViewportCamera(int index) { return reinterpret_cast<uint8_t*>(Engine3D::ObtainActiveLens(index)); }
@@ -142,7 +142,7 @@ bool __cdecl CFunc_InitAnimCompressTable(CStruct* params, CScript*)
 {
     const char* file = nullptr; // (both asserted; uninitialised in the original)
     uint32_t type = 0;
-    params->GetString(0u, &file, 1);
+    params->FetchText(0u, &file, 1);
     params->ReadHashValue(0u, &type, 1);
     char name[256];
     std::snprintf(name, sizeof(name), "%s", file); // (the original's sprintf isn't bounded)
@@ -170,7 +170,7 @@ bool __cdecl CFunc_InitAnimSystem(CStruct* params, CScript*)
         type = 4;
     else
         type = cacheType == kStandard ? 2 : 0;
-    Gfx2D::CClipStore::Create(heapSize, cacheSize, type);
+    Gfx2D::CClipStore::Fabricate(heapSize, cacheSize, type);
     int blends = 0;
     int subsets = 0;
     params->FetchIntValue(kMaxAnimBlends, &blends, 1);
@@ -190,7 +190,7 @@ bool __cdecl CFunc_UpdateAnimCache(CStruct* params, CScript*)
     if (disable || enable)
         return true;
     if (clear)
-        AnimCache()->Flush(false);
+        AnimCache()->Drain(false);
     else if (defrag)
         AnimCache()->Defragment();
     else
@@ -241,10 +241,10 @@ bool __cdecl CFunc_PopWorldLights(CStruct*, CScript*)
 bool __cdecl CFunc_SetScreen(CStruct* params, CScript*)
 {
     float aspect;
-    if (params->GetFloat(kAspect, &aspect, 0))
+    if (params->FetchFloat(kAspect, &aspect, 0))
         Engine3D::SetScreenAspectRatio(aspect);
     float angle;
-    if (params->GetFloat(kAngle, &angle, 0))
+    if (params->FetchFloat(kAngle, &angle, 0))
         Engine3D::SetScreenFieldOfView(angle);
     int letterbox;
     if (params->FetchIntValue(kLetterbox, &letterbox, 0))
@@ -269,11 +269,11 @@ bool __cdecl CFunc_DebugLine(CStruct* params, CScript*)
     Scripts::VectorValue end{};
     int colour = static_cast<int>(0xFF0000FF);
     int frames = 0;
-    params->GetVector(kStart, &start, 1);
-    params->GetVector(kEnd, &end, 1);
+    params->FetchVec(kStart, &start, 1);
+    params->FetchVec(kEnd, &end, 1);
     params->FetchIntValue(kColor, &colour, 0);
     params->FetchIntValue(kFrames, &frames, 0);
-    Gfx2D::PushDiagLine(reinterpret_cast<const Maths::Vector*>(&start), reinterpret_cast<const Maths::Vector*>(&end),
+    Gfx2D::PushDiagLine(reinterpret_cast<const Maths::Vec4*>(&start), reinterpret_cast<const Maths::Vec4*>(&end),
                       static_cast<uint32_t>(colour), 0, frames);
     return true;
 }
@@ -283,7 +283,7 @@ bool __cdecl CFunc_DebugLine(CStruct* params, CScript*)
 bool __cdecl CFunc_GetPausePosByResolution(CStruct*, CScript* script)
 {
     float x = Engine3D::g_presentParameters.BackBufferWidth == 640 ? 50.0f : 20.0f; // the back buffer's width
-    script->m_params->InsertPair(Checksums::HashFromText("pos"), x, 240.0f);
+    script->m_args->InsertPair(Checksums::HashFromText("pos"), x, 240.0f);
     return true;
 }
 
@@ -305,9 +305,9 @@ bool __cdecl CFunc_KillAllTextureSplats(CStruct* params, CScript*)
     float height = 0.0f;
     float dist = 0.0f;
     float width = 0.0f;
-    Maths::Vector low = {0.0f, 0.0f, 0.0f, 0.0f};  // the box's corners around the offset (w unused)
-    Maths::Vector high = {0.0f, 0.0f, 0.0f, 0.0f};
-    Maths::Vector offset = {0.0f, 0.0f, 0.0f, 0.0f}; // (x, y, z uninitialised in the original when not given)
+    Maths::Vec4 low = {0.0f, 0.0f, 0.0f, 0.0f};  // the box's corners around the offset (w unused)
+    Maths::Vec4 high = {0.0f, 0.0f, 0.0f, 0.0f};
+    Maths::Vec4 offset = {0.0f, 0.0f, 0.0f, 0.0f}; // (x, y, z uninitialised in the original when not given)
     // Each size in feet to inches; the corners at minus / plus half of it (the low one not above 0, the high one not
     // below 0 - NaN goes through). x87: the low half from the unrounded product, the high one from it rounded to a
     // float.
@@ -318,13 +318,13 @@ bool __cdecl CFunc_KillAllTextureSplats(CStruct* params, CScript*)
         half = static_cast<double>(static_cast<float>(inches)) * 0.5;
         highSide = half < 0.0 ? 0.0f : static_cast<float>(half);
     };
-    if (boxParams->GetFloat(kHeight, &height, 1))
+    if (boxParams->FetchFloat(kHeight, &height, 1))
         extent(height, low.y, high.y);
-    if (boxParams->GetFloat(kDist, &dist, 1))
+    if (boxParams->FetchFloat(kDist, &dist, 1))
         extent(dist, low.z, high.z);
-    if (boxParams->GetFloat(kWidth, &width, 1))
+    if (boxParams->FetchFloat(kWidth, &width, 1))
         extent(width, low.x, high.x);
-    if (boxParams->GetVector(kOffset, reinterpret_cast<Scripts::VectorValue*>(&offset), 1))
+    if (boxParams->FetchVec(kOffset, reinterpret_cast<Scripts::VectorValue*>(&offset), 1))
         offset.FeetAsInches();
     box.min = {offset.x + low.x, offset.y + low.y, offset.z + low.z, offset.w + 1.0f};
     box.max = {offset.x + high.x, offset.y + high.y, offset.z + high.z, offset.w + 1.0f};
@@ -338,10 +338,10 @@ bool __cdecl CFunc_GetGammaValues(CStruct*, CScript* script)
 {
     float red, green, blue;
     Engine3D::GetGamma(&red, &green, &blue);
-    CStruct* out = script->m_params;
-    out->RemoveComponent(kRed);
-    out->RemoveComponent(kGreen);
-    out->RemoveComponent(kBlue);
+    CStruct* out = script->m_args;
+    out->EraseModule(kRed);
+    out->EraseModule(kGreen);
+    out->EraseModule(kBlue);
     // x87: the product isn't rounded to a float before it's truncated
     out->PutInt(kRed, static_cast<int>(static_cast<double>(red) * 100.0));
     out->PutInt(kGreen, static_cast<int>(static_cast<double>(green) * 100.0));
@@ -364,8 +364,8 @@ bool __cdecl CFunc_GetDynamicLightModulationFactor(CStruct* params, CScript* scr
         low = Engine3D::GetDiffuseLightModulationFactor(directional, true);
         high = Engine3D::GetDiffuseLightModulationFactor(directional, false);
     }
-    script->m_params->PushFloat(kModValueLo, low);
-    script->m_params->PushFloat(kModValueHi, high);
+    script->m_args->PushFloat(kModValueLo, low);
+    script->m_args->PushFloat(kModValueHi, high);
     return true;
 }
 
@@ -376,8 +376,8 @@ bool __cdecl CFunc_SetClippingDistances(CStruct* params, CScript*)
 {
     float nearPlane = g_renderDefaultNearPlane;
     float farPlane = g_renderDefaultFarPlane;
-    params->GetFloat("Near", &nearPlane, 0);
-    params->GetFloat("Far", &farPlane, 0);
+    params->FetchFloat("Near", &nearPlane, 0);
+    params->FetchFloat("Far", &farPlane, 0);
     for (int i = 0; i < 2; ++i) {
         if (uint8_t* camera = ViewportCamera(i)) {
             *reinterpret_cast<float*>(camera + 0xB8) = nearPlane;
@@ -394,7 +394,7 @@ bool __cdecl CFunc_SetFogDistance(CStruct* params, CScript*)
     if (DistanceClipping())
         return false;
     float distance = 0.0f;
-    params->GetFloat("distance", &distance, 0);
+    params->FetchFloat("distance", &distance, 0);
     Engine3D::Engine::SetFogDistance(distance);
     for (int i = 0; i < 2; ++i)
         ViewportCamera(i);
@@ -453,10 +453,10 @@ bool __cdecl CFunc_GetLightDirection(CStruct* params, CScript* script)
 {
     int index = 0; // (uninitialised in the original)
     params->FetchIntValue(kIndex, &index, 0);
-    Maths::Vector direction = *Engine3D::GetLightDirection(index);
+    Maths::Vec4 direction = *Engine3D::GetLightDirection(index);
     direction.ConvertToDegrees();
-    script->m_params->PushFloat(kHeading, direction.y);
-    script->m_params->PushFloat(kPitch, direction.x);
+    script->m_args->PushFloat(kHeading, direction.y);
+    script->m_args->PushFloat(kPitch, direction.x);
     return true;
 }
 
@@ -475,7 +475,7 @@ bool __cdecl CFunc_SetLightDiffuseColor(CStruct* params, CScript*)
 // (0x0048E950) into the script's params as ambient_red .. blue_1. Always true.
 bool __cdecl CFunc_GetLightCurrentColor(CStruct*, CScript* script)
 {
-    CStruct* out = script->m_params;
+    CStruct* out = script->m_args;
     uint32_t colour;
     auto add = [&](uint32_t red, uint32_t green, uint32_t blue) {
         out->PutInt(red, static_cast<int>(colour & 0xFF));
@@ -500,17 +500,17 @@ bool __cdecl CFunc_GetBonePosition(CStruct* params, CScript* script)
     uint32_t id = 0;
     params->ReadHashValue(kId, &id, 1);
     bool found = false;
-    Maths::Vector position = {0.0f, 0.0f, 0.0f, 0.0f};
+    Maths::Vec4 position = {0.0f, 0.0f, 0.0f, 0.0f};
     auto* manager = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::CompositeObjectManager());
-    if (GameObjects::CObject* object = manager->LookUpEntity(id)) {
+    if (GameObjects::CEntity* object = manager->LookUpEntity(id)) {
         uint32_t bone = 0;
         params->ReadHashValue(kBone, &bone, 1);
-        GameObjects::CObjectModule* skeleton = static_cast<GameObjects::CGameEntity*>(object)->GetComponent(kSkeleton);
+        GameObjects::CObjectModule* skeleton = static_cast<GameObjects::CGameEntity*>(object)->FetchModule(kSkeleton);
         found = static_cast<GameObjects::CBoneRigModule*>(skeleton)->GetBonePosition(bone, &position);
     }
-    script->m_params->PushFloat(kX, position.x);
-    script->m_params->PushFloat(kY, position.y);
-    script->m_params->PushFloat(kZ, position.z);
+    script->m_args->PushFloat(kX, position.x);
+    script->m_args->PushFloat(kY, position.y);
+    script->m_args->PushFloat(kZ, position.z);
     return found;
 }
 

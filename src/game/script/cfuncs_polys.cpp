@@ -108,7 +108,7 @@ void GetPositions(void* geometry, Scripts::VectorValue* out)
 {
     GeometrySlot<void(__thiscall*)(void*, Scripts::VectorValue*)>(geometry, 37)(geometry, out);
 }
-void GetColours(void* geometry, uint32_t* out) { static_cast<Engine3D::CGeom*>(geometry)->GetColors(out); }
+void GetColours(void* geometry, uint32_t* out) { static_cast<Engine3D::CGeom*>(geometry)->FetchTints(out); }
 void SetColours(void* geometry, uint32_t* colours)
 {
     GeometrySlot<void(__thiscall*)(void*, uint32_t*)>(geometry, 40)(geometry, colours);
@@ -131,7 +131,7 @@ uint8_t ChannelByte(double value)
 template <typename Fn>
 void ForEachSectorGeometry(uint8_t* scene, uint32_t lightGroup, Fn fn)
 {
-    auto* sectors = *reinterpret_cast<ListKit::HashTable**>(scene + 0xD0);
+    auto* sectors = *reinterpret_cast<ListKit::KeyMap**>(scene + 0xD0);
     if (!sectors)
         return;
     sectors->m_iterBucket = -1;
@@ -196,7 +196,7 @@ double X87CosTimes(double angle, float value)
 } // namespace
 
 // 0x004472D0: a spawned polygon's details given back to their pool pair (0x00700500) - its operator delete.
-void __cdecl FreeSpawnedPolyDetails(void* details) { SpawnedPolyPools().Free(details); }
+void __cdecl FreeSpawnedPolyDetails(void* details) { SpawnedPolyPools().Dealloc(details); }
 
 // 0x00447330: SpawnPoly pos=<vector> <vector> <vector> start_dims=<pair> end_dims=<pair> lifetime=<f>
 // start_colors=[[r g b a] x4] end_colors=[...] | start_color=[r g b a] end_color=[...] [flag] [just=[h v]]
@@ -204,39 +204,39 @@ void __cdecl FreeSpawnedPolyDetails(void* details) { SpawnedPolyPools().Free(det
 // Always true.
 bool __cdecl CFunc_SpawnPoly(CStruct* params, CScript*)
 {
-    auto* details = static_cast<SpawnedPolyDetails*>(SpawnedPolyPools().Allocate(sizeof(SpawnedPolyDetails)));
+    auto* details = static_cast<SpawnedPolyDetails*>(SpawnedPolyPools().Carve(sizeof(SpawnedPolyDetails)));
     if (details)
-        details = reinterpret_cast<SpawnedPolyDetails*>(reinterpret_cast<Engine3D::sSpawnedPoly*>(details)->Construct());
+        details = reinterpret_cast<SpawnedPolyDetails*>(reinterpret_cast<Engine3D::sSpawnedPoly*>(details)->MakeNew());
     // (a failed allocation writes through null below, as in the original)
-    params->GetVector(kPos, &details->pos, 1);
+    params->FetchVec(kPos, &details->pos, 1);
     Scripts::VectorValue vector1 = {0.0f, 0.0f, 1.0f, 1.0f};
     Scripts::VectorValue vector2 = {0.0f, 1.0f, 0.0f, 1.0f};
-    params->GetVector(kSpawnVector1, &vector1, 0);
-    params->GetVector(kSpawnVector2, &vector2, 0);
+    params->FetchVec(kSpawnVector1, &vector1, 0);
+    params->FetchVec(kSpawnVector2, &vector2, 0);
     params->FetchPair(kStartDims, &details->startDims[0], &details->startDims[1], 1);
     params->FetchPair(kEndDims, &details->endDims[0], &details->endDims[1], 1);
-    params->GetFloat(kLifetime, &details->lifetime, 1);
+    params->FetchFloat(kLifetime, &details->lifetime, 1);
     CArray* start = nullptr; // (uninitialised in the original)
     CArray* end = nullptr;
-    if (params->GetArray(kStartColors, &start, 0)) {
+    if (params->FetchList(kStartColors, &start, 0)) {
         // a colour per corner
-        params->GetArray(kEndColors, &end, 1);
+        params->FetchList(kEndColors, &end, 1);
         for (uint32_t corner = 0; corner < 4; ++corner) {
-            auto* startColour = reinterpret_cast<CArray*>(start->GetElement(corner));
-            auto* endColour = reinterpret_cast<CArray*>(end->GetElement(corner));
+            auto* startColour = reinterpret_cast<CArray*>(start->FetchPart(corner));
+            auto* endColour = reinterpret_cast<CArray*>(end->FetchPart(corner));
             for (uint32_t i = 0; i < 4; ++i)
-                details->startColours[corner][i] = static_cast<uint8_t>(startColour->GetElement(i));
+                details->startColours[corner][i] = static_cast<uint8_t>(startColour->FetchPart(i));
             for (uint32_t i = 0; i < 4; ++i)
-                details->endColours[corner][i] = static_cast<uint8_t>(endColour->GetElement(i));
+                details->endColours[corner][i] = static_cast<uint8_t>(endColour->FetchPart(i));
         }
-    } else if (params->GetArray(kStartColor, &start, 0)) {
+    } else if (params->FetchList(kStartColor, &start, 0)) {
         // one colour for every corner
-        params->GetArray(kEndColor, &end, 1);
+        params->FetchList(kEndColor, &end, 1);
         for (uint32_t corner = 0; corner < 4; ++corner) {
             for (uint32_t i = 0; i < 4; ++i)
-                details->startColours[corner][i] = static_cast<uint8_t>(start->GetElement(i));
+                details->startColours[corner][i] = static_cast<uint8_t>(start->FetchPart(i));
             for (uint32_t i = 0; i < 4; ++i)
-                details->endColours[corner][i] = static_cast<uint8_t>(end->GetElement(i));
+                details->endColours[corner][i] = static_cast<uint8_t>(end->FetchPart(i));
         }
     }
     if (params->HasBareFlag(kSpawnFlag2))
@@ -244,14 +244,14 @@ bool __cdecl CFunc_SpawnPoly(CStruct* params, CScript*)
     CArray* just = nullptr;
     details->alignH = 0.0f;
     details->alignV = 0.0f;
-    if (params->GetArray(kJust, &just, 0)) {
-        switch (just->GetElement(0)) {
+    if (params->FetchList(kJust, &just, 0)) {
+        switch (just->FetchPart(0)) {
         case kRight: details->alignH = 1.0f; break;
         case kLeft: details->alignH = -1.0f; break;
         case kCenter: details->alignH = 0.0f; break;
         default: break;
         }
-        switch (just->GetElement(1)) {
+        switch (just->FetchPart(1)) {
         case kBottom: details->alignV = 1.0f; break;
         case kCenter: details->alignV = 0.0f; break;
         case kTop: details->alignV = -1.0f; break;
@@ -261,10 +261,10 @@ bool __cdecl CFunc_SpawnPoly(CStruct* params, CScript*)
     params->ReadHashValue(kBlendMode, &details->blendMode, 0);
     uint32_t texture = 0;
     params->ReadHashValue(kTexture, &texture, 0);
-    details->texture = texture ? static_cast<Engine3D::CTextureSet*>(reinterpret_cast<void*>(Engine3D::g_particleTextureDict))->GetTexture(texture) // the texture dictionary
+    details->texture = texture ? static_cast<Engine3D::CTextureSet*>(reinterpret_cast<void*>(Engine3D::g_particleTextureDict))->FetchSkin(texture) // the texture dictionary
                                : nullptr;
-    Engine3D::Engine::SpawnPoly(reinterpret_cast<Engine3D::sSpawnedPoly*>(details), reinterpret_cast<Maths::Vector*>(&vector1),
-                          reinterpret_cast<Maths::Vector*>(&vector2));
+    Engine3D::Engine::SpawnPoly(reinterpret_cast<Engine3D::sSpawnedPoly*>(details), reinterpret_cast<Maths::Vec4*>(&vector1),
+                          reinterpret_cast<Maths::Vec4*>(&vector2));
     return true;
 }
 
@@ -278,7 +278,7 @@ void __cdecl CompressSceneVertexColours(uint8_t* scene, float target, float fact
         if (!count)
             return;
         // (the original runs an empty constructor over the array: 0x005902E0)
-        auto* colours = static_cast<uint8_t*>(MemSys::New(static_cast<unsigned int>(count) * 4));
+        auto* colours = static_cast<uint8_t*>(MemSys::Alloc(static_cast<unsigned int>(count) * 4));
         GetColours(geometry, reinterpret_cast<uint32_t*>(colours));
         if (target != 0.0f || factor != 0.0f) {
             for (int i = 0; i < count; ++i) {
@@ -289,7 +289,7 @@ void __cdecl CompressSceneVertexColours(uint8_t* scene, float target, float fact
             }
         }
         SetColours(geometry, reinterpret_cast<uint32_t*>(colours));
-        MemSys::Free(colours);
+        MemSys::Dealloc(colours);
     });
 }
 
@@ -299,8 +299,8 @@ bool __cdecl CFunc_CompressVC(CStruct* params, CScript*)
 {
     float target = 0.0f;
     float percent = 0.0f;
-    params->GetFloat(kTarget, &target, 1);
-    params->GetFloat(kPercent, &percent, 0);
+    params->FetchFloat(kTarget, &target, 1);
+    params->FetchFloat(kPercent, &percent, 0);
     auto factor = static_cast<float>((100.0 - percent) * static_cast<double>(0.01f)); // (x87: rounded once)
     uint32_t lightGroup = 0;
     params->ReadHashValue(kLightGroup, &lightGroup, 0);
@@ -325,8 +325,8 @@ void __cdecl NudgeSceneVertexColours(uint8_t* scene, float amount)
         if (!count)
             return;
         // (the original runs an empty constructor over both arrays: 0x005902E0)
-        auto* positions = static_cast<Scripts::VectorValue*>(MemSys::New(static_cast<unsigned int>(count) * 16));
-        auto* colours = static_cast<uint8_t*>(MemSys::New(static_cast<unsigned int>(count) * 4));
+        auto* positions = static_cast<Scripts::VectorValue*>(MemSys::Alloc(static_cast<unsigned int>(count) * 16));
+        auto* colours = static_cast<uint8_t*>(MemSys::Alloc(static_cast<unsigned int>(count) * 4));
         GetPositions(geometry, positions);
         GetColours(geometry, reinterpret_cast<uint32_t*>(colours));
         for (int i = 0; i < count; ++i) {
@@ -345,8 +345,8 @@ void __cdecl NudgeSceneVertexColours(uint8_t* scene, float amount)
             colour[2] = ChannelByte(blue);
         }
         SetColours(geometry, reinterpret_cast<uint32_t*>(colours));
-        MemSys::Free(positions);
-        MemSys::Free(colours);
+        MemSys::Dealloc(positions);
+        MemSys::Dealloc(colours);
     });
 }
 
@@ -354,7 +354,7 @@ void __cdecl NudgeSceneVertexColours(uint8_t* scene, float amount)
 bool __cdecl CFunc_NudgeVC(CStruct* params, CScript*)
 {
     float percent = 0.0f;
-    params->GetFloat(kPercent, &percent, 1);
+    params->FetchFloat(kPercent, &percent, 1);
     percent = percent * 0.01f;
     for (SceneNode* node = FirstSceneNode(); node;) {
         SceneNode* next = NextSceneNode(node);
@@ -375,9 +375,9 @@ bool __cdecl CFunc_SetLightDirection(CStruct* params, CScript*)
     Scripts::VectorValue direction = {0.0f, 0.0f, 1.0f, 0.0f};
     float heading;
     float pitch;
-    if (params->GetVector(kDirection, &direction, 0)) {
+    if (params->FetchVec(kDirection, &direction, 0)) {
         direction.w = 0.0f;
-    } else if (params->GetFloat(kHeading, &heading, 0) && params->GetFloat(kPitch, &pitch, 0)) {
+    } else if (params->FetchFloat(kHeading, &heading, 0) && params->FetchFloat(kPitch, &pitch, 0)) {
         double p = static_cast<double>(pitch) * kDegreesToRadians;
         float y = direction.y;
         float z = direction.z;
@@ -390,7 +390,7 @@ bool __cdecl CFunc_SetLightDirection(CStruct* params, CScript*)
         direction.z = static_cast<float>(-(static_cast<double>(s) * x) + turnedZ * c);
         direction.x = static_cast<float>(turnedZ * s + static_cast<double>(c) * x);
     }
-    return Engine3D::SetLightDirection(index, reinterpret_cast<const Maths::Vector*>(&direction));
+    return Engine3D::SetLightDirection(index, reinterpret_cast<const Maths::Vec4*>(&direction));
 }
 
 // 0x00447F30: GetMetrics: the renderer's metrics (0x0048CB00 into a new structure) added to the script's params as
@@ -399,9 +399,9 @@ bool __cdecl CFunc_GetMetrics(CStruct*, CScript* script)
 {
     CStruct* metrics = Scripts::NewStruct();
     if (metrics)
-        metrics = metrics->Init();
+        metrics = metrics->PrepareAll();
     Engine3D::GetSceneDebugInfo(metrics);
-    script->m_params->PutSubStruct(kMetrics, metrics);
+    script->m_args->PutSubStruct(kMetrics, metrics);
     if (metrics) {
         metrics->Clear();
         Scripts::DeleteStruct(metrics);

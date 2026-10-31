@@ -3,7 +3,7 @@
 #include <string>
 
 namespace Gfx2D {
-class Camera;
+class ViewCam;
 }
 
 // NOT ORIGINAL - test views (ours, added at the user's request: "add an engine function that lets you teleport to a
@@ -50,7 +50,7 @@ bool LockCamera(Vec3 position, Vec3 direction, Vec3 drift = {0.0f, 0.0f, 0.0f});
 void UnlockCamera();
 bool CameraLocked();
 // The renderer, a viewport's camera before it's drawn (game/gfx/render.cpp): placed while locked.
-void PlaceCamera(Gfx2D::Camera* camera, int viewport);
+void PlaceCamera(Gfx2D::ViewCam* camera, int viewport);
 // TeleportSkaterStanding (sys/main.cpp, after the game's own commands).
 void RegisterScriptFunctions();
 

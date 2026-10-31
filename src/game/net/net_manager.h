@@ -6,7 +6,7 @@
 #include "game/core/alloc.h"
 #include "game/net/net_messages.h"
 
-// Neversoft's NetLink::Manager (0x37C bytes; the instance at 0x006EFDD8, made and released by CreateManager /
+// Neversoft's NetLink::Hub (0x37C bytes; the instance at 0x006EFDD8, made and released by CreateManager /
 // ReleaseManager): the apps (servers and clients) it made and the network settings OnlinePlay copies from the network
 // preferences (0x00535040). Mostly a console's settings (DHCP, dial-up numbers, a modem): on the PC few of them
 // reach a socket. Its getters and setters are 0x00454530 - 0x004549C0, 0x00454CB0 and 0x00454DE0
@@ -14,11 +14,11 @@
 
 namespace NetLink {
 
-class Server;
-class Client;
-struct App;
+class HostEnd;
+class Guest;
+struct AppHost;
 
-class Manager {
+class Hub {
 public:
     // m_connectionType: what the connection is. Setting it sets the bandwidth (bytes a second).
     static constexpr int kConnectionModem = 1;   // 4200: the dial-up numbers are used
@@ -29,21 +29,21 @@ public:
     static constexpr int kNumDialupNumbers = 3;
 
     // The instance (0x006EFDD8; its reference count is 0x006EFDDC).
-    static Manager* Instance();
+    static Hub* Sole();
 
     // 0x004556E0: empty app lists, every message with a length field but acks (8) and timestamps (9), no IP
     // address yet ("<Unknown>"), 192.168.55.99 and a 255.255.0.0 mask, a 400000 bandwidth.
-    Manager* Construct();
+    Hub* MakeNew();
     // 0x004555A0: the destructor body (the app lists' heads).
     void DestroyBody();
     // 0x00455270: a new server (in the network heap), named and told its manager, initialised and (unless it's
     // local) bound to `port` on `address` - the local IP when DHCP is set and the connection type isn't 1 or 3;
     // flags bit 0: its socket counts as connected. Null memory isn't checked (a crash).
-    Server* MakeServerApp(int id, const char* name, int maxClients, uint16_t port, int address, int flags);
+    HostEnd* MakeServerApp(int id, const char* name, int maxClients, uint16_t port, int address, int flags);
     // 0x004553F0: the same for a client (one connection: the server).
-    Client* MakeClientApp(int id, const char* name, uint16_t port, int address, int flags);
+    Guest* MakeClientApp(int id, const char* name, uint16_t port, int address, int flags);
     // 0x00455550: `app` out of its list, deinitialised (virtual slot 5) and deleted.
-    void ReleaseApp(App* app);
+    void ReleaseApp(AppHost* app);
 
     // 0x00454580: (nothing to do on the PC) online. True.
     bool ConnectToInternet();
@@ -52,7 +52,7 @@ public:
     // 0x004545A0
     int GetDialupSpeed() { return m_modemBaudRate; }
     // 0x004545B0: the bandwidth allowed over all connections (bytes a second).
-    int GetBandwidth() { return m_linkSpeed; }
+    int FetchThroughput() { return m_linkSpeed; }
     // 0x004545C0
     bool IsOnline() { return m_isNetworked; }
     // 0x004545D0
@@ -84,7 +84,7 @@ public:
     uint32_t GetLocalAddress();
     // 0x00454910: this machine's address as text ("localhost"'s host name looked up), "<Unknown>" if even
     // localhost can't be. (Doesn't use the manager.)
-    const char* GetLocalIP();
+    const char* FetchOwnAddress();
     // 0x00454960
     int GetNetLinkKind() { return m_connectionType; }
     // 0x00454970 (shown by the TestNetSetup script command: 2-7 are set-up errors)
@@ -99,11 +99,11 @@ public:
     // script command: nothing to load on the PC) true.
     bool LoadNetworkDrivers(const char* ip, const char* subnetMask, const char* gateway);
     // 0x00454CB0: the app's receive, send, process and metrics tasks into the main loop's logic tasks.
-    void AddAppTasks(App* app);
+    void AddAppTasks(AppHost* app);
     // 0x00454DE0: the dial-up number in use ("" for connection type 3).
     const char* GetDialupNumber();
 
-    AppNode m_servers;                    // +0x000 ListKit::Head<App> (vtable 0x00647544)
+    AppNode m_hosts;                    // +0x000 ListKit::Foremost<App> (vtable 0x00647544)
     AppNode m_clients;                    // +0x014
     uint8_t m_messageFlags[0x100];        // +0x028 per message id (bit 0: sent without its length; the
                                           //        constructor: 8 and 9 get 1, 0-254 0)
@@ -133,25 +133,25 @@ public:
     int m_modemBaudRate;                  // +0x374
     int m_linkSpeed;                      // +0x378 (400000 at first)
 };
-static_assert(offsetof(Manager, m_clients) == 0x14 && offsetof(Manager, m_messageFlags) == 0x28 &&
-                  offsetof(Manager, m_connectionType) == 0x128 && offsetof(Manager, m_deviceType) == 0x130 &&
-                  offsetof(Manager, m_localIP) == 0x134 && offsetof(Manager, m_localAddress) == 0x144 &&
-                  offsetof(Manager, m_dnsServers) == 0x148 && offsetof(Manager, m_routerAddr) == 0x178 &&
-                  offsetof(Manager, m_subnetMask) == 0x188 && offsetof(Manager, m_dialupNumberIndex) == 0x198 &&
-                  offsetof(Manager, m_dialupNumbers) == 0x19C && offsetof(Manager, m_dialupUserName) == 0x1FC &&
-                  offsetof(Manager, m_dialupPassword) == 0x24C && offsetof(Manager, m_hostName) == 0x29C &&
-                  offsetof(Manager, m_domainName) == 0x2BC && offsetof(Manager, m_numApps) == 0x2DC &&
-                  offsetof(Manager, m_lastError) == 0x2E0 && offsetof(Manager, m_isNetworked) == 0x2E4 &&
-                  offsetof(Manager, m_useDHCP) == 0x2E5 && offsetof(Manager, m_flag2E6) == 0x2E6 &&
-                  offsetof(Manager, m_modemState) == 0x2E8 && offsetof(Manager, m_modemBaudRate) == 0x374 &&
-                  offsetof(Manager, m_linkSpeed) == 0x378 && sizeof(Manager) == 0x37C,
+static_assert(offsetof(Hub, m_clients) == 0x14 && offsetof(Hub, m_messageFlags) == 0x28 &&
+                  offsetof(Hub, m_connectionType) == 0x128 && offsetof(Hub, m_deviceType) == 0x130 &&
+                  offsetof(Hub, m_localIP) == 0x134 && offsetof(Hub, m_localAddress) == 0x144 &&
+                  offsetof(Hub, m_dnsServers) == 0x148 && offsetof(Hub, m_routerAddr) == 0x178 &&
+                  offsetof(Hub, m_subnetMask) == 0x188 && offsetof(Hub, m_dialupNumberIndex) == 0x198 &&
+                  offsetof(Hub, m_dialupNumbers) == 0x19C && offsetof(Hub, m_dialupUserName) == 0x1FC &&
+                  offsetof(Hub, m_dialupPassword) == 0x24C && offsetof(Hub, m_hostName) == 0x29C &&
+                  offsetof(Hub, m_domainName) == 0x2BC && offsetof(Hub, m_numApps) == 0x2DC &&
+                  offsetof(Hub, m_lastError) == 0x2E0 && offsetof(Hub, m_isNetworked) == 0x2E4 &&
+                  offsetof(Hub, m_useDHCP) == 0x2E5 && offsetof(Hub, m_flag2E6) == 0x2E6 &&
+                  offsetof(Hub, m_modemState) == 0x2E8 && offsetof(Hub, m_modemBaudRate) == 0x374 &&
+                  offsetof(Hub, m_linkSpeed) == 0x378 && sizeof(Hub) == 0x37C,
               "layout must match the original");
 
 // 0x00455880: the manager singleton, made (zeroed memory) if `create` and there's none; one more reference.
-Manager* CreateManager(bool create);
+Hub* CreateManager(bool create);
 // 0x004558D0: one reference less; the last deletes it.
 void ReleaseManager();
 
-extern Manager* g_netManager;
+extern Hub* g_netManager;
 
 } // namespace Net

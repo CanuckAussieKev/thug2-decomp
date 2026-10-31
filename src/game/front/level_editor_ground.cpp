@@ -27,7 +27,7 @@ bool SameSpec(const Spec& a, const Spec& b)
 namespace {
 
 bool Finite(float v) { return std::isfinite(v); }
-float Clamp(float v, float low, float high) { return std::max(low, std::min(high, v)); }
+float Confine(float v, float low, float high) { return std::max(low, std::min(high, v)); }
 
 } // namespace
 
@@ -41,11 +41,11 @@ bool Normalise(Spec* s)
     if (s->z1 < s->z0)
         std::swap(s->z0, s->z1);
     // (too narrow / wide: grown / shrunk about the first corner)
-    s->x1 = s->x0 + Clamp(s->x1 - s->x0, kMinSide, kMaxSide);
-    s->z1 = s->z0 + Clamp(s->z1 - s->z0, kMinSide, kMaxSide);
-    s->height = Clamp(s->height, kMinHeight, kMaxHeight);
-    s->length = Clamp(s->length, 0.0f, kMaxLength);
-    s->uv = Clamp(s->uv, 16.0f, 4096.0f);
+    s->x1 = s->x0 + Confine(s->x1 - s->x0, kMinSide, kMaxSide);
+    s->z1 = s->z0 + Confine(s->z1 - s->z0, kMinSide, kMaxSide);
+    s->height = Confine(s->height, kMinHeight, kMaxHeight);
+    s->length = Confine(s->length, 0.0f, kMaxLength);
+    s->uv = Confine(s->uv, 16.0f, 4096.0f);
     return true;
 }
 
@@ -124,7 +124,7 @@ struct Builder {
     // A triangle wound so that its normal points along `hint` (not added when it has no area).
     void Tri(V3 a, V3 b, V3 c, V3 hint, uint16_t flags)
     {
-        V3 n = Cross(b - a, c - a);
+        V3 n = Perpendicular(b - a, c - a);
         float length = std::sqrt(Dot(n, n));
         if (!(length > 1e-3f))
             return;
@@ -170,7 +170,7 @@ void AddRamp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, float foot, float top,
     }
     if (!cheeks)
         return;
-    V3 along = Normalize(e1 - e0);
+    V3 along = MakeUnit(e1 - e0);
     for (int end = 0; end < 2; ++end) {
         V3 e = end ? e1 : e0;
         V3 away = end ? along : along * -1.0f;
@@ -378,7 +378,7 @@ uint32_t NameChecksumFor(const std::string& text)
 }
 } // namespace
 
-std::string Record(const Spec& s, const char* materialName)
+std::string LogEntry(const Spec& s, const char* materialName)
 {
     std::ostringstream out;
     char colour[16];
@@ -511,7 +511,7 @@ bool TileInside(V3 min, V3 max, const Spec& s, float margin)
 
 bool GroundFaceUnder(const V3 c[3], const Spec& s, float tolerance)
 {
-    V3 n = Cross(c[1] - c[0], c[2] - c[0]);
+    V3 n = Perpendicular(c[1] - c[0], c[2] - c[0]);
     float length = std::sqrt(Dot(n, n));
     if (!(length > 0.0f) || std::fabs(n.y) / length < 0.7f)
         return false;

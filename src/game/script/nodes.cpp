@@ -51,12 +51,12 @@ constexpr uint8_t kTokenMemberFunction = 0x44;   // a member function's name (no
 constexpr uint8_t kTokenMemberFunctionEntry = 0x46; // a member function's table entry (its name first)
 constexpr uint8_t kTokenIf = 0x47;               // (a short jump)
 
-CNodeManager* Manager() { return NodeManagerInstance(); }
+CNodeManager* Hub() { return NodeManagerInstance(); }
 
-VectorValue* AsValue(Maths::Vector* v) { return reinterpret_cast<VectorValue*>(v); }
+VectorValue* AsValue(Maths::Vec4* v) { return reinterpret_cast<VectorValue*>(v); }
 
-// A quaternion (x, y, z, w) to a rotation matrix (0x0042BC40, Maths::QuatRotation::GetMatrix).
-void QuatToMatrix(const float* quat, Maths::Matrix* matrix) { reinterpret_cast<const Maths::QuatRotation*>(quat)->GetMatrix(matrix); }
+// A quaternion (x, y, z, w) to a rotation matrix (0x0042BC40, Maths::QuatRotation::FetchMat).
+void QuatToMatrix(const float* quat, Maths::Mat4* matrix) { reinterpret_cast<const Maths::QuatRotation*>(quat)->FetchMat(matrix); }
 
 } // namespace
 
@@ -72,42 +72,42 @@ uint32_t GetNodeName(CStruct* node)
 uint32_t GetLinkCount(CStruct* node)
 {
     CArray* links = nullptr;
-    node->GetArray(kLinks, &links, 0);
-    return links ? links->m_size : 0;
+    node->FetchList(kLinks, &links, 0);
+    return links ? links->m_extent : 0;
 }
 
 // 0x0045BE10
-uint32_t GetLink(CStruct* node, int index)
+uint32_t FetchLink(CStruct* node, int index)
 {
     CArray* links = nullptr;
-    node->GetArray(kLinks, &links, 0);
-    return links->GetElement(index); // (no check that there were links)
+    node->FetchList(kLinks, &links, 0);
+    return links->FetchPart(index); // (no check that there were links)
 }
 
 // 0x0045C420
-CStruct* GetLinkedNode(CStruct* node, int index) { return Manager()->GetNode(GetLink(node, index), true); }
+CStruct* GetLinkedNode(CStruct* node, int index) { return Hub()->FetchVertex(FetchLink(node, index), true); }
 
 // 0x0045C4B0
 bool HasLinkTo(CStruct* node, CStruct* target)
 {
     CArray* links = nullptr;
-    node->GetArray(kLinks, &links, 0);
+    node->FetchList(kLinks, &links, 0);
     if (!links)
         return false;
-    int count = static_cast<int>(links->m_size);
+    int count = static_cast<int>(links->m_extent);
     for (int i = 0; i < count; ++i) {
-        if (Manager()->GetNode(links->GetElement(i), true) == target)
+        if (Hub()->FetchVertex(links->FetchPart(i), true) == target)
             return true;
     }
     return false;
 }
 
 // 0x0045C050
-bool GetPosition(CStruct* node, Maths::Vector* out)
+bool FetchPlace(CStruct* node, Maths::Vec4* out)
 {
-    if (node->GetVector(kPos, AsValue(out), 0))
+    if (node->FetchVec(kPos, AsValue(out), 0))
         return true;
-    if (node->GetVector(kPosition, AsValue(out), 0)) {
+    if (node->FetchVec(kPosition, AsValue(out), 0)) {
         out->z = -out->z; // (the files' position= is in the exporter's coordinates)
         return true;
     }
@@ -116,17 +116,17 @@ bool GetPosition(CStruct* node, Maths::Vector* out)
 }
 
 // 0x0045C180
-bool ReadTurnAngles(CStruct* node, Maths::Vector* out)
+bool ReadTurnAngles(CStruct* node, Maths::Vec4* out)
 {
     *out = {0.0f, 0.0f, 0.0f, 1.0f};
-    return node->GetVector(kAngles, AsValue(out), 0);
+    return node->FetchVec(kAngles, AsValue(out), 0);
 }
 
 // 0x0045C0B0
-void GetOrientation(CStruct* node, Maths::Matrix* out)
+void FetchFacing(CStruct* node, Maths::Mat4* out)
 {
     VectorValue v;
-    if (!node->GetVector(kOrientation, &v, 0)) {
+    if (!node->FetchVec(kOrientation, &v, 0)) {
         for (int r = 0; r < 4; ++r)
             out->row[r] = {r == 0 ? 1.0f : 0.0f, r == 1 ? 1.0f : 0.0f, r == 2 ? 1.0f : 0.0f, r == 3 ? 1.0f : 0.0f};
         return;
@@ -141,38 +141,38 @@ void GetOrientation(CStruct* node, Maths::Matrix* out)
 }
 
 // 0x0045C1B0
-CStruct* GetNode(uint32_t name, bool assert) { return Manager()->GetNode(name, assert); }
+CStruct* FetchVertex(uint32_t name, bool assert) { return Hub()->FetchVertex(name, assert); }
 
 // 0x0045BE70
-bool NodeExists(uint32_t name) { return Manager()->GetNode(name, false) != nullptr; }
+bool NodeExists(uint32_t name) { return Hub()->FetchVertex(name, false) != nullptr; }
 
 // 0x0045C3A0
-uint32_t GetLinkCount(uint32_t name) { return GetLinkCount(Manager()->GetNode(name, true)); }
+uint32_t GetLinkCount(uint32_t name) { return GetLinkCount(Hub()->FetchVertex(name, true)); }
 
 // 0x0045C3E0
-uint32_t GetLink(uint32_t name, int index) { return GetLink(Manager()->GetNode(name, true), index); }
+uint32_t FetchLink(uint32_t name, int index) { return FetchLink(Hub()->FetchVertex(name, true), index); }
 
 // 0x0045C460
 CStruct* GetLinkedNode(uint32_t name, int index)
 {
-    return GetLinkedNode(Manager()->GetNode(name, true), index);
+    return GetLinkedNode(Hub()->FetchVertex(name, true), index);
 }
 
 // 0x0045C560
-bool GetPosition(uint32_t name, Maths::Vector* out) { return GetPosition(Manager()->GetNode(name, true), out); }
+bool FetchPlace(uint32_t name, Maths::Vec4* out) { return FetchPlace(Hub()->FetchVertex(name, true), out); }
 
 // 0x0045C590
-bool ReadTurnAngles(uint32_t name, Maths::Vector* out) { return ReadTurnAngles(Manager()->GetNode(name, true), out); }
+bool ReadTurnAngles(uint32_t name, Maths::Vec4* out) { return ReadTurnAngles(Hub()->FetchVertex(name, true), out); }
 
 // 0x0045C520
 bool HasLinkTo(uint32_t name, uint32_t target)
 {
-    CStruct* node = Manager()->GetNode(name, true);
-    return HasLinkTo(node, Manager()->GetNode(target, true));
+    CStruct* node = Hub()->FetchVertex(name, true);
+    return HasLinkTo(node, Hub()->FetchVertex(target, true));
 }
 
 // 0x0045C2D0
-CStruct* FindClosestNodeWithPrefix(uint32_t prefix, const Maths::Vector* pos)
+CStruct* FindClosestNodeWithPrefix(uint32_t prefix, const Maths::Vec4* pos)
 {
     CStruct* nearest = nullptr;
     float best = 1e20f;
@@ -184,8 +184,8 @@ CStruct* FindClosestNodeWithPrefix(uint32_t prefix, const Maths::Vector* pos)
     // measured where the one before it was. Here the first such node is at the origin.)
     VectorValue p = {0.0f, 0.0f, 0.0f, 0.0f};
     for (uint32_t i = count; i; --i, ++names) {
-        CStruct* node = Manager()->GetNode(*names, true);
-        node->GetVector(kPos, &p, 0);
+        CStruct* node = Hub()->FetchVertex(*names, true);
+        node->FetchVec(kPos, &p, 0);
         // (x87, 53-bit: the differences and squares in double, summed z, y, x)
         double dx = static_cast<double>(p.x) - pos->x;
         double dy = static_cast<double>(p.y) - pos->y;
@@ -206,10 +206,10 @@ void ForEachScriptCall(uint32_t script, uint32_t target, ScriptCallCallback call
     if (depth > kMaxDepth)
         return;
     Scripts::CScriptStore* cache = Scripts::g_scriptCache;
-    const uint8_t* token = cache->GetScript(script);
+    const uint8_t* token = cache->FetchScript(script);
     CStruct* params = nullptr;
     if (void* memory = Scripts::NewStruct())
-        params = static_cast<CStruct*>(memory)->Init();
+        params = static_cast<CStruct*>(memory)->PrepareAll();
     token = Scripts::SkipToEndOfStatement(token); // (past the script's first line)
     for (;;) {
         const uint8_t* call = token;
@@ -312,27 +312,27 @@ void ForEachScriptCall(uint32_t script, uint32_t target, ScriptCallCallback call
 void ForEachNodeScriptCall(uint32_t scriptParam, uint32_t target, ScriptCallCallback callback)
 {
     Scripts::ClearScriptFlag6F2564();
-    Manager()->StartWalk(0);
-    while (CStruct* node = Manager()->NextNode()) {
+    Hub()->StartWalk(0);
+    while (CStruct* node = Hub()->NextNode()) {
         uint32_t script = 0;
         if (node->ReadHashValue(scriptParam, &script, 0))
             ForEachScriptCall(script, target, callback, nullptr, 0);
     }
-    Manager()->EndWalk();
+    Hub()->EndWalk();
     Scripts::SetScriptFlag6F2564();
 }
 
 // 0x0045C1D0
-void StartNodeWalk(uint32_t name) { Manager()->StartWalk(name); }
+void StartNodeWalk(uint32_t name) { Hub()->StartWalk(name); }
 // 0x0045C1F0
-CStruct* NextNode() { return Manager()->NextNode(); }
+CStruct* NextNode() { return Hub()->NextNode(); }
 // 0x0045C200
-void EndNodeWalk() { Manager()->EndWalk(); }
+void EndNodeWalk() { Hub()->EndWalk(); }
 // 0x0045C210
-CArray* GetLastNodeArray() { return Manager()->GetLastNodeArray(); }
+CArray* GetLastNodeArray() { return Hub()->GetLastNodeArray(); }
 // 0x0045C220
-uint32_t GetNodeOwnerValue58() { return Manager()->GetOwnerValue58(); }
+uint32_t GetNodeOwnerValue58() { return Hub()->GetOwnerValue58(); }
 // 0x0045C230
-uint32_t GetLastNodeArrayName() { return Manager()->GetLastNodeArrayName(); }
+uint32_t GetLastNodeArrayName() { return Hub()->GetLastNodeArrayName(); }
 
 } // namespace LevelNodes

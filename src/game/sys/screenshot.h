@@ -23,11 +23,11 @@
 namespace SystemCore::Screenshot {
 
 // [features] screenshots (read once).
-bool Enabled();
+bool IsSwitchedOn();
 // The key's SDL scan code (0 while off).
 int Key();
 // Start listening for the key (Sio::InitSdlInput, after the input settings are read).
-void Init();
+void PrepareAll();
 // Once a frame from the main loop, just before the frame is ended and presented (`rendering`: this frame is drawn).
 // Takes a requested picture (the frame's scene open, everything drawn), hands it to the writer and, when the writer
 // is done, logs and shows the result.

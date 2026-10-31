@@ -36,13 +36,13 @@ struct FrontEnd;
 namespace MouseMenus {
 
 // [features] mouse_menus (read once).
-bool& Enabled();
+bool& IsSwitchedOn();
 
 // Start listening to SDL's mouse events (Sio::InitSdlInput; nothing when the feature is off).
-void Init();
+void PrepareAll();
 // Once a frame, from the front end's first input handler (GameModules::FrontEnd::InputLogic): the cursor shown or hidden,
 // then the mouse's movement, clicks and wheel turned into menu events.
-void Update(GameModules::FrontEnd* frontEnd);
+void TickFrame(GameModules::FrontEnd* frontEnd);
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
@@ -63,21 +63,21 @@ bool WindowToLayout(const ScreenMapping& mapping, float windowX, float windowY, 
 // An element's rectangle on the layout: its absolute top left (+0x134, after its justification and its parents'
 // positions and scales) and its size (+0x160 / +0x164, the base dims, times its absolute scale +0x13C / +0x140).
 // Rotation is ignored.
-struct Rect {
+struct Rect2 {
     float left, top, right, bottom;
-    bool Contains(float x, float y) const { return x >= left && x < right && y >= top && y < bottom; }
+    bool Holds(float x, float y) const { return x >= left && x < right && y >= top && y < bottom; }
 };
-Rect ElementRect(const MenuSystem::CUiWidget* element);
+Rect2 ElementRect(const MenuSystem::CUiWidget* element);
 
 // An element's area with its rotation: from its absolute top left (+0x134 / +0x138) along its absolute angle
 // (+0x14C, radians: its own and its parents' - the layout pass 0x004A9D30 places a child's top left at the
 // parent's top left plus the parent's angle turning the scaled local offset, so an element's contents lie along
 // its angle from its top left), `width` x `height` (base dims times absolute scale; either may be negative).
-struct Box {
+struct Cuboid {
     float x, y, width, height, angle;
 };
-Box ElementBox(const MenuSystem::CUiWidget* element);
-bool BoxContains(const Box& box, float x, float y);
+Cuboid ElementBox(const MenuSystem::CUiWidget* element);
+bool BoxContains(const Cuboid& box, float x, float y);
 // Whether an angle turns anything (not a whole number of turns).
 bool Rotated(float angle);
 
@@ -105,7 +105,7 @@ bool ItemPassedOver(const MenuSystem::CUiWidget* item);
 // parts count each as its own turned box.
 bool ItemContains(const MenuSystem::CUiWidget* item, const MenuSystem::CUiWidget* menu, float x, float y);
 // The rectangle around all of it (for the debug log).
-Rect ItemBounds(const MenuSystem::CUiWidget* item, const MenuSystem::CUiWidget* menu);
+Rect2 ItemBounds(const MenuSystem::CUiWidget* item, const MenuSystem::CUiWidget* menu);
 // A menu whose items are turned (the main menu's spin menu: its vmenu and items have rot_angle): hovering
 // doesn't select (the items would turn away under the cursor and the next one would be selected, and so on);
 // a click turns it to the item and chooses it.
@@ -165,6 +165,6 @@ void SendMenuPadEvent(GameModules::FrontEnd* frontEnd, uint32_t event);
 
 // A click on an item with its own pad_left / pad_right handlers: -1 in its left 30%, +1 in its right 30%, else 0
 // (pad_choose).
-int OptionSide(const Rect& item, float x);
+int OptionSide(const Rect2& item, float x);
 
 } // namespace MouseMenus

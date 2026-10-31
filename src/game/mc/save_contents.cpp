@@ -64,12 +64,12 @@ constexpr uint32_t kLayerInfos = 0x9A5FF0A3;             // "layer_infos"
 constexpr uint32_t kGoalEditor = 0x81F01058;             // "GoalEditor": the object and its component
 constexpr int kControllers = 8;
 
-GameModules::Skate* Skate() { return GameModules::Skate::Instance(); }
+GameModules::Skate* Skate() { return GameModules::Skate::Sole(); }
 GameObjects::CProfileRoster* Profiles() { return GameObjects::g_profileManager; }
 Highscores::CBestResults* GameRecords() { return Highscores::g_gameRecords; }
-OnlinePlay::Manager* GameNetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* GameNetManager() { return OnlinePlay::g_gameNetManager; }
 GameObjects::CRiderStoryProgress* Career() { return *reinterpret_cast<GameObjects::CRiderStoryProgress**>(reinterpret_cast<uint8_t*>(Skate()) + 0x20); }
-int Platform() { return GameConfig::g_platform; }
+int OsLayer() { return GameConfig::g_platform; }
 
 // The skate module's split-screen preferences (0x00564D80, no source yet).
 OptionStore::Preferences* SplitScreenPreferences()
@@ -85,8 +85,8 @@ CStruct* PreferencesStructure(OptionStore::Preferences* preferences)
 // The goal editor's component (its object's, both named GoalEditor).
 GameObjects::CObjectModule* GoalEditorComponent()
 {
-    GameObjects::CObject* object = GameObjects::g_tracker->LookUpObject(kGoalEditor);
-    return static_cast<GameObjects::CGameEntity*>(object)->GetComponent(kGoalEditor);
+    GameObjects::CEntity* object = GameObjects::g_tracker->LookUpObject(kGoalEditor);
+    return static_cast<GameObjects::CGameEntity*>(object)->FetchModule(kGoalEditor);
 }
 
 // The skate module's controller settings: each controller's three flags (+0x394 + 8 * n: vibration, autokick,
@@ -96,7 +96,7 @@ uint8_t* ControllerFlags(int controller) { return reinterpret_cast<uint8_t*>(Ska
 CStruct* NewStructure()
 {
     CStruct* structure = Scripts::NewStruct();
-    return structure ? structure->Init() : nullptr;
+    return structure ? structure->PrepareAll() : nullptr;
 }
 void DeleteStructure(CStruct* structure)
 {
@@ -119,14 +119,14 @@ void WriteGlobalInfo(CStruct* global)
 
     CStruct* sound = NewStructure();
     sound->PushFloat(kMainVolume, SoundFx::FetchMasterLoudness());
-    sound->PushFloat(kMusicVolume, Scripts::GetFloat(kMusicVolOutsideBox));
+    sound->PushFloat(kMusicVolume, Scripts::FetchFloat(kMusicVolOutsideBox));
     uint64_t tracksOff[2];
     AudioStream::GetTracksOff(&tracksOff[0], &tracksOff[1]);
     sound->PutInt(kForbiddenTracks1, static_cast<int>(tracksOff[0] >> 32));
     sound->PutInt(kForbiddenTracks2, static_cast<int>(tracksOff[0]));
     sound->PutInt(kForbiddenTracks3, static_cast<int>(tracksOff[1] >> 32));
     sound->PutInt(kForbiddenTracks4, static_cast<int>(tracksOff[1]));
-    if (Platform() == 4)
+    if (OsLayer() == 4)
         sound->PutNameKey(kCurrentSoundtrack, Scripts::GetSymbolValue("current_soundtrack"));
     if (AudioStream::RandomTrackOrder())
         sound->PutNameKey(0u, kRandomMode);
@@ -134,7 +134,7 @@ void WriteGlobalInfo(CStruct* global)
 
     CArray* controllers = Scripts::NewArray();
     if (controllers)
-        controllers = controllers->Init();
+        controllers = controllers->PrepareAll();
     controllers->ConfigureSizeKind(kControllers, Scripts::QBVAL_STRUCT);
     for (int i = 0; i < kControllers; ++i) {
         CStruct* controller = NewStructure();
@@ -174,10 +174,10 @@ void ReadGlobalInfo(CStruct* global, CScript* script)
     options->ReadSubStruct(kSoundOptions, &sound, 0);
     auto* sfx = SoundFx::g_sfxManager;
     float mainVolume = 0.0f;
-    if (sound->GetFloat(kMainVolume, &mainVolume, 0))
+    if (sound->FetchFloat(kMainVolume, &mainVolume, 0))
         sfx->ChangeMasterLoudness(mainVolume);
     float musicVolume = 0.0f;
-    if (sound->GetFloat(kMusicVolume, &musicVolume, 0)) {
+    if (sound->FetchFloat(kMusicVolume, &musicVolume, 0)) {
         AudioStream::SetMusicVolume(musicVolume);
         CStruct* change = NewStructure();
         change->PushFloat(kMusicVolOutsideBox, musicVolume);
@@ -194,7 +194,7 @@ void ReadGlobalInfo(CStruct* global, CScript* script)
         AudioStream::SetTracksOff(low, high);
     }
     AudioStream::SetRandomMode(sound->HasBareFlag(kRandomMode) ? 1 : 0);
-    if (Platform() == 4) {
+    if (OsLayer() == 4) {
         uint32_t soundtrack = 0xFFFFFFFF;
         sound->ReadHashValue(kCurrentSoundtrack, &soundtrack, 0);
         if (Scripts::CSymbolTableEntry* symbol = Scripts::FindSymbol(kCurrentSoundtrack))
@@ -206,12 +206,12 @@ void ReadGlobalInfo(CStruct* global, CScript* script)
     }
 
     CArray* controllers = nullptr;
-    if (options->GetArray(kControllerPreferences, &controllers, 0)) {
+    if (options->FetchList(kControllerPreferences, &controllers, 0)) {
         GameModules::Skate* skate = Skate();
         for (int i = 0; i < kControllers; ++i) {
-            auto* controller = reinterpret_cast<CStruct*>(controllers->GetElement(static_cast<uint32_t>(i)));
+            auto* controller = reinterpret_cast<CStruct*>(controllers->FetchPart(static_cast<uint32_t>(i)));
             // the skate module's setters (no source yet): vibration, autokick, spin taps
-            skate->SetVibration(i, controller->HasBareFlag(kVibrationOn));
+            skate->ChangeRumble(i, controller->HasBareFlag(kVibrationOn));
             skate->SetAutoEject(i, controller->HasBareFlag(kAutokickOn));
             skate->SetTurnTapCount(i, controller->HasBareFlag(kSpinTapsOn));
         }
@@ -238,11 +238,11 @@ void ReadGlobalInfo(CStruct* global, CScript* script)
         results->PutNameKey(kLastGameMode, lastMode);
 
     // the first profile: a custom skater keeps its CAS file name
-    // (0x00564F80, the overload taking the params - none: not GetProfile(int))
-    auto* profile = Skate()->GetProfile(static_cast<CStruct*>(nullptr));
+    // (0x00564F80, the overload taking the params - none: not FetchAccount(int))
+    auto* profile = Skate()->FetchAccount(static_cast<CStruct*>(nullptr));
     if (!profile->IsPro()) {
         const char* casFileName = "Unimplemented"; // "Unimplemented"
-        global->GetString(0xF36C1878u, &casFileName, 0); // CASFileName
+        global->FetchText(0xF36C1878u, &casFileName, 0); // CASFileName
         profile->SetStringF36C1878(casFileName);
     }
 }
@@ -264,7 +264,7 @@ void WriteSaveContents(CStruct* contents, uint32_t type)
         return;
     }
     case kSavePark:
-        ParkEditing::CParkBuilderMode::Instance()->ExportToStruct(contents);
+        ParkEditing::CParkBuilderMode::Sole()->ExportToStruct(contents);
         return;
     case kSaveNetworkSettings:
         contents->AppendStructureIfAny(PreferencesStructure(GameNetManager()->GetOnlineSettings()));
@@ -288,11 +288,11 @@ void WriteSaveContents(CStruct* contents, uint32_t type)
         Profiles()->WriteCustomSkaters(customSkater);
         contents->AppendStructRef(kCustomSkater, customSkater);
         // (on into CreatedGraphic's layer_infos, as the original does)
-        contents->AppendArrayValue(kLayerInfos, Scripts::GetArray(0x8EAD7D43u)); // edit_graphic_layer_infos
+        contents->AppendArrayValue(kLayerInfos, Scripts::FetchList(0x8EAD7D43u)); // edit_graphic_layer_infos
         return;
     }
     case kSaveCreatedGraphic:
-        contents->AppendArrayValue(kLayerInfos, Scripts::GetArray(0x8EAD7D43u)); // edit_graphic_layer_infos
+        contents->AppendArrayValue(kLayerInfos, Scripts::FetchList(0x8EAD7D43u)); // edit_graphic_layer_infos
         return;
     default:
         return;
@@ -318,19 +318,19 @@ void ApplyLoadedContents(uint32_t type, CStruct* contents, CScript* script, CStr
         contents->ReadSubStruct("other_params", &other, 1);
         reinterpret_cast<CStruct*>(*reinterpret_cast<CStruct**>(skater->m_trickInfo[0] + 4))->AppendStructureIfAny(other);
         CArray* rotation = nullptr;
-        contents->GetArray("rotation_info", &rotation, 1);
+        contents->FetchList("rotation_info", &rotation, 1);
         Scripts::DuplicateArray(*reinterpret_cast<CArray**>(skater->m_trickInfo[0] + 8), rotation);
         CArray* animation = nullptr;
-        contents->GetArray("animation_info", &animation, 1);
+        contents->FetchList("animation_info", &animation, 1);
         Scripts::DuplicateArray(*reinterpret_cast<CArray**>(skater->m_trickInfo[0] + 0xC), animation);
         return;
     }
     case kSavePark:
-        ParkEditing::CParkBuilderMode::Instance()->DecodeFromStruct(contents, true);
+        ParkEditing::CParkBuilderMode::Sole()->DecodeFromStruct(contents, true);
         return;
     case kSaveCreatedGraphic: {
         CArray* layers = nullptr;
-        contents->GetArray(kLayerInfos, &layers, 1);
+        contents->FetchList(kLayerInfos, &layers, 1);
         params->AppendArrayValue(kLayerInfos, layers);
         return;
     }
@@ -357,7 +357,7 @@ void ApplyLoadedContents(uint32_t type, CStruct* contents, CScript* script, CStr
             contents->ReadSubStruct(kCustomSkater, &customSkater, 1);
             GameObjects::CProfileRoster* profiles = Profiles();
             // the stats kept unless the current skater is the first (the manager's +0x1C, 0x00553E90)
-            bool keep = reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&GoalSystem::CObjective::GetParams))(profiles) != 0;
+            bool keep = reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&GoalSystem::CObjective::FetchArgs))(profiles) != 0;
             profiles->ReadCustomSkater(customSkater, keep);
             loadedCustomSkater = true;
         }
@@ -370,7 +370,7 @@ void ApplyLoadedContents(uint32_t type, CStruct* contents, CScript* script, CStr
             ApplyCatAndCustomSkater(storySkater, customSkater);
         }
         CArray* layers = nullptr;
-        contents->GetArray(kLayerInfos, &layers, 1);
+        contents->FetchList(kLayerInfos, &layers, 1);
         params->AppendArrayValue(kLayerInfos, layers);
         sections = 0;
         return;

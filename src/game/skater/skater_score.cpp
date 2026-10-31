@@ -39,24 +39,24 @@ constexpr uint32_t kValue = 0xE288A7CB, kKeycombo = 0x95E16467, kSpin = 0xEDF5DB
                    kTrickText = 0x3EAFA520, kTotalScore = 0xEE5B2B48, kNumberOfNonGapTricks = 0xFFE7E02C;
 
 template <typename T>
-T& Field(void* object, uint32_t offset)
+T& Prop(void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-// The score (GameModules::Score).
-GameModules::Score* ScoreOf(uint8_t* score) { return reinterpret_cast<GameModules::Score*>(score); }
+// The score (GameModules::PointTally).
+GameModules::PointTally* ScoreOf(uint8_t* score) { return reinterpret_cast<GameModules::PointTally*>(score); }
 int TotalScore(uint8_t* score) { return ScoreOf(score)->GetTotalScore(); }
 // The score so far times the multiplier (+0x14 * +0x60), truncated as the original's _ftol.
 int ScorePot(uint8_t* score)
 {
-    double pot = static_cast<double>(Field<int>(score, 0x14)) * Field<float>(score, 0x60);
+    double pot = static_cast<double>(Prop<int>(score, 0x14)) * Prop<float>(score, 0x60);
     return static_cast<int>(static_cast<int64_t>(pot));
 }
-int LastScoreLanded(uint8_t* score) { return Field<int>(score, 0x20); }
+int LastScoreLanded(uint8_t* score) { return Prop<int>(score, 0x20); }
 
 // The career (the skate module 0x007CE478's +0x20; not rewritten here).
-uint8_t* Career() { return Field<uint8_t*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule), 0x20); }
+uint8_t* Career() { return Prop<uint8_t*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule), 0x20); }
 
 // The unnamed integer (asserted). Without one the original's variable keeps what was in its stack slot - the
 // `params` argument it reuses - so that's the value then.
@@ -70,15 +70,15 @@ int NumberParameter(Scripts::CStruct* params)
 } // namespace
 
 // 0x00518B60
-CObjectModule* __cdecl CRiderPointKeeper::Create()
+CObjectModule* __cdecl CRiderPointKeeper::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CRiderPointKeeper));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CRiderPointKeeper*>(memory);
-    component->CObjectModule::Construct();
+    component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
-    component->m_type = kSkaterScore;
+    component->m_kindTag = kSkaterScore;
     component->m_pointsHeld = nullptr;
     return component;
 }
@@ -89,17 +89,17 @@ void CRiderPointKeeper::DestroyBody()
     m_vtable = kVtable;
     if (uint8_t* score = m_pointsHeld) {
         ScoreOf(score)->DestroyBody(); // (its destructor)
-        MemSys::Manager::Get()->Free(score);
+        MemSys::Hub::Pull()->Dealloc(score);
     }
     CObjectModule::DestroyBody();
 }
 
 // 0x00518C50
-CRiderPointKeeper* CRiderPointKeeper::Destroy(unsigned int flags)
+CRiderPointKeeper* CRiderPointKeeper::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -109,19 +109,19 @@ void CRiderPointKeeper::ConfigureFromData(Scripts::CStruct* /*params*/)
     if (m_pointsHeld)
         return;
     void* memory = MemSys::AllocZeroed(0x1550);
-    m_pointsHeld = memory ? reinterpret_cast<uint8_t*>(static_cast<GameModules::Score*>(memory)->Construct()) : nullptr; // (its constructor)
-    ScoreOf(m_pointsHeld)->SetRiderNumber(static_cast<int16_t>(m_object->m_id));
+    m_pointsHeld = memory ? reinterpret_cast<uint8_t*>(static_cast<GameModules::PointTally*>(memory)->MakeNew()) : nullptr; // (its constructor)
+    ScoreOf(m_pointsHeld)->SetRiderNumber(static_cast<int16_t>(m_entity->m_ident));
 }
 
 // 0x005186E0
-void CRiderPointKeeper::Update()
+void CRiderPointKeeper::TickFrame()
 {
-    if (!m_object->m_unknownBC) {
+    if (!m_entity->m_unknownBC) {
         VirtualSuspend(true);
         return;
     }
-    ScoreOf(m_pointsHeld)->Update();
-    bool alwaysSpecial = Field<uint8_t>(m_object, 0x168) != 0 ||
+    ScoreOf(m_pointsHeld)->TickFrame();
+    bool alwaysSpecial = Prop<uint8_t>(m_entity, 0x168) != 0 ||
                          reinterpret_cast<CRiderStoryProgress*>(Career())->IsCodeOn(kCheatAlwaysSpecial);
     if (alwaysSpecial) {
         uint8_t* career = Career();
@@ -168,25 +168,25 @@ int CRiderPointKeeper::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
         return ScorePot(m_pointsHeld) > value ? 1 : 0;
     }
     case kGetSpecialValue:
-        script->m_params->PutInt(kValue, Field<int>(m_pointsHeld, 0x70));
+        script->m_args->PutInt(kValue, Prop<int>(m_pointsHeld, 0x70));
         return 1;
     case kSetSpecialValue: {
         // (no value: the params pointer, as NumberParameter's)
         int value = static_cast<int>(reinterpret_cast<uintptr_t>(params));
         params->FetchIntValue(kValue, &value, 0);
-        Field<int>(m_pointsHeld, 0x70) = value;
+        Prop<int>(m_pointsHeld, 0x70) = value;
         return 1;
     }
     case kGotSpecial:
-        return Field<uint8_t>(m_pointsHeld, 0x74) ? 1 : 0;
+        return Prop<uint8_t>(m_pointsHeld, 0x74) ? 1 : 0;
     case kForceSpecial:
         ScoreOf(m_pointsHeld)->FillSpecial();
         return 1;
     case kGetTotalScore:
-        script->m_params->PutInt(kTotalScore, TotalScore(m_pointsHeld));
+        script->m_args->PutInt(kTotalScore, TotalScore(m_pointsHeld));
         return 1;
     case kGetNumberOfNonGapTricks:
-        script->m_params->PutInt(kNumberOfNonGapTricks, ScoreOf(m_pointsHeld)->CountNonGapTricks());
+        script->m_args->PutInt(kNumberOfNonGapTricks, ScoreOf(m_pointsHeld)->CountNonGapTricks());
         return 1;
     case kTweakTrick: {
         int tweak = 0;
@@ -202,7 +202,7 @@ int CRiderPointKeeper::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
         uint32_t keyCombo;
         const char* text = nullptr;
         bool byKeyCombo = params->ReadHashValue(kKeycombo, &keyCombo, 0);
-        if (!byKeyCombo && !params->GetString(kTrickText, &text, 0))
+        if (!byKeyCombo && !params->FetchText(kTrickText, &text, 0))
             return 2;
         int spin = 0;
         if (params->FetchIntValue(kSpin, &spin, 0))
@@ -223,14 +223,14 @@ int CRiderPointKeeper::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPointKeeper::Destroy,
-         &GameObjects::CRiderPointKeeper::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPointKeeper::Teardown,
+         &GameObjects::CRiderPointKeeper::TickFrame,
          &GameObjects::CRiderPointKeeper::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

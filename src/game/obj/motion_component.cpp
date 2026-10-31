@@ -49,20 +49,20 @@ int GameClock() { return FrameClock::GameClockElapsed() + g_clockOffset; }
 // --- life ---
 
 // 0x00426650
-CObjectModule* __cdecl CKinematicsModule::Create()
+CObjectModule* __cdecl CKinematicsModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CKinematicsModule));
-    return memory ? static_cast<CKinematicsModule*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CKinematicsModule*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x00424AA0
-CKinematicsModule* CKinematicsModule::Construct()
+CKinematicsModule* CKinematicsModule::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kVtable;
     m_groundSpeed = 0.0f;
     m_groundOffset = 0.0f;
-    m_type = kType;
+    m_kindTag = kType;
     mp_pathFollower = nullptr;
     m_pathGroup = nullptr;
     m_groundHeightOnly = true;
@@ -80,30 +80,30 @@ void CKinematicsModule::DestroyBody()
         mp_pathFollower = nullptr;
     }
     if (mp_turn) {
-        MemSys::Manager::Get()->Free(mp_turn); // (no destructor run)
+        MemSys::Hub::Pull()->Dealloc(mp_turn); // (no destructor run)
         mp_turn = nullptr;
     }
     if (CFollowTrail* trail = mp_trail) {
         // (its destructor: the empty 0x005480A0)
-        MemSys::Manager::Get()->Free(trail);
+        MemSys::Hub::Pull()->Dealloc(trail);
         mp_trail = nullptr;
     }
     CObjectModule::DestroyBody();
 }
 
 // 0x004266F0
-CKinematicsModule* CKinematicsModule::Destroy(unsigned int flags)
+CKinematicsModule* CKinematicsModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00423D00
 void CKinematicsModule::Reset()
 {
-    const Maths::Vector rest = {0.0f, 0.0f, 0.0f, 1.0f};
+    const Maths::Vec4 rest = {0.0f, 0.0f, 0.0f, 1.0f};
     m_rotTarget = rest;
     m_rotDone = rest;
     m_rotMaxSpeed = rest;
@@ -129,10 +129,10 @@ void CKinematicsModule::Reset()
     m_turnElapsed = 0.0f;
     m_motionFlags = 0;
     m_motionFlags2 = 0;
-    for (Maths::Vector& corner : m_groundTriangle)
+    for (Maths::Vec4& corner : m_groundTriangle)
         corner = rest;
     for (auto& triangle : m_groundTriangles)
-        for (Maths::Vector& corner : triangle)
+        for (Maths::Vec4& corner : triangle)
             corner = rest;
 }
 
@@ -142,7 +142,7 @@ void CKinematicsModule::InitPathFollower(CGameEntity* owner)
     if (mp_pathFollower)
         return;
     void* memory = MemSys::AllocZeroed(sizeof(CPathFollower));
-    mp_pathFollower = memory ? static_cast<CPathFollower*>(memory)->Construct(owner) : nullptr;
+    mp_pathFollower = memory ? static_cast<CPathFollower*>(memory)->MakeNew(owner) : nullptr;
 }
 
 // --- the vtable ---
@@ -205,9 +205,9 @@ void CKinematicsModule::UpdateHover()
     phase = phase * static_cast<double>(Bits(0x40490FDB)) / static_cast<double>(m_hoverPeriod); // (pi)
     float offset = static_cast<float>(X87Sin(phase) * static_cast<double>(m_hoverAmplitude));
     m_hoverOffset = offset;
-    float height = m_object->m_pos.y;
+    float height = m_entity->m_atPoint.y;
     m_hoverBase = height;
-    m_object->m_pos.y = static_cast<float>(static_cast<double>(offset) + height);
+    m_entity->m_atPoint.y = static_cast<float>(static_cast<double>(offset) + height);
 }
 
 // --- script member functions ---
@@ -215,7 +215,7 @@ void CKinematicsModule::UpdateHover()
 // 0x004237D0
 bool CKinematicsModule::Obj_StorePos(Scripts::CStruct*, Scripts::CScript*)
 {
-    m_storedPos = m_object->m_pos;
+    m_storedPos = m_entity->m_atPoint;
     return true;
 }
 
@@ -234,7 +234,7 @@ bool CKinematicsModule::Obj_SetConstantHeight(Scripts::CStruct* params, Scripts:
         return true;
     }
     m_motionFlags2 |= MOTION2_CONSTANT_HEIGHT;
-    params->GetFloat(0u, &m_object->m_pos.y, 0);
+    params->FetchFloat(0u, &m_entity->m_atPoint.y, 0);
     return true;
 }
 
@@ -243,7 +243,7 @@ bool CKinematicsModule::Obj_GetRandomLink(Scripts::CStruct*, Scripts::CScript* s
 {
     uint32_t links = LevelNodes::GetLinkCount(m_listLink);
     if (links)
-        script->m_params->PutInt(kLink, Maths::Rnd(static_cast<int>(links)) + 1);
+        script->m_args->PutInt(kLink, Maths::Rnd(static_cast<int>(links)) + 1);
     return true;
 }
 
@@ -251,14 +251,14 @@ bool CKinematicsModule::Obj_GetRandomLink(Scripts::CStruct*, Scripts::CScript* s
 bool CKinematicsModule::Obj_Hover(Scripts::CStruct* params, Scripts::CScript*)
 {
     if (params->HasBareFlag(kOff)) {
-        m_object->m_pos.y = m_hoverBase;
+        m_entity->m_atPoint.y = m_hoverBase;
         m_motionFlags &= ~MOTION_HOVERING;
         return true;
     }
     m_hoverOffset = 0.0f;
-    params->GetFloat(kAmp, &m_hoverAmplitude, 0);
+    params->FetchFloat(kAmp, &m_hoverAmplitude, 0);
     float frequency = 1.0f;
-    params->GetFloat(kFreq, &frequency, 0);
+    params->FetchFloat(kFreq, &frequency, 0);
     int period = Truncate(static_cast<double>(Bits(0x447A0000)) / frequency); // (1000)
     m_hoverPeriod = period;
     // (a tenth either way: period - period / 10 + Rnd(period * 2 / 10), in the original's 32-bit arithmetic)
@@ -269,7 +269,7 @@ bool CKinematicsModule::Obj_Hover(Scripts::CStruct* params, Scripts::CScript*)
     if (period <= 0)
         m_hoverPeriod = 1;
     m_motionFlags |= MOTION_HOVERING;
-    m_hoverBase = m_object->m_pos.y;
+    m_hoverBase = m_entity->m_atPoint.y;
     return true;
 }
 
@@ -279,11 +279,11 @@ bool CKinematicsModule::Obj_GetSpeed(Scripts::CStruct* params, Scripts::CScript*
     float speed = 0.0f;
     if (m_motionFlags & MOTION_MOVING) {
         speed = m_moveSpeed;
-    } else if (m_object->GetComponent(kLockObj) &&
-               (static_cast<CPinnedObjectModule*>(m_object->GetComponent(kLockObj))->m_lockFlags & LOCK_FLAG_LOCKED)) {
-        float dx = static_cast<float>(static_cast<double>(m_object->m_pos.x) - m_object->m_oldPos.x);
-        float dy = static_cast<float>(static_cast<double>(m_object->m_pos.y) - m_object->m_oldPos.y);
-        float dz = static_cast<float>(static_cast<double>(m_object->m_pos.z) - m_object->m_oldPos.z);
+    } else if (m_entity->FetchModule(kLockObj) &&
+               (static_cast<CPinnedObjectModule*>(m_entity->FetchModule(kLockObj))->m_lockFlags & LOCK_FLAG_LOCKED)) {
+        float dx = static_cast<float>(static_cast<double>(m_entity->m_atPoint.x) - m_entity->m_oldPos.x);
+        float dy = static_cast<float>(static_cast<double>(m_entity->m_atPoint.y) - m_entity->m_oldPos.y);
+        float dz = static_cast<float>(static_cast<double>(m_entity->m_atPoint.z) - m_entity->m_oldPos.z);
         double frame = FrameClock::GetSlomoFrameSeconds();
         if (!(frame == 0.0)) {
             double moved = std::sqrt((static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) +
@@ -291,7 +291,7 @@ bool CKinematicsModule::Obj_GetSpeed(Scripts::CStruct* params, Scripts::CScript*
             speed = static_cast<float>(moved / frame);
         }
     } else {
-        const Maths::Vector& v = m_object->m_vel;
+        const Maths::Vec4& v = m_entity->m_vel;
         speed = static_cast<float>(std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) +
                                              static_cast<double>(v.z) * v.z));
     }
@@ -300,7 +300,7 @@ bool CKinematicsModule::Obj_GetSpeed(Scripts::CStruct* params, Scripts::CScript*
         float scale = params->HasBareFlag(kFps) ? Bits(0x3DAAAAAB) : Bits(0x3D68BA2E); // 1 / 12, 1 / 17.6
         speed = static_cast<float>(static_cast<double>(speed) * scale);
     }
-    script->m_params->PushFloat("Speed", speed);
+    script->m_args->PushFloat("Speed", speed);
     return true;
 }
 
@@ -308,18 +308,18 @@ bool CKinematicsModule::Obj_GetSpeed(Scripts::CStruct* params, Scripts::CScript*
 bool CKinematicsModule::Obj_Jump(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_jumpSpeed = 150.0f;
-    params->GetFloat(kSpeed, &m_jumpSpeed, 0);
+    params->FetchFloat(kSpeed, &m_jumpSpeed, 0);
     m_jumpStartSpeed = m_jumpSpeed;
     m_jumpGravity = -360.0f;
-    params->GetFloat(kGravity, &m_jumpGravity, 0);
-    m_jumpStart = m_object->m_pos;
+    params->FetchFloat(kGravity, &m_jumpGravity, 0);
+    m_jumpStart = m_entity->m_atPoint;
     m_jumpColAbove = 6.0f;
-    params->GetFloat(kColDistAbove, &m_jumpColAbove, 0);
+    params->FetchFloat(kColDistAbove, &m_jumpColAbove, 0);
     m_jumpColBelow = 6.0f;
-    params->GetFloat(kColDistBelow, &m_jumpColBelow, 0);
-    bool heading = params->GetVector(kHeading, reinterpret_cast<Scripts::VectorValue*>(&m_jumpHeading), 0);
+    params->FetchFloat(kColDistBelow, &m_jumpColBelow, 0);
+    bool heading = params->FetchVec(kHeading, reinterpret_cast<Scripts::VectorValue*>(&m_jumpHeading), 0);
     if (!heading && params->HasBareFlag(kUseCurrentHeading)) {
-        m_jumpHeading = m_object->m_displayMatrix.row[2];
+        m_jumpHeading = m_entity->m_displayMatrix.row[2];
         heading = true;
     }
     if (heading) {
@@ -331,7 +331,7 @@ bool CKinematicsModule::Obj_Jump(Scripts::CStruct* params, Scripts::CScript*)
         m_jumpHasHeading = false;
     }
     m_jumpHasLandHeight = false;
-    if (params->GetFloat(kLandHeight, &m_jumpLandHeight, 0))
+    if (params->FetchFloat(kLandHeight, &m_jumpLandHeight, 0))
         m_jumpHasLandHeight = true;
     m_motionFlags |= MOTION_JUMPING;
     return true;
@@ -344,14 +344,14 @@ using GameObjects::CKinematicsModule;
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&CKinematicsModule::Destroy,
-         &CKinematicsModule::Update,
+static VtableSlot kVtable_slots[] = {&CKinematicsModule::Teardown,
+         &CKinematicsModule::TickFrame,
          &CKinematicsModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          &CKinematicsModule::StepWaitState,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

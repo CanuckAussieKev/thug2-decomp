@@ -22,7 +22,7 @@
 // arguments in other registers. One caller relies on ECX surviving a call: 0x00472E70 calls 0x00472D20 and
 // reads ECX afterwards (both must be ours together, or 0x00472D20 must preserve ECX - it does in the original).
 namespace GameObjects {
-class CObject;          // a game object (CSharedBase; +0x100 its component list)
+class CEntity;          // a game object (CSharedBase; +0x100 its component list)
 class CObjectModule;   // one of an object's components; can hold a script waiting on it
 class CSignalRouteTable; // a script's event handlers (game/obj/event.h)
 struct CSignal;          // an event (game/obj/event.h)
@@ -63,11 +63,11 @@ struct SRepeatFrame {
     bool m_argsSeen;          // repeat had a count (otherwise the loop is endless)
     bool m_argsExpected;   // repeat's arguments not read yet
     uint16_t unknownA;
-    int mCount;              // repeats left
+    int m_headcount;              // repeats left
 };
 static_assert(sizeof(SRepeatFrame) == 0x10, "layout must match the original");
 static_assert(offsetof(SRepeatFrame, m_tokensEnd) == 0x4 && offsetof(SRepeatFrame, m_argsSeen) == 0x8 &&
-                  offsetof(SRepeatFrame, m_argsExpected) == 0x9 && offsetof(SRepeatFrame, mCount) == 0xC,
+                  offsetof(SRepeatFrame, m_argsExpected) == 0x9 && offsetof(SRepeatFrame, m_headcount) == 0xC,
               "layout must match the original");
 
 // A return address (0x30 bytes): the calling level's state, saved by RunSubScript and restored by
@@ -75,9 +75,9 @@ static_assert(offsetof(SRepeatFrame, m_tokensEnd) == 0x4 && offsetof(SRepeatFram
 // heap (no check beyond 16).
 struct SCallFrame {
     uint32_t m_scriptId;        // +0x00 m_scriptTitle
-    CStruct* m_argStruct;           // +0x04 m_params (owned)
+    CStruct* m_argStruct;           // +0x04 m_args (owned)
     const uint8_t* m_callerFrame; // +0x08 m_pc
-    GameObjects::CObject* m_ownerEntity;      // +0x0C m_object (a plain pointer here: ObjectDestroyed clears it)
+    GameObjects::CEntity* m_ownerEntity;      // +0x0C m_entity (a plain pointer here: ObjectDestroyed clears it)
     SRepeatFrame* m_loopState;               // +0x10 m_currentLoop
     uint32_t mOnExitScript;      // +0x14 m_onExitScript
     GameObjects::CObjectModule* m_sleepComponent; // +0x18 m_waitComponent
@@ -85,7 +85,7 @@ struct SCallFrame {
     uint32_t mWaitArg;           // +0x20 m_waitArg
     int mWaitCounter;            // +0x24 m_waitCounter
     uint32_t m_suspendKind;          // +0x28 bits 0-3: m_waitType (the other bits are kept as they are)
-    uint8_t mFlags;              // +0x2C bit 0: m_waitTimerStarted, bit 1: the level was an interrupt
+    uint8_t m_traitMask;              // +0x2C bit 0: m_waitTimerStarted, bit 1: the level was an interrupt
     uint8_t unknown2D[3];
 };
 static_assert(sizeof(SCallFrame) == 0x30, "layout must match the original");
@@ -94,7 +94,7 @@ static_assert(offsetof(SCallFrame, m_argStruct) == 0x04 && offsetof(SCallFrame, 
                   offsetof(SCallFrame, mOnExitScript) == 0x14 &&
                   offsetof(SCallFrame, m_sleepComponent) == 0x18 && offsetof(SCallFrame, m_sleepTimer) == 0x1C &&
                   offsetof(SCallFrame, mWaitArg) == 0x20 && offsetof(SCallFrame, mWaitCounter) == 0x24 &&
-                  offsetof(SCallFrame, m_suspendKind) == 0x28 && offsetof(SCallFrame, mFlags) == 0x2C,
+                  offsetof(SCallFrame, m_suspendKind) == 0x28 && offsetof(SCallFrame, m_traitMask) == 0x2C,
               "layout must match the original");
 constexpr uint32_t RETURN_WAIT_TYPE_MASK = 0xF;
 constexpr uint8_t RETURN_FLAG_TIMER_STARTED = 0x01;
@@ -109,12 +109,12 @@ struct SParamScript {
 static_assert(sizeof(SParamScript) == 8, "allocated as 8 bytes by 0x0048B200");
 
 // A member function's table entry (the value of a QBVAL_NATIVE_METHOD symbol, token 0x46), 0x18 bytes: the
-// tables at 0x00683550 (CObject's, filled in by 0x00642940) and 0x00683268 (CGameEntity's, 0x006425D0).
+// tables at 0x00683550 (CEntity's, filled in by 0x00642940) and 0x00683268 (CGameEntity's, 0x006425D0).
 struct CMemberFunctionEntry {
-    uint32_t mName;
+    uint32_t m_callsign;
     uint32_t mComponentType; // the object component that runs it; 0x57525413 / 0x0ADA4E74: the object itself
     // +0x08: the member function, as a 16-byte (virtual-inheritance) member function pointer, `bool (Class::*)(
-    // CStruct* params, CScript* script)`; null: the object looks the name up (CObject::InvokeMethodByName 0x0045D850).
+    // CStruct* params, CScript* script)`; null: the object looks the name up (CEntity::InvokeMethodByName 0x0045D850).
     void* mCode;
     int mThisAdjustment;      // +0x0C
     int mVirtualBaseOffsets[2]; // +0x10 (unused by single-inheritance classes)
@@ -126,10 +126,10 @@ public:
     // --- life (group A: cscript_core.cpp) ---
     // 0x004738E0: the constructor (returns this). Zeroes the whole object (after constructing m_refCounted:
     // its vtable ends up null - kept), takes the next unique id, goes to the head of the list.
-    CScript* Construct();
+    CScript* MakeNew();
     // 0x00474420: the destructor body: ResetScriptState, ReportStopped, frees the callback parameters, leaves the
-    // list, forgets its stored randoms, lets go of the event handler table, ~m_refCounted, ~m_object.
-    void Destroy();
+    // list, forgets its stored randoms, lets go of the event handler table, ~m_refCounted, ~m_entity.
+    void Teardown();
     // 0x00449970 / 0x004499B0 (cdecl): CPoolable new / delete (the pool 0x006F3548, else the current heap).
     static void* operator new(size_t size);
     static void operator delete(void* script);
@@ -150,15 +150,15 @@ public:
     CStruct* CopyParamsIfOwned(CStruct* params);
     // 0x00474540: run `name` from the start: `code`, or the cached code of `name` (if there is none: stop and
     // ReportStopped). The parameters are the script's defaults (its first line) plus `params`.
-    void BindScript(uint32_t name, const uint8_t* code, CStruct* params, GameObjects::CObject* object);
+    void BindScript(uint32_t name, const uint8_t* code, CStruct* params, GameObjects::CEntity* object);
     // 0x004747A0 / 0x004747C0: BindScript(name, null, params, object), the name as a checksum or a string.
-    void BindScript(uint32_t name, CStruct* params, GameObjects::CObject* object);
-    void BindScript(const char* name, CStruct* params, GameObjects::CObject* object);
+    void BindScript(uint32_t name, CStruct* params, GameObjects::CEntity* object);
+    void BindScript(const char* name, CStruct* params, GameObjects::CEntity* object);
     // 0x00474720: BindScript with a private copy of `script`'s code (m_codeCopy, on the script heap) - a script
     // held in a structure (0x0048B200 gets it with 0x00476900).
-    void SetScriptCopy(SParamScript* script, CStruct* params, GameObjects::CObject* object);
+    void SetScriptCopy(SParamScript* script, CStruct* params, GameObjects::CEntity* object);
     // 0x004747F0: start again the script it was started with (the bottom level's name, parameters, object).
-    void Restart();
+    void Relaunch();
     // 0x00472C90: whether the scripts of every level are still defined (the bottom level is skipped when it
     // runs a private copy).
     bool AllScriptsStillDefined();
@@ -167,7 +167,7 @@ public:
     // 0x00472F90: m_spawnerFile = the .qb file of `spawner`'s bottom-level script (SpawnScript's CFunction).
     void SetSpawnerFile(CScript* spawner);
     // 0x00473BE0: `object` is going: let go of it at every level, and stop waiting.
-    void ObjectDestroyed(GameObjects::CObject* object);
+    void ObjectDestroyed(GameObjects::CEntity* object);
     // 0x00472ED0 / 0x00472EE0: the OnExceptionRun script. 0x00472EF0: the OnExitRun script.
     void SetOnExceptionScript(uint32_t name);
     uint32_t GetOnExceptionScript();
@@ -177,7 +177,7 @@ public:
 
     // --- the interpreter (group B: cscript_exec.cpp) ---
     // 0x004750B0: run statements until it waits or ends.
-    EScriptOutcome Update();
+    EScriptOutcome TickFrame();
     // 0x00474B40: one statement: a C function / member function / script call (also `obj:Func`), an
     // assignment `name = value`, or an expression (its truth value). Returns the call's result.
     bool ExecuteCommand();
@@ -195,10 +195,10 @@ public:
     void ParseFunctionParams();
     // 0x004729E0: the name at m_pc (a name token, or <name> / <...> from the parameters), or 0.
     uint32_t ReadName();
-    // 0x004731A0 / 0x004731E0: a member function on `object` (null: m_object; none: false) - by table entry
+    // 0x004731A0 / 0x004731E0: a member function on `object` (null: m_entity; none: false) - by table entry
     // or by name.
-    bool InvokeMethodByName(CMemberFunctionEntry* entry, GameObjects::CObject* object);
-    bool InvokeMethodByName(uint32_t name, GameObjects::CObject* object);
+    bool InvokeMethodByName(CMemberFunctionEntry* entry, GameObjects::CEntity* object);
+    bool InvokeMethodByName(uint32_t name, GameObjects::CEntity* object);
 
     // --- waiting, call stack, events (group C: cscript_wait.cpp) ---
     // 0x00473050: count down / check this Update's wait (see EBlockReason).
@@ -207,13 +207,13 @@ public:
     void StopWaiting();
     bool IsBlocked(bool print);
     // 0x00472BD0 / 0x00472BF0: wait `frames` Updates (one per frame: SUSPEND_ON_FRAME).
-    void Wait(int frames);
+    void Stall(int frames);
     void SuspendUntilNextFrame(int frames);
     // 0x00472C10: wait `ms` of frame time (as seconds, * 0.001f). 0x00473310: `ms` of the game clock.
-    void WaitTime(int ms);
+    void Lull(int ms);
     void WaitRealTime(int ms);
     // 0x00472FD0: block until an event of type `eventType` (0: until unblocked); registers with the tracker.
-    void Block(uint32_t eventType);
+    void GateOff(uint32_t eventType);
     // 0x004739A0: wait (type 5-10) until `component` says so; marks the component (+0x08 |= 2).
     void SetWaitOnComponent(EBlockReason type, GameObjects::CObjectModule* component, uint32_t arg);
     // 0x00472D20: `component` is going: no level waits on it any more.
@@ -225,13 +225,13 @@ public:
     void UnblockInterruptedScript();
     // 0x004748E0: call `name` (`code`; its default parameters plus `params`, on `object`): the current state
     // goes on the call stack. With no code running, just BindScript. `interrupted`: returning ends Update (5).
-    void RunSubScript(uint32_t name, const uint8_t* code, CStruct* params, GameObjects::CObject* object, bool interrupted);
+    void RunSubScript(uint32_t name, const uint8_t* code, CStruct* params, GameObjects::CEntity* object, bool interrupted);
     // 0x00473E70: '$' / return: release the code, pop the caller's state (none: the script ends); `results`
     // (the return's parameters) are added to the caller's parameters. Returns whether the level that ended
     // was an interrupt.
     bool ReturnFromScript(CStruct* results);
     // 0x00475750: run the cached script `name` now, as an interrupt, then carry on Updating.
-    EScriptOutcome Interrupt(uint32_t name, CStruct* params);
+    EScriptOutcome Preempt(uint32_t name, CStruct* params);
     // Event handlers (0x00472EA0, 0x00472EC0, 0x004734E0, 0x004735D0, 0x00473690, 0x004736C0): through
     // m_eventHandlers (made on demand: 0x10 bytes, 0x0045F820, on the front-end heap).
     void ClearEventHandlerGroup(uint32_t group);                       // 0x00472EA0 (0x004600E0)
@@ -248,7 +248,7 @@ public:
     uint8_t* m_codeCopy;              // +0x08 a private copy of the code (SetScriptCopy), freed by ResetScriptState
     const uint8_t* m_pc;              // +0x0C the next token; null: not running
     CStruct* m_functionParams;        // +0x10 the current statement's arguments (owned)
-    CStruct* m_params;                // +0x14 the script's parameters (owned; CFunctions leave results here)
+    CStruct* m_args;                // +0x14 the script's parameters (owned; CFunctions leave results here)
     SRepeatFrame* m_currentLoop;             // +0x18 the innermost begin ... repeat (null: none)
     SRepeatFrame m_inlineLoop;               // +0x1C
     SRepeatFrame* m_loops;                   // +0x2C m_inlineLoop, or 10 on the script heap
@@ -263,10 +263,10 @@ public:
     uint32_t m_waitArg;               // +0xA8 BLOCKED: the event type; REAL_TIMER: the start; 5-10: for the component
     GameObjects::CObjectModule* m_waitComponent; // +0xAC types 5-10
     uint32_t m_uniqueId;              // +0xB0 from 0x006F3540
-    uint8_t m_flags;                  // +0xB4 SCRIPT_RUN_*
+    uint8_t m_flagBits;                  // +0xB4 SCRIPT_RUN_*
     uint8_t unknownB5[3];
     int m_listLink;                       // +0xB8 SpawnScript's node
-    GameObjects::CSharedRef<GameObjects::CObject> m_object; // +0xBC the object it runs on (+0xC0 / +0xC4 the pointer's links)
+    GameObjects::CSharedRef<GameObjects::CEntity> m_entity; // +0xBC the object it runs on (+0xC0 / +0xC4 the pointer's links)
     uint32_t m_scriptTitle;            // +0xC8 the script running now (the top level)
     uint8_t m_spawnFlags;             // +0xCC SCRIPT_FLAG_*
     uint8_t unknownCD[3];
@@ -281,7 +281,7 @@ public:
 };
 static_assert(offsetof(CScript, m_priorEntry) == 0x04 && offsetof(CScript, m_codeCopy) == 0x08 &&
                   offsetof(CScript, m_pc) == 0x0C && offsetof(CScript, m_functionParams) == 0x10 &&
-                  offsetof(CScript, m_params) == 0x14 && offsetof(CScript, m_currentLoop) == 0x18 &&
+                  offsetof(CScript, m_args) == 0x14 && offsetof(CScript, m_currentLoop) == 0x18 &&
                   offsetof(CScript, m_inlineLoop) == 0x1C && offsetof(CScript, m_loops) == 0x2C &&
                   offsetof(CScript, m_numReturnAddresses) == 0x30 &&
                   offsetof(CScript, m_inlineReturnAddresses) == 0x34 && offsetof(CScript, m_returnAddresses) == 0x94,
@@ -289,8 +289,8 @@ static_assert(offsetof(CScript, m_priorEntry) == 0x04 && offsetof(CScript, m_cod
 static_assert(offsetof(CScript, m_waitCounter) == 0x98 && offsetof(CScript, m_waitTimerStarted) == 0x9C &&
                   offsetof(CScript, m_waitTimer) == 0xA0 && offsetof(CScript, m_waitType) == 0xA4 &&
                   offsetof(CScript, m_waitArg) == 0xA8 && offsetof(CScript, m_waitComponent) == 0xAC &&
-                  offsetof(CScript, m_uniqueId) == 0xB0 && offsetof(CScript, m_flags) == 0xB4 &&
-                  offsetof(CScript, m_listLink) == 0xB8 && offsetof(CScript, m_object) == 0xBC,
+                  offsetof(CScript, m_uniqueId) == 0xB0 && offsetof(CScript, m_flagBits) == 0xB4 &&
+                  offsetof(CScript, m_listLink) == 0xB8 && offsetof(CScript, m_entity) == 0xBC,
               "layout must match the original");
 static_assert(offsetof(CScript, m_scriptTitle) == 0xC8 && offsetof(CScript, m_spawnFlags) == 0xCC &&
                   offsetof(CScript, m_spawnerFile) == 0xD0 && offsetof(CScript, m_spawnId) == 0xD4 &&
@@ -300,7 +300,7 @@ static_assert(offsetof(CScript, m_scriptTitle) == 0xC8 && offsetof(CScript, m_sp
               "layout must match the original");
 static_assert(sizeof(CScript) == 0xF4, "allocated as 0xF4 bytes by the original");
 
-// m_flags (+0xB4)
+// m_flagBits (+0xB4)
 constexpr uint8_t SCRIPT_RUN_INTERRUPTED = 0x01;   // the top level was entered as an interrupt
 constexpr uint8_t SCRIPT_RUN_WAIT_UPDATED = 0x02;  // the wait was already counted this Update (set on return)
 // m_spawnFlags (+0xCC)
@@ -327,12 +327,12 @@ inline bool& UpdatingSpawnedScripts() { return g_updatingSpawnedScripts; }
 inline bool& DeleteSpawnedScriptsPending() { return g_deleteSpawnedScriptsPending; }
 inline bool& OnePerFrameReleased() { return g_onePerFrameReleased; }
 // (also: the CScript pool pair 0x006F3548 - qb.cpp creates it; the script cache 0x006F3558 - cache.h; the object
-// tracker 0x006F0FC0; OnlinePlay::Manager 0x007CCE14; the game clock offset 0x00696D60)
+// tracker 0x006F0FC0; OnlinePlay::Hub 0x007CCE14; the game clock offset 0x00696D60)
 
 // --- free functions ---
 // 0x00472980 (group B): a member function on `object` (no null check): the object itself for the two special
 // component types (vtable +0x08), else its component of that type (0x0045DB90; vtable +0x2C).
-bool InvokeMethodByName(CMemberFunctionEntry* entry, CStruct* params, GameObjects::CObject* object, CScript* script);
+bool InvokeMethodByName(CMemberFunctionEntry* entry, CStruct* params, GameObjects::CEntity* object, CScript* script);
 // 0x004734B0 (group A): the script with this unique id, or null.
 CScript* FindScriptWithUniqueId(uint32_t id);
 
@@ -351,13 +351,13 @@ CScript* SpawnScript(const char* name, CStruct* params, uint32_t callback, CStru
 void KillSpawnedScript(CScript* script);
 // 0x00475790 / 0x004758F0: run `name` to the end now (a C function / member function is just called); `name`
 // (the string) isn't used. With `replicateFlag` in a network game, the other players are told (0x00473350).
-void LaunchScript(uint32_t name, CStruct* params, GameObjects::CObject* object, bool replicateFlag, const char* nameString);
-void LaunchScript(const char* name, CStruct* params, GameObjects::CObject* object, bool replicateFlag);
+void LaunchScript(uint32_t name, CStruct* params, GameObjects::CEntity* object, bool replicateFlag, const char* nameString);
+void LaunchScript(const char* name, CStruct* params, GameObjects::CEntity* object, bool replicateFlag);
 // 0x004752F0: one Update of `name`, then its parameters are added to `results` (not checked for null).
-void RunScriptOnce(uint32_t name, CStruct* params, GameObjects::CObject* object, CStruct* results);
+void RunScriptOnce(uint32_t name, CStruct* params, GameObjects::CEntity* object, CStruct* results);
 // 0x00473350 / 0x00473420: the network messages for LaunchScript (0x48) and SpawnScript (0x49).
-void SendRunScriptMessage(uint32_t name, CStruct* params, GameObjects::CObject* object);
-void SendSpawnScriptMessage(uint32_t name, GameObjects::CObject* object, int node, bool permanent);
+void SendRunScriptMessage(uint32_t name, CStruct* params, GameObjects::CEntity* object);
+void SendSpawnScriptMessage(uint32_t name, GameObjects::CEntity* object, int node, bool permanent);
 // 0x00472D80 / 0x00472DC0: pause or unpause every spawned script / unpause one.
 void PauseSpawnedScripts(bool pause);
 void ResumeChildScript(CScript* script);
@@ -375,12 +375,12 @@ void ComponentDestroyedStub();
 // ones once Update says finished):
 void StopScriptsTargeting(uint32_t name);                               // 0x00473FA0 (any level)
 void StopScriptsByTag(uint32_t id);              // 0x00474040 (spawn id, unique id or spawner file)
-void StopScriptsOfObjectAndTag(GameObjects::CObject* object, uint32_t id, CScript* except);     // 0x004740D0
-void EndChildScriptsOfEntityByName(GameObjects::CObject* object, uint32_t name, CScript* except); // 0x00474190
+void StopScriptsOfObjectAndTag(GameObjects::CEntity* object, uint32_t id, CScript* except);     // 0x004740D0
+void EndChildScriptsOfEntityByName(GameObjects::CEntity* object, uint32_t name, CScript* except); // 0x00474190
 void StopAllScripts();                                                           // 0x00474250 (every script)
-void StopScriptsUsingObject(GameObjects::CObject* object, uint32_t name);  // 0x004742B0 (name 0: any; top level only)
-void EndScriptsBoundToEntity(GameObjects::CObject* object);          // 0x004756F0 = 0x004742B0(object, 0)
-void StopScriptsUsingObjectThatReferTo(GameObjects::CObject* object, uint32_t name); // 0x00474350 (name at any level)
+void StopScriptsUsingObject(GameObjects::CEntity* object, uint32_t name);  // 0x004742B0 (name 0: any; top level only)
+void EndScriptsBoundToEntity(GameObjects::CEntity* object);          // 0x004756F0 = 0x004742B0(object, 0)
+void StopScriptsUsingObjectThatReferTo(GameObjects::CEntity* object, uint32_t name); // 0x00474350 (name at any level)
 // 0x00475700: delete the scripts that aren't spawned, have no code and no event handler table (Cleanup).
 void DeleteFinishedScripts();
 } // namespace Script

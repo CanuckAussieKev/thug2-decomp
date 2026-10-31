@@ -1,4 +1,4 @@
-// The network manager's server-side message handlers (OnlinePlay::Manager, registered by 0x0053C380): observers, the
+// The network manager's server-side message handlers (OnlinePlay::Hub, registered by 0x0053C380): observers, the
 // game's data for a joining player, the end of a game, team changes, goal attack, leaving, cheating. See
 // gamenet_handlers.h.
 
@@ -74,11 +74,11 @@ constexpr uint32_t kFlag8000 = 0x8000;
 // A goal's virtuals: +0x50 has the skater `id` done it, +0x6C done by `id`.
 bool GoalDoneBy(uint8_t* goal, uint32_t id)
 {
-    return reinterpret_cast<bool(__thiscall*)(uint8_t*, uint32_t)>(Field<void**>(goal, 0)[0x50 / 4])(goal, id);
+    return reinterpret_cast<bool(__thiscall*)(uint8_t*, uint32_t)>(Prop<void**>(goal, 0)[0x50 / 4])(goal, id);
 }
 void MarkGoalDoneBy(uint8_t* goal, uint32_t id)
 {
-    reinterpret_cast<void(__thiscall*)(uint8_t*, uint32_t)>(Field<void**>(goal, 0)[0x6C / 4])(goal, id);
+    reinterpret_cast<void(__thiscall*)(uint8_t*, uint32_t)>(Prop<void**>(goal, 0)[0x6C / 4])(goal, id);
 }
 
 // The goal attack message to other players: the skater's id, then the goal's name (8 bytes; bytes 1-3 left as the
@@ -95,25 +95,25 @@ struct GoalMessage {
 int __cdecl HandleObserveRequest(NetLink::InboundMsgCtx* context)
 {
     uint8_t* skate = Skate();
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     uint8_t* player = PlayerByConnection(manager, context->m_senderConn);
     if (!player || IsObserver(player))
         return kDone;
     NetLink::NetMessageInfo desc;
     if (!IsOwnPlayer(player) &&
         manager->CountObservers() >= manager->GetSpectatorLimit()) { // the observers so far
-        desc.Construct();
-        desc.m_id = kMsgObserversFull;
-        manager->m_server->PutOnOutbox(context->m_senderConn->m_handle, &desc);
+        desc.MakeNew();
+        desc.m_ident = kMsgObserversFull;
+        manager->m_host->PutOnOutbox(context->m_senderConn->m_hdl, &desc);
         return kContinue;
     }
-    desc.Construct();
+    desc.MakeNew();
     if (!IsOwnPlayer(player)) {
-        GameObjects::CObject* skater = PlayerSkater(player);
+        GameObjects::CEntity* skater = PlayerSkater(player);
         manager->EvictPlayer(player, 2);         // the player out of the game (2: to observe)
         Call(CodeAddress(&GameModules::Skate::RemoveSkater), skate, skater);        // its skater gone
-        Field<uint32_t>(player, 0x1D0) |= 4;    // an observer now
-        Field<GameObjects::CObject*>(player, 0x14) = nullptr;
+        Prop<uint32_t>(player, 0x1D0) |= 4;    // an observer now
+        Prop<GameObjects::CEntity*>(player, 0x14) = nullptr;
         if (AsPlayer(player)->IsHostPlayer()) {
             AsPlayer(player)->ClearServerPlayer();
             manager->AssignFirstComeFirstServed();
@@ -125,29 +125,29 @@ int __cdecl HandleObserveRequest(NetLink::InboundMsgCtx* context)
             manager->SpectatePlayer(static_cast<uint8_t*>(manager->m_camPlayer));
         }
     }
-    desc.m_id = kMsgObserve;
-    manager->m_server->PutOnOutbox(context->m_senderConn->m_handle, &desc);
+    desc.m_ident = kMsgObserve;
+    manager->m_host->PutOnOutbox(context->m_senderConn->m_hdl, &desc);
     return kContinue;
 }
 
 // 0x0052E9E0
 int __cdecl HandleRequestGameData(NetLink::InboundMsgCtx* context)
 {
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     uint8_t* player = PlayerByConnection(manager, context->m_senderConn);
     const uint8_t* msg = Message(context);
-    NetLink::App* app = context->m_receiverApp;
-    int handle = context->m_senderConn->m_handle;
-    void* parkMap = ParkEditing::CParkBuilderMode::Instance()->GetPackedParkData(false);
+    NetLink::AppHost* app = context->m_receiverApp;
+    int handle = context->m_senderConn->m_hdl;
+    void* parkMap = ParkEditing::CParkBuilderMode::Sole()->GetPackedParkData(false);
     app->SendBulkMessage(handle, kMsgParkMap, kParkMapSize, parkMap, "level data", kGroupGame, false, true);
-    handle = context->m_senderConn->m_handle;
-    auto railEditor = [] { return ParkEditing::CRailAuthoring::Instance(); };
+    handle = context->m_senderConn->m_hdl;
+    auto railEditor = [] { return ParkEditing::CRailAuthoring::Sole(); };
     railEditor(); // (looked up once for nothing)
     void* rails = Call<void*>(CodeAddress(&ParkEditing::CRailAuthoring::GetPacked), railEditor());
     app->SendBulkMessage(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
     if (manager->HasCreatedGoals()) {
-        manager->PrepareCreatedGoals(Field<uint32_t>(msg, 0));
-        handle = context->m_senderConn->m_handle;
+        manager->PrepareCreatedGoals(Prop<uint32_t>(msg, 0));
+        handle = context->m_senderConn->m_hdl;
         void* goals = manager->GetCreatedGoalsMessage();
         auto size = static_cast<uint16_t>(manager->GetCreatedGoalsSize());
         app->SendBulkMessage(handle, kMsgGoalsData, size, goals, "goals data", kGroupGame, false, true);
@@ -157,45 +157,45 @@ int __cdecl HandleRequestGameData(NetLink::InboundMsgCtx* context)
     // The level change ('F', the level; 8 bytes - bytes 5-7 left as the original leaves them, zeroed here), then a
     // ready query (the time) the player owes the answer to.
     NetLink::NetMessageInfo desc;
-    desc.Construct();
-    uint32_t level[2] = {Field<uint32_t>(msg, 0), 0};
+    desc.MakeNew();
+    uint32_t level[2] = {Prop<uint32_t>(msg, 0), 0};
     uint32_t query = FrameClock::GetTime();
-    desc.m_data = level;
+    desc.m_content = level;
     desc.m_byteCount = 8;
-    desc.m_id = kMsgChangeLevel;
+    desc.m_ident = kMsgChangeLevel;
     desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = kGroupGame;
     app->PutOnOutbox(PlayerHandle(player), &desc);
-    desc.m_data = &query;
+    desc.m_content = &query;
     desc.m_byteCount = 4;
-    desc.m_id = kMsgAckQuery;
+    desc.m_ident = kMsgAckQuery;
     app->PutOnOutbox(PlayerHandle(player), &desc);
     AsPlayer(player)->AwaitReadyResponse(query); // (the query it owes)
-    app->SendData(false);
+    app->Transmit(false);
     return kContinue;
 }
 
 // 0x0052EC40
 int __cdecl HandleGameEndedReport(NetLink::InboundMsgCtx* context)
 {
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     uint8_t* player = PlayerByConnection(manager, context->m_senderConn);
     uint8_t game = Message(context)[0];
     if (!player)
         return kContinue;
     PlayerSearch search;
-    if ((Field<uint32_t>(player, 0x1D0) & kFlagReady) || game != manager->GetGameId())
+    if ((Prop<uint32_t>(player, 0x1D0) & kFlagReady) || game != manager->GetGameId())
         return kDone;
-    Field<uint32_t>(player, 0x1D0) |= kFlagReady;
+    Prop<uint32_t>(player, 0x1D0) |= kFlagReady;
     for (uint8_t* other = FirstPlayer(manager, &search, false); other; other = NextPlayer(manager, &search, false)) {
-        if (!(Field<uint32_t>(other, 0x1D0) & kFlagReady))
+        if (!(Prop<uint32_t>(other, 0x1D0) & kFlagReady))
             return kContinue; // someone is still playing
     }
     // Everyone's game has ended: game over, to all (observers too).
     NetLink::NetMessageInfo desc;
-    desc.Construct();
-    NetLink::App* server = manager->m_server;
-    desc.m_id = kMsgGameOver;
+    desc.MakeNew();
+    NetLink::AppHost* server = manager->m_host;
+    desc.m_ident = kMsgGameOver;
     desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = kGroupGame;
     for (uint8_t* other = FirstPlayer(manager, &search, true); other; other = NextPlayer(manager, &search, true))
@@ -207,9 +207,9 @@ int __cdecl HandleGameEndedReport(NetLink::InboundMsgCtx* context)
 int __cdecl HandleTeamChangeRequest(NetLink::InboundMsgCtx* context)
 {
     NetLink::NetMessageInfo desc;
-    desc.Construct();
+    desc.MakeNew();
     PlayerSearch search;
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     const uint8_t* msg = Message(context);
     uint8_t* player = PlayerByObjectId(manager, msg);
     if (!player || !PlayerSkater(player))
@@ -217,10 +217,10 @@ int __cdecl HandleTeamChangeRequest(NetLink::InboundMsgCtx* context)
     if (GameType() != kNetLobby && !manager->IsGameOver())
         return kDone;
     uint8_t change[2] = {msg[0], msg[1]};
-    NetLink::App* server = manager->m_server;
-    desc.m_data = change;
+    NetLink::AppHost* server = manager->m_host;
+    desc.m_content = change;
     desc.m_byteCount = 2;
-    desc.m_id = kMsgJoinedTeam;
+    desc.m_ident = kMsgJoinedTeam;
     desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = kGroupGame;
     for (uint8_t* other = FirstPlayer(manager, &search, true); other; other = NextPlayer(manager, &search, true))
@@ -232,10 +232,10 @@ int __cdecl HandleTeamChangeRequest(NetLink::InboundMsgCtx* context)
 int __cdecl HandleGoalCompletedReport(NetLink::InboundMsgCtx* context)
 {
     const uint8_t* msg = Message(context);
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     if (msg[0] != manager->GetGameId())
         return kDone;
-    uint8_t* goal = GetGoal(ObjectiveBoard(), Field<uint32_t>(msg, 4));
+    uint8_t* goal = GetGoal(ObjectiveBoard(), Prop<uint32_t>(msg, 4));
     if (!goal)
         return kContinue;
     uint8_t* sender = PlayerByConnection(manager, context->m_senderConn);
@@ -245,12 +245,12 @@ int __cdecl HandleGoalCompletedReport(NetLink::InboundMsgCtx* context)
     GoalMessage message;
     NetLink::NetMessageInfo desc;
     auto prepare = [&] {
-        message.goal = Field<uint32_t>(msg, 4);
+        message.goal = Prop<uint32_t>(msg, 4);
         message.id = static_cast<uint8_t>(SkaterId(PlayerSkater(sender)));
         std::memset(message.pad, 0, sizeof(message.pad));
-        desc.m_data = &message;
+        desc.m_content = &message;
         desc.m_byteCount = 8;
-        desc.m_id = kMsgGoalCompleted;
+        desc.m_ident = kMsgGoalCompleted;
         desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
         desc.m_groupId = kGroupGame;
     };
@@ -262,7 +262,7 @@ int __cdecl HandleGoalCompletedReport(NetLink::InboundMsgCtx* context)
         }
         MarkGoalDoneBy(goal, SkaterId(PlayerSkater(sender)));
         for (uint8_t* p = FirstPlayer(manager, &search, false); p; p = NextPlayer(manager, &search, false)) {
-            desc.Construct();
+            desc.MakeNew();
             prepare();
             context->m_receiverApp->PutOnOutbox(PlayerHandle(p), &desc);
         }
@@ -270,7 +270,7 @@ int __cdecl HandleGoalCompletedReport(NetLink::InboundMsgCtx* context)
     }
     if (GoalDoneBy(goal, SkaterId(PlayerSkater(sender))))
         return kContinue;
-    desc.Construct();
+    desc.MakeNew();
     MarkGoalDoneBy(goal, SkaterId(PlayerSkater(sender)));
     prepare();
     for (uint8_t* p = FirstPlayer(manager, &search, false); p; p = NextPlayer(manager, &search, false))
@@ -281,25 +281,25 @@ int __cdecl HandleGoalCompletedReport(NetLink::InboundMsgCtx* context)
 // 0x0052F1A0
 int __cdecl HandleGoalStartedReport(NetLink::InboundMsgCtx* context)
 {
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     const uint8_t* msg = Message(context);
     if (msg[0] != manager->GetGameId())
         return kDone;
-    if (!GetGoal(ObjectiveBoard(), Field<uint32_t>(msg, 4)) || !IsSquadMatch())
+    if (!GetGoal(ObjectiveBoard(), Prop<uint32_t>(msg, 4)) || !IsSquadMatch())
         return kContinue;
     uint8_t* sender = PlayerByConnection(manager, context->m_senderConn);
     if (!PlayerSkater(sender))
         return kContinue;
     PlayerSearch search;
     NetLink::NetMessageInfo desc;
-    desc.Construct();
+    desc.MakeNew();
     GoalMessage message;
-    message.goal = Field<uint32_t>(msg, 4);
+    message.goal = Prop<uint32_t>(msg, 4);
     message.id = static_cast<uint8_t>(SkaterId(PlayerSkater(sender)));
     std::memset(message.pad, 0, sizeof(message.pad));
-    desc.m_data = &message;
+    desc.m_content = &message;
     desc.m_byteCount = 8;
-    desc.m_id = kMsgGoalStarted;
+    desc.m_ident = kMsgGoalStarted;
     for (uint8_t* p = FirstPlayer(manager, &search, false); p; p = NextPlayer(manager, &search, false)) {
         if (p != sender && PlayerTeam(sender) == PlayerTeam(p))
             context->m_receiverApp->PutOnOutbox(PlayerHandle(p), &desc);
@@ -311,10 +311,10 @@ int __cdecl HandleGoalStartedReport(NetLink::InboundMsgCtx* context)
 int __cdecl HandleDisconnect(NetLink::InboundMsgCtx* context)
 {
     uint8_t* skate = Skate();
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     if (uint8_t* player = PlayerByConnection(manager, context->m_senderConn)) {
         if (!IsOwnPlayer(player)) {
-            GameObjects::CObject* skater = PlayerSkater(player);
+            GameObjects::CEntity* skater = PlayerSkater(player);
             bool observer = IsObserver(player);
             manager->EvictPlayer(player, 0); // the player out of the game
             if (!observer)
@@ -323,17 +323,17 @@ int __cdecl HandleDisconnect(NetLink::InboundMsgCtx* context)
         return kKeep;
     }
     // Not a player yet: one of the new players waiting to be added - dropped with its connection.
-    auto* node = Field<MemSys::ListNode*>(manager, 0x13C); // (the new players' list, its first node)
+    auto* node = Prop<MemSys::ListNode*>(manager, 0x13C); // (the new players' list, its first node)
     if (node->data == reinterpret_cast<void*>(-1))
         return kHalt;
     for (; node;) {
         MemSys::ListNode* next = node->next->data == reinterpret_cast<void*>(-1) ? nullptr : node->next;
         auto* info = static_cast<uint8_t*>(node->data);
-        if (Field<NetLink::Conn*>(info, 0x14) == context->m_senderConn) {
-            context->m_receiverApp->TerminateConnection(Field<NetLink::Conn*>(info, 0x14));
+        if (Prop<NetLink::Conn*>(info, 0x14) == context->m_senderConn) {
+            context->m_receiverApp->SeverLink(Prop<NetLink::Conn*>(info, 0x14));
             reinterpret_cast<void(__thiscall*)(MemSys::ListNode*, int)>(node->vtable[0])(node, 1); // the node deleted
             reinterpret_cast<JoinerRecord*>(info)->DestroyBody();
-            MemSys::Manager::Get()->Free(info);
+            MemSys::Hub::Pull()->Dealloc(info);
             return kKeep;
         }
         node = next;
@@ -344,23 +344,23 @@ int __cdecl HandleDisconnect(NetLink::InboundMsgCtx* context)
 // 0x0052FDA0
 int __cdecl HandleDropCarried(NetLink::InboundMsgCtx* context)
 {
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     uint8_t* player = PlayerByConnection(manager, context->m_senderConn);
     if (player)
-        Field<uint32_t>(player, 0x1D0) &= ~kFlag8000;
+        Prop<uint32_t>(player, 0x1D0) &= ~kFlag8000;
     PlayerSearch search;
     NetLink::NetMessageInfo desc;
     if (GameType() == kNetCtf) {
         // Its flag returned.
         if (!player || !AsPlayer(player)->IsCarryingFlag())
             return kContinue;
-        desc.Construct();
+        desc.MakeNew();
         int team = AsPlayer(player)->GetFlagTeam();
         char name[64];
         TeamNameKey(name, team);
         Scripts::CStruct* params = NewParams();
         params->PutInt(kTeam, team);
-        params->AddString(kString0, Scripts::QBVAL_STRING, Scripts::GetString(name));
+        params->AppendWord(kString0, Scripts::QBVAL_STRING, Scripts::FetchText(name));
         Run(kFlagReturned, params);
         DeleteParams(params);
         uint8_t returned[2] = {static_cast<uint8_t>(SkaterId(PlayerSkater(player))), static_cast<uint8_t>(team)};
@@ -370,9 +370,9 @@ int __cdecl HandleDropCarried(NetLink::InboundMsgCtx* context)
         if (local && !IsObserver(local) && PlayerTeam(local) == team)
             Run(kHideCtfArrow);
         AsPlayer(player)->ClearFlags(); // carries no flag
-        desc.m_data = returned;
+        desc.m_content = returned;
         desc.m_byteCount = 2;
-        desc.m_id = kMsgFlagReturned;
+        desc.m_ident = kMsgFlagReturned;
         desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
         desc.m_groupId = kGroupGame;
         for (uint8_t* p = FirstPlayer(manager, &search, true); p; p = NextPlayer(manager, &search, true)) {
@@ -386,14 +386,14 @@ int __cdecl HandleDropCarried(NetLink::InboundMsgCtx* context)
     // The crown dropped: a new spot for it.
     if (!player || !AsPlayer(player)->HoldsCrown()) // (has the crown)
         return kContinue;
-    desc.Construct();
+    desc.MakeNew();
     AsPlayer(player)->GiveCrown(false);
     int spot = Maths::Rnd(10);
-    Field<int>(manager, 0x68) = spot;
+    Prop<int>(manager, 0x68) = spot;
     uint8_t message = static_cast<uint8_t>(spot);
-    desc.m_data = &message;
+    desc.m_content = &message;
     desc.m_byteCount = 1;
-    desc.m_id = kMsgCrownSpawn;
+    desc.m_ident = kMsgCrownSpawn;
     desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = kGroupGame;
     for (uint8_t* p = FirstPlayer(manager, &search, true); p; p = NextPlayer(manager, &search, true))
@@ -404,12 +404,12 @@ int __cdecl HandleDropCarried(NetLink::InboundMsgCtx* context)
 // 0x00532170
 int __cdecl HandleChecksumResponse(NetLink::InboundMsgCtx* context)
 {
-    Manager* manager = ManagerOf(context);
+    Hub* manager = ManagerOf(context);
     uint8_t* player = PlayerByConnection(manager, context->m_senderConn);
     if ((MessageWord(context, 0) ^ 0xDEADFACE) == MessageWord(context, 4) || manager->CheatingNoted())
         return kContinue;
     Scripts::CStruct* params = NewParams();
-    params->AddString(kString0, PlayerName(player));
+    params->AppendWord(kString0, PlayerName(player));
     Run(kNotifyClientCheating, params);
     DeleteParams(params);
     manager->NoteCheating();

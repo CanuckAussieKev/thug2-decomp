@@ -98,20 +98,20 @@ void Msleep(unsigned milliseconds) { GameSpy::Msleep(milliseconds); }
 
 // The game's C runtime: its rand() is the one the game's code draws from, and its exit functions run the game's
 // own clean-up.
-unsigned Time() { return Crt::Time(); }
+unsigned Instant() { return Crt::Instant(); }
 void Srand(unsigned seed) { Crt::Srand(seed); }
 void CExit() { Crt::CExit(); } // _cexit: atexit functions, streams flushed
 [[noreturn]] void ExitNow(int code) { Crt::ExitNow(code); } // _exit
 
 // The platform layer's parts without source yet.
-char FindCdDrive(const char* volume) { return Platform::FindCdDrive(volume); }
-void InitDirectSound(HWND window) { Platform::InitDirectSound(window); }
-void ReleaseDirectSound() { Platform::ReleaseDirectSound(); }
-void ReleaseDirect3D() { Platform::ReleaseDirect3D(); }
+char FindCdDrive(const char* volume) { return OsLayer::FindCdDrive(volume); }
+void InitDirectSound(HWND window) { OsLayer::InitDirectSound(window); }
+void ReleaseDirectSound() { OsLayer::ReleaseDirectSound(); }
+void ReleaseDirect3D() { OsLayer::ReleaseDirect3D(); }
 // A key's name (at most 14 characters), by its scan code (the table at 0x007D42F8).
 void SetKeyName(unsigned scanCode, const wchar_t* name)
 {
-    Platform::SetKeyName(static_cast<int>(scanCode), name);
+    OsLayer::SetKeyName(static_cast<int>(scanCode), name);
 }
 
 const char kSettingsKey[] = "Software\\Activision\\Tony Hawk's Underground 2\\Settings";
@@ -278,7 +278,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
     // leaves "THUG2"): if a window has it, the game is running already - that one is brought to the front.
     // (thug2-decomp.ini [features] allow_multiple_instances=1, not in the original: skip this check so a second copy
     // can run - e.g. to host and join a LAN game on one PC. Its socket falls back to a free port when the game's
-    // port is taken (App::Bind) and its log goes to thug2-decomp-2.log.)
+    // port is taken (AppHost::Bind) and its log goes to thug2-decomp-2.log.)
     const char kTitle[] = "THUG2";
     if (HWND running = AllowMultipleInstances() ? nullptr : FindWindowExA(nullptr, nullptr, nullptr, kTitle)) {
         ShowWindow(running, SW_RESTORE);
@@ -292,12 +292,12 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
     //     CreateGameWindow(<the title> as the class name, title, 100, 100, 640, 480, WindowProc 0x004E16B0,
     //                      instance, icon 0x66, true);                       // 0x005F5860 (true: full screen)
     CreateSdlWindow();
-    Platform::ProcessWindowEvents();
+    OsLayer::ProcessWindowEvents();
     if (!GameWindow())
         return 0;
     // Originally from PartyMod Fixes: the window isn't shown here (SDL shows it). The original did
     //     ShowWindow(GameWindow(), Engine3D::g_showWindowFlag ? SW_SHOWMINIMIZED : SW_SHOWNORMAL);
-    Srand(Time());
+    Srand(Instant());
 
     // The command line split at spaces (made terminators) into at most 20 arguments. The first is the command
     // line's first word - not the program's name.
@@ -327,7 +327,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
             WriteDefaultSetting(name, kDefaultBindings[device][i]);
         }
     }
-    Platform::InitInput(instance, GameWindow(), reinterpret_cast<int>(kSettingsKey));
+    OsLayer::InitInput(instance, GameWindow(), reinterpret_cast<int>(kSettingsKey));
 
     // The keys' names: the character each scan code types in the keyboard layout (an acute accent shown as an
     // apostrophe, a semicolon as a colon); the function keys by name.

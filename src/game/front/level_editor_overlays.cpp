@@ -78,7 +78,7 @@ uint32_t g_bits = kDefaultBits;
 int g_viewMode;
 bool g_forcedCollision; // (Collision only turned the collision view on: off again when it ends)
 
-void Read()
+void TakeIn()
 {
     if (g_read)
         return;
@@ -89,17 +89,17 @@ void Read()
 
 } // namespace
 
-uint32_t Current()
+uint32_t AtHand()
 {
-    Read();
+    TakeIn();
     return g_bits;
 }
 
-bool Shown(uint32_t bit) { return (Current() & bit) != 0; }
+bool Shown(uint32_t bit) { return (AtHand() & bit) != 0; }
 
-void Set(uint32_t bit, bool on)
+void AssignValue(uint32_t bit, bool on)
 {
-    Read();
+    TakeIn();
     uint32_t bits = on ? g_bits | bit : g_bits & ~bit;
     if (bits == g_bits)
         return;
@@ -107,19 +107,19 @@ void Set(uint32_t bit, bool on)
     ConfigSetInt("editor", "overlays", static_cast<int>(g_bits));
 }
 
-void Start()
+void Kickoff()
 {
-    Read();
+    TakeIn();
     g_viewMode = 0;
     g_forcedCollision = false;
-    Engine3D::ViewMode::Set(Engine3D::ViewMode::Mode::kLit);
+    Engine3D::ViewMode::AssignValue(Engine3D::ViewMode::Mode::kLit);
 }
 
-void Stop() { SetViewMode(0); }
+void Halt() { ChangeViewMode(0); }
 
 int ViewMode() { return g_viewMode; }
 
-void SetViewMode(int mode)
+void ChangeViewMode(int mode)
 {
     if (mode < 0 || mode >= kViewModes || mode == g_viewMode)
         return;
@@ -133,7 +133,7 @@ void SetViewMode(int mode)
         g_forcedCollision = false;
     }
     g_viewMode = mode;
-    Engine3D::ViewMode::Set(static_cast<Engine3D::ViewMode::Mode>(mode));
+    Engine3D::ViewMode::AssignValue(static_cast<Engine3D::ViewMode::Mode>(mode));
 }
 
 const char* ViewModeName(int mode) { return Engine3D::ViewMode::Name(static_cast<Engine3D::ViewMode::Mode>(mode)); }
@@ -143,13 +143,13 @@ const char* ViewModeName(int mode) { return Engine3D::ViewMode::Name(static_cast
 bool Painter::Pixel(V3 p, float* x, float* y) const
 {
     float nx, ny;
-    if (!Project(camera, frame, lens, p, nearZ, &nx, &ny))
+    if (!CastOnto(camera, frame, lens, p, nearZ, &nx, &ny))
         return false;
     NdcToPixel(viewport, nx, ny, x, y);
     return true;
 }
 
-bool Painter::Line(V3 a, V3 b, uint32_t argb, float thickness) const
+bool Painter::Seg(V3 a, V3 b, uint32_t argb, float thickness) const
 {
     if (!ClipToNear(camera, frame, nearZ + 0.01f, &a, &b))
         return false;
@@ -174,13 +174,13 @@ void Painter::Text(V3 p, uint32_t argb, const std::string& text, float dx, float
         overlay->texts.push_back({x + dx, y + dy, argb, text});
 }
 
-void Painter::Cross(V3 p, float size, uint32_t argb, float thickness) const
+void Painter::Perpendicular(V3 p, float size, uint32_t argb, float thickness) const
 {
-    Line(p - V3{size, 0.0f, 0.0f}, p + V3{size, 0.0f, 0.0f}, argb, thickness);
-    Line(p - V3{0.0f, 0.0f, size}, p + V3{0.0f, 0.0f, size}, argb, thickness);
+    Seg(p - V3{size, 0.0f, 0.0f}, p + V3{size, 0.0f, 0.0f}, argb, thickness);
+    Seg(p - V3{0.0f, 0.0f, size}, p + V3{0.0f, 0.0f, size}, argb, thickness);
 }
 
-float Painter::Distance(V3 p) const
+float Painter::SpanTo(V3 p) const
 {
     V3 d = p - camera;
     return std::sqrt(LevelEditor::Dot(d, d));
@@ -209,8 +209,8 @@ bool GroundY(V3 from, float* y)
 {
     alignas(16) uint8_t feeler[0x100] = {};
     auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
-    ray->Construct();
-    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {from.x, from.y - 5000.0f, from.z, 1.0f};
+    ray->MakeNew();
+    Maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {from.x, from.y - 5000.0f, from.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     *y = reinterpret_cast<const float*>(feeler + 0x34)[1];
@@ -235,7 +235,7 @@ void AddOverlay(const Painter& painter, bool moving, V3 selectionBase, bool have
         if (haveGround) {
             V3 centre = {std::round(from.x / 100.0f) * 100.0f, groundY, std::round(from.z / 100.0f) * 100.0f};
             for (const GridLine& line : GridLines(centre, groundY + 0.5f, 1500.0f, 100.0f))
-                painter.Line(line.a, line.b, line.major ? 0x70E0E8F0u : 0x38C0C8D0u, line.major ? 1.25f : 1.0f);
+                painter.Seg(line.a, line.b, line.major ? 0x70E0E8F0u : 0x38C0C8D0u, line.major ? 1.25f : 1.0f);
         }
     }
     if (Shown(kCarryHints) && moving) {
@@ -250,9 +250,9 @@ void AddOverlay(const Painter& painter, bool moving, V3 selectionBase, bool have
             static const int kEdges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                                               {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
             for (const auto& e : kEdges)
-                painter.Line(corners[e[0]], corners[e[1]], kCarried, 1.25f);
+                painter.Seg(corners[e[0]], corners[e[1]], kCarried, 1.25f);
         }
-        const std::vector<Nodes::Node>& all = Nodes::All();
+        const std::vector<Nodes::Elem>& all = Nodes::All();
         for (uint32_t name : Carry::CarriedNodes()) {
             int index = Nodes::Find(name);
             if (index < 0 || !all[index].hasPos)

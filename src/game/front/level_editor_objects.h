@@ -22,7 +22,7 @@ namespace MenuSystem::LevelEditor::Objects {
 // null.
 const char* NameOf(uint32_t checksum);
 // "<name> <checksum>" / "<checksum>".
-std::string Label(uint32_t checksum);
+std::string Caption(uint32_t checksum);
 
 // The model's box where it is (false: no model that follows the object - not pickable).
 bool ModelBox(GameObjects::CGameEntity* object, OrientedBox* box);
@@ -49,11 +49,11 @@ const char* ClassOf(uint32_t id);
 // Where an object is, how it's turned and scaled (undo, layouts; the scale along its own axes - level_editor_scale.h).
 struct State {
     uint32_t id;
-    Maths::Vector pos;
-    Maths::Matrix matrix, drawMatrix;
+    Maths::Vec4 pos;
+    Maths::Mat4 matrix, drawMatrix;
     V3 scale = {1.0f, 1.0f, 1.0f};
 };
-State Save(GameObjects::CGameEntity* object);
+State StoreAway(GameObjects::CGameEntity* object);
 // Put back (false: no such object now).
 bool Restore(const State& state);
 
@@ -78,11 +78,11 @@ GameObjects::CGameEntity* MakeCopy(uint32_t source, V3 pos, uint32_t name = 0);
 // A copy removed (FlagAsDead); false when it isn't one of ours or is gone.
 bool RemoveCopy(uint32_t name);
 // The copies made this level (made and not removed), with their sources.
-struct Copy {
+struct DupFrom {
     uint32_t name;
     uint32_t source;
 };
-const std::vector<Copy>& Copies();
+const std::vector<DupFrom>& Copies();
 bool IsCopy(uint32_t id);
 // Objects the editor has moved this level (their ids; layouts save them).
 void Touch(uint32_t id);
@@ -94,10 +94,10 @@ const State* Origin(uint32_t id);
 void ForgetLevel();
 
 // The browser's objects: the level's nodes that can be copied ("<class> <name or model>").
-struct Entry {
+struct TableRow {
     uint32_t name;
     std::string label;
 };
-std::vector<Entry> Copyable();
+std::vector<TableRow> Copyable();
 
 } // namespace MenuSystem::LevelEditor::Objects

@@ -21,9 +21,9 @@ namespace {
 
 extern void** const kPcMeshVtable;
 
-void ConstructBase(CPcMesh* mesh) { reinterpret_cast<CSubMesh*>(mesh)->CSubMesh::Construct(); }
+void ConstructBase(CPcMesh* mesh) { reinterpret_cast<CSubMesh*>(mesh)->CSubMesh::MakeNew(); }
 
-sStripBreak* NewBreaks(uint32_t count) { return static_cast<sStripBreak*>(MemSys::New(count * sizeof(sStripBreak))); }
+sStripBreak* NewBreaks(uint32_t count) { return static_cast<sStripBreak*>(MemSys::Alloc(count * sizeof(sStripBreak))); }
 // (the C runtime's qsort; the original's is the game's, 0x006242A0)
 void SortBreaks(sStripBreak* breaks, uint32_t count)
 {
@@ -45,7 +45,7 @@ int __cdecl CompareStripBreaks(const void* a, const void* b)
 }
 
 // 0x004B7B30
-CPcMesh* CPcMesh::Construct()
+CPcMesh* CPcMesh::MakeNew()
 {
     ConstructBase(this);
     vtable = reinterpret_cast<void**>(kPcMeshVtable);
@@ -74,39 +74,39 @@ void CPcMesh::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kPcMeshVtable);
     if (breaks)
-        MemSys::Manager::Get()->Free(breaks);
+        MemSys::Hub::Pull()->Dealloc(breaks);
     if (scene)
         Engine::UnloadScene(reinterpret_cast<CWorldScene*>(scene), 1); // (the engine's UnloadScene)
     reinterpret_cast<CSubMesh*>(this)->CSubMesh::DestroyBody();
 }
 
 // 0x004B7F00
-CPcMesh* CPcMesh::Destroy(unsigned int flags)
+CPcMesh* CPcMesh::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x004B7B50
 bool CPcMesh::LoadSkinFile(const char* name)
 {
-    FileLoad::Handle file = FileLoad::Open(name, "rb");
+    FileLoad::Hdl file = FileLoad::Unseal(name, "rb");
     uint32_t version;
-    FileLoad::Read(&version, 4, 1, file);
+    FileLoad::TakeIn(&version, 4, 1, file);
     if (version >= 2)
-        FileLoad::Read(&boneCount, 4, 1, file);
-    FileLoad::Read(&breakCount, 4, 1, file);
+        FileLoad::TakeIn(&boneCount, 4, 1, file);
+    FileLoad::TakeIn(&breakCount, 4, 1, file);
     if (breakCount) {
         breaks = NewBreaks(breakCount);
         for (uint32_t i = 0; i < breakCount; ++i) {
-            FileLoad::Read(&breaks[i], 12, 1, file);
+            FileLoad::TakeIn(&breaks[i], 12, 1, file);
             breaks[i].stripIndex = 0;
         }
         SortBreaks(breaks, breakCount);
     }
-    FileLoad::Close(file);
+    FileLoad::Shut(file);
     return breakCount != 0;
 }
 
@@ -148,7 +148,7 @@ void CPcMesh::ChooseScene(uint8_t* newScene)
 }
 
 namespace {
-static VtableSlot kPcMeshVtable_slots[] = {&Engine3D::CPcMesh::Destroy};
+static VtableSlot kPcMeshVtable_slots[] = {&Engine3D::CPcMesh::Teardown};
 void** const kPcMeshVtable = reinterpret_cast<void**>(kPcMeshVtable_slots);
 } // namespace
 

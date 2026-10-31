@@ -96,32 +96,32 @@ const EventButton kEventButtons[] = {
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The input manager (0x00696D40): its controller servers (0x84 bytes each from +4: the device, then the handler list
-// - a TaskList::Stack - at +4, the data at +0x40), and a player's controller (0x0044E630).
+// - a TaskList::PileUp - at +4, the data at +0x40), and a player's controller (0x0044E630).
 uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(PadInput::g_inputManager); }
-TaskList::Stack* ServerHandlers(uint8_t* manager, int server)
+TaskList::PileUp* ServerHandlers(uint8_t* manager, int server)
 {
-    return reinterpret_cast<TaskList::Stack*>(manager + server * 0x84 + 8);
+    return reinterpret_cast<TaskList::PileUp*>(manager + server * 0x84 + 8);
 }
-void PlaceHandler(CPadInputModule::Handler* handler, uint8_t* manager, int server)
+void PlaceHandler(CPadInputModule::Responder* handler, uint8_t* manager, int server)
 {
     handler->m_controlData = manager + server * 0x84 + 0x44;
-    handler->m_device = *reinterpret_cast<void**>(manager + server * 0x84 + 4);
+    handler->m_dev = *reinterpret_cast<void**>(manager + server * 0x84 + 4);
 }
 int PlayerController(int player)
 {
-    return reinterpret_cast<PadInput::Manager*>(InputManager())->GetPlayerController(player);
+    return reinterpret_cast<PadInput::Hub*>(InputManager())->GetPlayerController(player);
 }
 
 // A new handler (on the current heap).
-CPadInputModule::Handler* NewHandler(int index, void(__cdecl* code)(CPadInputModule::Handler*), CPadInputModule* component)
+CPadInputModule::Responder* NewHandler(int index, void(__cdecl* code)(CPadInputModule::Responder*), CPadInputModule* component)
 {
-    auto* handler = static_cast<CPadInputModule::Handler*>(MemSys::AllocZeroed(sizeof(CPadInputModule::Handler)));
+    auto* handler = static_cast<CPadInputModule::Responder*>(MemSys::AllocZeroed(sizeof(CPadInputModule::Responder)));
     if (!handler)
         return nullptr;
-    handler->Construct(-1);
-    handler->m_index = index;
+    handler->MakeNew(-1);
+    handler->m_ordinal = index;
     handler->m_vtable = GameCode::kInputHandlerVtable;
-    handler->m_code = code;
+    handler->m_codeValue = code;
     handler->m_component = component;
     return handler;
 }
@@ -130,8 +130,8 @@ CPadInputModule::Handler* NewHandler(int index, void(__cdecl* code)(CPadInputMod
 MenuSystem::CUiWidget* FindElement(uint32_t id)
 {
     MenuSystem::ElementPtr found;
-    MenuSystem::CUiTree::Instance()->GetElement(&found, id, 0);
-    MenuSystem::CUiWidget* element = found.Get();
+    MenuSystem::CUiTree::Sole()->FetchPart(&found, id, 0);
+    MenuSystem::CUiWidget* element = found.Pull();
     found.Release();
     return element;
 }
@@ -139,10 +139,10 @@ MenuSystem::CUiWidget* FindElement(uint32_t id)
 } // namespace
 
 // 0x0041EEC0
-CObjectModule* __cdecl CPadInputModule::Create()
+CObjectModule* __cdecl CPadInputModule::Fabricate()
 {
     void* memory = MemSys::AllocZeroed(sizeof(CPadInputModule));
-    return memory ? static_cast<CPadInputModule*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CPadInputModule*>(memory)->MakeNew() : nullptr;
 }
 
 // 0x0041E6F0
@@ -152,13 +152,13 @@ void __cdecl CPadInputModule::PublishMethodTable()
 }
 
 // 0x0041E850
-CPadInputModule* CPadInputModule::Construct()
+CPadInputModule* CPadInputModule::MakeNew()
 {
-    CObjectModule::Construct();
+    CObjectModule::MakeNew();
     m_vtable = kVtable;
-    m_padPrimary.Init();
-    m_padSecondary.Init();
-    m_type = kType;
+    m_padPrimary.PrepareAll();
+    m_padSecondary.PrepareAll();
+    m_kindTag = kType;
     mp_handler = nullptr;
     m_unknown49C = 0;
     return this;
@@ -168,22 +168,22 @@ CPadInputModule* CPadInputModule::Construct()
 void CPadInputModule::DestroyBody()
 {
     m_vtable = kVtable;
-    for (Handler* handler : {mp_handler, mp_handler2}) {
+    for (Responder* handler : {mp_handler, mp_handler2}) {
         if (!handler)
             continue;
         if (handler->IsOnTaskList())
-            handler->Remove();
-        reinterpret_cast<void*(__thiscall*)(Handler*, unsigned int)>(handler->m_vtable[2])(handler, 1);
+            handler->DropOut();
+        reinterpret_cast<void*(__thiscall*)(Responder*, unsigned int)>(handler->m_vtable[2])(handler, 1);
     }
     CObjectModule::DestroyBody();
 }
 
 // 0x0041E8C0
-CPadInputModule* CPadInputModule::Destroy(unsigned int flags)
+CPadInputModule* CPadInputModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -202,47 +202,47 @@ void CPadInputModule::ConfigureFromData(Scripts::CStruct* params)
 void CPadInputModule::LinkToPad(int controller)
 {
     if (!mp_handler) {
-        MemSys::Manager* memory = MemSys::Manager::Get();
+        MemSys::Hub* memory = MemSys::Hub::Pull();
         memory->EnterHeapScope(memory->m_skaterInfoHeap);
         mp_handler = NewHandler(0, HandlerCode, this);
         uint8_t* manager = InputManager();
-        ServerHandlers(manager, mp_handler->m_index)->AddTask(mp_handler);
-        PlaceHandler(mp_handler, manager, mp_handler->m_index);
+        ServerHandlers(manager, mp_handler->m_ordinal)->QueueJob(mp_handler);
+        PlaceHandler(mp_handler, manager, mp_handler->m_ordinal);
         mp_handler2 = NewHandler(1, HandlerCode2, this);
         manager = InputManager();
-        ServerHandlers(manager, mp_handler2->m_index)->AddTask(mp_handler2);
-        PlaceHandler(mp_handler2, manager, mp_handler2->m_index);
-        MemSys::Manager::Get()->LeaveHeapScope();
+        ServerHandlers(manager, mp_handler2->m_ordinal)->QueueJob(mp_handler2);
+        PlaceHandler(mp_handler2, manager, mp_handler2->m_ordinal);
+        MemSys::Hub::Pull()->LeaveHeapScope();
     }
-    Handler* handler = mp_handler;
+    Responder* handler = mp_handler;
     uint8_t* manager = InputManager();
-    handler->Remove();
-    ServerHandlers(manager, controller)->AddTask(handler);
+    handler->DropOut();
+    ServerHandlers(manager, controller)->QueueJob(handler);
     PlaceHandler(handler, manager, controller);
-    Handler* handler2 = mp_handler2;
+    Responder* handler2 = mp_handler2;
     manager = InputManager();
-    handler2->Remove();
-    ServerHandlers(manager, 1)->AddTask(handler2);
+    handler2->DropOut();
+    ServerHandlers(manager, 1)->QueueJob(handler2);
     PlaceHandler(handler2, manager, 1);
-    if (CObjectModule* vibration = m_object->GetComponent(kVibration))
-        static_cast<CPadRumbleModule*>(vibration)->SetDevice(reinterpret_cast<Sio::Device*>(mp_handler->m_device));
+    if (CObjectModule* vibration = m_entity->FetchModule(kVibration))
+        static_cast<CPadRumbleModule*>(vibration)->ChangeGadget(reinterpret_cast<Sio::InputPort*>(mp_handler->m_dev));
 }
 
 // 0x0041F170
-void __cdecl CPadInputModule::HandlerCode(Handler* handler) { handler->m_component->UpdatePad(handler->m_controlData); }
+void __cdecl CPadInputModule::HandlerCode(Responder* handler) { handler->m_component->UpdatePad(handler->m_controlData); }
 
 // 0x0041F190
-void __cdecl CPadInputModule::HandlerCode2(Handler* handler) { handler->m_component->UpdatePad2(handler->m_controlData); }
+void __cdecl CPadInputModule::HandlerCode2(Responder* handler) { handler->m_component->UpdatePad2(handler->m_controlData); }
 
 // 0x0041F090
 void CPadInputModule::UpdatePad(const uint8_t* data)
 {
-    if (m_object->m_compositeFlags & COMPOSITE_FLAG_PAUSED)
+    if (m_entity->m_compositeFlags & COMPOSITE_FLAG_PAUSED)
         return;
     UpdateEvents(data);
     bool blocked = IsInputBlocked();
     if (!m_disabled && !m_netDisabled && !blocked) {
-        m_padPrimary.Update(data);
+        m_padPrimary.TickFrame(data);
         return;
     }
     m_padPrimary.Reset();
@@ -253,11 +253,11 @@ void CPadInputModule::UpdatePad(const uint8_t* data)
 // 0x0041F100
 void CPadInputModule::UpdatePad2(const uint8_t* data)
 {
-    if (m_object->m_compositeFlags & COMPOSITE_FLAG_PAUSED)
+    if (m_entity->m_compositeFlags & COMPOSITE_FLAG_PAUSED)
         return;
     bool blocked = IsInputBlocked();
     if (!m_disabled && !m_netDisabled && !blocked) {
-        m_padSecondary.Update(data);
+        m_padSecondary.TickFrame(data);
         return;
     }
     m_padSecondary.Reset();
@@ -275,7 +275,7 @@ bool CPadInputModule::IsInputBlocked()
     if (MenuSystem::CUiWidget* root = FindElement(kRootWindow)) {
         Scripts::CStruct* tags = Scripts::NewStruct();
         if (tags)
-            tags = tags->Init();
+            tags = tags->PrepareAll();
         root->CopyTagsTo(tags);
         uint32_t state = 0; // (uninitialised in the original: what was on the stack)
         tags->ReadHashValue(kMenuState, &state, 0);
@@ -314,10 +314,10 @@ void CPadInputModule::ReadButtonState(const uint8_t* data, int index, uint32_t b
     bool eventsOn = m_inputEvents && !m_disabled && !m_netDisabled;
     if (data[index]) {
         if (!(m_lastEvents & bit) && eventsOn)
-            m_object->PostOwnEvent(down, nullptr);
+            m_entity->PostOwnEvent(down, nullptr);
         m_events |= bit;
     } else if ((m_lastEvents & bit) && eventsOn) {
-        m_object->PostOwnEvent(up, nullptr);
+        m_entity->PostOwnEvent(up, nullptr);
     }
 }
 
@@ -343,7 +343,7 @@ int CPadInputModule::LockButtonFromScript(Scripts::CStruct* params, Scripts::CSc
     uint32_t name = 0;
     if (params->ReadHashValue(0u, &name, 0)) {
         float time = 1.0f;
-        params->GetFloat(kTime, &time, 0);
+        params->FetchFloat(kTime, &time, 0);
         // (the original's file name: its __FILE__ from 12 characters in)
         DebugOut::Printf("D:%s:%i: time = %g\n", "omponents\\InputComponent.cpp", 0x94, static_cast<double>(time));
         int clear = 0;
@@ -402,10 +402,10 @@ int CPadInputModule::PlayerInputIsDisabled(Scripts::CStruct*, Scripts::CScript*)
 }
 
 // 0x0041EA20
-int CPadInputModule::LeftPressed(Scripts::CStruct*, Scripts::CScript*) { return m_padPrimary.m_left.m_heldDown != 0 ? 1 : 0; }
+int CPadInputModule::LeftPressed(Scripts::CStruct*, Scripts::CScript*) { return m_padPrimary.m_leftSide.m_heldDown != 0 ? 1 : 0; }
 
 // 0x0041EA30
-int CPadInputModule::RightPressed(Scripts::CStruct*, Scripts::CScript*) { return m_padPrimary.m_right.m_heldDown != 0 ? 1 : 0; }
+int CPadInputModule::RightPressed(Scripts::CStruct*, Scripts::CScript*) { return m_padPrimary.m_rightSide.m_heldDown != 0 ? 1 : 0; }
 
 // 0x0041EA40
 int CPadInputModule::UpPressed(Scripts::CStruct*, Scripts::CScript*) { return m_padPrimary.m_upDir.m_heldDown != 0 ? 1 : 0; }
@@ -416,11 +416,11 @@ int CPadInputModule::DownPressed(Scripts::CStruct*, Scripts::CScript*) { return 
 // 0x0041EA60
 int CPadInputModule::GetSticks(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->PushFloat(0x737F15CF, m_padPrimary.m_polar[1].angle * kRadiansToDegrees);
-    script->m_params->PushFloat(0x686AD1C2,
+    script->m_args->PushFloat(0x737F15CF, m_padPrimary.m_polar[1].angle * kRadiansToDegrees);
+    script->m_args->PushFloat(0x686AD1C2,
                                static_cast<float>(StickLength(m_padPrimary.m_stick[2], m_padPrimary.m_stick[3], m_padPrimary.m_polar[1].angle)));
-    script->m_params->PushFloat(0xD6030CEA, m_padPrimary.m_polar[0].angle * kRadiansToDegrees);
-    script->m_params->PushFloat(0xC94777AC,
+    script->m_args->PushFloat(0xD6030CEA, m_padPrimary.m_polar[0].angle * kRadiansToDegrees);
+    script->m_args->PushFloat(0xC94777AC,
                                static_cast<float>(StickLength(m_padPrimary.m_stick[0], m_padPrimary.m_stick[1], m_padPrimary.m_polar[0].angle)));
     return 1;
 }
@@ -432,7 +432,7 @@ int CPadInputModule::HeldLongerThan(Scripts::CStruct* params, Scripts::CScript*)
     params->ReadHashValue(kButton, &name, 1);
     float time;
     std::memcpy(&time, &params, sizeof(time)); // (the original's slot for it: the params argument)
-    params->GetFloat(0u, &time, 1);
+    params->FetchFloat(0u, &time, 1);
     double scaled = time;
     if (params->HasBareFlag(kSeconds) || params->HasBareFlag(kSecond))
         scaled = static_cast<double>(time) * kMilliseconds;
@@ -450,14 +450,14 @@ int CPadInputModule::HeldLongerThan(Scripts::CStruct* params, Scripts::CScript*)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CPadInputModule::Destroy,
-         &GameObjects::ComponentWithoutUpdate::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CPadInputModule::Teardown,
+         &GameObjects::ComponentWithoutUpdate::TickFrame,
          &GameObjects::CPadInputModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
          GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CObjectModule::HoldOff,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,

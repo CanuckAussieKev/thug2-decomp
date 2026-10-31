@@ -9,12 +9,12 @@
 // without an explicit heap go), and finds heaps by name checksum. One instance (0x007D1800).
 namespace MemSys {
 
-class Manager {
+class Hub {
 public:
     // A heap created at run time by name (CFunc_MemInitHeap and friends).
     struct LabeledZone {
-        Region* region;
-        Heap* heap;
+        Zone* region;
+        Arena* heap;
         uint32_t name;    // checksum
         char text[0x80];  // the name
         bool used;
@@ -25,15 +25,15 @@ public:
     static constexpr int kMaxNamedHeaps = 7;
     static constexpr int kMaxSkaters = 8;
 
-    static Manager* Get();
-    static Manager*& Instance();
+    static Hub* Pull();
+    static Hub*& Sole();
 
     // 0x005BBC00: the 64 MB block (ours bigger: game/core/memory_sizes.h), the main region and its two heaps (in static storage).
-    Manager* Construct();
+    Hub* MakeNew();
     // The rest of the standard heaps (front end, network, script, skater info, theme, skater, named texture heaps).
     void InitStandardHeaps();
     // A new heap in `region`, registered.
-    Heap* AddHeap(Region* region, int direction, const char* name);
+    Arena* AddHeap(Zone* region, int direction, const char* name);
     void CreateNetScratchZone();
     void InitInternetHeaps();
     void InitCutsceneHeaps(uint32_t size);
@@ -43,30 +43,30 @@ public:
     void CreateLabeledZone(uint32_t name, uint32_t size, const char* text, int unused);
 
     // Allocation through a heap (null: the current one); `haltIfExhausted` reaches the heap as is.
-    void* Allocate(uint32_t size, int haltIfExhausted, Allocator* heap);
-    void* AllocateZeroed(uint32_t size, int haltIfExhausted, Allocator* heap);
-    void* ExtendBlockUpward(uint32_t size, void* block, Allocator* heap);
-    void* TrimBlockEnd(uint32_t size, void* block, Allocator* heap);
-    void Free(void* block);
+    void* Carve(uint32_t size, int haltIfExhausted, MemSource* heap);
+    void* AllocateZeroed(uint32_t size, int haltIfExhausted, MemSource* heap);
+    void* ExtendBlockUpward(uint32_t size, void* block, MemSource* heap);
+    void* TrimBlockEnd(uint32_t size, void* block, MemSource* heap);
+    void Dealloc(void* block);
     // The current heap's largest possible allocation.
-    uint32_t Available();
+    uint32_t Obtainable();
 
     // The current-heap stack.
-    void EnterHeapScope(Allocator* heap);
+    void EnterHeapScope(MemSource* heap);
     void LeaveHeapScope();
     const char* CurrentHeapName();
 
     // The registry of all heaps.
-    Allocator* FirstZone();
-    Allocator* FollowingZone(Allocator* heap);
+    MemSource* FirstZone();
+    MemSource* FollowingZone(MemSource* heap);
     // Take it out of the registry and delete it.
-    void DeleteHeap(Allocator* heap);
+    void DeleteHeap(MemSource* heap);
 
     // Heaps by name checksum.
     LabeledZone* FindNamedHeap(uint32_t name);
-    Heap* GetNamedHeap(uint32_t name, int unused);
+    Arena* GetNamedHeap(uint32_t name, int unused);
     bool ReleaseLabeledZone(uint32_t name, int unused);
-    Heap* GetMemoryPool(uint32_t name);
+    Arena* GetMemoryPool(uint32_t name);
     const char* GetZoneLabel(uint32_t name);
 
     // Deleting the optional heaps.
@@ -77,47 +77,47 @@ public:
     // The three that are constructed in place (not freed): the main heaps and region.
     void DestroyMainHeaps();
 
-    Allocator* m_heaps[kMaxHeaps];
+    MemSource* m_heaps[kMaxHeaps];
     int m_heapCount;
-    Allocator** m_current;            // the top of m_contextStack
-    Allocator* m_contextStack[16];
+    MemSource** m_ongoing;            // the top of m_contextStack
+    MemSource* m_contextStack[16];
     int m_contextDepth;
-    Region* m_mainRegion;
-    Heap* m_topDownHeap;
-    Heap* m_bottomUpHeap;
-    Region* m_frontEndRegion;
-    Heap* m_frontEndHeap;
-    Region* m_scriptRegion;
-    Heap* m_scriptHeap;
-    Region* m_networkRegion;
-    Heap* m_networkHeap;
-    Region* m_netMiscRegion;
-    Heap* m_netMiscHeap;
-    Region* m_internetRegion;
-    Heap* m_internetTopDownHeap;
-    Heap* m_internetBottomUpHeap;
-    Region* m_cutsceneRegion;
-    Heap* m_cutsceneTopDownHeap;
-    Heap* m_cutsceneBottomUpHeap;
-    Region* m_debugRegion;
-    Heap* m_debugHeap;
+    Zone* m_mainRegion;
+    Arena* m_topDownHeap;
+    Arena* m_bottomUpHeap;
+    Zone* m_frontEndRegion;
+    Arena* m_frontEndHeap;
+    Zone* m_scriptRegion;
+    Arena* m_scriptHeap;
+    Zone* m_networkRegion;
+    Arena* m_networkHeap;
+    Zone* m_netMiscRegion;
+    Arena* m_netMiscHeap;
+    Zone* m_internetRegion;
+    Arena* m_internetTopDownHeap;
+    Arena* m_internetBottomUpHeap;
+    Zone* m_cutsceneRegion;
+    Arena* m_cutsceneTopDownHeap;
+    Arena* m_cutsceneBottomUpHeap;
+    Zone* m_debugRegion;
+    Arena* m_debugHeap;
     uint32_t m_unknown158[2];
-    Region* m_skaterRegions[kMaxSkaters];
-    Heap* m_skaterHeaps[kMaxSkaters];
-    Region* m_skaterGeomRegions[kMaxSkaters];
-    Heap* m_skaterGeomHeaps[kMaxSkaters];
+    Zone* m_skaterRegions[kMaxSkaters];
+    Arena* m_skaterHeaps[kMaxSkaters];
+    Zone* m_skaterGeomRegions[kMaxSkaters];
+    Arena* m_skaterGeomHeaps[kMaxSkaters];
     LabeledZone m_namedHeaps[kMaxNamedHeaps];
-    Region* m_skaterInfoRegion;
-    Heap* m_skaterInfoHeap;
-    Region* m_themeRegion;
-    Heap* m_themeHeap;
+    Zone* m_skaterInfoRegion;
+    Arena* m_skaterInfoHeap;
+    Zone* m_themeRegion;
+    Arena* m_themeHeap;
     uint32_t m_unknown5E0;
     uint32_t m_unknown5E4;
 };
-static_assert(offsetof(Manager, m_heapCount) == 0xC0 && offsetof(Manager, m_contextDepth) == 0x108 &&
-                  offsetof(Manager, m_debugHeap) == 0x154 && offsetof(Manager, m_skaterRegions) == 0x160 &&
-                  offsetof(Manager, m_namedHeaps) == 0x1E0 && offsetof(Manager, m_skaterInfoRegion) == 0x5D0 &&
-                  offsetof(Manager, m_themeHeap) == 0x5DC && sizeof(Manager) == 0x5E8,
+static_assert(offsetof(Hub, m_heapCount) == 0xC0 && offsetof(Hub, m_contextDepth) == 0x108 &&
+                  offsetof(Hub, m_debugHeap) == 0x154 && offsetof(Hub, m_skaterRegions) == 0x160 &&
+                  offsetof(Hub, m_namedHeaps) == 0x1E0 && offsetof(Hub, m_skaterInfoRegion) == 0x5D0 &&
+                  offsetof(Hub, m_themeHeap) == 0x5DC && sizeof(Hub) == 0x5E8,
               "layout must match the original");
 
 // 0x005BC2C0: create the manager (on the first allocation), with the bottom-up heap current.

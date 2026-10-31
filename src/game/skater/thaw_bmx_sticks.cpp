@@ -45,8 +45,8 @@ PadSticks& SticksOf(const void* pad)
 {
     PadSticks& sticks = Pads()[pad];
     for (int i = 0; i < 8; ++i)
-        if (!sticks.buttons[i].m_name)
-            sticks.buttons[i].m_name = StickButtonName(i);
+        if (!sticks.buttons[i].m_label)
+            sticks.buttons[i].m_label = StickButtonName(i);
     return sticks;
 }
 
@@ -57,7 +57,7 @@ const void* TrickPad(const GameObjects::CMoveExecutor* trick) { return trick->m_
 BikeState* RidingState(const GameObjects::CMoveExecutor* trick)
 {
     const void* core = trick->m_corePhysics;
-    if (!core || !Active(core))
+    if (!core || !LiveNow(core))
         return nullptr;
     return StateOf(core, false);
 }
@@ -69,7 +69,7 @@ void AddStickEvent(GameObjects::CMoveExecutor* trick, uint32_t name, bool presse
     for (int i = 0; i < trick->m_ignoredCount; ++i)
         if (trick->m_ignored[i] == name)
             return;
-    trick->AddEvent(pressed ? 1 : 2)->button = name;
+    trick->AppendIncident(pressed ? 1 : 2)->button = name;
 }
 
 } // namespace
@@ -115,7 +115,7 @@ void UpdatePadSticks(const void* pad, const uint8_t* data)
     uint32_t bits = data ? StickDirections(data) : 0;
     // (THAW 0x596CA0: each a button down while its byte is set - full pressure)
     for (int i = 0; i < 8; ++i)
-        sticks.buttons[i].Update((bits >> i) & 1 ? 0xFF : 0);
+        sticks.buttons[i].TickFrame((bits >> i) & 1 ? 0xFF : 0);
 }
 
 void* PadStickButton(const void* pad, uint32_t name)
@@ -151,7 +151,7 @@ void UpdateTrickSticks(void* trickComponent)
     BikeState* state = core ? StateOf(core, false) : nullptr;
     if (!state)
         return;
-    bool riding = Active(core);
+    bool riding = LiveNow(core);
     uint32_t bits = 0;
     if (riding) {
         PadSticks& sticks = SticksOf(TrickPad(trick));

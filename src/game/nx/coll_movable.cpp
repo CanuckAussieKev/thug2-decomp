@@ -20,15 +20,15 @@ namespace Engine3D {
 namespace {
 
 static VtableSlot kMovableVtable_slots[] = {&Engine3D::CHitMovingMesh::ScalarDelete, Stubs::ReturnFalse,
-        &_purecall, &_purecall, &Engine3D::CHitMesh::AssignShapeData, &Engine3D::CProbeRay::SetEnd,
-        &Engine3D::CHitMovingMesh::SetOrientation, &Engine3D::CHitMovingMesh::GetAbsolutePoint, &Engine3D::CHitMovingMesh::GetOrientation,
+        &_purecall, &_purecall, &Engine3D::CHitMesh::AssignShapeData, &Engine3D::CProbeRay::ChangeFinish,
+        &Engine3D::CHitMovingMesh::ChangeFacing, &Engine3D::CHitMovingMesh::GetAbsolutePoint, &Engine3D::CHitMovingMesh::FetchFacing,
         &Engine3D::CHitMovingMesh::ReadVertexPoint, &Engine3D::CHitMovingMesh::GetValueA0, &Engine3D::CHitMovingMesh::SetValueA0,
         &_purecall, &_purecall, &_purecall,
         &_purecall, &_purecall, &_purecall,
         &_purecall, &_purecall, Stubs::ReturnZero};
 void** const kMovableVtable = reinterpret_cast<void**>(kMovableVtable_slots);
 
-void SetIdentity(Maths::Matrix& m)
+void SetIdentity(Maths::Mat4& m)
 {
     m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
@@ -37,7 +37,7 @@ void SetIdentity(Maths::Matrix& m)
 }
 
 // 0x0048D090: a box drawn with a transform (debug rendering; not rewritten yet).
-void DrawBox(const Maths::BBox* box, const Maths::Matrix* transform, uint32_t colour, int flag)
+void DrawBox(const Maths::BBox* box, const Maths::Mat4* transform, uint32_t colour, int flag)
 {
     (void)box;
     Stubs::IgnoreArguments3(reinterpret_cast<int>(transform), static_cast<int>(colour), flag);
@@ -47,8 +47,8 @@ void DrawBox(const Maths::BBox* box, const Maths::Matrix* transform, uint32_t co
 
 static VtableSlot kScaledVtable_slots[] = {&Engine3D::CCollScaled::ScalarDelete, Stubs::ReturnFalse,
         &_purecall, &_purecall, &Engine3D::CHitMesh::AssignShapeData,
-        &Engine3D::CCollScaled::PlaceAtAbsolutePoint, &Engine3D::CCollScaled::SetOrientation, &Engine3D::CCollScaled::GetAbsolutePoint,
-        &Engine3D::CHitMovingMesh::GetOrientation, &Engine3D::CCollScaled::ReadVertexPoint, Stubs::ReturnZero, Stubs::IgnoreArgument,
+        &Engine3D::CCollScaled::PlaceAtAbsolutePoint, &Engine3D::CCollScaled::ChangeFacing, &Engine3D::CCollScaled::GetAbsolutePoint,
+        &Engine3D::CHitMovingMesh::FetchFacing, &Engine3D::CCollScaled::ReadVertexPoint, Stubs::ReturnZero, Stubs::IgnoreArgument,
         &_purecall, &_purecall, &_purecall,
         &_purecall, &_purecall, &_purecall,
         &_purecall, &_purecall, Stubs::ReturnZero, &_purecall,
@@ -57,10 +57,10 @@ static VtableSlot kScaledVtable_slots[] = {&Engine3D::CCollScaled::ScalarDelete,
 void** const kScaledVtable = reinterpret_cast<void**>(kScaledVtable_slots);
 
 // 0x00411FA0
-CHitMovingMesh* CHitMovingMesh::Construct()
+CHitMovingMesh* CHitMovingMesh::MakeNew()
 {
     m_vtable = kMovableVtable;
-    m_flags = 0;
+    m_flagBits = 0;
     m_geometry = nullptr;
     m_anchorPoint = {0.0f, 0.0f, 0.0f, 1.0f};
     m_valueA0 = 0;
@@ -74,7 +74,7 @@ CHitMovingMesh* CHitMovingMesh::ConstructCopy(const CHitMovingMesh* other)
 {
     m_vtable = kCollObjVtable;
     m_checksum = other->m_checksum;
-    m_flags = other->m_flags;
+    m_flagBits = other->m_flagBits;
     m_visitStamp = other->m_visitStamp;
     m_geometry = other->m_geometry;
     m_vtable = kMovableVtable;
@@ -98,12 +98,12 @@ CHitMovingMesh* CHitMovingMesh::ScalarDelete(uint8_t flags)
 {
     Destruct();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00412070
-void CHitMovingMesh::SetOrientation(const Maths::Matrix* orientation)
+void CHitMovingMesh::ChangeFacing(const Maths::Mat4* orientation)
 {
     m_orientation.row[0] = orientation->row[0];
     m_orientation.row[1] = orientation->row[1];
@@ -112,23 +112,23 @@ void CHitMovingMesh::SetOrientation(const Maths::Matrix* orientation)
 }
 
 // 0x00412050
-Maths::Vector* CHitMovingMesh::GetAbsolutePoint()
+Maths::Vec4* CHitMovingMesh::GetAbsolutePoint()
 {
     return &m_anchorPoint;
 }
 
 // 0x00412060
-Maths::Matrix* CHitMovingMesh::GetOrientation()
+Maths::Mat4* CHitMovingMesh::FetchFacing()
 {
     return &m_orientation;
 }
 
 // 0x00412230
-Maths::Vector CHitMovingMesh::ReadVertexPoint(int index) const
+Maths::Vec4 CHitMovingMesh::ReadVertexPoint(int index) const
 {
-    Maths::Vector raw = m_geometry->ReadStoredVertex(index);
+    Maths::Vec4 raw = m_geometry->ReadStoredVertex(index);
     raw.w = 0.0f;
-    Maths::Vector turned;
+    Maths::Vec4 turned;
     m_orientation.RotateVector(turned, raw);
     return {turned.x + m_anchorPoint.x, turned.y + m_anchorPoint.y, turned.z + m_anchorPoint.z, turned.w + m_anchorPoint.w};
 }
@@ -145,7 +145,7 @@ void CHitMovingMesh::BoxToLocal(const Maths::BBox* box, Maths::BBox* out) const
     out->max.y -= m_anchorPoint.y;
     out->max.z -= m_anchorPoint.z;
     out->max.w -= m_anchorPoint.w;
-    Maths::Vector turned;
+    Maths::Vec4 turned;
     out->min = m_inverse.RotateVector(turned, out->min);
     out->max = m_inverse.RotateVector(turned, out->max);
 }
@@ -163,7 +163,7 @@ void CHitMovingMesh::SetValueA0(int value)
 }
 
 // 0x004120D0
-Maths::Matrix* MatrixTranspose::TransposeFrom(const Maths::Matrix* source)
+Maths::Mat4* MatrixTranspose::TransposeFrom(const Maths::Mat4* source)
 {
     if (source == this) {
         TransposeInPlace();
@@ -189,9 +189,9 @@ void MatrixTranspose::TransposeInPlace()
 }
 
 // 0x00412550
-CHitMovingBox* CHitMovingBox::Construct()
+CHitMovingBox* CHitMovingBox::MakeNew()
 {
-    CHitMovingMesh::Construct();
+    CHitMovingMesh::MakeNew();
     m_vtable = Vt::kCollMovBBox;
     new (&m_box) Maths::BBox();
     m_faceFlags = 0;
@@ -226,7 +226,7 @@ CHitMovingBox* CHitMovingBox::ScalarDelete(uint8_t flags)
 {
     Destruct();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -253,11 +253,11 @@ uint16_t CHitMovingBox::GetFaceTerrain(int /*face*/) const
 }
 
 // 0x00414BE0
-CHitMovingBox* CHitMovingBox::Clone(int)
+CHitMovingBox* CHitMovingBox::Replicate(int)
 {
-    void* memory = MemSys::New(sizeof(CHitMovingBox));
+    void* memory = MemSys::Alloc(sizeof(CHitMovingBox));
     CHitMovingBox* copy = memory ? static_cast<CHitMovingBox*>(memory)->ConstructCopy(this) : nullptr;
-    copy->m_flags |= 0x8000;
+    copy->m_flagBits |= 0x8000;
     copy->m_geometry = nullptr;
     return copy;
 }
@@ -265,16 +265,16 @@ CHitMovingBox* CHitMovingBox::Clone(int)
 // 0x004126E0
 void CHitMovingBox::DrawDiagnostic(int /*a*/, int /*b*/)
 {
-    Maths::Matrix transform = m_orientation;
+    Maths::Mat4 transform = m_orientation;
     transform.row[3] = m_anchorPoint;
     DrawBox(&m_box, &transform, 0x80808080, 1);
 }
 
 // 0x004123C0
-CCollScaled* CCollScaled::Construct()
+CCollScaled* CCollScaled::MakeNew()
 {
     m_vtable = kScaledVtable;
-    m_flags = 0;
+    m_flagBits = 0;
     m_geometry = nullptr;
     m_sizeFactor = {1.0f, 1.0f, 1.0f, 0.0f};
     SetIdentity(m_basisFrame);
@@ -287,7 +287,7 @@ CCollScaled* CCollScaled::ConstructCopy(const CCollScaled* other)
 {
     m_vtable = kCollObjVtable;
     m_checksum = other->m_checksum;
-    m_flags = other->m_flags;
+    m_flagBits = other->m_flagBits;
     m_visitStamp = other->m_visitStamp;
     m_geometry = other->m_geometry;
     m_vtable = kScaledVtable;
@@ -308,19 +308,19 @@ CCollScaled* CCollScaled::ScalarDelete(uint8_t flags)
 {
     Destruct();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00413610
-void CCollScaled::PlaceAtAbsolutePoint(const Maths::Vector* position)
+void CCollScaled::PlaceAtAbsolutePoint(const Maths::Vec4* position)
 {
     m_basisFrame.row[3] = *position;
     UpdateInverse();
 }
 
 // 0x00413640
-void CCollScaled::SetOrientation(const Maths::Matrix* orientation)
+void CCollScaled::ChangeFacing(const Maths::Mat4* orientation)
 {
     m_basisFrame.row[0] = orientation->row[0];
     m_basisFrame.row[1] = orientation->row[1];
@@ -329,19 +329,19 @@ void CCollScaled::SetOrientation(const Maths::Matrix* orientation)
 }
 
 // 0x004136A0
-void CCollScaled::ChangeScale(const Maths::Vector* scale)
+void CCollScaled::ChangeScale(const Maths::Vec4* scale)
 {
     m_sizeFactor = *scale;
     UpdateInverse();
 }
 
 // 0x00410A30
-void CCollScaled::LineToLocal(const Maths::Line* line, Maths::Line* out) const
+void CCollScaled::LineToLocal(const Maths::Seg* line, Maths::Seg* out) const
 {
-    Maths::Vector moved;
-    m_inverse.Transform(moved, line->start);
+    Maths::Vec4 moved;
+    m_inverse.Xform(moved, line->start);
     out->start = moved;
-    m_inverse.Transform(moved, line->end);
+    m_inverse.Xform(moved, line->end);
     out->end = moved;
 }
 
@@ -354,27 +354,27 @@ void CCollScaled::UpdateInverse()
         (&m_inverse.row[1].x)[r] = static_cast<float>(inverse * m_basisFrame.row[r].y);
         (&m_inverse.row[2].x)[r] = static_cast<float>(inverse * m_basisFrame.row[r].z);
     }
-    Maths::Vector& back = m_inverse.row[3];
+    Maths::Vec4& back = m_inverse.row[3];
     back.x = -m_basisFrame.row[3].x;
     back.y = -m_basisFrame.row[3].y;
     back.z = -m_basisFrame.row[3].z;
-    Maths::Vector turned;
+    Maths::Vec4 turned;
     back = m_inverse.RotateVector(turned, back);
 }
 
 // 0x004109C0
-Maths::Vector* CCollScaled::GetAbsolutePoint()
+Maths::Vec4* CCollScaled::GetAbsolutePoint()
 {
     return &m_basisFrame.row[3];
 }
 
 // 0x004109D0
-Maths::Vector CCollScaled::ReadVertexPoint(int index) const
+Maths::Vec4 CCollScaled::ReadVertexPoint(int index) const
 {
-    Maths::Vector raw = m_geometry->ReadStoredVertex(index);
-    Maths::Vector scaled{raw.x * m_sizeFactor.x, raw.y * m_sizeFactor.y, raw.z * m_sizeFactor.z, m_sizeFactor.w};
-    Maths::Vector out;
-    m_basisFrame.Transform(out, scaled);
+    Maths::Vec4 raw = m_geometry->ReadStoredVertex(index);
+    Maths::Vec4 scaled{raw.x * m_sizeFactor.x, raw.y * m_sizeFactor.y, raw.z * m_sizeFactor.z, m_sizeFactor.w};
+    Maths::Vec4 out;
+    m_basisFrame.Xform(out, scaled);
     return out;
 }
 

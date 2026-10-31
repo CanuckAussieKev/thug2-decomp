@@ -8,12 +8,12 @@
 #include "game/gfx/device.h"
 #include "game/gfx/pc_flexible_particles.h"
 
-namespace Platform {
+namespace OsLayer {
 
 namespace {
 
 IDirect3D9*& Direct3D() { return Engine3D::g_direct3D; }
-IDirect3DDevice9*& Device() { return Engine3D::g_d3dDevice; }
+IDirect3DDevice9*& InputPort() { return Engine3D::g_d3dDevice; }
 
 IDirect3DVertexBuffer9* g_dynamicVertices;
 uint8_t* g_dynamicVerticesLocked;
@@ -49,7 +49,7 @@ void ExpandPalette(uint32_t* out, const uint8_t* indices, int count, const uint3
 // 0x005F4620
 HRESULT CreateDynamicVertexBuffer(uint32_t size)
 {
-    HRESULT result = Device()->CreateVertexBuffer(size, D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
+    HRESULT result = InputPort()->CreateVertexBuffer(size, D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                                   &DynamicVertices(), nullptr);
     DynamicVerticesSize() = size;
     return result;
@@ -75,7 +75,7 @@ void ReleaseQuadIndexBuffer()
 HRESULT CreateQuadIndexBuffer(uint32_t quads)
 {
     uint16_t* index = nullptr;
-    Device()->CreateIndexBuffer(quads * 6 * sizeof(uint16_t), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT,
+    InputPort()->CreateIndexBuffer(quads * 6 * sizeof(uint16_t), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT,
                                 &QuadIndices(), nullptr);
     QuadIndices()->Lock(0, 0, reinterpret_cast<void**>(&index), 0);
     for (uint32_t quad = 0, first = 0; quad < quads; ++quad, first += 4, index += 6) {
@@ -125,7 +125,7 @@ void UnlockDynamicVertices(uint32_t count, uint32_t stride)
 HRESULT BeginOcclusionQuery()
 {
     IDirect3DQuery9* query = nullptr;
-    HRESULT result = Device()->CreateQuery(D3DQUERYTYPE_OCCLUSION, &query);
+    HRESULT result = InputPort()->CreateQuery(D3DQUERYTYPE_OCCLUSION, &query);
     if (FAILED(result))
         return result;
     result = query->Issue(D3DISSUE_BEGIN);
@@ -190,13 +190,13 @@ void ReleaseDirect3D()
     if (DynamicVertices())
         DynamicVertices()->Release();
     ReleaseOcclusionQueries();
-    if (Device())
-        Device()->Release();
+    if (InputPort())
+        InputPort()->Release();
     if (Direct3D())
         Direct3D()->Release();
     QuadIndices() = nullptr;
     DynamicVertices() = nullptr;
-    Device() = nullptr;
+    InputPort() = nullptr;
     Direct3D() = nullptr;
     DynamicVerticesSize() = 0;
     DynamicVerticesUsed() = 0;

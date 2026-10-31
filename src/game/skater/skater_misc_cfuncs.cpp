@@ -54,18 +54,18 @@ constexpr uint32_t kSkaterPlayBailStream = 0x38A0F1EC; // "skater_play_bail_stre
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C): out = a * b.
-void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
 
 // The matrix turned about Y by `degrees` (the rotation: degrees in radians, rounded to float): m = m * rotation, or
 // with `before` m = rotation * m.
-void TurnAboutY(Maths::Matrix& m, float degrees, bool before)
+void TurnAboutY(Maths::Mat4& m, float degrees, bool before)
 {
     float radians = static_cast<float>(static_cast<double>(degrees) * g_degreesToRadians); // pi / 180
-    Maths::Matrix rotation;
-    Maths::Matrix& turn = Maths::MakeYawMatrix(rotation, radians);
+    Maths::Mat4 rotation;
+    Maths::Mat4& turn = Maths::MakeYawMatrix(rotation, radians);
     if (before)
         MatrixMultiply(&m, &turn, &m);
     else
@@ -85,7 +85,7 @@ bool __cdecl CFunc_ApplyCustomLogoToPart(Scripts::CStruct* params, Scripts::CScr
     params->ReadHashValue(kPart, &part, 1);
     int player;
     params->FetchIntValue(kPlayer, &player, 1);
-    static_cast<GameObjects::CRider*>(GameModules::Skate::Instance()->GetRiderAt(player))->ShowBoardElement(part);
+    static_cast<GameObjects::CRider*>(GameModules::Skate::Sole()->GetRiderAt(player))->ShowBoardElement(part);
     return true;
 }
 
@@ -95,17 +95,17 @@ bool __cdecl CFunc_ApplyCustomLogoToPart(Scripts::CStruct* params, Scripts::CScr
 // about Y by the skew angle if there is one. False without an object.
 bool __cdecl CFunc_GetSkaterVelocity(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    auto* object = static_cast<GameObjects::CGameEntity*>(script->m_object.m_ownerObject);
+    auto* object = static_cast<GameObjects::CGameEntity*>(script->m_entity.m_ownerObject);
     if (!object)
         return false;
-    Maths::Vector velocity = object->m_vel;
+    Maths::Vec4 velocity = object->m_vel;
     float scale = 1.0f;
     float skew = 0.0f;
-    params->GetFloat(kSkewAngle, &skew, 0);
-    script->m_params->PutInt(kVelX, Ftol(velocity.x));
-    script->m_params->PutInt(kVelY, Ftol(velocity.y));
-    script->m_params->PutInt(kVelZ, Ftol(velocity.z));
-    params->GetFloat(kScale, &scale, 0);
+    params->FetchFloat(kSkewAngle, &skew, 0);
+    script->m_args->PutInt(kVelX, Ftol(velocity.x));
+    script->m_args->PutInt(kVelY, Ftol(velocity.y));
+    script->m_args->PutInt(kVelZ, Ftol(velocity.z));
+    params->FetchFloat(kScale, &scale, 0);
     velocity.y = 0.0f;
     // x87: z * z + x * x and its root in double
     double speed = std::sqrt(static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x);
@@ -113,28 +113,28 @@ bool __cdecl CFunc_GetSkaterVelocity(Scripts::CStruct* params, Scripts::CScript*
     float y;
     float z;
     if (speed > 100.0) {
-        velocity.Normalize();
+        velocity.MakeUnit();
         if (skew == 0.0f) {
             x = velocity.x;
             y = velocity.y;
             z = velocity.z;
         } else {
-            Maths::Matrix m;
+            Maths::Mat4 m;
             m.ResetToIdentity();
             TurnAboutY(m, skew, false);
-            Maths::Vector turned;
-            m.Transform(turned, velocity);
+            Maths::Vec4 turned;
+            m.Xform(turned, velocity);
             x = turned.x;
             y = turned.y;
             z = turned.z;
         }
     } else {
-        const Maths::Vector& at = object->m_basisFrame.row[2];
+        const Maths::Vec4& at = object->m_basisFrame.row[2];
         x = at.x;
         y = at.y;
         z = at.z;
         if (skew != 0.0f) {
-            Maths::Matrix m;
+            Maths::Mat4 m;
             m = object->m_basisFrame;
             TurnAboutY(m, skew, true);
             x = m.row[2].x;
@@ -142,9 +142,9 @@ bool __cdecl CFunc_GetSkaterVelocity(Scripts::CStruct* params, Scripts::CScript*
             z = m.row[2].z;
         }
     }
-    script->m_params->PutInt(kScaledX, Ftol(static_cast<double>(x) * scale));
-    script->m_params->PutInt(kScaledY, Ftol(static_cast<double>(y) * scale));
-    script->m_params->PutInt(kScaledZ, Ftol(static_cast<double>(z) * scale));
+    script->m_args->PutInt(kScaledX, Ftol(static_cast<double>(x) * scale));
+    script->m_args->PutInt(kScaledY, Ftol(static_cast<double>(y) * scale));
+    script->m_args->PutInt(kScaledZ, Ftol(static_cast<double>(z) * scale));
     return true;
 }
 
@@ -159,43 +159,43 @@ bool __cdecl CFunc_PlaySkaterStream(Scripts::CStruct* params, Scripts::CScript* 
     voice[0] = 0; // (left as the stack had it in the original when the voice is not found)
     char stream[128];
     char firstName[128];
-    auto* skater = static_cast<GameObjects::CRider*>(script->m_object.m_ownerObject);
+    auto* skater = static_cast<GameObjects::CRider*>(script->m_entity.m_ownerObject);
     const char* type;
-    params->GetString(kType, &type, 1);
+    params->FetchText(kType, &type, 1);
     int count = 10;
     params->FetchIntValue(kStreamCount, &count, 0);
 
     // the stream numbers 1..count, shuffled
     CArray* memory = Scripts::NewArray();
-    CArray* order = memory ? memory->Init() : nullptr;
+    CArray* order = memory ? memory->PrepareAll() : nullptr;
     order->ConfigureSizeKind(count, Scripts::QBVAL_INTEGER);
     for (int i = 0; i < count; ++i)
         order->SetElement(i, static_cast<uint32_t>(i + 1));
     for (int i = 0; i < count; ++i) {
         int other = Maths::Rnd(count);
-        uint32_t a = order->GetElement(other);
-        order->SetElement(other, order->GetElement(i));
+        uint32_t a = order->FetchPart(other);
+        order->SetElement(other, order->FetchPart(i));
         order->SetElement(i, a);
     }
 
     CopyString(firstName, skater->m_givenName); // (copied and not used)
-    GameObjects::CRiderIdentity* profile = GameObjects::g_profileManager->GetTemplate(skater->m_name);
+    GameObjects::CRiderIdentity* profile = GameObjects::g_profileManager->GetTemplate(skater->m_label);
     if (skater->m_pro) {
         const char* lastName;
-        profile->InfoStructure()->GetString(kLastName, &lastName, 1);
+        profile->InfoStructure()->FetchText(kLastName, &lastName, 1);
         CopyString(voice, lastName);
     } else {
         uint32_t voiceName;
         if (profile->InfoStructure()->ReadHashValue(kVoice, &voiceName, 0)) {
-            CArray* voices = Scripts::GetArray(kPlayerVoices);
-            int size = static_cast<int>(voices->m_size);
+            CArray* voices = Scripts::FetchList(kPlayerVoices);
+            int size = static_cast<int>(voices->m_extent);
             for (int i = 0; i < size; ++i) {
-                auto* entry = reinterpret_cast<CStruct*>(voices->GetElement(i));
+                auto* entry = reinterpret_cast<CStruct*>(voices->FetchPart(i));
                 uint32_t id;
                 entry->ReadHashValue(kId, &id, 1);
                 if (id == voiceName) {
                     const char* name = nullptr;
-                    entry->GetString(kStreamName, &name, 1);
+                    entry->FetchText(kStreamName, &name, 1);
                     CopyString(voice, name);
                     break;
                 }
@@ -210,17 +210,17 @@ bool __cdecl CFunc_PlaySkaterStream(Scripts::CStruct* params, Scripts::CScript* 
     for (int i = 0; i < count; ++i) {
         // "%s_%s%02i" (the original's sprintf is unbounded)
         std::snprintf(stream, sizeof(stream), "%s_%s%02i", voice, type,
-                      static_cast<int>(order->GetElement(i)));
+                      static_cast<int>(order->FetchPart(i)));
         if (!AudioStream::StreamExists(Checksums::HashFromText(stream)))
             continue;
         CStruct* structMemory = Scripts::NewStruct();
-        CStruct* streamParams = structMemory ? structMemory->Init() : nullptr;
+        CStruct* streamParams = structMemory ? structMemory->PrepareAll() : nullptr;
         streamParams->PutNameKey(kStreamChecksum, Checksums::HashFromText(stream));
-        Scripts::LaunchScript(kSkaterPlayBailStream, streamParams, script->m_object.m_ownerObject, false, nullptr);
+        Scripts::LaunchScript(kSkaterPlayBailStream, streamParams, script->m_entity.m_ownerObject, false, nullptr);
         if (streamParams) {
             // (delete inlined: the structure pool pair's Free)
             streamParams->Clear();
-            Scripts::g_structPools.Free(streamParams);
+            Scripts::g_structPools.Dealloc(streamParams);
         }
         break;
     }
@@ -228,7 +228,7 @@ bool __cdecl CFunc_PlaySkaterStream(Scripts::CStruct* params, Scripts::CScript* 
     if (order) {
         // (delete inlined: the array pool pair's Free)
         order->Clear();
-        Scripts::g_arrayPools.Free(order);
+        Scripts::g_arrayPools.Dealloc(order);
     }
     return true;
 }

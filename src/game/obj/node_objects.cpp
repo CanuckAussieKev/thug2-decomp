@@ -43,7 +43,7 @@ constexpr uint32_t kGameObjectComponentType = 0x286A8D26;
 
 CEntityHub* ObjectManager() { return g_compositeObjectManager; }
 
-void Finalize(CGameEntity* object)
+void Seal(CGameEntity* object)
 {
     reinterpret_cast<void(__thiscall*)(CGameEntity*)>(object->m_vtable[0x20 / 4])(object);
 }
@@ -52,12 +52,12 @@ void Finalize(CGameEntity* object)
 CObjectModule* NewGameObjectComponentA()
 {
     void* memory = MemSys::AllocZeroed(0x90);
-    return memory ? static_cast<CPinnedObjectModule*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CPinnedObjectModule*>(memory)->MakeNew() : nullptr;
 }
 CObjectModule* NewGameObjectComponentB()
 {
     void* memory = MemSys::AllocZeroed(0x4C);
-    return memory ? static_cast<CBBoxComponent*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<CBBoxComponent*>(memory)->MakeNew() : nullptr;
 }
 
 // The creation script 0x413B766D with the node's name and its integer 0x99A9B716 (if it has one).
@@ -69,7 +69,7 @@ void RunCreationScript(CGameEntity* object, Scripts::CStruct* params)
     uint32_t name = LevelNodes::GetNodeName(params);
     Scripts::CStruct* data = Scripts::NewStruct();
     if (data)
-        data->Init();
+        data->PrepareAll();
     data->PutNameKey(kName, name);
     data->PutInt(kCreationValue, value);
     Scripts::LaunchScript(kCreationScript, data, object, false, nullptr);
@@ -91,7 +91,7 @@ void SwitchToNodeScript(CGameEntity* object, Scripts::CStruct* params)
 }
 
 // Whether a viewport is looking through `camera` (not rewritten yet).
-bool IsCameraInUse(Gfx2D::Camera* camera) { return Engine3D::FlagCameraForRemoval(camera); }
+bool IsCameraInUse(Gfx2D::ViewCam* camera) { return Engine3D::FlagCameraForRemoval(camera); }
 
 void** MovieDetailsVtable() { return kMovieDetailsVtable; }
 void** NodeVtable() { return kMovieNodeVtable; }
@@ -103,13 +103,13 @@ void SpawnEffectEntity(Scripts::CStruct* params)
 {
     const char* structure = params->HasEntryNamed("HasMotion") ? "moving_particle_composite_structure"
                                                                           : "particle_composite_structure";
-    ObjectManager()->SpawnEntityFromNode(Scripts::GetArray(structure), params, true);
+    ObjectManager()->SpawnEntityFromNode(Scripts::FetchList(structure), params, true);
 }
 
 // 0x00468B60
 void StartNodeObject(CGameEntity* object, Scripts::CStruct* params)
 {
-    Finalize(object);
+    Seal(object);
     SwitchToNodeScript(object, params);
     RunCreationScript(object, params);
 }
@@ -118,13 +118,13 @@ void StartNodeObject(CGameEntity* object, Scripts::CStruct* params)
 CGameEntity* CreateGameObject(Scripts::CStruct* params, int /*unused*/)
 {
     CGameEntity* object = ObjectManager()->SpawnEntityFromNode(
-        Scripts::GetArray(kGameObjectComponents), params, false);
-    object->AddComponent(NewGameObjectComponentA());
+        Scripts::FetchList(kGameObjectComponents), params, false);
+    object->AttachModule(NewGameObjectComponentA());
     Scripts::LaunchScript(kGameObjectScript, params, object, false, nullptr);
-    object->AddComponent(NewGameObjectComponentB());
-    Finalize(object);
+    object->AttachModule(NewGameObjectComponentB());
+    Seal(object);
     RunCreationScript(object, params);
-    if (CObjectModule* component = object->GetComponent(kGameObjectComponentType))
+    if (CObjectModule* component = object->FetchModule(kGameObjectComponentType))
         static_cast<CMeshInstanceModule*>(component)->JumpTo();
     SwitchToNodeScript(object, params);
     return object;
@@ -150,19 +150,19 @@ void CreateNodeObject(Scripts::CStruct* params)
 }
 
 // 0x00468FB0
-CVideoEntry* CVideoEntry::Construct()
+CVideoEntry* CVideoEntry::MakeNew()
 {
     m_listLink.data = this;
     m_listLink.priority = 0;
     m_listLink.next = &m_listLink;
     m_listLink.prev = &m_listLink;
     m_listLink.vtable = MovieDetailsVtable();
-    m_params = nullptr;
+    m_args = nullptr;
     m_flag19 = false;
     m_flag18 = false;
     m_flag1C = false;
     void* memory = MemSys::AllocZeroed(0xC4);
-    m_viewer = memory ? static_cast<Gfx2D::Camera*>(memory)->Construct() : nullptr;
+    m_viewer = memory ? static_cast<Gfx2D::ViewCam*>(memory)->MakeNew() : nullptr;
     return this;
 }
 
@@ -170,7 +170,7 @@ CVideoEntry* CVideoEntry::Construct()
 void CVideoEntry::DestroyBody()
 {
     m_listLink.vtable = MovieDetailsVtable();
-    if (Scripts::CStruct* params = m_params) {
+    if (Scripts::CStruct* params = m_args) {
         params->Clear();
         Scripts::DeleteStruct(params);
     }
@@ -180,11 +180,11 @@ void CVideoEntry::DestroyBody()
 }
 
 // 0x004692D0
-CVideoEntry* CVideoEntry::Destroy(unsigned int flags)
+CVideoEntry* CVideoEntry::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
@@ -193,22 +193,22 @@ CVideoEntry* CVideoEntry::DestroyNode(unsigned int flags)
 {
     m_listLink.UnlinkAs(NodeVtable());
     if (flags & 1)
-        MemSys::Manager::Get()->Free(this);
+        MemSys::Hub::Pull()->Dealloc(this);
     return this;
 }
 
 // 0x00469050
 void CVideoEntry::ConfigureFromData(Scripts::CStruct* params)
 {
-    if (!m_params) {
+    if (!m_args) {
         Scripts::CStruct* created = Scripts::NewStruct();
-        m_params = created ? created->Init() : nullptr;
+        m_args = created ? created->PrepareAll() : nullptr;
     }
-    m_params->Clear();
-    if (params->ReadHashValue(0x1A005041, &m_name, 0)) {
+    m_args->Clear();
+    if (params->ReadHashValue(0x1A005041, &m_label, 0)) {
         Scripts::CStruct* movieParams = nullptr;
         if (params->ReadSubStruct(0x894FD988, &movieParams, 0))
-            m_params->AppendStructureIfAny(movieParams);
+            m_args->AppendStructureIfAny(movieParams);
     }
     int value = 0;
     params->FetchIntValue(0x8DDE72C0, &value, 0);
@@ -224,7 +224,7 @@ Scripts::CStruct* CVideoEntry::GetSettings()
 {
     Scripts::CStruct* settings = Scripts::NewStruct();
     if (settings)
-        settings = settings->Init();
+        settings = settings->PrepareAll();
     settings->PutInt(0x8DDE72C0, m_flag19);
     settings->PutInt(0xB8CA12C5, m_flag1C);
     return settings;
@@ -262,7 +262,7 @@ bool CVideoEntry::SetValue20(uint32_t value)
 }
 
 // 0x004693C0
-CClassNodeList* CClassNodeList::Init()
+CClassNodeList* CClassNodeList::PrepareAll()
 {
     m_entries = nullptr;
     m_transformed = false;
@@ -273,9 +273,9 @@ CClassNodeList* CClassNodeList::Init()
 // 0x00469300
 void CClassNodeList::Clear()
 {
-    while (Entry* entry = m_entries) {
-        Entry* next = entry->next;
-        MemSys::Manager::Get()->Free(entry);
+    while (TableRow* entry = m_entries) {
+        TableRow* next = entry->next;
+        MemSys::Hub::Pull()->Dealloc(entry);
         m_entries = next;
     }
     m_transformed = false;
@@ -283,47 +283,47 @@ void CClassNodeList::Clear()
 }
 
 // 0x00469340
-void CClassNodeList::SetTransform(const Maths::Matrix* matrix)
+void CClassNodeList::SetTransform(const Maths::Mat4* matrix)
 {
     m_transformed = true;
     m_placementMat = *matrix;
 }
 
 // 0x00469350
-Maths::Vector* CClassNodeList::Transform(Maths::Vector* out, const Maths::Vector* point)
+Maths::Vec4* CClassNodeList::Xform(Maths::Vec4* out, const Maths::Vec4* point)
 {
     if (!m_transformed) {
         *out = *point;
         return out;
     }
-    Maths::Vector result;
-    m_placementMat.Transform(result, *point);
+    Maths::Vec4 result;
+    m_placementMat.Xform(result, *point);
     *out = result;
     return out;
 }
 
 // 0x004693E0
-void CClassNodeList::AddEntry(uint16_t index, Scripts::CStruct* params)
+void CClassNodeList::AddRow(uint16_t index, Scripts::CStruct* params)
 {
-    auto* entry = static_cast<Entry*>(MemSys::AllocZeroed(sizeof(Entry)));
+    auto* entry = static_cast<TableRow*>(MemSys::AllocZeroed(sizeof(TableRow)));
     entry->next = m_entries;
     m_entries = entry;
     entry->index = index;
     entry->flag = params->HasBareFlag(0x7C2552B9);
     entry->unknown17 = false;
-    LevelNodes::GetPosition(params, &entry->pos);
+    LevelNodes::FetchPlace(params, &entry->pos);
 }
 
 // 0x00469430
 void CClassNodeList::SetNodes(Scripts::CArray* nodes)
 {
     m_nodes = nodes;
-    for (uint32_t i = 0; i < nodes->m_size; ++i) {
-        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->GetElement(i));
+    for (uint32_t i = 0; i < nodes->m_extent; ++i) {
+        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(i));
         uint32_t nodeClass = 0;
         node->ReadHashValue(0x12B4E660, &nodeClass, 0);
         if (nodeClass == 0xD18719D5)
-            AddEntry(static_cast<uint16_t>(i), node);
+            AddRow(static_cast<uint16_t>(i), node);
     }
 }
 
@@ -332,7 +332,7 @@ void CClassNodeList::SetNodes(Scripts::CArray* nodes)
 namespace GameObjects {
 namespace {
 
-static VtableSlot kMovieDetailsVtable_slots[] = {&GameObjects::CVideoEntry::Destroy,
+static VtableSlot kMovieDetailsVtable_slots[] = {&GameObjects::CVideoEntry::Teardown,
          &_purecall,
          &_purecall,
          &_purecall,

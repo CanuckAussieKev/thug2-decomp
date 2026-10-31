@@ -4,8 +4,8 @@
 #include <cstdint>
 
 namespace MemSys {
-class Heap;
-class Region;
+class Arena;
+class Zone;
 struct PoolPair;
 } // namespace Mem
 
@@ -49,17 +49,17 @@ static_assert(sizeof(MemoryStats) == 0x6C && offsetof(MemoryStats, maxUsage) == 
                   offsetof(MemoryStats, vectorsUsedAtMarker) == 0x68,
               "layout must match the original");
 
-MemoryStats& Stats();            // 0x007CE618
+MemoryStats& Attributes();            // 0x007CE618
 MemSys::PoolPair& ClipboardPools(); // 0x007CE5B4 (CClipboard's CPoolable pools)
-MemSys::Region*& ParkRegion();      // 0x007CE684
-MemSys::Heap*& ParkHeap();          // 0x007CE688
+MemSys::Zone*& ParkRegion();      // 0x007CE684
+MemSys::Arena*& ParkHeap();          // 0x007CE688
 int& DmaPieces();                // 0x007CE690 the DMA pieces the park's pieces use
 bool& CountsDirty();             // 0x007CE694 the piece counts need counting again
 
 // 0x0059E100
-MemSys::Heap* __cdecl GetParkHeap();
+MemSys::Arena* __cdecl GetParkHeap();
 // 0x0059E180: the memory manager's bottom-up heap.
-MemSys::Heap* __cdecl GetMainHeap();
+MemSys::Arena* __cdecl GetMainHeap();
 // 0x0059E110: all figures 0, no DMA pieces.
 void __cdecl ClearStats();
 // 0x0059E170: the piece counts are counted again at the next GetMemoryStats.
@@ -77,7 +77,7 @@ void __cdecl CreateClipboardPool(int count, const char* name);
 // 0x0059E390: a memory marker of the script (MemoryMarker-like): note or report the main heap's free memory.
 void __cdecl Marker(uint32_t marker);
 // 0x0059E4E0: delete the three pools (those it made), the park heap and its region.
-void __cdecl ShutDown();
+void __cdecl PowerDown();
 // 0x0059E5C0: a memory figure from the script: run the script 0x3CB03619 once with 0x756F5456=<name's
 // checksum> (and 0x7F8C98FE=<index> if index >= 0), then its integer 0x083FDB95.
 int __cdecl GetMemoryValue(const char* name, int index);
@@ -91,8 +91,8 @@ bool __cdecl MainHeapHasRoom(int count, int size);
 bool __cdecl PiecesFit(int first, int last);
 // 0x0059EC00: the park heap (park_heap_size, its own region in the top-down heap for the level 0xCD3682C1,
 // else in the bottom-up one) and the three pools in it; figures cleared.
-void __cdecl Init(uint32_t level);
+void __cdecl PrepareAll(uint32_t level);
 
-extern MemSys::Heap* g_parkHeap;
+extern MemSys::Arena* g_parkHeap;
 
 } // namespace Ed

@@ -64,7 +64,7 @@ public:
 
     // 0x0051F2B0 (vtable Finalize): the skater's input, balance trick, core physics, flip and rotate, state and stats
     // manager components.
-    void Finalize();
+    void Seal();
     // 0x0051F320: everything cleared (the events, the queue, the lists, the buttons' state).
     void Reset();
     // 0x0051EAB0 / 0x0051EB30 / 0x0051EF00: the extra trick lists / the +0x1238 block / the +0x1280 block cleared.
@@ -78,7 +78,7 @@ public:
     // 0x0051EBD0: the counted events marked used get `flags` and lose the mark.
     void MarkUsed(uint32_t flags);
     // 0x0051F570: a new event of `type` at the head (the oldest dropped when there are 100): now, unused, no flags.
-    TrickEvent* AddEvent(int type);
+    TrickEvent* AppendIncident(int type);
     // 0x0051F610: the events of `button` older than `ms` get every flag (no trick uses them any more).
     void ExpireButton(uint32_t button, uint32_t ms);
     // 0x0051F6B0: a press of `button` within `ms` not used by `mask`: marked used, true.
@@ -136,18 +136,18 @@ public:
 
     // --- 0x00521BA0-0x00524411 (trick_queue.cpp, trick_member_functions.cpp) ---
     // 0x00523490: a new one (0 if out of memory): 0x1BC0 bytes, constructed.
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00522390: the constructor: the base's, its vtable and type, its trick object list (+0x13B4), no trick
     // mappings, no components, reset (0x0051F320). Returns this.
-    CMoveExecutor* Construct();
+    CMoveExecutor* MakeNew();
     // 0x005234F0: the destructor body: its trick mappings structure freed, then the base's. 0x005243F0 (slot 0):
     // the scalar deleting destructor.
     void DestroyBody();
-    CMoveExecutor* Destroy(unsigned int flags);
+    CMoveExecutor* Teardown(unsigned int flags);
     // 0x005231D0 (slot 1): one frame (suspended - vtable +0x1C - while its object is: the object's +0xBC clear):
     // the buttons, the balance trick's buttons, the extra tricks, 0x00521A10, the manual tricks (the pending one
     // dropped after its time), the extra grind tricks (likewise), button mashing.
-    void Update();
+    void TickFrame();
 
     // 0x00522410: the trick mapping structure (made if needed) filled from `profile`: its 12 special trick slots
     // (keys = trick, an integer when the slot's flag is set, else a name), then its trick_mapping info.
@@ -230,7 +230,7 @@ public:
 
     // --- member functions reached through their records (the table at 0x00683148) ---
     // 0x00522280 (Pressed): whether the unnamed button was pressed within dur= (15) ms (0x0051F6B0).
-    int Pressed(Scripts::CStruct* params, Scripts::CScript* script);
+    int Squeezed(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x005222F0 (GetCurrentBailEndpose): current_bail_endpose (the end pose, or none) added to the script's
     // params. True.
     int GetCurrentBailEndpose(Scripts::CStruct* params, Scripts::CScript* script);

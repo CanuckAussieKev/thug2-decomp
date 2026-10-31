@@ -24,7 +24,7 @@ class CStruct;
 
 namespace GameObjects {
 
-class CObject;
+class CEntity;
 
 // The checksums of `null_script` (the script of a removed handler entry), `all_groups` and `default`.
 constexpr uint32_t kNullScript = 0xC377C572;
@@ -40,22 +40,22 @@ struct CSignal {
     };
 
     // 0x0045F7F0: the constructor (flags 0; returns this).
-    CSignal* Construct(uint32_t type, uint32_t source, uint32_t target, Scripts::CStruct* data);
+    CSignal* MakeNew(uint32_t type, uint32_t source, uint32_t target, Scripts::CStruct* data);
     // 0x0045F980: `script` read it: the tracker's event log is told how, then FLAG_READ.
     void SetEventConsumed(uint32_t how, uint32_t script);
     // 0x0045F9B0: `script` dealt with it: the tracker's event log is told how (0: an event handler ran, 2: a
     // script blocked on it was released), then FLAG_HANDLED.
     void SetEventHandled(uint32_t how, uint32_t script);
     // 0x00460150: the destructor: the data goes if the event owns it.
-    void Destroy();
+    void Teardown();
 
-    uint32_t m_type;          // +0x00
-    uint32_t m_source;        // +0x04 the id of the sender
+    uint32_t m_kindTag;          // +0x00
+    uint32_t m_fromWhere;        // +0x04 the id of the sender
     uint32_t m_aimPoint;        // +0x08 the id of the object (or spawned script) it is for
-    uint32_t m_flags;         // +0x0C
+    uint32_t m_flagBits;         // +0x0C
     Scripts::CStruct* m_payload; // +0x10 added to each handler's parameters
 };
-static_assert(offsetof(CSignal, m_flags) == 0x0C && offsetof(CSignal, m_payload) == 0x10, "layout must match the original");
+static_assert(offsetof(CSignal, m_flagBits) == 0x0C && offsetof(CSignal, m_payload) == 0x10, "layout must match the original");
 
 // 0x0045F9E0: the controller an event came from (its data's `controller`; 0 without one).
 int __cdecl EventController(CSignal* event);
@@ -65,16 +65,16 @@ int __cdecl EventController(CSignal* event);
 class CSignalReceiver {
 public:
     // 0x0045FAA0
-    CSignalReceiver* Construct();
+    CSignalReceiver* MakeNew();
     // 0x0045FAC0: off the tracker's list; the object is let go.
-    void Destroy();
+    void Teardown();
     // 0x00460170 (vtable slot 0): Destroy, then freed if `flags` bit 0.
     CSignalReceiver* DeletingDestructor(unsigned int flags);
     // 0x0045FB30: listen on behalf of `object`: point at it, onto the tracker's list.
-    void EnterWaitBoard(CObject* object);
+    void EnterWaitBoard(CEntity* object);
 
     void** m_vtable;
-    CSharedRef<CObject> m_ownerObject;       // +0x04
+    CSharedRef<CEntity> m_ownerObject;       // +0x04
     CSignalReceiver* mp_nextListener;  // +0x10 the tracker's list (set by the tracker)
     bool m_onBoard;                // +0x14 on the tracker's list
     uint8_t m_pad15[3];
@@ -89,7 +89,7 @@ static_assert(offsetof(CSignalReceiver, mp_nextListener) == 0x10 && offsetof(CSi
 // kNullScript (and frees its parameters); Compact drops those later.
 class CSignalRouteTable {
 public:
-    struct Entry {
+    struct TableRow {
         enum : uint8_t {
             FLAG_EXCEPTION = 0x01, // replaces the running script instead of interrupting it
             FLAG_MARKED = 0x02,    // marked for removal (MarkGroup / RemoveMarked)
@@ -101,16 +101,16 @@ public:
         uint8_t flags;            // +0x10 (bits 2-7 are left as they were - uninitialised in new entries)
         uint8_t pad[3];
     };
-    static_assert(sizeof(Entry) == 0x14, "layout must match the original");
+    static_assert(sizeof(TableRow) == 0x14, "layout must match the original");
 
     // 0x0045F820
-    CSignalRouteTable* Construct();
+    CSignalRouteTable* MakeNew();
     // 0x0045FB70: the destructor: every entry's parameters, then the array (the fields aren't cleared).
-    void Destroy();
+    void Teardown();
 
     // 0x0045FBC0: a handler for `type`: replaces the entry of that type, else reuses a removed entry, else a new
     // one at the end. The tracker is told `script` listens for `type` unless the entry of that type was live.
-    void AddHandler(Scripts::CScript* script, uint32_t type, uint32_t scriptName, uint32_t group, bool exception,
+    void AppendListener(Scripts::CScript* script, uint32_t type, uint32_t scriptName, uint32_t group, bool exception,
                     Scripts::CStruct* params);
     // 0x004601A0: the handler structures of `handlers` ({type, script, [params = {...}], [group = g], [exception]})
     // go in front of the existing entries; with `replace`, existing entries of each type are removed first, and
@@ -141,10 +141,10 @@ public:
     // 0x0045F880 (cdecl): print the table (null: "Emtpy" [sic]); returns DebugOut::Printf's result.
     static int PrintTable(CSignalRouteTable* table);
 
-    Entry* m_entries;   // +0x00
-    int m_count;        // +0x04
+    TableRow* m_entries;   // +0x00
+    int m_num;        // +0x04
     bool m_alive;       // +0x08 cleared when the script dies while PassEvent runs (PassEvent then frees the table)
-    bool m_changed;     // +0x09 entries were added or moved (PassEvent stops: its entry pointer may be stale)
+    bool m_altered;     // +0x09 entries were added or moved (PassEvent stops: its entry pointer may be stale)
     uint8_t m_pad0A[2];
     int m_inUse;        // +0x0C PassEvent nesting depth
 };

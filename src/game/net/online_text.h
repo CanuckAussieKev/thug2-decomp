@@ -7,7 +7,7 @@
 namespace OnlinePlay::Text {
 
 // strcpy: no length limit, as the original's.
-inline char* Copy(char* to, const char* from)
+inline char* DupFrom(char* to, const char* from)
 {
     std::memcpy(to, from, std::strlen(from) + 1);
     return to;

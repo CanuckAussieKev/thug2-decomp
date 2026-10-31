@@ -56,7 +56,7 @@ int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value
 // Engine3D::CRenderModel (not rewritten yet): hide it (0x00494B70), a geom hidden or shown (0x00494800), its texture `src`
 // replaced (0x00493E80), geom `index` (0x00494640), the bone volumes (0x00492FC0) and a line tested against them
 // (0x004939E0), and its lights (+0x2C, the folded getter 0x00532EB0).
-void ModelHide(Engine3D::CRenderModel* model, bool hide) { model->Hide(hide); }
+void ModelHide(Engine3D::CRenderModel* model, bool hide) { model->Conceal(hide); }
 void ModelHideGeom(Engine3D::CRenderModel* model, uint32_t name, bool hide)
 {
     model->ConcealMesh(name, hide);
@@ -70,7 +70,7 @@ void** ModelGeom(Engine3D::CRenderModel* model, int index)
     return static_cast<void**>(model->FetchGeom(index));
 }
 void* ModelBoneVolumes(Engine3D::CRenderModel* model) { return model->GetBoneVolumes(); }
-int ModelTestCollision(Engine3D::CRenderModel* model, Maths::Vector* line, void* skeleton, Maths::Matrix* matrix, uint32_t a,
+int ModelTestCollision(Engine3D::CRenderModel* model, Maths::Vec4* line, void* skeleton, Maths::Mat4* matrix, uint32_t a,
                        uint32_t b, uint32_t c, uint32_t d)
 {
     // (the original's seven stack arguments: the line, skeleton and matrix pointers, then a, b, c and d - the extra
@@ -99,7 +99,7 @@ void* SkeletonOf(CObjectModule* component)
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
+void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
@@ -109,47 +109,47 @@ void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Mat
 void* NetManager() { return reinterpret_cast<void*>(OnlinePlay::g_gameNetManager); }
 void* PlayerByObjectId(uint32_t id)
 {
-    return static_cast<OnlinePlay::Manager*>(NetManager())->PlayerByObjectId(static_cast<uint16_t>(id));
+    return static_cast<OnlinePlay::Hub*>(NetManager())->PlayerByObjectId(static_cast<uint16_t>(id));
 }
 bool IsOwnPlayer(void* player) { return static_cast<OnlinePlay::PlayerRecord*>(player)->IsOwnPlayer() != 0; }
 int PlayerSkaterIndex(void* player) { return static_cast<int>(static_cast<OnlinePlay::PlayerRecord*>(player)->GetSkaterValue2BC()); }
-NetLink::Client* ClientApp(void* manager, int index)
+NetLink::Guest* ClientApp(void* manager, int index)
 {
-    return static_cast<NetLink::Client*>(static_cast<OnlinePlay::Manager*>(manager)->GetClient(index));
+    return static_cast<NetLink::Guest*>(static_cast<OnlinePlay::Hub*>(manager)->FetchPatron(index));
 }
 
 // A message about `object` to the server, when its player is this machine's.
 void SendToServer(CGameEntity* object, uint8_t id, uint16_t length, void* data)
 {
     void* manager = NetManager();
-    void* player = PlayerByObjectId(object->m_id);
+    void* player = PlayerByObjectId(object->m_ident);
     if (!player || !IsOwnPlayer(player))
         return;
     NetLink::NetMessageInfo message;
-    message.Construct();
-    NetLink::Client* app = ClientApp(manager, PlayerSkaterIndex(player));
-    message.m_data = data;
+    message.MakeNew();
+    NetLink::Guest* app = ClientApp(manager, PlayerSkaterIndex(player));
+    message.m_content = data;
     message.m_byteCount = length;
-    message.m_id = id;
+    message.m_ident = id;
     app->SendToHost(&message);
 }
 
 } // namespace
 
 // 0x00420590
-double CModelSpin::Angle()
+double CModelSpin::Bearing()
 {
-    if (!(m_flags & MODEL_SPIN_ON))
+    if (!(m_flagBits & MODEL_SPIN_ON))
         return 0.0;
-    int elapsed = m_flags & MODEL_SPIN_REAL_TIME ? static_cast<int>(FrameClock::GetTime() - m_start)
-                                                  : FrameClock::GameClockTimeSince(static_cast<int>(m_start));
+    int elapsed = m_flagBits & MODEL_SPIN_REAL_TIME ? static_cast<int>(FrameClock::GetTime() - m_outset)
+                                                  : FrameClock::GameClockTimeSince(static_cast<int>(m_outset));
     double t = static_cast<double>(elapsed);
     if (elapsed < 0)
         t += kTwoTo32; // (as unsigned)
     if (t > m_period) { // (a NaN period never ends)
-        if (m_flags & MODEL_SPIN_HOLD)
+        if (m_flagBits & MODEL_SPIN_HOLD)
             return static_cast<double>(m_range) + m_base;
-        m_flags &= ~MODEL_SPIN_ON;
+        m_flagBits &= ~MODEL_SPIN_ON;
         return 0.0;
     }
     if (m_power == 0)
@@ -167,22 +167,22 @@ double CModelSpin::Angle()
 void CModelSpinAxis::Clear()
 {
     for (CModelSpin& spin : m_spins)
-        spin.m_flags &= ~(MODEL_SPIN_ON | MODEL_SPIN_HOLD);
+        spin.m_flagBits &= ~(MODEL_SPIN_ON | MODEL_SPIN_HOLD);
     m_active = false;
 }
 
 // 0x00420520
-void CModelSpinAxis::Add(float period, uint32_t start, float base, float range, int power, bool hold, bool realTime)
+void CModelSpinAxis::AppendOne(float period, uint32_t start, float base, float range, int power, bool hold, bool realTime)
 {
     for (CModelSpin& spin : m_spins) {
-        if (spin.m_flags & MODEL_SPIN_ON)
+        if (spin.m_flagBits & MODEL_SPIN_ON)
             continue;
         spin.m_period = period;
-        spin.m_start = start;
+        spin.m_outset = start;
         spin.m_base = base;
         spin.m_range = range;
         spin.m_power = power;
-        spin.m_flags = static_cast<uint8_t>((spin.m_flags & ~(MODEL_SPIN_HOLD | MODEL_SPIN_REAL_TIME)) |
+        spin.m_flagBits = static_cast<uint8_t>((spin.m_flagBits & ~(MODEL_SPIN_HOLD | MODEL_SPIN_REAL_TIME)) |
                                             (realTime ? MODEL_SPIN_REAL_TIME : 0) | (hold ? MODEL_SPIN_HOLD : 0) |
                                             MODEL_SPIN_ON);
         m_active = true;
@@ -191,60 +191,60 @@ void CModelSpinAxis::Add(float period, uint32_t start, float base, float range, 
 }
 
 // 0x004213E0
-float CModelSpinAxis::Angle()
+float CModelSpinAxis::Bearing()
 {
     float angle = 0.0f;
     if (!m_active)
         return angle;
     m_active = false;
     for (CModelSpin& spin : m_spins) {
-        if (spin.m_flags & MODEL_SPIN_ON) {
+        if (spin.m_flagBits & MODEL_SPIN_ON) {
             m_active = true;
-            angle = static_cast<float>(spin.Angle() + angle);
+            angle = static_cast<float>(spin.Bearing() + angle);
         }
     }
     return angle;
 }
 
 // 0x004215F0
-void CMeshInstanceModule::GetDrawMatrix(Maths::Matrix* out)
+void CMeshInstanceModule::GetDrawMatrix(Maths::Mat4* out)
 {
-    *out = m_object->m_displayMatrix;
+    *out = m_entity->m_displayMatrix;
     out->row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     if (m_flip) {
         out->row[2] = {-out->row[2].x, -out->row[2].y, -out->row[2].z, -out->row[2].w};
         out->row[0] = {-out->row[0].x, -out->row[0].y, -out->row[0].z, -out->row[0].w};
     }
     // The spins: about X, then Y, then Z (each one that isn't 0 multiplied in).
-    Maths::Matrix rotation;
+    Maths::Mat4 rotation;
     bool none = true;
-    using CreateFn = Maths::Matrix& (*)(Maths::Matrix&, float);
+    using CreateFn = Maths::Mat4& (*)(Maths::Mat4&, float);
     static const CreateFn kCreate[3] = {Maths::MakePitchMatrix, Maths::MakeYawMatrix, Maths::MakeRollMatrix};
     for (int axis = 0; axis < 3; ++axis) {
         if (!m_twistRate[axis].m_active)
             continue;
-        float angle = m_twistRate[axis].Angle();
+        float angle = m_twistRate[axis].Bearing();
         if (angle == 0.0f)
             continue;
         if (none)
             rotation.ResetToIdentity();
         none = false;
-        Maths::Matrix turn;
+        Maths::Mat4 turn;
         MatrixMultiply(&rotation, &rotation, &kCreate[axis](turn, angle * kDegreesToRadians));
     }
-    Maths::Vector shift = {0.0f, 0.0f, 0.0f, 0.0f};
+    Maths::Vec4 shift = {0.0f, 0.0f, 0.0f, 0.0f};
     if (!none) {
         // About the pivot: the pivot less where the turn takes it, in the display's frame.
         shift = m_pivot;
         if (shift.x != 0.0f || shift.y != 0.0f || shift.z != 0.0f) {
-            Maths::Vector turned = shift * rotation;
+            Maths::Vec4 turned = shift * rotation;
             shift = {shift.x - turned.x, shift.y - turned.y, shift.z - turned.z, shift.w - turned.w};
             shift = shift * *out;
         }
         MatrixMultiply(out, &rotation, out);
     }
-    Maths::Vector& pos = out->row[3];
-    pos = m_object->m_pos;
+    Maths::Vec4& pos = out->row[3];
+    pos = m_entity->m_atPoint;
     pos.x = shift.x + pos.x;
     pos.y = shift.y + pos.y;
     pos.z = shift.z + pos.z;
@@ -257,23 +257,23 @@ void CMeshInstanceModule::GetDrawMatrix(Maths::Matrix* out)
 }
 
 // 0x00421960
-int CMeshInstanceModule::TestCollision(Maths::Vector* line, uint32_t a, uint32_t b, uint32_t c, uint32_t d)
+int CMeshInstanceModule::TestCollision(Maths::Vec4* line, uint32_t a, uint32_t b, uint32_t c, uint32_t d)
 {
     void* skeleton = SkeletonOf(m_boneRig); // (read before the check: the original's crashes without one)
     void* volumes = ModelBoneVolumes(m_meshInstance);
     if (!m_boneRig)
         return 0;
     if (!volumes) {
-        DebugOut::Printf("No collision data for %s model\n", Scripts::FindChecksumNameOrUnknown(m_object->m_id));
+        DebugOut::Printf("No collision data for %s model\n", Scripts::FindChecksumNameOrUnknown(m_entity->m_ident));
         return 0;
     }
-    Maths::Matrix matrix;
+    Maths::Mat4 matrix;
     GetDrawMatrix(&matrix);
     return ModelTestCollision(m_meshInstance, line, skeleton, &matrix, a, b, c, d);
 }
 
 // 0x00420070
-void CMeshInstanceModule::Hide(bool hide)
+void CMeshInstanceModule::Conceal(bool hide)
 {
     if (m_meshInstance)
         ModelHide(m_meshInstance, hide);
@@ -315,8 +315,8 @@ bool CMeshInstanceModule::ConcealMesh(uint32_t name, bool hide, bool send)
         } data;
         data.hide = hide;
         data.name = name;
-        data.object = static_cast<uint8_t>(m_object->m_id);
-        SendToServer(m_object, kMsgHideGeom, 8, &data);
+        data.object = static_cast<uint8_t>(m_entity->m_ident);
+        SendToServer(m_entity, kMsgHideGeom, 8, &data);
     }
     if (m_meshInstance)
         ModelHideGeom(m_meshInstance, name, hide);
@@ -343,7 +343,7 @@ void CMeshInstanceModule::ApplyBrightness(Engine3D::CProbeRay* feeler, bool lerp
 }
 
 // 0x00420700
-void CMeshInstanceModule::SetColor(uint32_t color)
+void CMeshInstanceModule::ChangeTint(uint32_t color)
 {
     if (!m_sectorModel)
         return;
@@ -363,7 +363,7 @@ void CMeshInstanceModule::RotateDisplay(float duration, float start, float end, 
     for (int axis = 0; axis < 3; ++axis) {
         if (!flags[axis])
             continue;
-        m_twistRate[axis].Add(period, now, start, end - start, power, hold, false);
+        m_twistRate[axis].AppendOne(period, now, start, end - start, power, hold, false);
         axes |= static_cast<uint8_t>(1 << axis);
     }
     struct {
@@ -377,22 +377,22 @@ void CMeshInstanceModule::RotateDisplay(float duration, float start, float end, 
         uint8_t pad;
     } data;
     void* manager = NetManager();
-    void* player = PlayerByObjectId(m_object->m_id);
+    void* player = PlayerByObjectId(m_entity->m_ident);
     if (!player || !IsOwnPlayer(player))
         return;
     NetLink::NetMessageInfo message;
-    message.Construct();
-    NetLink::Client* app = ClientApp(manager, PlayerSkaterIndex(player));
+    message.MakeNew();
+    NetLink::Guest* app = ClientApp(manager, PlayerSkaterIndex(player));
     data.period = Truncated(period);
     data.start = static_cast<int16_t>(Truncated(start));
     data.range = static_cast<int16_t>(Truncated(static_cast<double>(end) - start));
     data.power = power;
-    data.object = static_cast<uint8_t>(m_object->m_id);
-    message.m_data = &data;
+    data.object = static_cast<uint8_t>(m_entity->m_ident);
+    message.m_content = &data;
     data.hold = hold;
     data.axes = axes;
     message.m_byteCount = 0x10;
-    message.m_id = kMsgRotateDisplay;
+    message.m_ident = kMsgRotateDisplay;
     app->SendToHost(&message);
 }
 
@@ -401,11 +401,11 @@ void CMeshInstanceModule::CancelRotateDisplay()
 {
     for (CModelSpinAxis& axis : m_twistRate) {
         for (CModelSpin& spin : axis.m_spins)
-            spin.m_flags &= ~(MODEL_SPIN_ON | MODEL_SPIN_HOLD);
+            spin.m_flagBits &= ~(MODEL_SPIN_ON | MODEL_SPIN_HOLD);
         axis.m_active = false;
     }
-    uint8_t object = static_cast<uint8_t>(m_object->m_id);
-    SendToServer(m_object, kMsgCancelRotateDisplay, 1, &object);
+    uint8_t object = static_cast<uint8_t>(m_entity->m_ident);
+    SendToServer(m_entity, kMsgCancelRotateDisplay, 1, &object);
 }
 
 } // namespace Obj

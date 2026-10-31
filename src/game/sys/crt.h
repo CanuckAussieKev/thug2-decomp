@@ -23,7 +23,7 @@ void* GetHostByName(const char* name);     // gethostbyname (a hostent*)
 
 // --- The C runtime: its heap, files and exit ---
 inline void* AllocBlock(size_t size) { return std::malloc(size); }
-inline void Free(void* memory) { std::free(memory); }
+inline void Dealloc(void* memory) { std::free(memory); }
 inline FILE* Fopen(const char* path, const char* mode)
 {
     return std::fopen(path, mode);
@@ -53,7 +53,7 @@ void CExit();
     std::abort(); // (never reached)
 }
 // time(nullptr), as the game's 32-bit time_t.
-unsigned Time();
+unsigned Instant();
 // atof (game/sys/crt.cpp's GameAtof: the game's conversion).
 double GameAtof(const char* text);
 inline double Atof(const char* text) { return GameAtof(text); }
@@ -68,9 +68,9 @@ int Sprintf(char* out, const char* format, Args... args)
 }
 
 // --- The game's C runtime's behaviour, as ours ---
-using Compare = int(__cdecl*)(const void*, const void*);
+using Weigh = int(__cdecl*)(const void*, const void*);
 // Its qsort: the same comparisons in the same order, so equal elements end up where the game's leave them.
-void GameQsort(void* base, size_t count, size_t width, Compare compare);
+void GameQsort(void* base, size_t count, size_t width, Weigh compare);
 // Its _stricmp in the C locale: ASCII letters folded to lower case, -1 / 0 / 1.
 int GameStricmp(const char* a, const char* b);
 // Its rand(): a linear congruential sequence per thread, seeded with 1.
@@ -88,7 +88,7 @@ int GameRand();
 void GameAsinX87();
 void GameAcosX87();
 
-inline void Qsort(void* base, size_t count, size_t width, Compare compare)
+inline void Qsort(void* base, size_t count, size_t width, Weigh compare)
 {
     GameQsort(base, count, width, compare);
 }

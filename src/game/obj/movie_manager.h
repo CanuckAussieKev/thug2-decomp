@@ -19,12 +19,12 @@ class CStruct;
 namespace GameObjects {
 
 // A movie (the base class 0x00468xxx; kinds: an object camera animation 0x00466490, a skater camera 0x005871B0,
-// a cutscene 0x005873F0). Its vtable: 0 the scalar deleting destructor, +0x04 Load(params) -> bool, +0x08 Update,
-// +0x0C Start, +0x10 InvokeMethodByName(name, params, script) -> bool, +0x14 IsDone -> bool, +0x18 (bool),
+// a cutscene 0x005873F0). Its vtable: 0 the scalar deleting destructor, +0x04 ReadIn(params) -> bool, +0x08 Update,
+// +0x0C Start, +0x10 InvokeMethodByName(name, params, script) -> bool, +0x14 IsFinished -> bool, +0x18 (bool),
 // +0x1C HasCamera -> bool, +0x20 Stop, +0x24 (bool), +0x28 (bool), +0x2C / +0x30 / +0x34.
 struct CMovie {
     MemSys::ListNode m_listLink;        // in the manager's queue
-    Gfx2D::Camera* m_viewer;       // +0x14
+    Gfx2D::ViewCam* m_viewer;       // +0x14
     uint8_t m_unknown18;
     bool m_canSkip;            // +0x19 ended with the others by EndMovies(true)
     uint8_t m_unknown1A;
@@ -39,17 +39,17 @@ static_assert(offsetof(CMovie, m_viewer) == 0x14 && offsetof(CMovie, m_canSkip) 
                   offsetof(CMovie, m_endScript) == 0x24 && offsetof(CMovie, m_endParams) == 0x28,
               "layout must match the original");
 
-class CVideoHub : public CObject {
+class CVideoHub : public CEntity {
 public:
-    // 0x0057A4B0: a CObject (vtable 0x0064ED34), the empty queue, the camera. Returns this.
-    CVideoHub* Construct();
-    // 0x0057B1A0: the destructor body: the queue cleared, the camera's, the queue's head unlinked, CObject's.
+    // 0x0057A4B0: a CEntity (vtable 0x0064ED34), the empty queue, the camera. Returns this.
+    CVideoHub* MakeNew();
+    // 0x0057B1A0: the destructor body: the queue cleared, the camera's, the queue's head unlinked, CEntity's.
     // 0x0057B220: the scalar deleting destructor (vtable slot 0).
     void DestroyBody();
-    CVideoHub* Destroy(unsigned int flags);
+    CVideoHub* Teardown(unsigned int flags);
 
     // 0x0057A330: how many movies are queued. 0x0057B0B0: whether any is.
-    int Count();
+    int TotalOf();
     bool AnyMovies();
     // 0x0057A360: the movie at `index` (null: none queued). 0x0057A3A0: the first named `name` (null: none).
     CMovie* GetMovie(int index);
@@ -79,15 +79,15 @@ public:
     // 0xE92ECAFE state) copied to m_viewer, kept until the next render frame.
     void KeepCamera(CMovie* movie);
     // 0x0057A530: the camera to show: the playing movie's (if it has one), else the kept one, else null.
-    Gfx2D::Camera* ObtainActiveLens();
+    Gfx2D::ViewCam* ObtainActiveLens();
     // 0x0057A180: the game's camera this manager's own (0x004A0970).
     void UseKeptCamera();
 
     // 0x0057AE60 (vtable slot 8): the kept camera dropped once its frame is over; the playing movie's update (while
     // paused only one that plays while paused, unless in the viewer's view mode); done: EndMovies(false). Whether
     // any movie is left.
-    bool Update();
-    // 0x0057AFC0 (vtable slot 3): the playing movie's member function, else CObject's.
+    bool TickFrame();
+    // 0x0057AFC0 (vtable slot 3): the playing movie's member function, else CEntity's.
     bool InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     // By name (0: the playing movie) - false with none queued:
@@ -107,8 +107,8 @@ public:
     void Playing30(uint32_t value); // (passed on: the original tail-jumps with its caller's argument)
     void Playing34();
 
-    MemSys::ListNode m_movies;   // +0x4C the queue's head (ListKit::Head<CMovie>, vtable 0x0064ED30)
-    Gfx2D::Camera m_viewer;     // +0x60 the last movie's camera, kept
+    MemSys::ListNode m_movies;   // +0x4C the queue's head (ListKit::Foremost<CMovie>, vtable 0x0064ED30)
+    Gfx2D::ViewCam m_viewer;     // +0x60 the last movie's camera, kept
     uint32_t m_keepUntil;     // +0x124 the render frame it's kept until
     bool m_keepCamera;        // +0x128
     uint8_t pad129[3];
@@ -118,27 +118,27 @@ static_assert(offsetof(CVideoHub, m_movies) == 0x4C && offsetof(CVideoHub, m_vie
               "layout must match the original");
 
 // 0x0057A2F0: every node of the list deleted (each one's scalar deleting destructor; they unlink themselves).
-// ListKit::Head<T>'s, shared by the game's lists (11 callers).
+// ListKit::Foremost<T>'s, shared by the game's lists (11 callers).
 struct ListHead {
     MemSys::ListNode m_head;
     void DeleteAllNodes();
 };
 
-// ListKit::Head<CMovie> / ListKit::Node<CMovie>: 0x0057A200 the node's destructor body (unlinked, vtable 0x00647A48),
+// ListKit::Foremost<CMovie> / ListKit::Elem<CMovie>: 0x0057A200 the node's destructor body (unlinked, vtable 0x00647A48),
 // 0x0057A2C0 the head's scalar deleting destructor.
 struct MovieListNode {
     MemSys::ListNode m_listLink;
     void DestroyBody();
-    MovieListNode* Destroy(unsigned int flags);
+    MovieListNode* Teardown(unsigned int flags);
 };
 
-// The compiler-made copy assignments: 0x0057A190 GameObjects::CObject's (every field but the vtables: +0x00, the node's
-// +0x28, the ref's +0x40) and 0x0057A220 Gfx2D::Camera's (the CObject's, then the camera's fields).
+// The compiler-made copy assignments: 0x0057A190 GameObjects::CEntity's (every field but the vtables: +0x00, the node's
+// +0x28, the ref's +0x40) and 0x0057A220 Gfx2D::ViewCam's (the CEntity's, then the camera's fields).
 struct ObjectAssignment {
-    CObject* Assign(const CObject* other);
+    CEntity* Assign(const CEntity* other);
 };
 struct CameraAssignment {
-    Gfx2D::Camera* Assign(const Gfx2D::Camera* other);
+    Gfx2D::ViewCam* Assign(const Gfx2D::ViewCam* other);
 };
 
 // A movie's name: its +0x20 (CVideoEntry::m_value20, set by SetValue20). No address of its own: the original reads it

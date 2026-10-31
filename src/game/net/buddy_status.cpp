@@ -32,13 +32,13 @@ constexpr uint32_t kString = 0x61414D56;   // string
 constexpr int kStatusOnline = 1;
 constexpr int kStatusChatting = 4;
 
-static VtableSlot kBuddySearchVtable_slots[] = {&OnlinePlay::BuddySearch::Destroy};
+static VtableSlot kBuddySearchVtable_slots[] = {&OnlinePlay::BuddySearch::Teardown};
 void** const kBuddySearchVtable = reinterpret_cast<void**>(kBuddySearchVtable_slots);
-static VtableSlot kMessageSearchVtable_slots[] = {&OnlinePlay::BuddyMessageSearch::Destroy};
+static VtableSlot kMessageSearchVtable_slots[] = {&OnlinePlay::BuddyMessageSearch::Teardown};
 void** const kMessageSearchVtable = reinterpret_cast<void**>(kMessageSearchVtable_slots);
 
-Manager* TheManager() { return g_gameNetManager; }
-MemSys::Manager* Memory() { return MemSys::Manager::Get(); }
+Hub* TheManager() { return g_gameNetManager; }
+MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
 FriendsManager* Buddies() { return static_cast<FriendsManager*>(TheManager()->m_buddyMan); }
 
 void UnlinkNode(MemSys::ListNode* node)
@@ -51,18 +51,18 @@ void UnlinkNode(MemSys::ListNode* node)
 
 } // namespace
 
-static VtableSlot kBuddyNodeVtable_slots[] = {&OnlinePlay::BuddyNode::Destroy};
+static VtableSlot kBuddyNodeVtable_slots[] = {&OnlinePlay::BuddyNode::Teardown};
 void** const kBuddyNodeVtable = reinterpret_cast<void**>(kBuddyNodeVtable_slots);
-static VtableSlot kMessageNodeVtable_slots[] = {&OnlinePlay::BuddyMessageNode::Destroy};
+static VtableSlot kMessageNodeVtable_slots[] = {&OnlinePlay::BuddyMessageNode::Teardown};
 void** const kMessageNodeVtable = reinterpret_cast<void**>(kMessageNodeVtable_slots);
 
 // 0x00548100
 void __cdecl FriendsManager::OnBuddyRequest(void* connection, const void* arg, FriendsManager* man)
 {
     (void)connection;
-    Memory()->EnterHeapScope(Memory()->m_internetTopDownHeap);
+    RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap);
     GameSpy::GpAuthBuddyRequest(man, *static_cast<const int*>(arg)); // (the request's profile accepted)
-    Memory()->LeaveHeapScope();
+    RamStats()->LeaveHeapScope();
 }
 
 char g_commandLineEmail[256];
@@ -71,8 +71,8 @@ char g_commandLinePassword[16];
 // 0x00548140
 unsigned long __stdcall FriendsManager::LoginThread(void* man)
 {
-    Manager* manager = TheManager();
-    Memory()->EnterHeapScope(Memory()->m_internetBottomUpHeap);
+    Hub* manager = TheManager();
+    RamStats()->EnterHeapScope(RamStats()->m_internetBottomUpHeap);
     OptionStore::Preferences* preferences = manager->GetOnlineSettings();
     const char* email;
     const char* password;
@@ -86,7 +86,7 @@ unsigned long __stdcall FriendsManager::LoginThread(void* man)
                                                     Checksums::HashFromText("ui_string"));
     }
     GameSpy::GpConnect(man, "proskater", email, password, 1, 0, &FriendsManager::OnConnectNewUser, man); // (gpConnect)
-    Memory()->LeaveHeapScope();
+    RamStats()->LeaveHeapScope();
     return 0;
 }
 
@@ -94,7 +94,7 @@ unsigned long __stdcall FriendsManager::LoginThread(void* man)
 void FriendsManager::SendBuddyMessage(int profile, const char* text)
 {
     const char* nick;
-    TheManager()->GetOnlineSettings()->GetPreference(Checksums::HashFromText("network_id"))->GetString(
+    TheManager()->GetOnlineSettings()->FetchSetting(Checksums::HashFromText("network_id"))->FetchText(
         kUiString, &nick, 1);
     char message[128];
     std::sprintf(message, "%s\n%s", nick, text);
@@ -104,42 +104,42 @@ void FriendsManager::SendBuddyMessage(int profile, const char* text)
 // 0x005482A0
 void FriendsManager::SetLoggedIn(int profile)
 {
-    Memory()->EnterHeapScope(Memory()->m_internetTopDownHeap);
+    RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap);
     m_loggedIn = true;
-    m_profile = profile;
-    m_state = 4;
+    m_account = profile;
+    m_curPhase = 4;
     Scripts::LaunchScript("profile_logged_in", nullptr, nullptr, false);
-    const char* location = Scripts::GetString("homie_status_logging_in");
-    GameSpy::GpSetStatus(this, kStatusOnline, Scripts::GetString("homie_status_online"), location); // (gpSetStatus)
-    Memory()->LeaveHeapScope();
+    const char* location = Scripts::FetchText("homie_status_logging_in");
+    GameSpy::GpSetStatus(this, kStatusOnline, Scripts::FetchText("homie_status_online"), location); // (gpSetStatus)
+    RamStats()->LeaveHeapScope();
 }
 
 // 0x00548320
-void FriendsManager::SetStatus(int status, const char* text, const char* location)
+void FriendsManager::ChangeStanding(int status, const char* text, const char* location)
 {
-    Memory()->EnterHeapScope(Memory()->m_internetTopDownHeap);
+    RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap);
     GameSpy::GpSetStatus(this, status, text, location); // (gpSetStatus)
-    Memory()->LeaveHeapScope();
+    RamStats()->LeaveHeapScope();
 }
 
 // --- The list types ---
 
 // 0x005480D0 / 0x00548440
 void BuddySearch::DestroyBody() { m_vtable = kBuddySearchVtable; }
-BuddySearch* BuddySearch::Destroy(unsigned int flags)
+BuddySearch* BuddySearch::Teardown(unsigned int flags)
 {
     m_vtable = kBuddySearchVtable;
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 // 0x005480E0 / 0x00548470
 void BuddyMessageSearch::DestroyBody() { m_vtable = kMessageSearchVtable; }
-BuddyMessageSearch* BuddyMessageSearch::Destroy(unsigned int flags)
+BuddyMessageSearch* BuddyMessageSearch::Teardown(unsigned int flags)
 {
     m_vtable = kMessageSearchVtable;
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 // 0x005484A0 / 0x005484E0
@@ -148,12 +148,12 @@ void BuddyNode::DestroyBody()
     vtable = kBuddyNodeVtable;
     UnlinkNode(this);
 }
-BuddyNode* BuddyNode::Destroy(unsigned int flags)
+BuddyNode* BuddyNode::Teardown(unsigned int flags)
 {
     vtable = kBuddyNodeVtable;
     UnlinkNode(this);
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 // 0x005484C0 / 0x00548520
@@ -162,21 +162,21 @@ void BuddyMessageNode::DestroyBody()
     vtable = kMessageNodeVtable;
     UnlinkNode(this);
 }
-BuddyMessageNode* BuddyMessageNode::Destroy(unsigned int flags)
+BuddyMessageNode* BuddyMessageNode::Teardown(unsigned int flags)
 {
     vtable = kMessageNodeVtable;
     UnlinkNode(this);
     if (flags & 1)
-        Memory()->Free(this);
+        RamStats()->Dealloc(this);
     return this;
 }
 
 // --- The folded getters ---
 
 // 0x005480B0 / 0x005480C0 / 0x005480F0
-bool FoldedGetters::Byte10() { return Field<bool>(this, 0x10); }
-uint32_t FoldedGetters::Word04() { return Field<uint32_t>(this, 0x04); }
-uint32_t FoldedGetters::Word18() { return Field<uint32_t>(this, 0x18); }
+bool FoldedGetters::Byte10() { return Prop<bool>(this, 0x10); }
+uint32_t FoldedGetters::Word04() { return Prop<uint32_t>(this, 0x04); }
+uint32_t FoldedGetters::Word18() { return Prop<uint32_t>(this, 0x18); }
 
 // --- The script commands ---
 
@@ -192,9 +192,9 @@ bool __cdecl ProfileLoggedIn(Scripts::CStruct* params, Scripts::CScript* script)
 bool __cdecl SendBuddyMessage(Scripts::CStruct* params, Scripts::CScript* script)
 {
     (void)script;
-    Manager* manager = TheManager();
+    Hub* manager = TheManager();
     const char* text = nullptr;
-    params->GetString(kString, &text, 0);
+    params->FetchText(kString, &text, 0);
     if (!text || !*text)
         return false;
     int profile;
@@ -208,13 +208,13 @@ bool __cdecl SetLobbyStatus(Scripts::CStruct* params, Scripts::CScript* script)
 {
     (void)params;
     (void)script;
-    Manager* manager = TheManager();
+    Hub* manager = TheManager();
     const char* lobby = static_cast<RoomManager*>(manager->m_lobbyMan)->m_roomName; // (0x0053F820)
-    const char* text = Scripts::GetString("homie_status_chatting");
+    const char* text = Scripts::FetchText("homie_status_chatting");
     FriendsManager* buddies = static_cast<FriendsManager*>(manager->m_buddyMan);
-    Memory()->EnterHeapScope(Memory()->m_internetTopDownHeap);
+    RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap);
     GameSpy::GpSetStatus(buddies, kStatusChatting, text, lobby); // (gpSetStatus)
-    Memory()->LeaveHeapScope();
+    RamStats()->LeaveHeapScope();
     return true;
 }
 

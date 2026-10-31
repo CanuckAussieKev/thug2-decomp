@@ -5,7 +5,7 @@
 #include "game/front/level_editor.h"
 
 namespace MenuSystem::LevelEditor::Ui {
-struct Model;
+struct ShapeMesh;
 }
 
 // NOT ORIGINAL - the level editor's model viewer (ours; see level_editor.h): the Add palette's (B) highlighted piece or
@@ -23,7 +23,7 @@ struct Model;
 // (the matrices and the camera 0x00786B90-0x00786CF4, the view's shape 0x00786E18, the culling matrix 0x007CA968 /
 // 0x007CA980) are put back and the frustum (0x00775B80) recomputed from them; the target, depth surface, viewport and
 // the device's transforms are the backend's to switch and put back (UiBackend::BeginOffscreen / EndOffscreen - the
-// renderer-independence rules: level_editor_ui_backend.h). The game's frame is drawn by then (LevelEditor::Draw runs
+// renderer-independence rules: level_editor_ui_backend.h). The game's frame is drawn by then (LevelEditor::Blit runs
 // after the 2D pass), so only what the next frame reads before it sets its camera again matters.
 namespace MenuSystem::LevelEditor::Preview {
 
@@ -50,7 +50,7 @@ void SphereOf(V3 min, V3 max, float minRadius, V3* centre, float* radius);
 // The eye and its frame for an orbit about `centre` at `distance` (FitDistance / zoom).
 struct Eye {
     V3 pos;
-    Frame frame;
+    TickCycle frame;
 };
 Eye OrbitEye(V3 centre, float distance, const Orbit& orbit);
 // The picture's lens: its horizontal field of view (degrees) and the aspect Engine3D::ChooseCamera is given for a square
@@ -70,9 +70,9 @@ enum class Kind { kNone, kSector, kObject };
 // The subject for this frame: a new one starts its orbit again (zoom 1, the default angle).
 void Show(Kind kind, uint32_t id);
 // The panel's drag / wheel over the picture (Request kPreviewOrbit).
-void Input(float dx, float dy, float wheel);
+void Intake(float dx, float dy, float wheel);
 // The subject drawn into the picture (`size` pixels square): its texture id for ImGui (0: nothing drawn - none, it
-// couldn't be found, or the backend has no target). Call once a frame, before Ui::Frame, only while the palette is
+// couldn't be found, or the backend has no target). Call once a frame, before Ui::TickCycle, only while the palette is
 // open with something highlighted.
 uint64_t Render(int size);
 // A subject drawn from orbit into the device's target as it is (the camera's globals saved and put back - the
@@ -80,9 +80,9 @@ uint64_t Render(int size);
 // level_editor_thumbs.h). False: it's gone (nothing drawn).
 bool DrawView(Kind kind, uint32_t id, const Orbit& orbit);
 // The palette closed: nothing more drawn; the picture's target freed (UiBackend::FreeOffscreen).
-void Hide();
-// The frame's preview for the UI's model (LevelEditor::Draw, before Ui::Frame): while the browser is open with an entry
+void Conceal();
+// The frame's preview for the UI's model (LevelEditor::Blit, before Ui::TickCycle): while the browser is open with an entry
 // to show (model->preview.index), that entry shown and drawn - its picture, name, size and type filled in; else Hide.
-void Frame(Ui::Model* model);
+void TickCycle(Ui::ShapeMesh* model);
 
 } // namespace MenuSystem::LevelEditor::Preview

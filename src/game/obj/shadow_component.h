@@ -20,9 +20,9 @@ namespace GameObjects {
 // none. Each update it follows the object (unless the structure had the flag 0x7E773A11) and is shown while the
 // model is visible.
 //
-// The shadow object's vtable as used here: 0 the scalar deleting destructor; 1 (+0x04) Update(position, matrix,
-// ground normal by value); 2 (+0x08) SetPosition(by value); 3 (+0x0C) SetLightDirection(direction); 4 (+0x10)
-// SetMatrix(matrix); 5 (+0x14) Hide; 6 (+0x18) Show; 7 (+0x1C) SetModel(model, asset data). Its +0x04 is its type,
+// The shadow object's vtable as used here: 0 the scalar deleting destructor; 1 (+0x04) TickFrame(position, matrix,
+// ground normal by value); 2 (+0x08) ChangePlace(by value); 3 (+0x0C) SetLightDirection(direction); 4 (+0x10)
+// ChangeMat(matrix); 5 (+0x14) Hide; 6 (+0x18) Show; 7 (+0x1C) ChangeMesh(model, asset data). Its +0x04 is its type,
 // +0x0C the simple shadow's scale (the model's +0x1C at first), +0x10 its offset.
 //
 // The component's vtable: 0 the scalar deleting destructor; 1 Update; 2 ConfigureFromData; 3 Finalize; 4 the empty
@@ -33,27 +33,27 @@ public:
     static constexpr uint32_t kType = 0x8A897DD2;
 
     // 0x00431800 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00431380: the base's constructor, its vtable and type; no shadow, at the origin (w 1) with the ground normal
     // (0, 1, 0, 1), type none, following its object. Returns this.
-    CGroundShadowModule* Construct();
+    CGroundShadowModule* MakeNew();
     // 0x00431300: the shadow deleted; the base's body.
     void DestroyBody();
     // 0x004313D0 (vtable slot 0)
-    CGroundShadowModule* Destroy(unsigned int flags);
+    CGroundShadowModule* Teardown(unsigned int flags);
     // 0x00431860 (vtable slot 2): ShadowType (simple by default) and the 0x7E773A11 flag (don't follow the object);
     // the old shadow removed and the new one made (see the class). For a simple shadow, its scale (ShadowScale=, 1)
     // and a first Update.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x00431400 (vtable slot 3): the model component found and kept; the shadow (if any) given the model and its
     // asset data (the asset manager's, by the model's checksum +0x30).
-    void Finalize();
+    void Seal();
     // 0x004319D0 (vtable slot 1): following the object: the shadow's position = the object's, and the shadow given
     // the display matrix at that position - or, when the model has a hierarchy (0x00493040), the root's matrix times
     // the display matrix at the object's position plus the root's translation; then RefreshShadow.
-    void Update();
+    void TickFrame();
     // 0x00431570 (vtable slot 8): the shadow hidden or shown.
-    void Hide(bool hide);
+    void Conceal(bool hide);
     // 0x00431B10 (vtable slot 12): Obj_ShadowOff (the shadow removed) and Obj_ShadowOn (ConfigureFromData with
     // ShadowType simple when not given; a simple shadow's offset= (0.2) set). 1 for those, 2 for other names.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
@@ -68,20 +68,20 @@ public:
     // 0x00431780: the shadow (if any) deleted - the model told it has none first (0x004949B0(false)).
     void DestroyShadow();
     // 0x004317C0 / 0x004317E0: the shadow's position / the ground normal under it.
-    void SetPosition(const Maths::Vector* position);
-    void SetNormal(const Maths::Vector* normal);
+    void ChangePlace(const Maths::Vec4* position);
+    void SetNormal(const Maths::Vec4* normal);
     // 0x00431360 (not a Ghidra function): the light's direction handed to the shadow (if any).
-    void SetLightDirection(const Maths::Vector* direction);
+    void SetLightDirection(const Maths::Vec4* direction);
 
     void* m_shadowHandle;              // +0x18 the renderer's shadow object
-    Maths::Vector m_pos;            // +0x1C where it is
-    Maths::Vector m_surfaceDir;         // +0x2C the ground's normal under it
+    Maths::Vec4 m_atPoint;            // +0x1C where it is
+    Maths::Vec4 m_surfaceDir;         // +0x2C the ground's normal under it
     uint32_t m_shadowKind;        // +0x3C ShadowType (none 0x806FFF30, simple, detailed, Volume)
     CObjectModule* m_meshInstance;     // +0x40 the model component (Finalize)
     bool m_followObject;          // +0x44 each update puts it at the object's position
     uint8_t pad45[3];
 };
-static_assert(offsetof(CGroundShadowModule, m_shadowHandle) == 0x18 && offsetof(CGroundShadowModule, m_pos) == 0x1C &&
+static_assert(offsetof(CGroundShadowModule, m_shadowHandle) == 0x18 && offsetof(CGroundShadowModule, m_atPoint) == 0x1C &&
                   offsetof(CGroundShadowModule, m_surfaceDir) == 0x2C && offsetof(CGroundShadowModule, m_shadowKind) == 0x3C &&
                   offsetof(CGroundShadowModule, m_meshInstance) == 0x40 && offsetof(CGroundShadowModule, m_followObject) == 0x44 &&
                   sizeof(CGroundShadowModule) == 0x48,

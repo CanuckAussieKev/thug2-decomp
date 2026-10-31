@@ -16,13 +16,13 @@ public:
     static constexpr uint32_t kType = 0x1BBF844D;
 
     // 0x004312A0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Create();
+    static CObjectModule* __cdecl Fabricate();
     // 0x00431240: the destructor body (the base's).
     void DestroyBody();
     // 0x00431250 (vtable slot 0)
-    CDisplayMatrixComponent* Destroy(unsigned int flags);
+    CDisplayMatrixComponent* Teardown(unsigned int flags);
     // 0x00431280 (vtable slot 1): the object's display matrix = its orientation.
-    void Update();
+    void TickFrame();
 };
 static_assert(sizeof(CDisplayMatrixComponent) == 0x18, "layout must match the original");
 

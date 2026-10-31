@@ -9,20 +9,20 @@ namespace Engine3D {
 
 // A sphere as the line test takes it: the centre and, after it, the radius.
 struct CollSphere {
-    Maths::Vector centre;
+    Maths::Vec4 centre;
     float radius;
 };
 
 // 0x0040B420: whether the ray from `start` along `direction` hits the triangle v0 v1 v2 from its front (the side
 // (v1 - v0) x (v2 - v0) points to; a determinant below 0.03 misses) at a distance along it - *t, set when it gets
 // that far - between 0 and 1. The barycentric bounds allow the determinant times 1.00001.
-bool RayHitsTriangle(const Maths::Vector& start, const Maths::Vector& direction, const Maths::Vector& v0,
-                     const Maths::Vector& v1, const Maths::Vector& v2, float* t);
+bool RayHitsTriangle(const Maths::Vec4& start, const Maths::Vec4& direction, const Maths::Vec4& v0,
+                     const Maths::Vec4& v1, const Maths::Vec4& v2, float* t);
 
 // 0x0040B610: whether the line through `base` along `end` - `base` passes within the sphere's radius of its centre,
 // and the nearer crossing (*t, measured from `start`) is at most `limit`.
-bool LineHitsSphere(const Maths::Vector& start, const Maths::Vector& base, const CollSphere& sphere,
-                    const Maths::Vector& end, float* t, float limit);
+bool LineHitsSphere(const Maths::Vec4& start, const Maths::Vec4& base, const CollSphere& sphere,
+                    const Maths::Vec4& end, float* t, float limit);
 
 // 0x0040B750: whether the 2D segments (ax, ay) + s (adx, ady) and (bx, by) + u (bdx, bdy) cross for s and u in
 // 0..1; *s set (0 for parallel ones).
@@ -32,25 +32,25 @@ bool SegmentsCross2D(float ax, float ay, float adx, float ady, float bx, float b
 // point is: v0 + s (v1 - v0) + t (v2 - v0) (*s, *t when not null). Returned unrounded (the original leaves it in
 // ST0 and some callers compare it before storing). One region keeps the original's slip: below the first edge's
 // start (s < 0, t >= 0) e is compared with c without its sign flipped, so it always clamps along the second edge.
-double PointTriangleDistanceSquared(const Maths::Vector& point, const Maths::Vector& v0, const Maths::Vector& v1,
-                                    const Maths::Vector& v2, float* s, float* t);
+double PointTriangleDistanceSquared(const Maths::Vec4& point, const Maths::Vec4& v0, const Maths::Vec4& v1,
+                                    const Maths::Vec4& v2, float* s, float* t);
 
 // 0x0040BDC0 (cdecl): the squared distance between `segment` and the triangle v0 v1 v2 (Eberly's segment /
 // triangle regions). The nearest points: segment.start + *along (segment.end - segment.start) on the segment and
 // v0 + *s (v1 - v0) + *t (v2 - v0) on the triangle (each written when not null). Outside the triangle's interior
-// the edges are measured with Line::DistanceSqrToLine and the segment's ends with PointTriangleDistanceSquared;
+// the edges are measured with Seg::DistanceSqrToLine and the segment's ends with PointTriangleDistanceSquared;
 // a segment (nearly) parallel to the triangle tries all three edges and both ends. Some results come back rounded
 // to float, some not, as the original's. `normal` isn't read. A segment crossing the triangle's interior prints
 // "uh oh..." and returns 0 (*along, *s, *t where it crosses).
-double SegmentTriangleDistanceSquared(const Maths::Line& segment, const Maths::Vector& normal, const Maths::Vector& v0,
-                                      const Maths::Vector& v1, const Maths::Vector& v2, float* s, float* t,
+double SegmentTriangleDistanceSquared(const Maths::Seg& segment, const Maths::Vec4& normal, const Maths::Vec4& v0,
+                                      const Maths::Vec4& v1, const Maths::Vec4& v2, float* s, float* t,
                                       float* along);
 
 // A parallelogram: a corner and its two sides (the rect queries' shape).
 struct CollRect {
-    Maths::Vector origin;
-    Maths::Vector sideA;
-    Maths::Vector sideB;
+    Maths::Vec4 origin;
+    Maths::Vec4 sideA;
+    Maths::Vec4 sideB;
 };
 
 // 0x0040D370 (cdecl): where the rect and the triangle v0 v1 v2 cross - two points, true. The triangle's edges cut
@@ -58,8 +58,8 @@ struct CollRect {
 // is largest across, each end inside the rect is a point, and each rect side crossing P Q another (kind 0). Points
 // go to points[0], points[1] and their kinds to kinds[0], kinds[1]; false unless two were found (one may still have
 // been written).
-bool RectHitsTriangle(const CollRect& rect, const Maths::Vector& v0, const Maths::Vector& v1, const Maths::Vector& v2,
-                      Maths::Vector* points, int* kinds);
+bool RectHitsTriangle(const CollRect& rect, const Maths::Vec4& v0, const Maths::Vec4& v1, const Maths::Vec4& v2,
+                      Maths::Vec4* points, int* kinds);
 
 // LineHitsSphere / SegmentsCross2D as the game calls them: their callers (0x0040EC90, 0x0040D370) keep a value in
 // EDX across the call, which the originals don't touch - these adapters keep it.

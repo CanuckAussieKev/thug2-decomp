@@ -14,10 +14,10 @@ namespace Engine3D {
 // nearest point, a time (+0x20: left as it was - only written for a moving capsule, which slot 17 never takes),
 // the face's normal, its object's checksum and flag 0x40.
 struct CapsuleHit {
-    Maths::Vector point;
-    Maths::Vector offset;      // +0x10
+    Maths::Vec4 point;
+    Maths::Vec4 offset;      // +0x10
     float t;                 // +0x20
-    Maths::Vector normal;      // +0x24
+    Maths::Vec4 normal;      // +0x24
     uint32_t checksum;       // +0x34
     uint8_t faceFlag40;      // +0x38
     uint8_t pad[3];
@@ -32,7 +32,7 @@ struct CapsuleHits {
 
     uint32_t unknown00;
     CapsuleHit hits[kMost];  // +0x004
-    Maths::Vector direction;   // +0x784
+    Maths::Vec4 direction;   // +0x784
     float sweep;             // +0x794
     int count;               // +0x798
     uint16_t ignoreFlags;    // +0x79C
@@ -47,7 +47,7 @@ static_assert(sizeof(CapsuleHits) == 0x7A4 && offsetof(CapsuleHits, count) == 0x
 // `normal` (false for a degenerate face, `normal` then unnormalised), the nearest points of the capsule's segment
 // and the face (SegmentTriangleDistanceSquared): the face's to `point`, it minus the segment's to `offset`. True
 // when the segment is in front of the face (offset against the normal) and within the radius of it.
-bool CapsuleHitsTriangle(const Maths::Capsule* capsule, const Maths::Vector* v0, const Maths::Vector* v1,
-                         const Maths::Vector* v2, Maths::Vector* point, Maths::Vector* normal, Maths::Vector* offset);
+bool CapsuleHitsTriangle(const Maths::Capsule* capsule, const Maths::Vec4* v0, const Maths::Vec4* v1,
+                         const Maths::Vec4* v2, Maths::Vec4* point, Maths::Vec4* normal, Maths::Vec4* offset);
 
 } // namespace Nx

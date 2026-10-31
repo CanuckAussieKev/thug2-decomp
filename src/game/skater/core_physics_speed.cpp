@@ -36,7 +36,7 @@ constexpr uint32_t kSpeedOverrideMaxMax = 0x358;
 constexpr uint32_t kFrictionOn = 0x2D9;
 
 // The length of (x, y, z) as the original works it out: (x * x + y * y) + z * z, rounded to a float.
-float SpeedOf(const Maths::Vector& v)
+float SpeedOf(const Maths::Vec4& v)
 {
     double x = v.x, y = v.y, z = v.z;
     return static_cast<float>(std::sqrt(x * x + y * y + z * z));
@@ -54,7 +54,7 @@ void ApplyAirFriction(void* component, float friction)
 void CorePhysicsComponent::LimitSpeed()
 {
     void* object = ObjectOf(this);
-    Maths::Vector& velocity = VectorAt(object, kVelocity);
+    Maths::Vec4& velocity = VectorAt(object, kVelocity);
     // (The horizontal speed: y out of it while it's measured and limited.)
     float upward = velocity.y;
     velocity.y = 0.0f;
@@ -63,7 +63,7 @@ void CorePhysicsComponent::LimitSpeed()
     float max = static_cast<float>(StatValue(object, kMaxSpeedStat));
     // Not original: THAW 0x005CA8F0 - on the bike, faster for a while after vert ground (thaw_bmx_physics.cpp).
     bool heavyFriction = true;
-    if (ThawBmx::Active(this))
+    if (ThawBmx::LiveNow(this))
         heavyFriction = ThawBmx::VertSpeedAllowance(this, &maxMax);
     float& timer = At<float>(this, kSpeedOverrideTimer);
     if (timer != 0.0f) {
@@ -83,7 +83,7 @@ void CorePhysicsComponent::LimitSpeed()
     }
     object = ObjectOf(this);
     if (speed > max && heavyFriction)
-        ApplyAirFriction(this, Scripts::GetFloat(kHeavyAirFriction));
+        ApplyAirFriction(this, Scripts::FetchFloat(kHeavyAirFriction));
     VectorAt(ObjectOf(this), kVelocity).y = upward;
 
     float& rolling = At<float>(this, kRollingFrictionTimer);
@@ -100,7 +100,7 @@ void CorePhysicsComponent::LimitSpeed()
 // 0x005019E0
 void CorePhysicsComponent::Brake()
 {
-    if (ThawBmx::Active(this)) { // (not original: THAW's bike brakes, thaw_bmx_physics.cpp)
+    if (ThawBmx::LiveNow(this)) { // (not original: THAW's bike brakes, thaw_bmx_physics.cpp)
         ThawBmx::Brake(this);
         return;
     }
@@ -117,10 +117,10 @@ void CorePhysicsComponent::Brake()
         VectorAt(ObjectOf(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
         return;
     }
-    Maths::Vector slow = VectorAt(ObjectOf(this), kVelocity);
+    Maths::Vec4 slow = VectorAt(ObjectOf(this), kVelocity);
     SetLength(slow, static_cast<float>(-(static_cast<double>(PhysicsFloat(kBrakeAcceleration, object)) *
                                         At<float>(this, kFrameLength))));
-    Maths::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
+    Maths::Vec4& velocity = VectorAt(ObjectOf(this), kVelocity);
     velocity.x = slow.x + velocity.x;
     velocity.y = slow.y + velocity.y;
     velocity.z = slow.z + velocity.z;
@@ -133,7 +133,7 @@ void CorePhysicsComponent::ApplyGroundFriction()
     void* object = ObjectOf(this);
     // (Not original: THAW 0x005D46C0 - on the bike the friction always applies.)
     if (!At<uint8_t>(this, kFrictionOn) && !FlagsOf(this)[0x70] &&
-        At<float>(this, kRollingFrictionNow) == PhysicsFloat(kRollingFriction, object) && !ThawBmx::Active(this))
+        At<float>(this, kRollingFrictionNow) == PhysicsFloat(kRollingFriction, object) && !ThawBmx::LiveNow(this))
         return;
     ApplyStanceFriction(); // (the friction: crouched or standing)
     if (TurnDownSlope()) // (turned down the slope)
@@ -150,8 +150,8 @@ void CorePhysicsComponent::StartRidingHitObject()
     if (!static_cast<GameObjects::CMovingSurfaceModule*>(ride)->StartRiding(&At<Engine3D::CProbeRay>(this, kFeeler)))
         return;
     void* rideObject = *At<void**>(At<void*>(this, kRide), 0x18); // (the smart pointer's object)
-    const Maths::Vector& rideVelocity = VectorAt(rideObject, kVelocity);
-    Maths::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
+    const Maths::Vec4& rideVelocity = VectorAt(rideObject, kVelocity);
+    Maths::Vec4& velocity = VectorAt(ObjectOf(this), kVelocity);
     velocity.x -= rideVelocity.x;
     velocity.y -= rideVelocity.y;
     velocity.z -= rideVelocity.z;

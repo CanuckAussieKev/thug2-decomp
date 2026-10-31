@@ -21,8 +21,8 @@ struct sceneRef;
 struct sSingleton {
     uint32_t flags;          // 1: owns its mesh list and bones; 2: lit (every mesh asks for it; set by the
                              // constructor); 4: coloured
-    Maths::Matrix transform;   // +0x04
-    Maths::Matrix* bones;      // +0x44
+    Maths::Mat4 transform;   // +0x04
+    Maths::Mat4* bones;      // +0x44
     int boneCount;           // +0x48
     bool active;             // +0x4C
     uint8_t color[4];        // +0x4D: RGBA (0x80 each: unchanged)
@@ -35,7 +35,7 @@ struct sSingleton {
     // 0x004D1030: construct over `scene` (its mesh list) with a copy of `transform` and the bones (not copied);
     // active, on the instances' list (0x007825C0). Lit (2) when the bones are not drawn by the vertex shader and
     // every mesh asks for lighting (+0x38 bit 0x10) and has no flag 0x20000. Returns this.
-    sSingleton* Construct(sceneRef* scene, const Maths::Matrix* transform, int boneCount, Maths::Matrix* bones);
+    sSingleton* MakeNew(sceneRef* scene, const Maths::Mat4* transform, int boneCount, Maths::Mat4* bones);
     // 0x004D10C0: the destructor's body - its mesh list and bones freed when it owns them (1), off the list.
     void DestroyBody();
     // 0x004D1130: drawn (DrawScene's flags, always with 8: no culling) - skinned by the vertex shader (bones, and
@@ -59,14 +59,14 @@ void __cdecl RenderInstances(uint32_t flags, int viewport);
 // meshes' materials' sort keys (+0x1C).
 int __cdecl CompareInstances(const void* a, const void* b);
 
-// The nodes of a geom's load list (ListKit::Node over its meshes: vtable 0x0064A434; the list's head, data -1:
+// The nodes of a geom's load list (ListKit::Elem over its meshes: vtable 0x0064A434; the list's head, data -1:
 // 0x0064A438), laid out as ListNode.
 struct sMeshListNode : MemSys::ListNode {
     // 0x004B5EC0: the destructor's body - out of its list (linked to itself).
     void DestroyBody();
     // 0x004B5E50 (the node's virtual [0]) / 0x004B5E90 (the head's): destroyed, and freed with flags & 1. Return
     // this.
-    sMeshListNode* Destroy(unsigned int flags);
+    sMeshListNode* Teardown(unsigned int flags);
     sMeshListNode* DestroyHead(unsigned int flags);
 };
 
@@ -85,14 +85,14 @@ struct CPcGeom {
     uint8_t pad49[3];
     sSingleton* instance;     // +0x4C: an instance's (null for a sector's geometry)
     uint8_t* source;         // +0x50: the mesh (0xC8 bytes) it's an instance of; +0xBC / +0xC0 its strip breaks
-    Maths::Vector scale;       // +0x54
+    Maths::Vec4 scale;       // +0x54
 
     // 0x004B4460: construct - no meshes, no instance, active, visible to all, scale 1. Returns this.
-    CPcGeom* Construct();
+    CPcGeom* MakeNew();
     // 0x004B5EE0: the destructor's body (the meshes, then the instance, freed).
     void DestroyBody();
     // 0x004B5FC0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CPcGeom* Destroy(unsigned int flags);
+    CPcGeom* Teardown(unsigned int flags);
 
     // 0x004B5F60: an empty list (its head) for the meshes the load adds, on the top-down heap.
     void StartMeshList();
@@ -111,7 +111,7 @@ struct CPcGeom {
     // 0x004B58C0 (virtual [2]): a copy - its meshes cloned (sharing buffers with `share`), else, without `share`,
     // into `scene`'s mesh list instead of these ones, which stay; with `share` an instance of its own over a new
     // mesh list.
-    CPcGeom* Clone(bool share, uint8_t* scene);
+    CPcGeom* Replicate(bool share, uint8_t* scene);
     // 0x004B5B80 (virtual [1]): a copy of an instance - its own scene and mesh list, the meshes cloned, a new
     // instance with bones for each of `model`'s (+8).
     CPcGeom* CloneInstance(bool share, uint8_t* model);
@@ -119,57 +119,57 @@ struct CPcGeom {
     bool InitInstance(uint8_t* mesh, uint8_t* model, int unused);
     // 0x004B45F0 (virtual [4]): the degenerate runs in the instance meshes' strips shortened (0x004D57D0).
     void CleanInstanceStrips();
-    // 0x004B48B0 (virtual [6]): a colour (RGBA); 0x80/0x81, 0x80, 0x80: none (ClearColor).
-    void SetColor(uint32_t rgba);
+    // 0x004B48B0 (virtual [6]): a colour (RGBA); 0x80/0x81, 0x80, 0x80: none (WipeTint).
+    void ChangeTint(uint32_t rgba);
     // 0x004B4B20 (virtual [7]): the colour (its first mesh's; alpha 0), into *out.
-    uint32_t* GetColor(uint32_t* out);
+    uint32_t* FetchTint(uint32_t* out);
     // 0x004B4970 (virtual [8]): no colour.
-    void ClearColor();
+    void WipeTint();
     // 0x004B49C0 (virtual [9]): the colour of a material's pass (the instance's meshes'). Whether any was set.
     bool ChangeMaterialTint(uint32_t checksum, int pass, uint32_t rgba);
     // 0x004B4870 (virtual [11]) / 0x004B4120 (virtual [12]): the viewport mask (each mesh's +0x1B gets its byte);
     // read back as 0xFFFFFF00 | its low byte.
     void ToggleShown(uint32_t mask);
-    uint32_t GetVisibility();
+    uint32_t FetchShown();
     // 0x004B4630 (virtual [13]) / 0x004B4690 (virtual [14]): active (the meshes' flag 0x40), the instance's if any.
-    void SetActive(bool active);
-    bool IsActive();
+    void ChangeLive(bool active);
+    bool IsOperative();
     // 0x004B4730 (virtual [16]) / 0x004B4760 (virtual [17]): the instance's bounding sphere (none: radius 10000).
-    void ChangeBoundSphere(const Maths::Vector* sphere);
-    Maths::Vector* FetchBoundSphere(Maths::Vector* out);
+    void ChangeBoundSphere(const Maths::Vec4* sphere);
+    Maths::Vec4* FetchBoundSphere(Maths::Vec4* out);
     // 0x004B55D0 (virtual [18]) / 0x004B46A0 (virtual [19]): the position - the instance's, or every mesh moved;
     // read back from the instance or the first mesh's transform (a static vector, 0x00701610).
-    void PlaceAtAbsolutePoint(const Maths::Vector* position);
-    Maths::Vector* GetAbsolutePoint();
+    void PlaceAtAbsolutePoint(const Maths::Vec4* position);
+    Maths::Vec4* GetAbsolutePoint();
     // 0x004B5650 (virtual [20]) / 0x004B56E0 (virtual [21]): the instance's rotation rows; read back with no
     // position (a static matrix, 0x00701628; the identity without an instance).
-    void SetOrientation(const Maths::Matrix* orientation);
-    Maths::Matrix* GetOrientation();
+    void ChangeFacing(const Maths::Mat4* orientation);
+    Maths::Mat4* FetchFacing();
     // 0x004B57C0 (virtual [22]): `turns` quarter turns about y (the instance's rotation, or every mesh's vertices).
     void RotateY(int turns);
     // 0x004B4DB0 (virtual [25]) / 0x004B4ED0 (virtual [26]): the scale - each mesh's vertices scaled about its
     // transform's position by it.
-    void ChangeScale(const Maths::Vector* scale);
-    Maths::Vector* GetScale(Maths::Vector* out);
+    void ChangeScale(const Maths::Vec4* scale);
+    Maths::Vec4* FetchMagnification(Maths::Vec4* out);
     // 0x004B47B0 (virtual [28]): the instance's transform and `count` bone matrices copied. Always true.
-    bool SetBoneMatrices(const Maths::Matrix* transform, const Maths::Matrix* bones, int count, int unused3,
+    bool SetBoneMatrices(const Maths::Mat4* transform, const Maths::Mat4* bones, int count, int unused3,
                          int unused4);
     // 0x004B47F0 (virtual [29]): `count` bone matrices copied into the instance's.
-    void CopyBones(const Maths::Matrix* bones, int count);
+    void CopyBones(const Maths::Mat4* bones, int count);
     // 0x004B4820 (virtual [30]): the instance's bones pointed at `bones`.
-    void SetBones(Maths::Matrix* bones, int count);
+    void SetBones(Maths::Mat4* bones, int count);
     // 0x004B4840 (virtual [31]): the instance's strips broken where the source mesh says (sceneRef::BreakStrips).
     // Always true.
     bool BreakStrips(uint32_t mask);
     // 0x004B4130 (virtual [36]): the vertices of all the meshes.
-    uint32_t GetNumVertices();
+    uint32_t FetchVertexTally();
     // 0x004B4BB0 (virtual [37]) / 0x004B4C50 (virtual [39]): the vertices (x, y, z, 1 each), read and written -
     // each mesh's bounding sphere made again from the box of its new vertices.
-    void GetVertices(Maths::Vector* out);
-    void SetVertices(const Maths::Vector* in);
+    void GetVertices(Maths::Vec4* out);
+    void SetVertices(const Maths::Vec4* in);
     // 0x004B4160 (virtual [38]) / 0x004B4210 (virtual [40]): the vertex colours (RGBA; the buffers hold BGRA) read
     // from the first vertex buffers and written to all.
-    void GetColors(uint8_t* out);
+    void FetchTints(uint8_t* out);
     void ChangeColors(const uint8_t* in);
     // 0x004B4300 (virtual [42]): the UV wibble of each mesh's first pass that has one.
     void SetUVWibbleParams(float uVel, float uAmp, float uFreq, float uPhase, float vVel, float vAmp, float vFreq,
@@ -180,7 +180,7 @@ struct CPcGeom {
     void SetUVWibbleOffsets(float u, float v);
     // 0x004B4F60 (virtual [46]): an instance pass's UV matrix (a wibble made for it if it has none; the mesh's
     // vertex shader swapped for its UV-transforming version). Always true.
-    bool ChooseUvMatrix(uint32_t checksum, int pass, const Maths::Matrix* matrix);
+    bool ChooseUvMatrix(uint32_t checksum, int pass, const Maths::Mat4* matrix);
     // 0x004B5130 (virtual [47]): a UV wibble made for an instance pass that has none. Whether one was.
     bool CreateUvAnimParams(uint32_t checksum, int pass);
     // 0x004B52A0 (virtual [48]): the meshes' texture animations started again (not for an instance).
@@ -191,7 +191,7 @@ static_assert(offsetof(CPcGeom, bounds) == 0x14 && offsetof(CPcGeom, scene) == 0
                   offsetof(CPcGeom, scale) == 0x54 && sizeof(CPcGeom) == 0x64,
               "layout must match the original");
 
-extern Maths::Matrix* g_boneMatrices;
+extern Maths::Mat4* g_boneMatrices;
 extern sSingleton* g_currentInstance;
 
 } // namespace Nx
