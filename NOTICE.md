@@ -20,7 +20,7 @@ non-commercial; nothing here is sold.
   other assets from any of the games. To use it you need your own legally obtained copy of Tony Hawk's Underground 2
   for PC; the content tools read the other games only from copies you own and install.
 - **The reconstructed game code** in `src/game` was written by this project's contributors from their own analysis of
-  the original program; it contains no leaked or otherwise unofficially obtained source code. Its copyright belongs to
+  the original program. Its copyright belongs to
   the game's owners and no licence is granted for it (see `LICENSE`).
 - **Original work** (the tools, the code marked NOT ORIGINAL, the documentation) is MIT
   licensed (see `LICENSE`); third-party components keep their own licences (`THIRD_PARTY_NOTICES.md`).

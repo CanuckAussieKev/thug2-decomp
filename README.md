@@ -321,9 +321,8 @@ A level that crashes on load in only one ported game is usually a converter prob
 
 ## Contributing
 
-Our code comes only from our own decompilation of the game: never read, reference or copy leaked Neversoft /
-Activision source code. Code from Morten1337's THUGPRO repositories is used with his permission for insight only,
-never copied as is, and each borrowed idea is credited where it's used.
+Code from Morten1337's THUGPRO repositories is used with his permission for insight only, never copied as is, and
+each borrowed idea is credited where it's used.
 
 - **Changing the game:** the original's behaviour is the default. A change that differs from it carries a
   `NOT ORIGINAL` comment saying what it does and why, and an ini switch where a player might want the original back.
@@ -365,4 +364,4 @@ never copied as is, and each borrowed idea is credited where it's used.
 You need your own copies of the games; no game files, executables or data extracted from them are in this
 repository, and the level converters generate everything from your installs at conversion time. Third-party code and
 assets are credited in `THIRD_PARTY_NOTICES.md`: PartyMod (MIT, PARTYMANX), Morten1337's thps-formats (MIT) and the
-libraries the build downloads. Leaked Neversoft / Activision source code is never read or used.
+libraries the build downloads.
