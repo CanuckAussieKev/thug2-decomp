@@ -187,7 +187,7 @@ int8_t current_rank(Hub* m)
 int32_t get_rating(Hub* m)
 {
     // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
-    // Singletons::PointerMember::Pull)
+    // single::PointerMember::get_pull)
     return static_cast<RankingsManager*>(m->rating_service_)->get_personal_stats()->skill_points_;
 }
 bool match_underway(Hub* m) { return active_ruleset_label() != kNetLobby && !m->match_ended_; }

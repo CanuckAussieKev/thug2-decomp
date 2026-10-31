@@ -489,8 +489,8 @@ void Hub::destroy_body()
     prop<QueuedScriptNode>(this, 0x144).destroy_body();
     prop<NewPlayerNode>(this, 0x130).destroy_body();
     prop<PlayerNode>(this, 0x11C).destroy_body();
-    get_taunt_settings()->tear_down_state();
-    get_online_settings()->tear_down_state();
+    get_taunt_settings()->~Preferences();
+    get_online_settings()->~Preferences();
 }
 
 } // namespace online

@@ -1,24 +1,25 @@
 #pragma once
 
-// A set of preferences (THPS's prefs::Preferences; vtable 0x00647B34): a structure of named structures, each one
+// A set of preferences (the original's vtable 0x00647B34 held only its destructor): a structure of named structures, each one
 // preference holding its fields (e.g. online::Hub's network and taunt preferences, loaded from the global
 // structures 0x7D1C1C0F / 0x878CB88F). 0x0046C470-0x0046C6A0.
 
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/mem.h"
 #include "engine/script/param_struct.h"
 
 namespace prefs {
 
-class Preferences {
+class Preferences : public memory::HeapObject {
 public:
     // 0x0046C470: an empty set.
-    Preferences* prepare_all();
-    // 0x0046C490: the destructor (the structure cleared).
-    void tear_down_state();
-    // 0x0046C680 (vtable slot 0): the scalar deleting destructor.
-    Preferences* teardown(unsigned int flags);
+    Preferences();
+    // 0x0046C490 / 0x0046C680: the structure cleared.
+    ~Preferences();
+    Preferences(const Preferences&) = delete;
+    Preferences& operator=(const Preferences&) = delete;
 
     // 0x0046C4A0 / 0x0046C4D0: the preference (structure) / array `name` (null if none).
     script::Struct* fetch_setting(uint32_t name);
@@ -39,9 +40,7 @@ public:
     // 0x0046C650: the global structure `name`'s components added (asserting it exists); true.
     bool read_in(uint32_t name);
 
-    void** vtable_;            // 0x00647B34
-    script::Struct top_entry_; // +0x04
+    script::Struct top_entry_;
 };
-static_assert(sizeof(Preferences) == 0xC && offsetof(Preferences, top_entry_) == 4, "layout must match the original");
 
 } // namespace prefs

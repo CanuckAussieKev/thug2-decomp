@@ -528,7 +528,7 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
         return 4;
     }
     const uint8_t* colors = data + 8;
-    uint8_t* profiles = reinterpret_cast<uint8_t*>(objects::g_trick_spot_hub);
+    objects::TrickSpotHub* trick_objects = objects::g_trick_spot_hub;
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
     Struct* params = spawn_param_table();
@@ -538,15 +538,14 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
         Array* array = new_array_init();
         array->configure_size_kind(data[i], static_cast<script::QbValueKind>(kSymbolChecksum));
         for (int j = 0; j < static_cast<int>(data[i]); ++j)
-            array->set_element(static_cast<uint32_t>(j),
-                               reinterpret_cast<objects::TrickSpotHub*>(profiles)->get_cluster_name(*colors++));
+            array->set_element(static_cast<uint32_t>(j), trick_objects->get_cluster_name(*colors++));
         char name[32];
         std::sprintf(name, "Skater%d", i);
         params->append_array_value(checksums::hash_from_text(name),
                                    array); // (the array isn't freed: the original's too)
     }
-    reinterpret_cast<objects::TrickParamSet*>(profiles)->change_args(params); // (on the manager: its +0x38)
-    reinterpret_cast<objects::TrickSpotHub*>(profiles)->apply_player_graffiti();
+    trick_objects->change_args(params);
+    trick_objects->apply_player_graffiti();
     delete_structure(params);
     memory::Hub::get_pull()->leave_heap_scope();
     return 1;

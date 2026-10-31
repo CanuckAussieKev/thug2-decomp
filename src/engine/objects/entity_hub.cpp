@@ -340,8 +340,7 @@ void release_tracker()
         --references;
         return;
     }
-    if (EventWaitBoard* tracker = get_tracker()) // (its scalar deleting destructor, through the vtable)
-        reinterpret_cast<void*(__thiscall*)(EventWaitBoard*, unsigned int)>(tracker->vtable_[0])(tracker, 1);
+    delete get_tracker();
     get_tracker() = nullptr;
     references = 0;
 }

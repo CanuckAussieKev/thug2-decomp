@@ -9,25 +9,18 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/core/manager.h"
 #include "engine/objects/motion.h"
 #include "engine/objects/motion_path.h"
 #include "engine/objects/entity.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 #include "engine/maths/random.h"
-#include "engine/core/stubs.h"
 
 namespace objects {
 
 namespace {
 
-extern void** const kPathFollowerVtable;
-
 constexpr uint32_t kPathComponent = 0x0A015E17; // the owner's component that picks links and hears of nodes
-
-void** get_vtable() { return kPathFollowerVtable; }
 
 ObjectModule* path_component(GameEntity* owner) { return owner->fetch_module(kPathComponent); }
 // The component's choice: a random link (true) or the first (not rewritten yet).
@@ -70,10 +63,9 @@ double get_dot(const maths::Vec4& a, const maths::Vec4& b)
 } // namespace
 
 // 0x0046A1D0
-PathFollower* PathFollower::make_new(GameEntity* owner)
+PathFollower::PathFollower(GameEntity* owner)
 {
     owner_ = owner;
-    vtable_ = get_vtable();
     tick_.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     tick_.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     tick_.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -81,16 +73,6 @@ PathFollower* PathFollower::make_new(GameEntity* owner)
     segment_origin_ = {0.0f, 0.0f, 0.0f, 1.0f};
     unknown84_ = {0.0f, 0.0f, 0.0f, 1.0f};
     end_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    return this;
-}
-
-// 0x00469B50
-PathFollower* PathFollower::teardown(unsigned int flags)
-{
-    vtable_ = get_vtable();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00469B00
@@ -449,13 +431,4 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
 // 0x0046A1B0
 void PathFollower::get_heading(maths::Vec4* out) { *out = tick_.row[2]; }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_path_follower_vtable_slots[] = {&objects::PathFollower::teardown, stubs::ignore_argument};
-void** const kPathFollowerVtable = reinterpret_cast<void**>(g_path_follower_vtable_slots);
-
-} // namespace
 } // namespace objects

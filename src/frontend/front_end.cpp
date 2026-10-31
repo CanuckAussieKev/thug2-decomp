@@ -149,7 +149,7 @@ void unlink_list_node(void* node)
     reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(node))[2])(node, 1);
 }
 
-// A reference to the input manager (Singletons::LazyInstance<pad_input::Hub>, 0x0044E7F0 / 0x0044E6B0), not making it.
+// A reference to the input manager (single::LazyInstance<pad_input::Hub>, 0x0044E7F0 / 0x0044E6B0), not making it.
 struct InputManagerRef {
     uint8_t* supervisor_;
     InputManagerRef() : supervisor_(reinterpret_cast<uint8_t*>(pad_input::create_manager(false))) {}

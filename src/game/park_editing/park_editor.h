@@ -1,7 +1,7 @@
 #pragma once
 
 // The park editor module (park_editing::ParkBuilderMode, 0x7C bytes, the singleton 0x007CE5D8 with its reference count
-// 0x007CE5DC; Singletons::LazyInstance's Create 0x00590160 makes it, Release 0x0058D290 lets it go): the Create-A-Park
+// 0x007CE5DC; single::LazyInstance's Create 0x00590160 makes it, Release 0x0058D290 lets it go): the Create-A-Park
 // mode itself. A module (vtable 0x0064F234: the scalar deleting destructor, start and stop) and an event listener
 // (+0x14, vtable 0x0064F22C) for the menus' pad events; a task that runs the editor each frame (0x0058FFC0 ->
 // logic_update), an empty display task and an input handler (process_pad_input) on one controller. Its state says what
@@ -29,8 +29,7 @@ class Vec4;
 namespace park_editing {
 
 class ParkBuilderMode;
-extern void** const kParkEditorVtable;         // 0x0064F234 (park_editor.cpp)
-extern void** const kParkEditorListenerVtable; // 0x0064F22C
+extern void** const kParkEditorVtable; // 0x0064F234 (park_editor.cpp)
 
 // tasks::Task<ParkBuilderMode> (0x20 bytes, vtable 0x006476F0).
 struct ParkEditorTask {
@@ -89,7 +88,7 @@ public:
     static uint32_t& ref_tally() { return g_park_editor_references; }
 
     // --- the module (park_editor.cpp) ---
-    // 0x0058D290: Singletons::LazyInstance<ParkBuilderMode>'s release: a reference dropped; the last deletes the instance.
+    // 0x0058D290: single::LazyInstance<ParkBuilderMode>'s release: a reference dropped; the last deletes the instance.
     static void __cdecl get_release();
     // 0x0058D2D0: the destructor body: the park manager deleted, the listener, the module (the tasks and the
     // handler aren't deleted - as in the original). 0x0058DAA0: the scalar deleting destructor (vtable slot 0).
@@ -162,27 +161,25 @@ public:
 
     // --- park_editor_state.cpp (0x0058FBD0-0x005901AA) ---
     static inline const VtableRef kVtable{&kParkEditorVtable};
-    static inline const VtableRef kListenerVtable{&kParkEditorListenerVtable};
     // 0x0058FFF0: the constructor (state off; the logic task, the empty display task, the input handler, the
     // listener; the park manager made). Returns this.
     ParkBuilderMode* make_new();
-    // 0x00590160: Singletons::LazyInstance<ParkBuilderMode>'s Create: the first call with `create` makes the instance; every
+    // 0x00590160: single::LazyInstance<ParkBuilderMode>'s Create: the first call with `create` makes the instance; every
     // call takes a reference and returns it (null if there is none).
     static ParkBuilderMode* __cdecl fabricate(bool create);
     // 0x0058FFC0: the logic task's code: the park editor's clock (0x007CE5EC) moved on, then logic_update.
     static void __cdecl front_end_tick(ParkEditorTask* task);
 
-    // The listener's vtable (0x0064F22C), `this` the listener (+0x14).
-    struct Listener : objects::SignalReceiver {
+    // The editor's event listener (the original's vtable 0x0064F22C; its destructor slot, 0x0058DA90, deletes the
+    // editor, which nothing does through the listener).
+    struct Listener final : objects::SignalReceiver {
         ParkBuilderMode* get_editor()
         {
             return reinterpret_cast<ParkBuilderMode*>(reinterpret_cast<uint8_t*>(this) - 0x14);
         }
-        // 0x0058DA90: the scalar deleting destructor's adjustor (the editor's).
-        ParkBuilderMode* destroy_editor(uint8_t flags);
         // 0x0058DE40: the menus' pad events (to root_window) while editing with a cursor, not paused: up / down the
         // previous / next set, left / right the previous / next piece.
-        void listen_to(objects::Signal* event);
+        void receive(objects::Signal* event) override;
     };
 
     Listener listener_;    // +0x14

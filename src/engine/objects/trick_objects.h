@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/mem.h"
 #include "engine/lists/key_map.h"
 
 // Pieces of the trick object code at the end of the viewer range (0x005880E0-0x0058817C) and the trick object
@@ -26,14 +27,6 @@ struct ClusterCount {
     uint32_t cluster;
 };
 ClusterCount* __cdecl count_object_in_cluster(uint8_t* object, ClusterCount* counter);
-
-// A trick cluster's parameters (its structure at +0x38). 0x00588150: replaced by a copy of `params` (none: emptied).
-// (Its one caller, handle_graffiti_colors, calls it on the trick object manager itself: +0x38 is the manager's.)
-struct TrickParamSet {
-    uint8_t unknown00_[0x38];
-    script::Struct* args_; // +0x38
-    void change_args(script::Struct* params);
-};
 
 // A list in the skater's trick component (its +0x13B4): 0x00588170 the constructor (no entries; its count at +0x800);
 // 0x00588180 emptied (true). Its entries are the names of the clusters the skater's current trick (or combo) hit -
@@ -120,22 +113,26 @@ static_assert(offsetof(TrickObjectCluster, entities_) == 0x44 && sizeof(TrickObj
               "layout must match the original");
 
 // The trick object manager (0x007CE500): the clusters, by name and by each of their objects' names.
-struct TrickSpotHub {
+// (The original's vtable 0x0064F110 holds only its destructor.)
+struct TrickSpotHub : memory::HeapObject {
     // How many clusters one log can change (THUG2's own mask had room for 128: 0x007CE508-0x007CE587, more wrote
     // over the trick object code's globals after it - THUGPRO's "256 graff tag crash"; ours is THUGPRO's 2048).
     static constexpr uint32_t kMaxLoggedClusters = 2048;
 
-    void** vtable_;
-    int cluster_count_;             // +0x04
-    lists::KeyMap clusters_;        // +0x08 CTrickObjectClusters by name
-    lists::KeyMap object_clusters_; // +0x20 each trick object's cluster, by the object's name (a cluster's own too)
-    script::Struct* args_;          // +0x38 (the graffiti colours' - TrickParamSet::change_args)
+    int cluster_count_;             // (not set by the constructor)
+    lists::KeyMap clusters_;        // CTrickObjectClusters by name
+    lists::KeyMap object_clusters_; // each trick object's cluster, by the object's name (a cluster's own too)
+    script::Struct* args_;          // the graffiti colours' (change_args)
 
-    // 0x00588DC0: the constructor (vtable 0x0064F110): both tables of 256 buckets, the parameters' structure made on
-    // the script heap. (The cluster count isn't set.) Returns this.
-    TrickSpotHub* make_new();
-    // 0x00588E90: the destructor's body - every cluster deleted, both tables emptied and their buckets freed.
-    void destroy_body();
+    // 0x00588DC0: both tables of 256 buckets, the parameters' structure made on the script heap.
+    TrickSpotHub();
+    // 0x00588E90 (0x00589200 the deleting one): every cluster deleted, both tables emptied and their buckets freed.
+    ~TrickSpotHub();
+    TrickSpotHub(const TrickSpotHub&) = delete;
+    TrickSpotHub& operator=(const TrickSpotHub&) = delete;
+    // 0x00588150: the parameters replaced by a copy of `params` (none: emptied). (The original's code is shared with
+    // the clusters' structures at the same offset.)
+    void change_args(script::Struct* params);
     // 0x00588FF0: trick object `objectName`'s cluster coloured for `player` (colour player + 1; -1 stays -1). False
     // if it has no cluster.
     bool set_object_graffiti_color(uint32_t object_name, int player);
@@ -150,8 +147,6 @@ struct TrickSpotHub {
     // released (0x00588300; false if none - else the skate module told, 0x0056BB70 with 0); then graffiti colour
     // player + 1 cleared everywhere. True.
     bool release_player_clusters(int player);
-    // 0x00589200: the scalar deleting destructor (vtable slot 0).
-    TrickSpotHub* teardown(unsigned int flags);
     // 0x00589670: up to 32 clusters nobody holds (0x00588350) given to `player` - scored 1000 and sent
     // (score_trick_objects) - if there are any.
     void give_free_clusters(int player);
@@ -185,9 +180,6 @@ struct TrickSpotHub {
     // id) set. `objects` is compacted to those whose cluster changed (or was first taken); returns how many.
     uint32_t log_trick_objects(uint32_t count, uint32_t* objects, uint8_t* stolen, int player, uint32_t score);
 };
-static_assert(offsetof(TrickSpotHub, clusters_) == 0x08 && offsetof(TrickSpotHub, object_clusters_) == 0x20 &&
-                  offsetof(TrickSpotHub, args_) == 0x38,
-              "layout must match the original");
 
 // The graffiti messages (the receivers' layouts; bytes the original leaves unset are zero here) - sent by
 // score_trick_objects and modules::PointTally (score_net.cpp).

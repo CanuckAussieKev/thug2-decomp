@@ -15,12 +15,8 @@ class ObjectModule;
 
 class Balance {
 public:
-    // 0x00579950: the vtable, Reset's state (without its script). Returns this.
-    Balance* make_new();
-    // 0x00579850: the destructor body (only the vtable). 0x005799A0: the scalar deleting destructor (vtable
-    // slot 0).
-    void destroy_body();
-    Balance* teardown(unsigned int flags);
+    // 0x00579950: Reset's state (without its script). (0x00579850 / 0x005799A0, the destructors, do nothing.)
+    Balance();
     // 0x00579860: the skater and its components SkaterBalanceTrick, SkaterScore, input.
     void prepare_all(GameEntity* skater);
     // 0x005798A0: reset_balance_indicator (if the script integer 0x5D07E2BE is set); the lean, its speed, the
@@ -48,7 +44,9 @@ public:
     void show_display();
     void show_meter();
 
-    void** vtable_;
+    // +0x00: the original's vtable (only the destructor) - its place kept, since the physics code reads
+    // the balances inside SkaterBalanceTrick by byte offset (to be typed in stage 5).
+    uint32_t vtable_slot_unused_ = 0;
     GameEntity* skater_;     // +0x04
     uint8_t* balance_trick_; // +0x08 SkaterBalanceTrick (+0x18 the balance trick's type)
     uint8_t* points_held_;   // +0x0C SkaterScore (+0x18 the score)

@@ -61,25 +61,27 @@ static_assert(offsetof(Signal, flag_bits_) == 0x0C && offsetof(Signal, payload_)
 // 0x0045F9E0: the controller an event came from (its data's `controller`; 0 without one).
 int __cdecl event_controller(Signal* event);
 
-// Something the tracker tells about events (an abstract class: vtable 0x006477D8, slot 0 the deleting
-// destructor, slot 1 pure - the subclasses' event filter). The tracker keeps them in a singly linked list.
+// Something the tracker tells about events (an abstract class: the original's vtable 0x006477D8 - its destructor and
+// the subclasses' event filter). The tracker keeps them in a singly linked list.
 class SignalReceiver {
 public:
     // 0x0045FAA0
-    SignalReceiver* make_new();
-    // 0x0045FAC0: off the tracker's list; the object is let go.
-    void teardown();
-    // 0x00460170 (vtable slot 0): Destroy, then freed if `flags` bit 0.
-    SignalReceiver* deleting_destructor(unsigned int flags);
+    SignalReceiver() = default;
+    // 0x0045FAC0 (0x00460170 the deleting one): off the tracker's list; the object is let go.
+    virtual ~SignalReceiver();
+    SignalReceiver(const SignalReceiver&) = delete;
+    SignalReceiver& operator=(const SignalReceiver&) = delete;
+
+    // An event the tracker hands on (0x004A1090 calls it): the subclass's filter.
+    virtual void receive(Signal* event) = 0;
+
     // 0x0045FB30: listen on behalf of `object`: point at it, onto the tracker's list.
     void enter_wait_board(Entity* object);
 
-    void** vtable_;
-    SharedRef<Entity> owner_object_;  // +0x04
-    SignalReceiver* next_subscriber_; // +0x10 the tracker's list (set by the tracker)
-    bool on_board_;                   // +0x14 on the tracker's list
-    uint8_t pad15_[3];
-    int busy_; // +0x18 raised by the tracker while it asks this listener (0x00462F00)
+    SharedRef<Entity> owner_object_;            // +0x04
+    SignalReceiver* next_subscriber_ = nullptr; // +0x10 the tracker's list (set by the tracker)
+    bool on_board_ = false;                     // +0x14 on the tracker's list
+    int busy_ = 0;                              // +0x18 raised by the tracker while it asks this listener (0x00462F00)
 };
 static_assert(offsetof(SignalReceiver, next_subscriber_) == 0x10 && offsetof(SignalReceiver, on_board_) == 0x14 &&
                   sizeof(SignalReceiver) == 0x1C,

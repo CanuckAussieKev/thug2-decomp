@@ -14,7 +14,6 @@
 #include "game/skate/gap_checklist.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/code_address.h"
 #include "engine/net/gamenet_manager.h"
 
 namespace objects {
@@ -321,9 +320,6 @@ constexpr uint32_t kValue634 = 0xF884773C;
 constexpr uint32_t kMaxValue634 = 0x1C6CF075;
 constexpr uint32_t kCareerInfoKey = 0x55D761CF;
 
-static VtableSlot g_career_vtable_slots[] = {&objects::RiderStoryProgress::teardown};
-void** const kCareerVtable = reinterpret_cast<void**>(g_career_vtable_slots);
-
 script::Array* alloc_script_array(uint32_t size, script::QbValueKind type)
 {
     script::Array* memory = script::alloc_script_array();
@@ -340,9 +336,8 @@ script::Struct* spawn_param_table()
 } // namespace
 
 // 0x00585270
-RiderStoryProgress* RiderStoryProgress::make_new()
+RiderStoryProgress::RiderStoryProgress()
 {
-    vtable_ = kCareerVtable;
     for (int level = 0; level < kLevels; ++level) {
         void* memory = memory::alloc(sizeof(goals::GapTally));
         gaps_[level] = memory ? static_cast<goals::GapTally*>(memory)->make_new() : nullptr;
@@ -350,13 +345,11 @@ RiderStoryProgress* RiderStoryProgress::make_new()
     }
     details_ = spawn_param_table();
     get_reset(true, 0);
-    return this;
 }
 
 // 0x00585E40
-void RiderStoryProgress::destroy_body()
+RiderStoryProgress::~RiderStoryProgress()
 {
-    vtable_ = kCareerVtable;
     for (goals::GapTally* gaps : gaps_) {
         if (gaps) {
             gaps->destroy_body();
@@ -367,15 +360,6 @@ void RiderStoryProgress::destroy_body()
         info->get_clear();
         script::delete_struct(info);
     }
-}
-
-// 0x00585EA0
-RiderStoryProgress* RiderStoryProgress::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00584D00

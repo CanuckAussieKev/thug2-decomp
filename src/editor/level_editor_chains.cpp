@@ -1167,7 +1167,7 @@ void get_remake(uint32_t name)
 
 // The drawn rails' trick objects registered with the trick object manager (0x007CE500) as add_from_node_array registers
 // the level's TrickObject rails (0x005896D0 the cluster, 0x00589080 the node's name mapped to it); those no longer
-// wanted (or of another cluster now) taken out of its name map (+0x20, a lists::KeyMap).
+// wanted (or of another cluster now) taken out of its name map (the manager's object_clusters_).
 void register_trick_objects()
 {
     uint8_t* manager = reinterpret_cast<uint8_t*>(objects::g_trick_spot_hub);
@@ -1181,7 +1181,7 @@ void register_trick_objects()
             rail_node_named(name))
             want[name] = extras->second.cluster;
     }
-    auto* objects = reinterpret_cast<lists::KeyMap*>(manager + 0x20);
+    lists::KeyMap* objects = &reinterpret_cast<objects::TrickSpotHub*>(manager)->object_clusters_;
     for (const auto& entry : g_trick) {
         auto it = want.find(entry.first);
         if (it == want.end() || it->second != entry.second)

@@ -265,9 +265,8 @@ void CinematicEntry::get_end()
 }
 
 // 0x00466C20
-void CinematicTable::destroy_body()
+CinematicTable::~CinematicTable()
 {
-    vtable_ = kCutsceneDataVtable;
     g_cutscene_playing = false;
     if (bundle_ptr_) {
         delete_virtual(bundle_ptr_);

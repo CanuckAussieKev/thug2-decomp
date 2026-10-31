@@ -23,6 +23,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/highscores.h"
 #include "game/skate/skate_module.h"
+#include "game/goals/create_a_trick.h"
 #include "game/rider/rider.h"
 #include "engine/sys/game_config.h"
 #include "game/goals/objective.h"
@@ -263,10 +264,10 @@ void write_save_contents(Struct* contents, uint32_t type)
         return;
     case kSaveCat: {
         auto* skater = static_cast<objects::Rider*>(get_skate()->get_rider_at(0));
-        uint8_t* trick_record = skater->trick_slots_[0];
-        contents->put_sub_struct("other_params", *reinterpret_cast<Struct**>(trick_record + 4));
-        contents->append_array_value("rotation_info", *reinterpret_cast<Array**>(trick_record + 8));
-        contents->append_array_value("animation_info", *reinterpret_cast<Array**>(trick_record + 0xC));
+        goals::CreateATrick* trick_record = skater->trick_slots_[0];
+        contents->put_sub_struct("other_params", trick_record->other_params_);
+        contents->append_array_value("rotation_info", trick_record->spin_list_);
+        contents->append_array_value("animation_info", trick_record->animations_);
         return;
     }
     case kSavePark:

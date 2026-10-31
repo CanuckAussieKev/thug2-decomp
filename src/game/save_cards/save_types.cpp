@@ -26,6 +26,7 @@
 #include "engine/core/game_vtables.h"
 #include "game/goals/objective.h"
 #include "engine/gfx/rig.h"
+#include "game/goals/create_a_trick.h"
 
 namespace save_cards {
 
@@ -410,7 +411,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
     switch (type) {
     case kSaveCat: {
         auto* skater = static_cast<objects::Rider*>(modules::Skate::sole()->get_rider_at(0));
-        Struct* trick_record = *reinterpret_cast<Struct**>(skater->trick_slots_[0] + 4);
+        Struct* trick_record = skater->trick_slots_[0]->other_params_;
         const char* name = empty;
         trick_record->fetch_text(kName, &name, 1);
         summary->append_word(kName, name);

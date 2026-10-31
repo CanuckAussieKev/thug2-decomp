@@ -2,6 +2,7 @@
 // singleton's Create and its logic task's code (park_editing::ParkBuilderMode, park_editor.h; 0x0058FBD0-0x005901AA).
 
 #include <cstdint>
+#include <new>
 
 #include "game/park_editing/park_editor.h"
 
@@ -185,9 +186,8 @@ void __cdecl ParkBuilderMode::front_end_tick(ParkEditorTask* task)
 ParkBuilderMode* ParkBuilderMode::make_new()
 {
     modules::PartUnit::make_new();
-    listener_.make_new();
+    new (&listener_) Listener;
     vtable_ = kVtable;
-    listener_.vtable_ = kListenerVtable;
     actions_ = 0;
     flag_bits_ = 0;
     // The logic task (priority 0), the display task (-1000: nothing to do) and the input handler.

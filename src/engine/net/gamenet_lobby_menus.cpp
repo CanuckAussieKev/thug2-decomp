@@ -301,7 +301,7 @@ void __cdecl RoomManager::group_room_callback(void*, int success, int group_id, 
     room->min_rating_ = server_int("minrating", 0);
     auto rating = [manager] {
         // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
-        // Singletons::PointerMember::Pull)
+        // single::PointerMember::get_pull)
         return static_cast<RankingsManager*>(manager->rating_service_)->get_personal_stats()->skill_points_;
     };
     if (rating() > room->max_rating_)

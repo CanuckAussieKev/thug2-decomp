@@ -1,13 +1,15 @@
 #pragma once
 
-// Cutscenes (names after THUG's GameObjects::CinematicEntry / render::CinematicTable): a cutscene's details object (one of the
-// movie manager's movie kinds, vtable 0x00647920) loads the cutscene's data (CinematicTable, ~0x34D0 bytes: the
+// Cutscenes: a cutscene's details object (CinematicEntry, one of the movie manager's movie kinds, vtable
+// 0x00647920) loads the cutscene's data (CinematicTable: the
 // objects, animations and camera of a .cut file) and plays it, with its subtitles and the skip button.
 // 0x004638B0-0x004644A0 and the details' small virtuals here; the rest (loading, the object updates, the camera,
 // 0x00463AA0-0x004680B0) is still in the game.
 
 #include <cstddef>
 #include <cstdint>
+
+#include "engine/core/mem.h"
 
 namespace script {
 class Array;
@@ -59,7 +61,9 @@ void set_up_cutscene_heaps();
 // - but the extension is still cut from what's there.
 const char* cutscene_name_from_path(const char* path);
 
-class CinematicTable {
+// (The original's vtable 0x00647908 holds only its destructor; the offsets below are the original's, which has the
+// vtable at +0x00.)
+class CinematicTable : public memory::HeapObject {
 public:
     // 0x00463910: the checksum of the cutscene's name followed by `suffix` and, unless it's -1, `number` and a
     // newline ("%s%d\n" - the newline is part of the original's format).
@@ -94,8 +98,13 @@ public:
     void refresh_viewer(void* camera);
     // 0x00464360: each object's skeleton posed by its animation at the cutscene's time.
     void update_object_poses();
-    // 0x00464640 (returns this): nothing loaded, a new parameters structure.
-    CinematicTable* make_new();
+    // 0x00464640: nothing loaded, a new parameters structure.
+    CinematicTable();
+    // 0x00466C20 (0x00468080 the deleting one): the bundle, the animation sources, the objects, the lights and every
+    // asset dropped; the cutscene's .qb unloaded.
+    ~CinematicTable();
+    CinematicTable(const CinematicTable&) = delete;
+    CinematicTable& operator=(const CinematicTable&) = delete;
     // 0x00464780: (when +0x34B0 and the global integer 0x4AF50A5B is set) script 0x2E20EA32 run again on every
     // object with a model and the skater; the global cleared.
     void refresh_objects();
@@ -153,17 +162,11 @@ public:
     void tick_frame(void* camera, script::Struct* params);
     // 0x00467EA0: Update once the music is ready (the objects refreshed first).
     void perform(void* camera, script::Struct* params);
-    // 0x00468080 (vtable slot 0): the scalar deleting destructor.
-    CinematicTable* teardown(unsigned int flags);
-    // 0x00466C20: the destructor body: the bundle, the animation sources, the objects, the lights and every asset
-    // dropped; the cutscene's .qb unloaded.
-    void destroy_body();
     // 0x00466DD0: the bundle's assets taken in by type (parameters, objects, .qb, camera / object / plain
     // animations, images, models with their textures - a skater's skin only when it's the skater's); the end time.
     void load_from_bundle();
     void ingest_mesh(int index, file::AssetBundle::TableRow* entry, void* data);
 
-    void** vtable_; // +0x00 (0x00647908)
     uint32_t unknown4_;
     file::AssetBundle* bundle_ptr_; // +0x08: the cutscene's loaded bundle
     bool ready_flag_;               // +0x0C
@@ -279,21 +282,9 @@ public:
     int unknown60_; // +0x60
 };
 
-static_assert(sizeof(CinematicTable) == 0x34D0 && offsetof(CinematicTable, unknown3470_) == 0x3470 &&
-                  offsetof(CinematicTable, unknown348c_) == 0x348C && offsetof(CinematicTable, anim_list_) == 0x28,
-              "layout must match the original");
-static_assert(offsetof(CinematicTable, entities_) == 0x54 && offsetof(CinematicTable, object_count_) == 0x2054 &&
-                  offsetof(CinematicTable, animation_count_) == 0x2C58 &&
-                  offsetof(CinematicTable, asset_count_) == 0x345C &&
-                  offsetof(CinematicTable, unknown3478_) == 0x3478 && offsetof(CinematicTable, flag_34b_0_) == 0x34B0 &&
-                  sizeof(CinematicTable::ObjectEntry) == 0x20,
-              "layout must match the original");
-static_assert(offsetof(CinematicTable, can_skip_) == 0x3461 && offsetof(CinematicTable, end_time_) == 0x346C &&
-                  offsetof(CinematicTable, clock_) == 0x347C && offsetof(CinematicTable, vblanks_) == 0x3498 &&
-                  offsetof(CinematicTable, label_) == 0x34B4 && offsetof(CinematicTable, next_subtitle_) == 0x34C8,
-              "layout must match the original");
+static_assert(sizeof(CinematicTable::ObjectEntry) == 0x20, "layout must match the original");
 static_assert(offsetof(CinematicEntry, args_) == 0x40 && offsetof(CinematicEntry, settings_) == 0x50 &&
-                  offsetof(CinematicEntry, owns_data_) == 0x5C && offsetof(CinematicTable, paused_vblanks_) == 0x3490,
+                  offsetof(CinematicEntry, owns_data_) == 0x5C,
               "layout must match the original");
 static_assert(offsetof(CinematicEntry, content_) == 0x2C && offsetof(CinematicEntry, flag_5d_) == 0x5D &&
                   offsetof(CinematicEntry, unknown60_) == 0x60,
@@ -304,8 +295,5 @@ extern bool g_cutscene_playing;
 extern int g_cutscene_fixed_frame;
 extern float g_cutscene_rotations[512];
 extern float g_cutscene_translations[512];
-
-// 0x00647908: cutsceneDataVtable (defined where the class's functions are).
-extern void** const kCutsceneDataVtable;
 
 } // namespace objects

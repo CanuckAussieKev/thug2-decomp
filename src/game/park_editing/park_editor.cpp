@@ -32,9 +32,6 @@
 
 namespace park_editing {
 
-static VtableSlot g_park_editor_listener_vtable_slots[] = {&ParkBuilderMode::Listener::destroy_editor,
-                                                           &ParkBuilderMode::Listener::listen_to};
-void** const kParkEditorListenerVtable = reinterpret_cast<void**>(g_park_editor_listener_vtable_slots);
 static VtableSlot g_park_editor_vtable_slots[] = {&ParkBuilderMode::teardown, &ParkBuilderMode::start_callback,
                                                   &ParkBuilderMode::stop_callback};
 void** const kParkEditorVtable = reinterpret_cast<void**>(g_park_editor_vtable_slots);
@@ -194,9 +191,8 @@ void ParkBuilderMode::get_release()
 void ParkBuilderMode::destroy_body()
 {
     vtable_ = kParkEditorVtable;
-    listener_.vtable_ = kParkEditorListenerVtable;
     ParkLayout::discard_occurrence();
-    listener_.objects::SignalReceiver::teardown();
+    listener_.~Listener();
     modules::PartUnit::destroy_body();
 }
 
@@ -208,9 +204,6 @@ ParkBuilderMode* ParkBuilderMode::teardown(uint8_t flags)
         memory::Hub::get_pull()->dealloc(this);
     return this;
 }
-
-// 0x0058DA90
-ParkBuilderMode* ParkBuilderMode::Listener::destroy_editor(uint8_t flags) { return get_editor()->teardown(flags); }
 
 // 0x0058DAD0
 void ParkBuilderMode::start_callback()
@@ -360,7 +353,7 @@ void ParkBuilderMode::refresh_piece_menu()
 }
 
 // 0x0058DE40
-void ParkBuilderMode::Listener::listen_to(objects::Signal* event)
+void ParkBuilderMode::Listener::receive(objects::Signal* event)
 {
     ParkBuilderMode* editor = get_editor();
     if (editor->cur_phase_ != kStateEdit || !have_cursor() || (editor->flag_bits_ & kFlagPaused) ||
@@ -657,7 +650,7 @@ void ParkBuilderMode::tick_frame()
 // 0x0058F640
 void ParkBuilderMode::update_menu_stick()
 {
-    modules::FrontEnd* front_end = modules::create_front_end(false); // (a Singletons::LazyInstance<modules::FrontEnd>)
+    modules::FrontEnd* front_end = modules::create_front_end(false); // (a single::LazyInstance<modules::FrontEnd>)
     front_end->set_analog_stick_active_for_menus(!(cur_phase_ == kStateEdit && !(flag_bits_ & kFlagPaused)));
     modules::release_front_end();
 }
@@ -665,7 +658,7 @@ void ParkBuilderMode::update_menu_stick()
 // 0x0058F6C0
 void ParkBuilderMode::link_to_pad(int controller)
 {
-    pad_input::Hub* input = pad_input::create_manager(false); // (a Singletons::LazyInstance<pad_input::Hub>)
+    pad_input::Hub* input = pad_input::create_manager(false); // (a single::LazyInstance<pad_input::Hub>)
     ParkEditorInputHandler* handler = editor_pad_listener_;
     reinterpret_cast<tasks::SchedulerTask*>(handler)->drop_out();
     pad_input::HostEnd& server = input->hosts_[controller];
@@ -728,7 +721,7 @@ void ParkBuilderMode::change_phase(uint32_t state)
     } else {
         show_editor_view(true);
     }
-    modules::FrontEnd* front_end = modules::create_front_end(false); // (a Singletons::LazyInstance<modules::FrontEnd>)
+    modules::FrontEnd* front_end = modules::create_front_end(false); // (a single::LazyInstance<modules::FrontEnd>)
     if (state == kStateEdit) {
         reinterpret_cast<modules::Skate*>(skate_module())->tidy_before_park_build();
         front_end->hold_repeat_ms_ = 320;

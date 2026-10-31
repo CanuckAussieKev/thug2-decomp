@@ -106,10 +106,14 @@ public:
     void remove_focus_entries(ElementPtr* element, bool from_parent, bool mark);
     // 0x004AB4D0: the marks of the entries of `element` and the elements below it cleared.
     void clear_marks(ElementPtr* element);
-    // 0x004ABD40 (the listener's vtable slot 1, `this` = the listener at +0x28): focus / unfocus and the focus
-    // flag's events update the lists; a pad event goes to the controller's focused elements in turn until one
-    // handles it.
+    // 0x004ABD40 (the listener's filter): focus / unfocus and the focus flag's events update the lists; a pad event
+    // goes to the controller's focused elements in turn until one handles it.
     void listener_receive(objects::Signal* event);
+
+    // The manager's event listener: its events go to listener_receive.
+    struct TreeListener final : objects::SignalReceiver {
+        void receive(objects::Signal* event) override;
+    };
 
     // --- pad-event priorities ---
     // 0x004AAD80: any priorities.
@@ -124,7 +128,7 @@ public:
     // 0x004AB5D0: elements gone leave their slots; the top one is shown.
     void update_priorities();
 
-    objects::SignalReceiver listener_;        // +0x28
+    TreeListener listener_;                   // +0x28
     ElementPtr tree_root_;                    // +0x44
     ElementPtr resolving_;                    // +0x50 resolve_id's element so far
     FocusEntry focus_entries_[kFocusEntries]; // +0x5C

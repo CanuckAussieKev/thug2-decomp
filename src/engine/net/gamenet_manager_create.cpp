@@ -2,6 +2,7 @@
 // vault, presence and stats managers, and the CD-key challenge. See gamenet_manager.h.
 
 #include <cstdint>
+#include <new>
 
 #include "engine/core/manager.h"
 #include "engine/net/gamespy.h"
@@ -96,9 +97,8 @@ void* carve(uint32_t size)
 Hub* Hub::make_new()
 {
     prop<uint32_t>(this, 0) = 0; // the flags
-    reinterpret_cast<prefs::Preferences*>(net_options_)->prepare_all();
-    auto* taunts = &prop<prefs::Preferences>(this, 0x110);
-    taunts->prepare_all();
+    new (net_options_) prefs::Preferences;
+    auto* taunts = new (&prop<prefs::Preferences>(this, 0x110)) prefs::Preferences;
     setup_list_sentinel(&prop<memory::ListNode>(this, 0x11C),
                         reinterpret_cast<uint32_t>(kPlayerHeadVtable)); // the players
     setup_list_sentinel(&prop<memory::ListNode>(this, 0x130),

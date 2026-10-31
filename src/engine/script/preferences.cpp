@@ -4,43 +4,13 @@
 
 #include "engine/script/preferences.h"
 
-#include "engine/core/manager.h"
-#include "engine/core/code_address.h"
-
 namespace prefs {
 
-namespace {
-
-static VtableSlot g_preferences_vtable_slots[] = {&prefs::Preferences::teardown};
-void** const kPreferencesVtable = reinterpret_cast<void**>(g_preferences_vtable_slots);
-
-void** get_vtable() { return kPreferencesVtable; }
-
-} // namespace
-
 // 0x0046C470
-Preferences* Preferences::prepare_all()
-{
-    vtable_ = get_vtable();
-    top_entry_.prepare_all();
-    return this;
-}
+Preferences::Preferences() { top_entry_.prepare_all(); }
 
-// 0x0046C490
-void Preferences::tear_down_state()
-{
-    vtable_ = get_vtable();
-    top_entry_.get_clear();
-}
-
-// 0x0046C680
-Preferences* Preferences::teardown(unsigned int flags)
-{
-    tear_down_state();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0046C490 (0x0046C680 the deleting one)
+Preferences::~Preferences() { top_entry_.get_clear(); }
 
 // 0x0046C4A0
 script::Struct* Preferences::fetch_setting(uint32_t name)

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <new>
 
 #include "frontend/scrolling_menu.h"
 
@@ -19,11 +20,8 @@
 namespace frontend {
 
 namespace {
-extern void** const kListenerAdapterVtable;
 extern void** const kCScrollingMenuVtable;
-extern void** const kListenerAdapterVtableA180;
 extern void** const kCScrollingMenuVtableA188;
-extern void** const kListenerAdapterVtableA1b4;
 extern void** const kCScrollingMenuVtableA1bC;
 } // namespace
 
@@ -64,9 +62,8 @@ bool may_have(UiWidget* e, objects::Signal* event)
 WindowedList* WindowedList::make_new()
 {
     UiWidget::make_new();
-    listener_.make_new();
+    new (&listener_) MenuListener;
     vtable_ = kCScrollingMenuVtable;
-    listener_.vtable_ = kListenerAdapterVtable;
     listener_.enter_wait_board(this);
     menu_ = nullptr;
     chosen_item_id_ = 0;
@@ -86,7 +83,6 @@ WindowedList* WindowedList::construct_vertical()
 {
     make_new();
     vtable_ = kCScrollingMenuVtableA188;
-    listener_.vtable_ = kListenerAdapterVtableA180;
     vertical_ = true;
     return this;
 }
@@ -96,7 +92,6 @@ WindowedList* WindowedList::construct_horizontal()
 {
     make_new();
     vtable_ = kCScrollingMenuVtableA1bC;
-    listener_.vtable_ = kListenerAdapterVtableA1b4;
     vertical_ = false;
     return this;
 }
@@ -105,8 +100,7 @@ WindowedList* WindowedList::construct_horizontal()
 void WindowedList::destroy_body()
 {
     vtable_ = kCScrollingMenuVtable;
-    listener_.vtable_ = kListenerAdapterVtable;
-    listener_.teardown();
+    listener_.~MenuListener();
     UiWidget::destroy_body();
 }
 
@@ -114,7 +108,6 @@ void WindowedList::destroy_body()
 void WindowedList::destroy_body_vertical()
 {
     vtable_ = kCScrollingMenuVtableA188;
-    listener_.vtable_ = kListenerAdapterVtableA180;
     destroy_body();
 }
 
@@ -122,7 +115,6 @@ void WindowedList::destroy_body_vertical()
 void WindowedList::destroy_body_horizontal()
 {
     vtable_ = kCScrollingMenuVtableA1bC;
-    listener_.vtable_ = kListenerAdapterVtableA1b4;
     destroy_body();
 }
 
@@ -251,11 +243,17 @@ bool WindowedList::pass_event_to_script(objects::Signal* event)
     return true;
 }
 
+// (The original's listener filter is 0x004AE7E0 itself, `this` the listener: the element is 0x178 before it.)
+void WindowedList::MenuListener::receive(objects::Signal* event)
+{
+    auto* self = reinterpret_cast<WindowedList*>(reinterpret_cast<uint8_t*>(this) - offsetof(WindowedList, listener_));
+    self->listener_receive(event);
+}
+
 // 0x004AE7E0
 void WindowedList::listener_receive(objects::Signal* event)
 {
-    // (`this` is the listener: the element is 0x178 before it)
-    auto* self = reinterpret_cast<WindowedList*>(reinterpret_cast<uint8_t*>(this) - offsetof(WindowedList, listener_));
+    WindowedList* self = this;
     if (!may_have(self, event))
         return;
     if (event->kind_tag_ == kFocusSentEvent && self->menu_) {
@@ -365,27 +363,10 @@ void WindowedList::tick_frame()
 
 } // namespace frontend
 
-namespace {
-
-// The listener's slot 0 (`this` = the listener at +0x178): the element's destructor.
-struct ListenerAdapter {
-    frontend::WindowedList* get_self()
-    {
-        return reinterpret_cast<frontend::WindowedList*>(reinterpret_cast<uint8_t*>(this) - 0x178);
-    }
-    frontend::WindowedList* teardown(uint8_t flags) { return get_self()->teardown(flags); }
-    frontend::WindowedList* destroy_vertical(uint8_t flags) { return get_self()->destroy_vertical(flags); }
-    frontend::WindowedList* destroy_horizontal(uint8_t flags) { return get_self()->destroy_horizontal(flags); }
-};
-
-} // namespace
-
 using frontend::WindowedList;
 
 namespace frontend {
 namespace {
-static VtableSlot g_listener_adapter_vtable_slots[] = {&ListenerAdapter::teardown, &WindowedList::listener_receive};
-void** const kListenerAdapterVtable = reinterpret_cast<void**>(g_listener_adapter_vtable_slots);
 static VtableSlot g_c_scrolling_menu_vtable_slots[] = {
     &WindowedList::teardown,
     &WindowedList::change_traits,
@@ -400,9 +381,6 @@ static VtableSlot g_c_scrolling_menu_vtable_slots[] = {
     &UiWidget::blend_towards,
     &WindowedList::tick_frame};
 void** const kCScrollingMenuVtable = reinterpret_cast<void**>(g_c_scrolling_menu_vtable_slots);
-static VtableSlot g_listener_adapter_vtable_a180_slots[] = {&ListenerAdapter::destroy_vertical,
-                                                            &WindowedList::listener_receive};
-void** const kListenerAdapterVtableA180 = reinterpret_cast<void**>(g_listener_adapter_vtable_a180_slots);
 static VtableSlot g_c_scrolling_menu_vtable_a188_slots[] = {
     &WindowedList::destroy_vertical,
     &WindowedList::change_traits,
@@ -417,9 +395,6 @@ static VtableSlot g_c_scrolling_menu_vtable_a188_slots[] = {
     &UiWidget::blend_towards,
     &WindowedList::tick_frame};
 void** const kCScrollingMenuVtableA188 = reinterpret_cast<void**>(g_c_scrolling_menu_vtable_a188_slots);
-static VtableSlot g_listener_adapter_vtable_a_1b_4_slots[] = {&ListenerAdapter::destroy_horizontal,
-                                                              &WindowedList::listener_receive};
-void** const kListenerAdapterVtableA1b4 = reinterpret_cast<void**>(g_listener_adapter_vtable_a_1b_4_slots);
 static VtableSlot g_c_scrolling_menu_vtable_a_1b_c_slots[] = {
     &WindowedList::destroy_horizontal,
     &WindowedList::change_traits,

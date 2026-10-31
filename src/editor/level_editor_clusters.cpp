@@ -132,7 +132,7 @@ void enrol(uint32_t name, uint32_t cluster)
 }
 
 // Taken out: its node unlinked from the cluster's object list (+0x44: a circular list, the head a sentinel; +0x0C next,
-// +0x10 previous, +0x14 the name) and its name out of the name map (+0x20).
+// +0x10 previous, +0x14 the name) and its name out of the name map (the manager's object_clusters_).
 void unregister(uint32_t name, uint32_t cluster)
 {
     uint8_t* manager = hub();
@@ -154,7 +154,7 @@ void unregister(uint32_t name, uint32_t cluster)
             node = next;
         }
     }
-    reinterpret_cast<lists::KeyMap*>(manager + 0x20)->erase_entry(name);
+    get_trick_objects(manager)->object_clusters_.erase_entry(name);
 }
 
 // The piece made `to` in the manager, from `from`.

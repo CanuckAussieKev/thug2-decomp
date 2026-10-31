@@ -17,6 +17,9 @@
 namespace script {
 class Struct;
 }
+namespace goals {
+class CreateATrick;
+}
 
 namespace objects {
 
@@ -158,7 +161,7 @@ public:
     uint8_t pad171[3];
     int shadow_fade_; // +0x174
     uint8_t unknown178_[4];
-    uint8_t* trick_slots_[11]; // +0x17C (each: +4 a structure, +8 / +0xC arrays)
+    goals::CreateATrick* trick_slots_[11]; // +0x17C the created tricks
     uint8_t unknown1a8_[0x1C0 - 0x1A8];
     struct Projectile {
         uint32_t name; // projectile_0 ... projectile_4

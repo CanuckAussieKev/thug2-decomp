@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/mem.h"
+
 // The skater's career (0x00584110-0x00584CF3; the rest of its code is later in the range): for each of 21 levels its
 // goals (256 bits) and flags (256 bits), the goals and flags as they were when the level started (to tell which were
 // just got), cash and a second per-level amount with their totals, a per-level counter, global flags (256 bits: the
@@ -18,7 +20,7 @@ class Struct;
 
 namespace objects {
 
-class RiderStoryProgress {
+class RiderStoryProgress : public memory::HeapObject {
 public:
     static constexpr int kLevels = 21;
 
@@ -74,11 +76,12 @@ public:
     void begin_level(int level);
     // 0x00584CC0: the global flag a script integer names (a cheat); also left at 0x007CE4FD.
     bool is_code_on(uint32_t name);
-    // 0x00585270: the constructor: a gap checklist per level (none visited), an info structure, Reset(true, 0).
-    // 0x00585E40: the destructor body (the checklists and the info freed). 0x00585EA0: the scalar deleting one.
-    RiderStoryProgress* make_new();
-    void destroy_body();
-    RiderStoryProgress* teardown(unsigned int flags);
+    // 0x00585270: a gap checklist per level (none visited), an info structure, Reset(true, 0).
+    RiderStoryProgress();
+    // 0x00585E40 (0x00585EA0 the deleting one): the checklists and the info freed.
+    ~RiderStoryProgress();
+    RiderStoryProgress(const RiderStoryProgress&) = delete;
+    RiderStoryProgress& operator=(const RiderStoryProgress&) = delete;
     // 0x00584D00: read from a save's career structure (0x4DA4937B): goals, flags, global flags, each level's gaps
     // (got ones with their positions), visited levels, cash / amounts and totals, counters (an older save without the
     // counter total: it's summed), +0x634 / +0x638, the info. 0x00585550: written there the same way (with the skate
@@ -90,7 +93,7 @@ public:
     uint32_t* goal_words() { return &goals_[0][0]; }
     uint32_t* flag_words() { return &flag_bits_[0][0]; }
 
-    void** vtable_;                  // +0x000 (0x0064EFD4)
+    // (The offsets are the original's, which has a vtable at +0x000 - 0x0064EFD4 - holding only the destructor.)
     uint32_t goals_[kLevels][8];     // +0x004
     uint32_t flag_bits_[kLevels][8]; // +0x2A4
     uint32_t start_goals_[8];        // +0x544
@@ -111,15 +114,7 @@ public:
     uint8_t pad6a5_[3];
     script::Struct* details_; // +0x6A8
 };
-static_assert(offsetof(RiderStoryProgress, flag_bits_) == 0x2A4 &&
-                  offsetof(RiderStoryProgress, start_goals_) == 0x544 &&
-                  offsetof(RiderStoryProgress, funds_) == 0x584 &&
-                  offsetof(RiderStoryProgress, lifetime_funds_) == 0x5D8 &&
-                  offsetof(RiderStoryProgress, counter_) == 0x5DC &&
-                  offsetof(RiderStoryProgress, global_flags_) == 0x5F0 &&
-                  offsetof(RiderStoryProgress, level_) == 0x630 && offsetof(RiderStoryProgress, gaps_) == 0x63C &&
-                  offsetof(RiderStoryProgress, visited_) == 0x690 && offsetof(RiderStoryProgress, details_) == 0x6A8,
-              "layout must match the original");
+static_assert(sizeof(RiderStoryProgress) == 0x6A8, "the original's 0x6AC bytes less its vtable");
 
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career (+0x20) written to the script's results.
 bool __cdecl cfunc_get_career_save_info(script::Struct* params, script::Script* script);

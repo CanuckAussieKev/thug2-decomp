@@ -12,7 +12,6 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
-#include "engine/core/code_address.h"
 
 namespace goals {
 
@@ -34,14 +33,8 @@ const char* const kTotalY = "total_Y_angle";               // "total_Y_angle"
 const char* const kTotalX = "total_X_angle";               // "total_X_angle"
 const char* const kTotalZ = "total_Z_angle";               // "total_Z_angle"
 
-static VtableSlot g_create_a_trick_vtable_slots[] = {&goals::CreateATrick::teardown};
-void** const kCreateATrickVtable = reinterpret_cast<void**>(g_create_a_trick_vtable_slots);
-
 objects::Rider* local_skater() { return static_cast<objects::Rider*>(skate_calls::get_home_rider()); }
-CreateATrick* created_trick(objects::Rider* skater, int index)
-{
-    return reinterpret_cast<CreateATrick*>(skater->trick_slots_[index]);
-}
+CreateATrick* created_trick(objects::Rider* skater, int index) { return skater->trick_slots_[index]; }
 // The editor's state on the skater.
 template <typename T>
 T& prop(objects::Rider* skater, uint32_t offset)
@@ -59,9 +52,8 @@ script::Array* alloc_script_array()
 } // namespace
 
 // 0x00552560
-CreateATrick* CreateATrick::make_new()
+CreateATrick::CreateATrick()
 {
-    vtable_ = kCreateATrickVtable;
     debug::printf("creating a CCreateATrick\n");                               // "creating a CCreateATrick\n"
     script::Struct* other = script::read_sub_struct("Default_CAT_other_info"); // "Default_CAT_other_info"
     script::Struct* params = script::spawn_param_bag();
@@ -75,13 +67,11 @@ CreateATrick* CreateATrick::make_new()
     animations_ = alloc_script_array();
     animations_->configure_size_kind(6, script::kQbvalStruct);
     script::duplicate_array(animations_, animations);
-    return this;
 }
 
 // 0x00552720
-void CreateATrick::destroy_body()
+CreateATrick::~CreateATrick()
 {
-    vtable_ = kCreateATrickVtable;
     if (script::Struct* other = other_params_) {
         other->get_clear();
         script::delete_struct(other);
@@ -95,15 +85,6 @@ void CreateATrick::destroy_body()
             script::delete_array(own);
         }
     }
-}
-
-// 0x005527A0
-CreateATrick* CreateATrick::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x00551CA0

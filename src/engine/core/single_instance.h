@@ -1,57 +1,42 @@
 #pragma once
 
-// LazyInstance<T>: a reference to one of the reference-counted singletons (the managers and
-// modules sys::Main makes), taken when it's constructed - T's Fabricate(create): with `create` the first one makes
-// the instance - and dropped when it's destroyed (T's Release: the last one deletes the instance).
-//
-// The game's LazyInstance objects are locals (sys::Main, the movie player, the network code...): their
-// constructors are inline (only one isn't, 0x004E1A90), and what's left out of line are each instance's
-// destructor (called from the exception-unwind code of the functions with such a local) and its scalar deleting
-// destructor, the only entry of each instance's vtable. Each instance here is named by a Singleton type:
+// LazyInstance<Singleton>: a reference to one of the reference-counted singletons (the managers and modules
+// sys::Main makes), taken when it's constructed - Singleton::fabricate(create): with `create` the first one makes
+// the instance - and dropped when it's destroyed (Singleton::release: the last one deletes the instance).
 //
 //   struct Something {
 //       using Type = ...;                          // what the pointer points to
-//       static void** Vtable();                    // the instance's vtable
-//       static Type* Fabricate(bool create);
-//       static void Release();
+//       static Type* fabricate(bool create);
+//       static void release();
 //   };
-
-#include <cstdint>
-
-#include "engine/core/manager.h"
+//
+// The game's LazyInstance objects are locals (sys::Main, the movie player, the network code, the park editor's
+// front end and input manager references...): their constructors are inline (only one isn't, 0x004E1A90) and
+// what's left out of line are each instance's destructor and its scalar deleting destructor, the only entry of a
+// vtable of its own. Nothing derives from them or deletes one through a pointer, so here they're plain classes.
+// The original has instances for the archive, memory card, serial port, async loader, script cache, main loop,
+// module, sound, front end, object tracker, input, asset, net, composite object, trick object, game mode, profile,
+// game records, skate module, online game, park editor, screen element, node and time of day managers.
 
 namespace single {
 
 template <typename Singleton>
-struct LazyInstance {
-    using KindTag = typename Singleton::KindTag;
+class LazyInstance {
+public:
+    using Type = typename Singleton::Type;
 
-    void** vtable_;
-    KindTag* instance_;
+    // A reference taken (and the instance made if `create` and there's none).
+    explicit LazyInstance(bool create) : instance_(Singleton::fabricate(create)) {}
+    // The reference dropped.
+    ~LazyInstance() { Singleton::release(); }
+    LazyInstance(const LazyInstance&) = delete;
+    LazyInstance& operator=(const LazyInstance&) = delete;
 
-    static void** get_vtable() { return Singleton::Vtable(); }
+    Type* get() const { return instance_; }
+    Type* operator->() const { return instance_; }
 
-    // The constructor: a reference taken (and the instance made if `create` and there's none). Returns this.
-    LazyInstance* make_new(bool create)
-    {
-        vtable_ = get_vtable();
-        instance_ = Singleton::Fabricate(create);
-        return this;
-    }
-    // The destructor: the reference dropped.
-    void destroy_body()
-    {
-        vtable_ = get_vtable();
-        Singleton::Release();
-    }
-    // The scalar deleting destructor (vtable slot 0).
-    LazyInstance* teardown(unsigned int flags)
-    {
-        destroy_body();
-        if (flags & 1)
-            memory::Hub::get_pull()->dealloc(this);
-        return this;
-    }
+private:
+    Type* instance_;
 };
 
 // 0x004E1970: the constructor of a one-pointer member (store it, return this). The linker folded the

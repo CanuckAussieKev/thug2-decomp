@@ -2,6 +2,8 @@
 
 #include "frontend/screen_element_manager.h"
 
+#include <new>
+
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -23,7 +25,6 @@ namespace frontend {
 
 namespace {
 extern void** const kCScreenElementManagerVtable;
-extern void** const kListenerAdapterVtable;
 } // namespace
 
 UiTree* g_ui_element_hub;
@@ -83,8 +84,7 @@ void set_flag_property(UiWidget* element, uint32_t flag)
 UiTree* UiTree::make_new()
 {
     objects::ObjectHubBase::make_new();
-    listener_.make_new();
-    listener_.vtable_ = kListenerAdapterVtable;
+    new (&listener_) TreeListener;
     vtable_ = kCScreenElementManagerVtable;
     tree_root_.preceding_ = tree_root_.following_ = nullptr;
     tree_root_.owner_object_ = nullptr;
@@ -122,14 +122,13 @@ UiTree* UiTree::make_new()
 void UiTree::destroy_body()
 {
     vtable_ = kCScreenElementManagerVtable;
-    listener_.vtable_ = kListenerAdapterVtable;
     for (int i = kPriorities - 1; i >= 0; --i)
         priorities_[i].element.get_release();
     for (int i = kFocusEntries - 1; i >= 0; --i)
         focus_entries_[i].element.get_release();
     resolving_.get_release();
     tree_root_.get_release();
-    listener_.teardown();
+    listener_.~TreeListener();
     objects::ObjectHubBase::destroy_body();
 }
 
@@ -481,11 +480,17 @@ void UiTree::clear_marks(ElementPtr* element)
     }
 }
 
+// (The original's listener filter is 0x004ABD40 itself, `this` the listener: the manager is 0x28 before it.)
+void UiTree::TreeListener::receive(objects::Signal* event)
+{
+    auto* manager = reinterpret_cast<UiTree*>(reinterpret_cast<uint8_t*>(this) - offsetof(UiTree, listener_));
+    manager->listener_receive(event);
+}
+
 // 0x004ABD40
 void UiTree::listener_receive(objects::Signal* event)
 {
-    // (`this` is the listener: the manager is 0x28 before it)
-    UiTree* manager = reinterpret_cast<UiTree*>(reinterpret_cast<uint8_t*>(this) - offsetof(UiTree, listener_));
+    UiTree* manager = this;
     if (manager->pad_event_kind_count_ == 0) {
         script::Array* types = script::fetch_list(pad_event_types_name()); // (the original passes 1 as well: unused)
         manager->pad_event_kind_count_ = static_cast<int>(types->extent_);
@@ -726,19 +731,6 @@ void set_score_text(const char* text, int player)
 
 } // namespace frontend
 
-namespace {
-
-// 0x004ABAF0: the listener's slot 0 (`this` = the listener): the manager's Destroy.
-struct ListenerAdapter {
-    frontend::UiTree* teardown(uint8_t flags)
-    {
-        auto* manager = reinterpret_cast<frontend::UiTree*>(reinterpret_cast<uint8_t*>(this) - 0x28);
-        return manager->teardown(flags);
-    }
-};
-
-} // namespace
-
 using frontend::UiTree;
 
 namespace frontend {
@@ -751,7 +743,5 @@ static VtableSlot g_c_screen_element_manager_vtable_slots[] = {&UiTree::teardown
                                                                stubs::ignore_argument,
                                                                &UiTree::fetch_object_set};
 void** const kCScreenElementManagerVtable = reinterpret_cast<void**>(g_c_screen_element_manager_vtable_slots);
-static VtableSlot g_listener_adapter_vtable_slots[] = {&ListenerAdapter::teardown, &UiTree::listener_receive};
-void** const kListenerAdapterVtable = reinterpret_cast<void**>(g_listener_adapter_vtable_slots);
 } // namespace
 } // namespace frontend

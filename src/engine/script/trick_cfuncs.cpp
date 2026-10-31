@@ -26,6 +26,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/core/code_address.h"
 #include "game/goals/goal_manager.h"
+#include "game/goals/create_a_trick.h"
 
 namespace commands {
 
@@ -120,7 +121,7 @@ Array* alloc_script_array()
     return array ? array->prepare_all() : nullptr;
 }
 
-// The profile manager's template table: its count (0x00469490, Singletons::PointerMember::Pull folded) and the template at
+// The profile manager's template table: its count (0x00469490, single::PointerMember::get_pull folded) and the template at
 // `index` (0x00557FB0, no source yet).
 int template_count(objects::ProfileRoster* manager) { return static_cast<int>(manager->templates_.num_); }
 RiderIdentity* template_at(objects::ProfileRoster* manager, int index)
@@ -312,13 +313,11 @@ bool __cdecl cfunc_get_configurable_tricks_from_type(script::Struct* params, scr
     if (type == kGrabTrick || type == kFlipTrick) {
         objects::GameEntity* skater = local_skater();
         if (skater) {
-            // the skater's created tricks (+0x180: 10 pointers to objects with their structure at +4)
-            auto** created = reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skater) + 0x180);
+            // the skater's created tricks 1-10
+            goals::CreateATrick* const* created = static_cast<objects::Rider*>(skater)->trick_slots_;
             for (int slot = 1; slot < 11; ++slot) {
                 int full = 0;
-                if (reinterpret_cast<Struct*>(*reinterpret_cast<uint32_t*>(created[slot - 1] + 4))
-                        ->fetch_int_value(kFull, &full, 0) &&
-                    full)
+                if (created[slot]->other_params_->fetch_int_value(kFull, &full, 0) && full)
                     cats[cat_count++] = slot;
             }
         }

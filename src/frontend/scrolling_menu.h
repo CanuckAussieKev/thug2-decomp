@@ -39,9 +39,15 @@ public:
     // 0x004AE960 (slot 10): the window follows the selected item (by scroll_speed per frame), the menu moves
     // against it and the items outside the window are hidden.
     void tick_frame();
-    // 0x004AE7E0 (the listener's slot 1, `this` = the listener): the menu's focus flag event re-arranges; focus
-    // on one of the menu's items selects it.
+    // 0x004AE7E0 (the listener's filter): the menu's focus flag event re-arranges; focus on one of the menu's items
+    // selects it.
     void listener_receive(objects::Signal* event);
+
+    // The element's event listener: its events go to listener_receive. (The original's listener vtables - one per
+    // constructor - differ only in the destructor, which nothing calls through the listener.)
+    struct MenuListener final : objects::SignalReceiver {
+        void receive(objects::Signal* event) override;
+    };
 
     // 0x004AE2D0: the vmenu (vertical) / hmenu (horizontal) child - the last one - and the window's length (the
     // shown items times the regular spacing, else the element's size).
@@ -49,13 +55,13 @@ public:
     // 0x004AE450: an item's top left and size in the menu (scaled by the menu's scale).
     void item_place(ElementPtr* item, float* x, float* y, float* w, float* h);
 
-    objects::SignalReceiver listener_; // +0x178
-    UiWidget* menu_;                   // +0x194
-    uint32_t chosen_item_id_;          // +0x198 the item focused
-    float inner_align_h_;              // +0x19C internal_just
-    float inner_align_v_;              // +0x1A0
-    bool focused_;                     // +0x1A4
-    bool rearrange_;                   // +0x1A5
+    MenuListener listener_;   // +0x178
+    UiWidget* menu_;          // +0x194
+    uint32_t chosen_item_id_; // +0x198 the item focused
+    float inner_align_h_;     // +0x19C internal_just
+    float inner_align_v_;     // +0x1A0
+    bool focused_;            // +0x1A4
+    bool rearrange_;          // +0x1A5
     uint8_t pad1a6_[2];
     float window_start_;    // +0x1A8 along the menu
     float scroll_speed_;    // +0x1AC per frame

@@ -13,13 +13,10 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 
 namespace objects {
 
 namespace {
-
-extern void** const kEventListenerVtable;
 
 using script::Script;
 using script::Struct;
@@ -112,33 +109,11 @@ void Signal::teardown()
         free_struct(payload_);
 }
 
-// 0x0045FAA0
-SignalReceiver* SignalReceiver::make_new()
-{
-    vtable_ = kEventListenerVtable;
-    owner_object_.preceding_ = nullptr;
-    owner_object_.following_ = nullptr;
-    owner_object_.owner_object_ = nullptr;
-    on_board_ = false;
-    busy_ = 0;
-    return this;
-}
-
 // 0x0045FAC0
-void SignalReceiver::teardown()
+SignalReceiver::~SignalReceiver()
 {
-    vtable_ = kEventListenerVtable;
     tracker_unregister_listener(this);
     owner_object_.get_release();
-}
-
-// 0x00460170
-SignalReceiver* SignalReceiver::deleting_destructor(unsigned int flags)
-{
-    teardown();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x0045FB30
@@ -491,13 +466,4 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
     --in_use_;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_event_listener_vtable_slots[] = {&objects::SignalReceiver::deleting_destructor, &_purecall};
-void** const kEventListenerVtable = reinterpret_cast<void**>(g_event_listener_vtable_slots);
-
-} // namespace
 } // namespace objects

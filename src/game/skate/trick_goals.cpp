@@ -33,6 +33,7 @@
 #include "engine/gfx/tod_manager.h"
 #include "engine/core/stubs.h"
 #include "engine/gfx/weather.h"
+#include "game/goals/create_a_trick.h"
 
 #pragma warning(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
 
@@ -714,8 +715,8 @@ void FallingTricksGoal::add_tricks(int count)
                 mapping->fetch_int_value(key_combo, &special_slot, 1);
                 uint8_t* skater = local_skater();
                 if (skater) {
-                    uint8_t* special = *reinterpret_cast<uint8_t**>(skater + 0x17C + special_slot * 4);
-                    (*reinterpret_cast<script::Struct**>(special + 4))->fetch_text(kName, &trick_text, 1);
+                    reinterpret_cast<objects::Rider*>(skater)->trick_slots_[special_slot]->other_params_->fetch_text(
+                        kName, &trick_text, 1);
                     t.taps = 1;
                 }
             }
@@ -1337,8 +1338,8 @@ void TrickBeatGoal::add_tricks(int count)
                 mapping->fetch_int_value(key_combo, &special_slot, 1);
                 uint8_t* skater = local_skater();
                 if (skater) {
-                    uint8_t* special = *reinterpret_cast<uint8_t**>(skater + 0x17C + special_slot * 4);
-                    (*reinterpret_cast<script::Struct**>(special + 4))->fetch_text(kName, &trick_text, 1);
+                    reinterpret_cast<objects::Rider*>(skater)->trick_slots_[special_slot]->other_params_->fetch_text(
+                        kName, &trick_text, 1);
                     t.taps = 1;
                 }
             }

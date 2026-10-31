@@ -271,15 +271,6 @@ void CinematicTable::perform(void* camera, script::Struct* params)
     tick_frame(camera, params);
 }
 
-// 0x00468080
-CinematicTable* CinematicTable::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x00467F30
 CinematicEntry* CinematicEntry::teardown(unsigned int flags)
 {

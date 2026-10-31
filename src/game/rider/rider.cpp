@@ -210,16 +210,16 @@ void Rider::load_cat_info(script::Struct* params)
     params->fetch_list(kTricks, &tricks, 0);
     for (int i = 0; i < 11; ++i) {
         auto* trick = reinterpret_cast<script::Struct*>(tricks->fetch_part(i));
-        uint8_t* info = trick_slots_[i];
+        goals::CreateATrick* info = trick_slots_[i];
         script::Struct* other = nullptr;
         trick->read_sub_struct(kOther, &other, 1);
-        get_at<script::Struct*>(info, 4)->append_structure_if_any(other);
+        info->other_params_->append_structure_if_any(other);
         script::Array* animations = nullptr;
         trick->fetch_list(kAnimations, &animations, 1);
-        script::duplicate_array(get_at<script::Array*>(info, 0xC), animations);
+        script::duplicate_array(info->animations_, animations);
         script::Array* rotations = nullptr;
         trick->fetch_list(kRotations, &rotations, 1);
-        script::duplicate_array(get_at<script::Array*>(info, 8), rotations);
+        script::duplicate_array(info->spin_list_, rotations);
     }
     script::launch_script(kKillLoadPremadeCats, nullptr, nullptr, false, nullptr);
 }
@@ -980,11 +980,8 @@ void Rider::prepare_all(RiderIdentity* profile)
     static_cast<AnimBlenderComponent*>(unknown24c_)
         ->play_animation(0x1CA1FF20, std::bit_cast<uint32_t>(0.3f)); // default
     if (unknownbc_) {
-        for (int i = 0; i < 11; ++i) {
-            void* memory = memory::alloc(0x10);
-            trick_slots_[i] =
-                memory ? reinterpret_cast<uint8_t*>(static_cast<goals::CreateATrick*>(memory)->make_new()) : nullptr;
-        }
+        for (goals::CreateATrick*& trick : trick_slots_)
+            trick = new goals::CreateATrick;
         script::launch_script(0x0BDC1C89, nullptr, this, false, nullptr); // spawn_add_premade_cats_to_skater
         GameEntity::invoke_method_by_name(0x5C038F9B, nullptr, nullptr);  // SkaterPhysicsControl_SwitchWalkingToSkating
         for (int i = 0; i < 5; ++i) {
@@ -1093,10 +1090,10 @@ void Rider::write_cat_info(script::Struct* save)
     for (int i = 0; i < 11; ++i) {
         script::Struct* struct_memory = script::spawn_param_bag();
         script::Struct* trick = struct_memory ? struct_memory->prepare_all() : nullptr;
-        uint8_t* info = trick_slots_[i];
-        trick->put_sub_struct(kOther, get_at<script::Struct*>(info, 4));
-        trick->append_array_value(kAnimations, get_at<script::Array*>(info, 0xC));
-        trick->append_array_value(kRotations, get_at<script::Array*>(info, 8));
+        goals::CreateATrick* info = trick_slots_[i];
+        trick->put_sub_struct(kOther, info->other_params_);
+        trick->append_array_value(kAnimations, info->animations_);
+        trick->append_array_value(kRotations, info->spin_list_);
         tricks->set_element(i, reinterpret_cast<uint32_t>(trick));
     }
     save->append_array_ref(kTricks, tricks);
@@ -1619,10 +1616,8 @@ void Rider::destroy_body()
     }
     reset_components();
     script::launch_script(0xF429E0AC, nullptr, this, false, nullptr);
-    for (int i = 0; i < 11; ++i) {
-        if (uint8_t* info = trick_slots_[i])
-            reinterpret_cast<void*(__thiscall*)(void*, int)>((*reinterpret_cast<void***>(info))[0])(info, 1);
-    }
+    for (goals::CreateATrick* trick : trick_slots_)
+        delete trick;
     if (unknownbc_ && view_slot_ == 1) {
         if (Entity* camera = object_hub_slot()->look_up_entity(kSkaterCam1))
             reinterpret_cast<void(__thiscall*)(Entity*)>(camera->vtable_[0x18 / 4])(camera); // (marked dead)

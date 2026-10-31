@@ -1,6 +1,6 @@
 #pragma once
 
-// Following a path of linked nodes (vtable 0x00647A84; 0x00469B00-0x0046AA9F): along each straight segment from
+// Following a path of linked nodes (0x00469B00-0x0046AA9F; the original's vtable 0x00647A84 held only its destructor): along each straight segment from
 // node to node, round the corners on an arc (when the node's corner distance allows), or blending the heading
 // where an arc can't be made; the owner's component 0x0A015E17 picks the next link (at random or the first) and
 // is told of each node passed.
@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 
@@ -15,7 +16,7 @@ namespace objects {
 
 class GameEntity;
 
-class PathFollower {
+class PathFollower : public memory::HeapObject {
 public:
     enum FollowPhase : int {
         kStateStart = 0,    // the segment set up on the next update
@@ -30,10 +31,8 @@ public:
         kFlagTellNode = 4, // the node passed is still to be told to the component (half way round)
     };
 
-    // 0x0046A1D0: the constructor (returns this): `owner`, an identity frame, the points at the origin.
-    PathFollower* make_new(GameEntity* owner);
-    // 0x00469B50 (vtable slot 0): the scalar deleting destructor.
-    PathFollower* teardown(unsigned int flags);
+    // 0x0046A1D0: `owner`, an identity frame, the points at the origin. (0x00469B50, the destructor, does nothing.)
+    explicit PathFollower(GameEntity* owner);
 
     // 0x0046A3F0: start at `position`, heading for the node `node` (or past it, to the first one at least a unit
     // away); the heading set.
@@ -63,8 +62,7 @@ public:
     // 0x0046A550: the corner reached: onto the arc, into a blend, or (no arc) straight on to the next segment.
     void start_corner();
 
-    void** vtable_;        // +0x00 0x00647A84
-    maths::Vec4 at_point_; // +0x04
+    maths::Vec4 at_point_; // +0x04 (offsets: the original's, which has a vtable at +0x00)
     GameEntity* owner_;    // +0x14
     maths::Mat4 tick_;     // +0x18: rows: from the arc's centre, the arc's axis, the heading (+0x38), -
     uint32_t last_node_;   // +0x58
@@ -88,11 +86,6 @@ public:
     int cur_phase_;          // +0xDC
     float step_;             // +0xE0: the last arc step's angle
 };
-static_assert(offsetof(PathFollower, owner_) == 0x14 && offsetof(PathFollower, tick_) == 0x18 &&
-                  offsetof(PathFollower, last_node_) == 0x58 && offsetof(PathFollower, segment_origin_) == 0x64 &&
-                  offsetof(PathFollower, corner_distance_) == 0x94 && offsetof(PathFollower, flag_bits_) == 0xA8 &&
-                  offsetof(PathFollower, center_) == 0xB0 && offsetof(PathFollower, cur_phase_) == 0xDC &&
-                  offsetof(PathFollower, step_) == 0xE0,
-              "layout must match the original");
+static_assert(sizeof(PathFollower) == 0xE0, "the original's 0xE4 bytes less its vtable");
 
 } // namespace objects

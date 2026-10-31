@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <new>
 
+#include "engine/core/mem.h"
 #include "engine/lists/key_map.h"
 #include "engine/objects/signal.h"
 
@@ -32,41 +33,34 @@ class Entity; // +0x08 flags (0x20: has a position), +0x14 id, +0x3C alias count
 // The "no object" id: the target or source of an event that has none.
 constexpr uint32_t kNoObjectId = 0x36B2EE74;
 
-// One script in a list of scripts (lists::Elem<Scripts::CScript>, 0x14 bytes, vtable 0x006478D8). The list is a
-// ring through the head; the head's data is -1.
+// One script in a list of scripts (the original's node type has a vtable, 0x006478D8, holding only its destructor).
+// The list is a ring through the head; the head's data is -1.
 class ScriptNode {
 public:
-    // 0x00462530: the destructor body: out of its list (linked to itself again).
+    // 0x00462530 (0x00462550 the deleting destructor): out of its list (linked to itself again).
     void uncouple();
-    // 0x00462550: the scalar deleting destructor (vtable slot 0; `flags` bit 0: free it). Returns this.
-    ScriptNode* scalar_delete(uint8_t flags);
 
     bool is_head() const { return payload_ == reinterpret_cast<script::Script*>(-1); }
 
-    void** vtable_;
-    script::Script* payload_; // +0x04 (the head: -1)
-    int rank_;                // +0x08 (always 0)
-    ScriptNode* following_;   // +0x0C
-    ScriptNode* preceding_;   // +0x10
+    script::Script* payload_; // the head: -1
+    int rank_;                // always 0
+    ScriptNode* following_;
+    ScriptNode* preceding_;
 };
-static_assert(sizeof(ScriptNode) == 0x14 && offsetof(ScriptNode, following_) == 0x0C &&
-                  offsetof(ScriptNode, preceding_) == 0x10,
-              "layout must match the original");
 
-// The head of a list of scripts: the scripts listening for one event type (lists::Foremost<Scripts::CScript>, vtable
-// 0x006478DC). Made from the pool pair 0x006F0FC8 (CPoolable).
+// The head of a list of scripts: the scripts listening for one event type (the original's head type has a vtable,
+// 0x006478DC, holding only its destructor). Made from the pool pair 0x006F0FC8.
 class ScriptList : public ScriptNode {
 public:
     // 0x00462620: add `script` at the end (nothing if it's already in), the node on the script heap.
     void append_one(script::Script* script);
-    // 0x004626B0: take `script` out (its node is deleted through its vtable).
+    // 0x004626B0: take `script` out (its node deleted).
     void drop_out(script::Script* script);
-    // 0x00462710: the scalar deleting destructor (vtable slot 0; frees to the heap, not the pool). Returns this.
-    ScriptList* scalar_delete(uint8_t flags);
+    // (0x00462710, the head's deleting destructor - freeing to the heap, not the pool - is never called.)
 
     bool is_vacant() const { return preceding_ == this; }
 
-    // CPoolable new / delete: the pool pair 0x006F0FC8 (delete is 0x004624D0, cdecl).
+    // The pool pair 0x006F0FC8's new / delete (delete is 0x004624D0, cdecl).
     static void* operator new(size_t size);
     static void operator delete(void* list);
 };
@@ -116,7 +110,8 @@ static_assert(sizeof(SignalTrace::TableRow) == 0x1C && offsetof(SignalTrace, ord
                   sizeof(SignalTrace) == 0xB014,
               "layout must match the original");
 
-class EventWaitBoard {
+// The tracker (the original's vtable 0x006478E0 holds only its destructor).
+class EventWaitBoard : public memory::HeapObject {
 public:
     // A script waiting in WaitForEvent.
     struct Waiter {
@@ -125,11 +120,12 @@ public:
         uint32_t object_id_; // its object's id, or 0
     };
 
-    // 0x00462CF0: the constructor (returns this). 0x00462E40: the destructor. 0x00463780: the scalar deleting
-    // destructor (vtable 0x006478E0 slot 0; returns this).
-    EventWaitBoard* make_new();
-    void destruct();
-    EventWaitBoard* scalar_delete(uint8_t flags);
+    // 0x00462CF0
+    EventWaitBoard();
+    // 0x00462E40 (0x00463780 the deleting one). The listener table isn't freed - an original leak.
+    ~EventWaitBoard();
+    EventWaitBoard(const EventWaitBoard&) = delete;
+    EventWaitBoard& operator=(const EventWaitBoard&) = delete;
 
     // 0x00462120: the object with this id or alias, or null. 0x00462190: only by alias.
     Entity* look_up_object(uint32_t id);
@@ -169,7 +165,7 @@ public:
     void log_read(Signal* event, uint32_t how, uint32_t script);
     void log_frame();
 
-    void** vtable_;
+    // (The offsets are the original's, which has its vtable at +0x00.)
     int next_auto_id_;                // +0x04
     lists::KeyMap* entity_list_;      // +0x08 id -> Entity (8 bits)
     lists::KeyMap* aliases_;          // +0x0C alias -> Entity (4 bits)
@@ -184,11 +180,7 @@ public:
     bool unknownb218_;         // +0xB218 (cleared by the constructor only)
     uint8_t unknownb219_[3];
 };
-static_assert(offsetof(EventWaitBoard, event_listeners_) == 0x14 && offsetof(EventWaitBoard, launch_depth_) == 0x1C &&
-                  offsetof(EventWaitBoard, log_) == 0x20 && offsetof(EventWaitBoard, launched_from_script_) == 0xB034 &&
-                  offsetof(EventWaitBoard, waiters_) == 0xB038 && offsetof(EventWaitBoard, unknownb218_) == 0xB218 &&
-                  sizeof(EventWaitBoard) == 0xB21C,
-              "layout must match the original");
+static_assert(sizeof(EventWaitBoard) == 0xB218, "the original's 0xB21C bytes less its vtable");
 
 // The tracker (null until made).
 extern EventWaitBoard* g_tracker;

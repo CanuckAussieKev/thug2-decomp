@@ -29,8 +29,6 @@ namespace objects {
 
 using namespace motion_detail;
 
-static_assert(sizeof(PathFollower) == 0xE4, "0x00423C90 allocates 0xE4 bytes");
-
 namespace {
 
 extern void** const kVtable;
@@ -75,8 +73,7 @@ void KinematicsModule::destroy_body()
 {
     vtable_ = kVtable;
     if (path_follower_) {
-        reinterpret_cast<PathFollower*(__thiscall*)(PathFollower*, unsigned int)>(path_follower_->vtable_[0])(
-            path_follower_, 1);
+        delete path_follower_;
         path_follower_ = nullptr;
     }
     if (turn_ptr_) {
@@ -141,8 +138,7 @@ void KinematicsModule::init_path_follower(GameEntity* owner)
 {
     if (path_follower_)
         return;
-    void* memory = memory::alloc_zeroed(sizeof(PathFollower));
-    path_follower_ = memory ? static_cast<PathFollower*>(memory)->make_new(owner) : nullptr;
+    path_follower_ = new PathFollower(owner);
 }
 
 // --- the vtable ---

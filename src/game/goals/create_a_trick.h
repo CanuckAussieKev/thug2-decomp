@@ -7,6 +7,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/mem.h"
+
 namespace script {
 class Array;
 class Script;
@@ -15,22 +17,20 @@ class Struct;
 
 namespace goals {
 
-// A created trick (0x10 bytes, vtable 0x0064DC40).
-class CreateATrick {
+// A created trick (the original's vtable 0x0064DC40 held only its destructor).
+class CreateATrick : public memory::HeapObject {
 public:
-    void** vtable_;
-    script::Struct* other_params_; // +0x04 (Default_CAT_other_info's to begin with)
-    script::Array* spin_list_;     // +0x08 six structures (Default_CAT_rotation_info's)
-    script::Array* animations_;    // +0x0C six structures (Default_CAT_animation_info's)
+    // 0x00552560: the defaults copied.
+    CreateATrick();
+    // 0x00552720 (0x005527A0 the deleting one): the structure and arrays freed.
+    ~CreateATrick();
+    CreateATrick(const CreateATrick&) = delete;
+    CreateATrick& operator=(const CreateATrick&) = delete;
 
-    // 0x00552560: the constructor: the defaults copied. Returns this.
-    CreateATrick* make_new();
-    // 0x00552720: the destructor body. 0x005527A0 (vtable slot 0): the scalar deleting destructor.
-    void destroy_body();
-    CreateATrick* teardown(uint8_t flags);
+    script::Struct* other_params_; // Default_CAT_other_info's to begin with
+    script::Array* spin_list_;     // six structures (Default_CAT_rotation_info's)
+    script::Array* animations_;    // six structures (Default_CAT_animation_info's)
 };
-static_assert(offsetof(CreateATrick, animations_) == 0x0C && sizeof(CreateATrick) == 0x10,
-              "layout must match the original");
 
 // The commands (each false without a local skater). trick_index= names the created trick.
 // 0x00551CA0 / 0x00551D20 / 0x00551D80 / 0x00551DE0: GetCreateATrickParams (all three) / ...OtherParams /

@@ -28,6 +28,9 @@ void* alloc_zeroed(unsigned int size, Arena* heap, int mode);
 struct HeapObject {
     static void* operator new(std::size_t size) noexcept { return alloc_zeroed(static_cast<unsigned int>(size)); }
     static void operator delete(void* memory) { dealloc(memory); }
+    // Construction in place (inside another object) as usual.
+    static void* operator new(std::size_t, void* place) noexcept { return place; }
+    static void operator delete(void*, void*) noexcept {}
 };
 
 // Memory profiling: the game brackets allocations with these, naming what is allocated. Compiled out of this

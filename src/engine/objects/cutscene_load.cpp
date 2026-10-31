@@ -123,9 +123,8 @@ void* __cdecl anim_source_allocate(unsigned int size) { return source_pools().ca
 void __cdecl anim_source_free(void* item) { source_pools().dealloc(item); }
 
 // 0x00464640
-CinematicTable* CinematicTable::make_new()
+CinematicTable::CinematicTable()
 {
-    vtable_ = kCutsceneDataVtable;
     bundle_ptr_ = nullptr;
     object_part_ = 0;
     camera_part_ = 0;
@@ -153,7 +152,6 @@ CinematicTable* CinematicTable::make_new()
     subtitle_time_ = 0.0f;
     next_subtitle_time_ = -1.0f;
     call_args_ = make_struct();
-    return this;
 }
 
 // 0x00464780
@@ -442,12 +440,5 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
         static_cast<float>(value * static_cast<double>(0.0099999998f)));
     free_struct(colour);
 }
-
-} // namespace objects
-
-namespace objects {
-
-static VtableSlot g_cutscene_data_vtable_slots[] = {&objects::CinematicTable::teardown};
-void** const kCutsceneDataVtable = reinterpret_cast<void**>(g_cutscene_data_vtable_slots);
 
 } // namespace objects

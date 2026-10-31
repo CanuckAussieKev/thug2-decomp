@@ -90,9 +90,7 @@ void release_trick_object_manager()
         --count;
         return;
     }
-    void** instance = reinterpret_cast<void**>(g_trick_spot_hub);
-    if (instance)
-        reinterpret_cast<void*(__thiscall*)(void*, int)>(static_cast<void**>(*instance)[0])(instance, 1);
+    delete g_trick_spot_hub;
     g_trick_spot_hub = nullptr;
     count = 0;
 }
@@ -106,7 +104,7 @@ ClusterCount* __cdecl count_object_in_cluster(uint8_t* object, ClusterCount* cou
 }
 
 // 0x00588150
-void TrickParamSet::change_args(script::Struct* params)
+void TrickSpotHub::change_args(script::Struct* params)
 {
     args_->get_clear();
     if (params)
@@ -200,7 +198,6 @@ extern void** const kTrickObjectVtable;
 extern void** const kTrickObjectNodeVtable;
 extern void** const kTrickClusterNodeVtable;
 extern void** const kTrickClusterVtable;
-extern void** const kTrickObjectManagerVtable;
 constexpr uint32_t kLoadCreatedPark = 0xB664035D; // load_sk5ed_gameplay (the skate module's level, +0x378)
 
 // The level sector named `name` in any scene (0x0048C510) and its colour: 0x0049E670 cleared, 0x0049E980 read
@@ -523,27 +520,17 @@ bool TrickObjectCluster::set_graffiti_color(int index)
 }
 
 // 0x00588DC0
-TrickSpotHub* TrickSpotHub::make_new()
+TrickSpotHub::TrickSpotHub() : clusters_(8), object_clusters_(8)
 {
-    vtable_ = kTrickObjectManagerVtable;
-    new (&clusters_) lists::KeyMap(8);
-    new (&object_clusters_) lists::KeyMap(8);
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->script_heap_);
     script::Struct* params = script::spawn_param_bag();
     args_ = params ? params->prepare_all() : nullptr;
     memory->leave_heap_scope();
-    return this;
 }
 
-// 0x00588E90
-void TrickSpotHub::destroy_body()
-{
-    vtable_ = kTrickObjectManagerVtable;
-    remove_all_clusters();
-    object_clusters_.~KeyMap();
-    clusters_.~KeyMap();
-}
+// 0x00588E90 (the tables' destructors run after it: the objects' table, then the clusters')
+TrickSpotHub::~TrickSpotHub() { remove_all_clusters(); }
 
 // 0x00588F40
 bool TrickObjectCluster::clear_graffiti_color(int index)
@@ -630,8 +617,7 @@ TrickSpotHub* __cdecl acquire_trick_object_manager(bool create)
 {
     auto*& instance = g_trick_spot_hub;
     if (!instance && create) {
-        void* memory = memory::alloc_zeroed(sizeof(TrickSpotHub), nullptr, 1);
-        instance = memory ? static_cast<TrickSpotHub*>(memory)->make_new() : nullptr;
+        instance = new TrickSpotHub;
     }
     ++g_trick_object_manager_references;
     return instance;
@@ -639,15 +625,6 @@ TrickSpotHub* __cdecl acquire_trick_object_manager(bool create)
 
 // 0x005891D0
 TrickObjectCluster* TrickObjectCluster::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x00589200
-TrickSpotHub* TrickSpotHub::teardown(unsigned int flags)
 {
     destroy_body();
     if (flags & 1)
@@ -810,8 +787,6 @@ static VtableSlot g_trick_object_vtable_slots[] = {&objects::TrickSpot::teardown
 void** const kTrickObjectVtable = reinterpret_cast<void**>(g_trick_object_vtable_slots);
 static VtableSlot g_trick_cluster_vtable_slots[] = {&objects::TrickObjectCluster::teardown};
 void** const kTrickClusterVtable = reinterpret_cast<void**>(g_trick_cluster_vtable_slots);
-static VtableSlot g_trick_object_manager_vtable_slots[] = {&objects::TrickSpotHub::teardown};
-void** const kTrickObjectManagerVtable = reinterpret_cast<void**>(g_trick_object_manager_vtable_slots);
 
 } // namespace
 } // namespace objects

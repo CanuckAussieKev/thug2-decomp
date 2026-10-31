@@ -3,6 +3,7 @@
 #include "game/rider/balance_trick.h"
 
 #include <cstdint>
+#include <new>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -77,10 +78,10 @@ RiderTeeterMoves* RiderTeeterMoves::make_new()
 {
     ObjectModule::make_new();
     vtable_ = kVtable;
-    manual_.make_new();
-    grind_.make_new();
-    lip_.make_new();
-    skitch_.make_new();
+    new (&manual_) Balance;
+    new (&grind_) Balance;
+    new (&lip_) Balance;
+    new (&skitch_) Balance;
     kind_tag_ = kType;
     anim_blender_ptr_ = nullptr;
     call_args_ = nullptr;
@@ -91,10 +92,7 @@ RiderTeeterMoves* RiderTeeterMoves::make_new()
 void RiderTeeterMoves::destroy_body()
 {
     vtable_ = kVtable;
-    skitch_.destroy_body();
-    lip_.destroy_body();
-    grind_.destroy_body();
-    manual_.destroy_body();
+    // (the balances' destructors do nothing)
     ObjectModule::destroy_body();
 }
 

@@ -44,7 +44,6 @@ namespace sio {
 
 namespace {
 
-extern void** const kDeviceVtable;
 void** const& g_device_node_vtable = vt::kDeviceNode; // lists::Elem<Device>
 
 // The platform layer: a port's DirectInput joystick read for this frame (none: null), and whether the port has
@@ -60,7 +59,6 @@ void set_actuators(int port, int left, int right) { os_layer::set_actuators(port
 // 0x005BD920
 InputPort::InputPort(int index, int port, int slot)
 {
-    vtable_ = kDeviceVtable;
     pause_count_ = 0;
     capabilities_ = 0;
     auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
@@ -90,14 +88,10 @@ InputPort::InputPort(int index, int port, int slot)
 }
 
 // 0x005BCD00
-InputPort* InputPort::teardown(unsigned int flags)
+InputPort::~InputPort()
 {
-    vtable_ = kDeviceVtable;
     if (memory::ListNode* node = list_link_)
         reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(node->vtable[0])(node, 1);
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x005BDCC0. The original steps through the states:
@@ -782,15 +776,9 @@ void InputPort::pull_data(int)
 
 // --- the manager -------------------------------------------------------------------------------------------
 
-namespace {
-extern void** const kManagerVtable;
-
-} // namespace
-
 // 0x005BE1F0
 Hub::Hub()
 {
-    vtable_ = kManagerVtable;
     devs_.data = reinterpret_cast<void*>(-1);
     devs_.priority = 0;
     devs_.next = &devs_;
@@ -806,8 +794,7 @@ Hub::Hub()
     task_ = task;
     int index = 0;
     for (int port = 0; port < 2; ++port) {
-        void* memory = memory::alloc_zeroed(sizeof(InputPort));
-        InputPort* device = memory ? new (memory) InputPort(index, port, 0) : nullptr;
+        auto* device = new InputPort(index, port, 0);
         if (!device)
             continue;
         memory::ListNode* node = device->list_link_; // onto the end of the list
@@ -823,13 +810,12 @@ Hub::Hub()
 }
 
 // 0x005BE300
-void Hub::destroy_body()
+Hub::~Hub()
 {
-    vtable_ = kManagerVtable;
     lists::Hunt<InputPort> search;
     for (InputPort* device = search.head_element(&devs_); device;) {
         InputPort* next = search.following_item();
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(device->vtable_[0])(device, 1);
+        delete device;
         device = next;
     }
     if (auto* task = static_cast<void***>(task_))
@@ -838,15 +824,6 @@ void Hub::destroy_body()
     if (!audio::music_off_requested())
         audio::stop_user_soundtrack();
     devs_.unlink_as(g_device_node_vtable);
-}
-
-// 0x005BE6C0
-Hub* Hub::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 namespace {
@@ -908,14 +885,8 @@ void Hub::unpause_devices()
 // 0x005BE670
 Hub* create_manager(bool create)
 {
-    if (!manager_instance() && create) {
-        if (void* memory = memory::alloc_zeroed(0x1C, nullptr, 1)) {
-            manager_instance() = new (memory) Hub();
-            ++manager_references();
-            return manager_instance();
-        }
-        manager_instance() = nullptr;
-    }
+    if (!manager_instance() && create)
+        manager_instance() = new Hub;
     ++manager_references();
     return manager_instance();
 }
@@ -927,28 +898,16 @@ void release_manager()
         --manager_references();
         return;
     }
-    if (Hub* manager = manager_instance()) {
-        void** vtable = *reinterpret_cast<void***>(manager);
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[0])(manager, 1);
-    }
+    delete manager_instance();
     manager_instance() = nullptr;
     manager_references() = 0;
 }
-
-namespace {
-static VtableSlot g_device_vtable_slots[] = {&sio::InputPort::teardown};
-void** const kDeviceVtable = reinterpret_cast<void**>(g_device_vtable_slots);
-static VtableSlot g_manager_vtable_slots[] = {&sio::Hub::teardown};
-void** const kManagerVtable = reinterpret_cast<void**>(g_manager_vtable_slots);
-} // namespace
 
 } // namespace sio
 
 namespace {
 
 struct DeviceAdapter {
-    sio::InputPort* make_new(int index, int port, int slot) { return new (this) sio::InputPort(index, port, slot); }
-    sio::Hub* construct_manager() { return new (this) sio::Hub(); }
     memory::ListNode* destroy_node(unsigned int flags)
     {
         return sio::destroy_device_node(reinterpret_cast<memory::ListNode*>(this), flags);

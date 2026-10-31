@@ -14,6 +14,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
+#include "game/goals/create_a_trick.h"
 
 namespace goals {
 
@@ -177,9 +178,8 @@ bool Objective::build_trick_texts(script::Array* key_combos, script::Array* key_
         if (in_slot) {
             objects::GameEntity* skater = static_cast<modules::Skate*>(skate)->get_home_rider();
             if (skater) {
-                auto* trick_object =
-                    *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skater) + slot * 4 + 0x17C);
-                (*reinterpret_cast<script::Struct**>(trick_object + 4))->fetch_text(kName, &trick_text, 1);
+                static_cast<objects::Rider*>(skater)->trick_slots_[slot]->other_params_->fetch_text(kName, &trick_text,
+                                                                                                    1);
             }
         } else if (premade_cat > -1) {
             auto* cat = reinterpret_cast<script::Struct*>(

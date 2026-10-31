@@ -1020,8 +1020,7 @@ Skate* Skate::make_new()
     void* memory = memory::alloc_zeroed(0x39C);
     goal_manager_ = memory ? static_cast<goals::GoalManager*>(memory)->make_new() : nullptr;
     render::engine::change_entity_hub(static_cast<void*>(objects::g_composite_registry));
-    memory = memory::alloc_zeroed(0x6AC);
-    career_ = memory ? static_cast<objects::RiderStoryProgress*>(memory)->make_new() : nullptr;
+    career_ = new objects::RiderStoryProgress;
     memory = memory::alloc_zeroed(0x54);
     rail_manager_ = memory ? static_cast<objects::GrindRailHub*>(memory)->prepare_all() : nullptr;
     memory = memory::alloc_zeroed(0x404);
@@ -1029,8 +1028,7 @@ Skate* Skate::make_new()
     get_trick_objects()->remove_all_clusters();
     level_launched_ = false;
     match_style_ = kFreeskate;
-    memory = memory::alloc_zeroed(0xC);
-    splitscreen_preferences_ = memory ? static_cast<prefs::Preferences*>(memory)->prepare_all() : nullptr;
+    splitscreen_preferences_ = new prefs::Preferences;
     splitscreen_preferences_->read_in(kDefaultSplitscreenPreferences);
     memory = memory::alloc_zeroed(0x168);
     competition_ = memory ? static_cast<Contest*>(memory)->make_new(0) : nullptr;
@@ -1075,9 +1073,7 @@ void Skate::destroy_body()
         rails->tidy_up();
         memory::dealloc(rails);
     }
-    if (career_)
-        reinterpret_cast<void(__thiscall*)(objects::RiderStoryProgress*, int)>(*reinterpret_cast<void***>(career_)[0])(
-            career_, 1);
+    delete career_;
     reinterpret_cast<SkateNet*>(this)->delete_network_tasks();
     delete game_flow_;
     if (goals::GoalManager* goals = goal_manager_) {
@@ -1086,9 +1082,7 @@ void Skate::destroy_body()
     }
     if (update_job_)
         reinterpret_cast<void(__thiscall*)(tasks::SchedulerTask*, int)>(update_job_->vtable_[2])(update_job_, 1);
-    if (splitscreen_preferences_)
-        reinterpret_cast<void(__thiscall*)(prefs::Preferences*, int)>(
-            *reinterpret_cast<void***>(splitscreen_preferences_)[0])(splitscreen_preferences_, 1);
+    delete splitscreen_preferences_;
     memory::dealloc(checksums_);
     if (script::Script* script = own_script_) {
         script->teardown();

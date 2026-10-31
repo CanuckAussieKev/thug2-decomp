@@ -325,8 +325,7 @@ const char* CutsceneResource::fetch_title() const { return "Cutscene"; }
 int CutsceneResource::read_in(const char* name, bool async, bool /*use_archive*/, void* params, void* /*structure*/)
 {
     memory::push_mem_profile(name);
-    void* memory = memory::alloc_zeroed(0x34D0);
-    auto* cutscene = memory ? static_cast<objects::CinematicTable*>(memory)->make_new() : nullptr;
+    auto* cutscene = new objects::CinematicTable;
     char file[256];
     platform_name(name, file);
     if (!cutscene->read_in(file, 1, async, static_cast<const uint32_t*>(params)))
@@ -340,7 +339,7 @@ int CutsceneResource::read_in(const char* name, bool async, bool /*use_archive*/
 int CutsceneResource::offload()
 {
     if (void* cutscene = v_data()) {
-        reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(cutscene))[0])(cutscene, 1);
+        delete static_cast<objects::CinematicTable*>(cutscene);
         v_set_data(nullptr);
     }
     return 0;

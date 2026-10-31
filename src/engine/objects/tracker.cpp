@@ -21,8 +21,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/objects/compositemgr.h"
 #include "game/park_editing/piece_menu.h"
-#include "engine/core/code_address.h"
-#include "engine/gfx/weather.h"
 
 namespace objects {
 
@@ -32,9 +30,6 @@ memory::PoolPair g_script_list_pools;
 namespace {
 
 // Vtables.
-extern void** const kScriptNodeVtable;
-extern void** const kScriptListVtable;
-extern void** const kTrackerVtable;
 
 // Names.
 constexpr uint32_t kId = 0x40C698AF;         // id
@@ -85,11 +80,8 @@ bool get_object_id(script::Struct* params, uint32_t name, uint32_t* id)
     return reinterpret_cast<frontend::UiTree*>(frontend::g_ui_element_hub)->resolve_id(params, name, id);
 }
 
-// 0x004A1090: give an event listener the event (its vtable +0x04, the subclass's filter).
-void listener_receive(SignalReceiver* listener, Signal* event)
-{
-    reinterpret_cast<void(__thiscall*)(SignalReceiver*, Signal*)>(&render::virtual_slot1_jump)(listener, event);
-}
+// 0x004A1090: give an event listener the event (the subclass's filter).
+void listener_receive(SignalReceiver* listener, Signal* event) { listener->receive(event); }
 
 // 0x0041A820: the squared distance between two points (x87: (dx*dx + dz*dz) + dy*dy, not rounded to float).
 double get_distance_squared(const float* a, const float* b)
@@ -130,29 +122,10 @@ void delete_script_list(ScriptList* list)
 // 0x00462530
 void ScriptNode::uncouple()
 {
-    vtable_ = kScriptNodeVtable;
     preceding_->following_ = following_;
     following_->preceding_ = preceding_;
     following_ = this;
     preceding_ = this;
-}
-
-// 0x00462550
-ScriptNode* ScriptNode::scalar_delete(uint8_t flags)
-{
-    uncouple(); // (inlined in the original)
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
-
-// 0x00462710
-ScriptList* ScriptList::scalar_delete(uint8_t flags)
-{
-    uncouple();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x00462620
@@ -169,7 +142,6 @@ void ScriptList::append_one(script::Script* script)
     auto* node = static_cast<ScriptNode*>(memory::alloc_zeroed(sizeof(ScriptNode)));
     if (node) {
         node->payload_ = script;
-        node->vtable_ = kScriptNodeVtable;
         node->rank_ = 0;
         node->following_ = node;
         node->preceding_ = node;
@@ -191,8 +163,7 @@ void ScriptList::drop_out(script::Script* script)
             node->following_->preceding_ = node->preceding_;
             node->following_ = node;
             node->preceding_ = node;
-            // delete node (virtual)
-            reinterpret_cast<ScriptNode*(__thiscall*)(ScriptNode*, uint8_t)>(node->vtable_[0])(node, 1);
+            memory::dealloc(node); // (its destructor only unlinks it again)
             return;
         }
         node = node->following_;
@@ -277,9 +248,8 @@ void SignalTrace::teardown() { delete_hash_table(names_ptr_); }
 // --- the tracker -----------------------------------------------------------------------------------------
 
 // 0x00462CF0
-EventWaitBoard* EventWaitBoard::make_new()
+EventWaitBoard::EventWaitBoard()
 {
-    vtable_ = kTrackerVtable;
     log_.ordinal_ = 0;
     log_.has_looped_ = false;
     log_.names_ptr_ = nullptr;
@@ -296,24 +266,13 @@ EventWaitBoard* EventWaitBoard::make_new()
     for (Waiter& waiter : waiters_)
         waiter.type = 0;
     unknownb218_ = false;
-    return this;
 }
 
 // 0x00462E40 (the listener table isn't freed - an original leak)
-void EventWaitBoard::destruct()
+EventWaitBoard::~EventWaitBoard()
 {
-    vtable_ = kTrackerVtable;
     delete_hash_table(entity_list_);
     log_.teardown();
-}
-
-// 0x00463780
-EventWaitBoard* EventWaitBoard::scalar_delete(uint8_t flags)
-{
-    destruct();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x00462120
@@ -439,7 +398,6 @@ void EventWaitBoard::add_listener(uint32_t type, script::Script* script)
             list->rank_ = 0;
             list->following_ = list;
             list->preceding_ = list;
-            list->vtable_ = kScriptListVtable;
         }
         listeners_->store_entry(type, list); // (null too, if there was no memory - then Add crashes)
     }
@@ -651,8 +609,7 @@ EventWaitBoard* create_tracker(bool create)
 {
     EventWaitBoard*& tracker = get_tracker();
     if (!tracker && create) {
-        void* memory = memory::alloc_zeroed(sizeof(EventWaitBoard), nullptr, 1);
-        tracker = memory ? static_cast<EventWaitBoard*>(memory)->make_new() : nullptr;
+        tracker = new EventWaitBoard;
     }
     ++g_tracker_references;
     return tracker;
@@ -781,17 +738,4 @@ bool __cdecl cfunc_launch_event(script::Struct* params, script::Script* script)
     return true;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_script_node_vtable_slots[] = {&objects::ScriptNode::scalar_delete};
-void** const kScriptNodeVtable = reinterpret_cast<void**>(g_script_node_vtable_slots);
-static VtableSlot g_script_list_vtable_slots[] = {&objects::ScriptList::scalar_delete};
-void** const kScriptListVtable = reinterpret_cast<void**>(g_script_list_vtable_slots);
-static VtableSlot g_tracker_vtable_slots[] = {&objects::EventWaitBoard::scalar_delete};
-void** const kTrackerVtable = reinterpret_cast<void**>(g_tracker_vtable_slots);
-
-} // namespace
 } // namespace objects

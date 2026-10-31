@@ -18,6 +18,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/score_internal.h"
 #include "engine/gfx/viewport_list.h"
+#include "game/goals/create_a_trick.h"
 
 namespace lists {
 
@@ -139,8 +140,7 @@ uint32_t created_trick_name(int index)
     if (!skater)
         return 0;
     const char* name;
-    reinterpret_cast<script::Struct*>(*reinterpret_cast<uint32_t*>(skater->trick_slots_[index] + 4))
-        ->fetch_text(kName, &name, 1);
+    skater->trick_slots_[index]->other_params_->fetch_text(kName, &name, 1);
     return checksums::hash_from_text(name);
 }
 

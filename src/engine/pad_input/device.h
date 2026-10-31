@@ -4,13 +4,14 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/mem.h"
 
 // Serial I/O: the controller ports. A Device per port polls its pad (on PC: a DirectInput joystick, or the
 // keyboard bindings) into PS2-format control data, and drives its two vibration motors ("actuators").
 // PartyMod replaces the polling (InputPort::work_on) with SDL game controllers and its own keyboard handling.
 namespace sio {
 
-class InputPort {
+class InputPort : public memory::HeapObject {
 public:
     // The states Process steps through while a pad is found.
     enum State : int { kIdle = 0, kDetect = 1, kReady = 2, kSettle = 5 };
@@ -19,8 +20,10 @@ public:
 
     // 0x005BD920. Leaves buffer_raw_ unset and reads it (the PS2 version's DMA buffer, aligned to 64 bytes).
     InputPort(int index, int port, int slot);
-    // 0x005BCD00: the scalar deleting destructor (deletes the list node; frees the device if flags & 1).
-    InputPort* teardown(unsigned int flags);
+    // 0x005BCD00: the list node deleted.
+    ~InputPort();
+    InputPort(const InputPort&) = delete;
+    InputPort& operator=(const InputPort&) = delete;
 
     // 0x005BDCC0: once a frame. PartyMod's (see device.cpp).
     void work_on(int unused);
@@ -54,7 +57,9 @@ public:
     // 0x005BDC60: stop the motors and forget the remembered levels.
     void stop_actuators();
 
-    void** vtable_;
+    // +0x00: the original's vtable (only the destructor) - its place kept, since PartyMod's input code
+    // and the menus read the device by byte offset (to be typed in stage 5).
+    uint32_t vtable_slot_unused_ = 0;
     memory::ListNode* list_link_; // in the manager's device list
     int kind_tag_;
     int port_no_;
@@ -125,16 +130,16 @@ void special_key_input(int key, int flags);
 // buffer.
 const char* get_button_key_name(int button);
 
-// The device manager (0x1C bytes, vtable 0x00658AD4): a device per controller port, processed by a task
-// once a frame. One, shared (reference counted).
-class Hub {
+// The device manager (the original's vtable 0x00658AD4 held only its destructor): a device per controller port,
+// processed by a task once a frame. One, shared (reference counted).
+class Hub : public memory::HeapObject {
 public:
     // 0x005BE1F0: the task (not started here) and a device for ports 0 and 1, each acquiring.
     Hub();
-    // 0x005BE300: deletes the devices and the task.
-    void destroy_body();
-    // 0x005BE6C0: the scalar deleting destructor.
-    Hub* teardown(unsigned int flags);
+    // 0x005BE300 (0x005BE6C0 the deleting one): deletes the devices and the task.
+    ~Hub();
+    Hub(const Hub&) = delete;
+    Hub& operator=(const Hub&) = delete;
 
     // 0x005BE3F0: process each device (the first is told so).
     void poll_pads();
@@ -145,11 +150,9 @@ public:
     void pause_devices();
     void unpause_devices();
 
-    void** vtable_;
     memory::ListNode devs_; // the list's head
     void* task_;            // tasks::Task running process_task with the list as its data
 };
-static_assert(offsetof(Hub, task_) == 0x18 && sizeof(Hub) == 0x1C, "layout must match the original");
 
 // 0x005BE110: the scalar deleting destructor of a device's list node (lists::Elem<Device>, vtable 0x00658A70).
 memory::ListNode* destroy_device_node(memory::ListNode* node, unsigned int flags);

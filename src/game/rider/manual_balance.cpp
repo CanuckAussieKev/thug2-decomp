@@ -21,7 +21,6 @@
 #include "platform/stopwatch.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/balance_trick.h"
-#include "engine/core/code_address.h"
 
 namespace objects {
 
@@ -64,8 +63,6 @@ constexpr uint32_t kLeanRndSpeed = 0x32EB3308;
 constexpr uint32_t kBalanceSafeButtonPeriod = 0x8CC8F176;
 constexpr uint32_t kBalanceIgnoreButtonPeriod = 0x07DA1621;
 
-extern void** const kVtable;
-
 constexpr double kFrames = 60.0; // 0x00645EA0 (frames a second)
 
 uint32_t get_clock() { return static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset); }
@@ -105,9 +102,6 @@ void reset_state(Balance* b)
 
 } // namespace
 
-// 0x00579850
-void Balance::destroy_body() { vtable_ = kVtable; }
-
 // 0x00579860
 void Balance::prepare_all(GameEntity* skater)
 {
@@ -144,22 +138,11 @@ void Balance::keep_best_time()
 void Balance::show_meter() { show_meter_ = true; }
 
 // 0x00579950
-Balance* Balance::make_new()
+Balance::Balance()
 {
-    vtable_ = kVtable;
     if (script::fetch_int_value(kShowBalanceIndicator))
         script::launch_script(kResetBalanceIndicator, nullptr, nullptr, false, nullptr);
     reset_state(this);
-    return this;
-}
-
-// 0x005799A0
-Balance* Balance::teardown(unsigned int flags)
-{
-    vtable_ = kVtable;
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x005799D0
@@ -345,13 +328,4 @@ void Balance::tick_frame()
         show_lean(score, 1, shown);
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::Balance::teardown};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects
