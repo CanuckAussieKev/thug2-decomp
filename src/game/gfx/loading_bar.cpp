@@ -157,6 +157,14 @@ void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long,
     SetTexture(0, nullptr);
     Device()->SetRenderState(D3DRS_ZENABLE, FALSE);
     SetVertexFormat(kBarVertexFormat);
+    if (Nx::SelectPictureUp()) {
+        // Not original - the level select pictures' plate: ink behind the bar (opaque, so it reads on any picture) with a
+        // safety yellow rule on top, a little wider and taller than the bar's frame.
+        float padX = static_cast<float>(xScale * 18.0), padY = yScale * 14.0f;
+        float rule = yScale * 2.0f;
+        DrawQuad(frameLeftF - padX, topF - padY, frameRightF + padX, bottomF + padY, 0xFF0A0A0A, 0xFF0A0A0A);
+        DrawQuad(frameLeftF - padX, topF - padY, frameRightF + padX, topF - padY + rule, 0xFFF2E205, 0xFFF2E205);
+    }
     DrawQuad(frameLeftF, topF, frameRightF, bottomF, BorderArgb(), BorderArgb());
     // the gradient, inset 5/480 of the screen's height top and bottom
     double inset = yScale * static_cast<double>(g_floatFive); // 5

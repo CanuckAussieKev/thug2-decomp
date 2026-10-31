@@ -23,6 +23,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/sys/crt.h"
+#include "game/sys/log.h"
 #include "game/sys/game_config.h"
 
 namespace Nx {
@@ -86,6 +87,55 @@ void SetPictureName(const char* text)
     size = length;
 }
 
+// NOT ORIGINAL - the level select's loading pictures (tools/pipeline menu_level/loading_select.ts): a level whose
+// loading_screen is "loadscrn_sel_<load>__<the original picture>" shows the level select's picture (16:9, text-free);
+// [features] level_select_loading_screens=0 loads the original picture named after the "__" instead.
+constexpr char kSelectPrefix[] = "loadscrn_sel_";
+constexpr float kSelectAspect = 16.0f / 9.0f;
+bool s_selectPicture = false; // the picture up is one of those (drawn cover-fitted, with the bar's plate)
+bool s_barStyled = false;     // the bar's own settings are saved and ours are in
+int s_savedBarWidth = 0;
+uint8_t s_savedColors[3][4] = {};
+
+bool IsSelectName(const char* name) { return std::strncmp(name, kSelectPrefix, sizeof(kSelectPrefix) - 1) == 0; }
+bool SelectEnabled()
+{
+    static const bool on = ConfigInt("features", "level_select_loading_screens", 1) != 0;
+    return on;
+}
+// "loadscrn_sel_load_bo__loadscrn_boston" -> "loadscrn_boston" (a name without the "__" is left as it is)
+const char* OriginalOf(const char* name)
+{
+    const char* mark = std::strstr(name, "__");
+    return mark ? mark + 2 : name;
+}
+
+// The bar's look over those pictures (the front end's: paper to safety yellow on ink; wider than the original's 140).
+void ApplyBarStyle(bool select)
+{
+    if (select == s_barStyled)
+        return;
+    if (select) {
+        s_savedBarWidth = g_barWidth;
+        std::memcpy(s_savedColors[0], g_barStartColor, 4);
+        std::memcpy(s_savedColors[1], g_barEndColor, 4);
+        std::memcpy(s_savedColors[2], g_barBorderColor, 4);
+        g_barWidth = 300;
+        const uint8_t start[4] = {0xB9, 0xB5, 0xAC, 0x80}, end[4] = {0xF2, 0xE2, 0x05, 0x80},
+                      track[4] = {0x3A, 0x3A, 0x38, 0x80};
+        std::memcpy(g_barStartColor, start, 4);
+        std::memcpy(g_barEndColor, end, 4);
+        std::memcpy(g_barBorderColor, track, 4);
+    } else {
+        g_barWidth = s_savedBarWidth;
+        std::memcpy(g_barStartColor, s_savedColors[0], 4);
+        std::memcpy(g_barEndColor, s_savedColors[1], 4);
+        std::memcpy(g_barBorderColor, s_savedColors[2], 4);
+    }
+    s_barStyled = select;
+    UpdateLoadingBarColors();
+}
+
 struct PictureVertex {
     float x, y, z, rhw;
     float u, v;
@@ -120,11 +170,24 @@ void __cdecl DrawLoadingScreenPicture()
     SetTexture(0, *reinterpret_cast<void**>(texture + 0x10)); // (and its +0x14)
     float width = static_cast<float>(g_backBufferWidth);
     float height = static_cast<float>(g_backBufferHeight);
+    // (not original: the level select's pictures are 16:9 and cover the screen - the overflow of another shape cut off
+    // evenly - where the original's are stretched)
+    float u0 = 0.0f, u1 = 1.0f, v0 = 0.0f, v1 = 1.0f;
+    if (s_selectPicture && width > 0.0f && height > 0.0f) {
+        float aspect = width / height;
+        if (aspect < kSelectAspect) {
+            u0 = (1.0f - aspect / kSelectAspect) * 0.5f;
+            u1 = 1.0f - u0;
+        } else {
+            v0 = (1.0f - kSelectAspect / aspect) * 0.5f;
+            v1 = 1.0f - v0;
+        }
+    }
     const PictureVertex quad[4] = {
-        {0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f},
-        {0.0f, height, 0.0f, 1.0f, 0.0f, 0.0f},
-        {width, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
-        {width, height, 0.0f, 1.0f, 1.0f, 0.0f},
+        {0.0f, 0.0f, 0.0f, 1.0f, u0, v1},
+        {0.0f, height, 0.0f, 1.0f, u0, v0},
+        {width, 0.0f, 0.0f, 1.0f, u1, v1},
+        {width, height, 0.0f, 1.0f, u1, v0},
     };
     Device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(PictureVertex));
     SetTexture(0, nullptr);
@@ -172,10 +235,28 @@ void __cdecl StartLoadingBar(float seconds)
 void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
 {
     Lock();
+    // Not original: a level select picture's name (the load script added "_story" / "_classic" to it in those modes,
+    // as to the original picture's): off, the original picture it ends with; on, the picture without the suffix.
+    char picked[0xC8];
+    if (!keep && !black && IsSelectName(name)) {
+        if (!SelectEnabled()) {
+            name = OriginalOf(name);
+        } else {
+            std::snprintf(picked, sizeof(picked), "%s", name);
+            for (const char* suffix : {"_story", "_classic"}) {
+                size_t length = std::strlen(picked), tail = std::strlen(suffix);
+                if (length > tail && std::strcmp(picked + length - tail, suffix) == 0)
+                    picked[length - tail] = '\0';
+            }
+            name = picked;
+        }
+    }
     Device()->SetRenderState(D3DRS_FOGENABLE, FALSE);
     ScreenUp() = false;
     if (!keep) {
         if (black) {
+            s_selectPicture = false;
+            ApplyBarStyle(false);
             Device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
         } else {
             if (uint8_t* old = Picture()) {
@@ -191,10 +272,10 @@ void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
             char localised[0xC8];
             const char* file = name;
             int language = GameConfig::g_language;
-            if (language == 3) {
+            if (language == 3 && !IsSelectName(name)) { // (no text on a level select picture: one for all languages)
                 std::snprintf(localised, sizeof(localised), "fr/%s", name);
                 file = localised;
-            } else if (language == 5) {
+            } else if (language == 5 && !IsSelectName(name)) {
                 std::snprintf(localised, sizeof(localised), "gr/%s", name);
                 file = localised;
             }
@@ -204,6 +285,8 @@ void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
                 Unlock();
                 return;
             }
+            s_selectPicture = IsSelectName(name);
+            ApplyBarStyle(s_selectPicture);
             Device()->BeginScene();
             DrawLoadingScreenPicture();
             Device()->EndScene();
@@ -213,6 +296,8 @@ void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
     ScreenUp() = true;
     Unlock();
 }
+
+bool SelectPictureUp() { return s_selectPicture; }
 
 } // namespace Nx
 

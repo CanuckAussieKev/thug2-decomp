@@ -22,6 +22,10 @@ void __cdecl StartLoadingBar(float seconds);
 // any case), drawn and presented. A picture that won't load leaves the screen down.
 void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black);
 
+// Not original: the picture up is a level select picture ("loadscrn_sel_..." - [features]
+// level_select_loading_screens): drawn cover-fitted, with a plate behind the bar (loading_bar.cpp).
+bool SelectPictureUp();
+
 GAME_GLOBAL_EXTERN(uint8_t*, g_loadingScreenPicture);
 
 } // namespace Nx

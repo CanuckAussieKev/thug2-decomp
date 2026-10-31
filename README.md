@@ -179,6 +179,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `start_at` | (none) | With a start level: the skater put standing at `x,y,z[,heading]` once it's up (as `-at`) |
 | `screenshots` | 1 | The screenshot key (Print Screen, or F12 if Windows' Snipping Tool takes it): a PNG and a `.txt` of the game's state; `screenshot_dir=` changes the folder |
 | `restart_tester` | 1 | F8 puts the skater at the level's next unvisited restart |
+| `level_select_loading_screens` | 1 | A level's loading screen is its level select picture with a clean bar over it (when the overlay was made with `make_menu_level.ts`; 0 = the original loading pictures) |
 | `loading_console` | 1 | A panel on the loading screen: what is loading, the time since the load began and "last activity N s ago" (orange after 10 s with nothing new: probably a hang); 0 = the original loading screen |
 | `debug_mode` | 0 | Neversoft's DEBUG OPTIONS in the pause menu, DEVKIT_ONLY levels, the viewer's free camera (F9) |
 | `thaw_bmx` | 0 | Rides THAW's BMX (F7, or the pause menu's RIDE BMX; needs `tools/pipeline/thaw_bmx/convert.ts` and `make_menu_level.ts`) |
