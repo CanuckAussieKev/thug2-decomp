@@ -58,6 +58,8 @@ operations. They are not serialized as literals in the IR, and are not native
 addresses. Their target is a strong JS reference, so a suspended generator keeps
 the target alive. Freeing a parameter frame does not invalidate an independently
 retained reference. Reproducing dangling-pointer reads is outside the contract.
+These are intermediate/helper-level references. Completing a QB expression
+materializes an owning copy of its outer reference target, as described below.
 
 Completed-expression materialization is not yet represented separately by the
 emitter. It can retain a live container reference where the original evaluator's
@@ -111,11 +113,23 @@ leave Name(11), Name(10). Missing fields are omitted; an explicit Integer(0)
 is retained. Host-specific defaults are supplied by the host, not the lookup.
 
 A normal parameter read uses FindLastComponent followed by a value copy.
-An expression parameter read takes the found component, resolves a Name in
-that context and applies MakeReference. Thus a normal call receives its own
-owning container copy, whereas an explicit expression reference can observe
-mutations to the same target across a wait. A deep copy has a different target.
-Passing an already referenced component does not magically make it owning.
+An expression parameter operand takes the found component, resolves a Name in
+that context and applies MakeReference. Intermediate operands and grouping can
+therefore share targets. At the outer ParseExpression/GetResult boundary,
+`expressionResult(value,ctx)` copies a type-20/21 target as owning type 10/12;
+other results follow ordinary value-copy rules. Nested existing references keep
+their targets; nested owning containers are copied. An absent result remains
+absent. Completion never retags or mutates the source wrapper/target, including
+on failure. The owning graph walk is iterative with shared work/depth/cycle
+checks, independent of the host's recursive call stack.
+
+Thus a saved completed `(<...>)` does not acquire fields added later to the
+parameter frame, and a completed container remains detached across a wait.
+Direct helper-level references may still observe target mutations. Ordinary
+`copy(ref,"value",ctx)` keeps its reference semantics; completion is a separate
+operation, not a change to CopyComponent or ComponentsEqual. Original-x86
+corroboration and its exclusions are recorded in
+[qb-expression-result-evidence.md](qb-expression-result-evidence.md).
 
 Version 2 must test those distinct paths. The archived immutable value model
 is a source of test cases, not the authority for identity or mutability.
@@ -191,6 +205,7 @@ Validation/type failures carry `ctx.site` where a context exists.
 | `string(bytes,local=false)`, `pair(coords)`, `vector(coords)` | New copied payload, preserving byte/bit representation |
 | `structure(fields,ctx)`, `array(elementType,elements,ctx)` | New owning container; copied, checked contents |
 | `copy(value,mode,ctx)` | Component copy; mode is `"value"` or `"reference"` |
+| `expressionResult(value,ctx)` | GetResult completion: copy outer reference target as owning, preserving nested references; additive API-2 capability |
 | `merge(a,b,ctx)`, `append(dst,src,ctx)` | Pure merge or in-place append with typed replacement |
 | `param(params,name,mode,ctx)` | FindLastComponent; mode is `"value"` or `"expression"`; absent returns undefined |
 | `lookupGlobal(name,ctx)`, `resolve(value,ctx)` | Explicit alias lookup and Name resolution |
@@ -239,6 +254,7 @@ Expression variants are the existing `literal` and `parameter`, plus:
 
 ```ts
 {kind:"parameter", name, mode:"value" | "expression"}
+{kind:"expressionResult", value:Expr} // offset is the opening '(' of a ParseExpression call
 {kind:"global", name}
 {kind:"allParameters"}
 {kind:"binary", op, left:Expr, right:Expr}
@@ -252,6 +268,17 @@ node denotes QB's parsing/construction operation, not a promise that arbitrary
 expressions are allowed as original literal-array elements. Random/control-flow
 inside arrays needs a future representation preserving both passes. Until then,
 reject such arrays, never flatten them into a single random draw.
+
+`expressionResult` marks a complete ParseExpression call, including a parenthesized
+statement condition. Inner parentheses belong to the same evaluator and add no
+completion node. A parenthesized random alternative inside an active expression
+is likewise grouping; outside it, that alternative invokes its own expression
+completion. Static-default/global checks traverse the completion node. Anonymous
+completed structures flatten into argument lists as AddUnnamedExpression does.
+Newly emitted modules that use this node explicitly check for the additive
+`qbValues.expressionResult` helper before module registration; format 1 and
+API-2 modules without completion nodes retain their requirements. Regenerate
+older IR/generated JS to obtain this corrected completion behavior.
 
 Keep existing call/assignment/return/if statement forms. Added forms are
 `{kind:"loop",offset,body,repeatOffset,repeatFields:Field[]}` for begin/repeat and

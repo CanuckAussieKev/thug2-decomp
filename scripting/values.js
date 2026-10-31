@@ -239,6 +239,64 @@ globalThis.qbValues = (() => {
         mode(m, w);
         return clone(v, m, w);
     }
+    function expressionResult(v, ctx) {
+        const w = new Work(ctx);
+        // An expression with no value produces no component. Binary/truth
+        // operations still diagnose missing operands themselves.
+        if (v === undefined) {
+            w.step();
+            return undefined;
+        }
+        check(v, w);
+        // GetResult temporarily retags the outer reference as owning before
+        // CopyComponent(reference=0). Do not mutate any source object. Walk
+        // owners explicitly so the QB depth bound is checked independently
+        // of the host JS/C stack; nested references stay terminal leaves.
+        const root = v.type === 20 || v.type === 21 ? target(v, w) : v;
+        const frames = [{ source: root }];
+        let result;
+        const finish = (value) => {
+            frames.pop();
+            const parent = frames.at(-1);
+            if (!parent) result = value;
+            else if (parent.out.type === 10) put(parent.out.members, parent.name, value, w);
+            else parent.out.elements.push(value);
+        };
+        while (frames.length) {
+            const frame = frames.at(-1), source = frame.source;
+            if (!frame.out) {
+                check(source, w);
+                if (source.type !== 10 && source.type !== 12) {
+                    finish(clone(source, "value", w));
+                    continue;
+                }
+                if (w.path.has(source)) fail("cycle", "Cyclic value traversal", w);
+                if (w.path.size >= w.depth) fail("limit", "Value depth limit", w);
+                w.path.add(source);
+                frame.index = 0;
+                frame.out = source.type === 10
+                    ? { type: 10, members: [] }
+                    : { type: 12, elementType: source.elementType, elements: [] };
+            }
+            const children = source.type === 10 ? source.members : source.elements;
+            if (frame.index === children.length) {
+                w.path.delete(source);
+                finish(frame.out);
+                continue;
+            }
+            let child;
+            if (source.type === 10) {
+                const member = field(children[frame.index++], w);
+                frame.name = member[0];
+                child = member[1];
+            } else {
+                child = check(children[frame.index++], w);
+                if (child.type !== source.elementType) fail("type", "Array element type mismatch", w);
+            }
+            frames.push({ source: child });
+        }
+        return result;
+    }
     function put(out, n, v, w) {
         for (let i = out.length - 1; i >= 0; --i) {
             w.step();
@@ -608,6 +666,7 @@ globalThis.qbValues = (() => {
         structure,
         array,
         copy,
+        expressionResult,
         merge,
         append,
         param,

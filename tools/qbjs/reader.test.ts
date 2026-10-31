@@ -26,7 +26,10 @@ const expressionIR = (tokens: number[]): Expr => {
     const def = readIR(module(script("expr", [...field("result", tokens), 1]))).definitions[0]!;
     assert.equal(def.kind, "script");
     if (def.kind !== "script" || def.body[0]?.kind !== "assign") throw Error("expected assignment");
-    return def.body[0].value;
+    const completed = def.body[0].value;
+    assert.equal(completed.kind, "expressionResult");
+    if (completed.kind !== "expressionResult") throw Error("expected expression completion");
+    return completed.value;
 };
 const shape = (v: Expr): unknown =>
     v.kind === "binary"
@@ -404,11 +407,14 @@ test("keeps copy/reference contexts explicit and accepts containers in script pa
     if (call.kind !== "call") throw Error("expected call");
     assert.equal("spread" in call.fields[1]!, true);
     const branch = d.body[2]!;
-    if (branch.kind !== "if" || branch.condition.kind !== "parameter") throw Error("expected condition");
-    assert.equal(branch.condition.mode, "expression");
+    if (branch.kind !== "if" || branch.condition.kind !== "expressionResult") throw Error("expected condition");
+    if (branch.condition.value.kind !== "parameter") throw Error("expected parameter operand");
+    assert.equal(branch.condition.value.mode, "expression");
     const g = readIR(module(global("expr", [0x0e, ...name("x"), 0x0f]))).definitions[0]!;
     if (g.kind !== "global") throw Error("expected global");
-    assert.equal(g.value.kind, "global");
+    assert.equal(g.value.kind, "expressionResult");
+    if (g.value.kind !== "expressionResult") throw Error("expected completed global expression");
+    assert.equal(g.value.value.kind, "global");
 });
 test("accepts multiline global assignments, numbered EOL and validated debug-name records", () => {
     const data = [

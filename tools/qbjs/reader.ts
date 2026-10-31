@@ -76,15 +76,17 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
     const heights = new WeakMap<Expr, number>();
     const bounded = (v: Expr): Expr => {
         const children =
-            v.kind === "binary"
-                ? [v.left, v.right]
-                : v.kind === "randomChoice"
-                  ? v.choices
-                  : v.kind === "array"
-                    ? v.items
-                    : v.kind === "structure"
-                      ? v.fields.flatMap((f) => ("spread" in f ? [] : [f.value]))
-                      : [];
+            v.kind === "expressionResult"
+                ? [v.value]
+                : v.kind === "binary"
+                  ? [v.left, v.right]
+                  : v.kind === "randomChoice"
+                    ? v.choices
+                    : v.kind === "array"
+                      ? v.items
+                      : v.kind === "structure"
+                        ? v.fields.flatMap((f) => ("spread" in f ? [] : [f.value]))
+                        : [];
         const height = children.reduce((h, child) => Math.max(h, 1 + (heights.get(child) ?? 0)), 0);
         if (height > depthLimit) fail("value depth limit");
         heights.set(v, height);
@@ -267,7 +269,11 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             return bounded({ kind: "array", offset, items });
         }
         if (op === 0x0e) {
-            return expression(depth + 1, rawName);
+            const result = expression(depth + 1, rawName);
+            // Only ParseValue -> ParseExpression calls GetResult. A '(' reached
+            // via a random branch inside an active expression is grouping in
+            // that same evaluator, just like the direct grouping path above.
+            return inExpression ? result : bounded({ kind: "expressionResult", offset, value: result });
         }
         return fail(`unsupported value token 0x${op.toString(16)}`);
     };
@@ -313,7 +319,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                         name: n,
                         value: item,
                         offset,
-                        ...(!assigned && ["parameter", "binary", "randomChoice"].includes(item.kind)
+                        ...(!assigned && ["parameter", "binary", "randomChoice", "expressionResult"].includes(item.kind)
                             ? { flattenStructure: true as const }
                             : {}),
                     });
@@ -326,6 +332,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         const check = (v: Expr): void => {
             if (v.kind === "parameter" || v.kind === "allParameters")
                 fail("defaults/globals cannot read caller parameters");
+            if (v.kind === "expressionResult") check(v.value);
             if (v.kind === "binary") {
                 check(v.left);
                 check(v.right);
@@ -415,11 +422,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 ++p;
                 const destination = p + short();
                 const condition =
-                    b[p] === 0x16
-                        ? call()
-                        : b[p] === 0x0e
-                          ? value(0, true)
-                          : fail("unsupported condition command token");
+                    b[p] === 0x16 ? call() : b[p] === 0x0e ? value(0) : fail("unsupported condition command token");
                 eol();
                 const yes = block(depth + 1, loops);
                 let no: Statement[] = [],

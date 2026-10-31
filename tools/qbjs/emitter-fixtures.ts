@@ -177,7 +177,8 @@ assert(get(p, ${key("result")}).bits === 1, 'original division/multiplication pr
 assert(get(p, ${key("globalResult")}).bits === 7, 'global alias');
 assert(get(p, ${key("arrayResult")}).type === 2 && get(p, ${key("arrayResult")}).bits === 0x40800000, 'promoted float array');
 assert(get(p, ${key("memberResult")}).bits === 9, 'member selection');
-assert(get(p, ${key("live")}).bits === 77, 'all-parameters live reference');
+assert(get(p, ${key("all")}).type === 10, 'GetResult materializes all parameters');
+assert(get(p, ${key("live")}) === undefined && get(get(p, ${key("all")}).members, ${key("late")}) === undefined, 'completed all-parameters result omits later field');
 assert(get(run(${key("count2")}), ${key("n")}).bits === 3, 'counted loop');
 p = run(${key("once2")});
 assert(get(p, ${key("n")}).bits === 3 && get(p, ${key("limit")}).bits === 5, 'repeat count read once after first iteration');

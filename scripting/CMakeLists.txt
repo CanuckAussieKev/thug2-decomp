@@ -54,7 +54,8 @@ if(BUILD_TESTING)
   function(qb_generate output generator)
     add_custom_command(OUTPUT "${output}"
       COMMAND "${NODE_EXECUTABLE}" "${QBJS_DIR}/${generator}" ${ARGN} "${output}"
-      DEPENDS ${QBJS_SOURCES} runtime.js values.js random.js tests/values.test.js tests/random.test.js VERBATIM)
+      DEPENDS ${QBJS_SOURCES} runtime.js values.js random.js tests/values.test.js tests/random.test.js
+        tests/expression_result.test.js VERBATIM)
   endfunction()
   set(FIXTURES ${CMAKE_CURRENT_BINARY_DIR}/fixtures.js)
   set(INTEGRATION_FIXTURES ${CMAKE_CURRENT_BINARY_DIR}/integration-fixtures.js)

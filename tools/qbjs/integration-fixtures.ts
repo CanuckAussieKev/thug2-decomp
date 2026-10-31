@@ -2,6 +2,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { executionBundle } from "./emitter-fixtures.ts";
+import { expressionResultAssertions, expressionResultFixture } from "./expression-result-fixtures.ts";
 import { randomAssertions, randomFixture, randomSource } from "./random-fixtures.ts";
 import { nativeRuntimeBundle, runtimeAssertions } from "./runtime-fixtures.ts";
 
@@ -21,6 +22,10 @@ export function integrationBundle(): string {
         runtimeAssertions() +
         randomFixture().javascript +
         randomAssertions() +
+        readFileSync(new URL("../../scripting/tests/expression_result.test.js", import.meta.url), "utf8") +
+        expressionResultFixture().javascript +
+        expressionResultAssertions() +
+        '\nif (!qbExpressionResultTest.completed || !qbExpressionResultHelperTest.completed) throw Error("Expression result assertions did not complete");\n' +
         "\nglobalThis.qbIntegrationTestResult = {completed:true,values:qbValuesTestResult.assertions};\n"
     );
 }

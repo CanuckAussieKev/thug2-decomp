@@ -3,6 +3,7 @@ export type ScalarLiteral = { type: 1 | 2 | 13; bits: number };
 export type Literal = ScalarLiteral | { type: 3 | 4; bytes: number[] } | { type: 5 | 6; coordinates: number[] };
 export type Expr =
     | { kind: "literal"; offset: number; value: Literal }
+    | { kind: "expressionResult"; offset: number; value: Expr }
     | { kind: "parameter"; offset: number; name: number; mode: "value" | "expression" }
     | { kind: "global"; offset: number; name: number }
     | { kind: "allParameters"; offset: number }

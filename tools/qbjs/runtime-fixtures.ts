@@ -36,7 +36,7 @@ let r=run(${key("math2")});
 assert(r.status==='finished',r.message);
 assert(get(r.parameters,${key("result")}).bits===1,'arithmetic');
 assert(get(r.parameters,${key("globalResult")}).bits===7,'aliases');
-assert(get(r.parameters,${key("live")}).bits===77,'live container reference');
+assert(get(r.parameters,${key("all")}).type===10 && get(r.parameters,${key("live")})===undefined,'completed container copy excludes later field');
 r=run(${key("untaken2")});
 assert(r.status==='finished' && get(r.parameters,${key("result")}).bits===11 && get(r.parameters,${key("selected")}).bits===1,'untaken branches do not evaluate missing operands');
 r=run(${key("literals2")});
